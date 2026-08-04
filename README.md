@@ -42,7 +42,7 @@ follow signals.
 
 **Design phase.** No code yet — this repository currently contains the design document set below. The
 [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built first and the risks that
-might sink it.
+might sink it, and [TODO.md](TODO.md) breaks that into an executable backlog.
 
 **Planned stack:** TypeScript, HTML canvas, Vite, no engine — with a
 [portability contract](docs/19-architecture.md#the-portability-contract) that keeps a pivot to Godot 4

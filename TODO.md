@@ -1,0 +1,319 @@
+# TODO
+
+The executable backlog for [simplyZOMBIES](README.md), covering Milestones 0 through 2 — everything
+needed to reach a playable vertical slice.
+
+Milestones 3 and 4 stay as prose in [docs/23-roadmap.md](docs/23-roadmap.md) on purpose. The slice
+exists to find out whether the core idea is fun, and most of what lies beyond it is guesswork the
+slice will invalidate.
+
+## How to use this
+
+- Each section names the design document that specifies it. **If a task and its doc disagree, the doc
+  is wrong** — update it in the same commit rather than letting them drift.
+- ⚠ **Risk checkpoints** mark tasks whose *result* decides whether the plan changes. They come from
+  [the roadmap's risk list](docs/23-roadmap.md#risks). Don't quietly pass one — if a checkpoint fails,
+  that's the signal to stop and redesign.
+- Milestones close on their exit criterion, not on the checkbox count.
+
+**Current milestone: 0 — Foundations** *(not started; design docs complete)*
+
+---
+
+# Milestone 0 — Foundations
+
+The architecture with no game on top. Deliberately minimal — the goal is the *minimum* ECS, not a good
+one ([roadmap risk 4](docs/23-roadmap.md#risks)).
+
+### Project setup — spec: [docs/19](docs/19-architecture.md)
+
+- [ ] Vite + TypeScript scaffold, `strict` on
+- [ ] Vitest configured, running headless
+- [ ] Directory layout per [the repository layout](docs/19-architecture.md#repository-layout):
+      `src/sim/{kernel,modules,rng}`, `src/render`, `src/platform`, `src/ui`, `content/`, `test/`
+- [ ] ESLint rules enforcing **`sim/` purity** — ban DOM globals, `Math.random`, `Date.now`, and
+      imports from `render/`, `platform/`, and `ui/`
+- [ ] Prettier / formatting config
+
+### Kernel — spec: [docs/19](docs/19-architecture.md), [docs/20](docs/20-ecs-and-content.md)
+
+- [ ] Seeded RNG with independent named streams per subsystem
+- [ ] Fixed-timestep tick loop with an accumulator, decoupled from render
+- [ ] Entity store: integer IDs, allocation, recycling
+- [ ] Component storage and queries
+- [ ] System registry with **declared insertion order** (ordering is data, not a hardcoded list)
+- [ ] World state container for singletons — clock, RNG streams, field, weather, director
+- [ ] Event bus: publish, per-tick drain in deterministic order
+- [ ] Core event vocabulary stubbed out ([the event table](docs/21-extensibility.md#core-events))
+
+### Modifier pipeline — spec: [docs/21](docs/21-extensibility.md#mechanism-2-the-modifier-pipeline)
+
+- [ ] Stat registry
+- [ ] Modifier struct with a **mandatory `source`** field
+- [ ] Resolution order: `add` → `mul` → clamps
+- [ ] Remove-by-source (drop every modifier from `weather.rain` when rain stops)
+- [ ] Resolved-stat caching with invalidation by source
+- [ ] "Why is this stat this number?" introspection returning the full contribution list
+
+### Content pipeline — spec: [docs/20](docs/20-ecs-and-content.md#part-2-content)
+
+- [ ] JSON Schema definitions per content type
+- [ ] Registry that walks content **directories** (not a fixed file list — this is what makes it
+      mod-ready later)
+- [ ] `extends` resolution
+- [ ] Load-time validation: every ID unique, every reference resolves, every modifier `stat` exists,
+      every behavior tag implemented, no circular `extends`
+- [ ] Errors name the file, the entry, and the field — **fail loudly at load, never silently at hour
+      thirty**
+- [ ] Hot reload in dev
+
+### Platform & render — spec: [docs/19](docs/19-architecture.md#layers)
+
+- [ ] Canvas renderer skeleton with a camera
+- [ ] Tile layer with dirty-region redraw
+- [ ] Input → **command queue** consumed by the sim on its own tick (so input is part of the
+      deterministic record)
+- [ ] Save/load: serialize world state, version stamp, **clean rejection of stale saves**
+- [ ] Atomic save writes (temp file + rename) — a crash mid-write must not corrupt a long run
+
+### Tests & CI
+
+- [ ] Unit tests: RNG streams, modifier resolution, event ordering
+- [ ] **Determinism test** — same seed + same input log twice → byte-identical state
+- [ ] **Module-isolation boot test** — boot with each non-kernel module disabled, assert no crash
+- [ ] CI workflow: typecheck, lint, unit, determinism, module isolation
+
+> **Exit criterion:** an entity moves around a tile map, deterministically, and the same seed plus
+> inputs reproduces it byte-identically.
+
+---
+
+# Milestone 1 — The spine
+
+The [attention field](docs/03-attention.md) and something that reacts to it. This is the first point at
+which the project is legible as a game.
+
+### The attention field — spec: [docs/03](docs/03-attention.md)
+
+- [ ] Three scalar layers on a **coarse grid** (deliberately below tile resolution)
+- [ ] `AttentionEmitter` component + emission system
+- [ ] **Noise** — event-driven only; attenuated flood-fill with material-based falloff, radius bounded
+      by magnitude
+- [ ] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
+- [ ] **Scent** — diffusion at a few Hz with a global wind vector
+- [ ] Dirty-region tracking
+- [ ] Per-tick propagation budget with a deterministic overflow queue (degrade the field's update rate,
+      never the frame)
+- [ ] Field is part of the save state
+- [ ] Debug overlay visualizing all three channels *(developer-only — see the
+      [information rule](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable))*
+
+### Spatial partitioning — spec: [docs/22](docs/22-performance.md#spatial-partitioning)
+
+- [ ] Uniform spatial hash over entity positions
+- [ ] Neighbor queries for combat, emitters, and render culling
+
+### Zombies — spec: [docs/14](docs/14-zombies.md)
+
+- [ ] Shambler entity with a sensory profile weighting the three channels
+- [ ] Gradient ascent: noise as impulse, scent as bias, light as line-of-sight pull
+- [ ] Investigate on arrival → mill → disperse, **raising local scent** so the field gains memory
+- [ ] Pursue on direct contact
+- [ ] Damage model: head and locomotion are what matter; a crawler is still lethal
+
+### The player survivor — spec: [docs/09](docs/09-combat.md)
+
+- [ ] Direct movement control of one entity
+- [ ] Melee loop: wind-up → connect/miss → recovery, all interruptible
+- [ ] Stamina cost per swing, scaled by weapon weight
+- [ ] Stagger on solid connect
+- [ ] Grabs, and breaking free
+- [ ] Reach as a distinct property from damage
+
+### Time — spec: [docs/02](docs/02-core-loop.md)
+
+- [ ] Day/night cycle with the four phases
+- [ ] Phase transitions publish `phase.changed`, `night.fell`, `day.started`
+- [ ] Speed controls: pause, 1×, 3×, 10×, with 10× auto-dropping on threat contact
+
+### Performance
+
+- [ ] ⚠ **Risk checkpoint (roadmap risk 5):** synthetic 500-zombie load test. Continuous scent
+      diffusion is [the most likely thing to need rework](docs/22-performance.md#known-risks) — find
+      out now, not in Milestone 2.
+
+> **Exit criterion:** make noise, and they come. Go quiet, and they don't.
+
+---
+
+# Milestone 2 — The vertical slice
+
+Everything needed to test the thesis, and nothing else:
+
+> *A player managing the attention field — trading comfort for safety, day after day, with people
+> they've invested in and can permanently lose — is doing something fun.*
+
+### World & map — spec: [docs/12](docs/12-resources.md)
+
+- [ ] One hand-authored map: a small district with a defensible building
+- [ ] ~15 resource types
+- [ ] 3 location loot tables (residential, commercial, medical)
+- [ ] Site depletion — cleared is cleared
+- [ ] Food spoilage *(the only [decay track](docs/13-world-decay.md) in the slice)*
+
+### Survivors — spec: [docs/07](docs/07-survivors.md)
+
+- [ ] Generator: name, appearance, age, backstory, traits, skill bias, starting kit
+- [ ] Small content pools — enough that generated people feel distinct
+- [ ] Trait system with conflict rules
+- [ ] Work priority grid with 4 jobs: **Haul, Construct, Cook, Doctor**
+- [ ] NPC work AI: choose by priority, proximity, and capability
+- [ ] Needs interrupt work, moderated by traits
+- [ ] Injuries disable jobs the body can't do
+- [ ] ~3 recruitable survivors via director events
+- [ ] **Focus + auto-allocation** — auto-spend web points and auto-maintain loadouts
+- [ ] ⚠ **Risk checkpoint (roadmap risk 1):** play with 6+ survivors, all on auto. If that isn't
+      viable, the item and web systems need **shrinking** — not the UI improving.
+
+### Needs — spec: [docs/04](docs/04-survival-needs.md)
+
+- [ ] Hunger, thirst, rest, mood *(temperature and hygiene deferred)*
+- [ ] Mood as summed modifiers with named sources
+- [ ] Mood consequences: slower work, more mistakes, refusing jobs, arguments
+- [ ] Injured survivors consume without producing
+
+### Health & injury — spec: [docs/05](docs/05-health-injury.md)
+
+**Ships complete, not stubbed — this is the hardcore thesis.**
+
+- [ ] Body parts with located conditions; **no health bar anywhere**
+- [ ] Injury types: scratch, laceration, deep wound, bite, fracture, sprain, burn, concussion
+- [ ] Continuous conditions: blood loss, pain, exhaustion
+- [ ] **Bacterial infection kept distinct from zombie infection**, drawing on the same antibiotics
+- [ ] Treatment steps: stop bleeding → clean → close → dress → rest, each timed and interruptible
+- [ ] Supply quality tiers affecting infection risk
+- [ ] **Skill-scaled diagnosis text** — what you see depends on who's looking
+- [ ] Permanent conditions (limp, amputation) that don't remove a survivor from play
+
+### Infection — spec: [docs/06](docs/06-infection.md)
+
+**Also ships complete.**
+
+- [ ] Transmission by vector, reduced by armor coverage
+- [ ] **Private transmitted flag** decided at wound time and never retroactively changed
+- [ ] Five-stage timeline with stage-appropriate symptoms
+- [ ] **Early stages indistinguishable from sepsis**
+- [ ] Observation model: what the player sees, filtered by examiner skill
+- [ ] The five responses: amputate (stages 1–2 only), cauterize, antibiotics, quarantine, put down
+- [ ] Turning — including inside the walls, at night
+- [ ] Gear comes off the body in every case
+- [ ] ⚠ **Risk checkpoint (roadmap risk 2):** do players quarantine, or just execute? Universal
+      execution means the investment curve is too shallow and permadeath has no teeth.
+
+### Combat — spec: [docs/09](docs/09-combat.md)
+
+- [ ] Ranged: raise → steady → fire → recover → reload, all interruptible
+- [ ] Accuracy as a **cone**, never a displayed hit chance
+- [ ] Steadiness degraded by movement, exhaustion, pain, injured arms
+- [ ] Jamming on degraded weapons
+- [ ] Ammo consumption
+- [ ] Gunfire emits its full attention cost — **the parity contract must be live in the slice**
+- [ ] NPC combat from assigned posts, breaking off when critically injured
+
+### Items — spec: [docs/10](docs/10-items.md)
+
+- [ ] ~12 bases split across melee and ranged
+- [ ] ~10 affixes with tiered values, including double-edged ones
+- [ ] 3 tiers: Scavenged, Modified, Field-Tested
+- [ ] Attachment slots on 2 base classes, with attachments movable between compatible bases
+- [ ] Armor as **coverage per body part**, reducing bite transmission rather than granting tankiness
+- [ ] Condition degradation affecting performance continuously
+- [ ] Repair that **never restores the full ceiling**
+- [ ] Carry weight and encumbrance
+
+### Modification — spec: [docs/11](docs/11-crafting.md)
+
+- [ ] **Duct Tape** — reroll one random affix
+- [ ] **Scrap Kit** — add an affix to a free slot
+- [ ] Skill- and trait-weighted outcomes; injured hands make it worse
+- [ ] Failure consuming the consumable and damaging condition
+
+### Skill web — spec: [docs/08](docs/08-skill-web.md)
+
+- [ ] Stub web: one melee branch, one ranged branch, ~12 nodes
+- [ ] **Region-tagged points earned by doing** — you cannot grind a build you aren't living
+- [ ] Node effects expressed as modifiers, in content
+- [ ] Auto-allocation paths per Focus, stopping short of keystones
+
+### Building — spec: [docs/15](docs/15-base-building.md)
+
+- [ ] Walls, a gate, barricades
+- [ ] **Damage states shown descriptively** — intact → scratched → splintering → gaps → breach
+- [ ] One trap
+- [ ] One bait emitter *(the mechanic that makes this steering rather than blocking)*
+- [ ] Construction emits sustained noise
+- [ ] Repair as a job with a real daily cost
+- [ ] ⚠ **Risk checkpoint (roadmap risk 3):** are sieges frequent enough to justify building? If not,
+      the [director](docs/17-director.md) needs a minimum siege cadence — a pacing change, not a change
+      to the attention model.
+
+### Director — spec: [docs/17](docs/17-director.md)
+
+- [ ] Colony power and strain estimation
+- [ ] Pressure, composition, and migration levers *(it adjusts pressure; it never spawns at your gate)*
+- [ ] **Guaranteed lulls** after costly nights
+- [ ] Week-one grace period
+- [ ] Variance floor and ceiling
+- [ ] Event seeding gated on colony state
+- [ ] "Nothing Personal" preset — director off, as a balance baseline
+
+### Death & succession — spec: [docs/01](docs/01-hardcore-contract.md#succession-what-happens-when-you-die)
+
+- [ ] Permadeath for everyone, player included
+- [ ] Succession: hand control to another survivor, save continues
+- [ ] Skill web dies with the character
+- [ ] **Corpse persists with all gear on it, where it fell**
+- [ ] Colony morale hit; work priorities cleared
+- [ ] Run ends only when the last survivor dies
+
+### UI — spec: [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
+
+- [ ] **No numbers anywhere player-facing** — no health bars, no hit chances, no enemy counts, no
+      damage text
+- [ ] Prose condition descriptions **generated from modifier sources** ("cold, tired, and that arm
+      isn't right")
+- [ ] Priority grid UI
+- [ ] Inventory and equipment UI
+- [ ] Skill web UI
+- [ ] Pause and speed controls
+
+### Balance harness — spec: [docs/19](docs/19-architecture.md#testing-strategy)
+
+- [ ] Headless multi-run harness — thousands of colonies across seeds
+- [ ] Distribution assertions: quiet nights, sieges, deaths, run lengths
+- [ ] ⚠ **Risk checkpoint (roadmap risk 6):** measure whether melee-only and ranged-only colonies
+      survive comparably. Elegant-on-paper parity usually collapses in playtesting — this is how we
+      find out without arguing about it.
+
+> **Exit criterion:** a player survives ten in-game days, loses someone they cared about, and wants to
+> start again.
+
+---
+
+# Not in the slice
+
+Restated here because the TODO is where scope creep actually happens. All of this is designed and
+deliberately deferred — see each document's cut list.
+
+**Deferred to Milestone 3+:** [weather](docs/16-weather.md) · the full
+[decay clock](docs/13-world-decay.md) and mutation waves · every
+[zombie type](docs/14-zombies.md) beyond the shambler · the full [skill web](docs/08-skill-web.md) ·
+[named items](docs/10-items.md) and [unique survivors](docs/07-survivors.md) · relationships and grief ·
+temperature and hygiene · the remaining [modification consumables](docs/11-crafting.md) · procedural
+map generation · [factions](docs/18-factions.md) · the escape endgame · the full sandbox and
+storyteller layer.
+
+**Cut from the design entirely** (see the [vision's cut list](docs/00-vision.md#cut-list)):
+multiplayer · a cure or narrative resolution · vehicles ·
+[respec](docs/08-skill-web.md) · a tech tree · player-visible infection percentages · save migrations
+before 1.0.

@@ -6,7 +6,7 @@ and then proves the claim with worked examples.*
 
 ---
 
-## Mechanism 1 — The event bus
+## Mechanism 1: The event bus
 
 ### The problem it solves
 
@@ -46,7 +46,7 @@ bus.publish({ type: "bite.landed", victim: 41, source: 512, bodyPart: "arm.left"
 
 ---
 
-## Mechanism 2 — The modifier pipeline
+## Mechanism 2: The modifier pipeline
 
 ### The problem it solves
 
