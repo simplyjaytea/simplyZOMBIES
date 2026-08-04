@@ -79,9 +79,10 @@ the run is over and the save is closed out into a run summary.
 The default game has no win condition. You survive until you don't.
 
 An **optional escape endgame** exists for players who want a finish line: assembling a working
-vehicle, the fuel to run it, a route scouted through the region, and enough people alive to be worth
-leaving with. It is deliberately expensive, it requires deep engagement with
-[world decay](13-world-decay.md) and [factions](18-factions.md), and taking it ends the run. Most runs
+[vehicle](25-vehicles.md), the fuel to run it, a [route scouted](24-world-and-scale.md) through the
+region, and enough people alive to be worth leaving with. It is deliberately expensive, it requires
+deep engagement with [world decay](13-world-decay.md) and [factions](18-factions.md), and taking it
+ends the run. Most runs
 will not reach it. It is not the "good ending" — it's an alternative to dying, and the game does not
 frame it as winning.
 

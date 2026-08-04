@@ -19,6 +19,10 @@ from being permanent.*
    a crowd, not safe in one.
 6. **Armor buys coverage, not tankiness.** Its purpose is [bite prevention](06-infection.md).
 
+**[Vehicles](25-vehicles.md) use this same grammar** — found bases, rolled affixes, four tiers,
+movable attachments, condition that degrades and repair that lowers the ceiling. Everything in this
+document applies to them; that document covers only what's specific to driving one.
+
 ## Anatomy of an item
 
 ```
@@ -112,6 +116,7 @@ The mechanism that lets a build survive an upgrade — PoE's "your gems come wit
 | Melee | head/edge · haft · wrap |
 | Body armor | plate · lining · pocket |
 | Headgear | face · light mount |
+| [Vehicle](25-vehicles.md) | engine · exhaust · tires · plating · storage · lights · winch · hitch |
 
 Attachments are **found, not crafted**, and **move freely between compatible bases**. Finding a better
 rifle upgrades your numbers without discarding the suppressor, optic, and extended magazine you spent
@@ -181,7 +186,6 @@ is a data edit plus a line in the slot-compatibility table.
 - **Set bonuses.** Encourages wearing worse items for a completion bonus; contradicts scavenging.
 - **Enchanting-style affix crafting with full determinism.** See [crafting](11-crafting.md) — the
   gambling is the point.
-- **Vehicles and vehicle parts.** Cut at the [vision](00-vision.md) level.
 
 ---
 

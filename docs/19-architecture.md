@@ -171,5 +171,5 @@ simplyZOMBIES/
 
 ---
 
-**Previous:** [18 — Factions](18-factions.md) ·
+**Previous:** [26 — Mobile Bases](26-mobile-bases.md) ·
 **Next:** [20 — ECS & Content](20-ecs-and-content.md) · [Doc index](../README.md#documentation)

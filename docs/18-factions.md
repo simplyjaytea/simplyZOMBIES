@@ -118,4 +118,4 @@ ships with it off.
 ---
 
 **Previous:** [17 — The Director](17-director.md) ·
-**Next:** [19 — Architecture](19-architecture.md) · [Doc index](../README.md#documentation)
+**Next:** [24 — World & Scale](24-world-and-scale.md) · [Doc index](../README.md#documentation)

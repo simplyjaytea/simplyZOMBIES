@@ -14,7 +14,7 @@ follow signals. The better you live, the harder they come.
 You will not win. You will last a while, and then something will go wrong, and the story of how it
 went wrong is the game.
 
-## The five pillars
+## The six pillars
 
 **1. You are prey.**
 Not a hero, not a soldier, not eventually a god. One zombie is dangerous. Three is probably fatal. A
@@ -44,6 +44,13 @@ The design changed substantially four times before a line of code existed, and i
 The tick loop and the attention field are the kernel; every other system plugs in and can be pulled
 out. See [architecture](19-architecture.md) and [extensibility](21-extensibility.md).
 
+**6. Performance is a feature, not a phase.**
+This design asks for a [continuous drivable region](24-world-and-scale.md), hordes in the hundreds, a
+propagating stimulus field, and a colony of individually-simulated people — in a browser. That only
+works if performance is a constraint the design obeys rather than a cleanup task at the end. Frame
+budgets are enforced in CI and **a feature that breaks budget doesn't ship until it's fixed**. See
+[performance](22-performance.md).
+
 ## Genre, honestly
 
 Four influences, and what each one contributes:
@@ -71,6 +78,9 @@ Stated because each of these is a thing the design will drift toward if unattend
   priorities, not units with orders.
 - **Not RTS-scale.** A large colony is a dozen people, not a hundred, and the cap is economic rather
   than numeric.
+- **Not a driving game.** [Vehicles](25-vehicles.md) are range, capacity, and a
+  [home you can move](26-mobile-bases.md). They are not a combat tool and handling is not the skill
+  being tested.
 
 ## Scope honesty
 
@@ -90,8 +100,14 @@ Deliberately excluded from the design entirely, not merely deferred:
 - **A cure, or any narrative resolution to the outbreak.** Contradicts pillars 1 and 4.
 - **Base raiding by the player against other player colonies.** Faction raids go one direction; see
   [factions](18-factions.md).
-- **Vehicles.** Tempting, and they'd wreck the attention economy and the map scale at once. Revisit
-  only after the slice proves out.
+- **Aircraft and boats.** [Vehicles](25-vehicles.md) are ground vehicles. Everything else is a
+  different navigation problem for no additional design payoff.
+
+> **Reversed:** vehicles were previously cut here on the grounds that they'd wreck the attention
+> economy and the map scale. That was wrong on the first count — an engine is simply the loudest
+> emitter in the game, which makes vehicles the spine's strongest expression rather than an exception
+> to it. It was right on the second, which is why [world scale](24-world-and-scale.md) now exists as a
+> document and why [performance](22-performance.md) is now a pillar.
 
 ---
 
