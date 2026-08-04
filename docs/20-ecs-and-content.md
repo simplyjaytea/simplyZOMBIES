@@ -6,7 +6,7 @@ code at all.*
 
 ---
 
-## Part 1 — ECS
+## Part 1: ECS
 
 ### Why
 
@@ -71,7 +71,7 @@ entities. Forcing them into ECS would be dogma without benefit.
 
 ---
 
-## Part 2 — Content
+## Part 2: Content
 
 ### The rule
 
