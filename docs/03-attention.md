@@ -1,0 +1,157 @@
+# 03 — The Attention Field
+
+*Why this exists: this is the kernel mechanic. Survival, colony sim, tower defense, and RPG blend
+because they all write to and read from one shared field. If you only read one system document, read
+this one.*
+
+---
+
+## The thesis
+
+Zombies don't hunt. They *drift toward stimulus*. The map carries a per-tile field of three stimulus
+channels, and the horde performs gradient ascent on it.
+
+Everything the player does to live better emits into that field. That is the entire game:
+
+> **You cannot be comfortable and hidden at the same time.**
+
+Cold, dark, and hungry is safe. Warm, lit, and fed is loud. [Mood](04-survival-needs.md) punishes the
+first; the horde punishes the second. The player lives in between, and the [director](17-director.md)
+keeps moving the line.
+
+## Three channels
+
+Kept separate because each behaves differently and each has a different counter.
+
+| Channel | Propagates | Decays | Blocked by | Amplified by |
+|---|---|---|---|---|
+| **Noise** | Fast, far, radially; passes through walls attenuated | Fast (seconds to a minute) | Mass — walls, hills, distance | Enclosed hard surfaces, night quiet |
+| **Light** | Line-of-sight only, long range at night | Instant (it's on or off) | Any opaque obstruction, shutters, curtains | Darkness, elevation, fog scatter |
+| **Scent** | Slow, drifts downwind, pools in still air | Slow (hours) | Nothing — only wind and time disperse it | Heat, humidity, rot, mass of organic material |
+
+The three are deliberately non-interchangeable:
+
+- **Noise** is *spiky*. A gunshot is a huge instantaneous event that fades. You can be quiet again in
+  a minute; the horde it summoned is still walking.
+- **Light** is *binary and directional*. It's the easiest to fix (shutters, discipline) and the
+  easiest to forget.
+- **Scent** is *cumulative and slow*. It's the one that punishes long-term habits — corpse piles,
+  a big population, a smokehouse — and it's why a base can become untenable over weeks without any
+  single mistake.
+
+## Emitters
+
+Written as data (see [ECS & content](20-ecs-and-content.md)); these are indicative values in
+arbitrary units, to be tuned.
+
+### Noise
+
+| Source | Magnitude | Notes |
+|---|---|---|
+| Walking | 1 | |
+| Sprinting | 6 | |
+| Melee swing (connect) | 8 | Blunt louder than blade |
+| Breaking a window | 25 | |
+| Hammering / construction | 30 | Sustained — a build project is a beacon all day |
+| Generator (running) | 45 | Continuous, and it doesn't stop when you sleep |
+| Bow / crossbow | 4 | The [quiet branch](09-combat.md) |
+| Suppressed firearm | 40 | Much quieter than unsuppressed; still very loud in absolute terms |
+| Unsuppressed firearm | 180 | Category-defining. Nothing else is close. |
+| Explosion | 400 | |
+| A [screamer](14-zombies.md) that has seen you | 300 | And it relays — this is the horror |
+
+### Light
+
+| Source | Magnitude | Notes |
+|---|---|---|
+| Candle | 3 | |
+| Campfire | 20 | Also heat, also smoke → scent |
+| Electric lamp | 35 | |
+| Floodlight | 90 | Excellent for shooting accuracy at night. Visible across the map. |
+| Muzzle flash | 60 (instant) | Ranged combat at night gives away position twice over |
+
+### Scent
+
+| Source | Magnitude | Notes |
+|---|---|---|
+| One living human | 1 | Population is a permanent, unavoidable scent floor |
+| Unwashed human | 2 | [Hygiene](04-survival-needs.md) has a mechanical purpose |
+| Cooking | 15 | |
+| Fresh corpse | 8 | |
+| Rotting corpse | 25, rising | The single worst thing to neglect |
+| Butchery / blood | 30 | |
+| Livestock | 20 | Food security costs you permanently |
+| Latrine | 12 | Place it downwind. Yes, wind direction matters. |
+
+## How the horde reads the field
+
+Per [zombie](14-zombies.md) tick, at a coarse rate for distant entities
+([performance](22-performance.md)):
+
+1. Sample the three channels in the local neighborhood.
+2. Weight them by the individual's sensory profile — types differ. Most are scent-led; some are
+   noise-led; a few see well.
+3. Move up the combined gradient, with noise applied as an *impulse* (a sharp bearing change toward a
+   recent loud event) and scent as a *bias* (a slow drift).
+4. On arriving at the source and finding nothing, mill and disperse — which raises local scent from
+   their own mass, so a place that drew them stays slightly attractive afterward.
+
+Point 4 matters: **the field has memory**. Somewhere you made a mistake stays a bad neighborhood for
+a while.
+
+## Playing the field
+
+The field isn't only a punishment. It's the tower-defense skill expression, because **you can write
+to it deliberately**.
+
+- **Bait.** A wind-up noisemaker, a lit lamp on a timer, a hung carcass. Placed 200m from your wall,
+  it collects the drift and gives you a night off. Bait consumes resources and must be replaced.
+- **Routing.** Since the horde ascends a gradient, a wall isn't just an obstacle — it's a *steering
+  surface*. Correct play is arranging your emissions so the pressure arrives where your traps and
+  firing positions are, not where your food is.
+- **Corridors.** A deliberately weak-looking approach that's actually a killbox. This is a killbox
+  built out of *stimulus*, not just geometry, which is what makes it more interesting than a maze.
+- **Silence discipline.** Shutters at dusk, melee over guns, cold food, corpses burned promptly. A
+  colony run this way is genuinely safe and genuinely miserable — see
+  [survival needs](04-survival-needs.md).
+
+## The counter-pressure
+
+Every mitigation costs something the player wants:
+
+| Mitigation | Cost |
+|---|---|
+| No lights | Mood, sleep quality, ranged accuracy at night |
+| No cooking | Mood, worse nutrition, disease risk from raw food |
+| No generator | No powered defenses, no refrigeration → faster spoilage |
+| Melee only | Bite risk, and bite risk is [infection](06-infection.md) |
+| Fewer survivors | Less labor, fewer defenders |
+| Bait | Resources, and it must be re-placed constantly |
+| Prompt corpse disposal | Labor hours, plus smoke if burned |
+
+There is no configuration that is quiet *and* comfortable. That's the design working.
+
+## Implementation notes
+
+- Stored as three scalar layers over a coarse grid (coarser than the tile grid — the field doesn't
+  need per-tile precision), updated on a fixed tick.
+- Noise resolves via attenuated flood-fill with material-based falloff; light via shadowcasting from
+  emitters; scent via a diffusion step with a global wind vector from [weather](16-weather.md).
+- Spatial hashing and update budgets in [performance](22-performance.md).
+- The field is deterministic and part of the save state.
+- A debug overlay visualizes all three channels — developer-only, per the
+  [imperfect information rule](01-hardcore-contract.md#4-information-is-scarce-and-unreliable).
+
+## Cut list
+
+- **A visible attention meter for the player.** Rejected: it would collapse the game's central
+  uncertainty into a number. The player reads the field through diegetic cues — how far the lamplight
+  throws, whether smoke is visible, how bad the corpse pile smells in the description text.
+- **A fourth channel (vibration/tremor).** Interesting, doesn't earn its complexity yet.
+- **Per-zombie scent memory / tracking a specific survivor.** Post-slice; a "hunter" mutation could
+  use it later.
+
+---
+
+**Previous:** [02 — Core Loop](02-core-loop.md) ·
+**Next:** [04 — Survival Needs](04-survival-needs.md) · [Doc index](../README.md#documentation)
