@@ -90,7 +90,7 @@ Decay isn't unbeatable, it's a treadmill that speeds up. Counters exist and all 
 | Grid failure | Generators | Fuel — finite, and 45 noise continuously |
 | Food spoilage | Curing, canning, drying, root cellars | Labor, materials, scent |
 | Equipment wear | Repair, salvage, fresh bases | Materials, Craft skill, longer runs |
-| Site depletion | Longer expeditions, [faction trade](18-factions.md), farming | Time away, exposure, permanent scent |
+| Site depletion | [Vehicles](25-vehicles.md) and longer expeditions, [faction trade](18-factions.md), farming | Fuel, enormous noise, time away from a thin garrison |
 | Mutation | New tactics, better gear, redesigned defenses | Everything — this is the real one |
 
 Notice that almost every counter *increases your [attention](03-attention.md) footprint*. Surviving
@@ -101,8 +101,13 @@ compounding is the intended shape of a long run.
 
 [The escape endgame](01-hardcore-contract.md#7-there-is-no-victory) exists because of this document.
 Decay guarantees the location eventually becomes untenable, so leaving is a coherent goal rather than
-a bolted-on win button: a working vehicle, the fuel to run it, a scouted route, and enough people left
-alive to be worth going with.
+a bolted-on win button: a working [vehicle](25-vehicles.md), the fuel to run it, a
+[route scouted](24-world-and-scale.md) through the region, and enough people left alive to be worth
+going with.
+
+The intermediate option is [relocation](26-mobile-bases.md#relocation) — moving the whole colony
+somewhere the sites aren't stripped. Expensive, and it converts "this base is finished" from a
+run-ending problem into a hard decision.
 
 Most runs won't get there. That's fine — it exists to give the late game a direction other than
 waiting.

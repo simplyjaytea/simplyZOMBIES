@@ -37,6 +37,10 @@ follow signals.
   Ranged spends finite ammo and tonight's difficulty. Neither converts into the other.
 - **The world decays on a clock you don't control.** The grid fails, food expires, sites empty out,
   the virus mutates. Every equilibrium you build has an expiry date.
+- **A vehicle is the loudest thing you own.** An engine emits more noise than a rifle, continuously,
+  for as long as it runs — so driving is announcing yourself to a whole district. Vehicles are found
+  and customized like any other gear, and a fitted-out van is a
+  [home you can drive away from a siege](docs/26-mobile-bases.md).
 
 ## Status
 
@@ -49,6 +53,9 @@ might sink it, and [TODO.md](TODO.md) breaks that into an executable backlog.
 cheap.
 
 ## Documentation
+
+The tables below are the authority on **reading order**. File numbers reflect the order documents were
+written, so 24–26 sit under "The world" rather than at the end.
 
 ### Foundations
 | | |
@@ -84,6 +91,9 @@ cheap.
 | [16 — Weather](docs/16-weather.md) | Weather as an attention modifier |
 | [17 — The Director](docs/17-director.md) | Pacing, lulls, storytellers |
 | [18 — Factions](docs/18-factions.md) | Human raiders as a different threat shape *(post-slice)* |
+| [24 — World & Scale](docs/24-world-and-scale.md) | The continuous region, districts, roads, route trails *(post-slice)* |
+| [25 — Vehicles](docs/25-vehicles.md) | Found, customizable, and the loudest thing in the game *(post-slice)* |
+| [26 — Mobile Bases](docs/26-mobile-bases.md) | Interior modules, convoys, and viable nomad play *(post-slice)* |
 
 ### Technical
 | | |

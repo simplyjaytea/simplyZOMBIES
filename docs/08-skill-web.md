@@ -15,7 +15,7 @@ they committed to on day one.*
 3. **It dies with the person.** No inheritance, no respec-on-death, no meta-progression. See
    [succession](01-hardcore-contract.md#succession-what-happens-when-you-die).
 4. **The web makes you competent, never invincible.** Bounded by
-   [pillar 1](00-vision.md#the-five-pillars). A fully-developed survivor moves the lethality
+   [pillar 1](00-vision.md#the-six-pillars). A fully-developed survivor moves the lethality
    thresholds by about one band.
 5. **Melee and ranged get equal depth.** Non-negotiable, per the
    [parity contract](09-combat.md).

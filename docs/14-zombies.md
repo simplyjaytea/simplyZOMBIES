@@ -37,6 +37,13 @@ still perfectly capable of biting an ankle.
 The primary threat and the primary [bite](06-infection.md) vector. A grabbed survivor is immobilized
 until they break free. Two simultaneous grabs is usually fatal. See [combat](09-combat.md).
 
+### Against vehicles
+They cannot open doors — [raiders](18-factions.md) can, which is the distinction that makes human
+threats a different shape everywhere in this design. What they do instead is **mass around a
+stationary [vehicle](25-vehicles.md)** and stay interested for as long as the engine runs, climb onto
+it, and block it in. A vehicle is a metal box, and being surrounded inside one is the vehicular
+version of being cornered indoors.
+
 ## Types
 
 ### Baseline
@@ -74,7 +81,7 @@ poisons your own doorstep with scent for days.
 | Type | Behavior | Counter | Invalidates |
 |---|---|---|---|
 | **Runner** | Fast, sustained pursuit | Doors, elevation, chokepoints. **Not outrunning it.** | Escape as a reliable option |
-| **Tracker** | Superior scent range; follows a specific survivor's trail home | Water crossings, rain, decoys, killing it | Sloppy return routes; "we lost them" |
+| **Tracker** | Superior scent range; follows a specific survivor's trail home — **including a [vehicle's route trail](24-world-and-scale.md#route-trails)** | Water crossings, rain, decoys, varying your route, killing it | Sloppy return routes; "we lost them" |
 
 The tracker is the one that punishes the base's location, and it's the design's late-game argument for
 relocating or taking the [escape route](13-world-decay.md#the-optional-escape).

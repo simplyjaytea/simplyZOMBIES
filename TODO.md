@@ -82,6 +82,10 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 - [ ] **Determinism test** — same seed + same input log twice → byte-identical state
 - [ ] **Module-isolation boot test** — boot with each non-kernel module disabled, assert no crash
 - [ ] CI workflow: typecheck, lint, unit, determinism, module isolation
+- [ ] **Performance budget harness** wired into CI — per-system tick timings against asserted budgets,
+      **failing the build on regression** ([pillar 6](docs/00-vision.md#the-six-pillars))
+- [ ] Baseline benchmark scenario ("quiet night") as the first entry in
+      [the suite](docs/22-performance.md#the-ci-benchmark-suite)
 
 > **Exit criterion:** an entity moves around a tile map, deterministically, and the same seed plus
 > inputs reproduces it byte-identically.
@@ -309,11 +313,20 @@ deliberately deferred — see each document's cut list.
 [decay clock](docs/13-world-decay.md) and mutation waves · every
 [zombie type](docs/14-zombies.md) beyond the shambler · the full [skill web](docs/08-skill-web.md) ·
 [named items](docs/10-items.md) and [unique survivors](docs/07-survivors.md) · relationships and grief ·
-temperature and hygiene · the remaining [modification consumables](docs/11-crafting.md) · procedural
-map generation · [factions](docs/18-factions.md) · the escape endgame · the full sandbox and
-storyteller layer.
+temperature and hygiene · the remaining [modification consumables](docs/11-crafting.md) ·
+[factions](docs/18-factions.md) · the escape endgame · the full sandbox and storyteller layer.
+
+**Also Milestone 3, in this strict order** — each depends on the one before, per the
+[roadmap](docs/23-roadmap.md):
+
+1. [World scale](docs/24-world-and-scale.md) — the continuous region, districts, the road graph,
+   district-tier simulation, streaming
+2. **The drive benchmark** against synthetic load, *before any vehicle exists* — it decides whether the
+   continuous region was affordable, and finding out late is the expensive way
+3. [Vehicles](docs/25-vehicles.md) — bases, slots, affixes, driving, fuel, breakdowns, route trails
+4. [Mobile bases](docs/26-mobile-bases.md) — interior modules, convoys, relocation, nomad play
 
 **Cut from the design entirely** (see the [vision's cut list](docs/00-vision.md#cut-list)):
-multiplayer · a cure or narrative resolution · vehicles ·
+multiplayer · a cure or narrative resolution · aircraft and boats ·
 [respec](docs/08-skill-web.md) · a tech tree · player-visible infection percentages · save migrations
 before 1.0.

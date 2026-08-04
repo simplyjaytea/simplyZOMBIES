@@ -10,7 +10,7 @@ every run a decision about which danger you'd rather face.*
 
 Five classes, sorted by how you get them and what getting them costs.
 
-### 1. Gathered — renewable, low risk, near home
+### 1. Gathered: renewable, low risk, near home
 
 | Resource | Source | Notes |
 |---|---|---|
@@ -23,7 +23,7 @@ Five classes, sorted by how you get them and what getting them costs.
 
 Renewable but **slow, and the gathering is loud and takes people outside the walls all day**.
 
-### 2. Produced — the self-sufficiency play
+### 2. Produced: the self-sufficiency play
 
 | Resource | Requires |
 |---|---|
@@ -37,7 +37,7 @@ Renewable but **slow, and the gathering is loud and takes people outside the wal
 Production is the mid-game goal and a trap: it makes you sustainable and it makes you **loud, smelly,
 and stationary**. A farm is a permanent scent signature you cannot pick up and move.
 
-### 3. Scavenged — finite, risk-gated, off-site
+### 3. Scavenged: finite, risk-gated, off-site
 
 The heart of the economy. Each location type has a distinct loot profile and a distinct danger
 profile.
@@ -53,7 +53,7 @@ profile.
 **The risk gradient is the difficulty curve.** You don't level up into military sites; you decide one
 day that you have no choice.
 
-### 4. Refined — the intermediate layer
+### 4. Refined: the intermediate layer
 
 Ingots · nails and fixings · planks · gunpowder · circuits and components · cured and preserved food ·
 cloth and cordage · antiseptic.
@@ -61,7 +61,7 @@ cloth and cordage · antiseptic.
 These need a station, a skill, and time ([crafting](11-crafting.md)), and are what converts raw
 scavenging into structures, ammunition, and medicine.
 
-### 5. Currency-grade — the modification consumables
+### 5. Currency-grade: the modification consumables
 
 Whetstone · Gun Oil · Duct Tape · Scrap Kit · Solvent · Machinist's Gauge · Salvage Rights.
 
@@ -75,7 +75,7 @@ even when its main yield is useless to you.** A house with no food still has duc
 Most resources are logistics. Three are the economy, and each is deliberately wired to a different
 system.
 
-### Fuel → attention
+### Fuel → attention, and range
 
 Petrol, diesel, propane, lamp oil, batteries.
 
@@ -83,11 +83,20 @@ Petrol, diesel, propane, lamp oil, batteries.
   competes with its medical use.)
 - Powers generators → which power lights, heaters, refrigeration, and
   [turrets](15-base-building.md).
-- **Everything fuel buys is an [attention](03-attention.md) emitter.** A running generator is 45 noise,
-  continuously, including while everyone sleeps.
+- **Powers [vehicles](25-vehicles.md)** → which are range, capacity, and the ability to keep eating
+  after the local sites are stripped.
+- **Everything fuel buys is an [attention](03-attention.md) emitter.** A running generator is 45 noise
+  continuously; a running engine is 120–220.
 
-So fuel is *the comfort resource*, and burning it is the most direct way to trade safety for quality of
-life. When fuel runs out — and it does — the colony reverts to fire, and fire is light and smoke.
+Fuel is the game's most contested resource because it is the only one spent by *two competing
+economies*: comfort at home, and range on the road. Every litre in the generator is a litre not in the
+tank, and the choice looks different in week 4 than in week 20 — early, comfort keeps people working;
+late, range is the only thing keeping them fed.
+
+For [nomads](26-mobile-bases.md) it isn't a trade at all. Fuel is simply survival, and running out is
+[the first step of the death spiral](26-mobile-bases.md#how-nomads-die).
+
+When fuel runs out — and it does — the colony reverts to fire, and fire is light and smoke.
 
 ### Antibiotics → infection
 
@@ -135,6 +144,11 @@ your power level. The [director](17-director.md) reads it as an input rather tha
 
 Minor exceptions that keep the mid-game breathing: [factions](18-factions.md) trade, rare "untouched"
 sites the director can seed as a beat, and seasonal forage.
+
+**[Vehicles](25-vehicles.md) are the real answer**, and they arrive with their own bill. A vehicle
+converts the squeeze from "we are slowly starving" into "we can reach the next district, if we can
+afford the fuel and survive announcing ourselves the whole way there." See
+[world & scale](24-world-and-scale.md#distance-and-the-expanding-radius).
 
 ## Storage and spoilage
 

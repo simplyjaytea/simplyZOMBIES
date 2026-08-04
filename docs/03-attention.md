@@ -56,9 +56,11 @@ arbitrary units, to be tuned.
 | Generator (running) | 45 | Continuous, and it doesn't stop when you sleep |
 | Bow / crossbow | 4 | The [quiet branch](09-combat.md) |
 | Suppressed firearm | 40 | Much quieter than unsuppressed; still very loud in absolute terms |
-| Unsuppressed firearm | 180 | Category-defining. Nothing else is close. |
+| Unsuppressed firearm | 180 | Category-defining for a *single event* |
 | Explosion | 400 | |
 | A [screamer](14-zombies.md) that has seen you | 300 | And it relays — this is the horror |
+| [Vehicle](25-vehicles.md) engine | 120–220 | **Continuous.** A gunshot is a moment; driving is a broadcast. |
+| Vehicle horn | 350 | |
 
 ### Light
 
@@ -69,6 +71,7 @@ arbitrary units, to be tuned.
 | Electric lamp | 35 | |
 | Floodlight | 90 | Excellent for shooting accuracy at night. Visible across the map. |
 | Muzzle flash | 60 (instant) | Ranged combat at night gives away position twice over |
+| [Vehicle](25-vehicles.md) headlights | 70–110 | And they move, sweeping across everything ahead |
 
 ### Scent
 
@@ -99,6 +102,16 @@ Per [zombie](14-zombies.md) tick, at a coarse rate for distant entities
 Point 4 matters: **the field has memory**. Somewhere you made a mistake stays a bad neighborhood for
 a while.
 
+### Route trails
+
+[Vehicles](25-vehicles.md) write to the field differently from everything else: they leave a decaying
+**corridor** of noise and scent along the exact path driven, stored on the road graph rather than the
+fine grid ([world & scale](24-world-and-scale.md#route-trails)).
+
+A trail leading from a hospital campus to your gate is an arrow pointing at everything you own, and
+[trackers](14-zombies.md) read it. Varying your route home is basic discipline, the vehicular
+equivalent of shutting the shutters at dusk.
+
 ## Playing the field
 
 The field isn't only a punishment. It's the tower-defense skill expression, because **you can write
@@ -128,6 +141,7 @@ Every mitigation costs something the player wants:
 | Fewer survivors | Less labor, fewer defenders |
 | Bait | Resources, and it must be re-placed constantly |
 | Prompt corpse disposal | Labor hours, plus smoke if burned |
+| Not driving | Range — and once the local sites are stripped, range is food |
 
 There is no configuration that is quiet *and* comfortable. That's the design working.
 
