@@ -44,9 +44,11 @@ follow signals.
 
 ## Status
 
-**Design phase.** No code yet — this repository currently contains the design document set below. The
-[roadmap](docs/23-roadmap.md) defines the vertical slice that gets built first and the risks that
-might sink it, and [TODO.md](TODO.md) breaks that into an executable backlog.
+**Design phase.** No production code yet — this repository contains the design document set below, plus
+one throwaway prototype in [`spike/`](spike/README.md) that tested the core mechanic before any
+architecture got written. The [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built
+first and the risks that might sink it, [TODO.md](TODO.md) breaks that into an executable backlog, and
+**[HANDOFF.md](HANDOFF.md) is where to start if you're picking this up cold.**
 
 **Planned stack:** TypeScript, HTML canvas, Vite, no engine — with a
 [portability contract](docs/19-architecture.md#the-portability-contract) that keeps a pivot to Godot 4
