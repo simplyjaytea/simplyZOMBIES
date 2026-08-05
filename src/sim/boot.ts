@@ -6,15 +6,22 @@
 
 import { Position, Velocity } from "./kernel/components";
 import type { EntityId } from "./kernel/entities";
+import { registerAttentionSystems } from "./kernel/attention";
 import { World } from "./kernel/world";
 import { DISTRICT_TILES, findOpenTile, generateDistrict, type TileMap } from "./map/tilemap";
 import { ModuleRegistry, type Module } from "./modules";
 import { movementModule } from "./modules/movement";
+import { makeZombie, zombieModule } from "./modules/zombies";
 import { Controlled, playerModule } from "./modules/player";
 import { makeWanderer, wanderModule } from "./modules/wander";
 
 /** Every non-kernel module in the build. The isolation test walks this list. */
-export const ALL_MODULES: readonly Module[] = [movementModule, playerModule, wanderModule];
+export const ALL_MODULES: readonly Module[] = [
+  movementModule,
+  playerModule,
+  wanderModule,
+  zombieModule,
+];
 
 export type BootOptions = {
   seed: number;
@@ -22,6 +29,15 @@ export type BootOptions = {
   disabled?: readonly string[];
   /** How many wanderers to place. */
   wanderers?: number;
+  /** How many shamblers to place. They read the attention field; wanderers do not. */
+  zombies?: number;
+  /**
+   * Whether milling shamblers leave scent residue.
+   *
+   * The Milestone 1 acceptance check on field memory (docs/03#field-memory-is-a-scent-mechanic)
+   * turns this off and asserts something observable changes.
+   */
+  residue?: boolean;
   mapSize?: number;
 };
 
@@ -41,10 +57,21 @@ export type Boot = {
  * would shift every subsequent id and two runs of the same seed would stop matching.
  */
 export function boot(options: BootOptions): Boot {
-  const { seed, disabled = [], wanderers = 200, mapSize = DISTRICT_TILES } = options;
+  const {
+    seed,
+    disabled = [],
+    wanderers = 200,
+    zombies = 0,
+    residue = true,
+    mapSize = DISTRICT_TILES,
+  } = options;
 
-  const world = new World(seed);
   const map = generateDistrict(seed, mapSize);
+  const world = new World(seed, map);
+
+  // Kernel systems first: the attention field is not a module and cannot be switched off
+  // (docs/19), so it must be registered before anything that might read it.
+  registerAttentionSystems(world);
 
   const modules = new ModuleRegistry();
   for (const module of ALL_MODULES) modules.add(module);
@@ -66,6 +93,14 @@ export function boot(options: BootOptions): Boot {
     world.components.set(entity, Position, { x: tile.x, y: tile.y });
     world.components.set(entity, Velocity, { dx: 0, dy: 0 });
     makeWanderer(world, entity, placeRng);
+  }
+
+  for (let i = 0; i < zombies; i++) {
+    const tile = findOpenTile(map, placeRng.int(1, mapSize - 2), placeRng.int(1, mapSize - 2));
+    const entity = world.spawn();
+    world.components.set(entity, Position, { x: tile.x, y: tile.y });
+    world.components.set(entity, Velocity, { dx: 0, dy: 0 });
+    makeZombie(world, entity, placeRng, { residue });
   }
 
   return { world, map, modules, player };

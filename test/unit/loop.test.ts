@@ -13,6 +13,7 @@
 import { describe, expect, it } from "vitest";
 import { createLoop } from "../../src/platform/loop";
 import { TICK_HZ, World } from "../../src/sim/kernel/world";
+import { createMap } from "../integration/scenario";
 
 const TICK_MS = 1000 / TICK_HZ;
 
@@ -26,7 +27,7 @@ function harness() {
   let now = 0;
   const pending: ((t: number) => void)[] = [];
 
-  const world = new World(1);
+  const world = new World(1, createMap(8, 8));
   const loop = createLoop(
     world,
     {},
@@ -106,7 +107,7 @@ describe("loop", () => {
       // cannot see it, and workMs must.
       let now = 0;
       const pending: ((t: number) => void)[] = [];
-      const world = new World(1);
+      const world = new World(1, createMap(8, 8));
 
       const HOOK_COST = 12;
       const loop = createLoop(

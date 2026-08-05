@@ -8,6 +8,8 @@
 // as stubs would mean a suite that reports green about things it never measured.
 
 import { boot } from "../src/sim/boot";
+import { DISTRICT_TILES } from "../src/sim/map/tilemap";
+import { FIELD_CELL_METRES } from "../src/sim/kernel/field";
 import { stepN } from "../src/sim/kernel/step";
 import type { World } from "../src/sim/kernel/world";
 
@@ -39,6 +41,60 @@ export const SCENARIOS: readonly Scenario[] = [
     tickBudgetMs: 4,
     entities: 2000,
     build: () => boot({ seed: SEED, wanderers: 2000 }).world,
+  },
+  {
+    id: "horde-scent",
+    description:
+      "Roadmap risk 5: 500 shamblers ascending the field with continuous scent diffusion.",
+    // The checkpoint TODO.md pins to this milestone. docs/22#known-risks calls continuous
+    // scent diffusion "the most likely thing to need rework", and the spike could not test
+    // it because it had no scent channel at all -- so this is the first time the risk is
+    // actually measured rather than reasoned about.
+    //
+    // Budget set against the same 4 ms the crowded scenario gets: 500 zombies reading a
+    // field should not cost more than 2,000 entities doing nothing, and if it ever does,
+    // that is the rework docs/22 warned about arriving on schedule.
+    tickBudgetMs: 4,
+    entities: 500,
+    build: () => {
+      const { world } = boot({ seed: SEED, wanderers: 0, zombies: 500 });
+
+      // Both halves of this setup are load-bearing, and the first draft had neither.
+      //
+      // A 45-magnitude generator reaches 64 m of a 256 m district, so 498 of 500 zombies
+      // were outside it and stood still, and scent covered 163 of 4,096 cells. The
+      // benchmark passed at 0.55 ms while measuring an idle horde over an empty field --
+      // precisely the "green about something it never measured" failure this suite exists
+      // to prevent.
+      //
+      // 1. A vehicle engine at 220 (docs/03: continuous, 314 m) covers the whole district,
+      //    so every zombie has a gradient and all 500 are actually ascending it.
+      const engine = DISTRICT_TILES / 2;
+      world.systems.register({
+        id: "bench.engine",
+        phase: "attention-emit",
+        run: (w) => {
+          w.events.publish({
+            type: "noise.emitted",
+            x: engine,
+            y: engine,
+            magnitude: 220,
+            source: null,
+          });
+        },
+      });
+
+      // 2. A district that has been lived in: population, corpses, livestock, latrines.
+      //    Scent is the channel risk 5 names, and diffusion only costs anything where
+      //    there is scent to move -- a sparse field early-exits and proves nothing.
+      for (let y = 8; y < DISTRICT_TILES - 8; y += FIELD_CELL_METRES) {
+        for (let x = 8; x < DISTRICT_TILES - 8; x += FIELD_CELL_METRES) {
+          world.field.deposit("scent", x, y, 25);
+        }
+      }
+
+      return world;
+    },
   },
 ];
 

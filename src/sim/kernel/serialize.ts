@@ -9,12 +9,15 @@
  * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
  * pre-1.0 (docs/19-architecture.md#save-model).
  *
+ * 3: the attention field joined the snapshot. Derived from nothing -- it is the
+ *    accumulated record of everything the colony has done, and a run that reloaded into a
+ *    silent map would hand the player a free night.
  * 2: modifiers joined the snapshot. They are state, not derived -- rain's contribution has
  *    to survive a save, and the alternative (every module re-emitting on load) fails the
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at

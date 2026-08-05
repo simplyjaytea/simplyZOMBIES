@@ -22,6 +22,9 @@ import { fingerprint } from "./sim/kernel/serialize";
 
 const DEFAULT_SEED = 20260805;
 const DEFAULT_WANDERERS = 300;
+// Shamblers, which read the attention field. Wanderers do not -- they are Milestone 0's
+// "something moves" placeholder and stay only so the crowded frame budget keeps its shape.
+const DEFAULT_ZOMBIES = 200;
 
 // Overridable from the query string so the frame benchmark can ask for a specific load
 // without a second entry point measuring a different code path than the game runs.
@@ -39,7 +42,11 @@ const canvas = document.getElementById("view") as HTMLCanvasElement;
 const hud = document.getElementById("hud") as HTMLElement;
 const help = document.getElementById("help") as HTMLElement;
 
-const { world, map } = boot({ seed: SEED, wanderers: numeric("wanderers", DEFAULT_WANDERERS) });
+const { world, map } = boot({
+  seed: SEED,
+  wanderers: numeric("wanderers", DEFAULT_WANDERERS),
+  zombies: numeric("zombies", DEFAULT_ZOMBIES),
+});
 
 const camera = createCamera(14);
 const renderer = new Renderer(canvas, map);
@@ -141,7 +148,13 @@ function togglePause(): void {
 }
 
 const input = attachKeyboard(window, {
-  onPress: { F5: save, F9: load, F3: toggleFingerprint, KeyP: togglePause },
+  onPress: {
+    F5: save,
+    F9: load,
+    F3: toggleFingerprint,
+    F4: toggleFieldOverlay,
+    KeyP: togglePause,
+  },
 });
 
 function resize(): void {
@@ -193,6 +206,18 @@ function stateFingerprint(w: World): string {
   return fingerprintCache;
 }
 
+/**
+ * The attention-field debug overlay.
+ *
+ * Developer-only, per docs/01#4-information-is-scarce-and-unreliable -- docs/03's cut list
+ * rejects a player-visible attention readout outright, because it would collapse the game's
+ * central uncertainty into a number.
+ */
+function toggleFieldOverlay(): void {
+  renderer.showField = !renderer.showField;
+  say(renderer.showField ? "attention overlay on (dev)" : "attention overlay off");
+}
+
 function toggleFingerprint(): void {
   fingerprintEnabled = !fingerprintEnabled;
   fingerprintTick = -1;
@@ -214,6 +239,8 @@ function updateHud(w: World): void {
     `<b>sim</b>      ${simMs.toFixed(2)} ms\n` +
     `<b>draw</b>     ${renderer.lastDrawMs.toFixed(2)} ms   ${renderer.visibleCount} drawn\n` +
     `<b>entities</b> ${w.entities.count}\n` +
+    `<b>field</b>    ${w.field.liveCells("noise")} noise, ` +
+    `${w.field.liveCells("scent")} scent, ${w.field.liveCells("light")} light cells\n` +
     `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes\n` +
     `<b>state</b>    ${stateFingerprint(w)}` +
     problem +
@@ -221,7 +248,7 @@ function updateHud(w: World): void {
 
   help.textContent =
     "WASD / arrows move   Shift sprint   P pause\n" +
-    "F5 save   F9 load   F3 state fingerprint\n" +
+    "F5 save   F9 load   F3 state fingerprint   F4 attention overlay (dev)\n" +
     "the state fingerprint is what the determinism test compares -- off by default\n" +
     "because computing it serializes the whole world";
 }

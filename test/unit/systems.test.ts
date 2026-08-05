@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SystemRegistry, type System } from "../../src/sim/kernel/systems";
 import { World } from "../../src/sim/kernel/world";
+import { createMap } from "../integration/scenario";
 
 function noop(): System["run"] {
   return () => {};
@@ -16,7 +17,7 @@ describe("SystemRegistry", () => {
     registry.register({ id: "b", phase: "movement", run: () => seen.push("b") });
     registry.register({ id: "a", phase: "input", run: () => seen.push("a") });
 
-    registry.run(new World(1));
+    registry.run(new World(1, createMap(8, 8)));
     expect(seen).toEqual(["a", "b", "c"]);
   });
 
@@ -33,7 +34,7 @@ describe("SystemRegistry", () => {
       run: () => seen.push("early"),
     });
 
-    registry.run(new World(1));
+    registry.run(new World(1, createMap(8, 8)));
     expect(seen).toEqual(["early", "alpha", "zulu"]);
   });
 
