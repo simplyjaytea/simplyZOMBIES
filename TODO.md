@@ -16,8 +16,9 @@ slice will invalidate.
   that's the signal to stop and redesign.
 - Milestones close on their exit criterion, not on the checkbox count.
 
-**Current milestone: 0 — Foundations** *(not started; design docs complete and the
-[spike findings](docs/23-roadmap.md#spike-findings-attention-field) are folded in)*
+**Current milestone: 0 — Foundations** *(in progress — the scaffold and the deterministic kernel have
+landed; the modifier and content pipelines, the renderer, save/load, and the performance harness have
+not)*
 
 ---
 
@@ -28,24 +29,33 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 
 ### Project setup — spec: [docs/19](docs/19-architecture.md)
 
-- [ ] Vite + TypeScript scaffold, `strict` on
-- [ ] Vitest configured, running headless
+- [x] Vite + TypeScript scaffold, `strict` on
+- [x] Vitest configured, running headless
 - [ ] Directory layout per [the repository layout](docs/19-architecture.md#repository-layout):
       `src/sim/{kernel,modules,rng}`, `src/render`, `src/platform`, `src/ui`, `content/`, `test/`
-- [ ] ESLint rules enforcing **`sim/` purity** — ban DOM globals, `Math.random`, `Date.now`, and
+      *(`sim/kernel`, `sim/rng`, `platform/`, and `test/` exist; the rest arrive with the code that
+      fills them)*
+- [x] ESLint rules enforcing **`sim/` purity** — ban DOM globals, `Math.random`, `Date.now`, and
       imports from `render/`, `platform/`, and `ui/`
-- [ ] Prettier / formatting config
+      *(plus `tsconfig.sim.json`, which compiles `sim/` with no DOM lib so DOM access is a type error
+      rather than only a lint error)*
+- [x] Prettier / formatting config
 
 ### Kernel — spec: [docs/19](docs/19-architecture.md), [docs/20](docs/20-ecs-and-content.md)
 
-- [ ] Seeded RNG with independent named streams per subsystem
-- [ ] Fixed-timestep tick loop with an accumulator, decoupled from render
-- [ ] Entity store: integer IDs, allocation, recycling
-- [ ] Component storage and queries
-- [ ] System registry with **declared insertion order** (ordering is data, not a hardcoded list)
-- [ ] World state container for singletons — clock, RNG streams, field, weather, director
-- [ ] Event bus: publish, per-tick drain in deterministic order
-- [ ] Core event vocabulary stubbed out ([the event table](docs/21-extensibility.md#core-events))
+- [x] Seeded RNG with independent named streams per subsystem
+      *(stream seeds hash `(masterSeed, name)`, so adding a stream never shifts an existing one)*
+- [x] Fixed-timestep tick loop with an accumulator, decoupled from render
+      *(in `platform/`, the only code that reads a clock — `step(world)` takes no time argument)*
+- [x] Entity store: integer IDs, allocation, recycling
+      *(ids pack a generation, so a recycled slot can't resurrect a stale reference)*
+- [x] Component storage and queries
+      *(queries iterate in ascending entity order — insertion order doesn't survive a save/load)*
+- [x] System registry with **declared insertion order** (ordering is data, not a hardcoded list)
+- [x] World state container for singletons — clock, RNG streams, field, weather, director
+      *(the container and the clock; field, weather and director land with their modules)*
+- [x] Event bus: publish, per-tick drain in deterministic order
+- [x] Core event vocabulary stubbed out ([the event table](docs/21-extensibility.md#core-events))
 
 ### Modifier pipeline — spec: [docs/21](docs/21-extensibility.md#mechanism-2-the-modifier-pipeline)
 
@@ -74,15 +84,23 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 - [ ] Tile layer with dirty-region redraw
 - [ ] Input → **command queue** consumed by the sim on its own tick (so input is part of the
       deterministic record)
+      *(the queue exists and is consumed deterministically — proven by the determinism test; the
+      keyboard adapter that fills it does not)*
 - [ ] Save/load: serialize world state, version stamp, **clean rejection of stale saves**
+      *(`serialize.ts` and `World.snapshot`/`restore` exist, including version rejection; the
+      persistence path does not)*
 - [ ] Atomic save writes (temp file + rename) — a crash mid-write must not corrupt a long run
 
 ### Tests & CI
 
 - [ ] Unit tests: RNG streams, modifier resolution, event ordering
-- [ ] **Determinism test** — same seed + same input log twice → byte-identical state
+      *(RNG streams and event ordering done; modifier resolution has nothing to test yet)*
+- [x] **Determinism test** — same seed + same input log twice → byte-identical state
+      *(with a different-seed negative control, so the test can actually fail)*
 - [ ] **Module-isolation boot test** — boot with each non-kernel module disabled, assert no crash
+      *(vacuous until a module exists)*
 - [ ] CI workflow: typecheck, lint, unit, determinism, module isolation
+      *(workflow runs typecheck ×3, lint, format, unit and determinism; module isolation pending)*
 - [ ] **Performance budget harness** wired into CI — per-system tick timings against asserted budgets,
       **failing the build on regression** ([pillar 6](docs/00-vision.md#the-six-pillars))
 - [ ] Harness asserts **frame time as well as tick time**. The spike measured draw at ~30× sim, so a
