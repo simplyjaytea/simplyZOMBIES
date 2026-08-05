@@ -151,10 +151,91 @@ Real risk of spending Milestone 0 on architecture for a game that turns out not 
 **Mitigation:** Milestone 0 is deliberately small — the minimum ECS, not a good one. The bet is that
 this design *will* keep changing, and it has already changed four times, so the bet looks sound.
 
+**Checkpoint answered — see [spike findings](#spike-findings-attention-field) below.** A throwaway
+prototype ran the thesis before any architecture existed. The mechanic works; two tuning problems
+surfaced that would have been much more expensive to find later.
+
 ### 5. Attention field performance
 Continuous scent diffusion is the [most likely thing to need rework](22-performance.md).
 
 **Checkpoint:** Milestone 1, under a synthetic 500-zombie load.
+
+**Partially answered.** Event-driven *noise* propagation plus gradient ascent is effectively free —
+0.13 ms average sim at 1,560 zombies, two orders of magnitude inside the 8 ms budget, with rendering
+dominating instead. **Scent remains untested**, and scent is the continuous channel this risk actually
+names. The measurement below narrows the risk; it does not close it.
+
+---
+
+## Spike findings: attention field
+
+A disposable prototype (`spike/`, and not part of the real build) tested the core thesis — *make noise
+and they come, go quiet and they don't* — before Milestone 0. One noise channel, shamblers, a tile map,
+and nothing else. Measured in Chromium at 1280×800.
+
+### It works
+
+Convergence on a noise event is **legible with the debug overlay off**. Zombies visibly stream in from
+across the district and the ones outside the radius carry on wandering. The core mechanic reads.
+
+*Caveat:* the spike colour-codes zombies by AI state, which flatters legibility. What carries it
+without that crutch is the *direction of travel* being obviously coordinated — which is a real
+property, not a debug affordance.
+
+### Problem 1 — gradient ascent produces conga lines, not a horde
+
+Every zombie in a given field cell picks the same one of eight neighbours, so they collapse into
+single-file queues along the steepest path. It reads as ants on a pheromone trail rather than a crowd
+of the dead.
+
+**Fixed, at zero cost.** A persistent per-individual angular bias (±0.62 rad) applied to the gradient
+direction fans them into a broad convergence. Sim cost was 0.04 ms without and 0.05 ms with; the seek
+count was unchanged. **[Zombies](14-zombies.md) should specify this** — naive gradient ascent is not
+sufficient on its own, and the fix needs no neighbour queries, so it survives contact with
+[the horde counts in performance](22-performance.md).
+
+### Problem 2 — the noise magnitudes are not calibrated to district size
+
+A single 120-magnitude shout floods an entire 80×80-tile district and stays audible for over thirteen
+seconds. Buildings barely cast a noise shadow, because propagation simply routes around them along the
+streets.
+
+This is a **calibration** problem, not a model problem, and it lands directly on the roadmap's open
+question *"how big is a district, in metres?"* — the spike says: considerably bigger than 80×80 tiles,
+or the falloff curve wants to be steeper than linear. [World & scale](24-world-and-scale.md) and the
+[emitter tables](03-attention.md#emitters) should be reconciled against a real district size before
+either is built.
+
+### Problem 3 — field memory is currently a no-op
+
+Milling bodies emitting residue is [specified](03-attention.md) but, at the magnitudes given, residue
+never propagates past its own cell — the emission is smaller than one cell of falloff. Toggling it off
+changes nothing observable. Either the magnitude needs raising or the mechanic should be cut rather
+than carried as decoration.
+
+### Performance
+
+| Scenario | Zombies | Sim avg / p95 | Frame avg | Field cells live |
+|---|---|---|---|---|
+| Idle, quiet | 60 | 0.01 / 0.10 ms | 2.10 ms | 0 |
+| Idle, quiet | 560 | 0.06 / 0.20 ms | 2.60 ms | 6 |
+| After a shout | 560 | 0.07 / 0.30 ms | 3.71 ms | 1,112 |
+| After a shout | 1,560 | 0.13 / 0.50 ms | 3.68 ms | 1,112 |
+
+Two things worth carrying into Milestone 1:
+
+- **Quiet genuinely costs nothing.** Six live field cells at rest. The event-driven design for noise is
+  vindicated.
+- **Rendering dominates, not simulation.** Sim is ~0.1 ms while draw is ~3 ms. The
+  [performance pillar's](22-performance.md) budgets should be aimed at the renderer first.
+
+### Not answered
+
+- **Is quiet *tense*, or just slow?** This needs a human playing, not a measurement. With noise as the
+  only channel, being quiet is completely safe — which is the design working as specified, and also the
+  strongest argument that **scent is not optional**. Perfect safety through stillness is a boring
+  equilibrium, and scent is what makes hiding imperfect.
+- **Scent cost.** Untested, and it is the continuous channel risk 5 is actually about.
 
 ### 6. Melee/ranged parity may not survive contact
 The [contract](09-combat.md) is elegant on paper. Elegant-on-paper parity usually collapses in
