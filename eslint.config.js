@@ -56,6 +56,25 @@ export default tseslint.config(
   },
 
   {
+    // The benchmark driver is plain ESM, not TypeScript, so no-undef is live for it. It
+    // straddles two runtimes: node around the outside, and browser code inside
+    // page.evaluate that is lexically in the same file.
+    files: ["bench/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        URL: "readonly",
+        globalThis: "readonly",
+        performance: "readonly",
+        requestAnimationFrame: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+      },
+    },
+  },
+
+  {
     // Scoped to sim/ only. render/ and platform/ are exactly the layers that are supposed
     // to touch these things.
     files: ["src/sim/**/*.ts"],

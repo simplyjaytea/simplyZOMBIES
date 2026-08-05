@@ -11,6 +11,10 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "bench": "vitest run --config vitest.bench.config.ts",
+    "bench:frame": "node bench/frame.mjs",
     "dev:spike": "vite --config vite.spike.config.ts",
     "build:spike": "tsc --noEmit -p tsconfig.spike.json && vite build --config vite.spike.config.ts"
   },

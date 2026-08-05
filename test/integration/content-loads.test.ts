@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { readContentFromDisk, readSchemasFromDisk } from "../../src/platform/content-source";
+import { readContentFromDisk, readSchemasFromDisk } from "../../src/platform/content-source-node";
 import { createSchemaValidator } from "../../src/platform/schema-validator";
 import { ContentRegistry } from "../../src/sim/content/registry";
 import { defineCoreStats, StatRegistry } from "../../src/sim/modifiers/stats";

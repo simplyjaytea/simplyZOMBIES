@@ -30,6 +30,12 @@ export type LoopHooks = {
   /** Called once per rendered frame, after any ticks. `alpha` is the interpolation factor
    *  in [0, 1) between the last two sim states (docs/22-performance.md#rendering). */
   render?: (world: World, alpha: number) => void;
+  /**
+   * Called immediately before each tick. This is where the renderer snapshots the state
+   * the tick is about to leave behind, which is what it interpolates *from*. Doing it
+   * after the tick instead silently defeats the interpolation.
+   */
+  beforeTick?: (world: World) => void;
   /** Called after each tick, for instrumentation. Must not mutate the world. */
   afterTick?: (world: World) => void;
 };
@@ -81,6 +87,7 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
 
     let ticks = 0;
     while (accumulator >= TICK_MS && ticks < MAX_TICKS_PER_FRAME) {
+      hooks.beforeTick?.(world);
       step(world);
       hooks.afterTick?.(world);
       accumulator -= TICK_MS;

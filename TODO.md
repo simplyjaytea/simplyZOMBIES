@@ -16,9 +16,12 @@ slice will invalidate.
   that's the signal to stop and redesign.
 - Milestones close on their exit criterion, not on the checkbox count.
 
-**Current milestone: 0 — Foundations** *(in progress — the scaffold, the deterministic kernel, the
-modifier pipeline and the content pipeline have landed. Remaining: the renderer, save/load
-persistence, hot reload, and the performance harness.)*
+**Current milestone: 1 — The spine.** Milestone 0 is complete: its
+[exit criterion](#milestone-0--foundations) is met and asserted in CI, alongside the determinism,
+module-isolation and performance-budget checks the architecture documents ask for.
+
+Run it with `npm run dev`. `npm test` is correctness; `npm run bench` and `npm run bench:frame` are
+the budgets, and they fail the build.
 
 ---
 
@@ -31,10 +34,10 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 
 - [x] Vite + TypeScript scaffold, `strict` on
 - [x] Vitest configured, running headless
-- [ ] Directory layout per [the repository layout](docs/19-architecture.md#repository-layout):
+- [x] Directory layout per [the repository layout](docs/19-architecture.md#repository-layout):
       `src/sim/{kernel,modules,rng}`, `src/render`, `src/platform`, `src/ui`, `content/`, `test/`
-      *(`sim/kernel`, `sim/rng`, `platform/`, and `test/` exist; the rest arrive with the code that
-      fills them)*
+      *(`src/ui` is the exception — there is no UI yet, and an empty directory is not a layout. It
+      arrives with the first screen in Milestone 2.)*
 - [x] ESLint rules enforcing **`sim/` purity** — ban DOM globals, `Math.random`, `Date.now`, and
       imports from `render/`, `platform/`, and `ui/`
       *(plus `tsconfig.sim.json`, which compiles `sim/` with no DOM lib so DOM access is a type error
@@ -90,36 +93,44 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 
 ### Platform & render — spec: [docs/19](docs/19-architecture.md#layers)
 
-- [ ] Canvas renderer skeleton with a camera
-- [ ] Tile layer with dirty-region redraw
-- [ ] Input → **command queue** consumed by the sim on its own tick (so input is part of the
+- [x] Canvas renderer skeleton with a camera
+      *(interpolates between the last two tick states, so a 20 Hz sim reads smoothly at 60 fps)*
+- [x] Tile layer with dirty-region redraw
+      *(the map is static in Milestone 0, so the dirty region is "all of it, once": rasterised to an
+      offscreen canvas and blitted. The per-rect list arrives when structures make tiles mutable.)*
+- [x] Input → **command queue** consumed by the sim on its own tick (so input is part of the
       deterministic record)
-      *(the queue exists and is consumed deterministically — proven by the determinism test; the
-      keyboard adapter that fills it does not)*
-- [ ] Save/load: serialize world state, version stamp, **clean rejection of stale saves**
-      *(`serialize.ts` and `World.snapshot`/`restore` exist, including version rejection; the
-      persistence path does not)*
-- [ ] Atomic save writes (temp file + rename) — a crash mid-write must not corrupt a long run
+- [x] Save/load: serialize world state, version stamp, **clean rejection of stale saves**
+- [x] Atomic save writes (temp file + rename) — a crash mid-write must not corrupt a long run
+      *(and a browser equivalent: two slots with a pointer flip, since localStorage has no rename)*
 
 ### Tests & CI
 
 - [x] Unit tests: RNG streams, modifier resolution, event ordering
 - [x] **Determinism test** — same seed + same input log twice → byte-identical state
       *(with a different-seed negative control, so the test can actually fail)*
-- [ ] **Module-isolation boot test** — boot with each non-kernel module disabled, assert no crash
-      *(vacuous until a module exists)*
-- [ ] CI workflow: typecheck, lint, unit, determinism, module isolation
-      *(workflow runs typecheck ×3, lint, format, unit and determinism; module isolation pending)*
-- [ ] **Performance budget harness** wired into CI — per-system tick timings against asserted budgets,
+- [x] **Module-isolation boot test** — boot with each non-kernel module disabled, assert no crash
+      *(each one individually, all of them at once, and a check that entity ids don't shift when a
+      module is switched off — otherwise configuration would become a determinism bug)*
+- [x] CI workflow: typecheck, lint, unit, determinism, module isolation
+- [x] **Performance budget harness** wired into CI — per-system tick timings against asserted budgets,
       **failing the build on regression** ([pillar 6](docs/00-vision.md#the-six-pillars))
-- [ ] Harness asserts **frame time as well as tick time**. The spike measured draw at ~30× sim, so a
+- [x] Harness asserts **frame time as well as tick time**. The spike measured draw at ~30× sim, so a
       tick-only budget would have caught nothing —
       see [aim the budgets at the renderer](docs/22-performance.md#aim-the-budgets-at-the-renderer)
-- [ ] Baseline benchmark scenario ("quiet night") as the first entry in
+      *(frame time needs a real compositor, so it runs Chromium via Playwright. The gate is on
+      sim+draw, not observed fps: a headless container's rAF pacing measures the host, not us.)*
+- [x] Baseline benchmark scenario ("quiet night") as the first entry in
       [the suite](docs/22-performance.md#the-ci-benchmark-suite), at ≤0.5 ms tick and ≤4 ms frame
+      *(plus a "crowded" 2,000-entity scenario, since at the 300-entity baseline only ~20 survive
+      culling and the frame budget could never fail)*
 
 > **Exit criterion:** an entity moves around a tile map, deterministically, and the same seed plus
 > inputs reproduces it byte-identically.
+>
+> ✅ **Met.** Asserted directly in `test/integration/exit-criterion.test.ts`, against the shipped boot
+> path rather than a fixture — including the negative controls that make it capable of failing: a
+> different seed diverges, and so does a different input log on the same seed.
 
 ---
 
