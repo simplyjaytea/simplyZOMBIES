@@ -16,9 +16,9 @@ slice will invalidate.
   that's the signal to stop and redesign.
 - Milestones close on their exit criterion, not on the checkbox count.
 
-**Current milestone: 0 — Foundations** *(in progress — the scaffold and the deterministic kernel have
-landed; the modifier and content pipelines, the renderer, save/load, and the performance harness have
-not)*
+**Current milestone: 0 — Foundations** *(in progress — the scaffold, the deterministic kernel, the
+modifier pipeline and the content pipeline have landed. Remaining: the renderer, save/load
+persistence, hot reload, and the performance harness.)*
 
 ---
 
@@ -59,24 +59,34 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 
 ### Modifier pipeline — spec: [docs/21](docs/21-extensibility.md#mechanism-2-the-modifier-pipeline)
 
-- [ ] Stat registry
-- [ ] Modifier struct with a **mandatory `source`** field
-- [ ] Resolution order: `add` → `mul` → clamps
-- [ ] Remove-by-source (drop every modifier from `weather.rain` when rain stops)
-- [ ] Resolved-stat caching with invalidation by source
-- [ ] "Why is this stat this number?" introspection returning the full contribution list
+- [x] Stat registry
+- [x] Modifier struct with a **mandatory `source`** field
+- [x] Resolution order: `add` → `mul` → clamps
+      *(`set` precedes them, or it would erase everything applied before it; `min` is a floor and
+      `max` a ceiling. Modifiers fold in `(source, seq)` order — float addition isn't associative, so
+      an unsorted fold makes a resolved stat depend on module import order.)*
+- [x] Remove-by-source (drop every modifier from `weather.rain` when rain stops)
+- [x] Resolved-stat caching with invalidation by source
+      *(scoped global vs per-entity; a global change invalidates every entity's cache for that stat)*
+- [x] "Why is this stat this number?" introspection returning the full contribution list
 
 ### Content pipeline — spec: [docs/20](docs/20-ecs-and-content.md#part-2-content)
 
-- [ ] JSON Schema definitions per content type
-- [ ] Registry that walks content **directories** (not a fixed file list — this is what makes it
+- [x] JSON Schema definitions per content type
+      *(`zombie` and `affix` — the two docs/20 writes out. Others get a schema the day their system
+      exists; a guessed schema is worse than none because it looks authoritative.)*
+- [x] Registry that walks content **directories** (not a fixed file list — this is what makes it
       mod-ready later)
-- [ ] `extends` resolution
-- [ ] Load-time validation: every ID unique, every reference resolves, every modifier `stat` exists,
+      *(walking is in `platform/`, since `sim/` has no file system; the registry itself stays pure)*
+- [x] `extends` resolution
+- [x] Load-time validation: every ID unique, every reference resolves, every modifier `stat` exists,
       every behavior tag implemented, no circular `extends`
-- [ ] Errors name the file, the entry, and the field — **fail loudly at load, never silently at hour
+- [x] Errors name the file, the entry, and the field — **fail loudly at load, never silently at hour
       thirty**
+      *(every problem reported in one pass, and nothing is published unless all of it validated)*
 - [ ] Hot reload in dev
+      *(needs a dev server for `src/`; `vite.spike.config.ts` only serves the spike. Lands with the
+      renderer.)*
 
 ### Platform & render — spec: [docs/19](docs/19-architecture.md#layers)
 
@@ -93,8 +103,7 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 
 ### Tests & CI
 
-- [ ] Unit tests: RNG streams, modifier resolution, event ordering
-      *(RNG streams and event ordering done; modifier resolution has nothing to test yet)*
+- [x] Unit tests: RNG streams, modifier resolution, event ordering
 - [x] **Determinism test** — same seed + same input log twice → byte-identical state
       *(with a different-seed negative control, so the test can actually fail)*
 - [ ] **Module-isolation boot test** — boot with each non-kernel module disabled, assert no crash

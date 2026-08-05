@@ -4,6 +4,9 @@
 // weather, the director, the clock -- are plain state on the world object rather than
 // entities. "Forcing them into ECS would be dogma without benefit."
 
+import { ContentRegistry } from "../content/registry";
+import { ModifierStore, type ModifierStoreSave } from "../modifiers/modifiers";
+import { defineCoreStats, StatRegistry } from "../modifiers/stats";
 import { RngRegistry, type RngState } from "../rng";
 import { CommandQueue } from "./commands";
 import { ComponentStore } from "./components";
@@ -23,6 +26,7 @@ export type WorldSnapshot = {
   rng: Record<string, RngState>;
   entities: EntityStoreSave;
   components: Record<string, [EntityId, unknown][]>;
+  modifiers: ModifierStoreSave;
 };
 
 export class World {
@@ -37,19 +41,30 @@ export class World {
   readonly systems = new SystemRegistry();
   readonly commands = new CommandQueue();
 
+  /** Stat definitions. Code, not state -- the same every boot, so it isn't in the snapshot. */
+  readonly stats = new StatRegistry();
+  /** Live modifiers. State, and in the snapshot. */
+  readonly modifiers: ModifierStore;
+  /** Loaded content. Also code-adjacent: reloaded from disk at boot, never serialized. */
+  readonly content = new ContentRegistry();
+
   constructor(seed: number) {
     this.seed = seed >>> 0;
     this.rng = new RngRegistry(this.seed);
+    defineCoreStats(this.stats);
+    this.modifiers = new ModifierStore(this.stats);
   }
 
   spawn(): EntityId {
     return this.entities.create();
   }
 
-  /** Destroy an entity and strip its components. */
+  /** Destroy an entity and strip its components and modifiers. */
   despawn(entity: EntityId): boolean {
     if (!this.entities.destroy(entity)) return false;
     this.components.removeAll(entity);
+    // Otherwise a recycled id would inherit the previous occupant's injuries.
+    this.modifiers.removeScope(entity);
     return true;
   }
 
@@ -68,6 +83,7 @@ export class World {
       rng: this.rng.save(),
       entities: this.entities.save(),
       components: this.components.save(),
+      modifiers: this.modifiers.save(),
     };
   }
 
@@ -87,6 +103,7 @@ export class World {
     this.rng.restore(snapshot.rng);
     this.entities.restore(snapshot.entities);
     this.components.restore(snapshot.components);
+    this.modifiers.restore(snapshot.modifiers);
   }
 
   /** Canonical string form. Two worlds are identical iff these strings are equal. */

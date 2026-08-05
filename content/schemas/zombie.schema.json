@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/zombie.schema.json",
+  "title": "Zombie type",
+  "description": "A zombie type, per docs/14-zombies.md. Adding one is a JSON entry with zero code, provided every behavior tag it references already exists.",
+  "type": "object",
+  "required": ["id"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^zombie\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "extends": {
+      "type": "string",
+      "description": "Id of another zombie type to inherit from."
+    },
+    "name": { "type": "string" },
+    "introducedInWave": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Mutation wave that introduces this type. 0 is present from the start."
+    },
+    "sensory": {
+      "type": "object",
+      "description": "Channel weights. docs/14-zombies.md#sensory-profiles: there is no single silence.",
+      "additionalProperties": false,
+      "properties": {
+        "noise": { "type": "number", "minimum": 0, "maximum": 1 },
+        "light": { "type": "number", "minimum": 0, "maximum": 1 },
+        "scent": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "locomotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "speed": { "type": "number", "minimum": 0 }
+      }
+    },
+    "body": {
+      "type": "object",
+      "description": "Health by body part. Meaningful damage is to the head or to locomotion.",
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    },
+    "grab": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strength": { "type": "number", "minimum": 0 }
+      }
+    },
+    "spread": {
+      "type": "object",
+      "description": "Persistent per-individual angular bias on gradient ascent, in radians. Without it they form conga lines rather than a horde -- docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own.",
+      "additionalProperties": false,
+      "properties": {
+        "radians": { "type": "number", "minimum": 0 }
+      }
+    },
+    "emits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/emission" }
+    },
+    "behaviors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Behavior tags. Every one must be implemented, or load fails."
+    },
+    "alarm": {
+      "type": "object",
+      "description": "Screamer-style relay. docs/14: converts a small mistake into a regional event.",
+      "additionalProperties": false,
+      "properties": {
+        "magnitude": { "type": "number", "minimum": 0 },
+        "relay": { "type": "boolean" },
+        "cooldownTicks": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "emission": {
+      "type": "object",
+      "required": ["channel", "magnitude"],
+      "additionalProperties": false,
+      "properties": {
+        "channel": { "enum": ["noise", "light", "scent"] },
+        "magnitude": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Reach in metres x 0.7 -- docs/03-attention.md#scale-and-calibration."
+        }
+      }
+    }
+  }
+}

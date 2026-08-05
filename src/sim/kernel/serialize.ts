@@ -5,8 +5,16 @@
 // determinism test compared through a different path than saves use, it would be verifying
 // something the game does not actually do.
 
-/** Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated, pre-1.0. */
-export const SAVE_VERSION = 1;
+/**
+ * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
+ * pre-1.0 (docs/19-architecture.md#save-model).
+ *
+ * 2: modifiers joined the snapshot. They are state, not derived -- rain's contribution has
+ *    to survive a save, and the alternative (every module re-emitting on load) fails the
+ *    moment one forgets.
+ * 1: initial kernel state -- tick, seed, rng streams, entities, components.
+ */
+export const SAVE_VERSION = 2;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at
