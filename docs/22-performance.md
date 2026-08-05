@@ -1,0 +1,216 @@
+# 22 — Performance
+
+*Why this exists: the design calls for hordes, a continuously-propagating [attention
+field](03-attention.md), a colony of individually-simulated people, and a
+[continuous drivable region](24-world-and-scale.md) — in a browser. That works only if the cost of
+distant, irrelevant simulation is near zero, and only if performance is treated as a design constraint
+rather than a cleanup task.*
+
+---
+
+## Performance is a pillar
+
+Per [pillar 6](00-vision.md#the-six-pillars), this document is not advisory. The budgets below are
+enforced:
+
+> **A feature that breaks budget does not ship until it is fixed.**
+
+The mechanism is CI. Benchmark scenarios run as fixed seeds against asserted budgets, and exceeding one
+**fails the build** — the same severity as a failing test. This is a real commitment: it means
+sometimes stopping feature work to fix a regression, which is exactly the intent. The alternative is
+discovering in month nine that the design is not achievable, having built all of it.
+
+## Targets
+
+| Metric | Target |
+|---|---|
+| Frame rate | 60 fps at 1× and 3×; ≥30 fps at 10× |
+| Entities, total | ~3,000 |
+| Entities, detailed simulation | ~300 (near the player and the base) |
+| Survivors | ~20 individually simulated at full fidelity |
+| Sim tick | Fixed 20 Hz, decoupled from render |
+| Tick budget | ≤8 ms average, ≤16 ms worst case |
+| Save write | <100 ms (frequent, per the [hardcore contract](01-hardcore-contract.md)) |
+| **Chunk stream-in** | **≤4 ms per frame, amortized. Never stalls a frame.** |
+| **Sustained driving speed** | **60 km/h through a loaded district without dropping below 60 fps** |
+
+## The core idea: tiered simulation
+
+Most zombies, most of the time, are far away and doing nothing interesting. Simulating them precisely
+is wasted work.
+
+| Tier | Where | What runs | Rate |
+|---|---|---|---|
+| **Detailed** | Near the player or the base | Full ECS: pathing, combat, grabs, per-part damage | Every tick |
+| **Coarse** | Rest of the loaded district | Position, gradient following, aggregate health | Every 4th tick |
+| **Abstract** | Neighboring districts | **Hordes as single entities**: a position, a bearing, a count, a composition | Every 20th tick |
+| **District** | Everywhere else in the [region](24-world-and-scale.md) | **No entities at all** — a population number, a depletion state, a faction presence, a threat level | On visit |
+
+Entities promote and demote between tiers as the player and the field move. The promotion boundary sits
+outside perception range in every direction, so a horde always resolves into individuals *before* it's
+observable — the player never sees a crowd pop into existence.
+
+**Abstract-tier hordes are why the design can afford large sieges.** A 400-zombie horde crossing the
+map is one entity with a count until it's close enough to matter.
+
+**District tier is why the design can afford a continuous region.** A district you haven't visited in
+three weeks is six numbers. It resolves into a populated world deterministically from the seed when you
+drive into it, so it's the same world every time.
+
+### Determinism constraint
+
+Tier transitions must be deterministic ([architecture](19-architecture.md)). A promoting horde
+distributes its aggregate state to individuals via the seeded RNG, so the same seed produces the same
+individuals every time. Tiering is an optimization, never a source of variance.
+
+## The attention field
+
+The most continuously expensive system, since it runs everywhere all the time.
+
+**Coarse grid.** The field is stored well below tile resolution — attention is a smooth gradient and
+doesn't need per-tile precision. This is the single largest cost saving available.
+
+| Channel | Update strategy |
+|---|---|
+| **Noise** | Event-driven only. Nothing propagates unless something emitted. Attenuated flood-fill, bounded radius by magnitude. |
+| **Light** | Recomputed only when an emitter changes state or an occluder moves. Static most of the time. |
+| **Scent** | The only continuously-updating channel. Diffusion at a low rate — a few Hz, not every tick. |
+
+**Dirty-region tracking**: only cells that changed, plus their propagation neighborhoods, are
+recomputed. A quiet base at night costs almost nothing.
+
+**Budgeting**: propagation work has a per-tick ceiling. Excess queues to the next tick. Under extreme
+load the field updates slightly slower rather than the frame dropping — degradation is graceful and
+deterministic (the queue is ordered).
+
+## Spatial partitioning
+
+A uniform spatial hash over entity positions, serving:
+
+- Neighbor queries for combat, grabs, and crowd formation
+- Attention emitter/receiver lookups
+- Tier assignment
+- Render culling
+
+Uniform hashing beats a quadtree here because entity distribution is clustered and dynamic, and the
+constant factors are better at these counts.
+
+## Pathfinding
+
+Naive per-zombie A* at these numbers is the obvious way to die.
+
+1. **Most zombies don't pathfind at all.** They perform gradient ascent on the attention field, which
+   is a local lookup — cheap and, importantly, exactly the behavior the design wants
+   ([zombies](14-zombies.md)).
+2. **Flow fields** for the common case: one field per major attractor, shared by every zombie heading
+   there. Computed once, read by hundreds.
+3. **A\* only for detailed-tier entities** that need real navigation — survivors going to a job,
+   raiders picking an approach.
+4. **Hierarchical navigation** between zones for long-distance travel; fine pathing only within the
+   current zone.
+
+Flow fields carry the horde, which is precisely where the entity count is.
+
+## Map streaming
+
+The world is chunked. Chunks near the player are loaded and simulated; distant chunks hold summary
+state (what's been [depleted](12-resources.md), what structures exist, roughly what's there) and
+simulate abstractly.
+
+Chunk load/unload is deterministic and happens outside the tick where possible, with a per-frame
+budget so streaming never stalls a frame.
+
+### Streaming at driving speed
+
+**This is the hardest problem in the design.** A [vehicle](25-vehicles.md) at 60 km/h crosses chunk
+boundaries continuously, which means promoting terrain, buildings, and entities *while the player is
+already moving into them* — with a horde possibly loaded behind. Three mechanisms make it tractable:
+
+**1. Prefetch along road topology, not a radius.** Travel follows
+[roads](24-world-and-scale.md#roads) almost always, so the next chunks needed are predictable from the
+road graph and the velocity vector. Loading a corridor ahead is a fraction of the work of loading a
+disc around the player, and it's the optimization that makes the continuous region affordable at all.
+
+**2. Staged promotion across ticks.** A district promotes over several ticks beginning well before
+contact, never in a single frame. District tier → abstract → coarse, with the fine detail arriving last
+and only where the player will actually be.
+
+**3. A speed cap tied to load state.** If streaming can't stay ahead, **the vehicle cannot accelerate
+further**. The engine strains, the throttle stops responding, and the player slows down. This is
+diegetic, it reads as the vehicle's limit rather than the engine's, and it means **the frame is never
+sacrificed to the throttle**. Budget is preserved by bounding the input, not by dropping work.
+
+### Hysteresis
+
+Tier boundaries use different promote and demote thresholds so a player driving back and forth across a
+boundary doesn't thrash the whole district in and out.
+
+## Rendering
+
+- **Decoupled from the sim.** Render interpolates between the last two fixed-timestep states, so 20 Hz
+  simulation looks smooth at 60 fps.
+- **Aggressive culling** via the spatial hash.
+- **Sprite batching** by texture; the tile layer redraws only dirty regions.
+- **The renderer never writes to the sim** and is never on the tick's critical path.
+
+## Save performance
+
+Saves are frequent (single-slot, continuous, no save-scumming). State is plain and serializable, so
+serialization is cheap. Writes are atomic — write to a temp file, then rename — so a crash mid-write
+can't corrupt a fifty-hour run. That's a hardcore-game obligation, not an optimization.
+
+## Measuring
+
+Because the sim is [deterministic and headless](19-architecture.md), performance is measurable rather
+than felt:
+
+- **Per-system tick timings** recorded and reportable, so a regression names its system.
+- **Entity-count stress scenarios** run headless to find the ceiling before players do.
+- **Memory profiling** on long runs, since a hardcore game's sessions are long and a slow leak is a
+  run-ending bug.
+
+### The CI benchmark suite
+
+Fixed seeds, asserted budgets, **failing the build on regression**. Each scenario targets a specific
+way the design could become unaffordable:
+
+| Scenario | Tests | Budget |
+|---|---|---|
+| **Quiet night** | Baseline; the field at rest should cost almost nothing | ≤2 ms tick |
+| **Night 40 siege** — 600 zombies, 18 survivors | Combat, grabs, flow fields at peak entity count | ≤8 ms tick, 60 fps |
+| **The drive** — 60 km/h through a district with 400 zombies loaded, streaming ahead | **The headline case.** Streaming, promotion, and horde simulation simultaneously | 60 fps, ≤4 ms/frame streaming, no stalls |
+| **Convoy transit** — three [vehicles](26-mobile-bases.md#convoys), full modules, crossing two districts | Multi-vehicle load, district promotion at speed | 60 fps sustained |
+| **Long run** — 100 simulated days headless | Memory growth, leak detection, state size | No unbounded growth |
+| **Save under load** | Serialization during a siege | <100 ms |
+
+The drive scenario is the one that decides whether the continuous region was the right call. It should
+be written and running *before* vehicles are built, against synthetic load — finding out early is the
+whole point of having a pillar.
+
+## Known risks
+
+Named honestly, since they're the likeliest places this breaks:
+
+| Risk | Mitigation |
+|---|---|
+| **Streaming at driving speed** | Road-topology prefetch, staged promotion, load-tied speed cap. **The hardest problem in the design**, and the reason the drive benchmark exists. |
+| Scent diffusion is O(grid) and continuous | Coarse grid, low update rate, dirty regions. The most likely subsystem to need rework. |
+| Tier thrashing at boundaries | Hysteresis — different promote and demote thresholds |
+| A siege promoting hundreds at once | Staged promotion across several ticks, beginning before contact |
+| A continuous region's total state size | District tier holds six numbers per unvisited district; only visited districts carry depletion detail |
+| GC pressure from per-tick allocation | Object pooling for hot paths; components as flat typed arrays where profiling justifies it |
+| Modifier resolution called per-stat-read | Cache resolved stats, invalidate by source on change |
+
+## Cut list
+
+- **Multithreading / web workers.** Would complicate determinism significantly. Revisit only against
+  real profiling data showing single-thread limits.
+- **GPU compute for the attention field.** Interesting; breaks the
+  [engine-independence rule](19-architecture.md) and the headless test path.
+- **Archetype/SoA storage as a first move.** Premature. Revisit with numbers.
+- **Level-of-detail rendering.** The camera range is small enough that it isn't warranted.
+
+---
+
+**Previous:** [21 — Extensibility](21-extensibility.md) · **Next:** [23 — Roadmap](23-roadmap.md) ·
+[Doc index](../README.md#documentation)
