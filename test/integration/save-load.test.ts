@@ -61,6 +61,67 @@ describe("save and load", () => {
     expect(resumed.world.serialize()).toBe(straight.world.serialize());
   });
 
+  /**
+   * Loading into a *live* world, which is the only thing the game actually does.
+   *
+   * Every other test here restores into a freshly booted world, where the command queue is
+   * empty and nothing can leak across. main.ts's load() applies a save to the world already
+   * running, so the queue is whatever the abandoned timeline left in it.
+   */
+  describe("loading into a live world", () => {
+    it("does not carry the abandoned timeline's input log across", () => {
+      const { world } = boot({ seed: SEED, wanderers: 30, mapSize: 64 });
+
+      world.commands.push({ type: "move", dx: 1, dy: 0 });
+      stepN(world, 100);
+      const text = encodeSave(createSave(world));
+      const loggedBySave = world.commands.recorded.length;
+      expect(loggedBySave).toBeGreaterThan(0);
+
+      // Keep playing -- this is the timeline the load is about to discard.
+      for (let i = 0; i < 50; i++) {
+        world.commands.push({ type: "move", dx: 0, dy: 1 });
+        stepN(world, 1);
+      }
+      expect(world.commands.recorded.length).toBe(loggedBySave + 50);
+
+      applySave(world, decodeSave(text));
+
+      // The log must not describe ticks the resumed run has not reached. Carrying them
+      // makes indexByTick(recorded) replay a run that never happened, which is exactly
+      // what docs/19 wants the log for.
+      expect(world.commands.recorded.filter((c) => c.tick > world.tick)).toEqual([]);
+      expect(world.commands.recorded).toEqual([]);
+    });
+
+    it("does not apply a command queued before the load", () => {
+      const { world } = boot({ seed: SEED, wanderers: 30, mapSize: 64 });
+      stepN(world, 100);
+      const text = encodeSave(createSave(world));
+
+      // platform/input pumps every frame, so holding a key while pressing F9 lands a
+      // command from the discarded timeline in the queue.
+      world.commands.push({ type: "move", dx: -1, dy: 0 });
+      applySave(world, decodeSave(text));
+
+      stepN(world, 1);
+      expect(world.commands.recorded).toEqual([]);
+    });
+
+    it("still resumes to the same future as a run that never stopped", () => {
+      // The guarantee above must not have been bought by breaking this one.
+      const straight = runFor(400);
+
+      const live = runFor(200);
+      const text = encodeSave(createSave(live.world));
+      stepN(live.world, 80); // wander off down a timeline we then abandon
+      applySave(live.world, decodeSave(text));
+      stepN(live.world, 200);
+
+      expect(live.world.serialize()).toBe(straight.world.serialize());
+    });
+  });
+
   it("rejects a save from an incompatible version, naming both", () => {
     const { world } = runFor(10);
     const save = JSON.parse(encodeSave(createSave(world)));

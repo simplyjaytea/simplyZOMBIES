@@ -45,8 +45,10 @@ npm run bench            # tick budgets
 npm run bench:frame      # frame budget, drives real Chromium
 ```
 
-In the browser: `WASD` move · `Shift` sprint · `P` pause · `F5` save · `F9` load. The HUD shows a
-**state fingerprint** — that string is what the determinism test compares.
+In the browser: `WASD` move · `Shift` sprint · `P` pause · `F5` save · `F9` load · `F3` state
+fingerprint. That fingerprint is the string the determinism test compares, and it is **off by
+default**: computing it serializes the entire world (~16 ms at 2,000 entities), so leaving it on
+costs more than everything else in the frame put together.
 
 If Playwright can't find a browser, point it at one: `CHROMIUM_PATH=/path/to/chromium npm run
 bench:frame`.
@@ -107,8 +109,12 @@ because these are the ones you will trip over:
 - **Content fails loudly at load.** Unknown stat, unimplemented behaviour tag, circular `extends`,
   duplicate id — all rejected before the first tick, all naming file, entry and field, and nothing is
   published unless everything validated.
-- **Budgets fail the build.** `npm run bench` for tick, `npm run bench:frame` for draw. The frame one
-  drives real Chromium, because frame time cannot be measured in node.
+- **Budgets fail the build.** `npm run bench` for tick, `npm run bench:frame` for the frame. The
+  frame one drives real Chromium, because frame time cannot be measured in node. It gates on
+  **`loop.workMs`** — measured by the loop around its entire frame callback, not assembled from
+  `sim + draw`. That distinction is the whole point: a sum only covers the parts someone remembered
+  to instrument, and the first thing it missed cost 16 ms a frame. Anything added to the frame lands
+  inside the measurement by construction.
 - **Any module can be switched off.** Checked in CI for each module individually and all at once.
   This is also how sandbox presets and storyteller settings get implemented later — not as special
   cases, as this.
@@ -180,5 +186,11 @@ red, put it back. That is not ceremony — it caught two guards that looked rigo
 - The frame budget passes with viewport culling removed, because 2,000 flat rectangles are cheap. It
   is a regression guard today, not proof that culling earns its place; it will bite when sprites
   replace rectangles. Recorded here so nobody reads it as stronger than it is.
+- **The frame budget itself was the third case, and the worst.** It computed its number as
+  `draw + sim`, both of which stop measuring before the render hook finishes — so the HUD's
+  per-frame `serialize()` sat outside the gate. The harness printed `work 2.82 ms` and
+  `OK: within budget` on an 18.90 ms frame running at 53 fps. Reintroducing the bug against the
+  fixed gate now reports `work 16.08 ms` and fails. A budget that cannot fail is worse than no
+  budget, because it gets trusted.
 
-A green suite says nothing about whether it *can* go red.
+A green suite says nothing about whether it *can* go red — and neither does a green budget.

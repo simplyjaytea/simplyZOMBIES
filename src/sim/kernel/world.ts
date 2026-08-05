@@ -104,6 +104,12 @@ export class World {
     this.entities.restore(snapshot.entities);
     this.components.restore(snapshot.components);
     this.modifiers.restore(snapshot.modifiers);
+
+    // The command queue is not part of the snapshot, so it would otherwise survive a
+    // restore untouched -- carrying the discarded timeline's input into the resumed one.
+    // Invisible to any test that restores into a freshly booted world, which is every test
+    // here; main.ts's load() is the only caller that restores into a live one.
+    this.commands.reset();
   }
 
   /** Canonical string form. Two worlds are identical iff these strings are equal. */

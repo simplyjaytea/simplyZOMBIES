@@ -33,14 +33,25 @@ const WANDERERS = flag("wanderers", 2000);
 // is the browser's compositing, GC and whatever else shares the machine.
 const WORK_BUDGET_MS = flag("work-budget-ms", 8);
 
+// One frame at 60 fps.
+const FRAME_MS = 1000 / 60;
+
+// How much of an *overrunning* frame may sit outside our own measurement. Its job is to
+// catch work we are not measuring at all: when the HUD serialized the world every frame,
+// this gap was ~16 ms. See the guard below for why it only applies once frames are late.
+const UNACCOUNTED_BUDGET_MS = flag("unaccounted-budget-ms", 8);
+
 const PORT = 5179;
 const URL = `http://127.0.0.1:${PORT}/?wanderers=${WANDERERS}`;
 
 function startServer() {
+  // detached puts vite in its own process group, so the teardown below can kill the whole
+  // group. Signalling the child pid alone kills the `npx` wrapper and orphans vite, which
+  // then holds --strictPort's 5179 and makes the *next* run fail to start.
   const child = spawn(
     "npx",
     ["vite", "--port", String(PORT), "--host", "127.0.0.1", "--strictPort"],
-    { stdio: ["ignore", "pipe", "pipe"] },
+    { stdio: ["ignore", "pipe", "pipe"], detached: true },
   );
 
   return new Promise((resolve, reject) => {
@@ -100,6 +111,7 @@ async function main() {
     const result = await page.evaluate(async (seconds) => {
       const frames = [];
       const draws = [];
+      const works = [];
       let last = performance.now();
 
       await new Promise((resolve) => {
@@ -108,6 +120,10 @@ async function main() {
           frames.push(now - last);
           last = now;
           draws.push(globalThis.__game.renderer.lastDrawMs);
+          // Everything the frame callback did, including whatever the render hook does
+          // after the renderer stops its own timer. A cheap getter on purpose -- stats()
+          // serializes the world, which would cost more than the thing being measured.
+          works.push(globalThis.__game.workMs());
           if (now < deadline) requestAnimationFrame(sample);
           else resolve(undefined);
         };
@@ -127,6 +143,7 @@ async function main() {
       return {
         frame: stat(frames.slice(5)),
         draw: stat(draws.slice(5)),
+        work: stat(works.slice(5)),
         ...globalThis.__game.stats(),
       };
     }, SECONDS);
@@ -136,7 +153,12 @@ async function main() {
     }
 
     const fps = 1000 / result.frame.avg;
-    const workMs = result.draw.avg + result.simMs;
+
+    // Measured by the loop around its whole frame callback, not assembled from sim + draw.
+    // The old sum omitted everything the render hook did after Renderer.draw returned,
+    // which at 2,000 entities was ~16 ms of HUD serialization -- six times the number the
+    // budget was reading, and outside the gate entirely.
+    const workMs = result.work.avg;
 
     console.log(`  entities   ${result.entities}, ${result.visible} drawn`);
     console.log(`  ticks      ${result.tick}`);
@@ -144,11 +166,17 @@ async function main() {
     console.log(
       `  draw       ${result.draw.avg.toFixed(2)} ms avg   p95 ${result.draw.p95.toFixed(2)} ms`,
     );
-    console.log(`  work       ${workMs.toFixed(2)} ms of the 16.67 ms frame`);
+    console.log(
+      `  work       ${workMs.toFixed(2)} ms avg   p95 ${result.work.p95.toFixed(2)} ms` +
+        `   of the 16.67 ms frame`,
+    );
     console.log(
       `  frame      ${result.frame.avg.toFixed(2)} ms avg   ~${fps.toFixed(0)} fps (observed)`,
     );
-    console.log(`  budget     ${BUDGET_MS} ms draw, ${WORK_BUDGET_MS} ms sim+draw`);
+    console.log(
+      `  budget     ${BUDGET_MS} ms draw, ${WORK_BUDGET_MS} ms frame work, ` +
+        `${UNACCOUNTED_BUDGET_MS} ms unaccounted`,
+    );
 
     const failures = [];
     if (result.draw.avg > BUDGET_MS) {
@@ -165,7 +193,23 @@ async function main() {
     // it makes the harness flaky rather than strict. Observed fps is reported, not gated,
     // except at a floor low enough that only a real collapse trips it.
     if (workMs > WORK_BUDGET_MS) {
-      failures.push(`sim+draw was ${workMs.toFixed(2)} ms, over the ${WORK_BUDGET_MS} ms budget`);
+      failures.push(`frame work was ${workMs.toFixed(2)} ms, over the ${WORK_BUDGET_MS} ms budget`);
+    }
+    // A frame that is *overrunning* while `work` claims to be cheap means our own code is
+    // doing something the loop's measurement does not cover -- the exact shape of the bug
+    // this harness previously had (frame 18.90 ms, reported work 2.82 ms, ~16 ms of HUD
+    // serialization in between).
+    //
+    // The overrun condition is load-bearing, not caution. When the frame is vsync-locked
+    // the interval is 16.67 ms *by definition* and the difference from `work` is idle
+    // waiting, so comparing them unconditionally fails every healthy run. Only once frames
+    // are actually being missed does unexplained time mean anything.
+    if (result.frame.avg > FRAME_MS * 1.1 && result.frame.avg - workMs > UNACCOUNTED_BUDGET_MS) {
+      failures.push(
+        `frame averaged ${result.frame.avg.toFixed(2)} ms but only ${workMs.toFixed(2)} ms is ` +
+          `accounted for: ${(result.frame.avg - workMs).toFixed(2)} ms is unmeasured, over the ` +
+          `${UNACCOUNTED_BUDGET_MS} ms allowance`,
+      );
     }
     if (fps < 30) {
       failures.push(`${fps.toFixed(0)} fps: the frame has collapsed, not merely slipped`);
@@ -180,11 +224,47 @@ async function main() {
     console.log("\nOK: within budget.");
   } finally {
     await browser.close();
-    server.kill("SIGTERM");
+    stopServer(server);
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exitCode = 1;
-});
+/** Kill vite's whole process group, then stop waiting on it. */
+function stopServer(child) {
+  try {
+    process.kill(-child.pid, "SIGTERM");
+  } catch {
+    // Already gone, or no process group -- either way there is nothing left to stop.
+  }
+  // Nothing reads these once the run is over, and an open pipe on a child that ignored the
+  // signal would keep this process alive with no way to notice.
+  child.stdout?.destroy();
+  child.stderr?.destroy();
+  child.unref();
+}
+
+// A wall-clock ceiling on the whole run.
+//
+// The sampling window is seconds; anything approaching this is a hang, not a slow machine.
+// Without it a hang holds a CI runner until GitHub's six-hour job limit and never reports a
+// conclusion -- indistinguishable, to anyone reading the PR, from "still running".
+const OVERALL_TIMEOUT_MS = flag("timeout-ms", 180_000);
+
+const watchdog = setTimeout(() => {
+  console.error(`\nFAIL:\n  timed out after ${OVERALL_TIMEOUT_MS / 1000}s without finishing`);
+  process.exit(1);
+}, OVERALL_TIMEOUT_MS);
+// Don't let the watchdog itself be the reason the process stays alive.
+watchdog.unref();
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    clearTimeout(watchdog);
+    // Playwright and vite can both leave handles behind. The measurement is finished and
+    // reported by this point, so exiting on the recorded code is the honest outcome --
+    // hanging here would report nothing at all.
+    process.exit(process.exitCode ?? 0);
+  });

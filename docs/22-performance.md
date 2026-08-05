@@ -218,6 +218,32 @@ The *Quiet night* budget is deliberately much tighter than it was. The spike mea
 2.10 ms frame with 60 zombies idle, so the original `≤2 ms tick` would have passed while the tick got
 200× slower. A baseline scenario that cannot fail is not a baseline.
 
+### What "frame" means in these budgets
+
+**Frame work, measured around the entire frame callback** — every tick it ran plus the render hook —
+and not `sim + draw` added together. The distinction is not pedantry; it is the difference between a
+budget and a decoration.
+
+A sum only ever covers the parts someone remembered to instrument. `Renderer.draw` stops its own
+timer when it returns, so anything the render hook does afterwards is invisible to it. The first
+thing that landed there — a HUD computing a state fingerprint, which serializes the whole world —
+cost **~16 ms a frame at 2,000 entities**. The harness reported `work 2.82 ms` against an 8 ms
+budget and printed *OK: within budget* on a frame that was actually taking 18.90 ms and running at
+**53 fps**.
+
+So the rule is: the budget measures a **span of time**, not a sum of parts. `platform/loop.ts` times
+its callback and exposes `workMs`; `bench/frame.mjs` gates on that. New work added to the frame is
+inside the measurement whether or not anyone thinks to instrument it.
+
+Two supporting gates, both there because the failure above was invisible rather than large:
+
+- **Observed frame time is reported, never gated directly** — a headless container's rAF pacing
+  measures the host, not us. The exception is a collapse floor (30 fps) and the check below.
+- **Unexplained time in an *overrunning* frame fails.** If frames are late and `workMs` cannot
+  account for it, something is running outside the measurement. The overrun condition is
+  load-bearing: a vsync-locked frame is 16.67 ms by definition, so comparing it to `workMs`
+  unconditionally would fail every healthy run.
+
 The drive scenario is the one that decides whether the continuous region was the right call. It should
 be written and running *before* vehicles are built, against synthetic load — finding out early is the
 whole point of having a pillar.

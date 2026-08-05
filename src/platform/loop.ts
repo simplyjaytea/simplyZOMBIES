@@ -44,6 +44,20 @@ export type Loop = {
   start: () => void;
   stop: () => void;
   readonly running: boolean;
+  /**
+   * Milliseconds spent inside the last frame callback: every tick it ran plus the render
+   * hook, exponentially smoothed.
+   *
+   * This is the number the frame budget gates on, and it is measured here rather than
+   * assembled from parts by the caller. Summing `sim + draw` instead looks equivalent and
+   * is not -- it silently omits whatever else the render hook does, which is how a HUD that
+   * cost 16 ms a frame sat outside the budget entirely. Anything added to the frame lands
+   * inside this measurement by construction.
+   *
+   * Excludes the wait for the next frame, so it is our code's share of the frame and not
+   * the host's rAF pacing.
+   */
+  readonly workMs: number;
 };
 
 /** Monotonic milliseconds. Injectable so tests can drive the loop without a real clock. */
@@ -74,9 +88,12 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
   let last = 0;
   let handle: number | null = null;
   let running = false;
+  let workMs = 0;
 
   function frame(now: number): void {
     if (!running) return;
+
+    const workStarted = clock();
 
     let elapsed = now - last;
     last = now;
@@ -102,6 +119,12 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
 
     hooks.render?.(world, accumulator / TICK_MS);
 
+    // Smoothed the same way the HUD smooths sim time, so a single GC pause doesn't read as
+    // a budget breach. The benchmark samples this over seconds and takes an average and a
+    // p95 of its own, so the smoothing here only removes single-frame noise.
+    const spent = clock() - workStarted;
+    workMs = workMs === 0 ? spent : workMs * 0.9 + spent * 0.1;
+
     handle = requestFrame(frame);
   }
 
@@ -124,6 +147,10 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
 
     get running(): boolean {
       return running;
+    },
+
+    get workMs(): number {
+      return workMs;
     },
   };
 }
