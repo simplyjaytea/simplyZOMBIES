@@ -22,11 +22,31 @@ Every zombie, regardless of type, runs the same loop:
 
 1. **Sample** the three attention channels locally, weighted by its sensory profile.
 2. **Ascend** the combined gradient — noise as a sharp impulse, scent as a slow bias, light as a
-   line-of-sight pull.
-3. **Investigate** on arrival. Find nothing, mill about, disperse — leaving their own scent behind, so
-   the spot stays mildly attractive. **The field remembers.**
+   line-of-sight pull. **Not naively** — see below.
+3. **Investigate** on arrival. Find nothing, mill about, disperse — leaving their own **scent** behind
+   (never noise, per [field memory](03-attention.md#field-memory-is-a-scent-mechanic)), so the spot
+   stays mildly attractive. **The field remembers.**
 4. **Pursue** on direct contact, indefinitely, without pathfinding cleverness — they'll grind against
    a wall between them and you for as long as you're audible.
+
+### Gradient ascent is not sufficient on its own
+
+The [spike](23-roadmap.md#spike-findings-attention-field) proved this the hard way. Every zombie
+sharing a field cell samples the same gradient and picks the same one of eight neighbours, so they
+collapse into **single-file queues** along the steepest path. It reads as ants on a pheromone trail,
+which is the wrong genre entirely.
+
+The fix: every individual carries a **persistent angular bias of ±0.62 rad (±35°)**, applied to the
+sampled gradient direction before it moves. Reference implementation in `spike/zombies.ts`. Three
+properties make it the right fix rather than a patch:
+
+- **Assigned once at spawn, from the seeded RNG stream**, and never changed — so it is deterministic
+  and reproduces from the seed, per [architecture](19-architecture.md#determinism).
+- **It needs no neighbour queries.** Cost is O(1) per zombie with no spatial lookup, so it survives
+  contact with the horde counts in [performance](22-performance.md). Measured: 0.04 ms sim without,
+  0.05 ms with, at identical seek counts.
+- **It is per-individual and persistent**, which makes it part of **save state** — not a per-tick
+  random jitter. Re-rolling it every tick would produce a shimmer, not a crowd.
 
 ### Damage model
 Meaningful damage is to the **head** or to **locomotion**. Body damage slows and staggers but doesn't
@@ -92,6 +112,9 @@ Zombies don't spawn in waves; they **accumulate and coalesce**.
 
 - Individuals drifting up the same gradient converge, because a crowd emits its own noise and scent
   and becomes self-reinforcing.
+- **The [angular bias](#gradient-ascent-is-not-sufficient-on-its-own) is what makes that read as a
+  crowd** rather than a queue. It fans a convergence into a broad front, which is also what makes the
+  bearing below legible — a wall of bodies has a direction; a conga line just has a head.
 - A crowd above a size threshold becomes a **horde entity** — simulated coarsely at zone level for
   [performance](22-performance.md), resolving into individuals only near the player.
 - Hordes have momentum. They arrive on a **bearing**, and the bearing is predictable from where your

@@ -16,7 +16,8 @@ slice will invalidate.
   that's the signal to stop and redesign.
 - Milestones close on their exit criterion, not on the checkbox count.
 
-**Current milestone: 0 — Foundations** *(not started; design docs complete)*
+**Current milestone: 0 — Foundations** *(not started; design docs complete and the
+[spike findings](docs/23-roadmap.md#spike-findings-attention-field) are folded in)*
 
 ---
 
@@ -84,8 +85,11 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 - [ ] CI workflow: typecheck, lint, unit, determinism, module isolation
 - [ ] **Performance budget harness** wired into CI — per-system tick timings against asserted budgets,
       **failing the build on regression** ([pillar 6](docs/00-vision.md#the-six-pillars))
+- [ ] Harness asserts **frame time as well as tick time**. The spike measured draw at ~30× sim, so a
+      tick-only budget would have caught nothing —
+      see [aim the budgets at the renderer](docs/22-performance.md#aim-the-budgets-at-the-renderer)
 - [ ] Baseline benchmark scenario ("quiet night") as the first entry in
-      [the suite](docs/22-performance.md#the-ci-benchmark-suite)
+      [the suite](docs/22-performance.md#the-ci-benchmark-suite), at ≤0.5 ms tick and ≤4 ms frame
 
 > **Exit criterion:** an entity moves around a tile map, deterministically, and the same seed plus
 > inputs reproduces it byte-identically.
@@ -99,12 +103,21 @@ which the project is legible as a game.
 
 ### The attention field — spec: [docs/03](docs/03-attention.md)
 
-- [ ] Three scalar layers on a **coarse grid** (deliberately below tile resolution)
+- [ ] Three scalar layers on a **coarse grid** — 4 m cells, per
+      [scale and calibration](docs/03-attention.md#scale-and-calibration)
+- [ ] Calibration constants as content, not magic numbers: 1 tile = 1 m, 0.7 attenuation per metre,
+      18 m-equivalent wall penalty, ~3 s noise half-life
 - [ ] `AttentionEmitter` component + emission system
 - [ ] **Noise** — event-driven only; attenuated flood-fill with material-based falloff, radius bounded
       by magnitude
 - [ ] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
 - [ ] **Scent** — diffusion at a few Hz with a global wind vector
+- [ ] **Field memory** — milling bodies emit scent residue (**never noise**), at a magnitude that
+      propagates past its own cell
+- [ ] ⚠ **Acceptance check:** toggle residue off and confirm something observably changes. The
+      [spike failed exactly this check](docs/23-roadmap.md#problem-3--field-memory-is-currently-a-no-op)
+      because it emitted onto the wrong channel. **If nothing changes, cut the mechanic** rather than
+      carrying it as decoration.
 - [ ] Dirty-region tracking
 - [ ] Per-tick propagation budget with a deterministic overflow queue (degrade the field's update rate,
       never the frame)
@@ -121,6 +134,9 @@ which the project is legible as a game.
 
 - [ ] Shambler entity with a sensory profile weighting the three channels
 - [ ] Gradient ascent: noise as impulse, scent as bias, light as line-of-sight pull
+- [ ] **Persistent per-individual angular bias (±0.62 rad)** on the gradient direction — assigned once
+      at spawn from the seeded RNG stream, never re-rolled, **included in save state**. Without it
+      they form [conga lines, not a horde](docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own).
 - [ ] Investigate on arrival → mill → disperse, **raising local scent** so the field gains memory
 - [ ] Pursue on direct contact
 - [ ] Damage model: head and locomotion are what matter; a crawler is still lethal

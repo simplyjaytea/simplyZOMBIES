@@ -70,17 +70,27 @@ Both drive Chromium via Playwright and print frame/sim timings.
 
 ## Findings
 
-**Written up in full in [docs/23-roadmap.md](../docs/23-roadmap.md#spike-findings-attention-field).**
-In short:
+**Written up in full in [docs/23-roadmap.md](../docs/23-roadmap.md#spike-findings-attention-field),
+and every one of them is now folded into the docs that specify the systems.** In short:
 
 - ✅ **The mechanic works.** Convergence is legible with the overlay off.
 - ⚠️ **Gradient ascent alone makes conga lines**, not a horde. Fixed here with a per-individual angular
-  bias, at no measurable cost. `J` toggles it.
+  bias, at no measurable cost. `J` toggles it. →
+  [docs/14](../docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own)
 - ⚠️ **Noise magnitudes aren't calibrated to district size** — one shout floods an entire 80×80 district
-  for 13+ seconds.
-- ⚠️ **Field memory is a no-op** at the specified magnitudes.
-- ✅ **Performance is a non-issue for noise**: 0.13 ms sim at 1,560 zombies. Rendering dominates.
+  for 13+ seconds. The real fault was that **no unit was ever defined**; this spike picked
+  `FALLOFF = 4` per 2-tile cell out of the air, about 3× too steep. →
+  [docs/03](../docs/03-attention.md#scale-and-calibration),
+  [docs/24](../docs/24-world-and-scale.md#how-big-a-district-is)
+- ⚠️ **Field memory is a no-op** at the specified magnitudes — **because this spike put it on the wrong
+  channel.** It's specified as *scent*; with no scent channel here it was emitted as noise, where 5
+  against a falloff of 4 dies in its own cell. Not a fair test. →
+  [docs/03](../docs/03-attention.md#field-memory-is-a-scent-mechanic)
+- ✅ **Performance is a non-issue for noise**: 0.13 ms sim at 1,560 zombies. Rendering dominates. →
+  [docs/22](../docs/22-performance.md#aim-the-budgets-at-the-renderer)
 - ❓ **Scent is untested**, and it's the expensive continuous channel.
+
+**This code has done its job.** Delete it freely — the findings live in the docs now.
 
 ## Design values borrowed from the docs
 
