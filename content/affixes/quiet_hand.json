@@ -1,0 +1,11 @@
+{
+  "id": "affix.suffix.quiet_hand",
+  "name": "of the Quiet Hand",
+  "slot": "suffix",
+  "appliesTo": ["weapon.melee", "weapon.ranged"],
+  "tiers": [
+    { "weight": 100, "modifiers": [{ "stat": "noise_emission", "op": "mul", "value": 0.85 }] },
+    { "weight": 40, "modifiers": [{ "stat": "noise_emission", "op": "mul", "value": 0.75 }] },
+    { "weight": 10, "modifiers": [{ "stat": "noise_emission", "op": "mul", "value": 0.6 }] }
+  ]
+}
