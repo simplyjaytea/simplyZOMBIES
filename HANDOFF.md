@@ -1,7 +1,7 @@
 # Handoff
 
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
-updated the same day once the spike findings were folded into the docs.
+updated the same day when Milestone 0 closed.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -11,23 +11,45 @@ updated the same day once the spike findings were folded into the docs.
 
 | | |
 |---|---|
-| **Phase** | Design complete. One throwaway prototype built. **No production code yet.** |
-| **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — 27 design docs + the backlog · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention field spike |
-| **In flight** | The spike fold-in — the three findings written into the specifying docs |
-| **Next real work** | **Milestone 0.** `TODO.md` has it broken into tasks. |
+| **Phase** | **Milestone 0 complete.** The architecture runs; there is no game on top of it yet. |
+| **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention field spike |
+| **In flight** | [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — the spike fold-in, plus all of Milestone 0 |
+| **Next real work** | **Milestone 1 — the spine.** The attention field, and shamblers that read it. |
 
 ## What's in the repo
 
 ```
 docs/           27 design documents. The README index is the reading-order authority,
                 not the file numbers — 24-26 were written last but belong under "The world".
-TODO.md         148 tasks covering Milestones 0-2, with all 8 roadmap risks pinned to the
-                specific task that answers each one.
-spike/          THROWAWAY prototype. Not Milestone 0 with corners cut — a different
-                artifact. Delete it freely once its findings are absorbed.
+TODO.md         The backlog through Milestone 2, with all 8 roadmap risks pinned to the
+                task that answers each one. Milestone 0's boxes are ticked.
+src/sim/        The simulation. Pure, headless, deterministic — kernel, modules, rng.
+src/render/     Canvas renderer. Reads the sim, never writes to it.
+src/platform/   The host: input, the tick loop, storage, content loading, schemas.
+content/        JSON content plus its JSON Schemas.
+test/           Unit and integration, including determinism and module isolation.
+bench/          The performance budgets. They fail the build.
+spike/          THROWAWAY prototype. Its findings are absorbed into the docs, so it can be
+                deleted whenever — see "the spike is now deletable" below.
 ```
 
-There is no `src/`. That's Milestone 0's job.
+## Running it
+
+```bash
+npm install
+npm run dev              # the game at http://127.0.0.1:5174
+npm test                 # correctness: 133 tests
+npm run typecheck        # three projects — see the sim/ purity gate below
+npm run lint
+npm run bench            # tick budgets
+npm run bench:frame      # frame budget, drives real Chromium
+```
+
+In the browser: `WASD` move · `Shift` sprint · `P` pause · `F5` save · `F9` load. The HUD shows a
+**state fingerprint** — that string is what the determinism test compares.
+
+If Playwright can't find a browser, point it at one: `CHROMIUM_PATH=/path/to/chromium npm run
+bench:frame`.
 
 ## Settled decisions: do not relitigate
 
@@ -68,13 +90,48 @@ keeps the evidence.
 
 Also worth keeping: **event-driven noise propagation is vindicated** — 6 live field cells when quiet.
 
+## What Milestone 0 built, and the rules it made structural
+
+The exit criterion is met and asserted (`test/integration/exit-criterion.test.ts`). More useful to a
+newcomer than the file list is *which invariants are now enforced rather than merely intended*,
+because these are the ones you will trip over:
+
+- **`sim/` cannot touch the host.** Lint bans `Math.random`, `Date.now` and browser globals; on top of
+  that `tsconfig.sim.json` compiles `sim/` with **no DOM lib**, so any DOM access is a type error, not
+  a review comment. `step(world)` takes no time argument — the sim can't read a clock because it is
+  never given one.
+- **Iteration order is never left to chance.** Component queries sort by entity id, systems sort by
+  `(phase, order, id)`, event handlers by `(order, id)`, modifiers fold by `(source, seq)`. Every one
+  of those is guarding the same failure: registration order is module import order, and bundlers
+  reorder that. Two of them are proven by mutation tests that fail when the sort is removed.
+- **Content fails loudly at load.** Unknown stat, unimplemented behaviour tag, circular `extends`,
+  duplicate id — all rejected before the first tick, all naming file, entry and field, and nothing is
+  published unless everything validated.
+- **Budgets fail the build.** `npm run bench` for tick, `npm run bench:frame` for draw. The frame one
+  drives real Chromium, because frame time cannot be measured in node.
+- **Any module can be switched off.** Checked in CI for each module individually and all at once.
+  This is also how sandbox presets and storyteller settings get implemented later — not as special
+  cases, as this.
+
+### The spike is now deletable
+
+Everything it proved is in the docs, and `docs/14-zombies.md` no longer needs it as a reference —
+the angular bias is implemented in `src/sim/modules/wander.ts`. Deleting `spike/`,
+`vite.spike.config.ts`, `tsconfig.spike.json` and the two `*:spike` scripts is a clean subtraction
+whenever someone wants the repo tidier. It was left in only because deleting working demonstration
+code is easier to do later than to undo.
+
 ## Do this next
 
-**Milestone 0.** `TODO.md` has it broken into tasks. The exit criterion is: *an entity moves around a
-tile map deterministically, and the same seed plus inputs reproduces it byte-identically.*
+**Milestone 1 — the spine.** `TODO.md` has the tasks. The exit criterion is: *make noise, and they
+come. Go quiet, and they don't.*
 
-Nothing blocks it. The fold-in above was the only thing outstanding, and it was blocking Milestone 1
-rather than Milestone 0 anyway.
+Two things worth knowing before starting:
+
+- **Scent is the risky part**, not noise. The spike proved event-driven noise is nearly free; scent is
+  the continuous channel [risk 5](docs/23-roadmap.md#risks) actually names, and it is still untested.
+- **Field memory rides on scent** and has never been observed working, so the Milestone 1 acceptance
+  check is real: switch residue off, and if nothing observable changes, cut the mechanic.
 
 ## Open questions nobody has answered
 
@@ -102,10 +159,10 @@ rather than Milestone 0 anyway.
 
 ## Commands
 
+See [Running it](#running-it) above for the game. The spike still has its own:
+
 ```bash
-npm install
-npm run dev              # spike at http://127.0.0.1:5173
-npx tsc --noEmit         # typecheck
+npm run dev:spike        # the throwaway spike at http://127.0.0.1:5173
 node spike/measure.mjs   # scenario sweep + screenshots -> /tmp/spike-shots
 node spike/compare.mjs   # conga-line A/B (gradient spread off vs on)
 ```
@@ -113,5 +170,15 @@ node spike/compare.mjs   # conga-line A/B (gradient spread off vs on)
 Spike controls: `WASD` move · `Shift` sprint · `Space` shout · `O` overlay · `L` +500 zombies ·
 `J` toggle the spread fix · `M` field memory · `P` pause.
 
-There are no tests and no CI yet. Both are Milestone 0 tasks — including the performance budget
-harness that pillar 6 requires.
+## A habit worth continuing
+
+Every guard added so far was **mutation-tested**: break the thing on purpose, confirm something goes
+red, put it back. That is not ceremony — it caught two guards that looked rigorous and tested nothing:
+
+- A modifier-ordering test using `0.1 / 0.2 / 0.3` passed with the fold sort deleted, because later
+  multiplications rounded the difference away. Catastrophic cancellation fixed it.
+- The frame budget passes with viewport culling removed, because 2,000 flat rectangles are cheap. It
+  is a regression guard today, not proof that culling earns its place; it will bite when sprites
+  replace rectangles. Recorded here so nobody reads it as stronger than it is.
+
+A green suite says nothing about whether it *can* go red.

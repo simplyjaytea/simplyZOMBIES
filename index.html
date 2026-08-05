@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>simplyZOMBIES — Milestone 0</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0d0e10;
+        color: #c8ccd2;
+        font:
+          12px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      canvas {
+        display: block;
+      }
+      #hud,
+      #help {
+        position: fixed;
+        padding: 10px 12px;
+        background: rgba(13, 14, 16, 0.82);
+        border: 1px solid #2a2e34;
+        border-radius: 6px;
+        white-space: pre;
+        pointer-events: none;
+      }
+      #hud {
+        top: 12px;
+        left: 12px;
+      }
+      #help {
+        bottom: 12px;
+        left: 12px;
+        color: #8b929c;
+      }
+      b {
+        color: #8b929c;
+        font-weight: 400;
+      }
+      .hot {
+        color: #d98b7a;
+      }
+      .ok {
+        color: #7fa87a;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <div id="help"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
