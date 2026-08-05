@@ -1,7 +1,7 @@
 # Handoff
 
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
-updated the same day when Milestone 0 closed.
+updated the same day when Milestone 0 closed, and again when Milestone 1 reached its exit criterion.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -11,10 +11,10 @@ updated the same day when Milestone 0 closed.
 
 | | |
 |---|---|
-| **Phase** | **Milestone 0 complete.** The architecture runs; there is no game on top of it yet. |
+| **Phase** | **Milestone 1 complete.** The attention field runs and shamblers read it: make noise and they come. |
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention field spike |
-| **In flight** | [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — the spike fold-in, plus all of Milestone 0 |
-| **Next real work** | **Milestone 1 — the spine.** The attention field, and shamblers that read it. |
+| **In flight** | [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — spike fold-in + Milestone 0 · [PR #4](https://github.com/simplyjaytea/simplyZOMBIES/pull/4) — review fixes + Milestone 1, stacked on #3 |
+| **Next real work** | **The rest of Milestone 1:** the melee loop and the day/night cycle. Then Milestone 2. |
 
 ## What's in the repo
 
@@ -22,7 +22,8 @@ updated the same day when Milestone 0 closed.
 docs/           27 design documents. The README index is the reading-order authority,
                 not the file numbers — 24-26 were written last but belong under "The world".
 TODO.md         The backlog through Milestone 2, with all 8 roadmap risks pinned to the
-                task that answers each one. Milestone 0's boxes are ticked.
+                task that answers each one. Milestone 0 is ticked; Milestone 1 is ticked
+                except for combat and the clock, listed under "Still open in this milestone".
 src/sim/        The simulation. Pure, headless, deterministic — kernel, modules, rng.
 src/render/     Canvas renderer. Reads the sim, never writes to it.
 src/platform/   The host: input, the tick loop, storage, content loading, schemas.
@@ -38,7 +39,7 @@ spike/          THROWAWAY prototype. Its findings are absorbed into the docs, so
 ```bash
 npm install
 npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 133 tests
+npm test                 # correctness: 176 tests
 npm run typecheck        # three projects — see the sim/ purity gate below
 npm run lint
 npm run bench            # tick budgets
@@ -46,9 +47,13 @@ npm run bench:frame      # frame budget, drives real Chromium
 ```
 
 In the browser: `WASD` move · `Shift` sprint · `P` pause · `F5` save · `F9` load · `F3` state
-fingerprint. That fingerprint is the string the determinism test compares, and it is **off by
-default**: computing it serializes the entire world (~16 ms at 2,000 entities), so leaving it on
-costs more than everything else in the frame put together.
+fingerprint · `F4` attention overlay. That fingerprint is the string the determinism test compares,
+and it is **off by default**: computing it serializes the entire world (~16 ms at 2,000 entities), so
+leaving it on costs more than everything else in the frame put together.
+
+`F4` draws all three attention channels at once — red noise, green light, blue scent. **Developer
+only**, and it must stay that way: docs/03's cut list rejects a player-visible attention readout
+outright, because it "would collapse the game's central uncertainty into a number".
 
 If Playwright can't find a browser, point it at one: `CHROMIUM_PATH=/path/to/chromium npm run
 bench:frame`.
@@ -74,8 +79,8 @@ These were each decided explicitly by the repo owner. If you're about to "improv
   the reversal and why the original objection was half right.
 - **A district is 256 m, falloff stays linear.** Decided against re-authoring the magnitude table,
   because its ratios are load-bearing in six documents and only the unit was ever missing.
-- **Field memory is scent, never noise.** Kept rather than cut, but on the condition that Milestone 1
-  proves it does something.
+- **Field memory is scent, never noise.** Kept rather than cut, on the condition that Milestone 1
+  prove it does something. **It did** — 19.4 m against 25.4 m — so the condition is discharged.
 
 ## What the spike settled
 
@@ -119,6 +124,40 @@ because these are the ones you will trip over:
   This is also how sandbox presets and storyteller settings get implemented later — not as special
   cases, as this.
 
+## What Milestone 1 built, and what it found out
+
+The field is **kernel, not a module** (`src/sim/kernel/field.ts`), for the reason docs/19 gives:
+a module may be switched off, and stimulus may not. Disabling it would not make a quieter game, it
+would make a game where nothing can hear anything.
+
+Things you will otherwise rediscover the hard way:
+
+- **The three channels propagate differently on purpose, and the difference is the design.** Noise
+  *floods around* obstructions on a uniform-cost search, so buildings are detours and streets are
+  noise highways. Light is *occluded* — same map, opposite model. Getting these the same way round
+  would quietly turn buildings into insulation, which docs/03 explicitly says they are not.
+- **Light's line-of-sight is tested at tile resolution, not cell resolution.** A one-tile wall is a
+  quarter of a 4 m field cell, so a coarse test let lamps shine straight through building walls.
+  Storage can be coarse; occlusion cannot.
+- **Scent's decay is written as a half-life, not a per-step rate.** The first version used an
+  innocent-looking 0.0004 per step, which is 11% a minute — a noise channel wearing scent's name.
+  docs/03's "hours" versus "seconds to a minute" is the whole reason the channels are not
+  interchangeable, so the constant now says `SCENT_HALF_LIFE_SECONDS = 2 * 60 * 60` and the rate is
+  derived.
+- **The angular bias was already in save state**, drawn at spawn by Milestone 0 precisely so this
+  milestone would not have to add it and change every recorded seed. `modules/zombies.ts` consumes
+  it; it does not draw a second one.
+
+### A benchmark that measures nothing still reports a number
+
+The risk-5 scenario's first draft used a 45-magnitude generator, which reaches 64 m of a 256 m
+district. 498 of 500 zombies stood outside it and never moved, scent covered 163 of 4,096 cells, and
+it reported a comfortable **0.55 ms/tick** — for an idle horde over an empty field. The honest
+version uses a 220-magnitude engine covering the district and seeds scent across it: **1.20 ms**.
+
+Same shape as the frame-budget bug in the section above, and worth the habit it implies: when a
+performance scenario passes easily, check that it is doing the thing before believing it.
+
 ### The spike is now deletable
 
 Everything it proved is in the docs, and `docs/14-zombies.md` no longer needs it as a reference —
@@ -129,15 +168,22 @@ code is easier to do later than to undo.
 
 ## Do this next
 
-**Milestone 1 — the spine.** `TODO.md` has the tasks. The exit criterion is: *make noise, and they
-come. Go quiet, and they don't.*
+**Finish Milestone 1**, then Milestone 2. `TODO.md` lists what is left under "Still open in this
+milestone" — the melee loop and the day/night cycle, both deliberately deferred so the exit criterion
+could be reached and measured first.
 
-Two things worth knowing before starting:
+The two things this milestone was told to find out, it found out:
 
-- **Scent is the risky part**, not noise. The spike proved event-driven noise is nearly free; scent is
-  the continuous channel [risk 5](docs/23-roadmap.md#risks) actually names, and it is still untested.
-- **Field memory rides on scent** and has never been observed working, so the Milestone 1 acceptance
-  check is real: switch residue off, and if nothing observable changes, cut the mechanic.
+- **Scent is affordable.** 500 shamblers ascending a saturated district cost 1.20 ms/tick against a
+  4 ms budget, and *less* than 2,000 idle entities. [Risk 5](docs/23-roadmap.md#risks) named continuous
+  scent diffusion as the most likely thing to need rework; at this scale it is not.
+- **Field memory is real, and kept.** A crowd drawn somewhere and then left in silence settles 19.4 m
+  from the spot with residue on against 25.4 m with it off. The check was written to fail — the
+  spike's residue existed too, and was still a no-op — so it asserts where the horde *ends up*, not
+  that an emitter fired.
+
+**Combat is the natural next piece**, and `pursue` plus the damage model are part of it rather than
+part of the horde: a `pursue` behaviour with nothing to do on contact is not worth writing twice.
 
 ## Open questions nobody has answered
 
