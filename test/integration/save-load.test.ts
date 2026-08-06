@@ -24,6 +24,7 @@ import {
   encodeSave,
   StaleSaveError,
 } from "../../src/sim/kernel/save";
+import { SAVE_VERSION } from "../../src/sim/kernel/serialize";
 import { stepN } from "../../src/sim/kernel/step";
 
 const SEED = 4242;
@@ -67,7 +68,9 @@ describe("save and load", () => {
     save.snapshot.version = 999;
 
     expect(() => decodeSave(JSON.stringify(save))).toThrow(StaleSaveError);
-    expect(() => decodeSave(JSON.stringify(save))).toThrow(/save format 999.*reads 2/s);
+    expect(() => decodeSave(JSON.stringify(save))).toThrow(
+      new RegExp(`save format 999.*reads ${SAVE_VERSION}`, "s"),
+    );
   });
 
   it("rejects a truncated or malformed save rather than half-applying it", () => {

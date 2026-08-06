@@ -16,12 +16,14 @@ slice will invalidate.
   that's the signal to stop and redesign.
 - Milestones close on their exit criterion, not on the checkbox count.
 
-**Current milestone: 1 — The spine.** Milestone 0 is complete: its
-[exit criterion](#milestone-0--foundations) is met and asserted in CI, alongside the determinism,
-module-isolation and performance-budget checks the architecture documents ask for.
+**Current milestone: 1 — The spine.** Milestone 0 is complete. Milestone 1's **noise spine** is in:
+the attention field, shamblers that ascend it, and a shout. Its
+[exit criterion](#milestone-1--the-spine) is met for noise and asserted in CI. Light, scent, melee,
+day/night and the risk-5 checkpoint are the remainder.
 
-Run it with `npm run dev`. `npm test` is correctness; `npm run bench` and `npm run bench:frame` are
-the budgets, and they fail the build.
+Run it with `npm run dev` — `WASD` move, `Shift` sprint, **`Space` shout**, **`O` attention overlay**.
+`npm test` is correctness; `npm run bench` and `npm run bench:frame` are the budgets, and they fail
+the build.
 
 ---
 
@@ -141,13 +143,20 @@ which the project is legible as a game.
 
 ### The attention field — spec: [docs/03](docs/03-attention.md)
 
-- [ ] Three scalar layers on a **coarse grid** — 4 m cells, per
+- [x] Noise layer on a **coarse grid** — 4 m cells, per
       [scale and calibration](docs/03-attention.md#scale-and-calibration)
-- [ ] Calibration constants as content, not magic numbers: 1 tile = 1 m, 0.7 attenuation per metre,
+      *(the field is kernel, not a module: a world with nothing emitting is coherent, a world with
+      no field is not. 256 m district ÷ 4 m = exactly 64 × 64 cells, asserted.)*
+- [x] Calibration constants as content, not magic numbers: 1 tile = 1 m, 0.7 attenuation per metre,
       18 m-equivalent wall penalty, ~3 s noise half-life
-- [ ] `AttentionEmitter` component + emission system
-- [ ] **Noise** — event-driven only; attenuated flood-fill with material-based falloff, radius bounded
+      *(`content/calibration/attention.json`. `DEFAULT_CALIBRATION` shadows it because content loads
+      after the world is built and the cell geometry has to exist first — a test asserts the two
+      agree, so drift fails the build.)*
+- [x] `AttentionEmitter` component + emission system
+- [x] **Noise** — event-driven only; attenuated flood-fill with material-based falloff, radius bounded
       by magnitude
+      *(everything reaches the field through `noise.emitted`, so a trap or a generator needs no
+      knowledge that the field exists)*
 - [ ] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
 - [ ] **Scent** — diffusion at a few Hz with a global wind vector
 - [ ] **Field memory** — milling bodies emit scent residue (**never noise**), at a magnitude that
@@ -157,31 +166,44 @@ which the project is legible as a game.
       because it emitted onto the wrong channel. **If nothing changes, cut the mechanic** rather than
       carrying it as decoration.
 - [ ] Dirty-region tracking
+      *(not yet earned. Propagation touches only what a magnitude reaches, and decay is a 4,096-cell
+      scan costing nothing measurable. It becomes worth doing when scent makes the field continuous.)*
 - [ ] Per-tick propagation budget with a deterministic overflow queue (degrade the field's update rate,
       never the frame)
-- [ ] Field is part of the save state
-- [ ] Debug overlay visualizing all three channels *(developer-only — see the
-      [information rule](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable))*
+- [x] Field is part of the save state
+      *(sparse — live cells only, so a quiet save costs nothing and a loud one is bounded. Note
+      `canonicalize` rejects negative zero, which a decaying float reaches: values under the floor
+      snap to a hard 0.)*
+- [x] Debug overlay visualizing the noise channel *(developer-only, `O` to toggle, off by default —
+      see the [information rule](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable).
+      Grows the other two channels when they exist.)*
 
 ### Spatial partitioning — spec: [docs/22](docs/22-performance.md#spatial-partitioning)
 
 - [ ] Uniform spatial hash over entity positions
 - [ ] Neighbor queries for combat, emitters, and render culling
+      *(deferred to the melee work below, deliberately. Gradient ascent needs no neighbour queries —
+      that is why the spike measured the angular bias at zero cost — and render culling already
+      exists. Building it before combat needs it would be optimising an absence.)*
 
 ### Zombies — spec: [docs/14](docs/14-zombies.md)
 
-- [ ] Shambler entity with a sensory profile weighting the three channels
-- [ ] Gradient ascent: noise as impulse, scent as bias, light as line-of-sight pull
-- [ ] **Persistent per-individual angular bias (±0.62 rad)** on the gradient direction — assigned once
+- [x] Shambler entity with a sensory profile weighting the three channels
+      *(all three weights are read; only noise is live, so scent slots in behind it)*
+- [x] Gradient ascent on noise. Scent-as-bias and light-as-line-of-sight arrive with their channels
+- [x] **Persistent per-individual angular bias (±0.62 rad)** on the gradient direction — assigned once
       at spawn from the seeded RNG stream, never re-rolled, **included in save state**. Without it
       they form [conga lines, not a horde](docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own).
-- [ ] Investigate on arrival → mill → disperse, **raising local scent** so the field gains memory
+      *(mutation-tested: delete the bias and twenty shamblers in one cell collapse to a single heading)*
+- [x] Investigate on arrival → mill → disperse
+      *(**raising local scent** waits for the scent channel — that is the field-memory item above)*
 - [ ] Pursue on direct contact
 - [ ] Damage model: head and locomotion are what matter; a crawler is still lethal
 
 ### The player survivor — spec: [docs/09](docs/09-combat.md)
 
-- [ ] Direct movement control of one entity
+- [x] Direct movement control of one entity
+      *(landed in Milestone 0; it now emits into the field — walking 1, sprinting 6, shouting 120)*
 - [ ] Melee loop: wind-up → connect/miss → recovery, all interruptible
 - [ ] Stamina cost per swing, scaled by weapon weight
 - [ ] Stagger on solid connect
@@ -196,11 +218,25 @@ which the project is legible as a game.
 
 ### Performance
 
+- [x] Budget scenarios for the loud district: *after-a-shout* and *crowded-and-loud*, each held at the
+      **same budget as its quiet twin** — the claim being guarded is that converging is not in a
+      different cost class from drifting. Measured 0.19 ms against 0.15 at 300 bodies, 1.38 against
+      1.04 at 2,000. The frame benchmark now samples mid-convergence rather than at rest.
 - [ ] ⚠ **Risk checkpoint (roadmap risk 5):** synthetic 500-zombie load test. Continuous scent
       diffusion is [the most likely thing to need rework](docs/22-performance.md#known-risks) — find
       out now, not in Milestone 2.
+      *(still open, and still about **scent**. The numbers above narrow nothing that the spike had not
+      already narrowed: noise is event-driven and cheap, which was never the risk.)*
 
 > **Exit criterion:** make noise, and they come. Go quiet, and they don't.
+>
+> ✅ **Met for noise**, asserted in `test/integration/attention.test.ts` against the shipped boot path,
+> with the negative control that makes it capable of failing: the same seed and the same 1,200 ticks
+> *without* a shout leaves the horde where it was. Measured, a shout takes the crowd within 50 m from
+> 30 bodies to 92.
+>
+> The milestone is **not closed**: light, scent, melee, day/night and the risk-5 checkpoint are all
+> still open above. What is closed is the question of whether the field reads as a game.
 
 ---
 

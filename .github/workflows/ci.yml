@@ -18,8 +18,8 @@ jobs:
 
       - run: npm ci
 
-      # Three projects: the main build, the sim/ purity gate (compiled without the DOM
-      # lib, so DOM access in sim/ is a type error), and the throwaway spike.
+      # Two projects: the main build, and the sim/ purity gate (compiled without the DOM
+      # lib, so DOM access in sim/ is a type error rather than a review comment).
       - name: Typecheck
         run: npm run typecheck
 
@@ -30,7 +30,7 @@ jobs:
         run: npm run format:check
 
       # Correctness: unit, determinism, module isolation, save/load, and the Milestone 0
-      # exit criterion.
+      # and 1 exit criteria.
       - name: Test
         run: npm test
 

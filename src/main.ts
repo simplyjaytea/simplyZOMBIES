@@ -16,6 +16,10 @@ import { createWebStorage, SAVE_KEY } from "./platform/storage";
 import { createCamera } from "./render/camera";
 import { Renderer } from "./render/renderer";
 import { boot } from "./sim/boot";
+import { ContentRegistry } from "./sim/content/registry";
+import { calibrationFromContent } from "./sim/field/attention";
+import { defineCoreStats, StatRegistry } from "./sim/modifiers/stats";
+import { Shambler, ShamblerState } from "./sim/modules/shambler";
 import type { World } from "./sim/kernel/world";
 import { applySave, createSave, decodeSave, encodeSave, StaleSaveError } from "./sim/kernel/save";
 import { fingerprint } from "./sim/kernel/serialize";
@@ -39,35 +43,51 @@ const canvas = document.getElementById("view") as HTMLCanvasElement;
 const hud = document.getElementById("hud") as HTMLElement;
 const help = document.getElementById("help") as HTMLElement;
 
-const { world, map } = boot({ seed: SEED, wanderers: numeric("wanderers", DEFAULT_WANDERERS) });
+// ---- content ---------------------------------------------------------------
+
+/**
+ * Load and validate content, before the world is built.
+ *
+ * Before, because the attention field's cell geometry comes out of
+ * `content/calibration/attention.json` and has to be known at construction. The error is
+ * captured and displayed rather than thrown, so a typo in a JSON file is a message on screen
+ * you can fix and watch reload -- not a blank page. It still refuses to publish invalid
+ * content, which is the part docs/20:153 actually insists on.
+ */
+function loadContent(source: typeof webContent): {
+  content: ContentRegistry;
+  error: string | null;
+} {
+  const content = new ContentRegistry();
+  const stats = new StatRegistry();
+  defineCoreStats(stats);
+  try {
+    content.load(
+      source.readContentFromWeb(),
+      createSchemaValidator(source.readSchemasFromWeb()),
+      stats,
+    );
+    return { content, error: null };
+  } catch (e) {
+    return { content, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+let loaded = loadContent(webContent);
+let contentError = loaded.error;
+
+const { world, map } = boot({
+  seed: SEED,
+  wanderers: numeric("wanderers", DEFAULT_WANDERERS),
+  content: loaded.content,
+  // A content failure is already on screen; falling back to the shipped constants is what
+  // keeps the message visible instead of replacing it with a blank page.
+  ...(contentError === null ? { calibration: calibrationFromContent(loaded.content) } : {}),
+});
 
 const camera = createCamera(14);
 const renderer = new Renderer(canvas, map);
 const storage = createWebStorage(window.localStorage);
-
-// ---- content ---------------------------------------------------------------
-
-/**
- * Load and validate content.
- *
- * The error is captured and displayed rather than thrown, so a typo in a JSON file is a
- * message on screen you can fix and watch reload -- not a blank page. It still refuses to
- * publish invalid content, which is the part docs/20:153 actually insists on.
- */
-function loadContent(source: typeof webContent): string | null {
-  try {
-    world.content.load(
-      source.readContentFromWeb(),
-      createSchemaValidator(source.readSchemasFromWeb()),
-      world.stats,
-    );
-    return null;
-  } catch (e) {
-    return e instanceof Error ? e.message : String(e);
-  }
-}
-
-let contentError = loadContent(webContent);
 
 // ---- transient notices -----------------------------------------------------
 
@@ -137,8 +157,21 @@ function togglePause(): void {
   if (paused) renderer.draw(world, camera, 0);
 }
 
+function shout(): void {
+  // Queued, not applied. It reaches the world through the same command path as movement, so
+  // it lands on a tick and goes into the replay record (docs/19-architecture.md#determinism).
+  world.commands.push({ type: "shout" });
+  say("you shout");
+}
+
+function toggleOverlay(): void {
+  renderer.showAttention = !renderer.showAttention;
+  say(renderer.showAttention ? "attention overlay on" : "attention overlay off");
+  if (paused) renderer.draw(world, camera, 0);
+}
+
 const input = attachKeyboard(window, {
-  onPress: { F5: save, F9: load, KeyP: togglePause },
+  onPress: { F5: save, F9: load, KeyP: togglePause, Space: shout, KeyO: toggleOverlay },
 });
 
 function resize(): void {
@@ -152,25 +185,44 @@ function resize(): void {
 window.addEventListener("resize", resize);
 resize();
 
+/** Shamblers by state, for the HUD. The one line that says whether the field is working. */
+function hordeStates(w: World): { seeking: number; milling: number; drifting: number } {
+  let seeking = 0;
+  let milling = 0;
+  let drifting = 0;
+  for (const entity of w.components.query(Shambler)) {
+    const state = w.components.getOrThrow(entity, Shambler).state;
+    if (state === ShamblerState.Seek) seeking++;
+    else if (state === ShamblerState.Investigate) milling++;
+    else drifting++;
+  }
+  return { seeking, milling, drifting };
+}
+
 function updateHud(w: World): void {
   const showing = performance.now() < noticeUntil ? `\n${notice}` : "";
   const problem =
     contentError === null ? "" : `\n<span class="hot">content: ${contentError}</span>`;
+  const horde = hordeStates(w);
+  const live = w.field.liveCells();
 
   hud.innerHTML =
     `<b>tick</b>     ${w.tick}${paused ? "  [PAUSED]" : ""}\n` +
     `<b>sim</b>      ${simMs.toFixed(2)} ms\n` +
     `<b>draw</b>     ${renderer.lastDrawMs.toFixed(2)} ms   ${renderer.visibleCount} drawn\n` +
     `<b>entities</b> ${w.entities.count}\n` +
+    `<b>noise</b>    ${live} live cells   peak ${w.field.peakNoise().toFixed(1)}\n` +
+    `<b>horde</b>    ${horde.seeking} seeking, ${horde.milling} milling, ` +
+    `${horde.drifting} drifting\n` +
     `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes\n` +
     `<b>state</b>    ${fingerprint(w.serialize())}` +
     problem +
     showing;
 
   help.textContent =
-    "WASD / arrows move   Shift sprint   P pause\n" +
+    "WASD / arrows move   Shift sprint   Space shout   O overlay   P pause\n" +
     "F5 save   F9 load\n" +
-    "the state fingerprint is what the determinism test compares";
+    "make noise, and they come. Go quiet, and they don't.";
 }
 
 loop.start();
@@ -197,7 +249,11 @@ loop.start();
 if (import.meta.hot) {
   import.meta.hot.accept("./platform/content-source-web.ts", (updated) => {
     if (updated === undefined) return;
-    contentError = loadContent(updated as unknown as typeof webContent);
+    loaded = loadContent(updated as unknown as typeof webContent);
+    contentError = loaded.error;
+    // Calibration is deliberately not re-applied: the field's cell geometry is fixed at
+    // construction, so changing cellMetres needs a reload rather than a hot swap. Everything
+    // else in content is live.
     say(contentError === null ? "content reloaded" : "content reload failed");
   });
 }

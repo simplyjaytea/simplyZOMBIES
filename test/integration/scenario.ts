@@ -83,7 +83,8 @@ export function buildScenario(seed: number, map: TileMap): World {
     id: "test.input",
     phase: "input",
     run: (w) => {
-      const commands = w.commands.take(w.tick);
+      // Read, never consume -- the kernel drains the queue once per tick for every system.
+      const commands = w.commands.current;
       if (commands.length === 0) return;
 
       for (const entity of w.components.query(Position, Velocity, Tags)) {

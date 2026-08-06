@@ -14,6 +14,9 @@ export function step(world: World): void {
   world.tick++;
 
   world.events.clearRecord();
+  // Input is drained here rather than by whichever system asks first, so every system this
+  // tick sees the same commands and the log records them exactly once.
+  world.commands.take(world.tick);
   world.systems.run(world);
 
   // Drained after systems, so a handler always observes a fully-stepped tick rather than a
