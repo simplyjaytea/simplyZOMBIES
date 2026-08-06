@@ -185,6 +185,29 @@ function resize(): void {
 window.addEventListener("resize", resize);
 resize();
 
+/**
+ * The state fingerprint, recomputed a few times a second rather than every frame.
+ *
+ * `serialize()` canonicalises the entire world, and once the attention field joined the
+ * snapshot that reached ~14 ms at 2,000 entities with a shout in flight -- most of a 16.67 ms
+ * frame, spent on a debug string. Worse, it was invisible to the frame budget: the harness
+ * gates on sim + draw, and this is neither, so the work fell straight through the gap.
+ *
+ * Four times a second is still faster than anyone can read it.
+ */
+const FINGERPRINT_INTERVAL_MS = 250;
+let fingerprintText = "";
+let fingerprintAt = -Infinity;
+
+function currentFingerprint(w: World): string {
+  const now = performance.now();
+  if (now - fingerprintAt >= FINGERPRINT_INTERVAL_MS) {
+    fingerprintText = fingerprint(w.serialize());
+    fingerprintAt = now;
+  }
+  return fingerprintText;
+}
+
 /** Shamblers by state, for the HUD. The one line that says whether the field is working. */
 function hordeStates(w: World): { seeking: number; milling: number; drifting: number } {
   let seeking = 0;
@@ -215,7 +238,7 @@ function updateHud(w: World): void {
     `<b>horde</b>    ${horde.seeking} seeking, ${horde.milling} milling, ` +
     `${horde.drifting} drifting\n` +
     `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes\n` +
-    `<b>state</b>    ${fingerprint(w.serialize())}` +
+    `<b>state</b>    ${currentFingerprint(w)}` +
     problem +
     showing;
 

@@ -36,6 +36,23 @@ const WORK_BUDGET_MS = flag("work-budget-ms", 8);
 const PORT = 5179;
 const URL = `http://127.0.0.1:${PORT}/?wanderers=${WANDERERS}`;
 
+// A budget harness that hangs is worse than one that fails: CI sits on it for the full job
+// timeout and reports nothing at all. Everything below that can block gets a deadline, and
+// blowing one is a failure with a message rather than silence.
+const OVERALL_TIMEOUT_MS = flag("timeout-ms", 180_000);
+const SAMPLE_TIMEOUT_MS = Math.max(30_000, SECONDS * 1000 * 4);
+
+/** Reject with a useful message if `promise` outlasts `ms`. */
+function withDeadline(promise, ms, what) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms: ${what}`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 function startServer() {
   const child = spawn(
     "npx",
@@ -88,7 +105,7 @@ async function main() {
       }
     });
 
-    await page.goto(URL, { waitUntil: "networkidle" });
+    await page.goto(URL, { waitUntil: "networkidle", timeout: 60_000 });
     await page.waitForFunction(() => globalThis.__game !== undefined, null, { timeout: 30_000 });
 
     if (errors.length > 0) {
@@ -102,45 +119,65 @@ async function main() {
     // which is the cheap half of the simulation and the half a budget cannot usefully guard.
     // The shout is pushed through the ordinary command queue, so this measures exactly the
     // code path a player produces by pressing space.
-    const result = await page.evaluate(async (seconds) => {
-      const frames = [];
-      const draws = [];
-      let last = performance.now();
-      let frame = 0;
+    const result = await withDeadline(
+      page.evaluate(async (seconds) => {
+        const frames = [];
+        const draws = [];
+        let last = performance.now();
+        let frame = 0;
 
-      globalThis.__game.world.commands.push({ type: "shout" });
+        globalThis.__game.world.commands.push({ type: "shout" });
 
-      await new Promise((resolve) => {
-        const deadline = performance.now() + seconds * 1000;
-        const sample = (now) => {
-          frames.push(now - last);
-          last = now;
-          draws.push(globalThis.__game.renderer.lastDrawMs);
-          // Noise has a ~3 s half-life, so re-shout often enough that the sample never
-          // drifts back into measuring a quiet district by accident.
-          if (++frame % 120 === 0) globalThis.__game.world.commands.push({ type: "shout" });
-          if (now < deadline) requestAnimationFrame(sample);
-          else resolve(undefined);
+        await new Promise((resolve) => {
+          const started = performance.now();
+          const deadline = started + seconds * 1000;
+          // Belt and braces: if rAF stops firing -- a throttled or occluded page, a renderer
+          // that has died -- fall back to a timer rather than waiting forever. The sample count
+          // in the result is what tells you this happened.
+          const bail = setTimeout(() => resolve(undefined), seconds * 1000 + 15_000);
+          const sample = (now) => {
+            frames.push(now - last);
+            last = now;
+            draws.push(globalThis.__game.renderer.lastDrawMs);
+            // Noise has a ~3 s half-life, so re-shout often enough that the sample never
+            // drifts back into measuring a quiet district by accident.
+            if (++frame % 120 === 0) globalThis.__game.world.commands.push({ type: "shout" });
+            if (now < deadline) requestAnimationFrame(sample);
+            else {
+              clearTimeout(bail);
+              resolve(undefined);
+            }
+          };
+          requestAnimationFrame(sample);
+        });
+
+        if (frames.length < 10) {
+          throw new Error(
+            `only ${frames.length} frames in ${seconds}s -- the page stopped animating, so ` +
+              `there is nothing to measure`,
+          );
+        }
+
+        const stat = (xs) => {
+          const sorted = [...xs].sort((a, b) => a - b);
+          return {
+            avg: xs.reduce((a, b) => a + b, 0) / xs.length,
+            p95: sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))],
+          };
         };
-        requestAnimationFrame(sample);
-      });
 
-      const stat = (xs) => {
-        const sorted = [...xs].sort((a, b) => a - b);
+        // Drop the first handful: the tile layer rasterises on the first draw, which is a
+        // one-off cost and not what the budget is about.
         return {
-          avg: xs.reduce((a, b) => a + b, 0) / xs.length,
-          p95: sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))],
+          frame: stat(frames.slice(5)),
+          draw: stat(draws.slice(5)),
+          samples: frames.length,
+          ...globalThis.__game.stats(),
         };
-      };
-
-      // Drop the first handful: the tile layer rasterises on the first draw, which is a
-      // one-off cost and not what the budget is about.
-      return {
-        frame: stat(frames.slice(5)),
-        draw: stat(draws.slice(5)),
-        ...globalThis.__game.stats(),
-      };
-    }, SECONDS);
+      }, SECONDS),
+      SAMPLE_TIMEOUT_MS,
+      "sampling frames in the browser",
+    );
 
     if (errors.length > 0) {
       throw new Error(`page reported errors:\n  ${errors.join("\n  ")}`);
@@ -151,6 +188,7 @@ async function main() {
 
     console.log(`  entities   ${result.entities}, ${result.visible} drawn`);
     console.log(`  ticks      ${result.tick}`);
+    console.log(`  samples    ${result.samples} frames over ${SECONDS}s`);
     console.log(`  sim        ${result.simMs.toFixed(2)} ms/tick`);
     console.log(
       `  draw       ${result.draw.avg.toFixed(2)} ms avg   p95 ${result.draw.p95.toFixed(2)} ms`,
@@ -175,6 +213,11 @@ async function main() {
     // measuring the host -- a headless container's rAF pacing is not vsync, and gating on
     // it makes the harness flaky rather than strict. Observed fps is reported, not gated,
     // except at a floor low enough that only a real collapse trips it.
+    //
+    // Known blind spot, and it has already bitten once: this gates sim + draw, so per-frame
+    // work that is neither -- the HUD's state fingerprint, at ~14 ms once the attention field
+    // joined the snapshot -- falls straight through and is only caught by the fps floor
+    // below. Anything expensive added to the render callback needs its own measurement.
     if (workMs > WORK_BUDGET_MS) {
       failures.push(`sim+draw was ${workMs.toFixed(2)} ms, over the ${WORK_BUDGET_MS} ms budget`);
     }
@@ -195,7 +238,16 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exitCode = 1;
-});
+// The outermost guard. Anything that escapes the per-step deadlines above -- a browser that
+// never launches, a dev server that accepts the connection and then stops talking -- still
+// ends as a failure with a message instead of a job that sits until CI's own timeout.
+withDeadline(main(), OVERALL_TIMEOUT_MS, "the frame benchmark as a whole")
+  .catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    // The deadline can win the race while a browser or dev server is still up, and a live
+    // handle would keep node alive forever -- which is the hang this is here to prevent.
+    process.exit(process.exitCode ?? 0);
+  });
