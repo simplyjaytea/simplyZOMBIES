@@ -5,6 +5,7 @@
 // entities. "Forcing them into ECS would be dogma without benefit."
 
 import { ContentRegistry } from "../content/registry";
+import { AttentionField, type AttentionFieldSave } from "../field/attention";
 import { ModifierStore, type ModifierStoreSave } from "../modifiers/modifiers";
 import { defineCoreStats, StatRegistry } from "../modifiers/stats";
 import { RngRegistry, type RngState } from "../rng";
@@ -27,6 +28,18 @@ export type WorldSnapshot = {
   entities: EntityStoreSave;
   components: Record<string, [EntityId, unknown][]>;
   modifiers: ModifierStoreSave;
+  field: AttentionFieldSave;
+};
+
+/**
+ * Parts a world can be built with rather than building for itself.
+ *
+ * Both need something the `World` constructor cannot produce on its own: the attention field
+ * is sized to a map, and content has to be read by `platform/`. `boot` supplies them.
+ */
+export type WorldParts = {
+  readonly field?: AttentionField;
+  readonly content?: ContentRegistry;
 };
 
 export class World {
@@ -46,13 +59,23 @@ export class World {
   /** Live modifiers. State, and in the snapshot. */
   readonly modifiers: ModifierStore;
   /** Loaded content. Also code-adjacent: reloaded from disk at boot, never serialized. */
-  readonly content = new ContentRegistry();
+  readonly content: ContentRegistry;
 
-  constructor(seed: number) {
+  /**
+   * The attention field. Kernel, per docs/19-architecture.md#one-spine-many-optional-limbs,
+   * so it exists even in a world booted with every module disabled -- what the modules
+   * supply is anything that emits into it.
+   */
+  readonly field: AttentionField;
+
+  constructor(seed: number, parts: WorldParts = {}) {
     this.seed = seed >>> 0;
     this.rng = new RngRegistry(this.seed);
     defineCoreStats(this.stats);
     this.modifiers = new ModifierStore(this.stats);
+    this.content = parts.content ?? new ContentRegistry();
+    // Inert until `boot` sizes one to a map, so nothing has to null-check the kernel.
+    this.field = parts.field ?? AttentionField.empty();
   }
 
   spawn(): EntityId {
@@ -84,6 +107,7 @@ export class World {
       entities: this.entities.save(),
       components: this.components.save(),
       modifiers: this.modifiers.save(),
+      field: this.field.save(),
     };
   }
 
@@ -104,6 +128,7 @@ export class World {
     this.entities.restore(snapshot.entities);
     this.components.restore(snapshot.components);
     this.modifiers.restore(snapshot.modifiers);
+    this.field.restore(snapshot.field);
   }
 
   /** Canonical string form. Two worlds are identical iff these strings are equal. */

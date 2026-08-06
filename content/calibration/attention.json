@@ -1,0 +1,9 @@
+{
+  "id": "calibration.attention",
+  "description": "docs/03-attention.md#scale-and-calibration. Every emitter magnitude in the game is a ratio against these, so changing one re-scales all of them at once.",
+  "cellMetres": 4,
+  "attenuationPerMetre": 0.7,
+  "wallPenaltyMetres": 18,
+  "noiseHalfLifeSeconds": 3,
+  "floor": 0.05
+}

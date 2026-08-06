@@ -19,9 +19,18 @@ export type Scenario = {
   /** Entities the renderer would be asked to draw, for the frame benchmark. */
   readonly entities: number;
   readonly build: () => World;
+  /**
+   * Run before each tick, warmup included. For scenarios that have to be *kept* in the state
+   * they are measuring -- a shout decays in about half a minute, so a single one at build
+   * time would leave most of the run measuring a quiet district by mistake.
+   */
+  readonly drive?: (world: World, tick: number) => void;
 };
 
 const SEED = 20260805;
+
+/** Often enough that the field never goes quiet, rarely enough to be a realistic worst case. */
+const SHOUT_INTERVAL = 200;
 
 export const SCENARIOS: readonly Scenario[] = [
   {
@@ -34,11 +43,41 @@ export const SCENARIOS: readonly Scenario[] = [
     build: () => boot({ seed: SEED, wanderers: 300 }).world,
   },
   {
+    id: "after-a-shout",
+    description:
+      "The district converging. Every shambler is running gradient ascent and the field " +
+      "is live across all 4,096 cells -- the state the attention model is actually for.",
+    // Deliberately the SAME budget as quiet-night, which is the actual claim worth guarding:
+    // a district converging must not be in a different cost class from one drifting. Measured
+    // 0.19 ms against quiet-night's 0.15 -- if that gap ever becomes a multiple, the
+    // event-driven design the spike vindicated has stopped being event-driven.
+    tickBudgetMs: 0.5,
+    entities: 300,
+    build: () => boot({ seed: SEED, wanderers: 300 }).world,
+    drive: (world, tick) => {
+      if (tick % SHOUT_INTERVAL === 0) world.commands.push({ type: "shout" });
+    },
+  },
+  {
     id: "crowded",
     description: "Entity-count stress: 2,000 wanderers, roughly the docs/22 target ceiling.",
     tickBudgetMs: 4,
     entities: 2000,
     build: () => boot({ seed: SEED, wanderers: 2000 }).world,
+  },
+  {
+    id: "crowded-and-loud",
+    description:
+      "Both at once: 2,000 bodies all seeking. If continuous propagation is ever going to " +
+      "hurt, it hurts here first.",
+    // Again the same budget as its quiet twin, and for the same reason. Measured 1.38 ms
+    // against crowded's 1.04. A budget of 6 would have let this triple without failing.
+    tickBudgetMs: 4,
+    entities: 2000,
+    build: () => boot({ seed: SEED, wanderers: 2000 }).world,
+    drive: (world, tick) => {
+      if (tick % SHOUT_INTERVAL === 0) world.commands.push({ type: "shout" });
+    },
   },
 ];
 
@@ -58,11 +97,19 @@ export type Measurement = {
  */
 export function measure(scenario: Scenario, ticks = 600, warmup = 100): Measurement {
   const world = scenario.build();
-  stepN(world, warmup);
+  const drive = scenario.drive;
+
+  for (let i = 0; i < warmup; i++) {
+    drive?.(world, world.tick);
+    stepN(world, 1);
+  }
 
   const samples: number[] = [];
   const started = performance.now();
   for (let i = 0; i < ticks; i++) {
+    // Outside the timed span: queueing a command is the host's job, not the tick's, and
+    // charging the sim for it would flatter or penalise the wrong thing.
+    drive?.(world, world.tick);
     const t0 = performance.now();
     stepN(world, 1);
     samples.push(performance.now() - t0);

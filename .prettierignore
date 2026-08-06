@@ -1,11 +1,6 @@
 node_modules/
 dist/
-dist-spike/
 package-lock.json
-
-# The spike is throwaway and formatted to its own taste. Reformatting it would churn a
-# diff across code that is scheduled for deletion.
-spike/
 
 # The docs are hand-wrapped prose; prettier's reflow fights the authored line breaks.
 docs/

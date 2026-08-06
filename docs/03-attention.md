@@ -67,6 +67,7 @@ Which makes the table below read in metres, against a 256 m district:
 | Sprinting (6) | 8.6 m | Sprinting past something wakes it |
 | Melee connect (8) | 11 m | A fight draws the neighbours, not the block |
 | Breaking a window (25) | 36 m | The building, and the street outside it |
+| Shouting (120) | 171 m | Most of a district. The cheapest way to make a mistake on purpose |
 | Generator (45) | 64 m | A continuous quarter-radius beacon that runs all night |
 | [Engine](25-vehicles.md) (120–220) | 171–314 m | **Continuous, and it moves.** Most of a district, sustained |
 | Unsuppressed firearm (180) | 257 m | **One district, exactly.** One shot is a district-wide event |
@@ -83,9 +84,21 @@ highways and a building casts a much smaller shadow than its footprint suggests 
 property [roads](24-world-and-scale.md#roads) already relies on, seen from the other side. Do not
 budget for buildings as noise insulation; budget for them as detours.
 
-**Decay** is multiplicative with a **~3 s half-life**, so a spike is inaudible roughly 15 seconds
-after a shout and 25 after a gunshot. That is what "fast — seconds to a minute" above means
-numerically. The horde it already summoned is still walking, which is the entire point.
+**Decay** is multiplicative with a **~3 s half-life**, applied to the propagated field. That is what
+"fast — seconds to a minute" above means numerically.
+
+What decays is **loudness everywhere at once, not the radius**. This is worth stating explicitly
+because the intuitive reading is wrong, and Milestone 1 found it the moment there was something to
+measure: multiplying the stored field leaves its *shape* untouched, so five half-lives after a shout
+every cell is 1/32 of what it was, and the edge has barely moved. The audible radius only retreats as
+the faint tail crosses the floor — around half a minute for a shout, and a little longer for a
+gunshot.
+
+The behaviour that produces is the one the design wants, arrived at by a different route than "the
+spike is inaudible in 15 seconds" suggests: a shout stops being a *strong* attractor within seconds,
+while staying faintly audible across most of its original reach for long enough that the horde it
+summoned is still walking. You can be quiet again in a minute; they are still coming, which is the
+entire point.
 
 ## Emitters
 
@@ -101,6 +114,7 @@ Written as data (see [ECS & content](20-ecs-and-content.md)); magnitudes are in 
 | Melee swing (connect) | 8 | Blunt louder than blade |
 | Breaking a window | 25 | |
 | Hammering / construction | 30 | Sustained — a build project is a beacon all day |
+| Shouting | 120 | Loud enough to be a district event, quiet enough not to be a gunshot |
 | Generator (running) | 45 | Continuous, and it doesn't stop when you sleep |
 | Bow / crossbow | 4 | The [quiet branch](09-combat.md) |
 | Suppressed firearm | 40 | Much quieter than unsuppressed; still very loud in absolute terms |
