@@ -1,0 +1,8 @@
+{
+  "id": "zombie.shambler",
+  "extends": "zombie.base",
+  "name": "Shambler",
+  "introducedInWave": 0,
+  "sensory": { "noise": 0.2, "light": 0.1, "scent": 0.9 },
+  "locomotion": { "speed": 0.8 }
+}

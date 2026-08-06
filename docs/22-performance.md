@@ -30,9 +30,27 @@ discovering in month nine that the design is not achievable, having built all of
 | Survivors | ~20 individually simulated at full fidelity |
 | Sim tick | Fixed 20 Hz, decoupled from render |
 | Tick budget | ≤8 ms average, ≤16 ms worst case |
+| **Draw budget** | **≤10 ms average per frame at 1,000 visible entities** |
+| **Sim share of frame** | **≤25% of frame time at horde scale** — if the tick is the majority of a frame, something regressed badly |
 | Save write | <100 ms (frequent, per the [hardcore contract](01-hardcore-contract.md)) |
 | **Chunk stream-in** | **≤4 ms per frame, amortized. Never stalls a frame.** |
 | **Sustained driving speed** | **60 km/h through a loaded district without dropping below 60 fps** |
+
+### Aim the budgets at the renderer
+
+The last two rows are new, and they exist because the
+[spike](23-roadmap.md#spike-findings-attention-field) measured the opposite of what this document
+originally assumed. At 1,560 zombies: **~0.13 ms of simulation against ~3.7 ms of drawing.** The tick
+was two orders of magnitude inside its 8 ms budget while the frame was ~30× more expensive than the
+tick that fed it.
+
+That does not mean the simulation budgets are wrong — they are what stops a bad system landing. It
+means **a budget only on the tick would have caught nothing**, because the tick was never the problem.
+Every scenario below asserts frame time as well as tick time for that reason.
+
+The caveat worth carrying: the spike had no combat, no grabs, no per-part damage, no scent diffusion,
+and one channel instead of three. Simulation cost will rise. Drawing 1,000 sprites will not get
+cheaper on its own.
 
 ## The core idea: tiered simulation
 
@@ -77,7 +95,15 @@ doesn't need per-tile precision. This is the single largest cost saving availabl
 | **Scent** | The only continuously-updating channel. Diffusion at a low rate — a few Hz, not every tick. |
 
 **Dirty-region tracking**: only cells that changed, plus their propagation neighborhoods, are
-recomputed. A quiet base at night costs almost nothing.
+recomputed. A quiet base at night costs almost nothing — the spike measured **six live field cells**
+at rest, which is the strongest evidence the event-driven design for noise is right.
+
+**The cost of a loud event is bounded and known.** At the
+[calibrated scale](03-attention.md#scale-and-calibration) — 4 m cells, 0.7 attenuation per metre — an
+unsuppressed gunshot floods a 257 m radius, touching roughly **13,000 cells**. The spike measured
+1,112 cells as free, so the worst routine case is ~12× that and still cheap. This is the number the
+benchmark suite asserts against; if a propagation change makes a gunshot cost materially more than
+this, it broke the bounded-radius property.
 
 **Budgeting**: propagation work has a per-tick ceiling. Excess queues to the next tick. Under extreme
 load the field updates slightly slower rather than the frame dropping — degradation is graceful and
@@ -147,9 +173,14 @@ boundary doesn't thrash the whole district in and out.
 
 ## Rendering
 
+**This is the measured cost centre**, not the simulation. Everything below is load-bearing rather
+than an optimization to reach for later.
+
 - **Decoupled from the sim.** Render interpolates between the last two fixed-timestep states, so 20 Hz
   simulation looks smooth at 60 fps.
-- **Aggressive culling** via the spatial hash.
+- **Aggressive culling** via the spatial hash. At a ~30× draw-to-sim ratio, an entity that is
+  simulated but not drawn is nearly free — so culling early is worth more than any sim optimization
+  available.
 - **Sprite batching** by texture; the tile layer redraws only dirty regions.
 - **The renderer never writes to the sim** and is never on the tick's critical path.
 
@@ -176,12 +207,16 @@ way the design could become unaffordable:
 
 | Scenario | Tests | Budget |
 |---|---|---|
-| **Quiet night** | Baseline; the field at rest should cost almost nothing | ≤2 ms tick |
-| **Night 40 siege** — 600 zombies, 18 survivors | Combat, grabs, flow fields at peak entity count | ≤8 ms tick, 60 fps |
+| **Quiet night** | Baseline; the field at rest should cost almost nothing | **≤0.5 ms tick, ≤4 ms frame** |
+| **Night 40 siege** — 600 zombies, 18 survivors | Combat, grabs, flow fields at peak entity count | **≤8 ms tick, ≤10 ms frame**, 60 fps |
 | **The drive** — 60 km/h through a district with 400 zombies loaded, streaming ahead | **The headline case.** Streaming, promotion, and horde simulation simultaneously | 60 fps, ≤4 ms/frame streaming, no stalls |
 | **Convoy transit** — three [vehicles](26-mobile-bases.md#convoys), full modules, crossing two districts | Multi-vehicle load, district promotion at speed | 60 fps sustained |
 | **Long run** — 100 simulated days headless | Memory growth, leak detection, state size | No unbounded growth |
 | **Save under load** | Serialization during a siege | <100 ms |
+
+The *Quiet night* budget is deliberately much tighter than it was. The spike measured 0.01 ms sim and
+2.10 ms frame with 60 zombies idle, so the original `≤2 ms tick` would have passed while the tick got
+200× slower. A baseline scenario that cannot fail is not a baseline.
 
 The drive scenario is the one that decides whether the continuous region was the right call. It should
 be written and running *before* vehicles are built, against synthetic load — finding out early is the
@@ -194,6 +229,7 @@ Named honestly, since they're the likeliest places this breaks:
 | Risk | Mitigation |
 |---|---|
 | **Streaming at driving speed** | Road-topology prefetch, staged promotion, load-tied speed cap. **The hardest problem in the design**, and the reason the drive benchmark exists. |
+| **Draw cost at horde scale** | Measured at ~30× the sim cost, and the reason the budgets above assert frame time. Culling, batching, and dirty-region tile redraw. The likeliest source of a frame-rate regression is a rendering change, not a simulation one. |
 | Scent diffusion is O(grid) and continuous | Coarse grid, low update rate, dirty regions. The most likely subsystem to need rework. |
 | Tier thrashing at boundaries | Hysteresis — different promote and demote thresholds |
 | A siege promoting hundreds at once | Staged promotion across several ticks, beginning before contact |

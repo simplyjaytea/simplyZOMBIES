@@ -9,9 +9,11 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["spike"]
+  "include": ["src", "test"]
 }

@@ -25,6 +25,37 @@ That is an expensive choice, and it's the one the whole
     └────────┴────────┴────────┘         from wherever you started
 ```
 
+### How big a district is
+
+Previously an open question, and everything here was sensitive to it. Settled by the
+[attention spike](23-roadmap.md#spike-findings-attention-field), which needed a real number to
+calibrate noise against:
+
+| | |
+|---|---|
+| **District** | **256 × 256 m** (1 tile = 1 m; 64 × 64 [field cells](03-attention.md#scale-and-calibration)) |
+| **Between districts** | **300–500 m of road**, not a shared edge |
+| **Region span** | ~1.7 km (3×3) to ~2.2 km (4×4) |
+
+The number came from the noise ladder: an unsuppressed firearm carries 257 m, and *one gunshot equals
+one district* is the relationship the whole [attention design](03-attention.md) is built on. A
+generator's 64 m is then a quarter-radius beacon, and an
+[engine's](25-vehicles.md) 171–314 m covers most of a district continuously — which is exactly the
+claim that vehicles are the loudest thing you own.
+
+**Districts do not touch.** That matters more than it looks. Packed edge-to-edge, a 3×3 region would
+span 768 m — and the radius diagram below has the player walking 800 m by week 6, so they would have
+covered the entire region on foot before ever needing a vehicle. Connecting road stretches of
+300–500 m put the region at 1.7–2.2 km, which restores the progression *and* gives
+[road blockages](#roads), [route trails](#route-trails), and roadside wrecks somewhere to live. A
+gate-to-far-edge drive is then roughly two minutes at 60 km/h.
+
+**The content cost is the footprints.** At suburban density a 256 m district holds **~40–70
+buildings**. Since [interiors are authored, never generated](#generation), that pool — shared across
+districts with rotation and variation — is the real per-district cost, not the district definition
+itself. Worth remembering when [content shape](#content-shape) says adding a district type is a data
+entry: the type is, the buildings aren't.
+
 ## District types
 
 Each district is a loot profile, a danger profile, and a shape. They map onto the
@@ -60,7 +91,10 @@ Roads are the region's spine, and they carry more design weight than their footp
   [vehicle bases](25-vehicles.md).
 - **Where the vehicles are.** Every wreck is a potential chassis or a parts donor.
 - **Where noise carries.** Long, straight, hard-surfaced corridors propagate
-  [noise](03-attention.md) much further than built-up terrain.
+  [noise](03-attention.md) much further than built-up terrain. The spike confirmed the mechanism from
+  the other direction: noise floods *around* buildings through open ground rather than being stopped
+  by them, so **streets are noise highways** and a building shadows much less than its footprint
+  suggests. Street layout is therefore an attention-design decision, not just a navigation one.
 - **Where [factions](18-factions.md) move.** Traders and raiders use roads too, so roads are where you
   meet people.
 - **Blockable.** Wrecks, collapses, and jams close routes. Clearing one needs a winch, or manual work
@@ -116,12 +150,15 @@ The hard case: driving at 60 km/h means promoting a district from six numbers to
 one-district world that's a slow strangulation. In a region, it's a reason to drive.
 
 ```
-week 1    on foot, 200m           ████░░░░░░░░░░░░░░░░
-week 6    on foot, 800m           ░░░░████░░░░░░░░░░░░
-week 12   vehicle, next district  ░░░░░░░░████░░░░░░░░
-week 20   vehicle, far region     ░░░░░░░░░░░░████░░░░
+week 1    on foot, 200m           ████░░░░░░░░░░░░░░░░   most of your own district
+week 6    on foot, 800m           ░░░░████░░░░░░░░░░░░   your district and its neighbours
+week 12   vehicle, next district  ░░░░░░░░████░░░░░░░░   across a road stretch
+week 20   vehicle, far region     ░░░░░░░░░░░░████░░░░   the 2 km corner
 week 30+  relocate, or nomad      ░░░░░░░░░░░░░░░░████
 ```
+
+Read against [the numbers above](#how-big-a-district-is), that progression is what the region has to
+be sized for: week 1 is one district, and week 20 is the far corner of sixteen.
 
 **Fuel bounds the whole thing.** The region is large enough that you can never strip it, but
 [fuel](12-resources.md) is finite and industrial-only — so your real radius is not how far the roads go,

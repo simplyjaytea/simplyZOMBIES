@@ -165,6 +165,11 @@ Continuous scent diffusion is the [most likely thing to need rework](22-performa
 dominating instead. **Scent remains untested**, and scent is the continuous channel this risk actually
 names. The measurement below narrows the risk; it does not close it.
 
+Scent now carries a second question as well as its cost. Because
+[field memory is a scent mechanic](03-attention.md#field-memory-is-a-scent-mechanic) and the spike
+could only test it on noise, the Milestone 1 scent work has to answer *does residue do anything
+observable* at the same time as *what does diffusion cost* — one build, two checkpoints.
+
 ---
 
 ## Spike findings: attention field
@@ -172,6 +177,16 @@ names. The measurement below narrows the risk; it does not close it.
 A disposable prototype (`spike/`, and not part of the real build) tested the core thesis — *make noise
 and they come, go quiet and they don't* — before Milestone 0. One noise channel, shamblers, a tile map,
 and nothing else. Measured in Chromium at 1280×800.
+
+**All three problems below are now folded into the documents that specify the systems.** The findings
+are kept here because they are the evidence; the specifications are the authority:
+
+| Finding | Resolution | Specified in |
+|---|---|---|
+| Conga lines | Persistent per-individual angular bias, ±0.62 rad | [14 — Zombies](14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own) |
+| Noise not calibrated to district size | District pinned at 256 m; magnitudes unchanged, the *unit* supplied | [03 — Attention](03-attention.md#scale-and-calibration), [24 — World & Scale](24-world-and-scale.md#how-big-a-district-is) |
+| Field memory a no-op | Respecified as scent-only at a magnitude that propagates; verified at Milestone 1 | [03 — Attention](03-attention.md#field-memory-is-a-scent-mechanic) |
+| Rendering dominates simulation | Draw budget added; every benchmark asserts frame time | [22 — Performance](22-performance.md#aim-the-budgets-at-the-renderer) |
 
 ### It works
 
@@ -190,9 +205,11 @@ of the dead.
 
 **Fixed, at zero cost.** A persistent per-individual angular bias (±0.62 rad) applied to the gradient
 direction fans them into a broad convergence. Sim cost was 0.04 ms without and 0.05 ms with; the seek
-count was unchanged. **[Zombies](14-zombies.md) should specify this** — naive gradient ascent is not
-sufficient on its own, and the fix needs no neighbour queries, so it survives contact with
+count was unchanged. The fix needs no neighbour queries, so it survives contact with
 [the horde counts in performance](22-performance.md).
+
+**Resolved:** [zombies](14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own) now specifies it,
+including that the bias comes from the seeded RNG stream and belongs in save state.
 
 ### Problem 2 — the noise magnitudes are not calibrated to district size
 
@@ -200,18 +217,37 @@ A single 120-magnitude shout floods an entire 80×80-tile district and stays aud
 seconds. Buildings barely cast a noise shadow, because propagation simply routes around them along the
 streets.
 
-This is a **calibration** problem, not a model problem, and it lands directly on the roadmap's open
-question *"how big is a district, in metres?"* — the spike says: considerably bigger than 80×80 tiles,
-or the falloff curve wants to be steeper than linear. [World & scale](24-world-and-scale.md) and the
-[emitter tables](03-attention.md#emitters) should be reconciled against a real district size before
-either is built.
+This is a **calibration** problem, not a model problem, and it landed directly on the open question
+*"how big is a district, in metres?"*
+
+**Resolved, and the diagnosis turned out to be narrower than it looked.** The magnitude table was
+never wrong — its *ratios* are load-bearing design, quoted across six documents. What was missing was
+the **unit**: nothing had ever defined metres per tile or attenuation per metre, so the spike picked a
+constant arbitrarily (2.0 per tile, about 3× too steep) and ran it in a district that was 80 m across
+when a shout carries 171 m.
+
+Supplying the unit fixes it with **zero changed magnitudes**: 1 tile = 1 m, 0.7 attenuation per metre,
+4 m field cells, and a **256 m district** — chosen so that one unsuppressed gunshot (257 m) equals
+exactly one district. See [scale and calibration](03-attention.md#scale-and-calibration) and
+[how big a district is](24-world-and-scale.md#how-big-a-district-is). Linear falloff is kept; it is
+what makes propagation cost bounded by magnitude.
 
 ### Problem 3 — field memory is currently a no-op
 
 Milling bodies emitting residue is [specified](03-attention.md) but, at the magnitudes given, residue
 never propagates past its own cell — the emission is smaller than one cell of falloff. Toggling it off
-changes nothing observable. Either the magnitude needs raising or the mechanic should be cut rather
-than carried as decoration.
+changes nothing observable.
+
+**Resolved, and the spike was testing the wrong channel.** Both specifying documents describe field
+memory as **scent** — bodies leaving their smell behind, decaying over hours. The spike has no scent
+channel, so it implemented residue as *noise*, where an emission of 5 against a per-cell falloff of 4
+dies inside its own cell by arithmetic. The null result is real but it is a property of the
+substitution, not of the mechanic.
+
+[Attention](03-attention.md#field-memory-is-a-scent-mechanic) now states that residue writes to scent
+and never to noise, at a magnitude above the propagation floor. It remains **unverified** — scent has
+never been built — so Milestone 1 carries an explicit acceptance check: toggle residue off, and if
+nothing observable changes, cut it.
 
 ### Performance
 
@@ -226,8 +262,12 @@ Two things worth carrying into Milestone 1:
 
 - **Quiet genuinely costs nothing.** Six live field cells at rest. The event-driven design for noise is
   vindicated.
-- **Rendering dominates, not simulation.** Sim is ~0.1 ms while draw is ~3 ms. The
-  [performance pillar's](22-performance.md) budgets should be aimed at the renderer first.
+- **Rendering dominates, not simulation.** Sim is ~0.1 ms while draw is ~3 ms.
+
+**Resolved:** [performance](22-performance.md#aim-the-budgets-at-the-renderer) now carries a draw
+budget and a sim-share-of-frame budget, every benchmark scenario asserts frame time as well as tick
+time, and *Quiet night* was tightened from `≤2 ms tick` — a budget the measured 0.01 ms could have
+regressed 200× without failing.
 
 ### Not answered
 
@@ -281,11 +321,12 @@ Deliberately unresolved, to be answered by playing rather than arguing:
   [region](24-world-and-scale.md) uses authored templates in a procedural layout. Whether that hybrid
   holds up is a Milestone 3 question.
 - **How rare should recruits be?** Too rare and the colony never grows; too common and risk #2 lands.
-- **How big is a district, in metres?** It sets the streaming budget, the walking radius, and how much
-  authored content one district costs. Everything in [world & scale](24-world-and-scale.md) is
-  sensitive to this number and it's currently unset.
 - **Does a mobile base make the fixed colony feel like a burden?** If the honest answer after
   Milestone 3 is "just drive away," risk #8 has landed.
+
+**Answered since this list was written:** *how big is a district, in metres?* — 256 m, forced by the
+noise calibration above and recorded in
+[world & scale](24-world-and-scale.md#how-big-a-district-is).
 
 ## Definition of done for the doc set
 

@@ -1,0 +1,11 @@
+{
+  "id": "zombie.base",
+  "name": "Dead",
+  "introducedInWave": 0,
+  "sensory": { "noise": 0.3, "light": 0.2, "scent": 0.8 },
+  "locomotion": { "speed": 1.0 },
+  "body": { "head": 25, "torso": 60, "legs": 40 },
+  "grab": { "strength": 0.5 },
+  "spread": { "radians": 0.62 },
+  "behaviors": ["shamble", "pursue", "grab"]
+}

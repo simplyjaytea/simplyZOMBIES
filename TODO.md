@@ -16,7 +16,12 @@ slice will invalidate.
   that's the signal to stop and redesign.
 - Milestones close on their exit criterion, not on the checkbox count.
 
-**Current milestone: 0 — Foundations** *(not started; design docs complete)*
+**Current milestone: 1 — The spine.** Milestone 0 is complete: its
+[exit criterion](#milestone-0--foundations) is met and asserted in CI, alongside the determinism,
+module-isolation and performance-budget checks the architecture documents ask for.
+
+Run it with `npm run dev`. `npm test` is correctness; `npm run bench` and `npm run bench:frame` are
+the budgets, and they fail the build.
 
 ---
 
@@ -27,68 +32,105 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 
 ### Project setup — spec: [docs/19](docs/19-architecture.md)
 
-- [ ] Vite + TypeScript scaffold, `strict` on
-- [ ] Vitest configured, running headless
-- [ ] Directory layout per [the repository layout](docs/19-architecture.md#repository-layout):
+- [x] Vite + TypeScript scaffold, `strict` on
+- [x] Vitest configured, running headless
+- [x] Directory layout per [the repository layout](docs/19-architecture.md#repository-layout):
       `src/sim/{kernel,modules,rng}`, `src/render`, `src/platform`, `src/ui`, `content/`, `test/`
-- [ ] ESLint rules enforcing **`sim/` purity** — ban DOM globals, `Math.random`, `Date.now`, and
+      *(`src/ui` is the exception — there is no UI yet, and an empty directory is not a layout. It
+      arrives with the first screen in Milestone 2.)*
+- [x] ESLint rules enforcing **`sim/` purity** — ban DOM globals, `Math.random`, `Date.now`, and
       imports from `render/`, `platform/`, and `ui/`
-- [ ] Prettier / formatting config
+      *(plus `tsconfig.sim.json`, which compiles `sim/` with no DOM lib so DOM access is a type error
+      rather than only a lint error)*
+- [x] Prettier / formatting config
 
 ### Kernel — spec: [docs/19](docs/19-architecture.md), [docs/20](docs/20-ecs-and-content.md)
 
-- [ ] Seeded RNG with independent named streams per subsystem
-- [ ] Fixed-timestep tick loop with an accumulator, decoupled from render
-- [ ] Entity store: integer IDs, allocation, recycling
-- [ ] Component storage and queries
-- [ ] System registry with **declared insertion order** (ordering is data, not a hardcoded list)
-- [ ] World state container for singletons — clock, RNG streams, field, weather, director
-- [ ] Event bus: publish, per-tick drain in deterministic order
-- [ ] Core event vocabulary stubbed out ([the event table](docs/21-extensibility.md#core-events))
+- [x] Seeded RNG with independent named streams per subsystem
+      *(stream seeds hash `(masterSeed, name)`, so adding a stream never shifts an existing one)*
+- [x] Fixed-timestep tick loop with an accumulator, decoupled from render
+      *(in `platform/`, the only code that reads a clock — `step(world)` takes no time argument)*
+- [x] Entity store: integer IDs, allocation, recycling
+      *(ids pack a generation, so a recycled slot can't resurrect a stale reference)*
+- [x] Component storage and queries
+      *(queries iterate in ascending entity order — insertion order doesn't survive a save/load)*
+- [x] System registry with **declared insertion order** (ordering is data, not a hardcoded list)
+- [x] World state container for singletons — clock, RNG streams, field, weather, director
+      *(the container and the clock; field, weather and director land with their modules)*
+- [x] Event bus: publish, per-tick drain in deterministic order
+- [x] Core event vocabulary stubbed out ([the event table](docs/21-extensibility.md#core-events))
 
 ### Modifier pipeline — spec: [docs/21](docs/21-extensibility.md#mechanism-2-the-modifier-pipeline)
 
-- [ ] Stat registry
-- [ ] Modifier struct with a **mandatory `source`** field
-- [ ] Resolution order: `add` → `mul` → clamps
-- [ ] Remove-by-source (drop every modifier from `weather.rain` when rain stops)
-- [ ] Resolved-stat caching with invalidation by source
-- [ ] "Why is this stat this number?" introspection returning the full contribution list
+- [x] Stat registry
+- [x] Modifier struct with a **mandatory `source`** field
+- [x] Resolution order: `add` → `mul` → clamps
+      *(`set` precedes them, or it would erase everything applied before it; `min` is a floor and
+      `max` a ceiling. Modifiers fold in `(source, seq)` order — float addition isn't associative, so
+      an unsorted fold makes a resolved stat depend on module import order.)*
+- [x] Remove-by-source (drop every modifier from `weather.rain` when rain stops)
+- [x] Resolved-stat caching with invalidation by source
+      *(scoped global vs per-entity; a global change invalidates every entity's cache for that stat)*
+- [x] "Why is this stat this number?" introspection returning the full contribution list
 
 ### Content pipeline — spec: [docs/20](docs/20-ecs-and-content.md#part-2-content)
 
-- [ ] JSON Schema definitions per content type
-- [ ] Registry that walks content **directories** (not a fixed file list — this is what makes it
+- [x] JSON Schema definitions per content type
+      *(`zombie` and `affix` — the two docs/20 writes out. Others get a schema the day their system
+      exists; a guessed schema is worse than none because it looks authoritative.)*
+- [x] Registry that walks content **directories** (not a fixed file list — this is what makes it
       mod-ready later)
-- [ ] `extends` resolution
-- [ ] Load-time validation: every ID unique, every reference resolves, every modifier `stat` exists,
+      *(walking is in `platform/`, since `sim/` has no file system; the registry itself stays pure)*
+- [x] `extends` resolution
+- [x] Load-time validation: every ID unique, every reference resolves, every modifier `stat` exists,
       every behavior tag implemented, no circular `extends`
-- [ ] Errors name the file, the entry, and the field — **fail loudly at load, never silently at hour
+- [x] Errors name the file, the entry, and the field — **fail loudly at load, never silently at hour
       thirty**
+      *(every problem reported in one pass, and nothing is published unless all of it validated)*
 - [ ] Hot reload in dev
+      *(needs a dev server for `src/`; `vite.spike.config.ts` only serves the spike. Lands with the
+      renderer.)*
 
 ### Platform & render — spec: [docs/19](docs/19-architecture.md#layers)
 
-- [ ] Canvas renderer skeleton with a camera
-- [ ] Tile layer with dirty-region redraw
-- [ ] Input → **command queue** consumed by the sim on its own tick (so input is part of the
+- [x] Canvas renderer skeleton with a camera
+      *(interpolates between the last two tick states, so a 20 Hz sim reads smoothly at 60 fps)*
+- [x] Tile layer with dirty-region redraw
+      *(the map is static in Milestone 0, so the dirty region is "all of it, once": rasterised to an
+      offscreen canvas and blitted. The per-rect list arrives when structures make tiles mutable.)*
+- [x] Input → **command queue** consumed by the sim on its own tick (so input is part of the
       deterministic record)
-- [ ] Save/load: serialize world state, version stamp, **clean rejection of stale saves**
-- [ ] Atomic save writes (temp file + rename) — a crash mid-write must not corrupt a long run
+- [x] Save/load: serialize world state, version stamp, **clean rejection of stale saves**
+- [x] Atomic save writes (temp file + rename) — a crash mid-write must not corrupt a long run
+      *(and a browser equivalent: two slots with a pointer flip, since localStorage has no rename)*
 
 ### Tests & CI
 
-- [ ] Unit tests: RNG streams, modifier resolution, event ordering
-- [ ] **Determinism test** — same seed + same input log twice → byte-identical state
-- [ ] **Module-isolation boot test** — boot with each non-kernel module disabled, assert no crash
-- [ ] CI workflow: typecheck, lint, unit, determinism, module isolation
-- [ ] **Performance budget harness** wired into CI — per-system tick timings against asserted budgets,
+- [x] Unit tests: RNG streams, modifier resolution, event ordering
+- [x] **Determinism test** — same seed + same input log twice → byte-identical state
+      *(with a different-seed negative control, so the test can actually fail)*
+- [x] **Module-isolation boot test** — boot with each non-kernel module disabled, assert no crash
+      *(each one individually, all of them at once, and a check that entity ids don't shift when a
+      module is switched off — otherwise configuration would become a determinism bug)*
+- [x] CI workflow: typecheck, lint, unit, determinism, module isolation
+- [x] **Performance budget harness** wired into CI — per-system tick timings against asserted budgets,
       **failing the build on regression** ([pillar 6](docs/00-vision.md#the-six-pillars))
-- [ ] Baseline benchmark scenario ("quiet night") as the first entry in
-      [the suite](docs/22-performance.md#the-ci-benchmark-suite)
+- [x] Harness asserts **frame time as well as tick time**. The spike measured draw at ~30× sim, so a
+      tick-only budget would have caught nothing —
+      see [aim the budgets at the renderer](docs/22-performance.md#aim-the-budgets-at-the-renderer)
+      *(frame time needs a real compositor, so it runs Chromium via Playwright. The gate is on
+      sim+draw, not observed fps: a headless container's rAF pacing measures the host, not us.)*
+- [x] Baseline benchmark scenario ("quiet night") as the first entry in
+      [the suite](docs/22-performance.md#the-ci-benchmark-suite), at ≤0.5 ms tick and ≤4 ms frame
+      *(plus a "crowded" 2,000-entity scenario, since at the 300-entity baseline only ~20 survive
+      culling and the frame budget could never fail)*
 
 > **Exit criterion:** an entity moves around a tile map, deterministically, and the same seed plus
 > inputs reproduces it byte-identically.
+>
+> ✅ **Met.** Asserted directly in `test/integration/exit-criterion.test.ts`, against the shipped boot
+> path rather than a fixture — including the negative controls that make it capable of failing: a
+> different seed diverges, and so does a different input log on the same seed.
 
 ---
 
@@ -99,12 +141,21 @@ which the project is legible as a game.
 
 ### The attention field — spec: [docs/03](docs/03-attention.md)
 
-- [ ] Three scalar layers on a **coarse grid** (deliberately below tile resolution)
+- [ ] Three scalar layers on a **coarse grid** — 4 m cells, per
+      [scale and calibration](docs/03-attention.md#scale-and-calibration)
+- [ ] Calibration constants as content, not magic numbers: 1 tile = 1 m, 0.7 attenuation per metre,
+      18 m-equivalent wall penalty, ~3 s noise half-life
 - [ ] `AttentionEmitter` component + emission system
 - [ ] **Noise** — event-driven only; attenuated flood-fill with material-based falloff, radius bounded
       by magnitude
 - [ ] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
 - [ ] **Scent** — diffusion at a few Hz with a global wind vector
+- [ ] **Field memory** — milling bodies emit scent residue (**never noise**), at a magnitude that
+      propagates past its own cell
+- [ ] ⚠ **Acceptance check:** toggle residue off and confirm something observably changes. The
+      [spike failed exactly this check](docs/23-roadmap.md#problem-3--field-memory-is-currently-a-no-op)
+      because it emitted onto the wrong channel. **If nothing changes, cut the mechanic** rather than
+      carrying it as decoration.
 - [ ] Dirty-region tracking
 - [ ] Per-tick propagation budget with a deterministic overflow queue (degrade the field's update rate,
       never the frame)
@@ -121,6 +172,9 @@ which the project is legible as a game.
 
 - [ ] Shambler entity with a sensory profile weighting the three channels
 - [ ] Gradient ascent: noise as impulse, scent as bias, light as line-of-sight pull
+- [ ] **Persistent per-individual angular bias (±0.62 rad)** on the gradient direction — assigned once
+      at spawn from the seeded RNG stream, never re-rolled, **included in save state**. Without it
+      they form [conga lines, not a horde](docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own).
 - [ ] Investigate on arrival → mill → disperse, **raising local scent** so the field gains memory
 - [ ] Pursue on direct contact
 - [ ] Damage model: head and locomotion are what matter; a crawler is still lethal

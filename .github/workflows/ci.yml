@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      # Three projects: the main build, the sim/ purity gate (compiled without the DOM
+      # lib, so DOM access in sim/ is a type error), and the throwaway spike.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format
+        run: npm run format:check
+
+      # Correctness: unit, determinism, module isolation, save/load, and the Milestone 0
+      # exit criterion.
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npx vite build
+
+  # Separated from `check` so a timing wobble reports as a performance problem rather than
+  # as a broken build, and so the correctness suite is never waiting on a browser download.
+  performance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      # docs/00-vision.md pillar 6: exceeding a budget fails the build, at the same
+      # severity as a failing test. "A feature that breaks budget does not ship until it
+      # is fixed."
+      - name: Tick budgets
+        run: npm run bench
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Frame time cannot be measured headlessly in node, and the spike measured draw at
+      # ~30x sim cost -- so a tick-only budget would catch nothing.
+      # See docs/22-performance.md#aim-the-budgets-at-the-renderer.
+      - name: Frame budget
+        run: npm run bench:frame

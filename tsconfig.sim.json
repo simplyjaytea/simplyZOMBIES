@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The sim/ purity gate.
+    //
+    // docs/19-architecture.md bans DOM access in sim/ and says the rule is "enforced by
+    // lint rules and CI, not by good intentions". Lint can only ban globals someone
+    // thought to list; compiling with no DOM lib at all makes *any* DOM API a type error.
+    //
+    // "types": [] keeps ambient node/vitest declarations out for the same reason.
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": ["src/sim"]
+}
