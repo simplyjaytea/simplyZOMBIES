@@ -176,17 +176,18 @@ which the project is legible as a game.
       at spawn from the seeded RNG stream, never re-rolled, **included in save state**. Without it
       they form [conga lines, not a horde](docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own).
 - [x] Investigate on arrival → mill → disperse, **raising local scent** so the field gains memory
-- [ ] Pursue on direct contact
-- [ ] Damage model: head and locomotion are what matter; a crawler is still lethal
+- [x] Pursue on direct contact
+- [x] Damage model: head and locomotion are what matter; a crawler is still lethal
 
 ### The player survivor — spec: [docs/09](docs/09-combat.md)
 
-- [ ] Direct movement control of one entity
-- [ ] Melee loop: wind-up → connect/miss → recovery, all interruptible
-- [ ] Stamina cost per swing, scaled by weapon weight
-- [ ] Stagger on solid connect
-- [ ] Grabs, and breaking free
-- [ ] Reach as a distinct property from damage
+- [x] Direct movement control of one entity
+- [x] Melee loop: wind-up → connect/miss → recovery, all interruptible
+- [x] Stamina cost per swing, scaled by weapon weight
+- [x] Stagger on solid connect
+- [x] Grabs, and breaking free
+- [x] Reach as a distinct property from damage — and from safety: bite risk on a connect is divided
+      by it, so no weapon shorter than a grab's 0.9 m can strike from outside one
 
 ### Time — spec: [docs/02](docs/02-core-loop.md)
 
@@ -209,11 +210,9 @@ which the project is legible as a game.
 ### Still open in this milestone
 
 Deliberately deferred, not forgotten. The exit criterion needed the field, the spatial hash and
-shamblers that read it; melee and the clock are a second pass.
+shamblers that read it; the clock is a third pass.
 
-- **Combat** — the melee loop, stamina, stagger, grabs, reach. `pursue` and the damage model above
-  belong with it: a `pursue` behaviour with nothing to do on contact is not worth writing twice.
-- **Time** — the day/night cycle, phase events, and speed controls.
+- **Time** — the day/night cycle, phase events, and speed controls. The last of Milestone 1.
 - **Calibration constants as content.** They are named constants in `src/sim/kernel/field.ts` citing
   docs/03, not JSON. Moving them into content is worth doing when something needs to *tune* them;
   today it would add a loader dependency to the kernel for no gain.

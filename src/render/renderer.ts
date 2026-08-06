@@ -14,6 +14,7 @@ import type { EntityId } from "../sim/kernel/entities";
 import { FIELD_CELL_METRES } from "../sim/kernel/field";
 import type { World } from "../sim/kernel/world";
 import { isWall, type TileMap } from "../sim/map/tilemap";
+import { Body, Grabbed, Staggered } from "../sim/modules/combat";
 import { Controlled } from "../sim/modules/player";
 import { followCamera, visibleBounds, worldToScreen, type Camera } from "./camera";
 
@@ -22,7 +23,13 @@ const COLOURS = {
   wall: "#3b4048",
   wallTop: "#4b525c",
   player: "#e8d7a0",
+  /** Held. The one piece of combat state a player must be able to read instantly. */
+  playerGrabbed: "#c9584f",
   wanderer: "#6f8f6a",
+  /** Staggered: interrupted, and for that moment not a threat. */
+  staggered: "#a8b8a4",
+  /** Legs gone. Drawn smaller and dimmer, which is docs/14's "easy to miss in a breach". */
+  crawler: "#4c6349",
   background: "#0d0e10",
 } as const;
 
@@ -191,21 +198,36 @@ export class Renderer {
 
     if (this.showField) this.drawField(world, camera, bounds);
 
-    ctx.fillStyle = COLOURS.wanderer;
+    // Combat state is read off components rather than pushed here by the sim, which is the
+    // one-directional rule this layer exists to keep: render reads the world and never
+    // writes to it. Three states are worth a colour, and no more -- a crawler you have to
+    // notice, a stagger you have to exploit, and being held, which you have to escape.
+    // docs/01#4 rules out anything finer: no bars, no numbers, no damage readout.
     let drawn = 0;
     for (const entity of world.components.query(Position, Velocity)) {
       if (world.components.has(entity, Controlled)) continue;
       const { x, y } = this.interpolated(world, entity, alpha);
       if (x < bounds.minX || x > bounds.maxX || y < bounds.minY || y > bounds.maxY) continue;
       const { sx, sy } = worldToScreen(camera, x, y);
-      ctx.fillRect(sx - radius, sy - radius, radius * 2, radius * 2);
+
+      const crawling = world.components.get(entity, Body)?.crawling === true;
+      ctx.fillStyle = world.components.has(entity, Staggered)
+        ? COLOURS.staggered
+        : crawling
+          ? COLOURS.crawler
+          : COLOURS.wanderer;
+
+      const size = crawling ? radius * 0.6 : radius;
+      ctx.fillRect(sx - size, sy - size, size * 2, size * 2);
       drawn++;
     }
 
-    ctx.fillStyle = COLOURS.player;
     for (const entity of world.components.query(Position, Controlled)) {
       const { x, y } = this.interpolated(world, entity, alpha);
       const { sx, sy } = worldToScreen(camera, x, y);
+      ctx.fillStyle = world.components.has(entity, Grabbed)
+        ? COLOURS.playerGrabbed
+        : COLOURS.player;
       ctx.beginPath();
       ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
       ctx.fill();

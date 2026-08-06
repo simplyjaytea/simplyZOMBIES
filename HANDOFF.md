@@ -1,7 +1,8 @@
 # Handoff
 
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
-updated the same day when Milestone 0 closed, and again when Milestone 1 reached its exit criterion.
+updated the same day when Milestone 0 closed, again when Milestone 1 reached its exit criterion, and
+again on 2026-08-06 when the melee loop landed.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -11,10 +12,22 @@ updated the same day when Milestone 0 closed, and again when Milestone 1 reached
 
 | | |
 |---|---|
-| **Phase** | **Milestone 1 complete.** The attention field runs and shamblers read it: make noise and they come. |
-| **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention field spike |
-| **In flight** | [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — spike fold-in + Milestone 0 · [PR #4](https://github.com/simplyjaytea/simplyZOMBIES/pull/4) — review fixes + Milestone 1, stacked on #3 |
-| **Next real work** | **The rest of Milestone 1:** the melee loop and the day/night cycle. Then Milestone 2. |
+| **Phase** | **Milestone 1, all but the clock.** The field runs, shamblers read it, and they can now kill you. |
+| **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention field spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — spike fold-in + Milestone 0 |
+| **In flight** | The melee loop, together with Milestone 1 — see the warning below. |
+| **Next real work** | **The day/night cycle and speed controls** ([docs/02](docs/02-core-loop.md)), the last of Milestone 1. Then Milestone 2. |
+
+> ### Read this before branching
+>
+> **[PR #4](https://github.com/simplyjaytea/simplyZOMBIES/pull/4) merged into the wrong branch.** It
+> was stacked on #3 and never retargeted, so when both merged within fifteen seconds of each other,
+> all of Milestone 1 landed in `claude/handoff-review-prioritize-11eszj` instead of `main` — and
+> `main` sat a milestone behind while its own `HANDOFF.md` told the next session to build what was
+> already built. The fix rides along with the melee loop, whose branch is based on that commit.
+>
+> The lesson is cheap to state and was not cheap to find: **a stacked PR points at its parent branch,
+> not at `main`, and merging the parent does not retarget it.** Check the base branch before merging
+> anything stacked.
 
 ## What's in the repo
 
@@ -39,15 +52,15 @@ spike/          THROWAWAY prototype. Its findings are absorbed into the docs, so
 ```bash
 npm install
 npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 176 tests
+npm test                 # correctness: 198 tests
 npm run typecheck        # three projects — see the sim/ purity gate below
 npm run lint
 npm run bench            # tick budgets
 npm run bench:frame      # frame budget, drives real Chromium
 ```
 
-In the browser: `WASD` move · `Shift` sprint · `P` pause · `F5` save · `F9` load · `F3` state
-fingerprint · `F4` attention overlay. That fingerprint is the string the determinism test compares,
+In the browser: `WASD` move · `Shift` sprint · `Space` swing (or struggle, when something has hold of
+you) · `P` pause · `F5` save · `F9` load · `F3` state fingerprint · `F4` attention overlay. That fingerprint is the string the determinism test compares,
 and it is **off by default**: computing it serializes the entire world (~16 ms at 2,000 entities), so
 leaving it on costs more than everything else in the frame put together.
 
@@ -56,7 +69,9 @@ only**, and it must stay that way: docs/03's cut list rejects a player-visible a
 outright, because it "would collapse the game's central uncertainty into a number".
 
 If Playwright can't find a browser, point it at one: `CHROMIUM_PATH=/path/to/chromium npm run
-bench:frame`.
+bench:frame`. In the standard container that is
+`CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome` — the bundled Playwright looks for
+a build number the image does not carry, so the default path fails and the flag is not optional.
 
 ## Settled decisions: do not relitigate
 
@@ -166,11 +181,55 @@ the angular bias is implemented in `src/sim/modules/wander.ts`. Deleting `spike/
 whenever someone wants the repo tidier. It was left in only because deleting working demonstration
 code is easier to do later than to undo.
 
+## What combat built, and what it found out
+
+The melee loop is a **module** (`src/sim/modules/combat.ts`), unlike the field: a world with no combat
+in it is a coherent configuration, and a world where nothing can hear anything is not.
+
+The part worth knowing before touching it is what it does *not* do. Combat never reads or writes
+another module's components, and three couplings that would have forced it to are routed instead
+through mechanisms that already existed:
+
+| Coupling | Routed through |
+|---|---|
+| "a grabbed survivor cannot move" | a `move_speed` modifier — the player module multiplies it in without knowing who set it |
+| "a crawler is slower" | the same, on the zombie |
+| "who is prey" | the kernel's `Tags`, not a peek at `Controlled` |
+
+That is docs/21's modifier pipeline doing the job it was built for, and it is why `player.ts` contains
+no reference to combat and `combat.ts` none to the horde.
+
+Four things measured rather than assumed:
+
+- **Reach is doubly load-bearing**, and the second half was a surprise. Bite risk on a connect is
+  divided by reach, and a grab lands at 0.9 m — so **no weapon with less reach than that can strike
+  from outside grab range at all**. Bare hands mean fighting from inside it. Recorded in
+  [`docs/09`](docs/09-combat.md#what-building-it-settled).
+- **A crowd pins you, and the arithmetic is what makes it terminal.** Struggling costs stamina and
+  there is no recovery while held, so one hold costs about a third of a tank, two about two thirds,
+  and past three there is not enough in the tank however long you hold the button. The first version
+  had struggling nearly free, and six zombies were an inconvenience.
+- **The breach benchmark measured almost nothing, twice.** First it measured a survivor pinned in
+  silence: no swings, so no noise, so 460 of 500 zombies stood exactly where they spawned. A
+  generator at the survivor's feet fixed it. Then the guard test still failed, because a crowd
+  ascending a point source runs out of gradient on the source's own 4 m cell and settles a metre
+  outside contact range — so ~90 of 500 make contact, not 500. Both are in the scenario's comments.
+- **The spatial hash was the expensive part of combat, and none of it was combat.** Rebuilt every
+  tick over every positioned entity, it cost about a millisecond a tick at 2,000 entities and pushed
+  the frame budget's p95 from 2.86 ms to 30.40 ms. Two changes, no behaviour: iterate storage order
+  instead of `query`'s sorted array (the buckets are re-sorted on the way out anyway, so the sort
+  bought nothing), and keep bucket arrays across rebuilds instead of dropping several hundred a tick
+  for the collector. `quiet-night` ended up *faster* than before combat existed.
+
 ## Do this next
 
-**Finish Milestone 1**, then Milestone 2. `TODO.md` lists what is left under "Still open in this
-milestone" — the melee loop and the day/night cycle, both deliberately deferred so the exit criterion
-could be reached and measured first.
+**Finish Milestone 1** with the clock, then Milestone 2. `TODO.md` lists what is left under "Still open
+in this milestone": the day/night cycle, phase events, and speed controls
+([docs/02](docs/02-core-loop.md)).
+
+One piece of it now has a dependency worth knowing: **10× auto-drops to 1× on threat contact**, and
+"threat contact" is a thing that exists — a zombie sets `pursuing` when someone comes within 3 m
+(`src/sim/modules/zombies.ts`). The clock does not need to invent its own definition.
 
 The two things this milestone was told to find out, it found out:
 
@@ -182,18 +241,15 @@ The two things this milestone was told to find out, it found out:
   spike's residue existed too, and was still a no-op — so it asserts where the horde *ends up*, not
   that an emitter fired.
 
-**Combat is the natural next piece**, and `pursue` plus the damage model are part of it rather than
-part of the horde: a `pursue` behaviour with nothing to do on contact is not worth writing twice.
-
 ## Open questions nobody has answered
 
-- **Is being quiet *tense*, or just slow?** Needs a human playing. With noise as the only channel,
-  quiet is *completely* safe — which is the design as specified, and the strongest argument that scent
-  isn't optional.
-- **Scent cost.** Untested. It's the continuous channel [risk 5](docs/23-roadmap.md#risks) is actually
-  about, so that risk is narrowed, not closed. It now carries a second question too: field memory has
-  never been observed working, because it needs scent to exist first.
-- **How long is a day, really?** Four hours at 1× is still a guess.
+- **Is being quiet *tense*, or just slow?** Still needs a human playing, and it is now a better
+  question than it was: going quiet is safe, and going loud has a consequence you can be killed by.
+- **Is a fight worth having?** Melee is nearly silent by design (a connect is 8, against 180 for a
+  gunshot), so clearing your approaches should be the quiet play. Whether it *feels* worth the bite
+  risk is a question about a human, not about a benchmark.
+- **How long is a day, really?** Four hours at 1× is still a guess — and the next thing anyone builds
+  is the clock, so this one is about to matter.
 - The rest are listed under "Open questions" in [`docs/23-roadmap.md`](docs/23-roadmap.md).
 
 *"How big is a district?" is no longer among them — it's 256 m, forced by the noise calibration.*

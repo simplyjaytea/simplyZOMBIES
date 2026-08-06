@@ -24,13 +24,24 @@ import type { World } from "./world";
 export const HASH_CELL_METRES = 4;
 
 export class SpatialHash {
-  private readonly cells = new Map<number, EntityId[]>();
+  /**
+   * One slot per cell, indexed directly. Buckets are created on first use and then kept.
+   *
+   * A `Map` keyed by cell index is the obvious shape and was the first one here, but this
+   * structure is rebuilt from scratch every tick over every positioned entity, so hashing
+   * an integer key twice per entity per tick is the whole cost of the thing. Indexing a
+   * flat array is the same lookup without the hash.
+   */
+  private readonly buckets: (EntityId[] | undefined)[];
+  /** Which buckets have anything in them, so clearing costs live cells and not the map. */
+  private readonly used: number[] = [];
   private readonly w: number;
   private readonly h: number;
 
   constructor(mapWidthMetres: number, mapHeightMetres: number) {
     this.w = Math.max(1, Math.ceil(mapWidthMetres / HASH_CELL_METRES));
     this.h = Math.max(1, Math.ceil(mapHeightMetres / HASH_CELL_METRES));
+    this.buckets = new Array<EntityId[] | undefined>(this.w * this.h);
   }
 
   private key(x: number, y: number): number {
@@ -39,24 +50,43 @@ export class SpatialHash {
     return cy * this.w + cx;
   }
 
+  /**
+   * Empty every occupied bucket, keeping the arrays themselves.
+   *
+   * Dropping them instead would mean allocating several hundred arrays a tick for the next
+   * rebuild. At 20 Hz over a district that is enough garbage to show up as periodic frame
+   * stalls rather than as a higher average -- the frame budget measured a 7.50 ms average
+   * against a 30.40 ms p95, which is the shape of a collection, not of work.
+   */
   clear(): void {
-    this.cells.clear();
+    for (const k of this.used) (this.buckets[k] as EntityId[]).length = 0;
+    this.used.length = 0;
   }
 
   insert(entity: EntityId, x: number, y: number): void {
     const k = this.key(x, y);
-    const bucket = this.cells.get(k);
-    if (bucket === undefined) this.cells.set(k, [entity]);
-    else bucket.push(entity);
+    let bucket = this.buckets[k];
+    if (bucket === undefined) {
+      bucket = [];
+      this.buckets[k] = bucket;
+    }
+    if (bucket.length === 0) this.used.push(k);
+    bucket.push(entity);
   }
 
-  /** Rebuild from every entity carrying a Position. One linear pass, no allocation per entity. */
+  /**
+   * Rebuild from every entity carrying a Position. One linear pass, no allocation.
+   *
+   * Deliberately iterates in storage order rather than through `query`. The order entities
+   * are inserted in is not observable: every read goes through `near`, which sorts what it
+   * returns. Paying to sort 2,000 entities here, every tick, to build buckets that are
+   * sorted again on the way out, cost about a millisecond a tick and bought nothing.
+   */
   rebuild(world: World): void {
     this.clear();
-    for (const entity of world.components.query(Position)) {
-      const pos = world.components.getOrThrow(entity, Position);
+    world.components.eachUnordered(Position, (entity, pos) => {
       this.insert(entity, pos.x, pos.y);
-    }
+    });
   }
 
   /**
@@ -79,7 +109,7 @@ export class SpatialHash {
 
     for (let cy = minY; cy <= maxY; cy++) {
       for (let cx = minX; cx <= maxX; cx++) {
-        const bucket = this.cells.get(cy * this.w + cx);
+        const bucket = this.buckets[cy * this.w + cx];
         if (bucket === undefined) continue;
         for (const entity of bucket) out.push(entity);
       }
@@ -101,7 +131,8 @@ export class SpatialHash {
     });
   }
 
+  /** Occupied cells. Diagnostics only -- nothing in the simulation branches on it. */
   get cellCount(): number {
-    return this.cells.size;
+    return this.used.length;
   }
 }

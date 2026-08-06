@@ -1,0 +1,12 @@
+{
+  "id": "weapon.fists",
+  "extends": "weapon.base",
+  "name": "Bare hands",
+  "reach": 0.7,
+  "damage": 4,
+  "weight": 0,
+  "staggerPower": 2,
+  "noise": 3,
+  "windupTicks": 2,
+  "recoverTicks": 3
+}

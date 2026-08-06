@@ -1,0 +1,12 @@
+{
+  "id": "weapon.spear",
+  "extends": "weapon.base",
+  "name": "Improvised spear",
+  "reach": 2.2,
+  "damage": 12,
+  "weight": 1.8,
+  "staggerPower": 5,
+  "noise": 6,
+  "windupTicks": 6,
+  "recoverTicks": 6
+}

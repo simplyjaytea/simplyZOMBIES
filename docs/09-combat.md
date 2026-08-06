@@ -61,6 +61,26 @@ control, and coverage fights a long night and comes back unbitten — usually.
 Melee is nearly silent (~8 per connect vs. ~180 for an unsuppressed shot). A colony that clears its
 approaches with axes at dusk earns a quiet night. That's the reward, and it costs bodies.
 
+### What building it settled
+
+Three things the melee model above did not pin down, decided in
+[`src/sim/modules/combat.ts`](../src/sim/modules/combat.ts) and recorded here because they are design,
+not implementation detail:
+
+- **Reach buys safety as well as tempo.** Bite risk on a connect is *divided* by reach rather than
+  reduced by a flat amount, so a spear is much safer than a knife without ever being free. The
+  consequence is sharper than expected: a grab lands at 0.9 m, so **no weapon with less reach than
+  that can strike from outside grab range at all.** Bare hands mean fighting from inside it, which
+  is the right answer and was not a deliberate one.
+- **Struggling costs stamina you may not have**, and there is no recovery while you are held. One
+  hold costs about a third of a full tank to shed, two about two thirds, and past three there is not
+  enough in the tank to finish however long you hold the button. That is the parity contract's "a
+  check you fail once and then can't retry" as arithmetic rather than as a rule about the number
+  three.
+- **A destroyed torso kills the living and inconveniences the dead.** [Zombies](14-zombies.md) take
+  meaningful damage only to the head or locomotion; a person with the same wound dies. The asymmetry
+  is why trading hits is never an even trade.
+
 ## The ranged model
 
 ### Shot loop

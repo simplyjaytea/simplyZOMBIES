@@ -137,6 +137,17 @@ const loop = createLoop(world, {
   },
 });
 
+/**
+ * Swing, or struggle if something has hold of you.
+ *
+ * Queued rather than applied: it goes through the command queue like every other input, so
+ * a fight is part of the deterministic replay record (docs/19#determinism) rather than
+ * something that happened outside it.
+ */
+function swing(): void {
+  world.commands.push({ type: "attack" });
+}
+
 function togglePause(): void {
   paused = !paused;
   // Stopping the loop rather than skipping the step, so the accumulator doesn't build up a
@@ -153,6 +164,7 @@ const input = attachKeyboard(window, {
     F9: load,
     F3: toggleFingerprint,
     F4: toggleFieldOverlay,
+    Space: swing,
     KeyP: togglePause,
   },
 });
@@ -247,7 +259,7 @@ function updateHud(w: World): void {
     showing;
 
   help.textContent =
-    "WASD / arrows move   Shift sprint   P pause\n" +
+    "WASD / arrows move   Shift sprint   Space swing / struggle   P pause\n" +
     "F5 save   F9 load   F3 state fingerprint   F4 attention overlay (dev)\n" +
     "the state fingerprint is what the determinism test compares -- off by default\n" +
     "because computing it serializes the whole world";

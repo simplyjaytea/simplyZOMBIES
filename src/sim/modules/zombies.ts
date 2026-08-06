@@ -8,7 +8,7 @@
 // and nothing to answer it, which is a legitimate configuration: it is what docs/17's
 // sandbox presets are.
 
-import { defineComponent, Position, Velocity } from "../kernel/components";
+import { defineComponent, Position, SURVIVOR_TAG, Tags, Velocity } from "../kernel/components";
 import type { EntityId } from "../kernel/entities";
 import { FIELD_CELL_METRES } from "../kernel/field";
 import type { World } from "../kernel/world";
@@ -43,6 +43,15 @@ export type Zombie = {
   /** Ticks left milling at an investigated spot before dispersing. */
   milling: number;
   /**
+   * Who this individual is coming for directly, if anyone.
+   *
+   * docs/14 step 4: "pursue on direct contact, indefinitely, without pathfinding
+   * cleverness -- they'll grind against a wall between them and you for as long as you're
+   * audible." So this outranks the gradient rather than adding to it: something in front of
+   * them is not a stimulus to weigh, it is the thing the stimulus was standing in for.
+   */
+  pursuing: EntityId | null;
+  /**
    * Whether this individual leaves scent residue while milling.
    *
    * Per-entity and in the save rather than a module-level switch, which is what it wants to
@@ -57,6 +66,19 @@ export const Zombie = defineComponent<Zombie>("Zombie");
 
 /** Radius, in metres, within which arrival counts as "here" and investigation begins. */
 const ARRIVAL_METRES = FIELD_CELL_METRES;
+
+/**
+ * Direct contact: close enough to come for someone instead of reading the field.
+ *
+ * Deliberately short. docs/14's first rule is that they do not hunt -- they follow stimulus
+ * -- so this is "you are right there", not a detection radius. Set generously it quietly
+ * becomes sight, and a survivor standing still in the dark would be found by a shambler
+ * with, per docs/14's own table, poor senses. What draws a crowd across a street is the
+ * field; this only decides what happens once one is already in your face.
+ */
+export const CONTACT_METRES = 3;
+/** And far enough away to lose them again. Wider than contact, so it does not flicker. */
+const LOSE_CONTACT_METRES = 8;
 
 /** How long a zombie mills about after finding nothing. 20 Hz, so this is ~5 seconds. */
 const MILL_TICKS = 100;
@@ -109,6 +131,7 @@ export function makeZombie(
     speed,
     bias: rng.float(-spread, spread),
     milling: 0,
+    pursuing: null,
     residue,
   });
 }
@@ -140,6 +163,37 @@ export const zombieModule: Module = {
           const zombie = w.components.getOrThrow(entity, Zombie);
           const pos = w.components.getOrThrow(entity, Position);
           const vel = w.components.getOrThrow(entity, Velocity);
+
+          // Whatever slows this individual down -- a fight took its legs off, mud, an
+          // affix. The module owns locomotion; it does not own the reasons.
+          const speed = zombie.speed * w.modifiers.resolve("move_speed", entity);
+
+          // Pursuit outranks everything below it, including milling: something walked into
+          // reach, and a crowd that keeps sniffing the ground while you stand in front of
+          // it is not the antagonist docs/14 describes.
+          if (zombie.pursuing !== null) {
+            const prey = w.components.get(zombie.pursuing, Position);
+            if (prey === undefined) {
+              zombie.pursuing = null;
+            } else {
+              const dx = prey.x - pos.x;
+              const dy = prey.y - pos.y;
+              const gap = Math.hypot(dx, dy);
+              if (gap > LOSE_CONTACT_METRES) {
+                zombie.pursuing = null;
+              } else {
+                zombie.milling = 0;
+                if (gap > 0.01) {
+                  vel.dx = (dx / gap) * speed;
+                  vel.dy = (dy / gap) * speed;
+                } else {
+                  vel.dx = 0;
+                  vel.dy = 0;
+                }
+                continue;
+              }
+            }
+          }
 
           // Milling: arrived, found nothing, hanging about. docs/14 step 3.
           if (zombie.milling > 0) {
@@ -192,8 +246,33 @@ export const zombieModule: Module = {
           // rather than to the sampling, so every individual still ascends -- they just
           // arrive along slightly different paths and spread across the source.
           const heading = bestAngle + zombie.bias;
-          vel.dx = Math.cos(heading) * zombie.speed;
-          vel.dy = Math.sin(heading) * zombie.speed;
+          vel.dx = Math.cos(heading) * speed;
+          vel.dy = Math.sin(heading) * speed;
+        }
+      },
+    });
+
+    // Contact: who has walked into whose face.
+    //
+    // Driven from the prey rather than from the horde -- a handful of survivors against
+    // thousands of zombies, so this is a few neighbour queries a tick instead of one per
+    // zombie. The spatial hash is rebuilt in the combat phase, which is after this one, so
+    // what this reads is last tick's index: a tick of lag on noticing someone, at 50 ms,
+    // against making every zombie pay for a query.
+    world.systems.register({
+      id: "zombies.contact",
+      phase: "ai",
+      order: 1,
+      run: (w) => {
+        for (const prey of w.components.query(Position, Tags)) {
+          if (w.components.get(prey, Tags)?.values.includes(SURVIVOR_TAG) !== true) continue;
+          const pos = w.components.getOrThrow(prey, Position);
+
+          for (const entity of w.spatial.withinRadius(w, pos.x, pos.y, CONTACT_METRES)) {
+            const zombie = w.components.get(entity, Zombie);
+            if (zombie === undefined || zombie.pursuing !== null) continue;
+            zombie.pursuing = prey;
+          }
         }
       },
     });

@@ -15,7 +15,7 @@ import { dirname, resolve } from "node:path";
 import { readContentFromDisk, readSchemasFromDisk } from "../../src/platform/content-source-node";
 import { createSchemaValidator } from "../../src/platform/schema-validator";
 import { boot, type BootOptions } from "../../src/sim/boot";
-import { Position, Velocity } from "../../src/sim/kernel/components";
+import { Position, SURVIVOR_TAG, Tags, Velocity } from "../../src/sim/kernel/components";
 import { stepN } from "../../src/sim/kernel/step";
 import type { World } from "../../src/sim/kernel/world";
 import { makeZombie, Zombie } from "../../src/sim/modules/zombies";
@@ -33,6 +33,26 @@ function bootWithContent(options: BootOptions) {
     booted.world.stats,
   );
   return booted;
+}
+
+/**
+ * Move the survivor off the site under test.
+ *
+ * Every measurement in this file is about the *field* -- what a crowd does when the thing
+ * that drew it is gone. `boot` puts the controlled survivor at the map centre, which is
+ * also where these tests emit from, so once zombies pursued on contact (docs/14 step 4) the
+ * site they were drawn to had a person standing on it: they came, found someone, and
+ * followed them instead of milling. That is the correct behaviour and the wrong scenario.
+ * Nobody is home is the premise, so it has to be arranged rather than assumed.
+ */
+function evacuate(world: World): void {
+  for (const entity of world.components.query(Position, Tags)) {
+    if (world.components.getOrThrow(entity, Tags).values.includes(SURVIVOR_TAG)) {
+      const pos = world.components.getOrThrow(entity, Position);
+      pos.x = 2;
+      pos.y = 2;
+    }
+  }
 }
 
 /** Mean distance from every zombie to a point, in metres. */
@@ -64,6 +84,7 @@ function run(opts: { noiseAt?: { x: number; y: number; magnitude: number }; tick
     disabled: ["wander"],
   });
   const { world } = booted;
+  evacuate(world);
 
   const centre = { x: MAP / 2, y: MAP / 2 };
   const before = meanDistanceTo(world, centre.x, centre.y);
@@ -127,6 +148,7 @@ describe("Milestone 1 exit criterion", () => {
       disabled: ["wander"],
     });
     const { world } = booted;
+    evacuate(world);
 
     const before = meanDistanceTo(world, target.x, target.y);
     for (let i = 0; i < TICKS; i++) {
@@ -153,6 +175,7 @@ describe("field memory: the Milestone 1 acceptance check", () => {
       disabled: ["wander"],
     });
     const { world } = booted;
+    evacuate(world);
     const centre = MAP / 2;
 
     // Draw them in, then go quiet so they arrive, mill, and disperse.
@@ -208,6 +231,7 @@ describe("field memory: the Milestone 1 acceptance check", () => {
       residue,
       disabled: ["wander"],
     });
+    evacuate(world);
     const centre = MAP / 2;
 
     for (let i = 0; i < 600; i++) {
@@ -237,6 +261,7 @@ describe("field memory: the Milestone 1 acceptance check", () => {
       disabled: ["wander"],
     });
     const { world } = booted;
+    evacuate(world);
     const centre = MAP / 2;
 
     for (let i = 0; i < 600; i++) {

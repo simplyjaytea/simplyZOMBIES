@@ -8,6 +8,10 @@
 // as stubs would mean a suite that reports green about things it never measured.
 
 import { boot } from "../src/sim/boot";
+import { Position, Velocity } from "../src/sim/kernel/components";
+import type { EntityId } from "../src/sim/kernel/entities";
+import { Body, makeBody, makeGrabber } from "../src/sim/modules/combat";
+import { makeZombie } from "../src/sim/modules/zombies";
 import { DISTRICT_TILES } from "../src/sim/map/tilemap";
 import { FIELD_CELL_METRES } from "../src/sim/kernel/field";
 import { stepN } from "../src/sim/kernel/step";
@@ -92,6 +96,98 @@ export const SCENARIOS: readonly Scenario[] = [
           world.field.deposit("scent", x, y, 25);
         }
       }
+
+      return world;
+    },
+  },
+  {
+    id: "breach",
+    description: "500 shamblers closing on and pinning one survivor: pursuit, grabs and bites.",
+    // Combat's own stress case, and a different shape from horde-scent: that one measures
+    // 500 zombies reading a field from across a district, this one measures them arriving.
+    // Pursuit, the spatial rebuild and grab resolution all run hot here and are barely
+    // touched there.
+    //
+    // What it does *not* measure, having been checked rather than assumed: sustained
+    // swinging. The survivor is pinned within a couple of seconds and from then on the
+    // attack button is spent struggling -- 95 grabs and 2 connects over 600 ticks. That is
+    // docs/09 working exactly as written ("fighting three is a check you fail once and then
+    // can't retry"), not a gap to paper over here. It is also not a scale risk: the swing
+    // loop is one pass per survivor, so it cannot grow with the size of the horde, while
+    // pursuit and grabs can and do.
+    //
+    // Same 4 ms as the other crowd scenarios. A crowd arriving is the thing the whole game
+    // is built around, so if it cannot be afforded at 500 the tower-defense half of docs/02
+    // does not work.
+    tickBudgetMs: 4,
+    entities: 500,
+    build: () => {
+      const { world, player } = boot({
+        seed: SEED,
+        wanderers: 0,
+        zombies: 0,
+        weapon: "weapon.bat",
+      });
+      const at = world.components.getOrThrow(player as EntityId, Position);
+
+      // A generator at the survivor's feet, per docs/03's table: 45, continuous, reaching
+      // 64 m. Without it this scenario had the same disease as the first horde-scent draft
+      // -- a pinned survivor makes no noise, so the field was empty, so 460 of the 500
+      // stood exactly where they spawned and only the 39 that happened to start within
+      // contact range did anything at all. The noise is what makes them arrive, which is
+      // both the thing being measured and, per docs/03, the reason a breach happens.
+      const rng = world.rng.stream("bench");
+      world.systems.register({
+        id: "bench.generator",
+        phase: "attention-emit",
+        run: (w) => {
+          w.events.publish({
+            type: "noise.emitted",
+            x: at.x,
+            y: at.y,
+            magnitude: 45,
+            source: null,
+          });
+        },
+      });
+
+      for (let i = 0; i < 500; i++) {
+        const angle = rng.float(0, Math.PI * 2);
+        const radius = Math.sqrt(rng.next()) * 10;
+        const entity = world.spawn();
+        world.components.set(entity, Position, {
+          x: at.x + Math.cos(angle) * radius,
+          y: at.y + Math.sin(angle) * radius,
+        });
+        world.components.set(entity, Velocity, { dx: 0, dy: 0 });
+        makeZombie(world, entity, rng);
+        makeBody(world, entity, { head: 25, torso: 60, legs: 40 });
+        makeGrabber(world, entity, 0.5);
+      }
+
+      // What this settles into, measured rather than assumed: ~90 of the 500 in contact and
+      // ~74 holds, with the rest milling a cell out. The ceiling is the field's 4 m cells --
+      // a crowd ascending a point source runs out of gradient on the source's own cell and
+      // stops there, which is a metre outside contact range. That is the shape of a real
+      // crowd around a generator, so it is the right load; it is written down because
+      // "why aren't all 500 grabbing" is otherwise a bug hunt.
+      //
+      // Holding the attack button, and a survivor who does not die. Letting them be killed
+      // in the first few seconds would measure a corpse surrounded by a crowd that has lost
+      // interest -- the same failure as an idle horde over an empty field, one scenario up.
+      world.components.set(player as EntityId, Body, {
+        head: 1e9,
+        torso: 1e9,
+        legs: 1e9,
+        crawling: false,
+        dead: false,
+      });
+      world.systems.register({
+        id: "bench.swing",
+        phase: "input",
+        order: -150, // before kernel.drain-commands, so the swing lands on this tick
+        run: (w) => w.commands.push({ type: "attack" }),
+      });
 
       return world;
     },

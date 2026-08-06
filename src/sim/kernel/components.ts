@@ -103,6 +103,27 @@ export class ComponentStore {
     return out;
   }
 
+  /**
+   * Every entity with this component, in **storage order**, without allocating.
+   *
+   * Read the warning before using it. Storage order is insertion order, which reflects the
+   * particular history of spawns and despawns that produced it -- and a world rebuilt from
+   * a snapshot does not reproduce that history. Anything whose *behaviour* depends on the
+   * order it visits entities in must use `query`, or two runs of the same seed will
+   * diverge; that is not hypothetical, it is the bug the sort in `query` exists to prevent.
+   *
+   * This exists for one shape of consumer: a pass that builds an index whose own output is
+   * re-sorted before anyone reads it. The spatial hash is that consumer, and it is worth the
+   * sharp edge -- it is rebuilt every tick over every positioned entity, and `query`'s
+   * sorted array cost about a millisecond a tick at 2,000 entities, most of it spent sorting
+   * an order that was then discarded.
+   */
+  eachUnordered<T>(type: ComponentType<T>, visit: (entity: EntityId, data: T) => void): void {
+    const store = this.stores.get(type.id);
+    if (store === undefined) return;
+    for (const [entity, data] of store) visit(entity, data as T);
+  }
+
   /** Serializable snapshot. Component ids and entities both sorted, so output is canonical. */
   save(): Record<string, [EntityId, unknown][]> {
     const out: Record<string, [EntityId, unknown][]> = {};
@@ -134,3 +155,14 @@ export type Tags = { values: string[] };
 export const Position = defineComponent<Position>("Position");
 export const Velocity = defineComponent<Velocity>("Velocity");
 export const Tags = defineComponent<Tags>("Tags");
+
+/**
+ * The tag marking a living person: someone the horde comes for, and someone a bite means
+ * something to.
+ *
+ * Here, beside `Tags` itself, rather than in either module that cares. Combat needs to know
+ * who can be grabbed and the zombie module needs to know who to pursue, and if either one
+ * owned the answer the other would have to import it -- which is the module mesh docs/19's
+ * `ModuleContext` exists to prevent. A shared vocabulary word belongs to the kernel.
+ */
+export const SURVIVOR_TAG = "survivor";

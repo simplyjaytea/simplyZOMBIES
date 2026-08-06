@@ -1,0 +1,12 @@
+{
+  "id": "weapon.machete",
+  "extends": "weapon.base",
+  "name": "Machete",
+  "reach": 1.0,
+  "damage": 14,
+  "weight": 0.6,
+  "staggerPower": 4,
+  "noise": 6,
+  "windupTicks": 3,
+  "recoverTicks": 4
+}

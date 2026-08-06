@@ -30,9 +30,31 @@ function loadRealContent(): ContentRegistry {
 describe("the shipped content", () => {
   it("loads and validates", () => {
     const registry = loadRealContent();
-    expect(registry.typeIds).toEqual(["affix", "zombie"]);
+    expect(registry.typeIds).toEqual(["affix", "weapon", "zombie"]);
     expect(registry.count("zombie")).toBeGreaterThan(0);
     expect(registry.count("affix")).toBeGreaterThan(0);
+    expect(registry.count("weapon")).toBeGreaterThan(0);
+  });
+
+  it("makes reach a property of the data, not of the code", () => {
+    // docs/09-combat.md: "a spear outranges a knife and that matters more than damage."
+    // Asserted against the shipped JSON rather than against constants in combat.ts,
+    // because the claim being tested is that a new weapon is data with no code behind it.
+    const registry = loadRealContent();
+
+    const spear = registry.getOrThrow("weapon", "weapon.spear");
+    const machete = registry.getOrThrow("weapon", "weapon.machete");
+    expect(spear["reach"]).toBeGreaterThan(machete["reach"] as number);
+
+    // And the trade docs/09 asks reach to pay for: the longer weapon is slower to bring
+    // round and costs more to swing, or reach would simply be free.
+    expect(spear["windupTicks"]).toBeGreaterThan(machete["windupTicks"] as number);
+    expect(spear["weight"]).toBeGreaterThan(machete["weight"] as number);
+
+    // "Blunt weapons stagger better; blades kill faster."
+    const bat = registry.getOrThrow("weapon", "weapon.bat");
+    expect(bat["staggerPower"]).toBeGreaterThan(machete["staggerPower"] as number);
+    expect(machete["damage"]).toBeGreaterThan(bat["damage"] as number);
   });
 
   it("resolves the screamer against its base, per docs/20", () => {

@@ -9,6 +9,10 @@
  * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
  * pre-1.0 (docs/19-architecture.md#save-model).
  *
+ * 4: combat. Bodies, holds, staggers and the swing in flight are all state -- a save taken
+ *    mid-swing has to come back mid-swing, or loading would be a way to cancel the recovery
+ *    window that docs/09 says is how melee kills you. The controlled entity's held movement
+ *    intent joined it at the same time.
  * 3: the attention field joined the snapshot. Derived from nothing -- it is the
  *    accumulated record of everything the colony has done, and a run that reloaded into a
  *    silent map would hand the player a free night.
@@ -17,7 +21,7 @@
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at

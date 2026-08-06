@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/weapon.schema.json",
+  "title": "Weapon",
+  "description": "A melee weapon, per docs/09-combat.md. The properties here are the ones the parity contract rests on: reach decides whether you hit before being hit, weight decides what a swing costs you, and stagger is what keeps a crowd off you. A new weapon is a JSON entry with zero code.",
+  "type": "object",
+  "required": ["id", "category"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^weapon\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "extends": {
+      "type": "string",
+      "description": "Id of another weapon to inherit from."
+    },
+    "name": { "type": "string" },
+    "category": {
+      "enum": ["weapon.melee"],
+      "description": "Matches an affix's appliesTo. Only melee exists in Milestone 1; docs/09's ranged half is Milestone 2."
+    },
+    "reach": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Metres. docs/09: 'a spear outranges a knife and that matters more than damage' -- reach decides both who connects first and how much of a bite risk a connect carries."
+    },
+    "damage": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Applied to the body part struck, against the pools in a zombie's `body`. Never shown to the player (docs/01#4)."
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Kilograms. Drives stamina cost per swing, so the heavy option is not free."
+    },
+    "staggerPower": {
+      "type": "number",
+      "minimum": 0,
+      "description": "docs/09: 'blunt weapons stagger better; blades kill faster.' Stagger is the survival mechanic in a crowd, because a staggered zombie is not grabbing you."
+    },
+    "noise": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Emitted on connect. docs/03's table puts a melee connect at 8, blunt louder than blade -- about 11 m, which draws the neighbours and not the block."
+    },
+    "windupTicks": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Ticks at 20 Hz before the swing resolves. An interruptible window."
+    },
+    "recoverTicks": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Ticks after it resolves. Also interruptible -- docs/09: being caught in recovery is how melee kills you."
+    }
+  }
+}

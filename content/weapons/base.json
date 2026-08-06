@@ -1,0 +1,12 @@
+{
+  "id": "weapon.base",
+  "name": "Improvised",
+  "category": "weapon.melee",
+  "reach": 1.0,
+  "damage": 8,
+  "weight": 0.8,
+  "staggerPower": 5,
+  "noise": 8,
+  "windupTicks": 4,
+  "recoverTicks": 5
+}
