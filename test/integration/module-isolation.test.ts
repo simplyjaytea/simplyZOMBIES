@@ -80,10 +80,15 @@ describe("module isolation", () => {
     // of the same seed would stop matching -- turning a configuration change into a
     // determinism bug.
     const withAll = boot({ seed: 7, wanderers: 20, mapSize: 64 });
-    const withoutWander = boot({ seed: 7, wanderers: 20, mapSize: 64, disabled: ["wander"] });
+    const withoutShamblers = boot({
+      seed: 7,
+      wanderers: 20,
+      mapSize: 64,
+      disabled: ["shambler"],
+    });
 
-    expect(withoutWander.player).toBe(withAll.player);
-    expect(withoutWander.world.entities.all()).toEqual(withAll.world.entities.all());
+    expect(withoutShamblers.player).toBe(withAll.player);
+    expect(withoutShamblers.world.entities.all()).toEqual(withAll.world.entities.all());
   });
 
   it("rejects disabling a module that does not exist", () => {

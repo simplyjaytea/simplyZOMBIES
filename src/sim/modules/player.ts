@@ -6,6 +6,7 @@
 // business knowing it (docs/19-architecture.md#layers).
 
 import { defineComponent, Position, Velocity } from "../kernel/components";
+import { SHOUT_MAGNITUDE } from "./attention";
 import type { Module } from "./index";
 
 /** Marks the entity the player is currently controlling. Succession moves this later. */
@@ -27,7 +28,8 @@ export const playerModule: Module = {
       id: "player.apply-commands",
       phase: "input",
       run: (w) => {
-        const commands = w.commands.take(w.tick);
+        // Read, never consume: the kernel drained the queue for everyone this tick.
+        const commands = w.commands.current;
         if (commands.length === 0) return;
 
         for (const entity of w.components.query(Position, Velocity, Controlled)) {
@@ -36,6 +38,21 @@ export const playerModule: Module = {
 
           for (const command of commands) {
             switch (command.type) {
+              case "shout": {
+                // A fact about the world, not an instruction to the field -- the kernel's
+                // subscription is what turns it into propagation, the same route a trap or a
+                // generator will take (docs/21-extensibility.md#core-events).
+                const pos = w.components.getOrThrow(entity, Position);
+                w.events.publish({
+                  type: "noise.emitted",
+                  x: pos.x,
+                  y: pos.y,
+                  magnitude: SHOUT_MAGNITUDE,
+                  source: entity,
+                });
+                break;
+              }
+
               case "sprint":
                 controlled.sprinting = command.active;
                 break;

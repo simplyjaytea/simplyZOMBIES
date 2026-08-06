@@ -97,10 +97,18 @@ async function main() {
 
     // Sample real frames via rAF. Draw time is what the renderer measured for itself;
     // frame time is the whole rAF-to-rAF interval, which is what the player experiences.
+    //
+    // Measured mid-convergence, not at rest. A quiet district has every shambler drifting,
+    // which is the cheap half of the simulation and the half a budget cannot usefully guard.
+    // The shout is pushed through the ordinary command queue, so this measures exactly the
+    // code path a player produces by pressing space.
     const result = await page.evaluate(async (seconds) => {
       const frames = [];
       const draws = [];
       let last = performance.now();
+      let frame = 0;
+
+      globalThis.__game.world.commands.push({ type: "shout" });
 
       await new Promise((resolve) => {
         const deadline = performance.now() + seconds * 1000;
@@ -108,6 +116,9 @@ async function main() {
           frames.push(now - last);
           last = now;
           draws.push(globalThis.__game.renderer.lastDrawMs);
+          // Noise has a ~3 s half-life, so re-shout often enough that the sample never
+          // drifts back into measuring a quiet district by accident.
+          if (++frame % 120 === 0) globalThis.__game.world.commands.push({ type: "shout" });
           if (now < deadline) requestAnimationFrame(sample);
           else resolve(undefined);
         };

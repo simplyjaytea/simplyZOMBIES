@@ -44,13 +44,23 @@ follow signals.
 
 ## Status
 
-**Design phase.** No production code yet — this repository contains the design document set below, plus
-one throwaway prototype in [`spike/`](spike/README.md) that tested the core mechanic before any
-architecture got written. The [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built
-first and the risks that might sink it, [TODO.md](TODO.md) breaks that into an executable backlog, and
+**Milestone 1, in progress — and it is playable.** Milestone 0 built the architecture; the noise
+channel of the [attention field](docs/03-attention.md) now sits on top of it, with shamblers that climb
+it. Make a noise and the district walks toward you; go quiet and it doesn't. Light, scent, melee and
+the day/night cycle are the rest of the milestone.
+
+```bash
+npm install && npm run dev     # http://127.0.0.1:5174
+```
+
+`WASD` move · `Shift` sprint · `Space` **shout** · `O` attention overlay · `P` pause · `F5`/`F9`
+save and load.
+
+The [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built first and the risks that
+might sink it, [TODO.md](TODO.md) breaks that into an executable backlog, and
 **[HANDOFF.md](HANDOFF.md) is where to start if you're picking this up cold.**
 
-**Planned stack:** TypeScript, HTML canvas, Vite, no engine — with a
+**Stack:** TypeScript, HTML canvas, Vite, no engine — with a
 [portability contract](docs/19-architecture.md#the-portability-contract) that keeps a pivot to Godot 4
 cheap.
 

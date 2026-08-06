@@ -12,29 +12,55 @@
  * direction means in metres; the platform layer only reports what was asked for.
  */
 export type Command =
-  { type: "move"; dx: number; dy: number } | { type: "sprint"; active: boolean } | { type: "wait" };
+  | { type: "move"; dx: number; dy: number }
+  | { type: "sprint"; active: boolean }
+  | { type: "wait" }
+  /**
+   * Deliberate noise. The one action whose entire purpose is to write to the attention
+   * field, which makes it the cheapest way to ask docs/03's question out loud: what happens
+   * to a district when you stop being quiet?
+   */
+  | { type: "shout" };
 
 export type CommandType = Command["type"];
 
 /** A command paired with the tick it was consumed on. */
 export type TimedCommand = { tick: number; command: Command };
 
+const NONE: readonly Command[] = [];
+
 export class CommandQueue {
   private pending: Command[] = [];
   /** Everything consumed so far -- the input log that accompanies a save. */
   private log: TimedCommand[] = [];
+  private taken: readonly Command[] = NONE;
 
   push(command: Command): void {
     this.pending.push(command);
   }
 
-  /** Take everything queued for this tick, recording it in the log. */
-  take(tick: number): Command[] {
-    if (this.pending.length === 0) return [];
+  /**
+   * Take everything queued for this tick, recording it in the log.
+   *
+   * Called once per tick by the kernel, never by a system. Draining used to be the first
+   * system's job, which quietly made input single-consumer: the second module to ask got an
+   * empty list, and the bug would look like "shouting works unless you are also moving".
+   */
+  take(tick: number): readonly Command[] {
+    if (this.pending.length === 0) {
+      this.taken = NONE;
+      return NONE;
+    }
     const taken = this.pending;
     this.pending = [];
     for (const command of taken) this.log.push({ tick, command });
+    this.taken = taken;
     return taken;
+  }
+
+  /** What `take` produced this tick. Every system reads this; none of them consume it. */
+  get current(): readonly Command[] {
+    return this.taken;
   }
 
   /**
