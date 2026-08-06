@@ -1,10 +1,17 @@
 # Handoff
 
-State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
-updated the same day when Milestone 0 closed, again when Milestone 1 reached its exit criterion, and
-again on 2026-08-06 when the melee loop landed.
+**Working notes for whoever builds the next thing — an engineer, or an agent starting cold.**
 
-**Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
+This is the operational document. [README.md](README.md) says what the game is, how it is being
+built, and what currently runs; this says what you need in your head before you change any of it —
+the decisions that are closed, the invariants that will bite you, what was measured and what only
+looks measured, and how to know your change is finished.
+
+**Read this, then [README.md](README.md), then [TODO.md](TODO.md).** If you are only going to read
+one section of one of them, read [Settled decisions](#settled-decisions-do-not-relitigate).
+
+Written 2026-08-05, updated the same day when Milestone 0 closed, again when Milestone 1 reached its
+exit criterion, and again on 2026-08-06 when the melee loop landed.
 
 ---
 
@@ -36,7 +43,7 @@ docs/           27 design documents. The README index is the reading-order autho
                 not the file numbers — 24-26 were written last but belong under "The world".
 TODO.md         The backlog through Milestone 2, with all 8 roadmap risks pinned to the
                 task that answers each one. Milestone 0 is ticked; Milestone 1 is ticked
-                except for combat and the clock, listed under "Still open in this milestone".
+                except the clock, listed under "Still open in this milestone".
 src/sim/        The simulation. Pure, headless, deterministic — kernel, modules, rng.
 src/render/     Canvas renderer. Reads the sim, never writes to it.
 src/platform/   The host: input, the tick loop, storage, content loading, schemas.
@@ -296,3 +303,35 @@ red, put it back. That is not ceremony — it caught two guards that looked rigo
   budget, because it gets trusted.
 
 A green suite says nothing about whether it *can* go red — and neither does a green budget.
+
+## Before you open a PR
+
+Not a process for its own sake. Every line here exists because something on it caught a real problem
+in this repo.
+
+```bash
+npm test                 # all of it, not just the file you touched
+npm run typecheck        # three projects -- the sim/ purity gate is one of them
+npm run lint
+npm run format:check
+npm run bench            # tick budgets
+npm run bench:frame      # frame budget; needs CHROMIUM_PATH in the standard container
+npx vite build           # the production build is a separate way to be wrong
+```
+
+Then the parts a command cannot check for you:
+
+- **Mutation-test every new guard.** Break it, watch something go red, put it back. If nothing goes
+  red you have written a test that cannot fail, which is worse than not writing it. List the
+  mutations and their results in the commit message — three of the four bugs in the section above
+  were found this way and the record is why the fourth was believed.
+- **If a benchmark looks comfortable, check the scenario is doing the thing.** Count the entities
+  that actually moved, grabbed, or emitted. This repo has now shipped three budgets that reported a
+  green number while measuring nothing.
+- **Say what you deferred.** In `TODO.md` under the milestone, not silently unticked, and in the PR
+  body. "Deliberately not done" and "forgotten" look identical six weeks later.
+- **Update this file and `README.md` when the state changes.** A stale handoff is worse than none:
+  `main` once spent a milestone telling the next session to build something that already existed.
+- **Record the negative results.** The measurement that disappointed you, the guard that turned out
+  weaker than it looked, the number you had to take twice. Those are the entries that have saved the
+  most time here, and they are the ones nobody feels like writing.

@@ -42,17 +42,94 @@ follow signals.
   and customized like any other gear, and a fitted-out van is a
   [home you can drive away from a siege](docs/26-mobile-bases.md).
 
-## Status
+## Where it stands
 
-**Design phase.** No production code yet — this repository contains the design document set below, plus
-one throwaway prototype in [`spike/`](spike/README.md) that tested the core mechanic before any
-architecture got written. The [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built
-first and the risks that might sink it, [TODO.md](TODO.md) breaks that into an executable backlog, and
-**[HANDOFF.md](HANDOFF.md) is where to start if you're picking this up cold.**
+**The spine is built and playable. There is no game on top of it yet.**
 
-**Planned stack:** TypeScript, HTML canvas, Vite, no engine — with a
+```bash
+npm install
+npm run dev        # http://127.0.0.1:5174
+```
+
+`WASD` move · `Shift` sprint · `Space` swing, or struggle if something has hold of you · `P` pause ·
+`F5`/`F9` save and load · `F3` state fingerprint · `F4` attention overlay *(developer-only)*
+
+What that gets you today: a procedurally generated district you can walk around, an attention field
+you can make noise into, shamblers that walk up its gradient and arrive where you were loud, and a
+melee loop that decides whether you survive them arriving. Turn the overlay on and you can watch the
+thing the whole game is built around — noise blooming out of a fight and the crowd turning toward it.
+
+| Milestone | State |
+|---|---|
+| **0 — The kernel** | ✅ Deterministic tick loop, ECS, modifier pipeline, content registry, renderer, input, save/load, CI budget gates |
+| **1 — The spine** | Field, spatial hash, shamblers, and combat done. **The day/night cycle is the last piece.** |
+| **2 — The vertical slice** | Not started. Survivors, needs, injury, infection, base building, the director |
+
+### Working now
+
+- **The attention field.** Three channels on a 4 m grid: noise floods *around* buildings, light is
+  occluded by them, scent diffuses downwind over hours. Make noise and they come; go quiet and they
+  genuinely don't — both halves are asserted, because a horde that converges regardless of what you
+  do would pass any test that only checked the loud half.
+- **A horde, not a queue.** Every zombie carries a permanent angular bias on its gradient reading,
+  which is the difference between a crowd and a conga line. They investigate, mill, and leave scent
+  behind, so a place you made a mistake stays a bad neighbourhood afterwards.
+- **Melee.** Wind-up → connect → recovery, all interruptible. Stamina scaled by weapon weight,
+  stagger, reach, grabs, bite risk. Weapons are JSON. Let three of them get hold of you and you do
+  not get back up.
+- **Determinism.** Same seed plus the same inputs reproduces byte-identically, saves included.
+
+### Not built yet
+
+- **The clock** — dawn/day/dusk/night and speed controls. Last of Milestone 1, and the point at
+  which the loop above becomes a *day* rather than a sandbox.
+- **People** — survivors are one controlled body. No generator, traits, needs, work priorities, or
+  succession, so permadeath currently means the run stops rather than continues.
+- **Consequences** — a bite is recorded and nothing happens next. Injury, infection and turning are
+  Milestone 2.
+- **Everything you'd build** — no resources, loot, crafting, walls, or director.
+
+[TODO.md](TODO.md) is the executable version of this, task by task, with all eight roadmap risks
+pinned to the task that answers each. **[HANDOFF.md](HANDOFF.md) is where to start if you're picking
+this up cold**, or if you're an agent.
+
+**Stack:** TypeScript, HTML canvas, Vite, no engine — with a
 [portability contract](docs/19-architecture.md#the-portability-contract) that keeps a pivot to Godot 4
 cheap.
+
+## How it's being built
+
+The order is deliberate, and it is not the order that feels productive.
+
+**Documents first, then a throwaway.** All 27 design documents existed before a line of production
+code, and the first code written was a [prototype in `spike/`](spike/README.md) built to be deleted —
+one screen, no architecture, testing only whether "make noise and they come" is fun before anything
+expensive was built on the assumption that it is. It found three problems, one of which (gradient
+ascent produces conga lines) would have been an expensive thing to discover in Milestone 2.
+
+**Rules are enforced, not intended.** A convention that lives in a review comment is a convention
+that erodes. So: `sim/` compiles with no DOM library at all, which makes browser access a type error
+rather than a note; `step(world)` takes no time argument, so the simulation *cannot* read a clock;
+every iteration order is sorted, because registration order is import order and bundlers reorder
+that; content fails at load with the file, entry and field named, never silently at hour thirty; and
+performance budgets fail the build at the same severity as a failing test.
+
+**Nothing is a special case.** Every system outside the kernel is a module that can be switched off,
+and CI boots the game with each one disabled and with all of them disabled. That is not a robustness
+exercise — it is how sandbox presets and storyteller settings get implemented later, so the mechanism
+is being exercised now rather than retrofitted.
+
+**Assume nothing; measure it.** This has repeatedly been the difference between a feature and a
+decoration. Field memory was specified, implemented, and *still* had to prove that switching it off
+changed where the horde ended up — the earlier prototype's version existed and did nothing. Three
+performance budgets have now reported comfortable numbers while measuring nothing at all: a frame
+budget that excluded the most expensive thing in the frame, a horde benchmark where 498 of 500
+zombies stood still, and a combat benchmark where 460 of them never moved. Each was found by
+checking that the scenario was doing the thing, not by the number looking wrong.
+
+**Every guard gets broken on purpose.** New protections are mutation-tested — break the thing, confirm
+something goes red, put it back — and the results go in the commit message. It has caught guards that
+looked rigorous and tested nothing. A green suite says nothing about whether it *can* go red.
 
 ## Documentation
 
