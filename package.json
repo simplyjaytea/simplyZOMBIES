@@ -1,17 +1,33 @@
 {
-  "name": "simplyzombies-spike",
+  "name": "simplyzombies",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Throwaway spike testing the attention field thesis. Not the game.",
+  "description": "A hardcore survival colony sim about the cost of living well during the end of the world.",
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sim.json && tsc --noEmit -p tsconfig.spike.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "build": "npm run typecheck && vite build",
+    "bench": "vitest run --config vitest.bench.config.ts",
+    "bench:frame": "node bench/frame.mjs",
+    "dev:spike": "vite --config vite.spike.config.ts",
+    "build:spike": "tsc --noEmit -p tsconfig.spike.json && vite build --config vite.spike.config.ts"
   },
   "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@types/node": "^26.1.2",
+    "ajv": "^8.20.0",
+    "eslint": "^9.15.0",
     "playwright": "^1.62.1",
+    "prettier": "^3.4.1",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10"
+    "typescript-eslint": "^8.16.0",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.6"
   }
 }
