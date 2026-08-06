@@ -160,10 +160,22 @@ Continuous scent diffusion is the [most likely thing to need rework](22-performa
 
 **Checkpoint:** Milestone 1, under a synthetic 500-zombie load.
 
-**Partially answered.** Event-driven *noise* propagation plus gradient ascent is effectively free —
-0.13 ms average sim at 1,560 zombies, two orders of magnitude inside the 8 ms budget, with rendering
-dominating instead. **Scent remains untested**, and scent is the continuous channel this risk actually
-names. The measurement below narrows the risk; it does not close it.
+**Answered in Milestone 1, and the answer is no.** 500 shamblers ascending the field across a
+district saturated with scent cost **1.20 ms average per tick** (p95 1.56 ms) against a 4 ms budget —
+and *less* than 2,000 idle entities cost at 0.99 ms. Continuous scent diffusion was named here as the
+most likely thing to need rework. At the scale this design targets, it is not.
+
+Two things about how that number was obtained, because the first version of it was wrong:
+
+- The scenario has to make the horde *move* and the field *full*. A first draft used a 45-magnitude
+  generator, which reaches 64 m of a 256 m district: 498 of 500 zombies stood still outside it, scent
+  covered 163 of 4,096 cells, and the benchmark reported a comfortable 0.55 ms while measuring almost
+  nothing. The honest scenario uses a 220-magnitude engine covering the district and seeds scent
+  across it — `horde-scent` in `bench/scenarios.ts`.
+- Event-driven *noise* propagation remains effectively free, as the spike found.
+
+The earlier partial answer is superseded: this risk is closed for Milestone 1's scale. It reopens if
+district count or entity budget changes materially, which is what the scenario is there to catch.
 
 Scent now carries a second question as well as its cost. Because
 [field memory is a scent mechanic](03-attention.md#field-memory-is-a-scent-mechanic) and the spike
@@ -275,7 +287,8 @@ regressed 200× without failing.
   only channel, being quiet is completely safe — which is the design working as specified, and also the
   strongest argument that **scent is not optional**. Perfect safety through stillness is a boring
   equilibrium, and scent is what makes hiding imperfect.
-- **Scent cost.** Untested, and it is the continuous channel risk 5 is actually about.
+- **Scent cost.** ~~Untested~~ — measured in Milestone 1 at 1.20 ms/tick for 500 zombies over a
+  saturated district. Affordable. See [risk 5](#5-attention-field-performance).
 
 ### 6. Melee/ranged parity may not survive contact
 The [contract](09-combat.md) is elegant on paper. Elegant-on-paper parity usually collapses in

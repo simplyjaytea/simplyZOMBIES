@@ -60,4 +60,25 @@ export class CommandQueue {
   clearLog(): void {
     this.log = [];
   }
+
+  /**
+   * Drop both the pending queue and the log.
+   *
+   * Called by `World.restore`. A restore rewinds the world to an earlier tick, and
+   * anything still in this queue belongs to the timeline being discarded: pending commands
+   * would apply to the restored world on its next tick, and the log would carry entries
+   * stamped at ticks the resumed run is about to replay. Either one makes
+   * `indexByTick(recorded)` describe a run that never happened, which is the opposite of
+   * what docs/19-architecture.md#determinism wants the log for.
+   *
+   * Note what this deliberately does *not* do: restore the log the save was taken with.
+   * The log is not in `WorldSnapshot`, so a loaded run can only be replayed from the
+   * restored tick, not from tick 0. Persisting it would mean carrying every command of a
+   * fifty-hour run in the save file -- a real trade worth making deliberately, not as a
+   * side effect of a bug fix.
+   */
+  reset(): void {
+    this.pending = [];
+    this.log = [];
+  }
 }

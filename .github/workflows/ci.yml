@@ -41,6 +41,11 @@ jobs:
   # as a broken build, and so the correctness suite is never waiting on a browser download.
   performance:
     runs-on: ubuntu-latest
+    # A hang must fail, not hold a runner until GitHub's six-hour limit while the PR shows
+    # a check that never reports. The frame benchmark samples for seconds; everything here
+    # together is minutes. bench/frame.mjs carries its own tighter watchdog -- this is the
+    # backstop for a hang outside it, such as the browser install.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 

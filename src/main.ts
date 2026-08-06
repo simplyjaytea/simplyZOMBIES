@@ -22,6 +22,9 @@ import { fingerprint } from "./sim/kernel/serialize";
 
 const DEFAULT_SEED = 20260805;
 const DEFAULT_WANDERERS = 300;
+// Shamblers, which read the attention field. Wanderers do not -- they are Milestone 0's
+// "something moves" placeholder and stay only so the crowded frame budget keeps its shape.
+const DEFAULT_ZOMBIES = 200;
 
 // Overridable from the query string so the frame benchmark can ask for a specific load
 // without a second entry point measuring a different code path than the game runs.
@@ -39,7 +42,11 @@ const canvas = document.getElementById("view") as HTMLCanvasElement;
 const hud = document.getElementById("hud") as HTMLElement;
 const help = document.getElementById("help") as HTMLElement;
 
-const { world, map } = boot({ seed: SEED, wanderers: numeric("wanderers", DEFAULT_WANDERERS) });
+const { world, map } = boot({
+  seed: SEED,
+  wanderers: numeric("wanderers", DEFAULT_WANDERERS),
+  zombies: numeric("zombies", DEFAULT_ZOMBIES),
+});
 
 const camera = createCamera(14);
 const renderer = new Renderer(canvas, map);
@@ -96,6 +103,9 @@ function load(): void {
     applySave(world, decodeSave(text));
     // The renderer's interpolation history now describes a world that no longer exists.
     renderer.capturePrevious(world);
+    // So does the cached fingerprint -- and a load moves the tick *backwards*, which the
+    // interval check would otherwise read as "no time has passed, nothing to recompute".
+    invalidateFingerprint();
     say(`loaded tick ${world.tick}`);
   } catch (e) {
     // A stale save is expected and survivable; anything else is worth surfacing loudly.
@@ -138,7 +148,13 @@ function togglePause(): void {
 }
 
 const input = attachKeyboard(window, {
-  onPress: { F5: save, F9: load, KeyP: togglePause },
+  onPress: {
+    F5: save,
+    F9: load,
+    F3: toggleFingerprint,
+    F4: toggleFieldOverlay,
+    KeyP: togglePause,
+  },
 });
 
 function resize(): void {
@@ -152,6 +168,67 @@ function resize(): void {
 window.addEventListener("resize", resize);
 resize();
 
+// ---- state fingerprint -----------------------------------------------------
+
+/**
+ * How often the HUD's fingerprint is recomputed, in ticks.
+ *
+ * `serialize()` walks every component, sorts every entity id and builds a full canonical
+ * JSON string. Measured on this branch: 2.34 ms at 300 entities and **15.99 ms at 2,000**,
+ * against a 0.85 ms tick. Computed per frame it was comfortably the most expensive thing in
+ * the frame -- and invisible to the budget in bench/frame.mjs, which stops timing when
+ * Renderer.draw returns.
+ *
+ * Tied to ticks rather than to frames or wall-clock so it stays a fixed fraction of
+ * simulation work regardless of how fast the display runs.
+ */
+const FINGERPRINT_EVERY_TICKS = 30; // 1.5 s at 20 Hz
+
+/**
+ * ...and off entirely unless asked for, because an interval alone only trades a permanent
+ * cost for a periodic one. At 2,000 entities the recompute is a ~16 ms spike -- a visible
+ * hitch every time it lands, which showed up as a 21.89 ms work p95 against a 5.52 ms
+ * average. The determinism guarantee is asserted in CI by the test suite; the HUD readout
+ * is a convenience for watching two runs agree by eye, and it should cost nothing when
+ * nobody is watching.
+ */
+let fingerprintEnabled = false;
+let fingerprintCache = "";
+let fingerprintTick = -1;
+
+/** The current state fingerprint, recomputed at most every FINGERPRINT_EVERY_TICKS. */
+function stateFingerprint(w: World): string {
+  if (!fingerprintEnabled) return "off (F3)";
+  if (fingerprintTick < 0 || w.tick - fingerprintTick >= FINGERPRINT_EVERY_TICKS) {
+    fingerprintCache = fingerprint(w.serialize());
+    fingerprintTick = w.tick;
+  }
+  return fingerprintCache;
+}
+
+/**
+ * The attention-field debug overlay.
+ *
+ * Developer-only, per docs/01#4-information-is-scarce-and-unreliable -- docs/03's cut list
+ * rejects a player-visible attention readout outright, because it would collapse the game's
+ * central uncertainty into a number.
+ */
+function toggleFieldOverlay(): void {
+  renderer.showField = !renderer.showField;
+  say(renderer.showField ? "attention overlay on (dev)" : "attention overlay off");
+}
+
+function toggleFingerprint(): void {
+  fingerprintEnabled = !fingerprintEnabled;
+  fingerprintTick = -1;
+  say(fingerprintEnabled ? "state fingerprint on" : "state fingerprint off");
+}
+
+/** Force a recompute -- after a load, the cached value describes a world that is gone. */
+function invalidateFingerprint(): void {
+  fingerprintTick = -1;
+}
+
 function updateHud(w: World): void {
   const showing = performance.now() < noticeUntil ? `\n${notice}` : "";
   const problem =
@@ -162,15 +239,18 @@ function updateHud(w: World): void {
     `<b>sim</b>      ${simMs.toFixed(2)} ms\n` +
     `<b>draw</b>     ${renderer.lastDrawMs.toFixed(2)} ms   ${renderer.visibleCount} drawn\n` +
     `<b>entities</b> ${w.entities.count}\n` +
+    `<b>field</b>    ${w.field.liveCells("noise")} noise, ` +
+    `${w.field.liveCells("scent")} scent, ${w.field.liveCells("light")} light cells\n` +
     `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes\n` +
-    `<b>state</b>    ${fingerprint(w.serialize())}` +
+    `<b>state</b>    ${stateFingerprint(w)}` +
     problem +
     showing;
 
   help.textContent =
     "WASD / arrows move   Shift sprint   P pause\n" +
-    "F5 save   F9 load\n" +
-    "the state fingerprint is what the determinism test compares";
+    "F5 save   F9 load   F3 state fingerprint   F4 attention overlay (dev)\n" +
+    "the state fingerprint is what the determinism test compares -- off by default\n" +
+    "because computing it serializes the whole world";
 }
 
 loop.start();
@@ -180,10 +260,17 @@ loop.start();
 (globalThis as unknown as Record<string, unknown>).__game = {
   world,
   renderer,
+  // Read once per sampled frame by bench/frame.mjs, so it must stay cheap. Deliberately
+  // not folded into stats() below: that one serializes the world, and calling it per frame
+  // would cost more than everything it is trying to measure.
+  workMs: () => loop.workMs,
   stats: () => ({
     tick: world.tick,
     simMs,
     drawMs: renderer.lastDrawMs,
+    // Every millisecond the frame callback spends, not just the parts anyone remembered to
+    // instrument. This is what bench/frame.mjs gates on.
+    workMs: loop.workMs,
     visible: renderer.visibleCount,
     entities: world.entities.count,
     fingerprint: fingerprint(world.serialize()),

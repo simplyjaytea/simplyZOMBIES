@@ -10,14 +10,23 @@
 import { Position, Tags, Velocity } from "../../src/sim/kernel/components";
 import type { Command } from "../../src/sim/kernel/commands";
 import { World, TICK_SECONDS } from "../../src/sim/kernel/world";
+import { blockedAt, Tile, type TileMap } from "../../src/sim/map/tilemap";
 
-export type TileMap = { w: number; h: number; walls: boolean[] };
+export type { TileMap };
 
-/** A deterministic little district: perimeter wall plus a few interior blocks. */
+/**
+ * A deterministic little district: perimeter wall plus a few interior blocks.
+ *
+ * Built as a real `TileMap` rather than a lookalike. This file used to carry its own
+ * `{ walls: boolean[] }` shape, which was harmless while nothing but these systems read it
+ * -- and stopped being harmless the moment the attention field needed the map to know where
+ * noise could travel. A test fixture that models the same thing differently from production
+ * eventually tests the fixture.
+ */
 export function createMap(w = 32, h = 32): TileMap {
-  const walls = new Array<boolean>(w * h).fill(false);
+  const map: TileMap = { w, h, tiles: new Uint8Array(w * h) };
   const set = (x: number, y: number): void => {
-    if (x >= 0 && y >= 0 && x < w && y < h) walls[y * w + x] = true;
+    if (x >= 0 && y >= 0 && x < w && y < h) map.tiles[y * w + x] = Tile.Wall;
   };
 
   for (let x = 0; x < w; x++) {
@@ -33,14 +42,7 @@ export function createMap(w = 32, h = 32): TileMap {
     set(20, 6 + i);
   }
 
-  return { w, h, walls };
-}
-
-export function isWall(map: TileMap, x: number, y: number): boolean {
-  const tx = Math.floor(x);
-  const ty = Math.floor(y);
-  if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) return true;
-  return map.walls[ty * map.w + tx] === true;
+  return map;
 }
 
 const PLAYER_TAG = "player";
@@ -58,7 +60,7 @@ const SPRINT_SPEED = 4.2;
  * simulation state and so lives outside the snapshot.
  */
 export function buildScenario(seed: number, map: TileMap): World {
-  const world = new World(seed);
+  const world = new World(seed, map);
 
   const player = world.spawn();
   world.components.set(player, Position, { x: 4, y: 4 });
@@ -138,11 +140,11 @@ export function buildScenario(seed: number, map: TileMap): World {
         const vel = w.components.getOrThrow(entity, Velocity);
 
         const nx = pos.x + vel.dx * TICK_SECONDS;
-        if (!isWall(map, nx, pos.y)) pos.x = nx;
+        if (!blockedAt(map, nx, pos.y)) pos.x = nx;
         else vel.dx = 0;
 
         const ny = pos.y + vel.dy * TICK_SECONDS;
-        if (!isWall(map, pos.x, ny)) pos.y = ny;
+        if (!blockedAt(map, pos.x, ny)) pos.y = ny;
         else vel.dy = 0;
       }
     },
@@ -208,7 +210,8 @@ export function scriptedCommands(
   seed: number,
   ticks: number,
 ): { tick: number; command: Command }[] {
-  const rng = new World(seed).rng.stream("script");
+  // Only the RNG is wanted here, but a World needs terrain for its attention field.
+  const rng = new World(seed, createMap(8, 8)).rng.stream("script");
   const out: { tick: number; command: Command }[] = [];
 
   for (let tick = 1; tick <= ticks; tick++) {

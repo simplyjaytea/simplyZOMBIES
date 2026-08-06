@@ -165,10 +165,16 @@ the mistake is an easy one to repeat:
 - Because scent decays over **hours** rather than seconds, memory outlives the event that caused it
   by the right order of magnitude. Noise could never have produced this behaviour.
 
-**This is unverified.** The spike had no scent channel, so field memory has never actually been
-observed working. [Milestone 1](../TODO.md) carries an explicit acceptance check: switch residue off
-and confirm something changes. If nothing does, the mechanic gets cut rather than carried as
-decoration.
+**Verified in Milestone 1, and kept.** The acceptance check was: switch residue off and confirm
+something changes. It does, and not merely in the field's contents — in where the horde ends up.
+
+A crowd drawn to a spot and then left in silence for a full minute settles **19.4 m** from it with
+residue on, against **25.4 m** with it off. Somewhere you made a mistake really does stay a bad
+neighbourhood after the crowd has gone, which is the behaviour this mechanic was kept for.
+
+Asserted in `test/integration/milestone-1.test.ts`, deliberately on the behavioural consequence
+rather than on "the emitter fires" — the spike's residue also existed, and was still a no-op,
+because nothing downstream could perceive it.
 
 ### Route trails
 

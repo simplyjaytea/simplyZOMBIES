@@ -93,6 +93,23 @@ Fixed timestep, seeded RNG per subsystem, plain state, and an input command log.
 
 **Rule:** any nondeterminism introduced into `sim/` is a bug of the same severity as a crash.
 
+### The input log is not in the save
+
+The log lives on the command queue, not in `WorldSnapshot`, and `World.restore` **clears it**. Two
+consequences worth knowing before relying on the guarantees above:
+
+- A loaded run can be replayed from the tick it was restored at, **not from tick 0**. Persisting the
+  log would mean carrying every command of a fifty-hour run in a save file that is already rewritten
+  continuously — a real trade, and one nobody has made yet.
+- Clearing is not optional. A restore rewinds the world, so anything left in the queue belongs to the
+  timeline being discarded: pending commands would apply to the restored world, and retained log
+  entries would be stamped at ticks the resumed run is about to replay. Either one makes the log
+  describe a run that never happened, which is worse than having no log.
+
+Easy to get wrong, because it is invisible to any test that restores into a freshly booted world —
+which is the natural way to write one. Only loading into a world that is *already running* exposes
+it, and that is the only thing the game itself ever does.
+
 ## The portability contract
 
 TypeScript now, with a cheap pivot to Godot 4 if the browser stops being the right target.

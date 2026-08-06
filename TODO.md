@@ -141,41 +141,41 @@ which the project is legible as a game.
 
 ### The attention field — spec: [docs/03](docs/03-attention.md)
 
-- [ ] Three scalar layers on a **coarse grid** — 4 m cells, per
+- [x] Three scalar layers on a **coarse grid** — 4 m cells, per
       [scale and calibration](docs/03-attention.md#scale-and-calibration)
 - [ ] Calibration constants as content, not magic numbers: 1 tile = 1 m, 0.7 attenuation per metre,
       18 m-equivalent wall penalty, ~3 s noise half-life
-- [ ] `AttentionEmitter` component + emission system
-- [ ] **Noise** — event-driven only; attenuated flood-fill with material-based falloff, radius bounded
+- [x] `AttentionEmitter` component + emission system
+- [x] **Noise** — event-driven only; attenuated flood-fill with material-based falloff, radius bounded
       by magnitude
-- [ ] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
-- [ ] **Scent** — diffusion at a few Hz with a global wind vector
-- [ ] **Field memory** — milling bodies emit scent residue (**never noise**), at a magnitude that
+- [x] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
+- [x] **Scent** — diffusion at a few Hz with a global wind vector
+- [x] **Field memory** — milling bodies emit scent residue (**never noise**), at a magnitude that
       propagates past its own cell
-- [ ] ⚠ **Acceptance check:** toggle residue off and confirm something observably changes. The
+- [x] ⚠ **Acceptance check:** toggle residue off and confirm something observably changes. The
       [spike failed exactly this check](docs/23-roadmap.md#problem-3--field-memory-is-currently-a-no-op)
       because it emitted onto the wrong channel. **If nothing changes, cut the mechanic** rather than
       carrying it as decoration.
-- [ ] Dirty-region tracking
-- [ ] Per-tick propagation budget with a deterministic overflow queue (degrade the field's update rate,
+- [x] Dirty-region tracking
+- [x] Per-tick propagation budget with a deterministic overflow queue (degrade the field's update rate,
       never the frame)
-- [ ] Field is part of the save state
-- [ ] Debug overlay visualizing all three channels *(developer-only — see the
+- [x] Field is part of the save state
+- [x] Debug overlay visualizing all three channels *(developer-only — see the
       [information rule](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable))*
 
 ### Spatial partitioning — spec: [docs/22](docs/22-performance.md#spatial-partitioning)
 
-- [ ] Uniform spatial hash over entity positions
-- [ ] Neighbor queries for combat, emitters, and render culling
+- [x] Uniform spatial hash over entity positions
+- [x] Neighbor queries for combat, emitters, and render culling
 
 ### Zombies — spec: [docs/14](docs/14-zombies.md)
 
-- [ ] Shambler entity with a sensory profile weighting the three channels
-- [ ] Gradient ascent: noise as impulse, scent as bias, light as line-of-sight pull
-- [ ] **Persistent per-individual angular bias (±0.62 rad)** on the gradient direction — assigned once
+- [x] Shambler entity with a sensory profile weighting the three channels
+- [x] Gradient ascent: noise as impulse, scent as bias, light as line-of-sight pull
+- [x] **Persistent per-individual angular bias (±0.62 rad)** on the gradient direction — assigned once
       at spawn from the seeded RNG stream, never re-rolled, **included in save state**. Without it
       they form [conga lines, not a horde](docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own).
-- [ ] Investigate on arrival → mill → disperse, **raising local scent** so the field gains memory
+- [x] Investigate on arrival → mill → disperse, **raising local scent** so the field gains memory
 - [ ] Pursue on direct contact
 - [ ] Damage model: head and locomotion are what matter; a crawler is still lethal
 
@@ -196,11 +196,27 @@ which the project is legible as a game.
 
 ### Performance
 
-- [ ] ⚠ **Risk checkpoint (roadmap risk 5):** synthetic 500-zombie load test. Continuous scent
+- [x] ⚠ **Risk checkpoint (roadmap risk 5):** synthetic 500-zombie load test. Continuous scent
       diffusion is [the most likely thing to need rework](docs/22-performance.md#known-risks) — find
       out now, not in Milestone 2.
 
 > **Exit criterion:** make noise, and they come. Go quiet, and they don't.
+>
+> **Met**, and asserted in `test/integration/milestone-1.test.ts` — both halves. The quiet half is
+> the one that can fail silently: a horde that converges regardless of what the player does would
+> pass any test that only checked the loud half, and would be a different game.
+
+### Still open in this milestone
+
+Deliberately deferred, not forgotten. The exit criterion needed the field, the spatial hash and
+shamblers that read it; melee and the clock are a second pass.
+
+- **Combat** — the melee loop, stamina, stagger, grabs, reach. `pursue` and the damage model above
+  belong with it: a `pursue` behaviour with nothing to do on contact is not worth writing twice.
+- **Time** — the day/night cycle, phase events, and speed controls.
+- **Calibration constants as content.** They are named constants in `src/sim/kernel/field.ts` citing
+  docs/03, not JSON. Moving them into content is worth doing when something needs to *tune* them;
+  today it would add a loader dependency to the kernel for no gain.
 
 ---
 

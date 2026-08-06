@@ -11,6 +11,7 @@
 
 import { Position, Velocity } from "../sim/kernel/components";
 import type { EntityId } from "../sim/kernel/entities";
+import { FIELD_CELL_METRES } from "../sim/kernel/field";
 import type { World } from "../sim/kernel/world";
 import { isWall, type TileMap } from "../sim/map/tilemap";
 import { Controlled } from "../sim/modules/player";
@@ -49,6 +50,19 @@ export class Renderer {
 
   /** Entities drawn in the last frame, after culling. */
   visibleCount = 0;
+
+  /**
+   * Attention-field debug overlay. **Developer-only.**
+   *
+   * docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable is explicit that
+   * the player reads the field through diegetic cues -- how far the lamplight throws, how
+   * bad the corpse pile smells -- and docs/03's cut list rejects "a visible attention meter"
+   * outright, because it "would collapse the game's central uncertainty into a number".
+   *
+   * So this is a tool for whoever is building the thing, and it must never become UI. Off by
+   * default, behind a key nobody presses by accident.
+   */
+  showField = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -175,6 +189,8 @@ export class Renderer {
     const bounds = visibleBounds(camera);
     const radius = Math.max(2, camera.zoom * 0.35);
 
+    if (this.showField) this.drawField(world, camera, bounds);
+
     ctx.fillStyle = COLOURS.wanderer;
     let drawn = 0;
     for (const entity of world.components.query(Position, Velocity)) {
@@ -197,6 +213,56 @@ export class Renderer {
 
     this.visibleCount = drawn;
     this.lastDrawMs = performance.now() - started;
+  }
+
+  /**
+   * All three channels at once, one colour each, additively blended.
+   *
+   * Separate colours rather than a single "threat" heat map, because the three channels are
+   * deliberately non-interchangeable (docs/03#three-channels) and the thing you usually
+   * need to see is *which* one is drawing a crowd. A merged view would hide exactly the
+   * distinction the design rests on.
+   *
+   * Only visible cells are drawn: the overlay is a debugging aid, not a reason for the
+   * frame budget to fail while it is on.
+   */
+  private drawField(
+    world: World,
+    camera: Camera,
+    bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  ): void {
+    const ctx = this.ctx;
+    const field = world.field;
+    const size = FIELD_CELL_METRES;
+
+    const minCX = Math.max(0, Math.floor(bounds.minX / size));
+    const maxCX = Math.min(field.w - 1, Math.floor(bounds.maxX / size));
+    const minCY = Math.max(0, Math.floor(bounds.minY / size));
+    const maxCY = Math.min(field.h - 1, Math.floor(bounds.maxY / size));
+
+    ctx.globalCompositeOperation = "lighter";
+    for (let cy = minCY; cy <= maxCY; cy++) {
+      for (let cx = minCX; cx <= maxCX; cx++) {
+        const cell = cy * field.w + cx;
+        const noise = field.at("noise", cell);
+        const light = field.at("light", cell);
+        const scent = field.at("scent", cell);
+        if (noise === 0 && light === 0 && scent === 0) continue;
+
+        // Scaled by eye for legibility, not by any spec: this is a readout, and the numbers
+        // that matter are asserted in tests rather than judged from a picture.
+        const r = Math.min(1, noise / 60);
+        const g = Math.min(1, light / 60);
+        const b = Math.min(1, scent / 60);
+
+        const { sx, sy } = worldToScreen(camera, cx * size, cy * size);
+        ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(
+          b * 255,
+        )}, 0.28)`;
+        ctx.fillRect(sx, sy, size * camera.zoom, size * camera.zoom);
+      }
+    }
+    ctx.globalCompositeOperation = "source-over";
   }
 
   private interpolated(world: World, entity: EntityId, alpha: number): { x: number; y: number } {
