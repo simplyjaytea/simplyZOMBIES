@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/calibration.schema.json",
+  "title": "Attention calibration",
+  "description": "The units the attention field is measured in, per docs/03-attention.md#scale-and-calibration. One entry, and everything that emits is expressed as a ratio against it.",
+  "type": "object",
+  "required": [
+    "id",
+    "cellMetres",
+    "attenuationPerMetre",
+    "wallPenaltyMetres",
+    "noiseHalfLifeSeconds",
+    "floor"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^calibration\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "extends": { "type": "string" },
+    "description": { "type": "string" },
+    "cellMetres": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Metres per field cell. 4 m, deliberately coarser than the 1 m tile grid."
+    },
+    "attenuationPerMetre": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Magnitude lost per metre of open ground. 0.7, which makes reach = magnitude / 0.7 metres."
+    },
+    "wallPenaltyMetres": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Extra travel a solid cell costs, in metres. 18 m -- being indoors is worth real distance."
+    },
+    "noiseHalfLifeSeconds": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Noise half-life. ~3 s, so a shout is inaudible about fifteen seconds later and the horde it summoned is still walking."
+    },
+    "floor": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Below this a cell is silent and propagation stops. Near zero, because docs/03 states reach as magnitude / attenuation. Not a hearing threshold -- a sensory profile applies that per zombie."
+    }
+  }
+}

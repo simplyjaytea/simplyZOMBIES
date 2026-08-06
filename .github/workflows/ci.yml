@@ -5,9 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+# Superseded runs are cancelled rather than left to finish. Pushing a fix while the previous
+# commit's run is still going should not leave two runs competing to report on the branch --
+# and it means a job that has genuinely hung stops the moment a fix is pushed.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -18,8 +26,8 @@ jobs:
 
       - run: npm ci
 
-      # Three projects: the main build, the sim/ purity gate (compiled without the DOM
-      # lib, so DOM access in sim/ is a type error), and the throwaway spike.
+      # Two projects: the main build, and the sim/ purity gate (compiled without the DOM
+      # lib, so DOM access in sim/ is a type error rather than a review comment).
       - name: Typecheck
         run: npm run typecheck
 
@@ -30,7 +38,7 @@ jobs:
         run: npm run format:check
 
       # Correctness: unit, determinism, module isolation, save/load, and the Milestone 0
-      # exit criterion.
+      # and 1 exit criteria.
       - name: Test
         run: npm test
 
@@ -41,6 +49,10 @@ jobs:
   # as a broken build, and so the correctness suite is never waiting on a browser download.
   performance:
     runs-on: ubuntu-latest
+    # The frame benchmark drives a real browser, which is the one step here that can hang
+    # rather than fail. Without a cap it sits until GitHub's six-hour default and reports
+    # nothing; the harness has its own deadlines, and this is the backstop behind them.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 

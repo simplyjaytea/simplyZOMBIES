@@ -25,6 +25,14 @@ const COLOURS = {
   background: "#0d0e10",
 } as const;
 
+/**
+ * Loudest magnitude the overlay scales against.
+ *
+ * A shout is 120 and a gunshot 180, so the brightest cell on screen after a shout is about
+ * two thirds saturated -- leaving headroom rather than clipping the moment anything happens.
+ */
+const OVERLAY_FULL_SCALE = 180;
+
 /** A position remembered from the previous tick, for interpolation. */
 type Previous = { x: number; y: number };
 
@@ -49,6 +57,16 @@ export class Renderer {
 
   /** Entities drawn in the last frame, after culling. */
   visibleCount = 0;
+
+  /**
+   * Draw the attention field on top of the world.
+   *
+   * Developer-only, and off by default. docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable
+   * rules out showing the player the field directly -- reading the horde is supposed to be a
+   * skill, and an overlay hands it over. It exists because the alternative when tuning
+   * propagation is inferring a scalar field from where the bodies went.
+   */
+  showAttention = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -175,6 +193,8 @@ export class Renderer {
     const bounds = visibleBounds(camera);
     const radius = Math.max(2, camera.zoom * 0.35);
 
+    if (this.showAttention) this.drawAttention(world, camera, bounds);
+
     ctx.fillStyle = COLOURS.wanderer;
     let drawn = 0;
     for (const entity of world.components.query(Position, Velocity)) {
@@ -197,6 +217,43 @@ export class Renderer {
 
     this.visibleCount = drawn;
     this.lastDrawMs = performance.now() - started;
+  }
+
+  /**
+   * The noise channel, as translucent cells over the map.
+   *
+   * Only the cells inside the viewport are considered. After a shout the whole 64x64 field is
+   * live, and painting all of it every frame at 60 Hz would put the overlay itself in the
+   * frame budget -- which would make the tool distort the thing it exists to measure.
+   */
+  private drawAttention(
+    world: World,
+    camera: Camera,
+    bounds: { minX: number; maxX: number; minY: number; maxY: number },
+  ): void {
+    const field = world.field;
+    if (field.cellCount === 0) return;
+
+    const ctx = this.ctx;
+    const size = field.cellMetres;
+    const minCol = Math.max(0, Math.floor(bounds.minX / size));
+    const maxCol = Math.min(field.cols - 1, Math.floor(bounds.maxX / size));
+    const minRow = Math.max(0, Math.floor(bounds.minY / size));
+    const maxRow = Math.min(field.rows - 1, Math.floor(bounds.maxY / size));
+    const screenSize = size * camera.zoom;
+
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        const value = field.noise[row * field.cols + col] as number;
+        if (value === 0) continue;
+        // Square-rooted, because a linear ramp makes everything but the source invisible --
+        // the tail of a shout is what you actually need to see when tuning falloff.
+        const intensity = Math.min(1, Math.sqrt(value / OVERLAY_FULL_SCALE));
+        const { sx, sy } = worldToScreen(camera, col * size, row * size);
+        ctx.fillStyle = `rgba(226, 122, 78, ${(intensity * 0.55).toFixed(3)})`;
+        ctx.fillRect(sx, sy, screenSize, screenSize);
+      }
+    }
   }
 
   private interpolated(world: World, entity: EntityId, alpha: number): { x: number; y: number } {

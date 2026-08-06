@@ -34,8 +34,7 @@ const BROWSER_GLOBALS = [
 
 export default tseslint.config(
   {
-    // The spike is throwaway and lints to its own standards; see spike/README.md.
-    ignores: ["node_modules/", "dist/", "dist-spike/", "spike/"],
+    ignores: ["node_modules/", "dist/"],
   },
 
   js.configs.recommended,

@@ -9,12 +9,15 @@
  * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
  * pre-1.0 (docs/19-architecture.md#save-model).
  *
+ * 3: the attention field joined the snapshot. A horde converging on a shout is mid-response
+ *    to a field that no longer exists if the field is dropped, so loading would rewind the
+ *    stimulus while leaving its consequences walking. Stored sparsely -- live cells only.
  * 2: modifiers joined the snapshot. They are state, not derived -- rain's contribution has
  *    to survive a save, and the alternative (every module re-emitting on load) fails the
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at

@@ -1,0 +1,77 @@
+# Publishing the playable build.
+#
+# Milestone 1 is the first point at which there is anything worth putting in front of a
+# human, and the open questions that matter now -- is being quiet *tense*, or just slow? --
+# cannot be answered by a test. They need someone playing, which needs a URL.
+#
+# Deliberately separate from ci.yml and gated on it: a build that fails typecheck, lint,
+# tests or budgets must never become the public URL. Nothing here re-runs those checks, so
+# the gate is the only thing standing between a red build and a deploy.
+#
+# One-time manual step: Settings -> Pages -> Source: GitHub Actions.
+
+name: Pages
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # So a deploy can be re-triggered without an empty commit.
+  workflow_dispatch:
+
+# Read the repo, mint an id-token for the deploy, write to Pages. Nothing else.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never two deploys at once, and let a newer commit win rather than queue behind an older
+# one. `cancel-in-progress` is safe here because a superseded deploy has nothing to clean up.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # workflow_run fires on failure too, so the conclusion has to be checked explicitly --
+    # without this, a red CI run would publish.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Build the commit CI actually passed on, not whatever main points at now.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/configure-pages@v5
+        id: pages
+
+      # A project page lives under /<repo>/, and Vite bakes the base into asset URLs at
+      # build time. Taking it from configure-pages rather than hardcoding means renaming
+      # the repository cannot silently break every script tag.
+      - name: Build
+        run: npm run build
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

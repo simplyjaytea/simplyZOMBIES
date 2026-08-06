@@ -30,9 +30,10 @@ function loadRealContent(): ContentRegistry {
 describe("the shipped content", () => {
   it("loads and validates", () => {
     const registry = loadRealContent();
-    expect(registry.typeIds).toEqual(["affix", "zombie"]);
+    expect(registry.typeIds).toEqual(["affix", "calibration", "zombie"]);
     expect(registry.count("zombie")).toBeGreaterThan(0);
     expect(registry.count("affix")).toBeGreaterThan(0);
+    expect(registry.count("calibration")).toBeGreaterThan(0);
   });
 
   it("resolves the screamer against its base, per docs/20", () => {
