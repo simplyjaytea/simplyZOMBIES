@@ -181,6 +181,11 @@ Written as data (see [ECS & content](20-ecs-and-content.md)); magnitudes are in 
 | Muzzle flash | 60 (instant) | Ranged combat at night gives away position twice over |
 | [Vehicle](25-vehicles.md) headlights | 70–110 | And they move, sweeping across everything ahead |
 
+> **Half of this exists.** [Ambient](02-core-loop.md) light — the sun — is built, and it decides how
+> far an observer can see: 48 m at noon, 12 m at midnight. **Emitters are not.** Nothing in the table
+> above illuminates anything yet, which is why night bottoms out at a quarter of daylight rather than
+> near darkness: with no torch to carry there would be no counterplay to a darker one.
+
 > **Light propagates by shadowcasting**, not by flood-fill — it is the one channel where a wall is an
 > absolute rather than a penalty, which is why shutters work completely and why forgetting them is
 > expensive. The algorithm, the occluder classes, and the observer model it shares with the renderer

@@ -14,6 +14,7 @@ import type { EntityId } from "../sim/kernel/entities";
 import type { World } from "../sim/kernel/world";
 import { Tile, tileAt, type TileMap } from "../sim/map/tilemap";
 import { Surface, surfaceAt } from "../sim/map/surface";
+import { ambientLightAt } from "../sim/time/clock";
 import { Controlled } from "../sim/modules/player";
 import { Detail, Observer } from "../sim/vision/visibility";
 import { followCamera, visibleBounds, worldToScreen, type Camera } from "./camera";
@@ -42,7 +43,20 @@ const COLOURS = {
   /** Last known position, fading. Never moves -- see `remembered`. */
   memory: "#3d4a3c",
   background: "#0d0e10",
+  /** Night. Blue rather than black, because a black wash reads as a broken renderer. */
+  night: "6, 10, 26",
 } as const;
+
+/**
+ * How much of the screen the dark may take at the blackest hour.
+ *
+ * Below 1 on purpose, and not only for playability: the survivor's *view* already shrinks
+ * with the light -- range is a property of light (docs/28#what-an-observer-is) -- so the
+ * darkness on screen is telling you what has already happened to what you can see, rather
+ * than doing the hiding itself. Two mechanisms for one fact would disagree at the edges,
+ * and the one that decides is the simulation's.
+ */
+const NIGHT_WASH = 0.8;
 
 /**
  * How long a body you have lost sight of stays on screen, in ticks. 3 s at 20 Hz.
@@ -377,6 +391,15 @@ export class Renderer {
         ctx.lineWidth = Math.max(1, radius * 0.35);
         ctx.stroke();
       }
+    }
+
+    // Night, last, over everything including the field overlays. The alpha is derived from
+    // the same ambient value the observer's range is, so the screen and the simulation
+    // cannot drift apart -- one number, two consumers.
+    const light = ambientLightAt(world.tick);
+    if (light < 1) {
+      ctx.fillStyle = `rgba(${COLOURS.night}, ${((1 - light) * NIGHT_WASH).toFixed(3)})`;
+      ctx.fillRect(0, 0, camera.width, camera.height);
     }
 
     this.visibleCount = drawn;

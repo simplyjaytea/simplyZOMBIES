@@ -17,9 +17,10 @@ import { EventBus } from "./events";
 import { canonicalize, SAVE_VERSION } from "./serialize";
 import { SystemRegistry } from "./systems";
 
-/** Fixed simulation rate (docs/22-performance.md#targets). */
-export const TICK_HZ = 20;
-export const TICK_SECONDS = 1 / TICK_HZ;
+// Re-exported so that every existing `from "kernel/world"` import keeps working. They live
+// in a leaf module because the clock needs them and the clock cannot import this file --
+// see tick.ts.
+export { TICK_HZ, TICK_SECONDS } from "./tick";
 
 export type WorldSnapshot = {
   version: number;
@@ -44,7 +45,17 @@ export type WorldParts = {
 };
 
 export class World {
-  /** Ticks since the run began. sim/ has no other notion of time -- there is no clock here. */
+  /**
+   * The tick counter, and the only notion of time `sim/` has.
+   *
+   * **Not "ticks since the run began" any more, and the difference matters.** Time of day is
+   * a pure function of this number (sim/time/clock.ts), so `boot` starts it in the morning
+   * rather than at zero -- tick 0 is the start of dawn, the darkest moment of the cycle.
+   * There is no separate clock state to disagree with the save as a result, which is the
+   * whole point, but code that wants *elapsed* time must subtract a start tick rather than
+   * read this directly. Two tests were quietly measuring the wrong interval within minutes
+   * of the clock landing.
+   */
   tick = 0;
 
   readonly seed: number;

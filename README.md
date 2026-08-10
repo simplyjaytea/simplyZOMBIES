@@ -54,15 +54,20 @@ you lose behind a building leaves a fading mark rather than vanishing.
 The [ground](docs/24-world-and-scale.md#the-ground) decides the rest: pavement, dirt, grass,
 undergrowth and rubble each change how fast you cross them and how far your footsteps carry. The
 street is the quick way and it announces you; the yards are slow and quiet; the brambles are the only
-cover on open ground and they are slow *and* loud. Light, melee and the day/night cycle are the rest
-of the milestone.
+cover on open ground and they are slow *and* loud.
+
+And there is a [clock](docs/02-core-loop.md). Four phases, a sun that rises and sets, and a night
+that takes your sight from 48 metres down to 12 — night is a smaller view, not a darker screen.
+Light emitters and the melee loop are the rest of the milestone.
 
 ```bash
 npm install && npm run dev     # http://127.0.0.1:5174
 ```
 
 `WASD` move · `Shift` sprint · `Space` **shout** · `O` cycles the attention overlay (noise, scent,
-sight) · `P` pause · `F5`/`F9` save and load.
+sight) · `1`/`2`/`3` speed · `P` pause · `F5`/`F9` save and load.
+
+A day is four hours at 1×, so press `3` and wait for dark.
 
 The [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built first and the risks that
 might sink it, [TODO.md](TODO.md) breaks that into an executable backlog, and
