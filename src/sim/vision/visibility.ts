@@ -22,6 +22,7 @@ import { defineComponent, Facing, Position } from "../kernel/components";
 import type { EntityId } from "../kernel/entities";
 import type { World } from "../kernel/world";
 import { Eye, TILE_METRES, type TileMap } from "../map/tilemap";
+import { ambientLightAt } from "../time/clock";
 import { shadowcast, VisibleTiles } from "./shadowcast";
 
 /**
@@ -171,7 +172,17 @@ export class VisibilityIndex {
 
       const tileX = Math.floor(position.x / TILE_METRES);
       const tileY = Math.floor(position.y / TILE_METRES);
-      const range = Math.ceil(observer.rangeMetres / TILE_METRES);
+
+      // Night is not a filter over the same view: it is a smaller view. Range is a property
+      // of light (docs/28#what-an-observer-is), and this is the ambient half of it.
+      //
+      // The rounding up to whole tiles is what keeps this affordable, and it is worth saying
+      // out loud because it looks like a detail. Ambient light changes every tick through
+      // dawn and dusk; the *integer tile radius* changes about thirty-six times across a
+      // thirty-minute transition, and the cache key is built from that integer. So the sun
+      // coming up costs thirty-six shadowcasts spread over half an hour, not one per tick.
+      const metres = observer.rangeMetres * ambientLightAt(world.tick);
+      const range = Math.max(1, Math.ceil(metres / TILE_METRES));
       const key = `${tileX},${tileY},${range},${observer.eye},${this.generation}`;
 
       let view = this.views.get(entity);
@@ -205,7 +216,10 @@ export class VisibilityIndex {
       view.facingY = Math.sin(facing);
       view.cosFocal = Math.cos(observer.focalHalfAngle);
       view.cosPeripheral = Math.cos(observer.peripheralHalfAngle);
-      view.rangeSquared = observer.rangeMetres * observer.rangeMetres;
+      // The arc test rejects on distance too, and it has to agree with the geometry above or
+      // an entity in the corner of a shrinking view would linger a tile longer than the
+      // tiles do.
+      view.rangeSquared = metres * metres;
       seen.add(entity);
     }
 

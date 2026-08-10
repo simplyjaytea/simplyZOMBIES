@@ -128,6 +128,11 @@ async function main() {
 
         globalThis.__game.world.commands.push({ type: "shout" });
 
+        // Elapsed, not absolute: `world.tick` carries the time of day now, so a run does not
+        // start at zero (see sim/time/clock.ts). Reporting the raw counter read as "36,127
+        // ticks in six seconds", which is the exact confusion the clock's arithmetic invites.
+        const tickAtStart = globalThis.__game.world.tick;
+
         await new Promise((resolve) => {
           const started = performance.now();
           const deadline = started + seconds * 1000;
@@ -173,6 +178,7 @@ async function main() {
           draw: stat(draws.slice(5)),
           samples: frames.length,
           ...globalThis.__game.stats(),
+          tick: globalThis.__game.world.tick - tickAtStart,
         };
       }, SECONDS),
       SAMPLE_TIMEOUT_MS,
