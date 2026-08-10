@@ -17,7 +17,7 @@ setting.
 | **Phase** | **Milestone 1, phase 4 done: the day.** Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see it coming through a wall, where you walk decides how loud you are, and at midnight you can see a quarter as far as you could at noon. |
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — all of Milestone 0 |
 | **In flight** | nothing. Visibility, then the surface layer, then the day/night cycle with speed controls |
-| **Next real work** | **[The light channel](docs/03-attention.md#light)** — emitters. Ambient light is built and drives what an observer can see; a torch does not exist, which is why night is softer than the design wants. Then the melee loop. See [Do this next](#do-this-next). |
+| **Next real work** | **[Grabs and bite risk](docs/09-combat.md#grabs)** — the swing loop landed and the half that makes melee *cost* something did not, so the parity contract is open. Then **[the light channel](docs/03-attention.md#light)**: ambient light is built and drives what an observer can see; a torch does not exist, which is why night is softer than the design wants. See [Do this next](#do-this-next). |
 | **Also landed, as design only** | **[Multiplayer](docs/27-multiplayer.md)** — authoritative host, survivor-vs-survivor PVP, and voice as a noise emitter. Specified, docs reconciled, **no engine code**. Filed as Milestone 3. |
 | **And, also design only** | **[Visibility](docs/28-visibility-and-sightlines.md)** and **[movement stances](docs/29-movement-and-stances.md)**, plus the [condition view](docs/05-health-injury.md#the-condition-view), [aiming](docs/09-combat.md#aiming), and [z-levels deferred in writing](docs/23-roadmap.md#deferred-z-levels). Again **no engine code** — two of these are now Milestone 1 tasks. |
 
@@ -70,7 +70,7 @@ npm run bench            # tick budgets
 npm run bench:frame      # frame budget, drives real Chromium
 ```
 
-In the browser: `WASD` move · `Shift` sprint · **`Space` shout** · **`O` cycles the attention overlay
+In the browser: `WASD` move · `Shift` sprint · **`F` swing** · **`Space` shout** · **`O` cycles the attention overlay
 (off → noise → scent → sight)** · **`1`/`2`/`3` speed (1×, 3×, 10×)** · `P` pause · `F5` save ·
 `F9` load.
 
@@ -81,6 +81,15 @@ to `0.60x`.
 **Press space.** 4,055 of the district's 4,096 field cells go live, 298 of 300 shamblers switch to
 seeking, and over the next minute the crowd within 50 m goes from about 30 bodies to about 90. Then
 it fades and they drift off again.
+
+**Then walk up to one and press `F`.** There is a beat before the blow lands and a longer one
+after, and during the second you are committed — the wedge on the ground is the swing, filling
+as it winds up and draining as you recover. Swing at nothing and the recovery is the same
+length, which is the lesson. Swing into three of them and you kill one at a time while the
+other two close, because the arc covers one of them and the others are outside it. Watch the
+noise overlay while you do it: a connect lights a handful of cells against a shout's 4,055, and
+that is the whole reward of the melee branch. Break a shambler's legs and it keeps coming at a
+quarter speed, drawn half size, which is exactly as easy to lose track of as docs/14 wants.
 
 **Then press nothing at all, and wait.** That is the other half, and it is new. Stand perfectly
 still — the noise field sits at literally zero live cells, exactly as before — and the crowd within
@@ -454,12 +463,24 @@ same change — otherwise the channel lands and the dark it was built for is sti
   penalty. Noise pays 18 m-equivalent to cross one and scent ignores walls entirely. That asymmetry
   is the counterplay — shutters work, and they work completely.
 
-Take the **melee loop** after it — that is what makes the spatial hash worth building, and the hash
-is deliberately still deferred until something needs neighbour queries.
-[Movement stances](docs/29-movement-and-stances.md) belong with it: they share stamina, the stance
-ladder is where walking-1 and sprinting-6 become a decision rather than a shift key, and **the
-`Low` occluder class and the `Eye.Crouched` parameter are already in the map and the primitive**
-waiting for them — cover that hides you also blinds you, and both halves are one line each away.
+The **melee loop landed** — wind-up, connect or miss, recovery, stamina, stagger, reach, the
+zombie damage model, and the spatial index it was waiting on. What did *not* land is
+**[grabs and bite risk](docs/09-combat.md#grabs)**, and that is the more urgent of the two
+tasks above: with no bite risk, melee's only cost is stamina, so
+[the parity contract](docs/09-combat.md#the-parity-contract) — the thing docs/09 exists to
+enforce — is not satisfied. Melee is currently strictly cheap, which is precisely the failure
+mode that document opens by naming.
+
+Grabs need a survivor who can be injured and infected, which means an injury model and the
+infection module. The seam is already there: `entity.staggered` interrupts a wind-up today,
+and nothing can stagger a survivor yet.
+[Movement stances](docs/29-movement-and-stances.md) are the other near neighbour: `Stamina`
+now exists in its designed home and the ladder is where walking-1 and sprinting-6 become a
+decision rather than a shift key. It is also what docs/09's "exhausted swings are slow, weak,
+and miss" is waiting on — the swing refuses outright when it cannot be paid for, because
+scaling the windows needs the modifier pipeline. **The `Low` occluder class and the
+`Eye.Crouched` parameter are already in the map and the primitive** waiting for stances too —
+cover that hides you also blinds you, and both halves are one line each away.
 
 **Not multiplayer.** [Doc 27](docs/27-multiplayer.md) landed as a specification and the cut-list
 reversal is written into [the vision](docs/00-vision.md#cut-list), but nothing was built and nothing
