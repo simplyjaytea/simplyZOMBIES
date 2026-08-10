@@ -9,6 +9,7 @@ import { AttentionField, type AttentionFieldSave } from "../field/attention";
 import { ModifierStore, type ModifierStoreSave } from "../modifiers/modifiers";
 import { defineCoreStats, StatRegistry } from "../modifiers/stats";
 import { RngRegistry, type RngState } from "../rng";
+import { VisibilityIndex } from "../vision/visibility";
 import { CommandQueue } from "./commands";
 import { ComponentStore } from "./components";
 import { EntityStore, type EntityId, type EntityStoreSave } from "./entities";
@@ -67,6 +68,20 @@ export class World {
    * supply is anything that emits into it.
    */
   readonly field: AttentionField;
+
+  /**
+   * Who can see what (docs/28-visibility-and-sightlines.md).
+   *
+   * Kernel for the same reason the field is, and one more besides: the renderer, the light
+   * channel and the multiplayer view filter are three consumers of one answer, and a module
+   * that can be switched off must not be what decides whether the game draws through walls.
+   *
+   * **Derived, and deliberately not in the snapshot.** It is a pure function of positions,
+   * facings and the tile map -- all three of which the snapshot already holds -- so storing it
+   * would create a second copy of a fact and a way for a save to disagree with itself. It
+   * rebuilds on the first tick after a load, exactly as the map regenerates from the seed.
+   */
+  readonly vision = new VisibilityIndex();
 
   constructor(seed: number, parts: WorldParts = {}) {
     this.seed = seed >>> 0;

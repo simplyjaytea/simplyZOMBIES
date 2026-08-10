@@ -9,6 +9,12 @@
  * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
  * pre-1.0 (docs/19-architecture.md#save-model).
  *
+ * 6: `Observer` joined the components -- eyes, with a range and two arc angles
+ *    (docs/28-visibility-and-sightlines.md#what-an-observer-is). A version-5 save restores
+ *    survivors with no eyes at all, and an observer that cannot see is not a survivor with a
+ *    default view, it is one the renderer shows nothing to. The visibility *result* is not in
+ *    the snapshot and never will be -- it is derived from position, facing and the map, all
+ *    three of which are already here.
  * 5: `Facing` joined the kernel components, so every moving entity carries a heading the
  *    snapshot did not previously hold. A version-4 save restores bodies with no facing at
  *    all, and the systems that will read it -- sightlines, aiming -- have no sensible
@@ -25,7 +31,7 @@
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at

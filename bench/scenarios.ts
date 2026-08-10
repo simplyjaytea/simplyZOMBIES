@@ -80,6 +80,23 @@ export const SCENARIOS: readonly Scenario[] = [
     },
   },
   {
+    id: "crowded-and-watched",
+    description:
+      "The first cost in this project that does not amortise across the horde: 2,000 bodies " +
+      "as in `crowded`, with fifty of them carrying eyes on top of the survivor's. " +
+      "Per-observer visibility is one shadowcast per observer whose tile changed, and in " +
+      "multiplayer it is that again per client.",
+    // Deliberately the SAME budget as `crowded`, which is the claim worth guarding and the
+    // one docs/22#visibility-is-a-different-cost-shape asks for in as many words: "it earns a
+    // benchmark scenario of its own, held against the budget of its sightless twin." If
+    // watching a district ever costs materially more than not watching it, recompute-on-change
+    // has stopped working -- because what this measures is not the shadowcast, it is how
+    // rarely one happens.
+    tickBudgetMs: 4,
+    entities: 2000,
+    build: () => boot({ seed: SEED, wanderers: 2000, observers: 50 }).world,
+  },
+  {
     id: "five-hundred-milling",
     description:
       "The synthetic 500-zombie load docs/23-roadmap.md#risks has asked for since the " +
