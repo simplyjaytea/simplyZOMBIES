@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { readContentFromDisk, readSchemasFromDisk } from "../../src/platform/content-source-node";
 import { createSchemaValidator } from "../../src/platform/schema-validator";
+import { ZOMBIE_BODY } from "../../src/sim/combat";
 import { ContentRegistry } from "../../src/sim/content/registry";
 import { defineCoreStats, StatRegistry } from "../../src/sim/modifiers/stats";
 import { GLOBAL, ModifierStore, type Modifier } from "../../src/sim/modifiers/modifiers";
@@ -67,6 +68,14 @@ describe("the shipped content", () => {
     );
 
     expect(store.resolve("noise_emission")).toBeCloseTo(0.6, 10);
+  });
+
+  it("is where a zombie's body comes from, so the combat constants cannot drift from it", () => {
+    // Same guard `attention.test.ts` puts on the shambler's sensory weights, and for the same
+    // reason: content loads *after* boot builds a world, so the simulation mirrors these
+    // numbers as constants. A mirror nothing checks is a copy waiting to disagree.
+    const base = loadRealContent().getOrThrow("zombie", "zombie.base");
+    expect(base["body"]).toEqual({ ...ZOMBIE_BODY });
   });
 
   it("uses only behavior tags the simulation implements", () => {
