@@ -11,6 +11,7 @@ import type { EntityId } from "./kernel/entities";
 import { TICK_HZ, World } from "./kernel/world";
 import { DISTRICT_TILES, findOpenTile, generateDistrict, type TileMap } from "./map/tilemap";
 import { ModuleRegistry, type Module } from "./modules";
+import { SpatialHash } from "./spatial/hash";
 import { attentionModule, makeEmitter } from "./modules/attention";
 import { fieldMemoryModule } from "./modules/field-memory";
 import { movementModule } from "./modules/movement";
@@ -98,7 +99,12 @@ export function boot(options: BootOptions): Boot {
 
   const map = generateDistrict(seed, mapSize);
   const field = AttentionField.forMap(map, calibration, TICK_HZ);
-  const world = new World(seed, { field, ...(content === undefined ? {} : { content }) });
+  const spatial = SpatialHash.forMap(map);
+  const world = new World(seed, {
+    field,
+    spatial,
+    ...(content === undefined ? {} : { content }),
+  });
 
   // Decay and propagation are kernel, not module. The field is kernel state, and a module
   // that could be switched off must not be what stops noise from fading -- that would turn
@@ -144,6 +150,20 @@ export function boot(options: BootOptions): Boot {
   // In `movement`, after `movement.integrate` (order 0), because a view computed before the
   // bodies moved is a view of where they were -- and it is the one place in the tick where
   // both position and facing are final for everybody.
+  // The spatial hash is kernel beside the two above, and rebuilt here rather than lazily on
+  // first query: a lazy rebuild would make the answer depend on who asked first, which is a
+  // determinism bug that only appears once two systems both want neighbours.
+  //
+  // Order 50 puts it after `movement.integrate` (order 0) and before `kernel.visibility`
+  // (order 100) -- late enough that every body is where it ends the tick, early enough that
+  // the combat phase, which runs next, is asking about final positions rather than stale ones.
+  world.systems.register({
+    id: "kernel.spatial",
+    phase: "movement",
+    order: 50,
+    run: (w) => w.spatial.rebuild(w),
+  });
+
   world.systems.register({
     id: "kernel.visibility",
     phase: "movement",
