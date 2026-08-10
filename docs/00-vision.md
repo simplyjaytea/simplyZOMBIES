@@ -95,13 +95,23 @@ option that leaves the player more afraid.
 
 Deliberately excluded from the design entirely, not merely deferred:
 
-- **Multiplayer.** Changes the pause model, the succession model, and the director's job. Not a
-  "later" feature — a different game.
 - **A cure, or any narrative resolution to the outbreak.** Contradicts pillars 1 and 4.
-- **Base raiding by the player against other player colonies.** Faction raids go one direction; see
-  [factions](18-factions.md).
 - **Aircraft and boats.** [Vehicles](25-vehicles.md) are ground vehicles. Everything else is a
   different navigation problem for no additional design payoff.
+
+> **Reversed:** multiplayer was cut here, in these terms: *"changes the pause model, the succession
+> model, and the director's job. Not a 'later' feature — a different game."* All three consequences
+> were correct and all three still hold — [multiplayer](27-multiplayer.md) changes exactly those three
+> things, deliberately, in one place each. What was wrong was the conclusion: "a different game" is a
+> reason to keep it out of the single-player design, not a reason it cannot exist beside it. It is
+> therefore a **mode**, and the rule that makes the reversal safe is that no single-player mechanic may
+> be weakened to accommodate it. The unlimited pause is the price, and it is scoped to single-player
+> rather than deleted.
+>
+> **Base raiding by the player against other player colonies** was cut here too, and is now
+> **deferred rather than reversed** — it needs survivors, base building, resources and the director
+> before there is a colony to raid. [Multiplayer](27-multiplayer.md) is survivor-versus-survivor in
+> one district; faction raids still go one direction, see [factions](18-factions.md).
 
 > **Reversed:** vehicles were previously cut here on the grounds that they'd wreck the attention
 > economy and the map scale. That was wrong on the first count — an engine is simply the loudest

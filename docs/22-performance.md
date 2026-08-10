@@ -248,5 +248,5 @@ Named honestly, since they're the likeliest places this breaks:
 
 ---
 
-**Previous:** [21 — Extensibility](21-extensibility.md) · **Next:** [23 — Roadmap](23-roadmap.md) ·
+**Previous:** [21 — Extensibility](21-extensibility.md) · **Next:** [27 — Multiplayer](27-multiplayer.md) ·
 [Doc index](../README.md#documentation)
