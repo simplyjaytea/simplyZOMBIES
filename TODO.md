@@ -327,11 +327,23 @@ slow", "streets are noise highways" — so this is that promise made mechanical 
 
 ### Spatial partitioning — spec: [docs/22](docs/22-performance.md#spatial-partitioning)
 
-- [ ] Uniform spatial hash over entity positions
-- [ ] Neighbor queries for combat, emitters, and render culling
-      *(deferred to the melee work below, deliberately. Gradient ascent needs no neighbour queries —
-      that is why the spike measured the angular bias at zero cost — and render culling already
-      exists. Building it before combat needs it would be optimising an absence.)*
+- [x] **Uniform spatial index over entity positions** — a dense grid with a counting sort, not a
+      map of buckets
+      *(the literal reading of "hash" was built first and measured 344 ns per body per tick,
+      nearly doubling a tick for an index nothing queried yet. 2,000 bodies in a 256 m district
+      land in ~1,900 distinct cells, so a map of per-cell arrays is one tiny array per body. Flat
+      typed arrays plus a prefix-sum table cost 66 ns and allocate nothing. The fixed cost is the
+      prefix sum, proportional to the **grid** rather than the crowd — which is the right trade at
+      district scale and becomes per-chunk when the world streams.)*
+- [x] Neighbor queries **for combat**
+      *(the swing's arc query is the first and so far only consumer, which is exactly why it was
+      deferred to here. Guarded by `crowded-and-swinging`, held at the same budget as `crowded`:
+      1.63 ms against 1.75, i.e. asking "what is within reach" is not a function of how many
+      bodies are in the district.)*
+- [ ] Emitters and render culling read the same index
+      *(both still do their own thing — the emitter walk is per-entity and culling is a viewport
+      rectangle. Neither is hurting yet, and moving them is a change with no measurement behind
+      it until one of them is.)*
 
 ### Zombies — spec: [docs/14](docs/14-zombies.md)
 
@@ -348,7 +360,14 @@ slow", "streets are noise highways" — so this is that promise made mechanical 
       *(mutation-tested: delete the bias and twenty shamblers in one cell collapse to a single heading)*
 - [x] Investigate on arrival → mill → disperse, **raising local scent** while they mill
 - [ ] Pursue on direct contact
-- [ ] Damage model: head and locomotion are what matter; a crawler is still lethal
+- [x] **Damage model: head and locomotion are what matter; a crawler is still lethal**
+      *(three pools rather than one, from `content/zombies/base.json`'s `body` block, which had
+      been sitting there read by nothing. A head is instant, a torso never kills however much of
+      it is destroyed, and legs at zero leave a quarter of a shamble — slow enough to walk away
+      from, far too fast to ignore at arm's length. It draws at half size, because docs/14 says a
+      crawler "is easy to miss in a dark breach" and that has to mean less visible rather than
+      merely slower. **Damage never interrupts the state machine**; only stagger does, per
+      docs/14's "stagger from mass, never flinch from injury".)*
 
 ### The player survivor — spec: [docs/09](docs/09-combat.md)
 
@@ -382,11 +401,38 @@ slow", "streets are noise highways" — so this is that promise made mechanical 
 - [ ] Fold the shambler's three hardcoded speeds (seek, wander ×0.35, mill ×0.25) into the same model
       *(so a [zombie type's](docs/14-zombies.md#content-shape) speeds are fields in its JSON entry
       rather than constants in a module)*
-- [ ] Melee loop: wind-up → connect/miss → recovery, all interruptible
-- [ ] Stamina cost per swing, scaled by weapon weight
-- [ ] Stagger on solid connect
-- [ ] Grabs, and breaking free
-- [ ] Reach as a distinct property from damage
+- [x] **Melee loop: wind-up → connect/miss → recovery, all interruptible**
+      *(a swing is state that persists across ticks, not a function call, and the blow reads
+      position, facing and neighbours **at the moment it lands** — turning away mid-wind-up
+      misses, and there is a test that does exactly that. A sprint abandons a wind-up and does not
+      refund the stamina; nothing escapes a recovery, which is the window docs/09 says kills you.
+      No input buffer: a second press inside a window does nothing, because buffering lets a
+      player pre-pay for a window they have not survived yet.)*
+- [x] Stamina cost per swing, scaled by weapon weight
+      *(the recovery **delay** matters as much as the rate: without one a survivor swinging at
+      exactly the regeneration rate never tires, and melee's only cost quietly becomes zero.
+      docs/09 wants exhausted swings "slow, weak, and miss" rather than absent — that needs the
+      modifier pipeline scaling the windows, and arrives with the stance ladder that shares this
+      pool.)*
+- [x] Stagger on solid connect
+      *(and it is the **only** thing that interrupts a shambler. Coming out of it they go back to
+      drifting rather than back to what they were doing — nothing is remembered across a stagger,
+      which keeps this from being the first version of a zombie that holds a grudge. They pick the
+      fight back up through the ordinary noise response, because a connect is 8 magnitude at arm's
+      length. Two staggers take the longer, not the latest, or a knife tap shortens what a bat
+      just bought.)*
+- [ ] **Grabs, and breaking free** — and with them, bite risk
+      *(the one part of docs/09's melee model still missing, and the reason **the parity contract
+      is not yet satisfied**: with no bite risk, melee's only cost is stamina. Both need a survivor
+      who can be injured and infected — an injury model and the infection module, neither of which
+      exists. The `entity.staggered` subscription that interrupts a wind-up is the seam this plugs
+      into, and it is already there because the rule is symmetrical.)*
+- [x] Reach as a distinct property from damage
+      *(pinned by a test rather than asserted in prose: the spear out-reaches the bat while doing
+      **less** damage, so reach cannot collapse into a damage stat, and the bat staggers four times
+      as long as the spear, which is the survival property rather than the killing one. Reach is
+      centre-to-centre plus the target's half-width, or a weapon quietly loses 0.35 m of what its
+      profile claims.)*
 
 ### Time — spec: [docs/02](docs/02-core-loop.md)
 
@@ -449,8 +495,11 @@ slow", "streets are noise highways" — so this is that promise made mechanical 
 > *without* a shout leaves the horde where it was. Measured, a shout takes the crowd within 50 m from
 > 30 bodies to 92.
 >
-> The milestone is **not closed**: light, melee and day/night are still open above. Scent and both of
-> its ⚠ checkpoints are now closed. What is closed is the question of whether the field reads as a
+> The milestone is **not closed**: light is still open above, the night is still too soft
+> without it, and so are grabs — the half of melee that makes its cost more than stamina, and
+> the reason [docs/09's parity contract](docs/09-combat.md#the-parity-contract) is not yet
+> satisfied. The swing loop itself is closed. Scent and both of its ⚠ checkpoints are now
+> closed. What is closed is the question of whether the field reads as a
 > game.
 >
 > Scent adds a second, slower answer to the same criterion, and it is the one that makes *going*
