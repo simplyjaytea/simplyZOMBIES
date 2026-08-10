@@ -70,9 +70,13 @@ describe("module isolation", () => {
     });
 
     expect(modules.enabledIds).toEqual([]);
+    // Measured as elapsed rather than absolute: `world.tick` is where the clock is, and a
+    // run does not begin at zero -- boot starts it in the morning, because tick 0 is the
+    // darkest moment of the cycle (see sim/time/clock.ts).
+    const started = world.tick;
     expect(() => stepN(world, TICKS)).not.toThrow();
     expectNoNaN(world);
-    expect(world.tick).toBe(TICKS);
+    expect(world.tick - started).toBe(TICKS);
   });
 
   it("keeps entity ids stable regardless of which modules are enabled", () => {

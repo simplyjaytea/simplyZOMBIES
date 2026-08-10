@@ -67,7 +67,7 @@ does not draw.
 
 | Consumer | Question it asks | Status today |
 |---|---|---|
-| **The light channel** | Which cells can this emitter illuminate? | Specified in [docs/03](03-attention.md), unbuilt — and now the *only* thing standing between the emitter table and a live third channel |
+| **The light channel** | Which cells can this emitter illuminate? | Specified in [docs/03](03-attention.md), unbuilt. **Ambient** light exists and drives observer range; *emitters* do not |
 | **The renderer** | Which entities may this survivor be drawn as seeing? | **Built.** Asks `world.vision`, draws nothing it is not told about |
 | **The multiplayer host** | Which entities and cells may this client be sent? | Promised by [docs/27](27-multiplayer.md#the-filtered-view), unbuilt |
 
@@ -98,10 +98,21 @@ survivor and a [screamer](14-zombies.md#first-wave-week-6) will not share them. 
 60° focal cone inside a 190° field of view for a survivor, and a shorter, wider, almost entirely
 peripheral one for a shambler — starting points, in one place, still not decided.
 
-**Range is the field that is wrong on purpose.** It is a property of light, and there is no light
-yet, so it is a daylight constant a little wider than the viewport. When the channel lands, that
-field stops being a constant and becomes a lookup — a change to one number, which is the whole
-reason it is a field on the observer rather than a parameter of the query.
+**Range is a property of light, and half of that is now built.** The observer carries its *daylight*
+range, and [the day/night cycle](02-core-loop.md) scales it by ambient light: the same eyes see 48 m
+at noon and 12 m at midnight. Night is not a filter over the same view — the view is smaller, and
+the screen darkening is a report of that rather than a second mechanism.
+
+What is still missing is the *local* half: a lamp, a torch, a fire. That arrives with the
+[light channel](03-attention.md#light), and it is the reason the night bottoms out at a quarter of
+daylight rather than near darkness — there is currently nothing to carry and no counterplay to the
+dark.
+
+One consequence worth recording, because it looks like an implementation detail and is load-bearing:
+**the effective range is rounded up to whole tiles, and that is what keeps dusk affordable.** Ambient
+light changes every tick through a transition; the integer tile radius changes about thirty-six times
+across the half hour, and the cache key is built from the integer. The sun going down costs
+thirty-six shadowcasts, not one per tick.
 
 ## What blocks sight
 

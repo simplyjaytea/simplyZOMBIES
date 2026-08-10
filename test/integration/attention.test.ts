@@ -701,11 +701,15 @@ describe("scent in the world", () => {
       const pos = world.components.getOrThrow(player as EntityId, Position);
       const site = { x: pos.x, y: pos.y };
 
+      // Elapsed, not absolute. `world.tick` carries the time of day now, so a run does not
+      // start at zero and "step until tick 48000" silently became "step for a quarter as
+      // long" the day the clock landed.
+      const started = world.tick;
       world.commands.push({ type: "shout" });
       stepN(world, 2400);
       // The player leaves, so the only thing still emitting at the site is the crowd itself.
       world.despawn(player as EntityId);
-      stepN(world, 48000 - world.tick);
+      stepN(world, started + 48000 - world.tick);
 
       const centre = crowdCentre(world);
       return { x: centre.x - site.x, y: centre.y - site.y };

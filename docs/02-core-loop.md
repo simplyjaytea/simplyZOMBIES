@@ -114,6 +114,43 @@ eaten or spoiled, people bitten, and possibly your controlled character dead —
 [succeed into another survivor](01-hardcore-contract.md#succession-what-happens-when-you-die) and keep
 playing. The game continues, poorer.
 
+## What is built
+
+**The clock, the four phases, the dark, and the speed controls.** Not the content of any phase —
+dawn has no repair queue, day has no job system, night has no director deciding what tonight is.
+What exists is the rhythm those will hang from, plus the one mechanical consequence that could be
+built with what the spine already has.
+
+| Piece | State |
+|---|---|
+| Four phases in docs/02's proportions | **Built** — `src/sim/time/clock.ts` |
+| `phase.changed` · `night.fell` · `day.started` | **Built.** The vocabulary declared all three in Milestone 0 with no publisher |
+| Ambient light, ramping through dawn and dusk | **Built** |
+| **A survivor sees less at night** | **Built** — 48 m at noon, 12 m at midnight |
+| Speed controls: pause · 1× · 3× · 10× | **Built**, with 10× dropping to 1× on contact |
+| Nights that vary by type | Needs the [director](17-director.md). Milestone 2 |
+| Anything phase-*gated* | Never. See the rule below |
+
+Three things are worth stating because they are decisions rather than implementation:
+
+- **Time of day is a pure function of `world.tick`.** There is no clock state and nothing new in
+  the save, so a save cannot disagree with the world it was taken in. Starting a run at dusk is not
+  a setting; it is starting at a different tick. The price is that `world.tick` no longer means
+  "ticks since the run began", and code wanting elapsed time has to subtract a start tick.
+- **A run opens at 09:00, not at tick 0.** Tick 0 is the start of dawn, which is the *darkest*
+  moment of the cycle. docs/02 opens its day at dawn because dawn is when the previous night's bill
+  arrives — and a fresh run has no night behind it to send one.
+- **Night is not a tint.** The survivor's view genuinely shrinks, because
+  [range is a property of light](28-visibility-and-sightlines.md#what-an-observer-is). The screen
+  darkens to *report* that, using the same ambient number, so the picture and the simulation cannot
+  drift apart.
+
+**And night is deliberately not dark enough yet.** Ambient bottoms out at a quarter of daylight
+rather than near zero, because there is no [light channel](03-attention.md#light) — nothing to
+carry, nothing to light, no counterplay. A survivor at zero would simply be blind with no answer
+available. That number should go *down* the day lamps and torches exist, and until then the dark is
+softer than the design wants it.
+
 ## Time scale
 
 | Unit | Real time | Notes |
@@ -122,6 +159,16 @@ playing. The game continues, poorer.
 | Dawn / Dusk | ~30 min each | Deliberately short — they're decision phases |
 | Night | ~1 hour | Longer in winter (see [weather](16-weather.md)) |
 | Speed controls | Pause, 1×, 3×, 10× | 10× auto-drops to 1× on any threat contact |
+
+**Four hours is a guess**, and has been flagged as one since the roadmap was written. It is one
+constant — `DAY_SECONDS` — so answering the question is editing one line. It is also why the speed
+controls are a prerequisite rather than a convenience: at 1× nobody in a development session will
+ever see nightfall.
+
+**Contact is a distance, not a sightline.** Ten metres of anything, whether or not the survivor can
+see it. A sightline-based rule would fire constantly in daylight and stop firing at night — exactly
+when a fast-forward is most dangerous — and "I was at 10× and never saw it" is not an explanation
+of a death, it is a complaint about the time controls.
 
 Pause is unlimited and pauses everything. This is a game about deciding under pressure, not about
 clicking fast — the tension comes from irreversibility, not from APM.

@@ -3,7 +3,8 @@
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
 updated 2026-08-06 when the noise spine landed, 2026-08-10 when scent did, again the same day when
 seven multiplayer-era features were specified into the doc set, again when the visibility
-primitive closed the wallhack, and again when the ground grew under it.
+primitive closed the wallhack, again when the ground grew under it, and again when the sun started
+setting.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -13,10 +14,10 @@ primitive closed the wallhack, and again when the ground grew under it.
 
 | | |
 |---|---|
-| **Phase** | **Milestone 1, phase 3 done: sight, and the ground under it.** Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see it coming through a wall. And where you walk decides how loud you are. |
+| **Phase** | **Milestone 1, phase 4 done: the day.** Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see it coming through a wall, where you walk decides how loud you are, and at midnight you can see a quarter as far as you could at noon. |
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — all of Milestone 0 |
-| **In flight** | nothing. The visibility primitive landed, and after it the surface layer: five ground types, trees, and a single pace multiplier |
-| **Next real work** | **[The light channel](docs/03-attention.md#light)** — the third channel, and now the only thing between the emitter table and a live one, because the primitive it was waiting on is built. Then the melee loop. See [Do this next](#do-this-next). |
+| **In flight** | nothing. Visibility, then the surface layer, then the day/night cycle with speed controls |
+| **Next real work** | **[The light channel](docs/03-attention.md#light)** — emitters. Ambient light is built and drives what an observer can see; a torch does not exist, which is why night is softer than the design wants. Then the melee loop. See [Do this next](#do-this-next). |
 | **Also landed, as design only** | **[Multiplayer](docs/27-multiplayer.md)** — authoritative host, survivor-vs-survivor PVP, and voice as a noise emitter. Specified, docs reconciled, **no engine code**. Filed as Milestone 3. |
 | **And, also design only** | **[Visibility](docs/28-visibility-and-sightlines.md)** and **[movement stances](docs/29-movement-and-stances.md)**, plus the [condition view](docs/05-health-injury.md#the-condition-view), [aiming](docs/09-combat.md#aiming), and [z-levels deferred in writing](docs/23-roadmap.md#deferred-z-levels). Again **no engine code** — two of these are now Milestone 1 tasks. |
 
@@ -44,6 +45,9 @@ src/sim/field/  The attention field. Kernel, not a module (see below).
 src/sim/vision/ Sightlines: the shadowcast, and every observer's cached view. Also kernel.
 src/sim/locomotion.ts
                 How fast things move. One PACE multiplier; every speed is a ratio of it.
+src/sim/time/   The clock. Time of day is a pure function of world.tick -- no clock state.
+src/sim/threat.ts
+                "Is anything close?" -- the rule the speed control drops 10x on.
 src/render/     Canvas renderer. Reads the sim, never writes to it.
 src/platform/   The host: input, the tick loop, storage, content loading, schemas.
 content/        JSON content plus its JSON Schemas.
@@ -67,7 +71,8 @@ npm run bench:frame      # frame budget, drives real Chromium
 ```
 
 In the browser: `WASD` move · `Shift` sprint · **`Space` shout** · **`O` cycles the attention overlay
-(off → noise → scent → sight)** · `P` pause · `F5` save · `F9` load.
+(off → noise → scent → sight)** · **`1`/`2`/`3` speed (1×, 3×, 10×)** · `P` pause · `F5` save ·
+`F9` load.
 
 The HUD's `ground` line is the newest thing on screen: what you are standing on, and what it is doing
 to your speed and your footsteps. Walk from a street onto a lawn and watch it go from `1.00x noise`
@@ -98,6 +103,13 @@ remembering and being told.
 
 Note the second number on that line: `shadowcasts`. It goes up when you cross a tile boundary and
 sits still when you turn, which is the whole cost argument in one counter.
+
+**Then press `3` and wait for dark.** A day is four hours at 1×, so the speed controls are how you
+see one at all — at 10× a full day is 24 minutes and the night is six. The `time` line shows the day,
+the hour, the phase and the light; watch `light` fall from 1.00 through dusk and the `sight` line's
+hidden count climb as your view closes from 48 m to 12. A body ten metres away in daylight is a body
+you can no longer see at midnight, and that is the mechanic rather than the tint. Walk into anything
+at 10× and the speed drops to 1× on its own.
 
 The HUD shows live cells and peak for **both channels**, the horde's state counts, and a **state
 fingerprint** — that string is what the determinism test compares.
@@ -191,6 +203,27 @@ Four decisions, and one of them is a correction to something this document said 
   the hardcoded midpoint of two numbers it could not see. A ratio spread across three files is a
   ratio that drifts, and this one drifted the moment the pace changed.
 
+## What the day made structural
+
+- **Time of day is a pure function of `world.tick`.** No clock state, nothing new in the save,
+  nothing that can disagree with the world it was taken in. Starting at dusk is starting at a
+  different tick. **The price is that `world.tick` is no longer "ticks since the run began"** — two
+  tests were quietly measuring the wrong interval within minutes of this landing, because both did
+  arithmetic against an absolute tick. Anything wanting elapsed time subtracts a start tick now.
+- **A run opens at 09:00.** Tick 0 is the start of dawn, which is the darkest moment of the cycle.
+- **The phase publisher is stateless.** It compares the phase at this tick with the phase at the
+  previous one rather than remembering what it announced. A remembered phase is either save state
+  that can disagree with the tick, or a re-announcement of a transition that already happened.
+- **Night is a smaller view, not a darker screen.** Range is a property of light, so ambient scales
+  it; the wash over the canvas is derived from the same number so the two cannot drift. Two
+  mechanisms for one fact would disagree at the edges, and the one that decides is the simulation's.
+- **`TICK_HZ` moved to a leaf module.** The clock needs it and the clock cannot import `world.ts`,
+  which imports the visibility index, which imports the clock. On the far side of that cycle the
+  constant is `undefined` at module-init time, so `DAY_SECONDS * TICK_HZ` evaluated to `NaN` and
+  every save in the suite failed on a canonicalizer correctly refusing to serialize one.
+- **The speed control scales the accumulator, never the timestep.** A variable timestep would put
+  the speed setting into the replay record.
+
 ## What sight made structural
 
 Five decisions that are cheap now and expensive later:
@@ -276,6 +309,26 @@ Four decisions that are cheap now and expensive to reverse later:
   calibration says should happen — a shout carries 171 m across a 256 m district — but nobody had
   seen the consequence before now. Whether it makes shouting the only interesting verb is a
   playtest question, not an arithmetic one.
+
+## What the day changed
+
+**The dark is the first thing in this project that takes something away from the player.** Noise,
+scent and terrain all *added* a channel to read. Night removes one: at midnight the survivor sees
+12 m, and the HUD's hidden count goes up accordingly. It is also, right now, a mechanic with no
+counterplay — there is no torch, no lamp, no shuttered window to be on the right side of, because
+those are all the light channel. **That is why `NIGHT_AMBIENT` is 0.25 rather than something
+genuinely dark, and it should go down the day emitters land.**
+
+**The clock cost a circular import and two silently-wrong tests, and both were the same mistake.**
+The import cycle made `DAY_TICKS` `NaN`; the tests assumed `world.tick` counts from zero. Both come
+from time of day being derived from the tick — which is still the right call, because it means a
+save cannot disagree with the world it was taken in, but it is not free and the cost is worth
+knowing before somebody derives the next thing from the tick too.
+
+**Four hours a day is still a guess, and now it is a guess you can feel.** At 1× a development
+session never reaches nightfall, which is why the speed controls stopped being a convenience and
+became a prerequisite. Whether four hours is *right* is still unanswered — but it is one constant,
+and now there is a way to sit through one and find out.
 
 ## What the ground changed
 
@@ -377,8 +430,13 @@ is not covering the constant that produces it.**
 
 ## Do this next
 
-**[The light channel](docs/03-attention.md#light).** It has been the open Milestone 1 task since the
-noise spine, it was blocked on an algorithm, and the algorithm now exists.
+**[The light channel](docs/03-attention.md#light) — the emitters.** It has been the open Milestone 1
+task since the noise spine, it was blocked on an algorithm, the algorithm exists, and now the
+*ambient* half is built and pointing straight at the hole where the rest goes.
+
+**Start by turning the night down.** `NIGHT_AMBIENT` is 0.25 because a survivor at zero would be
+blind with nothing to do about it. A torch changes that, and the number should follow it down in the
+same change — otherwise the channel lands and the dark it was built for is still soft.
 
 - Light *is* a shadowcast from the emitter with the emitter's magnitude as its range —
   `shadowcast()` takes exactly those arguments. The emitter table does not change and nothing about
@@ -419,7 +477,7 @@ none of it numeric. If a future session finds itself adding a fill percentage, t
 re-read [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than
 the moment to quietly amend it.
 
-Still open and unclaimed: day/night, the per-tick propagation budget with its overflow queue,
+Still open and unclaimed: the per-tick propagation budget with its overflow queue,
 `Pursue on direct contact`, and the **simulation half of last-known-position memory** — the renderer
 fades a mark where a body was last seen, but no observer *remembers* anything, and the prose version
 belongs with the condition view.
@@ -457,7 +515,13 @@ belongs with the condition view.
   mechanic as specified — movement is noticed out there, identity is not — and it means a shambler
   that stops moving nine metres to your left is simply not on screen. Correct, and possibly
   horrible.
-- **How long is a day, really?** Four hours at 1× is still a guess.
+- **How long is a day, really?** Four hours at 1× is still a guess — but it is now a guess you can
+  sit through, at 10×, in 24 minutes. `DAY_SECONDS` is one constant.
+- **Is night tense, or just a nuisance?** New, and the sharpest question this build produced. Night
+  currently takes the survivor's sight from 48 m to 12 and offers nothing in exchange, because the
+  light channel does not exist. If it plays as pressure, the number should go *darker* when torches
+  arrive. If it plays as an annoying filter, that is a signal the dark needs its counterplay before
+  it needs more of itself.
 - **Is a session with no pause still this game?** New, from the multiplayer design. The core loop
   claims the tension comes from irreversibility rather than APM; multiplayer removes the pause and
   keeps everything else, which tests that claim about as directly as it can be tested.
@@ -537,6 +601,15 @@ The ground's guards were done the same way, and turned up a bug and a hollow gua
   scanned outward for solid tiles in four directions, which the map perimeter satisfies for every
   tile in the district. It passed while measuring nothing, and it was hiding brambles growing in
   people's living rooms.
+
+The day's guards were done the same way:
+
+- Range ignores ambient light → night becomes a tint, and the "shrinks what a survivor can see"
+  guard fails.
+- Drop the rounding to whole tiles → dusk costs a shadowcast every tick.
+- Make the phase publisher remember what it announced instead of comparing two ticks → the
+  transition counts go wrong.
+- Start a run at tick 0 → it opens in the dark, and the guard that says otherwise fails.
 
 One of those, the decay system, needed a **second** test written for it: the arithmetic was already
 covered by a unit test calling `decay()` directly, which passed happily with the system unregistered.

@@ -16,6 +16,7 @@ import { fieldMemoryModule } from "./modules/field-memory";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
 import { makeShambler, shamblerModule } from "./modules/shambler";
+import { DAY_BEGINS, publishPhaseChanges, tickAtTimeOfDay } from "./time/clock";
 import { DAYLIGHT_EYES, Observer, SHAMBLER_EYES } from "./vision/visibility";
 
 /** Every non-kernel module in the build. The isolation test walks this list. */
@@ -45,6 +46,17 @@ export type BootOptions = {
    * the light channel does.
    */
   observers?: number;
+  /**
+   * Where in the day to start, as a fraction: 0 is the start of dawn, 0.75 is nightfall.
+   * Defaults to {@link DAY_BEGINS} -- morning, in full light -- because tick 0 is the
+   * *darkest* moment of the cycle and opening a fresh run half-blind is not a default.
+   *
+   * Not stored anywhere, because it does not need to be -- time of day is a pure function of
+   * `world.tick`, so starting at dusk *is* starting at a different tick. That keeps a save
+   * consistent with the world it was taken in for free: the tick is already in the snapshot,
+   * and there is no second copy of the time to disagree with it.
+   */
+  startTimeOfDay?: number;
   /**
    * Pre-loaded content. `platform/` reads it, so a caller that has it hands it over;
    * everything headless boots without any and the registry stays empty.
@@ -78,6 +90,7 @@ export function boot(options: BootOptions): Boot {
     disabled = [],
     wanderers = 200,
     observers = 0,
+    startTimeOfDay = DAY_BEGINS,
     mapSize = DISTRICT_TILES,
     content,
     calibration = DEFAULT_CALIBRATION,
@@ -137,6 +150,20 @@ export function boot(options: BootOptions): Boot {
     order: 100,
     run: (w) => w.vision.refresh(w, map),
   });
+
+  // The clock is kernel, and for a blunter reason than the field was: a module that could be
+  // switched off must not be what stops the sun coming up. Registered in `input` ahead of
+  // everything, so a system reacting to nightfall does so on the tick it fell rather than the
+  // one after.
+  world.systems.register({
+    id: "kernel.clock",
+    phase: "input",
+    order: -100,
+    run: publishPhaseChanges,
+  });
+
+  // Starting at dusk is starting at a different tick -- see BootOptions.startTimeOfDay.
+  world.tick = tickAtTimeOfDay(startTimeOfDay);
 
   const modules = new ModuleRegistry();
   for (const module of ALL_MODULES) modules.add(module);
