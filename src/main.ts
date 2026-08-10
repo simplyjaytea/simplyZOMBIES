@@ -16,6 +16,10 @@ import { createWebStorage, SAVE_KEY } from "./platform/storage";
 import { createCamera } from "./render/camera";
 import { OVERLAY_CHANNELS, Renderer, type OverlayChannel } from "./render/renderer";
 import { boot } from "./sim/boot";
+import { noiseOn, speedOn, Surface, surfaceAt } from "./sim/map/surface";
+import { TILE_METRES } from "./sim/map/tilemap";
+import { Position } from "./sim/kernel/components";
+import { Controlled } from "./sim/modules/player";
 import { ContentRegistry } from "./sim/content/registry";
 import { calibrationFromContent } from "./sim/field/attention";
 import { defineCoreStats, StatRegistry } from "./sim/modifiers/stats";
@@ -214,6 +218,39 @@ function currentFingerprint(w: World): string {
   return fingerprintText;
 }
 
+const SURFACE_NAMES: Record<Surface, string> = {
+  [Surface.Paved]: "paved",
+  [Surface.Dirt]: "dirt",
+  [Surface.Grass]: "grass",
+  [Surface.Undergrowth]: "undergrowth",
+  [Surface.Rubble]: "rubble",
+};
+
+/**
+ * What the survivor is standing on, and what it is doing to them.
+ *
+ * Developer readout, like everything else in this panel. The *player* is meant to learn that
+ * rubble is loud by hearing the horde turn around, not by reading a multiplier -- see
+ * [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable). This exists
+ * because the alternative when tuning the surface table is inferring it from where the bodies
+ * went.
+ */
+function groundUnderfoot(w: World): string {
+  for (const entity of w.components.query(Position, Controlled)) {
+    const pos = w.components.getOrThrow(entity, Position);
+    const surface = surfaceAt(
+      map,
+      Math.floor(pos.x / TILE_METRES),
+      Math.floor(pos.y / TILE_METRES),
+    );
+    return (
+      `${SURFACE_NAMES[surface]}   ${speedOn(surface).toFixed(2)}x speed   ` +
+      `${noiseOn(surface).toFixed(2)}x noise`
+    );
+  }
+  return "-";
+}
+
 /** Shamblers by state, for the HUD. The one line that says whether the field is working. */
 function hordeStates(w: World): { seeking: number; milling: number; drifting: number } {
   let seeking = 0;
@@ -242,6 +279,7 @@ function updateHud(w: World): void {
     `<b>sight</b>    ${renderer.occludedCount} hidden   ` +
     `${w.vision.recomputes} shadowcasts\n` +
     `<b>entities</b> ${w.entities.count}\n` +
+    `<b>ground</b>   ${groundUnderfoot(w)}\n` +
     `<b>noise</b>    ${live} live cells   peak ${w.field.peakNoise().toFixed(1)}\n` +
     `<b>scent</b>    ${w.field.liveScentCells()} live cells   ` +
     `peak ${w.field.peakScent().toFixed(1)}\n` +
@@ -255,7 +293,7 @@ function updateHud(w: World): void {
   help.textContent =
     "WASD / arrows move   Shift sprint   Space shout   O overlay   P pause\n" +
     "F5 save   F9 load\n" +
-    "make noise, and they come. Go quiet, and they don't.";
+    "make noise, and they come. Go quiet, and they don't. The ground decides how quiet.";
 }
 
 loop.start();

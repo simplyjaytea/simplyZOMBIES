@@ -18,6 +18,7 @@
 import { defineComponent, Position, Velocity } from "../kernel/components";
 import type { EntityId } from "../kernel/entities";
 import type { World } from "../kernel/world";
+import { zombieSpeed } from "../locomotion";
 import type { RngStream } from "../rng";
 import type { Module } from "./index";
 
@@ -67,11 +68,13 @@ export const Shambler = defineComponent<Shambler>("Shambler");
 /**
  * Speeds in metres per second.
  *
- * `zombie.shambler`'s `locomotion.speed` of 0.8 is a multiplier on a human walk (1.4 m/s), so
- * a shambler closing on a noise moves at 1.12 m/s -- slower than you walk, which is what
- * makes retreat a real option and numbers the actual threat.
+ * `zombie.shambler`'s `locomotion.speed` of 0.8 is a multiplier on a human walk, so a
+ * shambler closing on a noise moves at eight tenths of your walking pace -- slower than you
+ * walk, which is what makes retreat a real option and numbers the actual threat. The walk
+ * itself lives in `sim/locomotion.ts`; it used to be a hardcoded 1.4 here and another in the
+ * player module, which is two copies of one ratio.
  */
-const SEEK_SPEED = 1.4 * 0.8;
+const SEEK_SPEED = zombieSpeed(0.8);
 /** Aimless drift is much slower than purposeful movement. Idle bodies barely move. */
 const WANDER_SPEED = SEEK_SPEED * 0.35;
 const MILL_SPEED = SEEK_SPEED * 0.25;

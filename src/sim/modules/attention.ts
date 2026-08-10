@@ -13,6 +13,9 @@
 import { defineComponent, Position, Velocity } from "../kernel/components";
 import type { EntityId } from "../kernel/entities";
 import type { World } from "../kernel/world";
+import { SPRINT_THRESHOLD } from "../locomotion";
+import { noiseOn, surfaceAt } from "../map/surface";
+import { TILE_METRES } from "../map/tilemap";
 import type { Module } from "./index";
 
 /**
@@ -62,14 +65,6 @@ export const PERSON_EMITTER: AttentionEmitter = {
 export const SHOUT_MAGNITUDE = 120;
 
 /**
- * Above this speed, in m/s, movement counts as sprinting.
- *
- * Halfway between the walk (1.4) and the sprint (4.2), so it cannot be reached by a walking
- * survivor carrying a modifier or two.
- */
-const SPRINT_THRESHOLD = 2.8;
-
-/**
  * Ticks between scent emissions. One second at 20 Hz.
  *
  * Every scent magnitude in docs/03 is "per emission interval", so this constant and that
@@ -91,7 +86,7 @@ export function makeEmitter(
 export const attentionModule: Module = {
   id: "attention",
 
-  register({ world }) {
+  register({ world, map }) {
     world.systems.register({
       id: "attention.emit-movement",
       phase: "attention-emit",
@@ -101,15 +96,32 @@ export const attentionModule: Module = {
           const vel = w.components.getOrThrow(entity, Velocity);
           const speed = Math.hypot(vel.dx, vel.dy);
 
-          const magnitude =
+          const base =
             speed >= SPRINT_THRESHOLD
               ? emitter.sprinting
               : speed > 0
                 ? emitter.walking
                 : emitter.ambient;
-          if (magnitude <= 0) continue;
+          if (base <= 0) continue;
 
           const pos = w.components.getOrThrow(entity, Position);
+
+          // The ground decides how much of that magnitude actually happens. docs/24 has said
+          // since it was written that hard surfaces carry noise and built-up terrain does
+          // not -- "streets are noise highways" -- and this is that claim made mechanical
+          // from the emitting end rather than the propagating one. Grass takes a walk from
+          // 1.4 m of reach to 0.9; rubble takes it to 2.4, and a sprint across rubble to
+          // most of a street.
+          //
+          // Only footsteps are scaled. A shout is a shout wherever you stand, and the
+          // ambient hum of a generator is a property of the generator.
+          const magnitude =
+            emitter.ambient > 0 && speed === 0
+              ? base
+              : base *
+                noiseOn(
+                  surfaceAt(map, Math.floor(pos.x / TILE_METRES), Math.floor(pos.y / TILE_METRES)),
+                );
           w.events.publish({
             type: "noise.emitted",
             x: pos.x,

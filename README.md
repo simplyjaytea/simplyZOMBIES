@@ -49,8 +49,13 @@ the [attention field](docs/03-attention.md) now sit on top of it, with shamblers
 a noise and the district walks toward you in a minute; make none and scent still finds you, in an
 hour. And as of the [visibility primitive](docs/28-visibility-and-sightlines.md), **you only see what
 you can see** — walls, windows, foliage and low cover are four different answers to that, and a body
-you lose behind a building leaves a fading mark rather than vanishing. Light, melee and the day/night
-cycle are the rest of the milestone.
+you lose behind a building leaves a fading mark rather than vanishing.
+
+The [ground](docs/24-world-and-scale.md#the-ground) decides the rest: pavement, dirt, grass,
+undergrowth and rubble each change how fast you cross them and how far your footsteps carry. The
+street is the quick way and it announces you; the yards are slow and quiet; the brambles are the only
+cover on open ground and they are slow *and* loud. Light, melee and the day/night cycle are the rest
+of the milestone.
 
 ```bash
 npm install && npm run dev     # http://127.0.0.1:5174

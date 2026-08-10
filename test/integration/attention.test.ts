@@ -25,7 +25,7 @@ import { fingerprint } from "../../src/sim/kernel/serialize";
 import { stepN } from "../../src/sim/kernel/step";
 import { StatRegistry } from "../../src/sim/modifiers/stats";
 import { defineCoreStats } from "../../src/sim/modifiers/stats";
-import { DISTRICT_TILES, Tile, type TileMap } from "../../src/sim/map/tilemap";
+import { blankMap, DISTRICT_TILES, Tile, type TileMap } from "../../src/sim/map/tilemap";
 import { SHOUT_MAGNITUDE } from "../../src/sim/modules/attention";
 import {
   makeShambler,
@@ -52,7 +52,7 @@ function loadRealContent(): ContentRegistry {
 
 /** An empty plain, so propagation is measured against distance and nothing else. */
 function openGround(size: number): TileMap {
-  return { w: size, h: size, tiles: new Uint8Array(size * size).fill(Tile.Floor) };
+  return blankMap(size, size);
 }
 
 function meanDistanceToShamblers(world: World, x: number, y: number): number {

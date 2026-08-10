@@ -6,7 +6,8 @@
 
 import { Facing, headingOf, Position, Velocity } from "../kernel/components";
 import { TICK_SECONDS } from "../kernel/world";
-import { blockedAt } from "../map/tilemap";
+import { blockedAt, TILE_METRES } from "../map/tilemap";
+import { speedOn, surfaceAt } from "../map/surface";
 import type { Module } from "./index";
 
 /** Half-width of a body, in metres. Keeps entities from clipping wall corners. */
@@ -41,9 +42,19 @@ export const movementModule: Module = {
             if (heading !== null) facing.radians = heading;
           }
 
+          // What the ground does to a stride. Applied here rather than where velocity is
+          // set, because here is the one place every mover passes through -- the player
+          // module, three shambler states and whatever sets a velocity next all pay it
+          // without knowing the surface layer exists. Velocity keeps meaning *intent*, which
+          // is also what keeps the sprint threshold reading intent rather than terrain: a
+          // survivor wading through undergrowth is still sprinting, and still loud for it.
+          const pace = speedOn(
+            surfaceAt(map, Math.floor(pos.x / TILE_METRES), Math.floor(pos.y / TILE_METRES)),
+          );
+
           // Axes resolved separately so a body slides along a wall instead of sticking to
           // it. Sticking reads as a bug even when the collision itself is correct.
-          const nx = pos.x + vel.dx * TICK_SECONDS;
+          const nx = pos.x + vel.dx * TICK_SECONDS * pace;
           if (
             !blockedAt(map, nx + Math.sign(vel.dx) * RADIUS, pos.y - RADIUS) &&
             !blockedAt(map, nx + Math.sign(vel.dx) * RADIUS, pos.y + RADIUS)
@@ -53,7 +64,7 @@ export const movementModule: Module = {
             vel.dx = 0;
           }
 
-          const ny = pos.y + vel.dy * TICK_SECONDS;
+          const ny = pos.y + vel.dy * TICK_SECONDS * pace;
           if (
             !blockedAt(map, pos.x - RADIUS, ny + Math.sign(vel.dy) * RADIUS) &&
             !blockedAt(map, pos.x + RADIUS, ny + Math.sign(vel.dy) * RADIUS)

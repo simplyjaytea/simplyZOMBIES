@@ -83,15 +83,56 @@ District layouts and the region's road graph are generated from the world seed.
 So: the *buildings* are designed, the *world* is rolled. A region is reproducible from its seed, which
 [determinism](19-architecture.md#determinism) requires anyway.
 
+## The ground
+
+**Built.** A tile has two independent stories: what is *in* it, which the
+[occluder classes](28-visibility-and-sightlines.md#what-blocks-sight) answer, and what is *under*
+it, which is this. Two arrays, never one enum — a tree stands on grass, rubble lies on tarmac, and a
+single enum expressing every combination would be a product of two sets rather than a list. It is
+the same lesson doc 28 learned about opacity and solidity, applied one layer down.
+
+The ground answers two questions the simulation already asks every tick, and both of them were
+promised in [Roads](#roads) below before any of it existed:
+
+| Surface | Speed | Footstep noise | What it is |
+|---|---|---|---|
+| **Paved** | ×1.0 | ×1.0 | Tarmac, concrete, floorboards. The baseline |
+| **Dirt** | ×0.95 | ×0.85 | Worn earth, the trodden edge of a green |
+| **Grass** | ×0.9 | ×0.6 | Lawns, verges, playing fields |
+| **Undergrowth** | ×0.6 | ×1.3 | Brambles and long grass. Always under [screening](28-visibility-and-sightlines.md#what-blocks-sight) |
+| **Rubble** | ×0.7 | ×1.7 | Spill from a frontage. Always under [low cover](28-visibility-and-sightlines.md#what-blocks-sight) |
+
+**Noise is the half that makes this a mechanic rather than a texture.** Against the
+[emitter table](03-attention.md#noise), the same walk carries 1.4 m on tarmac, 0.9 m on grass and
+2.4 m across rubble — and a *sprint* across rubble carries 14.6 m, which is most of a street. The
+street is the fast way and it announces you; the green is slow and it hides you. **A route is a
+decision about the attention field, in exactly the way a
+[stance](29-movement-and-stances.md) is.**
+
+Two rules keep it from becoming a free lunch:
+
+- **The ground multiplies the emitter; it never replaces it.** Sprinting stays six times a walk on
+  every surface. Terrain modulates a calibrated table rather than overriding it, so docs/03 goes on
+  meaning what it says.
+- **Nothing may be strictly better than anything else** (docs/29's rule). Undergrowth is the only
+  cover on open ground — it breaks a sightline — and it is *both* the slowest surface and a loud
+  one. You can be unseen or you can be unheard. The ground makes you choose.
+
+Trees are a solid, opaque tile standing on grass, so a stand of them breaks a sightline down a
+street the way a building does — which is what gives a district somewhere to be that is neither
+indoors nor exposed.
+
 ## Roads
 
 Roads are the region's spine, and they carry more design weight than their footprint suggests:
 
 - **The travel surface.** Off-road is slow, damaging, and impassable for most
-  [vehicle bases](25-vehicles.md).
+  [vehicle bases](25-vehicles.md). **On foot this is built** — see [the ground](#the-ground). For
+  vehicles it waits on vehicles.
 - **Where the vehicles are.** Every wreck is a potential chassis or a parts donor.
 - **Where noise carries.** Long, straight, hard-surfaced corridors propagate
-  [noise](03-attention.md) much further than built-up terrain. The spike confirmed the mechanism from
+  [noise](03-attention.md) much further than built-up terrain — **also built**, from the emitting
+  end: a footstep on tarmac is emitted at full magnitude and one on grass at 0.6 of it. The spike confirmed the mechanism from
   the other direction: noise floods *around* buildings through open ground rather than being stopped
   by them, so **streets are noise highways** and a building shadows much less than its footprint
   suggests. Street layout is therefore an attention-design decision, not just a navigation one.
