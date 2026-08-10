@@ -5,5 +5,12 @@
   "attenuationPerMetre": 0.7,
   "wallPenaltyMetres": 18,
   "noiseHalfLifeSeconds": 3,
-  "floor": 0.05
+  "floor": 0.05,
+  "scentHalfLifeMinutes": 90,
+  "scentDiffusionRate": 0.02,
+  "scentFloor": 0.005,
+  "scentIntervalTicks": 5,
+  "scentCeiling": 5000,
+  "windX": 0.6,
+  "windY": -0.2
 }

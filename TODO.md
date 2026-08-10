@@ -16,12 +16,14 @@ slice will invalidate.
   that's the signal to stop and redesign.
 - Milestones close on their exit criterion, not on the checkbox count.
 
-**Current milestone: 1 — The spine.** Milestone 0 is complete. Milestone 1's **noise spine** is in:
-the attention field, shamblers that ascend it, and a shout. Its
-[exit criterion](#milestone-1--the-spine) is met for noise and asserted in CI. Light, scent, melee,
-day/night and the risk-5 checkpoint are the remainder.
+**Current milestone: 1 — The spine.** Milestone 0 is complete. Two of the three attention channels
+are in — the **noise spine** (field, gradient ascent, a shout) and now **scent** (continuous
+diffusion, wind, field memory). Both ⚠ checkpoints that were riding on scent are closed. The
+[exit criterion](#milestone-1--the-spine) is met for noise and asserted in CI. **Light, melee and
+day/night are the remainder.**
 
-Run it with `npm run dev` — `WASD` move, `Shift` sprint, **`Space` shout**, **`O` attention overlay**.
+Run it with `npm run dev` — `WASD` move, `Shift` sprint, **`Space` shout**, **`O` cycles the
+attention overlay** through noise and scent.
 `npm test` is correctness; `npm run bench` and `npm run bench:frame` are the budgets, and they fail
 the build.
 
@@ -158,16 +160,29 @@ which the project is legible as a game.
       *(everything reaches the field through `noise.emitted`, so a trap or a generator needs no
       knowledge that the field exists)*
 - [ ] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
-- [ ] **Scent** — diffusion at a few Hz with a global wind vector
-- [ ] **Field memory** — milling bodies emit scent residue (**never noise**), at a magnitude that
+- [x] **Scent** — diffusion at a few Hz with a global wind vector
+      *(4 Hz, gather-not-scatter so determinism falls out of the loop shape, wind as four
+      normalised outflow weights derived once. Needed a **scent floor of its own**: sharing noise's
+      made dilution rather than the half-life govern a smell's lifetime — a 90 minute half-life
+      behaving like two minutes. Walls do not block it, and it sums where noise takes a maximum.)*
+- [x] **Field memory** — milling bodies emit scent residue (**never noise**), at a magnitude that
       propagates past its own cell
-- [ ] ⚠ **Acceptance check:** toggle residue off and confirm something observably changes. The
+      *(its own `field-memory` module, so the acceptance check below toggles a shipped
+      configuration rather than a test-only edit)*
+- [x] ⚠ **Acceptance check:** toggle residue off and confirm something observably changes. The
       [spike failed exactly this check](docs/23-roadmap.md#problem-3--field-memory-is-currently-a-no-op)
-      because it emitted onto the wrong channel. **If nothing changes, cut the mechanic** rather than
-      carrying it as decoration.
+      because it emitted onto the wrong channel.
+      **Passed, and the mechanic is kept — but it does not do what the doc said.** The horde
+      *migrates*: it lays residue, the plume drifts downwind, it climbs into its own plume and
+      repeats, crossing most of a district in an hour. With residue off it stays within 7 m of where
+      it gathered. The mill site therefore empties *faster*, not slower. Self-limiting — the crowd
+      spreads at the district edge, the residue burns out, they disperse.
+      [docs/03 is corrected](docs/03-attention.md#what-field-memory-turned-out-to-actually-do).
 - [ ] Dirty-region tracking
-      *(not yet earned. Propagation touches only what a magnitude reaches, and decay is a 4,096-cell
-      scan costing nothing measurable. It becomes worth doing when scent makes the field continuous.)*
+      *(still not earned, and now measured rather than assumed. Scent made the field continuous, which
+      was the condition this was waiting on — and the continuous step costs 0.0075 ms amortised per
+      tick, the same whether the district is saturated or fresh. Revisit if a third channel or a
+      larger grid changes the arithmetic.)*
 - [ ] Per-tick propagation budget with a deterministic overflow queue (degrade the field's update rate,
       never the frame)
 - [x] Field is part of the save state
@@ -190,13 +205,16 @@ which the project is legible as a game.
 
 - [x] Shambler entity with a sensory profile weighting the three channels
       *(all three weights are read; only noise is live, so scent slots in behind it)*
-- [x] Gradient ascent on noise. Scent-as-bias and light-as-line-of-sight arrive with their channels
+- [x] Gradient ascent on noise, and **scent as a bias** — it bends a wandering shambler's heading a
+      third of the way toward what it can smell, but never seizes it, never commits it, and never
+      changes its state. Noise stays the only *impulse*. That asymmetry is what keeps the noise exit
+      criterion intact now that the player emits scent permanently and cannot stop.
+      Light-as-line-of-sight arrives with its channel
 - [x] **Persistent per-individual angular bias (±0.62 rad)** on the gradient direction — assigned once
       at spawn from the seeded RNG stream, never re-rolled, **included in save state**. Without it
       they form [conga lines, not a horde](docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own).
       *(mutation-tested: delete the bias and twenty shamblers in one cell collapse to a single heading)*
-- [x] Investigate on arrival → mill → disperse
-      *(**raising local scent** waits for the scent channel — that is the field-memory item above)*
+- [x] Investigate on arrival → mill → disperse, **raising local scent** while they mill
 - [ ] Pursue on direct contact
 - [ ] Damage model: head and locomotion are what matter; a crawler is still lethal
 
@@ -222,11 +240,13 @@ which the project is legible as a game.
       **same budget as its quiet twin** — the claim being guarded is that converging is not in a
       different cost class from drifting. Measured 0.19 ms against 0.15 at 300 bodies, 1.38 against
       1.04 at 2,000. The frame benchmark now samples mid-convergence rather than at rest.
-- [ ] ⚠ **Risk checkpoint (roadmap risk 5):** synthetic 500-zombie load test. Continuous scent
+- [x] ⚠ **Risk checkpoint (roadmap risk 5):** synthetic 500-zombie load test. Continuous scent
       diffusion is [the most likely thing to need rework](docs/22-performance.md#known-risks) — find
       out now, not in Milestone 2.
-      *(still open, and still about **scent**. The numbers above narrow nothing that the spike had not
-      already narrowed: noise is event-driven and cheap, which was never the risk.)*
+      *(**Closed.** `five-hundred-milling` holds 0.42 ms against a 1 ms budget with residue laid
+      continuously. Diffusion itself is 0.0377 ms per step, 0.0075 ms amortised per tick, and costs
+      the same saturated as fresh because it scans the grid rather than the live cells. The
+      continuous channel is not the expensive one; per-entity AI is, and noise already paid for it.)*
 
 > **Exit criterion:** make noise, and they come. Go quiet, and they don't.
 >
@@ -235,8 +255,16 @@ which the project is legible as a game.
 > *without* a shout leaves the horde where it was. Measured, a shout takes the crowd within 50 m from
 > 30 bodies to 92.
 >
-> The milestone is **not closed**: light, scent, melee, day/night and the risk-5 checkpoint are all
-> still open above. What is closed is the question of whether the field reads as a game.
+> The milestone is **not closed**: light, melee and day/night are still open above. Scent and both of
+> its ⚠ checkpoints are now closed. What is closed is the question of whether the field reads as a
+> game.
+>
+> Scent adds a second, slower answer to the same criterion, and it is the one that makes *going*
+> quiet interesting rather than merely safe. **Make noise and they come in a minute. Make none, and
+> they still come — in an hour.** Standing perfectly still with the noise field at literally zero
+> live cells, the crowd within 50 m goes from 30 bodies to 76 over an hour, purely on the scent a
+> body cannot stop emitting. The one-minute negative control above is untouched by this, and that is
+> the design rather than a coincidence: a 90 minute half-life builds almost no gradient in 60 seconds.
 
 ---
 

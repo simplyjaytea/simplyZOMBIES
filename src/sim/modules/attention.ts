@@ -31,12 +31,26 @@ export type AttentionEmitter = {
   sprinting: number;
   /** Noise while still. Zero for a person; a generator is 45 and never stops. */
   ambient: number;
+  /**
+   * Scent emitted per {@link SCENT_EMIT_INTERVAL}, whether moving or not.
+   *
+   * docs/03-attention.md#scent: one living human is 1, and "population is a permanent,
+   * unavoidable scent floor". Unlike the three noise numbers above there is no speed to
+   * choose between -- a body standing perfectly still emits exactly as much as a running
+   * one, which is the whole difference between the channels. You can stop making noise.
+   */
+  scent: number;
 };
 
 export const AttentionEmitter = defineComponent<AttentionEmitter>("AttentionEmitter");
 
 /** docs/03-attention.md#noise. A person, moving. */
-export const PERSON_EMITTER: AttentionEmitter = { walking: 1, sprinting: 6, ambient: 0 };
+export const PERSON_EMITTER: AttentionEmitter = {
+  walking: 1,
+  sprinting: 6,
+  ambient: 0,
+  scent: 1,
+};
 
 /**
  * A shout. docs/03-attention.md#noise, and 171 m of reach against a 256 m district.
@@ -54,6 +68,16 @@ export const SHOUT_MAGNITUDE = 120;
  * survivor carrying a modifier or two.
  */
 const SPRINT_THRESHOLD = 2.8;
+
+/**
+ * Ticks between scent emissions. One second at 20 Hz.
+ *
+ * Every scent magnitude in docs/03 is "per emission interval", so this constant and that
+ * table are one decision: halving it doubles every smell in the game. It is deliberately
+ * coarser than the tick, because scent that accumulated 20 times a second would reach the
+ * ceiling in a minute and stop discriminating between a passer-by and a settlement.
+ */
+export const SCENT_EMIT_INTERVAL = 20;
 
 /** Give an entity an emission profile. Mirrors `makeShambler` -- the module owns the write. */
 export function makeEmitter(
@@ -92,6 +116,30 @@ export const attentionModule: Module = {
             y: pos.y,
             magnitude,
             source: entity,
+          });
+        }
+      },
+    });
+
+    // Deliberately not joined to the movement system above, and deliberately not querying
+    // Velocity. Noise is a consequence of what you are *doing*; scent is a consequence of
+    // being there at all. Sharing a system would have quietly made standing still free.
+    world.systems.register({
+      id: "attention.emit-scent",
+      phase: "attention-emit",
+      run: (w) => {
+        if (w.tick % SCENT_EMIT_INTERVAL !== 0) return;
+
+        for (const entity of w.components.query(Position, AttentionEmitter)) {
+          const emitter = w.components.getOrThrow(entity, AttentionEmitter);
+          if (emitter.scent <= 0) continue;
+
+          const pos = w.components.getOrThrow(entity, Position);
+          w.events.publish({
+            type: "scent.accumulated",
+            x: pos.x,
+            y: pos.y,
+            magnitude: emitter.scent,
           });
         }
       },

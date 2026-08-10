@@ -84,6 +84,38 @@ highways and a building casts a much smaller shadow than its footprint suggests 
 property [roads](24-world-and-scale.md#roads) already relies on, seen from the other side. Do not
 budget for buildings as noise insulation; budget for them as detours.
 
+### Scent, and the constants it needed of its own
+
+Scent is the *continuous* channel, and building it turned up the same class of problem the spike hit
+with noise: a constant that had never been written down.
+
+| Constant | Value |
+|---|---|
+| Scent half-life | **90 minutes** (minutes, not seconds — the unit difference is the point) |
+| Diffusion rate | **0.02** of a cell per step |
+| Diffusion step | every **5 ticks**, so 4 Hz |
+| Scent floor | **0.005** |
+| Per-cell ceiling | **5,000** |
+| Wind | a constant global vector, **(+0.6, −0.2)** until [weather](16-weather.md) owns it |
+
+Three of those are worth stating as decisions rather than numbers:
+
+**Scent needs its own floor, and sharing noise's silently broke it.** The noise floor is near zero so
+that `reach = magnitude ÷ attenuation` holds exactly — an identity a diffusive channel does not have
+at all. Sharing it made the *floor*, not the half-life, decide how long a smell lasted: diffusion
+dilutes a plume until every one of its cells crosses the threshold at about the same moment, so a
+deposit evaporated in roughly two minutes while this table claimed ninety. A scent-specific floor at
+a tenth of noise's fixes it. A residue deposit now lasts around 40 minutes, against half a minute for
+a shout.
+
+**Scent sums where noise takes a maximum.** Two people shouting together are not louder; two people
+standing together do smell more. This is the only place the two channels' arithmetic disagrees, and
+it is what makes "population is a permanent, unavoidable scent floor" true rather than decorative.
+Summing is why scent needs a ceiling and noise does not.
+
+**Nothing blocks scent, including walls.** Per the channel table above, only wind and time disperse
+it. Unlike noise there is no wall penalty and no solid-cell shadow — a smell goes under the door.
+
 **Decay** is multiplicative with a **~3 s half-life**, applied to the propagated field. That is what
 "fast — seconds to a minute" above means numerically.
 
@@ -159,10 +191,10 @@ Per [zombie](14-zombies.md) tick, at a coarse rate for distant entities
 3. Move up the combined gradient, with noise applied as an *impulse* (a sharp bearing change toward a
    recent loud event) and scent as a *bias* (a slow drift).
 4. On arriving at the source and finding nothing, mill and disperse — which raises local scent from
-   their own mass, so a place that drew them stays slightly attractive afterward.
+   their own mass. Where that leads is [not where this document originally guessed](#what-field-memory-turned-out-to-actually-do).
 
-Point 4 matters: **the field has memory**. Somewhere you made a mistake stays a bad neighborhood for
-a while.
+Point 4 matters: **the field has memory** — and the memory turned out to travel. See
+[what field memory turned out to actually do](#what-field-memory-turned-out-to-actually-do).
 
 ### Field memory is a scent mechanic
 
@@ -179,10 +211,38 @@ the mistake is an easy one to repeat:
 - Because scent decays over **hours** rather than seconds, memory outlives the event that caused it
   by the right order of magnitude. Noise could never have produced this behaviour.
 
-**This is unverified.** The spike had no scent channel, so field memory has never actually been
-observed working. [Milestone 1](../TODO.md) carries an explicit acceptance check: switch residue off
-and confirm something changes. If nothing does, the mechanic gets cut rather than carried as
-decoration.
+### What field memory turned out to actually do
+
+**Verified, kept, and not what this document used to claim.** Milestone 1 built the scent channel and
+ran the acceptance check: boot two identical districts, disable the `field-memory` module in one,
+shout, and watch. Something observable changes, emphatically — so the mechanic stays. But the thing
+that changes is not "the site stays attractive".
+
+**The horde migrates.** A crowd that mills lays residue; the residue drifts downwind; the crowd
+climbs the gradient into its own plume, mills further along, and lays more. An hour after a single
+shout the horde's centre of mass had crossed most of a district — 128,128 to roughly 217,73 with the
+wind at (+0.6, −0.2) — while the same district with residue disabled left it sitting where it
+gathered, about 7 m from the spot.
+
+So the mill site does not stay crowded. It *empties faster*, because the crowd walks off downwind
+following itself: 37 bodies within 50 m at twenty minutes against 73 with the mechanic off.
+
+This is better than what was originally specified, and it is worth being clear about why rather than
+quietly rewriting history:
+
+- The horde acquires a **location and a heading** between events. It is somewhere, and it is going
+  somewhere, without a director scripting it and without a wave timer.
+- **Wind becomes tactical exactly as [weather](16-weather.md) always claimed it would be**, before
+  the weather system exists. Where a horde goes after you disturb it is now a thing the player can
+  read off the wind and plan around.
+- It is **self-limiting**, which is the part that could have gone badly. The migration needs a dense
+  crowd to sustain the emission; once the horde reaches the district edge and spreads along it, the
+  residue burns out and they disperse normally. Measured: at the boundary by 60 minutes, scent gone
+  by 90, and drifting apart again by 180.
+
+The original claim — that a place you made a mistake stays a bad neighbourhood — is **not** what the
+mechanic delivers, and is struck rather than reworded. What replaces it is a horde that carries the
+memory *with it* instead of leaving it behind.
 
 ### Route trails
 
@@ -234,6 +294,12 @@ There is no configuration that is quiet *and* comfortable. That's the design wor
   gradient and doesn't need per-tile precision.
 - Noise resolves via attenuated flood-fill with material-based falloff; light via shadowcasting from
   emitters; scent via a diffusion step with a global wind vector from [weather](16-weather.md).
+- **Scent diffusion is a gather, not a scatter.** Each cell pulls a share from its four neighbours
+  rather than pushing its own outward. Both express the same physics, but only the gather is
+  deterministic for free: a scatter accumulates into a cell from several sources in whatever order
+  the loop reaches them, and float addition is not associative, so the result would depend on
+  iteration order. All of the wind bias lives in four normalised outflow weights derived once at
+  construction, so the diffusion loop itself does not know which way the wind blows.
 - Spatial hashing and update budgets in [performance](22-performance.md).
 - The field is deterministic and part of the save state.
 - A debug overlay visualizes all three channels — developer-only, per the
