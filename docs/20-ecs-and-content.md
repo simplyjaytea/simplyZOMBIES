@@ -36,7 +36,7 @@ Grouped by owning module. Kernel components are the only ones every entity may r
 
 | Module | Components |
 |---|---|
-| **Kernel** | `Position` · `Velocity` · `Solid` · `AttentionEmitter` · `Tags` |
+| **Kernel** | `Position` · `Velocity` · `Facing` · `Solid` · `AttentionEmitter` · `Tags` |
 | **Actor** | `Actor` · `Faction` · `Perception` · `Locomotion` · `Inventory` · `Equipment` |
 | **Survivor** | `Identity` · `Traits` · `Backstory` · `Skills` · `WebNodes` · `Focus` · `WorkPriorities` · `Relationships` |
 | **Needs** | `Hunger` · `Thirst` · `Rest` · `Temperature` · `Hygiene` · `Mood` |
@@ -46,6 +46,11 @@ Grouped by owning module. Kernel components are the only ones every entity may r
 | **Item** | `Item` · `ItemBase` · `Affixes` · `Attachments` · `Condition` · `Stackable` |
 | **Structure** | `Structure` · `Durability` · `BuildProgress` · `Powered` · `Trap` |
 | **Horde** | `Horde` (coarse-sim aggregate) · `Bearing` |
+
+`Facing` is kernel rather than module-owned for the reason the rule below implies: two systems that
+do not own each other read it — [sightlines](28-visibility-and-sightlines.md#what-an-observer-is) and
+[aiming](09-combat.md#aiming) — so a module-owned heading would mean one of them reaching into the
+other's data, or a second heading drifting out of agreement with the first.
 
 **Rule:** a module may define components and read others', but only its owning module writes to a
 component. Cross-module effects go through [events and modifiers](21-extensibility.md), never by

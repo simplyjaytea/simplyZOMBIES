@@ -6,7 +6,7 @@
 
 import type { ContentRegistry } from "./content/registry";
 import { AttentionField, DEFAULT_CALIBRATION, type Calibration } from "./field/attention";
-import { Position, Velocity } from "./kernel/components";
+import { Facing, Position, Velocity } from "./kernel/components";
 import type { EntityId } from "./kernel/entities";
 import { TICK_HZ, World } from "./kernel/world";
 import { DISTRICT_TILES, findOpenTile, generateDistrict, type TileMap } from "./map/tilemap";
@@ -121,6 +121,12 @@ export function boot(options: BootOptions): Boot {
   const player = world.spawn();
   world.components.set(player, Position, { x: spot.x, y: spot.y });
   world.components.set(player, Velocity, { dx: 0, dy: 0 });
+  // Everything that moves is an observer, so facing is handed out here beside position and
+  // velocity rather than by a module. Zero -- due east -- is an arbitrary but *fixed*
+  // start: drawing it from the RNG would consume from a stream every existing test's
+  // expectations are pinned against, which is a large behaviour change wearing the costume
+  // of a small one.
+  world.components.set(player, Facing, { radians: 0 });
   world.components.set(player, Controlled, { sprinting: false });
   makeEmitter(world, player);
 
@@ -130,6 +136,7 @@ export function boot(options: BootOptions): Boot {
     const entity = world.spawn();
     world.components.set(entity, Position, { x: tile.x, y: tile.y });
     world.components.set(entity, Velocity, { dx: 0, dy: 0 });
+    world.components.set(entity, Facing, { radians: 0 });
     makeShambler(world, entity, placeRng);
   }
 
