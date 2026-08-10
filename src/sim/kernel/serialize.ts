@@ -9,6 +9,10 @@
  * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
  * pre-1.0 (docs/19-architecture.md#save-model).
  *
+ * 5: `Facing` joined the kernel components, so every moving entity carries a heading the
+ *    snapshot did not previously hold. A version-4 save restores bodies with no facing at
+ *    all, and the systems that will read it -- sightlines, aiming -- have no sensible
+ *    default to invent for a survivor who was mid-turn when the save was written.
  * 4: the scent channel joined the field, and `AttentionEmitter` grew a scent magnitude.
  *    Both change the shape of the snapshot. Scent is stored sparsely like noise, but it
  *    decays over tens of minutes rather than seconds, so a save taken at a smelly moment
@@ -21,7 +25,7 @@
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at

@@ -133,5 +133,5 @@ ones — see the [cookbook](21-extensibility.md).
 
 ---
 
-**Previous:** [03 — The Attention Field](03-attention.md) ·
+**Previous:** [28 — Visibility & Sightlines](28-visibility-and-sightlines.md) ·
 **Next:** [05 — Health & Injury](05-health-injury.md) · [Doc index](../README.md#documentation)

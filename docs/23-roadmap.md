@@ -47,8 +47,10 @@ inputs reproduces it byte-identically.
 The [attention field](03-attention.md) and something that reacts to it.
 
 - Three-channel field on a coarse grid, with emit, propagate, and decay
+- [Line of sight](28-visibility-and-sightlines.md) — one shadowcasting primitive, which the light
+  channel, the renderer, and eventually the multiplayer view filter all need
 - Shamblers performing gradient ascent
-- One controlled survivor with direct movement
+- One controlled survivor with direct movement, on the [stance ladder](29-movement-and-stances.md)
 - Melee combat: swing, stagger, grab, stamina
 - Day/night cycle
 - Debug overlay for all three channels
@@ -91,7 +93,9 @@ start again.
 Only if Milestone 2 answers the thesis affirmatively.
 
 **Depth:** weather · the full decay clock and mutation waves · the remaining zombie types (screamer
-first — it's the most interesting object in [that document](14-zombies.md)) · the full skill web ·
+first — it's the most interesting object in [that document](14-zombies.md), and it is
+[downstream of sight](28-visibility-and-sightlines.md#what-the-zombies-see) rather than of content) ·
+the full skill web ·
 named items and unique survivors · relationships and grief · temperature and hygiene · the remaining
 modification consumables · more traps and bait.
 
@@ -121,6 +125,39 @@ on world scale either, which is why it sits beside the range work rather than in
 
 Factions ([the whole document](18-factions.md)) · the escape endgame · storyteller presets and the
 full sandbox layer · the balance harness at scale · content volume.
+
+## Deferred: z-levels
+
+Multi-floor buildings, stairs, rooftops as places you stand rather than places that exist. **Not
+designed, and deliberately not designed yet** — recorded here so the deferral is a decision with a
+price attached rather than an omission somebody discovers later.
+
+**What it would cost, concretely.** Every spatial assumption in the codebase is planar, and none of
+them are planar by accident:
+
+| Assumption | Where |
+|---|---|
+| The map is a flat `Uint8Array` of `Floor \| Wall` | `src/sim/map/tilemap.ts` |
+| The attention field is one 64 × 64 grid of 4 m cells | `src/sim/field/attention.ts` |
+| Noise flood-fills across one plane; scent diffuses across one plane | same |
+| The renderer blits one rasterised tile layer and has no floor concept | `src/render/renderer.ts` |
+| [Visibility](28-visibility-and-sightlines.md) shadowcasts in two dimensions | doc 28 |
+
+Z-levels do not add a dimension to one of those. They add it to all five at once, and the field is
+the expensive one: a per-floor field multiplies the grid, while a shared field means a generator in a
+basement pulls the horde to the roof.
+
+**What we get without them.** The tactical value the design actually references is sightlines and
+grab immunity — [watch platforms](15-base-building.md), *"doors, elevation,
+chokepoints"* as the [runner's](14-zombies.md#third-wave-week-16) counter. Nearly all of that is
+reachable through [doc 28's occluder classes](28-visibility-and-sightlines.md#what-blocks-sight)
+without a second floor existing, and [docs/15 already cuts](15-base-building.md#cut-list) free-form
+multi-story player construction on its own reasoning.
+
+**When to revisit.** Not before Milestone 2 answers the thesis, and not before
+[world scale](24-world-and-scale.md) — which is where the streaming and memory budget that a
+multi-floor district would have to fit inside actually gets decided. If it is picked up, it needs a
+throwaway spike against the field cost first, exactly as the attention field got one.
 
 ---
 
@@ -336,8 +373,16 @@ noise channel is a map of where everyone recently was. Ship it whole and PVP has
 model exists to prevent; clip it to what each survivor could plausibly sense and the client cannot draw
 the overlay the single-player build already has.
 
-**Checkpoint:** before any multiplayer code. This is a design question, and building the transport
-first would mean answering it under pressure.
+**Narrowed, not closed.**
+[Doc 28 proposes an answer](28-visibility-and-sightlines.md#what-a-client-may-know--a-proposed-answer-to-risk-9):
+entities filtered by sight, the field filtered **per channel** rather than by sight, and the debug
+overlay conceded as host-only. It also surfaced a prerequisite this risk had missed — *there is no
+visibility query at all today*, so the renderer already draws through walls in single-player. The
+filtered view is unbuildable until that exists, which moves line of sight from a Milestone 1 nicety to
+a multiplayer dependency.
+
+**Checkpoint:** before any multiplayer code, unchanged. What changed is that the checkpoint now
+validates a written proposal rather than starting from a blank page.
 
 ### 10. A host in the loop may not fit the frame budget
 [Performance is a pillar](00-vision.md#the-six-pillars) and the benchmarks fail the build. Filtering

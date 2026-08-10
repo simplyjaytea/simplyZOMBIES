@@ -9,7 +9,7 @@
 //      65,536 tiles per frame is the obvious way to blow the frame budget.
 //   2. Entities are culled against the viewport before anything is drawn.
 
-import { Position, Velocity } from "../sim/kernel/components";
+import { Facing, Position, Velocity } from "../sim/kernel/components";
 import type { EntityId } from "../sim/kernel/entities";
 import type { World } from "../sim/kernel/world";
 import { isWall, type TileMap } from "../sim/map/tilemap";
@@ -228,6 +228,20 @@ export class Renderer {
       ctx.beginPath();
       ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
       ctx.fill();
+
+      // A stub of a nose, so Facing is observable in the running game rather than only in
+      // the tests. Player only: there is exactly one of them, so this costs nothing the
+      // frame budget can see, and a heading drawn on two thousand shamblers would.
+      const facing = world.components.get(entity, Facing);
+      if (facing !== undefined) {
+        const length = radius * 2.4;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + Math.cos(facing.radians) * length, sy + Math.sin(facing.radians) * length);
+        ctx.strokeStyle = COLOURS.player;
+        ctx.lineWidth = Math.max(1, radius * 0.35);
+        ctx.stroke();
+      }
     }
 
     this.visibleCount = drawn;

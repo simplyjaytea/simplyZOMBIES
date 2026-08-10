@@ -129,8 +129,43 @@ export class ComponentStore {
  */
 export type Position = { x: number; y: number };
 export type Velocity = { dx: number; dy: number };
+/**
+ * Which way an entity is looking, in radians, measured the way `Math.atan2` measures:
+ * 0 is +x, increasing counter-clockwise, normalised to (-pi, pi].
+ *
+ * Kernel rather than module-owned because two separate systems will read it and neither
+ * owns the other: sightlines need it to know what an observer can see, and aiming needs it
+ * to know where a weapon points (docs/28-visibility-and-sightlines.md#what-an-observer-is,
+ * docs/09-combat.md#aiming). Specified once here so combat does not grow a second heading
+ * that drifts out of agreement with the first.
+ *
+ * **It persists when the body stops.** Facing is not derived from velocity -- it is
+ * *updated* from velocity while there is some, and left alone when there isn't. A survivor
+ * standing still is still looking somewhere, and zeroing this on every halt would mean an
+ * observer snapped east every time they stopped walking.
+ *
+ * Writers must normalise negative zero away: `Math.atan2(-0, 1)` is `-0`, and
+ * `canonicalize` rejects it outright (see serialize.ts), so an unguarded write turns the
+ * next save into a thrown error rather than a wrong number.
+ */
+export type Facing = { radians: number };
 export type Tags = { values: string[] };
 
 export const Position = defineComponent<Position>("Position");
 export const Velocity = defineComponent<Velocity>("Velocity");
+export const Facing = defineComponent<Facing>("Facing");
 export const Tags = defineComponent<Tags>("Tags");
+
+/**
+ * The heading of a velocity, normalised for storage in `Facing`.
+ *
+ * Returns `null` for a stationary body rather than a default angle, so callers are forced
+ * to decide what "not moving" means instead of silently getting east.
+ */
+export function headingOf(dx: number, dy: number): number | null {
+  if (dx === 0 && dy === 0) return null;
+  const radians = Math.atan2(dy, dx);
+  // `+ 0` collapses -0 to 0. See the note on Facing: canonicalize rejects negative zero,
+  // and atan2 reaches it for any due-east heading with a negative-zero dy.
+  return radians + 0;
+}
