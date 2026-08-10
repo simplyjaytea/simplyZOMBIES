@@ -239,6 +239,8 @@ function updateHud(w: World): void {
     `<b>tick</b>     ${w.tick}${paused ? "  [PAUSED]" : ""}\n` +
     `<b>sim</b>      ${simMs.toFixed(2)} ms\n` +
     `<b>draw</b>     ${renderer.lastDrawMs.toFixed(2)} ms   ${renderer.visibleCount} drawn\n` +
+    `<b>sight</b>    ${renderer.occludedCount} hidden   ` +
+    `${w.vision.recomputes} shadowcasts\n` +
     `<b>entities</b> ${w.entities.count}\n` +
     `<b>noise</b>    ${live} live cells   peak ${w.field.peakNoise().toFixed(1)}\n` +
     `<b>scent</b>    ${w.field.liveScentCells()} live cells   ` +
@@ -268,6 +270,7 @@ loop.start();
     simMs,
     drawMs: renderer.lastDrawMs,
     visible: renderer.visibleCount,
+    hidden: renderer.occludedCount,
     entities: world.entities.count,
     fingerprint: fingerprint(world.serialize()),
   }),
