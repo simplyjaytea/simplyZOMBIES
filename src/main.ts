@@ -21,6 +21,8 @@ import { ambientLightAt, clockTime, dayNumber, PHASE_NAMES, phaseOf } from "./si
 import { threatWithin } from "./sim/threat";
 import { TILE_METRES } from "./sim/map/tilemap";
 import { Position } from "./sim/kernel/components";
+import { Body, isCrawling, Stamina } from "./sim/modules/health";
+import { Swing, SwingState } from "./sim/modules/melee";
 import { Controlled } from "./sim/modules/player";
 import { ContentRegistry } from "./sim/content/registry";
 import { calibrationFromContent } from "./sim/field/attention";
@@ -198,6 +200,13 @@ function shout(): void {
   say("you shout");
 }
 
+function swing(): void {
+  // Queued like everything else, so it lands on a tick and goes into the replay record. The
+  // sim decides whether it can start -- being mid-recovery, or too tired, is a simulation
+  // rule and the host has no business knowing it (docs/19-architecture.md#layers).
+  world.commands.push({ type: "swing" });
+}
+
 function toggleOverlay(): void {
   // Cycles rather than toggles, now that there is more than one channel to look at.
   const next = (OVERLAY_CHANNELS.indexOf(renderer.attentionChannel) + 1) % OVERLAY_CHANNELS.length;
@@ -216,6 +225,7 @@ const input = attachKeyboard(window, {
     F9: load,
     KeyP: togglePause,
     Space: shout,
+    KeyF: swing,
     KeyO: toggleOverlay,
     Digit1: () => cycleSpeed(0),
     Digit2: () => cycleSpeed(1),
@@ -296,18 +306,53 @@ function timeOfDay(w: World): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+/**
+ * The survivor's swing, for the HUD.
+ *
+ * Developer readout, like the rest of this panel. **The player is not meant to read stamina
+ * off a number** -- docs/29's cut list rules out a stamina bar explicitly, and the arc drawn
+ * on the ground is the real display. This exists so the windows can be tuned without
+ * inferring them from how the fight went.
+ */
+function swingState(w: World): string {
+  for (const entity of w.components.query(Swing, Controlled)) {
+    const swing = w.components.getOrThrow(entity, Swing);
+    const stamina = w.components.get(entity, Stamina);
+    const name =
+      swing.state === SwingState.WindUp
+        ? `wind-up ${swing.ticksLeft}`
+        : swing.state === SwingState.Recover
+          ? `recovery ${swing.ticksLeft}`
+          : "ready";
+    const tired = stamina === undefined ? "" : `   stamina ${stamina.current.toFixed(0)}`;
+    return `${name}${tired}`;
+  }
+  return "-";
+}
+
 /** Shamblers by state, for the HUD. The one line that says whether the field is working. */
-function hordeStates(w: World): { seeking: number; milling: number; drifting: number } {
+function hordeStates(w: World): {
+  seeking: number;
+  milling: number;
+  drifting: number;
+  staggered: number;
+  crawling: number;
+} {
   let seeking = 0;
   let milling = 0;
   let drifting = 0;
+  let staggered = 0;
+  let crawling = 0;
   for (const entity of w.components.query(Shambler)) {
     const state = w.components.getOrThrow(entity, Shambler).state;
     if (state === ShamblerState.Seek) seeking++;
     else if (state === ShamblerState.Investigate) milling++;
+    else if (state === ShamblerState.Staggered) staggered++;
     else drifting++;
+    const body = w.components.get(entity, Body);
+    if (body !== undefined && isCrawling(body)) crawling++;
   }
-  return { seeking, milling, drifting };
+  return { seeking, milling, drifting, staggered, crawling };
 }
 
 function updateHud(w: World): void {
@@ -331,16 +376,17 @@ function updateHud(w: World): void {
     `<b>scent</b>    ${w.field.liveScentCells()} live cells   ` +
     `peak ${w.field.peakScent().toFixed(1)}\n` +
     `<b>horde</b>    ${horde.seeking} seeking, ${horde.milling} milling, ` +
-    `${horde.drifting} drifting\n` +
+    `${horde.drifting} drifting, ${horde.staggered} staggered, ${horde.crawling} crawling\n` +
+    `<b>swing</b>    ${swingState(w)}\n` +
     `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes\n` +
     `<b>state</b>    ${currentFingerprint(w)}` +
     problem +
     showing;
 
   help.textContent =
-    "WASD / arrows move   Shift sprint   Space shout   O overlay   P pause\n" +
+    "WASD / arrows move   Shift sprint   F swing   Space shout   O overlay   P pause\n" +
     "1 / 2 / 3 speed (1x, 3x, 10x -- drops to 1x on contact)   F5 save   F9 load\n" +
-    "make noise, and they come. Go quiet, and they don't. The ground decides how quiet.";
+    "the swing is a window, not a button. You are committed from wind-up to recovery.";
 }
 
 loop.start();

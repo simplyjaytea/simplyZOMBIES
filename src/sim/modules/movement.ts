@@ -10,8 +10,14 @@ import { blockedAt, TILE_METRES } from "../map/tilemap";
 import { speedOn, surfaceAt } from "../map/surface";
 import type { Module } from "./index";
 
-/** Half-width of a body, in metres. Keeps entities from clipping wall corners. */
-const RADIUS = 0.35;
+/**
+ * Half-width of a body, in metres. Keeps entities from clipping wall corners.
+ *
+ * Exported because reach is measured centre-to-centre and a swing has to add the target's
+ * half-width to it, or a weapon quietly loses 0.35 m of the reach its profile claims. One
+ * radius, two readers -- a second copy in the combat code is a copy that drifts.
+ */
+export const BODY_RADIUS = 0.35;
 
 export const movementModule: Module = {
   id: "movement",
@@ -56,8 +62,8 @@ export const movementModule: Module = {
           // it. Sticking reads as a bug even when the collision itself is correct.
           const nx = pos.x + vel.dx * TICK_SECONDS * pace;
           if (
-            !blockedAt(map, nx + Math.sign(vel.dx) * RADIUS, pos.y - RADIUS) &&
-            !blockedAt(map, nx + Math.sign(vel.dx) * RADIUS, pos.y + RADIUS)
+            !blockedAt(map, nx + Math.sign(vel.dx) * BODY_RADIUS, pos.y - BODY_RADIUS) &&
+            !blockedAt(map, nx + Math.sign(vel.dx) * BODY_RADIUS, pos.y + BODY_RADIUS)
           ) {
             pos.x = nx;
           } else {
@@ -66,8 +72,8 @@ export const movementModule: Module = {
 
           const ny = pos.y + vel.dy * TICK_SECONDS * pace;
           if (
-            !blockedAt(map, pos.x - RADIUS, ny + Math.sign(vel.dy) * RADIUS) &&
-            !blockedAt(map, pos.x + RADIUS, ny + Math.sign(vel.dy) * RADIUS)
+            !blockedAt(map, pos.x - BODY_RADIUS, ny + Math.sign(vel.dy) * BODY_RADIUS) &&
+            !blockedAt(map, pos.x + BODY_RADIUS, ny + Math.sign(vel.dy) * BODY_RADIUS)
           ) {
             pos.y = ny;
           } else {

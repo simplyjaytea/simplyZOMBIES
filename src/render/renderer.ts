@@ -9,12 +9,15 @@
 //      65,536 tiles per frame is the obvious way to blow the frame budget.
 //   2. Entities are culled against the viewport before anything is drawn.
 
+import { recoverTicks, SWING_HALF_ANGLE, windupTicks } from "../sim/combat";
 import { Facing, Position, Velocity } from "../sim/kernel/components";
 import type { EntityId } from "../sim/kernel/entities";
 import type { World } from "../sim/kernel/world";
 import { Tile, tileAt, type TileMap } from "../sim/map/tilemap";
 import { Surface, surfaceAt } from "../sim/map/surface";
 import { ambientLightAt } from "../sim/time/clock";
+import { Body, isCrawling } from "../sim/modules/health";
+import { MeleeWeapon, Swing, SwingState } from "../sim/modules/melee";
 import { Controlled } from "../sim/modules/player";
 import { Detail, Observer } from "../sim/vision/visibility";
 import { followCamera, visibleBounds, worldToScreen, type Camera } from "./camera";
@@ -37,6 +40,8 @@ const COLOURS = {
   /** Low: stops neither, until somebody crouches. */
   low: "#2c2e33",
   player: "#e8d7a0",
+  /** The arc a swing is about to cover. Warm, and brief. */
+  swing: "232, 215, 160",
   wanderer: "#6f8f6a",
   /** Peripheral: something moved, and that is all you get. */
   glimpse: "#4a5a48",
@@ -350,8 +355,13 @@ export class Renderer {
 
       const { sx, sy } = worldToScreen(camera, x, y);
       if (detail === Detail.Focal) {
+        // A crawler draws small. docs/14-zombies.md: with its locomotion destroyed it "is
+        // quiet, is easy to miss in a dark breach, and is still perfectly capable of biting
+        // an ankle" -- so it has to be less visible, not merely slower.
+        const body = world.components.get(entity, Body);
+        const half = body !== undefined && isCrawling(body) ? radius * 0.5 : radius;
         ctx.fillStyle = COLOURS.wanderer;
-        ctx.fillRect(sx - radius, sy - radius, radius * 2, radius * 2);
+        ctx.fillRect(sx - half, sy - half, half * 2, half * 2);
       } else {
         // Peripheral: movement is noticed, identity is not. A body standing still at the
         // edge of vision is not drawn at all -- which is the mechanic, not an omission.
@@ -378,10 +388,42 @@ export class Renderer {
       ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
       ctx.fill();
 
+      // The swing, as the wedge it covers.
+      //
+      // docs/09-combat.md's cut list forbids damage numbers, hit chances and floating combat
+      // text, and TODO.md names "swing recovery" among the readouts that replace them: the
+      // consequence *is* the display. So a wind-up is a wedge brightening to full, and a
+      // recovery is the same wedge fading out -- the player reads how exposed they are from
+      // how much of it is left, in the same glance as the situation.
+      const facing = world.components.get(entity, Facing);
+      const swing = world.components.get(entity, Swing);
+      const weapon = world.components.get(entity, MeleeWeapon);
+      if (facing !== undefined && swing !== undefined && weapon !== undefined) {
+        const windingUp = swing.state === SwingState.WindUp;
+        const total = windingUp ? windupTicks(weapon.weight) : recoverTicks(weapon.weight);
+        if (swing.state !== SwingState.Idle && total > 0) {
+          // Wind-up fills as it approaches; recovery empties as it passes.
+          const remaining = swing.ticksLeft / total;
+          const strength = windingUp ? 1 - remaining : remaining;
+          const reach = weapon.reachMetres * camera.zoom;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.arc(
+            sx,
+            sy,
+            reach,
+            facing.radians - SWING_HALF_ANGLE,
+            facing.radians + SWING_HALF_ANGLE,
+          );
+          ctx.closePath();
+          ctx.fillStyle = `rgba(${COLOURS.swing}, ${(0.08 + strength * 0.22).toFixed(3)})`;
+          ctx.fill();
+        }
+      }
+
       // A stub of a nose, so Facing is observable in the running game rather than only in
       // the tests. Player only: there is exactly one of them, so this costs nothing the
       // frame budget can see, and a heading drawn on two thousand shamblers would.
-      const facing = world.components.get(entity, Facing);
       if (facing !== undefined) {
         const length = radius * 2.4;
         ctx.beginPath();

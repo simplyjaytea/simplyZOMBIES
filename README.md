@@ -58,7 +58,10 @@ cover on open ground and they are slow *and* loud.
 
 And there is a [clock](docs/02-core-loop.md). Four phases, a sun that rises and sets, and a night
 that takes your sight from 48 metres down to 12 — night is a smaller view, not a darker screen.
-Light emitters and the melee loop are the rest of the milestone.
+The melee loop is built — wind-up, connect or miss, recovery, stamina, stagger, reach, and a
+zombie damage model where the head and the legs are what matter. Light emitters and **grabs**
+are the rest of the milestone; without grabs there is no bite risk, so melee does not yet pay
+the currency the parity contract says it must.
 
 ```bash
 npm install && npm run dev     # http://127.0.0.1:5174
