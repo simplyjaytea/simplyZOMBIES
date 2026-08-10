@@ -14,6 +14,7 @@ import { ModuleRegistry, type Module } from "./modules";
 import { SpatialHash } from "./spatial/hash";
 import { attentionModule, makeEmitter } from "./modules/attention";
 import { fieldMemoryModule } from "./modules/field-memory";
+import { healthModule, makeBody, makeStamina } from "./modules/health";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
 import { makeShambler, shamblerModule } from "./modules/shambler";
@@ -24,6 +25,7 @@ import { DAYLIGHT_EYES, Observer, SHAMBLER_EYES } from "./vision/visibility";
 export const ALL_MODULES: readonly Module[] = [
   attentionModule,
   fieldMemoryModule,
+  healthModule,
   movementModule,
   playerModule,
   shamblerModule,
@@ -208,6 +210,9 @@ export function boot(options: BootOptions): Boot {
   // multiplayer host will carry one of these per client survivor.
   world.components.set(player, Observer, { ...DAYLIGHT_EYES });
   makeEmitter(world, player);
+  // Something to spend. Handed out here rather than by the health module for the same reason
+  // eyes are: being able to tire is a property of being a body, not of being controlled.
+  makeStamina(world, player);
 
   const placeRng = world.rng.stream("placement");
   for (let i = 0; i < wanderers; i++) {
@@ -217,6 +222,7 @@ export function boot(options: BootOptions): Boot {
     world.components.set(entity, Velocity, { dx: 0, dy: 0 });
     world.components.set(entity, Facing, { radians: 0 });
     makeShambler(world, entity, placeRng);
+    makeBody(world, entity);
     if (i < observers) world.components.set(entity, Observer, { ...SHAMBLER_EYES });
   }
 
