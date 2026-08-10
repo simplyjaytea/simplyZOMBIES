@@ -33,7 +33,13 @@ export type GameEvent =
     }
   | { type: "bite.landed"; victim: EntityId; source: EntityId; bodyPart: string }
   | { type: "grab.started"; victim: EntityId; source: EntityId }
-  | { type: "entity.staggered"; entity: EntityId }
+  /**
+   * Knocked off balance, and for how long. Duration is on the event for the same reason
+   * `damage` is on `attack.connected`: docs/09 says blunt weapons stagger better than blades,
+   * so the length of it is a property of what swung, and only the attacker knows that. The
+   * target still decides what being staggered *does* to it.
+   */
+  | { type: "entity.staggered"; entity: EntityId; ticks: number }
   | { type: "entity.killed"; entity: EntityId; killer: EntityId | null }
 
   // Health

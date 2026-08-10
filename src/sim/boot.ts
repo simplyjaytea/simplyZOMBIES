@@ -4,6 +4,7 @@
 // check -- so all four exercise the same startup path. If the benchmark booted differently
 // from the game it would be measuring something the game never does.
 
+import { WEAPONS } from "./combat";
 import type { ContentRegistry } from "./content/registry";
 import { AttentionField, DEFAULT_CALIBRATION, type Calibration } from "./field/attention";
 import { Facing, Position, Velocity } from "./kernel/components";
@@ -15,6 +16,7 @@ import { SpatialHash } from "./spatial/hash";
 import { attentionModule, makeEmitter } from "./modules/attention";
 import { fieldMemoryModule } from "./modules/field-memory";
 import { healthModule, makeBody, makeStamina } from "./modules/health";
+import { makeMeleeArmed, meleeModule } from "./modules/melee";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
 import { makeShambler, shamblerModule } from "./modules/shambler";
@@ -26,6 +28,7 @@ export const ALL_MODULES: readonly Module[] = [
   attentionModule,
   fieldMemoryModule,
   healthModule,
+  meleeModule,
   movementModule,
   playerModule,
   shamblerModule,
@@ -213,6 +216,11 @@ export function boot(options: BootOptions): Boot {
   // Something to spend. Handed out here rather than by the health module for the same reason
   // eyes are: being able to tire is a property of being a body, not of being controlled.
   makeStamina(world, player);
+  // A bat, because it is the middle of the three and the one that shows the loop best: enough
+  // reach to be usable, enough stagger to make a crowd survivable, heavy enough that the
+  // windows are visible. Which weapon a survivor holds becomes an inventory question when
+  // docs/10's item system lands.
+  makeMeleeArmed(world, player, WEAPONS.bat);
 
   const placeRng = world.rng.stream("placement");
   for (let i = 0; i < wanderers; i++) {
