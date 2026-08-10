@@ -12,6 +12,7 @@ import { TICK_HZ, World } from "./kernel/world";
 import { DISTRICT_TILES, findOpenTile, generateDistrict, type TileMap } from "./map/tilemap";
 import { ModuleRegistry, type Module } from "./modules";
 import { attentionModule, makeEmitter } from "./modules/attention";
+import { fieldMemoryModule } from "./modules/field-memory";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
 import { makeShambler, shamblerModule } from "./modules/shambler";
@@ -19,6 +20,7 @@ import { makeShambler, shamblerModule } from "./modules/shambler";
 /** Every non-kernel module in the build. The isolation test walks this list. */
 export const ALL_MODULES: readonly Module[] = [
   attentionModule,
+  fieldMemoryModule,
   movementModule,
   playerModule,
   shamblerModule,
@@ -87,6 +89,25 @@ export function boot(options: BootOptions): Boot {
     id: "kernel.attention-noise",
     type: "noise.emitted",
     handler: (event) => world.field.emitNoise(event.x, event.y, event.magnitude),
+  });
+
+  // Scent is kernel for the same reason noise is, and one more besides. Noise stops mattering
+  // when nothing emits; scent does not -- a district that has been lived in goes on smelling
+  // for the better part of an hour, and the system that fades it must not be something a
+  // sandbox preset can switch off. This is also the only propagation that runs when nothing
+  // at all has happened, which is precisely what makes it the risk docs/23 names.
+  world.systems.register({
+    id: "kernel.attention-scent",
+    phase: "attention-propagate",
+    run: (w) => {
+      if (w.tick % w.field.calibration.scentIntervalTicks === 0) w.field.diffuseScent();
+    },
+  });
+
+  world.events.subscribe({
+    id: "kernel.attention-scent-emit",
+    type: "scent.accumulated",
+    handler: (event) => world.field.addScent(event.x, event.y, event.magnitude),
   });
 
   const modules = new ModuleRegistry();

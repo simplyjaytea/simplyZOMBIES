@@ -10,7 +10,14 @@
     "attenuationPerMetre",
     "wallPenaltyMetres",
     "noiseHalfLifeSeconds",
-    "floor"
+    "floor",
+    "scentHalfLifeMinutes",
+    "scentDiffusionRate",
+    "scentIntervalTicks",
+    "scentCeiling",
+    "windX",
+    "windY",
+    "scentFloor"
   ],
   "additionalProperties": false,
   "properties": {
@@ -19,8 +26,12 @@
       "pattern": "^calibration\\.[a-z0-9_]+$",
       "description": "Stable namespaced id. Permanent once shipped."
     },
-    "extends": { "type": "string" },
-    "description": { "type": "string" },
+    "extends": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
     "cellMetres": {
       "type": "number",
       "exclusiveMinimum": 0,
@@ -45,6 +56,44 @@
       "type": "number",
       "exclusiveMinimum": 0,
       "description": "Below this a cell is silent and propagation stops. Near zero, because docs/03 states reach as magnitude / attenuation. Not a hearing threshold -- a sensory profile applies that per zombie."
+    },
+    "scentHalfLifeMinutes": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Scent half-life. Minutes, not seconds -- docs/03 calls scent decay slow (hours) against noise's ~3 s, and a different unit is the point: it is what stops the two channels being reasoned about as one."
+    },
+    "scentDiffusionRate": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "Fraction of a cell's scent that leaves it per diffusion step, shared out among the four neighbours by the wind weights."
+    },
+    "scentIntervalTicks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Ticks between diffusion steps. 5 at 20 Hz is 4 Hz -- docs/03's \"a diffusion step at a few Hz\". Scent is continuous, so this is the knob that sets what continuous costs."
+    },
+    "scentCeiling": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Maximum scent in one cell. Scent accumulates rather than taking a maximum the way noise does, so a permanent emitter needs a ceiling or a long run walks a Float32 somewhere canonicalize cannot follow."
+    },
+    "windX": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1,
+      "description": "Global wind vector, x. Length is strength: 0,0 is dead calm and diffusion is isotropic. Constant for now -- docs/16-weather.md owns wind from Milestone 3, and this is the seam it takes over."
+    },
+    "windY": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1,
+      "description": "Global wind vector, y. See windX."
+    },
+    "scentFloor": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Below this a cell has no scent left. Separate from `floor`, which is a noise constant: that one is near zero so that reach = magnitude / attenuation holds exactly, an identity a diffusive channel does not have. Sharing it made the floor rather than the half-life govern how long a smell lasted."
     }
   }
 }

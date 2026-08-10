@@ -14,7 +14,7 @@ import { createLoop } from "./platform/loop";
 import { createSchemaValidator } from "./platform/schema-validator";
 import { createWebStorage, SAVE_KEY } from "./platform/storage";
 import { createCamera } from "./render/camera";
-import { Renderer } from "./render/renderer";
+import { OVERLAY_CHANNELS, Renderer, type OverlayChannel } from "./render/renderer";
 import { boot } from "./sim/boot";
 import { ContentRegistry } from "./sim/content/registry";
 import { calibrationFromContent } from "./sim/field/attention";
@@ -165,8 +165,14 @@ function shout(): void {
 }
 
 function toggleOverlay(): void {
-  renderer.showAttention = !renderer.showAttention;
-  say(renderer.showAttention ? "attention overlay on" : "attention overlay off");
+  // Cycles rather than toggles, now that there is more than one channel to look at.
+  const next = (OVERLAY_CHANNELS.indexOf(renderer.attentionChannel) + 1) % OVERLAY_CHANNELS.length;
+  renderer.attentionChannel = OVERLAY_CHANNELS[next] as OverlayChannel;
+  say(
+    renderer.attentionChannel === "off"
+      ? "attention overlay off"
+      : `attention overlay: ${renderer.attentionChannel}`,
+  );
   if (paused) renderer.draw(world, camera, 0);
 }
 
@@ -235,6 +241,8 @@ function updateHud(w: World): void {
     `<b>draw</b>     ${renderer.lastDrawMs.toFixed(2)} ms   ${renderer.visibleCount} drawn\n` +
     `<b>entities</b> ${w.entities.count}\n` +
     `<b>noise</b>    ${live} live cells   peak ${w.field.peakNoise().toFixed(1)}\n` +
+    `<b>scent</b>    ${w.field.liveScentCells()} live cells   ` +
+    `peak ${w.field.peakScent().toFixed(1)}\n` +
     `<b>horde</b>    ${horde.seeking} seeking, ${horde.milling} milling, ` +
     `${horde.drifting} drifting\n` +
     `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes\n` +

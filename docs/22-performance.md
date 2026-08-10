@@ -230,7 +230,7 @@ Named honestly, since they're the likeliest places this breaks:
 |---|---|
 | **Streaming at driving speed** | Road-topology prefetch, staged promotion, load-tied speed cap. **The hardest problem in the design**, and the reason the drive benchmark exists. |
 | **Draw cost at horde scale** | Measured at ~30× the sim cost, and the reason the budgets above assert frame time. Culling, batching, and dirty-region tile redraw. The likeliest source of a frame-rate regression is a rendering change, not a simulation one. |
-| Scent diffusion is O(grid) and continuous | Coarse grid, low update rate, dirty regions. The most likely subsystem to need rework. |
+| ~~Scent diffusion is O(grid) and continuous~~ **Measured, and it is not a risk.** | 0.0377 ms per diffusion step at 4 Hz on a 64x64 grid, or **0.0075 ms amortised per tick** — about a tenth of one percent of the 8 ms budget, and the *same* cost whether the district is saturated with scent or completely fresh, because the step scans the grid rather than the live cells. Dirty regions remain unearned. What scales with the horde is per-entity AI, which noise already paid for. |
 | Tier thrashing at boundaries | Hysteresis — different promote and demote thresholds |
 | A siege promoting hundreds at once | Staged promotion across several ticks, beginning before contact |
 | A continuous region's total state size | District tier holds six numbers per unvisited district; only visited districts carry depletion detail |

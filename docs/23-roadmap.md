@@ -160,15 +160,31 @@ Continuous scent diffusion is the [most likely thing to need rework](22-performa
 
 **Checkpoint:** Milestone 1, under a synthetic 500-zombie load.
 
-**Partially answered.** Event-driven *noise* propagation plus gradient ascent is effectively free —
-0.13 ms average sim at 1,560 zombies, two orders of magnitude inside the 8 ms budget, with rendering
-dominating instead. **Scent remains untested**, and scent is the continuous channel this risk actually
-names. The measurement below narrows the risk; it does not close it.
+**Answered, and the answer is no.** Event-driven *noise* propagation plus gradient ascent was already
+effectively free — 0.13 ms average sim at 1,560 zombies. Milestone 1 then built the continuous channel
+this risk was actually about, and measured it:
 
-Scent now carries a second question as well as its cost. Because
-[field memory is a scent mechanic](03-attention.md#field-memory-is-a-scent-mechanic) and the spike
-could only test it on noise, the Milestone 1 scent work has to answer *does residue do anything
-observable* at the same time as *what does diffusion cost* — one build, two checkpoints.
+| | |
+|---|---|
+| Scent diffusion, per step | **0.0377 ms** (64×64 grid, 4 Hz) |
+| Amortised per tick | **0.0075 ms** — about 0.1% of the 8 ms budget |
+| Cost when the district is saturated with scent | **The same 0.0075 ms.** The step scans the grid, not the live cells |
+| 500 bodies converging and milling, residue laid continuously | 0.42 ms/tick against a 1 ms budget |
+
+Continuous diffusion is not the thing that will need rework. What scales with the horde is per-entity
+AI, which the noise spine already paid for, and rendering still dominates both.
+
+The risk is closed rather than narrowed, with one correction recorded against it: the *cost* was never
+the hard part of scent. The hard part was calibration, and specifically that scent needed
+[a floor of its own](03-attention.md#scent-and-the-constants-it-needed-of-its-own) — sharing noise's
+made dilution rather than the half-life govern how long a smell lasted, and collapsed a ninety-minute
+half-life into about two minutes of observed lifetime.
+
+The second checkpoint riding on the same build — *does residue do anything observable* — is also
+answered, and more interestingly than expected:
+[the horde migrates downwind following its own scent](03-attention.md#what-field-memory-turned-out-to-actually-do).
+The mechanic is kept. What this document and docs/03 said it would *do* was wrong, and is corrected
+there rather than quietly reworded.
 
 ---
 
@@ -185,7 +201,7 @@ are kept here because they are the evidence; the specifications are the authorit
 |---|---|---|
 | Conga lines | Persistent per-individual angular bias, ±0.62 rad | [14 — Zombies](14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own) |
 | Noise not calibrated to district size | District pinned at 256 m; magnitudes unchanged, the *unit* supplied | [03 — Attention](03-attention.md#scale-and-calibration), [24 — World & Scale](24-world-and-scale.md#how-big-a-district-is) |
-| Field memory a no-op | Respecified as scent-only at a magnitude that propagates; verified at Milestone 1 | [03 — Attention](03-attention.md#field-memory-is-a-scent-mechanic) |
+| Field memory a no-op | Respecified as scent-only at a magnitude that propagates. **Verified at Milestone 1, and it does something other than what was specified** — the horde migrates downwind on its own residue rather than the site staying attractive | [03 — Attention](03-attention.md#what-field-memory-turned-out-to-actually-do) |
 | Rendering dominates simulation | Draw budget added; every benchmark asserts frame time | [22 — Performance](22-performance.md#aim-the-budgets-at-the-renderer) |
 
 ### It works
