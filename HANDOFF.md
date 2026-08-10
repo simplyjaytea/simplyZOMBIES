@@ -1,7 +1,8 @@
 # Handoff
 
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
-updated 2026-08-06 when the noise spine landed and 2026-08-10 when scent did.
+updated 2026-08-06 when the noise spine landed, 2026-08-10 when scent did, and again the same day
+when seven multiplayer-era features were specified into the doc set.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -14,8 +15,9 @@ updated 2026-08-06 when the noise spine landed and 2026-08-10 when scent did.
 | **Phase** | **Milestone 1, phase 2 done: scent.** Shout and the district walks toward you in a minute. Say nothing at all and it still finds you, in an hour. |
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — all of Milestone 0 |
 | **In flight** | scent: continuous diffusion, wind, field memory, and the two ⚠ checkpoints that were riding on it — **both now closed** |
-| **Next real work** | **Light and shadowcasting**, then the melee loop. See [Do this next](#do-this-next). |
+| **Next real work** | **[Visibility & sightlines](docs/28-visibility-and-sightlines.md)** — light and shadowcasting turned out to be the small half of it — then the melee loop. See [Do this next](#do-this-next). |
 | **Also landed, as design only** | **[Multiplayer](docs/27-multiplayer.md)** — authoritative host, survivor-vs-survivor PVP, and voice as a noise emitter. Specified, docs reconciled, **no engine code**. Filed as Milestone 3. |
+| **And, also design only** | **[Visibility](docs/28-visibility-and-sightlines.md)** and **[movement stances](docs/29-movement-and-stances.md)**, plus the [condition view](docs/05-health-injury.md#the-condition-view), [aiming](docs/09-combat.md#aiming), and [z-levels deferred in writing](docs/23-roadmap.md#deferred-z-levels). Again **no engine code** — two of these are now Milestone 1 tasks. |
 
 ## The build
 
@@ -31,8 +33,9 @@ The build is worth playing now, which is the whole reason it exists. What it can
 ## What's in the repo
 
 ```
-docs/           27 design documents. The README index is the reading-order authority,
-                not the file numbers — 24-26 were written last but belong under "The world".
+docs/           29 design documents. The README index is the reading-order authority,
+                not the file numbers — 24-26 belong under "The world", 28 sits beside the
+                spine it serves, and 29 beside combat.
 TODO.md         The backlog through Milestone 2, with all 8 roadmap risks pinned to the
                 task that answers each one. Milestone 0 and the noise spine are ticked.
 src/sim/        The simulation. Pure, headless, deterministic — kernel, modules, rng.
@@ -242,26 +245,47 @@ is not covering the constant that produces it.**
 
 ## Do this next
 
-**Light and shadowcasting.** It is the third channel and the last one Milestone 1 owes, and unlike
-scent it carries no open risk — which is a good reason to take it now rather than saving it.
+**[Visibility and sightlines](docs/28-visibility-and-sightlines.md).** This was "light and
+shadowcasting" until the multiplayer work made it obvious that light is one of three consumers of the
+same query, and the smallest of the three. Build the primitive once.
 
-- It is the only channel that is **not a field propagation at all**: shadowcasting from emitters,
+- Light is the only channel that is **not a field propagation at all**: shadowcasting from emitters,
   recomputed on emitter or occluder change, not diffused and not flooded. Expect to reuse the cell
   geometry and almost none of the propagation code.
 - The overlay is already a channel cycler, so it has somewhere to go on arrival.
 - Sensory profiles already read all three weights from content; light is the one still ignored in
   code. Screamers weight it 0.9 against a shambler's 0.1, so this is where "there is no single
   silence" stops being a slogan.
+- **The renderer draws every entity in the viewport, walls or not.** Nothing has ever asked what a
+  survivor can see. That is a wallhack in the shipped single-player build, it is the reason doc 28
+  exists, and fixing it is what makes the multiplayer filtered view buildable later.
+- Watch the budget. Per-observer visibility is the first cost in this project that does **not**
+  amortise across the horde — see
+  [the cost shape](docs/22-performance.md#visibility-is-a-different-cost-shape). Recompute on change,
+  and let the tiers do the rest.
 
 Take the **melee loop** after it — that is what makes the spatial hash worth building, and the hash
 is deliberately still deferred until something needs neighbour queries.
+[Movement stances](docs/29-movement-and-stances.md) belong with it: they share stamina, and the
+stance ladder is where walking-1 and sprinting-6 become a decision rather than a shift key.
 
 **Not multiplayer.** [Doc 27](docs/27-multiplayer.md) landed as a specification and the cut-list
 reversal is written into [the vision](docs/00-vision.md#cut-list), but nothing was built and nothing
 should be built yet. PVP is meaningless without the melee loop and the contested recovery run is
-meaningless without gear worth recovering, so it sits in Milestone 3 behind both. If you do pick it
-up early, [roadmap risk 9](docs/23-roadmap.md#risks) — what a client may know about the attention
-field — is a **design** question to settle before any transport code exists.
+meaningless without gear worth recovering, so it sits in Milestone 3 behind both.
+[Roadmap risk 9](docs/23-roadmap.md#risks) — what a client may know about the attention field — is
+narrower than it was: doc 28
+[proposes an answer](docs/28-visibility-and-sightlines.md#what-a-client-may-know--a-proposed-answer-to-risk-9)
+to validate rather than a blank page. It is still a **design** question to settle before any
+transport code exists.
+
+**And not a health bar.** Item by item, the seven features that prompted this round are specified in
+the docs and backlogged; the one that was asked for and refused is a bar of any kind. The
+[condition view](docs/05-health-injury.md#the-condition-view) ships instead — a paperdoll of located
+conditions in skill-scaled prose, which carries strictly more information than a bar and none of it
+numeric. If a future session finds itself adding a fill percentage, that is the moment to re-read
+[clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than the
+moment to quietly amend it.
 
 Still open and unclaimed: day/night, the per-tick propagation budget with its overflow queue, and
 `Pursue on direct contact`.

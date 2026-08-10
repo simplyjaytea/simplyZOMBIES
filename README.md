@@ -67,7 +67,8 @@ cheap.
 ## Documentation
 
 The tables below are the authority on **reading order**. File numbers reflect the order documents were
-written, so 24–26 sit under "The world" rather than at the end.
+written, so 24–26 sit under "The world", 28 sits next to the spine it serves, and 29 sits next to
+combat rather than all four landing at the end.
 
 ### Foundations
 | | |
@@ -76,6 +77,7 @@ written, so 24–26 sit under "The world" rather than at the end.
 | [01 — The Hardcore Contract](docs/01-hardcore-contract.md) | Lethality, permadeath, succession, imperfect information, no win state |
 | [02 — Core Loop](docs/02-core-loop.md) | The dawn/day/dusk/night ratchet |
 | [03 — The Attention Field](docs/03-attention.md) | **The spine.** Noise, light, scent, and how the horde reads them |
+| [28 — Visibility & Sightlines](docs/28-visibility-and-sightlines.md) | One line-of-sight primitive: the light channel, what the renderer may draw, what a client may know |
 
 ### Survival & people
 | | |
@@ -89,7 +91,8 @@ written, so 24–26 sit under "The world" rather than at the end.
 ### Combat & gear
 | | |
 |---|---|
-| [09 — Combat](docs/09-combat.md) | The melee/ranged parity contract |
+| [09 — Combat](docs/09-combat.md) | The melee/ranged parity contract, and aiming |
+| [29 — Movement & Stances](docs/29-movement-and-stances.md) | Crawl to sprint: speed as a decision about the attention field |
 | [10 — Items](docs/10-items.md) | Bases, affixes, tiers, named items, attachments, decay |
 | [11 — Crafting & Modification](docs/11-crafting.md) | Materials as currency; the gamble at the workbench |
 

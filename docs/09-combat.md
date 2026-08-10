@@ -86,6 +86,53 @@ tonight**, and firing a gun *during* the night is a decision about how much wors
 The result: ranged is the emergency tool that trades tomorrow for right now. Which is genuinely
 powerful — sometimes there is no tomorrow unless you spend it.
 
+## Aiming
+
+Both models above describe what a weapon *does*. Neither says how the player points it, and that gap
+is where a game of this shape usually acquires a reticle with a hit percentage under it.
+
+### Facing is the input
+
+A survivor has a heading — the same heading
+[visibility](28-visibility-and-sightlines.md#what-an-observer-is) is built on, specified there once
+and read here. Aiming is turning that heading toward something and holding it, and the
+raise → steady → fire → recover loop is what the holding *is*: the cone tightens while you keep it
+pointed and while you keep still, and it opens the moment either stops being true.
+
+This makes the loop's interruptibility physical rather than administrative. Being shoved, being
+grabbed, or breaking into a [sprint](29-movement-and-stances.md) does not cancel an abstract
+"aiming state" — it moves the muzzle, and the cost is the steadiness you had accumulated.
+
+### The cone is felt, not drawn
+
+**No reticle that reports its own accuracy.** No expanding crosshair calibrated in degrees, no hit
+chance, no floating damage. What the player reads instead:
+
+- **Weapon sway** — the barrel's own movement, which *is* the cone, drawn as the thing rather than as
+  a number about the thing. A steady survivor's weapon is visibly still. An exhausted one with a
+  wounded arm is visibly not.
+- **Where the shots go.** Missing at fifteen metres because you fired the instant you raised is a
+  lesson the player can learn without ever being shown a percentage.
+
+This is the [no-numbers rule](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) paying
+for itself rather than costing something: sway communicates steadiness continuously, in the same
+glance as the situation, which a number in a corner does not.
+
+### Melee aims too
+
+Reach and swing arc read from the same facing. This is what makes
+[reach](#the-melee-model) legible as a property rather than a stat on a sheet — a spear connects
+from where a knife does not, and the player sees exactly that rather than reading it in a tooltip.
+It is also what makes being surrounded lethal in the way
+[clause 1](01-hardcore-contract.md#1-you-are-weak-permanently) promises: your arc covers one of them
+at a time, and the other two are outside it.
+
+### What you cannot see, you cannot aim at
+
+Aiming inherits [visibility](28-visibility-and-sightlines.md) wholesale. Firing at a body you
+remember rather than one you can see is allowed, and it is a decision with a cost — the shot is 180
+noise and 60 of muzzle flash whether or not anything was still standing there.
+
 ## The quiet branch — a third option, not an upgrade
 
 Bows, crossbows, suppressors, subsonic loads.
@@ -145,11 +192,18 @@ Details in [zombies](14-zombies.md); the combat-relevant parts:
 - **Dodge rolls / i-frames.** Wrong genre; escape is positional, not acrobatic.
 - **Directional blocking as a timing minigame.** Blocking exists as a stance with a stamina cost, not
   a parry window.
-- **Human-vs-human combat depth.** Deferred with [factions](18-factions.md).
+- **Human-vs-human combat *depth*.** Scoped rather than deferred outright, now that
+  [multiplayer](27-multiplayer.md) exists as a specification. What stays deferred with
+  [factions](18-factions.md) is the expensive half: raider approach AI, morale, surrender, and
+  NPC-vs-NPC engagements. What is *not* deferred is survivor-versus-survivor resolution, because
+  [PVP](27-multiplayer.md#what-pvp-is-and-is-not) needs it and factions still do not ship — and it
+  needs nothing new, since a player survivor is hit, injured, and killed by the model this document
+  already describes. It is gated on the melee loop existing at all, not on factions.
 - **Explosives as a mainline option.** They exist as rare loot; 400 noise makes them self-limiting,
   which is the joke.
 
 ---
 
-**Previous:** [08 — The Skill Web](08-skill-web.md) · **Next:** [10 — Items](10-items.md) ·
+**Previous:** [08 — The Skill Web](08-skill-web.md) ·
+**Next:** [29 — Movement & Stances](29-movement-and-stances.md) ·
 [Doc index](../README.md#documentation)

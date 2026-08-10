@@ -96,12 +96,24 @@ The host sends each client what that client may know. A client that never receiv
 survivor's position cannot render one, cannot lag-switch one into view, and cannot be patched into
 one.
 
-What "may know" means is **not settled** for the attention field, and that is the largest open
-problem in this document — see [open questions](#open-questions). The field is world state, not
-per-player state, and the debug overlay that visualises it is developer-only precisely because
-[clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) says so. A naive
-implementation that ships the whole grid to every client re-introduces the lockstep problem through
-the back door: the noise field is a map of where everyone just was.
+What "may know" means was the largest open problem in this document when it was written. The field is
+world state, not per-player state, and the debug overlay that visualises it is developer-only
+precisely because [clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) says so.
+A naive implementation that ships the whole grid to every client re-introduces the lockstep problem
+through the back door: the noise field is a map of where everyone just was.
+
+[Visibility & sightlines](28-visibility-and-sightlines.md#what-a-client-may-know--a-proposed-answer-to-risk-9)
+now puts up an answer for validation: entities filtered by sight, and **the field filtered per
+channel rather than by sight** — heard where noise reaches, seen where light is visible, smelled at
+the survivor. It also names the cost, which is that the `O` overlay cannot exist client-side in a
+hosted session at all. The ⚠ checkpoint stands; what changed is that it now validates a proposal
+instead of starting from nothing.
+
+There is also a prerequisite the original text missed. **A filtered view is worthless without a
+visibility query, and there is not one** — the renderer draws every entity in the viewport regardless
+of the walls between. Filtering state to a client that then draws whatever it holds through a
+building buys exactly nothing, which makes doc 28 a dependency of this section rather than a
+companion to it.
 
 ### Late join, reconnect, and version
 
@@ -288,10 +300,11 @@ and untouched. It gets designed when there is a colony to raid.
 
 ## Open questions
 
-- **What may a client know about the attention field?** The largest open problem here. The field is
-  world state; the noise channel is a map of where everyone recently was. Ship it whole and PVP has
-  the lockstep problem it was restructured to avoid. Ship it clipped to what each survivor could
-  plausibly sense and the client cannot draw the overlay the single-player build already has.
+- **Does the per-channel field filter hold up?** No longer open-ended: doc 28
+  [proposes an answer](28-visibility-and-sightlines.md#what-a-client-may-know--a-proposed-answer-to-risk-9)
+  and accepts its cost — the client cannot draw the overlay the single-player build has. What is
+  still open is whether clipping noise to *audible* rather than *visible* leaks position anyway. A
+  quiet district where one client's noise view lights up is itself information.
 - **Does PVP survive contact with permadeath?** If dying to a player reads as cheaper than dying to
   the horde, PVP has weakened [the contract](01-hardcore-contract.md) rather than completed it —
   the exact opposite of why it was added.

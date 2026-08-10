@@ -18,6 +18,23 @@ diplomacy state, and trade economy, none of which the core loop needs.
 **Test:** if the game isn't good with only zombies, factions won't fix it. So they ship after the core
 is proven.
 
+### What multiplayer changes about that, and what it doesn't
+
+[PVP](27-multiplayer.md#what-pvp-is-and-is-not) is survivor-versus-survivor, and it needs the same
+thing a raider needs: a human being shot at, injured, and killed by the ordinary
+[combat model](09-combat.md). That resolution is
+[no longer deferred with this document](09-combat.md#cut-list) — PVP is its first customer, and it
+arrives without waiting for anything here.
+
+**Nothing else moves.** Raider *approach* AI — scouting, picking a line, avoiding known traps,
+withdrawing once loaded — is the expensive half and it stays post-slice. What changes is the
+ordering argument, not the status: when factions are finally built, the part of them that is "a human
+who can be fought" will already exist, and what is left to build is the part that makes them
+[a different threat shape](#why-humans-are-a-different-threat).
+
+The counter to a raid — *"watch coverage and sightlines, not chokepoints"* — is also
+[a system now](28-visibility-and-sightlines.md) rather than a phrase, for the same reason.
+
 ## Why humans are a different threat
 
 | | **Zombies** | **Raiders** |

@@ -189,5 +189,5 @@ is a data edit plus a line in the slot-compatibility table.
 
 ---
 
-**Previous:** [09 — Combat](09-combat.md) · **Next:** [11 — Crafting & Modification](11-crafting.md) ·
+**Previous:** [29 — Movement & Stances](29-movement-and-stances.md) · **Next:** [11 — Crafting & Modification](11-crafting.md) ·
 [Doc index](../README.md#documentation)
