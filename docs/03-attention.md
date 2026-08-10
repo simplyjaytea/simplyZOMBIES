@@ -26,7 +26,7 @@ Kept separate because each behaves differently and each has a different counter.
 | Channel | Propagates | Decays | Blocked by | Amplified by |
 |---|---|---|---|---|
 | **Noise** | Fast, far, radially; passes through walls attenuated | Fast (seconds to a minute) | Mass — walls, hills, distance | Enclosed hard surfaces, night quiet |
-| **Light** | Line-of-sight only, long range at night | Instant (it's on or off) | Any opaque obstruction, shutters, curtains | Darkness, elevation, fog scatter |
+| **[Light](28-visibility-and-sightlines.md)** | Line-of-sight only, long range at night | Instant (it's on or off) | Any opaque obstruction, shutters, curtains | Darkness, elevation, fog scatter |
 | **Scent** | Slow, drifts downwind, pools in still air | Slow (hours) | Nothing — only wind and time disperse it | Heat, humidity, rot, mass of organic material |
 
 The three are deliberately non-interchangeable:
@@ -164,6 +164,12 @@ Written as data (see [ECS & content](20-ecs-and-content.md)); magnitudes are in 
 > same curve, through the same walls. Shouting is the register already in the table at 120; whisper
 > and talk extend it downward. No register carries further to a human than it does to the dead.
 
+> **Movement obeys it too.** Walking at 1 and sprinting at 6 are the two anchors of a
+> [stance ladder](29-movement-and-stances.md) — crouch and crawl below walking, jog between walking
+> and sprinting. The two magnitudes in this table are shipped and calibrated and do not move; the
+> three the ladder adds are picked to sit in the right band against them, exactly as whisper and talk
+> were picked against shout.
+
 ### Light
 
 | Source | Magnitude | Notes |
@@ -174,6 +180,12 @@ Written as data (see [ECS & content](20-ecs-and-content.md)); magnitudes are in 
 | Floodlight | 90 | Excellent for shooting accuracy at night. Visible across the map. |
 | Muzzle flash | 60 (instant) | Ranged combat at night gives away position twice over |
 | [Vehicle](25-vehicles.md) headlights | 70–110 | And they move, sweeping across everything ahead |
+
+> **Light propagates by shadowcasting**, not by flood-fill — it is the one channel where a wall is an
+> absolute rather than a penalty, which is why shutters work completely and why forgetting them is
+> expensive. The algorithm, the occluder classes, and the observer model it shares with the renderer
+> are specified in [visibility & sightlines](28-visibility-and-sightlines.md). Magnitude is range
+> here, in the same metres as everything else.
 
 ### Scent
 
@@ -325,4 +337,5 @@ There is no configuration that is quiet *and* comfortable. That's the design wor
 ---
 
 **Previous:** [02 — Core Loop](02-core-loop.md) ·
-**Next:** [04 — Survival Needs](04-survival-needs.md) · [Doc index](../README.md#documentation)
+**Next:** [28 — Visibility & Sightlines](28-visibility-and-sightlines.md) ·
+[Doc index](../README.md#documentation)

@@ -91,7 +91,7 @@ doesn't need per-tile precision. This is the single largest cost saving availabl
 | Channel | Update strategy |
 |---|---|
 | **Noise** | Event-driven only. Nothing propagates unless something emitted. Attenuated flood-fill, bounded radius by magnitude. |
-| **Light** | Recomputed only when an emitter changes state or an occluder moves. Static most of the time. |
+| **[Light](28-visibility-and-sightlines.md)** | Recomputed only when an emitter changes state or an occluder moves. Static most of the time. |
 | **Scent** | The only continuously-updating channel. Diffusion at a low rate — a few Hz, not every tick. |
 
 **Dirty-region tracking**: only cells that changed, plus their propagation neighborhoods, are
@@ -108,6 +108,30 @@ this, it broke the bounded-radius property.
 **Budgeting**: propagation work has a per-tick ceiling. Excess queues to the next tick. Under extreme
 load the field updates slightly slower rather than the frame dropping — degradation is graceful and
 deterministic (the queue is ordered).
+
+### Visibility is a different cost shape
+
+Worth stating before it is built, because every budget in this document assumes something that
+[visibility](28-visibility-and-sightlines.md) breaks.
+
+The field amortises across everybody. One flood-fill answers a gunshot whether thirty bodies are
+listening or two thousand, and scent diffusion
+[costs the same saturated as fresh](#the-attention-field) because it scans the grid rather than the
+live cells. That is why the horde got cheaper per body as it grew.
+
+**Per-observer visibility does not amortise.** It is one shadowcast per observer whose position,
+facing, or surroundings changed, and in [multiplayer](27-multiplayer.md#the-filtered-view) it is per
+observer *per client* — the same shape as [risk 10](23-roadmap.md#risks), arriving before the
+networking does. Two mitigations are already implied by the design and should be built in from the
+start rather than retrofitted:
+
+- **Recompute on change, not on tick.** A survivor standing still in an unchanged room is free. The
+  Light row above already makes this claim for emitters; observers inherit it.
+- **Tiering applies.** Per [the tiers above](#the-core-idea-tiered-simulation), a distant zombie does
+  not need a sightline — it needs the gradient it is already climbing. Full visibility is a near-tier
+  cost, and the entities that most need it are the handful of survivors on screen.
+
+It earns a benchmark scenario of its own, held against the budget of its sightless twin.
 
 ## Spatial partitioning
 

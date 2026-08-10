@@ -57,6 +57,18 @@ Failure cascades are the intended texture.
 **Design rule:** any UI that would collapse this uncertainty into a number is prohibited, including
 "helpful" tooltips and mod-facing debug overlays enabled by default.
 
+Two things that look like exceptions and are not:
+
+- **The [condition view](05-health-injury.md#the-condition-view)** — a paperdoll of the body with
+  located conditions on it. It is a *layout* for the prose this clause already requires, not a
+  measurement of it: no percentages, no fill, four descriptive states, and it inherits the
+  ambiguity in full. A bite that presents as a scratch presents as a scratch on the forearm.
+- **[Sightlines](28-visibility-and-sightlines.md)** — the clause is currently unenforced at the most
+  basic level, because the renderer draws every body in the viewport whether or not there is a
+  building in the way. Line of sight is what makes "you don't get a number" mean anything, and in
+  [multiplayer](27-multiplayer.md#the-filtered-view) it is what the host's per-client filter is
+  built out of.
+
 ### 5. The world gets worse regardless of how well you play
 
 The [decay clock](13-world-decay.md) is independent of your performance. Play brilliantly and the

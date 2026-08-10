@@ -96,6 +96,62 @@ see numbers. You see text whose *precision* scales with the examining survivor's
 A trained medic is therefore one of the most valuable people in the colony, and the fastest way to
 lose your grip on a situation is for the medic to be the one who got hurt.
 
+## The condition view
+
+Everything above is the *model*. This is the one screen that shows it, and it is where the design is
+most likely to be talked into a health bar, so the rules are written down here rather than left to
+the UI work.
+
+### A body map, not a health display
+
+The condition view is a **paperdoll**: the parts from the table above — head, torso, arms, hands,
+legs, feet — laid out as a body, with located conditions sitting on the part they are on. That is
+the entire idea. It changes the *layout* of the information in
+[diagnosis](#diagnosis-what-you-actually-see), not the information.
+
+Which means it inherits every property that section already established:
+
+- **What a part says is skill-scaled prose.** An untrained survivor looking at a wounded arm gets
+  *"there's a lot of blood, he doesn't look good"* on that arm. A skilled one gets *"deep
+  laceration, sutured and clean, off work five days."* Same body, same wound, different reader.
+- **It inherits the ambiguity, and this is the point.** A [bite that presents as a
+  scratch](06-infection.md) presents as a scratch *here*, on the forearm, in the same words. The
+  paperdoll does not know something the examiner doesn't. It is a layout for uncertainty, not a
+  resolution of it.
+
+### Colour, never fill
+
+A part reads as **unhurt / hurt / badly hurt / unusable** through tint and through the prose beside
+it. Four states, because four is how many distinctions the prose actually supports.
+
+**Prohibited, explicitly:** percentages, hit points, segmented pips, a fill level of any kind, and
+tooltips carrying numbers the screen itself does not show — a bar with the number hidden behind a
+hover is still a bar, and
+[clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) names "helpful tooltips"
+for exactly this reason.
+
+**This strengthens the clause rather than carving an exception to it.** A health bar answers *how
+much* is left. The condition view answers *what is wrong and where*, which is the question this
+design has always wanted the player to be asking, and it answers it in words that can be wrong.
+
+### The continuous conditions are read from the world
+
+The four values above — blood loss, pain, exhaustion, bacterial infection — plus stamina do not
+appear on the paperdoll as anything measured. They are read from what the survivor *does*:
+
+| Condition | How you read it |
+|---|---|
+| **Blood loss** | Movement slows, the description goes grey and vague, the screen edges close in. Blood on the ground where they have been standing |
+| **Pain** | Slower work, worse aim, a survivor who flinches; the prose says so plainly |
+| **Exhaustion** | Breathing. Swings get slow and short. Then sprint simply stops answering — see [stances](29-movement-and-stances.md) |
+| **Stamina** | The same channel as exhaustion, on a shorter clock. Weapon sway and swing recovery are the readout |
+| **Bacterial infection** | Fever, and the wound's own description worsening day over day — *which is also how [zombie infection](06-infection.md) presents* |
+
+Every one of these is already a mechanical consequence specified elsewhere in this document. The only
+change is that **the consequence is the readout**. Nothing is displayed twice, once as an effect and
+once as a meter, and a player who learns to read a survivor has learned something about the
+simulation rather than about the HUD.
+
 ## Treatment
 
 Sequential steps, each needing time, a supply, and skill:
@@ -127,6 +183,11 @@ watch, and talk. The colony half of the game gives injured people somewhere to g
 what makes amputation a real choice rather than a euphemism for death.
 
 ## Cut list
+
+- **Health, stamina, or condition bars of any kind.** Rule 1 of this document and
+  [clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable). The
+  [condition view](#the-condition-view) is what ships instead, and it carries more information than a
+  bar would — just none of it numeric.
 
 - **Surgery as a distinct minigame or operating-theatre facility.** Post-slice; treatment steps carry
   enough weight.

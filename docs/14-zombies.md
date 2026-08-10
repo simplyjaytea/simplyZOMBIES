@@ -22,7 +22,8 @@ Every zombie, regardless of type, runs the same loop:
 
 1. **Sample** the three attention channels locally, weighted by its sensory profile.
 2. **Ascend** the combined gradient — noise as a sharp impulse, scent as a slow bias, light as a
-   line-of-sight pull. **Not naively** — see below.
+   [line-of-sight pull](28-visibility-and-sightlines.md#what-the-zombies-see). **Not naively** — see
+   below.
 3. **Investigate** on arrival. Find nothing, mill about, disperse — leaving their own **scent** behind
    (never noise, per [field memory](03-attention.md#field-memory-is-a-scent-mechanic)), so the spot
    stays mildly attractive. **The field remembers.**
@@ -85,6 +86,10 @@ The starting map is shamblers only. Everything below arrives on the
 The screamer is the most important design object in this document. It converts a small mistake into a
 regional event, and it makes bows and suppressors mandatory equipment rather than a flavor choice.
 
+It is also the type that cannot be built from the field alone. *"On sighting a survivor"* is an
+observer query, not a gradient sample — which makes the screamer, and the runner behind it,
+downstream of [visibility](28-visibility-and-sightlines.md) rather than of content.
+
 ### Second wave (~week 10)
 
 | Type | Behavior | Counter | Invalidates |
@@ -146,6 +151,12 @@ So a lightless, scent-managed base is invisible to shamblers and bloaters while 
 in every heavy and runner in the district. **There is no single silence.** You choose which channel to
 be quiet on, and that choice determines what kind of night you get.
 
+**The Light column is not live yet.** Every sensory weight in this table is read by
+`src/sim/modules/shambler.ts`, but light has no field behind it until
+[visibility](28-visibility-and-sightlines.md) ships. Until then a light-led type is a JSON entry
+weighting a channel that is always zero — which is why the types below the shambler are gated on that
+work and not merely on the [mutation schedule](13-world-decay.md).
+
 ## Content shape
 
 Every type is a JSON entry ([content](20-ecs-and-content.md)): sensory weights, speed, health by body
@@ -154,6 +165,13 @@ introduces it.
 
 **Adding a zombie type is one JSON entry with zero code**, provided its behavior composes from existing
 tags. This is worked example #1 in the [cookbook](21-extensibility.md).
+
+The qualifier is doing real work. Stalkers and armored zombies compose from tags that exist or nearly
+do — different sensory weights, different speeds, different per-part health. Screamers and runners
+need [sight](28-visibility-and-sightlines.md); heavies need
+[structure damage](15-base-building.md); bloaters need a death effect that writes to the scent
+channel. **The roster is cheap; three of its behaviours are not**, and the
+[roadmap](23-roadmap.md) orders them accordingly.
 
 ## Cut list
 

@@ -20,7 +20,8 @@ slice will invalidate.
 are in — the **noise spine** (field, gradient ascent, a shout) and now **scent** (continuous
 diffusion, wind, field memory). Both ⚠ checkpoints that were riding on scent are closed. The
 [exit criterion](#milestone-1--the-spine) is met for noise and asserted in CI. **Light, melee and
-day/night are the remainder.**
+day/night are the remainder** — and light turned out to be the small half of a larger job, so it now
+sits inside [visibility & sightlines](docs/28-visibility-and-sightlines.md) below.
 
 Run it with `npm run dev` — `WASD` move, `Shift` sprint, **`Space` shout**, **`O` cycles the
 attention overlay** through noise and scent.
@@ -162,6 +163,9 @@ which the project is legible as a game.
       *(everything reaches the field through `noise.emitted`, so a trap or a generator needs no
       knowledge that the field exists)*
 - [ ] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
+      *(moved into [visibility & sightlines](#visibility--sightlines--spec-docs28) below. Light is
+      the same shadowcast the renderer and the multiplayer view filter need, and building it three
+      times is how they end up disagreeing.)*
 - [x] **Scent** — diffusion at a few Hz with a global wind vector
       *(4 Hz, gather-not-scatter so determinism falls out of the loop shape, wind as four
       normalised outflow weights derived once. Needed a **scent floor of its own**: sharing noise's
@@ -195,6 +199,47 @@ which the project is legible as a game.
       see the [information rule](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable).
       Grows the other two channels when they exist.)*
 
+### Visibility & sightlines — spec: [docs/28](docs/28-visibility-and-sightlines.md)
+
+**The renderer currently draws every entity in the viewport, walls or not.** That is a wallhack in
+the shipped single-player build, not a multiplayer worry, and it is why this section exists at all.
+
+- [x] **Facing** on observers — a heading, in save state, read by both sight and
+      [aiming](docs/09-combat.md#aiming)
+      *(one component, specified once in docs/28 and consumed by combat, rather than combat growing
+      its own. Kernel, beside `Position` and `Velocity`, because neither future reader owns the
+      other. Updated at the top of `movement.integrate`, **before** collision resolution, so a body
+      walking diagonally into a wall keeps looking where it was going rather than snapping to run
+      along it — mutation-tested by moving the update below the collision and watching the assertion
+      fail. It rides that loop rather than taking a system of its own because a second system means
+      a second `query`, and `query` sorts: measured at **+0.70 ms/tick** on the 2,000-entity crowded
+      scenario against **+0.16 ms** folded in. Kept when the body stops, since a survivor standing
+      still is still looking somewhere, and `headingOf` collapses the negative zero that
+      `Math.atan2` reaches due east and `canonicalize` rejects outright. `SAVE_VERSION` 5.)*
+- [ ] Recursive shadowcasting over the tile grid, **symmetric** (if A sees B, B sees A) and integer-only
+      so determinism falls out
+- [ ] Occluder classes on tiles — **solid / transparent / screening / low**, with opacity and solidity
+      as *two* properties
+      *(a window stops a body and not a sightline; a curtain stops a sightline and not a body. One
+      enum cannot express that, and the day it has to is the day this gets rebuilt.)*
+- [ ] Focal and peripheral arcs — detail ahead, movement to the sides, nothing behind
+- [ ] **Recompute on change, not on tick** — an observer that hasn't moved a tile, turned, or had its
+      surroundings change sees what it saw
+- [ ] **Light channel on top of the primitive** — shadowcast from emitters at
+      [the magnitudes already tabled](docs/03-attention.md#light), range in the same metres
+- [ ] Zombies read light as a line-of-sight pull; the
+      [sensory profile's](docs/14-zombies.md#sensory-profiles) Light column goes live for the first time
+- [ ] **Renderer occlusion** — entities are drawn only where the survivor could see them
+- [ ] **Last-known position memory**, degrading descriptively
+      *(bodies that vanish at a wall edge read as a bug; bodies you lose track of read as the game.
+      And a marker that follows an unseen body is a lie, which
+      [the fairness rules](docs/01-hardcore-contract.md#fairness-rules) forbid outright.)*
+- [ ] Benchmark scenario held at **the same budget as its sightless twin**
+      *(⚠ this is the first cost in the project that does not amortise across the horde — one
+      shadowcast per changed observer, and per client on top of that in multiplayer. See
+      [the cost shape](docs/22-performance.md#visibility-is-a-different-cost-shape). Tiering is the
+      mitigation: a distant zombie needs the gradient it is climbing, not a sightline.)*
+
 ### Spatial partitioning — spec: [docs/22](docs/22-performance.md#spatial-partitioning)
 
 - [ ] Uniform spatial hash over entity positions
@@ -224,6 +269,25 @@ which the project is legible as a game.
 
 - [x] Direct movement control of one entity
       *(landed in Milestone 0; it now emits into the field — walking 1, sprinting 6, shouting 120)*
+- [ ] **Movement stances** — crawl / crouch / walk / jog / sprint, spec:
+      [docs/29](docs/29-movement-and-stances.md)
+      *(walk at 1.4 m/s emitting 1 and sprint at 4.2 emitting 6 are **shipped and calibrated and do
+      not move**. The three new registers are picked to sit against them, the way whisper and talk
+      were picked against shout.)*
+- [ ] Each stance carries its own speed, noise magnitude, and stamina behaviour — **faster is louder**,
+      which is the whole reason this is a system and not two constants
+- [ ] Stance changes are [timed and interruptible](docs/01-hardcore-contract.md#2-actions-take-time-and-time-is-where-you-die);
+      no aiming from a sprint, no swinging from a crawl
+- [ ] Speed modifiers go through the
+      [modifier pipeline](docs/21-extensibility.md#mechanism-2-the-modifier-pipeline) with named
+      sources — legs, feet, pain, exhaustion, encumbrance, limp
+      *(so "why am I this slow?" is answerable from the introspection that already exists, which is
+      what [every death is explicable](docs/01-hardcore-contract.md#fairness-rules) obliges)*
+- [ ] Crouch and crawl interact with the **low** occluder class, in both directions — cover that hides
+      you also blinds you
+- [ ] Fold the shambler's three hardcoded speeds (seek, wander ×0.35, mill ×0.25) into the same model
+      *(so a [zombie type's](docs/14-zombies.md#content-shape) speeds are fields in its JSON entry
+      rather than constants in a module)*
 - [ ] Melee loop: wind-up → connect/miss → recovery, all interruptible
 - [ ] Stamina cost per swing, scaled by weapon weight
 - [ ] Stagger on solid connect
@@ -318,6 +382,21 @@ Everything needed to test the thesis, and nothing else:
 - [ ] Supply quality tiers affecting infection risk
 - [ ] **Skill-scaled diagnosis text** — what you see depends on who's looking
 - [ ] Permanent conditions (limp, amputation) that don't remove a survivor from play
+- [ ] **The condition view** — a paperdoll of head / torso / arms / hands / legs / feet with located
+      conditions on the part they are on, spec:
+      [docs/05](docs/05-health-injury.md#the-condition-view)
+      *(a layout for the skill-scaled prose above, not a second representation of it. It shows what
+      the **examiner** believes, so a bite presenting as a scratch presents as a scratch on the
+      forearm — which is why it strengthens
+      [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than
+      carving an exception to it.)*
+- [ ] Four descriptive states per part — unhurt / hurt / badly hurt / unusable — as **tint and prose**.
+      **No fill, no percentage, no pips, and no tooltip carrying a number the screen doesn't show**
+- [ ] Diegetic readouts for the continuous conditions and stamina — breathing, weapon sway, swing
+      recovery, a limp, the screen edges closing in, blood on the ground
+      *(every one of these is already a specified mechanical consequence. The change is that the
+      consequence **is** the readout — nothing is displayed twice, once as an effect and once as a
+      meter.)*
 
 ### Infection — spec: [docs/06](docs/06-infection.md)
 
@@ -338,6 +417,17 @@ Everything needed to test the thesis, and nothing else:
 
 - [ ] Ranged: raise → steady → fire → recover → reload, all interruptible
 - [ ] Accuracy as a **cone**, never a displayed hit chance
+- [ ] **Aiming** — free aim against the [facing](docs/28-visibility-and-sightlines.md#what-an-observer-is)
+      the visibility work already added, spec: [docs/09](docs/09-combat.md#aiming)
+      *(the steady phase **is** holding the heading on something; being shoved or grabbed moves the
+      muzzle rather than cancelling an abstract state)*
+- [ ] **Weapon sway as the readout** — the cone drawn as the thing itself, not as a number about it.
+      No reticle that reports its own accuracy
+- [ ] Melee reach and swing arc read from the same facing
+      *(which is what makes reach legible as a property, and what makes being surrounded lethal in the
+      way [clause 1](docs/01-hardcore-contract.md#1-you-are-weak-permanently) promises)*
+- [ ] You cannot aim at what you cannot see — firing at a remembered position is allowed, and costs
+      the full 180 noise and 60 muzzle flash either way
 - [ ] Steadiness degraded by movement, exhaustion, pain, injured arms
 - [ ] Jamming on degraded weapons
 - [ ] Ammo consumption
@@ -404,6 +494,12 @@ Everything needed to test the thesis, and nothing else:
 
 - [ ] **No numbers anywhere player-facing** — no health bars, no hit chances, no enemy counts, no
       damage text
+      *(unchanged, and the two items below are not exceptions to it. A paperdoll of located conditions
+      answers "what is wrong and where"; a bar answers "how much is left". Only the second one is
+      prohibited, and it is prohibited for stamina too.)*
+- [ ] The [condition view](docs/05-health-injury.md#the-condition-view) screen — the paperdoll above,
+      rendered
+- [ ] The diegetic condition and stamina readouts — in the world and on the survivor, not in a corner
 - [ ] Prose condition descriptions **generated from modifier sources** ("cold, tired, and that arm
       isn't right")
 - [ ] Priority grid UI
@@ -452,23 +548,56 @@ temperature and hygiene · the remaining [modification consumables](docs/11-craf
 - [ ] Authoritative host: the same `sim/` kernel headless, clients send commands, host ticks
 - [ ] `playerId` on `Command`, and merged-queue ordering by `(tick, playerId, seq)`
       *(late commands dropped rather than applied late, and the client told)*
-- [ ] Per-client **filtered view** — the client is never sent state it may not know
+- [ ] Per-client **filtered view** — the client is never sent state it may not know, built on the
+      [visibility primitive](docs/28-visibility-and-sightlines.md) from Milestone 1
+      *(a filter is worthless without a visibility query. Filtering state to a client that then draws
+      what it holds through a building buys nothing, which makes doc 28 a **dependency** here rather
+      than a companion.)*
 - [ ] Late join and reconnect over the existing save path; the version stamp becomes the join check
 - [ ] Host-owned time control: 1×, no pause *(the [core loop's](docs/02-core-loop.md#time-scale)
       unlimited-pause rule is scoped to single-player, not deleted)*
 - [ ] Succession per player, onto **unclaimed** survivors only; spectate when none exist
 - [ ] Survivor-vs-survivor PVP behind host flags — friendly fire, looting the dead — default off
+- [ ] Survivor-vs-survivor combat **resolution** — a player survivor hit, injured and killed by the
+      ordinary model
+      *(needs no new mechanics; it is gated on the melee loop and
+      [scoped out of the faction deferral](docs/09-combat.md#cut-list) rather than waiting on it)*
 - [ ] **Voice as an emitter:** a `speak` command carrying a register, not an amplitude.
       Whisper 2 / talk 8 / shout 120, the last being the emitter already shipped
 - [ ] WebRTC audio on a separate transport, spatialised client-side, with **audible range equal to
       emission reach** — what a teammate hears is what a zombie hears
-- [ ] ⚠ **Risk checkpoint ([roadmap risk 9](docs/23-roadmap.md#risks)):** decide what a client may
+- [ ] ⚠ **Risk checkpoint ([roadmap risk 9](docs/23-roadmap.md#risks)):** validate what a client may
       know about the attention field **before writing transport code**. The field is world state and
       the noise channel is a map of where everyone just was — ship it whole and the host model's
       whole reason for existing is defeated.
+      *(no longer a blank page:
+      [docs/28 proposes an answer](docs/28-visibility-and-sightlines.md#what-a-client-may-know--a-proposed-answer-to-risk-9)
+      — entities by sight, the field **per channel** rather than by sight, and the `O` overlay
+      conceded as host-only. The checkpoint is now a validation, and the open part is whether an
+      audible-not-visible noise view leaks position anyway.)*
 - [ ] ⚠ **Risk checkpoint ([roadmap risk 10](docs/23-roadmap.md#risks)):** a benchmark scenario with
       synthetic clients attached, held at **the same budget as its single-player twin**. Per-client
       filtering scales with player count, a shape no existing budget has.
+
+**Deferred and now written down rather than merely absent — [z-levels](docs/23-roadmap.md#deferred-z-levels).**
+Multi-floor buildings, stairs, rooftops you stand on. Not designed, deliberately: the map is a flat
+`Uint8Array`, the field is one 64 × 64 grid, noise and scent both propagate across one plane, and the
+renderer has no floor concept. Z-levels add a dimension to all four at once, and the field is the
+expensive one. The tactical value the docs actually reference — watch platforms, *"doors, elevation,
+chokepoints"* — is mostly reachable through
+[doc 28's occluder classes](docs/28-visibility-and-sightlines.md#what-blocks-sight) with no second
+floor existing, and [docs/15 already cuts](docs/15-base-building.md#cut-list) free-form multi-story
+player construction on its own reasoning. Revisit after
+[world scale](docs/24-world-and-scale.md), with a spike against the field cost first.
+
+**On the zombie roster, since PVP raises the question.** The
+[types](docs/14-zombies.md#types) are content, not code — one JSON entry each — but three of them are
+not: the **screamer** and **runner** need
+[sight](docs/28-visibility-and-sightlines.md#what-the-zombies-see), the **heavy** needs structure
+damage, and the **bloater** needs a death effect on the scent channel. The roster is cheap; those
+three behaviours are the actual work, and the first of them is now a Milestone 1 item.
+**[Raiders and bandits](docs/18-factions.md) stay post-slice** — what PVP un-defers is
+human-vs-human *resolution*, not raider approach AI.
 
 **Cut from the design entirely** (see the [vision's cut list](docs/00-vision.md#cut-list)):
 a cure or narrative resolution · aircraft and boats · [respec](docs/08-skill-web.md) · a tech tree ·
