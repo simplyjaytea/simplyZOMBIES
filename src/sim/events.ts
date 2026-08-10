@@ -18,13 +18,32 @@ export type GameEvent =
   | { type: "week.elapsed"; week: number }
 
   // Combat
-  | { type: "attack.connected"; attacker: EntityId; target: EntityId; bodyPart: string }
+  /**
+   * A blow landed. `damage` is here rather than left for the consumer to derive because the
+   * attacker is the only one who knows what swung: the health module would otherwise have to
+   * reach into the melee module's components to find out what hit it, which is exactly the
+   * coupling docs/20's ownership rule exists to prevent.
+   */
+  | {
+      type: "attack.connected";
+      attacker: EntityId;
+      target: EntityId;
+      bodyPart: string;
+      damage: number;
+    }
   | { type: "bite.landed"; victim: EntityId; source: EntityId; bodyPart: string }
   | { type: "grab.started"; victim: EntityId; source: EntityId }
   | { type: "entity.staggered"; entity: EntityId }
   | { type: "entity.killed"; entity: EntityId; killer: EntityId | null }
 
   // Health
+  /**
+   * Effort spent. How a system pays for an action without writing to a Health component it
+   * does not own -- the same route `noise.emitted` takes to a field its publisher never
+   * touches. Melee publishes it per swing; sprinting and the stance ladder will publish the
+   * same event, which is the point of it being a fact rather than a melee-shaped call.
+   */
+  | { type: "stamina.spent"; entity: EntityId; amount: number }
   | { type: "injury.sustained"; entity: EntityId; injury: string; bodyPart: string }
   | { type: "injury.treated"; entity: EntityId; injury: string; treatedBy: EntityId }
   | { type: "bleeding.started"; entity: EntityId; bodyPart: string }

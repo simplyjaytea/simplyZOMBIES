@@ -9,6 +9,7 @@ import { AttentionField, type AttentionFieldSave } from "../field/attention";
 import { ModifierStore, type ModifierStoreSave } from "../modifiers/modifiers";
 import { defineCoreStats, StatRegistry } from "../modifiers/stats";
 import { RngRegistry, type RngState } from "../rng";
+import { SpatialHash } from "../spatial/hash";
 import { VisibilityIndex } from "../vision/visibility";
 import { CommandQueue } from "./commands";
 import { ComponentStore } from "./components";
@@ -42,6 +43,7 @@ export type WorldSnapshot = {
 export type WorldParts = {
   readonly field?: AttentionField;
   readonly content?: ContentRegistry;
+  readonly spatial?: SpatialHash;
 };
 
 export class World {
@@ -94,6 +96,23 @@ export class World {
    */
   readonly vision = new VisibilityIndex();
 
+  /**
+   * What is near what (docs/22-performance.md#spatial-partitioning).
+   *
+   * Kernel for the reason the field and the visibility index are: docs/22 lists four
+   * consumers -- combat, emitter lookups, tier assignment and render culling -- none of which
+   * owns the others, and a module that can be switched off must not be what makes neighbour
+   * queries work.
+   *
+   * **Derived, and not in the snapshot**, exactly like `vision`. It is a pure function of
+   * positions, which the snapshot already holds. It is rebuilt whole each tick by a kernel
+   * system in the movement phase, so it is empty until the first tick after a load -- the
+   * same way the tile map regenerates from the seed.
+   *
+   * Sized to a map by `boot`, and inert until then, so nothing has to null-check the kernel.
+   */
+  readonly spatial: SpatialHash;
+
   constructor(seed: number, parts: WorldParts = {}) {
     this.seed = seed >>> 0;
     this.rng = new RngRegistry(this.seed);
@@ -102,6 +121,7 @@ export class World {
     this.content = parts.content ?? new ContentRegistry();
     // Inert until `boot` sizes one to a map, so nothing has to null-check the kernel.
     this.field = parts.field ?? AttentionField.empty();
+    this.spatial = parts.spatial ?? SpatialHash.empty();
   }
 
   spawn(): EntityId {
