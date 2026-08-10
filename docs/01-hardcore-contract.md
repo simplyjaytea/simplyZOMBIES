@@ -101,6 +101,11 @@ Your controlled character dies like anyone else. Then:
    clears their configured work priorities. Relationships to the dead survivor trigger grief in the
    people who had them (see [survivors](07-survivors.md)).
 
+In [multiplayer](27-multiplayer.md) these four points apply per player, unchanged. The one addition
+is that the survivor handed over must be **unclaimed** — nobody is given a survivor another player is
+controlling — and a player with none available spectates rather than respawning. The run still ends
+only when the last survivor dies.
+
 ### The recovery run
 
 Point 3 is a designed centerpiece, not an inconvenience. Your best weapon, your best armor, and every
@@ -110,6 +115,10 @@ death drew more of them there.
 Going back is optional, usually unwise, and frequently the way the *second* survivor dies. The docs
 treat this as the signature moment of a run and content is authored to support it: corpses persist,
 gear stays on them, and the attention field remembers what happened there.
+
+In [multiplayer](27-multiplayer.md) the recovery run becomes a *contested* one: another player can
+reach the corpse first, through the same horde, for the same gear. Nothing is added to make that work
+— the corpse, the gear and the noise that drew the horde there are already the whole prize.
 
 ## Sandbox settings
 

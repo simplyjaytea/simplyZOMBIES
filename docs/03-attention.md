@@ -143,6 +143,8 @@ Written as data (see [ECS & content](20-ecs-and-content.md)); magnitudes are in 
 |---|---|---|
 | Walking | 1 | |
 | Sprinting | 6 | |
+| Speaking — whisper | 2 | ~3 m. Same room. See [voice as an emitter](27-multiplayer.md#voice-is-an-emitter) |
+| Speaking — talk | 8 | ~11 m. Conversational — exactly a melee connect |
 | Melee swing (connect) | 8 | Blunt louder than blade |
 | Breaking a window | 25 | |
 | Hammering / construction | 30 | Sustained — a build project is a beacon all day |
@@ -155,6 +157,12 @@ Written as data (see [ECS & content](20-ecs-and-content.md)); magnitudes are in 
 | A [screamer](14-zombies.md) that has seen you | 300 | And it relays — this is the horror |
 | [Vehicle](25-vehicles.md) engine | 120–220 | **Continuous.** A gunshot is a moment; driving is a broadcast. |
 | Vehicle horn | 350 | |
+
+> **Voice obeys the table.** In [multiplayer](27-multiplayer.md#audible-range-equals-emission-reach)
+> the player's own voice is an emitter on this channel, and the rule binding it is that **audible
+> range equals emission reach** — what a teammate can hear is exactly what a zombie can hear, on the
+> same curve, through the same walls. Shouting is the register already in the table at 120; whisper
+> and talk extend it downward. No register carries further to a human than it does to the dead.
 
 ### Light
 

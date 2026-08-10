@@ -128,6 +128,11 @@ clicking fast — the tension comes from irreversibility, not from APM.
 
 **Design rule:** any mechanic that punishes the player for pausing is prohibited.
 
+**Scope:** this rule governs single-player, completely. It cannot hold with more than one player —
+vote-to-pause makes pausing a negotiation, and per-player pause is time travel, not pause. In
+[multiplayer](27-multiplayer.md) time control is host-owned, the session runs at 1×, and speed
+controls default off. That exception is the price of the mode and is paid there rather than here.
+
 ## What each genre gets from the loop
 
 | Pillar | Where it lives | Where it's paid for |
