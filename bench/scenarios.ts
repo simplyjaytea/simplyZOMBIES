@@ -79,6 +79,26 @@ export const SCENARIOS: readonly Scenario[] = [
       if (tick % SHOUT_INTERVAL === 0) world.commands.push({ type: "shout" });
     },
   },
+  {
+    id: "five-hundred-milling",
+    description:
+      "The synthetic 500-zombie load docs/23-roadmap.md#risks has asked for since the " +
+      "roadmap was written, and the one scenario built to measure *scent* rather than " +
+      "noise: 500 bodies kept converging and milling, so residue is laid continuously and " +
+      "the scent field stays large and live for the whole run.",
+    // Between the 300- and 2,000-body budgets because that is where the body count sits.
+    // The continuous channel is not what makes this cost anything: diffusion measured
+    // 0.0377 ms per step, amortised 0.0075 ms/tick, and it is the *same* 0.0075 ms whether
+    // the district is saturated with scent or completely fresh, because the step scans the
+    // grid rather than the live cells. What scales here is per-entity AI, which noise
+    // already paid for.
+    tickBudgetMs: 1,
+    entities: 500,
+    build: () => boot({ seed: SEED, wanderers: 500 }).world,
+    drive: (world, tick) => {
+      if (tick % SHOUT_INTERVAL === 0) world.commands.push({ type: "shout" });
+    },
+  },
 ];
 
 export type Measurement = {

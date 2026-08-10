@@ -89,6 +89,26 @@ const SPREAD_RADIANS = 0.62;
  */
 const NOISE_SENSITIVITY = 0.2;
 
+/**
+ * How strongly this type weights the scent channel.
+ *
+ * Mirrors `content/zombies/shambler.json`'s `sensory.scent`, pinned by the same test that
+ * pins {@link NOISE_SENSITIVITY}. docs/14's table calls shambler smell **High** against Low
+ * hearing, and 0.9 against 0.2 is what that means: a shambler is a nose that can also hear.
+ */
+const SCENT_SENSITIVITY = 0.9;
+
+/**
+ * How far a smell can turn a wandering shambler, as a fraction of the angle to it.
+ *
+ * This is the whole of docs/03's "noise as an *impulse*, scent as a *bias*". Noise seizes a
+ * shambler outright -- {@link steerUphill} overwrites the heading and commits it for twenty
+ * seconds. Scent never does that: it leans an aimless walk a third of the way toward the
+ * smell and leaves the rest to the walk. A crowd drifting slowly upwind is the behaviour;
+ * a crowd making a beeline is the bug, and the difference is this number being well under 1.
+ */
+const SCENT_BIAS = 0.35;
+
 /** How long they mill about after arriving at a noise that turned out to be nothing. */
 const MILL_TICKS = 90;
 
@@ -117,6 +137,42 @@ function steerUphill(field: World["field"], pos: Position, vel: Velocity, self: 
   return true;
 }
 
+/**
+ * Lean a wandering shambler toward whatever it can smell.
+ *
+ * Deliberately *not* symmetric with {@link steerUphill}, and the asymmetry is the design:
+ *
+ *   - it blends with the current heading instead of replacing it, so a smell bends a walk
+ *     rather than choosing a destination;
+ *   - it sets no travel commitment, so nothing is remembered once the smell is gone;
+ *   - it never changes state, so a shambler drifting up a scent gradient is still Wandering
+ *     and a shout can still take it.
+ *
+ * Which is what keeps the Milestone 1 noise criterion intact after scent went live. A
+ * shambler that could be *summoned* by smell would make the player -- who emits scent
+ * permanently and cannot stop -- a homing beacon, and being quiet would stop meaning
+ * anything at all.
+ */
+function driftUpscent(field: World["field"], pos: Position, vel: Velocity, self: Shambler): void {
+  const uphill = field.uphillScent(pos.x, pos.y);
+  if (uphill === null) return;
+
+  const speed = Math.hypot(vel.dx, vel.dy);
+  if (speed === 0) return;
+
+  const current = Math.atan2(vel.dy, vel.dx);
+  const toward = Math.atan2(uphill.dy, uphill.dx) + self.bias;
+
+  // Shortest way round, so a smell behind you is a turn and not a lap.
+  let delta = toward - current;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+
+  const angle = current + delta * SCENT_BIAS;
+  vel.dx = Math.cos(angle) * speed;
+  vel.dy = Math.sin(angle) * speed;
+}
+
 /** Give an entity the components the shambler module needs. */
 export function makeShambler(world: World, entity: EntityId, rng: RngStream): void {
   world.components.set(entity, Shambler, {
@@ -142,12 +198,16 @@ export const shamblerModule: Module = {
         // Not a separate tunable: the floor is already "quieter than this is silence", and a
         // second threshold would be two numbers that have to be kept in agreement.
         const audible = field.calibration.floor / NOISE_SENSITIVITY;
+        // Same trick on the scent channel: the floor already means "less than this is
+        // nothing", and a second threshold would be two numbers to keep in agreement.
+        const detectable = field.calibration.scentFloor / SCENT_SENSITIVITY;
 
         for (const entity of w.components.query(Position, Velocity, Shambler)) {
           const self = w.components.getOrThrow(entity, Shambler);
           const pos = w.components.getOrThrow(entity, Position);
           const vel = w.components.getOrThrow(entity, Velocity);
           const heard = field.noiseAt(pos.x, pos.y) >= audible;
+          const smelled = field.scentAt(pos.x, pos.y) >= detectable;
 
           switch (self.state) {
             case ShamblerState.Seek: {
@@ -204,6 +264,9 @@ export const shamblerModule: Module = {
               } else {
                 self.ticksToTurn--;
               }
+              // Applied every tick rather than only on a turn, because a bias that fired
+              // once every few seconds would be a second random walk rather than a drift.
+              if (smelled) driftUpscent(field, pos, vel, self);
               break;
             }
           }
@@ -218,5 +281,7 @@ export const SHAMBLER_TUNING = {
   seekSpeed: SEEK_SPEED,
   spreadRadians: SPREAD_RADIANS,
   noiseSensitivity: NOISE_SENSITIVITY,
+  scentSensitivity: SCENT_SENSITIVITY,
+  scentBias: SCENT_BIAS,
   millTicks: MILL_TICKS,
 } as const;

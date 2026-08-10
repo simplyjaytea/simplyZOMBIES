@@ -381,7 +381,9 @@ describe("the field in a save", () => {
 
   it("refuses a save whose field is a different shape", () => {
     const field = AttentionField.forMap(openGround(64));
-    expect(() => field.restore({ cols: 8, rows: 8, noise: [] })).toThrow(/16x16 but the save is/);
+    expect(() => field.restore({ cols: 8, rows: 8, noise: [], scent: [] })).toThrow(
+      /16x16 but the save is/,
+    );
   });
 });
 
@@ -409,5 +411,320 @@ describe("emission", () => {
     // Shouting should feel like a mistake you can make on purpose, not like firing a rifle.
     expect(SHOUT_MAGNITUDE).toBeLessThan(180);
     expect(SHOUT_MAGNITUDE).toBeGreaterThan(45);
+  });
+});
+
+describe("scent, the continuous channel", () => {
+  /** A district-sized plain. Scent spreads far enough that a small map measures its edges. */
+  function plain(): AttentionField {
+    return AttentionField.forMap(openGround(DISTRICT_TILES));
+  }
+
+  function totalScent(field: AttentionField): number {
+    let total = 0;
+    for (let i = 0; i < field.scent.length; i++) total += field.scent[i] as number;
+    return total;
+  }
+
+  /** Scent-weighted centre of mass, in metres. Where the plume actually is. */
+  function plume(field: AttentionField): { x: number; y: number } | null {
+    let sx = 0;
+    let sy = 0;
+    let total = 0;
+    for (let i = 0; i < field.scent.length; i++) {
+      const value = field.scent[i] as number;
+      if (value === 0) continue;
+      const cx = i % field.cols;
+      sx += cx * value;
+      sy += ((i - cx) / field.cols) * value;
+      total += value;
+    }
+    return total === 0
+      ? null
+      : { x: (sx / total) * field.cellMetres, y: (sy / total) * field.cellMetres };
+  }
+
+  function diffuse(field: AttentionField, steps: number): void {
+    for (let i = 0; i < steps; i++) field.diffuseScent();
+  }
+
+  it("accumulates rather than taking the loudest, unlike noise", () => {
+    // The one place the two channels deliberately disagree. Two people standing together are
+    // not louder than one, but they do smell more -- docs/03 calls population "a permanent,
+    // unavoidable scent floor", which is only true if this sums.
+    //
+    // MUTATION CHECK: make addScent commit with Math.max the way emitNoise does and this
+    // fails at the first assertion.
+    const field = plain();
+    field.addScent(128, 128, 10);
+    field.addScent(128, 128, 10);
+    expect(field.scentAt(128, 128)).toBe(20);
+
+    field.addScent(128, 128, 5);
+    expect(field.scentAt(128, 128)).toBe(25);
+  });
+
+  it("caps a cell, so a permanent emitter cannot run the field away", () => {
+    const field = plain();
+    for (let i = 0; i < 1000; i++) field.addScent(128, 128, 100);
+    expect(field.scentAt(128, 128)).toBe(DEFAULT_CALIBRATION.scentCeiling);
+  });
+
+  it("drifts downwind, and does not drift at all in dead calm", () => {
+    // docs/03: scent "drifts downwind, pools in still air". The wind vector is the only
+    // asymmetry in the diffusion, so calm has to come out exactly symmetric -- an off-centre
+    // plume in dead calm would mean the gather is lopsided rather than the wind being felt.
+    //
+    // MUTATION CHECK: pair each neighbour with its own weight instead of the opposite one
+    // and the plume drifts *upwind*, failing the first two assertions.
+    const windy = plain();
+    windy.addScent(128, 128, 400);
+    diffuse(windy, 200);
+
+    const blown = plume(windy);
+    expect(blown).not.toBeNull();
+    // Wind is (+0.6, -0.2): downwind is +x and -y, and x moves further because it is stronger.
+    expect(blown!.x).toBeGreaterThan(128 + 4);
+    expect(blown!.y).toBeLessThan(128 - 1);
+    expect(blown!.x - 128).toBeGreaterThan(128 - blown!.y);
+
+    const calm = AttentionField.forMap(openGround(DISTRICT_TILES), {
+      ...DEFAULT_CALIBRATION,
+      windX: 0,
+      windY: 0,
+    });
+    calm.addScent(128, 128, 400);
+    diffuse(calm, 200);
+    const still = plume(calm);
+    expect(still!.x).toBeCloseTo(128, 5);
+    expect(still!.y).toBeCloseTo(128, 5);
+  });
+
+  it("is not blocked by walls, where noise is", () => {
+    // docs/03's channel table: noise is blocked by mass, scent by *nothing* -- only wind and
+    // time disperse it. The asymmetry is deliberate and this is what pins it, because a
+    // future reader will otherwise "fix" the missing wall cost.
+    const size = 64;
+    const walled = openGround(size);
+    for (let ty = 0; ty < size; ty++) {
+      for (let tx = 32; tx < 36; tx++) walled.tiles[ty * size + tx] = Tile.Wall;
+    }
+
+    const open = AttentionField.forMap(openGround(size));
+    const blocked = AttentionField.forMap(walled);
+    open.addScent(16, 32, 400);
+    blocked.addScent(16, 32, 400);
+    // Scent is slow: it takes a few hundred steps to cross 32 m, which is the point of it.
+    diffuse(open, 400);
+    diffuse(blocked, 400);
+
+    const behind: [number, number] = [48, 32];
+    expect(blocked.scentAt(...behind)).toBeGreaterThan(0);
+    expect(blocked.scentAt(...behind)).toBeCloseTo(open.scentAt(...behind), 5);
+  });
+
+  it("outlives a noise event by orders of magnitude, and still ends", () => {
+    // The half-life is 90 minutes but the *observed* lifetime is shorter, because diffusion
+    // dilutes a plume until its cells cross the floor. Both numbers matter: memory has to
+    // outlast the event that caused it (noise is gone in half a minute) without becoming a
+    // permanent stain that never lets a district recover.
+    //
+    // MUTATION CHECK: delete the decay term in diffuseScent and the last assertion hangs
+    // rather than fails -- the loop is bounded so it fails on the cell count instead.
+    const field = plain();
+    field.addScent(128, 128, 1500);
+
+    const stepsPerMinute = (60 * 20) / DEFAULT_CALIBRATION.scentIntervalTicks;
+    diffuse(field, stepsPerMinute * 10);
+    expect(field.liveScentCells()).toBeGreaterThan(100);
+
+    let steps = 0;
+    while (field.liveScentCells() > 0 && steps < stepsPerMinute * 240) {
+      field.diffuseScent();
+      steps++;
+    }
+    const minutes = steps / stepsPerMinute + 10;
+    expect(minutes).toBeGreaterThan(20);
+    expect(minutes).toBeLessThan(120);
+  });
+
+  it("decays at the half-life the calibration states", () => {
+    // Isolated from diffusion on purpose, by setting the rate to zero. That is not a
+    // contrived configuration, it is the only way to measure this at all: with diffusion on,
+    // dilution against the floor removes far more scent than decay does, and the half-life
+    // becomes unobservable behind it.
+    //
+    // Which is exactly how the first version of this suite left the decay term untested. The
+    // lifetime test above passed with `* scentDecayPerStep` deleted outright, because a plume
+    // still evaporates by dilution -- a guard that looked rigorous and tested nothing, the
+    // third of its kind this repo has caught by breaking things on purpose.
+    //
+    // MUTATION CHECK: delete the decay term in diffuseScent and this fails immediately.
+    const field = AttentionField.forMap(openGround(DISTRICT_TILES), {
+      ...DEFAULT_CALIBRATION,
+      scentDiffusionRate: 0,
+    });
+    field.addScent(128, 128, 1000);
+
+    const stepsPerHalfLife =
+      (DEFAULT_CALIBRATION.scentHalfLifeMinutes * 60 * 20) / DEFAULT_CALIBRATION.scentIntervalTicks;
+    diffuse(field, stepsPerHalfLife);
+    expect(field.scentAt(128, 128)).toBeCloseTo(500, 0);
+
+    diffuse(field, stepsPerHalfLife);
+    expect(field.scentAt(128, 128)).toBeCloseTo(250, 0);
+  });
+
+  it("needs its own floor, not the noise one", () => {
+    // The finding this build turned up, kept as a guard because it is invisible in the
+    // arithmetic and expensive to rediscover: what governs how long a smell lasts is the
+    // *floor*, not the half-life. Diffusion dilutes every cell of a plume past the threshold
+    // at roughly the same moment, so sharing noise's floor -- which is sized so that
+    // reach = magnitude / attenuation holds, an identity scent does not have -- collapsed a
+    // ninety-minute half-life into about two minutes of observed lifetime.
+    const stepsPerMinute = (60 * 20) / DEFAULT_CALIBRATION.scentIntervalTicks;
+    const lifetime = (scentFloor: number): number => {
+      const field = AttentionField.forMap(openGround(DISTRICT_TILES), {
+        ...DEFAULT_CALIBRATION,
+        scentFloor,
+      });
+      field.addScent(128, 128, 1500);
+      let steps = 0;
+      while (field.liveScentCells() > 0 && steps < stepsPerMinute * 240) {
+        field.diffuseScent();
+        steps++;
+      }
+      return steps / stepsPerMinute;
+    };
+
+    // Stated as a ratio rather than two absolute times, because the absolute numbers move
+    // whenever the diffusion rate is retuned while the claim -- that the floor is what
+    // governs, and noise's is far too high for scent -- does not.
+    const onNoiseFloor = lifetime(DEFAULT_CALIBRATION.floor);
+    const onScentFloor = lifetime(DEFAULT_CALIBRATION.scentFloor);
+    expect(onScentFloor).toBeGreaterThan(onNoiseFloor * 1.5);
+    expect(onScentFloor).toBeGreaterThan(20);
+  });
+
+  it("survives a save", () => {
+    const field = plain();
+    field.addScent(128, 128, 400);
+    diffuse(field, 20);
+
+    const saved = field.save();
+    expect(saved.scent.length).toBeGreaterThan(10);
+    expect(saved.scent.length).toBeLessThan(field.cellCount);
+    // Sparse and ascending, like noise -- a quiet save must stay cheap.
+    expect(saved.scent.map(([cell]) => cell)).toEqual(
+      [...saved.scent.map(([cell]) => cell)].sort((a, b) => a - b),
+    );
+
+    const restored = plain();
+    restored.restore(saved);
+    expect(restored.scentAt(128, 128)).toBe(field.scentAt(128, 128));
+    expect(totalScent(restored)).toBeCloseTo(totalScent(field), 3);
+  });
+});
+
+describe("scent in the world", () => {
+  /** Where the crowd's centre of mass is. The measure the migration below is about. */
+  function crowdCentre(world: World): { x: number; y: number } {
+    let sx = 0;
+    let sy = 0;
+    let n = 0;
+    for (const entity of world.components.query(Position, Shambler)) {
+      const pos = world.components.getOrThrow(entity, Position);
+      sx += pos.x;
+      sy += pos.y;
+      n++;
+    }
+    return { x: sx / n, y: sy / n };
+  }
+
+  it("diffuses through the tick loop, not just when called directly", () => {
+    // The wiring, not the arithmetic. This is the trap the decay system fell into during the
+    // noise spine: a unit test calling decay() directly passed happily with the system
+    // unregistered, and covering the maths turned out not to cover the wiring at all.
+    //
+    // MUTATION CHECK: unregister kernel.attention-scent in boot.ts. The field then only ever
+    // holds the cells emitters wrote to, so the spread assertion fails.
+    const { world } = district(0);
+    stepN(world, 20);
+    const seeded = world.field.liveScentCells();
+    expect(seeded).toBeGreaterThan(0);
+
+    stepN(world, 2400);
+    expect(world.field.liveScentCells()).toBeGreaterThan(seeded * 4);
+  });
+
+  it("keeps a standing survivor smelling, where standing still makes no noise at all", () => {
+    // The two channels' whole difference in one assertion. Nothing here moves or shouts.
+    const { world } = district(0);
+    stepN(world, 1200);
+    expect(world.field.liveCells()).toBe(0);
+    expect(world.field.peakScent()).toBeGreaterThan(1);
+  });
+
+  it("leaves being quiet safe for a minute and unsafe for an hour", () => {
+    // The question HANDOFF.md has been carrying since the noise spine: is being quiet tense,
+    // or just slow? With noise as the only channel the answer was "neither" -- standing still
+    // left the field at literally zero live cells and nothing could ever find you.
+    //
+    // It is now a matter of timescale, which is the answer the design wanted. The negative
+    // control of the noise exit criterion still passes untouched at one minute, because a
+    // ninety-minute half-life builds almost no gradient in sixty seconds. Wait long enough
+    // and the district finds you anyway, with no noise made at any point.
+    const { world, x, y } = district();
+    const before = countWithin(world, x, y, 50);
+
+    stepN(world, 1200);
+    expect(Math.abs(countWithin(world, x, y, 50) - before)).toBeLessThan(before * 0.5);
+
+    stepN(world, 70800); // an hour in total, still without a sound
+    expect(countWithin(world, x, y, 50)).toBeGreaterThan(before * 2);
+  });
+
+  it("⚠ acceptance check: switching residue off changes what the horde does", () => {
+    // docs/03-attention.md#field-memory-is-a-scent-mechanic ships with an explicit condition:
+    // toggle residue off, confirm something *observable* changes, and cut the mechanic if
+    // nothing does. The spike failed exactly this check by emitting onto the noise channel at
+    // a magnitude that died inside its own cell.
+    //
+    // The observable is deliberately behavioural rather than a field reading. A scent value
+    // nobody acts on is precisely the decoration the check exists to cut, so this measures
+    // where the horde physically *is*, an hour after the shout that gathered it.
+    //
+    // MUTATION CHECK: this test is itself the mutation -- `disabled: ["field-memory"]` is a
+    // shipped configuration, not a test-only edit.
+    const run = (disabled: readonly string[]): { x: number; y: number } => {
+      const { world, player } = boot({ seed: SEED, wanderers: 300, disabled });
+      const pos = world.components.getOrThrow(player as EntityId, Position);
+      const site = { x: pos.x, y: pos.y };
+
+      world.commands.push({ type: "shout" });
+      stepN(world, 2400);
+      // The player leaves, so the only thing still emitting at the site is the crowd itself.
+      world.despawn(player as EntityId);
+      stepN(world, 48000 - world.tick);
+
+      const centre = crowdCentre(world);
+      return { x: centre.x - site.x, y: centre.y - site.y };
+    };
+
+    const withResidue = run([]);
+    const without = run(["field-memory"]);
+
+    // With residue the horde crosses most of a district: it emits, the plume drifts downwind,
+    // it climbs its own gradient into the plume, and repeats. Without it, it stays put.
+    const travelled = Math.hypot(withResidue.x, withResidue.y);
+    const stayed = Math.hypot(without.x, without.y);
+    expect(travelled).toBeGreaterThan(50);
+    expect(stayed).toBeLessThan(20);
+    expect(travelled).toBeGreaterThan(stayed * 3);
+
+    // And it goes *downwind* -- (+0.6, -0.2), so +x and -y. That is what makes it the crowd
+    // following its own smell rather than merely dispersing further in some direction.
+    expect(withResidue.x).toBeGreaterThan(0);
+    expect(withResidue.y).toBeLessThan(0);
   });
 });
