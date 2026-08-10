@@ -204,10 +204,18 @@ which the project is legible as a game.
 **The renderer currently draws every entity in the viewport, walls or not.** That is a wallhack in
 the shipped single-player build, not a multiplayer worry, and it is why this section exists at all.
 
-- [ ] **Facing** on observers — a heading, in save state, read by both sight and
+- [x] **Facing** on observers — a heading, in save state, read by both sight and
       [aiming](docs/09-combat.md#aiming)
       *(one component, specified once in docs/28 and consumed by combat, rather than combat growing
-      its own)*
+      its own. Kernel, beside `Position` and `Velocity`, because neither future reader owns the
+      other. Updated at the top of `movement.integrate`, **before** collision resolution, so a body
+      walking diagonally into a wall keeps looking where it was going rather than snapping to run
+      along it — mutation-tested by moving the update below the collision and watching the assertion
+      fail. It rides that loop rather than taking a system of its own because a second system means
+      a second `query`, and `query` sorts: measured at **+0.70 ms/tick** on the 2,000-entity crowded
+      scenario against **+0.16 ms** folded in. Kept when the body stops, since a survivor standing
+      still is still looking somewhere, and `headingOf` collapses the negative zero that
+      `Math.atan2` reaches due east and `canonicalize` rejects outright. `SAVE_VERSION` 5.)*
 - [ ] Recursive shadowcasting over the tile grid, **symmetric** (if A sees B, B sees A) and integer-only
       so determinism falls out
 - [ ] Occluder classes on tiles — **solid / transparent / screening / low**, with opacity and solidity
