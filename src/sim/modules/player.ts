@@ -6,6 +6,7 @@
 // business knowing it (docs/19-architecture.md#layers).
 
 import { defineComponent, Position, Velocity } from "../kernel/components";
+import { SPRINT_SPEED, WALK_SPEED } from "../locomotion";
 import { SHOUT_MAGNITUDE } from "./attention";
 import type { Module } from "./index";
 
@@ -16,9 +17,6 @@ export type Controlled = {
 };
 
 export const Controlled = defineComponent<Controlled>("Controlled");
-
-const WALK_SPEED = 1.4; // m/s
-const SPRINT_SPEED = 4.2; // m/s -- and six times louder, per docs/03's emitter table
 
 export const playerModule: Module = {
   id: "player",

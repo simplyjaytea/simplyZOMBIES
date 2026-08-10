@@ -26,14 +26,30 @@ somewhere before dark is a real price.
 |---|---|---|---|---|---|
 | **Crawl** | Very slow | Lowest | Under a metre | Drains slowly; tiring to hold | Cannot swing or aim; passes below **Low** [cover](28-visibility-and-sightlines.md#what-blocks-sight) |
 | **Crouch** | Slow | Very low | ~1 m | Neutral | Sight blocked by **Low** cover, in both directions |
-| **Walk** | **1.4 m/s** | **1** | **1.4 m** | Neutral | The shipped default |
+| **Walk** | **2.1 m/s** | **1** | **1.4 m** | Neutral | The shipped default |
 | **Jog** | Moderate | Low-moderate | A few metres | Slow drain | The stance most travel actually happens in |
-| **Sprint** | **4.2 m/s** | **6** | **8.6 m** | Fast drain | Cannot aim; [stance changes take time](01-hardcore-contract.md#2-actions-take-time-and-time-is-where-you-die) |
+| **Sprint** | **6.3 m/s** | **6** | **8.6 m** | Fast drain | Cannot aim; [stance changes take time](01-hardcore-contract.md#2-actions-take-time-and-time-is-where-you-die) |
 
-**Walk and sprint are shipped and do not move.** Their speeds are `WALK_SPEED` and `SPRINT_SPEED` in
-`src/sim/modules/player.ts`, and their magnitudes are the `walking: 1` / `sprinting: 6` rows of the
-[emitter table](03-attention.md#noise), which the field has been calibrated against since Milestone
-1. The three new stances slot between and below them.
+**The speeds moved, and the magnitudes did not.** This document previously said walk and sprint
+"are shipped and do not move", at 1.4 and 4.2 m/s — the real-world figures. They were changed to
+2.1 and 6.3 by the repo owner, on game feel: at a walking pace of 1.4 the district is a
+three-and-a-half minute crossing and it plays slowly.
+
+What protects the sentence that got overruled is *how* they moved. There is a single
+[`PACE` multiplier in `src/sim/locomotion.ts`](../src/sim/locomotion.ts) and everything that moves
+is scaled by it, so **every ratio this document rests on is unchanged**: sprint is still three times
+walk, a shambler is still eight tenths of a walk, and the sprint threshold is still exactly halfway
+between the two — derived now rather than the hardcoded `2.8` it used to be, which was the midpoint
+of the *old* pair and would have silently stopped being the midpoint of anything. There is a guard
+on that specifically.
+
+**The noise magnitudes did not move and must not.** `walking: 1` and `sprinting: 6` are calibrated
+against the field, and reach is a property of magnitude, not of speed. The one balance effect worth
+naming: noise is emitted per tick rather than per metre, so moving faster shortens every exposure.
+A large pace increase would quietly make stealth *easier*. At 1.5× the effect is small; anyone
+reaching for 3× is making a balance change, not a game-feel one.
+
+The three new stances still slot between and below, and they are still picked rather than measured.
 
 **They are calibrated, not derived** — the same admission [docs/27](27-multiplayer.md#the-registers)
 makes about its voice registers, which were picked to sit in the right band against the shipped shout
@@ -41,7 +57,10 @@ at 120. These are picked to sit in the right band against the shipped walk and s
 the first thing to tune once the mechanic is played. Deliberately no exact figures for the three new
 rows here: writing them down would make them look measured.
 
-**Reach is what the player experiences**, not magnitude. Per
+**Reach is what the player experiences**, not magnitude, and since the
+[surface layer](24-world-and-scale.md#the-ground) landed it is not a property of the stance alone —
+the same walk carries 1.4 m on tarmac, 0.9 m on grass and 2.4 m across rubble. A stance is a
+decision about the attention field; so is a route. Per
 [the calibration](03-attention.md#scale-and-calibration), `reach = magnitude ÷ 0.7` metres in open
 ground. Sprinting is audible from about eight and a half metres and walking from under a metre and a
 half, which is why *"moving carefully genuinely works"* is already true and why a crouch that halves
@@ -121,6 +140,10 @@ something, and exactly the question
   stance list is exactly where one would try to sneak back in.
 - **Per-stance stealth checks.** A stance changes what you emit. It does not roll against anything —
   the field is the only detection model this game has.
+- **Per-stance surface interaction beyond what the ground already does.** The
+  [surface layer](24-world-and-scale.md#the-ground) multiplies speed and footstep noise for every
+  body that crosses it, whatever stance it is in. A table of five stances against five surfaces is
+  twenty-five numbers nobody can hold, to express something two multipliers already express.
 
 ---
 

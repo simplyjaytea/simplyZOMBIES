@@ -12,13 +12,21 @@
 import { Facing, Position, Velocity } from "../sim/kernel/components";
 import type { EntityId } from "../sim/kernel/entities";
 import type { World } from "../sim/kernel/world";
-import { opacityAt, Opacity, Tile, tileAt, type TileMap } from "../sim/map/tilemap";
+import { Tile, tileAt, type TileMap } from "../sim/map/tilemap";
+import { Surface, surfaceAt } from "../sim/map/surface";
 import { Controlled } from "../sim/modules/player";
 import { Detail, Observer } from "../sim/vision/visibility";
 import { followCamera, visibleBounds, worldToScreen, type Camera } from "./camera";
 
 const COLOURS = {
   floor: "#1a1c1f",
+  /** The ground, by surface. Paved is `floor` -- it is the baseline the rest read against. */
+  dirt: "#282219",
+  grass: "#1b2a1b",
+  rubble: "#26242a",
+  /** A tree: solid and opaque like a wall, and green so it does not read as one. */
+  tree: "#2e4a2c",
+  treeTop: "#3c5f38",
   wall: "#3b4048",
   wallTop: "#4b525c",
   /** Transparent: stops a body, not a sightline. Drawn as a gap in the wall it sits in. */
@@ -175,8 +183,29 @@ export class Renderer {
     if (ctx === null)
       throw new Error("Renderer: could not acquire a 2D context for the tile layer");
 
+    // Two passes, because a tile has two independent stories: what is under it and what is
+    // in it. The ground goes down first and everything stands on it.
     ctx.fillStyle = COLOURS.floor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const SURFACE_COLOURS: Partial<Record<Surface, string>> = {
+      [Surface.Dirt]: COLOURS.dirt,
+      [Surface.Grass]: COLOURS.grass,
+      [Surface.Rubble]: COLOURS.rubble,
+      // Undergrowth is not here: it is always under screening foliage, which is drawn over
+      // the top of it in the pass below.
+    };
+
+    for (const [surface, colour] of Object.entries(SURFACE_COLOURS)) {
+      ctx.fillStyle = colour as string;
+      const kind = Number(surface) as Surface;
+      for (let ty = 0; ty < this.map.h; ty++) {
+        for (let tx = 0; tx < this.map.w; tx++) {
+          if (surfaceAt(this.map, tx, ty) !== kind) continue;
+          ctx.fillRect(tx * zoom, ty * zoom, zoom, zoom);
+        }
+      }
+    }
 
     // Each occluder class gets its own colour, because the player has to be able to tell
     // them apart to play around them: you can shoot through a window you cannot walk
@@ -187,6 +216,7 @@ export class Renderer {
       [Tile.Window]: COLOURS.window,
       [Tile.Screen]: COLOURS.screen,
       [Tile.Low]: COLOURS.low,
+      [Tile.Tree]: COLOURS.tree,
     };
 
     for (const [tile, colour] of Object.entries(TILE_COLOURS)) {
@@ -200,15 +230,26 @@ export class Renderer {
       }
     }
 
-    // A lighter cap on opaque tiles with open space above them, so buildings read as solid
-    // rather than as flat blocks. Opacity rather than solidity on purpose: the cap is a
-    // *height* cue, and a window is a hole in the wall's height, not in its footprint.
-    ctx.fillStyle = COLOURS.wallTop;
+    // A lighter cap on masonry with open space above it, so buildings read as solid rather
+    // than as flat blocks, and a lighter crown on a tree for the same reason. Deliberately
+    // *not* driven off opacity: a tree and a wall are the same thing to the shadowcast and
+    // must not be the same thing to look at, or a park reads as a building.
+    const masonry = (tx: number, ty: number): boolean => {
+      const tile = tileAt(this.map, tx, ty);
+      return tile === Tile.Wall || tile === Tile.Window;
+    };
     for (let ty = 0; ty < this.map.h; ty++) {
       for (let tx = 0; tx < this.map.w; tx++) {
-        const opaque = opacityAt(this.map, tx, ty) === Opacity.Opaque;
-        if (!opaque || opacityAt(this.map, tx, ty - 1) === Opacity.Opaque) continue;
-        ctx.fillRect(tx * zoom, ty * zoom, zoom, Math.max(1, zoom * 0.25));
+        if (masonry(tx, ty) && !masonry(tx, ty - 1)) {
+          ctx.fillStyle = COLOURS.wallTop;
+          ctx.fillRect(tx * zoom, ty * zoom, zoom, Math.max(1, zoom * 0.25));
+        } else if (
+          tileAt(this.map, tx, ty) === Tile.Tree &&
+          tileAt(this.map, tx, ty - 1) !== Tile.Tree
+        ) {
+          ctx.fillStyle = COLOURS.treeTop;
+          ctx.fillRect(tx * zoom, ty * zoom, zoom, Math.max(1, zoom * 0.25));
+        }
       }
     }
 
