@@ -93,7 +93,7 @@ const { world, map, player } = boot({
   ...(contentError === null ? { calibration: calibrationFromContent(loaded.content) } : {}),
 });
 
-const camera = createCamera(14);
+const camera = createCamera(28);
 const renderer = new Renderer(canvas, map);
 const storage = createWebStorage(window.localStorage);
 

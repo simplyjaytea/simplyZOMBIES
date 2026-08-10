@@ -22,6 +22,14 @@ import { Controlled } from "../sim/modules/player";
 import { Detail, Observer } from "../sim/vision/visibility";
 import { followCamera, visibleBounds, worldToScreen, type Camera } from "./camera";
 
+/**
+ * Highest resolution the whole-map tile layer is ever rasterised at, in pixels per metre.
+ *
+ * Chosen as the zoom the layer was originally built at, so nothing about how the ground looks
+ * changed when the camera moved closer -- see the note at the blit.
+ */
+const MAX_TILE_RASTER_ZOOM = 14;
+
 const COLOURS = {
   floor: "#1a1c1f",
   /** The ground, by surface. Paved is `floor` -- it is the baseline the rest read against. */
@@ -109,6 +117,7 @@ type Memory = { x: number; y: number; tick: number };
 export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
   private tileLayer: HTMLCanvasElement | null = null;
+  /** Pixels per metre the cached layer was rasterised at. Not the camera's zoom -- see below. */
   private tileLayerZoom = 0;
 
   /**
@@ -293,9 +302,20 @@ export class Renderer {
     const started = performance.now();
     const ctx = this.ctx;
 
-    if (this.tileLayer === null || this.tileLayerZoom !== camera.zoom) {
-      this.tileLayer = this.buildTileLayer(camera.zoom);
-      this.tileLayerZoom = camera.zoom;
+    // The tile layer is rasterised at its own resolution and *scaled* into place, rather than
+    // rebuilt at whatever the camera is doing. The layer is the whole map, so its cost is
+    // quadratic in zoom: a 256 m district at 14 px/m is 3,584 square (~51 MB of backing
+    // store), and at 28 it is 7,168 square (~206 MB). Four times the memory for tiles that are
+    // flat-coloured rectangles.
+    //
+    // Capping it costs nothing visually here. Tiles are axis-aligned fills at integer offsets,
+    // so an integer upscale with smoothing off is pixel-identical to rasterising at the higher
+    // resolution -- and 28 over 14 is exactly two. It also decouples memory from the camera,
+    // which is what makes the zoom a number anyone can turn without checking a heap profile.
+    const rasterZoom = Math.min(camera.zoom, MAX_TILE_RASTER_ZOOM);
+    if (this.tileLayer === null || this.tileLayerZoom !== rasterZoom) {
+      this.tileLayer = this.buildTileLayer(rasterZoom);
+      this.tileLayerZoom = rasterZoom;
     }
 
     // Follow the controlled entity, interpolated, so the camera doesn't judder at 20 Hz.
@@ -309,17 +329,26 @@ export class Renderer {
     ctx.fillRect(0, 0, camera.width, camera.height);
 
     // Blit only the visible slice of the pre-rasterised tile layer.
+    //
+    // `scale` is destination pixels per source pixel. It is 1 whenever the camera is at or
+    // below the raster cap, which is what makes this the same blit it has always been.
     const origin = worldToScreen(camera, 0, 0);
+    const scale = camera.zoom / this.tileLayerZoom;
+    const destWidth = Math.min(this.tileLayer.width * scale, camera.width);
+    const destHeight = Math.min(this.tileLayer.height * scale, camera.height);
+    // Nearest-neighbour. Smoothing would blur the edge between two flat colours into a
+    // gradient, which is the one thing upscaling flat tiles can get wrong.
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
       this.tileLayer,
-      Math.max(0, -origin.sx),
-      Math.max(0, -origin.sy),
-      Math.min(this.tileLayer.width, camera.width),
-      Math.min(this.tileLayer.height, camera.height),
+      Math.max(0, -origin.sx) / scale,
+      Math.max(0, -origin.sy) / scale,
+      destWidth / scale,
+      destHeight / scale,
       Math.max(0, origin.sx),
       Math.max(0, origin.sy),
-      Math.min(this.tileLayer.width, camera.width),
-      Math.min(this.tileLayer.height, camera.height),
+      destWidth,
+      destHeight,
     );
 
     const bounds = visibleBounds(camera);
