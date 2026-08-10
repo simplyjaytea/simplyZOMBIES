@@ -115,12 +115,30 @@ export class RngRegistry {
     return out;
   }
 
+  /**
+   * Restore every stream's state, **keeping the stream objects themselves**.
+   *
+   * The identity matters, and it is not an implementation detail. `stream()` hands out a
+   * reference, and a module is entitled to hold onto it -- fetching it once at registration
+   * rather than once per tick is the obvious thing to write. If a load replaced the objects,
+   * that module would go on drawing from an orphan that no save ever restores: its sequence
+   * would silently diverge after a load, while every other stream reproduced perfectly.
+   *
+   * That is the worst shape a determinism bug can have here. It cannot happen in a fresh run,
+   * only after a load, and it presents as "the same seed diverged, once" -- which
+   * docs/19-architecture.md calls a bug of the same severity as a crash.
+   *
+   * A stream the save does not mention is reset to its derived seed rather than left alone,
+   * so no state can leak across a load either.
+   */
   restore(saved: Record<string, RngState>): void {
-    this.streams.clear();
     for (const [name, state] of Object.entries(saved)) {
-      const s = new RngStream(deriveSeed(this.masterSeed, name));
-      s.restore(state);
-      this.streams.set(name, s);
+      this.stream(name).restore(state);
+    }
+    for (const [name, stream] of this.streams) {
+      if (!Object.prototype.hasOwnProperty.call(saved, name)) {
+        stream.restore(deriveSeed(this.masterSeed, name));
+      }
     }
   }
 }
