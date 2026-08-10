@@ -111,6 +111,12 @@ modification consumables · more traps and bait.
 4. **Mobile bases and nomad play.** Interior modules, volume budgeting, convoys, relocation, and the
    long-expedition mode where NPCs run the colony in your absence.
 
+**And, independently of the above:** [multiplayer](27-multiplayer.md) — the authoritative host,
+survivor-versus-survivor in one district, and voice as a noise emitter. It is specified and
+deliberately unbuilt. It does not belong in Milestone 1 or 2: PVP is meaningless without the melee
+loop, and the contested recovery run is meaningless without gear worth recovering. It does not depend
+on world scale either, which is why it sits beside the range work rather than inside it.
+
 ## Milestone 4 — Breadth
 
 Factions ([the whole document](18-factions.md)) · the escape endgame · storyteller presets and the
@@ -323,6 +329,24 @@ sieges and mutation, nomads die to fuel and attrition. That's a theory until it'
 colonies. If nomads dominate, fuel scarcity and the attrition tax are undertuned. If they're
 unplayable, the failure modes are stacked rather than parallel.
 
+### 9. What a multiplayer client may know about the attention field
+[Multiplayer](27-multiplayer.md) is restructured around an authoritative host specifically so a client
+never holds state it shouldn't see. The attention field is the hole in that: it is world state, and the
+noise channel is a map of where everyone recently was. Ship it whole and PVP has the wallhack the host
+model exists to prevent; clip it to what each survivor could plausibly sense and the client cannot draw
+the overlay the single-player build already has.
+
+**Checkpoint:** before any multiplayer code. This is a design question, and building the transport
+first would mean answering it under pressure.
+
+### 10. A host in the loop may not fit the frame budget
+[Performance is a pillar](00-vision.md#the-six-pillars) and the benchmarks fail the build. Filtering
+and serialising per client per tick is new cost that no current scenario measures, and it scales with
+player count rather than with entity count — a shape none of the existing budgets have.
+
+**Checkpoint:** a benchmark scenario with synthetic clients attached, held at the same budget as its
+single-player twin — the same way the loud-district scenarios are held against their quiet twins.
+
 ## Open questions
 
 Deliberately unresolved, to be answered by playing rather than arguing:
@@ -339,6 +363,14 @@ Deliberately unresolved, to be answered by playing rather than arguing:
 - **How rare should recruits be?** Too rare and the colony never grows; too common and risk #2 lands.
 - **Does a mobile base make the fixed colony feel like a burden?** If the honest answer after
   Milestone 3 is "just drive away," risk #8 has landed.
+- **Does PVP survive contact with permadeath?** If dying to another player reads as cheaper than
+  dying to the horde, [multiplayer](27-multiplayer.md) has weakened the
+  [contract](01-hardcore-contract.md) rather than completed it.
+- **Does voice-as-emitter play as tense, or as a mute button?** If never speaking is dominant, the
+  feature removed a channel instead of adding one.
+- **Is a session with no pause still this game?** [The core loop](02-core-loop.md#time-scale) claims
+  the tension comes from irreversibility rather than APM. Multiplayer tests that claim directly, by
+  removing the pause and keeping everything else.
 
 **Answered since this list was written:** *how big is a district, in metres?* — 256 m, forced by the
 noise calibration above and recorded in
@@ -357,4 +389,4 @@ The verification criteria this document set is checked against:
 
 ---
 
-**Previous:** [22 — Performance](22-performance.md) · [Doc index](../README.md#documentation)
+**Previous:** [27 — Multiplayer](27-multiplayer.md) · [Doc index](../README.md#documentation)

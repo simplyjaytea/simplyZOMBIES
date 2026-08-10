@@ -44,17 +44,17 @@ follow signals.
 
 ## Status
 
-**Milestone 1, in progress — and it is playable.** Milestone 0 built the architecture; the noise
-channel of the [attention field](docs/03-attention.md) now sits on top of it, with shamblers that climb
-it. Make a noise and the district walks toward you; go quiet and it doesn't. Light, scent, melee and
-the day/night cycle are the rest of the milestone.
+**Milestone 1, in progress — and it is playable.** Milestone 0 built the architecture; two channels of
+the [attention field](docs/03-attention.md) now sit on top of it, with shamblers that climb them. Make
+a noise and the district walks toward you in a minute; make none and scent still finds you, in an
+hour. Light, melee and the day/night cycle are the rest of the milestone.
 
 ```bash
 npm install && npm run dev     # http://127.0.0.1:5174
 ```
 
-`WASD` move · `Shift` sprint · `Space` **shout** · `O` attention overlay · `P` pause · `F5`/`F9`
-save and load.
+`WASD` move · `Shift` sprint · `Space` **shout** · `O` cycles the attention overlay (noise, scent) ·
+`P` pause · `F5`/`F9` save and load.
 
 The [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built first and the risks that
 might sink it, [TODO.md](TODO.md) breaks that into an executable backlog, and
@@ -114,6 +114,7 @@ written, so 24–26 sit under "The world" rather than at the end.
 | [20 — ECS & Content](docs/20-ecs-and-content.md) | Component model, data-driven content, mod-ready loading |
 | [21 — Extensibility](docs/21-extensibility.md) | Event bus, modifier pipeline, and the add-a-feature cookbook |
 | [22 — Performance](docs/22-performance.md) | Tiered simulation, field propagation, scaling to a horde |
+| [27 — Multiplayer](docs/27-multiplayer.md) | Authoritative host, survivor-vs-survivor PVP, voice as an emitter *(post-slice)* |
 | [23 — Roadmap](docs/23-roadmap.md) | The vertical slice, milestones, risks, open questions |
 
 ## Reading order
