@@ -16,6 +16,7 @@
 // scent slots in behind it without touching this file.
 
 import { defineComponent, Position, Velocity } from "../kernel/components";
+import { Body, isCrawling } from "./health";
 import type { EntityId } from "../kernel/entities";
 import type { World } from "../kernel/world";
 import { zombieSpeed } from "../locomotion";
@@ -30,6 +31,15 @@ export const ShamblerState = {
   Wander: 0,
   Seek: 1,
   Investigate: 2,
+  /**
+   * Knocked off balance by a blow. docs/09-combat.md: "Stagger is the actual survival
+   * mechanic in a crowd, because a staggered zombie isn't grabbing you."
+   *
+   * It is the *only* thing that interrupts this state machine. docs/14's rule is that zombies
+   * "stagger from mass, never flinch from injury" -- so damage, however much of it, never
+   * touches the states above. Being hit hard enough to be moved does.
+   */
+  Staggered: 3,
 } as const;
 
 export type ShamblerStateValue = (typeof ShamblerState)[keyof typeof ShamblerState];
@@ -61,6 +71,8 @@ export type Shambler = {
    * re-rolled: a per-tick jitter would produce a shimmer, not a crowd.
    */
   bias: number;
+  /** Ticks left on their back foot. Set by whatever staggered them; zero the rest of the time. */
+  ticksStaggered: number;
 };
 
 export const Shambler = defineComponent<Shambler>("Shambler");
@@ -81,6 +93,21 @@ const MILL_SPEED = SEEK_SPEED * 0.25;
 
 /** docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own. */
 const SPREAD_RADIANS = 0.62;
+
+/**
+ * What is left of a shambler's pace once locomotion is gone.
+ *
+ * docs/14-zombies.md#damage-model: "A zombie with a destroyed pelvis crawls, is quiet, is easy
+ * to miss in a dark breach, and is still perfectly capable of biting an ankle." A quarter of a
+ * shamble is slow enough to walk away from and far too fast to ignore at arm's length, which
+ * is the whole of that sentence.
+ *
+ * Applied to the velocity the state machine produced rather than to each of the three speeds,
+ * so a crawler crawls in every state including the ones added later. It is deliberately *not*
+ * a `move_speed` modifier yet: `movement.integrate` does not read the stat registry at all,
+ * and wiring it to is its own TODO item with five other consumers waiting on it.
+ */
+const CRAWL_SPEED_FACTOR = 0.25;
 
 /**
  * How much of the noise channel a shambler actually perceives.
@@ -184,6 +211,7 @@ export function makeShambler(world: World, entity: EntityId, rng: RngStream): vo
     ticksMilling: 0,
     ticksCommitted: 0,
     bias: rng.float(-SPREAD_RADIANS, SPREAD_RADIANS),
+    ticksStaggered: 0,
   });
 }
 
@@ -213,6 +241,24 @@ export const shamblerModule: Module = {
           const smelled = field.scentAt(pos.x, pos.y) >= detectable;
 
           switch (self.state) {
+            case ShamblerState.Staggered: {
+              // Nothing else happens while this runs -- not seeking, not smelling, not
+              // drifting. That is the point of it, and it is what a swing buys.
+              vel.dx = 0;
+              vel.dy = 0;
+              if (--self.ticksStaggered <= 0) {
+                // Back to drifting rather than back to what it was doing. Nothing is
+                // remembered across the stagger, which keeps this from being the beginning of
+                // a zombie that holds a grudge -- docs/14's first design rule is that they
+                // must not become tactical. It will pick the fight back up on the next tick
+                // if it can still hear it, through the ordinary noise response and nothing
+                // else. A connecting swing is 8 magnitude at arm's length, so it usually can.
+                self.state = ShamblerState.Wander;
+                self.ticksToTurn = 0;
+              }
+              break;
+            }
+
             case ShamblerState.Seek: {
               if (steerUphill(field, pos, vel, self)) {
                 self.ticksCommitted = COMMIT_TICKS;
@@ -273,6 +319,37 @@ export const shamblerModule: Module = {
               break;
             }
           }
+
+          // Locomotion, last, so it applies to whatever the state machine decided -- including
+          // states added after this line was written. Reading another module's component is
+          // permitted (docs/20:55); writing it is not, and this does not.
+          const body = w.components.get(entity, Body);
+          if (body !== undefined && isCrawling(body)) {
+            vel.dx *= CRAWL_SPEED_FACTOR;
+            vel.dy *= CRAWL_SPEED_FACTOR;
+          }
+        }
+      },
+    });
+
+    /**
+     * Take a stagger. Published by whatever landed the blow; the duration is its business
+     * (a bat holds one four times as long as a knife) and what it *does* is this module's.
+     */
+    world.events.subscribe({
+      id: "shambler.staggered",
+      type: "entity.staggered",
+      handler: (event) => {
+        const self = world.components.get(event.entity, Shambler);
+        if (self === undefined) return;
+        self.state = ShamblerState.Staggered;
+        // Longest wins, rather than latest: two blows in a crowd should not be able to leave
+        // a zombie *less* staggered than the heavier of the two already had it.
+        self.ticksStaggered = Math.max(self.ticksStaggered, event.ticks);
+        const vel = world.components.get(event.entity, Velocity);
+        if (vel !== undefined) {
+          vel.dx = 0;
+          vel.dy = 0;
         }
       },
     });
@@ -287,4 +364,5 @@ export const SHAMBLER_TUNING = {
   scentSensitivity: SCENT_SENSITIVITY,
   scentBias: SCENT_BIAS,
   millTicks: MILL_TICKS,
+  crawlSpeedFactor: CRAWL_SPEED_FACTOR,
 } as const;
