@@ -23,7 +23,9 @@ diffusion, wind, field memory). Both ⚠ checkpoints that were riding on scent a
 day/night are the remainder** — and light turned out to be the small half of a larger job, so it now
 sits inside [visibility & sightlines](docs/28-visibility-and-sightlines.md) below, where **the
 primitive is now built**: the district occludes, the arcs work, and the renderer no longer draws
-through walls. Light is what is left of that section, and it is the next thing to build.
+through walls. Light is what is left of that section, and it is the next thing to build. The
+[ground](#the-ground--spec-docs24) landed alongside it — five surfaces, trees, and one pace
+multiplier — so a route is now a decision about the attention field in the same way a stance is.
 
 Run it with `npm run dev` — `WASD` move, `Shift` sprint, **`Space` shout**, **`O` cycles the
 attention overlay** through noise, scent and sight.
@@ -280,6 +282,49 @@ the shipped single-player build, not a multiplayer worry, and it is why this sec
       cast is 0.07 ms and a 48 m one 0.18 ms. Still unmeasured, and the thing to measure next:
       observers that **sprint**, which pay every three ticks rather than every forty.)*
 
+### The ground — spec: [docs/24](docs/24-world-and-scale.md#the-ground)
+
+**The surface a body stands on decides how fast it moves and how loud it is.** docs/24 committed to
+both halves of this in its Roads section long before there was an array to hold it — "off-road is
+slow", "streets are noise highways" — so this is that promise made mechanical rather than a new idea.
+
+- [x] **A surface layer**, separate from the tiles — paved / dirt / grass / undergrowth / rubble
+      *(two arrays, never one enum. A tree stands on grass and rubble lies on tarmac, so a single
+      enum would be a product of two sets rather than a list — the same lesson doc 28 learned about
+      opacity and solidity, one layer down. `Paved` is 0, so a zeroed array is a paved district and
+      a map built without a surface layer behaves exactly as maps did before it existed.)*
+- [x] **Surface multiplies movement speed**, applied in `movement.integrate`
+      *(the one place every mover passes through, so the player module, three shambler states and
+      whatever sets a velocity next all pay it without knowing the layer exists. Velocity keeps
+      meaning **intent**, which is what keeps the sprint threshold reading intent rather than
+      terrain: a survivor wading through brambles is still sprinting and still loud for it.)*
+- [x] **Surface multiplies footstep noise** — and never replaces the emitter's magnitude
+      *(a walk carries 1.4 m on tarmac, 0.9 m on grass and 2.4 m across rubble; a sprint across
+      rubble carries 14.6 m, most of a street. Sprinting stays exactly six times a walk on every
+      surface, because the [emitter table](docs/03-attention.md#noise) is calibrated and terrain
+      modulates it. There is a guard on that ratio specifically. A shout is a shout wherever you
+      stand, and a generator's hum is a property of the generator.)*
+- [x] **Trees** — solid and opaque, standing on grass
+      *(its own tile value even though the primitive cannot tell it from a wall, because everything
+      else will: it is drawn differently, it is wood later, and a district whose only solid thing is
+      masonry cannot have a park in it. A stand of them breaks a sightline down a street, which is
+      what gives a district somewhere to be that is neither indoors nor exposed.)*
+- [x] Undergrowth under every piece of screening foliage, rubble under every piece of low cover
+      *(the two halves of a bush have to agree. Screening that blocked a sightline while leaving you
+      fast and silent would be strictly better than every other tile on the map, and
+      [docs/29's rule](docs/29-movement-and-stances.md#the-rule) is that nothing may be strictly
+      better than anything else. You can be unseen or unheard; the ground makes you pick.)*
+- [ ] Surfaces in content JSON rather than a table in `surface.ts`
+      *(five surfaces × two numbers is small enough to read at a glance today. It stops being small
+      the moment weather makes them wet — see below.)*
+- [ ] **Wet ground** when [weather](docs/16-weather.md) arrives — rain quiets a hard surface and
+      turns dirt to mud
+      *(the obvious next thing the layer is for, and the reason it is two numbers per surface rather
+      than two constants in the movement system)*
+- [ ] Vehicles read the same layer — "off-road is slow, damaging, and impassable for most
+      [mobile bases](docs/26-mobile-bases.md)" is the other half of the Roads promise, and it waits
+      on vehicles
+
 ### Spatial partitioning — spec: [docs/22](docs/22-performance.md#spatial-partitioning)
 
 - [ ] Uniform spatial hash over entity positions
@@ -309,11 +354,20 @@ the shipped single-player build, not a multiplayer worry, and it is why this sec
 
 - [x] Direct movement control of one entity
       *(landed in Milestone 0; it now emits into the field — walking 1, sprinting 6, shouting 120)*
+- [x] **A single pace multiplier** — `PACE` in `src/sim/locomotion.ts`, currently 1.5
+      *(the repo owner's call, on game feel: at the real-world 1.4 m/s a 256 m district is a
+      three-and-a-half minute crossing. Everything that moves is scaled by the same factor, so every
+      ratio survives — sprint is still three times walk, a shambler still eight tenths of it, and the
+      sprint threshold is **derived** rather than the hardcoded 2.8 it used to be, which was the
+      midpoint of the old pair and would silently have stopped being the midpoint of anything. The
+      emitter magnitudes did not move and must not. Worth knowing when tuning it: noise is emitted
+      per tick, not per metre, so a large increase quietly makes stealth easier by shortening every
+      exposure.)*
 - [ ] **Movement stances** — crawl / crouch / walk / jog / sprint, spec:
       [docs/29](docs/29-movement-and-stances.md)
-      *(walk at 1.4 m/s emitting 1 and sprint at 4.2 emitting 6 are **shipped and calibrated and do
-      not move**. The three new registers are picked to sit against them, the way whisper and talk
-      were picked against shout.)*
+      *(walk and sprint emit 1 and 6, and **those magnitudes are calibrated and do not move** — the
+      speeds themselves now scale with `PACE` above. The three new registers are picked to sit
+      against them, the way whisper and talk were picked against shout.)*
 - [ ] Each stance carries its own speed, noise magnitude, and stamina behaviour — **faster is louder**,
       which is the whole reason this is a system and not two constants
 - [ ] Stance changes are [timed and interruptible](docs/01-hardcore-contract.md#2-actions-take-time-and-time-is-where-you-die);
