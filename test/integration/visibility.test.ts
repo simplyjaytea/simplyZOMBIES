@@ -9,7 +9,7 @@ import { boot } from "../../src/sim/boot";
 import { Facing, Position, Velocity } from "../../src/sim/kernel/components";
 import { step, stepN } from "../../src/sim/kernel/step";
 import { Detail, Observer, VisibilityIndex } from "../../src/sim/vision/visibility";
-import { Eye, Tile, isSolid, type TileMap } from "../../src/sim/map/tilemap";
+import { blankMap, Eye, Tile, isSolid, type TileMap } from "../../src/sim/map/tilemap";
 import { World } from "../../src/sim/kernel/world";
 
 const SEED = 20260805;
@@ -113,7 +113,7 @@ function roomWithObserver(range = 10): {
   place: (x: number, y: number, facing: number) => void;
 } {
   const size = 41;
-  const map: TileMap = { w: size, h: size, tiles: new Uint8Array(size * size).fill(Tile.Floor) };
+  const map: TileMap = blankMap(size, size);
   for (let t = 0; t < size; t++) {
     map.tiles[t] = Tile.Wall;
     map.tiles[(size - 1) * size + t] = Tile.Wall;

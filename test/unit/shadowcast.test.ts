@@ -7,10 +7,10 @@
 
 import { describe, expect, it } from "vitest";
 import { shadowcast, VisibleTiles } from "../../src/sim/vision/shadowcast";
-import { Eye, Tile, blocksSight, isSolid, type TileMap } from "../../src/sim/map/tilemap";
+import { blankMap, Eye, Tile, blocksSight, isSolid, type TileMap } from "../../src/sim/map/tilemap";
 
 function emptyMap(size = 21): TileMap {
-  return { w: size, h: size, tiles: new Uint8Array(size * size).fill(Tile.Floor) };
+  return blankMap(size, size);
 }
 
 function put(map: TileMap, tx: number, ty: number, tile: Tile): void {

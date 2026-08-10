@@ -2,8 +2,8 @@
 
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
 updated 2026-08-06 when the noise spine landed, 2026-08-10 when scent did, again the same day when
-seven multiplayer-era features were specified into the doc set, and again when the visibility
-primitive closed the wallhack.
+seven multiplayer-era features were specified into the doc set, again when the visibility
+primitive closed the wallhack, and again when the ground grew under it.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -13,9 +13,9 @@ primitive closed the wallhack.
 
 | | |
 |---|---|
-| **Phase** | **Milestone 1, phase 3 done: sight.** Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. And now you cannot see it coming through a wall. |
+| **Phase** | **Milestone 1, phase 3 done: sight, and the ground under it.** Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see it coming through a wall. And where you walk decides how loud you are. |
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — all of Milestone 0 |
-| **In flight** | nothing. The visibility primitive landed: occluder classes, symmetric shadowcasting, arcs, recompute-on-change, renderer occlusion |
+| **In flight** | nothing. The visibility primitive landed, and after it the surface layer: five ground types, trees, and a single pace multiplier |
 | **Next real work** | **[The light channel](docs/03-attention.md#light)** — the third channel, and now the only thing between the emitter table and a live one, because the primitive it was waiting on is built. Then the melee loop. See [Do this next](#do-this-next). |
 | **Also landed, as design only** | **[Multiplayer](docs/27-multiplayer.md)** — authoritative host, survivor-vs-survivor PVP, and voice as a noise emitter. Specified, docs reconciled, **no engine code**. Filed as Milestone 3. |
 | **And, also design only** | **[Visibility](docs/28-visibility-and-sightlines.md)** and **[movement stances](docs/29-movement-and-stances.md)**, plus the [condition view](docs/05-health-injury.md#the-condition-view), [aiming](docs/09-combat.md#aiming), and [z-levels deferred in writing](docs/23-roadmap.md#deferred-z-levels). Again **no engine code** — two of these are now Milestone 1 tasks. |
@@ -42,6 +42,8 @@ TODO.md         The backlog through Milestone 2, with all 8 roadmap risks pinned
 src/sim/        The simulation. Pure, headless, deterministic — kernel, modules, rng.
 src/sim/field/  The attention field. Kernel, not a module (see below).
 src/sim/vision/ Sightlines: the shadowcast, and every observer's cached view. Also kernel.
+src/sim/locomotion.ts
+                How fast things move. One PACE multiplier; every speed is a ratio of it.
 src/render/     Canvas renderer. Reads the sim, never writes to it.
 src/platform/   The host: input, the tick loop, storage, content loading, schemas.
 content/        JSON content plus its JSON Schemas.
@@ -66,6 +68,10 @@ npm run bench:frame      # frame budget, drives real Chromium
 
 In the browser: `WASD` move · `Shift` sprint · **`Space` shout** · **`O` cycles the attention overlay
 (off → noise → scent → sight)** · `P` pause · `F5` save · `F9` load.
+
+The HUD's `ground` line is the newest thing on screen: what you are standing on, and what it is doing
+to your speed and your footsteps. Walk from a street onto a lawn and watch it go from `1.00x noise`
+to `0.60x`.
 
 **Press space.** 4,055 of the district's 4,096 field cells go live, 298 of 300 shamblers switch to
 seeking, and over the next minute the crowd within 50 m goes from about 30 bodies to about 90. Then
@@ -163,6 +169,28 @@ because these are the ones you will trip over:
   This is also how sandbox presets and storyteller settings get implemented later — not as special
   cases, as this.
 
+## What the ground made structural
+
+Four decisions, and one of them is a correction to something this document said two sections down:
+
+- **A surface is a second array, never more values in the tile enum.** A tree stands on grass and
+  rubble lies on tarmac, so one enum would have to enumerate a product of two sets. This is doc 28's
+  opacity-is-not-solidity lesson arriving one layer down, and it arrived on its own — the surface
+  layer was written before anyone noticed it was the same shape.
+- **Terrain multiplies the emitter; it never replaces it.** Sprinting is six times a walk on every
+  surface in the game, because `walking: 1` and `sprinting: 6` are calibrated against the field and
+  the ground is a modifier on top. There is a guard on that ratio specifically. The alternative —
+  terrain *setting* a magnitude — would have quietly retired docs/03's table.
+- **`indoors` is written at generation time, because it stops being answerable afterwards.**
+  Buildings have doorways, so a flood fill from the map edge walks into every interior, and
+  "enclosed on all four sides" is true of the whole district once you count the perimeter wall. The
+  first version of that guard used exactly that heuristic and measured nothing. The generator knows
+  its own footprints; it writes them down. Weather and the light channel are the next two consumers.
+- **One `PACE` multiplier, and every speed is a ratio of it.** The 1.4 m/s walk used to be a literal
+  in `player.ts` and a comment's worth of arithmetic in `shambler.ts`, and the sprint threshold was
+  the hardcoded midpoint of two numbers it could not see. A ratio spread across three files is a
+  ratio that drifts, and this one drifted the moment the pace changed.
+
 ## What sight made structural
 
 Five decisions that are cheap now and expensive later:
@@ -248,6 +276,33 @@ Four decisions that are cheap now and expensive to reverse later:
   calibration says should happen — a shout carries 171 m across a 256 m district — but nobody had
   seen the consequence before now. Whether it makes shouting the only interesting verb is a
   playtest question, not an arithmetic one.
+
+## What the ground changed
+
+**The speeds moved, and docs/29 said they would not.** That document stated in as many words that
+walk and sprint "are shipped and do not move", at the real-world 1.4 and 4.2 m/s. The repo owner
+asked for faster, on game feel — at 1.4 a district is a three-and-a-half minute crossing and it
+plays slowly — so they are 2.1 and 6.3, and
+[docs/29 records the reversal](docs/29-movement-and-stances.md#the-five-stances) rather than being
+quietly reworded. What the multiplier protects is the *reason* that sentence existed: every ratio it
+was defending is untouched, because everything scales together.
+
+**The sprint threshold was the first thing to break, and it broke silently.** It was `2.8` — the
+midpoint of 1.4 and 4.2 — and at a walking speed of 2.1 it is still between the two, so nothing
+failed and nothing looked wrong. At a pace multiplier of 2.0 a *walking* survivor would have emitted
+the sprinting magnitude. It is derived now, with a guard.
+
+**Terrain is a bigger deal for stealth than for pathing.** The speed spread is deliberately narrow —
+a district crossing goes from 122 s on pavement to 135 s over grass — but the noise spread is not:
+the same walk carries 1.4 m on tarmac, 0.9 m on grass, and 2.4 m across rubble. Undergrowth is the
+only cover on open ground and it is *both* the slowest surface and a loud one, so you can be unseen
+or unheard and not both. That asymmetry is the whole mechanic, and it is the first thing to play
+before tuning either table.
+
+**Worth knowing before anyone raises `PACE` again:** noise is emitted per tick, not per metre. Going
+faster does not make you louder, it shortens every exposure, so a large pace increase makes stealth
+*easier*. At 1.5 the effect is small. At 3 it would be a balance change wearing the costume of a
+game-feel one.
 
 ## What sight changed, and the guard it caught
 
@@ -391,6 +446,10 @@ belongs with the condition view.
   horde was already meant to be a skill; the question is whether removing that much information
   makes the district feel dangerous or just makes it feel empty until something is suddenly adjacent.
   A human at a keyboard, and the first thing to check next session.
+- **Does the ground actually change where you walk?** New. The street is fast and loud, the yards
+  are slow and quiet, and undergrowth is slow, loud and the only cover. The tables say a route is a
+  decision; whether a player *notices* that without a readout is the question, since the HUD's
+  ground line is a developer tool and the shipped game will not have it.
 - **Are the arcs right?** 60° focal inside 190° total was picked, not derived, and docs/28
   deliberately declined to name numbers so that nobody would read them as settled. They are per
   observer and in one file. Widening the peripheral arc is a one-line experiment.
@@ -464,6 +523,20 @@ Sight's guards were done the same way, and the fourth hollow one turned up on th
 - Delete the sightline check from `detail` → **the first version of this guard passed**, because the
   arcs hide a third of a circle by themselves. Now counted inside the arcs only, plus a two-tile
   case with one wall.
+
+The ground's guards were done the same way, and turned up a bug and a hollow guard in one sitting:
+
+- Drop the surface factor from `movement.integrate` → grass, rubble and brambles all cross at the
+  same speed.
+- Drop it from `attention.emit-movement` → the two readings in the real district become equal.
+- Hardcode the sprint threshold back to `2.8` → the "still exactly halfway" guard fails, and
+  *nothing else does*, which is precisely why it needed its own assertion.
+- Stop laying undergrowth under screening → the district loses a surface, and a bush becomes a free
+  sightline break.
+- **"Is this tile indoors?" answered by shape rather than by the generator** → the first version
+  scanned outward for solid tiles in four directions, which the map perimeter satisfies for every
+  tile in the district. It passed while measuring nothing, and it was hiding brambles growing in
+  people's living rooms.
 
 One of those, the decay system, needed a **second** test written for it: the arithmetic was already
 covered by a unit test calling `decay()` directly, which passed happily with the system unregistered.
