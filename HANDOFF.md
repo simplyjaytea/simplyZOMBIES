@@ -1,7 +1,7 @@
 # Handoff
 
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
-updated 2026-08-06 when the noise spine landed.
+updated 2026-08-06 when the noise spine landed and 2026-08-10 when scent did.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -11,10 +11,10 @@ updated 2026-08-06 when the noise spine landed.
 
 | | |
 |---|---|
-| **Phase** | **Milestone 1, phase 1 done: the noise spine.** There is now a game. Shout, and the district walks toward you. |
+| **Phase** | **Milestone 1, phase 2 done: scent.** Shout and the district walks toward you in a minute. Say nothing at all and it still finds you, in an hour. |
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — all of Milestone 0 |
-| **In flight** | the noise spine: attention field, shamblers, shout, debug overlay, and a GitHub Pages deploy |
-| **Next real work** | **Scent** — and the two checkpoints riding on it. See [Do this next](#do-this-next). |
+| **In flight** | scent: continuous diffusion, wind, field memory, and the two ⚠ checkpoints that were riding on it — **both now closed** |
+| **Next real work** | **Light and shadowcasting**, then the melee loop. See [Do this next](#do-this-next). |
 
 ## The build
 
@@ -51,25 +51,36 @@ exactly as the previous handoff said it could be. `docs/23-roadmap.md` keeps the
 ```bash
 npm install
 npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 156 tests
+npm test                 # correctness: 169 tests (~40 s -- the scent ones simulate hours)
 npm run typecheck        # two projects — see the sim/ purity gate below
 npm run lint
 npm run bench            # tick budgets
 npm run bench:frame      # frame budget, drives real Chromium
 ```
 
-In the browser: `WASD` move · `Shift` sprint · **`Space` shout** · **`O` attention overlay** ·
-`P` pause · `F5` save · `F9` load.
+In the browser: `WASD` move · `Shift` sprint · **`Space` shout** · **`O` cycles the attention overlay
+(off → noise → scent)** · `P` pause · `F5` save · `F9` load.
 
-**Press space.** That is the whole milestone: 4,055 of the district's 4,096 field cells go live, 298
-of 300 shamblers switch to seeking, and over the next minute the crowd within 50 m goes from about 30
-bodies to about 90. Then it fades and they drift off again.
+**Press space.** 4,055 of the district's 4,096 field cells go live, 298 of 300 shamblers switch to
+seeking, and over the next minute the crowd within 50 m goes from about 30 bodies to about 90. Then
+it fades and they drift off again.
 
-The HUD shows live field cells, the horde's state counts, and a **state fingerprint** — that string is
-what the determinism test compares.
+**Then press nothing at all, and wait.** That is the other half, and it is new. Stand perfectly
+still — the noise field sits at literally zero live cells, exactly as before — and the crowd within
+50 m still climbs from 30 to 76 over an hour, on nothing but the scent a body cannot stop emitting.
+Being quiet is no longer *safe*; it is *slow*, which is a much better answer to the question this
+document has been asking since the noise spine.
+
+**And press `O` twice** to put the scent overlay up, then watch a horde you disturbed walk off
+downwind following its own smell. That one was not designed; see [what scent
+changed](#what-scent-changed-and-what-it-corrected).
+
+The HUD shows live cells and peak for **both channels**, the horde's state counts, and a **state
+fingerprint** — that string is what the determinism test compares.
 
 If Playwright can't find a browser, point it at one: `CHROMIUM_PATH=/path/to/chromium npm run
-bench:frame`.
+bench:frame`. In a fresh container the provisioned one is usually at
+`/opt/pw-browsers/chromium-*/chrome-linux/chrome`.
 
 ## Settled decisions: do not relitigate
 
@@ -92,8 +103,9 @@ These were each decided explicitly by the repo owner. If you're about to "improv
   the reversal and why the original objection was half right.
 - **A district is 256 m, falloff stays linear.** Decided against re-authoring the magnitude table,
   because its ratios are load-bearing in six documents and only the unit was ever missing.
-- **Field memory is scent, never noise.** Kept rather than cut, but on the condition that Milestone 1
-  proves it does something.
+- **Field memory is scent, never noise.** Kept rather than cut, on the condition that Milestone 1
+  proved it did something. **It did** — though not the something that was written down. See
+  [what scent changed](#what-scent-changed-and-what-it-corrected).
 
 ## What the spike settled
 
@@ -133,6 +145,29 @@ because these are the ones you will trip over:
   This is also how sandbox presets and storyteller settings get implemented later — not as special
   cases, as this.
 
+## What scent made structural
+
+Five more decisions that are cheap now and expensive later:
+
+- **Field memory is its own module**, not a branch inside the shambler. That is what makes the
+  acceptance check honest: `boot({ disabled: ["field-memory"] })` is a shipped configuration a
+  sandbox preset could use, so the check toggles the real game rather than editing the code under
+  test. The isolation test picked it up for free.
+- **Scent reaches the field through `scent.accumulated`**, exactly as noise reaches it through
+  `noise.emitted`. The event already existed in the vocabulary with no publisher. A corpse, a
+  latrine or a smokehouse needs no knowledge that the field exists.
+- **Diffusion is a gather, not a scatter.** Each cell pulls from its neighbours instead of pushing.
+  Same physics, but a scatter accumulates into a cell in whatever order the loop arrives, and float
+  addition is not associative — so determinism would have depended on iteration order. Gathering
+  makes it fall out of the loop's shape with no sorting at all.
+- **Wind lives in four normalised outflow weights derived once**, so the diffusion loop does not know
+  which way the wind blows. When [weather](docs/16-weather.md) takes wind over in Milestone 3 it
+  changes those four numbers and nothing else — and wind becomes save state at that point, which it
+  deliberately is not now.
+- **`liveCells()` and `peakNoise()` stayed noise-only.** Three assertions in the exit criterion read
+  `liveCells() === 0` as "the district is silent", and folding in a channel that decays over hours
+  would have broken the noise criterion for no reason. Scent got sibling methods instead.
+
 ## What the noise spine made structural
 
 Four decisions that are cheap now and expensive to reverse later:
@@ -169,36 +204,83 @@ Four decisions that are cheap now and expensive to reverse later:
   seen the consequence before now. Whether it makes shouting the only interesting verb is a
   playtest question, not an arithmetic one.
 
+## What scent changed, and what it corrected
+
+Four things came out of this build that are worth more than the checkbox.
+
+**Field memory works, and does the opposite of what the doc said.** The acceptance check passed
+decisively — but not by making a mill site sticky. Residue makes the **horde migrate**: it lays
+scent, the plume drifts downwind, it climbs into its own plume, and repeats, crossing most of a
+district in an hour. With residue off it stays within 7 m of where it gathered. So the site it
+gathered at actually *empties faster* — 37 bodies within 50 m at twenty minutes, against 73 with the
+mechanic off. It is self-limiting: the crowd spreads along the district edge, the residue burns out,
+they disperse. This is better than what was specified — the horde now has a location and a heading
+between events, and wind became tactical before the weather system exists — but
+[docs/03 was wrong and is corrected](docs/03-attention.md#what-field-memory-turned-out-to-actually-do)
+rather than quietly reworded.
+
+**Scent needed a floor of its own, and sharing noise's silently broke it.** The noise floor sits near
+zero so `reach = magnitude ÷ attenuation` holds exactly — an identity a diffusive channel does not
+have. Sharing it made the *floor*, not the half-life, govern how long a smell lasted: diffusion
+dilutes a plume until every cell crosses the threshold at about the same moment, so a deposit
+evaporated in ~2 minutes while the calibration claimed 90. This was invisible in the arithmetic and
+only showed up when the lifetime was measured. There is a guard on it now.
+
+**Risk 5 is closed, and it was never the cost.** Continuous diffusion is 0.0377 ms per step, 0.0075 ms
+amortised per tick — a tenth of a percent of the budget — and it is the *same* cost whether the
+district is saturated with scent or completely fresh, because the step scans the grid rather than the
+live cells. The roadmap has feared this since it was written. What actually scales with the horde is
+per-entity AI, which noise already paid for. **The hard part of scent was calibration, not
+performance**, and that is the useful thing to carry into light.
+
+**A guard that looked rigorous tested nothing — the third one so far.** The scent lifetime test passed
+with the decay term deleted outright, because a plume still evaporates by dilution. Decay only
+accounts for about a quarter of the loss, so the 90-minute half-life was entirely untested behind it.
+Fixed by measuring decay in isolation, with the diffusion rate set to zero. **Covering the behaviour
+is not covering the constant that produces it.**
+
 ## Do this next
 
-**Scent.** It is the next thing in `TODO.md` and it carries both remaining risks at once.
+**Light and shadowcasting.** It is the third channel and the last one Milestone 1 owes, and unlike
+scent it carries no open risk — which is a good reason to take it now rather than saving it.
 
-- **Scent is the risky part**, not noise. Noise is event-driven and measurably free; scent is the
-  continuous channel [risk 5](docs/23-roadmap.md#risks) actually names, and it is still untested.
-- **Field memory rides on scent** and has never been observed working, so the acceptance check is
-  real: switch residue off, and if nothing observable changes, cut the mechanic.
-- Doing both in one build is the point — [the roadmap says so](docs/23-roadmap.md#risks): *one build,
-  two checkpoints.*
+- It is the only channel that is **not a field propagation at all**: shadowcasting from emitters,
+  recomputed on emitter or occluder change, not diffused and not flooded. Expect to reuse the cell
+  geometry and almost none of the propagation code.
+- The overlay is already a channel cycler, so it has somewhere to go on arrival.
+- Sensory profiles already read all three weights from content; light is the one still ignored in
+  code. Screamers weight it 0.9 against a shambler's 0.1, so this is where "there is no single
+  silence" stops being a slogan.
 
-After that: light and shadowcasting, the spatial hash (deferred on purpose — gradient ascent needs no
-neighbour queries), the melee loop, day/night, and the propagation budget with its overflow queue.
+Take the **melee loop** after it — that is what makes the spatial hash worth building, and the hash
+is deliberately still deferred until something needs neighbour queries.
+
+Still open and unclaimed: day/night, the per-tick propagation budget with its overflow queue, and
+`Pursue on direct contact`.
 
 ## Open questions nobody has answered
 
-- **Is being quiet *tense*, or just slow?** Needs a human playing — and now there is a build to play.
-  With noise as the only channel, quiet is *completely* safe: stand still and the field is literally
-  zero live cells. That is the design as specified, and the strongest argument that scent isn't
-  optional.
+- **Is being quiet *tense*, or just slow?** Half-answered, and the half that is answered is the one
+  that was blocking. Quiet is no longer *completely safe* — the noise field still reads zero live
+  cells when you stand still, but scent finds you anyway over about an hour, 30 bodies within 50 m
+  becoming 76. Whether an hour of creeping pressure *plays* as tense or merely as slow is still a
+  question for a human at a keyboard, but it is now a tuning question rather than a design hole.
 - **Does one shout being a district-wide event make shouting the only verb?** New, from watching it
   run. The magnitudes are right and the reach is what docs/03 calibrated for; the question is whether
   a stimulus that always recruits everybody leaves room for the quieter ones.
-- **Scent cost.** Untested. It's the continuous channel [risk 5](docs/23-roadmap.md#risks) is actually
-  about, so that risk is narrowed, not closed. It now carries a second question too: field memory has
-  never been observed working, because it needs scent to exist first.
+- **Does a migrating horde make the district legible or unpredictable?** New, and the most interesting
+  thing this build produced. A disturbed horde now walks off downwind following its own scent, which
+  means the player can *read* where it went from the wind — or be surprised by a crowd arriving from
+  a direction nothing happened in. Which of those it feels like is a playtest question.
+- **Is 90 minutes the right scent half-life?** It is the constant the whole channel's feel rests on
+  and it was picked, not derived. Residue lasts ~40 minutes in practice, which is what makes the
+  migration self-limiting; halving or doubling it changes how long a mistake follows you around.
 - **How long is a day, really?** Four hours at 1× is still a guess.
 - The rest are listed under "Open questions" in [`docs/23-roadmap.md`](docs/23-roadmap.md).
 
-*"How big is a district?" is no longer among them — it's 256 m, forced by the noise calibration.*
+*"How big is a district?" is no longer among them — it's 256 m, forced by the noise calibration.
+"What does continuous scent cost?" is no longer among them either — 0.0075 ms a tick, and it was
+never going to be the problem.*
 
 ## Conventions and gotchas
 
@@ -227,6 +309,19 @@ The noise spine's three guards were each broken on purpose and confirmed red:
 - Delete the angular bias → twenty shamblers in one cell collapse to a single heading.
 - Delete the decay system → the district never falls silent.
 - Delete the travel commitment → the horde forgets the moment the gradient dies.
+
+Scent's seven were done the same way, and one of them found a hollow guard on the first try:
+
+- `addScent` sums → change it to `max` and two bodies stop smelling more than one.
+- Wind weights → pair each neighbour with its own weight instead of the opposite one and the plume
+  drifts *upwind*.
+- Scent decay → **the first version of this guard passed with the decay term deleted**, because a
+  plume evaporates by dilution anyway. Now measured in isolation with the diffusion rate at zero.
+- The scent floor → point it at noise's floor and a smell's lifetime collapses.
+- Kernel diffusion → unregister the system and the field only ever holds what emitters wrote.
+- The scent bias → remove it from the wander branch and standing still is safe forever again.
+- Residue → the acceptance check *is* the mutation, and it toggles a shipped module rather than
+  editing the code under test.
 
 One of those, the decay system, needed a **second** test written for it: the arithmetic was already
 covered by a unit test calling `decay()` directly, which passed happily with the system unregistered.

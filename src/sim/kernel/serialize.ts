@@ -9,6 +9,10 @@
  * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
  * pre-1.0 (docs/19-architecture.md#save-model).
  *
+ * 4: the scent channel joined the field, and `AttentionEmitter` grew a scent magnitude.
+ *    Both change the shape of the snapshot. Scent is stored sparsely like noise, but it
+ *    decays over tens of minutes rather than seconds, so a save taken at a smelly moment
+ *    legitimately carries far more live cells than a loud one ever did.
  * 3: the attention field joined the snapshot. A horde converging on a shout is mid-response
  *    to a field that no longer exists if the field is dropped, so loading would rewind the
  *    stimulus while leaving its consequences walking. Stored sparsely -- live cells only.
@@ -17,7 +21,7 @@
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at

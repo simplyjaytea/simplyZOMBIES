@@ -33,6 +33,21 @@ const COLOURS = {
  */
 const OVERLAY_FULL_SCALE = 180;
 
+/**
+ * Scent magnitude the overlay scales against.
+ *
+ * Much lower than the noise scale, and not comparable to it. The two channels are measured
+ * in their own units -- a shout is 120 of noise, while a living human is 1 of scent and a
+ * lived-in cell settles somewhere under 20 -- so a shared scale would render every scent
+ * field as an empty screen.
+ */
+const SCENT_FULL_SCALE = 20;
+
+/** Which channel the debug overlay is showing. `O` cycles through these in order. */
+export type OverlayChannel = "off" | "noise" | "scent";
+
+export const OVERLAY_CHANNELS: readonly OverlayChannel[] = ["off", "noise", "scent"];
+
 /** A position remembered from the previous tick, for interpolation. */
 type Previous = { x: number; y: number };
 
@@ -66,7 +81,7 @@ export class Renderer {
    * skill, and an overlay hands it over. It exists because the alternative when tuning
    * propagation is inferring a scalar field from where the bodies went.
    */
-  showAttention = false;
+  attentionChannel: OverlayChannel = "off";
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -193,7 +208,7 @@ export class Renderer {
     const bounds = visibleBounds(camera);
     const radius = Math.max(2, camera.zoom * 0.35);
 
-    if (this.showAttention) this.drawAttention(world, camera, bounds);
+    if (this.attentionChannel !== "off") this.drawAttention(world, camera, bounds);
 
     ctx.fillStyle = COLOURS.wanderer;
     let drawn = 0;
@@ -232,7 +247,14 @@ export class Renderer {
     bounds: { minX: number; maxX: number; minY: number; maxY: number },
   ): void {
     const field = world.field;
-    if (field.cellCount === 0) return;
+    if (field.cellCount === 0 || this.attentionChannel === "off") return;
+
+    const scent = this.attentionChannel === "scent";
+    const layer = scent ? field.scent : field.noise;
+    const fullScale = scent ? SCENT_FULL_SCALE : OVERLAY_FULL_SCALE;
+    // Orange for noise, green for scent -- far enough apart to tell at a glance which
+    // channel is on screen, since the shapes they make are so different.
+    const tint = scent ? "120, 190, 110" : "226, 122, 78";
 
     const ctx = this.ctx;
     const size = field.cellMetres;
@@ -244,13 +266,13 @@ export class Renderer {
 
     for (let row = minRow; row <= maxRow; row++) {
       for (let col = minCol; col <= maxCol; col++) {
-        const value = field.noise[row * field.cols + col] as number;
+        const value = layer[row * field.cols + col] as number;
         if (value === 0) continue;
         // Square-rooted, because a linear ramp makes everything but the source invisible --
         // the tail of a shout is what you actually need to see when tuning falloff.
-        const intensity = Math.min(1, Math.sqrt(value / OVERLAY_FULL_SCALE));
+        const intensity = Math.min(1, Math.sqrt(value / fullScale));
         const { sx, sy } = worldToScreen(camera, col * size, row * size);
-        ctx.fillStyle = `rgba(226, 122, 78, ${(intensity * 0.55).toFixed(3)})`;
+        ctx.fillStyle = `rgba(${tint}, ${(intensity * 0.55).toFixed(3)})`;
         ctx.fillRect(sx, sy, screenSize, screenSize);
       }
     }
