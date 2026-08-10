@@ -4,6 +4,7 @@
 // check -- so all four exercise the same startup path. If the benchmark booted differently
 // from the game it would be measuring something the game never does.
 
+import { WEAPONS } from "./combat";
 import type { ContentRegistry } from "./content/registry";
 import { AttentionField, DEFAULT_CALIBRATION, type Calibration } from "./field/attention";
 import { Facing, Position, Velocity } from "./kernel/components";
@@ -11,8 +12,11 @@ import type { EntityId } from "./kernel/entities";
 import { TICK_HZ, World } from "./kernel/world";
 import { DISTRICT_TILES, findOpenTile, generateDistrict, type TileMap } from "./map/tilemap";
 import { ModuleRegistry, type Module } from "./modules";
+import { SpatialHash } from "./spatial/hash";
 import { attentionModule, makeEmitter } from "./modules/attention";
 import { fieldMemoryModule } from "./modules/field-memory";
+import { healthModule, makeBody, makeStamina } from "./modules/health";
+import { makeMeleeArmed, meleeModule } from "./modules/melee";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
 import { makeShambler, shamblerModule } from "./modules/shambler";
@@ -23,6 +27,8 @@ import { DAYLIGHT_EYES, Observer, SHAMBLER_EYES } from "./vision/visibility";
 export const ALL_MODULES: readonly Module[] = [
   attentionModule,
   fieldMemoryModule,
+  healthModule,
+  meleeModule,
   movementModule,
   playerModule,
   shamblerModule,
@@ -98,7 +104,12 @@ export function boot(options: BootOptions): Boot {
 
   const map = generateDistrict(seed, mapSize);
   const field = AttentionField.forMap(map, calibration, TICK_HZ);
-  const world = new World(seed, { field, ...(content === undefined ? {} : { content }) });
+  const spatial = SpatialHash.forMap(map);
+  const world = new World(seed, {
+    field,
+    spatial,
+    ...(content === undefined ? {} : { content }),
+  });
 
   // Decay and propagation are kernel, not module. The field is kernel state, and a module
   // that could be switched off must not be what stops noise from fading -- that would turn
@@ -144,6 +155,20 @@ export function boot(options: BootOptions): Boot {
   // In `movement`, after `movement.integrate` (order 0), because a view computed before the
   // bodies moved is a view of where they were -- and it is the one place in the tick where
   // both position and facing are final for everybody.
+  // The spatial hash is kernel beside the two above, and rebuilt here rather than lazily on
+  // first query: a lazy rebuild would make the answer depend on who asked first, which is a
+  // determinism bug that only appears once two systems both want neighbours.
+  //
+  // Order 50 puts it after `movement.integrate` (order 0) and before `kernel.visibility`
+  // (order 100) -- late enough that every body is where it ends the tick, early enough that
+  // the combat phase, which runs next, is asking about final positions rather than stale ones.
+  world.systems.register({
+    id: "kernel.spatial",
+    phase: "movement",
+    order: 50,
+    run: (w) => w.spatial.rebuild(w),
+  });
+
   world.systems.register({
     id: "kernel.visibility",
     phase: "movement",
@@ -188,6 +213,14 @@ export function boot(options: BootOptions): Boot {
   // multiplayer host will carry one of these per client survivor.
   world.components.set(player, Observer, { ...DAYLIGHT_EYES });
   makeEmitter(world, player);
+  // Something to spend. Handed out here rather than by the health module for the same reason
+  // eyes are: being able to tire is a property of being a body, not of being controlled.
+  makeStamina(world, player);
+  // A bat, because it is the middle of the three and the one that shows the loop best: enough
+  // reach to be usable, enough stagger to make a crowd survivable, heavy enough that the
+  // windows are visible. Which weapon a survivor holds becomes an inventory question when
+  // docs/10's item system lands.
+  makeMeleeArmed(world, player, WEAPONS.bat);
 
   const placeRng = world.rng.stream("placement");
   for (let i = 0; i < wanderers; i++) {
@@ -197,6 +230,7 @@ export function boot(options: BootOptions): Boot {
     world.components.set(entity, Velocity, { dx: 0, dy: 0 });
     world.components.set(entity, Facing, { radians: 0 });
     makeShambler(world, entity, placeRng);
+    makeBody(world, entity);
     if (i < observers) world.components.set(entity, Observer, { ...SHAMBLER_EYES });
   }
 

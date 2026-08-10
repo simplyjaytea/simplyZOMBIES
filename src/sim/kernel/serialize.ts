@@ -23,6 +23,10 @@
  *    Both change the shape of the snapshot. Scent is stored sparsely like noise, but it
  *    decays over tens of minutes rather than seconds, so a save taken at a smelly moment
  *    legitimately carries far more live cells than a loud one ever did.
+ * 7: combat. Body, Stamina, MeleeWeapon and Swing are components, so they ride the
+ *    component snapshot without any change to the shape of a save -- but a version 6 file
+ *    describes a world where zombies had no head to destroy and a survivor could not tire,
+ *    and loading one into this build would produce shamblers that no swing can kill.
  * 3: the attention field joined the snapshot. A horde converging on a shout is mid-response
  *    to a field that no longer exists if the field is dropped, so loading would rewind the
  *    stimulus while leaving its consequences walking. Stored sparsely -- live cells only.
@@ -31,7 +35,7 @@
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at

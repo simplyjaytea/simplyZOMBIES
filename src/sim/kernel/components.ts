@@ -65,6 +65,36 @@ export class ComponentStore {
   }
 
   /**
+   * Every entity carrying one component, paired with its data, **in unspecified order** and
+   * without allocating or sorting.
+   *
+   * The escape hatch from {@link query}'s ordering guarantee, and it comes with a contract
+   * the caller must satisfy rather than merely read:
+   *
+   * > **The answer you produce must not depend on the order you visited in.**
+   *
+   * That is a much narrower licence than "this is the fast one". It fits building an index
+   * that is re-sorted before anyone reads it, or summing a value; it does not fit anything
+   * that picks a winner, breaks a tie, or draws from an RNG stream per entity. Insertion
+   * order reflects the particular sequence of spawns and despawns that produced it, which a
+   * freshly loaded save does not reproduce -- so a consumer that leaks visit order into
+   * state is a determinism bug that survives every test until someone loads a save.
+   *
+   * It exists because `query` allocates an array and sorts it, and the spatial hash rebuilds
+   * from every `Position` in the world on every single tick.
+   *
+   * A callback rather than an iterator, and that is a measurement rather than a style
+   * preference: `Map.entries()` allocates a two-element array per entry, so an iterator form
+   * hands the collector one throwaway pair per entity per tick. `Map.forEach` allocates
+   * nothing.
+   */
+  forEachWith<T>(type: ComponentType<T>, visit: (entity: EntityId, data: T) => void): void {
+    const store = this.stores.get(type.id);
+    if (store === undefined) return;
+    store.forEach((data, entity) => visit(entity, data as T));
+  }
+
+  /**
    * Entities carrying every listed component, **in ascending entity order**.
    *
    * The ordering is a determinism requirement, not a convenience. A Map iterates in

@@ -107,3 +107,33 @@ describe("RngRegistry", () => {
     expect(Object.keys(reg.save())).toEqual(["alpha", "mike", "zulu"]);
   });
 });
+
+describe("restoring a registry", () => {
+  it("keeps the stream objects, so a reference held across a load still works", () => {
+    // A module may fetch its stream once at registration instead of once per tick. If a load
+    // replaced the object, that module would draw from an orphan for the rest of the run --
+    // a sequence that diverges only after a save/load, and only for one subsystem.
+    const registry = new RngRegistry(4242);
+    const held = registry.stream("melee");
+    held.next();
+    const saved = registry.save();
+
+    const drawnAfterSave = [held.next(), held.next()];
+
+    registry.restore(saved);
+    expect(registry.stream("melee")).toBe(held);
+    expect([held.next(), held.next()]).toEqual(drawnAfterSave);
+  });
+
+  it("resets a stream the save does not mention, rather than leaving it running", () => {
+    const registry = new RngRegistry(4242);
+    const fresh = new RngRegistry(4242).stream("weather").next();
+
+    const weather = registry.stream("weather");
+    weather.next();
+    weather.next();
+
+    registry.restore({ melee: 1 });
+    expect(weather.next()).toBe(fresh);
+  });
+});

@@ -20,7 +20,16 @@ export type Command =
    * field, which makes it the cheapest way to ask docs/03's question out loud: what happens
    * to a district when you stop being quiet?
    */
-  | { type: "shout" };
+  | { type: "shout" }
+  /**
+   * Swing whatever is held, at whatever the survivor is facing.
+   *
+   * Carries no target and no direction. Both are read from the world at the moment the blow
+   * lands rather than at the moment the key was pressed -- which is what makes the wind-up a
+   * real window (docs/09-combat.md#swing-loop) rather than a delay before a decision that was
+   * already made. Turning away mid-wind-up misses, and that has to be possible.
+   */
+  | { type: "swing" };
 
 export type CommandType = Command["type"];
 

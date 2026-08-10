@@ -97,6 +97,26 @@ export const SCENARIOS: readonly Scenario[] = [
     build: () => boot({ seed: SEED, wanderers: 2000, observers: 50 }).world,
   },
   {
+    id: "crowded-and-swinging",
+    description:
+      "The neighbour query, under load: 2,000 bodies as in `crowded`, with the survivor " +
+      "swinging as fast as the loop allows. Every connecting swing walks the spatial index " +
+      "and then the arc, which is the one thing in combat that touches other entities.",
+    // Deliberately the SAME budget as `crowded`, which is the claim worth guarding: the
+    // spatial index exists so that asking "what is within reach" is not a function of how
+    // many bodies are in the district. If this ever separates from its twin, the query has
+    // stopped being local -- which is the exact failure the index was built to prevent, and
+    // the reason docs/22 deferred building it until combat could measure it.
+    tickBudgetMs: 4,
+    entities: 2000,
+    build: () => boot({ seed: SEED, wanderers: 2000 }).world,
+    drive: (world) => {
+      // Every tick. The sim refuses the ones that arrive mid-window, so this measures a
+      // survivor swinging continuously rather than a queue building up.
+      world.commands.push({ type: "swing" });
+    },
+  },
+  {
     id: "five-hundred-milling",
     description:
       "The synthetic 500-zombie load docs/23-roadmap.md#risks has asked for since the " +
