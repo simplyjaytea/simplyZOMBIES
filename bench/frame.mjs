@@ -186,7 +186,14 @@ async function main() {
     const fps = 1000 / result.frame.avg;
     const workMs = result.draw.avg + result.simMs;
 
-    console.log(`  entities   ${result.entities}, ${result.visible} drawn`);
+    // `hidden` is reported because it is what the draw number now depends on. Occlusion
+    // took the entity count on screen from tens to a handful, which means this benchmark
+    // guards drawing *less* than it used to -- the same caveat docs/22 already records about
+    // viewport culling, arriving a second time. It will matter when sprites replace flat
+    // rectangles.
+    console.log(
+      `  entities   ${result.entities}, ${result.visible} drawn, ${result.hidden ?? 0} hidden`,
+    );
     console.log(`  ticks      ${result.tick}`);
     console.log(`  samples    ${result.samples} frames over ${SECONDS}s`);
     console.log(`  sim        ${result.simMs.toFixed(2)} ms/tick`);

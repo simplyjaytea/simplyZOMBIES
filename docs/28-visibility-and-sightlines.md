@@ -8,13 +8,47 @@ them is a cheat.*
 
 ---
 
-## The wallhack is already shipped
+## What is built
 
-Honest disclosure first, because it changes what this document is for.
+The **primitive is built** — occluder classes, symmetric shadowcasting, arcs, the
+recompute-on-change cache, and the renderer occlusion that closes the wallhack below. Its three
+consumers are not all built: the renderer is, the light channel is not, and multiplayer is a
+milestone away. What follows is still the specification; this section is the running tally.
 
-`src/render/renderer.ts` draws every entity inside the camera viewport. It does not ask whether
-there is a wall between that entity and the survivor, because nothing in the codebase has ever asked
-what a survivor can see. In single-player that is a mild cheat against
+| Piece | State |
+|---|---|
+| Occluder classes, opacity and solidity as two properties | **Built** — `src/sim/map/tilemap.ts` |
+| Symmetric recursive shadowcasting, integer-only | **Built** — `src/sim/vision/shadowcast.ts` |
+| Focal and peripheral arcs, nothing behind | **Built** — `src/sim/vision/visibility.ts` |
+| Recompute on change, not on tick | **Built**, and measured: 690 shadowcasts across 600 ticks with 51 observers |
+| Renderer occlusion | **Built** — 11 bodies drawn where 216 were in the viewport |
+| Last-known position memory | **Half** — the renderer fades a mark where a body was last seen; the simulation has no per-observer memory and no prose yet |
+| The light channel | **Not built.** Next |
+| Zombies reading light | **Not built** — arrives with the channel, so sight and its one new stimulus land together |
+| The multiplayer filtered view | Milestone 3, unchanged |
+
+Three things were learned building it, and they are recorded where they contradict something:
+
+- **Sight is a bigger change to how the game reads than to what it costs.** In a 2,000-body
+  district the survivor sees 11 bodies where the renderer used to draw 216. The
+  [open question](23-roadmap.md#open-questions) that produced is whether a district you cannot
+  see is tense or merely opaque, and it needs a human at a keyboard.
+- **Turning is free and walking is not**, which is the opposite of the intuition the arcs
+  suggest. Arcs are a dot product evaluated per query; the shadowcast is cached per *tile*. So
+  an observer spinning on the spot costs nothing at all, and one crossing a tile boundary pays
+  the whole thing.
+- **The frame benchmark now guards drawing less than it did.** Occlusion removed 95% of the
+  entities it was measuring. That is the second time a mitigation has weakened this benchmark —
+  [viewport culling was the first](22-performance.md#the-ci-benchmark-suite) — and it is
+  recorded rather than quietly accepted.
+
+## The wallhack was shipped, and is not any more
+
+Honest disclosure first, because it is what this document was for.
+
+`src/render/renderer.ts` drew every entity inside the camera viewport. It did not ask whether
+there was a wall between that entity and the survivor, because nothing in the codebase had ever asked
+what a survivor could see. In single-player that is a mild cheat against
 [clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) — you are told where the
 bodies are through a building, which is exactly the uncertainty the clause exists to protect.
 
@@ -25,15 +59,16 @@ a client may know, sending it to a client that then draws whatever it has throug
 nothing at all. **The filtered view is only as good as the visibility query behind it**, and there
 isn't one.
 
-So this is not a new feature bolted on for PVP. It is the missing half of three things already
-committed to.
+So this was not a new feature bolted on for PVP. It was the missing half of three things already
+committed to. **The renderer now asks**, through the one query below, and what it may not see it
+does not draw.
 
 ## One primitive, three consumers
 
 | Consumer | Question it asks | Status today |
 |---|---|---|
-| **The light channel** | Which cells can this emitter illuminate? | Specified in [docs/03](03-attention.md), unbuilt — the open Milestone 1 task |
-| **The renderer** | Which entities may this survivor be drawn as seeing? | Never asked. Draws the whole viewport |
+| **The light channel** | Which cells can this emitter illuminate? | Specified in [docs/03](03-attention.md), unbuilt — and now the *only* thing standing between the emitter table and a live third channel |
+| **The renderer** | Which entities may this survivor be drawn as seeing? | **Built.** Asks `world.vision`, draws nothing it is not told about |
 | **The multiplayer host** | Which entities and cells may this client be sent? | Promised by [docs/27](27-multiplayer.md#the-filtered-view), unbuilt |
 
 **Design rule:** one visibility computation per observer per tick, at most, and no consumer computes
@@ -58,6 +93,15 @@ An observer is any entity that can see: survivors, NPCs, and — with a much wor
 
 The arcs are deliberately not given angles in this document. They are the first thing that gets tuned
 once there is something to tune them against, and writing a number here would make it look decided.
+The build carries them **per observer** rather than as constants, for that reason and one more: a
+survivor and a [screamer](14-zombies.md#first-wave-week-6) will not share them. What shipped is a
+60° focal cone inside a 190° field of view for a survivor, and a shorter, wider, almost entirely
+peripheral one for a shambler — starting points, in one place, still not decided.
+
+**Range is the field that is wrong on purpose.** It is a property of light, and there is no light
+yet, so it is a daylight constant a little wider than the viewport. When the channel lands, that
+field stops being a constant and becomes a lookup — a change to one number, which is the whole
+reason it is a field on the observer rather than a parameter of the query.
 
 ## What blocks sight
 
@@ -84,19 +128,40 @@ cosmetic, and it is the only place a 2D map gets to have a height without
 ## Shadowcasting, and when it runs
 
 Recursive shadowcasting over the tile grid, from the observer or emitter outward, bounded by range.
+The variant built is **Albert Ford's symmetric shadowcasting**: a floor tile is revealed only when
+its *centre* falls inside the scanned wedge, which is the condition that makes the relation
+symmetric. The cheaper permissive variants reveal a tile when any part of it is touched, and they
+are not symmetric — which the guard catches, because making the reveal permissive is one of the
+mutations it was tested against.
+
 Two properties matter more than the algorithm choice:
 
 - **Symmetry.** If A can see B, B can see A. Asymmetric visibility is defensible in some games and
   indefensible in one where the other party might be a person with a rifle.
 - **Determinism.** It runs inside `sim/`, on integer tile coordinates, with no floating-point
   accumulation across cells — same seed, same inputs, same visible set, per
-  [architecture](19-architecture.md#determinism).
+  [architecture](19-architecture.md#determinism). Slopes are kept as rational `{n, d}` pairs and
+  compared by cross-multiplication rather than divided into floats, so no platform is left free to
+  round a wedge boundary its own way. The float in the system is the arc test, which is a single
+  dot product against a heading and accumulates nothing.
+
+  **The result is derived state, and deliberately not in the save.** It is a pure function of
+  positions, facings and the map — all three of which the snapshot already holds — so storing it
+  would create a second copy of a fact and a way for a save to disagree with itself. It rebuilds on
+  the first tick after a load, exactly as the tile map regenerates from the seed.
 
 **Recompute on change, not on tick.** An observer that has not moved to a new tile, not turned, and
 whose surroundings have not changed sees exactly what it saw last tick.
 [Performance](22-performance.md) already makes this claim for the light channel — *"recomputed only
 when an emitter changes state or an occluder moves. Static most of the time."* — and the same caching
 rule covers observers.
+
+**Cached per tile, not per view**, which is what makes turning free: the arcs are evaluated against
+the cached geometry at query time, so an observer that spins in place does not recompute anything.
+Measured across 600 ticks with 51 observers in a 2,000-body district: **690 shadowcasts**, a little
+over one per tick, and `crowded-and-watched` lands inside the budget of its sightless twin. The
+number that should worry a future session is not that one — it is what happens when the observers
+are *sprinting*, since a body crossing a tile every three ticks pays every three ticks.
 
 **The cost shape is new, and it is worth saying so.** Every existing budget scales with entity count
 against a *shared* field: noise propagation is one flood-fill no matter who is listening, and scent

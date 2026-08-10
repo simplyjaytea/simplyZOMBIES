@@ -1,8 +1,9 @@
 # Handoff
 
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
-updated 2026-08-06 when the noise spine landed, 2026-08-10 when scent did, and again the same day
-when seven multiplayer-era features were specified into the doc set.
+updated 2026-08-06 when the noise spine landed, 2026-08-10 when scent did, again the same day when
+seven multiplayer-era features were specified into the doc set, and again when the visibility
+primitive closed the wallhack.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -12,10 +13,10 @@ when seven multiplayer-era features were specified into the doc set.
 
 | | |
 |---|---|
-| **Phase** | **Milestone 1, phase 2 done: scent.** Shout and the district walks toward you in a minute. Say nothing at all and it still finds you, in an hour. |
+| **Phase** | **Milestone 1, phase 3 done: sight.** Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. And now you cannot see it coming through a wall. |
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — all of Milestone 0 |
-| **In flight** | scent: continuous diffusion, wind, field memory, and the two ⚠ checkpoints that were riding on it — **both now closed** |
-| **Next real work** | **[Visibility & sightlines](docs/28-visibility-and-sightlines.md)** — light and shadowcasting turned out to be the small half of it — then the melee loop. See [Do this next](#do-this-next). |
+| **In flight** | nothing. The visibility primitive landed: occluder classes, symmetric shadowcasting, arcs, recompute-on-change, renderer occlusion |
+| **Next real work** | **[The light channel](docs/03-attention.md#light)** — the third channel, and now the only thing between the emitter table and a live one, because the primitive it was waiting on is built. Then the melee loop. See [Do this next](#do-this-next). |
 | **Also landed, as design only** | **[Multiplayer](docs/27-multiplayer.md)** — authoritative host, survivor-vs-survivor PVP, and voice as a noise emitter. Specified, docs reconciled, **no engine code**. Filed as Milestone 3. |
 | **And, also design only** | **[Visibility](docs/28-visibility-and-sightlines.md)** and **[movement stances](docs/29-movement-and-stances.md)**, plus the [condition view](docs/05-health-injury.md#the-condition-view), [aiming](docs/09-combat.md#aiming), and [z-levels deferred in writing](docs/23-roadmap.md#deferred-z-levels). Again **no engine code** — two of these are now Milestone 1 tasks. |
 
@@ -40,6 +41,7 @@ TODO.md         The backlog through Milestone 2, with all 8 roadmap risks pinned
                 task that answers each one. Milestone 0 and the noise spine are ticked.
 src/sim/        The simulation. Pure, headless, deterministic — kernel, modules, rng.
 src/sim/field/  The attention field. Kernel, not a module (see below).
+src/sim/vision/ Sightlines: the shadowcast, and every observer's cached view. Also kernel.
 src/render/     Canvas renderer. Reads the sim, never writes to it.
 src/platform/   The host: input, the tick loop, storage, content loading, schemas.
 content/        JSON content plus its JSON Schemas.
@@ -55,7 +57,7 @@ exactly as the previous handoff said it could be. `docs/23-roadmap.md` keeps the
 ```bash
 npm install
 npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 169 tests (~40 s -- the scent ones simulate hours)
+npm test                 # correctness: 200 tests (~40 s -- the scent ones simulate hours)
 npm run typecheck        # two projects — see the sim/ purity gate below
 npm run lint
 npm run bench            # tick budgets
@@ -63,7 +65,7 @@ npm run bench:frame      # frame budget, drives real Chromium
 ```
 
 In the browser: `WASD` move · `Shift` sprint · **`Space` shout** · **`O` cycles the attention overlay
-(off → noise → scent)** · `P` pause · `F5` save · `F9` load.
+(off → noise → scent → sight)** · `P` pause · `F5` save · `F9` load.
 
 **Press space.** 4,055 of the district's 4,096 field cells go live, 298 of 300 shamblers switch to
 seeking, and over the next minute the crowd within 50 m goes from about 30 bodies to about 90. Then
@@ -78,6 +80,18 @@ document has been asking since the noise spine.
 **And press `O` twice** to put the scent overlay up, then watch a horde you disturbed walk off
 downwind following its own smell. That one was not designed; see [what scent
 changed](#what-scent-changed-and-what-it-corrected).
+
+**Then look at what you can no longer see.** The HUD's `sight` line counts the bodies inside the
+viewport that the survivor has no sightline to; in a 2,000-body district it reads about **205 hidden
+against 11 drawn**. Every one of those 205 used to be on screen. Walk into a building and the street
+disappears; stand in the doorway and it comes back through the gap. **Press `O` a third time** for
+the sight overlay, which draws the visible set itself — the wedge fanning out of a doorway and
+stopping dead at the next building is the primitive working. Bodies you lose behind a wall leave a
+mark that fades over three seconds and **does not follow them**, which is the difference between
+remembering and being told.
+
+Note the second number on that line: `shadowcasts`. It goes up when you cross a tile boundary and
+sits still when you turn, which is the whole cost argument in one counter.
 
 The HUD shows live cells and peak for **both channels**, the horde's state counts, and a **state
 fingerprint** — that string is what the determinism test compares.
@@ -149,6 +163,33 @@ because these are the ones you will trip over:
   This is also how sandbox presets and storyteller settings get implemented later — not as special
   cases, as this.
 
+## What sight made structural
+
+Five decisions that are cheap now and expensive later:
+
+- **Opacity and solidity are two properties, never one enum.** A window stops a body and not a
+  sightline; a curtain stops a sightline and not a body. docs/28 calls conflating them "the single
+  most likely way to get this wrong", and the guard is not a comment — `blocksSight` and `isSolid`
+  read different tables, and defining one as the other turns three tests red.
+- **The primitive is kernel, and it has exactly one implementation.** `world.vision` exists in a
+  world booted with every module off, for the same reason field decay does: a module that can be
+  switched off must not be what decides whether the game draws through walls. The renderer asks it
+  rather than running a cheaper check of its own, because the place two line-of-sight checks
+  disagree is the place the exploit lives.
+- **Geometry is cached, arcs are not.** The shadowcast is keyed on the observer's *tile*; the focal
+  and peripheral cones are a dot product evaluated per query. So turning on the spot is free and
+  crossing a tile boundary is not, which is the opposite of what the arcs suggest and the reason
+  the cost holds at all. Fold facing into that key and the budget scenario still passes — only the
+  "turning is free" guard catches it.
+- **The visible set is derived, and stays out of the save.** It is a pure function of positions,
+  facings and the map, all three of which the snapshot already holds. Storing it would be a second
+  copy of a fact and a way for a save to disagree with itself.
+- **The occluder pass runs on its own RNG stream, after the layout.** Windows, foliage and low cover
+  are dressed onto a finished district rather than rolled with it, so the layout a seed produces is
+  byte-identical to the one every existing calibration was measured against. Drawing from the layout
+  stream would have moved every building — a change that only meant to add windows, quietly
+  relocating the district out from under the noise and scent numbers.
+
 ## What scent made structural
 
 Five more decisions that are cheap now and expensive later:
@@ -208,6 +249,42 @@ Four decisions that are cheap now and expensive to reverse later:
   seen the consequence before now. Whether it makes shouting the only interesting verb is a
   playtest question, not an arithmetic one.
 
+## What sight changed, and the guard it caught
+
+**The wallhack was bigger than it read on paper.** "The renderer draws every entity in the viewport"
+is one sentence; the number is 216 bodies in the viewport of which the survivor can actually see 11.
+Ninety-five percent of what the game was showing was information the player was not entitled to.
+That is worth knowing before playtesting anything about tension, because every previous session's
+sense of how the horde "reads" was formed against a district with no walls in it.
+
+**Turning is free and walking is not.** The intuitive model is that the arcs are the expensive part
+— they are what changes when you look around. The opposite is true, and only because of how the
+cache is keyed: the shadowcast is per *tile* and the arcs are a dot product per query. An observer
+spinning on the spot costs nothing at all. This is also the mutation that a lazy version of this
+work would fail silently — folding facing into the cache key passes the benchmark, passes every
+correctness test, and quietly makes looking around cost a shadowcast a tick.
+
+**The cost was never the shadowcast.** One 12 m cast is 0.07 ms and a 48 m one is 0.18 ms, which at
+20 Hz per observer per tick would be ruinous. Measured over 600 ticks with 51 observers: **690
+casts**, a little over one per tick, because a drifting body crosses a tile about every two seconds.
+`crowded-and-watched` lands at 1.34 ms against `crowded`'s 1.32 — inside the noise. **The budget is
+guarding the cache, not the algorithm**, and the case still unmeasured is observers that *sprint*,
+which pay every three ticks rather than every forty.
+
+**A guard that looked rigorous tested nothing — the fourth one so far.** The renderer-occlusion test
+counted bodies in range that the survivor could not see, and it passed with the sightline check
+deleted outright: the arcs alone hide everything behind you, so "some bodies in range are hidden"
+was true for a reason that had nothing to do with walls. Fixed by counting only bodies *inside the
+arcs*, which leaves occlusion as the only thing that can hide one, and backed by a two-tile case
+where a body is dead ahead behind a single wall. The pattern is now unmistakable, and it is always
+the same shape: **the guard passed because something else in the system produces the same
+observable.**
+
+**Something the frame benchmark lost.** Occlusion took the entities it measures from 216 to 11, so
+it now guards drawing 95% less than it did. This is the second mitigation to weaken it — viewport
+culling was the first — and it is [recorded in docs/22](docs/22-performance.md#the-ci-benchmark-suite)
+rather than quietly accepted. Anyone tightening that budget should raise the entity count first.
+
 ## What scent changed, and what it corrected
 
 Four things came out of this build that are worth more than the checkbox.
@@ -245,50 +322,52 @@ is not covering the constant that produces it.**
 
 ## Do this next
 
-**[Visibility and sightlines](docs/28-visibility-and-sightlines.md).** This was "light and
-shadowcasting" until the multiplayer work made it obvious that light is one of three consumers of the
-same query, and the smallest of the three. Build the primitive once.
+**[The light channel](docs/03-attention.md#light).** It has been the open Milestone 1 task since the
+noise spine, it was blocked on an algorithm, and the algorithm now exists.
 
-- Light is the only channel that is **not a field propagation at all**: shadowcasting from emitters,
-  recomputed on emitter or occluder change, not diffused and not flooded. Expect to reuse the cell
-  geometry and almost none of the propagation code.
-- The overlay is already a channel cycler, so it has somewhere to go on arrival.
-- Sensory profiles already read all three weights from content; light is the one still ignored in
-  code. Screamers weight it 0.9 against a shambler's 0.1, so this is where "there is no single
-  silence" stops being a slogan.
-- **The renderer draws every entity in the viewport, walls or not.** Nothing has ever asked what a
-  survivor can see. That is a wallhack in the shipped single-player build, it is the reason doc 28
-  exists, and fixing it is what makes the multiplayer filtered view buildable later.
-- Watch the budget. Per-observer visibility is the first cost in this project that does **not**
-  amortise across the horde — see
-  [the cost shape](docs/22-performance.md#visibility-is-a-different-cost-shape). Recompute on change,
-  and let the tiers do the rest.
+- Light *is* a shadowcast from the emitter with the emitter's magnitude as its range —
+  `shadowcast()` takes exactly those arguments. The emitter table does not change and nothing about
+  the field's structure changes.
+- The [sensory profile's](docs/14-zombies.md#sensory-profiles) Light column goes live with it. A
+  screamer weights light 0.9 against a shambler's 0.1, so this is where "there is no single silence"
+  stops being a slogan.
+- **Give zombies eyes in the same change, not before it.** `SHAMBLER_EYES` and
+  `boot({ observers })` exist and the cost is measured, but nothing hands a zombie an `Observer`
+  yet, deliberately: docs/14's first design rule is that sight must not make them tactical, and
+  landing sight and its one stimulus together is the safe way to honour that.
+- `Observer.rangeMetres` is a daylight constant *because there is no light to derive it from*. When
+  the channel lands it becomes a lookup, and that is the only field that changes.
+- One consequence to plan for: light is the only channel where a wall is an absolute rather than a
+  penalty. Noise pays 18 m-equivalent to cross one and scent ignores walls entirely. That asymmetry
+  is the counterplay — shutters work, and they work completely.
 
 Take the **melee loop** after it — that is what makes the spatial hash worth building, and the hash
 is deliberately still deferred until something needs neighbour queries.
-[Movement stances](docs/29-movement-and-stances.md) belong with it: they share stamina, and the
-stance ladder is where walking-1 and sprinting-6 become a decision rather than a shift key.
+[Movement stances](docs/29-movement-and-stances.md) belong with it: they share stamina, the stance
+ladder is where walking-1 and sprinting-6 become a decision rather than a shift key, and **the
+`Low` occluder class and the `Eye.Crouched` parameter are already in the map and the primitive**
+waiting for them — cover that hides you also blinds you, and both halves are one line each away.
 
 **Not multiplayer.** [Doc 27](docs/27-multiplayer.md) landed as a specification and the cut-list
 reversal is written into [the vision](docs/00-vision.md#cut-list), but nothing was built and nothing
 should be built yet. PVP is meaningless without the melee loop and the contested recovery run is
-meaningless without gear worth recovering, so it sits in Milestone 3 behind both.
-[Roadmap risk 9](docs/23-roadmap.md#risks) — what a client may know about the attention field — is
-narrower than it was: doc 28
-[proposes an answer](docs/28-visibility-and-sightlines.md#what-a-client-may-know--a-proposed-answer-to-risk-9)
-to validate rather than a blank page. It is still a **design** question to settle before any
-transport code exists.
+meaningless without gear worth recovering, so it sits in Milestone 3 behind both. What did change:
+[risk 9](docs/23-roadmap.md#risks) — what a client may know — now has a *buildable* answer rather
+than a proposed one, because the filtered view's missing half was this primitive. It is still a
+**design** question to settle before any transport code exists.
 
-**And not a health bar.** Item by item, the seven features that prompted this round are specified in
-the docs and backlogged; the one that was asked for and refused is a bar of any kind. The
-[condition view](docs/05-health-injury.md#the-condition-view) ships instead — a paperdoll of located
-conditions in skill-scaled prose, which carries strictly more information than a bar and none of it
-numeric. If a future session finds itself adding a fill percentage, that is the moment to re-read
-[clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than the
-moment to quietly amend it.
+**And not a health bar.** Item by item, the seven features that prompted the multiplayer round are
+specified in the docs and backlogged; the one that was asked for and refused is a bar of any kind.
+The [condition view](docs/05-health-injury.md#the-condition-view) ships instead — a paperdoll of
+located conditions in skill-scaled prose, which carries strictly more information than a bar and
+none of it numeric. If a future session finds itself adding a fill percentage, that is the moment to
+re-read [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than
+the moment to quietly amend it.
 
-Still open and unclaimed: day/night, the per-tick propagation budget with its overflow queue, and
-`Pursue on direct contact`.
+Still open and unclaimed: day/night, the per-tick propagation budget with its overflow queue,
+`Pursue on direct contact`, and the **simulation half of last-known-position memory** — the renderer
+fades a mark where a body was last seen, but no observer *remembers* anything, and the prose version
+belongs with the condition view.
 
 ## Open questions nobody has answered
 
@@ -307,6 +386,18 @@ Still open and unclaimed: day/night, the per-tick propagation budget with its ov
 - **Is 90 minutes the right scent half-life?** It is the constant the whole channel's feel rests on
   and it was picked, not derived. Residue lasts ~40 minutes in practice, which is what makes the
   migration self-limiting; halving or doubling it changes how long a mistake follows you around.
+- **Is a district you cannot see tense, or merely opaque?** New, and the most immediate consequence
+  of the visibility work. The survivor now sees 11 bodies where 216 were being drawn. Reading the
+  horde was already meant to be a skill; the question is whether removing that much information
+  makes the district feel dangerous or just makes it feel empty until something is suddenly adjacent.
+  A human at a keyboard, and the first thing to check next session.
+- **Are the arcs right?** 60° focal inside 190° total was picked, not derived, and docs/28
+  deliberately declined to name numbers so that nobody would read them as settled. They are per
+  observer and in one file. Widening the peripheral arc is a one-line experiment.
+- **Does a body standing still in your peripheral vision deserve to be invisible?** It is the
+  mechanic as specified — movement is noticed out there, identity is not — and it means a shambler
+  that stops moving nine metres to your left is simply not on screen. Correct, and possibly
+  horrible.
 - **How long is a day, really?** Four hours at 1× is still a guess.
 - **Is a session with no pause still this game?** New, from the multiplayer design. The core loop
   claims the tension comes from irreversibility rather than APM; multiplayer removes the pause and
@@ -359,6 +450,20 @@ Scent's seven were done the same way, and one of them found a hollow guard on th
 - The scent bias → remove it from the wander branch and standing still is safe forever again.
 - Residue → the acceptance check *is* the mutation, and it toggles a shipped module rather than
   editing the code under test.
+
+Sight's guards were done the same way, and the fourth hollow one turned up on the first try:
+
+- Reveal every tile the wedge touches instead of only those whose centre is inside it → the symmetry
+  check finds asymmetric pairs at every corner.
+- Define `blocksSight` as `isSolid` → three tests go red at once: the window, the foliage, the
+  low cover.
+- Ignore the eye level → standing and crouching see the same thing over a car.
+- Recompute unconditionally → "standing still is free" fails.
+- Fold facing into the cache key → "turning is free" fails, and *nothing else does*.
+- Make `invalidate()` a no-op → a wall built after the view was computed is invisible to it.
+- Delete the sightline check from `detail` → **the first version of this guard passed**, because the
+  arcs hide a third of a circle by themselves. Now counted inside the arcs only, plus a two-tile
+  case with one wall.
 
 One of those, the decay system, needed a **second** test written for it: the arithmetic was already
 covered by a unit test calling `decay()` directly, which passed happily with the system unregistered.

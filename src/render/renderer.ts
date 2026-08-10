@@ -12,18 +12,43 @@
 import { Facing, Position, Velocity } from "../sim/kernel/components";
 import type { EntityId } from "../sim/kernel/entities";
 import type { World } from "../sim/kernel/world";
-import { isWall, type TileMap } from "../sim/map/tilemap";
+import { opacityAt, Opacity, Tile, tileAt, type TileMap } from "../sim/map/tilemap";
 import { Controlled } from "../sim/modules/player";
+import { Detail, Observer } from "../sim/vision/visibility";
 import { followCamera, visibleBounds, worldToScreen, type Camera } from "./camera";
 
 const COLOURS = {
   floor: "#1a1c1f",
   wall: "#3b4048",
   wallTop: "#4b525c",
+  /** Transparent: stops a body, not a sightline. Drawn as a gap in the wall it sits in. */
+  window: "#2a3f4c",
+  /** Screening: stops a sightline, not a body. */
+  screen: "#25382a",
+  /** Low: stops neither, until somebody crouches. */
+  low: "#2c2e33",
   player: "#e8d7a0",
   wanderer: "#6f8f6a",
+  /** Peripheral: something moved, and that is all you get. */
+  glimpse: "#4a5a48",
+  /** Last known position, fading. Never moves -- see `remembered`. */
+  memory: "#3d4a3c",
   background: "#0d0e10",
 } as const;
+
+/**
+ * How long a body you have lost sight of stays on screen, in ticks. 3 s at 20 Hz.
+ *
+ * docs/28-visibility-and-sightlines.md#memory-not-deletion: "bodies that pop out of existence
+ * at a wall edge feel broken; bodies you *lose track of* feel like the game." The mark stays
+ * where the body was last seen and fades out; it does not follow the body, because
+ * [a marker that follows an unseen body is a lie](../../docs/01-hardcore-contract.md#fairness-rules).
+ *
+ * This is the presentational half of last-known-position memory only. The simulation half --
+ * per-observer memory in skill-scaled prose, degrading from "a moment ago" to "a while ago" --
+ * belongs to the condition view and is still open in TODO.md.
+ */
+const MEMORY_TICKS = 60;
 
 /**
  * Loudest magnitude the overlay scales against.
@@ -44,12 +69,15 @@ const OVERLAY_FULL_SCALE = 180;
 const SCENT_FULL_SCALE = 20;
 
 /** Which channel the debug overlay is showing. `O` cycles through these in order. */
-export type OverlayChannel = "off" | "noise" | "scent";
+export type OverlayChannel = "off" | "noise" | "scent" | "sight";
 
-export const OVERLAY_CHANNELS: readonly OverlayChannel[] = ["off", "noise", "scent"];
+export const OVERLAY_CHANNELS: readonly OverlayChannel[] = ["off", "noise", "scent", "sight"];
 
 /** A position remembered from the previous tick, for interpolation. */
 type Previous = { x: number; y: number };
+
+/** Where a body was when it was last seen, and when that was. */
+type Memory = { x: number; y: number; tick: number };
 
 export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
@@ -70,8 +98,21 @@ export class Renderer {
   /** Last measured draw time in ms, for the HUD and the frame budget. */
   lastDrawMs = 0;
 
-  /** Entities drawn in the last frame, after culling. */
+  /** Entities drawn in the last frame, after culling and occlusion. */
   visibleCount = 0;
+
+  /** Entities inside the viewport that the survivor could not see. The wallhack, counted. */
+  occludedCount = 0;
+
+  /**
+   * Last-known positions, by entity.
+   *
+   * Renderer state, not world state, for the same reason `previous` is: it is what *this*
+   * display is showing, and it has no business in the save. When the simulation grows
+   * per-observer memory (docs/28#memory-not-deletion) this becomes a read of that instead --
+   * the drawing does not change, only where the fact comes from.
+   */
+  private readonly memory = new Map<EntityId, Memory>();
 
   /**
    * Draw the attention field on top of the world.
@@ -137,20 +178,36 @@ export class Renderer {
     ctx.fillStyle = COLOURS.floor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = COLOURS.wall;
-    for (let ty = 0; ty < this.map.h; ty++) {
-      for (let tx = 0; tx < this.map.w; tx++) {
-        if (!isWall(this.map, tx, ty)) continue;
-        ctx.fillRect(tx * zoom, ty * zoom, zoom, zoom);
+    // Each occluder class gets its own colour, because the player has to be able to tell
+    // them apart to play around them: you can shoot through a window you cannot walk
+    // through, and hide behind foliage you can walk straight into. Drawing a curtain like a
+    // wall would make the visibility rules look broken rather than tactical.
+    const TILE_COLOURS: Partial<Record<Tile, string>> = {
+      [Tile.Wall]: COLOURS.wall,
+      [Tile.Window]: COLOURS.window,
+      [Tile.Screen]: COLOURS.screen,
+      [Tile.Low]: COLOURS.low,
+    };
+
+    for (const [tile, colour] of Object.entries(TILE_COLOURS)) {
+      ctx.fillStyle = colour as string;
+      const kind = Number(tile) as Tile;
+      for (let ty = 0; ty < this.map.h; ty++) {
+        for (let tx = 0; tx < this.map.w; tx++) {
+          if (tileAt(this.map, tx, ty) !== kind) continue;
+          ctx.fillRect(tx * zoom, ty * zoom, zoom, zoom);
+        }
       }
     }
 
-    // A lighter cap on wall tiles with open space above them, so buildings read as solid
-    // rather than as flat blocks.
+    // A lighter cap on opaque tiles with open space above them, so buildings read as solid
+    // rather than as flat blocks. Opacity rather than solidity on purpose: the cap is a
+    // *height* cue, and a window is a hole in the wall's height, not in its footprint.
     ctx.fillStyle = COLOURS.wallTop;
     for (let ty = 0; ty < this.map.h; ty++) {
       for (let tx = 0; tx < this.map.w; tx++) {
-        if (!isWall(this.map, tx, ty) || isWall(this.map, tx, ty - 1)) continue;
+        const opaque = opacityAt(this.map, tx, ty) === Opacity.Opaque;
+        if (!opaque || opacityAt(this.map, tx, ty - 1) === Opacity.Opaque) continue;
         ctx.fillRect(tx * zoom, ty * zoom, zoom, Math.max(1, zoom * 0.25));
       }
     }
@@ -208,18 +265,55 @@ export class Renderer {
     const bounds = visibleBounds(camera);
     const radius = Math.max(2, camera.zoom * 0.35);
 
-    if (this.attentionChannel !== "off") this.drawAttention(world, camera, bounds);
+    // Who is looking. The renderer asks the simulation's one visibility answer rather than
+    // computing a second, cheaper one of its own -- docs/28's design rule, and the reason it
+    // gives is that the place two line-of-sight checks disagree is the place the exploit
+    // lives.
+    let eyes: EntityId | null = null;
+    for (const entity of world.components.query(Position, Controlled, Observer)) {
+      eyes = entity;
+      break;
+    }
 
-    ctx.fillStyle = COLOURS.wanderer;
+    if (this.attentionChannel !== "off") this.drawAttention(world, camera, bounds, eyes);
+
     let drawn = 0;
+    let occluded = 0;
     for (const entity of world.components.query(Position, Velocity)) {
       if (world.components.has(entity, Controlled)) continue;
       const { x, y } = this.interpolated(world, entity, alpha);
       if (x < bounds.minX || x > bounds.maxX || y < bounds.minY || y > bounds.maxY) continue;
+
+      // No observer at all -- a world booted without the player module, or a headless
+      // harness -- draws everything. That is the old behaviour, kept only where there is
+      // nobody whose knowledge could be exceeded.
+      const detail = eyes === null ? Detail.Focal : world.vision.detail(eyes, x, y);
+      if (detail === Detail.Unseen) {
+        occluded++;
+        continue;
+      }
+
       const { sx, sy } = worldToScreen(camera, x, y);
-      ctx.fillRect(sx - radius, sy - radius, radius * 2, radius * 2);
+      if (detail === Detail.Focal) {
+        ctx.fillStyle = COLOURS.wanderer;
+        ctx.fillRect(sx - radius, sy - radius, radius * 2, radius * 2);
+      } else {
+        // Peripheral: movement is noticed, identity is not. A body standing still at the
+        // edge of vision is not drawn at all -- which is the mechanic, not an omission.
+        const velocity = world.components.getOrThrow(entity, Velocity);
+        if (velocity.dx === 0 && velocity.dy === 0) {
+          occluded++;
+          continue;
+        }
+        ctx.fillStyle = COLOURS.glimpse;
+        ctx.fillRect(sx - radius * 0.6, sy - radius * 0.6, radius * 1.2, radius * 1.2);
+      }
+
+      this.remember(entity, x, y, world.tick);
       drawn++;
     }
+
+    if (eyes !== null) this.drawMemory(world, camera, bounds, radius);
 
     ctx.fillStyle = COLOURS.player;
     for (const entity of world.components.query(Position, Controlled)) {
@@ -245,7 +339,58 @@ export class Renderer {
     }
 
     this.visibleCount = drawn;
+    this.occludedCount = occluded;
     this.lastDrawMs = performance.now() - started;
+  }
+
+  /** Note where a body was when it was last seen. */
+  private remember(entity: EntityId, x: number, y: number, tick: number): void {
+    const mark = this.memory.get(entity);
+    if (mark === undefined) this.memory.set(entity, { x, y, tick });
+    else {
+      mark.x = x;
+      mark.y = y;
+      mark.tick = tick;
+    }
+  }
+
+  /**
+   * Draw the bodies you have lost, where you lost them.
+   *
+   * The mark stays put and fades. It does not track, it does not update, and it is wrong the
+   * moment the body walks on -- which is the honest thing for it to be, and the difference
+   * between remembering and being told. docs/28#memory-not-deletion; the fairness rules
+   * forbid the alternative outright.
+   */
+  private drawMemory(
+    world: World,
+    camera: Camera,
+    bounds: { minX: number; maxX: number; minY: number; maxY: number },
+    radius: number,
+  ): void {
+    const ctx = this.ctx;
+    for (const [entity, mark] of this.memory) {
+      const age = world.tick - mark.tick;
+      // Seen this very frame: it is already drawn as itself.
+      if (age <= 0) continue;
+      if (age > MEMORY_TICKS || !world.entities.isAlive(entity)) {
+        this.memory.delete(entity);
+        continue;
+      }
+      if (
+        mark.x < bounds.minX ||
+        mark.x > bounds.maxX ||
+        mark.y < bounds.minY ||
+        mark.y > bounds.maxY
+      ) {
+        continue;
+      }
+      const { sx, sy } = worldToScreen(camera, mark.x, mark.y);
+      ctx.globalAlpha = 0.5 * (1 - age / MEMORY_TICKS);
+      ctx.fillStyle = COLOURS.memory;
+      ctx.fillRect(sx - radius * 0.7, sy - radius * 0.7, radius * 1.4, radius * 1.4);
+      ctx.globalAlpha = 1;
+    }
   }
 
   /**
@@ -259,7 +404,13 @@ export class Renderer {
     world: World,
     camera: Camera,
     bounds: { minX: number; maxX: number; minY: number; maxY: number },
+    eyes: EntityId | null,
   ): void {
+    if (this.attentionChannel === "sight") {
+      if (eyes !== null) this.drawSight(world, camera, bounds, eyes);
+      return;
+    }
+
     const field = world.field;
     if (field.cellCount === 0 || this.attentionChannel === "off") return;
 
@@ -288,6 +439,44 @@ export class Renderer {
         const { sx, sy } = worldToScreen(camera, col * size, row * size);
         ctx.fillStyle = `rgba(${tint}, ${(intensity * 0.55).toFixed(3)})`;
         ctx.fillRect(sx, sy, screenSize, screenSize);
+      }
+    }
+  }
+
+  /**
+   * The visible set itself, tile by tile: the fourth overlay channel.
+   *
+   * Light is not built yet, so this is not the light channel -- it is the *primitive* light
+   * will be built on, put on screen so that a sightline bug is something you can look at
+   * rather than something you infer from a body that should have been hidden. Focal and
+   * peripheral are tinted differently, because the arcs are the half most likely to be wrong.
+   */
+  private drawSight(
+    world: World,
+    camera: Camera,
+    bounds: { minX: number; maxX: number; minY: number; maxY: number },
+    eyes: EntityId,
+  ): void {
+    const tiles = world.vision.tilesFor(eyes);
+    if (tiles === undefined) return;
+
+    const ctx = this.ctx;
+    const zoom = camera.zoom;
+    const minX = Math.max(0, Math.floor(bounds.minX));
+    const maxX = Math.min(this.map.w - 1, Math.ceil(bounds.maxX));
+    const minY = Math.max(0, Math.floor(bounds.minY));
+    const maxY = Math.min(this.map.h - 1, Math.ceil(bounds.maxY));
+
+    for (let ty = minY; ty <= maxY; ty++) {
+      for (let tx = minX; tx <= maxX; tx++) {
+        if (!tiles.has(tx, ty)) continue;
+        // Tile centres, so the arc test sees what an entity standing there would see.
+        const detail = world.vision.detail(eyes, tx + 0.5, ty + 0.5);
+        if (detail === Detail.Unseen) continue;
+        const { sx, sy } = worldToScreen(camera, tx, ty);
+        ctx.fillStyle =
+          detail === Detail.Focal ? "rgba(232, 215, 160, 0.16)" : "rgba(140, 160, 200, 0.08)";
+        ctx.fillRect(sx, sy, zoom, zoom);
       }
     }
   }

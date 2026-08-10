@@ -133,6 +133,19 @@ start rather than retrofitted:
 
 It earns a benchmark scenario of its own, held against the budget of its sightless twin.
 
+**Built, and measured.** `crowded-and-watched` is `crowded` with fifty shamblers given eyes on top
+of the survivor's, held at the same 4 ms budget, and it lands within noise of its twin — 1.34 ms
+against 1.32. That number is not a claim about shadowcasting being cheap; a single 12 m shadowcast
+costs 0.07 ms and a 48 m one 0.18 ms, which at 20 Hz would be ruinous if it ran per observer per
+tick. It is a measurement of **how rarely one runs**: 690 of them across 600 ticks with 51
+observers, because a drifting body crosses a tile about every two seconds.
+
+So the budget is really guarding the cache, and the failure mode it will catch is somebody folding
+facing into the cache key. What it does *not* cover, and what a future session should measure before
+trusting the shape: observers that move fast. A sprinting survivor crosses a tile every three ticks
+and pays the full cost every three ticks, and a horde of two thousand *seeking* observers would be a
+different scenario than this one.
+
 ## Spatial partitioning
 
 A uniform spatial hash over entity positions, serving:
@@ -245,6 +258,13 @@ The *Quiet night* budget is deliberately much tighter than it was. The spike mea
 The drive scenario is the one that decides whether the continuous region was the right call. It should
 be written and running *before* vehicles are built, against synthetic load — finding out early is the
 whole point of having a pillar.
+
+**A caveat that has now cost the frame budget twice.** It passes with viewport culling removed,
+because 2,000 flat rectangles are cheap — recorded when culling landed. Occlusion has now taken the
+entities it measures from 216 to 11, so it is measuring 95% less drawing than it was. Neither
+mitigation is wrong; the benchmark is simply a regression guard rather than proof that either earns
+its place, and it will only become the second thing when sprites replace rectangles. Anyone
+tightening this budget should raise the entity count first.
 
 ## Known risks
 

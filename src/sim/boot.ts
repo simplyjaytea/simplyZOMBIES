@@ -16,6 +16,7 @@ import { fieldMemoryModule } from "./modules/field-memory";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
 import { makeShambler, shamblerModule } from "./modules/shambler";
+import { DAYLIGHT_EYES, Observer, SHAMBLER_EYES } from "./vision/visibility";
 
 /** Every non-kernel module in the build. The isolation test walks this list. */
 export const ALL_MODULES: readonly Module[] = [
@@ -33,6 +34,17 @@ export type BootOptions = {
   /** How many shamblers to place. */
   wanderers?: number;
   mapSize?: number;
+  /**
+   * How many of the shamblers are given eyes.
+   *
+   * Zero by default, and that is a statement about cost rather than about zombies. Per-observer
+   * visibility is the one thing in this project that does not amortise across the horde
+   * (docs/22-performance.md#visibility-is-a-different-cost-shape), so who observes is a
+   * *tiering* decision the caller makes, not something spawning implies. The benchmark uses
+   * this to measure the shape; the game does not use it yet, because zombies get sight when
+   * the light channel does.
+   */
+  observers?: number;
   /**
    * Pre-loaded content. `platform/` reads it, so a caller that has it hands it over;
    * everything headless boots without any and the registry stays empty.
@@ -65,6 +77,7 @@ export function boot(options: BootOptions): Boot {
     seed,
     disabled = [],
     wanderers = 200,
+    observers = 0,
     mapSize = DISTRICT_TILES,
     content,
     calibration = DEFAULT_CALIBRATION,
@@ -110,6 +123,21 @@ export function boot(options: BootOptions): Boot {
     handler: (event) => world.field.addScent(event.x, event.y, event.magnitude),
   });
 
+  // Visibility is kernel, beside the field and for the same reason: the renderer, the light
+  // channel and the multiplayer view filter are three consumers of one answer
+  // (docs/28-visibility-and-sightlines.md#one-primitive-three-consumers), and a module that
+  // can be switched off must not be what decides whether the game draws through walls.
+  //
+  // In `movement`, after `movement.integrate` (order 0), because a view computed before the
+  // bodies moved is a view of where they were -- and it is the one place in the tick where
+  // both position and facing are final for everybody.
+  world.systems.register({
+    id: "kernel.visibility",
+    phase: "movement",
+    order: 100,
+    run: (w) => w.vision.refresh(w, map),
+  });
+
   const modules = new ModuleRegistry();
   for (const module of ALL_MODULES) modules.add(module);
   for (const id of disabled) modules.disable(id);
@@ -128,6 +156,10 @@ export function boot(options: BootOptions): Boot {
   // of a small one.
   world.components.set(player, Facing, { radians: 0 });
   world.components.set(player, Controlled, { sprinting: false });
+  // Eyes. Given here rather than by the player module because being able to see is not a
+  // property of being controlled -- NPC survivors will carry exactly this, and the
+  // multiplayer host will carry one of these per client survivor.
+  world.components.set(player, Observer, { ...DAYLIGHT_EYES });
   makeEmitter(world, player);
 
   const placeRng = world.rng.stream("placement");
@@ -138,6 +170,7 @@ export function boot(options: BootOptions): Boot {
     world.components.set(entity, Velocity, { dx: 0, dy: 0 });
     world.components.set(entity, Facing, { radians: 0 });
     makeShambler(world, entity, placeRng);
+    if (i < observers) world.components.set(entity, Observer, { ...SHAMBLER_EYES });
   }
 
   return { world, map, modules, player };

@@ -47,14 +47,17 @@ follow signals.
 **Milestone 1, in progress — and it is playable.** Milestone 0 built the architecture; two channels of
 the [attention field](docs/03-attention.md) now sit on top of it, with shamblers that climb them. Make
 a noise and the district walks toward you in a minute; make none and scent still finds you, in an
-hour. Light, melee and the day/night cycle are the rest of the milestone.
+hour. And as of the [visibility primitive](docs/28-visibility-and-sightlines.md), **you only see what
+you can see** — walls, windows, foliage and low cover are four different answers to that, and a body
+you lose behind a building leaves a fading mark rather than vanishing. Light, melee and the day/night
+cycle are the rest of the milestone.
 
 ```bash
 npm install && npm run dev     # http://127.0.0.1:5174
 ```
 
-`WASD` move · `Shift` sprint · `Space` **shout** · `O` cycles the attention overlay (noise, scent) ·
-`P` pause · `F5`/`F9` save and load.
+`WASD` move · `Shift` sprint · `Space` **shout** · `O` cycles the attention overlay (noise, scent,
+sight) · `P` pause · `F5`/`F9` save and load.
 
 The [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built first and the risks that
 might sink it, [TODO.md](TODO.md) breaks that into an executable backlog, and
