@@ -92,8 +92,10 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
       thirty**
       *(every problem reported in one pass, and nothing is published unless all of it validated)*
 - [ ] Hot reload in dev
-      *(needs a dev server for `src/`; `vite.spike.config.ts` only serves the spike. Lands with the
-      renderer.)*
+      *(the stated blocker is gone — `npm run dev` serves `src/` and the spike config is deleted.
+      What remains is the actual work: re-validating a changed content directory and republishing it
+      without restarting the world, which the registry's all-or-nothing publish makes a real change
+      rather than a wiring job.)*
 
 ### Platform & render — spec: [docs/19](docs/19-architecture.md#layers)
 
@@ -444,7 +446,34 @@ temperature and hygiene · the remaining [modification consumables](docs/11-craf
 3. [Vehicles](docs/25-vehicles.md) — bases, slots, affixes, driving, fuel, breakdowns, route trails
 4. [Mobile bases](docs/26-mobile-bases.md) — interior modules, convoys, relocation, nomad play
 
+**Also Milestone 3, and independent of that chain —**
+[multiplayer](docs/27-multiplayer.md), specified and deliberately unbuilt:
+
+- [ ] Authoritative host: the same `sim/` kernel headless, clients send commands, host ticks
+- [ ] `playerId` on `Command`, and merged-queue ordering by `(tick, playerId, seq)`
+      *(late commands dropped rather than applied late, and the client told)*
+- [ ] Per-client **filtered view** — the client is never sent state it may not know
+- [ ] Late join and reconnect over the existing save path; the version stamp becomes the join check
+- [ ] Host-owned time control: 1×, no pause *(the [core loop's](docs/02-core-loop.md#time-scale)
+      unlimited-pause rule is scoped to single-player, not deleted)*
+- [ ] Succession per player, onto **unclaimed** survivors only; spectate when none exist
+- [ ] Survivor-vs-survivor PVP behind host flags — friendly fire, looting the dead — default off
+- [ ] **Voice as an emitter:** a `speak` command carrying a register, not an amplitude.
+      Whisper 2 / talk 8 / shout 120, the last being the emitter already shipped
+- [ ] WebRTC audio on a separate transport, spatialised client-side, with **audible range equal to
+      emission reach** — what a teammate hears is what a zombie hears
+- [ ] ⚠ **Risk checkpoint ([roadmap risk 9](docs/23-roadmap.md#risks)):** decide what a client may
+      know about the attention field **before writing transport code**. The field is world state and
+      the noise channel is a map of where everyone just was — ship it whole and the host model's
+      whole reason for existing is defeated.
+- [ ] ⚠ **Risk checkpoint ([roadmap risk 10](docs/23-roadmap.md#risks)):** a benchmark scenario with
+      synthetic clients attached, held at **the same budget as its single-player twin**. Per-client
+      filtering scales with player count, a shape no existing budget has.
+
 **Cut from the design entirely** (see the [vision's cut list](docs/00-vision.md#cut-list)):
-multiplayer · a cure or narrative resolution · aircraft and boats ·
-[respec](docs/08-skill-web.md) · a tech tree · player-visible infection percentages · save migrations
-before 1.0.
+a cure or narrative resolution · aircraft and boats · [respec](docs/08-skill-web.md) · a tech tree ·
+player-visible infection percentages · save migrations before 1.0.
+
+*Multiplayer left this list.* It was cut at the vision level and is now
+[reversed and specified](docs/27-multiplayer.md) — see the Milestone 3 entry above. Colony-vs-colony
+raiding is **deferred rather than reversed**: there is no colony to raid until Milestone 2.

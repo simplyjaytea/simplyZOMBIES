@@ -78,6 +78,23 @@ JSON with stable string IDs. Fully engine-agnostic; see [ECS & content](20-ecs-a
 Thin adapters behind interfaces: input, audio, persistence, timing. The only layer that knows what
 platform it's on.
 
+### The host/client boundary
+
+[Multiplayer](27-multiplayer.md) adds a networked host, and it adds **no layer**. Networking is a
+`platform/` adapter like input or storage; the host runs the same `sim/` kernel headless, and `sim/`
+stays unaware it is being hosted.
+
+| Rule | Why |
+|---|---|
+| **Networking lives in `platform/`** | Same reason the clock does — `sim/` must stay pure and portable |
+| **`sim/` never learns it is networked** | A networked run and a local run are the same function of seed and commands |
+| **Commands cross the wire; state does not** | Keeps the deterministic record the wire format, and the replay honest |
+| **The host filters state per client before sending** | [Clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable): a client that never receives a position cannot render one |
+
+Ordering is the part that is easy to get wrong: merged commands are sorted by `(tick, playerId, seq)`
+before the tick, for the same reason the [modifier pipeline](21-extensibility.md) sorts its fold — a
+result that depends on arrival order is not deterministic.
+
 ## Determinism
 
 Fixed timestep, seeded RNG per subsystem, plain state, and an input command log. Consequences:
@@ -165,7 +182,6 @@ simplyZOMBIES/
 
 - **A third-party ECS or game framework.** The [ECS we need](20-ecs-and-content.md) is small and
   bespoke; a dependency would import engine types into `sim/` and break the portability rule.
-- **Networking / multiplayer scaffolding.** Cut at the [vision](00-vision.md) level.
 - **Save migrations.** Deferred to 1.0 by explicit decision.
 - **Hot module reloading of game logic.** Content hot-reload is worth having; code hot-reload isn't.
 

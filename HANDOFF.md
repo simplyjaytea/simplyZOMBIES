@@ -15,6 +15,7 @@ updated 2026-08-06 when the noise spine landed and 2026-08-10 when scent did.
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — all of Milestone 0 |
 | **In flight** | scent: continuous diffusion, wind, field memory, and the two ⚠ checkpoints that were riding on it — **both now closed** |
 | **Next real work** | **Light and shadowcasting**, then the melee loop. See [Do this next](#do-this-next). |
+| **Also landed, as design only** | **[Multiplayer](docs/27-multiplayer.md)** — authoritative host, survivor-vs-survivor PVP, and voice as a noise emitter. Specified, docs reconciled, **no engine code**. Filed as Milestone 3. |
 
 ## The build
 
@@ -255,6 +256,13 @@ scent it carries no open risk — which is a good reason to take it now rather t
 Take the **melee loop** after it — that is what makes the spatial hash worth building, and the hash
 is deliberately still deferred until something needs neighbour queries.
 
+**Not multiplayer.** [Doc 27](docs/27-multiplayer.md) landed as a specification and the cut-list
+reversal is written into [the vision](docs/00-vision.md#cut-list), but nothing was built and nothing
+should be built yet. PVP is meaningless without the melee loop and the contested recovery run is
+meaningless without gear worth recovering, so it sits in Milestone 3 behind both. If you do pick it
+up early, [roadmap risk 9](docs/23-roadmap.md#risks) — what a client may know about the attention
+field — is a **design** question to settle before any transport code exists.
+
 Still open and unclaimed: day/night, the per-tick propagation budget with its overflow queue, and
 `Pursue on direct contact`.
 
@@ -276,6 +284,11 @@ Still open and unclaimed: day/night, the per-tick propagation budget with its ov
   and it was picked, not derived. Residue lasts ~40 minutes in practice, which is what makes the
   migration self-limiting; halving or doubling it changes how long a mistake follows you around.
 - **How long is a day, really?** Four hours at 1× is still a guess.
+- **Is a session with no pause still this game?** New, from the multiplayer design. The core loop
+  claims the tension comes from irreversibility rather than APM; multiplayer removes the pause and
+  keeps everything else, which tests that claim about as directly as it can be tested.
+- **Does voice-as-emitter play as tense, or as a mute button?** Also new. If never speaking is
+  dominant, the mechanic removed a channel instead of adding one.
 - The rest are listed under "Open questions" in [`docs/23-roadmap.md`](docs/23-roadmap.md).
 
 *"How big is a district?" is no longer among them — it's 256 m, forced by the noise calibration.
