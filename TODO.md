@@ -21,10 +21,12 @@ are in — the **noise spine** (field, gradient ascent, a shout) and now **scent
 diffusion, wind, field memory). Both ⚠ checkpoints that were riding on scent are closed. The
 [exit criterion](#milestone-1--the-spine) is met for noise and asserted in CI. **Light, melee and
 day/night are the remainder** — and light turned out to be the small half of a larger job, so it now
-sits inside [visibility & sightlines](docs/28-visibility-and-sightlines.md) below.
+sits inside [visibility & sightlines](docs/28-visibility-and-sightlines.md) below, where **the
+primitive is now built**: the district occludes, the arcs work, and the renderer no longer draws
+through walls. Light is what is left of that section, and it is the next thing to build.
 
 Run it with `npm run dev` — `WASD` move, `Shift` sprint, **`Space` shout**, **`O` cycles the
-attention overlay** through noise and scent.
+attention overlay** through noise, scent and sight.
 `npm test` is correctness; `npm run bench` and `npm run bench:frame` are the budgets, and they fail
 the build.
 
@@ -216,29 +218,67 @@ the shipped single-player build, not a multiplayer worry, and it is why this sec
       scenario against **+0.16 ms** folded in. Kept when the body stops, since a survivor standing
       still is still looking somewhere, and `headingOf` collapses the negative zero that
       `Math.atan2` reaches due east and `canonicalize` rejects outright. `SAVE_VERSION` 5.)*
-- [ ] Recursive shadowcasting over the tile grid, **symmetric** (if A sees B, B sees A) and integer-only
+- [x] Recursive shadowcasting over the tile grid, **symmetric** (if A sees B, B sees A) and integer-only
       so determinism falls out
-- [ ] Occluder classes on tiles — **solid / transparent / screening / low**, with opacity and solidity
+      *(Albert Ford's symmetric variant: a floor tile is revealed only when its **centre** is inside
+      the wedge, which is the condition that makes the relation symmetric — the permissive variants
+      are cheaper and are not. Slopes are rational `{n, d}` pairs compared by cross-multiplication,
+      so no float ever decides which side of a wedge boundary a tile fell on. Mutation-tested: make
+      the reveal permissive and the symmetry guard finds asymmetric pairs at every corner.)*
+- [x] Occluder classes on tiles — **solid / transparent / screening / low**, with opacity and solidity
       as *two* properties
       *(a window stops a body and not a sightline; a curtain stops a sightline and not a body. One
-      enum cannot express that, and the day it has to is the day this gets rebuilt.)*
-- [ ] Focal and peripheral arcs — detail ahead, movement to the sides, nothing behind
-- [ ] **Recompute on change, not on tick** — an observer that hasn't moved a tile, turned, or had its
+      enum cannot express that, and the day it has to is the day this gets rebuilt.
+      `Tile.Floor` and `Tile.Wall` kept their values and the generator's layout pass was left
+      untouched — the three new classes are dressed on afterwards from **their own RNG stream**, so
+      the district a seed produces is byte-identical to the one every existing calibration was
+      measured against. Windows replace wall tiles and the other two only land on open ground, so
+      solidity never moved. Mutation-tested: define `blocksSight` as `isSolid` and three guards go
+      red at once.)*
+- [x] Focal and peripheral arcs — detail ahead, movement to the sides, nothing behind
+      *(a dot product against the heading rather than an angle difference: no `atan2`, no wrap-around
+      case to get wrong. Per observer rather than as constants, because a survivor and a screamer
+      will not share them. A body standing still in the peripheral arc is **not drawn at all** —
+      movement is what is noticed out there, which is the mechanic and not an omission.)*
+- [x] **Recompute on change, not on tick** — an observer that hasn't moved a tile, turned, or had its
       surroundings change sees what it saw
+      *(cached per **tile**, not per view, so turning on the spot is free: the arcs are evaluated
+      against cached geometry at query time. 690 shadowcasts across 600 ticks with 51 observers.
+      Mutation-tested both ways — recompute unconditionally and the "standing still is free" guard
+      goes red; fold facing into the cache key and the "turning is free" one does.)*
 - [ ] **Light channel on top of the primitive** — shadowcast from emitters at
       [the magnitudes already tabled](docs/03-attention.md#light), range in the same metres
+      *(the primitive is built and this is the next thing to build on it. Note that
+      `Observer.rangeMetres` is a daylight constant today precisely because there is no light to
+      derive it from — when this lands, that field becomes a lookup and nothing else changes.)*
 - [ ] Zombies read light as a line-of-sight pull; the
       [sensory profile's](docs/14-zombies.md#sensory-profiles) Light column goes live for the first time
-- [ ] **Renderer occlusion** — entities are drawn only where the survivor could see them
+      *(`SHAMBLER_EYES` exists and `boot({ observers })` hands it out, so the cost is already
+      measured. Nothing in the game gives a zombie eyes yet, deliberately: docs/14's first design
+      rule is that sight must not make them tactical, and the safe way to honour it is to land sight
+      and its one new stimulus together rather than sight first.)*
+- [x] **Renderer occlusion** — entities are drawn only where the survivor could see them
+      *(11 bodies drawn where 216 were in the viewport, at 2,000 entities. The renderer asks
+      `world.vision` rather than computing a cheaper check of its own — docs/28's design rule, and
+      the reason it gives is that the place two line-of-sight checks disagree is where the exploit
+      lives.)*
 - [ ] **Last-known position memory**, degrading descriptively
       *(bodies that vanish at a wall edge read as a bug; bodies you lose track of read as the game.
       And a marker that follows an unseen body is a lie, which
-      [the fairness rules](docs/01-hardcore-contract.md#fairness-rules) forbid outright.)*
-- [ ] Benchmark scenario held at **the same budget as its sightless twin**
+      [the fairness rules](docs/01-hardcore-contract.md#fairness-rules) forbid outright.
+      **Half done:** the renderer fades a mark where a body was last seen, and it stays put rather
+      than tracking. The simulation half — per-observer memory, in skill-scaled prose that degrades
+      from "a moment ago" to "a while ago" — is not built, and belongs with the
+      [condition view](docs/05-health-injury.md#the-condition-view).)*
+- [x] Benchmark scenario held at **the same budget as its sightless twin**
       *(⚠ this is the first cost in the project that does not amortise across the horde — one
       shadowcast per changed observer, and per client on top of that in multiplayer. See
       [the cost shape](docs/22-performance.md#visibility-is-a-different-cost-shape). Tiering is the
-      mitigation: a distant zombie needs the gradient it is climbing, not a sightline.)*
+      mitigation: a distant zombie needs the gradient it is climbing, not a sightline.
+      **`crowded-and-watched` measured 1.34 ms against `crowded`'s 1.32 at the same 4 ms budget** —
+      which is a measurement of how rarely a shadowcast runs, not of one being cheap. A single 12 m
+      cast is 0.07 ms and a 48 m one 0.18 ms. Still unmeasured, and the thing to measure next:
+      observers that **sprint**, which pay every three ticks rather than every forty.)*
 
 ### Spatial partitioning — spec: [docs/22](docs/22-performance.md#spatial-partitioning)
 

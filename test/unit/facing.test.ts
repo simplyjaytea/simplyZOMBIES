@@ -3,7 +3,7 @@ import { boot } from "../../src/sim/boot";
 import { Facing, headingOf, Position, Velocity } from "../../src/sim/kernel/components";
 import { canonicalize } from "../../src/sim/kernel/serialize";
 import { step, stepN } from "../../src/sim/kernel/step";
-import { isWall } from "../../src/sim/map/tilemap";
+import { isSolid } from "../../src/sim/map/tilemap";
 
 describe("headingOf", () => {
   it("measures the way atan2 measures", () => {
@@ -87,7 +87,7 @@ describe("Facing in a booted world", () => {
     let spot: { x: number; y: number } | null = null;
     for (let ty = 1; ty < map.h && spot === null; ty++) {
       for (let tx = 1; tx < map.w; tx++) {
-        if (!isWall(map, tx, ty) && isWall(map, tx, ty - 1)) {
+        if (!isSolid(map, tx, ty) && isSolid(map, tx, ty - 1)) {
           // Stood close enough to the wall that one tick of northward travel meets it.
           spot = { x: tx + 0.5, y: ty + 0.1 };
           break;

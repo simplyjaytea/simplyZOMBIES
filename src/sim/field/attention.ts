@@ -27,7 +27,7 @@
 //     continuous diffusion step that runs whether or not anyone emitted
 
 import type { ContentRegistry } from "../content/registry";
-import { isWall, type TileMap } from "../map/tilemap";
+import { isSolid, type TileMap } from "../map/tilemap";
 
 /**
  * The four constants docs/03-attention.md#scale-and-calibration supplies, plus the floor.
@@ -291,7 +291,7 @@ export class AttentionField {
         let all = true;
         for (let ty = 0; ty < per && all; ty++) {
           for (let tx = 0; tx < per; tx++) {
-            if (!isWall(map, cx * per + tx, cy * per + ty)) {
+            if (!isSolid(map, cx * per + tx, cy * per + ty)) {
               all = false;
               break;
             }
