@@ -23,7 +23,13 @@ const TICK_MS = 1000 / TICK_HZ;
  */
 const MAX_ELAPSED_MS = 250;
 
-/** Ticks paid off in a single frame, as a second line of defence behind the clamp. */
+/**
+ * Ticks paid off in a single frame at 1x, as a second line of defence behind the clamp.
+ *
+ * It scales with the speed control, which it has to: 10x at 60 fps needs 3.3 ticks a frame
+ * on average and more than that whenever a frame runs long, so a fixed cap of 5 would turn
+ * the fast-forward into a silent 5x. The clamp above still bounds the worst case.
+ */
 const MAX_TICKS_PER_FRAME = 5;
 
 export type LoopHooks = {
@@ -44,6 +50,16 @@ export type Loop = {
   start: () => void;
   stop: () => void;
   readonly running: boolean;
+  /**
+   * How many simulated seconds pass per real second. docs/02-core-loop.md#time-scale:
+   * pause, 1x, 3x, 10x.
+   *
+   * Implemented by scaling the real interval fed to the accumulator rather than by shrinking
+   * the tick, which is the only version that keeps the simulation deterministic: the timestep
+   * is still fixed, there are simply more of them per frame. A variable timestep would make
+   * the speed control part of the replay record.
+   */
+  speed: number;
 };
 
 /** Monotonic milliseconds. Injectable so tests can drive the loop without a real clock. */
@@ -74,6 +90,7 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
   let last = 0;
   let handle: number | null = null;
   let running = false;
+  let speed = 1;
 
   function frame(now: number): void {
     if (!running) return;
@@ -83,10 +100,10 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
     if (elapsed > MAX_ELAPSED_MS) elapsed = MAX_ELAPSED_MS;
     if (elapsed < 0) elapsed = 0; // guard against a non-monotonic clock
 
-    accumulator += elapsed;
+    accumulator += elapsed * speed;
 
     let ticks = 0;
-    while (accumulator >= TICK_MS && ticks < MAX_TICKS_PER_FRAME) {
+    while (accumulator >= TICK_MS && ticks < maxTicksPerFrame()) {
       hooks.beforeTick?.(world);
       step(world);
       hooks.afterTick?.(world);
@@ -96,7 +113,7 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
 
     // If the cap was hit there is still time owed. Dropping it keeps the simulation
     // running at a constant rate rather than accumulating an unpayable debt.
-    if (ticks === MAX_TICKS_PER_FRAME && accumulator > TICK_MS) {
+    if (ticks === maxTicksPerFrame() && accumulator > TICK_MS) {
       accumulator = 0;
     }
 
@@ -104,6 +121,8 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
 
     handle = requestFrame(frame);
   }
+
+  const maxTicksPerFrame = (): number => Math.max(1, Math.ceil(MAX_TICKS_PER_FRAME * speed));
 
   return {
     start(): void {
@@ -124,6 +143,17 @@ export function createLoop(world: World, hooks: LoopHooks = {}, options: LoopOpt
 
     get running(): boolean {
       return running;
+    },
+
+    get speed(): number {
+      return speed;
+    },
+
+    set speed(value: number) {
+      // The accumulator holds real milliseconds owed at the old rate; carrying it across a
+      // speed change would pay off that debt at the new one, which is a visible jump.
+      accumulator = 0;
+      speed = Math.max(0, value);
     },
   };
 }

@@ -11,6 +11,7 @@ import { step, stepN } from "../../src/sim/kernel/step";
 import { Detail, Observer, VisibilityIndex } from "../../src/sim/vision/visibility";
 import { blankMap, Eye, Tile, isSolid, type TileMap } from "../../src/sim/map/tilemap";
 import { World } from "../../src/sim/kernel/world";
+import { DAY_BEGINS, tickAtTimeOfDay } from "../../src/sim/time/clock";
 
 const SEED = 20260805;
 
@@ -122,6 +123,10 @@ function roomWithObserver(range = 10): {
   }
 
   const world = new World(1);
+  // Daylight. Range is a property of light now, so a world left at tick 0 -- the start of
+  // dawn, the darkest moment -- would give this observer a quarter of the range every
+  // assertion below is written against.
+  world.tick = tickAtTimeOfDay(DAY_BEGINS);
   const eyes = world.spawn();
   world.components.set(eyes, Position, { x: 20.5, y: 20.5 });
   world.components.set(eyes, Facing, { radians: 0 });

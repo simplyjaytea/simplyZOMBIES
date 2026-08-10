@@ -390,9 +390,43 @@ slow", "streets are noise highways" — so this is that promise made mechanical 
 
 ### Time — spec: [docs/02](docs/02-core-loop.md)
 
-- [ ] Day/night cycle with the four phases
-- [ ] Phase transitions publish `phase.changed`, `night.fell`, `day.started`
-- [ ] Speed controls: pause, 1×, 3×, 10×, with 10× auto-dropping on threat contact
+- [x] Day/night cycle with the four phases
+      *(**time of day is a pure function of `world.tick`** — no clock state, nothing new in the
+      save, and nothing that can disagree with the world it was saved from. Starting a run at
+      dusk is not a field, it is starting at a different tick. The cost of that trick is that
+      `world.tick` stops meaning "ticks since the run began", and two tests were quietly
+      measuring the wrong interval within minutes of it landing; both now subtract a start
+      tick. A run opens at 09:00 rather than at tick 0, because tick 0 is the start of dawn —
+      the darkest moment of the cycle — and a fresh world opening half-blind is not a default.)*
+- [x] Phase transitions publish `phase.changed`, `night.fell`, `day.started`
+      *(the vocabulary declared all three in Milestone 0 with no publisher. The publisher is
+      **stateless** — it compares the phase at this tick with the phase at the previous one
+      rather than remembering what it announced, which is what makes it survive a load: a
+      remembered phase is either save state that can disagree with the tick, or a
+      re-announcement of something that already happened. Day 1 is published explicitly on the
+      first tick, since a listener should not miss the day it booted into.)*
+- [x] **Ambient light, and the dark is mechanical** — a survivor sees 48 m at noon and 12 m at
+      midnight
+      *(range is a property of light, which is what
+      [docs/28 said](docs/28-visibility-and-sightlines.md#what-an-observer-is) when the field
+      was a daylight constant with a note on it. Night is **not a tint over the same view**;
+      the view is smaller. Affordable because the tile radius is an integer: ambient light
+      changes every tick through dusk, the integer radius about thirty-six times across the
+      half hour, and the cache key is built from the integer — mutation-tested by removing the
+      rounding and watching it become a shadowcast a tick.)*
+- [x] Speed controls: pause, 1×, 3×, 10×, with 10× auto-dropping on threat contact
+      *(a day is four hours at 1×, so these are a prerequisite for the cycle rather than a
+      convenience — nobody in a dev session would otherwise see nightfall. Implemented by
+      scaling the real interval fed to the accumulator, never the timestep, so the fixed
+      timestep and the replay record are untouched. Contact is a **distance**, not a sightline:
+      a sightline-based rule would fire constantly in daylight and stop firing at night, which
+      is exactly when a fast-forward is most dangerous.)*
+- [ ] **Night should be darker than this.** `NIGHT_AMBIENT` is 0.25 because there is no light
+      channel — nothing to carry, nothing to light, no counterplay. When emitters land, this
+      number goes down.
+- [ ] Nights vary: the [director](docs/17-director.md) decides what tonight is
+      *(docs/02's night-type table. Needs the director, which is Milestone 2.)*
+- [ ] Longer nights in winter *(needs [weather](docs/16-weather.md)'s seasons)*
 
 ### Performance
 

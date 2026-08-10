@@ -17,6 +17,8 @@ import { createCamera } from "./render/camera";
 import { OVERLAY_CHANNELS, Renderer, type OverlayChannel } from "./render/renderer";
 import { boot } from "./sim/boot";
 import { noiseOn, speedOn, Surface, surfaceAt } from "./sim/map/surface";
+import { ambientLightAt, clockTime, dayNumber, PHASE_NAMES, phaseOf } from "./sim/time/clock";
+import { threatWithin } from "./sim/threat";
 import { TILE_METRES } from "./sim/map/tilemap";
 import { Position } from "./sim/kernel/components";
 import { Controlled } from "./sim/modules/player";
@@ -80,7 +82,7 @@ function loadContent(source: typeof webContent): {
 let loaded = loadContent(webContent);
 let contentError = loaded.error;
 
-const { world, map } = boot({
+const { world, map, player } = boot({
   seed: SEED,
   wanderers: numeric("wanderers", DEFAULT_WANDERERS),
   content: loaded.content,
@@ -131,6 +133,14 @@ function load(): void {
 
 let paused = false;
 
+/**
+ * Time controls, from docs/02-core-loop.md#time-scale.
+ *
+ * A day is four hours at 1x, so without these nobody in a development session would ever see
+ * nightfall -- which makes them a prerequisite for the cycle rather than a convenience.
+ */
+const SPEEDS = [1, 3, 10] as const;
+
 /** Exponentially smoothed simulation time per tick, in ms. */
 let simMs = 0;
 let tickStarted = 0;
@@ -142,14 +152,34 @@ const loop = createLoop(world, {
     input.pump(w.commands);
     tickStarted = performance.now();
   },
-  afterTick: () => {
+  afterTick: (w) => {
     simMs = simMs * 0.9 + (performance.now() - tickStarted) * 0.1;
+
+    // "10x auto-drops to 1x on any threat contact." Checked here rather than in the sim
+    // because it is a decision about the *host's* clock -- the simulation supplies the rule
+    // and knows nothing about how fast it is being run. Only asked while fast-forwarding, so
+    // a normal tick pays nothing for it.
+    if (loop.speed > 1 && player !== null && threatWithin(w, player)) {
+      setSpeed(1);
+      say("contact -- back to 1x");
+    }
   },
   render: (w, alpha) => {
     renderer.draw(w, camera, alpha);
     updateHud(w);
   },
 });
+
+function setSpeed(value: number): void {
+  loop.speed = value;
+  if (paused) togglePause();
+}
+
+function cycleSpeed(index: number): void {
+  const next = SPEEDS[index] as number;
+  setSpeed(next);
+  say(`${next}x`);
+}
 
 function togglePause(): void {
   paused = !paused;
@@ -181,7 +211,16 @@ function toggleOverlay(): void {
 }
 
 const input = attachKeyboard(window, {
-  onPress: { F5: save, F9: load, KeyP: togglePause, Space: shout, KeyO: toggleOverlay },
+  onPress: {
+    F5: save,
+    F9: load,
+    KeyP: togglePause,
+    Space: shout,
+    KeyO: toggleOverlay,
+    Digit1: () => cycleSpeed(0),
+    Digit2: () => cycleSpeed(1),
+    Digit3: () => cycleSpeed(2),
+  },
 });
 
 function resize(): void {
@@ -251,6 +290,12 @@ function groundUnderfoot(w: World): string {
   return "-";
 }
 
+/** The in-world time, as a survivor would read it off the sun. */
+function timeOfDay(w: World): string {
+  const { hour, minute } = clockTime(w.tick);
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 /** Shamblers by state, for the HUD. The one line that says whether the field is working. */
 function hordeStates(w: World): { seeking: number; milling: number; drifting: number } {
   let seeking = 0;
@@ -273,7 +318,9 @@ function updateHud(w: World): void {
   const live = w.field.liveCells();
 
   hud.innerHTML =
-    `<b>tick</b>     ${w.tick}${paused ? "  [PAUSED]" : ""}\n` +
+    `<b>tick</b>     ${w.tick}${paused ? "  [PAUSED]" : `  ${loop.speed}x`}\n` +
+    `<b>time</b>     day ${dayNumber(w.tick)}  ${timeOfDay(w)}  ` +
+    `${PHASE_NAMES[phaseOf(w.tick)]}   light ${ambientLightAt(w.tick).toFixed(2)}\n` +
     `<b>sim</b>      ${simMs.toFixed(2)} ms\n` +
     `<b>draw</b>     ${renderer.lastDrawMs.toFixed(2)} ms   ${renderer.visibleCount} drawn\n` +
     `<b>sight</b>    ${renderer.occludedCount} hidden   ` +
@@ -292,7 +339,7 @@ function updateHud(w: World): void {
 
   help.textContent =
     "WASD / arrows move   Shift sprint   Space shout   O overlay   P pause\n" +
-    "F5 save   F9 load\n" +
+    "1 / 2 / 3 speed (1x, 3x, 10x -- drops to 1x on contact)   F5 save   F9 load\n" +
     "make noise, and they come. Go quiet, and they don't. The ground decides how quiet.";
 }
 
