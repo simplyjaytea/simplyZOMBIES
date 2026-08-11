@@ -25,6 +25,7 @@ import { COLOURS, SHADE } from "./palette";
 import {
   depthOf,
   mapRasterSize,
+  metresToRise,
   projectAngle,
   projectedRadii,
   tileRasterPosition,
@@ -64,15 +65,6 @@ const OCCLUDER_HEIGHT_METRES: Partial<Record<Tile, number>> = {
 };
 
 /**
- * Vertical pixels per metre of height, as a fraction of the horizontal scale.
- *
- * Below 1 because a true-scale vertical would make a 2.2 m wall taller than three floor tiles
- * and turn a street into a canyon you cannot see along. This is the dial to turn if buildings
- * ever feel squat or overbearing; nothing else depends on it.
- */
-const OCCLUDER_RISE_SCALE = 0.62;
-
-/**
  * How much of a wall is left when it is standing in front of the survivor.
  *
  * Faded rather than cut away entirely, because the wall is still *there* and the player has to
@@ -82,7 +74,7 @@ const OCCLUDER_RISE_SCALE = 0.62;
 const OCCLUDER_FADED_ALPHA = 0.28;
 
 function occluderRise(tile: Tile, zoom: number): number {
-  return (OCCLUDER_HEIGHT_METRES[tile] ?? 0) * zoom * OCCLUDER_RISE_SCALE;
+  return metresToRise(OCCLUDER_HEIGHT_METRES[tile] ?? 0, zoom);
 }
 
 /** Occluder classes, by the colour that distinguishes them. Order is irrelevant. */

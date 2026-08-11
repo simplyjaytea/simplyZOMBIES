@@ -3,6 +3,8 @@ import { createCamera, type Camera } from "../../src/render/camera";
 import {
   depthOf,
   mapRasterSize,
+  metresToRise,
+  RISE_SCALE,
   screenToWorld,
   TILE_HEIGHT_RATIO,
   TILE_WIDTH_RATIO,
@@ -110,6 +112,30 @@ describe("depthOf", () => {
 
   it("ties for two bodies on the same diagonal, which is the ordinary iso ambiguity", () => {
     expect(depthOf(2, 8)).toBe(depthOf(8, 2));
+  });
+});
+
+describe("metresToRise", () => {
+  it("stands a wall up by exactly what the renderer used to compute for itself", () => {
+    // The arithmetic this pins is `height * zoom * 0.62`, which lived in renderer.ts until the
+    // character models needed the same answer. Buildings must not have changed height when the
+    // constant moved -- that would be a visual regression hiding inside a refactor.
+    expect(metresToRise(2.2, 28)).toBeCloseTo(2.2 * 28 * 0.62, 10);
+    expect(metresToRise(3.2, 28)).toBeCloseTo(3.2 * 28 * 0.62, 10);
+    expect(metresToRise(0.7, 28)).toBeCloseTo(0.7 * 28 * 0.62, 10);
+  });
+
+  it("keeps a metre of height shorter than a metre of ground, so a street stays a street", () => {
+    // The whole reason the scale is below 1. At true scale a 2.2 m wall would stand taller than
+    // three floor tiles and you could not see along the road it lines.
+    expect(RISE_SCALE).toBeLessThan(1);
+    expect(metresToRise(1, 28)).toBeLessThan(28);
+  });
+
+  it("is linear, so one dial moves every height together", () => {
+    expect(metresToRise(2, 28)).toBeCloseTo(2 * metresToRise(1, 28), 10);
+    expect(metresToRise(1, 56)).toBeCloseTo(2 * metresToRise(1, 28), 10);
+    expect(metresToRise(0, 28)).toBe(0);
   });
 });
 
