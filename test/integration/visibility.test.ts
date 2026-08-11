@@ -91,7 +91,7 @@ describe("the shipped district", () => {
     for (let ty = 0; ty < map.h; ty++) map.tiles[ty * map.w + 25] = Tile.Wall;
     // The wall went up after the view was computed, so the view is stale until something
     // says so. This is the call structures will make in Milestone 2, made by hand.
-    world.vision.invalidate();
+    world.invalidateMap();
     place(20.5, 20.5, 0);
 
     expect(world.vision.detail(eyes, 22.5, 20.5)).toBe(Detail.Focal);
@@ -99,7 +99,7 @@ describe("the shipped district", () => {
 
     // And a window in the same wall gives the sightline back without letting anybody through.
     map.tiles[20 * map.w + 25] = Tile.Window;
-    world.vision.invalidate();
+    world.invalidateMap();
     world.vision.refresh(world, map);
     expect(world.vision.detail(eyes, 27.5, 20.5)).toBe(Detail.Focal);
     expect(isSolid(map, 25, 20)).toBe(true);
@@ -216,7 +216,7 @@ describe("recompute on change, not on tick", () => {
     const { world, map } = roomWithObserver();
     const before = world.vision.recomputes;
 
-    world.vision.invalidate();
+    world.invalidateMap();
     world.vision.refresh(world, map);
 
     // A stale sightline through a wall that was just built is a bug that looks exactly like

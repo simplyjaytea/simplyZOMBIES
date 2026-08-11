@@ -15,6 +15,22 @@ import { Surface, type SurfaceLayer } from "./surface";
 /** Metres per tile. */
 export const TILE_METRES = 1;
 
+/**
+ * A reach in metres, as the whole-tile radius a shadowcast needs.
+ *
+ * Lives here rather than at its callers because there are now two of them and they must agree.
+ * An observer's range comes from the light where it stands; a light source's reach comes from
+ * its magnitude. Both end up as an integer radius handed to `shadowcast()`, and if the two
+ * rounded differently a lamp would light a tile the survivor standing in it could not use --
+ * a disagreement one tile wide, at the edge, which is the hardest width of bug to notice.
+ *
+ * Rounds *up*, so a reach is never silently shortened, and floors at one tile: a radius of
+ * zero is a window with no cells in it, which reads as blindness rather than as darkness.
+ */
+export function tileRange(metres: number): number {
+  return Math.max(1, Math.ceil(metres / TILE_METRES));
+}
+
 /** A district, per docs/24-world-and-scale.md#how-big-a-district-is. */
 export const DISTRICT_TILES = 256;
 

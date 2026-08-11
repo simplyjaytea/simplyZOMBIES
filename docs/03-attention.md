@@ -181,10 +181,16 @@ Written as data (see [ECS & content](20-ecs-and-content.md)); magnitudes are in 
 | Muzzle flash | 60 (instant) | Ranged combat at night gives away position twice over |
 | [Vehicle](25-vehicles.md) headlights | 70–110 | And they move, sweeping across everything ahead |
 
-> **Half of this exists.** [Ambient](02-core-loop.md) light — the sun — is built, and it decides how
-> far an observer can see: 48 m at noon, 12 m at midnight. **Emitters are not.** Nothing in the table
-> above illuminates anything yet, which is why night bottoms out at a quarter of daylight rather than
-> near darkness: with no torch to carry there would be no counterplay to a darker one.
+> **This is built.** [Ambient](02-core-loop.md) light — the sun — decides how far an observer can see,
+> and every emitter in the table above adds to it: `sightMetres` takes the better of the two where the
+> observer stands, capped at what its own eyes could do in daylight. Magnitude is range, so the
+> channel aggregates by **maximum** and never by sum — two candles do not make a lamp.
+>
+> Night now bottoms out at 0.04 of daylight rather than a quarter, which is about two metres bare-eyed
+> against a candle's three. That number is derived from this table rather than picked, and the
+> derivation is in *tiles* rather than metres, because a shadowcast's window is an integer radius —
+> see [the decision log](30-decisions.md#what-light-made-structural). The counterplay is findable
+> rather than given: the survivor starts with nothing and candles are common in the street.
 
 > **Light propagates by shadowcasting**, not by flood-fill — it is the one channel where a wall is an
 > absolute rather than a penalty, which is why shutters work completely and why forgetting them is

@@ -10,6 +10,9 @@
 import { boot } from "../src/sim/boot";
 import { stepN } from "../src/sim/kernel/step";
 import type { World } from "../src/sim/kernel/world";
+import { Position } from "../src/sim/kernel/components";
+import { makeLightSource } from "../src/sim/modules/light";
+import { LIGHT_TABLE } from "../src/sim/vision/light";
 
 export type Scenario = {
   readonly id: string;
@@ -95,6 +98,41 @@ export const SCENARIOS: readonly Scenario[] = [
     tickBudgetMs: 4,
     entities: 2000,
     build: () => boot({ seed: SEED, wanderers: 2000, observers: 50 }).world,
+  },
+  {
+    id: "crowded-and-lit",
+    description:
+      "The light channel under load: 2,000 bodies as in `crowded`, five hundred of them with " +
+      "eyes, a floodlight standing in the street and a lamp in the survivor's hand. Every " +
+      "sighted body checks every visible source once a tick, and the carried lamp recasts a " +
+      "5,041-cell window on every tile it crosses.",
+    // Deliberately the SAME budget as `crowded`, which is the claim worth guarding and is not
+    // the claim I expected to be able to make. Light casts per *source*, not per observer, so
+    // the only per-entity cost is the lean -- one squared-distance reject per source, then one
+    // arc test for whatever survives. Ten times `crowded-and-watched`'s observer count is here
+    // because the interesting question is whether the *stimulus* scales, and the answer is that
+    // it scales with lamps rather than with bodies.
+    //
+    // If this ever separates from its twin, the thing to suspect is the winner-pick in
+    // `leanToLight` doing a visibility query before the cheap distance reject.
+    tickBudgetMs: 4,
+    entities: 2000,
+    build: () => {
+      const { world, player } = boot({ seed: SEED, wanderers: 2000, observers: 500 });
+      // A fixed floodlight, and a lamp on the survivor so a moving source is measured too --
+      // the static one costs a single cast ever and would not exercise the cache at all.
+      const floodlight = world.spawn();
+      world.components.set(floodlight, Position, { x: 128.5, y: 128.5 });
+      makeLightSource(world, floodlight, LIGHT_TABLE.floodlight);
+      if (player !== null) makeLightSource(world, player, LIGHT_TABLE.lamp);
+      world.events.drain();
+      return world;
+    },
+    drive: (world) => {
+      // Walk, so the carried lamp keeps crossing tiles and the cast cache is under real churn
+      // rather than warm.
+      world.commands.push({ type: "move", dx: 1, dy: 0 });
+    },
   },
   {
     id: "crowded-and-swinging",

@@ -198,15 +198,24 @@ expensive.
 
 ## What the zombies see
 
-The Light column of the [sensory profile table](14-zombies.md#sensory-profiles) becomes live for the
-first time. Two behaviours follow, and neither of them makes a zombie smarter:
+The Light column of the [sensory profile table](14-zombies.md#sensory-profiles) is live, as of the
+light channel. The first behaviour below is **built**; the second waits only on the screamer
+existing. Neither makes a zombie smarter:
 
 - **Light is a line-of-sight pull.** [Docs/14](14-zombies.md#baseline-behavior) already says so. A
   zombie that can see a lit cell ascends toward it; one that cannot, cannot, no matter how bright it
   is. This is why a floodlight behind a wall is safe and a candle in an open doorway is not.
+  **Built**, and it is a third stimulus shape rather than a variant of the other two: noise is an
+  impulse that commits, scent is a bias on a gradient, and light has no gradient at all, so it is a
+  lean gated on the arc. One consequence worth expecting: being *lit by* a lamp is not the same as
+  being able to *see* one, so a 35 m lamp lights the ground under a shambler whose 12 m eyes cannot
+  reach the source, and it feels no pull.
 - **The [screamer](14-zombies.md#first-wave-week-6) triggers on sighting a survivor**, which is an
   observer query rather than a field query. The screamer is the design object that makes the quiet
-  branch mandatory, and it has been unbuildable for want of exactly this.
+  branch mandatory, and it was unbuildable for want of exactly this. It is now buildable and
+  deliberately unbuilt — its `alarm_on_sight` tag and 300-magnitude relay alarm would reshape how the
+  district behaves, and landing it beside the channel it depends on would make both harder to
+  judge.
 
 **Design rule, inherited from [docs/14 rule 1](14-zombies.md#design-rules):** sight does not make
 them tactical. They do not use cover, do not flank, do not break line of sight to reposition. Sight

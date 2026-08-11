@@ -388,6 +388,69 @@ balancing tool is worse than a gap in one, because the gap does not get trusted.
   against a different content set. The id check is what covers it, and it runs inside the existing
   catch so the failure is a notice rather than a crash.
 
+## What light made structural
+
+The third attention channel, and the first thing it settled was where it does *not* go.
+
+- **Light is not a field layer, and the field refused it twice.** The obvious home was
+  `AttentionField` beside noise and scent, and two things in the code say no. `liveCells()` is read
+  by three Milestone 1 exit-criterion assertions as "the district is silent", so a third channel
+  folded in there breaks the noise criterion for nothing. And the geometry disagrees: the field is
+  **4 m cells** while a shadowcast is **1 m tiles**, and light is the one channel where a wall is an
+  *absolute* rather than a penalty — noise pays an 18 m-equivalent to cross one, scent ignores them
+  entirely. Four-metre cells round away exactly the precision that makes shutters work *completely*.
+  [docs/03](03-attention.md#light) already said light propagates by shadowcasting rather than
+  flood-fill; the code now agrees with it.
+- **Magnitude is range, so light takes the maximum and never the sum.** Two candles in one spot do
+  not make a lamp and no number of them ever does, because ranges do not add. This is the same `max`
+  the noise channel commits with and deliberately not scent's sum — scent sums because a crowd
+  genuinely smells more than one body, and light does not work that way. `sightMetres` then takes the
+  **min** with the observer's own eyes: light removes a penalty, it does not grant an ability, so a
+  floodlight is not better than daylight and a shambler's twelve metres stay twelve.
+- **Being lit by a lamp is not the same as being able to see one.** `SHAMBLER_EYES` reaches 12 m, so
+  a 35 m lamp lights the ground under a zombie that has no sightline to the source and therefore
+  feels no pull at all. That asymmetry is the mechanic rather than a limitation — docs/28 asks whether
+  it can *see* the lit cell — and the first version of the test put the lamp at 20 m and measured
+  nothing, which is how it was found.
+- **Light is a third stimulus shape, not a variant of the two that existed.** Noise is an impulse:
+  it overwrites the heading and commits for twenty seconds, and it is the only thing that moves a
+  shambler into Seek. Scent is a bias on a gradient. Light has **no gradient** — the question is a
+  per-observer sightline, not a field sample — so it is a gated lean, and sensitivity *scales* it
+  rather than dividing a floor. There is no light floor in the calibration and there should not be
+  one: light decays instantly, so "less than this is nothing" is already the edge of the shadowcast
+  window where `magnitude - distance` reaches zero. One fewer tunable, and docs/14's Light column
+  becomes legible — 0.1 leans a shambler 5% of the way per tick, 0.9 would lean a screamer 45%.
+- **`NIGHT_AMBIENT` is derived, and the derivation has to be in tiles.** The rule is that a candle
+  must be an upgrade rather than a formality, so bare-eyed midnight has to fall below the weakest
+  emitter. Derived in metres — `48 * N < 3` — that admits 0.05, and at 0.05 bare eyes are 2.4 m and a
+  candle is 3 m and **both round to a three-tile window**. The candle would have been an upgrade on
+  paper and invisible in play. A shadowcast's window is an integer radius, so the comparison that
+  decides whether the player can tell has to be made in the unit the geometry uses:
+  `tileRange(48 * N) < tileRange(3)`, so `N <= 0.0417`, so 0.04.
+- **One map-generation counter for both indices, not one each.** Vision and light both cache against
+  the tile map, and two counters would let them disagree — a wall built between a lamp and a survivor
+  stopping being seen through while the lamp kept lighting past it. The place two line-of-sight
+  answers disagree is the place the exploit lives, so the counter moved to `World.mapGeneration` and
+  `VisibilityIndex.invalidate()` — which had no caller — became `World.invalidateMap()`.
+- **The counterplay is findable, not given.** The night could only come down because a candle exists
+  to answer it, and the starting loadout is *empty* — so the guarantee is "findable during the
+  opening day" (a run opens at 09:00, candles sit at loot weight 40) rather than "handed over". The
+  cost is written down where it lands: the old rationale for a starting kit was that handing the
+  player a real *item* keeps the whole chain on the path a session walks, and that guarantee now
+  lives in the `dev` loadout and the integration suites instead, which is weaker.
+- **The screen may draw a lit region only where the survivor can see it.** `NIGHT_WASH`'s comment
+  forbids two mechanisms for one fact, and a pool of light thirty metres away with no sightline to it
+  would be painted bright and be invisible — the screen asserting what the simulation denies. So the
+  overlay draws **lit ∩ seen**, and the night wash derives from `sightMetres` rather than raw ambient.
+  Standing in a lit pool lifts the dark *because the range genuinely grew*, which keeps it one number
+  with two consumers rather than two answers to one question.
+
+Cost, for the record, because it was not what was expected: `crowded-and-lit` — 2,000 bodies, 500 of
+them with eyes, a floodlight in the street and a lamp in hand — holds **the same 4 ms budget as its
+sightless twin**, at 2.54 ms against `crowded`'s 1.85. Light casts per *source*, not per observer, so
+the only per-entity cost is one squared-distance reject per source and an arc test for what survives.
+It scales with lamps rather than with bodies.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) · **Next:** [HANDOFF.md](../HANDOFF.md) ·
