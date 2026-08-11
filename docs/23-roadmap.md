@@ -434,4 +434,5 @@ The verification criteria this document set is checked against:
 
 ---
 
-**Previous:** [27 — Multiplayer](27-multiplayer.md) · [Doc index](../README.md#documentation)
+**Previous:** [27 — Multiplayer](27-multiplayer.md) · **Next:** [30 — Decision Records](30-decisions.md) ·
+[Doc index](../README.md#documentation)

@@ -222,7 +222,7 @@ const NIGHT_WASH = 0.8;
  *
  * This is the presentational half of last-known-position memory only. The simulation half --
  * per-observer memory in skill-scaled prose, degrading from "a moment ago" to "a while ago" --
- * belongs to the condition view and is still open in TODO.md.
+ * belongs to the condition view and is still open in HANDOFF.md.
  */
 const MEMORY_TICKS = 60;
 
@@ -917,7 +917,7 @@ export class Renderer {
    * at, which is the whole point of the readout.
    *
    * It survives the models rather than being replaced by them. docs/09-combat.md's cut list
-   * forbids damage numbers, hit chances and floating combat text, and TODO.md names swing
+   * forbids damage numbers, hit chances and floating combat text, and HANDOFF.md names swing
    * recovery among the readouts that replace them: the wedge is the ground the swing actually
    * covers, so a wind-up is it brightening to full and a recovery is it fading out. The wedge
    * says *where*; the wind-up and recovery poses say *when*.
@@ -948,7 +948,7 @@ export class Renderer {
     // The swing, as the wedge it covers.
     //
     // docs/09-combat.md's cut list forbids damage numbers, hit chances and floating combat
-    // text, and TODO.md names "swing recovery" among the readouts that replace them: the
+    // text, and HANDOFF.md names "swing recovery" among the readouts that replace them: the
     // consequence *is* the display. So a wind-up is a wedge brightening to full, and a
     // recovery is the same wedge fading out -- the player reads how exposed they are from
     // how much of it is left, in the same glance as the situation.
