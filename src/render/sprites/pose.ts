@@ -71,7 +71,7 @@ export const POSES: readonly Pose[] = [
  * wind-up and a recovery are single shapes because the *wedge* on the ground already carries
  * their progress (docs/09-combat.md's cut list makes that wedge the readout), and a second
  * animated channel for the same fact would be the thing being displayed twice that
- * TODO.md warns against.
+ * HANDOFF.md warns against.
  */
 export const POSE_FRAMES: readonly number[] = [
   1, // Idle
