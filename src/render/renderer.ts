@@ -20,7 +20,19 @@ import { Body, isCrawling } from "../sim/modules/health";
 import { MeleeWeapon, Swing, SwingState } from "../sim/modules/melee";
 import { Controlled } from "../sim/modules/player";
 import { Detail, Observer } from "../sim/vision/visibility";
-import { followCamera, visibleBounds, worldToScreen, type Camera } from "./camera";
+import { followCamera, type Camera } from "./camera";
+import {
+  depthOf,
+  mapRasterSize,
+  projectAngle,
+  projectedRadii,
+  tileRasterPosition,
+  TILE_HEIGHT_RATIO,
+  TILE_WIDTH_RATIO,
+  traceTile,
+  visibleBounds,
+  worldToScreen,
+} from "./projection";
 
 /**
  * Highest resolution the whole-map tile layer is ever rasterised at, in pixels per metre.
@@ -38,9 +50,7 @@ const COLOURS = {
   rubble: "#26242a",
   /** A tree: solid and opaque like a wall, and green so it does not read as one. */
   tree: "#2e4a2c",
-  treeTop: "#3c5f38",
   wall: "#3b4048",
-  wallTop: "#4b525c",
   /** Transparent: stops a body, not a sightline. Drawn as a gap in the wall it sits in. */
   window: "#2a3f4c",
   /** Screening: stops a sightline, not a body. */
@@ -59,6 +69,81 @@ const COLOURS = {
   /** Night. Blue rather than black, because a black wash reads as a broken renderer. */
   night: "6, 10, 26",
 } as const;
+
+/**
+ * How tall each occluder class stands, in metres.
+ *
+ * Picked to read rather than measured: a wall has to hide a shambler behind it without hiding
+ * the street beyond, and low cover has to look like something you can see over -- which is
+ * exactly what it is to the shadowcast when the crouch stance lands
+ * (docs/28-visibility-and-sightlines.md#what-blocks-sight). A tree is the tallest thing in a
+ * district and says so.
+ *
+ * **These are drawing heights, not a z axis.** Nothing is ever above anything else; docs/23's
+ * deferral of z-levels is intact and every spatial assumption in `sim/` is still planar.
+ */
+const OCCLUDER_HEIGHT_METRES: Partial<Record<Tile, number>> = {
+  [Tile.Wall]: 2.2,
+  [Tile.Window]: 2.2,
+  [Tile.Tree]: 3.2,
+  [Tile.Screen]: 1.5,
+  [Tile.Low]: 0.7,
+};
+
+/**
+ * Vertical pixels per metre of height, as a fraction of the horizontal scale.
+ *
+ * Below 1 because a true-scale vertical would make a 2.2 m wall taller than three floor tiles
+ * and turn a street into a canyon you cannot see along. This is the dial to turn if buildings
+ * ever feel squat or overbearing; nothing else depends on it.
+ */
+const OCCLUDER_RISE_SCALE = 0.62;
+
+/**
+ * How much of a wall is left when it is standing in front of the survivor.
+ *
+ * Faded rather than cut away entirely, because the wall is still *there* and the player has to
+ * be able to see that they are behind cover -- which is a fact about the fight, not decoration.
+ * Low enough to see through, high enough to read as a wall.
+ */
+const OCCLUDER_FADED_ALPHA = 0.28;
+
+function occluderRise(tile: Tile, zoom: number): number {
+  return (OCCLUDER_HEIGHT_METRES[tile] ?? 0) * zoom * OCCLUDER_RISE_SCALE;
+}
+
+/** Occluder classes, by the colour that distinguishes them. Order is irrelevant. */
+const OCCLUDER_COLOURS: Partial<Record<Tile, string>> = {
+  [Tile.Wall]: COLOURS.wall,
+  [Tile.Window]: COLOURS.window,
+  [Tile.Screen]: COLOURS.screen,
+  [Tile.Low]: COLOURS.low,
+  [Tile.Tree]: COLOURS.tree,
+};
+
+/** What a slot in the depth-sorted draw list is. */
+const enum DrawKind {
+  Occluder = 0,
+  Body = 1,
+  Glimpse = 2,
+  Player = 3,
+}
+
+/**
+ * One thing to draw, at a depth.
+ *
+ * Mutable and pooled rather than allocated per frame: this list is rebuilt sixty times a
+ * second with several hundred entries, and the alternative is several hundred short-lived
+ * objects per frame handed straight to the collector.
+ */
+type Drawable = {
+  depth: number;
+  kind: DrawKind;
+  tile: Tile;
+  entity: EntityId;
+  x: number;
+  y: number;
+};
 
 /**
  * How much of the screen the dark may take at the blackest hour.
@@ -119,6 +204,14 @@ export class Renderer {
   private tileLayer: HTMLCanvasElement | null = null;
   /** Pixels per metre the cached layer was rasterised at. Not the camera's zoom -- see below. */
   private tileLayerZoom = 0;
+  /** Where world (0, 0) sits inside the cached layer. The projected map is a diamond. */
+  private tileLayerOriginX = 0;
+  /** Occluder sprites, rasterised once per zoom. Keyed by tile class. */
+  private occluderSprites: Map<Tile, HTMLCanvasElement> | null = null;
+  private occluderSpritesZoom = 0;
+  /** The depth-sorted draw list, pooled. See {@link Drawable}. */
+  private readonly drawList: Drawable[] = [];
+  private drawCount = 0;
 
   /**
    * Positions as of the previous tick.
@@ -202,84 +295,157 @@ export class Renderer {
    * When structures make tiles mutable (Milestone 2) this grows a dirty-rect list; the
    * blit path below does not change.
    */
+  /**
+   * Build one sprite per occluder class.
+   *
+   * Standing a wall up costs three polygons -- a cap and the two faces the camera can see --
+   * and there are only five kinds of them, so they are rasterised once at boot and blitted
+   * thereafter. That is the difference between this being affordable and not: at 28 px/m on a
+   * 1080p screen roughly 400 wall tiles are on screen, and 400 `drawImage` calls is a very
+   * different cost from 1,200 path fills. docs/22-performance.md#the-renderer names sprite
+   * batching by texture as the optimisation to reach for; this is the first thing that needed
+   * it.
+   *
+   * Shading is an overlay on the base colour rather than a second palette entry, so a new
+   * occluder class needs one colour rather than three. The classes still differ by *hue* --
+   * docs/28's point that a curtain must not read like a wall survives, because a tree is green
+   * and masonry is grey however they are lit.
+   */
+  private buildOccluderSprites(zoom: number): Map<Tile, HTMLCanvasElement> {
+    const sprites = new Map<Tile, HTMLCanvasElement>();
+    const halfW = (zoom * TILE_WIDTH_RATIO) / 2;
+    const halfH = (zoom * TILE_HEIGHT_RATIO) / 2;
+
+    for (const [tile, colour] of Object.entries(OCCLUDER_COLOURS)) {
+      const kind = Number(tile) as Tile;
+      const rise = Math.max(1, Math.round(occluderRise(kind, zoom)));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(halfW * 2);
+      canvas.height = Math.ceil(halfH * 2 + rise);
+      const ctx = canvas.getContext("2d");
+      if (ctx === null) throw new Error("Renderer: no 2D context for an occluder sprite");
+
+      const face = (points: readonly (readonly [number, number])[], shade: string): void => {
+        ctx.beginPath();
+        ctx.moveTo(points[0]?.[0] as number, points[0]?.[1] as number);
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i]?.[0] as number, points[i]?.[1] as number);
+        }
+        ctx.closePath();
+        ctx.fillStyle = colour as string;
+        ctx.fill();
+        ctx.fillStyle = shade;
+        ctx.fill();
+      };
+
+      // The two faces the camera can see: south-west and south-east. The other two are always
+      // hidden, which is the one economy a fixed camera angle buys for free.
+      face(
+        [
+          [0, halfH],
+          [halfW, halfH * 2],
+          [halfW, halfH * 2 + rise],
+          [0, halfH + rise],
+        ],
+        "rgba(0, 0, 0, 0.34)",
+      );
+      face(
+        [
+          [halfW, halfH * 2],
+          [halfW * 2, halfH],
+          [halfW * 2, halfH + rise],
+          [halfW, halfH * 2 + rise],
+        ],
+        "rgba(0, 0, 0, 0.16)",
+      );
+      // The cap last, so it sits over the top edges of both faces.
+      face(
+        [
+          [0, halfH],
+          [halfW, 0],
+          [halfW * 2, halfH],
+          [halfW, halfH * 2],
+        ],
+        "rgba(255, 255, 255, 0.10)",
+      );
+
+      sprites.set(kind, canvas);
+    }
+    return sprites;
+  }
+
   private buildTileLayer(zoom: number): HTMLCanvasElement {
+    const size = mapRasterSize(this.map.w, this.map.h, zoom);
     const canvas = document.createElement("canvas");
-    canvas.width = this.map.w * zoom;
-    canvas.height = this.map.h * zoom;
+    canvas.width = size.width;
+    canvas.height = size.height;
+    this.tileLayerOriginX = size.originX;
 
     const ctx = canvas.getContext("2d", { alpha: false });
     if (ctx === null)
       throw new Error("Renderer: could not acquire a 2D context for the tile layer");
 
-    // Two passes, because a tile has two independent stories: what is under it and what is
-    // in it. The ground goes down first and everything stands on it.
-    ctx.fillStyle = COLOURS.floor;
+    // The projected map is a diamond, so half this canvas is outside it. That half is the
+    // void beyond the district rather than unlit ground, and it reads as the background the
+    // rest of the page uses -- not as black, which would look like a rendering failure.
+    ctx.fillStyle = COLOURS.background;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    /**
+     * Fill every tile matching a predicate, in one path.
+     *
+     * Batched because a 256 m district is 65,536 tiles and a `fill()` each would take most of
+     * a second at boot. Flushed periodically rather than as one enormous path, because a path
+     * with tens of thousands of subpaths stops being faster somewhere well before that.
+     */
+    const fillTiles = (colour: string, matches: (tx: number, ty: number) => boolean): void => {
+      ctx.fillStyle = colour;
+      ctx.beginPath();
+      let batched = 0;
+      for (let ty = 0; ty < this.map.h; ty++) {
+        for (let tx = 0; tx < this.map.w; tx++) {
+          if (!matches(tx, ty)) continue;
+          const { sx, sy } = tileRasterPosition(tx, ty, zoom, size.originX);
+          traceTile(ctx, sx, sy, zoom);
+          if (++batched >= 4000) {
+            ctx.fill();
+            ctx.beginPath();
+            batched = 0;
+          }
+        }
+      }
+      ctx.fill();
+    };
+
+    // Two passes, because a tile has two independent stories: what is under it and what is
+    // in it. The ground goes down first and everything stands on it.
+    //
+    // Paved is drawn rather than left to the background fill, which is the one thing that
+    // changed with the projection: the canvas no longer *is* the map, so "everything not
+    // otherwise coloured" is now mostly void.
     const SURFACE_COLOURS: Partial<Record<Surface, string>> = {
+      [Surface.Paved]: COLOURS.floor,
       [Surface.Dirt]: COLOURS.dirt,
       [Surface.Grass]: COLOURS.grass,
       [Surface.Rubble]: COLOURS.rubble,
       // Undergrowth is not here: it is always under screening foliage, which is drawn over
       // the top of it in the pass below.
+      [Surface.Undergrowth]: COLOURS.grass,
     };
 
     for (const [surface, colour] of Object.entries(SURFACE_COLOURS)) {
-      ctx.fillStyle = colour as string;
       const kind = Number(surface) as Surface;
-      for (let ty = 0; ty < this.map.h; ty++) {
-        for (let tx = 0; tx < this.map.w; tx++) {
-          if (surfaceAt(this.map, tx, ty) !== kind) continue;
-          ctx.fillRect(tx * zoom, ty * zoom, zoom, zoom);
-        }
-      }
+      fillTiles(colour as string, (tx, ty) => surfaceAt(this.map, tx, ty) === kind);
     }
 
-    // Each occluder class gets its own colour, because the player has to be able to tell
-    // them apart to play around them: you can shoot through a window you cannot walk
-    // through, and hide behind foliage you can walk straight into. Drawing a curtain like a
-    // wall would make the visibility rules look broken rather than tactical.
-    const TILE_COLOURS: Partial<Record<Tile, string>> = {
-      [Tile.Wall]: COLOURS.wall,
-      [Tile.Window]: COLOURS.window,
-      [Tile.Screen]: COLOURS.screen,
-      [Tile.Low]: COLOURS.low,
-      [Tile.Tree]: COLOURS.tree,
-    };
-
-    for (const [tile, colour] of Object.entries(TILE_COLOURS)) {
-      ctx.fillStyle = colour as string;
-      const kind = Number(tile) as Tile;
-      for (let ty = 0; ty < this.map.h; ty++) {
-        for (let tx = 0; tx < this.map.w; tx++) {
-          if (tileAt(this.map, tx, ty) !== kind) continue;
-          ctx.fillRect(tx * zoom, ty * zoom, zoom, zoom);
-        }
-      }
-    }
-
-    // A lighter cap on masonry with open space above it, so buildings read as solid rather
-    // than as flat blocks, and a lighter crown on a tree for the same reason. Deliberately
-    // *not* driven off opacity: a tree and a wall are the same thing to the shadowcast and
-    // must not be the same thing to look at, or a park reads as a building.
-    const masonry = (tx: number, ty: number): boolean => {
-      const tile = tileAt(this.map, tx, ty);
-      return tile === Tile.Wall || tile === Tile.Window;
-    };
-    for (let ty = 0; ty < this.map.h; ty++) {
-      for (let tx = 0; tx < this.map.w; tx++) {
-        if (masonry(tx, ty) && !masonry(tx, ty - 1)) {
-          ctx.fillStyle = COLOURS.wallTop;
-          ctx.fillRect(tx * zoom, ty * zoom, zoom, Math.max(1, zoom * 0.25));
-        } else if (
-          tileAt(this.map, tx, ty) === Tile.Tree &&
-          tileAt(this.map, tx, ty - 1) !== Tile.Tree
-        ) {
-          ctx.fillStyle = COLOURS.treeTop;
-          ctx.fillRect(tx * zoom, ty * zoom, zoom, Math.max(1, zoom * 0.25));
-        }
-      }
-    }
+    // Occluders are **not** here. They stand up now, which means they can hide what is behind
+    // them, which means they have to be drawn interleaved with the bodies they hide -- see the
+    // depth pass in `draw`. A single pre-blitted image cannot express "this wall is in front
+    // of that shambler but behind this one".
+    //
+    // Floors can stay because they occlude nothing. That split is the whole reason the most
+    // expensive thing in the renderer survived the projection change.
 
     return canvas;
   }
@@ -318,6 +484,14 @@ export class Renderer {
       this.tileLayerZoom = rasterZoom;
     }
 
+    // Occluders are rasterised at the *camera's* zoom rather than the capped one: there are
+    // five of them and they are a few thousand pixels each, so nothing about them is worth
+    // trading sharpness for.
+    if (this.occluderSprites === null || this.occluderSpritesZoom !== camera.zoom) {
+      this.occluderSprites = this.buildOccluderSprites(camera.zoom);
+      this.occluderSpritesZoom = camera.zoom;
+    }
+
     // Follow the controlled entity, interpolated, so the camera doesn't judder at 20 Hz.
     for (const entity of world.components.query(Position, Controlled)) {
       const { x, y } = this.interpolated(world, entity, alpha);
@@ -328,28 +502,43 @@ export class Renderer {
     ctx.fillStyle = COLOURS.background;
     ctx.fillRect(0, 0, camera.width, camera.height);
 
-    // Blit only the visible slice of the pre-rasterised tile layer.
+    // Blit the visible slice of the pre-rasterised tile layer.
     //
-    // `scale` is destination pixels per source pixel. It is 1 whenever the camera is at or
-    // below the raster cap, which is what makes this the same blit it has always been.
+    // `scale` is destination pixels per source pixel; it is 1 whenever the camera is at or
+    // below the raster cap. The raster's own top-left is not world (0, 0) any more -- the
+    // projected map is a diamond, and world (0, 0) is its *top* corner, `originX` pixels in
+    // from the left edge -- so the blit is anchored from that instead.
     const origin = worldToScreen(camera, 0, 0);
     const scale = camera.zoom / this.tileLayerZoom;
-    const destWidth = Math.min(this.tileLayer.width * scale, camera.width);
-    const destHeight = Math.min(this.tileLayer.height * scale, camera.height);
-    // Nearest-neighbour. Smoothing would blur the edge between two flat colours into a
-    // gradient, which is the one thing upscaling flat tiles can get wrong.
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(
-      this.tileLayer,
-      Math.max(0, -origin.sx) / scale,
-      Math.max(0, -origin.sy) / scale,
-      destWidth / scale,
-      destHeight / scale,
-      Math.max(0, origin.sx),
-      Math.max(0, origin.sy),
-      destWidth,
-      destHeight,
-    );
+    const layerLeft = origin.sx - this.tileLayerOriginX * scale;
+    const layerTop = origin.sy;
+
+    // Intersect the layer with the viewport, in destination pixels, then divide back into
+    // source pixels. Clamping both ends is what keeps a camera near a map edge from asking
+    // for a source rectangle that starts outside the canvas.
+    const destX = Math.max(0, layerLeft);
+    const destY = Math.max(0, layerTop);
+    const destRight = Math.min(camera.width, layerLeft + this.tileLayer.width * scale);
+    const destBottom = Math.min(camera.height, layerTop + this.tileLayer.height * scale);
+    const destWidth = destRight - destX;
+    const destHeight = destBottom - destY;
+
+    if (destWidth > 0 && destHeight > 0) {
+      // Nearest-neighbour. Smoothing would blur the edge between two flat colours into a
+      // gradient, which is the one thing upscaling flat tiles can get wrong.
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(
+        this.tileLayer,
+        (destX - layerLeft) / scale,
+        (destY - layerTop) / scale,
+        destWidth / scale,
+        destHeight / scale,
+        destX,
+        destY,
+        destWidth,
+        destHeight,
+      );
+    }
 
     const bounds = visibleBounds(camera);
     const radius = Math.max(2, camera.zoom * 0.35);
@@ -365,6 +554,35 @@ export class Renderer {
     }
 
     if (this.attentionChannel !== "off") this.drawAttention(world, camera, bounds, eyes);
+
+    // ---- the depth pass ---------------------------------------------------------------
+    //
+    // Everything that stands up goes in one list, sorted back to front. Walls are in it for
+    // the same reason bodies are: a wall with height has to be able to be *in front of* one
+    // shambler and behind another, and only an interleaved order can say that.
+    //
+    // `x + y` is the depth, because the camera looks along that diagonal (projection.ts).
+    // Occluders take their tile's centre, which puts a body standing on the near side of a
+    // wall in front of it and one on the far side behind it, with no special case.
+    this.drawCount = 0;
+
+    const minTileX = Math.max(0, Math.floor(bounds.minX));
+    const maxTileX = Math.min(this.map.w - 1, Math.ceil(bounds.maxX));
+    const minTileY = Math.max(0, Math.floor(bounds.minY));
+    const maxTileY = Math.min(this.map.h - 1, Math.ceil(bounds.maxY));
+
+    for (let ty = minTileY; ty <= maxTileY; ty++) {
+      for (let tx = minTileX; tx <= maxTileX; tx++) {
+        const tile = tileAt(this.map, tx, ty);
+        if (OCCLUDER_HEIGHT_METRES[tile] === undefined) continue;
+        const slot = this.nextDrawable();
+        slot.kind = DrawKind.Occluder;
+        slot.tile = tile;
+        slot.x = tx;
+        slot.y = ty;
+        slot.depth = depthOf(tx + 0.5, ty + 0.5);
+      }
+    }
 
     let drawn = 0;
     let occluded = 0;
@@ -382,16 +600,7 @@ export class Renderer {
         continue;
       }
 
-      const { sx, sy } = worldToScreen(camera, x, y);
-      if (detail === Detail.Focal) {
-        // A crawler draws small. docs/14-zombies.md: with its locomotion destroyed it "is
-        // quiet, is easy to miss in a dark breach, and is still perfectly capable of biting
-        // an ankle" -- so it has to be less visible, not merely slower.
-        const body = world.components.get(entity, Body);
-        const half = body !== undefined && isCrawling(body) ? radius * 0.5 : radius;
-        ctx.fillStyle = COLOURS.wanderer;
-        ctx.fillRect(sx - half, sy - half, half * 2, half * 2);
-      } else {
+      if (detail === Detail.Peripheral) {
         // Peripheral: movement is noticed, identity is not. A body standing still at the
         // edge of vision is not drawn at all -- which is the mechanic, not an omission.
         const velocity = world.components.getOrThrow(entity, Velocity);
@@ -399,70 +608,93 @@ export class Renderer {
           occluded++;
           continue;
         }
-        ctx.fillStyle = COLOURS.glimpse;
-        ctx.fillRect(sx - radius * 0.6, sy - radius * 0.6, radius * 1.2, radius * 1.2);
       }
+
+      const slot = this.nextDrawable();
+      slot.kind = detail === Detail.Focal ? DrawKind.Body : DrawKind.Glimpse;
+      slot.entity = entity;
+      slot.x = x;
+      slot.y = y;
+      slot.depth = depthOf(x, y);
 
       this.remember(entity, x, y, world.tick);
       drawn++;
     }
 
-    if (eyes !== null) this.drawMemory(world, camera, bounds, radius);
-
-    ctx.fillStyle = COLOURS.player;
+    // Where the survivor is, in both senses, so the walls in front of them can get out of the
+    // way below.
+    let playerDepth = Infinity;
+    let playerScreenX = 0;
+    let playerScreenY = 0;
     for (const entity of world.components.query(Position, Controlled)) {
       const { x, y } = this.interpolated(world, entity, alpha);
-      const { sx, sy } = worldToScreen(camera, x, y);
-      ctx.beginPath();
-      ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
-      ctx.fill();
+      const slot = this.nextDrawable();
+      slot.kind = DrawKind.Player;
+      slot.entity = entity;
+      slot.x = x;
+      slot.y = y;
+      slot.depth = depthOf(x, y);
+      playerDepth = slot.depth;
+      const at = worldToScreen(camera, x, y);
+      playerScreenX = at.sx;
+      playerScreenY = at.sy;
+    }
 
-      // The swing, as the wedge it covers.
-      //
-      // docs/09-combat.md's cut list forbids damage numbers, hit chances and floating combat
-      // text, and TODO.md names "swing recovery" among the readouts that replace them: the
-      // consequence *is* the display. So a wind-up is a wedge brightening to full, and a
-      // recovery is the same wedge fading out -- the player reads how exposed they are from
-      // how much of it is left, in the same glance as the situation.
-      const facing = world.components.get(entity, Facing);
-      const swing = world.components.get(entity, Swing);
-      const weapon = world.components.get(entity, MeleeWeapon);
-      if (facing !== undefined && swing !== undefined && weapon !== undefined) {
-        const windingUp = swing.state === SwingState.WindUp;
-        const total = windingUp ? windupTicks(weapon.weight) : recoverTicks(weapon.weight);
-        if (swing.state !== SwingState.Idle && total > 0) {
-          // Wind-up fills as it approaches; recovery empties as it passes.
-          const remaining = swing.ticksLeft / total;
-          const strength = windingUp ? 1 - remaining : remaining;
-          const reach = weapon.reachMetres * camera.zoom;
-          ctx.beginPath();
-          ctx.moveTo(sx, sy);
-          ctx.arc(
-            sx,
-            sy,
-            reach,
-            facing.radians - SWING_HALF_ANGLE,
-            facing.radians + SWING_HALF_ANGLE,
-          );
-          ctx.closePath();
-          ctx.fillStyle = `rgba(${COLOURS.swing}, ${(0.08 + strength * 0.22).toFixed(3)})`;
-          ctx.fill();
-        }
+    const list = this.drawList;
+    const count = this.drawCount;
+    // Sorting a slice of a pooled array, so the comparator runs over live entries only.
+    const live = list.slice(0, count);
+    live.sort((a, b) => a.depth - b.depth);
+
+    const halfW = (camera.zoom * TILE_WIDTH_RATIO) / 2;
+    for (const item of live) {
+      if (item.kind === DrawKind.Occluder) {
+        const sprite = this.occluderSprites?.get(item.tile);
+        if (sprite === undefined) continue;
+        const { sx, sy } = worldToScreen(camera, item.x, item.y);
+        // The sprite's cap sits on the tile; the faces hang below it. So it is anchored from
+        // the tile's north corner, raised by however far this class stands up.
+        const left = sx - halfW;
+        const top = sy - occluderRise(item.tile, camera.zoom);
+
+        // Walls that stand between the camera and the survivor get out of the way. Without
+        // this the game is unplayable indoors -- the near wall of any building hides the
+        // person you are controlling, which the flat projection never had to solve.
+        //
+        // The test is exact rather than a radius: this wall is drawn *after* the survivor, and
+        // its sprite covers where they are. That fades the two or three tiles actually in the
+        // way instead of a blanket circle, so a building does not shimmer as you walk past it.
+        const hides =
+          item.depth > playerDepth &&
+          playerScreenX >= left - radius &&
+          playerScreenX <= left + sprite.width + radius &&
+          playerScreenY >= top - radius &&
+          playerScreenY <= top + sprite.height + radius;
+
+        if (hides) ctx.globalAlpha = OCCLUDER_FADED_ALPHA;
+        ctx.drawImage(sprite, left, top);
+        if (hides) ctx.globalAlpha = 1;
+        continue;
       }
 
-      // A stub of a nose, so Facing is observable in the running game rather than only in
-      // the tests. Player only: there is exactly one of them, so this costs nothing the
-      // frame budget can see, and a heading drawn on two thousand shamblers would.
-      if (facing !== undefined) {
-        const length = radius * 2.4;
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx + Math.cos(facing.radians) * length, sy + Math.sin(facing.radians) * length);
-        ctx.strokeStyle = COLOURS.player;
-        ctx.lineWidth = Math.max(1, radius * 0.35);
-        ctx.stroke();
+      const { sx, sy } = worldToScreen(camera, item.x, item.y);
+      if (item.kind === DrawKind.Body) {
+        // A crawler draws small. docs/14-zombies.md: with its locomotion destroyed it "is
+        // quiet, is easy to miss in a dark breach, and is still perfectly capable of biting
+        // an ankle" -- so it has to be less visible, not merely slower.
+        const body = world.components.get(item.entity, Body);
+        const half = body !== undefined && isCrawling(body) ? radius * 0.5 : radius;
+        ctx.fillStyle = COLOURS.wanderer;
+        ctx.fillRect(sx - half, sy - half, half * 2, half * 2);
+      } else if (item.kind === DrawKind.Glimpse) {
+        ctx.fillStyle = COLOURS.glimpse;
+        ctx.fillRect(sx - radius * 0.6, sy - radius * 0.6, radius * 1.2, radius * 1.2);
+      } else {
+        this.drawPlayer(world, camera, item.entity, item.x, item.y, radius);
       }
     }
+
+    if (eyes !== null) this.drawMemory(world, camera, bounds, radius);
 
     // Night, last, over everything including the field overlays. The alpha is derived from
     // the same ambient value the observer's range is, so the screen and the simulation
@@ -479,6 +711,81 @@ export class Renderer {
   }
 
   /** Note where a body was when it was last seen. */
+  /** Take the next slot from the pooled draw list, growing it only when a frame needs more. */
+  private nextDrawable(): Drawable {
+    let slot = this.drawList[this.drawCount];
+    if (slot === undefined) {
+      slot = { depth: 0, kind: DrawKind.Body, tile: Tile.Floor, entity: 0, x: 0, y: 0 };
+      this.drawList.push(slot);
+    }
+    this.drawCount++;
+    return slot;
+  }
+
+  /** The survivor, their heading, and the swing they are committed to. */
+  private drawPlayer(
+    world: World,
+    camera: Camera,
+    entity: EntityId,
+    x: number,
+    y: number,
+    radius: number,
+  ): void {
+    const ctx = this.ctx;
+    const { sx, sy } = worldToScreen(camera, x, y);
+
+    ctx.fillStyle = COLOURS.player;
+    ctx.beginPath();
+    ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    const facing = world.components.get(entity, Facing);
+    if (facing === undefined) return;
+
+    // The swing, as the wedge it covers.
+    //
+    // docs/09-combat.md's cut list forbids damage numbers, hit chances and floating combat
+    // text, and TODO.md names "swing recovery" among the readouts that replace them: the
+    // consequence *is* the display. So a wind-up is a wedge brightening to full, and a
+    // recovery is the same wedge fading out -- the player reads how exposed they are from
+    // how much of it is left, in the same glance as the situation.
+    const swing = world.components.get(entity, Swing);
+    const weapon = world.components.get(entity, MeleeWeapon);
+    if (swing !== undefined && weapon !== undefined && swing.state !== SwingState.Idle) {
+      const windingUp = swing.state === SwingState.WindUp;
+      const total = windingUp ? windupTicks(weapon.weight) : recoverTicks(weapon.weight);
+      if (total > 0) {
+        // Wind-up fills as it approaches; recovery empties as it passes.
+        const remaining = swing.ticksLeft / total;
+        const strength = windingUp ? 1 - remaining : remaining;
+        const { rx, ry } = projectedRadii(weapon.reachMetres, camera.zoom);
+        const centre = projectAngle(facing.radians);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.ellipse(sx, sy, rx, ry, 0, centre - SWING_HALF_ANGLE, centre + SWING_HALF_ANGLE);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${COLOURS.swing}, ${(0.08 + strength * 0.22).toFixed(3)})`;
+        ctx.fill();
+      }
+    }
+
+    // A stub of a nose, so Facing is observable in the running game rather than only in the
+    // tests. Its tip is computed in the world and then projected, rather than by rotating a
+    // screen-space angle -- same answer, and it cannot drift from the projection.
+    const lengthMetres = (radius * 2.4) / camera.zoom;
+    const tip = worldToScreen(
+      camera,
+      x + Math.cos(facing.radians) * lengthMetres,
+      y + Math.sin(facing.radians) * lengthMetres,
+    );
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(tip.sx, tip.sy);
+    ctx.strokeStyle = COLOURS.player;
+    ctx.lineWidth = Math.max(1, radius * 0.35);
+    ctx.stroke();
+  }
+
   private remember(entity: EntityId, x: number, y: number, tick: number): void {
     const mark = this.memory.get(entity);
     if (mark === undefined) this.memory.set(entity, { x, y, tick });
@@ -562,7 +869,6 @@ export class Renderer {
     const maxCol = Math.min(field.cols - 1, Math.floor(bounds.maxX / size));
     const minRow = Math.max(0, Math.floor(bounds.minY / size));
     const maxRow = Math.min(field.rows - 1, Math.floor(bounds.maxY / size));
-    const screenSize = size * camera.zoom;
 
     for (let row = minRow; row <= maxRow; row++) {
       for (let col = minCol; col <= maxCol; col++) {
@@ -571,9 +877,14 @@ export class Renderer {
         // Square-rooted, because a linear ramp makes everything but the source invisible --
         // the tail of a shout is what you actually need to see when tuning falloff.
         const intensity = Math.min(1, Math.sqrt(value / fullScale));
+        // A field cell is `size` metres square, so it projects to a diamond `size` tiles
+        // across -- traced at the cell's own scale rather than drawn as a screen-space square,
+        // which would sit at forty-five degrees to the ground it is describing.
         const { sx, sy } = worldToScreen(camera, col * size, row * size);
+        ctx.beginPath();
+        traceTile(ctx, sx - size * camera.zoom, sy, size * camera.zoom);
         ctx.fillStyle = `rgba(${tint}, ${(intensity * 0.55).toFixed(3)})`;
-        ctx.fillRect(sx, sy, screenSize, screenSize);
+        ctx.fill();
       }
     }
   }
@@ -597,10 +908,17 @@ export class Renderer {
 
     const ctx = this.ctx;
     const zoom = camera.zoom;
+    const halfW = (zoom * TILE_WIDTH_RATIO) / 2;
     const minX = Math.max(0, Math.floor(bounds.minX));
     const maxX = Math.min(this.map.w - 1, Math.ceil(bounds.maxX));
     const minY = Math.max(0, Math.floor(bounds.minY));
     const maxY = Math.min(this.map.h - 1, Math.ceil(bounds.maxY));
+
+    // One scan, two paths. The two arcs are tinted differently and batching by tint would
+    // otherwise mean asking `vision.detail` about every tile twice -- which is the cheap call
+    // here, but this overlay is the one a developer leaves switched on.
+    const focal = new Path2D();
+    const peripheral = new Path2D();
 
     for (let ty = minY; ty <= maxY; ty++) {
       for (let tx = minX; tx <= maxX; tx++) {
@@ -609,11 +927,14 @@ export class Renderer {
         const detail = world.vision.detail(eyes, tx + 0.5, ty + 0.5);
         if (detail === Detail.Unseen) continue;
         const { sx, sy } = worldToScreen(camera, tx, ty);
-        ctx.fillStyle =
-          detail === Detail.Focal ? "rgba(232, 215, 160, 0.16)" : "rgba(140, 160, 200, 0.08)";
-        ctx.fillRect(sx, sy, zoom, zoom);
+        traceTile(detail === Detail.Focal ? focal : peripheral, sx - halfW, sy, zoom);
       }
     }
+
+    ctx.fillStyle = "rgba(232, 215, 160, 0.16)";
+    ctx.fill(focal);
+    ctx.fillStyle = "rgba(140, 160, 200, 0.08)";
+    ctx.fill(peripheral);
   }
 
   private interpolated(world: World, entity: EntityId, alpha: number): { x: number; y: number } {
