@@ -10,6 +10,7 @@ import { ModifierStore, type ModifierStoreSave } from "../modifiers/modifiers";
 import { defineCoreStats, StatRegistry } from "../modifiers/stats";
 import { RngRegistry, type RngState } from "../rng";
 import { SpatialHash } from "../spatial/hash";
+import { LightIndex } from "../vision/light";
 import { VisibilityIndex } from "../vision/visibility";
 import { CommandQueue } from "./commands";
 import { ComponentStore } from "./components";
@@ -112,6 +113,22 @@ export class World {
    * Sized to a map by `boot`, and inert until then, so nothing has to null-check the kernel.
    */
   readonly spatial: SpatialHash;
+
+  /**
+   * What is lit (docs/03-attention.md#light).
+   *
+   * Kernel for the reason `vision` is, and one more besides: an observer's range derives from
+   * the light where it stands, and range decides the visible set, which decides whether the
+   * renderer draws through walls. A light index that could be switched off would mean
+   * "disable a limb, get the wallhack back at night". A world with every module disabled still
+   * has a *dark* night -- it just has nothing emitting into it.
+   *
+   * **Derived, and not in the snapshot**, exactly like `vision` and `spatial`: a pure function
+   * of positions, magnitudes and the tile map, all three of which the snapshot already holds.
+   * What *is* saved is the `LightSource` component, which rides the component store like any
+   * other -- so a lamp survives a load and its cast is rebuilt on the first tick after it.
+   */
+  readonly light = new LightIndex();
 
   /**
    * How many times the tile map has changed under the indices that cache against it.

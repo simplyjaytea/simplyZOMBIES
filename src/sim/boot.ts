@@ -239,6 +239,18 @@ export function boot(options: BootOptions): Boot {
     run: (w) => w.spatial.rebuild(w),
   });
 
+  // Light is kernel beside the three above, and its order is the argument for where it sits:
+  // 75 is after the bodies are final (order 0) and after the spatial hash (50), and before
+  // `kernel.visibility` (100) -- which has to be, because an observer's range now *derives*
+  // from the light where it stands. Cast light after vision and every observer would be sized
+  // against last tick's lamp.
+  world.systems.register({
+    id: "kernel.light",
+    phase: "movement",
+    order: 75,
+    run: (w) => w.light.refresh(w, map),
+  });
+
   world.systems.register({
     id: "kernel.visibility",
     phase: "movement",
