@@ -21,7 +21,7 @@
 import { defineComponent, Facing, Position } from "../kernel/components";
 import type { EntityId } from "../kernel/entities";
 import type { World } from "../kernel/world";
-import { Eye, TILE_METRES, type TileMap } from "../map/tilemap";
+import { Eye, TILE_METRES, tileRange, type TileMap } from "../map/tilemap";
 import { ambientLightAt } from "../time/clock";
 import { shadowcast, VisibleTiles } from "./shadowcast";
 
@@ -142,19 +142,6 @@ export class VisibilityIndex {
    */
   recomputes = 0;
 
-  /** Bumped when the map changes, which invalidates every cached view at once. */
-  private generation = 0;
-
-  /**
-   * Call when tiles change. Nothing does yet -- the map is static until
-   * [structures](../../../docs/15-base-building.md) arrive in Milestone 2 -- and it exists
-   * now because the alternative is a stale sightline through a wall that was just built,
-   * which is a bug that looks exactly like a cheat.
-   */
-  invalidate(): void {
-    this.generation++;
-  }
-
   /**
    * Bring every observer's view up to date. Registered as a kernel system by `boot`.
    *
@@ -182,8 +169,8 @@ export class VisibilityIndex {
       // thirty-minute transition, and the cache key is built from that integer. So the sun
       // coming up costs thirty-six shadowcasts spread over half an hour, not one per tick.
       const metres = observer.rangeMetres * ambientLightAt(world.tick);
-      const range = Math.max(1, Math.ceil(metres / TILE_METRES));
-      const key = `${tileX},${tileY},${range},${observer.eye},${this.generation}`;
+      const range = tileRange(metres);
+      const key = `${tileX},${tileY},${range},${observer.eye},${world.mapGeneration}`;
 
       let view = this.views.get(entity);
       if (view === undefined) {
