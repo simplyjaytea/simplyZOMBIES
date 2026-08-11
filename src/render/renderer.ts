@@ -20,7 +20,14 @@ import { Body, isCrawling } from "../sim/modules/health";
 import { MeleeWeapon, Swing, SwingState } from "../sim/modules/melee";
 import { Controlled } from "../sim/modules/player";
 import { Detail, Observer } from "../sim/vision/visibility";
-import { followCamera, visibleBounds, worldToScreen, type Camera } from "./camera";
+import { followCamera, type Camera } from "./camera";
+import {
+  mapRasterSize,
+  tileRasterPosition,
+  traceTile,
+  visibleBounds,
+  worldToScreen,
+} from "./projection";
 
 /**
  * Highest resolution the whole-map tile layer is ever rasterised at, in pixels per metre.
@@ -119,6 +126,8 @@ export class Renderer {
   private tileLayer: HTMLCanvasElement | null = null;
   /** Pixels per metre the cached layer was rasterised at. Not the camera's zoom -- see below. */
   private tileLayerZoom = 0;
+  /** Where world (0, 0) sits inside the cached layer. The projected map is a diamond. */
+  private tileLayerOriginX = 0;
 
   /**
    * Positions as of the previous tick.
@@ -203,42 +212,76 @@ export class Renderer {
    * blit path below does not change.
    */
   private buildTileLayer(zoom: number): HTMLCanvasElement {
+    const size = mapRasterSize(this.map.w, this.map.h, zoom);
     const canvas = document.createElement("canvas");
-    canvas.width = this.map.w * zoom;
-    canvas.height = this.map.h * zoom;
+    canvas.width = size.width;
+    canvas.height = size.height;
+    this.tileLayerOriginX = size.originX;
 
     const ctx = canvas.getContext("2d", { alpha: false });
     if (ctx === null)
       throw new Error("Renderer: could not acquire a 2D context for the tile layer");
 
-    // Two passes, because a tile has two independent stories: what is under it and what is
-    // in it. The ground goes down first and everything stands on it.
-    ctx.fillStyle = COLOURS.floor;
+    // The projected map is a diamond, so half this canvas is outside it. That half is the
+    // void beyond the district rather than unlit ground, and it reads as the background the
+    // rest of the page uses -- not as black, which would look like a rendering failure.
+    ctx.fillStyle = COLOURS.background;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    /**
+     * Fill every tile matching a predicate, in one path.
+     *
+     * Batched because a 256 m district is 65,536 tiles and a `fill()` each would take most of
+     * a second at boot. Flushed periodically rather than as one enormous path, because a path
+     * with tens of thousands of subpaths stops being faster somewhere well before that.
+     */
+    const fillTiles = (colour: string, matches: (tx: number, ty: number) => boolean): void => {
+      ctx.fillStyle = colour;
+      ctx.beginPath();
+      let batched = 0;
+      for (let ty = 0; ty < this.map.h; ty++) {
+        for (let tx = 0; tx < this.map.w; tx++) {
+          if (!matches(tx, ty)) continue;
+          const { sx, sy } = tileRasterPosition(tx, ty, zoom, size.originX);
+          traceTile(ctx, sx, sy, zoom);
+          if (++batched >= 4000) {
+            ctx.fill();
+            ctx.beginPath();
+            batched = 0;
+          }
+        }
+      }
+      ctx.fill();
+    };
+
+    // Two passes, because a tile has two independent stories: what is under it and what is
+    // in it. The ground goes down first and everything stands on it.
+    //
+    // Paved is drawn rather than left to the background fill, which is the one thing that
+    // changed with the projection: the canvas no longer *is* the map, so "everything not
+    // otherwise coloured" is now mostly void.
     const SURFACE_COLOURS: Partial<Record<Surface, string>> = {
+      [Surface.Paved]: COLOURS.floor,
       [Surface.Dirt]: COLOURS.dirt,
       [Surface.Grass]: COLOURS.grass,
       [Surface.Rubble]: COLOURS.rubble,
       // Undergrowth is not here: it is always under screening foliage, which is drawn over
       // the top of it in the pass below.
+      [Surface.Undergrowth]: COLOURS.grass,
     };
 
     for (const [surface, colour] of Object.entries(SURFACE_COLOURS)) {
-      ctx.fillStyle = colour as string;
       const kind = Number(surface) as Surface;
-      for (let ty = 0; ty < this.map.h; ty++) {
-        for (let tx = 0; tx < this.map.w; tx++) {
-          if (surfaceAt(this.map, tx, ty) !== kind) continue;
-          ctx.fillRect(tx * zoom, ty * zoom, zoom, zoom);
-        }
-      }
+      fillTiles(colour as string, (tx, ty) => surfaceAt(this.map, tx, ty) === kind);
     }
 
     // Each occluder class gets its own colour, because the player has to be able to tell
     // them apart to play around them: you can shoot through a window you cannot walk
     // through, and hide behind foliage you can walk straight into. Drawing a curtain like a
     // wall would make the visibility rules look broken rather than tactical.
+    //
+    // These are still *flat* here. Standing them up is what the depth pass does, and until
+    // that lands a building reads as a floor plan rather than a place.
     const TILE_COLOURS: Partial<Record<Tile, string>> = {
       [Tile.Wall]: COLOURS.wall,
       [Tile.Window]: COLOURS.window,
@@ -248,37 +291,8 @@ export class Renderer {
     };
 
     for (const [tile, colour] of Object.entries(TILE_COLOURS)) {
-      ctx.fillStyle = colour as string;
       const kind = Number(tile) as Tile;
-      for (let ty = 0; ty < this.map.h; ty++) {
-        for (let tx = 0; tx < this.map.w; tx++) {
-          if (tileAt(this.map, tx, ty) !== kind) continue;
-          ctx.fillRect(tx * zoom, ty * zoom, zoom, zoom);
-        }
-      }
-    }
-
-    // A lighter cap on masonry with open space above it, so buildings read as solid rather
-    // than as flat blocks, and a lighter crown on a tree for the same reason. Deliberately
-    // *not* driven off opacity: a tree and a wall are the same thing to the shadowcast and
-    // must not be the same thing to look at, or a park reads as a building.
-    const masonry = (tx: number, ty: number): boolean => {
-      const tile = tileAt(this.map, tx, ty);
-      return tile === Tile.Wall || tile === Tile.Window;
-    };
-    for (let ty = 0; ty < this.map.h; ty++) {
-      for (let tx = 0; tx < this.map.w; tx++) {
-        if (masonry(tx, ty) && !masonry(tx, ty - 1)) {
-          ctx.fillStyle = COLOURS.wallTop;
-          ctx.fillRect(tx * zoom, ty * zoom, zoom, Math.max(1, zoom * 0.25));
-        } else if (
-          tileAt(this.map, tx, ty) === Tile.Tree &&
-          tileAt(this.map, tx, ty - 1) !== Tile.Tree
-        ) {
-          ctx.fillStyle = COLOURS.treeTop;
-          ctx.fillRect(tx * zoom, ty * zoom, zoom, Math.max(1, zoom * 0.25));
-        }
-      }
+      fillTiles(colour as string, (tx, ty) => tileAt(this.map, tx, ty) === kind);
     }
 
     return canvas;
@@ -328,28 +342,43 @@ export class Renderer {
     ctx.fillStyle = COLOURS.background;
     ctx.fillRect(0, 0, camera.width, camera.height);
 
-    // Blit only the visible slice of the pre-rasterised tile layer.
+    // Blit the visible slice of the pre-rasterised tile layer.
     //
-    // `scale` is destination pixels per source pixel. It is 1 whenever the camera is at or
-    // below the raster cap, which is what makes this the same blit it has always been.
+    // `scale` is destination pixels per source pixel; it is 1 whenever the camera is at or
+    // below the raster cap. The raster's own top-left is not world (0, 0) any more -- the
+    // projected map is a diamond, and world (0, 0) is its *top* corner, `originX` pixels in
+    // from the left edge -- so the blit is anchored from that instead.
     const origin = worldToScreen(camera, 0, 0);
     const scale = camera.zoom / this.tileLayerZoom;
-    const destWidth = Math.min(this.tileLayer.width * scale, camera.width);
-    const destHeight = Math.min(this.tileLayer.height * scale, camera.height);
-    // Nearest-neighbour. Smoothing would blur the edge between two flat colours into a
-    // gradient, which is the one thing upscaling flat tiles can get wrong.
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(
-      this.tileLayer,
-      Math.max(0, -origin.sx) / scale,
-      Math.max(0, -origin.sy) / scale,
-      destWidth / scale,
-      destHeight / scale,
-      Math.max(0, origin.sx),
-      Math.max(0, origin.sy),
-      destWidth,
-      destHeight,
-    );
+    const layerLeft = origin.sx - this.tileLayerOriginX * scale;
+    const layerTop = origin.sy;
+
+    // Intersect the layer with the viewport, in destination pixels, then divide back into
+    // source pixels. Clamping both ends is what keeps a camera near a map edge from asking
+    // for a source rectangle that starts outside the canvas.
+    const destX = Math.max(0, layerLeft);
+    const destY = Math.max(0, layerTop);
+    const destRight = Math.min(camera.width, layerLeft + this.tileLayer.width * scale);
+    const destBottom = Math.min(camera.height, layerTop + this.tileLayer.height * scale);
+    const destWidth = destRight - destX;
+    const destHeight = destBottom - destY;
+
+    if (destWidth > 0 && destHeight > 0) {
+      // Nearest-neighbour. Smoothing would blur the edge between two flat colours into a
+      // gradient, which is the one thing upscaling flat tiles can get wrong.
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(
+        this.tileLayer,
+        (destX - layerLeft) / scale,
+        (destY - layerTop) / scale,
+        destWidth / scale,
+        destHeight / scale,
+        destX,
+        destY,
+        destWidth,
+        destHeight,
+      );
+    }
 
     const bounds = visibleBounds(camera);
     const radius = Math.max(2, camera.zoom * 0.35);
