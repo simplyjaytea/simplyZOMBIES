@@ -118,11 +118,29 @@ export function baseEquipSlot(base: ContentEntry): string | null {
   return typeof slot === "string" ? slot : null;
 }
 
-/** The content entry behind an item entity, or `undefined` if it is not an item. */
+/**
+ * The content entry behind an item entity, or `undefined` if it is not an item.
+ *
+ * "Not an item" and "an item whose base is gone" are two different facts and this used to
+ * return `undefined` for both, which made the second one silent: callers fell back to a 1x1
+ * footprint, no mass and the name "something", so a renamed base in JSON produced a world
+ * full of nondescript one-cell objects rather than an error. That is precisely the failure
+ * the registry's all-or-nothing publish exists to prevent, arriving one layer further in.
+ *
+ * So a missing `ItemBase` component is still `undefined` -- most entities are not items and
+ * asking is legitimate -- and a `baseId` that does not resolve throws. `spawnItem` already
+ * throws on the same condition; this is that rule holding for the whole life of the item
+ * rather than only at its first tick.
+ */
 export function itemBaseOf(world: World, item: EntityId): ContentEntry | undefined {
   const base = world.components.get(item, ItemBase);
   if (base === undefined) return undefined;
-  return world.content.get("item", base.baseId);
+
+  const entry = world.content.get("item", base.baseId);
+  if (entry === undefined) {
+    throw new Error(`Item ${item} references item base "${base.baseId}", which is not loaded`);
+  }
+  return entry;
 }
 
 export function sizeOfItem(world: World, item: EntityId): Size {
@@ -264,6 +282,12 @@ export function rollAffixes(
  * docs/21:70 makes `source` mandatory, and it is what lets the melee module drop every
  * contribution from a weapon in one `removeBySource` call when it is unequipped, rather
  * than tracking what it added.
+ *
+ * An unresolved affix id or tier throws for the same reason `itemBaseOf` does, and here the
+ * silence was worse: skipping the affix returned a *shorter* modifier list, so an item
+ * quietly lost a roll it still displayed. Worse still on unequip, where `removeBySource`
+ * works off the affix id rather than this list -- so the modifiers a previous load added
+ * would have stayed in the store with nothing left to explain them.
  */
 export function affixModifiers(world: World, item: EntityId): Modifier[] {
   const affixes = world.components.get(item, Affixes);
@@ -272,10 +296,17 @@ export function affixModifiers(world: World, item: EntityId): Modifier[] {
   const out: Modifier[] = [];
   for (const rolled of [...affixes.prefixes, ...affixes.suffixes]) {
     const affix = world.content.get("affix", rolled.id);
-    if (affix === undefined) continue;
+    if (affix === undefined) {
+      throw new Error(`Item ${item} references affix "${rolled.id}", which is not loaded`);
+    }
     const tiers = (affix["tiers"] ?? []) as { modifiers: Omit<Modifier, "source">[] }[];
     const tier = tiers[rolled.tier];
-    if (tier === undefined) continue;
+    if (tier === undefined) {
+      throw new Error(
+        `Item ${item} rolled tier ${rolled.tier} of affix "${rolled.id}", ` +
+          `which now declares ${tiers.length}`,
+      );
+    }
     for (const modifier of tier.modifiers) out.push({ ...modifier, source: rolled.id });
   }
   return out;
@@ -402,6 +433,64 @@ export function meleeProfileOf(world: World, item: EntityId): WieldedWeapon | nu
     recovery: resolve("swing_recovery"),
     stamina: resolve("swing_stamina"),
   };
+}
+
+// ---- content and world agreeing -------------------------------------------
+
+/**
+ * Assert that every content id the world's entities hold still resolves.
+ *
+ * A save records ids, never content (`world.ts:75` -- content is code-adjacent), so the two
+ * can disagree in exactly two places: a world booted against edited content, and a save
+ * applied against a content set it was not taken in. `SAVE_VERSION` cannot catch the second
+ * because editing JSON does not change the build.
+ *
+ * This is the loud gate for both, and it lives at those two moments rather than in the
+ * readers on purpose. `itemBaseOf` and `affixModifiers` throw too, but they are called from
+ * the HUD and the renderer -- discovering the problem there means throwing once per frame,
+ * which is a broken screen rather than a message. Checking once, where the join happens,
+ * turns the readers' throws into assertions that cannot fire.
+ *
+ * Every problem in one message, the way the content registry reports a bad load: finding out
+ * about a renamed base one restart at a time is the thing docs/20 objects to.
+ *
+ * A world with no items passes trivially, which matters -- `boot.ts` documents that a world
+ * with no content is a legitimate world, and most tests boot into one.
+ */
+export function verifyContentReferences(world: World): void {
+  const problems: string[] = [];
+
+  for (const item of world.components.query(ItemBase)) {
+    const base = world.components.getOrThrow(item, ItemBase);
+    if (!world.content.has("item", base.baseId)) {
+      problems.push(`item ${item}: no item base "${base.baseId}"`);
+    }
+  }
+
+  for (const item of world.components.query(Affixes)) {
+    const affixes = world.components.getOrThrow(item, Affixes);
+    for (const rolled of [...affixes.prefixes, ...affixes.suffixes]) {
+      const affix = world.content.get("affix", rolled.id);
+      if (affix === undefined) {
+        problems.push(`item ${item}: no affix "${rolled.id}"`);
+        continue;
+      }
+      const tiers = (affix["tiers"] ?? []) as unknown[];
+      if (rolled.tier < 0 || rolled.tier >= tiers.length) {
+        problems.push(
+          `item ${item}: affix "${rolled.id}" has no tier ${rolled.tier} ` +
+            `(it declares ${tiers.length})`,
+        );
+      }
+    }
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      `Content does not match this world (${problems.length} ` +
+        `${problems.length === 1 ? "problem" : "problems"}):\n  ${problems.join("\n  ")}`,
+    );
+  }
 }
 
 // ---- the module ------------------------------------------------------------
