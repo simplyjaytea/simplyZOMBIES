@@ -22,6 +22,7 @@ import type { World } from "../kernel/world";
 import { zombieSpeed } from "../locomotion";
 import type { RngStream } from "../rng";
 import type { Module } from "./index";
+import { Detail, Observer } from "../vision/visibility";
 
 /**
  * States as plain numbers, because a component is "plain serializable data attached to an
@@ -139,6 +140,34 @@ const SCENT_SENSITIVITY = 0.9;
  */
 const SCENT_BIAS = 0.35;
 
+/**
+ * How strongly this type weights the light channel.
+ *
+ * Mirrors `content/zombies/shambler.json`'s `sensory.light`, pinned by the same test that pins
+ * the other two. docs/14's table calls shambler sight **Low** -- 0.1 against a screamer's 0.9 --
+ * and this is the number that makes "there is no single silence" a mechanic rather than a
+ * slogan: a lamp a shambler barely notices is a lamp a screamer comes straight to.
+ */
+const LIGHT_SENSITIVITY = 0.1;
+
+/**
+ * How far a light can turn a wandering shambler, before sensitivity scales it.
+ *
+ * Light is the **third** stimulus shape, and it is neither of the other two. Noise is an
+ * impulse: {@link steerUphill} overwrites the heading and commits it. Scent is a bias on a
+ * gradient. Light has no gradient at all -- docs/28:204-206 wants "a zombie that can see a lit
+ * cell ascends toward it; one that cannot, cannot, no matter how bright it is", which is a
+ * per-observer sightline question and not a field sample.
+ *
+ * So this is a *gated lean*: the same blend scent uses, gated on the arc rather than on a
+ * threshold. And unlike the other two, sensitivity **scales** it rather than dividing a floor,
+ * because there is no light floor in the calibration and there should not be one -- light
+ * decays instantly, so "less than this is nothing" is already the edge of the shadowcast window
+ * where `magnitude - distance` reaches zero. That is one fewer tunable, and it makes docs/14's
+ * column legible: 0.1 leans a shambler 5% of the way per tick, 0.9 leans a screamer 45%.
+ */
+const LIGHT_BIAS = 0.5;
+
 /** How long they mill about after arriving at a noise that turned out to be nothing. */
 const MILL_TICKS = 90;
 
@@ -199,6 +228,80 @@ function driftUpscent(field: World["field"], pos: Position, vel: Velocity, self:
   while (delta < -Math.PI) delta += Math.PI * 2;
 
   const angle = current + delta * SCENT_BIAS;
+  vel.dx = Math.cos(angle) * speed;
+  vel.dy = Math.sin(angle) * speed;
+}
+
+/**
+ * Lean a wandering shambler toward the brightest light it can actually see.
+ *
+ * The one query that matters is `world.vision.detail(...) !== Unseen`, and everything about the
+ * design is downstream of it: **a floodlight behind a wall is safe and a candle in an open
+ * doorway is not.** Light is the only channel where a wall is an absolute rather than a penalty,
+ * so shutters work, and they work completely.
+ *
+ * Note the asymmetry that falls out and is worth expecting: being *lit by* a lamp is not the
+ * same as being able to *see* one. `SHAMBLER_EYES` reaches 12 m, so a 35 m lamp lights the
+ * ground under a zombie that has no sightline to the source and therefore feels no pull at all.
+ *
+ * **Why this does not make them tactical**, which is docs/14's first design rule and the reason
+ * zombies did not get eyes until there was a stimulus to give them:
+ *
+ *   - nothing is remembered -- no commitment, no last-known position, so losing the sightline
+ *     ends the lean *that tick* rather than starting a search;
+ *   - nothing changes state -- a leaning shambler is still Wandering, and a shout still takes
+ *     it, so light never *summons* the way noise does. The Milestone 1 exit criterion is
+ *     untouched: make a noise and they come, and a lamp is not a noise;
+ *   - it cannot use cover, because it has no model of cover, and it cannot break line of sight
+ *     to reposition, because losing line of sight only ever *removes* a stimulus.
+ *
+ * The `Observer` check first is the tiering gate, not an optimisation detail: per-observer
+ * visibility is the one cost in this project that does not amortise across the horde, so two
+ * thousand sightless zombies pay one component lookup each and nothing more.
+ */
+function leanToLight(world: World, entity: EntityId, pos: Position, vel: Velocity): void {
+  // No eyes, no pull. `boot({ observers })` decides who has them.
+  if (!world.components.has(entity, Observer)) return;
+
+  const speed = Math.hypot(vel.dx, vel.dy);
+  if (speed === 0) return;
+
+  let bestRemaining = 0;
+  let bestX = 0;
+  let bestY = 0;
+
+  // `sources` is slot-ordered, which is what keeps this winner-pick from depending on which
+  // lamp spawned first -- a determinism bug that only appears once two are visible at once.
+  for (const source of world.light.sources) {
+    const at = world.light.sourceAt(source);
+    if (at === undefined) continue;
+
+    // Cheap first: out of reach cannot be seen brightly enough to matter, and this rejects
+    // most of the district without touching the visibility index.
+    const dx = at.x - pos.x;
+    const dy = at.y - pos.y;
+    const remaining = at.magnitude - Math.hypot(dx, dy);
+    if (remaining <= bestRemaining) continue;
+
+    // Then the expensive, decisive one.
+    if (world.vision.detail(entity, at.x, at.y) === Detail.Unseen) continue;
+
+    bestRemaining = remaining;
+    bestX = at.x;
+    bestY = at.y;
+  }
+
+  if (bestRemaining <= 0) return;
+
+  const current = Math.atan2(vel.dy, vel.dx);
+  const toward = Math.atan2(bestY - pos.y, bestX - pos.x);
+
+  // Shortest way round, so a light behind you is a turn and not a lap.
+  let delta = toward - current;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+
+  const angle = current + delta * LIGHT_BIAS * LIGHT_SENSITIVITY;
   vel.dx = Math.cos(angle) * speed;
   vel.dy = Math.sin(angle) * speed;
 }
@@ -316,6 +419,10 @@ export const shamblerModule: Module = {
               // Applied every tick rather than only on a turn, because a bias that fired
               // once every few seconds would be a second random walk rather than a drift.
               if (smelled) driftUpscent(field, pos, vel, self);
+              // Light last, and in the Wander branch only. A shambler that is Seeking has been
+              // seized by a noise and docs/03 makes that the loudest channel by design -- a
+              // lamp must not be able to pull a summoned crowd off course.
+              leanToLight(w, entity, pos, vel);
               break;
             }
           }
@@ -363,6 +470,8 @@ export const SHAMBLER_TUNING = {
   noiseSensitivity: NOISE_SENSITIVITY,
   scentSensitivity: SCENT_SENSITIVITY,
   scentBias: SCENT_BIAS,
+  lightSensitivity: LIGHT_SENSITIVITY,
+  lightBias: LIGHT_BIAS,
   millTicks: MILL_TICKS,
   crawlSpeedFactor: CRAWL_SPEED_FACTOR,
 } as const;

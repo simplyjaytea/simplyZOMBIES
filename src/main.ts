@@ -91,6 +91,13 @@ let contentError = loaded.error;
 const { world, map, player } = boot({
   seed: SEED,
   wanderers: numeric("wanderers", DEFAULT_WANDERERS),
+  // Zombies get eyes here for the first time, and this is the line docs/14's first design rule
+  // was waiting on: sight must not make them tactical, so it arrives together with the single
+  // stimulus that uses it rather than ahead of it. A fraction of the horde rather than all of
+  // it, because per-observer visibility is the one cost that does not amortise across a crowd
+  // (docs/22#visibility-is-a-different-cost-shape) -- and because a district where every body
+  // can see is not what docs/14 describes anyway.
+  observers: numeric("observers", Math.round(numeric("wanderers", DEFAULT_WANDERERS) * 0.15)),
   content: loaded.content,
   // A content failure is already on screen; falling back to the shipped constants is what
   // keeps the message visible instead of replacing it with a blank page.
