@@ -113,6 +113,33 @@ export class World {
    */
   readonly spatial: SpatialHash;
 
+  /**
+   * How many times the tile map has changed under the indices that cache against it.
+   *
+   * One counter, on the world, rather than one per index -- and that is the whole point. Both
+   * `vision` and `light` key their caches on it, and two counters would let them disagree:
+   * a wall built between a lamp and a survivor would stop being seen through while the lamp
+   * kept lighting past it, or the reverse. Either way the two answers contradict each other,
+   * and the place two line-of-sight answers disagree is the place the exploit lives.
+   *
+   * Not in the snapshot. The map is derived from the seed, so a loaded world starts at zero
+   * with cold caches, which is correct rather than merely acceptable.
+   */
+  mapGeneration = 0;
+
+  /**
+   * Call when tiles change, which invalidates every cached sightline and every cast of light
+   * at once.
+   *
+   * Nothing calls it in the game yet -- the map is static until
+   * [structures](../../../docs/15-base-building.md) arrive in Milestone 2 -- and it exists
+   * now because the alternative is a stale sightline through a wall that was just built,
+   * which is a bug that looks exactly like a cheat.
+   */
+  invalidateMap(): void {
+    this.mapGeneration++;
+  }
+
   constructor(seed: number, parts: WorldParts = {}) {
     this.seed = seed >>> 0;
     this.rng = new RngRegistry(this.seed);
