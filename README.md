@@ -51,6 +51,14 @@ hour. And as of the [visibility primitive](docs/28-visibility-and-sightlines.md)
 you can see** — walls, windows, foliage and low cover are four different answers to that, and a body
 you lose behind a building leaves a fading mark rather than vanishing.
 
+And there is **gear**, and somewhere to put it. Items are found entities with rolled affixes and a
+condition that will one day fail, and the [inventory is a grid](docs/10-items.md#inventory-space-and-weight)
+— cells, footprints, rotation, bags inside bags, and containers you have to be wearing to use. It is
+Tarkov's inventory for a reason that is not nostalgia: the
+[hardcore contract](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) bans a UI
+that turns uncertainty into a number, and a grid is a capacity bar rendered as shape. You never read
+that the pack is nearly full; you see that the axe doesn't fit.
+
 The [ground](docs/24-world-and-scale.md#the-ground) decides the rest: pavement, dirt, grass,
 undergrowth and rubble each change how fast you cross them and how far your footsteps carry. The
 street is the quick way and it announces you; the yards are slow and quiet; the brambles are the only
@@ -67,8 +75,9 @@ the currency the parity contract says it must.
 npm install && npm run dev     # http://127.0.0.1:5174
 ```
 
-`WASD` move · `Shift` sprint · `Space` **shout** · `O` cycles the attention overlay (noise, scent,
-sight) · `1`/`2`/`3` speed · `P` pause · `F5`/`F9` save and load.
+`WASD` move · `Shift` sprint · `F` swing · `Space` **shout** · `E` pick up · `Tab` **inventory**
+(drag to move, right-click or `R` to rotate) · `O` cycles the attention overlay (noise, scent, sight)
+· `1`/`2`/`3` speed · `P` pause · `F5`/`F9` save and load.
 
 A day is four hours at 1×, so press `3` and wait for dark.
 
