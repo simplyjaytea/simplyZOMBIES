@@ -57,10 +57,23 @@ Four influences, and what each one contributes:
 
 | Influence | What we take | What we leave |
 |---|---|---|
-| **Project Zomboid** | Lethality, slow deliberate actions, injury depth, imperfect information, permadeath | Its map scale and its 3D isometric fidelity |
+| **Project Zomboid** | Lethality, slow deliberate actions, injury depth, imperfect information, permadeath, **the isometric view and walls that stand up in it** | Its map scale; z-levels and everything that needs them |
 | **RimWorld** | Colony job priorities, pawn traits and relationships, the storyteller/director | Its comedy tone; its readiness to let you snowball |
 | **Tower defense** | Building fortifications that channel and kill, bait and routing as skill expression | Fixed wave timers and a build-phase/fight-phase split |
 | **Path of Exile** | Gear-as-build, rolled affixes, materials-as-currency, no classes | Its power curve, its speed, its economy |
+
+> **Reversed:** the Project Zomboid row previously left *"its map scale and its 3D isometric
+> fidelity"*. The map scale still stands and always will. The projection does not, and the reason it
+> was rejected turns out to be an argument about something else: what makes PZ's isometric view
+> expensive is **z-levels** — multi-floor buildings, stairs, roofs — which
+> [the roadmap](23-roadmap.md#deferred-z-levels) defers with a costed rationale, and which nothing
+> here needs. The projection on its own is a change inside `render/` that the simulation cannot
+> observe, and walls that stand up are what make a district read as a place rather than a floor plan.
+>
+> What keeps the reversal honest is that the *fidelity* half is still refused. No second floor, no
+> stairs, no rooftop you can stand on. A wall has a height because it is drawn, not because anything
+> can be above or below it, and [the planar assumptions](23-roadmap.md#deferred-z-levels) the roadmap
+> lists are all still planar.
 
 ## What this game is **not**
 

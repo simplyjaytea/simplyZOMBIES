@@ -10,15 +10,35 @@
 
 import type { CommandQueue } from "../sim/kernel/commands";
 
-const MOVE_KEYS: Record<string, { dx: number; dy: number }> = {
-  KeyW: { dx: 0, dy: -1 },
-  ArrowUp: { dx: 0, dy: -1 },
-  KeyS: { dx: 0, dy: 1 },
-  ArrowDown: { dx: 0, dy: 1 },
-  KeyA: { dx: -1, dy: 0 },
-  ArrowLeft: { dx: -1, dy: 0 },
-  KeyD: { dx: 1, dy: 0 },
-  ArrowRight: { dx: 1, dy: 0 },
+/**
+ * Movement keys, as world-space directions.
+ *
+ * **Rotated 45 degrees, so the keys are screen-relative.** Under the isometric projection
+ * (src/render/projection.ts) world +x runs down-right on screen and +y runs down-left, so a
+ * key bound to world north would send the survivor diagonally and every player would call it
+ * broken. W is therefore "up the screen", which is world north-west.
+ *
+ * **This is the right layer for that rotation, and the only one.** `sim/` must not learn that
+ * a camera exists (docs/19-architecture.md#layers), and the `move` command carries these
+ * vectors into the deterministic replay record -- so the values recorded stay honest
+ * world-space intent, and a log captured before this change still replays correctly. It is
+ * just a different set of world vectors than the keys used to produce.
+ *
+ * Not normalised here: two keys held at once sum to a longer vector, and
+ * `modules/player.ts` normalises before applying speed. That split is deliberate and
+ * unchanged -- this layer reports intent, the simulation decides what intent means in metres.
+ */
+const DIAGONAL = Math.SQRT1_2;
+/** Exported for the test that pins these against the projection they were rotated to match. */
+export const MOVE_KEYS: Record<string, { dx: number; dy: number }> = {
+  KeyW: { dx: -DIAGONAL, dy: -DIAGONAL },
+  ArrowUp: { dx: -DIAGONAL, dy: -DIAGONAL },
+  KeyS: { dx: DIAGONAL, dy: DIAGONAL },
+  ArrowDown: { dx: DIAGONAL, dy: DIAGONAL },
+  KeyA: { dx: -DIAGONAL, dy: DIAGONAL },
+  ArrowLeft: { dx: -DIAGONAL, dy: DIAGONAL },
+  KeyD: { dx: DIAGONAL, dy: -DIAGONAL },
+  ArrowRight: { dx: DIAGONAL, dy: -DIAGONAL },
 };
 
 const SPRINT_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
