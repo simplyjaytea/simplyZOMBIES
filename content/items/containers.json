@@ -1,21 +1,11 @@
 [
   {
-    "id": "item.pack.hiking",
-    "name": "Hiking Pack",
+    "id": "item.pouch.utility",
+    "name": "Utility Pouch",
     "class": "container",
-    "size": { "w": 4, "h": 4 },
-    "massKg": 1.1,
-    "equipSlot": "back",
-    "container": { "w": 6, "h": 8 }
-  },
-  {
-    "id": "item.rig.chest",
-    "name": "Chest Rig",
-    "class": "container",
-    "size": { "w": 3, "h": 3 },
-    "massKg": 0.8,
-    "equipSlot": "vest",
-    "container": { "w": 5, "h": 3 }
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.15,
+    "container": { "w": 3, "h": 2 }
   },
   {
     "id": "item.satchel.canvas",
@@ -27,11 +17,29 @@
     "container": { "w": 4, "h": 3 }
   },
   {
-    "id": "item.pouch.utility",
-    "name": "Utility Pouch",
+    "id": "item.toolbox.steel",
+    "name": "Steel Toolbox",
     "class": "container",
-    "size": { "w": 2, "h": 2 },
-    "massKg": 0.15,
-    "container": { "w": 3, "h": 2 }
+    "size": { "w": 3, "h": 2 },
+    "massKg": 3.5,
+    "container": { "w": 4, "h": 3 }
+  },
+  {
+    "id": "item.rig.chest",
+    "name": "Chest Rig",
+    "class": "container",
+    "size": { "w": 3, "h": 3 },
+    "massKg": 0.8,
+    "equipSlot": "vest",
+    "container": { "w": 5, "h": 3 }
+  },
+  {
+    "id": "item.pack.hiking",
+    "name": "Hiking Pack",
+    "class": "container",
+    "size": { "w": 4, "h": 4 },
+    "massKg": 1.1,
+    "equipSlot": "back",
+    "container": { "w": 6, "h": 8 }
   }
 ]

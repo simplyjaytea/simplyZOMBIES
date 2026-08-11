@@ -47,18 +47,30 @@ export const ALL_MODULES: readonly Module[] = [
  * what you carry home is a decision rather than a formality.
  */
 const STREET_LOOT: readonly { baseId: string; weight: number }[] = [
+  // 1x1s: the filler that makes a grid feel lived-in rather than a puzzle board.
   { baseId: "item.scrap.metal", weight: 100 },
   { baseId: "item.bandage.cloth", weight: 70 },
   { baseId: "item.food.canned", weight: 55 },
+  { baseId: "item.drink.energy", weight: 45 },
+  { baseId: "item.painkillers.blister", weight: 35 },
+  { baseId: "item.tape.duct", weight: 30 },
+  // Awkward shapes: the ones that make you rearrange.
   { baseId: "item.water.bottle", weight: 40 },
   { baseId: "item.knife.kitchen", weight: 30 },
   { baseId: "item.pipe.steel", weight: 25 },
+  { baseId: "item.machete.rusted", weight: 16 },
   { baseId: "item.pouch.utility", weight: 18 },
+  { baseId: "item.medkit.field", weight: 12 },
   { baseId: "item.bat.aluminium", weight: 14 },
   { baseId: "item.rig.chest", weight: 10 },
   { baseId: "item.spear.improvised", weight: 8 },
+  { baseId: "item.toolbox.steel", weight: 7 },
   { baseId: "item.pack.hiking", weight: 6 },
   { baseId: "item.axe.fire", weight: 4 },
+  // The two that are a decision rather than a pickup: both are worth having and both cost
+  // most of a bag. Rare because finding one should be a moment.
+  { baseId: "item.jerrycan.fuel", weight: 3 },
+  { baseId: "item.sledge.demolition", weight: 2 },
 ];
 
 /** How many items to strew across the district at boot. */
