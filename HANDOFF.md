@@ -49,6 +49,9 @@ src/sim/time/   The clock. Time of day is a pure function of world.tick -- no cl
 src/sim/threat.ts
                 "Is anything close?" -- the rule the speed control drops 10x on.
 src/render/     Canvas renderer. Reads the sim, never writes to it.
+src/render/sprites/
+                The character models. Pure pose selection and figure geometry, split from
+                the one file that touches a canvas -- Vitest runs in node.
 src/platform/   The host: input, the tick loop, storage, content loading, schemas.
 content/        JSON content plus its JSON Schemas.
 test/           Unit and integration, including determinism and module isolation.
@@ -445,6 +448,47 @@ accounts for about a quarter of the loss, so the 90-minute half-life was entirel
 Fixed by measuring decay in isolation, with the diffusion rate set to zero. **Covering the behaviour
 is not covering the constant that produces it.**
 
+## What the models made structural
+
+Four things, and one correction to a prediction this document made.
+
+- **The projection owns how tall a metre is, not the renderer.** `RISE_SCALE` was a renderer
+  constant while walls were the only thing with a height. A body standing in front of a wall has to
+  rise at the same rate or it reads as the wrong size for the district, which is the projection's
+  own argument -- one answer, because the place two pieces of code disagree is the place the bug
+  lives -- arriving one layer down.
+- **The depth tie is the renderer's to break, not the projection's.** `depthOf` still ties for
+  anything on the same diagonal and its test still says so, because that genuinely *is* the ordinary
+  isometric ambiguity. Flat squares never showed it; standing bodies do. So the comparator resolves
+  it -- occluder, body, player, entity id -- and the player sorting last on a tie is a fairness
+  property rather than a cosmetic one: a shambler at identical depth must never hide you.
+- **A ground decal cannot live in the depth pass.** The swing wedge was drawn inside the player's
+  own slot, which was correct while a body was a mark on a tile and wrong the moment bodies stood
+  up: a mark on the floor was painting over the legs of anyone further along the diagonal. Anything
+  that is *on* the ground now draws before anything that stands on it.
+- **Peripheral vision constrains the art, not just the query.** docs/28 says the arc notices
+  movement and withholds identity, and the renderer already enforced that by refusing to draw a
+  still body. A real model gives the identity straight back by silhouette -- you would read the
+  stoop and know it was a shambler. So glimpses and memory marks share one anonymous shape with no
+  posture, no limbs and **no facing**, because a body that turns tells you which way it is looking
+  and the arc did not earn that either.
+
+**A prediction that turned out wrong, which is worth more than one that didn't.** The habit section
+below recorded that the frame budget passes with viewport culling removed "because 2,000 flat
+rectangles are cheap", and that it would bite once sprites replaced them. Sprites have replaced them
+and it did not bite: 2.26 ms with the cull deleted against 1.89 ms with it, both inside the 4 ms
+budget. The reason is that *visibility* rejects 1,986 of 2,001 bodies before anything is drawn, so
+the viewport cull is removing work occlusion would remove a few lines later anyway. Two guards
+overlapping almost completely, and the one that looked like it was carrying the budget was not.
+
+**Reviewing generated art needs a tool, and the tool finds things.** 336 sprites cannot be checked
+by walking around hoping to meet each one -- the crawl frames need a shambler with destroyed legs
+standing in front of you. `M` blits the raw sheets, and it immediately showed the shambler's stoop
+carrying its head a full body-width past its hips: not a shamble, a head that had come off. The
+containment test caught three more before that -- a crawler whose wider shadow overflowed a box
+sized from the standing one, and a wind-up that out-reached its headroom. **A recording sink is the
+whole reason those were catchable in node.**
+
 ## Do this next
 
 **[The light channel](docs/03-attention.md#light) — the emitters.** It has been the open Milestone 1
@@ -583,6 +627,18 @@ red, put it back. That is not ceremony — it caught two guards that looked rigo
 - The frame budget passes with viewport culling removed, because 2,000 flat rectangles are cheap. It
   is a regression guard today, not proof that culling earns its place; it will bite when sprites
   replace rectangles. Recorded here so nobody reads it as stronger than it is.
+
+  **Sprites have now replaced the rectangles, and it did not bite.** The same mutation with
+  character models in place: draw 2.26 ms with the cull deleted against 1.89 ms with it, both
+  comfortably inside the 4 ms budget. The prediction was wrong, and the reason is worth having --
+  *visibility* rejects 1,986 of 2,001 bodies before anything is drawn, so the viewport cull is
+  removing work that occlusion was going to remove a few lines later either way. The two guards
+  overlap almost completely, and the cheaper-looking one is not the one carrying the budget.
+
+  So the note stands, with its expiry removed: viewport culling is still a regression guard rather
+  than a proven cost saving, and the thing that would actually make it earn its place is a case
+  where a great many bodies are *visible* at once -- a horde in open ground at night, not a street
+  full of bodies behind walls.
 
 The noise spine's three guards were each broken on purpose and confirmed red:
 

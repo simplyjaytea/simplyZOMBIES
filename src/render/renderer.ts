@@ -17,13 +17,28 @@ import { Tile, tileAt, type TileMap } from "../sim/map/tilemap";
 import { Surface, surfaceAt } from "../sim/map/surface";
 import { ambientLightAt } from "../sim/time/clock";
 import { Body, isCrawling } from "../sim/modules/health";
+import { Shambler, ShamblerState } from "../sim/modules/shambler";
+import { SPRINT_THRESHOLD } from "../sim/locomotion";
 import { MeleeWeapon, Swing, SwingState } from "../sim/modules/melee";
 import { Controlled } from "../sim/modules/player";
 import { Detail, Observer } from "../sim/vision/visibility";
 import { followCamera, type Camera } from "./camera";
+import { COLOURS, SHADE } from "./palette";
+import { cellOrigin, ModelSprites, type ModelAtlas } from "./sprites/atlas";
+import { archetypeFor } from "./sprites/archetypes";
+import {
+  advancePhase,
+  Archetype,
+  ARCHETYPES,
+  frameOf,
+  octantOf,
+  Pose,
+  selectPose,
+} from "./sprites/pose";
 import {
   depthOf,
   mapRasterSize,
+  metresToRise,
   projectAngle,
   projectedRadii,
   tileRasterPosition,
@@ -41,34 +56,6 @@ import {
  * changed when the camera moved closer -- see the note at the blit.
  */
 const MAX_TILE_RASTER_ZOOM = 14;
-
-const COLOURS = {
-  floor: "#1a1c1f",
-  /** The ground, by surface. Paved is `floor` -- it is the baseline the rest read against. */
-  dirt: "#282219",
-  grass: "#1b2a1b",
-  rubble: "#26242a",
-  /** A tree: solid and opaque like a wall, and green so it does not read as one. */
-  tree: "#2e4a2c",
-  wall: "#3b4048",
-  /** Transparent: stops a body, not a sightline. Drawn as a gap in the wall it sits in. */
-  window: "#2a3f4c",
-  /** Screening: stops a sightline, not a body. */
-  screen: "#25382a",
-  /** Low: stops neither, until somebody crouches. */
-  low: "#2c2e33",
-  player: "#e8d7a0",
-  /** The arc a swing is about to cover. Warm, and brief. */
-  swing: "232, 215, 160",
-  wanderer: "#6f8f6a",
-  /** Peripheral: something moved, and that is all you get. */
-  glimpse: "#4a5a48",
-  /** Last known position, fading. Never moves -- see `remembered`. */
-  memory: "#3d4a3c",
-  background: "#0d0e10",
-  /** Night. Blue rather than black, because a black wash reads as a broken renderer. */
-  night: "6, 10, 26",
-} as const;
 
 /**
  * How tall each occluder class stands, in metres.
@@ -91,15 +78,6 @@ const OCCLUDER_HEIGHT_METRES: Partial<Record<Tile, number>> = {
 };
 
 /**
- * Vertical pixels per metre of height, as a fraction of the horizontal scale.
- *
- * Below 1 because a true-scale vertical would make a 2.2 m wall taller than three floor tiles
- * and turn a street into a canyon you cannot see along. This is the dial to turn if buildings
- * ever feel squat or overbearing; nothing else depends on it.
- */
-const OCCLUDER_RISE_SCALE = 0.62;
-
-/**
  * How much of a wall is left when it is standing in front of the survivor.
  *
  * Faded rather than cut away entirely, because the wall is still *there* and the player has to
@@ -108,8 +86,38 @@ const OCCLUDER_RISE_SCALE = 0.62;
  */
 const OCCLUDER_FADED_ALPHA = 0.28;
 
+/**
+ * Blit one cell of a sheet, with the body's feet on its ground point.
+ *
+ * Rounded to whole pixels on the destination. A 1:1 `drawImage` at a fractional offset makes the
+ * browser resample the whole sprite; on the integer path it is a straight copy. It costs half a
+ * pixel of accuracy, which at the shipped 28 px/m is 1.8 cm of world.
+ */
+function blit(
+  ctx: CanvasRenderingContext2D,
+  atlas: ModelAtlas,
+  pose: Pose,
+  frame: number,
+  sx: number,
+  sy: number,
+  octant = 0,
+): void {
+  const cell = cellOrigin(atlas, pose, frame, octant);
+  ctx.drawImage(
+    atlas.image,
+    cell.sx,
+    cell.sy,
+    atlas.cellWidth,
+    atlas.cellHeight,
+    Math.round(sx - atlas.anchorX),
+    Math.round(sy - atlas.anchorY),
+    atlas.cellWidth,
+    atlas.cellHeight,
+  );
+}
+
 function occluderRise(tile: Tile, zoom: number): number {
-  return (OCCLUDER_HEIGHT_METRES[tile] ?? 0) * zoom * OCCLUDER_RISE_SCALE;
+  return metresToRise(OCCLUDER_HEIGHT_METRES[tile] ?? 0, zoom);
 }
 
 /** Occluder classes, by the colour that distinguishes them. Order is irrelevant. */
@@ -138,12 +146,39 @@ const enum DrawKind {
  */
 type Drawable = {
   depth: number;
+  /**
+   * Rank among things at the same depth. Lower draws first.
+   *
+   * `depthOf` ties for anything on the same diagonal, which projection.ts pins as "the ordinary
+   * iso ambiguity" -- and it still is one, which is why the tiebreak lives here rather than
+   * there. Flat squares never showed it. Standing bodies do, so the renderer now resolves it
+   * deterministically instead of inheriting whatever order the two build loops happened to run
+   * in: an accident that is *almost* right today and silently becomes wrong the moment somebody
+   * reorders them.
+   */
+  tie: number;
   kind: DrawKind;
   tile: Tile;
   entity: EntityId;
   x: number;
   y: number;
+  /** The blit, decided in the body loop so the post-sort pass reads no components. */
+  archetype: Archetype;
+  pose: Pose;
+  frame: number;
+  octant: number;
 };
+
+/**
+ * Draw rank at equal depth.
+ *
+ * A wall first, because a body at exactly a wall tile's depth is standing in it and reads better
+ * over the wall than swallowed by it. The survivor last, because they must never be hidden by a
+ * shambler standing at the same depth -- that is a fairness property rather than a cosmetic one.
+ */
+const TIE_OCCLUDER = 0;
+const TIE_BODY = 1;
+const TIE_PLAYER = 2;
 
 /**
  * How much of the screen the dark may take at the blackest hour.
@@ -194,7 +229,18 @@ export type OverlayChannel = "off" | "noise" | "scent" | "sight";
 export const OVERLAY_CHANNELS: readonly OverlayChannel[] = ["off", "noise", "scent", "sight"];
 
 /** A position remembered from the previous tick, for interpolation. */
-type Previous = { x: number; y: number };
+/**
+ * What the renderer remembers about a body between frames.
+ *
+ * One map rather than two: this is looked up for every body every frame, several hundred times,
+ * and a second Map would double that on the hot path for no benefit.
+ *
+ * `x`/`y` are the simulation position as of the last tick, written by `capturePrevious`.
+ * `frameX`/`frameY` are the *interpolated* position as of the last frame, written by `draw` --
+ * they are what the walk phase advances against, because a cycle driven at 20 Hz reads visibly
+ * steppy on a sprint while the display runs at 60.
+ */
+type Previous = { x: number; y: number; frameX: number; frameY: number; phase: number };
 
 /** Where a body was when it was last seen, and when that was. */
 type Memory = { x: number; y: number; tick: number };
@@ -209,6 +255,10 @@ export class Renderer {
   /** Occluder sprites, rasterised once per zoom. Keyed by tile class. */
   private occluderSprites: Map<Tile, HTMLCanvasElement> | null = null;
   private occluderSpritesZoom = 0;
+  /**
+   * The character sheets. Owns its own per-zoom lifecycle, so `draw` needs no second cache check.
+   */
+  private readonly models = new ModelSprites();
   /** The depth-sorted draw list, pooled. See {@link Drawable}. */
   private readonly drawList: Drawable[] = [];
   private drawCount = 0;
@@ -253,6 +303,9 @@ export class Renderer {
    */
   attentionChannel: OverlayChannel = "off";
 
+  /** Show the raw character sheets instead of the district. Developer-only -- see drawSheets. */
+  showSheets = false;
+
   constructor(
     canvas: HTMLCanvasElement,
     private readonly map: TileMap,
@@ -275,8 +328,17 @@ export class Renderer {
     for (const entity of world.components.query(Position)) {
       const pos = world.components.getOrThrow(entity, Position);
       const prev = this.previous.get(entity);
-      if (prev === undefined) this.previous.set(entity, { x: pos.x, y: pos.y });
-      else {
+      if (prev === undefined) {
+        // Seeded from the simulation position, not from zero. A body first seen after a spawn
+        // or a save load would otherwise show one enormous frame delta and jump its walk cycle.
+        this.previous.set(entity, {
+          x: pos.x,
+          y: pos.y,
+          frameX: pos.x,
+          frameY: pos.y,
+          phase: 0,
+        });
+      } else {
         prev.x = pos.x;
         prev.y = pos.y;
       }
@@ -348,7 +410,7 @@ export class Renderer {
           [halfW, halfH * 2 + rise],
           [0, halfH + rise],
         ],
-        "rgba(0, 0, 0, 0.34)",
+        SHADE.away,
       );
       face(
         [
@@ -357,7 +419,7 @@ export class Renderer {
           [halfW * 2, halfH + rise],
           [halfW, halfH * 2 + rise],
         ],
-        "rgba(0, 0, 0, 0.16)",
+        SHADE.near,
       );
       // The cap last, so it sits over the top edges of both faces.
       face(
@@ -367,7 +429,7 @@ export class Renderer {
           [halfW * 2, halfH],
           [halfW, halfH * 2],
         ],
-        "rgba(255, 255, 255, 0.10)",
+        SHADE.cap,
       );
 
       sprites.set(kind, canvas);
@@ -555,6 +617,9 @@ export class Renderer {
 
     if (this.attentionChannel !== "off") this.drawAttention(world, camera, bounds, eyes);
 
+    // The swing wedge, on the ground, before anything stands on it. See drawSwingArc.
+    this.drawSwingArc(world, camera, alpha);
+
     // ---- the depth pass ---------------------------------------------------------------
     //
     // Everything that stands up goes in one list, sorted back to front. Walls are in it for
@@ -577,6 +642,7 @@ export class Renderer {
         if (OCCLUDER_HEIGHT_METRES[tile] === undefined) continue;
         const slot = this.nextDrawable();
         slot.kind = DrawKind.Occluder;
+        slot.tie = TIE_OCCLUDER;
         slot.tile = tile;
         slot.x = tx;
         slot.y = ty;
@@ -612,10 +678,15 @@ export class Renderer {
 
       const slot = this.nextDrawable();
       slot.kind = detail === Detail.Focal ? DrawKind.Body : DrawKind.Glimpse;
+      slot.tie = TIE_BODY;
       slot.entity = entity;
       slot.x = x;
       slot.y = y;
       slot.depth = depthOf(x, y);
+      // A glimpse is drawn as the anonymous silhouette, which has no pose and no facing, so
+      // there is nothing to select for one -- and asking would read components docs/28 says
+      // this observer has not earned.
+      if (detail === Detail.Focal) this.poseInto(slot, world, entity, x, y);
 
       this.remember(entity, x, y, world.tick);
       drawn++;
@@ -626,15 +697,19 @@ export class Renderer {
     let playerDepth = Infinity;
     let playerScreenX = 0;
     let playerScreenY = 0;
+    let playerPose: Pose | null = null;
     for (const entity of world.components.query(Position, Controlled)) {
       const { x, y } = this.interpolated(world, entity, alpha);
       const slot = this.nextDrawable();
       slot.kind = DrawKind.Player;
+      slot.tie = TIE_PLAYER;
       slot.entity = entity;
       slot.x = x;
       slot.y = y;
       slot.depth = depthOf(x, y);
+      this.poseInto(slot, world, entity, x, y);
       playerDepth = slot.depth;
+      playerPose = slot.pose;
       const at = worldToScreen(camera, x, y);
       playerScreenX = at.sx;
       playerScreenY = at.sy;
@@ -644,7 +719,25 @@ export class Renderer {
     const count = this.drawCount;
     // Sorting a slice of a pooled array, so the comparator runs over live entries only.
     const live = list.slice(0, count);
-    live.sort((a, b) => a.depth - b.depth);
+    // See `Drawable.tie`. The entity id last, so two bodies at genuinely identical depth pick the
+    // same winner every frame -- without it they swap places as the query order shifts, and a
+    // pair of tall sprites trading z sixty times a second reads as flicker.
+    live.sort((a, b) => a.depth - b.depth || a.tie - b.tie || a.entity - b.entity);
+
+    // The survivor's sprite box, for the wall-fade test below. A point plus a radius was right
+    // while the survivor was a circle on a tile; a standing body has a head a good 30 px above
+    // its feet, and a wall can cover that head while the feet sit clear of the sprite -- which is
+    // exactly the "unplayable indoors" failure the comment below describes, arriving through the
+    // test meant to prevent it.
+    let playerLeft = 0;
+    let playerTop = 0;
+    let playerRight = 0;
+    if (playerPose !== null) {
+      const atlas = this.models.atlasFor(Archetype.Player, camera.zoom);
+      playerLeft = playerScreenX - atlas.anchorX;
+      playerRight = playerLeft + atlas.cellWidth;
+      playerTop = playerScreenY - atlas.anchorY;
+    }
 
     const halfW = (camera.zoom * TILE_WIDTH_RATIO) / 2;
     for (const item of live) {
@@ -664,12 +757,17 @@ export class Renderer {
         // The test is exact rather than a radius: this wall is drawn *after* the survivor, and
         // its sprite covers where they are. That fades the two or three tiles actually in the
         // way instead of a blanket circle, so a building does not shimmer as you walk past it.
+        //
+        // Two boxes overlapping, rather than a point inside one. The survivor's box runs from
+        // their head to their feet, so a wall that hides any part of them fades -- the version
+        // that tested the ground point alone would leave a wall covering the head standing.
         const hides =
+          playerPose !== null &&
           item.depth > playerDepth &&
-          playerScreenX >= left - radius &&
-          playerScreenX <= left + sprite.width + radius &&
-          playerScreenY >= top - radius &&
-          playerScreenY <= top + sprite.height + radius;
+          playerRight + radius >= left &&
+          playerLeft - radius <= left + sprite.width &&
+          playerScreenY + radius >= top &&
+          playerTop - radius <= top + sprite.height;
 
         if (hides) ctx.globalAlpha = OCCLUDER_FADED_ALPHA;
         ctx.drawImage(sprite, left, top);
@@ -678,23 +776,25 @@ export class Renderer {
       }
 
       const { sx, sy } = worldToScreen(camera, item.x, item.y);
-      if (item.kind === DrawKind.Body) {
-        // A crawler draws small. docs/14-zombies.md: with its locomotion destroyed it "is
-        // quiet, is easy to miss in a dark breach, and is still perfectly capable of biting
-        // an ankle" -- so it has to be less visible, not merely slower.
-        const body = world.components.get(item.entity, Body);
-        const half = body !== undefined && isCrawling(body) ? radius * 0.5 : radius;
-        ctx.fillStyle = COLOURS.wanderer;
-        ctx.fillRect(sx - half, sy - half, half * 2, half * 2);
-      } else if (item.kind === DrawKind.Glimpse) {
-        ctx.fillStyle = COLOURS.glimpse;
-        ctx.fillRect(sx - radius * 0.6, sy - radius * 0.6, radius * 1.2, radius * 1.2);
+      if (item.kind === DrawKind.Glimpse) {
+        // Anonymous, and it stays that way. docs/28-visibility-and-sightlines.md's peripheral
+        // arc notices movement and withholds identity; a real model hands that identity back by
+        // outline alone, which would be a fairness-rule violation dressed as a graphics upgrade.
+        blit(ctx, this.models.glimpse(COLOURS.glimpse, camera.zoom), 0, 0, sx, sy);
       } else {
-        this.drawPlayer(world, camera, item.entity, item.x, item.y, radius);
+        blit(
+          ctx,
+          this.models.atlasFor(item.archetype, camera.zoom),
+          item.pose,
+          item.frame,
+          sx,
+          sy,
+          item.octant,
+        );
       }
     }
 
-    if (eyes !== null) this.drawMemory(world, camera, bounds, radius);
+    if (eyes !== null) this.drawMemory(world, camera, bounds);
 
     // Night, last, over everything including the field overlays. The alpha is derived from
     // the same ambient value the observer's range is, so the screen and the simulation
@@ -704,6 +804,8 @@ export class Renderer {
       ctx.fillStyle = `rgba(${COLOURS.night}, ${((1 - light) * NIGHT_WASH).toFixed(3)})`;
       ctx.fillRect(0, 0, camera.width, camera.height);
     }
+
+    if (this.showSheets) this.drawSheets(camera);
 
     this.visibleCount = drawn;
     this.occludedCount = occluded;
@@ -715,33 +817,64 @@ export class Renderer {
   private nextDrawable(): Drawable {
     let slot = this.drawList[this.drawCount];
     if (slot === undefined) {
-      slot = { depth: 0, kind: DrawKind.Body, tile: Tile.Floor, entity: 0, x: 0, y: 0 };
+      slot = {
+        depth: 0,
+        tie: TIE_BODY,
+        kind: DrawKind.Body,
+        tile: Tile.Floor,
+        entity: 0,
+        x: 0,
+        y: 0,
+        archetype: Archetype.Zombie,
+        pose: Pose.Idle,
+        frame: 0,
+        octant: 0,
+      };
       this.drawList.push(slot);
     }
     this.drawCount++;
     return slot;
   }
 
-  /** The survivor, their heading, and the swing they are committed to. */
-  private drawPlayer(
-    world: World,
-    camera: Camera,
-    entity: EntityId,
-    x: number,
-    y: number,
-    radius: number,
-  ): void {
+  /**
+   * The wedge a swing covers, on the ground.
+   *
+   * **A decal, drawn before the depth pass rather than inside it.** It used to be part of the
+   * player's own draw, which was correct while a body was a flat mark on a tile and became wrong
+   * the moment bodies stood up: drawn in the player's depth slot it paints over the legs of any
+   * shambler further along the diagonal, and a mark on the floor cannot be in front of somebody
+   * standing on that floor. Now everything stands on top of it, including the bodies being swung
+   * at, which is the whole point of the readout.
+   *
+   * It survives the models rather than being replaced by them. docs/09-combat.md's cut list
+   * forbids damage numbers, hit chances and floating combat text, and TODO.md names swing
+   * recovery among the readouts that replace them: the wedge is the ground the swing actually
+   * covers, so a wind-up is it brightening to full and a recovery is it fading out. The wedge
+   * says *where*; the wind-up and recovery poses say *when*.
+   */
+  private drawSwingArc(world: World, camera: Camera, alpha: number): void {
     const ctx = this.ctx;
-    const { sx, sy } = worldToScreen(camera, x, y);
+    for (const entity of world.components.query(Position, Controlled)) {
+      const swing = world.components.get(entity, Swing);
+      const weapon = world.components.get(entity, MeleeWeapon);
+      const facing = world.components.get(entity, Facing);
+      if (swing === undefined || weapon === undefined || facing === undefined) continue;
+      if (swing.state === SwingState.Idle) continue;
+      const { x, y } = this.interpolated(world, entity, alpha);
+      const { sx, sy } = worldToScreen(camera, x, y);
+      this.traceSwing(ctx, camera, swing, weapon, facing, sx, sy);
+    }
+  }
 
-    ctx.fillStyle = COLOURS.player;
-    ctx.beginPath();
-    ctx.arc(sx, sy, radius * 1.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    const facing = world.components.get(entity, Facing);
-    if (facing === undefined) return;
-
+  private traceSwing(
+    ctx: CanvasRenderingContext2D,
+    camera: Camera,
+    swing: Swing,
+    weapon: MeleeWeapon,
+    facing: Facing,
+    sx: number,
+    sy: number,
+  ): void {
     // The swing, as the wedge it covers.
     //
     // docs/09-combat.md's cut list forbids damage numbers, hit chances and floating combat
@@ -749,9 +882,7 @@ export class Renderer {
     // consequence *is* the display. So a wind-up is a wedge brightening to full, and a
     // recovery is the same wedge fading out -- the player reads how exposed they are from
     // how much of it is left, in the same glance as the situation.
-    const swing = world.components.get(entity, Swing);
-    const weapon = world.components.get(entity, MeleeWeapon);
-    if (swing !== undefined && weapon !== undefined && swing.state !== SwingState.Idle) {
+    {
       const windingUp = swing.state === SwingState.WindUp;
       const total = windingUp ? windupTicks(weapon.weight) : recoverTicks(weapon.weight);
       if (total > 0) {
@@ -768,22 +899,6 @@ export class Renderer {
         ctx.fill();
       }
     }
-
-    // A stub of a nose, so Facing is observable in the running game rather than only in the
-    // tests. Its tip is computed in the world and then projected, rather than by rotating a
-    // screen-space angle -- same answer, and it cannot drift from the projection.
-    const lengthMetres = (radius * 2.4) / camera.zoom;
-    const tip = worldToScreen(
-      camera,
-      x + Math.cos(facing.radians) * lengthMetres,
-      y + Math.sin(facing.radians) * lengthMetres,
-    );
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(tip.sx, tip.sy);
-    ctx.strokeStyle = COLOURS.player;
-    ctx.lineWidth = Math.max(1, radius * 0.35);
-    ctx.stroke();
   }
 
   private remember(entity: EntityId, x: number, y: number, tick: number): void {
@@ -794,6 +909,35 @@ export class Renderer {
       mark.y = y;
       mark.tick = tick;
     }
+  }
+
+  /**
+   * Blit the character sheets over the district, for review.
+   *
+   * Developer-only and off by default, like the attention overlay and for a related reason: it
+   * shows something the player has no business seeing. It exists because 336 procedurally
+   * generated sprites cannot be reviewed by walking around and hoping to meet each one -- the
+   * crawl frames alone need a shambler with destroyed legs to be standing in front of you.
+   *
+   * It is also how the **survivor archetype gets looked at at all**. Nothing in the simulation
+   * returns `Archetype.Survivor` -- survivors are Milestone 2 -- so its sheet is otherwise
+   * unreachable, and an unreachable sheet is one nobody notices is broken until the day it
+   * matters. Here it sits between the other two.
+   */
+  private drawSheets(camera: Camera): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = "rgba(13, 14, 16, 0.92)";
+    ctx.fillRect(0, 0, camera.width, camera.height);
+    let x = 8;
+    for (const archetype of ARCHETYPES) {
+      const atlas = this.models.atlasFor(archetype, camera.zoom);
+      const image = atlas.image as CanvasImageSource;
+      ctx.drawImage(image, x, 8);
+      x += atlas.cellWidth * atlas.columns + 12;
+    }
+    ctx.drawImage(this.models.glimpse(COLOURS.glimpse, camera.zoom).image, x, 8);
+    ctx.restore();
   }
 
   /**
@@ -808,7 +952,6 @@ export class Renderer {
     world: World,
     camera: Camera,
     bounds: { minX: number; maxX: number; minY: number; maxY: number },
-    radius: number,
   ): void {
     const ctx = this.ctx;
     for (const [entity, mark] of this.memory) {
@@ -829,8 +972,12 @@ export class Renderer {
       }
       const { sx, sy } = worldToScreen(camera, mark.x, mark.y);
       ctx.globalAlpha = 0.5 * (1 - age / MEMORY_TICKS);
-      ctx.fillStyle = COLOURS.memory;
-      ctx.fillRect(sx - radius * 0.7, sy - radius * 0.7, radius * 1.4, radius * 1.4);
+      // The same anonymous silhouette a glimpse uses, in the memory colour. That connects
+      // "something is over there" and "something *was* over there" into one vocabulary, and it
+      // stays honest: the mark says a body was here, not which one. Drawing the archetype's
+      // model here would claim live identity at a stale position -- the marker that follows an
+      // unseen body, only in slower motion, which the fairness rules forbid outright.
+      blit(ctx, this.models.glimpse(COLOURS.memory, camera.zoom), Pose.Idle, 0, sx, sy);
       ctx.globalAlpha = 1;
     }
   }
@@ -935,6 +1082,57 @@ export class Renderer {
     ctx.fill(focal);
     ctx.fillStyle = "rgba(140, 160, 200, 0.08)";
     ctx.fill(peripheral);
+  }
+
+  /**
+   * Fill in a slot's archetype, pose, frame and facing, and advance the body's walk cycle.
+   *
+   * The phase advances by the distance covered **since the last frame**, not since the last tick:
+   * the simulation runs at 20 Hz and the display at 60, and a cycle stepped 20 times a second
+   * reads visibly steppy on a sprint. It is renderer state for the reason `previous` and `memory`
+   * are -- it is a fact about this display, and a save has no business carrying it.
+   *
+   * Only bodies that are actually drawn accumulate. A body that is culled or unseen holds its
+   * phase and resumes from it, which is right in both directions: the cycle of a body you cannot
+   * see is not a fact about the world, and it costs nothing for the ~200 shamblers off screen.
+   */
+  private poseInto(slot: Drawable, world: World, entity: EntityId, x: number, y: number): void {
+    slot.archetype = archetypeFor(world, entity);
+
+    const body = world.components.get(entity, Body);
+    const shambler = world.components.get(entity, Shambler);
+    const swing = world.components.get(entity, Swing);
+    const velocity = world.components.get(entity, Velocity);
+    // From Velocity, not from the frame delta: the delta is interpolation, and it reads zero on
+    // a tick boundary -- which would flicker a walking body to idle sixty times a second.
+    const speed = velocity === undefined ? 0 : Math.hypot(velocity.dx, velocity.dy);
+
+    const prev = this.previous.get(entity);
+    const phase = prev?.phase ?? 0;
+    const selected = selectPose({
+      speedMetresPerSecond: speed,
+      crawling: body !== undefined && isCrawling(body),
+      staggered: shambler !== undefined && shambler.state === ShamblerState.Staggered,
+      swing: swing?.state ?? SwingState.Idle,
+      sprintThreshold: SPRINT_THRESHOLD,
+      phase,
+    });
+    slot.pose = selected.pose;
+
+    const facing = world.components.get(entity, Facing);
+    slot.octant = facing === undefined ? 0 : octantOf(facing.radians);
+
+    // Advance first, then read the frame off the advanced phase. The pose itself does not depend
+    // on the phase -- only the frame within it does -- so the order is free, and this way a body
+    // that moved this frame shows the step it just took rather than the one before it.
+    if (prev === undefined) {
+      slot.frame = selected.frame;
+      return;
+    }
+    prev.phase = advancePhase(phase, Math.hypot(x - prev.frameX, y - prev.frameY), selected.pose);
+    prev.frameX = x;
+    prev.frameY = y;
+    slot.frame = frameOf(selected.pose, prev.phase);
   }
 
   private interpolated(world: World, entity: EntityId, alpha: number): { x: number; y: number } {
