@@ -17,7 +17,7 @@ import { attentionModule, makeEmitter } from "./modules/attention";
 import { fieldMemoryModule } from "./modules/field-memory";
 import { healthModule, makeBody, makeStamina } from "./modules/health";
 import { inventoryModule, makeInventory, stow, equip } from "./modules/inventory";
-import { itemModule, spawnItem } from "./modules/items";
+import { itemModule, spawnItem, verifyContentReferences } from "./modules/items";
 import { makeMeleeArmed, meleeModule } from "./modules/melee";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
@@ -312,6 +312,12 @@ export function boot(options: BootOptions): Boot {
     // the hardcoded profile until the first tick quietly replaces it, and a test that
     // inspected the loadout at tick zero would be reading a world mid-sentence.
     world.events.drain();
+
+    // Everything above spawned from ids this build hardcodes, so on a normal boot this
+    // passes by construction. It is here for the boot that follows a content edit: the
+    // hot reload loop re-runs the seed against changed JSON, and a base that was renamed
+    // should stop the run here rather than surface as a nameless 1x1 object in the grid.
+    verifyContentReferences(world);
   }
 
   const placeRng = world.rng.stream("placement");
