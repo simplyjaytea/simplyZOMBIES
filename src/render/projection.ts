@@ -127,11 +127,16 @@ export function visibleBounds(
 }
 
 /**
- * Trace the diamond of one tile onto a context, with its west corner at (sx, sy).
+ * Add one tile's diamond to the current path, with the top-left of its bounding box at
+ * (sx, sy).
  *
- * Takes the tile's screen position rather than its world position so the tile layer -- which
- * rasterises the whole map into its own canvas with no camera at all -- can share the path
- * with everything that draws through one.
+ * **Adds a subpath; it does not begin or fill one.** That is what lets the tile layer batch
+ * thousands of same-coloured tiles into a single `fill()`, which is the difference between a
+ * boot that takes a moment and one that takes a second: a 256 m district is 65,536 tiles, and
+ * 65,536 separate fills is not the same cost as a handful of large ones.
+ *
+ * Takes a screen position rather than a world one so the whole-map raster -- which has no
+ * camera at all -- can share the path with everything that does.
  */
 export function traceTile(
   ctx: CanvasRenderingContext2D,
@@ -139,14 +144,32 @@ export function traceTile(
   sy: number,
   zoom: number,
 ): void {
-  const w = zoom * TILE_WIDTH_RATIO;
-  const h = zoom * TILE_HEIGHT_RATIO;
-  ctx.beginPath();
-  ctx.moveTo(sx, sy + h / 2);
-  ctx.lineTo(sx + w / 2, sy);
-  ctx.lineTo(sx + w, sy + h / 2);
-  ctx.lineTo(sx + w / 2, sy + h);
+  const halfW = (zoom * TILE_WIDTH_RATIO) / 2;
+  const halfH = (zoom * TILE_HEIGHT_RATIO) / 2;
+  ctx.moveTo(sx, sy + halfH);
+  ctx.lineTo(sx + halfW, sy);
+  ctx.lineTo(sx + halfW * 2, sy + halfH);
+  ctx.lineTo(sx + halfW, sy + halfH * 2);
   ctx.closePath();
+}
+
+/**
+ * Top-left of a tile's bounding box, in the coordinates of a whole-map raster built by
+ * {@link mapRasterSize}.
+ *
+ * The raster has no camera, so this is the projection with the camera terms removed and the
+ * raster's own origin substituted -- kept here beside the projection it must agree with,
+ * rather than re-derived in the renderer where it would drift.
+ */
+export function tileRasterPosition(
+  tx: number,
+  ty: number,
+  zoom: number,
+  originX: number,
+): { sx: number; sy: number } {
+  const halfW = (zoom * TILE_WIDTH_RATIO) / 2;
+  const halfH = (zoom * TILE_HEIGHT_RATIO) / 2;
+  return { sx: originX + (tx - ty - 1) * halfW, sy: (tx + ty) * halfH };
 }
 
 /**
