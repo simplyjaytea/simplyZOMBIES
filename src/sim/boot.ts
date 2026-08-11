@@ -16,6 +16,8 @@ import { SpatialHash } from "./spatial/hash";
 import { attentionModule, makeEmitter } from "./modules/attention";
 import { fieldMemoryModule } from "./modules/field-memory";
 import { healthModule, makeBody, makeStamina } from "./modules/health";
+import { inventoryModule, makeInventory, stow, equip } from "./modules/inventory";
+import { itemModule, spawnItem } from "./modules/items";
 import { makeMeleeArmed, meleeModule } from "./modules/melee";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
@@ -28,11 +30,67 @@ export const ALL_MODULES: readonly Module[] = [
   attentionModule,
   fieldMemoryModule,
   healthModule,
+  inventoryModule,
+  itemModule,
   meleeModule,
   movementModule,
   playerModule,
   shamblerModule,
 ];
+
+/**
+ * Bases that can be found lying in the street, with relative weights.
+ *
+ * A stand-in for docs/12-resources.md's per-location loot tables, which want the world model
+ * -- houses, shops, medical sites -- that Milestone 2 brings. Weighted so bandages and scrap
+ * are common and a fire axe is a find, which is the only property the grid needs today: that
+ * what you carry home is a decision rather than a formality.
+ */
+const STREET_LOOT: readonly { baseId: string; weight: number }[] = [
+  { baseId: "item.scrap.metal", weight: 100 },
+  { baseId: "item.bandage.cloth", weight: 70 },
+  { baseId: "item.food.canned", weight: 55 },
+  { baseId: "item.water.bottle", weight: 40 },
+  { baseId: "item.knife.kitchen", weight: 30 },
+  { baseId: "item.pipe.steel", weight: 25 },
+  { baseId: "item.pouch.utility", weight: 18 },
+  { baseId: "item.bat.aluminium", weight: 14 },
+  { baseId: "item.rig.chest", weight: 10 },
+  { baseId: "item.spear.improvised", weight: 8 },
+  { baseId: "item.pack.hiking", weight: 6 },
+  { baseId: "item.axe.fire", weight: 4 },
+];
+
+/** How many items to strew across the district at boot. */
+const STREET_LOOT_COUNT = 60;
+
+/**
+ * Put findable things on the ground.
+ *
+ * Its own RNG stream, because adding loot must not shift the placement stream every existing
+ * test's expectations are pinned against -- stream seeds hash (masterSeed, name), so a new
+ * stream costs the old ones nothing.
+ */
+function scatterLoot(world: World, map: TileMap, mapSize: number): void {
+  const rng = world.rng.stream("loot-placement");
+  const total = STREET_LOOT.reduce((sum, entry) => sum + entry.weight, 0);
+
+  for (let i = 0; i < STREET_LOOT_COUNT; i++) {
+    let roll = rng.float(0, total);
+    let baseId = (STREET_LOOT[0] as { baseId: string }).baseId;
+    for (const entry of STREET_LOOT) {
+      roll -= entry.weight;
+      if (roll < 0) {
+        baseId = entry.baseId;
+        break;
+      }
+    }
+
+    const tile = findOpenTile(map, rng.int(1, mapSize - 2), rng.int(1, mapSize - 2));
+    const item = spawnItem(world, baseId);
+    world.components.set(item, Position, { x: tile.x, y: tile.y });
+  }
+}
 
 export type BootOptions = {
   seed: number;
@@ -221,6 +279,19 @@ export function boot(options: BootOptions): Boot {
   // windows are visible. Which weapon a survivor holds becomes an inventory question when
   // docs/10's item system lands.
   makeMeleeArmed(world, player, WEAPONS.bat);
+  // Pockets, slots, and a starting loadout. docs/10-items.md#what-you-can-carry-is-what-you
+  // -chose-to-wear: the satchel is what makes the grid a decision on day one rather than a
+  // screen that is empty until you find a bag, and the bandages are there so the stacking
+  // rules are exercised by simply playing rather than only by a test.
+  makeInventory(world, player);
+  // Guarded on content actually being loaded, not just on the module being on. Most tests
+  // boot with an empty registry -- a world with no content is a legitimate world, and one
+  // that threw here would make "there are no items" a crash instead of an absence.
+  if (modules.isEnabled("item") && world.content.count("item") > 0) {
+    equip(world, player, spawnItem(world, "item.satchel.canvas", { tier: "scavenged" }));
+    stow(world, player, spawnItem(world, "item.bandage.cloth", { tier: "scavenged", count: 3 }));
+    scatterLoot(world, map, mapSize);
+  }
 
   const placeRng = world.rng.stream("placement");
   for (let i = 0; i < wanderers; i++) {

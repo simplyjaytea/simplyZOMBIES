@@ -1,0 +1,129 @@
+[
+  {
+    "id": "affix.prefix.serrated",
+    "name": "Serrated",
+    "slot": "prefix",
+    "appliesTo": ["weapon.melee"],
+    "tiers": [
+      { "weight": 100, "modifiers": [{ "stat": "bleed_on_hit", "op": "add", "value": 1 }] },
+      { "weight": 40, "modifiers": [{ "stat": "bleed_on_hit", "op": "add", "value": 2 }] },
+      { "weight": 10, "modifiers": [{ "stat": "bleed_on_hit", "op": "add", "value": 4 }] }
+    ]
+  },
+  {
+    "id": "affix.prefix.weighted",
+    "name": "Weighted",
+    "slot": "prefix",
+    "appliesTo": ["weapon.melee"],
+    "tiers": [
+      {
+        "weight": 100,
+        "modifiers": [
+          { "stat": "melee_stagger", "op": "mul", "value": 1.25 },
+          { "stat": "swing_speed", "op": "mul", "value": 0.9 },
+          { "stat": "swing_stamina", "op": "mul", "value": 1.15 }
+        ]
+      },
+      {
+        "weight": 40,
+        "modifiers": [
+          { "stat": "melee_stagger", "op": "mul", "value": 1.5 },
+          { "stat": "swing_speed", "op": "mul", "value": 0.82 },
+          { "stat": "swing_stamina", "op": "mul", "value": 1.25 }
+        ]
+      },
+      {
+        "weight": 10,
+        "modifiers": [
+          { "stat": "melee_stagger", "op": "mul", "value": 1.9 },
+          { "stat": "swing_speed", "op": "mul", "value": 0.72 },
+          { "stat": "swing_stamina", "op": "mul", "value": 1.4 }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "affix.prefix.balanced",
+    "name": "Balanced",
+    "slot": "prefix",
+    "appliesTo": ["weapon.melee"],
+    "tiers": [
+      {
+        "weight": 100,
+        "modifiers": [
+          { "stat": "swing_speed", "op": "mul", "value": 1.12 },
+          { "stat": "melee_stagger", "op": "mul", "value": 0.85 }
+        ]
+      },
+      {
+        "weight": 40,
+        "modifiers": [
+          { "stat": "swing_speed", "op": "mul", "value": 1.22 },
+          { "stat": "melee_stagger", "op": "mul", "value": 0.75 }
+        ]
+      },
+      {
+        "weight": 10,
+        "modifiers": [
+          { "stat": "swing_speed", "op": "mul", "value": 1.35 },
+          { "stat": "melee_stagger", "op": "mul", "value": 0.6 }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "affix.prefix.reinforced",
+    "name": "Reinforced",
+    "slot": "prefix",
+    "appliesTo": ["weapon.melee", "weapon.ranged", "armor"],
+    "tiers": [
+      { "weight": 100, "modifiers": [{ "stat": "condition_loss", "op": "mul", "value": 0.7 }] },
+      { "weight": 40, "modifiers": [{ "stat": "condition_loss", "op": "mul", "value": 0.5 }] },
+      { "weight": 10, "modifiers": [{ "stat": "condition_loss", "op": "mul", "value": 0.3 }] }
+    ]
+  },
+  {
+    "id": "affix.prefix.lengthened",
+    "name": "Lengthened",
+    "slot": "prefix",
+    "appliesTo": ["weapon.melee"],
+    "tiers": [
+      {
+        "weight": 100,
+        "modifiers": [
+          { "stat": "melee_reach", "op": "mul", "value": 1.15 },
+          { "stat": "swing_speed", "op": "mul", "value": 0.92 }
+        ]
+      },
+      {
+        "weight": 40,
+        "modifiers": [
+          { "stat": "melee_reach", "op": "mul", "value": 1.3 },
+          { "stat": "swing_speed", "op": "mul", "value": 0.85 }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "affix.prefix.barbed",
+    "name": "Barbed",
+    "slot": "prefix",
+    "appliesTo": ["weapon.melee"],
+    "tiers": [
+      {
+        "weight": 100,
+        "modifiers": [
+          { "stat": "melee_damage", "op": "mul", "value": 1.15 },
+          { "stat": "swing_recovery", "op": "mul", "value": 1.2 }
+        ]
+      },
+      {
+        "weight": 40,
+        "modifiers": [
+          { "stat": "melee_damage", "op": "mul", "value": 1.28 },
+          { "stat": "swing_recovery", "op": "mul", "value": 1.35 }
+        ]
+      }
+    ]
+  }
+]

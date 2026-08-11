@@ -23,6 +23,12 @@
  *    Both change the shape of the snapshot. Scent is stored sparsely like noise, but it
  *    decays over tens of minutes rather than seconds, so a save taken at a smelly moment
  *    legitimately carries far more live cells than a loud one ever did.
+ * 8: items and the grid inventory. Items are entities now, so a survivor's gear is a tree of
+ *    ItemBase / Affixes / Condition / Stack components hanging off Container placements and
+ *    Equipment slots. A version-7 save describes a world where the weapon a survivor held
+ *    was a `MeleeWeapon` component and nothing else -- loading one into this build gives you
+ *    a survivor with a bat, no pockets, no bags, and nothing on the ground to find, which is
+ *    not the same game with less data in it.
  * 7: combat. Body, Stamina, MeleeWeapon and Swing are components, so they ride the
  *    component snapshot without any change to the shape of a save -- but a version 6 file
  *    describes a world where zombies had no head to destroy and a survivor could not tire,
@@ -35,7 +41,7 @@
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at
