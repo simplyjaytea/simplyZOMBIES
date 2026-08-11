@@ -160,14 +160,47 @@ Repair needs materials, a workbench, and Craft skill, and **never restores full 
 repair lowers the ceiling. Every item in the game is on a slow trip toward scrap, which is what makes
 a supply of new bases a permanent need and keeps scavenging relevant forever.
 
-## Inventory and weight
+## Inventory: space and weight
 
-Carry capacity is bounded by strength, [web nodes](08-skill-web.md), and containers. Over-encumbrance
-costs movement speed and stamina — and movement speed is
-[the thing that keeps you alive](05-health-injury.md).
+Two constraints, deliberately independent.
+
+**Space decides what fits.** A container is a rectangle of cells and every item has a footprint, so
+a sleeping bag and a scalpel are different problems even when they weigh the same. One cell is about
+a fist: a bandage is 1×1, a fire axe 1×4, a hiking pack 4×4 that opens into a 6×8 grid. Items rotate
+90° to fit, and containers nest — a pack holds a pouch holds ammunition — to a depth of three.
+
+**Weight decides what it costs to move.** Mass counts everything nested inside a container, so a pack
+full of tins weighs what the tins weigh. Over capacity costs movement speed and stamina recovery,
+and movement speed is [the thing that keeps you alive](05-health-injury.md). Capacity comes from
+strength, [web nodes](08-skill-web.md), and what you are wearing.
+
+### Why a grid rather than a weight bar
+
+Because [clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) prohibits "any UI
+that would collapse this uncertainty into a number", and a capacity bar is exactly that. **A grid is
+the same information rendered as shape.** You do not read that the pack is 78% full; you see that the
+axe no longer fits.
+
+This makes the inventory the second screen in the game — after the
+[condition view](05-health-injury.md#the-condition-view) — that satisfies clause 4 by being a
+*layout* rather than a measurement. Weight survives as the second, invisible pressure: it is never
+printed, and you learn you are overloaded because you are walking slower.
+
+The one number on the screen is a stack count. Knowing you have three bandages is not uncertainty
+being collapsed; it is counting discrete objects.
+
+### What you can carry is what you chose to wear
+
+Pockets are innate and small — enough to carry a find home after losing a bag, not enough to make
+bags optional. Everything beyond that is worn: a pack on the back, a rig on the chest, a satchel on
+the belt. **Equipping a container is what grants its grid**, so a scavenging run begins with choosing
+what to bring to put things in, and losing your pack is losing your capacity rather than losing a
+number.
 
 The recurring scavenging decision: you found more than you can carry, it's getting dark, and coming
-back tomorrow means the trip again. Greed is a mechanic.
+back tomorrow means the trip again. Greed is a mechanic — and the grid is what makes it a *decision*
+rather than an arithmetic check, because leaving the axe behind and taking three tins is a shape you
+can see.
 
 ## Content shape
 

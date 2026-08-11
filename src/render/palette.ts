@@ -42,6 +42,16 @@ export const COLOURS = {
   wanderer: "#6f8f6a",
   /** Peripheral: something moved, and that is all you get. */
   glimpse: "#4a5a48",
+
+  /**
+   * A thing lying on the ground, and its outline.
+   *
+   * Warm and light against the district's greys, because the one job this marker has is to
+   * be findable while you walk past. It says "something is here" and nothing about what --
+   * see the note on ITEM_MARK_W in renderer.ts.
+   */
+  groundItem: "#d8c07a",
+  groundItemEdge: "#4a3f22",
   /** Last known position, fading. Never moves -- see `remembered`. */
   memory: "#3d4a3c",
   background: "#0d0e10",

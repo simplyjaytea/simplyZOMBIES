@@ -81,7 +81,18 @@ export type GameEvent =
   | { type: "mutation.wave"; wave: number }
 
   // Items
+  /**
+   * An item entity now exists, fully rolled, and is not yet anywhere.
+   *
+   * Published by the item module so the inventory module can attach a grid to the ones that
+   * are containers, without either module importing the other -- a pack that only grew its
+   * grid when worn would lose its contents every time it was put down.
+   */
+  | { type: "item.spawned"; item: EntityId; baseId: string }
   | { type: "item.equipped"; entity: EntityId; item: EntityId; slot: string }
+  | { type: "item.unequipped"; entity: EntityId; item: EntityId; slot: string }
+  | { type: "item.pickedUp"; entity: EntityId; item: EntityId }
+  | { type: "item.dropped"; entity: EntityId; item: EntityId }
   | { type: "item.broke"; entity: EntityId; item: EntityId }
   | { type: "modification.applied"; item: EntityId; consumable: string }
   | { type: "modification.failed"; item: EntityId; consumable: string };

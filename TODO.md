@@ -629,14 +629,47 @@ Everything needed to test the thesis, and nothing else:
 
 ### Items — spec: [docs/10](docs/10-items.md)
 
-- [ ] ~12 bases split across melee and ranged
-- [ ] ~10 affixes with tiered values, including double-edged ones
-- [ ] 3 tiers: Scavenged, Modified, Field-Tested
+- [x] 13 bases: five melee, four containers, four supplies
+      *(ranged bases wait for the ranged loop -- inventing their content before the system that
+      reads it is inventing it blind, which is the argument `src/sim/combat.ts` already makes
+      about weapon profiles)*
+- [x] ~10 affixes with tiered values, including double-edged ones
+      *(eleven. Two of docs/10's list -- **of the Butcher** and **of the Steady Grip** -- are not
+      here, and deliberately: both are conditional on the target's or the wielder's state, and
+      [docs/21's cut list](docs/21-extensibility.md#cut-list) puts modifier conditions in code
+      rather than content. They arrive with the system that owns the condition.)*
+- [x] 3 tiers: Scavenged, Modified, Field-Tested
 - [ ] Attachment slots on 2 base classes, with attachments movable between compatible bases
+      *(the slots are declared in content already; nothing reads them yet)*
 - [ ] Armor as **coverage per body part**, reducing bite transmission rather than granting tankiness
-- [ ] Condition degradation affecting performance continuously
+- [~] Condition degradation affecting performance continuously
+      *(the curve is built and read -- damage and swing speed both scale with wear -- but nothing
+      degrades yet, because wear is driven by use and the systems that use things publish the
+      events it will subscribe to)*
 - [ ] Repair that **never restores the full ceiling**
-- [ ] Carry weight and encumbrance
+      *(`Condition` already carries the ceiling, so repair is a system rather than a data change)*
+- [x] Carry weight and encumbrance
+      *(recursive over nested containers, emitted as `move_speed` and `stamina_recovery`
+      modifiers, and **never shown as a number** -- see the grid, below)*
+
+### The grid inventory — spec: [docs/10](docs/10-items.md#inventory-space-and-weight)
+
+Tarkov/DayZ-shaped, and it is [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
+being *satisfied* rather than merely survived: a capacity bar is a number about your capacity, and a
+grid is the same information as shape. You do not read that the pack is nearly full, you see that the
+axe will not fit.
+
+- [x] Placement primitive: footprints, rotation, bounds, overlap, a declared free-slot scan order
+- [x] Containers as entities, so a pack is an item with a grid and pockets are a grid with no item
+- [x] Nesting to depth 3, with cycle and depth guards *(both mutation-tested)*
+- [x] Stacking, splitting and merging, with the per-base limit respected
+- [x] Equipped containers granting their grid — **what you can carry is what you chose to wear**
+- [x] Ground items, pickup within arm's reach, and drop
+- [x] Every rearrangement as a `Command`, so drags land on a tick and enter the replay record
+- [x] Save/load of a nested loadout, and determinism across a scripted drag sequence
+- [ ] Searching a container in the world (a car boot, a cupboard) rather than only carried ones
+- [ ] Weight affecting the *sound* of a footstep — the obvious link into
+      [the attention field](docs/03-attention.md) that nothing has drawn yet
 
 ### Modification — spec: [docs/11](docs/11-crafting.md)
 
@@ -696,7 +729,10 @@ Everything needed to test the thesis, and nothing else:
 - [ ] Prose condition descriptions **generated from modifier sources** ("cold, tired, and that arm
       isn't right")
 - [ ] Priority grid UI
-- [ ] Inventory and equipment UI
+- [x] Inventory and equipment UI — `src/ui/inventory.ts`, the first screen in the game
+      *(drag to move, right-click or `R` to rotate, drag onto a slot to wear, drag out to drop. It
+      reads a snapshot rather than the world, and every gesture is a command -- so it cannot write
+      to `sim/` and cannot reach a state the simulation would have refused.)*
 - [ ] Skill web UI
 - [ ] Pause and speed controls
 
