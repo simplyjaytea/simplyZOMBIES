@@ -69,6 +69,7 @@ export type ContentEntry = {
 export const CONTENT_TYPES: readonly ContentTypeDef[] = [
   { id: "zombie", directory: "zombies", tagFields: ["behaviors"] },
   { id: "affix", directory: "affixes" },
+  { id: "item", directory: "items" },
   { id: "calibration", directory: "calibration" },
 ];
 

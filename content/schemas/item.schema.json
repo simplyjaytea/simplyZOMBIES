@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/item.schema.json",
+  "title": "Item base",
+  "description": "An item base, per docs/10-items.md. The base determines class, footprint, mass, attachment slots and the class-specific numbers; affixes, condition and attachments are rolled or accumulated on top of it at generation. Adding a weapon is a data edit.",
+  "type": "object",
+  "required": ["id", "name", "class", "size", "massKg"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "extends": {
+      "type": "string",
+      "description": "Id of another item base to inherit from."
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name, before the tier and affixes decorate it."
+    },
+    "class": {
+      "enum": ["weapon.melee", "weapon.ranged", "container", "consumable", "material", "armor"],
+      "description": "What the item is. Affixes declare the classes they can roll on via appliesTo, and equip slots accept by class."
+    },
+    "size": {
+      "$ref": "#/$defs/rect",
+      "description": "Footprint in inventory cells, unrotated. One cell is about a fist -- a bandage is 1x1 and a fire axe 1x4 (docs/10-items.md#inventory-space-and-weight)."
+    },
+    "massKg": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Mass of one unit, empty. A container's contents are counted on top of this, recursively. Never shown to the player as a number."
+    },
+    "stack": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "How many units share one footprint. 1 means the item does not stack."
+    },
+    "equipSlot": {
+      "enum": ["back", "vest", "belt", "primary", "secondary", "head", "torso"],
+      "description": "Which equipment slot this base can occupy, if any. Wearing a container is what grants its grid (docs/10-items.md#what-you-can-carry-is-what-you-chose-to-wear)."
+    },
+    "container": {
+      "$ref": "#/$defs/rect",
+      "description": "Grid this item provides when it is a container. Present on packs, rigs and pouches; absent on everything else."
+    },
+    "melee": {
+      "type": "object",
+      "description": "The four properties docs/09-combat.md says a melee weapon has. Read by the melee module when this base is equipped to the primary slot.",
+      "required": ["reachMetres", "weight", "damage", "staggerTicks"],
+      "additionalProperties": false,
+      "properties": {
+        "reachMetres": { "type": "number", "exclusiveMinimum": 0 },
+        "weight": { "type": "number", "exclusiveMinimum": 0 },
+        "damage": { "type": "number", "exclusiveMinimum": 0 },
+        "staggerTicks": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "slots": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases."
+    }
+  },
+  "$defs": {
+    "rect": {
+      "type": "object",
+      "required": ["w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

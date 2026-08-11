@@ -1,0 +1,33 @@
+[
+  {
+    "id": "item.bandage.cloth",
+    "name": "Cloth Bandage",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.05,
+    "stack": 5
+  },
+  {
+    "id": "item.food.canned",
+    "name": "Canned Food",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.4,
+    "stack": 3
+  },
+  {
+    "id": "item.water.bottle",
+    "name": "Water Bottle",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 1.0
+  },
+  {
+    "id": "item.scrap.metal",
+    "name": "Scrap Metal",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.3,
+    "stack": 10
+  }
+]

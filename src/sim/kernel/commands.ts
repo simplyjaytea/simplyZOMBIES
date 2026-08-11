@@ -7,6 +7,8 @@
 // turns a bug report into a seed (docs/19#determinism) and puts something behind the
 // fairness promise in docs/01-hardcore-contract.md.
 
+import type { EntityId } from "./entities";
+
 /**
  * Movement is expressed as intent, not as a position delta. The sim decides what a
  * direction means in metres; the platform layer only reports what was asked for.
@@ -29,7 +31,34 @@ export type Command =
    * real window (docs/09-combat.md#swing-loop) rather than a delay before a decision that was
    * already made. Turning away mid-wind-up misses, and that has to be possible.
    */
-  | { type: "swing" };
+  | { type: "swing" }
+  /**
+   * Inventory manipulation, as commands rather than as mutations.
+   *
+   * This is the part that is easy to get wrong. A grid inventory is a drag-and-drop screen,
+   * and a drag-and-drop screen wants to write to the thing it is drawing -- which would put
+   * every rearrangement outside the deterministic record and give render/ a write path into
+   * sim/ that docs/19-architecture.md#layers forbids.
+   *
+   * So the screen *proposes* and the simulation decides. Each of these carries the entity
+   * ids and cells the player indicated; `modules/inventory.ts` validates every one and
+   * silently refuses the illegal ones. A replay that queues the same drags reaches the same
+   * loadout, and a UI bug cannot invent a state the sim would not have reached.
+   */
+  | {
+      type: "item.move";
+      item: EntityId;
+      container: EntityId;
+      x: number;
+      y: number;
+      rotated: boolean;
+    }
+  | { type: "item.equip"; item: EntityId; slot: string }
+  | { type: "item.unequip"; slot: string }
+  | { type: "item.drop"; item: EntityId }
+  /** Carries no target: what is in reach is read from the world on the tick it lands. */
+  | { type: "item.pickUp" }
+  | { type: "item.split"; item: EntityId; count: number };
 
 export type CommandType = Command["type"];
 

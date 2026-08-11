@@ -122,6 +122,88 @@ export function defineCoreStats(registry: StatRegistry): void {
       base: 0,
       description: "Felt temperature offset in degrees.",
     },
+
+    // Items. Every stat below is read by the item, inventory or melee module, and each one
+    // exists because an affix in content/affixes/ moves it (docs/10-items.md#affixes). They
+    // are multipliers on a base the item's own content supplies, rather than absolute
+    // values, so a Weighted Fire Axe and a Weighted Knife both get heavier relative to what
+    // they already were.
+    {
+      id: "melee_damage",
+      base: 1,
+      min: 0,
+      description: "Multiplier on a melee weapon's damage.",
+    },
+    {
+      id: "melee_reach",
+      base: 1,
+      min: 0,
+      description:
+        "Multiplier on a melee weapon's reach. A property distinct from damage (docs/09).",
+    },
+    {
+      id: "melee_stagger",
+      base: 1,
+      min: 0,
+      description: "Multiplier on stagger ticks from a solid connect. Blunt staggers; blades kill.",
+    },
+    {
+      id: "swing_speed",
+      base: 1,
+      min: 0.1,
+      description:
+        "Multiplier on how fast a swing winds up. Higher is faster, so it divides the window.",
+    },
+    {
+      id: "swing_recovery",
+      base: 1,
+      min: 0.1,
+      description:
+        "Multiplier on the recovery window. Higher is worse -- being caught in recovery is how melee kills you (docs/09), so this is the stat a double-edged affix pays with.",
+    },
+    {
+      id: "swing_stamina",
+      base: 1,
+      min: 0,
+      description: "Multiplier on stamina spent per swing.",
+    },
+    {
+      id: "condition_loss",
+      base: 1,
+      min: 0,
+      description:
+        "Multiplier on how fast an item wears. Everything is on a slow trip to scrap (docs/10).",
+    },
+    {
+      id: "repair_cost",
+      base: 1,
+      min: 0,
+      description: "Multiplier on the materials a repair consumes.",
+    },
+    {
+      id: "bleed_on_hit",
+      base: 0,
+      min: 0,
+      description: "Bleed stacks applied on a connect. Zero for anything that is not serrated.",
+    },
+
+    // Carrying. docs/10-items.md#inventory-space-and-weight: the grid decides what fits and
+    // this decides what it costs to walk with. **Never shown as a number** -- clause 4 of
+    // docs/01-hardcore-contract.md, and the reason there is no weight readout on the
+    // inventory screen. You learn you are overloaded by walking slower.
+    {
+      id: "carry_capacity",
+      base: 25,
+      min: 1,
+      description:
+        "Kilograms carried before encumbrance starts costing speed and stamina recovery.",
+    },
+    {
+      id: "stamina_recovery",
+      base: 1,
+      min: 0,
+      description: "Multiplier on how fast stamina comes back. Encumbrance and injury move it.",
+    },
   ];
 
   for (const def of core) registry.define(def);
