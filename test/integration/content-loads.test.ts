@@ -10,6 +10,7 @@ import { dirname, resolve } from "node:path";
 import { readContentFromDisk, readSchemasFromDisk } from "../../src/platform/content-source-node";
 import { createSchemaValidator } from "../../src/platform/schema-validator";
 import { ZOMBIE_BODY } from "../../src/sim/combat";
+import { LIGHT_TABLE } from "../../src/sim/vision/light";
 import { ContentRegistry } from "../../src/sim/content/registry";
 import { defineCoreStats, StatRegistry } from "../../src/sim/modifiers/stats";
 import { GLOBAL, ModifierStore, type Modifier } from "../../src/sim/modifiers/modifiers";
@@ -77,6 +78,34 @@ describe("the shipped content", () => {
     // numbers as constants. A mirror nothing checks is a copy waiting to disagree.
     const base = loadRealContent().getOrThrow("zombie", "zombie.base");
     expect(base["body"]).toEqual({ ...ZOMBIE_BODY });
+  });
+
+  it("carries the light bases at exactly docs/03's magnitudes", () => {
+    // The same guard `attention.test.ts` puts on the shambler's sensory weights and the
+    // calibration, and for the same reason: `LIGHT_TABLE` mirrors docs/03-attention.md#light
+    // in code because it is calibration, and a mirror nothing checks is a copy waiting to
+    // disagree. Content decides *which base* carries which reach; the table decides the reach.
+    const registry = loadRealContent();
+    const reachOf = (id: string): number => {
+      const light = registry.getOrThrow("item", id)["light"] as { magnitude: number };
+      return light.magnitude;
+    };
+
+    expect(reachOf("item.candle.wax")).toBe(LIGHT_TABLE.candle);
+    expect(reachOf("item.lamp.electric")).toBe(LIGHT_TABLE.lamp);
+    expect(reachOf("item.floodlight.rigged")).toBe(LIGHT_TABLE.floodlight);
+  });
+
+  it("gives the floodlight no equip slot, because carrying it would blow the budget", () => {
+    // Not an oversight, and the reason is a number: a cast's window is (2r+1) on a side, so a
+    // floodlight is 32,761 cells against a lamp's 5,041. A stationary source casts once ever,
+    // but a *carried* one recasts on every tile crossing -- about 1.4 a second at walking pace.
+    // The budget is defended here, in content, rather than by a check in the index, because a
+    // check there would be a rule nobody reads until it fires.
+    const registry = loadRealContent();
+    expect(registry.getOrThrow("item", "item.floodlight.rigged")["equipSlot"]).toBeUndefined();
+    expect(registry.getOrThrow("item", "item.candle.wax")["equipSlot"]).toBe("secondary");
+    expect(registry.getOrThrow("item", "item.lamp.electric")["equipSlot"]).toBe("secondary");
   });
 
   it("uses only behavior tags the simulation implements", () => {

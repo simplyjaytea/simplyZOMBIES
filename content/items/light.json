@@ -1,0 +1,29 @@
+[
+  {
+    "id": "item.candle.wax",
+    "name": "Wax Candle",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "stack": 4,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 3 }
+  },
+  {
+    "id": "item.lamp.electric",
+    "name": "Electric Lamp",
+    "class": "tool",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.6,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 35 }
+  },
+  {
+    "id": "item.floodlight.rigged",
+    "name": "Rigged Floodlight",
+    "class": "tool",
+    "size": { "w": 3, "h": 3 },
+    "massKg": 8.4,
+    "light": { "magnitude": 90 }
+  }
+]
