@@ -114,6 +114,19 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 - [x] Save/load: serialize world state, version stamp, **clean rejection of stale saves**
 - [x] Atomic save writes (temp file + rename) — a crash mid-write must not corrupt a long run
       *(and a browser equivalent: two slots with a pointer flip, since localStorage has no rename)*
+- [x] **Character models** — bodies that stand up, face one of eight directions, and walk
+      *(procedural, rasterised into one sheet per archetype at boot the way the occluder sprites
+      are, so there is still no asset pipeline and still no image file in the repository. Three
+      archetypes — you, somebody else's survivor, a shambler — differing by posture before colour,
+      because at 31 px posture is what survives the night wash. Poses for the states the
+      simulation can already express: idle, walk, sprint, wind-up, recovery, staggered, crawling.
+      The walk cycle advances by **distance travelled**, never by a clock, so it cannot desync
+      from speed and freezes correctly when the game is paused. `M` shows the raw sheets.)*
+- [x] **Bodies that read as bodies is a prerequisite, not polish.**
+      [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) says condition
+      is read "from descriptive text and animation" and forbids the health bars that would replace
+      it — a square cannot favour a leg. The diegetic readouts below now have something to happen
+      to; a limp is a walk cycle, and the crawler is the first of them already on screen.
 
 ### Tests & CI
 
@@ -571,6 +584,9 @@ Everything needed to test the thesis, and nothing else:
       **No fill, no percentage, no pips, and no tooltip carrying a number the screen doesn't show**
 - [ ] Diegetic readouts for the continuous conditions and stamina — breathing, weapon sway, swing
       recovery, a limp, the screen edges closing in, blood on the ground
+      *(the bodies to hang these on now exist — see the character models in Milestone 0's render
+      section. Swing recovery and the crawl already read as poses; a limp is a walk cycle with one
+      leg's stride shortened, which is a `BODY_SPECS` entry rather than new machinery.)*
       *(every one of these is already a specified mechanical consequence. The change is that the
       consequence **is** the readout — nothing is displayed twice, once as an effect and once as a
       meter.)*
