@@ -33,8 +33,10 @@ import {
   groundItems,
   placeAt,
   Stored,
+  unequip,
 } from "../../src/sim/modules/inventory";
-import { ItemBase, spawnItem } from "../../src/sim/modules/items";
+import { Affixes, ItemBase, spawnItem } from "../../src/sim/modules/items";
+import { MeleeWeapon, Swing, SwingState } from "../../src/sim/modules/melee";
 import { Controlled } from "../../src/sim/modules/player";
 
 const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
@@ -285,5 +287,117 @@ describe("the module comes out cleanly", () => {
     });
     stepN(world, 40);
     expect(groundItems(world)).toEqual([]);
+  });
+});
+
+describe("the melee bridge", () => {
+  /**
+   * Equip, then let the event land.
+   *
+   * `equip` publishes; handlers run when the bus drains, which is once per tick. Draining
+   * here rather than stepping keeps these assertions about the bridge instead of about
+   * whatever else a tick does.
+   */
+  function equipNow(world: World, actor: EntityId, item: EntityId, slot?: string): void {
+    equip(world, actor, item, slot);
+    world.events.drain();
+  }
+
+  /**
+   * What a survivor holds comes from their primary slot, by way of `item.equipped`.
+   *
+   * The property being protected is that this is a *subscription*, not a call: the inventory
+   * module publishes a fact and never touches `MeleeWeapon`, which is the only reason melee
+   * still works with inventory switched off.
+   */
+  it("arms the survivor from the item in the primary slot", () => {
+    const { world, player } = bootWithItems();
+    const actor = player as EntityId;
+
+    const axe = spawnItem(world, "item.axe.fire", { tier: "scavenged" });
+    equipNow(world, actor, axe);
+
+    const held = world.components.getOrThrow(actor, MeleeWeapon);
+    const base = world.content.getOrThrow("item", "item.axe.fire")["melee"] as {
+      reachMetres: number;
+      damage: number;
+    };
+    expect(held.reachMetres).toBeCloseTo(base.reachMetres, 6);
+    expect(held.damage).toBeCloseTo(base.damage, 6);
+  });
+
+  it("disarms when the slot empties, and re-arms when it fills again", () => {
+    const { world, player } = bootWithItems();
+    const actor = player as EntityId;
+    const axe = spawnItem(world, "item.axe.fire", { tier: "scavenged" });
+    equipNow(world, actor, axe);
+
+    unequip(world, actor, "primary");
+    world.events.drain();
+    expect(world.components.has(actor, MeleeWeapon)).toBe(false);
+    expect(world.components.has(actor, Swing)).toBe(false);
+
+    const spear = spawnItem(world, "item.spear.improvised", { tier: "scavenged" });
+    equipNow(world, actor, spear);
+    expect(world.components.has(actor, MeleeWeapon)).toBe(true);
+    // Re-armed, or the survivor would hold a weapon they can never swing.
+    expect(world.components.getOrThrow(actor, Swing)).toEqual({
+      state: SwingState.Idle,
+      ticksLeft: 0,
+    });
+  });
+
+  it("ignores a non-weapon in the primary slot rather than disarming", () => {
+    const { world, player } = bootWithItems();
+    const actor = player as EntityId;
+    const axe = spawnItem(world, "item.axe.fire", { tier: "scavenged" });
+    equipNow(world, actor, axe);
+    const before = { ...world.components.getOrThrow(actor, MeleeWeapon) };
+
+    // Bandages have no `melee` block; forcing one into the slot must not change the weapon.
+    const bandage = spawnItem(world, "item.bandage.cloth", { tier: "scavenged", count: 1 });
+    equipNow(world, actor, bandage, "primary");
+    expect(world.components.getOrThrow(actor, MeleeWeapon)).toEqual(before);
+  });
+
+  it("lets affixes move the numbers away from the base", () => {
+    const { world, player } = bootWithItems();
+    const actor = player as EntityId;
+
+    // Roll axes until one comes up with affixes -- the tier roll is weighted toward none.
+    let modified: EntityId | null = null;
+    for (let i = 0; i < 200 && modified === null; i++) {
+      const candidate = spawnItem(world, "item.axe.fire", { tier: "field_tested" });
+      const rolled = world.components.getOrThrow(candidate, Affixes);
+      if (rolled.prefixes.length + rolled.suffixes.length > 0) modified = candidate;
+    }
+    expect(modified).not.toBeNull();
+
+    const plain = spawnItem(world, "item.axe.fire", { tier: "scavenged" });
+    equipNow(world, actor, plain);
+    const bare = { ...world.components.getOrThrow(actor, MeleeWeapon) };
+    equipNow(world, actor, modified as EntityId);
+    const rolled = world.components.getOrThrow(actor, MeleeWeapon);
+
+    // At least one of the five numbers an affix can touch has moved.
+    const moved =
+      rolled.damage !== bare.damage ||
+      rolled.reachMetres !== bare.reachMetres ||
+      rolled.staggerTicks !== bare.staggerTicks ||
+      rolled.speed !== bare.speed ||
+      rolled.recovery !== bare.recovery ||
+      rolled.stamina !== bare.stamina;
+    expect(moved).toBe(true);
+  });
+
+  it("still arms a survivor with inventory disabled, from the hardcoded profile", () => {
+    const { world, player } = boot({
+      seed: SEED,
+      wanderers: 4,
+      mapSize: 48,
+      content: realContent(),
+      disabled: ["inventory"],
+    });
+    expect(world.components.has(player as EntityId, MeleeWeapon)).toBe(true);
   });
 });
