@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "handoff:regroup": "node scripts/regroup-handoff.mjs",
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "bench": "vitest run --config vitest.bench.config.ts",
