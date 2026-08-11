@@ -77,13 +77,35 @@ export const DAY_BEGINS = DAWN_ENDS;
 /**
  * How much light there is at the darkest point of the night, as a fraction of daylight.
  *
- * Not zero, and the reason matters: **there is no light channel yet**, so there is nothing to
- * carry, nothing to light, and no counterplay to the dark. A survivor at 0 would simply be
- * blind with no answer available. At 0.25 a daylight view of 48 m becomes 12 m -- enough to
- * play, tight enough that night is a different game -- and the moment lamps and torches exist
- * this number should go *down*, because then the dark has an answer.
+ * **Derived from docs/03-attention.md#light's emitter table, not picked.** It used to be 0.25,
+ * held up by the absence of a light channel: with nothing to carry there was no counterplay to
+ * the dark, so a survivor at 0 would have been blind with no answer available. Emitters exist
+ * now, so the number came down -- and where it landed is arithmetic rather than taste.
+ *
+ * Bare eyes at midnight are `DAYLIGHT_EYES.rangeMetres * NIGHT_AMBIENT`. For a candle to be an
+ * upgrade rather than a formality, that has to come out **below the candle's reach in whole
+ * tiles** -- and the unit is the point. A shadowcast's window is an integer radius, so the
+ * comparison that decides whether the player can tell has to be made in tiles, not metres:
+ *
+ *     tileRange(48 * NIGHT_AMBIENT) < tileRange(3)   ->   48 * NIGHT_AMBIENT <= 2
+ *     NIGHT_AMBIENT <= 2 / 48 = 0.0417
+ *
+ * The first version of this was derived in metres -- `48 * N < 3` -- which admitted 0.05, and at
+ * 0.05 bare-eyed night is 2.4 m and a candle is 3 m and **both round to a three-tile window**.
+ * The candle would have been an upgrade on paper and invisible in play. Metres are what the
+ * table is written in; tiles are what the geometry uses.
+ *
+ * At 0.04 the ladder reads, in the tiles the shadowcast actually casts: 2 bare-eyed, 3 by
+ * candle, 20 by campfire, 35 by lamp, 48 by daylight, and a floodlight capped back to 48
+ * because eyes are the ceiling.
+ *
+ * It is not lower for a reason worth keeping. `tileRange` floors a reach at one tile, so much
+ * below this the *floor* would be deciding what night is rather than this constant.
+ *
+ * **The coupling is to `DAYLIGHT_EYES.rangeMetres`**, so changing that changes what this means.
+ * Both ends are pinned in `test/integration/day-night.test.ts` against the candle.
  */
-export const NIGHT_AMBIENT = 0.25;
+export const NIGHT_AMBIENT = 0.04;
 
 /** Fraction of the way through the current day, in [0, 1). */
 export function timeOfDay(tick: number): number {

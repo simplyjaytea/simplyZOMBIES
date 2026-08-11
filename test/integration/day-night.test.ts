@@ -23,7 +23,8 @@ import {
   tickAtTimeOfDay,
   timeOfDay,
 } from "../../src/sim/time/clock";
-import { Detail } from "../../src/sim/vision/visibility";
+import { DAYLIGHT_EYES, Detail } from "../../src/sim/vision/visibility";
+import { tileRange } from "../../src/sim/map/tilemap";
 import { THREAT_METRES, threatWithin } from "../../src/sim/threat";
 
 const SEED = 20260805;
@@ -128,11 +129,25 @@ describe("the light", () => {
     }
   });
 
-  it("never goes fully dark, because there is nothing to light yet", () => {
-    // The reason this number is 0.25 rather than 0: no light channel means no torch, no lamp,
-    // and no counterplay. A survivor at zero would be blind with no answer available. When
-    // emitters land this should go *down*.
+  it("goes darker than the weakest emitter, so a candle is an upgrade", () => {
+    // This test used to be called "never goes fully dark, because there is nothing to light
+    // yet", and it existed to explain why the number was 0.25. Emitters exist now, so it has
+    // become the guard on the *derivation* instead.
+    //
+    // The rule, and the unit is the whole point: bare eyes at midnight must come out below the
+    // weakest emitter in docs/03's table **in whole tiles**, because an integer tile radius is
+    // what a shadowcast actually casts. Asserting it in metres is what let the first version of
+    // this land on 0.05, where bare eyes are 2.4 m and a candle is 3 m and both round to a
+    // three-tile window -- an upgrade on paper and invisible in play.
+    const CANDLE_METRES = 3;
+    const bareEyed = NIGHT_AMBIENT * DAYLIGHT_EYES.rangeMetres;
     expect(NIGHT_AMBIENT).toBeGreaterThan(0);
+    expect(tileRange(bareEyed)).toBeLessThan(tileRange(CANDLE_METRES));
+
+    // And not so dark that the one-tile floor in `tileRange` is what decides what night is,
+    // rather than this constant.
+    expect(tileRange(bareEyed)).toBeGreaterThan(1);
+
     let darkest = 1;
     for (let f = 0; f < 1; f += 0.001) darkest = Math.min(darkest, ambientLight(f));
     expect(darkest).toBe(NIGHT_AMBIENT);
