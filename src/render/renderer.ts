@@ -22,6 +22,7 @@ import { SPRINT_THRESHOLD } from "../sim/locomotion";
 import { MeleeWeapon, Swing, SwingState } from "../sim/modules/melee";
 import { groundItems } from "../sim/modules/inventory";
 import { Controlled } from "../sim/modules/player";
+import { sightMetres } from "../sim/vision/light";
 import { Detail, Observer } from "../sim/vision/visibility";
 import { followCamera, type Camera } from "./camera";
 import { COLOURS, SHADE } from "./palette";
@@ -244,10 +245,26 @@ const OVERLAY_FULL_SCALE = 180;
  */
 const SCENT_FULL_SCALE = 20;
 
-/** Which channel the debug overlay is showing. `O` cycles through these in order. */
-export type OverlayChannel = "off" | "noise" | "scent" | "sight";
+/**
+ * Metres of remaining reach above which the light overlay draws a cell as "near".
+ *
+ * In the same metres as everything else, and chosen as a candle's whole reach: inside three
+ * metres of a source you can make out a body, and beyond it you have a shape. Not a fraction of
+ * each source's magnitude, which would draw a candle and a floodlight with identically sized
+ * bright cores and make the two look the same at a glance.
+ */
+const LIGHT_OVERLAY_SPLIT = 3;
 
-export const OVERLAY_CHANNELS: readonly OverlayChannel[] = ["off", "noise", "scent", "sight"];
+/** Which channel the debug overlay is showing. `O` cycles through these in order. */
+export type OverlayChannel = "off" | "noise" | "scent" | "sight" | "light";
+
+export const OVERLAY_CHANNELS: readonly OverlayChannel[] = [
+  "off",
+  "noise",
+  "scent",
+  "sight",
+  "light",
+];
 
 /** A position remembered from the previous tick, for interpolation. */
 /**
@@ -866,10 +883,17 @@ export class Renderer {
 
     if (eyes !== null) this.drawMemory(world, camera, bounds);
 
-    // Night, last, over everything including the field overlays. The alpha is derived from
-    // the same ambient value the observer's range is, so the screen and the simulation
-    // cannot drift apart -- one number, two consumers.
-    const light = ambientLightAt(world.tick);
+    // Night, last, over everything including the field overlays. The alpha is derived from the
+    // *same number the observer's range is*, so the screen and the simulation cannot drift
+    // apart -- one number, two consumers, which is the rule this had before light existed and
+    // keeps now that it does.
+    //
+    // What changed is which number: `sightMetres` rather than raw ambient, as a fraction of
+    // what this survivor's eyes could do in daylight. So standing in a lit pool visibly lifts
+    // the wash, and it lifts it *because the range genuinely grew* rather than because the
+    // renderer decided to draw light. With no eyes to ask -- the sprite-sheet view, a world
+    // booted without a player -- it falls back to ambient, which is what it always was.
+    const light = eyes === null ? ambientLightAt(world.tick) : this.localLight(world, eyes);
     if (light < 1) {
       ctx.fillStyle = `rgba(${COLOURS.night}, ${((1 - light) * NIGHT_WASH).toFixed(3)})`;
       ctx.fillRect(0, 0, camera.width, camera.height);
@@ -880,6 +904,20 @@ export class Renderer {
     this.visibleCount = drawn;
     this.occludedCount = occluded;
     this.lastDrawMs = performance.now() - started;
+  }
+
+  /**
+   * How lit the survivor is, as a fraction of what their eyes could do in full daylight.
+   *
+   * Clamped to 1 because `sightMetres` already caps at the observer's own range -- a floodlight
+   * cannot give better than daylight vision -- so this is a fraction rather than a multiplier.
+   */
+  private localLight(world: World, eyes: EntityId): number {
+    const observer = world.components.get(eyes, Observer);
+    const position = world.components.get(eyes, Position);
+    if (observer === undefined || position === undefined) return ambientLightAt(world.tick);
+    const metres = sightMetres(world, observer, position.x, position.y);
+    return Math.min(1, metres / observer.rangeMetres);
   }
 
   /** Note where a body was when it was last seen. */
@@ -1069,6 +1107,10 @@ export class Renderer {
       if (eyes !== null) this.drawSight(world, camera, bounds, eyes);
       return;
     }
+    if (this.attentionChannel === "light") {
+      if (eyes !== null) this.drawLight(world, camera, bounds, eyes);
+      return;
+    }
 
     const field = world.field;
     if (field.cellCount === 0 || this.attentionChannel === "off") return;
@@ -1109,10 +1151,11 @@ export class Renderer {
   /**
    * The visible set itself, tile by tile: the fourth overlay channel.
    *
-   * Light is not built yet, so this is not the light channel -- it is the *primitive* light
-   * will be built on, put on screen so that a sightline bug is something you can look at
-   * rather than something you infer from a body that should have been hidden. Focal and
-   * peripheral are tinted differently, because the arcs are the half most likely to be wrong.
+   * The same primitive `drawLight` below reads, from the other end -- this is what the survivor
+   * can see, that is what the lamps reach -- put on screen so that a sightline bug is something
+   * you can look at rather than something you infer from a body that should have been hidden.
+   * Focal and peripheral are tinted differently, because the arcs are the half most likely to
+   * be wrong.
    */
   private drawSight(
     world: World,
@@ -1152,6 +1195,61 @@ export class Renderer {
     ctx.fill(focal);
     ctx.fillStyle = "rgba(140, 160, 200, 0.08)";
     ctx.fill(peripheral);
+  }
+
+  /**
+   * What the lamps reach: the fifth overlay channel.
+   *
+   * **Intersected with what the survivor can see**, and that intersection is the whole design of
+   * this method rather than a detail of it. A pool of light thirty metres away that you have no
+   * sightline to would otherwise be painted bright and be invisible -- the screen asserting
+   * something the simulation denies, which is exactly the disagreement `NIGHT_WASH` exists to
+   * avoid. Lit *and* seen is a fact about the survivor; lit alone is a fact about the world, and
+   * the survivor is who the screen is for.
+   *
+   * Two tints, split at half a source's reach, so the falloff is legible -- the near half of a
+   * lamp's pool is where a body is worth looking at and the far half is where one is a shape.
+   *
+   * Viewport-clipped like the other channels, and here it matters most: a floodlight's window is
+   * ninety tiles a side, so painting it whole every frame at 60 Hz would put the overlay in the
+   * frame budget and make the tool distort the thing it measures.
+   */
+  private drawLight(
+    world: World,
+    camera: Camera,
+    bounds: { minX: number; maxX: number; minY: number; maxY: number },
+    eyes: EntityId,
+  ): void {
+    const seen = world.vision.tilesFor(eyes);
+    if (seen === undefined) return;
+
+    const ctx = this.ctx;
+    const zoom = camera.zoom;
+    const halfW = (zoom * TILE_WIDTH_RATIO) / 2;
+    const minX = Math.max(0, Math.floor(bounds.minX));
+    const maxX = Math.min(this.map.w - 1, Math.ceil(bounds.maxX));
+    const minY = Math.max(0, Math.floor(bounds.minY));
+    const maxY = Math.min(this.map.h - 1, Math.ceil(bounds.maxY));
+
+    const near = new Path2D();
+    const far = new Path2D();
+
+    for (let ty = minY; ty <= maxY; ty++) {
+      for (let tx = minX; tx <= maxX; tx++) {
+        if (!seen.has(tx, ty)) continue;
+        // Tile centres, so this asks the same question an entity standing there would.
+        const lit = world.light.litMetres(tx + 0.5, ty + 0.5);
+        if (lit <= 0) continue;
+        if (world.vision.detail(eyes, tx + 0.5, ty + 0.5) === Detail.Unseen) continue;
+        const { sx, sy } = worldToScreen(camera, tx, ty);
+        traceTile(lit >= LIGHT_OVERLAY_SPLIT ? near : far, sx - halfW, sy, zoom);
+      }
+    }
+
+    ctx.fillStyle = "rgba(255, 214, 140, 0.20)";
+    ctx.fill(near);
+    ctx.fillStyle = "rgba(255, 214, 140, 0.09)";
+    ctx.fill(far);
   }
 
   /**

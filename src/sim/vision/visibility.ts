@@ -21,8 +21,8 @@
 import { defineComponent, Facing, Position } from "../kernel/components";
 import type { EntityId } from "../kernel/entities";
 import type { World } from "../kernel/world";
-import { Eye, TILE_METRES, type TileMap } from "../map/tilemap";
-import { ambientLightAt } from "../time/clock";
+import { Eye, TILE_METRES, tileRange, type TileMap } from "../map/tilemap";
+import { sightMetres } from "./light";
 import { shadowcast, VisibleTiles } from "./shadowcast";
 
 /**
@@ -142,19 +142,6 @@ export class VisibilityIndex {
    */
   recomputes = 0;
 
-  /** Bumped when the map changes, which invalidates every cached view at once. */
-  private generation = 0;
-
-  /**
-   * Call when tiles change. Nothing does yet -- the map is static until
-   * [structures](../../../docs/15-base-building.md) arrive in Milestone 2 -- and it exists
-   * now because the alternative is a stale sightline through a wall that was just built,
-   * which is a bug that looks exactly like a cheat.
-   */
-  invalidate(): void {
-    this.generation++;
-  }
-
   /**
    * Bring every observer's view up to date. Registered as a kernel system by `boot`.
    *
@@ -174,16 +161,20 @@ export class VisibilityIndex {
       const tileY = Math.floor(position.y / TILE_METRES);
 
       // Night is not a filter over the same view: it is a smaller view. Range is a property
-      // of light (docs/28#what-an-observer-is), and this is the ambient half of it.
+      // of light (docs/28#what-an-observer-is), and `sightMetres` is now *both* halves of it
+      // -- the sun, and anything in docs/03's emitter table reaching where this observer
+      // stands. `rangeMetres` stopped being a daylight constant the moment there was light to
+      // derive it from; it is the ceiling now rather than the answer.
       //
       // The rounding up to whole tiles is what keeps this affordable, and it is worth saying
       // out loud because it looks like a detail. Ambient light changes every tick through
       // dawn and dusk; the *integer tile radius* changes about thirty-six times across a
       // thirty-minute transition, and the cache key is built from that integer. So the sun
       // coming up costs thirty-six shadowcasts spread over half an hour, not one per tick.
-      const metres = observer.rangeMetres * ambientLightAt(world.tick);
-      const range = Math.max(1, Math.ceil(metres / TILE_METRES));
-      const key = `${tileX},${tileY},${range},${observer.eye},${this.generation}`;
+      // A survivor carrying a lamp pays on the same terms: on crossing a tile, not per tick.
+      const metres = sightMetres(world, observer, position.x, position.y);
+      const range = tileRange(metres);
+      const key = `${tileX},${tileY},${range},${observer.eye},${world.mapGeneration}`;
 
       let view = this.views.get(entity);
       if (view === undefined) {

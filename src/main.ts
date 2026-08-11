@@ -18,10 +18,19 @@ import { createCamera } from "./render/camera";
 import { OVERLAY_CHANNELS, Renderer, type OverlayChannel } from "./render/renderer";
 import { boot } from "./sim/boot";
 import { noiseOn, speedOn, Surface, surfaceAt } from "./sim/map/surface";
-import { ambientLightAt, clockTime, dayNumber, PHASE_NAMES, phaseOf } from "./sim/time/clock";
+import {
+  ambientLightAt,
+  clockTime,
+  DAY_BEGINS,
+  dayNumber,
+  PHASE_NAMES,
+  phaseOf,
+} from "./sim/time/clock";
 import { threatWithin } from "./sim/threat";
 import { TILE_METRES } from "./sim/map/tilemap";
 import { Position } from "./sim/kernel/components";
+import { sightMetres } from "./sim/vision/light";
+import { Observer } from "./sim/vision/visibility";
 import { Body, isCrawling, Stamina } from "./sim/modules/health";
 import { Swing, SwingState } from "./sim/modules/melee";
 import { Controlled } from "./sim/modules/player";
@@ -50,6 +59,17 @@ const numeric = (name: string, fallback: number): number => {
 };
 
 const SEED = numeric("seed", DEFAULT_SEED);
+
+/**
+ * Where in the day to start, as a fraction: 0 is the start of dawn, 0.75 is nightfall.
+ *
+ * A query parameter because there is no other way to look at the night. A day is four hours at
+ * 1x and twenty-four minutes at 10x, so "press 3 and wait" is a real instruction for a person
+ * with a coffee and no instruction at all for a screenshot, a bug report, or anyone checking
+ * that the light channel works. Costs nothing: time of day is a pure function of `world.tick`,
+ * so this is a different starting tick and not a second copy of the time.
+ */
+const START_TIME_OF_DAY = numeric("start", DAY_BEGINS);
 
 const canvas = document.getElementById("view") as HTMLCanvasElement;
 const hud = document.getElementById("hud") as HTMLElement;
@@ -91,6 +111,17 @@ let contentError = loaded.error;
 const { world, map, player } = boot({
   seed: SEED,
   wanderers: numeric("wanderers", DEFAULT_WANDERERS),
+  // Zombies get eyes here for the first time, and this is the line docs/14's first design rule
+  // was waiting on: sight must not make them tactical, so it arrives together with the single
+  // stimulus that uses it rather than ahead of it. A fraction of the horde rather than all of
+  // it, because per-observer visibility is the one cost that does not amortise across a crowd
+  // (docs/22#visibility-is-a-different-cost-shape) -- and because a district where every body
+  // can see is not what docs/14 describes anyway.
+  observers: numeric("observers", Math.round(numeric("wanderers", DEFAULT_WANDERERS) * 0.15)),
+  startTimeOfDay: START_TIME_OF_DAY,
+  // `?loadout=dev` for the kit -- a weapon, a bag, a lamp -- when the point of the session is
+  // looking at a system rather than playing. The default is empty, which is the game.
+  loadout: params.get("loadout") === "dev" ? "dev" : "none",
   content: loaded.content,
   // A content failure is already on screen; falling back to the shipped constants is what
   // keeps the message visible instead of replacing it with a blank page.
@@ -396,7 +427,10 @@ function swingState(w: World): string {
     const tired = stamina === undefined ? "" : `   stamina ${stamina.current.toFixed(0)}`;
     return `${name}${tired}`;
   }
-  return "-";
+  // No `Swing` at all, which is what an empty-handed survivor is. Said out loud rather than
+  // left as a dash, because the default loadout gives you nothing and a swing key that does
+  // nothing reads as a broken button rather than as an empty hand.
+  return "empty-handed -- find a weapon";
 }
 
 /** Shamblers by state, for the HUD. The one line that says whether the field is working. */
@@ -441,6 +475,26 @@ function carriedReadout(w: World): string {
   return "-";
 }
 
+/**
+ * The light channel, for a developer.
+ *
+ * `lit` is the metres of usable sight the survivor actually has where it stands, which is the
+ * number the simulation acts on -- not the ambient fraction beside it on the `time` line, and
+ * the two disagreeing is the point: bare-eyed at midnight reads about 2, and a candle makes it
+ * 3, and a lamp 35. `casts` is `LightIndex.recomputes`, the number that says whether the cast
+ * cache is working: it should sit still for a lamp on the floor and tick up as you carry one.
+ */
+function lightReadout(w: World): string {
+  const sources = `${w.light.sourceCount} sources   ${w.light.recomputes} casts`;
+  for (const entity of w.components.query(Controlled, Observer)) {
+    const observer = w.components.getOrThrow(entity, Observer);
+    const pos = w.components.getOrThrow(entity, Position);
+    const metres = sightMetres(w, observer, pos.x, pos.y);
+    return `lit ${metres.toFixed(1)} m of ${observer.rangeMetres} eyes   ${sources}`;
+  }
+  return sources;
+}
+
 function updateHud(w: World): void {
   const showing = performance.now() < noticeUntil ? `\n${notice}` : "";
   const problem =
@@ -456,6 +510,7 @@ function updateHud(w: World): void {
     `<b>draw</b>     ${renderer.lastDrawMs.toFixed(2)} ms   ${renderer.visibleCount} drawn\n` +
     `<b>sight</b>    ${renderer.occludedCount} hidden   ` +
     `${w.vision.recomputes} shadowcasts\n` +
+    `<b>light</b>    ${lightReadout(w)}\n` +
     `<b>entities</b> ${w.entities.count}\n` +
     `<b>ground</b>   ${groundUnderfoot(w)}\n` +
     `<b>noise</b>    ${live} live cells   peak ${w.field.peakNoise().toFixed(1)}\n` +
@@ -475,7 +530,7 @@ function updateHud(w: World): void {
     "WASD / arrows move   Shift sprint   F swing   Space shout   E pick up   Tab inventory\n" +
     "O overlay   P pause   " +
     "1 / 2 / 3 speed (1x, 3x, 10x -- drops to 1x on contact)   F5 save   F9 load\n" +
-    "the swing is a window, not a button. You are committed from wind-up to recovery.";
+    "you start with nothing. Everything is in the street -- including a candle, before dark.";
 }
 
 loop.start();

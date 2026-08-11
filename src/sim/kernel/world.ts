@@ -10,6 +10,7 @@ import { ModifierStore, type ModifierStoreSave } from "../modifiers/modifiers";
 import { defineCoreStats, StatRegistry } from "../modifiers/stats";
 import { RngRegistry, type RngState } from "../rng";
 import { SpatialHash } from "../spatial/hash";
+import { LightIndex } from "../vision/light";
 import { VisibilityIndex } from "../vision/visibility";
 import { CommandQueue } from "./commands";
 import { ComponentStore } from "./components";
@@ -112,6 +113,49 @@ export class World {
    * Sized to a map by `boot`, and inert until then, so nothing has to null-check the kernel.
    */
   readonly spatial: SpatialHash;
+
+  /**
+   * What is lit (docs/03-attention.md#light).
+   *
+   * Kernel for the reason `vision` is, and one more besides: an observer's range derives from
+   * the light where it stands, and range decides the visible set, which decides whether the
+   * renderer draws through walls. A light index that could be switched off would mean
+   * "disable a limb, get the wallhack back at night". A world with every module disabled still
+   * has a *dark* night -- it just has nothing emitting into it.
+   *
+   * **Derived, and not in the snapshot**, exactly like `vision` and `spatial`: a pure function
+   * of positions, magnitudes and the tile map, all three of which the snapshot already holds.
+   * What *is* saved is the `LightSource` component, which rides the component store like any
+   * other -- so a lamp survives a load and its cast is rebuilt on the first tick after it.
+   */
+  readonly light = new LightIndex();
+
+  /**
+   * How many times the tile map has changed under the indices that cache against it.
+   *
+   * One counter, on the world, rather than one per index -- and that is the whole point. Both
+   * `vision` and `light` key their caches on it, and two counters would let them disagree:
+   * a wall built between a lamp and a survivor would stop being seen through while the lamp
+   * kept lighting past it, or the reverse. Either way the two answers contradict each other,
+   * and the place two line-of-sight answers disagree is the place the exploit lives.
+   *
+   * Not in the snapshot. The map is derived from the seed, so a loaded world starts at zero
+   * with cold caches, which is correct rather than merely acceptable.
+   */
+  mapGeneration = 0;
+
+  /**
+   * Call when tiles change, which invalidates every cached sightline and every cast of light
+   * at once.
+   *
+   * Nothing calls it in the game yet -- the map is static until
+   * [structures](../../../docs/15-base-building.md) arrive in Milestone 2 -- and it exists
+   * now because the alternative is a stale sightline through a wall that was just built,
+   * which is a bug that looks exactly like a cheat.
+   */
+  invalidateMap(): void {
+    this.mapGeneration++;
+  }
 
   constructor(seed: number, parts: WorldParts = {}) {
     this.seed = seed >>> 0;

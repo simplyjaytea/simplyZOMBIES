@@ -19,9 +19,9 @@ Three other places to know about, and nothing else is required reading:
 
 | | |
 |---|---|
-| **Phase** | **Milestone 1, the spine — in progress.** Milestone 0 is closed with no open boxes. Two of the three attention channels are live. |
-| **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, where you walk decides how loud you are, and at midnight you see a quarter as far as you did at noon. |
-| **What is left of Milestone 1** | **The light channel** (the emitters — ambient is built), **grabs and bite risk**, and **movement stances**. See [Do this next](#do-this-next). |
+| **Phase** | **Milestone 1, the spine — in progress.** Milestone 0 is closed with no open boxes. **All three attention channels are live.** |
+| **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, where you walk decides how loud you are, and at midnight you see **two metres** — until you find a candle. You start with nothing. |
+| **What is left of Milestone 1** | **Grabs and bite risk**, and **movement stances**. The light channel landed — all three attention channels are now live. See [Do this next](#do-this-next). |
 | **Merged so far** | [#1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) design docs · [#2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) attention spike · [#3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) Milestone 0 · then the noise spine, scent, multiplayer as design, visibility, the ground, the day, items and the grid, and [#19](https://github.com/simplyjaytea/simplyZOMBIES/pull/19) hot reload |
 | **In flight** | Nothing. |
 | **Pulled forward on purpose** | **Items and the grid inventory** — Milestone 2 work, landed early at the owner's request. Two new modules plus content; the one place it touches combat goes through the event bus. |
@@ -32,10 +32,10 @@ Three other places to know about, and nothing else is required reading:
 | Milestone | `[x]` done | `[~]` in progress | `[ ]` todo | State |
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
-| 1 — The spine | 40 | 0 | 21 | 🔨 **Current.** Exit criterion met for noise and asserted; light, melee's cost and stances remain. |
+| 1 — The spine | 44 | 0 | 17 | 🔨 **Current.** All three channels live; melee's cost and stances remain. |
 | 2 — The vertical slice | 13 | 1 | 92 | ☐ **Not started** — except the items and grid inventory, pulled forward. |
 | 3+ — Beyond the slice | 0 | 0 | 12 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **92** | **1** | **125** | |
+| **Total** | **96** | **1** | **121** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
@@ -408,13 +408,15 @@ which the project is legible as a game, and it is.
 > **Exit criterion:** make a noise and the horde comes; go quiet and it doesn't.
 >
 > ✅ **Met for noise** and asserted in CI (`test/integration/attention.test.ts`). The milestone is
-> **not closed**: the light channel is still open, the night is still too soft without emitters, melee
-> does not yet cost bite risk, and stances do not exist.
+> **not closed**, but the list is shorter: all three attention channels are live and the night is
+> properly dark, so what remains is that melee does not yet cost bite risk and stances do not
+> exist.
 
-**40 done, 21 open.** Two of three channels are in — the **noise spine** (field, gradient ascent, a
-shout) and **scent** (continuous diffusion, wind, field memory). Both ⚠ checkpoints riding on scent are
-closed. Light turned out to be the small half of a larger job, so it sits inside
-[visibility & sightlines](#visibility--sightlines--spec-docs28) below, where the primitive is now built.
+**44 done, 17 open.** **All three channels are in** — the **noise spine** (field, gradient ascent, a
+shout), **scent** (continuous diffusion, wind, field memory), and now **light** (a shadowcast from
+every emitter, zombies with eyes, and a night dark enough that a found candle matters). Both ⚠
+checkpoints riding on scent are closed. Light turned out not to belong in the field at all, which is
+[entry 15 in the decision log](docs/30-decisions.md#what-light-made-structural).
 
 What this milestone found — including two things that contradicted the design docs and got them
 corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has-found-so-far).
@@ -465,10 +467,11 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 
 **Open (3):**
 
-- [ ] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
-      *(moved into [visibility & sightlines](#visibility--sightlines--spec-docs28) below. Light is
-      the same shadowcast the renderer and the multiplayer view filter need, and building it three
-      times is how they end up disagreeing.)*
+- [x] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
+      *(built, and **not in the field** — `src/sim/vision/light.ts`, beside the primitive it casts.
+      The field refused it twice: `liveCells()` is read as "the district is silent" by three
+      exit-criterion assertions, and 4 m cells would round away the wall-absolute precision that
+      makes shutters work. Magnitude is range, and it aggregates by **max**, never sum.)*
 - [ ] Dirty-region tracking
       *(still not earned, and now measured rather than assumed. Scent made the field continuous, which
       was the condition this was waiting on — and the continuous step costs 0.0075 ms amortised per
@@ -538,17 +541,19 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 
 **Open (3):**
 
-- [ ] **Light channel on top of the primitive** — shadowcast from emitters at
+- [x] **Light channel on top of the primitive** — shadowcast from emitters at
       [the magnitudes already tabled](docs/03-attention.md#light), range in the same metres
-      *(the primitive is built and this is the next thing to build on it. Note that
-      `Observer.rangeMetres` is a daylight constant today precisely because there is no light to
-      derive it from — when this lands, that field becomes a lookup and nothing else changes.)*
-- [ ] Zombies read light as a line-of-sight pull; the
+      *(`Observer.rangeMetres` is no longer a daylight constant: `sightMetres` takes the max of
+      ambient and emitted and the **min** with the observer's own eyes, so light removes a penalty
+      rather than granting an ability. A floodlight is not better than daylight and a shambler's
+      twelve metres stay twelve.)*
+- [x] Zombies read light as a line-of-sight pull; the
       [sensory profile's](docs/14-zombies.md#sensory-profiles) Light column goes live for the first time
-      *(`SHAMBLER_EYES` exists and `boot({ observers })` hands it out, so the cost is already
-      measured. Nothing in the game gives a zombie eyes yet, deliberately: docs/14's first design
-      rule is that sight must not make them tactical, and the safe way to honour it is to land sight
-      and its one new stimulus together rather than sight first.)*
+      *(the game hands eyes to 15% of the horde. Light is the **third** stimulus shape — noise is an
+      impulse that commits, scent is a bias on a gradient, and light is a gated lean with no
+      gradient at all, because docs/28 asks whether a zombie can *see* the lit cell. Four negative
+      controls hold docs/14's first rule: it never reaches Seek, keeps its heading the tick the lamp
+      dies, ignores a floodlight through a wall, and ignores one entirely with no eyes.)*
 - [ ] **Last-known position memory**, degrading descriptively
       *(bodies that vanish at a wall edge read as a bug; bodies you lose track of read as the game.
       And a marker that follows an unseen body is a lie, which
@@ -764,9 +769,12 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 
 **Open (3):**
 
-- [ ] **Night should be darker than this.** `NIGHT_AMBIENT` is 0.25 because there is no light
-      channel — nothing to carry, nothing to light, no counterplay. When emitters land, this
-      number goes down.
+- [x] **Night is darker.** `NIGHT_AMBIENT` is 0.04, derived rather than picked
+      *(and derived in **tiles**, which is the part that matters. The metres version admitted 0.05,
+      where bare eyes are 2.4 m and a candle is 3 m and both round to the same three-tile window —
+      an upgrade on paper, invisible in play. In tiles the ladder is 2 bare-eyed, 3 by candle, 20 by
+      campfire, 35 by lamp, 48 by daylight. The counterplay is **findable, not given**: the default
+      loadout is empty and candles sit at loot weight 40.)*
 - [ ] Nights vary: the [director](docs/17-director.md) decides what tonight is
       *(docs/02's night-type table. Needs the director, which is Milestone 2.)*
 - [ ] Longer nights in winter *(needs [weather](docs/16-weather.md)'s seasons)*

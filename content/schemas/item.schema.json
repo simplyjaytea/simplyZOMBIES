@@ -21,7 +21,15 @@
       "description": "Display name, before the tier and affixes decorate it."
     },
     "class": {
-      "enum": ["weapon.melee", "weapon.ranged", "container", "consumable", "material", "armor"],
+      "enum": [
+        "weapon.melee",
+        "weapon.ranged",
+        "container",
+        "consumable",
+        "material",
+        "armor",
+        "tool"
+      ],
       "description": "What the item is. Affixes declare the classes they can roll on via appliesTo, and equip slots accept by class."
     },
     "size": {
@@ -53,15 +61,42 @@
       "required": ["reachMetres", "weight", "damage", "staggerTicks"],
       "additionalProperties": false,
       "properties": {
-        "reachMetres": { "type": "number", "exclusiveMinimum": 0 },
-        "weight": { "type": "number", "exclusiveMinimum": 0 },
-        "damage": { "type": "number", "exclusiveMinimum": 0 },
-        "staggerTicks": { "type": "integer", "minimum": 0 }
+        "reachMetres": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "damage": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "staggerTicks": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "light": {
+      "type": "object",
+      "description": "What this base lights, per docs/03-attention.md#light. Read by the light module when the base is equipped to a hand slot. Magnitude is reach in metres, in the same metres as every other channel -- there is no brightness unit.",
+      "required": ["magnitude"],
+      "additionalProperties": false,
+      "properties": {
+        "magnitude": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Reach in metres. The values are docs/03's table -- candle 3, campfire 20, lamp 35, floodlight 90 -- and a test pins them against LIGHT_TABLE so the two cannot drift."
+        }
       }
     },
     "slots": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases."
     }
   },
@@ -71,8 +106,14 @@
       "required": ["w", "h"],
       "additionalProperties": false,
       "properties": {
-        "w": { "type": "integer", "minimum": 1 },
-        "h": { "type": "integer", "minimum": 1 }
+        "w": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "h": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   }
