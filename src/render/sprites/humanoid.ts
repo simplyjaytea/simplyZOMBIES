@@ -103,8 +103,14 @@ export const BODY_SPECS: Readonly<Record<Archetype, BodySpec>> = {
     heightMetres: 1.68,
     shoulderMetres: 0.56,
     headMetres: 0.12,
-    // docs/14's shambler, in one number. The head sits forward of the shoulder line.
-    stoop: 0.3,
+    // docs/14's shambler, in one number: the head sits forward of the shoulder line.
+    //
+    // Tuned down from 0.3 against the sheet. The displacement scales with *standing height* and
+    // the whole body is only about 15 px wide at the shipped zoom, so 0.3 rad carried the head a
+    // full body-width past the hips -- which did not read as a stoop, it read as a head that had
+    // come off. A stoop only has a few pixels to work in here, and it needs all of them to stay
+    // attached to the shoulders.
+    stoop: 0.15,
     armsForward: true,
     // A shuffle: the feet barely leave the ground line.
     strideMetres: 0.16,
@@ -293,7 +299,9 @@ export function drawHumanoid(
   const standingHeight = spec.heightMetres * Math.cos(spec.stoop);
 
   const hipY = anchorY - metre(standingHeight * 0.47);
-  const shoulderY = anchorY - metre(standingHeight * 0.83) + Math.abs(leanY) * 0.5;
+  // The neck: the head's lean is measured from the shoulder rather than from the ground, so a
+  // leaning body keeps its head on top of its shoulders instead of beside them.
+  const shoulderY = anchorY - metre(standingHeight * 0.83) + Math.abs(leanY) * 0.25;
   const headY = anchorY - metre(standingHeight) + metre(spec.headMetres);
   const halfShoulder = across(spec.shoulderMetres) / 2;
   const legWidth = across(spec.shoulderMetres * 0.3);
@@ -312,9 +320,12 @@ export function drawHumanoid(
   const nearFootX = anchorX + dir.dx * stride;
   const nearFootY = anchorY + dir.dy * stride * 0.5;
 
-  const hipX = anchorX + leanX * 0.25;
+  // The lean is distributed up the body: the hips barely move, the shoulders carry most of it,
+  // and the head goes a little further still. The head multiplier is small on purpose -- it is
+  // the difference between a head leading the shoulders and a head detached from them.
+  const hipX = anchorX + leanX * 0.2;
   const shoulderX = anchorX + leanX;
-  const headX = anchorX + leanX * 1.35;
+  const headX = anchorX + leanX * 1.12;
   const headTopY = headY + leanY;
 
   // Far leg, then far arm: both shaded, both behind the torso.

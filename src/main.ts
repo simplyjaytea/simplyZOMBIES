@@ -207,6 +207,13 @@ function swing(): void {
   world.commands.push({ type: "swing" });
 }
 
+function toggleSheets(): void {
+  // Developer-only, like the attention overlay. See Renderer.drawSheets.
+  renderer.showSheets = !renderer.showSheets;
+  say(renderer.showSheets ? "character sheets" : "character sheets off");
+  if (paused) renderer.draw(world, camera, 0);
+}
+
 function toggleOverlay(): void {
   // Cycles rather than toggles, now that there is more than one channel to look at.
   const next = (OVERLAY_CHANNELS.indexOf(renderer.attentionChannel) + 1) % OVERLAY_CHANNELS.length;
@@ -227,6 +234,7 @@ const input = attachKeyboard(window, {
     Space: shout,
     KeyF: swing,
     KeyO: toggleOverlay,
+    KeyM: toggleSheets,
     Digit1: () => cycleSpeed(0),
     Digit2: () => cycleSpeed(1),
     Digit3: () => cycleSpeed(2),
