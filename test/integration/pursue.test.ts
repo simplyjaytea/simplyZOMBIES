@@ -144,25 +144,69 @@ describe("what pursuit must not become", () => {
     expect(Math.atan2(later.dy, later.dx)).toBeCloseTo(Math.atan2(heading.dy, heading.dx), 6);
   });
 
-  it("does not flicker for a survivor sitting on the boundary", () => {
-    // The reason there are two radii rather than one. Parked exactly at the contact edge, a single
-    // radius would enter and leave on alternating ticks.
-    const { world, zombie } = standoff(SHAMBLER_TUNING.contactMetres);
-    // Pin both bodies so the distance cannot drift.
-    const vel = world.components.getOrThrow(zombie, Velocity);
+  it("does not let go of a survivor dancing across the contact edge", () => {
+    // The reason there are two radii rather than one, and it has to be tested by *crossing* the
+    // edge rather than sitting on it. The first version of this parked a body at exactly
+    // `contactMetres` with its velocity pinned, and passed with `RELEASE_METRES` set equal to
+    // `CONTACT_METRES` -- because a distance that never changes cannot oscillate. Mutation caught
+    // it.
+    //
+    // MUTATION CHECK: set `RELEASE_METRES` to `CONTACT_METRES` and this fails. A survivor stepping
+    // an inch beyond arm's reach and back would shake a zombie off every other tick.
+    const { world, zombie, survivor } = standoff(SHAMBLER_TUNING.contactMetres * 0.5);
+    step(world);
+    expect(stateOf(world, zombie)).toBe(ShamblerState.Pursue);
+
+    const at = world.components.getOrThrow(survivor, Position);
+    const held = world.components.getOrThrow(zombie, Position);
+    const inside = SHAMBLER_TUNING.contactMetres * 0.9;
+    // Just outside contact, and comfortably inside release: the gap itself.
+    const outside = (SHAMBLER_TUNING.contactMetres + SHAMBLER_TUNING.releaseMetres) / 2;
 
     let changes = 0;
     let previous = stateOf(world, zombie);
-    for (let i = 0; i < 200; i++) {
-      vel.dx = 0;
-      vel.dy = 0;
+    for (let i = 0; i < 60; i++) {
+      // Re-place the survivor each tick, alternating either side of the contact edge, and hold the
+      // zombie still so only the survivor's position decides.
+      const distance = i % 2 === 0 ? outside : inside;
+      at.x = held.x - distance;
+      at.y = held.y;
       step(world);
+      at.x = held.x - distance;
+      at.y = held.y;
       const now = stateOf(world, zombie);
       if (now !== previous) changes++;
       previous = now;
     }
-    // One transition into Pursue is expected; anything more is oscillation.
-    expect(changes).toBeLessThanOrEqual(1);
+
+    expect(changes).toBe(0);
+    expect(stateOf(world, zombie)).toBe(ShamblerState.Pursue);
+  });
+
+  it("stops pursuing while staggered, because that is what a stagger buys", () => {
+    // docs/09-combat.md: "Stagger is the actual survival mechanic in a crowd, because a staggered
+    // zombie isn't grabbing you." Pursuit is persistent and stagger is the only interrupt, so this
+    // is the one place the two have to be checked against each other.
+    //
+    // MUTATION CHECK: add a contact test to the `Staggered` branch and this fails. Nothing else in
+    // the suite catches it -- 46 tests across stagger, swing, melee and pursue all passed with a
+    // staggered zombie grabbing, which is why this test exists.
+    const { world, zombie } = standoff(SHAMBLER_TUNING.contactMetres * 0.5);
+    step(world);
+    expect(stateOf(world, zombie)).toBe(ShamblerState.Pursue);
+
+    world.events.publish({ type: "entity.staggered", entity: zombie, ticks: 40 });
+    world.events.drain();
+    step(world);
+
+    expect(stateOf(world, zombie)).toBe(ShamblerState.Staggered);
+    // And it is not moving, however close the survivor is.
+    const vel = world.components.getOrThrow(zombie, Velocity);
+    expect(Math.hypot(vel.dx, vel.dy)).toBe(0);
+
+    // It comes back to pursuit once the stagger runs out, because the survivor never left.
+    stepN(world, 60);
+    expect(stateOf(world, zombie)).toBe(ShamblerState.Pursue);
   });
 });
 
