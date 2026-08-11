@@ -44,32 +44,15 @@ follow signals.
 
 ## Status
 
-**Milestone 1, in progress — and it is playable.** Milestone 0 built the architecture; two channels of
-the [attention field](docs/03-attention.md) now sit on top of it, with shamblers that climb them. Make
-a noise and the district walks toward you in a minute; make none and scent still finds you, in an
-hour. And as of the [visibility primitive](docs/28-visibility-and-sightlines.md), **you only see what
-you can see** — walls, windows, foliage and low cover are four different answers to that, and a body
-you lose behind a building leaves a fading mark rather than vanishing.
+**Playable, and early.** Milestone 0 (the architecture) is complete; Milestone 1 (the attention field
+and something that reacts to it) is in progress. Two of the three channels are live — make a noise and
+the district walks toward you in a minute, make none and scent still finds you in an hour. You only see
+what you have a sightline to, the ground you walk on decides how loud you are, and night takes your
+view from 48 metres down to 12. There is gear with rolled affixes and a grid to put it in, and a melee
+swing you are committed to once you start it.
 
-And there is **gear**, and somewhere to put it. Items are found entities with rolled affixes and a
-condition that will one day fail, and the [inventory is a grid](docs/10-items.md#inventory-space-and-weight)
-— cells, footprints, rotation, bags inside bags, and containers you have to be wearing to use. It is
-Tarkov's inventory for a reason that is not nostalgia: the
-[hardcore contract](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) bans a UI
-that turns uncertainty into a number, and a grid is a capacity bar rendered as shape. You never read
-that the pack is nearly full; you see that the axe doesn't fit.
-
-The [ground](docs/24-world-and-scale.md#the-ground) decides the rest: pavement, dirt, grass,
-undergrowth and rubble each change how fast you cross them and how far your footsteps carry. The
-street is the quick way and it announces you; the yards are slow and quiet; the brambles are the only
-cover on open ground and they are slow *and* loud.
-
-And there is a [clock](docs/02-core-loop.md). Four phases, a sun that rises and sets, and a night
-that takes your sight from 48 metres down to 12 — night is a smaller view, not a darker screen.
-The melee loop is built — wind-up, connect or miss, recovery, stamina, stagger, reach, and a
-zombie damage model where the head and the legs are what matter. Light emitters and **grabs**
-are the rest of the milestone; without grabs there is no bite risk, so melee does not yet pay
-the currency the parity contract says it must.
+Not in yet: light emitters, so the dark is softer than intended; grabs, so melee does not yet risk a
+bite; and everything about other survivors, which is Milestone 2.
 
 ```bash
 npm install && npm run dev     # http://127.0.0.1:5174
@@ -81,19 +64,23 @@ npm install && npm run dev     # http://127.0.0.1:5174
 
 A day is four hours at 1×, so press `3` and wait for dark.
 
-The [roadmap](docs/23-roadmap.md) defines the vertical slice that gets built first and the risks that
-might sink it, [TODO.md](TODO.md) breaks that into an executable backlog, and
-**[HANDOFF.md](HANDOFF.md) is where to start if you're picking this up cold.**
-
 **Stack:** TypeScript, HTML canvas, Vite, no engine — with a
 [portability contract](docs/19-architecture.md#the-portability-contract) that keeps a pivot to Godot 4
 cheap.
 
+## Working on it?
+
+**[HANDOFF.md](HANDOFF.md) is the engineer's document and the place to start.** It carries the current
+state, the roadmap through the vertical slice with every task marked done or open, the risk register,
+and what to pick up next. [docs/23-roadmap.md](docs/23-roadmap.md) is the slice as *designed*;
+[docs/30-decisions.md](docs/30-decisions.md) records what each chunk of work made structural, and is
+worth reading before you change something that looks arbitrary.
+
 ## Documentation
 
 The tables below are the authority on **reading order**. File numbers reflect the order documents were
-written, so 24–26 sit under "The world", 28 sits next to the spine it serves, and 29 sits next to
-combat rather than all four landing at the end.
+written, so 24–26 sit under "The world", 28 sits next to the spine it serves, 29 sits next to combat,
+and 30 sits with the technical set rather than all of them landing at the end.
 
 ### Foundations
 | | |
@@ -144,6 +131,7 @@ combat rather than all four landing at the end.
 | [22 — Performance](docs/22-performance.md) | Tiered simulation, field propagation, scaling to a horde |
 | [27 — Multiplayer](docs/27-multiplayer.md) | Authoritative host, survivor-vs-survivor PVP, voice as an emitter *(post-slice)* |
 | [23 — Roadmap](docs/23-roadmap.md) | The vertical slice, milestones, risks, open questions |
+| [30 — Decision Records](docs/30-decisions.md) | What each chunk of work made structural, oldest first |
 
 ## Reading order
 
@@ -152,4 +140,5 @@ New to the project? **[00](docs/00-vision.md) → [01](docs/01-hardcore-contract
 mechanic, and what actually gets built.
 
 Building it? Add **[19](docs/19-architecture.md) → [20](docs/20-ecs-and-content.md) →
-[21](docs/21-extensibility.md)**.
+[21](docs/21-extensibility.md)**, then **[HANDOFF.md](HANDOFF.md)** for where the code actually is and
+**[30](docs/30-decisions.md)** for why it is shaped that way.

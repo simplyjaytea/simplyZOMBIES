@@ -6,7 +6,7 @@
 // queries for combat, attention emitter/receiver lookups, tier assignment, and render
 // culling.
 //
-// It was deliberately not built until now. TODO.md's spatial section says why: gradient
+// It was deliberately not built until now. HANDOFF.md's spatial section says why: gradient
 // ascent needs no neighbour queries, render culling already had one, and "building it before
 // combat needs it would be optimising an absence." The melee swing is the first thing that
 // genuinely asks the question -- once per swing, against whatever is inside a weapon's reach.
