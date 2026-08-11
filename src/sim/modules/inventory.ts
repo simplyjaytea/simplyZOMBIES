@@ -38,7 +38,9 @@ import {
   baseEquipSlot,
   baseStackLimit,
   Condition,
+  conditionBand,
   itemBaseOf,
+  itemName,
   itemMassKg,
   ItemBase,
   sizeOfItem,
@@ -799,3 +801,97 @@ export function owns(world: World, actor: EntityId, item: EntityId): boolean {
 
 /** Re-exported so callers can hit-test a container without importing grid.ts directly. */
 export { itemAt, baseClass };
+
+// ---- the read model --------------------------------------------------------
+
+/** One item, as the screen needs to draw it. Plain data; no entities to chase. */
+export type ItemView = {
+  readonly item: EntityId;
+  readonly name: string;
+  readonly baseId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly rotated: boolean;
+  /** Units in the stack, or 1. The one number the screen shows, and it counts objects. */
+  readonly count: number;
+  /** Descriptive wear, never a percentage (docs/01 clause 4). */
+  readonly condition: string;
+  /** Whether this item is itself a container, so the screen can offer to open it. */
+  readonly opens: boolean;
+};
+
+/** One grid, as the screen needs to draw it. */
+export type ContainerView = {
+  readonly container: EntityId;
+  /** What to call it: "pockets" for the survivor, otherwise the item's name. */
+  readonly label: string;
+  readonly w: number;
+  readonly h: number;
+  readonly items: readonly ItemView[];
+};
+
+/** What the inventory screen draws: the slots, the grids, and how loaded the survivor is. */
+export type InventoryView = {
+  readonly actor: EntityId;
+  readonly slots: readonly { readonly slot: string; readonly item: ItemView | null }[];
+  readonly containers: readonly ContainerView[];
+  /**
+   * How overloaded, as a ratio. **For the renderer to express as weight in the survivor's
+   * gait, never as a printed number** -- see the note on `carry_capacity` in stats.ts.
+   */
+  readonly overload: number;
+};
+
+function viewOf(world: World, item: EntityId, placement: Placement | null): ItemView {
+  const size = sizeOfItem(world, item);
+  const turned = placement?.rotated === true;
+  const condition = world.components.get(item, Condition);
+  return {
+    item,
+    name: itemName(world, item),
+    baseId: world.components.get(item, ItemBase)?.baseId ?? "",
+    x: placement?.x ?? 0,
+    y: placement?.y ?? 0,
+    w: turned ? size.h : size.w,
+    h: turned ? size.w : size.h,
+    rotated: turned,
+    count: world.components.get(item, Stack)?.count ?? 1,
+    condition: condition === undefined ? "sound" : conditionBand(condition),
+    opens: world.components.has(item, Container),
+  };
+}
+
+/**
+ * Everything the inventory screen needs, as plain serializable data.
+ *
+ * A read model rather than the screen walking components itself, and that is the layer rule
+ * made mechanical rather than aspirational: `render/` and `ui/` cannot reach into the
+ * simulation if what they are handed is a snapshot. It also means the screen can be tested
+ * without a canvas, and that a networked client could be sent exactly this
+ * (docs/27-multiplayer.md#the-filtered-view) with nothing further to filter.
+ */
+export function inventoryView(world: World, actor: EntityId): InventoryView {
+  const equipment = world.components.get(actor, Equipment);
+  const slots = EQUIP_SLOTS.map((slot) => {
+    const item = equipment?.slots[slot];
+    return { slot, item: item === undefined ? null : viewOf(world, item, null) };
+  });
+
+  const containers: ContainerView[] = [];
+  for (const container of reachableContainers(world, actor)) {
+    const box = world.components.get(container, Container);
+    if (box === undefined) continue;
+    containers.push({
+      container,
+      label: container === actor ? "pockets" : itemName(world, container),
+      w: box.w,
+      h: box.h,
+      items: box.items.map((placement) => viewOf(world, placement.item, placement)),
+    });
+  }
+
+  const encumbrance = world.components.get(actor, Encumbrance);
+  return { actor, slots, containers, overload: encumbrance?.ratio ?? 0 };
+}

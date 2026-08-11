@@ -9,6 +9,7 @@
 // feeds input in, sim decides what happens, render reads the result and never writes back.
 
 import { attachKeyboard } from "./platform/input";
+import { attachPointer } from "./platform/pointer";
 import * as webContent from "./platform/content-source-web";
 import { createLoop } from "./platform/loop";
 import { createSchemaValidator } from "./platform/schema-validator";
@@ -24,6 +25,8 @@ import { Position } from "./sim/kernel/components";
 import { Body, isCrawling, Stamina } from "./sim/modules/health";
 import { Swing, SwingState } from "./sim/modules/melee";
 import { Controlled } from "./sim/modules/player";
+import { carriedItems, Encumbrance, inventoryView } from "./sim/modules/inventory";
+import { InventoryScreen } from "./ui/inventory";
 import { ContentRegistry } from "./sim/content/registry";
 import { calibrationFromContent } from "./sim/field/attention";
 import { defineCoreStats, StatRegistry } from "./sim/modifiers/stats";
@@ -96,6 +99,8 @@ const { world, map, player } = boot({
 const camera = createCamera(28);
 const renderer = new Renderer(canvas, map);
 const storage = createWebStorage(window.localStorage);
+const pointer = attachPointer(canvas);
+const inventory = new InventoryScreen();
 
 // ---- transient notices -----------------------------------------------------
 
@@ -168,6 +173,7 @@ const loop = createLoop(world, {
   },
   render: (w, alpha) => {
     renderer.draw(w, camera, alpha);
+    drawInventory(w);
     updateHud(w);
   },
 });
@@ -207,6 +213,52 @@ function swing(): void {
   world.commands.push({ type: "swing" });
 }
 
+/**
+ * Draw the inventory screen over the world, and let it consume the frame's pointer state.
+ *
+ * After `renderer.draw`, so it sits on top; and it pushes onto the same command queue the
+ * keyboard does, so a drag lands on a tick like every other input
+ * (docs/19-architecture.md#determinism). The pointer is taken every frame whether the screen
+ * is open or not -- the one-frame press and release edges have to be cleared, or the click
+ * that opens the screen would be re-delivered as a drag the instant it appears.
+ */
+function drawInventory(w: World): void {
+  const state = pointer.take();
+  if (!inventory.open) return;
+
+  for (const entity of w.components.query(Controlled)) {
+    inventory.draw(
+      renderer.overlay,
+      inventoryView(w, entity),
+      state,
+      w.commands,
+      window.innerWidth,
+      window.innerHeight,
+    );
+    return;
+  }
+}
+
+function toggleInventory(): void {
+  inventory.toggle();
+  // The HUD and the help line are DOM, so they sit above the canvas whatever the inventory
+  // draws. Hiding them is the whole fix -- the alternative is moving the developer readout
+  // into the canvas, which would put it inside the frame budget it exists to measure.
+  hud.style.visibility = inventory.open ? "hidden" : "visible";
+  help.style.visibility = inventory.open ? "hidden" : "visible";
+  if (paused) {
+    renderer.draw(world, camera, 0);
+    drawInventory(world);
+  }
+}
+
+function pickUp(): void {
+  // Queued, and carrying no target: what is in reach is read from the world on the tick it
+  // lands, for the same reason a swing reads its arc then (docs/09). Walking away between
+  // the key press and the tick has to be able to miss.
+  world.commands.push({ type: "item.pickUp" });
+}
+
 function toggleSheets(): void {
   // Developer-only, like the attention overlay. See Renderer.drawSheets.
   renderer.showSheets = !renderer.showSheets;
@@ -233,7 +285,10 @@ const input = attachKeyboard(window, {
     KeyP: togglePause,
     Space: shout,
     KeyF: swing,
+    KeyE: pickUp,
     KeyO: toggleOverlay,
+    Tab: toggleInventory,
+    KeyR: () => inventory.rotate(),
     KeyM: toggleSheets,
     Digit1: () => cycleSpeed(0),
     Digit2: () => cycleSpeed(1),
@@ -363,6 +418,23 @@ function hordeStates(w: World): {
   return { seeking, milling, drifting, staggered, crawling };
 }
 
+/**
+ * What the survivor is carrying, for the HUD.
+ *
+ * Developer readout, like everything else in this panel, and the kilograms here are exactly
+ * what docs/01 clause 4 keeps off the *inventory screen*. Tuning the mass table by inferring
+ * it from how fast the survivor walks is not a workflow.
+ */
+function carriedReadout(w: World): string {
+  for (const entity of w.components.query(Controlled, Encumbrance)) {
+    const load = w.components.getOrThrow(entity, Encumbrance);
+    const capacity = w.modifiers.resolve("carry_capacity", entity);
+    const items = carriedItems(w, entity).length;
+    return `${items} items   ${load.kg.toFixed(1)} / ${capacity.toFixed(0)} kg`;
+  }
+  return "-";
+}
+
 function updateHud(w: World): void {
   const showing = performance.now() < noticeUntil ? `\n${notice}` : "";
   const problem =
@@ -386,13 +458,16 @@ function updateHud(w: World): void {
     `<b>horde</b>    ${horde.seeking} seeking, ${horde.milling} milling, ` +
     `${horde.drifting} drifting, ${horde.staggered} staggered, ${horde.crawling} crawling\n` +
     `<b>swing</b>    ${swingState(w)}\n` +
-    `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes\n` +
+    `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes, ` +
+    `${w.content.count("item")} item bases\n` +
+    `<b>carried</b>  ${carriedReadout(w)}\n` +
     `<b>state</b>    ${currentFingerprint(w)}` +
     problem +
     showing;
 
   help.textContent =
-    "WASD / arrows move   Shift sprint   F swing   Space shout   O overlay   P pause\n" +
+    "WASD / arrows move   Shift sprint   F swing   Space shout   E pick up   Tab inventory\n" +
+    "O overlay   P pause   " +
     "1 / 2 / 3 speed (1x, 3x, 10x -- drops to 1x on contact)   F5 save   F9 load\n" +
     "the swing is a window, not a button. You are committed from wind-up to recovery.";
 }

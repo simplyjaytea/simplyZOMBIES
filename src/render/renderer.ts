@@ -20,6 +20,7 @@ import { Body, isCrawling } from "../sim/modules/health";
 import { Shambler, ShamblerState } from "../sim/modules/shambler";
 import { SPRINT_THRESHOLD } from "../sim/locomotion";
 import { MeleeWeapon, Swing, SwingState } from "../sim/modules/melee";
+import { groundItems } from "../sim/modules/inventory";
 import { Controlled } from "../sim/modules/player";
 import { Detail, Observer } from "../sim/vision/visibility";
 import { followCamera, type Camera } from "./camera";
@@ -135,6 +136,7 @@ const enum DrawKind {
   Body = 1,
   Glimpse = 2,
   Player = 3,
+  GroundItem = 4,
 }
 
 /**
@@ -177,8 +179,27 @@ type Drawable = {
  * shambler standing at the same depth -- that is a fairness property rather than a cosmetic one.
  */
 const TIE_OCCLUDER = 0;
+/**
+ * Under everything that stands up.
+ *
+ * Ground items lie flat on the tile, so a body sharing their depth is standing *over* them
+ * and has to draw second -- otherwise walking onto a dropped axe makes the axe cover the
+ * survivor's feet.
+ */
+const TIE_GROUND_ITEM = 0.5;
 const TIE_BODY = 1;
 const TIE_PLAYER = 2;
+
+/**
+ * Half-width and half-height of the lozenge a dropped item is drawn as, in pixels at zoom 1.
+ *
+ * A marker rather than a sprite, and deliberately so: per-base item art is a real art task
+ * and this needs to be legible now. It is a shape on the ground that says "something is
+ * here", which is the whole job -- docs/01's clause 4 would object to a marker that told you
+ * *what* was there from across the street anyway.
+ */
+const ITEM_MARK_W = 0.16;
+const ITEM_MARK_H = 0.09;
 
 /**
  * How much of the screen the dark may take at the blackest hour.
@@ -247,6 +268,18 @@ type Memory = { x: number; y: number; tick: number };
 
 export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
+
+  /**
+   * The context, for screens that draw over the world.
+   *
+   * A read-only handle rather than letting `ui/` acquire its own: the renderer already owns
+   * the device-pixel-ratio transform on this canvas, and a second `getContext` call would
+   * hand out one where a CSS pixel is not a unit. Everything drawn through this lands in the
+   * same coordinate space the pointer reports in.
+   */
+  get overlay(): CanvasRenderingContext2D {
+    return this.ctx;
+  }
   private tileLayer: HTMLCanvasElement | null = null;
   /** Pixels per metre the cached layer was rasterised at. Not the camera's zoom -- see below. */
   private tileLayerZoom = 0;
@@ -697,6 +730,27 @@ export class Renderer {
     let playerDepth = Infinity;
     let playerScreenX = 0;
     let playerScreenY = 0;
+    // Things lying in the street. They go through the same depth sort as bodies, so an item
+    // dropped behind a wall is hidden by it rather than floating on top.
+    //
+    // Focal vision only, and that is the same rule bodies follow rather than a stricter one:
+    // docs/28 lets the peripheral arc notice *movement*, and a dropped axe does not move. An
+    // item you have not looked at is an item you have not found, which is what makes
+    // searching a room an action instead of a formality.
+    for (const entity of groundItems(world)) {
+      const at = world.components.getOrThrow(entity, Position);
+      if (at.x < bounds.minX || at.x > bounds.maxX) continue;
+      if (at.y < bounds.minY || at.y > bounds.maxY) continue;
+      if (eyes !== null && world.vision.detail(eyes, at.x, at.y) !== Detail.Focal) continue;
+      const slot = this.nextDrawable();
+      slot.kind = DrawKind.GroundItem;
+      slot.tie = TIE_GROUND_ITEM;
+      slot.entity = entity;
+      slot.x = at.x;
+      slot.y = at.y;
+      slot.depth = depthOf(at.x, at.y);
+    }
+
     let playerPose: Pose | null = null;
     for (const entity of world.components.query(Position, Controlled)) {
       const { x, y } = this.interpolated(world, entity, alpha);
@@ -776,6 +830,22 @@ export class Renderer {
       }
 
       const { sx, sy } = worldToScreen(camera, item.x, item.y);
+      if (item.kind === DrawKind.GroundItem) {
+        const w = ITEM_MARK_W * camera.zoom;
+        const h = ITEM_MARK_H * camera.zoom;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - h);
+        ctx.lineTo(sx + w, sy);
+        ctx.lineTo(sx, sy + h);
+        ctx.lineTo(sx - w, sy);
+        ctx.closePath();
+        ctx.fillStyle = COLOURS.groundItem;
+        ctx.fill();
+        ctx.strokeStyle = COLOURS.groundItemEdge;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        continue;
+      }
       if (item.kind === DrawKind.Glimpse) {
         // Anonymous, and it stays that way. docs/28-visibility-and-sightlines.md's peripheral
         // arc notices movement and withholds identity; a real model hands that identity back by
