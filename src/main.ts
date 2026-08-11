@@ -396,7 +396,10 @@ function swingState(w: World): string {
     const tired = stamina === undefined ? "" : `   stamina ${stamina.current.toFixed(0)}`;
     return `${name}${tired}`;
   }
-  return "-";
+  // No `Swing` at all, which is what an empty-handed survivor is. Said out loud rather than
+  // left as a dash, because the default loadout gives you nothing and a swing key that does
+  // nothing reads as a broken button rather than as an empty hand.
+  return "empty-handed -- find a weapon";
 }
 
 /** Shamblers by state, for the HUD. The one line that says whether the field is working. */
@@ -475,7 +478,7 @@ function updateHud(w: World): void {
     "WASD / arrows move   Shift sprint   F swing   Space shout   E pick up   Tab inventory\n" +
     "O overlay   P pause   " +
     "1 / 2 / 3 speed (1x, 3x, 10x -- drops to 1x on contact)   F5 save   F9 load\n" +
-    "the swing is a window, not a button. You are committed from wind-up to recovery.";
+    "you start with nothing. Everything is in the street -- including a candle, before dark.";
 }
 
 loop.start();
