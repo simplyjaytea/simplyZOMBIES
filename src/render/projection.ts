@@ -135,6 +135,28 @@ export function visibleBounds(
 }
 
 /**
+ * Vertical pixels per metre of height, as a fraction of the horizontal scale.
+ *
+ * Below 1 because a true-scale vertical would make a 2.2 m wall taller than three floor tiles
+ * and turn a street into a canyon you cannot see along. This is the dial to turn if buildings
+ * ever feel squat or overbearing; nothing else depends on it.
+ *
+ * **It is the projection's, not the renderer's.** It arrived here with the character models, and
+ * the reason is the one this file's header gives: there must be exactly one answer to how tall a
+ * metre is on screen. A body and the wall it is standing behind have to rise at the same rate or
+ * the body will read as the wrong size for the district, and two copies of `0.62` in two files is
+ * a copy that drifts.
+ *
+ * Still not a z axis. Nothing is ever above anything else -- see the header.
+ */
+export const RISE_SCALE = 0.62;
+
+/** Screen pixels a height in metres stands up by. */
+export function metresToRise(metres: number, zoom: number): number {
+  return metres * zoom * RISE_SCALE;
+}
+
+/**
  * A world-space heading, as the parameter angle of the projected ellipse it traces.
  *
  * A circle on the ground projects to an ellipse, and a *bearing* projects to something that is
