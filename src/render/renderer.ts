@@ -50,9 +50,7 @@ const COLOURS = {
   rubble: "#26242a",
   /** A tree: solid and opaque like a wall, and green so it does not read as one. */
   tree: "#2e4a2c",
-  treeTop: "#3c5f38",
   wall: "#3b4048",
-  wallTop: "#4b525c",
   /** Transparent: stops a body, not a sightline. Drawn as a gap in the wall it sits in. */
   window: "#2a3f4c",
   /** Screening: stops a sightline, not a body. */
@@ -871,7 +869,6 @@ export class Renderer {
     const maxCol = Math.min(field.cols - 1, Math.floor(bounds.maxX / size));
     const minRow = Math.max(0, Math.floor(bounds.minY / size));
     const maxRow = Math.min(field.rows - 1, Math.floor(bounds.maxY / size));
-    const screenSize = size * camera.zoom;
 
     for (let row = minRow; row <= maxRow; row++) {
       for (let col = minCol; col <= maxCol; col++) {
@@ -880,9 +877,14 @@ export class Renderer {
         // Square-rooted, because a linear ramp makes everything but the source invisible --
         // the tail of a shout is what you actually need to see when tuning falloff.
         const intensity = Math.min(1, Math.sqrt(value / fullScale));
+        // A field cell is `size` metres square, so it projects to a diamond `size` tiles
+        // across -- traced at the cell's own scale rather than drawn as a screen-space square,
+        // which would sit at forty-five degrees to the ground it is describing.
         const { sx, sy } = worldToScreen(camera, col * size, row * size);
+        ctx.beginPath();
+        traceTile(ctx, sx - size * camera.zoom, sy, size * camera.zoom);
         ctx.fillStyle = `rgba(${tint}, ${(intensity * 0.55).toFixed(3)})`;
-        ctx.fillRect(sx, sy, screenSize, screenSize);
+        ctx.fill();
       }
     }
   }
@@ -906,10 +908,17 @@ export class Renderer {
 
     const ctx = this.ctx;
     const zoom = camera.zoom;
+    const halfW = (zoom * TILE_WIDTH_RATIO) / 2;
     const minX = Math.max(0, Math.floor(bounds.minX));
     const maxX = Math.min(this.map.w - 1, Math.ceil(bounds.maxX));
     const minY = Math.max(0, Math.floor(bounds.minY));
     const maxY = Math.min(this.map.h - 1, Math.ceil(bounds.maxY));
+
+    // One scan, two paths. The two arcs are tinted differently and batching by tint would
+    // otherwise mean asking `vision.detail` about every tile twice -- which is the cheap call
+    // here, but this overlay is the one a developer leaves switched on.
+    const focal = new Path2D();
+    const peripheral = new Path2D();
 
     for (let ty = minY; ty <= maxY; ty++) {
       for (let tx = minX; tx <= maxX; tx++) {
@@ -918,11 +927,14 @@ export class Renderer {
         const detail = world.vision.detail(eyes, tx + 0.5, ty + 0.5);
         if (detail === Detail.Unseen) continue;
         const { sx, sy } = worldToScreen(camera, tx, ty);
-        ctx.fillStyle =
-          detail === Detail.Focal ? "rgba(232, 215, 160, 0.16)" : "rgba(140, 160, 200, 0.08)";
-        ctx.fillRect(sx, sy, zoom, zoom);
+        traceTile(detail === Detail.Focal ? focal : peripheral, sx - halfW, sy, zoom);
       }
     }
+
+    ctx.fillStyle = "rgba(232, 215, 160, 0.16)";
+    ctx.fill(focal);
+    ctx.fillStyle = "rgba(140, 160, 200, 0.08)";
+    ctx.fill(peripheral);
   }
 
   private interpolated(world: World, entity: EntityId, alpha: number): { x: number; y: number } {

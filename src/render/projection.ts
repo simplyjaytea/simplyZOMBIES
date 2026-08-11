@@ -18,6 +18,14 @@
 import type { Camera } from "./camera";
 
 /**
+ * Anything a diamond can be traced into: a context, or a `Path2D` being built for later.
+ *
+ * Structural rather than the concrete context type, so a caller that needs two paths from one
+ * scan can have them without scanning twice.
+ */
+export type PathSink = Pick<CanvasRenderingContext2D, "moveTo" | "lineTo" | "closePath">;
+
+/**
  * A 1 m tile is a diamond `2 * zoom` wide and `zoom` tall.
  *
  * Chosen so the diamond's area is `zoom * zoom` -- exactly the area of the square the
@@ -161,12 +169,7 @@ export function projectedRadii(metres: number, zoom: number): { rx: number; ry: 
  * Takes a screen position rather than a world one so the whole-map raster -- which has no
  * camera at all -- can share the path with everything that does.
  */
-export function traceTile(
-  ctx: CanvasRenderingContext2D,
-  sx: number,
-  sy: number,
-  zoom: number,
-): void {
+export function traceTile(ctx: PathSink, sx: number, sy: number, zoom: number): void {
   const halfW = (zoom * TILE_WIDTH_RATIO) / 2;
   const halfH = (zoom * TILE_HEIGHT_RATIO) / 2;
   ctx.moveTo(sx, sy + halfH);
