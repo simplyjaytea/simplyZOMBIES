@@ -106,16 +106,21 @@ export const SCENARIOS: readonly Scenario[] = [
       "eyes, a floodlight standing in the street and a lamp in the survivor's hand. Every " +
       "sighted body checks every visible source once a tick, and the carried lamp recasts a " +
       "5,041-cell window on every tile it crosses.",
-    // Deliberately the SAME budget as `crowded`, which is the claim worth guarding and is not
-    // the claim I expected to be able to make. Light casts per *source*, not per observer, so
-    // the only per-entity cost is the lean -- one squared-distance reject per source, then one
-    // arc test for whatever survives. Ten times `crowded-and-watched`'s observer count is here
-    // because the interesting question is whether the *stimulus* scales, and the answer is that
-    // it scales with lamps rather than with bodies.
+    // 6 ms rather than `crowded`'s 4, and that is a **correction**. This shipped at 4 because it
+    // measured 2.54 ms once, in a fast container, and "it holds its sightless twin's budget" was
+    // too good a claim to check twice. In a loaded container the same commit measures 3.7 avg with
+    // a p95 brushing 4.4 -- 8% headroom on a budget, on a runner slower than either. That is a
+    // latent flake dressed as a strong result.
     //
-    // If this ever separates from its twin, the thing to suspect is the winner-pick in
-    // `leanToLight` doing a visibility query before the cheap distance reject.
-    tickBudgetMs: 4,
+    // The honest reading of the numbers is that this scenario genuinely costs more than `crowded`:
+    // five hundred observers is about 1.2 ms over the sightless twin, consistently, in both
+    // container states. docs/22#visibility-is-a-different-cost-shape blesses exactly that, so the
+    // budget should say so rather than the measurement being asked to.
+    //
+    // What still holds at 4 ms is `crowded-and-watched` at fifty observers, and that is the
+    // scenario that actually guards recompute-on-change. If *this* one drifts upward, suspect the
+    // winner-pick in `leanToLight` doing a visibility query before the cheap distance reject.
+    tickBudgetMs: 6,
     entities: 2000,
     build: () => {
       const { world, player } = boot({ seed: SEED, wanderers: 2000, observers: 500 });
