@@ -18,6 +18,7 @@ import { fieldMemoryModule } from "./modules/field-memory";
 import { healthModule, makeBody, makeStamina } from "./modules/health";
 import { inventoryModule, makeInventory, stow, equip } from "./modules/inventory";
 import { itemModule, spawnItem, verifyContentReferences } from "./modules/items";
+import { lightModule } from "./modules/light";
 import { makeMeleeArmed, meleeModule } from "./modules/melee";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
@@ -32,6 +33,7 @@ export const ALL_MODULES: readonly Module[] = [
   healthModule,
   inventoryModule,
   itemModule,
+  lightModule,
   meleeModule,
   movementModule,
   playerModule,

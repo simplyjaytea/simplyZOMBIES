@@ -12,6 +12,15 @@ import { applySave, createSave } from "../../src/sim/kernel/save";
 import { step, stepN } from "../../src/sim/kernel/step";
 import type { World } from "../../src/sim/kernel/world";
 import { LightSource, LIGHT_TABLE } from "../../src/sim/vision/light";
+import { makeLightSource } from "../../src/sim/modules/light";
+import { equip, unequip } from "../../src/sim/modules/inventory";
+import { spawnItem } from "../../src/sim/modules/items";
+import { ContentRegistry } from "../../src/sim/content/registry";
+import { createSchemaValidator } from "../../src/platform/schema-validator";
+import { readContentFromDisk, readSchemasFromDisk } from "../../src/platform/content-source-node";
+import { defineCoreStats, StatRegistry } from "../../src/sim/modifiers/stats";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { Detail } from "../../src/sim/vision/visibility";
 import { DAY_BEGINS } from "../../src/sim/time/clock";
 
@@ -207,5 +216,129 @@ describe("a dark world is still a coherent world", () => {
     expect(sightMetresProbed(byNight.world, byNight.player as number)).toBeLessThan(
       sightMetresProbed(byDay.world, byDay.player as number),
     );
+  });
+});
+
+const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
+
+function realContent(): ContentRegistry {
+  const stats = new StatRegistry();
+  defineCoreStats(stats);
+  const registry = new ContentRegistry();
+  registry.load(
+    readContentFromDisk(CONTENT_ROOT),
+    createSchemaValidator(readSchemasFromDisk(CONTENT_ROOT)),
+    stats,
+  );
+  return registry;
+}
+
+describe("the equip bridge", () => {
+  it("lights the world when a lamp goes into a hand, and stops when it comes out", () => {
+    const { world, player } = boot({
+      seed: SEED,
+      wanderers: 0,
+      startTimeOfDay: NIGHT,
+      mapSize: 96,
+      content: realContent(),
+    });
+    const survivor = player as number;
+    const here = world.components.getOrThrow(survivor, Position);
+
+    step(world);
+    expect(world.light.litMetres(here.x + 10, here.y)).toBe(0);
+
+    const lamp = spawnItem(world, "item.lamp.electric", { tier: "scavenged" });
+    expect(equip(world, survivor, lamp)).toBe(true);
+    world.events.drain();
+    step(world);
+
+    // The survivor is the source, not the lamp: light follows the carrier.
+    expect(world.components.get(survivor, LightSource)?.magnitude).toBe(LIGHT_TABLE.lamp);
+    expect(world.light.litMetres(here.x + 10, here.y)).toBeGreaterThan(0);
+
+    expect(unequip(world, survivor, "secondary")).toBe(true);
+    world.events.drain();
+    step(world);
+
+    expect(world.components.has(survivor, LightSource)).toBe(false);
+    expect(world.light.litMetres(here.x + 10, here.y)).toBe(0);
+  });
+
+  it("publishes the channel going out, not merely stopping talking about it", () => {
+    const { world, player } = boot({
+      seed: SEED,
+      wanderers: 0,
+      startTimeOfDay: NIGHT,
+      mapSize: 96,
+      content: realContent(),
+    });
+    const survivor = player as number;
+    const lamp = spawnItem(world, "item.lamp.electric", { tier: "scavenged" });
+
+    equip(world, survivor, lamp);
+    world.events.drain();
+    expect(world.events.drained.some((e) => e.type === "light.changed")).toBe(true);
+
+    step(world); // clears the record
+    unequip(world, survivor, "secondary");
+    world.events.drain();
+    const out = world.events.drained.filter((e) => e.type === "light.changed");
+    expect(out).toHaveLength(1);
+    expect((out[0] as { magnitude: number }).magnitude).toBe(0);
+  });
+
+  it("ignores a bat, because equipping one is not an error", () => {
+    const { world, player } = boot({
+      seed: SEED,
+      wanderers: 0,
+      startTimeOfDay: NIGHT,
+      mapSize: 96,
+      content: realContent(),
+    });
+    const survivor = player as number;
+    const bat = spawnItem(world, "item.bat.aluminium", { tier: "scavenged" });
+
+    expect(equip(world, survivor, bat)).toBe(true);
+    world.events.drain();
+    expect(world.components.has(survivor, LightSource)).toBe(false);
+  });
+
+  it("leaves a lamp dark with the module switched off", () => {
+    // The additive claim, and the one the isolation test cannot make on its own: with `light`
+    // disabled the *kernel index still works* -- night still shrinks the view -- and a lamp in
+    // your hand simply does nothing.
+    const { world, player } = boot({
+      seed: SEED,
+      wanderers: 0,
+      startTimeOfDay: NIGHT,
+      mapSize: 96,
+      content: realContent(),
+      disabled: ["light"],
+    });
+    const survivor = player as number;
+    const here = world.components.getOrThrow(survivor, Position);
+    const lamp = spawnItem(world, "item.lamp.electric", { tier: "scavenged" });
+
+    equip(world, survivor, lamp);
+    world.events.drain();
+    expect(() => stepN(world, 5)).not.toThrow();
+
+    expect(world.components.has(survivor, LightSource)).toBe(false);
+    expect(world.light.litMetres(here.x, here.y)).toBe(0);
+  });
+});
+
+describe("makeLightSource, for emitters nobody carries", () => {
+  it("lights from where it was placed", () => {
+    const { world } = boot({ seed: SEED, wanderers: 0, startTimeOfDay: NIGHT, mapSize: 96 });
+    const floodlight = world.spawn();
+    world.components.set(floodlight, Position, { x: 40.5, y: 40.5 });
+    makeLightSource(world, floodlight, LIGHT_TABLE.floodlight);
+    world.events.drain();
+    step(world);
+
+    expect(world.light.litMetres(40.5, 40.5)).toBeCloseTo(LIGHT_TABLE.floodlight, 10);
+    expect(world.light.sourceCount).toBe(1);
   });
 });
