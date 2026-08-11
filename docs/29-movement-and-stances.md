@@ -135,7 +135,7 @@ something, and exactly the question
   different and already-specified mechanic. A fence climb that costs a
   [sprain](05-health-injury.md#injury-types) is not a movement mode.
 - **Acceleration and momentum modelling.** Wrong genre and a determinism liability for a feel
-  improvement the top-down camera would barely show.
+  improvement the camera would barely show.
 - **Dodge rolls.** Already cut in [docs/09](09-combat.md#cut-list); restating it here because a
   stance list is exactly where one would try to sneak back in.
 - **Per-stance stealth checks.** A stance changes what you emit. It does not roll against anything —
