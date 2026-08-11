@@ -45,8 +45,8 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 - [x] Vitest configured, running headless
 - [x] Directory layout per [the repository layout](docs/19-architecture.md#repository-layout):
       `src/sim/{kernel,modules,rng}`, `src/render`, `src/platform`, `src/ui`, `content/`, `test/`
-      *(`src/ui` is the exception — there is no UI yet, and an empty directory is not a layout. It
-      arrives with the first screen in Milestone 2.)*
+      *(`src/ui` was the exception until the grid inventory arrived early — `src/ui/inventory.ts`
+      is the first screen in the game. See the Milestone 2 entry below.)*
 - [x] ESLint rules enforcing **`sim/` purity** — ban DOM globals, `Math.random`, `Date.now`, and
       imports from `render/`, `platform/`, and `ui/`
       *(plus `tsconfig.sim.json`, which compiles `sim/` with no DOM lib so DOM access is a type error
@@ -85,8 +85,9 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 ### Content pipeline — spec: [docs/20](docs/20-ecs-and-content.md#part-2-content)
 
 - [x] JSON Schema definitions per content type
-      *(`zombie` and `affix` — the two docs/20 writes out. Others get a schema the day their system
-      exists; a guessed schema is worse than none because it looks authoritative.)*
+      *(`zombie` and `affix` to begin with — the two docs/20 writes out — then `calibration` and
+      `item` as those systems landed, which is the rule working: a type gets a schema the day its
+      system exists, because a guessed schema is worse than none for looking authoritative.)*
 - [x] Registry that walks content **directories** (not a fixed file list — this is what makes it
       mod-ready later)
       *(walking is in `platform/`, since `sim/` has no file system; the registry itself stays pure)*
@@ -96,11 +97,15 @@ one ([roadmap risk 4](docs/23-roadmap.md#risks)).
 - [x] Errors name the file, the entry, and the field — **fail loudly at load, never silently at hour
       thirty**
       *(every problem reported in one pass, and nothing is published unless all of it validated)*
-- [ ] Hot reload in dev
-      *(the stated blocker is gone — `npm run dev` serves `src/` and the spike config is deleted.
-      What remains is the actual work: re-validating a changed content directory and republishing it
-      without restarting the world, which the registry's all-or-nothing publish makes a real change
-      rather than a wiring job.)*
+- [x] Hot reload in dev
+      *(and the note that used to sit here had the shape of the job wrong. It assumed republishing
+      **without restarting the world**; docs/20's loop is "tweak a JSON value, **reload**, re-run the
+      seed, compare outcomes", and restarting is the correct answer rather than the cheap one —
+      four things capture content at spawn time (affix modifiers, the `MeleeWeapon` snapshot,
+      container grids) or at construction (the field's calibration, which cannot be swapped at all),
+      so a live swap would refresh some and not others. An edit is validated into a throwaway
+      registry first: valid, and the page reloads on the same seed; invalid, and the run keeps going
+      with the error on screen naming file, entry and field.)*
 
 ### Platform & render — spec: [docs/19](docs/19-architecture.md#layers)
 

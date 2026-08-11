@@ -4,7 +4,8 @@ State of the project for whoever picks it up next — a person or a fresh sessio
 updated 2026-08-06 when the noise spine landed, 2026-08-10 when scent did, again the same day when
 seven multiplayer-era features were specified into the doc set, again when the visibility
 primitive closed the wallhack, again when the ground grew under it, again when the sun started
-setting, and again when gear arrived and brought a grid to put it in.
+setting, again when gear arrived and brought a grid to put it in, and again when hot reload closed
+the last open box in Milestone 0.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -67,7 +68,7 @@ exactly as the previous handoff said it could be. `docs/23-roadmap.md` keeps the
 ```bash
 npm install
 npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 200 tests (~40 s -- the scent ones simulate hours)
+npm test                 # correctness: 464 tests (~70 s -- the scent ones simulate hours)
 npm run typecheck        # two projects — see the sim/ purity gate below
 npm run lint
 npm run bench            # tick budgets
@@ -135,6 +136,13 @@ at 10× and the speed drops to 1× on its own.
 The HUD shows live cells and peak for **both channels**, the horde's state counts, and a **state
 fingerprint** — that string is what the determinism test compares.
 
+**And to change a number**, edit any file under `content/` while `npm run dev` is running. A valid
+edit reloads the page on the same seed, so the fingerprint on the HUD is directly comparable before
+and after — that is the whole loop, and [what it made
+structural](#what-hot-reload-made-structural) explains why it restarts rather than hot-swaps. An
+invalid edit does *not* reload: the run keeps going and the HUD grows a `content:` line naming the
+file, the entry and the field.
+
 If Playwright can't find a browser, point it at one: `CHROMIUM_PATH=/path/to/chromium npm run
 bench:frame`. In a fresh container the provisioned one is usually at
 `/opt/pw-browsers/chromium-*/chrome-linux/chrome`.
@@ -189,9 +197,11 @@ Also worth keeping: **event-driven noise propagation is vindicated** — 6 live 
 
 ## What Milestone 0 built, and the rules it made structural
 
-The exit criterion is met and asserted (`test/integration/exit-criterion.test.ts`). More useful to a
-newcomer than the file list is *which invariants are now enforced rather than merely intended*,
-because these are the ones you will trip over:
+The exit criterion is met and asserted (`test/integration/exit-criterion.test.ts`), and the milestone
+now has **no open boxes** — hot reload was the last one, and closing it is written up
+[below](#what-hot-reload-made-structural). More useful to a newcomer than the file list is *which
+invariants are now enforced rather than merely intended*, because these are the ones you will trip
+over:
 
 - **`sim/` cannot touch the host.** Lint bans `Math.random`, `Date.now` and browser globals; on top of
   that `tsconfig.sim.json` compiles `sim/` with **no DOM lib**, so any DOM access is a type error, not
@@ -209,6 +219,44 @@ because these are the ones you will trip over:
 - **Any module can be switched off.** Checked in CI for each module individually and all at once.
   This is also how sandbox presets and storyteller settings get implemented later — not as special
   cases, as this.
+
+## What hot reload made structural
+
+The last Milestone 0 box, and reviewing it found something worse than an unfinished task: the handler
+already existed, said **"content reloaded"**, and changed nothing. It rebuilt the registry and
+assigned it to a module-local variable, while the world held the one it was handed at boot —
+`World.content` is `readonly`, so the republish landed in an object nothing referenced. A lie in a
+balancing tool is worse than a gap in one, because the gap does not get trusted.
+
+- **Reload means re-run the seed, not swap content under a live world.** docs/20's loop is "tweak a
+  JSON value, **reload**, re-run the seed, compare outcomes", and the emphasis is load-bearing. Most
+  of content is read through the registry on demand — `ItemBase` stores an id and nothing else — but
+  four things capture it: affix modifiers folded into the modifier store at spawn, the `MeleeWeapon`
+  snapshot written on equip, container grids sized from their base, and the attention field's
+  calibration, derived into `private readonly` scalars in the constructor and not swappable at all.
+  A live swap refreshes some of those and not others, which is a world disagreeing with its own
+  content. Re-running the seed refreshes all of them by construction.
+- **The edit is validated into a registry that is then thrown away.** The probe is the whole trick: a
+  typo must not take the run down and come back as a blank page with the message in a console nobody
+  is reading. Valid, and the page reloads; invalid, and the run keeps going with `content: …` on the
+  HUD naming file, entry and field.
+- **Content values must not reach the save, and now that is asserted rather than assumed.** Editing
+  `massKg` and re-booting the same seed produces a **byte-identical** world that nonetheless disagrees
+  about what the survivor is carrying. That is the property that makes the fingerprint a fair basis
+  for a before/after comparison, and it is also why the divergence control in the same test has to
+  edit the *affix pool* instead — only content the roller reads at spawn moves the state.
+- **An unresolved content id is loud, at the two moments content and world can disagree.** It used to
+  degrade in silence: `itemBaseOf` returned `undefined` both for "not an item" and for "its base is
+  gone", so a renamed base produced a district of nameless 1×1 objects weighing nothing. Those two
+  facts are now separate, and the readers throw. The *check* is deliberately not in the readers
+  though — they are called from the HUD and the renderer, so discovering it there means throwing once
+  per frame. `verifyContentReferences(world)` runs at boot and after a save is applied, reports every
+  problem in one message the way a bad content load does, and passes trivially on a world with no
+  items.
+- **A save can be stale in a way the version stamp cannot see.** Saves record ids and never content,
+  and editing JSON does not change the build — so `SAVE_VERSION` will never catch a save taken
+  against a different content set. The id check is what covers it, and it runs inside the existing
+  catch so the failure is a notice rather than a crash.
 
 ## What the ground made structural
 
