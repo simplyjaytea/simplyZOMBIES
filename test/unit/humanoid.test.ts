@@ -171,12 +171,40 @@ describe("the archetypes are actually distinguishable", () => {
   });
 
   it("stoops a zombie and stands a survivor upright", () => {
-    // The single most load-bearing number in the file: it is the cue that still reads once the
-    // night wash has taken the colour.
-    expect(BODY_SPECS[Archetype.Zombie].stoop).toBeGreaterThan(0.2);
+    // The single most load-bearing difference in the file: it is the cue that still reads once
+    // the night wash has taken the colour.
+    expect(BODY_SPECS[Archetype.Zombie].stoop).toBeGreaterThan(
+      BODY_SPECS[Archetype.Survivor].stoop * 3,
+    );
     expect(BODY_SPECS[Archetype.Player].stoop).toBe(0);
     expect(BODY_SPECS[Archetype.Zombie].armsForward).toBe(true);
     expect(BODY_SPECS[Archetype.Player].armsForward).toBe(false);
+  });
+
+  it("leads a shambler's head with its shoulders without detaching it", () => {
+    // The stoop is a *displacement*, and it scales with standing height while the body is only
+    // about 15 px wide -- so it has a narrow band to live in. Too little and there is no stoop;
+    // too much and the head sails a full body-width past the hips, which does not read as a
+    // shamble, it reads as a head that has come off. That is exactly what the first tuning did,
+    // and reviewing the sheet is what caught it, so the band gets a test rather than an eye.
+    //
+    // Measured on the octant that leans most nearly along the screen horizontal, where the
+    // displacement is largest and the failure is worst.
+    const zombie = render(Archetype.Zombie, 0 /* Idle */, 0, 0);
+    const upright = render(Archetype.Player, 0 /* Idle */, 0, 0);
+
+    // The head is the last ellipse drawn, and its centre is the midpoint of the extent marks
+    // the recorder logged for it.
+    const headCentre = (r: typeof zombie): number => {
+      const heads = r.ops.filter((op) => op.startsWith("ellipse:"));
+      const last = heads[heads.length - 1] as string;
+      return Number(last.slice("ellipse:".length).split(",")[0]);
+    };
+
+    const lean = Math.abs(headCentre(zombie) - headCentre(upright));
+    const bodyWidth = BODY_SPECS[Archetype.Zombie].shoulderMetres * 28;
+    expect(lean).toBeGreaterThan(1);
+    expect(lean).toBeLessThan(bodyWidth * 0.75);
   });
 
   it("gives the player the lightest colour, so they survive the night wash", () => {
