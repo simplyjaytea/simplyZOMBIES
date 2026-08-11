@@ -3,8 +3,8 @@
 State of the project for whoever picks it up next — a person or a fresh session. Written 2026-08-05,
 updated 2026-08-06 when the noise spine landed, 2026-08-10 when scent did, again the same day when
 seven multiplayer-era features were specified into the doc set, again when the visibility
-primitive closed the wallhack, again when the ground grew under it, and again when the sun started
-setting.
+primitive closed the wallhack, again when the ground grew under it, again when the sun started
+setting, and again when gear arrived and brought a grid to put it in.
 
 **Read this, then [README.md](README.md), then [TODO.md](TODO.md).**
 
@@ -16,8 +16,9 @@ setting.
 |---|---|
 | **Phase** | **Milestone 1, phase 4 done: the day.** Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see it coming through a wall, where you walk decides how loud you are, and at midnight you can see a quarter as far as you could at noon. |
 | **Merged** | [PR #1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) — the design docs · [PR #2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) — the attention spike · [PR #3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) — all of Milestone 0 |
-| **In flight** | nothing. Visibility, then the surface layer, then the day/night cycle with speed controls |
-| **Next real work** | **[Grabs and bite risk](docs/09-combat.md#grabs)** — the swing loop landed and the half that makes melee *cost* something did not, so the parity contract is open. Then **[the light channel](docs/03-attention.md#light)**: ambient light is built and drives what an observer can see; a torch does not exist, which is why night is softer than the design wants. See [Do this next](#do-this-next). |
+| **In flight** | nothing. Visibility, then the surface layer, then the day/night cycle, then items and the grid inventory |
+| **Next real work** | **[Grabs and bite risk](docs/09-combat.md#grabs)** — the swing loop landed and the half that makes melee *cost* something did not, so the parity contract is still open. Then **[the light channel](docs/03-attention.md#light)**: ambient light is built and drives what an observer can see; a torch does not exist, which is why night is softer than the design wants. See [Do this next](#do-this-next). |
+| **Also landed, early and on purpose** | **[Items and the grid inventory](docs/10-items.md)** — Milestone 2 work pulled forward at the owner's request. Bases and affixes as content, items as entities, a Tarkov-shaped grid with rotation, nesting and stacking, and the first screen in the game. It neither blocked nor was blocked by the rest of Milestone 1: the whole thing is two new modules plus content, and the one place it touches combat goes through the event bus. |
 | **Also landed, as design only** | **[Multiplayer](docs/27-multiplayer.md)** — authoritative host, survivor-vs-survivor PVP, and voice as a noise emitter. Specified, docs reconciled, **no engine code**. Filed as Milestone 3. |
 | **And, also design only** | **[Visibility](docs/28-visibility-and-sightlines.md)** and **[movement stances](docs/29-movement-and-stances.md)**, plus the [condition view](docs/05-health-injury.md#the-condition-view), [aiming](docs/09-combat.md#aiming), and [z-levels deferred in writing](docs/23-roadmap.md#deferred-z-levels). Again **no engine code** — two of these are now Milestone 1 tasks. |
 
@@ -155,6 +156,14 @@ These were each decided explicitly by the repo owner. If you're about to "improv
 - **Performance is pillar 6**, with CI budget gates that fail the build.
 - **Stack:** TypeScript + canvas + Vite, no engine, with a portability contract keeping a Godot pivot
   cheap. **Saves may break pre-1.0** — stable IDs and a version stamp, but no migration framework.
+- **The inventory is a grid, and weight is invisible.** Tarkov/DayZ-shaped: cells, footprints,
+  rotation, nesting, and containers you have to wear to get. This *replaced* the weight-and-capacity
+  model `docs/10-items.md` originally specified, and the argument is not genre nostalgia — a capacity
+  bar is a number about your capacity, which
+  [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) prohibits outright,
+  and a grid is the same information as shape. Weight is still simulated and still never printed:
+  you find out you are overloaded by walking slower. **There is no kilogram on the inventory screen**
+  and adding one is a contract violation, not a UX improvement.
 - **Vehicles were un-cut** after initially being cut at the vision level. `docs/00-vision.md` records
   the reversal and why the original objection was half right.
 - **A district is 256 m, falloff stays linear.** Decided against re-authoring the magnitude table,
@@ -491,6 +500,21 @@ whole reason those were catchable in node.**
 
 ## Do this next
 
+**[Grabs and bite risk](docs/09-combat.md#grabs), or [the light channel](docs/03-attention.md#light) —
+whichever you have appetite for.** Both were the next work before items jumped the queue, and neither
+moved while items landed.
+
+Two things the item system left deliberately unfinished, if you would rather continue that thread:
+
+- **Nothing wears out.** `Condition` is on every item, `conditionFactor` reads it, and damage and
+  swing speed both already scale with it — but no system ever *lowers* it. Wear is driven by use, so
+  it wants to be a subscriber to `attack.connected` rather than a system of its own, which is a small
+  change in `modules/items.ts` and no change anywhere else. `item.broke` is declared and unpublished.
+- **Attachments are content with no reader.** Bases declare their slots (`head`, `haft`, `wrap` and
+  so on) and nothing looks at them. The design wants attachments to move freely between compatible
+  bases, which is the mechanic that lets a build survive an upgrade; the grid already knows how to
+  hold them.
+
 **[The light channel](docs/03-attention.md#light) — the emitters.** It has been the open Milestone 1
 task since the noise spine, it was blocked on an algorithm, the algorithm exists, and now the
 *ambient* half is built and pointing straight at the hole where the rest goes.
@@ -600,6 +624,15 @@ belongs with the condition view.
   keeps everything else, which tests that claim about as directly as it can be tested.
 - **Does voice-as-emitter play as tense, or as a mute button?** Also new. If never speaking is
   dominant, the mechanic removed a channel instead of adding one.
+- **Is the grid a decision or a chore?** The newest question, and the one nothing but playing will
+  answer. Tarkov's inventory is famously either the best part of the game or an admin screen, and
+  which one it is here depends on numbers that are currently guesses: pocket size (4×2), the pack
+  grid (6×8), and how often a run actually fills it. **If rearranging is fiddly rather than tense,
+  the fix is bigger cells and fewer of them, not a better UI.**
+- **Does invisible weight read at all?** Encumbrance costs speed and stamina recovery and prints
+  nothing, per clause 4. That is the right principle and it may simply not be *legible* — if players
+  never notice they are overloaded, the signal needs to be louder in the world (gait, breathing,
+  footstep noise) rather than quieter in the UI.
 - The rest are listed under "Open questions" in [`docs/23-roadmap.md`](docs/23-roadmap.md).
 
 *"How big is a district?" is no longer among them — it's 256 m, forced by the noise calibration.
@@ -614,6 +647,15 @@ never going to be the problem.*
 - **Every doc opens with "why this exists" and closes with a cut list.** The cut lists are load-bearing
   — they're what stops scope creep, and `TODO.md` restates them at the end for the same reason.
 - **The README index is the reading order.** File numbers reflect authorship order.
+- **Events are queued, not immediate.** `publish` enqueues; handlers run on `drain`, which the tick
+  does once. Anything that publishes outside a tick and expects the effect immediately -- `equip` at
+  boot, a test asserting on the result -- has to drain first. This cost an hour: the melee bridge
+  looked broken when it was only late.
+- **A right-click mid-drag is not a `pointerdown`.** Once the primary button takes pointer capture,
+  Chromium delivers no second `pointerdown` for another button -- only `contextmenu`. Verified by
+  instrumenting the canvas. `platform/pointer.ts` keys rotation off `contextmenu` for this reason.
+- **`npm run bench:frame` needs a browser path here.**
+  `CHROMIUM_PATH=/opt/pw-browsers/chromium-*/chrome-linux/chrome npm run bench:frame`.
 - **The container is ephemeral.** Anything uncommitted is gone when the session ends.
 - `.claude/settings.local.json` is git-ignored globally and won't travel with the repo.
 

@@ -37,15 +37,23 @@ Grouped by owning module. Kernel components are the only ones every entity may r
 | Module | Components |
 |---|---|
 | **Kernel** | `Position` · `Velocity` · `Facing` · `Solid` · `AttentionEmitter` · `Tags` |
-| **Actor** | `Actor` · `Faction` · `Perception` · `Locomotion` · `Inventory` · `Equipment` |
+| **Actor** | `Actor` · `Faction` · `Perception` · `Locomotion` |
 | **Survivor** | `Identity` · `Traits` · `Backstory` · `Skills` · `WebNodes` · `Focus` · `WorkPriorities` · `Relationships` |
 | **Needs** | `Hunger` · `Thirst` · `Rest` · `Temperature` · `Hygiene` · `Mood` |
 | **Health** | `Body` (parts) · `Injuries` · `BloodLoss` · `Pain` · `Stamina` · `BacterialInfection` |
 | **Infection** | `ZombieInfection` (stage, private transmitted flag, observation record) |
 | **Zombie** | `Zombie` · `SensoryProfile` · `GrabState` · `MutationType` |
-| **Item** | `Item` · `ItemBase` · `Affixes` · `Attachments` · `Condition` · `Stackable` |
+| **Item** | `ItemBase` · `Affixes` · `Attachments` · `Condition` · `Stack` |
+| **Inventory** | `Container` (a grid and its placements) · `Stored` (where an item sits) · `Equipment` · `Encumbrance` |
 | **Structure** | `Structure` · `Durability` · `BuildProgress` · `Powered` · `Trap` |
 | **Horde** | `Horde` (coarse-sim aggregate) · `Bearing` |
+
+`Inventory` and `Equipment` moved off the Actor row and into their own module once the grid
+([items](10-items.md#inventory-space-and-weight)) landed, for the same reason the rule below gives:
+an actor's pockets and a backpack's interior are the same thing, so the component that describes a
+grid cannot belong to the module that describes people. What an item *is* and where it *lives* are
+also separate owners — the item module writes the first, the inventory module the second, and the
+one place they meet is an `item.spawned` event rather than an import.
 
 `Facing` is kernel rather than module-owned for the reason the rule below implies: two systems that
 do not own each other read it — [sightlines](28-visibility-and-sightlines.md#what-an-observer-is) and
