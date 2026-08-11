@@ -27,9 +27,11 @@ import {
   recoverTicks,
   swingStamina,
   WEAPONS,
+  wielded,
   windupTicks,
   type BodyPart,
   type WeaponProfile,
+  type WieldedWeapon,
 } from "../combat";
 import { defineComponent, Facing, Position } from "../kernel/components";
 import type { EntityId } from "../kernel/entities";
@@ -38,6 +40,7 @@ import type { RngStream } from "../rng";
 import { Body, isAlive, Stamina } from "./health";
 import type { Module } from "./index";
 import { BODY_RADIUS } from "./movement";
+import { meleeProfileOf } from "./items";
 import { Controlled } from "./player";
 
 /**
@@ -63,8 +66,15 @@ export type Swing = {
 
 export const Swing = defineComponent<Swing>("Swing");
 
-/** What is held. One weapon, no inventory -- docs/10's item system is Milestone 2. */
-export type MeleeWeapon = WeaponProfile;
+/**
+ * What is held.
+ *
+ * Derived from the item in the survivor's primary slot when the inventory module is running
+ * -- see the `item.equipped` subscriber below -- and set directly by `makeMeleeArmed` when
+ * it is not. Both paths produce the same shape, which is what lets melee stay indifferent to
+ * whether an inventory exists.
+ */
+export type MeleeWeapon = WieldedWeapon;
 
 export const MeleeWeapon = defineComponent<MeleeWeapon>("MeleeWeapon");
 
@@ -74,7 +84,7 @@ export function makeMeleeArmed(
   entity: EntityId,
   weapon: WeaponProfile = WEAPONS.bat,
 ): void {
-  world.components.set(entity, MeleeWeapon, { ...weapon });
+  world.components.set(entity, MeleeWeapon, wielded(weapon));
   world.components.set(entity, Swing, { state: SwingState.Idle, ticksLeft: 0 });
 }
 
@@ -127,7 +137,7 @@ export const meleeModule: Module = {
           if (swing.state !== SwingState.Idle) continue;
 
           const weapon = w.components.getOrThrow(entity, MeleeWeapon);
-          const cost = swingStamina(weapon.weight);
+          const cost = swingStamina(weapon.weight, weapon.stamina);
           const stamina = w.components.get(entity, Stamina);
           // Exhaustion stops the swing outright here. docs/09 wants exhausted swings to be
           // "slow, weak, and miss" rather than absent, which needs the modifier pipeline to
@@ -135,7 +145,7 @@ export const meleeModule: Module = {
           if (stamina !== undefined && stamina.current < cost) continue;
 
           swing.state = SwingState.WindUp;
-          swing.ticksLeft = windupTicks(weapon.weight);
+          swing.ticksLeft = windupTicks(weapon.weight, weapon.speed);
 
           w.events.publish({ type: "stamina.spent", entity, amount: cost });
         }
@@ -184,7 +194,7 @@ export const meleeModule: Module = {
 
           resolveStrike(w, entity, weapon, rng, candidates);
           swing.state = SwingState.Recover;
-          swing.ticksLeft = recoverTicks(weapon.weight);
+          swing.ticksLeft = recoverTicks(weapon.weight, weapon.recovery);
         }
       },
     });
@@ -197,6 +207,54 @@ export const meleeModule: Module = {
      * encodes is symmetrical: melee staggers zombies out of what they were doing, and the
      * moment anything can stagger back, it has to cost the same thing.
      */
+    /**
+     * What a survivor holds is what is in their primary slot.
+     *
+     * A subscriber rather than the inventory module writing `MeleeWeapon` directly, because
+     * docs/20 says only the owning module writes a component -- and melee owns this one.
+     * The inventory module publishes a fact ("this was equipped"); what that means for a
+     * swing is melee's business, and neither module imports the other.
+     *
+     * This is docs/21-extensibility.md's cookbook example 3, and it is what keeps the item
+     * system additive: with the inventory module switched off, nothing publishes these
+     * events, `makeMeleeArmed` remains the only writer, and the melee loop is exactly what
+     * it was before items existed.
+     */
+    world.events.subscribe({
+      id: "melee.equip-weapon",
+      type: "item.equipped",
+      handler: (event) => {
+        if (event.slot !== "primary") return;
+        const profile = meleeProfileOf(world, event.item);
+        // Equipping a bandage in the primary slot is not an error; it just is not a weapon,
+        // and the survivor keeps whatever they had. Bare hands are a separate design
+        // question (docs/09) and not one this commit answers.
+        if (profile === null) return;
+        world.components.set(event.entity, MeleeWeapon, profile);
+        // Re-arm the swing window if the survivor was empty-handed. The unequip handler
+        // below removes it, and without this a weapon put down and picked back up would
+        // never swing again -- the systems query on both components.
+        if (!world.components.has(event.entity, Swing)) {
+          world.components.set(event.entity, Swing, { state: SwingState.Idle, ticksLeft: 0 });
+        }
+      },
+    });
+
+    world.events.subscribe({
+      id: "melee.unequip-weapon",
+      type: "item.unequipped",
+      handler: (event) => {
+        if (event.slot !== "primary") return;
+        if (meleeProfileOf(world, event.item) === null) return;
+        // Nothing in hand. Removing the component rather than substituting a fist profile,
+        // because the swing systems query on `MeleeWeapon` -- so an empty-handed survivor
+        // simply does not swing, which is the honest behaviour until docs/09's unarmed
+        // option is designed rather than invented here.
+        world.components.remove(event.entity, MeleeWeapon);
+        world.components.remove(event.entity, Swing);
+      },
+    });
+
     world.events.subscribe({
       id: "melee.stagger-interrupts",
       type: "entity.staggered",

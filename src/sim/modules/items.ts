@@ -20,6 +20,7 @@ import type { ContentEntry } from "../content/types";
 import { defineComponent } from "../kernel/components";
 import type { EntityId } from "../kernel/entities";
 import type { World } from "../kernel/world";
+import type { WeaponProfile, WieldedWeapon } from "../combat";
 import type { Modifier } from "../modifiers/modifiers";
 import type { RngStream } from "../rng";
 import type { Size } from "../inventory/grid";
@@ -333,6 +334,13 @@ export function spawnItem(world: World, baseId: string, options: SpawnOptions = 
     world.components.set(item, Stack, { count });
   }
 
+  // Affix effects enter the one pipeline, scoped to the item rather than to whoever ends up
+  // holding it (docs/21#mechanism-2-the-modifier-pipeline). Scoping to the item is what lets
+  // an axe be asked "why are you this damage?" while it is still lying in the street, and
+  // what makes handing it to someone else carry its rolls with it rather than needing the
+  // modifiers moved.
+  for (const modifier of affixModifiers(world, item)) world.modifiers.add(modifier, item);
+
   // Published so the inventory module can attach a grid to container bases without either
   // module importing the other (docs/21-extensibility.md#mechanism-1-the-event-bus). The
   // item is complete at this point -- rolled, conditioned, stacked -- and nowhere.
@@ -340,6 +348,60 @@ export function spawnItem(world: World, baseId: string, options: SpawnOptions = 
   world.events.drain();
 
   return item;
+}
+
+/**
+ * How much of a weapon's performance its condition is currently delivering.
+ *
+ * docs/10#condition-and-degradation: "condition affects performance continuously -- a
+ * degraded blade is dull and slow." Linear between a floor and full, rather than the five
+ * bands the table shows: the bands are how the state is *described* to the player, and
+ * quantising the mechanics to match them would make a repair from 51 to 79 percent do
+ * nothing at all.
+ *
+ * The floor is not zero because zero condition is `broken`, which docs/10 makes a separate
+ * state -- an unusable item rather than a very bad one. Nothing degrades yet, so this
+ * returns 1 for everything in the game today; it is here so the wear system lands as a
+ * subscriber rather than as a change to every reader.
+ */
+export const CONDITION_FLOOR = 0.55;
+
+export function conditionFactor(world: World, item: EntityId): number {
+  const condition = world.components.get(item, Condition);
+  if (condition === undefined) return 1;
+  return CONDITION_FLOOR + (1 - CONDITION_FLOOR) * Math.max(0, Math.min(1, condition.current));
+}
+
+/**
+ * The melee numbers an item actually delivers: its base, times its affixes, times its wear.
+ *
+ * Lives here rather than in the melee module because it is a question about an *item*, and
+ * the melee module should not have to know that affixes have tiers. What melee subscribes to
+ * is the answer.
+ *
+ * Returns `null` for anything that is not a melee weapon, which is how the subscriber tells
+ * "equipped a bandage" from "equipped an axe" without a class check of its own.
+ */
+export function meleeProfileOf(world: World, item: EntityId): WieldedWeapon | null {
+  const base = itemBaseOf(world, item);
+  if (base === undefined) return null;
+  const melee = base["melee"] as WeaponProfile | undefined;
+  if (melee === undefined) return null;
+
+  const wear = conditionFactor(world, item);
+  const resolve = (stat: string): number => world.modifiers.resolve(stat, item);
+
+  return {
+    reachMetres: melee.reachMetres * resolve("melee_reach"),
+    weight: melee.weight,
+    damage: melee.damage * resolve("melee_damage") * wear,
+    staggerTicks: Math.max(0, Math.round(melee.staggerTicks * resolve("melee_stagger"))),
+    // Wear costs speed as well as damage: a dull blade is slow, and a weapon that only lost
+    // damage would degrade into something merely weaker rather than something worse to use.
+    speed: resolve("swing_speed") * wear,
+    recovery: resolve("swing_recovery"),
+    stamina: resolve("swing_stamina"),
+  };
 }
 
 // ---- the module ------------------------------------------------------------

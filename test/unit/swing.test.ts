@@ -5,6 +5,7 @@ import {
   recoverTicks,
   swingStamina,
   WEAPONS,
+  wielded,
   windupTicks,
   ZOMBIE_BODY,
   type WeaponProfile,
@@ -309,7 +310,9 @@ describe("weapon profiles", () => {
   it("carries a weapon and an idle swing on the survivor from boot", () => {
     const { world, player } = boot({ seed: 41, wanderers: 0, mapSize: 32 });
     const p = player as EntityId;
-    expect(world.components.getOrThrow(p, MeleeWeapon)).toEqual({ ...WEAPONS.bat });
+    // `wielded` rather than the bare profile: a weapon that did not come off an item still
+    // carries the three swing multipliers, all at 1, so the two paths produce one shape.
+    expect(world.components.getOrThrow(p, MeleeWeapon)).toEqual(wielded(WEAPONS.bat));
     expect(world.components.getOrThrow(p, Swing)).toEqual({ state: SwingState.Idle, ticksLeft: 0 });
   });
 });

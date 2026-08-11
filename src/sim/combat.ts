@@ -112,6 +112,28 @@ export type WeaponProfile = {
 };
 
 /**
+ * A weapon as actually held: the profile, plus what affixes and wear did to its windows.
+ *
+ * The extra three are always present and default to 1, so a weapon taken straight from
+ * `WEAPONS` behaves identically to one derived from an item base with no affixes on it.
+ * That equality is what lets the melee tests keep using the hardcoded profiles while the
+ * game uses items.
+ */
+export type WieldedWeapon = WeaponProfile & {
+  /** Higher is faster to wind up. */
+  readonly speed: number;
+  /** Higher is a longer recovery, which is the window that kills you (docs/09). */
+  readonly recovery: number;
+  /** Higher is a costlier swing. */
+  readonly stamina: number;
+};
+
+/** Lift a plain profile into a wielded one with no affixes and no wear. */
+export function wielded(profile: WeaponProfile): WieldedWeapon {
+  return { ...profile, speed: 1, recovery: 1, stamina: 1 };
+}
+
+/**
  * Three weapons that are good at different things, which is the only reason to have three.
  *
  * The knife is fast and cheap and has to be used from inside a zombie's reach. The spear buys
@@ -136,14 +158,26 @@ export const WEAPONS = {
 export const ZOMBIE_BODY = { head: 25, torso: 60, legs: 40 } as const;
 
 /** Ticks a swing's wind-up and recovery take for a given weapon. */
-export function windupTicks(weight: number): number {
-  return Math.max(1, Math.round(WINDUP_TICKS * weight));
+/**
+ * The three windows, with the multipliers a wielded weapon carries.
+ *
+ * Three separate multipliers rather than one adjusted `weight`, because the affixes in
+ * content/affixes/ move them independently and folding them together would make that
+ * impossible: Weighted pushes all three the same way, which `weight` alone could express,
+ * but Balanced trades swing speed against stagger and Barbed lengthens recovery while
+ * leaving stamina alone. A single knob cannot say either of those.
+ *
+ * Defaulted to 1 so every existing caller -- and any weapon that did not come off an item --
+ * reads exactly as it did before.
+ */
+export function windupTicks(weight: number, speed = 1): number {
+  return Math.max(1, Math.round((WINDUP_TICKS * weight) / speed));
 }
 
-export function recoverTicks(weight: number): number {
-  return Math.max(1, Math.round(RECOVER_TICKS * weight));
+export function recoverTicks(weight: number, recovery = 1): number {
+  return Math.max(1, Math.round(RECOVER_TICKS * weight * recovery));
 }
 
-export function swingStamina(weight: number): number {
-  return SWING_STAMINA * weight;
+export function swingStamina(weight: number, stamina = 1): number {
+  return SWING_STAMINA * weight * stamina;
 }

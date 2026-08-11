@@ -288,9 +288,18 @@ export function boot(options: BootOptions): Boot {
   // boot with an empty registry -- a world with no content is a legitimate world, and one
   // that threw here would make "there are no items" a crash instead of an absence.
   if (modules.isEnabled("item") && world.content.count("item") > 0) {
+    // A real bat, replacing the hardcoded profile above by way of `item.equipped`. Handing
+    // the player an *item* rather than a profile is what puts the whole chain -- base,
+    // affixes, condition, the melee bridge -- on the path a normal session walks, so it
+    // cannot rot behind a test.
+    equip(world, player, spawnItem(world, "item.bat.aluminium", { tier: "scavenged" }));
     equip(world, player, spawnItem(world, "item.satchel.canvas", { tier: "scavenged" }));
     stow(world, player, spawnItem(world, "item.bandage.cloth", { tier: "scavenged", count: 3 }));
     scatterLoot(world, map, mapSize);
+    // Settle the equip events before handing the world back. Otherwise the survivor holds
+    // the hardcoded profile until the first tick quietly replaces it, and a test that
+    // inspected the loadout at tick zero would be reading a world mid-sentence.
+    world.events.drain();
   }
 
   const placeRng = world.rng.stream("placement");
