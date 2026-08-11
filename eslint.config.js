@@ -55,10 +55,11 @@ export default tseslint.config(
   },
 
   {
-    // The benchmark driver is plain ESM, not TypeScript, so no-undef is live for it. It
-    // straddles two runtimes: node around the outside, and browser code inside
-    // page.evaluate that is lexically in the same file.
-    files: ["bench/**/*.mjs"],
+    // Plain ESM rather than TypeScript, so no-undef is live for these. The benchmark driver
+    // straddles two runtimes -- node around the outside, and browser code inside
+    // page.evaluate that is lexically in the same file -- which is why the browser globals are
+    // here too. `scripts/` is node only and shares the list rather than growing a second one.
+    files: ["bench/**/*.mjs", "scripts/**/*.mjs"],
     languageOptions: {
       globals: {
         console: "readonly",

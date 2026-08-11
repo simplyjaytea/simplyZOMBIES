@@ -436,12 +436,14 @@ function swingState(w: World): string {
 /** Shamblers by state, for the HUD. The one line that says whether the field is working. */
 function hordeStates(w: World): {
   seeking: number;
+  pursuing: number;
   milling: number;
   drifting: number;
   staggered: number;
   crawling: number;
 } {
   let seeking = 0;
+  let pursuing = 0;
   let milling = 0;
   let drifting = 0;
   let staggered = 0;
@@ -449,13 +451,17 @@ function hordeStates(w: World): {
   for (const entity of w.components.query(Shambler)) {
     const state = w.components.getOrThrow(entity, Shambler).state;
     if (state === ShamblerState.Seek) seeking++;
+    // Counted before the `else` that catches Wander, and listed first in the readout, because it is
+    // the state that means something has hold of you. A sixth state that nothing reported would make
+    // pursuit invisible to the one person who needs to see it working.
+    else if (state === ShamblerState.Pursue) pursuing++;
     else if (state === ShamblerState.Investigate) milling++;
     else if (state === ShamblerState.Staggered) staggered++;
     else drifting++;
     const body = w.components.get(entity, Body);
     if (body !== undefined && isCrawling(body)) crawling++;
   }
-  return { seeking, milling, drifting, staggered, crawling };
+  return { seeking, pursuing, milling, drifting, staggered, crawling };
 }
 
 /**
@@ -516,8 +522,9 @@ function updateHud(w: World): void {
     `<b>noise</b>    ${live} live cells   peak ${w.field.peakNoise().toFixed(1)}\n` +
     `<b>scent</b>    ${w.field.liveScentCells()} live cells   ` +
     `peak ${w.field.peakScent().toFixed(1)}\n` +
-    `<b>horde</b>    ${horde.seeking} seeking, ${horde.milling} milling, ` +
-    `${horde.drifting} drifting, ${horde.staggered} staggered, ${horde.crawling} crawling\n` +
+    `<b>horde</b>    ${horde.pursuing} <b>pursuing</b>, ${horde.seeking} seeking, ` +
+    `${horde.milling} milling, ${horde.drifting} drifting, ${horde.staggered} staggered, ` +
+    `${horde.crawling} crawling\n` +
     `<b>swing</b>    ${swingState(w)}\n` +
     `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes, ` +
     `${w.content.count("item")} item bases\n` +

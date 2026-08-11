@@ -451,6 +451,62 @@ sightless twin**, at 2.54 ms against `crowded`'s 1.85. Light casts per *source*,
 the only per-entity cost is one squared-distance reject per source and an arc test for what survives.
 It scales with lamps rather than with bodies.
 
+## What pursuit made structural
+
+The last open box in the Zombies section, and the first stimulus in the game that is allowed to
+persist. Noise commits for twenty seconds and fades; scent and light end the tick they stop being
+sensed; contact holds until the survivor gets clear. That difference is what most of these entries are
+about.
+
+- **The design document contradicted itself, and the code could not.** docs/14 rule 4 said both
+  "indefinitely" and "for as long as you're audible", which are two different mechanics — one is a
+  latch, the other is noise-conditional. Settled toward distance: you get out of pursuit by getting
+  away. [docs/14 is corrected](14-zombies.md#baseline-behavior) rather than implemented around, per the
+  rule that when a task and its doc disagree the doc is wrong.
+- **Contact is a distance, and that is what makes it robust.** `threat.ts` already argues the point for
+  the speed control: distance is the one measure that does not vary with the light. Tie contact to a
+  sightline and shutters switch pursuit off; tie it to noise and standing still does. Neither is what a
+  zombie with its hands on you is doing — it has not been *perceiving* you for a while. The consequence
+  is that pursuit works in the dark and works on a shambler with no eyes, both asserted.
+- **Two radii, because one flickers.** A survivor on a single boundary enters and leaves pursuit on
+  alternating ticks. It costs nothing and reads as a seizure, and it makes every assertion about the
+  state machine flicker with it. Release is wider than contact, which is also the honest reading of
+  "indefinitely": pursuit does not time out, it just needs you to actually get away.
+- **The absence of a pathfinder is the feature.** docs/14 asks for a zombie that "will grind against a
+  wall between them and you", and pointing the heading at the target produces exactly that for free —
+  `movement.integrate`'s collision resolution stops the body while the heading keeps pointing. A
+  pathfinder here would be the single change that makes them tactical.
+- **AI must not read derived state that is missing from the save.** The first version asked
+  `world.spatial.queryRadius`, which is the obvious tool and wrong twice. The hash is derived and
+  deliberately excluded from the snapshot, so a freshly booted world that has had a save applied has an
+  **empty** index rather than a stale one — and the first tick after a load found no contact where a
+  continuous run found some. Within a run the one-tick staleness is harmless because it is identical for
+  every shambler; across a save boundary it is a byte-level divergence. `melee.test.ts`'s mid-wind-up
+  save assertion is what caught it.
+  *The candidate sets were also the wrong way round: the hash indexes every body, so it answers "what
+  is near me" and makes the caller filter, when the question is "which of the handful of survivors is
+  near me". Walking survivors is cheaper and reads only saved state. The hash stays right for melee,
+  which asks what is near a swing, where the candidate set genuinely is everybody.*
+- **`ComponentStore.query` allocates and sorts, so it does not belong in a per-entity loop.** Asking it
+  per shambler per tick is two thousand allocations and two thousand sorts a tick, and it put a
+  *uniform* slowdown across every benchmark scenario — including ones with no pursuit in them, which is
+  what gave it away. A cost that appears where the feature is absent is not the feature's cost. The
+  survivor list is gathered once per tick instead; it cannot change mid-tick, so it is not a cache that
+  can go stale.
+- **A budget set from one measurement in one container is not a budget.** `crowded-and-lit` shipped at 4
+  ms because it measured 2.54 once on a fast container, and "it holds its sightless twin's budget" was
+  too good a claim to check twice. A worktree at the merge commit measures the *same code* at 3.75 avg
+  and 4.41 p95 in a loaded one — 8% headroom, on a CI runner slower than either. Raised to 6 ms, with
+  the honest reading written down: five hundred observers genuinely costs about 1.2 ms over the
+  sightless twin, and docs/22 blesses visibility as a different cost shape. `crowded-and-watched` at
+  fifty observers stays at 4 ms and remains the guard on recompute-on-change.
+- **The backlog's own counts are a second copy of a fact, so a test asserts them.**
+  `test/unit/handoff.test.ts` checks that every `**Done (n):**` / `**Open (n):**` header matches the
+  checkboxes beneath it, that no ticked box sits in an `Open` group, and that the milestone table's rows
+  sum to its total. It exists because the counts drifted within one session of being written — ticking
+  four boxes left them filed under `Open` — which is the same class of drift that deleting `TODO.md` was
+  meant to end. `npm run handoff:regroup` is the fixer, and it is idempotent.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) · **Next:** [HANDOFF.md](../HANDOFF.md) ·

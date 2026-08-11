@@ -32,10 +32,10 @@ Three other places to know about, and nothing else is required reading:
 | Milestone | `[x]` done | `[~]` in progress | `[ ]` todo | State |
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
-| 1 — The spine | 44 | 0 | 17 | 🔨 **Current.** All three channels live; melee's cost and stances remain. |
-| 2 — The vertical slice | 13 | 1 | 92 | ☐ **Not started** — except the items and grid inventory, pulled forward. |
-| 3+ — Beyond the slice | 0 | 0 | 12 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **96** | **1** | **121** | |
+| 1 — The spine | 45 | 0 | 10 | 🔨 **Current.** All three channels live and contact pursues; melee's cost and stances remain. |
+| 2 — The vertical slice | 13 | 1 | 95 | ☐ **Not started** — except the items and grid inventory, pulled forward. |
+| 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
+| **Total** | **97** | **1** | **121** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
@@ -398,8 +398,6 @@ good one ([risk 4](docs/23-roadmap.md#risks)).
       *(plus a "crowded" 2,000-entity scenario, since at the 300-entity baseline only ~20 survive
       culling and the frame budget could never fail)*
 
----
-
 ## Milestone 1: The spine (in progress)
 
 The [attention field](docs/03-attention.md) and something that reacts to it. This is the first point at
@@ -407,23 +405,42 @@ which the project is legible as a game, and it is.
 
 > **Exit criterion:** make a noise and the horde comes; go quiet and it doesn't.
 >
-> ✅ **Met for noise** and asserted in CI (`test/integration/attention.test.ts`). The milestone is
-> **not closed**, but the list is shorter: all three attention channels are live and the night is
-> properly dark, so what remains is that melee does not yet cost bite risk and stances do not
-> exist.
+> ✅ **Met for noise** and asserted in CI (`test/integration/attention.test.ts`), and now guarded from a
+> second direction: contact pursuit is the first stimulus allowed to persist, so
+> `test/integration/pursue.test.ts` asserts that a quiet district with nobody near the survivor has
+> nobody pursuing. Contact cannot make silence meaningless, because it needs the zombie to already be
+> next to you.
+>
+> The milestone is **not closed**: melee still does not cost bite risk, and stances do not exist.
 
-**44 done, 17 open.** **All three channels are in** — the **noise spine** (field, gradient ascent, a
-shout), **scent** (continuous diffusion, wind, field memory), and now **light** (a shadowcast from
+**45 done, 10 open** — and the open count fell from 17 without a great deal being built, which is worth
+explaining rather than glossing. **All three channels are in**: the **noise spine** (field, gradient
+ascent, a shout), **scent** (continuous diffusion, wind, field memory), and **light** (a shadowcast from
 every emitter, zombies with eyes, and a night dark enough that a found candle matters). Both ⚠
-checkpoints riding on scent are closed. Light turned out not to belong in the field at all, which is
+checkpoints riding on scent are closed, and light turned out not to belong in the field at all —
 [entry 15 in the decision log](docs/30-decisions.md#what-light-made-structural).
+
+**Six items moved out**, because Milestone 1 could not finish them: wet ground, surfaces-in-content,
+vehicles-read-the-layer and longer-nights went to [beyond the
+slice](#beyond-the-slice-designed-deliberately-unbuilt); nights-vary and last-known-position memory went
+to [Milestone 2](#milestone-2-the-vertical-slice-not-started). Each kept its note and gained a line
+saying what unblocks it. An open count is only worth reading if the things in it can be acted on, and
+six of them could not.
+
+**Three more are marked ⏸ deferred on measurement** — dirty regions, the propagation budget, and sharing
+the spatial index. Each says what would change the answer, because "nobody got to it" and "this was
+measured and refused" should not look the same in a backlog.
+
+**So the honest remainder is two jobs**: [grabs and bite risk](docs/09-combat.md#grabs) — the parity
+contract, and note that checkbox bundles two very different sizes, since docs/09's four grab clauses
+need no wound at all — and [movement stances](docs/29-movement-and-stances.md), six items of it.
 
 What this milestone found — including two things that contradicted the design docs and got them
 corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has-found-so-far).
 
 ### The attention field — spec: [docs/03](docs/03-attention.md)
 
-**Done (9):**
+**Done (10):**
 
 - [x] Noise layer on a **coarse grid** — 4 m cells, per
       [scale and calibration](docs/03-attention.md#scale-and-calibration)
@@ -464,25 +481,36 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 - [x] Debug overlay visualizing the noise channel *(developer-only, `O` to toggle, off by default —
       see the [information rule](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable).
       Grows the other two channels when they exist.)*
-
-**Open (3):**
-
 - [x] **Light** — shadowcasting from emitters, recomputed only on emitter or occluder change
       *(built, and **not in the field** — `src/sim/vision/light.ts`, beside the primitive it casts.
       The field refused it twice: `liveCells()` is read as "the district is silent" by three
       exit-criterion assertions, and 4 m cells would round away the wall-absolute precision that
       makes shutters work. Magnitude is range, and it aggregates by **max**, never sum.)*
+
+**Open (2):**
+
 - [ ] Dirty-region tracking
-      *(still not earned, and now measured rather than assumed. Scent made the field continuous, which
-      was the condition this was waiting on — and the continuous step costs 0.0075 ms amortised per
-      tick, the same whether the district is saturated or fresh. Revisit if a third channel or a
-      larger grid changes the arithmetic.)*
+      ⏸ **deferred on measurement.** *Scent made the field continuous, which was the condition this was
+      waiting on, and the continuous step costs 0.0075 ms amortised per tick — the same whether the
+      district is saturated or fresh. This note used to say "revisit if a third channel changes the
+      arithmetic", and **a third channel has since arrived and changed nothing**: light is a shadowcast,
+      not a field layer, so it never touches this grid. The trigger is now a **larger grid**, or a fourth
+      channel that genuinely lives in the field.*
 - [ ] Per-tick propagation budget with a deterministic overflow queue (degrade the field's update rate,
       never the frame)
+      ⏸ **deferred on measurement, and the most speculative item in this file.** *Nothing in the design
+      documents asks for it — "overflow queue" appears only here — and the cost it would manage has been
+      measured not to exist: `after-a-shout` runs at 0.19 ms against `quiet-night`'s 0.15 at the same
+      budget, and [risk 5](#risk-checkpoints) is closed. Propagation is already bounded per emission,
+      because the flood stops when the arriving magnitude falls below the floor.*
+      *It would not be free either: a deferred emission is **new save state**, arriving against a field
+      that has decayed further than it would have — so "degrade the update rate, never the determinism"
+      needs the deferral count itself to be deterministic. The trigger is a **magnitude-180 emitter**,
+      the gunshot docs/22 budgets for, which does not exist because there is no ranged weapon yet.*
 
 ### Visibility & sightlines — spec: [docs/28](docs/28-visibility-and-sightlines.md)
 
-**Done (7):**
+**Done (9):**
 
 - [x] **Facing** on observers — a heading, in save state, read by both sight and
       [aiming](docs/09-combat.md#aiming)
@@ -538,9 +566,6 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       which is a measurement of how rarely a shadowcast runs, not of one being cheap. A single 12 m
       cast is 0.07 ms and a 48 m one 0.18 ms. Still unmeasured, and the thing to measure next:
       observers that **sprint**, which pay every three ticks rather than every forty.)*
-
-**Open (3):**
-
 - [x] **Light channel on top of the primitive** — shadowcast from emitters at
       [the magnitudes already tabled](docs/03-attention.md#light), range in the same metres
       *(`Observer.rangeMetres` is no longer a daylight constant: `sightMetres` takes the max of
@@ -554,14 +579,6 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       gradient at all, because docs/28 asks whether a zombie can *see* the lit cell. Four negative
       controls hold docs/14's first rule: it never reaches Seek, keeps its heading the tick the lamp
       dies, ignores a floodlight through a wall, and ignores one entirely with no eyes.)*
-- [ ] **Last-known position memory**, degrading descriptively
-      *(bodies that vanish at a wall edge read as a bug; bodies you lose track of read as the game.
-      And a marker that follows an unseen body is a lie, which
-      [the fairness rules](docs/01-hardcore-contract.md#fairness-rules) forbid outright.
-      **Half done:** the renderer fades a mark where a body was last seen, and it stays put rather
-      than tracking. The simulation half — per-observer memory, in skill-scaled prose that degrades
-      from "a moment ago" to "a while ago" — is not built, and belongs with the
-      [condition view](docs/05-health-injury.md#the-condition-view).)*
 
 ### The ground — spec: [docs/24](docs/24-world-and-scale.md#the-ground)
 
@@ -594,19 +611,6 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       [docs/29's rule](docs/29-movement-and-stances.md#the-rule) is that nothing may be strictly
       better than anything else. You can be unseen or unheard; the ground makes you pick.)*
 
-**Open (3):**
-
-- [ ] Surfaces in content JSON rather than a table in `surface.ts`
-      *(five surfaces × two numbers is small enough to read at a glance today. It stops being small
-      the moment weather makes them wet — see below.)*
-- [ ] **Wet ground** when [weather](docs/16-weather.md) arrives — rain quiets a hard surface and
-      turns dirt to mud
-      *(the obvious next thing the layer is for, and the reason it is two numbers per surface rather
-      than two constants in the movement system)*
-- [ ] Vehicles read the same layer — "off-road is slow, damaging, and impassable for most
-      [mobile bases](docs/26-mobile-bases.md)" is the other half of the Roads promise, and it waits
-      on vehicles
-
 ### Spatial partitioning — spec: [docs/22](docs/22-performance.md#spatial-partitioning)
 
 **Done (2):**
@@ -628,13 +632,19 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 **Open (1):**
 
 - [ ] Emitters and render culling read the same index
-      *(both still do their own thing — the emitter walk is per-entity and culling is a viewport
-      rectangle. Neither is hurting yet, and moving them is a change with no measurement behind
-      it until one of them is.)*
+      ⏸ **deferred, and the shape is wrong rather than the timing.** *Neither consumer's question is
+      "what is within R metres of this point", which is the only question `SpatialHash` answers. The
+      emitter walk is per-entity over every emitter with no radius in it at all, and culling is a
+      viewport **rectangle** — a circumscribing circle over an isometric viewport would drag in bodies
+      the rectangle rejects for free. Sharing the index means adding a rect query, which `hash.ts`'s own
+      `CELL_METRES` note warns against: "a grid tuned per caller is a grid with two answers."*
+      *The measurements argue against it too: culling is what keeps the frame budget passing at all, and
+      `crowded-and-swinging` shows the index holding at its sightless twin's budget. The trigger is one
+      of the two actually hurting.*
 
 ### Zombies — spec: [docs/14](docs/14-zombies.md)
 
-**Done (5):**
+**Done (6):**
 
 - [x] Shambler entity with a sensory profile weighting the three channels
       *(all three weights are read; only noise is live, so scent slots in behind it)*
@@ -656,10 +666,14 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       crawler "is easy to miss in a dark breach" and that has to mean less visible rather than
       merely slower. **Damage never interrupts the state machine**; only stagger does, per
       docs/14's "stagger from mass, never flinch from injury".)*
-
-**Open (1):**
-
-- [ ] Pursue on direct contact
+- [x] Pursue on direct contact
+      *(a fifth state, and the only stimulus that **persists** — noise commits for twenty seconds and
+      fades, scent and light end the tick they stop being sensed, and contact holds until the survivor
+      gets clear. **Contact is distance**, for `threat.ts`'s reason: distance is the one measure that
+      does not vary with the light, so shutters and darkness cannot switch pursuit off. Two radii,
+      because one flickers. It grinds at a wall rather than pathing round it, which is docs/14's
+      sentence and falls out for free from a heading that never stops pointing. A stagger still drops
+      it, which is what docs/09 says a stagger buys.)*
 
 ### The player survivor — spec: [docs/09](docs/09-combat.md)
 
@@ -733,7 +747,7 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 
 ### Time — spec: [docs/02](docs/02-core-loop.md)
 
-**Done (4):**
+**Done (5):**
 
 - [x] Day/night cycle with the four phases
       *(**time of day is a pure function of `world.tick`** — no clock state, nothing new in the
@@ -766,18 +780,12 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       timestep and the replay record are untouched. Contact is a **distance**, not a sightline:
       a sightline-based rule would fire constantly in daylight and stop firing at night, which
       is exactly when a fast-forward is most dangerous.)*
-
-**Open (3):**
-
 - [x] **Night is darker.** `NIGHT_AMBIENT` is 0.04, derived rather than picked
       *(and derived in **tiles**, which is the part that matters. The metres version admitted 0.05,
       where bare eyes are 2.4 m and a candle is 3 m and both round to the same three-tile window —
       an upgrade on paper, invisible in play. In tiles the ladder is 2 bare-eyed, 3 by candle, 20 by
       campfire, 35 by lamp, 48 by daylight. The counterplay is **findable, not given**: the default
       loadout is empty and candles sit at loot weight 40.)*
-- [ ] Nights vary: the [director](docs/17-director.md) decides what tonight is
-      *(docs/02's night-type table. Needs the director, which is Milestone 2.)*
-- [ ] Longer nights in winter *(needs [weather](docs/16-weather.md)'s seasons)*
 
 ### Performance
 
@@ -794,8 +802,6 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       continuously. Diffusion itself is 0.0377 ms per step, 0.0075 ms amortised per tick, and costs
       the same saturated as fresh because it scans the grid rather than the live cells. The
       continuous channel is not the expensive one; per-entity AI is, and noise already paid for it.)*
-
----
 
 ## Milestone 2: The vertical slice (not started)
 
@@ -843,6 +849,32 @@ goes through the event bus.
 - [ ] Mood as summed modifiers with named sources
 - [ ] Mood consequences: slower work, more mistakes, refusing jobs, arguments
 - [ ] Injured survivors consume without producing
+
+### Moved here from Milestone 1, because this is what unblocks them
+
+Both sat as open Milestone 1 tasks that Milestone 1 could not finish. Listed here rather than deleted,
+with their original notes, so a reader can tell "nobody got to it" from "it was waiting on something".
+
+**Open (2):**
+
+- [ ] **Last-known position memory**, degrading descriptively
+      *(bodies that vanish at a wall edge read as a bug; bodies you lose track of read as the game.
+      And a marker that follows an unseen body is a lie, which
+      [the fairness rules](docs/01-hardcore-contract.md#fairness-rules) forbid outright.
+      **Half done:** the renderer fades a mark where a body was last seen, and it stays put rather
+      than tracking. The simulation half — per-observer memory, in skill-scaled prose that degrades
+      from "a moment ago" to "a while ago" — is not built, and belongs with the
+      [condition view](docs/05-health-injury.md#the-condition-view).)*
+      *(**moved from Milestone 1.** The renderer already holds the presentational half and its comment
+      is written for the swap — when the simulation grows this, the drawing does not change, only where
+      the fact comes from. Two things make it bigger than it looks: it is the first genuinely **new save
+      state** in the project, because memory is a function of history rather than of current positions
+      and so cannot be re-derived on load, which means a `SAVE_VERSION` bump; and the write pass is the
+      first observer × body loop in a file whose whole argument is that per-observer cost does not
+      amortise.)*
+- [ ] Nights vary: the [director](docs/17-director.md) decides what tonight is
+      *(docs/02's night-type table. Needs the director, which is Milestone 2.)*
+      *(**moved from Milestone 1.** It needs the director, and the director is here.)*
 
 ### Health & injury — spec: [docs/05](docs/05-health-injury.md)
 
@@ -1055,8 +1087,6 @@ goes through the event bus.
       survive comparably. Elegant-on-paper parity usually collapses in playtesting — this is how we
       find out without arguing about it.
 
----
-
 ## Beyond the slice (designed, deliberately unbuilt)
 
 Restated here because a backlog is where scope creep actually happens. All of it is designed and
@@ -1069,19 +1099,33 @@ beyond the shambler · the full [skill web](docs/08-skill-web.md) · [named item
 remaining [modification consumables](docs/11-crafting.md) · [factions](docs/18-factions.md) · the escape
 endgame · the full sandbox and storyteller layer.
 
-**Milestone 3, in this strict order** — each depends on the one before:
+### Moved here from Milestone 1, because weather and vehicles are what unblock them
 
-1. [World scale](docs/24-world-and-scale.md) — the continuous region, districts, the road graph,
-   district-tier simulation, streaming
-2. **The drive benchmark** against synthetic load, *before any vehicle exists* — it decides whether the
-   continuous region was affordable, and finding out late is the expensive way ([risk 7](#risk-checkpoints))
-3. [Vehicles](docs/25-vehicles.md) — bases, slots, affixes, driving, fuel, breakdowns, route trails
-4. [Mobile bases](docs/26-mobile-bases.md) — interior modules, convoys, relocation, nomad play
-   ([risk 8](#risk-checkpoints))
+Four items that were open Milestone 1 tasks and could not be finished in Milestone 1. Kept with their
+original notes, so a later reader can tell a deferral from an oversight.
 
-**Also Milestone 3, independent of that chain — [multiplayer](docs/27-multiplayer.md), specified and
-deliberately unbuilt.** The two ⚠ checkpoints here are [risks 9 and 10](#risk-checkpoints).
+**Open (16):**
 
+- [ ] **Wet ground** when [weather](docs/16-weather.md) arrives — rain quiets a hard surface and
+      turns dirt to mud
+      *(the obvious next thing the layer is for, and the reason it is two numbers per surface rather
+      than two constants in the movement system)*
+      *(**moved from Milestone 1.** The surface layer carries two numbers per surface rather than two
+      constants in the movement system precisely so this could land.)*
+- [ ] Surfaces in content JSON rather than a table in `surface.ts`
+      *(five surfaces × two numbers is small enough to read at a glance today. It stops being small
+      the moment weather makes them wet — see below.)*
+      *(**moved from Milestone 1**, and gated on the item above rather than on effort: the move is an
+      hour of mechanical work — a schema, a loader, a boot option and a drift test, mirroring
+      `calibrationFromContent` — for zero behaviour change while the table is still ten readable
+      numbers. Wet ground doubles it, and that is the trigger. `LIGHT_TABLE` is a third precedent for
+      leaving calibration in code with a test pinning content against it.)*
+- [ ] Vehicles read the same layer — "off-road is slow, damaging, and impassable for most
+      [mobile bases](docs/26-mobile-bases.md)" is the other half of the Roads promise, and it waits
+      on vehicles
+      *(**moved from Milestone 1.** It was always waiting on vehicles.)*
+- [ ] Longer nights in winter *(needs [weather](docs/16-weather.md)'s seasons)*
+      *(**moved from Milestone 1.** It was always waiting on weather's seasons.)*
 - [ ] Authoritative host: the same `sim/` kernel headless, clients send commands, host ticks
 - [ ] `playerId` on `Command`, and merged-queue ordering by `(tick, playerId, seq)`
       *(late commands dropped rather than applied late, and the client told)*
@@ -1115,27 +1159,6 @@ deliberately unbuilt.** The two ⚠ checkpoints here are [risks 9 and 10](#risk-
 - [ ] ⚠ **Risk checkpoint ([roadmap risk 10](docs/23-roadmap.md#risks)):** a benchmark scenario with
       synthetic clients attached, held at **the same budget as its single-player twin**. Per-client
       filtering scales with player count, a shape no existing budget has.
-
-**Deferred and now written down rather than merely absent —
-[z-levels](docs/23-roadmap.md#deferred-z-levels).** Multi-floor buildings, stairs, rooftops you stand
-on. Not designed, deliberately: the map is a flat `Uint8Array`, the field is one 64 × 64 grid, noise and
-scent both propagate across one plane, and the renderer has no floor concept. Z-levels add a dimension
-to all four at once, and the field is the expensive one. The tactical value the docs actually reference
-is mostly reachable through [doc 28's occluder classes](docs/28-visibility-and-sightlines.md#what-blocks-sight)
-with no second floor existing.
-
-**On the zombie roster.** The [types](docs/14-zombies.md#types) are content, not code — one JSON entry
-each — but three are not: the **screamer** and **runner** need
-[sight](docs/28-visibility-and-sightlines.md#what-the-zombies-see), the **heavy** needs structure damage,
-and the **bloater** needs a death effect on the scent channel. The roster is cheap; those three
-behaviours are the work, and the first is a Milestone 1 item.
-
-**Cut from the design entirely** (see the [vision's cut list](docs/00-vision.md#cut-list)): a cure or
-narrative resolution · aircraft and boats · [respec](docs/08-skill-web.md) · a tech tree ·
-player-visible infection percentages · save migrations before 1.0. *Multiplayer left this list* — it was
-cut at the vision level and [reversed with the cost written down](docs/00-vision.md#cut-list).
-
----
 
 ## Open questions nobody has answered
 
