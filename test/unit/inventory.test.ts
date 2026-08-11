@@ -36,13 +36,22 @@ import {
   nearestGroundItem,
   pickUpNearest,
   placeAt,
+  POCKET_GRID,
   splitStack,
   storeAnywhere,
   Stored,
   stow,
   unequip,
 } from "../../src/sim/modules/inventory";
-import { Affixes, ItemBase, spawnItem, Stack } from "../../src/sim/modules/items";
+import {
+  Affixes,
+  baseContainerGrid,
+  baseSize,
+  ItemBase,
+  spawnItem,
+  Stack,
+} from "../../src/sim/modules/items";
+import type { ContentEntry } from "../../src/sim/content/types";
 import { blankMap } from "../../src/sim/map/tilemap";
 
 const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
@@ -458,5 +467,91 @@ describe("items carry their base", () => {
     const { world, actor } = survivor();
     const axe = give(world, actor, "item.axe.fire");
     expect(world.components.getOrThrow(axe, ItemBase)).toEqual({ baseId: "item.axe.fire" });
+  });
+});
+
+describe("the size table", () => {
+  const bases = CONTENT.all("item");
+  const containers = bases.filter((base) => baseContainerGrid(base) !== null);
+
+  /** Does this footprint fit that grid, in either orientation? */
+  const fitsIn = (base: ContentEntry, grid: { w: number; h: number }): boolean => {
+    const size = baseSize(base);
+    return (size.w <= grid.w && size.h <= grid.h) || (size.h <= grid.w && size.w <= grid.h);
+  };
+
+  it("has a container big enough for every item in the game", () => {
+    // An item that fits in nothing can be picked up and never carried, which is not a
+    // difficult trade-off -- it is an item nobody can use. Cheap to check, and the check is
+    // what makes adding a base safe: get the footprint wrong and this says so at once.
+    for (const base of bases) {
+      const home = containers.some((container) =>
+        fitsIn(base, baseContainerGrid(container) as { w: number; h: number }),
+      );
+      expect(`${base.id} fits somewhere: ${home}`).toBe(`${base.id} fits somewhere: true`);
+    }
+  });
+
+  it("keeps pockets useful without making bags optional", () => {
+    // Pockets have to take the small finds -- losing your pack should not mean walking home
+    // empty-handed -- and must not take the big ones, or the whole "what you can carry is
+    // what you chose to wear" decision evaporates.
+    const takesAnything = bases.filter((base) => fitsIn(base, POCKET_GRID));
+    expect(takesAnything.length).toBeGreaterThan(4);
+    expect(takesAnything.length).toBeLessThan(bases.length);
+
+    const sledge = CONTENT.getOrThrow("item", "item.sledge.demolition");
+    expect(fitsIn(sledge, POCKET_GRID)).toBe(false);
+  });
+
+  /**
+   * The shape vocabulary, guarded.
+   *
+   * The first pass of this content made almost everything one cell wide, which is a grid
+   * whose every item is a vertical stick -- legal, and not a puzzle. Rotation only matters
+   * when footprints disagree about which way round they are, so this asserts the disagreement
+   * exists rather than trusting whoever edits the table next to remember why.
+   */
+  it("has shapes that actually disagree with each other", () => {
+    const footprints = new Set(bases.map((base) => `${baseSize(base).w}x${baseSize(base).h}`));
+    expect(footprints.size).toBeGreaterThanOrEqual(8);
+
+    // Containers are excluded, and that is the point of the check rather than a detail: a
+    // pack is wide whatever anyone does, so counting them would let every *carryable* item
+    // regress to a 1-wide stick with this test still green.
+    const carryable = bases.filter((base) => baseContainerGrid(base) === null);
+    const wide = carryable.filter((base) => baseSize(base).w > 1);
+    expect(wide.length).toBeGreaterThanOrEqual(4);
+
+    const square = bases.filter((base) => baseSize(base).w === baseSize(base).h);
+    expect(square.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("makes rotation matter for at least one real weapon and container pair", () => {
+    // The property the whole mechanic rests on: an item that does not fit upright and does
+    // fit turned. If this ever becomes vacuous, rotation is decoration.
+    const rig = baseContainerGrid(CONTENT.getOrThrow("item", "item.rig.chest")) as {
+      w: number;
+      h: number;
+    };
+    const needsTurning = bases.filter((base) => {
+      const size = baseSize(base);
+      const upright = size.w <= rig.w && size.h <= rig.h;
+      const turned = size.h <= rig.w && size.w <= rig.h;
+      return !upright && turned;
+    });
+    expect(needsTurning.length).toBeGreaterThan(0);
+  });
+
+  it("charges weight for bulk, roughly", () => {
+    // Not a formula -- a fuel can and a sleeping bag legitimately disagree. What must hold is
+    // that the heaviest things are not also the smallest, or weight and space stop being two
+    // constraints and become one.
+    const byMass = [...bases].sort((a, b) => (b["massKg"] as number) - (a["massKg"] as number));
+    const heaviest = byMass.slice(0, 3);
+    for (const base of heaviest) {
+      const size = baseSize(base);
+      expect(`${base.id} cells: ${size.w * size.h}`).not.toBe(`${base.id} cells: 1`);
+    }
   });
 });

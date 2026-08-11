@@ -165,9 +165,30 @@ a supply of new bases a permanent need and keeps scavenging relevant forever.
 Two constraints, deliberately independent.
 
 **Space decides what fits.** A container is a rectangle of cells and every item has a footprint, so
-a sleeping bag and a scalpel are different problems even when they weigh the same. One cell is about
-a fist: a bandage is 1×1, a fire axe 1×4, a hiking pack 4×4 that opens into a 6×8 grid. Items rotate
-90° to fit, and containers nest — a pack holds a pouch holds ammunition — to a depth of three.
+a sleeping bag and a scalpel are different problems even when they weigh the same. Items rotate 90°
+to fit, and containers nest — a pack holds a toolbox holds a rig — to a depth of three.
+
+One cell is about a fist, which puts the scale roughly where Tarkov's is:
+
+| | Footprint | |
+|---|---|---|
+| Bandage, painkillers, energy drink, tin, scrap | 1×1 | the filler that makes a bag feel lived-in |
+| Kitchen knife, water bottle | 1×2 | |
+| Machete, steel pipe | 1×3 | |
+| Aluminium bat | 1×4 | |
+| Lashed spear | 1×5 | long enough that most bags refuse it upright |
+| Field medkit, utility pouch | 2×2 | |
+| Fuel can | 2×3 | |
+| Fire axe | 2×4 | wide *and* long — the item that teaches you rotation |
+| Demolition sledge | 2×5 | a third of a hiking pack, and worth it |
+| Canvas satchel, steel toolbox | 3×2 | |
+| Chest rig | 3×3 | |
+| Hiking pack | 4×4 | opens into 6×8 |
+
+**Footprints have to disagree with each other**, and that is a design constraint rather than
+flavour. If every item is one cell wide, rotation does nothing and packing a bag is sorting a list.
+The 2-wide items are what make the puzzle a puzzle, and the mix of long-and-thin against
+short-and-fat is what makes leaving something behind an actual choice.
 
 **Weight decides what it costs to move.** Mass counts everything nested inside a container, so a pack
 full of tins weighs what the tins weigh. Over capacity costs movement speed and stamina recovery,

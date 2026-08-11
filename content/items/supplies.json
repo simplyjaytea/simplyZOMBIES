@@ -8,11 +8,43 @@
     "stack": 5
   },
   {
+    "id": "item.painkillers.blister",
+    "name": "Painkillers",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.03,
+    "stack": 4
+  },
+  {
+    "id": "item.drink.energy",
+    "name": "Energy Drink",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.33,
+    "stack": 2
+  },
+  {
     "id": "item.food.canned",
     "name": "Canned Food",
     "class": "consumable",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.4,
+    "stack": 3
+  },
+  {
+    "id": "item.scrap.metal",
+    "name": "Scrap Metal",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.3,
+    "stack": 10
+  },
+  {
+    "id": "item.tape.duct",
+    "name": "Duct Tape",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.25,
     "stack": 3
   },
   {
@@ -23,11 +55,17 @@
     "massKg": 1.0
   },
   {
-    "id": "item.scrap.metal",
-    "name": "Scrap Metal",
+    "id": "item.medkit.field",
+    "name": "Field Medkit",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.4
+  },
+  {
+    "id": "item.jerrycan.fuel",
+    "name": "Fuel Can",
     "class": "material",
-    "size": { "w": 1, "h": 1 },
-    "massKg": 0.3,
-    "stack": 10
+    "size": { "w": 2, "h": 3 },
+    "massKg": 11.5
   }
 ]
