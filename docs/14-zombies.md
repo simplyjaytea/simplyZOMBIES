@@ -27,8 +27,12 @@ Every zombie, regardless of type, runs the same loop:
 3. **Investigate** on arrival. Find nothing, mill about, disperse — leaving their own **scent** behind
    (never noise, per [field memory](03-attention.md#field-memory-is-a-scent-mechanic)), so the spot
    stays mildly attractive. **The field remembers.**
-4. **Pursue** on direct contact, indefinitely, without pathfinding cleverness — they'll grind against
-   a wall between them and you for as long as you're audible.
+4. **Pursue** on direct contact, without pathfinding cleverness — they'll grind against a wall between
+   them and you rather than walk around it, and they do not give up. **You get out of it by getting
+   away**, not by going quiet: contact is a *distance*, so darkness and shutters cannot shake a zombie
+   that already has hold of you. (This clause used to say both "indefinitely" and "for as long as
+   you're audible", which are two different mechanics — see
+   [the decision log](30-decisions.md#what-pursuit-made-structural).)
 
 ### Gradient ascent is not sufficient on its own
 

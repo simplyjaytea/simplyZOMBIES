@@ -5,15 +5,18 @@
 // *make noise, and they come; go quiet, and they don't* -- becomes a thing you can watch
 // rather than a thing the tests assert.
 //
-// Four states, taken from the spike's proven shape (docs/23-roadmap.md#it-works):
+// Five states, from the spike's proven shape (docs/23-roadmap.md#it-works) plus contact:
 //
 //   wander      aimless drift; the resting state, and what a quiet district looks like
 //   seek        gradient ascent toward the loudest neighbouring cell
-//   investigate arrived, found nothing, mills about
-//   disperse    gives up and goes back to drifting -- "a bad night has a tail" (docs/14)
+//   investigate arrived, found nothing, mills about -- and dispersing is leaving this for
+//               wander, which is why there is no `disperse` state to find here
+//   pursue      close enough to touch; goes straight at you and does not path (docs/14 rule 4)
+//   staggered   knocked off balance, and the only thing that interrupts any of the above
 //
-// Only the **noise** channel is live. The sensory profile already weights all three, so
-// scent slots in behind it without touching this file.
+// All three channels are live. Noise is an impulse, scent a bias, light a gated lean -- and
+// pursuit is the one stimulus that *persists*, because it is the one that does not need to be
+// sensed at all.
 
 import { defineComponent, Position, Velocity } from "../kernel/components";
 import { Body, isCrawling } from "./health";
@@ -22,6 +25,7 @@ import type { World } from "../kernel/world";
 import { zombieSpeed } from "../locomotion";
 import type { RngStream } from "../rng";
 import type { Module } from "./index";
+import { Controlled } from "./player";
 import { Detail, Observer } from "../vision/visibility";
 
 /**
@@ -32,6 +36,17 @@ export const ShamblerState = {
   Wander: 0,
   Seek: 1,
   Investigate: 2,
+  /**
+   * Close enough to touch a survivor. docs/14-zombies.md rule 4: "Pursue on direct contact,
+   * indefinitely, without pathfinding cleverness."
+   *
+   * The only state entered from a *thing* rather than from a field value, and the only one that
+   * persists without a countdown -- so it is also the only one that could quietly become
+   * cleverness. What keeps it stupid: the heading points at the target and nothing else, there
+   * is no memory of where the target went, and losing the target ends it immediately rather
+   * than starting a search.
+   */
+  Pursue: 4,
   /**
    * Knocked off balance by a blow. docs/09-combat.md: "Stagger is the actual survival
    * mechanic in a crowd, because a staggered zombie isn't grabbing you."
@@ -168,6 +183,34 @@ const LIGHT_SENSITIVITY = 0.1;
  */
 const LIGHT_BIAS = 0.5;
 
+/**
+ * How close a survivor has to be for a shambler to have hold of them, in metres.
+ *
+ * **Contact is distance, and deliberately not sight or sound.** `threat.ts` already argues the
+ * point for the speed control: distance is the one measure that does not vary with the light.
+ * Tie contact to a sightline and shutters switch pursuit off; tie it to noise and standing still
+ * does. Neither is what docs/14 rule 4 describes -- a zombie with its hands on you has not been
+ * *perceiving* you for a while.
+ *
+ * Just over a body width, so it means touching rather than nearby. `CELL_METRES` in the spatial
+ * hash is 2, so a query this size reads about four cells.
+ */
+const CONTACT_METRES = 1.6;
+
+/**
+ * How far a survivor has to get for a shambler to lose them, in metres.
+ *
+ * Wider than {@link CONTACT_METRES}, and the gap is the whole reason both constants exist. With
+ * one radius, a survivor standing on the boundary enters and leaves pursuit on alternating
+ * ticks -- which costs nothing but reads on screen as a zombie having a seizure, and would make
+ * any assertion about the state machine flicker with it.
+ *
+ * It is also the honest reading of "indefinitely": pursuit does not time out and cannot be
+ * shaken by going quiet or dark. You get out of it by *getting away*, and getting away is
+ * further than getting close.
+ */
+const RELEASE_METRES = 3.2;
+
 /** How long they mill about after arriving at a noise that turned out to be nothing. */
 const MILL_TICKS = 90;
 
@@ -230,6 +273,102 @@ function driftUpscent(field: World["field"], pos: Position, vel: Velocity, self:
   const angle = current + delta * SCENT_BIAS;
   vel.dx = Math.cos(angle) * speed;
   vel.dy = Math.sin(angle) * speed;
+}
+
+/**
+ * The survivor this shambler has hold of, or `null`.
+ *
+ * **Walks survivors, not the spatial hash**, and that is a correction rather than a shortcut. The
+ * hash was the obvious tool and it is the wrong one twice over:
+ *
+ *   - *It is derived state that is not in the save.* It rebuilds in the `movement` phase and this
+ *     runs in `ai`, so within a run it reads one tick stale -- fine, because the staleness is
+ *     identical for every shambler. But a world that has just had a save applied has an **empty**
+ *     hash, not a stale one, so the first tick after a load finds no contact where a continuous run
+ *     found some. That is a byte-level divergence across a save boundary, and `melee.test.ts`'s
+ *     mid-wind-up save assertion caught it.
+ *   - *The candidate sets are the wrong way round.* The hash indexes every body, so asking it
+ *     "what is near me" hands back the horde and makes the caller filter. The question here is
+ *     "which of the handful of survivors is near me", and survivors are few -- one today, a
+ *     colony's worth later. Walking them is both cheaper and reads only saved state.
+ *
+ * The hash remains right for the question it was built for: melee asks what is near a *swing*, and
+ * there the candidate set genuinely is everybody.
+ *
+ * Reading another module's component is permitted (docs/20:55); writing it is not, and this does
+ * not.
+ */
+function contactTarget(
+  survivors: readonly { entity: EntityId; x: number; y: number }[],
+  pos: Position,
+  radiusMetres: number,
+): EntityId | null {
+  const limit = radiusMetres * radiusMetres;
+  let best: EntityId | null = null;
+  let bestDistance = limit;
+
+  for (const survivor of survivors) {
+    const dx = survivor.x - pos.x;
+    const dy = survivor.y - pos.y;
+    const distance = dx * dx + dy * dy;
+    if (distance <= bestDistance) {
+      // `<=` rather than `<`, with the caller's slot ordering behind it: two survivors at exactly
+      // the same distance resolve to the later slot, deterministically, rather than to whichever
+      // was walked first.
+      best = survivor.entity;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/**
+ * Every survivor's position, gathered once per tick.
+ *
+ * Hoisted out of the per-shambler loop, and the difference is not marginal:
+ * `ComponentStore.query` allocates an array and sorts it on every call, so asking it per shambler
+ * per tick is two thousand allocations and two thousand sorts a tick. The first version of this did
+ * exactly that and put a *uniform* slowdown across every benchmark scenario, including ones with no
+ * pursuit in them -- which is what gave it away, because a cost that shows up where the feature is
+ * absent is not the feature's cost.
+ *
+ * The survivor set cannot change mid-tick, so gathering it once is not a cache that can go stale.
+ * Slot order is inherited from `query`, which is what makes the tie-break above deterministic.
+ */
+function gatherSurvivors(world: World): { entity: EntityId; x: number; y: number }[] {
+  const out: { entity: EntityId; x: number; y: number }[] = [];
+  for (const survivor of world.components.query(Position, Controlled)) {
+    const at = world.components.getOrThrow(survivor, Position);
+    out.push({ entity: survivor, x: at.x, y: at.y });
+  }
+  return out;
+}
+
+/**
+ * Point a shambler straight at what it has hold of.
+ *
+ * No path, and that absence is the feature: docs/14 rule 4 asks for a zombie that "will grind
+ * against a wall between them and you", and this produces exactly that for free -- the heading
+ * points at the survivor and `movement.integrate`'s collision resolution stops the body while it
+ * keeps pointing. A pathfinder here would be the single change that makes them tactical.
+ */
+function chase(world: World, target: EntityId, pos: Position, vel: Velocity): void {
+  const at = world.components.get(target, Position);
+  if (at === undefined) return;
+
+  const dx = at.x - pos.x;
+  const dy = at.y - pos.y;
+  const distance = Math.hypot(dx, dy);
+  // Standing on top of each other. Keep the previous heading rather than dividing by zero --
+  // and rather than picking a direction, which would be a decision nothing asked for.
+  if (distance === 0) return;
+
+  // No angular bias here, unlike every other steering function in this file. The bias exists to
+  // stop a crowd sharing one gradient from collapsing into a queue (docs/14), and a crowd with
+  // hold of the same survivor is not ascending a gradient -- it is already there. Spreading them
+  // would make a grab harder to land, which is the opposite of what a crowd should feel like.
+  vel.dx = (dx / distance) * SEEK_SPEED;
+  vel.dy = (dy / distance) * SEEK_SPEED;
 }
 
 /**
@@ -328,6 +467,7 @@ export const shamblerModule: Module = {
       run: (w) => {
         const rng = w.rng.stream("shambler");
         const field = w.field;
+        const survivors = gatherSurvivors(w);
         // A shambler hears a cell when the weighted value clears the field's own floor.
         // Not a separate tunable: the floor is already "quieter than this is silence", and a
         // second threshold would be two numbers that have to be kept in agreement.
@@ -362,7 +502,33 @@ export const shamblerModule: Module = {
               break;
             }
 
+            case ShamblerState.Pursue: {
+              // Held, until they get clear. No countdown, no memory, and nothing about the light
+              // or the noise can end it -- see RELEASE_METRES.
+              const target = contactTarget(survivors, pos, RELEASE_METRES);
+              if (target === null) {
+                // Lost them. Straight back to drifting rather than to Investigate: investigating
+                // is what you do where a *noise* was, and there was no noise. Nothing is
+                // remembered, which is what keeps this from becoming a search.
+                self.state = ShamblerState.Wander;
+                self.ticksToTurn = rng.int(20, 120);
+                break;
+              }
+              chase(w, target, pos, vel);
+              break;
+            }
+
             case ShamblerState.Seek: {
+              // Contact outranks the errand. A shambler walking to a shout that bumps into you
+              // should stop walking to the shout -- docs/03 makes noise the loudest channel, and
+              // this is the one thing louder, because it does not need to be heard.
+              const caught = contactTarget(survivors, pos, CONTACT_METRES);
+              if (caught !== null) {
+                self.state = ShamblerState.Pursue;
+                self.ticksCommitted = 0;
+                chase(w, caught, pos, vel);
+                break;
+              }
               if (steerUphill(field, pos, vel, self)) {
                 self.ticksCommitted = COMMIT_TICKS;
               } else if (heard) {
@@ -399,6 +565,13 @@ export const shamblerModule: Module = {
             }
 
             default: {
+              // Contact first, ahead of every sensed stimulus, for the reason above.
+              const caught = contactTarget(survivors, pos, CONTACT_METRES);
+              if (caught !== null) {
+                self.state = ShamblerState.Pursue;
+                chase(w, caught, pos, vel);
+                break;
+              }
               if (heard) {
                 self.state = ShamblerState.Seek;
                 self.ticksCommitted = COMMIT_TICKS;
@@ -470,6 +643,8 @@ export const SHAMBLER_TUNING = {
   noiseSensitivity: NOISE_SENSITIVITY,
   scentSensitivity: SCENT_SENSITIVITY,
   scentBias: SCENT_BIAS,
+  contactMetres: CONTACT_METRES,
+  releaseMetres: RELEASE_METRES,
   lightSensitivity: LIGHT_SENSITIVITY,
   lightBias: LIGHT_BIAS,
   millTicks: MILL_TICKS,

@@ -57,7 +57,7 @@ function room(options: { wall?: boolean; eyes?: boolean; magnitude?: number } = 
     map.tiles[t * size + size - 1] = Tile.Wall;
   }
   if (wall) {
-    for (let ty = 0; ty < size; ty++) map.tiles[ty * size + 45] = Tile.Wall;
+    for (let ty = 0; ty < size; ty++) map.tiles[ty * size + 25] = Tile.Wall;
   }
 
   // The lamp to the east, and *inside* the shambler's twelve metres. Being lit by a lamp is not
@@ -66,11 +66,14 @@ function room(options: { wall?: boolean; eyes?: boolean; magnitude?: number } = 
   // mechanic rather than a limitation -- docs/28 asks whether it can *see* the lit cell -- and the
   // first version of this test put the lamp at 20 m and measured nothing.
   const lamp = world.spawn();
-  world.components.set(lamp, Position, { x: 48.5, y: 40.5 });
+  world.components.set(lamp, Position, { x: 28.5, y: 20.5 });
   makeLightSource(world, lamp, magnitude);
 
+  // Well away from the map centre, where `boot` puts the survivor. Contact outranks every sensed
+  // stimulus -- correctly -- so a zombie standing on the player pursues rather than leans, and this
+  // suite is measuring the lean.
   const zombie = world.spawn();
-  world.components.set(zombie, Position, { x: 40.5, y: 40.5 });
+  world.components.set(zombie, Position, { x: 20.5, y: 20.5 });
   world.components.set(zombie, Velocity, { dx: 0, dy: -SHAMBLER_TUNING.seekSpeed * 0.35 });
   world.components.set(zombie, Shambler, {
     state: ShamblerState.Wander,
@@ -101,6 +104,26 @@ function heading(world: World, zombie: EntityId): number {
   return Math.atan2(vel.dy, vel.dx);
 }
 
+/**
+ * How far off the heading is from pointing at the lamp, in radians.
+ *
+ * For the *convergence* assertion only. It is the wrong metric for "did not turn" -- a shambler on
+ * a fixed heading still walks, so its bearing to a stationary lamp changes on its own -- but it is
+ * the right one for "turned toward", where a raw heading is not enough: leaning east while drifting
+ * north puts the lamp slightly south of east, so the heading rotates *past* due east. That is
+ * correct behaviour and an absolute-heading assertion calls it a failure.
+ */
+function offBy(world: World, zombie: EntityId, lamp: EntityId): number {
+  const pos = world.components.getOrThrow(zombie, Position);
+  const vel = world.components.getOrThrow(zombie, Velocity);
+  const at = world.components.getOrThrow(lamp, Position);
+  const toward = Math.atan2(at.y - pos.y, at.x - pos.x);
+  let delta = toward - Math.atan2(vel.dy, vel.dx);
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  return Math.abs(delta);
+}
+
 /** Run the sim against a hand-built map rather than the booted district. */
 function run(world: World, map: TileMap, ticks: number): void {
   world.invalidateMap();
@@ -115,16 +138,16 @@ function run(world: World, map: TileMap, ticks: number): void {
 
 describe("a lit cell it can see", () => {
   it("bends a wandering shambler toward the lamp", () => {
-    const { world, map, zombie } = room();
-    // Walking due north (-pi/2) with the lamp due east (0), so leaning toward it means the
-    // heading rotating *up* toward zero.
+    const { world, map, zombie, lamp } = room();
+    // Walking due north with the lamp due east, so it starts a quarter turn away from it.
     expect(heading(world, zombie)).toBeCloseTo(-Math.PI / 2, 6);
+    const before = offBy(world, zombie, lamp);
+    expect(before).toBeGreaterThan(1);
 
     run(world, map, 200);
 
-    const after = heading(world, zombie);
-    expect(after).toBeGreaterThan(-Math.PI / 2);
-    expect(after).toBeLessThanOrEqual(0);
+    // Closing on it, and by a wide margin rather than a rounding error.
+    expect(offBy(world, zombie, lamp)).toBeLessThan(before / 2);
   });
 
   it("does not bend it at all through a wall, however bright", () => {
