@@ -1,13 +1,33 @@
 [
   {
-    "id": "item.axe.fire",
-    "name": "Fire Axe",
+    "id": "item.knife.kitchen",
+    "name": "Kitchen Knife",
     "class": "weapon.melee",
-    "size": { "w": 1, "h": 4 },
-    "massKg": 3.2,
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.2,
     "equipSlot": "primary",
-    "slots": ["head", "haft", "wrap"],
-    "melee": { "reachMetres": 1.6, "weight": 1.5, "damage": 14, "staggerTicks": 10 }
+    "slots": ["edge", "wrap"],
+    "melee": { "reachMetres": 0.9, "weight": 0.6, "damage": 9, "staggerTicks": 4 }
+  },
+  {
+    "id": "item.machete.rusted",
+    "name": "Rusted Machete",
+    "class": "weapon.melee",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 0.7,
+    "equipSlot": "primary",
+    "slots": ["edge", "wrap"],
+    "melee": { "reachMetres": 1.2, "weight": 0.8, "damage": 11, "staggerTicks": 5 }
+  },
+  {
+    "id": "item.pipe.steel",
+    "name": "Steel Pipe",
+    "class": "weapon.melee",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 2.1,
+    "equipSlot": "primary",
+    "slots": ["wrap"],
+    "melee": { "reachMetres": 1.2, "weight": 1.3, "damage": 10, "staggerTicks": 14 }
   },
   {
     "id": "item.bat.aluminium",
@@ -20,16 +40,6 @@
     "melee": { "reachMetres": 1.4, "weight": 1.2, "damage": 11, "staggerTicks": 16 }
   },
   {
-    "id": "item.knife.kitchen",
-    "name": "Kitchen Knife",
-    "class": "weapon.melee",
-    "size": { "w": 1, "h": 1 },
-    "massKg": 0.2,
-    "equipSlot": "primary",
-    "slots": ["edge", "wrap"],
-    "melee": { "reachMetres": 0.9, "weight": 0.6, "damage": 9, "staggerTicks": 4 }
-  },
-  {
     "id": "item.spear.improvised",
     "name": "Lashed Spear",
     "class": "weapon.melee",
@@ -40,13 +50,23 @@
     "melee": { "reachMetres": 2.4, "weight": 1.0, "damage": 10, "staggerTicks": 8 }
   },
   {
-    "id": "item.pipe.steel",
-    "name": "Steel Pipe",
+    "id": "item.axe.fire",
+    "name": "Fire Axe",
     "class": "weapon.melee",
-    "size": { "w": 1, "h": 3 },
-    "massKg": 2.1,
+    "size": { "w": 2, "h": 4 },
+    "massKg": 3.2,
     "equipSlot": "primary",
-    "slots": ["wrap"],
-    "melee": { "reachMetres": 1.2, "weight": 1.3, "damage": 10, "staggerTicks": 14 }
+    "slots": ["head", "haft", "wrap"],
+    "melee": { "reachMetres": 1.6, "weight": 1.5, "damage": 14, "staggerTicks": 10 }
+  },
+  {
+    "id": "item.sledge.demolition",
+    "name": "Demolition Sledge",
+    "class": "weapon.melee",
+    "size": { "w": 2, "h": 5 },
+    "massKg": 6.4,
+    "equipSlot": "primary",
+    "slots": ["head", "haft", "wrap"],
+    "melee": { "reachMetres": 1.7, "weight": 2.4, "damage": 20, "staggerTicks": 30 }
   }
 ]
