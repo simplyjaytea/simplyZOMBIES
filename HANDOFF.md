@@ -82,6 +82,14 @@ to `0.60x`.
 seeking, and over the next minute the crowd within 50 m goes from about 30 bodies to about 90. Then
 it fades and they drift off again.
 
+**The view is isometric now**, and walls stand up in it. `docs/00-vision.md` used to leave
+Project Zomboid's "3D isometric fidelity" out of scope and now takes the projection while still
+refusing the fidelity — the expensive half of PZ's view is z-levels, which
+[docs/23 still defers](docs/23-roadmap.md#deferred-z-levels), and a wall here has a height
+because it is drawn rather than because anything can be above or below it. The reversal is
+written down in the doc itself. `W` is up the screen, not world north: the movement table in
+`platform/input.ts` is rotated 45°, and `sim/` still has no idea a camera exists.
+
 **Then walk up to one and press `F`.** There is a beat before the blow lands and a longer one
 after, and during the second you are committed — the wedge on the ground is the swing, filling
 as it winds up and draining as you recover. Swing at nothing and the recovery is the same
