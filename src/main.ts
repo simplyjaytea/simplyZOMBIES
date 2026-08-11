@@ -26,6 +26,7 @@ import { Body, isCrawling, Stamina } from "./sim/modules/health";
 import { Swing, SwingState } from "./sim/modules/melee";
 import { Controlled } from "./sim/modules/player";
 import { carriedItems, Encumbrance, inventoryView } from "./sim/modules/inventory";
+import { verifyContentReferences } from "./sim/modules/items";
 import { InventoryScreen } from "./ui/inventory";
 import { ContentRegistry } from "./sim/content/registry";
 import { calibrationFromContent } from "./sim/field/attention";
@@ -84,7 +85,7 @@ function loadContent(source: typeof webContent): {
   }
 }
 
-let loaded = loadContent(webContent);
+const loaded = loadContent(webContent);
 let contentError = loaded.error;
 
 const { world, map, player } = boot({
@@ -127,6 +128,11 @@ function load(): void {
   }
   try {
     applySave(world, decodeSave(text));
+    // A save records content *ids* and never content, so a save taken before a JSON edit can
+    // name bases and affixes this build no longer has. The version stamp cannot catch that --
+    // editing content does not change the build -- so the ids get checked directly, here,
+    // where the catch below can turn it into a notice.
+    verifyContentReferences(world);
     // The renderer's interpolation history now describes a world that no longer exists.
     renderer.capturePrevious(world);
     say(`loaded tick ${world.tick}`);
@@ -494,14 +500,38 @@ loop.start();
 
 // docs/20-ecs-and-content.md#hot-reload: tweak a JSON value, reload, re-run the seed,
 // compare outcomes. That loop is what makes balancing a system this size tractable.
+//
+// Note which word in that sentence is load-bearing: **reload**. The run restarts. It is
+// tempting to read "hot reload" as swapping content under a live world, and an earlier
+// version of this block tried to -- it rebuilt the registry and reassigned the module-local
+// `loaded`, which the world does not reference (`World.content` is readonly and was handed
+// the original at boot). So it announced "content reloaded" and changed nothing.
+//
+// Restarting is also the *correct* loop rather than merely the cheap one. Most of content is
+// read through the registry on demand -- `ItemBase` stores an id and nothing else -- but four
+// things capture it: affix modifiers folded into the modifier store at spawn, the
+// `MeleeWeapon` snapshot written on equip, container grids sized from their base, and the
+// attention field's calibration, which is derived into `private readonly` scalars in the
+// constructor and cannot be swapped at all. A live swap would refresh some of those and not
+// others, which is a world disagreeing with its own content. Re-running the seed refreshes
+// all of them by construction, and determinism is what makes the before/after comparable.
 if (import.meta.hot) {
   import.meta.hot.accept("./platform/content-source-web.ts", (updated) => {
     if (updated === undefined) return;
-    loaded = loadContent(updated as unknown as typeof webContent);
-    contentError = loaded.error;
-    // Calibration is deliberately not re-applied: the field's cell geometry is fixed at
-    // construction, so changing cellMetres needs a reload rather than a hot swap. Everything
-    // else in content is live.
-    say(contentError === null ? "content reloaded" : "content reload failed");
+
+    // A validation probe, and the registry it publishes into is thrown away. The point is to
+    // find out whether the edit is loadable *before* reloading the page: a typo would
+    // otherwise take the run down and come back as a blank screen with the message in a
+    // console nobody is looking at.
+    const probe = loadContent(updated as unknown as typeof webContent);
+    if (probe.error !== null) {
+      contentError = probe.error;
+      say("content reload failed");
+      return;
+    }
+
+    // Valid, so re-run the seed. `seed` and `wanderers` live in the query string, so the
+    // reload boots the same run against the new content.
+    location.reload();
   });
 }
