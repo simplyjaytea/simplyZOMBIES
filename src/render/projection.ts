@@ -127,6 +127,29 @@ export function visibleBounds(
 }
 
 /**
+ * A world-space heading, as the parameter angle of the projected ellipse it traces.
+ *
+ * A circle on the ground projects to an ellipse, and a *bearing* projects to something that is
+ * not simply the same angle: the two world axes land 90 degrees apart on screen only after the
+ * vertical squash, which is exactly what an ellipse's parameter space undoes. Working through
+ * it, the parameter is the world angle plus a quarter turn -- so `ctx.ellipse` with the radii
+ * from {@link projectedRadii} traces precisely the arc the swing covers in the world.
+ *
+ * The alternative -- drawing the wedge as a circle -- would claim reach the swing does not have
+ * to the north and hide reach it does have to the east, which for a mechanic whose whole
+ * readout is that wedge would be a lie on screen about what the simulation did.
+ */
+export function projectAngle(worldRadians: number): number {
+  return worldRadians + Math.PI / 4;
+}
+
+/** Radii of the ellipse a ground circle of `metres` projects to. */
+export function projectedRadii(metres: number, zoom: number): { rx: number; ry: number } {
+  const rx = metres * zoom * ((TILE_WIDTH_RATIO / 2) * Math.SQRT2);
+  return { rx, ry: (rx * TILE_HEIGHT_RATIO) / TILE_WIDTH_RATIO };
+}
+
+/**
  * Add one tile's diamond to the current path, with the top-left of its bounding box at
  * (sx, sy).
  *
