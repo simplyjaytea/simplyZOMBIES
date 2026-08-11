@@ -25,13 +25,24 @@ import { Archetype, OCTANTS, Pose } from "./pose";
 /**
  * What a body can be drawn into.
  *
- * Structural, for the reason the header gives. `fillStyle` is a property rather than a method,
- * so it is spelled out rather than picked off `CanvasRenderingContext2D`.
+ * Structural, for the reason the header gives. Everything including `fillStyle` is picked off
+ * `CanvasRenderingContext2D` rather than restated, so a real context satisfies it exactly -- a
+ * hand-written `fillStyle: string` looks tighter and is wrong, because a context's is
+ * `string | CanvasGradient | CanvasPattern` and the narrower type makes the real thing
+ * unassignable.
  */
 export type ShapeSink = Pick<
   CanvasRenderingContext2D,
-  "beginPath" | "moveTo" | "lineTo" | "closePath" | "fill" | "ellipse" | "save" | "restore"
-> & { fillStyle: string };
+  | "beginPath"
+  | "moveTo"
+  | "lineTo"
+  | "closePath"
+  | "fill"
+  | "ellipse"
+  | "save"
+  | "restore"
+  | "fillStyle"
+>;
 
 /**
  * A body's proportions and posture.

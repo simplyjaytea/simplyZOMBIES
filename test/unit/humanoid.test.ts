@@ -18,7 +18,7 @@ import { ARCHETYPES, Archetype, OCTANTS, POSE_FRAMES, POSES } from "../../src/re
  * floats off its own feet.
  */
 class Recorder implements ShapeSink {
-  fillStyle = "";
+  fillStyle: string | CanvasGradient | CanvasPattern = "";
   readonly xs: number[] = [];
   readonly ys: number[] = [];
   readonly ops: string[] = [];
@@ -43,7 +43,7 @@ class Recorder implements ShapeSink {
     this.ops.push("closePath");
   }
   fill(): void {
-    this.ops.push(`fill:${this.fillStyle}`);
+    this.ops.push(`fill:${String(this.fillStyle)}`);
   }
   ellipse(x: number, y: number, rx: number, ry: number): void {
     this.ops.push(`ellipse:${x.toFixed(3)},${y.toFixed(3)},${rx.toFixed(3)},${ry.toFixed(3)}`);
