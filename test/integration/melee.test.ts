@@ -18,7 +18,9 @@ import { Shambler } from "../../src/sim/modules/shambler";
 
 /** Boot a district, then stand the survivor at arm's length from one of its shamblers. */
 function faceOff(seed = 77) {
-  const { world, player } = boot({ seed, wanderers: 60, mapSize: 96 });
+  // `dev`, because the default loadout hands the survivor nothing -- and a survivor with no
+  // weapon has no `Swing` component at all, so there would be no loop here to test.
+  const { world, player } = boot({ seed, wanderers: 60, mapSize: 96, loadout: "dev" });
   const attacker = player as EntityId;
   const victim = world.components.query(Position, Shambler)[0] as EntityId;
 
@@ -146,7 +148,7 @@ describe("melee, on the shipped boot path", () => {
       straightThrough.push(...world.events.drained);
     }
 
-    const reloaded = boot({ seed: 79, wanderers: 60, mapSize: 96 }).world;
+    const reloaded = boot({ seed: 79, wanderers: 60, mapSize: 96, loadout: "dev" }).world;
     applySave(reloaded, decodeSave(text));
     const afterLoad: GameEvent[] = [];
     for (let i = 0; i < ticks; i++) {

@@ -56,6 +56,10 @@ const STREET_LOOT: readonly { baseId: string; weight: number }[] = [
   { baseId: "item.drink.energy", weight: 45 },
   { baseId: "item.painkillers.blister", weight: 35 },
   { baseId: "item.tape.duct", weight: 30 },
+  // Light. Common on purpose: with the default loadout empty, a candle is the whole counterplay
+  // to a dark night, and the number `NIGHT_AMBIENT` sits at assumes one is findable during the
+  // opening day rather than merely possible. A lamp is the upgrade you go looking for.
+  { baseId: "item.candle.wax", weight: 40 },
   // Awkward shapes: the ones that make you rearrange.
   { baseId: "item.water.bottle", weight: 40 },
   { baseId: "item.knife.kitchen", weight: 30 },
@@ -68,6 +72,7 @@ const STREET_LOOT: readonly { baseId: string; weight: number }[] = [
   { baseId: "item.spear.improvised", weight: 8 },
   { baseId: "item.toolbox.steel", weight: 7 },
   { baseId: "item.pack.hiking", weight: 6 },
+  { baseId: "item.lamp.electric", weight: 10 },
   { baseId: "item.axe.fire", weight: 4 },
   // The two that are a decision rather than a pickup: both are worth having and both cost
   // most of a bag. Rare because finding one should be a moment.
@@ -141,6 +146,20 @@ export type BootOptions = {
    */
   content?: ContentRegistry;
   /**
+   * What the survivor starts with.
+   *
+   * **`"none"` is the default, and it means nothing at all** -- no weapon, no bag, no bandages,
+   * no light. The district is still scattered with loot, so everything is findable; it is just
+   * not given. That is what makes the opening day a scavenging problem rather than a formality,
+   * and it is what lets `NIGHT_AMBIENT` sit low enough to matter: the counterplay to the dark
+   * is a candle you went and found.
+   *
+   * `"dev"` is the kit for testing and for seeing a system work without looting for it: a bat,
+   * a satchel, bandages, a lamp in hand and spare candles. Anything whose chain needs
+   * exercising belongs in it.
+   */
+  loadout?: "none" | "dev";
+  /**
    * Field calibration. Defaults to the shipped constants; a caller with content loaded
    * should pass `calibrationFromContent(content)` so the JSON is what actually governs.
    */
@@ -170,6 +189,7 @@ export function boot(options: BootOptions): Boot {
     observers = 0,
     startTimeOfDay = DAY_BEGINS,
     mapSize = DISTRICT_TILES,
+    loadout = "none",
     content,
     calibration = DEFAULT_CALIBRATION,
   } = options;
@@ -300,27 +320,36 @@ export function boot(options: BootOptions): Boot {
   // Something to spend. Handed out here rather than by the health module for the same reason
   // eyes are: being able to tire is a property of being a body, not of being controlled.
   makeStamina(world, player);
-  // A bat, because it is the middle of the three and the one that shows the loop best: enough
-  // reach to be usable, enough stagger to make a crowd survivable, heavy enough that the
-  // windows are visible. Which weapon a survivor holds becomes an inventory question when
-  // docs/10's item system lands.
-  makeMeleeArmed(world, player, WEAPONS.bat);
-  // Pockets, slots, and a starting loadout. docs/10-items.md#what-you-can-carry-is-what-you
-  // -chose-to-wear: the satchel is what makes the grid a decision on day one rather than a
-  // screen that is empty until you find a bag, and the bandages are there so the stacking
-  // rules are exercised by simply playing rather than only by a test.
+  // A hardcoded bat profile, and only on the `dev` loadout. It is the fallback the item bridge
+  // replaces by way of `item.equipped`, so on `none` there is no weapon *and no `Swing`
+  // component* -- `melee.intake` queries on it, which means pressing swing empty-handed does
+  // nothing at all until a weapon is found. That is the honest behaviour rather than an
+  // invented fist: docs/09 does not specify unarmed melee, and inventing it here would be
+  // designing in a boot function.
+  if (loadout === "dev") makeMeleeArmed(world, player, WEAPONS.bat);
+  // Pockets and slots. The *grid* is always there; what is in it is the loadout's business.
   makeInventory(world, player);
   // Guarded on content actually being loaded, not just on the module being on. Most tests
   // boot with an empty registry -- a world with no content is a legitimate world, and one
   // that threw here would make "there are no items" a crash instead of an absence.
   if (modules.isEnabled("item") && world.content.count("item") > 0) {
-    // A real bat, replacing the hardcoded profile above by way of `item.equipped`. Handing
-    // the player an *item* rather than a profile is what puts the whole chain -- base,
-    // affixes, condition, the melee bridge -- on the path a normal session walks, so it
-    // cannot rot behind a test.
-    equip(world, player, spawnItem(world, "item.bat.aluminium", { tier: "scavenged" }));
-    equip(world, player, spawnItem(world, "item.satchel.canvas", { tier: "scavenged" }));
-    stow(world, player, spawnItem(world, "item.bandage.cloth", { tier: "scavenged", count: 3 }));
+    if (loadout === "dev") {
+      // Real items rather than profiles, which is what puts the whole chain -- base, affixes,
+      // condition, the melee and light bridges -- on the path a session walks rather than
+      // behind a test. On the `none` loadout that guarantee moves *here*, to `dev` and the
+      // integration suites, and it is weaker for it: the chain is exercised by the tests and
+      // by a player equipping a find, not by simply starting the game. That is a real cost of
+      // an empty default and it is written down rather than left implied.
+      equip(world, player, spawnItem(world, "item.bat.aluminium", { tier: "scavenged" }));
+      equip(world, player, spawnItem(world, "item.satchel.canvas", { tier: "scavenged" }));
+      // The lamp goes in a hand, because a light only lights from one -- so `dev` is also the
+      // loadout that exercises the light bridge without looting for it.
+      equip(world, player, spawnItem(world, "item.lamp.electric", { tier: "scavenged" }));
+      stow(world, player, spawnItem(world, "item.bandage.cloth", { tier: "scavenged", count: 3 }));
+      stow(world, player, spawnItem(world, "item.candle.wax", { tier: "scavenged", count: 2 }));
+    }
+    // Outside the loadout check on purpose: the street is where the default run gets
+    // everything, so scattering is not optional the way a starting kit is.
     scatterLoot(world, map, mapSize);
     // Settle the equip events before handing the world back. Otherwise the survivor holds
     // the hardcoded profile until the first tick quietly replaces it, and a test that

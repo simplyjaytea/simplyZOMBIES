@@ -308,7 +308,9 @@ describe("weapon profiles", () => {
   });
 
   it("carries a weapon and an idle swing on the survivor from boot", () => {
-    const { world, player } = boot({ seed: 41, wanderers: 0, mapSize: 32 });
+    // The `dev` loadout, which is the one that arms anybody. On the default the survivor has
+    // neither component, and the test below asserts exactly that.
+    const { world, player } = boot({ seed: 41, wanderers: 0, mapSize: 32, loadout: "dev" });
     const p = player as EntityId;
     // `wielded` rather than the bare profile: a weapon that did not come off an item still
     // carries the three swing multipliers, all at 1, so the two paths produce one shape.

@@ -56,7 +56,7 @@ function realContent(): ContentRegistry {
 const SEED = 31337;
 
 function bootWithItems(seed = SEED) {
-  return boot({ seed, wanderers: 8, mapSize: 48, content: realContent() });
+  return boot({ seed, wanderers: 8, mapSize: 48, content: realContent(), loadout: "dev" });
 }
 
 /** Every item the player can reach, as base ids, in a canonical order. */
@@ -390,13 +390,57 @@ describe("the melee bridge", () => {
     expect(moved).toBe(true);
   });
 
+  it("gives the default loadout nothing at all, and no swing to make with it", () => {
+    // The default is empty, so the opening day is a scavenging problem rather than a
+    // formality. Two consequences worth pinning, because both read as bugs if you meet them
+    // without knowing: there is no `MeleeWeapon`, and there is no `Swing` either -- the melee
+    // systems query on both, so pressing swing does nothing until a weapon is found. docs/09
+    // does not specify unarmed melee and this deliberately does not invent it.
+    const { world, player } = boot({
+      seed: SEED,
+      wanderers: 8,
+      mapSize: 48,
+      content: realContent(),
+    });
+    const survivor = player as EntityId;
+
+    expect(loadout(world, survivor)).toEqual([]);
+    expect(world.components.has(survivor, MeleeWeapon)).toBe(false);
+    expect(world.components.has(survivor, Swing)).toBe(false);
+    // The grid itself is still there -- what is *in* it is the loadout's business.
+    expect(world.components.has(survivor, Container)).toBe(true);
+  });
+
+  it("still strews the street, because that is where the default run gets everything", () => {
+    // Scattering sits outside the loadout check on purpose. An empty default with an empty
+    // district would not be hardcore, it would be unplayable.
+    const { world } = boot({ seed: SEED, wanderers: 8, mapSize: 48, content: realContent() });
+    expect(groundItems(world).length).toBeGreaterThan(0);
+  });
+
+  it("puts findable light in the street, which is what lets the night be dark", () => {
+    // `NIGHT_AMBIENT` sits where it does because a candle is findable during the opening day,
+    // not because one is handed over. If light ever left the loot table, the dark would lose
+    // its counterplay and this is what would say so.
+    const { world } = boot({ seed: SEED, wanderers: 8, mapSize: 128, content: realContent() });
+    const onTheGround = groundItems(world).map(
+      (item) => world.components.get(item, ItemBase)?.baseId ?? "?",
+    );
+    expect(onTheGround.some((id) => id === "item.candle.wax" || id === "item.lamp.electric")).toBe(
+      true,
+    );
+  });
+
   it("still arms a survivor with inventory disabled, from the hardcoded profile", () => {
+    // The additive claim: the `dev` loadout's hardcoded profile does not depend on the item
+    // chain, so switching inventory off leaves a survivor who can still swing.
     const { world, player } = boot({
       seed: SEED,
       wanderers: 4,
       mapSize: 48,
       content: realContent(),
       disabled: ["inventory"],
+      loadout: "dev",
     });
     expect(world.components.has(player as EntityId, MeleeWeapon)).toBe(true);
   });
