@@ -18,13 +18,20 @@
 // pursuit is the one stimulus that *persists*, because it is the one that does not need to be
 // sensed at all.
 
+import {
+  SURVIVOR_BODY_PARTS,
+  SURVIVOR_HIT_LOCATION_WEIGHTS,
+  type SurvivorBodyPart,
+} from "../combat";
 import { defineComponent, Position, Velocity } from "../kernel/components";
-import type { EntityId } from "../kernel/entities";
+import { entityIndex, type EntityId } from "../kernel/entities";
+import { blockedAt, type TileMap } from "../map/tilemap";
 import type { World } from "../kernel/world";
 import { zombieSpeed } from "../locomotion";
 import type { RngStream } from "../rng";
 import type { Module } from "./index";
 import { Controlled } from "./player";
+import { Stamina } from "./health";
 import { Detail, Observer } from "../vision/visibility";
 
 /**
@@ -104,9 +111,32 @@ export type Shambler = {
   millSpeed: number;
   /** Fraction of the above left once locomotion is destroyed. */
   crawlFactor: number;
+  /** Content-defined resistance used by the escape contest. */
+  grabStrength: number;
+  /** False for types whose resolved behaviour tags do not include `grab`. */
+  canGrab: boolean;
+  /** Brief immunity after a release, so one successful escape buys actual separation time. */
+  ticksToGrab: number;
 };
 
 export const Shambler = defineComponent<Shambler>("Shambler");
+
+/** One zombie's active hold. Owned and written only by this module. */
+export type GrabState = {
+  victim: EntityId;
+  ticksUntilBite: number;
+};
+
+export const GrabState = defineComponent<GrabState>("GrabState");
+
+/** All holds currently pinning one survivor, plus their committed escape action. */
+export type Grabbed = {
+  sources: EntityId[];
+  /** Zero while idle; positive while the contextual F action is resolving. */
+  struggleTicks: number;
+};
+
+export const Grabbed = defineComponent<Grabbed>("Grabbed");
 
 /**
  * Fallback speeds, for a shambler spawned with no content entry behind it.
@@ -126,6 +156,7 @@ export const Shambler = defineComponent<Shambler>("Shambler");
  * shambler that spawns motionless in those would look like a broken state machine.
  */
 const DEFAULT_LOCOMOTION = { speed: 0.8, wander: 0.35, mill: 0.25, crawl: 0.25 } as const;
+const DEFAULT_GRAB_STRENGTH = 0.5;
 
 /**
  * The four speed fields of a {@link Shambler}, at {@link DEFAULT_LOCOMOTION}.
@@ -137,7 +168,13 @@ const DEFAULT_LOCOMOTION = { speed: 0.8, wander: 0.35, mill: 0.25, crawl: 0.25 }
  */
 export function defaultShamblerSpeeds(): Pick<
   Shambler,
-  "seekSpeed" | "wanderSpeed" | "millSpeed" | "crawlFactor"
+  | "seekSpeed"
+  | "wanderSpeed"
+  | "millSpeed"
+  | "crawlFactor"
+  | "grabStrength"
+  | "canGrab"
+  | "ticksToGrab"
 > {
   const seekSpeed = zombieSpeed(DEFAULT_LOCOMOTION.speed);
   return {
@@ -145,6 +182,9 @@ export function defaultShamblerSpeeds(): Pick<
     wanderSpeed: seekSpeed * DEFAULT_LOCOMOTION.wander,
     millSpeed: seekSpeed * DEFAULT_LOCOMOTION.mill,
     crawlFactor: DEFAULT_LOCOMOTION.crawl,
+    grabStrength: DEFAULT_GRAB_STRENGTH,
+    canGrab: true,
+    ticksToGrab: 0,
   };
 }
 
@@ -239,6 +279,16 @@ const LIGHT_BIAS = 0.5;
 const CONTACT_METRES = 1.6;
 
 /**
+ * Centre-to-centre distance at which pursuit becomes a physical hold.
+ *
+ * Deliberately narrower than contact awareness. The 0.9 m knife must work inside it, the 1.4 m
+ * bat can hold it off with spacing, and the 2.4 m spear buys the clearest safety margin. Using
+ * {@link CONTACT_METRES} here made every weapon shorter than a spear get interrupted before its
+ * first blow, erasing reach as a property.
+ */
+const GRAB_METRES = 1;
+
+/**
  * How far a survivor has to get for a shambler to lose them, in metres.
  *
  * Wider than {@link CONTACT_METRES}, and the gap is the whole reason both constants exist. With
@@ -251,6 +301,18 @@ const CONTACT_METRES = 1.6;
  * further than getting close.
  */
 const RELEASE_METRES = 3.2;
+
+/** One and a half seconds from the grab landing to the first bite. */
+const FIRST_BITE_TICKS = 30;
+/** Two seconds between later bites. */
+const REPEAT_BITE_TICKS = 40;
+/** A bite is a wound, not a health-bar substitute; the wound carries the lasting cost. */
+const BITE_DAMAGE = 8;
+/** Contextual F commits one second before the escape roll resolves. */
+const STRUGGLE_TICKS = 20;
+const STRUGGLE_STAMINA = 20;
+/** Future Strength progression raises this numerator; Milestone 1 has no Strength stat. */
+const BASE_ESCAPE_POWER = 1;
 
 /** How long they mill about after arriving at a noise that turned out to be nothing. */
 const MILL_TICKS = 90;
@@ -494,6 +556,7 @@ export function makeShambler(
   typeId = "zombie.shambler",
 ): void {
   const locomotion = locomotionOf(world, typeId);
+  const grab = grabOf(world, typeId);
   const seekSpeed = zombieSpeed(locomotion.speed);
   world.components.set(entity, Shambler, {
     state: ShamblerState.Wander,
@@ -506,6 +569,9 @@ export function makeShambler(
     wanderSpeed: seekSpeed * locomotion.wander,
     millSpeed: seekSpeed * locomotion.mill,
     crawlFactor: locomotion.crawl,
+    grabStrength: grab.strength,
+    canGrab: grab.enabled,
+    ticksToGrab: 0,
   });
 }
 
@@ -528,10 +594,124 @@ function locomotionOf(world: World, typeId: string): typeof DEFAULT_LOCOMOTION {
   };
 }
 
+function grabOf(world: World, typeId: string): { enabled: boolean; strength: number } {
+  const entry = world.content.get("zombie", typeId);
+  if (entry === undefined) return { enabled: true, strength: DEFAULT_GRAB_STRENGTH };
+  const behaviours = entry["behaviors"] as readonly string[] | undefined;
+  const grab = (entry["grab"] ?? {}) as { strength?: number };
+  return {
+    enabled: behaviours?.includes("grab") ?? true,
+    strength: grab.strength ?? DEFAULT_GRAB_STRENGTH,
+  };
+}
+
+/**
+ * Escape is an opposed contest: more or stronger hands reduce the chance, never erase it.
+ * A future Strength stat raises `escapePower`; keeping it explicit avoids inventing that stat now.
+ */
+export function escapeChance(totalGrabStrength: number, escapePower = BASE_ESCAPE_POWER): number {
+  if (escapePower <= 0) return 0;
+  return escapePower / (escapePower + Math.max(0, totalGrabStrength));
+}
+
+function rollGrabBodyPart(rng: RngStream): SurvivorBodyPart {
+  const roll = rng.next();
+  let cumulative = 0;
+  for (const part of SURVIVOR_BODY_PARTS) {
+    cumulative += SURVIVOR_HIT_LOCATION_WEIGHTS[part] ?? 0;
+    if (roll < cumulative) return part;
+  }
+  return SURVIVOR_BODY_PARTS[SURVIVOR_BODY_PARTS.length - 1] as SurvivorBodyPart;
+}
+
+/** A short physical reach may cross screening foliage, but never a solid wall or window. */
+function clearContact(map: TileMap, from: Position, to: Position): boolean {
+  for (const fraction of [0.25, 0.5, 0.75]) {
+    if (blockedAt(map, from.x + (to.x - from.x) * fraction, from.y + (to.y - from.y) * fraction)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function startGrab(world: World, source: EntityId, victim: EntityId): void {
+  if (world.components.has(source, GrabState)) return;
+  world.components.set(source, GrabState, { victim, ticksUntilBite: FIRST_BITE_TICKS });
+
+  const grabbed = world.components.get(victim, Grabbed) ?? { sources: [], struggleTicks: 0 };
+  if (!world.components.has(victim, Grabbed)) world.components.set(victim, Grabbed, grabbed);
+  if (!grabbed.sources.includes(source)) {
+    grabbed.sources.push(source);
+    grabbed.sources.sort((a, b) => entityIndex(a) - entityIndex(b));
+  }
+  world.events.publish({ type: "grab.started", victim, source });
+}
+
+function releaseGrab(world: World, source: EntityId): void {
+  const hold = world.components.get(source, GrabState);
+  if (hold === undefined) return;
+  world.components.remove(source, GrabState);
+  const shambler = world.components.get(source, Shambler);
+  if (shambler !== undefined) shambler.ticksToGrab = STRUGGLE_TICKS;
+
+  const grabbed = world.components.get(hold.victim, Grabbed);
+  if (grabbed === undefined) return;
+  const index = grabbed.sources.indexOf(source);
+  if (index !== -1) grabbed.sources.splice(index, 1);
+  if (grabbed.sources.length === 0) world.components.remove(hold.victim, Grabbed);
+}
+
+function releaseVictim(world: World, victim: EntityId): void {
+  const grabbed = world.components.get(victim, Grabbed);
+  if (grabbed === undefined) return;
+  for (const source of [...grabbed.sources]) releaseGrab(world, source);
+}
+
 export const shamblerModule: Module = {
   id: "shambler",
 
-  register({ world }) {
+  register({ world, map }) {
+    const grabRng = world.rng.stream("grab");
+
+    /**
+     * F is contextual: it starts a swing while free and a committed escape attempt while held.
+     * Melee independently refuses the swing; neither module writes the other's state.
+     */
+    world.systems.register({
+      id: "shambler.struggle-intake",
+      phase: "input",
+      order: 5,
+      run: (w) => {
+        if (!w.commands.current.some((command) => command.type === "swing")) return;
+        for (const victim of w.components.query(Grabbed, Controlled)) {
+          const grabbed = w.components.getOrThrow(victim, Grabbed);
+          if (grabbed.struggleTicks > 0) continue;
+          const stamina = w.components.get(victim, Stamina);
+          if (stamina !== undefined && stamina.current < STRUGGLE_STAMINA) continue;
+          grabbed.struggleTicks = STRUGGLE_TICKS;
+          w.events.publish({ type: "stamina.spent", entity: victim, amount: STRUGGLE_STAMINA });
+        }
+      },
+    });
+
+    /**
+     * A hold pins before movement integrates, not after the survivor has already taken a step.
+     * This runs after command intake so a movement command may still turn the survivor, but cannot
+     * translate them through the bodies holding them.
+     */
+    world.systems.register({
+      id: "shambler.pin",
+      phase: "input",
+      order: 20,
+      run: (w) => {
+        for (const victim of w.components.query(Grabbed, Velocity)) {
+          const velocity = w.components.getOrThrow(victim, Velocity);
+          velocity.dx = 0;
+          velocity.dy = 0;
+        }
+      },
+    });
+
     world.systems.register({
       id: "shambler.think",
       phase: "ai",
@@ -553,6 +733,15 @@ export const shamblerModule: Module = {
           const vel = w.components.getOrThrow(entity, Velocity);
           const heard = field.noiseAt(pos.x, pos.y) >= audible;
           const smelled = field.scentAt(pos.x, pos.y) >= detectable;
+
+          if (self.ticksToGrab > 0) self.ticksToGrab--;
+          if (w.components.has(entity, GrabState)) {
+            // Holding is neither pathfinding nor pursuit. Both bodies stay where the mistake
+            // happened until the survivor escapes or something knocks the grabber away.
+            vel.dx = 0;
+            vel.dy = 0;
+            continue;
+          }
 
           switch (self.state) {
             case ShamblerState.Staggered: {
@@ -681,6 +870,96 @@ export const shamblerModule: Module = {
     });
 
     /**
+     * Resolve holds after movement and melee have settled this tick.
+     *
+     * The order is deliberate: validate existing holds, resolve a completed struggle, deliver
+     * due bites, then begin new holds. A successful escape therefore wins a same-tick tie with
+     * a bite and the re-grab cooldown prevents the final pass taking hold again immediately.
+     */
+    world.systems.register({
+      id: "shambler.grab",
+      phase: "combat",
+      run: (w) => {
+        for (const source of w.components.query(GrabState, Position, Shambler)) {
+          const hold = w.components.getOrThrow(source, GrabState);
+          const from = w.components.getOrThrow(source, Position);
+          const at = w.components.get(hold.victim, Position);
+          if (
+            at === undefined ||
+            !w.components.has(hold.victim, Controlled) ||
+            Math.hypot(at.x - from.x, at.y - from.y) > RELEASE_METRES ||
+            !clearContact(map, from, at)
+          ) {
+            releaseGrab(w, source);
+            const self = w.components.getOrThrow(source, Shambler);
+            self.state = ShamblerState.Wander;
+            self.ticksToTurn = 20;
+            continue;
+          }
+
+          const sourceVelocity = w.components.get(source, Velocity);
+          if (sourceVelocity !== undefined) {
+            sourceVelocity.dx = 0;
+            sourceVelocity.dy = 0;
+          }
+          const victimVelocity = w.components.get(hold.victim, Velocity);
+          if (victimVelocity !== undefined) {
+            victimVelocity.dx = 0;
+            victimVelocity.dy = 0;
+          }
+        }
+
+        for (const victim of w.components.query(Grabbed, Controlled)) {
+          const grabbed = w.components.getOrThrow(victim, Grabbed);
+          if (grabbed.struggleTicks <= 0) continue;
+          if (--grabbed.struggleTicks > 0) continue;
+
+          let totalStrength = 0;
+          for (const source of grabbed.sources) {
+            totalStrength += w.components.get(source, Shambler)?.grabStrength ?? 0;
+          }
+          if (grabRng.next() < escapeChance(totalStrength)) releaseVictim(w, victim);
+        }
+
+        for (const source of w.components.query(GrabState, Shambler)) {
+          const hold = w.components.getOrThrow(source, GrabState);
+          if (--hold.ticksUntilBite > 0) continue;
+          hold.ticksUntilBite = REPEAT_BITE_TICKS;
+          w.events.publish({
+            type: "bite.landed",
+            victim: hold.victim,
+            source,
+            bodyPart: rollGrabBodyPart(grabRng),
+            damage: BITE_DAMAGE,
+          });
+        }
+
+        const survivors = gatherSurvivors(w);
+        for (const source of w.components.query(Position, Velocity, Shambler)) {
+          const self = w.components.getOrThrow(source, Shambler);
+          if (
+            self.state !== ShamblerState.Pursue ||
+            !self.canGrab ||
+            self.ticksToGrab > 0 ||
+            w.components.has(source, GrabState)
+          ) {
+            continue;
+          }
+          const victim = contactTarget(
+            survivors,
+            w.components.getOrThrow(source, Position),
+            GRAB_METRES,
+          );
+          if (victim !== null) {
+            const from = w.components.getOrThrow(source, Position);
+            const at = w.components.getOrThrow(victim, Position);
+            if (clearContact(map, from, at)) startGrab(w, source, victim);
+          }
+        }
+      },
+    });
+
+    /**
      * Take a stagger. Published by whatever landed the blow; the duration is its business
      * (a bat holds one four times as long as a knife) and what it *does* is this module's.
      */
@@ -717,6 +996,7 @@ export const shamblerModule: Module = {
       handler: (event) => {
         const self = world.components.get(event.entity, Shambler);
         if (self === undefined) return;
+        releaseGrab(world, event.entity);
         self.state = ShamblerState.Staggered;
         // Longest wins, rather than latest: two blows in a crowd should not be able to leave
         // a zombie *less* staggered than the heavier of the two already had it.
@@ -726,6 +1006,15 @@ export const shamblerModule: Module = {
           vel.dx = 0;
           vel.dy = 0;
         }
+      },
+    });
+
+    world.events.subscribe({
+      id: "shambler.release-dead",
+      type: "entity.killed",
+      handler: (event) => {
+        releaseGrab(world, event.entity);
+        releaseVictim(world, event.entity);
       },
     });
   },
@@ -739,6 +1028,7 @@ export const SHAMBLER_TUNING = {
   scentSensitivity: SCENT_SENSITIVITY,
   scentBias: SCENT_BIAS,
   contactMetres: CONTACT_METRES,
+  grabMetres: GRAB_METRES,
   releaseMetres: RELEASE_METRES,
   lightSensitivity: LIGHT_SENSITIVITY,
   lightBias: LIGHT_BIAS,
@@ -747,4 +1037,11 @@ export const SHAMBLER_TUNING = {
   wanderFactor: DEFAULT_LOCOMOTION.wander,
   millFactor: DEFAULT_LOCOMOTION.mill,
   crippledSource: CRIPPLED_SOURCE,
+  firstBiteTicks: FIRST_BITE_TICKS,
+  repeatBiteTicks: REPEAT_BITE_TICKS,
+  biteDamage: BITE_DAMAGE,
+  struggleTicks: STRUGGLE_TICKS,
+  struggleStamina: STRUGGLE_STAMINA,
+  baseEscapePower: BASE_ESCAPE_POWER,
+  defaultGrabStrength: DEFAULT_GRAB_STRENGTH,
 } as const;

@@ -25,7 +25,7 @@ const ITEM = /^- \[([x~ ])\]/;
 const LABEL = { x: "Done", "~": "In progress", " ": "Open" };
 const ORDER = ["Done", "In progress", "Open"];
 
-const lines = readFileSync(HANDOFF, "utf8").split("\n");
+const lines = readFileSync(HANDOFF, "utf8").split(/\r?\n/);
 const out = [];
 let i = 0;
 

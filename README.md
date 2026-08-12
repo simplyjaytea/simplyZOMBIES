@@ -22,11 +22,11 @@ follow signals.
 
 ## What makes it different
 
-- **One field ties four genres together.** Noise, light, and scent form a map-wide gradient the horde
-  walks up. Cooking, warmth, electricity, gunfire, and every extra person feed it. Survival and tower
-  defense are the same system read from two directions.
-- **Nobody has a class.** Your survivor is a blank slate, and so is everyone you recruit. Your build
-  is the gear you found and modified, plus a classless skill web earned by doing.
+- **One attention system ties four genres together.** Noise and scent spread across the district;
+  light changes what can see and be seen. Cooking, warmth, electricity, gunfire, and every extra
+  person leave signals. Survival and tower defense are the same system read from two directions.
+- **Nobody has a class.** Survivors will have bounded natural aptitudes, but no predetermined build.
+  Who they become comes from the gear they find and modify plus a classless skill web earned by doing.
 - **Bodies are cheap; people are expensive.** Survivors are unlimited and procedurally generated, and
   they arrive knowing nothing and eating immediately. What infection takes from you isn't a headcount,
   it's two months of investment.
@@ -44,21 +44,26 @@ follow signals.
 
 ## Status
 
-**Playable, and early.** Milestone 0 (the architecture) is complete; Milestone 1 (the attention field
-and something that reacts to it) is in progress. Two of the three channels are live — make a noise and
-the district walks toward you in a minute, make none and scent still finds you in an hour. You only see
-what you have a sightline to, the ground you walk on decides how loud you are, and night takes your
-view from 48 metres down to 12. There is gear with rolled affixes and a grid to put it in, and a melee
-swing you are committed to once you start it.
+**Playable, and early.** Milestones 0 and 1 are complete. Make noise and the district converges;
+stay quiet and scent still brings danger eventually. Walls block sight, surfaces change speed and
+footstep noise, and midnight closes bare-eyed vision to only a few metres unless you find a light.
+Five movement stances trade time, stamina, visibility, and noise. Melee commits you to a swing, while
+contact can pin, bite, and force a stamina-paid struggle. Gear already rolls affixes and fits into a
+rotatable, nested grid inventory, and wounds appear on a descriptive body-part view rather than a
+health bar.
 
-Not in yet: light emitters, so the dark is softer than intended; grabs, so melee does not yet risk a
-bite; and everything about other survivors, which is Milestone 2.
+Milestone 2 is the colony-sized vertical slice: generated survivors, needs and work, the complete
+injury and uncertain-infection loops, ranged combat, building, pacing, death, and succession.
+
+**[Play the latest main build](https://simplyjaytea.github.io/simplyZOMBIES/).** Every push to `main`
+that passes the correctness and performance checks automatically replaces this playable build;
+failed checks are never published.
 
 ```bash
 npm install && npm run dev     # http://127.0.0.1:5174
 ```
 
-`WASD` move · `Shift` sprint · `F` swing · `Space` **shout** · `E` pick up · `Tab` **inventory**
+`WASD` move · `Shift` sprint · `F` swing or struggle · `Space` **shout** · `E` pick up · `Tab` **inventory**
 (drag to move, right-click or `R` to rotate) · `O` cycles the attention overlay (noise, scent, sight)
 · `1`/`2`/`3` speed · `P` pause · `F5`/`F9` save and load.
 
@@ -70,11 +75,11 @@ cheap.
 
 ## Working on it?
 
-**[HANDOFF.md](HANDOFF.md) is the engineer's document and the place to start.** It carries the current
-state, the roadmap through the vertical slice with every task marked done or open, the risk register,
-and what to pick up next. [docs/23-roadmap.md](docs/23-roadmap.md) is the slice as *designed*;
-[docs/30-decisions.md](docs/30-decisions.md) records what each chunk of work made structural, and is
-worth reading before you change something that looks arbitrary.
+**[HANDOFF.md](HANDOFF.md) is the engineer's document and the place to start.** It carries current
+implementation state, verification, the task backlog, and what to pick up next.
+[docs/23-roadmap.md](docs/23-roadmap.md) owns product scope, milestone order, risks, and playtest
+questions; [docs/30-decisions.md](docs/30-decisions.md) records what each completed chunk made
+structural and is worth reading before changing something that looks arbitrary.
 
 ## Documentation
 
@@ -89,7 +94,7 @@ and 30 sits with the technical set rather than all of them landing at the end.
 | [01 — The Hardcore Contract](docs/01-hardcore-contract.md) | Lethality, permadeath, succession, imperfect information, no win state |
 | [02 — Core Loop](docs/02-core-loop.md) | The dawn/day/dusk/night ratchet |
 | [03 — The Attention Field](docs/03-attention.md) | **The spine.** Noise, light, scent, and how the horde reads them |
-| [28 — Visibility & Sightlines](docs/28-visibility-and-sightlines.md) | One line-of-sight primitive: the light channel, what the renderer may draw, what a client may know |
+| [28 — Visibility & Sightlines](docs/28-visibility-and-sightlines.md) | Sight, darkness, cover, and what the world may reveal |
 
 ### Survival & people
 | | |

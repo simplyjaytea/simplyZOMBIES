@@ -25,7 +25,8 @@ import type { PointerState } from "../platform/pointer";
 import { CONDITION_TINTS } from "../render/palette";
 import { drawPaperdoll } from "../render/paperdoll";
 import { outlineMetrics } from "../render/sprites/outline";
-import type { ConditionView } from "../sim/condition";
+import type { ConditionView, PartView } from "../sim/condition";
+import type { SurvivorBodyPart } from "../sim/combat";
 import { stanceSpec } from "../sim/stances";
 
 /** Cell size in CSS pixels. Big enough to drop a 1x1 into without fighting the mouse. */
@@ -39,28 +40,22 @@ const PANEL_GAP = 12;
 /** Height of a panel's title line. */
 const TITLE_H = 18;
 
-/** Wide enough for a two-cell slot plus the item's name beside it. */
-const SLOT_COLUMN_W = CELL * 2 + 170;
+/**
+ * One body in two views. Equipment arranges real drop targets around it; injuries replaces them
+ * with the privacy-filtered prose from `ConditionView`. Both draw the same pose and region tints.
+ */
+const BODY_PANEL_W = 548;
+const BODY_PANEL_H = 390;
+const DOLL_HEIGHT = 248;
+const TAB_W = 112;
+const TAB_H = 26;
+const EQUIP_SLOT_W = CELL * 2;
+const EQUIP_SLOT_H = CELL;
+const INJURY_ROW_H = 27;
 
-/**
- * How tall the condition paperdoll's figure stands, in pixels, and the width its prose column
- * gets.
- *
- * Larger than the on-canvas glimpse, because this is the tier that is *read* rather than glanced
- * at: docs/05 wants located conditions "sitting on the part they are on", and a reader has to be
- * able to tell which limb a line of prose is about by looking at the figure beside it.
- */
-const DOLL_HEIGHT = 168;
-/**
- * Wide enough for the longest line the prose table can produce.
- *
- * Sized by measurement rather than by guess: at 12px monospace the widest entry is `hands --
- * steady enough for fine work` at about 260 px, plus the state dot and its gap. It overflowed the
- * panel at 250, which is the kind of thing only running the screen shows.
- */
-const DOLL_PROSE_W = 330;
-/** Line height for the per-part prose. Matches the 12px monospace the rest of the screen uses. */
-const DOLL_LINE_H = 16;
+export type BodyPanelView = "equipment" | "injuries";
+
+export const BODY_PANEL_VIEWS: readonly BodyPanelView[] = ["equipment", "injuries"];
 
 const COLOURS = {
   scrim: "rgba(8, 9, 10, 0.93)",
@@ -91,6 +86,16 @@ type PlacedSlot = {
   readonly item: ItemView | null;
   readonly x: number;
   readonly y: number;
+  readonly w: number;
+  readonly h: number;
+};
+
+type HitRect<T> = {
+  readonly value: T;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
 };
 
 /** What is currently in the player's hand, mid-drag. */
@@ -133,6 +138,21 @@ export class InventoryScreen {
   private drag: Drag | null = null;
   private grids: PlacedGrid[] = [];
   private slots: PlacedSlot[] = [];
+  private tabs: HitRect<BodyPanelView>[] = [];
+  private injuryRows: HitRect<SurvivorBodyPart>[] = [];
+  private bodyView: BodyPanelView = "equipment";
+  private selectedPart: SurvivorBodyPart = "head";
+
+  /** Exposed for input adapters and focused UI tests; tab clicks call the same method. */
+  selectBodyView(view: BodyPanelView): void {
+    this.bodyView = view;
+    if (view === "injuries") this.drag = null;
+  }
+
+  /** The active tab, without exposing any simulation state. */
+  currentBodyView(): BodyPanelView {
+    return this.bodyView;
+  }
 
   /**
    * Rotate what is in hand, from the keyboard.
@@ -181,80 +201,19 @@ export class InventoryScreen {
     ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
     ctx.textBaseline = "top";
 
-    const panels = this.layout(view, condition, height);
+    const panels = this.layout(view, height);
     const offsetX = Math.max(PAD, Math.round((width - panels.width) / 2));
     const offsetY = Math.max(PAD, Math.round((height - panels.height) / 2));
 
     this.grids = [];
     this.slots = [];
+    this.tabs = [];
+    this.injuryRows = [];
 
-    // ---- worn and held ----
-    const slotPanel = panels.slotPanel;
-    this.drawPanel(ctx, offsetX + slotPanel.x, offsetY + slotPanel.y, slotPanel.w, slotPanel.h);
-    ctx.fillStyle = COLOURS.text;
-    ctx.fillText("worn and held", offsetX + slotPanel.x + PAD, offsetY + slotPanel.y + 6);
-
-    let slotY = offsetY + slotPanel.y + TITLE_H + 8;
-    for (const { slot, item } of view.slots) {
-      const x = offsetX + slotPanel.x + PAD;
-      this.slots.push({ slot, item, x, y: slotY });
-
-      ctx.fillStyle = COLOURS.slot;
-      ctx.fillRect(x, slotY, CELL * 2, CELL);
-      ctx.strokeStyle = COLOURS.cellEdge;
-      ctx.strokeRect(x + 0.5, slotY + 0.5, CELL * 2 - 1, CELL - 1);
-
-      if (item !== null && this.drag?.item !== item.item) {
-        ctx.fillStyle = COLOURS.item;
-        ctx.fillRect(x + 2, slotY + 2, CELL * 2 - 4, CELL - 4);
-        ctx.strokeStyle = COLOURS.itemEdge;
-        ctx.strokeRect(x + 2.5, slotY + 2.5, CELL * 2 - 5, CELL - 5);
-      }
-
-      ctx.fillStyle = item === null ? COLOURS.dim : COLOURS.text;
-      ctx.fillText(item === null ? slot : item.name, x + CELL * 2 + 8, slotY + CELL / 2 - 6);
-      slotY += CELL + 4;
-    }
-
-    // ---- condition ----
-    //
-    // The paperdoll, and one line of prose per part. **No numbers, and nothing a number could be
-    // derived from** -- rule 3 at the top of this file, which docs/05 sharpens into "colour, never
-    // fill": a bar with the figure hidden behind a hover is still a bar.
-    if (condition !== null && panels.dollPanel !== null) {
-      const doll = panels.dollPanel;
-      const px = offsetX + doll.x;
-      const py = offsetY + doll.y;
-      this.drawPanel(ctx, px, py, doll.w, doll.h);
-
-      ctx.fillStyle = COLOURS.text;
-      // The title says what posture, because the figure below is drawn in it and a reader should
-      // not have to infer a mechanic from a silhouette.
-      ctx.fillText(`condition -- ${stanceSpec(condition.stance).name}`, px + PAD, py + 6);
-
-      const box = outlineMetrics(DOLL_HEIGHT);
-      drawPaperdoll(ctx, condition, {
-        height: DOLL_HEIGHT,
-        anchorX: px + PAD + box.anchorX,
-        anchorY: py + TITLE_H + PAD + box.anchorY,
-      });
-
-      let lineY = py + TITLE_H + PAD;
-      const proseX = px + PAD * 2 + box.width;
-      for (const part of condition.parts) {
-        // A dot in the part's tint, then the part, then what it says. The dot is the same colour
-        // the limb is drawn in, which is the whole of how a line of prose is tied to a place on
-        // the body -- and it is why the tints have to differ in lightness as well as hue.
-        ctx.fillStyle = CONDITION_TINTS[part.state] ?? COLOURS.text;
-        ctx.beginPath();
-        ctx.ellipse(proseX + 4, lineY + 6, 4, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = part.state === 0 ? COLOURS.dim : COLOURS.text;
-        ctx.fillText(`${part.part} -- ${part.prose}`, proseX + 14, lineY);
-        lineY += DOLL_LINE_H;
-      }
-    }
+    const bodyPanel = panels.bodyPanel;
+    const bodyX = offsetX + bodyPanel.x;
+    const bodyY = offsetY + bodyPanel.y;
+    this.drawBodyPanel(ctx, view, condition, bodyX, bodyY);
 
     // ---- the grids ----
     for (const placed of panels.gridPanels) {
@@ -285,43 +244,18 @@ export class InventoryScreen {
    */
   private layout(
     view: InventoryView,
-    condition: ConditionView | null,
     height: number,
   ): {
     width: number;
     height: number;
-    slotPanel: { x: number; y: number; w: number; h: number };
-    dollPanel: { x: number; y: number; w: number; h: number } | null;
+    bodyPanel: { x: number; y: number; w: number; h: number };
     gridPanels: readonly { view: ContainerView; x: number; y: number; w: number; h: number }[];
   } {
-    const slotPanel = {
-      x: 0,
-      y: 0,
-      w: SLOT_COLUMN_W,
-      h: TITLE_H + PAD + view.slots.length * (CELL + 4),
-    };
-
-    // Under the slots, in the same column, and that placement is the argument for it: docs/10's
-    // armour coverage is per part, so the parts want to be read against the things worn over them.
-    // Putting it beside the grid instead would have made it a second inventory.
-    const dollPanel =
-      condition === null
-        ? null
-        : {
-            x: 0,
-            y: slotPanel.h + PANEL_GAP,
-            w: Math.max(SLOT_COLUMN_W, outlineMetrics(DOLL_HEIGHT).width + DOLL_PROSE_W + PAD * 3),
-            h: Math.max(
-              outlineMetrics(DOLL_HEIGHT).height + TITLE_H + PAD * 2,
-              TITLE_H + PAD * 2 + condition.parts.length * DOLL_LINE_H,
-            ),
-          };
+    const bodyPanel = { x: 0, y: 0, w: BODY_PANEL_W, h: BODY_PANEL_H };
 
     const gridPanels: { view: ContainerView; x: number; y: number; w: number; h: number }[] = [];
     const available = height - PAD * 4;
-    // Clear of the *whole* left column, not just the slots. The condition panel is the wider of
-    // the two, so measuring from `slotPanel.w` would have run the first grid straight over it.
-    let x = (dollPanel === null ? slotPanel.w : Math.max(slotPanel.w, dollPanel.w)) + PANEL_GAP;
+    let x = bodyPanel.w + PANEL_GAP;
     let y = 0;
     let columnW = 0;
 
@@ -339,13 +273,178 @@ export class InventoryScreen {
       y += h + PANEL_GAP;
     }
 
-    // The left column is as wide as its widest panel and as tall as its last one, so the grids
-    // pack beside the pair rather than beside the slots alone.
-    const leftW = dollPanel === null ? slotPanel.w : Math.max(slotPanel.w, dollPanel.w);
-    const leftH = dollPanel === null ? slotPanel.h : dollPanel.y + dollPanel.h;
-    const right = gridPanels.reduce((max, panel) => Math.max(max, panel.x + panel.w), leftW);
-    const bottom = gridPanels.reduce((max, panel) => Math.max(max, panel.y + panel.h), leftH);
-    return { width: right, height: bottom, slotPanel, dollPanel, gridPanels };
+    const right = gridPanels.reduce((max, panel) => Math.max(max, panel.x + panel.w), bodyPanel.w);
+    const bottom = gridPanels.reduce((max, panel) => Math.max(max, panel.y + panel.h), bodyPanel.h);
+    return { width: right, height: bottom, bodyPanel, gridPanels };
+  }
+
+  private drawBodyPanel(
+    ctx: CanvasRenderingContext2D,
+    view: InventoryView,
+    condition: ConditionView | null,
+    x: number,
+    y: number,
+  ): void {
+    this.drawPanel(ctx, x, y, BODY_PANEL_W, BODY_PANEL_H);
+    ctx.fillStyle = COLOURS.text;
+    ctx.fillText(
+      condition === null ? "survivor" : `survivor -- ${stanceSpec(condition.stance).name}`,
+      x + PAD,
+      y + 7,
+    );
+
+    for (const [index, tab] of BODY_PANEL_VIEWS.entries()) {
+      const tx = x + BODY_PANEL_W - PAD - TAB_W * (BODY_PANEL_VIEWS.length - index);
+      const ty = y + 1;
+      this.tabs.push({ value: tab, x: tx, y: ty, w: TAB_W, h: TAB_H });
+      ctx.fillStyle = tab === this.bodyView ? COLOURS.cell : COLOURS.panel;
+      ctx.fillRect(tx, ty, TAB_W, TAB_H);
+      ctx.strokeStyle = tab === this.bodyView ? COLOURS.itemEdge : COLOURS.panelEdge;
+      ctx.strokeRect(tx + 0.5, ty + 0.5, TAB_W - 1, TAB_H - 1);
+      ctx.fillStyle = tab === this.bodyView ? COLOURS.text : COLOURS.dim;
+      ctx.fillText(tab, tx + 12, ty + 6);
+    }
+
+    if (condition === null) {
+      ctx.fillStyle = COLOURS.dim;
+      ctx.fillText("no condition record", x + PAD, y + TITLE_H + PAD);
+      return;
+    }
+
+    if (this.bodyView === "equipment") this.drawEquipmentBody(ctx, view, condition, x, y);
+    else this.drawInjuryBody(ctx, condition, x, y);
+  }
+
+  private drawEquipmentBody(
+    ctx: CanvasRenderingContext2D,
+    view: InventoryView,
+    condition: ConditionView,
+    x: number,
+    y: number,
+  ): void {
+    const box = outlineMetrics(DOLL_HEIGHT);
+    const anchorX = x + Math.round(BODY_PANEL_W / 2);
+    const anchorY = y + 52 + box.anchorY;
+    drawPaperdoll(ctx, condition, { height: DOLL_HEIGHT, anchorX, anchorY });
+
+    const byName = new Map(view.slots.map((entry) => [entry.slot, entry]));
+    const placements: readonly { slot: string; x: number; y: number }[] = [
+      { slot: "head", x: Math.round((BODY_PANEL_W - EQUIP_SLOT_W) / 2), y: 43 },
+      { slot: "back", x: 24, y: 104 },
+      { slot: "vest", x: BODY_PANEL_W - 24 - EQUIP_SLOT_W, y: 104 },
+      { slot: "primary", x: 24, y: 220 },
+      { slot: "secondary", x: BODY_PANEL_W - 24 - EQUIP_SLOT_W, y: 220 },
+      { slot: "belt", x: 24, y: 324 },
+      { slot: "torso", x: BODY_PANEL_W - 24 - EQUIP_SLOT_W, y: 324 },
+    ];
+
+    for (const placed of placements) {
+      const entry = byName.get(placed.slot);
+      if (entry === undefined) continue;
+      this.drawBodySlot(ctx, entry.slot, entry.item, x + placed.x, y + placed.y);
+    }
+  }
+
+  private drawBodySlot(
+    ctx: CanvasRenderingContext2D,
+    slot: string,
+    item: ItemView | null,
+    x: number,
+    y: number,
+  ): void {
+    this.slots.push({ slot, item, x, y, w: EQUIP_SLOT_W, h: EQUIP_SLOT_H });
+    ctx.fillStyle = COLOURS.slot;
+    ctx.fillRect(x, y, EQUIP_SLOT_W, EQUIP_SLOT_H);
+    ctx.strokeStyle = COLOURS.cellEdge;
+    ctx.strokeRect(x + 0.5, y + 0.5, EQUIP_SLOT_W - 1, EQUIP_SLOT_H - 1);
+    if (item !== null && this.drag?.item !== item.item) {
+      ctx.fillStyle = COLOURS.item;
+      ctx.fillRect(x + 2, y + 2, EQUIP_SLOT_W - 4, EQUIP_SLOT_H - 4);
+      ctx.strokeStyle = COLOURS.itemEdge;
+      ctx.strokeRect(x + 2.5, y + 2.5, EQUIP_SLOT_W - 5, EQUIP_SLOT_H - 5);
+    }
+    ctx.fillStyle = item === null ? COLOURS.dim : COLOURS.text;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x + 4, y + 2, EQUIP_SLOT_W - 8, EQUIP_SLOT_H - 4);
+    ctx.clip();
+    ctx.fillText(item === null ? slot : item.name, x + 6, y + 10);
+    ctx.restore();
+  }
+
+  private drawInjuryBody(
+    ctx: CanvasRenderingContext2D,
+    condition: ConditionView,
+    x: number,
+    y: number,
+  ): void {
+    const box = outlineMetrics(DOLL_HEIGHT);
+    drawPaperdoll(ctx, condition, {
+      height: DOLL_HEIGHT,
+      anchorX: x + 142,
+      anchorY: y + 71 + box.anchorY,
+    });
+
+    const listX = x + 276;
+    const listY = y + 52;
+    for (const [index, part] of condition.parts.entries()) {
+      const rowY = listY + index * INJURY_ROW_H;
+      this.injuryRows.push({ value: part.part, x: listX, y: rowY, w: 248, h: INJURY_ROW_H });
+      if (part.part === this.selectedPart) {
+        ctx.fillStyle = COLOURS.cell;
+        ctx.fillRect(listX, rowY, 248, INJURY_ROW_H - 2);
+      }
+      ctx.fillStyle = CONDITION_TINTS[part.state] ?? COLOURS.text;
+      ctx.beginPath();
+      ctx.ellipse(listX + 7, rowY + 12, 4, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = part.state === 0 ? COLOURS.dim : COLOURS.text;
+      ctx.fillText(part.part, listX + 18, rowY + 6);
+    }
+
+    const selected =
+      condition.parts.find((part) => part.part === this.selectedPart) ?? condition.parts[0];
+    if (selected !== undefined) this.drawInjuryDetails(ctx, selected, listX, y + 231, 248);
+  }
+
+  private drawInjuryDetails(
+    ctx: CanvasRenderingContext2D,
+    part: PartView,
+    x: number,
+    y: number,
+    w: number,
+  ): void {
+    ctx.strokeStyle = COLOURS.panelEdge;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.stroke();
+    ctx.fillStyle = CONDITION_TINTS[part.state] ?? COLOURS.text;
+    ctx.fillText(part.part, x, y + 13);
+    ctx.fillStyle = COLOURS.text;
+    this.drawWrappedText(ctx, part.prose, x, y + 39, w, 17);
+  }
+
+  private drawWrappedText(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    maxWidth: number,
+    lineHeight: number,
+  ): void {
+    const words = text.split(/\s+/);
+    let line = "";
+    let lineY = y;
+    for (const word of words) {
+      const next = line === "" ? word : `${line} ${word}`;
+      if (line !== "" && ctx.measureText(next).width > maxWidth) {
+        ctx.fillText(line, x, lineY);
+        line = word;
+        lineY += lineHeight;
+      } else line = next;
+    }
+    if (line !== "") ctx.fillText(line, x, lineY);
   }
 
   private drawPanel(
@@ -435,7 +534,7 @@ export class InventoryScreen {
 
   private slotAt(x: number, y: number): PlacedSlot | null {
     for (const slot of this.slots) {
-      if (x >= slot.x && x < slot.x + CELL * 2 && y >= slot.y && y < slot.y + CELL) {
+      if (x >= slot.x && x < slot.x + slot.w && y >= slot.y && y < slot.y + slot.h) {
         return slot;
       }
     }
@@ -450,6 +549,19 @@ export class InventoryScreen {
    * split that keeps `ui/` unable to write to `sim/`.
    */
   private handlePointer(pointer: PointerState, commands: CommandQueue): void {
+    if (pointer.pressed && this.drag === null) {
+      const tab = this.tabs.find((hit) => this.inside(pointer.x, pointer.y, hit));
+      if (tab !== undefined) {
+        this.selectBodyView(tab.value);
+        return;
+      }
+      const injury = this.injuryRows.find((hit) => this.inside(pointer.x, pointer.y, hit));
+      if (injury !== undefined) {
+        this.selectedPart = injury.value;
+        return;
+      }
+    }
+
     // Rotate whatever is in hand. Right-click rather than a modifier because it is the
     // gesture every game in this genre already taught the player.
     if (pointer.secondary && this.drag !== null) {
@@ -522,6 +634,14 @@ export class InventoryScreen {
     });
   }
 
+  private inside(
+    x: number,
+    y: number,
+    rect: { x: number; y: number; w: number; h: number },
+  ): boolean {
+    return x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
+  }
+
   /** The item under the cursor, plus a tint saying whether it would land there. */
   private drawDragGhost(ctx: CanvasRenderingContext2D, pointer: PointerState): void {
     const drag = this.drag;
@@ -564,7 +684,9 @@ export class InventoryScreen {
   ): void {
     ctx.fillStyle = COLOURS.dim;
     ctx.fillText(
-      "drag to move   right-click or R rotates   drag onto a slot to wear   drag out to drop   Tab closes",
+      this.bodyView === "equipment"
+        ? "drag to move   right-click or R rotates   drag onto a body slot to wear   drag out to drop   Tab closes"
+        : "select a body region for details   Equipment returns to loadout   Tab closes",
       PAD,
       height - 24,
     );

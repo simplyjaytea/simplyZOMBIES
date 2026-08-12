@@ -31,7 +31,13 @@ export type GameEvent =
       bodyPart: string;
       damage: number;
     }
-  | { type: "bite.landed"; victim: EntityId; source: EntityId; bodyPart: string }
+  | {
+      type: "bite.landed";
+      victim: EntityId;
+      source: EntityId;
+      bodyPart: string;
+      damage: number;
+    }
   | { type: "grab.started"; victim: EntityId; source: EntityId }
   /**
    * Knocked off balance, and for how long. Duration is on the event for the same reason

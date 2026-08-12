@@ -19,6 +19,7 @@ import { step, stepN } from "../../src/sim/kernel/step";
 import type { World } from "../../src/sim/kernel/world";
 import {
   defaultShamblerSpeeds,
+  GrabState,
   Shambler,
   ShamblerState,
   SHAMBLER_TUNING,
@@ -127,6 +128,7 @@ describe("what pursuit must not become", () => {
     expect(Math.abs(end.y - start.y)).toBeLessThan(1);
     // Still held, and still on the far side.
     expect(stateOf(world, zombie)).toBe(ShamblerState.Pursue);
+    expect(world.components.has(zombie, GrabState)).toBe(false);
   });
 
   it("lets go when the survivor gets clear, and forgets them", () => {

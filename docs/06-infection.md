@@ -73,8 +73,10 @@ Per the [fairness rules](01-hardcore-contract.md#fairness-rules):
 
 ## The timeline
 
-Roughly 2–4 in-game days, varying by vector, wound severity, constitution, and traits. The player sees
-stages, not a percentage.
+Roughly 2–4 in-game days, varying by vector, wound severity, Constitution, and traits. The player sees
+stages, not a percentage. Milestone 2 implements the complete timeline with a neutral Constitution
+modifier; when survivor attributes arrive, CON activates that existing hook. It may lengthen or
+shorten progression within the authored band, but never changes the wound-time transmission result.
 
 | Stage | Duration | Presentation | Distinguishable from sepsis? |
 |---|---|---|---|

@@ -35,7 +35,7 @@ function groups(): Group[] {
   let current: Group | null = null;
   let section = "(top)";
 
-  for (const [index, line] of readFileSync(HANDOFF, "utf8").split("\n").entries()) {
+  for (const [index, line] of readFileSync(HANDOFF, "utf8").split(/\r?\n/).entries()) {
     const heading = /^#{1,6}\s+(.*)$/.exec(line);
     if (heading !== null) {
       current = null;

@@ -10,8 +10,8 @@ Three other places to know about, and nothing else is required reading:
 | | |
 |---|---|
 | [README.md](README.md) | The pitch, and the index of all 31 documents. User-facing. |
-| [docs/23-roadmap.md](docs/23-roadmap.md) | The slice **as designed** — milestones, the 10 risks, the reasoning. This file owns what is *built*; 23 owns what is *intended*. |
-| [docs/30-decisions.md](docs/30-decisions.md) | The decision records. Fourteen entries of "what this chunk of work made structural" — read it before changing something that looks arbitrary. |
+| [docs/23-roadmap.md](docs/23-roadmap.md) | Product scope, milestone order, the risk register, and canonical playtest questions. This file owns what is *built*; 23 owns what is *intended*. |
+| [docs/30-decisions.md](docs/30-decisions.md) | The decision records. Nineteen entries of "what this chunk of work made structural" — read it before changing something that looks arbitrary. |
 
 ---
 
@@ -19,49 +19,33 @@ Three other places to know about, and nothing else is required reading:
 
 | | |
 |---|---|
-| **Phase** | **Milestone 1, the spine — in progress.** Milestone 0 is closed with no open boxes. **All three attention channels are live.** |
-| **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, and at midnight you see **two metres** — until you find a candle. **How you move is now the decision**: five rungs from a crawl to a sprint, each with its own speed, its own noise and its own price, and crouching behind a car hides you from what you can no longer see either. You start with nothing. |
-| **What is left of Milestone 1** | **Grabs and bite risk.** Movement stances landed, and with them the survivor's body and the [condition view](docs/05-health-injury.md#the-condition-view). See [Do this next](#do-this-next). |
+| **Phase** | **Milestone 1, the spine — closed.** Milestone 2, the vertical slice, is underway. **Noise, scent, light/sight, and the complete melee danger loop are live.** |
+| **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, and at midnight you see **two metres** — until you find a candle. Five movement rungs each have their own speed, noise and price. At contact zombies pin and bite; `F` becomes a one-second stamina-paid struggle, and every additional grabber makes escape less likely. You start with nothing. |
+| **What is left of Milestone 1** | **Nothing required for closure.** Three measured-and-deferred performance boxes remain documented below; none is failing its trigger or exit criterion. |
 | **Merged so far** | [#1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) design docs · [#2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) attention spike · [#3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) Milestone 0 · then the noise spine, scent, multiplayer as design, visibility, the ground, the day, items and the grid, and [#19](https://github.com/simplyjaytea/simplyZOMBIES/pull/19) hot reload |
 | **In flight** | Nothing. |
-| **Pulled forward on purpose** | **Items and the grid inventory**, and now **the condition view** — both Milestone 2, both landed early at the owner's request. The condition view came in with the stances because a paperdoll is a picture of a posture, and building the two separately means two answers to what crouching looks like. The figure itself is now an **outline diagram** rather than the body from the street — see [the decision](docs/30-decisions.md#what-the-outline-figure-changed). |
-| **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3), [z-levels](docs/23-roadmap.md#deferred-z-levels), [aiming](docs/09-combat.md#aiming), and docs/05's [located injuries](docs/05-health-injury.md#injury-types) — the survivor has a body with six parts that can be hurt, but no wound *types* and no infection. **No engine code.** |
+| **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
+| **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), [survivor attributes](docs/23-roadmap.md#planned-survivor-attributes) (Milestone 3A), [aiming](docs/09-combat.md#aiming), and docs/05/06's **full** injury and infection games. Milestone 1 stores a located bite, its possibly-scratch presentation and its private transmission answer; symptoms, treatment, armor reduction, stages and turning remain Milestone 2. |
 
 ### Counting the backlog
 
 | Milestone | `[x]` done | `[~]` in progress | `[ ]` todo | State |
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
-| 1 — The spine | 51 | 0 | 4 | 🔨 **Current.** All three channels live, contact pursues, stances decide the field. Melee's cost is the last of it. |
-| 2 — The vertical slice | 14 | 1 | 94 | ☐ **Not started** — except the items, the grid inventory and the condition view, pulled forward. |
+| 1 — The spine | 52 | 0 | 3 | ✅ **Closed.** Noise, scent, and light/sight are live; contact pursues, grabs, bites and can be broken with stamina. |
+| 2 — The vertical slice | 20 | 1 | 88 | ◐ **Underway through pulled-forward foundations.** The first complete slice is injury and infection. |
 | 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **104** | **1** | **114** | |
+| **Total** | **111** | **1** | **107** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
 ## Do this next
 
-**[Grabs and bite risk](docs/09-combat.md#grabs).** It is the last open box in Milestone 1 and it has
-been the honest answer here for three sessions, but it is a different size now than it was: **half of
-what it was waiting on exists.**
-
-What arrived with the stance ladder: a survivor has a body with docs/05's **six parts** — head,
-torso, arms, hands, legs, feet — and a blow that lands on one rolls against that table rather than a
-zombie's three. Something can now be wrong with a specific limb, and the player can see which.
-`entity.staggered` already interrupts a wind-up, and a survivor can now be staggered.
-
-What is still missing, and it is the half that matters: **located injuries**. There is no scratch, no
-laceration, no fracture, no bleed — a part has an integrity that goes down, and that is all. And
-there is no [infection module](docs/06-infection.md), so a bite has nothing to turn into. Both gaps
-matter for the same reason: with no wound *types*, a grab could only reduce a number, and
-[the parity contract](docs/09-combat.md#the-parity-contract) is not satisfied by making melee cost
-hit points. It is satisfied by making melee cost something you cannot heal by waiting.
-
-So the order is: docs/05's injury types on the body that now exists, then the infection module, then
-grabs on top of both. The four grab clauses in docs/09 — cannot move, cannot swing, breaking free
-costs stamina and time, two at once is terminal — need **no wound at all** and could land first if
-you want the crowd to feel categorically dangerous before it can infect you. That is a legitimate
-order; it just leaves the parity contract open a little longer, so write down which one you chose.
+**Build the first Milestone 2 vertical slice: lethality.** The strongest continuation is the full
+[injury](docs/05-health-injury.md) and [infection](docs/06-infection.md) path, because Milestone 1 now
+provides its clean input: a located bite with separate visible presentation and private transmission
+truth. The next work can add symptoms, diagnosis, treatment, armor reduction and turning without
+changing grabs or re-rolling whether an old wound transmitted.
 
 **Two things left over from the ladder, both small and both named in the code:**
 
@@ -92,7 +76,7 @@ thread:
 **Not multiplayer.** [Doc 27](docs/27-multiplayer.md) landed as a specification and the cut-list
 reversal is written into [the vision](docs/00-vision.md#cut-list), but nothing was built and nothing
 should be built yet. PVP is meaningless without the melee loop and the contested recovery run is
-meaningless without gear worth recovering, so it sits in Milestone 3 behind both. What did change:
+meaningless without gear worth recovering, so it sits in Milestone 3C behind both. What did change:
 [risk 9](docs/23-roadmap.md#risks) — what a client may know — now has a *buildable* answer rather
 than a proposed one. A stance is also the shape docs/27 predicted: an integer decision on the command
 queue, ordered by `(tick, playerId, seq)` like every other, which serialises and replays without a
@@ -108,11 +92,11 @@ to widen that boundary first, and that is the moment to re-read
 [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than the
 moment to quietly amend it.
 
-Still open and unclaimed, and all three are deliberate rather than forgotten: the two ⏸ **deferred on
-measurement** items in the attention field (dirty regions and the propagation budget, each of which
-says what would change the answer), sharing the spatial index between emitters and culling, and the
-**simulation half of last-known-position memory** — the renderer fades a mark where a body was last
-seen, but no observer *remembers* anything, and the prose version belongs with the condition view.
+Four nearby tasks remain open and deliberate rather than forgotten. Three are measured-and-deferred
+Milestone 1 optimizations: dirty regions, the propagation budget, and sharing the spatial index between
+emitters and culling. The fourth is Milestone 2's **simulation half of last-known-position memory** —
+the renderer fades a mark where a body was last seen, but no observer *remembers* anything, and the
+prose version belongs with the condition view.
 
 
 ## Quick start
@@ -120,7 +104,7 @@ seen, but no observer *remembers* anything, and the prose version belongs with t
 ```bash
 npm install
 npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 582 tests (~70 s -- the scent ones simulate hours)
+npm test                 # correctness: 596 tests (~50 s -- the scent ones simulate hours)
 npm run typecheck        # two projects -- the second is the sim/ purity gate
 npm run lint
 npm run format:check
@@ -128,7 +112,7 @@ npm run bench            # tick budgets, and they fail the build
 npm run bench:frame      # frame budget, drives real Chromium
 ```
 
-`WASD` move · `Shift` sprint · `F` swing · `Space` **shout** · `E` pick up · `Tab` inventory (drag to
+`WASD` move · `Shift` sprint · `F` swing / struggle · `Space` **shout** · `E` pick up · `Tab` inventory (drag to
 move, right-click or `R` to rotate) · `O` cycles the attention overlay (off → noise → scent → sight) ·
 `1`/`2`/`3` speed (1×, 3×, 10×) · `P` pause · `M` raw sprite sheets · `F5` save · `F9` load.
 
@@ -161,17 +145,21 @@ and the field. [Why it restarts rather than hot-swaps](docs/30-decisions.md#what
    counter: it climbs when you cross a tile boundary and sits still when you turn, which is the whole
    cost argument in one number.
 6. **Press `3` and wait for dark.** Watch `light` fall from 1.00 and the hidden count climb as your
-   view closes from 48 m to 12. A body ten metres away in daylight is one you cannot see at midnight.
+   bare-eyed view closes from 48 m to 2. A body ten metres away in daylight disappears at midnight;
+   a found candle reopens a small pocket around you.
 
 ## The build
 
-`.github/workflows/ci.yml` runs two jobs: `check` (typecheck, lint, format, 582 tests, build) and
-`performance` (tick budgets, then the frame budget in real Chromium). `pages.yml` publishes `dist/`
-to GitHub Pages on every green run on `main`.
+`.github/workflows/ci.yml` runs two parallel jobs: `check` (typecheck, lint, format, 596 tests, build)
+and `performance` (tick budgets, then the frame budget in real Chromium). Every push to `main` starts
+that workflow. When, and only when, the complete CI workflow is green, `pages.yml` checks out the
+exact `head_sha` that passed, rebuilds it with GitHub Pages' configured base path, and deploys `dist/`
+to the stable playable URL: <https://simplyjaytea.github.io/simplyZOMBIES/>. A failed CI run does not
+publish, and each successful push replaces the previous build rather than creating a per-commit URL.
 
-> ⚠ **One manual step is still outstanding, and only the repo owner can do it:** Settings → Pages →
-> Source: **GitHub Actions**. Until then the workflow runs and the deploy step fails on every green
-> merge. Nothing in CI depends on it.
+> ⚠ `pages.yml` also has a manual `workflow_dispatch` escape hatch. Unlike the automatic path, that
+> trigger does not prove CI succeeded; use it only to redeploy a known-good `main` revision. The
+> automatic push-to-`main` contract remains fully gated.
 
 ## What's in the repo
 
@@ -227,22 +215,23 @@ is fun, and most of what lies beyond it is guesswork the slice will invalidate.
 
 ## Risk checkpoints
 
-The ten [roadmap risks](docs/23-roadmap.md#risks), each pinned to the task that answers it. Four are
-closed; the closed ones are worth reading because two of them were answered *differently* from how they
-were asked.
+The eleven [roadmap risks](docs/23-roadmap.md#risks), each pinned to the task that answers it. Two are
+closed or retired and one is narrowed; exact status lives in the roadmap while this table locates the
+engineering checkpoint.
 
 | # | Risk | Answered by | State |
 |---|---|---|---|
 | 1 | The micromanagement cliff — *highest design risk* | Focus + auto-allocation, played with 6+ survivors | ☐ Milestone 2 |
 | 2 | Unlimited survivors may undercut permadeath | Watching whether players quarantine or just execute | ☐ Milestone 2 |
 | 3 | Unscheduled hordes may starve the tower-defense half | Building, played — are sieges frequent enough? | ☐ Milestone 2 |
-| 4 | ECS + modifier pipeline may be over-engineering | Kept minimum; the spike ran the thesis before any architecture | ✅ **Closed** |
+| 4 | ECS + modifier pipeline may be over-engineering | Milestones 0–1 changed repeatedly without losing determinism or isolation | ✅ **Retired after Milestone 1** |
 | 5 | Attention field performance | 500-zombie synthetic load, then the real continuous channel | ✅ **Closed.** Scent costs 0.0075 ms/tick — 0.1% of budget, and the same when saturated. |
 | 6 | Melee/ranged parity may not survive contact | Balance harness: melee-only vs ranged-only colonies | ☐ Milestone 2 |
 | 7 | Streaming a continuous region at driving speed — *highest engineering risk* | The drive benchmark, against synthetic load **before any vehicle exists** | ☐ Milestone 3, step 2 |
 | 8 | Full nomad viability roughly doubles the balance surface | Balance harness on nomad-only, fixed-only, hybrid | ☐ Milestone 3, step 4 |
 | 9 | What a multiplayer client may know about the field | Validation of docs/28's proposal, **before any transport code** | ◐ **Narrowed, not closed** — and it surfaced that visibility was a dependency, not a nicety |
 | 10 | A host in the loop may not fit the frame budget | Synthetic-client benchmark at the single-player budget | ☐ Milestone 3 |
+| 11 | Attributes may create mandatory builds or reroll fishing | Seeded cohort analysis plus Milestone 3A playtest | ☐ Milestone 3A |
 
 Two more findings arrived through the spike rather than the risk list, and both are closed: **noise
 magnitudes were never uncalibrated** — the unit was simply never defined, and the answer (256 m
@@ -393,14 +382,15 @@ good one ([risk 4](docs/23-roadmap.md#risks)).
       *(plus a "crowded" 2,000-entity scenario, since at the 300-entity baseline only ~20 survive
       culling and the frame budget could never fail)*
 
-## Milestone 1: The spine (in progress)
+## Milestone 1: The spine (complete)
 
 The [attention field](docs/03-attention.md) and something that reacts to it. This is the first point at
 which the project is legible as a game, and it is.
 
-> **Exit criterion:** make a noise and the horde comes; go quiet and it doesn't.
+> **Exit criterion:** make noise and zombies converge immediately; stop emitting noise and that
+> response disperses, while scent makes stillness only temporarily safe.
 >
-> ✅ **Met for noise** and asserted in CI (`test/integration/attention.test.ts`), and now guarded from a
+> ✅ **Met** and asserted in CI (`test/integration/attention.test.ts`), and guarded from a
 > second direction: contact pursuit is the first stimulus allowed to persist, so
 > `test/integration/pursue.test.ts` asserts that a quiet district with nobody near the survivor has
 > nobody pursuing. Contact cannot make silence meaningless, because it needs the zombie to already be
@@ -411,12 +401,14 @@ which the project is legible as a game, and it is.
 > a shambler is not the same event as sprinting past it. "Go quiet" is a thing you can now *do*
 > gradually rather than a thing you either are or are not.
 >
-> The milestone is **not closed**: melee still does not cost bite risk.
+> The milestone is **closed**: contact pursuit, grabs, located bites, private transmission truth, and
+> stamina-paid escape complete the melee danger loop.
 
-**51 done, 4 open.** **All three channels are in**: the **noise spine** (field, gradient ascent, a
-shout), **scent** (continuous diffusion, wind, field memory), and **light** (a shadowcast from every
-emitter, zombies with eyes, and a night dark enough that a found candle matters). Both ⚠ checkpoints
-riding on scent are closed, and light turned out not to belong in the field at all —
+**52 done, 3 measured-and-deferred tasks.** The complete attention system is in: the **noise spine**
+(field, gradient ascent, a shout), **scent** (continuous diffusion, wind, field memory), and **light**
+(a separate shadowcast from every emitter, zombies with eyes, and a night dark enough that a found
+candle matters). Both ⚠ checkpoints riding on scent are closed, and light deliberately does not live
+in the coarse field —
 [entry 15 in the decision log](docs/30-decisions.md#what-light-made-structural).
 
 **And the field now has a fourth thing writing to it that is not a channel: you.** The
@@ -428,7 +420,7 @@ is where the decision lives.
 **Six items moved out**, because Milestone 1 could not finish them: wet ground, surfaces-in-content,
 vehicles-read-the-layer and longer-nights went to [beyond the
 slice](#beyond-the-slice-designed-deliberately-unbuilt); nights-vary and last-known-position memory went
-to [Milestone 2](#milestone-2-the-vertical-slice-not-started). Each kept its note and gained a line
+to [Milestone 2](#milestone-2-the-vertical-slice-underway). Each kept its note and gained a line
 saying what unblocks it. An open count is only worth reading if the things in it can be acted on, and
 six of them could not.
 
@@ -436,11 +428,10 @@ six of them could not.
 the spatial index. Each says what would change the answer, because "nobody got to it" and "this was
 measured and refused" should not look the same in a backlog.
 
-**So the honest remainder is one job**: [grabs and bite risk](docs/09-combat.md#grabs), the parity
-contract. That checkbox still bundles two very different sizes — docs/09's four grab clauses need no
-wound at all, while bite risk needs docs/05's injury types and the infection module — and it is now
-half unblocked, because the survivor has a six-part body that can be hurt. See
-[Do this next](#do-this-next) for the order.
+**There is no closure work left.** Grabs and bite risk landed on the six-part body and private
+infection seam. The three unticked Milestone 1 entries are performance optimizations deferred behind
+explicit measurement triggers, not unfinished acceptance criteria. See [Do this next](#do-this-next)
+for the Milestone 2 continuation.
 
 What this milestone found — including two things that contradicted the design docs and got them
 corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has-found-so-far).
@@ -473,7 +464,7 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       *(its own `field-memory` module, so the acceptance check below toggles a shipped
       configuration rather than a test-only edit)*
 - [x] ⚠ **Acceptance check:** toggle residue off and confirm something observably changes. The
-      [spike failed exactly this check](docs/23-roadmap.md#problem-3--field-memory-is-currently-a-no-op)
+      [spike failed exactly this check](docs/23-roadmap.md#spike-findings-attention-field)
       because it emitted onto the wrong channel.
       **Passed, and the mechanic is kept — but it does not do what the doc said.** The horde
       *migrates*: it lays residue, the plume drifts downwind, it climbs into its own plume and
@@ -653,13 +644,13 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 
 **Done (6):**
 
-- [x] Shambler entity with a sensory profile weighting the three channels
-      *(all three weights are read; only noise is live, so scent slots in behind it)*
+- [x] Shambler entity with a sensory profile weighting noise, scent, and visible light
+      *(noise is an impulse, scent a wandering bias, and wall-occluded light a gated lean)*
 - [x] Gradient ascent on noise, and **scent as a bias** — it bends a wandering shambler's heading a
       third of the way toward what it can smell, but never seizes it, never commits it, and never
       changes its state. Noise stays the only *impulse*. That asymmetry is what keeps the noise exit
       criterion intact now that the player emits scent permanently and cannot stop.
-      Light-as-line-of-sight arrives with its channel
+      Light is a separate wall-precise shadowcast rather than a coarse field layer
 - [x] **Persistent per-individual angular bias (±0.62 rad)** on the gradient direction — assigned once
       at spawn from the seeded RNG stream, never re-rolled, **included in save state**. Without it
       they form [conga lines, not a horde](docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own).
@@ -684,7 +675,7 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 
 ### The player survivor — spec: [docs/09](docs/09-combat.md)
 
-**Done (12):**
+**Done (13):**
 
 - [x] Direct movement control of one entity
       *(landed in Milestone 0; it now emits into the field — walking 1, sprinting 6, shouting 120)*
@@ -765,18 +756,14 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       fallback so a type using `extends` to override `speed` keeps its inherited drift fractions.
       `CRAWL_SPEED_FACTOR` became an `injury.crippled` modifier, which is what its own comment said
       it wanted to be and could not.)*
-
-**Open (1):**
-
-- [ ] **Grabs, and breaking free** — and with them, bite risk
-      *(the one part of docs/09's melee model still missing, and the reason **the parity contract
-      is not yet satisfied**: with no bite risk, melee's only cost is stamina. **Half of what it was
-      waiting on now exists** — a survivor has a body with docs/05's six parts and a blow that lands
-      on one rolls against that table. What does not exist is located *injuries*: no scratch, no
-      laceration, no fracture, and no infection module for a bite to turn into. A grab that could
-      only reduce a number would be the health bar this design refuses. The `entity.staggered`
-      subscription that interrupts a wind-up is the seam this plugs into, and it is already there
-      because the rule is symmetrical.)*
+- [x] **Grabs, and breaking free** — and with them, bite risk
+      *(actual hold range is 1 m, separate from 1.6 m pursuit contact so weapon reach remains real.
+      A hold pins movement, interrupts wind-up and makes `F` a one-second, 20-stamina struggle.
+      Additional grab strength progressively lowers escape chance without making it impossible;
+      success releases every source. Bites begin after 1.5 s and repeat every 2 s, creating located
+      damage and a saved wound whose presentation is a scratch 30% of the time. A separate named
+      deterministic stream saves the private 85% transmission answer. The UI receives neither that
+      answer nor a numeric chance. Full disease progression remains Milestone 2.)*
 
 ### Time — spec: [docs/02](docs/02-core-loop.md)
 
@@ -836,17 +823,28 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       the same saturated as fresh because it scans the grid rather than the live cells. The
       continuous channel is not the expensive one; per-entity AI is, and noise already paid for it.)*
 
-## Milestone 2: The vertical slice (not started)
+## Milestone 2: The vertical slice (underway)
 
 One district, a handful of survivors, and enough of every system to find out whether the loop is fun.
 
-> **Exit criterion:** a full run — arrive, recruit, fortify, survive nights, lose someone, continue —
-> playable end to end without a developer explaining it.
+> **Exit criterion:** survive ten in-game days, become invested in a survivor, lose them permanently,
+> continue through succession, and still want another run afterward — playable end to end without a
+> developer explaining it.
 
-**13 done, 93 open.** Nothing here has been started deliberately, with one exception: **items and the
-grid inventory** were pulled forward at the owner's request and are largely done. They neither blocked
-nor were blocked by Milestone 1 — two new modules plus content, and the one place they touch combat
-goes through the event bus.
+Milestone 2 is underway through foundations pulled forward during Milestone 1: **items and grid
+inventory, located bodies and the condition view, melee reach, pause/speed control, and the private
+infection-transmission seam**. The first end-to-end slice is lethality: symptoms, diagnosis,
+treatment, armor reduction, stages, and turning on top of that seam.
+
+### Dependency order
+
+1. Lethality: injury, infection, treatment, turning, and armor interaction
+2. People and economy: generation, needs, work, district, resources, search, and spoilage
+3. Ranged parity: actions, aiming/sway, ammunition, items, and NPC combat
+4. Automation: shallow six-region web, Focus paths, and loadout upkeep
+5. Defense and pacing: building, then the slice director
+6. Continuity: recruitment, death, corpses, and succession
+7. Proof: headless distributions, then the human ten-day playtest
 
 ### World & map — spec: [docs/12](docs/12-resources.md)
 
@@ -869,10 +867,11 @@ goes through the event bus.
 - [ ] NPC work AI: choose by priority, proximity, and capability
 - [ ] Needs interrupt work, moderated by traits
 - [ ] Injuries disable jobs the body can't do
-- [ ] ~3 recruitable survivors via director events
+- [ ] ~3 naturally recruitable survivors via director events
 - [ ] **Focus + auto-allocation** — auto-spend web points and auto-maintain loadouts
-- [ ] ⚠ **Risk checkpoint (roadmap risk 1):** play with 6+ survivors, all on auto. If that isn't
-      viable, the item and web systems need **shrinking** — not the UI improving.
+- [ ] ⚠ **Risk checkpoint (roadmap risk 1):** run a seeded 6-survivor colony, all on auto. If that
+      is not viable, the item and web systems need **shrinking** — not the UI improving. The seeded
+      scenario prevents this checkpoint from inflating the slice's natural recruitment content.
 
 ### Needs — spec: [docs/04](docs/04-survival-needs.md)
 
@@ -911,17 +910,12 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Health & injury — spec: [docs/05](docs/05-health-injury.md)
 
-**Open (11):**
+**Done (3):**
 
-- [ ] Body parts with located conditions; **no health bar anywhere**
-- [ ] Injury types: scratch, laceration, deep wound, bite, fracture, sprain, burn, concussion
-- [ ] Continuous conditions: blood loss, pain, exhaustion
-- [ ] **Bacterial infection kept distinct from zombie infection**, drawing on the same antibiotics
-- [ ] Treatment steps: stop bleeding → clean → close → dress → rest, each timed and interruptible
-- [ ] Supply quality tiers affecting infection risk
-- [ ] **Skill-scaled diagnosis text** — what you see depends on who's looking
-- [ ] Permanent conditions (limp, amputation) that don't remove a survivor from play
-- [ ] **The condition view** — a paperdoll of head / torso / arms / hands / legs / feet with located
+- [x] Body parts with located conditions; **no health bar anywhere**
+      *(six survivor parts are saved and damaged independently; the condition snapshot exposes prose
+      and state, never raw integrity)*
+- [x] **The condition view** — a paperdoll of head / torso / arms / hands / legs / feet with located
       conditions on the part they are on, spec:
       [docs/05](docs/05-health-injury.md#the-condition-view)
       *(a layout for the skill-scaled prose above, not a second representation of it. It shows what
@@ -929,8 +923,18 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       forearm — which is why it strengthens
       [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than
       carving an exception to it.)*
-- [ ] Four descriptive states per part — unhurt / hurt / badly hurt / unusable — as **tint and prose**.
+- [x] Four descriptive states per part — unhurt / hurt / badly hurt / unusable — as **tint and prose**.
       **No fill, no percentage, no pips, and no tooltip carrying a number the screen doesn't show**
+
+**Open (8):**
+
+- [ ] Injury types: scratch, laceration, deep wound, bite, fracture, sprain, burn, concussion
+- [ ] Continuous conditions: blood loss, pain, exhaustion
+- [ ] **Bacterial infection kept distinct from zombie infection**, drawing on the same antibiotics
+- [ ] Treatment steps: stop bleeding → clean → close → dress → rest, each timed and interruptible
+- [ ] Supply quality tiers affecting infection risk
+- [ ] **Skill-scaled diagnosis text** — what you see depends on who's looking
+- [ ] Permanent conditions (limp, amputation) that don't remove a survivor from play
 - [ ] Diegetic readouts for the continuous conditions and stamina — breathing, weapon sway, swing
       recovery, a limp, the screen edges closing in, blood on the ground
       *(the bodies to hang these on now exist — see the character models in Milestone 0's render
@@ -942,10 +946,15 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Infection — spec: [docs/06](docs/06-infection.md)
 
-**Open (9):**
+**Done (1):**
+
+- [x] **Private transmitted flag** decided at wound time and never retroactively changed
+      *(a named deterministic RNG stream decides it when the bite wound is created; it is saved but
+      omitted from player-facing condition state)*
+
+**Open (8):**
 
 - [ ] Transmission by vector, reduced by armor coverage
-- [ ] **Private transmitted flag** decided at wound time and never retroactively changed
 - [ ] Five-stage timeline with stage-appropriate symptoms
 - [ ] **Early stages indistinguishable from sepsis**
 - [ ] Observation model: what the player sees, filtered by examiner skill
@@ -957,7 +966,13 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Combat — spec: [docs/09](docs/09-combat.md)
 
-**Open (11):**
+**Done (1):**
+
+- [x] Melee reach and swing arc read from the same facing
+      *(which is what makes reach legible as a property, and what makes being surrounded lethal in the
+      way [clause 1](docs/01-hardcore-contract.md#1-you-are-weak-permanently) promises)*
+
+**Open (10):**
 
 - [ ] Ranged: raise → steady → fire → recover → reload, all interruptible
 - [ ] Accuracy as a **cone**, never a displayed hit chance
@@ -967,9 +982,6 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       muzzle rather than cancelling an abstract state)*
 - [ ] **Weapon sway as the readout** — the cone drawn as the thing itself, not as a number about it.
       No reticle that reports its own accuracy
-- [ ] Melee reach and swing arc read from the same facing
-      *(which is what makes reach legible as a property, and what makes being surrounded lethal in the
-      way [clause 1](docs/01-hardcore-contract.md#1-you-are-weak-permanently) promises)*
 - [ ] You cannot aim at what you cannot see — firing at a remembered position is allowed, and costs
       the full 180 noise and 60 muzzle flash either way
 - [ ] Steadiness degraded by movement, exhaustion, pain, injured arms
@@ -982,7 +994,7 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 **Done (4):**
 
-- [x] 13 bases: five melee, four containers, four supplies
+- [x] 24 bases: seven melee, five containers, nine supplies, and three light sources
       *(ranged bases wait for the ranged loop -- inventing their content before the system that
       reads it is inventing it blind, which is the argument `src/sim/combat.ts` already makes
       about weapon profiles)*
@@ -1043,7 +1055,8 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 **Open (4):**
 
-- [ ] Stub web: one melee branch, one ranged branch, ~12 nodes
+- [ ] Shallow six-region web, ~12–18 nodes, touching Melee, Ranged, Medicine, Craft, Survival, and
+      Endurance so every Focus has a valid path
 - [ ] **Region-tagged points earned by doing** — you cannot grind a build you aren't living
 - [ ] Node effects expressed as modifiers, in content
 - [ ] Auto-allocation paths per Focus, stopping short of keystones
@@ -1072,7 +1085,7 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 - [ ] Week-one grace period
 - [ ] Variance floor and ceiling
 - [ ] Event seeding gated on colony state
-- [ ] "Nothing Personal" preset — director off, as a balance baseline
+- [ ] "Nothing Personal" internal baseline — director off for comparison, not a player-facing preset
 
 ### Death & succession — spec: [docs/01](docs/01-hardcore-contract.md#succession-what-happens-when-you-die)
 
@@ -1087,7 +1100,7 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### UI — spec: [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
 
-**Done (2):**
+**Done (3):**
 
 - [x] Inventory and equipment UI — `src/ui/inventory.ts`, the first screen in the game
       *(drag to move, right-click or `R` to rotate, drag onto a slot to wear, drag out to drop. It
@@ -1108,11 +1121,17 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       Six parts, four states, one voice of prose — the **untrained** tier of docs/05's diagnosis
       table, because there is no [skill web](docs/08-skill-web.md) to scale against yet and
       inventing a scale would be inventing the skill system in a string table.)*
+      *(now one compact survivor panel with **Equipment / Injuries** tabs. Equipment surrounds the
+      shared posture-aware body with all seven real drop targets; Injuries keeps the same body and
+      tint map, replaces slots with selectable regions, and wraps the selected region's diagnosis in
+      a fixed details area. Container grids remain beside it and drag-to-equip still queues ordinary
+      commands.)*
+- [x] Pause and speed controls
 
-**Open (6):**
+**Open (5):**
 
-- [ ] **No numbers anywhere player-facing** — no health bars, no hit chances, no enemy counts, no
-      damage text
+- [ ] **No player-facing numbers that collapse uncertainty** — no health bars, hit chances, enemy
+      counts, or damage text. Known aptitude values are a separate open UI decision in docs/23
       *(unchanged, and the two items below are not exceptions to it. A paperdoll of located conditions
       answers "what is wrong and where"; a bar answers "how much is left". Only the second one is
       prohibited, and it is prohibited for stamina too.)*
@@ -1124,7 +1143,6 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       isn't right")
 - [ ] Priority grid UI
 - [ ] Skill web UI
-- [ ] Pause and speed controls
 
 ### Balance harness — spec: [docs/19](docs/19-architecture.md#testing-strategy)
 
@@ -1141,17 +1159,25 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 Restated here because a backlog is where scope creep actually happens. All of it is designed and
 deliberately deferred — see each document's cut list.
 
-**Deferred to Milestone 3+:** [weather](docs/16-weather.md) · the full
+**Deferred to Milestone 3+:** [weather](docs/16-weather.md) · the six bounded
+[survivor attributes](docs/23-roadmap.md#planned-survivor-attributes) · the full
 [decay clock](docs/13-world-decay.md) and mutation waves · every [zombie type](docs/14-zombies.md)
 beyond the shambler · the full [skill web](docs/08-skill-web.md) · [named items](docs/10-items.md) and
 [unique survivors](docs/07-survivors.md) · relationships and grief · temperature and hygiene · the
 remaining [modification consumables](docs/11-crafting.md) · [factions](docs/18-factions.md) · the escape
 endgame · the full sandbox and storyteller layer.
 
-### Moved here from Milestone 1, because weather and vehicles are what unblock them
+Attributes arrive only after their consumers: Guard/Scout work, relationships, and the full web. DEX
+also requires distance-normalized footstep attention; CON applies injury tolerance to incoming damage
+rather than adding mutable per-entity maxima; INT never grants retroactive progress or accelerates its
+own node. CHA trade and WIS raider warnings wait for factions in Milestone 4. These are implementation
+constraints from docs/23, not Milestone 2 tasks.
 
-Four items that were open Milestone 1 tasks and could not be finished in Milestone 1. Kept with their
-original notes, so a later reader can tell a deferral from an oversight.
+### Deferred engineering checkpoints
+
+The first four items were open Milestone 1 tasks whose consumers are weather or vehicles. The rest are
+the already-specified Milestone 3C multiplayer path. Kept here so an engineer can tell a deliberate
+dependency from an oversight.
 
 **Open (16):**
 
@@ -1209,65 +1235,15 @@ original notes, so a later reader can tell a deferral from an oversight.
       synthetic clients attached, held at **the same budget as its single-player twin**. Per-client
       filtering scales with player count, a shape no existing budget has.
 
-## Open questions nobody has answered
+## Open design and playtest questions
 
-- **Is being quiet *tense*, or just slow?** Half-answered, and the half that is answered is the one
-  that was blocking. Quiet is no longer *completely safe* — the noise field still reads zero live
-  cells when you stand still, but scent finds you anyway over about an hour, 30 bodies within 50 m
-  becoming 76. Whether an hour of creeping pressure *plays* as tense or merely as slow is still a
-  question for a human at a keyboard, but it is now a tuning question rather than a design hole.
-- **Does one shout being a district-wide event make shouting the only verb?** New, from watching it
-  run. The magnitudes are right and the reach is what docs/03 calibrated for; the question is whether
-  a stimulus that always recruits everybody leaves room for the quieter ones.
-- **Does a migrating horde make the district legible or unpredictable?** New, and the most interesting
-  thing this build produced. A disturbed horde now walks off downwind following its own scent, which
-  means the player can *read* where it went from the wind — or be surprised by a crowd arriving from
-  a direction nothing happened in. Which of those it feels like is a playtest question.
-- **Is 90 minutes the right scent half-life?** It is the constant the whole channel's feel rests on
-  and it was picked, not derived. Residue lasts ~40 minutes in practice, which is what makes the
-  migration self-limiting; halving or doubling it changes how long a mistake follows you around.
-- **Is a district you cannot see tense, or merely opaque?** New, and the most immediate consequence
-  of the visibility work. The survivor now sees 11 bodies where 216 were being drawn. Reading the
-  horde was already meant to be a skill; the question is whether removing that much information
-  makes the district feel dangerous or just makes it feel empty until something is suddenly adjacent.
-  A human at a keyboard, and the first thing to check next session.
-- **Does the ground actually change where you walk?** New. The street is fast and loud, the yards
-  are slow and quiet, and undergrowth is slow, loud and the only cover. The tables say a route is a
-  decision; whether a player *notices* that without a readout is the question, since the HUD's
-  ground line is a developer tool and the shipped game will not have it.
-- **Are the arcs right?** 60° focal inside 190° total was picked, not derived, and docs/28
-  deliberately declined to name numbers so that nobody would read them as settled. They are per
-  observer and in one file. Widening the peripheral arc is a one-line experiment.
-- **Does a body standing still in your peripheral vision deserve to be invisible?** It is the
-  mechanic as specified — movement is noticed out there, identity is not — and it means a shambler
-  that stops moving nine metres to your left is simply not on screen. Correct, and possibly
-  horrible.
-- **How long is a day, really?** Four hours at 1× is still a guess — but it is now a guess you can
-  sit through, at 10×, in 24 minutes. `DAY_SECONDS` is one constant.
-- **Is night tense, or just a nuisance?** New, and the sharpest question this build produced. Night
-  currently takes the survivor's sight from 48 m to 12 and offers nothing in exchange, because the
-  light channel does not exist. If it plays as pressure, the number should go *darker* when torches
-  arrive. If it plays as an annoying filter, that is a signal the dark needs its counterplay before
-  it needs more of itself.
-- **Is a session with no pause still this game?** New, from the multiplayer design. The core loop
-  claims the tension comes from irreversibility rather than APM; multiplayer removes the pause and
-  keeps everything else, which tests that claim about as directly as it can be tested.
-- **Does voice-as-emitter play as tense, or as a mute button?** Also new. If never speaking is
-  dominant, the mechanic removed a channel instead of adding one.
-- **Is the grid a decision or a chore?** The newest question, and the one nothing but playing will
-  answer. Tarkov's inventory is famously either the best part of the game or an admin screen, and
-  which one it is here depends on numbers that are currently guesses: pocket size (4×2), the pack
-  grid (6×8), and how often a run actually fills it. **If rearranging is fiddly rather than tense,
-  the fix is bigger cells and fewer of them, not a better UI.**
-- **Does invisible weight read at all?** Encumbrance costs speed and stamina recovery and prints
-  nothing, per clause 4. That is the right principle and it may simply not be *legible* — if players
-  never notice they are overloaded, the signal needs to be louder in the world (gait, breathing,
-  footstep noise) rather than quieter in the UI.
-- The rest are listed under "Open questions" in [`docs/23-roadmap.md`](docs/23-roadmap.md).
+[Docs/23 owns the canonical question register](docs/23-roadmap.md#open-questions), including current
+attention, visibility, inventory, succession, attribute, world, and multiplayer questions. Do not copy
+them back here: this file records engineering blockers beside the task they block, while docs/23 owns
+questions answered by play and product judgment.
 
-*"How big is a district?" is no longer among them — it's 256 m, forced by the noise calibration.
-"What does continuous scent cost?" is no longer among them either — 0.0075 ms a tick, and it was
-never going to be the problem.*
+Two former questions are closed engineering facts: the district is 256 m, and continuous scent passed
+its performance budget. Their measurements remain in the completed Milestone 1 sections above.
 
 ## Settled decisions: do not relitigate
 
@@ -1276,8 +1252,10 @@ These were each decided explicitly by the repo owner. If you're about to "improv
 - **Hardcore is the thesis, not a difficulty slider.** Permadeath with succession into another
   survivor; no win condition plus an optional expensive escape.
 - **No wave timer.** Horde pacing is attention-driven and director-paced.
-- **Blank slates, no classes.** The build lives in found gear (PoE-shaped affixes) plus a classless
-  skill web earned by doing. Applies to every survivor, not just the player.
+- **Blank slates mean no classes or predetermined builds, not identical biology.** Every survivor
+  eventually gets bounded, budgeted STR/DEX/CON/INT/CHA/WIS aptitudes. The build still lives primarily
+  in found gear plus a classless skill web earned by doing, and the same rules apply to the controlled
+  survivor and every recruit.
 - **Survivors are unlimited and procedurally generated.** Recruits arrive as unskilled nobodies — that
   is the counterweight that keeps permadeath meaningful.
 - **Melee and ranged both good**, spending non-convertible currencies (body/bite-risk vs.
