@@ -13,7 +13,7 @@ import { recoverTicks, SWING_HALF_ANGLE, windupTicks } from "../sim/combat";
 import { Facing, Position, Velocity } from "../sim/kernel/components";
 import type { EntityId } from "../sim/kernel/entities";
 import type { World } from "../sim/kernel/world";
-import { Tile, tileAt, type TileMap } from "../sim/map/tilemap";
+import { Eye, Tile, tileAt, type TileMap } from "../sim/map/tilemap";
 import { Surface, surfaceAt } from "../sim/map/surface";
 import { ambientLightAt } from "../sim/time/clock";
 import { Body, isCrawling } from "../sim/modules/health";
@@ -21,6 +21,9 @@ import { Shambler, ShamblerState } from "../sim/modules/shambler";
 import { SPRINT_THRESHOLD } from "../sim/locomotion";
 import { MeleeWeapon, Swing, SwingState } from "../sim/modules/melee";
 import { groundItems } from "../sim/modules/inventory";
+import { conditionView } from "../sim/condition";
+import { stanceSpecOf } from "../sim/modules/stance";
+import { drawPaperdoll } from "./paperdoll";
 import { Controlled } from "../sim/modules/player";
 import { sightMetres } from "../sim/vision/light";
 import { Detail, Observer } from "../sim/vision/visibility";
@@ -60,11 +63,21 @@ import {
 const MAX_TILE_RASTER_ZOOM = 14;
 
 /**
+ * Pixels per metre for the condition glimpse, and the margin it keeps from the viewport edge.
+ *
+ * About two and a half times the world zoom, which is the smallest size at which a tinted hand
+ * marker is more than one pixel -- docs/05 makes hands a part in their own right, so a scale that
+ * cannot show one is a scale that cannot show the readout.
+ */
+const GLIMPSE_ZOOM = 68;
+const GLIMPSE_MARGIN = 22;
+
+/**
  * How tall each occluder class stands, in metres.
  *
  * Picked to read rather than measured: a wall has to hide a shambler behind it without hiding
  * the street beyond, and low cover has to look like something you can see over -- which is
- * exactly what it is to the shadowcast when the crouch stance lands
+ * exactly what it is to the shadowcast for a body on a crouched rung
  * (docs/28-visibility-and-sightlines.md#what-blocks-sight). A tree is the tallest thing in a
  * district and says so.
  *
@@ -899,11 +912,76 @@ export class Renderer {
       ctx.fillRect(0, 0, camera.width, camera.height);
     }
 
+    // The condition glimpse, over the night wash rather than under it.
+    //
+    // Over, because it is the one thing on screen that has to stay readable at midnight: docs/05
+    // makes the condition view the readout that *replaces* a health bar, and a readout the dark
+    // can take is not a replacement. Everything else on the canvas is in the district and pays
+    // for the dark; this is the survivor looking down at themselves.
+    //
+    // On the canvas at all -- rather than in the DOM readout above it -- because it is
+    // player-facing. `main.ts` keeps the developer HUD out of the canvas so the HUD stays outside
+    // the frame budget it exists to measure; the same reasoning puts this *inside* that budget,
+    // because a readout the player reads every few seconds is frame cost the game owes.
+    if (eyes !== null) this.drawConditionGlimpse(world, camera, eyes);
+
     if (this.showSheets) this.drawSheets(camera);
 
     this.visibleCount = drawn;
     this.occludedCount = occluded;
     this.lastDrawMs = performance.now() - started;
+  }
+
+  /**
+   * The glimpse: a small paperdoll in the corner, always there.
+   *
+   * Tint and posture, and nothing else. No prose, no numbers, no frame around it -- docs/05's
+   * continuous conditions "are read from what the survivor *does*", and this is the located half
+   * of the same idea: *where* is wrong, at a glance, and *what* is a keypress away on the
+   * inventory screen.
+   *
+   * **Cheap enough to be unconditional.** It is one call into the same rig the bodies use, at a
+   * larger zoom, drawing on the order of ten polygons -- against a 4 ms frame budget that the tile
+   * layer and the occluders dominate. The two overlays in this file that carry warnings about
+   * per-frame cost are the ones painting a *region*; this paints a figure. `bench:frame` is the
+   * guard either way.
+   */
+  private drawConditionGlimpse(world: World, camera: Camera, eyes: EntityId): void {
+    const view = conditionView(world, eyes);
+    if (view === null) return;
+
+    const ctx = this.ctx;
+    // **Bottom-right**, and it took running the game to find out why. The obvious corner is
+    // bottom-left, and bottom-left is where the DOM help line lives -- which sits *above* the
+    // canvas whatever the canvas draws, so the figure was there and invisible. The developer HUD
+    // holds the top-left and the help line holds the bottom-left, which leaves this one.
+    //
+    // Anchored to the viewport rather than to the survivor, because it is a readout about them
+    // rather than a thing in the district with them.
+    //
+    // The feet sit a clear margin above the bottom edge rather than on it: `drawHumanoid` draws a
+    // contact shadow *below* the anchor, and a crawler lies out along the ground, so anchoring
+    // tighter than this clipped both against the viewport.
+    const anchorX = camera.width - GLIMPSE_MARGIN - GLIMPSE_ZOOM * 0.6;
+    const anchorY = camera.height - GLIMPSE_MARGIN * 3;
+
+    // A backing wash, so a body tinted dark still separates from a dark street. Deliberately not
+    // a panel with a border: a frame would make this a widget, and docs/01's clause 4 is about
+    // keeping the interface out of the way of the world.
+    ctx.fillStyle = `rgba(${COLOURS.night}, 0.55)`;
+    ctx.beginPath();
+    ctx.ellipse(
+      anchorX,
+      anchorY - GLIMPSE_ZOOM * 0.8,
+      GLIMPSE_ZOOM * 0.9,
+      GLIMPSE_ZOOM * 1.1,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+
+    drawPaperdoll(ctx, view, { zoom: GLIMPSE_ZOOM, anchorX, anchorY });
   }
 
   /**
@@ -1282,6 +1360,12 @@ export class Renderer {
       crawling: body !== undefined && isCrawling(body),
       staggered: shambler !== undefined && shambler.state === ShamblerState.Staggered,
       swing: swing?.state ?? SwingState.Idle,
+      // The rung, as the one boolean the pose rig needs: is this body's eyeline low? Read through
+      // the same `stanceSpec` predicate `stance.eyes` writes `Observer.eye` from, so a crouched
+      // survivor is drawn low, sees low, and is seen low -- one answer, three consumers. Drawing
+      // it from anything else is how the glimpse in the corner and the body in the street come to
+      // disagree about what the player is currently doing.
+      crouched: stanceSpecOf(world, entity).eye === Eye.Crouched,
       sprintThreshold: SPRINT_THRESHOLD,
       phase,
     });

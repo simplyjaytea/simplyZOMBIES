@@ -15,7 +15,7 @@ import { ModuleRegistry, type Module } from "./modules";
 import { SpatialHash } from "./spatial/hash";
 import { attentionModule, makeEmitter } from "./modules/attention";
 import { fieldMemoryModule } from "./modules/field-memory";
-import { healthModule, makeBody, makeStamina } from "./modules/health";
+import { healthModule, makeBody, makeStamina, makeSurvivorBody } from "./modules/health";
 import { inventoryModule, makeInventory, stow, equip } from "./modules/inventory";
 import { itemModule, spawnItem, verifyContentReferences } from "./modules/items";
 import { lightModule } from "./modules/light";
@@ -23,6 +23,7 @@ import { makeMeleeArmed, meleeModule } from "./modules/melee";
 import { movementModule } from "./modules/movement";
 import { Controlled, playerModule } from "./modules/player";
 import { makeShambler, shamblerModule } from "./modules/shambler";
+import { makePosture, stanceModule } from "./modules/stance";
 import { DAY_BEGINS, publishPhaseChanges, tickAtTimeOfDay } from "./time/clock";
 import { DAYLIGHT_EYES, Observer, SHAMBLER_EYES } from "./vision/visibility";
 
@@ -38,6 +39,7 @@ export const ALL_MODULES: readonly Module[] = [
   movementModule,
   playerModule,
   shamblerModule,
+  stanceModule,
 ];
 
 /**
@@ -311,7 +313,12 @@ export function boot(options: BootOptions): Boot {
   // expectations are pinned against, which is a large behaviour change wearing the costume
   // of a small one.
   world.components.set(player, Facing, { radians: 0 });
-  world.components.set(player, Controlled, { sprinting: false });
+  world.components.set(player, Controlled, {});
+  // A rung to stand on, handed out here beside facing and eyes and for the same reason: the
+  // ability to choose a pace is a property of a body, not of being driven by anybody. NPC
+  // survivors will carry exactly this, and it is what makes "walk there quietly" an order
+  // somebody can be given rather than a thing only the player can do.
+  makePosture(world, player);
   // Eyes. Given here rather than by the player module because being able to see is not a
   // property of being controlled -- NPC survivors will carry exactly this, and the
   // multiplayer host will carry one of these per client survivor.
@@ -320,6 +327,11 @@ export function boot(options: BootOptions): Boot {
   // Something to spend. Handed out here rather than by the health module for the same reason
   // eyes are: being able to tire is a property of being a body, not of being controlled.
   makeStamina(world, player);
+  // Six parts rather than a zombie's three, per docs/05's table -- arms, hands and feet are the
+  // parts whose loss costs work rather than life, and they are what the condition view is for.
+  // Handed out here beside stamina for the same reason: being damageable is a property of being
+  // a body, and an NPC survivor gets exactly this.
+  makeSurvivorBody(world, player);
   // A hardcoded bat profile, and only on the `dev` loadout. It is the fallback the item bridge
   // replaces by way of `item.equipped`, so on `none` there is no weapon *and no `Swing`
   // component* -- `melee.intake` queries on it, which means pressing swing empty-handed does

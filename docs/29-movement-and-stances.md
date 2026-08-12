@@ -51,6 +51,14 @@ reaching for 3× is making a balance change, not a game-feel one.
 
 The three new stances still slot between and below, and they are still picked rather than measured.
 
+**All five are built.** `src/sim/stances.ts` is the ladder; `src/sim/modules/stance.ts` owns the rung
+a body is on. What the build added that this document did not specify: **exhaustion is asymmetric**.
+Jog and sprint drop to a walk when the pool empties, which is this document's own "sprint becomes
+unavailable before it becomes slow" — but **crawl does not**, because it is "the last resort that is
+not running" and forcing an exhausted crawler to stand up would take away the one option this
+document says is always there. See
+[the decision log](30-decisions.md#what-the-stance-ladder-and-the-condition-view-made-structural).
+
 **They are calibrated, not derived** — the same admission [docs/27](27-multiplayer.md#the-registers)
 makes about its voice registers, which were picked to sit in the right band against the shipped shout
 at 120. These are picked to sit in the right band against the shipped walk and sprint, and they are
@@ -115,7 +123,8 @@ something, and exactly the question
   clause 2 exists to produce.
 - **Visibility.** Crouch and crawl interact with the **Low** occluder class in
   [doc 28](28-visibility-and-sightlines.md#what-blocks-sight), in both directions: cover that hides
-  you also blinds you.
+  you also blinds you. *Built, and both directions came free — `shadowcast` is symmetric, so there is
+  no way to write a crouch that sees out without also being seen over.*
 - **[Multiplayer](27-multiplayer.md).** A stance is a command carrying an enum, ordered by
   `(tick, playerId, seq)` like every other. It serialises, replays and fingerprints exactly the way
   the [voice register](27-multiplayer.md#the-transport-split-and-determinism) does — and for the same

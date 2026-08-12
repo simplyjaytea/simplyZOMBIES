@@ -9,6 +9,13 @@
  * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
  * pre-1.0 (docs/19-architecture.md#save-model).
  *
+ * 9: the stance ladder. `Posture` is a component, so it rides the snapshot without changing
+ *    its shape -- but `Controlled` lost its `sprinting` field to it, and that is the reason
+ *    for the bump. A version-8 save describes a survivor whose pace was a held boolean, and
+ *    restoring one into this build gives you a body on no rung at all: it would walk, which
+ *    looks harmless until you notice the run was saved mid-sprint with a horde behind it.
+ *    Stance transitions are in there too, so a survivor saved halfway out of a crouch resumes
+ *    halfway out of a crouch rather than finishing an action nobody paid for.
  * 6: `Observer` joined the components -- eyes, with a range and two arc angles
  *    (docs/28-visibility-and-sightlines.md#what-an-observer-is). A version-5 save restores
  *    survivors with no eyes at all, and an observer that cannot see is not a survivor with a
@@ -41,7 +48,7 @@
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at

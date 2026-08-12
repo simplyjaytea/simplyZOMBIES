@@ -54,9 +54,28 @@ export const movementModule: Module = {
           // without knowing the surface layer exists. Velocity keeps meaning *intent*, which
           // is also what keeps the sprint threshold reading intent rather than terrain: a
           // survivor wading through undergrowth is still sprinting, and still loud for it.
-          const pace = speedOn(
+          const surface = speedOn(
             surfaceAt(map, Math.floor(pos.x / TILE_METRES), Math.floor(pos.y / TILE_METRES)),
           );
+
+          // What everything *else* does to a stride, through the one stat named for it.
+          //
+          // This is the line docs/29 has been waiting on, and it was worth finding out that
+          // nothing read `move_speed` before it: the stat has been registered since the
+          // modifier pipeline landed and `inventory.encumbrance` has been writing to it since
+          // the grid landed, so an overloaded survivor resolved to a lower speed and then
+          // walked at exactly the same pace as an empty-handed one. The modifier was correct
+          // and inert. There is now a test that walks two survivors instead of resolving a
+          // number.
+          //
+          // Applied *here*, at the one place every mover passes through, for the same reason
+          // the surface factor is -- the player module, three shambler states and whatever
+          // sets a velocity next all pay it without knowing the pipeline exists. And it is
+          // resolved rather than summed by hand so the named sources docs/29 lists (legs,
+          // feet, pain, exhaustion, encumbrance, limp) stack through one order of operations
+          // and stay answerable by `explain()`: "why am I this slow?" is a question
+          // docs/01's fairness rules oblige us to be able to answer.
+          const pace = surface * w.modifiers.resolve("move_speed", entity);
 
           // Axes resolved separately so a body slides along a wall instead of sticking to
           // it. Sticking reads as a bug even when the collision itself is correct.

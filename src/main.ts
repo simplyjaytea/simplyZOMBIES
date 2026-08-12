@@ -35,6 +35,9 @@ import { Body, isCrawling, Stamina } from "./sim/modules/health";
 import { Swing, SwingState } from "./sim/modules/melee";
 import { Controlled } from "./sim/modules/player";
 import { carriedItems, Encumbrance, inventoryView } from "./sim/modules/inventory";
+import { conditionView } from "./sim/condition";
+import { Posture } from "./sim/modules/stance";
+import { stanceSpec } from "./sim/stances";
 import { verifyContentReferences } from "./sim/modules/items";
 import { InventoryScreen } from "./ui/inventory";
 import { ContentRegistry } from "./sim/content/registry";
@@ -267,6 +270,7 @@ function drawInventory(w: World): void {
     inventory.draw(
       renderer.overlay,
       inventoryView(w, entity),
+      conditionView(w, entity),
       state,
       w.commands,
       window.innerWidth,
@@ -407,6 +411,25 @@ function timeOfDay(w: World): string {
 }
 
 /**
+ * The survivor's rung, for the HUD.
+ *
+ * Developer-only like the rest of this readout, and the reason it is here rather than only on the
+ * paperdoll is the same reason pursuit got a line: a state nothing reports is a state you cannot
+ * tell from a bug. The transition is shown because it is the half that is easy to get wrong -- a
+ * survivor who looks like they are ignoring the key is usually one mid-change.
+ */
+function stanceReadout(w: World): string {
+  for (const entity of w.components.query(Controlled)) {
+    const posture = w.components.get(entity, Posture);
+    if (posture === undefined) return "--";
+    const current = stanceSpec(posture.current).name;
+    if (posture.current === posture.target) return current;
+    return `${current} -> ${stanceSpec(posture.target).name} (${posture.ticksLeft})`;
+  }
+  return "--";
+}
+
+/**
  * The survivor's swing, for the HUD.
  *
  * Developer readout, like the rest of this panel. **The player is not meant to read stamina
@@ -525,6 +548,7 @@ function updateHud(w: World): void {
     `<b>horde</b>    ${horde.pursuing} <b>pursuing</b>, ${horde.seeking} seeking, ` +
     `${horde.milling} milling, ${horde.drifting} drifting, ${horde.staggered} staggered, ` +
     `${horde.crawling} crawling\n` +
+    `<b>stance</b>   ${stanceReadout(w)}\n` +
     `<b>swing</b>    ${swingState(w)}\n` +
     `<b>content</b>  ${w.content.count("zombie")} zombies, ${w.content.count("affix")} affixes, ` +
     `${w.content.count("item")} item bases\n` +
@@ -534,7 +558,8 @@ function updateHud(w: World): void {
     showing;
 
   help.textContent =
-    "WASD / arrows move   Shift sprint   F swing   Space shout   E pick up   Tab inventory\n" +
+    "WASD / arrows move   Z X C V stance (crawl crouch walk jog)   Shift sprint\n" +
+    "F swing   Space shout   E pick up   Tab inventory\n" +
     "O overlay   P pause   " +
     "1 / 2 / 3 speed (1x, 3x, 10x -- drops to 1x on contact)   F5 save   F9 load\n" +
     "you start with nothing. Everything is in the street -- including a candle, before dark.";

@@ -16,7 +16,9 @@ import type { World } from "../kernel/world";
 import { SPRINT_THRESHOLD } from "../locomotion";
 import { noiseOn, surfaceAt } from "../map/surface";
 import { TILE_METRES } from "../map/tilemap";
+import { Stance, STANCE_LADDER, stanceSpec } from "../stances";
 import type { Module } from "./index";
+import { Posture } from "./stance";
 
 /**
  * What an entity puts into the attention field, in the magnitudes of
@@ -47,10 +49,21 @@ export type AttentionEmitter = {
 
 export const AttentionEmitter = defineComponent<AttentionEmitter>("AttentionEmitter");
 
-/** docs/03-attention.md#noise. A person, moving. */
+/**
+ * docs/03-attention.md#noise. A person, moving.
+ *
+ * The two noise numbers are read off {@link STANCE_LADDER} rather than written down, because a
+ * survivor's footstep noise is a property of the rung they are on and the ladder is where the
+ * other three rungs live. Two copies of a calibration is one copy too many -- and this is the
+ * pair docs/29 says "must not move", so the copy that drifts would be the expensive one.
+ *
+ * They stay on the component at all because not everything that emits has a stance: a running
+ * generator is `ambient: 45` and never moves, and the emission system needs a magnitude for a
+ * body with no {@link Stance} on it.
+ */
 export const PERSON_EMITTER: AttentionEmitter = {
-  walking: 1,
-  sprinting: 6,
+  walking: STANCE_LADDER[Stance.Walk].noise,
+  sprinting: STANCE_LADDER[Stance.Sprint].noise,
   ambient: 0,
   scent: 1,
 };
@@ -96,12 +109,28 @@ export const attentionModule: Module = {
           const vel = w.components.getOrThrow(entity, Velocity);
           const speed = Math.hypot(vel.dx, vel.dy);
 
+          // Which register a moving body is in.
+          //
+          // A stance answers it outright when the body has one: docs/29's "faster is louder"
+          // is a property of the *rung*, not of the metres per second, which matters because
+          // the two disagree. A survivor jogging through undergrowth is slowed to below a
+          // walking pace by the surface and is still jogging, and still loud for it.
+          //
+          // Everything without a `Posture` falls back to the speed threshold, and that is not
+          // a legacy path -- a shambler has no stances, and a generator has no speed at all.
+          // Which is also why `SPRINT_THRESHOLD` stays: it is the only answer available for
+          // most of what emits.
+          const posture = w.components.get(entity, Posture);
           const base =
-            speed >= SPRINT_THRESHOLD
-              ? emitter.sprinting
-              : speed > 0
-                ? emitter.walking
-                : emitter.ambient;
+            posture !== undefined
+              ? speed > 0
+                ? stanceSpec(posture.current).noise
+                : emitter.ambient
+              : speed >= SPRINT_THRESHOLD
+                ? emitter.sprinting
+                : speed > 0
+                  ? emitter.walking
+                  : emitter.ambient;
           if (base <= 0) continue;
 
           const pos = w.components.getOrThrow(entity, Position);
