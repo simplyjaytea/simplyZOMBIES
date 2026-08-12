@@ -34,9 +34,32 @@
     },
     "locomotion": {
       "type": "object",
+      "description": "How fast this type moves, in each of the states it has. `speed` is a multiplier on a human walk; the rest are fractions of this type's own `speed`, so a faster type is faster in every state without four numbers to keep in agreement. docs/29-movement-and-stances.md: a zombie's speeds are fields in its JSON entry rather than constants in a module.",
       "additionalProperties": false,
       "properties": {
-        "speed": { "type": "number", "minimum": 0 }
+        "speed": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Purposeful movement -- closing on a stimulus. A multiplier on a human walk, so 0.8 is slower than you walk whatever the pace is set to, which is what makes retreat a real option."
+        },
+        "wander": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Aimless drift, as a fraction of `speed`. Idle bodies barely move."
+        },
+        "mill": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Investigating on arrival, as a fraction of `speed`. Slower than drifting."
+        },
+        "crawl": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "What is left once locomotion is destroyed, as a fraction of `speed`. docs/14-zombies.md#damage-model: a zombie with a destroyed pelvis crawls, is quiet, and is still perfectly capable of biting an ankle."
+        }
       }
     },
     "body": {

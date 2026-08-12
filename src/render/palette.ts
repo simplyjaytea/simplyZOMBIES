@@ -82,6 +82,32 @@ export const SHADE = {
 } as const;
 
 /**
+ * The four tints a body part reads in on the [condition view](../../docs/05-health-injury.md).
+ *
+ * **Colour, never fill** -- that is docs/05's own heading, and this array is the whole of what it
+ * permits. Four entries because four is how many distinctions the prose supports, and there is no
+ * fifth for "89%" because there is no percentage anywhere in this feature to have one.
+ *
+ * Indexed by `PartState`, so the order is the ordering: unhurt, hurt, badly hurt, unusable.
+ *
+ * Chosen to survive two things. The first is the night wash, which takes 80% of the frame -- so the
+ * hurt states are *brighter* than unhurt rather than merely different, and a bad limb draws
+ * attention by being lighter in a dark picture. The second is colour blindness: the three hurt
+ * states differ in **lightness** as well as hue, so the reading survives losing the red-green axis.
+ * Unusable is the darkest thing on the body, which reads as absence rather than as damage.
+ */
+export const CONDITION_TINTS: readonly string[] = [
+  /** Unhurt: the body's own colour, so an unhurt survivor is not a coloured diagram. */
+  "#c9c4b8",
+  /** Hurt: warm and slightly brighter. Something happened here. */
+  "#d9a253",
+  /** Badly hurt: brighter still, and unmistakably wrong. */
+  "#c9564a",
+  /** Unusable: gone dark. Not a colour a working limb ever is. */
+  "#4a3b3a",
+];
+
+/**
  * The contact shadow under a standing body, as an rgb triple.
  *
  * Not decoration. A foot-anchored sprite with nothing under it *floats*, and floating is the

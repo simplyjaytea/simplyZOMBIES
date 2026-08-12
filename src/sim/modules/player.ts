@@ -6,15 +6,20 @@
 // business knowing it (docs/19-architecture.md#layers).
 
 import { defineComponent, Position, Velocity } from "../kernel/components";
-import { SPRINT_SPEED, WALK_SPEED } from "../locomotion";
+import { WALK_SPEED } from "../locomotion";
 import { SHOUT_MAGNITUDE } from "./attention";
 import type { Module } from "./index";
+import { stanceSpecOf } from "./stance";
 
-/** Marks the entity the player is currently controlling. Succession moves this later. */
-export type Controlled = {
-  /** Held sprint state, carried between ticks since a keydown only arrives once. */
-  sprinting: boolean;
-};
+/**
+ * Marks the entity the player is currently controlling. Succession moves this later.
+ *
+ * It carries no fields any more. `sprinting` used to live here as a held boolean, which was
+ * the two-rung version of a five-rung ladder -- speed now comes from `Posture` in
+ * `modules/stance.ts`, and it comes from there for NPC survivors too, who are not controlled
+ * by anybody. Being able to choose a pace is a property of a body, not of being driven.
+ */
+export type Controlled = Record<string, never>;
 
 export const Controlled = defineComponent<Controlled>("Controlled");
 
@@ -31,7 +36,6 @@ export const playerModule: Module = {
         if (commands.length === 0) return;
 
         for (const entity of w.components.query(Position, Velocity, Controlled)) {
-          const controlled = w.components.getOrThrow(entity, Controlled);
           const vel = w.components.getOrThrow(entity, Velocity);
 
           for (const command of commands) {
@@ -51,10 +55,6 @@ export const playerModule: Module = {
                 break;
               }
 
-              case "sprint":
-                controlled.sprinting = command.active;
-                break;
-
               case "move": {
                 // Normalise, so holding two directions isn't faster than one.
                 const length = Math.hypot(command.dx, command.dy);
@@ -63,7 +63,11 @@ export const playerModule: Module = {
                   vel.dy = 0;
                   break;
                 }
-                const speed = controlled.sprinting ? SPRINT_SPEED : WALK_SPEED;
+                // The rung decides the pace. A factor of a walk rather than one of two
+                // constants, so `PACE` still owns the clock and the three rungs between walk
+                // and sprint cost nothing here -- `stance.intake` settled the rung earlier
+                // this tick, and this reads the answer.
+                const speed = WALK_SPEED * stanceSpecOf(w, entity).speedFactor;
                 vel.dx = (command.dx / length) * speed;
                 vel.dy = (command.dy / length) * speed;
                 break;

@@ -7,6 +7,7 @@
 // turns a bug report into a seed (docs/19#determinism) and puts something behind the
 // fairness promise in docs/01-hardcore-contract.md.
 
+import type { Stance } from "../stances";
 import type { EntityId } from "./entities";
 
 /**
@@ -16,6 +17,19 @@ import type { EntityId } from "./entities";
 export type Command =
   | { type: "move"; dx: number; dy: number }
   | { type: "sprint"; active: boolean }
+  /**
+   * Pick a rung on the [stance ladder](../../../docs/29-movement-and-stances.md).
+   *
+   * An integer decision rather than an analogue one, which is why it serialises, replays and
+   * fingerprints exactly the way the voice registers do
+   * ([docs/27](../../../docs/27-multiplayer.md#the-transport-split-and-determinism)) -- a
+   * stance is a *choice about the attention field*, and there are five of them.
+   *
+   * `sprint` above is the same decision expressed by a held key, kept because that is the
+   * input the game shipped with. Both land on the same target; neither changes a rung
+   * directly, because a stance change is a timed action.
+   */
+  | { type: "stance"; stance: Stance }
   | { type: "wait" }
   /**
    * Deliberate noise. The one action whose entire purpose is to write to the attention

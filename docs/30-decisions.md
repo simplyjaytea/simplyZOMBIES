@@ -507,6 +507,89 @@ about.
   four boxes left them filed under `Open` — which is the same class of drift that deleting `TODO.md` was
   meant to end. `npm run handoff:regroup` is the fixer, and it is idempotent.
 
+## What the stance ladder and the condition view made structural
+
+- **`move_speed` had no reader, and the modifier that wrote to it did nothing.** The stat has been
+  registered since the modifier pipeline landed, and `inventory.encumbrance` has been writing a speed
+  penalty to it since the grid landed — but `movement.integrate` never consulted the stat registry, so
+  an overloaded survivor resolved to a lower speed and then walked at exactly the same pace as an
+  empty-handed one. `inventory.test.ts` asserted `resolve("move_speed")` came back lower and passed the
+  whole time, which is the shape of the bug worth remembering: **a test that asserts the mechanism
+  instead of the effect will pass through the effect being absent.** The integration test now walks two
+  survivors and compares the ground they cover.
+  *One line fixed it, and it paid for three things at once: encumbrance became real, the shambler's
+  `CRAWL_SPEED_FACTOR` stopped being a hand-applied multiply on the velocity and became a named
+  `injury.crippled` modifier, and docs/29's six speed sources — legs, feet, pain, exhaustion,
+  encumbrance, limp — got somewhere to write that `explain()` can answer for.*
+- **A stance is a decision about the attention field, so noise comes from the rung and not from the
+  speed.** The two disagree, and the disagreement is the point: the surface layer slows a jogging body
+  below a walking pace, and a survivor who got quieter by wading into undergrowth would be reading the
+  wrong number. Emission asks `Posture` when the body has one and falls back to `SPRINT_THRESHOLD` when
+  it does not — which is not a legacy path, because a shambler has no stances and a generator has no
+  speed.
+- **The tick that empties the transition clock is the tick the rung changes on.** Written the other way
+  round — decrement, `continue`, step on the next pass — every rung silently cost
+  `STANCE_CHANGE_TICKS + 1` ticks and `stanceChangeTicks()` was lying about the price by 25%. Caught by
+  a test that used the helper to decide how long to step, which is the argument for having tests take
+  their timings from the code rather than from a literal.
+- **Abandoning a wind-up keys off the *decision* to sprint, not the arrival.** docs/09 says breaking
+  into a sprint abandons a wind-up, "which is what makes running away mid-swing a decision" — and a
+  bat's wind-up is shorter than the eight ticks the walk-to-sprint transition takes, so reading the
+  current rung alone would have let the blow land every time and the rule would never have fired once.
+  A capability is therefore asked of both the rung a body is on and the rung it is heading for.
+- **Exhaustion takes the fast rungs away and leaves the slow one.** docs/29 wants "sprint becomes
+  unavailable before it becomes slow", so an empty pool drops jog and sprint to a walk rather than
+  scaling them. **Crawl is deliberately exempt**: it is "the last resort that is not running" and the
+  verb left to a survivor whose legs are gone, so being too tired to crawl further has to mean lying
+  still rather than standing up into the thing you were crawling away from.
+- **`Eye.Crouched` was threaded end to end a milestone before anything could ask for it, and the bet
+  paid.** `map/tilemap.ts` shipped the parameter with a comment saying stances were not built and
+  nothing set it, on the argument that the alternative was re-threading the visibility primitive the
+  day they arrived. The day they arrived it cost one assignment — and **no cache invalidation at all**,
+  because `VisibilityIndex.refresh` already keys on `observer.eye`. Writing the field *is* the
+  invalidation.
+- **Low cover cuts both ways for free, because sight is symmetric.** `shadowcast` is built so that if A
+  sees B, B sees A, so a crouched survivor behind a car cannot see over it and cannot be seen over it
+  from the same predicate. There is no second rule, and there is no way to get one direction without
+  the other — which is why the test asserts both halves in one place. A test checking one half is how
+  the two directions come to drift apart.
+- **A survivor has six body parts and a zombie has three, and that asymmetry is the design.** docs/14
+  wants three *because* three is what makes a zombie a zombie: a torso that never kills, a head that is
+  instant, legs that make a different and quieter threat. A fourth would dilute a distribution that says
+  exactly what it means. docs/05 wants six because it answers a different question — not "how do I stop
+  this thing" but "what is wrong with this person and what does it cost them", and arms, hands and feet
+  are the parts whose loss costs work rather than life. Two vocabularies, one seam: `attack.connected`
+  carries a part name and the health module looks it up on whatever body the target has.
+  *The hit-location roll consumes exactly one number from the stream either way. The shape of the
+  distribution moved; the shape of the stream did not, which is what kept determinism intact.*
+- **The condition view's ban on numbers is enforced by the snapshot, not by discipline.**
+  `conditionView` hands over a `PartState` and a sentence per part and nothing a fill could be computed
+  from — no integrity, no maximum, no fraction. docs/05 says the design "is most likely to be talked
+  into a health bar" here, and **the cheapest way to keep a bar out of a screen is to make the screen
+  unable to draw one**. `paperdoll.test.ts` serialises the view and asserts no part's maximum and no
+  decimal appears in it, so a future field carrying `40` for the torso fails at the boundary rather
+  than turning up as a bar six months later.
+- **`Unhurt` means undamaged, with no tolerance band.** The first threshold was 0.99, which is the kind
+  of number that looks careful and makes the first scratch invisible. The whole argument for prose over
+  a bar is that it says *something happened here* before it says how much.
+- **One body, drawn at two sizes, rather than two bodies.** The paperdoll calls the same
+  `drawHumanoid` the district does, with a larger zoom and a per-region tint map — because the
+  paperdoll's entire claim is that it is a picture of *this survivor*, and a second figure drawn by a
+  second function is one that will eventually disagree with the street about what crouching looks like.
+  The world sprite supplies no tint and is unchanged byte for byte: located conditions belong on the
+  condition view, and a survivor whose bad leg was amber out in the street would be a health bar with
+  extra steps.
+- **The stance ladder cost the pose sheet one row, not five.** `pose.ts` predicted docs/29's five
+  stances would each become an entry. Crawl already had a pose, and walk, jog and sprint differ by
+  *pace* rather than by posture — a jog is a walk whose phase advances faster, which is a number rather
+  than a silhouette. Only `Crouch` was a new shape. The sheet went from 336 cells to 384, and its guard
+  now derives that count from `FRAMES_PER_ARCHETYPE` instead of restating it.
+- **The player-facing readout goes *inside* the frame budget; the developer readout stays outside it.**
+  `main.ts` keeps the HUD in the DOM so the HUD is not inside the budget it exists to measure. The
+  condition glimpse is the mirror of that argument: it is for the player, so its cost is cost the game
+  owes, and it draws on the canvas over the night wash — over, because a readout the dark can take is
+  not a replacement for a health bar. Measured at 1.45 ms average draw against a 4 ms budget.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) · **Next:** [HANDOFF.md](../HANDOFF.md) ·

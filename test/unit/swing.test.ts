@@ -268,7 +268,7 @@ describe("what a connect states", () => {
       ZOMBIE_BODY.head -
       body.head +
       (ZOMBIE_BODY.torso - body.torso) +
-      (ZOMBIE_BODY.legs - body.legs);
+      (ZOMBIE_BODY.legs - (body.legs ?? 0));
     expect(lost).toBeGreaterThan(0);
   });
 

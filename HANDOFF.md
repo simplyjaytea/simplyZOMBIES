@@ -20,32 +20,65 @@ Three other places to know about, and nothing else is required reading:
 | | |
 |---|---|
 | **Phase** | **Milestone 1, the spine — in progress.** Milestone 0 is closed with no open boxes. **All three attention channels are live.** |
-| **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, where you walk decides how loud you are, and at midnight you see **two metres** — until you find a candle. You start with nothing. |
-| **What is left of Milestone 1** | **Grabs and bite risk**, and **movement stances**. The light channel landed — all three attention channels are now live. See [Do this next](#do-this-next). |
+| **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, and at midnight you see **two metres** — until you find a candle. **How you move is now the decision**: five rungs from a crawl to a sprint, each with its own speed, its own noise and its own price, and crouching behind a car hides you from what you can no longer see either. You start with nothing. |
+| **What is left of Milestone 1** | **Grabs and bite risk.** Movement stances landed, and with them the survivor's body and the [condition view](docs/05-health-injury.md#the-condition-view). See [Do this next](#do-this-next). |
 | **Merged so far** | [#1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) design docs · [#2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) attention spike · [#3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) Milestone 0 · then the noise spine, scent, multiplayer as design, visibility, the ground, the day, items and the grid, and [#19](https://github.com/simplyjaytea/simplyZOMBIES/pull/19) hot reload |
 | **In flight** | Nothing. |
-| **Pulled forward on purpose** | **Items and the grid inventory** — Milestone 2 work, landed early at the owner's request. Two new modules plus content; the one place it touches combat goes through the event bus. |
-| **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3), [z-levels](docs/23-roadmap.md#deferred-z-levels), the [condition view](docs/05-health-injury.md#the-condition-view), [aiming](docs/09-combat.md#aiming). **No engine code.** |
+| **Pulled forward on purpose** | **Items and the grid inventory**, and now **the condition view** — both Milestone 2, both landed early at the owner's request. The condition view came in with the stances because a paperdoll is a picture of a posture, and building the two separately means two answers to what crouching looks like. |
+| **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3), [z-levels](docs/23-roadmap.md#deferred-z-levels), [aiming](docs/09-combat.md#aiming), and docs/05's [located injuries](docs/05-health-injury.md#injury-types) — the survivor has a body with six parts that can be hurt, but no wound *types* and no infection. **No engine code.** |
 
 ### Counting the backlog
 
 | Milestone | `[x]` done | `[~]` in progress | `[ ]` todo | State |
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
-| 1 — The spine | 45 | 0 | 10 | 🔨 **Current.** All three channels live and contact pursues; melee's cost and stances remain. |
-| 2 — The vertical slice | 13 | 1 | 95 | ☐ **Not started** — except the items and grid inventory, pulled forward. |
+| 1 — The spine | 51 | 0 | 4 | 🔨 **Current.** All three channels live, contact pursues, stances decide the field. Melee's cost is the last of it. |
+| 2 — The vertical slice | 14 | 1 | 94 | ☐ **Not started** — except the items, the grid inventory and the condition view, pulled forward. |
 | 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **97** | **1** | **121** | |
+| **Total** | **104** | **1** | **114** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
 ## Do this next
 
-**[Grabs and bite risk](docs/09-combat.md#grabs), or [the light channel](docs/03-attention.md#light) —
-whichever you have appetite for.** Both were the next work before items jumped the queue, and neither
-moved while items landed.
+**[Grabs and bite risk](docs/09-combat.md#grabs).** It is the last open box in Milestone 1 and it has
+been the honest answer here for three sessions, but it is a different size now than it was: **half of
+what it was waiting on exists.**
 
-Two things the item system left deliberately unfinished, if you would rather continue that thread:
+What arrived with the stance ladder: a survivor has a body with docs/05's **six parts** — head,
+torso, arms, hands, legs, feet — and a blow that lands on one rolls against that table rather than a
+zombie's three. Something can now be wrong with a specific limb, and the player can see which.
+`entity.staggered` already interrupts a wind-up, and a survivor can now be staggered.
+
+What is still missing, and it is the half that matters: **located injuries**. There is no scratch, no
+laceration, no fracture, no bleed — a part has an integrity that goes down, and that is all. And
+there is no [infection module](docs/06-infection.md), so a bite has nothing to turn into. Both gaps
+matter for the same reason: with no wound *types*, a grab could only reduce a number, and
+[the parity contract](docs/09-combat.md#the-parity-contract) is not satisfied by making melee cost
+hit points. It is satisfied by making melee cost something you cannot heal by waiting.
+
+So the order is: docs/05's injury types on the body that now exists, then the infection module, then
+grabs on top of both. The four grab clauses in docs/09 — cannot move, cannot swing, breaking free
+costs stamina and time, two at once is terminal — need **no wound at all** and could land first if
+you want the crowd to feel categorically dangerous before it can infect you. That is a legitimate
+order; it just leaves the parity contract open a little longer, so write down which one you chose.
+
+**Two things left over from the ladder, both small and both named in the code:**
+
+- **Exhausted swings still refuse rather than degrade.** `melee.ts` stops the swing outright when the
+  pool cannot pay for it, and docs/09 wants "slow, weak, and miss". The comment there used to say the
+  scaling was waiting on the stance ladder, which shares the pool — the ladder has landed, so what is
+  left is a `swing_speed` and `swing_recovery` modifier sourced from how empty the pool is, and both
+  stats are already registered. It was held back on purpose: it is a balance change to the one loop
+  the game has, and it wants its own measurement rather than riding in behind six other things.
+- **The condition view has one voice.** docs/05 scales a part's prose by the examiner's Medicine
+  skill — untrained gets "there's a lot of blood, he doesn't look good", skilled gets "deep
+  laceration, sutured and clean, off work five days". There is no [skill web](docs/08-skill-web.md)
+  to scale against, so what ships is the untrained tier and `condition.ts` says so. When the web
+  lands, that table gains a column rather than being rewritten.
+
+**Two things the item system left deliberately unfinished**, if you would rather continue that
+thread:
 
 - **Nothing wears out.** `Condition` is on every item, `conditionFactor` reads it, and damage and
   swing speed both already scale with it — but no system ever *lowers* it. Wear is driven by use, so
@@ -56,69 +89,30 @@ Two things the item system left deliberately unfinished, if you would rather con
   bases, which is the mechanic that lets a build survive an upgrade; the grid already knows how to
   hold them.
 
-**[The light channel](docs/03-attention.md#light) — the emitters.** It has been the open Milestone 1
-task since the noise spine, it was blocked on an algorithm, the algorithm exists, and now the
-*ambient* half is built and pointing straight at the hole where the rest goes.
-
-**Start by turning the night down.** `NIGHT_AMBIENT` is 0.25 because a survivor at zero would be
-blind with nothing to do about it. A torch changes that, and the number should follow it down in the
-same change — otherwise the channel lands and the dark it was built for is still soft.
-
-- Light *is* a shadowcast from the emitter with the emitter's magnitude as its range —
-  `shadowcast()` takes exactly those arguments. The emitter table does not change and nothing about
-  the field's structure changes.
-- The [sensory profile's](docs/14-zombies.md#sensory-profiles) Light column goes live with it. A
-  screamer weights light 0.9 against a shambler's 0.1, so this is where "there is no single silence"
-  stops being a slogan.
-- **Give zombies eyes in the same change, not before it.** `SHAMBLER_EYES` and
-  `boot({ observers })` exist and the cost is measured, but nothing hands a zombie an `Observer`
-  yet, deliberately: docs/14's first design rule is that sight must not make them tactical, and
-  landing sight and its one stimulus together is the safe way to honour that.
-- `Observer.rangeMetres` is a daylight constant *because there is no light to derive it from*. When
-  the channel lands it becomes a lookup, and that is the only field that changes.
-- One consequence to plan for: light is the only channel where a wall is an absolute rather than a
-  penalty. Noise pays 18 m-equivalent to cross one and scent ignores walls entirely. That asymmetry
-  is the counterplay — shutters work, and they work completely.
-
-The **melee loop landed** — wind-up, connect or miss, recovery, stamina, stagger, reach, the
-zombie damage model, and the spatial index it was waiting on. What did *not* land is
-**[grabs and bite risk](docs/09-combat.md#grabs)**, and that is the more urgent of the two
-tasks above: with no bite risk, melee's only cost is stamina, so
-[the parity contract](docs/09-combat.md#the-parity-contract) — the thing docs/09 exists to
-enforce — is not satisfied. Melee is currently strictly cheap, which is precisely the failure
-mode that document opens by naming.
-
-Grabs need a survivor who can be injured and infected, which means an injury model and the
-infection module. The seam is already there: `entity.staggered` interrupts a wind-up today,
-and nothing can stagger a survivor yet.
-[Movement stances](docs/29-movement-and-stances.md) are the other near neighbour: `Stamina`
-now exists in its designed home and the ladder is where walking-1 and sprinting-6 become a
-decision rather than a shift key. It is also what docs/09's "exhausted swings are slow, weak,
-and miss" is waiting on — the swing refuses outright when it cannot be paid for, because
-scaling the windows needs the modifier pipeline. **The `Low` occluder class and the
-`Eye.Crouched` parameter are already in the map and the primitive** waiting for stances too —
-cover that hides you also blinds you, and both halves are one line each away.
-
 **Not multiplayer.** [Doc 27](docs/27-multiplayer.md) landed as a specification and the cut-list
 reversal is written into [the vision](docs/00-vision.md#cut-list), but nothing was built and nothing
 should be built yet. PVP is meaningless without the melee loop and the contested recovery run is
 meaningless without gear worth recovering, so it sits in Milestone 3 behind both. What did change:
 [risk 9](docs/23-roadmap.md#risks) — what a client may know — now has a *buildable* answer rather
-than a proposed one, because the filtered view's missing half was this primitive. It is still a
-**design** question to settle before any transport code exists.
+than a proposed one. A stance is also the shape docs/27 predicted: an integer decision on the command
+queue, ordered by `(tick, playerId, seq)` like every other, which serialises and replays without a
+special case. It is still a **design** question to settle before any transport code exists.
 
-**And not a health bar.** Item by item, the seven features that prompted the multiplayer round are
-specified in the docs and backlogged; the one that was asked for and refused is a bar of any kind.
-The [condition view](docs/05-health-injury.md#the-condition-view) ships instead — a paperdoll of
-located conditions in skill-scaled prose, which carries strictly more information than a bar and
-none of it numeric. If a future session finds itself adding a fill percentage, that is the moment to
-re-read [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than
-the moment to quietly amend it.
+**And not a health bar.** The one thing that was asked for and refused is a bar of any kind. The
+[condition view](docs/05-health-injury.md#the-condition-view) shipped instead, and it shipped with
+the ban made mechanical rather than merely stated: `conditionView` hands the screen a state and a
+sentence per part and **no integrity value, no maximum and no fraction**, so a fill is not
+discouraged — it is not computable from what the screen has. `paperdoll.test.ts` serialises the
+snapshot and asserts the absence. If a future session finds itself adding a percentage, it will have
+to widen that boundary first, and that is the moment to re-read
+[clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than the
+moment to quietly amend it.
 
-Still open and unclaimed: the per-tick propagation budget with its overflow queue,
-`Pursue on direct contact`, and the **simulation half of last-known-position memory** — the renderer
-fades a mark where a body was last seen, but no observer *remembers* anything, and the prose version
-belongs with the condition view.
+Still open and unclaimed, and all three are deliberate rather than forgotten: the two ⏸ **deferred on
+measurement** items in the attention field (dirty regions and the propagation budget, each of which
+says what would change the answer), sharing the spatial index between emitters and culling, and the
+**simulation half of last-known-position memory** — the renderer fades a mark where a body was last
+seen, but no observer *remembers* anything, and the prose version belongs with the condition view.
 
 
 ## Quick start
@@ -126,7 +120,7 @@ belongs with the condition view.
 ```bash
 npm install
 npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 464 tests (~70 s -- the scent ones simulate hours)
+npm test                 # correctness: 582 tests (~70 s -- the scent ones simulate hours)
 npm run typecheck        # two projects -- the second is the sim/ purity gate
 npm run lint
 npm run format:check
@@ -171,7 +165,7 @@ and the field. [Why it restarts rather than hot-swaps](docs/30-decisions.md#what
 
 ## The build
 
-`.github/workflows/ci.yml` runs two jobs: `check` (typecheck, lint, format, 464 tests, build) and
+`.github/workflows/ci.yml` runs two jobs: `check` (typecheck, lint, format, 582 tests, build) and
 `performance` (tick budgets, then the frame budget in real Chromium). `pages.yml` publishes `dist/`
 to GitHub Pages on every green run on `main`.
 
@@ -411,14 +405,24 @@ which the project is legible as a game, and it is.
 > nobody pursuing. Contact cannot make silence meaningless, because it needs the zombie to already be
 > next to you.
 >
-> The milestone is **not closed**: melee still does not cost bite risk, and stances do not exist.
+> Guarded from a third direction now that stances exist: `test/integration/stances.test.ts` asserts the
+> criterion one rung at a time — the district hears more at every step up the ladder, and crawling past
+> a shambler is not the same event as sprinting past it. "Go quiet" is a thing you can now *do*
+> gradually rather than a thing you either are or are not.
+>
+> The milestone is **not closed**: melee still does not cost bite risk.
 
-**45 done, 10 open** — and the open count fell from 17 without a great deal being built, which is worth
-explaining rather than glossing. **All three channels are in**: the **noise spine** (field, gradient
-ascent, a shout), **scent** (continuous diffusion, wind, field memory), and **light** (a shadowcast from
-every emitter, zombies with eyes, and a night dark enough that a found candle matters). Both ⚠
-checkpoints riding on scent are closed, and light turned out not to belong in the field at all —
+**51 done, 4 open.** **All three channels are in**: the **noise spine** (field, gradient ascent, a
+shout), **scent** (continuous diffusion, wind, field memory), and **light** (a shadowcast from every
+emitter, zombies with eyes, and a night dark enough that a found candle matters). Both ⚠ checkpoints
+riding on scent are closed, and light turned out not to belong in the field at all —
 [entry 15 in the decision log](docs/30-decisions.md#what-light-made-structural).
+
+**And the field now has a fourth thing writing to it that is not a channel: you.** The
+[stance ladder](docs/29-movement-and-stances.md) is what turns docs/03's emitter table into a decision
+made continuously rather than a property of being alive — five rungs, each with its own speed, its own
+noise and its own price, and the largest gap deliberately left between jog and sprint because that gap
+is where the decision lives.
 
 **Six items moved out**, because Milestone 1 could not finish them: wet ground, surfaces-in-content,
 vehicles-read-the-layer and longer-nights went to [beyond the
@@ -431,9 +435,11 @@ six of them could not.
 the spatial index. Each says what would change the answer, because "nobody got to it" and "this was
 measured and refused" should not look the same in a backlog.
 
-**So the honest remainder is two jobs**: [grabs and bite risk](docs/09-combat.md#grabs) — the parity
-contract, and note that checkbox bundles two very different sizes, since docs/09's four grab clauses
-need no wound at all — and [movement stances](docs/29-movement-and-stances.md), six items of it.
+**So the honest remainder is one job**: [grabs and bite risk](docs/09-combat.md#grabs), the parity
+contract. That checkbox still bundles two very different sizes — docs/09's four grab clauses need no
+wound at all, while bite risk needs docs/05's injury types and the infection module — and it is now
+half unblocked, because the survivor has a six-part body that can be hurt. See
+[Do this next](#do-this-next) for the order.
 
 What this milestone found — including two things that contradicted the design docs and got them
 corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has-found-so-far).
@@ -677,7 +683,7 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 
 ### The player survivor — spec: [docs/09](docs/09-combat.md)
 
-**Done (6):**
+**Done (12):**
 
 - [x] Direct movement control of one entity
       *(landed in Milestone 0; it now emits into the field — walking 1, sprinting 6, shouting 120)*
@@ -716,34 +722,60 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       as long as the spear, which is the survival property rather than the killing one. Reach is
       centre-to-centre plus the target's half-width, or a weapon quietly loses 0.35 m of what its
       profile claims.)*
-
-**Open (7):**
-
-- [ ] **Movement stances** — crawl / crouch / walk / jog / sprint, spec:
+- [x] **Movement stances** — crawl / crouch / walk / jog / sprint, spec:
       [docs/29](docs/29-movement-and-stances.md)
-      *(walk and sprint emit 1 and 6, and **those magnitudes are calibrated and do not move** — the
-      speeds themselves now scale with `PACE` above. The three new registers are picked to sit
-      against them, the way whisper and talk were picked against shout.)*
-- [ ] Each stance carries its own speed, noise magnitude, and stamina behaviour — **faster is louder**,
+      *(the ladder is `src/sim/stances.ts`, arithmetic and importing no module, so
+      `stances.test.ts` asserts docs/29's two design rules directly: faster is louder at every
+      rung, and **no rung is strictly better than another** — checked over every pair, not just
+      neighbours. Walk and sprint still emit 1 and 6, and the ladder now owns the only copy of
+      those two numbers; the three new registers are picked to sit against them, the way whisper
+      and talk were picked against shout.)*
+- [x] Each stance carries its own speed, noise magnitude, and stamina behaviour — **faster is louder**,
       which is the whole reason this is a system and not two constants
-- [ ] Stance changes are [timed and interruptible](docs/01-hardcore-contract.md#2-actions-take-time-and-time-is-where-you-die);
+      *(speed as a factor of a walk so `PACE` keeps owning the clock, and stamina written as
+      seconds-to-empty and divided down — the unit the decision is actually made in. Noise comes
+      from the **rung** rather than the speed, because rough ground slows a jogging body below a
+      walking pace and getting quieter by wading into a bush would be reading the wrong number.)*
+- [x] Stance changes are [timed and interruptible](docs/01-hardcore-contract.md#2-actions-take-time-and-time-is-where-you-die);
       no aiming from a sprint, no swinging from a crawl
-- [ ] Speed modifiers go through the
+      *(one rung at a time, so crawl→sprint costs four transitions and an interrupted body is left
+      somewhere real. `entity.staggered` cancels the pending change — the same seam that already
+      cancels a wind-up. The swing is abandoned on the **decision** to sprint rather than on its
+      arrival: a bat's wind-up is shorter than the transition, so reading the current rung alone
+      would have let the blow land every time and docs/09's rule would never have fired once.)*
+- [x] Speed modifiers go through the
       [modifier pipeline](docs/21-extensibility.md#mechanism-2-the-modifier-pipeline) with named
       sources — legs, feet, pain, exhaustion, encumbrance, limp
       *(so "why am I this slow?" is answerable from the introspection that already exists, which is
-      what [every death is explicable](docs/01-hardcore-contract.md#fairness-rules) obliges)*
-- [ ] Crouch and crawl interact with the **low** occluder class, in both directions — cover that hides
+      what [every death is explicable](docs/01-hardcore-contract.md#fairness-rules) obliges. **This
+      found a live bug**: nothing read `move_speed`, so `inventory.encumbrance`'s penalty had been
+      resolving correctly and changing nothing since the grid landed. The test that "covered" it
+      asserted `resolve()` rather than the ground covered. See
+      [the decision log](docs/30-decisions.md#what-the-stance-ladder-and-the-condition-view-made-structural).)*
+- [x] Crouch and crawl interact with the **low** occluder class, in both directions — cover that hides
       you also blinds you
-- [ ] Fold the shambler's three hardcoded speeds (seek, wander ×0.35, mill ×0.25) into the same model
+      *(one assignment, and no cache invalidation at all — `VisibilityIndex.refresh` already keys on
+      `observer.eye`, so writing the field *is* the invalidation. Both directions come free from
+      `shadowcast` being symmetric; the test asserts both halves in one place, because a test
+      checking one is how the two come to drift apart.)*
+- [x] Fold the shambler's three hardcoded speeds (seek, wander ×0.35, mill ×0.25) into the same model
       *(so a [zombie type's](docs/14-zombies.md#content-shape) speeds are fields in its JSON entry
-      rather than constants in a module)*
+      rather than constants in a module. Read at spawn onto the individual, with a per-field
+      fallback so a type using `extends` to override `speed` keeps its inherited drift fractions.
+      `CRAWL_SPEED_FACTOR` became an `injury.crippled` modifier, which is what its own comment said
+      it wanted to be and could not.)*
+
+**Open (1):**
+
 - [ ] **Grabs, and breaking free** — and with them, bite risk
       *(the one part of docs/09's melee model still missing, and the reason **the parity contract
-      is not yet satisfied**: with no bite risk, melee's only cost is stamina. Both need a survivor
-      who can be injured and infected — an injury model and the infection module, neither of which
-      exists. The `entity.staggered` subscription that interrupts a wind-up is the seam this plugs
-      into, and it is already there because the rule is symmetrical.)*
+      is not yet satisfied**: with no bite risk, melee's only cost is stamina. **Half of what it was
+      waiting on now exists** — a survivor has a body with docs/05's six parts and a blow that lands
+      on one rolls against that table. What does not exist is located *injuries*: no scratch, no
+      laceration, no fracture, and no infection module for a bite to turn into. A grab that could
+      only reduce a number would be the health bar this design refuses. The `entity.staggered`
+      subscription that interrupts a wind-up is the seam this plugs into, and it is already there
+      because the rule is symmetrical.)*
 
 ### Time — spec: [docs/02](docs/02-core-loop.md)
 
@@ -1054,23 +1086,37 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### UI — spec: [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
 
-**Done (1):**
+**Done (2):**
 
 - [x] Inventory and equipment UI — `src/ui/inventory.ts`, the first screen in the game
       *(drag to move, right-click or `R` to rotate, drag onto a slot to wear, drag out to drop. It
       reads a snapshot rather than the world, and every gesture is a command -- so it cannot write
       to `sim/` and cannot reach a state the simulation would have refused.)*
+- [x] The [condition view](docs/05-health-injury.md#the-condition-view) screen — the paperdoll above,
+      rendered
+      *(pulled forward with the stance ladder, because a paperdoll is a picture of a posture and
+      building the two separately means two answers to what crouching looks like. **Two tiers of one
+      readout**: a small always-visible glimpse on the canvas showing tint and posture, and a panel
+      on the inventory screen adding a line of prose per part. The glimpse says *where*, the panel
+      adds *what*, and neither says *how much* — `conditionView` carries a state and a sentence per
+      part and **no integrity number at all**, which is what makes a fill impossible to draw rather
+      than merely discouraged. `paperdoll.test.ts` serialises the snapshot and asserts the absence.
+      One rig: `drawPaperdoll` calls the same `drawHumanoid` the district does, at a larger zoom.
+      Six parts, four states, one voice of prose — the **untrained** tier of docs/05's diagnosis
+      table, because there is no [skill web](docs/08-skill-web.md) to scale against yet and
+      inventing a scale would be inventing the skill system in a string table.)*
 
-**Open (7):**
+**Open (6):**
 
 - [ ] **No numbers anywhere player-facing** — no health bars, no hit chances, no enemy counts, no
       damage text
       *(unchanged, and the two items below are not exceptions to it. A paperdoll of located conditions
       answers "what is wrong and where"; a bar answers "how much is left". Only the second one is
       prohibited, and it is prohibited for stamina too.)*
-- [ ] The [condition view](docs/05-health-injury.md#the-condition-view) screen — the paperdoll above,
-      rendered
 - [ ] The diegetic condition and stamina readouts — in the world and on the survivor, not in a corner
+      *(the glimpse above is a corner, deliberately and for now: docs/05 wants blood on the ground
+      where they have been standing and breathing you can hear. This is the thing that replaces it,
+      not a step toward it.)*
 - [ ] Prose condition descriptions **generated from modifier sources** ("cold, tired, and that arm
       isn't right")
 - [ ] Priority grid UI

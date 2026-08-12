@@ -64,7 +64,13 @@ export type Observer = {
   focalHalfAngle: number;
   /** Half-angle of the peripheral cone, radians. Movement here is noticed; identity is not. */
   peripheralHalfAngle: number;
-  /** Eye level. {@link Eye.Crouched} is blocked by low cover; nothing sets it yet. */
+  /**
+   * Eye level. {@link Eye.Crouched} is blocked by low cover.
+   *
+   * Written by `stance.eyes` from the rung the body is on, so crouch and crawl look from low and
+   * everything else looks from standing. `VisibilityIndex.refresh` keys its cache on this, which is
+   * why changing stance costs a shadowcast and holding one costs nothing.
+   */
   eye: Eye;
 };
 
