@@ -14,7 +14,10 @@ import { applySave, createSave, decodeSave, encodeSave } from "../../src/sim/ker
 import { step } from "../../src/sim/kernel/step";
 import type { World } from "../../src/sim/kernel/world";
 import { Body } from "../../src/sim/modules/health";
-import { Shambler } from "../../src/sim/modules/shambler";
+import { Shambler, ShamblerState } from "../../src/sim/modules/shambler";
+
+/** Inside the bat's reach and outside the agreed 1 m grab range. */
+const MELEE_TEST_GAP = 1.2;
 
 /** Boot a district, then stand the survivor at arm's length from one of its shamblers. */
 function faceOff(seed = 77) {
@@ -24,11 +27,11 @@ function faceOff(seed = 77) {
   const attacker = player as EntityId;
   const victim = world.components.query(Position, Shambler)[0] as EntityId;
 
-  // Put the survivor a metre west of it, looking east. Moving the *survivor* rather than the
-  // zombie keeps the horde's own state untouched.
+  // Put the survivor inside bat reach but outside grab range, looking east. Moving the
+  // *survivor* rather than the zombie keeps the horde's own state untouched.
   const there = world.components.getOrThrow(victim, Position);
   const here = world.components.getOrThrow(attacker, Position);
-  here.x = there.x - 1;
+  here.x = there.x - MELEE_TEST_GAP;
   here.y = there.y;
   world.components.getOrThrow(attacker, Facing).radians = 0;
 
@@ -60,7 +63,7 @@ describe("melee, on the shipped boot path", () => {
       const there = world.components.get(victim, Position);
       if (there === undefined) return;
       const here = world.components.getOrThrow(attacker, Position);
-      here.x = there.x - 1;
+      here.x = there.x - MELEE_TEST_GAP;
       here.y = there.y;
       world.components.getOrThrow(attacker, Facing).radians = 0;
     };
@@ -85,7 +88,7 @@ describe("melee, on the shipped boot path", () => {
       const there = world.components.get(victim, Position);
       if (there === undefined) return;
       const here = world.components.getOrThrow(attacker, Position);
-      here.x = there.x - 1;
+      here.x = there.x - MELEE_TEST_GAP;
       here.y = there.y;
       world.components.getOrThrow(attacker, Facing).radians = 0;
     };
@@ -107,6 +110,11 @@ describe("melee, on the shipped boot path", () => {
   it("staggers the crowd it hits, which is what makes a crowd survivable", () => {
     const { world, attacker, victim } = faceOff();
     const events = swing(world, () => {
+      const there = world.components.get(victim, Position);
+      if (there === undefined) return;
+      const here = world.components.getOrThrow(attacker, Position);
+      here.x = there.x - MELEE_TEST_GAP;
+      here.y = there.y;
       world.components.getOrThrow(attacker, Facing).radians = 0;
     });
     const staggers = events.filter((e) => e.type === "entity.staggered");
@@ -131,7 +139,11 @@ describe("melee, on the shipped boot path", () => {
   });
 
   it("survives a save taken mid-wind-up, and lands the blow on the same tick", () => {
-    const { world } = faceOff(79);
+    const { world, victim } = faceOff(79);
+    // A stagger is the physical safety window: the zombie cannot grab while the bat winds up.
+    const target = world.components.getOrThrow(victim, Shambler);
+    target.state = ShamblerState.Staggered;
+    target.ticksStaggered = 100;
     world.commands.push({ type: "swing" });
     step(world);
 

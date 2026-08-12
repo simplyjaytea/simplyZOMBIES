@@ -1,436 +1,349 @@
 # 23 — Roadmap
 
-*Why this exists: the preceding 23 documents describe a game far larger than a first build. This one
-says what actually gets made, in what order, and admits what might be wrong.*
+*Why this exists: the other design documents describe a game far larger than a first build. This one
+says what gets made, in what order, what proves each stage, and what may still be wrong.*
 
 ---
 
-## It's a lot. We know.
+## How to read this document
 
-This document set is a **backlog, not a promise**. Written down, the design is:
+This roadmap owns **intended scope, order, exit criteria, risks, and design questions**. It does not
+own implementation bookkeeping: [HANDOFF.md](../HANDOFF.md) is the engineer-facing authority on what
+is built, in flight, or next. [README.md](../README.md) is user-facing and stays at feature level.
 
-> A hardcore survival colony sim with tower defense, a procedural survivor generator, a
-> Path-of-Exile-shaped item system, a classless skill web, an injury model, an infection model with
-> diagnostic uncertainty, weather, an AI director, factions, and world decay — in a browser.
-
-That is several years of work as specified. The response isn't to cut the vision; it's to build a
-**vertical slice** that proves the thesis, then decide what's worth expanding based on whether the
-slice is fun.
+The design set is a **backlog, not a promise**. Written down, the vision is several years of work: a
+hardcore survival colony sim with tower defense, procedural survivors, affixed items, a classless
+skill web, located injury, uncertain infection, weather, factions, vehicles, and world decay. The
+response is not to pretend all of that belongs in the first release. It is to prove the thesis with a
+vertical slice, then expand only what earns its place.
 
 ## The thesis to prove
 
-Everything in the slice exists to test one claim:
-
 > **A player managing the [attention field](03-attention.md) — trading comfort for safety, day after
-> day, with people they've invested in and can permanently lose — is doing something fun.**
+> day, with people they have invested in and can permanently lose — is doing something fun.**
 
-If that's true, the rest of the design is worth building. If it isn't, no amount of factions and
-weather will save it.
+Noise response alone is the Milestone 1 mechanical premise. The full thesis needs a colony, time,
+investment, loss, and succession, which is why it cannot be answered before Milestone 2.
 
-## Milestone 0 — Foundations
+## Milestone 0: Foundations (complete)
 
-The [architecture](19-architecture.md) work with no game on top.
+The [architecture](19-architecture.md) work with no game on top:
 
-- Fixed-timestep tick loop, seeded RNG, plain serializable state
-- Minimal ECS: entities, components, ordered systems ([ECS & content](20-ecs-and-content.md))
+- Fixed-timestep tick loop, seeded RNG, and plain serializable state
+- Minimal ECS with ordered systems ([ECS and content](20-ecs-and-content.md))
 - Event bus and modifier pipeline ([extensibility](21-extensibility.md))
-- Content registry with schema validation, loading from directories
-- Canvas renderer reading sim state; input via a command queue
-- Save/load with a version stamp and clean rejection of stale saves
-- **CI: determinism test, module-isolation boot test, lint rules enforcing `sim/` purity**
+- Validated content registry
+- Canvas renderer reading simulation state; input through a command queue
+- Versioned save/load
+- CI gates for determinism, module isolation, simulation purity, and performance
 
-**Exit criterion:** an entity moves around a tile map, deterministically, and the same seed plus
-inputs reproduces it byte-identically.
+**Exit criterion:** an entity moves around a tile map deterministically, and the same seed plus input
+log reproduces byte-identical state.
 
-## Milestone 1 — The spine
+**Result:** passed and closed. Exact implementation evidence lives in [HANDOFF.md](../HANDOFF.md).
 
-The [attention field](03-attention.md) and something that reacts to it.
+## Milestone 1: The spine (complete)
 
-- Three-channel field on a coarse grid, with emit, propagate, and decay
-- [Line of sight](28-visibility-and-sightlines.md) — one shadowcasting primitive, which the light
-  channel, the renderer, and eventually the multiplayer view filter all need
-- Shamblers performing gradient ascent
-- One controlled survivor with direct movement, on the [stance ladder](29-movement-and-stances.md)
-- Melee combat: swing, stagger, grab, stamina
-- Day/night cycle
-- Debug overlay for all three channels
+The [attention model](03-attention.md) and something that reacts to it:
 
-**Exit criterion:** make noise, and they come. Go quiet, and they don't. This is the first moment the
-game is legible as a game.
+- Noise propagation and scent diffusion on the coarse attention grid
+- Light as a separate, wall-precise shadowcast rather than a coarse field channel
+- [Line of sight](28-visibility-and-sightlines.md) shared by light, rendering, and future client views
+- Shamblers following gradients with individual bias, contact pursuit, grabs, and bites
+- One directly controlled survivor using the five-rung [stance ladder](29-movement-and-stances.md)
+- Committed melee swings, stagger, stamina, grabs, and breaking free
+- Day/night and findable light sources
+- Developer overlays cycling noise, scent, and sight
 
-## Milestone 2 — The vertical slice
+The shipped grab uses fixed escape power. When attributes arrive, [Strength](#planned-survivor-attributes)
+will improve that chance; every additional grabber continues to reduce it.
 
-Everything needed to test the thesis, and nothing else.
+**Exit criterion:** make noise and zombies converge immediately. Stop emitting noise and the summoned
+response disperses, while scent makes stillness only temporarily safe.
+
+**Result:** passed and closed. Scent also gave field memory an observable result the original design
+did not predict: a disturbed horde can migrate downwind by following its own residue.
+
+## Milestone 2: The vertical slice
+
+Everything needed to test the thesis, and nothing else. Several foundations were pulled forward
+during Milestone 1 — grid inventory, item generation, located body parts and condition presentation,
+the melee/grab loop, and the private infection-transmission seam. They are inputs to this slice, not
+work to rebuild.
 
 | System | Slice scope |
 |---|---|
-| **Map** | One hand-authored map: a small district with a defensible building |
-| **Survivors** | The [generator](07-survivors.md) with a small name/trait/backstory pool; ~3 recruitable |
-| **Work** | Four jobs: Haul, Construct, Cook, Doctor |
-| **Needs** | Hunger, thirst, rest, mood. *(Temperature and hygiene deferred.)* |
-| **Health** | **Full [injury model](05-health-injury.md)** — it *is* the hardcore thesis |
-| **Infection** | **Full, including [diagnostic uncertainty](06-infection.md)** — same reason |
+| **Map** | One hand-authored small district with a defensible building |
+| **Survivors** | Generator with a small name, trait, and backstory pool; about three naturally recruitable survivors |
+| **Work** | Haul, Construct, Cook, and Doctor, with NPC priority selection |
+| **Needs** | Hunger, thirst, rest, and mood. Temperature and hygiene deferred |
+| **Health** | Complete slice injury loop: located injuries, continuous conditions, treatment, diagnosis, and permanent consequences |
+| **Infection** | Transmission, uncertainty, symptoms, responses, and turning. The Constitution hook uses a neutral baseline until attributes ship |
 | **Zombies** | Shamblers only |
-| **Combat** | Melee and ranged, both, with the [parity contract](09-combat.md) live |
-| **Items** | ~12 bases across melee and ranged; ~10 affixes; 3 tiers; attachment slots on 2 classes |
-| **Crafting** | Two modification consumables: **Duct Tape** and **Scrap Kit** |
-| **Web** | Stub: one melee branch, one ranged branch, ~12 nodes |
-| **Building** | Walls, a gate, barricades, one trap, one bait emitter |
+| **Combat** | Shipped melee plus complete ranged combat, with the [parity contract](09-combat.md) live |
+| **Items** | Keep the shipped item/grid foundation; add ranged bases, armor, attachment behavior, active wear, and repair |
+| **Inventory** | World-container search, colony storage, and loadout automation on the shipped grid |
+| **Crafting** | Duct Tape and Scrap Kit modification consumables |
+| **Web** | A shallow six-region web, about 12–18 nodes, so Fighter, Worker, Medic, and Scout all have valid auto-allocation paths |
+| **Building** | Walls, gate, barricades, one trap, and one bait emitter |
 | **Decay** | Food spoilage only |
-| **Director** | Full — pacing is what makes a slice feel like a game rather than a sandbox |
-| **Death** | **Succession** ([hardcore contract](01-hardcore-contract.md)) |
-| **Resources** | ~15 resource types, 3 location loot tables |
+| **Director** | Slice director: pressure/strain, grace period, lulls, recruitment and night events, and minimum siege cadence |
+| **Death** | Permadeath, corpses, and [succession](01-hardcore-contract.md#succession-what-happens-when-you-die) |
+| **Resources** | About 15 resource types and three location loot tables |
+| **UI** | Priority grid, shallow web, diagnosis/condition prose, and legible non-numeric feedback |
+| **Balance** | Minimal headless campaign harness for run-length, death, siege, and combat-parity distributions |
 
-**Explicitly not in the slice:** weather, factions, the full decay clock, mutation waves, temperature,
-hygiene, relationships, unique survivors, named items, the full web, most zombie types, the escape
-endgame.
+The natural slice still targets about three recruits. Risk 1 uses a **seeded six-survivor colony
+scenario** so automation can be tested without bloating recruitment content merely to reach the test
+population.
 
-**Exit criterion:** a player survives ten in-game days, loses someone they cared about, and wants to
-start again.
+The director is intentionally not the full storyteller system. “Nothing Personal” is an internal
+balance baseline, not a player-facing preset. Full storyteller presets remain Milestone 4.
 
-## Milestone 3 — Depth and range
+**Explicitly not in the slice:** survivor attributes, relationships, weather, factions, full world
+decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web, most zombie
+types, vehicles, multiplayer, and the escape endgame.
 
-Only if Milestone 2 answers the thesis affirmatively.
+### Build order
 
-**Depth:** weather · the full decay clock and mutation waves · the remaining zombie types (screamer
-first — it's the most interesting object in [that document](14-zombies.md), and it is
-[downstream of sight](28-visibility-and-sightlines.md#what-the-zombies-see) rather than of content) ·
-the full skill web ·
-named items and unique survivors · relationships and grief · temperature and hygiene · the remaining
-modification consumables · more traps and bait.
+1. **Lethality:** finish injury, infection, treatment, turning, and armor interaction on the shipped
+   bite/transmission seam.
+2. **People and economy:** survivor generation, needs, jobs, the authored district, resources,
+   container search, and spoilage.
+3. **Ranged parity:** ranged actions, aiming/sway, ammunition, ranged items, and NPC combat.
+4. **Automation and progression:** shallow six-region web, Focus auto-allocation, and loadout upkeep.
+   This comes after the work and combat sources that earn its points.
+5. **Defense and pacing:** building, then the slice director that measures and pressures those systems.
+6. **Continuity:** recruitment, death, corpses, grief-independent loss consequences, and succession.
+7. **Proof:** automated distribution runs first, then the human ten-day playtest.
 
-**Range** — the [world](24-world-and-scale.md), [vehicles](25-vehicles.md), and
-[mobile bases](26-mobile-bases.md), in this order, because each depends on the last:
+**Exit criterion:** survive ten in-game days, become invested in a survivor, lose them permanently,
+continue through succession, and still want another run afterward. The slice must be playable end to
+end without a developer explaining it.
 
-1. **World scale first.** The continuous region, district types, the road graph, procedural assembly
-   from authored templates, district-tier simulation, and streaming. Vehicles are pointless without
-   somewhere to drive, and this is the larger and riskier half.
-2. **The drive benchmark before the vehicles.** Per
-   [the performance pillar](22-performance.md#the-ci-benchmark-suite), the streaming-at-speed scenario
-   is written and running against synthetic load *before* a drivable vehicle exists. Finding out the
-   region isn't affordable is much cheaper now than after building three documents' worth of systems
-   on top of it.
-3. **Vehicles.** Bases, slots, affixes, driving, fuel, breakdowns, route trails, and the attention
-   emissions that make an engine the loudest thing in the game.
-4. **Mobile bases and nomad play.** Interior modules, volume budgeting, convoys, relocation, and the
-   long-expedition mode where NPCs run the colony in your absence.
+## Milestone 3A: Survivor depth
 
-**And, independently of the above:** [multiplayer](27-multiplayer.md) — the authoritative host,
-survivor-versus-survivor in one district, and voice as a noise emitter. It is specified and
-deliberately unbuilt. It does not belong in Milestone 1 or 2: PVP is meaningless without the melee
-loop, and the contested recovery run is meaningless without gear worth recovering. It does not depend
-on world scale either, which is why it sits beside the range work rather than inside it.
+Only if Milestone 2 answers the thesis affirmatively. This track deepens the people and colony before
+adding more geography:
 
-## Milestone 4 — Breadth
+1. Full work grid, including Guard/Scout behavior
+2. Relationships and grief
+3. Full skill web
+4. The six survivor attributes below, now that each has a live consumer
+5. Weather, temperature, hygiene, full decay, mutation waves, and remaining zombies
+6. Named items, unique survivors, remaining modification consumables, traps, and bait
 
-Factions ([the whole document](18-factions.md)) · the escape endgame · storyteller presets and the
-full sandbox layer · the balance harness at scale · content volume.
+That order is deliberate. WIS lookout needs a lookout job; CHA needs relationships; INT needs the web;
+temperature needs weather. CHA trade and WIS raider warnings activate fully when factions arrive in
+Milestone 4 rather than existing as dead bonuses in Milestone 3A.
+
+**Exit criterion:** two generated survivors with different aptitudes, histories, relationships, and
+web paths solve the same colony problem in observably different ways without either becoming a
+mandatory template.
+
+### Planned survivor attributes
+
+Survivors eventually carry **STR, DEX, CON, INT, CHA, and WIS**. These are bounded aptitudes, not
+classes or prebuilt identities. Generation uses a fixed budget with tradeoffs: no survivor can be high
+in all six, and backstory, age, and traits produce modest, explainable shifts rather than perfect
+rolls. A survivor's base values are permanent after generation.
+
+The skill web may contain rare, late, opportunity-costly nodes that permanently raise an attribute.
+Equipped items and affixes may provide conditional bonuses. Repetition never raises base attributes,
+and removing an item removes only its conditional bonus. Rerolling the starting survivor creates a
+different person; it never edits an existing person's attributes.
+
+| Attribute | Benefit and guardrail |
+|---|---|
+| **STR — Strength** | Raises the hidden carried-mass threshold before encumbrance slows the survivor and raises escape power against grabs. More grabbers still diminish escape chance independently. |
+| **DEX — Dexterity** | Raises movement speed across every stance without replacing stance tradeoffs. It cannot ship until footstep attention is normalized by distance or equivalently scaled, so speed does not silently become a second stealth bonus. |
+| **CON — Constitution** | Raises effective body-part durability through a bounded injury-tolerance modifier to incoming integrity loss. Baseline maxima remain properties of the body kind; there is never a global HP pool or health bar. CON may also lengthen infection progression, but never changes the wound-time transmission result. |
+| **INT — Intelligence** | Increases activity-earned, region-tagged skill progress. It never grants retroactive progress, generic levels, or permission to buy an unrelated region; INT-raising nodes cannot accelerate their own acquisition. |
+| **CHA — Charisma** | In Milestone 3A, increases positive relationship gains and negotiation outcomes without erasing grievances. Better faction trade activates with Milestone 4. |
+| **WIS — Wisdom** | Notices that an item or location merits inspection and gives earlier approximate warnings about sensed danger. It never reveals exact quality, affixes, counts, positions, or anything through walls; Scavenger's Eye retains exact loot-quality and roll benefits. |
+
+Attribute benefits stay within roughly one competence band. Injury, equipment, position, and learned
+skills must remain more important than a favorable roll. Known aptitude does not automatically violate
+the uncertainty contract, but exact numbers versus descriptive bands is a UI decision that must be
+made before implementation.
+
+## Milestone 3B: World range
+
+This is a separate completion track rather than a requirement bundled into survivor depth:
+
+1. **World scale:** continuous region, district types, road graph, authored-template procedural
+   assembly, district-tier simulation, and streaming.
+2. **Drive benchmark:** synthetic streaming-at-speed load before a drivable vehicle exists.
+3. **Vehicles:** bases, slots, affixes, driving, fuel, breakdowns, route trails, and attention output.
+4. **Mobile bases:** interior modules, volume budgeting, convoys, relocation, and nomad play.
+
+**Exit criterion:** travel across multiple streamed districts at the target speed without breaking the
+frame budget, then prove fixed, nomad, and hybrid colonies all have distinct viable failure modes.
+
+## Milestone 3C: Multiplayer
+
+Multiplayer is independent of world range: authoritative host, survivor-versus-survivor play in one
+district, filtered client views, recovery runs, and voice as an emitter. The visibility primitive now
+exists; what remains unproven is per-client filtering, leakage, synchronization, and host cost.
+
+**Exit criterion:** two clients can play one district without receiving hidden entity or attention
+information, while the host remains deterministic and inside the single-player frame budget.
+
+## Milestone 4: Breadth
+
+Factions and trade · the escape endgame · storyteller presets and the full sandbox layer · expanded
+large-scale balance campaigns · content volume.
 
 ## Deferred: z-levels
 
-Multi-floor buildings, stairs, rooftops as places you stand rather than places that exist. **Not
-designed, and deliberately not designed yet** — recorded here so the deferral is a decision with a
-price attached rather than an omission somebody discovers later.
+Multi-floor buildings, stairs, and standable rooftops remain deliberately undesigned. Every spatial
+assumption is planar:
 
-**What it would cost, concretely.** Every spatial assumption in the codebase is planar, and none of
-them are planar by accident:
-
-| Assumption | Where |
+| Assumption | Current shape |
 |---|---|
-| The map is a flat `Uint8Array` of `Floor \| Wall` | `src/sim/map/tilemap.ts` |
-| The attention field is one 64 × 64 grid of 4 m cells | `src/sim/field/attention.ts` |
-| Noise flood-fills across one plane; scent diffuses across one plane | same |
-| The renderer blits one rasterised tile layer and has no floor concept | `src/render/renderer.ts` |
-| [Visibility](28-visibility-and-sightlines.md) shadowcasts in two dimensions | doc 28 |
+| Map | One planar tile layer with Floor, Wall, Window, Screen, Low, and Tree classes |
+| Ground | A separate planar surface layer |
+| Attention | One 64 × 64 coarse grid carrying noise and scent; light is separate |
+| Rendering | One planar tile/surface raster with no floor ownership |
+| Visibility | Two-dimensional shadowcasting |
 
-Z-levels do not add a dimension to one of those. They add it to all five at once, and the field is
-the expensive one: a per-floor field multiplies the grid, while a shared field means a generator in a
-basement pulls the horde to the roof.
-
-**What we get without them.** The tactical value the design actually references is sightlines and
-grab immunity — [watch platforms](15-base-building.md), *"doors, elevation,
-chokepoints"* as the [runner's](14-zombies.md#third-wave-week-16) counter. Nearly all of that is
-reachable through [doc 28's occluder classes](28-visibility-and-sightlines.md#what-blocks-sight)
-without a second floor existing, and [docs/15 already cuts](15-base-building.md#cut-list) free-form
-multi-story player construction on its own reasoning.
-
-**When to revisit.** Not before Milestone 2 answers the thesis, and not before
-[world scale](24-world-and-scale.md) — which is where the streaming and memory budget that a
-multi-floor district would have to fit inside actually gets decided. If it is picked up, it needs a
-throwaway spike against the field cost first, exactly as the attention field got one.
+Z-levels add a dimension to all of them at once. They are not revisited before Milestone 2 proves the
+thesis and Milestone 3B establishes the streaming and memory budget. Any future attempt begins with a
+throwaway field/visibility cost spike.
 
 ---
 
 ## Risks
 
-The design's live problems, stated plainly. Each has a checkpoint where we find out.
+All live risks stay together here. Exact task state and measurements belong in HANDOFF.
 
-### 1. The micromanagement cliff — *highest design risk*
-Unlimited survivors × affixed gear × a skill web is a lot of interface. The
-[Focus auto-allocation system](07-survivors.md#focus-and-auto-allocation-the-anti-micromanagement-rule)
-is the mitigation, and it's a design constraint rather than a solved problem.
+### 1. The micromanagement cliff — open, highest design risk
 
-**Checkpoint:** Milestone 2, with 6+ survivors. If playing on full auto isn't viable, the item and web
-systems need shrinking, not the UI needs improving.
+Unlimited survivors × affixed gear × a web can become spreadsheet management. **Checkpoint:** the
+seeded six-survivor Milestone 2 scenario, every NPC on Focus automation. If full auto is not viable,
+shrink item/web complexity rather than adding more required UI labor.
 
-### 2. Unlimited survivors may undercut permadeath
-The counterweight — recruits arrive as [worthless nobodies](07-survivors.md) — is a theory. If players
-treat survivors as ammunition, [infection](06-infection.md) loses its teeth and the emotional core of
-the game goes with it.
+### 2. Unlimited survivors may undercut permadeath — open
 
-**Checkpoint:** Milestone 2. Watch whether players quarantine or just execute. Universal execution
-means the investment curve is too shallow.
+If players treat recruits as ammunition, infection loses its teeth. **Checkpoint:** Milestone 2;
+observe whether players quarantine and treat people or execute every uncertain case.
 
-### 3. Unscheduled hordes may starve the tower defense half
-[No wave timer](02-core-loop.md) is right for tension and might mean the elaborate
-[base building](15-base-building.md) system rarely gets tested by anything.
+### 3. Unscheduled hordes may starve tower defense — open
 
-**Checkpoint:** Milestone 2. If sieges are too rare to justify building, the [director](17-director.md)
-needs to guarantee a minimum siege cadence — a change to pacing, not to the attention model.
+No wave timer may leave building untested. **Checkpoint:** Milestone 2; if sieges are too rare to
+justify defenses, the slice director guarantees a minimum cadence without changing attention rules.
 
-### 4. ECS plus a modifier pipeline may be over-engineering for a slice
-Real risk of spending Milestone 0 on architecture for a game that turns out not to be fun.
+### 4. ECS and modifiers may be over-engineering — retired after Milestone 1
 
-**Mitigation:** Milestone 0 is deliberately small — the minimum ECS, not a good one. The bet is that
-this design *will* keep changing, and it has already changed four times, so the bet looks sound.
+The risk was architectural cost, not whether the noise prototype was fun. Milestones 0–1 repeatedly
+changed movement, visibility, items, combat, infection seams, and content while preserving
+determinism and module isolation. The minimum architecture has earned its current footprint; future
+abstraction still needs a concrete second consumer.
 
-**Checkpoint answered — see [spike findings](#spike-findings-attention-field) below.** A throwaway
-prototype ran the thesis before any architecture existed. The mechanic works; two tuning problems
-surfaced that would have been much more expensive to find later.
+### 5. Attention-field performance — closed
 
-### 5. Attention field performance
-Continuous scent diffusion is the [most likely thing to need rework](22-performance.md).
+Continuous scent and 500-body convergence passed named CI benchmark scenarios within their budgets,
+including saturated-field cost. Exact machine-dependent timings stay in HANDOFF and the benchmark
+output rather than becoming permanent roadmap promises. Reopen only for a larger field, a real new
+continuous channel, or a failing budget.
 
-**Checkpoint:** Milestone 1, under a synthetic 500-zombie load.
+### 6. Melee/ranged parity may not survive contact — open
 
-**Answered, and the answer is no.** Event-driven *noise* propagation plus gradient ascent was already
-effectively free — 0.13 ms average sim at 1,560 zombies. Milestone 1 then built the continuous channel
-this risk was actually about, and measured it:
+**Checkpoint:** the Milestone 2 campaign harness compares melee-only and ranged-only colony outcome
+distributions before human tuning argues from anecdotes.
 
-| | |
-|---|---|
-| Scent diffusion, per step | **0.0377 ms** (64×64 grid, 4 Hz) |
-| Amortised per tick | **0.0075 ms** — about 0.1% of the 8 ms budget |
-| Cost when the district is saturated with scent | **The same 0.0075 ms.** The step scans the grid, not the live cells |
-| 500 bodies converging and milling, residue laid continuously | 0.42 ms/tick against a 1 ms budget |
+### 7. Streaming at driving speed — open, highest engineering risk
 
-Continuous diffusion is not the thing that will need rework. What scales with the horde is per-entity
-AI, which the noise spine already paid for, and rendering still dominates both.
+**Checkpoint:** Milestone 3B runs the drive benchmark against synthetic load before vehicles. Failure
+means smaller regions or abstracted travel are still affordable decisions.
 
-The risk is closed rather than narrowed, with one correction recorded against it: the *cost* was never
-the hard part of scent. The hard part was calibration, and specifically that scent needed
-[a floor of its own](03-attention.md#scent-and-the-constants-it-needed-of-its-own) — sharing noise's
-made dilution rather than the half-life govern how long a smell lasted, and collapsed a ninety-minute
-half-life into about two minutes of observed lifetime.
+### 8. Nomad viability doubles the balance surface — open
 
-The second checkpoint riding on the same build — *does residue do anything observable* — is also
-answered, and more interestingly than expected:
-[the horde migrates downwind following its own scent](03-attention.md#what-field-memory-turned-out-to-actually-do).
-The mechanic is kept. What this document and docs/03 said it would *do* was wrong, and is corrected
-there rather than quietly reworded.
+**Checkpoint:** compare fixed-only, nomad-only, and hybrid campaigns. Fixed colonies should fail to
+siege/mutation pressure; nomads should fail to fuel/attrition, with neither strictly dominant.
 
----
+### 9. What a multiplayer client may know — narrowed
+
+Visibility, occlusion, and filtered rendering primitives exist, so the prerequisite is satisfied.
+**Checkpoint:** before transport code, validate per-channel attention filtering, audible-but-unseen
+leakage, host-only developer overlays, and the cost of per-client views.
+
+### 10. A host in the loop may miss the frame budget — open
+
+**Checkpoint:** synthetic clients attached to the single-player benchmark, held to the same budget.
+
+### 11. Attributes may create mandatory builds or reroll fishing — open
+
+Familiar RPG stats invite optimization even when the game says “blank slate.” **Checkpoint:** generate
+large seeded cohorts, verify the fixed budget prevents universally superior survivors, then playtest
+whether one stat becomes mandatory or starting-survivor rerolling dominates actual play.
 
 ## Spike findings: attention field
 
-A disposable prototype (`spike/`, and not part of the real build) tested the core thesis — *make noise
-and they come, go quiet and they don't* — before Milestone 0. One noise channel, shamblers, a tile map,
-and nothing else. Measured in Chromium at 1280×800.
+This is historical evidence. The disposable pre-Milestone prototype tested the narrower mechanical
+premise “make noise and they come.” It did not test the full colony/permadeath thesis. Its findings
+are retained as history; the linked specifications and current HANDOFF are the authority.
 
-**All three problems below are now folded into the documents that specify the systems.** The findings
-are kept here because they are the evidence; the specifications are the authority:
-
-| Finding | Resolution | Specified in |
-|---|---|---|
-| Conga lines | Persistent per-individual angular bias, ±0.62 rad | [14 — Zombies](14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own) |
-| Noise not calibrated to district size | District pinned at 256 m; magnitudes unchanged, the *unit* supplied | [03 — Attention](03-attention.md#scale-and-calibration), [24 — World & Scale](24-world-and-scale.md#how-big-a-district-is) |
-| Field memory a no-op | Respecified as scent-only at a magnitude that propagates. **Verified at Milestone 1, and it does something other than what was specified** — the horde migrates downwind on its own residue rather than the site staying attractive | [03 — Attention](03-attention.md#what-field-memory-turned-out-to-actually-do) |
-| Rendering dominates simulation | Draw budget added; every benchmark asserts frame time | [22 — Performance](22-performance.md#aim-the-budgets-at-the-renderer) |
-
-### It works
-
-Convergence on a noise event is **legible with the debug overlay off**. Zombies visibly stream in from
-across the district and the ones outside the radius carry on wandering. The core mechanic reads.
-
-*Caveat:* the spike colour-codes zombies by AI state, which flatters legibility. What carries it
-without that crutch is the *direction of travel* being obviously coordinated — which is a real
-property, not a debug affordance.
-
-### Problem 1 — gradient ascent produces conga lines, not a horde
-
-Every zombie in a given field cell picks the same one of eight neighbours, so they collapse into
-single-file queues along the steepest path. It reads as ants on a pheromone trail rather than a crowd
-of the dead.
-
-**Fixed, at zero cost.** A persistent per-individual angular bias (±0.62 rad) applied to the gradient
-direction fans them into a broad convergence. Sim cost was 0.04 ms without and 0.05 ms with; the seek
-count was unchanged. The fix needs no neighbour queries, so it survives contact with
-[the horde counts in performance](22-performance.md).
-
-**Resolved:** [zombies](14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own) now specifies it,
-including that the bias comes from the seeded RNG stream and belongs in save state.
-
-### Problem 2 — the noise magnitudes are not calibrated to district size
-
-A single 120-magnitude shout floods an entire 80×80-tile district and stays audible for over thirteen
-seconds. Buildings barely cast a noise shadow, because propagation simply routes around them along the
-streets.
-
-This is a **calibration** problem, not a model problem, and it landed directly on the open question
-*"how big is a district, in metres?"*
-
-**Resolved, and the diagnosis turned out to be narrower than it looked.** The magnitude table was
-never wrong — its *ratios* are load-bearing design, quoted across six documents. What was missing was
-the **unit**: nothing had ever defined metres per tile or attenuation per metre, so the spike picked a
-constant arbitrarily (2.0 per tile, about 3× too steep) and ran it in a district that was 80 m across
-when a shout carries 171 m.
-
-Supplying the unit fixes it with **zero changed magnitudes**: 1 tile = 1 m, 0.7 attenuation per metre,
-4 m field cells, and a **256 m district** — chosen so that one unsuppressed gunshot (257 m) equals
-exactly one district. See [scale and calibration](03-attention.md#scale-and-calibration) and
-[how big a district is](24-world-and-scale.md#how-big-a-district-is). Linear falloff is kept; it is
-what makes propagation cost bounded by magnitude.
-
-### Problem 3 — field memory is currently a no-op
-
-Milling bodies emitting residue is [specified](03-attention.md) but, at the magnitudes given, residue
-never propagates past its own cell — the emission is smaller than one cell of falloff. Toggling it off
-changes nothing observable.
-
-**Resolved, and the spike was testing the wrong channel.** Both specifying documents describe field
-memory as **scent** — bodies leaving their smell behind, decaying over hours. The spike has no scent
-channel, so it implemented residue as *noise*, where an emission of 5 against a per-cell falloff of 4
-dies inside its own cell by arithmetic. The null result is real but it is a property of the
-substitution, not of the mechanic.
-
-[Attention](03-attention.md#field-memory-is-a-scent-mechanic) now states that residue writes to scent
-and never to noise, at a magnitude above the propagation floor. It remains **unverified** — scent has
-never been built — so Milestone 1 carries an explicit acceptance check: toggle residue off, and if
-nothing observable changes, cut it.
-
-### Performance
-
-| Scenario | Zombies | Sim avg / p95 | Frame avg | Field cells live |
-|---|---|---|---|---|
-| Idle, quiet | 60 | 0.01 / 0.10 ms | 2.10 ms | 0 |
-| Idle, quiet | 560 | 0.06 / 0.20 ms | 2.60 ms | 6 |
-| After a shout | 560 | 0.07 / 0.30 ms | 3.71 ms | 1,112 |
-| After a shout | 1,560 | 0.13 / 0.50 ms | 3.68 ms | 1,112 |
-
-Two things worth carrying into Milestone 1:
-
-- **Quiet genuinely costs nothing.** Six live field cells at rest. The event-driven design for noise is
-  vindicated.
-- **Rendering dominates, not simulation.** Sim is ~0.1 ms while draw is ~3 ms.
-
-**Resolved:** [performance](22-performance.md#aim-the-budgets-at-the-renderer) now carries a draw
-budget and a sim-share-of-frame budget, every benchmark scenario asserts frame time as well as tick
-time, and *Quiet night* was tightened from `≤2 ms tick` — a budget the measured 0.01 ms could have
-regressed 200× without failing.
-
-### Not answered
-
-- **Is quiet *tense*, or just slow?** This needs a human playing, not a measurement. With noise as the
-  only channel, being quiet is completely safe — which is the design working as specified, and also the
-  strongest argument that **scent is not optional**. Perfect safety through stillness is a boring
-  equilibrium, and scent is what makes hiding imperfect.
-- **Scent cost.** Untested, and it is the continuous channel risk 5 is actually about.
-
-### 6. Melee/ranged parity may not survive contact
-The [contract](09-combat.md) is elegant on paper. Elegant-on-paper parity usually collapses in
-playtesting.
-
-**Checkpoint:** Milestone 2, using the [balance harness](19-architecture.md) — thousands of headless
-runs measuring whether melee-only and ranged-only colonies both survive comparably.
-
-### 7. Streaming a continuous region at driving speed — *highest engineering risk*
-The design commits to one continuous [drivable world](24-world-and-scale.md) with no abstracted travel.
-In a browser, promoting a district into existence while the player drives into it at 60 km/h — with a
-horde possibly loaded behind — is **the hardest engineering problem in the design**. The mitigations
-(road-topology prefetch, staged promotion, a load-tied speed cap) are designed but unproven.
-
-**Checkpoint:** Milestone 3, step 2 — the drive benchmark runs against *synthetic* load before any
-vehicle exists. If it can't hold 60 fps, the honest options are a smaller region or abstracted travel
-legs between districts, and both are much cheaper to accept before vehicles are built than after.
-
-### 8. Full nomad viability roughly doubles the balance surface
-Making a [convoy](26-mobile-bases.md) a genuine alternative to a fixed colony means every system needs
-a nomad answer: what [world decay](13-world-decay.md) means to someone with no farm, what the
-[director](17-director.md) paces against a colony with no walls, whether "just drive away" becomes the
-correct response to everything.
-
-The design's answer is that the two playstyles have **opposite failure modes** — fixed colonies die to
-sieges and mutation, nomads die to fuel and attrition. That's a theory until it's measured.
-
-**Checkpoint:** Milestone 3, step 4 — run the balance harness on nomad-only, fixed-only, and hybrid
-colonies. If nomads dominate, fuel scarcity and the attrition tax are undertuned. If they're
-unplayable, the failure modes are stacked rather than parallel.
-
-### 9. What a multiplayer client may know about the attention field
-[Multiplayer](27-multiplayer.md) is restructured around an authoritative host specifically so a client
-never holds state it shouldn't see. The attention field is the hole in that: it is world state, and the
-noise channel is a map of where everyone recently was. Ship it whole and PVP has the wallhack the host
-model exists to prevent; clip it to what each survivor could plausibly sense and the client cannot draw
-the overlay the single-player build already has.
-
-**Narrowed, not closed.**
-[Doc 28 proposes an answer](28-visibility-and-sightlines.md#what-a-client-may-know--a-proposed-answer-to-risk-9):
-entities filtered by sight, the field filtered **per channel** rather than by sight, and the debug
-overlay conceded as host-only. It also surfaced a prerequisite this risk had missed — *there is no
-visibility query at all today*, so the renderer already draws through walls in single-player. The
-filtered view is unbuildable until that exists, which moves line of sight from a Milestone 1 nicety to
-a multiplayer dependency.
-
-**Checkpoint:** before any multiplayer code, unchanged. What changed is that the checkpoint now
-validates a written proposal rather than starting from a blank page.
-
-### 10. A host in the loop may not fit the frame budget
-[Performance is a pillar](00-vision.md#the-six-pillars) and the benchmarks fail the build. Filtering
-and serialising per client per tick is new cost that no current scenario measures, and it scales with
-player count rather than with entity count — a shape none of the existing budgets have.
-
-**Checkpoint:** a benchmark scenario with synthetic clients attached, held at the same budget as its
-single-player twin — the same way the loud-district scenarios are held against their quiet twins.
+| Finding at spike time | Final resolution |
+|---|---|
+| Gradient ascent produced conga lines | Persistent seeded individual bias fans convergence into a crowd |
+| Noise seemed uncalibrated | The missing fact was the unit; the district became 256 m without changing the magnitude table |
+| Noise-based residue did nothing | Field memory was always a scent mechanic. Milestone 1 built and verified it; hordes migrate downwind on their residue |
+| Rendering dominated simulation | Frame budgets and real-browser gates were added alongside tick budgets |
+| Scent cost was unknown | Milestone 1 measured and closed the performance risk |
+| Quiet was completely safe in the noise-only spike | Shipped scent makes quiet slow rather than safe; whether that feels tense remains a playtest question |
 
 ## Open questions
 
-Deliberately unresolved, to be answered by playing rather than arguing:
+This is the canonical design and playtest question register. HANDOFF should link here rather than
+copying it; engineering blockers belong in HANDOFF beside the task they block.
 
-- **How long is a day, really?** Four hours at 1× is a guess.
-- **How lethal is *too* lethal?** [The contract](01-hardcore-contract.md) says three zombies is
-  probably fatal. That may be one too few or one too many.
-- **Does succession feel like continuity or like a consolation prize?**
-- **Is the skill web earning its complexity** on top of gear-as-build, or should progression be
-  purely items after all?
-- **Should the map be hand-authored or procedural?** The slice uses hand-authored; the
-  [region](24-world-and-scale.md) uses authored templates in a procedural layout. Whether that hybrid
-  holds up is a Milestone 3 question.
-- **How rare should recruits be?** Too rare and the colony never grows; too common and risk #2 lands.
-- **Does a mobile base make the fixed colony feel like a burden?** If the honest answer after
-  Milestone 3 is "just drive away," risk #8 has landed.
-- **Does PVP survive contact with permadeath?** If dying to another player reads as cheaper than
-  dying to the horde, [multiplayer](27-multiplayer.md) has weakened the
-  [contract](01-hardcore-contract.md) rather than completed it.
-- **Does voice-as-emitter play as tense, or as a mute button?** If never speaking is dominant, the
-  feature removed a channel instead of adding one.
-- **Is a session with no pause still this game?** [The core loop](02-core-loop.md#time-scale) claims
-  the tension comes from irreversibility rather than APM. Multiplayer tests that claim directly, by
-  removing the pause and keeping everything else.
+### Milestone 2 questions
 
-**Answered since this list was written:** *how big is a district, in metres?* — 256 m, forced by the
-noise calibration above and recorded in
-[world & scale](24-world-and-scale.md#how-big-a-district-is).
+- Is being quiet tense, or merely slow?
+- Does a district-wide shout crowd out quieter attention verbs?
+- Does a migrating horde feel legible from the wind, or arbitrary?
+- Is the current scent lifetime right?
+- Does limited visibility feel dangerous, or merely empty and opaque?
+- Do surfaces visibly change route choice without a numeric readout?
+- Are the focal and peripheral sight arcs readable and fair?
+- Should a stationary body in peripheral vision disappear completely?
+- How long should a day feel in actual play?
+- Is night tense once light counterplay exists, or just an inconvenience?
+- Is the grid inventory a decision or a chore?
+- Is invisible weight legible through gait, breathing, stamina, and footsteps?
+- How lethal is too lethal?
+- Does succession feel like continuity rather than a consolation prize?
+- How rare should recruits be?
+- How small can the skill web remain while still earning its complexity?
+
+### Milestone 3+ questions
+
+- Does the authored-slice/procedural-region hybrid hold up?
+- Do attributes need exact visible values or descriptive bands?
+- Does the generation budget prevent dump stats, mandatory stats, and reroll fishing?
+- Does a mobile base make a fixed colony feel like a burden?
+- Does PVP preserve the meaning of permadeath?
+- Does voice-as-emitter create tension or simply encourage silence?
+- Is real-time multiplayer without pause still this game?
+
+## Roadmap cut list
+
+- **Detailed checkbox status and implementation notes.** HANDOFF owns them.
+- **Milestone 3 breadth inside the vertical slice.** The slice proves the thesis before expansion.
+- **Full storyteller presets in Milestone 2.** Only the slice director and an internal neutral baseline.
+- **Z-level implementation before the thesis and streaming budgets are proven.**
+- **A second progression system beside attributes and the skill web.** Attributes are aptitude; the web
+  is learned history.
 
 ## Definition of done for the doc set
 
-The verification criteria this document set is checked against:
-
-1. Every document has substantive content and a cut list.
+1. Every system document has substantive content and a cut list. This roadmap is the cut authority for
+   sequencing and therefore carries its own roadmap-level cut list rather than repeating every doc's.
 2. Every cross-document link resolves.
-3. The [cookbook examples](21-extensibility.md#the-cookbook) are achievable using only mechanisms
-   these documents define.
-4. No document contradicts the [vision](00-vision.md) or the
-   [hardcore contract](01-hardcore-contract.md).
+3. The [cookbook examples](21-extensibility.md#the-cookbook) are achievable using only defined mechanisms.
+4. No document contradicts the [vision](00-vision.md) or [hardcore contract](01-hardcore-contract.md).
+5. README, roadmap, and HANDOFF keep their separate audiences and do not duplicate volatile status.
 
 ---
 

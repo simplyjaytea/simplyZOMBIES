@@ -14,6 +14,7 @@ import { LIGHT_TABLE } from "../../src/sim/vision/light";
 import { ContentRegistry } from "../../src/sim/content/registry";
 import { defineCoreStats, StatRegistry } from "../../src/sim/modifiers/stats";
 import { GLOBAL, ModifierStore, type Modifier } from "../../src/sim/modifiers/modifiers";
+import { SHAMBLER_TUNING } from "../../src/sim/modules/shambler";
 
 const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
 
@@ -78,6 +79,7 @@ describe("the shipped content", () => {
     // numbers as constants. A mirror nothing checks is a copy waiting to disagree.
     const base = loadRealContent().getOrThrow("zombie", "zombie.base");
     expect(base["body"]).toEqual({ ...ZOMBIE_BODY });
+    expect(base["grab"]).toEqual({ strength: SHAMBLER_TUNING.defaultGrabStrength });
   });
 
   it("carries the light bases at exactly docs/03's magnitudes", () => {
