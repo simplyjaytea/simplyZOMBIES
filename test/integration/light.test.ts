@@ -219,7 +219,7 @@ describe("a dark world is still a coherent world", () => {
   });
 });
 
-const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
+const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../godot/content");
 
 function realContent(): ContentRegistry {
   const stats = new StatRegistry();

@@ -39,7 +39,7 @@ import {
 import type { World } from "../../src/sim/kernel/world";
 
 const SEED = 20260805;
-const CONTENT_ROOT = fileURLToPath(new URL("../../content", import.meta.url));
+const CONTENT_ROOT = fileURLToPath(new URL("../../godot/content", import.meta.url));
 
 function loadRealContent(): ContentRegistry {
   const stats = new StatRegistry();

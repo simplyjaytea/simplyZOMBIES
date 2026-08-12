@@ -30,7 +30,7 @@ import {
   verifyContentReferences,
 } from "../../src/sim/modules/items";
 
-const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
+const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../godot/content");
 const SEED = 5150;
 const BAT = "item.bat.aluminium";
 

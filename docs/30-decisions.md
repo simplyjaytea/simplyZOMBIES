@@ -4,10 +4,11 @@
 
 Every chunk of work in this project has produced a handful of decisions that were cheap to make at the
 time and would be expensive to reverse later. They are not design decisions — [docs/00](00-vision.md)
-through [docs/29](29-movement-and-stances.md) own those — and they are not status, which
-[HANDOFF.md](../HANDOFF.md) owns. They are the things the *code* made structural: an invariant that is
-now enforced rather than intended, a mechanism that turned out to be the only one that works, or a
-prediction that was wrong and is worth having on the record as wrong.
+through [docs/29](29-movement-and-stances.md) own those — and they are not transition sequencing,
+which [docs/31](31-godot-rebuild-roadmap.md) owns, or status, which [HANDOFF.md](../HANDOFF.md) owns.
+They are the things the *code* made structural: an invariant that is now enforced rather than
+intended, a mechanism that turned out to be the only one that works, or a prediction that was wrong
+and is worth having on the record as wrong.
 
 They lived in the handoff until Milestone 0 closed, at which point there were fourteen of them and
 they were two thirds of a document people needed to read for its status. So they moved here, verbatim.
@@ -652,7 +653,35 @@ about.
   posture and both tiers lay out against it, which is the same lesson `cellMetrics` learned from
   the crawler's shadow. Measured at 1.73 ms average draw against the 4 ms budget.
 
+## What the Godot rebuild decision made structural
+
+- **The product roadmap survives the engine change.** Milestones 0 and 1 remain complete as behavior;
+  the rebuild reproduces them and returns to Milestone 2 at lethality. Engine work has its own
+  [transition roadmap](31-godot-rebuild-roadmap.md) so implementation phases cannot silently reorder
+  product scope.
+- **This is a clean Godot rebuild with an oracle, not a syntax port and not a blank slate.** Native
+  presentation is rebuilt for Godot. The TypeScript game, its seeds, command logs, snapshots, tests,
+  and measured behavior remain authoritative evidence until cutover.
+- **Parity gates decide authority.** A Godot screen that resembles the current game is a candidate,
+  not the replacement. Determinism, content, saves, acceptance behavior, performance, web delivery,
+  and the five-minute playable loop all have explicit gates.
+- **Product feature development pauses at the current boundary.** Critical fixes to the oracle are
+  allowed; new Milestone 2 mechanics wait until cutover so two versions never need simultaneous
+  feature development.
+- **The TypeScript runtime is temporary after approval but indispensable before cutover.** It remains
+  playable at the public root, with the Godot candidate beside it, until the replacement is proven.
+  After cutover there is one shipping runtime, plus a tag and fixtures for historical comparison.
+- **R0 is approved and reproducible.** The rebuild uses typed GDScript on exact Godot 4.7.1,
+  Compatibility rendering, Web plus Windows, and `godot/` as the project root in this repository.
+  The TypeScript public build remains at `/`; the Godot candidate will live at `/godot/` until
+  cutover. Pre-1.0 player saves do not receive a cross-engine migration layer.
+- **The parity seed is an executable contract, not a prose promise.** The canonical R1 fixture lives
+  inside the exportable Godot project, the TypeScript oracle writes its expected snapshot, and the
+  Godot headless run compares against it with an explicit float tolerance. Windows and web artifacts
+  must build and boot; drawing a similar grid is not enough.
+
 ---
 
-**Previous:** [23 — Roadmap](23-roadmap.md) · **Next:** [HANDOFF.md](../HANDOFF.md) ·
-[Doc index](../README.md#documentation)
+**Previous:** [23 — Roadmap](23-roadmap.md) ·
+**Next:** [31 — Godot Rebuild Roadmap](31-godot-rebuild-roadmap.md) ·
+[HANDOFF.md](../HANDOFF.md) · [Doc index](../README.md#documentation)

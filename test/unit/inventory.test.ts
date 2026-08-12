@@ -54,7 +54,7 @@ import {
 import type { ContentEntry } from "../../src/sim/content/types";
 import { blankMap } from "../../src/sim/map/tilemap";
 
-const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
+const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../godot/content");
 
 /** The real shipped content, loaded once -- these tests are about bases that actually exist. */
 const CONTENT = (() => {

@@ -104,7 +104,7 @@ export type Calibration = {
 /**
  * The shipped calibration.
  *
- * `content/calibration/attention.json` is the authority a designer edits, and
+ * `godot/content/calibration/attention.json` is the authority a designer edits, and
  * `test/integration/attention.test.ts` asserts the two agree -- so drift fails the build
  * rather than producing a game that disagrees with its own documentation. This copy exists
  * because content loads after `boot` builds the world, and the field's cell geometry has to

@@ -34,7 +34,7 @@ const BROWSER_GLOBALS = [
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/", "dist/"],
+    ignores: ["node_modules/", "dist/", "dist-godot/", "godot/"],
   },
 
   js.configs.recommended,

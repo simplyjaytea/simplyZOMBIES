@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .vite/
+godot/.godot/
+dist-godot/
+.ci-tools/
