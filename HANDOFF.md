@@ -24,7 +24,7 @@ Three other places to know about, and nothing else is required reading:
 | **What is left of Milestone 1** | **Grabs and bite risk.** Movement stances landed, and with them the survivor's body and the [condition view](docs/05-health-injury.md#the-condition-view). See [Do this next](#do-this-next). |
 | **Merged so far** | [#1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) design docs · [#2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) attention spike · [#3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) Milestone 0 · then the noise spine, scent, multiplayer as design, visibility, the ground, the day, items and the grid, and [#19](https://github.com/simplyjaytea/simplyZOMBIES/pull/19) hot reload |
 | **In flight** | Nothing. |
-| **Pulled forward on purpose** | **Items and the grid inventory**, and now **the condition view** — both Milestone 2, both landed early at the owner's request. The condition view came in with the stances because a paperdoll is a picture of a posture, and building the two separately means two answers to what crouching looks like. |
+| **Pulled forward on purpose** | **Items and the grid inventory**, and now **the condition view** — both Milestone 2, both landed early at the owner's request. The condition view came in with the stances because a paperdoll is a picture of a posture, and building the two separately means two answers to what crouching looks like. The figure itself is now an **outline diagram** rather than the body from the street — see [the decision](docs/30-decisions.md#what-the-outline-figure-changed). |
 | **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3), [z-levels](docs/23-roadmap.md#deferred-z-levels), [aiming](docs/09-combat.md#aiming), and docs/05's [located injuries](docs/05-health-injury.md#injury-types) — the survivor has a body with six parts that can be hurt, but no wound *types* and no infection. **No engine code.** |
 
 ### Counting the backlog
@@ -190,7 +190,8 @@ src/sim/threat.ts
 src/render/     Canvas renderer. Reads the sim, never writes to it.
 src/render/sprites/
                 The character models. Pure pose selection and figure geometry, split from
-                the one file that touches a canvas -- Vitest runs in node.
+                the one file that touches a canvas -- Vitest runs in node. `outline.ts` is
+                the paperdoll's figure: a diagram, drawn flat, not the body in the street.
 src/platform/   The host: input, the tick loop, storage, content loading, schemas.
 src/ui/         Screens. The grid inventory is the first one.
 content/        JSON content plus its JSON Schemas.
@@ -1101,7 +1102,9 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       adds *what*, and neither says *how much* — `conditionView` carries a state and a sentence per
       part and **no integrity number at all**, which is what makes a fill impossible to draw rather
       than merely discouraged. `paperdoll.test.ts` serialises the snapshot and asserts the absence.
-      One rig: `drawPaperdoll` calls the same `drawHumanoid` the district does, at a larger zoom.
+      The figure is an **anonymous outline seen flat on** — `render/sprites/outline.ts` — and not
+      the body from the street: the district's camera hides the part the reader is asking about.
+      One set of proportions, three postures; prone is the same figure turned a quarter turn.
       Six parts, four states, one voice of prose — the **untrained** tier of docs/05's diagnosis
       table, because there is no [skill web](docs/08-skill-web.md) to scale against yet and
       inventing a scale would be inventing the skill system in a string table.)*
