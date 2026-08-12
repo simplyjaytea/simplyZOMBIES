@@ -209,7 +209,7 @@ const CRIPPLED_SOURCE = "injury.crippled";
 /**
  * How much of the noise channel a shambler actually perceives.
  *
- * Mirrors `content/zombies/shambler.json`'s `sensory.noise`, and
+ * Mirrors `godot/content/zombies/shambler.json`'s `sensory.noise`, and
  * `test/integration/attention.test.ts` asserts the two agree. docs/14's table calls shambler
  * hearing Low and its sense of smell High -- so noise moves them, but a stalker would move
  * much further for the same shout. "There is no single silence."
@@ -219,7 +219,7 @@ const NOISE_SENSITIVITY = 0.2;
 /**
  * How strongly this type weights the scent channel.
  *
- * Mirrors `content/zombies/shambler.json`'s `sensory.scent`, pinned by the same test that
+ * Mirrors `godot/content/zombies/shambler.json`'s `sensory.scent`, pinned by the same test that
  * pins {@link NOISE_SENSITIVITY}. docs/14's table calls shambler smell **High** against Low
  * hearing, and 0.9 against 0.2 is what that means: a shambler is a nose that can also hear.
  */
@@ -239,7 +239,7 @@ const SCENT_BIAS = 0.35;
 /**
  * How strongly this type weights the light channel.
  *
- * Mirrors `content/zombies/shambler.json`'s `sensory.light`, pinned by the same test that pins
+ * Mirrors `godot/content/zombies/shambler.json`'s `sensory.light`, pinned by the same test that pins
  * the other two. docs/14's table calls shambler sight **Low** -- 0.1 against a screamer's 0.9 --
  * and this is the number that makes "there is no single silence" a mechanic rather than a
  * slogan: a lamp a shambler barely notices is a lamp a screamer comes straight to.

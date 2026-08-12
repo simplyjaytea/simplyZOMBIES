@@ -11,6 +11,10 @@ This roadmap owns **intended scope, order, exit criteria, risks, and design ques
 own implementation bookkeeping: [HANDOFF.md](../HANDOFF.md) is the engineer-facing authority on what
 is built, in flight, or next. [README.md](../README.md) is user-facing and stays at feature level.
 
+The engine rebuild does not replace or renumber these product milestones. Its separate
+[Godot rebuild roadmap](31-godot-rebuild-roadmap.md) reproduces the completed behavior behind parity
+gates, then returns here to resume Milestone 2 at the same point and in the same order.
+
 The design set is a **backlog, not a promise**. Written down, the vision is several years of work: a
 hardcore survival colony sim with tower defense, procedural survivors, affixed items, a classless
 skill web, located injury, uncertain infection, weather, factions, vehicles, and world decay. The

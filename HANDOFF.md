@@ -5,13 +5,14 @@ document: what is built, what is being built, what is next, and the roadmap thro
 slice. It replaced `TODO.md`, which used to hold the backlog separately and drifted from this file
 three times.
 
-Three other places to know about, and nothing else is required reading:
+Four other places to know about, and nothing else is required reading:
 
 | | |
 |---|---|
-| [README.md](README.md) | The pitch, and the index of all 31 documents. User-facing. |
+| [README.md](README.md) | The pitch, and the index of all 32 documents. User-facing. |
 | [docs/23-roadmap.md](docs/23-roadmap.md) | Product scope, milestone order, the risk register, and canonical playtest questions. This file owns what is *built*; 23 owns what is *intended*. |
-| [docs/30-decisions.md](docs/30-decisions.md) | The decision records. Nineteen entries of "what this chunk of work made structural" — read it before changing something that looks arbitrary. |
+| [docs/31-godot-rebuild-roadmap.md](docs/31-godot-rebuild-roadmap.md) | The engine transition: phases, parity gates, delivery, risks, and cutover. It does not replace product scope in docs/23. |
+| [docs/30-decisions.md](docs/30-decisions.md) | The decision records. Twenty entries of "what this chunk of work made structural" — read it before changing something that looks arbitrary. |
 
 ---
 
@@ -19,11 +20,11 @@ Three other places to know about, and nothing else is required reading:
 
 | | |
 |---|---|
-| **Phase** | **Milestone 1, the spine — closed.** Milestone 2, the vertical slice, is underway. **Noise, scent, light/sight, and the complete melee danger loop are live.** |
+| **Phase** | **Godot rebuild — R1 walking skeleton awaiting its first remote CI pass.** R0 is approved and the R1 implementation passes locally; Product Milestone 1 remains closed and Milestone 2 remains the next product milestone, but feature work pauses until engine cutover. **Noise, scent, light/sight, and the complete melee danger loop stay live in the TypeScript oracle.** |
 | **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, and at midnight you see **two metres** — until you find a candle. Five movement rungs each have their own speed, noise and price. At contact zombies pin and bite; `F` becomes a one-second stamina-paid struggle, and every additional grabber makes escape less likely. You start with nothing. |
 | **What is left of Milestone 1** | **Nothing required for closure.** Three measured-and-deferred performance boxes remain documented below; none is failing its trigger or exit criterion. |
 | **Merged so far** | [#1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) design docs · [#2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) attention spike · [#3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) Milestone 0 · then the noise spine, scent, multiplayer as design, visibility, the ground, the day, items and the grid, and [#19](https://github.com/simplyjaytea/simplyZOMBIES/pull/19) hot reload |
-| **In flight** | Nothing. |
+| **In flight** | `godot/` now contains the typed-GDScript fixed-tick walking skeleton, canonical content, shared R1 parity fixture, presentation scene, headless tests, and Web/Windows export presets. TypeScript and Godot resolve the same seed and commands to the same canonical state. Both exports boot locally; the new CI artifact job must pass on GitHub before R1 closes. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), [survivor attributes](docs/23-roadmap.md#planned-survivor-attributes) (Milestone 3A), [aiming](docs/09-combat.md#aiming), and docs/05/06's **full** injury and infection games. Milestone 1 stores a located bite, its possibly-scratch presentation and its private transmission answer; symptoms, treatment, armor reduction, stages and turning remain Milestone 2. |
 
@@ -39,9 +40,31 @@ Three other places to know about, and nothing else is required reading:
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
+### Godot rebuild track
+
+This transition does not reopen the product checkbox totals above. Live engine status belongs here;
+phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
+
+| Phase | State |
+|---|---|
+| R0 — decisions and baseline | **Complete.** Typed GDScript, Godot 4.7.1, Compatibility, Web + Windows, same repository, `/godot/` candidate, and no pre-1.0 cross-engine save migration. |
+| R1 — walking skeleton | **In progress.** Implementation and local Windows/web boot gates pass; awaiting the first green `godot-exports` CI artifact. |
+| R2 — world and attention spine | Not started |
+| R3 — danger, bodies, and belongings | Not started |
+| R4 — native presentation | Not started |
+| R5 — platform and delivery | Not started |
+| R6 — parity and hardening | Not started |
+| R7 — cutover | Not started |
+
 ## Do this next
 
-**Build the first Milestone 2 vertical slice: lethality.** The strongest continuation is the full
+**Put R1 through GitHub CI, inspect the `godot-r1-windows-web` artifact, then close R1.** The local
+parity, project-load, Windows boot, and web boot checks already pass. Do not start R2 on a merely
+authored workflow: push this implementation, require `check`, `godot-exports`, and `performance` to
+go green, download the artifact once, and repeat its two boot checks. If that evidence passes, mark
+R1 complete and begin R2 with grid/spatial indexing and stance locomotion before attention fields.
+
+**After R7, resume the first Milestone 2 vertical slice: lethality.** The strongest continuation is the full
 [injury](docs/05-health-injury.md) and [infection](docs/06-infection.md) path, because Milestone 1 now
 provides its clean input: a located bite with separate visible presentation and private transmission
 truth. The next work can add symptoms, diagnosis, treatment, armor reduction and turning without
@@ -104,7 +127,7 @@ prose version belongs with the condition view.
 ```bash
 npm install
 npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 596 tests (~50 s -- the scent ones simulate hours)
+npm test                 # correctness: 597 tests (~50 s -- the scent ones simulate hours)
 npm run typecheck        # two projects -- the second is the sim/ purity gate
 npm run lint
 npm run format:check
@@ -118,7 +141,7 @@ move, right-click or `R` to rotate) · `O` cycles the attention overlay (off →
 
 A day is four hours at 1×, so press `3` and wait for dark.
 
-**Editing content while it runs.** Change any file under `content/` and a valid edit reloads the page
+**Editing content while it runs.** Change any file under `godot/content/` and a valid edit reloads the page
 on the same seed, so the HUD's fingerprint is directly comparable before and after. An invalid edit
 does *not* reload: the run keeps going and the HUD grows a `content:` line naming the file, the entry
 and the field. [Why it restarts rather than hot-swaps](docs/30-decisions.md#what-hot-reload-made-structural).
@@ -150,12 +173,33 @@ and the field. [Why it restarts rather than hot-swaps](docs/30-decisions.md#what
 
 ## The build
 
-`.github/workflows/ci.yml` runs two parallel jobs: `check` (typecheck, lint, format, 596 tests, build)
+The shipping reference is still TypeScript/Canvas. The Godot candidate is now scaffolded under
+`godot/`, but until R7 the public root URL and full feature set below continue to describe the oracle.
+The engine path adds paired headless, project-load, export, and boot gates without weakening the
+existing correctness or performance gates.
+
+`.github/workflows/ci.yml` runs `check` (TypeScript gates plus Godot headless parity/project smoke),
+`godot-exports` (verified Windows and web release exports, real boot checks, and a seven-day artifact),
 and `performance` (tick budgets, then the frame budget in real Chromium). Every push to `main` starts
 that workflow. When, and only when, the complete CI workflow is green, `pages.yml` checks out the
 exact `head_sha` that passed, rebuilds it with GitHub Pages' configured base path, and deploys `dist/`
-to the stable playable URL: <https://simplyjaytea.github.io/simplyZOMBIES/>. A failed CI run does not
-publish, and each successful push replaces the previous build rather than creating a per-commit URL.
+to the stable playable URL: <https://simplyjaytea.github.io/simplyZOMBIES/>. The Pages output remains
+the TypeScript oracle until R5 adds the side-by-side candidate. A failed CI run does not publish, and
+each successful push replaces the previous build rather than creating a per-commit URL.
+
+The rebuild uses the standard (non-.NET) Godot **4.7.1** build. `scripts/run-godot.mjs` accepts
+`GODOT_BIN`, then checks the known local portable location and `godot4`/`godot` on `PATH`; it rejects
+every other version. Useful commands:
+
+```bash
+npm run parity:r1:oracle   # regenerate the expected snapshot with the TypeScript oracle
+npm run godot:test         # compare the Godot result with that snapshot headlessly
+npm run godot:smoke        # instantiate the actual main scene and catch load/parse failures
+npm run godot:run          # run the walking-skeleton presentation
+npm run godot:editor       # open the pinned project in the editor
+npm run godot:export       # produce dist-godot/windows and dist-godot/web
+npm run godot:smoke:exports # boot the Windows executable and the web build in Chromium
+```
 
 > ⚠ `pages.yml` also has a manual `workflow_dispatch` escape hatch. Unlike the automatic path, that
 > trigger does not prove CI succeeded; use it only to redeploy a known-good `main` revision. The
@@ -164,9 +208,10 @@ publish, and each successful push replaces the previous build rather than creati
 ## What's in the repo
 
 ```
-docs/           31 documents: 30 design docs (00-29) plus the decision log (30). The README
-                index is the reading-order authority, not the file numbers -- 24-26 belong
-                under "The world", 28 sits beside the spine it serves, and 29 beside combat.
+docs/           32 documents: 30 product/architecture docs (00-29), the decision log (30), and
+                the Godot rebuild roadmap (31). The README index is the reading-order authority,
+                not the file numbers -- 24-26 belong under "The world", 28 sits beside the spine
+                it serves, and 29 beside combat.
 src/sim/        The simulation. Pure, headless, deterministic -- kernel, modules, rng.
 src/sim/field/  The attention field. Kernel, not a module.
 src/sim/vision/ Sightlines: the shadowcast, and every observer's cached view. Also kernel.
@@ -182,7 +227,9 @@ src/render/sprites/
                 the paperdoll's figure: a diagram, drawn flat, not the body in the street.
 src/platform/   The host: input, the tick loop, storage, content loading, schemas.
 src/ui/         Screens. The grid inventory is the first one.
-content/        JSON content plus its JSON Schemas.
+godot/          Godot 4.7.1 project root: typed simulation, presentation, platform adapters, tests,
+                export presets, and the paired parity fixture/snapshot.
+godot/content/  The one canonical JSON content tree and its schemas; both engines read it.
 test/           Unit and integration, including determinism and module isolation.
 bench/          The performance budgets. They fail the build.
 ```
@@ -262,7 +309,7 @@ good one ([risk 4](docs/23-roadmap.md#risks)).
 - [x] Vite + TypeScript scaffold, `strict` on
 - [x] Vitest configured, running headless
 - [x] Directory layout per [the repository layout](docs/19-architecture.md#repository-layout):
-      `src/sim/{kernel,modules,rng}`, `src/render`, `src/platform`, `src/ui`, `content/`, `test/`
+      `src/sim/{kernel,modules,rng}`, `src/render`, `src/platform`, `src/ui`, `godot/content/`, `test/`
       *(`src/ui` was the exception until the grid inventory arrived early — `src/ui/inventory.ts`
       is the first screen in the game. See the Milestone 2 entry below.)*
 - [x] ESLint rules enforcing **`sim/` purity** — ban DOM globals, `Math.random`, `Date.now`, and
@@ -446,7 +493,7 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       no field is not. 256 m district ÷ 4 m = exactly 64 × 64 cells, asserted.)*
 - [x] Calibration constants as content, not magic numbers: 1 tile = 1 m, 0.7 attenuation per metre,
       18 m-equivalent wall penalty, ~3 s noise half-life
-      *(`content/calibration/attention.json`. `DEFAULT_CALIBRATION` shadows it because content loads
+      *(`godot/content/calibration/attention.json`. `DEFAULT_CALIBRATION` shadows it because content loads
       after the world is built and the cell geometry has to exist first — a test asserts the two
       agree, so drift fails the build.)*
 - [x] `AttentionEmitter` component + emission system
@@ -657,7 +704,7 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       *(mutation-tested: delete the bias and twenty shamblers in one cell collapse to a single heading)*
 - [x] Investigate on arrival → mill → disperse, **raising local scent** while they mill
 - [x] **Damage model: head and locomotion are what matter; a crawler is still lethal**
-      *(three pools rather than one, from `content/zombies/base.json`'s `body` block, which had
+      *(three pools rather than one, from `godot/content/zombies/base.json`'s `body` block, which had
       been sitting there read by nothing. A head is instant, a torso never kills however much of
       it is destroyed, and legs at zero leave a quarter of a shamble — slow enough to walk away
       from, far too fast to ignore at arm's length. It draws at half size, because docs/14 says a
@@ -1262,8 +1309,12 @@ These were each decided explicitly by the repo owner. If you're about to "improv
   ammo/attention).
 - **Fully drivable continuous region**, no abstracted travel legs. **Full nomad play viable.**
 - **Performance is pillar 6**, with CI budget gates that fail the build.
-- **Stack:** TypeScript + canvas + Vite, no engine, with a portability contract keeping a Godot pivot
-  cheap. **Saves may break pre-1.0** — stable IDs and a version stamp, but no migration framework.
+- **Engine transition:** rebuild the current game in Godot behind parity gates while the
+  TypeScript/Canvas/Vite version remains the executable oracle. The product roadmap is unchanged;
+  Milestone 2 resumes at lethality after cutover. R0 is approved: typed GDScript on Godot 4.7.1,
+  Compatibility, Web + Windows, `godot/` in this repository, and `/godot/` as the transition preview.
+  **Saves may break pre-1.0** — stable IDs and a version stamp, but no cross-engine migration
+  framework.
 - **The inventory is a grid, and weight is invisible.** Tarkov/DayZ-shaped: cells, footprints,
   rotation, nesting, and containers you have to wear to get. This *replaced* the weight-and-capacity
   model `docs/10-items.md` originally specified, and the argument is not genre nostalgia — a capacity
