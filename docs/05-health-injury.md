@@ -18,6 +18,12 @@ weeks.*
 
 ## Body parts and what they cost
 
+Body-kind maxima remain the canonical stored baseline. Planned
+[Constitution](23-roadmap.md#planned-survivor-attributes) increases **effective** body-part durability
+through a bounded injury-tolerance modifier to incoming integrity loss; it does not add mutable maxima
+to every entity, a global health pool, or a health bar. Conditional item bonuses therefore disappear
+without creating or deleting stored integrity.
+
 | Part | Impaired effect |
 |---|---|
 | **Head** | Concussion: blurred description text, slowed reactions, mood damage. Severe: unconsciousness. |
@@ -107,6 +113,17 @@ the UI work.
 The condition view is a **paperdoll**: the parts from the table above — head, torso, arms, hands,
 legs, feet — laid out as a body, with located conditions sitting on the part they are on. That is
 the entire idea.
+
+It shares one compact survivor panel with equipment rather than occupying a second screen. Two tabs
+reuse the exact same body and posture:
+
+- **Equipment** arranges real worn/held drop targets around the figure.
+- **Injuries** removes those slots, keeps the same region tints, and shows diagnosis prose for the
+  selected body region in a fixed details area.
+
+The selected survivor, posture, and region tints do not change when switching views. The player can
+therefore move directly between *what is wrong?* and *what protects it?* without reconciling two body
+diagrams.
 
 The body is an **anonymous outline, drawn flat on**, and its posture is whichever
 [stance](29-movement-and-stances.md) the survivor is on — standing, crouched, or lying down. It is

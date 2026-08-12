@@ -42,17 +42,26 @@ recovery is how melee kills you.
   that is still trying to bite you.
 
 ### Grabs
-Zombies grab. A grabbed survivor cannot move or swing until they break free, which costs stamina and
-takes time. **Grabs are the primary bite vector**, and being grabbed by two at once is usually
-terminal.
+Zombies grab at physical contact (1 m centre-to-centre). A grabbed survivor cannot move or swing
+until they break free, which costs stamina and takes one committed second. `F` is contextual: swing
+while free, struggle while held. **Grabs are the primary bite vector.**
+
+Every additional grabber adds its strength to the same escape contest. It makes escape progressively
+less likely, but never imposes a hard zero: one default shambler gives a two-thirds chance, two give
+one-half, and three give two-fifths. A successful struggle throws off every current hold. Future
+survivor progression may raise the escape-power side of this contest through **Strength**; that is a
+roadmap hook, not current Milestone 1 behaviour.
 
 This is what makes crowds categorically dangerous rather than just numerically dangerous: fighting one
 is a skill check; fighting three is a check you fail once and then can't retry.
 
 ### Bite risk
-Every melee connect carries a small chance of taking damage back, and every damage-taken carries a
-chance of being a [bite](06-infection.md). Reduced by reach, stagger, [armor coverage](10-items.md),
-and Melee-region [web nodes](08-skill-web.md).
+Melee has no invisible per-hit counterattack roll. Exposure is physical: at reach, or while a stagger
+keeps the zombie off balance, a connecting swing is safe; letting one close to grab range creates the
+bite window. The first bite lands after 1.5 seconds and further bites every 2 seconds while the hold
+continues. A bite currently has an 85% private transmission roll, and 30% of real bites initially
+present as scratches. [Armor coverage](10-items.md), richer diagnosis and the full
+[infection timeline](06-infection.md) arrive in Milestone 2.
 
 **Melee's progression is fundamentally about buying down this number.** A veteran with reach, stagger
 control, and coverage fights a long night and comes back unbitten — usually.

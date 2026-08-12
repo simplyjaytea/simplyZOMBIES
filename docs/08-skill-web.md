@@ -69,6 +69,13 @@ The progression system's cost is paid in [infection](06-infection.md) risk. That
 | **Minor** | Most nodes | +4% melee swing speed; -3% food consumption; +5% bandage effectiveness |
 | **Notable** | ~1 in 6 | Changes a behavior — reload while moving; treat a wound without a table |
 | **Keystone** | 6–10 total | Rim-only, build-defining, **always with a real drawback** |
+| **Aptitude** | Rare, late, and opportunity-costly | A permanent +1 to one planned survivor attribute |
+
+Aptitude nodes are the only web nodes that can permanently raise
+[STR, DEX, CON, INT, CHA, or WIS](23-roadmap.md#planned-survivor-attributes). They never grant
+retroactive progress. INT-raising nodes cannot accelerate their own acquisition, and no route can
+collect enough aptitude nodes to erase the generator's tradeoffs. Item bonuses remain conditional and
+disappear with the item.
 
 ### Keystone sketches
 
@@ -80,7 +87,7 @@ Every keystone has a downside, in the same spirit as [named items](10-items.md):
 | **Cold Shot** | Enormous accuracy from a braced, still position | Severe penalty while moving or recently hit |
 | **Field Surgeon** | Amputate and suture without a proper facility | Permanent mood penalty; they've seen too much of it |
 | **Quiet Ones** | Halves personal [noise](03-attention.md) emission | Cannot use unsuppressed firearms — the reflex is gone |
-| **Scavenger's Eye** | Sees loot quality at a distance; better [affix](10-items.md) rolls from finds | Compulsive; mood penalty when leaving anything behind |
+| **Scavenger's Eye** | Sees exact loot quality at a distance; better [affix](10-items.md) rolls from finds | Compulsive; mood penalty when leaving anything behind |
 | **Second Wind** | Recover stamina from near-zero once per day | The crash afterward is severe and lasts hours |
 | **Pack Mule** | Large carry capacity increase | Permanently louder and slower to escape |
 
@@ -121,9 +128,9 @@ NPCs with a Focus auto-spend points along a defined path:
 | Medic | Medicine → Endurance |
 | Scout | Survival (stealth) → Ranged |
 
-Auto-allocation is **conservative**: it takes minors and notables, and never spends on a keystone
-without asking. Keystones are permanent and build-defining, so they stay a player decision even for
-NPCs you otherwise ignore.
+Auto-allocation is **conservative**: it takes minors and notables, and never spends on a keystone or
+permanent aptitude node without asking. Those choices are build-defining, so they remain player
+decisions even for NPCs you otherwise ignore.
 
 Manual focus hands you the whole web for that survivor.
 
