@@ -52,6 +52,14 @@ export const COLOURS = {
    */
   groundItem: "#d8c07a",
   groundItemEdge: "#4a3f22",
+  /**
+   * The paperdoll's line, and the only colour an unhurt body is drawn in.
+   *
+   * Cool and unsaturated on purpose: it must not compete with any of the four
+   * {@link CONDITION_TINTS}, because the whole of what the figure says is *which part is not this
+   * colour*. Bright enough to read over the night wash, since the glimpse draws on top of it.
+   */
+  outline: "#8b93a0",
   /** Last known position, fading. Never moves -- see `remembered`. */
   memory: "#3d4a3c",
   background: "#0d0e10",
