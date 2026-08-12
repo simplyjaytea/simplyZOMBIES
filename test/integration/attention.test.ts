@@ -25,7 +25,9 @@ import { fingerprint } from "../../src/sim/kernel/serialize";
 import { stepN } from "../../src/sim/kernel/step";
 import { StatRegistry } from "../../src/sim/modifiers/stats";
 import { defineCoreStats } from "../../src/sim/modifiers/stats";
+import { zombieSpeed } from "../../src/sim/locomotion";
 import { blankMap, DISTRICT_TILES, Tile, type TileMap } from "../../src/sim/map/tilemap";
+import { Stance, stanceChangeTicks } from "../../src/sim/stances";
 import { SHOUT_MAGNITUDE } from "../../src/sim/modules/attention";
 import {
   makeShambler,
@@ -106,6 +108,52 @@ describe("calibration", () => {
     const shambler = loadRealContent().getOrThrow("zombie", "zombie.shambler");
     const sensory = shambler["sensory"] as { noise: number };
     expect(SHAMBLER_TUNING.noiseSensitivity).toBe(sensory.noise);
+  });
+
+  it("moves at exactly the four speeds its content entry declares", () => {
+    // docs/29's checkbox: "a zombie type's speeds are fields in its JSON entry rather than
+    // constants in a module". They are read at spawn now, so this pins the module's fallbacks
+    // against the JSON -- a shipped type whose entry disagrees with the fallback would produce
+    // one horde in the game and a different one in every test that boots without content.
+    const shambler = loadRealContent().getOrThrow("zombie", "zombie.shambler");
+    const locomotion = shambler["locomotion"] as {
+      speed: number;
+      wander: number;
+      mill: number;
+      crawl: number;
+    };
+    expect(SHAMBLER_TUNING.seekSpeed).toBe(zombieSpeed(locomotion.speed));
+    expect(SHAMBLER_TUNING.wanderFactor).toBe(locomotion.wander);
+    expect(SHAMBLER_TUNING.millFactor).toBe(locomotion.mill);
+    expect(SHAMBLER_TUNING.crawlSpeedFactor).toBe(locomotion.crawl);
+  });
+
+  it("carries its speeds on the individual, so a second type needs no second state machine", () => {
+    // The property the change is for: the state machine reads `self.seekSpeed` rather than a
+    // module constant, so a type declaring different fractions in JSON gets them with no code.
+    // Asserted here on the spawn path, since the district ships one zombie type today -- what
+    // this pins is that the numbers live on the body rather than in the file.
+    const { world } = boot({ seed: 4242, wanderers: 3 });
+    for (const zombie of world.components.query(Shambler)) {
+      const self = world.components.getOrThrow(zombie, Shambler);
+      expect(self.seekSpeed).toBe(SHAMBLER_TUNING.seekSpeed);
+      expect(self.wanderSpeed).toBeCloseTo(self.seekSpeed * SHAMBLER_TUNING.wanderFactor, 10);
+      expect(self.millSpeed).toBeCloseTo(self.seekSpeed * SHAMBLER_TUNING.millFactor, 10);
+      expect(self.crawlFactor).toBe(SHAMBLER_TUNING.crawlSpeedFactor);
+    }
+  });
+
+  it("falls back per field for a type that declares only what it changes", () => {
+    // `extends` means a type may legitimately set `speed` and inherit the drift fractions, so the
+    // fallback is per field rather than wholesale -- otherwise overriding one number would
+    // silently reset the other three to the module's defaults.
+    const { world } = boot({ seed: 4242, wanderers: 0 });
+    const zombie = world.spawn();
+    makeShambler(world, zombie, world.rng.stream("test"), "zombie.nonexistent");
+
+    const self = world.components.getOrThrow(zombie, Shambler);
+    expect(self.seekSpeed).toBe(SHAMBLER_TUNING.seekSpeed);
+    expect(self.crawlFactor).toBe(SHAMBLER_TUNING.crawlSpeedFactor);
   });
 
   it("names the entry when it is missing rather than quietly falling back", () => {
@@ -399,11 +447,20 @@ describe("emission", () => {
     stepN(world, 2);
     const walking = world.field.liveCells();
 
+    // Pressing sprint is a *request* now, not a speed. docs/29 puts two rungs between walk and
+    // sprint and charges for each of them, so the district does not hear a sprint until the
+    // survivor is actually sprinting -- which is the point of a timed stance change and the
+    // reason this used to step twice and now steps through the transition.
     world.commands.push({ type: "sprint", active: true });
+    world.commands.push({ type: "move", dx: 1, dy: 0 });
+    stepN(world, stanceChangeTicks(Stance.Walk, Stance.Sprint));
+    const changing = world.field.liveCells();
+
     world.commands.push({ type: "move", dx: 1, dy: 0 });
     stepN(world, 2);
 
     expect(walking).toBeLessThanOrEqual(2);
+    expect(changing).toBeGreaterThanOrEqual(walking);
     expect(world.field.liveCells()).toBeGreaterThan(walking);
   });
 

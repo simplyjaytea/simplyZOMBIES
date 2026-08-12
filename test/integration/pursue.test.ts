@@ -17,7 +17,12 @@ import type { EntityId } from "../../src/sim/kernel/entities";
 import { applySave, createSave } from "../../src/sim/kernel/save";
 import { step, stepN } from "../../src/sim/kernel/step";
 import type { World } from "../../src/sim/kernel/world";
-import { Shambler, ShamblerState, SHAMBLER_TUNING } from "../../src/sim/modules/shambler";
+import {
+  defaultShamblerSpeeds,
+  Shambler,
+  ShamblerState,
+  SHAMBLER_TUNING,
+} from "../../src/sim/modules/shambler";
 import { Tile } from "../../src/sim/map/tilemap";
 
 const SEED = 606060;
@@ -47,6 +52,7 @@ function standoff(metres: number, options: { disabled?: string[]; wall?: boolean
   // Walking due north, so any turn toward the survivor (due west of it) is a change.
   world.components.set(zombie, Velocity, { dx: 0, dy: -0.5 });
   world.components.set(zombie, Shambler, {
+    ...defaultShamblerSpeeds(),
     state: ShamblerState.Wander,
     // Long enough that the random re-aim never fires inside a test.
     ticksToTurn: 100000,
@@ -283,6 +289,7 @@ describe("pursuit survives a save", () => {
     a.world.components.set(zombie, Position, { x: survivor.x + 1, y: survivor.y });
     a.world.components.set(zombie, Velocity, { dx: 0, dy: -0.5 });
     a.world.components.set(zombie, Shambler, {
+      ...defaultShamblerSpeeds(),
       state: ShamblerState.Wander,
       ticksToTurn: 100000,
       ticksCommitted: 0,
@@ -324,6 +331,7 @@ describe("survivors are what it pursues", () => {
       world.components.set(z, Position, { x: 20.5 + offset, y: 20.5 });
       world.components.set(z, Velocity, { dx: 0, dy: -0.5 });
       world.components.set(z, Shambler, {
+        ...defaultShamblerSpeeds(),
         state: ShamblerState.Wander,
         ticksToTurn: 100000,
         ticksCommitted: 0,

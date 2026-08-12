@@ -39,9 +39,12 @@ export const ARCHETYPES: readonly Archetype[] = [
  * question the atlas needs answered. The collapse is `selectPose`, and its order is the
  * interesting part.
  *
- * docs/29-movement-and-stances.md's five stances (crawl, crouch, walk, jog, sprint) are the
- * obvious next occupants. When a `Stance` component lands it becomes another input to
- * `selectPose` and more entries here; nothing in the draw path moves.
+ * This note used to predict that docs/29's five stances would be "the obvious next occupants", and
+ * that when a stance component landed it would be "another input to `selectPose` and more entries
+ * here; nothing in the draw path moves." That is what happened, and it cost **one** entry rather
+ * than five: `Crouch` below, plus a `crouched` flag on the input. Crawl already had a pose, and
+ * walk, jog and sprint differ by pace rather than by posture -- a jog is a walk whose phase
+ * advances faster, which is a number rather than a silhouette. Nothing in the draw path moved.
  */
 export const enum Pose {
   Idle = 0,
@@ -51,6 +54,16 @@ export const enum Pose {
   Recover = 4,
   Staggered = 5,
   Crawl = 6,
+  /**
+   * Down on one knee, and the reason the ladder needed a shape rather than a speed.
+   *
+   * Added with the stance ladder, which is what this enum's own note above predicted would
+   * happen. It is one pose rather than five because the other four rungs already have shapes:
+   * crawl *is* `Crawl`, and walk, jog and sprint differ by pace rather than by posture -- a jog
+   * drawn as its own silhouette would be a walk with the frames playing faster, which the phase
+   * already does.
+   */
+  Crouch = 7,
 }
 
 export const POSES: readonly Pose[] = [
@@ -61,6 +74,7 @@ export const POSES: readonly Pose[] = [
   Pose.Recover,
   Pose.Staggered,
   Pose.Crawl,
+  Pose.Crouch,
 ];
 
 /**
@@ -81,6 +95,10 @@ export const POSE_FRAMES: readonly number[] = [
   1, // Recover
   1, // Staggered
   2, // Crawl
+  // Two, like the crawl. A crouched body still moves, and a single held frame would make
+  // crouch-walking read as sliding -- which is the one thing that would give away that this is
+  // a stance rather than a place you stand.
+  2, // Crouch
 ];
 
 /** Total frames one archetype's sheet holds, across every pose. */
@@ -139,6 +157,15 @@ export type PoseInput = {
   staggered: boolean;
   /** `SwingState`: 0 idle, 1 winding up, 2 recovering. */
   swing: number;
+  /**
+   * True when the body is on a rung that puts its eyes at low-cover height.
+   *
+   * A bare boolean rather than a `Stance`, for the reason the header gives about `swing`: this
+   * module imports nothing from `sim/`, so what arrives is the *answer* rather than the enum. The
+   * caller reads `stanceSpec(...).eye === Eye.Crouched`, which is the same predicate docs/28's
+   * **Low** class turns on -- so the body is drawn low exactly when it is treated as low.
+   */
+  crouched?: boolean;
   /** Above this speed the body is sprinting. `SPRINT_THRESHOLD`, passed in. */
   sprintThreshold: number;
   /** Walk-cycle phase, in [0, 1). See {@link advancePhase}. */
@@ -184,6 +211,12 @@ function poseOf(input: PoseInput): Pose {
   if (input.swing !== SWING_IDLE) {
     return input.swing === SWING_WINDUP ? Pose.WindUp : Pose.Recover;
   }
+  // Below the swing, deliberately. A crouched survivor mid-wind-up is drawn standing, which is a
+  // small lie about the knees to avoid a large one about the arms: docs/09's cut list makes the
+  // committed swing the only readout combat has, and a picture that hid it to show a posture
+  // would trade the mechanic for the pose. Everything else about the crouch -- the speed, the
+  // noise, what it can see over -- is unaffected, because none of that is decided here.
+  if (input.crouched === true) return Pose.Crouch;
   if (input.speedMetresPerSecond >= input.sprintThreshold) return Pose.Sprint;
   if (input.speedMetresPerSecond > 0) return Pose.Walk;
   return Pose.Idle;

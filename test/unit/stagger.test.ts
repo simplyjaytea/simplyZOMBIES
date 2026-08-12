@@ -77,21 +77,42 @@ describe("stagger", () => {
 describe("the crawler", () => {
   it("keeps moving with its legs destroyed, at a fraction of the pace", () => {
     // docs/14: a destroyed pelvis crawls, and is still perfectly capable of biting an ankle.
+    //
+    // It measures **ground covered**, not the velocity, and the difference matters now that the
+    // crawl is a `move_speed` modifier rather than a multiply on the vector. Velocity means
+    // *intent* -- `movement.integrate`'s own comment insists on it -- so a crawler and a walker
+    // asking for the same heading hold the same velocity and arrive in different places. A test
+    // reading `Velocity` would have gone green on the day the crawl stopped working.
     const intact = oneShambler();
     const broken = oneShambler();
-    broken.world.components.getOrThrow(broken.zombie, Body).legs = 0;
+
+    // Through the event, so the health module publishes `injury.sustained` and the shambler
+    // module prices it. Writing `legs = 0` by hand skips both, which is a world where the leg
+    // is gone and nothing was ever told -- that is the state this test used to construct, and
+    // it is not one the game can reach.
+    broken.world.events.publish({
+      type: "attack.connected",
+      attacker: broken.zombie,
+      target: broken.zombie,
+      bodyPart: "legs",
+      damage: ZOMBIE_BODY.legs,
+    });
 
     // Force the drift to pick a new heading on the very next tick in both worlds. Left to
     // run, the two would diverge for an honest reason -- a crawler is somewhere else a minute
     // later, so it reads a different field -- and the comparison would stop being about speed.
+    const travelled: number[] = [];
     for (const { world, zombie } of [intact, broken]) {
       world.components.getOrThrow(zombie, Shambler).ticksToTurn = 0;
       step(world);
+      const from = { ...world.components.getOrThrow(zombie, Position) };
+      stepN(world, 10);
+      const to = world.components.getOrThrow(zombie, Position);
+      travelled.push(Math.hypot(to.x - from.x, to.y - from.y));
     }
 
-    const fast = world2speed(intact);
-    const slow = world2speed(broken);
-
+    const [fast, slow] = travelled as [number, number];
+    expect(broken.world.components.getOrThrow(broken.zombie, Body).legs).toBe(0);
     expect(fast).toBeGreaterThan(0);
     expect(slow).toBeCloseTo(fast * SHAMBLER_TUNING.crawlSpeedFactor, 6);
   });
@@ -104,14 +125,3 @@ describe("the crawler", () => {
     expect(world.components.getOrThrow(zombie, Body).head).toBe(ZOMBIE_BODY.head);
   });
 });
-
-function world2speed({
-  world,
-  zombie,
-}: {
-  world: ReturnType<typeof boot>["world"];
-  zombie: EntityId;
-}) {
-  const vel = world.components.getOrThrow(zombie, Velocity);
-  return Math.hypot(vel.dx, vel.dy);
-}

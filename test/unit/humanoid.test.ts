@@ -6,7 +6,14 @@ import {
   drawSilhouette,
   type ShapeSink,
 } from "../../src/render/sprites/humanoid";
-import { ARCHETYPES, Archetype, OCTANTS, POSE_FRAMES, POSES } from "../../src/render/sprites/pose";
+import {
+  ARCHETYPES,
+  Archetype,
+  FRAMES_PER_ARCHETYPE,
+  OCTANTS,
+  POSE_FRAMES,
+  POSES,
+} from "../../src/render/sprites/pose";
 
 /**
  * A canvas that records instead of drawing.
@@ -92,10 +99,15 @@ function render(archetype: Archetype, pose: number, frame: number, octant: numbe
 }
 
 describe("the sheet", () => {
-  it("covers 336 cells", () => {
-    // 3 archetypes x 14 frames x 8 octants. If this number moves, the atlas geometry and the
-    // memory estimate in the plan move with it.
-    expect(everyCell().length).toBe(336);
+  it("covers every archetype, frame and octant", () => {
+    // 3 archetypes x 16 frames x 8 octants = 384, up from 336 when the stance ladder added the
+    // crouch's two frames. If this number moves, the atlas geometry moves with it.
+    //
+    // Derived from `FRAMES_PER_ARCHETYPE` rather than written down a second time, because that is
+    // the constant the atlas actually lays out against -- a literal here would let the sheet and
+    // its own guard disagree, which is the failure this whole file exists to catch.
+    expect(everyCell().length).toBe(ARCHETYPES.length * FRAMES_PER_ARCHETYPE * OCTANTS);
+    expect(everyCell().length).toBe(384);
   });
 
   it("draws every cell inside its own box", () => {

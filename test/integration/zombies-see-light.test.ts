@@ -16,7 +16,12 @@ import { Position, Velocity } from "../../src/sim/kernel/components";
 import { stepN } from "../../src/sim/kernel/step";
 import type { World } from "../../src/sim/kernel/world";
 import { blankMap, Tile, type TileMap } from "../../src/sim/map/tilemap";
-import { Shambler, ShamblerState, SHAMBLER_TUNING } from "../../src/sim/modules/shambler";
+import {
+  defaultShamblerSpeeds,
+  Shambler,
+  ShamblerState,
+  SHAMBLER_TUNING,
+} from "../../src/sim/modules/shambler";
 import { makeLightSource } from "../../src/sim/modules/light";
 import { LIGHT_TABLE } from "../../src/sim/vision/light";
 import { Observer, SHAMBLER_EYES } from "../../src/sim/vision/visibility";
@@ -76,6 +81,7 @@ function room(options: { wall?: boolean; eyes?: boolean; magnitude?: number } = 
   world.components.set(zombie, Position, { x: 20.5, y: 20.5 });
   world.components.set(zombie, Velocity, { dx: 0, dy: -SHAMBLER_TUNING.seekSpeed * 0.35 });
   world.components.set(zombie, Shambler, {
+    ...defaultShamblerSpeeds(),
     state: ShamblerState.Wander,
     // Long enough that the random re-aim never fires inside a test, so the only thing that can
     // change this heading is the light.
