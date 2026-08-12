@@ -24,7 +24,7 @@ import type { ContainerView, InventoryView, ItemView } from "../sim/modules/inve
 import type { PointerState } from "../platform/pointer";
 import { CONDITION_TINTS } from "../render/palette";
 import { drawPaperdoll } from "../render/paperdoll";
-import { cellMetrics } from "../render/sprites/humanoid";
+import { outlineMetrics } from "../render/sprites/outline";
 import type { ConditionView } from "../sim/condition";
 import { stanceSpec } from "../sim/stances";
 
@@ -43,13 +43,14 @@ const TITLE_H = 18;
 const SLOT_COLUMN_W = CELL * 2 + 170;
 
 /**
- * Pixels per metre for the condition paperdoll, and the width its prose column gets.
+ * How tall the condition paperdoll's figure stands, in pixels, and the width its prose column
+ * gets.
  *
  * Larger than the on-canvas glimpse, because this is the tier that is *read* rather than glanced
  * at: docs/05 wants located conditions "sitting on the part they are on", and a reader has to be
  * able to tell which limb a line of prose is about by looking at the figure beside it.
  */
-const DOLL_ZOOM = 84;
+const DOLL_HEIGHT = 168;
 /**
  * Wide enough for the longest line the prose table can produce.
  *
@@ -231,9 +232,9 @@ export class InventoryScreen {
       // not have to infer a mechanic from a silhouette.
       ctx.fillText(`condition -- ${stanceSpec(condition.stance).name}`, px + PAD, py + 6);
 
-      const box = cellMetrics(DOLL_ZOOM);
+      const box = outlineMetrics(DOLL_HEIGHT);
       drawPaperdoll(ctx, condition, {
-        zoom: DOLL_ZOOM,
+        height: DOLL_HEIGHT,
         anchorX: px + PAD + box.anchorX,
         anchorY: py + TITLE_H + PAD + box.anchorY,
       });
@@ -309,9 +310,9 @@ export class InventoryScreen {
         : {
             x: 0,
             y: slotPanel.h + PANEL_GAP,
-            w: Math.max(SLOT_COLUMN_W, cellMetrics(DOLL_ZOOM).width + DOLL_PROSE_W + PAD * 3),
+            w: Math.max(SLOT_COLUMN_W, outlineMetrics(DOLL_HEIGHT).width + DOLL_PROSE_W + PAD * 3),
             h: Math.max(
-              cellMetrics(DOLL_ZOOM).height + TITLE_H + PAD * 2,
+              outlineMetrics(DOLL_HEIGHT).height + TITLE_H + PAD * 2,
               TITLE_H + PAD * 2 + condition.parts.length * DOLL_LINE_H,
             ),
           };

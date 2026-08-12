@@ -106,7 +106,13 @@ the UI work.
 
 The condition view is a **paperdoll**: the parts from the table above — head, torso, arms, hands,
 legs, feet — laid out as a body, with located conditions sitting on the part they are on. That is
-the entire idea. It changes the *layout* of the information in
+the entire idea.
+
+The body is an **anonymous outline, drawn flat on**, and its posture is whichever
+[stance](29-movement-and-stances.md) the survivor is on — standing, crouched, or lying down. It is
+a diagram rather than a portrait, and deliberately: a figure drawn through the district's camera
+hides the arm behind the torso and foreshortens the legs, which is exactly the information this
+screen exists to give. It changes the *layout* of the information in
 [diagnosis](#diagnosis-what-you-actually-see), not the information.
 
 Which means it inherits every property that section already established:

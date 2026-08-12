@@ -167,8 +167,15 @@ const SHADOW_RADIUS_METRES = 0.3;
  */
 const CRAWL_SHADOW_SCALE = 1.7;
 
-/** How far a crawler lies down: its height as a fraction of standing. */
-const CRAWL_HEIGHT_FRACTION = 0.34;
+/**
+ * How far a crawler lies down: its height as a fraction of standing.
+ *
+ * Exported, along with {@link CROUCH_HEIGHT_FRACTION}, because the paperdoll's outline figure goes
+ * low by the same fractions this rig does. The two pictures no longer share a function -- they
+ * share these two numbers and the predicate that picks between them, which is what keeps the panel
+ * and the street from disagreeing about what going low looks like.
+ */
+export const CRAWL_HEIGHT_FRACTION = 0.34;
 
 /**
  * How far a crouching body comes down: its height as a fraction of standing.
@@ -178,7 +185,7 @@ const CRAWL_HEIGHT_FRACTION = 0.34;
  * reads at 31 px -- much less and a crouched survivor looks like a shorter survivor, which is
  * information the player would misread rather than miss.
  */
-const CROUCH_HEIGHT_FRACTION = 0.68;
+export const CROUCH_HEIGHT_FRACTION = 0.68;
 
 /** A crawler stretches out along the ground as much as it loses in height. */
 const CRAWL_LENGTH_METRES = 1.1;
