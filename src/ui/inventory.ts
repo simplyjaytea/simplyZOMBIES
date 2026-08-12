@@ -22,6 +22,11 @@ import type { CommandQueue } from "../sim/kernel/commands";
 import type { EntityId } from "../sim/kernel/entities";
 import type { ContainerView, InventoryView, ItemView } from "../sim/modules/inventory";
 import type { PointerState } from "../platform/pointer";
+import { CONDITION_TINTS } from "../render/palette";
+import { drawPaperdoll } from "../render/paperdoll";
+import { cellMetrics } from "../render/sprites/humanoid";
+import type { ConditionView } from "../sim/condition";
+import { stanceSpec } from "../sim/stances";
 
 /** Cell size in CSS pixels. Big enough to drop a 1x1 into without fighting the mouse. */
 const CELL = 34;
@@ -36,6 +41,25 @@ const TITLE_H = 18;
 
 /** Wide enough for a two-cell slot plus the item's name beside it. */
 const SLOT_COLUMN_W = CELL * 2 + 170;
+
+/**
+ * Pixels per metre for the condition paperdoll, and the width its prose column gets.
+ *
+ * Larger than the on-canvas glimpse, because this is the tier that is *read* rather than glanced
+ * at: docs/05 wants located conditions "sitting on the part they are on", and a reader has to be
+ * able to tell which limb a line of prose is about by looking at the figure beside it.
+ */
+const DOLL_ZOOM = 84;
+/**
+ * Wide enough for the longest line the prose table can produce.
+ *
+ * Sized by measurement rather than by guess: at 12px monospace the widest entry is `hands --
+ * steady enough for fine work` at about 260 px, plus the state dot and its gap. It overflowed the
+ * panel at 250, which is the kind of thing only running the screen shows.
+ */
+const DOLL_PROSE_W = 330;
+/** Line height for the per-part prose. Matches the 12px monospace the rest of the screen uses. */
+const DOLL_LINE_H = 16;
 
 const COLOURS = {
   scrim: "rgba(8, 9, 10, 0.93)",
@@ -142,6 +166,7 @@ export class InventoryScreen {
   draw(
     ctx: CanvasRenderingContext2D,
     view: InventoryView,
+    condition: ConditionView | null,
     pointer: PointerState,
     commands: CommandQueue,
     width: number,
@@ -155,7 +180,7 @@ export class InventoryScreen {
     ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
     ctx.textBaseline = "top";
 
-    const panels = this.layout(view, height);
+    const panels = this.layout(view, condition, height);
     const offsetX = Math.max(PAD, Math.round((width - panels.width) / 2));
     const offsetY = Math.max(PAD, Math.round((height - panels.height) / 2));
 
@@ -190,6 +215,46 @@ export class InventoryScreen {
       slotY += CELL + 4;
     }
 
+    // ---- condition ----
+    //
+    // The paperdoll, and one line of prose per part. **No numbers, and nothing a number could be
+    // derived from** -- rule 3 at the top of this file, which docs/05 sharpens into "colour, never
+    // fill": a bar with the figure hidden behind a hover is still a bar.
+    if (condition !== null && panels.dollPanel !== null) {
+      const doll = panels.dollPanel;
+      const px = offsetX + doll.x;
+      const py = offsetY + doll.y;
+      this.drawPanel(ctx, px, py, doll.w, doll.h);
+
+      ctx.fillStyle = COLOURS.text;
+      // The title says what posture, because the figure below is drawn in it and a reader should
+      // not have to infer a mechanic from a silhouette.
+      ctx.fillText(`condition -- ${stanceSpec(condition.stance).name}`, px + PAD, py + 6);
+
+      const box = cellMetrics(DOLL_ZOOM);
+      drawPaperdoll(ctx, condition, {
+        zoom: DOLL_ZOOM,
+        anchorX: px + PAD + box.anchorX,
+        anchorY: py + TITLE_H + PAD + box.anchorY,
+      });
+
+      let lineY = py + TITLE_H + PAD;
+      const proseX = px + PAD * 2 + box.width;
+      for (const part of condition.parts) {
+        // A dot in the part's tint, then the part, then what it says. The dot is the same colour
+        // the limb is drawn in, which is the whole of how a line of prose is tied to a place on
+        // the body -- and it is why the tints have to differ in lightness as well as hue.
+        ctx.fillStyle = CONDITION_TINTS[part.state] ?? COLOURS.text;
+        ctx.beginPath();
+        ctx.ellipse(proseX + 4, lineY + 6, 4, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = part.state === 0 ? COLOURS.dim : COLOURS.text;
+        ctx.fillText(`${part.part} -- ${part.prose}`, proseX + 14, lineY);
+        lineY += DOLL_LINE_H;
+      }
+    }
+
     // ---- the grids ----
     for (const placed of panels.gridPanels) {
       const px = offsetX + placed.x;
@@ -219,11 +284,13 @@ export class InventoryScreen {
    */
   private layout(
     view: InventoryView,
+    condition: ConditionView | null,
     height: number,
   ): {
     width: number;
     height: number;
     slotPanel: { x: number; y: number; w: number; h: number };
+    dollPanel: { x: number; y: number; w: number; h: number } | null;
     gridPanels: readonly { view: ContainerView; x: number; y: number; w: number; h: number }[];
   } {
     const slotPanel = {
@@ -233,9 +300,27 @@ export class InventoryScreen {
       h: TITLE_H + PAD + view.slots.length * (CELL + 4),
     };
 
+    // Under the slots, in the same column, and that placement is the argument for it: docs/10's
+    // armour coverage is per part, so the parts want to be read against the things worn over them.
+    // Putting it beside the grid instead would have made it a second inventory.
+    const dollPanel =
+      condition === null
+        ? null
+        : {
+            x: 0,
+            y: slotPanel.h + PANEL_GAP,
+            w: Math.max(SLOT_COLUMN_W, cellMetrics(DOLL_ZOOM).width + DOLL_PROSE_W + PAD * 3),
+            h: Math.max(
+              cellMetrics(DOLL_ZOOM).height + TITLE_H + PAD * 2,
+              TITLE_H + PAD * 2 + condition.parts.length * DOLL_LINE_H,
+            ),
+          };
+
     const gridPanels: { view: ContainerView; x: number; y: number; w: number; h: number }[] = [];
     const available = height - PAD * 4;
-    let x = slotPanel.w + PANEL_GAP;
+    // Clear of the *whole* left column, not just the slots. The condition panel is the wider of
+    // the two, so measuring from `slotPanel.w` would have run the first grid straight over it.
+    let x = (dollPanel === null ? slotPanel.w : Math.max(slotPanel.w, dollPanel.w)) + PANEL_GAP;
     let y = 0;
     let columnW = 0;
 
@@ -253,9 +338,13 @@ export class InventoryScreen {
       y += h + PANEL_GAP;
     }
 
-    const right = gridPanels.reduce((max, panel) => Math.max(max, panel.x + panel.w), slotPanel.w);
-    const bottom = gridPanels.reduce((max, panel) => Math.max(max, panel.y + panel.h), slotPanel.h);
-    return { width: right, height: bottom, slotPanel, gridPanels };
+    // The left column is as wide as its widest panel and as tall as its last one, so the grids
+    // pack beside the pair rather than beside the slots alone.
+    const leftW = dollPanel === null ? slotPanel.w : Math.max(slotPanel.w, dollPanel.w);
+    const leftH = dollPanel === null ? slotPanel.h : dollPanel.y + dollPanel.h;
+    const right = gridPanels.reduce((max, panel) => Math.max(max, panel.x + panel.w), leftW);
+    const bottom = gridPanels.reduce((max, panel) => Math.max(max, panel.y + panel.h), leftH);
+    return { width: right, height: bottom, slotPanel, dollPanel, gridPanels };
   }
 
   private drawPanel(

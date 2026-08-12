@@ -95,10 +95,11 @@ export const enum Opacity {
 /**
  * How high the looking is done from.
  *
- * [Stances](../../../docs/29-movement-and-stances.md) are not built, so nothing asks for
- * `Crouched` yet. The parameter exists now because the alternative is a visibility primitive
- * that has to be re-threaded end to end the day they arrive, which is exactly the rebuild
- * docs/28 names the occluder classes to avoid.
+ * [Stances](../../../docs/29-movement-and-stances.md) write this now: `stance.eyes` sets
+ * `Observer.eye` from the rung, so crouch and crawl look from `Crouched` and everything else looks
+ * from `Standing`. The parameter was threaded end to end before there was anything to ask for it,
+ * on the argument that the alternative was a rebuild the day stances arrived -- and the day they
+ * arrived it cost one assignment, which is the bet paying off.
  */
 export const enum Eye {
   Standing = 0,

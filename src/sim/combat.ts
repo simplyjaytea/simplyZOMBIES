@@ -94,6 +94,70 @@ export type BodyPart = keyof typeof HIT_LOCATION_WEIGHTS;
 export const BODY_PARTS: readonly BodyPart[] = ["head", "torso", "legs"];
 
 /**
+ * Where a swing lands on a **survivor**, over docs/05's six parts.
+ *
+ * A separate table from the zombie's three, and the asymmetry is the design rather than an
+ * oversight. docs/14's damage model wants three parts *because* three is what makes a zombie a
+ * zombie -- a torso is a sink that never kills, a head is instant, legs make a different and
+ * quieter threat -- and a fourth would only dilute a distribution that says exactly what it
+ * means. docs/05 wants six because it is answering a different question: not "how do I stop
+ * this thing" but "what is wrong with this person and what does it cost them". Arms cost melee
+ * power and carrying; hands cost fine work; feet cost speed and stealth. None of those are
+ * things you can want to know about a corpse that is walking.
+ *
+ * So the two tables are two vocabularies, not one table someone forgot to unify. What they
+ * share is the seam: `attack.connected` carries a part name and the health module looks it up
+ * on whatever body the target has.
+ *
+ * The weights are the zombie's redistributed rather than re-derived -- head and torso keep
+ * their share, and the quarter that was "legs" splits across the four limb parts, weighted
+ * toward legs because legs are still the largest target. docs/08's Melee web nodes are what
+ * will eventually make this a modifier base rather than the answer.
+ */
+export const SURVIVOR_HIT_LOCATION_WEIGHTS = {
+  head: 0.2,
+  torso: 0.55,
+  arms: 0.09,
+  hands: 0.03,
+  legs: 0.1,
+  feet: 0.03,
+} as const;
+
+export type SurvivorBodyPart = keyof typeof SURVIVOR_HIT_LOCATION_WEIGHTS;
+
+/** Walk order, for the same reason {@link BODY_PARTS} has one. Also the paperdoll's top-down order. */
+export const SURVIVOR_BODY_PARTS: readonly SurvivorBodyPart[] = [
+  "head",
+  "torso",
+  "arms",
+  "hands",
+  "legs",
+  "feet",
+];
+
+/**
+ * A survivor's body, per docs/05's table.
+ *
+ * Smaller numbers than a zombie's, and that is the hardcore contract rather than a balance
+ * knob: docs/05 opens by saying "a game where damage is a bar that refills is not lethal, it's
+ * attritional", and a survivor who can absorb what a shambler absorbs is a survivor with a
+ * health bar. A head at 15 against a bat's damage means two clean hits, which is the number
+ * that makes docs/09's parity contract worth arguing about.
+ *
+ * Torso is the largest because it is the sink docs/05 calls "the most lethal" when it finally
+ * gives out; hands and feet are the smallest because they are small, and because losing the use
+ * of them is expensive out of proportion to the damage it took.
+ */
+export const SURVIVOR_BODY = {
+  head: 15,
+  torso: 40,
+  arms: 20,
+  hands: 10,
+  legs: 25,
+  feet: 10,
+} as const;
+
+/**
  * A weapon, as the four properties docs/09 says a melee weapon has.
  *
  * Hardcoded profiles rather than content JSON, deliberately: docs/10-items.md's bases,

@@ -45,6 +45,16 @@ export type ShapeSink = Pick<
 >;
 
 /**
+ * The parts of a body this rig draws separately, and can therefore colour separately.
+ *
+ * docs/05's six, exactly -- so the condition view's parts and the shapes on screen are the same
+ * list rather than two lists that have to be mapped onto each other. `hands` and `feet` are the
+ * ends of the limbs rather than shapes of their own, which is enough at the sizes involved: a
+ * hand is about two pixels in the world view, and on the paperdoll it is a marker at the wrist.
+ */
+export type BodyRegion = "head" | "torso" | "arms" | "hands" | "legs" | "feet";
+
+/**
  * A body's proportions and posture.
  *
  * Metres throughout, so the same spec draws correctly at any zoom and the figures stay in
@@ -52,6 +62,19 @@ export type ShapeSink = Pick<
  */
 export type BodySpec = {
   colour: string;
+  /**
+   * Per-region colour overrides, for the paperdoll.
+   *
+   * **Absent in the world view, and that is the design rather than an optimisation.** docs/05 puts
+   * located conditions on the condition view; a survivor whose bad leg was tinted amber out in the
+   * street would be a health readout painted onto the world, which is a bar with extra steps. The
+   * body in the district is one colour because what it is *for* is being identified at forty
+   * metres in the dark.
+   *
+   * Anything absent falls back to {@link colour}, so a partial map is legitimate -- and a zombie,
+   * which has no `arms` part to report, simply never supplies one.
+   */
+  tint?: Partial<Record<BodyRegion, string>>;
   /** Standing height. A person is about 1.8 m; a shambler stands slightly shorter for stooping. */
   heightMetres: number;
   /** Shoulder width. */
@@ -147,6 +170,16 @@ const CRAWL_SHADOW_SCALE = 1.7;
 /** How far a crawler lies down: its height as a fraction of standing. */
 const CRAWL_HEIGHT_FRACTION = 0.34;
 
+/**
+ * How far a crouching body comes down: its height as a fraction of standing.
+ *
+ * Between the crawler's 0.34 and a standing 1, and nearer the top than the middle. Two thirds is
+ * about where a real crouch puts the eyeline, and it is also the smallest reduction that still
+ * reads at 31 px -- much less and a crouched survivor looks like a shorter survivor, which is
+ * information the player would misread rather than miss.
+ */
+const CROUCH_HEIGHT_FRACTION = 0.68;
+
 /** A crawler stretches out along the ground as much as it loses in height. */
 const CRAWL_LENGTH_METRES = 1.1;
 
@@ -198,6 +231,16 @@ function octantDirection(octant: number): { dx: number; dy: number } {
   };
 }
 
+/**
+ * The colour a region draws in: its tint if the caller supplied one, the body's colour otherwise.
+ *
+ * One function rather than `spec.tint?.head ?? spec.colour` repeated at a dozen call sites, so a
+ * region that gains a shape later cannot be the one nobody remembered to make tintable.
+ */
+function regionColour(spec: BodySpec, region: BodyRegion): string {
+  return spec.tint?.[region] ?? spec.colour;
+}
+
 /** Fill a polygon, then lay a shade over it. Same two-fill trick the occluder sprites use. */
 function facet(
   sink: ShapeSink,
@@ -216,6 +259,41 @@ function facet(
     sink.lineTo(point[0], point[1]);
   }
   sink.closePath();
+  sink.fillStyle = colour;
+  sink.fill();
+  if (shade !== undefined) {
+    sink.fillStyle = shade;
+    sink.fill();
+  }
+}
+
+/**
+ * A hand or a foot: a small disc at the end of a limb, drawn **only when tinted**.
+ *
+ * docs/05 makes hands and feet parts in their own right -- hands cost fine work, feet cost speed
+ * and stealth -- so the condition view has to be able to point at them. At 31 px in the world
+ * they are not worth a shape, and drawing one would spend pixels the size budget at the top of
+ * this file says are not available.
+ *
+ * So the marker appears exactly where it is being *asked about*: absent by default, present when
+ * the caller supplied a tint for that region. The world sprite is unchanged, byte for byte,
+ * because it never supplies one.
+ */
+function extremity(
+  sink: ShapeSink,
+  spec: BodySpec,
+  region: "hands" | "feet",
+  x: number,
+  y: number,
+  limbWidth: number,
+  shade?: string,
+): void {
+  const colour = spec.tint?.[region];
+  if (colour === undefined) return;
+
+  const r = limbWidth * 0.62;
+  sink.beginPath();
+  sink.ellipse(x, y, r, r * TILE_HEIGHT_RATIO * 0.92, 0, 0, Math.PI * 2);
   sink.fillStyle = colour;
   sink.fill();
   if (shade !== undefined) {
@@ -296,7 +374,13 @@ export function drawHumanoid(
   const forward = spec.heightMetres * Math.sin(spec.stoop);
   const leanX = dir.dx * forward * zoom;
   const leanY = dir.dy * forward * zoom;
-  const standingHeight = spec.heightMetres * Math.cos(spec.stoop);
+  // A crouch is the standing body, shorter. It reuses every proportion below rather than getting
+  // a shape of its own -- unlike the crawler, which needed one because a scaled-down standing
+  // body genuinely does not read as prone. A crouch does: shoulders unchanged, head lower, legs
+  // folded, which is what {@link CROUCH_HEIGHT_FRACTION} produces for free by shortening the one
+  // number every vertical below is a fraction of.
+  const standingHeight =
+    spec.heightMetres * Math.cos(spec.stoop) * (pose === Pose.Crouch ? CROUCH_HEIGHT_FRACTION : 1);
 
   const hipY = anchorY - metre(standingHeight * 0.47);
   // The neck: the head's lean is measured from the shoulder rather than from the ground, so a
@@ -336,9 +420,10 @@ export function drawHumanoid(
     farFootX,
     farFootY,
     legWidth,
-    spec.colour,
+    regionColour(spec, "legs"),
     SHADE.away,
   );
+  extremity(sink, spec, "feet", farFootX, farFootY, legWidth, SHADE.away);
   drawArm(
     sink,
     spec,
@@ -370,7 +455,7 @@ export function drawHumanoid(
       [hipX + hipHalf, hipY],
       [hipX - hipHalf, hipY],
     ],
-    spec.colour,
+    regionColour(spec, "torso"),
     SHADE.near,
   );
   // The lit face: the near half of the chest, catching the same light the wall caps do.
@@ -382,7 +467,7 @@ export function drawHumanoid(
       [hipX + perpX * hipHalf * nearSign + hipHalf * 0.1, hipY],
       [hipX + perpX * hipHalf * nearSign * 0.15, hipY],
     ],
-    spec.colour,
+    regionColour(spec, "torso"),
     SHADE.cap,
   );
 
@@ -399,14 +484,23 @@ export function drawHumanoid(
     metre,
     across,
   });
-  limb(sink, hipX + perpX * halfShoulder * 0.4, hipY, nearFootX, nearFootY, legWidth, spec.colour);
+  limb(
+    sink,
+    hipX + perpX * halfShoulder * 0.4,
+    hipY,
+    nearFootX,
+    nearFootY,
+    legWidth,
+    regionColour(spec, "legs"),
+  );
+  extremity(sink, spec, "feet", nearFootX, nearFootY, legWidth);
 
   // The head, last. A disc, with a notch of shade on the back of the skull -- the primary
   // facing cue, and the only one that works on a body standing perfectly still.
   const headR = across(spec.headMetres);
   sink.beginPath();
   sink.ellipse(headX, headTopY, headR, headR * TILE_HEIGHT_RATIO * 0.92, 0, 0, Math.PI * 2);
-  sink.fillStyle = spec.colour;
+  sink.fillStyle = regionColour(spec, "head");
   sink.fill();
   sink.beginPath();
   sink.ellipse(
@@ -461,21 +555,24 @@ function drawArm(
     // lands, so it is the most exaggerated shape in the sheet.
     const backX = rootX - dir.dx * across(0.34);
     const backY = rootY - dir.dy * across(0.34) - armLength * 0.85;
-    limb(sink, rootX, rootY, backX, backY, armWidth, spec.colour, shade);
+    limb(sink, rootX, rootY, backX, backY, armWidth, regionColour(spec, "arms"), shade);
+    extremity(sink, spec, "hands", backX, backY, armWidth, shade);
     return;
   }
   if (pose === Pose.Recover) {
     // Followed through: arms low and across, on the far side of the body from the wind-up.
     const throughX = rootX + dir.dx * across(0.42);
     const throughY = rootY + dir.dy * across(0.42) + armLength * 0.35;
-    limb(sink, rootX, rootY, throughX, throughY, armWidth, spec.colour, shade);
+    limb(sink, rootX, rootY, throughX, throughY, armWidth, regionColour(spec, "arms"), shade);
+    extremity(sink, spec, "hands", throughX, throughY, armWidth, shade);
     return;
   }
   if (pose === Pose.Staggered) {
     // Flailing: arms out wide, which is what "knocked off balance" looks like from above.
     const outX = rootX + perpX * across(0.34) * side;
     const outY = rootY + perpY * across(0.34) * side - armLength * 0.2;
-    limb(sink, rootX, rootY, outX, outY, armWidth, spec.colour, shade);
+    limb(sink, rootX, rootY, outX, outY, armWidth, regionColour(spec, "arms"), shade);
+    extremity(sink, spec, "hands", outX, outY, armWidth, shade);
     return;
   }
 
@@ -484,7 +581,8 @@ function drawArm(
     const reach = across(0.44);
     const handX = rootX + dir.dx * reach;
     const handY = rootY + dir.dy * reach + armLength * (0.28 + swing * 0.12);
-    limb(sink, rootX, rootY, handX, handY, armWidth, spec.colour, shade);
+    limb(sink, rootX, rootY, handX, handY, armWidth, regionColour(spec, "arms"), shade);
+    extremity(sink, spec, "hands", handX, handY, armWidth, shade);
     return;
   }
 
@@ -500,7 +598,16 @@ function drawArm(
     rootX + dir.dx * swingOut,
     rootY + dir.dy * swingOut + armLength,
     armWidth,
-    spec.colour,
+    regionColour(spec, "arms"),
+    shade,
+  );
+  extremity(
+    sink,
+    spec,
+    "hands",
+    rootX + dir.dx * swingOut,
+    rootY + dir.dy * swingOut + armLength,
+    armWidth,
     shade,
   );
 }
@@ -545,7 +652,7 @@ function drawCrawler(
       [tailX - perpX * width * 0.22, tailY - perpY * width * 0.22],
       [tailX + perpX * width * 0.22, tailY + perpY * width * 0.22],
     ],
-    spec.colour,
+    regionColour(spec, "torso"),
     SHADE.near,
   );
 
@@ -560,7 +667,16 @@ function drawCrawler(
     reachX + perpX * width * 0.3,
     reachY + perpY * width * 0.3,
     armWidth,
-    spec.colour,
+    regionColour(spec, "arms"),
+    SHADE.away,
+  );
+  extremity(
+    sink,
+    spec,
+    "hands",
+    reachX + perpX * width * 0.3,
+    reachY + perpY * width * 0.3,
+    armWidth,
     SHADE.away,
   );
   limb(
@@ -570,7 +686,15 @@ function drawCrawler(
     reachX - perpX * width * 0.3,
     reachY - perpY * width * 0.3,
     armWidth,
-    spec.colour,
+    regionColour(spec, "arms"),
+  );
+  extremity(
+    sink,
+    spec,
+    "hands",
+    reachX - perpX * width * 0.3,
+    reachY - perpY * width * 0.3,
+    armWidth,
   );
 
   // Head: smaller than standing, because it is close to the ground and mostly foreshortened.
@@ -585,12 +709,15 @@ function drawCrawler(
     0,
     Math.PI * 2,
   );
-  sink.fillStyle = spec.colour;
+  sink.fillStyle = regionColour(spec, "head");
   sink.fill();
 }
 
 /** Where in the two-beat cycle a frame sits, as a signed swing in [-1, 1]. */
 function cycleSwing(pose: Pose, frame: number): number {
+  // A crouch shuffles: two frames, and a stride short enough that the feet stay under the hips.
+  // Without this the pose would be a held shape and crouch-walking would read as sliding.
+  if (pose === Pose.Crouch) return frame % 2 === 0 ? 0.35 : -0.35;
   if (pose !== Pose.Walk && pose !== Pose.Sprint) return 0;
   // 0 and 2 are the passing positions, 1 and 3 the extremes of opposite steps.
   const swing = [0, 1, 0, -1][frame % 4] as number;

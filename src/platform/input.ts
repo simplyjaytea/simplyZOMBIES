@@ -9,6 +9,7 @@
 // fast walking happens to be this week.
 
 import type { CommandQueue } from "../sim/kernel/commands";
+import { Stance } from "../sim/stances";
 
 /**
  * Movement keys, as world-space directions.
@@ -43,6 +44,32 @@ export const MOVE_KEYS: Record<string, { dx: number; dy: number }> = {
 
 const SPRINT_KEYS = new Set(["ShiftLeft", "ShiftRight"]);
 
+/**
+ * The rungs you can pick outright, as [stance](../../docs/29-movement-and-stances.md) keys.
+ *
+ * Held Shift stays what it was -- press to target Sprint, release to target Walk -- because
+ * that is the input the game shipped with and a five-rung ladder is not a reason to break the
+ * one movement key people already know. These four are the rungs a held key cannot express:
+ * you *stay* crouched, so crouching is a state you enter rather than a button you hold.
+ *
+ * Picked rather than held, and that is a design decision rather than a convenience: docs/29
+ * makes a stance change a timed, interruptible action, so a hold-to-crouch key would have the
+ * player paying that cost again on every accidental keyup.
+ *
+ * Exported for the test that pins them against the ladder, so a rung added to `Stance` without
+ * a way to reach it fails rather than ships.
+ *
+ * They sit along one keyboard row **in ladder order** -- Z X C V, slowest to fastest, with
+ * Shift carrying the top rung. So the physical keys are the ladder, which is one fewer thing to
+ * learn than four unrelated letters, and reaching further right is reaching for more speed.
+ */
+export const STANCE_KEYS: Record<string, Stance> = {
+  KeyZ: Stance.Crawl,
+  KeyX: Stance.Crouch,
+  KeyC: Stance.Walk,
+  KeyV: Stance.Jog,
+};
+
 export type InputBindings = {
   /** Extra single-press actions, e.g. save and load. */
   readonly onPress?: Record<string, () => void>;
@@ -59,6 +86,7 @@ export type Input = {
 
 export function attachKeyboard(target: Window, bindings: InputBindings = {}): Input {
   const held = new Set<string>();
+  let pendingStance: Stance | null = null;
   let sprinting = false;
   let lastSprinting = false;
   let lastDx = 0;
@@ -80,6 +108,16 @@ export function attachKeyboard(target: Window, bindings: InputBindings = {}): In
     } else if (SPRINT_KEYS.has(event.code)) {
       sprinting = true;
       event.preventDefault();
+    } else {
+      const stance = STANCE_KEYS[event.code];
+      if (stance !== undefined) {
+        // Queued rather than latched, unlike sprint. A rung you picked is an event that
+        // happened once; there is no held state for the pump to notice a change in, and
+        // re-sending it every tick would put a command in the replay log per tick for a
+        // decision made in one.
+        pendingStance = stance;
+        event.preventDefault();
+      }
     }
   };
 
@@ -93,6 +131,9 @@ export function attachKeyboard(target: Window, bindings: InputBindings = {}): In
   const onBlur = (): void => {
     held.clear();
     sprinting = false;
+    // The pending rung is deliberately *not* cleared. Losing focus should not swallow a
+    // decision the player already made -- unlike a held key, which has to be released
+    // because nothing will ever tell us it was.
   };
 
   target.addEventListener("keydown", onKeyDown);
@@ -112,6 +153,13 @@ export function attachKeyboard(target: Window, bindings: InputBindings = {}): In
 
       // Only emit on change. A held key is already state in the simulation, so re-sending
       // it every tick would bloat the input log a replay has to carry.
+      if (pendingStance !== null) {
+        commands.push({ type: "stance", stance: pendingStance });
+        pendingStance = null;
+        // Picking a rung outright also drops the held-sprint latch, or releasing Shift later
+        // would yank the survivor back to a walk out of a crouch they had chosen since.
+        lastSprinting = sprinting;
+      }
       if (sprinting !== lastSprinting) {
         commands.push({ type: "sprint", active: sprinting });
         lastSprinting = sprinting;

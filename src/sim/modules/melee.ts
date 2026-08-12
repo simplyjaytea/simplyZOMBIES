@@ -14,22 +14,29 @@
 //   * Recovery cannot be cancelled. Everything else can.
 //
 // What it deliberately does not do: grabs and bite risk, which are the other half of docs/09's
-// parity contract. Both need a survivor who can be injured and infected, and neither the
-// injury model nor the infection module exists. Until they do, melee's only cost is stamina --
-// which means the parity contract is *not* satisfied by this module alone, and saying so here
-// is cheaper than rediscovering it during balance work.
+// parity contract. **Melee's only cost is still stamina, so the parity contract is still not
+// satisfied** -- saying so here is cheaper than rediscovering it during balance work.
+//
+// What changed, and did not change it: a survivor now has a body that can be hurt in six places
+// (docs/05's parts, in `combat.ts`), and a blow that lands on one rolls against that table rather
+// than a zombie's three. So half of what grabs were waiting on exists. The other half does not:
+// there are no located *injuries* -- no scratch, no laceration, no fracture -- and no infection
+// module, which is what a bite has to turn into to be worth being afraid of. A grab that could
+// only reduce a number would be the health bar this design refuses.
 
 import {
+  BODY_PARTS,
   COS_SWING_HALF_ANGLE,
   HEAD_DAMAGE_MULTIPLIER,
   HIT_LOCATION_WEIGHTS,
   MELEE_CONNECT_NOISE,
   recoverTicks,
+  SURVIVOR_BODY_PARTS,
+  SURVIVOR_HIT_LOCATION_WEIGHTS,
   swingStamina,
   WEAPONS,
   wielded,
   windupTicks,
-  type BodyPart,
   type WeaponProfile,
   type WieldedWeapon,
 } from "../combat";
@@ -42,6 +49,7 @@ import type { Module } from "./index";
 import { BODY_RADIUS } from "./movement";
 import { meleeProfileOf } from "./items";
 import { Controlled } from "./player";
+import { capableOf } from "./stance";
 
 /**
  * The three windows, as plain numbers.
@@ -91,17 +99,33 @@ export function makeMeleeArmed(
 /**
  * Where a blow lands, drawn from the seeded stream.
  *
- * Walks {@link HIT_LOCATION_WEIGHTS} in the fixed order `BODY_PARTS` declares rather than in
- * key order, so the roll cannot change meaning because someone reordered an object literal.
+ * Walks the weights in a **fixed declared order** rather than in key order, so the roll cannot
+ * change meaning because someone reordered an object literal -- and so a survivor's six-part
+ * table and a zombie's three-part one consume exactly one number from the stream either way.
+ * That last property is what keeps the determinism test honest across a change like this: the
+ * shape of the distribution moved, the shape of the *stream* did not.
+ *
+ * Which table applies is a property of the target's body, per docs/05 and docs/14 wanting
+ * different vocabularies. A blow that rolls "hands" against a shambler would be discarded by
+ * the health module, so the table has to match the thing being hit rather than the thing
+ * swinging.
  */
-function rollBodyPart(rng: RngStream): BodyPart {
+function rollBodyPart(rng: RngStream, body: Body | undefined): string {
   const roll = rng.next();
+  const survivor = body !== undefined && body.arms !== undefined;
+  const parts: readonly string[] = survivor ? SURVIVOR_BODY_PARTS : BODY_PARTS;
+  const weights: Readonly<Record<string, number>> = survivor
+    ? SURVIVOR_HIT_LOCATION_WEIGHTS
+    : HIT_LOCATION_WEIGHTS;
+
   let cumulative = 0;
-  cumulative += HIT_LOCATION_WEIGHTS.head;
-  if (roll < cumulative) return "head";
-  cumulative += HIT_LOCATION_WEIGHTS.torso;
-  if (roll < cumulative) return "torso";
-  return "legs";
+  for (const part of parts) {
+    cumulative += weights[part] ?? 0;
+    if (roll < cumulative) return part;
+  }
+  // Floating-point shortfall on the last bucket only. Returning the final part rather than
+  // re-rolling keeps the stream consumption at exactly one draw per connect.
+  return parts[parts.length - 1] as string;
 }
 
 export const meleeModule: Module = {
@@ -136,12 +160,22 @@ export const meleeModule: Module = {
           // survived yet.
           if (swing.state !== SwingState.Idle) continue;
 
+          // You cannot swing from a crawl. docs/29: crawling "costs everything else" -- it is
+          // the stance you choose when being unseen is the only thing left that helps, and a
+          // crawl that could still swing would be strictly better than a crouch, which is the
+          // one thing that document's rule forbids.
+          if (!capableOf(w, entity, "canSwing")) continue;
+
           const weapon = w.components.getOrThrow(entity, MeleeWeapon);
           const cost = swingStamina(weapon.weight, weapon.stamina);
           const stamina = w.components.get(entity, Stamina);
-          // Exhaustion stops the swing outright here. docs/09 wants exhausted swings to be
-          // "slow, weak, and miss" rather than absent, which needs the modifier pipeline to
-          // scale the windows -- that arrives with the stance ladder, which shares this pool.
+          // Exhaustion stops the swing outright here, and docs/09 wants it to be "slow, weak, and
+          // miss" instead. **Still open, and the excuse has expired**: this used to say the
+          // scaling needed the stance ladder, which shares this pool -- the ladder has landed, so
+          // what remains is a `swing_speed` and `swing_recovery` modifier sourced from how empty
+          // the pool is, both stats already registered. It was left out of the ladder's change on
+          // purpose rather than forgotten: it is a balance change to the one loop the game has,
+          // and it wants its own measurement rather than riding in behind six other things.
           if (stamina !== undefined && stamina.current < cost) continue;
 
           swing.state = SwingState.WindUp;
@@ -173,13 +207,14 @@ export const meleeModule: Module = {
           //
           // Recovery is untouched by it. Being able to sprint out of a recovery would delete
           // the window docs/09 says is the one that kills you.
-          if (swing.state === SwingState.WindUp) {
-            const controlled = w.components.get(entity, Controlled);
-            if (controlled?.sprinting === true) {
-              swing.state = SwingState.Idle;
-              swing.ticksLeft = 0;
-              continue;
-            }
+          //
+          // It asks the rung rather than a sprint flag now, so it covers the crawl for free:
+          // dropping flat mid-wind-up abandons it too, which is the same sentence docs/29
+          // writes as "cannot swing or aim" on that row.
+          if (swing.state === SwingState.WindUp && !capableOf(w, entity, "canAim")) {
+            swing.state = SwingState.Idle;
+            swing.ticksLeft = 0;
+            continue;
           }
 
           swing.ticksLeft--;
@@ -326,7 +361,7 @@ function resolveStrike(
   // *connect*, and a swing that hits nothing has hit nothing to make a noise against.
   if (target === null) return;
 
-  const bodyPart = rollBodyPart(rng);
+  const bodyPart = rollBodyPart(rng, world.components.get(target, Body));
   const damage = weapon.damage * (bodyPart === "head" ? HEAD_DAMAGE_MULTIPLIER : 1);
 
   // A fact about the world, not an instruction to the field -- the same route the player

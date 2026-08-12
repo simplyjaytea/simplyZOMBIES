@@ -19,7 +19,6 @@
 // sensed at all.
 
 import { defineComponent, Position, Velocity } from "../kernel/components";
-import { Body, isCrawling } from "./health";
 import type { EntityId } from "../kernel/entities";
 import type { World } from "../kernel/world";
 import { zombieSpeed } from "../locomotion";
@@ -89,41 +88,83 @@ export type Shambler = {
   bias: number;
   /** Ticks left on their back foot. Set by whatever staggered them; zero the rest of the time. */
   ticksStaggered: number;
+  /**
+   * This individual's speeds, in metres per second, from its type's content entry.
+   *
+   * Resolved once at spawn rather than looked up per tick, for the reason the angular bias is
+   * drawn once: the state machine runs over every body every tick, and a content lookup per
+   * body per state is a map probe and a string key on the hot path to produce a number that
+   * cannot change. It also means a type's speeds ride the save, so a run loaded after its
+   * content was edited keeps the zombies it had rather than silently re-tuning the horde
+   * mid-run -- content edits take effect on the next spawn, which is the same rule hot reload
+   * already follows for items.
+   */
+  seekSpeed: number;
+  wanderSpeed: number;
+  millSpeed: number;
+  /** Fraction of the above left once locomotion is destroyed. */
+  crawlFactor: number;
 };
 
 export const Shambler = defineComponent<Shambler>("Shambler");
 
 /**
- * Speeds in metres per second.
+ * Fallback speeds, for a shambler spawned with no content entry behind it.
  *
- * `zombie.shambler`'s `locomotion.speed` of 0.8 is a multiplier on a human walk, so a
- * shambler closing on a noise moves at eight tenths of your walking pace -- slower than you
- * walk, which is what makes retreat a real option and numbers the actual threat. The walk
- * itself lives in `sim/locomotion.ts`; it used to be a hardcoded 1.4 here and another in the
- * player module, which is two copies of one ratio.
+ * The three numbers used to be module constants and a test pinned them against the JSON. They
+ * are **fields on the type's content entry** now -- `locomotion.speed`, `.wander`, `.mill` and
+ * `.crawl` -- read at spawn into the component, which is what docs/29 asks for: "a zombie
+ * type's speeds are fields in its JSON entry rather than constants in a module." A stalker that
+ * drifts fast and closes faster is a JSON file, not a second state machine.
+ *
+ * `speed` is still a multiplier on a *human walk* rather than an absolute, so the walk stays
+ * the one anchor everything is a ratio of (`sim/locomotion.ts`), and the other three are
+ * fractions of this type's own `speed` -- so making a type faster makes it faster in every
+ * state, rather than making three numbers disagree.
+ *
+ * These defaults exist because most unit tests build a world without loading content, and a
+ * shambler that spawns motionless in those would look like a broken state machine.
  */
-const SEEK_SPEED = zombieSpeed(0.8);
-/** Aimless drift is much slower than purposeful movement. Idle bodies barely move. */
-const WANDER_SPEED = SEEK_SPEED * 0.35;
-const MILL_SPEED = SEEK_SPEED * 0.25;
+const DEFAULT_LOCOMOTION = { speed: 0.8, wander: 0.35, mill: 0.25, crawl: 0.25 } as const;
+
+/**
+ * The four speed fields of a {@link Shambler}, at {@link DEFAULT_LOCOMOTION}.
+ *
+ * For the tests that build the component by hand to pin a state machine down -- a literal
+ * spelling out four speeds it does not care about is four more things to update the next time a
+ * type gains a field, and the update would be mechanical rather than meaningful. Anything that
+ * cares about the speeds sets them after spreading this.
+ */
+export function defaultShamblerSpeeds(): Pick<
+  Shambler,
+  "seekSpeed" | "wanderSpeed" | "millSpeed" | "crawlFactor"
+> {
+  const seekSpeed = zombieSpeed(DEFAULT_LOCOMOTION.speed);
+  return {
+    seekSpeed,
+    wanderSpeed: seekSpeed * DEFAULT_LOCOMOTION.wander,
+    millSpeed: seekSpeed * DEFAULT_LOCOMOTION.mill,
+    crawlFactor: DEFAULT_LOCOMOTION.crawl,
+  };
+}
 
 /** docs/14-zombies.md#gradient-ascent-is-not-sufficient-on-its-own. */
 const SPREAD_RADIANS = 0.62;
 
 /**
- * What is left of a shambler's pace once locomotion is gone.
+ * Named source for the speed penalty a destroyed pelvis carries.
  *
  * docs/14-zombies.md#damage-model: "A zombie with a destroyed pelvis crawls, is quiet, is easy
- * to miss in a dark breach, and is still perfectly capable of biting an ankle." A quarter of a
- * shamble is slow enough to walk away from and far too fast to ignore at arm's length, which
- * is the whole of that sentence.
+ * to miss in a dark breach, and is still perfectly capable of biting an ankle."
  *
- * Applied to the velocity the state machine produced rather than to each of the three speeds,
- * so a crawler crawls in every state including the ones added later. It is deliberately *not*
- * a `move_speed` modifier yet: `movement.integrate` does not read the stat registry at all,
- * and wiring it to is its own TODO item with five other consumers waiting on it.
+ * It is a **`move_speed` modifier** now, which is what the comment that used to live here said
+ * it wanted to be and could not: `movement.integrate` did not read the stat registry, so this
+ * was a per-tick multiply on the velocity instead. The stat has a reader now, so the crawl goes
+ * through the pipeline with everything else -- which means it composes with the surface, with
+ * encumbrance, and with whatever docs/05's injuries add later, and it turns up by name in the
+ * `explain()` report rather than as an unexplained factor of four.
  */
-const CRAWL_SPEED_FACTOR = 0.25;
+const CRIPPLED_SOURCE = "injury.crippled";
 
 /**
  * How much of the noise channel a shambler actually perceives.
@@ -234,8 +275,8 @@ function steerUphill(field: World["field"], pos: Position, vel: Velocity, self: 
   const uphill = field.uphillNoise(pos.x, pos.y);
   if (uphill === null) return false;
   const angle = Math.atan2(uphill.dy, uphill.dx) + self.bias;
-  vel.dx = Math.cos(angle) * SEEK_SPEED;
-  vel.dy = Math.sin(angle) * SEEK_SPEED;
+  vel.dx = Math.cos(angle) * self.seekSpeed;
+  vel.dy = Math.sin(angle) * self.seekSpeed;
   return true;
 }
 
@@ -352,7 +393,7 @@ function gatherSurvivors(world: World): { entity: EntityId; x: number; y: number
  * points at the survivor and `movement.integrate`'s collision resolution stops the body while it
  * keeps pointing. A pathfinder here would be the single change that makes them tactical.
  */
-function chase(world: World, target: EntityId, pos: Position, vel: Velocity): void {
+function chase(world: World, target: EntityId, pos: Position, vel: Velocity, self: Shambler): void {
   const at = world.components.get(target, Position);
   if (at === undefined) return;
 
@@ -367,8 +408,8 @@ function chase(world: World, target: EntityId, pos: Position, vel: Velocity): vo
   // stop a crowd sharing one gradient from collapsing into a queue (docs/14), and a crowd with
   // hold of the same survivor is not ascending a gradient -- it is already there. Spreading them
   // would make a grab harder to land, which is the opposite of what a crowd should feel like.
-  vel.dx = (dx / distance) * SEEK_SPEED;
-  vel.dy = (dy / distance) * SEEK_SPEED;
+  vel.dx = (dx / distance) * self.seekSpeed;
+  vel.dy = (dy / distance) * self.seekSpeed;
 }
 
 /**
@@ -446,7 +487,14 @@ function leanToLight(world: World, entity: EntityId, pos: Position, vel: Velocit
 }
 
 /** Give an entity the components the shambler module needs. */
-export function makeShambler(world: World, entity: EntityId, rng: RngStream): void {
+export function makeShambler(
+  world: World,
+  entity: EntityId,
+  rng: RngStream,
+  typeId = "zombie.shambler",
+): void {
+  const locomotion = locomotionOf(world, typeId);
+  const seekSpeed = zombieSpeed(locomotion.speed);
   world.components.set(entity, Shambler, {
     state: ShamblerState.Wander,
     ticksToTurn: rng.int(20, 120),
@@ -454,7 +502,30 @@ export function makeShambler(world: World, entity: EntityId, rng: RngStream): vo
     ticksCommitted: 0,
     bias: rng.float(-SPREAD_RADIANS, SPREAD_RADIANS),
     ticksStaggered: 0,
+    seekSpeed,
+    wanderSpeed: seekSpeed * locomotion.wander,
+    millSpeed: seekSpeed * locomotion.mill,
+    crawlFactor: locomotion.crawl,
   });
+}
+
+/**
+ * A type's four locomotion numbers, falling back per field rather than wholesale.
+ *
+ * Per field because `extends` means a type may legitimately declare only what it changes: a
+ * sprinter that inherits `zombie.base` and overrides `speed` should keep the inherited drift
+ * fractions rather than get the module's defaults for them. Content validation has already
+ * checked the ranges by the time this runs, so this reads rather than re-validates.
+ */
+function locomotionOf(world: World, typeId: string): typeof DEFAULT_LOCOMOTION {
+  const entry = world.content.get("zombie", typeId);
+  const locomotion = (entry?.["locomotion"] ?? {}) as Partial<typeof DEFAULT_LOCOMOTION>;
+  return {
+    speed: locomotion.speed ?? DEFAULT_LOCOMOTION.speed,
+    wander: locomotion.wander ?? DEFAULT_LOCOMOTION.wander,
+    mill: locomotion.mill ?? DEFAULT_LOCOMOTION.mill,
+    crawl: locomotion.crawl ?? DEFAULT_LOCOMOTION.crawl,
+  };
 }
 
 export const shamblerModule: Module = {
@@ -514,7 +585,7 @@ export const shamblerModule: Module = {
                 self.ticksToTurn = rng.int(20, 120);
                 break;
               }
-              chase(w, target, pos, vel);
+              chase(w, target, pos, vel, self);
               break;
             }
 
@@ -526,7 +597,7 @@ export const shamblerModule: Module = {
               if (caught !== null) {
                 self.state = ShamblerState.Pursue;
                 self.ticksCommitted = 0;
-                chase(w, caught, pos, vel);
+                chase(w, caught, pos, vel, self);
                 break;
               }
               if (steerUphill(field, pos, vel, self)) {
@@ -555,8 +626,8 @@ export const shamblerModule: Module = {
               }
               if (self.ticksToTurn <= 0) {
                 const angle = rng.float(0, Math.PI * 2);
-                vel.dx = Math.cos(angle) * MILL_SPEED;
-                vel.dy = Math.sin(angle) * MILL_SPEED;
+                vel.dx = Math.cos(angle) * self.millSpeed;
+                vel.dy = Math.sin(angle) * self.millSpeed;
                 self.ticksToTurn = rng.int(10, 25);
               } else {
                 self.ticksToTurn--;
@@ -569,7 +640,7 @@ export const shamblerModule: Module = {
               const caught = contactTarget(survivors, pos, CONTACT_METRES);
               if (caught !== null) {
                 self.state = ShamblerState.Pursue;
-                chase(w, caught, pos, vel);
+                chase(w, caught, pos, vel, self);
                 break;
               }
               if (heard) {
@@ -583,8 +654,8 @@ export const shamblerModule: Module = {
               }
               if (self.ticksToTurn <= 0) {
                 const angle = rng.float(0, Math.PI * 2);
-                vel.dx = Math.cos(angle) * WANDER_SPEED;
-                vel.dy = Math.sin(angle) * WANDER_SPEED;
+                vel.dx = Math.cos(angle) * self.wanderSpeed;
+                vel.dy = Math.sin(angle) * self.wanderSpeed;
                 self.ticksToTurn = rng.int(20, 120);
               } else {
                 self.ticksToTurn--;
@@ -600,14 +671,11 @@ export const shamblerModule: Module = {
             }
           }
 
-          // Locomotion, last, so it applies to whatever the state machine decided -- including
-          // states added after this line was written. Reading another module's component is
-          // permitted (docs/20:55); writing it is not, and this does not.
-          const body = w.components.get(entity, Body);
-          if (body !== undefined && isCrawling(body)) {
-            vel.dx *= CRAWL_SPEED_FACTOR;
-            vel.dy *= CRAWL_SPEED_FACTOR;
-          }
+          // Locomotion used to be scaled here, at the bottom of the state machine, so that a
+          // crawler crawled in every state. It is a `move_speed` modifier now (see
+          // `CRIPPLED_SOURCE`) and `movement.integrate` applies it, which gets the same property
+          // for free and one better: the scaling survives any state added after this line, and
+          // it survives being set by a module that has never heard of this one.
         }
       },
     });
@@ -616,6 +684,33 @@ export const shamblerModule: Module = {
      * Take a stagger. Published by whatever landed the blow; the duration is its business
      * (a bat holds one four times as long as a knife) and what it *does* is this module's.
      */
+    /**
+     * A destroyed pelvis, priced through the pipeline.
+     *
+     * The health module publishes the fact and names no consumer; this decides what crawling
+     * costs *this type*, which is the split docs/14 asks for -- "how a given zombie moves is its
+     * own business." A crawler that dragged itself at a speed the health module chose would be
+     * the health module designing zombies.
+     *
+     * Idempotent by construction: `add` under a fixed source replaces rather than stacks, so a
+     * second blow to a leg that is already gone cannot quarter the speed twice. That property is
+     * `removeBySource`'s whole reason for existing, and it is why the source is a constant.
+     */
+    world.events.subscribe({
+      id: "shambler.crippled",
+      type: "injury.sustained",
+      handler: (event) => {
+        if (event.injury !== "crippled") return;
+        const self = world.components.get(event.entity, Shambler);
+        if (self === undefined) return;
+        world.modifiers.removeBySource(CRIPPLED_SOURCE, event.entity);
+        world.modifiers.add(
+          { stat: "move_speed", op: "mul", value: self.crawlFactor, source: CRIPPLED_SOURCE },
+          event.entity,
+        );
+      },
+    });
+
     world.events.subscribe({
       id: "shambler.staggered",
       type: "entity.staggered",
@@ -638,7 +733,7 @@ export const shamblerModule: Module = {
 
 /** Exposed for the tests that pin these against content, and for the HUD's state counts. */
 export const SHAMBLER_TUNING = {
-  seekSpeed: SEEK_SPEED,
+  seekSpeed: zombieSpeed(DEFAULT_LOCOMOTION.speed),
   spreadRadians: SPREAD_RADIANS,
   noiseSensitivity: NOISE_SENSITIVITY,
   scentSensitivity: SCENT_SENSITIVITY,
@@ -648,5 +743,8 @@ export const SHAMBLER_TUNING = {
   lightSensitivity: LIGHT_SENSITIVITY,
   lightBias: LIGHT_BIAS,
   millTicks: MILL_TICKS,
-  crawlSpeedFactor: CRAWL_SPEED_FACTOR,
+  crawlSpeedFactor: DEFAULT_LOCOMOTION.crawl,
+  wanderFactor: DEFAULT_LOCOMOTION.wander,
+  millFactor: DEFAULT_LOCOMOTION.mill,
+  crippledSource: CRIPPLED_SOURCE,
 } as const;
