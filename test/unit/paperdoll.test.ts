@@ -18,12 +18,19 @@ import { Body, PartState, maxOf, partState } from "../../src/sim/modules/health"
 import { Posture } from "../../src/sim/modules/stance";
 import { Shambler } from "../../src/sim/modules/shambler";
 import { Stance, STANCES, stanceSpec } from "../../src/sim/stances";
-import { CONDITION_TINTS } from "../../src/render/palette";
+import { CONDITION_TINTS, COLOURS } from "../../src/render/palette";
 import { drawPaperdoll, isNotable, poseForStance, tintFor } from "../../src/render/paperdoll";
-import { Pose, POSES } from "../../src/render/sprites/pose";
-import type { ShapeSink } from "../../src/render/sprites/humanoid";
+import {
+  OUTLINE_POSES,
+  OutlinePose,
+  outlineMetrics,
+  type StrokeSink,
+} from "../../src/render/sprites/outline";
 
 const SEED = 20260812;
+
+/** The figure's size in the assertions below. Arbitrary, and large enough to read fractions off. */
+const HEIGHT = 168;
 
 function survivor(): { world: ReturnType<typeof boot>["world"]; who: EntityId } {
   const { world, player } = boot({ seed: SEED, wanderers: 0 });
@@ -31,10 +38,19 @@ function survivor(): { world: ReturnType<typeof boot>["world"]; who: EntityId } 
   return { world, who: player as EntityId };
 }
 
-/** A sink that records the fills, so a figure can be asserted without a canvas. */
-class Recorder implements ShapeSink {
+/**
+ * A sink that records the ink, so a figure can be asserted without a canvas.
+ *
+ * Strokes as well as fills, because the outline is line art: an unhurt body produces strokes and
+ * *no* fills at all, which is a thing worth being able to assert rather than infer.
+ */
+class Recorder implements StrokeSink {
   fillStyle: string | CanvasGradient | CanvasPattern = "";
+  strokeStyle: string | CanvasGradient | CanvasPattern = "";
+  lineWidth = 0;
+  lineJoin: CanvasLineJoin = "miter";
   readonly fills: string[] = [];
+  readonly strokes: string[] = [];
   readonly xs: number[] = [];
   readonly ys: number[] = [];
 
@@ -57,6 +73,22 @@ class Recorder implements ShapeSink {
   fill(): void {
     this.fills.push(String(this.fillStyle));
   }
+  stroke(): void {
+    this.strokes.push(String(this.strokeStyle));
+  }
+}
+
+/** Draw one survivor at one anchor and hand back what came out. */
+function record(
+  world: ReturnType<typeof boot>["world"],
+  who: EntityId,
+  anchorX = 200,
+  anchorY = 200,
+): Recorder {
+  const view = conditionView(world, who);
+  const sink = new Recorder();
+  drawPaperdoll(sink, view as NonNullable<typeof view>, { height: HEIGHT, anchorX, anchorY });
+  return sink;
 }
 
 describe("the four states are derived in one place", () => {
@@ -151,58 +183,76 @@ describe("the snapshot carries no numbers", () => {
 });
 
 describe("the paperdoll stands the way the survivor stands", () => {
-  it("maps every rung to a pose, and the low rungs to a low body", () => {
+  it("maps every rung to a shape, and the low rungs to a low body", () => {
     // The user-visible promise: standing shows it standing, crouching shows it crouching, prone
     // shows it prone. Asserted per rung rather than by example, so a rung added to the ladder
     // without a posture fails here.
-    // Every rung gets one of the poses the sheet actually holds a row for -- a rung mapped to a
-    // pose the atlas does not carry would blit whatever is at that offset, which is somebody
-    // else's frame rather than a missing one.
     for (const stance of STANCES) {
-      expect(POSES, stanceSpec(stance).name).toContain(poseForStance(stance));
+      expect(OUTLINE_POSES, stanceSpec(stance).name).toContain(poseForStance(stance));
     }
-    expect(poseForStance(Stance.Crawl)).toBe(Pose.Crawl);
-    expect(poseForStance(Stance.Crouch)).toBe(Pose.Crouch);
-    expect(poseForStance(Stance.Walk)).toBe(Pose.Idle);
-    expect(poseForStance(Stance.Jog)).toBe(Pose.Idle);
-    expect(poseForStance(Stance.Sprint)).toBe(Pose.Idle);
+    expect(poseForStance(Stance.Crawl)).toBe(OutlinePose.Prone);
+    expect(poseForStance(Stance.Crouch)).toBe(OutlinePose.Crouch);
+    expect(poseForStance(Stance.Walk)).toBe(OutlinePose.Stand);
+    expect(poseForStance(Stance.Jog)).toBe(OutlinePose.Stand);
+    expect(poseForStance(Stance.Sprint)).toBe(OutlinePose.Stand);
   });
 
-  it("draws a crouched body shorter than a standing one, and a prone one differently again", () => {
-    // The posture has to be visible, not merely selected.
-    //
-    // Crouch is measured as the height of the ink above the anchor, which is what a player sees.
-    // **Prone is not**, and the reason is the projection rather than the pose: a crawler lies out
-    // *along the ground* over about a metre, and under an isometric camera a body extended away
-    // from the viewer occupies up-screen pixels. So the crawler's topmost ink is legitimately
-    // higher than the crouch's while its head is far lower, and a height comparison would fail on
-    // a correct picture. What is asserted instead is that it is a different shape -- which it is,
-    // because `drawCrawler` is a separate silhouette rather than a squashed standing one.
+  it("draws each posture lower than the one above it, and prone wider than tall", () => {
+    // The posture has to be visible, not merely selected -- and on a front elevation it can be
+    // asserted in the plain unit a player reads it in. This test used to compare prone by *shape*
+    // rather than by height, because under the district's isometric camera a body lying away from
+    // the viewer occupies up-screen pixels and a crawler's topmost ink sat above a crouch's. The
+    // outline has no camera, so the obvious assertion is available again.
     const { world, who } = survivor();
-    const profiles = new Map<Stance, { height: number; ink: string }>();
+    const profiles = new Map<Stance, { top: number; width: number }>();
 
     for (const stance of [Stance.Walk, Stance.Crouch, Stance.Crawl]) {
       world.components.getOrThrow(who, Posture).current = stance;
-      const view = conditionView(world, who);
-      const sink = new Recorder();
-      drawPaperdoll(sink, view as NonNullable<typeof view>, {
-        zoom: 84,
-        anchorX: 200,
-        anchorY: 200,
-      });
+      const sink = record(world, who);
       profiles.set(stance, {
-        height: 200 - Math.min(...sink.ys),
-        ink: `${sink.xs.length}:${sink.ys.map((y) => y.toFixed(1)).join(",")}`,
+        top: 200 - Math.min(...sink.ys),
+        width: Math.max(...sink.xs) - Math.min(...sink.xs),
       });
     }
 
-    const standing = profiles.get(Stance.Walk) as { height: number; ink: string };
-    const crouched = profiles.get(Stance.Crouch) as { height: number; ink: string };
-    const prone = profiles.get(Stance.Crawl) as { height: number; ink: string };
+    const standing = profiles.get(Stance.Walk) as { top: number; width: number };
+    const crouched = profiles.get(Stance.Crouch) as { top: number; width: number };
+    const prone = profiles.get(Stance.Crawl) as { top: number; width: number };
 
-    expect(crouched.height).toBeLessThan(standing.height);
-    expect(prone.ink).not.toBe(standing.ink);
-    expect(prone.ink).not.toBe(crouched.ink);
+    expect(crouched.top).toBeLessThan(standing.top);
+    expect(prone.top).toBeLessThan(crouched.top);
+    // And it is lying down rather than merely short: a prone body is longer than it is tall, and
+    // wider than a standing one, which is what separates this shape from a scaled-down figure.
+    expect(prone.width).toBeGreaterThan(prone.top);
+    expect(prone.width).toBeGreaterThan(standing.width);
+  });
+
+  it("keeps every posture inside the box the layout was measured against", () => {
+    // The panel and the corner both reserve `outlineMetrics` and draw at its anchor. A pose that
+    // out-reached that box would be clipped by the viewport in the corner and would overlap the
+    // prose column on the panel -- the same guard `humanoid.test.ts` puts on the sprite sheet.
+    const { world, who } = survivor();
+    const box = outlineMetrics(HEIGHT);
+    const anchorX = box.anchorX;
+    const anchorY = box.anchorY;
+
+    for (const stance of STANCES) {
+      world.components.getOrThrow(who, Posture).current = stance;
+      const sink = record(world, who, anchorX, anchorY);
+      const name = stanceSpec(stance).name;
+
+      expect(sink.xs.length, name).toBeGreaterThan(0);
+      for (const x of sink.xs) {
+        expect(Number.isFinite(x), `${name}: x`).toBe(true);
+        expect(x, `${name}: x`).toBeGreaterThanOrEqual(0);
+        expect(x, `${name}: x`).toBeLessThanOrEqual(box.width);
+      }
+      for (const y of sink.ys) {
+        expect(Number.isFinite(y), `${name}: y`).toBe(true);
+        expect(y, `${name}: y`).toBeGreaterThanOrEqual(0);
+        expect(y, `${name}: y`).toBeLessThanOrEqual(box.height);
+      }
+    }
   });
 
   it("follows the same predicate as the sightline, so low is low in both", () => {
@@ -210,7 +260,7 @@ describe("the paperdoll stands the way the survivor stands", () => {
     // disagreed, the paperdoll would be drawing a crouch the shadowcast does not believe in.
     for (const stance of STANCES) {
       const lowEye = stanceSpec(stance).eye === 1;
-      const lowBody = poseForStance(stance) !== Pose.Idle;
+      const lowBody = poseForStance(stance) !== OutlinePose.Stand;
       expect(lowBody, stanceSpec(stance).name).toBe(lowEye);
     }
   });
@@ -218,12 +268,22 @@ describe("the paperdoll stands the way the survivor stands", () => {
 
 describe("tint is colour and never fill", () => {
   it("tints nothing on an unhurt body", () => {
-    // An unhurt survivor draws as a person, not as a diagram -- so any colour on the figure means
-    // something, which is what keeps the glimpse worth looking at.
+    // An unhurt survivor is bare line art -- so any colour on the figure means something, which is
+    // what keeps the glimpse worth looking at.
     const { world, who } = survivor();
     const view = conditionView(world, who);
     expect(tintFor((view as NonNullable<typeof view>).parts)).toEqual({});
     expect(isNotable(view as NonNullable<typeof view>)).toBe(false);
+  });
+
+  it("draws an unhurt body as line and no fill at all", () => {
+    // The strongest form of "colour, never fill": on a healthy survivor the figure produces no
+    // fill operation of any kind, so there is nothing on screen for a fill *level* to grow out of.
+    const { world, who } = survivor();
+    const sink = record(world, who);
+    expect(sink.fills).toEqual([]);
+    expect(sink.strokes.length).toBeGreaterThan(0);
+    expect(new Set(sink.strokes)).toEqual(new Set([COLOURS.outline]));
   });
 
   it("tints exactly the hurt parts, in the state's colour", () => {
@@ -241,14 +301,18 @@ describe("tint is colour and never fill", () => {
     expect(isNotable(view)).toBe(true);
   });
 
-  it("puts the tint on the figure it was asked for", () => {
+  it("puts the tint on the figure it was asked for, and on nothing else", () => {
     const { world, who } = survivor();
     world.components.getOrThrow(who, Body).legs = 0;
-    const view = conditionView(world, who) as NonNullable<ReturnType<typeof conditionView>>;
 
-    const sink = new Recorder();
-    drawPaperdoll(sink, view, { zoom: 84, anchorX: 200, anchorY: 200 });
+    const sink = record(world, who);
     expect(sink.fills).toContain(CONDITION_TINTS[PartState.Unusable]);
+    // Exactly one condition colour on the body, because exactly one part is hurt. A figure that
+    // filled a neighbouring region would be pointing at the wrong limb, which is the one failure
+    // a body map cannot survive.
+    expect(new Set(sink.fills)).toEqual(new Set([CONDITION_TINTS[PartState.Unusable]]));
+    // Both legs, and the whole of each: two segments a side, and no feet, which are their own part.
+    expect(sink.fills.length).toBe(4);
   });
 
   it("has one tint per state and no more", () => {

@@ -590,6 +590,47 @@ about.
   owes, and it draws on the canvas over the night wash — over, because a readout the dark can take is
   not a replacement for a health bar. Measured at 1.45 ms average draw against a 4 ms budget.
 
+## What the outline figure changed
+
+- **The paperdoll is a diagram now, not a portrait, and the reason is the camera.** The record
+  above — "one body, drawn at two sizes, rather than two bodies" — is reversed here on purpose, so
+  it is worth being precise about what was wrong with it. The argument for reusing `drawHumanoid`
+  was that a second figure would eventually disagree with the street about what crouching looks
+  like. What it did not weigh is that the street's camera is *hostile to the paperdoll's one job*:
+  an isometric projection puts the far arm behind the torso, foreshortens the legs by half, and
+  lays a prone body up-screen. A readout whose entire purpose is to say **which part** cannot be
+  drawn by a camera that hides parts. The figure is now `render/sprites/outline.ts`: an anonymous
+  human seen flat on, stroked rather than filled, with all six of docs/05's parts visible in every
+  posture and each in the same place every time.
+- **The agreement the old record was protecting survives, one level down.** The two pictures no
+  longer share a *function*; they share the **predicate** and the **fractions**. `poseForStance` is
+  still the only answer to "is this body low", and it still reads `stanceSpec(stance).eye`, so the
+  panel cannot draw a crouch the shadowcast does not believe in. `CROUCH_HEIGHT_FRACTION` and
+  `CRAWL_HEIGHT_FRACTION` are imported from the world rig rather than copied. That is a *weaker*
+  coupling than a shared function and it is the right one: what the two figures must agree about is
+  the simulation, not the geometry.
+- **Prone is a rotation, not a second silhouette — and the world rig is right to do the opposite.**
+  docs/14 wants a crawler in the district to be a distinct low shape, because a scaled-down
+  standing body under an isometric camera does not read as prone. On a flat diagram there is
+  nothing to scale down: a person turned a quarter turn *is* what lying down looks like from above.
+  So the outline has one set of proportions and one figure, and the posture that used to need its
+  own silhouette is a change of frame. Two sets of six parts to keep in agreement became one.
+- **The test got to make the obvious assertion again.** The old posture test compared a crouch by
+  height and prone by *shape*, with a paragraph explaining that a crawler's topmost ink legitimately
+  sits above a crouch's under the district's camera. That paragraph was a projection leaking into a
+  readout's test. It now asserts what a player sees: prone lower than crouched, crouched lower than
+  standing, and prone longer than it is tall.
+- **An unhurt body draws no fill at all**, which is the strongest form docs/05's "colour, never
+  fill" has taken yet. The figure is line art; a hurt part is filled in its state's tint and an
+  unhurt one is not. So on a healthy survivor the screen issues *zero* fill operations on the body
+  — there is nothing on it for a fill *level* to grow out of, and `paperdoll.test.ts` asserts that
+  emptiness rather than trusting it.
+- **The corner is measured off the figure's box, not off its height.** A prone survivor is wider
+  than a standing one is tall, and the glimpse's old anchor — derived from the zoom — put a
+  crawler's hands off the edge of the viewport. `outlineMetrics` sizes the box around the widest
+  posture and both tiers lay out against it, which is the same lesson `cellMetrics` learned from
+  the crawler's shadow. Measured at 1.73 ms average draw against the 4 ms budget.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) · **Next:** [HANDOFF.md](../HANDOFF.md) ·

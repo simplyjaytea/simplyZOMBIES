@@ -24,6 +24,7 @@ import { groundItems } from "../sim/modules/inventory";
 import { conditionView } from "../sim/condition";
 import { stanceSpecOf } from "../sim/modules/stance";
 import { drawPaperdoll } from "./paperdoll";
+import { outlineMetrics } from "./sprites/outline";
 import { Controlled } from "../sim/modules/player";
 import { sightMetres } from "../sim/vision/light";
 import { Detail, Observer } from "../sim/vision/visibility";
@@ -63,13 +64,15 @@ import {
 const MAX_TILE_RASTER_ZOOM = 14;
 
 /**
- * Pixels per metre for the condition glimpse, and the margin it keeps from the viewport edge.
+ * How tall the condition glimpse's figure stands, in pixels, and the margin it keeps from the
+ * viewport edge.
  *
- * About two and a half times the world zoom, which is the smallest size at which a tinted hand
- * marker is more than one pixel -- docs/05 makes hands a part in their own right, so a scale that
- * cannot show one is a scale that cannot show the readout.
+ * Pixels rather than pixels-per-metre: the paperdoll is a diagram in fractions of its own height
+ * and does not go through the district's projection -- see `sprites/outline.ts`. Sized so that a
+ * hand, which is about a thirtieth of the figure, is still more than one pixel across: docs/05
+ * makes hands a part in their own right, so a scale that cannot show one cannot show the readout.
  */
-const GLIMPSE_ZOOM = 68;
+const GLIMPSE_HEIGHT = 96;
 const GLIMPSE_MARGIN = 22;
 
 /**
@@ -940,11 +943,10 @@ export class Renderer {
    * of the same idea: *where* is wrong, at a glance, and *what* is a keypress away on the
    * inventory screen.
    *
-   * **Cheap enough to be unconditional.** It is one call into the same rig the bodies use, at a
-   * larger zoom, drawing on the order of ten polygons -- against a 4 ms frame budget that the tile
-   * layer and the occluders dominate. The two overlays in this file that carry warnings about
-   * per-frame cost are the ones painting a *region*; this paints a figure. `bench:frame` is the
-   * guard either way.
+   * **Cheap enough to be unconditional.** It is one call into the outline figure, drawing on the
+   * order of a dozen stroked shapes -- against a 4 ms frame budget that the tile layer and the
+   * occluders dominate. The two overlays in this file that carry warnings about per-frame cost are
+   * the ones painting a *region*; this paints a figure. `bench:frame` is the guard either way.
    */
   private drawConditionGlimpse(world: World, camera: Camera, eyes: EntityId): void {
     const view = conditionView(world, eyes);
@@ -959,29 +961,37 @@ export class Renderer {
     // Anchored to the viewport rather than to the survivor, because it is a readout about them
     // rather than a thing in the district with them.
     //
-    // The feet sit a clear margin above the bottom edge rather than on it: `drawHumanoid` draws a
-    // contact shadow *below* the anchor, and a crawler lies out along the ground, so anchoring
-    // tighter than this clipped both against the viewport.
-    const anchorX = camera.width - GLIMPSE_MARGIN - GLIMPSE_ZOOM * 0.6;
-    const anchorY = camera.height - GLIMPSE_MARGIN * 3;
+    // The corner is measured off the figure's own box rather than off its height, because a prone
+    // survivor is wider than they are tall: a corner sized for the standing case put a crawler's
+    // hands off the edge of the viewport.
+    const box = outlineMetrics(GLIMPSE_HEIGHT);
+    const left = camera.width - GLIMPSE_MARGIN - box.width;
+    const top = camera.height - GLIMPSE_MARGIN - box.height;
 
     // A backing wash, so a body tinted dark still separates from a dark street. Deliberately not
     // a panel with a border: a frame would make this a widget, and docs/01's clause 4 is about
     // keeping the interface out of the way of the world.
+    //
+    // Centred on the box rather than on the anchor, so the wash stays under the figure when the
+    // figure lies down -- the anchor is the standing body's feet, which is nowhere near the middle
+    // of a prone one.
     ctx.fillStyle = `rgba(${COLOURS.night}, 0.55)`;
     ctx.beginPath();
     ctx.ellipse(
-      anchorX,
-      anchorY - GLIMPSE_ZOOM * 0.8,
-      GLIMPSE_ZOOM * 0.9,
-      GLIMPSE_ZOOM * 1.1,
+      left + box.width / 2,
+      top + box.height / 2,
+      box.width * 0.54,
+      box.height * 0.54,
       0,
       0,
       Math.PI * 2,
     );
     ctx.fill();
 
-    drawPaperdoll(ctx, view, { zoom: GLIMPSE_ZOOM, anchorX, anchorY });
+    const anchorX = left + box.anchorX;
+    const anchorY = top + box.anchorY;
+
+    drawPaperdoll(ctx, view, { height: GLIMPSE_HEIGHT, anchorX, anchorY });
   }
 
   /**
