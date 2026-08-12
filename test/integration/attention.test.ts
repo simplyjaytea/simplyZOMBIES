@@ -8,6 +8,7 @@
 // compare against passes just as well when the horde is drifting at random.
 
 import { describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
 import { readContentFromDisk, readSchemasFromDisk } from "../../src/platform/content-source-node";
 import { createSchemaValidator } from "../../src/platform/schema-validator";
 import { boot } from "../../src/sim/boot";
@@ -38,7 +39,7 @@ import {
 import type { World } from "../../src/sim/kernel/world";
 
 const SEED = 20260805;
-const CONTENT_ROOT = new URL("../../content", import.meta.url).pathname;
+const CONTENT_ROOT = fileURLToPath(new URL("../../content", import.meta.url));
 
 function loadRealContent(): ContentRegistry {
   const stats = new StatRegistry();

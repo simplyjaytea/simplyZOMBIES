@@ -202,10 +202,11 @@ that would collapse this uncertainty into a number", and a capacity bar is exact
 the same information rendered as shape.** You do not read that the pack is 78% full; you see that the
 axe no longer fits.
 
-This makes the inventory the second screen in the game — after the
-[condition view](05-health-injury.md#the-condition-view) — that satisfies clause 4 by being a
-*layout* rather than a measurement. Weight survives as the second, invisible pressure: it is never
-printed, and you learn you are overloaded because you are walking slower.
+Inventory and the [condition view](05-health-injury.md#the-condition-view) now share one survivor
+panel with **Equipment / Injuries** tabs. Both satisfy clause 4 by being layouts rather than
+measurements: equipment slots surround the same body whose regions carry injury tint and prose.
+Weight survives as the second, invisible pressure: it is never printed, and you learn you are
+overloaded because you are walking slower.
 
 The one number on the screen is a stack count. Knowing you have three bandages is not uncertainty
 being collapsed; it is counting discrete objects.

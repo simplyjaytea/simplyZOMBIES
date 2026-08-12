@@ -57,6 +57,32 @@ export type Body = {
 
 export const Body = defineComponent<Body>("Body");
 
+/** The stable injury vocabulary from docs/05. Milestone 1 produces only scratches and bites. */
+export type InjuryKind =
+  "scratch" | "laceration" | "deep-wound" | "bite" | "fracture" | "sprain" | "burn" | "concussion";
+
+/**
+ * A located wound and the honest observation currently available to the player.
+ *
+ * `kind` is simulation truth. `presentation` is deliberately separate: docs/01's most
+ * important uncertainty rule is that a bite may present as a scratch. The condition view
+ * reads only the latter, so adding a paperdoll can never leak the private answer by accident.
+ */
+export type Injury = {
+  kind: InjuryKind;
+  presentation: InjuryKind;
+  bodyPart: SurvivorBodyPart;
+  source: EntityId;
+  sustainedAtTick: number;
+};
+
+export type Injuries = { wounds: Injury[] };
+
+export const Injuries = defineComponent<Injuries>("Injuries");
+
+/** Initial calibration. A real bite is visually ambiguous this often. */
+export const BITE_PRESENTS_AS_SCRATCH_CHANCE = 0.3;
+
 /**
  * The **maximum** integrity of each part, by body, so a current value can be read as a fraction.
  *
@@ -151,6 +177,7 @@ export function makeBody(world: World, entity: EntityId): void {
  */
 export function makeSurvivorBody(world: World, entity: EntityId): void {
   world.components.set(entity, Body, { ...SURVIVOR_BODY });
+  world.components.set(entity, Injuries, { wounds: [] });
 }
 
 export function makeStamina(world: World, entity: EntityId, max = STAMINA_MAX): void {
@@ -197,35 +224,45 @@ export const healthModule: Module = {
      * (docs/03 wants them burned), this is where they stop being reaped at all.
      */
     const killed: EntityId[] = [];
+    const injuryRng = world.rng.stream("injury");
+
+    /**
+     * Apply one located hit and publish death exactly once.
+     *
+     * Kept inside the health owner so `attack.connected` and `bite.landed` cannot drift into
+     * two subtly different meanings of damage. The caller still supplies force and location.
+     */
+    const damagePart = (
+      target: EntityId,
+      source: EntityId,
+      namedPart: string,
+      amount: number,
+    ): { body: Body; part: SurvivorBodyPart; before: number } | null => {
+      const body = world.components.get(target, Body);
+      if (body === undefined || !isAlive(body)) return null;
+
+      const part = namedPart as SurvivorBodyPart;
+      const before = body[part];
+      if (before === undefined || before <= 0) return null;
+      body[part] = Math.max(0, before - amount);
+
+      if (part === "head" && body.head <= 0) {
+        killed.push(target);
+        world.events.publish({ type: "entity.killed", entity: target, killer: source });
+      }
+
+      return { body, part, before };
+    };
 
     world.events.subscribe({
       id: "health.take-damage",
       type: "attack.connected",
       handler: (event) => {
-        const body = world.components.get(event.target, Body);
-        if (body === undefined) return;
-        // Already dead and awaiting cleanup. A second blow lands on a corpse, which is
-        // allowed, but it must not kill it twice and publish two `entity.killed`.
+        const result = damagePart(event.target, event.attacker, event.bodyPart, event.damage);
+        if (result === null) return;
+        const { body, part } = result;
+
         if (!isAlive(body)) return;
-
-        // Whatever part the blow named, if this body has one. A survivor has six and a zombie
-        // three, so the check is "does this body have that part" rather than a list of names --
-        // which is what lets a blow to the hand land on a survivor and be discarded on a
-        // shambler without either table being mentioned here.
-        const part = event.bodyPart as SurvivorBodyPart;
-        const before = body[part];
-        if (before === undefined || before <= 0) return;
-        body[part] = Math.max(0, before - event.damage);
-
-        if (part === "head" && body.head <= 0) {
-          killed.push(event.target);
-          world.events.publish({
-            type: "entity.killed",
-            entity: event.target,
-            killer: event.attacker,
-          });
-          return;
-        }
 
         // Locomotion destroyed. A statement of fact -- the shambler module decides what
         // crawling looks like, because how a given zombie moves is its own business.
@@ -237,6 +274,36 @@ export const healthModule: Module = {
             bodyPart: "legs",
           });
         }
+      },
+    });
+
+    world.events.subscribe({
+      id: "health.take-bite",
+      type: "bite.landed",
+      handler: (event) => {
+        const result = damagePart(event.victim, event.source, event.bodyPart, event.damage);
+        if (result === null || result.body.arms === undefined) return;
+
+        const wounds = world.components.get(event.victim, Injuries) ?? { wounds: [] };
+        if (!world.components.has(event.victim, Injuries)) {
+          world.components.set(event.victim, Injuries, wounds);
+        }
+
+        const presentation: InjuryKind =
+          injuryRng.next() < BITE_PRESENTS_AS_SCRATCH_CHANCE ? "scratch" : "bite";
+        wounds.wounds.push({
+          kind: "bite",
+          presentation,
+          bodyPart: result.part,
+          source: event.source,
+          sustainedAtTick: world.tick,
+        });
+        world.events.publish({
+          type: "injury.sustained",
+          entity: event.victim,
+          injury: "bite",
+          bodyPart: result.part,
+        });
       },
     });
 

@@ -37,6 +37,7 @@ import { Controlled } from "./sim/modules/player";
 import { carriedItems, Encumbrance, inventoryView } from "./sim/modules/inventory";
 import { conditionView } from "./sim/condition";
 import { Posture } from "./sim/modules/stance";
+import { Grabbed } from "./sim/modules/shambler";
 import { stanceSpec } from "./sim/stances";
 import { verifyContentReferences } from "./sim/modules/items";
 import { InventoryScreen } from "./ui/inventory";
@@ -438,6 +439,13 @@ function stanceReadout(w: World): string {
  * inferring them from how the fight went.
  */
 function swingState(w: World): string {
+  for (const entity of w.components.query(Grabbed, Controlled)) {
+    const grabbed = w.components.getOrThrow(entity, Grabbed);
+    if (grabbed.struggleTicks > 0) return "struggling to break free";
+    return grabbed.sources.length > 1
+      ? "pinned from several sides -- F to struggle"
+      : "grabbed -- F to struggle";
+  }
   for (const entity of w.components.query(Swing, Controlled)) {
     const swing = w.components.getOrThrow(entity, Swing);
     const stamina = w.components.get(entity, Stamina);
@@ -559,7 +567,7 @@ function updateHud(w: World): void {
 
   help.textContent =
     "WASD / arrows move   Z X C V stance (crawl crouch walk jog)   Shift sprint\n" +
-    "F swing   Space shout   E pick up   Tab inventory\n" +
+    "F swing / struggle   Space shout   E pick up   Tab inventory\n" +
     "O overlay   P pause   " +
     "1 / 2 / 3 speed (1x, 3x, 10x -- drops to 1x on contact)   F5 save   F9 load\n" +
     "you start with nothing. Everything is in the street -- including a candle, before dark.";

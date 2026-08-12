@@ -590,6 +590,27 @@ about.
   owes, and it draws on the canvas over the night wash — over, because a readout the dark can take is
   not a replacement for a health bar. Measured at 1.45 ms average draw against a 4 ms budget.
 
+## What grabs and bite risk made structural
+
+- **Pursuit contact and physical grab range are different facts.** A shambler notices and commits at
+  1.6 m, but it cannot hold a survivor until 1.0 m. Using one radius for both erased weapon reach:
+  the 1.4 m bat and 0.9 m knife were interrupted before their first blow. The split preserves the
+  intended identities -- knife risky, bat dependent on spacing, spear safest.
+- **Melee exposure is physical, never an invisible counterattack roll.** Reach and stagger buy real
+  safety. A bite comes from remaining in a hold, first after 1.5 seconds and every 2 seconds after,
+  rather than from an unrelated chance attached to every successful hit.
+- **More grabbers diminish escape without declaring it impossible.** Escape is
+  `escapePower / (escapePower + totalGrabStrength)`: default one/two/three-shambler chances are
+  two-thirds, one-half, and two-fifths. Escape power is fixed at one today; Strength can raise that
+  side later without rewriting the contest.
+- **Wound truth, visible presentation, and transmission are three separate facts.** Every landed bite
+  is stored as a bite, 30% present as scratches, and an independent named stream decides the private
+  85% transmission flag at wound time. The condition boundary receives presentation only. All three
+  ride the save, which is why save format 10 exists.
+- **Milestone 1 owns the irreversible decision, not the disease game.** The infection module records
+  exposure and stops. Symptoms, diagnosis, treatment, armor reduction, stages, and turning remain
+  Milestone 2 rather than arriving as speculative scaffolding behind one bite.
+
 ## What the outline figure changed
 
 - **The paperdoll is a diagram now, not a portrait, and the reason is the camera.** The record

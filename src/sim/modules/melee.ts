@@ -13,16 +13,9 @@
 //     wind-up is a delay in front of a decision that was already made.
 //   * Recovery cannot be cancelled. Everything else can.
 //
-// What it deliberately does not do: grabs and bite risk, which are the other half of docs/09's
-// parity contract. **Melee's only cost is still stamina, so the parity contract is still not
-// satisfied** -- saying so here is cheaper than rediscovering it during balance work.
-//
-// What changed, and did not change it: a survivor now has a body that can be hurt in six places
-// (docs/05's parts, in `combat.ts`), and a blow that lands on one rolls against that table rather
-// than a zombie's three. So half of what grabs were waiting on exists. The other half does not:
-// there are no located *injuries* -- no scratch, no laceration, no fracture -- and no infection
-// module, which is what a bite has to turn into to be worth being afraid of. A grab that could
-// only reduce a number would be the health bar this design refuses.
+// Grabs and bites live beside this module rather than inside it. A hold interrupts wind-up through
+// `grab.started`, and intake refuses to begin a swing while `Grabbed` is present; the shambler and
+// infection owners decide everything after that boundary.
 
 import {
   BODY_PARTS,
@@ -50,6 +43,7 @@ import { BODY_RADIUS } from "./movement";
 import { meleeProfileOf } from "./items";
 import { Controlled } from "./player";
 import { capableOf } from "./stance";
+import { Grabbed } from "./shambler";
 
 /**
  * The three windows, as plain numbers.
@@ -153,6 +147,9 @@ export const meleeModule: Module = {
         if (!w.commands.current.some((c) => c.type === "swing")) return;
 
         for (const entity of w.components.query(Swing, MeleeWeapon, Controlled)) {
+          // F is contextual. While held, the shambler module spends it on a struggle and a
+          // swing must not begin behind that action waiting to appear after an escape.
+          if (w.components.has(entity, Grabbed)) continue;
           const swing = w.components.getOrThrow(entity, Swing);
           // Already committed. A second press during a wind-up or a recovery does nothing at
           // all -- no queue, no buffer. docs/09's loop is what you are in, not what you asked
@@ -295,6 +292,17 @@ export const meleeModule: Module = {
       type: "entity.staggered",
       handler: (event) => {
         const swing = world.components.get(event.entity, Swing);
+        if (swing === undefined || swing.state !== SwingState.WindUp) return;
+        swing.state = SwingState.Idle;
+        swing.ticksLeft = 0;
+      },
+    });
+
+    world.events.subscribe({
+      id: "melee.grab-interrupts",
+      type: "grab.started",
+      handler: (event) => {
+        const swing = world.components.get(event.victim, Swing);
         if (swing === undefined || swing.state !== SwingState.WindUp) return;
         swing.state = SwingState.Idle;
         swing.ticksLeft = 0;

@@ -20,14 +20,14 @@
 //   3. **The prose is the readout, and it can be wrong.** docs/05: "the paperdoll does not know
 //      something the examiner doesn't. It is a layout for uncertainty, not a resolution of it."
 //
-// What is deliberately not here: located injuries (scratch, laceration, fracture), the four
-// continuous conditions, and treatment. Those are docs/05's Milestone 2 half. What ships is the
-// body map -- six parts, four states, and the posture they are in.
+// Milestone 1 adds only the located bite/scratch presentation needed by grab risk. The wider injury
+// vocabulary, four continuous conditions, diagnosis tiers, and treatment remain docs/05's
+// Milestone 2 half.
 
 import { SURVIVOR_BODY_PARTS, type SurvivorBodyPart } from "./combat";
 import type { EntityId } from "./kernel/entities";
 import type { World } from "./kernel/world";
-import { Body, PartState, partState } from "./modules/health";
+import { Body, Injuries, PartState, partState, type InjuryKind } from "./modules/health";
 import { Posture } from "./modules/stance";
 import { DEFAULT_STANCE, type Stance } from "./stances";
 
@@ -122,6 +122,21 @@ const PROSE: Readonly<Record<SurvivorBodyPart, readonly [string, string, string,
 };
 
 /**
+ * Untrained wound observations. These describe presentation, never private simulation truth.
+ * In particular, a transmitted bite presented as a scratch takes the `scratch` sentence.
+ */
+const WOUND_PROSE: Readonly<Record<InjuryKind, string>> = {
+  scratch: "a ragged scratch; too soon to know whether it is only that",
+  laceration: "a deep tear that will not close on its own",
+  "deep-wound": "a deep wound, open and bleeding badly",
+  bite: "clear teeth marks in torn flesh",
+  fracture: "something underneath is broken",
+  sprain: "swollen and reluctant to take weight",
+  burn: "badly burned skin",
+  concussion: "dazed, slow to focus, and unsteady",
+};
+
+/**
  * What the screen may know about one survivor.
  *
  * Returns `null` for a body with no survivor parts -- a shambler, which has three parts and no
@@ -134,6 +149,7 @@ export function conditionView(world: World, entity: EntityId): ConditionView | n
 
   const parts: PartView[] = [];
   let worst = PartState.Unhurt;
+  const injuries = world.components.get(entity, Injuries)?.wounds ?? [];
 
   // In `SURVIVOR_BODY_PARTS` order, which is head-down. The paperdoll reads it as a layout, so
   // the order is part of the answer rather than an implementation detail -- and it is fixed, so
@@ -141,7 +157,15 @@ export function conditionView(world: World, entity: EntityId): ConditionView | n
   for (const part of SURVIVOR_BODY_PARTS) {
     const state = partState(body, part);
     if (state === undefined) continue;
-    parts.push({ part, state, prose: PROSE[part][state] });
+    let prose = PROSE[part][state];
+    // Latest presentation wins until treatment supplies a richer diagnosis in Milestone 2.
+    for (let i = injuries.length - 1; i >= 0; i--) {
+      const wound = injuries[i];
+      if (wound?.bodyPart !== part) continue;
+      prose = WOUND_PROSE[wound.presentation];
+      break;
+    }
+    parts.push({ part, state, prose });
     if (state > worst) worst = state;
   }
 

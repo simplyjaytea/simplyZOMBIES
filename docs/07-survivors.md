@@ -18,17 +18,20 @@ devastating; losing a newcomer is an accounting note.
 
 ## Everyone is a blank slate
 
-There are no classes, no archetypes at creation, and **no mechanical difference between your
-controlled character and anyone else**. A fresh survivor — yours at run start, or a recruit on day
-40 — has:
+There are no classes, no archetypes at creation, and **no special rules for the controlled character**.
+A fresh survivor — yours at run start, or a recruit on day 40 — has:
 
 - No [skill web](08-skill-web.md) points allocated
 - Low skills across the board, with a small backstory-driven bias
+- A bounded set of permanent [aptitudes](23-roadmap.md#planned-survivor-attributes), generated from a
+  fixed budget so nobody is high in everything
 - Whatever they were carrying, which is close to nothing
 - A set of traits, a backstory, and relationships-to-be
 
-Identity is assembled afterward from what the world hands them. See
-[skill web](08-skill-web.md) and [items](10-items.md).
+“Blank slate” means no class and no predetermined build, not identical biology. Aptitudes make one
+person better suited to a problem but remain bounded to roughly one competence band; learned skills,
+equipment, injury, and history decide who they become. See [skill web](08-skill-web.md),
+[items](10-items.md), and the [attribute plan](23-roadmap.md#planned-survivor-attributes).
 
 ## The generator
 
@@ -43,6 +46,7 @@ composes:
 | **Backstory** | One entry from a backstory table — this is the load-bearing field |
 | **Traits** | 2–4 drawn from a pool with conflict rules |
 | **Skill bias** | Derived from backstory, small — a nudge, not a class |
+| **Aptitudes** | STR, DEX, CON, INT, CHA, and WIS from a fixed budget; backstory, age, and traits make modest explainable shifts |
 | **Starting kit** | Derived from backstory, usually pitiful |
 
 ### Backstory is the point
@@ -55,8 +59,9 @@ pharmacy student reads wounds slightly better than nothing. The line cook wastes
 cyclist has legs.
 
 **These are biases, not builds.** A line cook who spends two months on the walls becomes a fighter who
-happens to cook well. That's the blank-slate promise: history explains where someone started, never
-where they'll end up.
+happens to cook well. Aptitudes and history explain where someone started; neither dictates where they
+end up. Base aptitudes never reroll after generation. Rerolling the starting survivor replaces the
+person rather than editing their values.
 
 ### Traits
 

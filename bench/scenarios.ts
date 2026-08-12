@@ -11,7 +11,9 @@ import { boot } from "../src/sim/boot";
 import { stepN } from "../src/sim/kernel/step";
 import type { World } from "../src/sim/kernel/world";
 import { Position } from "../src/sim/kernel/components";
+import { Body } from "../src/sim/modules/health";
 import { makeLightSource } from "../src/sim/modules/light";
+import { Shambler, ShamblerState } from "../src/sim/modules/shambler";
 import { LIGHT_TABLE } from "../src/sim/vision/light";
 
 export type Scenario = {
@@ -157,6 +159,32 @@ export const SCENARIOS: readonly Scenario[] = [
       // Every tick. The sim refuses the ones that arrive mid-window, so this measures a
       // survivor swinging continuously rather than a queue building up.
       world.commands.push({ type: "swing" });
+    },
+  },
+  {
+    id: "crowded-and-grabbing",
+    description:
+      "The close-contact path under load: 2,000 bodies, with thirty simultaneous holds " +
+      "producing repeated located wounds and private deterministic exposure rolls.",
+    // The same budget as `crowded`. Holds walk only the handful of participants and must not
+    // turn the feature into an all-pairs crowd query.
+    tickBudgetMs: 4,
+    entities: 2000,
+    build: () => {
+      const { world, player } = boot({ seed: SEED, wanderers: 2000 });
+      if (player === null) return world;
+      const at = world.components.getOrThrow(player, Position);
+      const body = world.components.getOrThrow(player, Body);
+      // Keep the synthetic victim alive for the entire measurement. The benchmark is for the
+      // repeated hold/wound path, not for how quickly thirty mouths kill one ordinary survivor.
+      for (const part of Object.keys(body)) body[part as keyof Body] = 1_000_000;
+      for (const zombie of world.components.query(Position, Shambler).slice(0, 30)) {
+        const position = world.components.getOrThrow(zombie, Position);
+        position.x = at.x;
+        position.y = at.y;
+        world.components.getOrThrow(zombie, Shambler).state = ShamblerState.Pursue;
+      }
+      return world;
     },
   },
   {

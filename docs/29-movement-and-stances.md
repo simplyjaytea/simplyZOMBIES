@@ -51,6 +51,11 @@ reaching for 3× is making a balance change, not a game-feel one.
 
 The three new stances still slot between and below, and they are still picked rather than measured.
 
+Planned [Dexterity](23-roadmap.md#planned-survivor-attributes) may scale every rung, but it cannot ship
+on top of the current per-tick footstep rule. Before DEX changes speed, movement attention must be
+normalized by distance travelled or scaled equivalently. Otherwise faster survivors also spend fewer
+ticks emitting noise over the same route, turning DEX into an unintended second stealth stat.
+
 **All five are built.** `src/sim/stances.ts` is the ladder; `src/sim/modules/stance.ts` owns the rung
 a body is on. What the build added that this document did not specify: **exhaustion is asymmetric**.
 Jog and sprint drop to a walk when the pool empties, which is this document's own "sprint becomes

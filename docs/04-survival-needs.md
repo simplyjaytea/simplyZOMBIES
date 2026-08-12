@@ -58,7 +58,9 @@ shortcut.
 
 - Per-survivor, from ambient [weather](16-weather.md), clothing insulation, wetness, shelter, and heat
   sources.
-- Cold: mood damage, then dexterity loss, then hypothermia as a real [injury](05-health-injury.md).
+- Cold: mood damage, then temporary movement and fine-motor penalties, then hypothermia as a real
+  [injury](05-health-injury.md). These consequences modify derived actions; they do not rewrite the
+  survivor's permanent DEX aptitude.
 - Heat: faster thirst, mood damage, heatstroke; also accelerates food spoilage and corpse rot.
 - **Being wet is a multiplier on cold** — rain is a relief for thirst and a threat for temperature at
   the same time, which is exactly the kind of two-sidedness the design wants.

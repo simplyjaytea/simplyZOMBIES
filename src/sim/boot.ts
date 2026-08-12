@@ -17,6 +17,7 @@ import { attentionModule, makeEmitter } from "./modules/attention";
 import { fieldMemoryModule } from "./modules/field-memory";
 import { healthModule, makeBody, makeStamina, makeSurvivorBody } from "./modules/health";
 import { inventoryModule, makeInventory, stow, equip } from "./modules/inventory";
+import { infectionModule } from "./modules/infection";
 import { itemModule, spawnItem, verifyContentReferences } from "./modules/items";
 import { lightModule } from "./modules/light";
 import { makeMeleeArmed, meleeModule } from "./modules/melee";
@@ -32,6 +33,7 @@ export const ALL_MODULES: readonly Module[] = [
   attentionModule,
   fieldMemoryModule,
   healthModule,
+  infectionModule,
   inventoryModule,
   itemModule,
   lightModule,

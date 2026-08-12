@@ -9,6 +9,9 @@
  * Bumped whenever the snapshot shape changes. Stale saves are rejected, never migrated,
  * pre-1.0 (docs/19-architecture.md#save-model).
  *
+ * 10: grabs, located bite wounds and private infection exposure. All three are components and
+ *     therefore ride the snapshot, but a version-9 save has no answer to whether a survivor is
+ *     immobilised, what wound is on a limb, or whether transmission was decided at wound time.
  * 9: the stance ladder. `Posture` is a component, so it rides the snapshot without changing
  *    its shape -- but `Controlled` lost its `sprinting` field to it, and that is the reason
  *    for the bump. A version-8 save describes a survivor whose pace was a held boolean, and
@@ -48,7 +51,7 @@
  *    moment one forgets.
  * 1: initial kernel state -- tick, seed, rng streams, entities, components.
  */
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 /**
  * Values that break determinism if they ever reach state, and are far cheaper to catch at
