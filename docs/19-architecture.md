@@ -8,13 +8,19 @@ change cheaply.*
 
 ## Stack
 
-**TypeScript, HTML canvas, Vite, no engine.** Chosen because:
+**Current playable reference: TypeScript, HTML canvas, Vite, no engine.** Chosen because:
 
 - The simulation is the hard part, and it's engine-agnostic either way.
 - Browser output means it's runnable and screenshottable during development without a build/install
   cycle.
 - Vitest runs the sim headlessly, which the [director](17-director.md) and balance work depend on.
-- **The Godot door stays open** — see the portability contract below.
+- **The Godot door stayed open** — and the rebuild through it is now planned in
+  [docs/31](31-godot-rebuild-roadmap.md).
+
+This document describes the architecture that earned the pivot and remains authoritative while the
+TypeScript build is the oracle. The rebuild roadmap owns transition order and parity gates. At
+cutover, this document is rewritten around the final Godot project rather than retaining two stacks
+as permanent architecture.
 
 ## One spine, many optional limbs
 
@@ -46,7 +52,7 @@ cases, they're module configuration.
 │  sim/          THE GAME                          │  ← pure TS, no engine types
 │                kernel + modules                  │
 ├──────────────────────────────────────────────────┤
-│  content/      JSON: items, zombies, affixes…    │  ← data, engine-agnostic
+│  godot/content/ JSON: items, zombies, affixes…   │  ← data, engine-agnostic
 └──────────────────────────────────────────────────┘
 ```
 
@@ -71,7 +77,7 @@ Reads simulation state and draws it. **Never writes to the simulation.** Player 
 `platform/` into a command queue that the sim consumes on its own tick — so input is part of the
 deterministic record.
 
-### `content/`
+### `godot/content/`
 JSON with stable string IDs. Fully engine-agnostic; see [ECS & content](20-ecs-and-content.md).
 
 ### `platform/`
@@ -112,12 +118,13 @@ Fixed timestep, seeded RNG per subsystem, plain state, and an input command log.
 
 ## The portability contract
 
-TypeScript now, with a cheap pivot to Godot 4 if the browser stops being the right target.
+The pivot to Godot 4 is approved. The contract below now governs a controlled rebuild rather than a
+hypothetical escape hatch; [docs/31](31-godot-rebuild-roadmap.md) owns its execution.
 
 | Layer | On a pivot |
 |---|---|
-| `content/` | **Transfers verbatim.** JSON is JSON. |
-| `sim/` | Mechanical TS→GDScript translation, *or* keep it as-is behind WASM/GDExtension |
+| `godot/content/` | **Transferred verbatim.** It is the one canonical tree both engines read during overlap. |
+| `sim/` | Clean typed-GDScript reimplementation against deterministic fixtures and behavior tests |
 | `render/` | Rewritten — but it would be rewritten anyway; that's the point of switching engines |
 | `platform/` | Rewritten — small, and it's an interface implementation |
 
@@ -171,7 +178,13 @@ simplyZOMBIES/
 │   ├── render/
 │   ├── platform/
 │   └── ui/
-├── content/           JSON + schemas
+├── godot/             Godot 4.7.1 project root
+│   ├── sim/           typed, fixed-tick authoritative state and systems
+│   ├── presentation/  scenes that read state and submit commands
+│   ├── platform/      content now; persistence, input, and timing adapters as they port
+│   ├── content/       the canonical JSON + schemas, read by both engines during transition
+│   ├── parity/        shared seed/command fixtures and TypeScript oracle snapshots
+│   └── test/          headless parity and project-load gates
 └── test/
     ├── unit/
     ├── integration/
@@ -180,8 +193,9 @@ simplyZOMBIES/
 
 ## Cut list
 
-- **A third-party ECS or game framework.** The [ECS we need](20-ecs-and-content.md) is small and
-  bespoke; a dependency would import engine types into `sim/` and break the portability rule.
+- **A third-party ECS or framework inside the simulation.** Godot will host and present the game, but
+  the [ECS we need](20-ecs-and-content.md) remains small and bespoke; Nodes, physics, or an add-on
+  becoming authoritative simulation state would break the determinism boundary.
 - **Save migrations.** Deferred to 1.0 by explicit decision.
 - **Hot module reloading of game logic.** Content hot-reload is worth having; code hot-reload isn't.
 

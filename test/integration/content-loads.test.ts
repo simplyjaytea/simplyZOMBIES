@@ -16,7 +16,7 @@ import { defineCoreStats, StatRegistry } from "../../src/sim/modifiers/stats";
 import { GLOBAL, ModifierStore, type Modifier } from "../../src/sim/modifiers/modifiers";
 import { SHAMBLER_TUNING } from "../../src/sim/modules/shambler";
 
-const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
+const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../godot/content");
 
 function loadRealContent(): ContentRegistry {
   const stats = new StatRegistry();

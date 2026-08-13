@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 
-// Root is the repository root rather than src/, so `content/` is inside the served tree --
-// content-source-web.ts globs `/content/**/*.json`, and Vite can only see what is under
+// Root is the repository root rather than src/, so `godot/content/` is inside the served tree --
+// content-source-web.ts globs `/godot/content/**/*.json`, and Vite can only see what is under
 // the root. It is also what makes content a real module dependency, which is what gives it
 // hot reload in dev.
 //

@@ -39,7 +39,7 @@ import { Affixes, ItemBase, spawnItem } from "../../src/sim/modules/items";
 import { MeleeWeapon, Swing, SwingState } from "../../src/sim/modules/melee";
 import { Controlled } from "../../src/sim/modules/player";
 
-const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../content");
+const CONTENT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../godot/content");
 
 function realContent(): ContentRegistry {
   const stats = new StatRegistry();
