@@ -4,3 +4,7 @@ dist/
 godot/.godot/
 dist-godot/
 .ci-tools/
+# Godot 4 generated UIDs — regenerated on import, not source
+*.uid
+godot/**/*.uid
+roadmap-*.html
