@@ -71,6 +71,7 @@ export const CONTENT_TYPES: readonly ContentTypeDef[] = [
   { id: "affix", directory: "affixes" },
   { id: "item", directory: "items" },
   { id: "calibration", directory: "calibration" },
+  { id: "survivor", directory: "survivors" },
 ];
 
 /**
