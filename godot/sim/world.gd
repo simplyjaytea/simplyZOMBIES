@@ -87,8 +87,11 @@ func _init(fixture: Dictionary) -> void:
 
 func step() -> void:
 	tick += 1
+	var eb: Variant = events as RefCounted
+	eb.call("clear_record")
 	commands.take(tick)
 	systems.run(self)
+	eb.call("drain")
 
 
 func run_fixture(fixture: Dictionary) -> Dictionary:

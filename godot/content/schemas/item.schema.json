@@ -98,6 +98,11 @@
         "type": "string"
       },
       "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases."
+    },
+    "armor": {
+      "type": "object",
+      "description": "Coverage per body part 0..1. Read by infection transmission (docs/10-items.md#129) — max coverage applies, absent is 0.",
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
     }
   },
   "$defs": {
