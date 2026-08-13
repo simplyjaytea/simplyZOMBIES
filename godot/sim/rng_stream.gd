@@ -13,7 +13,7 @@ func _init(seed: int) -> void:
 
 static func derive_seed(master_seed: int, stream_name: String) -> int:
 	var hash: int = (0x811c9dc5 ^ (master_seed & U32_MASK)) & U32_MASK
-	for index in stream_name.length():
+	for index: int in stream_name.length():
 		hash = hash ^ stream_name.unicode_at(index)
 		hash = _imul32(hash, 0x01000193)
 	return 0x9e3779b9 if hash == 0 else hash
@@ -27,12 +27,12 @@ func next() -> float:
 	return float((value ^ (value >> 14)) & U32_MASK) / U32_RANGE
 
 
-func int_range(min_value: int, max_value: int) -> int:
-	return min_value + int(floor(next() * float(max_value - min_value + 1)))
+func int_range(min_inclusive: int, max_inclusive: int) -> int:
+	return min_inclusive + int(floor(next() * float(max_inclusive - min_inclusive + 1)))
 
 
-func float_range(min_value: float, max_value: float) -> float:
-	return min_value + next() * (max_value - min_value)
+func float_range(min_inclusive: float, max_exclusive: float) -> float:
+	return min_inclusive + next() * (max_exclusive - min_inclusive)
 
 
 func bool_chance(chance_true: float = 0.5) -> bool:
