@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ticket #4 — Combat Contract — Pick 5</title>
+<style>
+  :root{--bg:#0e1116;--card:#171c24;--card2:#1e2532;--line:#2a3446;--text:#e6edf6;--muted:#8b9ab0;--accent:#5ee9a8;--warn:#ffcc66;--blue:#6aa8ff}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:760px;margin:28px auto;padding:0 18px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-0.02em} .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;margin:14px 0}
+  .qhead{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+  .qnum{background:var(--card2);border:1px solid var(--line);color:var(--accent);font-weight:700;font-size:12px;padding:4px 8px;border-radius:999px;white-space:nowrap}
+  .qtitle{font-weight:700;font-size:15px;line-height:1.3} .qdesc{color:var(--muted);font-size:13px;margin:6px 0 2px;line-height:1.5}
+  .opts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  label.opt{display:flex;gap:10px;align-items:flex-start;background:var(--card2);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;transition:.12s}
+  label.opt:hover{border-color:#3a4a66} label.opt:has(input:checked){border-color:var(--accent);background:#162a22}
+  label.opt input{margin:4px 0 0;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0}
+  .opt-main{flex:1} .opt-title{font-weight:650;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .badge{font-size:10px;font-weight:800;letter-spacing:.06em;padding:3px 7px;border-radius:999px;border:1px solid}
+  .badge-rec{background:#0f2e22;color:var(--accent);border-color:#1d5a3f}
+  .badge-keep{background:#1a2335;color:var(--blue);border-color:#2e4a7a}
+  .opt-desc{color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.45}
+  .foot{position:sticky;bottom:0;background:linear-gradient(180deg, transparent, var(--bg) 18%, var(--bg));padding:14px 0 18px;margin-top:18px}
+  .foot-inner{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .summary{flex:1;min-width:220px;font-size:13px;color:var(--muted);line-height:1.4}
+  .summary strong{color:var(--text)}
+  .btn{appearance:none;border:1px solid #2a6e4d;background:var(--accent);color:#08120e;font-weight:800;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:13px}
+  .btn:active{transform:translateY(1px)} .btn2{background:var(--card2);color:var(--text);border-color:var(--line)}
+  .hint{font-size:11px;color:var(--muted);margin-top:8px}
+  code{font-size:12px;background:var(--card2);padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ticket #4 — Combat contract</h1>
+  <div class="sub">5 picks. Click one per card. Green = recommended. Copy answer at bottom and paste in chat.</div>
+
+  <!-- Q1 -->
+  <div class="card" data-q="1">
+    <div class="qhead"><span class="qnum">Q1</span><div><div class="qtitle">Exhausted swings — block or get weaker?</div><div class="qdesc">Today the game <b>blocks</b> your swing if stamina too low. Doc 09 wants weak/slow swings instead. Stance system already shares stamina. Do we switch now?</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q1" value="A"><div class="opt-main"><div class="opt-title">A — Keep block for alpha</div><div class="opt-desc">Simple. Swing either works full power or not at all. Binary.</div></div></label>
+      <label class="opt"><input type="radio" name="q1" value="B" checked><div class="opt-main"><div class="opt-title">B — Weaken when tired <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Low stamina = slower wind-up + longer recovery. Uses same modifier as pain / leg injury. Feels continuous, not on/off.</div></div></label>
+      <label class="opt"><input type="radio" name="q1" value="C"><div class="opt-main"><div class="opt-title">C — Weaken speed only</div><div class="opt-desc">Slower but same damage. Middle ground.</div></div></label>
+    </div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="card" data-q="2">
+    <div class="qhead"><span class="qnum">Q2</span><div><div class="qtitle">Melee weapons — keep the 3 we ship?</div><div class="qdesc">Shipped: <b>knife</b> 0.9 m / 9 dmg / 4 stagger · <b>bat</b> 1.4 m / 11 / 16 · <b>spear</b> 2.4 m / 10 / 8. Windup 0.3s, recovery 0.4s, 34° arc, head hit ×3 (20% chance). Do we lock these as the alpha set?</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q2" value="A" checked><div class="opt-main"><div class="opt-title">A — Lock these 3 <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Knife = fast/cheap, bat = stagger king, spear = reach king. Builder gets fixed target. Kit ticket can propose swaps later.</div></div></label>
+      <label class="opt"><input type="radio" name="q2" value="B"><div class="opt-main"><div class="opt-title">B — Hold as baseline, let kit replace</div><div class="opt-desc">Don't lock — kit ticket decides final 3–4 weapons (maybe axe).</div></div></label>
+      <label class="opt"><input type="radio" name="q2" value="C"><div class="opt-main"><div class="opt-title">C — Lock + add 1 more now</div><div class="opt-desc">Add axe as 4th now to cover chopping role.</div></div></label>
+    </div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="card" data-q="3">
+    <div class="qhead"><span class="qnum">Q3</span><div><div class="qtitle">Gun noise — keep big numbers?</div><div class="qdesc">Calibrated for 256 m district: <b>unsuppressed 180</b> = whole district, suppressed 40 = 57 m, bow 4 = 6 m, melee hit 8 = 11 m. One gunshot wakes everything. Keep it?</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q3" value="A" checked><div class="opt-main"><div class="opt-title">A — Keep as is <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Ratios are intentional. Small alpha map = one bad shot = whole map — that's the horror.</div></div></label>
+      <label class="opt"><input type="radio" name="q3" value="B"><div class="opt-main"><div class="opt-title">B — Quieter for small alpha map</div><div class="opt-desc">Scale down to ~60% so alpha district isn't fully woken by one shot.</div></div></label>
+    </div>
+  </div>
+
+  <!-- Q4 -->
+  <div class="card" data-q="4">
+    <div class="qhead"><span class="qnum">Q4</span><div><div class="qtitle">Grabs — lock escape odds?</div><div class="qdesc">Grab = 1 m, must hold <code>F</code> 1 sec + 20 stamina. Bite at 1.5s then every 2s. More grabbers stack: <b>1 = 67%</b> escape, <b>2 = 50%</b>, <b>3 = 40%</b>. Strength stat would help a bit later. Ok?</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q4" value="A" checked><div class="opt-main"><div class="opt-title">A — Lock this formula <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Never zero, but 2–3 zeds = usually fatal. Stats ticket can tune Strength boost later without rewriting combat.</div></div></label>
+      <label class="opt"><input type="radio" name="q4" value="B"><div class="opt-main"><div class="opt-title">B — Make harsher</div><div class="opt-desc">Lower odds: 1=50%, 2=33%, 3=25%.</div></div></label>
+      <label class="opt"><input type="radio" name="q4" value="C"><div class="opt-main"><div class="opt-title">C — Make forgiving</div><div class="opt-desc">Higher odds: 1=80%, 2=65%, 3=50%.</div></div></label>
+    </div>
+  </div>
+
+  <!-- Q5 -->
+  <div class="card" data-q="5">
+    <div class="qhead"><span class="qnum">Q5</span><div><div class="qtitle">Aiming — any aim assist?</div><div class="qdesc">Plan: you turn your body to aim. Longer you hold still = steadier. No crosshair %, sway <i>is</i> the cone. Miss if you fire early. No snap-to-target. Ok?</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q5" value="A" checked><div class="opt-main"><div class="opt-title">A — No assist, sway only <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Turning is aiming. Wobbly gun = big cone. No helper. Hit feedback = stagger animation, no damage numbers.</div></div></label>
+      <label class="opt"><input type="radio" name="q5" value="B"><div class="opt-main"><div class="opt-title">B — Tiny close assist</div><div class="opt-desc">Subtle snap within ~3 m for iso readability.</div></div></label>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="foot-inner">
+      <div class="summary" id="summary">Your picks: <strong id="picks">Q1:B · Q2:A · Q3:A · Q4:A · Q5:A</strong><br>Paste this line in chat, or tweak above.</div>
+      <button class="btn" id="copy">Copy picks</button>
+      <button class="btn btn2" id="reset">Reset to recommended</button>
+    </div>
+    <div class="hint">Tip: click any card to choose. Recommended = green border. You can also just type <code>Q1:B Q2:A Q3:A Q4:A Q5:A</code> in chat.</div>
+  </div>
+</div>
+<script>
+const names=["q1","q2","q3","q4","q5"];
+function collect(){return names.map(n=>{const c=document.querySelector(`input[name="${n}"]:checked`);return c?c.value:"-"});}
+function update(){const v=collect();document.getElementById("picks").textContent=v.map((x,i)=>`Q${i+1}:${x}`).join(" · ");}
+names.forEach(n=>document.querySelectorAll(`input[name="${n}"]`).forEach(i=>i.addEventListener("change",update)));
+document.getElementById("copy").onclick=async()=>{
+  const v=collect(); const t=v.map((x,i)=>`Q${i+1}:${x}`).join(" ");
+  try{await navigator.clipboard.writeText(t); const b=document.getElementById("copy"); b.textContent="Copied ✓"; setTimeout(()=>b.textContent="Copy picks",1200);}catch{prompt("Copy this line:",t)}
+};
+document.getElementById("reset").onclick=()=>{
+  const rec={q1:"B",q2:"A",q3:"A",q4:"A",q5:"A"};
+  Object.entries(rec).forEach(([k,v])=>{const el=document.querySelector(`input[name="${k}"][value="${v}"]`); if(el) el.checked=true;});
+  update();
+};
+update();
+</script>
+</body>
+</html>
