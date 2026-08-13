@@ -1,0 +1,20 @@
+[
+  {
+    "id": "item.wrap.cloth",
+    "name": "Cloth Wrap",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.2,
+    "equipSlot": "torso",
+    "armor": { "torso": 0.3, "arms": 0.2 }
+  },
+  {
+    "id": "item.vest.scrap",
+    "name": "Scrap Vest",
+    "class": "armor",
+    "size": { "w": 3, "h": 3 },
+    "massKg": 2.1,
+    "equipSlot": "vest",
+    "armor": { "torso": 0.6, "arms": 0.3 }
+  }
+]
