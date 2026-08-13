@@ -167,6 +167,15 @@ func serialize() -> String:
 	return SimSerialize.canonicalize(snapshot())
 
 
+func despawn(entity: int) -> bool:
+	var ok: bool = bool((entities as RefCounted).call("destroy", entity))
+	if not ok:
+		return false
+	(components as RefCounted).call("removeAll", entity)
+	if modifiers != null and (modifiers as Object).has_method("removeScope"):
+		(modifiers as RefCounted).call("removeScope", entity)
+	return true
+
 func invalidateMap() -> void:
 	mapGeneration += 1
 

@@ -105,11 +105,21 @@ func _turning_and_noise() -> bool:
 	SimInfection.register_module(w)
 	for i in SimInfection.CRITICAL_TICKS:
 		w.step()
-	var st: Dictionary = w.components.get_component(w.player, "zombieInfection") as Dictionary
-	var s: int = int(((st["exposures"] as Array)[0] as Dictionary).get("stage", -1))
-	if s != SimInfection.Stage.Turned:
-		push_error("turning did not reach Turned s=%d" % s)
-		return false
+	var st_v: Variant = w.components.get_component(w.player, "zombieInfection")
+	if st_v is Dictionary:
+		var s: int = int((((st_v as Dictionary)["exposures"] as Array)[0] as Dictionary).get("stage", -1))
+		if s != SimInfection.Stage.Turned:
+			push_error("turning did not reach Turned s=%d" % s)
+			return false
+	else:
+		var had_stage_turned: bool = false
+		for e2 in w.events.drained as Array:
+			var ed2: Dictionary = e2 as Dictionary
+			if String(ed2.get("type", "")) == "infection.staged" and int(ed2.get("to", -1)) == SimInfection.Stage.Turned:
+				had_stage_turned = true
+		if not had_stage_turned:
+			push_error("turning despawned without staged Turned event")
+			return false
 	var had_turned: bool = false
 	var had_noise: bool = false
 	for e in w.events.drained as Array:
@@ -124,7 +134,16 @@ func _turning_and_noise() -> bool:
 	if not had_noise:
 		push_error("missing turning noise")
 		return false
-	print("TURNING OK")
+	var shamblers: int = 0
+	for ent in w.components.query(["shambler"]):
+		shamblers += 1
+	if shamblers != 1:
+		push_error("turning should spawn 1 shambler, got %d" % shamblers)
+		return false
+	if w.entities.call("is_alive", w.player):
+		push_error("turned survivor should be despawned")
+		return false
+	print("TURNING OK shambler=1")
 	return true
 
 func _diagnosis_never_leaks() -> bool:
