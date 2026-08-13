@@ -1,0 +1,22 @@
+{
+  "id": "survivor.unique.mara",
+  "name": "Mara Okoro",
+  "backstory": "Clinic nurse — failed pharmacy student. Reads wounds better than nothing, wastes less of a medkit.",
+  "age": 34,
+  "appearance": {
+    "features": ["close-cropped hair", "tired eyes", "rolled sleeves", "steady hands"],
+    "portrait": "res://presentation/portraits/mara.png"
+  },
+  "traits": ["squeamish", "light_sleeper", "steady_hands"],
+  "aptitudes": { "str": 3, "dex": 5, "con": 7 },
+  "kit": ["item.bandage.cloth", "item.painkillers.blister"],
+  "focus": "Medic",
+  "jobPriorities": { "Doctor": 1, "Guard": 2, "Rest": 3 },
+  "spawn": { "kind": "director_beat", "day": 1, "locationHint": "defensible building annex — barricaded exam room" },
+  "barks": {
+    "onSeen": ["Contact — keep it quiet.", "Eyes on me, not on it."],
+    "onHurt": ["I'm hit — need pressure.", "Not deep — keep moving."],
+    "onBite": ["It got me. Don't — don't look at it like that."],
+    "onIdle": ["We should change those bandages.", "If you're feverish, you tell me early."]
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/survivor.schema.json",
+  "title": "Survivor — unique",
+  "description": "Hand-authored unique survivor per docs/07-survivors.md#unique-survivors. One entry per file under survivors/uniques/. Framework must allow N more without code change.",
+  "type": "object",
+  "required": ["id", "name", "aptitudes"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^survivor\\.unique\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id. Permanent once shipped. unique directory implies never in generator pool."
+    },
+    "name": { "type": "string" },
+    "backstory": { "type": "string" },
+    "age": { "type": "integer", "minimum": 16, "maximum": 80 },
+    "appearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "features": { "type": "array", "items": { "type": "string" } },
+        "portrait": { "type": "string", "description": "Sprite path, iso pixel art. Optional — fallback to generated." }
+      }
+    },
+    "traits": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": { "type": "string" },
+      "description": "Trait ids, must exist in trait table. Conflict rules validated at load."
+    },
+    "aptitudes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["str", "dex", "con"],
+      "properties": {
+        "str": { "type": "integer", "minimum": 3, "maximum": 8 },
+        "dex": { "type": "integer", "minimum": 3, "maximum": 8 },
+        "con": { "type": "integer", "minimum": 3, "maximum": 8 }
+      },
+      "description": "Fixed-budget 15 per 02. Validated: sum == 15. INT/CHA/WIS absent in alpha (deferred per 02)."
+    },
+    "kit": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Starting item ids (item.*) — pitiful per doc07."
+    },
+    "focus": {
+      "type": "string",
+      "enum": ["Fighter", "Worker", "Medic", "Scout", "Manual"],
+      "description": "Initial Focus per doc07#focus-and-auto-allocation. Alpha alpha defaults Medic for Mara."
+    },
+    "jobPriorities": {
+      "type": "object",
+      "description": "Grid-lite priority row: job -> 1-4 or 0=disabled. Only jobs listed are set; rest disabled in alpha stub. Full grid deferred.",
+      "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 4 }
+    },
+    "spawn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["director_beat", "fixed_tile", "start_companion"] },
+        "day": { "type": "integer", "minimum": 0 },
+        "locationHint": { "type": "string" },
+        "tile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer" },
+            "y": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "barks": {
+      "type": "object",
+      "description": "6-8 short lines, no branching dialogue in alpha. Keys are triggers.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    }
+  }
+}
