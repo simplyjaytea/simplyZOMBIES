@@ -20,11 +20,11 @@ Four other places to know about, and nothing else is required reading:
 
 | | |
 |---|---|
-| **Phase** | **Godot rebuild — R1 walking skeleton awaiting its first remote CI pass.** R0 is approved and the R1 implementation passes locally; Product Milestone 1 remains closed and Milestone 2 remains the next product milestone, but feature work pauses until engine cutover. **Noise, scent, light/sight, and the complete melee danger loop stay live in the TypeScript oracle.** |
+| **Phase** | **Godot rebuild — R1 walking skeleton complete. R2 (world and attention spine) is next.** R0 and R1 are closed and verified in CI; Product Milestone 1 remains closed and Milestone 2 remains the next product milestone, but feature work pauses until engine cutover. **Noise, scent, light/sight, and the complete melee danger loop stay live in the TypeScript oracle.** |
 | **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, and at midnight you see **two metres** — until you find a candle. Five movement rungs each have their own speed, noise and price. At contact zombies pin and bite; `F` becomes a one-second stamina-paid struggle, and every additional grabber makes escape less likely. You start with nothing. |
 | **What is left of Milestone 1** | **Nothing required for closure.** Three measured-and-deferred performance boxes remain documented below; none is failing its trigger or exit criterion. |
 | **Merged so far** | [#1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) design docs · [#2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) attention spike · [#3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) Milestone 0 · then the noise spine, scent, multiplayer as design, visibility, the ground, the day, items and the grid, and [#19](https://github.com/simplyjaytea/simplyZOMBIES/pull/19) hot reload |
-| **In flight** | `godot/` now contains the typed-GDScript fixed-tick walking skeleton, canonical content, shared R1 parity fixture, presentation scene, headless tests, and Web/Windows export presets. TypeScript and Godot resolve the same seed and commands to the same canonical state. Both exports boot locally; the new CI artifact job must pass on GitHub before R1 closes. |
+| **In flight** | R1 verified: `check` / `godot-exports` / `performance` green on `main` (`1ff2725`, run `31661872270`), artifact `godot-r1-windows-web` (`9166512125`, 49 MiB) boots locally — `R1_PARITY_OK`, `GODOT_PROJECT_SMOKE_OK`, `GODOT_WEB_EXPORT_SMOKE_OK`. `godot/` now the walking skeleton with canonical content, parity fixture, presentation scene, and Web/Windows presets. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), [survivor attributes](docs/23-roadmap.md#planned-survivor-attributes) (Milestone 3A), [aiming](docs/09-combat.md#aiming), and docs/05/06's **full** injury and infection games. Milestone 1 stores a located bite, its possibly-scratch presentation and its private transmission answer; symptoms, treatment, armor reduction, stages and turning remain Milestone 2. |
 
@@ -48,7 +48,7 @@ phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
 | Phase | State |
 |---|---|
 | R0 — decisions and baseline | **Complete.** Typed GDScript, Godot 4.7.1, Compatibility, Web + Windows, same repository, `/godot/` candidate, and no pre-1.0 cross-engine save migration. |
-| R1 — walking skeleton | **In progress.** Implementation and local Windows/web boot gates pass; awaiting the first green `godot-exports` CI artifact. |
+| R1 — walking skeleton | **Complete.** Verified on `main` `1ff2725` (run `31661872270` — `check` + `godot-exports` + `performance` green). Artifact `godot-r1-windows-web` (`9166512125`) boots; local `R1_PARITY_OK` and `GODOT_WEB_EXPORT_SMOKE_OK` re-verified. |
 | R2 — world and attention spine | Not started |
 | R3 — danger, bodies, and belongings | Not started |
 | R4 — native presentation | Not started |
@@ -58,11 +58,7 @@ phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
 
 ## Do this next
 
-**Put R1 through GitHub CI, inspect the `godot-r1-windows-web` artifact, then close R1.** The local
-parity, project-load, Windows boot, and web boot checks already pass. Do not start R2 on a merely
-authored workflow: push this implementation, require `check`, `godot-exports`, and `performance` to
-go green, download the artifact once, and repeat its two boot checks. If that evidence passes, mark
-R1 complete and begin R2 with grid/spatial indexing and stance locomotion before attention fields.
+**R1 is closed. Begin R2 (world and attention spine) with grid/spatial indexing and stance locomotion before attention fields.** Evidence: `check` / `godot-exports` / `performance` green on `main` `1ff2725` (run `31661872270`), artifact `godot-r1-windows-web` (`9166512125`, 49 MiB) expires `2026-08-20`, local `R1_PARITY_OK` / `GODOT_PROJECT_SMOKE_OK` / `GODOT_WEB_EXPORT_SMOKE_OK` re-verified. `dist-godot/windows/simplyZOMBIES.exe` + `dist-godot/web/` were inspected locally before marking complete.
 
 **After R7, resume the first Milestone 2 vertical slice: lethality.** The strongest continuation is the full
 [injury](docs/05-health-injury.md) and [infection](docs/06-infection.md) path, because Milestone 1 now

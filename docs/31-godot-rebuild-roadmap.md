@@ -78,11 +78,8 @@ These survive the engine change:
 
 **Target: 2–3 focused days after R0.**
 
-**Live status (2026-08-13): implementation complete locally; awaiting its first green remote CI
-artifact run.** The Godot project, canonical content move, paired TypeScript/Godot fixture, fixed-tick
-simulation, main-scene smoke, Windows and web exports, local boot checks, and CI jobs exist. R1 closes
-when those jobs pass after the changes reach GitHub; local evidence alone does not satisfy a CI exit
-criterion.
+**Live status (2026-08-13): closed and verified.** The Godot project, canonical content move, paired TypeScript/Godot fixture, fixed-tick
+simulation, main-scene smoke, Windows and web exports, local boot checks, and CI jobs exist. Verified on `main` `1ff2725` (run `31661872270` — `check` + `godot-exports` + `performance` green); artifact `godot-r1-windows-web` (`9166512125`, 49 MiB) boots locally (`R1_PARITY_OK`, `GODOT_PROJECT_SMOKE_OK`, `GODOT_WEB_EXPORT_SMOKE_OK`). No longer awaiting a first green run — the closing evidence already exists.
 
 - Create `godot/project.godot`, pin the engine version, and establish `sim/`, `presentation/`,
   `platform/`, `ui/`, `content/`, and `test/` boundaries.
