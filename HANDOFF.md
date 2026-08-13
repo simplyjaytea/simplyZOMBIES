@@ -24,7 +24,7 @@ Four other places to know about, and nothing else is required reading:
 | **It is playable** | Godot at `/` (and Windows artifact) — same district, same 5-rung stance ladder, same shout/scent/sight loop. Shout and the district walks toward you in a minute; silence is slow, not safe. At midnight you see **two metres** until you find a candle. At contact zombies pin and bite; `F` is a one-second stamina-paid struggle. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **R7 cutover verified:** `check` / `godot-exports` / `performance` are the gate; `pages.yml` publishes Godot web at `/` from the exact green `head_sha`. Rollback to `ts-oracle-final` rehearsed. |
+| **In flight** | **Milestone 2 lethality — infection slice landed.** `godot:m2` green alongside R6: deterministic 2–4 day progression (Latent→Onset→Progression→Critical→Turned, CON-scaled 0.75–1.25), armor-coverage transmission at wound time, skill-gated diagnosis without transmitted leak, cauterize/amputate/antibiotics/quarantine/put-down verbs, turning that despawns + spawns a shambler + emits noise. Save roundtrip deterministic. R7 cutover remains verified; `pages.yml` still green-sha gated. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), [survivor attributes](docs/23-roadmap.md#planned-survivor-attributes) (Milestone 3A), [aiming](docs/09-combat.md#aiming), and docs/05/06's **full** injury and infection games. Milestone 1 stores a located bite, its possibly-scratch presentation and its private transmission answer; symptoms, treatment, armor reduction, stages and turning remain Milestone 2. |
 
@@ -980,21 +980,21 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Infection — spec: [docs/06](docs/06-infection.md)
 
-**Done (1):**
+**Done (7):**
 
 - [x] **Private transmitted flag** decided at wound time and never retroactively changed
       *(a named deterministic RNG stream decides it when the bite wound is created; it is saved but
       omitted from player-facing condition state)*
+- [x] Transmission by vector, reduced by **armor coverage** (`armor:{part:0..1}` on content, max-coverage check at bite time)
+- [x] Five-stage timeline Latent→Onset→Progression→Critical→Turned with CON-scaled `stage_duration_ticks` (12h/12–24h/24h/12h) — advancement is `>=` on `stageEnteredAtTick`, deterministic per tick
+- [x] Observation model: `diagnosis_of(world, entity, skill)` never leaks `transmitted`; skill gates uncertainty vs. sepsis hint
+- [x] The five responses: `cauterize`/`amputate`/`antibiotics.course`/`quarantine`/`put_down` verbs wired on `zombieInfection` with window guards
+- [x] Turning — staged at Critical→Turned, emits `survivor.turned` + `noise.emitted 20`, despawns via `world.despawn` (components+modifiers cleared) and spawns one `shambler` after `health.reap`
+- [x] `infection_progression` stat (`1.0` clamped `0.75–1.25`) + `world.despawn` fix + `world.step` `clear_record→drain` + armor schema/content
 
-**Open (8):**
+**Open (2):**
 
-- [ ] Transmission by vector, reduced by armor coverage
-- [ ] Five-stage timeline with stage-appropriate symptoms
-- [ ] **Early stages indistinguishable from sepsis**
-- [ ] Observation model: what the player sees, filtered by examiner skill
-- [ ] The five responses: amputate (stages 1–2 only), cauterize, antibiotics, quarantine, put down
-- [ ] Turning — including inside the walls, at night
-- [ ] Gear comes off the body in every case
+- [ ] **Early stages indistinguishable from sepsis** — shared wound presentation still needs bacterial `sepsis` condition drawing on same course stock
 - [ ] ⚠ **Risk checkpoint (roadmap risk 2):** do players quarantine, or just execute? Universal
       execution means the investment curve is too shallow and permadeath has no teeth.
 

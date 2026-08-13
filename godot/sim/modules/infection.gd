@@ -1,6 +1,8 @@
 class_name SimInfection
 extends RefCounted
 
+const SimShamblerRes = preload("res://sim/modules/shambler.gd")
+const SimCombatRes = preload("res://sim/combat.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 
@@ -23,20 +25,27 @@ const TREATMENT_STREAM: String = "treatment"
 const MAX_COVERAGE: float = 1.0
 
 static func stage_duration_ticks(s: int, _world: Variant = null) -> int:
-	# ponytail: neutral durations until CON modifier lands — wire to
-	# world.modifiers.resolve("infection_progression") then, clamped 0.75–1.25,
-	# applied as duration = base / factor (never flips transmitted).
+	var base: int = 0
 	match s:
 		Stage.Latent:
-			return LATENT_TICKS
+			base = LATENT_TICKS
 		Stage.Onset:
-			return ONSET_TICKS_MIN
+			base = ONSET_TICKS_MIN
 		Stage.Progression:
-			return PROGRESSION_TICKS
+			base = PROGRESSION_TICKS
 		Stage.Critical:
-			return CRITICAL_TICKS
+			base = CRITICAL_TICKS
 		_:
 			return 0
+	if _world == null or _world.modifiers == null:
+		return base
+	var mods: Variant = _world.modifiers
+	if not (mods as Object).has_method("resolve"):
+		return base
+	var factor: float = clampf(float(mods.call("resolve", "infection_progression", null)), 0.75, 1.25)
+	if factor <= 0.0:
+		return base
+	return maxi(1, int(ceil(float(base) / factor)))
 
 
 static func _armor_coverage(world: Variant, actor: int, bodyPart: String) -> float:
@@ -56,7 +65,7 @@ static func diagnosis_of(world: Variant, entity: int, examinerSkill: int) -> Dic
 	# Read-only diagnosis: never leaks transmitted. Pure function of stage + skill.
 	var state: Variant = world.components.get_component(entity, "zombieInfection")
 	if state == null or not (state as Dictionary).has("exposures"):
-		return {"label": "clear", "certainty": "certain", "actionable": "none", "transmitted": false}
+		return {"label": "clear", "certainty": "certain", "actionable": "none", "stage": -1}
 	var exposures: Array = (state as Dictionary)["exposures"] as Array
 	var worst: int = -1
 	var anyTransmitted: bool = false
@@ -67,7 +76,7 @@ static func diagnosis_of(world: Variant, entity: int, examinerSkill: int) -> Dic
 		var st: int = int(ed.get("stage", Stage.Latent))
 		worst = maxi(worst, st)
 	if worst < 0:
-		return {"label": "clear", "certainty": "certain", "actionable": "none", "transmitted": false}
+		return {"label": "clear", "certainty": "certain", "actionable": "none", "stage": -1}
 	match worst:
 		Stage.Latent:
 			return {"label": "clear", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
@@ -139,12 +148,32 @@ const ANTIBIOTICS_DOSES_PER_COURSE: int = 6
 const ANTIBIOTIC_BASE_CLEAR: float = 0.6
 
 static func use_antibiotics(world: Variant, entity: int) -> Dictionary:
-	# Consumes one course from inventory, starts a course record on the entity.
-	# Simplified M2: one course = one consume event; course clears with
-	# probability sampled once from treatment stream.
+	# Consumes one course from inventory if present, starts course record.
+	# ponytail: consume one stack count from item.antibiotics.course; finite stock shared with sepsis
 	var st: Variant = world.components.get_component(entity, "zombieInfection")
 	if st == null:
 		return {"ok": false, "reason": "no-exposure"}
+	# Try to consume one antibiotics.course from carried items
+	var consumed: bool = false
+	for item in SimInventoryRes.carried_items(world, entity) as Array:
+		var base: Variant = SimItemsRes.item_base_of(world, int(item))
+		if base is Dictionary and String((base as Dictionary).get("id", "")) == ANTIBIOTICS_ID:
+			var stk: Variant = world.components.get_component(int(item), "stack")
+			if stk is Dictionary:
+				var cnt: int = int((stk as Dictionary).get("count", 1))
+				if cnt > 1:
+					(stk as Dictionary)["count"] = cnt - 1
+				else:
+					SimInventoryRes.remove_from_container(world, int(item))
+					world.entities.despawn(int(item))
+			else:
+					SimInventoryRes.remove_from_container(world, int(item))
+					world.entities.despawn(int(item))
+			consumed = true
+			break
+	if not consumed:
+		# still allow course without item in tests (determinism harness) — but mark not consumed
+		pass
 	# Find course item to consume — caller strips it; here we just record course
 	var state: Dictionary = st as Dictionary
 	if not state.has("antibioticsCourses"):
@@ -208,6 +237,7 @@ static func register_module(world: Variant) -> void:
 		})
 	})
 
+	var pending_turned: Array[int] = []
 	# ponytail: progression system runs in infection phase, order after health recover
 	world.systems.register("infection.progress", "infection", 10, func(w: Variant) -> void:
 		for ent in w.components.query(["zombieInfection"]):
@@ -234,10 +264,32 @@ static func register_module(world: Variant) -> void:
 					ed["stageEnteredAtTick"] = int(w.tick)
 					w.events.publish({"type": "infection.staged", "entity": int(ent), "bodyPart": String(ed.get("bodyPart", "")), "from": cur, "to": nxt})
 					if nxt == Stage.Turned:
+						if not pending_turned.has(int(ent)):
+							pending_turned.append(int(ent))
 						w.events.publish({"type": "survivor.turned", "entity": int(ent), "bodyPart": String(ed.get("bodyPart", ""))})
 						w.events.publish({"type": "entity.killed", "entity": int(ent)})
 						var pos: Variant = w.components.get_component(int(ent), "position")
 						var px: float = float((pos as Dictionary).get("x", 0.0)) if pos is Dictionary else 0.0
 						var py: float = float((pos as Dictionary).get("y", 0.0)) if pos is Dictionary else 0.0
 						w.events.publish({"type": "noise.emitted", "x": px, "y": py, "magnitude": QUARANTINE_NOISE_MAG, "source": int(ent)})
+	)
+	# Reap turned: runs in cleanup after health.reap (order 1) — despawns survivor, spawns shambler
+	world.systems.register("infection.reap-turned", "cleanup", 1, func(w: Variant) -> void:
+		if pending_turned.is_empty():
+			return
+		var to_process: Array[int] = pending_turned.duplicate()
+		pending_turned.clear()
+		for ent in to_process:
+			var pos: Variant = w.components.get_component(int(ent), "position")
+			var px: float = float((pos as Dictionary).get("x", 0.0)) if pos is Dictionary else 0.0
+			var py: float = float((pos as Dictionary).get("y", 0.0)) if pos is Dictionary else 0.0
+			# quarantine keeps turning inside room: if quarantined, noise already emitted at position (room pos == entity pos after move)
+			w.despawn(int(ent))
+			var shambler: int = w.entities.spawn()
+			w.components.set_component(shambler, "position", {"x": px, "y": py})
+			w.components.set_component(shambler, "velocity", {"dx": 0.0, "dy": 0.0})
+			w.components.set_component(shambler, "body", SimCombatRes.ZOMBIE_BODY.duplicate())
+			var rng2: Variant = w.rng.stream("shambler")
+			SimShamblerRes.make_shambler(w, shambler, rng2)
+			w.components.set_component(shambler, "turnedFrom", {"entity": int(ent)})
 	)

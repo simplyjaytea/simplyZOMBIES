@@ -124,6 +124,15 @@ switch (mode) {
       "res://check_r6_soak.gd",
     ];
     break;
+  case "--m2":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_lethality.gd",
+    ];
+    break;
   case "--export":
     args = [];
     break;

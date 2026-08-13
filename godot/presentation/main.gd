@@ -14,6 +14,7 @@ const SimSurface = preload("res://sim/map/surface.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimInfection = preload("res://sim/modules/infection.gd")
 const SimSave = preload("res://sim/save.gd")
 const PlatformStorage = preload("res://platform/storage.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
@@ -295,6 +296,10 @@ func _update_condition_view() -> void:
 		var s: int = int(st)
 		worst = maxi(worst, s)
 		parts.append({"part": part, "state": s, "prose": "%s %d" % [part, s]})
+	# Infection diagnosis (read model only, never exposes transmitted — consumes examiner skill via CON stub 0)
+	var diag: Variant = SimInfection.diagnosis_of(world, world.player, 0)
+	if diag is Dictionary and String((diag as Dictionary).get("label", "clear")) != "clear":
+		parts.append({"part": "infection", "state": int((diag as Dictionary).get("stage", 0)), "prose": String((diag as Dictionary).get("label", ""))})
 	var posture: Variant = world.components.get_component(world.player, "posture")
 	var stance: int = 2
 	if posture is Dictionary: stance = int((posture as Dictionary).get("current", 2))
@@ -314,7 +319,9 @@ func _update_hud() -> void:
 	if now - _fingerprint_at > 0.25:
 		_fingerprint = world.serialize().substr(0, 8)
 		_fingerprint_at = now
-	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  fp %s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), _fingerprint]
+	var diag2: Dictionary = SimInfection.diagnosis_of(world, world.player, 0) as Dictionary
+	var diag_label: String = String(diag2.get("label", "clear"))
+	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  fp %s  dx:%s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), _fingerprint, diag_label]
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
 	_hud.text = base

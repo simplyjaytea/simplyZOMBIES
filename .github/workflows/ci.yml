@@ -94,6 +94,9 @@ jobs:
       - name: R6 soak (memory/save/input/pause/tab)
         run: npm run godot:r6:soak
 
+      - name: M2 lethality (stages/armor/diagnosis/amputate/turning)
+        run: npm run godot:m2
+
       - name: Build
         run: npm run build
 
