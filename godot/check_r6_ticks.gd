@@ -83,14 +83,17 @@ func _opts(args: PackedStringArray) -> Dictionary:
 func _read_json(path: String) -> Dictionary:
 	if path.is_empty():
 		return {}
-	var abs: String = path
+	var f: Variant = null
 	if path.begins_with("res://"):
-		abs = ProjectSettings.globalize_path(path)
-	var f := FileAccess.open(abs if not path.begins_with("res://") else path, FileAccess.READ)
-	if f == null:
-		# try as res://
 		f = FileAccess.open(path, FileAccess.READ)
 		if f == null:
 			return {}
-	var v: Variant = JSON.parse_string(f.get_as_text())
+	else:
+		f = FileAccess.open(path, FileAccess.READ)
+		if f == null:
+			# try as res:// relative
+			f = FileAccess.open("res://" + path, FileAccess.READ)
+			if f == null:
+				return {}
+	var v: Variant = JSON.parse_string((f as FileAccess).get_as_text())
 	return v as Dictionary if v is Dictionary else {}

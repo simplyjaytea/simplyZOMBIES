@@ -65,10 +65,30 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 	})
 
 
+static func _get_content_entry(world: Variant, type_id: String, id: String) -> Variant:
+	if world == null or world.content == null:
+		return null
+	var c: Variant = world.content
+	if c is Object and (c as Object).has_method("get"):
+		return (c as Object).call("get", type_id, id)
+	if c is Dictionary:
+		if (c as Dictionary).has(type_id):
+			var by_id: Variant = (c as Dictionary)[type_id]
+			if by_id is Dictionary:
+				var hit: Variant = (by_id as Dictionary).get(id)
+				if hit != null:
+					return hit
+		for v in (c as Dictionary).values():
+			if v is Array:
+				for entry in v as Array:
+					if entry is Dictionary and String((entry as Dictionary).get("id", "")) == id:
+						return entry
+			elif v is Dictionary and String((v as Dictionary).get("id", "")) == id:
+				return v as Dictionary
+	return null
+
 static func _locomotion_of(world: Variant, type_id: String) -> Dictionary:
-	var entry: Variant = null
-	if world.content != null and world.content.has_method("get"):
-		entry = world.content.call("get", "zombie", type_id)
+	var entry: Variant = _get_content_entry(world, "zombie", type_id)
 	var loco: Dictionary = {}
 	if entry != null:
 		var l: Variant = (entry as Dictionary).get("locomotion")
@@ -83,9 +103,7 @@ static func _locomotion_of(world: Variant, type_id: String) -> Dictionary:
 
 
 static func _grab_of(world: Variant, type_id: String) -> Dictionary:
-	var entry: Variant = null
-	if world.content != null and world.content.has_method("get"):
-		entry = world.content.call("get", "zombie", type_id)
+	var entry: Variant = _get_content_entry(world, "zombie", type_id)
 	if entry == null:
 		return {"enabled": true, "strength": DEFAULT_GRAB_STRENGTH}
 	var behaviours: Variant = (entry as Dictionary).get("behaviors")

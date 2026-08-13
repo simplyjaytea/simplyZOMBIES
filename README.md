@@ -55,30 +55,29 @@ health bar.
 Milestone 2 is the colony-sized vertical slice: generated survivors, needs and work, the complete
 injury and uncertain-infection loops, ranged combat, building, pacing, death, and succession.
 
-The current playable is also the behavioral reference for an active **Godot 4 rebuild**. Its first
-walking skeleton now reproduces the same seeded movement state in TypeScript and Godot and boots as
-both Windows and web exports. It is still a rebuild candidate, not the public game: the product
-roadmap and feature order are unchanged, and the new implementation must reproduce everything
-already proven before Milestone 2 feature work resumes.
+**Godot 4.7.1 is the playable build.** The web export runs at `/` and the Windows artifact comes
+from the same green commit; a failed CI publishes nothing. The TypeScript/Canvas oracle is
+archived at tag `ts-oracle-final` for parity reference and rollback. See
+[Godot rebuild](docs/31-godot-rebuild-roadmap.md) for transition history.
 
 **[Play the latest main build](https://simplyjaytea.github.io/simplyZOMBIES/).** Every push to `main`
 that passes the correctness and performance checks automatically replaces this playable build;
 failed checks are never published.
 
 ```bash
-npm install && npm run dev     # http://127.0.0.1:5174
+npm install
+npm run godot:run    # Godot — the game (also: godot:editor)
+# npm run dev        # TypeScript oracle via Vite (archived, reference only)
 ```
 
 `WASD` move · `Shift` sprint · `F` swing or struggle · `Space` **shout** · `E` pick up · `Tab` **inventory**
-(drag to move, right-click or `R` to rotate) · `O` cycles the attention overlay (noise, scent, sight)
-· `1`/`2`/`3` speed · `P` pause · `F5`/`F9` save and load.
+(drag to move, right-click or `R` to rotate) · `O` cycles the attention overlay (noise, scent, sight, light)
+· `1`/`2`/`3` speed (1×, 3×, 10×) · `P` pause · `M` raw sheets · `F5`/`F9` save and load.
 
 A day is four hours at 1×, so press `3` and wait for dark.
 
-**Current playable stack:** TypeScript, HTML canvas, and Vite. The active
-[Godot rebuild](docs/31-godot-rebuild-roadmap.md) uses the existing build as a deterministic reference
-until the replacement passes its cutover gates; the public link above remains the full reference
-game during that work.
+**Current playable stack:** Godot 4.7.1 (Compatibility), typed GDScript. The archived
+TypeScript oracle remains at tag `ts-oracle-final` with parity fixtures under `godot/parity/`.
 
 ## Working on it?
 

@@ -4,12 +4,34 @@ extends RefCounted
 const HAND_SLOTS: Array[String] = ["primary", "secondary"]
 
 
+static func _get_content_entry(world: Variant, type_id: String, id: String) -> Variant:
+	if world == null or world.content == null:
+		return null
+	var c: Variant = world.content
+	if c is Object and (c as Object).has_method("get"):
+		return (c as Object).call("get", type_id, id)
+	if c is Dictionary and (c as Dictionary).has(type_id):
+		var by_id: Variant = (c as Dictionary)[type_id]
+		if by_id is Dictionary:
+			var hit: Variant = (by_id as Dictionary).get(id)
+			if hit != null:
+				return hit
+		for v in (c as Dictionary).values():
+			if v is Array:
+				for e in v as Array:
+					if e is Dictionary and String((e as Dictionary).get("id","")) == id:
+						return e
+			elif v is Dictionary and String((v as Dictionary).get("id","")) == id:
+				return v as Dictionary
+	return null
+
 static func light_reach_of(world: Variant, item: int) -> Variant:
-	# Content-backed; requires items module. Minimal stub for boot: reads item base light.magnitude
 	var base: Variant = null
-	if world.content != null and world.content.has_method("get"):
-		base = world.content.call("get", "item", str(item))
-	# Fallback: check component
+	var item_comp: Variant = world.components.get_component(item, "itemBase")
+	if item_comp is Dictionary:
+		base = _get_content_entry(world, "item", String((item_comp as Dictionary).get("baseId","")))
+	if base == null and world.content != null and world.content is Object and (world.content as Object).has_method("get"):
+		base = (world.content as Object).call("get", "item", str(item))
 	if base == null:
 		base = world.components.get_component(item, "item_base")
 	if base == null:

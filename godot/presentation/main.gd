@@ -79,7 +79,7 @@ func _ready() -> void:
 	_visibility = SimVisibility.new()
 	_light = SimLight.new()
 	# R1 parity fixture if present, else boot a district for smoke/standalone
-	var fixture_path: String = ProjectSettings.globalize_path("res://parity/r1-walking-skeleton.json")
+	var fixture_path: String = "res://parity/r1-walking-skeleton.json"
 	var f := FileAccess.open(fixture_path, FileAccess.READ)
 	if f != null:
 		fixture = JSON.parse_string(f.get_as_text())

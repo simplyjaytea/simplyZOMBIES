@@ -61,9 +61,14 @@ func _init(fixture: Dictionary) -> void:
 	# Field: empty until sized to a map. R1 fixtures still need one for snapshot shape.
 	field = AttentionFieldRes.empty_field()
 	_build_map(fixture["map"])
-	# Re-size field to the fixture map so its save has correct cols/rows
+	# Re-size field to the fixture map so its save has correct cols/rows.
+	# Populate a TileMap so the attention field's solid mask matches the sim walls,
+	# not a blank floor (otherwise noise leaks through walls in parity).
 	var mmap: Variant = SimTileMapRes.blank_map(map_width, map_height)
-	# copy tiles into mmap for attention solid calc is optional; use empty solid for R1
+	for y in map_height:
+		for x in map_width:
+			var blocked: bool = is_blocked_tile(x, y)
+			(mmap as Variant).tiles[y * int((mmap as Variant).w) + x] = int(SimTileMapRes.Tile.Wall) if blocked else int(SimTileMapRes.Tile.Floor)
 	field = AttentionFieldRes.for_map(mmap)
 	player = entities.spawn()
 	var player_fixture: Dictionary = fixture["player"]
