@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ticket #6 — Iso Art + SpriteAI — Pick 6</title>
+<style>
+  :root{--bg:#0e1116;--card:#171c24;--card2:#1e2532;--line:#2a3446;--text:#e6edf6;--muted:#8b9ab0;--accent:#5ee9a8;--warn:#ffcc66;--blue:#6aa8ff}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:760px;margin:28px auto;padding:0 18px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-0.02em} .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;margin:14px 0}
+  .qhead{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+  .qnum{background:var(--card2);border:1px solid var(--line);color:var(--accent);font-weight:700;font-size:12px;padding:4px 8px;border-radius:999px;white-space:nowrap}
+  .qtitle{font-weight:700;font-size:15px;line-height:1.3} .qdesc{color:var(--muted);font-size:13px;margin:6px 0 2px;line-height:1.5}
+  .opts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  label.opt{display:flex;gap:10px;align-items:flex-start;background:var(--card2);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;transition:.12s}
+  label.opt:hover{border-color:#3a4a66} label.opt:has(input:checked){border-color:var(--accent);background:#162a22}
+  label.opt input{margin:4px 0 0;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0}
+  .opt-main{flex:1} .opt-title{font-weight:650;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .badge{font-size:10px;font-weight:800;letter-spacing:.06em;padding:3px 7px;border-radius:999px;border:1px solid}
+  .badge-rec{background:#0f2e22;color:var(--accent);border-color:#1d5a3f}
+  .opt-desc{color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.45}
+  .foot{position:sticky;bottom:0;background:linear-gradient(180deg, transparent, var(--bg) 18%, var(--bg));padding:14px 0 18px;margin-top:18px}
+  .foot-inner{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .summary{flex:1;min-width:220px;font-size:13px;color:var(--muted);line-height:1.4}
+  .summary strong{color:var(--text)}
+  .btn{appearance:none;border:1px solid #2a6e4d;background:var(--accent);color:#08120e;font-weight:800;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:13px}
+  .btn:active{transform:translateY(1px)} .btn2{background:var(--card2);color:var(--text);border-color:var(--line)}
+  .hint{font-size:11px;color:var(--muted);margin-top:8px}
+  code{font-size:12px;background:var(--card2);padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
+  .warn{font-size:11px;color:var(--warn);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ticket #6 — Isometric pixel art + SpriteAI pipeline</h1>
+  <div class="sub">6 picks. Click one per card. Green = recommended. Copy at bottom and paste in chat.</div>
+
+  <!-- Q1 -->
+  <div class="card" data-q="1">
+    <div class="qhead"><span class="qnum">Q1</span><div><div class="qtitle">Iso metric — keep shipped 2:1?</div><div class="qdesc">Shipped: <code>projection.gd</code> 2:1 diamonds (<code>TILE_WIDTH_RATIO 2 / TILE_HEIGHT_RATIO 1</code>), <code>zoom 12</code>, viewport 960×540 → 1280×720 window, <code>stretch canvas_items</code>, <code>RISE_SCALE 0.62</code>, walls rise 2.2 m. Keep for alpha?</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q1" value="A" checked><div class="opt-main"><div class="opt-title">A — Keep shipped 2:1 <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">No metric change. Sim stays 1 tile = 1 m, presentation only projects. HUD fingerprint comparable. Change later = parity break.</div></div></label>
+      <label class="opt"><input type="radio" name="q1" value="B"><div class="opt-main"><div class="opt-title">B — Steeper 4:1</div><div class="opt-desc">More top-down, wider alleys. Triggers re-tune of wall occlusion + visible-bounds culling.</div></div></label>
+      <label class="opt"><input type="radio" name="q1" value="C"><div class="opt-main"><div class="opt-title">C — Snap to integer pixel (nearest + snap)</div><div class="opt-desc">Crisp pixels but locks zoom to integers, hurts 540p scaling. Do later with sprites.</div></div></label>
+    </div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="card" data-q="2">
+    <div class="qhead"><span class="qnum">Q2</span><div><div class="qtitle">Wall occlusion & sorting — what draws alpha?</div><div class="qdesc">Today: diamond tiles via <code>draw_colored_polygon</code>, wall tops + 2 side faces (darkened 0.18/0.08), entities depth-sorted by <code>x+y</code>, <code>visible_bounds()</code> culls. Keep?</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q2" value="A" checked><div class="opt-main"><div class="opt-title">A — Keep procedural diamonds for alpha <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Fastest to parity. SpriteAI tiles land after district choice (#07). No importer work now.</div></div></label>
+      <label class="opt"><input type="radio" name="q2" value="B"><div class="opt-main"><div class="opt-title">B — SpriteAI floor+wall now, bodies stay circles</div><div class="opt-desc">Proves pipeline on tiles, defers character animation cost.</div></div></label>
+      <label class="opt"><input type="radio" name="q2" value="C"><div class="opt-main"><div class="opt-title">C — Full SpriteAI now</div><div class="opt-desc">All tiles + survivor + 3 zeds as sprites. Biggest upfront cost, pre-district.</div></div></label>
+    </div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="card" data-q="3">
+    <div class="qhead"><span class="qnum">Q3</span><div><div class="qtitle">SpriteAI pipeline — where do assets live?</div><div class="qdesc">Need: generation → import → naming → Godot loads → hot-reload. <code>Compatibility</code> renderer, <code>use_nearest_mipmap_filter false</code> today.</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q3" value="A" checked><div class="opt-main"><div class="opt-title">A — <code>godot/assets/sprites/</code> + PNG import <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Git-tracked PNGs, Godot <code>.import</code> sets filter=Nearest (snap), naming <code>zombie_shambler_idle_0.png</code>. Sim never imports — only presentation. Content JSON refs path.</div></div></label>
+      <label class="opt"><input type="radio" name="q3" value="B"><div class="opt-main"><div class="opt-title">B — <code>godot/content/sprites/</code> via content loader</div><div class="opt-desc">Sprites as content (validated JSON). Tighter but couples art to content reload polling (0.5 s).</div></div></label>
+      <label class="opt"><input type="radio" name="q3" value="C"><div class="opt-main"><div class="opt-title">C — External CDN / not in repo</div><div class="opt-desc">Faster iteration, breaks offline parity + <code>export_filter all_resources</code>.</div></div></label>
+    </div>
+    <div class="warn">Filter note: set <code>textures/canvas_textures/default_texture_filter = Nearest</code> on import, not global, so UI fonts stay smooth.</div>
+  </div>
+
+  <!-- Q4 -->
+  <div class="card" data-q="4">
+    <div class="qhead"><span class="qnum">Q4</span><div><div class="qtitle">What SpriteAI generates first (minimum set)?</div><div class="qdesc">Roster locked by #01: Shambler + Screamer + Bloater. Kit by #03: knife/bat/spear/axe + bow + pistol. District by #07 still open.</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q4" value="A" checked><div class="opt-main"><div class="opt-title">A — Bodies first, tiles last <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Survivor 4-dir idle/walk/sprint + 3 zeds (distinct silhouette) + Mara portrait/bark tint. Tiles stay diamonds until #07 picks footprint. Kit items stay lozenge icons — readable without art.</div></div></label>
+      <label class="opt"><input type="radio" name="q4" value="B"><div class="opt-main"><div class="opt-title">B — Tiles first, bodies later</div><div class="opt-desc">Prove district reads before character cost.</div></div></label>
+      <label class="opt"><input type="radio" name="q4" value="C"><div class="opt-main"><div class="opt-title">C — Generate everything at once</div><div class="opt-desc">Parity risk — too many sprites to review (doc30: 336 sprites needs tool).</div></div></label>
+    </div>
+  </div>
+
+  <!-- Q5 -->
+  <div class="card" data-q="5">
+    <div class="qhead"><span class="qnum">Q5</span><div><div class="qtitle">Visibility & light in iso — does sim change?</div><div class="qdesc">Sim today: <code>tilemap.gd TILE_METRES 1</code>, <code>shadowcast.gd</code> symmetric, integer rational slopes, eye Standing/Crouched, <code>light.gd</code> emitter table max-aggregated. Presentation only projects.</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q5" value="A" checked><div class="opt-main"><div class="opt-title">A — No sim change <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Sim stays tile-grid. Iso is pure presentation (<code>world_to_screen</code> 2:1). Shadowcast, <code>visible_bounds</code> depth <code>x+y</code>, and <code>lit_metres()</code> unchanged. HUD fingerprint still comparable.</div></div></label>
+      <label class="opt"><input type="radio" name="q5" value="B"><div class="opt-main"><div class="opt-title">B — Adapt shadowcast to diamond adjacency</div><div class="opt-desc">More iso-correct but breaks symmetry guard + parity fixtures (R1 walking skeleton).</div></div></label>
+    </div>
+  </div>
+
+  <!-- Q6 -->
+  <div class="card" data-q="6">
+    <div class="qhead"><span class="qnum">Q6</span><div><div class="qtitle">Performance gate for iso</div><div class="qdesc">Bench heads: <code>bench.gd</code> 300/2000 bodies, <code>bench/frame.mjs</code> needs <code>CHROMIUM_PATH</code>. Godot GDScript headless thresholds 1.2/8.0 ms vs TS 0.5/4.0. Tile cull today via <code>visible_bounds + depth sort</code>.</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q6" value="A" checked><div class="opt-main"><div class="opt-title">A — Keep headless bench informational, add Chromium frame guard <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Hold iso at sightless twin budget (doc22). Frame bench <code>npm run bench:frame</code> with real Chromium measures draw. Sim share: occlusion already rejects ~99% (e.g. 11 drawn of 216 visible) before viewport cull — iso doesn't change that.</div></div></label>
+      <label class="opt"><input type="radio" name="q6" value="B"><div class="opt-main"><div class="opt-title">B — Hard-fail Godot bench at TS thresholds</div><div class="opt-desc">Too strict — interpreter vs V8 gap, will flap on headless CI.</div></div></label>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="foot-inner">
+      <div class="summary" id="summary">Your picks: <strong id="picks">Q1:A · Q2:A · Q3:A · Q4:A · Q5:A · Q6:A</strong><br>Paste this line in chat, or tweak above.</div>
+      <button class="btn" id="copy">Copy picks</button>
+      <button class="btn btn2" id="reset">Reset to recommended</button>
+    </div>
+    <div class="hint">Tip: click any card to choose. Recommended = green border. You can also type <code>Q1:A Q2:A Q3:A Q4:A Q5:A Q6:A</code> in chat. C = type your own.</div>
+  </div>
+</div>
+<script>
+const names=["q1","q2","q3","q4","q5","q6"];
+function collect(){return names.map(n=>{const c=document.querySelector(`input[name="${n}"]:checked`);return c?c.value:"-";});}
+function update(){const v=collect();document.getElementById("picks").textContent=v.map((x,i)=>`Q${i+1}:${x}`).join(" · ");}
+names.forEach(n=>document.querySelectorAll(`input[name="${n}"]`).forEach(i=>i.addEventListener("change",update)));
+document.getElementById("copy").onclick=async()=>{
+  const v=collect(); const t=v.map((x,i)=>`Q${i+1}:${x}`).join(" ");
+  try{await navigator.clipboard.writeText(t); const b=document.getElementById("copy"); b.textContent="Copied ✓"; setTimeout(()=>b.textContent="Copy picks",1200);}catch{prompt("Copy this line:",t)}
+};
+document.getElementById("reset").onclick=()=>{
+  const rec={q1:"A",q2:"A",q3:"A",q4:"A",q5:"A",q6:"A"};
+  Object.entries(rec).forEach(([k,v])=>{const el=document.querySelector(`input[name="${k}"][value="${v}"]`); if(el) el.checked=true;});
+  update();
+};
+update();
+</script>
+</body>
+</html>
