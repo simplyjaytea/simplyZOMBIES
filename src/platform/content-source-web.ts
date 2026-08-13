@@ -14,20 +14,20 @@ import { CONTENT_TYPES, type ContentInput } from "../sim/content/registry";
 import type { ContentFile } from "../sim/content/types";
 import type { SchemaMap } from "./schema-validator";
 
-const rawFiles = import.meta.glob("/content/**/*.json", {
+const rawFiles = import.meta.glob("/godot/content/**/*.json", {
   query: "?raw",
   import: "default",
   eager: true,
 }) as Record<string, string>;
 
-/** Strip the leading `/content/` so paths in error messages match the node loader's. */
+/** Strip the Godot project prefix so paths match the node loader's. */
 function relative(path: string): string {
-  return path.replace(/^\/content\//, "");
+  return path.replace(/^\/godot\/content\//, "");
 }
 
 export function readContentFromWeb(): ContentInput[] {
   return CONTENT_TYPES.map((type) => {
-    const prefix = `/content/${type.directory}/`;
+    const prefix = `/godot/content/${type.directory}/`;
     const files: ContentFile[] = Object.keys(rawFiles)
       .filter((path) => path.startsWith(prefix))
       .sort() // same reason as the node loader: stable "already defined in <file>" messages
@@ -39,7 +39,7 @@ export function readContentFromWeb(): ContentInput[] {
 export function readSchemasFromWeb(): SchemaMap {
   const schemas: SchemaMap = {};
   for (const type of CONTENT_TYPES) {
-    const path = `/content/schemas/${type.id}.schema.json`;
+    const path = `/godot/content/schemas/${type.id}.schema.json`;
     const text = rawFiles[path];
     if (text === undefined) {
       throw new Error(`Missing schema for content type "${type.id}" at ${path}`);

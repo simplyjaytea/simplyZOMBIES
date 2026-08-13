@@ -102,7 +102,7 @@ these documents — that's the verification criterion in the [roadmap](23-roadma
 
 *Add a "Crawler": slow, low to the ground, easy to miss in a breach.*
 
-1. Add `content/zombies/crawler.json` with sensory weights, locomotion, body values, and behavior tags
+1. Add `godot/content/zombies/crawler.json` with sensory weights, locomotion, body values, and behavior tags
    drawn from the existing set (`shamble`, `pursue`, `grab_low`).
 2. Set `introducedInWave`.
 3. Add it to the relevant spawn weight tables.
@@ -114,7 +114,7 @@ these documents — that's the verification criterion in the [roadmap](23-roadma
 
 *Add "Hail": brief, violent, damaging.*
 
-1. Add `content/weather/hail.json`: duration range, seasonal weights, and a modifier list —
+1. Add `godot/content/weather/hail.json`: duration range, seasonal weights, and a modifier list —
    `noise_propagation ×1.4`, `ranged_accuracy ×0.6`, `structure_decay ×3.0`, `mood -8`,
    `temperature -4`.
 2. Add it to the season distribution table.
@@ -150,7 +150,7 @@ This is the shape most new mechanics take, and it's the real test of the archite
 5. **Emits modifiers:** unpowered lights stop contributing to
    [light attention](03-attention.md); unpowered refrigeration raises the
    [spoilage rate](12-resources.md).
-6. **New content:** `content/structures/*.json` gains power fields; schema extended.
+6. **New content:** `godot/content/structures/*.json` gains power fields; schema extended.
 
 **Code changes: entirely additive.** No existing system is edited. The lighting system doesn't learn
 about electricity — it reads a stat that something else now modifies. Refrigeration doesn't check for

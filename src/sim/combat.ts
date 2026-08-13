@@ -10,7 +10,7 @@
 //
 // **What is calibrated and must not move:** the melee connect's noise magnitude, and the
 // three body-part pools. The first is from docs/03's emitter table, which is calibrated as a
-// set of ratios; the second is content, in `content/zombies/base.json`. Everything else here
+// set of ratios; the second is content, in `godot/content/zombies/base.json`. Everything else here
 // is a first pass, and is meant to be tuned by playing it.
 
 import { TICK_HZ } from "./kernel/tick";
@@ -212,7 +212,7 @@ export const WEAPONS = {
 } as const satisfies Record<string, WeaponProfile>;
 
 /**
- * A zombie's body, mirroring `content/zombies/base.json`.
+ * A zombie's body, mirroring `godot/content/zombies/base.json`.
  *
  * Mirrored rather than read because content loads *after* `boot` builds the world, exactly as
  * `SHAMBLER_TUNING` mirrors that file's sensory weights. A test pins the two together so they
@@ -226,7 +226,7 @@ export const ZOMBIE_BODY = { head: 25, torso: 60, legs: 40 } as const;
  * The three windows, with the multipliers a wielded weapon carries.
  *
  * Three separate multipliers rather than one adjusted `weight`, because the affixes in
- * content/affixes/ move them independently and folding them together would make that
+ * `godot/content/affixes/` moves them independently and folding them together would make that
  * impossible: Weighted pushes all three the same way, which `weight` alone could express,
  * but Balanced trades swing speed against stagger and Barbed lengthens recovery while
  * leaving stamina alone. A single knob cannot say either of those.

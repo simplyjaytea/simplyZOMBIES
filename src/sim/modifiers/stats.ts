@@ -124,7 +124,7 @@ export function defineCoreStats(registry: StatRegistry): void {
     },
 
     // Items. Every stat below is read by the item, inventory or melee module, and each one
-    // exists because an affix in content/affixes/ moves it (docs/10-items.md#affixes). They
+    // exists because an affix in godot/content/affixes/ moves it (docs/10-items.md#affixes). They
     // are multipliers on a base the item's own content supplies, rather than absolute
     // values, so a Weighted Fire Axe and a Weighted Knife both get heavier relative to what
     // they already were.

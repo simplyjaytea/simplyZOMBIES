@@ -85,7 +85,7 @@ const help = document.getElementById("help") as HTMLElement;
  * Load and validate content, before the world is built.
  *
  * Before, because the attention field's cell geometry comes out of
- * `content/calibration/attention.json` and has to be known at construction. The error is
+ * `godot/content/calibration/attention.json` and has to be known at construction. The error is
  * captured and displayed rather than thrown, so a typo in a JSON file is a message on screen
  * you can fix and watch reload -- not a blank page. It still refuses to publish invalid
  * content, which is the part docs/20:153 actually insists on.

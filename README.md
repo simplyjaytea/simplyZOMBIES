@@ -55,6 +55,12 @@ health bar.
 Milestone 2 is the colony-sized vertical slice: generated survivors, needs and work, the complete
 injury and uncertain-infection loops, ranged combat, building, pacing, death, and succession.
 
+The current playable is also the behavioral reference for an active **Godot 4 rebuild**. Its first
+walking skeleton now reproduces the same seeded movement state in TypeScript and Godot and boots as
+both Windows and web exports. It is still a rebuild candidate, not the public game: the product
+roadmap and feature order are unchanged, and the new implementation must reproduce everything
+already proven before Milestone 2 feature work resumes.
+
 **[Play the latest main build](https://simplyjaytea.github.io/simplyZOMBIES/).** Every push to `main`
 that passes the correctness and performance checks automatically replaces this playable build;
 failed checks are never published.
@@ -69,9 +75,10 @@ npm install && npm run dev     # http://127.0.0.1:5174
 
 A day is four hours at 1×, so press `3` and wait for dark.
 
-**Stack:** TypeScript, HTML canvas, Vite, no engine — with a
-[portability contract](docs/19-architecture.md#the-portability-contract) that keeps a pivot to Godot 4
-cheap.
+**Current playable stack:** TypeScript, HTML canvas, and Vite. The active
+[Godot rebuild](docs/31-godot-rebuild-roadmap.md) uses the existing build as a deterministic reference
+until the replacement passes its cutover gates; the public link above remains the full reference
+game during that work.
 
 ## Working on it?
 
@@ -79,7 +86,7 @@ cheap.
 implementation state, verification, the task backlog, and what to pick up next.
 [docs/23-roadmap.md](docs/23-roadmap.md) owns product scope, milestone order, risks, and playtest
 questions; [docs/30-decisions.md](docs/30-decisions.md) records what each completed chunk made
-structural and is worth reading before changing something that looks arbitrary.
+structural, and [docs/31](docs/31-godot-rebuild-roadmap.md) owns the engine transition.
 
 ## Documentation
 
@@ -137,6 +144,7 @@ and 30 sits with the technical set rather than all of them landing at the end.
 | [27 — Multiplayer](docs/27-multiplayer.md) | Authoritative host, survivor-vs-survivor PVP, voice as an emitter *(post-slice)* |
 | [23 — Roadmap](docs/23-roadmap.md) | The vertical slice, milestones, risks, open questions |
 | [30 — Decision Records](docs/30-decisions.md) | What each chunk of work made structural, oldest first |
+| [31 — Godot Rebuild Roadmap](docs/31-godot-rebuild-roadmap.md) | Transition phases, parity gates, delivery, and cutover |
 
 ## Reading order
 
@@ -146,4 +154,5 @@ mechanic, and what actually gets built.
 
 Building it? Add **[19](docs/19-architecture.md) → [20](docs/20-ecs-and-content.md) →
 [21](docs/21-extensibility.md)**, then **[HANDOFF.md](HANDOFF.md)** for where the code actually is and
-**[30](docs/30-decisions.md)** for why it is shaped that way.
+**[30](docs/30-decisions.md)** for why it is shaped that way. During the engine transition, read
+**[31](docs/31-godot-rebuild-roadmap.md)** before starting implementation.
