@@ -5,7 +5,15 @@ const EntityStore = preload("res://sim/entity_store.gd")
 const ComponentStore = preload("res://sim/component_store.gd")
 const CommandQueue = preload("res://sim/command_queue.gd")
 const RngStream = preload("res://sim/rng_stream.gd")
+const RngRegistry = preload("res://sim/rng_registry.gd")
 const SystemRegistry = preload("res://sim/system_registry.gd")
+const EventBus = preload("res://sim/event_bus.gd")
+const SimStatsRes = preload("res://sim/modifiers/stats.gd")
+const SimModifiersRes = preload("res://sim/modifiers/modifiers.gd")
+const ContentLoader = preload("res://platform/content_loader.gd")
+const AttentionFieldRes = preload("res://sim/field/attention.gd")
+const SimTileMapRes = preload("res://sim/map/tilemap.gd")
+const SimSerialize = preload("res://sim/kernel/serialize.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / TICK_HZ
@@ -19,17 +27,44 @@ var map_width: int
 var map_height: int
 var map_cells: Array[int] = []
 var player: int
+var mapGeneration: int = 0
 
-var entities = EntityStore.new()
-var components = ComponentStore.new()
-var commands = CommandQueue.new()
-var systems = SystemRegistry.new()
+var content: Variant = null
+var entities: Variant = null
+var components: Variant = null
+var commands: Variant = null
+var systems: Variant = null
+var rng: Variant = null
+var stats: Variant = null
+var modifiers: Variant = null
+var field: Variant = null
+var events: Variant = null
 
 
 func _init(fixture: Dictionary) -> void:
+	# Content: fixture may carry inline or world loads canonical tree. Stored on world for SimItems/SimInventory.
+	if fixture.has("content_tree") and fixture["content_tree"] is Dictionary:
+		content = fixture["content_tree"]
+	else:
+		content = ContentLoader.load_tree()
 	seed = int(fixture["seed"])
 	assert(int(fixture["tick_hz"]) == TICK_HZ, "Fixture tick rate differs from the simulation")
+	entities = EntityStore.new()
+	components = ComponentStore.new()
+	commands = CommandQueue.new()
+	systems = SystemRegistry.new()
+	events = EventBus.new()
+	stats = SimStatsRes.new()
+	SimStatsRes.define_core_stats(stats)
+	modifiers = SimModifiersRes.new(stats)
+	rng = RngRegistry.new(seed)
+	# Field: empty until sized to a map. R1 fixtures still need one for snapshot shape.
+	field = AttentionFieldRes.empty_field()
 	_build_map(fixture["map"])
+	# Re-size field to the fixture map so its save has correct cols/rows
+	var mmap: Variant = SimTileMapRes.blank_map(map_width, map_height)
+	# copy tiles into mmap for attention solid calc is optional; use empty solid for R1
+	field = AttentionFieldRes.for_map(mmap)
 	player = entities.spawn()
 	var player_fixture: Dictionary = fixture["player"]
 	assert(player == int(player_fixture["id"]), "Fixture entity identity changed")
@@ -54,9 +89,9 @@ func step() -> void:
 func run_fixture(fixture: Dictionary) -> Dictionary:
 	var by_tick: Dictionary = {}
 	for command_value: Variant in fixture["commands"]:
-		var timed: Dictionary = command_value
-		var at_tick := int(timed["tick"])
-		var command := timed.duplicate(true)
+		var timed: Dictionary = command_value as Dictionary
+		var at_tick: int = int(timed["tick"])
+		var command: Dictionary = timed.duplicate(true)
 		command.erase("tick")
 		if not by_tick.has(at_tick):
 			by_tick[at_tick] = []
@@ -64,22 +99,22 @@ func run_fixture(fixture: Dictionary) -> Dictionary:
 
 	for next_tick in range(1, int(fixture["ticks"]) + 1):
 		for command_value: Variant in by_tick.get(next_tick, []):
-			commands.push(command_value)
+			commands.push(command_value as Dictionary)
 		step()
 
 	return parity_snapshot(fixture)
 
 
 func parity_snapshot(fixture: Dictionary) -> Dictionary:
-	var position: Dictionary = components.get_component(player, "position")
-	var velocity: Dictionary = components.get_component(player, "velocity")
-	var posture: Dictionary = components.get_component(player, "posture")
-	var probe_fixture: Dictionary = fixture["rng_probe"]
-	var stream_name := String(probe_fixture["stream"])
-	var probe = RngStream.new(RngStream.derive_seed(seed, stream_name))
+	var position: Dictionary = components.get_component(player, "position") as Dictionary
+	var velocity: Dictionary = components.get_component(player, "velocity") as Dictionary
+	var posture: Dictionary = components.get_component(player, "posture") as Dictionary
+	var probe_fixture: Dictionary = fixture["rng_probe"] as Dictionary
+	var stream_name: String = String(probe_fixture["stream"])
+	var probe: Variant = RngStream.new(RngStream.derive_seed(seed, stream_name))
 	var samples: Array[float] = []
 	for _index in int(probe_fixture["samples"]):
-		samples.append(probe.next())
+		samples.append(float((probe as RefCounted).call("next")))
 
 	return {
 		"contract": String(fixture["contract"]),
@@ -92,8 +127,40 @@ func parity_snapshot(fixture: Dictionary) -> Dictionary:
 			"stance": posture["current"],
 		},
 		"commands": commands.recorded,
-		"rng": {"stream": stream_name, "samples": samples, "state": probe.save()},
+		"rng": {"stream": stream_name, "samples": samples, "state": (probe as RefCounted).call("save")},
 	}
+
+
+func snapshot() -> Dictionary:
+	return {
+		"version": int(SimSerialize.SAVE_VERSION),
+		"tick": tick,
+		"seed": seed,
+		"rng": (rng as RefCounted).call("save"),
+		"entities": (entities as RefCounted).call("save"),
+		"components": (components as RefCounted).call("save"),
+		"modifiers": (modifiers as RefCounted).call("save"),
+		"field": (field as RefCounted).call("save"),
+	}
+
+
+func restore(snap: Dictionary) -> void:
+	assert(int(snap["version"]) == int(SimSerialize.SAVE_VERSION), "Save version %s != %s" % [snap["version"], SimSerialize.SAVE_VERSION])
+	assert(int(snap["seed"]) == seed, "Save seed %s != world seed %s" % [snap["seed"], seed])
+	tick = int(snap["tick"])
+	(rng as RefCounted).call("restore", snap["rng"])
+	(entities as RefCounted).call("restore", snap["entities"])
+	(components as RefCounted).call("restore", snap["components"])
+	(modifiers as RefCounted).call("restore", snap["modifiers"])
+	(field as RefCounted).call("restore", snap["field"])
+
+
+func serialize() -> String:
+	return SimSerialize.canonicalize(snapshot())
+
+
+func invalidateMap() -> void:
+	mapGeneration += 1
 
 
 func is_blocked_tile(x: int, y: int) -> bool:
@@ -114,28 +181,28 @@ func _build_map(map_fixture: Dictionary) -> void:
 		map_cells[y * map_width] = 1
 		map_cells[y * map_width + map_width - 1] = 1
 	for wall_value: Variant in map_fixture["walls"]:
-		var wall: Dictionary = wall_value
+		var wall: Dictionary = wall_value as Dictionary
 		map_cells[int(wall["y"]) * map_width + int(wall["x"])] = 1
 
 
 func _apply_commands(_world: Variant) -> void:
-	if commands.current.is_empty():
+	if (commands as Variant).current.is_empty():
 		return
-	for entity in components.query(["position", "velocity", "controlled"]):
-		var velocity: Dictionary = components.get_component(entity, "velocity")
-		var posture: Dictionary = components.get_component(entity, "posture")
-		for command in commands.current:
-			match String(command["type"]):
+	for entity in (components as RefCounted).call("query", ["position", "velocity", "controlled"]) as Array:
+		var velocity: Dictionary = components.get_component(int(entity), "velocity") as Dictionary
+		var posture: Dictionary = components.get_component(int(entity), "posture") as Dictionary
+		for command in (commands as Variant).current as Array:
+			match String((command as Dictionary)["type"]):
 				"move":
-					var dx := float(command["dx"])
-					var dy := float(command["dy"])
-					var length := sqrt(dx * dx + dy * dy)
+					var dx: float = float((command as Dictionary)["dx"])
+					var dy: float = float((command as Dictionary)["dy"])
+					var length: float = sqrt(dx * dx + dy * dy)
 					if length == 0.0:
 						velocity["dx"] = 0.0
 						velocity["dy"] = 0.0
 						continue
-					var stance := int(posture["current"])
-					var speed := WALK_SPEED * STANCE_FACTORS[stance]
+					var stance: int = int(posture["current"])
+					var speed: float = WALK_SPEED * STANCE_FACTORS[stance]
 					velocity["dx"] = dx / length * speed
 					velocity["dy"] = dy / length * speed
 				"wait":
@@ -144,22 +211,22 @@ func _apply_commands(_world: Variant) -> void:
 
 
 func _integrate_movement(_world: Variant) -> void:
-	for entity in components.query(["position", "velocity"]):
-		var position: Dictionary = components.get_component(entity, "position")
-		var velocity: Dictionary = components.get_component(entity, "velocity")
-		var dx := float(velocity["dx"])
-		var dy := float(velocity["dy"])
+	for entity in (components as RefCounted).call("query", ["position", "velocity"]) as Array:
+		var position: Dictionary = components.get_component(int(entity), "position") as Dictionary
+		var velocity: Dictionary = components.get_component(int(entity), "velocity") as Dictionary
+		var dx: float = float(velocity["dx"])
+		var dy: float = float(velocity["dy"])
 		if dx == 0.0 and dy == 0.0:
 			continue
 
-		var nx := float(position["x"]) + dx * TICK_SECONDS
+		var nx: float = float(position["x"]) + dx * TICK_SECONDS
 		if not _blocked_at(nx + _sign(dx) * BODY_RADIUS, float(position["y"]) - BODY_RADIUS) \
 				and not _blocked_at(nx + _sign(dx) * BODY_RADIUS, float(position["y"]) + BODY_RADIUS):
 			position["x"] = nx
 		else:
 			velocity["dx"] = 0.0
 
-		var ny := float(position["y"]) + dy * TICK_SECONDS
+		var ny: float = float(position["y"]) + dy * TICK_SECONDS
 		if not _blocked_at(float(position["x"]) - BODY_RADIUS, ny + _sign(dy) * BODY_RADIUS) \
 				and not _blocked_at(float(position["x"]) + BODY_RADIUS, ny + _sign(dy) * BODY_RADIUS):
 			position["y"] = ny
