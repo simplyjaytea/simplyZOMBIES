@@ -2,7 +2,19 @@ import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const root = process.cwd();
+let root = process.cwd();
+if (!existsSync(resolve(root, "godot/project.godot"))) {
+  let probe = root;
+  let found = "";
+  while (probe !== "/" && probe !== ".") {
+    if (existsSync(resolve(probe, "godot/project.godot"))) { found = probe; break; }
+    if (existsSync(resolve(probe, "simplyZOMBIES/godot/project.godot"))) { found = resolve(probe, "simplyZOMBIES"); break; }
+    const parent = resolve(probe, "..");
+    if (parent === probe) break;
+    probe = parent;
+  }
+  if (found) root = found;
+}
 const expectedWindows = process.env.LOCALAPPDATA
   ? resolve(process.env.LOCALAPPDATA, "Programs/Godot-4.7.1/Godot_v4.7.1-stable_win64.exe")
   : "";
@@ -56,6 +68,60 @@ switch (mode) {
       resolve(root, "godot"),
       "--script",
       "res://test/project_smoke.gd",
+    ];
+    break;
+  case "--validate":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_content.gd",
+    ];
+    break;
+  case "--bench":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://bench/bench.gd",
+    ];
+    break;
+  case "--r6-ticks":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_r6_ticks.gd",
+    ];
+    break;
+  case "--r6-coverage":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_r6_coverage.gd",
+    ];
+    break;
+  case "--r6-mutation":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_r6_mutation.gd",
+    ];
+    break;
+  case "--r6-soak":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_r6_soak.gd",
     ];
     break;
   case "--export":

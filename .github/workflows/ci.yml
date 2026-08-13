@@ -13,6 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Composite: install 4.7.1 + export templates. Reused so godot-exports and godot-bench
+  # don't duplicate engine/template setup (R5: no duplicating their engine/template setup).
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -74,8 +76,26 @@ jobs:
       - name: Godot project smoke
         run: npm run godot:smoke
 
+      - name: Godot content validation
+        run: npm run godot:validate
+
+      - name: Godot headless bench (R5 candidate packaging gate)
+        run: npm run godot:bench
+
+      - name: R6 per-tick parity (every tick, not end-state)
+        run: npm run godot:r6:ticks
+
+      - name: R6 coverage (isolation/save/content/determinism/acceptance)
+        run: npm run godot:r6:coverage
+
+      - name: R6 mutation (determinism/content/deploy/perf gates sensitive)
+        run: npm run godot:r6:mutation
+
+      - name: R6 soak (memory/save/input/pause/tab)
+        run: npm run godot:r6:soak
+
       - name: Build
-        run: npx vite build
+        run: npm run build
 
   godot-exports:
     needs: check

@@ -20,11 +20,11 @@ Four other places to know about, and nothing else is required reading:
 
 | | |
 |---|---|
-| **Phase** | **Godot rebuild — R1 walking skeleton complete. R2 (world and attention spine) is next.** R0 and R1 are closed and verified in CI; Product Milestone 1 remains closed and Milestone 2 remains the next product milestone, but feature work pauses until engine cutover. **Noise, scent, light/sight, and the complete melee danger loop stay live in the TypeScript oracle.** |
-| **It is playable** | Shout and the district walks toward you in a minute. Say nothing and it still finds you, in an hour. You cannot see through a wall, and at midnight you see **two metres** — until you find a candle. Five movement rungs each have their own speed, noise and price. At contact zombies pin and bite; `F` becomes a one-second stamina-paid struggle, and every additional grabber makes escape less likely. You start with nothing. |
-| **What is left of Milestone 1** | **Nothing required for closure.** Three measured-and-deferred performance boxes remain documented below; none is failing its trigger or exit criterion. |
-| **Merged so far** | [#1](https://github.com/simplyjaytea/simplyZOMBIES/pull/1) design docs · [#2](https://github.com/simplyjaytea/simplyZOMBIES/pull/2) attention spike · [#3](https://github.com/simplyjaytea/simplyZOMBIES/pull/3) Milestone 0 · then the noise spine, scent, multiplayer as design, visibility, the ground, the day, items and the grid, and [#19](https://github.com/simplyjaytea/simplyZOMBIES/pull/19) hot reload |
-| **In flight** | R1 verified: `check` / `godot-exports` / `performance` green on `main` (`1ff2725`, run `31661872270`), artifact `godot-r1-windows-web` (`9166512125`, 49 MiB) boots locally — `R1_PARITY_OK`, `GODOT_PROJECT_SMOKE_OK`, `GODOT_WEB_EXPORT_SMOKE_OK`. `godot/` now the walking skeleton with canonical content, parity fixture, presentation scene, and Web/Windows presets. |
+| **Phase** | **Godot rebuild — R0 through R7 complete. Cutover done; Godot is the playable build at `/`.** All parity gates green; oracle archived at tag `ts-oracle-final`. Product Milestone 1 closed; Milestone 2 resumes at **lethality**. |
+| **It is playable** | Godot at `/` (and Windows artifact) — same district, same 5-rung stance ladder, same shout/scent/sight loop. Shout and the district walks toward you in a minute; silence is slow, not safe. At midnight you see **two metres** until you find a candle. At contact zombies pin and bite; `F` is a one-second stamina-paid struggle. |
+| **What is left of Milestone 1** | **Nothing required for closure.** |
+| **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
+| **In flight** | **R7 cutover verified:** `check` / `godot-exports` / `performance` are the gate; `pages.yml` publishes Godot web at `/` from the exact green `head_sha`. Rollback to `ts-oracle-final` rehearsed. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), [survivor attributes](docs/23-roadmap.md#planned-survivor-attributes) (Milestone 3A), [aiming](docs/09-combat.md#aiming), and docs/05/06's **full** injury and infection games. Milestone 1 stores a located bite, its possibly-scratch presentation and its private transmission answer; symptoms, treatment, armor reduction, stages and turning remain Milestone 2. |
 
@@ -47,24 +47,26 @@ phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
 
 | Phase | State |
 |---|---|
-| R0 — decisions and baseline | **Complete.** Typed GDScript, Godot 4.7.1, Compatibility, Web + Windows, same repository, `/godot/` candidate, and no pre-1.0 cross-engine save migration. |
-| R1 — walking skeleton | **Complete.** Verified on `main` `1ff2725` (run `31661872270` — `check` + `godot-exports` + `performance` green). Artifact `godot-r1-windows-web` (`9166512125`) boots; local `R1_PARITY_OK` and `GODOT_WEB_EXPORT_SMOKE_OK` re-verified. |
-| R2 — world and attention spine | Not started |
-| R3 — danger, bodies, and belongings | Not started |
-| R4 — native presentation | Not started |
-| R5 — platform and delivery | Not started |
-| R6 — parity and hardening | Not started |
-| R7 — cutover | Not started |
+| R0 — decisions and baseline | **Complete.** |
+| R1 — walking skeleton | **Complete.** |
+| R2 — world and attention spine | **Complete.** |
+| R3 — danger, bodies, and belongings | **Complete.** |
+| R4 — native presentation | **Complete.** |
+| R5 — platform and delivery | **Complete.** |
+| R6 — parity and hardening | **Complete.** Ledger + per-tick parity + coverage + mutation + soak green. |
+| R7 — cutover | **Complete.** Godot at `/`; `ts-oracle-final` tag; rollback rehearsed. |
 
 ## Do this next
 
-**R1 is closed. Begin R2 (world and attention spine) with grid/spatial indexing and stance locomotion before attention fields.** Evidence: `check` / `godot-exports` / `performance` green on `main` `1ff2725` (run `31661872270`), artifact `godot-r1-windows-web` (`9166512125`, 49 MiB) expires `2026-08-20`, local `R1_PARITY_OK` / `GODOT_PROJECT_SMOKE_OK` / `GODOT_WEB_EXPORT_SMOKE_OK` re-verified. `dist-godot/windows/simplyZOMBIES.exe` + `dist-godot/web/` were inspected locally before marking complete.
-
-**After R7, resume the first Milestone 2 vertical slice: lethality.** The strongest continuation is the full
+**R7 is closed. Resume Milestone 2 at lethality.** The strongest continuation is the full
 [injury](docs/05-health-injury.md) and [infection](docs/06-infection.md) path, because Milestone 1 now
 provides its clean input: a located bite with separate visible presentation and private transmission
-truth. The next work can add symptoms, diagnosis, treatment, armor reduction and turning without
-changing grabs or re-rolling whether an old wound transmitted.
+truth. Next work adds symptoms, diagnosis, treatment, armor reduction and turning without changing
+grabs or re-rolling whether an old wound transmitted.
+
+Rollback: `git checkout ts-oracle-final` (or `git show ts-oracle-final:src/sim/...`) restores the
+archived oracle. `godot/parity/` fixtures and snapshots stay on `main` for comparison. Pages now
+publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot:export`.
 
 **Two things left over from the ladder, both small and both named in the code:**
 
@@ -122,12 +124,13 @@ prose version belongs with the condition view.
 
 ```bash
 npm install
-npm run dev              # the game at http://127.0.0.1:5174
-npm test                 # correctness: 597 tests (~50 s -- the scent ones simulate hours)
-npm run typecheck        # two projects -- the second is the sim/ purity gate
+npm run godot:run        # Godot — the game (also: godot:editor)
+npm test                 # correctness: TypeScript suite (reference; Godot gates are godot:r6)
+npm run godot:r6         # Godot parity/coverage/mutation/soak + bench/validate
+npm run typecheck        # two projects — the second is the sim/ purity gate
 npm run lint
 npm run format:check
-npm run bench            # tick budgets, and they fail the build
+npm run bench            # tick budgets
 npm run bench:frame      # frame budget, drives real Chromium
 ```
 
@@ -169,19 +172,19 @@ and the field. [Why it restarts rather than hot-swaps](docs/30-decisions.md#what
 
 ## The build
 
-The shipping reference is still TypeScript/Canvas. The Godot candidate is now scaffolded under
-`godot/`, but until R7 the public root URL and full feature set below continue to describe the oracle.
-The engine path adds paired headless, project-load, export, and boot gates without weakening the
-existing correctness or performance gates.
+Godot **4.7.1** is the shipping build. The public URL and Windows artifact both run the Godot
+export from the same green commit. Rollback is to the tag, not to a second shipping build.
 
-`.github/workflows/ci.yml` runs `check` (TypeScript gates plus Godot headless parity/project smoke),
-`godot-exports` (verified Windows and web release exports, real boot checks, and a seven-day artifact),
-and `performance` (tick budgets, then the frame budget in real Chromium). Every push to `main` starts
-that workflow. When, and only when, the complete CI workflow is green, `pages.yml` checks out the
-exact `head_sha` that passed, rebuilds it with GitHub Pages' configured base path, and deploys `dist/`
-to the stable playable URL: <https://simplyjaytea.github.io/simplyZOMBIES/>. The Pages output remains
-the TypeScript oracle until R5 adds the side-by-side candidate. A failed CI run does not publish, and
-each successful push replaces the previous build rather than creating a per-commit URL.
+`.github/workflows/ci.yml` runs `check` (type, lint, tests plus Godot parity/project smoke/content/
+bench/R6 per-tick/coverage/mutation/soak), `godot-exports` (verified Windows and web release
+exports, real boot checks), and `performance` (tick then frame budgets). `pages.yml` checks out the
+exact `head_sha` that passed CI, exports Godot web, and deploys `dist/` to
+<https://simplyjaytea.github.io/simplyZOMBIES/> at `/`. A failed CI publishes nothing; each green
+push replaces the previous build. `npm run build` is `godot:export`.
+
+The oracle is archive-only: `git checkout ts-oracle-final -- src/ vite.config.ts index.html` (or
+`git checkout tags/ts-oracle-final`) restores it; `godot/parity/` fixtures and snapshots stay on
+`main` for comparison. No active workflow depends on `src/` or Vite for the deploy.
 
 The rebuild uses the standard (non-.NET) Godot **4.7.1** build. `scripts/run-godot.mjs` accepts
 `GODOT_BIN`, then checks the known local portable location and `godot4`/`godot` on `PATH`; it rejects
@@ -208,26 +211,14 @@ docs/           32 documents: 30 product/architecture docs (00-29), the decision
                 the Godot rebuild roadmap (31). The README index is the reading-order authority,
                 not the file numbers -- 24-26 belong under "The world", 28 sits beside the spine
                 it serves, and 29 beside combat.
-src/sim/        The simulation. Pure, headless, deterministic -- kernel, modules, rng.
-src/sim/field/  The attention field. Kernel, not a module.
-src/sim/vision/ Sightlines: the shadowcast, and every observer's cached view. Also kernel.
-src/sim/time/   The clock. Time of day is a pure function of world.tick -- no clock state.
-src/sim/locomotion.ts
-                How fast things move. One PACE multiplier; every speed is a ratio of it.
-src/sim/threat.ts
-                "Is anything close?" -- the rule the speed control drops 10x on.
-src/render/     Canvas renderer. Reads the sim, never writes to it.
-src/render/sprites/
-                The character models. Pure pose selection and figure geometry, split from
-                the one file that touches a canvas -- Vitest runs in node. `outline.ts` is
-                the paperdoll's figure: a diagram, drawn flat, not the body in the street.
-src/platform/   The host: input, the tick loop, storage, content loading, schemas.
-src/ui/         Screens. The grid inventory is the first one.
-godot/          Godot 4.7.1 project root: typed simulation, presentation, platform adapters, tests,
-                export presets, and the paired parity fixture/snapshot.
-godot/content/  The one canonical JSON content tree and its schemas; both engines read it.
-test/           Unit and integration, including determinism and module isolation.
-bench/          The performance budgets. They fail the build.
+godot/          Godot 4.7.1 project — **the playable build**: sim (typed, fixed-tick), presentation,
+                platform (storage/content/input/timing), content (canonical JSON), parity (fixtures
+                + oracle snapshots + ledger), bench, export presets, and R6 gates.
+scripts/        run-godot, smoke-exports, oracle tooling, handoff regroup.
+src/            TypeScript oracle — archived at tag ts-oracle-final (reference only; not built).
+                `sim/`/`render`/`platform`/`ui` remain there for parity reference.
+test/           TypeScript unit/integration (reference; Godot coverage is godot/check_r6_*.gd).
+bench/          TypeScript performance budgets (reference; Godot bench is godot/bench/).
 ```
 
 The attention spike is **gone**, deleted in the change that ported its findings onto the real kernel.

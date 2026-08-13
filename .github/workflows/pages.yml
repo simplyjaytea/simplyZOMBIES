@@ -1,14 +1,9 @@
 # Publishing the playable build.
 #
-# Milestone 1 is the first point at which there is anything worth putting in front of a
-# human, and the open questions that matter now -- is being quiet *tense*, or just slow? --
-# cannot be answered by a test. They need someone playing, which needs a URL.
-#
-# Deliberately separate from ci.yml and gated on it: a build that fails typecheck, lint,
-# tests or budgets must never become the public URL. Nothing here re-runs those checks, so
-# the gate is the only thing standing between a red build and a deploy.
-#
-# One-time manual step: Settings -> Pages -> Source: GitHub Actions.
+# R7 cutover: Godot is the root playable build. Every green push to main
+# publishes the Godot web export at / from the exact passing commit.
+# The TypeScript oracle is archived at tag ts-oracle-final — not published.
+# A failed gate publishes nothing.
 
 name: Pages
 
@@ -17,31 +12,24 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
-  # So a deploy can be re-triggered without an empty commit.
   workflow_dispatch:
 
-# Read the repo, mint an id-token for the deploy, write to Pages. Nothing else.
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Never two deploys at once, and let a newer commit win rather than queue behind an older
-# one. `cancel-in-progress` is safe here because a superseded deploy has nothing to clean up.
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
   build:
-    # workflow_run fires on failure too, so the conclusion has to be checked explicitly --
-    # without this, a red CI run would publish.
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          # Build the commit CI actually passed on, not whatever main points at now.
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - uses: actions/setup-node@v4
@@ -54,13 +42,58 @@ jobs:
       - uses: actions/configure-pages@v5
         id: pages
 
-      # A project page lives under /<repo>/, and Vite bakes the base into asset URLs at
-      # build time. Taking it from configure-pages rather than hardcoding means renaming
-      # the repository cannot silently break every script tag.
-      - name: Build
-        run: npm run build
-        env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: .ci-tools/godot
+          key: godot-4.7.1-${{ runner.os }}-standard
+
+      - name: Install Godot 4.7.1
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .ci-tools/godot
+          cd .ci-tools/godot
+          curl --fail --location --http1.1 --retry 5 --retry-all-errors --retry-delay 2 --output godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
+          echo "4ccdab7a48eeccbe8819a2fc1f6262f8d72065d98601bcb3743fcbd7ebd39f373758a788ee3293a05ec5b2c48538266c437404312e372225cd2df273945a2de9  godot.zip" | sha512sum --check
+          unzip -q godot.zip
+          rm godot.zip
+          chmod +x Godot_v4.7.1-stable_linux.x86_64
+
+      - name: Configure Godot
+        run: echo "GODOT_BIN=$PWD/.ci-tools/godot/Godot_v4.7.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Cache Godot export templates
+        id: template-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates/4.7.1.stable
+          key: godot-4.7.1-${{ runner.os }}-web-release-templates
+
+      - name: Install web export templates
+        if: steps.template-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/4.7.1.stable
+          tmp=$(mktemp /tmp/godot-tp-XXXXXX.tpz)
+          curl --fail --location --retry 5 --output "$tmp" \
+            https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz
+          echo "afcc83d8d3d298038f19c58744a0d660fa75dd4baa33cb55d1011bb2565a2a8c2381728924564cb909e37c205a23f21b521b23bd057993afd43ae4da0b2f9d47  $tmp" | sha512sum --check
+          unzip -q "$tmp" -d /tmp/godot-tp
+          cp /tmp/godot-tp/templates/web_nothreads_release.zip ~/.local/share/godot/export_templates/4.7.1.stable/
+          cp /tmp/godot-tp/templates/web_release.zip ~/.local/share/godot/export_templates/4.7.1.stable/ 2>/dev/null || true
+          cp /tmp/godot-tp/templates/version.txt ~/.local/share/godot/export_templates/4.7.1.stable/ 2>/dev/null || true
+          rm -rf "$tmp" /tmp/godot-tp
+
+      - name: Export Godot web (root)
+        run: npm run godot:export
+
+      - name: Assemble site (Godot at /)
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp -r dist-godot/web/* dist/
+          echo "Godot $(du -sh dist | cut -f1) at / (oracle: ts-oracle-final tag)"
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -8,19 +8,12 @@ change cheaply.*
 
 ## Stack
 
-**Current playable reference: TypeScript, HTML canvas, Vite, no engine.** Chosen because:
+**Godot 4.7.1 (Compatibility, typed GDScript) — the playable build and default development path.**
 
-- The simulation is the hard part, and it's engine-agnostic either way.
-- Browser output means it's runnable and screenshottable during development without a build/install
-  cycle.
-- Vitest runs the sim headlessly, which the [director](17-director.md) and balance work depend on.
-- **The Godot door stayed open** — and the rebuild through it is now planned in
-  [docs/31](31-godot-rebuild-roadmap.md).
-
-This document describes the architecture that earned the pivot and remains authoritative while the
-TypeScript build is the oracle. The rebuild roadmap owns transition order and parity gates. At
-cutover, this document is rewritten around the final Godot project rather than retaining two stacks
-as permanent architecture.
+- The Godot project lives in `godot/` and is the authority for `sim/`, `presentation/`, and `platform/`.
+- Web and Windows Desktop exports share one head (`Godot 4.7.1-stable`, `variant/thread_support=false`).
+- The TypeScript / Canvas / Vite oracle is archived at tag **`ts-oracle-final`** — parity fixtures,
+  oracle snapshots, and history are preserved; production no longer depends on that runtime.
 
 ## One spine, many optional limbs
 
@@ -45,42 +38,49 @@ cases, they're module configuration.
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  platform/     input · audio · storage · timing  │  ← interfaces, swappable
+│  godot/platform/ input · audio · storage · timing │  ← interfaces, swappable
 ├──────────────────────────────────────────────────┤
-│  render/       canvas drawing · camera · UI      │  ← reads sim, never writes
+│  godot/presentation/ scenes · camera · Controls   │  ← reads sim, never writes
 ├──────────────────────────────────────────────────┤
-│  sim/          THE GAME                          │  ← pure TS, no engine types
-│                kernel + modules                  │
+│  godot/sim/      THE GAME                          │  ← typed GDScript, no engine types in state
+│                  kernel + modules                  │
 ├──────────────────────────────────────────────────┤
-│  godot/content/ JSON: items, zombies, affixes…   │  ← data, engine-agnostic
+│  godot/content/  JSON: items, zombies, affixes…   │  ← data, engine-agnostic
 └──────────────────────────────────────────────────┘
 ```
 
-### `sim/` — the hard rules
+`src/` (TypeScript sim/render/platform) is retained only under the oracle tag for reference and
+parity. New work targets `godot/` (see also [31 — Rebuild](31-godot-rebuild-roadmap.md) for transition
+history — this document is the final architecture, not a transition diary).
 
-These are enforced by lint rules and CI, not by good intentions:
+### `godot/sim/` — the hard rules
+
+These are enforced by review and CI, not by good intentions:
 
 | Rule | Why |
 |---|---|
-| **No DOM, no canvas, no browser globals** | Portability and headless testing |
-| **No `Math.random`** — seeded RNG only | Determinism |
-| **No `Date.now()`** — tick counter only | Determinism |
-| **No engine or renderer types cross the boundary** | The expensive rule to retrofit |
-| **All state plain and serializable** | Saves, replays, and the port |
-| **Fixed timestep** | Determinism |
+| **No Nodes, no scene-tree behavior, no physics callbacks in state** | Determinism and parity |
+| **No `randf` / `randi` — seeded `RngStream` only** | Determinism |
+| **No `Time.get_ticks_*` / `OS.get_*` in simulation logic** — tick counter only | Determinism |
+| **No engine type crosses the state boundary** (`Vector2`, `RID`, `Resource`, `Callable`, `Node`) | Headless and cross-target replay |
+| **All state plain and serializable** (`Dictionary`/`Array` scalars) | Saves, replays, parity |
+| **Fixed timestep** (`tick_hz = 20`) | Determinism |
 
-`sim/` is most of the game by volume and complexity, and it can be run, tested, and reasoned about
-with no browser present.
+`godot/sim/` is most of the game by volume and complexity, and it can be run, tested, and reasoned about
+with no window present.
 
-### `render/`
+### `godot/presentation/`
+
 Reads simulation state and draws it. **Never writes to the simulation.** Player input goes through
 `platform/` into a command queue that the sim consumes on its own tick — so input is part of the
 deterministic record.
 
 ### `godot/content/`
+
 JSON with stable string IDs. Fully engine-agnostic; see [ECS & content](20-ecs-and-content.md).
 
-### `platform/`
+### `godot/platform/`
+
 Thin adapters behind interfaces: input, audio, persistence, timing. The only layer that knows what
 platform it's on.
 
@@ -118,15 +118,15 @@ Fixed timestep, seeded RNG per subsystem, plain state, and an input command log.
 
 ## The portability contract
 
-The pivot to Godot 4 is approved. The contract below now governs a controlled rebuild rather than a
-hypothetical escape hatch; [docs/31](31-godot-rebuild-roadmap.md) owns its execution.
+Godot is now the host; the contract below is retained as the state boundary that made parity
+checkable:
 
 | Layer | On a pivot |
 |---|---|
-| `godot/content/` | **Transferred verbatim.** It is the one canonical tree both engines read during overlap. |
-| `sim/` | Clean typed-GDScript reimplementation against deterministic fixtures and behavior tests |
-| `render/` | Rewritten — but it would be rewritten anyway; that's the point of switching engines |
-| `platform/` | Rewritten — small, and it's an interface implementation |
+| `godot/content/` | **Transferred verbatim.** The one canonical tree both engines read during overlap. |
+| `sim/` | Typed-GDScript reimplementation against deterministic fixtures and behavior tests |
+| `render/` / `presentation/` | Engine-owned presentation; sim never owns a renderer |
+| `platform/` | Small interface implementations |
 
 **The one rule that makes this true: no engine type ever crosses into `sim/`.** No `Vector2` from a
 graphics library, no node references, no framework base classes. Vectors and shapes are plain data
@@ -134,8 +134,7 @@ structures owned by `sim/`.
 
 This rule is cheap to hold from day one and expensive to retrofit later, which is exactly the kind of
 decision that belongs in an architecture document written before any code exists. It is also the same
-rule that enables headless CI simulation — so it pays for itself immediately, not just on a
-hypothetical port.
+rule that enables headless CI simulation — so it pays for itself immediately.
 
 ## Save model
 
@@ -151,53 +150,55 @@ The [hardcore contract](01-hardcore-contract.md#6-death-is-permanent-the-save-is
 single-slot, continuously-written saves with no save-scumming — so saving is frequent and must be fast
 and atomic. Plain serializable state makes both achievable.
 
+Persistence adapters live in `godot/platform/storage.gd` (desktop atomic temp+flush+rename; web
+double-buffer). No `Resource` or engine type crosses into save state.
+
 ## Testing strategy
 
 | Level | What |
 |---|---|
 | **Unit** | Pure functions: modifier resolution, affix rolling, attention propagation, pathing |
 | **System** | One module in isolation against a synthetic world |
-| **Integration** | Boot the sim headless, run N days, assert invariants (nobody starves in a stocked colony; the field decays; nothing NaNs) |
+| **Integration** | Boot the sim headless, run N days, assert invariants |
 | **Module isolation** | Boot with each module disabled; assert no crash |
 | **Determinism** | Same seed and inputs twice → byte-identical state |
+| **Parity** | Shared seed + command log through reference → canonical snapshots each tick (ledger: `godot/parity/ledger.md`) |
+| **Gates** | Content, determinism, deploy, perf — mutation-tested |
+| **Soak** | Memory, save corruption, input loss, pause/resume, tab focus (5k ticks) |
 | **Balance** | Thousands of headless runs; assert distributions are in range |
 
-The balance tier is the unusual one and the most valuable. It's only possible because of the `sim/`
-purity rules.
+The parity ledger is the cutover gate: every prior test file maps to an exact Godot test, a paired
+fixture, a replacement, or an explicit obsolete rationale — "not ported" is not a category.
 
 ## Repository layout
 
 ```
 simplyZOMBIES/
 ├── docs/              this document set
-├── src/
-│   ├── sim/
-│   │   ├── kernel/    tick · entities · events · attention field
-│   │   ├── modules/   needs · health · infection · combat · weather · director · …
-│   │   └── rng/       seeded generators
-│   ├── render/
-│   ├── platform/
-│   └── ui/
-├── godot/             Godot 4.7.1 project root
+├── godot/             Godot 4.7.1 project — the playable build
 │   ├── sim/           typed, fixed-tick authoritative state and systems
 │   ├── presentation/  scenes that read state and submit commands
-│   ├── platform/      content now; persistence, input, and timing adapters as they port
-│   ├── content/       the canonical JSON + schemas, read by both engines during transition
-│   ├── parity/        shared seed/command fixtures and TypeScript oracle snapshots
-│   └── test/          headless parity and project-load gates
-└── test/
-    ├── unit/
-    ├── integration/
-    └── balance/       headless multi-run harness
+│   ├── platform/      content, persistence, input, and timing adapters
+│   ├── content/       the canonical JSON + schemas
+│   ├── parity/        shared seed/command fixtures and oracle snapshots + ledger
+│   ├── bench/         headless tick budgets (Web/Windows multi-target; see below)
+│   ├── export_presets.cfg  Web + Windows Desktop (thread_support=false)
+│   └── ...            check_r6_*.gd gates
+├── scripts/           run-godot, export smoke, oracle tooling
+├── src/               TypeScript oracle — archived at tag ts-oracle-final (not built by default)
+├── test/              TypeScript test suite (reference; Godot suite is under godot/)
+└── bench/             TypeScript bench configs (reference; headless Godot bench is godot/bench/)
 ```
 
 ## Cut list
 
-- **A third-party ECS or framework inside the simulation.** Godot will host and present the game, but
+- **A third-party ECS or framework inside the simulation.** Godot hosts and presents the game, but
   the [ECS we need](20-ecs-and-content.md) remains small and bespoke; Nodes, physics, or an add-on
   becoming authoritative simulation state would break the determinism boundary.
 - **Save migrations.** Deferred to 1.0 by explicit decision.
 - **Hot module reloading of game logic.** Content hot-reload is worth having; code hot-reload isn't.
+- **TypeScript runtime as a shipping build.** Archived as oracle; rollback is to the tag, not to a
+  second production implementation.
 
 ---
 
