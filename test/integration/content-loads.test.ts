@@ -33,11 +33,12 @@ function loadRealContent(): ContentRegistry {
 describe("the shipped content", () => {
   it("loads and validates", () => {
     const registry = loadRealContent();
-    expect(registry.typeIds).toEqual(["affix", "calibration", "item", "zombie"]);
+    expect(registry.typeIds).toEqual(["affix", "calibration", "item", "survivor", "zombie"]);
     expect(registry.count("zombie")).toBeGreaterThan(0);
     expect(registry.count("affix")).toBeGreaterThan(0);
     expect(registry.count("item")).toBeGreaterThan(0);
     expect(registry.count("calibration")).toBeGreaterThan(0);
+    expect(registry.count("survivor")).toBeGreaterThan(0);
   });
 
   it("resolves the screamer against its base, per docs/20", () => {
@@ -96,6 +97,14 @@ describe("the shipped content", () => {
     expect(reachOf("item.candle.wax")).toBe(LIGHT_TABLE.candle);
     expect(reachOf("item.lamp.electric")).toBe(LIGHT_TABLE.lamp);
     expect(reachOf("item.floodlight.rigged")).toBe(LIGHT_TABLE.floodlight);
+  });
+
+  it("loads Mara Okoro as a unique survivor with a 15-point aptitude budget", () => {
+    const mara = loadRealContent().getOrThrow("survivor", "survivor.unique.mara");
+    const apt = mara["aptitudes"] as { str: number; dex: number; con: number };
+    expect(apt).toEqual({ str: 3, dex: 5, con: 7 });
+    expect(apt.str + apt.dex + apt.con).toBe(15);
+    expect(mara["name"]).toBe("Mara Okoro");
   });
 
   it("gives the floodlight no equip slot, because carrying it would blow the budget", () => {

@@ -48,6 +48,8 @@ static func define_core_stats(reg: SimStats) -> void:
 		{"id": "carry_capacity", "base": 25.0, "min": 1.0},
 		{"id": "stamina_recovery", "base": 1.0, "min": 0.0},
 		{"id": "infection_progression", "base": 1.0, "min": 0.75, "max": 1.25},
+		{"id": "grab_escape", "base": 1.0, "min": 0.1},
+		{"id": "damage_taken", "base": 1.0, "min": 0.80, "max": 1.15},
 	]
 	for d in core:
 		reg.define(d)
