@@ -220,6 +220,8 @@ func _apply_commands(_world: Variant) -> void:
 						continue
 					var stance: int = int(posture["current"])
 					var speed: float = WALK_SPEED * STANCE_FACTORS[stance]
+					if modifiers != null and (modifiers as Object).has_method("resolve"):
+						speed *= float(modifiers.call("resolve", "move_speed", int(entity)))
 					velocity["dx"] = dx / length * speed
 					velocity["dy"] = dy / length * speed
 				"wait":

@@ -15,6 +15,8 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimSurvivors = preload("res://sim/modules/survivors.gd")
+const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const SimSave = preload("res://sim/save.gd")
 const PlatformStorage = preload("res://platform/storage.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
@@ -104,6 +106,8 @@ func _ready() -> void:
 		if map != null:
 			world.map_width = int(map.w)
 			world.map_height = int(map.h)
+	if world != null:
+		SimSurvivors.boot_playable(world)
 	_resize_camera()
 	_ensure_ui()
 	queue_redraw()
@@ -321,7 +325,14 @@ func _update_hud() -> void:
 		_fingerprint_at = now
 	var diag2: Dictionary = SimInfection.diagnosis_of(world, world.player, 0) as Dictionary
 	var diag_label: String = String(diag2.get("label", "clear"))
-	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  fp %s  dx:%s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), _fingerprint, diag_label]
+	var apt: Dictionary = SimAptitudes.of(world, world.player)
+	var companion: String = ""
+	for ent in world.components.query(["identity", "position"]):
+		var ident: Variant = world.components.get_component(int(ent), "identity")
+		if ident is Dictionary:
+			companion = String((ident as Dictionary).get("name", ""))
+			break
+	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  fp %s  dx:%s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, _fingerprint, diag_label]
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
 	_hud.text = base
@@ -390,12 +401,13 @@ func _draw_entities() -> void:
 		var sc: Dictionary = IsoProjection.world_to_screen(camera, x, y)
 		var depth: float = IsoProjection.depth_of(x, y)
 		var is_player: bool = int(ent) == int(world.player)
-		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "id": int(ent)})
+		var is_unique: bool = world.components.has_component(int(ent), "identity")
+		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "unique": is_unique, "id": int(ent)})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
-		var col: Color = Palette.COLOURS["player"] if bool(it["player"]) else Palette.COLOURS["wanderer"]
-		var r: float = 7.0 if bool(it["player"]) else 5.0
+		var col: Color = Palette.COLOURS["player"] if bool(it["player"]) else (Palette.COLOURS["survivor"] if bool(it.get("unique", false)) else Palette.COLOURS["wanderer"])
+		var r: float = 7.0 if bool(it["player"]) else (6.0 if bool(it.get("unique", false)) else 5.0)
 		# contact shadow
 		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
 		draw_circle(Vector2(sx, sy), r, col)

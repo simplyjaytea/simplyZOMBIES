@@ -76,7 +76,10 @@ static func register_module(world: Variant) -> void:
 		var before: float = float(b[named_part])
 		if before <= 0.0:
 			return null
-		b[named_part] = maxf(0.0, before - amount)
+		var taken: float = amount
+		if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+			taken *= float(world.modifiers.call("resolve", "damage_taken", target))
+		b[named_part] = maxf(0.0, before - taken)
 		if named_part == "head" and int(b["head"]) <= 0:
 			killed.append(target)
 			world.events.publish({"type": "entity.killed", "entity": target, "killer": source})

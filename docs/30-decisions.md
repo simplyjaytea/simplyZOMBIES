@@ -680,6 +680,21 @@ about.
   Godot headless run compares against it with an explicit float tolerance. Windows and web artifacts
   must build and boot; drawing a similar grid is not enough.
 
+## What the stats MVP made structural
+
+- **Aptitudes are a component plus modifier sources, never body-max edits.** STR/CON/DEX live on
+  `aptitudes` and write `attr.str` / `attr.dex` / `attr.con` into `SimModifiers`. Adding INT/CHA/WIS
+  later is a new stat def plus a missing-key default of 5 — old saves do not need a rewrite.
+- **`infection_progression` is a rate.** High CON *lowers* the rate so `duration = base / rate`
+  lengthens the timeline (docs/06, docs/23). The wayfinder table's `+0.05` sign would have shortened
+  it; the lengthens prose wins.
+- **Grab escape keeps the shipped 2/3 baseline.** `grab_escape` base is 1.0 (oracle
+  `BASE_ESCAPE_POWER`), STR adds ±0.10/pt. Ticket 02's 0.50 was the shambler term, not the numerator.
+- **DEX cannot be stealth.** Footstep magnitude scales by the same `move_speed` factor as locomotion,
+  so noise-per-metre stays put when someone is simply faster.
+- **Uniques are content.** `SimSurvivors.spawn_unique` walks `survivors/uniques/`; another JSON is
+  another person. The generator remains unbuilt.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

@@ -165,7 +165,11 @@ static func _contact_target(survivors: Array, pos: Dictionary, radius_metres: fl
 
 static func _gather_survivors(world: Variant) -> Array:
 	var out: Array = []
-	for entity in world.components.query(["position", "controlled"]):
+	for entity in world.components.query(["position"]):
+		var is_survivor: bool = world.components.has_component(int(entity), "controlled") \
+			or world.components.has_component(int(entity), "identity")
+		if not is_survivor:
+			continue
 		var at: Variant = world.components.get_component(int(entity), "position")
 		if at == null:
 			continue
