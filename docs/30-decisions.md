@@ -695,6 +695,20 @@ about.
 - **Uniques are content.** `SimSurvivors.spawn_unique` walks `survivors/uniques/`; another JSON is
   another person. The generator remains unbuilt.
 
+## What the alpha roster/district/ranged slice made structural
+
+- **Playable boot is `SimBoot.playable()`, not the R1 fixture.** `main.gd` generates the 256 m
+  district, blits `map.district.alpha`, and registers kernel field/vision. Parity scripts still
+  construct `World.new(fixture)` with no extra modules. Pass `--parity` to force the walking
+  skeleton in the main scene.
+- **Overlay is blit, not a generator fork.** `SimTileMap.apply_patch` copies rect arrays only.
+  `r1-walking-skeleton` stays byte-identical because it never calls `apply_patch`.
+- **`noise.emitted` reaches the field through kernel subscribers**, not the attention module.
+  Screamer 300 and pistol 180 share that path. Tests that never `attach_kernel` will see the
+  event and a silent field.
+- **Exhausted swings degrade.** `REFUSE_EXHAUSTED_SWINGS` keeps the old refuse path for a
+  `crowded-and-swinging` A/B; default is off.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

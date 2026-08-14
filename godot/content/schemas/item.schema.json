@@ -103,6 +103,21 @@
       "type": "object",
       "description": "Coverage per body part 0..1. Read by infection transmission (docs/10-items.md#129) — max coverage applies, absent is 0.",
       "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "ranged": {
+      "type": "object",
+      "description": "Optional ranged block. Bow/pistol alpha kit; all fields optional for backward compatibility.",
+      "additionalProperties": false,
+      "properties": {
+        "damage": { "type": "number", "exclusiveMinimum": 0 },
+        "noise": { "type": "number", "minimum": 0 },
+        "flash": { "type": "number", "minimum": 0 },
+        "ammo": { "type": "string" },
+        "recoverable": { "type": "number", "minimum": 0, "maximum": 1 },
+        "magSize": { "type": "integer", "minimum": 1 },
+        "reloadTicks": { "type": "integer", "minimum": 1 },
+        "rangeMetres": { "type": "number", "exclusiveMinimum": 0 }
+      }
     }
   },
   "$defs": {

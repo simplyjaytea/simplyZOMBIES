@@ -284,3 +284,62 @@ static func _dress_terrain(map: Variant, seed: int) -> void:
 				grass.append(idx)
 	for idx in grass:
 		map.surfaces[idx] = SURFACE_DIRT
+
+
+static func find_open_tile(map: Variant, start_x: int, start_y: int) -> Dictionary:
+	var sx: int = clampi(start_x, 1, map.w - 2)
+	var sy: int = clampi(start_y, 1, map.h - 2)
+	if not is_solid(map, sx, sy):
+		return {"x": sx, "y": sy}
+	for radius in range(1, maxi(map.w, map.h)):
+		for dy in range(-radius, radius + 1):
+			for dx in range(-radius, radius + 1):
+				if maxi(absi(dx), absi(dy)) != radius:
+					continue
+				var tx: int = sx + dx
+				var ty: int = sy + dy
+				if tx <= 0 or ty <= 0 or tx >= map.w - 1 or ty >= map.h - 1:
+					continue
+				if not is_solid(map, tx, ty):
+					return {"x": tx, "y": ty}
+	return {"x": sx, "y": sy}
+
+
+static func apply_patch(map: Variant, patch: Dictionary) -> void:
+	# Deterministic blit. No RNG. Diff vs generate_district is limited to patch.rect.
+	var rect: Dictionary = patch.get("rect", {}) as Dictionary
+	var rx: int = int(rect.get("x", 0))
+	var ry: int = int(rect.get("y", 0))
+	var rw: int = int(rect.get("w", 0))
+	var rh: int = int(rect.get("h", 0))
+	var tiles: Array = patch.get("tiles", []) as Array
+	var surfaces: Array = patch.get("surfaces", []) as Array
+	var indoors_arr: Array = patch.get("indoors", []) as Array
+	for j in rh:
+		for i in rw:
+			var tx: int = rx + i
+			var ty: int = ry + j
+			if tx < 0 or ty < 0 or tx >= map.w or ty >= map.h:
+				continue
+			var li: int = j * rw + i
+			var dst: int = ty * map.w + tx
+			if li < tiles.size():
+				map.tiles[dst] = int(tiles[li])
+			if li < surfaces.size():
+				map.surfaces[dst] = int(surfaces[li])
+			if li < indoors_arr.size():
+				map.indoors[dst] = int(indoors_arr[li])
+
+
+static func load_patch_from_content(content: Variant, id: String = "map.district.alpha") -> Variant:
+	if content == null:
+		return null
+	if content is Dictionary:
+		for v in (content as Dictionary).values():
+			if v is Dictionary and String((v as Dictionary).get("id", "")) == id:
+				return v
+			if v is Array:
+				for entry in v as Array:
+					if entry is Dictionary and String((entry as Dictionary).get("id", "")) == id:
+						return entry
+	return null

@@ -15,6 +15,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimBoot = preload("res://sim/boot.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const SimSave = preload("res://sim/save.gd")
@@ -79,35 +80,36 @@ const MOVE_KEYS: Dictionary = {
 
 func _ready() -> void:
 	content = ContentLoader.load_tree()
-	_visibility = SimVisibility.new()
-	_light = SimLight.new()
-	# R1 parity fixture if present, else boot a district for smoke/standalone
-	var fixture_path: String = "res://parity/r1-walking-skeleton.json"
-	var f := FileAccess.open(fixture_path, FileAccess.READ)
-	if f != null:
-		fixture = JSON.parse_string(f.get_as_text())
-		world = WorldRes.new(fixture)
-		for cmd_v in fixture.get("commands", []):
-			var timed: Dictionary = cmd_v as Dictionary
-			var at_tick: int = int(timed.get("tick", 0))
-			var cmd: Dictionary = timed.duplicate(true)
-			cmd.erase("tick")
-			if not commands_by_tick.has(at_tick):
-				commands_by_tick[at_tick] = []
-			(commands_by_tick[at_tick] as Array).append(cmd)
+	var parity: bool = false
+	for arg in OS.get_cmdline_user_args():
+		if String(arg) == "--parity":
+			parity = true
+			break
+	if parity:
+		_visibility = SimVisibility.new()
+		_light = SimLight.new()
+		var fixture_path: String = "res://parity/r1-walking-skeleton.json"
+		var f := FileAccess.open(fixture_path, FileAccess.READ)
+		if f != null:
+			fixture = JSON.parse_string(f.get_as_text())
+			world = WorldRes.new(fixture)
+			for cmd_v in fixture.get("commands", []):
+				var timed: Dictionary = cmd_v as Dictionary
+				var at_tick: int = int(timed.get("tick", 0))
+				var cmd: Dictionary = timed.duplicate(true)
+				cmd.erase("tick")
+				if not commands_by_tick.has(at_tick):
+					commands_by_tick[at_tick] = []
+				(commands_by_tick[at_tick] as Array).append(cmd)
+		if world != null:
+			SimSurvivors.boot_playable(world)
 	else:
-		# standalone boot: small district if tilemap api present, else fallback to fixture map
-		var map: Variant = SimTileMap.generate_district(20260805, 64)
-		fixture = {"seed": 20260805, "tick_hz": TICK_HZ, "ticks": 0, "map": {"width": 64, "height": 64, "walls": []}, "player": {"id": 1, "x": 5.0, "y": 5.0, "stance": 2}, "commands": [], "rng_probe": {"stream": "test", "samples": 0}, "contract": "smoke", "content_tree": content}
-		if map != null:
-			fixture["map"]["width"] = int(map.w)
-			fixture["map"]["height"] = int(map.h)
-		world = WorldRes.new(fixture)
-		if map != null:
-			world.map_width = int(map.w)
-			world.map_height = int(map.h)
-	if world != null:
-		SimSurvivors.boot_playable(world)
+		var boot: Dictionary = SimBoot.playable()
+		world = boot["world"]
+		_map = boot["map"]
+		_visibility = world.vision
+		_light = world.light
+		fixture = {"seed": int(world.seed), "tick_hz": TICK_HZ}
 	_resize_camera()
 	_ensure_ui()
 	queue_redraw()
@@ -169,13 +171,17 @@ func _input(event: InputEvent) -> void:
 				inventory_open = not inventory_open
 				if _inventory_panel != null: _inventory_panel.visible = inventory_open
 				if _hud != null: _hud.visible = not inventory_open
-			KEY_R:
-				if _inventory_panel != null and _inventory_panel.has_method("rotate"):
-					_inventory_panel.call("rotate")
 			KEY_SPACE:
 				if world != null: world.commands.push({"type": "shout"})
 			KEY_F:
 				if world != null: world.commands.push({"type": "swing"})
+			KEY_G:
+				if world != null: world.commands.push({"type": "fire"})
+			KEY_R:
+				if inventory_open and _inventory_panel != null and _inventory_panel.has_method("rotate"):
+					_inventory_panel.call("rotate")
+				elif world != null:
+					world.commands.push({"type": "reload"})
 			KEY_E:
 				if world != null: world.commands.push({"type": "item.pickUp"})
 			KEY_1: speed = 1
@@ -195,6 +201,9 @@ func _input(event: InputEvent) -> void:
 		var ke2: InputEventKey = event as InputEventKey
 		if MOVE_KEYS.has(ke2.keycode): _held.erase(ke2.keycode)
 		if ke2.keycode == KEY_SHIFT: _sprinting = false
+	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		if world != null and not inventory_open:
+			world.commands.push({"type": "fire"})
 
 func _push_stance(target: int) -> void:
 	if world == null: return
@@ -332,7 +341,10 @@ func _update_hud() -> void:
 		if ident is Dictionary:
 			companion = String((ident as Dictionary).get("name", ""))
 			break
-	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  fp %s  dx:%s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, _fingerprint, diag_label]
+	var zeds: int = 0
+	for _z in world.components.query(["shambler"]):
+		zeds += 1
+	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  zed %d  F swing G fire  fp %s  dx:%s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, zeds, _fingerprint, diag_label]
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
 	_hud.text = base
@@ -370,8 +382,17 @@ func _draw_district() -> void:
 		# surface color: use floor vs wall; indoors check if available
 		var blocked: bool = bool(t["blocked"])
 		var col: Color = Palette.COLOURS["wall"] if blocked else Palette.COLOURS["floor"]
-		if not blocked and world.has_method("map_surfaces"):
-			pass # ponytail: surface tint when map carries surfaces
+		if world.tilemap != null:
+			var tile: int = int(SimTileMap.tile_at(world.tilemap, tx, ty))
+			match tile:
+				SimTileMap.Tile.Window:
+					col = Palette.COLOURS["window"]
+				SimTileMap.Tile.Screen:
+					col = Palette.COLOURS["screen"]
+				SimTileMap.Tile.Low:
+					col = Palette.COLOURS["low"]
+				SimTileMap.Tile.Tree:
+					col = Palette.COLOURS["tree"]
 		# diamond
 		var pts: PackedVector2Array = PackedVector2Array([
 			Vector2(sx, sy - half_h), Vector2(sx + half_w, sy),
@@ -402,11 +423,25 @@ func _draw_entities() -> void:
 		var depth: float = IsoProjection.depth_of(x, y)
 		var is_player: bool = int(ent) == int(world.player)
 		var is_unique: bool = world.components.has_component(int(ent), "identity")
-		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "unique": is_unique, "id": int(ent)})
+		var is_zed: bool = world.components.has_component(int(ent), "shambler")
+		if world.components.has_component(int(ent), "itemBase"):
+			continue
+		if not is_player and not is_unique and not is_zed:
+			continue
+		var ztype: String = ""
+		if is_zed:
+			var zt: Variant = world.components.get_component(int(ent), "zombieType")
+			if zt is Dictionary:
+				ztype = String((zt as Dictionary).get("id", ""))
+		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "unique": is_unique, "zed": is_zed, "ztype": ztype, "id": int(ent)})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
 		var col: Color = Palette.COLOURS["player"] if bool(it["player"]) else (Palette.COLOURS["survivor"] if bool(it.get("unique", false)) else Palette.COLOURS["wanderer"])
+		if String(it.get("ztype", "")) == "zombie.screamer":
+			col = Color(0.85, 0.35, 0.28)
+		elif String(it.get("ztype", "")) == "zombie.bloater":
+			col = Color(0.42, 0.55, 0.28)
 		var r: float = 7.0 if bool(it["player"]) else (6.0 if bool(it.get("unique", false)) else 5.0)
 		# contact shadow
 		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))

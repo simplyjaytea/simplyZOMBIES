@@ -72,6 +72,7 @@ export const CONTENT_TYPES: readonly ContentTypeDef[] = [
   { id: "item", directory: "items" },
   { id: "calibration", directory: "calibration" },
   { id: "survivor", directory: "survivors" },
+  { id: "map", directory: "maps" },
 ];
 
 /**
@@ -89,4 +90,5 @@ export const BEHAVIOR_TAGS: readonly string[] = [
   "grab",
   "grab_low",
   "alarm_on_sight",
+  "blooms_on_death",
 ];

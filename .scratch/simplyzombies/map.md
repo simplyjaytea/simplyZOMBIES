@@ -27,8 +27,11 @@ Locked planning spec for **simplyZOMBIES Early Alpha**: a solo-playable Godot 4.
 Planning for 01–07 is locked. Execution order:
 
 1. **Done:** stats MVP + Mara spawn (`godot:m2:stats`).
-2. **Next:** screamer `alarm_on_sight` + bloater `blooms_on_death` (ticket 01 content is drafted; behaviors not yet simulated).
-3. Then civic-annex overlay (07), then bow/pistol ranged loop (03–04).
+2. **Done:** screamer `alarm_on_sight` + bloater `blooms_on_death` + 80/12/8 mix (`godot:m2:roster`).
+3. **Done:** civic-annex overlay (`godot:m2:district`).
+4. **Done:** bow/pistol fire loop + exhausted swings degrade (`godot:m2:ranged`).
+
+Next unspecified work is in **Not yet specified** (fortification slice, director pressure, save/load for new systems, tuning harness, audio).
 
 ## Not yet specified
 

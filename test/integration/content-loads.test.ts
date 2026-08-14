@@ -33,7 +33,7 @@ function loadRealContent(): ContentRegistry {
 describe("the shipped content", () => {
   it("loads and validates", () => {
     const registry = loadRealContent();
-    expect(registry.typeIds).toEqual(["affix", "calibration", "item", "survivor", "zombie"]);
+    expect(registry.typeIds).toEqual(["affix", "calibration", "item", "map", "survivor", "zombie"]);
     expect(registry.count("zombie")).toBeGreaterThan(0);
     expect(registry.count("affix")).toBeGreaterThan(0);
     expect(registry.count("item")).toBeGreaterThan(0);
@@ -105,6 +105,21 @@ describe("the shipped content", () => {
     expect(apt).toEqual({ str: 3, dex: 5, con: 7 });
     expect(apt.str + apt.dex + apt.con).toBe(15);
     expect(mara["name"]).toBe("Mara Okoro");
+  });
+
+  it("ships the alpha roster, kit, and district overlay", () => {
+    const registry = loadRealContent();
+    const bloater = registry.getOrThrow("zombie", "zombie.bloater");
+    expect(bloater["behaviors"]).toEqual(["shamble", "pursue", "blooms_on_death"]);
+    expect(bloater["locomotion"]).toMatchObject({ speed: 0.7 });
+    const bow = registry.getOrThrow("item", "item.bow.hunting");
+    expect(bow["ranged"]).toMatchObject({ noise: 4, ammo: "item.ammo.arrow" });
+    const pistol = registry.getOrThrow("item", "item.pistol.service");
+    expect(pistol["equipSlot"]).toBe("secondary");
+    expect(pistol["ranged"]).toMatchObject({ noise: 180, magSize: 8 });
+    const patch = registry.getOrThrow("map", "map.district.alpha");
+    const rect = patch["rect"] as { w: number; h: number };
+    expect((patch["tiles"] as number[]).length).toBe(rect.w * rect.h);
   });
 
   it("gives the floodlight no equip slot, because carrying it would blow the budget", () => {

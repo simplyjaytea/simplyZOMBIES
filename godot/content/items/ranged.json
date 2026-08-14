@@ -1,0 +1,53 @@
+[
+  {
+    "id": "item.bow.hunting",
+    "name": "Hunting Bow",
+    "class": "weapon.ranged",
+    "size": { "w": 1, "h": 4 },
+    "massKg": 1.1,
+    "equipSlot": "primary",
+    "slots": ["sight", "limb", "string"],
+    "ranged": {
+      "damage": 12,
+      "noise": 4,
+      "ammo": "item.ammo.arrow",
+      "recoverable": 0.7,
+      "reloadTicks": 24,
+      "rangeMetres": 40
+    }
+  },
+  {
+    "id": "item.pistol.service",
+    "name": "Service Pistol",
+    "class": "weapon.ranged",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.9,
+    "equipSlot": "secondary",
+    "slots": ["barrel", "magazine"],
+    "ranged": {
+      "damage": 18,
+      "noise": 180,
+      "flash": 60,
+      "ammo": "item.ammo.9mm",
+      "magSize": 8,
+      "reloadTicks": 40,
+      "rangeMetres": 25
+    }
+  },
+  {
+    "id": "item.ammo.arrow",
+    "name": "Arrow",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.03,
+    "stack": 20
+  },
+  {
+    "id": "item.ammo.9mm",
+    "name": "9mm Round",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.012,
+    "stack": 20
+  }
+]
