@@ -3,10 +3,14 @@ extends RefCounted
 
 const SimCombat = preload("res://sim/combat.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimItemsRes = preload("res://sim/modules/items.gd")
 
 enum SwingState { Idle = 0, WindUp = 1, Recover = 2 }
 
 const MELEE_REACH_FUDGE: float = 0.35
+# ponytail: keep refuse path behind this flag until bench crowded-and-swinging is green; upgrade is remove the flag.
+const REFUSE_EXHAUSTED_SWINGS: bool = false
+const EXHAUSTION_SOURCE: String = "exhaustion.stamina"
 
 
 static func make_melee_armed(world: Variant, entity: int, weapon: Dictionary = {}) -> void:
@@ -66,9 +70,13 @@ static func register_module(world: Variant) -> void:
 			var cost: int = SimCombat.swing_stamina(float(we.get("weight", 1.0)), float(we.get("stamina", 1.0)))
 			var stamina: Variant = w.components.get_component(int(entity), "stamina")
 			if stamina != null and int((stamina as Dictionary)["current"]) < cost:
-				continue
+				if REFUSE_EXHAUSTED_SWINGS:
+					continue
+			var speed: float = float(we.get("speed", 1.0))
+			if w.modifiers != null and (w.modifiers as Object).has_method("resolve"):
+				speed *= float(w.modifiers.call("resolve", "swing_speed", int(entity)))
 			s["state"] = SwingState.WindUp
-			s["ticksLeft"] = SimCombat.windup_ticks(float(we.get("weight", 1.0)), float(we.get("speed", 1.0)))
+			s["ticksLeft"] = SimCombat.windup_ticks(float(we.get("weight", 1.0)), speed)
 			w.events.publish({"type": "stamina.spent", "entity": int(entity), "amount": cost})
 	)
 
@@ -97,8 +105,30 @@ static func register_module(world: Variant) -> void:
 				continue
 			_resolve_strike(w, int(entity), we, rng, candidates)
 			s["state"] = SwingState.Recover
-			s["ticksLeft"] = SimCombat.recover_ticks(float(we.get("weight", 1.0)), float(we.get("recovery", 1.0)))
+			var recovery: float = float(we.get("recovery", 1.0))
+			if w.modifiers != null and (w.modifiers as Object).has_method("resolve"):
+				recovery *= float(w.modifiers.call("resolve", "swing_recovery", int(entity)))
+			s["ticksLeft"] = SimCombat.recover_ticks(float(we.get("weight", 1.0)), recovery)
 	)
+
+	world.events.subscribe({"id": "melee.equip-weapon", "type": "item.equipped", "handler": func(event: Dictionary) -> void:
+		if String(event.get("slot", "")) != "primary":
+			return
+		var profile: Variant = SimItemsRes.melee_profile_of(world, int(event["item"]))
+		if profile == null:
+			return
+		world.components.set_component(int(event["entity"]), "meleeWeapon", profile as Dictionary)
+		if not world.components.has_component(int(event["entity"]), "swing"):
+			world.components.set_component(int(event["entity"]), "swing", {"state": SwingState.Idle, "ticksLeft": 0})
+	})
+	world.events.subscribe({"id": "melee.unequip-weapon", "type": "item.unequipped", "handler": func(event: Dictionary) -> void:
+		if String(event.get("slot", "")) != "primary":
+			return
+		if SimItemsRes.melee_profile_of(world, int(event["item"])) == null:
+			return
+		world.components.remove(int(event["entity"]), "meleeWeapon")
+		world.components.remove(int(event["entity"]), "swing")
+	})
 
 	world.events.subscribe({"id": "melee.stagger-interrupts", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:
 		var swing: Variant = world.components.get_component(int(event["entity"]), "swing")
@@ -115,6 +145,28 @@ static func register_module(world: Variant) -> void:
 		(swing as Dictionary)["state"] = SwingState.Idle
 		(swing as Dictionary)["ticksLeft"] = 0
 	})
+
+	world.systems.register("melee.exhaustion", "input", -1, func(w: Variant) -> void:
+		if w.modifiers == null or not (w.modifiers as Object).has_method("add"):
+			return
+		for entity in w.components.query(["stamina"]):
+			_apply_exhaustion(w, int(entity))
+	)
+
+
+static func _apply_exhaustion(world: Variant, entity: int) -> void:
+	var stamina: Variant = world.components.get_component(entity, "stamina")
+	if stamina == null:
+		return
+	var st: Dictionary = stamina as Dictionary
+	var maxv: float = maxf(1.0, float(st.get("max", 100)))
+	var emptiness: float = clampf(1.0 - float(st.get("current", 0)) / maxv, 0.0, 1.0)
+	world.modifiers.call("remove_by_source", EXHAUSTION_SOURCE, entity)
+	if emptiness <= 0.0:
+		return
+	world.modifiers.call("add", {"stat": "swing_speed", "op": "mul", "value": 1.0 - 0.6 * emptiness, "source": EXHAUSTION_SOURCE}, entity)
+	world.modifiers.call("add", {"stat": "swing_recovery", "op": "mul", "value": 1.0 + 1.0 * emptiness, "source": EXHAUSTION_SOURCE}, entity)
+	world.modifiers.call("add", {"stat": "melee_damage", "op": "mul", "value": 1.0 - 0.45 * emptiness, "source": EXHAUSTION_SOURCE}, entity)
 
 
 static func _capable_of(world: Variant, entity: int, cap: String) -> bool:
@@ -174,6 +226,8 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 	var target: int = int(best)
 	var body_part: String = _roll_body_part(rng, world.components.get_component(target, "body"))
 	var damage: float = float(weapon.get("damage", 11)) * (3.0 if body_part == "head" else 1.0)
+	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+		damage *= float(world.modifiers.call("resolve", "melee_damage", attacker))
 
 	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": int(SimCombat.MELEE_CONNECT_NOISE), "source": attacker})
 	world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage})

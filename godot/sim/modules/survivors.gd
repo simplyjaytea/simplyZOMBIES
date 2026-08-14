@@ -64,6 +64,7 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 	world.components.set_component(ent, "position", {"x": x, "y": y})
 	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
 	world.components.set_component(ent, "posture", {"current": 2})
+	world.components.set_component(ent, "facing", {"radians": 0.0})
 	world.components.set_component(ent, "identity", {
 		"id": String(e.get("id", id)),
 		"name": String(e.get("name", id)),
@@ -90,6 +91,8 @@ static func boot_playable(world: Variant) -> int:
 	SimHealthRes.make_stamina(world, world.player)
 	SimInventoryRes.make_inventory(world, world.player)
 	SimAttentionRes.make_emitter(world, world.player)
+	if not world.components.has_component(world.player, "facing"):
+		world.components.set_component(world.player, "facing", {"radians": 0.0})
 	SimAptitudesRes.apply(world, world.player, {"str": SimAptitudesRes.DEFAULT, "dex": SimAptitudesRes.DEFAULT, "con": SimAptitudesRes.DEFAULT})
 	var pos: Variant = world.components.get_component(world.player, "position")
 	var px: float = float((pos as Dictionary)["x"]) if pos is Dictionary else 5.0

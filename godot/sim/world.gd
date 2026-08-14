@@ -28,6 +28,15 @@ var map_height: int
 var map_cells: Array[int] = []
 var player: int
 var mapGeneration: int = 0
+var tilemap: Variant = null
+var vision: Variant = null
+var light: Variant = null
+
+var map_generation: int:
+	get:
+		return mapGeneration
+	set(v):
+		mapGeneration = v
 
 var content: Variant = null
 var entities: Variant = null
@@ -180,6 +189,20 @@ func invalidateMap() -> void:
 	mapGeneration += 1
 
 
+func adopt_map(map: Variant) -> void:
+	# Rebuild blocking + attention field from a real TileMap (district overlay).
+	# Not called from _init — R1 fixtures stay on the wall-list path.
+	tilemap = map
+	map_width = int(map.w)
+	map_height = int(map.h)
+	map_cells.resize(map_width * map_height)
+	for y in map_height:
+		for x in map_width:
+			map_cells[y * map_width + x] = 1 if SimTileMapRes.is_solid(map, x, y) else 0
+	field = AttentionFieldRes.for_map(map)
+	invalidateMap()
+
+
 func is_blocked_tile(x: int, y: int) -> bool:
 	if x < 0 or y < 0 or x >= map_width or y >= map_height:
 		return true
@@ -237,6 +260,9 @@ func _integrate_movement(_world: Variant) -> void:
 		var dy: float = float(velocity["dy"])
 		if dx == 0.0 and dy == 0.0:
 			continue
+		if components.has_component(int(entity), "facing"):
+			var facing: Dictionary = components.get_component(int(entity), "facing") as Dictionary
+			facing["radians"] = atan2(dy, dx)
 
 		var nx: float = float(position["x"]) + dx * TICK_SECONDS
 		if not _blocked_at(nx + _sign(dx) * BODY_RADIUS, float(position["y"]) - BODY_RADIUS) \
