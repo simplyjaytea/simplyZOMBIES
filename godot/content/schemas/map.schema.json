@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/map.schema.json",
+  "title": "District overlay patch",
+  "description": "Hand-authored overlay applied after generate_district(seed). Blit only — does not fork the generator. Ticket 07.",
+  "type": "object",
+  "required": ["id", "seed", "rect", "tiles", "surfaces", "indoors"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^map\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "seed": {
+      "type": "integer",
+      "description": "District seed this overlay is authored against. apply_patch still blits regardless; the seed documents intent."
+    },
+    "rect": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tiles": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0, "maximum": 5 },
+      "description": "Row-major tile enums matching SimTileMap.Tile, length w*h."
+    },
+    "surfaces": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0, "maximum": 4 },
+      "description": "Row-major surface enums, length w*h."
+    },
+    "indoors": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0, "maximum": 1 },
+      "description": "Row-major indoors flags, length w*h."
+    },
+    "loot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tile", "table"],
+        "additionalProperties": false,
+        "properties": {
+          "tile": {
+            "type": "object",
+            "required": ["x", "y"],
+            "additionalProperties": false,
+            "properties": {
+              "x": { "type": "integer", "minimum": 0 },
+              "y": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "table": { "enum": ["residential", "military_cache"] }
+        }
+      }
+    }
+  }
+}

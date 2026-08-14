@@ -160,6 +160,49 @@ static func condition_factor(world: Variant, item: int) -> float:
 		return 1.0
 	return CONDITION_FLOOR + (1.0 - CONDITION_FLOOR) * clampf(float((c as Dictionary).get("current", 1.0)), 0.0, 1.0)
 
+static func melee_profile_of(world: Variant, item: int) -> Variant:
+	var base: Variant = item_base_of(world, item)
+	if base == null:
+		return null
+	var melee: Variant = (base as Dictionary).get("melee")
+	if not melee is Dictionary:
+		return null
+	var wear: float = condition_factor(world, item)
+	var resolve := func(stat: String) -> float:
+		if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+			return float(world.modifiers.call("resolve", stat, item))
+		return 1.0
+	var m: Dictionary = melee as Dictionary
+	return {
+		"reachMetres": float(m.get("reachMetres", 1.4)) * resolve.call("melee_reach"),
+		"weight": float(m.get("weight", 1.0)),
+		"damage": float(m.get("damage", 11)) * resolve.call("melee_damage") * wear,
+		"staggerTicks": maxi(0, int(round(float(m.get("staggerTicks", 8)) * resolve.call("melee_stagger")))),
+		"speed": resolve.call("swing_speed") * wear,
+		"recovery": resolve.call("swing_recovery"),
+		"stamina": resolve.call("swing_stamina"),
+	}
+
+static func ranged_profile_of(world: Variant, item: int) -> Variant:
+	var base: Variant = item_base_of(world, item)
+	if base == null:
+		return null
+	var ranged: Variant = (base as Dictionary).get("ranged")
+	if not ranged is Dictionary:
+		return null
+	var wear: float = condition_factor(world, item)
+	var r: Dictionary = ranged as Dictionary
+	return {
+		"damage": float(r.get("damage", 12)) * wear,
+		"noise": float(r.get("noise", 4)),
+		"flash": float(r.get("flash", 0)),
+		"ammo": String(r.get("ammo", "")),
+		"recoverable": float(r.get("recoverable", 0.0)),
+		"magSize": int(r.get("magSize", 0)),
+		"reloadTicks": int(r.get("reloadTicks", 24)),
+		"rangeMetres": float(r.get("rangeMetres", 30)),
+	}
+
 # ---- affixes ----
 
 static func roll_tier(rng: Variant) -> String:
@@ -260,29 +303,6 @@ static func affix_modifiers(world: Variant, item: int) -> Array:
 			m["source"] = String(rolled["id"])
 			out.append(m)
 	return out
-
-static func melee_profile_of(world: Variant, item: int) -> Variant:
-	var base: Variant = item_base_of(world, item)
-	if base == null:
-		return null
-	var melee: Variant = (base as Dictionary).get("melee")
-	if not melee is Dictionary:
-		return null
-	var m: Dictionary = melee as Dictionary
-	var wear: float = condition_factor(world, item)
-	var resolve: Callable = func(stat: String) -> float:
-		if "modifiers" in world and world.modifiers != null and world.modifiers.has_method("resolve"):
-			return float(world.modifiers.call("resolve", stat, item))
-		return 1.0
-	return {
-		"reachMetres": float(m.get("reachMetres", 1.4)) * float(resolve.call("melee_reach")),
-		"weight": float(m.get("weight", 1.0)),
-		"damage": float(m.get("damage", 10)) * float(resolve.call("melee_damage")) * wear,
-		"staggerTicks": maxi(0, int(round(float(m.get("staggerTicks", 8)) * float(resolve.call("melee_stagger"))))),
-		"speed": float(resolve.call("swing_speed")) * wear,
-		"recovery": float(resolve.call("swing_recovery")),
-		"stamina": float(resolve.call("swing_stamina")),
-	}
 
 static func item_name(world: Variant, item: int) -> String:
 	var base: Variant = item_base_of(world, item)

@@ -142,6 +142,33 @@ switch (mode) {
       "res://check_m2_stats.gd",
     ];
     break;
+  case "--m2-roster":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_roster.gd",
+    ];
+    break;
+  case "--m2-district":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_district.gd",
+    ];
+    break;
+  case "--m2-ranged":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_ranged.gd",
+    ];
+    break;
   case "--export":
     args = [];
     break;

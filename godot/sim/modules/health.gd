@@ -82,7 +82,16 @@ static func register_module(world: Variant) -> void:
 		b[named_part] = maxf(0.0, before - taken)
 		if named_part == "head" and int(b["head"]) <= 0:
 			killed.append(target)
-			world.events.publish({"type": "entity.killed", "entity": target, "killer": source})
+			var pos: Variant = world.components.get_component(target, "position")
+			var zt: Variant = world.components.get_component(target, "zombieType")
+			world.events.publish({
+				"type": "entity.killed",
+				"entity": target,
+				"killer": source,
+				"x": float((pos as Dictionary)["x"]) if pos is Dictionary else 0.0,
+				"y": float((pos as Dictionary)["y"]) if pos is Dictionary else 0.0,
+				"zombieType": String((zt as Dictionary).get("id", "")) if zt is Dictionary else "",
+			})
 		return {"body": b, "part": named_part, "before": before}
 
 	world.events.subscribe({"id": "health.take-damage", "type": "attack.connected", "handler": func(event: Dictionary) -> void:

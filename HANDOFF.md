@@ -21,10 +21,10 @@ Four other places to know about, and nothing else is required reading:
 | | |
 |---|---|
 | **Phase** | **Godot rebuild — R0 through R7 complete. Cutover done; Godot is the playable build at `/`.** All parity gates green; oracle archived at tag `ts-oracle-final`. Product Milestone 1 closed; Milestone 2 lethality landed; **stats MVP + unique NPC spawn** are in. |
-| **It is playable** | Godot at `/` (and Windows artifact) — same district, same 5-rung stance ladder, same shout/scent/sight loop. Shout and the district walks toward you in a minute; silence is slow, not safe. At midnight you see **two metres** until you find a candle. At contact zombies pin and bite; `F` is a one-second stamina-paid struggle. HUD shows STR/CON/DEX; Mara Okoro stands next to you. |
+| **It is playable** | Godot at `/` (and Windows artifact) — 256 m district with civic annex, Mara, knife in hand. `F` swing, `G`/click fire, `R` reload. Shambler / screamer / bloater on the map. HUD shows STR/CON/DEX. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **Milestone 2 people — stats MVP + unique pipeline landed.** STR/CON/DEX (3–8, total 15) live as `aptitudes` + `attr.*` modifiers; Mara Okoro spawns from `godot/content/survivors/uniques/` without a code change for the next unique. `godot:m2:stats` gates formulas, CON duration, DEX speed, Mara kit, roll, save. Infection slice remains green (`godot:m2:lethality`). |
+| **In flight** | **Early-alpha execution — roster + annex + ranged.** Screamer `alarm_on_sight` (300 noise, 30s cooldown), bloater `blooms_on_death` (scent 30 + 6 m / 90 s contamination flag), civic-annex JSON overlay on a 256 m district, bow/pistol fire loop, exhausted swings degrade. Gates: `godot:m2:roster`, `godot:m2:district`, `godot:m2:ranged`. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
 
@@ -34,9 +34,9 @@ Four other places to know about, and nothing else is required reading:
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
 | 1 — The spine | 52 | 0 | 3 | ✅ **Closed.** Noise, scent, and light/sight are live; contact pursues, grabs, bites and can be broken with stamina. |
-| 2 — The vertical slice | 28 | 1 | 82 | ◐ **Underway.** Lethality + stats MVP + unique NPC pipeline landed; kit/district/roster behaviors still open. |
+| 2 — The vertical slice | 33 | 1 | 77 | ◐ **Underway.** Lethality + stats + unique + roster/district/ranged landed. |
 | 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **119** | **1** | **101** | |
+| **Total** | **124** | **1** | **96** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
@@ -58,24 +58,16 @@ phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
 
 ## Do this next
 
-**R7 is closed. Infection lethality and the stats MVP are in.** Next playable-alpha work from
-the wayfinder map (`.scratch/simplyzombies/map.md`) is execution, not more grilling: **screamer
-alarm + bloater death bloom** (ticket 01), then the **civic-annex district overlay** (ticket 07),
-then the **bow/pistol ranged loop** (tickets 03–04). Exhausted swings still refuse rather than
-degrade — that remains a measured one-loop balance change.
+**R7 is closed. Infection lethality, the stats MVP, and the early-alpha execution slice are in.**
+Roster behaviors, civic-annex overlay, and bow/pistol fire loop land behind `godot:m2:roster`,
+`godot:m2:district`, and `godot:m2:ranged`. Exhausted swings now degrade (refuse path remains behind
+`SimMelee.REFUSE_EXHAUSTED_SWINGS` until `crowded-and-swinging` is remeasured).
 
 Rollback: `git checkout ts-oracle-final` (or `git show ts-oracle-final:src/sim/...`) restores the
 archived oracle. `godot/parity/` fixtures and snapshots stay on `main` for comparison. Pages now
 publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot:export`.
 
-**Two things left over from the ladder, both small and both named in the code:**
-
-- **Exhausted swings still refuse rather than degrade.** `melee.ts` stops the swing outright when the
-  pool cannot pay for it, and docs/09 wants "slow, weak, and miss". The comment there used to say the
-  scaling was waiting on the stance ladder, which shares the pool — the ladder has landed, so what is
-  left is a `swing_speed` and `swing_recovery` modifier sourced from how empty the pool is, and both
-  stats are already registered. It was held back on purpose: it is a balance change to the one loop
-  the game has, and it wants its own measurement rather than riding in behind six other things.
+**Named leftover still in the code:**
 - **The condition view has one voice.** docs/05 scales a part's prose by the examiner's Medicine
   skill — untrained gets "there's a lot of blood, he doesn't look good", skilled gets "deep
   laceration, sutured and clean, off work five days". There is no [skill web](docs/08-skill-web.md)
@@ -732,9 +724,9 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
 - [x] Stamina cost per swing, scaled by weapon weight
       *(the recovery **delay** matters as much as the rate: without one a survivor swinging at
       exactly the regeneration rate never tires, and melee's only cost quietly becomes zero.
-      docs/09 wants exhausted swings "slow, weak, and miss" rather than absent — that needs the
-      modifier pipeline scaling the windows, and arrives with the stance ladder that shares this
-      pool.)*
+      docs/09 wants exhausted swings "slow, weak, and miss" rather than absent — Godot now scales
+      `swing_speed` / `swing_recovery` / `melee_damage` from pool emptiness. The refuse path remains
+      behind `SimMelee.REFUSE_EXHAUSTED_SWINGS` until `crowded-and-swinging` is remeasured.)*
 - [x] Stagger on solid connect
       *(and it is the **only** thing that interrupts a shambler. Coming out of it they go back to
       drifting rather than back to what they were doing — nothing is remembered across a stagger,
@@ -882,9 +874,13 @@ treatment, armor reduction, stages, and turning on top of that seam.
 
 ### World & map — spec: [docs/12](docs/12-resources.md)
 
-**Open (5):**
+**Done (1):**
 
-- [ ] One hand-authored map: a small district with a defensible building
+- [x] One hand-authored map: a small district with a defensible building
+      *(civic annex overlay `godot/content/maps/district_alpha.json` blit after `generate_district`;
+      `godot:m2:district` gates rect confinement, L-shell, loot, playable boot)*
+
+**Open (4):**
 - [ ] ~15 resource types
 - [ ] 3 location loot tables (residential, commercial, medical)
 - [ ] Site depletion — cleared is cleared
@@ -1008,16 +1004,22 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Combat — spec: [docs/09](docs/09-combat.md)
 
-**Done (1):**
+**Done (5):**
 
 - [x] Melee reach and swing arc read from the same facing
       *(which is what makes reach legible as a property, and what makes being surrounded lethal in the
       way [clause 1](docs/01-hardcore-contract.md#1-you-are-weak-permanently) promises)*
+- [x] Ranged: raise → steady → fire → recover → reload, all interruptible
+      *(`godot/sim/modules/ranged.gd`; `G` / left-click fire, `R` reload when inventory is closed;
+      windup-style cancel on `!canAim`, stagger, grab)*
+- [x] Accuracy as a **cone**, never a displayed hit chance
+      *(tight while still, wide while moving; closest body in cone; no percent)*
+- [x] Ammo consumption
+      *(bow consumes `item.ammo.arrow`; pistol mag 8 then `item.ammo.9mm`; 70% arrow recover)*
+- [x] Gunfire emits its full attention cost — **the parity contract must be live in the slice**
+      *(bow 4, pistol 180 + flash 60; `noise.emitted` hits the kernel flood-fill)*
 
-**Open (10):**
-
-- [ ] Ranged: raise → steady → fire → recover → reload, all interruptible
-- [ ] Accuracy as a **cone**, never a displayed hit chance
+**Open (6):**
 - [ ] **Aiming** — free aim against the [facing](docs/28-visibility-and-sightlines.md#what-an-observer-is)
       the visibility work already added, spec: [docs/09](docs/09-combat.md#aiming)
       *(the steady phase **is** holding the heading on something; being shoved or grabbed moves the
@@ -1028,18 +1030,14 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       the full 180 noise and 60 muzzle flash either way
 - [ ] Steadiness degraded by movement, exhaustion, pain, injured arms
 - [ ] Jamming on degraded weapons
-- [ ] Ammo consumption
-- [ ] Gunfire emits its full attention cost — **the parity contract must be live in the slice**
 - [ ] NPC combat from assigned posts, breaking off when critically injured
 
 ### Items — spec: [docs/10](docs/10-items.md)
 
 **Done (4):**
 
-- [x] 24 bases: seven melee, five containers, nine supplies, and three light sources
-      *(ranged bases wait for the ranged loop -- inventing their content before the system that
-      reads it is inventing it blind, which is the argument `src/sim/combat.ts` already makes
-      about weapon profiles)*
+- [x] 24 bases plus the alpha ranged pair: seven melee, bow + pistol + two ammo, five containers, nine supplies, three light sources
+      *(bow 4-noise / pistol 180-noise + mag 8; 20 rounds in the military cache)*
 - [x] ~10 affixes with tiered values, including double-edged ones
       *(eleven. Two of docs/10's list -- **of the Butcher** and **of the Steady Grip** -- are not
       here, and deliberately: both are conditional on the target's or the wielder's state, and

@@ -212,6 +212,27 @@ static func put_down(world: Variant, entity: int) -> Dictionary:
 	world.events.publish({"type": "entity.killed", "entity": entity})
 	return {"ok": true}
 
+static func record_extra_exposure(world: Variant, entity: int, source: int, rng: Variant, chance: float) -> Dictionary:
+	# Bloater cloud extra roll. Never mutates an existing transmitted flag.
+	var state: Variant = world.components.get_component(entity, "zombieInfection")
+	if state == null:
+		state = {"exposures": []}
+		world.components.set_component(entity, "zombieInfection", state)
+	var transmitted: bool = float(rng.call("next")) < chance
+	((state as Dictionary)["exposures"] as Array).append({
+		"source": source,
+		"bodyPart": "torso",
+		"exposedAtTick": int(world.tick),
+		"transmitted": transmitted,
+		"stage": Stage.Latent,
+		"stageEnteredAtTick": int(world.tick),
+		"cauterized": false,
+		"amputated": false,
+		"vector": "contamination",
+	})
+	world.events.publish({"type": "infection.exposed", "entity": entity, "source": source, "vector": "contamination", "transmitted": transmitted})
+	return {"ok": true, "transmitted": transmitted}
+
 static func register_module(world: Variant) -> void:
 	var rng: Variant = world.rng.stream("infection")
 	world.events.subscribe({"id": "infection.record-bite", "type": "bite.landed", "handler": func(event: Dictionary) -> void:

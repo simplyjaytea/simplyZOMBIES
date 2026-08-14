@@ -9,7 +9,7 @@ extends RefCounted
 
 static func _load_schemas(root: String = "res://content") -> Dictionary:
 	var out: Dictionary = {}
-	for id in ["item", "zombie", "affix", "calibration", "survivor"]:
+	for id in ["item", "zombie", "affix", "calibration", "survivor", "map"]:
 		var path: String = "%s/schemas/%s.schema.json" % [root, id]
 		var f := FileAccess.open(path, FileAccess.READ)
 		if f == null:
@@ -59,6 +59,8 @@ static func validate_tree(root: String = "res://content") -> Array[String]:
 				var total: int = int(a.get("str", 0)) + int(a.get("dex", 0)) + int(a.get("con", 0))
 				if total != 15:
 					issues.append("%s: aptitudes sum %d != 15" % [path, total])
+			if type_id == "map":
+				issues.append_array(_validate_map_entry(e, path))
 	# extends + behavior + stat refs
 	for key in by_id.keys():
 		var e: Dictionary = by_id[key] as Dictionary
@@ -90,6 +92,7 @@ static func _type_of_path(path: String) -> String:
 	if path.begins_with("affixes/"): return "affix"
 	if path.begins_with("calibration/"): return "calibration"
 	if path.begins_with("survivors/"): return "survivor"
+	if path.begins_with("maps/"): return "map"
 	return path.get_slice("/", 0)
 
 static func _validate_shape(entry: Dictionary, schema: Dictionary, path: String) -> Array[String]:
@@ -127,6 +130,22 @@ static func _validate_shape(entry: Dictionary, schema: Dictionary, path: String)
 					re.compile(String(pat))
 					if re.search(String(v)) == null:
 						out.append("%s.%s: does not match %s" % [path, sk, String(pat)])
+	return out
+
+static func _validate_map_entry(entry: Dictionary, path: String) -> Array[String]:
+	var out: Array[String] = []
+	var rect_v: Variant = entry.get("rect", null)
+	if not rect_v is Dictionary:
+		return out
+	var rect: Dictionary = rect_v as Dictionary
+	var expected: int = int(rect.get("w", 0)) * int(rect.get("h", 0))
+	if expected <= 0:
+		out.append("%s.rect: w*h must be > 0" % path)
+		return out
+	for field in ["tiles", "surfaces", "indoors"]:
+		var arr: Variant = entry.get(field, null)
+		if arr is Array and (arr as Array).size() != expected:
+			out.append("%s.%s: length %d != rect.w*h %d" % [path, field, (arr as Array).size(), expected])
 	return out
 
 static func _type_ok(v: Variant, t: String) -> bool:
