@@ -133,6 +133,15 @@ switch (mode) {
       "res://check_m2_lethality.gd",
     ];
     break;
+  case "--m2-stats":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_stats.gd",
+    ];
+    break;
   case "--export":
     args = [];
     break;

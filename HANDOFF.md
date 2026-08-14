@@ -20,13 +20,13 @@ Four other places to know about, and nothing else is required reading:
 
 | | |
 |---|---|
-| **Phase** | **Godot rebuild — R0 through R7 complete. Cutover done; Godot is the playable build at `/`.** All parity gates green; oracle archived at tag `ts-oracle-final`. Product Milestone 1 closed; Milestone 2 resumes at **lethality**. |
-| **It is playable** | Godot at `/` (and Windows artifact) — same district, same 5-rung stance ladder, same shout/scent/sight loop. Shout and the district walks toward you in a minute; silence is slow, not safe. At midnight you see **two metres** until you find a candle. At contact zombies pin and bite; `F` is a one-second stamina-paid struggle. |
+| **Phase** | **Godot rebuild — R0 through R7 complete. Cutover done; Godot is the playable build at `/`.** All parity gates green; oracle archived at tag `ts-oracle-final`. Product Milestone 1 closed; Milestone 2 lethality landed; **stats MVP + unique NPC spawn** are in. |
+| **It is playable** | Godot at `/` (and Windows artifact) — same district, same 5-rung stance ladder, same shout/scent/sight loop. Shout and the district walks toward you in a minute; silence is slow, not safe. At midnight you see **two metres** until you find a candle. At contact zombies pin and bite; `F` is a one-second stamina-paid struggle. HUD shows STR/CON/DEX; Mara Okoro stands next to you. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **Milestone 2 lethality — infection slice landed.** `godot:m2` green alongside R6: deterministic 2–4 day progression (Latent→Onset→Progression→Critical→Turned, CON-scaled 0.75–1.25), armor-coverage transmission at wound time, skill-gated diagnosis without transmitted leak, cauterize/amputate/antibiotics/quarantine/put-down verbs, turning that despawns + spawns a shambler + emits noise. Save roundtrip deterministic. R7 cutover remains verified; `pages.yml` still green-sha gated. |
+| **In flight** | **Milestone 2 people — stats MVP + unique pipeline landed.** STR/CON/DEX (3–8, total 15) live as `aptitudes` + `attr.*` modifiers; Mara Okoro spawns from `godot/content/survivors/uniques/` without a code change for the next unique. `godot:m2:stats` gates formulas, CON duration, DEX speed, Mara kit, roll, save. Infection slice remains green (`godot:m2:lethality`). |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
-| **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), [survivor attributes](docs/23-roadmap.md#planned-survivor-attributes) (Milestone 3A), [aiming](docs/09-combat.md#aiming), and docs/05/06's **full** injury and infection games. Milestone 1 stores a located bite, its possibly-scratch presentation and its private transmission answer; symptoms, treatment, armor reduction, stages and turning remain Milestone 2. |
+| **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
 
 ### Counting the backlog
 
@@ -34,9 +34,9 @@ Four other places to know about, and nothing else is required reading:
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
 | 1 — The spine | 52 | 0 | 3 | ✅ **Closed.** Noise, scent, and light/sight are live; contact pursues, grabs, bites and can be broken with stamina. |
-| 2 — The vertical slice | 20 | 1 | 88 | ◐ **Underway through pulled-forward foundations.** The first complete slice is injury and infection. |
+| 2 — The vertical slice | 28 | 1 | 82 | ◐ **Underway.** Lethality + stats MVP + unique NPC pipeline landed; kit/district/roster behaviors still open. |
 | 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **111** | **1** | **107** | |
+| **Total** | **119** | **1** | **101** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
@@ -58,11 +58,11 @@ phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
 
 ## Do this next
 
-**R7 is closed. Resume Milestone 2 at lethality.** The strongest continuation is the full
-[injury](docs/05-health-injury.md) and [infection](docs/06-infection.md) path, because Milestone 1 now
-provides its clean input: a located bite with separate visible presentation and private transmission
-truth. Next work adds symptoms, diagnosis, treatment, armor reduction and turning without changing
-grabs or re-rolling whether an old wound transmitted.
+**R7 is closed. Infection lethality and the stats MVP are in.** Next playable-alpha work from
+the wayfinder map (`.scratch/simplyzombies/map.md`) is execution, not more grilling: **screamer
+alarm + bloater death bloom** (ticket 01), then the **civic-annex district overlay** (ticket 07),
+then the **bow/pistol ranged loop** (tickets 03–04). Exhausted swings still refuse rather than
+degrade — that remains a measured one-loop balance change.
 
 Rollback: `git checkout ts-oracle-final` (or `git show ts-oracle-final:src/sim/...`) restores the
 archived oracle. `godot/parity/` fixtures and snapshots stay on `main` for comparison. Pages now
@@ -891,6 +891,14 @@ treatment, armor reduction, stages, and turning on top of that seam.
 - [ ] Food spoilage *(the only [decay track](docs/13-world-decay.md) in the slice)*
 
 ### Survivors — spec: [docs/07](docs/07-survivors.md)
+
+**Done (2):**
+
+- [x] Stats MVP: STR + CON + DEX (integers 3–8, fixed total 15) as `aptitudes` + `attr.*` modifiers
+      *(carry_capacity, grab_escape, infection_progression rate, damage_taken, move_speed; missing
+      keys default 5; HUD shows the numbers; `godot:m2:stats`)*
+- [x] Unique survivor pipeline: `godot/content/survivors/uniques/*.json` + Mara Okoro in the playable boot
+      *(N more uniques is a JSON drop; kit stows into pockets; shamblers pursue `identity` as well as `controlled`)*
 
 **Open (10):**
 

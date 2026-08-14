@@ -54,6 +54,11 @@ static func validate_tree(root: String = "res://content") -> Array[String]:
 			var schema: Variant = schemas.get(type_id, null)
 			if schema is Dictionary:
 				issues.append_array(_validate_shape(e, schema as Dictionary, path))
+			if type_id == "survivor" and e.has("aptitudes") and e["aptitudes"] is Dictionary:
+				var a: Dictionary = e["aptitudes"] as Dictionary
+				var total: int = int(a.get("str", 0)) + int(a.get("dex", 0)) + int(a.get("con", 0))
+				if total != 15:
+					issues.append("%s: aptitudes sum %d != 15" % [path, total])
 	# extends + behavior + stat refs
 	for key in by_id.keys():
 		var e: Dictionary = by_id[key] as Dictionary

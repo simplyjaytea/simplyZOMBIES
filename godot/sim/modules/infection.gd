@@ -24,7 +24,7 @@ const TREATMENT_STREAM: String = "treatment"
 # ponytail: linear 1-coverage until material curve lands; ceiling is per-part max coverage
 const MAX_COVERAGE: float = 1.0
 
-static func stage_duration_ticks(s: int, _world: Variant = null) -> int:
+static func stage_duration_ticks(s: int, _world: Variant = null, entity: Variant = null) -> int:
 	var base: int = 0
 	match s:
 		Stage.Latent:
@@ -42,7 +42,7 @@ static func stage_duration_ticks(s: int, _world: Variant = null) -> int:
 	var mods: Variant = _world.modifiers
 	if not (mods as Object).has_method("resolve"):
 		return base
-	var factor: float = clampf(float(mods.call("resolve", "infection_progression", null)), 0.75, 1.25)
+	var factor: float = clampf(float(mods.call("resolve", "infection_progression", entity)), 0.75, 1.25)
 	if factor <= 0.0:
 		return base
 	return maxi(1, int(ceil(float(base) / factor)))
@@ -255,7 +255,7 @@ static func register_module(world: Variant) -> void:
 				if cur >= Stage.Turned:
 					continue
 				var entered: int = int(ed.get("stageEnteredAtTick", 0))
-				var needed: int = stage_duration_ticks(cur, w)
+				var needed: int = stage_duration_ticks(cur, w, int(ent))
 				if needed <= 0:
 					continue
 				if int(w.tick) - entered >= needed:

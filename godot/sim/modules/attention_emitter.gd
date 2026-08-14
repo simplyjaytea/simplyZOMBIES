@@ -50,6 +50,9 @@ static func register_module(world: Variant, map: Variant) -> void:
 			if pos == null:
 				continue
 			var magnitude: float = base
+			# DEX speeds the body; scale per-tick noise by move_speed so noise-per-metre stays put (docs/23 DEX guardrail).
+			if speed > 0.0 and w.modifiers != null and (w.modifiers as Object).has_method("resolve"):
+				magnitude *= float(w.modifiers.call("resolve", "move_speed", int(entity)))
 			# Only footsteps scaled by surface; ambient not
 			if not (float((emitter as Dictionary)["ambient"]) > 0.0 and speed == 0.0):
 				var surf: int = SimSurface.surface_at(map, floori(float((pos as Dictionary)["x"]) / float(SimTileMapRes.TILE_METRES)), floori(float((pos as Dictionary)["y"]) / float(SimTileMapRes.TILE_METRES)))
