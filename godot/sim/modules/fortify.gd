@@ -282,7 +282,7 @@ static func _place_noisemaker(world: Variant, tx: int, ty: int) -> void:
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
-	world.components.set_component(ent, "velocity", {"x": 0.0, "y": 0.0})
+	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
 	world.components.set_component(ent, "noisemaker", {"expiresAtTick": int(world.tick) + NOISEMAKER_TICKS})
 	var emitter: Dictionary = SimAttention.PERSON_EMITTER.duplicate(true)
 	emitter["ambient"] = NOISEMAKER_MAG
