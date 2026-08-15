@@ -89,6 +89,22 @@ Commands, all interruptible like melee wind-up (stagger / grab / sprint cancel, 
 
 Gate `godot:m2:fortify`: board toggles Window opacity; one scrap tile is solid; alarm drops 10× without dealing damage; noisemaker writes 45 to the field for 12_000 ticks then stops; `SAVE_VERSION` bump for overlay + trap + bait (new history, cannot re-derive on load).
 
+### Addendum 2026-08-15 (grilled with ticket 11)
+
+**Q10:B — all four verbs on `E` (already pick up).** No extra keys. First match in arm’s reach, facing tile:
+
+1. Ground/world **item** → pick up (do not steal loot).
+2. `Tile.Window` → `barricade.window` (board or re-board).
+3. Existing alarm line cell → `trap.alarm.reset` if spent, else no-op if armed.
+4. Existing noisemaker → `bait.noisemaker.wind`.
+5. Empty alley `Floor` with `item.scrap.metal` in inventory → `barricade.scrap`.
+6. Empty `Floor` (avenue or approach) → `trap.alarm.place` if no line exists, else `bait.noisemaker.place` if no noisemaker exists. One of each in alpha, so the second empty-floor `E` is the remaining place verb.
+7. Else nothing.
+
+Same interrupt as melee wind-up. Construction 30 plays while the channel holds.
+
+**Q11:A — look-at sentence, no pips.** Facing a boarded window writes one HUD line from stage: intact / scratched / splintering / “gaps, light leaking” / (breach = overlay gone, no line). If a noisemaker exists, one more line: “ticking, south avenue” or “silent.” Alarm has no icon — the 10× drop is the tell. No threat meter, no director mood, no five-pip bar.
+
 ### Explicitly deferred
 
 Timber / reinforced / stone walls · player-built gates · watch platform · spike pit / caltrops / snare / deadfall / fire trap · timed lamp / hung carcass / decoy fire · Construct job AI · weather rot · any structure health bar · materials economy beyond one scrap.
@@ -100,3 +116,4 @@ Status: resolved.
 - Docs: 15-base-building.md (steering, 30 noise, window light block, alarm line, wind-up noisemaker, no HP bars), 03-attention.md#noise (hammering 30, generator 45), 01-hardcore-contract.md clause 4, 07-alpha-district.md (annex + dusk loop), 01-zombie-roster.md (no Heavy/Armored).
 - Code hooks: `godot/sim/map/tilemap.gd` `OPACITY`/`SOLID`/`Tile.Window`; `world.gd` command match; `invalidateMap` / `mapGeneration`; speed 10× contact drop; `item.scrap.metal`.
 - HITL — how much of the tower-defense half alpha must prove vs defer. Recommended picks accepted.
+- Addendum keys/HUD: ticket 11 Q10:B · Q11:A (2026-08-15). `E` context table and look-at prose.
