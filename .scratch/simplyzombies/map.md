@@ -23,25 +23,26 @@ Locked planning spec for **simplyZOMBIES Early Alpha**: a solo-playable Godot 4.
 - [06 — Isometric pixel art + SpriteAI pipeline for alpha](issues/06-iso-art-pipeline.md) — **Keep shipped 2:1 iso, procedural diamonds for alpha.** `godot/assets/sprites/` + Nearest-import PNGs, `{category}_{subject}_{pose}_{dir}_{frame}.png`, sim-agnostic. Bodies first (survivor + 3 zeds + Mara), tiles deferred til #07, sim/primitives unchanged. Headless informational + Chromium frame guard.
 - [07 — Alpha district and defensible building](issues/07-alpha-district.md) — **Civic annex 256 m, 2+1 vectors, JSON patch.** Full 256×256 m (64×64 cells, parity intact); L-shape annex (Mara day-1 barricaded exam room, 1 gate + 2 Window walls + Screen/Low interior); avenue front + rear alley + blind flank (Screen/undergrowth); fixed deterministic loot per seed (residential + military cache) with day→dusk-barricade→night loop replacing hunger; `godot/content/maps/district_alpha.json` overlay patch after `generate_district(seed)`, validated, parity-limited.
 - [08 — Fortification slice for early alpha](issues/08-fortification-slice.md) — **Board windows + one scrap choke + alarm line + noisemaker; player verbs only.** Overlay on `Tile.Window` (opaque when boarded, five prose stages, no HP); one alley scrap barricade (`item.scrap.metal`); alarm wakes 10× (`noise 8`, no DPS); noisemaker 45 mag / 10 min / wind-at-device. Gate stays authored Floor gap. Mara does not Construct. Gate `godot:m2:fortify`. Not built.
+- [09 — Director pressure for early alpha](issues/09-director-pressure.md) — **Population, not a spawner.** Days 1–2 shambler-only + no packets; 3–7 trickle if live `< 8`; day 8+ dusk edge packets (2–6, cap 24, never the gate). Breach lull 1 night, Mara death 2; bait does not cancel (field still pulls). Floor: 1 packet / 3 quiet nights. Power/strain = six live bits, no food/mood. Gate `godot:m2:director`. Not built.
 
 ## Building now
 
-Planning for 01–08 is locked. Execution order:
+Planning for 01–09 is locked. Execution order:
 
 1. **Done:** stats MVP + Mara spawn (`godot:m2:stats`).
 2. **Done:** screamer `alarm_on_sight` + bloater `blooms_on_death` + 80/12/8 mix (`godot:m2:roster`).
 3. **Done:** civic-annex overlay (`godot:m2:district`).
 4. **Done:** bow/pistol fire loop + exhausted swings degrade (`godot:m2:ranged`).
 5. **Specified, not built:** fortification verbs (`godot:m2:fortify`) — see [Fortification slice for early alpha](issues/08-fortification-slice.md).
+6. **Specified, not built:** slice director (`godot:m2:director`) — see [Director pressure for early alpha](issues/09-director-pressure.md).
 
-Frontier is the open unblocked tickets under `issues/` (director pressure). Remaining fog is in **Not yet specified**.
+Frontier is the open unblocked tickets under `issues/` (save/load). Remaining fog is in **Not yet specified**.
 
 ## Not yet specified
 
 <!-- in-scope fog you can't ticket yet; graduates as frontier advances -->
 
-- **Save/load + determinism for new systems:** How stats, new zombie types, unique NPC, and now barricade overlay / alarm / noisemaker serialize under seeded RNG and replay.
-- **Tuning harness for alpha:** Headless run-length / death / siege / parity distributions for 3-type + kit balance (fortify verbs will need a night-with-boards scenario).
+- **Tuning harness for alpha:** Headless run-length / death / siege / parity distributions for 3-type + kit + director packet cadence (needs a night-with-boards scenario and a quiet-turtle floor case).
 - **Audio for alpha:** Footstep/noise magnitudes vs 256 m district calibration in iso context.
 
 ## Out of scope
@@ -53,3 +54,4 @@ Frontier is the open unblocked tickets under `issues/` (director pressure). Rema
 - **Multiplayer:** Doc 27, Milestone 3C — spec only, no build.
 - **Full skill web & full 32-doc backlog:** Shallow web, full injury/infection loops, named items beyond kit — beyond alpha.
 - **Doc 15 beyond the alpha four:** timber/reinforced/stone walls, player-built gates, watch platform, DPS traps, timed lamp / carcass / decoy fire, Construct job AI — deferred in [Fortification slice for early alpha](issues/08-fortification-slice.md).
+- **Doc 17 beyond the alpha slice:** storyteller presets, event pool, site seeding, HP scaling, threat meter, gate spawns — deferred in [Director pressure for early alpha](issues/09-director-pressure.md). Nothing Personal remains an internal off-switch.
