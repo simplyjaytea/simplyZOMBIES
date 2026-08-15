@@ -24,12 +24,13 @@ const AMMO_IDS: Array[String] = ["item.ammo.9mm", "item.ammo.arrow"]
 
 
 static func default_state() -> Dictionary:
-	return {"lullUntilTick": 0, "lastMigrationTick": 0, "nightsSinceQuiet": 0}
+	return {"lullFromTick": 0, "lullUntilTick": 0, "lastMigrationTick": 0, "nightsSinceQuiet": 0}
 
 
 static func snapshot_of(world: Variant) -> Dictionary:
 	var d: Dictionary = world.director if world.director is Dictionary else default_state()
 	return {
+		"lullFromTick": int(d.get("lullFromTick", 0)),
 		"lullUntilTick": int(d.get("lullUntilTick", 0)),
 		"lastMigrationTick": int(d.get("lastMigrationTick", 0)),
 		"nightsSinceQuiet": int(d.get("nightsSinceQuiet", 0)),
@@ -41,6 +42,8 @@ static func register_module(world: Variant) -> void:
 		world.director = default_state()
 	else:
 		var d: Dictionary = world.director as Dictionary
+		if not d.has("lullFromTick"):
+			d["lullFromTick"] = 0
 		if not d.has("lullUntilTick"):
 			d["lullUntilTick"] = 0
 		if not d.has("lastMigrationTick"):
@@ -59,8 +62,7 @@ static func register_module(world: Variant) -> void:
 		_begin_lull(world, 1)
 	})
 	world.events.subscribe({"id": "director.mara-lull", "type": "entity.killed", "handler": func(event: Dictionary) -> void:
-		var ident: Variant = world.components.get_component(int(event.get("entity", -1)), "identity")
-		if ident is Dictionary and bool((ident as Dictionary).get("unique", false)):
+		if bool(event.get("unique", false)):
 			_begin_lull(world, 2)
 	})
 
@@ -70,7 +72,7 @@ static func _on_dusk(world: Variant) -> void:
 	var live: int = world.components.query(["shambler"]).size()
 	var annex_peak: float = _annex_peak(world)
 	var st: Dictionary = world.director as Dictionary
-	var lull: bool = int(world.tick) < int(st.get("lullUntilTick", 0))
+	var lull: bool = int(world.tick) >= int(st.get("lullFromTick", 0)) and int(world.tick) < int(st.get("lullUntilTick", 0))
 	var size: int = 0
 	if not lull and live < LIVE_CAP:
 		if day < GRACE_COMPOSITION_UNTIL_DAY:
@@ -79,14 +81,15 @@ static func _on_dusk(world: Variant) -> void:
 			if live < TRICKLE_LIVE:
 				size = TRICKLE_SIZE
 		else:
-			size = BASE_SIZE
-			if _power(world) >= 3:
-				size += 1
-			if float(st.get("weekPeakNoise", 0.0)) >= FOOTPRINT_NOISE:
-				size += 1
-			size = clampi(size, 2, 6)
-		if size == 0 and day >= GRACE_PRESSURE_UNTIL_DAY and int(st.get("nightsSinceQuiet", 0)) >= FLOOR_QUIET_NIGHTS and annex_peak < QUIET_NOISE:
-			size = FLOOR_SIZE
+			if int(st.get("nightsSinceQuiet", 0)) >= FLOOR_QUIET_NIGHTS and annex_peak < QUIET_NOISE:
+				size = FLOOR_SIZE
+			else:
+				size = BASE_SIZE
+				if _power(world) >= 3:
+					size += 1
+				if float(st.get("weekPeakNoise", 0.0)) >= FOOTPRINT_NOISE:
+					size += 1
+				size = clampi(size, 2, 6)
 	if size > 0 and live + size > LIVE_CAP:
 		size = LIVE_CAP - live
 	if size > 0:
@@ -230,4 +233,6 @@ static func _begin_lull(world: Variant, nights: int) -> void:
 	var start: int = day * Clock.DAY_TICKS + Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
 	var until: int = start + nights * Clock.DAY_TICKS
 	var st: Dictionary = world.director as Dictionary
-	st["lullUntilTick"] = maxi(int(st.get("lullUntilTick", 0)), until)
+	if until > int(st.get("lullUntilTick", 0)):
+		st["lullFromTick"] = start
+		st["lullUntilTick"] = until
