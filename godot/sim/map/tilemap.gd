@@ -38,6 +38,8 @@ var h: int
 var tiles: PackedByteArray
 var surfaces: PackedByteArray
 var indoors: PackedByteArray
+# ponytail: overlay Dictionary on the window/scrap tile, not Tile.Barricade.
+var overlays: Dictionary = {}
 
 func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	w = width
@@ -51,6 +53,7 @@ func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	surfaces.resize(w * h)
 	indoors = PackedByteArray()
 	indoors.resize(w * h)
+	overlays = {}
 
 
 static func blank_map(width: int, height: int, tile: int = Tile.Floor) -> Variant:
@@ -68,11 +71,32 @@ static func tile_at(map: Variant, tx: int, ty: int) -> int:
 	return int(map.tiles[ty * map.w + tx])
 
 
+static func overlay_at(map: Variant, tx: int, ty: int) -> Variant:
+	if tx < 0 or ty < 0 or tx >= map.w or ty >= map.h:
+		return null
+	var table: Variant = map.overlays
+	if not table is Dictionary:
+		return null
+	return (table as Dictionary).get(ty * int(map.w) + tx)
+
+
 static func is_solid(map: Variant, tx: int, ty: int) -> bool:
+	var ov: Variant = overlay_at(map, tx, ty)
+	if ov is Dictionary and String((ov as Dictionary).get("kind", "")) == "scrap":
+		return true
 	return SOLID[tile_at(map, tx, ty)]
 
 
 static func opacity_at(map: Variant, tx: int, ty: int) -> int:
+	var ov: Variant = overlay_at(map, tx, ty)
+	if ov is Dictionary:
+		var kind: String = String((ov as Dictionary).get("kind", ""))
+		if kind == "scrap":
+			return Opacity.Opaque
+		if kind == "board":
+			if int((ov as Dictionary).get("stage", 0)) >= 3:
+				return Opacity.Low
+			return Opacity.Opaque
 	return OPACITY[tile_at(map, tx, ty)]
 
 

@@ -24,6 +24,7 @@ const ContentReload = preload("res://platform/content_reload.gd")
 const ContentValidator = preload("res://platform/content_validator.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/vision/light.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -183,7 +184,7 @@ func _input(event: InputEvent) -> void:
 				elif world != null:
 					world.commands.push({"type": "reload"})
 			KEY_E:
-				if world != null: world.commands.push({"type": "item.pickUp"})
+				if world != null: world.commands.push({"type": "use.context"})
 			KEY_1: speed = 1
 			KEY_2: speed = 3
 			KEY_3: speed = 10
@@ -287,6 +288,11 @@ func _process(delta: float) -> void:
 		world.step()
 		tick_count += 1
 		ticks_done += 1
+		if speed >= 10:
+			speed = SimFortify.speed_after_events(speed, world.events.drained)
+			if speed < 10:
+				accumulator = 0.0
+				break
 		_resize_camera()
 	if ticks_done > 0:
 		_update_condition_view()
@@ -345,6 +351,12 @@ func _update_hud() -> void:
 	for _z in world.components.query(["shambler"]):
 		zeds += 1
 	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  zed %d  F swing G fire  fp %s  dx:%s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, zeds, _fingerprint, diag_label]
+	if world.tilemap != null:
+		var look: Dictionary = SimFortify.look_at(world, world.player)
+		if not String(look.get("window", "")).is_empty():
+			base += "  %s" % String(look["window"])
+		if not String(look.get("noisemaker", "")).is_empty():
+			base += "  %s" % String(look["noisemaker"])
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
 	_hud.text = base
@@ -393,6 +405,13 @@ func _draw_district() -> void:
 					col = Palette.COLOURS["low"]
 				SimTileMap.Tile.Tree:
 					col = Palette.COLOURS["tree"]
+			var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+			if ov is Dictionary:
+				var kind: String = String((ov as Dictionary).get("kind", ""))
+				if kind == "board":
+					col = Palette.COLOURS["wall"] if int((ov as Dictionary).get("stage", 0)) < 3 else Palette.COLOURS["window"].lightened(0.15)
+				elif kind == "scrap":
+					col = Palette.COLOURS["rubble"]
 		# diamond
 		var pts: PackedVector2Array = PackedVector2Array([
 			Vector2(sx, sy - half_h), Vector2(sx + half_w, sy),
@@ -424,20 +443,23 @@ func _draw_entities() -> void:
 		var is_player: bool = int(ent) == int(world.player)
 		var is_unique: bool = world.components.has_component(int(ent), "identity")
 		var is_zed: bool = world.components.has_component(int(ent), "shambler")
+		var is_bait: bool = world.components.has_component(int(ent), "noisemaker")
 		if world.components.has_component(int(ent), "itemBase"):
 			continue
-		if not is_player and not is_unique and not is_zed:
+		if not is_player and not is_unique and not is_zed and not is_bait:
 			continue
 		var ztype: String = ""
 		if is_zed:
 			var zt: Variant = world.components.get_component(int(ent), "zombieType")
 			if zt is Dictionary:
 				ztype = String((zt as Dictionary).get("id", ""))
-		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "unique": is_unique, "zed": is_zed, "ztype": ztype, "id": int(ent)})
+		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "ztype": ztype, "id": int(ent)})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
 		var col: Color = Palette.COLOURS["player"] if bool(it["player"]) else (Palette.COLOURS["survivor"] if bool(it.get("unique", false)) else Palette.COLOURS["wanderer"])
+		if bool(it.get("bait", false)):
+			col = Palette.COLOURS["groundItem"]
 		if String(it.get("ztype", "")) == "zombie.screamer":
 			col = Color(0.85, 0.35, 0.28)
 		elif String(it.get("ztype", "")) == "zombie.bloater":
