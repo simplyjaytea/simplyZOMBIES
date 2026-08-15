@@ -130,12 +130,11 @@ static func _use_context(world: Variant, actor: int) -> void:
 	if SimInventory.nearest_ground_item(world, actor) != null:
 		SimInventory.pick_up_nearest(world, actor)
 		return
-	var win: Variant = _window_in_reach(world, actor)
-	if win is Vector2i:
-		_start(world, actor, "window", int((win as Vector2i).x), int((win as Vector2i).y))
+	var face: Vector2i = _facing_tile(world, actor)
+	if SimTileMap.tile_at(world.tilemap, face.x, face.y) == SimTileMap.Tile.Window and _in_reach_tile(world, actor, face.x, face.y):
+		_start(world, actor, "window", face.x, face.y)
 		return
 	var here: Vector2i = _tile_of(world, actor)
-	var face: Vector2i = _facing_tile(world, actor)
 	var alarm: Variant = _first(world, "alarmLine")
 	if alarm != null:
 		var line: Variant = world.components.get_component(int(alarm), "alarmLine")
@@ -283,6 +282,7 @@ static func _place_noisemaker(world: Variant, tx: int, ty: int) -> void:
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
+	world.components.set_component(ent, "velocity", {"x": 0.0, "y": 0.0})
 	world.components.set_component(ent, "noisemaker", {"expiresAtTick": int(world.tick) + NOISEMAKER_TICKS})
 	var emitter: Dictionary = SimAttention.PERSON_EMITTER.duplicate(true)
 	emitter["ambient"] = NOISEMAKER_MAG
