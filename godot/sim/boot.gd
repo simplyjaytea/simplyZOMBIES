@@ -24,6 +24,7 @@ const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimFieldMemory = preload("res://sim/modules/field_memory.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimDirector = preload("res://sim/modules/director.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
@@ -91,6 +92,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimRanged.register_module(world)
 	SimInventory.register_module(world)
 	SimFortify.register_module(world)
+	SimDirector.register_module(world)
 	SimAttention.register_module(world, map)
 	SimShambler.register_module(world, map)
 	SimScreamer.register_module(world)
@@ -158,21 +160,8 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	var place_rng: Variant = world.rng.stream("placement")
 	for i in WANDERERS:
 		var type_id: String = SimRoster.pick_type(world, place_rng)
-		# Guarantee one of each threat on the playable boot so the roster is visible on day 1.
-		if i == 0:
-			type_id = SimRoster.TYPE_SCREAMER
-		elif i == 1:
-			type_id = SimRoster.TYPE_BLOATER
-		elif i < 8:
-			type_id = SimRoster.TYPE_SHAMBLER
 		var tx: int = int(place_rng.call("int_range", 8, int(map.w) - 9))
 		var ty: int = int(place_rng.call("int_range", 8, int(map.h) - 9))
-		if i == 0:
-			tx = 50
-			ty = 62
-		elif i == 1:
-			tx = 62
-			ty = 50
 		var tile: Dictionary = SimTileMap.find_open_tile(map, tx, ty)
 		SimRoster.spawn_zombie(world, float(tile["x"]) + 0.5, float(tile["y"]) + 0.5, type_id, place_rng)
 	world.events.drain()

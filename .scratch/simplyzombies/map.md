@@ -23,7 +23,7 @@ Locked planning spec for **simplyZOMBIES Early Alpha**: a solo-playable Godot 4.
 - [06 — Isometric pixel art + SpriteAI pipeline for alpha](issues/06-iso-art-pipeline.md) — **Keep shipped 2:1 iso, procedural diamonds for alpha.** `godot/assets/sprites/` + Nearest-import PNGs, `{category}_{subject}_{pose}_{dir}_{frame}.png`, sim-agnostic. Bodies first (survivor + 3 zeds + Mara), tiles deferred til #07, sim/primitives unchanged. Headless informational + Chromium frame guard.
 - [07 — Alpha district and defensible building](issues/07-alpha-district.md) — **Civic annex 256 m, 2+1 vectors, JSON patch.** Full 256×256 m (64×64 cells, parity intact); L-shape annex (Mara day-1 barricaded exam room, 1 gate + 2 Window walls + Screen/Low interior); avenue front + rear alley + blind flank (Screen/undergrowth); fixed deterministic loot per seed (residential + military cache) with day→dusk-barricade→night loop replacing hunger; `godot/content/maps/district_alpha.json` overlay patch after `generate_district(seed)`, validated, parity-limited.
 - [08 — Fortification slice for early alpha](issues/08-fortification-slice.md) — **Board windows + one scrap choke + alarm line + noisemaker; player verbs only.** Overlay on `Tile.Window` (opaque when boarded, five prose stages, no HP); one alley scrap barricade (`item.scrap.metal`); alarm wakes 10× (`noise 8`, no DPS); noisemaker 45 mag / 10 min / wind-at-device. All four on `E` context (loot first). Look-at prose, no pips. Gate stays authored Floor gap. Mara does not Construct. **Shipped:** `godot/sim/modules/fortify.gd` + `godot:m2:fortify`.
-- [09 — Director pressure for early alpha](issues/09-director-pressure.md) — **Population, not a spawner.** Days 1–2 shambler-only + no packets; 3–7 trickle if live `< 8`; day 8+ dusk edge packets (2–6, cap 24, never the gate). Breach lull 1 night, Mara death 2; bait does not cancel (field still pulls). Floor: 1 packet / 3 quiet nights. Power/strain = six live bits, no food/mood. Gate `godot:m2:director`. Not built.
+- [09 — Director pressure for early alpha](issues/09-director-pressure.md) — **Population, not a spawner.** Days 1–2 shambler-only + no packets; 3–7 trickle if live `< 8`; day 8+ dusk edge packets (2–6, cap 24, never the gate). Breach lull 1 night, Mara death 2; bait does not cancel (field still pulls). Floor: 1 packet / 3 quiet nights. Power/strain = six live bits, no food/mood. **Shipped:** `godot/sim/modules/director.gd` + `godot:m2:director`.
 - [10 — Save/load + determinism for alpha systems](issues/10-save-load-determinism.md) — **v11 reject, director key + fortify entities, `director` stream only.** Content (patch/Mara/mix) re-derived; boards/scrap/alarm/noisemaker/director dials snapshot; vision/light/power derived. Godot `SAVE_VERSION` 10→11, no migrator, TS oracle untouched. F9 is restore, not re-boot. Gate `godot:m2:save`. Not built.
 - [11 — Tuning harness for alpha](issues/11-tuning-harness.md) — **CI invariants + nightly 10-day loop.** `check_m2_harness.gd`: clock-jump turtle floor + Nothing Personal zero + never-on-gate (seed 20260805); contact KD prints (knife/bow/pistol) informational; noisy night informational; no Mara-lull case. `HARNESS_FULL=1` real 10-day `world.step`, not on `godot:r6`. Gate `godot:m2:harness`. Not built.
 - [12 — Alpha audio one-shots (2D, magnitude volume)](issues/12-alpha-audio.md) — **Shout / gunshot / board / alarm / noisemaker loop.** Volume `mag/180` + 0.7/m falloff, no wall occlusion, no footsteps. `godot/assets/sfx/`, presentation-only. Not built.
@@ -37,8 +37,8 @@ Planning for 01–12 is locked. **Frontier is empty.** Remaining fog is none. Ex
 3. **Done:** civic-annex overlay (`godot:m2:district`).
 4. **Done:** bow/pistol fire loop + exhausted swings degrade (`godot:m2:ranged`).
 5. **Done:** fortification verbs + `E` context + look-at HUD (`godot:m2:fortify`).
-6. **Specified, not built:** slice director (`godot:m2:director`).
-7. **Specified, not built:** v11 save round-trip (`godot:m2:save`) — stamp with 6 (director key still missing until 6 lands).
+6. **Done:** slice director (`godot:m2:director`).
+7. **Specified, not built:** v11 save round-trip (`godot:m2:save`).
 8. **Specified, not built:** harness (`godot:m2:harness`).
 9. **Specified, not built:** SFX one-shots ([Alpha audio one-shots](issues/12-alpha-audio.md)).
 
@@ -46,7 +46,7 @@ Planning for 01–12 is locked. **Frontier is empty.** Remaining fog is none. Ex
 
 <!-- in-scope fog you can't ticket yet; graduates as frontier advances -->
 
-*(empty — this map is planning-complete. Execution is on the director.)*
+*(empty — this map is planning-complete. Execution is on save/load.)*
 
 ## Out of scope
 

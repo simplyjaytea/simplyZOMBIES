@@ -134,7 +134,22 @@ switch (mode) {
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_ranged.gd"];
     break;
   case "--m2-fortify":
-    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_fortify.gd"];
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_fortify.gd",
+    ];
+    break;
+  case "--m2-director":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_director.gd",
+    ];
     break;
   case "--export":
     args = [];

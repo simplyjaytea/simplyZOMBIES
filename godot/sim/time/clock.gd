@@ -60,3 +60,7 @@ static func clock_time(tick: int) -> Dictionary:
 static func tick_at_time_of_day(fraction: float) -> int:
 	var f := fmod(fmod(fraction, 1.0) + 1.0, 1.0)
 	return int(floor(f * float(DAY_TICKS)))
+
+
+static func tick_on_day(day: int, fraction: float) -> int:
+	return (maxi(1, day) - 1) * DAY_TICKS + tick_at_time_of_day(fraction)

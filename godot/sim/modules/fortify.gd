@@ -282,7 +282,7 @@ static func _place_noisemaker(world: Variant, tx: int, ty: int) -> void:
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
-	world.components.set_component(ent, "velocity", {"x": 0.0, "y": 0.0})
+	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
 	world.components.set_component(ent, "noisemaker", {"expiresAtTick": int(world.tick) + NOISEMAKER_TICKS})
 	var emitter: Dictionary = SimAttention.PERSON_EMITTER.duplicate(true)
 	emitter["ambient"] = NOISEMAKER_MAG
@@ -365,6 +365,7 @@ static func _tick_contact(world: Variant) -> void:
 			b["stage"] = int(b.get("stage", 0)) + 1
 			dirty = true
 		if int(b["stage"]) >= 4:
+			world.events.publish({"type": "fortify.breached", "tx": tx, "ty": ty})
 			world.despawn(int(entity))
 			dirty = true
 	if dirty:

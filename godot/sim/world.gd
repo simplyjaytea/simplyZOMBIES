@@ -49,6 +49,7 @@ var stats: Variant = null
 var modifiers: Variant = null
 var field: Variant = null
 var events: Variant = null
+var director: Dictionary = {"lullUntilTick": 0, "lastMigrationTick": 0, "nightsSinceQuiet": 0}
 
 
 func _init(fixture: Dictionary) -> void:
@@ -159,6 +160,11 @@ func snapshot() -> Dictionary:
 		"components": (components as RefCounted).call("save"),
 		"modifiers": (modifiers as RefCounted).call("save"),
 		"field": (field as RefCounted).call("save"),
+		"director": {
+			"lullUntilTick": int(director.get("lullUntilTick", 0)),
+			"lastMigrationTick": int(director.get("lastMigrationTick", 0)),
+			"nightsSinceQuiet": int(director.get("nightsSinceQuiet", 0)),
+		},
 	}
 
 
@@ -171,6 +177,13 @@ func restore(snap: Dictionary) -> void:
 	(components as RefCounted).call("restore", snap["components"])
 	(modifiers as RefCounted).call("restore", snap["modifiers"])
 	(field as RefCounted).call("restore", snap["field"])
+	if snap.has("director") and snap["director"] is Dictionary:
+		var d: Dictionary = snap["director"] as Dictionary
+		director = {
+			"lullUntilTick": int(d.get("lullUntilTick", 0)),
+			"lastMigrationTick": int(d.get("lastMigrationTick", 0)),
+			"nightsSinceQuiet": int(d.get("nightsSinceQuiet", 0)),
+		}
 	if tilemap != null:
 		SimFortifyRes.sync_map(self)
 
