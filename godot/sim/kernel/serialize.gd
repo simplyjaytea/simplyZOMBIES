@@ -1,7 +1,7 @@
 class_name SimSerialize
 extends RefCounted
 
-const SAVE_VERSION: int = 10
+const SAVE_VERSION: int = 11
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

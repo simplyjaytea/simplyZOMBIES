@@ -23,6 +23,7 @@ const SimLightMod = preload("res://sim/modules/light.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimFieldMemory = preload("res://sim/modules/field_memory.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
@@ -89,6 +90,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimMelee.register_module(world)
 	SimRanged.register_module(world)
 	SimInventory.register_module(world)
+	SimFortify.register_module(world)
 	SimAttention.register_module(world, map)
 	SimShambler.register_module(world, map)
 	SimScreamer.register_module(world)
