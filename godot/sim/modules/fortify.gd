@@ -365,6 +365,7 @@ static func _tick_contact(world: Variant) -> void:
 			b["stage"] = int(b.get("stage", 0)) + 1
 			dirty = true
 		if int(b["stage"]) >= 4:
+			world.events.publish({"type": "fortify.breached", "tx": tx, "ty": ty})
 			world.despawn(int(entity))
 			dirty = true
 	if dirty:
