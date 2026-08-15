@@ -126,8 +126,8 @@ func _playable_boot() -> bool:
 			screamers += 1
 		elif id == "zombie.bloater":
 			bloaters += 1
-	if zeds < 3 or screamers < 1 or bloaters < 1:
-		push_error("roster spawn z=%d s=%d b=%d" % [zeds, screamers, bloaters])
+	if zeds != 12 or screamers != 0 or bloaters != 0:
+		push_error("day-1 boot z=%d s=%d b=%d want 12 shamblers" % [zeds, screamers, bloaters])
 		return false
 	var ground: int = 0
 	for e2 in world.components.query(["itemBase", "position"]):
