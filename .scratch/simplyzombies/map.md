@@ -18,29 +18,30 @@ Locked planning spec for **simplyZOMBIES Early Alpha**: a solo-playable Godot 4.
 - [01 — Which three zombies ship in early alpha](issues/01-zombie-roster.md) — **Shambler + Screamer + Bloater.** Screamer = sight-triggered 300 noise relay (visibility primitive, 30s cooldown); Bloater = 30 scent burst + 6 m contamination flag on death (wound check, no plume). Day 0–2 shambler-only then fake-wave composition flip. Defers full mutation schedule.
 - [02 — Stats MVP for early alpha](issues/02-stats-mvp.md) — **STR+CON+DEX (3–8, total 15, ±1 nudge, numbers visible, linear, ~one band).** CHA/WIS/INT deferred to 3A. `aptitudes` component + `SimModifiers` pipeline (carry/grab, `infection_progression`, `move_speed`+distance-normalized noise). Reroll = new person. Midpoint-5 upgrade path for old saves. **Shipped:** `godot/sim/modules/aptitudes.gd` + `godot:m2:stats`.
 - [03 — Standard kit of gear for early alpha](issues/03-standard-kit.md) — **4 melee + bow + pistol + 2 armor.** Knife/Bat/Spear/Axe (3-4 deferred in place); bow 4-noise screamer answer + pistol 180-noise parity cost (20 rounds, no craft); wrap 0.3 + vest 0.6 coverage-gated transmission; 6+4 affix pools, read-only condition, slots declared no attachments. 2 loot tables (residential + military cache).
+- [04 — Basic combat contract for early alpha](issues/04-combat-contract.md) — **Shipped loops locked.** Exhausted swings degrade (refuse flagged until `crowded-and-swinging`); knife/bat/spear stagger table; noise 180/40/4/8 kept for 256 m; grabs 1.0/1.6 m + STR numerator; no aim assist. **Shipped:** `godot:m2:ranged` + degrade path.
 - [05 — One unique NPC as framework for future](issues/05-unique-npc.md) — **Mara Okoro, clinic nurse.** CON 7/STR 3/DEX 5 (15). `survivors/uniques/*.json` + `survivor.schema.json`, `survivor` CONTENT_TYPE, grid-lite Doctor 1/Guard 2/Rest 3, portrait+barks, one-chance permadeath, director beat day 1 annex. N more without code change; hot-reload re-runs seed. **Shipped:** `SimSurvivors.spawn_unique` / `boot_playable`; she stands next to the player with kit in pockets.
 - [06 — Isometric pixel art + SpriteAI pipeline for alpha](issues/06-iso-art-pipeline.md) — **Keep shipped 2:1 iso, procedural diamonds for alpha.** `godot/assets/sprites/` + Nearest-import PNGs, `{category}_{subject}_{pose}_{dir}_{frame}.png`, sim-agnostic. Bodies first (survivor + 3 zeds + Mara), tiles deferred til #07, sim/primitives unchanged. Headless informational + Chromium frame guard.
 - [07 — Alpha district and defensible building](issues/07-alpha-district.md) — **Civic annex 256 m, 2+1 vectors, JSON patch.** Full 256×256 m (64×64 cells, parity intact); L-shape annex (Mara day-1 barricaded exam room, 1 gate + 2 Window walls + Screen/Low interior); avenue front + rear alley + blind flank (Screen/undergrowth); fixed deterministic loot per seed (residential + military cache) with day→dusk-barricade→night loop replacing hunger; `godot/content/maps/district_alpha.json` overlay patch after `generate_district(seed)`, validated, parity-limited.
+- [08 — Fortification slice for early alpha](issues/08-fortification-slice.md) — **Board windows + one scrap choke + alarm line + noisemaker; player verbs only.** Overlay on `Tile.Window` (opaque when boarded, five prose stages, no HP); one alley scrap barricade (`item.scrap.metal`); alarm wakes 10× (`noise 8`, no DPS); noisemaker 45 mag / 10 min / wind-at-device. Gate stays authored Floor gap. Mara does not Construct. Gate `godot:m2:fortify`. Not built.
 
 ## Building now
 
-Planning for 01–07 is locked. Execution order:
+Planning for 01–08 is locked. Execution order:
 
 1. **Done:** stats MVP + Mara spawn (`godot:m2:stats`).
 2. **Done:** screamer `alarm_on_sight` + bloater `blooms_on_death` + 80/12/8 mix (`godot:m2:roster`).
 3. **Done:** civic-annex overlay (`godot:m2:district`).
 4. **Done:** bow/pistol fire loop + exhausted swings degrade (`godot:m2:ranged`).
+5. **Specified, not built:** fortification verbs (`godot:m2:fortify`) — see [Fortification slice for early alpha](issues/08-fortification-slice.md).
 
-Next unspecified work is in **Not yet specified** (fortification slice, director pressure, save/load for new systems, tuning harness, audio).
+Frontier is the open unblocked tickets under `issues/` (director pressure). Remaining fog is in **Not yet specified**.
 
 ## Not yet specified
 
 <!-- in-scope fog you can't ticket yet; graduates as frontier advances -->
 
-- **Fortification slice for alpha:** Which walls/gates/barricades/traps/bait from doc 15 ship in early alpha vs deferred. Depends on district choice.
-- **Director pressure for alpha:** Grace period, lulls, night cadence tuned for 3-type roster and solo + 1 NPC.
-- **Save/load + determinism for new systems:** How stats, new zombie types, and unique NPC serialize under seeded RNG and replay.
-- **Tuning harness for alpha:** Headless run-length / death / siege / parity distributions for 3-type + kit balance.
+- **Save/load + determinism for new systems:** How stats, new zombie types, unique NPC, and now barricade overlay / alarm / noisemaker serialize under seeded RNG and replay.
+- **Tuning harness for alpha:** Headless run-length / death / siege / parity distributions for 3-type + kit balance (fortify verbs will need a night-with-boards scenario).
 - **Audio for alpha:** Footstep/noise magnitudes vs 256 m district calibration in iso context.
 
 ## Out of scope
@@ -51,3 +52,4 @@ Next unspecified work is in **Not yet specified** (fortification slice, director
 - **Factions, vehicles, z-levels, world decay mutation waves beyond alpha roster:** Docs 13/18/24–26 deferred.
 - **Multiplayer:** Doc 27, Milestone 3C — spec only, no build.
 - **Full skill web & full 32-doc backlog:** Shallow web, full injury/infection loops, named items beyond kit — beyond alpha.
+- **Doc 15 beyond the alpha four:** timber/reinforced/stone walls, player-built gates, watch platform, DPS traps, timed lamp / carcass / decoy fire, Construct job AI — deferred in [Fortification slice for early alpha](issues/08-fortification-slice.md).
