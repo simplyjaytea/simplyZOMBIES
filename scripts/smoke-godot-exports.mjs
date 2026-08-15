@@ -23,11 +23,9 @@ function testWindows() {
   });
   if (result.error !== undefined) throw result.error;
   const output = `${result.stdout}\n${result.stderr}`;
-  // ponytail: --quit-after always prints ObjectDB/resource leaks as ERROR and may
-  // exit 1; that is shutdown noise, not a failed boot.
-  const bootError =
-    /SCRIPT ERROR:/.test(output) ||
-    /(?:^|\n)ERROR:(?! \d+ resources still in use at exit)/.test(output);
+  // ponytail: --quit-after dumps ObjectDB/RID/resource leaks as ERROR and may
+  // exit 1; any "at exit" line is shutdown noise, not a failed boot.
+  const bootError = /SCRIPT ERROR:/.test(output) || /(?:^|\n)ERROR:(?!.*at exit)/.test(output);
   if (!output.includes("GODOT_R1_READY") || bootError) {
     throw new Error(`Windows export failed to boot:\n${result.stdout}\n${result.stderr}`);
   }
