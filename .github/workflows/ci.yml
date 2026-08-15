@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Composite: install 4.7.1 + export templates. Reused so godot-exports and godot-bench
-  # don't duplicate engine/template setup (R5: no duplicating their engine/template setup).
+  # Headless engine only. Windows/web packaging lives in godot-exports, which installs
+  # the export templates this job never has.
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -96,9 +96,6 @@ jobs:
 
       - name: M2 lethality (stages/armor/diagnosis/amputate/turning)
         run: npm run godot:m2
-
-      - name: Build
-        run: npm run build
 
   godot-exports:
     needs: check
