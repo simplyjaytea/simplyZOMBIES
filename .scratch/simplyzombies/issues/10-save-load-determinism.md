@@ -1,6 +1,7 @@
 # 10 — Save/load + determinism for alpha systems
 
 Type: grilling
+Status: claimed
 Blocked by: 02, 05, 07, 08, 09
 
 ## Question
@@ -13,3 +14,5 @@ Alpha now has shipped sim that round-trips under `SAVE_VERSION` 10 (aptitudes, r
 - Replay contract: `canonicalize(snapshot())` identical after save/load with boards + packet + Mara dead — what is in the fingerprint vs left as presentation?
 
 Decision is the alpha serialize list + version policy + stream names, so a builder does not dump new keys onto the player entity and break R6.
+
+Grill UI: [grill-10-save-load.html](../../grill-10-save-load.html) — click one per card, copy the picks line into chat.
