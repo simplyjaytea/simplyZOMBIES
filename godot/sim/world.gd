@@ -14,6 +14,7 @@ const ContentLoader = preload("res://platform/content_loader.gd")
 const AttentionFieldRes = preload("res://sim/field/attention.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
+const SimFortifyRes = preload("res://sim/modules/fortify.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / TICK_HZ
@@ -170,6 +171,8 @@ func restore(snap: Dictionary) -> void:
 	(components as RefCounted).call("restore", snap["components"])
 	(modifiers as RefCounted).call("restore", snap["modifiers"])
 	(field as RefCounted).call("restore", snap["field"])
+	if tilemap != null:
+		SimFortifyRes.sync_map(self)
 
 
 func serialize() -> String:
