@@ -7,8 +7,14 @@ if (!existsSync(resolve(root, "godot/project.godot"))) {
   let probe = root;
   let found = "";
   while (probe !== "/" && probe !== ".") {
-    if (existsSync(resolve(probe, "godot/project.godot"))) { found = probe; break; }
-    if (existsSync(resolve(probe, "simplyZOMBIES/godot/project.godot"))) { found = resolve(probe, "simplyZOMBIES"); break; }
+    if (existsSync(resolve(probe, "godot/project.godot"))) {
+      found = probe;
+      break;
+    }
+    if (existsSync(resolve(probe, "simplyZOMBIES/godot/project.godot"))) {
+      found = resolve(probe, "simplyZOMBIES");
+      break;
+    }
     const parent = resolve(probe, "..");
     if (parent === probe) break;
     probe = parent;
@@ -71,31 +77,13 @@ switch (mode) {
     ];
     break;
   case "--validate":
-    args = [
-      "--headless",
-      "--path",
-      resolve(root, "godot"),
-      "--script",
-      "res://check_content.gd",
-    ];
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_content.gd"];
     break;
   case "--bench":
-    args = [
-      "--headless",
-      "--path",
-      resolve(root, "godot"),
-      "--script",
-      "res://bench/bench.gd",
-    ];
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://bench/bench.gd"];
     break;
   case "--r6-ticks":
-    args = [
-      "--headless",
-      "--path",
-      resolve(root, "godot"),
-      "--script",
-      "res://check_r6_ticks.gd",
-    ];
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_r6_ticks.gd"];
     break;
   case "--r6-coverage":
     args = [
@@ -116,13 +104,7 @@ switch (mode) {
     ];
     break;
   case "--r6-soak":
-    args = [
-      "--headless",
-      "--path",
-      resolve(root, "godot"),
-      "--script",
-      "res://check_r6_soak.gd",
-    ];
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_r6_soak.gd"];
     break;
   case "--m2":
     args = [
@@ -134,22 +116,10 @@ switch (mode) {
     ];
     break;
   case "--m2-stats":
-    args = [
-      "--headless",
-      "--path",
-      resolve(root, "godot"),
-      "--script",
-      "res://check_m2_stats.gd",
-    ];
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_stats.gd"];
     break;
   case "--m2-roster":
-    args = [
-      "--headless",
-      "--path",
-      resolve(root, "godot"),
-      "--script",
-      "res://check_m2_roster.gd",
-    ];
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_roster.gd"];
     break;
   case "--m2-district":
     args = [
@@ -161,13 +131,7 @@ switch (mode) {
     ];
     break;
   case "--m2-ranged":
-    args = [
-      "--headless",
-      "--path",
-      resolve(root, "godot"),
-      "--script",
-      "res://check_m2_ranged.gd",
-    ];
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_ranged.gd"];
     break;
   case "--export":
     args = [];
