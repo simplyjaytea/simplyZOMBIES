@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ticket #10 — Save/load + determinism — Pick 4</title>
+<style>
+  :root{--bg:#0e1116;--card:#171c24;--card2:#1e2532;--line:#2a3446;--text:#e6edf6;--muted:#8b9ab0;--accent:#5ee9a8;--warn:#ffcc66;--blue:#6aa8ff}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:760px;margin:28px auto;padding:0 18px 96px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-0.02em} .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;margin:14px 0}
+  .qhead{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+  .qnum{background:var(--card2);border:1px solid var(--line);color:var(--accent);font-weight:700;font-size:12px;padding:4px 8px;border-radius:999px;white-space:nowrap}
+  .qtitle{font-weight:700;font-size:15px;line-height:1.3} .qdesc{color:var(--muted);font-size:13px;margin:6px 0 2px;line-height:1.5}
+  .opts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  label.opt{display:flex;gap:10px;align-items:flex-start;background:var(--card2);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;transition:.12s}
+  label.opt:hover{border-color:#3a4a66} label.opt:has(input:checked){border-color:var(--accent);background:#162a22}
+  label.opt input{margin:4px 0 0;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0}
+  .opt-main{flex:1} .opt-title{font-weight:650;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .badge{font-size:10px;font-weight:800;letter-spacing:.06em;padding:3px 7px;border-radius:999px;border:1px solid}
+  .badge-rec{background:#0f2e22;color:var(--accent);border-color:#1d5a3f}
+  .opt-desc{color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.45}
+  .foot{position:sticky;bottom:0;background:linear-gradient(180deg, transparent, var(--bg) 18%, var(--bg));padding:14px 0 18px;margin-top:18px}
+  .foot-inner{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .summary{flex:1;min-width:220px;font-size:13px;color:var(--muted);line-height:1.4}
+  .summary strong{color:var(--text)}
+  .btn{appearance:none;border:1px solid #2a6e4d;background:var(--accent);color:#08120e;font-weight:800;padding:10px 16px;border-radius:10px;cursor:pointer;font-size:13px}
+  .btn:active{transform:translateY(1px)} .btn2{background:var(--card2);color:var(--text);border-color:var(--line)}
+  .hint{font-size:11px;color:var(--muted);margin-top:8px}
+  code{font-size:12px;background:var(--card2);padding:2px 6px;border-radius:6px;border:1px solid var(--line)}
+  .warn{font-size:11px;color:var(--warn);margin-top:8px}
+  table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:12px}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+  th{background:var(--card2);color:var(--muted);font-weight:650}
+  .tag{font-weight:800;font-size:10px;letter-spacing:.04em}
+  .tag-c{color:var(--blue)} .tag-s{color:var(--accent)} .tag-d{color:var(--warn)}
+  textarea{width:100%;min-height:64px;margin-top:8px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ticket #10 — Save/load + determinism</h1>
+  <div class="sub">Round 1 · 4 picks. Click one per card. Green = recommended. Copy at the bottom and paste in chat. Replay/fingerprint is round 2, after this list locks.</div>
+
+  <div class="card" data-q="1">
+    <div class="qhead"><span class="qnum">Q1</span><div><div class="qtitle">Content vs state vs derived — what must the snapshot hold?</div><div class="qdesc"><code>world.snapshot()</code> today is <code>version, tick, seed, rng, entities, components, modifiers, field</code>. District patch is not in it. Vision/light caches are not in it.</div></div></div>
+    <table>
+      <thead><tr><th>Thing</th><th></th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>District patch, Mara JSON, roster mix, packet size JSON</td><td class="tag tag-c">CONTENT</td><td>Re-derived from seed + files (ticket 07)</td></tr>
+        <tr><td>Window boards <code>{x,y,stage}</code>, scrap choke, alarm, noisemaker <code>expiresAtTick</code></td><td class="tag tag-s">STATE</td><td>Mid-siege F9 with empty overlay = unboarded annex</td></tr>
+        <tr><td>Director <code>lullUntilTick, lastMigrationTick, nightsSinceQuiet</code></td><td class="tag tag-s">STATE</td><td>A lull that forgets itself is not a lull</td></tr>
+        <tr><td>Clock phase, annex rect, gate tiles</td><td class="tag tag-d">DERIVED</td><td>Tick + content</td></tr>
+        <tr><td>Vision / light / <code>mapGeneration</code> / HUD / paperdoll</td><td class="tag tag-d">DERIVED</td><td>Same as Observer: result not saved</td></tr>
+        <tr><td>Power / strain integers</td><td class="tag tag-d">DERIVED</td><td>Recomputed at dusk from live bits</td></tr>
+      </tbody>
+    </table>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q1" value="A" checked><div class="opt-main"><div class="opt-title">A — That table <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Content stays content. Overlay / trap / bait / director dials are state. Power/strain and sight caches stay out.</div></div></label>
+      <label class="opt"><input type="radio" name="q1" value="B"><div class="opt-main"><div class="opt-title">B — Also snapshot the whole tilemap arrays</div><div class="opt-desc">Rejects ticket 07. Huge. Patch is already content.</div></div></label>
+      <label class="opt"><input type="radio" name="q1" value="C"><div class="opt-main"><div class="opt-title">C — Don’t snapshot overlays; replay from a command log</div><div class="opt-desc">Godot <code>snapshot()</code> does not record commands. F9 would rebuild an unboarded annex.</div></div></label>
+    </div>
+  </div>
+
+  <div class="card" data-q="2">
+    <div class="qhead"><span class="qnum">Q2</span><div><div class="qtitle">Where does that new state live?</div><div class="qdesc">Docs/20: director is plain world state, not an entity. Bloater contamination is already an entity with a component and rides <code>components.save()</code> for free.</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q2" value="A" checked><div class="opt-main"><div class="opt-title">A — Director key on snapshot; fortify as entities <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc"><code>director: {lullUntilTick, lastMigrationTick, nightsSinceQuiet}</code> on <code>snapshot()</code>. Window boards, scrap, alarm, noisemaker are entities/components (noisemaker keeps <code>AttentionEmitter</code> ambient 45 + <code>expiresAtTick</code>). <code>opacity_at</code> reads the board component. No third save format.</div></div></label>
+      <label class="opt"><input type="radio" name="q2" value="B"><div class="opt-main"><div class="opt-title">B — One <code>fortify</code> blob next to <code>director</code></div><div class="opt-desc">Two new snapshot keys. Tiles are not entities. Fine, just a second bag to keep in sync with the map.</div></div></label>
+      <label class="opt"><input type="radio" name="q2" value="C"><div class="opt-main"><div class="opt-title">C — Cram director onto a singleton entity</div><div class="opt-desc">So <code>snapshot()</code> shape never grows. Fights docs/20 for no gain.</div></div></label>
+    </div>
+  </div>
+
+  <div class="card" data-q="3">
+    <div class="qhead"><span class="qnum">Q3</span><div><div class="qtitle">Version policy — bump or migrate?</div><div class="qdesc">Docs/19: old saves rejected, no migration framework pre-1.0. Ticket 08 already asked for a bump. Infection added keys and <em>left</em> <code>SAVE_VERSION</code> at 10, which is why this is a fight. Current stamp is <code>10</code>.</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q3" value="A" checked><div class="opt-main"><div class="opt-title">A — Bump 10 → 11, reject v10 <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Message already exists in <code>save.gd</code>. A v10 file has no answer to “was this window boarded.” Rejection is the product.</div></div></label>
+      <label class="opt"><input type="radio" name="q3" value="B"><div class="opt-main"><div class="opt-title">B — Keep 10, fill missing keys as “nothing built / no lull”</div><div class="opt-desc">What infection actually did. Silent: a boarded night loads as open windows.</div></div></label>
+      <label class="opt"><input type="radio" name="q3" value="C"><div class="opt-main"><div class="opt-title">C — Bump to 11 <em>and</em> default-fill inside v11</div><div class="opt-desc">Still a migration framework. Docs/19 forbade that until 1.0.</div></div></label>
+    </div>
+    <div class="warn">A v10 save from before fortify has no overlay. Loading it as unboarded looks like a migration even if you never wrote one.</div>
+  </div>
+
+  <div class="card" data-q="4">
+    <div class="qhead"><span class="qnum">Q4</span><div><div class="qtitle">Which named RNG streams?</div><div class="qdesc">Packets need a roll: <code>pick_type</code> + edge tile. Fortify verbs as specified are not rolls (contact advances board stage). <code>rng.stream("director")</code> already exists in the oracle tests as a name that must not shift other streams. <code>rng.save()</code> persists every stream that has been opened.</div></div></div>
+    <div class="opts">
+      <label class="opt"><input type="radio" name="q4" value="A" checked><div class="opt-main"><div class="opt-title">A — <code>director</code> only; fortify consumes none <span class="badge badge-rec">RECOMMENDED</span></div><div class="opt-desc">Dusk packets use <code>director</code> for type + edge. <code>placement</code> / <code>infection</code> / <code>shambler</code> / <code>treatment</code> untouched.</div></div></label>
+      <label class="opt"><input type="radio" name="q4" value="B"><div class="opt-main"><div class="opt-title">B — Also open <code>fortify</code> now for a future breach roll</div><div class="opt-desc">A stream with no samples is a footgun. Add it when a roll exists.</div></div></label>
+      <label class="opt"><input type="radio" name="q4" value="C"><div class="opt-main"><div class="opt-title">C — Reuse <code>placement</code> for packets</div><div class="opt-desc">Couples boot wanderers to night cadence. A mid-day save then a packet would share history with where the original 12 landed.</div></div></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="qtitle">Rewrite / note (optional)</div>
+    <div class="qdesc">If a pick is not A/B/C, type it here. Copied with the picks line.</div>
+    <textarea id="note" placeholder="e.g. Q2:A but scrap is a tile overlay, not an entity"></textarea>
+  </div>
+
+  <div class="foot">
+    <div class="foot-inner">
+      <div class="summary" id="summary">Your picks: <strong id="picks">Q1:A · Q2:A · Q3:A · Q4:A</strong><br>Paste this line in chat, or tweak above.</div>
+      <button class="btn" id="copy">Copy picks</button>
+      <button class="btn btn2" id="reset">Reset to recommended</button>
+    </div>
+    <div class="hint">Recommended = green border, pre-selected. Round 2 (replay / <code>canonicalize(snapshot())</code>) waits until this round lands.</div>
+  </div>
+</div>
+<script>
+const names=["q1","q2","q3","q4"];
+function collect(){return names.map(n=>{const c=document.querySelector(`input[name="${n}"]:checked`);return c?c.value:"-";});}
+function line(){
+  const v=collect();
+  let t=v.map((x,i)=>`Q${i+1}:${x}`).join(" ");
+  const note=(document.getElementById("note").value||"").trim();
+  if(note) t += "\n" + note;
+  return t;
+}
+function update(){const v=collect();document.getElementById("picks").textContent=v.map((x,i)=>`Q${i+1}:${x}`).join(" · ");}
+names.forEach(n=>document.querySelectorAll(`input[name="${n}"]`).forEach(i=>i.addEventListener("change",update)));
+document.getElementById("note").addEventListener("input",update);
+document.getElementById("copy").onclick=async()=>{
+  const t=line();
+  try{await navigator.clipboard.writeText(t); const b=document.getElementById("copy"); b.textContent="Copied ✓"; setTimeout(()=>b.textContent="Copy picks",1200);}catch{prompt("Copy this line:",t)}
+};
+document.getElementById("reset").onclick=()=>{
+  const rec={q1:"A",q2:"A",q3:"A",q4:"A"};
+  Object.entries(rec).forEach(([k,v])=>{const el=document.querySelector(`input[name="${k}"][value="${v}"]`); if(el) el.checked=true;});
+  document.getElementById("note").value="";
+  update();
+};
+update();
+</script>
+</body>
+</html>
