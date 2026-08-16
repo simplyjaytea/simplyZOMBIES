@@ -92,6 +92,17 @@ publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot
   bloater colours that used to be literals in the draw loop now live in their JSON, which is what
   proves the pipeline with no art present. Gate: `npm run godot:check:appearance`
   (`APPEARANCE_OK`). Conventions in `godot/assets/sprites/README.md`.
+- **The paperdoll scales to its control and names every stance correctly.** `_height` was a
+  hardcoded 118.0 that ignored `size`, so the 260px gear-panel doll drew the same figure as the
+  140px corner glimpse. `_figure_height()` fits `h` to whatever box the control actually is,
+  bounded by whichever pose (standing tallest, prone widest) is tightest, so no stance clips at
+  any size. The posture label was its own three-way ternary that mapped stance 0 (Crawl) to
+  "stand" and stances 3–4 (Jog, Sprint) both to "walk" — three of five stances were mislabeled.
+  It now reads `SimStances.NAMES`, the one canonical stance-name list, instead of keeping its own.
+  Verified visually across all five stances at both sizes under Xvfb. Left alone: `sim/stance.gd`
+  (singular) is dead code superseded by `sim/stances.gd` (plural) and uses a different component
+  key (`"Posture"` vs the live `"posture"`) — unreferenced anywhere, so harmless, but a trap for
+  anyone who greps for the wrong file.
 - **The health-bar ban is gated in Godot.** `godot/sim/condition.gd` is now the single builder for
   the view — `presentation/main.gd` and `ui/inventory_panel.gd` had each built it inline and
   drifted — and `npm run godot:ban:healthbar` (`BAN_HEALTH_BAR_OK`) serialises it and asserts no

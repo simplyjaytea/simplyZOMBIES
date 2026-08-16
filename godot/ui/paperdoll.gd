@@ -4,6 +4,7 @@ extends Control
 # ponytail: single file for Control; extract to presentation/outline.gd when reused elsewhere.
 
 const Palette = preload("res://presentation/palette.gd")
+const SimStances = preload("res://sim/stances.gd")
 
 enum OutlinePose { Stand = 0, Crouch = 1, Prone = 2 }
 
@@ -21,12 +22,34 @@ const PRONE_WRIST_Y: float = 0.955 # shoulderY + reach approx
 const CRAWL_FRAC: float = 0.34
 const CROUCH_FRAC: float = 0.68
 
+# Worst-case extent, as a fraction of `h`, over every pose this file draws -- used to size
+# `h` to whatever box the control actually is rather than a constant. Standing is the tall
+# pose (head reaches headCentreY + headRy above the anchor, unfolded); prone is the wide one,
+# because lying down rotates the body into the horizontal axis and the ankle-to-wrist span
+# becomes screen-horizontal. Getting these two fractions right is what makes h fill the
+# control at every stance without clipping at any of them.
+const TALLEST_ABOVE_ANCHOR_FRAC: float = 0.99 # stand: headCentreY (0.925) + headRy (0.062)
+const WIDEST_HALF_FRAC: float = 0.6 # prone: |0.5 - ankleY| after PRONE_REACH, rounded up
+
+const TOP_MARGIN: float = 6.0
+const BOTTOM_MARGIN: float = 10.0
+const SIDE_MARGIN: float = 6.0
+const MIN_HEIGHT: float = 20.0
+
 var _view: Dictionary = {} # {parts:[{part,state,prose}], stance:int, worst:int}
-var _height: float = 118.0
 
 func set_view(view: Dictionary) -> void:
 	_view = view
 	queue_redraw()
+
+# `h` used to be a hardcoded 118.0, so giving this control more room -- the corner glimpse is
+# 140px, the gear panel is 260px -- drew exactly the same figure either way. This fits the
+# figure to whatever `size` actually is, bounded by whichever pose is tightest so no stance
+# clips once it's picked.
+func _figure_height() -> float:
+	var from_height: float = (size.y - BOTTOM_MARGIN - TOP_MARGIN) / TALLEST_ABOVE_ANCHOR_FRAC
+	var from_width: float = (size.x / 2.0 - SIDE_MARGIN) / WIDEST_HALF_FRAC
+	return maxf(MIN_HEIGHT, minf(from_height, from_width))
 
 func _pose_for_stance(stance: int) -> int:
 	if stance == 0: return OutlinePose.Prone # Crawl
@@ -64,8 +87,8 @@ func _draw() -> void:
 	var tint_for: Callable = func(region: String) -> Variant: return _get_tint(region)
 	# anchor at bottom-center of control
 	var anchor_x: float = size.x / 2.0
-	var anchor_y: float = size.y - 10.0
-	var h: float = _height
+	var anchor_y: float = size.y - BOTTOM_MARGIN
+	var h: float = _figure_height()
 	# frame projector
 	var prone: bool = pose == OutlinePose.Prone
 	var pivot: float = 0.5
@@ -145,6 +168,11 @@ func _draw() -> void:
 	# prose below figure — posture hint only, no numbers cross the boundary (docs/05)
 	if _view.has("parts"):
 		var y: float = size.y - 28.0
-		var label: String = "stand" if int(_view.get("stance", 2)) == 0 else ("crouch" if int(_view.get("stance", 2)) == 1 else "walk")
+		# SimStances.NAMES is the one canonical stance-name list; this used to be its own
+		# three-way ternary that mapped stance 0 to "stand" (it is Crawl) and stances 3/4
+		# (Jog/Sprint) both to "walk" -- three of five stances were mislabeled, and jogging
+		# and sprinting were visually indistinguishable from walking.
+		var stance: int = int(_view.get("stance", SimStances.Stance.Walk))
+		var label: String = SimStances.name_of(stance) if stance >= 0 and stance < SimStances.NAMES.size() else "walking"
 		# tint already encodes worst visibly; text only names posture
 		draw_string(ThemeDB.fallback_font, Vector2(6, y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Palette.COLOURS["outline"])
