@@ -25,6 +25,7 @@ const ContentValidator = preload("res://platform/content_validator.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -42,13 +43,16 @@ var paused: bool = false
 var speed: int = 1
 var attention_channel: String = "off" # off/noise/scent/sight/light
 var inventory_open: bool = false
+var work_open: bool = false
 var show_sheets: bool = false
 var tick_count: int = 0
 
 # ui refs (created in _ready if CanvasLayer available)
 var _hud: Label = null
 var _inventory_panel: Control = null
+var _work_panel: Control = null
 var _paperdoll: Control = null
+var _selected: int = -1
 
 # paperdoll glimpse state (bottom-right diagram, not world sprite)
 var _glimpse_parts: Array = []
@@ -150,6 +154,13 @@ func _ensure_ui() -> void:
 		_inventory_panel = inv_script.new() as Control
 		_inventory_panel.visible = false
 		layer.add_child(_inventory_panel)
+	var work_script: GDScript = load("res://ui/work_panel.gd") as GDScript
+	if work_script != null:
+		_work_panel = work_script.new() as Control
+		_work_panel.visible = false
+		_work_panel.position = Vector2(8, 120)
+		_work_panel.size = Vector2(760, 160)
+		layer.add_child(_work_panel)
 	# paperdoll glimpse bottom-right (always visible, cheap)
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
 	if doll_script != null:
@@ -172,6 +183,12 @@ func _input(event: InputEvent) -> void:
 				inventory_open = not inventory_open
 				if _inventory_panel != null: _inventory_panel.visible = inventory_open
 				if _hud != null: _hud.visible = not inventory_open
+			KEY_J:
+				work_open = not work_open
+				if _work_panel != null:
+					_work_panel.visible = work_open
+					if work_open and _work_panel.has_method("set_world"):
+						_work_panel.call("set_world", world)
 			KEY_SPACE:
 				if world != null: world.commands.push({"type": "shout"})
 			KEY_F:
@@ -242,10 +259,14 @@ func _save() -> void:
 
 func _load() -> void:
 	if world == null: return
+	if bool(world.runOver): return
 	var raw: String = PlatformStorage.read_save()
 	if raw.is_empty(): return
 	var parsed: Dictionary = SimSave.decode_save(raw)
 	if parsed.has("__error"): return
+	var snap: Variant = parsed.get("snapshot", {})
+	if snap is Dictionary and bool((snap as Dictionary).get("runOver", false)):
+		return
 	SimSave.apply_save(world, parsed)
 
 func _poll_content_reload() -> void:
@@ -359,7 +380,15 @@ func _update_hud() -> void:
 			base += "  %s" % String(look["noisemaker"])
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
+	var who: int = _selected if _selected >= 0 else int(world.player)
+	var need_line: String = SimNeeds.hud_clause(world, who, false)
+	if not need_line.is_empty():
+		base += "  %s" % need_line
+	if bool(world.runOver):
+		base += "  RUN OVER"
 	_hud.text = base
+	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
+		_work_panel.call("set_world", world)
 	if _inventory_panel != null and _inventory_panel.visible and _inventory_panel.has_method("set_world"):
 		_inventory_panel.call("set_world", world, world.player)
 

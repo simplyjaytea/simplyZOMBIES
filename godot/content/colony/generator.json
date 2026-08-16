@@ -1,0 +1,103 @@
+{
+  "id": "colony.generator.survivors",
+  "given": [
+    "Asha",
+    "Ben",
+    "Cora",
+    "Dmitri",
+    "Elena",
+    "Farid",
+    "Gwen",
+    "Hiro",
+    "Imani",
+    "Jonas",
+    "Keiko",
+    "Luis"
+  ],
+  "surnames": [
+    "Adeyemi",
+    "Brooks",
+    "Chen",
+    "Diaz",
+    "Ellis",
+    "Farouk",
+    "Garcia",
+    "Haddad",
+    "Ito",
+    "Khan",
+    "Novak",
+    "Okafor"
+  ],
+  "traits": [
+    "light_sleeper",
+    "squeamish",
+    "steady_hands",
+    "iron_stomach",
+    "loud",
+    "optimist",
+    "night_blind",
+    "fast_healer"
+  ],
+  "features": [
+    "short hair",
+    "tired eyes",
+    "scarred knuckles",
+    "crooked nose",
+    "sun-worn face",
+    "thin frame",
+    "broad shoulders",
+    "quiet voice"
+  ],
+  "backstories": [
+    {
+      "id": "school_caretaker",
+      "label": "school caretaker",
+      "kit": ["item.scrap.metal"],
+      "nudge": { "str": 1 }
+    },
+    {
+      "id": "line_cook",
+      "label": "line cook",
+      "kit": ["item.food.canned"],
+      "bias": "iron_stomach",
+      "nudge": { "con": 1 }
+    },
+    {
+      "id": "long_haul_driver",
+      "label": "long-haul driver",
+      "kit": ["item.water.bottle"],
+      "nudge": { "con": 1 }
+    },
+    {
+      "id": "veterinary_nurse",
+      "label": "veterinary nurse",
+      "kit": ["item.bandage.cloth"],
+      "nudge": { "dex": 1 }
+    },
+    {
+      "id": "fired_security",
+      "label": "fired security guard",
+      "kit": ["item.bat.aluminium"],
+      "nudge": { "str": 1 }
+    },
+    {
+      "id": "cyclist",
+      "label": "cyclist",
+      "kit": [],
+      "nudge": { "dex": 1 }
+    },
+    {
+      "id": "warehouse_picker",
+      "label": "warehouse picker",
+      "kit": ["item.scrap.metal"],
+      "nudge": { "str": 1 }
+    },
+    {
+      "id": "night_auditor",
+      "label": "night auditor",
+      "kit": [],
+      "bias": "light_sleeper",
+      "nudge": { "dex": 1 }
+    }
+  ]
+}

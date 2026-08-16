@@ -487,6 +487,8 @@ static func register_module(world: Variant) -> void:
 						pick_up_nearest(w, int(actor))
 				"item.split":
 					split_stack(w, int(c["item"]), int(c["count"]))
+				"item.use", "item.wash":
+					pass
 	)
 	world.systems.register("inventory.encumbrance", "needs", 0, func(w: Variant) -> void:
 		for actor in w.components.query(["equipment", "encumbrance"]):

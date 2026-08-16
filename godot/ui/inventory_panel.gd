@@ -69,6 +69,8 @@ func _gui_input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and _drag_item != -1:
 			_drag_rotated = not _drag_rotated
 			queue_redraw()
+		elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and _drag_item == -1:
+			_try_use(mb.position)
 	elif event is InputEventMouseMotion and _drag_item != -1:
 		queue_redraw()
 
@@ -134,6 +136,25 @@ func _try_pick(at: Vector2) -> void:
 				_drag_rotated = bool(d.get("rotated", false))
 				queue_redraw()
 				return
+
+func _try_use(at: Vector2) -> void:
+	for cont in _view.get("containers", []) as Array:
+		var c: Dictionary = cont as Dictionary
+		var ox: float = float(c.get("_ox", 0)); var oy: float = float(c.get("_oy", 0))
+		var gw: int = int(c.get("w", 0)); var gh: int = int(c.get("h", 0))
+		var grid_rect: Rect2 = Rect2(Vector2(ox, oy), Vector2(float(gw * CELL), float(gh * CELL)))
+		if not grid_rect.has_point(at):
+			continue
+		var local: Vector2 = at - Vector2(ox, oy)
+		var cx: int = floori(local.x / float(CELL)); var cy: int = floori(local.y / float(CELL))
+		for it in c.get("items", []) as Array:
+			var d: Dictionary = it as Dictionary
+			var rx: int = int(d.get("x", 0)); var ry: int = int(d.get("y", 0))
+			var rw: int = int(d.get("w", 1)); var rh: int = int(d.get("h", 1))
+			if cx >= rx and cx < rx + rw and cy >= ry and cy < ry + rh:
+				_world.commands.push({"type": "item.use", "item": int(d.get("item", -1))})
+				return
+
 
 func _try_drop(at: Vector2) -> void:
 	if _drag_item == -1 or _world == null: return

@@ -48,7 +48,7 @@
     },
     "focus": {
       "type": "string",
-      "enum": ["Fighter", "Worker", "Medic", "Scout", "Manual"],
+      "enum": ["Auto", "Fighter", "Worker", "Medic", "Scout", "Manual"],
       "description": "Initial Focus per doc07#focus-and-auto-allocation. Alpha alpha defaults Medic for Mara."
     },
     "jobPriorities": {

@@ -84,9 +84,11 @@ static func diagnosis_of(world: Variant, entity: int, examinerSkill: int) -> Dic
 			return {"label": "fever", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
 		Stage.Progression:
 			if examinerSkill >= 2:
-				return {"label": ("probable infection" if anyTransmitted else "probable sepsis"), "certainty": "likely", "actionable": "treat", "stage": worst}
+				return {"label": ("probable infection" if anyTransmitted else "probable sepsis"), "certainty": "likely", "actionable": "treat", "stage": worst, "clock": "maybe a day"}
 			return {"label": "ill", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
 		Stage.Critical:
+			if examinerSkill >= 2:
+				return {"label": "critical", "certainty": "certain", "actionable": "critical", "stage": worst, "clock": "hours"}
 			return {"label": "critical", "certainty": "certain", "actionable": "critical", "stage": worst}
 		Stage.Turned:
 			return {"label": "turned", "certainty": "certain", "actionable": "critical", "stage": worst}
@@ -301,10 +303,13 @@ static func register_module(world: Variant) -> void:
 		var to_process: Array[int] = pending_turned.duplicate()
 		pending_turned.clear()
 		for ent in to_process:
+			var Recruits: GDScript = load("res://sim/modules/recruits.gd") as GDScript
+			if Recruits != null and Recruits.has_method("handle_death"):
+				Recruits.call("handle_death", w, int(ent))
+				continue
 			var pos: Variant = w.components.get_component(int(ent), "position")
 			var px: float = float((pos as Dictionary).get("x", 0.0)) if pos is Dictionary else 0.0
 			var py: float = float((pos as Dictionary).get("y", 0.0)) if pos is Dictionary else 0.0
-			# quarantine keeps turning inside room: if quarantined, noise already emitted at position (room pos == entity pos after move)
 			w.despawn(int(ent))
 			var shambler: int = w.entities.spawn()
 			w.components.set_component(shambler, "position", {"x": px, "y": py})

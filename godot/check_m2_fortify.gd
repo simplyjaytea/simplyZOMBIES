@@ -25,7 +25,7 @@ func _run() -> void:
 	ok = _noisemaker_field() and ok
 	ok = _e_pickup_first() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v11")
+		print("M2_FORTIFY_OK board scrap alarm bait v12")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -57,14 +57,14 @@ func _set_tile(w: Variant, tx: int, ty: int, tile: int) -> void:
 	w.tilemap.tiles[ty * int(w.tilemap.w) + tx] = tile
 
 func _version() -> bool:
-	if int(SimSerialize.SAVE_VERSION) != 11:
-		push_error("SAVE_VERSION %d want 11" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 12:
+		push_error("SAVE_VERSION %d want 12" % int(SimSerialize.SAVE_VERSION))
 		return false
-	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":10},\"meta\":{}}")
+	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":11},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":
-		push_error("v10 not rejected: %s" % str(stale))
+		push_error("v11 not rejected: %s" % str(stale))
 		return false
-	print("VERSION OK 11 rejects 10")
+	print("VERSION OK 12 rejects 11")
 	return true
 
 func _board_opacity() -> bool:

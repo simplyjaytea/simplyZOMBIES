@@ -149,6 +149,14 @@ static func register_module(world: Variant) -> void:
 		if killed.is_empty():
 			return
 		for entity in killed:
-			w.despawn(int(entity))
+			finish_death(w, int(entity))
 		killed.clear()
 	)
+
+
+static func finish_death(world: Variant, entity: int) -> void:
+	var Recruits: GDScript = load("res://sim/modules/recruits.gd") as GDScript
+	if Recruits != null:
+		Recruits.call("handle_death", world, entity)
+		return
+	world.despawn(entity)

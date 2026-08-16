@@ -151,6 +151,24 @@ switch (mode) {
       "res://check_m2_director.gd",
     ];
     break;
+  case "--m2-save":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_save.gd"];
+    break;
+  case "--m2-needs":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_needs.gd"];
+    break;
+  case "--m2-jobs":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_jobs.gd"];
+    break;
+  case "--m2-recruits":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_recruits.gd",
+    ];
+    break;
   case "--export":
     args = [];
     break;

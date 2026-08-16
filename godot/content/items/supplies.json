@@ -44,6 +44,28 @@
     "stack": 3
   },
   {
+    "id": "item.food.raw",
+    "name": "Raw Food",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.35,
+    "stack": 3
+  },
+  {
+    "id": "item.food.cooked",
+    "name": "Cooked Food",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.3,
+    "stack": 3
+  },
+  {
     "id": "item.scrap.metal",
     "name": "Scrap Metal",
     "class": "material",
