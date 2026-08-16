@@ -25,7 +25,8 @@ There is no `npm test`. Correctness is the Godot gates:
 npm run godot:smoke      # project boots            → GODOT_PROJECT_SMOKE_OK
 npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
-npm run godot:m2         # all 15 Milestone 2 gates → M2_LETHALITY_OK et al
+npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
+npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 ```
@@ -45,9 +46,12 @@ amend them.
 [condition view](docs/05-health-injury.md#the-condition-view) hands the screen a state and a
 sentence per part — `{parts:[{part, state, prose}], stance, worst}` — and deliberately carries
 **no integrity value, no maximum, and no fraction**, so a fill is not merely discouraged, it is
-not computable from what the screen has. The view is built at `godot/presentation/main.gd` and
-`godot/ui/inventory_panel.gd`; adding a numeric field to that dictionary is the change that
-breaks the ban. See [hardcore contract clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable).
+not computable from what the screen has. `godot/sim/condition.gd` is the one builder;
+`npm run godot:ban:healthbar` serialises its output and asserts the absence, with a key
+allowlist that fails the moment a numeric field is added. That gate is the ban made mechanical —
+if it goes red, re-read
+[hardcore contract clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
+rather than widening the assertion.
 
 **Information stays scarce and unreliable.** A bite can present as a scratch. Do not add
 certainty the player is not supposed to have — exact quality, counts, positions, or anything

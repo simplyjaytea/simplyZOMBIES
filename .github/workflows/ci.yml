@@ -97,6 +97,12 @@ jobs:
       - name: M2 lethality (stages/armor/diagnosis/amputate/turning)
         run: npm run godot:m2
 
+      # The health-bar ban, made mechanical rather than merely stated. This lived in the
+      # oracle's paperdoll.test.ts; it is gated here so the ban survives that suite's
+      # retirement. docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable.
+      - name: Health-bar ban (no integrity, no maximum, no fraction)
+        run: npm run godot:ban:healthbar
+
   godot-exports:
     needs: check
     runs-on: windows-latest

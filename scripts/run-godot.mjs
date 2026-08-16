@@ -187,6 +187,15 @@ switch (mode) {
       "res://check_m2_harness.gd",
     ];
     break;
+  case "--ban-health-bar":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_ban_health_bar.gd",
+    ];
+    break;
   case "--export":
     args = [];
     break;
