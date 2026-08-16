@@ -167,10 +167,14 @@ func _noisemaker_loop(world: Variant, lx: float, ly: float) -> void:
 	var dist: float = sqrt((bx - lx) * (bx - lx) + (by - ly) * (by - ly))
 	var in_reach: bool = active and dist <= reach
 	if in_reach:
-		_loop.volume_db = linear_to_db(maxi(0.0001, _vol(mag, dist)))
+		_loop.volume_db = linear_to_db(maxf(0.0001, _vol(mag, dist)))
 		if not _bait_was_in_reach or not _loop.playing:
 			if stream is AudioStreamWAV:
-				(stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+				var wav: AudioStreamWAV = stream as AudioStreamWAV
+				wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+				var bytes_per_sample: int = 2 if wav.format == AudioStreamWAV.FORMAT_16_BITS else 1
+				var num_channels: int = 2 if wav.stereo else 1
+				wav.loop_end = wav.data.size() / (bytes_per_sample * num_channels)
 			_loop.stream = stream as AudioStream
 			_loop.play()
 		_bait_was_in_reach = true
@@ -191,7 +195,7 @@ func _play_oneshot(key: String, mag: float, x: float, y: float, lx: float, ly: f
 	var p: AudioStreamPlayer = _oneshots[_pool_i]
 	_pool_i = (_pool_i + 1) % _oneshots.size()
 	p.stream = stream as AudioStream
-	p.volume_db = linear_to_db(maxi(0.0001, vol))
+	p.volume_db = linear_to_db(maxf(0.0001, vol))
 	p.play()
 
 
