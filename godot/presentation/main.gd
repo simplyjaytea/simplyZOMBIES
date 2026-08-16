@@ -492,7 +492,7 @@ func _draw_district() -> void:
 		])
 		# Near walls that cover the player fade so indoor play stays readable, but only if
 		# there are visible tiles behind them (otherwise outdoors facades fade over void).
-		var tile_depth: float = IsoProjection.depth_of(float(tx) + 0.5, float(ty) + 0.5)
+		var tile_depth: float = float(tx + ty)
 		var hides: bool = tile_depth > player_depth and absf(sx - player_sx) < half_w * 2.2 and player_sy > sy - rise - 8.0 and player_sy < sy + half_h + 8.0
 		var has_backdrop: bool = max_visible_depth > tile_depth + 0.01
 		if hides and has_backdrop:
