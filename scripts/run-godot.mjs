@@ -169,6 +169,15 @@ switch (mode) {
       "res://check_m2_recruits.gd",
     ];
     break;
+  case "--m2-harness":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_harness.gd",
+    ];
+    break;
   case "--export":
     args = [];
     break;
