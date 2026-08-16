@@ -53,7 +53,7 @@ func _ready() -> void:
 func _flash(clip: String, vol: float) -> void:
 	if _hud == null:
 		return
-	_hud.text = "SFX: %s  vol=%.2f  (dummy driver — silent on this VM)" % [clip, vol]
+	_hud.text = "SFX: %s  vol=%.2f" % [clip, vol]
 	_hud_until_ms = Time.get_ticks_msec() + 2500
 	print("SFX_PLAY %s vol=%.2f" % [clip, vol])
 
@@ -191,12 +191,8 @@ func _noisemaker_loop(world: Variant, lx: float, ly: float) -> void:
 	var dist: float = sqrt((bx - lx) * (bx - lx) + (by - ly) * (by - ly))
 	var in_reach: bool = active and dist <= reach
 	if in_reach:
-<<<<<<< HEAD
-		_loop.volume_db = linear_to_db(maxf(0.0001, _vol(mag, dist)))
-=======
 		var vol: float = _vol(mag, dist)
-		_loop.volume_db = linear_to_db(maxi(0.0001, vol))
->>>>>>> 3f7a506 (fix(sim): publish shout noise so alpha SFX can fire)
+		_loop.volume_db = linear_to_db(maxf(0.0001, vol))
 		if not _bait_was_in_reach or not _loop.playing:
 			if stream is AudioStreamWAV:
 				var wav: AudioStreamWAV = stream as AudioStreamWAV
