@@ -335,7 +335,7 @@ func _water_clean_bury() -> bool:
 	bury["ticksLeft"] = 1
 	w2.components.set_component(w2.player, "job", bury)
 	SimJobs._do_bury(w2, w2.player, bury)
-	if w2.components.has_component(m2, "corpse") or w2.entities.alive(m2):
+	if w2.entities.is_alive(m2) or w2.components.has_component(m2, "corpse"):
 		push_error("corpse not buried")
 		return false
 	print("WATER CLEAN BURY OK")
