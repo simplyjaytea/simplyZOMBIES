@@ -11,6 +11,7 @@ const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimAttentionRes = preload("res://sim/modules/attention_emitter.gd")
 const SimNeedsRes = preload("res://sim/modules/needs.gd")
 const SimJobsRes = preload("res://sim/modules/jobs.gd")
+const SimSkillsRes = preload("res://sim/modules/skills.gd")
 
 
 static func entry_of(world: Variant, id: String) -> Variant:
@@ -87,6 +88,7 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 		for k in raw.keys():
 			row[String(k)] = int(raw[k])
 	SimJobsRes.attach(world, ent, focus, row)
+	SimSkillsRes.attach(world, ent)
 	var kit: Variant = e.get("kit", [])
 	if kit is Array:
 		for item_id in kit as Array:
@@ -107,6 +109,7 @@ static func boot_playable(world: Variant) -> int:
 		world.components.set_component(world.player, "facing", {"radians": 0.0})
 	SimAptitudesRes.apply(world, world.player, {"str": SimAptitudesRes.DEFAULT, "dex": SimAptitudesRes.DEFAULT, "con": SimAptitudesRes.DEFAULT})
 	SimNeedsRes.attach(world, world.player)
+	SimSkillsRes.attach(world, world.player)
 	var pos: Variant = world.components.get_component(world.player, "position")
 	var px: float = float((pos as Dictionary)["x"]) if pos is Dictionary else 5.0
 	var py: float = float((pos as Dictionary)["y"]) if pos is Dictionary else 5.0

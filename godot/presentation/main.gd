@@ -498,11 +498,29 @@ func _draw_entities() -> void:
 		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
 		draw_circle(Vector2(sx, sy), r, col)
 		draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 1.2 if bool(it["player"]) else 0.8)
-		# facing notch (from posture/velocity if present)
-		var posture: Variant = world.components.get_component(int(it["id"]), "posture")
-		if posture is Dictionary:
-			var stance: int = int((posture as Dictionary).get("current", 2))
-			draw_arc(Vector2(sx, sy), r + 2, 0, TAU * 0.12, 8, Color(1, 1, 1, 0.5), 1.0)
+		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
+		var eid: int = int(it["id"])
+		var facing_v: Variant = world.components.get_component(eid, "facing")
+		var face: float = 0.0
+		if facing_v is Dictionary:
+			face = float((facing_v as Dictionary).get("radians", 0.0))
+		var screen_ang: float = face - PI * 0.5
+		draw_line(
+			Vector2(sx, sy),
+			Vector2(sx + cos(screen_ang) * (r + 6.0), sy + sin(screen_ang) * (r + 6.0)),
+			Color(1, 1, 1, 0.55),
+			1.2 if bool(it["player"]) else 0.8,
+		)
+		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
+			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
+			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
+				var half: float = float((rw as Dictionary).get("coneHalf", 0.55))
+				var reach_px: float = r + 18.0 + half * 22.0
+				var a0: float = screen_ang - half
+				var a1: float = screen_ang + half
+				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, Color(0.85, 0.9, 1.0, 0.35), 1.4)
+				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 1.0)
+				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 1.0)
 	# ground items as lozenges
 	for ent in world.components.query(["position", "itemBase"]):
 		if world.components.has_component(int(ent), "stored"): continue

@@ -169,6 +169,12 @@ switch (mode) {
       "res://check_m2_recruits.gd",
     ];
     break;
+  case "--m2-aim":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_aim.gd"];
+    break;
+  case "--m2-web":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_web.gd"];
+    break;
   case "--export":
     args = [];
     break;

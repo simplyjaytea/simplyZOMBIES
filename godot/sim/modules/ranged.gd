@@ -28,7 +28,46 @@ static func make_ranged_armed(world: Variant, entity: int, profile: Dictionary) 
 	p["state"] = FireState.Idle
 	p["ticksLeft"] = 0
 	p["flashTicks"] = 0
+	p["coneHalf"] = WIDE_HALF
 	world.components.set_component(entity, "rangedWeapon", p)
+
+
+# Felt cone half-angle (radians). Presentation draws sway from this — never a hit %.
+static func cone_half(world: Variant, entity: int) -> float:
+	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
+	if rw is Dictionary and (rw as Dictionary).has("coneHalf"):
+		return float((rw as Dictionary)["coneHalf"])
+	return WIDE_HALF
+
+
+static func _refresh_cone(world: Variant, entity: int, r: Dictionary) -> void:
+	var half: float = WIDE_HALF
+	var st: int = int(r.get("state", FireState.Idle))
+	if st == FireState.Raise:
+		half = lerpf(WIDE_HALF, (WIDE_HALF + TIGHT_HALF) * 0.5, 1.0 - float(r.get("ticksLeft", 0)) / float(RAISE_TICKS))
+	elif st == FireState.Steady:
+		half = lerpf((WIDE_HALF + TIGHT_HALF) * 0.5, TIGHT_HALF, 1.0 - float(r.get("ticksLeft", 0)) / float(STEADY_TICKS))
+	elif st == FireState.Idle:
+		half = WIDE_HALF
+	var vel: Variant = world.components.get_component(entity, "velocity")
+	if vel is Dictionary:
+		var spd: float = sqrt(float((vel as Dictionary)["dx"]) ** 2.0 + float((vel as Dictionary)["dy"]) ** 2.0)
+		if spd > 0.2:
+			half = maxf(half, WIDE_HALF)
+	var stam: Variant = world.components.get_component(entity, "stamina")
+	if stam is Dictionary:
+		var cur: float = float((stam as Dictionary).get("current", 100))
+		var mx: float = maxf(1.0, float((stam as Dictionary).get("max", 100)))
+		if cur / mx < 0.35:
+			half = minf(WIDE_HALF, half + 0.12)
+	var body: Variant = world.components.get_component(entity, "body")
+	if body is Dictionary and float((body as Dictionary).get("arms", 40)) < 25.0:
+		half = minf(WIDE_HALF, half + 0.15)
+	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+		var acc: float = float(world.modifiers.call("resolve", "ranged_accuracy", entity))
+		if acc > 0.0:
+			half = clampf(half / acc, TIGHT_HALF * 0.75, WIDE_HALF)
+	r["coneHalf"] = half
 
 
 static func register_module(world: Variant) -> void:
@@ -99,11 +138,14 @@ static func register_module(world: Variant) -> void:
 					if src is Dictionary and is_equal_approx(float((src as Dictionary).get("magnitude", 0)), float(r["flash"])):
 						w.components.remove(int(entity), "light_source")
 			if int(r["state"]) == FireState.Idle:
+				_refresh_cone(w, int(entity), r)
 				continue
 			if (int(r["state"]) == FireState.Raise or int(r["state"]) == FireState.Steady) and not _capable_of(w, int(entity)):
 				r["state"] = FireState.Idle
 				r["ticksLeft"] = 0
+				_refresh_cone(w, int(entity), r)
 				continue
+			_refresh_cone(w, int(entity), r)
 			r["ticksLeft"] = int(r["ticksLeft"]) - 1
 			if int(r["ticksLeft"]) > 0:
 				continue
@@ -111,6 +153,7 @@ static func register_module(world: Variant) -> void:
 				FireState.Raise:
 					r["state"] = FireState.Steady
 					r["ticksLeft"] = STEADY_TICKS
+					_refresh_cone(w, int(entity), r)
 				FireState.Steady:
 					_fire_shot(w, int(entity), r, rng)
 					r["state"] = FireState.Recover
@@ -209,12 +252,8 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	var facing: float = float((facing_v as Dictionary).get("radians", 0.0))
 	var facing_x: float = cos(facing)
 	var facing_y: float = sin(facing)
-	var half: float = TIGHT_HALF
-	var vel: Variant = world.components.get_component(attacker, "velocity")
-	if vel is Dictionary:
-		var spd: float = sqrt(float((vel as Dictionary)["dx"]) ** 2.0 + float((vel as Dictionary)["dy"]) ** 2.0)
-		if spd > 0.2:
-			half = WIDE_HALF
+	_refresh_cone(world, attacker, weapon)
+	var half: float = float(weapon.get("coneHalf", TIGHT_HALF))
 	var cos_half: float = cos(half)
 	var reach: float = float(weapon.get("rangeMetres", 30))
 	var limit_sq: float = reach * reach
