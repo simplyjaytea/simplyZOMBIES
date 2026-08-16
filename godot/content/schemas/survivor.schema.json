@@ -20,7 +20,9 @@
       "additionalProperties": false,
       "properties": {
         "features": { "type": "array", "items": { "type": "string" } },
-        "portrait": { "type": "string", "description": "Sprite path, iso pixel art. Optional — fallback to generated." }
+        "portrait": { "type": "string", "description": "Sprite path, iso pixel art. Optional — fallback to generated." },
+        "sprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "World-view body sprite: a registry key resolved to assets/sprites/<key>.png by presentation/appearance.gd. Distinct from `portrait`, which is the UI face. A key, not a path, so content stays engine-agnostic. Omit it and the renderer falls back to role colours." },
+        "tint": { "type": "string", "pattern": "^#[0-9a-f]{6}$", "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists." }
       }
     },
     "traits": {

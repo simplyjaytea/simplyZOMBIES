@@ -27,6 +27,7 @@ npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
+npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 ```
@@ -79,6 +80,14 @@ way. Read 30 before changing something that looks arbitrary.
 ## Conventions
 
 - Typed GDScript. `godot/sim/` is deterministic and must not read presentation state.
-- Content is data under `godot/content/`, validated by `npm run godot:validate`.
+- Content is data under `godot/content/`, validated by `npm run godot:validate`. Note the
+  validator is **shallow** — it checks top-level property types and rejects unexpected top-level
+  keys, but does not recurse into nested objects. A nested shape needs its own gate; see
+  `check_appearance.gd`.
+- **How a thing looks is content, not code.** `appearance: {sprite, tint}` in a content entry;
+  `presentation/appearance.gd` resolves it and falls back to role colours when there is no art.
+  Never reintroduce a `if id == "zombie.x": col = ...` branch in the draw loop — that is what
+  this replaced, and `godot:check:appearance` fails if the tints move back into code.
+  `godot/assets/sprites/README.md` has the 32×16 grid and anchor convention.
 - Prose is hand-wrapped; `.prettierignore` excludes `docs/` and `*.md` for that reason.
 - Update `HANDOFF.md` in the same commit as the work it describes — it has drifted three times.

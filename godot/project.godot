@@ -24,11 +24,24 @@ gdscript/warnings/unsafe_method_access=1
 
 window/size/viewport_width=960
 window/size/viewport_height=540
-window/size/window_width_override=1280
-window/size/window_height_override=720
+; Exactly 2x the base resolution. scale_mode="integer" below can only use whole
+; factors, and the previous 1280x720 override was 1.33x -- which would have
+; letterboxed to 1x rather than filling the window.
+window/size/window_width_override=1920
+window/size/window_height_override=1080
+; canvas_items rather than viewport: the Control-based UI (ui/inventory_panel.gd,
+; the HUD Label) stays crisp at native resolution instead of being pixelated
+; along with the world.
 window/stretch/mode="canvas_items"
+window/stretch/scale_mode="integer"
 
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+; Pixel art. Godot 4 defaults canvas textures to linear filtering, which blurs a
+; sprite the moment it is drawn at anything but 1:1 -- and the snap settings keep
+; sprites from landing on half-pixels as the camera follows the player.
+textures/canvas_textures/default_texture_filter=0
+2d/snap/snap_2d_transforms_to_pixel=true
+2d/snap/snap_2d_vertices_to_pixel=true

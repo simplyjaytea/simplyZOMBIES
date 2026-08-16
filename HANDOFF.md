@@ -73,6 +73,15 @@ publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot
   laceration, sutured and clean, off work five days". There is no [skill web](docs/08-skill-web.md)
   to scale against, so what ships is the untrained tier and `godot/sim/condition.gd` says so. When
   the web lands, that table gains a column rather than being rewritten.
+- **The renderer is sprite-ready; there is just no art yet.** `appearance: {sprite, tint}` is in
+  the zombie/item/survivor schemas, `presentation/appearance.gd` resolves a key to
+  `assets/sprites/<key>.png` (imported resource first, raw file second, so a dropped PNG works in
+  dev and headless CI without an editor round-trip), and `_draw_entities` branches to a
+  feet-anchored `draw_texture_rect` or falls back to today's circles. Tiles are now **32×16**
+  (`camera.gd` zoom 16) with nearest filtering and integer window scaling. The screamer and
+  bloater colours that used to be literals in the draw loop now live in their JSON, which is what
+  proves the pipeline with no art present. Gate: `npm run godot:check:appearance`
+  (`APPEARANCE_OK`). Conventions in `godot/assets/sprites/README.md`.
 - **The health-bar ban is gated in Godot.** `godot/sim/condition.gd` is now the single builder for
   the view — `presentation/main.gd` and `ui/inventory_panel.gd` had each built it inline and
   drifted — and `npm run godot:ban:healthbar` (`BAN_HEALTH_BAR_OK`) serialises it and asserts no
