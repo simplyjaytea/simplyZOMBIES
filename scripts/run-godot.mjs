@@ -187,6 +187,9 @@ switch (mode) {
   case "--export":
     args = [];
     break;
+  case "--export-web":
+    args = [];
+    break;
   default:
     throw new Error(`Unknown Godot mode: ${mode}`);
 }
@@ -201,6 +204,9 @@ if (mode === "--export") {
   mkdirSync(resolve(root, "dist-godot/windows"), { recursive: true });
   mkdirSync(resolve(root, "dist-godot/web"), { recursive: true });
   run(["--headless", "--path", resolve(root, "godot"), "--export-release", "Windows Desktop"]);
+  run(["--headless", "--path", resolve(root, "godot"), "--export-release", "Web"]);
+} else if (mode === "--export-web") {
+  mkdirSync(resolve(root, "dist-godot/web"), { recursive: true });
   run(["--headless", "--path", resolve(root, "godot"), "--export-release", "Web"]);
 } else {
   run(args);

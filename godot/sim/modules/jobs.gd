@@ -409,7 +409,9 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 			if float(SimNeeds.of(world, ent).get("rest", 0.0)) >= 80.0:
 				if world.components.has_component(ent, "sleeping"):
 					SimNeeds.wake(world, ent)
-				_stop(world, ent)
+					_stop(world, ent, "Rest")
+				else:
+					_stop(world, ent, "Rest")
 				return
 			var bed: int = int(job.get("target", -1))
 			if not world.components.has_component(ent, "sleeping"):
