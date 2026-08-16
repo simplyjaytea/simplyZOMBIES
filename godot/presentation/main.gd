@@ -40,6 +40,8 @@ const OCCLUDER_RISE: Dictionary = {
 	SimTileMap.Tile.Tree: 3.2,
 }
 const OCCLUDER_FADED_ALPHA: float = 0.28
+# When indoors, walls drop to a stub so the room stays readable (LOS still blocks outdoors).
+const INDOOR_WALL_RISE_M: float = 0.4
 
 var world: Variant = null
 var content: Dictionary = {}
@@ -419,12 +421,17 @@ func _draw_district() -> void:
 	var player_depth: float = -1e9
 	var player_sx: float = 0.0
 	var player_sy: float = 0.0
+	var player_indoors: bool = false
 	var ppos: Variant = world.components.get_component(world.player, "position")
 	if ppos is Dictionary:
-		player_depth = IsoProjection.depth_of(float((ppos as Dictionary)["x"]), float((ppos as Dictionary)["y"]))
-		var psc: Dictionary = IsoProjection.world_to_screen(camera, float((ppos as Dictionary)["x"]), float((ppos as Dictionary)["y"]))
+		var px: float = float((ppos as Dictionary)["x"])
+		var py: float = float((ppos as Dictionary)["y"])
+		player_depth = IsoProjection.depth_of(px, py)
+		var psc: Dictionary = IsoProjection.world_to_screen(camera, px, py)
 		player_sx = float(psc["sx"])
 		player_sy = float(psc["sy"])
+		if world.tilemap != null:
+			player_indoors = SimTileMap.is_indoors(world.tilemap, floori(px), floori(py))
 	# depth sort tiles by x+y (same as bodies)
 	var tiles: Array[Dictionary] = []
 	var bounds: Dictionary = IsoProjection.visible_bounds(camera, 2.0)
@@ -483,6 +490,8 @@ func _draw_district() -> void:
 		draw_colored_polygon(pts, col)
 		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["background"] * 0.9, 1.0)
 		var rise_m: float = float(OCCLUDER_RISE.get(tile, 0.0))
+		if player_indoors and (tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Screen):
+			rise_m = minf(rise_m, INDOOR_WALL_RISE_M)
 		if rise_m <= 0.0:
 			continue
 		var rise: float = IsoProjection.metres_to_rise(rise_m, zoom)
