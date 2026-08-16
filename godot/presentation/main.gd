@@ -61,7 +61,8 @@ var show_sheets: bool = false
 var tick_count: int = 0
 
 # ui refs (created in _ready if CanvasLayer available)
-var _hud: Label = null
+var _hud: Control = null
+var _legend: Control = null
 var _inventory_panel: Control = null
 var _work_panel: Control = null
 var _paperdoll: Control = null
@@ -158,12 +159,19 @@ func _ensure_ui() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "R4UI"
 	add_child(layer)
-	# HUD label top-left
-	_hud = Label.new()
-	_hud.name = "Hud"
-	_hud.position = Vector2(8, 8)
-	_hud.add_theme_font_size_override("font_size", 11)
-	layer.add_child(_hud)
+	# The player HUD. Four corners of prose; the old developer string lives inside it behind M.
+	var hud_script: GDScript = load("res://ui/hud.gd") as GDScript
+	if hud_script != null:
+		_hud = hud_script.new() as Control
+		_hud.name = "Hud"
+		layer.add_child(_hud)
+	# The keys, shown once on a fresh run so the bindings are discoverable without README.md.
+	var legend_script: GDScript = load("res://ui/legend.gd") as GDScript
+	if legend_script != null:
+		_legend = legend_script.new() as Control
+		_legend.name = "Legend"
+		_legend.visible = true
+		layer.add_child(_legend)
 	# inventory panel (hidden until Tab)
 	var inv_script: GDScript = load("res://ui/inventory_panel.gd") as GDScript
 	if inv_script != null:
@@ -193,8 +201,15 @@ func _input(event: InputEvent) -> void:
 			KEY_F5: _save()
 			KEY_F9: _load()
 			KEY_P: _toggle_pause()
-			KEY_M: show_sheets = not show_sheets
+			KEY_M:
+				show_sheets = not show_sheets
+				if _hud != null: _hud.set("show_raw", show_sheets)
 			KEY_O: _cycle_overlay()
+			KEY_F1: _toggle_legend()
+			KEY_ESCAPE, KEY_ENTER, KEY_KP_ENTER:
+				# Dismiss-only: Escape and Enter close the legend but never open it, so they
+				# stay free for whatever wants them later.
+				if _legend != null and _legend.visible: _legend.visible = false
 			KEY_TAB:
 				inventory_open = not inventory_open
 				if _inventory_panel != null: _inventory_panel.visible = inventory_open
@@ -259,6 +274,11 @@ func _pump_input() -> void:
 		world.commands.push({"type": "move", "dx": dx, "dy": dy})
 		_last_dx = dx; _last_dy = dy
 	# sprint latch omitted for R4 smoke (world._apply_commands reads velocity directly)
+
+func _toggle_legend() -> void:
+	if _legend != null:
+		_legend.visible = not _legend.visible
+
 
 func _cycle_overlay() -> void:
 	var order: Array[String] = ["off", "noise", "scent", "sight", "light"]
@@ -364,7 +384,10 @@ func _update_hud() -> void:
 	var light: float = Clock.ambient_light(tod)
 	var now: float = Time.get_ticks_msec() / 1000.0
 	if now - _fingerprint_at > 0.25:
-		_fingerprint = world.serialize().substr(0, 8)
+		# A hash, not a prefix. serialize() returns canonical JSON, so its first 8 characters
+		# are always the literal `{"compon` -- the field could never change and so could
+		# never show the divergence it exists to show.
+		_fingerprint = "%08x" % (world.serialize().hash() & 0xffffffff)
 		_fingerprint_at = now
 	var diag2: Dictionary = SimInfection.diagnosis_of(world, world.player, 0) as Dictionary
 	var diag_label: String = String(diag2.get("label", "clear"))
@@ -388,12 +411,25 @@ func _update_hud() -> void:
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
 	var who: int = _selected if _selected >= 0 else int(world.player)
-	var need_line: String = SimNeeds.hud_clause(world, who, false)
-	if not need_line.is_empty():
-		base += "  %s" % need_line
 	if bool(world.runOver):
 		base += "  RUN OVER"
-	_hud.text = base
+	# `base` is the developer sheet: ticks, raw positions, aptitude integers, the
+	# serialisation fingerprint. It is genuinely useful and it is not a HUD, so it goes to
+	# the HUD's raw layer, which only M reveals. Everything the player reads is prose the
+	# HUD assembles from sim read models.
+	if _hud != null:
+		# Fortify look-at is contextual and belongs on the player's line, not the dev sheet.
+		var context: String = ""
+		if world.tilemap != null:
+			var look2: Dictionary = SimFortify.look_at(world, world.player)
+			for k in ["window", "noisemaker"]:
+				if not String(look2.get(k, "")).is_empty():
+					context = String(look2[k])
+					break
+		if not _content_error.is_empty():
+			context = "content: %s" % _content_error
+		_hud.set("hint", context)
+		_hud.call("refresh", world, who, base)
 	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
 		_work_panel.call("set_world", world)
 	if _inventory_panel != null and _inventory_panel.visible and _inventory_panel.has_method("set_world"):

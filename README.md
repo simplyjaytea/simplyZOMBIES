@@ -70,11 +70,16 @@ npm run godot:run    # Godot — the game (also: godot:editor)
 # npm run dev        # TypeScript oracle via Vite (archived, reference only)
 ```
 
-`WASD` move · `Shift` sprint · `F` swing or struggle · `Space` **shout** · `E` pick up · `Tab` **inventory**
-(drag to move, right-click or `R` to rotate) · `O` cycles the attention overlay (noise, scent, sight, light)
-· `1`/`2`/`3` speed (1×, 3×, 10×) · `P` pause · `M` raw sheets · `F5`/`F9` save and load.
+**`F1` shows the keys in game**, and they appear once on a fresh run — this list is the same
+thing in text. `WASD` move · `Shift` sprint · `F` swing or struggle · `Space` **shout** · `E` pick
+up · `Tab` **gear and injuries** (drag to move, right-click or `R` to rotate) · `J` work priorities
+· `O` cycles the attention overlay (noise, scent, sight, light) · `1`/`2`/`3` speed (1×, 3×, 10×) ·
+`P` pause · `M` raw developer sheet · `F5`/`F9` save and load.
 
 A day is four hours at 1×, so press `3` and wait for dark.
+
+The HUD reads in words rather than bars: what the district can sense of you sits in the top
+right, and a survivor with nothing wrong takes up almost no screen.
 
 **Current playable stack:** Godot 4.7.1 (Compatibility), typed GDScript. The archived
 TypeScript oracle remains at tag `ts-oracle-final` with parity fixtures under `godot/parity/`.
