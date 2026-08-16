@@ -63,3 +63,7 @@ _Avoid_: Loot bag, grave, body (when you mean the entity)
 **Leave**:
 Mood hard crisis for an NPC: they walk to the gate with their pockets and do not come back. The player never Leaves.
 _Avoid_: Desert, raid, succession
+
+**Focus**:
+A preset that writes an NPC’s Job row: Auto, Fighter, Worker, Medic, Scout, or Manual. Auto is Autodetect. Manual is the 17-column grid. The player has no Focus.
+_Avoid_: Class, role, schedule, draft
