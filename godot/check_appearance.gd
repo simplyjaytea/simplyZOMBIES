@@ -1,0 +1,157 @@
+extends SceneTree
+# The appearance pipeline: content declares how a thing looks, presentation resolves it.
+#
+# This gate carries more weight than usual because content_validator.gd is shallow -- it
+# checks top-level property types and rejects unexpected top-level keys, but does not recurse
+# into nested objects. So `appearance`'s inner shape is *not* schema-enforced at load; a typo
+# in `sprite` or a malformed `tint` would sail through godot:validate and show up as a thing
+# that silently renders wrong. Everything below is the enforcement.
+
+const World = preload("res://sim/world.gd")
+const ContentLoader = preload("res://platform/content_loader.gd")
+const Appearance = preload("res://presentation/appearance.gd")
+const Palette = preload("res://presentation/palette.gd")
+
+const SPRITE_DIR: String = "res://assets/sprites"
+const HEX := "^#[0-9a-f]{6}$"
+const KEY := "^[a-z0-9_.]+$"
+
+func _init() -> void:
+	call_deferred("_run")
+
+func _run() -> void:
+	var ok: bool = true
+	ok = _declared_appearances_are_well_formed() and ok
+	ok = _sprite_keys_resolve() and ok
+	ok = _procedural_fallback_still_works() and ok
+	ok = _tints_come_from_content_not_code() and ok
+	ok = _art_is_not_modulated_by_a_role_colour() and ok
+	if ok:
+		print("APPEARANCE_OK schema keys resolve, fallback intact, tints from content")
+		quit(0)
+	else:
+		push_error("APPEARANCE_FAIL")
+		quit(1)
+
+func _fixture() -> Dictionary:
+	return {"seed": 77, "tick_hz": 20, "map": {"width": 12, "height": 10, "walls": []}, "player": {"id": 0, "x": 6.0, "y": 5.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
+
+# Every appearance block anywhere in content, as {content_path: block}.
+func _all_blocks() -> Dictionary:
+	var out: Dictionary = {}
+	for path in ContentLoader.load_tree().keys():
+		var entry: Variant = ContentLoader.load_tree()[path]
+		if not (entry is Dictionary):
+			continue
+		var block: Variant = (entry as Dictionary).get("appearance")
+		if block is Dictionary:
+			out[String(path)] = block as Dictionary
+	return out
+
+# The shape the schemas document but the validator cannot reach.
+func _declared_appearances_are_well_formed() -> bool:
+	var allowed: Array[String] = ["sprite", "tint", "features", "portrait"]
+	var hex := RegEx.new(); hex.compile(HEX)
+	var key := RegEx.new(); key.compile(KEY)
+	for path in _all_blocks().keys():
+		var block: Dictionary = _all_blocks()[path]
+		for k in block.keys():
+			if not allowed.has(String(k)):
+				push_error("%s: appearance has unknown key '%s'; allowed %s" % [path, k, allowed])
+				return false
+		if block.has("tint"):
+			var t: Variant = block["tint"]
+			if not (t is String) or hex.search(String(t)) == null:
+				push_error("%s: appearance.tint '%s' is not #rrggbb lowercase" % [path, str(t)])
+				return false
+		if block.has("sprite"):
+			var s: Variant = block["sprite"]
+			if not (s is String) or key.search(String(s)) == null:
+				push_error("%s: appearance.sprite '%s' is not a registry key (a key, not a path)" % [path, str(s)])
+				return false
+	print("SHAPE OK")
+	return true
+
+# A key naming a file that does not exist must fail the build, not draw nothing.
+func _sprite_keys_resolve() -> bool:
+	for path in _all_blocks().keys():
+		var block: Dictionary = _all_blocks()[path]
+		if not block.has("sprite"):
+			continue
+		var k: String = String(block["sprite"])
+		if Appearance.resolve(k) == null:
+			push_error("%s: appearance.sprite '%s' has no file at %s/%s.png" % [path, k, SPRITE_DIR, k])
+			return false
+	print("KEYS OK")
+	return true
+
+# The fallback is the supported path, not a stopgap: with no sprite declared, every role
+# still yields a drawable tint and radius and an explicitly null texture.
+func _procedural_fallback_still_works() -> bool:
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	for role in [{"player": true}, {"unique": true}, {"bait": true}, {}]:
+		var look: Dictionary = Appearance.for_entity(w, role as Dictionary)
+		if look["texture"] != null:
+			push_error("role %s resolved a texture with no sprite declared" % str(role))
+			return false
+		if not (look["tint"] is Color):
+			push_error("role %s produced no tint" % str(role))
+			return false
+		if float(look["radius"]) <= 0.0:
+			push_error("role %s produced a non-positive radius" % str(role))
+			return false
+	# An unknown zombie type must degrade to the role colour rather than erroring.
+	var unknown: Dictionary = Appearance.for_entity(w, {"ztype": "zombie.does_not_exist"})
+	if (unknown["tint"] as Color) != Palette.COLOURS["wanderer"]:
+		push_error("an unknown zombie type should fall back to the wanderer colour")
+		return false
+	print("FALLBACK OK")
+	return true
+
+# Guards the migration: these two colours used to be literals in _draw_entities. If someone
+# moves them back into code, the content block disappears and this fails.
+func _tints_come_from_content_not_code() -> bool:
+	var w: Variant = World.new(_fixture())
+	var expected: Dictionary = {"zombie.screamer": "#d95947", "zombie.bloater": "#6b8c47"}
+	for id in expected.keys():
+		var block: Dictionary = Appearance.of_content(w, "zombie", String(id))
+		if not block.has("tint"):
+			push_error("%s declares no appearance.tint; its colour belongs in content, not in the draw loop" % id)
+			return false
+		var got: Color = Color(String(block["tint"]))
+		if got != Color(String(expected[id])):
+			push_error("%s tint %s != expected %s" % [id, block["tint"], expected[id]])
+			return false
+		var look: Dictionary = Appearance.for_entity(w, {"ztype": String(id)})
+		if (look["tint"] as Color) != got:
+			push_error("%s: for_entity did not use the content tint" % id)
+			return false
+	# And a type that declares nothing still differs from one that does.
+	var shambler: Dictionary = Appearance.for_entity(w, {"ztype": "zombie.shambler"})
+	if (shambler["tint"] as Color) != Palette.COLOURS["wanderer"]:
+		push_error("zombie.shambler declares no tint and should use the wanderer role colour")
+		return false
+	print("TINTS OK")
+	return true
+
+# A role colour stands in for missing art; it must not filter art that exists. Drawn as a
+# modulate it multiplies every pixel of a sprite -- so a survivor sprite with no declared
+# tint would arrive stained the tan survivor colour rather than looking like what was drawn.
+func _art_is_not_modulated_by_a_role_colour() -> bool:
+	var role: Color = Palette.COLOURS["survivor"]
+	var declared: Color = Color("#d95947")
+	# Sprite present, content said nothing about colour -> draw the art as drawn.
+	if Appearance.modulate_for(true, false, role) != Color.WHITE:
+		push_error("a sprite with no declared tint must draw white, not the %s role colour" % role)
+		return false
+	# Sprite present and content asked for a tint -> honour it.
+	if Appearance.modulate_for(true, true, declared) != declared:
+		push_error("a declared tint must still modulate a sprite")
+		return false
+	# No sprite -> the role colour is exactly what the procedural shape needs.
+	if Appearance.modulate_for(false, false, role) != role:
+		push_error("with no sprite the role colour must survive for the procedural shape")
+		return false
+	print("MODULATE OK")
+	return true
