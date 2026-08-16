@@ -411,7 +411,7 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 					SimNeeds.wake(world, ent)
 					_stop(world, ent, "Rest")
 				else:
-					_stop(world, ent)
+					_stop(world, ent, "Rest")
 				return
 			var bed: int = int(job.get("target", -1))
 			if not world.components.has_component(ent, "sleeping"):
