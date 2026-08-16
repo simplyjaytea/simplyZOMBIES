@@ -17,10 +17,15 @@ const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
 	"Haul", "Farm", "Water", "Craft", "Modify", "Butcher", "Clean", "Guard", "Bury",
 ]
-const CONSUMERS: Array[String] = ["Haul", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard"]
+const CONSUMERS: Array[String] = ["Haul", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean", "Bury"]
 const COOK_TICKS: int = 2400
 const INSPECT_TICKS: int = 300
+const WATER_TICKS: int = 40
+const CLEAN_TICKS: int = 40
+const BURY_TICKS: int = 40
 const REACH: float = 1.5
+const EMPTY_BOTTLE: String = "item.water.bottle.empty"
+const FULL_BOTTLE: String = "item.water.bottle"
 
 
 static func empty_row() -> Dictionary:
@@ -43,6 +48,9 @@ static func preset(focus: String, injured: bool = false) -> Dictionary:
 			d["Cook"] = 3
 			d["Rest"] = 2
 			d["Doctor"] = 4
+			d["Water"] = 2
+			d["Clean"] = 3
+			d["Bury"] = 2
 		"Fighter":
 			d["Rest"] = 1
 			d["Haul"] = 2
@@ -54,7 +62,7 @@ static func preset(focus: String, injured: bool = false) -> Dictionary:
 			pass
 		_:
 			# Auto
-			for c in ["Haul", "Construct", "Cook", "Doctor", "Rest"]:
+			for c in ["Haul", "Construct", "Cook", "Doctor", "Rest", "Water", "Clean", "Bury"]:
 				d[c] = 3
 			if injured:
 				d["Patient"] = 3
@@ -251,7 +259,83 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 			return {"kind": "Patient", "target": ent, "ticksLeft": 0, "path": [], "pathGen": -1}
 		"Guard":
 			return {"kind": "Guard", "tx": SimFortify.GATE_A.x, "ty": SimFortify.GATE_A.y, "ticksLeft": 0, "path": [], "pathGen": -1}
+		"Water":
+			return _water_work(world, ent, x, y)
+		"Clean":
+			return _clean_work(world, ent, x, y)
+		"Bury":
+			return _bury_work(world, x, y)
 	return {}
+
+
+static func _water_work(world: Variant, ent: int, x: float, y: float) -> Dictionary:
+	var bottle: int = _empty_bottle_for(world, ent)
+	if bottle < 0:
+		return {}
+	var well: int = SimNeeds.nearest_water_source(world, x, y)
+	if well < 0:
+		return {}
+	return {"kind": "Water", "target": bottle, "well": well, "ticksLeft": WATER_TICKS, "path": [], "pathGen": -1}
+
+
+static func _clean_work(world: Variant, ent: int, x: float, y: float) -> Dictionary:
+	var n: Dictionary = SimNeeds.of(world, ent)
+	if String(n.get("hygiene", "clean")) == "clean":
+		return {}
+	var well: int = SimNeeds.nearest_water_source(world, x, y)
+	if well < 0:
+		return {}
+	return {"kind": "Clean", "well": well, "ticksLeft": CLEAN_TICKS, "path": [], "pathGen": -1}
+
+
+static func _bury_work(world: Variant, x: float, y: float) -> Dictionary:
+	var dump: Vector2i = _corpse_dump()
+	var best: int = -1
+	var best_d: float = 1e12
+	for c in world.components.query(["corpse", "position"]):
+		var p: Variant = world.components.get_component(int(c), "position")
+		if not p is Dictionary:
+			continue
+		var cx: int = floori(float((p as Dictionary)["x"]))
+		var cy: int = floori(float((p as Dictionary)["y"]))
+		if cx == dump.x and cy == dump.y:
+			# Already at dump — bury in place.
+			return {"kind": "Bury", "target": int(c), "carrying": false, "ticksLeft": BURY_TICKS, "path": [], "pathGen": -1}
+		var dx: float = float((p as Dictionary)["x"]) - x
+		var dy: float = float((p as Dictionary)["y"]) - y
+		var d: float = dx * dx + dy * dy
+		if d < best_d:
+			best_d = d
+			best = int(c)
+	if best < 0:
+		return {}
+	return {"kind": "Bury", "target": best, "carrying": false, "ticksLeft": BURY_TICKS, "path": [], "pathGen": -1}
+
+
+static func _empty_bottle_for(world: Variant, ent: int) -> int:
+	for item in SimInventory.carried_items(world, ent):
+		var b: Variant = world.components.get_component(item, "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == EMPTY_BOTTLE:
+			return item
+	for item2 in SimNeeds.stockpile_items(world):
+		var b2: Variant = world.components.get_component(item2, "itemBase")
+		if b2 is Dictionary and String((b2 as Dictionary).get("baseId", "")) == EMPTY_BOTTLE:
+			return item2
+	return -1
+
+
+static func _anyone_buries(world: Variant) -> bool:
+	for e in world.components.query(["jobPriorities", "identity"]):
+		if world.components.has_component(int(e), "controlled"):
+			continue
+		if int(e) == int(world.player):
+			continue
+		var jp: Variant = world.components.get_component(int(e), "jobPriorities")
+		if not jp is Dictionary:
+			continue
+		if int(((jp as Dictionary).get("cols", {}) as Dictionary).get("Bury", 0)) > 0:
+			return true
+	return false
 
 
 static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
@@ -274,6 +358,9 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 			best_d = d
 			best = item
 	if best < 0:
+		# Corpse haul-to-dump only when nobody has Bury enabled (ADR 0013 overflow).
+		if _anyone_buries(world):
+			return {}
 		var dump: Vector2i = _corpse_dump()
 		for c in world.components.query(["corpse", "position"]):
 			var p2: Variant = world.components.get_component(int(c), "position")
@@ -420,6 +507,12 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 			pass
 		"Guard":
 			pass
+		"Water":
+			_do_water(world, ent, job)
+		"Clean":
+			_do_clean(world, ent, job)
+		"Bury":
+			_do_bury(world, ent, job)
 		_:
 			_stop(world, ent)
 
@@ -427,12 +520,112 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 static func _job_tile(world: Variant, job: Dictionary) -> Vector2i:
 	if job.has("tx"):
 		return Vector2i(int(job["tx"]), int(job["ty"]))
+	var kind: String = String(job.get("kind", ""))
+	if kind == "Bury" and bool(job.get("carrying", false)):
+		return _corpse_dump()
+	if kind in ["Water", "Clean"]:
+		if kind == "Water":
+			var bottle: int = int(job.get("target", -1))
+			var owner: int = int(job.get("actor", -1))
+			# Actor is set in _do_water; until then infer from job holder via target ownership below.
+			if bottle >= 0 and world.components.has_component(bottle, "position"):
+				var bp: Variant = world.components.get_component(bottle, "position")
+				if bp is Dictionary:
+					return Vector2i(floori(float((bp as Dictionary)["x"])), floori(float((bp as Dictionary)["y"])))
+		var well: int = int(job.get("well", -1))
+		if well >= 0:
+			var wp: Variant = world.components.get_component(well, "position")
+			if wp is Dictionary:
+				return Vector2i(floori(float((wp as Dictionary)["x"])), floori(float((wp as Dictionary)["y"])))
 	var t: int = int(job.get("target", -1))
 	if job.has("fire") and String(job.get("stage", "")) != "goto-item":
 		t = int(job.get("fire", t))
 	if t < 0:
 		return Vector2i(-1, -1)
 	var p: Variant = world.components.get_component(t, "position")
+	if not p is Dictionary:
+		return Vector2i(-1, -1)
+	return Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))
+
+
+static func _do_water(world: Variant, ent: int, job: Dictionary) -> void:
+	var bottle: int = int(job.get("target", -1))
+	var well: int = int(job.get("well", -1))
+	if bottle < 0 or well < 0:
+		_stop(world, ent)
+		return
+	# Pick up empty bottle from stockpile/ground if needed.
+	if not SimInventory.owns(world, ent, bottle):
+		if world.components.has_component(bottle, "position"):
+			world.components.remove(bottle, "position")
+		if not SimInventory.stow(world, ent, bottle):
+			_stop(world, ent)
+			return
+		return
+	var well_tile: Vector2i = _entity_tile(world, well)
+	if well_tile.x < 0 or not _at(world, ent, well_tile, REACH):
+		_walk(world, ent, job, well_tile)
+		return
+	var left: int = int(job.get("ticksLeft", 0)) - 1
+	job["ticksLeft"] = left
+	if left > 0:
+		return
+	var base: Variant = world.components.get_component(bottle, "itemBase")
+	if base is Dictionary:
+		(base as Dictionary)["baseId"] = FULL_BOTTLE
+	world.events.publish({"type": "job.water_filled", "entity": ent, "item": bottle})
+	_stop(world, ent, "Water")
+
+
+static func _do_clean(world: Variant, ent: int, job: Dictionary) -> void:
+	var well: int = int(job.get("well", -1))
+	if well < 0:
+		_stop(world, ent)
+		return
+	var well_tile: Vector2i = _entity_tile(world, well)
+	if well_tile.x < 0 or not _at(world, ent, well_tile, REACH):
+		_walk(world, ent, job, well_tile)
+		return
+	var left: int = int(job.get("ticksLeft", 0)) - 1
+	job["ticksLeft"] = left
+	if left > 0:
+		return
+	SimNeeds.wash_at_source(world, ent)
+	world.events.publish({"type": "job.cleaned", "entity": ent})
+	_stop(world, ent, "Clean")
+
+
+static func _do_bury(world: Variant, ent: int, job: Dictionary) -> void:
+	var corpse: int = int(job.get("target", -1))
+	if corpse < 0:
+		_stop(world, ent)
+		return
+	var dump: Vector2i = _corpse_dump()
+	if not bool(job.get("carrying", false)):
+		if world.components.has_component(corpse, "position"):
+			var cp: Variant = world.components.get_component(corpse, "position")
+			var ct := Vector2i(floori(float((cp as Dictionary)["x"])), floori(float((cp as Dictionary)["y"])))
+			if not _at(world, ent, ct, REACH):
+				_walk(world, ent, job, ct)
+				return
+			world.components.remove(corpse, "position")
+		job["carrying"] = true
+		SimNeeds.dirt(world, ent, 1)
+		return
+	if not _at(world, ent, dump, REACH):
+		_walk(world, ent, job, dump)
+		return
+	var left: int = int(job.get("ticksLeft", 0)) - 1
+	job["ticksLeft"] = left
+	if left > 0:
+		return
+	world.despawn(corpse)
+	world.events.publish({"type": "job.buried", "entity": ent, "corpse": corpse})
+	_stop(world, ent, "Bury")
+
+
+static func _entity_tile(world: Variant, ent: int) -> Vector2i:
+	var p: Variant = world.components.get_component(ent, "position")
 	if not p is Dictionary:
 		return Vector2i(-1, -1)
 	return Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))
