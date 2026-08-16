@@ -62,8 +62,12 @@ static func register_module(world: Variant) -> void:
 			return
 		var kind: String = String(e.get("kind", ""))
 		match kind:
-			"Haul", "Cook", "Construct":
+			"Haul":
+				_earn(world, ent, "Endurance", 1)
+			"Cook":
 				_earn(world, ent, "Survival", 1)
+			"Construct":
+				_earn(world, ent, "Craft", 1)
 			"Doctor":
 				_earn(world, ent, "Medicine", 1)
 			_:
@@ -105,6 +109,8 @@ static func _autospend(world: Variant, entity: int) -> void:
 	var pts: Dictionary = (w.get("points", {}) as Dictionary).duplicate()
 	var owned: Array = (w.get("nodes", []) as Array).duplicate()
 	var focus: String = _focus_of(world, entity)
+	if focus == "Manual":
+		return
 	var paths: Dictionary = def.get("focusPaths", {}) as Dictionary
 	var path: Array = paths.get(focus, paths.get("Auto", [])) as Array
 	var nodes_by_id: Dictionary = {}
