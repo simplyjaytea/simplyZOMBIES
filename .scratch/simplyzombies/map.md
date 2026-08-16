@@ -26,18 +26,18 @@ Locked planning spec for **simplyZOMBIES Early Alpha**: a solo-playable Godot 4.
 - [09 — Director pressure for early alpha](issues/09-director-pressure.md) — **Population, not a spawner.** Days 1–2 shambler-only + no packets; 3–7 trickle if live `< 8`; day 8+ dusk edge packets (2–6, cap 24, never the gate). Breach lull 1 night, Mara death 2; bait does not cancel (field still pulls). Floor: 1 packet / 3 quiet nights. Power/strain = six live bits, no food/mood. **Shipped:** `godot/sim/modules/director.gd` + `godot:m2:director`.
 - [10 — Save/load + determinism for alpha systems](issues/10-save-load-determinism.md) — **Shipped as save v12** (ticket 10 fortify/director + Needs-era folded). Gate `godot:m2:save`. v11 rejected.
 - [11 — Tuning harness for alpha](issues/11-tuning-harness.md) — **CI invariants + nightly 10-day loop.** `check_m2_harness.gd`: clock-jump turtle floor + Nothing Personal zero + never-on-gate (seed 20260805); contact KD prints; `HARNESS_FULL=1` real 10-day. Gate `godot:m2:harness`. **Shipped.**
-- [12 — Alpha audio one-shots (2D, magnitude volume)](issues/12-alpha-audio.md) — **Shout / gunshot / board / alarm / noisemaker loop.** Volume `mag/180` + 0.7/m falloff, no wall occlusion, no footsteps. `godot/assets/sfx/`, presentation-only. Not built.
+- [12 — Alpha audio one-shots (2D, magnitude volume)](issues/12-alpha-audio.md) — **Shipped.** Six clips, camera listener, 3-player oneshot pool, bait stop/restart by reach. `godot/presentation/sfx.gd` + `godot/assets/sfx/`. Sim mute. No WAV gate.
 - **M2 people-and-economy (ADRs 0001–0011)** — **Shipped** Needs, Jobs + Need seek, generator, recruits/Inspect, corpse/Leave, Work Focus Auto. Gates `godot:m2:needs|jobs|recruits`. PRs #50/#51.
 - **Aiming + shallow web (ADR 0012)** — **Shipped** sway cone + six-region web. Gates `godot:m2:aim|web`.
 
 ## Building now
 
-Early-alpha tickets 01–11 + M2 people-and-economy + aiming/web are **done**. Remaining alpha execution:
+Early-alpha tickets 01–12 + M2 people-and-economy + aiming/web are **done**. Remaining alpha fog is product M2 beyond the wayfinder (stub jobs, weather, succession).
 
 1. **Done:** stats, roster, district, ranged, fortify, director, save v12, Needs/Jobs/recruits.
 2. **Done:** aiming/sway + shallow skill web (`godot:m2:aim` / `godot:m2:web`; ADR 0012).
 3. **Done:** tuning harness (`godot:m2:harness`; `HARNESS_FULL=1` for nightly 10-day).
-4. **Specified, not built:** SFX one-shots ([Alpha audio one-shots](issues/12-alpha-audio.md)).
+4. **Done:** alpha audio one-shots (`godot/presentation/sfx.gd`).
 
 ## Not yet specified
 
