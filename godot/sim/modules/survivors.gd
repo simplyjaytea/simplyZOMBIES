@@ -9,6 +9,8 @@ const SimHealthRes = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimAttentionRes = preload("res://sim/modules/attention_emitter.gd")
+const SimNeedsRes = preload("res://sim/modules/needs.gd")
+const SimJobsRes = preload("res://sim/modules/jobs.gd")
 
 
 static func entry_of(world: Variant, id: String) -> Variant:
@@ -69,12 +71,22 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 		"id": String(e.get("id", id)),
 		"name": String(e.get("name", id)),
 		"unique": true,
+		"traits": (e.get("traits", []) as Array).duplicate() if e.get("traits", []) is Array else [],
 	})
 	SimHealthRes.make_survivor_body(world, ent)
 	SimHealthRes.make_stamina(world, ent)
 	SimInventoryRes.make_inventory(world, ent)
 	SimAttentionRes.make_emitter(world, ent)
 	SimAptitudesRes.apply(world, ent, e.get("aptitudes", {}))
+	SimNeedsRes.attach(world, ent)
+	var focus: String = String(e.get("focus", "Auto"))
+	var row: Dictionary = {}
+	if e.get("jobPriorities", {}) is Dictionary:
+		var raw: Dictionary = e["jobPriorities"] as Dictionary
+		row = SimJobsRes.empty_row()
+		for k in raw.keys():
+			row[String(k)] = int(raw[k])
+	SimJobsRes.attach(world, ent, focus, row)
 	var kit: Variant = e.get("kit", [])
 	if kit is Array:
 		for item_id in kit as Array:
@@ -94,6 +106,7 @@ static func boot_playable(world: Variant) -> int:
 	if not world.components.has_component(world.player, "facing"):
 		world.components.set_component(world.player, "facing", {"radians": 0.0})
 	SimAptitudesRes.apply(world, world.player, {"str": SimAptitudesRes.DEFAULT, "dex": SimAptitudesRes.DEFAULT, "con": SimAptitudesRes.DEFAULT})
+	SimNeedsRes.attach(world, world.player)
 	var pos: Variant = world.components.get_component(world.player, "position")
 	var px: float = float((pos as Dictionary)["x"]) if pos is Dictionary else 5.0
 	var py: float = float((pos as Dictionary)["y"]) if pos is Dictionary else 5.0

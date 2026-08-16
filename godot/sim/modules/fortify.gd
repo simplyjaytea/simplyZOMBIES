@@ -130,6 +130,22 @@ static func _use_context(world: Variant, actor: int) -> void:
 	if SimInventory.nearest_ground_item(world, actor) != null:
 		SimInventory.pick_up_nearest(world, actor)
 		return
+	var Recruits: GDScript = load("res://sim/modules/recruits.gd") as GDScript
+	if Recruits != null and Recruits.has_method("waiting_in_reach"):
+		var waiting: int = int(Recruits.call("waiting_in_reach", world, actor))
+		if waiting >= 0:
+			Recruits.call("accept", world, waiting)
+			return
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs != null:
+		var fire: int = int(Needs.call("nearest_campfire", world, float(_tile_of(world, actor).x) + 0.5, float(_tile_of(world, actor).y) + 0.5, false))
+		if fire >= 0 and _entity_in_reach(world, actor, fire):
+			Needs.call("toggle_fire", world, fire)
+			return
+		var bed: int = int(Needs.call("nearest_bed", world, float(_tile_of(world, actor).x) + 0.5, float(_tile_of(world, actor).y) + 0.5, false))
+		if bed >= 0 and _entity_in_reach(world, actor, bed):
+			Needs.call("start_sleep", world, actor, bed)
+			return
 	var face: Vector2i = _facing_tile(world, actor)
 	if SimTileMap.tile_at(world.tilemap, face.x, face.y) == SimTileMap.Tile.Window and _in_reach_tile(world, actor, face.x, face.y):
 		_start(world, actor, "window", face.x, face.y)

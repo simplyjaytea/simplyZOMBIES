@@ -50,6 +50,9 @@ var modifiers: Variant = null
 var field: Variant = null
 var events: Variant = null
 var director: Dictionary = {"lullUntilTick": 0, "lastMigrationTick": 0, "nightsSinceQuiet": 0}
+var needsHoldMax: bool = false
+var runOver: bool = false
+var recruits: Dictionary = {"accepted": 0, "spawned": []}
 
 
 func _init(fixture: Dictionary) -> void:
@@ -165,6 +168,11 @@ func snapshot() -> Dictionary:
 			"lastMigrationTick": int(director.get("lastMigrationTick", 0)),
 			"nightsSinceQuiet": int(director.get("nightsSinceQuiet", 0)),
 		},
+		"recruits": {
+			"accepted": int(recruits.get("accepted", 0)),
+			"spawned": (recruits.get("spawned", []) as Array).duplicate(),
+		},
+		"runOver": runOver,
 	}
 
 
@@ -184,6 +192,13 @@ func restore(snap: Dictionary) -> void:
 			"lastMigrationTick": int(d.get("lastMigrationTick", 0)),
 			"nightsSinceQuiet": int(d.get("nightsSinceQuiet", 0)),
 		}
+	if snap.has("recruits") and snap["recruits"] is Dictionary:
+		var r: Dictionary = snap["recruits"] as Dictionary
+		recruits = {
+			"accepted": int(r.get("accepted", 0)),
+			"spawned": (r.get("spawned", []) as Array).duplicate(),
+		}
+	runOver = bool(snap.get("runOver", false))
 	if tilemap != null:
 		SimFortifyRes.sync_map(self)
 
