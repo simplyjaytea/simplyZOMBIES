@@ -115,6 +115,15 @@ func _verbs() -> bool:
 	var bp: Variant = w.components.get_component(beds[0], "position")
 	w.components.set_component(w.player, "position", {"x": float((bp as Dictionary)["x"]), "y": float((bp as Dictionary)["y"])})
 	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	# E picks up first — clear reach so sleep/fire can fire.
+	for g in SimInventory.ground_items(w):
+		var gp: Variant = w.components.get_component(g, "position")
+		if not gp is Dictionary:
+			continue
+		var dx: float = float((gp as Dictionary)["x"]) - float((bp as Dictionary)["x"])
+		var dy: float = float((gp as Dictionary)["y"]) - float((bp as Dictionary)["y"])
+		if dx * dx + dy * dy <= 2.25:
+			w.components.remove(g, "position")
 	w.commands.push({"type": "use.context"})
 	w.step()
 	if not w.components.has_component(w.player, "sleeping"):
@@ -124,6 +133,14 @@ func _verbs() -> bool:
 	var fires: Array[int] = w.components.query(["campfire"])
 	var fp: Variant = w.components.get_component(fires[0], "position")
 	w.components.set_component(w.player, "position", {"x": float((fp as Dictionary)["x"]), "y": float((fp as Dictionary)["y"])})
+	for g2 in SimInventory.ground_items(w):
+		var gp2: Variant = w.components.get_component(g2, "position")
+		if not gp2 is Dictionary:
+			continue
+		var dx2: float = float((gp2 as Dictionary)["x"]) - float((fp as Dictionary)["x"])
+		var dy2: float = float((gp2 as Dictionary)["y"]) - float((fp as Dictionary)["y"])
+		if dx2 * dx2 + dy2 * dy2 <= 2.25:
+			w.components.remove(g2, "position")
 	w.commands.push({"type": "use.context"})
 	w.step()
 	var cf: Variant = w.components.get_component(fires[0], "campfire")

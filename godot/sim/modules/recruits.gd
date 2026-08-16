@@ -277,6 +277,9 @@ static func handle_death(world: Variant, entity: int) -> bool:
 	if int(entity) == int(world.player) or world.components.has_component(entity, "controlled"):
 		world.runOver = true
 		world.events.publish({"type": "run.over", "entity": entity})
+		if _is_transmitted(world, entity):
+			_turn_with_kit(world, entity)
+			return true
 		world.despawn(entity)
 		return true
 	if world.components.has_component(entity, "shambler"):

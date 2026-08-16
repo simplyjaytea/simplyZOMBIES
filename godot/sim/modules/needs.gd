@@ -144,12 +144,12 @@ static func accuracy_mul(world: Variant, entity: int) -> float:
 	return work_mul(world, entity) if work_mul(world, entity) > 0.0 else 0.85
 
 
-static func has_trait(world: Variant, entity: int, trait: String) -> bool:
+static func has_trait(world: Variant, entity: int, trait_id: String) -> bool:
 	var ident: Variant = world.components.get_component(entity, "identity")
 	if not ident is Dictionary:
 		return false
 	var traits: Variant = (ident as Dictionary).get("traits", [])
-	return traits is Array and (traits as Array).has(trait)
+	return traits is Array and (traits as Array).has(trait_id)
 
 
 static func wearing_wrap(world: Variant, entity: int) -> bool:
