@@ -105,10 +105,10 @@ func _try_pick(at: Vector2) -> void:
 	if _body_view == "injuries":
 		# injury rows
 		var list_x: float = body_x + 276.0; var list_y: float = body_y + 52.0
-		for i in range(6):
+		for i in range(SimCondition.PART_ORDER.size()):
 			var r: Rect2 = Rect2(Vector2(list_x, list_y + float(i) * 27.0), Vector2(248, 27))
 			if r.has_point(at):
-				_selected_part = ["head", "torso", "arms", "hands", "legs", "feet"][i]
+				_selected_part = SimCondition.PART_ORDER[i]
 				queue_redraw(); return
 		return
 	# equipment slots (simplified 7 slots)
@@ -254,7 +254,7 @@ func _draw() -> void:
 			if sel:
 				draw_rect(Rect2(Vector2(list_x, list_y + float(idx) * 27.0), Vector2(248, 25)), Color("#1e2225"))
 			var row_y: float = list_y + float(idx) * 27.0 + 16
-			draw_string(ThemeDB.fallback_font, Vector2(list_x + 6, row_y), part, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
+			draw_string(ThemeDB.fallback_font, Vector2(list_x + 6, row_y), SimCondition.label_of(part), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
 			var st: int = int(states.get(part, 0))
 			var word: String = PART_STATE_WORDS[st] if st < PART_STATE_WORDS.size() else ""
 			var tint: Color = Palette.CONDITION_TINTS[st] if st < Palette.CONDITION_TINTS.size() else Color("#7b776e")

@@ -33,14 +33,29 @@ func _pose_for_stance(stance: int) -> int:
 	if stance == 1: return OutlinePose.Crouch # Crouch (Eye.Crouched)
 	return OutlinePose.Stand
 
+# The condition view now carries ten sided parts (arm_left/arm_right and so on), but this
+# outline still draws one shape per limb type -- both arms as a single polygon, both legs as
+# a single pair. LEGACY_REGIONS is a temporary bridge: it reads the worse of the two sides
+# so an old drawn region still shows *something* true rather than nothing, until the ponytail
+# note at the top of this file is resolved and each side gets its own drawn shape.
+const LEGACY_REGIONS: Dictionary = {
+	"arms": ["arm_left", "arm_right"],
+	"hands": ["hand_left", "hand_right"],
+	"legs": ["leg_left", "leg_right"],
+	"feet": ["foot_left", "foot_right"],
+}
+
 func _get_tint(region: String) -> Variant:
+	var worst: int = -1
 	for part in _view.get("parts", []) as Array:
 		var d: Dictionary = part as Dictionary
-		if String(d.get("part", "")) == region:
-			var st: int = int(d.get("state", 0))
-			if st == 0: return null
-			return Palette.CONDITION_TINTS[st] if st < Palette.CONDITION_TINTS.size() else null
-	return null
+		var name: String = String(d.get("part", ""))
+		var matches: bool = name == region or (LEGACY_REGIONS.get(region, []) as Array).has(name)
+		if matches:
+			worst = maxi(worst, int(d.get("state", 0)))
+	if worst <= 0:
+		return null
+	return Palette.CONDITION_TINTS[worst] if worst < Palette.CONDITION_TINTS.size() else null
 
 func _draw() -> void:
 	if _view.is_empty():

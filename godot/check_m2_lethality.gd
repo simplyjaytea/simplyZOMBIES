@@ -30,7 +30,7 @@ func _progression_determinism() -> bool:
 		# add a body and infection state directly — progression is tick physics, not plumbing
 		var e: int = wv.player
 		wv.components.set_component(e, "position", {"x": 6.0, "y": 5.0})
-		wv.components.set_component(e, "zombieInfection", {"exposures": [{"source": 99, "bodyPart": "arms", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Latent, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
+		wv.components.set_component(e, "zombieInfection", {"exposures": [{"source": 99, "bodyPart": "arm_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Latent, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
 		SimInfection.register_module(wv)
 	for i in SimInfection.LATENT_TICKS:
 		w.step()
@@ -61,10 +61,10 @@ func _progression_determinism() -> bool:
 func _amputation_window() -> bool:
 	var f: Dictionary = {"seed": 5001, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 4.0, "y": 4.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 	var w: Variant = World.new(f)
-	w.components.set_component(w.player, "body", {"head": 10, "torso": 20, "arms": 10, "hands": 10, "legs": 10, "feet": 10})
-	w.components.set_component(w.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "arms", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Latent, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
+	w.components.set_component(w.player, "body", {"head": 10, "torso": 20, "arm_left": 10, "arm_right": 10, "hand_left": 10, "hand_right": 10, "leg_left": 10, "leg_right": 10, "foot_left": 10, "foot_right": 10})
+	w.components.set_component(w.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "arm_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Latent, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
 	SimInfection.register_module(w)
-	var r1: Dictionary = SimInfection.amputate(w, w.player, "arms")
+	var r1: Dictionary = SimInfection.amputate(w, w.player, "arm_left")
 	if not bool(r1.get("ok", false)):
 		push_error("amputate latent should succeed %s" % str(r1))
 		return false
@@ -87,10 +87,10 @@ func _amputation_window() -> bool:
 	# too-late: progression stage
 	var f2: Dictionary = {"seed": 5002, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 4.0, "y": 4.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 	var w2: Variant = World.new(f2)
-	w2.components.set_component(w2.player, "body", {"head": 10, "torso": 20, "arms": 10, "hands": 10, "legs": 10, "feet": 10})
-	w2.components.set_component(w2.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "legs", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Progression, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
+	w2.components.set_component(w2.player, "body", {"head": 10, "torso": 20, "arm_left": 10, "arm_right": 10, "hand_left": 10, "hand_right": 10, "leg_left": 10, "leg_right": 10, "foot_left": 10, "foot_right": 10})
+	w2.components.set_component(w2.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "leg_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Progression, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
 	SimInfection.register_module(w2)
-	var r2: Dictionary = SimInfection.amputate(w2, w2.player, "legs")
+	var r2: Dictionary = SimInfection.amputate(w2, w2.player, "leg_left")
 	if bool(r2.get("ok", true)):
 		push_error("amputate progression should be too-late %s" % str(r2))
 		return false
@@ -149,7 +149,7 @@ func _turning_and_noise() -> bool:
 func _diagnosis_never_leaks() -> bool:
 	var f: Dictionary = {"seed": 5200, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 4.0, "y": 4.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 	var w: Variant = World.new(f)
-	w.components.set_component(w.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "arms", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Progression, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
+	w.components.set_component(w.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "arm_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Progression, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
 	SimInfection.register_module(w)
 	for skill in [0, 1, 2, 3]:
 		var d: Dictionary = SimInfection.diagnosis_of(w, w.player, skill)

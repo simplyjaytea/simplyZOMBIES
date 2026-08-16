@@ -25,7 +25,7 @@ func _run() -> void:
 	ok = _noisemaker_field() and ok
 	ok = _e_pickup_first() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v12")
+		print("M2_FORTIFY_OK board scrap alarm bait v13")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -57,14 +57,17 @@ func _set_tile(w: Variant, tx: int, ty: int, tile: int) -> void:
 	w.tilemap.tiles[ty * int(w.tilemap.w) + tx] = tile
 
 func _version() -> bool:
-	if int(SimSerialize.SAVE_VERSION) != 12:
-		push_error("SAVE_VERSION %d want 12" % int(SimSerialize.SAVE_VERSION))
+	# This duplicates check_m2_save.gd's _version() -- two gates asserting the same fact
+	# independently, which is exactly how one of them got missed on the last version bump.
+	# Left as-is rather than refactored under this fix; see docs/30-decisions.md.
+	if int(SimSerialize.SAVE_VERSION) != 13:
+		push_error("SAVE_VERSION %d want 13" % int(SimSerialize.SAVE_VERSION))
 		return false
-	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":11},\"meta\":{}}")
+	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":12},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":
-		push_error("v11 not rejected: %s" % str(stale))
+		push_error("v12 not rejected: %s" % str(stale))
 		return false
-	print("VERSION OK 12 rejects 11")
+	print("VERSION OK 13 rejects 12")
 	return true
 
 func _board_opacity() -> bool:

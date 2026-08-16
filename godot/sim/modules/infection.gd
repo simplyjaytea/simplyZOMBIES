@@ -120,7 +120,7 @@ static func cauterize(world: Variant, entity: int, bodyPart: String) -> Dictiona
 
 
 static func amputate(world: Variant, entity: int, bodyPart: String) -> Dictionary:
-	var limb_parts: Array[String] = ["arms", "hands", "legs", "feet"]
+	var limb_parts: Array[String] = ["arm_left", "arm_right", "hand_left", "hand_right", "leg_left", "leg_right", "foot_left", "foot_right"]
 	if not limb_parts.has(bodyPart):
 		return {"ok": false, "reason": "not-limb"}
 	var state: Variant = world.components.get_component(entity, "zombieInfection")

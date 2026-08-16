@@ -1,7 +1,12 @@
 class_name SimSerialize
 extends RefCounted
 
-const SAVE_VERSION: int = 12
+# 13: the survivor body schema changed shape -- "arms"/"hands"/"legs"/"feet" split into
+# independent left/right parts (docs/30-decisions.md). A v12 save's body dict has the old
+# keys and would silently mismatch every part lookup rather than fail loudly, so this is a
+# version bump rather than a migration. save.gd already rejects a version mismatch with
+# "start a new run" -- saves are not migrated before 1.0.
+const SAVE_VERSION: int = 13
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

@@ -975,10 +975,13 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 **Done (3):**
 
 - [x] Body parts with located conditions; **no health bar anywhere**
-      *(six survivor parts are saved and damaged independently; the condition snapshot exposes prose
-      and state, never raw integrity)*
-- [x] **The condition view** — a paperdoll of head / torso / arms / hands / legs / feet with located
-      conditions on the part they are on, spec:
+      *(ten survivor parts — head, torso, and a left/right of arms, hands, legs, feet — are saved
+      and damaged independently; the condition snapshot exposes prose and state, never raw
+      integrity. Sided as of the paperdoll revamp: docs/05 already promised "a one-armed
+      survivor," which a single aggregate `arms` value couldn't produce. `SAVE_VERSION` bumped to
+      13 for the schema change; see docs/30.)*
+- [x] **The condition view** — a paperdoll of head / torso / arms / hands / legs / feet (each limb
+      sided) with located conditions on the part they are on, spec:
       [docs/05](docs/05-health-injury.md#the-condition-view)
       *(a layout for the skill-scaled prose above, not a second representation of it. It shows what
       the **examiner** believes, so a bite presenting as a scratch presents as a scratch on the

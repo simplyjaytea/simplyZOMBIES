@@ -3,9 +3,6 @@ extends RefCounted
 
 const SimCombat = preload("res://sim/combat.gd")
 
-const BodyParts: Array[String] = ["head", "torso", "legs"]
-const SurvivorBodyParts: Array[String] = ["head", "torso", "arms", "hands", "legs", "feet"]
-
 const BITE_PRESENTS_AS_SCRATCH_CHANCE: float = 0.3
 
 const CRIPPLED_SOURCE: String = "injury.crippled"
@@ -50,8 +47,21 @@ static func part_state(body: Dictionary, part: String) -> Variant:
 static func is_alive(body: Dictionary) -> bool:
 	return int(body.get("head", 0)) > 0
 
+# The one sentinel for "is this a survivor body (sided limbs) or a zombie body (aggregate
+# legs, no arms)". melee.gd and the bite handler below used to each spell out
+# `body.has("arms")` themselves; one helper means the survivor schema only has one place
+# left to update if it changes again.
+static func is_survivor_body(body: Variant) -> bool:
+	return body is Dictionary and (body as Dictionary).has("arm_left")
+
 static func is_crawling(body: Dictionary) -> bool:
-	return body.has("legs") and int(body["legs"]) <= 0
+	if body.has("legs"):
+		return int(body["legs"]) <= 0
+	# A survivor limps on one ruined leg -- that is the permanent-limp consequence docs/05
+	# describes -- and only crawls once neither leg still works.
+	if body.has("leg_left") and body.has("leg_right"):
+		return int(body["leg_left"]) <= 0 and int(body["leg_right"]) <= 0
+	return false
 
 static func make_body(world: Variant, entity: int) -> void:
 	world.components.set_component(entity, "body", SimCombat.ZOMBIE_BODY.duplicate())
@@ -101,8 +111,12 @@ static func register_module(world: Variant) -> void:
 		var r: Dictionary = result as Dictionary
 		if not is_alive(r["body"] as Dictionary):
 			return
-		if String(r["part"]) == "legs" and is_crawling(r["body"] as Dictionary):
-			world.events.publish({"type": "injury.sustained", "entity": int(event["target"]), "injury": "crippled", "bodyPart": "legs"})
+		# "legs" (zombie) or "leg_left"/"leg_right" (survivor) -- either way, only worth an
+		# event once is_crawling says the survivor actually can no longer stand. A survivor
+		# who lost one leg limps; that is the permanent-limp consequence, not this one.
+		var hit_part: String = String(r["part"])
+		if (hit_part == "legs" or hit_part.begins_with("leg_")) and is_crawling(r["body"] as Dictionary):
+			world.events.publish({"type": "injury.sustained", "entity": int(event["target"]), "injury": "crippled", "bodyPart": hit_part})
 	})
 
 	world.events.subscribe({"id": "health.take-bite", "type": "bite.landed", "handler": func(event: Dictionary) -> void:
@@ -110,7 +124,7 @@ static func register_module(world: Variant) -> void:
 		if result == null:
 			return
 		var r: Dictionary = result as Dictionary
-		if not (r["body"] as Dictionary).has("arms"):
+		if not is_survivor_body(r["body"]):
 			return
 		var inj: Variant = world.components.get_component(int(event["victim"]), "injuries")
 		if inj == null:

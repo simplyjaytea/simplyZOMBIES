@@ -15,12 +15,32 @@ extends RefCounted
 # The gate will fail; re-read clause 4 before widening it.
 
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimCombat = preload("res://sim/combat.gd")
 
-# Survivor order, head down. docs/05: the view is read as a body, not as a list.
-const PART_ORDER: Array[String] = ["head", "torso", "arms", "hands", "legs", "feet"]
+# Survivor order, head down, anatomical left before right. docs/05: the view is read as a
+# body, not as a list. Ten parts, not six -- docs/05's permanent consequences describe "a
+# one-armed survivor" as a real outcome, which needs two independently-damageable arms to
+# produce; see docs/30-decisions.md. This is combat.gd's SURVIVOR_BODY_PARTS, not a second
+# copy of it -- the view's order and the hit-roll's order are the same order because there
+# is exactly one canonical part list.
+const PART_ORDER: Array[String] = SimCombat.SURVIVOR_BODY_PARTS
 
 # The only keys a part may carry. The gate asserts this exactly.
 const PART_KEYS: Array[String] = ["part", "state", "prose"]
+
+# Humanized display for the sided parts. Head and torso need no entry -- the raw key is
+# already the word. Without this, "arm_left" would be the literal text a screen shows,
+# which is the same class of leak as a raw number: the player should never read the sim's
+# key, only what it means.
+const PART_LABELS: Dictionary = {
+	"arm_left": "left arm", "arm_right": "right arm",
+	"hand_left": "left hand", "hand_right": "right hand",
+	"leg_left": "left leg", "leg_right": "right leg",
+	"foot_left": "left foot", "foot_right": "right foot",
+}
+
+static func label_of(part: String) -> String:
+	return String(PART_LABELS.get(part, part))
 
 
 # Returns {"parts": [{part, state, prose}], "stance": int, "worst": int}, or {} when the
@@ -44,7 +64,7 @@ static func view(world: Variant, actor: int) -> Dictionary:
 		var s: int = int(st)
 		worst = maxi(worst, s)
 		# state is the discrete grade, never the integrity behind it.
-		parts.append({"part": part, "state": s, "prose": part})
+		parts.append({"part": part, "state": s, "prose": label_of(part)})
 
 	var posture: Variant = world.components.get_component(actor, "posture")
 	var stance: int = 2 # Walk
