@@ -62,5 +62,20 @@ func _run() -> void:
 		quit(1)
 		return
 	print("MOD OK melee_damage %.3f" % dmg)
+	# Manual must not auto-spend; Rest earns Endurance (docs/08).
+	SimJobs.set_focus(w, player, "Manual")
+	var nodes_before_manual: int = SimSkills.node_count(w, player)
+	w.events.publish({"type": "job.completed", "entity": player, "kind": "Rest"})
+	w.events.publish({"type": "job.completed", "entity": player, "kind": "Rest"})
+	w.events.drain()
+	if SimSkills.node_count(w, player) != nodes_before_manual:
+		push_error("Manual focus auto-spent")
+		quit(1)
+		return
+	if SimSkills.points(w, player, "Endurance") < 2:
+		push_error("Rest did not earn Endurance")
+		quit(1)
+		return
+	print("MANUAL OK endPts %d nodes held %d" % [SimSkills.points(w, player, "Endurance"), nodes_before_manual])
 	print("M2_WEB_OK earn focus mods")
 	quit(0)
