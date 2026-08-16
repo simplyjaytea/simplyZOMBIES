@@ -157,19 +157,18 @@ static func generate_district(seed: int, size: int = DISTRICT_TILES) -> Variant:
 	_fill(map, 0, size - 1, size, 1, Tile.Wall)
 	_fill(map, 0, 0, 1, size, Tile.Wall)
 	_fill(map, size - 1, 0, 1, size, Tile.Wall)
-	var block: int = 56
+	var block: int = 64
 	var street: int = 12
 	var by: int = street
 	while by + block < size:
 		var bx: int = street
 		while bx + block < size:
-			var count: int = (rng as RefCounted).call("int_range", 1, 2)
-			for i in count:
-				var bw: int = (rng as RefCounted).call("int_range", 18, 30)
-				var bh: int = (rng as RefCounted).call("int_range", 16, 26)
-				var ox: int = bx + (rng as RefCounted).call("int_range", 0, maxi(0, block - bw))
-				var oy: int = by + (rng as RefCounted).call("int_range", 0, maxi(0, block - bh))
-				_building(map, ox, oy, bw, bh, (rng as RefCounted).call("int_range", 0, 3))
+			# One building per block — overlaps were leaving shed-sized scraps.
+			var bw: int = (rng as RefCounted).call("int_range", 24, 38)
+			var bh: int = (rng as RefCounted).call("int_range", 22, 34)
+			var ox: int = bx + (rng as RefCounted).call("int_range", 0, maxi(0, block - bw))
+			var oy: int = by + (rng as RefCounted).call("int_range", 0, maxi(0, block - bh))
+			_building(map, ox, oy, bw, bh, (rng as RefCounted).call("int_range", 0, 3))
 			bx += block + street
 		by += block + street
 	_dress_occluders(map, seed)
@@ -227,7 +226,7 @@ static func _dress_occluders(map: Variant, seed: int) -> void:
 
 static func _dress_terrain(map: Variant, seed: int) -> void:
 	var rng: Variant = RngStream.new(seed ^ 0x6e7ee15)
-	var block: int = 56
+	var block: int = 64
 	var street: int = 12
 	var by: int = street
 	while by + block < map.h:
