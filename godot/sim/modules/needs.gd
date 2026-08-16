@@ -582,6 +582,10 @@ static func start_sleep(world: Variant, entity: int, bed: int) -> void:
 	_start_sleep(world, entity, bed)
 
 
+static func wake(world: Variant, entity: int) -> void:
+	_wake(world, entity)
+
+
 static func _start_sleep(world: Variant, entity: int, bed: int) -> void:
 	world.components.set_component(entity, "sleeping", {"bed": bed, "since": int(world.tick)})
 	if bed >= 0:

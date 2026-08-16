@@ -447,6 +447,7 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 		_stop(world, ent)
 		return
 	if world.components.has_component(item, "corpse"):
+		world.components.remove(item, "position")
 		job["carrying"] = true
 		SimNeeds.dirt(world, ent, 1)
 		return
@@ -575,6 +576,8 @@ static func _is_mara(world: Variant, ent: int) -> bool:
 
 
 static func _do_seek(world: Variant, ent: int, kind: String) -> void:
+	if world.components.has_component(ent, "sleeping"):
+		SimNeeds.wake(world, ent)
 	var pos: Variant = world.components.get_component(ent, "position")
 	if not pos is Dictionary:
 		return
