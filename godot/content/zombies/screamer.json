@@ -2,11 +2,40 @@
   "id": "zombie.screamer",
   "extends": "zombie.base",
   "introducedInWave": 1,
-  "sensory": { "noise": 0.4, "light": 0.9, "scent": 0.2 },
-  "locomotion": { "speed": 1.1 },
-  "body": { "head": 20, "torso": 40, "legs": 30 },
-  "grab": { "strength": 0.3 },
-  "emits": [{ "channel": "noise", "magnitude": 4 }],
-  "behaviors": ["shamble", "pursue", "alarm_on_sight"],
-  "alarm": { "magnitude": 300, "relay": true, "cooldownTicks": 600 }
+  "appearance": {
+    "tint": "#d95947",
+    "sprite": "zombie_screamer"
+  },
+  "sensory": {
+    "noise": 0.4,
+    "light": 0.9,
+    "scent": 0.2
+  },
+  "locomotion": {
+    "speed": 1.1
+  },
+  "body": {
+    "head": 20,
+    "torso": 40,
+    "legs": 30
+  },
+  "grab": {
+    "strength": 0.3
+  },
+  "emits": [
+    {
+      "channel": "noise",
+      "magnitude": 4
+    }
+  ],
+  "behaviors": [
+    "shamble",
+    "pursue",
+    "alarm_on_sight"
+  ],
+  "alarm": {
+    "magnitude": 300,
+    "relay": true,
+    "cooldownTicks": 600
+  }
 }

@@ -103,6 +103,11 @@ jobs:
       - name: Health-bar ban (no integrity, no maximum, no fraction)
         run: npm run godot:ban:healthbar
 
+      # content_validator.gd does not recurse into nested objects, so `appearance`'s inner
+      # shape is enforced here rather than by the schema at load time.
+      - name: Appearance pipeline (keys resolve, procedural fallback intact)
+        run: npm run godot:check:appearance
+
   godot-exports:
     needs: check
     runs-on: windows-latest

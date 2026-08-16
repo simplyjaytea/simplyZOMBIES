@@ -9,6 +9,7 @@ const ContentLoader = preload("res://platform/content_loader.gd")
 const IsoProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
+const Appearance = preload("res://presentation/appearance.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -48,7 +49,7 @@ const INDOOR_WALL_RISE_M: float = 0.4
 var world: Variant = null
 var content: Dictionary = {}
 var fixture: Dictionary = {}
-var camera: Dictionary = CameraUtil.create_camera(12.0)
+var camera: Dictionary = CameraUtil.create_camera()
 var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
 var paused: bool = false
@@ -544,22 +545,34 @@ func _draw_entities() -> void:
 			var zt: Variant = world.components.get_component(int(ent), "zombieType")
 			if zt is Dictionary:
 				ztype = String((zt as Dictionary).get("id", ""))
-		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "ztype": ztype, "id": int(ent)})
+		# Content id for a unique survivor, so appearance resolves for people as well as for
+		# zombies. Generated survivors have no content entry and stay on the role colour.
+		var cid: String = ""
+		if is_unique:
+			var ident: Variant = world.components.get_component(int(ent), "identity")
+			if ident is Dictionary:
+				cid = String((ident as Dictionary).get("id", ""))
+		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "ztype": ztype, "cid": cid, "id": int(ent)})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
-		var col: Color = Palette.COLOURS["player"] if bool(it["player"]) else (Palette.COLOURS["survivor"] if bool(it.get("unique", false)) else Palette.COLOURS["wanderer"])
-		if bool(it.get("bait", false)):
-			col = Palette.COLOURS["groundItem"]
-		if String(it.get("ztype", "")) == "zombie.screamer":
-			col = Color(0.85, 0.35, 0.28)
-		elif String(it.get("ztype", "")) == "zombie.bloater":
-			col = Color(0.42, 0.55, 0.28)
-		var r: float = 7.0 if bool(it["player"]) else (6.0 if bool(it.get("unique", false)) else 5.0)
-		# contact shadow
+		# Colours and sprites come from content now, not from a chain of type-id checks here.
+		var look: Dictionary = Appearance.for_entity(world, it)
+		var col: Color = look["tint"] as Color
+		var r: float = float(look["radius"])
+		# contact shadow — under both branches, so a sprite still sits on the ground.
 		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
-		draw_circle(Vector2(sx, sy), r, col)
-		draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 1.2 if bool(it["player"]) else 0.8)
+		var texture: Texture2D = look["texture"] as Texture2D
+		if texture != null:
+			# Feet-anchored: the sprite stands on the entity's ground position rather than
+			# being centred on it. Rounded so a 1:1 pixel sprite never lands on a half-pixel
+			# as the camera follows the player.
+			var size: Vector2 = texture.get_size()
+			var at := Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y))
+			draw_texture_rect(texture, Rect2(at, size), false, col)
+		else:
+			draw_circle(Vector2(sx, sy), r, col)
+			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 1.2 if bool(it["player"]) else 0.8)
 		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
 		var eid: int = int(it["id"])
 		var facing_v: Variant = world.components.get_component(eid, "facing")
