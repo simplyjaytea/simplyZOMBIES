@@ -28,6 +28,7 @@ const SimDirector = preload("res://sim/modules/director.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
@@ -99,6 +100,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimNeeds.register_module(world)
 	SimJobs.register_module(world)
 	SimRecruits.register_module(world)
+	SimSkills.register_module(world)
 	SimAttention.register_module(world, map)
 	SimShambler.register_module(world, map)
 	SimScreamer.register_module(world)
