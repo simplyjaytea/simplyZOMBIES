@@ -13,6 +13,9 @@ extends SceneTree
 const World = preload("res://sim/world.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const SimInfection = preload("res://sim/modules/infection.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -23,6 +26,8 @@ func _run() -> void:
 	ok = _parts_carry_only_the_allowed_keys() and ok
 	ok = _every_part_is_present_and_ordered() and ok
 	ok = _damage_changes_state_not_magnitude() and ok
+	ok = _sidedness_is_independent() and ok
+	ok = _wound_infection_armor_are_true_words_not_numbers() and ok
 	ok = _a_body_less_entity_has_no_view() and ok
 	if ok:
 		print("BAN_HEALTH_BAR_OK no integrity, no maximum, no fraction")
@@ -139,6 +144,86 @@ func _damage_changes_state_not_magnitude() -> bool:
 		push_error("a ruined body should report a worse state, got %d after %d" % [ruined, intact])
 		return false
 	print("STATE OK")
+	return true
+
+# The one thing the sided-limb split exists to make possible: docs/05's permanent
+# consequences promise "a one-armed survivor," and that promise is only true if damaging
+# arm_left leaves arm_right's own view entry alone. Also checks label_of distinguishes the
+# two -- "left arm" leaking as "arm_left" would be the same class of leak as a raw number,
+# just spelled with letters instead of digits.
+func _sidedness_is_independent() -> bool:
+	var w: Variant = World.new(_fixture())
+	SimHealth.make_survivor_body(w, w.player)
+	var b: Dictionary = w.components.get_component(w.player, "body") as Dictionary
+	b["arm_left"] = 0.0
+	var view: Dictionary = SimCondition.view(w, w.player)
+	var by_part: Dictionary = {}
+	for entry in view["parts"] as Array:
+		var d: Dictionary = entry as Dictionary
+		by_part[String(d["part"])] = d
+	var left: Dictionary = by_part.get("arm_left", {}) as Dictionary
+	var right: Dictionary = by_part.get("arm_right", {}) as Dictionary
+	if int(left.get("state", -1)) == int(right.get("state", -1)):
+		push_error("arm_left and arm_right reported the same state after only arm_left was ruined")
+		return false
+	if String(left.get("prose", "")) == String(right.get("prose", "")):
+		push_error("left and right arm prose are identical: '%s'" % left.get("prose", ""))
+		return false
+	print("SIDEDNESS OK left=%s right=%s" % [left.get("prose", ""), right.get("prose", "")])
+	return true
+
+# wounded/infected/armored joined the view this session. Same ban, new shapes: a bool and a
+# word, checked against real Dictionary/String types (not just "did a number leak" the way
+# _no_numbers_cross_the_boundary already checks) and checked for a true positive as well as
+# a true negative, since a field that is always false would pass every leak check and still
+# be useless.
+func _wound_infection_armor_are_true_words_not_numbers() -> bool:
+	var w: Variant = World.new(_fixture())
+	SimHealth.make_survivor_body(w, w.player)
+	w.components.set_component(w.player, "injuries", {"wounds": [
+		{"kind": "bite", "presentation": "scratch", "bodyPart": "arm_left", "source": -1, "sustainedAtTick": 0},
+	]})
+	w.components.set_component(w.player, "zombieInfection", {"exposures": [
+		{"source": -1, "bodyPart": "leg_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Onset, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false},
+	]})
+	var vest: int = SimItems.spawn_item(w, "item.vest.scrap", {"tier": "scavenged"})
+	if not SimInventory.equip(w, w.player, vest, "vest"):
+		push_error("could not equip item.vest.scrap for the wound/infection/armor check")
+		return false
+
+	var by_part: Dictionary = {}
+	for entry in SimCondition.view(w, w.player)["parts"] as Array:
+		var d: Dictionary = entry as Dictionary
+		by_part[String(d["part"])] = d
+
+	for part in SimCondition.PART_ORDER:
+		var d: Dictionary = by_part.get(part, {}) as Dictionary
+		if not (d.get("wounded") is bool):
+			push_error("%s.wounded is not a bool: %s" % [part, d.get("wounded")])
+			return false
+		if not (d.get("infected") is String):
+			push_error("%s.infected is not a String: %s" % [part, d.get("infected")])
+			return false
+		if not (d.get("armored") is bool):
+			push_error("%s.armored is not a bool: %s" % [part, d.get("armored")])
+			return false
+
+	# True positives, so this cannot be satisfied by fields that are simply always false.
+	if not bool(by_part["arm_left"].get("wounded", false)):
+		push_error("arm_left has a recorded wound but wounded=false")
+		return false
+	if String(by_part["leg_left"].get("infected", "none")) == "none":
+		push_error("leg_left has an active exposure but infected='none'")
+		return false
+	if not bool(by_part["torso"].get("armored", false)):
+		push_error("torso is covered by an equipped vest but armored=false")
+		return false
+	# And a true negative on a part none of this touched.
+	var clean: Dictionary = by_part["foot_right"] as Dictionary
+	if bool(clean.get("wounded", true)) or String(clean.get("infected", "x")) != "none" or bool(clean.get("armored", true)):
+		push_error("foot_right should be untouched, got %s" % str(clean))
+		return false
+	print("WOUND/INFECTION/ARMOR OK arm_left wounded, leg_left infected, torso armored, foot_right clean")
 	return true
 
 func _a_body_less_entity_has_no_view() -> bool:
