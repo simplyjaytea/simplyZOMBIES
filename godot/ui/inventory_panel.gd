@@ -5,6 +5,33 @@ extends Control
 
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const UiText = preload("res://ui/text.gd")
+
+# PartState 0..3 as words. Same four grades the paperdoll tints, never a number.
+const PART_STATE_WORDS: Array[String] = ["unhurt", "hurt", "badly hurt", "unusable"]
+
+# Equipment slot geometry, in one place. This array was copied into _gui_input, _try_drop
+# and _draw, so the boxes you could click and the boxes you could see were three separate
+# sets of literals that happened to agree.
+#
+# Three cells wide rather than two: "Kitchen Knife" did not fit in two, and a slot that
+# cannot show what is in it is not doing its job. The right-hand column still lands inside
+# the 548px body panel (440 + 102 = 542).
+const SLOT_W: float = float(CELL) * 3.0
+const SLOT_H: float = float(CELL)
+const SLOT_PLACEMENTS: Array[Dictionary] = [
+	{"slot": "head", "x": 24.0, "y": 43.0},
+	{"slot": "back", "x": 24.0, "y": 104.0},
+	{"slot": "vest", "x": 440.0, "y": 104.0},
+	{"slot": "primary", "x": 24.0, "y": 220.0},
+	{"slot": "secondary", "x": 440.0, "y": 220.0},
+	{"slot": "belt", "x": 24.0, "y": 324.0},
+	{"slot": "torso", "x": 440.0, "y": 324.0},
+]
+
+
+static func slot_rect(body_x: float, body_y: float, placement: Dictionary) -> Rect2:
+	return Rect2(Vector2(body_x + float(placement["x"]), body_y + float(placement["y"])), Vector2(SLOT_W, SLOT_H))
 const Palette = preload("res://presentation/palette.gd")
 const Paperdoll = preload("res://ui/paperdoll.gd")
 
@@ -86,14 +113,8 @@ func _try_pick(at: Vector2) -> void:
 		return
 	# equipment slots (simplified 7 slots)
 	var slots: Array = _view.get("slots", []) as Array
-	var placements: Array[Dictionary] = [
-		{"slot": "head", "x": 24.0, "y": 43.0}, {"slot": "back", "x": 24.0, "y": 104.0},
-		{"slot": "vest", "x": 440.0, "y": 104.0}, {"slot": "primary", "x": 24.0, "y": 220.0},
-		{"slot": "secondary", "x": 440.0, "y": 220.0}, {"slot": "belt", "x": 24.0, "y": 324.0},
-		{"slot": "torso", "x": 440.0, "y": 324.0},
-	]
-	for pl in placements:
-		var rect: Rect2 = Rect2(Vector2(body_x + float(pl["x"]), body_y + float(pl["y"])), Vector2(CELL * 2, CELL))
+	for pl in SLOT_PLACEMENTS:
+		var rect: Rect2 = slot_rect(body_x, body_y, pl)
 		if rect.has_point(at):
 			for entry in slots:
 				var d: Dictionary = entry as Dictionary
@@ -151,14 +172,8 @@ func _try_drop(at: Vector2) -> void:
 	_drag_item = -1
 	# drop onto equipment slot?
 	var body_x: float = float(PAD); var body_y: float = float(PAD)
-	var placements: Array[Dictionary] = [
-		{"slot": "head", "x": 24.0, "y": 43.0}, {"slot": "back", "x": 24.0, "y": 104.0},
-		{"slot": "vest", "x": 440.0, "y": 104.0}, {"slot": "primary", "x": 24.0, "y": 220.0},
-		{"slot": "secondary", "x": 440.0, "y": 220.0}, {"slot": "belt", "x": 24.0, "y": 324.0},
-		{"slot": "torso", "x": 440.0, "y": 324.0},
-	]
-	for pl in placements:
-		var rect: Rect2 = Rect2(Vector2(body_x + float(pl["x"]), body_y + float(pl["y"])), Vector2(CELL * 2, CELL))
+	for pl in SLOT_PLACEMENTS:
+		var rect: Rect2 = slot_rect(body_x, body_y, pl)
 		if rect.has_point(at):
 			_world.commands.push({"type": "item.equip", "item": item, "slot": String(pl["slot"])})
 			queue_redraw(); return
@@ -203,37 +218,47 @@ func _draw() -> void:
 	if _body_view == "equipment":
 		_paperdoll.position = Vector2(body_x + body_w / 2.0 - 130, body_y + 42)
 		_paperdoll.visible = true
-		# equipment slot boxes
-		var placements: Array[Dictionary] = [
-			{"slot": "head", "x": 24.0, "y": 43.0}, {"slot": "back", "x": 24.0, "y": 104.0},
-			{"slot": "vest", "x": 440.0, "y": 104.0}, {"slot": "primary", "x": 24.0, "y": 220.0},
-			{"slot": "secondary", "x": 440.0, "y": 220.0}, {"slot": "belt", "x": 24.0, "y": 324.0},
-			{"slot": "torso", "x": 440.0, "y": 324.0},
-		]
+		# equipment slot boxes — geometry from SLOT_PLACEMENTS, the same source the click and
+		# drop handlers use, so what you can hit is what you can see.
 		var by_slot: Dictionary = {}
 		for entry in _view.get("slots", []) as Array:
 			var d: Dictionary = entry as Dictionary
 			by_slot[String(d.get("slot", ""))] = d.get("item")
-		for pl in placements:
-			var rx: float = body_x + float(pl["x"]); var ry: float = body_y + float(pl["y"])
-			draw_rect(Rect2(Vector2(rx, ry), Vector2(CELL * 2, CELL)), Color("#191d20"))
-			draw_rect(Rect2(Vector2(rx, ry), Vector2(CELL * 2, CELL)), Color("#2b3033"), false, 1.0)
+		for pl in SLOT_PLACEMENTS:
+			var box: Rect2 = slot_rect(body_x, body_y, pl)
+			draw_rect(box, Color("#191d20"))
+			draw_rect(box, Color("#2b3033"), false, 1.0)
 			var it: Variant = by_slot.get(String(pl["slot"]))
 			if it is Dictionary:
-				draw_rect(Rect2(Vector2(rx + 2, ry + 2), Vector2(CELL * 2 - 4, CELL - 4)), Color("#3a4a3e"))
-				draw_string(ThemeDB.fallback_font, Vector2(rx + 6, ry + 20), String((it as Dictionary).get("name", "")).substr(0, 9), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#c9c4b8"))
+				draw_rect(Rect2(box.position + Vector2(2, 2), box.size - Vector2(4, 4)), Color("#3a4a3e"))
+				var item_name: String = UiText.fit(ThemeDB.fallback_font, String((it as Dictionary).get("name", "")), 10, SLOT_W - 12.0)
+				draw_string(ThemeDB.fallback_font, box.position + Vector2(6, 20), item_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#c9c4b8"))
 			else:
-				draw_string(ThemeDB.fallback_font, Vector2(rx + 6, ry + 20), String(pl["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#7b776e"))
+				draw_string(ThemeDB.fallback_font, box.position + Vector2(6, 20), String(pl["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#7b776e"))
 	else:
 		_paperdoll.position = Vector2(body_x + 12, body_y + 42)
 		_paperdoll.visible = true
 		var list_x: float = body_x + 276.0; var list_y: float = body_y + 52.0
+		# Each part's state as a word, from the same read model the paperdoll and HUD use.
+		# Still no integrity value and no fraction -- docs/01 clause 4 and the ban gated by
+		# check_ban_health_bar.gd. The list previously showed only part names, which told a
+		# player nothing about which of them was actually hurt.
+		var states: Dictionary = {}
+		if _world != null:
+			for entry in (SimCondition.view(_world, _actor).get("parts", []) as Array):
+				var pd: Dictionary = entry as Dictionary
+				states[String(pd.get("part", ""))] = int(pd.get("state", 0))
 		var idx: int = 0
-		for part in ["head", "torso", "arms", "hands", "legs", "feet"]:
+		for part in SimCondition.PART_ORDER:
 			var sel: bool = part == _selected_part
 			if sel:
 				draw_rect(Rect2(Vector2(list_x, list_y + float(idx) * 27.0), Vector2(248, 25)), Color("#1e2225"))
-			draw_string(ThemeDB.fallback_font, Vector2(list_x + 6, list_y + float(idx) * 27.0 + 16), part, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
+			var row_y: float = list_y + float(idx) * 27.0 + 16
+			draw_string(ThemeDB.fallback_font, Vector2(list_x + 6, row_y), part, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
+			var st: int = int(states.get(part, 0))
+			var word: String = PART_STATE_WORDS[st] if st < PART_STATE_WORDS.size() else ""
+			var tint: Color = Palette.CONDITION_TINTS[st] if st < Palette.CONDITION_TINTS.size() else Color("#7b776e")
+			draw_string(ThemeDB.fallback_font, Vector2(list_x + 96, row_y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
 			idx += 1
 	# grids to the right of body panel, wrapping
 	var gx: float = body_x + body_w + 12.0
