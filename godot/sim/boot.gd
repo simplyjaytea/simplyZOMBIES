@@ -25,6 +25,9 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 const SimFieldMemory = preload("res://sim/modules/field_memory.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
@@ -32,7 +35,7 @@ const WANDERERS: int = 12
 
 const RESIDENTIAL_KITS: Array = [
 	["item.knife.kitchen", "item.bandage.cloth", "item.painkillers.blister", "item.bow.hunting", "item.ammo.arrow"],
-	["item.bat.aluminium", "item.bandage.cloth", "item.food.canned"],
+	["item.bat.aluminium", "item.bandage.cloth", "item.food.canned", "item.food.raw"],
 	["item.spear.improvised", "item.bandage.cloth", "item.water.bottle"],
 	["item.axe.fire", "item.bandage.cloth", "item.scrap.metal"],
 ]
@@ -93,6 +96,9 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimInventory.register_module(world)
 	SimFortify.register_module(world)
 	SimDirector.register_module(world)
+	SimNeeds.register_module(world)
+	SimJobs.register_module(world)
+	SimRecruits.register_module(world)
 	SimAttention.register_module(world, map)
 	SimShambler.register_module(world, map)
 	SimScreamer.register_module(world)
@@ -126,7 +132,8 @@ static func place_loot(world: Variant, patch: Dictionary) -> void:
 			ox += 0.4
 
 
-static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:
+static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:
+	# Same seed + content + modules. No placement, loot, or spawn_unique — F9 restore target.
 	var content: Dictionary = ContentLoader.load_tree()
 	var map: Variant = SimTileMap.generate_district(seed_val, map_size)
 	var patch: Variant = SimTileMap.load_patch_from_content(content, PATCH_ID)
@@ -149,12 +156,59 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	attach_kernel(world, map)
 	register_playable_modules(world, map)
 	world.components.set_component(world.player, "facing", {"radians": 0.0})
+	return {"world": world, "map": map, "patch": patch}
+
+
+static func place_stations(world: Variant, map: Variant) -> void:
+	var tiles: Array[Vector2i] = _indoor_floors(map, 46, 45, 6)
+	if tiles.is_empty():
+		return
+	SimNeeds.make_campfire(world, float(tiles[0].x) + 0.5, float(tiles[0].y) + 0.5, false)
+	if tiles.size() > 1:
+		SimNeeds.make_bed(world, float(tiles[1].x) + 0.5, float(tiles[1].y) + 0.5)
+	if tiles.size() > 2:
+		SimNeeds.make_bed(world, float(tiles[2].x) + 0.5, float(tiles[2].y) + 0.5)
+
+
+static func _indoor_floors(map: Variant, near_x: int, near_y: int, n: int) -> Array[Vector2i]:
+	var found: Array[Vector2i] = []
+	var rx: int = SimDirector.ANNEX.position.x
+	var ry: int = SimDirector.ANNEX.position.y
+	var rw: int = SimDirector.ANNEX.size.x
+	var rh: int = SimDirector.ANNEX.size.y
+	var scored: Array[Dictionary] = []
+	for j in range(ry, ry + rh):
+		for i in range(rx, rx + rw):
+			if not SimTileMap.is_indoors(map, i, j):
+				continue
+			if SimTileMap.tile_at(map, i, j) != SimTileMap.Tile.Floor:
+				continue
+			if SimTileMap.is_solid(map, i, j):
+				continue
+			if i == near_x and j == near_y:
+				continue
+			var d: int = absi(i - near_x) + absi(j - near_y)
+			scored.append({"t": Vector2i(i, j), "d": d})
+	scored.sort_custom(func(a, b): return int(a["d"]) < int(b["d"]))
+	for s in scored:
+		found.append(s["t"] as Vector2i)
+		if found.size() >= n:
+			break
+	return found
+
+
+static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:
+	var boot: Dictionary = bare(seed_val, map_size)
+	var world: Variant = boot["world"]
+	var map: Variant = boot["map"]
 	var observer: Dictionary = SimVisibility.daylight_eyes()
 	world.components.set_component(world.player, "observer", observer)
+	place_stations(world, map)
 	SimSurvivors.boot_playable(world)
 	# Annex knife is the default find — equip so F works without a scavenger loop.
 	var knife: int = SimItems.spawn_item(world, "item.knife.kitchen", {"tier": "scavenged"})
 	SimInventory.equip(world, world.player, knife)
+	var patch: Variant = boot.get("patch")
 	if patch is Dictionary:
 		place_loot(world, patch as Dictionary)
 	var place_rng: Variant = world.rng.stream("placement")

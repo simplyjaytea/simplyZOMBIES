@@ -369,6 +369,10 @@ static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}
 		world.modifiers.add(mod as Dictionary, item)
 	world.events.publish({"type": "item.spawned", "item": item, "baseId": base_id})
 	world.events.drain()
+	if base_id == "item.food.raw" or base_id == "item.food.cooked":
+		var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+		if Needs != null and Needs.has_method("mark_spoilage"):
+			Needs.call("mark_spoilage", world, item, base_id)
 	return item
 
 static func verify_content_references(world: Variant) -> void:

@@ -130,6 +130,29 @@ static func _use_context(world: Variant, actor: int) -> void:
 	if SimInventory.nearest_ground_item(world, actor) != null:
 		SimInventory.pick_up_nearest(world, actor)
 		return
+	var Recruits: GDScript = load("res://sim/modules/recruits.gd") as GDScript
+	if Recruits != null and Recruits.has_method("waiting_in_reach"):
+		var waiting: int = int(Recruits.call("waiting_in_reach", world, actor))
+		if waiting >= 0:
+			Recruits.call("accept", world, waiting)
+			return
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs != null:
+		var here: Vector2i = _tile_of(world, actor)
+		var hx: float = float(here.x) + 0.5
+		var hy: float = float(here.y) + 0.5
+		var bed: int = int(Needs.call("nearest_bed", world, hx, hy, false))
+		var fire: int = int(Needs.call("nearest_campfire", world, hx, hy, false))
+		# Same-tile bed wins so E sleeps; fire is the next reach target.
+		if bed >= 0 and _same_tile(world, actor, bed):
+			Needs.call("start_sleep", world, actor, bed)
+			return
+		if fire >= 0 and _entity_in_reach(world, actor, fire):
+			Needs.call("toggle_fire", world, fire)
+			return
+		if bed >= 0 and _entity_in_reach(world, actor, bed):
+			Needs.call("start_sleep", world, actor, bed)
+			return
 	var face: Vector2i = _facing_tile(world, actor)
 	if SimTileMap.tile_at(world.tilemap, face.x, face.y) == SimTileMap.Tile.Window and _in_reach_tile(world, actor, face.x, face.y):
 		_start(world, actor, "window", face.x, face.y)
@@ -416,6 +439,15 @@ static func _in_reach_tile(world: Variant, actor: int, tx: int, ty: int) -> bool
 	var dx: float = float(tx) + 0.5 - float((pos as Dictionary)["x"])
 	var dy: float = float(ty) + 0.5 - float((pos as Dictionary)["y"])
 	return dx * dx + dy * dy <= REACH * REACH
+
+
+static func _same_tile(world: Variant, actor: int, other: int) -> bool:
+	var a: Variant = world.components.get_component(actor, "position")
+	var b: Variant = world.components.get_component(other, "position")
+	if not a is Dictionary or not b is Dictionary:
+		return false
+	return floori(float((a as Dictionary)["x"])) == floori(float((b as Dictionary)["x"])) \
+		and floori(float((a as Dictionary)["y"])) == floori(float((b as Dictionary)["y"]))
 
 
 static func _entity_in_reach(world: Variant, actor: int, other: int) -> bool:
