@@ -709,6 +709,32 @@ about.
 - **Exhausted swings degrade.** `REFUSE_EXHAUSTED_SWINGS` keeps the old refuse path for a
   `crowded-and-swinging` A/B; default is off.
 
+## What the sided-limb split made structural
+
+- **Survivor limbs are sided.** `SimCombat.SURVIVOR_BODY_PARTS` grew from six parts to ten —
+  head, torso, and a left/right pair each of arms, hands, legs, feet. Prompted by a UI review of
+  the paperdoll surfacing a real gap: docs/05's permanent consequences already promised "a
+  one-armed survivor," an outcome the previous single aggregate `arms` value could not produce,
+  since amputating it took both arms at once. This is design catching up to its own prose, not a
+  new feature.
+- **Per-limb toughness, not per-limb weight.** Each side keeps the whole limb's old integrity
+  (`arm_left`/`arm_right` are each still 20, not 10) so one connecting hit costs what it always
+  did. `SURVIVOR_HIT_LOCATION_WEIGHTS` is what halves — the chance of hitting *an* arm is
+  unchanged, only which one is now recorded.
+- **One sentinel for "is this a survivor body."** `SimHealth.is_survivor_body()` replaced three
+  separate `body.has("arms")` checks in melee and health. A body's shape is checked in one place
+  so it only has to be updated in one place next time it changes.
+- **Crawling needs both legs; a bad leg is a limp.** `is_crawling()` requires `leg_left` and
+  `leg_right` to both be spent for a survivor — a single ruined leg is the permanent-limp
+  consequence docs/05 already named, not the "can no longer stand" one.
+- **Bumped `SAVE_VERSION` to 13, not migrated.** A v12 body dict has the old key names and would
+  silently mismatch every part lookup rather than fail loudly. `save.gd` already declines to
+  migrate pre-1.0 saves, so the version bump is the whole fix.
+- **`check_m2_save.gd` and `check_m2_fortify.gd` each assert `SAVE_VERSION` independently.**
+  Updating one and not the other is exactly how this was caught mid-review, by `godot:r6`
+  rather than by inspection. Left duplicated rather than refactored under this change; a real
+  fix is one shared assertion both gates call, not two copies kept in sync by discipline.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

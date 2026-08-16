@@ -1,5 +1,5 @@
 extends SceneTree
-# v12 + ticket 10 fortify/director + needs-era state. F9 is restore, not re-boot.
+# v13 + ticket 10 fortify/director + needs-era state. F9 is restore, not re-boot.
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
@@ -21,21 +21,22 @@ func _run() -> void:
 	ok = _needs_era() and ok
 	ok = _streams() and ok
 	if ok:
-		print("M2_SAVE_OK v12 ticket10 needs-era")
+		print("M2_SAVE_OK v13 ticket10 needs-era")
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
 		quit(1)
 
 func _version() -> bool:
-	if int(SimSerialize.SAVE_VERSION) != 12:
-		push_error("SAVE_VERSION %d want 12" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 13:
+		push_error("SAVE_VERSION %d want 13" % int(SimSerialize.SAVE_VERSION))
 		return false
-	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":11},\"meta\":{}}")
+	# 12 is now the stale version -- it predates the sided-limb body schema.
+	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":12},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":
-		push_error("v11 not rejected: %s" % str(stale))
+		push_error("v12 not rejected: %s" % str(stale))
 		return false
-	print("VERSION OK 12 rejects 11")
+	print("VERSION OK 13 rejects 12")
 	return true
 
 func _restore_bare(snap: Dictionary, seed_val: int, map_size: int) -> Variant:

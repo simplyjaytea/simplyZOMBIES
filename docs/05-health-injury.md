@@ -24,14 +24,22 @@ through a bounded injury-tolerance modifier to incoming integrity loss; it does 
 to every entity, a global health pool, or a health bar. Conditional item bonuses therefore disappear
 without creating or deleting stored integrity.
 
+**Arms, hands, legs, and feet are sided.** A survivor has a left and a right of each, tracked and
+damaged independently — ten parts in total, not six. This is what makes "a one-armed survivor" in
+[permanent consequences](#permanent-consequences) a literal outcome rather than a figure of speech:
+losing one arm costs exactly that arm's capabilities and leaves the other working. Head and torso
+stay singular. Hit rolls and toughness are unaffected in aggregate — each side keeps the whole
+limb's own toughness rather than splitting it in half, so one connecting hit is exactly as costly
+as it was before the side existed to name.
+
 | Part | Impaired effect |
 |---|---|
 | **Head** | Concussion: blurred description text, slowed reactions, mood damage. Severe: unconsciousness. |
 | **Torso** | Blood loss and stamina capacity. Deep torso wounds are the most lethal. |
-| **Arms** | Melee power and accuracy, ranged steadiness, reload speed, carry capacity, work speed |
-| **Hands** | Fine work — reloading, treating others, crafting, [item modification](11-crafting.md) |
-| **Legs** | Movement speed. **This is the one that kills you**, because escape is the primary survival tool |
-| **Feet** | Movement speed, stealth (limping is loud) |
+| **Arms** (left, right) | Melee power and accuracy, ranged steadiness, reload speed, carry capacity, work speed |
+| **Hands** (left, right) | Fine work — reloading, treating others, crafting, [item modification](11-crafting.md) |
+| **Legs** (left, right) | Movement speed. **This is the one that kills you**, because escape is the primary survival tool. One ruined leg is a permanent limp; both is why a survivor stops standing at all |
+| **Feet** (left, right) | Movement speed, stealth (limping is loud) |
 
 **Design note:** legs are deliberately the worst place to be hurt. In a game where "run away" is the
 correct answer to most encounters, taking that away is more frightening than any damage number.
@@ -110,9 +118,9 @@ the UI work.
 
 ### A body map, not a health display
 
-The condition view is a **paperdoll**: the parts from the table above — head, torso, arms, hands,
-legs, feet — laid out as a body, with located conditions sitting on the part they are on. That is
-the entire idea.
+The condition view is a **paperdoll**: the parts from the table above — head, torso, and a left and
+right of arms, hands, legs, and feet — laid out as a body, with located conditions sitting on the
+part they are on. That is the entire idea.
 
 It shares one compact survivor panel with equipment rather than occupying a second screen. Two tabs
 reuse the exact same body and posture:

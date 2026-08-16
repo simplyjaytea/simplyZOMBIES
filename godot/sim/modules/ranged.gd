@@ -61,8 +61,13 @@ static func _refresh_cone(world: Variant, entity: int, r: Dictionary) -> void:
 		if cur / mx < 0.35:
 			half = minf(WIDE_HALF, half + 0.12)
 	var body: Variant = world.components.get_component(entity, "body")
-	if body is Dictionary and float((body as Dictionary).get("arms", 40)) < 25.0:
-		half = minf(WIDE_HALF, half + 0.15)
+	if body is Dictionary:
+		var b: Dictionary = body as Dictionary
+		# The worse arm sets your steadiness -- an aim penalty is a per-limb effect, not an
+		# average, so one ruined arm costs you the same as it would have before the split.
+		var worst_arm: float = minf(float(b.get("arm_left", 40.0)), float(b.get("arm_right", 40.0)))
+		if worst_arm < 25.0:
+			half = minf(WIDE_HALF, half + 0.15)
 	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
 		var acc: float = float(world.modifiers.call("resolve", "ranged_accuracy", entity))
 		if acc > 0.0:

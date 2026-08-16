@@ -41,7 +41,13 @@ func _hurt_world() -> Variant:
 	SimHealth.make_survivor_body(w, w.player)
 	var body: Variant = w.components.get_component(w.player, "body")
 	var b: Dictionary = body as Dictionary
-	var fractions: Dictionary = {"head": 1.0, "torso": 0.8, "arms": 0.5, "hands": 0.2, "legs": 0.05, "feet": 0.0}
+	var fractions: Dictionary = {
+		"head": 1.0, "torso": 0.8,
+		"arm_left": 0.5, "arm_right": 0.5,
+		"hand_left": 0.2, "hand_right": 0.2,
+		"leg_left": 0.05, "leg_right": 0.05,
+		"foot_left": 0.0, "foot_right": 0.0,
+	}
 	for part in fractions.keys():
 		if b.has(part):
 			b[String(part)] = float(b[String(part)]) * float(fractions[part])
