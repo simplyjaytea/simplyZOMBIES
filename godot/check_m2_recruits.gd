@@ -114,11 +114,26 @@ func _death() -> bool:
 	if not w.components.has_component(mara, "corpse"):
 		push_error("mara not corpse")
 		return false
-	# player death ends run
+	# player death with Mara alive → succession (no runOver)
 	var w2: Variant = _world()
-	SimHealth.finish_death(w2, w2.player)
-	if not bool(w2.runOver):
-		push_error("player death no runOver")
+	var m2: int = _mara(w2)
+	var dead: int = int(w2.player)
+	SimHealth.finish_death(w2, dead)
+	if bool(w2.runOver):
+		push_error("player death with mara set runOver")
+		return false
+	if int(w2.player) != m2 or not w2.components.has_component(m2, "controlled"):
+		push_error("succession did not hand to mara")
+		return false
+	if not w2.components.has_component(dead, "corpse"):
+		push_error("dead player not corpse")
+		return false
+	# solo player death → runOver
+	var w_solo: Variant = _world()
+	SimHealth.finish_death(w_solo, _mara(w_solo))
+	SimHealth.finish_death(w_solo, w_solo.player)
+	if not bool(w_solo.runOver):
+		push_error("solo player death no runOver")
 		return false
 	# transmitted → shambler with kit
 	var w3: Variant = _world()
@@ -142,5 +157,5 @@ func _death() -> bool:
 	if not w4.components.has_component(m4, "leaving"):
 		push_error("leave missing")
 		return false
-	print("DEATH OK corpse turn runOver leave")
+	print("DEATH OK corpse succession solo turn leave")
 	return true

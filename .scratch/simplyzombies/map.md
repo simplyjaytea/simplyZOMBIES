@@ -29,22 +29,24 @@ Locked planning spec for **simplyZOMBIES Early Alpha**: a solo-playable Godot 4.
 - [12 — Alpha audio one-shots (2D, magnitude volume)](issues/12-alpha-audio.md) — **Shipped.** Six clips, camera listener, 3-player oneshot pool, bait stop/restart by reach. `godot/presentation/sfx.gd` + `godot/assets/sfx/`. Sim mute. No WAV gate.
 - **M2 people-and-economy (ADRs 0001–0011)** — **Shipped** Needs, Jobs + Need seek, generator, recruits/Inspect, corpse/Leave, Work Focus Auto. Gates `godot:m2:needs|jobs|recruits`. PRs #50/#51.
 - **Aiming + shallow web (ADR 0012)** — **Shipped** sway cone + six-region web. Gates `godot:m2:aim|web`.
+- [13 — Stub Jobs as real work + succession lift](issues/13-stub-jobs-and-succession.md) — **Q1:C Q2:A Q3:A Q4:A Q5:A Q6:A.** Clean+Bury+Water full consumers; auto succession prefer Mara. ADR [0013](../../docs/adr/0013-jobs-clean-bury-water-succession.md). **Shipped.**
 
 ## Building now
 
-Early-alpha tickets 01–12 + M2 people-and-economy + aiming/web are **done**. Remaining alpha fog is product M2 beyond the wayfinder (stub jobs, weather, succession).
+Early-alpha tickets 01–13 + M2 people-and-economy + aiming/web are **done**.
 
 1. **Done:** stats, roster, district, ranged, fortify, director, save v12, Needs/Jobs/recruits.
 2. **Done:** aiming/sway + shallow skill web (`godot:m2:aim` / `godot:m2:web`; ADR 0012).
 3. **Done:** tuning harness (`godot:m2:harness`; `HARNESS_FULL=1` for nightly 10-day).
 4. **Done:** alpha audio one-shots (`godot/presentation/sfx.gd`).
+5. **Done:** [13 — Clean/Bury/Water + succession](issues/13-stub-jobs-and-succession.md) — ADR 0013.
 
 ## Not yet specified
 
 <!-- in-scope fog you can't ticket yet; graduates as frontier advances -->
 
-- Stub Job columns as real work; weather; succession lift (ADR 0010).
-
+- Weather (full) still deferred.
+- Farm/Hunt/Craft/Modify/Repair/Firefight stub Jobs; succession chooser UI; grief/morale.
 ## Out of scope
 
 <!-- ruled beyond early-alpha destination; never graduates -->

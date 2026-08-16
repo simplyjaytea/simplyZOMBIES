@@ -487,6 +487,10 @@ static func _dirt(world: Variant, entity: int, bands: int) -> void:
 static func wash(world: Variant, entity: int) -> bool:
 	if not _consume_base(world, entity, "item.water.bottle"):
 		return false
+	return wash_at_source(world, entity)
+
+
+static func wash_at_source(world: Variant, entity: int) -> bool:
 	var n: Dictionary = of(world, entity)
 	n["hygiene"] = "clean"
 	_apply_muls(world, entity, n)
@@ -636,6 +640,29 @@ static func make_bed(world: Variant, x: float, y: float) -> int:
 	world.components.set_component(ent, "position", {"x": x, "y": y})
 	world.components.set_component(ent, "bed", {"occupiedBy": -1})
 	return ent
+
+
+static func make_water_source(world: Variant, x: float, y: float) -> int:
+	var ent: int = int(world.entities.spawn())
+	world.components.set_component(ent, "position", {"x": x, "y": y})
+	world.components.set_component(ent, "water_source", {})
+	return ent
+
+
+static func nearest_water_source(world: Variant, x: float, y: float) -> int:
+	var best: int = -1
+	var best_d: float = 1e12
+	for e in world.components.query(["water_source", "position"]):
+		var p: Variant = world.components.get_component(int(e), "position")
+		if not p is Dictionary:
+			continue
+		var dx: float = float((p as Dictionary)["x"]) - x
+		var dy: float = float((p as Dictionary)["y"]) - y
+		var d: float = dx * dx + dy * dy
+		if d < best_d:
+			best_d = d
+			best = int(e)
+	return best
 
 
 static func set_lit(world: Variant, fire: int, lit: bool, cooking: bool = false) -> void:

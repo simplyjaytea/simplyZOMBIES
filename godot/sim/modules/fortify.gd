@@ -13,8 +13,8 @@ const NOISEMAKER_MAG: float = 45.0
 const NOISEMAKER_TICKS: int = 12000
 const CONTACT_PER_STAGE: int = 40
 const SCRAP_ID: String = "item.scrap.metal"
-const GATE_A: Vector2i = Vector2i(49, 49)
-const GATE_B: Vector2i = Vector2i(50, 49)
+const GATE_A: Vector2i = Vector2i(50, 57)
+const GATE_B: Vector2i = Vector2i(51, 57)
 const WINDOW_PROSE: Array[String] = ["intact", "scratched", "splintering", "gaps, light leaking"]
 
 

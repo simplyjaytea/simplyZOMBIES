@@ -18,7 +18,7 @@ const FLOOR_QUIET_NIGHTS: int = 3
 const QUIET_NOISE: float = 25.0
 const FOOTPRINT_NOISE: float = 120.0
 const GATE_EXCLUSION: float = 32.0
-const ANNEX := Rect2i(40, 40, 22, 20)
+const ANNEX := Rect2i(38, 38, 26, 26)
 const ARMOR_IDS: Array[String] = ["item.wrap.cloth", "item.vest.scrap"]
 const AMMO_IDS: Array[String] = ["item.ammo.9mm", "item.ammo.arrow"]
 

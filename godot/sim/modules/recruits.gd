@@ -18,6 +18,7 @@ const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
+const SimVisibility = preload("res://sim/vision/visibility.gd")
 
 const BEATS: Array[int] = [8, 12, 16]
 const TRANSMIT_P: float = 0.15
@@ -277,6 +278,15 @@ static func handle_death(world: Variant, entity: int) -> bool:
 	if entity < 0:
 		return false
 	if int(entity) == int(world.player) or world.components.has_component(entity, "controlled"):
+		var next: int = _succession_pick(world, entity)
+		if next >= 0:
+			# Gear stays on the corpse; camera hands over (ADR 0013 / docs/01).
+			if _is_transmitted(world, entity):
+				_turn_with_kit(world, entity)
+			else:
+				_make_corpse(world, entity)
+			_handoff(world, entity, next)
+			return true
 		world.runOver = true
 		world.events.publish({"type": "run.over", "entity": entity})
 		if _is_transmitted(world, entity):
@@ -296,6 +306,56 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		return true
 	world.despawn(entity)
 	return true
+
+
+static func _succession_pick(world: Variant, dead: int) -> int:
+	var best: int = -1
+	var best_d: float = 1e12
+	var mara: int = -1
+	var dead_pos: Variant = world.components.get_component(dead, "position")
+	var dx0: float = float((dead_pos as Dictionary).get("x", 0.0)) if dead_pos is Dictionary else 0.0
+	var dy0: float = float((dead_pos as Dictionary).get("y", 0.0)) if dead_pos is Dictionary else 0.0
+	for e in world.components.query(["position"]):
+		var ent: int = int(e)
+		if ent == dead:
+			continue
+		if world.components.has_component(ent, "corpse") or world.components.has_component(ent, "shambler"):
+			continue
+		if not world.components.has_component(ent, "needs") and not world.components.has_component(ent, "identity"):
+			continue
+		if world.components.has_component(ent, "controlled") and ent != dead:
+			# Another controlled body — still eligible if we are transferring.
+			pass
+		var ident: Variant = world.components.get_component(ent, "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.mara":
+			mara = ent
+		var p: Variant = world.components.get_component(ent, "position")
+		if not p is Dictionary:
+			continue
+		var dx: float = float((p as Dictionary)["x"]) - dx0
+		var dy: float = float((p as Dictionary)["y"]) - dy0
+		var d: float = dx * dx + dy * dy
+		if d < best_d:
+			best_d = d
+			best = ent
+	if mara >= 0:
+		return mara
+	return best
+
+
+static func _handoff(world: Variant, dead: int, next: int) -> void:
+	if world.components.has_component(dead, "controlled"):
+		world.components.remove(dead, "controlled")
+	if world.components.has_component(dead, "observer"):
+		world.components.remove(dead, "observer")
+	world.player = next
+	world.components.set_component(next, "controlled", {})
+	if not world.components.has_component(next, "observer"):
+		world.components.set_component(next, "observer", SimVisibility.daylight_eyes())
+	if world.components.has_component(next, "job"):
+		world.components.remove(next, "job")
+	world.runOver = false
+	world.events.publish({"type": "player.succeeded", "from": dead, "to": next})
 
 
 static func _is_transmitted(world: Variant, entity: int) -> bool:

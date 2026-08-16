@@ -170,6 +170,11 @@ static func place_stations(world: Variant, map: Variant) -> void:
 		SimNeeds.make_bed(world, float(tiles[1].x) + 0.5, float(tiles[1].y) + 0.5)
 	if tiles.size() > 2:
 		SimNeeds.make_bed(world, float(tiles[2].x) + 0.5, float(tiles[2].y) + 0.5)
+	# Outdoor well just south of the gate (ADR 0013).
+	var well := Vector2i(SimFortify.GATE_A.x + 1, SimFortify.GATE_A.y + 2)
+	if well.x > 0 and well.y > 0 and well.x < int(map.w) - 1 and well.y < int(map.h) - 1:
+		if not SimTileMap.is_solid(map, well.x, well.y):
+			SimNeeds.make_water_source(world, float(well.x) + 0.5, float(well.y) + 0.5)
 
 
 static func _indoor_floors(map: Variant, near_x: int, near_y: int, n: int) -> Array[Vector2i]:

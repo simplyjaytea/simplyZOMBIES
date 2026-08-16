@@ -98,6 +98,16 @@
     "massKg": 1.0
   },
   {
+    "id": "item.water.bottle.empty",
+    "name": "Empty Bottle",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 2
+    },
+    "massKg": 0.2
+  },
+  {
     "id": "item.medkit.field",
     "name": "Field Medkit",
     "class": "consumable",
