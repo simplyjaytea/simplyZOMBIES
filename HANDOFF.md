@@ -73,6 +73,16 @@ publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot
   laceration, sutured and clean, off work five days". There is no [skill web](docs/08-skill-web.md)
   to scale against, so what ships is the untrained tier and `godot/sim/condition.gd` says so. When
   the web lands, that table gains a column rather than being rewritten.
+- **The HUD is player-facing.** The single concatenated developer Label is gone: `ui/hud.gd`
+  draws four corners of prose (who you are and how you are; day and phase; the attention field
+  in words; the key hints), `ui/legend.gd` shows the bindings on a fresh run and on `F1`, and
+  the old numeric sheet moved behind the existing `M` toggle. `sim/attention_read.gd` is the new
+  read model that finally makes docs/03's spine legible without the developer overlay — its
+  noise bands are metres of reach, derived from `magnitude = metres × attenuationPerMetre`.
+  Gate: `npm run godot:check:hud` (`HUD_OK`) allows no digits on the HUD but the day counter.
+  Panels: equipment slots are three cells wide so item names fit, the injuries tab states each
+  part's condition as a word, and the work grid shows full column names with its 1–4 scale
+  explained. `ui/text.gd` fits text to a box with an ellipsis instead of `substr`.
 - **The renderer is sprite-ready; there is just no art yet.** `appearance: {sprite, tint}` is in
   the zombie/item/survivor schemas, `presentation/appearance.gd` resolves a key to
   `assets/sprites/<key>.png` (imported resource first, raw file second, so a dropped PNG works in

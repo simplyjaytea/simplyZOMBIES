@@ -28,6 +28,7 @@ npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
+npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 ```
@@ -57,6 +58,12 @@ rather than widening the assertion.
 **Information stays scarce and unreliable.** A bite can present as a scratch. Do not add
 certainty the player is not supposed to have — exact quality, counts, positions, or anything
 through walls.
+
+**The HUD speaks in words.** `npm run godot:check:hud` allows **no digits on the player HUD
+except the day counter**. Needs, condition, and attention all arrive as prose from sim read
+models (`needs.hud_clause`, `sim/condition.gd`, `sim/attention_read.gd`). The numeric
+developer sheet still exists and is still useful — it lives behind the `M` toggle, where the
+gate ignores it.
 
 **Budgets are correctness.** [docs/00 pillar 6](docs/00-vision.md): a feature that breaks budget
 does not ship until it is fixed. Exceeding a budget fails the build at the same severity as a

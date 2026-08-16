@@ -108,6 +108,11 @@ jobs:
       - name: Appearance pipeline (keys resolve, procedural fallback intact)
         run: npm run godot:check:appearance
 
+      # The HUD speaks in words. Same reasoning as the health-bar ban: a number on screen
+      # invites optimising the number. Only the day counter is excepted.
+      - name: HUD prose (no pools, no gauges)
+        run: npm run godot:check:hud
+
   godot-exports:
     needs: check
     runs-on: windows-latest
