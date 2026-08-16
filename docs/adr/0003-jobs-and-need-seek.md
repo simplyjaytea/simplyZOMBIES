@@ -15,7 +15,7 @@ Player is not on the grid. NPCs pick the highest enabled priority that has work,
 | Haul | Ground item outside the annex → exam-room indoor floor (the Stockpile) |
 | Construct | Board / re-board windows; place a bed on indoor floor (30 noise, no item, occupies the tile) |
 | Cook | Lit Campfire, 1 raw from Stockpile → 1 cooked onto Stockpile, 2.0 min (2400 ticks), scent 15; lights an unlit fire; does not open canned |
-| Doctor | Existing treatment on an idle or Resting injured survivor; bandage from Stockpile or pockets |
+| Doctor | Existing treatment on an idle or Resting injured survivor; bandage from Stockpile or pockets. Timed Inspect (~15 s): [0009](0009-gate-recruits-and-inspect.md) |
 | Rest | Occupy a free bed. Clock runs. Night in bed = full rest refill; sleeping rough = half. `alarm.tripped`, grab, or damage wakes. No skip-to-dawn |
 
 Beds: two authored in the exam room (player + Mara). Extra bodies sleep rough until Construct adds a bed. No cap except floor space.
@@ -43,4 +43,5 @@ The player is not under Need seek. They eat/drink/wash from inventory, sleep and
 
 - Food, spoilage, bottles: [0005](0005-food-cook-spoilage.md).
 - Fire discipline: [0002](0002-temperature-hygiene-sources.md).
-- Save/load for beds, Campfire lit-state, Needs, and Stockpile items stays map fog (continuity).
+- Save/load: [0007](0007-needs-era-save.md).
+- Inspect: [0009](0009-gate-recruits-and-inspect.md).

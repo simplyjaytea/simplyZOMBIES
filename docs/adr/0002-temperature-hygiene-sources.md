@@ -22,7 +22,7 @@ Cloth wrap: one band toward `comfortable`, never past it, only while worn. Scrap
 
 ## Hygiene
 
-Start `clean`. Soap, basins, rain-mud, and bladder are out. Infection mul stays on injury fog.
+Start `clean`. Soap, basins, rain-mud, and bladder are out. Sepsis muls: [0008](0008-hygiene-sepsis.md).
 
 | Source | Effect |
 |---|---|
@@ -51,3 +51,4 @@ Scent 2× at `dirty`, 3× at `filthy`. `filthy` blocks Cook and Doctor.
 - Jobs, Need seek, and beds: [0003](0003-jobs-and-need-seek.md).
 - Bottles for wash and drink: [0005](0005-food-cook-spoilage.md).
 - “Uncomfortable” prose: [0006](0006-needs-presentation.md).
+- Sepsis muls: [0008](0008-hygiene-sepsis.md).

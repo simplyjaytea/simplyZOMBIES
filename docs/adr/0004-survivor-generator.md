@@ -13,7 +13,7 @@ Lock for [What does the survivor generator pool contain, and how do traits touch
 - 8 traits, 2–3 each, no duplicates. Squeamish + Steady hands is allowed (Mara already has both): Light sleeper, Squeamish, Steady hands, Iron stomach, Loud, Optimist, Night blind, Fast healer.
 - Aptitudes: STR/CON/DEX, 3–8, total 15, backstory/trait may nudge ±1 then clamp.
 - Appearance: 2–3 feature strings, no portrait. Uniques stay in `survivors/uniques/`.
-- ~3 natural recruits stay director fog.
+- ~3 natural recruits: [0009](0009-gate-recruits-and-inspect.md).
 
 ## Hooks in this slice
 
@@ -36,3 +36,4 @@ Loud, Optimist, Night blind, Fast healer ship as labels with no consumer. No tra
 
 - Unique pipeline is unchanged: drop JSON in `uniques/`.
 - Food mood numbers: [0005](0005-food-cook-spoilage.md).
+- Gate beats: [0009](0009-gate-recruits-and-inspect.md).

@@ -35,7 +35,7 @@ Drain every sim tick (20 Hz). Modifier writes, threshold events, and job-pressur
 
 Pools: soft at **30** remaining (work speed, melee/ranged accuracy, named mood source). Hard at **0**: hunger → `starving`, crawl, no jobs, death after 1 more day at 0; thirst → `dehydrating`, death after 0.25 day; rest → `passed_out`, forced sleep in place (sleeping-rough recovery unless already on a bed), not death.
 
-Mood: soft at **−25**; hard at **−80** fires `mood.threshold` (leave-with-gear). Leave behavior can wait on continuity/director.
+Mood: soft at **−25**; hard at **−80** fires `mood.threshold` (leave-with-gear). Leave behavior: [0010](0010-death-corpse-and-leave.md).
 
 Bands: `a_little_*` / `a_little_dirty` = uncomfortable (soft warning). `very_*` / `dirty` = soft cascade. `extremely_*` / `filthy` = hard. What flips a band, and the numeric muls: [0002](0002-temperature-hygiene-sources.md).
 
