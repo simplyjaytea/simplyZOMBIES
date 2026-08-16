@@ -17,6 +17,7 @@
       "description": "Id of another zombie type to inherit from."
     },
     "name": { "type": "string" },
+    "appearance": { "$ref": "#/$defs/appearance" },
     "introducedInWave": {
       "type": "integer",
       "minimum": 0,
@@ -103,6 +104,23 @@
     }
   },
   "$defs": {
+    "appearance": {
+      "type": "object",
+      "description": "What this looks like. docs/20: adding a type is a JSON entry with zero code, and appearance was the last axis where that was untrue -- presentation used to pick colours by type id in the draw loop. Omit it entirely and the renderer falls back to its role colours, which is the normal state until art exists.",
+      "additionalProperties": false,
+      "properties": {
+        "sprite": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$",
+          "description": "Registry key, resolved to assets/sprites/<key>.png by presentation/appearance.gd. A key, not a path, so content stays engine-agnostic. A key naming a file that does not exist fails the appearance gate rather than silently drawing nothing."
+        },
+        "tint": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$",
+          "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists."
+        }
+      }
+    },
     "emission": {
       "type": "object",
       "required": ["channel", "magnitude"],
