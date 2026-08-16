@@ -735,6 +735,33 @@ about.
   rather than by inspection. Left duplicated rather than refactored under this change; a real
   fix is one shared assertion both gates call, not two copies kept in sync by discipline.
 
+## What the paperdoll revamp made structural
+
+- **`condition.gd` gained three fields, all words or booleans.** `wounded`, `infected`, and
+  `armored` join `part`/`state`/`prose`. Each was chosen because it structurally cannot become
+  a number: `wounded` says a wound was recorded, not which kind or how many; `infected` is
+  `diagnosis_of_part`'s `actionable` word, the same non-leaking read the HUD already uses,
+  never a stage integer and never `transmitted`; `armored` says coverage is greater than zero,
+  never the coverage fraction. A part with several things true draws several marks — the ban
+  holds by construction, not by the paperdoll choosing to be tasteful about it.
+- **`diagnosis_of` and `diagnosis_of_part` share one stage-to-label function.** The pre-split
+  `diagnosis_of` had its `match worst: ...` block inline; adding a per-part variant by copying
+  that block would have been the same mistake the `SAVE_VERSION` duplication above already made
+  once this session. `_diagnosis_for_stage()` is now the one place a stage becomes a sentence,
+  and both callers use it.
+- **`armor_coverage_of` is public.** It was `_armor_coverage`, called only from the bite-landed
+  handler. The paperdoll needed the same "is this part protected" fact without a second
+  implementation reading `equipped_items` and an item's `armor` dict — the underscore was a
+  convention, not a boundary, so the fix was a rename, not a rewrite.
+- **The figure faces the viewer.** Screen-left is the person's right, screen-right their left —
+  the same convention every anatomical chart and paperdoll UI uses. Named once in `SIDE_NAME`
+  rather than re-decided at each of the eight limb-drawing call sites, and irrelevant to
+  gameplay today since nothing selects a limb by clicking the figure.
+- **Armour is a stroke, not a second fill.** A protected part keeps its condition tint (the fill)
+  and gets a distinct, thicker outline over it. Two colours competing for the same fill would
+  have forced a choice between showing you *how hurt* and *how protected* a part is; the stroke
+  says both without picking.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

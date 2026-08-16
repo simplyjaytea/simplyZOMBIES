@@ -103,6 +103,34 @@ publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot
   (singular) is dead code superseded by `sim/stances.gd` (plural) and uses a different component
   key (`"Posture"` vs the live `"posture"`) — unreferenced anywhere, so harmless, but a trap for
   anyone who greps for the wrong file.
+- **The paperdoll draws all ten sided parts independently, plus wounds, infection, and
+  armour.** The LEGACY_REGIONS bridge from the body split is gone — each arm/hand/leg/foot
+  is now drawn and tinted from its own `arm_left`/`arm_right` (etc.) entry rather than the
+  worse of the two. The figure faces the viewer (their left is your right), documented once
+  in `SIDE_NAME` rather than re-decided per limb. `condition.gd`'s view grew three new
+  boolean/word fields for this — `wounded` (has a recorded `injuries.wounds` entry on this
+  part), `infected` (`SimInfection.diagnosis_of_part`'s `actionable` word, never a stage or
+  `transmitted`), `armored` (`SimInfection.armor_coverage_of` — renamed public, was private
+  — is greater than zero for this part) — all still words or booleans, never the number
+  behind them. A wound draws a small ring, an infection a second ring beside it, armour
+  thickens and re-colours the part's outline rather than competing with the condition tint
+  for the fill. Verified visually under Xvfb with a body damaged asymmetrically, a recorded
+  wound, an active exposure, and an equipped vest, all four active at once and all agreeing
+  with the injuries-tab text.
+- **Found while starting this: the sided-limb split had left arm armour dead.**
+  `item.wrap.cloth` and `item.vest.scrap`'s `armor` blocks still keyed arm coverage as
+  `"arms"` — the pre-split name — so `armor_coverage_of` never matched `arm_left`/`arm_right`
+  and a worn vest gave zero arm protection against bite transmission. The item schema's
+  `armor` property has no `additionalProperties: false`, so `godot:validate` could never
+  catch this; only a real gate could, and none existed despite `check_m2_lethality.gd`'s own
+  file comment claiming "armor reduces transmission" since before the split. Both are fixed:
+  content keys split into `arm_left`/`arm_right`, and `_armor_reduces_transmission()` now
+  actually tests it (`ARMOR OK armored=291 unarmored=427 of 500`).
+- **New gates:** `_sidedness_is_independent()` and
+  `_wound_infection_armor_are_true_words_not_numbers()` in `check_ban_health_bar.gd` assert
+  the two sides of a limb can disagree and that the three new fields are real booleans/words
+  with both a true positive and a true negative case — not just "no leak," which a field that
+  was always `false` would also satisfy.
 - **The health-bar ban is gated in Godot.** `godot/sim/condition.gd` is now the single builder for
   the view — `presentation/main.gd` and `ui/inventory_panel.gd` had each built it inline and
   drifted — and `npm run godot:ban:healthbar` (`BAN_HEALTH_BAR_OK`) serialises it and asserts no
