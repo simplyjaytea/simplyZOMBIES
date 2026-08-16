@@ -30,6 +30,12 @@ func _init() -> void:
 	if canon != '{"a":1,"b":2,"c":[3,2]}':
 		push_error("canonicalize mismatch: %s" % canon)
 		ok = false
+	var vcanon: String = ser.call("canonicalize", {"p": Vector2i(3, 4), "path": [Vector2i(1, 2)]})
+	if vcanon != '{"p":{"x":3,"y":4},"path":[{"x":1,"y":2}]}':
+		push_error("Vector2i canonicalize mismatch: %s" % vcanon)
+		ok = false
+	else:
+		print("Vector2i OK")
 	if ok:
 		print("R3_SMOKE_OK")
 	else:
