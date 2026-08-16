@@ -14,6 +14,7 @@ const SimSurface = preload("res://sim/map/surface.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimCondition = preload("res://sim/condition.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
@@ -338,27 +339,16 @@ func _process(delta: float) -> void:
 
 func _update_condition_view() -> void:
 	if world == null: return
-	var body: Variant = world.components.get_component(world.player, "body")
-	if body == null: return
-	var b: Dictionary = body as Dictionary
-	# build minimal ConditionView without importing TS condition.ts: parts in survivor order
-	var parts: Array = []
-	var worst: int = 0
-	var order: Array[String] = ["head", "torso", "arms", "hands", "legs", "feet"]
-	for part in order:
-		if not b.has(part): continue
-		var st: Variant = SimHealth.part_state(b, part)
-		if st == null: continue
-		var s: int = int(st)
-		worst = maxi(worst, s)
-		parts.append({"part": part, "state": s, "prose": "%s %d" % [part, s]})
+	# The view is built by sim/condition.gd, which is what check_ban_health_bar.gd gates.
+	var cv: Dictionary = SimCondition.view(world, world.player)
+	if cv.is_empty(): return
+	var parts: Array = cv["parts"] as Array
+	var worst: int = int(cv["worst"])
 	# Infection diagnosis (read model only, never exposes transmitted — consumes examiner skill via CON stub 0)
 	var diag: Variant = SimInfection.diagnosis_of(world, world.player, 0)
 	if diag is Dictionary and String((diag as Dictionary).get("label", "clear")) != "clear":
 		parts.append({"part": "infection", "state": int((diag as Dictionary).get("stage", 0)), "prose": String((diag as Dictionary).get("label", ""))})
-	var posture: Variant = world.components.get_component(world.player, "posture")
-	var stance: int = 2
-	if posture is Dictionary: stance = int((posture as Dictionary).get("current", 2))
+	var stance: int = int(cv["stance"])
 	_glimpse_parts = parts; _glimpse_worst = worst; _glimpse_stance = stance
 	if _paperdoll != null and _paperdoll.has_method("set_view"):
 		_paperdoll.call("set_view", {"parts": parts, "stance": stance, "worst": worst})

@@ -71,8 +71,13 @@ publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot
 - **The condition view has one voice.** docs/05 scales a part's prose by the examiner's Medicine
   skill — untrained gets "there's a lot of blood, he doesn't look good", skilled gets "deep
   laceration, sutured and clean, off work five days". There is no [skill web](docs/08-skill-web.md)
-  to scale against, so what ships is the untrained tier and `condition.ts` says so. When the web
-  lands, that table gains a column rather than being rewritten.
+  to scale against, so what ships is the untrained tier and `godot/sim/condition.gd` says so. When
+  the web lands, that table gains a column rather than being rewritten.
+- **The health-bar ban is gated in Godot.** `godot/sim/condition.gd` is now the single builder for
+  the view — `presentation/main.gd` and `ui/inventory_panel.gd` had each built it inline and
+  drifted — and `npm run godot:ban:healthbar` (`BAN_HEALTH_BAR_OK`) serialises it and asserts no
+  integrity, no maximum, and no fraction, with a key allowlist that fails when a numeric field is
+  added. This is the port of the oracle's `paperdoll.test.ts`, which was the only enforcement.
 
 **Two things the item system left deliberately unfinished**, if you would rather continue that
 thread:

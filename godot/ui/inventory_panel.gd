@@ -4,6 +4,7 @@ extends Control
 # ponytail: drag is one file here; split to DragState resource when reusing outside inventory.
 
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimCondition = preload("res://sim/condition.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Paperdoll = preload("res://ui/paperdoll.gd")
 
@@ -32,24 +33,12 @@ func set_world(world: Variant, actor: int) -> void:
 	_world = world
 	_actor = actor
 	_view = SimInventory.inventory_view(world, actor) if world != null else {}
-	# refresh condition view into paperdoll
+	# refresh condition view into paperdoll — sim/condition.gd is the one builder, and the
+	# one thing check_ban_health_bar.gd gates.
 	if world != null:
-		var body: Variant = world.components.get_component(actor, "body")
-		if body is Dictionary:
-			var b: Dictionary = body as Dictionary
-			var parts: Array = []
-			var worst: int = 0
-			for part in ["head", "torso", "arms", "hands", "legs", "feet"]:
-				if not b.has(part): continue
-				var st: Variant = preload("res://sim/modules/health.gd").part_state(b, part)
-				if st == null: continue
-				var s: int = int(st)
-				worst = maxi(worst, s)
-				parts.append({"part": part, "state": s, "prose": "%s" % part})
-			var posture: Variant = world.components.get_component(actor, "posture")
-			var stance: int = 2
-			if posture is Dictionary: stance = int((posture as Dictionary).get("current", 2))
-			_paperdoll.call("set_view", {"parts": parts, "stance": stance, "worst": worst})
+		var cv: Dictionary = SimCondition.view(world, actor)
+		if not cv.is_empty():
+			_paperdoll.call("set_view", cv)
 	queue_redraw()
 
 func rotate() -> void:
