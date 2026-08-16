@@ -24,35 +24,32 @@ Locked planning spec for **simplyZOMBIES Early Alpha**: a solo-playable Godot 4.
 - [07 — Alpha district and defensible building](issues/07-alpha-district.md) — **Civic annex 256 m, 2+1 vectors, JSON patch.** Full 256×256 m (64×64 cells, parity intact); L-shape annex (Mara day-1 barricaded exam room, 1 gate + 2 Window walls + Screen/Low interior); avenue front + rear alley + blind flank (Screen/undergrowth); fixed deterministic loot per seed (residential + military cache) with day→dusk-barricade→night loop replacing hunger; `godot/content/maps/district_alpha.json` overlay patch after `generate_district(seed)`, validated, parity-limited.
 - [08 — Fortification slice for early alpha](issues/08-fortification-slice.md) — **Board windows + one scrap choke + alarm line + noisemaker; player verbs only.** Overlay on `Tile.Window` (opaque when boarded, five prose stages, no HP); one alley scrap barricade (`item.scrap.metal`); alarm wakes 10× (`noise 8`, no DPS); noisemaker 45 mag / 10 min / wind-at-device. All four on `E` context (loot first). Look-at prose, no pips. Gate stays authored Floor gap. Mara does not Construct. **Shipped:** `godot/sim/modules/fortify.gd` + `godot:m2:fortify`.
 - [09 — Director pressure for early alpha](issues/09-director-pressure.md) — **Population, not a spawner.** Days 1–2 shambler-only + no packets; 3–7 trickle if live `< 8`; day 8+ dusk edge packets (2–6, cap 24, never the gate). Breach lull 1 night, Mara death 2; bait does not cancel (field still pulls). Floor: 1 packet / 3 quiet nights. Power/strain = six live bits, no food/mood. **Shipped:** `godot/sim/modules/director.gd` + `godot:m2:director`.
-- [10 — Save/load + determinism for alpha systems](issues/10-save-load-determinism.md) — **v11 reject, director key + fortify entities, `director` stream only.** Content (patch/Mara/mix) re-derived; boards/scrap/alarm/noisemaker/director dials snapshot; vision/light/power derived. Godot `SAVE_VERSION` 10→11, no migrator, TS oracle untouched. F9 is restore, not re-boot. Gate `godot:m2:save`. Not built.
+- [10 — Save/load + determinism for alpha systems](issues/10-save-load-determinism.md) — **Shipped as save v12** (ticket 10 fortify/director + Needs-era folded). Gate `godot:m2:save`. v11 rejected.
 - [11 — Tuning harness for alpha](issues/11-tuning-harness.md) — **CI invariants + nightly 10-day loop.** `check_m2_harness.gd`: clock-jump turtle floor + Nothing Personal zero + never-on-gate (seed 20260805); contact KD prints (knife/bow/pistol) informational; noisy night informational; no Mara-lull case. `HARNESS_FULL=1` real 10-day `world.step`, not on `godot:r6`. Gate `godot:m2:harness`. Not built.
 - [12 — Alpha audio one-shots (2D, magnitude volume)](issues/12-alpha-audio.md) — **Shout / gunshot / board / alarm / noisemaker loop.** Volume `mag/180` + 0.7/m falloff, no wall occlusion, no footsteps. `godot/assets/sfx/`, presentation-only. Not built.
+- **M2 people-and-economy (ADRs 0001–0011)** — **Shipped** Needs, Jobs + Need seek, generator, recruits/Inspect, corpse/Leave, Work Focus Auto. Gates `godot:m2:needs|jobs|recruits`. PRs #50/#51.
 
 ## Building now
 
-Planning for 01–12 is locked. **Frontier is empty.** Remaining fog is none. Execution order:
+Early-alpha tickets 01–10 + M2 people-and-economy are **done**. Remaining alpha execution:
 
-1. **Done:** stats MVP + Mara spawn (`godot:m2:stats`).
-2. **Done:** screamer `alarm_on_sight` + bloater `blooms_on_death` + 80/12/8 mix (`godot:m2:roster`).
-3. **Done:** civic-annex overlay (`godot:m2:district`).
-4. **Done:** bow/pistol fire loop + exhausted swings degrade (`godot:m2:ranged`).
-5. **Done:** fortification verbs + `E` context + look-at HUD (`godot:m2:fortify`).
-6. **Done:** slice director (`godot:m2:director`).
-7. **Specified, not built:** v11 save round-trip (`godot:m2:save`).
-8. **Specified, not built:** harness (`godot:m2:harness`).
-9. **Specified, not built:** SFX one-shots ([Alpha audio one-shots](issues/12-alpha-audio.md)).
+1. **Done:** stats, roster, district, ranged, fortify, director, save v12, Needs/Jobs/recruits.
+2. **Specified, not built:** harness (`godot:m2:harness`).
+3. **Specified, not built:** SFX one-shots ([Alpha audio one-shots](issues/12-alpha-audio.md)).
+4. **Next product (post-0011):** aiming/sway + shallow skill web — see `.scratch/simplyzombies/issue-32-body.md` / ADR follow-ups.
 
 ## Not yet specified
 
 <!-- in-scope fog you can't ticket yet; graduates as frontier advances -->
 
-*(empty — this map is planning-complete. Execution is on save/load.)*
+- Shallow web node list + aiming sway numbers (content/thin ADRs).
+- Stub Job columns as real work; weather; succession lift (ADR 0010).
 
 ## Out of scope
 
 <!-- ruled beyond early-alpha destination; never graduates -->
 
-- **Survival needs + hygiene/temperature/weather:** Hunger, thirst, rest, mood, temperature, hygiene, full decay — deferred per Q2. Basic combat/stats/gear are core, not these.
+- **Weather (full):** Rain/wetness/seasons as a second game — still deferred (ADR 0002). Temperature/hygiene *without* weather shipped in M2.
 - **Factions, vehicles, z-levels, world decay mutation waves beyond alpha roster:** Docs 13/18/24–26 deferred.
 - **Multiplayer:** Doc 27, Milestone 3C — spec only, no build.
 - **Full skill web & full 32-doc backlog:** Shallow web, full injury/infection loops, named items beyond kit — beyond alpha.
