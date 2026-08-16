@@ -31,7 +31,15 @@ const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
 const NIGHT_WASH: float = 0.8
 const MEMORY_TICKS: int = 60
-const OCCLUDER_RISE: Dictionary = {1: 2.2, 2: 2.2, 3: 1.5, 4: 0.7, 5: 3.2} # Tile -> metres, no z
+# Drawing heights (metres), not a z-axis. Walls tall enough to hide rooms; windows are a sill.
+const OCCLUDER_RISE: Dictionary = {
+	SimTileMap.Tile.Wall: 4.8,
+	SimTileMap.Tile.Window: 0.35,
+	SimTileMap.Tile.Screen: 3.6,
+	SimTileMap.Tile.Low: 0.7,
+	SimTileMap.Tile.Tree: 3.2,
+}
+const OCCLUDER_FADED_ALPHA: float = 0.28
 
 var world: Variant = null
 var content: Dictionary = {}
@@ -405,6 +413,18 @@ func _draw_district() -> void:
 	var zoom: float = float(camera["zoom"])
 	var half_w: float = zoom * float(IsoProjection.TILE_WIDTH_RATIO) / 2.0
 	var half_h: float = zoom * float(IsoProjection.TILE_HEIGHT_RATIO) / 2.0
+	var seen: Variant = null
+	if world.vision != null:
+		seen = world.vision.tiles_for(int(world.player))
+	var player_depth: float = -1e9
+	var player_sx: float = 0.0
+	var player_sy: float = 0.0
+	var ppos: Variant = world.components.get_component(world.player, "position")
+	if ppos is Dictionary:
+		player_depth = IsoProjection.depth_of(float((ppos as Dictionary)["x"]), float((ppos as Dictionary)["y"]))
+		var psc: Dictionary = IsoProjection.world_to_screen(camera, float((ppos as Dictionary)["x"]), float((ppos as Dictionary)["y"]))
+		player_sx = float(psc["sx"])
+		player_sy = float(psc["sy"])
 	# depth sort tiles by x+y (same as bodies)
 	var tiles: Array[Dictionary] = []
 	var bounds: Dictionary = IsoProjection.visible_bounds(camera, 2.0)
@@ -414,18 +434,22 @@ func _draw_district() -> void:
 	var max_y: int = mini(int(world.map_height) - 1, ceili(float(bounds["maxY"])))
 	for ty in range(min_y, max_y + 1):
 		for tx in range(min_x, max_x + 1):
+			# Walls block sight: only draw tiles the player has a sightline to (windows stay Clear).
+			if seen != null and not (seen as Object).call("has_tile", tx, ty):
+				continue
 			tiles.append({"x": tx, "y": ty, "d": float(tx + ty), "blocked": world.is_blocked_tile(tx, ty)})
 	tiles.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for t in tiles:
 		var tx: int = int(t["x"]); var ty: int = int(t["y"])
 		var sc: Dictionary = IsoProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 0.5)
 		var sx: float = float(sc["sx"]); var sy: float = float(sc["sy"])
-		# surface color: use floor vs wall; indoors check if available
-		var blocked: bool = bool(t["blocked"])
-		var col: Color = Palette.COLOURS["wall"] if blocked else Palette.COLOURS["floor"]
+		var tile: int = SimTileMap.Tile.Floor
+		var col: Color = Palette.COLOURS["floor"]
 		if world.tilemap != null:
-			var tile: int = int(SimTileMap.tile_at(world.tilemap, tx, ty))
+			tile = int(SimTileMap.tile_at(world.tilemap, tx, ty))
 			match tile:
+				SimTileMap.Tile.Wall:
+					col = Palette.COLOURS["wall"]
 				SimTileMap.Tile.Window:
 					col = Palette.COLOURS["window"]
 				SimTileMap.Tile.Screen:
@@ -439,8 +463,15 @@ func _draw_district() -> void:
 				var kind: String = String((ov as Dictionary).get("kind", ""))
 				if kind == "board":
 					col = Palette.COLOURS["wall"] if int((ov as Dictionary).get("stage", 0)) < 3 else Palette.COLOURS["window"].lightened(0.15)
+					# Boarded window reads as wall height so you cannot peek through.
+					if int((ov as Dictionary).get("stage", 0)) < 3:
+						tile = SimTileMap.Tile.Wall
 				elif kind == "scrap":
 					col = Palette.COLOURS["rubble"]
+					tile = SimTileMap.Tile.Wall
+		elif bool(t["blocked"]):
+			col = Palette.COLOURS["wall"]
+			tile = SimTileMap.Tile.Wall
 		# diamond
 		var pts: PackedVector2Array = PackedVector2Array([
 			Vector2(sx, sy - half_h), Vector2(sx + half_w, sy),
@@ -448,16 +479,22 @@ func _draw_district() -> void:
 		])
 		draw_colored_polygon(pts, col)
 		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["background"] * 0.9, 1.0)
-		if blocked:
-			var rise: float = IsoProjection.metres_to_rise(float(OCCLUDER_RISE.get(1, 2.2)), zoom)
-			var top_pts: PackedVector2Array = PackedVector2Array([
-				Vector2(sx, sy - half_h - rise), Vector2(sx + half_w, sy - rise),
-				Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)
-			])
-			draw_colored_polygon(top_pts, col.lightened(0.12))
-			# side faces (two visible)
-			draw_colored_polygon(PackedVector2Array([Vector2(sx - half_w, sy), Vector2(sx, sy + half_h), Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)]), col.darkened(0.18))
-			draw_colored_polygon(PackedVector2Array([Vector2(sx, sy + half_h), Vector2(sx + half_w, sy), Vector2(sx + half_w, sy - rise), Vector2(sx, sy + half_h - rise)]), col.darkened(0.08))
+		var rise_m: float = float(OCCLUDER_RISE.get(tile, 0.0))
+		if rise_m <= 0.0:
+			continue
+		var rise: float = IsoProjection.metres_to_rise(rise_m, zoom)
+		var top_pts: PackedVector2Array = PackedVector2Array([
+			Vector2(sx, sy - half_h - rise), Vector2(sx + half_w, sy - rise),
+			Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)
+		])
+		# Near walls that cover the player fade so indoor play stays readable.
+		var tile_depth: float = IsoProjection.depth_of(float(tx) + 0.5, float(ty) + 0.5)
+		var hides: bool = tile_depth > player_depth and absf(sx - player_sx) < half_w * 2.2 and player_sy > sy - rise - 8.0 and player_sy < sy + half_h + 8.0
+		if hides:
+			col = Color(col.r, col.g, col.b, OCCLUDER_FADED_ALPHA)
+		draw_colored_polygon(top_pts, col.lightened(0.12))
+		draw_colored_polygon(PackedVector2Array([Vector2(sx - half_w, sy), Vector2(sx, sy + half_h), Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)]), col.darkened(0.18))
+		draw_colored_polygon(PackedVector2Array([Vector2(sx, sy + half_h), Vector2(sx + half_w, sy), Vector2(sx + half_w, sy - rise), Vector2(sx, sy + half_h - rise)]), col.darkened(0.08))
 
 func _draw_entities() -> void:
 	if world == null: return
@@ -467,8 +504,6 @@ func _draw_entities() -> void:
 		var p: Variant = world.components.get_component(int(ent), "position")
 		if not p is Dictionary: continue
 		var x: float = float((p as Dictionary)["x"]); var y: float = float((p as Dictionary)["y"])
-		var sc: Dictionary = IsoProjection.world_to_screen(camera, x, y)
-		var depth: float = IsoProjection.depth_of(x, y)
 		var is_player: bool = int(ent) == int(world.player)
 		var is_unique: bool = world.components.has_component(int(ent), "identity")
 		var is_zed: bool = world.components.has_component(int(ent), "shambler")
@@ -477,6 +512,18 @@ func _draw_entities() -> void:
 			continue
 		if not is_player and not is_unique and not is_zed and not is_bait:
 			continue
+		# Walls / boards block; windows stay Clear — match sim vision, not camera frustum.
+		if not is_player and world.vision != null:
+			var det: int = int(world.vision.detail(int(world.player), x, y))
+			if det == SimVisibility.Detail.Unseen:
+				continue
+			if det == SimVisibility.Detail.Peripheral:
+				var vel: Variant = world.components.get_component(int(ent), "velocity")
+				if vel is Dictionary and float((vel as Dictionary).get("dx", 0.0)) == 0.0 and float((vel as Dictionary).get("dy", 0.0)) == 0.0:
+					continue
+			_memory[int(ent)] = {"x": x, "y": y, "tick": int(world.tick)}
+		var sc: Dictionary = IsoProjection.world_to_screen(camera, x, y)
+		var depth: float = IsoProjection.depth_of(x, y)
 		var ztype: String = ""
 		if is_zed:
 			var zt: Variant = world.components.get_component(int(ent), "zombieType")
@@ -521,12 +568,15 @@ func _draw_entities() -> void:
 				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, Color(0.85, 0.9, 1.0, 0.35), 1.4)
 				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 1.0)
 				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 1.0)
-	# ground items as lozenges
+	# ground items as lozenges — focal only (searching a room is an action)
 	for ent in world.components.query(["position", "itemBase"]):
 		if world.components.has_component(int(ent), "stored"): continue
 		var p: Variant = world.components.get_component(int(ent), "position")
 		if not p is Dictionary: continue
-		var sc: Dictionary = IsoProjection.world_to_screen(camera, float((p as Dictionary)["x"]), float((p as Dictionary)["y"]))
+		var ix: float = float((p as Dictionary)["x"]); var iy: float = float((p as Dictionary)["y"])
+		if world.vision != null and int(world.vision.detail(int(world.player), ix, iy)) != SimVisibility.Detail.Focal:
+			continue
+		var sc: Dictionary = IsoProjection.world_to_screen(camera, ix, iy)
 		var sx: float = float(sc["sx"]); var sy: float = float(sc["sy"])
 		var w: float = 6.0; var h: float = 3.2
 		var pts: PackedVector2Array = PackedVector2Array([Vector2(sx, sy - h), Vector2(sx + w, sy), Vector2(sx, sy + h), Vector2(sx - w, sy)])

@@ -281,6 +281,15 @@ func _apply_commands(_world: Variant) -> void:
 				"wait":
 					velocity["dx"] = 0.0
 					velocity["dy"] = 0.0
+				"shout":
+					var pos: Dictionary = components.get_component(int(entity), "position") as Dictionary
+					events.publish({
+						"type": "noise.emitted",
+						"x": float(pos["x"]),
+						"y": float(pos["y"]),
+						"magnitude": 120.0,
+						"source": int(entity)
+					})
 
 
 func _integrate_movement(_world: Variant) -> void:
