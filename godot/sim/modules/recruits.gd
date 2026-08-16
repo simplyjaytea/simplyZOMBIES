@@ -17,6 +17,7 @@ const SimInfection = preload("res://sim/modules/infection.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimPath = preload("res://sim/path.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
 
 const BEATS: Array[int] = [8, 12, 16]
 const TRANSMIT_P: float = 0.15
@@ -199,6 +200,7 @@ static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: flo
 	SimAptitudes.apply(world, ent, rolled.get("aptitudes", {}))
 	SimNeeds.attach(world, ent, {"hunger": 50.0, "thirst": 50.0, "rest": 50.0})
 	SimJobs.attach(world, ent, "Auto")
+	SimSkills.attach(world, ent)
 	for item_id in rolled.get("kit", []) as Array:
 		var item: int = SimItems.spawn_item(world, String(item_id), {"tier": "scavenged"})
 		if String(item_id).begins_with("item.food."):
