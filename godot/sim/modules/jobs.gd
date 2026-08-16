@@ -712,16 +712,29 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 	if int(job.get("pathGen", -1)) != gen or path.is_empty():
 		var found: Array[Vector2i] = SimPath.find(world, here, dest)
 		path.clear()
+		# Dict steps so snapshot/fingerprint never sees Vector2i (export smoke).
 		for s in found:
-			path.append(s)
+			path.append({"x": s.x, "y": s.y})
 		job["path"] = path
 		job["pathGen"] = gen
 	if path.is_empty():
 		_still(world, ent)
 		return
-	var nxt: Vector2i = path[0] as Vector2i
-	var tx: float = float(nxt.x) + 0.5
-	var ty: float = float(nxt.y) + 0.5
+	var step: Variant = path[0]
+	var nx: int = 0
+	var ny: int = 0
+	if step is Dictionary:
+		nx = int((step as Dictionary).get("x", 0))
+		ny = int((step as Dictionary).get("y", 0))
+	elif typeof(step) == TYPE_VECTOR2I:
+		var v: Vector2i = step as Vector2i
+		nx = v.x
+		ny = v.y
+	else:
+		_still(world, ent)
+		return
+	var tx: float = float(nx) + 0.5
+	var ty: float = float(ny) + 0.5
 	var dx: float = tx - float((pos as Dictionary)["x"])
 	var dy: float = ty - float((pos as Dictionary)["y"])
 	if dx * dx + dy * dy < 0.04:

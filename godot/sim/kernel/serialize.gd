@@ -26,6 +26,12 @@ static func canonicalize(value: Variant, path: String = "$") -> String:
 			return JSON.stringify(f)
 		TYPE_STRING, TYPE_BOOL:
 			return JSON.stringify(value)
+		TYPE_VECTOR2I:
+			var v2i: Vector2i = value as Vector2i
+			return '{"x":%s,"y":%s}' % [canonicalize(v2i.x, path + ".x"), canonicalize(v2i.y, path + ".y")]
+		TYPE_VECTOR2:
+			var v2: Vector2 = value as Vector2
+			return '{"x":%s,"y":%s}' % [canonicalize(v2.x, path + ".x"), canonicalize(v2.y, path + ".y")]
 		TYPE_NIL:
 			return '"__undefined__"'
 		TYPE_ARRAY:
