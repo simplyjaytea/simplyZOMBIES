@@ -51,3 +51,15 @@ _Avoid_: Stove, heater, firepit, light source (when you mean this object)
 **Survivor generator**:
 The content pool that rolls ordinary survivors (name, trait, backstory) for the slice — distinct from unique authored survivors like Mara.
 _Avoid_: RNG recruit, random NPC
+
+**Inspect**:
+A timed Doctor action that produces skill-scaled wound prose. It never leaks private transmission. The Injuries tab is not Inspect.
+_Avoid_: Diagnose, scan, examine (when you mean this Job), condition view
+
+**Corpse**:
+What an uninfected survivor leaves: a body with their grid and rising scent. A transmitted death is a shambler, not this.
+_Avoid_: Loot bag, grave, body (when you mean the entity)
+
+**Leave**:
+Mood hard crisis for an NPC: they walk to the gate with their pockets and do not come back. The player never Leaves.
+_Avoid_: Desert, raid, succession

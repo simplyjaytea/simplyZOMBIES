@@ -37,5 +37,5 @@ Raw appears on the residential loot table (alongside canned). No farming, livest
 
 ## Consequences
 
-- Continuity fog: spoilage clocks, Stockpile ground items, and bottle counts must round-trip with save/load.
+- Save/load: [0007](0007-needs-era-save.md).
 - Initial numbers may retune in the harness; the shapes do not.
