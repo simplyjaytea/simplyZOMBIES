@@ -25,24 +25,24 @@ Locked planning spec for **simplyZOMBIES Early Alpha**: a solo-playable Godot 4.
 - [08 — Fortification slice for early alpha](issues/08-fortification-slice.md) — **Board windows + one scrap choke + alarm line + noisemaker; player verbs only.** Overlay on `Tile.Window` (opaque when boarded, five prose stages, no HP); one alley scrap barricade (`item.scrap.metal`); alarm wakes 10× (`noise 8`, no DPS); noisemaker 45 mag / 10 min / wind-at-device. All four on `E` context (loot first). Look-at prose, no pips. Gate stays authored Floor gap. Mara does not Construct. **Shipped:** `godot/sim/modules/fortify.gd` + `godot:m2:fortify`.
 - [09 — Director pressure for early alpha](issues/09-director-pressure.md) — **Population, not a spawner.** Days 1–2 shambler-only + no packets; 3–7 trickle if live `< 8`; day 8+ dusk edge packets (2–6, cap 24, never the gate). Breach lull 1 night, Mara death 2; bait does not cancel (field still pulls). Floor: 1 packet / 3 quiet nights. Power/strain = six live bits, no food/mood. **Shipped:** `godot/sim/modules/director.gd` + `godot:m2:director`.
 - [10 — Save/load + determinism for alpha systems](issues/10-save-load-determinism.md) — **Shipped as save v12** (ticket 10 fortify/director + Needs-era folded). Gate `godot:m2:save`. v11 rejected.
-- [11 — Tuning harness for alpha](issues/11-tuning-harness.md) — **CI invariants + nightly 10-day loop.** `check_m2_harness.gd`: clock-jump turtle floor + Nothing Personal zero + never-on-gate (seed 20260805); contact KD prints (knife/bow/pistol) informational; noisy night informational; no Mara-lull case. `HARNESS_FULL=1` real 10-day `world.step`, not on `godot:r6`. Gate `godot:m2:harness`. Not built.
+- [11 — Tuning harness for alpha](issues/11-tuning-harness.md) — **CI invariants + nightly 10-day loop.** `check_m2_harness.gd`: clock-jump turtle floor + Nothing Personal zero + never-on-gate (seed 20260805); contact KD prints; `HARNESS_FULL=1` real 10-day. Gate `godot:m2:harness`. **Shipped.**
 - [12 — Alpha audio one-shots (2D, magnitude volume)](issues/12-alpha-audio.md) — **Shout / gunshot / board / alarm / noisemaker loop.** Volume `mag/180` + 0.7/m falloff, no wall occlusion, no footsteps. `godot/assets/sfx/`, presentation-only. Not built.
 - **M2 people-and-economy (ADRs 0001–0011)** — **Shipped** Needs, Jobs + Need seek, generator, recruits/Inspect, corpse/Leave, Work Focus Auto. Gates `godot:m2:needs|jobs|recruits`. PRs #50/#51.
+- **Aiming + shallow web (ADR 0012)** — **Shipped** sway cone + six-region web. Gates `godot:m2:aim|web`.
 
 ## Building now
 
-Early-alpha tickets 01–10 + M2 people-and-economy are **done**. Remaining alpha execution:
+Early-alpha tickets 01–11 + M2 people-and-economy + aiming/web are **done**. Remaining alpha execution:
 
 1. **Done:** stats, roster, district, ranged, fortify, director, save v12, Needs/Jobs/recruits.
-2. **Specified, not built:** harness (`godot:m2:harness`).
-3. **Specified, not built:** SFX one-shots ([Alpha audio one-shots](issues/12-alpha-audio.md)).
-4. **Next product (post-0011):** aiming/sway + shallow skill web — see `.scratch/simplyzombies/issue-32-body.md` / ADR follow-ups.
+2. **Done:** aiming/sway + shallow skill web (`godot:m2:aim` / `godot:m2:web`; ADR 0012).
+3. **Done:** tuning harness (`godot:m2:harness`; `HARNESS_FULL=1` for nightly 10-day).
+4. **Specified, not built:** SFX one-shots ([Alpha audio one-shots](issues/12-alpha-audio.md)).
 
 ## Not yet specified
 
 <!-- in-scope fog you can't ticket yet; graduates as frontier advances -->
 
-- Shallow web node list + aiming sway numbers (content/thin ADRs).
 - Stub Job columns as real work; weather; succession lift (ADR 0010).
 
 ## Out of scope
