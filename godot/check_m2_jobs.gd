@@ -86,6 +86,9 @@ func _focus() -> bool:
 	if int(auto.get("Water", 0)) != 3 or int(auto.get("Clean", 0)) != 3 or int(auto.get("Bury", 0)) != 3:
 		push_error("auto missing water/clean/bury %s" % str(auto))
 		return false
+	if int(auto.get("Repair", 0)) != 3:
+		push_error("auto missing repair %s" % str(auto))
+		return false
 	var medic: Dictionary = SimJobs.preset("Medic")
 	if int(medic.get("Doctor", 0)) != 1 or int(medic.get("Guard", 0)) != 2:
 		push_error("medic %s" % str(medic))

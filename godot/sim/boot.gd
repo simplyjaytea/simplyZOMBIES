@@ -95,6 +95,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimMelee.register_module(world)
 	SimRanged.register_module(world)
 	SimInventory.register_module(world)
+	SimItems.register_module(world)
 	SimFortify.register_module(world)
 	SimDirector.register_module(world)
 	SimNeeds.register_module(world)
