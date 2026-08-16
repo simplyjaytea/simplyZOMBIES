@@ -3,6 +3,11 @@ extends RefCounted
 
 const FULL_CONDITION: float = 1.0
 const CONDITION_FLOOR: float = 0.55
+# ponytail: flat wear per hit; jam/miss wear later.
+const WEAR_PER_HIT: float = 0.005
+const REPAIR_GAIN: float = 0.25
+const REPAIR_CEILING_DROP: float = 0.05
+const REPAIR_CEILING_FLOOR: float = 0.2
 const CONDITION_BANDS: Array[Dictionary] = [
 	{"atLeast": 0.8, "name": "sound"},
 	{"atLeast": 0.5, "name": "worn"},
@@ -158,7 +163,92 @@ static func condition_factor(world: Variant, item: int) -> float:
 	var c: Variant = world.components.get_component(item, "condition")
 	if c == null:
 		return 1.0
-	return CONDITION_FLOOR + (1.0 - CONDITION_FLOOR) * clampf(float((c as Dictionary).get("current", 1.0)), 0.0, 1.0)
+	var cur: float = float((c as Dictionary).get("current", 1.0))
+	if cur <= 0.0:
+		return 0.0
+	return CONDITION_FLOOR + (1.0 - CONDITION_FLOOR) * clampf(cur, 0.0, 1.0)
+
+
+static func apply_wear(world: Variant, item: int, amount: float = WEAR_PER_HIT) -> void:
+	if item < 0 or amount <= 0.0:
+		return
+	var c: Variant = world.components.get_component(item, "condition")
+	if not c is Dictionary:
+		return
+	var before: float = float((c as Dictionary).get("current", 1.0))
+	if before <= 0.0:
+		return
+	var after: float = maxf(0.0, before - amount)
+	(c as Dictionary)["current"] = after
+	if after <= 0.0:
+		world.events.publish({"type": "item.broke", "item": item})
+		var Inv: GDScript = load("res://sim/modules/inventory.gd") as GDScript
+		if Inv != null:
+			Inv.call("unequip_item", world, item)
+		return
+	_refresh_armed(world, item)
+
+
+static func repair_item(world: Variant, item: int) -> bool:
+	var c: Variant = world.components.get_component(item, "condition")
+	if not c is Dictionary:
+		return false
+	var cur: float = float((c as Dictionary).get("current", 1.0))
+	var ceil: float = float((c as Dictionary).get("ceiling", FULL_CONDITION))
+	if cur >= ceil:
+		return false
+	ceil = maxf(REPAIR_CEILING_FLOOR, ceil - REPAIR_CEILING_DROP)
+	(c as Dictionary)["ceiling"] = ceil
+	(c as Dictionary)["current"] = minf(ceil, cur + REPAIR_GAIN)
+	_refresh_armed(world, item)
+	world.events.publish({"type": "item.repaired", "item": item})
+	return true
+
+
+static func _refresh_armed(world: Variant, item: int) -> void:
+	for actor in world.components.query(["equipment"]):
+		var eq: Variant = world.components.get_component(int(actor), "equipment")
+		if not eq is Dictionary:
+			continue
+		var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
+		var found := false
+		for slot in slots.keys():
+			if int(slots[slot]) == item:
+				found = true
+				break
+		if not found:
+			continue
+		var melee: Variant = melee_profile_of(world, item)
+		if melee is Dictionary:
+			world.components.set_component(int(actor), "meleeWeapon", melee as Dictionary)
+			continue
+		var ranged: Variant = ranged_profile_of(world, item)
+		if ranged is Dictionary:
+			world.components.set_component(int(actor), "rangedWeapon", ranged as Dictionary)
+
+
+static func _weapon_for_attacker(world: Variant, attacker: int) -> int:
+	var eq: Variant = world.components.get_component(attacker, "equipment")
+	if not eq is Dictionary:
+		return -1
+	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
+	for slot in ["primary", "secondary"]:
+		if slots.has(slot):
+			var item: int = int(slots[slot])
+			if melee_profile_of(world, item) != null or ranged_profile_of(world, item) != null:
+				return item
+	return -1
+
+
+static func register_module(world: Variant) -> void:
+	world.events.subscribe({"id": "items.wear-on-hit", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
+		var attacker: int = int(event.get("attacker", -1))
+		if attacker < 0:
+			return
+		var weapon: int = _weapon_for_attacker(world, attacker)
+		if weapon >= 0:
+			apply_wear(world, weapon)
+	})
 
 static func melee_profile_of(world: Variant, item: int) -> Variant:
 	var base: Variant = item_base_of(world, item)
