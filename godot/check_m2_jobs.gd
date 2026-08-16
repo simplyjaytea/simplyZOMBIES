@@ -21,8 +21,10 @@ func _run() -> void:
 	ok = _jobs() and ok
 	ok = _corpse_haul() and ok
 	ok = _seek_wakes_rest() and ok
+	ok = _water_clean_bury() and ok
+	ok = _succession() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -80,6 +82,9 @@ func _focus() -> bool:
 	var auto: Dictionary = SimJobs.preset("Auto")
 	if int(auto.get("Haul", 0)) != 3 or int(auto.get("Guard", 0)) != 0:
 		push_error("auto %s" % str(auto))
+		return false
+	if int(auto.get("Water", 0)) != 3 or int(auto.get("Clean", 0)) != 3 or int(auto.get("Bury", 0)) != 3:
+		push_error("auto missing water/clean/bury %s" % str(auto))
 		return false
 	var medic: Dictionary = SimJobs.preset("Medic")
 	if int(medic.get("Doctor", 0)) != 1 or int(medic.get("Guard", 0)) != 2:
@@ -258,4 +263,118 @@ func _seek_wakes_rest() -> bool:
 		push_error("still sleeping after rest done")
 		return false
 	print("SEEK WAKE OK rest clears")
+	return true
+
+func _water_clean_bury() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var wells: Array = w.components.query(["water_source"])
+	if wells.is_empty():
+		push_error("no water_source station")
+		return false
+	var well: int = int(wells[0])
+	var wp: Variant = w.components.get_component(well, "position")
+	var well_tile := Vector2i(floori(float((wp as Dictionary)["x"])), floori(float((wp as Dictionary)["y"])))
+	# Water: empty bottle → fill at well
+	var bottle: int = SimItems.spawn_item(w, "item.water.bottle.empty", {"tier": "scavenged"})
+	var drop := Vector2i(46, 45)
+	for j in range(40, 60):
+		for i in range(40, 62):
+			if SimNeeds.is_stockpile_tile(w, i, j):
+				drop = Vector2i(i, j)
+				break
+		if drop != Vector2i(46, 45):
+			break
+	w.components.set_component(bottle, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
+	var water: Dictionary = SimJobs._water_work(w, mara, 46.0, 45.0)
+	if water.is_empty() or int(water.get("target", -1)) != bottle:
+		push_error("water work %s" % str(water))
+		return false
+	SimInventory.stow(w, mara, bottle)
+	w.components.set_component(mara, "position", {"x": float(well_tile.x) + 0.5, "y": float(well_tile.y) + 0.5})
+	water["ticksLeft"] = 1
+	w.components.set_component(mara, "job", water)
+	SimJobs._do_water(w, mara, water)
+	var base: Variant = w.components.get_component(bottle, "itemBase")
+	if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != "item.water.bottle":
+		push_error("bottle not filled %s" % str(base))
+		return false
+	# Clean: dirty → wash at source (no bottle consume)
+	SimNeeds.dirt(w, mara, 2)
+	if String(SimNeeds.of(w, mara).get("hygiene", "")) == "clean":
+		push_error("dirt failed")
+		return false
+	var clean: Dictionary = SimJobs._clean_work(w, mara, float(well_tile.x), float(well_tile.y))
+	if clean.is_empty():
+		push_error("clean work empty")
+		return false
+	clean["ticksLeft"] = 1
+	w.components.set_component(mara, "job", clean)
+	SimJobs._do_clean(w, mara, clean)
+	if String(SimNeeds.of(w, mara).get("hygiene", "")) != "clean":
+		push_error("clean failed")
+		return false
+	# Bury: corpse → dump → despawn
+	var w2: Variant = _world()
+	var m2: int = _mara(w2)
+	SimHealth.finish_death(w2, m2)
+	var bury: Dictionary = SimJobs._bury_work(w2, 46.0, 45.0)
+	if bury.is_empty() or int(bury.get("target", -1)) != m2:
+		push_error("bury work %s" % str(bury))
+		return false
+	w2.components.set_component(w2.player, "job", bury)
+	var mp: Variant = w2.components.get_component(m2, "position")
+	var ctile := Vector2i(floori(float((mp as Dictionary)["x"])), floori(float((mp as Dictionary)["y"])))
+	w2.components.set_component(w2.player, "position", {"x": float(ctile.x) + 0.5, "y": float(ctile.y) + 0.5})
+	SimJobs._do_bury(w2, w2.player, bury)
+	if not bool(bury.get("carrying", false)):
+		push_error("bury not carrying")
+		return false
+	var dump: Vector2i = SimJobs._corpse_dump()
+	w2.components.set_component(w2.player, "position", {"x": float(dump.x) + 0.5, "y": float(dump.y) + 0.5})
+	bury["ticksLeft"] = 1
+	w2.components.set_component(w2.player, "job", bury)
+	SimJobs._do_bury(w2, w2.player, bury)
+	if w2.components.has_component(m2, "corpse") or w2.entities.alive(m2):
+		push_error("corpse not buried")
+		return false
+	print("WATER CLEAN BURY OK")
+	return true
+
+func _succession() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var dead: int = int(w.player)
+	SimHealth.finish_death(w, dead)
+	if bool(w.runOver):
+		push_error("succession set runOver")
+		return false
+	if int(w.player) != mara:
+		push_error("wanted mara got %d" % int(w.player))
+		return false
+	if not w.components.has_component(mara, "controlled"):
+		push_error("mara not controlled")
+		return false
+	if not w.components.has_component(dead, "corpse"):
+		push_error("dead player not corpse")
+		return false
+	if w.components.has_component(dead, "controlled"):
+		push_error("dead still controlled")
+		return false
+	var snap: Dictionary = w.snapshot()
+	if int(snap.get("player", -1)) != mara:
+		push_error("snapshot player %s" % str(snap.get("player", null)))
+		return false
+	w.restore(snap)
+	if int(w.player) != mara:
+		push_error("restore player %d" % int(w.player))
+		return false
+	# Solo player → runOver
+	var w2: Variant = _world()
+	SimHealth.finish_death(w2, _mara(w2))
+	SimHealth.finish_death(w2, w2.player)
+	if not bool(w2.runOver):
+		push_error("solo death no runOver")
+		return false
+	print("SUCCESSION OK mara handoff snap solo")
 	return true

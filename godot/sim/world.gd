@@ -173,6 +173,7 @@ func snapshot() -> Dictionary:
 			"spawned": (recruits.get("spawned", []) as Array).duplicate(),
 		},
 		"runOver": runOver,
+		"player": int(player),
 	}
 
 
@@ -199,6 +200,13 @@ func restore(snap: Dictionary) -> void:
 			"spawned": (r.get("spawned", []) as Array).duplicate(),
 		}
 	runOver = bool(snap.get("runOver", false))
+	if snap.has("player"):
+		player = int(snap["player"])
+	elif components != null:
+		# Pre-0013 saves: rebind from controlled.
+		for e in components.query(["controlled"]):
+			player = int(e)
+			break
 	if tilemap != null:
 		SimFortifyRes.sync_map(self)
 
