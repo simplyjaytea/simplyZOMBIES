@@ -97,14 +97,16 @@ func _annex_shell() -> bool:
 	if indoors < 20:
 		push_error("annex indoors %d" % indoors)
 		return false
-	# Gate: two floor tiles on the north-wing south wall.
+	# Gate: three floor tiles on the south door.
 	var gate: int = 0
-	if SimTileMap.tile_at(map, 49, 49) == SimTileMap.Tile.Floor:
+	if SimTileMap.tile_at(map, 50, 57) == SimTileMap.Tile.Floor:
 		gate += 1
-	if SimTileMap.tile_at(map, 50, 49) == SimTileMap.Tile.Floor:
+	if SimTileMap.tile_at(map, 51, 57) == SimTileMap.Tile.Floor:
+		gate += 1
+	if SimTileMap.tile_at(map, 52, 57) == SimTileMap.Tile.Floor:
 		gate += 1
 	if gate < 2:
-		push_error("gate missing at 49,49 / 50,49")
+		push_error("gate missing at 50–52,57")
 		return false
 	print("ANNEX OK windows=%d screens=%d indoors=%d" % [windows, screens, indoors])
 	return true

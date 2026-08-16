@@ -35,7 +35,7 @@ const MEMORY_TICKS: int = 60
 # Drawing heights (metres), not a z-axis. Walls tall enough to hide rooms; windows are a sill.
 const OCCLUDER_RISE: Dictionary = {
 	SimTileMap.Tile.Wall: 4.8,
-	SimTileMap.Tile.Window: 0.35,
+	SimTileMap.Tile.Window: 2.6,
 	SimTileMap.Tile.Screen: 3.6,
 	SimTileMap.Tile.Low: 0.7,
 	SimTileMap.Tile.Tree: 3.2,
@@ -496,7 +496,7 @@ func _draw_district() -> void:
 		draw_colored_polygon(pts, col)
 		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["background"] * 0.9, 1.0)
 		var rise_m: float = float(OCCLUDER_RISE.get(tile, 0.0))
-		if player_indoors and (tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Screen):
+		if player_indoors and (tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Screen or tile == SimTileMap.Tile.Window):
 			rise_m = minf(rise_m, INDOOR_WALL_RISE_M)
 		if rise_m <= 0.0:
 			continue
@@ -512,9 +512,14 @@ func _draw_district() -> void:
 		var has_backdrop: bool = max_visible_depth > tile_depth + 0.01
 		if hides and has_backdrop:
 			col = Color(col.r, col.g, col.b, OCCLUDER_FADED_ALPHA)
-		draw_colored_polygon(top_pts, col.lightened(0.12))
-		draw_colored_polygon(PackedVector2Array([Vector2(sx - half_w, sy), Vector2(sx, sy + half_h), Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)]), col.darkened(0.18))
-		draw_colored_polygon(PackedVector2Array([Vector2(sx, sy + half_h), Vector2(sx + half_w, sy), Vector2(sx + half_w, sy - rise), Vector2(sx, sy + half_h - rise)]), col.darkened(0.08))
+		# Windows: bright glass faces + rim so they read against masonry.
+		var is_window: bool = tile == SimTileMap.Tile.Window
+		var face: Color = col.lightened(0.28) if is_window else col.lightened(0.12)
+		draw_colored_polygon(top_pts, face)
+		draw_colored_polygon(PackedVector2Array([Vector2(sx - half_w, sy), Vector2(sx, sy + half_h), Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)]), col.darkened(0.08 if is_window else 0.18))
+		draw_colored_polygon(PackedVector2Array([Vector2(sx, sy + half_h), Vector2(sx + half_w, sy), Vector2(sx + half_w, sy - rise), Vector2(sx, sy + half_h - rise)]), col.lightened(0.1) if is_window else col.darkened(0.08))
+		if is_window:
+			draw_polyline(top_pts + PackedVector2Array([top_pts[0]]), Color("#b8eaff"), 2.0)
 
 func _draw_entities() -> void:
 	if world == null: return
