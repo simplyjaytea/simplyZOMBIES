@@ -163,10 +163,12 @@ static func _tick_one(world: Variant, ent: int) -> void:
 			hard = String(n.get("temperature", "")) == "extremely_cold"
 		elif seek == "hygiene":
 			hard = String(n.get("hygiene", "")) == "filthy"
+		# Soft/seek never interrupt mid-action (ticksLeft > 0). Rest has ticksLeft 0.
 		if job is Dictionary and int((job as Dictionary).get("ticksLeft", 0)) > 0 and not hard:
 			_advance_job(world, ent, job as Dictionary)
 			return
-		if hard:
+		# Need seek beats Jobs: drop Rest / idle work so sleepers get up.
+		if job is Dictionary:
 			_stop(world, ent)
 		_do_seek(world, ent, seek)
 		return
@@ -270,11 +272,15 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 			best_d = d
 			best = item
 	if best < 0:
+		var dump: Vector2i = _corpse_dump()
 		for c in world.components.query(["corpse", "position"]):
 			var p2: Variant = world.components.get_component(int(c), "position")
 			if not p2 is Dictionary:
 				continue
-			if SimDirector.ANNEX.has_point(Vector2i(floori(float((p2 as Dictionary)["x"])), floori(float((p2 as Dictionary)["y"])))):
+			var cx: int = floori(float((p2 as Dictionary)["x"]))
+			var cy: int = floori(float((p2 as Dictionary)["y"]))
+			# Already at the outdoor dump — leave it.
+			if cx == dump.x and cy == dump.y:
 				continue
 			return {"kind": "Haul", "target": int(c), "corpse": true, "ticksLeft": 0, "path": [], "pathGen": -1}
 		return {}
@@ -397,6 +403,12 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 		"Doctor":
 			_do_doctor(world, ent, job)
 		"Rest":
+			# Seek continues until 80; Rest finishes there so Auto/Worker do not sleep forever.
+			if float(SimNeeds.of(world, ent).get("rest", 0.0)) >= 80.0:
+				if world.components.has_component(ent, "sleeping"):
+					SimNeeds.wake(world, ent)
+				_stop(world, ent)
+				return
 			var bed: int = int(job.get("target", -1))
 			if not world.components.has_component(ent, "sleeping"):
 				SimNeeds.start_sleep(world, ent, bed)
@@ -425,19 +437,22 @@ static func _job_tile(world: Variant, job: Dictionary) -> Vector2i:
 static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 	var item: int = int(job.get("target", -1))
 	if bool(job.get("carrying", false)):
+		# Corpses skip the Stockpile — ADR 0010: outdoor dump only (avoids stockpile↔dump oscillation).
+		if bool(job.get("corpse", false)):
+			var dump: Vector2i = _corpse_dump()
+			if not _at(world, ent, dump, REACH):
+				_walk(world, ent, job, dump)
+				return
+			world.components.set_component(item, "position", {"x": float(dump.x) + 0.5, "y": float(dump.y) + 0.5})
+			SimNeeds.dirt(world, ent, 1)
+			_stop(world, ent)
+			return
 		var drop: Vector2i = _stock_drop(world)
 		if drop.x < 0:
 			_stop(world, ent)
 			return
 		if not _at(world, ent, drop, REACH):
 			_walk(world, ent, job, drop)
-			return
-		if bool(job.get("corpse", false)):
-			var dump: Vector2i = Vector2i(SimFortify.GATE_A.x, SimFortify.GATE_A.y + 2)
-			_walk(world, ent, job, dump)
-			if _at(world, ent, dump, REACH):
-				SimNeeds.dirt(world, ent, 1)
-				_stop(world, ent)
 			return
 		SimInventory.drop_at_feet(world, ent, item)
 		var pos: Variant = world.components.get_component(item, "position")
@@ -447,6 +462,7 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 		_stop(world, ent)
 		return
 	if world.components.has_component(item, "corpse"):
+		# Same as item Haul: lift off the map so `_job_tile` is invalid and we path to the dump.
 		world.components.remove(item, "position")
 		job["carrying"] = true
 		SimNeeds.dirt(world, ent, 1)
@@ -458,6 +474,10 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 			return
 	world.components.remove(item, "position")
 	job["carrying"] = true
+
+
+static func _corpse_dump() -> Vector2i:
+	return Vector2i(SimFortify.GATE_A.x, SimFortify.GATE_A.y + 2)
 
 
 static func _stock_drop(world: Variant) -> Vector2i:
@@ -737,6 +757,8 @@ static func _still(world: Variant, ent: int) -> void:
 
 
 static func _stop(world: Variant, ent: int) -> void:
+	if world.components.has_component(ent, "sleeping"):
+		SimNeeds.wake(world, ent)
 	world.components.remove(ent, "job")
 	_still(world, ent)
 

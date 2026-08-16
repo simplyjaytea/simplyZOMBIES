@@ -7,6 +7,8 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 
 func _init() -> void:
@@ -17,8 +19,10 @@ func _run() -> void:
 	ok = _astar() and ok
 	ok = _focus() and ok
 	ok = _jobs() and ok
+	ok = _corpse_haul() and ok
+	ok = _seek_wakes_rest() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -145,4 +149,113 @@ func _jobs() -> bool:
 		push_error("inspect missing")
 		return false
 	print("JOBS OK haul cook construct rest doctor")
+	return true
+
+func _corpse_haul() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	SimHealth.finish_death(w, mara)
+	if not w.components.has_component(mara, "corpse"):
+		push_error("corpse missing")
+		return false
+	var mp: Variant = w.components.get_component(mara, "position")
+	if not mp is Dictionary:
+		push_error("corpse lost position")
+		return false
+	var job: Dictionary = {
+		"kind": "Haul", "target": mara, "corpse": true, "ticksLeft": 0, "path": [], "pathGen": -1,
+	}
+	w.components.set_component(w.player, "job", job)
+	var ctile := Vector2i(floori(float((mp as Dictionary)["x"])), floori(float((mp as Dictionary)["y"])))
+	w.components.set_component(w.player, "position", {"x": float(ctile.x) + 0.5, "y": float(ctile.y) + 0.5})
+	SimJobs._do_haul(w, w.player, job)
+	if not bool(job.get("carrying", false)):
+		push_error("corpse not carrying")
+		return false
+	if w.components.has_component(mara, "position"):
+		push_error("corpse position still set while carrying")
+		return false
+	# Carrying branch must walk to dump, not stockpile. Place at dump and finish.
+	var dump: Vector2i = SimJobs._corpse_dump()
+	w.components.set_component(w.player, "position", {"x": float(dump.x) + 0.5, "y": float(dump.y) + 0.5})
+	w.components.set_component(w.player, "job", job)
+	SimJobs._advance_job(w, w.player, job)
+	if w.components.has_component(w.player, "job"):
+		push_error("corpse haul never finished at dump")
+		return false
+	var placed: Variant = w.components.get_component(mara, "position")
+	if not placed is Dictionary:
+		push_error("corpse not placed at dump")
+		return false
+	var dx: int = floori(float((placed as Dictionary)["x"]))
+	var dy: int = floori(float((placed as Dictionary)["y"]))
+	if dx != dump.x or dy != dump.y:
+		push_error("corpse at %d,%d want dump %d,%d" % [dx, dy, dump.x, dump.y])
+		return false
+	# From a stockpile tile while carrying, next advance must leave for dump — not drop as stock.
+	var w2: Variant = _world()
+	var m2: int = _mara(w2)
+	SimHealth.finish_death(w2, m2)
+	var job2: Dictionary = {
+		"kind": "Haul", "target": m2, "corpse": true, "carrying": true, "ticksLeft": 0, "path": [], "pathGen": -1,
+	}
+	w2.components.remove(m2, "position")
+	var stock: Vector2i = SimJobs._stock_drop(w2)
+	if stock.x < 0:
+		push_error("no stockpile")
+		return false
+	w2.components.set_component(w2.player, "position", {"x": float(stock.x) + 0.5, "y": float(stock.y) + 0.5})
+	w2.components.set_component(w2.player, "job", job2)
+	SimJobs._advance_job(w2, w2.player, job2)
+	w2.components.set_component(w2.player, "job", job2)
+	if not bool(job2.get("carrying", false)):
+		push_error("corpse haul dropped at stockpile")
+		return false
+	if w2.components.has_component(m2, "position"):
+		push_error("corpse placed at stockpile")
+		return false
+	print("CORPSE HAUL OK dump")
+	return true
+
+func _seek_wakes_rest() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var beds: Array = w.components.query(["bed"])
+	var bed: int = beds[0]
+	var bp: Variant = w.components.get_component(bed, "position")
+	w.components.set_component(mara, "position", {
+		"x": float((bp as Dictionary)["x"]), "y": float((bp as Dictionary)["y"]),
+	})
+	w.components.set_component(mara, "job", {"kind": "Rest", "target": bed, "ticksLeft": 0, "path": [], "pathGen": -1})
+	SimNeeds.start_sleep(w, mara, bed)
+	if not w.components.has_component(mara, "sleeping"):
+		push_error("not sleeping")
+		return false
+	# Soft hunger seek — Need seek must clear Rest and wake.
+	var n: Dictionary = SimNeeds.of(w, mara)
+	n["hunger"] = 35.0
+	var food: int = SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+	SimInventory.stow(w, mara, food)
+	SimJobs._tick_one(w, mara)
+	if w.components.has_component(mara, "sleeping"):
+		push_error("still sleeping after seek")
+		return false
+	var job: Variant = w.components.get_component(mara, "job")
+	if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Rest":
+		push_error("rest job survived seek")
+		return false
+	# Rest finishes at rest >= 80 so Auto does not sleep forever.
+	w.components.set_component(mara, "job", {"kind": "Rest", "target": bed, "ticksLeft": 0, "path": [], "pathGen": -1})
+	SimNeeds.start_sleep(w, mara, bed)
+	n = SimNeeds.of(w, mara)
+	n["hunger"] = 100.0
+	n["rest"] = 80.0
+	SimJobs._tick_one(w, mara)
+	if w.components.has_component(mara, "job"):
+		push_error("rest did not finish at 80")
+		return false
+	if w.components.has_component(mara, "sleeping"):
+		push_error("still sleeping after rest done")
+		return false
+	print("SEEK WAKE OK rest clears")
 	return true
