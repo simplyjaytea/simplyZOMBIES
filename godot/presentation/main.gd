@@ -439,6 +439,9 @@ func _draw_district() -> void:
 				continue
 			tiles.append({"x": tx, "y": ty, "d": float(tx + ty), "blocked": world.is_blocked_tile(tx, ty)})
 	tiles.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
+	var max_visible_depth: float = -1e9
+	for t in tiles:
+		max_visible_depth = maxf(max_visible_depth, float(t["d"]))
 	for t in tiles:
 		var tx: int = int(t["x"]); var ty: int = int(t["y"])
 		var sc: Dictionary = IsoProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 0.5)
@@ -487,10 +490,12 @@ func _draw_district() -> void:
 			Vector2(sx, sy - half_h - rise), Vector2(sx + half_w, sy - rise),
 			Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)
 		])
-		# Near walls that cover the player fade so indoor play stays readable.
+		# Near walls that cover the player fade so indoor play stays readable, but only if
+		# there are visible tiles behind them (otherwise outdoors facades fade over void).
 		var tile_depth: float = IsoProjection.depth_of(float(tx) + 0.5, float(ty) + 0.5)
 		var hides: bool = tile_depth > player_depth and absf(sx - player_sx) < half_w * 2.2 and player_sy > sy - rise - 8.0 and player_sy < sy + half_h + 8.0
-		if hides:
+		var has_backdrop: bool = max_visible_depth > tile_depth + 0.01
+		if hides and has_backdrop:
 			col = Color(col.r, col.g, col.b, OCCLUDER_FADED_ALPHA)
 		draw_colored_polygon(top_pts, col.lightened(0.12))
 		draw_colored_polygon(PackedVector2Array([Vector2(sx - half_w, sy), Vector2(sx, sy + half_h), Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)]), col.darkened(0.18))
