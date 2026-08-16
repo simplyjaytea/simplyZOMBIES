@@ -1,0 +1,28 @@
+{
+  "id": "colony.skill_web.shallow",
+  "regions": ["Melee", "Ranged", "Medicine", "Craft", "Survival", "Endurance"],
+  "nodes": [
+    {"id": "melee.grip", "region": "Melee", "cost": 1, "stat": "melee_damage", "op": "mul", "value": 1.04},
+    {"id": "melee.tempo", "region": "Melee", "cost": 1, "stat": "swing_speed", "op": "mul", "value": 1.04},
+    {"id": "melee.reach", "region": "Melee", "cost": 2, "stat": "melee_reach", "op": "mul", "value": 1.05},
+    {"id": "ranged.breath", "region": "Ranged", "cost": 1, "stat": "ranged_accuracy", "op": "mul", "value": 1.06},
+    {"id": "ranged.follow", "region": "Ranged", "cost": 1, "stat": "ranged_accuracy", "op": "mul", "value": 1.04},
+    {"id": "ranged.calm", "region": "Ranged", "cost": 2, "stat": "ranged_accuracy", "op": "mul", "value": 1.05},
+    {"id": "med.hands", "region": "Medicine", "cost": 1, "stat": "healing_rate", "op": "mul", "value": 1.08},
+    {"id": "med.triage", "region": "Medicine", "cost": 2, "stat": "healing_rate", "op": "mul", "value": 1.06},
+    {"id": "craft.tape", "region": "Craft", "cost": 1, "stat": "repair_cost", "op": "mul", "value": 0.92},
+    {"id": "craft.scrap", "region": "Craft", "cost": 2, "stat": "repair_cost", "op": "mul", "value": 0.9},
+    {"id": "surv.haul", "region": "Survival", "cost": 1, "stat": "carry_capacity", "op": "add", "value": 2.0},
+    {"id": "surv.cook", "region": "Survival", "cost": 1, "stat": "spoilage_rate", "op": "mul", "value": 0.95},
+    {"id": "surv.water", "region": "Survival", "cost": 2, "stat": "carry_capacity", "op": "add", "value": 2.0},
+    {"id": "end.legs", "region": "Endurance", "cost": 1, "stat": "move_speed", "op": "mul", "value": 1.03},
+    {"id": "end.grit", "region": "Endurance", "cost": 2, "stat": "damage_taken", "op": "mul", "value": 0.96}
+  ],
+  "focusPaths": {
+    "Fighter": ["melee.grip", "melee.tempo", "ranged.breath", "end.legs", "melee.reach"],
+    "Worker": ["surv.haul", "surv.cook", "craft.tape", "end.legs", "surv.water"],
+    "Medic": ["med.hands", "med.triage", "end.grit", "surv.haul"],
+    "Scout": ["surv.haul", "ranged.breath", "end.legs", "ranged.follow"],
+    "Auto": ["surv.haul", "melee.grip", "med.hands", "ranged.breath", "end.legs"]
+  }
+}

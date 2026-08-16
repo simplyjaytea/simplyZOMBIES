@@ -74,9 +74,11 @@ static func set_focus(world: Variant, entity: int, focus: String) -> void:
 	var injured: bool = _injured(world, entity)
 	if focus == "Manual" and jp is Dictionary:
 		(jp as Dictionary)["focus"] = "Manual"
+		world.events.publish({"type": "job.focus_changed", "entity": entity, "focus": "Manual"})
 		return
 	var row: Dictionary = preset(focus, injured)
 	world.components.set_component(entity, "jobPriorities", {"focus": focus, "cols": row})
+	world.events.publish({"type": "job.focus_changed", "entity": entity, "focus": focus})
 
 
 static func set_priority(world: Variant, entity: int, column: String, value: int) -> void:
@@ -445,7 +447,7 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 				return
 			world.components.set_component(item, "position", {"x": float(dump.x) + 0.5, "y": float(dump.y) + 0.5})
 			SimNeeds.dirt(world, ent, 1)
-			_stop(world, ent)
+			_stop(world, ent, "Haul")
 			return
 		var drop: Vector2i = _stock_drop(world)
 		if drop.x < 0:
@@ -459,7 +461,7 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 		if pos is Dictionary:
 			(pos as Dictionary)["x"] = float(drop.x) + 0.5
 			(pos as Dictionary)["y"] = float(drop.y) + 0.5
-		_stop(world, ent)
+		_stop(world, ent, "Haul")
 		return
 	if world.components.has_component(item, "corpse"):
 		# Same as item Haul: lift off the map so `_job_tile` is invalid and we path to the dump.
@@ -506,7 +508,7 @@ static func _do_construct(world: Variant, ent: int, job: Dictionary) -> void:
 		SimFortify._board_window(world, int(job.get("tx", 0)), int(job.get("ty", 0)))
 	elif String(job.get("verb", "")) == "bed":
 		SimNeeds.make_bed(world, float(int(job.get("tx", 0))) + 0.5, float(int(job.get("ty", 0))) + 0.5)
-	_stop(world, ent)
+	_stop(world, ent, "Construct")
 
 
 static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
@@ -530,7 +532,7 @@ static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
 	if drop.x >= 0:
 		world.components.set_component(cooked, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
 	SimNeeds.set_lit(world, fire, true, false)
-	_stop(world, ent)
+	_stop(world, ent, "Cook")
 
 
 static func _do_doctor(world: Variant, ent: int, job: Dictionary) -> void:
@@ -546,7 +548,7 @@ static func _do_doctor(world: Variant, ent: int, job: Dictionary) -> void:
 	if SimNeeds.has_trait(world, ent, "squeamish") and world.modifiers != null:
 		world.modifiers.call("add", {"stat": "mood", "op": "add", "value": -8.0, "source": "trait.squeamish"}, ent)
 	SimNeeds.dirt(world, ent, 1)
-	_stop(world, ent)
+	_stop(world, ent, "Doctor")
 
 
 static func inspect(world: Variant, examiner: int, target: int) -> Dictionary:
@@ -712,16 +714,29 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 	if int(job.get("pathGen", -1)) != gen or path.is_empty():
 		var found: Array[Vector2i] = SimPath.find(world, here, dest)
 		path.clear()
+		# Dict steps so snapshot/fingerprint never sees Vector2i (export smoke).
 		for s in found:
-			path.append(s)
+			path.append({"x": s.x, "y": s.y})
 		job["path"] = path
 		job["pathGen"] = gen
 	if path.is_empty():
 		_still(world, ent)
 		return
-	var nxt: Vector2i = path[0] as Vector2i
-	var tx: float = float(nxt.x) + 0.5
-	var ty: float = float(nxt.y) + 0.5
+	var step: Variant = path[0]
+	var nx: int = 0
+	var ny: int = 0
+	if step is Dictionary:
+		nx = int((step as Dictionary).get("x", 0))
+		ny = int((step as Dictionary).get("y", 0))
+	elif typeof(step) == TYPE_VECTOR2I:
+		var v: Vector2i = step as Vector2i
+		nx = v.x
+		ny = v.y
+	else:
+		_still(world, ent)
+		return
+	var tx: float = float(nx) + 0.5
+	var ty: float = float(ny) + 0.5
 	var dx: float = tx - float((pos as Dictionary)["x"])
 	var dy: float = ty - float((pos as Dictionary)["y"])
 	if dx * dx + dy * dy < 0.04:
@@ -756,7 +771,9 @@ static func _still(world: Variant, ent: int) -> void:
 		(vel as Dictionary)["dy"] = 0.0
 
 
-static func _stop(world: Variant, ent: int) -> void:
+static func _stop(world: Variant, ent: int, completed: String = "") -> void:
+	if completed != "":
+		world.events.publish({"type": "job.completed", "entity": ent, "kind": completed})
 	if world.components.has_component(ent, "sleeping"):
 		SimNeeds.wake(world, ent)
 	world.components.remove(ent, "job")
