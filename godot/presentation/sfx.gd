@@ -22,6 +22,8 @@ var _streams: Dictionary = {}
 var _pool_i: int = 0
 var _constructing: Dictionary = {} # entity -> true while channeling
 var _bait_was_in_reach: bool = false
+var _hud: Label = null
+var _hud_until_ms: int = 0
 
 
 func _ready() -> void:
@@ -35,6 +37,25 @@ func _ready() -> void:
 		var stream: Variant = _load_wav(String(PATHS[key]))
 		if stream != null:
 			_streams[key] = stream
+	_hud = Label.new()
+	_hud.name = "SfxHud"
+	_hud.position = Vector2(8, 500)
+	_hud.add_theme_font_size_override("font_size", 14)
+	_hud.add_theme_color_override("font_color", Color(1.0, 0.92, 0.4))
+	_hud.text = "SFX: (waiting)"
+	var layer := CanvasLayer.new()
+	layer.name = "SfxHudLayer"
+	layer.layer = 20
+	add_child(layer)
+	layer.add_child(_hud)
+
+
+func _flash(clip: String, vol: float) -> void:
+	if _hud == null:
+		return
+	_hud.text = "SFX: %s  vol=%.2f  (dummy driver — silent on this VM)" % [clip, vol]
+	_hud_until_ms = Time.get_ticks_msec() + 2500
+	print("SFX_PLAY %s vol=%.2f" % [clip, vol])
 
 
 func _load_wav(path: String) -> Variant:
@@ -81,6 +102,9 @@ func _load_wav(path: String) -> Variant:
 func tick(world: Variant, camera: Dictionary, drained: Array) -> void:
 	if world == null:
 		return
+	if _hud != null and Time.get_ticks_msec() > _hud_until_ms and not String(_hud.text).begins_with("SFX: (waiting)"):
+		if not String(_hud.text).begins_with("SFX: noisemaker"):
+			_hud.text = "SFX: —"
 	var lx: float = float(camera.get("x", 0.0))
 	var ly: float = float(camera.get("y", 0.0))
 	_oneshots_from_events(world, drained, lx, ly)
@@ -167,7 +191,12 @@ func _noisemaker_loop(world: Variant, lx: float, ly: float) -> void:
 	var dist: float = sqrt((bx - lx) * (bx - lx) + (by - ly) * (by - ly))
 	var in_reach: bool = active and dist <= reach
 	if in_reach:
+<<<<<<< HEAD
 		_loop.volume_db = linear_to_db(maxf(0.0001, _vol(mag, dist)))
+=======
+		var vol: float = _vol(mag, dist)
+		_loop.volume_db = linear_to_db(maxi(0.0001, vol))
+>>>>>>> 3f7a506 (fix(sim): publish shout noise so alpha SFX can fire)
 		if not _bait_was_in_reach or not _loop.playing:
 			if stream is AudioStreamWAV:
 				var wav: AudioStreamWAV = stream as AudioStreamWAV
@@ -177,6 +206,9 @@ func _noisemaker_loop(world: Variant, lx: float, ly: float) -> void:
 				wav.loop_end = wav.data.size() / (bytes_per_sample * num_channels)
 			_loop.stream = stream as AudioStream
 			_loop.play()
+			_flash("noisemaker", vol)
+		elif _hud != null:
+			_hud.text = "SFX: noisemaker  vol=%.2f  (loop)" % vol
 		_bait_was_in_reach = true
 	else:
 		if _loop.playing:
@@ -197,6 +229,7 @@ func _play_oneshot(key: String, mag: float, x: float, y: float, lx: float, ly: f
 	p.stream = stream as AudioStream
 	p.volume_db = linear_to_db(maxf(0.0001, vol))
 	p.play()
+	_flash(key, vol)
 
 
 func _vol(mag: float, dist: float) -> float:
