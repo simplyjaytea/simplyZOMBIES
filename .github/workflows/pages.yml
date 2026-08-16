@@ -86,7 +86,7 @@ jobs:
           rm -rf "$tmp" /tmp/godot-tp
 
       - name: Export Godot web (root)
-        run: npm run godot:export
+        run: node scripts/run-godot.mjs --export-web
 
       - name: Assemble site (Godot at /)
         run: |

@@ -70,6 +70,9 @@ static func register_module(world: Variant) -> void:
 				_earn(world, ent, "Craft", 1)
 			"Doctor":
 				_earn(world, ent, "Medicine", 1)
+			"Rest":
+				# Docs/08: Endurance from hard nights / recovery — Rest is the slice hook.
+				_earn(world, ent, "Endurance", 1)
 			_:
 				pass
 	})
