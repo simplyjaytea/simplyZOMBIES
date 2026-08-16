@@ -60,10 +60,10 @@ static func register_module(world: Variant) -> void:
 		var ent: int = int(e.get("entity", -1))
 		if ent < 0 or not world.components.has_component(ent, "skillWeb"):
 			return
-		var kind: String = String(e.get("kind", ""))
-		match kind:
-			"Haul":
-				_earn(world, ent, "Endurance", 1)
+	var kind: String = String(e.get("kind", ""))
+	match kind:
+		"Haul":
+			_earn(world, ent, "Survival", 1)
 			"Cook":
 				_earn(world, ent, "Survival", 1)
 			"Construct":
