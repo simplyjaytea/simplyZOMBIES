@@ -26,6 +26,7 @@ const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const PresentationSfx = preload("res://presentation/sfx.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
@@ -68,6 +69,7 @@ var _light: Variant = null
 var _map: Variant = null
 var _content_error: String = ""
 var _content_poll_at: float = -1e9
+var _sfx: Node = null
 
 # movement input held
 var _held: Dictionary = {}
@@ -117,6 +119,8 @@ func _ready() -> void:
 		fixture = {"seed": int(world.seed), "tick_hz": TICK_HZ}
 	_resize_camera()
 	_ensure_ui()
+	_sfx = PresentationSfx.new()
+	add_child(_sfx)
 	queue_redraw()
 	print("GODOT_R1_READY")
 	if world != null:
@@ -309,12 +313,14 @@ func _process(delta: float) -> void:
 		world.step()
 		tick_count += 1
 		ticks_done += 1
+		_resize_camera()
+		if _sfx != null:
+			_sfx.tick(world, camera, world.events.drained)
 		if speed >= 10:
 			speed = SimFortify.speed_after_events(speed, world.events.drained)
 			if speed < 10:
 				accumulator = 0.0
 				break
-		_resize_camera()
 	if ticks_done > 0:
 		_update_condition_view()
 		_update_hud()
