@@ -1,6 +1,6 @@
 # Jobs, Rest, and Need seek
 
-The slice grid is Haul, Construct, Cook, Doctor, plus Rest. Steering (choke, alarm, noisemaker) stays a player verb. Need seek is an interrupt, not a Job.
+The slice **Work grid** is the 17 docs/07 columns; only some have consumers. Steering (choke, alarm, noisemaker) stays a player verb. Need seek is an interrupt, not a Job. First-implementation shape (Focus Auto, one PR, A*): [0011](0011-first-implementation.md).
 
 Lock for [How do NPCs pick Haul, Construct, Cook, and Doctor priorities?](https://github.com/simplyjaytea/simplyZOMBIES/issues/35).
 
@@ -8,7 +8,7 @@ Lock for [How do NPCs pick Haul, Construct, Cook, and Doctor priorities?](https:
 
 ## Grid
 
-Player is not on the grid. NPCs pick the highest enabled priority that has work, then nearest. Generated default: Haul 1, Construct 2, Cook 3, Doctor 4, Rest 2. Mara keeps Doctor 1 / Guard 2 / Rest 3; Guard is not a slice Job for recruits.
+Generated default is Focus **Auto** ([0011](0011-first-implementation.md)), not a hand-typed Haul-1 row. Mara keeps Doctor 1 / Guard 2 / Rest 3 (Focus Medic). Player is not on the grid. NPCs pick the highest enabled priority that has work, then nearest.
 
 | Job | Work |
 |---|---|
