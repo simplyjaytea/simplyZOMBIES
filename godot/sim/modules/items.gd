@@ -224,7 +224,15 @@ static func _refresh_armed(world: Variant, item: int) -> void:
 			continue
 		var ranged: Variant = ranged_profile_of(world, item)
 		if ranged is Dictionary:
-			world.components.set_component(int(actor), "rangedWeapon", ranged as Dictionary)
+			# Wear changes the weapon, not the shot already in flight. This used to overwrite the
+			# whole component, which dropped the runtime keys `make_ranged_armed` puts there --
+			# `state`, `mag`, `ticksLeft`, `flashTicks`, `coneHalf` -- and left `ranged.resolve`
+			# reading a `state` that no longer existed. Merge the refreshed numbers into the live
+			# weapon instead; the equip subscription stays the only thing that creates one.
+			var live: Variant = world.components.get_component(int(actor), "rangedWeapon")
+			if live is Dictionary:
+				for key in (ranged as Dictionary).keys():
+					(live as Dictionary)[key] = (ranged as Dictionary)[key]
 
 
 static func _weapon_for_attacker(world: Variant, attacker: int) -> int:

@@ -26,6 +26,7 @@ npm run godot:smoke      # project boots            → GODOT_PROJECT_SMOKE_OK
 npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
+npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~85 s, inside godot:m2)
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
@@ -75,10 +76,13 @@ Milestone 2, the vertical slice — one district, a handful of survivors, enough
 find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss,
 succession, and still wanting another run.
 
-The build order is in [docs/23](docs/23-roadmap.md#build-order). Steps 1–4 and most of 6 have
-landed (lethality, stats, roster, district, ranged, needs, jobs, web, upkeep, succession). The
-open block is **step 5: building, then the slice director** — see the Building and Director
-sections of [HANDOFF.md](HANDOFF.md).
+The build order is in [docs/23](docs/23-roadmap.md#build-order). Steps 1–6 have landed (lethality,
+stats, roster, district, ranged, needs, jobs, web, upkeep, building, the slice director,
+recruitment and succession). The open block is **step 7, "Proof": automated distribution runs,
+then the human ten-day playtest.** The harness exists in two tiers — `npm run godot:m2:balance`
+on every push, and `BALANCE_FULL=1 npm run godot:m2:balance:full` opt-in — and what is missing is
+a full grid actually run. Risks 1, 3 and 6 and "run ends only when the last survivor dies" are all
+written and asserted and waiting on it; see [HANDOFF.md](HANDOFF.md)'s "Do this next".
 
 [HANDOFF.md](HANDOFF.md) is the authority on what is built; [docs/23](docs/23-roadmap.md) on what
 is intended; [docs/30](docs/30-decisions.md) on why something that looks arbitrary is shaped that

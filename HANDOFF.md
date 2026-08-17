@@ -34,9 +34,9 @@ Four other places to know about, and nothing else is required reading:
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
 | 1 — The spine | 52 | 0 | 3 | ✅ **Closed.** Noise, scent, and light/sight are live; contact pursues, grabs, bites and can be broken with stamina. |
-| 2 — The vertical slice | 67 | 1 | 43 | ◐ **Underway.** Most of the build order has landed; see the audit note below. |
+| 2 — The vertical slice | 69 | 1 | 41 | ◐ **Underway.** Most of the build order has landed; see the audit note below. |
 | 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **158** | **1** | **62** | |
+| **Total** | **160** | **1** | **60** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
@@ -70,6 +70,32 @@ phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
 
 ## Do this next
 
+**The next thing is to run the full balance grid, and then to play it for ten days.** Milestone 2's
+build order is on its last step — [step 7, "Proof"](docs/23-roadmap.md#build-order): automated
+distribution runs, then the human playtest. The harness for it now exists in both tiers
+(`godot:m2:balance`, and `BALANCE_FULL=1 npm run godot:m2:balance:full`), and so does the NPC
+combat that had to land first — without it a headless colony fought with nothing, so risk 6 would
+have compared two arms that both scored zero.
+
+What is left is not more code, it is **a grid nobody has run yet**. The full tier is four seeds ×
+three arms of a real ten-day campaign; it is opt-in, and `BALANCE_DAYS` / `BALANCE_SEEDS` exist to
+scale it. Four things are written, asserted and waiting on that one run: **risk 6** (melee-only vs
+ranged-only), **risk 1** (the seeded six-survivor colony on Auto), **risk 3**'s verdict, and
+**"run ends only when the last survivor dies"**. Each is marked open with a note saying exactly
+that, rather than ticked on an assertion nothing has exercised.
+
+**What it costs, measured rather than estimated.** One real single-day campaign is 180,000 ticks
+and took **166 s** — about **1,085 ticks/second** headless, and the compressed tier measures ~950,
+close enough to say the day phases are not the expensive part. So a ten-day campaign is roughly
+**forty-five minutes** and the default four-seed × three-arm grid is about **nine hours**. That is
+an overnight job, not an afternoon one, which is why it is opt-in and why `BALANCE_SEEDS=1` exists
+for anyone who wants one arm's answer sooner.
+
+One number is already worth looking at, from the compressed tier: **3 siege nights in 10 days on
+every seed, and all three on days 8–10.** The first week is unpressured by construction — grace
+until day 3, then a trickle gated on `live < 8` while the district boots with 12 wanderers. See
+[risk 3](#building--spec-docs15) before deciding whether that is pacing or a bug.
+
 **R7 is closed. Infection lethality, the stats MVP, and the early-alpha execution slice are in.**
 Roster behaviors, civic-annex overlay, and bow/pistol fire loop land behind `godot:m2:roster`,
 `godot:m2:district`, and `godot:m2:ranged`. Exhausted swings now degrade (refuse path remains behind
@@ -78,6 +104,16 @@ Roster behaviors, civic-annex overlay, and bow/pistol fire loop land behind `god
 Rollback: `git checkout ts-oracle-final` (or `git show ts-oracle-final:src/sim/...`) restores the
 archived oracle. `godot/parity/` fixtures and snapshots stay on `main` for comparison. Pages now
 publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot:export`.
+
+**Found while building NPC combat: wear was wiping a ranged weapon's runtime state.**
+`items.gd`'s `_refresh_armed` re-derives a weapon profile after wear or repair and used to
+`set_component` the whole `rangedWeapon` dictionary — which threw away the runtime keys
+`make_ranged_armed` puts there (`state`, `mag`, `ticksLeft`, `flashTicks`, `coneHalf`) and left
+`ranged.resolve` reading a `state` that no longer existed. It has always been reachable by the
+player, since a connecting shot wears the weapon like any other hit; nothing had exercised enough
+shots in one run to hit it, and `M2_UPKEEP_OK`'s wear path is melee. It now merges the refreshed
+numbers into the live weapon instead, and `M2_NPC_COMBAT_OK`'s pistol branch — which fires a
+magazine down and reloads — is what would go red if it came back.
 
 **Named leftover still in the code:**
 - **The condition view has one voice.** docs/05 scales a part's prose by the examiner's Medicine
@@ -1003,6 +1039,12 @@ treatment, armor reduction, stages, and turning on top of that seam.
 - [ ] ⚠ **Risk checkpoint (roadmap risk 1):** run a seeded 6-survivor colony, all on auto. If that
       is not viable, the item and web systems need **shrinking** — not the UI improving. The seeded
       scenario prevents this checkpoint from inflating the slice's natural recruitment content.
+      *(**the scenario now exists and has not been run at length.** `check_m2_balance.gd`'s
+      `_six_survivors_on_auto` generates six colonists through `SimRecruits.roll` /
+      `spawn_generated`, sets every Focus to Auto, and asserts none of them goes a whole day
+      without taking a job — a stall being the shape this checkpoint asks about. It rides the
+      full tier, so it is in the same position as risk 6: written, waiting on a grid someone has
+      actually run.)*
 
 ### Needs — spec: [docs/04](docs/04-survival-needs.md)
 
@@ -1112,7 +1154,7 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Combat — spec: [docs/09](docs/09-combat.md)
 
-**Done (8):**
+**Done (9):**
 
 - [x] Melee reach and swing arc read from the same facing
       *(which is what makes reach legible as a property, and what makes being surrounded lethal in the
@@ -1136,15 +1178,32 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 - [x] Steadiness degraded by movement, exhaustion, pain, injured arms
       *(`ranged.gd` `_refresh_cone` widens on velocity, on stamina below 35%, and on the worse arm
       below 25 integrity — pain is not modelled as a condition yet, so that input is absent)*
+- [x] **NPC combat from assigned posts, breaking off when critically injured**
+      *(`sim/modules/npc_combat.gd`, one system at `combat/-5` — after `movement.integrate` has set
+      facing from velocity and before `melee.resolve`/`ranged.resolve` read it. It is an **intake,
+      not a second combat model**: both resolve loops already queried on `position`/`facing` and knew
+      nothing about who was acting, so the whole of it is pick a threat, turn to face it, and call
+      the same `SimMelee.try_begin_swing` / `SimRanged.try_begin_fire` the key press calls — those
+      two are new, extracted out of the command intakes so stamina, ammo, posture, grabs and
+      reload-when-empty have one copy rather than two that drift. Break-off is expressed in
+      `SimHealth.part_state`'s **words**, not integrity numbers, because each part has its own
+      maximum (a head is 15, a hand 10, a torso 40) and an absolute threshold would mean something
+      different on every part; `squeamish` and `iron_stomach` move it a rung either way. It never
+      sets a velocity — engaging is something a guard does *from* the gate. `godot:m2:npc` —
+      `M2_NPC_COMBAT_OK melee ranged breakoff quiet post`, with a true negative beside every
+      positive: unarmed connects nothing, an empty quiver never leaves Idle, a threat beyond
+      `ENGAGE_METRES` costs no arrow, and an empty district emits **zero** noise.)*
 
-**Open (3):**
+**Open (2):**
 
 - [ ] You cannot aim at what you cannot see — firing at a remembered position is allowed, and costs
       the full 180 noise and 60 muzzle flash either way
       *(nothing in `ranged.gd` consults `world.vision`; the shot resolves against the cone regardless
-      of whether the target was ever seen)*
+      of whether the target was ever seen. NPC combat deliberately did **not** paper over this with a
+      private line-of-sight check — that would be the second answer docs/28 warns about — so
+      `npc_combat.gd` bounds engagement by distance alone and says so. When this lands it lands in
+      `ranged.gd`, for the player and the guard at once.)*
 - [ ] Jamming on degraded weapons
-- [ ] NPC combat from assigned posts, breaking off when critically injured
 
 ### Items — spec: [docs/10](docs/10-items.md)
 
@@ -1258,6 +1317,14 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 - [ ] ⚠ **Risk checkpoint (roadmap risk 3):** are sieges frequent enough to justify building? If not,
       the [director](docs/17-director.md) needs a minimum siege cadence — a pacing change, not a change
       to the attention model.
+      *(**first measurement, and it is not comfortable.** `godot:m2:balance`'s compressed tier
+      reports **3 siege nights in 10 days on every one of four seeds, and all three are days 8, 9
+      and 10** — because `GRACE_COMPOSITION_UNTIL_DAY` is 3, `GRACE_PRESSURE_UNTIL_DAY` is 8, and
+      the trickle in between is gated on `live < TRICKLE_LIVE` (8) while the district boots with
+      12 wanderers. So the first seven nights of every run are unpressured by construction. That
+      is a number to put in front of a playtest, not yet a verdict: the compressed model does not
+      run the hours in which noise accumulates, and `weekPeakNoise` — one of the two things that
+      *raises* packet size — only sees the dusk windows. The verdict wants the full tier.)*
 
 ### Director — spec: [docs/17](docs/17-director.md)
 
@@ -1304,6 +1371,11 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 - [ ] Run ends only when the last survivor dies
       *(`world.runOver` is set when `_succession_pick` finds nobody, so the mechanism exists; left open
       until the ten-day harness actually exercises a run to its end and asserts it)*
+      *(**the assertion now exists and is waiting on the same grid as risks 1 and 6.**
+      `check_m2_balance.gd`'s `_assert_run_over_iff_wiped` checks both directions across every
+      full-tier campaign — a run that ended must have been wiped out, and a colony that was wiped
+      out must have ended. It stays open until a ten-day grid has been through it: an assertion
+      nothing has exercised proves as much as no assertion.)*
 
 ### UI — spec: [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
 
@@ -1354,13 +1426,42 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Balance harness — spec: [docs/19](docs/19-architecture.md#testing-strategy)
 
-**Open (3):**
+**Done (1):**
 
-- [ ] Headless multi-run harness — thousands of colonies across seeds
+- [x] **Headless multi-run harness — two tiers, because "thousands of colonies" is not reachable**
+      *(`godot/check_m2_balance.gd`. docs/19's testing table asks for thousands of headless runs;
+      one ten-day campaign is 2.88 M ticks (`Clock.DAY_TICKS` is 288,000), so thousands of them
+      is not a scheduling problem, it is arithmetic. So: a **fast** tier inside `godot:m2`, four
+      seeds × a compressed campaign that jumps to each day's dusk and steps a real window, in
+      **~85 s** (`npm run godot:m2:balance` — `M2_BALANCE_OK fast 4 seeds, 10 days, bands
+      invariants placement`); and a **full** tier, `BALANCE_FULL=1 npm run godot:m2:balance:full`,
+      four seeds × three arms of the real ten-day loop, opt-in, with `BALANCE_DAYS` and
+      `BALANCE_SEEDS` to scale it down. Every fact is read off the event bus —
+      `director.packet`, `fortify.breached`, `entity.killed`, `run.over` — so the harness adds no
+      simulation state and cannot change what it measures.)*
+
+**Open (2):**
+
 - [ ] Distribution assertions: quiet nights, sieges, deaths, run lengths
+      *(**half shipped.** Sieges and quiet nights are banded in the fast tier, with the pacing
+      invariants beside them — no packet on a gate, in the annex or inside `GATE_EXCLUSION`, and
+      `LIVE_CAP` never exceeded — and `SEEDS OK` asserts the seed actually reaches the director's
+      edge pick, which caught the loop being degenerate. **Deaths and run lengths are reported,
+      not banded**: they only exist in the full tier, and a band wants numbers from a grid that
+      has actually been run at ten days.)*
 - [ ] ⚠ **Risk checkpoint (roadmap risk 6):** measure whether melee-only and ranged-only colonies
       survive comparably. Elegant-on-paper parity usually collapses in playtesting — this is how we
       find out without arguing about it.
+      *(**unblocked and written, not yet answered.** It was blocked on something that was not
+      obvious until the harness was built: melee and ranged only ever fired from the `controlled`
+      entity, so a headless colony fought with nothing and the two arms would have produced
+      identical numbers. NPC combat above fixes that, and the full tier now boots melee-only,
+      ranged-only and mixed colonies differing only in what people carry — including sweeping
+      loose loot of the wrong class off the ground, or an arm drifts back to mixed the first time
+      somebody hauls. What is missing is a ten-day grid actually run: the director spends its
+      first week on grace and trickle (`GRACE_PRESSURE_UNTIL_DAY` 8), so a shortened run is a run
+      nothing attacked, and `_assert_arms_are_comparable` **refuses to assert on no data** and
+      says so rather than passing vacuously.)*
 
 ## Beyond the slice (designed, deliberately unbuilt)
 
