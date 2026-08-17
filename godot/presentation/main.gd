@@ -86,9 +86,12 @@ var _sfx: Node = null
 
 # movement input held
 var _held: Dictionary = {}
-var _sprinting: bool = false
 var _last_dx: float = 0.0
 var _last_dy: float = 0.0
+# Which of the non-sprint rungs (Z/X/C/V) is selected, so releasing Shift returns to it rather
+# than to a fixed default. Presentation-local only -- the sim never reads this, it only ever
+# sees the stance commands _push_stance sends.
+var _selected_stance: int = 2 # Walk
 
 const DIAG: float = 0.70710678
 const MOVE_KEYS: Dictionary = {
@@ -239,30 +242,33 @@ func _input(event: InputEvent) -> void:
 		# movement keys tracked for pump
 		if MOVE_KEYS.has(ke.keycode):
 			_held[ke.keycode] = true
-		if ke.keycode == KEY_SHIFT: _sprinting = true
+		# Shift is a latch on rung 4 (Sprint), not a key with its own stance number: press
+		# pushes Sprint, release returns to whichever of Z/X/C/V was last selected. The sim
+		# decides whether the request is honoured -- see the zero-stamina gate in world.gd's
+		# "stance" command case.
+		if ke.keycode == KEY_SHIFT: _push_stance(4)
 		# stance keys Z/X/C/V
-		if ke.keycode == KEY_Z: _push_stance(0)
-		if ke.keycode == KEY_X: _push_stance(1)
-		if ke.keycode == KEY_C: _push_stance(2)
-		if ke.keycode == KEY_V: _push_stance(3)
+		if ke.keycode == KEY_Z: _selected_stance = 0; _push_stance(0)
+		if ke.keycode == KEY_X: _selected_stance = 1; _push_stance(1)
+		if ke.keycode == KEY_C: _selected_stance = 2; _push_stance(2)
+		if ke.keycode == KEY_V: _selected_stance = 3; _push_stance(3)
 		queue_redraw()
 	if event is InputEventKey and not event.pressed:
 		var ke2: InputEventKey = event as InputEventKey
 		if MOVE_KEYS.has(ke2.keycode): _held.erase(ke2.keycode)
-		if ke2.keycode == KEY_SHIFT: _sprinting = false
+		if ke2.keycode == KEY_SHIFT: _push_stance(_selected_stance)
 	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if world != null and not inventory_open:
 			world.commands.push({"type": "fire"})
 
 func _push_stance(target: int) -> void:
 	if world == null: return
-	var posture: Variant = world.components.get_component(world.player, "posture")
-	if posture is Dictionary:
-		# stance module would handle ticks_left; direct set for R4 smoke
-		(posture as Dictionary)["target"] = target
-		if int((posture as Dictionary)["ticks_left"]) == 0:
-			(posture as Dictionary)["ticks_left"] = 4
-		world.commands.push({"type": "stance", "stance": target})
+	# Reads sim, never writes it -- this file's own header. The stance module (world.gd's
+	# "stance" command case and the player.advance-posture system) owns ticks_left and the
+	# current/target transition entirely; this used to reach into posture directly and set
+	# ticks_left on a dict that (pre-SimStances.make_posture) never had that key at all, an
+	# invalid-index crash on every Z/X/C/V press.
+	world.commands.push({"type": "stance", "stance": target})
 
 func _pump_input() -> void:
 	if world == null: return
@@ -273,7 +279,6 @@ func _pump_input() -> void:
 	if dx != _last_dx or dy != _last_dy:
 		world.commands.push({"type": "move", "dx": dx, "dy": dy})
 		_last_dx = dx; _last_dy = dy
-	# sprint latch omitted for R4 smoke (world._apply_commands reads velocity directly)
 
 func _toggle_legend() -> void:
 	if _legend != null:

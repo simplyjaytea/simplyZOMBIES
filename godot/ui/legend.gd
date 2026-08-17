@@ -21,8 +21,8 @@ const TITLE_SIZE: int = 15
 const GROUPS: Array = [
 	["Move", [
 		["WASD", "walk"],
-		["Shift", "sprint — fast, and loud"],
-		["C / X / Z", "crouch, crawl, stand"],
+		["Shift", "sprint — fast, and loud, latches while held"],
+		["Z / X / C / V", "crawl, crouch, walk, jog"],
 	]],
 	["Act", [
 		["F", "swing, or struggle out of a grab"],
