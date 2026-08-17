@@ -89,13 +89,17 @@ Milestone 2, the vertical slice — one district, a handful of survivors, enough
 find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss,
 succession, and still wanting another run.
 
-The build order is in [docs/23](docs/23-roadmap.md#build-order). Steps 1–6 have landed (lethality,
-stats, roster, district, ranged, needs, jobs, web, upkeep, building, the slice director,
-recruitment and succession). The open block is **step 7, "Proof": automated distribution runs,
-then the human ten-day playtest.** The harness exists in two tiers — `npm run godot:m2:balance`
-on every push, and `BALANCE_FULL=1 npm run godot:m2:balance:full` opt-in — and what is missing is
-a full grid actually run. Risks 1, 3 and 6 and "run ends only when the last survivor dies" are all
-written and asserted and waiting on it; see [HANDOFF.md](HANDOFF.md)'s "Do this next".
+The current design pass pauses new NPCs and adjacent feature scope; **Mara remains the test
+survivor.** Focus is the first playable survival loop: wounds, treatment, stamina, and recovery.
+The design record is
+[`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`](.hermes/plans/2026-08-17_065300-vertical-slice-design.md).
+It captures decisions, not shipped behavior: do not move any health/injury checkbox until code and
+a focused Godot check prove it.
+
+Finish that contract and a reproducible 72-hour acceptance scenario before adding survival code.
+Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
+not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are
+still required Milestone 2 proof, deferred behind this focused survival loop rather than cancelled.
 
 [HANDOFF.md](HANDOFF.md) is the authority on what is built; [docs/23](docs/23-roadmap.md) on what
 is intended; [docs/30](docs/30-decisions.md) on why something that looks arbitrary is shaped that

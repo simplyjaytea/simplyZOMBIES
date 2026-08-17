@@ -17,6 +17,22 @@ This repo is the game **simplyZOMBIES**.
 Standard commands live in `package.json` scripts, `README.md`, and `.github/workflows/ci.yml`;
 use those as the source of truth.
 
+## Current work handoff
+
+`HANDOFF.md` remains the authority on implemented reality. The active design record is
+`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is **not** implementation evidence.
+
+- Pause new NPCs and adjacent feature scope. Mara remains the sole test survivor.
+- Current product focus: survival systems — wounds, treatment, stamina, and recovery.
+- The first survival loop is being specified before code: damaging zombie hits create located
+  wounds; pressure/bandaging, recovery, and stamina must remain deterministic simulation state;
+  player readouts stay diegetic and prose-only.
+- Do not mark any survival item done until code and a focused Godot check exist. The full balance
+  grid and ten-day playtest remain required proof, deferred behind this focused loop rather than
+  cancelled.
+- Before implementing new survival behavior, finish the contract in the plan and write the
+  reproducible 72-hour scenario. Preserve sim/presentation separation and the health-bar ban.
+
 ## Two different containers, two different starting states
 
 Which one you are in changes the first thing you have to do.
