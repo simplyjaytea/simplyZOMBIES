@@ -108,26 +108,10 @@ static func register_module(world: Variant) -> void:
 		if not fire and not reload:
 			return
 		for entity in w.components.query(["rangedWeapon", "controlled"]):
-			if w.components.has_component(int(entity), "grabbed"):
-				continue
-			var rw: Variant = w.components.get_component(int(entity), "rangedWeapon")
-			if rw == null:
-				continue
-			var r: Dictionary = rw as Dictionary
-			if int(r["state"]) != FireState.Idle:
-				continue
-			if not _capable_of(w, int(entity)):
-				continue
-			if reload or (fire and int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0):
-				if not _begin_reload(w, int(entity), r):
-					continue
-				continue
-			if not fire:
-				continue
-			if String(r.get("ammo", "")) != "" and not _has_ammo(w, int(entity), String(r["ammo"])):
-				continue
-			r["state"] = FireState.Raise
-			r["ticksLeft"] = RAISE_TICKS
+			if reload:
+				try_begin_reload(w, int(entity))
+			elif fire:
+				try_begin_fire(w, int(entity))
 	)
 
 	world.systems.register("ranged.resolve", "combat", 1, func(w: Variant) -> void:
@@ -186,6 +170,44 @@ static func register_module(world: Variant) -> void:
 					r["state"] = FireState.Idle
 					r["ticksLeft"] = 0
 	)
+
+
+# Every precondition a shot has to pass, in one place — see the note on SimMelee.try_begin_swing.
+# An empty magazine turns a fire into a reload, which is the behaviour the key press already had
+# and is now the behaviour an NPC inherits rather than reimplements.
+static func try_begin_fire(world: Variant, entity: int) -> bool:
+	var rw: Variant = _idle_weapon(world, entity)
+	if not rw is Dictionary:
+		return false
+	var r: Dictionary = rw as Dictionary
+	if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
+		return _begin_reload(world, entity, r)
+	if String(r.get("ammo", "")) != "" and not _has_ammo(world, entity, String(r["ammo"])):
+		return false
+	r["state"] = FireState.Raise
+	r["ticksLeft"] = RAISE_TICKS
+	return true
+
+
+static func try_begin_reload(world: Variant, entity: int) -> bool:
+	var rw: Variant = _idle_weapon(world, entity)
+	if not rw is Dictionary:
+		return false
+	return _begin_reload(world, entity, rw as Dictionary)
+
+
+# Armed, idle, ungrabbed and capable — the gate a fire and a reload share.
+static func _idle_weapon(world: Variant, entity: int) -> Variant:
+	if world.components.has_component(entity, "grabbed"):
+		return null
+	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
+	if not rw is Dictionary:
+		return null
+	if int((rw as Dictionary)["state"]) != FireState.Idle:
+		return null
+	if not _capable_of(world, entity):
+		return null
+	return rw
 
 
 static func _begin_reload(world: Variant, entity: int, r: Dictionary) -> bool:

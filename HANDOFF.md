@@ -34,9 +34,9 @@ Four other places to know about, and nothing else is required reading:
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
 | 1 — The spine | 52 | 0 | 3 | ✅ **Closed.** Noise, scent, and light/sight are live; contact pursues, grabs, bites and can be broken with stamina. |
-| 2 — The vertical slice | 67 | 1 | 43 | ◐ **Underway.** Most of the build order has landed; see the audit note below. |
+| 2 — The vertical slice | 68 | 1 | 42 | ◐ **Underway.** Most of the build order has landed; see the audit note below. |
 | 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **158** | **1** | **62** | |
+| **Total** | **159** | **1** | **61** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
@@ -78,6 +78,16 @@ Roster behaviors, civic-annex overlay, and bow/pistol fire loop land behind `god
 Rollback: `git checkout ts-oracle-final` (or `git show ts-oracle-final:src/sim/...`) restores the
 archived oracle. `godot/parity/` fixtures and snapshots stay on `main` for comparison. Pages now
 publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot:export`.
+
+**Found while building NPC combat: wear was wiping a ranged weapon's runtime state.**
+`items.gd`'s `_refresh_armed` re-derives a weapon profile after wear or repair and used to
+`set_component` the whole `rangedWeapon` dictionary — which threw away the runtime keys
+`make_ranged_armed` puts there (`state`, `mag`, `ticksLeft`, `flashTicks`, `coneHalf`) and left
+`ranged.resolve` reading a `state` that no longer existed. It has always been reachable by the
+player, since a connecting shot wears the weapon like any other hit; nothing had exercised enough
+shots in one run to hit it, and `M2_UPKEEP_OK`'s wear path is melee. It now merges the refreshed
+numbers into the live weapon instead, and `M2_NPC_COMBAT_OK`'s pistol branch — which fires a
+magazine down and reloads — is what would go red if it came back.
 
 **Named leftover still in the code:**
 - **The condition view has one voice.** docs/05 scales a part's prose by the examiner's Medicine
@@ -1112,7 +1122,7 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Combat — spec: [docs/09](docs/09-combat.md)
 
-**Done (8):**
+**Done (9):**
 
 - [x] Melee reach and swing arc read from the same facing
       *(which is what makes reach legible as a property, and what makes being surrounded lethal in the
@@ -1136,15 +1146,32 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 - [x] Steadiness degraded by movement, exhaustion, pain, injured arms
       *(`ranged.gd` `_refresh_cone` widens on velocity, on stamina below 35%, and on the worse arm
       below 25 integrity — pain is not modelled as a condition yet, so that input is absent)*
+- [x] **NPC combat from assigned posts, breaking off when critically injured**
+      *(`sim/modules/npc_combat.gd`, one system at `combat/-5` — after `movement.integrate` has set
+      facing from velocity and before `melee.resolve`/`ranged.resolve` read it. It is an **intake,
+      not a second combat model**: both resolve loops already queried on `position`/`facing` and knew
+      nothing about who was acting, so the whole of it is pick a threat, turn to face it, and call
+      the same `SimMelee.try_begin_swing` / `SimRanged.try_begin_fire` the key press calls — those
+      two are new, extracted out of the command intakes so stamina, ammo, posture, grabs and
+      reload-when-empty have one copy rather than two that drift. Break-off is expressed in
+      `SimHealth.part_state`'s **words**, not integrity numbers, because each part has its own
+      maximum (a head is 15, a hand 10, a torso 40) and an absolute threshold would mean something
+      different on every part; `squeamish` and `iron_stomach` move it a rung either way. It never
+      sets a velocity — engaging is something a guard does *from* the gate. `godot:m2:npc` —
+      `M2_NPC_COMBAT_OK melee ranged breakoff quiet post`, with a true negative beside every
+      positive: unarmed connects nothing, an empty quiver never leaves Idle, a threat beyond
+      `ENGAGE_METRES` costs no arrow, and an empty district emits **zero** noise.)*
 
-**Open (3):**
+**Open (2):**
 
 - [ ] You cannot aim at what you cannot see — firing at a remembered position is allowed, and costs
       the full 180 noise and 60 muzzle flash either way
       *(nothing in `ranged.gd` consults `world.vision`; the shot resolves against the cone regardless
-      of whether the target was ever seen)*
+      of whether the target was ever seen. NPC combat deliberately did **not** paper over this with a
+      private line-of-sight check — that would be the second answer docs/28 warns about — so
+      `npc_combat.gd` bounds engagement by distance alone and says so. When this lands it lands in
+      `ranged.gd`, for the player and the guard at once.)*
 - [ ] Jamming on degraded weapons
-- [ ] NPC combat from assigned posts, breaking off when critically injured
 
 ### Items — spec: [docs/10](docs/10-items.md)
 
