@@ -187,6 +187,9 @@ switch (mode) {
       "res://check_m2_harness.gd",
     ];
     break;
+  case "--handoff":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_handoff.gd"];
+    break;
   case "--hud":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;
