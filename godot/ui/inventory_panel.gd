@@ -105,10 +105,10 @@ func _try_pick(at: Vector2) -> void:
 	if _body_view == "injuries":
 		# injury rows
 		var list_x: float = body_x + 276.0; var list_y: float = body_y + 52.0
-		for i in range(6):
+		for i in range(SimCondition.PART_ORDER.size()):
 			var r: Rect2 = Rect2(Vector2(list_x, list_y + float(i) * 27.0), Vector2(248, 27))
 			if r.has_point(at):
-				_selected_part = ["head", "torso", "arms", "hands", "legs", "feet"][i]
+				_selected_part = SimCondition.PART_ORDER[i]
 				queue_redraw(); return
 		return
 	# equipment slots (simplified 7 slots)
@@ -239,26 +239,43 @@ func _draw() -> void:
 		_paperdoll.position = Vector2(body_x + 12, body_y + 42)
 		_paperdoll.visible = true
 		var list_x: float = body_x + 276.0; var list_y: float = body_y + 52.0
+		var list_w: float = 248.0
 		# Each part's state as a word, from the same read model the paperdoll and HUD use.
 		# Still no integrity value and no fraction -- docs/01 clause 4 and the ban gated by
 		# check_ban_health_bar.gd. The list previously showed only part names, which told a
 		# player nothing about which of them was actually hurt.
-		var states: Dictionary = {}
+		var by_part: Dictionary = {}
 		if _world != null:
 			for entry in (SimCondition.view(_world, _actor).get("parts", []) as Array):
 				var pd: Dictionary = entry as Dictionary
-				states[String(pd.get("part", ""))] = int(pd.get("state", 0))
+				by_part[String(pd.get("part", ""))] = pd
 		var idx: int = 0
 		for part in SimCondition.PART_ORDER:
 			var sel: bool = part == _selected_part
 			if sel:
-				draw_rect(Rect2(Vector2(list_x, list_y + float(idx) * 27.0), Vector2(248, 25)), Color("#1e2225"))
+				draw_rect(Rect2(Vector2(list_x, list_y + float(idx) * 27.0), Vector2(list_w, 25)), Color("#1e2225"))
 			var row_y: float = list_y + float(idx) * 27.0 + 16
-			draw_string(ThemeDB.fallback_font, Vector2(list_x + 6, row_y), part, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
-			var st: int = int(states.get(part, 0))
+			draw_string(ThemeDB.fallback_font, Vector2(list_x + 6, row_y), SimCondition.label_of(part), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
+			var d: Dictionary = by_part.get(part, {}) as Dictionary
+			var st: int = int(d.get("state", 0))
 			var word: String = PART_STATE_WORDS[st] if st < PART_STATE_WORDS.size() else ""
 			var tint: Color = Palette.CONDITION_TINTS[st] if st < Palette.CONDITION_TINTS.size() else Color("#7b776e")
 			draw_string(ThemeDB.fallback_font, Vector2(list_x + 96, row_y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
+			# The same three words the paperdoll draws as marks on the figure, here as text
+			# for the row the player is actually reading. `infected` is already a word
+			# (diagnosis_of_part's actionable) rather than a boolean, so it says more than
+			# "something is wrong" without ever naming a stage.
+			var tags: Array[String] = []
+			if bool(d.get("wounded", false)):
+				tags.append("wound")
+			var infected: String = String(d.get("infected", "none"))
+			if infected != "none":
+				tags.append(infected)
+			if bool(d.get("armored", false)):
+				tags.append("armoured")
+			if not tags.is_empty():
+				var tag_text: String = UiText.fit(ThemeDB.fallback_font, " · ".join(tags), 10, list_x + list_w - (list_x + 168.0) - 6.0)
+				draw_string(ThemeDB.fallback_font, Vector2(list_x + 168.0, row_y), tag_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#8b929c"))
 			idx += 1
 	# grids to the right of body panel, wrapping
 	var gx: float = body_x + body_w + 12.0

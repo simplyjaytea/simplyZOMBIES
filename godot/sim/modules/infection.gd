@@ -48,7 +48,7 @@ static func stage_duration_ticks(s: int, _world: Variant = null, entity: Variant
 	return maxi(1, int(ceil(float(base) / factor)))
 
 
-static func _armor_coverage(world: Variant, actor: int, bodyPart: String) -> float:
+static func armor_coverage_of(world: Variant, actor: int, bodyPart: String) -> float:
 	# Reads equipped items — max coverage per part, not sum.
 	var max_cov: float = 0.0
 	var equipped: Array = SimInventoryRes.equipped_items(world, actor) as Array
@@ -59,6 +59,29 @@ static func _armor_coverage(world: Variant, actor: int, bodyPart: String) -> flo
 			if m is Dictionary and (m as Dictionary).has(bodyPart):
 				max_cov = maxf(max_cov, clampf(float((m as Dictionary)[bodyPart]), 0.0, 1.0))
 	return clampf(max_cov, 0.0, MAX_COVERAGE)
+
+
+# The one place a stage becomes a sentence. diagnosis_of and diagnosis_of_part both call
+# this rather than each keeping their own match block -- exactly the class of bug the sided
+# body split found in check_m2_lethality.gd's stale claim about armor: two things that say
+# the same fact independently drift the moment only one of them is updated.
+static func _diagnosis_for_stage(worst: int, examinerSkill: int, anyTransmitted: bool) -> Dictionary:
+	match worst:
+		Stage.Latent:
+			return {"label": "clear", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
+		Stage.Onset:
+			return {"label": "fever", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
+		Stage.Progression:
+			if examinerSkill >= 2:
+				return {"label": ("probable infection" if anyTransmitted else "probable sepsis"), "certainty": "likely", "actionable": "treat", "stage": worst, "clock": "maybe a day"}
+			return {"label": "ill", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
+		Stage.Critical:
+			if examinerSkill >= 2:
+				return {"label": "critical", "certainty": "certain", "actionable": "critical", "stage": worst, "clock": "hours"}
+			return {"label": "critical", "certainty": "certain", "actionable": "critical", "stage": worst}
+		Stage.Turned:
+			return {"label": "turned", "certainty": "certain", "actionable": "critical", "stage": worst}
+	return {"label": "clear", "certainty": "ambiguous", "actionable": "none", "stage": worst}
 
 
 static func diagnosis_of(world: Variant, entity: int, examinerSkill: int) -> Dictionary:
@@ -77,22 +100,31 @@ static func diagnosis_of(world: Variant, entity: int, examinerSkill: int) -> Dic
 		worst = maxi(worst, st)
 	if worst < 0:
 		return {"label": "clear", "certainty": "certain", "actionable": "none", "stage": -1}
-	match worst:
-		Stage.Latent:
-			return {"label": "clear", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
-		Stage.Onset:
-			return {"label": "fever", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
-		Stage.Progression:
-			if examinerSkill >= 2:
-				return {"label": ("probable infection" if anyTransmitted else "probable sepsis"), "certainty": "likely", "actionable": "treat", "stage": worst, "clock": "maybe a day"}
-			return {"label": "ill", "certainty": "ambiguous", "actionable": "watch", "stage": worst}
-		Stage.Critical:
-			if examinerSkill >= 2:
-				return {"label": "critical", "certainty": "certain", "actionable": "critical", "stage": worst, "clock": "hours"}
-			return {"label": "critical", "certainty": "certain", "actionable": "critical", "stage": worst}
-		Stage.Turned:
-			return {"label": "turned", "certainty": "certain", "actionable": "critical", "stage": worst}
-	return {"label": "clear", "certainty": "ambiguous", "actionable": "none", "stage": worst}
+	return _diagnosis_for_stage(worst, examinerSkill, anyTransmitted)
+
+
+# Same read, filtered to exposures on one located part -- for the paperdoll, which shows
+# located conditions on the part they are on (docs/05#the-condition-view) rather than one
+# body-wide line. Never returns `transmitted`, same as diagnosis_of; the only difference is
+# which exposures it takes the worst of.
+static func diagnosis_of_part(world: Variant, entity: int, examinerSkill: int, bodyPart: String) -> Dictionary:
+	var state: Variant = world.components.get_component(entity, "zombieInfection")
+	if state == null or not (state as Dictionary).has("exposures"):
+		return {"label": "clear", "certainty": "certain", "actionable": "none", "stage": -1}
+	var exposures: Array = (state as Dictionary)["exposures"] as Array
+	var worst: int = -1
+	var anyTransmitted: bool = false
+	for e in exposures:
+		var ed: Dictionary = e as Dictionary
+		if String(ed.get("bodyPart", "")) != bodyPart:
+			continue
+		if bool(ed.get("transmitted", false)):
+			anyTransmitted = true
+		var st: int = int(ed.get("stage", Stage.Latent))
+		worst = maxi(worst, st)
+	if worst < 0:
+		return {"label": "clear", "certainty": "certain", "actionable": "none", "stage": -1}
+	return _diagnosis_for_stage(worst, examinerSkill, anyTransmitted)
 
 
 static func cauterize(world: Variant, entity: int, bodyPart: String) -> Dictionary:
@@ -120,7 +152,7 @@ static func cauterize(world: Variant, entity: int, bodyPart: String) -> Dictiona
 
 
 static func amputate(world: Variant, entity: int, bodyPart: String) -> Dictionary:
-	var limb_parts: Array[String] = ["arms", "hands", "legs", "feet"]
+	var limb_parts: Array[String] = ["arm_left", "arm_right", "hand_left", "hand_right", "leg_left", "leg_right", "foot_left", "foot_right"]
 	if not limb_parts.has(bodyPart):
 		return {"ok": false, "reason": "not-limb"}
 	var state: Variant = world.components.get_component(entity, "zombieInfection")
@@ -245,7 +277,7 @@ static func register_module(world: Variant) -> void:
 			world.components.set_component(victim, "zombieInfection", state)
 		var exposures: Array = (state as Dictionary)["exposures"] as Array
 		var bodyPart: String = String(event["bodyPart"])
-		var cov: float = _armor_coverage(world, victim, bodyPart)
+		var cov: float = armor_coverage_of(world, victim, bodyPart)
 		var eff: float = BITE_TRANSMISSION_CHANCE * (1.0 - cov)
 		var transmitted: bool = float(rng.call("next")) < eff
 		exposures.append({

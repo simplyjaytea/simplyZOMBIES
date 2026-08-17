@@ -92,6 +92,45 @@ publishes Godot at `/`; a failed CI publishes nothing. `npm run build` is `godot
   bloater colours that used to be literals in the draw loop now live in their JSON, which is what
   proves the pipeline with no art present. Gate: `npm run godot:check:appearance`
   (`APPEARANCE_OK`). Conventions in `godot/assets/sprites/README.md`.
+- **The paperdoll scales to its control and names every stance correctly.** `_height` was a
+  hardcoded 118.0 that ignored `size`, so the 260px gear-panel doll drew the same figure as the
+  140px corner glimpse. `_figure_height()` fits `h` to whatever box the control actually is,
+  bounded by whichever pose (standing tallest, prone widest) is tightest, so no stance clips at
+  any size. The posture label was its own three-way ternary that mapped stance 0 (Crawl) to
+  "stand" and stances 3–4 (Jog, Sprint) both to "walk" — three of five stances were mislabeled.
+  It now reads `SimStances.NAMES`, the one canonical stance-name list, instead of keeping its own.
+  Verified visually across all five stances at both sizes under Xvfb. Left alone: `sim/stance.gd`
+  (singular) is dead code superseded by `sim/stances.gd` (plural) and uses a different component
+  key (`"Posture"` vs the live `"posture"`) — unreferenced anywhere, so harmless, but a trap for
+  anyone who greps for the wrong file.
+- **The paperdoll draws all ten sided parts independently, plus wounds, infection, and
+  armour.** The LEGACY_REGIONS bridge from the body split is gone — each arm/hand/leg/foot
+  is now drawn and tinted from its own `arm_left`/`arm_right` (etc.) entry rather than the
+  worse of the two. The figure faces the viewer (their left is your right), documented once
+  in `SIDE_NAME` rather than re-decided per limb. `condition.gd`'s view grew three new
+  boolean/word fields for this — `wounded` (has a recorded `injuries.wounds` entry on this
+  part), `infected` (`SimInfection.diagnosis_of_part`'s `actionable` word, never a stage or
+  `transmitted`), `armored` (`SimInfection.armor_coverage_of` — renamed public, was private
+  — is greater than zero for this part) — all still words or booleans, never the number
+  behind them. A wound draws a small ring, an infection a second ring beside it, armour
+  thickens and re-colours the part's outline rather than competing with the condition tint
+  for the fill. Verified visually under Xvfb with a body damaged asymmetrically, a recorded
+  wound, an active exposure, and an equipped vest, all four active at once and all agreeing
+  with the injuries-tab text.
+- **Found while starting this: the sided-limb split had left arm armour dead.**
+  `item.wrap.cloth` and `item.vest.scrap`'s `armor` blocks still keyed arm coverage as
+  `"arms"` — the pre-split name — so `armor_coverage_of` never matched `arm_left`/`arm_right`
+  and a worn vest gave zero arm protection against bite transmission. The item schema's
+  `armor` property has no `additionalProperties: false`, so `godot:validate` could never
+  catch this; only a real gate could, and none existed despite `check_m2_lethality.gd`'s own
+  file comment claiming "armor reduces transmission" since before the split. Both are fixed:
+  content keys split into `arm_left`/`arm_right`, and `_armor_reduces_transmission()` now
+  actually tests it (`ARMOR OK armored=291 unarmored=427 of 500`).
+- **New gates:** `_sidedness_is_independent()` and
+  `_wound_infection_armor_are_true_words_not_numbers()` in `check_ban_health_bar.gd` assert
+  the two sides of a limb can disagree and that the three new fields are real booleans/words
+  with both a true positive and a true negative case — not just "no leak," which a field that
+  was always `false` would also satisfy.
 - **The health-bar ban is gated in Godot.** `godot/sim/condition.gd` is now the single builder for
   the view — `presentation/main.gd` and `ui/inventory_panel.gd` had each built it inline and
   drifted — and `npm run godot:ban:healthbar` (`BAN_HEALTH_BAR_OK`) serialises it and asserts no
@@ -975,10 +1014,13 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 **Done (3):**
 
 - [x] Body parts with located conditions; **no health bar anywhere**
-      *(six survivor parts are saved and damaged independently; the condition snapshot exposes prose
-      and state, never raw integrity)*
-- [x] **The condition view** — a paperdoll of head / torso / arms / hands / legs / feet with located
-      conditions on the part they are on, spec:
+      *(ten survivor parts — head, torso, and a left/right of arms, hands, legs, feet — are saved
+      and damaged independently; the condition snapshot exposes prose and state, never raw
+      integrity. Sided as of the paperdoll revamp: docs/05 already promised "a one-armed
+      survivor," which a single aggregate `arms` value couldn't produce. `SAVE_VERSION` bumped to
+      13 for the schema change; see docs/30.)*
+- [x] **The condition view** — a paperdoll of head / torso / arms / hands / legs / feet (each limb
+      sided) with located conditions on the part they are on, spec:
       [docs/05](docs/05-health-injury.md#the-condition-view)
       *(a layout for the skill-scaled prose above, not a second representation of it. It shows what
       the **examiner** believes, so a bite presenting as a scratch presents as a scratch on the
