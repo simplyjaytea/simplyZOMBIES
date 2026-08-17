@@ -5,6 +5,7 @@ extends RefCounted
 # ponytail: world.recruits bookkeeping sits next to director; no third blob.
 
 const Clock = preload("res://sim/time/clock.gd")
+const SimStancesRes = preload("res://sim/stances.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
@@ -185,7 +186,7 @@ static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: flo
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": x, "y": y})
 	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
-	world.components.set_component(ent, "posture", {"current": 2})
+	world.components.set_component(ent, "posture", SimStancesRes.make_posture(SimStancesRes.Stance.Walk))
 	world.components.set_component(ent, "facing", {"radians": 0.0})
 	world.components.set_component(ent, "identity", {
 		"id": "survivor.gen." + String(rolled.get("name", "x")).to_lower().replace(" ", "_"),

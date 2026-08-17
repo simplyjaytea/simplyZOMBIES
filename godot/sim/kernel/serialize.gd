@@ -6,7 +6,12 @@ extends RefCounted
 # keys and would silently mismatch every part lookup rather than fail loudly, so this is a
 # version bump rather than a migration. save.gd already rejects a version mismatch with
 # "start a new run" -- saves are not migrated before 1.0.
-const SAVE_VERSION: int = 13
+# 14: two more component shapes changed. "posture" gained "target"/"ticks_left" (it used to
+# be `{"current": n}` alone -- SimStances.make_posture builds the full shape now) and
+# "stamina.current" became a float instead of an int (it had to, to regenerate at all: see
+# health.gd's health.recover). A v13 save's posture dict is missing keys request_stance reads
+# unconditionally, and its stamina.current would silently truncate every regen tick again.
+const SAVE_VERSION: int = 14
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
