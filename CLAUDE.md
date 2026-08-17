@@ -97,4 +97,9 @@ way. Read 30 before changing something that looks arbitrary.
   this replaced, and `godot:check:appearance` fails if the tints move back into code.
   `godot/assets/sprites/README.md` has the 32×16 grid and anchor convention.
 - Prose is hand-wrapped; `.prettierignore` excludes `docs/` and `*.md` for that reason.
-- Update `HANDOFF.md` in the same commit as the work it describes — it has drifted three times.
+- Update `HANDOFF.md` in the same commit as the work it describes — it has drifted four times,
+  most recently by ~34 Milestone 2 items that had shipped and never been ticked.
+  `npm run godot:check:handoff` (`HANDOFF_OK`) now enforces the two rules that make it
+  recoverable: **move a box into its `Done` group** rather than ticking it in place, and give
+  every `[x]` an italic `*(...)*` note naming the gate or file that proves it. Where only half
+  an item shipped, leave it open and say which half.

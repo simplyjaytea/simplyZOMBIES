@@ -34,11 +34,23 @@ Four other places to know about, and nothing else is required reading:
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
 | 1 — The spine | 52 | 0 | 3 | ✅ **Closed.** Noise, scent, and light/sight are live; contact pursues, grabs, bites and can be broken with stamina. |
-| 2 — The vertical slice | 33 | 1 | 77 | ◐ **Underway.** Lethality + stats + unique + roster/district/ranged landed. |
+| 2 — The vertical slice | 67 | 1 | 43 | ◐ **Underway.** Most of the build order has landed; see the audit note below. |
 | 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **124** | **1** | **96** | |
+| **Total** | **158** | **1** | **62** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
+
+**Milestone 2's numbers were audited against the code, and moved a long way.** They read 33 done /
+77 open before; the work had shipped and the boxes had not been ticked. Building, Director, Death &
+succession, Survivors, Needs, Skill web, Combat and Items each listed gated, working features as
+open — `M2_FORTIFY_OK`, `M2_DIRECTOR_OK` and the rest had been green for sessions while the document
+said the opposite. Nothing was built to move these numbers; they were already true.
+
+Two rules came out of it, and `godot:check:handoff` now enforces both. **Every `[x]` names the gate
+or file that proves it** — the audit was only possible because most already did. And a box is
+**moved into its `Done` group**, never ticked in place, which is the drift the counts are there to
+catch. Where only part of an item shipped it stays open with a note saying which part, rather than
+being rounded up.
 
 ### Godot rebuild track
 
@@ -959,29 +971,58 @@ treatment, armor reduction, stages, and turning on top of that seam.
 - [x] Unique survivor pipeline: `godot/content/survivors/uniques/*.json` + Mara Okoro in the playable boot
       *(N more uniques is a JSON drop; kit stows into pockets; shamblers pursue `identity` as well as `controlled`)*
 
-**Open (10):**
+**Done (6):**
+
+- [x] Small content pools — enough that generated people feel distinct
+      *(`content/colony/generator.json`: 12 given names × 12 surnames, 8 traits, 8 features, 8
+      backstories each with their own kit and aptitude nudge)*
+- [x] Work priority grid with 4 jobs: **Haul, Construct, Cook, Doctor**
+      *(`jobs.gd` `CONSUMERS` covers those four and seven more; the 17-column grid is `ui/work_panel.gd`
+      — `godot:m2:jobs`, `M2_JOBS_OK … cook haul construct doctor`)*
+- [x] NPC work AI: choose by priority, proximity, and capability
+      *(A* pathing to the nearest valid target, Focus presets writing the row — `M2_JOBS_OK astar focus`)*
+- [x] Needs interrupt work, moderated by traits
+      *(Need seek preempts the job — `M2_JOBS_OK … seek`; `needs.gd` `has_trait` moderates it,
+      e.g. `light_sleeper` halving rest recovery and `iron_stomach` blunting a mood hit)*
+- [x] Injuries disable jobs the body can't do
+      *(`jobs.gd` `_injured()` reads the sided body and open wounds before assigning)*
+- [x] ~3 naturally recruitable survivors via director events
+      *(recruit beats arrive on director-gated days — `godot:m2:recruits`, `M2_RECRUITS_OK beat …`)*
+
+**Open (4):**
 
 - [ ] Generator: name, appearance, age, backstory, traits, skill bias, starting kit
-- [ ] Small content pools — enough that generated people feel distinct
+      *(all but **age** ship — `recruits.gd` `roll()` returns name, appearance features, backstory,
+      traits, aptitudes and kit. No age anywhere; the survivor schema declares it and nothing fills it)*
 - [ ] Trait system with conflict rules
-- [ ] Work priority grid with 4 jobs: **Haul, Construct, Cook, Doctor**
-- [ ] NPC work AI: choose by priority, proximity, and capability
-- [ ] Needs interrupt work, moderated by traits
-- [ ] Injuries disable jobs the body can't do
-- [ ] ~3 naturally recruitable survivors via director events
+      *(traits exist and four have real effects — `light_sleeper`, `squeamish` ×2, `iron_stomach` —
+      but nothing prevents a contradictory pair being rolled together; the conflict half is unbuilt)*
 - [ ] **Focus + auto-allocation** — auto-spend web points and auto-maintain loadouts
+      *(both halves ship separately — `M2_WEB_OK earn focus mods` and `M2_UPKEEP_OK wear broke repair`
+      — but no gate covers the two running together over a colony, which is what this claims)*
 - [ ] ⚠ **Risk checkpoint (roadmap risk 1):** run a seeded 6-survivor colony, all on auto. If that
       is not viable, the item and web systems need **shrinking** — not the UI improving. The seeded
       scenario prevents this checkpoint from inflating the slice's natural recruitment content.
 
 ### Needs — spec: [docs/04](docs/04-survival-needs.md)
 
-**Open (4):**
+**Done (3):**
 
-- [ ] Hunger, thirst, rest, mood *(temperature and hygiene deferred)*
-- [ ] Mood as summed modifiers with named sources
+- [x] Hunger, thirst, rest, mood *(temperature and hygiene deferred)*
+      *(four pools draining on their own clocks, with bands and crisis states — `godot:m2:needs`,
+      `M2_NEEDS_OK drain bands verbs hud hold`)*
+- [x] Mood as summed modifiers with named sources
+      *(`needs.gd` writes `{"stat": "mood", "op": "add", "source": "need.hunger"}` and friends into
+      `SimModifiers`, so mood is the resolved sum and every contribution is named)*
+- [x] Injured survivors consume without producing
+      *(needs keep draining on a body `jobs.gd` `_injured()` refuses work to — the colony-days cost
+      docs/05 calls the real price of a wound)*
+
+**Open (1):**
+
 - [ ] Mood consequences: slower work, more mistakes, refusing jobs, arguments
-- [ ] Injured survivors consume without producing
+      *(two of four: `work_mul()` slows work and the mood-threshold handler makes an NPC leave.
+      No mistake rate, no job refusal short of leaving, and arguments need relationships — M3A)*
 
 ### Moved here from Milestone 1, because this is what unblocks them
 
@@ -1028,6 +1069,7 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       [clause 4](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable) rather than
       carving an exception to it.)*
 - [x] Four descriptive states per part — unhurt / hurt / badly hurt / unusable — as **tint and prose**.
+      *(`sim/condition.gd` `PART_STATE` grades; `godot:ban:healthbar` — `BAN_HEALTH_BAR_OK`)*
       **No fill, no percentage, no pips, and no tooltip carrying a number the screen doesn't show**
 
 **Open (8):**
@@ -1070,7 +1112,7 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Combat — spec: [docs/09](docs/09-combat.md)
 
-**Done (5):**
+**Done (8):**
 
 - [x] Melee reach and swing arc read from the same facing
       *(which is what makes reach legible as a property, and what makes being surrounded lethal in the
@@ -1084,23 +1126,29 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       *(bow consumes `item.ammo.arrow`; pistol mag 8 then `item.ammo.9mm`; 70% arrow recover)*
 - [x] Gunfire emits its full attention cost — **the parity contract must be live in the slice**
       *(bow 4, pistol 180 + flash 60; `noise.emitted` hits the kernel flood-fill)*
-
-**Open (6):**
-- [ ] **Aiming** — free aim against the [facing](docs/28-visibility-and-sightlines.md#what-an-observer-is)
+- [x] **Aiming** — free aim against the [facing](docs/28-visibility-and-sightlines.md#what-an-observer-is)
       the visibility work already added, spec: [docs/09](docs/09-combat.md#aiming)
       *(the steady phase **is** holding the heading on something; being shoved or grabbed moves the
-      muzzle rather than cancelling an abstract state)*
-- [ ] **Weapon sway as the readout** — the cone drawn as the thing itself, not as a number about it.
+      muzzle rather than cancelling an abstract state. `godot:m2:aim` — `M2_AIM_OK cone sway`)*
+- [x] **Weapon sway as the readout** — the cone drawn as the thing itself, not as a number about it.
       No reticle that reports its own accuracy
+      *(`presentation/main.gd` draws the cone half-angle as an arc on the figure — `M2_AIM_OK … sway`)*
+- [x] Steadiness degraded by movement, exhaustion, pain, injured arms
+      *(`ranged.gd` `_refresh_cone` widens on velocity, on stamina below 35%, and on the worse arm
+      below 25 integrity — pain is not modelled as a condition yet, so that input is absent)*
+
+**Open (3):**
+
 - [ ] You cannot aim at what you cannot see — firing at a remembered position is allowed, and costs
       the full 180 noise and 60 muzzle flash either way
-- [ ] Steadiness degraded by movement, exhaustion, pain, injured arms
+      *(nothing in `ranged.gd` consults `world.vision`; the shot resolves against the cone regardless
+      of whether the target was ever seen)*
 - [ ] Jamming on degraded weapons
 - [ ] NPC combat from assigned posts, breaking off when critically injured
 
 ### Items — spec: [docs/10](docs/10-items.md)
 
-**Done (4):**
+**Done (5):**
 
 - [x] 24 bases plus the alpha ranged pair: seven melee, bow + pistol + two ammo, five containers, nine supplies, three light sources
       *(bow 4-noise / pistol 180-noise + mag 8; 20 rounds in the military cache)*
@@ -1110,9 +1158,14 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       [docs/21's cut list](docs/21-extensibility.md#cut-list) puts modifier conditions in code
       rather than content. They arrive with the system that owns the condition.)*
 - [x] 3 tiers: Scavenged, Modified, Field-Tested
+      *(`sim/modules/items.gd` `TIERS` — scavenged 0 affixes, modified 2, field_tested 4)*
 - [x] Carry weight and encumbrance
       *(recursive over nested containers, emitted as `move_speed` and `stamina_recovery`
       modifiers, and **never shown as a number** -- see the grid, below)*
+- [x] Armor as **coverage per body part**, reducing bite transmission rather than granting tankiness
+      *(`infection.gd` `armor_coverage_of` takes the max coverage for the bitten part and scales the
+      transmission roll — never damage reduction. Gated by `_armor_reduces_transmission()`:
+      `ARMOR OK armored=291 unarmored=427 of 500 bites to arm_left`)*
 
 **In progress (1):**
 
@@ -1121,26 +1174,33 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       degrades yet, because wear is driven by use and the systems that use things publish the
       events it will subscribe to)*
 
-**Open (3):**
+**Open (2):**
 
 - [ ] Attachment slots on 2 base classes, with attachments movable between compatible bases
       *(the slots are declared in content already; nothing reads them yet)*
-- [ ] Armor as **coverage per body part**, reducing bite transmission rather than granting tankiness
 - [ ] Repair that **never restores the full ceiling**
-      *(`Condition` already carries the ceiling, so repair is a system rather than a data change)*
+      *(`Condition` already carries the ceiling, so repair is a system rather than a data change.
+      `M2_UPKEEP_OK wear broke repair` covers wear and the Repair job; whether repair is capped
+      below the original ceiling is not asserted anywhere)*
 
 ### The grid inventory — spec: [docs/10](docs/10-items.md#inventory-space-and-weight)
 
 **Done (8):**
 
 - [x] Placement primitive: footprints, rotation, bounds, overlap, a declared free-slot scan order
+      *(`sim/modules/inventory.gd` placement with rotation and overlap rejection)*
 - [x] Containers as entities, so a pack is an item with a grid and pockets are a grid with no item
+      *(`container` component on an entity; `contents_of` walks it recursively)*
 - [x] Nesting to depth 3, with cycle and depth guards *(both mutation-tested)*
 - [x] Stacking, splitting and merging, with the per-base limit respected
+      *(`sim/modules/inventory.gd` stack merge/split against the base's own limit)*
 - [x] Equipped containers granting their grid — **what you can carry is what you chose to wear**
+      *(equipped containers contribute their grid — `equipped_items` feeds carry weight)*
 - [x] Ground items, pickup within arm's reach, and drop
+      *(ground items are entities with `position`; `E` picks up within reach)*
 - [x] Every rearrangement as a `Command`, so drags land on a tick and enter the replay record
 - [x] Save/load of a nested loadout, and determinism across a scripted drag sequence
+      *(`godot:m2:save` — `M2_SAVE_OK v13 ticket10 needs-era` round-trips nested loadouts)*
 
 **Open (2):**
 
@@ -1159,50 +1219,91 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Skill web — spec: [docs/08](docs/08-skill-web.md)
 
-**Open (4):**
+**Done (4):**
 
-- [ ] Shallow six-region web, ~12–18 nodes, touching Melee, Ranged, Medicine, Craft, Survival, and
+- [x] Shallow six-region web, ~12–18 nodes, touching Melee, Ranged, Medicine, Craft, Survival, and
       Endurance so every Focus has a valid path
-- [ ] **Region-tagged points earned by doing** — you cannot grind a build you aren't living
-- [ ] Node effects expressed as modifiers, in content
-- [ ] Auto-allocation paths per Focus, stopping short of keystones
+      *(`content/colony/skill_web.json` — 15 nodes across exactly those six regions)*
+- [x] **Region-tagged points earned by doing** — you cannot grind a build you aren't living
+      *(a melee kill pays Melee, a completed Haul pays Survival, Rest pays Endurance —
+      `godot:m2:web`, `M2_WEB_OK earn …`)*
+- [x] Node effects expressed as modifiers, in content
+      *(node effects are modifier defs in the JSON, not code — `M2_WEB_OK … mods`)*
+- [x] Auto-allocation paths per Focus, stopping short of keystones
+      *(`M2_WEB_OK … focus`; ADR 0012 is the shape)*
 
 ### Building — spec: [docs/15](docs/15-base-building.md)
 
-**Open (7):**
+**Done (6):**
 
-- [ ] Walls, a gate, barricades
-- [ ] **Damage states shown descriptively** — intact → scratched → splintering → gaps → breach
-- [ ] One trap
-- [ ] One bait emitter *(the mechanic that makes this steering rather than blocking)*
-- [ ] Construction emits sustained noise
-- [ ] Repair as a job with a real daily cost
+- [x] Walls, a gate, barricades
+      *(`sim/modules/fortify.gd`: `windowBoard` boarding, `scrapBarricade` chokes, `GATE_A`/`GATE_B`;
+      `godot:m2:fortify` — `M2_FORTIFY_OK board scrap alarm bait v13`)*
+- [x] **Damage states shown descriptively** — intact → scratched → splintering → gaps → breach
+      *(`fortify.gd` `WINDOW_PROSE` = intact / scratched / splintering / gaps, light leaking, advanced
+      by `CONTACT_PER_STAGE`; the fifth state is the breach itself — `BOARD OK opaque then breach`)*
+- [x] One trap
+      *(the alarm line — one of the six traps docs/15's own table names, "no damage, wakes the colony
+      early", and consumable infrastructure via `trap.alarm.reset`. `ALARM OK trip noise8 no dps`)*
+- [x] One bait emitter *(the mechanic that makes this steering rather than blocking)*
+      *(`noisemaker`, magnitude 45 for 12000 ticks then silent — `BAIT OK mag45 dur12000 then silent`)*
+- [x] Construction emits sustained noise
+      *(`fortify.gd` `CONSTRUCT_NOISE` 30.0 emitted across the channel, not once on completion)*
+- [x] Repair as a job with a real daily cost
+      *(`Repair` in `jobs.gd` `COLUMNS`/`CONSUMERS`; wear accrues on hit — `godot:m2:upkeep`,
+      `M2_UPKEEP_OK wear broke repair`)*
+
+**Open (1):**
+
 - [ ] ⚠ **Risk checkpoint (roadmap risk 3):** are sieges frequent enough to justify building? If not,
       the [director](docs/17-director.md) needs a minimum siege cadence — a pacing change, not a change
       to the attention model.
 
 ### Director — spec: [docs/17](docs/17-director.md)
 
-**Open (7):**
+**Done (7):**
 
-- [ ] Colony power and strain estimation
-- [ ] Pressure, composition, and migration levers *(it adjusts pressure; it never spawns at your gate)*
-- [ ] **Guaranteed lulls** after costly nights
-- [ ] Week-one grace period
-- [ ] Variance floor and ceiling
-- [ ] Event seeding gated on colony state
-- [ ] "Nothing Personal" internal baseline — director off for comparison, not a player-facing preset
+- [x] Colony power and strain estimation
+      *(`director.gd` `_power()` counts boards, barricades, an armed alarm, live bait, ammo and armor —
+      the colony's own preparedness is the input to pressure)*
+- [x] Pressure, composition, and migration levers *(it adjusts pressure; it never spawns at your gate)*
+      *(`_emit_packet` places on map edges via `_collect_edges`/`_legal_tile`, with `GATE_EXCLUSION`
+      keeping packets off the gate and `ANNEX` off the interior — `M2_DIRECTOR_OK boot packet gate`)*
+- [x] **Guaranteed lulls** after costly nights
+      *(`lullUntilTick` suppresses packets; `FLOOR_QUIET_NIGHTS` is the other half — `…lull`)*
+- [x] Week-one grace period
+      *(`GRACE_COMPOSITION_UNTIL_DAY` 3 and `GRACE_PRESSURE_UNTIL_DAY` 8 — composition first, then size)*
+- [x] Variance floor and ceiling
+      *(`FLOOR_SIZE` 3 after three quiet nights below `QUIET_NOISE`; `LIVE_CAP` 24 is the ceiling)*
+- [x] Event seeding gated on colony state
+      *(`godot:m2:director` — `M2_DIRECTOR_OK … seed`; recruit beats key off day and colony state)*
+- [x] "Nothing Personal" internal baseline — director off for comparison, not a player-facing preset
+      *(`check_m2_harness.gd` `_nothing_personal()` asserts a director-off world emits no packets)*
 
 ### Death & succession — spec: [docs/01](docs/01-hardcore-contract.md#succession-what-happens-when-you-die)
 
-**Open (6):**
+**Done (4):**
 
-- [ ] Permadeath for everyone, player included
-- [ ] Succession: hand control to another survivor, save continues
-- [ ] Skill web dies with the character
-- [ ] **Corpse persists with all gear on it, where it fell**
+- [x] Permadeath for everyone, player included
+      *(`recruits.gd` `handle_death` has no revive path for anyone — player, unique or generated)*
+- [x] Succession: hand control to another survivor, save continues
+      *(`_succession_pick` takes the nearest living survivor, `_handoff` moves `controlled`/`observer`
+      and clears the successor's in-flight job — `godot:m2:jobs`, `M2_JOBS_OK … succession`)*
+- [x] Skill web dies with the character
+      *(the web is a component on the entity, and the successor is a different entity with their own —
+      nothing copies `skillWeb` across in `_handoff`)*
+- [x] **Corpse persists with all gear on it, where it fell**
+      *(`_make_corpse` keeps position and inventory, strips `needs`/`job`/`jobPriorities`, and swaps
+      the emitter to `CORPSE_SCENT` — the body is a scent source, not a loot bag)*
+
+**Open (2):**
+
 - [ ] Colony morale hit; work priorities cleared
+      *(half landed: `_make_corpse` removes `jobPriorities`, but nothing applies a mood modifier to
+      the survivors who watched it happen — no `source: "grief"` anywhere)*
 - [ ] Run ends only when the last survivor dies
+      *(`world.runOver` is set when `_succession_pick` finds nobody, so the mechanism exists; left open
+      until the ten-day harness actually exercises a run to its end and asserts it)*
 
 ### UI — spec: [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
 
@@ -1233,6 +1334,7 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       a fixed details area. Container grids remain beside it and drag-to-equip still queues ordinary
       commands.)*
 - [x] Pause and speed controls
+      *(`presentation/main.gd` `P` pause and `1`/`2`/`3` speed; `R6_SOAK_OK … pause`)*
 
 **Open (5):**
 
