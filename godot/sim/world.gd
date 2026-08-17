@@ -15,12 +15,14 @@ const AttentionFieldRes = preload("res://sim/field/attention.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
 const SimFortifyRes = preload("res://sim/modules/fortify.gd")
+const SimStancesRes = preload("res://sim/stances.gd")
 
 const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / TICK_HZ
 const BODY_RADIUS: float = 0.35
 const WALK_SPEED: float = 2.1
-const STANCE_FACTORS: Array[float] = [0.25, 0.5, 1.0, 1.8, 3.0]
+# Per-rung speed multiplier used to live here as a verbatim duplicate of SimStances.SPEED_FACTOR
+# -- one const, one caller (world.gd:_apply_commands), zero reason for two copies to drift.
 
 var tick: int = 0
 var seed: int
@@ -93,9 +95,15 @@ func _init(fixture: Dictionary) -> void:
 	})
 	components.set_component(player, "velocity", {"dx": 0.0, "dy": 0.0})
 	components.set_component(player, "controlled", {})
-	components.set_component(player, "posture", {"current": int(player_fixture["stance"])})
+	components.set_component(player, "posture", SimStancesRes.make_posture(int(player_fixture["stance"])))
 
 	systems.register("player.apply-commands", "input", 0, _apply_commands)
+	# Order 1: after apply-commands enqueues a stance request, before movement reads the
+	# rung that request may just have changed. This is what makes a stance change *take
+	# time* rather than snap -- hardcore-contract clause 2 -- and it is where the ladder's
+	# stamina drain (SimStances.drain_per_tick) is published, not mutated in place, so
+	# health.gd's stamina.spent channel stays the one writer of the pool.
+	systems.register("player.advance-posture", "input", 1, _advance_posture)
 	systems.register("movement.integrate", "movement", 0, _integrate_movement)
 
 
@@ -281,7 +289,7 @@ func _apply_commands(_world: Variant) -> void:
 						velocity["dy"] = 0.0
 						continue
 					var stance: int = int(posture["current"])
-					var speed: float = WALK_SPEED * STANCE_FACTORS[stance]
+					var speed: float = WALK_SPEED * SimStancesRes.SPEED_FACTOR[stance]
 					if modifiers != null and (modifiers as Object).has_method("resolve"):
 						speed *= float(modifiers.call("resolve", "move_speed", int(entity)))
 					velocity["dx"] = dx / length * speed
@@ -298,6 +306,51 @@ func _apply_commands(_world: Variant) -> void:
 						"magnitude": 120.0,
 						"source": int(entity)
 					})
+				"stance":
+					# Presentation only ever pushes the command (main.gd:_push_stance) -- this is
+					# the one place a stance request actually lands on posture. Out-of-range is
+					# silently ignored rather than asserted: a malformed replay log should not
+					# crash R1 parity, it should just do nothing.
+					var target: int = int((command as Dictionary)["stance"])
+					if target < 0 or target > SimStancesRes.Stance.Sprint:
+						continue
+					if target == SimStancesRes.Stance.Sprint:
+						# Zero-stamina gate: refuse to *request* a sprint on an empty tank.
+						# Walking and melee (which does its own refusal) stay possible.
+						var sprint_stamina: Variant = components.get_component(int(entity), "stamina")
+						if sprint_stamina is Dictionary and float((sprint_stamina as Dictionary)["current"]) <= 0.0:
+							continue
+					SimStancesRes.request_stance(posture, target)
+
+
+# Advances every posture toward its requested target and pays for the ladder's upper rungs
+# out of stamina. Iterates components.query(["posture"]) rather than just the player, so NPCs
+# (unique survivors, generated survivors) get the same transition delay and drain the moment
+# they carry a posture -- posture is not a player-only component.
+func _advance_posture(_world: Variant) -> void:
+	for entity in (components as RefCounted).call("query", ["posture"]) as Array:
+		var posture: Dictionary = components.get_component(int(entity), "posture") as Dictionary
+		if int(posture["ticks_left"]) > 0:
+			posture["ticks_left"] = int(posture["ticks_left"]) - 1
+			if int(posture["ticks_left"]) == 0:
+				posture["current"] = posture["target"]
+		var stamina: Variant = components.get_component(int(entity), "stamina")
+		if not (stamina is Dictionary):
+			continue
+		var st: Dictionary = stamina as Dictionary
+		# Zero-stamina demotion: an in-progress or already-completed sprint that drains the
+		# pool to empty mid-run gets knocked down to Jog rather than left sprinting for free.
+		# request_stance is not reused here -- this is an involuntary drop, not a request, so
+		# it lands immediately with no transition delay.
+		if int(posture["current"]) == SimStancesRes.Stance.Sprint and float(st["current"]) <= 0.0:
+			posture["current"] = SimStancesRes.Stance.Jog
+			posture["target"] = SimStancesRes.Stance.Jog
+			posture["ticks_left"] = 0
+		var drain: float = SimStancesRes.drain_per_tick(int(posture["current"]))
+		if drain > 0.0:
+			# Publish, don't mutate: stamina.spent is the one write channel (health.gd) and
+			# it resets ticksUntilRecovery, which is what makes exertion pause recovery.
+			events.publish({"type": "stamina.spent", "entity": int(entity), "amount": drain})
 
 
 func _integrate_movement(_world: Variant) -> void:
