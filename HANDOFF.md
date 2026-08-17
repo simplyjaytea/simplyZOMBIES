@@ -34,9 +34,9 @@ Four other places to know about, and nothing else is required reading:
 |---|---|---|---|---|
 | 0 — Foundations | 39 | 0 | 0 | ✅ **Closed.** Exit criterion asserted in `test/integration/exit-criterion.test.ts`. |
 | 1 — The spine | 52 | 0 | 3 | ✅ **Closed.** Noise, scent, and light/sight are live; contact pursues, grabs, bites and can be broken with stamina. |
-| 2 — The vertical slice | 68 | 1 | 42 | ◐ **Underway.** Most of the build order has landed; see the audit note below. |
+| 2 — The vertical slice | 69 | 1 | 41 | ◐ **Underway.** Most of the build order has landed; see the audit note below. |
 | 3+ — Beyond the slice | 0 | 0 | 16 | ☐ Designed, deliberately unbuilt. Prose lives in [docs/23](docs/23-roadmap.md). |
-| **Total** | **159** | **1** | **61** | |
+| **Total** | **160** | **1** | **60** | |
 
 Milestones close on their **exit criterion**, never on the checkbox count.
 
@@ -69,6 +69,32 @@ phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
 | R7 — cutover | **Complete.** Godot at `/`; `ts-oracle-final` tag; rollback rehearsed. |
 
 ## Do this next
+
+**The next thing is to run the full balance grid, and then to play it for ten days.** Milestone 2's
+build order is on its last step — [step 7, "Proof"](docs/23-roadmap.md#build-order): automated
+distribution runs, then the human playtest. The harness for it now exists in both tiers
+(`godot:m2:balance`, and `BALANCE_FULL=1 npm run godot:m2:balance:full`), and so does the NPC
+combat that had to land first — without it a headless colony fought with nothing, so risk 6 would
+have compared two arms that both scored zero.
+
+What is left is not more code, it is **a grid nobody has run yet**. The full tier is four seeds ×
+three arms of a real ten-day campaign; it is opt-in, and `BALANCE_DAYS` / `BALANCE_SEEDS` exist to
+scale it. Four things are written, asserted and waiting on that one run: **risk 6** (melee-only vs
+ranged-only), **risk 1** (the seeded six-survivor colony on Auto), **risk 3**'s verdict, and
+**"run ends only when the last survivor dies"**. Each is marked open with a note saying exactly
+that, rather than ticked on an assertion nothing has exercised.
+
+**What it costs, measured rather than estimated.** One real single-day campaign is 180,000 ticks
+and took **166 s** — about **1,085 ticks/second** headless, and the compressed tier measures ~950,
+close enough to say the day phases are not the expensive part. So a ten-day campaign is roughly
+**forty-five minutes** and the default four-seed × three-arm grid is about **nine hours**. That is
+an overnight job, not an afternoon one, which is why it is opt-in and why `BALANCE_SEEDS=1` exists
+for anyone who wants one arm's answer sooner.
+
+One number is already worth looking at, from the compressed tier: **3 siege nights in 10 days on
+every seed, and all three on days 8–10.** The first week is unpressured by construction — grace
+until day 3, then a trickle gated on `live < 8` while the district boots with 12 wanderers. See
+[risk 3](#building--spec-docs15) before deciding whether that is pacing or a bug.
 
 **R7 is closed. Infection lethality, the stats MVP, and the early-alpha execution slice are in.**
 Roster behaviors, civic-annex overlay, and bow/pistol fire loop land behind `godot:m2:roster`,
@@ -1013,6 +1039,12 @@ treatment, armor reduction, stages, and turning on top of that seam.
 - [ ] ⚠ **Risk checkpoint (roadmap risk 1):** run a seeded 6-survivor colony, all on auto. If that
       is not viable, the item and web systems need **shrinking** — not the UI improving. The seeded
       scenario prevents this checkpoint from inflating the slice's natural recruitment content.
+      *(**the scenario now exists and has not been run at length.** `check_m2_balance.gd`'s
+      `_six_survivors_on_auto` generates six colonists through `SimRecruits.roll` /
+      `spawn_generated`, sets every Focus to Auto, and asserts none of them goes a whole day
+      without taking a job — a stall being the shape this checkpoint asks about. It rides the
+      full tier, so it is in the same position as risk 6: written, waiting on a grid someone has
+      actually run.)*
 
 ### Needs — spec: [docs/04](docs/04-survival-needs.md)
 
@@ -1285,6 +1317,14 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 - [ ] ⚠ **Risk checkpoint (roadmap risk 3):** are sieges frequent enough to justify building? If not,
       the [director](docs/17-director.md) needs a minimum siege cadence — a pacing change, not a change
       to the attention model.
+      *(**first measurement, and it is not comfortable.** `godot:m2:balance`'s compressed tier
+      reports **3 siege nights in 10 days on every one of four seeds, and all three are days 8, 9
+      and 10** — because `GRACE_COMPOSITION_UNTIL_DAY` is 3, `GRACE_PRESSURE_UNTIL_DAY` is 8, and
+      the trickle in between is gated on `live < TRICKLE_LIVE` (8) while the district boots with
+      12 wanderers. So the first seven nights of every run are unpressured by construction. That
+      is a number to put in front of a playtest, not yet a verdict: the compressed model does not
+      run the hours in which noise accumulates, and `weekPeakNoise` — one of the two things that
+      *raises* packet size — only sees the dusk windows. The verdict wants the full tier.)*
 
 ### Director — spec: [docs/17](docs/17-director.md)
 
@@ -1331,6 +1371,11 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 - [ ] Run ends only when the last survivor dies
       *(`world.runOver` is set when `_succession_pick` finds nobody, so the mechanism exists; left open
       until the ten-day harness actually exercises a run to its end and asserts it)*
+      *(**the assertion now exists and is waiting on the same grid as risks 1 and 6.**
+      `check_m2_balance.gd`'s `_assert_run_over_iff_wiped` checks both directions across every
+      full-tier campaign — a run that ended must have been wiped out, and a colony that was wiped
+      out must have ended. It stays open until a ten-day grid has been through it: an assertion
+      nothing has exercised proves as much as no assertion.)*
 
 ### UI — spec: [docs/01](docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
 
@@ -1381,13 +1426,42 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 
 ### Balance harness — spec: [docs/19](docs/19-architecture.md#testing-strategy)
 
-**Open (3):**
+**Done (1):**
 
-- [ ] Headless multi-run harness — thousands of colonies across seeds
+- [x] **Headless multi-run harness — two tiers, because "thousands of colonies" is not reachable**
+      *(`godot/check_m2_balance.gd`. docs/19's testing table asks for thousands of headless runs;
+      one ten-day campaign is 2.88 M ticks (`Clock.DAY_TICKS` is 288,000), so thousands of them
+      is not a scheduling problem, it is arithmetic. So: a **fast** tier inside `godot:m2`, four
+      seeds × a compressed campaign that jumps to each day's dusk and steps a real window, in
+      **~85 s** (`npm run godot:m2:balance` — `M2_BALANCE_OK fast 4 seeds, 10 days, bands
+      invariants placement`); and a **full** tier, `BALANCE_FULL=1 npm run godot:m2:balance:full`,
+      four seeds × three arms of the real ten-day loop, opt-in, with `BALANCE_DAYS` and
+      `BALANCE_SEEDS` to scale it down. Every fact is read off the event bus —
+      `director.packet`, `fortify.breached`, `entity.killed`, `run.over` — so the harness adds no
+      simulation state and cannot change what it measures.)*
+
+**Open (2):**
+
 - [ ] Distribution assertions: quiet nights, sieges, deaths, run lengths
+      *(**half shipped.** Sieges and quiet nights are banded in the fast tier, with the pacing
+      invariants beside them — no packet on a gate, in the annex or inside `GATE_EXCLUSION`, and
+      `LIVE_CAP` never exceeded — and `SEEDS OK` asserts the seed actually reaches the director's
+      edge pick, which caught the loop being degenerate. **Deaths and run lengths are reported,
+      not banded**: they only exist in the full tier, and a band wants numbers from a grid that
+      has actually been run at ten days.)*
 - [ ] ⚠ **Risk checkpoint (roadmap risk 6):** measure whether melee-only and ranged-only colonies
       survive comparably. Elegant-on-paper parity usually collapses in playtesting — this is how we
       find out without arguing about it.
+      *(**unblocked and written, not yet answered.** It was blocked on something that was not
+      obvious until the harness was built: melee and ranged only ever fired from the `controlled`
+      entity, so a headless colony fought with nothing and the two arms would have produced
+      identical numbers. NPC combat above fixes that, and the full tier now boots melee-only,
+      ranged-only and mixed colonies differing only in what people carry — including sweeping
+      loose loot of the wrong class off the ground, or an arm drifts back to mixed the first time
+      somebody hauls. What is missing is a ten-day grid actually run: the director spends its
+      first week on grace and trickle (`GRACE_PRESSURE_UNTIL_DAY` 8), so a shortened run is a run
+      nothing attacked, and `_assert_arms_are_comparable` **refuses to assert on no data** and
+      says so rather than passing vacuously.)*
 
 ## Beyond the slice (designed, deliberately unbuilt)
 

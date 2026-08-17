@@ -187,6 +187,15 @@ switch (mode) {
       "res://check_m2_harness.gd",
     ];
     break;
+  case "--m2-balance":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_balance.gd",
+    ];
+    break;
   case "--m2-npc":
     args = [
       "--headless",
