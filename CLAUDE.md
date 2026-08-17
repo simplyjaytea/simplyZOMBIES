@@ -3,15 +3,19 @@
 Read this before touching anything. `AGENTS.md` covers environment setup; this file covers what
 the project is and what must not be broken.
 
-## Godot is the only implementation
+## Godot is the only implementation that ships
 
-The game is `godot/` — Godot 4.7.1 (Compatibility), typed GDScript. There is no second
-implementation to keep in sync and no parity work to do.
+The game is `godot/` — Godot 4.7.1 (Compatibility), typed GDScript. New behaviour goes here and
+nowhere else. `npm run build` is `godot:export`, and Pages publishes the Godot build at `/`.
 
-A TypeScript/Canvas "oracle" was the pre-rebuild implementation. It was retired after the R7
-cutover; its frozen parity fixtures remain under `godot/parity/` and are still gated by
-`npm run godot:test`. Do not reintroduce `src/`, `test/`, `bench/`, or a Vite/vitest config —
-CI fails if they reappear.
+**But the TypeScript oracle is still in the tree and still runs in CI, which this file used to
+deny.** `src/`, `test/`, `bench/` and the Vite/vitest configs are all present on `main`, and the
+`check` job runs `npm test`, `npm run typecheck`, `npm run lint`, `npm run format:check` and
+`npm run bench` against them alongside the Godot gates. As of this writing all of it is green:
+**46 files / 599 tests**. It is a *frozen reference*, not a second product — do not add features
+to it, do not port Godot changes into it — but do not delete it or let it go red either, because
+CI will stop you. Its frozen parity fixtures under `godot/parity/` are what `npm run godot:test`
+compares against, and tag `ts-oracle-final` is the rollback point.
 
 The engine pin is exact. `scripts/run-godot.mjs` rejects any engine whose `--version` does not
 start with `4.7.1`, and the same version and SHA-512 appear in `.github/workflows/ci.yml`,
@@ -19,7 +23,8 @@ start with `4.7.1`, and the same version and SHA-512 appear in `.github/workflow
 
 ## Verifying a change
 
-There is no `npm test`. Correctness is the Godot gates:
+Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
+every commit — it chains all of them and takes a few minutes:
 
 ```bash
 npm run godot:smoke      # project boots            → GODOT_PROJECT_SMOKE_OK
@@ -37,8 +42,16 @@ npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 `godot:m2` prints `ObjectDB ... leaked at exit` and `resources still in use` *after* it reports
 success. That is engine shutdown noise, not a failure — check the `_OK` line and the exit code.
 
+CI's `check` job runs `godot:m2` **and** the TypeScript side (`npm test`, `typecheck`, `lint`,
+`format:check`), and its `performance` job runs `npm run bench` and `npm run bench:frame`.
+Touching a `.ts` file or any prettier-covered path means running those too. Note
+`npm run godot:bench` prints `BENCH_OVER_BUDGET` on these containers and still exits 0 — those
+budgets are calibrated against compiled TypeScript and headless GDScript is an interpreter; see
+docs/22. (`npm run bench` is the separate TypeScript benchmark, and it does gate.)
+
 A fresh Claude Code on the web container has no engine; `.claude/hooks/session-start.sh`
-installs it. To do it by hand: `bash scripts/setup-web-session.sh`.
+installs it. To do it by hand: `bash scripts/setup-web-session.sh`. It does **not** install export
+templates, so `godot:export` / `godot:smoke:exports` need `SETUP_EXPORT_TEMPLATES=1`.
 
 ## Standing bans
 
@@ -101,9 +114,50 @@ way. Read 30 before changing something that looks arbitrary.
   this replaced, and `godot:check:appearance` fails if the tints move back into code.
   `godot/assets/sprites/README.md` has the 32×16 grid and anchor convention.
 - Prose is hand-wrapped; `.prettierignore` excludes `docs/` and `*.md` for that reason.
+- **A gate that cannot fail is worse than no gate.** Every assertion wants a true positive *and* a
+  true negative — `check_ban_health_bar.gd` set the convention after a field that was always
+  `false` passed a "no leak" test, and `check_m2_npc_combat.gd` follows it. The same rule caught a
+  seed loop that ran four seeds and proved one. If an assertion has no data to judge (a shortened
+  campaign the director never pressured), make it **say so and skip**, never pass quietly.
 - Update `HANDOFF.md` in the same commit as the work it describes — it has drifted four times,
   most recently by ~34 Milestone 2 items that had shipped and never been ticked.
   `npm run godot:check:handoff` (`HANDOFF_OK`) now enforces the two rules that make it
   recoverable: **move a box into its `Done` group** rather than ticking it in place, and give
   every `[x]` an italic `*(...)*` note naming the gate or file that proves it. Where only half
   an item shipped, leave it open and say which half.
+
+## Traps that have already cost someone a session
+
+Each of these was found the expensive way. They are not style opinions.
+
+- **Packed arrays are values in GDScript.** `(dict["key"] as PackedStringArray).append(x)` appends
+  to a *copy* and silently does nothing. This made a four-seed harness report four identical runs.
+  Use a plain `Array` for anything you mutate through a Dictionary.
+- **A survivor's body parts do not share a scale.** A healthy head is 15, a hand 10, a torso 40 —
+  so `body[part] < 15` means "critically injured" on a torso and "perfectly fine" on a head. There
+  is exactly one place that normalises: `SimHealth.part_state`, which returns
+  Unhurt/Hurt/BadlyHurt/Unusable. Compare states, never raw integrity.
+- **`entity.killed` fires more than once for the same individual** — `health.gd` on a destroyed
+  head, `infection.gd` on a put-down and again on turning. Counting events counts one death three
+  times. De-duplicate by entity id.
+- **The content validator will not catch a nested key.** It checks top-level types only. A wrong
+  key inside an `armor` block sat in `item.wrap.cloth` for weeks giving zero arm protection, and
+  only a purpose-built gate found it.
+- **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
+  ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
+  a few campaigns" is an overnight job — check the arithmetic before promising a grid.
+
+## Seeing it actually run
+
+`npm run godot:run` needs a display (`DISPLAY=:1`; start one with
+`Xvfb :1 -screen 0 1920x1080x24 &`). It boots on **day 1 in daylight**, not at night.
+
+There is no `scrot`, `imagemagick` or `ffmpeg` in these containers, so screenshots come from Godot
+itself: run a throwaway `SceneTree` script that instantiates `res://presentation/main.tscn` into
+`root` (the way `test/project_smoke.gd` does), drives it, and calls
+`root.get_texture().get_image().save_png(path)`. That gives you the real app — real HUD, real
+presentation, real sim — and lets you set up a scenario before capturing it. Delete the script
+afterwards; it is a driver, not a fixture.
+
+The audio and V-Sync errors on boot (`libpulse.so.0`, ALSA, `All audio drivers failed`) are
+expected on a headless container and harmless.
