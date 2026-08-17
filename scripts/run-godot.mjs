@@ -187,6 +187,15 @@ switch (mode) {
       "res://check_m2_harness.gd",
     ];
     break;
+  case "--m2-npc":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_npc_combat.gd",
+    ];
+    break;
   case "--handoff":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_handoff.gd"];
     break;
