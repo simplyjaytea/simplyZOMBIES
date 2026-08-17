@@ -222,6 +222,7 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		"melee_kills": 0,
 		"ranged_kills": 0,
 		"deaths": 0,
+		"seen_dead": {},
 		"turned": 0,
 		"recruits": 0,
 		"max_live": _live(w),
@@ -254,13 +255,22 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 			"run.over":
 				run["run_over"] = true
 			"entity.killed":
+				var victim: int = int(ev.get("entity", -1))
 				var killer: int = int(ev.get("killer", -1))
-				if not w.components.has_component(int(ev.get("entity", -1)), "shambler"):
+				# `entity.killed` is published from more than one place for the same individual --
+				# `health.gd` when a head is destroyed, `infection.gd` on a put-down and again on
+				# turning -- so counting events would report three deaths for one person. Count
+				# distinct victims, which is what the word means.
+				if (run["seen_dead"] as Dictionary).has(victim):
+					continue
+				(run["seen_dead"] as Dictionary)[victim] = true
+				if not w.components.has_component(victim, "shambler"):
 					# A survivor is a death however they died. Starving carries no killer, and
 					# requiring one here would quietly drop the deaths the needs system causes --
 					# which are exactly the ones a ten-day run is supposed to surface.
 					run["deaths"] = int(run["deaths"]) + 1
-				elif killer >= 0:
+					continue
+				if killer >= 0:
 					run["kills"] = int(run["kills"]) + 1
 					# The arms carry exactly one class of weapon, so this is unambiguous.
 					if w.components.has_component(killer, "rangedWeapon"):
