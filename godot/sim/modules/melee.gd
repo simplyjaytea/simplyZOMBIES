@@ -53,31 +53,7 @@ static func register_module(world: Variant) -> void:
 		if not has_swing:
 			return
 		for entity in w.components.query(["swing", "meleeWeapon", "controlled"]):
-			if w.components.has_component(int(entity), "grabbed"):
-				continue
-			var swing: Variant = w.components.get_component(int(entity), "swing")
-			if swing == null:
-				continue
-			var s: Dictionary = swing as Dictionary
-			if int(s["state"]) != SwingState.Idle:
-				continue
-			if not _capable_of(w, int(entity), "canSwing"):
-				continue
-			var weapon: Variant = w.components.get_component(int(entity), "meleeWeapon")
-			if weapon == null:
-				continue
-			var we: Dictionary = weapon as Dictionary
-			var cost: int = SimCombat.swing_stamina(float(we.get("weight", 1.0)), float(we.get("stamina", 1.0)))
-			var stamina: Variant = w.components.get_component(int(entity), "stamina")
-			if stamina != null and int((stamina as Dictionary)["current"]) < cost:
-				if REFUSE_EXHAUSTED_SWINGS:
-					continue
-			var speed: float = float(we.get("speed", 1.0))
-			if w.modifiers != null and (w.modifiers as Object).has_method("resolve"):
-				speed *= float(w.modifiers.call("resolve", "swing_speed", int(entity)))
-			s["state"] = SwingState.WindUp
-			s["ticksLeft"] = SimCombat.windup_ticks(float(we.get("weight", 1.0)), speed)
-			w.events.publish({"type": "stamina.spent", "entity": int(entity), "amount": cost})
+			try_begin_swing(w, int(entity))
 	)
 
 	world.systems.register("melee.resolve", "combat", 0, func(w: Variant) -> void:
@@ -152,6 +128,39 @@ static func register_module(world: Variant) -> void:
 		for entity in w.components.query(["stamina"]):
 			_apply_exhaustion(w, int(entity))
 	)
+
+
+# Every precondition a swing has to pass, in one place. The command intake above and
+# npc_combat.gd both go through here: two intakes with independently written preconditions is
+# the drift that put condition.gd behind a single builder, and a swing has more of them than a
+# condition view does. Returns true when a wind-up actually started.
+static func try_begin_swing(world: Variant, entity: int) -> bool:
+	if world.components.has_component(entity, "grabbed"):
+		return false
+	var swing: Variant = world.components.get_component(entity, "swing")
+	if not swing is Dictionary:
+		return false
+	var s: Dictionary = swing as Dictionary
+	if int(s["state"]) != SwingState.Idle:
+		return false
+	if not _capable_of(world, entity, "canSwing"):
+		return false
+	var weapon: Variant = world.components.get_component(entity, "meleeWeapon")
+	if not weapon is Dictionary:
+		return false
+	var we: Dictionary = weapon as Dictionary
+	var cost: int = SimCombat.swing_stamina(float(we.get("weight", 1.0)), float(we.get("stamina", 1.0)))
+	var stamina: Variant = world.components.get_component(entity, "stamina")
+	if stamina != null and int((stamina as Dictionary)["current"]) < cost:
+		if REFUSE_EXHAUSTED_SWINGS:
+			return false
+	var speed: float = float(we.get("speed", 1.0))
+	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+		speed *= float(world.modifiers.call("resolve", "swing_speed", entity))
+	s["state"] = SwingState.WindUp
+	s["ticksLeft"] = SimCombat.windup_ticks(float(we.get("weight", 1.0)), speed)
+	world.events.publish({"type": "stamina.spent", "entity": entity, "amount": cost})
+	return true
 
 
 static func _apply_exhaustion(world: Variant, entity: int) -> void:
