@@ -5,6 +5,7 @@ extends RefCounted
 # Drop another JSON in godot/content/survivors/uniques/ — no code change. Generator is later.
 
 const SimAptitudesRes = preload("res://sim/modules/aptitudes.gd")
+const SimStancesRes = preload("res://sim/stances.gd")
 const SimHealthRes = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
@@ -66,7 +67,7 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": x, "y": y})
 	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
-	world.components.set_component(ent, "posture", {"current": 2})
+	world.components.set_component(ent, "posture", SimStancesRes.make_posture(SimStancesRes.Stance.Walk))
 	world.components.set_component(ent, "facing", {"radians": 0.0})
 	world.components.set_component(ent, "identity", {
 		"id": String(e.get("id", id)),

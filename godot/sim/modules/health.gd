@@ -71,7 +71,11 @@ static func make_survivor_body(world: Variant, entity: int) -> void:
 	world.components.set_component(entity, "injuries", {"wounds": []})
 
 static func make_stamina(world: Variant, entity: int, maxv: int = 100) -> void:
-	world.components.set_component(entity, "stamina", {"current": maxv, "max": maxv, "ticksUntilRecovery": 0})
+	# "current" is a float. It used to be an int, and health.recover's per-tick regen
+	# (SimCombat.STAMINA_PER_TICK = 0.6) truncated to zero against an int pool every tick --
+	# `int(94 + 0.6) == 94` -- so stamina never actually regenerated. "max" stays an int; it
+	# is always a whole number and every reader already casts it on the way in.
+	world.components.set_component(entity, "stamina", {"current": float(maxv), "max": maxv, "ticksUntilRecovery": 0})
 
 static func register_module(world: Variant) -> void:
 	var killed: Array[int] = []
@@ -141,7 +145,7 @@ static func register_module(world: Variant) -> void:
 		if s == null:
 			return
 		var st: Dictionary = s as Dictionary
-		st["current"] = maxi(0, int(st["current"]) - int(event["amount"]))
+		st["current"] = maxf(0.0, float(st["current"]) - float(event["amount"]))
 		st["ticksUntilRecovery"] = int(SimCombat.STAMINA_RECOVERY_DELAY_TICKS)
 	})
 
@@ -154,9 +158,15 @@ static func register_module(world: Variant) -> void:
 			if int(st["ticksUntilRecovery"]) > 0:
 				st["ticksUntilRecovery"] = int(st["ticksUntilRecovery"]) - 1
 				continue
-			if int(st["current"]) < int(st["max"]):
-				var nxt: float = float(st["current"]) + float(SimCombat.STAMINA_PER_TICK)
-				st["current"] = mini(int(st["max"]), int(nxt))
+			if float(st["current"]) < float(st["max"]):
+				# stamina_recovery is the modifier inventory.gd:512 writes from encumbrance --
+				# it used to resolve to nothing here, the same class of dead modifier HANDOFF
+				# already records for move_speed. Guarded the way every other resolve() call
+				# in this file is guarded, for a world built without a modifiers object.
+				var regen: float = float(SimCombat.STAMINA_PER_TICK)
+				if w.modifiers != null and (w.modifiers as Object).has_method("resolve"):
+					regen *= float(w.modifiers.call("resolve", "stamina_recovery", int(entity)))
+				st["current"] = minf(float(st["max"]), float(st["current"]) + regen)
 	)
 
 	world.systems.register("health.reap", "cleanup", 0, func(w: Variant) -> void:

@@ -24,7 +24,7 @@ Four other places to know about, and nothing else is required reading:
 | **It is playable** | Godot at `/` (and Windows artifact) — 256 m district with civic annex, Mara as the current test survivor, knife in hand. `F` swing, `G`/click fire, `R` reload. Shambler / screamer / bloater on the map. HUD shows STR/CON/DEX. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **Survival-loop design, not implementation.** New NPCs and adjacent feature scope are paused; Mara remains the test survivor. The active record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`: wounds, treatment, stamina, and recovery first. No survival code or gate changed in this pass. |
+| **In flight** | **The survival loop, first half: the stance ladder is now sim-owned.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 of it have landed — see the stance-ladder note below and `M2_STANCE_OK`. Still ahead: the grab/bite port that gives wounds an input source, then wounds, treatment and recovery. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | The first survival contract (see “Do this next”), [multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
 
@@ -113,6 +113,32 @@ player, since a connecting shot wears the weapon like any other hit; nothing had
 shots in one run to hit it, and `M2_UPKEEP_OK`'s wear path is melee. It now merges the refreshed
 numbers into the live weapon instead, and `M2_NPC_COMBAT_OK`'s pistol branch — which fires a
 magazine down and reloads — is what would go red if it came back.
+
+**The stance ladder is sim-owned, and three advertised keys were doing nothing.** Milestone 1's
+stance entries below are ticked against the **TypeScript oracle** — `src/sim/stances.ts` and
+`stances.test.ts` — and the Godot port shipped the table without the wiring. `world.gd`'s command
+intake matched `move`/`wait`/`shout` only, so the `{"type":"stance"}` command `main.gd` pushed was
+enqueued, recorded into the replay log, and consumed by nobody; nothing ever advanced
+`posture.current`, so every rung had walk's speed, walk's noise and walk's gates. `_sprinting` was
+set on Shift-down, cleared on Shift-up and read nowhere. `_push_stance` read `posture["ticks_left"]`
+on a dict that only ever carried `"current"` — an invalid-index crash on Z/X/C/V that no gate could
+catch, because every fixture set the stance in the fixture and never pressed a key. Now: posture is
+built by `SimStances.make_posture` everywhere, a `"stance"` case reaches `request_stance`, a new
+`player.advance-posture` system (`input`/1) times the transition and pays the ladder's drain by
+publishing `stamina.spent` rather than touching the pool, and presentation only ever pushes the
+command. `world.gd`'s `STANCE_FACTORS` duplicate is gone in favour of `SimStances.SPEED_FACTOR`, and
+the dead `sim/stance.gd` (singular, `"Posture"`, `"ticksLeft"`) is deleted. Gate:
+`npm run godot:m2:stance` — `M2_STANCE_OK`. **Two live bugs fell out of it:** stamina *never
+regenerated*, because `health.recover` did `int(current + 0.6)` against an integer pool and
+`int(94.6)` is `94`; and it never resolved the `stamina_recovery` modifier `inventory.gd:512` writes
+from encumbrance — the same dead-modifier shape docs/30 records for `move_speed`. `SAVE_VERSION` is
+14 for the posture and stamina shape change; `check_m2_fortify.gd` carried its own independent
+hardcoded `!= 13` check and needed the same bump.
+**Still oracle-only, not ported:** grabs, bites and the stamina-paid escape below. `grab.started`
+and `bite.landed` have five subscribers and zero publishers in `godot/sim/`, and the `grabbed`
+component is read in five places and written nowhere, so `F`-as-struggle is a legend line that
+cannot fire and a zombie cannot wound a survivor at all. That port is the next change, not a
+finished one.
 
 **Named leftover still in the code:**
 - **The condition view has one voice.** docs/05 scales a part's prose by the examiner's Medicine
@@ -866,6 +892,13 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       walking pace and getting quieter by wading into a bush would be reading the wrong number.)*
 - [x] Stance changes are [timed and interruptible](docs/01-hardcore-contract.md#2-actions-take-time-and-time-is-where-you-die);
       no aiming from a sprint, no swinging from a crawl
+      *(**Godot ships the timing, not yet the rest.** `player.advance-posture` times the change and
+      `M2_STANCE_OK` asserts it, but `SimStances.request_stance` arms a **flat** `STANCE_CHANGE_TICKS`
+      — the distance-scaled `stance_change_ticks(from, to)` still has zero callers, so crawl→sprint
+      costs what walk→jog costs. `entity.staggered` does not cancel a pending change, and the three
+      capability checks that would forbid aiming from a sprint are still private copies in
+      `melee.gd`, `ranged.gd` and `fortify.gd` that never consult `SimStances.CAN_AIM` — which is why
+      `ranged` permits it today. The rest of this note is the oracle's behaviour.)*
       *(one rung at a time, so crawl→sprint costs four transitions and an interrupted body is left
       somewhere real. `entity.staggered` cancels the pending change — the same seam that already
       cancels a wind-up. The swing is abandoned on the **decision** to sprint rather than on its
@@ -893,6 +926,11 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       `CRAWL_SPEED_FACTOR` became an `injury.crippled` modifier, which is what its own comment said
       it wanted to be and could not.)*
 - [x] **Grabs, and breaking free** — and with them, bite risk
+      *(**oracle only — not ported to Godot.** Everything below describes `src/sim/modules/shambler.ts`.
+      `godot/sim/modules/shambler.gd:5` says the grab/cripple/stagger/bite sub-systems were omitted;
+      `grab.started` and `bite.landed` have five subscribers and no publisher, and `grabbed` is read
+      in five places and written nowhere. The shipped build's zombies cannot wound a survivor. See
+      the stance-ladder note under "Where things stand".)*
       *(actual hold range is 1 m, separate from 1.6 m pursuit contact so weapon reach remains real.
       A hold pins movement, interrupts wind-up and makes `F` a one-second, 20-stamina struggle.
       Additional grab strength progressively lowers escape chance without making it impossible;
