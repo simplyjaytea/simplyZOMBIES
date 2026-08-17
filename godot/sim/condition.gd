@@ -15,16 +15,60 @@ extends RefCounted
 # The gate will fail; re-read clause 4 before widening it.
 
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimCombat = preload("res://sim/combat.gd")
+const SimInfection = preload("res://sim/modules/infection.gd")
 
-# Survivor order, head down. docs/05: the view is read as a body, not as a list.
-const PART_ORDER: Array[String] = ["head", "torso", "arms", "hands", "legs", "feet"]
+# Survivor order, head down, anatomical left before right. docs/05: the view is read as a
+# body, not as a list. Ten parts, not six -- docs/05's permanent consequences describe "a
+# one-armed survivor" as a real outcome, which needs two independently-damageable arms to
+# produce; see docs/30-decisions.md. This is combat.gd's SURVIVOR_BODY_PARTS, not a second
+# copy of it -- the view's order and the hit-roll's order are the same order because there
+# is exactly one canonical part list.
+const PART_ORDER: Array[String] = SimCombat.SURVIVOR_BODY_PARTS
 
 # The only keys a part may carry. The gate asserts this exactly.
-const PART_KEYS: Array[String] = ["part", "state", "prose"]
+#
+# wounded, infected, and armored joined this session, for the paperdoll revamp -- all three
+# are words or booleans, never the number behind them: `wounded` says a wound was recorded
+# on this part, not what kind or how bad; `infected` is diagnosis_of_part's `actionable`
+# word ("none"/"watch"/"treat"/"critical"), the exact same non-leaking read the HUD already
+# uses, never a stage number and never `transmitted`; `armored` says coverage exists, never
+# the coverage fraction itself. Extending this dictionary with a raw one is still the change
+# that breaks the ban -- these three were chosen because none of them can become one.
+const PART_KEYS: Array[String] = ["part", "state", "prose", "wounded", "infected", "armored"]
+
+# Humanized display for the sided parts. Head and torso need no entry -- the raw key is
+# already the word. Without this, "arm_left" would be the literal text a screen shows,
+# which is the same class of leak as a raw number: the player should never read the sim's
+# key, only what it means.
+const PART_LABELS: Dictionary = {
+	"arm_left": "left arm", "arm_right": "right arm",
+	"hand_left": "left hand", "hand_right": "right hand",
+	"leg_left": "left leg", "leg_right": "right leg",
+	"foot_left": "left foot", "foot_right": "right foot",
+}
+
+static func label_of(part: String) -> String:
+	return String(PART_LABELS.get(part, part))
 
 
-# Returns {"parts": [{part, state, prose}], "stance": int, "worst": int}, or {} when the
-# entity has no body -- a zombie has no condition view, same as the oracle's null.
+# Does this part have a recorded wound? injuries.wounds is append-only today -- nothing
+# ever marks one treated (docs/05's fracture/sprain/burn/concussion types and treatment
+# state are open items, see HANDOFF) -- so this says a wound was sustained here, not that it
+# is still open. Honest about what the sim actually knows rather than implying more.
+static func _has_wound(world: Variant, actor: int, part: String) -> bool:
+	var inj: Variant = world.components.get_component(actor, "injuries")
+	if not (inj is Dictionary):
+		return false
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		if String((wound as Dictionary).get("bodyPart", "")) == part:
+			return true
+	return false
+
+
+# Returns {"parts": [{part, state, prose, wounded, infected, armored}], "stance": int,
+# "worst": int}, or {} when the entity has no body -- a zombie has no condition view, same
+# as the oracle's null.
 static func view(world: Variant, actor: int) -> Dictionary:
 	if world == null:
 		return {}
@@ -43,8 +87,19 @@ static func view(world: Variant, actor: int) -> Dictionary:
 			continue
 		var s: int = int(st)
 		worst = maxi(worst, s)
-		# state is the discrete grade, never the integrity behind it.
-		parts.append({"part": part, "state": s, "prose": part})
+		# The untrained tier, same as everywhere else this screen reads a diagnosis --
+		# HANDOFF's "one voice" note: there is no skill web yet to scale against.
+		var diag: Dictionary = SimInfection.diagnosis_of_part(world, actor, 0, part)
+		# state is the discrete grade, never the integrity behind it. wounded/infected/armored
+		# are words and booleans for the same reason -- see PART_KEYS above.
+		parts.append({
+			"part": part,
+			"state": s,
+			"prose": label_of(part),
+			"wounded": _has_wound(world, actor, part),
+			"infected": String(diag.get("actionable", "none")),
+			"armored": SimInfection.armor_coverage_of(world, actor, part) > 0.0,
+		})
 
 	var posture: Variant = world.components.get_component(actor, "posture")
 	var stance: int = 2 # Walk

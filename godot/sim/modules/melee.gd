@@ -30,7 +30,7 @@ static func make_melee_armed(world: Variant, entity: int, weapon: Dictionary = {
 
 static func _roll_body_part(rng: Variant, body: Variant) -> String:
 	var roll: float = float(rng.call("next"))
-	var is_survivor: bool = body != null and (body as Dictionary).has("arms")
+	var is_survivor: bool = SimHealth.is_survivor_body(body)
 	var parts: Array[String] = SimCombat.SURVIVOR_BODY_PARTS if is_survivor else SimCombat.BODY_PARTS
 	var weights: Dictionary = SimCombat.SURVIVOR_HIT_LOCATION_WEIGHTS if is_survivor else SimCombat.HIT_LOCATION_WEIGHTS
 	var cumulative: float = 0.0

@@ -1090,7 +1090,7 @@ static func _injured(world: Variant, ent: int) -> bool:
 		return true
 	var body: Variant = world.components.get_component(ent, "body")
 	if body is Dictionary:
-		for p in ["head", "torso", "arms", "legs"]:
+		for p in ["head", "torso", "arm_left", "arm_right", "leg_left", "leg_right"]:
 			if int((body as Dictionary).get(p, 40)) < 30:
 				return true
 	return false

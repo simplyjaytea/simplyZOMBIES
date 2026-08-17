@@ -2,6 +2,8 @@ extends SceneTree
 # M2 lethality: progression determinism, armor reduces transmission, amputation window, turning
 const World = preload("res://sim/world.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -9,6 +11,7 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _progression_determinism() and ok
+	ok = _armor_reduces_transmission() and ok
 	ok = _amputation_window() and ok
 	ok = _turning_and_noise() and ok
 	ok = _diagnosis_never_leaks() and ok
@@ -18,6 +21,47 @@ func _run() -> void:
 	else:
 		push_error("M2_LETHALITY_FAIL")
 		quit(1)
+
+# The file comment has claimed "armor reduces transmission" since before the sided-limb
+# split, but nothing here actually exercised it -- which is how item.vest.scrap's `armor`
+# block kept the pre-split key ("arms") through that whole migration. `_armor_coverage()`
+# looks up the exact bodyPart string a bite lands on, "arm_left" is not "arms", and a vest
+# meant to blunt an arm bite was silently doing nothing on either arm. Caught while starting
+# the paperdoll revamp, fixed in content, and now actually gated.
+func _armor_reduces_transmission() -> bool:
+	var trials: int = 500
+	var unarmored: int = _bite_trials(trials, false)
+	var armored: int = _bite_trials(trials, true)
+	if armored >= unarmored:
+		push_error("armor did not reduce transmission: armored=%d unarmored=%d of %d" % [armored, unarmored, trials])
+		return false
+	# item.vest.scrap covers arm_left at 0.3 -- not an exact statistical target (that would be
+	# flaky), just a check that the coverage is actually reaching the roll rather than being a
+	# silent no-op from a stale key.
+	if float(armored) > float(unarmored) * 0.85:
+		push_error("armor coverage too weak to be real: armored=%d unarmored=%d of %d" % [armored, unarmored, trials])
+		return false
+	print("ARMOR OK armored=%d unarmored=%d of %d bites to arm_left" % [armored, unarmored, trials])
+	return true
+
+func _bite_trials(trials: int, armored: bool) -> int:
+	var f: Dictionary = {"seed": 6001, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 4.0, "y": 4.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	SimInfection.register_module(w)
+	if armored:
+		var vest: int = SimItems.spawn_item(w, "item.vest.scrap", {"tier": "scavenged"})
+		if not SimInventory.equip(w, w.player, vest, "vest"):
+			push_error("could not equip item.vest.scrap for the armor trial")
+			return -1
+	var transmitted: int = 0
+	for i in trials:
+		w.events.publish({"type": "bite.landed", "victim": w.player, "source": 99, "bodyPart": "arm_left", "damage": 1.0})
+		w.events.drain()
+		var state: Variant = w.components.get_component(w.player, "zombieInfection")
+		var exposures: Array = (state as Dictionary)["exposures"] as Array
+		if bool((exposures[exposures.size() - 1] as Dictionary).get("transmitted", false)):
+			transmitted += 1
+	return transmitted
 
 func _progression_determinism() -> bool:
 	# Same seed, same bite at same tick -> same stage at tick N
@@ -30,7 +74,7 @@ func _progression_determinism() -> bool:
 		# add a body and infection state directly — progression is tick physics, not plumbing
 		var e: int = wv.player
 		wv.components.set_component(e, "position", {"x": 6.0, "y": 5.0})
-		wv.components.set_component(e, "zombieInfection", {"exposures": [{"source": 99, "bodyPart": "arms", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Latent, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
+		wv.components.set_component(e, "zombieInfection", {"exposures": [{"source": 99, "bodyPart": "arm_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Latent, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
 		SimInfection.register_module(wv)
 	for i in SimInfection.LATENT_TICKS:
 		w.step()
@@ -61,10 +105,10 @@ func _progression_determinism() -> bool:
 func _amputation_window() -> bool:
 	var f: Dictionary = {"seed": 5001, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 4.0, "y": 4.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 	var w: Variant = World.new(f)
-	w.components.set_component(w.player, "body", {"head": 10, "torso": 20, "arms": 10, "hands": 10, "legs": 10, "feet": 10})
-	w.components.set_component(w.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "arms", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Latent, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
+	w.components.set_component(w.player, "body", {"head": 10, "torso": 20, "arm_left": 10, "arm_right": 10, "hand_left": 10, "hand_right": 10, "leg_left": 10, "leg_right": 10, "foot_left": 10, "foot_right": 10})
+	w.components.set_component(w.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "arm_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Latent, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
 	SimInfection.register_module(w)
-	var r1: Dictionary = SimInfection.amputate(w, w.player, "arms")
+	var r1: Dictionary = SimInfection.amputate(w, w.player, "arm_left")
 	if not bool(r1.get("ok", false)):
 		push_error("amputate latent should succeed %s" % str(r1))
 		return false
@@ -87,10 +131,10 @@ func _amputation_window() -> bool:
 	# too-late: progression stage
 	var f2: Dictionary = {"seed": 5002, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 4.0, "y": 4.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 	var w2: Variant = World.new(f2)
-	w2.components.set_component(w2.player, "body", {"head": 10, "torso": 20, "arms": 10, "hands": 10, "legs": 10, "feet": 10})
-	w2.components.set_component(w2.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "legs", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Progression, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
+	w2.components.set_component(w2.player, "body", {"head": 10, "torso": 20, "arm_left": 10, "arm_right": 10, "hand_left": 10, "hand_right": 10, "leg_left": 10, "leg_right": 10, "foot_left": 10, "foot_right": 10})
+	w2.components.set_component(w2.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "leg_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Progression, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
 	SimInfection.register_module(w2)
-	var r2: Dictionary = SimInfection.amputate(w2, w2.player, "legs")
+	var r2: Dictionary = SimInfection.amputate(w2, w2.player, "leg_left")
 	if bool(r2.get("ok", true)):
 		push_error("amputate progression should be too-late %s" % str(r2))
 		return false
@@ -149,7 +193,7 @@ func _turning_and_noise() -> bool:
 func _diagnosis_never_leaks() -> bool:
 	var f: Dictionary = {"seed": 5200, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 4.0, "y": 4.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 	var w: Variant = World.new(f)
-	w.components.set_component(w.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "arms", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Progression, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
+	w.components.set_component(w.player, "zombieInfection", {"exposures": [{"source": 1, "bodyPart": "arm_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Progression, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false}]})
 	SimInfection.register_module(w)
 	for skill in [0, 1, 2, 3]:
 		var d: Dictionary = SimInfection.diagnosis_of(w, w.player, skill)

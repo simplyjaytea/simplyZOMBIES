@@ -14,10 +14,40 @@ const HEAD_DAMAGE_MULTIPLIER: int = 3
 
 const HIT_LOCATION_WEIGHTS: Dictionary = {"head": 0.2, "torso": 0.55, "legs": 0.25}
 const BODY_PARTS: Array[String] = ["head", "torso", "legs"]
-const SURVIVOR_HIT_LOCATION_WEIGHTS: Dictionary = {"head": 0.2, "torso": 0.55, "arms": 0.09, "hands": 0.03, "legs": 0.1, "feet": 0.03}
-const SURVIVOR_BODY_PARTS: Array[String] = ["head", "torso", "arms", "hands", "legs", "feet"]
-const SURVIVOR_BODY: Dictionary = {"head": 15, "torso": 40, "arms": 20, "hands": 10, "legs": 25, "feet": 10}
 const ZOMBIE_BODY: Dictionary = {"head": 25, "torso": 60, "legs": 40}
+
+# Survivors carry independent left and right limbs. docs/05-health-injury.md's permanent
+# consequences already describe "a one-armed survivor" as an outcome the colony has to plan
+# around -- can't fight, can still cook, haul, watch, and talk -- which is not an outcome the
+# previous single aggregate "arms" value could produce: amputating "arms" took both arms at
+# once. This is docs/30's decision entry "survivor limbs are sided", not a UI change.
+#
+# Order is anatomical left before right, head down, matching docs/05's reading order.
+# SURVIVOR_BODY keeps each limb's own toughness rather than halving it: there is no
+# aggregate HP pool, so "how hard is it to ruin one arm" is the felt quantity, and it must
+# stay what it was. SURVIVOR_HIT_LOCATION_WEIGHTS instead halves each split entry, so the
+# chance of hitting *an* arm is unchanged and existing lethality balance holds.
+const SURVIVOR_BODY_PARTS: Array[String] = [
+	"head", "torso",
+	"arm_left", "arm_right",
+	"hand_left", "hand_right",
+	"leg_left", "leg_right",
+	"foot_left", "foot_right",
+]
+const SURVIVOR_BODY: Dictionary = {
+	"head": 15, "torso": 40,
+	"arm_left": 20, "arm_right": 20,
+	"hand_left": 10, "hand_right": 10,
+	"leg_left": 25, "leg_right": 25,
+	"foot_left": 10, "foot_right": 10,
+}
+const SURVIVOR_HIT_LOCATION_WEIGHTS: Dictionary = {
+	"head": 0.2, "torso": 0.55,
+	"arm_left": 0.045, "arm_right": 0.045,
+	"hand_left": 0.015, "hand_right": 0.015,
+	"leg_left": 0.05, "leg_right": 0.05,
+	"foot_left": 0.015, "foot_right": 0.015,
+}
 
 static func windup_ticks(weight: float, speed: float = 1.0) -> int:
     return maxi(1, int(round(float(WINDUP_TICKS) * weight / speed)))

@@ -709,6 +709,59 @@ about.
 - **Exhausted swings degrade.** `REFUSE_EXHAUSTED_SWINGS` keeps the old refuse path for a
   `crowded-and-swinging` A/B; default is off.
 
+## What the sided-limb split made structural
+
+- **Survivor limbs are sided.** `SimCombat.SURVIVOR_BODY_PARTS` grew from six parts to ten —
+  head, torso, and a left/right pair each of arms, hands, legs, feet. Prompted by a UI review of
+  the paperdoll surfacing a real gap: docs/05's permanent consequences already promised "a
+  one-armed survivor," an outcome the previous single aggregate `arms` value could not produce,
+  since amputating it took both arms at once. This is design catching up to its own prose, not a
+  new feature.
+- **Per-limb toughness, not per-limb weight.** Each side keeps the whole limb's old integrity
+  (`arm_left`/`arm_right` are each still 20, not 10) so one connecting hit costs what it always
+  did. `SURVIVOR_HIT_LOCATION_WEIGHTS` is what halves — the chance of hitting *an* arm is
+  unchanged, only which one is now recorded.
+- **One sentinel for "is this a survivor body."** `SimHealth.is_survivor_body()` replaced three
+  separate `body.has("arms")` checks in melee and health. A body's shape is checked in one place
+  so it only has to be updated in one place next time it changes.
+- **Crawling needs both legs; a bad leg is a limp.** `is_crawling()` requires `leg_left` and
+  `leg_right` to both be spent for a survivor — a single ruined leg is the permanent-limp
+  consequence docs/05 already named, not the "can no longer stand" one.
+- **Bumped `SAVE_VERSION` to 13, not migrated.** A v12 body dict has the old key names and would
+  silently mismatch every part lookup rather than fail loudly. `save.gd` already declines to
+  migrate pre-1.0 saves, so the version bump is the whole fix.
+- **`check_m2_save.gd` and `check_m2_fortify.gd` each assert `SAVE_VERSION` independently.**
+  Updating one and not the other is exactly how this was caught mid-review, by `godot:r6`
+  rather than by inspection. Left duplicated rather than refactored under this change; a real
+  fix is one shared assertion both gates call, not two copies kept in sync by discipline.
+
+## What the paperdoll revamp made structural
+
+- **`condition.gd` gained three fields, all words or booleans.** `wounded`, `infected`, and
+  `armored` join `part`/`state`/`prose`. Each was chosen because it structurally cannot become
+  a number: `wounded` says a wound was recorded, not which kind or how many; `infected` is
+  `diagnosis_of_part`'s `actionable` word, the same non-leaking read the HUD already uses,
+  never a stage integer and never `transmitted`; `armored` says coverage is greater than zero,
+  never the coverage fraction. A part with several things true draws several marks — the ban
+  holds by construction, not by the paperdoll choosing to be tasteful about it.
+- **`diagnosis_of` and `diagnosis_of_part` share one stage-to-label function.** The pre-split
+  `diagnosis_of` had its `match worst: ...` block inline; adding a per-part variant by copying
+  that block would have been the same mistake the `SAVE_VERSION` duplication above already made
+  once this session. `_diagnosis_for_stage()` is now the one place a stage becomes a sentence,
+  and both callers use it.
+- **`armor_coverage_of` is public.** It was `_armor_coverage`, called only from the bite-landed
+  handler. The paperdoll needed the same "is this part protected" fact without a second
+  implementation reading `equipped_items` and an item's `armor` dict — the underscore was a
+  convention, not a boundary, so the fix was a rename, not a rewrite.
+- **The figure faces the viewer.** Screen-left is the person's right, screen-right their left —
+  the same convention every anatomical chart and paperdoll UI uses. Named once in `SIDE_NAME`
+  rather than re-decided at each of the eight limb-drawing call sites, and irrelevant to
+  gameplay today since nothing selects a limb by clicking the figure.
+- **Armour is a stroke, not a second fill.** A protected part keeps its condition tint (the fill)
+  and gets a distinct, thicker outline over it. Two colours competing for the same fill would
+  have forced a choice between showing you *how hurt* and *how protected* a part is; the stroke
+  says both without picking.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
