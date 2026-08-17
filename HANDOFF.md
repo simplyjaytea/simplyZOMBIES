@@ -21,12 +21,12 @@ Four other places to know about, and nothing else is required reading:
 | | |
 |---|---|
 | **Phase** | **Godot rebuild — R0 through R7 complete. Cutover done; Godot is the playable build at `/`.** All parity gates green; oracle archived at tag `ts-oracle-final`. Product Milestone 1 closed; Milestone 2 lethality landed; **stats MVP + unique NPC spawn** are in. |
-| **It is playable** | Godot at `/` (and Windows artifact) — 256 m district with civic annex, Mara, knife in hand. `F` swing, `G`/click fire, `R` reload. Shambler / screamer / bloater on the map. HUD shows STR/CON/DEX. |
+| **It is playable** | Godot at `/` (and Windows artifact) — 256 m district with civic annex, Mara as the current test survivor, knife in hand. `F` swing, `G`/click fire, `R` reload. Shambler / screamer / bloater on the map. HUD shows STR/CON/DEX. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **Early-alpha execution — roster + annex + ranged.** Screamer `alarm_on_sight` (300 noise, 30s cooldown), bloater `blooms_on_death` (scent 30 + 6 m / 90 s contamination flag), civic-annex JSON overlay on a 256 m district, bow/pistol fire loop, exhausted swings degrade. Gates: `godot:m2:roster`, `godot:m2:district`, `godot:m2:ranged`. |
+| **In flight** | **Survival-loop design, not implementation.** New NPCs and adjacent feature scope are paused; Mara remains the test survivor. The active record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`: wounds, treatment, stamina, and recovery first. No survival code or gate changed in this pass. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
-| **Specified but deliberately unbuilt** | [Multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
+| **Specified but deliberately unbuilt** | The first survival contract (see “Do this next”), [multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
 
 ### Counting the backlog
 
@@ -70,31 +70,30 @@ phase definitions and gates live in [docs/31](docs/31-godot-rebuild-roadmap.md).
 
 ## Do this next
 
-**The next thing is to run the full balance grid, and then to play it for ten days.** Milestone 2's
-build order is on its last step — [step 7, "Proof"](docs/23-roadmap.md#build-order): automated
-distribution runs, then the human playtest. The harness for it now exists in both tiers
-(`godot:m2:balance`, and `BALANCE_FULL=1 npm run godot:m2:balance:full`), and so does the NPC
-combat that had to land first — without it a headless colony fought with nothing, so risk 6 would
-have compared two arms that both scored zero.
+**Finish the survival-loop contract, then write a reproducible 72-hour acceptance scenario before
+adding code.** New NPCs and adjacent feature scope are paused; Mara remains the test survivor. The
+design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. It is a specification,
+not evidence that a feature exists.
 
-What is left is not more code, it is **a grid nobody has run yet**. The full tier is four seeds ×
-three arms of a real ten-day campaign; it is opt-in, and `BALANCE_DAYS` / `BALANCE_SEEDS` exist to
-scale it. Four things are written, asserted and waiting on that one run: **risk 6** (melee-only vs
-ranged-only), **risk 1** (the seeded six-survivor colony on Auto), **risk 3**'s verdict, and
-**"run ends only when the last survivor dies"**. Each is marked open with a note saying exactly
-that, rather than ticked on an assertion nothing has exercised.
+The first playable loop is deliberately narrow: any damaging zombie hit may create a
+severity-based, located scratch, laceration, deep wound, or bite; a player selects a survivor and
+body part through the condition view, then commits real simulation time to pressure or a bandage.
+Pressure is temporary; bandaging is durable; treatment is interruptible. Wounds impair relevant
+body-part actions, recover only while fed and not exerting, and keep player feedback diegetic and
+prose-first. Stamina is a separate short-clock system: exertion drains it, idling/sitting/sleeping
+restore it, low stamina slows sprint/melee, and zero stamina blocks sprint/climb without forbidding
+walking or melee. Do not turn any of this into a numeric player readout.
 
-**What it costs, measured rather than estimated.** One real single-day campaign is 180,000 ticks
-and took **166 s** — about **1,085 ticks/second** headless, and the compressed tier measures ~950,
-close enough to say the day phases are not the expensive part. So a ten-day campaign is roughly
-**forty-five minutes** and the default four-seed × three-arm grid is about **nine hours**. That is
-an overnight job, not an afternoon one, which is why it is opt-in and why `BALANCE_SEEDS=1` exists
-for anyone who wants one arm's answer sooner.
+**Do not mark health/injury work done yet.** This pass changed no gameplay code and added no gates.
+Before implementation, finish the open design details, write the scenario, then repair the known
+sim-owned stance/sprint command path before adding deterministic treatment commands and focused
+Godot checks. Preserve save/replay behavior and the condition-view health-bar ban.
 
-One number is already worth looking at, from the compressed tier: **3 siege nights in 10 days on
-every seed, and all three on days 8–10.** The first week is unpressured by construction — grace
-until day 3, then a trickle gated on `live < 8` while the district boots with 12 wanderers. See
-[risk 3](#building--spec-docs15) before deciding whether that is pacing or a bug.
+**Proof is deferred, not cancelled.** After the focused survival loop is implemented and gated, run
+the existing full balance grid and human ten-day playtest. The full tier remains four seeds × three
+arms of a real ten-day campaign; it is opt-in via
+`BALANCE_FULL=1 npm run godot:m2:balance:full` and normally takes about nine hours. It is still the
+evidence for risks 1, 3, and 6, plus “run ends only when the last survivor dies.”
 
 **R7 is closed. Infection lethality, the stats MVP, and the early-alpha execution slice are in.**
 Roster behaviors, civic-annex overlay, and bow/pistol fire loop land behind `godot:m2:roster`,
