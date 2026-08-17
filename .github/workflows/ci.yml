@@ -113,6 +113,12 @@ jobs:
       - name: HUD prose (no pools, no gauges)
         run: npm run godot:check:hud
 
+      # HANDOFF.md is what this project plans from, and its backlog counts drifted far
+      # enough that four sections listed shipped, gated work as open. Ported from the
+      # oracle's handoff.test.ts, which leaves with test/.
+      - name: HANDOFF bookkeeping (counts, filing, evidence)
+        run: npm run godot:check:handoff
+
   godot-exports:
     needs: check
     runs-on: windows-latest

@@ -735,6 +735,34 @@ about.
   rather than by inspection. Left duplicated rather than refactored under this change; a real
   fix is one shared assertion both gates call, not two copies kept in sync by discipline.
 
+## What the backlog audit made structural
+
+- **The backlog counts were wrong by roughly a third, and no guard could see it.**
+  Milestone 2 read 33 done / 77 open; auditing every checkbox against the gates and modules
+  put it at 67 / 43. Building, Director, Death & succession, Survivors, Needs, Skill web,
+  Combat and Items each listed shipped, gated features as open — `M2_FORTIFY_OK`,
+  `M2_DIRECTOR_OK` and the rest had been green for sessions while the document said
+  otherwise. Nothing was built to move the number.
+- **`handoff.test.ts` checked arithmetic, not truth.** Every stale item passed it, because
+  they were correctly *counted* as open and merely wrong about the code. A document can be
+  internally consistent and externally false, and that is the failure mode that actually
+  happened — four times.
+- **Evidence per box is what makes an audit possible.** Most `[x]` items already carried an
+  italic note naming the gate or file, which is the only reason this audit was tractable
+  rather than archaeology. `check_handoff.gd` now requires it for Milestone 2, so a tick is
+  a falsifiable claim instead of an assertion taken on faith. It cannot verify truth —
+  nothing cheap can — but it puts the next reader one `npm run` from checking.
+- **Scoped to the live milestone.** Milestones 0 and 1 are closed and their boxes predate the
+  convention; the first draft of the gate demanded 41 retrofitted notes on finished work.
+  Drift only matters where the work is still moving.
+- **Partial work stays open with a note saying which half.** "Colony morale hit; work
+  priorities cleared" is half shipped — `_make_corpse` clears `jobPriorities`, nothing
+  applies grief — so it stays `[ ]` and says so. Rounding a half-done item up is how the
+  count drifts in the honest direction next time.
+- **The guard caught its author mid-audit.** Three boxes were ticked in place rather than
+  moved into their `Done` group — exactly the drift the counts exist to catch — and
+  `_no_checkbox_is_misfiled` flagged all three before the commit.
+
 ## What the paperdoll revamp made structural
 
 - **`condition.gd` gained three fields, all words or booleans.** `wounded`, `infected`, and
