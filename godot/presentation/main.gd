@@ -620,7 +620,19 @@ func _draw_entities() -> void:
 			# as the camera follows the player.
 			var size: Vector2 = texture.get_size()
 			var at := Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y))
-			draw_texture_rect(texture, Rect2(at, size), false, col)
+			var rect := Rect2(at, size)
+			# Equipped gear composites at the identical rect the body draws at -- an
+			# equipSprite is authored on the same feet-anchored canvas, so there is no
+			# per-item offset to compute here. Drawn white, never the role/tint colour:
+			# a backpack is its own object, not a stand-in shape for the entity itself.
+			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, int(it["id"]))
+			for layer in equip:
+				if not bool(layer["over"]):
+					draw_texture_rect(layer["texture"] as Texture2D, rect, false)
+			draw_texture_rect(texture, rect, false, col)
+			for layer in equip:
+				if bool(layer["over"]):
+					draw_texture_rect(layer["texture"] as Texture2D, rect, false)
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
 			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)

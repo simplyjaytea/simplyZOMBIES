@@ -15,6 +15,19 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
 - **Filename:** `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the
   registry key.
 
+## Equipped-item overlays
+
+An item base can also carry `appearance.equipSprite` (item.schema.json), a **different** picture
+from its ground `sprite` — what it looks like worn or held on a body, not lying on the floor.
+Author it on the **same 64×96 feet-anchored canvas** as a survivor sprite, with everything except
+the item itself left transparent. The renderer composites it at the exact same rect the body
+draws at, so there is no per-item offset to configure — get the item's position right within its
+own 64×96 canvas (a bat gripped near hip-to-shoulder height, a backpack sitting on the shoulders)
+and it lands correctly on any body wearing it. Only slots `presentation/appearance.gd` renders
+matter today: `back` draws under the body sprite (peeking over the shoulders), `primary` and
+`secondary` draw over it (held in front). Other equipment slots may declare `equipSprite` but
+nothing draws them yet.
+
 ## Wiring one up
 
 Add the key to the content entry, not to any script:

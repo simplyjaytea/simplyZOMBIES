@@ -26,7 +26,8 @@
       "additionalProperties": false,
       "properties": {
         "sprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "Registry key resolved to assets/sprites/<key>.png by presentation/appearance.gd. A key, not a path, so content stays engine-agnostic." },
-        "tint": { "type": "string", "pattern": "^#[0-9a-f]{6}$", "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists." }
+        "tint": { "type": "string", "pattern": "^#[0-9a-f]{6}$", "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists." },
+        "equipSprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. Authored on the same 64x96 feet-anchored canvas as the survivor sprite it will be drawn over, per assets/sprites/README.md, so the renderer composites it at the identical rect with no per-item offset math. Read only when this base occupies an equipment slot presentation.gd renders (currently back, primary, secondary); other slots leave it declared but unused until a body-part anchor exists for them." }
       }
     },
     "class": {
