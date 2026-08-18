@@ -27,9 +27,9 @@ extends RefCounted
 #
 # The channel machinery is fortify.gd's, copied deliberately rather than invented: _start
 # guarded by _can_channel, a component holding {verb, ticksLeft, ...} ticked down by one
-# system, _cancel driven by subscriptions to entity.staggered and grab.started. The swing
-# and fire state machines are the wrong template -- a channel is one committed span with a
-# cancel, not a multi-phase cycle.
+# system, _cancel driven by subscriptions to entity.staggered, grab.started and grab.broken.
+# The swing and fire state machines are the wrong template -- a channel is one committed span
+# with a cancel, not a multi-phase cycle.
 #
 # --- one hand on your own wound, while somebody has hold of you ------------------------
 #
@@ -56,12 +56,25 @@ extends RefCounted
 #   R4  Struggle and self-pressure coexist -- `_arm_struggle` is not consulted here and does not
 #       consult this. Pressing is not "your action" for the hold; a survivor who had to choose
 #       between the two would either bleed out or never get free.
-#   R5  On a mid-channel escape `treatment.pin` outranks `breakAway` (same phase and order,
-#       alphabetical tie-break, and treatment.pin's zero lands last). Tear free mid-press and you
-#       stay on the wound; flight happens between channels, not during one.
+#   R5  Becoming *fully free* cancels your own self-pressure, and only that. `grab.broken` names
+#       one victim; `treatment.escape-releases-press` ends that victim's hand on their own wound so
+#       the break-away is a run rather than a pause. This is the inversion of the rule that shipped
+#       first ("treatment.pin outranks breakAway; flight happens between channels"), and it was
+#       inverted on measurement rather than taste: with the press winning, 94 of 120 escapes on
+#       seed 404 were mid-press, 89 of the 91 following re-grab windows were exactly
+#       REGRAB_COOLDOWN_TICKS and not one exceeded it, and total grabs *rose* 149 -> 214. The
+#       survivors using the aid were exactly the ones the break-away no longer moved.
+#       Ordering, by design and gate-asserted (FLIGHT-CANCELS-PRESS): `grab.broken` drains at the
+#       END of the escape tick, so on that tick the press still exists and `treatment.pin` still
+#       zeroes velocity -- the escapee spends one of breakAway's 26 ticks pinned while the holder
+#       keeps closing, and flight begins the tick after. That is a tick of stumble, not a bug to
+#       engineer around, and it costs about 0.105 m of the gap.
 #   R6  `treatment.self-aid` will not *start* a channel while `breakAway` is running: get clear
-#       first, then kneel. R5 and R6 are not in tension -- one is about a press already paid for,
-#       the other about opening a new one.
+#       first, then kneel. R5 and R6 now compose rather than divide the same moment between them --
+#       R5 ends the press at the escape, R6 holds the next one off until the running is done, and
+#       the press re-opens the tick after `breakAway` goes. It goes at expiry *or* the moment a new
+#       hold removes it (`shambler.pin`), so a re-taken survivor is pressing again within a tick or
+#       two rather than waiting out the full 26.
 #   R7  `context()` picks `pressure` while the actor is grabbed even when they are carrying a
 #       dressing, or a held bandage-carrier would be refused every tick and never treat anything.
 #
@@ -147,10 +160,12 @@ static func register_module(world: Variant) -> void:
 			if w.components.has_component(e, "corpse") or w.components.has_component(e, "treatment") or w.components.has_component(e, "treated"):
 				continue
 			# R6: somebody who has just torn free of a hold is running, not kneeling. Without this
-			# the press would open on the tick of the escape and treatment.pin would immediately
-			# outrank breakAway (R5) -- the survivor would stand exactly where they escaped from
-			# and press, which is the treadmill the break-away exists to end. A press already paid
-			# for survives an escape; a new one waits the 26 ticks out.
+			# the press would re-open on the tick after the escape and treatment.pin would zero the
+			# break-away's velocity -- the survivor would stand exactly where they escaped from and
+			# press, which is the treadmill the break-away exists to end. R5 takes the old press
+			# away at the escape; this is what stops a new one being opened in its place before the
+			# running is done. The wait is `breakAway`'s life, not a fixed 26: a re-grab removes the
+			# component, so a survivor who is caught again is pressing again almost at once.
 			if w.components.has_component(e, "breakAway"):
 				continue
 			if _worst_bleeding_part(w, e) == "":
@@ -180,6 +195,12 @@ static func register_module(world: Variant) -> void:
 	})
 	world.events.subscribe({"id": "treatment.grab-interrupts", "type": "grab.started", "handler": func(event: Dictionary) -> void:
 		_interrupt_grab(world, int(event.get("victim", -1)))
+	})
+	# R5, and the exact mirror of the one above. `grab.broken` is published once, at the single
+	# point a victim goes from held to fully free, so this fires on an escape, a rescue or the
+	# holder dying -- everything that means "you can move now".
+	world.events.subscribe({"id": "treatment.escape-releases-press", "type": "grab.broken", "handler": func(event: Dictionary) -> void:
+		_interrupt_escape(world, int(event.get("victim", -1)))
 	})
 
 
@@ -405,6 +426,12 @@ static func _interrupt(world: Variant, entity: int) -> void:
 # them -- except the victim pressing on their own wound, which is the thing they are allowed to
 # keep doing (R1) and which a second set of hands closing on them does not physically undo.
 #
+# The symmetry with `_interrupt_escape` below is exact and deliberate, and it is the whole of the
+# arbitration in two lines: `grab.started` cancels everything touching the victim EXCEPT their own
+# self-pressure; `grab.broken` cancels ONLY their own self-pressure. A second holder does not peel
+# your palm off your arm; becoming free is what takes it off, because that is the moment you have
+# somewhere to be.
+#
 # Both branches are needed and neither subsumes the other: the first is the victim as treater, the
 # second the victim as patient. `treater != entity` is what separates a self-press (kept) from
 # someone else's dressing on a newly grabbed patient (cancelled) in the second branch, and the
@@ -420,6 +447,23 @@ static func _interrupt_grab(world: Variant, entity: int) -> void:
 		var treater: int = int((treated as Dictionary).get("treater", -1))
 		if treater != entity:
 			cancel(world, treater)
+
+
+# R5. The victim's own self-pressure and nothing else: one entity, one component, no scan of the
+# bodies around them. A free treater's channel on somebody who has just torn loose is *more*
+# viable than it was a tick ago, not less -- the patient is no longer being dragged -- and
+# `_tick_channel` re-checks reach every tick, so the case where flight actually does break that
+# dressing is already answered by the geometry rather than needing a rule here.
+#
+# No `treatment.refused` is published, matching `_interrupt` and `_interrupt_grab`: the interrupts
+# are things the world did to a channel, not the channel being denied, and the screen learns about
+# them from the component going away.
+static func _interrupt_escape(world: Variant, entity: int) -> void:
+	if entity < 0:
+		return
+	var running: Variant = world.components.get_component(entity, "treatment")
+	if running is Dictionary and _is_self_pressure(running as Dictionary, entity):
+		cancel(world, entity)
 
 
 static func _is_self_pressure(state: Dictionary, entity: int) -> bool:

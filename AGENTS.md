@@ -53,26 +53,32 @@ prose and code stay in one language.
   one channel — `pressure` on yourself — under seven arbitration rules written out at the top of
   `treatment.gd` (R1–R7: the exemption at begin and per tick, `grab.started` sparing only the
   victim's own press, a stagger still cancelling everything, struggle and press coexisting,
-  `treatment.pin` outranking `breakAway`, self-aid deferring during a break-away, and `context()`
-  forcing `pressure` while held). AID-HELD and HELD-CONTEXT in `M2_TREATMENT_OK`; PRESS-THROUGH,
-  STRUGGLE-DURING-PRESS, REGRAB-SPARES-PRESS and BREAKAWAY-DEFER in `M2_CONTACT_OK`. Presses
-  completed while held went 0 → 20 and 16 on the two hard seeds; presses destroyed by an arriving
-  hold went 46/55/125 → zero.
+  `grab.broken` cancelling only the victim's own press, self-aid deferring during a break-away, and
+  `context()` forcing `pressure` while held). AID-HELD and HELD-CONTEXT in `M2_TREATMENT_OK`;
+  PRESS-THROUGH, STRUGGLE-DURING-PRESS, FLIGHT-CANCELS-PRESS and BREAKAWAY-DEFER in
+  `M2_CONTACT_OK`.
 - **The re-grab treadmill was a speed bug, and is fixed.** Both bodies are pinned during a hold, so
   a release starts inside `GRAB_METRES`, and `BREAK_AWAY_SPEED` 1.6 lost ground to the 1.68 seek —
   the gap *shrank* across the cooldown. Now 2.1, pinned against the seek by CLEAR-AWAY in
   `M2_CONTACT_OK`. Same file, same slice: `_gather_survivors` skips `corpse` carriers, because
   `identity` survives `_make_corpse` and shamblers were grabbing the dead (CORPSE).
-- **The next step is still a design decision, not code, and it is now a named one.** With grabs
-  forced on, seeds 404 and 90210 still end `0/2` by blood loss — because **R5 cancels the churn fix
-  for exactly the survivors using the aid**. A press outranks a break-away, so a mid-press escape
-  leaves you standing still: on 404, 94 of 120 escapes are mid-press, and of the 91 inter-grab
-  windows that follow one, 89 are exactly `REGRAB_COOLDOWN_TICKS` and none exceeds it (against 4 of
-  27 after a free escape). Total grabs rose 149 → 214 and 149 → 212. The candidates — let a
-  break-away outrank a running press, cancel the press on escape and let R6 re-open it, or leave R5
-  and cut contact rarity — are all design calls. **Do not pick an answer unilaterally**, and note
-  that relaxing `survivors_end >= 1` has been considered and rejected — see the full measurement in
-  docs/23's Milestone 2 status section and the "Where the work is" section of `CLAUDE.md`.
+- **R5 has been inverted, and the flag is still off.** R5 used to say a running press outranked a
+  break-away, which cancelled the churn fix for exactly the survivors using the aid. It now says the
+  opposite — `treatment.escape-releases-press` ends the victim's own self-pressure when
+  `grab.broken` names them, and only that, R2's exact mirror. Measured on four seeds with grabs
+  forced on: grabs 214 → 150 and 212 → 166, bites 136 → 88 and 122 → 65, and re-grab windows longer
+  than the cooldown appear at all. It costs the clotting — presses completed go 25/9/26 → **zero**
+  on every seed, because a press cancelled at every escape banks nothing — and 404 and 90210 still
+  end `0/2` by blood loss.
+- **The next step is still a design decision, not code, and the residual is now measured.** A
+  break-away released against a wall does not move: over three days of seed 404 the committed escape
+  heading is blocked on both axes on 86% of `breakAway` ticks, and the body covers 0.010 m per tick
+  against a nominal 0.105, because `_break_away` takes its heading once and `movement.integrate`
+  zeroes a blocked axis. The candidates — give a break-away somewhere to go, let a press bank its
+  progress, or cut contact rarity — are all design calls. **Do not pick an answer unilaterally**,
+  and note that relaxing `survivors_end >= 1` has been considered and rejected — see the full
+  measurement in docs/23's Milestone 2 status section and the "Where the work is" section of
+  `CLAUDE.md`.
 - Do not mark any survival item done until code and a focused Godot check exist. The full balance
   grid and ten-day playtest remain required proof, deferred rather than cancelled.
 - Keep effects sim-owned and command-driven; preserve sim/presentation separation and the
