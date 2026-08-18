@@ -157,7 +157,7 @@ grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and
 (`godot:m2:treatment`), and recovery that closes wounds and climbs integrity back, earned only while
 fed and not exerting (`godot:m2:recovery`). A bite makes a located wound, it bleeds, you stop it with
 your hands or a dressing, and it mends over days you have to earn. None of it is reachable in
-ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the three entries below: two
+ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the four entries below: three
 blockers that have been answered, and the one measurement that now stands between the loop and the
 flip.
 
@@ -220,38 +220,75 @@ Those show up in the shipped build, where grabs are still off: the fast tier now
 colony's **first kills at all** — 6 on seed 404 and 1 on 90210, against zero in every previous run
 — because there are two armed people in the annex instead of one.
 
-**The blocker that replaced it, measured: an escape costs stamina, and a survivor held over and over
-cannot afford one.** A throwaway driver (`SimBoot.playable`, the harness's own compressed campaign,
-`GRABS_ENABLED` forced on, `entity.killed` de-duplicated by entity id) over the same four fast seeds:
+**Answered: the price of an escape, and nobody else being able to pay it.** The owner picked two
+levers, both additive and both landed. The escape contest itself is untouched — one shambler is
+still 1/1.5 = 0.667, still pinned in `check_m2_stats.gd`.
 
-| seed | before this work | after | how it ends |
+- **Stamina recovers while held.** `health.recover` stops skipping regeneration for a body carrying
+  `grabbed` (the recovery delay still counts down, it just no longer suppresses regen), and
+  `world.gd` stops charging a held body the posture ladder's drain. The second half is what makes
+  the first half real: the drain publishes `stamina.spent` every tick, every `stamina.spent` re-arms
+  the delay, so without it a survivor grabbed mid-jog would regenerate nothing, forever. An empty
+  tank is now a pause of about 25 ticks instead of a hold with no exit. `godot:m2:contact` grew
+  **REGEN-HELD**: a pinned survivor climbs 0.0 → 18.0 over 30 ticks with zero drain charges, and the
+  true negative is a **free** jogging survivor in the identical stamina state who stays at 0.0 —
+  proving the exemption is load-bearing and that the delay still does its job everywhere else.
+- **Rescue.** A free survivor can break a shambler's hold on somebody else: `H`, or an NPC deciding
+  for itself. `SimShambler.try_begin_rescue` is the single precondition list (in reach, hands free,
+  no attempt in flight, off cooldown, and `RESCUE_STAMINA` 10.0 — refused below it, and refusal
+  charges nothing), `shambler.rescue-intake` is its own system at `input`/8 so the contact gate's
+  `_no_struggling` cannot silence it, and the contest resolves `RESCUE_TICKS` 12 later from a new
+  `rescue` RNG stream, using the **rescuer's** `grab_escape` power against the same total grip. A win
+  frees the victim from *every* hand at once — the measured average is 1.4 holders — and arms the
+  ordinary re-grab cooldown and break-away. `npc.combat` prefers it over its own weapon when the
+  victim is within `RESCUE_METRES`, on an envelope that widens to 2.6 m only while somebody is held,
+  so an archer standing off keeps shooting and an unarmed NPC can still pull. Gates: **RESCUE**
+  (16 seeds, both outcomes required, with an empty tank, a 3.0 m victim and a grabbed rescuer as
+  three separate refusals) and **RESCUE-FIRST** (the NPC picks the pull over the swing; collinear
+  geometry past `RESCUE_METRES` is the negative that makes it swing; attempts spaced ≥ 32 ticks).
+- **`grab.broken {victim, by, cause}`**, published at the one point a victim becomes fully free, with
+  causes `struggle` / `rescue` / `geometry` / `holder-died` / `victim-died`. It is how a bus-only
+  harness can count releases at all. **BROKEN** asserts each cause exactly once, against a
+  200-tick unbreakable hold that must publish none.
+
+**Measured, and the flag still does not flip.** The same throwaway driver as last time (rewritten:
+`SimBoot.playable`, the harness's own compressed campaign, `GRABS_ENABLED` forced on, `entity.killed`
+de-duplicated by entity id), run over the four fast seeds **on the parent commit and on this one**,
+so both columns come from one measurement:
+
+| seed | before (same driver, `ab2f3ac`) | after | how it ends |
 | --- | --- | --- | --- |
-| 20260805 | `2/2` | `2/2` | no contact at all — 0 grabs in ten days |
-| 404 | `0/2`, 111 bites, **0** struggles | `0/2`, 57 bites, **73** struggles | both by blood loss, first death day 1 |
-| 31337 | `2/2` | `2/2` | 39 grabs, all on the recruit; neither boot colonist is ever held |
-| 90210 | `0/2`, 45 bites, 2 grabs, **0** struggles | `0/2`, 57 bites, 72 grabs, **92** struggles | both by blood loss, first death day 4 |
+| 20260805 | `2/2`, 0 grabs | `2/2`, 0 grabs | no contact at all in ten days |
+| 404 | `0/2`, 115 grabs, 66.9% held, **38.3%** empty-tank | `0/2`, 149 grabs, 64.7% held, **13.3%** empty-tank, 71 escapes won | both by blood loss |
+| 31337 | `2/2`, 39 grabs | `2/2`, 60 grabs, 59 escapes won | every grab on the recruit; neither boot colonist is ever held |
+| 90210 | `0/2`, 98 grabs, 17.4% held, **48.9%** empty-tank | `0/2`, 149 grabs, 14.1% held, **0.0%** empty-tank, 136 escapes won | both by blood loss |
 
-Every number moved except the one that decides. What the instrumentation says about why:
+(The retired driver reported 65% and 69% held for those two seeds; re-measured with the current one
+the baseline is 66.9% and 17.4%. The empty-tank figures reproduce almost exactly — 38.3% against 38%,
+48.9% against 49% — so the denominators that matter agree and only the older held-tick denominator,
+whose driver is gone from the tree, differed.)
 
-- The two colonies that die spend **65% and 69% of their living ticks held**, by **1.4 holders** on
-  average, and **38% and 49% of those held ticks with a tank too empty to pay `STRUGGLE_STAMINA`**.
-  Instinct fires, wins, is re-grabbed inside the cooldown, fires again, and runs the tank down; an
-  empty tank is a hold with no exit, because nothing in the build lets anybody else break one.
-- It is **not** the missing player either. A driver mashing `F` on every single tick of the campaign
-  leaves seed 404 at `0/2`, the played survivor connecting **once** in ten days (a grabbed body is
-  refused its swing, and a freed one is mid-break-away), and empty-tank ticks roughly doubled,
-  because pressing F spends the same stamina sooner.
-- Holder-first targeting has little to bite on at this loadout: two kitchen knives reach 1.25 m, and
-  the holder is at arm's length of its victim, not of the other colonist. It is written for the arms
-  that can answer across a room, and the fast tier is not one of them.
+The price of an escape is no longer the binding constraint: empty-tank ticks fell by two thirds on
+404 and to zero on 90210, and escapes won went from none the instrumentation could see to 71 and 136.
+**Two seeds still wipe, so `GRABS_ENABLED` stays `false`**, and the reason is a different one:
 
-So the flag stays `false`. The levers left are the **price of an escape** (`STRUGGLE_STAMINA`, or
-stamina that recovers while held), **somebody else being able to break a hold**, or **making contact
-rarer** — all three are calls about how being grabbed should feel, of the same kind as the
-bite-lethality one, and not to be picked unilaterally. Relaxing `survivors_end >= 1` is not among
-them: that has been considered and rejected. The balance tier is therefore still exactly what it
-was, and `_the_flag_actually_gates_acquisition()` in the contact gate still exercises both
-directions.
+- **Rescue cannot reach.** Across 2,610 held ticks on 404 and 2,590 on 90210, the nearest free
+  colonist was **never** within `RESCUE_METRES` — never within 6 m, in fact; the closest approach all
+  campaign was 6.41 m and 11.17 m. The lever is built, gated and correct; a two-person colony spread
+  across a district simply never has a second body standing next to the first. That is the same wall
+  holder-first targeting hit one lever earlier, and it will not move until a colony is either bigger
+  or posted closer together.
+- **A held body cannot treat what is bleeding.** `treatment._can_channel` refuses first aid to a
+  `grabbed` survivor — correctly; you cannot press on a wound with a zombie on your arm. On 404 a
+  colonist spends 64.7% of their living ticks held across **149 separate grabs**, so two thirds of
+  that survivor's life is time they are bleeding and may not answer it. Both wipes are blood loss.
+
+So the levers left are **contact rarity or the re-grab churn**, and **what a survivor may do about a
+wound while somebody has hold of them** — both calls about how being grabbed should feel, of the same
+kind as the bite-lethality one, and not to be picked unilaterally. Relaxing `survivors_end >= 1` is
+still not among them: considered and rejected. The balance tier is therefore still exactly what it
+was, plus bus-only `grab.started`/`grab.broken` counters that report and assert nothing, and
+`_the_flag_actually_gates_acquisition()` in the contact gate still exercises both directions.
 
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the

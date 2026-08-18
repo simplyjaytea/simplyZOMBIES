@@ -27,12 +27,13 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimStances = preload("res://sim/stances.gd")
 
 func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	# Grabs ship off by default (SimShambler.GRABS_ENABLED) -- see that constant for the four
+	# Grabs ship off by default (SimShambler.GRABS_ENABLED) -- see that constant for the five
 	# reasons, in order, and which of them are answered. Switched on here for the whole gate, so
 	# every assertion below exercises the real loop rather than the shipped default. When the
 	# default flips this line becomes a no-op and nothing here changes.
@@ -46,12 +47,15 @@ func _run() -> void:
 	ok = _a_bite_scales_to_the_part_it_lands_on() and ok
 	ok = _struggling_frees_sometimes_and_never_while_spent() and ok
 	ok = _instinct_answers_a_grab_nobody_else_will() and ok
+	ok = _somebody_else_can_pull_you_out() and ok
+	ok = _every_ended_hold_says_why() and ok
+	ok = _a_held_body_gets_its_breath_back() and ok
 	ok = _release_arms_the_regrab_cooldown() and ok
 	ok = _a_held_survivor_cannot_swing_or_fire() and ok
 	ok = _deterministic_replay() and ok
 	ok = _the_flag_actually_gates_acquisition() and ok
 	if ok:
-		print("M2_CONTACT_OK grabs form, bite on cadence, wounds land, struggle is a contest and an instinct")
+		print("M2_CONTACT_OK grabs form, bite on cadence, wounds land, struggle is a contest and an instinct, rescue is another and a held body gets its breath back")
 		quit(0)
 	else:
 		push_error("M2_CONTACT_FAIL")
@@ -482,6 +486,13 @@ func _struggling_frees_sometimes_and_never_while_spent() -> bool:
 		return false
 
 	# True negative: an empty tank cannot buy an attempt, and must not be charged for one.
+	#
+	# The arithmetic here is thinner than it looks, and is worth stating because it moved: since
+	# stamina recovers while held (health.recover's `grabbed` exemption), the tank is no longer
+	# pinned at zero for the window. It climbs at STAMINA_PER_TICK 0.6 for the STRUGGLE_TICKS + 2
+	# = 18 ticks stepped below, reaching 10.8 against a STRUGGLE_STAMINA of 15.0 -- so the refusal
+	# still holds, with 4.2 of margin. Lengthen this window past 25 ticks, or drop the cost, and
+	# this control stops being a control.
 	var spent: Variant = _world(5200)
 	_spawn_shambler(spent, 17.2, 16.5)
 	if _step_until_held(spent, 40) < 0:
@@ -572,6 +583,334 @@ func _attempt_ticks(seed_val: int, press_on: int) -> Array[int]:
 		push_error("the unbreakable hold broke anyway, so these timings are of a shorter hold than they claim")
 		return [] as Array[int]
 	return at
+
+
+# Rescue: the second exit from a hold, and the first one that does not belong to the person in it.
+#
+# Same shape as the struggle assertion above and for the same reason -- it is a contest, so a
+# single seed proves nothing and both outcomes have to appear across the sweep. What differs is
+# who is acting: the held body here is an NPC colonist, the player stands 1.5 m away on the far
+# side of them, and `_no_struggling` is on, so the *only* thing in the build that can end this
+# hold is the H key. That the helper does not silence this new intake is the point -- it
+# unregisters `shambler.struggle-intake`, and rescue is deliberately a separate system.
+const RESCUE_SEEDS: int = 16
+
+func _somebody_else_can_pull_you_out() -> bool:
+	var freed: int = 0
+	var still_held: int = 0
+	var by_wrong: int = 0
+	var events_seen: int = 0
+	var cooldown: int = -1
+	for s in RESCUE_SEEDS:
+		var arena: Dictionary = _rescue_world(9100 + s, 1.5)
+		if int(arena["held_at"]) < 0:
+			continue
+		var w: Variant = arena["world"]
+		var victim: int = int(arena["victim"])
+		w.commands.push({"type": "rescue"})
+		var broken: Array = _grab_broken_over(w, victim, SimShambler.RESCUE_TICKS + 2)
+		if w.components.has_component(victim, "grabbed"):
+			still_held += 1
+			if not broken.is_empty():
+				push_error("a still-held colonist had %d grab.broken published about them" % broken.size())
+				return false
+			continue
+		freed += 1
+		if broken.size() != 1 or String((broken[0] as Dictionary).get("cause", "")) != "rescue":
+			push_error("a rescued colonist produced %s, expected exactly one grab.broken cause=rescue" % str(broken))
+			return false
+		events_seen += 1
+		if int((broken[0] as Dictionary).get("by", -1)) != int(w.player):
+			by_wrong += 1
+		var sd: Dictionary = w.components.get_component(int(arena["zed"]), "shambler") as Dictionary
+		cooldown = int(sd["ticksToGrab"])
+		if cooldown <= 0:
+			push_error("a rescue released the hold without arming the re-grab cooldown")
+			return false
+	if freed + still_held < RESCUE_SEEDS - 2:
+		push_error("only %d/%d seeds produced a hold to rescue from" % [freed + still_held, RESCUE_SEEDS])
+		return false
+	if freed == 0 or still_held == 0:
+		push_error("rescue is not a contest: freed=%d held=%d over %d seeds -- both outcomes must occur" % [freed, still_held, RESCUE_SEEDS])
+		return false
+	if by_wrong > 0:
+		push_error("%d rescue events named somebody other than the rescuer in `by`" % by_wrong)
+		return false
+
+	# True negative one: an empty tank buys nothing and is charged nothing. The recovery delay is
+	# armed alongside the zero deliberately -- the rescuer is *free*, so health.recover's held-body
+	# exemption does not apply to them and the tank stays empty for the whole window.
+	var poor: Dictionary = _rescue_world(9200, 1.5)
+	if int(poor["held_at"]) < 0:
+		push_error("no hold formed for the zero-stamina rescuer control")
+		return false
+	var pw: Variant = poor["world"]
+	var tank: Dictionary = pw.components.get_component(pw.player, "stamina") as Dictionary
+	tank["current"] = 0.0
+	tank["ticksUntilRecovery"] = SimCombat.STAMINA_RECOVERY_DELAY_TICKS
+	var charged: int = 0
+	for _i in (SimShambler.RESCUE_TICKS + 2):
+		pw.commands.push({"type": "rescue"})
+		pw.step()
+		for e in pw.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) != "stamina.spent":
+				continue
+			if int(ev.get("entity", -1)) == int(pw.player) and absf(float(ev.get("amount", 0.0)) - SimShambler.RESCUE_STAMINA) < 0.001:
+				charged += 1
+	if not pw.components.has_component(int(poor["victim"]), "grabbed"):
+		push_error("a rescuer with no stamina pulled somebody free anyway")
+		return false
+	if charged != 0:
+		push_error("a refused rescue was charged %d times" % charged)
+		return false
+	if float(tank["current"]) != 0.0:
+		push_error("the zero-stamina control regenerated to %.2f -- it was not measuring a refusal" % float(tank["current"]))
+		return false
+
+	# True negative two: out of reach is out of reach. 3.0 m, and an unbreakable grip so that
+	# nothing else could plausibly have ended the hold within the window.
+	var far: Dictionary = _rescue_world(9300, 3.0, 999.0)
+	if int(far["held_at"]) < 0:
+		push_error("no hold formed for the out-of-range control")
+		return false
+	var fw: Variant = far["world"]
+	if SimShambler.try_begin_rescue(fw, fw.player, int(far["victim"])):
+		push_error("try_begin_rescue accepted a victim 3.0 m away, past RESCUE_METRES %.1f" % SimShambler.RESCUE_METRES)
+		return false
+	for _j in (SimShambler.RESCUE_TICKS + 2):
+		fw.commands.push({"type": "rescue"})
+		fw.step()
+	if fw.components.has_component(fw.player, "rescue"):
+		push_error("a rescue was armed against somebody out of reach")
+		return false
+	if not fw.components.has_component(int(far["victim"]), "grabbed"):
+		push_error("an out-of-range hold ended anyway, so the range control measured nothing")
+		return false
+
+	# True negative three: your own hands have to be free. Same arena, plus a second shambler on
+	# the player's other side, so the would-be rescuer is held themselves.
+	var busy: Dictionary = _rescue_world(9400, 1.5, 999.0)
+	if int(busy["held_at"]) < 0:
+		push_error("no hold formed for the held-rescuer control")
+		return false
+	var bw: Variant = busy["world"]
+	_spawn_shambler(bw, 15.8, 16.5, 999.0)
+	var grabbed_at: int = -1
+	for k in 40:
+		bw.step()
+		if bw.components.has_component(bw.player, "grabbed"):
+			grabbed_at = k + 1
+			break
+	if grabbed_at < 0:
+		push_error("the second shambler never took the rescuer, so this control proves nothing")
+		return false
+	if SimShambler.try_begin_rescue(bw, bw.player, int(busy["victim"])):
+		push_error("a grabbed survivor was allowed to rescue somebody else")
+		return false
+	print("RESCUE OK freed=%d held=%d over %d seeds, %d events named the rescuer, cooldown=%d; empty tank/3.0m/held rescuer all refused" % [
+		freed, still_held, RESCUE_SEEDS, events_seen, cooldown,
+	])
+	return true
+
+
+# A colonist in a shambler's hands with the player standing `metres` short of them. Deliberately
+# an NPC in the grip rather than the player: a rescue is the thing the *colony* can do about a
+# hold, and the player being the one held is what every other assertion in this file already
+# measures.
+func _rescue_world(seed_val: int, metres: float, grip: float = -1.0) -> Dictionary:
+	var w: Variant = _world(seed_val)
+	_no_struggling(w)
+	var victim: int = int(w.entities.spawn())
+	w.components.set_component(victim, "position", {"x": 16.5 + metres, "y": 16.5})
+	w.components.set_component(victim, "velocity", {"dx": 0.0, "dy": 0.0})
+	w.components.set_component(victim, "identity", {"id": "survivor.test.victim", "name": "Victim"})
+	SimHealth.make_survivor_body(w, victim)
+	SimHealth.make_stamina(w, victim, 100)
+	# 0.7 m past the victim, so the nearest survivor to it is the victim and not the player.
+	var zed: int = _spawn_shambler(w, 16.5 + metres + 0.7, 16.5, grip)
+	var held_at: int = -1
+	for i in 40:
+		w.step()
+		if w.components.has_component(victim, "grabbed"):
+			held_at = i + 1
+			break
+	return {"world": w, "victim": victim, "zed": zed, "held_at": held_at}
+
+
+func _grab_broken_over(w: Variant, victim: int, ticks: int) -> Array:
+	var out: Array = []
+	for _i in ticks:
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) == "grab.broken" and int(ev.get("victim", -1)) == victim:
+				out.append(ev)
+	return out
+
+
+# Every hold that ends says so once, and says why. This is the only channel a bus-only harness has
+# for counting releases -- check_m2_balance.gd reads nothing but the event bus -- so a cause that
+# quietly stopped being published would take a whole column of the balance numbers with it.
+#
+# All four causes that do not need a second survivor are exercised here; `rescue` is the fifth and
+# belongs to the assertion above, where there is somebody to do it.
+func _every_ended_hold_says_why() -> bool:
+	var causes: Dictionary = {}
+
+	# Struggle. Seeds are searched for one where the contest is actually won, the way the
+	# cooldown assertion does, so this never asserts against a hold that simply never ended.
+	for s in 16:
+		var w: Variant = _world(6300 + s)
+		_spawn_shambler(w, 17.2, 16.5)
+		if _step_until_held(w, 40) < 0:
+			continue
+		w.commands.push({"type": "swing"})
+		var broken: Array = _grab_broken_over(w, w.player, SimShambler.STRUGGLE_TICKS + 2)
+		if _held(w):
+			continue
+		if broken.size() != 1:
+			push_error("an escape published %d grab.broken events, expected exactly one" % broken.size())
+			return false
+		var ev: Dictionary = broken[0] as Dictionary
+		if String(ev.get("cause", "")) != "struggle" or int(ev.get("by", -1)) != int(w.player):
+			push_error("an escape published %s, expected cause=struggle by=%d" % [str(ev), int(w.player)])
+			return false
+		causes["struggle"] = true
+		break
+	if not causes.has("struggle"):
+		push_error("SKIP-WORTHY: no seed in 16 won an escape, so cause=struggle was never judged")
+		return false
+
+	# Geometry: a wall grows across the line of an open hold. Same staging as the wall assertion.
+	var g: Variant = _world(6400, _column(19, 10, 22))
+	var gz: int = _spawn_shambler(g, 17.2, 16.5)
+	if _step_until_held(g, 40) < 0:
+		push_error("no hold formed for the geometry release")
+		return false
+	(g.components.get_component(g.player, "position") as Dictionary)["x"] = 20.2
+	(g.components.get_component(gz, "position") as Dictionary)["x"] = 17.2
+	var geo: Array = _grab_broken_over(g, g.player, 1)
+	if geo.size() != 1 or String((geo[0] as Dictionary).get("cause", "")) != "geometry":
+		push_error("a hold that lost its line published %s, expected one cause=geometry" % str(geo))
+		return false
+	causes["geometry"] = true
+
+	# The holder dies. entity.killed is published by hand here rather than by killing the shambler
+	# with a weapon: this gate builds bare worlds with no melee module, and the subscription under
+	# test keys off the event, not off the body.
+	var d: Variant = _world(6500)
+	var dz: int = _spawn_shambler(d, 17.2, 16.5, 999.0)
+	if _step_until_held(d, 40) < 0:
+		push_error("no hold formed for the holder-died release")
+		return false
+	d.events.publish({"type": "entity.killed", "entity": dz, "killer": -1, "x": 17.2, "y": 16.5, "zombieType": ""})
+	var dead: Array = _grab_broken_over(d, d.player, 1)
+	if dead.size() != 1 or String((dead[0] as Dictionary).get("cause", "")) != "holder-died":
+		push_error("a dead holder published %s, expected one cause=holder-died" % str(dead))
+		return false
+	causes["holder-died"] = true
+
+	# And the other body. A survivor who dies in the grip is released too, or their corpse would
+	# keep a shambler's hands busy for the rest of the campaign.
+	var v: Variant = _world(6600)
+	_spawn_shambler(v, 17.2, 16.5, 999.0)
+	if _step_until_held(v, 40) < 0:
+		push_error("no hold formed for the victim-died release")
+		return false
+	v.events.publish({"type": "entity.killed", "entity": int(v.player), "killer": -1, "x": 16.5, "y": 16.5, "zombieType": ""})
+	var gone: Array = _grab_broken_over(v, v.player, 1)
+	if gone.size() != 1 or String((gone[0] as Dictionary).get("cause", "")) != "victim-died":
+		push_error("a dead victim published %s, expected one cause=victim-died" % str(gone))
+		return false
+	causes["victim-died"] = true
+
+	# True negative: a hold nothing ends says nothing. Unbreakable grip, every struggle intake
+	# silenced, two hundred ticks -- if `grab.broken` were published on anything other than a
+	# victim actually becoming free, this is where it would show.
+	var quiet: Variant = _world(6700)
+	_no_struggling(quiet)
+	_spawn_shambler(quiet, 17.2, 16.5, 999.0)
+	if _step_until_held(quiet, 40) < 0:
+		push_error("no hold formed for the silent control")
+		return false
+	var noise: Array = _grab_broken_over(quiet, quiet.player, 200)
+	if not noise.is_empty():
+		push_error("an unbroken hold published %d grab.broken events" % noise.size())
+		return false
+	if not _held(quiet):
+		push_error("the unbreakable hold ended anyway, so the silent control measured nothing")
+		return false
+	print("BROKEN OK causes %s each published exactly once; 200 ticks of an unbroken hold published none" % str(causes.keys()))
+	return true
+
+
+# Stamina comes back while you are held. Both halves of that are load-bearing and both are here:
+# health.recover stops skipping regen for a `grabbed` body, and world.gd stops charging that body
+# the posture ladder's drain. Without the second, the first does nothing at all -- the drain
+# publishes stamina.spent every tick, every stamina.spent re-arms the recovery delay, and a
+# survivor grabbed mid-jog would regenerate exactly nothing forever.
+const REGEN_TICKS: int = 30
+
+func _a_held_body_gets_its_breath_back() -> bool:
+	var w: Variant = _world(8100)
+	_no_struggling(w)
+	_spawn_shambler(w, 17.2, 16.5, 999.0)
+	if _step_until_held(w, 40) < 0:
+		push_error("no hold formed for the regen measurement")
+		return false
+	var held_drain: int = _run_empty_and_jogging(w, REGEN_TICKS)
+	var held_tank: float = float((w.components.get_component(w.player, "stamina") as Dictionary)["current"])
+	var want: float = float(REGEN_TICKS) * SimCombat.STAMINA_PER_TICK
+	if absf(held_tank - want) > 0.001:
+		push_error("a held survivor regenerated %.2f over %d ticks, expected %.2f" % [held_tank, REGEN_TICKS, want])
+		return false
+	if held_drain != 0:
+		push_error("a pinned survivor was charged the jogging drain %d times" % held_drain)
+		return false
+	if not _held(w):
+		push_error("the hold ended during the measurement, so this is not a held-body number")
+		return false
+
+	# True negative: the identical stamina state on a survivor nobody is holding. They are jogging,
+	# so the drain fires, so the delay never lapses, so they recover nothing -- which is the rule
+	# the held body is exempt from, still doing its job everywhere else.
+	var free_world: Variant = _world(8101)
+	var free_drain: int = _run_empty_and_jogging(free_world, REGEN_TICKS)
+	var free_tank: float = float((free_world.components.get_component(free_world.player, "stamina") as Dictionary)["current"])
+	if free_tank != 0.0:
+		push_error("a free jogging survivor at an empty tank climbed to %.2f -- the recovery delay is not gating anything" % free_tank)
+		return false
+	if free_drain < REGEN_TICKS:
+		push_error("a free jogging survivor was charged the drain only %d times in %d ticks" % [free_drain, REGEN_TICKS])
+		return false
+	print("REGEN-HELD OK held tank 0.0 -> %.1f over %d ticks with %d drains; free jogger stayed at %.1f with %d" % [
+		held_tank, REGEN_TICKS, held_drain, free_tank, free_drain,
+	])
+	return true
+
+
+# Empties the tank, arms the recovery delay, sets the player jogging, and counts the ladder's
+# drain events over the window. Returns how many times the drain was actually charged.
+func _run_empty_and_jogging(w: Variant, ticks: int) -> int:
+	var tank: Dictionary = w.components.get_component(w.player, "stamina") as Dictionary
+	tank["current"] = 0.0
+	tank["ticksUntilRecovery"] = SimCombat.STAMINA_RECOVERY_DELAY_TICKS
+	var posture: Dictionary = w.components.get_component(w.player, "posture") as Dictionary
+	posture["current"] = SimStances.Stance.Jog
+	posture["target"] = SimStances.Stance.Jog
+	posture["ticks_left"] = 0
+	var drain: float = SimStances.drain_per_tick(SimStances.Stance.Jog)
+	var charged: int = 0
+	for _i in ticks:
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) != "stamina.spent":
+				continue
+			if int(ev.get("entity", -1)) == int(w.player) and absf(float(ev.get("amount", 0.0)) - drain) < 0.0001:
+				charged += 1
+	return charged
 
 
 func _release_arms_the_regrab_cooldown() -> bool:

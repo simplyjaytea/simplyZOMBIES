@@ -36,8 +36,9 @@ func _run() -> void:
 	ok = _distance_and_silence_are_both_negative_controls() and ok
 	ok = _a_guard_engages_without_leaving_its_post() and ok
 	ok = _a_shambler_with_someone_in_its_hands_is_shot_first() and ok
+	ok = _hands_before_weapons_when_somebody_is_being_held() and ok
 	if ok:
-		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder")
+		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue")
 		quit(0)
 	else:
 		push_error("M2_NPC_COMBAT_FAIL")
@@ -360,6 +361,128 @@ func _priority_arena(hold: bool) -> Dictionary:
 		if not _alive(w, far) or not _alive(w, near):
 			break
 	return {"chosen": chosen, "near": near, "far": far, "hits_near": hits_near, "hits_far": hits_far}
+
+
+# An NPC standing next to somebody in a shambler's hands pulls, rather than swinging at the
+# shambler. Both are legitimate answers and the module keeps both -- what this pins is which one
+# wins when the NPC can do either, and that the choice is made on the *victim's* distance rather
+# than on the threat's, so an archer standing off keeps shooting.
+#
+# The contest is taken out of the picture on purpose: the holder's grip is 0.0, so the roll
+# succeeds, and what is being measured is the decision rather than the odds. Whether a rescue can
+# fail at all is check_m2_contact.gd's RESCUE claim, over sixteen seeds at the real grip.
+func _hands_before_weapons_when_somebody_is_being_held() -> bool:
+	# Positive: knife NPC at 10, victim at 11.2 (inside RESCUE_METRES), holder at 12.0 (outside
+	# the knife's 1.25 m reach, so the widened envelope is what puts it in view at all).
+	var w: Variant = _rescue_arena()
+	var rescuer: int = _npc(w, 10.0, 10.0)
+	SimInventory.equip(w, rescuer, SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"}))
+	var victim: int = _npc(w, 11.2, 10.0)
+	var holder: int = _zombie(w, 12.0, 10.0)
+	(w.components.get_component(holder, "shambler") as Dictionary)["grabStrength"] = 0.0
+	SimShambler._start_grab(w, holder, victim)
+	w.events.drain()
+	var freed_at: int = -1
+	var swung: int = 0
+	var event: Dictionary = {}
+	for t in (SimShambler.RESCUE_TICKS + 5):
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			match String(ev.get("type", "")):
+				"attack.connected":
+					if int(ev.get("attacker", -1)) == rescuer:
+						swung += 1
+				"grab.broken":
+					if int(ev.get("victim", -1)) == victim and freed_at < 0:
+						freed_at = t + 1
+						event = ev
+		if freed_at >= 0:
+			break
+	if freed_at < 0:
+		push_error("nobody pulled the victim out in %d ticks" % (SimShambler.RESCUE_TICKS + 5))
+		return false
+	if String(event.get("cause", "")) != "rescue" or int(event.get("by", -1)) != rescuer:
+		push_error("the hold ended as %s, expected cause=rescue by=%d" % [str(event), rescuer])
+		return false
+	if swung != 0:
+		push_error("the rescuer connected %d swings before pulling -- the branch order is wrong" % swung)
+		return false
+	if not _alive(w, holder):
+		push_error("the holder died, so the release was not a rescue whatever the event said")
+		return false
+
+	# Negative: the same three bodies, collinear, with the victim moved to 2.2 m -- past
+	# RESCUE_METRES, while the holder is at 1.0 m and well inside the knife's reach. Nothing about
+	# this NPC has changed; only the geometry has, and it swings.
+	var w2: Variant = _rescue_arena()
+	var fighter: int = _npc(w2, 10.0, 10.0)
+	SimInventory.equip(w2, fighter, SimItems.spawn_item(w2, "item.knife.kitchen", {"tier": "scavenged"}))
+	var far_victim: int = _npc(w2, 12.2, 10.0)
+	var near_holder: int = _zombie(w2, 11.0, 10.0)
+	(w2.components.get_component(near_holder, "shambler") as Dictionary)["grabStrength"] = 0.0
+	SimShambler._start_grab(w2, near_holder, far_victim)
+	w2.events.drain()
+	var hits: int = 0
+	var rescues: int = 0
+	for _t in (SimShambler.RESCUE_TICKS + 5):
+		w2.step()
+		for e in w2.events.drained:
+			var ev2: Dictionary = e as Dictionary
+			if String(ev2.get("type", "")) == "attack.connected" and int(ev2.get("attacker", -1)) == fighter:
+				hits += 1
+			if String(ev2.get("type", "")) == "grab.broken" and String(ev2.get("cause", "")) == "rescue":
+				rescues += 1
+	if hits < 1:
+		push_error("negative control failed: with the victim out of reach the NPC did not swing either, so this measures nothing")
+		return false
+	if rescues != 0:
+		push_error("%d rescues were attempted against a victim past RESCUE_METRES" % rescues)
+		return false
+
+	# Spam control: an unwinnable grip. Attempts must be spaced by the commitment plus the
+	# cooldown, or a held colonist is a per-tick re-roll that drains the rescuer in seconds.
+	var w3: Variant = _rescue_arena()
+	var trier: int = _npc(w3, 10.0, 10.0)
+	SimInventory.equip(w3, trier, SimItems.spawn_item(w3, "item.knife.kitchen", {"tier": "scavenged"}))
+	var stuck: int = _npc(w3, 11.2, 10.0)
+	var iron: int = _zombie(w3, 12.0, 10.0)
+	(w3.components.get_component(iron, "shambler") as Dictionary)["grabStrength"] = 999.0
+	SimShambler._start_grab(w3, iron, stuck)
+	w3.events.drain()
+	var attempts: Array[int] = []
+	for t3 in 200:
+		w3.step()
+		for e in w3.events.drained:
+			var ev3: Dictionary = e as Dictionary
+			if String(ev3.get("type", "")) != "stamina.spent" or int(ev3.get("entity", -1)) != trier:
+				continue
+			if absf(float(ev3.get("amount", 0.0)) - SimShambler.RESCUE_STAMINA) < 0.001:
+				attempts.append(t3 + 1)
+	var spacing: int = SimShambler.RESCUE_TICKS + SimShambler.RESCUE_RETRY_TICKS
+	if attempts.size() < 2:
+		push_error("SKIP-WORTHY: only %d rescue attempts in 200 ticks, so the spacing was never judged" % attempts.size())
+		return false
+	for i in range(1, attempts.size()):
+		if attempts[i] - attempts[i - 1] < spacing:
+			push_error("rescue attempts %d ticks apart, floor is %d: %s" % [attempts[i] - attempts[i - 1], spacing, str(attempts)])
+			return false
+	print("RESCUE-FIRST OK freed on tick %d with %d swings; out-of-reach victim drew %d swings and 0 rescues; %d attempts spaced >= %d" % [
+		freed_at, swung, hits, attempts.size(), spacing,
+	])
+	return true
+
+
+# The combat arena plus the hold lifecycle, and without the struggle intake: an NPC struggles on
+# its own every tick it is held (shambler.gd's third intake), which would free this victim before
+# anybody could reach them and leave the assertion measuring nothing. `shambler.rescue-intake` is
+# deliberately a different system and stays registered -- that separation is the point.
+func _rescue_arena() -> Variant:
+	var w: Variant = _arena()
+	SimShambler.register_module(w, null)
+	if not w.systems.unregister("shambler.struggle-intake"):
+		push_error("shambler.struggle-intake was not registered -- this arena is silencing nothing")
+	return w
 
 
 func _a_guard_engages_without_leaving_its_post() -> bool:

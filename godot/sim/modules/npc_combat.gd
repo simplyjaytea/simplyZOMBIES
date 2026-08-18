@@ -21,6 +21,7 @@ const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
+const SimShamblerRes = preload("res://sim/modules/shambler.gd")
 
 # How close a threat comes before an NPC decides to spend a shot on it, capped again by the
 # weapon's own `rangeMetres`. This is a *pacing* constant -- "close enough to be worth the noise"
@@ -52,10 +53,14 @@ static func register_module(world: Variant) -> void:
 	world.systems.register("npc.combat", "combat", -5, func(w: Variant) -> void:
 		if bool(w.runOver) if "runOver" in w else false:
 			return
+		# Asked once per tick rather than once per NPC, and asked of `count` rather than `query`,
+		# which sorts: this runs every tick of every campaign and answers "no" on almost all of
+		# them. It is what widens the engagement envelope below, and only while somebody is held.
+		var anyone_held: bool = w.components.count("grabbed") > 0
 		for ent in w.components.query(["needs", "position", "facing"]):
 			if not _engages(w, int(ent)):
 				continue
-			_engage(w, int(ent))
+			_engage(w, int(ent), anyone_held)
 	)
 
 
@@ -95,16 +100,35 @@ static func _critically_injured(world: Variant, ent: int, body: Dictionary) -> b
 	return false
 
 
-static func _engage(world: Variant, ent: int) -> void:
+static func _engage(world: Variant, ent: int, anyone_held: bool = false) -> void:
 	var reach: float = _melee_reach(world, ent)
 	var range_metres: float = _ranged_range(world, ent)
 	var furthest: float = maxf(reach, range_metres)
+	# While somebody is being held, the envelope opens to the length of a rescue: the rescuer
+	# stands within RESCUE_METRES of the *victim*, and the victim is inside GRAB_METRES of the
+	# holder, so a holder worth acting on can be that much further off than a knife reaches. Two
+	# consequences, both wanted. Below `furthest <= 0.0`, so somebody with empty hands can still
+	# pull -- hands are enough for this and for nothing else. And exactly nothing when nobody is
+	# held, which is why every existing target-selection assertion is untouched by it.
+	if anyone_held:
+		furthest = maxf(furthest, SimShamblerRes.RESCUE_METRES + SimShamblerRes.GRAB_METRES)
 	if furthest <= 0.0:
 		return
 	var threat: int = _nearest_threat(world, ent, furthest)
 	if threat < 0:
 		return
 	_face(world, ent, threat)
+	# Rescue first, because _nearest_threat has already preferred a shambler with somebody in its
+	# hands: if the thing this NPC just turned to face is holding a colonist and that colonist is
+	# within arm's length, hauling them out is worth more than a swing at the holder. An archer
+	# standing off keeps shooting -- the reach check is on the *victim*, not on the threat -- and a
+	# guard who cannot reach the victim falls straight through to the weapon it is carrying.
+	var hold: Variant = world.components.get_component(threat, "grabState")
+	if hold is Dictionary:
+		var victim: int = int((hold as Dictionary)["victim"])
+		if _distance(world, ent, victim) <= SimShamblerRes.RESCUE_METRES:
+			if SimShamblerRes.try_begin_rescue(world, ent, victim):
+				return
 	# Reach first: a shambler at arm's length is a melee problem even for someone holding a bow,
 	# and a survivor carrying both should not be raising a weapon while being grabbed.
 	if reach > 0.0 and _distance(world, ent, threat) <= reach:

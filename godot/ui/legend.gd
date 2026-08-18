@@ -26,6 +26,7 @@ const GROUPS: Array = [
 	]],
 	["Act", [
 		["F", "swing, or struggle out of a grab"],
+		["H", "pull someone out of a grab"],
 		["G / click", "fire"],
 		["R", "reload"],
 		["E", "pick up"],
