@@ -118,7 +118,9 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 # under-body first then over-body, each tagged with which side of the body draw call it goes
 # on. A slot with nothing equipped, an item with no equipSprite, or an entity with no
 # equipment component at all (zombies) all fall out silently -- equipment is optional the
-# same way a sprite is.
+# same way a sprite is. An under-body item may also carry a front piece (straps crossing the
+# torso) -- that piece is always an over-body layer, independent of its slot's own default,
+# because "in front of the body" is a property of the strap, not of the slot it hangs from.
 static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if world == null or world.components == null:
@@ -129,15 +131,21 @@ static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary
 	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
 	for group in [{"names": EQUIP_UNDER_BODY, "over": false}, {"names": EQUIP_OVER_BODY, "over": true}]:
 		for slot in group["names"] as Array[String]:
-			var texture: Texture2D = _equip_texture_for(world, slots.get(slot))
+			var block: Variant = _equip_block_for(world, slots.get(slot))
+			if not (block is Dictionary):
+				continue
+			var texture: Texture2D = _resolve_equip_key(block as Dictionary, "equipSprite")
 			if texture != null:
 				out.append({"texture": texture, "over": bool(group["over"])})
+			var front: Texture2D = _resolve_equip_key(block as Dictionary, "equipSpriteFront")
+			if front != null:
+				out.append({"texture": front, "over": true})
 	return out
 
 
-# The equipSprite texture for whatever item entity occupies a slot, or null through every exit:
-# no item, no itemBase component, no matching content entry, no declared equipSprite, no file.
-static func _equip_texture_for(world: Variant, item: Variant) -> Texture2D:
+# The appearance block for whatever item base occupies a slot, or null through every exit: no
+# item, no itemBase component, no matching content entry, no declared appearance at all.
+static func _equip_block_for(world: Variant, item: Variant) -> Variant:
 	if item == null:
 		return null
 	var item_base: Variant = world.components.get_component(int(item), "itemBase")
@@ -150,9 +158,13 @@ static func _equip_texture_for(world: Variant, item: Variant) -> Texture2D:
 	if not (entry is Dictionary):
 		return null
 	var block: Variant = (entry as Dictionary).get("appearance")
-	if not (block is Dictionary) or not (block as Dictionary).has("equipSprite"):
+	return block if block is Dictionary else null
+
+
+static func _resolve_equip_key(block: Dictionary, key: String) -> Texture2D:
+	if not block.has(key):
 		return null
-	return resolve(String((block as Dictionary)["equipSprite"]))
+	return resolve(String(block[key]))
 
 
 # The rule for what colour multiplies a drawn entity, named so it can be asserted without
