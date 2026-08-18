@@ -24,7 +24,7 @@ Four other places to know about, and nothing else is required reading:
 | **It is playable** | Godot at `/` (and Windows artifact) — 256 m district with civic annex, Mara as the current test survivor, knife in hand. `F` swing, `G`/click fire, `R` reload. Shambler / screamer / bloater on the map. HUD shows STR/CON/DEX. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **The survival loop, first half: harm is reachable.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 landed (`M2_STANCE_OK`), and the grab → struggle → bite loop landed built-and-gated but **off** (`M2_CONTACT_OK`, `SimShambler.GRABS_ENABLED = false`) — see both notes below. Next: the wound taxonomy, bleeding, treatment and **recovery**, which is what the grab flag is waiting on. |
+| **In flight** | **The survival loop, first half: harm is reachable.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 landed (`M2_STANCE_OK`), and the grab → struggle → bite loop landed built-and-gated but **off** (`M2_CONTACT_OK`, `SimShambler.GRABS_ENABLED = false`) — see both notes below. Wounds now carry a severity and can bleed to death (`M2_WOUNDS_OK`). Next: treatment (pressure/bandage) and a command path to the five infection verbs, then **recovery**, which is what the grab flag is waiting on. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | The first survival contract (see “Do this next”), [multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
 
@@ -84,10 +84,12 @@ prose-first. Stamina is a separate short-clock system: exertion drains it, idlin
 restore it, low stamina slows sprint/melee, and zero stamina blocks sprint/climb without forbidding
 walking or melee. Do not turn any of this into a numeric player readout.
 
-**Do not mark health/injury work done yet.** This pass changed no gameplay code and added no gates.
-Before implementation, finish the open design details, write the scenario, then repair the known
-sim-owned stance/sprint command path before adding deterministic treatment commands and focused
-Godot checks. Preserve save/replay behavior and the condition-view health-bar ban.
+**Do not mark health/injury work done yet.** The design pass that wrote this line changed no
+gameplay code; the three slices since have. The stance path is repaired (`M2_STANCE_OK`), contact
+is built and switched off (`M2_CONTACT_OK`), and wound severity plus the bleed clock are in
+(`M2_WOUNDS_OK`). What is still open is the treatment half — deterministic treatment commands, the
+five infection verbs' command path, and recovery — so the two backlog items below stay open with a
+note saying which half shipped. Preserve save/replay behavior and the condition-view health-bar ban.
 
 **Proof is deferred, not cancelled.** After the focused survival loop is implemented and gated, run
 the existing full balance grid and human ten-day playtest. The full tier remains four seeds × three
@@ -149,6 +151,27 @@ autonomously, because they have no `F`; a successful escape also carries the fre
 re-grab cooldown, and `entity.killed` frees both sides idempotently — CLAUDE.md records that the
 event fires up to three times for one individual. Gate: `npm run godot:m2:contact` —
 `M2_CONTACT_OK`, nine assertions, each with a true negative.
+
+**Wounds carry a severity and bleed on a clock — and a corpse used to be killed 575 times.** A
+wound was an inert append-only record: `condition.gd` said so in its own comment, and the only
+mechanical consequence one had anywhere was `bloater.gd` asking whether one existed. Now
+`sim/modules/wounds.gd` bands every wound Scratch / Laceration / DeepWound from damage as a
+**fraction of the struck part's maximum** — the trap CLAUDE.md records, since ten damage is a
+quarter of a torso and the whole of a hand — with armour coverage reducing how far a hit escalates
+rather than blocking damage. Wounds bleed into `injuries.bloodLoss`; a scratch clots on its own, a
+laceration and a deep wound do not, and an untreated deep wound kills in 5,000 ticks. Blood loss
+impairs in bands and per-part wounds impair per part, each under its **own** modifier source
+(`wound.leg_left`, not a shared bucket) so `explain("move_speed", ent)` names the limb. Both
+families copy `melee.gd`'s `_apply_exhaustion` strip-then-early-return order, which is what makes
+them clear again. `attack.connected` records a wound now, not just `bite.landed`. `SAVE_VERSION` is
+15. Gate: `npm run godot:m2:wounds` — `M2_WOUNDS_OK`, twelve assertions, each with a true negative.
+**A real bug fell out of writing the gate:** `recruits._make_corpse` removes `needs`/`job`/
+`velocity` and leaves `injuries` in place, so a bled-out corpse stayed in the bleed query at the
+fatal threshold forever, re-publishing `entity.killed` on *every tick* — 575 times over 600 ticks,
+measured. The per-tick `killed` guard could not stop it because the reaper clears that list each
+tick; the fix is a durable `bledOut` flag on the component plus skipping corpses outright. The
+first version of the assertion missed this entirely, because the bare fixture's player has no
+successor and despawns instead of leaving a corpse — both paths are now asserted separately.
 
 **But `SimShambler.GRABS_ENABLED` is `false`, and that is the finding, not a hedge.** A bite rolls
 over all ten survivor parts, and **nothing in this simulation raises a body part's integrity except
@@ -1184,7 +1207,16 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 **Open (8):**
 
 - [ ] Injury types: scratch, laceration, deep wound, bite, fracture, sprain, burn, concussion
+      *(half shipped: scratch, laceration and deep wound are a real severity band in
+      `sim/modules/wounds.gd`, chosen from damage as a **fraction of the struck part's maximum**
+      rather than raw damage, and bite remains its own `kind` carrying the presentation lie.
+      Fracture, sprain, burn and concussion do not exist. `npm run godot:m2:wounds` —
+      `M2_WOUNDS_OK`.)*
 - [ ] Continuous conditions: blood loss, pain, exhaustion
+      *(half shipped: blood loss is a real accumulating clock that impairs and then kills
+      (`injuries.bloodLoss`, `wounds.bleed`), and exhaustion already existed via
+      `melee.gd`'s `_apply_exhaustion`. **Pain is not modelled at all.** Blood loss has no
+      diegetic readout yet either — that is the last item in this group.)*
 - [ ] **Bacterial infection kept distinct from zombie infection**, drawing on the same antibiotics
 - [ ] Treatment steps: stop bleeding → clean → close → dress → rest, each timed and interruptible
 - [ ] Supply quality tiers affecting infection risk
