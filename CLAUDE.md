@@ -32,6 +32,9 @@ npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
 npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~85 s, inside godot:m2)
+npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
+npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
+npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
@@ -89,17 +92,34 @@ Milestone 2, the vertical slice — one district, a handful of survivors, enough
 find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss,
 succession, and still wanting another run.
 
-The current design pass pauses new NPCs and adjacent feature scope; **Mara remains the test
-survivor.** Focus is the first playable survival loop: wounds, treatment, stamina, and recovery.
-The design record is
+New NPCs and adjacent feature scope stay paused; **Mara remains the test survivor.** The design
+record is
 [`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`](.hermes/plans/2026-08-17_065300-vertical-slice-design.md).
 It captures decisions, not shipped behavior: do not move any health/injury checkbox until code and
 a focused Godot check prove it.
 
-Finish that contract and a reproducible 72-hour acceptance scenario before adding survival code.
+**The survival loop is now built, end to end, and switched off.** Five slices landed it: the stance
+ladder became sim-owned (`M2_STANCE_OK`), the grab → struggle → bite loop was ported
+(`M2_CONTACT_OK`), wounds gained a severity and a bleed clock (`M2_WOUNDS_OK`), pressure and
+bandaging plus a command path to the five infection verbs answered them (`M2_TREATMENT_OK`), and
+recovery closes wounds and climbs integrity back (`M2_RECOVERY_OK`). A bite makes a located wound
+with a severity, it bleeds, you stop it with your hands or a dressing, and it mends over days you
+have to earn by eating and resting.
+
+**None of it is reachable in ordinary play, because `SimShambler.GRABS_ENABLED` is `false`, and the
+reason is not what it used to say.** The standing note claimed the flip was waiting on a recovery
+clock. Recovery was built, the flag was flipped, and the fast balance tier failed *worse* — two
+seeds wiping where one had. Instrumenting seed 404 says why: both survivors died **on day one with
+their heads destroyed**, 22 bites, zero blood-loss deaths, in a run that never reached day 2. A head
+is 15 and `BITE_DAMAGE` is 8, so a held survivor is two head bites from dead. The flip is waiting on
+a **design decision about bite lethality during a hold** — head hit weight, `BITE_DAMAGE` against
+small parts, escape odds, or `REPEAT_BITE_TICKS` — not on more code. Do not pick one of those levers
+unilaterally; it is a call about how the game should feel. HANDOFF's contact note carries the full
+measurement.
+
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
 not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are
-still required Milestone 2 proof, deferred behind this focused survival loop rather than cancelled.
+still required Milestone 2 proof, deferred rather than cancelled.
 
 [HANDOFF.md](HANDOFF.md) is the authority on what is built; [docs/23](docs/23-roadmap.md) on what
 is intended; [docs/30](docs/30-decisions.md) on why something that looks arbitrary is shaped that
@@ -147,6 +167,24 @@ Each of these was found the expensive way. They are not style opinions.
 - **The content validator will not catch a nested key.** It checks top-level types only. A wrong
   key inside an `armor` block sat in `item.wrap.cloth` for weeks giving zero arm protection, and
   only a purpose-built gate found it.
+- **`velocity` uses `dx`/`dy`; `position` uses `x`/`y`.** Writing `vel["x"] = 0.0` adds a key
+  nothing reads and raises nothing — a pin that silently does not pin. `shambler.pin` and
+  `treatment.pin` are the precedent for both the phase slot (`movement`, order −1) and the names.
+- **`events.publish()` only queues; handlers run at `drain()`, at the *end* of `world.step()`.**
+  So a fixture that publishes an event and then reads the result without stepping sees nothing
+  ("2 hits, 0 wounds" cost a while), and an event published *into* a tick lands after that tick's
+  systems have already run — a stagger arriving on the tick a channel completes is genuinely too
+  late to stop it. Both are correct behaviour; write the test around them rather than tolerating a
+  fudge factor inside the measurement.
+- **GDScript lambdas capture primitives by value.** A closure assigning to an outer `int` or
+  `bool` mutates its own copy, so an accumulator written inside an event handler reads back
+  unchanged. Use an `Array` or `Dictionary` — reference types — for anything a handler accumulates.
+  Same family as the packed-array trap above.
+- **Diagnose the balance harness, do not theorise at it.** Two consecutive guesses at why a flag
+  flip wiped colonies (blood loss; then NPCs having no way to treat themselves) were both wrong,
+  and each cost a full harness run to disprove. A throwaway `SceneTree` driver that boots
+  `SimBoot.playable(seed, …)`, runs the same day count and prints `entity.killed` causes answers it
+  in one run. Delete the driver afterwards.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.
