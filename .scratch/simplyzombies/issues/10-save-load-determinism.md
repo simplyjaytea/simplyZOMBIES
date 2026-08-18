@@ -15,7 +15,7 @@ Alpha now has shipped sim that round-trips under `SAVE_VERSION` 10 (aptitudes, r
 
 Decision is the alpha serialize list + version policy + stream names, so a builder does not dump new keys onto the player entity and break R6.
 
-Grill UI: [grill-10-save-load.html](../../grill-10-save-load.html) — click one per card, copy the picks line into chat.
+Grill UI: `grill-10-save-load.html` (a throwaway pick-one-per-card page, since deleted from the repo).
 
 ## Answer
 
