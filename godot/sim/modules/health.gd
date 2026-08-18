@@ -165,8 +165,8 @@ static func register_module(world: Variant) -> void:
 				continue
 			if float(st["current"]) < float(st["max"]):
 				# stamina_recovery is the modifier inventory.gd:512 writes from encumbrance --
-				# it used to resolve to nothing here, the same class of dead modifier HANDOFF
-				# already records for move_speed. Guarded the way every other resolve() call
+				# it used to resolve to nothing here, the same class of dead modifier already
+				# on record for move_speed. Guarded the way every other resolve() call
 				# in this file is guarded, for a world built without a modifiers object.
 				var regen: float = float(SimCombat.STAMINA_PER_TICK)
 				if w.modifiers != null and (w.modifiers as Object).has_method("resolve"):

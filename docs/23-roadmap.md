@@ -7,9 +7,10 @@ says what gets made, in what order, what proves each stage, and what may still b
 
 ## How to read this document
 
-This roadmap owns **intended scope, order, exit criteria, risks, and design questions**. It does not
-own implementation bookkeeping: [HANDOFF.md](../HANDOFF.md) is the engineer-facing authority on what
-is built, in flight, or next. [README.md](../README.md) is user-facing and stays at feature level.
+This roadmap owns **intended scope, order, exit criteria, risks, and design questions**, and — since
+the retirement of the separate `HANDOFF.md` — the per-milestone status sections below, which say what
+has landed and what remains. What is *built* is proven by the Godot gate suite (`CLAUDE.md` lists the
+gates), not by any checkbox. [README.md](../README.md) is user-facing and stays at feature level.
 
 The engine rebuild does not replace or renumber these product milestones. Its separate
 [Godot rebuild roadmap](31-godot-rebuild-roadmap.md) reproduces the completed behavior behind parity
@@ -44,7 +45,8 @@ The [architecture](19-architecture.md) work with no game on top:
 **Exit criterion:** an entity moves around a tile map deterministically, and the same seed plus input
 log reproduces byte-identical state.
 
-**Result:** passed and closed. Exact implementation evidence lives in [HANDOFF.md](../HANDOFF.md).
+**Result:** passed and closed. Implementation evidence lives in the CI gate suite and, for the
+retired TypeScript oracle, at tag `ts-oracle-final`.
 
 ## Milestone 1: The spine (complete)
 
@@ -124,6 +126,85 @@ types, vehicles, multiplayer, and the escape endgame.
 **Exit criterion:** survive ten in-game days, become invested in a survivor, lose them permanently,
 continue through succession, and still want another run afterward. The slice must be playable end to
 end without a developer explaining it.
+
+### Where Milestone 2 stands
+
+This section replaced `HANDOFF.md`'s live-status role when that file was retired (2026-08). Keep it
+current **in the same commit** as the work it describes. Every claim of "landed" below is proven by a
+named gate (`npm run godot:m2` chains them all); the full done-item history with per-item evidence
+lives in git — `git log -- HANDOFF.md` finds the retired file, and its final revision holds the
+itemised backlog.
+
+**Landed, gated, and reachable in play:**
+
+- **Lethality** — infection stages, armour-reduced transmission, diagnosis, the five responses
+  including amputation, and turning (`godot:m2:lethality`). Stats MVP: STR/CON/DEX
+  (`godot:m2:stats`).
+- **The district and its inhabitants** — civic-annex overlay (`godot:m2:district`), the
+  shambler/screamer/bloater roster (`godot:m2:roster`), NPC combat including the pistol
+  fire-and-reload branch (`godot:m2:npc`).
+- **Ranged combat** — bow/pistol fire loop, reload, ammunition (`godot:m2:ranged`), aiming
+  (`godot:m2:aim`), with wear no longer wiping a weapon's runtime state (`godot:m2:upkeep`).
+- **People and economy** — needs (`godot:m2:needs`), jobs (`godot:m2:jobs`), recruits
+  (`godot:m2:recruits`), fortification (`godot:m2:fortify`), the slice director
+  (`godot:m2:director`), save/load (`godot:m2:save`), the shallow skill web (`godot:m2:web`).
+- **The stance ladder, sim-owned** — Z/X/C/V plus the Sprint latch, with the zero-stamina gate in
+  the sim (`godot:m2:stance`).
+
+**Landed, gated, and switched off — the survival loop.** Five slices built it end to end: the
+grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and a bleed clock
+(`godot:m2:wounds`), pressure and bandaging plus a command path to the five infection verbs
+(`godot:m2:treatment`), and recovery that closes wounds and climbs integrity back, earned only while
+fed and not exerting (`godot:m2:recovery`). A bite makes a located wound, it bleeds, you stop it with
+your hands or a dressing, and it mends over days you have to earn. None of it is reachable in
+ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the blocker below.
+
+**The blocker is a design decision, not code: bite lethality during a hold.** The standing note used
+to say the flip was waiting on a recovery clock. Recovery was built, the flag was flipped, and the
+fast balance tier failed *worse* — seeds 404 **and** 90210 wiped where only 404 had. Instrumenting
+seed 404 tick by tick: **both survivors died on day one with their heads destroyed** — `cause=head`,
+22 bites, 18 grabs, zero blood-loss deaths, zero treatments, in a run that never reached day 2. A
+head is 15 integrity and `BITE_DAMAGE` is 8, so a held survivor is two head bites from dead, and
+`SURVIVOR_HIT_LOCATION_WEIGHTS` sends one bite in five at the head. Nothing heals in the ninety
+seconds between the first bite and the second, so no amount of recovery answers it. The candidate
+levers are the head's hit weight, `BITE_DAMAGE` against small parts, the escape contest's odds, and
+`REPEAT_BITE_TICKS`. Choosing among them is a call about how the game should feel — do not pick one
+unilaterally. `_the_flag_actually_gates_acquisition()` in the contact gate will notice the flip.
+
+**What the flip makes reachable rather than builds:** the located wound with its presentation lie,
+armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the
+bloater's open-wound check — all written against a bite nothing currently produces. Cripple and
+stagger remain unwired: `shambler.gd` subscribes to neither `injury.sustained` nor
+`entity.staggered`.
+
+**Still open, by system** (condensed from the retired backlog; the spec links in the slice-scope
+table above are the authority on each):
+
+- **World & map** — ~15 resource types, the three location loot tables, site depletion, food
+  spoilage.
+- **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
+  rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
+- **Needs** — mood consequences: slower work, mistakes, refusing jobs, arguments.
+- **Attention leftovers** — the sim half of last-known-position memory, and director-varied nights.
+- **Health & injury** — the remaining injury types (fracture, sprain, burn, concussion), continuous
+  pain and exhaustion, bacterial infection kept distinct from zombie infection (sepsis), the full
+  treatment ladder (clean → close → rest), supply quality tiers, skill-scaled diagnosis text,
+  permanent conditions that don't remove a survivor from play, and diegetic readouts for the
+  continuous conditions.
+- **Combat** — firing at a remembered position (and what it costs), jamming on degraded weapons.
+- **Items** — attachments gaining a reader (content declares slots nothing reads), repair that never
+  restores the full ceiling, and finishing continuous condition-degradation effects.
+- **Inventory** — searching world containers (a car boot, a cupboard), weight affecting footstep
+  noise.
+- **Modification** — Duct Tape (reroll an affix), Scrap Kit (add an affix), skill- and
+  trait-weighted outcomes, failure that consumes and damages.
+- **UI** — the diegetic condition and stamina readouts (in the world, not a corner), prose generated
+  from modifier sources, the priority grid and skill web screens.
+- **Death & succession** — the colony morale hit on a death, and proving "the run ends only when the
+  last survivor dies" in the balance grid.
+- **Proof** — distribution assertions (quiet nights, sieges, deaths, run lengths), the risk-6
+  melee-vs-ranged parity measurement, the full balance grid (`BALANCE_FULL=1`, ~9 h), and the human
+  ten-day playtest. Deferred, not cancelled.
 
 ## Milestone 3A: Survivor depth
 
@@ -219,7 +300,8 @@ throwaway field/visibility cost spike.
 
 ## Risks
 
-All live risks stay together here. Exact task state and measurements belong in HANDOFF.
+All live risks stay together here. Exact task state and measurements belong in the milestone status
+sections above, or in the gate output that produced them.
 
 ### 1. The micromanagement cliff — open, highest design risk
 
@@ -247,7 +329,7 @@ abstraction still needs a concrete second consumer.
 ### 5. Attention-field performance — closed
 
 Continuous scent and 500-body convergence passed named CI benchmark scenarios within their budgets,
-including saturated-field cost. Exact machine-dependent timings stay in HANDOFF and the benchmark
+including saturated-field cost. Exact machine-dependent timings stay in the benchmark
 output rather than becoming permanent roadmap promises. Reopen only for a larger field, a real new
 continuous channel, or a failing budget.
 
@@ -286,7 +368,8 @@ whether one stat becomes mandatory or starting-survivor rerolling dominates actu
 
 This is historical evidence. The disposable pre-Milestone prototype tested the narrower mechanical
 premise “make noise and they come.” It did not test the full colony/permadeath thesis. Its findings
-are retained as history; the linked specifications and current HANDOFF are the authority.
+are retained as history; the linked specifications and the milestone status sections above are the
+authority.
 
 | Finding at spike time | Final resolution |
 |---|---|
@@ -299,8 +382,9 @@ are retained as history; the linked specifications and current HANDOFF are the a
 
 ## Open questions
 
-This is the canonical design and playtest question register. HANDOFF should link here rather than
-copying it; engineering blockers belong in HANDOFF beside the task they block.
+This is the canonical design and playtest question register. Other documents should link here rather
+than copying it; engineering blockers belong beside the work they block, in the milestone status
+sections above.
 
 ### Milestone 2 questions
 
@@ -331,9 +415,47 @@ copying it; engineering blockers belong in HANDOFF beside the task they block.
 - Does voice-as-emitter create tension or simply encourage silence?
 - Is real-time multiplayer without pause still this game?
 
+## Settled decisions: do not relitigate
+
+These were each decided explicitly by the repo owner. They moved here from the retired `HANDOFF.md`.
+If you're about to "improve" one, don't:
+
+- **Hardcore is the thesis, not a difficulty slider.** Permadeath with succession into another
+  survivor; no win condition plus an optional expensive escape.
+- **No wave timer.** Horde pacing is attention-driven and director-paced.
+- **Blank slates mean no classes or predetermined builds, not identical biology.** Every survivor
+  eventually gets bounded, budgeted STR/DEX/CON/INT/CHA/WIS aptitudes. The build still lives
+  primarily in found gear plus a classless skill web earned by doing, and the same rules apply to
+  the controlled survivor and every recruit.
+- **Survivors are unlimited and procedurally generated.** Recruits arrive as unskilled nobodies —
+  that is the counterweight that keeps permadeath meaningful.
+- **Melee and ranged both good**, spending non-convertible currencies (body/bite-risk vs.
+  ammo/attention).
+- **Fully drivable continuous region**, no abstracted travel legs. **Full nomad play viable.**
+- **Performance is pillar 6**, with CI budget gates that fail the build.
+- **Engine transition:** rebuilt in Godot behind parity gates while the TypeScript/Canvas/Vite
+  version remained the executable oracle — complete, with the oracle archived at `ts-oracle-final`.
+  Typed GDScript on Godot 4.7.1, Compatibility, Web + Windows. **Saves may break pre-1.0** — stable
+  IDs and a version stamp, but no cross-engine migration framework.
+- **The inventory is a grid, and weight is invisible.** Tarkov/DayZ-shaped: cells, footprints,
+  rotation, nesting, and containers you have to wear to get. This *replaced* the weight-and-capacity
+  model [docs/10](10-items.md) originally specified — a capacity bar is a number about your
+  capacity, which [clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable)
+  prohibits outright, and a grid is the same information as shape. Weight is still simulated and
+  never printed: you find out you are overloaded by walking slower. **There is no kilogram on the
+  inventory screen** and adding one is a contract violation, not a UX improvement.
+- **Vehicles were un-cut** after initially being cut at the vision level. [docs/00](00-vision.md)
+  records the reversal and why the original objection was half right.
+- **A district is 256 m, falloff stays linear.** Decided against re-authoring the magnitude table,
+  because its ratios are load-bearing in six documents and only the unit was ever missing.
+- **Field memory is scent, never noise.** Kept rather than cut, on the condition that Milestone 1
+  proved it did something. **It did** — though not the something that was written down. See
+  [what scent changed](30-decisions.md#what-scent-changed-and-what-it-corrected).
+
 ## Roadmap cut list
 
-- **Detailed checkbox status and implementation notes.** HANDOFF owns them.
+- **Per-item checkbox bookkeeping.** Retired with `HANDOFF.md`; the milestone status sections carry
+  condensed state, gates carry the proof, and git history carries the itemised record.
 - **Milestone 3 breadth inside the vertical slice.** The slice proves the thesis before expansion.
 - **Full storyteller presets in Milestone 2.** Only the slice director and an internal neutral baseline.
 - **Z-level implementation before the thesis and streaming budgets are proven.**
@@ -347,7 +469,7 @@ copying it; engineering blockers belong in HANDOFF beside the task they block.
 2. Every cross-document link resolves.
 3. The [cookbook examples](21-extensibility.md#the-cookbook) are achievable using only defined mechanisms.
 4. No document contradicts the [vision](00-vision.md) or [hardcore contract](01-hardcore-contract.md).
-5. README, roadmap, and HANDOFF keep their separate audiences and do not duplicate volatile status.
+5. README and the roadmap keep their separate audiences and do not duplicate volatile status.
 
 ---
 
