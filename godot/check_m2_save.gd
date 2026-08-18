@@ -1,5 +1,5 @@
 extends SceneTree
-# v14 + ticket 10 fortify/director + needs-era state. F9 is restore, not re-boot.
+# v15 + ticket 10 fortify/director + needs-era state. F9 is restore, not re-boot.
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
@@ -21,22 +21,24 @@ func _run() -> void:
 	ok = _needs_era() and ok
 	ok = _streams() and ok
 	if ok:
-		print("M2_SAVE_OK v14 ticket10 needs-era")
+		print("M2_SAVE_OK v15 ticket10 needs-era")
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
 		quit(1)
 
 func _version() -> bool:
-	if int(SimSerialize.SAVE_VERSION) != 14:
-		push_error("SAVE_VERSION %d want 14" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 15:
+		push_error("SAVE_VERSION %d want 15" % int(SimSerialize.SAVE_VERSION))
 		return false
-	# 13 is now the stale version -- it predates posture's target/ticks_left and float stamina.
+	# 13 is stale -- it predates posture's target/ticks_left and float stamina. 15 is current
+	# (Slice 2 Part A's bloodLoss/wound-severity shape change), so 13 is two versions behind
+	# and must still be rejected the same way a lone-version-behind save would be.
 	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":13},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":
 		push_error("v13 not rejected: %s" % str(stale))
 		return false
-	print("VERSION OK 14 rejects 13")
+	print("VERSION OK %d rejects 13" % int(SimSerialize.SAVE_VERSION))
 	return true
 
 func _restore_bare(snap: Dictionary, seed_val: int, map_size: int) -> Variant:

@@ -181,8 +181,11 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 	var w: Variant = World.new(_fixture())
 	SimHealth.make_survivor_body(w, w.player)
 	w.components.set_component(w.player, "injuries", {"wounds": [
-		{"kind": "bite", "presentation": "scratch", "bodyPart": "arm_left", "source": -1, "sustainedAtTick": 0},
-	]})
+		# arm_left bleeds; hand_right carries a wound that has already clotted -- the true
+		# negative that keeps `bleeding` from being the field that is always false.
+		{"kind": "bite", "presentation": "scratch", "bodyPart": "arm_left", "source": -1, "sustainedAtTick": 0, "severity": 0, "bleeding": true, "bandage": "none", "clotsAtTick": -1},
+		{"kind": "cut", "presentation": "scratch", "bodyPart": "hand_right", "source": -1, "sustainedAtTick": 0, "severity": 0, "bleeding": false, "bandage": "none", "clotsAtTick": 50},
+	], "bloodLoss": 0.0})
 	w.components.set_component(w.player, "zombieInfection", {"exposures": [
 		{"source": -1, "bodyPart": "leg_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Onset, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false},
 	]})
@@ -207,6 +210,9 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 		if not (d.get("armored") is bool):
 			push_error("%s.armored is not a bool: %s" % [part, d.get("armored")])
 			return false
+		if not (d.get("bleeding") is bool):
+			push_error("%s.bleeding is not a bool: %s" % [part, d.get("bleeding")])
+			return false
 
 	# True positives, so this cannot be satisfied by fields that are simply always false.
 	if not bool(by_part["arm_left"].get("wounded", false)):
@@ -218,12 +224,25 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 	if not bool(by_part["torso"].get("armored", false)):
 		push_error("torso is covered by an equipped vest but armored=false")
 		return false
+	if not bool(by_part["arm_left"].get("bleeding", false)):
+		push_error("arm_left has an open wound but bleeding=false")
+		return false
+	# True negative for bleeding specifically: hand_right carries a wound (wounded=true)
+	# that has already clotted, so bleeding must read false even though wounded does not --
+	# this is the check that keeps `bleeding` from being satisfied by a field that always
+	# agrees with `wounded`.
+	if not bool(by_part["hand_right"].get("wounded", false)):
+		push_error("hand_right should carry a (clotted) wound but wounded=false")
+		return false
+	if bool(by_part["hand_right"].get("bleeding", true)):
+		push_error("hand_right's wound has clotted but bleeding=true")
+		return false
 	# And a true negative on a part none of this touched.
 	var clean: Dictionary = by_part["foot_right"] as Dictionary
-	if bool(clean.get("wounded", true)) or String(clean.get("infected", "x")) != "none" or bool(clean.get("armored", true)):
+	if bool(clean.get("wounded", true)) or String(clean.get("infected", "x")) != "none" or bool(clean.get("armored", true)) or bool(clean.get("bleeding", true)):
 		push_error("foot_right should be untouched, got %s" % str(clean))
 		return false
-	print("WOUND/INFECTION/ARMOR OK arm_left wounded, leg_left infected, torso armored, foot_right clean")
+	print("WOUND/INFECTION/ARMOR OK arm_left wounded+bleeding, leg_left infected, torso armored, hand_right clotted (wounded, not bleeding), foot_right clean")
 	return true
 
 func _a_body_less_entity_has_no_view() -> bool:
