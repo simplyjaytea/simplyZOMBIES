@@ -28,6 +28,13 @@ matter today: `back` draws under the body sprite (peeking over the shoulders), `
 `secondary` draw over it (held in front). Other equipment slots may declare `equipSprite` but
 nothing draws them yet.
 
+An under-body item can also declare `appearance.equipSpriteFront` -- a second, optional picture
+that always draws over the body, independent of the slot's own under/over default. A worn
+backpack's straps physically cross in front of the chest; no amount of repositioning the main
+`equipSprite` fixes that, because anything under the body is hidden wherever the body is opaque.
+`equipSpriteFront` is that strap-and-buckle piece alone, same 64×96 canvas, same anchor. Most
+equipment won't need one -- only something whose silhouette genuinely wraps around the body does.
+
 ## Wiring one up
 
 Add the key to the content entry, not to any script:
