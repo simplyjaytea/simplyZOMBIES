@@ -32,11 +32,16 @@ prose and code stay in one language.
   by command (`M2_TREATMENT_OK`), and recovery closes wounds and climbs integrity back
   (`M2_RECOVERY_OK`). `SimShambler.GRABS_ENABLED` is still `false`, so nothing wounds a survivor
   in ordinary play.
-- **The next step is a design decision, not code.** Flipping that flag wipes colonies on day one
-  to head bites (measured: seed 404, `cause=head`, 22 bites, zero blood-loss deaths). The levers
-  are head hit weight, `BITE_DAMAGE` against small parts, escape odds, and `REPEAT_BITE_TICKS`.
-  **Do not pick one unilaterally** — see the full measurement in docs/23's Milestone 2 status
-  section and the "Where the work is" section of `CLAUDE.md`.
+- **Bite lethality during a hold has been answered; the flip has not.** All four levers landed
+  together — held-bite hit weights (head 0.05 against a free swing's 0.20), `REPEAT_BITE_TICKS`
+  40 → 80, part-scaled bite damage `maxf(2.0, minf(BITE_DAMAGE, 0.35 × part max))`, and a sooner,
+  cheaper struggle — and `M2_CONTACT_OK` grew HELD-AIM and BITE-SCALE to hold them.
+- **The next step is still a design decision, not code.** With grabs on, the compressed balance
+  tier records 0 kills, 0 jobs completed and 0 wounds treated in a whole campaign, so two colonies
+  in four bleed out at any lever setting. The unattended `controlled` survivor never struggles, the
+  second colonist boots unarmed, and `npc.combat` drops anyone `grabbed`. **Do not pick an answer
+  unilaterally** — see the full measurement in docs/23's Milestone 2 status section and the "Where
+  the work is" section of `CLAUDE.md`.
 - Do not mark any survival item done until code and a focused Godot check exist. The full balance
   grid and ten-day playtest remain required proof, deferred rather than cancelled.
 - Keep effects sim-owned and command-driven; preserve sim/presentation separation and the

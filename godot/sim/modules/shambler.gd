@@ -30,39 +30,88 @@ const RELEASE_METRES: float = 3.2
 const MILL_TICKS: int = 90
 const COMMIT_TICKS: int = 400
 
-# The grab -> struggle -> bite loop. Values ported verbatim from src/sim/modules/shambler.ts:
-# 1.5 s to the first bite, 2 s between later ones, a bite costs a wound (BITE_DAMAGE) rather
-# than health-bar damage, and the contextual F commits a second before the escape roll lands.
+# The grab -> struggle -> bite loop. Originally ported verbatim from src/sim/modules/shambler.ts;
+# four of these values have since moved off the oracle's numbers in the bite-lethality re-tune
+# docs/23's Milestone 2 status records. The frozen TypeScript reference deliberately keeps the old
+# ones -- R1 parity covers movement, so the divergence is expected and is not drift.
+#
+# 1.5 s to the first bite, four seconds between later ones, a bite costs a wound rather than
+# health-bar damage, and the contextual F commits four fifths of a second before the escape roll
+# lands.
 const FIRST_BITE_TICKS: int = 30
-const REPEAT_BITE_TICKS: int = 40
+# 80, not the oracle's 40. A held survivor cannot fight back, so this clock *is* the lethality of
+# a hold: at 40 the same hold delivered twice as many bites in the window it took the colony to
+# come and pull it off.
+const REPEAT_BITE_TICKS: int = 80
+# The ceiling on a bite, not the value of one -- see BITE_DAMAGE_PART_FRACTION below.
 const BITE_DAMAGE: float = 8.0
-const STRUGGLE_TICKS: int = 20
-const STRUGGLE_STAMINA: float = 20.0
+# A bite takes a fraction of the part's *maximum* rather than a flat number, floored so that no
+# bite is ever free. CLAUDE.md's standing trap: parts do not share a scale, so a flat 8 was a
+# scratch on a 40-torso and a death sentence on a 15-head. 0.35 puts a head at three bites rather
+# than two; a torso still takes the full 8 (0.35 * 40 = 14, clamped by BITE_DAMAGE); hands and
+# feet drop to 3.5. The floor matters mechanically as well as tonally: health.gd:141 records no
+# wound for a hit that removed no integrity, so a bite that rounded to nothing would leave no
+# mark to treat.
+const BITE_DAMAGE_PART_FRACTION: float = 0.35
+const BITE_DAMAGE_MIN: float = 2.0
+# 16 and 15, down from the oracle's 20/20: the contest itself is untouched (SimAptitudes gives one
+# shambler 1/1.5 = 0.667, pinned in check_m2_stats.gd), but a survivor gets to have it slightly
+# sooner and can afford six attempts on a full tank rather than five. It no longer doubles as the
+# re-grab cooldown -- see REGRAB_COOLDOWN_TICKS below.
+const STRUGGLE_TICKS: int = 16
+const STRUGGLE_STAMINA: float = 15.0
+# How long a shambler that has just lost its grip must wait before it can take anyone again.
+# This was STRUGGLE_TICKS doing double duty, which meant the escape lever silently moved it: a
+# cheaper, faster struggle also handed the shambler its hands back sooner, and instrumenting a
+# live district showed the same shambler re-taking the same survivor every 24 to 36 ticks. Named
+# separately and pinned at its old value, so the two can be tuned apart, and so BREAK_AWAY_TICKS
+# keeps outliving it the way its own note says it should.
+const REGRAB_COOLDOWN_TICKS: int = 20
 # An escape that leaves you standing inside arm's reach is not an escape. Without this the
 # balance harness lost a whole colony on 1 seed in 4: a survivor would tear free, stand exactly
-# where they were, be re-taken the moment the holder's cooldown lapsed, and pay another 20
-# stamina for the privilege until there was none left. The player solves this by walking away;
+# where they were, be re-taken the moment the holder's cooldown lapsed, and pay another tankful
+# of stamina for the privilege until there was none left. The player solves this by walking away;
 # nothing in the build did it for anyone else. BREAK_AWAY_TICKS is deliberately a shade longer
 # than the re-grab cooldown so the separation outlives it.
-# Grabs are built, gated and off.
+
+# Grabs are still off by default, and the reason has changed twice now. Both previous reasons
+# were guesses; this one was measured, and the measurement is the point of the note.
 #
-# Not timidity -- arithmetic. A bite rolls over all ten survivor parts, and **nothing in this
-# simulation raises a body part's integrity except jobs.gd's _treat(), which heals the torso and
-# only the torso**. Head, arms, hands, legs and feet fall monotonically for the life of a
-# survivor. Grabs are the first repeating damage source ever aimed at survivors, so with no
-# recovery they are not "hard", they are cumulative: measured on the fast balance tier, seed 404
-# goes from 0 deaths to a wiped colony, and M2_BALANCE's `survivors_end >= 1` is a designed
-# invariant, not a tuning target. Disabling grab acquisition restores that seed exactly, which is
-# how the cause was pinned.
+# Reason one (retired): "the flip waits on a recovery clock" -- a bite rolled over all ten parts
+# and nothing raised a part's integrity again, so grabs were cumulative rather than hard.
+# Recovery shipped (M2_RECOVERY_OK), the flag was flipped, and the fast balance tier failed
+# *worse*.
 #
-# So this follows SimMelee.REFUSE_EXHAUSTED_SWINGS: the behaviour ships complete and fully gated
-# -- check_m2_contact.gd turns it on explicitly, so every assertion here exercises the real loop
-# -- and the default flips in the same change that gives wounds a recovery clock. Flipping it
-# before then would trade a real signal for a green board.
-# A static var rather than a const purely so check_m2_contact.gd can switch it on for the world
-# it builds; treat it as a compile-time constant everywhere else. It is deliberately NOT world
-# state and deliberately not saved -- a flag that could differ between a save and its reload
-# would be a determinism bug, and this one is set once, at boot or by a gate, and never again.
+# Reason two (retired, and fixed): a held survivor was being executed. A head is 15, a bite was a
+# flat 8, and one bite in five aimed at the head, so two rolls killed. Seed 404 lost both
+# colonists on day one with `cause=head-destroyed`. That is what the four levers above answer --
+# HELD_HIT_LOCATION_WEIGHTS, REPEAT_BITE_TICKS 40 -> 80, part-scaled damage, a cheaper struggle --
+# and it worked: on the same seed the head share falls from a fifth to a twentieth and the first
+# death moves off day one.
+#
+# Reason three, which is where it now sits, and which is a design call rather than a number: with
+# grabs on, the compressed fast balance tier has no defence and no first aid, so everybody
+# eventually bleeds out. A throwaway driver over its four seeds says it plainly -- 0 zombies
+# killed, 0 jobs completed, 0 wounds treated, across every lever setting tried, including the
+# extreme end (a bite every 400 ticks at a quarter of a part). The two seeds that wipe (404,
+# 90210) do so by blood loss, because a laceration never clots untreated and nobody in that model
+# ever gets an idle hour to dress one; the two that survive (20260805, 31337) are the two where
+# nothing ever reached the colony. Three things are load-bearing and none of them is bite damage:
+# an unattended `controlled` survivor never struggles (F is a key press, and the harness presses
+# nothing), the second colonist boots unarmed, and `npc.combat` drops anyone `grabbed` from the
+# threat loop while the re-grab cooldown keeps re-taking them. Which of those to change -- arm the
+# harness colony, let an unattended survivor struggle on instinct, or make contact rarer -- is the
+# next owner call, and docs/23's Milestone 2 status carries the numbers to make it on.
+#
+# So the loop ships complete, gated and off for one more turn, the way
+# SimMelee.REFUSE_EXHAUSTED_SWINGS did: check_m2_contact.gd turns it on explicitly, so every
+# assertion there exercises the real thing rather than the shipped default.
+#
+# A static var rather than a const purely so that gate can switch it on for the worlds it builds;
+# `_the_flag_actually_gates_acquisition` exercises both directions, which is what keeps the flag
+# honest. Treat it as a compile-time constant everywhere else. It is deliberately NOT world state
+# and deliberately not saved -- a flag that could differ between a save and its reload would be a
+# determinism bug, and this one is set once, at boot or by a gate, and never again.
 static var GRABS_ENABLED: bool = false
 const BREAK_AWAY_TICKS: int = 26
 const BREAK_AWAY_SPEED: float = 1.6
@@ -78,6 +127,11 @@ const SimAptitudesRes = preload("res://sim/modules/aptitudes.gd")
 # entity_index, so a victim's `grabbed.sources` sorts the same way regardless of spawn order --
 # the save/replay-stable ordering the oracle's Grabbed component keeps.
 const SimEntityStoreRes = preload("res://sim/entity_store.gd")
+# max_of, so bite_damage_for scales against the same part table health.gd damages, and the
+# held-bite location table -- preloaded rather than leaning on the global class name, the way
+# every other cross-module reference in this file is.
+const SimHealthRes = preload("res://sim/modules/health.gd")
+const SimCombatRes = preload("res://sim/combat.gd")
 
 
 static func default_shambler_speeds() -> Dictionary:
@@ -276,6 +330,25 @@ static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Di
 	vel["dy"] = sin(angle) * speed
 
 
+# What one bite takes out of one part. Public and static so a gate can assert the arithmetic
+# without standing up a hold, and so there is exactly one place the scaling lives -- the publish
+# site below is the only caller.
+#
+# The band edge is deliberate and worth naming, because it moves a wound's severity, not just its
+# number: wounds.gd bands severity on damage / part max, and an arm bite used to be 8/20 = 0.40,
+# sitting exactly on the DeepWound boundary. Scaled, an arm takes 7.0 of 20 = 0.35, which is a
+# Laceration -- a fifth of the bleed rate (BLEED_PER_TICK 0.004 against 0.02). That is the
+# intended side of the line: a bite on a forearm you were using to fend a mouth off should be a
+# nasty tear you can bandage, and the deep wounds should belong to the torso and the throat.
+static func bite_damage_for(body: Variant, part: String) -> float:
+	if not (body is Dictionary):
+		return BITE_DAMAGE
+	var part_max: Variant = SimHealthRes.max_of(body as Dictionary, part)
+	if part_max == null or int(part_max) <= 0:
+		return BITE_DAMAGE
+	return maxf(BITE_DAMAGE_MIN, minf(BITE_DAMAGE, BITE_DAMAGE_PART_FRACTION * float(int(part_max))))
+
+
 # A short physical reach may cross screening foliage, but never a solid wall or window.
 # Three samples along the ray rather than a full raycast, matching the oracle's clearContact
 # (src/sim/modules/shambler.ts:628) -- world.is_blocked_tile is the Godot equivalent of the
@@ -324,7 +397,7 @@ static func _release_grab(world: Variant, source: int) -> void:
 	world.components.remove(source, "grabState")
 	var shambler_data: Variant = world.components.get_component(source, "shambler")
 	if shambler_data is Dictionary:
-		(shambler_data as Dictionary)["ticksToGrab"] = STRUGGLE_TICKS
+		(shambler_data as Dictionary)["ticksToGrab"] = REGRAB_COOLDOWN_TICKS
 	var grabbed: Variant = world.components.get_component(int((hold as Dictionary)["victim"]), "grabbed")
 	if not (grabbed is Dictionary):
 		return
@@ -538,12 +611,17 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			hold2["ticksUntilBite"] = REPEAT_BITE_TICKS
 			var bite_victim: int = int(hold2["victim"])
 			var victim_body: Variant = w.components.get_component(bite_victim, "body")
+			# Held geometry, not swing geometry -- SimCombatRes.HELD_HIT_LOCATION_WEIGHTS carries
+			# the reasoning for why the head share collapses inside a grapple. A zombie body
+			# ignores the override (melee.gd); zombies do not grab each other today, but the
+			# roll should not have to care.
+			var bitten: String = SimMeleeRes._roll_body_part(grab_rng, victim_body, SimCombatRes.HELD_HIT_LOCATION_WEIGHTS)
 			w.events.publish({
 				"type": "bite.landed",
 				"victim": bite_victim,
 				"source": int(source3),
-				"bodyPart": SimMeleeRes._roll_body_part(grab_rng, victim_body),
-				"damage": BITE_DAMAGE,
+				"bodyPart": bitten,
+				"damage": bite_damage_for(victim_body, bitten),
 			})
 
 		# 4. Begin new holds. Only a Pursuing shambler not already holding someone, not on
