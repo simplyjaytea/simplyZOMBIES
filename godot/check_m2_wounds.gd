@@ -383,21 +383,15 @@ func _impairment_clears_when_its_cause_does() -> bool:
 
 	var never_hurt: Variant = _world(113)
 	var d_baseline: float = _distance_walked(never_hurt, 40)
-	# The recovered walk is allowed to fall short by at most ONE tick's worth, and no more.
-	# That lag is real and structural, not slop: "movement" is an earlier phase than "health",
-	# so the tick on which blood loss is cleared still integrates against the modifier that
-	# wounds.bleed strips later in the same tick. Tolerating exactly one tick keeps the
-	# assertion sharp -- a modifier that never cleared leaves d_recovered down at d_hurt,
-	# which is ~50% short, not 2.5%.
-	var one_tick: float = d_baseline / 40.0
-	var shortfall: float = d_baseline - d_recovered
-	if shortfall > one_tick * 1.01:
-		push_error("a recovered body should walk within one tick of baseline: recovered=%.4f baseline=%.4f shortfall=%.4f one_tick=%.4f" % [d_recovered, d_baseline, shortfall, one_tick])
+	# Exact equality, not a tolerance. `wounds.impair` runs in phase "input" at order -1 --
+	# ahead of "movement" -- specifically so a cleared cause takes effect on the very same
+	# tick rather than one tick late. An earlier revision of this assertion allowed a one-tick
+	# shortfall because impairment then lived in the later "health" phase; keeping that
+	# tolerance now would quietly accept the regression back to it.
+	if absf(d_recovered - d_baseline) > 0.0001:
+		push_error("a recovered body should walk exactly as far as one never hurt: recovered=%.4f baseline=%.4f (a one-tick shortfall means impairment moved back behind movement)" % [d_recovered, d_baseline])
 		return false
-	if shortfall < 0.0:
-		push_error("a recovered body outwalked one that was never hurt: recovered=%.4f baseline=%.4f" % [d_recovered, d_baseline])
-		return false
-	print("CLEAR OK hurt=%.3f recovered=%.3f baseline=%.3f (shortfall %.4f = %.2f ticks)" % [d_hurt, d_recovered, d_baseline, shortfall, shortfall / one_tick])
+	print("CLEAR OK hurt=%.3f recovered=%.3f baseline=%.3f exactly" % [d_hurt, d_recovered, d_baseline])
 	return true
 
 

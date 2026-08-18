@@ -233,6 +233,12 @@ static func register_module(world: Variant) -> void:
 			var inj: Variant = w.components.get_component(int(entity), "injuries")
 			if inj == null:
 				continue
+			# Same corpse guard wounds.bleed carries. recruits._make_corpse leaves `injuries`
+			# on the body, so without this every corpse in the world re-strips and re-adds ten
+			# per-part modifier sources on every tick, forever, to slow down something that is
+			# not going anywhere. Correctness and cost, not just tidiness.
+			if w.components.has_component(int(entity), "corpse"):
+				continue
 			var d: Dictionary = inj as Dictionary
 			_apply_bloodloss_impairment(w, int(entity), float(d.get("bloodLoss", 0.0)))
 			_apply_part_impairment(w, int(entity), d.get("wounds", []) as Array)
