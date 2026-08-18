@@ -35,7 +35,12 @@ const PART_ORDER: Array[String] = SimCombat.SURVIVOR_BODY_PARTS
 # uses, never a stage number and never `transmitted`; `armored` says coverage exists, never
 # the coverage fraction itself. Extending this dictionary with a raw one is still the change
 # that breaks the ban -- these three were chosen because none of them can become one.
-const PART_KEYS: Array[String] = ["part", "state", "prose", "wounded", "infected", "armored"]
+#
+# `bleeding` joined for Slice 2 Part A -- a bool, never the bleed rate or the blood-loss
+# fraction behind it. `bandage` does NOT join yet: every wound's bandage is "none" until
+# Part B writes anything else, and CLAUDE.md is explicit that a field which can only take
+# one value is a gate that cannot fail. It lands with Part B, with its true negative.
+const PART_KEYS: Array[String] = ["part", "state", "prose", "wounded", "infected", "armored", "bleeding"]
 
 # Humanized display for the sided parts. Head and torso need no entry -- the raw key is
 # already the word. Without this, "arm_left" would be the literal text a screen shows,
@@ -62,6 +67,19 @@ static func _has_wound(world: Variant, actor: int, part: String) -> bool:
 		return false
 	for wound in (inj as Dictionary).get("wounds", []) as Array:
 		if String((wound as Dictionary).get("bodyPart", "")) == part:
+			return true
+	return false
+
+
+# Same shape as _has_wound, but true only while this part carries a wound that is still
+# open (bleeding == true) -- a clotted wound still counts for `wounded` above, but not here.
+static func _is_bleeding(world: Variant, actor: int, part: String) -> bool:
+	var inj: Variant = world.components.get_component(actor, "injuries")
+	if not (inj is Dictionary):
+		return false
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		var w: Dictionary = wound as Dictionary
+		if String(w.get("bodyPart", "")) == part and bool(w.get("bleeding", false)):
 			return true
 	return false
 
@@ -99,6 +117,7 @@ static func view(world: Variant, actor: int) -> Dictionary:
 			"wounded": _has_wound(world, actor, part),
 			"infected": String(diag.get("actionable", "none")),
 			"armored": SimInfection.armor_coverage_of(world, actor, part) > 0.0,
+			"bleeding": _is_bleeding(world, actor, part),
 		})
 
 	var posture: Variant = world.components.get_component(actor, "posture")

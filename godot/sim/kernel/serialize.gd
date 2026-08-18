@@ -11,7 +11,13 @@ extends RefCounted
 # "stamina.current" became a float instead of an int (it had to, to regenerate at all: see
 # health.gd's health.recover). A v13 save's posture dict is missing keys request_stance reads
 # unconditionally, and its stamina.current would silently truncate every regen tick again.
-const SAVE_VERSION: int = 14
+# 15: Slice 2 Part A -- wounds that bleed. "injuries" gained "bloodLoss" (float, the
+# blood-loss accumulator) and every wound entry in "wounds" gained four keys: "severity"
+# (int), "bleeding" (bool), "bandage" (String, "none" until Part B), "clotsAtTick" (int). A
+# v14 save's wound entries are missing keys wounds.bleed reads unconditionally (severity,
+# bleeding, clotsAtTick), and its injuries dict has no bloodLoss to accumulate into -- same
+# class of silent-mismatch-not-migration as 13 and 14 above.
+const SAVE_VERSION: int = 15
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
