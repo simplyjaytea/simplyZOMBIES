@@ -68,7 +68,7 @@ static func make_body(world: Variant, entity: int) -> void:
 
 static func make_survivor_body(world: Variant, entity: int) -> void:
 	world.components.set_component(entity, "body", SimCombat.SURVIVOR_BODY.duplicate())
-	world.components.set_component(entity, "injuries", {"wounds": []})
+	world.components.set_component(entity, "injuries", {"wounds": [], "bloodLoss": 0.0})
 
 static func make_stamina(world: Variant, entity: int, maxv: int = 100) -> void:
 	# "current" is a float. It used to be an int, and health.recover's per-tick regen
@@ -80,6 +80,10 @@ static func make_stamina(world: Variant, entity: int, maxv: int = 100) -> void:
 static func register_module(world: Variant) -> void:
 	var killed: Array[int] = []
 	var injury_rng: Variant = world.rng.stream("injury")
+	# wounds.gd preloads this file for max_of/finish_death, so this side loads it
+	# dynamically -- the same cyclic-preload workaround finish_death below already uses for
+	# recruits.gd.
+	var Wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
 	var damage_part: Callable = func(target: int, source: int, named_part: String, amount: float) -> Variant:
 		var body: Variant = world.components.get_component(target, "body")
 		if body == null or not is_alive(body as Dictionary):
@@ -106,7 +110,7 @@ static func register_module(world: Variant) -> void:
 				"y": float((pos as Dictionary)["y"]) if pos is Dictionary else 0.0,
 				"zombieType": String((zt as Dictionary).get("id", "")) if zt is Dictionary else "",
 			})
-		return {"body": b, "part": named_part, "before": before}
+		return {"body": b, "part": named_part, "before": before, "after": float(b[named_part])}
 
 	world.events.subscribe({"id": "health.take-damage", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
 		var result: Variant = damage_part.call(int(event["target"]), int(event["attacker"]), String(event["bodyPart"]), float(event["damage"]))
@@ -121,6 +125,10 @@ static func register_module(world: Variant) -> void:
 		var hit_part: String = String(r["part"])
 		if (hit_part == "legs" or hit_part.begins_with("leg_")) and is_crawling(r["body"] as Dictionary):
 			world.events.publish({"type": "injury.sustained", "entity": int(event["target"]), "injury": "crippled", "bodyPart": hit_part})
+		# A hit that removed no integrity records no wound -- a zero-damage (or fully
+		# absorbed) hit still returns a non-null result above, since "before" was positive.
+		if is_survivor_body(r["body"]) and float(r["after"]) != float(r["before"]) and Wounds != null:
+			Wounds.call("append_wound", world, int(event["target"]), "cut", hit_part, int(event["attacker"]), float(event["damage"]))
 	})
 
 	world.events.subscribe({"id": "health.take-bite", "type": "bite.landed", "handler": func(event: Dictionary) -> void:
@@ -130,13 +138,10 @@ static func register_module(world: Variant) -> void:
 		var r: Dictionary = result as Dictionary
 		if not is_survivor_body(r["body"]):
 			return
-		var inj: Variant = world.components.get_component(int(event["victim"]), "injuries")
-		if inj == null:
-			inj = {"wounds": []}
-			world.components.set_component(int(event["victim"]), "injuries", inj)
-		var wounds: Array = (inj as Dictionary)["wounds"] as Array
+		if float(r["after"]) == float(r["before"]) or Wounds == null:
+			return
 		var presentation: String = "bite" if float(injury_rng.call("next")) >= BITE_PRESENTS_AS_SCRATCH_CHANCE else "scratch"
-		wounds.append({"kind": "bite", "presentation": presentation, "bodyPart": String(r["part"]), "source": int(event["source"]), "sustainedAtTick": int(world.tick)})
+		Wounds.call("append_wound", world, int(event["victim"]), "bite", String(r["part"]), int(event["source"]), float(event["damage"]), presentation)
 		world.events.publish({"type": "injury.sustained", "entity": int(event["victim"]), "injury": "bite", "bodyPart": String(r["part"])})
 	})
 

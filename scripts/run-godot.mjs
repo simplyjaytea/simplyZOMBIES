@@ -208,6 +208,9 @@ switch (mode) {
   case "--m2-stance":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_stance.gd"];
     break;
+  case "--m2-wounds":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_wounds.gd"];
+    break;
   case "--m2-contact":
     args = [
       "--headless",

@@ -10,6 +10,7 @@ const SimLight = preload("res://sim/vision/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
@@ -92,6 +93,7 @@ static func _on_scent(event: Dictionary) -> void:
 
 static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimHealth.register_module(world)
+	SimWounds.register_module(world)
 	SimInfection.register_module(world)
 	SimMelee.register_module(world)
 	SimRanged.register_module(world)
