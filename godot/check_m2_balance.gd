@@ -231,6 +231,12 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		"melee_kills": 0,
 		"ranged_kills": 0,
 		"deaths": 0,
+		# The hold loop, counted off the bus like everything else here. `grab.started` is one per
+		# hand that closes; `grab.broken` is one per victim who becomes fully free, tagged with why,
+		# which is the only way a harness that reads nothing but events can tell an escape from a
+		# rescue from a corpse. Reported, not asserted -- see the note above `_assert_bands`.
+		"grabs": 0,
+		"broken": {},
 		"seen_dead": {},
 		"turned": 0,
 		"recruits": 0,
@@ -268,6 +274,11 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 				run["turned"] = int(run["turned"]) + 1
 			"run.over":
 				run["run_over"] = true
+			"grab.started":
+				run["grabs"] = int(run["grabs"]) + 1
+			"grab.broken":
+				var why: String = String(ev.get("cause", "unknown"))
+				(run["broken"] as Dictionary)[why] = int((run["broken"] as Dictionary).get(why, 0)) + 1
 			"entity.killed":
 				var victim: int = int(ev.get("entity", -1))
 				var killer: int = int(ev.get("killer", -1))
@@ -311,12 +322,13 @@ func _close_run(w: Variant, run: Dictionary) -> void:
 
 
 func _print_run(label: String, run: Dictionary) -> void:
-	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s" % [
+	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d broken=%s" % [
 		label, int(run["seed"]), String(run["arm"]), int(run["days"]),
 		int(run["siege_nights"]), int(run["quiet_nights"]), int(run["packets"]),
 		int(run["breaches"]), int(run["kills"]), int(run["melee_kills"]), int(run["ranged_kills"]),
 		int(run["deaths"]), int(run["turned"]), int(run["recruits"]), int(run["max_live"]),
 		int(run["survivors_end"]), int(run["survivors_start"]), str(run["run_over"]),
+		int(run["grabs"]), str(run["broken"]),
 	])
 
 

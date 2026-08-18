@@ -42,13 +42,22 @@ prose and code stay in one language.
   unarmed (`SimSurvivors._hold_it`, ARMED in `M2_BALANCE_OK`); and `npc.combat` prefers a shambler
   that is holding someone (HOLDER in `M2_NPC_COMBAT_OK`). The shipped fast tier records the
   colony's first kills at all as a result — 6 on seed 404, 1 on 90210.
+- **The price of an escape has been answered too.** Stamina recovers while held — `health.recover`
+  ignores the recovery delay for a `grabbed` body and `world.gd` stops charging that body the
+  posture drain, without which the first half does nothing (REGEN-HELD in `M2_CONTACT_OK`) — and a
+  free survivor can break somebody else's hold: `SimShambler.try_begin_rescue`, the `H` key, the
+  separate `shambler.rescue-intake` system, a rescue-first branch in `npc.combat`, and the new
+  `grab.broken {victim, by, cause}` event (RESCUE and BROKEN in `M2_CONTACT_OK`, RESCUE-FIRST in
+  `M2_NPC_COMBAT_OK`). Empty-tank ticks fell 38.3% → 13.3% on seed 404 and 48.9% → 0.0% on 90210.
 - **The next step is still a design decision, not code.** With grabs forced on, seeds 404 and 90210
-  still end `0/2` by blood loss: those colonies are held for 65–69% of their living ticks and spend
-  38–49% of that with too little stamina to pay for an escape, and a driver mashing F every tick
-  does not change it. The price of an escape, someone else being able to break a hold, or rarer
-  contact are the remaining levers. **Do not pick an answer unilaterally**, and note that relaxing
-  `survivors_end >= 1` has been considered and rejected — see the full measurement in docs/23's
-  Milestone 2 status section and the "Where the work is" section of `CLAUDE.md`.
+  still end `0/2` by blood loss. On 404 a colonist is held for 64.7% of their living ticks across
+  149 separate grabs, and `treatment._can_channel` refuses first aid to a held body, so most of that
+  life is spent bleeding with no way to answer it; rescue cannot reach, because the nearest free
+  colonist was never within 6 m of a held one all campaign. Contact rarity or the re-grab churn, and
+  what a survivor may do about a wound while held, are the remaining levers. **Do not pick an answer
+  unilaterally**, and note that relaxing `survivors_end >= 1` has been considered and rejected — see
+  the full measurement in docs/23's Milestone 2 status section and the "Where the work is" section
+  of `CLAUDE.md`.
 - Do not mark any survival item done until code and a focused Godot check exist. The full balance
   grid and ten-day playtest remain required proof, deferred rather than cancelled.
 - Keep effects sim-owned and command-driven; preserve sim/presentation separation and the
