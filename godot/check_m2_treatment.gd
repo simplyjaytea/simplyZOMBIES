@@ -348,13 +348,16 @@ func _the_best_tier_carried_is_the_one_that_gets_used() -> bool:
 	return true
 
 
-# The two subscriptions no longer say the same thing, and this is where that is held down.
+# The three subscriptions no longer say the same thing, and this is where that is held down.
 #
 # A stagger still cancels everything (R3) -- being knocked off your feet takes your own hand off
 # your own arm. A grab cancels everything it touches *except* the victim's own self-pressure (R2),
 # because a second set of hands closing on somebody does not physically peel their palm off their
-# own wound. So the grab half needs both signs to mean anything: a dressing somebody else was
-# holding on the newly grabbed patient comes apart, and the patient's own press does not.
+# own wound. An escape (R5) is the exact mirror: it cancels the victim's own self-pressure and
+# *only* that, so the break-away is a run rather than a pause. So each grab half needs both signs
+# to mean anything -- a dressing somebody else was holding on the newly grabbed patient comes apart
+# and the patient's own press does not; the patient's own press ends when they tear free and the
+# dressing somebody else is holding on them does not.
 func _both_interrupts_break_a_channel() -> bool:
 	# R3, unchanged: a stagger cancels a self-pressure.
 	var staggered: Variant = _world()
@@ -408,6 +411,32 @@ func _both_interrupts_break_a_channel() -> bool:
 		push_error("a self-press that survived the grab never clotted the wound")
 		return false
 
+	# R5, and the half of it that is about aim rather than about escaping. The `grab.broken`
+	# subscription ends the *victim's own* hand on their own wound so the break-away can move them;
+	# it is not "an escape cancels every channel in the area". Somebody kneeling beside a patient
+	# who has just torn free is holding a dressing that is more viable than it was a tick ago --
+	# the patient has stopped being dragged -- so the escape must not cost the treater their work.
+	var freed: Variant = _world()
+	var torn: int = _bystander(freed, 9.0, 16.5)
+	_deep_wound(freed, torn)
+	_hold(freed, torn)
+	var aid: Dictionary = SimTreatment.begin(freed, freed.player, torn, PART, "pressure")
+	if not bool(aid.get("ok", false)):
+		push_error("a free treater could not press on a held patient in reach: %s" % str(aid))
+		return false
+	_run_ticks(freed, 20)
+	freed.components.remove(torn, "grabbed")
+	freed.events.publish({"type": "grab.broken", "victim": torn, "by": torn, "cause": "struggle"})
+	freed.step()
+	if not freed.components.has_component(freed.player, "treatment"):
+		push_error("a patient tearing free cost the treater their press -- the escape interrupt is not aimed at the victim's own hand")
+		return false
+	if not freed.components.has_component(torn, "treated"):
+		push_error("the freed patient stopped being marked treated while the channel ran on")
+		return false
+
+	# Still genuinely unrelated: nothing subscribes `noise.emitted` to a channel, and it is the
+	# only event here that neither of the two grab subscriptions nor the stagger one reads.
 	var quiet: Variant = _world()
 	_deep_wound(quiet, quiet.player)
 	SimTreatment.begin(quiet, quiet.player, quiet.player, PART, "pressure")
@@ -417,7 +446,7 @@ func _both_interrupts_break_a_channel() -> bool:
 	if not quiet.components.has_component(quiet.player, "treatment"):
 		push_error("an unrelated event cancelled the channel, so the interrupts above prove nothing")
 		return false
-	print("INTERRUPTS OK stagger breaks it, a grab breaks somebody else's dressing but not the victim's own press, an unrelated event does neither")
+	print("INTERRUPTS OK stagger breaks it, a grab breaks somebody else's dressing but not the victim's own press, an escape breaks the victim's own press but not somebody else's hands on them, an unrelated event breaks none of it")
 	return true
 
 

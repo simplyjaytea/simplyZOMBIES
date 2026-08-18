@@ -58,7 +58,7 @@ descriptive body-part view rather than a health bar.
 
 The full injury loop — grabs that pin, bites that make located bleeding wounds, pressure and
 bandaging, recovery over days you have to earn — is **built and gated but switched off** for one
-more turn. Four of the reasons it was off have been answered. A bite during a hold now aims where
+more turn. Five of the reasons it was off have been answered. A bite during a hold now aims where
 the hands already are, comes four seconds apart rather than two, and takes a share of the part it
 lands on, so a held survivor is no longer two rolls from a destroyed head; and the colony fights for
 itself now — anyone held struggles on instinct if nobody answers for them, everybody starts with
@@ -67,12 +67,15 @@ hold of a neighbour before whatever is merely nearest. An escape is no longer so
 run out of money for: you get your breath back while you are held, and somebody standing next to you
 can haul you out of a grip with their bare hands (`H`). And you are no longer forbidden from doing
 anything about the blood — you can clamp your own hand over your own wound while somebody has hold
-of you (`T`), badly, and go on fighting to get free at the same time; tearing loose now actually
-puts distance between you, rather than leaving you standing exactly where the thing can reach you
-again. What is left is one question nobody should answer alone: those last two answers get in each
-other's way, because someone holding a wound closed stays put instead of running. It is recorded in
-full in
-[where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
+of you (`T`), badly, and go on fighting to get free at the same time. Tearing loose takes that hand
+off the wound, so an escape is a real run rather than a pause, and the hand goes back on once you
+are clear.
+
+What is left is one question nobody should answer alone. Running instead of pressing does mean fewer
+hands on you and fewer bites — but nobody ever finishes holding a wound closed that way, and on the
+hard seeds the colony still bleeds out. And a shove-off is aimed once, at the moment somebody lets go
+of you, which most of the time turns out to be straight at the wall you were pinned against. It is
+recorded in full in [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
 
 **Godot 4.7.1 is the playable build.** The web export runs at `/` and the Windows artifact comes
 from the same green commit; a failed CI publishes nothing. The TypeScript/Canvas oracle is
