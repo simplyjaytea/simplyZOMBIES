@@ -37,10 +37,12 @@ const PART_ORDER: Array[String] = SimCombat.SURVIVOR_BODY_PARTS
 # that breaks the ban -- these three were chosen because none of them can become one.
 #
 # `bleeding` joined for Slice 2 Part A -- a bool, never the bleed rate or the blood-loss
-# fraction behind it. `bandage` does NOT join yet: every wound's bandage is "none" until
-# Part B writes anything else, and CLAUDE.md is explicit that a field which can only take
-# one value is a gate that cannot fail. It lands with Part B, with its true negative.
-const PART_KEYS: Array[String] = ["part", "state", "prose", "wounded", "infected", "armored", "bleeding"]
+# fraction behind it. `bandage` joined for Part B, once treatment.gd could actually write
+# something other than "none": it is the dressing's *tier word*
+# ("none"/"dirty"/"cloth"/"sterile"), which is what a survivor can see by looking, and never
+# how long it has been on or how much good it is doing. It was deliberately held back a
+# slice, because a field with only one possible value is a gate that cannot fail.
+const PART_KEYS: Array[String] = ["part", "state", "prose", "wounded", "infected", "armored", "bleeding", "bandage"]
 
 # Humanized display for the sided parts. Head and torso need no entry -- the raw key is
 # already the word. Without this, "arm_left" would be the literal text a screen shows,
@@ -52,6 +54,11 @@ const PART_LABELS: Dictionary = {
 	"leg_left": "left leg", "leg_right": "right leg",
 	"foot_left": "left foot", "foot_right": "right foot",
 }
+
+# Worst to best, so _bandage_of can pick a winner without importing treatment.gd's order.
+# "none" is rank 0 and is what an undressed part reports.
+const BANDAGE_RANK: Dictionary = {"none": 0, "dirty": 1, "cloth": 2, "sterile": 3}
+
 
 static func label_of(part: String) -> String:
 	return String(PART_LABELS.get(part, part))
@@ -84,9 +91,30 @@ static func _is_bleeding(world: Variant, actor: int, part: String) -> bool:
 	return false
 
 
-# Returns {"parts": [{part, state, prose, wounded, infected, armored}], "stance": int,
-# "worst": int}, or {} when the entity has no body -- a zombie has no condition view, same
-# as the oracle's null.
+# The best dressing currently on this part, as a tier word, or "none". Best rather than most
+# recent: a sterile dressing under a dirty rag is still a sterile dressing, and the survivor
+# looking at the limb sees the good one. Ranked here rather than by reading treatment.gd's
+# TIER_ORDER, because this file must stay a read model over components and nothing else.
+static func _bandage_of(world: Variant, actor: int, part: String) -> String:
+	var inj: Variant = world.components.get_component(actor, "injuries")
+	if not (inj is Dictionary):
+		return "none"
+	var best: int = 0
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		var w: Dictionary = wound as Dictionary
+		if String(w.get("bodyPart", "")) != part:
+			continue
+		var rank: int = BANDAGE_RANK.get(String(w.get("bandage", "none")), 0)
+		best = maxi(best, rank)
+	for tier in BANDAGE_RANK.keys():
+		if int(BANDAGE_RANK[tier]) == best:
+			return String(tier)
+	return "none"
+
+
+# Returns {"parts": [{part, state, prose, wounded, infected, armored, bleeding, bandage}],
+# "stance": int, "worst": int}, or {} when the entity has no body -- a zombie has no
+# condition view, same as the oracle's null.
 static func view(world: Variant, actor: int) -> Dictionary:
 	if world == null:
 		return {}
@@ -118,6 +146,7 @@ static func view(world: Variant, actor: int) -> Dictionary:
 			"infected": String(diag.get("actionable", "none")),
 			"armored": SimInfection.armor_coverage_of(world, actor, part) > 0.0,
 			"bleeding": _is_bleeding(world, actor, part),
+			"bandage": _bandage_of(world, actor, part),
 		})
 
 	var posture: Variant = world.components.get_component(actor, "posture")

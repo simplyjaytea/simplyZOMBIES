@@ -8,6 +8,19 @@
       "h": 1
     },
     "massKg": 0.05,
+    "stack": 5,
+    "bandageTier": "cloth"
+  },
+  {
+    "id": "item.rag.dirty",
+    "name": "Dirty Rag",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.04,
+    "bandageTier": "dirty",
     "stack": 5
   },
   {
@@ -115,7 +128,8 @@
       "w": 2,
       "h": 2
     },
-    "massKg": 1.4
+    "massKg": 1.4,
+    "bandageTier": "sterile"
   },
   {
     "id": "item.jerrycan.fuel",

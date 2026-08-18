@@ -24,7 +24,7 @@ Four other places to know about, and nothing else is required reading:
 | **It is playable** | Godot at `/` (and Windows artifact) — 256 m district with civic annex, Mara as the current test survivor, knife in hand. `F` swing, `G`/click fire, `R` reload. Shambler / screamer / bloater on the map. HUD shows STR/CON/DEX. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **The survival loop, first half: harm is reachable.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 landed (`M2_STANCE_OK`), and the grab → struggle → bite loop landed built-and-gated but **off** (`M2_CONTACT_OK`, `SimShambler.GRABS_ENABLED = false`) — see both notes below. Wounds now carry a severity and can bleed to death (`M2_WOUNDS_OK`). Next: treatment (pressure/bandage) and a command path to the five infection verbs, then **recovery**, which is what the grab flag is waiting on. |
+| **In flight** | **The survival loop, first half: harm is reachable.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 landed (`M2_STANCE_OK`), and the grab → struggle → bite loop landed built-and-gated but **off** (`M2_CONTACT_OK`, `SimShambler.GRABS_ENABLED = false`) — see both notes below. Wounds now carry a severity and can bleed to death (`M2_WOUNDS_OK`), and pressure, bandaging and a command path to the five infection verbs answer them (`M2_TREATMENT_OK`). Next: **recovery** — nothing in the sim raises body-part integrity except `jobs.gd`'s torso-only `_treat` — which is what the grab flag is waiting on. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | The first survival contract (see “Do this next”), [multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
 
@@ -85,11 +85,13 @@ restore it, low stamina slows sprint/melee, and zero stamina blocks sprint/climb
 walking or melee. Do not turn any of this into a numeric player readout.
 
 **Do not mark health/injury work done yet.** The design pass that wrote this line changed no
-gameplay code; the three slices since have. The stance path is repaired (`M2_STANCE_OK`), contact
-is built and switched off (`M2_CONTACT_OK`), and wound severity plus the bleed clock are in
-(`M2_WOUNDS_OK`). What is still open is the treatment half — deterministic treatment commands, the
-five infection verbs' command path, and recovery — so the two backlog items below stay open with a
-note saying which half shipped. Preserve save/replay behavior and the condition-view health-bar ban.
+gameplay code; the four slices since have. The stance path is repaired (`M2_STANCE_OK`), contact
+is built and switched off (`M2_CONTACT_OK`), wound severity plus the bleed clock are in
+(`M2_WOUNDS_OK`), and pressure/bandaging plus the infection verbs' command path answer them
+(`M2_TREATMENT_OK`). What is still open is **recovery** — nothing raises a body part's integrity
+except `jobs.gd._treat`, torso only — plus the rest of docs/05's treatment ladder (clean, close,
+rest) and pain. The backlog items below stay open with a note saying which half shipped. Preserve
+save/replay behavior and the condition-view health-bar ban.
 
 **Proof is deferred, not cancelled.** After the focused survival loop is implemented and gated, run
 the existing full balance grid and human ten-day playtest. The full tier remains four seeds × three
@@ -172,6 +174,43 @@ measured. The per-tick `killed` guard could not stop it because the reaper clear
 tick; the fix is a durable `bledOut` flag on the component plus skipping corpses outright. The
 first version of the assertion missed this entirely, because the bare fixture's player has no
 successor and despawns instead of leaving a corpse — both paths are now asserted separately.
+
+**Pressure and bandaging, and a key that decides for you.** `sim/modules/treatment.gd` gives the
+bleed clock its answer, as two verbs that are deliberately not the same verb. **Pressure** costs no
+supply and is worth *nothing* until it is finished: while a hand is on the wound the bleed is
+suppressed, but a hold broken at 399 of 400 ticks banks no progress and the wound is bleeding again
+on the next tick. **Bandaging** costs a dressing, takes twice as long, and is durable — it survives
+the stagger that would have cost a hold. The supply is spent at completion, not at start, copying
+`fortify._place_scrap`'s re-validate-then-consume order, so an interrupted channel costs nothing and
+one that finishes with the last bandage gone simply fails. Both channels are `fortify.gd`'s
+machinery verbatim (`_can_channel`, a `{verb, ticksLeft}` component, `_cancel`, subscriptions to
+`entity.staggered` and `grab.started`) plus the one thing `fortify` gets wrong: reach is re-checked
+**every tick**, so a patient dragged out of reach loses the dressing instead of receiving it at a
+distance. Treating occupies both parties — `treatment.pin` runs at `movement`/−1, the slot
+`shambler.pin` uses, and `melee.try_begin_swing` and `ranged._idle_weapon` refuse for `treatment`
+and `treated` exactly as they already refuse for `grabbed`.
+
+Tiers are content, not code: a flat `bandageTier` on the item schema (`item.rag.dirty`,
+`item.bandage.cloth`, `item.medkit.field`), flat rather than nested because the validator is shallow
+and only a top-level scalar actually gets its enum checked. The treater reaches for the best tier
+carried. The tier lands on the wound and reaches the screen as a **word** — `bandage` joined
+`condition.gd`'s `PART_KEYS` this slice, having been deliberately held back while `"none"` was its
+only possible value, and `check_ban_health_bar.gd` gained its true positive and true negative in the
+same commit. Blood loss also finally speaks: `SimWounds.hud_clause` in four prose bands, digit-free
+and silent when nothing is wrong, so `check_hud.gd`'s two-line cap on a healthy survivor still holds.
+
+The five infection verbs are **routed, not reimplemented** — `infection.respond` calls
+`SimInfection`'s existing functions and surfaces their `{ok, reason}`, and the gate asserts those
+strings are byte-identical to what `SimInfection` returns directly, which is what would catch a
+window check being copied. Cauterisation and amputation open channels first (docs/06: surgery needs
+time), and the window is judged at completion, so spending the whole channel and being told you were
+too late is a real outcome that cost no duplicated logic to produce.
+
+`T` is the one key, and it decides in the sim the way `use.context` does: worst open wound, self
+before anyone else, bandage if one is carried and bare hands if not, and press it again to stop.
+Presentation picks neither the target nor the verb. Gate: `npm run godot:m2:treatment` —
+`M2_TREATMENT_OK`, fifteen assertions, each with a true negative; seven of them were re-verified by
+breaking the code and watching the matching line go red.
 
 **But `SimShambler.GRABS_ENABLED` is `false`, and that is the finding, not a hedge.** A bite rolls
 over all ten survivor parts, and **nothing in this simulation raises a body part's integrity except
@@ -1214,12 +1253,24 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       `M2_WOUNDS_OK`.)*
 - [ ] Continuous conditions: blood loss, pain, exhaustion
       *(half shipped: blood loss is a real accumulating clock that impairs and then kills
-      (`injuries.bloodLoss`, `wounds.bleed`), and exhaustion already existed via
-      `melee.gd`'s `_apply_exhaustion`. **Pain is not modelled at all.** Blood loss has no
-      diegetic readout yet either — that is the last item in this group.)*
+      (`injuries.bloodLoss`, `wounds.bleed`), it now speaks on the HUD in four prose bands
+      (`SimWounds.hud_clause`, asserted digit-free by `M2_TREATMENT_OK`), and exhaustion already
+      existed via `melee.gd`'s `_apply_exhaustion`. **Pain is not modelled at all**, and blood on
+      the ground is still unbuilt.)*
 - [ ] **Bacterial infection kept distinct from zombie infection**, drawing on the same antibiotics
 - [ ] Treatment steps: stop bleeding → clean → close → dress → rest, each timed and interruptible
+      *(half shipped: **stop bleeding** and **dress** are real interruptible channels in
+      `sim/modules/treatment.gd` — pressure suppresses while held and clots only if carried to
+      term, a bandage costs a dressing at completion and survives the stagger that would have cost
+      a hold, and both cancel on `entity.staggered`, on `grab.started`, and when the patient leaves
+      reach. **Clean, close and rest do not exist.** `npm run godot:m2:treatment` —
+      `M2_TREATMENT_OK`.)*
 - [ ] Supply quality tiers affecting infection risk
+      *(half shipped: the tiers exist as content — a flat `bandageTier` on the item schema, with
+      `item.rag.dirty` / `item.bandage.cloth` / `item.medkit.field` as dirty/cloth/sterile — the
+      treater reaches for the best one carried, and the tier is recorded on the wound and shown as
+      a word in the condition view. **Nothing reads that tier for infection risk yet**, which is
+      the half that matters; it lands with the bacterial `sepsis` condition below.)*
 - [ ] **Skill-scaled diagnosis text** — what you see depends on who's looking
 - [ ] Permanent conditions (limp, amputation) that don't remove a survivor from play
 - [ ] Diegetic readouts for the continuous conditions and stamina — breathing, weapon sway, swing
@@ -1242,6 +1293,12 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
 - [x] Five-stage timeline Latent→Onset→Progression→Critical→Turned with CON-scaled `stage_duration_ticks` (12h/12–24h/24h/12h) — advancement is `>=` on `stageEnteredAtTick`, deterministic per tick
 - [x] Observation model: `diagnosis_of(world, entity, skill)` never leaks `transmitted`; skill gates uncertainty vs. sepsis hint
 - [x] The five responses: `cauterize`/`amputate`/`antibiotics.course`/`quarantine`/`put_down` verbs wired on `zombieInfection` with window guards
+      *(and reachable since the treatment slice: the `infection.respond` command **routes** to
+      these five rather than reimplementing them, so the window checks and the `{ok, reason}`
+      strings stay in `infection.gd` alone. Cauterisation and amputation run as channels first,
+      per docs/06 — the window is judged at completion, so it is possible to spend the time and
+      be told you were too late. `M2_TREATMENT_OK` asserts the refusal reasons are byte-identical
+      to what `SimInfection` itself returns, which is what catches a copied window check.)*
 - [x] Turning — staged at Critical→Turned, emits `survivor.turned` + `noise.emitted 20`, despawns via `world.despawn` (components+modifiers cleared) and spawns one `shambler` after `health.reap`
 - [x] `infection_progression` stat (`1.0` clamped `0.75–1.25`) + `world.despawn` fix + `world.step` `clear_record→drain` + armor schema/content
 

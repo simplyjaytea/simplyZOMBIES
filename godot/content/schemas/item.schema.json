@@ -50,6 +50,10 @@
       "minimum": 0,
       "description": "Mass of one unit, empty. A container's contents are counted on top of this, recursively. Never shown to the player as a number."
     },
+    "bandageTier": {
+      "enum": ["dirty", "cloth", "sterile"],
+      "description": "What grade of dressing this item makes when it is used to bandage a wound, per docs/05-health-injury.md. Absent means the item cannot dress a wound at all. A flat scalar, not a nested block: the content validator is shallow, so a nested object would get an is-it-an-object check and nothing more -- this way the enum is actually enforced."
+    },
     "stack": {
       "type": "integer",
       "minimum": 1,

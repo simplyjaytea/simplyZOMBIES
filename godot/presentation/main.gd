@@ -236,6 +236,11 @@ func _input(event: InputEvent) -> void:
 					world.commands.push({"type": "reload"})
 			KEY_E:
 				if world != null: world.commands.push({"type": "use.context"})
+			KEY_T:
+				# One key, two meanings, both decided in the sim: start first aid on the
+				# wound that matters, or stop the one already in progress. Presentation
+				# picks neither the target nor the verb -- see SimTreatment.context.
+				if world != null: world.commands.push({"type": "treat.context"})
 			KEY_1: speed = 1
 			KEY_2: speed = 3
 			KEY_3: speed = 10

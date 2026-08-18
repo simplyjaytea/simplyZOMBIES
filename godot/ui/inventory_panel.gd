@@ -266,7 +266,17 @@ func _draw() -> void:
 			# (diagnosis_of_part's actionable) rather than a boolean, so it says more than
 			# "something is wrong" without ever naming a stage.
 			var tags: Array[String] = []
-			if bool(d.get("wounded", false)):
+			# One tag for the wound, not three: an open wound is "bleeding", a dressed one is
+			# named by its dressing, and a wound that is neither is just "wound". Saying
+			# "wound · cloth dressing" would be true and would also be the thing that pushes
+			# the row past UiText.fit's width and gets the tier ellipsised away -- which is
+			# the half the player actually needs.
+			var dressing: String = String(d.get("bandage", "none"))
+			if bool(d.get("bleeding", false)):
+				tags.append("bleeding")
+			elif dressing != "none":
+				tags.append(dressing + " dressing")
+			elif bool(d.get("wounded", false)):
 				tags.append("wound")
 			var infected: String = String(d.get("infected", "none"))
 			if infected != "none":
