@@ -32,11 +32,23 @@ prose and code stay in one language.
   by command (`M2_TREATMENT_OK`), and recovery closes wounds and climbs integrity back
   (`M2_RECOVERY_OK`). `SimShambler.GRABS_ENABLED` is still `false`, so nothing wounds a survivor
   in ordinary play.
-- **The next step is a design decision, not code.** Flipping that flag wipes colonies on day one
-  to head bites (measured: seed 404, `cause=head`, 22 bites, zero blood-loss deaths). The levers
-  are head hit weight, `BITE_DAMAGE` against small parts, escape odds, and `REPEAT_BITE_TICKS`.
-  **Do not pick one unilaterally** — see the full measurement in docs/23's Milestone 2 status
-  section and the "Where the work is" section of `CLAUDE.md`.
+- **Bite lethality during a hold has been answered; the flip has not.** All four levers landed
+  together — held-bite hit weights (head 0.05 against a free swing's 0.20), `REPEAT_BITE_TICKS`
+  40 → 80, part-scaled bite damage `maxf(2.0, minf(BITE_DAMAGE, 0.35 × part max))`, and a sooner,
+  cheaper struggle — and `M2_CONTACT_OK` grew HELD-AIM and BITE-SCALE to hold them.
+- **Colony agency has been answered too.** A held survivor nobody is answering for struggles on
+  instinct after `STRUGGLE_INSTINCT_TICKS`, with F still faster and still resetting the clock
+  (INSTINCT in `M2_CONTACT_OK`); a kit weapon is equipped rather than packed, so nobody boots
+  unarmed (`SimSurvivors._hold_it`, ARMED in `M2_BALANCE_OK`); and `npc.combat` prefers a shambler
+  that is holding someone (HOLDER in `M2_NPC_COMBAT_OK`). The shipped fast tier records the
+  colony's first kills at all as a result — 6 on seed 404, 1 on 90210.
+- **The next step is still a design decision, not code.** With grabs forced on, seeds 404 and 90210
+  still end `0/2` by blood loss: those colonies are held for 65–69% of their living ticks and spend
+  38–49% of that with too little stamina to pay for an escape, and a driver mashing F every tick
+  does not change it. The price of an escape, someone else being able to break a hold, or rarer
+  contact are the remaining levers. **Do not pick an answer unilaterally**, and note that relaxing
+  `survivors_end >= 1` has been considered and rejected — see the full measurement in docs/23's
+  Milestone 2 status section and the "Where the work is" section of `CLAUDE.md`.
 - Do not mark any survival item done until code and a focused Godot check exist. The full balance
   grid and ten-day playtest remain required proof, deferred rather than cancelled.
 - Keep effects sim-owned and command-driven; preserve sim/presentation separation and the

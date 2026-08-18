@@ -94,10 +94,31 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 	if kit is Array:
 		for item_id in kit as Array:
 			var item: int = SimItemsRes.spawn_item(world, String(item_id), {"tier": "scavenged"})
+			# Anything the kit lists that can be *held* is held, rather than packed. A weapon in
+			# a satchel is not a weapon: `melee.gd` builds the meleeWeapon profile off
+			# `item.equipped`, so a stowed knife left a colonist with nothing to swing and
+			# npc_combat.gd with nothing to reach with -- which is exactly how the second
+			# colonist came to boot unarmed while carrying her own kit. Bandages and pills have
+			# no equipSlot and are unaffected; a second primary falls through to the pack.
+			if _hold_it(world, ent, item):
+				continue
 			if not SimInventoryRes.stow(world, ent, item):
 				world.components.set_component(item, "position", {"x": x, "y": y})
 	world.events.publish({"type": "survivor.joined", "entity": ent, "id": id})
 	return ent
+
+
+# Puts a kit item in the hand or on the body it belongs to, if that place is still empty.
+# Returns false for anything with no equipSlot at all, and for a second item competing for a slot
+# already filled -- `equip` would displace the first, and a kit is a list, not a priority order.
+static func _hold_it(world: Variant, ent: int, item: int) -> bool:
+	var slot: Variant = SimInventoryRes.equip_slot_for(world, item)
+	if slot == null:
+		return false
+	var eq: Variant = world.components.get_component(ent, "equipment")
+	if eq is Dictionary and ((eq as Dictionary).get("slots", {}) as Dictionary).has(String(slot)):
+		return false
+	return SimInventoryRes.equip(world, ent, item)
 
 
 static func boot_playable(world: Variant) -> int:

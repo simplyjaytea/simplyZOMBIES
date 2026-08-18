@@ -108,16 +108,34 @@ with a severity, it bleeds, you stop it with your hands or a dressing, and it me
 have to earn by eating and resting.
 
 **None of it is reachable in ordinary play, because `SimShambler.GRABS_ENABLED` is `false`, and the
-reason is not what it used to say.** The standing note claimed the flip was waiting on a recovery
-clock. Recovery was built, the flag was flipped, and the fast balance tier failed *worse* — two
-seeds wiping where one had. Instrumenting seed 404 says why: both survivors died **on day one with
-their heads destroyed**, 22 bites, zero blood-loss deaths, in a run that never reached day 2. A head
-is 15 and `BITE_DAMAGE` is 8, so a held survivor is two head bites from dead. The flip is waiting on
-a **design decision about bite lethality during a hold** — head hit weight, `BITE_DAMAGE` against
-small parts, escape odds, or `REPEAT_BITE_TICKS` — not on more code. Do not pick one of those levers
-unilaterally; it is a call about how the game should feel.
+reason has now changed three times.** The first note said the flip waited on a recovery clock;
+recovery shipped, the flag was flipped, and the balance tier failed worse. The second, measured
+reason was that a held survivor was being executed — a head is 15, `BITE_DAMAGE` was a flat 8, and
+one bite in five aimed at the head. **Answered** by four levers landing together:
+`SimCombat.HELD_HIT_LOCATION_WEIGHTS` (a mouth inside a grapple reaches an arm, not a skull — head
+0.05 against the free-hit table's 0.20), a bite every 80 ticks rather than 40, part-scaled damage
+`maxf(2.0, minf(BITE_DAMAGE, 0.35 * part max))`, and a sooner, cheaper struggle with the contest
+maths untouched; `godot:m2:contact` grew HELD-AIM and BITE-SCALE to hold them.
+
+The third reason was that the harness colony had no agency, and **that one is answered too**, in
+three owner-approved pieces: a held survivor with nobody answering for them struggles on instinct
+after `STRUGGLE_INSTINCT_TICKS` (F stays faster and resets the clock — `INSTINCT` in the contact
+gate); a kit weapon is now equipped rather than packed, so the second colonist stops booting
+unarmed (`SimSurvivors._hold_it`, `ARMED` in the balance gate); and `npc.combat` prefers a shambler
+that has hold of somebody over a nearer one that does not (`HOLDER` in the NPC gate). With grabs
+still off, the shipped fast tier now records the colony's first kills at all — 6 on seed 404, 1 on
+90210, against zero before.
+
+**The flag is still `false`, and the fourth reason is the price of an escape.** With grabs forced
+on, seeds 404 and 90210 still end `0/2` by blood loss. The colonies that die spend 65–69% of their
+living ticks held, by 1.4 holders on average, and **38–49% of those held ticks with a tank too empty
+to pay `STRUGGLE_STAMINA`** — an empty tank is a hold with no exit, and nothing lets anyone else
+break one. It is not the missing player: a driver mashing F every tick changes nothing and empties
+the tank sooner. The levers left — the price of an escape, someone else being able to break a hold,
+or making contact rarer — are design calls, so **do not pick one unilaterally**, and relaxing
+`survivors_end >= 1` has been considered and rejected.
 [docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
-measurement.
+measurement, seed by seed.
 
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
 not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are

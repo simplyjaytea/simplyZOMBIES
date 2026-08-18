@@ -12,8 +12,11 @@ extends SceneTree
 #   it placed starts moving. This measures **pacing and placement** and deliberately claims
 #   nothing else. What it cannot see, measured rather than assumed: a packet lands on a district
 #   edge and DUSK_WINDOW_TICKS is 100 seconds of sim, which is not enough to cross a 256 m
-#   district, so nothing fights and every combat counter reads zero here. Survival and the arms
-#   belong to the full tier, and saying so is cheaper than a band nobody trusts.
+#   district, so most of what it places never reaches anybody. It is no longer true that every
+#   combat counter reads zero -- arming the whole colony put the district's own wanderers within
+#   reach of somebody who could answer them, and the tier now records a handful of kills on two
+#   seeds in four -- but a handful is not a distribution. Survival and the arms still belong to
+#   the full tier, and saying so is cheaper than a band nobody trusts.
 #
 #   FULL (`BALANCE_FULL=1`) -- FULL_SEEDS x the real ten-day step loop, no compression. Where the
 #   risk 3 and risk 6 numbers actually come from. Asserts only what must hold at any pacing, and
@@ -53,6 +56,10 @@ const SIEGE_NIGHTS_MAX: int = 9          # a campaign that sieges every night ha
 const TOTAL_PACKETS_MIN: int = 6         # measured: 12 across four seeds
 const BREACH_SEEDS_MIN: int = 0          # measured: 0 -- see the note in _assert_bands
 const ARMS: Array[String] = ["mixed", "melee", "ranged"]
+# What the `mixed` arm hands somebody the boot left empty-handed. The humblest thing in the
+# content tree on purpose: this is a floor under the harness, not a buff, and if it ever has to
+# fire the ARMED assertion has already failed and said so.
+const MIXED_FALLBACK_WEAPON: String = "item.knife.kitchen"
 
 # The live count is sampled rather than read every tick: `query` sorts, and a per-tick call to it
 # is the difference between a full campaign taking half an hour and taking an hour. LIVE_CAP is
@@ -114,6 +121,7 @@ func _fast_tier() -> bool:
 	var ok: bool = _assert_invariants(runs)
 	ok = _assert_bands(runs) and ok
 	ok = _assert_the_seed_moves_placement(runs) and ok
+	ok = _the_armed_count_can_see_an_empty_hand() and ok
 	return ok
 
 
@@ -140,6 +148,7 @@ func _full_tier() -> bool:
 		])
 		by_arm[arm]["seeds"] = seeds.size()
 	var ok: bool = _assert_invariants(runs)
+	ok = _the_armed_count_can_see_an_empty_hand() and ok
 	ok = _assert_run_over_iff_wiped(runs) and ok
 	ok = _assert_arms_are_comparable(by_arm) and ok
 	# Risk 1: a seeded six-survivor colony, everyone on Auto, must not stall.
@@ -233,6 +242,11 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		"placements": [],
 		"survivors_start": _survivors_alive(w),
 		"survivors_end": 0,
+		# Sampled at boot, once, because that is the moment the claim is about: a colony that
+		# starts a ten-day campaign with somebody's hands empty is not measuring the game. Losing
+		# a weapon later is play; starting without one is a setup bug, and this one hid for a
+		# whole slice behind an arm that equipped people only when it was not `mixed`.
+		"unarmed_at_boot": _unarmed_colonists(w).size(),
 		"run_over": false,
 	}
 
@@ -322,9 +336,36 @@ func _assert_invariants(runs: Array[Dictionary]) -> bool:
 		if int(run["survivors_start"]) < 1:
 			push_error("seed %d booted with no survivors, so it measures nothing" % int(run["seed"]))
 			ok = false
+		if int(run["unarmed_at_boot"]) > 0:
+			push_error("seed %d arm %s: %d colonist(s) started the campaign with nothing to fight with" % [int(run["seed"]), String(run["arm"]), int(run["unarmed_at_boot"])])
+			ok = false
 	if ok:
 		print("INVARIANTS OK placement, cap %d, %d runs" % [SimDirector.LIVE_CAP, runs.size()])
 	return ok
+
+
+# The true negative for the counter the invariant above reads. An assertion that every colonist
+# boots armed is worth exactly as much as the counter's ability to say otherwise, and "0 unarmed"
+# is also what a counter that cannot see anybody returns -- so take a real boot, take the weapon
+# out of one person's hands, and require the count to move by exactly one.
+func _the_armed_count_can_see_an_empty_hand() -> bool:
+	var w: Variant = _boot(int(FAST_SEEDS[0]), "mixed")
+	var armed: int = _unarmed_colonists(w).size()
+	var colonists: Array[int] = _colonists(w)
+	if colonists.size() < 2:
+		push_error("the playable boot has %d colonists -- this assertion needs a colony, not a person" % colonists.size())
+		return false
+	SimInventory.unequip(w, int(colonists[colonists.size() - 1]), "primary")
+	w.events.drain()
+	var stripped: int = _unarmed_colonists(w).size()
+	if armed != 0:
+		push_error("a fresh %s boot already had %d unarmed colonists" % ["mixed", armed])
+		return false
+	if stripped != 1:
+		push_error("disarming one colonist moved the unarmed count to %d, expected 1 -- the counter is not measuring hands" % stripped)
+		return false
+	print("ARMED OK %d colonists all armed at boot; disarming one is seen (0 -> %d)" % [colonists.size(), stripped])
+	return true
 
 
 func _assert_bands(runs: Array[Dictionary]) -> bool:
@@ -463,15 +504,26 @@ func _six_survivors_on_auto() -> bool:
 
 func _boot(seed_value: int, arm: String) -> Variant:
 	var w: Variant = SimBoot.playable(seed_value, MAP_TILES)["world"]
-	if arm != "mixed":
-		_configure_arm(w, arm)
+	_configure_arm(w, arm)
 	w.events.drain()
 	return w
 
 
 # The arms differ only in what people carry. Loose loot of the wrong class is removed from the
 # ground too, or an arm would drift back to mixed the first time somebody hauled.
+#
+# `mixed` is an arm like the other two rather than "whatever the boot happened to leave", which
+# is the shape it used to have and the reason a whole colonist could be measured for ten days
+# with empty hands. It re-equips nobody -- the point of the arm is the game's own loadout -- it
+# only refuses to start a campaign with an unarmed colonist in it. With the boot itself fixed
+# (`SimSurvivors._hold_it` puts a kit weapon in the hand it belongs to) this is a floor that
+# should now never have to fire; `_unarmed_colonists` below is what asserts that it does not.
 func _configure_arm(w: Variant, arm: String) -> void:
+	if arm == "mixed":
+		for ent in _unarmed_colonists(w):
+			SimInventory.equip(w, int(ent), SimItems.spawn_item(w, MIXED_FALLBACK_WEAPON, {"tier": "scavenged"}))
+		w.events.drain()
+		return
 	var weapon_id: String = "item.bat.aluminium" if arm == "melee" else "item.bow.hunting"
 	for ent in w.components.query(["needs", "position"]):
 		SimInventory.unequip(w, int(ent), "primary")
@@ -499,6 +551,30 @@ func _configure_arm(w: Variant, arm: String) -> void:
 
 func _live(w: Variant) -> int:
 	return w.components.query(["shambler"]).size()
+
+
+# The people the campaign is about: alive, not a corpse, not a stranger who has not joined yet.
+# Same exclusions as `_survivors_alive`, which counts them rather than listing them.
+func _colonists(w: Variant) -> Array[int]:
+	var out: Array[int] = []
+	for ent in w.components.query(["needs", "body"]):
+		if w.components.has_component(int(ent), "corpse") or w.components.has_component(int(ent), "recruit"):
+			continue
+		var body: Variant = w.components.get_component(int(ent), "body")
+		if body is Dictionary and SimHealth.is_alive(body as Dictionary):
+			out.append(int(ent))
+	return out
+
+
+# "Armed" asked of the components combat actually reads, not of what is in somebody's pack: a
+# knife in a satchel raises no `meleeWeapon`, and `melee.gd` and `npc_combat.gd` both look here.
+func _unarmed_colonists(w: Variant) -> Array[int]:
+	var out: Array[int] = []
+	for ent in _colonists(w):
+		if w.components.has_component(int(ent), "meleeWeapon") or w.components.has_component(int(ent), "rangedWeapon"):
+			continue
+		out.append(int(ent))
+	return out
 
 
 func _shambler_ids(w: Variant) -> Array[int]:

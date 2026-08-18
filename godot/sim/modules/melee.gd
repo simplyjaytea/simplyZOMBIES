@@ -28,11 +28,19 @@ static func make_melee_armed(world: Variant, entity: int, weapon: Dictionary = {
 	world.components.set_component(entity, "meleeWeapon", profile)
 	world.components.set_component(entity, "swing", {"state": SwingState.Idle, "ticksLeft": 0})
 
-static func _roll_body_part(rng: Variant, body: Variant) -> String:
+# The one place a hit location is rolled, for swings and bites alike -- CLAUDE.md's
+# "one canonical place". `weights` overrides the default table for callers whose geometry is not
+# a free swing: shambler.gd's bite passes SimCombat.HELD_HIT_LOCATION_WEIGHTS, because a mouth
+# inside a grapple reaches different parts than a bat does. Empty means "the usual table", so
+# every existing call site is untouched, and an override on a zombie body is ignored rather than
+# silently mixing survivor part names into a three-part table.
+static func _roll_body_part(rng: Variant, body: Variant, weights_override: Dictionary = {}) -> String:
 	var roll: float = float(rng.call("next"))
 	var is_survivor: bool = SimHealth.is_survivor_body(body)
 	var parts: Array[String] = SimCombat.SURVIVOR_BODY_PARTS if is_survivor else SimCombat.BODY_PARTS
 	var weights: Dictionary = SimCombat.SURVIVOR_HIT_LOCATION_WEIGHTS if is_survivor else SimCombat.HIT_LOCATION_WEIGHTS
+	if is_survivor and not weights_override.is_empty():
+		weights = weights_override
 	var cumulative: float = 0.0
 	for part in parts:
 		cumulative += float(weights.get(String(part), 0))
