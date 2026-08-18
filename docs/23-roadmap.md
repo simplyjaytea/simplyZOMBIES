@@ -283,12 +283,74 @@ The price of an escape is no longer the binding constraint: empty-tank ticks fel
   colonist spends 64.7% of their living ticks held across **149 separate grabs**, so two thirds of
   that survivor's life is time they are bleeding and may not answer it. Both wipes are blood loss.
 
-So the levers left are **contact rarity or the re-grab churn**, and **what a survivor may do about a
-wound while somebody has hold of them** — both calls about how being grabbed should feel, of the same
-kind as the bite-lethality one, and not to be picked unilaterally. Relaxing `survivors_end >= 1` is
-still not among them: considered and rejected. The balance tier is therefore still exactly what it
-was, plus bus-only `grab.started`/`grab.broken` counters that report and assert nothing, and
-`_the_flag_actually_gates_acquisition()` in the contact gate still exercises both directions.
+**Answered: a held survivor may answer their own bleeding. Landed, and cancelled in play: the
+churn.** The owner picked both remaining levers and both are built. One of them works; the other
+works in isolation and is neutralised by the first, and that interaction — not a guess about it —
+is the current state of the flag.
+
+- **Aid while held (Lever A).** `treatment._can_channel` grants exactly one channel to a `grabbed`
+  body: `pressure` with `patient == actor`. The arbitration is seven named rules, written out in
+  full at the top of `treatment.gd` and each one gate-asserted, because a hold and a channel now
+  meet in places that used to be mutually exclusive — R1 the exemption itself (begin *and* the
+  per-tick re-check), R2 `grab.started` sparing only the victim's own self-pressure, R3 a stagger
+  still cancelling everything, R4 struggle and press coexisting, R5 `treatment.pin` outranking
+  `breakAway`, R6 self-aid deferring while a break-away runs, R7 `context()` picking `pressure`
+  while held even with a dressing carried. Gates: **AID-HELD** and **HELD-CONTEXT** in
+  `godot:m2:treatment` (with the two new refusal rows — `bandage`/grabbed and
+  `pressure`/grabbed-other — pinning what the exemption does *not* open), and **PRESS-THROUGH**,
+  **STRUGGLE-DURING-PRESS**, **REGRAB-SPARES-PRESS**, **BREAKAWAY-DEFER** in `godot:m2:contact`.
+  The refusal-table row that used to pin the old behaviour was swapped rather than deleted, so the
+  vocabulary is still complete.
+- **The churn (Lever B).** `BREAK_AWAY_SPEED` 1.6 → 2.1. The treadmill was a speed bug, not a
+  duration one: both bodies are pinned for a hold, so a release starts from at most `GRAB_METRES`,
+  and at 1.6 against the 1.68 seek the holder *gained* 0.08 m/s on the person who had just escaped
+  it — the gap shrank across the 20-tick cooldown and the re-grab was unconditional. At 2.1 (walk
+  speed, not a sprint) the escapee gains 0.42 m/s. **CLEAR-AWAY** measures it and pins the speed
+  against the seek so a locomotion retune cannot restore it: 1.057 m between the bodies when the
+  cooldown lapses and no re-grab through `BREAK_AWAY_TICKS`, against a re-grab after 19 ticks for
+  the same survivor stripped of the break-away. The comment at `shambler.gd` that claimed the
+  duration made the separation outlive the cooldown was false and is now speed-backed.
+- **Same-file side fix.** `_gather_survivors` skips `corpse` carriers. `identity` survives
+  `_make_corpse`, so shamblers pursued and grabbed the dead — a hold nobody could answer, inflating
+  every contact counter. **CORPSE**: never taken over 60 ticks, where a living body in the same
+  placement is taken on tick 1.
+
+Measured with a throwaway driver rewritten from scratch (`SimBoot.playable`, the balance harness's
+own `_compressed_campaign`, `GRABS_ENABLED` forced on, `entity.killed` de-duplicated by entity id),
+run on the clean tree and again on this one, so both columns are one measurement:
+
+| seed | before (this slice's parent) | after | how it ends |
+| --- | --- | --- | --- |
+| 20260805 | `2/2`, 0 grabs | `2/2`, 0 grabs | no contact at all in ten days |
+| 404 | `0/2`, 149 grabs, 64.7% held, **0** presses completed held, **46** destroyed by a grab | `0/2`, 214 grabs, 62.2% held, **20** presses completed held, **0** destroyed | still both by blood loss |
+| 31337 | `2/2`, 60 grabs, 0 held presses, 55 destroyed | `2/2`, 49 grabs, 4 held presses, 0 destroyed | colony never touched; every grab is on the recruit |
+| 90210 | `0/2`, 149 grabs, 14.1% held, **0** presses completed held, **125** destroyed | `0/2`, 212 grabs, 21.1% held, **16** presses completed held, **0** destroyed | still both by blood loss |
+
+Lever A does what it was picked to do. Presses completed while held go from zero on every seed to
+20 and 16; presses destroyed by an arriving hold go from 46/55/125 to **zero** on every seed; and on
+404 the colony's living ticks rise 45% (4,032 → 5,863). A held survivor is no longer a survivor with
+no legal answer to their own blood loss.
+
+**But two seeds still wipe, so `GRABS_ENABLED` stays `false`** — and this time the instrumentation
+names the residual precisely, which is the point of having built it. **R5 cancels Lever B for
+exactly the survivors using Lever A.** A press outranks a break-away, so tearing free mid-press
+leaves you standing on the spot instead of running, and in a real district that is most escapes:
+
+- On 404, **94 of 120 escapes happen mid-press**. Of the 91 inter-grab windows that follow one, 89
+  are exactly `REGRAB_COOLDOWN_TICKS` and **not one exceeds it**. Of the 27 windows following a
+  *free* escape, 4 do exceed it.
+- On 90210 the same shape: 120 of 177 escapes mid-press; 112 of 117 press-windows at exactly 20,
+  none above; 11 of 55 free windows above.
+- So total grabs rose (149 → 214, 149 → 212) rather than falling, and the median inter-grab window
+  is still exactly the cooldown.
+
+The candidates from here are all design calls — let a break-away outrank a running press, or cancel
+a press on escape and let R6 re-open it once the running is done, or leave R5 alone and cut contact
+rarity instead — and, like the bite-lethality one, **not to be picked unilaterally**. Relaxing
+`survivors_end >= 1` is still not among them: considered and rejected. The balance tier is
+therefore still exactly what it was, plus bus-only `grab.started`/`grab.broken` counters that
+report and assert nothing, and `_the_flag_actually_gates_acquisition()` in the contact gate still
+exercises both directions.
 
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the

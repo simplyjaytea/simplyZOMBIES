@@ -49,15 +49,30 @@ prose and code stay in one language.
   separate `shambler.rescue-intake` system, a rescue-first branch in `npc.combat`, and the new
   `grab.broken {victim, by, cause}` event (RESCUE and BROKEN in `M2_CONTACT_OK`, RESCUE-FIRST in
   `M2_NPC_COMBAT_OK`). Empty-tank ticks fell 38.3% → 13.3% on seed 404 and 48.9% → 0.0% on 90210.
-- **The next step is still a design decision, not code.** With grabs forced on, seeds 404 and 90210
-  still end `0/2` by blood loss. On 404 a colonist is held for 64.7% of their living ticks across
-  149 separate grabs, and `treatment._can_channel` refuses first aid to a held body, so most of that
-  life is spent bleeding with no way to answer it; rescue cannot reach, because the nearest free
-  colonist was never within 6 m of a held one all campaign. Contact rarity or the re-grab churn, and
-  what a survivor may do about a wound while held, are the remaining levers. **Do not pick an answer
-  unilaterally**, and note that relaxing `survivors_end >= 1` has been considered and rejected — see
-  the full measurement in docs/23's Milestone 2 status section and the "Where the work is" section
-  of `CLAUDE.md`.
+- **Aid while held has been answered too.** `treatment._can_channel` grants a `grabbed` body exactly
+  one channel — `pressure` on yourself — under seven arbitration rules written out at the top of
+  `treatment.gd` (R1–R7: the exemption at begin and per tick, `grab.started` sparing only the
+  victim's own press, a stagger still cancelling everything, struggle and press coexisting,
+  `treatment.pin` outranking `breakAway`, self-aid deferring during a break-away, and `context()`
+  forcing `pressure` while held). AID-HELD and HELD-CONTEXT in `M2_TREATMENT_OK`; PRESS-THROUGH,
+  STRUGGLE-DURING-PRESS, REGRAB-SPARES-PRESS and BREAKAWAY-DEFER in `M2_CONTACT_OK`. Presses
+  completed while held went 0 → 20 and 16 on the two hard seeds; presses destroyed by an arriving
+  hold went 46/55/125 → zero.
+- **The re-grab treadmill was a speed bug, and is fixed.** Both bodies are pinned during a hold, so
+  a release starts inside `GRAB_METRES`, and `BREAK_AWAY_SPEED` 1.6 lost ground to the 1.68 seek —
+  the gap *shrank* across the cooldown. Now 2.1, pinned against the seek by CLEAR-AWAY in
+  `M2_CONTACT_OK`. Same file, same slice: `_gather_survivors` skips `corpse` carriers, because
+  `identity` survives `_make_corpse` and shamblers were grabbing the dead (CORPSE).
+- **The next step is still a design decision, not code, and it is now a named one.** With grabs
+  forced on, seeds 404 and 90210 still end `0/2` by blood loss — because **R5 cancels the churn fix
+  for exactly the survivors using the aid**. A press outranks a break-away, so a mid-press escape
+  leaves you standing still: on 404, 94 of 120 escapes are mid-press, and of the 91 inter-grab
+  windows that follow one, 89 are exactly `REGRAB_COOLDOWN_TICKS` and none exceeds it (against 4 of
+  27 after a free escape). Total grabs rose 149 → 214 and 149 → 212. The candidates — let a
+  break-away outrank a running press, cancel the press on escape and let R6 re-open it, or leave R5
+  and cut contact rarity — are all design calls. **Do not pick an answer unilaterally**, and note
+  that relaxing `survivors_end >= 1` has been considered and rejected — see the full measurement in
+  docs/23's Milestone 2 status section and the "Where the work is" section of `CLAUDE.md`.
 - Do not mark any survival item done until code and a focused Godot check exist. The full balance
   grid and ten-day playtest remain required proof, deferred rather than cancelled.
 - Keep effects sim-owned and command-driven; preserve sim/presentation separation and the

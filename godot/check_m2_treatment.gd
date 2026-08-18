@@ -59,6 +59,8 @@ func _run() -> void:
 	ok = _the_five_verbs_answer_in_their_own_words() and ok
 	ok = _one_key_picks_the_wound_and_the_verb() and ok
 	ok = _a_survivor_who_is_not_the_player_presses_on_it_themselves() and ok
+	ok = _a_held_survivor_may_press_on_their_own_wound() and ok
+	ok = _the_context_key_picks_the_one_verb_a_hold_allows() and ok
 	ok = _the_view_says_the_dressing_as_a_word() and ok
 	ok = _the_hud_speaks_only_when_there_is_blood() and ok
 	ok = _deterministic_replay() and ok
@@ -100,6 +102,14 @@ func _bystander(w: Variant, x: float, y: float) -> int:
 	w.components.set_component(e, "velocity", {"dx": 0.0, "dy": 0.0})
 	SimHealth.make_survivor_body(w, e)
 	return e
+
+
+# A hold, in the shape SimShambler._start_grab actually writes -- all three keys, `sources` a
+# plain Array. The older fixtures here left `heldTicks` out, which was harmless only for as long
+# as nothing read it; shambler.struggle-intake ages that field every tick, so a fixture missing it
+# is a fixture that would crash the moment this gate stood a real hold up beside the treatment.
+func _hold(w: Variant, victim: int, sources: Array = []) -> void:
+	w.components.set_component(victim, "grabbed", {"sources": sources.duplicate(), "struggleTicks": 0, "heldTicks": 0})
 
 
 func _deep_wound(w: Variant, entity: int, part: String = PART) -> Dictionary:
@@ -338,26 +348,65 @@ func _the_best_tier_carried_is_the_one_that_gets_used() -> bool:
 	return true
 
 
-# Both subscriptions, each with its own negative: a channel that is left alone runs to
-# completion over the same span.
+# The two subscriptions no longer say the same thing, and this is where that is held down.
+#
+# A stagger still cancels everything (R3) -- being knocked off your feet takes your own hand off
+# your own arm. A grab cancels everything it touches *except* the victim's own self-pressure (R2),
+# because a second set of hands closing on somebody does not physically peel their palm off their
+# own wound. So the grab half needs both signs to mean anything: a dressing somebody else was
+# holding on the newly grabbed patient comes apart, and the patient's own press does not.
 func _both_interrupts_break_a_channel() -> bool:
-	for interrupt in [{"type": "entity.staggered", "entity": 0}, {"type": "grab.started", "victim": 0}]:
-		var w: Variant = _world()
-		_deep_wound(w, w.player)
-		SimTreatment.begin(w, w.player, w.player, PART, "pressure")
-		_run_ticks(w, 20)
-		var event: Dictionary = (interrupt as Dictionary).duplicate()
-		for key in ["entity", "victim"]:
-			if event.has(key):
-				event[key] = w.player
-		w.events.publish(event)
-		w.step()
-		if w.components.has_component(w.player, "treatment"):
-			push_error("%s did not interrupt the channel" % event["type"])
-			return false
-		if w.components.has_component(w.player, "treated"):
-			push_error("%s left the patient marked treated" % event["type"])
-			return false
+	# R3, unchanged: a stagger cancels a self-pressure.
+	var staggered: Variant = _world()
+	_deep_wound(staggered, staggered.player)
+	SimTreatment.begin(staggered, staggered.player, staggered.player, PART, "pressure")
+	_run_ticks(staggered, 20)
+	staggered.events.publish({"type": "entity.staggered", "entity": staggered.player})
+	staggered.step()
+	if staggered.components.has_component(staggered.player, "treatment"):
+		push_error("entity.staggered did not interrupt the channel")
+		return false
+	if staggered.components.has_component(staggered.player, "treated"):
+		push_error("entity.staggered left the patient marked treated")
+		return false
+
+	# R2, the interrupt half: a free treater's dressing on a bystander who has just been grabbed.
+	# This is the case the subscription was written for and it must keep working.
+	var other: Variant = _world()
+	var patient: int = _bystander(other, 9.0, 16.5)
+	_deep_wound(other, patient)
+	_give(other, other.player, "item.bandage.cloth")
+	var dressing: Dictionary = SimTreatment.begin(other, other.player, patient, PART, "bandage")
+	if not bool(dressing.get("ok", false)):
+		push_error("could not begin bandaging a bystander in reach: %s" % str(dressing))
+		return false
+	_run_ticks(other, 20)
+	_hold(other, patient)
+	other.events.publish({"type": "grab.started", "victim": patient, "source": -1})
+	other.step()
+	if other.components.has_component(other.player, "treatment"):
+		push_error("a bystander being grabbed did not cost the treater the dressing")
+		return false
+	if other.components.has_component(patient, "treated"):
+		push_error("the grabbed patient was left marked treated")
+		return false
+
+	# R2, the exemption half: the victim's own press survives the hand closing on them, and goes
+	# on to complete. Without this sign the exemption would be a claim rather than a measurement.
+	var own: Variant = _world()
+	_deep_wound(own, own.player)
+	SimTreatment.begin(own, own.player, own.player, PART, "pressure")
+	_run_ticks(own, 20)
+	_hold(own, own.player)
+	own.events.publish({"type": "grab.started", "victim": own.player, "source": -1})
+	own.step()
+	if not own.components.has_component(own.player, "treatment"):
+		push_error("a grab cancelled the victim's own self-pressure")
+		return false
+	_run_ticks(own, int(SimWounds.PRESSURE_TICKS[SimWounds.Severity.DeepWound]))
+	if bool((_wounds(own, own.player)[0] as Dictionary).get("bleeding", true)):
+		push_error("a self-press that survived the grab never clotted the wound")
+		return false
 
 	var quiet: Variant = _world()
 	_deep_wound(quiet, quiet.player)
@@ -368,7 +417,7 @@ func _both_interrupts_break_a_channel() -> bool:
 	if not quiet.components.has_component(quiet.player, "treatment"):
 		push_error("an unrelated event cancelled the channel, so the interrupts above prove nothing")
 		return false
-	print("INTERRUPTS OK stagger and grab both break it, an unrelated event does not")
+	print("INTERRUPTS OK stagger breaks it, a grab breaks somebody else's dressing but not the victim's own press, an unrelated event does neither")
 	return true
 
 
@@ -457,7 +506,11 @@ func _a_channel_refuses_what_it_cannot_do() -> bool:
 	var cases: Array = [
 		{"why": "unknown-verb", "verb": "heal", "setup": ""},
 		{"why": "not-bleeding", "verb": "pressure", "setup": "unwounded"},
-		{"why": "cannot-channel", "verb": "pressure", "setup": "grabbed"},
+		# R1's two halves as refusals. A held survivor may press on their own wound and nothing
+		# else: the dressing needs both hands and somewhere to kneel, and anything aimed at another
+		# body is out of the question with a mouth on your arm. The granted case is AID-HELD.
+		{"why": "cannot-channel", "verb": "bandage", "setup": "grabbed"},
+		{"why": "cannot-channel", "verb": "pressure", "setup": "grabbed-other"},
 		{"why": "cannot-channel", "verb": "pressure", "setup": "sprinting"},
 		{"why": "out-of-reach", "verb": "pressure", "setup": "distant"},
 		{"why": "busy", "verb": "pressure", "setup": "busy"},
@@ -471,7 +524,11 @@ func _a_channel_refuses_what_it_cannot_do() -> bool:
 				pass
 			"grabbed":
 				_deep_wound(w, w.player)
-				w.components.set_component(w.player, "grabbed", {"sources": [], "struggleTicks": 0})
+				_hold(w, w.player)
+			"grabbed-other":
+				patient = _bystander(w, 9.0, 16.5)
+				_deep_wound(w, patient)
+				_hold(w, w.player)
 			"sprinting":
 				_deep_wound(w, w.player)
 				w.components.set_component(w.player, "posture", {"current": 4, "target": 4, "ticks_left": 0})
@@ -679,6 +736,124 @@ func _a_survivor_who_is_not_the_player_presses_on_it_themselves() -> bool:
 		push_error("the untended player lost no blood, so the suppression above proves nothing")
 		return false
 	print("SELF-AID OK npc held its own wound (%.4f lost), untended player lost %.4f" % [_blood(w, npc), _blood(w, w.player)])
+	return true
+
+
+# R1, granted. The whole lever: a survivor with somebody's hands on them may still put their own
+# hand on their own wound, run the full 400-tick deep-wound press held throughout, and clot it.
+#
+# This is the assertion that would have caught the thing it is answering. Before it, a held body
+# was refused first aid outright, and the balance harness measured what that cost -- two thirds of
+# a held survivor's life spent bleeding with no legal answer, and both wiped seeds wiping by blood
+# loss. Measured on blood, never on the component: the claim is that no blood is lost, not that a
+# field says "pressure".
+#
+# Three negatives, because "granted" on its own would also pass if the exemption were a hole:
+#   - an identical held survivor who does not press bleeds, so the world was bleeding at all;
+#   - a stagger still ends it and the bleed resumes (R3 -- the exemption is not immunity);
+#   - the two channels R1 does *not* open, refused while held with the same fixture.
+func _a_held_survivor_may_press_on_their_own_wound() -> bool:
+	var held: Variant = _world()
+	_deep_wound(held, held.player)
+	_hold(held, held.player)
+	var full: int = int(SimWounds.PRESSURE_TICKS[SimWounds.Severity.DeepWound])
+	var granted: Dictionary = SimTreatment.begin(held, held.player, held.player, PART, "pressure")
+	if not bool(granted.get("ok", false)) or int(granted.get("ticks", 0)) != full:
+		push_error("a held survivor was refused their own hand on their own wound: %s" % str(granted))
+		return false
+	_run_ticks(held, full)
+	if not held.components.has_component(held.player, "grabbed"):
+		push_error("the fixture lost the hold partway, so this measured a free survivor")
+		return false
+	if bool((_wounds(held, held.player)[0] as Dictionary).get("bleeding", true)):
+		push_error("a completed held press left the wound bleeding")
+		return false
+	var settled: float = _blood(held, held.player)
+	_run_ticks(held, 200)
+	if _blood(held, held.player) > settled:
+		push_error("a clotted wound kept bleeding while held: %.4f -> %.4f" % [settled, _blood(held, held.player)])
+		return false
+
+	# Negative 1: the same hold, nobody pressing.
+	var untended: Variant = _world()
+	_deep_wound(untended, untended.player)
+	_hold(untended, untended.player)
+	_run_ticks(untended, full)
+	if _blood(untended, untended.player) <= 0.0:
+		push_error("an untended held survivor lost no blood, so the press above proves nothing")
+		return false
+
+	# Negative 2: R3. A stagger ends a held press, and the bleed comes straight back.
+	var knocked: Variant = _world()
+	_deep_wound(knocked, knocked.player)
+	_hold(knocked, knocked.player)
+	SimTreatment.begin(knocked, knocked.player, knocked.player, PART, "pressure")
+	_run_ticks(knocked, 20)
+	knocked.events.publish({"type": "entity.staggered", "entity": knocked.player})
+	knocked.step()
+	if knocked.components.has_component(knocked.player, "treatment"):
+		push_error("a stagger did not end a held press")
+		return false
+	var before: float = _blood(knocked, knocked.player)
+	_run_ticks(knocked, 200)
+	if _blood(knocked, knocked.player) <= before:
+		push_error("the bleed did not resume after a staggered held press: %.4f -> %.4f" % [before, _blood(knocked, knocked.player)])
+		return false
+
+	# Negative 3: exactly one channel, not "channels while held". A dressing on your own arm and a
+	# hand on somebody else's are both still refused, with the same hold in place.
+	var bounded: Variant = _world()
+	_deep_wound(bounded, bounded.player)
+	_give(bounded, bounded.player, "item.bandage.cloth")
+	var neighbour: int = _bystander(bounded, 9.0, 16.5)
+	_deep_wound(bounded, neighbour)
+	_hold(bounded, bounded.player)
+	for refused in [
+		{"patient": bounded.player, "verb": "bandage"},
+		{"patient": neighbour, "verb": "pressure"},
+	]:
+		var r: Dictionary = SimTreatment.begin(bounded, bounded.player, int((refused as Dictionary)["patient"]), PART, String((refused as Dictionary)["verb"]))
+		if bool(r.get("ok", false)):
+			push_error("a held survivor was granted '%s' on %d: %s" % [(refused as Dictionary)["verb"], int((refused as Dictionary)["patient"]), str(r)])
+			return false
+	print("AID-HELD OK held press granted, %d ticks, clotted and %.4f lost; untended held control lost %.4f; stagger still ends it; bandage and aid-to-others still refused" % [full, _blood(held, held.player), _blood(untended, untended.player)])
+	return true
+
+
+# R7. `context` is the one first-aid decision procedure in this simulation, so what it picks while
+# held is the whole of whether aid-while-held is reachable in play rather than only through a
+# direct `begin`. A held survivor carrying a dressing must reach for their own hand, because the
+# dressing is the thing R1 refuses -- picking it would refuse them every tick forever.
+#
+# The negative is the same survivor with the same dressing and no hold: they pick the bandage.
+# Without that half this would pass on a `context` that had simply forgotten bandages exist.
+func _the_context_key_picks_the_one_verb_a_hold_allows() -> bool:
+	var w: Variant = _world()
+	var npc: int = _bystander(w, 20.0, 16.5)
+	SimInventory.make_inventory(w, npc)
+	_give(w, npc, "item.bandage.cloth")
+	_deep_wound(w, npc)
+	_hold(w, npc)
+	w.step()
+	var t: Variant = w.components.get_component(npc, "treatment")
+	if not (t is Dictionary):
+		push_error("a held bleeding survivor carrying a dressing started no first aid at all")
+		return false
+	if String((t as Dictionary).get("verb", "")) != "pressure":
+		push_error("a held survivor reached for '%s' rather than their own hand" % (t as Dictionary).get("verb", ""))
+		return false
+
+	var free: Variant = _world()
+	var walker: int = _bystander(free, 20.0, 16.5)
+	SimInventory.make_inventory(free, walker)
+	_give(free, walker, "item.bandage.cloth")
+	_deep_wound(free, walker)
+	free.step()
+	var t2: Variant = free.components.get_component(walker, "treatment")
+	if not (t2 is Dictionary) or String((t2 as Dictionary).get("verb", "")) != "bandage":
+		push_error("the same survivor, free and carrying the same dressing, chose %s -- the held pick above proves nothing" % str(t2))
+		return false
+	print("HELD-CONTEXT OK held with a cloth dressing -> pressure, free with the same dressing -> bandage")
 	return true
 
 

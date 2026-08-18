@@ -28,6 +28,9 @@ const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimTreatment = preload("res://sim/modules/treatment.gd")
+const SimLocomotion = preload("res://sim/locomotion.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -51,6 +54,12 @@ func _run() -> void:
 	ok = _every_ended_hold_says_why() and ok
 	ok = _a_held_body_gets_its_breath_back() and ok
 	ok = _release_arms_the_regrab_cooldown() and ok
+	ok = _an_escape_opens_a_gap_the_cooldown_cannot_close() and ok
+	ok = _the_dead_are_not_worth_chasing() and ok
+	ok = _a_held_survivor_can_answer_their_own_bleeding() and ok
+	ok = _struggling_and_pressing_are_not_the_same_hand() and ok
+	ok = _a_press_outlives_the_hold_that_started_it() and ok
+	ok = _first_aid_waits_until_the_running_is_done() and ok
 	ok = _a_held_survivor_cannot_swing_or_fire() and ok
 	ok = _deterministic_replay() and ok
 	ok = _the_flag_actually_gates_acquisition() and ok
@@ -81,6 +90,69 @@ func _world(seed_val: int, walls: Array = []) -> Variant:
 	SimHealth.make_survivor_body(w, w.player)
 	SimHealth.make_stamina(w, w.player, 100)
 	return w
+
+
+# The same fixture with the wound and treatment modules attached, for the arbitration assertions
+# -- the four rules where a hold and a channel meet. Kept as a second builder rather than folded
+# into `_world` so that every assertion above it stays a measurement of the hold loop alone, with
+# nothing else registered that could suppress a bleed or pin a body.
+func _world_with_treatment(seed_val: int) -> Variant:
+	var w: Variant = _world(seed_val)
+	SimWounds.register_module(w)
+	SimTreatment.register_module(w)
+	return w
+
+
+# A survivor who is not the player: `identity` is what _gather_survivors looks for, and not being
+# `controlled` is what makes treatment.self-aid and the NPC struggle intake answer for them. The
+# player stays where `_world` put them, 11 m away and out of every radius here.
+func _spawn_npc(w: Variant, x: float, y: float) -> int:
+	var ent: int = int(w.entities.spawn())
+	w.components.set_component(ent, "position", {"x": x, "y": y})
+	w.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
+	w.components.set_component(ent, "facing", {"radians": 0.0})
+	w.components.set_component(ent, "identity", {"name": "Test", "traits": []})
+	SimHealth.make_survivor_body(w, ent)
+	SimHealth.make_stamina(w, ent, 100)
+	return ent
+
+
+func _distance(w: Variant, a: int, b: int) -> float:
+	var pa: Dictionary = w.components.get_component(a, "position") as Dictionary
+	var pb: Dictionary = w.components.get_component(b, "position") as Dictionary
+	var dx: float = float(pb["x"]) - float(pa["x"])
+	var dy: float = float(pb["y"]) - float(pa["y"])
+	return sqrt(dx * dx + dy * dy)
+
+
+# Stops the bite clock without stopping the hold, so an assertion whose subject is a channel is
+# not also measuring wounds arriving. A very large ticksUntilBite is the honest way to do it --
+# nothing is disabled, the clock simply does not come due inside the window.
+func _pin_the_bite_clock(w: Variant, source: int) -> void:
+	var hold: Variant = w.components.get_component(source, "grabState")
+	if hold is Dictionary:
+		(hold as Dictionary)["ticksUntilBite"] = 1000000
+
+
+func _deep_wound(w: Variant, entity: int) -> void:
+	SimWounds.append_wound(w, entity, "cut", "torso", -1, 20.0)
+
+
+func _blood(w: Variant, entity: int) -> float:
+	var inj: Variant = w.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return 0.0
+	return float((inj as Dictionary).get("bloodLoss", 0.0))
+
+
+func _still_bleeding(w: Variant, entity: int) -> bool:
+	var inj: Variant = w.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return false
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		if bool((wound as Dictionary).get("bleeding", false)):
+			return true
+	return false
 
 
 # Spawned by hand rather than through SimRoster.spawn_zombie, which wants a loaded content
@@ -939,6 +1011,357 @@ func _release_arms_the_regrab_cooldown() -> bool:
 		return true
 	push_error("SKIP-WORTHY: no seed in 16 produced a successful escape, so the cooldown was never exercised")
 	return false
+
+
+# The escape has to actually get you somewhere, and for one slice it did not.
+#
+# Both bodies are pinned for the whole hold, so a release starts from at most GRAB_METRES. At the
+# old BREAK_AWAY_SPEED of 1.6 the shambler's 1.68 seek *gained* on the escapee, so the gap shrank
+# across the 20-tick re-grab cooldown and the re-grab was unconditional: the balance harness
+# measured a median inter-grab window of exactly REGRAB_COOLDOWN_TICKS, and 149 holds on one
+# victim in ten compressed days. The duration of BREAK_AWAY_TICKS never mattered; the difference
+# of the two speeds did.
+#
+# So the speed relationship is pinned here as a fact, not left to be re-derived: if a locomotion
+# retune ever makes a shambler faster than a fleeing survivor, this fails and says why rather than
+# quietly restoring the treadmill.
+#
+# The negative is the load-bearing half: strip `breakAway` a tick after the same escape, leaving
+# everything else identical, and the survivor is inside GRAB_METRES when the cooldown lapses and
+# is re-taken. Without it this would pass on a shambler that had simply stopped chasing.
+func _an_escape_opens_a_gap_the_cooldown_cannot_close() -> bool:
+	var seek: float = SimLocomotion.zombie_speed(float(SimShambler.DEFAULT_LOCOMOTION["speed"]))
+	if SimShambler.BREAK_AWAY_SPEED <= seek:
+		push_error("BREAK_AWAY_SPEED %.2f does not outrun the %.2f seek -- a release cannot open a gap at all" % [SimShambler.BREAK_AWAY_SPEED, seek])
+		return false
+
+	var gaps: Array = []
+	for keep_running in [true, false]:
+		var w: Variant = _world(9200)
+		_no_struggling(w)
+		var npc: int = _spawn_npc(w, 24.5, 24.5)
+		var zed: int = _spawn_shambler(w, 25.2, 24.5, 999.0)
+		var formed: bool = false
+		for _i in 40:
+			w.step()
+			if w.components.has_component(npc, "grabbed"):
+				formed = true
+				break
+		if not formed:
+			push_error("no hold formed on the NPC, so there is no escape to measure")
+			return false
+		_pin_the_bite_clock(w, zed)
+		# One escape, taken by hand so the measurement does not depend on a contest roll landing.
+		# This is the exact call the struggle contest makes when it wins.
+		SimShambler._release_victim(w, npc, "struggle", npc)
+		if not w.components.has_component(npc, "breakAway"):
+			push_error("a release armed no break-away at all")
+			return false
+		w.step()
+		if not keep_running:
+			# The component *and* the velocity it wrote: shambler.pin drives the run by writing a
+			# velocity every tick, and removing the component alone would leave the last one in
+			# place and the survivor coasting. What this control models is the old behaviour --
+			# somebody who tears free and stands exactly where they were.
+			w.components.remove(npc, "breakAway")
+			var vel: Dictionary = w.components.get_component(npc, "velocity") as Dictionary
+			vel["dx"] = 0.0
+			vel["dy"] = 0.0
+		var regrabbed_at: int = -1
+		var at_cooldown: float = -1.0
+		for i in SimShambler.BREAK_AWAY_TICKS:
+			w.step()
+			if regrabbed_at < 0 and w.components.has_component(npc, "grabbed"):
+				regrabbed_at = i + 1
+			if i + 1 == SimShambler.REGRAB_COOLDOWN_TICKS:
+				at_cooldown = _distance(w, npc, zed)
+		gaps.append({"gap": _distance(w, npc, zed), "at_cooldown": at_cooldown, "regrabbed_at": regrabbed_at})
+
+	var ran: Dictionary = gaps[0] as Dictionary
+	var stood: Dictionary = gaps[1] as Dictionary
+	if int(ran["regrabbed_at"]) >= 0:
+		push_error("a survivor who broke away was re-taken %d ticks later, inside BREAK_AWAY_TICKS" % int(ran["regrabbed_at"]))
+		return false
+	if float(ran["at_cooldown"]) <= SimShambler.GRAB_METRES:
+		push_error("at the %d-tick cooldown expiry the gap was %.3f m, inside GRAB_METRES %.2f" % [SimShambler.REGRAB_COOLDOWN_TICKS, float(ran["at_cooldown"]), SimShambler.GRAB_METRES])
+		return false
+	if float(ran["gap"]) <= SimShambler.GRAB_METRES:
+		push_error("%d ticks after the escape the gap was %.3f m, inside GRAB_METRES %.2f" % [SimShambler.BREAK_AWAY_TICKS, float(ran["gap"]), SimShambler.GRAB_METRES])
+		return false
+	if int(stood["regrabbed_at"]) < 0:
+		push_error("the survivor who stood still was never re-taken (gap %.3f m) -- the break-away above proves nothing" % float(stood["gap"]))
+		return false
+	print("CLEAR-AWAY OK break-away %.2f vs seek %.2f: %.3f m at the %d-tick cooldown, %.3f m at %d, no re-grab; standing still, re-grabbed after %d" % [
+		SimShambler.BREAK_AWAY_SPEED, seek, float(ran["at_cooldown"]), SimShambler.REGRAB_COOLDOWN_TICKS,
+		float(ran["gap"]), SimShambler.BREAK_AWAY_TICKS, int(stood["regrabbed_at"]),
+	])
+	return true
+
+
+# `identity` survives recruits._make_corpse, and _gather_survivors looks for `identity`. So until
+# the corpse skip landed, a shambler pursued and grabbed the dead: a hold on a body that cannot
+# struggle, cannot be rescued and cannot die again, ending only when geometry happened to break
+# it. Every hold counter in the balance harness was reading those too.
+func _the_dead_are_not_worth_chasing() -> bool:
+	var w: Variant = _world(9300)
+	var dead: int = _spawn_npc(w, 24.5, 24.5)
+	SimRecruits._make_corpse(w, dead)
+	var zed: int = _spawn_shambler(w, 25.2, 24.5, 999.0)
+	for _i in 60:
+		w.step()
+	if w.components.has_component(dead, "grabbed") or w.components.has_component(zed, "grabState"):
+		push_error("a shambler took hold of a corpse 0.7 m away")
+		return false
+
+	# The same placement, the same seed, a living body: taken at once. Without this the assertion
+	# would also pass on a shambler that had stopped grabbing anybody.
+	var live: Variant = _world(9300)
+	var alive: int = _spawn_npc(live, 24.5, 24.5)
+	_spawn_shambler(live, 25.2, 24.5, 999.0)
+	var held_at: int = -1
+	for i in 60:
+		live.step()
+		if live.components.has_component(alive, "grabbed"):
+			held_at = i + 1
+			break
+	if held_at < 0:
+		push_error("a living survivor in the same placement was never grabbed either")
+		return false
+	print("CORPSE OK a corpse at 0.7 m was never taken over 60 ticks; a living body in the same place was, after %d" % held_at)
+	return true
+
+
+# R1 and R4 together, in the loop rather than in a fixture: a held survivor who is bleeding opens
+# their own press, keeps it through the hold, and clots the wound while still held.
+#
+# The control is the player, held and bleeding in the same way. The sim does not press the T key
+# for them (treatment.self-aid is scoped off `controlled` on purpose), so they bleed -- which is
+# also what proves the world was bleeding at all.
+func _a_held_survivor_can_answer_their_own_bleeding() -> bool:
+	var w: Variant = _world_with_treatment(9400)
+	_no_struggling(w)
+	var npc: int = _spawn_npc(w, 24.5, 24.5)
+	var zed: int = _spawn_shambler(w, 25.2, 24.5, 999.0)
+	if _step_until_grabbed(w, npc, 40) < 0:
+		push_error("no hold formed for the press measurement")
+		return false
+	_pin_the_bite_clock(w, zed)
+	_deep_wound(w, npc)
+	w.step()
+	var t: Variant = w.components.get_component(npc, "treatment")
+	if not (t is Dictionary) or String((t as Dictionary).get("verb", "")) != "pressure":
+		push_error("a held bleeding survivor opened no press: %s" % str(t))
+		return false
+	var opened: float = _blood(w, npc)
+	var full: int = int(SimWounds.PRESSURE_TICKS[SimWounds.Severity.DeepWound])
+	for _i in full:
+		w.step()
+	if not w.components.has_component(npc, "grabbed"):
+		push_error("the hold ended during the press, so this measured a free survivor")
+		return false
+	if _still_bleeding(w, npc):
+		push_error("a %d-tick held press never clotted the wound" % full)
+		return false
+	if _blood(w, npc) > opened:
+		push_error("blood was lost under a held press: %.4f -> %.4f" % [opened, _blood(w, npc)])
+		return false
+
+	var control: Variant = _world_with_treatment(9401)
+	_no_struggling(control)
+	var czed: int = _spawn_shambler(control, 17.2, 16.5, 999.0)
+	if _step_until_held(control, 40) < 0:
+		push_error("no hold formed on the player control")
+		return false
+	_pin_the_bite_clock(control, czed)
+	_deep_wound(control, control.player)
+	for _i in full:
+		control.step()
+	if control.components.has_component(control.player, "treatment"):
+		push_error("the sim opened a press for the player, who has a key for it")
+		return false
+	if _blood(control, control.player) <= 0.0:
+		push_error("the held, untended player lost no blood, so the press above proves nothing")
+		return false
+	print("PRESS-THROUGH OK held press clotted the wound with %.4f lost; the held control player lost %.4f" % [_blood(w, npc), _blood(control, control.player)])
+	return true
+
+
+# R4. Pressing is not "your action" for the hold. A survivor with a hand on their own wound goes
+# on trying to get out, and the sim charges them for every attempt -- so a press must not suppress
+# the struggle intake, and the struggle must not cancel the press.
+#
+# The negative is the same world with the tank pinned empty: _arm_struggle refuses below
+# STRUGGLE_STAMINA and charges nothing, so the counter reads zero. That is what proves the count
+# above is attempts rather than ticks.
+func _struggling_and_pressing_are_not_the_same_hand() -> bool:
+	var counts: Array = []
+	for empty in [false, true]:
+		var w: Variant = _world_with_treatment(9500)
+		var npc: int = _spawn_npc(w, 24.5, 24.5)
+		var zed: int = _spawn_shambler(w, 25.2, 24.5, 999.0)
+		if _step_until_grabbed(w, npc, 40) < 0:
+			push_error("no hold formed for the struggle-during-press measurement")
+			return false
+		_pin_the_bite_clock(w, zed)
+		_deep_wound(w, npc)
+		w.step()
+		if not w.components.has_component(npc, "treatment"):
+			push_error("no press opened, so there is nothing to struggle during")
+			return false
+		var spends: int = 0
+		var tank: Dictionary = w.components.get_component(npc, "stamina") as Dictionary
+		for _i in 200:
+			if empty:
+				tank["current"] = 0.0
+			w.step()
+			for e in w.events.drained:
+				var ev: Dictionary = e as Dictionary
+				if String(ev.get("type", "")) != "stamina.spent":
+					continue
+				if int(ev.get("entity", -1)) != npc:
+					continue
+				if absf(float(ev.get("amount", 0.0)) - SimShambler.STRUGGLE_STAMINA) < 0.0001:
+					spends += 1
+		if not w.components.has_component(npc, "treatment"):
+			push_error("the press did not survive %s" % ("an empty tank" if empty else "the struggling"))
+			return false
+		counts.append(spends)
+
+	if int(counts[0]) < 2:
+		push_error("only %d struggle attempts were paid for during a 200-tick press -- a press is suppressing the struggle" % int(counts[0]))
+		return false
+	if int(counts[1]) != 0:
+		push_error("a survivor with an empty tank was charged %d struggle attempts, so the count above is not measuring attempts" % int(counts[1]))
+		return false
+	print("STRUGGLE-DURING-PRESS OK %d attempts paid for while the press ran; %d on an empty tank, and the press survived both" % [int(counts[0]), int(counts[1])])
+	return true
+
+
+# R2 and R5. A press is the one channel a new hold does not take away, and the pair of rules that
+# makes that worth having: tear free mid-press and treatment.pin outranks breakAway, so the
+# survivor stays on the wound instead of running; get re-taken and the press is still there. The
+# press therefore runs *across* grab and escape cycles, which is the whole reason a 400-tick deep
+# wound is answerable at all in a district where holds arrive every few seconds.
+#
+# The negative is R3 in the same shape: a stagger during the same press does end it, and the wound
+# is still bleeding afterwards.
+func _a_press_outlives_the_hold_that_started_it() -> bool:
+	var w: Variant = _world_with_treatment(9600)
+	_no_struggling(w)
+	var npc: int = _spawn_npc(w, 24.5, 24.5)
+	var zed: int = _spawn_shambler(w, 25.2, 24.5, 999.0)
+	if _step_until_grabbed(w, npc, 40) < 0:
+		push_error("no hold formed for the re-grab measurement")
+		return false
+	_pin_the_bite_clock(w, zed)
+	_deep_wound(w, npc)
+	w.step()
+	if not w.components.has_component(npc, "treatment"):
+		push_error("no press opened on the held NPC")
+		return false
+	for _i in 50:
+		w.step()
+
+	SimShambler._release_victim(w, npc, "struggle", npc)
+	w.step()
+	if not w.components.has_component(npc, "treatment"):
+		push_error("the escape cancelled the press")
+		return false
+	if not w.components.has_component(npc, "breakAway"):
+		push_error("the escape armed no break-away, so R5 is not being exercised")
+		return false
+	# R5: both write the same velocity slot at movement/-1 and treatment.pin sorts last, so the
+	# body under a dressing does not run. Measured as ground covered, never as a component read.
+	var at: Dictionary = w.components.get_component(npc, "position") as Dictionary
+	var x0: float = float(at["x"])
+	var y0: float = float(at["y"])
+	for _i in 10:
+		w.step()
+	var drifted: float = sqrt(pow(float(at["x"]) - x0, 2.0) + pow(float(at["y"]) - y0, 2.0))
+	if drifted > 0.0001:
+		push_error("a survivor mid-press was carried %.4f m by their own break-away" % drifted)
+		return false
+
+	var retaken: int = -1
+	for i in 60:
+		w.step()
+		if retaken < 0 and w.components.has_component(npc, "grabbed"):
+			retaken = i + 1
+			_pin_the_bite_clock(w, zed)
+	if retaken < 0:
+		push_error("the NPC was never re-taken, so surviving a re-grab was never tested")
+		return false
+	if not w.components.has_component(npc, "treatment"):
+		push_error("the re-grab cancelled the press that survived the escape")
+		return false
+	for _i in int(SimWounds.PRESSURE_TICKS[SimWounds.Severity.DeepWound]):
+		w.step()
+	if _still_bleeding(w, npc):
+		push_error("the press ran across an escape and a re-grab and still never clotted the wound")
+		return false
+
+	var knocked: Variant = _world_with_treatment(9601)
+	_no_struggling(knocked)
+	var npc2: int = _spawn_npc(knocked, 24.5, 24.5)
+	var zed2: int = _spawn_shambler(knocked, 25.2, 24.5, 999.0)
+	if _step_until_grabbed(knocked, npc2, 40) < 0:
+		push_error("no hold formed for the stagger negative")
+		return false
+	_pin_the_bite_clock(knocked, zed2)
+	_deep_wound(knocked, npc2)
+	knocked.step()
+	knocked.events.publish({"type": "entity.staggered", "entity": npc2})
+	knocked.step()
+	if knocked.components.has_component(npc2, "treatment"):
+		push_error("a stagger did not end the press, so the survivals above prove nothing")
+		return false
+	print("REGRAB-SPARES-PRESS OK press survived the escape (0.0000 m drifted) and the re-grab %d ticks later, and clotted; a stagger still ends it" % retaken)
+	return true
+
+
+# R6. A press already paid for survives an escape (R5 above); a *new* one waits until the running
+# is done. Without this the survivor would open a press on the tick they tore free, treatment.pin
+# would immediately outrank breakAway, and they would stand exactly where they escaped from --
+# re-taken at the cooldown, which is the treadmill the break-away exists to end.
+func _first_aid_waits_until_the_running_is_done() -> bool:
+	var w: Variant = _world_with_treatment(9700)
+	var npc: int = _spawn_npc(w, 24.5, 24.5)
+	_deep_wound(w, npc)
+	w.components.set_component(npc, "breakAway", {"dx": 2.1, "dy": 0.0, "ticksLeft": SimShambler.BREAK_AWAY_TICKS})
+	w.step()
+	if w.components.has_component(npc, "treatment"):
+		push_error("first aid opened on the tick a survivor tore free")
+		return false
+	var started_at: int = -1
+	for i in (SimShambler.BREAK_AWAY_TICKS + 4):
+		w.step()
+		if w.components.has_component(npc, "treatment"):
+			started_at = i + 1
+			break
+	if started_at < 0:
+		push_error("first aid never opened at all after the break-away expired")
+		return false
+	if w.components.has_component(npc, "breakAway"):
+		push_error("the press opened while the break-away was still running")
+		return false
+
+	var control: Variant = _world_with_treatment(9700)
+	var free: int = _spawn_npc(control, 24.5, 24.5)
+	_deep_wound(control, free)
+	control.step()
+	if not control.components.has_component(free, "treatment"):
+		push_error("an identical survivor with no break-away also opened nothing, so the deferral above proves nothing")
+		return false
+	print("BREAKAWAY-DEFER OK deferred %d ticks to the end of the break-away; the same survivor without one starts on tick 1" % started_at)
+	return true
+
+
+func _step_until_grabbed(w: Variant, victim: int, limit: int) -> int:
+	for i in limit:
+		w.step()
+		if w.components.has_component(victim, "grabbed"):
+			return i + 1
+	return -1
 
 
 func _a_held_survivor_cannot_swing_or_fire() -> bool:

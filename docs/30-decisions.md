@@ -796,6 +796,52 @@ about.
   have forced a choice between showing you *how hurt* and *how protected* a part is; the stroke
   says both without picking.
 
+## What aid-while-held made structural
+
+The rule "you cannot channel while `grabbed`" was one clause and read as obviously right. It cost a
+colony: the balance harness measured a held survivor spending two thirds of their life bleeding and
+forbidden from answering it, and both wiped seeds wiping by blood loss. Relaxing it turned out not
+to be a one-line change, because a hold and a channel had been mutually exclusive and now meet.
+
+- **The exemption is derived, never passed.** `_can_channel(world, entity, self_pressure)` looks
+  like a caller-supplied override and deliberately is not: every call site computes the flag from
+  the verb and the patient (`verb == "pressure" and actor == patient`), and the per-tick re-check
+  re-derives it from the running channel's own state rather than remembering what was granted at
+  begin-time. So the only thing the parameter can ever unlock is a hand on the actor's own wound,
+  and a channel cannot carry a permission it would no longer be granted. It defaults to `false`,
+  which is the safe direction for any future caller that forgets to say.
+- **Seven rules, written down, each gate-asserted.** R1 the exemption; R2 `grab.started` cancelling
+  everything it touches *except* the victim's own self-pressure; R3 a stagger still cancelling
+  everything; R4 struggle and press coexisting; R5 `treatment.pin` outranking `breakAway`; R6
+  self-aid deferring while a break-away runs; R7 `context()` forcing `pressure` while held. They
+  are enumerated in `treatment.gd`'s header rather than left to be inferred from four subscriptions
+  and a pin, because inferring them is exactly how the two systems would drift apart.
+- **A grab is no longer the same event as a stagger.** They shared `_interrupt`; they now do not,
+  and `_interrupt_grab` is a separate function for a reason that is fiction as much as mechanism.
+  Being knocked off your feet takes your hand off your own arm. A second set of hands closing on
+  you does not.
+- **R4 was decided by arithmetic, not taste.** "Pressing is your action, so you cannot struggle"
+  was costed first: every hold resets the bite clock, an NPC struggle cycle resolves in ~17–33
+  ticks, so a press that suppressed struggling takes roughly five bites across a 400-tick deep-wound
+  press and never ends. "Struggle cancels the press" banks ≤25-tick fragments against 100/200/400-
+  tick channels, which is nothing. Coexistence is the only one of the three that produces a
+  survivor who both stops bleeding and gets out.
+- **R7 exists because a read model that lies about legality is worse than no read model.** Without
+  it a held survivor carrying a sterile dressing picks `bandage` every tick, is refused by R1 every
+  tick, and bleeds to death with the answer in their pack. A picker has to know what is actually
+  legal.
+- **`fortify.gd` keeps its own unexempted `_can_channel`.** Boarding a window with a zombie on your
+  arm stays exactly as illegal as it sounds. The two copies were already separate; that they now
+  say different things is the point, not drift.
+- **R5 and R6 are not in tension, and R5 is where the slice stopped.** One governs a press already
+  paid for (it survives an escape; you stay on the wound), the other a new one (it waits until the
+  running is done). Both are defensible in isolation. Together with the break-away speed fix landed
+  in the same slice they produce a measured conflict — a mid-press escapee does not run, so the
+  re-grab lands at the cooldown anyway, and 89 of 91 post-press windows on seed 404 are exactly
+  `REGRAB_COOLDOWN_TICKS` with none above. That is recorded as a finding rather than fixed by
+  picking between them, because which of "a wound you are holding closed slows you down" and "an
+  escape always buys distance" is true is a design call about how being grabbed should feel.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
