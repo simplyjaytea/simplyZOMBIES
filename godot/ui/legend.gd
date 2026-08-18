@@ -29,6 +29,7 @@ const GROUPS: Array = [
 		["G / click", "fire"],
 		["R", "reload"],
 		["E", "pick up"],
+		["T", "first aid — bandage if you have one, bare hands if not; again to stop"],
 		["Space", "shout — heard across the district"],
 	]],
 	["Look", [
