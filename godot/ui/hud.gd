@@ -23,6 +23,7 @@ extends Control
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimAttentionRead = preload("res://sim/attention_read.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
@@ -73,6 +74,12 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 		if worst > 0 and worst < CONDITION_PROSE.size() and not CONDITION_PROSE[worst].is_empty():
 			head = "%s — %s" % [name, CONDITION_PROSE[worst]]
 	lines.append(head)
+
+	# Blood loss, ahead of needs because it is measured in minutes and thirst is measured in
+	# hours. Same read-model contract: prose, no numbers, "" when there is nothing to say.
+	var bleeding: String = SimWounds.hud_clause(world, actor)
+	if not bleeding.is_empty():
+		lines.append(bleeding)
 
 	# Needs, already prose. hud_clause returns "" when there is nothing worth saying, which
 	# is the correct amount of HUD for a survivor who is fine.

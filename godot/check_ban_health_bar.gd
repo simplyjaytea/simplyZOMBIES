@@ -185,6 +185,10 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 		# negative that keeps `bleeding` from being the field that is always false.
 		{"kind": "bite", "presentation": "scratch", "bodyPart": "arm_left", "source": -1, "sustainedAtTick": 0, "severity": 0, "bleeding": true, "bandage": "none", "clotsAtTick": -1},
 		{"kind": "cut", "presentation": "scratch", "bodyPart": "hand_right", "source": -1, "sustainedAtTick": 0, "severity": 0, "bleeding": false, "bandage": "none", "clotsAtTick": 50},
+		# leg_right carries a dressed wound -- the true positive for `bandage`, and the
+		# reason it is a tier *word* rather than a number: "sterile" says what a survivor
+		# can see by looking, and nothing about how well it is working.
+		{"kind": "cut", "presentation": "laceration", "bodyPart": "leg_right", "source": -1, "sustainedAtTick": 0, "severity": 1, "bleeding": false, "bandage": "sterile", "clotsAtTick": -1},
 	], "bloodLoss": 0.0})
 	w.components.set_component(w.player, "zombieInfection", {"exposures": [
 		{"source": -1, "bodyPart": "leg_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Onset, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false},
@@ -213,6 +217,12 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 		if not (d.get("bleeding") is bool):
 			push_error("%s.bleeding is not a bool: %s" % [part, d.get("bleeding")])
 			return false
+		if not (d.get("bandage") is String):
+			push_error("%s.bandage is not a String: %s" % [part, d.get("bandage")])
+			return false
+		if not SimCondition.BANDAGE_RANK.has(String(d.get("bandage", ""))):
+			push_error("%s.bandage is not one of the tier words: %s" % [part, d.get("bandage")])
+			return false
 
 	# True positives, so this cannot be satisfied by fields that are simply always false.
 	if not bool(by_part["arm_left"].get("wounded", false)):
@@ -237,12 +247,21 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 	if bool(by_part["hand_right"].get("bleeding", true)):
 		push_error("hand_right's wound has clotted but bleeding=true")
 		return false
+	if String(by_part["leg_right"].get("bandage", "none")) != "sterile":
+		push_error("leg_right carries a sterile dressing but bandage='%s'" % by_part["leg_right"].get("bandage", ""))
+		return false
+	# True negative for bandage specifically: arm_left carries an open, undressed wound, so
+	# it must read "none" even though it reads wounded and bleeding. Without this, a bandage
+	# field hardwired to a single tier would pass the positive above.
+	if String(by_part["arm_left"].get("bandage", "x")) != "none":
+		push_error("arm_left is undressed but bandage='%s'" % by_part["arm_left"].get("bandage", ""))
+		return false
 	# And a true negative on a part none of this touched.
 	var clean: Dictionary = by_part["foot_right"] as Dictionary
-	if bool(clean.get("wounded", true)) or String(clean.get("infected", "x")) != "none" or bool(clean.get("armored", true)) or bool(clean.get("bleeding", true)):
+	if bool(clean.get("wounded", true)) or String(clean.get("infected", "x")) != "none" or bool(clean.get("armored", true)) or bool(clean.get("bleeding", true)) or String(clean.get("bandage", "x")) != "none":
 		push_error("foot_right should be untouched, got %s" % str(clean))
 		return false
-	print("WOUND/INFECTION/ARMOR OK arm_left wounded+bleeding, leg_left infected, torso armored, hand_right clotted (wounded, not bleeding), foot_right clean")
+	print("WOUND/INFECTION/ARMOR OK arm_left wounded+bleeding+undressed, leg_left infected, torso armored, hand_right clotted (wounded, not bleeding), leg_right dressed sterile, foot_right clean")
 	return true
 
 func _a_body_less_entity_has_no_view() -> bool:

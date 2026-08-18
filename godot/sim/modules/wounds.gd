@@ -3,9 +3,9 @@ extends RefCounted
 
 # Slice 2 Part A -- wounds that bleed. docs/05-health-injury.md's severity table made
 # mechanical: a wound is no longer an inert append-only record, it carries a severity, it
-# can bleed, and untreated bleeding can kill. Treatment (pressure/bandage) is Part B and is
-# deliberately not implemented here -- PRESSURE_TICKS/BANDAGE_TICKS below are defined now
-# because Part B needs fixed numbers to read, not because anything writes through them yet.
+# can bleed, and untreated bleeding can kill. The answer to it -- pressure and bandaging --
+# lives in treatment.gd (Part B), which reads PRESSURE_TICKS/BANDAGE_TICKS below for its
+# channel lengths and writes `bleeding`/`bandage` back onto the wound records built here.
 #
 # This taxonomy is code, not content JSON -- an explicit decision (see the Slice 2 Part A
 # brief and docs/30). It never varies per zombie/item content entry the way appearance or
@@ -54,9 +54,10 @@ const RECOVERY_DAYS: Dictionary = {
 	Severity.DeepWound: 16,
 }
 
-# Ticks of applied pressure / a bandage needed to stop a wound of this severity. Part B is
-# the only consumer -- nothing in Part A reads these, they exist so Part B has fixed numbers
-# to build against instead of inventing them mid-implementation.
+# Ticks of applied pressure / a bandage needed to stop a wound of this severity. treatment.gd
+# is the only consumer: these are the channel lengths, and the reason a deep wound is a
+# commitment rather than a keystroke. Bandaging is always the slower of the two -- it is also
+# the one that survives an interruption.
 const PRESSURE_TICKS: Dictionary = {
 	Severity.Scratch: 100,
 	Severity.Laceration: 200,
@@ -214,6 +215,49 @@ static func _apply_part_impairment(world: Variant, entity: int, wounds: Array) -
 		# clears correctly; there is simply nothing to add back.
 
 
+# What a bleeding survivor says about themselves, in the shape needs.gd:801 hud_clause set:
+# a rank spine, a third-person rewrite for anyone who is not the player, and "" when there is
+# nothing worth saying. Words only -- check_hud.gd allows no digits on the HUD but the day
+# counter, and this is the read model that keeps the blood-loss clock visible without a bar.
+#
+# "You're bleeding" is deliberately the *first* thing said, at any loss at all: the player
+# needs to know to act while acting is still cheap, and by the time light-headedness arrives
+# a deep wound has already spent a quarter of its lethal budget.
+static func hud_clause(world: Variant, entity: int) -> String:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return ""
+	var d: Dictionary = inj as Dictionary
+	var open: bool = false
+	for wound in d.get("wounds", []) as Array:
+		if bool((wound as Dictionary).get("bleeding", false)):
+			open = true
+			break
+	var frac: float = float(d.get("bloodLoss", 0.0)) / BLOOD_LOSS_FATAL
+
+	var line: String = ""
+	if frac >= 0.75:
+		line = "You're going grey."
+	elif frac >= 0.50:
+		line = "You're light-headed."
+	elif frac >= 0.25:
+		line = "You've lost a lot of blood."
+	elif open:
+		line = "You're bleeding."
+	if line == "":
+		return ""
+
+	if world.components.has_component(entity, "controlled"):
+		return line
+	var name: String = "They"
+	var ident: Variant = world.components.get_component(entity, "identity")
+	if ident is Dictionary:
+		name = String((ident as Dictionary).get("name", "They"))
+	if line.begins_with("You're "):
+		return name + " looks " + line.substr(7)
+	return name + " has lost a lot of blood."
+
+
 static func register_module(world: Variant) -> void:
 	var killed: Array[int] = []
 
@@ -262,14 +306,30 @@ static func register_module(world: Variant) -> void:
 				continue
 			var wounds: Array = d.get("wounds", []) as Array
 
+			# Which part, if any, currently has a hand pressed to it. Read as a *component*
+			# rather than by calling into treatment.gd, deliberately: treatment.gd preloads
+			# this file for its severity tables, so a call back the other way would be a
+			# cyclic preload. A component is the seam that costs nothing either way.
+			var under_pressure: String = ""
+			var treated: Variant = w.components.get_component(int(entity), "treated")
+			if treated is Dictionary and String((treated as Dictionary).get("verb", "")) == "pressure":
+				under_pressure = String((treated as Dictionary).get("part", ""))
+
 			var bleed_sum: float = 0.0
 			for wound in wounds:
 				var wd: Dictionary = wound as Dictionary
 				var clots_at: int = int(wd.get("clotsAtTick", -1))
 				if bool(wd.get("bleeding", false)) and clots_at >= 0 and int(w.tick) >= clots_at:
 					wd["bleeding"] = false
-				if bool(wd.get("bleeding", false)) and String(wd.get("bandage", "none")) == "none":
-					bleed_sum += float(BLEED_PER_TICK.get(int(wd.get("severity", Severity.Scratch)), 0.0))
+				if not bool(wd.get("bleeding", false)):
+					continue
+				if String(wd.get("bandage", "none")) != "none":
+					continue
+				# Suppressed, not stopped: the wound is still bleeding: true and resumes on
+				# the very next tick if the hold breaks. Only a completed hold clots it.
+				if under_pressure != "" and String(wd.get("bodyPart", "")) == under_pressure:
+					continue
+				bleed_sum += float(BLEED_PER_TICK.get(int(wd.get("severity", Severity.Scratch)), 0.0))
 
 			var blood_loss: float = clampf(float(d.get("bloodLoss", 0.0)) + bleed_sum, 0.0, BLOOD_LOSS_FATAL)
 			d["bloodLoss"] = blood_loss

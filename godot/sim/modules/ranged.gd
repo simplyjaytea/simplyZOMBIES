@@ -196,9 +196,13 @@ static func try_begin_reload(world: Variant, entity: int) -> bool:
 	return _begin_reload(world, entity, rw as Dictionary)
 
 
-# Armed, idle, ungrabbed and capable — the gate a fire and a reload share.
+# Armed, idle, ungrabbed, untreated and capable — the gate a fire and a reload share.
 static func _idle_weapon(world: Variant, entity: int) -> Variant:
 	if world.components.has_component(entity, "grabbed"):
+		return null
+	# Same reason melee.try_begin_swing refuses: holding a dressing, or being held still for
+	# one, is not a posture you can shoot from.
+	if world.components.has_component(entity, "treatment") or world.components.has_component(entity, "treated"):
 		return null
 	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
 	if not rw is Dictionary:

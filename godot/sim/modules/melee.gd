@@ -137,6 +137,11 @@ static func register_module(world: Variant) -> void:
 static func try_begin_swing(world: Variant, entity: int) -> bool:
 	if world.components.has_component(entity, "grabbed"):
 		return false
+	# Both ends of a treatment have their hands full: `treatment` is holding a dressing on
+	# someone, `treated` is being held. Checked here rather than in treatment.gd for the
+	# reason this function exists at all -- one place where a swing's preconditions live.
+	if world.components.has_component(entity, "treatment") or world.components.has_component(entity, "treated"):
+		return false
 	var swing: Variant = world.components.get_component(entity, "swing")
 	if not swing is Dictionary:
 		return false
