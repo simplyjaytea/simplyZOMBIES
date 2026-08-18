@@ -108,7 +108,7 @@ with a severity, it bleeds, you stop it with your hands or a dressing, and it me
 have to earn by eating and resting.
 
 **None of it is reachable in ordinary play, because `SimShambler.GRABS_ENABLED` is `false`, and the
-reason has now changed three times.** The first note said the flip waited on a recovery clock;
+reason has now changed four times.** The first note said the flip waited on a recovery clock;
 recovery shipped, the flag was flipped, and the balance tier failed worse. The second, measured
 reason was that a held survivor was being executed — a head is 15, `BITE_DAMAGE` was a flat 8, and
 one bite in five aimed at the head. **Answered** by four levers landing together:
@@ -126,14 +126,26 @@ that has hold of somebody over a nearer one that does not (`HOLDER` in the NPC g
 still off, the shipped fast tier now records the colony's first kills at all — 6 on seed 404, 1 on
 90210, against zero before.
 
-**The flag is still `false`, and the fourth reason is the price of an escape.** With grabs forced
-on, seeds 404 and 90210 still end `0/2` by blood loss. The colonies that die spend 65–69% of their
-living ticks held, by 1.4 holders on average, and **38–49% of those held ticks with a tank too empty
-to pay `STRUGGLE_STAMINA`** — an empty tank is a hold with no exit, and nothing lets anyone else
-break one. It is not the missing player: a driver mashing F every tick changes nothing and empties
-the tank sooner. The levers left — the price of an escape, someone else being able to break a hold,
-or making contact rarer — are design calls, so **do not pick one unilaterally**, and relaxing
-`survivors_end >= 1` has been considered and rejected.
+The fourth reason was the price of an escape, and **that one is answered too**, by the two levers the
+owner picked. Stamina now recovers while held (`health.recover` ignores the recovery delay for a
+`grabbed` body; `world.gd` stops charging that body the posture drain, without which the first half
+does nothing — `REGEN-HELD` in the contact gate), and a free survivor can pull somebody out of a
+hold: `SimShambler.try_begin_rescue`, the `H` key, `shambler.rescue-intake` as its own system, an
+NPC rescue-first branch in `npc.combat`, and the new `grab.broken {victim, by, cause}` event
+(`RESCUE` and `BROKEN` in the contact gate, `RESCUE-FIRST` in the NPC gate). Measured before against
+after with one driver: empty-tank ticks fall 38.3% → 13.3% on seed 404 and 48.9% → 0.0% on 90210,
+with 71 and 136 escapes won.
+
+**The flag is still `false`, and the fifth reason is that contact is relentless and a held body
+cannot treat itself.** Seeds 404 and 90210 still end `0/2` by blood loss. On 404 a colonist is held
+for 64.7% of their living ticks across **149 separate grabs**, and `treatment._can_channel` refuses
+first aid to a `grabbed` survivor — so two thirds of that life is spent bleeding and unable to
+answer it. Rescue cannot help there: over 2,610 held ticks the nearest free colonist was **never
+within 6 m** (closest approach 6.41 m; 11.17 m on 90210), which is the same wall holder-first
+targeting hit one lever earlier — a two-person colony spread across a district never has a second
+body standing next to the first. The levers left — contact rarity or the re-grab churn, and what a
+survivor may do about a wound while held — are design calls, so **do not pick one unilaterally**,
+and relaxing `survivors_end >= 1` has been considered and rejected.
 [docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
 measurement, seed by seed.
 

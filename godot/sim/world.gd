@@ -347,7 +347,13 @@ func _advance_posture(_world: Variant) -> void:
 			posture["target"] = SimStancesRes.Stance.Jog
 			posture["ticks_left"] = 0
 		var drain: float = SimStancesRes.drain_per_tick(int(posture["current"]))
-		if drain > 0.0:
+		# You are not jogging inside a grapple. A held body's posture is whatever it was when the
+		# hands closed, and shambler.pin already refuses it a step, so the ladder's drain is
+		# charging for locomotion that is not happening. Left in, it also silently cancels the
+		# held-body regen exemption in health.recover: the drain publishes stamina.spent every
+		# single tick, and every stamina.spent re-arms ticksUntilRecovery, so a survivor grabbed
+		# mid-jog would regenerate nothing, forever, and the exemption would read as if it worked.
+		if drain > 0.0 and not components.has_component(int(entity), "grabbed"):
 			# Publish, don't mutate: stamina.spent is the one write channel (health.gd) and
 			# it resets ticksUntilRecovery, which is what makes exertion pause recovery.
 			events.publish({"type": "stamina.spent", "entity": int(entity), "amount": drain})

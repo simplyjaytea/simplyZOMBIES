@@ -160,9 +160,23 @@ static func register_module(world: Variant) -> void:
 			if s == null:
 				continue
 			var st: Dictionary = s as Dictionary
+			# A held body breathes. The recovery delay is there so that exertion has a cost you
+			# feel -- swing, and you cannot immediately swing again -- and inside a grapple it did
+			# something else entirely: every escape attempt re-armed the delay, so a survivor who
+			# had spent their tank on failed escapes could never afford another one, and a hold
+			# became a hold with no exit. Measured on the balance harness with grabs forced on,
+			# the colonies that died spent 38-49% of their held ticks below STRUGGLE_STAMINA.
+			#
+			# So while `grabbed`, the delay still counts down -- it is not skipped, and it still
+			# governs what happens the moment they are free -- but it no longer suppresses regen.
+			# The pacing that replaces it is the refusal itself: SimShambler._arm_struggle charges
+			# nothing when the tank is short, so a spent survivor waits out 25 ticks of regen
+			# before the next attempt rather than never getting one.
+			var held: bool = w.components.has_component(int(entity), "grabbed")
 			if int(st["ticksUntilRecovery"]) > 0:
 				st["ticksUntilRecovery"] = int(st["ticksUntilRecovery"]) - 1
-				continue
+				if not held:
+					continue
 			if float(st["current"]) < float(st["max"]):
 				# stamina_recovery is the modifier inventory.gd:512 writes from encumbrance --
 				# it used to resolve to nothing here, the same class of dead modifier already

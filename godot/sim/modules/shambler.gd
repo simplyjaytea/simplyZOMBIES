@@ -74,6 +74,35 @@ const STRUGGLE_INSTINCT_TICKS: int = 40
 # separately and pinned at its old value, so the two can be tuned apart, and so BREAK_AWAY_TICKS
 # keeps outliving it the way its own note says it should.
 const REGRAB_COOLDOWN_TICKS: int = 20
+
+# Rescue: somebody else's hands on the problem. Until this landed, a hold had exactly one exit --
+# the held survivor's own contest -- and the balance harness measured what that costs: colonies
+# that died spent two thirds of their living ticks held, and a third to a half of those ticks with
+# a tank too empty to pay STRUGGLE_STAMINA. Nothing in the build could pull anybody free. This is
+# that, and it is a contest rather than a guaranteed break, because a shambler that lets go the
+# moment a second person arrives would make being grabbed a formality.
+#
+# It rolls SimAptitudes.escape_chance with the *rescuer's* grab_escape power against the same total
+# grip the victim contests. Purely additive: the victim's own contest and the 0.667 single-holder
+# pin (check_m2_stats.gd) are untouched, and the draw comes from its own named RNG stream so the
+# "grab" stream's sequence is unchanged whether anybody rescues or not.
+#
+# Reach. The same 1.6 m a shambler needs to reach *you* -- measured rescuer-to-victim, because
+# what you are grabbing hold of is the person, not the thing on them.
+const RESCUE_METRES: float = 1.6
+# Commitment before the roll, deliberately inside FIRST_BITE_TICKS (30) so that somebody who
+# reacts at once beats the first bite rather than arriving in time to watch it.
+const RESCUE_TICKS: int = 12
+# Between a swing (6) and a struggle (15). Hauling somebody out of a grip is work, but it is
+# cheaper than being the one in the grip -- and it has to be, or the second colonist runs dry
+# answering the first one's holds. Refused below the cost, and refusal charges nothing, which is
+# the _arm_struggle idiom and the thing that turns an empty tank into a pause rather than a wall.
+const RESCUE_STAMINA: float = 10.0
+# Per-rescuer, after any resolution, win or lose. Without it a held colonist is worth a re-roll
+# every tick, which is not a rescue, it is a slot machine; with it an attempt costs 12 ticks of
+# commitment and 20 of recovery, and an NPC has room to swing at the holder in between.
+const RESCUE_RETRY_TICKS: int = 20
+
 # An escape that leaves you standing inside arm's reach is not an escape. Without this the
 # balance harness lost a whole colony on 1 seed in 4: a survivor would tear free, stand exactly
 # where they were, be re-taken the moment the holder's cooldown lapsed, and pay another tankful
@@ -81,8 +110,8 @@ const REGRAB_COOLDOWN_TICKS: int = 20
 # nothing in the build did it for anyone else. BREAK_AWAY_TICKS is deliberately a shade longer
 # than the re-grab cooldown so the separation outlives it.
 
-# Grabs are still off by default, and the reason has changed three times now. The first two were
-# guesses; the last two were measured, and the measurement is the point of the note.
+# Grabs are still off by default, and the reason has changed four times now. The first two were
+# guesses; every one since has been measured, and the measurement is the point of the note.
 #
 # Reason one (retired): "the flip waits on a recovery clock" -- a bite rolled over all ten parts
 # and nothing raised a part's integrity again, so grabs were cumulative rather than hard.
@@ -107,19 +136,35 @@ const REGRAB_COOLDOWN_TICKS: int = 20
 # grabs still off, records the colony's first kills in the fast tier at all (6 on 404, 1 on
 # 90210, where every arm previously read zero).
 #
-# Reason four, which is where it now sits, and which is a design call about a price rather than a
-# bug: *an escape costs stamina, and a survivor held over and over cannot afford it.* Measured
-# on the same four seeds with the flag forced on -- 20260805 and 31337 end 2/2 (neither boot
-# colonist is ever held), 404 and 90210 still end 0/2, both by blood loss. The two that die spend
-# 65% and 69% of their living ticks held, by 1.4 holders on average, and *38% and 49% of those
-# held ticks with a tank too empty to pay STRUGGLE_STAMINA* -- and an empty tank is a hold with
-# no exit, because nothing else in the build can pull somebody free. It is not player agency
-# either: a driver mashing F every single tick changes nothing (404 still 0/2, the played
-# survivor connects once in a whole campaign, and empty-tank ticks roughly double, because F
-# spends the same stamina sooner). The levers left are the price of an escape (STRUGGLE_STAMINA,
-# or stamina that recovers while held), somebody else being able to break a hold, or making
-# contact rarer -- all three are calls about how the game should feel, not numbers to be picked
-# here. docs/23's Milestone 2 status carries the measurement seed by seed.
+# Reason four (retired as the blocker, and answered): *an escape costs stamina, and a survivor
+# held over and over cannot afford it.* Two owner-picked levers answer it, and the arithmetic is
+# no longer the thing in the way. Stamina now recovers while held -- health.recover ignores the
+# recovery delay for a `grabbed` body and world.gd stops charging that body the posture ladder's
+# drain, so an empty tank is a pause of about 25 ticks rather than a hold with no exit -- and a
+# free survivor can pull somebody out of one (try_begin_rescue above, H, and npc.combat's
+# rescue-first branch). Measured on the same four seeds with the flag forced on, before against
+# after with one driver: on 404 the share of held ticks with a tank too empty to pay
+# STRUGGLE_STAMINA falls from 38.3% to 13.3%, and on 90210 from 48.9% to 0.0%, while struggles won
+# go from none the instrumentation could see to 71 and 136.
+#
+# Reason five, which is where it now sits, and which is again a design call rather than a bug:
+# *the hold itself is too frequent, and a held body cannot treat the bleeding.* 404 and 90210
+# still end 0/2, both by blood loss, and the numbers say why. On 404 a colonist is held for 64.7%
+# of their living ticks across 149 separate grabs, and treatment._can_channel refuses first aid to
+# a held body (correctly -- you cannot press on a wound with a zombie on your arm), so two thirds
+# of that survivor's life is time they are bleeding and cannot answer it. And the second lever
+# cannot reach: over 2,610 held ticks on 404 and 2,590 on 90210, the nearest free colonist was
+# *never* within RESCUE_METRES -- never within 6 m, in fact, with a closest approach of 6.41 m and
+# 11.17 m. Rescue is built, gated and correct (RESCUE in check_m2_contact.gd, RESCUE-FIRST in
+# check_m2_npc_combat.gd); a two-person colony spread across a district simply never has a second
+# body standing next to the first. That is the same finding holder-first targeting already ran
+# into, one lever earlier.
+#
+# So the levers left are contact rarity or the re-grab churn (149 grabs in ten compressed days on
+# one victim), and what a survivor may do about a wound while somebody has hold of them -- both
+# calls about how being grabbed should feel, not numbers to be picked here. Relaxing
+# `survivors_end >= 1` remains considered and rejected. docs/23's Milestone 2 status carries the
+# measurement seed by seed.
 #
 # So the loop ships complete, gated and off for one more turn, the way
 # SimMelee.REFUSE_EXHAUSTED_SWINGS did: check_m2_contact.gd turns it on explicitly, so every
@@ -405,10 +450,14 @@ static func _start_grab(world: Variant, source: int, victim: int) -> void:
 	world.events.publish({"type": "grab.started", "victim": victim, "source": source})
 
 
-# Closes one hold. Always arms the STRUGGLE_TICKS re-grab cooldown on the source, regardless of
-# why the hold ended (escape, geometry, or the holder dying) -- a freed survivor gets one clear
-# second before the same shambler can close on them again.
-static func _release_grab(world: Variant, source: int) -> void:
+# Closes one hold. Always arms the REGRAB_COOLDOWN_TICKS re-grab cooldown on the source,
+# regardless of why the hold ended (escape, rescue, geometry, or either body dying) -- a freed
+# survivor gets one clear second before the same shambler can close on them again.
+#
+# `cause` and `by` are carried through to the `grab.broken` published at the single point a victim
+# becomes *fully* free, below. They are defaulted rather than required because both release paths
+# are also reached from the entity.killed subscription, where there is no caller to ask.
+static func _release_grab(world: Variant, source: int, cause: String = "geometry", by: int = -1) -> void:
 	var hold: Variant = world.components.get_component(source, "grabState")
 	if not (hold is Dictionary):
 		return
@@ -426,6 +475,13 @@ static func _release_grab(world: Variant, source: int) -> void:
 	if sources.is_empty():
 		var freed: int = int((hold as Dictionary)["victim"])
 		world.components.remove(freed, "grabbed")
+		# One event per hold that actually ended, published here and nowhere else, because here is
+		# the only place a victim goes from held to free -- a partial release, one hand off a
+		# survivor two shamblers have, is not somebody getting out and says nothing. `by` is
+		# whoever is responsible where that means anything (the rescuer, or the victim's own
+		# struggle) and -1 where it does not. No RNG is drawn, nothing is decided: this is the
+		# observation channel a bus-only harness needs to count releases at all.
+		world.events.publish({"type": "grab.broken", "victim": freed, "by": by, "cause": cause})
 		_break_away(world, freed, source)
 
 
@@ -453,13 +509,13 @@ static func _break_away(world: Variant, victim: int, from_source: int) -> void:
 # Frees a victim from every hand holding them at once -- the whole point of the contextual F
 # struggle, and what entity.killed routes through when the victim dies. Duplicated first: each
 # _release_grab call mutates the same sources array the loop would otherwise be walking.
-static func _release_victim(world: Variant, victim: int) -> void:
+static func _release_victim(world: Variant, victim: int, cause: String = "geometry", by: int = -1) -> void:
 	var grabbed: Variant = world.components.get_component(victim, "grabbed")
 	if not (grabbed is Dictionary):
 		return
 	var sources: Array = ((grabbed as Dictionary)["sources"] as Array).duplicate()
 	for source in sources:
-		_release_grab(world, int(source))
+		_release_grab(world, int(source), cause, by)
 
 
 # Commits one escape attempt, whoever asked for it. The three intakes below -- the player's F,
@@ -484,6 +540,73 @@ static func _arm_struggle(world: Variant, victim: int) -> bool:
 	g["heldTicks"] = 0
 	world.events.publish({"type": "stamina.spent", "entity": victim, "amount": STRUGGLE_STAMINA})
 	return true
+
+
+# Commits one rescue attempt, whoever asked for it -- the H key, or an NPC deciding that the
+# thing in front of it is holding somebody. Same shape as _arm_struggle and try_begin_swing, and
+# for the same reason: two intakes with independently written preconditions is exactly the drift
+# that put condition.gd behind one builder. Returns whether an attempt was actually armed.
+#
+# What it does not do is decide the outcome. Arming only starts the heave; the contest is rolled
+# RESCUE_TICKS later in shambler.think, which re-validates first -- so a hold that ends on its own
+# in the meantime costs the rescuer their stamina and nothing else, which is the right price for
+# committing to something that turned out to be over.
+static func try_begin_rescue(world: Variant, rescuer: int, victim: int) -> bool:
+	if rescuer == victim:
+		return false
+	if not world.components.has_component(victim, "grabbed"):
+		return false
+	var body: Variant = world.components.get_component(rescuer, "body")
+	if body is Dictionary and not SimHealthRes.is_alive(body as Dictionary):
+		return false
+	# Your own hands have to be free. Being held, holding a dressing on somebody, or being the one
+	# under the dressing are all the same answer -- the melee.try_begin_swing list, kept identical
+	# on purpose so that "can this person act right now" has one meaning in this simulation.
+	for busy in ["grabbed", "treatment", "treated", "rescue", "rescueCooldown", "corpse"]:
+		if world.components.has_component(rescuer, busy):
+			return false
+	var from: Variant = world.components.get_component(rescuer, "position")
+	var to: Variant = world.components.get_component(victim, "position")
+	if not (from is Dictionary) or not (to is Dictionary):
+		return false
+	var dx: float = float((to as Dictionary)["x"]) - float((from as Dictionary)["x"])
+	var dy: float = float((to as Dictionary)["y"]) - float((from as Dictionary)["y"])
+	if sqrt(dx * dx + dy * dy) > RESCUE_METRES:
+		return false
+	if not _clear_contact(world, from as Dictionary, to as Dictionary):
+		return false
+	var stamina: Variant = world.components.get_component(rescuer, "stamina")
+	if stamina is Dictionary and float((stamina as Dictionary)["current"]) < RESCUE_STAMINA:
+		return false
+	world.components.set_component(rescuer, "rescue", {"victim": victim, "ticksLeft": RESCUE_TICKS})
+	world.events.publish({"type": "stamina.spent", "entity": rescuer, "amount": RESCUE_STAMINA})
+	return true
+
+
+# The nearest held survivor somebody could reach, which is the whole of target selection for a
+# rescue and lives in sim rather than in the key handler -- presentation picks neither the target
+# nor the verb, the same rule the T key's first aid follows. Ties break on entity_index so two
+# survivors held at exactly the same distance resolve the same way on a replay.
+static func rescue_target(world: Variant, rescuer: int) -> int:
+	var from: Variant = world.components.get_component(rescuer, "position")
+	if not (from is Dictionary):
+		return -1
+	var best: int = -1
+	var best_dist: float = RESCUE_METRES * RESCUE_METRES
+	for victim in world.components.query(["grabbed", "position"]):
+		if int(victim) == rescuer:
+			continue
+		var at: Dictionary = world.components.get_component(int(victim), "position") as Dictionary
+		var dx: float = float(at["x"]) - float((from as Dictionary)["x"])
+		var dy: float = float(at["y"]) - float((from as Dictionary)["y"])
+		var dist: float = dx * dx + dy * dy
+		if dist > best_dist:
+			continue
+		if dist == best_dist and best >= 0 and SimEntityStoreRes.entity_index(int(victim)) >= SimEntityStoreRes.entity_index(best):
+			continue
+		best = int(victim)
+		best_dist = dist
+	return best
 
 
 static func register_module(world: Variant, _map: Variant) -> void:
@@ -605,7 +728,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 				var dy: float = float((at_pos as Dictionary)["y"]) - float(from_pos["y"])
 				still_here = sqrt(dx * dx + dy * dy) <= RELEASE_METRES and _clear_contact(w, from_pos, at_pos as Dictionary)
 			if not still_here:
-				_release_grab(w, int(source))
+				_release_grab(w, int(source), "geometry")
 				var self_data: Dictionary = w.components.get_component(int(source), "shambler") as Dictionary
 				self_data["state"] = ShamblerState["Wander"]
 				self_data["ticksToTurn"] = 20
@@ -641,7 +764,51 @@ static func register_module(world: Variant, _map: Variant) -> void:
 				if holder is Dictionary:
 					total_strength += float((holder as Dictionary)["grabStrength"])
 			if float(grab_rng.call("next")) < SimAptitudesRes.escape_chance(w, int(victim), total_strength):
-				_release_victim(w, int(victim))
+				# `by` is the victim: they are who broke it, and a rescue is the only other thing
+				# that can, so the two are told apart at the point of release rather than guessed
+				# at from the outside.
+				_release_victim(w, int(victim), "struggle", int(victim))
+
+		# 2b. Resolve a completed rescue. shambler.rescue-intake (input, order 8) arms the
+		# `rescue` component; RESCUE_TICKS later the contest happens exactly once, here, so that
+		# a rescue landing on this tick wins the same same-tick tie against a bite that an escape
+		# does -- the released hold's grabState is gone before step 3's query runs.
+		#
+		# Re-validated before anything is rolled: a hold the victim broke out of themselves in the
+		# meantime, or walked out of range of, is a fizzle rather than a free release, and it draws
+		# no number at all. The cooldown is armed either way -- an attempt was made.
+		for rescuer in w.components.query(["rescue"]):
+			var attempt: Dictionary = w.components.get_component(int(rescuer), "rescue") as Dictionary
+			attempt["ticksLeft"] = int(attempt["ticksLeft"]) - 1
+			if int(attempt["ticksLeft"]) > 0:
+				continue
+			var saved: int = int(attempt["victim"])
+			w.components.remove(int(rescuer), "rescue")
+			w.components.set_component(int(rescuer), "rescueCooldown", {"ticksLeft": RESCUE_RETRY_TICKS})
+			var still_held: Variant = w.components.get_component(saved, "grabbed")
+			if not (still_held is Dictionary):
+				continue
+			var from_r: Variant = w.components.get_component(int(rescuer), "position")
+			var at_r: Variant = w.components.get_component(saved, "position")
+			if not (from_r is Dictionary) or not (at_r is Dictionary):
+				continue
+			var rdx: float = float((at_r as Dictionary)["x"]) - float((from_r as Dictionary)["x"])
+			var rdy: float = float((at_r as Dictionary)["y"]) - float((from_r as Dictionary)["y"])
+			if sqrt(rdx * rdx + rdy * rdy) > RESCUE_METRES:
+				continue
+			var held_by: float = 0.0
+			for holder_id in (still_held as Dictionary)["sources"] as Array:
+				var holder2: Variant = w.components.get_component(int(holder_id), "shambler")
+				if holder2 is Dictionary:
+					held_by += float((holder2 as Dictionary)["grabStrength"])
+			# The rescuer's own power against the same total grip, from a stream of its own so the
+			# "grab" sequence draws the same numbers in the same order whether anybody rescues or
+			# not. Stream seeds are derived from the name (rng_stream.gd derive_seed), never from
+			# creation order, so this is deterministic even though it is reached lazily.
+			if float(w.rng.stream("rescue").call("next")) < SimAptitudesRes.escape_chance(w, int(rescuer), held_by):
+				# Every hand at once. The measured average is 1.4 holders on a survivor who is in
+				# trouble, so freeing them from one of two is not freeing them.
+				_release_victim(w, saved, "rescue", int(rescuer))
 
 		# 3. Deliver due bites, over the holds that survived steps 1-2 -- a hold released
 		# this tick simply no longer matches this query.
@@ -741,6 +908,37 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			_arm_struggle(w, int(npc))
 	)
 
+	# H, and only H. F was not made triple-contextual on purpose: swinging at the shambler that
+	# has hold of your neighbour is a legitimate and different answer, and a key that silently
+	# picked between the two would take that choice away.
+	#
+	# Registered as its own system rather than as another branch of shambler.struggle-intake,
+	# at order 8 so the cooldown ages before anything reads it. The separation is deliberate and
+	# load-bearing for the gates: check_m2_contact's `_no_struggling` silences the struggle
+	# intake to measure what a hold does to somebody who cannot get out of it, and a rescue
+	# arriving from a system it did not unregister is exactly the exit those assertions are
+	# testing for.
+	world.systems.register("shambler.rescue-intake", "input", 8, func(w: Variant) -> void:
+		for waiting in w.components.query(["rescueCooldown"]):
+			var cd: Dictionary = w.components.get_component(int(waiting), "rescueCooldown") as Dictionary
+			cd["ticksLeft"] = int(cd["ticksLeft"]) - 1
+			if int(cd["ticksLeft"]) <= 0:
+				w.components.remove(int(waiting), "rescueCooldown")
+		var asked: bool = false
+		for c in w.commands.current:
+			if String((c as Dictionary).get("type", "")) == "rescue":
+				asked = true
+				break
+		if not asked:
+			return
+		# Controlled only, the way the player's F is scoped: one key press must not commit every
+		# free survivor in the district to a heave and spend their stamina on it.
+		for actor in w.components.query(["controlled", "position"]):
+			var target: int = rescue_target(w, int(actor))
+			if target >= 0:
+				try_begin_rescue(w, int(actor), target)
+	)
+
 	# Zeroes a grabbed survivor's velocity before movement.integrate (phase "movement" order 0,
 	# world.gd) runs, so a hold pins rather than letting the survivor take a step first. Order
 	# -1 in the same phase, not "ai": a movement command may still turn the survivor (facing),
@@ -781,8 +979,16 @@ static func register_module(world: Variant, _map: Variant) -> void:
 	# for the same individual (health.gd on a destroyed head, infection.gd on a put-down and
 	# again on turning), so both release calls below are written idempotent on purpose: a
 	# second firing for the same entity finds nothing left to release and does nothing.
+	# A rescuer who is grabbed mid-heave stops being a rescuer. Same shape and the same reason as
+	# melee.gd's grab-interrupts on a wind-up: whatever your hands were doing, they are not doing
+	# it now. The cooldown is deliberately *not* armed here -- the attempt was taken away rather
+	# than made, and the stamina is already gone.
+	world.events.subscribe({"id": "shambler.grab-interrupts-rescue", "type": "grab.started", "handler": func(event: Dictionary) -> void:
+		world.components.remove(int(event.get("victim", -1)), "rescue")
+	})
+
 	world.events.subscribe({"id": "shambler.release-dead", "type": "entity.killed", "handler": func(event: Dictionary) -> void:
 		var dead: int = int(event.get("entity", -1))
-		_release_grab(world, dead)
-		_release_victim(world, dead)
+		_release_grab(world, dead, "holder-died", dead)
+		_release_victim(world, dead, "victim-died", dead)
 	})

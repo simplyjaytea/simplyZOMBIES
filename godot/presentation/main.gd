@@ -227,6 +227,11 @@ func _input(event: InputEvent) -> void:
 				if world != null: world.commands.push({"type": "shout"})
 			KEY_F:
 				if world != null: world.commands.push({"type": "swing"})
+			KEY_H:
+				# Its own key rather than another meaning for F: swinging at the shambler that
+				# has hold of somebody is a different answer, and both must stay available.
+				# Who gets pulled out is the sim's decision -- see SimShambler.rescue_target.
+				if world != null: world.commands.push({"type": "rescue"})
 			KEY_G:
 				if world != null: world.commands.push({"type": "fire"})
 			KEY_R:
