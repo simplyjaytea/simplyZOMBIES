@@ -22,18 +22,15 @@ gdscript/warnings/unsafe_method_access=1
 
 [display]
 
-window/size/viewport_width=960
-window/size/viewport_height=540
-; Exactly 2x the base resolution. scale_mode="integer" below can only use whole
-; factors, and the previous 1280x720 override was 1.33x -- which would have
-; letterboxed to 1x rather than filling the window.
-window/size/window_width_override=1920
-window/size/window_height_override=1080
-; canvas_items rather than viewport: the Control-based UI (ui/inventory_panel.gd,
-; the HUD Label) stays crisp at native resolution instead of being pixelated
-; along with the world.
-window/stretch/mode="canvas_items"
-window/stretch/scale_mode="integer"
+; Native-resolution rendering: no stretch. The old 960x540 canvas with integer
+; scale_mode filled 1080p (2x) and 4K (4x) but letterboxed 1440p, which only
+; reaches 2.67x. Instead the canvas is the window, art density doubled with it
+; (camera zoom 32, 64x32 tiles, sprites authored at 2x), and every resolution
+; is crisp and fills the screen. A larger window sees more of the district --
+; sim vision still gates what is drawn, so it shows more fog, not more facts.
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/resizable=true
 
 [rendering]
 

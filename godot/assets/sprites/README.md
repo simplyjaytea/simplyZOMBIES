@@ -4,9 +4,11 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
 
 ## The convention
 
-- **Grid:** isometric 2:1, **32×16 pixels per tile**. `presentation/camera.gd` sets `zoom = 16`,
+- **Grid:** isometric 2:1, **64×32 pixels per tile**. `presentation/camera.gd` sets `zoom = 32`,
   and `projection.gd` derives a tile diamond of `(zoom * 2) × zoom` from it. A sprite taller than
-  16 px is fine and expected — a standing body occupies one tile of ground and rises above it.
+  32 px is fine and expected — a standing body occupies one tile of ground and rises above it.
+  A standing figure is authored at **64×96**. (The grid was 32×16 until the move to
+  native-resolution rendering; art density doubled with it so 1440p fills without letterboxing.)
 - **Anchor:** feet, bottom-centre. The renderer places a sprite so its bottom edge sits on the
   entity's ground position, and draws the contact shadow underneath. Do not centre the figure
   vertically in the canvas or it will float.

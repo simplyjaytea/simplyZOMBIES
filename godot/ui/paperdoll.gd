@@ -31,10 +31,10 @@ const CROUCH_FRAC: float = 0.68
 const TALLEST_ABOVE_ANCHOR_FRAC: float = 0.99 # stand: headCentreY (0.925) + headRy (0.062)
 const WIDEST_HALF_FRAC: float = 0.6 # prone: |0.5 - ankleY| after PRONE_REACH, rounded up
 
-const TOP_MARGIN: float = 6.0
-const BOTTOM_MARGIN: float = 10.0
-const SIDE_MARGIN: float = 6.0
-const MIN_HEIGHT: float = 20.0
+const TOP_MARGIN: float = 12.0
+const BOTTOM_MARGIN: float = 20.0
+const SIDE_MARGIN: float = 12.0
+const MIN_HEIGHT: float = 40.0
 
 # The figure faces the viewer, like a medical chart -- so *their* left is *your* right, the
 # same convention every other paperdoll-style UI and anatomical diagram uses. side == -1 is
@@ -56,7 +56,7 @@ func set_view(view: Dictionary) -> void:
 	queue_redraw()
 
 # `h` used to be a hardcoded 118.0, so giving this control more room -- the corner glimpse is
-# 140px, the gear panel is 260px -- drew exactly the same figure either way. This fits the
+# 280px, the gear panel is 520px -- drew exactly the same figure either way. This fits the
 # figure to whatever `size` actually is, bounded by whichever pose is tightest so no stance
 # clips once it's picked.
 func _figure_height() -> float:
@@ -107,7 +107,7 @@ func _draw() -> void:
 	# frame projector
 	var prone: bool = pose == OutlinePose.Prone
 	var pivot: float = 0.5
-	var mark_r: float = maxf(1.5, h * 0.028)
+	var mark_r: float = maxf(3.0, h * 0.028)
 	# A part with both a wound and an infection needs two marks that don't sit on top of each
 	# other; offsets keeps them apart along whichever axis this pose draws limbs across.
 	var mark_backing: Color = Color(0.05, 0.055, 0.06)
@@ -116,12 +116,12 @@ func _draw() -> void:
 		if _wounded(part):
 			var pos: Vector2 = at + axis * mark_r * 2.2 * float(slot)
 			draw_circle(pos, mark_r, mark_backing) # solid backing so the ring reads over any tint
-			draw_circle(pos, mark_r, Color(0.72, 0.24, 0.22), false, 1.0)
+			draw_circle(pos, mark_r, Color(0.72, 0.24, 0.22), false, 2.0)
 			slot += 1
 		if _infected(part):
 			var pos2: Vector2 = at + axis * mark_r * 2.2 * float(slot)
 			draw_circle(pos2, mark_r * 0.85, mark_backing)
-			draw_circle(pos2, mark_r * 0.85, Color(0.68, 0.82, 0.36), false, 1.2)
+			draw_circle(pos2, mark_r * 0.85, Color(0.68, 0.82, 0.36), false, 2.4)
 			slot += 1
 	# simplified prone span/pivot
 	var draw_poly: Callable = func(points: PackedVector2Array, part: String) -> void:
@@ -133,7 +133,7 @@ func _draw() -> void:
 		# already says about its condition and gets a distinct, thicker outline over it,
 		# rather than a second colour competing with the condition tint for the same shape.
 		var outline_col: Color = Color(0.55, 0.66, 0.78) if _armored(part) else Palette.COLOURS["outline"]
-		var outline_w: float = maxf(1.4, h * 0.02) if _armored(part) else maxf(1.0, h * 0.014)
+		var outline_w: float = maxf(2.8, h * 0.02) if _armored(part) else maxf(2.0, h * 0.014)
 		draw_polyline(points + PackedVector2Array([points[0]]), outline_col, outline_w)
 	var project: Callable = func(fx: float, fy: float) -> Vector2:
 		if prone:
@@ -168,7 +168,7 @@ func _draw() -> void:
 		var foot_at: Vector2 = p2 + Vector2(0, -foot_r * 0.8)
 		draw_circle(foot_at, foot_r * 0.62, Palette.COLOURS["outline"] if _tint_for(foot_part) == null else _tint_for(foot_part) as Color)
 		if _armored(foot_part):
-			draw_circle(foot_at, foot_r * 0.62, Color(0.55, 0.66, 0.78), false, maxf(1.2, h * 0.016))
+			draw_circle(foot_at, foot_r * 0.62, Color(0.55, 0.66, 0.78), false, maxf(2.4, h * 0.016))
 		draw_marks.call(foot_at, foot_part, Vector2(1, 0))
 	# arms
 	for side in [-1, 1]:
@@ -189,7 +189,7 @@ func _draw() -> void:
 		var hand_at: Vector2 = pW + Vector2(0, hand_r * 0.6 if prone else -hand_r * 0.6)
 		draw_circle(hand_at, hand_r, Palette.COLOURS["outline"] if _tint_for(hand_part) == null else _tint_for(hand_part) as Color)
 		if _armored(hand_part):
-			draw_circle(hand_at, hand_r, Color(0.55, 0.66, 0.78), false, maxf(1.2, h * 0.016))
+			draw_circle(hand_at, hand_r, Color(0.55, 0.66, 0.78), false, maxf(2.4, h * 0.016))
 		draw_marks.call(hand_at, hand_part, Vector2(1, 0))
 	# torso
 	var neck_half: float = float(P["neckHalf"]) * h
@@ -216,11 +216,11 @@ func _draw() -> void:
 		var tmp: float = rx; rx = ry; ry = tmp
 	draw_circle(head, (rx + ry) / 2.0, Palette.COLOURS["outline"] if _tint_for("head") == null else _tint_for("head") as Color)
 	if _armored("head"):
-		draw_circle(head, (rx + ry) / 2.0, Color(0.55, 0.66, 0.78), false, maxf(1.2, h * 0.016))
+		draw_circle(head, (rx + ry) / 2.0, Color(0.55, 0.66, 0.78), false, maxf(2.4, h * 0.016))
 	draw_marks.call(head, "head", Vector2(1, 0))
 	# prose below figure — posture hint only, no numbers cross the boundary (docs/05)
 	if _view.has("parts"):
-		var y: float = size.y - 28.0
+		var y: float = size.y - 56.0
 		# SimStances.NAMES is the one canonical stance-name list; this used to be its own
 		# three-way ternary that mapped stance 0 to "stand" (it is Crawl) and stances 3/4
 		# (Jog/Sprint) both to "walk" -- three of five stances were mislabeled, and jogging
@@ -228,4 +228,4 @@ func _draw() -> void:
 		var stance: int = int(_view.get("stance", SimStances.Stance.Walk))
 		var label: String = SimStances.name_of(stance) if stance >= 0 and stance < SimStances.NAMES.size() else "walking"
 		# tint already encodes worst visibly; text only names posture
-		draw_string(ThemeDB.fallback_font, Vector2(6, y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Palette.COLOURS["outline"])
+		draw_string(ThemeDB.fallback_font, Vector2(12, y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Palette.COLOURS["outline"])
