@@ -103,7 +103,7 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 			sprite_key = String(block["sprite"])
 
 	var texture: Texture2D = resolve(sprite_key)
-	var radius: float = 7.0 if is_player else (6.0 if is_unique else 5.0)
+	var radius: float = 14.0 if is_player else (12.0 if is_unique else 10.0)
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius}
 
 

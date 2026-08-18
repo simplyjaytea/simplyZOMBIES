@@ -28,10 +28,10 @@ const SimInfection = preload("res://sim/modules/infection.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
 
-const MARGIN: float = 12.0
-const LINE: float = 17.0
-const FONT_SIZE: int = 13
-const SMALL_SIZE: int = 11
+const MARGIN: float = 24.0
+const LINE: float = 34.0
+const FONT_SIZE: int = 26
+const SMALL_SIZE: int = 22
 
 # Worst-part states from condition.gd, as a sentence rather than a grade.
 const CONDITION_PROSE: Array[String] = ["", "hurt", "badly hurt", "barely standing"]

@@ -404,9 +404,13 @@ table above are the authority on each):
 - **World & map** — ~15 resource types, the three location loot tables, site depletion, food
   spoilage.
 - **Art** — the first two real sprites landed via the content pipeline (`zombie_shambler`,
-  `survivor_mara`, AI-generated, 32×48 on the 32×16 grid), proven by `APPEARANCE_OK`'s
-  resolve-and-draw-white assertions; screamer and bloater still render as tinted shapes, and tile
-  art has no renderer path yet (`_draw_district` still draws polygons).
+  `survivor_mara`, AI-generated), proven by `APPEARANCE_OK`'s resolve-and-draw-white assertions;
+  screamer and bloater still render as tinted shapes, and tile art has no renderer path yet
+  (`_draw_district` still draws polygons). The presentation then moved to **native-resolution
+  rendering at double art density** (no stretch, camera zoom 32, 64×32 tiles, figures authored at
+  64×96) so 1440p fills exactly instead of letterboxing at the old 960×540 integer scale; the two
+  shipped sprites are 2× nearest-neighbour upscales of their 32×48 originals, placeholders until
+  they are regenerated at native 64×96.
 - **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
   rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
 - **Needs** — mood consequences: slower work, mistakes, refusing jobs, arguments.

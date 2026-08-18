@@ -149,7 +149,7 @@ func _notification(what: int) -> void:
 
 func _resize_camera() -> void:
 	var vp: Vector2 = get_viewport_rect().size
-	if vp.x < 1: vp = Vector2(960, 540)
+	if vp.x < 1: vp = Vector2(1920, 1080)
 	camera["width"] = vp.x
 	camera["height"] = vp.y
 	# follow player
@@ -185,16 +185,16 @@ func _ensure_ui() -> void:
 	if work_script != null:
 		_work_panel = work_script.new() as Control
 		_work_panel.visible = false
-		_work_panel.position = Vector2(8, 120)
-		_work_panel.size = Vector2(760, 160)
+		_work_panel.position = Vector2(16, 240)
+		_work_panel.size = Vector2(1520, 320)
 		layer.add_child(_work_panel)
 	# paperdoll glimpse bottom-right (always visible, cheap)
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
 	if doll_script != null:
 		_paperdoll = doll_script.new() as Control
-		_paperdoll.custom_minimum_size = Vector2(140, 140)
+		_paperdoll.custom_minimum_size = Vector2(280, 280)
 		_paperdoll.anchor_left = 1.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 1.0; _paperdoll.anchor_bottom = 1.0
-		_paperdoll.offset_left = -148; _paperdoll.offset_top = -148; _paperdoll.offset_right = -8; _paperdoll.offset_bottom = -8
+		_paperdoll.offset_left = -296; _paperdoll.offset_top = -296; _paperdoll.offset_right = -16; _paperdoll.offset_bottom = -16
 		layer.add_child(_paperdoll)
 
 func _input(event: InputEvent) -> void:
@@ -536,7 +536,7 @@ func _draw_district() -> void:
 			Vector2(sx, sy + half_h), Vector2(sx - half_w, sy)
 		])
 		draw_colored_polygon(pts, col)
-		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["background"] * 0.9, 1.0)
+		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["background"] * 0.9, 2.0)
 		var rise_m: float = float(OCCLUDER_RISE.get(tile, 0.0))
 		if player_indoors and (tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Screen or tile == SimTileMap.Tile.Window):
 			rise_m = minf(rise_m, INDOOR_WALL_RISE_M)
@@ -550,7 +550,7 @@ func _draw_district() -> void:
 		# Near walls that cover the player fade so indoor play stays readable, but only if
 		# there are visible tiles behind them (otherwise outdoors facades fade over void).
 		var tile_depth: float = float(tx + ty)
-		var hides: bool = tile_depth > player_depth and absf(sx - player_sx) < half_w * 2.2 and player_sy > sy - rise - 8.0 and player_sy < sy + half_h + 8.0
+		var hides: bool = tile_depth > player_depth and absf(sx - player_sx) < half_w * 2.2 and player_sy > sy - rise - 16.0 and player_sy < sy + half_h + 16.0
 		var has_backdrop: bool = max_visible_depth > tile_depth + 0.01
 		if hides and has_backdrop:
 			col = Color(col.r, col.g, col.b, OCCLUDER_FADED_ALPHA)
@@ -561,7 +561,7 @@ func _draw_district() -> void:
 		draw_colored_polygon(PackedVector2Array([Vector2(sx - half_w, sy), Vector2(sx, sy + half_h), Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)]), col.darkened(0.08 if is_window else 0.18))
 		draw_colored_polygon(PackedVector2Array([Vector2(sx, sy + half_h), Vector2(sx + half_w, sy), Vector2(sx + half_w, sy - rise), Vector2(sx, sy + half_h - rise)]), col.lightened(0.1) if is_window else col.darkened(0.08))
 		if is_window:
-			draw_polyline(top_pts + PackedVector2Array([top_pts[0]]), Color("#b8eaff"), 2.0)
+			draw_polyline(top_pts + PackedVector2Array([top_pts[0]]), Color("#b8eaff"), 4.0)
 
 func _draw_entities() -> void:
 	if world == null: return
@@ -612,7 +612,7 @@ func _draw_entities() -> void:
 		var col: Color = look["tint"] as Color
 		var r: float = float(look["radius"])
 		# contact shadow — under both branches, so a sprite still sits on the ground.
-		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
+		draw_circle(Vector2(sx, sy + 6), r * 0.9, Color(0, 0, 0, 0.35))
 		var texture: Texture2D = look["texture"] as Texture2D
 		if texture != null:
 			# Feet-anchored: the sprite stands on the entity's ground position rather than
@@ -623,7 +623,7 @@ func _draw_entities() -> void:
 			draw_texture_rect(texture, Rect2(at, size), false, col)
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
-			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 1.2 if bool(it["player"]) else 0.8)
+			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
 		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
 		var eid: int = int(it["id"])
 		var facing_v: Variant = world.components.get_component(eid, "facing")
@@ -633,20 +633,20 @@ func _draw_entities() -> void:
 		var screen_ang: float = face - PI * 0.5
 		draw_line(
 			Vector2(sx, sy),
-			Vector2(sx + cos(screen_ang) * (r + 6.0), sy + sin(screen_ang) * (r + 6.0)),
+			Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
 			Color(1, 1, 1, 0.55),
-			1.2 if bool(it["player"]) else 0.8,
+			2.4 if bool(it["player"]) else 1.6,
 		)
 		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
 			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
 			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
 				var half: float = float((rw as Dictionary).get("coneHalf", 0.55))
-				var reach_px: float = r + 18.0 + half * 22.0
+				var reach_px: float = r + 36.0 + half * 44.0
 				var a0: float = screen_ang - half
 				var a1: float = screen_ang + half
-				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, Color(0.85, 0.9, 1.0, 0.35), 1.4)
-				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 1.0)
-				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 1.0)
+				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, Color(0.85, 0.9, 1.0, 0.35), 2.8)
+				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 2.0)
+				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 2.0)
 	# ground items as lozenges — focal only (searching a room is an action)
 	for ent in world.components.query(["position", "itemBase"]):
 		if world.components.has_component(int(ent), "stored"): continue
@@ -657,10 +657,10 @@ func _draw_entities() -> void:
 			continue
 		var sc: Dictionary = IsoProjection.world_to_screen(camera, ix, iy)
 		var sx: float = float(sc["sx"]); var sy: float = float(sc["sy"])
-		var w: float = 6.0; var h: float = 3.2
+		var w: float = 12.0; var h: float = 6.4
 		var pts: PackedVector2Array = PackedVector2Array([Vector2(sx, sy - h), Vector2(sx + w, sy), Vector2(sx, sy + h), Vector2(sx - w, sy)])
 		draw_colored_polygon(pts, Palette.COLOURS["groundItem"])
-		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["groundItemEdge"], 1.0)
+		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["groundItemEdge"], 2.0)
 	# last-known marks fading
 	for eid in _memory.keys():
 		var m: Dictionary = _memory[eid] as Dictionary
@@ -668,7 +668,7 @@ func _draw_entities() -> void:
 		if age <= 0 or age > MEMORY_TICKS: continue
 		var sc: Dictionary = IsoProjection.world_to_screen(camera, float(m["x"]), float(m["y"]))
 		var a: float = 0.5 * (1.0 - float(age) / float(MEMORY_TICKS))
-		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 4.0, Color(0.24, 0.29, 0.24, a))
+		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(0.24, 0.29, 0.24, a))
 
 func _draw_night_wash() -> void:
 	var tod: float = Clock.time_of_day(int(world.tick))
