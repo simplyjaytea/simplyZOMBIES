@@ -87,6 +87,29 @@ static func register_module(world: Variant) -> void:
 							w.events.publish({"type": "treatment.refused", "entity": int(actor3), "verb": String(c.get("verb", "")), "reason": String(res2.get("reason", "unknown"))})
 	)
 
+	# Survivors who are not the player stop their own bleeding. Registered at the same order
+	# as the intake and after it by id, so a command issued this tick always wins over the
+	# autonomous choice.
+	#
+	# This is not a convenience -- it is the difference between a wound being a problem and a
+	# wound being a death sentence for anyone the player is not personally standing next to.
+	# The NPC Doctor job exists, but it has to notice, path across the district and arrive,
+	# and a deep wound bleeds out in five thousand ticks. A person with a hand and an open
+	# artery does not wait for a doctor; they press on it. It routes through the same
+	# `context` the T key uses, so there is one first-aid decision procedure in this
+	# simulation rather than a player one and an NPC one that drift.
+	world.systems.register("treatment.self-aid", "input", 13, func(w: Variant) -> void:
+		for entity in w.components.query(["injuries", "body", "position"]):
+			var e: int = int(entity)
+			if w.components.has_component(e, "controlled"):
+				continue
+			if w.components.has_component(e, "corpse") or w.components.has_component(e, "treatment") or w.components.has_component(e, "treated"):
+				continue
+			if _worst_bleeding_part(w, e) == "":
+				continue
+			context(w, e)
+	)
+
 	# Before movement.integrate (order 0), the same slot shambler.pin uses and for the same
 	# reason: a body that is being worked on should not take a step first and be pinned
 	# afterwards. Both parties -- the design record's "treating another occupies both".

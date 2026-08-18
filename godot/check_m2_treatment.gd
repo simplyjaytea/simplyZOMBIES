@@ -58,6 +58,7 @@ func _run() -> void:
 	ok = _a_channel_refuses_what_it_cannot_do() and ok
 	ok = _the_five_verbs_answer_in_their_own_words() and ok
 	ok = _one_key_picks_the_wound_and_the_verb() and ok
+	ok = _a_survivor_who_is_not_the_player_presses_on_it_themselves() and ok
 	ok = _the_view_says_the_dressing_as_a_word() and ok
 	ok = _the_hud_speaks_only_when_there_is_blood() and ok
 	ok = _deterministic_replay() and ok
@@ -639,6 +640,45 @@ func _one_key_picks_the_wound_and_the_verb() -> bool:
 		push_error("treat.context started a channel on a survivor with no wounds")
 		return false
 	print("CONTEXT OK worst wound picked, bandage preferred, bare hands as fallback, toggles off, silent when unhurt")
+	return true
+
+
+# A person with an open artery does not wait for a doctor. The NPC Doctor job exists, but it
+# has to notice, path across the district and arrive, and a deep wound bleeds out in five
+# thousand ticks -- so without this a wound is a death sentence for anyone the player is not
+# personally standing beside. It routes through the same `context` the T key uses.
+#
+# The negative is the player: the player has a key, and a sim that pressed it for them would
+# be taking a decision the whole slice exists to pose.
+func _a_survivor_who_is_not_the_player_presses_on_it_themselves() -> bool:
+	var w: Variant = _world()
+	var npc: int = _bystander(w, 20.0, 16.5)
+	_deep_wound(w, npc)
+	_deep_wound(w, w.player)
+	w.step()
+
+	var t: Variant = w.components.get_component(npc, "treatment")
+	if not (t is Dictionary):
+		push_error("a bleeding survivor with nobody around started no first aid of their own")
+		return false
+	if String((t as Dictionary).get("verb", "")) != "pressure":
+		push_error("an empty-handed survivor chose '%s' rather than their own hands" % (t as Dictionary).get("verb", ""))
+		return false
+	if w.components.has_component(w.player, "treatment"):
+		push_error("the sim started first aid for the player, who has a key for it")
+		return false
+
+	# And it actually works: the bleed stops while the hold is on.
+	var before: float = _blood(w, npc)
+	_run_ticks(w, 200)
+	if _blood(w, npc) != before:
+		push_error("the autonomous hold suppressed nothing: %.4f -> %.4f" % [before, _blood(w, npc)])
+		return false
+	# The player, untended, is the control that proves the world was bleeding at all.
+	if _blood(w, w.player) <= 0.0:
+		push_error("the untended player lost no blood, so the suppression above proves nothing")
+		return false
+	print("SELF-AID OK npc held its own wound (%.4f lost), untended player lost %.4f" % [_blood(w, npc), _blood(w, w.player)])
 	return true
 
 

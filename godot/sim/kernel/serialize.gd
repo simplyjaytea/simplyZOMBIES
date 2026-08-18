@@ -21,7 +21,12 @@ extends RefCounted
 # Its "treatment"/"treated" components are new and transient, and component_store.save() is
 # generic, so a v15 save from before Part B loads into a v15 world with no channel running --
 # which is exactly what a save taken between two acts of first aid should mean.
-const SAVE_VERSION: int = 15
+# 16: Slice 3 -- recovery. Every wound entry gained "healedTicks" (int, the *earned* recovery
+# time: it only advances on ticks the survivor was fed and not exerting). wounds.recover reads
+# and increments it unconditionally, so a v15 wound entry would start from a missing key. The
+# same slice made part integrity climb again, which is a value change rather than a shape one
+# and would not have needed a bump on its own.
+const SAVE_VERSION: int = 16
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
