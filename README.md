@@ -63,9 +63,11 @@ hands already are, comes four seconds apart rather than two, and takes a share o
 on, so a held survivor is no longer two rolls from a destroyed head; and the colony fights for
 itself now — anyone held struggles on instinct if nobody answers for them, everybody starts with
 something in their hands rather than in their pack, and a survivor with a weapon shoots whatever has
-hold of a neighbour before whatever is merely nearest. What is left is one number nobody should pick
-alone: an escape costs stamina, and somebody grabbed over and over runs out, which is a question
-about how being grabbed should feel. It is recorded in full in
+hold of a neighbour before whatever is merely nearest. And an escape is no longer something you can
+run out of money for: you get your breath back while you are held, and somebody standing next to you
+can haul you out of a grip with their bare hands (`H`). What is left is not a number but a question
+nobody should answer alone — contact is relentless, and you cannot press on a wound while a zombie
+still has your arm. It is recorded in full in
 [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
 
 **Godot 4.7.1 is the playable build.** The web export runs at `/` and the Windows artifact comes
@@ -91,7 +93,7 @@ in text.
 | | |
 |---|---|
 | **Move** | `WASD` walk · `Shift` sprint (fast, and loud — latches while held) · `Z`/`X`/`C`/`V` crawl, crouch, walk, jog |
-| **Act** | `F` swing, or struggle out of a grab · `G` or click — fire · `R` reload · `E` pick up · `T` first aid (bandage if you have one, bare hands if not; again to stop) · `Space` shout — heard across the district |
+| **Act** | `F` swing, or struggle out of a grab · `H` pull someone out of a grab · `G` or click — fire · `R` reload · `E` pick up · `T` first aid (bandage if you have one, bare hands if not; again to stop) · `Space` shout — heard across the district |
 | **Look** | `Tab` gear and injuries (drag to move, right-click or `R` to rotate) · `J` work priorities · `O` attention overlay: noise, scent, sight, light · `M` raw developer sheets |
 | **Run** | `1`/`2`/`3` speed (1×, 3×, 10×) · `P` pause · `F5`/`F9` save and load · `F1` the key list |
 
