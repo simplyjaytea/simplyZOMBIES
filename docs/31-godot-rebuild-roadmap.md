@@ -14,7 +14,8 @@ engine change does not erase that product evidence. Milestone 2 keeps its existi
 at lethality after the rebuild cuts over.
 
 This document owns the **transition sequence, parity gates, and cutover criteria**. It does not add
-features to the product roadmap. [HANDOFF.md](../HANDOFF.md) owns live status for both tracks.
+features to the product roadmap. The transition is complete (R0–R7); live product status lives in
+[docs/23's milestone status sections](23-roadmap.md#where-milestone-2-stands).
 
 The TypeScript build remains the playable reference and executable specification until the final
 cutover gate passes. It is not discarded early, and Godot does not become authoritative merely
@@ -138,7 +139,7 @@ correctly and deterministically in a headless Godot run.
 - Establish screenshot fixtures at representative daylight, night, combat, inventory, equipment, and
   injury states. They judge legibility and layout, not pixel identity with Canvas.
 
-**Exit criterion:** a player can follow HANDOFF's complete smoke script without developer help on
+**Exit criterion:** a player can follow the README quick start without developer help on
 both Windows and web, and the approved screenshot deck has no blocking presentation differences.
 
 ## Phase R5: platform and delivery
@@ -243,5 +244,5 @@ appearance work: parity evidence is the cutover gate.
 
 ---
 
-**Previous:** [30 — Decision Records](30-decisions.md) · **Next:** [HANDOFF.md](../HANDOFF.md) ·
+**Previous:** [30 — Decision Records](30-decisions.md) ·
 [Doc index](../README.md#documentation)

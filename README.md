@@ -44,16 +44,22 @@ follow signals.
 
 ## Status
 
-**Playable, and early.** Milestones 0 and 1 are complete. Make noise and the district converges;
-stay quiet and scent still brings danger eventually. Walls block sight, surfaces change speed and
-footstep noise, and midnight closes bare-eyed vision to only a few metres unless you find a light.
-Five movement stances trade time, stamina, visibility, and noise. Melee commits you to a swing, while
-contact can pin, bite, and force a stamina-paid struggle. Gear already rolls affixes and fits into a
-rotatable, nested grid inventory, and wounds appear on a descriptive body-part view rather than a
-health bar.
+**Playable, and early — most of the vertical slice has landed.** Make noise and the district
+converges; stay quiet and scent still brings danger eventually. Walls block sight, surfaces change
+speed and footstep noise, and midnight closes bare-eyed vision to only a few metres unless you find
+a light. Five movement stances trade time, stamina, visibility, and noise. Melee commits you to a
+swing; ranged — a bow and a pistol — spends finite ammo and announces you to the district, and both
+weapons wear with use and repair imperfectly. Shamblers, screamers, and bloaters walk a 256 m
+district with a civic annex. Survivors have STR/CON/DEX aptitudes; they get hungry, thirsty, and
+tired, their mood matters, and they work jobs — hauling, building, cooking, doctoring — you steer
+through a priority grid. Recruits arrive, gear rolls affixes into a rotatable, nested grid
+inventory, a director paces the nights, and you can fortify, save, and load. Wounds appear on a
+descriptive body-part view rather than a health bar.
 
-Milestone 2 is the colony-sized vertical slice: generated survivors, needs and work, the complete
-injury and uncertain-infection loops, ranged combat, building, pacing, death, and succession.
+The full injury loop — grabs that pin, bites that make located bleeding wounds, pressure and
+bandaging, recovery over days you have to earn — is **built and gated but switched off** while a
+deliberate design decision is made about how lethal a bite during a hold should be. Today's measured
+answer is "colony-wiping on day one," which is not the game yet.
 
 **Godot 4.7.1 is the playable build.** The web export runs at `/` and the Windows artifact comes
 from the same green commit; a failed CI publishes nothing. The TypeScript/Canvas oracle is
@@ -70,11 +76,17 @@ npm run godot:run    # Godot — the game (also: godot:editor)
 # npm run dev        # TypeScript oracle via Vite (archived, reference only)
 ```
 
-**`F1` shows the keys in game**, and they appear once on a fresh run — this list is the same
-thing in text. `WASD` move · `Shift` sprint · `F` swing or struggle · `Space` **shout** · `E` pick
-up · `Tab` **gear and injuries** (drag to move, right-click or `R` to rotate) · `J` work priorities
-· `O` cycles the attention overlay (noise, scent, sight, light) · `1`/`2`/`3` speed (1×, 3×, 10×) ·
-`P` pause · `M` raw developer sheet · `F5`/`F9` save and load.
+## Controls
+
+**`F1` shows the keys in game**, and they appear once on a fresh run — this list is the same thing
+in text.
+
+| | |
+|---|---|
+| **Move** | `WASD` walk · `Shift` sprint (fast, and loud — latches while held) · `Z`/`X`/`C`/`V` crawl, crouch, walk, jog |
+| **Act** | `F` swing, or struggle out of a grab · `G` or click — fire · `R` reload · `E` pick up · `T` first aid (bandage if you have one, bare hands if not; again to stop) · `Space` shout — heard across the district |
+| **Look** | `Tab` gear and injuries (drag to move, right-click or `R` to rotate) · `J` work priorities · `O` attention overlay: noise, scent, sight, light · `M` raw developer sheets |
+| **Run** | `1`/`2`/`3` speed (1×, 3×, 10×) · `P` pause · `F5`/`F9` save and load · `F1` the key list |
 
 A day is four hours at 1×, so press `3` and wait for dark.
 
@@ -84,13 +96,45 @@ right, and a survivor with nothing wrong takes up almost no screen.
 **Current playable stack:** Godot 4.7.1 (Compatibility), typed GDScript. The archived
 TypeScript oracle remains at tag `ts-oracle-final` with parity fixtures under `godot/parity/`.
 
+## Roadmap
+
+Tentative — [docs/23](docs/23-roadmap.md) is the authority on scope, order, risks, and current
+status. Milestones close on their exit criterion, never on a feature count.
+
+- ✅ **Milestone 0 — Foundations.** Deterministic tick loop, ECS, events and modifiers, validated
+  content, versioned save/load, CI gates for determinism and performance.
+- ✅ **Milestone 1 — The spine.** Noise, scent, and light/sight live in one attention field;
+  shamblers follow gradients; stances, committed melee, grabs and breaking free; day/night.
+- ✅ **Engine rebuild.** The game moved from TypeScript/Canvas to Godot 4.7.1 behind per-tick
+  parity gates ([docs/31](docs/31-godot-rebuild-roadmap.md)), then cut over. Web and Windows builds
+  ship from every green commit.
+- ◐ **Milestone 2 — The vertical slice** *(underway — most systems landed)*: one district, generated
+  survivors, needs and jobs, ranged parity, fortification, a pacing director, permadeath and
+  succession, and the complete injury/uncertain-infection loop. Landed so far: lethality and
+  turning, the zombie roster, ranged combat, needs/jobs/recruits, building, the director, save/load,
+  the shallow skill web, and the full wound-treatment-recovery loop (currently switched off pending
+  a bite-lethality decision — see
+  [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open: loot tables
+  and resource variety, the fuller survivor generator, mood consequences, the remaining injury
+  types and treatments, world-container search, crafting consumables, and the balance grid plus a
+  human ten-day playtest. **Exit criterion:** survive ten in-game days, lose a survivor you cared
+  about, continue through succession, and still want another run.
+- ☐ **Milestone 3A — Survivor depth.** Relationships and grief, the full skill web, all six
+  attributes, weather and temperature, full world decay, and the remaining zombie types.
+- ☐ **Milestone 3B — World range.** The continuous drivable region and streaming, vehicles, mobile
+  bases, and viable nomad play.
+- ☐ **Milestone 3C — Multiplayer.** Authoritative host, filtered client views, voice as an emitter.
+- ☐ **Milestone 4 — Breadth.** Factions and trade, storyteller presets, the escape endgame, and
+  content volume.
+
 ## Working on it?
 
-**[HANDOFF.md](HANDOFF.md) is the engineer's document and the place to start.** It carries current
-implementation state, verification, the task backlog, and what to pick up next.
-[docs/23-roadmap.md](docs/23-roadmap.md) owns product scope, milestone order, risks, and playtest
-questions; [docs/30-decisions.md](docs/30-decisions.md) records what each completed chunk made
-structural, and [docs/31](docs/31-godot-rebuild-roadmap.md) owns the engine transition.
+**`CLAUDE.md` is the engineer's entry point** — what the project is, the standing bans, how to
+verify a change, and the traps. `AGENTS.md` covers environment setup.
+[docs/23-roadmap.md](docs/23-roadmap.md) owns product scope, milestone order, risks, playtest
+questions, and current implementation status; [docs/30-decisions.md](docs/30-decisions.md) records
+what each completed chunk made structural, and [docs/31](docs/31-godot-rebuild-roadmap.md) owns the
+(completed) engine transition.
 
 ## Documentation
 
@@ -157,6 +201,6 @@ New to the project? **[00](docs/00-vision.md) → [01](docs/01-hardcore-contract
 mechanic, and what actually gets built.
 
 Building it? Add **[19](docs/19-architecture.md) → [20](docs/20-ecs-and-content.md) →
-[21](docs/21-extensibility.md)**, then **[HANDOFF.md](HANDOFF.md)** for where the code actually is and
-**[30](docs/30-decisions.md)** for why it is shaped that way. During the engine transition, read
-**[31](docs/31-godot-rebuild-roadmap.md)** before starting implementation.
+[21](docs/21-extensibility.md)**, then **`CLAUDE.md`** and
+**[where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)** for where the code
+actually is, and **[30](docs/30-decisions.md)** for why it is shaped that way.
