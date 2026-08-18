@@ -24,7 +24,7 @@ Four other places to know about, and nothing else is required reading:
 | **It is playable** | Godot at `/` (and Windows artifact) — 256 m district with civic annex, Mara as the current test survivor, knife in hand. `F` swing, `G`/click fire, `R` reload. Shambler / screamer / bloater on the map. HUD shows STR/CON/DEX. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **The survival loop, first half: harm is reachable.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 landed (`M2_STANCE_OK`), and the grab → struggle → bite loop landed built-and-gated but **off** (`M2_CONTACT_OK`, `SimShambler.GRABS_ENABLED = false`) — see both notes below. Wounds now carry a severity and can bleed to death (`M2_WOUNDS_OK`), and pressure, bandaging and a command path to the five infection verbs answer them (`M2_TREATMENT_OK`). Next: **recovery** — nothing in the sim raises body-part integrity except `jobs.gd`'s torso-only `_treat` — which is what the grab flag is waiting on. |
+| **In flight** | **The survival loop, first half: harm is reachable.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 landed (`M2_STANCE_OK`), and the grab → struggle → bite loop landed built-and-gated but **off** (`M2_CONTACT_OK`, `SimShambler.GRABS_ENABLED = false`) — see both notes below. Wounds now carry a severity and can bleed to death (`M2_WOUNDS_OK`), and pressure, bandaging and a command path to the five infection verbs answer them (`M2_TREATMENT_OK`). Recovery now closes wounds and climbs integrity back, earned only while fed and not exerting (`M2_RECOVERY_OK`). Next: a decision about **bite lethality during a hold** — flipping `GRABS_ENABLED` with recovery in place still wipes colonies on day one to head bites, which is a design call rather than a bug; see the correction in the contact note. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | The first survival contract (see “Do this next”), [multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
 
@@ -212,6 +212,38 @@ Presentation picks neither the target nor the verb. Gate: `npm run godot:m2:trea
 `M2_TREATMENT_OK`, fifteen assertions, each with a true negative; seven of them were re-verified by
 breaking the code and watching the matching line go red.
 
+**Recovery: healing you have to earn, and one thing that never comes back.** Until this slice
+nothing in the simulation raised a body part's integrity except `jobs.gd._treat`, torso only, so
+head, arms, hands, legs and feet fell monotonically for the life of a survivor. `wounds.recover`
+(phase `health`, order 2, behind the bleed) closes wounds on docs/05's table and climbs the struck
+part back over the same window — the rate is *derived* from `RECOVERY_DAYS` rather than being a
+second table that could drift from the first.
+
+Three rules carry the design. **Recovery is earned, not elapsed:** a wound's `healedTicks` only
+advances on ticks the survivor was fed and not exerting, so a run spent starving and sprinting heals
+nothing however many days pass. "Not exerting" reuses `stamina.ticksUntilRecovery`, the signal
+stamina recovery already uses, so exertion has one definition here rather than two. **An open wound
+does not knit** — stopping the bleeding is what starts the clock, which is what makes Part B's two
+verbs matter beyond the blood-loss arithmetic. **Zero is permanent:** a part reduced to nothing never
+returns, which is what makes docs/05's "one-armed survivor" a real outcome and what stops an
+amputation growing back overnight — `infection.amputate` needs no special case, it writes 0 and 0 is
+the floor. And overwork bites back: sprinting on a deep wound less than a quarter healed tears it
+open, deterministically and only for that narrow case, so the rule is learnable.
+
+Two long-standing defects in `jobs.gd` went with it. `_injured` compared raw integrity against a flat
+`< 30` across parts that do not share a scale, so a healthy 15-max head and every 10-max hand read as
+injured — *every* survivor was always a Doctor candidate, which is not a threshold — and it walked
+six parts of ten. It now compares `SimHealth.part_state`, the one canonical normaliser. `_treat`
+destroyed a bandage without consuming it whenever the stockpile fallback's `stow` failed, and healed
+anyway; the fetch now puts the item back on the floor if it cannot be carried, and the effect leaf
+`SimWounds.dress_worst` is shared with the player's channel so the two intakes cannot drift again.
+
+Survivors who are not the player now also press on their own wounds (`treatment.self-aid`, routed
+through the same `context` the `T` key uses). A deep wound bleeds out in five thousand ticks and the
+Doctor job has to notice, path and arrive; a person with an open artery does not wait for a doctor.
+`SAVE_VERSION` is 16. Gate: `npm run godot:m2:recovery` — `M2_RECOVERY_OK`, twelve assertions, each
+with a true negative; five re-verified by breaking the code and watching the matching line go red.
+
 **But `SimShambler.GRABS_ENABLED` is `false`, and that is the finding, not a hedge.** A bite rolls
 over all ten survivor parts, and **nothing in this simulation raises a body part's integrity except
 `jobs.gd`'s `_treat()`, which heals the torso and only the torso.** Head, arms, hands, legs and feet
@@ -222,9 +254,25 @@ balance tier seed 404 goes from 0 deaths to a wiped colony, failing `M2_BALANCE`
 2/2, and by instrumenting a real campaign (19 grabs, 17 autonomous struggles, 15 releases — the loop
 is healthy, the arithmetic is not). Neither tuning bite damage nor loosening the invariant would have
 been honest, so this follows `SimMelee.REFUSE_EXHAUSTED_SWINGS`: complete, fully exercised by its
-gate, off until the thing that makes it survivable exists. **The flip belongs in the same change that
-gives wounds a recovery clock** — the next slice — and `_the_flag_actually_gates_acquisition()` is
-the assertion that will notice when it happens.
+gate, off until the thing that makes it survivable exists. `_the_flag_actually_gates_acquisition()`
+is the assertion that will notice when it happens.
+
+**Correction, measured in the recovery slice: recovery was not the thing.** The paragraph above used
+to end "the flip belongs in the same change that gives wounds a recovery clock." That slice was
+built, the flag was flipped, and the fast balance tier still failed — *worse* than before, seeds 404
+**and** 90210 wiped where only 404 had. Instrumenting seed 404 tick by tick says why, and it is not
+attrition: **both survivors died on day one with their heads destroyed** — `cause=head`, 22 bites,
+18 grabs, zero blood-loss deaths, zero treatments, in a campaign that never reached day 2. A head is
+15 and `BITE_DAMAGE` is 8, so a held survivor is two head bites from dead and
+`SURVIVOR_HIT_LOCATION_WEIGHTS` sends one bite in five at the head. No amount of healing answers
+that; nothing heals in the ninety seconds between the first bite and the second. The original
+"cumulative, not hard" reading described a slower failure than the one that actually happens.
+
+So the flip is **not** waiting on recovery, which now exists. It is waiting on a decision about
+bite lethality during a hold — the candidates are the head's hit weight, `BITE_DAMAGE` against small
+parts, the escape contest's odds, or `REPEAT_BITE_TICKS` — and that is a design call about how the
+game should feel, not a bug to fix quietly. Recovery is still worth having on its own merits; it is
+just not the key to this lock.
 
 **What the flip makes reachable rather than builds:** `health.gd`'s located wound with its
 presentation lie, `infection.gd`'s armour-reduced transmission and private `transmitted` flag, the
@@ -1018,11 +1066,13 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       `CRAWL_SPEED_FACTOR` became an `injury.crippled` modifier, which is what its own comment said
       it wanted to be and could not.)*
 - [x] **Grabs, and breaking free** — and with them, bite risk
-      *(**ported to Godot but switched off** — `SimShambler.GRABS_ENABLED` is `false` until wounds
-      have a recovery clock, because nothing heals a limb yet and a repeating damage source is then
-      merely cumulative. Read the contact note under "Where things stand" before flipping it. The
-      code is complete and `M2_CONTACT_OK` exercises all of it; cripple and stagger from that same
-      omitted block are still unported.)*
+      *(**ported to Godot but switched off** — `SimShambler.GRABS_ENABLED` is `false`. It was
+      believed to be waiting on a recovery clock; recovery now exists (`M2_RECOVERY_OK`) and
+      flipping the flag still fails the fast balance tier, because survivors die on day one to
+      **head bites**, not to attrition. Read the correction in the contact note under "Where things
+      stand" before flipping it — the open question is bite lethality during a hold, not healing.
+      The code is complete and `M2_CONTACT_OK` exercises all of it; cripple and stagger from that
+      same omitted block are still unported.)*
       *(actual hold range is 1 m, separate from 1.6 m pursuit contact so weapon reach remains real.
       A hold pins movement, interrupts wind-up and makes `F` a one-second, 20-stamina struggle.
       Additional grab strength progressively lowers escape chance without making it impossible;
@@ -1263,8 +1313,9 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       `sim/modules/treatment.gd` — pressure suppresses while held and clots only if carried to
       term, a bandage costs a dressing at completion and survives the stagger that would have cost
       a hold, and both cancel on `entity.staggered`, on `grab.started`, and when the patient leaves
-      reach. **Clean, close and rest do not exist.** `npm run godot:m2:treatment` —
-      `M2_TREATMENT_OK`.)*
+      reach. **Rest** is now real too, as the gate on recovery rather than as a step: a wound only
+      knits on ticks the survivor is fed and not exerting (`wounds.recover`, `M2_RECOVERY_OK`).
+      **Clean and close do not exist.** `npm run godot:m2:treatment` — `M2_TREATMENT_OK`.)*
 - [ ] Supply quality tiers affecting infection risk
       *(half shipped: the tiers exist as content — a flat `bandageTier` on the item schema, with
       `item.rag.dirty` / `item.bandage.cloth` / `item.medkit.field` as dirty/cloth/sterile — the
@@ -1273,6 +1324,12 @@ with their original notes, so a reader can tell "nobody got to it" from "it was 
       the half that matters; it lands with the bacterial `sepsis` condition below.)*
 - [ ] **Skill-scaled diagnosis text** — what you see depends on who's looking
 - [ ] Permanent conditions (limp, amputation) that don't remove a survivor from play
+      *(half shipped: **permanence is now mechanical** — `wounds.recover` treats zero integrity as a
+      floor, so a part destroyed or amputated never returns and a one-armed survivor stays one-armed
+      (`M2_RECOVERY_OK`, two assertions, one per route to zero). What is missing is what permanence
+      then *does*: a limp is still only a speed modifier, there is no amputation aftermath, and
+      neither reads as a pose. `SimHealth.is_crawling` already distinguishes one ruined leg from
+      two.)*
 - [ ] Diegetic readouts for the continuous conditions and stamina — breathing, weapon sway, swing
       recovery, a limp, the screen edges closing in, blood on the ground
       *(the bodies to hang these on now exist — see the character models in Milestone 0's render
