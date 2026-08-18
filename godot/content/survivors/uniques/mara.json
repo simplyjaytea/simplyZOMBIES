@@ -4,6 +4,7 @@
   "backstory": "Clinic nurse — failed pharmacy student. Reads wounds better than nothing, wastes less of a medkit.",
   "age": 34,
   "appearance": {
+    "sprite": "survivor_mara",
     "features": ["close-cropped hair", "tired eyes", "rolled sleeves", "steady hands"],
     "portrait": "res://presentation/portraits/mara.png"
   },

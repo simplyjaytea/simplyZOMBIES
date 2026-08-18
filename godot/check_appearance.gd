@@ -127,10 +127,23 @@ func _tints_come_from_content_not_code() -> bool:
 		if (look["tint"] as Color) != got:
 			push_error("%s: for_entity did not use the content tint" % id)
 			return false
-	# And a type that declares nothing still differs from one that does.
+	# The shambler is the one type with real art on disk and no declared tint: it must
+	# resolve its texture and pass through white, unstained by the wanderer role colour.
+	# (The declares-nothing fallback keeps its own true positive above, via the unknown type.)
 	var shambler: Dictionary = Appearance.for_entity(w, {"ztype": "zombie.shambler"})
-	if (shambler["tint"] as Color) != Palette.COLOURS["wanderer"]:
-		push_error("zombie.shambler declares no tint and should use the wanderer role colour")
+	if shambler["texture"] == null:
+		push_error("zombie.shambler declares appearance.sprite but resolved no texture")
+		return false
+	if (shambler["tint"] as Color) != Color.WHITE:
+		push_error("zombie.shambler's art declares no tint and must draw white, got %s" % str(shambler["tint"]))
+		return false
+	# Mara exercises the survivor cid path the same way: real art, no tint, drawn as painted.
+	var mara: Dictionary = Appearance.for_entity(w, {"unique": true, "cid": "survivor.unique.mara"})
+	if mara["texture"] == null:
+		push_error("survivor.unique.mara declares appearance.sprite but resolved no texture")
+		return false
+	if (mara["tint"] as Color) != Color.WHITE:
+		push_error("survivor.unique.mara's art declares no tint and must draw white, got %s" % str(mara["tint"]))
 		return false
 	print("TINTS OK")
 	return true
