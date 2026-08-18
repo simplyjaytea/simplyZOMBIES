@@ -28,7 +28,7 @@
 | test/unit/events.test.ts | exact-port | godot/sim/event_bus.gd | publish + per-tick drain order |
 | test/unit/facing.test.ts | exact-port | godot/sim/spatial/hash.gd | facing / octant |
 | test/unit/grid.test.ts | exact-port | godot/sim/inventory/grid.gd | footprint/bounds/fits/find/occupancy |
-| test/unit/handoff.test.ts | replacement | npm run handoff:regroup (same file) | checks HANDOFF grouping — Godot has no HANDOFF twin |
+| test/unit/handoff.test.ts | retired | — | checked HANDOFF.md grouping; removed with HANDOFF.md itself (status folded into docs/23) |
 | test/unit/health.test.ts | exact-port | godot/sim/modules/health.gd | 6-part body + condition view boundary |
 | test/unit/humanoid.test.ts | exact-port | godot/bench/bench.gd (headless cost) | atlas/pose headless — canvas raster obsolete in Godot (presentation draws) |
 | test/unit/input.test.ts | exact-port | godot/presentation/main.gd MOVE_KEYS + _pump_input | screen-relative diagonal + stance keys Z/X/C/V |

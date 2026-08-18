@@ -11,16 +11,20 @@ This repo is the game **simplyZOMBIES**.
   kept as a **frozen reference**. It is not the shipped product and must not gain features, but
   it is still in the tree and **still gated by CI**: the `check` job runs `npm test`,
   `npm run typecheck`, `npm run lint` and `npm run format:check` against it, and `performance`
-  runs `npm run bench` / `npm run bench:frame`. All of it is currently green (46 files, 599
+  runs `npm run bench` / `npm run bench:frame`. All of it is currently green (45 files, 594
   tests). `npm run dev` serves it via Vite on `127.0.0.1:5174` if you need to look at it.
 
 Standard commands live in `package.json` scripts, `README.md`, and `.github/workflows/ci.yml`;
 use those as the source of truth.
 
-## Current work handoff
+## Current work
 
-`HANDOFF.md` remains the authority on implemented reality. The active design record is
+[docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) is the authority
+on implemented reality — each claim there names the gate that proves it. (`HANDOFF.md` was retired
+into it; the itemised backlog history is in git.) The active design record is
 `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is **not** implementation evidence.
+`CONTEXT.md` holds the slice vocabulary — what to call needs, jobs, stances, and their states — so
+prose and code stay in one language.
 
 - Pause new NPCs and adjacent feature scope. Mara remains the sole test survivor.
 - **The survival loop is built and switched off.** Wounds carry a severity and bleed
@@ -31,8 +35,8 @@ use those as the source of truth.
 - **The next step is a design decision, not code.** Flipping that flag wipes colonies on day one
   to head bites (measured: seed 404, `cause=head`, 22 bites, zero blood-loss deaths). The levers
   are head hit weight, `BITE_DAMAGE` against small parts, escape odds, and `REPEAT_BITE_TICKS`.
-  **Do not pick one unilaterally** — see the correction in HANDOFF's contact note and the "Where
-  the work is" section of `CLAUDE.md`.
+  **Do not pick one unilaterally** — see the full measurement in docs/23's Milestone 2 status
+  section and the "Where the work is" section of `CLAUDE.md`.
 - Do not mark any survival item done until code and a focused Godot check exist. The full balance
   grid and ten-day playtest remain required proof, deferred rather than cancelled.
 - Keep effects sim-owned and command-driven; preserve sim/presentation separation and the

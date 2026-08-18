@@ -72,8 +72,8 @@ var _fast: bool = OS.get_environment("BALANCE_FULL") != "1"
 # roughly **nine hours**.
 #
 # That is why the tier is opt-in and why these two knobs exist: scale it down to exercise the
-# code path, scale it back up when you want the numbers. Anything recorded in HANDOFF as a
-# *result* must come from a run at the full DAYS.
+# code path, scale it back up when you want the numbers. Anything recorded in docs/23's status
+# section as a *result* must come from a run at the full DAYS.
 var _days: int = int(OS.get_environment("BALANCE_DAYS")) if OS.get_environment("BALANCE_DAYS") != "" else DAYS
 var _seeds: int = int(OS.get_environment("BALANCE_SEEDS")) if OS.get_environment("BALANCE_SEEDS") != "" else 0
 
@@ -375,7 +375,7 @@ func _assert_the_seed_moves_placement(runs: Array[Dictionary]) -> bool:
 	return true
 
 
-# Closes HANDOFF's "run ends only when the last survivor dies". Both directions: a run that
+# Closes the backlog's "run ends only when the last survivor dies". Both directions: a run that
 # ended must have been wiped out, and a colony that was wiped out must have ended.
 func _assert_run_over_iff_wiped(runs: Array[Dictionary]) -> bool:
 	var ok: bool = true

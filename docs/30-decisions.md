@@ -5,7 +5,8 @@
 Every chunk of work in this project has produced a handful of decisions that were cheap to make at the
 time and would be expensive to reverse later. They are not design decisions — [docs/00](00-vision.md)
 through [docs/29](29-movement-and-stances.md) own those — and they are not transition sequencing,
-which [docs/31](31-godot-rebuild-roadmap.md) owns, or status, which [HANDOFF.md](../HANDOFF.md) owns.
+which [docs/31](31-godot-rebuild-roadmap.md) owns, or status, which
+[docs/23's milestone status sections](23-roadmap.md#where-milestone-2-stands) own.
 They are the things the *code* made structural: an invariant that is now enforced rather than
 intended, a mechanism that turned out to be the only one that works, or a prediction that was wrong
 and is worth having on the record as wrong.
@@ -17,7 +18,8 @@ they were two thirds of a document people needed to read for its status. So they
 like it was made by accident. Most of them were not. If you are about to "improve" one, the entry
 usually says what breaks.
 
-**Do not read this for orientation.** [HANDOFF.md](../HANDOFF.md) is where to start cold.
+**Do not read this for orientation.** `CLAUDE.md` and [docs/23](23-roadmap.md) are where to start
+cold.
 
 Entries are in the order the work landed, oldest first. Add to the end.
 
@@ -506,7 +508,9 @@ about.
   checkboxes beneath it, that no ticked box sits in an `Open` group, and that the milestone table's rows
   sum to its total. It exists because the counts drifted within one session of being written — ticking
   four boxes left them filed under `Open` — which is the same class of drift that deleting `TODO.md` was
-  meant to end. `npm run handoff:regroup` is the fixer, and it is idempotent.
+  meant to end. `npm run handoff:regroup` is the fixer, and it is idempotent. *(2026-08: the test,
+  the fixer, and HANDOFF.md itself were all retired; condensed status now lives in docs/23 and the
+  itemised record in git history.)*
 
 ## What the stance ladder and the condition view made structural
 
@@ -749,9 +753,11 @@ about.
   happened — four times.
 - **Evidence per box is what makes an audit possible.** Most `[x]` items already carried an
   italic note naming the gate or file, which is the only reason this audit was tractable
-  rather than archaeology. `check_handoff.gd` now requires it for Milestone 2, so a tick is
-  a falsifiable claim instead of an assertion taken on faith. It cannot verify truth —
-  nothing cheap can — but it puts the next reader one `npm run` from checking.
+  rather than archaeology. `check_handoff.gd` required it for Milestone 2, so a tick was
+  a falsifiable claim instead of an assertion taken on faith. It could not verify truth —
+  nothing cheap can — but it put the next reader one `npm run` from checking. *(2026-08: gate
+  retired with HANDOFF.md; the evidence-per-claim rule carries on in docs/23's status section,
+  where every "landed" names its gate.)*
 - **Scoped to the live milestone.** Milestones 0 and 1 are closed and their boxes predate the
   convention; the first draft of the gate demanded 41 retrofitted notes on finished work.
   Drift only matters where the work is still moving.
@@ -794,4 +800,4 @@ about.
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
 **Next:** [31 — Godot Rebuild Roadmap](31-godot-rebuild-roadmap.md) ·
-[HANDOFF.md](../HANDOFF.md) · [Doc index](../README.md#documentation)
+[Doc index](../README.md#documentation)
