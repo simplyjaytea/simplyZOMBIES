@@ -23,15 +23,25 @@ use those as the source of truth.
 `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is **not** implementation evidence.
 
 - Pause new NPCs and adjacent feature scope. Mara remains the sole test survivor.
-- Current product focus: survival systems — wounds, treatment, stamina, and recovery.
-- The first survival loop is being specified before code: damaging zombie hits create located
-  wounds; pressure/bandaging, recovery, and stamina must remain deterministic simulation state;
-  player readouts stay diegetic and prose-only.
+- **The survival loop is built and switched off.** Wounds carry a severity and bleed
+  (`M2_WOUNDS_OK`), pressure and bandaging stop them and the five infection verbs are reachable
+  by command (`M2_TREATMENT_OK`), and recovery closes wounds and climbs integrity back
+  (`M2_RECOVERY_OK`). `SimShambler.GRABS_ENABLED` is still `false`, so nothing wounds a survivor
+  in ordinary play.
+- **The next step is a design decision, not code.** Flipping that flag wipes colonies on day one
+  to head bites (measured: seed 404, `cause=head`, 22 bites, zero blood-loss deaths). The levers
+  are head hit weight, `BITE_DAMAGE` against small parts, escape odds, and `REPEAT_BITE_TICKS`.
+  **Do not pick one unilaterally** — see the correction in HANDOFF's contact note and the "Where
+  the work is" section of `CLAUDE.md`.
 - Do not mark any survival item done until code and a focused Godot check exist. The full balance
-  grid and ten-day playtest remain required proof, deferred behind this focused loop rather than
-  cancelled.
-- Before implementing new survival behavior, finish the contract in the plan and write the
-  reproducible 72-hour scenario. Preserve sim/presentation separation and the health-bar ban.
+  grid and ten-day playtest remain required proof, deferred rather than cancelled.
+- Keep effects sim-owned and command-driven; preserve sim/presentation separation and the
+  health-bar ban. Player readouts stay diegetic and prose-only.
+
+This section used to say the loop was "being specified before code" and that a reproducible
+72-hour scenario had to be written before any survival behaviour landed. Five slices went in
+without it, each gated instead by a focused Godot check with true negatives. The scenario is still
+worth having; it was not the thing that made the work verifiable.
 
 ## Two different containers, two different starting states
 
@@ -86,6 +96,11 @@ DISPLAY=:1 npm run godot:run          # or npm run godot:editor
   run and will sit over the middle of the screen until dismissed.
 
 ### Screenshots
+
+A warning on checking whether a display already exists: `pgrep -f Xvfb` matches **your own shell
+command** (the pattern is in its argv), so it reports a running server when there is none. Test the
+display, not the process list — run the capture and read the error, or pick a fresh number
+(`Xvfb :2 …`) and pass it explicitly.
 
 There is no `scrot`, `imagemagick`, `xwd` or `ffmpeg` in these containers. Capture through Godot
 instead: write a throwaway `SceneTree` script that instantiates `res://presentation/main.tscn`
