@@ -30,6 +30,47 @@ extends RefCounted
 # system, _cancel driven by subscriptions to entity.staggered and grab.started. The swing
 # and fire state machines are the wrong template -- a channel is one committed span with a
 # cancel, not a multi-phase cycle.
+#
+# --- one hand on your own wound, while somebody has hold of you ------------------------
+#
+# `_can_channel` used to refuse everything to a `grabbed` body, and that reading of "you cannot
+# work on a wound with a zombie on your arm" cost a colony. The balance harness measured it: a
+# held survivor spent two thirds of their life bleeding and forbidden from answering it, and both
+# seeds that wiped wiped by blood loss. The fiction was also only half right. You cannot kneel and
+# dress somebody's leg inside a grapple. You can clamp your own free hand over your own arm and
+# hold it there, badly, while the rest of you fights -- and that is what first aid is at its most
+# basic, which is exactly the verb pressure already models.
+#
+# So one channel is legal while held, and the arbitration is written out here rather than left to
+# be inferred, because seven separate rules meet at it and each is gate-asserted (AID-HELD and
+# HELD-CONTEXT in check_m2_treatment.gd, the four ARBITRATION assertions in check_m2_contact.gd):
+#
+#   R1  While `grabbed`, exactly one channel is legal: `pressure` with patient == actor. Bandage,
+#       surgery, and anything aimed at another body still refuse -- at begin *and* on the per-tick
+#       re-check, because a channel begun free must also end when a hold makes it illegal.
+#   R2  `grab.started` cancels every channel touching the victim *except* the victim's own
+#       self-pressure. A second holder does not peel your palm off your own wound; a free treater
+#       whose patient has just been grabbed does lose the dressing.
+#   R3  `entity.staggered` still cancels everything, held self-pressure included. Being knocked
+#       off your feet is the one thing that takes your own hand off your own arm.
+#   R4  Struggle and self-pressure coexist -- `_arm_struggle` is not consulted here and does not
+#       consult this. Pressing is not "your action" for the hold; a survivor who had to choose
+#       between the two would either bleed out or never get free.
+#   R5  On a mid-channel escape `treatment.pin` outranks `breakAway` (same phase and order,
+#       alphabetical tie-break, and treatment.pin's zero lands last). Tear free mid-press and you
+#       stay on the wound; flight happens between channels, not during one.
+#   R6  `treatment.self-aid` will not *start* a channel while `breakAway` is running: get clear
+#       first, then kneel. R5 and R6 are not in tension -- one is about a press already paid for,
+#       the other about opening a new one.
+#   R7  `context()` picks `pressure` while the actor is grabbed even when they are carrying a
+#       dressing, or a held bandage-carrier would be refused every tick and never treat anything.
+#
+# Why coexistence rather than "pressing costs you the hold": every new hold resets the bite clock
+# (`_start_grab` writes a fresh ticksUntilBite), and a struggle cycle resolves at ~17-33 ticks with
+# p 0.667, so a press that suppressed struggling would take roughly five bites across a 400-tick
+# deep-wound hold and never end. Coexisting, the press runs across grab and escape cycles, the
+# bleed is suppressed the whole time it is held (wounds.bleed reads `treated` directly), and it
+# clots at completion.
 
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
@@ -105,6 +146,13 @@ static func register_module(world: Variant) -> void:
 				continue
 			if w.components.has_component(e, "corpse") or w.components.has_component(e, "treatment") or w.components.has_component(e, "treated"):
 				continue
+			# R6: somebody who has just torn free of a hold is running, not kneeling. Without this
+			# the press would open on the tick of the escape and treatment.pin would immediately
+			# outrank breakAway (R5) -- the survivor would stand exactly where they escaped from
+			# and press, which is the treadmill the break-away exists to end. A press already paid
+			# for survives an escape; a new one waits the 26 ticks out.
+			if w.components.has_component(e, "breakAway"):
+				continue
 			if _worst_bleeding_part(w, e) == "":
 				continue
 			context(w, e)
@@ -131,7 +179,7 @@ static func register_module(world: Variant) -> void:
 		_interrupt(world, int(event.get("entity", -1)))
 	})
 	world.events.subscribe({"id": "treatment.grab-interrupts", "type": "grab.started", "handler": func(event: Dictionary) -> void:
-		_interrupt(world, int(event.get("victim", -1)))
+		_interrupt_grab(world, int(event.get("victim", -1)))
 	})
 
 
@@ -143,7 +191,7 @@ static func register_module(world: Variant) -> void:
 static func begin(world: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
 	if not CHANNEL_VERBS.has(verb):
 		return {"ok": false, "reason": "unknown-verb"}
-	var pre: Dictionary = _can_begin(world, actor, patient)
+	var pre: Dictionary = _can_begin(world, actor, patient, verb)
 	if not bool(pre.get("ok", false)):
 		return pre
 
@@ -171,7 +219,9 @@ static func begin(world: Variant, actor: int, patient: int, part: String, verb: 
 # verbs go through the channel first and are answered by SimInfection at completion.
 static func respond(world: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
 	if SURGERY_VERBS.has(verb):
-		var pre: Dictionary = _can_begin(world, actor, patient)
+		# Passed for symmetry and for the next reader: surgery is never self-pressure, so this
+		# still refuses a held actor, which is R1 and is the point.
+		var pre: Dictionary = _can_begin(world, actor, patient, verb)
 		if not bool(pre.get("ok", false)):
 			return pre
 		_engage(world, actor, patient, part, verb, int(SURGERY_TICKS.get(verb, 0)))
@@ -205,7 +255,14 @@ static func context(world: Variant, actor: int) -> Dictionary:
 		return {"ok": false, "reason": "nothing-to-treat"}
 	# Reach for a dressing when there is one: it costs supply and time, and it is the only
 	# one of the two that survives being interrupted.
-	var verb: String = "bandage" if String(_best_bandage(world, actor).get("tier", "")) != "" else "pressure"
+	#
+	# R7: not while somebody has hold of you. A held survivor carrying a sterile dressing would
+	# otherwise pick `bandage` every tick, be refused `cannot-channel` every tick by R1, and bleed
+	# to death with the answer in their pack -- the pick has to know what is actually legal, and
+	# the one thing that is legal held is a hand on your own wound.
+	var verb: String = "pressure"
+	if not world.components.has_component(actor, "grabbed") and String(_best_bandage(world, actor).get("tier", "")) != "":
+		verb = "bandage"
 	return begin(world, actor, target, part, verb)
 
 
@@ -281,7 +338,12 @@ static func _tick_channel(world: Variant, entity: int) -> void:
 	# treater is pinned by treatment.pin, so this fires when the *patient* is moved by
 	# something else -- dragged by a grab, carried, teleported by a scenario -- which is
 	# exactly the case where the dressing should come apart.
-	if not _can_channel(world, entity) or (patient != entity and not _in_reach(world, entity, patient)):
+	# The R1 exemption is re-derived from the running channel's own state rather than remembered
+	# from begin-time, so a channel cannot carry a permission it would no longer be granted: a
+	# bandage that was legal when it started is cancelled the moment a hand closes on the treater,
+	# while a self-press keeps running.
+	var self_press: bool = String(state.get("verb", "")) == "pressure" and patient == entity
+	if not _can_channel(world, entity, self_press) or (patient != entity and not _in_reach(world, entity, patient)):
 		_refuse(world, entity, String(state.get("verb", "")), "interrupted")
 		cancel(world, entity)
 		return
@@ -338,6 +400,32 @@ static func _interrupt(world: Variant, entity: int) -> void:
 		cancel(world, int((treated as Dictionary).get("treater", -1)))
 
 
+# R2. A grab is not a stagger, and this is the one place the two part company. Everything a new
+# hold touches comes apart -- the victim's own bandage, the dressing somebody else was holding on
+# them -- except the victim pressing on their own wound, which is the thing they are allowed to
+# keep doing (R1) and which a second set of hands closing on them does not physically undo.
+#
+# Both branches are needed and neither subsumes the other: the first is the victim as treater, the
+# second the victim as patient. `treater != entity` is what separates a self-press (kept) from
+# someone else's dressing on a newly grabbed patient (cancelled) in the second branch, and the
+# first branch has already removed a self-*bandage*'s `treated` by the time we look.
+static func _interrupt_grab(world: Variant, entity: int) -> void:
+	if entity < 0:
+		return
+	var running: Variant = world.components.get_component(entity, "treatment")
+	if running is Dictionary and not _is_self_pressure(running as Dictionary, entity):
+		cancel(world, entity)
+	var treated: Variant = world.components.get_component(entity, "treated")
+	if treated is Dictionary:
+		var treater: int = int((treated as Dictionary).get("treater", -1))
+		if treater != entity:
+			cancel(world, treater)
+
+
+static func _is_self_pressure(state: Dictionary, entity: int) -> bool:
+	return String(state.get("verb", "")) == "pressure" and int(state.get("patient", -1)) == entity
+
+
 # --- infection routing ----------------------------------------------------------------
 
 static func _invoke_infection(world: Variant, patient: int, part: String, verb: String) -> Dictionary:
@@ -366,24 +454,35 @@ static func _invoke_infection(world: Variant, patient: int, part: String, verb: 
 
 # --- preconditions --------------------------------------------------------------------
 
-static func _can_begin(world: Variant, actor: int, patient: int) -> Dictionary:
+# `verb` is optional only so that a caller with nothing to declare cannot accidentally claim the
+# R1 exemption: no verb means no exemption, which is the safe direction. The three real callers
+# (begin, respond's surgery branch, _dry_run) all pass theirs.
+static func _can_begin(world: Variant, actor: int, patient: int, verb: String = "") -> Dictionary:
 	if world.components.has_component(actor, "treatment"):
 		return {"ok": false, "reason": "busy"}
 	if world.components.has_component(patient, "treated"):
 		return {"ok": false, "reason": "patient-busy"}
-	if not _can_channel(world, actor):
+	if not _can_channel(world, actor, verb == "pressure" and actor == patient):
 		return {"ok": false, "reason": "cannot-channel"}
 	if actor != patient and not _in_reach(world, actor, patient):
 		return {"ok": false, "reason": "out-of-reach"}
 	return {"ok": true}
 
 
-# fortify._can_channel, verbatim in effect: no channelling while held, and none from a crawl
-# or a sprint. Both halves became real when Slice 1 landed -- before it, `grabbed` was
-# written nowhere and `posture.current` never moved off Walk.
-static func _can_channel(world: Variant, entity: int) -> bool:
+# No channelling from a crawl or a sprint, and none at all while held -- with the single R1
+# exemption the caller has to ask for by name. `self_pressure` is not a "let me through" flag a
+# caller may set to taste: every call site derives it from the verb and the patient, so the only
+# thing it can ever unlock is a hand on the actor's own wound.
+#
+# The posture clause is deliberately skipped rather than also checked on the held path, and that
+# is a judgement worth stating: a survivor who was sprinting when a hand closed on them is pinned
+# by shambler.pin from that tick on, so the sprint is a stale reading of a body that is no longer
+# going anywhere. Refusing on it would make aid-while-held depend on what you were doing a tick
+# before you got grabbed. fortify.gd keeps its own copy of this check, unchanged and unexempted --
+# boarding a window with a zombie on your arm remains exactly as illegal as it sounds.
+static func _can_channel(world: Variant, entity: int, self_pressure: bool = false) -> bool:
 	if world.components.has_component(entity, "grabbed"):
-		return false
+		return self_pressure
 	var posture: Variant = world.components.get_component(entity, "posture")
 	if posture == null:
 		return true
@@ -478,7 +577,7 @@ static func options_for(world: Variant, actor: int, patient: int, part: String) 
 
 
 static func _dry_run(world: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
-	var pre: Dictionary = _can_begin(world, actor, patient)
+	var pre: Dictionary = _can_begin(world, actor, patient, verb)
 	if not bool(pre.get("ok", false)):
 		return pre
 	if _worst_open_wound(world, patient, part) == null:

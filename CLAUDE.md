@@ -108,7 +108,7 @@ with a severity, it bleeds, you stop it with your hands or a dressing, and it me
 have to earn by eating and resting.
 
 **None of it is reachable in ordinary play, because `SimShambler.GRABS_ENABLED` is `false`, and the
-reason has now changed four times.** The first note said the flip waited on a recovery clock;
+reason has now changed five times.** The first note said the flip waited on a recovery clock;
 recovery shipped, the flag was flipped, and the balance tier failed worse. The second, measured
 reason was that a held survivor was being executed — a head is 15, `BITE_DAMAGE` was a flat 8, and
 one bite in five aimed at the head. **Answered** by four levers landing together:
@@ -136,18 +136,27 @@ NPC rescue-first branch in `npc.combat`, and the new `grab.broken {victim, by, c
 after with one driver: empty-tank ticks fall 38.3% → 13.3% on seed 404 and 48.9% → 0.0% on 90210,
 with 71 and 136 escapes won.
 
-**The flag is still `false`, and the fifth reason is that contact is relentless and a held body
-cannot treat itself.** Seeds 404 and 90210 still end `0/2` by blood loss. On 404 a colonist is held
-for 64.7% of their living ticks across **149 separate grabs**, and `treatment._can_channel` refuses
-first aid to a `grabbed` survivor — so two thirds of that life is spent bleeding and unable to
-answer it. Rescue cannot help there: over 2,610 held ticks the nearest free colonist was **never
-within 6 m** (closest approach 6.41 m; 11.17 m on 90210), which is the same wall holder-first
-targeting hit one lever earlier — a two-person colony spread across a district never has a second
-body standing next to the first. The levers left — contact rarity or the re-grab churn, and what a
-survivor may do about a wound while held — are design calls, so **do not pick one unilaterally**,
-and relaxing `survivors_end >= 1` has been considered and rejected.
-[docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
-measurement, seed by seed.
+The fifth reason was that contact is relentless and a held body cannot treat itself, and **both
+halves have now been built — one of them works, the other is cancelled by it.** A held survivor may
+answer their own bleeding: `treatment._can_channel` grants exactly one channel while `grabbed`,
+`pressure` on yourself, under seven named arbitration rules written out at the top of `treatment.gd`
+(R1–R7 — `AID-HELD`/`HELD-CONTEXT` in the treatment gate, `PRESS-THROUGH`/`STRUGGLE-DURING-PRESS`/
+`REGRAB-SPARES-PRESS`/`BREAKAWAY-DEFER` in the contact gate). And the re-grab treadmill turned out
+to be a speed bug — `BREAK_AWAY_SPEED` was 1.6 against a 1.68 seek, so the holder *gained* on
+somebody who had just escaped it — fixed at 2.1 and pinned by `CLEAR-AWAY`.
+
+**The flag is still `false`.** Aid-while-held delivers: presses completed while held go 0 → 20 and
+16 on the two hard seeds, presses destroyed by an arriving hold go 46/55/125 → **zero**, and 404's
+colony lives 45% longer. But 404 and 90210 still end `0/2` by blood loss, and the instrumentation
+names why rather than guessing: **R5 (a press outranks a break-away) cancels the churn fix for
+exactly the survivors using the aid.** On 404, 94 of 120 escapes happen mid-press, and of the 91
+inter-grab windows following one, 89 are exactly `REGRAB_COOLDOWN_TICKS` and **none exceeds it**,
+against 4 of 27 that do after a free escape; 90210 says the same. So total grabs rose (149 → 214,
+149 → 212) instead of falling. The candidates from here — let a break-away outrank a running press,
+cancel a press on escape and let R6 re-open it, or leave R5 and cut contact rarity — are design
+calls, so **do not pick one unilaterally**, and relaxing `survivors_end >= 1` has been considered
+and rejected. [docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands)
+carries the full measurement, seed by seed.
 
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
 not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are

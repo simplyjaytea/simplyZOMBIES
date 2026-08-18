@@ -58,16 +58,20 @@ descriptive body-part view rather than a health bar.
 
 The full injury loop — grabs that pin, bites that make located bleeding wounds, pressure and
 bandaging, recovery over days you have to earn — is **built and gated but switched off** for one
-more turn. Two of the reasons it was off have been answered. A bite during a hold now aims where the
-hands already are, comes four seconds apart rather than two, and takes a share of the part it lands
-on, so a held survivor is no longer two rolls from a destroyed head; and the colony fights for
+more turn. Four of the reasons it was off have been answered. A bite during a hold now aims where
+the hands already are, comes four seconds apart rather than two, and takes a share of the part it
+lands on, so a held survivor is no longer two rolls from a destroyed head; and the colony fights for
 itself now — anyone held struggles on instinct if nobody answers for them, everybody starts with
 something in their hands rather than in their pack, and a survivor with a weapon shoots whatever has
-hold of a neighbour before whatever is merely nearest. And an escape is no longer something you can
+hold of a neighbour before whatever is merely nearest. An escape is no longer something you can
 run out of money for: you get your breath back while you are held, and somebody standing next to you
-can haul you out of a grip with their bare hands (`H`). What is left is not a number but a question
-nobody should answer alone — contact is relentless, and you cannot press on a wound while a zombie
-still has your arm. It is recorded in full in
+can haul you out of a grip with their bare hands (`H`). And you are no longer forbidden from doing
+anything about the blood — you can clamp your own hand over your own wound while somebody has hold
+of you (`T`), badly, and go on fighting to get free at the same time; tearing loose now actually
+puts distance between you, rather than leaving you standing exactly where the thing can reach you
+again. What is left is one question nobody should answer alone: those last two answers get in each
+other's way, because someone holding a wound closed stays put instead of running. It is recorded in
+full in
 [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
 
 **Godot 4.7.1 is the playable build.** The web export runs at `/` and the Windows artifact comes
@@ -93,7 +97,7 @@ in text.
 | | |
 |---|---|
 | **Move** | `WASD` walk · `Shift` sprint (fast, and loud — latches while held) · `Z`/`X`/`C`/`V` crawl, crouch, walk, jog |
-| **Act** | `F` swing, or struggle out of a grab · `H` pull someone out of a grab · `G` or click — fire · `R` reload · `E` pick up · `T` first aid (bandage if you have one, bare hands if not; again to stop) · `Space` shout — heard across the district |
+| **Act** | `F` swing, or struggle out of a grab · `H` pull someone out of a grab · `G` or click — fire · `R` reload · `E` pick up · `T` first aid (bandage if you have one, bare hands if not; again to stop — and while something has hold of you, your own bare hands on your own wound is still allowed) · `Space` shout — heard across the district |
 | **Look** | `Tab` gear and injuries (drag to move, right-click or `R` to rotate) · `J` work priorities · `O` attention overlay: noise, scent, sight, light · `M` raw developer sheets |
 | **Run** | `1`/`2`/`3` speed (1×, 3×, 10×) · `P` pause · `F5`/`F9` save and load · `F1` the key list |
 
@@ -122,7 +126,7 @@ status. Milestones close on their exit criterion, never on a feature count.
   succession, and the complete injury/uncertain-infection loop. Landed so far: lethality and
   turning, the zombie roster, ranged combat, needs/jobs/recruits, building, the director, save/load,
   the shallow skill web, and the full wound-treatment-recovery loop (currently switched off pending
-  a design decision about what an escape from a grab should cost — see
+  a design decision about how a survivor holding their own wound closed should be able to run — see
   [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open: loot tables
   and resource variety, the fuller survivor generator, mood consequences, the remaining injury
   types and treatments, world-container search, crafting consumables, and the balance grid plus a

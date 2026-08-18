@@ -107,10 +107,18 @@ const RESCUE_RETRY_TICKS: int = 20
 # balance harness lost a whole colony on 1 seed in 4: a survivor would tear free, stand exactly
 # where they were, be re-taken the moment the holder's cooldown lapsed, and pay another tankful
 # of stamina for the privilege until there was none left. The player solves this by walking away;
-# nothing in the build did it for anyone else. BREAK_AWAY_TICKS is deliberately a shade longer
-# than the re-grab cooldown so the separation outlives it.
+# nothing in the build did it for anyone else.
+#
+# BREAK_AWAY_TICKS being a shade longer than the re-grab cooldown is necessary and was never
+# sufficient, and for one slice this comment claimed otherwise. What decides whether separation
+# survives the cooldown is the *speed*, not the duration: both bodies are pinned for the whole
+# hold, so a release starts from at most GRAB_METRES, and if the escapee is slower than the
+# shambler's seek the gap closes no matter how long the running lasts. It was, by 0.08 m/s, and
+# the instrumentation showed exactly what that predicts -- a median inter-grab window of 20
+# ticks, the re-grab landing on the very tick the cooldown lapsed, 149 separate holds on one
+# victim in a ten-day compressed campaign. See BREAK_AWAY_SPEED for the arithmetic that fixes it.
 
-# Grabs are still off by default, and the reason has changed four times now. The first two were
+# Grabs are still off by default, and the reason has changed five times now. The first two were
 # guesses; every one since has been measured, and the measurement is the point of the note.
 #
 # Reason one (retired): "the flip waits on a recovery clock" -- a bite rolled over all ten parts
@@ -147,24 +155,37 @@ const RESCUE_RETRY_TICKS: int = 20
 # STRUGGLE_STAMINA falls from 38.3% to 13.3%, and on 90210 from 48.9% to 0.0%, while struggles won
 # go from none the instrumentation could see to 71 and 136.
 #
-# Reason five, which is where it now sits, and which is again a design call rather than a bug:
-# *the hold itself is too frequent, and a held body cannot treat the bleeding.* 404 and 90210
-# still end 0/2, both by blood loss, and the numbers say why. On 404 a colonist is held for 64.7%
-# of their living ticks across 149 separate grabs, and treatment._can_channel refuses first aid to
-# a held body (correctly -- you cannot press on a wound with a zombie on your arm), so two thirds
-# of that survivor's life is time they are bleeding and cannot answer it. And the second lever
-# cannot reach: over 2,610 held ticks on 404 and 2,590 on 90210, the nearest free colonist was
-# *never* within RESCUE_METRES -- never within 6 m, in fact, with a closest approach of 6.41 m and
-# 11.17 m. Rescue is built, gated and correct (RESCUE in check_m2_contact.gd, RESCUE-FIRST in
-# check_m2_npc_combat.gd); a two-person colony spread across a district simply never has a second
-# body standing next to the first. That is the same finding holder-first targeting already ran
-# into, one lever earlier.
+# Reason five was: *the hold itself is too frequent, and a held body cannot treat the bleeding.*
+# Both halves were answered, both levers landed, and the flag still did not flip -- so this note
+# records what the levers actually bought and what they ran into, because that is the finding.
 #
-# So the levers left are contact rarity or the re-grab churn (149 grabs in ten compressed days on
-# one victim), and what a survivor may do about a wound while somebody has hold of them -- both
-# calls about how being grabbed should feel, not numbers to be picked here. Relaxing
-# `survivors_end >= 1` remains considered and rejected. docs/23's Milestone 2 status carries the
-# measurement seed by seed.
+# The aid half is answered and it works. `treatment._can_channel` now grants exactly one channel
+# to a held body, a hand on your own wound (R1-R7 are written out at the top of treatment.gd;
+# AID-HELD and HELD-CONTEXT in check_m2_treatment.gd, PRESS-THROUGH and STRUGGLE-DURING-PRESS
+# here). Measured on the same four seeds with the flag forced on, before against after: presses
+# *completed while held* go from 0 on every seed to 20 on 404 and 16 on 90210, presses destroyed
+# by an arriving hold go from 46/55/125 to **zero**, and on 404 the colony's living ticks rise
+# 45% (4,032 -> 5,863). A held survivor is no longer a survivor with no legal answer.
+#
+# The churn half is answered *in isolation* and cancelled *in play*, and that is the honest state
+# of it. BREAK_AWAY_SPEED 1.6 -> 2.1 does exactly what its note says -- CLEAR-AWAY measures 1.057 m
+# between the two bodies when the re-grab cooldown lapses, against a re-grab after 19 ticks for the
+# same survivor standing still. But R5 says a press outranks a break-away: tear free mid-press and
+# treatment.pin's zero lands after shambler.pin's run, so you stay on the wound instead of running.
+# In a real district that is most escapes. On 404, 94 of 120 escapes happen mid-press, and of the
+# 91 inter-grab windows that follow one, 89 are exactly REGRAB_COOLDOWN_TICKS and **not one exceeds
+# it**; the windows following a free escape do exceed it. 90210 says the same thing (120 of 177;
+# 112 of 117 at exactly 20, none above). So the two owner-picked levers are pulling against each
+# other: the survivors who use the aid are precisely the ones the break-away no longer moves, and
+# total grabs rose 149 -> 214 and 149 -> 212 rather than falling.
+#
+# Both seeds therefore still end 0/2 with a blood-loss death apiece, and the flag stays false.
+# What the instrumentation implicates is not contact rarity and not the aid rule -- it is the
+# arbitration between them: R5 as it stands makes Lever B unreachable for anyone using Lever A.
+# The candidates are all design calls (let a break-away outrank a running press; cancel a press on
+# escape and let R6 re-open it; or leave R5 and cut contact rarity instead), so **do not pick one
+# unilaterally**. Relaxing `survivors_end >= 1` remains considered and rejected. docs/23's
+# Milestone 2 status carries the measurement seed by seed.
 #
 # So the loop ships complete, gated and off for one more turn, the way
 # SimMelee.REFUSE_EXHAUSTED_SWINGS did: check_m2_contact.gd turns it on explicitly, so every
@@ -177,7 +198,17 @@ const RESCUE_RETRY_TICKS: int = 20
 # determinism bug, and this one is set once, at boot or by a gate, and never again.
 static var GRABS_ENABLED: bool = false
 const BREAK_AWAY_TICKS: int = 26
-const BREAK_AWAY_SPEED: float = 1.6
+# 2.1 m/s, which is SimLocomotion.WALK_SPEED -- a shove-off at your own stride, not a free sprint
+# at 6.3. The number that matters is the difference against the shambler's seek, 2.1 * 0.8 = 1.68:
+# at the old 1.6 the holder *gained* 0.08 m/s on somebody who had just escaped it, so over the
+# 20-tick REGRAB_COOLDOWN_TICKS (one second at 20 Hz) the gap shrank and the re-grab was
+# unconditional. At 2.1 the escapee gains 0.42 m/s, so the gap at cooldown expiry is d0 + 0.42 --
+# 1.34 to 1.42 m against GRAB_METRES 1.0 -- and d0 + 0.55 by the time BREAK_AWAY_TICKS runs out,
+# after which a walking NPC keeps opening it until RELEASE_METRES 3.2 drops the holder out of
+# Pursue. It is a reduction in churn rather than immunity: a release from d0 < 0.58 m can still be
+# inside reach when the cooldown lapses. CLEAR-AWAY in check_m2_contact.gd pins the speed against
+# the seek so a locomotion retune cannot quietly re-create the treadmill.
+const BREAK_AWAY_SPEED: float = 2.1
 
 const SimLocomotionRes = preload("res://sim/locomotion.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
@@ -329,12 +360,19 @@ static func _contact_target(survivors: Array, pos: Dictionary, radius_metres: fl
 	return best
 
 
+# Who a shambler can see worth chasing. The corpse skip is not cosmetic: `identity` survives
+# SimHealth's _make_corpse, so without it a dead colonist stays in this list forever -- pursued,
+# reached, and grabbed, with `grab.started` and a hold that only geometry ever ends. That is a
+# contact the district pays for and nobody can answer, and it inflated every hold counter the
+# balance harness reports. A shambler that has already killed you has no further use for you.
 static func _gather_survivors(world: Variant) -> Array:
 	var out: Array = []
 	for entity in world.components.query(["position"]):
 		var is_survivor: bool = world.components.has_component(int(entity), "controlled") \
 			or world.components.has_component(int(entity), "identity")
 		if not is_survivor:
+			continue
+		if world.components.has_component(int(entity), "corpse"):
 			continue
 		var at: Variant = world.components.get_component(int(entity), "position")
 		if at == null:
@@ -750,7 +788,10 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		# Deliberately not scoped to `controlled`: three intakes arm struggleTicks now -- the
 		# player's F, a held survivor's instinct, and an NPC's own -- and all three resolve
 		# through this one contest, which is why widening who may struggle has never meant
-		# touching the escape maths.
+		# touching the escape maths. Nor does a running first-aid channel enter into it
+		# (treatment.gd's R4): a hand on your own wound is not "your action" for the hold, and a
+		# survivor made to choose between getting free and not bleeding would only ever lose one of
+		# the two. What a mid-press escape *does* change is where they end up -- see R5.
 		for victim in w.components.query(["grabbed"]):
 			var grabbed: Dictionary = w.components.get_component(int(victim), "grabbed") as Dictionary
 			if int(grabbed["struggleTicks"]) <= 0:
