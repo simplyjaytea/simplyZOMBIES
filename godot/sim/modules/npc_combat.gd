@@ -132,6 +132,18 @@ static func _ranged_range(world: Variant, ent: int) -> float:
 	return minf(float((weapon as Dictionary).get("rangeMetres", 0.0)), ENGAGE_METRES)
 
 
+# Nearest, except that a shambler with someone in its hands is dealt with first.
+#
+# Preference, not a new behaviour: this picks which threat the existing engage does its existing
+# thing to. It is safe to be strict about it because `metres` is already the weapon's own
+# envelope -- `_engage` passes max(reach, range) -- so every candidate here is one this NPC can
+# act on this tick, and preferring a holder can never mean facing something out of range while
+# something in range is ignored.
+#
+# It matters because a held survivor cannot help themselves quickly: melee.gd refuses a grabbed
+# body its swing, and the escape is a contest they can lose several times over. The colony's
+# answer to a grab is somebody else's weapon, and before this the holder was simply one more
+# shambler in the queue -- usually not the closest, because it had stopped moving.
 static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
 	var here: Variant = world.components.get_component(ent, "position")
 	if not here is Dictionary:
@@ -141,6 +153,7 @@ static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
 	var limit_sq: float = metres * metres
 	var best: int = -1
 	var best_sq: float = 1e12
+	var best_holds: bool = false
 	for other in world.components.query(["shambler", "position", "body"]):
 		var body: Variant = world.components.get_component(int(other), "body")
 		if not body is Dictionary or not SimHealth.is_alive(body as Dictionary):
@@ -151,9 +164,17 @@ static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
 		var dx: float = float((there as Dictionary)["x"]) - hx
 		var dy: float = float((there as Dictionary)["y"]) - hy
 		var d_sq: float = dx * dx + dy * dy
-		if d_sq > limit_sq or d_sq >= best_sq:
+		if d_sq > limit_sq:
 			continue
+		var holds: bool = world.components.has_component(int(other), "grabState")
+		# Holding outranks distance; between two of the same kind, distance decides.
+		if best >= 0:
+			if best_holds and not holds:
+				continue
+			if best_holds == holds and d_sq >= best_sq:
+				continue
 		best_sq = d_sq
+		best_holds = holds
 		best = int(other)
 	return best
 

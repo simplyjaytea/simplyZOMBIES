@@ -60,6 +60,13 @@ const BITE_DAMAGE_MIN: float = 2.0
 # re-grab cooldown -- see REGRAB_COOLDOWN_TICKS below.
 const STRUGGLE_TICKS: int = 16
 const STRUGGLE_STAMINA: float = 15.0
+# How long a held body waits for a decision before it fights back on its own. Two seconds: long
+# enough that an attentive player's F is always the thing that answers a grab, short enough that
+# nobody stands still being eaten because the person at the keyboard is looking elsewhere -- or,
+# in a harness, because there is nobody at the keyboard at all. It is a gap between *attempts*
+# rather than the age of the hold (every arming site resets `grabbed.heldTicks`), so a survivor
+# who has just failed an escape gets the same beat before the next one.
+const STRUGGLE_INSTINCT_TICKS: int = 40
 # How long a shambler that has just lost its grip must wait before it can take anyone again.
 # This was STRUGGLE_TICKS doing double duty, which meant the escape lever silently moved it: a
 # cheaper, faster struggle also handed the shambler its hands back sooner, and instrumenting a
@@ -74,8 +81,8 @@ const REGRAB_COOLDOWN_TICKS: int = 20
 # nothing in the build did it for anyone else. BREAK_AWAY_TICKS is deliberately a shade longer
 # than the re-grab cooldown so the separation outlives it.
 
-# Grabs are still off by default, and the reason has changed twice now. Both previous reasons
-# were guesses; this one was measured, and the measurement is the point of the note.
+# Grabs are still off by default, and the reason has changed three times now. The first two were
+# guesses; the last two were measured, and the measurement is the point of the note.
 #
 # Reason one (retired): "the flip waits on a recovery clock" -- a bite rolled over all ten parts
 # and nothing raised a part's integrity again, so grabs were cumulative rather than hard.
@@ -89,19 +96,30 @@ const REGRAB_COOLDOWN_TICKS: int = 20
 # and it worked: on the same seed the head share falls from a fifth to a twentieth and the first
 # death moves off day one.
 #
-# Reason three, which is where it now sits, and which is a design call rather than a number: with
-# grabs on, the compressed fast balance tier has no defence and no first aid, so everybody
-# eventually bleeds out. A throwaway driver over its four seeds says it plainly -- 0 zombies
-# killed, 0 jobs completed, 0 wounds treated, across every lever setting tried, including the
-# extreme end (a bite every 400 ticks at a quarter of a part). The two seeds that wipe (404,
-# 90210) do so by blood loss, because a laceration never clots untreated and nobody in that model
-# ever gets an idle hour to dress one; the two that survive (20260805, 31337) are the two where
-# nothing ever reached the colony. Three things are load-bearing and none of them is bite damage:
-# an unattended `controlled` survivor never struggles (F is a key press, and the harness presses
-# nothing), the second colonist boots unarmed, and `npc.combat` drops anyone `grabbed` from the
-# threat loop while the re-grab cooldown keeps re-taking them. Which of those to change -- arm the
-# harness colony, let an unattended survivor struggle on instinct, or make contact rarer -- is the
-# next owner call, and docs/23's Milestone 2 status carries the numbers to make it on.
+# Reason three (retired as an explanation, and answered): the harness colony had no agency. An
+# unattended `controlled` survivor never struggled because F is a key press and a harness presses
+# nothing, the second colonist booted unarmed, and `npc.combat` dropped a holder to the back of
+# its own threat queue. All three are fixed -- instinct (STRUGGLE_INSTINCT_TICKS above, INSTINCT
+# in check_m2_contact.gd), a kit weapon that is actually held (SimSurvivors._hold_it, ARMED in
+# check_m2_balance.gd), and holder-first target selection (HOLDER in check_m2_npc_combat.gd) --
+# and they moved every number except the one that decides. On seed 404 a campaign with grabs on
+# went from 111 bites and 0 struggles to 57 bites and 73 struggles; the shipped default, with
+# grabs still off, records the colony's first kills in the fast tier at all (6 on 404, 1 on
+# 90210, where every arm previously read zero).
+#
+# Reason four, which is where it now sits, and which is a design call about a price rather than a
+# bug: *an escape costs stamina, and a survivor held over and over cannot afford it.* Measured
+# on the same four seeds with the flag forced on -- 20260805 and 31337 end 2/2 (neither boot
+# colonist is ever held), 404 and 90210 still end 0/2, both by blood loss. The two that die spend
+# 65% and 69% of their living ticks held, by 1.4 holders on average, and *38% and 49% of those
+# held ticks with a tank too empty to pay STRUGGLE_STAMINA* -- and an empty tank is a hold with
+# no exit, because nothing else in the build can pull somebody free. It is not player agency
+# either: a driver mashing F every single tick changes nothing (404 still 0/2, the played
+# survivor connects once in a whole campaign, and empty-tank ticks roughly double, because F
+# spends the same stamina sooner). The levers left are the price of an escape (STRUGGLE_STAMINA,
+# or stamina that recovers while held), somebody else being able to break a hold, or making
+# contact rarer -- all three are calls about how the game should feel, not numbers to be picked
+# here. docs/23's Milestone 2 status carries the measurement seed by seed.
 #
 # So the loop ships complete, gated and off for one more turn, the way
 # SimMelee.REFUSE_EXHAUSTED_SWINGS did: check_m2_contact.gd turns it on explicitly, so every
@@ -376,7 +394,7 @@ static func _start_grab(world: Variant, source: int, victim: int) -> void:
 	else:
 		# CLAUDE.md trap #1: a plain Array, never a PackedInt32Array -- appending to a packed
 		# array read out of a Dictionary appends to a copy and silently does nothing.
-		grabbed = {"sources": [], "struggleTicks": 0}
+		grabbed = {"sources": [], "struggleTicks": 0, "heldTicks": 0}
 		world.components.set_component(victim, "grabbed", grabbed)
 	var sources: Array = grabbed["sources"] as Array
 	if not sources.has(source):
@@ -442,6 +460,30 @@ static func _release_victim(world: Variant, victim: int) -> void:
 	var sources: Array = ((grabbed as Dictionary)["sources"] as Array).duplicate()
 	for source in sources:
 		_release_grab(world, int(source))
+
+
+# Commits one escape attempt, whoever asked for it. The three intakes below -- the player's F,
+# the held survivor's instinct, and an NPC's -- differ only in *when* they call this; what an
+# attempt costs and whether it is affordable is decided once, here, so a lever moved for one of
+# them cannot quietly miss the other two. Returns whether an attempt was actually armed.
+#
+# Arming resets `heldTicks`, which is what makes instinct a gap between attempts rather than the
+# age of the hold: a survivor who has just spent a tankful failing gets the same beat before the
+# next try, and a player who presses F pushes instinct back by doing so.
+static func _arm_struggle(world: Variant, victim: int) -> bool:
+	var grabbed: Variant = world.components.get_component(victim, "grabbed")
+	if not (grabbed is Dictionary):
+		return false
+	var g: Dictionary = grabbed as Dictionary
+	if int(g["struggleTicks"]) > 0:
+		return false
+	var stamina: Variant = world.components.get_component(victim, "stamina")
+	if stamina is Dictionary and float((stamina as Dictionary)["current"]) < STRUGGLE_STAMINA:
+		return false
+	g["struggleTicks"] = STRUGGLE_TICKS
+	g["heldTicks"] = 0
+	world.events.publish({"type": "stamina.spent", "entity": victim, "amount": STRUGGLE_STAMINA})
+	return true
 
 
 static func register_module(world: Variant, _map: Variant) -> void:
@@ -582,9 +624,10 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		# A successful escape does not force the holder(s) back to Wander -- only geometry
 		# failure (step 1) does that; an escaped-from shambler is still Pursuing and will
 		# chase again next tick through the ordinary state machine above.
-		# Deliberately not scoped to `controlled`, unlike the intake above: only the intake can
-		# arm struggleTicks today, so the scope is equivalent -- but when an NPC gains an
-		# autonomous struggle it will resolve here already rather than needing this widened.
+		# Deliberately not scoped to `controlled`: three intakes arm struggleTicks now -- the
+		# player's F, a held survivor's instinct, and an NPC's own -- and all three resolve
+		# through this one contest, which is why widening who may struggle has never meant
+		# touching the escape maths.
 		for victim in w.components.query(["grabbed"]):
 			var grabbed: Dictionary = w.components.get_component(int(victim), "grabbed") as Dictionary
 			if int(grabbed["struggleTicks"]) <= 0:
@@ -654,39 +697,48 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			if String((c as Dictionary).get("type", "")) == "swing":
 				has_swing = true
 				break
+		# Age every hold once, before anything reads the clock, so the three intakes below all
+		# see the same tick's number regardless of the order they run in.
+		for held_ent in w.components.query(["grabbed"]):
+			var timing: Dictionary = w.components.get_component(int(held_ent), "grabbed") as Dictionary
+			timing["heldTicks"] = int(timing.get("heldTicks", 0)) + 1
+
 		# Note the early return moved below the NPC loop's concern: a swing command gates the
 		# *player's* struggle only. An NPC's is not a key press and must not depend on one.
 		# Controlled only, as the oracle scopes it (src/sim/modules/shambler.ts:686). Without
 		# this the player's F would arm a struggle on *every* held body in the district and
 		# spend each of their stamina -- one key press buying escapes nobody asked for.
 		for victim in (w.components.query(["grabbed", "controlled"]) if has_swing else []):
-			var grabbed: Dictionary = w.components.get_component(int(victim), "grabbed") as Dictionary
-			if int(grabbed["struggleTicks"]) > 0:
+			_arm_struggle(w, int(victim))
+
+		# Instinct: the same escape, taken without being asked for, once a held survivor has
+		# spent STRUGGLE_INSTINCT_TICKS with nobody answering for them. Being grabbed is not a
+		# state a person waits politely in, and the balance harness proved the cost of pretending
+		# otherwise -- an unattended `controlled` survivor recorded 45 bites and 0 struggles in a
+		# campaign, because F is a key press and a harness presses nothing.
+		#
+		# F stays the better answer rather than the only one: a player who reaches for it commits
+		# the escape immediately, two seconds before instinct would have, and resets the clock by
+		# arming. So this never takes a decision away from someone making one; it only refuses to
+		# stand still on behalf of someone who is not.
+		for waiting in w.components.query(["grabbed", "controlled"]):
+			var patience: Dictionary = w.components.get_component(int(waiting), "grabbed") as Dictionary
+			if int(patience.get("heldTicks", 0)) < STRUGGLE_INSTINCT_TICKS:
 				continue
-			var stamina: Variant = w.components.get_component(int(victim), "stamina")
-			if stamina is Dictionary and float((stamina as Dictionary)["current"]) < STRUGGLE_STAMINA:
-				continue
-			grabbed["struggleTicks"] = STRUGGLE_TICKS
-			w.events.publish({"type": "stamina.spent", "entity": int(victim), "amount": STRUGGLE_STAMINA})
+			_arm_struggle(w, int(waiting))
 
 		# NPCs struggle on their own, because they have no F to press. Without this a single
 		# shambler disables a survivor permanently: melee.gd:138 refuses a held body its swing
-		# and npc_combat.gd:70 drops it from the threat loop entirely, so a guard taken at its
-		# post could neither fight nor leave, for the rest of the run. That is not the grab
-		# being dangerous, it is the grab being absorbing, and it is a regression this loop
-		# would otherwise have introduced. They pay the same stamina and roll the same contest
-		# as the player; what they lack is the choice of when, so they always take it.
+		# and npc_combat.gd's threat loop drops it entirely, so a guard taken at its post could
+		# neither fight nor leave, for the rest of the run. That is not the grab being dangerous,
+		# it is the grab being absorbing, and it is a regression this loop would otherwise have
+		# introduced. They pay the same stamina and roll the same contest as the player; what
+		# they lack is the choice of when, so they always take it -- with no instinct delay,
+		# because there is no key press for them to be waiting on.
 		for npc in w.components.query(["grabbed", "identity"]):
 			if w.components.has_component(int(npc), "controlled"):
 				continue
-			var held: Dictionary = w.components.get_component(int(npc), "grabbed") as Dictionary
-			if int(held["struggleTicks"]) > 0:
-				continue
-			var npc_stamina: Variant = w.components.get_component(int(npc), "stamina")
-			if npc_stamina is Dictionary and float((npc_stamina as Dictionary)["current"]) < STRUGGLE_STAMINA:
-				continue
-			held["struggleTicks"] = STRUGGLE_TICKS
-			w.events.publish({"type": "stamina.spent", "entity": int(npc), "amount": STRUGGLE_STAMINA})
+			_arm_struggle(w, int(npc))
 	)
 
 	# Zeroes a grabbed survivor's velocity before movement.integrate (phase "movement" order 0,

@@ -32,10 +32,10 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	# Grabs ship off by default (SimShambler.GRABS_ENABLED) until wounds have a recovery clock --
-	# see that constant for the arithmetic that put them behind a flag. Switched on here for the
-	# whole gate, so every assertion below exercises the real loop rather than the shipped
-	# default. When the default flips this line becomes a no-op and nothing here changes.
+	# Grabs ship off by default (SimShambler.GRABS_ENABLED) -- see that constant for the four
+	# reasons, in order, and which of them are answered. Switched on here for the whole gate, so
+	# every assertion below exercises the real loop rather than the shipped default. When the
+	# default flips this line becomes a no-op and nothing here changes.
 	SimShambler.GRABS_ENABLED = true
 	var ok: bool = true
 	ok = _grab_forms_in_reach_but_not_at_distance() and ok
@@ -45,12 +45,13 @@ func _run() -> void:
 	ok = _a_held_bite_aims_where_the_hands_are() and ok
 	ok = _a_bite_scales_to_the_part_it_lands_on() and ok
 	ok = _struggling_frees_sometimes_and_never_while_spent() and ok
+	ok = _instinct_answers_a_grab_nobody_else_will() and ok
 	ok = _release_arms_the_regrab_cooldown() and ok
 	ok = _a_held_survivor_cannot_swing_or_fire() and ok
 	ok = _deterministic_replay() and ok
 	ok = _the_flag_actually_gates_acquisition() and ok
 	if ok:
-		print("M2_CONTACT_OK grabs form, bite on cadence, wounds land, struggle is a contest")
+		print("M2_CONTACT_OK grabs form, bite on cadence, wounds land, struggle is a contest and an instinct")
 		quit(0)
 	else:
 		push_error("M2_CONTACT_FAIL")
@@ -81,14 +82,32 @@ func _world(seed_val: int, walls: Array = []) -> Variant:
 # Spawned by hand rather than through SimRoster.spawn_zombie, which wants a loaded content
 # registry. make_shambler falls back to DEFAULT_GRAB_STRENGTH and canGrab=true with no content
 # entry (shambler.gd:105 _grab_of), which is exactly the default this gate wants to exercise.
-func _spawn_shambler(w: Variant, x: float, y: float) -> int:
+#
+# `grip` overrides grabStrength for the assertions whose subject is a clock rather than the
+# escape contest: escape_chance is power/(power+strength), so a grip of 999 makes the hold hold
+# and lets a timing measurement be about timing. Whether an escape ever succeeds is
+# `_struggling_frees_sometimes_and_never_while_spent`'s claim, and it uses the real default.
+func _spawn_shambler(w: Variant, x: float, y: float, grip: float = -1.0) -> int:
 	var ent: int = int(w.entities.spawn())
 	w.components.set_component(ent, "position", {"x": x, "y": y})
 	w.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
 	w.components.set_component(ent, "facing", {"radians": 0.0})
 	w.components.set_component(ent, "body", SimCombat.ZOMBIE_BODY.duplicate())
 	SimShambler.make_shambler(w, ent, w.rng.stream("shambler"))
+	if grip >= 0.0:
+		(w.components.get_component(ent, "shambler") as Dictionary)["grabStrength"] = grip
 	return ent
+
+
+# Silences every struggle intake -- F, instinct and an NPC's -- for the assertions about what a
+# hold *does* to somebody who does not get out of it. Since instinct landed, a full-stamina
+# survivor tears free partway through a bite cadence, which is correct play and useless
+# measurement: it would turn "a bite every REPEAT_BITE_TICKS" into "a bite, then an escape".
+# Unregistering says which half of the loop is under test rather than leaving the other half to
+# spoil the sample, and check_m2_harness.gd's `_nothing_personal` is the precedent.
+func _no_struggling(w: Variant) -> void:
+	if not w.systems.unregister("shambler.struggle-intake"):
+		push_error("shambler.struggle-intake was not registered -- this gate is silencing nothing")
 
 
 # A vertical wall column, inclusive of both ends -- long enough that a ray cannot slip past it.
@@ -200,6 +219,7 @@ func _a_wall_between_blocks_the_grab() -> bool:
 
 func _a_hold_bites_on_cadence_and_only_its_victim() -> bool:
 	var w: Variant = _world(4003)
+	_no_struggling(w)
 	# A second survivor, well out of reach, is the negative control: identity alone puts them in
 	# _gather_survivors, so if bites leaked across victims this would catch it.
 	var bystander: int = int(w.entities.spawn())
@@ -244,6 +264,7 @@ func _a_hold_bites_on_cadence_and_only_its_victim() -> bool:
 
 func _every_bite_records_one_located_wound() -> bool:
 	var w: Variant = _world(4004)
+	_no_struggling(w)
 	_spawn_shambler(w, 17.2, 16.5)
 	if _step_until_held(w, 40) < 0:
 		push_error("no hold formed")
@@ -406,6 +427,7 @@ func _a_bite_scales_to_the_part_it_lands_on() -> bool:
 	var off_torso: int = 0
 	for s in 8:
 		var live: Variant = _world(4600 + s)
+		_no_struggling(live)
 		_spawn_shambler(live, 17.2, 16.5)
 		if _step_until_held(live, 40) < 0:
 			continue
@@ -479,6 +501,77 @@ func _struggling_frees_sometimes_and_never_while_spent() -> bool:
 		return false
 	print("STRUGGLE OK freed=%d held=%d over %d seeds; empty tank never freed, never charged" % [freed, still_held, seeds])
 	return true
+
+
+# Instinct: a held survivor nobody is answering for fights back on their own after
+# STRUGGLE_INSTINCT_TICKS. Timed rather than merely observed, because every interesting property
+# of this feature is a *when*: it must not pre-empt a player who is playing, it must not leave an
+# unattended one standing still, and it must not double-spend a tankful by firing on schedule
+# while an attempt the player asked for is already in flight.
+#
+# The hold is made unbreakable (grip 999) so that what is measured is the intake's clock and not
+# the escape contest, and each attempt is counted off the `stamina.spent` the intake publishes --
+# the same event that pays for it, so an attempt that cost nothing could not be counted.
+const INSTINCT_WINDOW: int = 60
+
+func _instinct_answers_a_grab_nobody_else_will() -> bool:
+	var alone: Array[int] = _attempt_ticks(7001, -1)
+	var played: Array[int] = _attempt_ticks(7001, 1)
+	if alone.is_empty():
+		push_error("an unattended held survivor never struggled in %d ticks -- instinct did not fire" % INSTINCT_WINDOW)
+		return false
+	if alone[0] != SimShambler.STRUGGLE_INSTINCT_TICKS:
+		push_error("instinct fired on hold-tick %d, expected %d" % [alone[0], SimShambler.STRUGGLE_INSTINCT_TICKS])
+		return false
+	# True negative one: nothing before the delay. Stated separately from the equality above
+	# because it is the half that would fail if somebody set the constant to zero to "fix" a
+	# harness -- an instinct with no delay is not instinct, it is the player's key press taken away.
+	for at in alone:
+		if at < SimShambler.STRUGGLE_INSTINCT_TICKS:
+			push_error("a struggle was armed on hold-tick %d, before the instinct delay" % at)
+			return false
+	# True negative two: a player who presses F gets their attempt on the tick they asked for,
+	# and instinct does *not* also fire on its own schedule -- arming resets the clock, so the
+	# second attempt is a delay after the first rather than at a fixed hold age.
+	if played.is_empty() or played[0] != 1:
+		push_error("F did not commit an escape on the tick it was pressed: %s" % str(played))
+		return false
+	if played.has(SimShambler.STRUGGLE_INSTINCT_TICKS):
+		push_error("instinct fired at hold-tick %d anyway, on top of the player's own attempt" % SimShambler.STRUGGLE_INSTINCT_TICKS)
+		return false
+	if played.size() > 1 and played[1] != 1 + SimShambler.STRUGGLE_INSTINCT_TICKS:
+		push_error("the attempt after a player's F landed on hold-tick %d, expected %d" % [played[1], 1 + SimShambler.STRUGGLE_INSTINCT_TICKS])
+		return false
+	print("INSTINCT OK unattended struggles at %s, played at %s over %d ticks" % [str(alone), str(played), INSTINCT_WINDOW])
+	return true
+
+
+# Hold-relative ticks on which an escape attempt was armed. `press_on` is the hold-relative tick
+# to push F on, or -1 for nobody at the keyboard at all.
+func _attempt_ticks(seed_val: int, press_on: int) -> Array[int]:
+	var w: Variant = _world(seed_val)
+	_spawn_shambler(w, 17.2, 16.5, 999.0)
+	var at: Array[int] = []
+	if _step_until_held(w, 40) < 0:
+		push_error("no hold formed for the instinct measurement")
+		return at
+	for i in INSTINCT_WINDOW:
+		if press_on == i + 1:
+			w.commands.push({"type": "swing"})
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) != "stamina.spent":
+				continue
+			if int(ev.get("entity", -1)) != int(w.player):
+				continue
+			if absf(float(ev.get("amount", 0.0)) - SimShambler.STRUGGLE_STAMINA) > 0.001:
+				continue
+			at.append(i + 1)
+	if not _held(w):
+		push_error("the unbreakable hold broke anyway, so these timings are of a shorter hold than they claim")
+		return [] as Array[int]
+	return at
 
 
 func _release_arms_the_regrab_cooldown() -> bool:
