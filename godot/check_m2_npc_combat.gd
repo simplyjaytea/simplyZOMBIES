@@ -18,6 +18,7 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
@@ -34,8 +35,9 @@ func _run() -> void:
 	ok = _critically_injured_breaks_off() and ok
 	ok = _distance_and_silence_are_both_negative_controls() and ok
 	ok = _a_guard_engages_without_leaving_its_post() and ok
+	ok = _a_shambler_with_someone_in_its_hands_is_shot_first() and ok
 	if ok:
-		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post")
+		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder")
 		quit(0)
 	else:
 		push_error("M2_NPC_COMBAT_FAIL")
@@ -283,6 +285,81 @@ func _distance_and_silence_are_both_negative_controls() -> bool:
 		return false
 	print("QUIET OK noise=%d quiver held at %d beyond %.0fm" % [noise, quiver, SimNpcCombat.ENGAGE_METRES])
 	return true
+
+
+# Whoever has hold of a colonist is the one that gets shot, even though something nearer is
+# standing there. A held survivor cannot swing (melee.gd refuses a grabbed body) and buys their
+# own way out only by winning a contest they can lose repeatedly, so the colony's answer to a
+# grab is somebody else's weapon; before this the holder was just one more shambler in the
+# queue, and usually not the closest, because it had stopped walking.
+#
+# Both halves, in the same arena: with a hold open the far holder is chosen and the near
+# wanderer is not touched, and with no hold open at all the identical placement picks the near
+# one. Without that second half this assertion would pass on a module that always shot whatever
+# was furthest away.
+func _a_shambler_with_someone_in_its_hands_is_shot_first() -> bool:
+	var quiet: Dictionary = _priority_arena(false)
+	var busy: Dictionary = _priority_arena(true)
+	if int(quiet["chosen"]) != int(quiet["near"]):
+		push_error("negative control failed: with nobody held, the archer did not pick the nearer shambler")
+		return false
+	if int(quiet["hits_far"]) != 0 or int(quiet["hits_near"]) < 1:
+		push_error("negative control failed: with nobody held, hits went near=%d far=%d" % [int(quiet["hits_near"]), int(quiet["hits_far"])])
+		return false
+	if int(busy["chosen"]) != int(busy["far"]):
+		push_error("a shambler holding a colonist was not selected over a nearer one")
+		return false
+	if int(busy["hits_far"]) < 1:
+		push_error("the holder was selected but never actually shot")
+		return false
+	if int(busy["hits_near"]) != 0:
+		push_error("%d shots went to the nearer wanderer while a colonist was being held" % int(busy["hits_near"]))
+		return false
+	print("HOLDER OK held: far=%d near=%d hits | quiet: far=%d near=%d hits" % [
+		int(busy["hits_far"]), int(busy["hits_near"]), int(quiet["hits_far"]), int(quiet["hits_near"]),
+	])
+	return true
+
+
+# One archer, one shambler at 3 m and one at 7 m, and -- when `hold` -- a second colonist in the
+# far one's hands. The hold is opened through `SimShambler._start_grab`, the same call the think
+# loop makes, so this measures the module's reading of a real hold rather than of a hand-placed
+# component. Shambler AI is not registered here: nothing walks, nothing re-grabs, and the only
+# thing that varies between the two arenas is whether somebody is being held.
+#
+# The two shamblers stand at right angles to each other on purpose. `ranged._fire_shot` resolves
+# against the nearest body inside the *cone*, not against the entity the intake picked, so a near
+# shambler standing on the line to a far one would be hit by an arrow aimed past it and the
+# counters would read as if the selection had gone the other way.
+func _priority_arena(hold: bool) -> Dictionary:
+	var w: Variant = _arena()
+	var archer: int = _npc(w, 10.0, 10.0)
+	SimInventory.equip(w, archer, SimItems.spawn_item(w, "item.bow.hunting", {"tier": "scavenged"}))
+	SimInventory.stow(w, archer, SimItems.spawn_item(w, "item.ammo.arrow", {"tier": "scavenged", "count": 40}))
+	var near: int = _zombie(w, 10.0, 13.0)
+	var far: int = _zombie(w, 17.0, 10.0)
+	if hold:
+		var victim: int = _npc(w, 17.9, 10.0)
+		SimShambler._start_grab(w, far, victim)
+	w.events.drain()
+	var chosen: int = SimNpcCombat._nearest_threat(w, archer, SimNpcCombat.ENGAGE_METRES)
+	var hits_near: int = 0
+	var hits_far: int = 0
+	for _t in ARENA_TICKS:
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) != "attack.connected":
+				continue
+			if int(ev.get("target", -1)) == near:
+				hits_near += 1
+			elif int(ev.get("target", -1)) == far:
+				hits_far += 1
+		# Counting stops the moment the preferred target is gone: after that the archer picking
+		# the other shambler is correct, and letting it run would fold that into the numbers.
+		if not _alive(w, far) or not _alive(w, near):
+			break
+	return {"chosen": chosen, "near": near, "far": far, "hits_near": hits_near, "hits_far": hits_far}
 
 
 func _a_guard_engages_without_leaving_its_post() -> bool:

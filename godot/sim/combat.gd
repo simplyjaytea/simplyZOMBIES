@@ -49,6 +49,31 @@ const SURVIVOR_HIT_LOCATION_WEIGHTS: Dictionary = {
 	"foot_left": 0.015, "foot_right": 0.015,
 }
 
+# Where a mouth lands when it already has hold of you, as distinct from where a swing lands on a
+# body that is still moving. A free hit is aimed: SURVIVOR_HIT_LOCATION_WEIGHTS puts a fifth of
+# them on the head because that is what someone swinging *wants*. A shambler that has closed its
+# hands on a forearm is not aiming at anything -- it bites what it is already holding, which is
+# overwhelmingly the arm, the hand, the shoulder-line of the torso. The head is the hardest thing
+# to reach from inside a grapple, not the easiest.
+#
+# So this is a design statement about lethality as much as anatomy. Measured on the fast balance
+# tier with the free-hit table in use, a held survivor died in two head bites (a head is 15,
+# BITE_DAMAGE was a flat 8) and both starting colonists on seed 404 were dead before day 2 with
+# `cause=head-destroyed`. Dropping the head share from 0.20 to 0.05 and pushing the weight onto
+# graspable parts is one of the four levers docs/23 records for that re-tune; the others are the
+# repeat-bite clock, part-scaled bite damage, and the struggle's cost.
+#
+# Sums to 1.0 exactly, like its free-hit twin: _roll_body_part walks the parts in
+# SURVIVOR_BODY_PARTS order and falls through to the last part, so a table that summed short
+# would quietly over-weight the feet.
+const HELD_HIT_LOCATION_WEIGHTS: Dictionary = {
+	"head": 0.05, "torso": 0.30,
+	"arm_left": 0.14, "arm_right": 0.14,
+	"hand_left": 0.09, "hand_right": 0.09,
+	"leg_left": 0.07, "leg_right": 0.07,
+	"foot_left": 0.025, "foot_right": 0.025,
+}
+
 static func windup_ticks(weight: float, speed: float = 1.0) -> int:
     return maxi(1, int(round(float(WINDUP_TICKS) * weight / speed)))
 

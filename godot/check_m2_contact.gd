@@ -26,28 +26,32 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimCombat = preload("res://sim/combat.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 
 func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	# Grabs ship off by default (SimShambler.GRABS_ENABLED) until wounds have a recovery clock --
-	# see that constant for the arithmetic that put them behind a flag. Switched on here for the
-	# whole gate, so every assertion below exercises the real loop rather than the shipped
-	# default. When the default flips this line becomes a no-op and nothing here changes.
+	# Grabs ship off by default (SimShambler.GRABS_ENABLED) -- see that constant for the four
+	# reasons, in order, and which of them are answered. Switched on here for the whole gate, so
+	# every assertion below exercises the real loop rather than the shipped default. When the
+	# default flips this line becomes a no-op and nothing here changes.
 	SimShambler.GRABS_ENABLED = true
 	var ok: bool = true
 	ok = _grab_forms_in_reach_but_not_at_distance() and ok
 	ok = _a_wall_between_blocks_the_grab() and ok
 	ok = _a_hold_bites_on_cadence_and_only_its_victim() and ok
 	ok = _every_bite_records_one_located_wound() and ok
+	ok = _a_held_bite_aims_where_the_hands_are() and ok
+	ok = _a_bite_scales_to_the_part_it_lands_on() and ok
 	ok = _struggling_frees_sometimes_and_never_while_spent() and ok
+	ok = _instinct_answers_a_grab_nobody_else_will() and ok
 	ok = _release_arms_the_regrab_cooldown() and ok
 	ok = _a_held_survivor_cannot_swing_or_fire() and ok
 	ok = _deterministic_replay() and ok
 	ok = _the_flag_actually_gates_acquisition() and ok
 	if ok:
-		print("M2_CONTACT_OK grabs form, bite on cadence, wounds land, struggle is a contest")
+		print("M2_CONTACT_OK grabs form, bite on cadence, wounds land, struggle is a contest and an instinct")
 		quit(0)
 	else:
 		push_error("M2_CONTACT_FAIL")
@@ -78,14 +82,32 @@ func _world(seed_val: int, walls: Array = []) -> Variant:
 # Spawned by hand rather than through SimRoster.spawn_zombie, which wants a loaded content
 # registry. make_shambler falls back to DEFAULT_GRAB_STRENGTH and canGrab=true with no content
 # entry (shambler.gd:105 _grab_of), which is exactly the default this gate wants to exercise.
-func _spawn_shambler(w: Variant, x: float, y: float) -> int:
+#
+# `grip` overrides grabStrength for the assertions whose subject is a clock rather than the
+# escape contest: escape_chance is power/(power+strength), so a grip of 999 makes the hold hold
+# and lets a timing measurement be about timing. Whether an escape ever succeeds is
+# `_struggling_frees_sometimes_and_never_while_spent`'s claim, and it uses the real default.
+func _spawn_shambler(w: Variant, x: float, y: float, grip: float = -1.0) -> int:
 	var ent: int = int(w.entities.spawn())
 	w.components.set_component(ent, "position", {"x": x, "y": y})
 	w.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
 	w.components.set_component(ent, "facing", {"radians": 0.0})
 	w.components.set_component(ent, "body", SimCombat.ZOMBIE_BODY.duplicate())
 	SimShambler.make_shambler(w, ent, w.rng.stream("shambler"))
+	if grip >= 0.0:
+		(w.components.get_component(ent, "shambler") as Dictionary)["grabStrength"] = grip
 	return ent
+
+
+# Silences every struggle intake -- F, instinct and an NPC's -- for the assertions about what a
+# hold *does* to somebody who does not get out of it. Since instinct landed, a full-stamina
+# survivor tears free partway through a bite cadence, which is correct play and useless
+# measurement: it would turn "a bite every REPEAT_BITE_TICKS" into "a bite, then an escape".
+# Unregistering says which half of the loop is under test rather than leaving the other half to
+# spoil the sample, and check_m2_harness.gd's `_nothing_personal` is the precedent.
+func _no_struggling(w: Variant) -> void:
+	if not w.systems.unregister("shambler.struggle-intake"):
+		push_error("shambler.struggle-intake was not registered -- this gate is silencing nothing")
 
 
 # A vertical wall column, inclusive of both ends -- long enough that a ray cannot slip past it.
@@ -197,6 +219,7 @@ func _a_wall_between_blocks_the_grab() -> bool:
 
 func _a_hold_bites_on_cadence_and_only_its_victim() -> bool:
 	var w: Variant = _world(4003)
+	_no_struggling(w)
 	# A second survivor, well out of reach, is the negative control: identity alone puts them in
 	# _gather_survivors, so if bites leaked across victims this would catch it.
 	var bystander: int = int(w.entities.spawn())
@@ -241,6 +264,7 @@ func _a_hold_bites_on_cadence_and_only_its_victim() -> bool:
 
 func _every_bite_records_one_located_wound() -> bool:
 	var w: Variant = _world(4004)
+	_no_struggling(w)
 	_spawn_shambler(w, 17.2, 16.5)
 	if _step_until_held(w, 40) < 0:
 		push_error("no hold formed")
@@ -268,6 +292,166 @@ func _every_bite_records_one_located_wound() -> bool:
 		push_error("an unbitten survivor recorded %d wounds" % clean_wounds.size())
 		return false
 	print("WOUND OK %d bites -> %d located wounds, unbitten survivor 0" % [bites, wounds.size()])
+	return true
+
+
+# A mouth that already has hold of you reaches different parts than a swung bat does --
+# SimCombat.HELD_HIT_LOCATION_WEIGHTS against SURVIVOR_HIT_LOCATION_WEIGHTS. Rolled directly
+# rather than counted off live bites on purpose: a share is a distribution claim, and a hold
+# produces bites one every four seconds, so measuring it live would mean either thousands of
+# simulated ticks or an assertion too loose to catch a table someone quietly widened.
+#
+# Both halves are here. The true positive is that the held table collapses the head share and
+# puts the weight on graspable parts; the true negative is the free-hit table run through the
+# identical counter, which must *fail* the same test -- otherwise the assertion is measuring
+# nothing but the sample size.
+const HELD_ROLLS: int = 4000
+# Measured at these tables: held head 0.05 against free 0.20, held arms+hands 0.50 against free
+# 0.12. The bands are wide enough that 4,000 rolls of sampling noise cannot cross them and tight
+# enough that swapping the tables fails both.
+const HELD_HEAD_MAX: float = 0.10
+const HELD_LIMBS_MIN: float = 0.40
+
+func _a_held_bite_aims_where_the_hands_are() -> bool:
+	var w: Variant = _world(4009)
+	var body: Variant = w.components.get_component(w.player, "body")
+
+	# A table that sums short silently over-weights whichever part _roll_body_part falls through
+	# to, which is the last one in SURVIVOR_BODY_PARTS -- a foot. Cheap to check, impossible to
+	# spot by eye in a ten-entry dictionary.
+	for table_name in ["held", "free"]:
+		var table: Dictionary = SimCombat.HELD_HIT_LOCATION_WEIGHTS if table_name == "held" else SimCombat.SURVIVOR_HIT_LOCATION_WEIGHTS
+		var sum: float = 0.0
+		for part in SimCombat.SURVIVOR_BODY_PARTS:
+			sum += float(table.get(String(part), 0.0))
+		if absf(sum - 1.0) > 0.0001:
+			push_error("the %s hit-location table sums to %f, not 1.0" % [table_name, sum])
+			return false
+
+	var held: Dictionary = _roll_share(w, body, SimCombat.HELD_HIT_LOCATION_WEIGHTS, "held-roll")
+	var free: Dictionary = _roll_share(w, body, {}, "free-roll")
+	var held_head: float = float(held.get("head", 0.0))
+	var free_head: float = float(free.get("head", 0.0))
+	# Limbs, not "graspable parts": the torso is 0.55 of the free-hit table all by itself, so
+	# counting it would make the two tables look alike and the discriminator would be noise.
+	var held_limbs: float = _share_of(held, ["arm_left", "arm_right", "hand_left", "hand_right"])
+	var free_limbs: float = _share_of(free, ["arm_left", "arm_right", "hand_left", "hand_right"])
+	if held_head > HELD_HEAD_MAX:
+		push_error("held bites found the head %.3f of the time, ceiling is %.3f" % [held_head, HELD_HEAD_MAX])
+		return false
+	if held_limbs < HELD_LIMBS_MIN:
+		push_error("only %.3f of held bites landed on an arm or a hand, floor is %.3f" % [held_limbs, HELD_LIMBS_MIN])
+		return false
+	# True negative: the free-hit table, counted the same way through the same roller, must fail
+	# both of those. The day someone points the bite back at SURVIVOR_HIT_LOCATION_WEIGHTS -- or
+	# copies the free numbers into the held table -- this is the line that notices.
+	if free_head <= HELD_HEAD_MAX and free_limbs >= HELD_LIMBS_MIN:
+		push_error("negative control failed: the free-hit table also passes the held test (head %.3f limbs %.3f), so the test measures nothing" % [free_head, free_limbs])
+		return false
+	print("HELD-AIM OK head %.3f held vs %.3f free, arms+hands %.3f held vs %.3f free over %d rolls" % [held_head, free_head, held_limbs, free_limbs, HELD_ROLLS])
+	return true
+
+
+func _roll_share(w: Variant, body: Variant, weights: Dictionary, stream: String) -> Dictionary:
+	var rng: Variant = w.rng.stream(stream)
+	var counts: Dictionary = {}
+	for _i in HELD_ROLLS:
+		var part: String = SimMelee._roll_body_part(rng, body, weights)
+		counts[part] = int(counts.get(part, 0)) + 1
+	var shares: Dictionary = {}
+	for key in counts.keys():
+		shares[key] = float(int(counts[key])) / float(HELD_ROLLS)
+	return shares
+
+
+func _share_of(shares: Dictionary, parts: Array) -> float:
+	var sum: float = 0.0
+	for part in parts:
+		sum += float(shares.get(String(part), 0.0))
+	return sum
+
+
+# A bite takes a fraction of the part it lands on, not a flat number -- CLAUDE.md's standing trap
+# is that a head is 15 and a torso 40, so one number cannot mean the same thing on both.
+#
+# This also pins which side of a severity band the change lands on, deliberately rather than by
+# accident: an arm bite used to be 8 of 20, exactly 0.40, exactly the DeepWound boundary. Scaled
+# it is 7 of 20 = 0.35, a Laceration, which is a fifth of the bleed rate. That is the intended
+# side -- a bite on the forearm you got in the way is a tear you can bandage -- and if someone
+# retunes BITE_DAMAGE_PART_FRACTION back up over 0.40 this says so.
+func _a_bite_scales_to_the_part_it_lands_on() -> bool:
+	var w: Variant = _world(4010)
+	var body: Dictionary = w.components.get_component(w.player, "body") as Dictionary
+
+	var head: float = SimShambler.bite_damage_for(body, "head")
+	var torso: float = SimShambler.bite_damage_for(body, "torso")
+	var arm: float = SimShambler.bite_damage_for(body, "arm_left")
+	var hand: float = SimShambler.bite_damage_for(body, "hand_left")
+	if head >= SimShambler.BITE_DAMAGE:
+		push_error("a head bite took %.2f, the full flat BITE_DAMAGE -- the scaling is not wired" % head)
+		return false
+	if absf(torso - SimShambler.BITE_DAMAGE) > 0.001:
+		push_error("a torso bite took %.2f, expected the flat ceiling %.2f" % [torso, SimShambler.BITE_DAMAGE])
+		return false
+	if hand >= arm or arm >= torso:
+		push_error("bites do not order by part size: hand %.2f arm %.2f torso %.2f" % [hand, arm, torso])
+		return false
+	# The floor and the ceiling, over every part a survivor has: health.gd records no wound for a
+	# hit that removed no integrity, so a bite that rounded to nothing would leave nothing to
+	# treat, and nothing may exceed the flat ceiling either.
+	for part in SimCombat.SURVIVOR_BODY_PARTS:
+		var d: float = SimShambler.bite_damage_for(body, String(part))
+		if d < SimShambler.BITE_DAMAGE_MIN or d > SimShambler.BITE_DAMAGE:
+			push_error("a bite on %s took %.2f, outside [%.2f, %.2f]" % [String(part), d, SimShambler.BITE_DAMAGE_MIN, SimShambler.BITE_DAMAGE])
+			return false
+	# A part this body does not have gets the unscaled ceiling rather than zero -- a zombie body
+	# passed in here must still bite for something.
+	if absf(SimShambler.bite_damage_for(body, "wing") - SimShambler.BITE_DAMAGE) > 0.001:
+		push_error("an unknown part did not fall back to BITE_DAMAGE")
+		return false
+
+	# The band edge, pinned on purpose, with the pre-change number as its own control.
+	var scaled_severity: int = SimWounds.severity_for(w, w.player, "arm_left", arm)
+	var flat_severity: int = SimWounds.severity_for(w, w.player, "arm_left", SimShambler.BITE_DAMAGE)
+	if scaled_severity != SimWounds.Severity.Laceration:
+		push_error("an arm bite of %.2f graded %d, expected Laceration" % [arm, scaled_severity])
+		return false
+	if flat_severity != SimWounds.Severity.DeepWound:
+		push_error("negative control failed: the old flat 8 on an arm no longer grades DeepWound, so this band edge is not the one that moved")
+		return false
+
+	# And the live wiring: what a real hold publishes must be the scaled number for the part it
+	# names, and the sample must contain a part that is *not* the torso -- otherwise every bite
+	# would coincidentally equal the flat ceiling and this would pass on a stub.
+	var seen: int = 0
+	var off_torso: int = 0
+	for s in 8:
+		var live: Variant = _world(4600 + s)
+		_no_struggling(live)
+		_spawn_shambler(live, 17.2, 16.5)
+		if _step_until_held(live, 40) < 0:
+			continue
+		var live_body: Dictionary = live.components.get_component(live.player, "body") as Dictionary
+		for _i in (SimShambler.FIRST_BITE_TICKS + SimShambler.REPEAT_BITE_TICKS * 3 + 5):
+			live.step()
+			for e in live.events.drained:
+				var ev: Dictionary = e as Dictionary
+				if String(ev.get("type", "")) != "bite.landed":
+					continue
+				var part: String = String(ev.get("bodyPart", ""))
+				var want: float = SimShambler.bite_damage_for(live_body, part)
+				if absf(float(ev.get("damage", -1.0)) - want) > 0.001:
+					push_error("a live bite on %s carried %.2f, expected %.2f" % [part, float(ev.get("damage", -1.0)), want])
+					return false
+				seen += 1
+				if part != "torso":
+					off_torso += 1
+		if off_torso > 0 and seen >= 4:
+			break
+	if seen < 4 or off_torso == 0:
+		push_error("SKIP-WORTHY: only %d live bites and %d off the torso, so the live wiring was never judged" % [seen, off_torso])
+		return false
+	print("BITE-SCALE OK head %.2f torso %.2f arm %.2f (Laceration, flat 8 was a DeepWound) hand %.2f; %d live bites matched, %d off-torso" % [head, torso, arm, hand, seen, off_torso])
 	return true
 
 
@@ -317,6 +501,77 @@ func _struggling_frees_sometimes_and_never_while_spent() -> bool:
 		return false
 	print("STRUGGLE OK freed=%d held=%d over %d seeds; empty tank never freed, never charged" % [freed, still_held, seeds])
 	return true
+
+
+# Instinct: a held survivor nobody is answering for fights back on their own after
+# STRUGGLE_INSTINCT_TICKS. Timed rather than merely observed, because every interesting property
+# of this feature is a *when*: it must not pre-empt a player who is playing, it must not leave an
+# unattended one standing still, and it must not double-spend a tankful by firing on schedule
+# while an attempt the player asked for is already in flight.
+#
+# The hold is made unbreakable (grip 999) so that what is measured is the intake's clock and not
+# the escape contest, and each attempt is counted off the `stamina.spent` the intake publishes --
+# the same event that pays for it, so an attempt that cost nothing could not be counted.
+const INSTINCT_WINDOW: int = 60
+
+func _instinct_answers_a_grab_nobody_else_will() -> bool:
+	var alone: Array[int] = _attempt_ticks(7001, -1)
+	var played: Array[int] = _attempt_ticks(7001, 1)
+	if alone.is_empty():
+		push_error("an unattended held survivor never struggled in %d ticks -- instinct did not fire" % INSTINCT_WINDOW)
+		return false
+	if alone[0] != SimShambler.STRUGGLE_INSTINCT_TICKS:
+		push_error("instinct fired on hold-tick %d, expected %d" % [alone[0], SimShambler.STRUGGLE_INSTINCT_TICKS])
+		return false
+	# True negative one: nothing before the delay. Stated separately from the equality above
+	# because it is the half that would fail if somebody set the constant to zero to "fix" a
+	# harness -- an instinct with no delay is not instinct, it is the player's key press taken away.
+	for at in alone:
+		if at < SimShambler.STRUGGLE_INSTINCT_TICKS:
+			push_error("a struggle was armed on hold-tick %d, before the instinct delay" % at)
+			return false
+	# True negative two: a player who presses F gets their attempt on the tick they asked for,
+	# and instinct does *not* also fire on its own schedule -- arming resets the clock, so the
+	# second attempt is a delay after the first rather than at a fixed hold age.
+	if played.is_empty() or played[0] != 1:
+		push_error("F did not commit an escape on the tick it was pressed: %s" % str(played))
+		return false
+	if played.has(SimShambler.STRUGGLE_INSTINCT_TICKS):
+		push_error("instinct fired at hold-tick %d anyway, on top of the player's own attempt" % SimShambler.STRUGGLE_INSTINCT_TICKS)
+		return false
+	if played.size() > 1 and played[1] != 1 + SimShambler.STRUGGLE_INSTINCT_TICKS:
+		push_error("the attempt after a player's F landed on hold-tick %d, expected %d" % [played[1], 1 + SimShambler.STRUGGLE_INSTINCT_TICKS])
+		return false
+	print("INSTINCT OK unattended struggles at %s, played at %s over %d ticks" % [str(alone), str(played), INSTINCT_WINDOW])
+	return true
+
+
+# Hold-relative ticks on which an escape attempt was armed. `press_on` is the hold-relative tick
+# to push F on, or -1 for nobody at the keyboard at all.
+func _attempt_ticks(seed_val: int, press_on: int) -> Array[int]:
+	var w: Variant = _world(seed_val)
+	_spawn_shambler(w, 17.2, 16.5, 999.0)
+	var at: Array[int] = []
+	if _step_until_held(w, 40) < 0:
+		push_error("no hold formed for the instinct measurement")
+		return at
+	for i in INSTINCT_WINDOW:
+		if press_on == i + 1:
+			w.commands.push({"type": "swing"})
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) != "stamina.spent":
+				continue
+			if int(ev.get("entity", -1)) != int(w.player):
+				continue
+			if absf(float(ev.get("amount", 0.0)) - SimShambler.STRUGGLE_STAMINA) > 0.001:
+				continue
+			at.append(i + 1)
+	if not _held(w):
+		push_error("the unbreakable hold broke anyway, so these timings are of a shorter hold than they claim")
+		return [] as Array[int]
+	return at
 
 
 func _release_arms_the_regrab_cooldown() -> bool:
