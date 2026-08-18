@@ -812,8 +812,9 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   which is the safe direction for any future caller that forgets to say.
 - **Seven rules, written down, each gate-asserted.** R1 the exemption; R2 `grab.started` cancelling
   everything it touches *except* the victim's own self-pressure; R3 a stagger still cancelling
-  everything; R4 struggle and press coexisting; R5 `treatment.pin` outranking `breakAway`; R6
-  self-aid deferring while a break-away runs; R7 `context()` forcing `pressure` while held. They
+  everything; R4 struggle and press coexisting; R5 becoming fully free cancelling your own
+  self-pressure and only that; R6 self-aid deferring while a break-away runs; R7 `context()`
+  forcing `pressure` while held. They
   are enumerated in `treatment.gd`'s header rather than left to be inferred from four subscriptions
   and a pin, because inferring them is exactly how the two systems would drift apart.
 - **A grab is no longer the same event as a stagger.** They shared `_interrupt`; they now do not,
@@ -833,14 +834,45 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
 - **`fortify.gd` keeps its own unexempted `_can_channel`.** Boarding a window with a zombie on your
   arm stays exactly as illegal as it sounds. The two copies were already separate; that they now
   say different things is the point, not drift.
-- **R5 and R6 are not in tension, and R5 is where the slice stopped.** One governs a press already
-  paid for (it survives an escape; you stay on the wound), the other a new one (it waits until the
-  running is done). Both are defensible in isolation. Together with the break-away speed fix landed
-  in the same slice they produce a measured conflict — a mid-press escapee does not run, so the
-  re-grab lands at the cooldown anyway, and 89 of 91 post-press windows on seed 404 are exactly
-  `REGRAB_COOLDOWN_TICKS` with none above. That is recorded as a finding rather than fixed by
-  picking between them, because which of "a wound you are holding closed slows you down" and "an
-  escape always buys distance" is true is a design call about how being grabbed should feel.
+- **R5 was inverted on a measurement, and the inversion is the point of writing rules down.** As
+  first shipped, R5 said a press already paid for outranked a break-away: tear free mid-press and
+  `treatment.pin`'s zero landed after `shambler.pin`'s run, so you stayed on the wound. It is
+  defensible in isolation — a wound you are holding closed should slow you down — and in play it
+  cancelled the break-away speed fix landed in the same slice for exactly the survivors using the
+  aid: 94 of 120 escapes on seed 404 were mid-press, 89 of the 91 following re-grab windows were
+  exactly `REGRAB_COOLDOWN_TICKS` with none above, and total grabs rose. R5 now says the opposite —
+  `grab.broken` cancels the victim's own self-pressure — and the reason it is a *clean* inversion
+  rather than a new special case is the symmetry with R2, which is the whole arbitration in two
+  lines:
+
+  > `grab.started` cancels everything touching the victim **except** their own self-pressure.
+  > `grab.broken` cancels **only** their own self-pressure.
+
+  A second set of hands closing does not peel your palm off your arm; becoming free is what takes
+  it off, because that is the moment you have somewhere to be. Both handlers are aimed at one named
+  entity rather than at a situation, which is why a free treater's dressing on a patient who tears
+  loose survives — that patient has stopped being dragged, so the channel is *more* viable than it
+  was, and reach is re-checked every tick anyway.
+- **The drain ordering was designed around rather than engineered away.** `grab.broken` is published
+  inside the escape tick and handlers run at `drain()`, at the end of `world.step()`, so on that one
+  tick the press still exists and still pins the escapee — flight begins the tick after. Moving the
+  cancel earlier would have meant either publishing outside the event bus or giving one module a
+  privileged same-tick path, both of which trade a working rule for a special case. The tick costs
+  0.105 m of gap, and the gate asserts movement from the tick after release: CLAUDE.md already
+  records that an event published into a tick lands after that tick's systems have run, and the
+  instruction is to write the test around it rather than tolerate a fudge factor inside the
+  measurement.
+- **What the inversion cost, and why it did not flip the flag.** The fragments arithmetic that
+  decided R4 decides this too, in the other direction. A press cancelled at every escape banks
+  nothing, so a 400-tick deep-wound press has exactly two completion paths: one unbroken 400-tick
+  hold, which the cycle length makes vanishingly unlikely, or free and clear after the colony kills
+  or sheds the holder. Measured across four seeds, neither happened once — presses completed went
+  from 25/9/26 to zero — while grabs and bites fell by about a third. Fewer holds, no clotting, and
+  the net on survival was negative. The rule stands because the alternative was measured to be worse
+  for the lever it blocks, not because it made the colony live; `GRABS_ENABLED` stays `false`, and
+  docs/23 carries the seed-by-seed numbers and the three named residuals — chief among them that a
+  break-away released against a wall covers 0.010 m per tick rather than 0.105, because its heading
+  is taken once and `movement.integrate` zeroes a blocked axis.
 
 ---
 

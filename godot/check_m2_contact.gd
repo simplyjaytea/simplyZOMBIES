@@ -58,7 +58,7 @@ func _run() -> void:
 	ok = _the_dead_are_not_worth_chasing() and ok
 	ok = _a_held_survivor_can_answer_their_own_bleeding() and ok
 	ok = _struggling_and_pressing_are_not_the_same_hand() and ok
-	ok = _a_press_outlives_the_hold_that_started_it() and ok
+	ok = _flight_cancels_the_press_and_the_press_comes_back() and ok
 	ok = _first_aid_waits_until_the_running_is_done() and ok
 	ok = _a_held_survivor_cannot_swing_or_fire() and ok
 	ok = _deterministic_replay() and ok
@@ -1237,92 +1237,235 @@ func _struggling_and_pressing_are_not_the_same_hand() -> bool:
 	return true
 
 
-# R2 and R5. A press is the one channel a new hold does not take away, and the pair of rules that
-# makes that worth having: tear free mid-press and treatment.pin outranks breakAway, so the
-# survivor stays on the wound instead of running; get re-taken and the press is still there. The
-# press therefore runs *across* grab and escape cycles, which is the whole reason a 400-tick deep
-# wound is answerable at all in a district where holds arrive every few seconds.
+# R5 and R6, and the one lever the balance harness asked for by name. Tear free mid-press and the
+# press ends: `treatment.escape-releases-press` cancels the victim's own self-pressure when
+# `grab.broken` names them, so the break-away is a run rather than a pause. R6 then holds the next
+# press off until the running is done, and the hand goes back on the wound once they are clear.
 #
-# The negative is R3 in the same shape: a stagger during the same press does end it, and the wound
-# is still bleeding afterwards.
-func _a_press_outlives_the_hold_that_started_it() -> bool:
-	var w: Variant = _world_with_treatment(9600)
+# This inverts what shipped first ("treatment.pin outranks breakAway"), and it was inverted on a
+# measurement: with the press winning, 94 of 120 escapes on seed 404 happened mid-press, 89 of the
+# 91 re-grab windows that followed one were exactly REGRAB_COOLDOWN_TICKS and not one exceeded it,
+# and total grabs rose 149 -> 214. Every stage of the cycle is a separate way for the rule to be
+# wrong, so every stage is asserted: the cancel lands, the flight covers ground, the press re-opens
+# once clear, the re-grab arrives *later* than the cooldown, the re-grab does not take the
+# re-opened press away, and the press still clots a wound.
+#
+# The drain ordering is design, not slack, and the first assertion pins it: `grab.broken` is
+# published inside the escape tick and handlers run at drain, at the *end* of `world.step()`, so on
+# that one tick the press still exists and `treatment.pin` still zeroes the velocity. The escapee
+# spends one of breakAway's 26 ticks standing still while the holder keeps closing at 0.084 m --
+# which is why the release distance here is 0.85 m rather than the 0.7 m the assertions above use.
+# That tick is worth about 0.105 m of gap, so it lifts BREAK_AWAY_SPEED's own "a release from
+# d0 < 0.58 m can still be inside reach" to roughly 0.69 m. Below that the cooldown still closes,
+# with this rule or without it, and no arbitration between two systems can change a distance.
+#
+# The paired control is the point of the whole thing: the *same seed and the same geometry* with
+# the new subscription lifted off the bus, which is the behaviour that shipped before. It covers no
+# ground at all and is re-taken on the first tick its cooldown allows -- 19 rather than 20, because
+# staging the release from outside a step arms the cooldown a tick before the step that would have
+# spent it, which is the same 19 CLEAR-AWAY measures for a survivor who stands still. Unsubscribing
+# to isolate one rule is `_no_struggling`'s idiom one layer down.
+#
+# Three more negatives, because a handler that cancelled everything would pass every positive
+# above: a second holder's `grab.started` does not touch the press (R2, the carve-out this rule is
+# the mirror of), a stagger still ends it (R3), and a `grab.broken` naming somebody else cancels
+# nothing at all (the handler is targeted).
+func _flight_cancels_the_press_and_the_press_comes_back() -> bool:
+	var live: Dictionary = _held_and_pressing(9600, true)
+	if live.is_empty():
+		return false
+	var w: Variant = live["w"]
+	var npc: int = int(live["npc"])
+	var zed: int = int(live["zed"])
+
+	# P1. The escape tick itself: pinned by the press that is about to be cancelled, and cancelled
+	# by the time the tick has ended.
+	var at: Dictionary = w.components.get_component(npc, "position") as Dictionary
+	var x0: float = float(at["x"])
+	var y0: float = float(at["y"])
+	SimShambler._release_victim(w, npc, "struggle", npc)
+	w.step()
+	var release_tick: int = int(w.tick)
+	var pinned: float = sqrt(pow(float(at["x"]) - x0, 2.0) + pow(float(at["y"]) - y0, 2.0))
+	if pinned > 0.0001:
+		push_error("the escape tick moved the survivor %.4f m -- treatment.pin no longer runs last, so the ordering this rule is written around has changed" % pinned)
+		return false
+	if not w.components.has_component(npc, "breakAway"):
+		push_error("the escape armed no break-away, so there is no flight to cancel a press for")
+		return false
+	if w.components.has_component(npc, "treatment"):
+		push_error("the escape did not cancel the press")
+		return false
+
+	# P2. From the tick after, the break-away actually carries them, and R6 keeps a new press shut
+	# while it does.
+	for _i in 10:
+		w.step()
+		if w.components.has_component(npc, "treatment"):
+			push_error("a press opened while the break-away was still running")
+			return false
+	var flown: float = sqrt(pow(float(at["x"]) - x0, 2.0) + pow(float(at["y"]) - y0, 2.0))
+	if flown < 0.5:
+		push_error("ten ticks of break-away covered %.4f m -- the cancel is not buying any distance" % flown)
+		return false
+
+	# P3. Once the running is done the hand goes back on the wound, unprompted.
+	var reopened: int = -1
+	for _i in (SimShambler.BREAK_AWAY_TICKS + 8):
+		w.step()
+		if w.components.has_component(npc, "treatment"):
+			reopened = int(w.tick) - release_tick
+			break
+	if reopened < 0:
+		push_error("the press never re-opened after the break-away ran out -- R6 has closed rather than deferred")
+		return false
+	if w.components.has_component(npc, "breakAway"):
+		push_error("the press re-opened while the break-away was still running")
+		return false
+	if w.components.has_component(npc, "grabbed"):
+		push_error("the NPC was re-taken before the press re-opened, so this measured a re-grab rather than R6")
+		return false
+	var reopened_verb: String = String((w.components.get_component(npc, "treatment") as Dictionary).get("verb", ""))
+	if reopened_verb != "pressure":
+		push_error("the channel that re-opened was %s, not a press" % reopened_verb)
+		return false
+
+	# P4. The number the whole inversion is for: the shambler comes back *later* than its own
+	# cooldown, because the survivor is no longer standing where it left them.
+	var retaken: int = -1
+	for _i in 120:
+		w.step()
+		if w.components.has_component(npc, "grabbed"):
+			retaken = int(w.tick) - release_tick
+			break
+	if retaken < 0:
+		push_error("the shambler never came back inside 120 ticks, so the re-grab window has no data to judge -- raise the bound rather than dropping the assertion")
+		return false
+	if retaken <= SimShambler.REGRAB_COOLDOWN_TICKS:
+		push_error("re-taken %d ticks after the escape, which is not longer than REGRAB_COOLDOWN_TICKS %d -- the treadmill is back" % [retaken, SimShambler.REGRAB_COOLDOWN_TICKS])
+		return false
+	if not w.components.has_component(npc, "treatment"):
+		push_error("the re-grab cancelled the re-opened press -- R2 has gone with R5")
+		return false
+	_pin_the_bite_clock(w, zed)
+	for _i in int(SimWounds.PRESSURE_TICKS[SimWounds.Severity.DeepWound]):
+		w.step()
+	if _still_bleeding(w, npc):
+		push_error("the re-opened press ran a full deep-wound span and never clotted the wound")
+		return false
+
+	# The control. Same seed, same placement, same 50 ticks of press -- with the one subscription
+	# under test lifted off the bus, which is what the build did before this slice.
+	var was: Dictionary = _held_and_pressing(9600, false)
+	if was.is_empty():
+		return false
+	var cw: Variant = was["w"]
+	var cnpc: int = int(was["npc"])
+	var cat: Dictionary = cw.components.get_component(cnpc, "position") as Dictionary
+	var cx0: float = float(cat["x"])
+	var cy0: float = float(cat["y"])
+	SimShambler._release_victim(cw, cnpc, "struggle", cnpc)
+	cw.step()
+	var control_release: int = int(cw.tick)
+	if not cw.components.has_component(cnpc, "treatment"):
+		push_error("the control lost its press with the subscription removed, so it is not the old behaviour")
+		return false
+	var control_retaken: int = -1
+	for _i in 120:
+		cw.step()
+		if cw.components.has_component(cnpc, "grabbed"):
+			control_retaken = int(cw.tick) - control_release
+			break
+	var control_drift: float = sqrt(pow(float(cat["x"]) - cx0, 2.0) + pow(float(cat["y"]) - cy0, 2.0))
+	# Staged from outside a step, the release arms the cooldown a tick before the step that would
+	# have spent it, so a survivor who does not move is re-taken on tick 19 rather than 20 --
+	# CLEAR-AWAY measures the same 19 and the same way. What the control has to show is that the
+	# gap never opened at all: re-taken as soon as the cooldown allows, and later for the one that
+	# ran.
+	if control_retaken < 0 or control_retaken > SimShambler.REGRAB_COOLDOWN_TICKS:
+		push_error("the control was re-taken after %d ticks rather than on the first tick its cooldown allowed -- the treadmill this rule answers is not being reproduced, so the %d above measures nothing" % [control_retaken, retaken])
+		return false
+	if retaken <= control_retaken:
+		push_error("the cancelled press was re-taken at %d and the surviving one at %d -- the rule bought no separation on identical geometry" % [retaken, control_retaken])
+		return false
+	if control_drift > 0.0001:
+		push_error("the control covered %.4f m while pressing, so it was never pinned and the pair is not comparable" % control_drift)
+		return false
+
+	# N1. R2, the rule this one mirrors: a second set of hands closing does not peel your palm off
+	# your own arm. Published rather than staged with a second shambler so the assertion is about
+	# the arbitration and not about whether a second body happened to close the distance.
+	var second: Dictionary = _held_and_pressing(9602, true)
+	if second.is_empty():
+		return false
+	var sw: Variant = second["w"]
+	sw.events.publish({"type": "grab.started", "victim": int(second["npc"]), "source": int(second["zed"])})
+	sw.step()
+	if not sw.components.has_component(int(second["npc"]), "treatment"):
+		push_error("a second holder cancelled the press -- R2 has been widened into R5")
+		return false
+
+	# N2. R3, unchanged: a stagger still takes your hand off your own arm.
+	var knocked: Dictionary = _held_and_pressing(9601, true)
+	if knocked.is_empty():
+		return false
+	var kw: Variant = knocked["w"]
+	kw.events.publish({"type": "entity.staggered", "entity": int(knocked["npc"])})
+	kw.step()
+	if kw.components.has_component(int(knocked["npc"]), "treatment"):
+		push_error("a stagger did not end the press, so the cancels above prove nothing")
+		return false
+
+	# N3. The control that stops "cancel everything" from passing every positive above: somebody
+	# *else* tearing free is not your escape, and takes nothing off your wound.
+	var bystander: Dictionary = _held_and_pressing(9603, true)
+	if bystander.is_empty():
+		return false
+	var bw: Variant = bystander["w"]
+	bw.events.publish({"type": "grab.broken", "victim": bw.player, "by": -1, "cause": "struggle"})
+	bw.step()
+	if not bw.components.has_component(int(bystander["npc"]), "treatment"):
+		push_error("somebody else's escape cancelled this survivor's press -- the handler is not targeted")
+		return false
+
+	print("FLIGHT-CANCELS-PRESS OK escape tick pinned %.4f m and the press cancelled, %.3f m flown by tick 11, press re-opened at tick %d clear of the hold and clotted, re-taken at %d against a cooldown of %d -- the same seed with the subscription off stayed put and was re-taken at %d; a second holder, a stagger and a bystander's escape all still land where they should" % [pinned, flown, reopened, retaken, SimShambler.REGRAB_COOLDOWN_TICKS, control_retaken])
+	return true
+
+
+# One held, bleeding, self-pressing NPC with 50 ticks on the channel, and the shambler holding
+# them. `cancel_on_escape` false lifts the rule under test off the bus, which is how the control
+# above reproduces the behaviour that shipped before it.
+#
+# 0.85 m rather than the 0.7 m used above: see the note on the pinned escape tick. Returns {} on
+# any setup failure, having already said which one.
+func _held_and_pressing(seed_val: int, cancel_on_escape: bool) -> Dictionary:
+	var w: Variant = _world_with_treatment(seed_val)
+	if not cancel_on_escape and not w.events.unsubscribe("treatment.escape-releases-press"):
+		push_error("treatment.escape-releases-press was not subscribed -- the control is lifting nothing off the bus")
+		return {}
 	_no_struggling(w)
 	var npc: int = _spawn_npc(w, 24.5, 24.5)
-	var zed: int = _spawn_shambler(w, 25.2, 24.5, 999.0)
+	var zed: int = _spawn_shambler(w, 25.35, 24.5, 999.0)
 	if _step_until_grabbed(w, npc, 40) < 0:
-		push_error("no hold formed for the re-grab measurement")
-		return false
+		push_error("seed %d: no hold formed for the escape measurement" % seed_val)
+		return {}
 	_pin_the_bite_clock(w, zed)
 	_deep_wound(w, npc)
 	w.step()
 	if not w.components.has_component(npc, "treatment"):
-		push_error("no press opened on the held NPC")
-		return false
+		push_error("seed %d: no press opened on the held NPC" % seed_val)
+		return {}
 	for _i in 50:
 		w.step()
-
-	SimShambler._release_victim(w, npc, "struggle", npc)
-	w.step()
-	if not w.components.has_component(npc, "treatment"):
-		push_error("the escape cancelled the press")
-		return false
-	if not w.components.has_component(npc, "breakAway"):
-		push_error("the escape armed no break-away, so R5 is not being exercised")
-		return false
-	# R5: both write the same velocity slot at movement/-1 and treatment.pin sorts last, so the
-	# body under a dressing does not run. Measured as ground covered, never as a component read.
-	var at: Dictionary = w.components.get_component(npc, "position") as Dictionary
-	var x0: float = float(at["x"])
-	var y0: float = float(at["y"])
-	for _i in 10:
-		w.step()
-	var drifted: float = sqrt(pow(float(at["x"]) - x0, 2.0) + pow(float(at["y"]) - y0, 2.0))
-	if drifted > 0.0001:
-		push_error("a survivor mid-press was carried %.4f m by their own break-away" % drifted)
-		return false
-
-	var retaken: int = -1
-	for i in 60:
-		w.step()
-		if retaken < 0 and w.components.has_component(npc, "grabbed"):
-			retaken = i + 1
-			_pin_the_bite_clock(w, zed)
-	if retaken < 0:
-		push_error("the NPC was never re-taken, so surviving a re-grab was never tested")
-		return false
-	if not w.components.has_component(npc, "treatment"):
-		push_error("the re-grab cancelled the press that survived the escape")
-		return false
-	for _i in int(SimWounds.PRESSURE_TICKS[SimWounds.Severity.DeepWound]):
-		w.step()
-	if _still_bleeding(w, npc):
-		push_error("the press ran across an escape and a re-grab and still never clotted the wound")
-		return false
-
-	var knocked: Variant = _world_with_treatment(9601)
-	_no_struggling(knocked)
-	var npc2: int = _spawn_npc(knocked, 24.5, 24.5)
-	var zed2: int = _spawn_shambler(knocked, 25.2, 24.5, 999.0)
-	if _step_until_grabbed(knocked, npc2, 40) < 0:
-		push_error("no hold formed for the stagger negative")
-		return false
-	_pin_the_bite_clock(knocked, zed2)
-	_deep_wound(knocked, npc2)
-	knocked.step()
-	knocked.events.publish({"type": "entity.staggered", "entity": npc2})
-	knocked.step()
-	if knocked.components.has_component(npc2, "treatment"):
-		push_error("a stagger did not end the press, so the survivals above prove nothing")
-		return false
-	print("REGRAB-SPARES-PRESS OK press survived the escape (0.0000 m drifted) and the re-grab %d ticks later, and clotted; a stagger still ends it" % retaken)
-	return true
+	return {"w": w, "npc": npc, "zed": zed}
 
 
-# R6. A press already paid for survives an escape (R5 above); a *new* one waits until the running
-# is done. Without this the survivor would open a press on the tick they tore free, treatment.pin
-# would immediately outrank breakAway, and they would stand exactly where they escaped from --
-# re-taken at the cooldown, which is the treadmill the break-away exists to end.
+# R6 on its own, with no escape in the picture: a press does not open while a break-away is
+# running, whatever armed it. R5 above takes the old press away at the escape; this is what stops
+# a new one being opened in its place the tick after. Without both, the survivor would be pressing
+# again immediately, treatment.pin would zero the break-away's velocity, and they would stand
+# exactly where they escaped from -- re-taken at the cooldown, which is the treadmill the
+# break-away exists to end.
 func _first_aid_waits_until_the_running_is_done() -> bool:
 	var w: Variant = _world_with_treatment(9700)
 	var npc: int = _spawn_npc(w, 24.5, 24.5)
