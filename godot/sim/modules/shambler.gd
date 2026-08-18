@@ -118,7 +118,7 @@ const RESCUE_RETRY_TICKS: int = 20
 # ticks, the re-grab landing on the very tick the cooldown lapsed, 149 separate holds on one
 # victim in a ten-day compressed campaign. See BREAK_AWAY_SPEED for the arithmetic that fixes it.
 
-# Grabs are still off by default, and the reason has changed five times now. The first two were
+# Grabs are still off by default, and the reason has changed six times now. The first two were
 # guesses; every one since has been measured, and the measurement is the point of the note.
 #
 # Reason one (retired): "the flip waits on a recovery clock" -- a bite rolled over all ten parts
@@ -155,37 +155,51 @@ const RESCUE_RETRY_TICKS: int = 20
 # STRUGGLE_STAMINA falls from 38.3% to 13.3%, and on 90210 from 48.9% to 0.0%, while struggles won
 # go from none the instrumentation could see to 71 and 136.
 #
-# Reason five was: *the hold itself is too frequent, and a held body cannot treat the bleeding.*
-# Both halves were answered, both levers landed, and the flag still did not flip -- so this note
-# records what the levers actually bought and what they ran into, because that is the finding.
+# Reason five (retired as an explanation, and answered in both halves): *the hold itself is too
+# frequent, and a held body cannot treat the bleeding.* Both levers landed and both do what they
+# were picked to do. `treatment._can_channel` grants exactly one channel to a held body, a hand on
+# your own wound (R1-R7 are written out at the top of treatment.gd; AID-HELD and HELD-CONTEXT in
+# check_m2_treatment.gd, PRESS-THROUGH and STRUGGLE-DURING-PRESS here), and BREAK_AWAY_SPEED
+# 1.6 -> 2.1 turns a release into separation (CLEAR-AWAY). What stood between them was R5: with a
+# running press outranking a break-away, the survivors using the aid were exactly the ones the
+# break-away no longer moved, 94 of 120 escapes on seed 404 were mid-press, 89 of the 91 following
+# re-grab windows were exactly REGRAB_COOLDOWN_TICKS with none above, and total grabs rose 149 ->
+# 214. R5 has now been inverted -- `treatment.escape-releases-press` cancels the victim's own
+# self-pressure when `grab.broken` names them, and only that, R2's mirror -- and it does what the
+# arithmetic said it would: on the same four seeds with the flag forced on, grabs fall 214 -> 150
+# and 212 -> 166, bites fall 136 -> 88 and 122 -> 65, and re-grab windows longer than the cooldown
+# appear at all (0 of 119 -> 10 of 141 on 90210). FLIGHT-CANCELS-PRESS holds the whole cycle down,
+# against a paired control on the same geometry with the subscription lifted off the bus.
 #
-# The aid half is answered and it works. `treatment._can_channel` now grants exactly one channel
-# to a held body, a hand on your own wound (R1-R7 are written out at the top of treatment.gd;
-# AID-HELD and HELD-CONTEXT in check_m2_treatment.gd, PRESS-THROUGH and STRUGGLE-DURING-PRESS
-# here). Measured on the same four seeds with the flag forced on, before against after: presses
-# *completed while held* go from 0 on every seed to 20 on 404 and 16 on 90210, presses destroyed
-# by an arriving hold go from 46/55/125 to **zero**, and on 404 the colony's living ticks rise
-# 45% (4,032 -> 5,863). A held survivor is no longer a survivor with no legal answer.
+# Reason six, which is where it stands now: *a body that tears free does not go anywhere, and a
+# press that is cancelled at every escape never finishes.* The flag stays false, both hard seeds
+# still end 0/2, and the instrumentation names the residual rather than guessing at it.
 #
-# The churn half is answered *in isolation* and cancelled *in play*, and that is the honest state
-# of it. BREAK_AWAY_SPEED 1.6 -> 2.1 does exactly what its note says -- CLEAR-AWAY measures 1.057 m
-# between the two bodies when the re-grab cooldown lapses, against a re-grab after 19 ticks for the
-# same survivor standing still. But R5 says a press outranks a break-away: tear free mid-press and
-# treatment.pin's zero lands after shambler.pin's run, so you stay on the wound instead of running.
-# In a real district that is most escapes. On 404, 94 of 120 escapes happen mid-press, and of the
-# 91 inter-grab windows that follow one, 89 are exactly REGRAB_COOLDOWN_TICKS and **not one exceeds
-# it**; the windows following a free escape do exceed it. 90210 says the same thing (120 of 177;
-# 112 of 117 at exactly 20, none above). So the two owner-picked levers are pulling against each
-# other: the survivors who use the aid are precisely the ones the break-away no longer moves, and
-# total grabs rose 149 -> 214 and 149 -> 212 rather than falling.
+# The cost of the inversion is exact: presses **completed** go from 25/9/26 to **zero on every
+# seed**, because a 400-tick deep-wound press cancelled every ~50 ticks banks nothing. Blood loss
+# becomes the whole of 90210's death list and 404's colony lives 15% fewer ticks than it did with
+# the press winning. Fewer holds, fewer bites, and less clotting; the net is not survival.
 #
-# Both seeds therefore still end 0/2 with a blood-loss death apiece, and the flag stays false.
-# What the instrumentation implicates is not contact rarity and not the aid rule -- it is the
-# arbitration between them: R5 as it stands makes Lever B unreachable for anyone using Lever A.
-# The candidates are all design calls (let a break-away outrank a running press; cancel a press on
-# escape and let R6 re-open it; or leave R5 and cut contact rarity instead), so **do not pick one
-# unilaterally**. Relaxing `survivors_end >= 1` remains considered and rejected. docs/23's
-# Milestone 2 status carries the measurement seed by seed.
+# The reason the win is that small is not the arbitration this time -- it is _break_away itself.
+# Measured over three days of seed 404 with the flag on: a `breakAway` body carries its escape
+# velocity into movement.integrate on 1,230 of 1,266 ticks, and the integrator **zeroes it on
+# 1,124**, because the committed heading is blocked on the X axis on 1,107 of those ticks, on the Y
+# axis on 1,154, and on **both at once on 1,087 -- 86%**. Ground actually covered: 12.66 m, which is
+# 0.010 m per tick against a nominal 0.105. The direction is taken once, at the moment of release,
+# and never re-derived -- deliberately, see _break_away, because this is a shove-off and not a
+# pursuit solver -- and world.gd's _integrate_movement zeroes a blocked axis. A colony is grabbed
+# where a colony lives, which is against the annex walls, so the shove-off points into masonry and
+# the escapee leans on it for all 26 ticks. Hence a mean of 0.063 m covered between escape and
+# re-grab on 404, and the same shambler taking them again in 309 of 309 windows across the seeds
+# that have any.
+#
+# So the candidates are: give a break-away somewhere to go (a heading that avoids a wall, or a
+# re-derive), let a press bank its progress, or cut contact rarity. All three are design calls, so
+# **do not pick one unilaterally**. Relaxing `survivors_end >= 1` remains considered and rejected.
+# docs/23's Milestone 2 status carries the measurement seed by seed, including the two smaller
+# residuals: the one pinned tick the drain ordering costs an escape (worth 0.105 m of gap, which
+# lifts BREAK_AWAY_SPEED's own d0 threshold from 0.58 m to about 0.69 m), and the fragments
+# arithmetic that leaves a deep press with no reachable completion path.
 #
 # So the loop ships complete, gated and off for one more turn, the way
 # SimMelee.REFUSE_EXHAUSTED_SWINGS did: check_m2_contact.gd turns it on explicitly, so every
@@ -208,6 +222,13 @@ const BREAK_AWAY_TICKS: int = 26
 # Pursue. It is a reduction in churn rather than immunity: a release from d0 < 0.58 m can still be
 # inside reach when the cooldown lapses. CLEAR-AWAY in check_m2_contact.gd pins the speed against
 # the seek so a locomotion retune cannot quietly re-create the treadmill.
+#
+# Two things measured since move that threshold, and both are in the rationale block above rather
+# than here because neither is about the speed. A press cancelled at the escape costs one pinned
+# tick before flight begins, which is 0.105 m of gap and lifts the 0.58 m to about 0.69 m. And in
+# an actual district the arithmetic above is the *ceiling*, not the outcome: 86% of break-away
+# ticks on seed 404 have the committed heading blocked on both axes, so the body covers 0.010 m per
+# tick rather than 0.105 and this open-field reasoning simply does not apply to it.
 const BREAK_AWAY_SPEED: float = 2.1
 
 const SimLocomotionRes = preload("res://sim/locomotion.gd")
@@ -791,7 +812,9 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		# touching the escape maths. Nor does a running first-aid channel enter into it
 		# (treatment.gd's R4): a hand on your own wound is not "your action" for the hold, and a
 		# survivor made to choose between getting free and not bleeding would only ever lose one of
-		# the two. What a mid-press escape *does* change is where they end up -- see R5.
+		# the two. What winning *costs* is the press: the `grab.broken` published below is what
+		# treatment.gd's R5 hears, and it ends the victim's hand on their own wound so the
+		# break-away is a run rather than a pause. The hand goes back on once they are clear (R6).
 		for victim in w.components.query(["grabbed"]):
 			var grabbed: Dictionary = w.components.get_component(int(victim), "grabbed") as Dictionary
 			if int(grabbed["struggleTicks"]) <= 0:
