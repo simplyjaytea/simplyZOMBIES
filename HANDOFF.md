@@ -24,7 +24,7 @@ Four other places to know about, and nothing else is required reading:
 | **It is playable** | Godot at `/` (and Windows artifact) — 256 m district with civic annex, Mara as the current test survivor, knife in hand. `F` swing, `G`/click fire, `R` reload. Shambler / screamer / bloater on the map. HUD shows STR/CON/DEX. |
 | **What is left of Milestone 1** | **Nothing required for closure.** |
 | **Merged so far** | Through R7 cutover — `ts-oracle-final` tag preserves the last TypeScript oracle. Godot sim/presentation/platform/content all live under `godot/`. |
-| **In flight** | **The survival loop, first half: the stance ladder is now sim-owned.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 of it have landed — see the stance-ladder note below and `M2_STANCE_OK`. Still ahead: the grab/bite port that gives wounds an input source, then wounds, treatment and recovery. |
+| **In flight** | **The survival loop, first half: harm is reachable.** New NPCs and adjacent feature scope stay paused; Mara remains the test survivor. The design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`. Phase 0 Tasks 1–2 landed (`M2_STANCE_OK`), and the grab → struggle → bite loop landed built-and-gated but **off** (`M2_CONTACT_OK`, `SimShambler.GRABS_ENABLED = false`) — see both notes below. Next: the wound taxonomy, bleeding, treatment and **recovery**, which is what the grab flag is waiting on. |
 | **Pulled forward on purpose** | **Items and the grid inventory, located survivor bodies and condition presentation, and the wound-time infection seam** — all Milestone 2 foundations that landed during Milestone 1. Grabs now produce a located wound with separate visible presentation and private transmission truth; progression, treatment, armor reduction, stages, and turning remain. |
 | **Specified but deliberately unbuilt** | The first survival contract (see “Do this next”), [multiplayer](docs/27-multiplayer.md) (Milestone 3C), [z-levels](docs/23-roadmap.md#deferred-z-levels), INT/CHA/WIS (Milestone 3A — STR/CON/DEX shipped), [aiming](docs/09-combat.md#aiming), and docs/05/06's remaining injury types / sepsis. |
 
@@ -134,11 +134,41 @@ regenerated*, because `health.recover` did `int(current + 0.6)` against an integ
 from encumbrance — the same dead-modifier shape docs/30 records for `move_speed`. `SAVE_VERSION` is
 14 for the posture and stamina shape change; `check_m2_fortify.gd` carried its own independent
 hardcoded `!= 13` check and needed the same bump.
-**Still oracle-only, not ported:** grabs, bites and the stamina-paid escape below. `grab.started`
-and `bite.landed` have five subscribers and zero publishers in `godot/sim/`, and the `grabbed`
-component is read in five places and written nowhere, so `F`-as-struggle is a legend line that
-cannot fire and a zombie cannot wound a survivor at all. That port is the next change, not a
-finished one.
+**The grab -> struggle -> bite loop is built, gated, and switched off.** `grab.started` and
+`bite.landed` had five subscribers between them and **zero publishers** anywhere in `godot/sim/`;
+the `grabbed` component was read in five places (`melee.gd`, `ranged.gd`, `jobs.gd`, `fortify.gd`,
+`npc_combat.gd`) and written in none, so `F`-as-struggle was a legend line that could not fire.
+`shambler.gd` now closes contact into a hold inside `Pursue` — one metre, a clear line of contact
+sampled three ways so a hold crosses foliage but never a wall, `grabState {victim, ticksUntilBite}`
+on the grabber and `grabbed {sources, struggleTicks}` on the victim. A hold pins both bodies
+(`shambler.pin`, `movement`/−1, ahead of `movement.integrate`), bites at 1.5 s and every 2 s after,
+and `F` becomes a contextual 20-stamina struggle (`shambler.struggle-intake`, `input`/9) resolved by
+the **existing** `SimAptitudes.escape_chance`, whose only caller until now was a gate. NPCs struggle
+autonomously, because they have no `F`; a successful escape also carries the freed body clear for
+26 ticks, since an escape that leaves you inside arm's reach is not an escape. Release arms a
+re-grab cooldown, and `entity.killed` frees both sides idempotently — CLAUDE.md records that the
+event fires up to three times for one individual. Gate: `npm run godot:m2:contact` —
+`M2_CONTACT_OK`, nine assertions, each with a true negative.
+
+**But `SimShambler.GRABS_ENABLED` is `false`, and that is the finding, not a hedge.** A bite rolls
+over all ten survivor parts, and **nothing in this simulation raises a body part's integrity except
+`jobs.gd`'s `_treat()`, which heals the torso and only the torso.** Head, arms, hands, legs and feet
+fall monotonically for the life of a survivor. Grabs are the first repeating damage source ever
+aimed at survivors, so without recovery they are not *hard*, they are *cumulative*: on the fast
+balance tier seed 404 goes from 0 deaths to a wiped colony, failing `M2_BALANCE`'s designed
+`survivors_end >= 1`. Causation was pinned by disabling acquisition and watching that seed return to
+2/2, and by instrumenting a real campaign (19 grabs, 17 autonomous struggles, 15 releases — the loop
+is healthy, the arithmetic is not). Neither tuning bite damage nor loosening the invariant would have
+been honest, so this follows `SimMelee.REFUSE_EXHAUSTED_SWINGS`: complete, fully exercised by its
+gate, off until the thing that makes it survivable exists. **The flip belongs in the same change that
+gives wounds a recovery clock** — the next slice — and `_the_flag_actually_gates_acquisition()` is
+the assertion that will notice when it happens.
+
+**What the flip makes reachable rather than builds:** `health.gd`'s located wound with its
+presentation lie, `infection.gd`'s armour-reduced transmission and private `transmitted` flag, the
+paperdoll's wound ring, and `bloater.gd`'s `_has_open_wound` — all written against a bite nothing
+could produce. Cripple and stagger are still unwired: `shambler.gd` subscribes to neither
+`injury.sustained` nor `entity.staggered`.
 
 **Named leftover still in the code:**
 - **The condition view has one voice.** docs/05 scales a part's prose by the examiner's Medicine
@@ -926,11 +956,11 @@ corrected — is in [the decision log](docs/30-decisions.md#what-milestone-1-has
       `CRAWL_SPEED_FACTOR` became an `injury.crippled` modifier, which is what its own comment said
       it wanted to be and could not.)*
 - [x] **Grabs, and breaking free** — and with them, bite risk
-      *(**oracle only — not ported to Godot.** Everything below describes `src/sim/modules/shambler.ts`.
-      `godot/sim/modules/shambler.gd:5` says the grab/cripple/stagger/bite sub-systems were omitted;
-      `grab.started` and `bite.landed` have five subscribers and no publisher, and `grabbed` is read
-      in five places and written nowhere. The shipped build's zombies cannot wound a survivor. See
-      the stance-ladder note under "Where things stand".)*
+      *(**ported to Godot but switched off** — `SimShambler.GRABS_ENABLED` is `false` until wounds
+      have a recovery clock, because nothing heals a limb yet and a repeating damage source is then
+      merely cumulative. Read the contact note under "Where things stand" before flipping it. The
+      code is complete and `M2_CONTACT_OK` exercises all of it; cripple and stagger from that same
+      omitted block are still unported.)*
       *(actual hold range is 1 m, separate from 1.6 m pursuit contact so weapon reach remains real.
       A hold pins movement, interrupts wind-up and makes `F` a one-second, 20-stamina struggle.
       Additional grab strength progressively lowers escape chance without making it impossible;
