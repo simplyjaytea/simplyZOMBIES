@@ -99,12 +99,12 @@ describe("the shipped content", () => {
     expect(reachOf("item.floodlight.rigged")).toBe(LIGHT_TABLE.floodlight);
   });
 
-  it("loads Mara Okoro as a unique survivor with a 15-point aptitude budget", () => {
+  it("loads Mara Sato as a unique survivor with a 15-point aptitude budget", () => {
     const mara = loadRealContent().getOrThrow("survivor", "survivor.unique.mara");
     const apt = mara["aptitudes"] as { str: number; dex: number; con: number };
     expect(apt).toEqual({ str: 3, dex: 5, con: 7 });
     expect(apt.str + apt.dex + apt.con).toBe(15);
-    expect(mara["name"]).toBe("Mara Okoro");
+    expect(mara["name"]).toBe("Mara Sato");
   });
 
   it("ships the alpha roster, kit, and district overlay", () => {
