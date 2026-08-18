@@ -58,11 +58,14 @@ descriptive body-part view rather than a health bar.
 
 The full injury loop — grabs that pin, bites that make located bleeding wounds, pressure and
 bandaging, recovery over days you have to earn — is **built and gated but switched off** for one
-more turn. The first reason it was off has been answered: a bite during a hold now aims where the
+more turn. Two of the reasons it was off have been answered. A bite during a hold now aims where the
 hands already are, comes four seconds apart rather than two, and takes a share of the part it lands
-on, so a held survivor is no longer two rolls from a destroyed head. What the harness measures now
-is different and larger — an unattended colony that never fights back and never dresses a wound
-bleeds out anyway — and which way to answer *that* is a design decision, recorded in full in
+on, so a held survivor is no longer two rolls from a destroyed head; and the colony fights for
+itself now — anyone held struggles on instinct if nobody answers for them, everybody starts with
+something in their hands rather than in their pack, and a survivor with a weapon shoots whatever has
+hold of a neighbour before whatever is merely nearest. What is left is one number nobody should pick
+alone: an escape costs stamina, and somebody grabbed over and over runs out, which is a question
+about how being grabbed should feel. It is recorded in full in
 [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
 
 **Godot 4.7.1 is the playable build.** The web export runs at `/` and the Windows artifact comes
@@ -117,7 +120,7 @@ status. Milestones close on their exit criterion, never on a feature count.
   succession, and the complete injury/uncertain-infection loop. Landed so far: lethality and
   turning, the zombie roster, ranged combat, needs/jobs/recruits, building, the director, save/load,
   the shallow skill web, and the full wound-treatment-recovery loop (currently switched off pending
-  a design decision about autonomous colony survival — see
+  a design decision about what an escape from a grab should cost — see
   [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open: loot tables
   and resource variety, the fuller survivor generator, mood consequences, the remaining injury
   types and treatments, world-container search, crafting consumables, and the balance grid plus a

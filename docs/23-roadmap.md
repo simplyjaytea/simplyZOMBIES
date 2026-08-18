@@ -157,8 +157,9 @@ grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and
 (`godot:m2:treatment`), and recovery that closes wounds and climbs integrity back, earned only while
 fed and not exerting (`godot:m2:recovery`). A bite makes a located wound, it bleeds, you stop it with
 your hands or a dressing, and it mends over days you have to earn. None of it is reachable in
-ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the two entries below, which are
-the answered blocker and the one that replaced it.
+ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the three entries below: two
+blockers that have been answered, and the one measurement that now stands between the loop and the
+flip.
 
 **Answered: bite lethality during a hold.** The owner's call was to pull four levers together and
 conservatively rather than one of them hard, and all four have landed:
@@ -189,36 +190,68 @@ floor and ceiling on every part, the severity band edge, and that a live hold's 
 the scaled number for the part it names. HELD-AIM earned its keep immediately: the first draft of the
 table summed to 1.05, which `_roll_body_part` would have absorbed silently as extra weight on a foot.
 
-**The new blocker, measured: with grabs on, the compressed balance tier has no defence and no first
-aid.** The re-tune does what it was asked to do — on seed 404 the head share falls from a fifth to a
-twentieth and the day-one head executions stop being the story — but the fast tier still loses two
-colonies of four, now by blood loss, and no lever value reaches it. A throwaway driver
-(`SimBoot.playable`, the harness's own compressed campaign, `entity.killed` de-duplicated by entity
-id) says why:
+**Answered: the harness colony had no agency.** The three things the previous measurement found
+load-bearing were all owner-approved and have all landed, in the game rather than in the harness
+wherever the game was the thing that was wrong:
 
-- **Before** (flat 8, free-hit weights): seed 404 lost both colonists on **day one**,
-  `cause=head-destroyed`, 33 bites over 21 grabs; seed 90210 lost them on days 3 and 4. Both ended
-  `survivors_end=0/2`.
-- **After** (the four levers): seeds 20260805 and 31337 end `2/2` — 20260805 never has contact at
-  all, 31337 only ever grabs a recruit — while 404 and 90210 still end `0/2`, and the cause has
-  changed to **blood loss**. Head bites are 6 of 111 on seed 404.
-- **In every configuration tried, including the extreme end** (a bite every 400 ticks at a quarter of
-  a part), the compressed tier records **0 zombies killed, 0 jobs completed and 0 wounds treated**
-  across a whole campaign. A laceration never clots untreated, so a survivor who is bitten enough
-  times bleeds out whatever each bite cost them.
-- Three things are load-bearing there, and none of them is bite damage. A `controlled` survivor
-  never struggles — F is a key press and the harness presses nothing (seed 90210: 45 bites, 2 grabs,
-  **0** struggles). The second colonist boots unarmed, because `_configure_arm` only equips people
-  for the melee and ranged arms and the fast tier runs `mixed`, so the colony is one armed person who
-  is not being played. And `npc.combat` drops anyone `grabbed` from the threat loop while the re-grab
-  cooldown keeps re-taking them, which is what turns two bites into permanent paralysis.
+- **Instinct.** A held survivor with nobody answering for them struggles on their own after
+  `STRUGGLE_INSTINCT_TICKS` (40 ticks, two seconds), at the same stamina price and through the same
+  contest. `F` stays the better answer rather than the only one: it commits the escape on the tick
+  it is pressed, two seconds sooner, and resets the clock by arming — so instinct never takes a
+  decision away from somebody making one. `godot:m2:contact` grew **INSTINCT**, which times the
+  attempts off the `stamina.spent` that pays for them: unattended, the first is at hold-tick 40 and
+  none is earlier; played, the first is at hold-tick 1 and there is deliberately **no** attempt at
+  40, because arming reset the clock.
+- **A weapon somebody actually holds.** `SimSurvivors.spawn_unique` now equips a kit item into the
+  slot it belongs to instead of packing it, and Mara's kit gained the annex's other kitchen knife.
+  A stowed weapon is not a weapon — `melee.gd` builds the `meleeWeapon` profile off `item.equipped`
+  — which is how the second colonist came to boot unarmed while carrying her own kit. The balance
+  harness's `mixed` arm became an arm like the other two rather than "whatever the boot left", and
+  `godot:m2:balance` grew **ARMED**: no campaign may start with an unarmed colonist, with the
+  counter's own true negative (disarm one, the count must move to exactly one).
+- **Holder-first targeting.** `npc.combat` now prefers a shambler that has hold of somebody over a
+  nearer one that does not. It is safe to be strict about that because the candidate list is
+  already bounded by the weapon's own envelope, so a preferred holder is always one this NPC can
+  act on. `godot:m2:npc` grew **HOLDER**, with both halves in one arena: with a hold open every
+  arrow goes to the far holder and none to the near wanderer, and with no hold open the identical
+  placement shoots the near one.
 
-Arming the harness colony, letting an unattended survivor struggle on instinct, making contact rarer,
-or asserting something other than `survivors_end >= 1` are all live options and all of them are
-design calls — the same kind as the bite-lethality one, and not to be picked unilaterally. Until one
-is made the flag stays `false`, which leaves the balance tier exactly what it was (measured: the
-four FAST lines are unchanged by this work), and `_the_flag_actually_gates_acquisition()` in the
-contact gate still exercises both directions.
+Those show up in the shipped build, where grabs are still off: the fast tier now records the
+colony's **first kills at all** — 6 on seed 404 and 1 on 90210, against zero in every previous run
+— because there are two armed people in the annex instead of one.
+
+**The blocker that replaced it, measured: an escape costs stamina, and a survivor held over and over
+cannot afford one.** A throwaway driver (`SimBoot.playable`, the harness's own compressed campaign,
+`GRABS_ENABLED` forced on, `entity.killed` de-duplicated by entity id) over the same four fast seeds:
+
+| seed | before this work | after | how it ends |
+| --- | --- | --- | --- |
+| 20260805 | `2/2` | `2/2` | no contact at all — 0 grabs in ten days |
+| 404 | `0/2`, 111 bites, **0** struggles | `0/2`, 57 bites, **73** struggles | both by blood loss, first death day 1 |
+| 31337 | `2/2` | `2/2` | 39 grabs, all on the recruit; neither boot colonist is ever held |
+| 90210 | `0/2`, 45 bites, 2 grabs, **0** struggles | `0/2`, 57 bites, 72 grabs, **92** struggles | both by blood loss, first death day 4 |
+
+Every number moved except the one that decides. What the instrumentation says about why:
+
+- The two colonies that die spend **65% and 69% of their living ticks held**, by **1.4 holders** on
+  average, and **38% and 49% of those held ticks with a tank too empty to pay `STRUGGLE_STAMINA`**.
+  Instinct fires, wins, is re-grabbed inside the cooldown, fires again, and runs the tank down; an
+  empty tank is a hold with no exit, because nothing in the build lets anybody else break one.
+- It is **not** the missing player either. A driver mashing `F` on every single tick of the campaign
+  leaves seed 404 at `0/2`, the played survivor connecting **once** in ten days (a grabbed body is
+  refused its swing, and a freed one is mid-break-away), and empty-tank ticks roughly doubled,
+  because pressing F spends the same stamina sooner.
+- Holder-first targeting has little to bite on at this loadout: two kitchen knives reach 1.25 m, and
+  the holder is at arm's length of its victim, not of the other colonist. It is written for the arms
+  that can answer across a room, and the fast tier is not one of them.
+
+So the flag stays `false`. The levers left are the **price of an escape** (`STRUGGLE_STAMINA`, or
+stamina that recovers while held), **somebody else being able to break a hold**, or **making contact
+rarer** — all three are calls about how being grabbed should feel, of the same kind as the
+bite-lethality one, and not to be picked unilaterally. Relaxing `survivors_end >= 1` is not among
+them: that has been considered and rejected. The balance tier is therefore still exactly what it
+was, and `_the_flag_actually_gates_acquisition()` in the contact gate still exercises both
+directions.
 
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the

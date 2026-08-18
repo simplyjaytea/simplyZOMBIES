@@ -108,25 +108,32 @@ with a severity, it bleeds, you stop it with your hands or a dressing, and it me
 have to earn by eating and resting.
 
 **None of it is reachable in ordinary play, because `SimShambler.GRABS_ENABLED` is `false`, and the
-reason has now changed twice.** The first note said the flip waited on a recovery clock; recovery
-shipped, the flag was flipped, and the balance tier failed worse. The second, measured reason was
-that a held survivor was being executed — a head is 15, `BITE_DAMAGE` was a flat 8, and one bite in
-five aimed at the head, so seed 404 lost both colonists on day one with their heads destroyed. **That
-one is answered.** Four levers landed together: `SimCombat.HELD_HIT_LOCATION_WEIGHTS` (a mouth inside
-a grapple reaches an arm, not a skull — head 0.05 against the free-hit table's 0.20), a bite every 80
-ticks rather than 40, part-scaled damage `maxf(2.0, minf(BITE_DAMAGE, 0.35 * part max))`, and a
-sooner, cheaper struggle with the contest maths untouched. `godot:m2:contact` grew HELD-AIM and
-BITE-SCALE, each with its true negative, to hold them.
+reason has now changed three times.** The first note said the flip waited on a recovery clock;
+recovery shipped, the flag was flipped, and the balance tier failed worse. The second, measured
+reason was that a held survivor was being executed — a head is 15, `BITE_DAMAGE` was a flat 8, and
+one bite in five aimed at the head. **Answered** by four levers landing together:
+`SimCombat.HELD_HIT_LOCATION_WEIGHTS` (a mouth inside a grapple reaches an arm, not a skull — head
+0.05 against the free-hit table's 0.20), a bite every 80 ticks rather than 40, part-scaled damage
+`maxf(2.0, minf(BITE_DAMAGE, 0.35 * part max))`, and a sooner, cheaper struggle with the contest
+maths untouched; `godot:m2:contact` grew HELD-AIM and BITE-SCALE to hold them.
 
-**The flag is still `false` because the measurement moved the blocker rather than clearing it.** With
-grabs on, the compressed fast balance tier records **0 zombies killed, 0 jobs completed and 0 wounds
-treated** across a whole campaign at every lever setting tried, so anyone bitten enough times bleeds
-out — a laceration never clots untreated. Two colonies in four still wipe. The load-bearing facts are
-that an unattended `controlled` survivor never struggles (F is a key press; the harness presses
-nothing), the second colonist boots unarmed in the `mixed` arm, and `npc.combat` drops anyone
-`grabbed` while the re-grab cooldown re-takes them. Arming the harness colony, giving an unattended
-survivor an instinctive struggle, making contact rarer, or asserting something other than
-`survivors_end >= 1` are all design calls — **do not pick one unilaterally.**
+The third reason was that the harness colony had no agency, and **that one is answered too**, in
+three owner-approved pieces: a held survivor with nobody answering for them struggles on instinct
+after `STRUGGLE_INSTINCT_TICKS` (F stays faster and resets the clock — `INSTINCT` in the contact
+gate); a kit weapon is now equipped rather than packed, so the second colonist stops booting
+unarmed (`SimSurvivors._hold_it`, `ARMED` in the balance gate); and `npc.combat` prefers a shambler
+that has hold of somebody over a nearer one that does not (`HOLDER` in the NPC gate). With grabs
+still off, the shipped fast tier now records the colony's first kills at all — 6 on seed 404, 1 on
+90210, against zero before.
+
+**The flag is still `false`, and the fourth reason is the price of an escape.** With grabs forced
+on, seeds 404 and 90210 still end `0/2` by blood loss. The colonies that die spend 65–69% of their
+living ticks held, by 1.4 holders on average, and **38–49% of those held ticks with a tank too empty
+to pay `STRUGGLE_STAMINA`** — an empty tank is a hold with no exit, and nothing lets anyone else
+break one. It is not the missing player: a driver mashing F every tick changes nothing and empties
+the tank sooner. The levers left — the price of an escape, someone else being able to break a hold,
+or making contact rarer — are design calls, so **do not pick one unilaterally**, and relaxing
+`survivors_end >= 1` has been considered and rejected.
 [docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
 measurement, seed by seed.
 
