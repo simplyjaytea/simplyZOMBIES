@@ -157,19 +157,68 @@ grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and
 (`godot:m2:treatment`), and recovery that closes wounds and climbs integrity back, earned only while
 fed and not exerting (`godot:m2:recovery`). A bite makes a located wound, it bleeds, you stop it with
 your hands or a dressing, and it mends over days you have to earn. None of it is reachable in
-ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the blocker below.
+ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the two entries below, which are
+the answered blocker and the one that replaced it.
 
-**The blocker is a design decision, not code: bite lethality during a hold.** The standing note used
-to say the flip was waiting on a recovery clock. Recovery was built, the flag was flipped, and the
-fast balance tier failed *worse* — seeds 404 **and** 90210 wiped where only 404 had. Instrumenting
-seed 404 tick by tick: **both survivors died on day one with their heads destroyed** — `cause=head`,
-22 bites, 18 grabs, zero blood-loss deaths, zero treatments, in a run that never reached day 2. A
-head is 15 integrity and `BITE_DAMAGE` is 8, so a held survivor is two head bites from dead, and
-`SURVIVOR_HIT_LOCATION_WEIGHTS` sends one bite in five at the head. Nothing heals in the ninety
-seconds between the first bite and the second, so no amount of recovery answers it. The candidate
-levers are the head's hit weight, `BITE_DAMAGE` against small parts, the escape contest's odds, and
-`REPEAT_BITE_TICKS`. Choosing among them is a call about how the game should feel — do not pick one
-unilaterally. `_the_flag_actually_gates_acquisition()` in the contact gate will notice the flip.
+**Answered: bite lethality during a hold.** The owner's call was to pull four levers together and
+conservatively rather than one of them hard, and all four have landed:
+
+- **Where a held bite goes.** New `SimCombat.HELD_HIT_LOCATION_WEIGHTS` — head 0.05 against the
+  free-hit table's 0.20, torso 0.30, each arm 0.14, each hand 0.09, each leg 0.07, each foot 0.025.
+  A mouth inside a grapple reaches an arm, not a skull. The free-hit table is untouched, and the
+  roll stays in one canonical place: `SimMelee._roll_body_part` gained an optional weights argument
+  and only the bite site passes it.
+- **How often.** `REPEAT_BITE_TICKS` 40 → 80 — four seconds between repeat bites, not two.
+  `FIRST_BITE_TICKS` stays 30.
+- **How hard, per part.** `maxf(2.0, minf(BITE_DAMAGE, 0.35 × part max))`, so a head takes 5.25
+  (three bites to destroy, not two), a torso still takes the full 8, an arm 7, a hand or foot 3.5.
+  This moves a severity band on purpose and the gate pins which side: an arm bite was 8 of 20 =
+  0.40, exactly the DeepWound boundary; it is now 7 of 20 = 0.35, a Laceration — a fifth of the
+  bleed rate — with the old flat 8 kept as the assertion's own control.
+- **The struggle.** `STRUGGLE_TICKS` 20 → 16 and `STRUGGLE_STAMINA` 20 → 15: sooner, and six
+  attempts on a full tank rather than five. The contest maths is untouched (one shambler is still
+  1/1.5 = 0.667, pinned in `check_m2_stats.gd`). The re-grab cooldown became its own constant,
+  `REGRAB_COOLDOWN_TICKS = 20`, at its old value — it had been `STRUGGLE_TICKS` doing double duty,
+  so the escape lever was quietly shortening it as well.
+
+`godot:m2:contact` grew two assertions for this, each with its true negative: **HELD-AIM** rolls
+4,000 held and 4,000 free locations and requires the head share to collapse (measured 0.048 against
+0.192) and arms-and-hands to dominate (0.467 against 0.121), with the free-hit table run through the
+same counter as the control that must fail; and **BITE-SCALE** pins the per-part arithmetic, the
+floor and ceiling on every part, the severity band edge, and that a live hold's `bite.landed` carries
+the scaled number for the part it names. HELD-AIM earned its keep immediately: the first draft of the
+table summed to 1.05, which `_roll_body_part` would have absorbed silently as extra weight on a foot.
+
+**The new blocker, measured: with grabs on, the compressed balance tier has no defence and no first
+aid.** The re-tune does what it was asked to do — on seed 404 the head share falls from a fifth to a
+twentieth and the day-one head executions stop being the story — but the fast tier still loses two
+colonies of four, now by blood loss, and no lever value reaches it. A throwaway driver
+(`SimBoot.playable`, the harness's own compressed campaign, `entity.killed` de-duplicated by entity
+id) says why:
+
+- **Before** (flat 8, free-hit weights): seed 404 lost both colonists on **day one**,
+  `cause=head-destroyed`, 33 bites over 21 grabs; seed 90210 lost them on days 3 and 4. Both ended
+  `survivors_end=0/2`.
+- **After** (the four levers): seeds 20260805 and 31337 end `2/2` — 20260805 never has contact at
+  all, 31337 only ever grabs a recruit — while 404 and 90210 still end `0/2`, and the cause has
+  changed to **blood loss**. Head bites are 6 of 111 on seed 404.
+- **In every configuration tried, including the extreme end** (a bite every 400 ticks at a quarter of
+  a part), the compressed tier records **0 zombies killed, 0 jobs completed and 0 wounds treated**
+  across a whole campaign. A laceration never clots untreated, so a survivor who is bitten enough
+  times bleeds out whatever each bite cost them.
+- Three things are load-bearing there, and none of them is bite damage. A `controlled` survivor
+  never struggles — F is a key press and the harness presses nothing (seed 90210: 45 bites, 2 grabs,
+  **0** struggles). The second colonist boots unarmed, because `_configure_arm` only equips people
+  for the melee and ranged arms and the fast tier runs `mixed`, so the colony is one armed person who
+  is not being played. And `npc.combat` drops anyone `grabbed` from the threat loop while the re-grab
+  cooldown keeps re-taking them, which is what turns two bites into permanent paralysis.
+
+Arming the harness colony, letting an unattended survivor struggle on instinct, making contact rarer,
+or asserting something other than `survivors_end >= 1` are all live options and all of them are
+design calls — the same kind as the bite-lethality one, and not to be picked unilaterally. Until one
+is made the flag stays `false`, which leaves the balance tier exactly what it was (measured: the
+four FAST lines are unchanged by this work), and `_the_flag_actually_gates_acquisition()` in the
+contact gate still exercises both directions.
 
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the

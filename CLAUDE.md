@@ -108,16 +108,27 @@ with a severity, it bleeds, you stop it with your hands or a dressing, and it me
 have to earn by eating and resting.
 
 **None of it is reachable in ordinary play, because `SimShambler.GRABS_ENABLED` is `false`, and the
-reason is not what it used to say.** The standing note claimed the flip was waiting on a recovery
-clock. Recovery was built, the flag was flipped, and the fast balance tier failed *worse* — two
-seeds wiping where one had. Instrumenting seed 404 says why: both survivors died **on day one with
-their heads destroyed**, 22 bites, zero blood-loss deaths, in a run that never reached day 2. A head
-is 15 and `BITE_DAMAGE` is 8, so a held survivor is two head bites from dead. The flip is waiting on
-a **design decision about bite lethality during a hold** — head hit weight, `BITE_DAMAGE` against
-small parts, escape odds, or `REPEAT_BITE_TICKS` — not on more code. Do not pick one of those levers
-unilaterally; it is a call about how the game should feel.
+reason has now changed twice.** The first note said the flip waited on a recovery clock; recovery
+shipped, the flag was flipped, and the balance tier failed worse. The second, measured reason was
+that a held survivor was being executed — a head is 15, `BITE_DAMAGE` was a flat 8, and one bite in
+five aimed at the head, so seed 404 lost both colonists on day one with their heads destroyed. **That
+one is answered.** Four levers landed together: `SimCombat.HELD_HIT_LOCATION_WEIGHTS` (a mouth inside
+a grapple reaches an arm, not a skull — head 0.05 against the free-hit table's 0.20), a bite every 80
+ticks rather than 40, part-scaled damage `maxf(2.0, minf(BITE_DAMAGE, 0.35 * part max))`, and a
+sooner, cheaper struggle with the contest maths untouched. `godot:m2:contact` grew HELD-AIM and
+BITE-SCALE, each with its true negative, to hold them.
+
+**The flag is still `false` because the measurement moved the blocker rather than clearing it.** With
+grabs on, the compressed fast balance tier records **0 zombies killed, 0 jobs completed and 0 wounds
+treated** across a whole campaign at every lever setting tried, so anyone bitten enough times bleeds
+out — a laceration never clots untreated. Two colonies in four still wipe. The load-bearing facts are
+that an unattended `controlled` survivor never struggles (F is a key press; the harness presses
+nothing), the second colonist boots unarmed in the `mixed` arm, and `npc.combat` drops anyone
+`grabbed` while the re-grab cooldown re-takes them. Arming the harness colony, giving an unattended
+survivor an instinctive struggle, making contact rarer, or asserting something other than
+`survivors_end >= 1` are all design calls — **do not pick one unilaterally.**
 [docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
-measurement.
+measurement, seed by seed.
 
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
 not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are

@@ -26,6 +26,7 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimCombat = preload("res://sim/combat.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -41,6 +42,8 @@ func _run() -> void:
 	ok = _a_wall_between_blocks_the_grab() and ok
 	ok = _a_hold_bites_on_cadence_and_only_its_victim() and ok
 	ok = _every_bite_records_one_located_wound() and ok
+	ok = _a_held_bite_aims_where_the_hands_are() and ok
+	ok = _a_bite_scales_to_the_part_it_lands_on() and ok
 	ok = _struggling_frees_sometimes_and_never_while_spent() and ok
 	ok = _release_arms_the_regrab_cooldown() and ok
 	ok = _a_held_survivor_cannot_swing_or_fire() and ok
@@ -268,6 +271,165 @@ func _every_bite_records_one_located_wound() -> bool:
 		push_error("an unbitten survivor recorded %d wounds" % clean_wounds.size())
 		return false
 	print("WOUND OK %d bites -> %d located wounds, unbitten survivor 0" % [bites, wounds.size()])
+	return true
+
+
+# A mouth that already has hold of you reaches different parts than a swung bat does --
+# SimCombat.HELD_HIT_LOCATION_WEIGHTS against SURVIVOR_HIT_LOCATION_WEIGHTS. Rolled directly
+# rather than counted off live bites on purpose: a share is a distribution claim, and a hold
+# produces bites one every four seconds, so measuring it live would mean either thousands of
+# simulated ticks or an assertion too loose to catch a table someone quietly widened.
+#
+# Both halves are here. The true positive is that the held table collapses the head share and
+# puts the weight on graspable parts; the true negative is the free-hit table run through the
+# identical counter, which must *fail* the same test -- otherwise the assertion is measuring
+# nothing but the sample size.
+const HELD_ROLLS: int = 4000
+# Measured at these tables: held head 0.05 against free 0.20, held arms+hands 0.50 against free
+# 0.12. The bands are wide enough that 4,000 rolls of sampling noise cannot cross them and tight
+# enough that swapping the tables fails both.
+const HELD_HEAD_MAX: float = 0.10
+const HELD_LIMBS_MIN: float = 0.40
+
+func _a_held_bite_aims_where_the_hands_are() -> bool:
+	var w: Variant = _world(4009)
+	var body: Variant = w.components.get_component(w.player, "body")
+
+	# A table that sums short silently over-weights whichever part _roll_body_part falls through
+	# to, which is the last one in SURVIVOR_BODY_PARTS -- a foot. Cheap to check, impossible to
+	# spot by eye in a ten-entry dictionary.
+	for table_name in ["held", "free"]:
+		var table: Dictionary = SimCombat.HELD_HIT_LOCATION_WEIGHTS if table_name == "held" else SimCombat.SURVIVOR_HIT_LOCATION_WEIGHTS
+		var sum: float = 0.0
+		for part in SimCombat.SURVIVOR_BODY_PARTS:
+			sum += float(table.get(String(part), 0.0))
+		if absf(sum - 1.0) > 0.0001:
+			push_error("the %s hit-location table sums to %f, not 1.0" % [table_name, sum])
+			return false
+
+	var held: Dictionary = _roll_share(w, body, SimCombat.HELD_HIT_LOCATION_WEIGHTS, "held-roll")
+	var free: Dictionary = _roll_share(w, body, {}, "free-roll")
+	var held_head: float = float(held.get("head", 0.0))
+	var free_head: float = float(free.get("head", 0.0))
+	# Limbs, not "graspable parts": the torso is 0.55 of the free-hit table all by itself, so
+	# counting it would make the two tables look alike and the discriminator would be noise.
+	var held_limbs: float = _share_of(held, ["arm_left", "arm_right", "hand_left", "hand_right"])
+	var free_limbs: float = _share_of(free, ["arm_left", "arm_right", "hand_left", "hand_right"])
+	if held_head > HELD_HEAD_MAX:
+		push_error("held bites found the head %.3f of the time, ceiling is %.3f" % [held_head, HELD_HEAD_MAX])
+		return false
+	if held_limbs < HELD_LIMBS_MIN:
+		push_error("only %.3f of held bites landed on an arm or a hand, floor is %.3f" % [held_limbs, HELD_LIMBS_MIN])
+		return false
+	# True negative: the free-hit table, counted the same way through the same roller, must fail
+	# both of those. The day someone points the bite back at SURVIVOR_HIT_LOCATION_WEIGHTS -- or
+	# copies the free numbers into the held table -- this is the line that notices.
+	if free_head <= HELD_HEAD_MAX and free_limbs >= HELD_LIMBS_MIN:
+		push_error("negative control failed: the free-hit table also passes the held test (head %.3f limbs %.3f), so the test measures nothing" % [free_head, free_limbs])
+		return false
+	print("HELD-AIM OK head %.3f held vs %.3f free, arms+hands %.3f held vs %.3f free over %d rolls" % [held_head, free_head, held_limbs, free_limbs, HELD_ROLLS])
+	return true
+
+
+func _roll_share(w: Variant, body: Variant, weights: Dictionary, stream: String) -> Dictionary:
+	var rng: Variant = w.rng.stream(stream)
+	var counts: Dictionary = {}
+	for _i in HELD_ROLLS:
+		var part: String = SimMelee._roll_body_part(rng, body, weights)
+		counts[part] = int(counts.get(part, 0)) + 1
+	var shares: Dictionary = {}
+	for key in counts.keys():
+		shares[key] = float(int(counts[key])) / float(HELD_ROLLS)
+	return shares
+
+
+func _share_of(shares: Dictionary, parts: Array) -> float:
+	var sum: float = 0.0
+	for part in parts:
+		sum += float(shares.get(String(part), 0.0))
+	return sum
+
+
+# A bite takes a fraction of the part it lands on, not a flat number -- CLAUDE.md's standing trap
+# is that a head is 15 and a torso 40, so one number cannot mean the same thing on both.
+#
+# This also pins which side of a severity band the change lands on, deliberately rather than by
+# accident: an arm bite used to be 8 of 20, exactly 0.40, exactly the DeepWound boundary. Scaled
+# it is 7 of 20 = 0.35, a Laceration, which is a fifth of the bleed rate. That is the intended
+# side -- a bite on the forearm you got in the way is a tear you can bandage -- and if someone
+# retunes BITE_DAMAGE_PART_FRACTION back up over 0.40 this says so.
+func _a_bite_scales_to_the_part_it_lands_on() -> bool:
+	var w: Variant = _world(4010)
+	var body: Dictionary = w.components.get_component(w.player, "body") as Dictionary
+
+	var head: float = SimShambler.bite_damage_for(body, "head")
+	var torso: float = SimShambler.bite_damage_for(body, "torso")
+	var arm: float = SimShambler.bite_damage_for(body, "arm_left")
+	var hand: float = SimShambler.bite_damage_for(body, "hand_left")
+	if head >= SimShambler.BITE_DAMAGE:
+		push_error("a head bite took %.2f, the full flat BITE_DAMAGE -- the scaling is not wired" % head)
+		return false
+	if absf(torso - SimShambler.BITE_DAMAGE) > 0.001:
+		push_error("a torso bite took %.2f, expected the flat ceiling %.2f" % [torso, SimShambler.BITE_DAMAGE])
+		return false
+	if hand >= arm or arm >= torso:
+		push_error("bites do not order by part size: hand %.2f arm %.2f torso %.2f" % [hand, arm, torso])
+		return false
+	# The floor and the ceiling, over every part a survivor has: health.gd records no wound for a
+	# hit that removed no integrity, so a bite that rounded to nothing would leave nothing to
+	# treat, and nothing may exceed the flat ceiling either.
+	for part in SimCombat.SURVIVOR_BODY_PARTS:
+		var d: float = SimShambler.bite_damage_for(body, String(part))
+		if d < SimShambler.BITE_DAMAGE_MIN or d > SimShambler.BITE_DAMAGE:
+			push_error("a bite on %s took %.2f, outside [%.2f, %.2f]" % [String(part), d, SimShambler.BITE_DAMAGE_MIN, SimShambler.BITE_DAMAGE])
+			return false
+	# A part this body does not have gets the unscaled ceiling rather than zero -- a zombie body
+	# passed in here must still bite for something.
+	if absf(SimShambler.bite_damage_for(body, "wing") - SimShambler.BITE_DAMAGE) > 0.001:
+		push_error("an unknown part did not fall back to BITE_DAMAGE")
+		return false
+
+	# The band edge, pinned on purpose, with the pre-change number as its own control.
+	var scaled_severity: int = SimWounds.severity_for(w, w.player, "arm_left", arm)
+	var flat_severity: int = SimWounds.severity_for(w, w.player, "arm_left", SimShambler.BITE_DAMAGE)
+	if scaled_severity != SimWounds.Severity.Laceration:
+		push_error("an arm bite of %.2f graded %d, expected Laceration" % [arm, scaled_severity])
+		return false
+	if flat_severity != SimWounds.Severity.DeepWound:
+		push_error("negative control failed: the old flat 8 on an arm no longer grades DeepWound, so this band edge is not the one that moved")
+		return false
+
+	# And the live wiring: what a real hold publishes must be the scaled number for the part it
+	# names, and the sample must contain a part that is *not* the torso -- otherwise every bite
+	# would coincidentally equal the flat ceiling and this would pass on a stub.
+	var seen: int = 0
+	var off_torso: int = 0
+	for s in 8:
+		var live: Variant = _world(4600 + s)
+		_spawn_shambler(live, 17.2, 16.5)
+		if _step_until_held(live, 40) < 0:
+			continue
+		var live_body: Dictionary = live.components.get_component(live.player, "body") as Dictionary
+		for _i in (SimShambler.FIRST_BITE_TICKS + SimShambler.REPEAT_BITE_TICKS * 3 + 5):
+			live.step()
+			for e in live.events.drained:
+				var ev: Dictionary = e as Dictionary
+				if String(ev.get("type", "")) != "bite.landed":
+					continue
+				var part: String = String(ev.get("bodyPart", ""))
+				var want: float = SimShambler.bite_damage_for(live_body, part)
+				if absf(float(ev.get("damage", -1.0)) - want) > 0.001:
+					push_error("a live bite on %s carried %.2f, expected %.2f" % [part, float(ev.get("damage", -1.0)), want])
+					return false
+				seen += 1
+				if part != "torso":
+					off_torso += 1
+		if off_torso > 0 and seen >= 4:
+			break
+	if seen < 4 or off_torso == 0:
+		push_error("SKIP-WORTHY: only %d live bites and %d off the torso, so the live wiring was never judged" % [seen, off_torso])
+		return false
+	print("BITE-SCALE OK head %.2f torso %.2f arm %.2f (Laceration, flat 8 was a DeepWound) hand %.2f; %d live bites matched, %d off-torso" % [head, torso, arm, hand, seen, off_torso])
 	return true
 
 
