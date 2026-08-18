@@ -13,10 +13,14 @@ extends RefCounted
 # unconditionally, and its stamina.current would silently truncate every regen tick again.
 # 15: Slice 2 Part A -- wounds that bleed. "injuries" gained "bloodLoss" (float, the
 # blood-loss accumulator) and every wound entry in "wounds" gained four keys: "severity"
-# (int), "bleeding" (bool), "bandage" (String, "none" until Part B), "clotsAtTick" (int). A
-# v14 save's wound entries are missing keys wounds.bleed reads unconditionally (severity,
-# bleeding, clotsAtTick), and its injuries dict has no bloodLoss to accumulate into -- same
-# class of silent-mismatch-not-migration as 13 and 14 above.
+# (int), "bleeding" (bool), "bandage" (String -- a tier word once Part B's treatment.gd could
+# write one), "clotsAtTick" (int). A v14 save's wound entries are missing keys wounds.bleed
+# reads unconditionally (severity, bleeding, clotsAtTick), and its injuries dict has no
+# bloodLoss to accumulate into -- same class of silent-mismatch-not-migration as 13 and 14.
+# Part B did **not** need a bump on top of this: it changed no existing component's shape.
+# Its "treatment"/"treated" components are new and transient, and component_store.save() is
+# generic, so a v15 save from before Part B loads into a v15 world with no channel running --
+# which is exactly what a save taken between two acts of first aid should mean.
 const SAVE_VERSION: int = 15
 
 
