@@ -66,7 +66,7 @@ static func label_of(part: String) -> String:
 
 # Does this part have a recorded wound? injuries.wounds is append-only today -- nothing
 # ever marks one treated (docs/05's fracture/sprain/burn/concussion types and treatment
-# state are open items, see HANDOFF) -- so this says a wound was sustained here, not that it
+# state are open items, see docs/23) -- so this says a wound was sustained here, not that it
 # is still open. Honest about what the sim actually knows rather than implying more.
 static func _has_wound(world: Variant, actor: int, part: String) -> bool:
 	var inj: Variant = world.components.get_component(actor, "injuries")
@@ -134,7 +134,7 @@ static func view(world: Variant, actor: int) -> Dictionary:
 		var s: int = int(st)
 		worst = maxi(worst, s)
 		# The untrained tier, same as everywhere else this screen reads a diagnosis --
-		# HANDOFF's "one voice" note: there is no skill web yet to scale against.
+		# the "one voice" rule: there is no skill web yet to scale against (docs/23).
 		var diag: Dictionary = SimInfection.diagnosis_of_part(world, actor, 0, part)
 		# state is the discrete grade, never the integrity behind it. wounded/infected/armored
 		# are words and booleans for the same reason -- see PART_KEYS above.

@@ -12,7 +12,8 @@ nowhere else. `npm run build` is `godot:export`, and Pages publishes the Godot b
 deny.** `src/`, `test/`, `bench/` and the Vite/vitest configs are all present on `main`, and the
 `check` job runs `npm test`, `npm run typecheck`, `npm run lint`, `npm run format:check` and
 `npm run bench` against them alongside the Godot gates. As of this writing all of it is green:
-**46 files / 599 tests**. It is a *frozen reference*, not a second product — do not add features
+**45 files / 594 tests** (one file, `handoff.test.ts`, retired with `HANDOFF.md`). It is a
+*frozen reference*, not a second product — do not add features
 to it, do not port Godot changes into it — but do not delete it or let it go red either, because
 CI will stop you. Its frozen parity fixtures under `godot/parity/` are what `npm run godot:test`
 compares against, and tag `ts-oracle-final` is the rollback point.
@@ -114,15 +115,17 @@ their heads destroyed**, 22 bites, zero blood-loss deaths, in a run that never r
 is 15 and `BITE_DAMAGE` is 8, so a held survivor is two head bites from dead. The flip is waiting on
 a **design decision about bite lethality during a hold** — head hit weight, `BITE_DAMAGE` against
 small parts, escape odds, or `REPEAT_BITE_TICKS` — not on more code. Do not pick one of those levers
-unilaterally; it is a call about how the game should feel. HANDOFF's contact note carries the full
+unilaterally; it is a call about how the game should feel.
+[docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
 measurement.
 
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
 not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are
 still required Milestone 2 proof, deferred rather than cancelled.
 
-[HANDOFF.md](HANDOFF.md) is the authority on what is built; [docs/23](docs/23-roadmap.md) on what
-is intended; [docs/30](docs/30-decisions.md) on why something that looks arbitrary is shaped that
+[docs/23](docs/23-roadmap.md) is the authority on what is intended **and**, in its milestone status
+sections, on what is built and what remains (`HANDOFF.md` was retired into it — its itemised history
+lives in git); [docs/30](docs/30-decisions.md) on why something that looks arbitrary is shaped that
 way. Read 30 before changing something that looks arbitrary.
 
 ## Conventions
@@ -143,12 +146,12 @@ way. Read 30 before changing something that looks arbitrary.
   `false` passed a "no leak" test, and `check_m2_npc_combat.gd` follows it. The same rule caught a
   seed loop that ran four seeds and proved one. If an assertion has no data to judge (a shortened
   campaign the director never pressured), make it **say so and skip**, never pass quietly.
-- Update `HANDOFF.md` in the same commit as the work it describes — it has drifted four times,
-  most recently by ~34 Milestone 2 items that had shipped and never been ticked.
-  `npm run godot:check:handoff` (`HANDOFF_OK`) now enforces the two rules that make it
-  recoverable: **move a box into its `Done` group** rather than ticking it in place, and give
-  every `[x]` an italic `*(...)*` note naming the gate or file that proves it. Where only half
-  an item shipped, leave it open and say which half.
+- Update [docs/23's milestone status section](docs/23-roadmap.md#where-milestone-2-stands) in the
+  same commit as the work it describes. Its predecessor (`HANDOFF.md`) drifted four times, most
+  recently by ~34 shipped-but-unticked items, which is why the status is now condensed prose with
+  each claim naming the gate that proves it. There is no mechanical gate on this any more —
+  `godot:check:handoff` retired with the file — so the discipline is the convention. Where only
+  half an item shipped, say which half.
 
 ## Traps that have already cost someone a session
 
