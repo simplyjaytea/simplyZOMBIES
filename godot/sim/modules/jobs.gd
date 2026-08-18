@@ -12,6 +12,9 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimCombat = preload("res://sim/combat.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 
 const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
@@ -878,22 +881,42 @@ static func inspect(world: Variant, examiner: int, target: int) -> Dictionary:
 	return {"prose": prose, "skill": skill}
 
 
+# The NPC Doctor job's hands. It fetches its own supply and then calls the same effect leaf
+# the player's treatment channel calls -- melee.gd:133-136 already makes the argument about
+# two intakes with independently written effects, and this one had drifted exactly that way:
+# it healed the torso and only the torso, ignoring `injuries.wounds` entirely, so a Doctor
+# could spend a full job on a survivor whose only problem was a ruined arm and change nothing.
 static func _treat(world: Variant, ent: int, target: int) -> void:
-	if not SimNeeds.consume_base(world, ent, "item.bandage.cloth"):
-		for item in SimNeeds.stockpile_items(world):
-			var b: Variant = world.components.get_component(item, "itemBase")
-			if b is Dictionary and String((b as Dictionary).get("baseId", "")) == "item.bandage.cloth":
-				world.components.remove(item, "position")
-				if not SimInventory.stow(world, ent, item):
-					world.despawn(item)
-				else:
-					SimNeeds.consume_base(world, ent, "item.bandage.cloth")
-				break
+	# With a dressing, the wound gets dressed; without one, the Doctor still stops the bleed
+	# with their hands and it goes down as no dressing. The old version healed the same amount
+	# either way, which made the bandage decorative.
+	var tier: String = "cloth" if _fetch_bandage(world, ent) else "none"
 	var mul: float = SimNeeds.treat_sepsis_mul(world, ent)
 	world.events.publish({"type": "sepsis.checked", "entity": target, "mul": mul, "kind": "treat", "treater": ent})
-	var body: Variant = world.components.get_component(target, "body")
-	if body is Dictionary and int((body as Dictionary).get("torso", 0)) < 40:
-		(body as Dictionary)["torso"] = mini(40, int((body as Dictionary)["torso"]) + 8)
+	SimWounds.dress_worst(world, ent, target, tier)
+
+
+# Pull one bandage out of the stockpile into the treater's hands if they are not carrying one.
+#
+# The old version despawned the item when `stow` failed and then healed anyway -- a bandage
+# destroyed, never consumed, and the treatment free. Now the item goes back where it came from
+# if it cannot be carried, and the caller finds out nothing was fetched.
+static func _fetch_bandage(world: Variant, ent: int) -> bool:
+	if SimNeeds.consume_base(world, ent, "item.bandage.cloth"):
+		return true
+	for item in SimNeeds.stockpile_items(world):
+		var b: Variant = world.components.get_component(item, "itemBase")
+		if not (b is Dictionary) or String((b as Dictionary).get("baseId", "")) != "item.bandage.cloth":
+			continue
+		var pos: Variant = world.components.get_component(item, "position")
+		world.components.remove(item, "position")
+		if SimInventory.stow(world, ent, item):
+			return SimNeeds.consume_base(world, ent, "item.bandage.cloth")
+		# Could not be carried: put it back on the floor rather than destroying it.
+		if pos is Dictionary:
+			world.components.set_component(item, "position", pos)
+		return false
+	return false
 
 
 static func _is_mara(world: Variant, ent: int) -> bool:
@@ -1084,13 +1107,21 @@ static func _stop(world: Variant, ent: int, completed: String = "") -> void:
 	_still(world, ent)
 
 
+# Does this survivor want a Doctor? Compared as *states*, never as raw integrity.
+#
+# This used to test `integrity < 30` across parts that do not share a scale, so a perfectly
+# healthy head (max 15) and every hand (max 10) were permanently "injured" -- meaning
+# effectively every survivor was always a Doctor-job candidate, which is not a threshold at
+# all. SimHealth.part_state is the one canonical normaliser; CLAUDE.md records this exact
+# trap. It also walked six parts out of ten, so a ruined hand or foot was invisible to it.
 static func _injured(world: Variant, ent: int) -> bool:
 	var inj: Variant = world.components.get_component(ent, "injuries")
 	if inj is Dictionary and not ((inj as Dictionary).get("wounds", []) as Array).is_empty():
 		return true
 	var body: Variant = world.components.get_component(ent, "body")
 	if body is Dictionary:
-		for p in ["head", "torso", "arm_left", "arm_right", "leg_left", "leg_right"]:
-			if int((body as Dictionary).get(p, 40)) < 30:
+		for p in SimCombat.SURVIVOR_BODY_PARTS:
+			var st: Variant = SimHealth.part_state(body as Dictionary, String(p))
+			if st != null and int(st) >= SimHealth.PartState.BadlyHurt:
 				return true
 	return false

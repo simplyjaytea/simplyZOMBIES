@@ -14,6 +14,8 @@ extends RefCounted
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimCombat = preload("res://sim/combat.gd")
+const SimClock = preload("res://sim/time/clock.gd")
+const SimStances = preload("res://sim/stances.gd")
 
 # "Bite" is a *kind* (docs/05: "as laceration, plus infection"), not a severity. Keeping it
 # out of this enum is deliberate -- a bite's severity is computed by severity_for exactly
@@ -46,13 +48,47 @@ const CLOT_TICKS: Dictionary = {
 }
 
 # docs/05's healing table: 2-3 days / 5-8 days / 2-3 weeks, recorded here as whole game-days
-# picked within each range. Recorded now, used in no code -- Slice 3's recovery pass reads
-# this. Do not delete it for being unreferenced; it is deliberately dead in Part A.
+# picked within each range. Slice 3 reads it twice: it is how long a wound takes to close,
+# and it is the denominator for how fast the struck part gets its integrity back, so a deep
+# wound is slow in both senses rather than slow in one and instant in the other.
 const RECOVERY_DAYS: Dictionary = {
 	Severity.Scratch: 2,
 	Severity.Laceration: 6,
 	Severity.DeepWound: 16,
 }
+
+# Recovery is *earned time*, not elapsed time. A wound's healedTicks only advances on ticks
+# where the survivor is fed and is not exerting, so a run spent starving and sprinting heals
+# nothing at all no matter how many days pass. docs/05 and the design record both ask for
+# this; the alternative -- a wall-clock timer -- would make being wounded a waiting game
+# rather than a constraint on what you can do next.
+#
+# "Not exerting" reuses the signal stamina recovery already uses: stamina.ticksUntilRecovery
+# is set to STAMINA_RECOVERY_DELAY_TICKS by every stamina.spent, so it is non-zero for a
+# while after any sprint, jog, swing or struggle. Reusing it means exertion has one
+# definition in this simulation rather than two that can drift apart.
+const RECOVERY_HUNGER_FLOOR: float = 30.0
+
+# A part climbs back over its own wound's recovery window: an arm ruined to 1 of 20 by a deep
+# wound is whole again after the same sixteen fed, idle days the wound itself takes to close.
+# Rate is derived, never a second table -- the two cannot disagree.
+static func regen_per_tick(max_integrity: int, severity: int) -> float:
+	var days: int = int(RECOVERY_DAYS.get(severity, RECOVERY_DAYS[Severity.Scratch]))
+	return float(max_integrity) / float(days * SimClock.DAY_TICKS)
+
+
+# A part at exactly zero does not come back. This is the permanent-loss half of docs/05 --
+# "a one-armed survivor" is a real outcome, and it stops being real the moment a ruined arm
+# regrows overnight. It also means amputation needs no special case here: infection.gd's
+# amputate sets the part to 0, and 0 is the floor recovery will not lift.
+const DESTROYED: float = 0.0
+
+# Overwork reopens a fresh deep wound. Sprinting on a deep wound that is less than a quarter
+# healed tears it open again: it bleeds, its dressing is gone, and its earned time resets to
+# nothing. Deliberately narrow -- only DeepWound, only sprinting, only while fresh -- because
+# the point is to make one specific decision expensive ("do I run on this leg?") rather than
+# to tax every wounded survivor for moving at all. No RNG: the player can learn this rule.
+const REOPEN_BELOW_FRACTION: float = 0.25
 
 # Ticks of applied pressure / a bandage needed to stop a wound of this severity. treatment.gd
 # is the only consumer: these are the channel lengths, and the reason a deep wound is a
@@ -150,6 +186,9 @@ static func append_wound(world: Variant, entity: int, kind: String, part: String
 		"bleeding": bleed_rate > 0.0,
 		"bandage": "none",
 		"clotsAtTick": clots_at,
+		# Earned recovery time, not elapsed -- see RECOVERY_DAYS. Starts at zero and only
+		# ever advances on a tick the survivor was fed and idle.
+		"healedTicks": 0,
 	}
 	wounds.append(wound)
 	return wound
@@ -213,6 +252,90 @@ static func _apply_part_impairment(world: Variant, entity: int, wounds: Array) -
 		# head/torso: no per-part modifier -- torso's contribution is blood loss (family a).
 		# The remove_by_source above still runs so a healed/removed head or torso wound
 		# clears correctly; there is simply nothing to add back.
+
+
+# The one effect a completed act of first aid has, shared by the NPC Doctor job
+# (jobs.gd:_treat) and the player's treatment channel. Before this existed the two were
+# separately written and had already drifted: the Doctor's version added 8 to the torso and
+# nothing else, capped at a hardcoded 40, ignoring `injuries.wounds` and every other part.
+#
+# It stops the worst open wound the way a competent dressing would, and it does *not* raise
+# integrity -- that is wounds.recover's job, and it is earned over days rather than granted by
+# an act. Treatment is what starts the recovery clock (an open wound does not knit); it is not
+# the recovery itself.
+#
+# `tier` of "none" is a real answer, not a missing one: it is a treater who had no dressing and
+# closed the wound with their hands, which is exactly what pressure does.
+static func dress_worst(world: Variant, treater: int, patient: int, tier: String = "cloth") -> Dictionary:
+	var inj: Variant = world.components.get_component(patient, "injuries")
+	if not (inj is Dictionary):
+		return {"ok": false, "reason": "no-wounds"}
+	var worst: Variant = null
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		var wd: Dictionary = wound as Dictionary
+		if not bool(wd.get("bleeding", false)):
+			continue
+		if worst == null or int(wd.get("severity", 0)) > int((worst as Dictionary).get("severity", 0)):
+			worst = wd
+	if worst == null:
+		return {"ok": false, "reason": "not-bleeding"}
+	var w: Dictionary = worst as Dictionary
+	w["bleeding"] = false
+	w["bandage"] = tier
+	world.events.publish({
+		"type": "wound.treated",
+		"entity": patient,
+		"treater": treater,
+		"bodyPart": String(w.get("bodyPart", "")),
+		"verb": "bandage",
+		"tier": tier,
+		"wounds": 1,
+	})
+	return {"ok": true, "bodyPart": String(w.get("bodyPart", ""))}
+
+
+# Is this body currently earning recovery time? Fed, and not exerting. Both halves are read
+# from state something else already owns -- SimNeeds' hunger pool and health.gd's stamina
+# recovery delay -- rather than from a flag this module sets, so there is no third definition
+# of "resting" to keep in sync with the other two.
+static func _is_recovering(world: Variant, entity: int) -> bool:
+	var stamina: Variant = world.components.get_component(entity, "stamina")
+	if stamina is Dictionary and int((stamina as Dictionary).get("ticksUntilRecovery", 0)) > 0:
+		return false
+	var needs: Variant = world.components.get_component(entity, "needs")
+	if needs is Dictionary:
+		if float((needs as Dictionary).get("hunger", 100.0)) < RECOVERY_HUNGER_FLOOR:
+			return false
+	# A survivor with no needs component (a bare fixture, a test body) is treated as fed. The
+	# stamina half above still gates them, which is the half every survivor has.
+	return true
+
+
+# Sprinting on a wound that is still fresh and still deep. Returns the wounds it tore open.
+static func _reopen_from_overwork(world: Variant, entity: int, wounds: Array) -> Array:
+	var posture: Variant = world.components.get_component(entity, "posture")
+	if not (posture is Dictionary):
+		return []
+	if int((posture as Dictionary).get("current", SimStances.Stance.Walk)) != SimStances.Stance.Sprint:
+		return []
+	var torn: Array = []
+	for wound in wounds:
+		var wd: Dictionary = wound as Dictionary
+		if int(wd.get("severity", Severity.Scratch)) != Severity.DeepWound:
+			continue
+		if bool(wd.get("bleeding", false)):
+			continue
+		var budget: int = int(RECOVERY_DAYS[Severity.DeepWound]) * SimClock.DAY_TICKS
+		if float(wd.get("healedTicks", 0)) >= float(budget) * REOPEN_BELOW_FRACTION:
+			continue
+		wd["bleeding"] = true
+		wd["bandage"] = "none"
+		wd["healedTicks"] = 0
+		# A reopened wound has no clot to fall back on: whatever stopped it the first time
+		# (pressure, a dressing) is undone, and clotsAtTick was already spent.
+		wd["clotsAtTick"] = -1
+		torn.append(wd)
+	return torn
 
 
 # What a bleeding survivor says about themselves, in the shape needs.gd:801 hud_clause set:
@@ -350,6 +473,75 @@ static func register_module(world: Variant) -> void:
 					"cause": "bloodloss",
 					"x": float((pos as Dictionary).get("x", 0.0)) if pos is Dictionary else 0.0,
 					"y": float((pos as Dictionary).get("y", 0.0)) if pos is Dictionary else 0.0,
+				})
+	)
+
+	# Recovery runs in "health" at order 2, behind wounds.bleed (1): a wound that bleeds and
+	# heals on the same tick should bleed first, so a survivor who is losing blood faster than
+	# they are mending is not quietly credited with the difference.
+	world.systems.register("wounds.recover", "health", 2, func(w: Variant) -> void:
+		for entity in w.components.query(["injuries", "body"]):
+			if w.components.has_component(int(entity), "corpse"):
+				continue
+			var inj: Variant = w.components.get_component(int(entity), "injuries")
+			if not (inj is Dictionary):
+				continue
+			var d: Dictionary = inj as Dictionary
+			if bool(d.get("bledOut", false)):
+				continue
+			var wounds: Array = d.get("wounds", []) as Array
+
+			# Overwork is checked whether or not the survivor is resting -- sprinting *is*
+			# the thing that tears a wound open, so it can hardly be gated on resting.
+			for torn in _reopen_from_overwork(w, int(entity), wounds):
+				w.events.publish({
+					"type": "wound.reopened",
+					"entity": int(entity),
+					"bodyPart": String((torn as Dictionary).get("bodyPart", "")),
+				})
+
+			if not _is_recovering(w, int(entity)):
+				continue
+
+			var body: Dictionary = w.components.get_component(int(entity), "body") as Dictionary
+			# The worst open wound on each part sets that part's healing rate, so a limb
+			# carrying both a scratch and a deep wound mends at the deep wound's pace.
+			var worst_by_part: Dictionary = {}
+			var closed: Array = []
+			for wound in wounds:
+				var wd: Dictionary = wound as Dictionary
+				if bool(wd.get("bleeding", false)):
+					# An open wound does not knit. Stopping the bleeding is what starts the
+					# clock, which is the whole reason Part B's two verbs matter beyond the
+					# blood-loss arithmetic.
+					continue
+				var part: String = String(wd.get("bodyPart", ""))
+				var sev: int = int(wd.get("severity", Severity.Scratch))
+				if not worst_by_part.has(part) or sev > int(worst_by_part[part]):
+					worst_by_part[part] = sev
+				wd["healedTicks"] = int(wd.get("healedTicks", 0)) + 1
+				if int(wd["healedTicks"]) >= int(RECOVERY_DAYS.get(sev, 2)) * SimClock.DAY_TICKS:
+					closed.append(wd)
+
+			for part in worst_by_part.keys():
+				var current: float = float(body.get(String(part), 0.0))
+				# DESTROYED is a floor, not a stage: a part at zero is gone for good, which
+				# is what makes "a one-armed survivor" a real outcome and what keeps an
+				# amputation from growing back.
+				if current <= DESTROYED:
+					continue
+				var maxv: Variant = SimHealth.max_of(body, String(part))
+				if maxv == null or current >= float(int(maxv)):
+					continue
+				body[String(part)] = minf(float(int(maxv)), current + regen_per_tick(int(maxv), int(worst_by_part[part])))
+
+			for done in closed:
+				wounds.erase(done)
+				w.events.publish({
+					"type": "wound.closed",
+					"entity": int(entity),
+					"bodyPart": String((done as Dictionary).get("bodyPart", "")),
+					"severity": int((done as Dictionary).get("severity", 0)),
 				})
 	)
 
