@@ -19,7 +19,7 @@ const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
-const SimVisibility = preload("res://sim/vision/visibility.gd")
+const SimSurvivors = preload("res://sim/modules/survivors.gd")
 
 const BEATS: Array[int] = [8, 12, 16]
 const TRANSMIT_P: float = 0.15
@@ -203,6 +203,7 @@ static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: flo
 	SimNeeds.attach(world, ent, {"hunger": 50.0, "thirst": 50.0, "rest": 50.0})
 	SimJobs.attach(world, ent, "Auto")
 	SimSkills.attach(world, ent)
+	SimSurvivors.give_eyes(world, ent)
 	for item_id in rolled.get("kit", []) as Array:
 		var item: int = SimItems.spawn_item(world, String(item_id), {"tier": "scavenged"})
 		if String(item_id).begins_with("item.food."):
@@ -351,8 +352,7 @@ static func _handoff(world: Variant, dead: int, next: int) -> void:
 		world.components.remove(dead, "observer")
 	world.player = next
 	world.components.set_component(next, "controlled", {})
-	if not world.components.has_component(next, "observer"):
-		world.components.set_component(next, "observer", SimVisibility.daylight_eyes())
+	SimSurvivors.give_eyes(world, next)
 	if world.components.has_component(next, "job"):
 		world.components.remove(next, "job")
 	world.runOver = false

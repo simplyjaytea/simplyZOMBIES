@@ -33,6 +33,7 @@ npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
 npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~85 s, inside godot:m2)
+npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
 npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
 npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
 npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
@@ -248,6 +249,13 @@ Each of these was found the expensive way. They are not style opinions.
   and each cost a full harness run to disprove. A throwaway `SceneTree` driver that boots
   `SimBoot.playable(seed, …)`, runs the same day count and prints `entity.killed` causes answers it
   in one run. Delete the driver afterwards.
+- **A Dictionary keyed by an entity id does not survive a save.** Components round-trip through
+  JSON, and JSON has no integer keys — a `{entity: record}` component comes back with String keys
+  and the very first `seen[entity]` after a load misses silently, with no error and no wrong
+  number, just a memory that is empty for reasons nothing reports. Store per-entity collections
+  as an **Array of records** (`{"e": id, …}`) and scan; `sim/modules/sightings.gd` is the
+  precedent. Same family as the packed-array and lambda-capture traps above: a value that is
+  quietly not what you stored.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.

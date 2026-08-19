@@ -22,7 +22,7 @@ milestone away. What follows is still the specification; this section is the run
 | Focal and peripheral arcs, nothing behind | **Built** — `src/sim/vision/visibility.ts` |
 | Recompute on change, not on tick | **Built**, and measured: 690 shadowcasts across 600 ticks with 51 observers |
 | Renderer occlusion | **Built** — 11 bodies drawn where 216 were in the viewport |
-| Last-known position memory | **Half** — the renderer fades a mark where a body was last seen; the simulation has no per-observer memory and no prose yet |
+| Last-known position memory | **Built** — `godot/sim/modules/sightings.gd`, one record per observer per body, with prose that degrades and a two-minute horizon (`npm run godot:m2:sight`). The renderer now reads it rather than keeping a second copy |
 | The light channel | **Not built.** Next |
 | Zombies reading light | **Not built** — arrives with the channel, so sight and its one new stimulus land together |
 | The multiplayer filtered view | Milestone 3, unchanged |

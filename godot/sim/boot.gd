@@ -35,6 +35,7 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
@@ -112,6 +113,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimBloater.register_module(world)
 	SimLightMod.register_module(world)
 	SimFieldMemory.register_module(world)
+	SimSightings.register_module(world)
 
 
 # Scatters each of the map's loot sites from the content table its `table` names, per docs/12:
