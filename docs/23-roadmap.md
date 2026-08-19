@@ -431,6 +431,52 @@ cancelled at every escape banks nothing, so a 400-tick deep-wound press has no r
 path while holds arrive every ~50 ticks. That is the fragments arithmetic the R5 inversion bought
 the hold count with, and it is the single measured thing between this loop and the flip.
 
+**Answered: a press banks the time it has already served (R8).** This reverses a rule that was
+deliberate and written down — `check_m2_treatment.gd`'s header said in as many words that a partial
+hold must never bank, and named the assertion that would fail if one did. R5's inversion is what
+made it untenable, and the reversal is on measurement rather than taste, the same way R5's own was.
+`treatment.cancel` now writes the ticks a `pressure` channel served onto the open wounds of the
+part it was aimed at (capped at that part's own pressure cost), and `begin` asks for what is left.
+The bank lives **on the wound**, not on the presser, so whoever presses next inherits it. Two
+exceptions carry the cost: a **stagger** banks nothing — R3 already singles it out as the one thing
+that takes your hand off your own arm — and **bandaging never banks**, because a dressing is
+applied, not accumulated. No decay, and cleared at completion and at `SimWounds.reopen`.
+
+`godot:m2:treatment`'s `_a_hold_broken_early_buys_nothing` was **renamed and extended** rather than
+deleted, so the vocabulary stays complete: it is now
+`_a_partial_hold_clots_nothing_and_banks_everything`, and it still fails if a released hold ever
+clots by itself. What it gained is the other half — the resumed press asks for 1 tick of 400 and
+goes on to clot — plus the true negative that stops R8 making pressure free: the identical hold
+ended by a **stagger** pays the full 400 again.
+
+Measured on the same driver, before and after, with one correction carried into both columns: the
+previous slice's "presses completed" counter watched `treatment.completed`, which is not an event
+this sim publishes. The real signal is `wound.treated`, and both columns below use it.
+
+| seed | before | after | how it ends |
+| --- | --- | --- | --- |
+| 20260805 | `3/2`, no contact | `3/2`, no contact | never touched |
+| 404 | `0/2`, 126 presses begun / **0 completed**, 12,011 living ticks, 152 grabs | `0/2`, 219 begun / **20 completed**, **14,834** living ticks, 197 grabs | 2 × blood loss, 1 × head destroyed |
+| 31337 | `3/2`, no presses | `3/2`, no presses | colony never touched |
+| 90210 | `1/2`, 121 begun / **0 completed**, 29,825 living ticks, 65 grabs | `1/2`, 327 begun / **21 completed**, **36,573** living ticks, 239 grabs | 1 × blood loss, 1 × head destroyed |
+
+Fragments now add up: ~11 cancelled presses compose into one clot, which is exactly the arithmetic
+the rule was picked for. Both hard seeds live about 23% longer, and grabs *rise* on both — a
+survivor who is alive longer is a survivor there is more time to grab, which is the counter reading
+correctly rather than a regression.
+
+**`GRABS_ENABLED` still stays `false`, and what is left is no longer a bug.** 404 ends `0/2`, and
+the remaining constraint is the shape of the colony rather than another contact-loop lever. The
+"rescue can never reach" finding from two slices ago has been **re-measured and is now only partly
+true**, which is worth stating plainly rather than repeating: with escapees actually covering
+ground, a free colonist is within `RESCUE_METRES` (1.6 m) of a held one for 135 ticks on 90210 and
+18 on 31337, closest approach 0.52 m and 0.21 m — where the previous measurement found no approach
+inside 6 m on any seed. **On 404 it still never reaches**: closest all campaign is 4.40 m, improved
+from 6.41 m and still nearly three times the radius. That colony simply never stands together, and
+moving it is **People and economy** work — a bigger colony, or one posted closer — rather than
+anything left in the contact loop. It is a design call about the shape of the slice, not a
+measurement waiting to be taken.
+
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the
 bloater's open-wound check — all written against a bite nothing currently produces. Cripple and

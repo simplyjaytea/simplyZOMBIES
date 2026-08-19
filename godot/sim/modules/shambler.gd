@@ -194,11 +194,23 @@ const RESCUE_RETRY_TICKS: int = 20
 # per tick against a nominal 0.105, up from a tenth of that -- and 90210 is the first hard seed to
 # stop wiping. 404's colony lives 41% longer and spends a third rather than half of its life held.
 #
-# **The flag is still false, and the second residual is why.** 404 still ends 0/2, all three
-# deaths blood loss, with 126 presses begun and **zero completed**: a press cancelled at every
-# escape banks nothing, so a 400-tick deep-wound press has no reachable completion path when holds
-# arrive every ~50 ticks. That is the fragments arithmetic R5's inversion bought the hold count
-# with, and it is now the only thing between this loop and the flip. The remaining smaller
+# **The second residual is answered too.** 404 ended 0/2 on blood loss with 126 presses begun and
+# *zero* completed, because a press cancelled at every escape banked nothing against a 400-tick
+# deep-wound cost while holds arrived every ~50 ticks. treatment.gd's R8 now banks the served
+# ticks on the wound, which reverses a rule that was deliberate and written down, on measurement
+# rather than taste -- the same discipline that produced R5's own inversion. Fragments compose:
+# presses completed go 0 -> 20 on 404 and 0 -> 21 on 90210, and both hard seeds live about 23%
+# longer (12,011 -> 14,834 and 29,825 -> 36,573 living ticks).
+#
+# **The flag is still false, and what is left is no longer a bug.** 404 still ends 0/2, and the
+# constraint is the shape of the colony rather than another lever in this file. Re-measured with
+# escapees that actually move, the old "rescue can never reach" finding is now only partly true and
+# is worth restating rather than repeating: a free colonist is within RESCUE_METRES of a held one
+# for 135 ticks on 90210 and 18 on 31337, closest approach 0.52 m and 0.21 m, where the previous
+# measurement found no approach inside 6 m on any seed. On 404 it still never reaches -- closest
+# all campaign is 4.40 m, improved from 6.41 m and still nearly three times the radius. That colony
+# never stands together, and moving it is People-and-economy work (a bigger colony, or one posted
+# closer) rather than anything left in the contact loop. The one smaller
 # residual is unchanged and is a tick of drain ordering: the cancel lands at drain, so an escapee
 # stands still for one tick, worth 0.105 m of gap, which lifts BREAK_AWAY_SPEED's own d0 threshold
 # from 0.58 m to about 0.69 m. Relaxing `survivors_end >= 1` remains considered and rejected.
