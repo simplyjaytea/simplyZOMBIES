@@ -410,6 +410,40 @@ static func affix_modifiers(world: Variant, item: int) -> Array:
 			out.append(m)
 	return out
 
+# The item's tier id, or "scavenged" for anything spawned before tiers were recorded (and for a
+# fixture that builds an item by hand). Never null: every caller wants a tier to look up in TIERS,
+# and the untiered floor is the honest default.
+static func tier_of(world: Variant, item: int) -> String:
+	var band: Variant = world.components.get_component(item, "itemTier")
+	if band is Dictionary:
+		var id: String = String((band as Dictionary).get("id", ""))
+		if id != "":
+			return id
+	return "scavenged"
+
+
+# How many affixes this item's tier permits in total. One reader of TIERS rather than each caller
+# walking it, because "what a tier allows" is the same question at generation and at the bench.
+static func affix_capacity(world: Variant, item: int) -> int:
+	var tier: String = tier_of(world, item)
+	for t in TIERS:
+		if String((t as Dictionary)["id"]) == tier:
+			return int((t as Dictionary)["affixes"])
+	return 0
+
+
+# Re-derives an item's affix modifiers after its affixes have been edited. Removes by source
+# first -- each affix contributes modifiers tagged with its own id (see affix_modifiers) -- rather
+# than clearing the item's whole modifier scope, because the scope may hold modifiers this module
+# did not put there and clearing it would silently drop them.
+static func reapply_affix_modifiers(world: Variant, item: int) -> void:
+	for entry in _all_entries(world, "affix"):
+		world.modifiers.remove_by_source(String((entry as Dictionary).get("id", "")), item)
+	for mod in affix_modifiers(world, item):
+		world.modifiers.add(mod as Dictionary, item)
+	_refresh_armed(world, item)
+
+
 static func item_name(world: Variant, item: int) -> String:
 	var base: Variant = item_base_of(world, item)
 	if base == null:
@@ -458,6 +492,11 @@ static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}
 		tier = roll_tier(rng)
 	elif tier == "":
 		tier = "scavenged"
+	# The tier is a permanent property of the item, not a step in generating it. It was previously
+	# rolled here, used to decide how many affixes to draw, and thrown away -- so nothing could
+	# afterwards ask how many affix slots an item has, which is exactly what a Scrap Kit needs to
+	# know. Stored as its own component so it serialises with everything else.
+	world.components.set_component(item, "itemTier", {"id": tier})
 	var base: Variant = _content_get(world, "item", base_id)
 	var cls: String = base_class(base as Dictionary) if base is Dictionary else "material"
 	var aff: Dictionary = {"prefixes": [], "suffixes": []}

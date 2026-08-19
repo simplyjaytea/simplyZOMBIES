@@ -560,8 +560,29 @@ table above are the authority on each):
   footstep noise, and a container has **no renderer path** — it is announced by prose
   (`SimContainers.hud_clause` in the HUD) and is otherwise invisible, the same as beds and
   campfires, which is the Art track's open tile/prop renderer rather than a gap in this.
-- **Modification** — Duct Tape (reroll an affix), Scrap Kit (add an affix), skill- and
-  trait-weighted outcomes, failure that consumes and damages.
+- **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
+  outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
+  consumable performs and against which item classes is **content** — a `modification:
+  {operation, appliesTo}` block on the item base, exactly as docs/11's content-shape section
+  describes — while what an operation *does* is code, in `SimModification.OPERATIONS`, which is the
+  registry that document points at. The other five consumables (Whetstone, Gun Oil, Solvent,
+  Machinist's Gauge, Salvage Rights) are not blocked on anything: a Solvent is one content entry
+  plus one `strip` operation.
+  Craft moves both odds in the directions docs/11 names — failure 0.200 → 0.080 over six points
+  (floored at 0.05, because a bench that cannot fail is not a gamble), and the mean affix tier
+  0.409 → 0.694 under the bias. Injured hands raise failure to 0.230 and cancel the tier bias, so
+  a good crafter working hurt is an ordinary one rather than a worse-than-novice one; two
+  destroyed hands refuse outright. Failure spends the consumable and costs 0.25 condition, and
+  below 0.20 it breaks the item outright with its ceiling, so it is scrap forever — reachable only
+  from an already-degraded item, so a fresh find is never one roll from scrap. The Scrap Kit is
+  findable in the military cache and duct tape in all three tables.
+  Two things fell out of this that were missing rather than new: an item's **tier was rolled at
+  spawn and thrown away**, so nothing could afterwards ask how many affix slots an item has — it
+  is now an `itemTier` component with `SimItems.tier_of`/`affix_capacity` — and there was no path
+  to re-derive an item's modifiers after its affixes change, now `SimItems.reapply_affix_modifiers`
+  (removing by affix source rather than clearing the item's scope, which would drop modifiers this
+  module never put there). **Still open:** trait-weighted outcomes, which have no hook to read
+  until traits ship in Milestone 3A — `SimModification.TRAIT_FAILURE_SHIFT` is the named seam.
 - **UI** — the diegetic condition and stamina readouts (in the world, not a corner), prose generated
   from modifier sources, the priority grid and skill web screens.
 - **Death & succession** — the colony morale hit on a death, and proving "the run ends only when the
