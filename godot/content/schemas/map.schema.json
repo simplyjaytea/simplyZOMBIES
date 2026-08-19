@@ -58,7 +58,7 @@
               "y": { "type": "integer", "minimum": 0 }
             }
           },
-          "table": { "enum": ["residential", "military_cache"] }
+          "table": { "enum": ["residential", "commercial", "industrial", "medical", "military_cache"], "description": "The location loot table this site rolls, matching a content/loot entry's `location`. docs/12's five scavenging locations; Milestone 2 authors three of them. Kept in step with loot.schema.json by hand -- LOCATIONS in check_loot.gd is what asserts a map never names a table nobody wrote." }
         }
       }
     }
