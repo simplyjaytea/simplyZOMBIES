@@ -56,6 +56,30 @@ through a priority grid. Recruits arrive, gear rolls affixes into a rotatable, n
 inventory, a director paces the nights, and you can fortify, save, and load. Wounds appear on a
 descriptive body-part view rather than a health bar.
 
+**You cannot shoot what you cannot see, and you do not forget what walked behind a wall.** A round
+stops at a wall rather than passing through it, for you and for the colony alike. Bodies you have
+seen are remembered for a while afterwards, as a place and a rough count that goes vague as it goes
+stale — *"two of them, north-east, a moment ago"* becomes *"a few of them, north-east, a while
+ago"*, and then nothing. Somebody who has lost sight of a thing coming for them can still put a
+round where it was, which costs exactly what any other shot costs whether or not anything is still
+standing there.
+
+**Weapons take attachments, and they move between weapons.** A suppressor, an optic, an extended
+magazine, a haft wrap, a spiked head — found rather than crafted, and fitted to any weapon with the
+right slot. Finding a better pistol does not mean losing the suppressor you found for the last one.
+A suppressed pistol is about as loud as a raised voice instead of a thunderclap, and costs you
+accuracy for it.
+
+**Losing somebody costs the people who are left.** Everybody in the colony feels a death; the ones
+who watched it happen feel it considerably more, and it is worse again when the colony was the one
+who had to do it. It fades over about a day.
+
+**No two nights are the same shape.** The director draws a night rather than computing one — quiet,
+a probe, a press, a siege — leaning on how loud your week has been and how long you have been left
+alone, but never simply following from them. It cannot send three sieges in a row and it cannot
+leave you alone for four nights running. And what arrives comes from wherever the district has been
+hearing you, not always down the same street.
+
 The full injury loop — grabs that pin, bites that make located bleeding wounds, pressure and
 bandaging, recovery over days you have to earn — is **built and gated but switched off** for one
 more turn. Five of the reasons it was off have been answered. A bite during a hold now aims where
@@ -129,13 +153,15 @@ status. Milestones close on their exit criterion, never on a feature count.
 - ◐ **Milestone 2 — The vertical slice** *(underway — most systems landed)*: one district, generated
   survivors, needs and jobs, ranged parity, fortification, a pacing director, permadeath and
   succession, and the complete injury/uncertain-infection loop. Landed so far: lethality and
-  turning, the zombie roster, ranged combat, needs/jobs/recruits, building, the director, save/load,
-  the shallow skill web, and the full wound-treatment-recovery loop (currently switched off pending
-  a design decision about how a survivor holding their own wound closed should be able to run — see
-  [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open: loot tables
-  and resource variety, the fuller survivor generator, mood consequences, the remaining injury
-  types and treatments, world-container search, crafting consumables, and the balance grid plus a
-  human ten-day playtest. **Exit criterion:** survive ten in-game days, lose a survivor you cared
+  turning, the zombie roster, ranged combat and sightlines, needs/jobs/recruits, mood consequences
+  and grief, building, a director that varies its nights, save/load, the shallow skill web, loot
+  tables and searchable containers, workbench modification, weapon attachments, the full injury
+  table with pain, exhaustion and sepsis, and the full wound-treatment-recovery loop (currently
+  switched off pending a design decision about how a survivor holding their own wound closed should
+  be able to run — see
+  [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open: the wider
+  resource taxonomy, the fuller survivor generator, the remaining crafting consumables, the UI
+  screens, and the balance grid plus a human ten-day playtest. **Exit criterion:** survive ten in-game days, lose a survivor you cared
   about, continue through succession, and still want another run.
 - ☐ **Milestone 3A — Survivor depth.** Relationships and grief, the full skill web, all six
   attributes, weather and temperature, full world decay, and the remaining zombie types.
@@ -148,7 +174,9 @@ status. Milestones close on their exit criterion, never on a feature count.
 ## Working on it?
 
 **`CLAUDE.md` is the engineer's entry point** — what the project is, the standing bans, how to
-verify a change, and the traps. `AGENTS.md` covers environment setup.
+verify a change, and the traps. `HANDOFF.md` is the short version for picking the project up cold:
+where it stands, what landed last, and which open questions are the owner's rather than the code's.
+`AGENTS.md` covers environment setup.
 [docs/23-roadmap.md](docs/23-roadmap.md) owns product scope, milestone order, risks, playtest
 questions, and current implementation status; [docs/30-decisions.md](docs/30-decisions.md) records
 what each completed chunk made structural, and [docs/31](docs/31-godot-rebuild-roadmap.md) owns the

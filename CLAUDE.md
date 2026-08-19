@@ -171,6 +171,35 @@ unilaterally**, and relaxing `survivors_end >= 1` has been considered and reject
 [docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
 measurement, seed by seed.
 
+**Everything below landed after that note, and none of it touched the flag.** Six slices, each with
+its own gate, working down docs/23's open list rather than at the flip:
+
+- **Sepsis, and injury kinds as a table** (`godot:m2:wounds`) — a wound can go septic and stops
+  healing until antibiotics; `WOUND_KINDS` replaced four `if kind == …` branches so fracture,
+  sprain, burn and concussion are rows rather than special cases.
+- **Pain and exhaustion** (`godot:m2:wounds`) — docs/05's four continuous conditions are all four
+  now. Pain is *derived, never stored*, and `pain_of` (felt) and `raw_pain_of` (actual) are both
+  public because painkillers are supposed to make them disagree.
+- **Sightlines and memory** (`godot:m2:sight`) — a wall refuses a shot (`SimRanged.can_target`, the
+  one answer for the player and the colony alike), and a body that walked out of sight is
+  remembered for two minutes with prose that degrades. **Every survivor has eyes now**; before this
+  only the player did.
+- **Attachments** (`godot:m2:attach`) — five findable attachment items and a reader. An attachment
+  *declares what it multiplies*, so nothing in the module names a suppressor.
+- **Grief** (`godot:m2:needs`) — a survivor's death costs every other survivor mood, more if they
+  watched it. Deliberately the colony-wide half; closeness needs relationships, which are 3A.
+- **Varied nights** (`godot:m2:director`) — a night is *drawn* from a strain-weighted table rather
+  than computed, with docs/17 rule 4's floor and ceiling made mechanical and every decision
+  published as `director.night`.
+
+**The pattern worth carrying forward: this milestone has turned up eight dead sockets** — code that
+was complete, correct, often gated, and read by nothing. `crawlFactor`, the `Staggered` state,
+`sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody but
+the player, rule 4's variance floor sitting behind an `if size == 0` that could never be true, and
+`SimDirector.snapshot_of`. **A gate asserting that a helper returns the right number does not assert
+that anything reads it.** When you add a mechanism, add the assertion that something reaches it —
+`check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example.
+
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
 not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are
 still required Milestone 2 proof, deferred rather than cancelled.
@@ -199,7 +228,9 @@ way. Read 30 before changing something that looks arbitrary.
   seed loop that ran four seeds and proved one. If an assertion has no data to judge (a shortened
   campaign the director never pressured), make it **say so and skip**, never pass quietly.
 - Update [docs/23's milestone status section](docs/23-roadmap.md#where-milestone-2-stands) in the
-  same commit as the work it describes. Its predecessor (`HANDOFF.md`) drifted four times, most
+  same commit as the work it describes. `HANDOFF.md` is back, but **it is not the old ledger** —
+  it is a short session handoff that points at docs/23 and names what is waiting on the owner. Do
+  not put per-item checkboxes in it; that is exactly what drifted four times. Its predecessor (`HANDOFF.md`) drifted four times, most
   recently by ~34 shipped-but-unticked items, which is why the status is now condensed prose with
   each claim naming the gate that proves it. There is no mechanical gate on this any more —
   `godot:check:handoff` retired with the file — so the discipline is the convention. Where only
