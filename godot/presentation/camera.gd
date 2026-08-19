@@ -7,8 +7,17 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 # zoom steps are power-of-two multiples of it so nearest-neighbour scaling stays
 # clean. Changing the art-native scale changes the size of every future sprite,
 # so it is a content decision rather than a camera preference.
+const ZOOM_STEPS: Array[float] = [16.0, 32.0, 64.0, 128.0]
+
 static func create_camera(zoom: float = 64.0) -> Dictionary:
 	return {"x": 0.0, "y": 0.0, "width": 0.0, "height": 0.0, "zoom": zoom}
+
+# Step through the fixed zoom ladder; dir is +1 in, -1 out. Clamps at the ends.
+static func zoom_step(camera: Dictionary, dir: int) -> void:
+	var at: int = ZOOM_STEPS.find(float(camera["zoom"]))
+	if at < 0:
+		at = 2
+	camera["zoom"] = ZOOM_STEPS[clampi(at + dir, 0, ZOOM_STEPS.size() - 1)]
 
 static func follow_camera(camera: Dictionary, target_x: float, target_y: float, map_w: int, map_h: int) -> void:
 	camera["x"] = clampf(target_x, 0.0, float(map_w))

@@ -258,6 +258,17 @@ func _input(event: InputEvent) -> void:
 		var ke2: InputEventKey = event as InputEventKey
 		if MOVE_KEYS.has(ke2.keycode): _held.erase(ke2.keycode)
 		if ke2.keycode == KEY_SHIFT: _push_stance(_selected_stance)
+	# Wheel zoom through the fixed ladder -- power-of-two multiples of the art-native
+	# 64 so nearest-neighbour scaling never shimmers. Not while the inventory is open:
+	# the wheel belongs to the panel there.
+	if event is InputEventMouseButton and event.pressed and not inventory_open:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			CameraUtil.zoom_step(camera, 1)
+			queue_redraw()
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			CameraUtil.zoom_step(camera, -1)
+			queue_redraw()
 	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if world != null and not inventory_open:
 			world.commands.push({"type": "fire"})
