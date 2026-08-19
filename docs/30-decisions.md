@@ -1170,6 +1170,68 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   rather than a placeholder, but the missing sprite is the Art track's open prop renderer and
   docs/23 says so rather than letting it read as finished.
 
+## Sightlines and memory: one refusal, one recollection
+
+`godot/sim/modules/sightings.gd`, `SimRanged.can_target`, `SimVisibility.line_of_sight`, gated by
+`npm run godot:m2:sight`. docs/09 ("what you cannot see, you cannot aim at") and docs/28 ("memory,
+not deletion") are two halves of the same rule and landed together for that reason: a shot that a
+wall refuses is only fair if losing sight of something does not delete it.
+
+- **Every survivor has eyes now, and did not before.** `boot.playable` set an `observer` on the
+  player and on nobody else, so `world.vision` answered for exactly one entity in a booted
+  district and every per-observer question about a colonist — an alarm_on_sight zombie noticing
+  one, a colonist noticing anything — was being asked about a view that did not exist. That is the
+  **sixth dead socket** this milestone: `SimVisibility` was complete, correct, gated, and
+  consulted for one entity out of a colony. `SimSurvivors.give_eyes` is the one place a survivor
+  gets a view and a memory, and `spawn_unique`, `boot_playable`, `spawn_generated` and the
+  succession handoff all call it rather than each setting the component themselves.
+- **The sightline test is geometry, not the facing arc.** `detail` narrows by focal and peripheral
+  cones because *attention* is directional; a bullet is not. `line_of_sight` is walls and range
+  with no arc, and it is what `can_target` asks. The arc version would have produced the case
+  where the thing inside your sights is the thing you are not allowed to hit, and — worse — an NPC
+  unable to swing at something standing directly behind it.
+- **`can_target` is permissive for a shooter with no eyes at all.** Every ranged fixture in the
+  suite predates sightlines and spawns a body, a weapon and a target with no `observer` between
+  them; if the absence of a view read as "sees nothing", each of them would have silently stopped
+  hitting. `tiles_for` returning null is the one call that separates "no eyes" from "eyes, and a
+  wall", so the refusal is written against that rather than against `line_of_sight` being false,
+  and NO-EYES in the gate is the assertion that says so.
+- **One answer, in `ranged.gd`, because npc_combat.gd asked for it by name.** That module's own
+  note said a private line-of-sight check there "would be the second answer docs/28 warns about"
+  and that the rule, when it landed, should land in `ranged.gd` for everybody. It did:
+  `_nearest_threat` calls the same `can_target` the shot will call, so a colonist never spins to
+  face something through a wall and then declines to fire.
+- **A record is a position and a tick, never a track.** Nothing follows an unseen body. The
+  remembered point is where the thing was standing when it was last in view, it goes stale on a
+  clock (fresh / recent / stale, then forgotten at two minutes), and MEMORY in the gate asserts
+  the recalled position does *not* move when the body does.
+- **Watching something fall erases the record; a kill out of sight does not.** A body you saw go
+  down is not a place you are still wary of, and one that died behind a building is still, as far
+  as you know, behind that building. The asymmetry is the whole model in one line.
+- **The prose degrades in its counting, not only in its clock.** A fresh sighting gets a number
+  ("two of them, east, a moment ago"); anything older gets a hedge ("a few of them, east, a while
+  ago"). docs/28's own example says "three of them", and clause 4 forbids handing the player
+  certainty they have not earned — degrading the count rather than only the timestamp satisfies
+  both. There is no distance in the clause, because a remembered distance is exactly the precision
+  nobody has; a bearing is what somebody would actually say.
+- **Storage is an Array of records, not a Dictionary keyed by entity.** A component round-trips
+  through JSON on every save and JSON has no integer keys: a dictionary would come back with
+  String keys and the first `seen[entity]` after a load would silently miss — the same family of
+  trap as the packed-array copy in CLAUDE.md, and cheaper to avoid than to find.
+- **The renderer's private memory is gone.** `presentation/main.gd` kept its own `entity -> {x, y,
+  tick}` dictionary for the fading marks. It reads `SimSightings.remembered` now, because a mark
+  on the ground and a colonist's decision to shoot at one have to be the same recollection, or the
+  mark is telling the player something nobody in the world knows. How long a mark *fades* stays a
+  presentation constant — the sim remembers far longer than the renderer draws.
+- **Firing at a remembered position costs nothing extra, and that is the design.** docs/09 prices
+  it as "180 noise and 60 of muzzle flash whether or not anything was still standing there", and
+  `_fire_shot` already publishes both before the hit test and spends the round before it. So the
+  only thing `npc_combat._shoot_where_it_was` adds is the *decision* — the option the player has
+  always had by pointing and pressing F. An NPC takes it only when nothing is visible, and only on
+  a memory still inside the Recent band: spending ammunition the player has to go out and find, on
+  a memory the survivor would describe as "a while ago", is the colony being wasteful rather than
+  the colony being autonomous.
+
 ## What the top-down reversal made structural
 
 The projection moved from isometric 2:1 to flat top-down (docs/00 carries the reversal argument;

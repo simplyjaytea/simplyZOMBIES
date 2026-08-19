@@ -22,6 +22,7 @@ extends Control
 
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimAttentionRead = preload("res://sim/attention_read.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
@@ -135,6 +136,13 @@ func _world_lines(world: Variant, actor: int) -> Array[String]:
 	var att: Dictionary = SimAttentionRead.clause(world, actor)
 	lines.append(String(att["light"]))
 	lines.append(String(att["worst"]))
+
+	# What you remember seeing, which is the other half of what the marks on the ground say.
+	# docs/28: the prose "degrades -- a moment ago, then a while ago, then nothing" -- and the
+	# read model is what decides when nothing is the honest answer, not this line.
+	var seen: String = SimSightings.clause(world, actor)
+	if not seen.is_empty():
+		lines.append(seen)
 	return lines
 
 
