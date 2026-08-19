@@ -416,7 +416,13 @@ table above are the authority on each):
   {16, 32, 64, 128} px/m. Screamer and bloater still render as tinted shapes; tile art still
   has no renderer path (`_draw_district` draws flat rects); the art-style *flavour* stays open —
   `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the three candidate directions and
-  the overhead re-authoring of the zombie visual language, for the owner to pick from.
+  the overhead re-authoring of the zombie visual language, for the owner to pick from. **Next up,
+  in order:** get the flavour pick from the owner (the brainstorm doc's screenshot-fixture
+  method is the way to compare them); regenerate the five sprites again only if the pick isn't
+  A (the shipped baseline), since B needs rotation support (`draw_set_transform` around the
+  blit — the centre anchor was chosen so this stays a contained change) and C needs a rig-sheet
+  pass before more sprites exist; then screamer/bloater art and a tile/terrain renderer path,
+  both still open regardless of the pick.
 - **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
   rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
 - **Needs** — mood consequences: slower work, mistakes, refusing jobs, arguments.
