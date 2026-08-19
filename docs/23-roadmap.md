@@ -775,8 +775,24 @@ table above are the authority on each):
   (removing by affix source rather than clearing the item's scope, which would drop modifiers this
   module never put there). **Still open:** trait-weighted outcomes, which have no hook to read
   until traits ship in Milestone 3A — `SimModification.TRAIT_FAILURE_SHIFT` is the named seam.
-- **UI** — the diegetic condition and stamina readouts (in the world, not a corner), prose generated
-  from modifier sources, the priority grid and skill web screens.
+- **UI** — ~~the inventory screen as a fixed sheet~~ **reworked** (presentation-only, so the proof
+  is `godot:smoke` plus the screenshots in the session record rather than a sim gate): every
+  carried container is now its own **window** — draggable by its title bar, **pinnable** so its
+  contents stay on screen during ordinary play — with all drag state owned by one layer
+  (`ui/inventory_panel.gd`) because Godot pins mouse focus to the control that took the press, so
+  cross-window drops have to be routed somewhere that can see every window at once. A **settings
+  sheet on Esc** (`ui/settings_panel.gd`) adjusts inventory and pinned-bag opacity, persisted with
+  window positions and pins to `user://ui_prefs.json` (`ui/prefs.gd`) — presentation preferences
+  live beside the UI, never in the save. The screens share one skin (`ui/chrome.gd`, olive/gunmetal
+  with a single amber accent, in the STALKER-PDA / Zero Sievert register the sprites already sit
+  in), the stance paperdoll moved to the **bottom-left** with the HUD key hints taking the freed
+  corner, grid item labels are width-fitted rather than cut at six characters, and click-to-fire
+  moved to `_unhandled_input` so a click on any UI surface is never also a trigger pull.
+  **Still open here:** the diegetic condition and stamina readouts (in the world, not a corner),
+  prose generated from modifier sources, the skill web screen, an attachment-fitting surface (the
+  `item.attach`/`item.detach` commands still have no screen), and the expanded equipment-slot
+  taxonomy + Tarkov-style paperdoll — both waiting on the owner's slot design, recorded in
+  HANDOFF.md.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources

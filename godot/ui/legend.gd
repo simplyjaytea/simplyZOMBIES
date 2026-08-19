@@ -8,7 +8,7 @@ extends Control
 # The groupings are the ones a new player needs in the order they need them: move first,
 # fight second, look third, and the meta keys last.
 
-const Palette = preload("res://presentation/palette.gd")
+const Chrome = preload("res://ui/chrome.gd")
 
 const PAD: float = 36.0
 const LINE: float = 38.0
@@ -34,7 +34,7 @@ const GROUPS: Array = [
 		["Space", "shout — heard across the district"],
 	]],
 	["Look", [
-		["Tab", "gear and injuries"],
+		["Tab", "gear and injuries — drag a bag by its title, pin it to keep it on screen"],
 		["J", "work priorities"],
 		["O", "attention overlay: noise, scent, sight, light"],
 		["M", "raw developer sheets"],
@@ -44,6 +44,7 @@ const GROUPS: Array = [
 		["1 / 2 / 3", "speed: 1x, 3x, 10x"],
 		["P", "pause"],
 		["F5 / F9", "save and load"],
+		["Esc", "settings"],
 		["F1", "these keys"],
 	]],
 ]
@@ -62,29 +63,29 @@ func _draw() -> void:
 	for group in GROUPS:
 		rows += ((group as Array)[1] as Array).size()
 	var height: float = PAD * 2.0 + TITLE_GAP + LINE * float(rows + GROUPS.size()) + GROUP_GAP * float(GROUPS.size())
-	var width: float = 860.0
+	var width: float = 1060.0
 	var origin := Vector2(
 		roundf((view.x - width) / 2.0),
 		roundf((view.y - height) / 2.0),
 	)
 
 	# Dim the district behind, so the legend reads as a layer over the game rather than as
-	# part of it.
-	draw_rect(Rect2(Vector2.ZERO, view), Color(0.02, 0.03, 0.04, 0.72))
-	draw_rect(Rect2(origin, Vector2(width, height)), Color(0.07, 0.08, 0.09, 0.97))
-	draw_rect(Rect2(origin, Vector2(width, height)), Palette.COLOURS["outline"], false, 2.0)
+	# part of it. Panel chrome comes from ui/chrome.gd, the one place the skin lives.
+	var dim: Color = Chrome.FIELD
+	dim.a = 0.72
+	draw_rect(Rect2(Vector2.ZERO, view), dim)
+	Chrome.panel(self, Rect2(origin, Vector2(width, height)), 0.97)
+	Chrome.header(self, Rect2(origin, Vector2(width, height)), "keys", 0.97)
+	draw_string(font, Vector2(origin.x + width - PAD - 156.0, origin.y + Chrome.HEADER_H - 13.0), "F1 to close", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 
-	var y: float = origin.y + PAD + TITLE_SIZE
-	draw_string(font, Vector2(origin.x + PAD, y), "Keys", HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Palette.COLOURS["player"])
-	draw_string(font, Vector2(origin.x + width - PAD - 192.0, y), "F1 to close", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["outline"])
-	y += TITLE_GAP
+	var y: float = origin.y + Chrome.HEADER_H + TITLE_GAP
 
 	for group in GROUPS:
 		y += LINE
-		draw_string(font, Vector2(origin.x + PAD, y), String((group as Array)[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["outline"])
+		draw_string(font, Vector2(origin.x + PAD, y), String((group as Array)[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Chrome.TEXT_DIM)
 		for row in (group as Array)[1] as Array:
 			y += LINE
 			var r: Array = row as Array
-			draw_string(font, Vector2(origin.x + PAD + 24.0, y), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["player"])
-			draw_string(font, Vector2(origin.x + KEY_COLUMN, y), String(r[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["survivor"])
+			draw_string(font, Vector2(origin.x + PAD + 24.0, y), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Chrome.ACCENT)
+			draw_string(font, Vector2(origin.x + KEY_COLUMN, y), String(r[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Chrome.TEXT)
 		y += GROUP_GAP
