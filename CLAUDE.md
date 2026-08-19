@@ -99,6 +99,13 @@ record is
 It captures decisions, not shipped behavior: do not move any health/injury checkbox until code and
 a focused Godot check prove it.
 
+**A second, independent track just landed: the presentation is flat top-down now, not
+isometric.** `docs/00-vision.md` carries the reversal, `docs/30-decisions.md` what it made
+structural, and [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)'s Art
+bullet has the detail and the ordered next steps. It touched nothing under `godot/sim/` and
+nothing below is affected by it — the two tracks are unrelated except that both gate on
+`npm run godot:m2`.
+
 **The survival loop is now built, end to end, and switched off.** Five slices landed it: the stance
 ladder became sim-owned (`M2_STANCE_OK`), the grab → struggle → bite loop was ported
 (`M2_CONTACT_OK`), wounds gained a severity and a bleed clock (`M2_WOUNDS_OK`), pressure and
