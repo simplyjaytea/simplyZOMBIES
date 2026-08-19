@@ -73,11 +73,105 @@ const TEMP_ORDER: Array[String] = [
 	"extremely_cold", "very_cold", "a_little_cold", "comfortable", "a_little_hot", "very_hot", "extremely_hot",
 ]
 const HYG_ORDER: Array[String] = ["clean", "a_little_dirty", "dirty", "filthy"]
-const FOOD: Dictionary = {
-	"item.food.canned": {"hunger": 40.0, "mood": 0.0, "spoilDays": 0.0},
-	"item.food.raw": {"hunger": 25.0, "mood": -8.0, "spoilDays": 2.0},
-	"item.food.cooked": {"hunger": 60.0, "mood": 8.0, "spoilDays": 1.0},
-}
+# --- food is content (docs/12) ----------------------------------------------------------------
+#
+# docs/12's content-shape section: "Resources, location loot tables, and spoilage rules are JSON."
+# The loot tables moved out a slice ago; this is the spoilage half. What a food restores, what it
+# does to mood, how long it keeps and how likely it is to make you ill are a `food` block on the
+# item base now, so rebalancing the diet -- or adding a food -- is a data edit.
+#
+# The table below is gone, not merely bypassed. It read:
+#
+#   item.food.canned  {hunger: 40, mood:  0, spoilDays: 0}
+#   item.food.raw     {hunger: 25, mood: -8, spoilDays: 2}
+#   item.food.cooked  {hunger: 60, mood:  8, spoilDays: 1}
+#
+# and those numbers are now in content/items/supplies.json unchanged, so this slice moves where
+# they live without moving what they say.
+
+# What a food does, read from content. Returns null for anything that is not food, which is how
+# every caller here asks "is this edible" as well as "what does it do".
+static func food_spec(world: Variant, base_id: String) -> Variant:
+	var base: Variant = SimItems.content_entry(world, "item", base_id)
+	if not (base is Dictionary):
+		return null
+	var spec: Variant = (base as Dictionary).get("food")
+	return spec if spec is Dictionary else null
+
+
+static func is_food(world: Variant, base_id: String) -> bool:
+	return food_spec(world, base_id) != null
+
+
+# --- foodborne illness (docs/04) --------------------------------------------------------------
+#
+# docs/04: "Quality matters, not just quantity: raw and spoiled food fills the bar but damages mood
+# and carries illness risk". The mood half shipped; the illness half did not, so raw food was a
+# mood tax and nothing else and there was never a reason to cook anything you were not enjoying.
+#
+# Kept deliberately distinct from both zombie infection and sepsis, per docs/23's own line that
+# bacterial infection stays separate from zombie infection. This is neither: it is a bounded,
+# self-limiting bout of food poisoning that costs mood and work and then passes. Nobody dies of it
+# in Milestone 2, which is why it lives here in needs.gd rather than growing a module.
+const ILLNESS_TICKS: int = 3600
+const ILLNESS_MOOD: float = -14.0
+const ILLNESS_WORK_MUL: float = 0.6
+const ILLNESS_SOURCE: String = "need.illness"
+const ILLNESS_STREAM: String = "illness"
+
+# What eating something that has gone off does to mood, regardless of what the base declares --
+# spoiled is spoiled. Lifted out of the eat path as a constant so the one magic number in this
+# area has a name.
+const SPOILED_MOOD: float = -16.0
+
+# Spoiled food is worse than merely raw, whatever the base declares. A multiplier rather than a
+# second authored number, so a content edit to illnessChance moves both together.
+const SPOILED_ILLNESS_MUL: float = 2.5
+
+
+# Whether this meal makes them ill. `iron_stomach` is immunity here rather than a reduction: the
+# trait already zeroes the mood penalty, and a trait that half-protects from two things is harder
+# to reason about than one that fully protects from both.
+static func _rolls_ill(world: Variant, entity: int, spec: Dictionary, spoiled: bool) -> bool:
+	if has_trait(world, entity, "iron_stomach"):
+		return false
+	var chance: float = float(spec.get("illnessChance", 0.0))
+	if spoiled:
+		chance *= SPOILED_ILLNESS_MUL
+	if chance <= 0.0:
+		return false
+	return float(world.rng.stream(ILLNESS_STREAM).call("float_range", 0.0, 1.0)) < clampf(chance, 0.0, 1.0)
+
+
+# A bout of food poisoning: bounded, self-limiting, and refreshed rather than stacked by a second
+# bad meal. Nobody dies of it in Milestone 2 -- it costs mood and work and then passes, which is
+# what makes cooking worth the fuel without making one bad tin a death sentence.
+static func _fall_ill(world: Variant, entity: int) -> void:
+	var n: Dictionary = of(world, entity)
+	n["illUntilTick"] = int(world.tick) + ILLNESS_TICKS
+	if world.modifiers != null:
+		world.modifiers.call("remove_by_source", ILLNESS_SOURCE, entity)
+		world.modifiers.call("add", {"stat": "mood", "op": "add", "value": ILLNESS_MOOD, "source": ILLNESS_SOURCE}, entity)
+	world.events.publish({"type": "illness.contracted", "entity": entity, "ticks": ILLNESS_TICKS})
+
+
+static func is_ill(world: Variant, entity: int) -> bool:
+	return int(world.tick) < int(of(world, entity).get("illUntilTick", -1))
+
+
+# Clears the modifier once the bout has run its course. Driven from the mood tick rather than its
+# own system: it is one comparison per survivor and does not need a phase slot of its own.
+static func _tick_illness(world: Variant) -> void:
+	if world.modifiers == null:
+		return
+	for ent in _survivors(world):
+		var n: Dictionary = of(world, int(ent))
+		var until: int = int(n.get("illUntilTick", -1))
+		if until < 0 or int(world.tick) < until:
+			continue
+		n["illUntilTick"] = -1
+		world.modifiers.call("remove_by_source", ILLNESS_SOURCE, int(ent))
+		world.events.publish({"type": "illness.passed", "entity": int(ent)})
 
 
 static func blank() -> Dictionary:
@@ -177,6 +271,10 @@ static func work_mul(world: Variant, entity: int) -> float:
 	var h: String = String(n.get("hygiene", "clean"))
 	if t == "very_cold" or t == "very_hot" or h == "dirty" or h == "filthy":
 		m = minf(m, 0.85)
+	# Food poisoning is the one need-adjacent state that is worse than being merely uncomfortable,
+	# so it multiplies rather than joining the 0.85 floor the others share.
+	if is_ill(world, entity):
+		m *= ILLNESS_WORK_MUL
 	return m
 
 
@@ -211,6 +309,9 @@ static func register_module(world: Variant) -> void:
 	)
 	world.systems.register("need.rest", "needs", 12, func(w: Variant) -> void:
 		_tick_rest(w)
+	)
+	world.systems.register("need.illness", "needs", 11, func(w: Variant) -> void:
+		_tick_illness(w)
 	)
 	world.systems.register("need.arguments", "needs", 12, func(w: Variant) -> void:
 		_tick_arguments(w)
@@ -530,7 +631,7 @@ static func _tick_spoilage(world: Variant) -> void:
 
 
 static func mark_spoilage(world: Variant, item: int, base_id: String) -> void:
-	var spec: Variant = FOOD.get(base_id, null)
+	var spec: Variant = food_spec(world, base_id)
 	if spec == null:
 		return
 	var days: float = float((spec as Dictionary).get("spoilDays", 0.0))
@@ -657,18 +758,23 @@ static func eat(world: Variant, entity: int, item: int) -> bool:
 	if not base is Dictionary:
 		return false
 	var bid: String = String((base as Dictionary).get("baseId", ""))
-	var spec: Variant = FOOD.get(bid, null)
-	if spec == null:
+	var spec_v: Variant = food_spec(world, bid)
+	if spec_v == null:
 		return false
-	var hunger: float = float((spec as Dictionary)["hunger"])
-	var mood: float = float((spec as Dictionary)["mood"])
+	var spec: Dictionary = spec_v as Dictionary
+	var hunger: float = float(spec.get("hunger", 0.0))
+	var mood: float = float(spec.get("mood", 0.0))
 	var spoiled: bool = false
 	var sp: Variant = world.components.get_component(item, "spoilage")
 	if sp is Dictionary:
 		spoiled = bool((sp as Dictionary).get("spoiled", false))
 	if spoiled:
-		mood = -16.0
-	if has_trait(world, entity, "iron_stomach") and mood < 0.0:
+		mood = SPOILED_MOOD
+	# docs/04: raw and spoiled food "carries illness risk". Rolled before the item is consumed but
+	# applied after, so a refused consume cannot leave somebody ill from a meal they did not eat.
+	var ill: bool = _rolls_ill(world, entity, spec, spoiled)
+	var iron: bool = has_trait(world, entity, "iron_stomach")
+	if iron and mood < 0.0:
 		mood = 0.0
 	if not _consume_item(world, entity, item):
 		return false
@@ -679,6 +785,8 @@ static func eat(world: Variant, entity: int, item: int) -> bool:
 		n["starvingSinceTick"] = -1
 	if mood != 0.0 and world.modifiers != null:
 		world.modifiers.call("add", {"stat": "mood", "op": "add", "value": mood, "source": "need.food"}, entity)
+	if ill:
+		_fall_ill(world, entity)
 	_apply_muls(world, entity, n)
 	return true
 
@@ -697,7 +805,7 @@ static func use_item(world: Variant, entity: int, item: int, as_wash: bool = fal
 		if String(n.get("hygiene", "clean")) == "filthy" and String(n.get("crisis", "none")) != "dehydrating":
 			return wash(world, entity)
 		return drink(world, entity)
-	if FOOD.has(bid):
+	if is_food(world, bid):
 		return eat(world, entity, item)
 	return false
 

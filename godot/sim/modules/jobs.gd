@@ -1106,11 +1106,11 @@ const CAMPFIRE_STAND: float = 4.0
 static func _food_for(world: Variant, ent: int) -> int:
 	for item in SimInventory.carried_items(world, ent):
 		var b: Variant = world.components.get_component(item, "itemBase")
-		if b is Dictionary and SimNeeds.FOOD.has(String((b as Dictionary).get("baseId", ""))):
+		if b is Dictionary and SimNeeds.is_food(world, String((b as Dictionary).get("baseId", ""))):
 			return item
 	for item2 in SimNeeds.stockpile_items(world):
 		var b2: Variant = world.components.get_component(item2, "itemBase")
-		if b2 is Dictionary and SimNeeds.FOOD.has(String((b2 as Dictionary).get("baseId", ""))):
+		if b2 is Dictionary and SimNeeds.is_food(world, String((b2 as Dictionary).get("baseId", ""))):
 			return item2
 	return -1
 

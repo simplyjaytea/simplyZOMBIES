@@ -31,7 +31,8 @@
       "ammo": "item.ammo.9mm",
       "magSize": 8,
       "reloadTicks": 40,
-      "rangeMetres": 25
+      "rangeMetres": 25,
+      "jams": true
     }
   },
   {

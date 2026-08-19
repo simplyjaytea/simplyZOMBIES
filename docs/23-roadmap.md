@@ -508,10 +508,14 @@ table above are the authority on each):
   own stream, so a table edit cannot shift the tier sequence for everything spawned afterwards),
   and the tier now comes from the *place* — a military cache rolls 1.000 above `scavenged` against
   a kitchen drawer's 0.141, where both used to be flat `scavenged`. The district gained a medical
-  site so the third table is reachable in play. **Still open here:** ~15 resource types, and food
-  spoilage (the spoilage clock itself already exists in `needs.gd`; what is open is the
-  content-declared rules docs/12 describes). Site depletion landed with container search — see
-  Inventory below.
+  site so the third table is reachable in play. **Food spoilage** is now content too
+  (`godot:m2:needs`, FOOD CONTENT): `SimNeeds.FOOD` was a hardcoded dictionary of three foods, and
+  what a food restores, does to mood, how long it keeps and how likely it is to make you ill is a
+  `food` block on the item base — docs/12's "spoilage rules are JSON", the other half of the loot
+  move. The retired table is pinned **by value** in the gate, so the move is provably a change of
+  where the numbers live and not of what they say. Presence of the block is what makes an item
+  edible: `is_food` asks nothing else. **Still open here:** ~15 resource types. Site depletion
+  landed with container search — see Inventory below.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
@@ -534,7 +538,17 @@ table above are the authority on each):
   both still open regardless of the pick.
 - **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
   rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
-- **Needs** — ~~mood consequences: slower work, mistakes, refusing jobs, arguments~~ **landed**
+- **Needs** — ~~raw and spoiled food carrying illness risk~~ **landed** (`godot:m2:needs`,
+  ILLNESS). docs/04's food clause is "raw and spoiled food fills the bar but damages mood **and
+  carries illness risk**"; only the mood half shipped, so raw food was a mood tax and nothing else
+  and there was no mechanical reason to cook anything you were not enjoying. `illnessChance` is
+  authored per food and multiplied by `SPOILED_ILLNESS_MUL` when the item has actually gone off, so
+  one number moves both cases: measured 0.223 raw, 0.618 spoiled, 0.000 cooked over 400 meals each.
+  A bout is bounded and self-limiting — it costs mood and 0.6× work, then passes and restores both
+  — and is kept distinct from zombie infection *and* from sepsis, per the slice's own rule that
+  bacterial infection stays separate. Nobody dies of it in Milestone 2, which is why it lives in
+  `needs.gd` rather than growing a module. `iron_stomach` is full immunity rather than a reduction.
+  ~~mood consequences: slower work, mistakes, refusing jobs, arguments~~ **landed**
   (`godot:m2:needs`, MOOD BANDS / MOOD WORK / ARGUMENTS). Mood previously had exactly one
   consequence and it was a cliff: at `-80` the survivor walked out, and everything between "fine"
   and "gone" did nothing — the opposite of docs/04's own summary, "a slow, sour decline where the
@@ -560,9 +574,29 @@ table above are the authority on each):
   treatment ladder (clean → close → rest), supply quality tiers, skill-scaled diagnosis text,
   permanent conditions that don't remove a survivor from play, and diegetic readouts for the
   continuous conditions.
-- **Combat** — firing at a remembered position (and what it costs), jamming on degraded weapons.
-- **Items** — attachments gaining a reader (content declares slots nothing reads), repair that never
-  restores the full ceiling, and finishing continuous condition-degradation effects.
+- **Combat** — firing at a remembered position (and what it costs). ~~Jamming on degraded
+  weapons~~ **landed** (`godot:m2:ranged`, JAM and CLEAR). Condition already scaled melee and
+  ranged damage, so a pistol at 10% was a slightly weaker pistol rather than one you could not
+  trust; docs/09 asks for the other half — "degraded firearms jam, and clearing a jam takes longer
+  than a reload". The chance is **not authored**: `SimItems.JAM_CHANCE_BY_BAND` is keyed off
+  `condition_band`, the same function that produces the word the inventory screen shows, so a
+  weapon the player is told is "failing" cannot be one that never jams. Measured 0.130 over 400
+  trigger pulls against the table's 0.120, with a sound pistol at 0.000. `jams` is a **content
+  flag** on the ranged block, not inferred from having a magazine — docs/09 and docs/11's Gun Oil
+  both say *firearms*, and a bow at 5% condition jams at 0.000, which is the negative that keeps
+  the flag load-bearing. A jam costs **time only**: the stuck round is not spent (it comes out
+  during the clear), the weapon returns to Idle rather than resuming the shot, and clearing takes
+  `CLEAR_JAM_MULTIPLIER` × the weapon's *own* reload — a multiple rather than a constant, so
+  "longer than a reload" stays true if a reload time is ever retuned. Measured 80 ticks against a
+  40-tick reload.
+- **Items** — attachments gaining a reader, and repair that never restores the full ceiling
+  (`SimItems.repair_item` already lowers the ceiling on every repair; what is open is the Craft/
+  station/material cost around it). Note the backlog's parenthetical "content declares slots
+  nothing reads" is only half true and the wrong half: `slots` is in the item schema and **no
+  content declares it either**, so attachments need content, a reader, and attachment items — a
+  slice, not a hookup. **Continuous condition-degradation effects** are now essentially closed:
+  `condition_factor` already scaled melee damage and speed and ranged damage, and jamming (above)
+  was the missing piece docs/10's table called for.
 - **Inventory** — ~~searching world containers (a car boot, a cupboard)~~ and ~~site
   depletion~~ **both landed** (`godot:check:loot`, CONTAINER and CONTAINER SITES). A map loot site
   that declares `container` is not scattered at boot: `SimContainers` stands a `searchable` there
