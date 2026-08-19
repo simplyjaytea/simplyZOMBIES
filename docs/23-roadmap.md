@@ -570,10 +570,31 @@ table above are the authority on each):
   a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
 - **Attention leftovers** — the sim half of last-known-position memory, and director-varied nights.
 - **Health & injury** — the remaining injury types (fracture, sprain, burn, concussion), continuous
-  pain and exhaustion, bacterial infection kept distinct from zombie infection (sepsis), the full
-  treatment ladder (clean → close → rest), supply quality tiers, skill-scaled diagnosis text,
-  permanent conditions that don't remove a survivor from play, and diegetic readouts for the
-  continuous conditions.
+  pain and exhaustion, the full treatment ladder (clean → close → rest), supply quality tiers,
+  skill-scaled diagnosis text, permanent conditions that don't remove a survivor from play, and
+  diegetic readouts for the continuous conditions.
+  ~~Bacterial infection kept distinct from zombie infection (sepsis)~~ **landed**
+  (`godot:m2:wounds`, SEPSIS and SEPSIS COST). This was a socket, not a gap: `needs.gd` published
+  `sepsis.checked` with a hygiene multiplier every dusk and **nothing subscribed to it**, so
+  `sepsis_mul` was gated, correct, and reached no wound. The roll now lives in `wounds.gd` (which
+  owns the record and the recovery clock sepsis has to block) and takes all four factors docs/05
+  names in one expression, so no caller can apply three of them — measured severity 0.018 scratch
+  → 0.122 deep, hygiene 0.059 clean → 0.154 filthy, the full dressing chain 0.021 sterile < 0.059
+  cloth < 0.094 dirty < 0.111 bare (an undressed wound worse than any dressing, which is what makes
+  a bad one better than none), and Medicine 0.171 → 0.090, floored so a good medic never makes a
+  dirty wound safe.
+  Both consequences docs/05 draws from the separation are real. **Antibiotics are pulled in two
+  directions**: `use_antibiotics` now accepts a septic survivor with no bite exposure at all, out
+  of the same finite stock and through the same spend path, so every ordinary wound spends the
+  infection budget — and a player cannot tell sepsis from a bite by which button lit up. **The
+  ambiguity is preserved**: the HUD clause is "You're feverish, and it isn't getting better", which
+  is deliberately the same word zombie infection's early stages use and says nothing about which it
+  is.
+  **Scoped deliberately:** sepsis is debilitating and permanent-until-treated, and **not directly
+  lethal**. A septic wound stops healing entirely and clears only to antibiotics. That produces the
+  budget pull without adding a death path to a lethality model whose balance is the thing currently
+  standing between `GRABS_ENABLED` and its flip — making sepsis kill is a balance decision with a
+  measurement attached, not a detail to slip in beside the mechanic.
 - **Combat** — firing at a remembered position (and what it costs). ~~Jamming on degraded
   weapons~~ **landed** (`godot:m2:ranged`, JAM and CLEAR). Condition already scaled melee and
   ranged damage, so a pistol at 10% was a slightly weaker pistol rather than one you could not

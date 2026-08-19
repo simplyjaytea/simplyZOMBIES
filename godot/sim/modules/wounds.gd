@@ -51,6 +51,57 @@ const CLOT_TICKS: Dictionary = {
 # picked within each range. Slice 3 reads it twice: it is how long a wound takes to close,
 # and it is the denominator for how fast the struck part gets its integrity back, so a deep
 # wound is slow in both senses rather than slow in one and instant in the other.
+# --- bacterial infection (docs/05) --------------------------------------------------------
+#
+# "Any open wound can go septic, with probability driven by wound severity, hygiene, whether it was
+# cleaned, bandage cleanliness, and treatment skill. It presents as fever, pain, and worsening --
+# *which is also how zombie infection presents in its early stages*." docs/05 calls the separation
+# from zombie infection "one of the design's better ideas", and the two consequences it names are
+# the point of the whole thing:
+#
+#   - Antibiotics are pulled in two directions. The finite, uncraftable supply that saves somebody
+#     from a bite is the same supply that saves somebody from a dirty laceration, so every ordinary
+#     wound spends the infection budget.
+#   - Diagnostic ambiguity gets worse. A feverish survivor with a scratch might have sepsis, or
+#     might be turning.
+#
+# What shipped before this was a socket: needs.gd's `_daily_sepsis` published `sepsis.checked`
+# with a hygiene multiplier every dusk and **nothing subscribed to it**. `sepsis_mul` was gated and
+# correct and reached no wound.
+#
+# **What Milestone 2 scopes in, and what it does not.** Sepsis here is debilitating and permanent
+# until treated; it is deliberately **not directly lethal**. A septic wound stops healing entirely,
+# costs mood and work while it runs, and clears only to antibiotics -- so it spends the budget and
+# creates the pull docs/05 asks for, without adding a death path to a lethality model whose
+# balance is currently the thing standing between GRABS_ENABLED and its flip. Making sepsis kill is
+# a balance decision with a measurement attached, not a detail to slip in beside the mechanic.
+const SEPSIS_SOURCE: String = "wound.sepsis"
+const SEPSIS_STREAM: String = "sepsis"
+# Per-day chance before any multiplier, by severity. A scratch going septic is meant to be an
+# unlucky annoyance; a deep wound left dirty is meant to be most of the reason antibiotics are
+# scarce.
+const SEPSIS_BASE_BY_SEVERITY: Dictionary = {
+	Severity.Scratch: 0.02,
+	Severity.Laceration: 0.06,
+	Severity.DeepWound: 0.12,
+}
+# "Supplies degrade in quality: sterile medical bandages > cloth bandages > dirty rags, with rising
+# infection risk down the chain" (docs/05). An unbandaged wound is worse than a dirty rag, which is
+# what makes a bad dressing better than none.
+const SEPSIS_BANDAGE_MUL: Dictionary = {
+	"sterile": 0.4,
+	"cloth": 1.0,
+	"dirty": 1.5,
+	"none": 1.8,
+}
+# "...and treatment skill." Each Medicine point buys this much off the chance, floored so a good
+# medic never makes a dirty wound safe.
+const SEPSIS_SKILL_RELIEF: float = 0.08
+const SEPSIS_MIN_MUL: float = 0.35
+# Fever and pain, while it runs.
+const SEPSIS_MOOD: float = -12.0
+const SEPSIS_WORK_MUL: float = 0.7
+
 const RECOVERY_DAYS: Dictionary = {
 	Severity.Scratch: 2,
 	Severity.Laceration: 6,
@@ -386,6 +437,107 @@ static func hud_clause(world: Variant, entity: int) -> String:
 	return name + " has lost a lot of blood."
 
 
+# --- sepsis: the roll, the effects, and the cure -------------------------------------------
+
+# One dusk's worth of rolls for one survivor. `hygiene_mul` comes from needs.gd, which owns
+# hygiene and already computed it -- this does not reach across and re-derive it.
+#
+# Returns how many wounds went septic, so a caller can say something happened without counting
+# again. Wounds that are already septic are skipped rather than re-rolled: sepsis is a state, not
+# a stacking counter, and rolling an infected wound nightly would make severity meaningless.
+static func roll_sepsis(world: Variant, entity: int, hygiene_mul: float, medicine_skill: int = 0) -> int:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return 0
+	var wounds: Array = (inj as Dictionary).get("wounds", []) as Array
+	if wounds.is_empty():
+		return 0
+	var rng: Variant = world.rng.stream(SEPSIS_STREAM)
+	var caught: int = 0
+	for wound in wounds:
+		var wd: Dictionary = wound as Dictionary
+		if bool(wd.get("septic", false)):
+			continue
+		var chance: float = sepsis_chance(wd, hygiene_mul, medicine_skill)
+		if chance <= 0.0:
+			continue
+		if float(rng.call("float_range", 0.0, 1.0)) >= chance:
+			continue
+		wd["septic"] = true
+		caught += 1
+		world.events.publish({
+			"type": "sepsis.contracted", "entity": entity,
+			"bodyPart": String(wd.get("bodyPart", "")), "severity": int(wd.get("severity", Severity.Scratch)),
+		})
+	if caught > 0:
+		_apply_sepsis_burden(world, entity)
+	return caught
+
+
+# The four factors docs/05 names, in one expression so no caller can apply three of them.
+# Severity is the base; hygiene, bandage cleanliness and treatment skill are multipliers on it.
+static func sepsis_chance(wound: Dictionary, hygiene_mul: float, medicine_skill: int) -> float:
+	var base: float = float(SEPSIS_BASE_BY_SEVERITY.get(int(wound.get("severity", Severity.Scratch)), 0.0))
+	if base <= 0.0:
+		return 0.0
+	var dressing: String = String(wound.get("bandage", "none"))
+	var bandage_mul: float = float(SEPSIS_BANDAGE_MUL.get(dressing, float(SEPSIS_BANDAGE_MUL["none"])))
+	var skill_mul: float = maxf(SEPSIS_MIN_MUL, 1.0 - float(maxi(0, medicine_skill)) * SEPSIS_SKILL_RELIEF)
+	return clampf(base * maxf(0.0, hygiene_mul) * bandage_mul * skill_mul, 0.0, 1.0)
+
+
+static func is_septic(world: Variant, entity: int) -> bool:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return false
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		if bool((wound as Dictionary).get("septic", false)):
+			return true
+	return false
+
+
+# Fever and pain, as one modifier from one source rather than one per infected wound: two septic
+# wounds are a worse situation but not twice the fever, and stacking sources here would make a
+# survivor with four scratches unplayable for reasons nothing in docs/05 asks for.
+static func _apply_sepsis_burden(world: Variant, entity: int) -> void:
+	if world.modifiers == null:
+		return
+	world.modifiers.call("remove_by_source", SEPSIS_SOURCE, entity)
+	if not is_septic(world, entity):
+		return
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": SEPSIS_MOOD, "source": SEPSIS_SOURCE}, entity)
+
+
+# Antibiotics. Clears every septic wound at once -- a course treats the patient, not one cut --
+# and returns how many it cleared so the caller can refuse to spend a course on somebody who has
+# none. This is the one cure: sepsis does not resolve on its own, which is what makes the finite
+# stock docs/05 describes actually get spent on ordinary wounds.
+static func clear_sepsis(world: Variant, entity: int) -> int:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return 0
+	var cleared: int = 0
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		if bool((wound as Dictionary).get("septic", false)):
+			(wound as Dictionary)["septic"] = false
+			cleared += 1
+	if cleared > 0:
+		if world.modifiers != null:
+			world.modifiers.call("remove_by_source", SEPSIS_SOURCE, entity)
+		world.events.publish({"type": "sepsis.cleared", "entity": entity, "wounds": cleared})
+	return cleared
+
+
+# What a septic survivor says about themselves. Prose, no digits, and deliberately the same word
+# zombie infection's early stages use: docs/05 says sepsis "presents as fever, pain, and worsening
+# -- which is also how zombie infection presents in its early stages", and that ambiguity is the
+# feature. Nothing here says which one it is.
+static func sepsis_clause(world: Variant, entity: int) -> String:
+	if not is_septic(world, entity):
+		return ""
+	return "You're feverish, and it isn't getting better."
+
+
 static func register_module(world: Variant) -> void:
 	var killed: Array[int] = []
 
@@ -519,6 +671,13 @@ static func register_module(world: Variant) -> void:
 					# An open wound does not knit. Stopping the bleeding is what starts the
 					# clock, which is the whole reason Part B's two verbs matter beyond the
 					# blood-loss arithmetic.
+					continue
+				if bool(wd.get("septic", false)):
+					# A septic wound does not knit, for the same reason an open one does not: the
+					# thing that has to stop before healing starts has not stopped. This is the
+					# whole cost of sepsis in Milestone 2 and the reason antibiotics get spent on
+					# ordinary wounds -- an infected deep wound never closes on its own, however
+					# well fed and rested the survivor is.
 					continue
 				var part: String = String(wd.get("bodyPart", ""))
 				var sev: int = int(wd.get("severity", Severity.Scratch))
