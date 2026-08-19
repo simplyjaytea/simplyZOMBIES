@@ -62,15 +62,15 @@ func _day1_boot() -> bool:
 			s += 1
 		else:
 			other += 1
-	if s != 12 or other != 0:
-		push_error("day1 z shambler=%d other=%d" % [s, other])
+	if s != SimBoot.WANDERERS or other != 0:
+		push_error("day1 z shambler=%d (want %d) other=%d" % [s, SimBoot.WANDERERS, other])
 		return false
 	var before: int = _live(w)
 	_jump_dusk(w, 1)
 	if _live(w) != before:
 		push_error("day1 dusk packet live=%d" % _live(w))
 		return false
-	print("DAY1 OK shamblers=12 no packet")
+	print("DAY1 OK shamblers=%d no packet" % s)
 	return true
 
 # A night is drawn now, so "day 8 spawns exactly 3" is no longer a fact about the director -- it

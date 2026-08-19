@@ -156,10 +156,13 @@ grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and
 (`godot:m2:wounds`), pressure and bandaging plus a command path to the five infection verbs
 (`godot:m2:treatment`), and recovery that closes wounds and climbs integrity back, earned only while
 fed and not exerting (`godot:m2:recovery`). A bite makes a located wound, it bleeds, you stop it with
-your hands or a dressing, and it mends over days you have to earn. None of it is reachable in
-ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the four entries below: three
-blockers that have been answered, and the one measurement that now stands between the loop and the
-flip.
+your hands or a dressing, and it mends over days you have to earn. The *bite* half of that is still
+unreachable in ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the four entries
+below: three blockers that have been answered, and the one measurement that now stands between the
+loop and the flip. The wound-treat-recover half stopped being unreachable when the **swipe** landed
+(the basic-combat slice, further down): a zombie can hurt you now, so ordinary play exercises
+wounds, bleeding, pressure and recovery — just never infection, which arrives only with a bite and
+so stays behind the flag.
 
 **Answered: bite lethality during a hold.** The owner's call was to pull four levers together and
 conservatively rather than one of them hard, and all four have landed:
@@ -494,6 +497,58 @@ the body every tick** (`SimHealth.is_crawling`) rather than latched off `injury.
 flag would have to be kept in step with amputation and save/load, and a derivation cannot drift.
 Measured: a legless shambler covers 0.420 m against an intact one's 1.680 m over the same window,
 a ratio of 0.250 against `crawlFactor` 0.25.
+
+**Basic combat is live** (`godot:m2:swipe`, plus new assertions in `godot:m2:npc` and rewritten
+ones in `godot:m2:district` / `godot:m2:director`) — the owner's four asks of 2026-08-19, landed
+as one slice without touching `GRABS_ENABLED`:
+
+- **The swipe.** A Pursuing shambler with a survivor inside `SWIPE_METRES` (1.1 m) lands a clawed
+  cuff after one second of windup and every three seconds after, publishing `attack.connected` —
+  the survivor swing's own channel — so it costs a located "cut" wound through the one damage
+  pipeline and rolls no infection. Part-scaled like a bite at half the fraction
+  (`clampf(0.15 × part max, 1.0, 3.0)`): every swipe sits at its part's Scratch/Laceration
+  boundary and can never cut a DeepWound or execute a head in five hits, which the flat first cut
+  measurably did. Walls refuse it, out-of-reach refuses it, and a grapple takes both bodies off
+  the menu — holder and held alike — so the flip's lethality question gains no back door. The
+  gate holds cadence exactly, one wound per swipe, the scaling formula per observed hit, the
+  no-infection refusal against a live-channel control, and both grapple refusals.
+- **What a lethal district did to the harness, measured and answered.** The compressed fast tier
+  wiped both hard seeds on day one, and the diagnosis driver attributed every death rather than
+  guessing: colonists died kneeling (378 ticks pinned mid-fight — nothing but a grab or a stagger
+  could interrupt a first-aid channel), critically injured NPCs fell out of `npc.combat` entirely
+  and were ground down at arm's length (41 swipes taken, one swing answered), and succession fed
+  each dead player's replacement into the same passivity. Three rules answer those, each the
+  smallest that fits: **R9** — a landed hit interrupts a channel, and banks (a claw ripping you
+  off a press is not a stagger); **R10** — self-aid will not *start* while a live claw stands in
+  `SWIPE_METRES` of a free survivor (fight or run first, kneel when clear; the held stay under
+  R1 — and the radius is the claw's strike reach, not contact, because a break-away ends inside
+  contact and the press R5 cancels must still re-open, which FLIGHT-CANCELS-PRESS caught when the
+  first cut got it wrong); and **break-off is disengagement, not surrender** — a critically injured survivor spends
+  no shot and seeks nothing at range but still fights the claw already in melee reach. With all
+  three: 404 ends `2/2` with 5 colony kills where the survival loop's whole history had it `0/2`,
+  and 90210 ends `1/2` — the one death an unattended player who killed three zombies and bled out
+  untreated, which is the harness being honest rather than broken.
+- **Instinct defense** (`godot:m2:npc`, INSTINCT). The struggle instinct's twin, with its number
+  and its reasoning: an unattended controlled survivor — no command of any kind for
+  `DEFEND_INSTINCT_TICKS` (40) — answers a *Pursuing* claw inside melee reach with the swing a
+  key press would have started. Any command resets the clock, so a present player is never
+  overridden — not aiming, not hiding, not fleeing — and the Pursue requirement means instinct
+  can never open a fight or cost a hidden player their silence. This is what lets succession
+  promote a colonist into the player seat without promoting them into furniture.
+- **Spawning up.** Boot wanderers 12 → 20 (`SimBoot.WANDERERS`, now referenced by the district
+  and director gates rather than duplicated as a literal), night packets `[0, 2, 4, 6]` →
+  `[0, 3, 6, 9]`, `LIVE_CAP` 24 → 32. The balance fast tier holds all four seeds inside every
+  band at the new density.
+- **Mouse aim, and one attack button.** The cursor proposes a bearing (`aim` command); the sim
+  takes it only for a stationary body — a moving one faces where it goes, so you do not track a
+  target over your shoulder at a jog. Left click aims at the cursor and attacks with what is in
+  hand: fires if a ranged weapon is equipped (converting itself to a reload on an empty magazine,
+  as `ranged.gd` always has), swings if not. G and F stay as the key equivalents, and clicks on
+  UI never reach the trigger (`_unhandled_input`, unchanged).
+- **A shambler's body is its own** — `shambler.json` now declares `body: {head: 25, torso: 60,
+  legs: 40}` explicitly instead of silently inheriting `SimCombat.ZOMBIE_BODY` through an
+  `extends` key that no loader has ever resolved. Same numbers; the trap is that retuning
+  `base.json` would have moved every type except the one that ships.
 
 **Still open, by system** (condensed from the retired backlog; the spec links in the slice-scope
 table above are the authority on each):

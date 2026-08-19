@@ -46,6 +46,36 @@ const RELEASE_METRES: float = 3.2
 const MILL_TICKS: int = 90
 const COMMIT_TICKS: int = 400
 
+# The swipe: a clawed cuff from a Pursuing shambler, and the one way a zombie hurts anybody in
+# ordinary play while GRABS_ENABLED stays false. It is deliberately not a bite -- it publishes
+# `attack.connected`, the same channel a survivor's swing uses, so it lands as a "cut" wound
+# through health.take-damage with no infection roll; the whole infection loop stays behind the
+# grab flag, and the balance questions recorded on that flag stay that flag's. Small on purpose,
+# and part-scaled the way a bite is (CLAUDE.md's standing trap: parts do not share a scale) --
+# the first cut of this shipped flat 3.0 and the diagnosis driver measured what that means: a
+# passive body's 15-point head is destroyed by five swipes, and both hard balance seeds wiped on
+# day one by exactly that execution, 16-21 swipes each, five to the head. 0.15 of the part's
+# maximum, floored and capped, lands every swipe at the Scratch/Laceration boundary of its own
+# part -- never DeepWound (that band starts at 0.40), and a head takes seven, not five. A swipe
+# threatens by attrition, bleeding and crowds, never by execution; execution stays the grab
+# loop's, behind its flag. Reach sits just past GRAB_METRES so a grab, when enabled, is the
+# closer and worse outcome of the same approach.
+const SWIPE_METRES: float = 1.1
+# One second of raised arms before the first swipe lands, so walking into reach is a mistake you
+# can still step back out of. The clock only runs while a mark is in reach and resets the moment
+# nobody is: re-approaching costs the windup again.
+const SWIPE_FIRST_TICKS: int = 20
+# Three seconds between swipes -- deliberately quicker than REPEAT_BITE_TICKS (4 s) because a
+# swipe is a fraction of a bite's damage, and slow enough that one shambler is pressure rather
+# than a blender. Two or three of them in reach at once is what kills, which is the crowd rule
+# docs/09 wants.
+const SWIPE_RECOVER_TICKS: int = 60
+# The ceiling on a swipe, not the value of one -- swipe_damage_for scales to the part, the
+# bite_damage_for shape at half the fraction.
+const SWIPE_DAMAGE: float = 3.0
+const SWIPE_DAMAGE_PART_FRACTION: float = 0.15
+const SWIPE_DAMAGE_MIN: float = 1.0
+
 # The grab -> struggle -> bite loop. Originally ported verbatim from src/sim/modules/shambler.ts;
 # four of these values have since moved off the oracle's numbers in the bite-lethality re-tune
 # docs/23's Milestone 2 status records. The frozen TypeScript reference deliberately keeps the old
@@ -306,6 +336,7 @@ static func default_shambler_speeds() -> Dictionary:
 		"grabStrength": DEFAULT_GRAB_STRENGTH,
 		"canGrab": true,
 		"ticksToGrab": 0,
+		"ticksToSwipe": SWIPE_FIRST_TICKS,
 	}
 
 
@@ -327,6 +358,7 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 		"grabStrength": float(grab["strength"]),
 		"canGrab": bool(grab["enabled"]),
 		"ticksToGrab": 0,
+		"ticksToSwipe": SWIPE_FIRST_TICKS,
 	})
 
 
@@ -535,6 +567,17 @@ static func bite_damage_for(body: Variant, part: String) -> float:
 	if part_max == null or int(part_max) <= 0:
 		return BITE_DAMAGE
 	return maxf(BITE_DAMAGE_MIN, minf(BITE_DAMAGE, BITE_DAMAGE_PART_FRACTION * float(int(part_max))))
+
+
+# The bite_damage_for shape at half the fraction -- see the SWIPE constants for why a swipe must
+# not share a bite's numbers, and the CLAUDE.md trap for why neither may be flat.
+static func swipe_damage_for(body: Variant, part: String) -> float:
+	if not (body is Dictionary):
+		return SWIPE_DAMAGE
+	var part_max: Variant = SimHealthRes.max_of(body as Dictionary, part)
+	if part_max == null or int(part_max) <= 0:
+		return SWIPE_DAMAGE
+	return maxf(SWIPE_DAMAGE_MIN, minf(SWIPE_DAMAGE, SWIPE_DAMAGE_PART_FRACTION * float(int(part_max))))
 
 
 # A short physical reach may cross screening foliage, but never a solid wall or window.
@@ -899,6 +942,45 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		# the time the bite loop's query runs -- and the re-grab cooldown _release_grab
 		# arms stops the final pass from taking the same survivor again immediately.
 		var grab_rng: Variant = w.rng.stream("grab")
+
+		# 0. Swipes -- before the hold lifecycle, so a shambler that begins a hold this tick
+		# (step 4) has already had its swipe considered as a free body, and a holder never
+		# swipes at all: its mouth is the threat, per step 3. Own RNG stream, drawn from only
+		# when a swipe actually lands, so the "shambler" and "grab" sequences are untouched
+		# whether anything swipes or not.
+		var swipe_rng: Variant = w.rng.stream("swipe")
+		for swiper in w.components.query(["position", "shambler"]):
+			var sw: Dictionary = w.components.get_component(int(swiper), "shambler") as Dictionary
+			var mark: Variant = null
+			if int(sw["state"]) == ShamblerState["Pursue"] and not w.components.has_component(int(swiper), "grabState"):
+				var from_sw: Dictionary = w.components.get_component(int(swiper), "position") as Dictionary
+				var reached: Variant = _contact_target(survivors, from_sw, SWIPE_METRES)
+				# A held body is being bitten, not swiped -- piling swipes onto a grapple would
+				# hand the flip's lethality question a new variable through the back door. And a
+				# wall between refuses the swipe the same way it refuses a grab.
+				if reached != null and not w.components.has_component(int(reached), "grabbed"):
+					var at_sw: Variant = w.components.get_component(int(reached), "position")
+					if at_sw is Dictionary and _clear_contact(w, from_sw, at_sw as Dictionary):
+						mark = reached
+			if mark == null:
+				sw["ticksToSwipe"] = SWIPE_FIRST_TICKS
+				continue
+			var wind: int = int(sw.get("ticksToSwipe", SWIPE_FIRST_TICKS)) - 1
+			if wind > 0:
+				sw["ticksToSwipe"] = wind
+				continue
+			sw["ticksToSwipe"] = SWIPE_RECOVER_TICKS
+			var mark_body: Variant = w.components.get_component(int(mark), "body")
+			if mark_body == null:
+				continue
+			var struck: String = SimMeleeRes._roll_body_part(swipe_rng, mark_body)
+			w.events.publish({
+				"type": "attack.connected",
+				"attacker": int(swiper),
+				"target": int(mark),
+				"bodyPart": struck,
+				"damage": swipe_damage_for(mark_body, struck),
+			})
 
 		# 1. Validate. A grabState pointing at a dead, despawned, or now-unreachable
 		# victim does not persist -- the entity.killed subscription below handles death
