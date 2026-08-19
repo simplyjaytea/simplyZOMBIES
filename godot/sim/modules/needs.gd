@@ -11,6 +11,7 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
 
 const HUNGER_EMPTY_DAYS: float = 2.0
 const THIRST_EMPTY_DAYS: float = 1.0
@@ -68,6 +69,33 @@ const ARGUMENT_CAP: float = 24.0
 # cap is clear in about two in-game hours of peace.
 const ARGUMENT_DECAY: float = 0.05
 const ARGUMENT_SOURCE: String = "mood.argument"
+
+# Grief. docs/04 lists "grief" and "witnessing a death" as two of the negative mood sources, and
+# docs/23's death-and-succession item asks for "the colony morale hit on a death". This is that,
+# and deliberately not the relationship system: docs/07 scales grief by closeness through pairwise
+# opinions, which are Milestone 3A. What is here is the part that does not need them -- somebody
+# the colony lived with is dead, and everybody feels it, more if they watched it happen.
+#
+# **Witnessing is a real distinction now and could not have been made before this milestone.**
+# Until every survivor got eyes, `world.vision` answered for the player alone, so "did anybody see
+# this" had no answer for a colonist. It does now, through the same `line_of_sight` a shot is
+# refused by.
+#
+# The cap is the argument cap's argument, for the same reason: three deaths in a bad night must
+# not empty the colony through LEAVE_AT in one stroke. Grief is heavy, it stacks, and it stops.
+const GRIEF_WITNESSED: float = 18.0
+const GRIEF_HEARD: float = 7.0
+# docs/06's response #5 -- putting somebody down yourself -- is supposed to have a price, and
+# docs/07 says relationships are "what gives response #5 its price". Without relationships this is
+# the part of that price that can be paid: it is worse for everyone when the colony did it.
+const GRIEF_PUT_DOWN_MUL: float = 1.6
+# docs/07's Optimist: "slower mood decay, less grief transmission".
+const GRIEF_OPTIMIST_MUL: float = 0.5
+const GRIEF_CAP: float = 40.0
+# Per mood tick (every 20 ticks). At 0.005 a survivor at the cap is clear after about thirteen
+# in-game hours -- grief lasts most of a day and then it does not.
+const GRIEF_DECAY: float = 0.005
+const GRIEF_SOURCE: String = "mood.grief"
 
 const TEMP_ORDER: Array[String] = [
 	"extremely_cold", "very_cold", "a_little_cold", "comfortable", "a_little_hot", "very_hot", "extremely_hot",
@@ -339,6 +367,19 @@ static func register_module(world: Variant) -> void:
 	world.systems.register("need.arguments", "needs", 12, func(w: Variant) -> void:
 		_tick_arguments(w)
 	)
+	world.systems.register("need.grief", "needs", 12, func(w: Variant) -> void:
+		_tick_grief(w)
+	)
+
+	# Marked on the body rather than remembered in a module-level set: a static would be shared
+	# between the two worlds a gate boots, and it would not survive a save. `putDown` is read by
+	# the grief handler below and by nothing else.
+	world.events.subscribe({"id": "needs.mark-put-down", "type": "survivor.putDown", "handler": func(event: Dictionary) -> void:
+		world.components.set_component(int(event["entity"]), "putDown", {})
+	})
+	world.events.subscribe({"id": "needs.grieve", "type": "entity.killed", "handler": func(event: Dictionary) -> void:
+		_grieve_for(world, event)
+	})
 	world.systems.register("need.mood", "needs", 13, func(w: Variant) -> void:
 		_tick_mood(w)
 	)
@@ -550,6 +591,105 @@ static func _decay_argument(world: Variant, ent: int) -> void:
 		return
 	n["argued"] = maxf(0.0, carried - ARGUMENT_DECAY)
 	_apply_argument(world, ent, float(n["argued"]))
+
+
+# --- grief ------------------------------------------------------------------------------------
+
+# A survivor died. Everybody else takes it, more if they saw it.
+#
+# **Deduplicated on the body.** CLAUDE.md is explicit that `entity.killed` fires more than once for
+# the same individual -- health.gd on a destroyed head, infection.gd on a put-down and again on
+# turning -- so counting the event would charge the colony two or three times for one funeral. The
+# `mourned` component is set the first time and checked every time.
+static func _grieve_for(world: Variant, event: Dictionary) -> void:
+	var dead: int = int(event.get("entity", -1))
+	if dead < 0:
+		return
+	# Only people. A shambler going down is not a bereavement, and the same event carries both.
+	if not world.components.has_component(dead, "needs"):
+		return
+	if world.components.has_component(dead, "mourned"):
+		return
+	world.components.set_component(dead, "mourned", {"tick": int(world.tick)})
+
+	var at: Dictionary = _death_place(world, dead, event)
+	var put_down: bool = world.components.has_component(dead, "putDown")
+	var witnesses: int = 0
+	for ent in _survivors(world):
+		var mourner: int = int(ent)
+		if mourner == dead or not _alive(world, mourner):
+			continue
+		var saw: bool = _saw(world, mourner, at)
+		if saw:
+			witnesses += 1
+		var amount: float = GRIEF_WITNESSED if saw else GRIEF_HEARD
+		if put_down:
+			amount *= GRIEF_PUT_DOWN_MUL
+		if has_trait(world, mourner, "optimist"):
+			amount *= GRIEF_OPTIMIST_MUL
+		var n: Dictionary = of(world, mourner)
+		n["grief"] = minf(GRIEF_CAP, float(n.get("grief", 0.0)) + amount)
+		_apply_grief(world, mourner, float(n["grief"]))
+	world.events.publish({"type": "colony.bereaved", "entity": dead, "witnesses": witnesses, "putDown": put_down})
+
+
+# Where it happened. health.gd's event carries the position; infection.gd's put-down does not, so
+# the body's own position is the fallback rather than a silent (0, 0) that everybody can see.
+static func _death_place(world: Variant, dead: int, event: Dictionary) -> Dictionary:
+	if event.has("x") and event.has("y"):
+		return {"x": float(event["x"]), "y": float(event["y"]), "known": true}
+	var pos: Variant = world.components.get_component(dead, "position")
+	if pos is Dictionary:
+		return {"x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"]), "known": true}
+	return {"x": 0.0, "y": 0.0, "known": false}
+
+
+# Geometry and range, through the same primitive that decides whether a shot connects. A survivor
+# with no eyes -- every pre-sightlines fixture -- witnesses nothing and grieves the lighter amount,
+# which is the honest reading of "we have no idea whether they saw it".
+static func _saw(world: Variant, mourner: int, at: Dictionary) -> bool:
+	if not bool(at.get("known", false)):
+		return false
+	if world.vision == null:
+		return false
+	if world.vision.call("tiles_for", mourner) == null:
+		return false
+	return bool(world.vision.call("line_of_sight", mourner, float(at["x"]), float(at["y"])))
+
+
+static func _alive(world: Variant, ent: int) -> bool:
+	if world.components.has_component(ent, "corpse"):
+		return false
+	var body: Variant = world.components.get_component(ent, "body")
+	return body is Dictionary and SimHealth.is_alive(body as Dictionary)
+
+
+static func grief_of(world: Variant, entity: int) -> float:
+	return float(of(world, entity).get("grief", 0.0))
+
+
+# Drains on the mood tick, exactly as an argument does. Same shape, same reason: one modifier from
+# one source, replaced rather than stacked.
+static func _tick_grief(world: Variant) -> void:
+	if world.modifiers == null or int(world.tick) % 20 != 0:
+		return
+	for ent in _survivors(world):
+		var n: Dictionary = of(world, int(ent))
+		var g: float = float(n.get("grief", 0.0))
+		if g <= 0.0:
+			continue
+		g = maxf(0.0, g - GRIEF_DECAY)
+		n["grief"] = g
+		_apply_grief(world, int(ent), g)
+
+
+static func _apply_grief(world: Variant, ent: int, amount: float) -> void:
+	if world.modifiers == null:
+		return
+	world.modifiers.call("remove_by_source", GRIEF_SOURCE, ent)
+	if amount <= 0.0:
+		return
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": -amount, "source": GRIEF_SOURCE}, ent)
 
 
 # One modifier from one source, replaced rather than stacked. Adding a second modifier per
@@ -1095,6 +1235,10 @@ static func hud_clause(world: Variant, entity: int, panel: bool = false) -> Stri
 	_hud_band(picks, "hygiene", String(n.get("hygiene", "clean")), panel)
 	if world.modifiers != null:
 		var mood: float = float(world.modifiers.call("resolve", "mood", entity))
+		if float(n.get("grief", 0.0)) >= GRIEF_HEARD and mood > -80.0:
+			# Phrased as "You're <adjective>" so the third-person rewrite below reads as a
+			# glimpse of somebody else rather than a report about them.
+			picks.append({"rank": 45, "hud": "You're shaken.", "panel": "You're shaken."})
 		if mood <= -80.0 and not first:
 			picks.append({"rank": -1, "hud": "They're going to leave.", "panel": "They're going to leave."})
 		elif mood <= -25.0:

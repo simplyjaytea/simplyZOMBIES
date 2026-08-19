@@ -751,8 +751,26 @@ table above are the authority on each):
   until traits ship in Milestone 3A — `SimModification.TRAIT_FAILURE_SHIFT` is the named seam.
 - **UI** — the diegetic condition and stamina readouts (in the world, not a corner), prose generated
   from modifier sources, the priority grid and skill web screens.
-- **Death & succession** — the colony morale hit on a death, and proving "the run ends only when the
-  last survivor dies" in the balance grid.
+- **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
+  GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
+  dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
+  and they are two magnitudes here: **18.00** witnessed against **7.00** heard about, on every
+  other survivor in the colony. Witnessing could not have been asked before the sightlines slice —
+  `world.vision` answered for the player alone until every survivor got eyes, so "did anybody see
+  this" had no answer for a colonist; it is the same `line_of_sight` a shot is refused by.
+  A **put-down costs more** (×1.6, measured 11.20 against the same death's 7.00), which is the part
+  of docs/06 response #5's price that can be paid without relationships — docs/07 scales grief by
+  closeness through pairwise opinions and those are Milestone 3A, so this is deliberately the
+  colony-wide half and docs/30 says so. Grief **stacks to a cap** (40.0) and drains over about
+  thirteen in-game hours, on the argument-cap argument: three deaths in a bad night must not empty
+  the colony through LEAVE_AT in one stroke, which is the meltdown docs/04 rules out. The Optimist
+  trait halves it, per docs/07's "less grief transmission".
+  Worth keeping: `entity.killed` **fires more than once for the same individual** — health.gd on a
+  destroyed head, infection.gd on a put-down and again on turning — so the colony would have been
+  charged two or three times for one funeral. The dedupe is a `mourned` component on the body
+  rather than a module-level set, because a static would be shared between the two worlds a gate
+  boots and would not survive a save; ONCE republishes the event twice and asserts the total does
+  not move.
 - **Proof** — distribution assertions (quiet nights, sieges, deaths, run lengths), the risk-6
   melee-vs-ranged parity measurement, the full balance grid (`BALANCE_FULL=1`, ~9 h), and the human
   ten-day playtest. Deferred, not cancelled.

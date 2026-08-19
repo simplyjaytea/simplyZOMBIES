@@ -1170,6 +1170,36 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   rather than a placeholder, but the missing sprite is the Art track's open prop renderer and
   docs/23 says so rather than letting it read as finished.
 
+## Grief is colony-wide, because relationships are Milestone 3A
+
+`SimNeeds`'s grief block, gated by `npm run godot:m2:needs` (GRIEF, ONCE). docs/23 asked for "the
+colony morale hit on a death"; docs/04 lists **grief** and **witnessing a death** as two separate
+negative mood sources; docs/07 says grief is "scaled by closeness" and that relationships are "what
+gives response #5 its price".
+
+- **The closeness half is deliberately absent.** Pairwise opinions are Milestone 3A and building a
+  relationship model to land a mood hit would be the wrong order. What shipped is the part that
+  needs nothing: somebody the colony lived with is dead, and everybody feels it.
+- **Witnessing is the second magnitude, and it is newly askable.** 18.00 for a survivor who saw it
+  against 7.00 for one who did not. Until the sightlines slice gave every survivor eyes,
+  `world.vision` answered for the player alone — a colonist had no view to consult, so "did anybody
+  see this" had no answer at all. It runs through the same `line_of_sight` a shot is refused by,
+  and a survivor with no eyes grieves the lighter amount, which is the honest reading of "we have
+  no idea whether they saw it".
+- **A put-down costs more (×1.6).** docs/06's response #5 is supposed to have a price and docs/07
+  names relationships as what provides it. This is the part of that price payable now: it is worse
+  for everyone when the colony did it rather than the district. `survivor.putDown` marks the body
+  and the grief handler reads the mark.
+- **Capped, for the argument cap's reason.** Grief stacks across deaths and stops at 40.0. An
+  uncapped source would let a bad night drive the whole colony past `LEAVE_AT` in one stroke,
+  which is the rage meltdown docs/04 explicitly rules out. It drains over about thirteen in-game
+  hours: grief lasts most of a day and then it does not.
+- **The dedupe is a component on the body, not a set in the module.** CLAUDE.md's trap says
+  `entity.killed` fires more than once for the same individual — health.gd on a destroyed head,
+  infection.gd on a put-down and again on turning — so the colony would have paid two or three
+  times for one funeral. A module-level `static var` would have been shared between the two worlds
+  a gate boots *and* would not survive a save; `mourned` is neither.
+
 ## Attachments: the content declares what it multiplies
 
 `godot/sim/modules/attachments.gd`, `content/items/attachments.json`, gated by
