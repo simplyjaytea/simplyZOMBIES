@@ -31,6 +31,17 @@ const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 # `_nearest_threat` below asks it rather than carrying a second answer.
 const ENGAGE_METRES: float = 20.0
 
+# How long the controlled survivor goes without a single command before instinct answers a claw
+# for them -- SimShambler.STRUGGLE_INSTINCT_TICKS' number and its exact reasoning: two seconds is
+# long enough that an attentive player's own key is always the thing that answers an attack, and
+# short enough that nobody stands still being clawed because there is nobody at the keyboard --
+# which is the balance harness's permanent condition, and became a wipe the day zombies got an
+# attack. The diagnosis driver measured the chain: the passive player dies, succession promotes a
+# colonist into the same passivity, and one shambler eats the successor over 41 unanswered
+# swipes. ANY command resets the clock -- a move, an aim, a wait -- so a player who is present is
+# never overridden: not aiming past a zombie, not holding still on purpose, not fleeing.
+const DEFEND_INSTINCT_TICKS: int = 40
+
 # Critically injured, per docs/09 -- and expressed in `SimHealth.part_state`'s words rather than
 # in integrity numbers. Each part has its own maximum (a head is 15, a hand 10, a torso 40), so an
 # absolute threshold would mean something different on every part; `part_state` is the one place
@@ -64,6 +75,35 @@ static func register_module(world: Variant) -> void:
 			_engage(w, int(ent), anyone_held)
 	)
 
+	# Instinct defense: the controlled survivor, unattended, answers a claw already in melee
+	# reach with the swing a key press would have started. The struggle instinct's twin (see
+	# DEFEND_INSTINCT_TICKS above), and melee only -- instinct is flailing at the thing on you,
+	# not marksmanship. Restricted to a *Pursuing* threat so it can never open a fight: a
+	# shambler that has not noticed anybody draws no swing and no noise from it.
+	world.systems.register("npc.instinct-defense", "combat", -4, func(w: Variant) -> void:
+		var any_command: bool = not (w.commands.current as Array).is_empty()
+		for ent in w.components.query(["controlled", "position", "facing"]):
+			var attended: Variant = w.components.get_component(int(ent), "attended")
+			if not (attended is Dictionary):
+				attended = {"idleTicks": 0}
+				w.components.set_component(int(ent), "attended", attended)
+			var a: Dictionary = attended as Dictionary
+			a["idleTicks"] = 0 if any_command else int(a.get("idleTicks", 0)) + 1
+			if int(a["idleTicks"]) < DEFEND_INSTINCT_TICKS:
+				continue
+			var reach: float = _melee_reach(w, int(ent))
+			if reach <= 0.0:
+				continue
+			var threat: int = _nearest_threat(w, int(ent), reach)
+			if threat < 0:
+				continue
+			var sd: Variant = w.components.get_component(threat, "shambler")
+			if not (sd is Dictionary) or int((sd as Dictionary)["state"]) != SimShamblerRes.ShamblerState["Pursue"]:
+				continue
+			_face(w, int(ent), threat)
+			SimMelee.try_begin_swing(w, int(ent))
+	)
+
 
 # The roster of people this module is allowed to act for: survivors who are not the one the
 # player is driving, and not otherwise out of play. Mirrors `jobs.gd:_tick`'s exclusions --
@@ -81,7 +121,7 @@ static func _engages(world: Variant, ent: int) -> bool:
 	var body: Variant = world.components.get_component(ent, "body")
 	if not body is Dictionary or not SimHealth.is_alive(body as Dictionary):
 		return false
-	return not _critically_injured(world, ent, body as Dictionary)
+	return true
 
 
 static func break_off_state(world: Variant, ent: int) -> int:
@@ -103,7 +143,21 @@ static func _critically_injured(world: Variant, ent: int, body: Dictionary) -> b
 
 static func _engage(world: Variant, ent: int, anyone_held: bool = false) -> void:
 	var reach: float = _melee_reach(world, ent)
-	var range_metres: float = _ranged_range(world, ent)
+	# Breaking off is disengagement, not surrender. Until the swipe landed, "critically injured
+	# NPCs do not engage" cost nothing -- a zombie could not touch anyone, so standing down and
+	# standing there were the same thing. The diagnosis driver measured what that equivalence
+	# became the day zombies could claw: a colonist crossed BadlyHurt after three or four swipes,
+	# fell out of this module entirely, and was then ground down over 2,460 ticks by the one
+	# shambler standing at arm's length -- 41 swipes taken, one swing answered. So the break-off
+	# now narrows the envelope instead of closing it: a critically injured survivor spends no
+	# shot, seeks no rescue and starts nothing at range, but a claw already inside melee reach is
+	# fought, because a person with a knife and a monster on top of them does not stand down.
+	# docs/09's clause reads exactly this way -- you break *off*, you do not lie down.
+	var defending: bool = false
+	var body: Variant = world.components.get_component(ent, "body")
+	if body is Dictionary:
+		defending = _critically_injured(world, ent, body as Dictionary)
+	var range_metres: float = 0.0 if defending else _ranged_range(world, ent)
 	var furthest: float = maxf(reach, range_metres)
 	# While somebody is being held, the envelope opens to the length of a rescue: the rescuer
 	# stands within RESCUE_METRES of the *victim*, and the victim is inside GRAB_METRES of the
@@ -111,15 +165,21 @@ static func _engage(world: Variant, ent: int, anyone_held: bool = false) -> void
 	# consequences, both wanted. Below `furthest <= 0.0`, so somebody with empty hands can still
 	# pull -- hands are enough for this and for nothing else. And exactly nothing when nobody is
 	# held, which is why every existing target-selection assertion is untouched by it.
-	if anyone_held:
+	if anyone_held and not defending:
 		furthest = maxf(furthest, SimShamblerRes.RESCUE_METRES + SimShamblerRes.GRAB_METRES)
 	if furthest <= 0.0:
 		return
 	var threat: int = _nearest_threat(world, ent, furthest)
 	if threat < 0:
-		_shoot_where_it_was(world, ent, range_metres)
+		if not defending:
+			_shoot_where_it_was(world, ent, range_metres)
 		return
 	_face(world, ent, threat)
+	if defending:
+		# Defense is the melee branch alone, and only for a claw already in reach.
+		if reach > 0.0 and _distance(world, ent, threat) <= reach:
+			SimMelee.try_begin_swing(world, ent)
+		return
 	# Rescue first, because _nearest_threat has already preferred a shambler with somebody in its
 	# hands: if the thing this NPC just turned to face is holding a colonist and that colonist is
 	# within arm's length, hauling them out is worth more than a swing at the holder. An archer

@@ -94,6 +94,23 @@ extends RefCounted
 #       progress toward a clot, and a decay clock would be a second timer nothing else in the
 #       module has -- but it is cleared whenever the wound stops being the same wound, which is at
 #       completion and at `wounds.reopen`.
+#   R9  A landed hit -- `attack.connected` on either participant -- interrupts the channel, and it
+#       banks (R8): a claw ripping you away from a press does not un-press what was held, the way a
+#       stagger (R3, banks nothing) knocks it all loose. The swipe made this rule necessary and the
+#       diagnosis driver dated it: with nothing but grabs and staggers able to interrupt, a swiped
+#       colonist on seed 404 spent 378 ticks kneeling mid-fight and died there, head first, having
+#       fought back not once. Bites stay R2's business, and a swipe never targets a held body, so
+#       this rule only ever fires on the free -- the held arbitration above is untouched.
+#   R10 `treatment.self-aid` will not *start* a channel while a live shambler stands in
+#       SWIPE_METRES of a free survivor: with a claw in striking range you fight or you run, and
+#       kneeling is what the driver measured it to be -- a death. The radius is the swipe's own
+#       reach, not CONTACT_METRES, and the first cut of this rule paid for the difference: a
+#       break-away ends about 1.4-1.5 m out, inside contact but outside the claw, so at 1.6 the
+#       press R5 cancels could never re-open and R6's "deferred" quietly became "closed" -- the
+#       contact gate's FLIGHT-CANCELS-PRESS caught it. Reading SWIPE_METRES keeps "too close to
+#       kneel" and "close enough to be struck" the same number by construction. A *held* survivor
+#       is exempt: R1 grants them the self-press exactly because fighting is no longer among
+#       their options.
 #
 # Why coexistence rather than "pressing costs you the hold": every new hold resets the bite clock
 # (`_start_grab` writes a fresh ticksUntilBite), and a struggle cycle resolves at ~17-33 ticks with
@@ -103,6 +120,8 @@ extends RefCounted
 # clots at completion.
 
 const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -192,6 +211,10 @@ static func register_module(world: Variant) -> void:
 			# component, so a survivor who is caught again is pressing again almost at once.
 			if w.components.has_component(e, "breakAway"):
 				continue
+			# R10: fight or run first, kneel when clear. Held bodies are exempt -- R1 is their
+			# whole answer -- and the radius is the shambler's own CONTACT_METRES, not a copy.
+			if not w.components.has_component(e, "grabbed") and _claw_in_reach(w, e):
+				continue
 			if _worst_bleeding_part(w, e) == "":
 				continue
 			context(w, e)
@@ -216,6 +239,12 @@ static func register_module(world: Variant) -> void:
 
 	world.events.subscribe({"id": "treatment.stagger-interrupts", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:
 		_interrupt(world, int(event.get("entity", -1)))
+	})
+	# R9. Distinct from the stagger interrupt in exactly one way: it banks. A zombie target has
+	# neither component and the call is a no-op, so a survivor's swing landing on a shambler
+	# costs nobody a channel.
+	world.events.subscribe({"id": "treatment.hit-interrupts", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
+		_interrupt_struck(world, int(event.get("target", -1)))
 	})
 	world.events.subscribe({"id": "treatment.grab-interrupts", "type": "grab.started", "handler": func(event: Dictionary) -> void:
 		_interrupt_grab(world, int(event.get("victim", -1)))
@@ -533,6 +562,38 @@ static func _interrupt_escape(world: Variant, entity: int) -> void:
 	var running: Variant = world.components.get_component(entity, "treatment")
 	if running is Dictionary and _is_self_pressure(running as Dictionary, entity):
 		cancel(world, entity)
+
+
+# R9. The _interrupt shape with the bank kept (cancel's default): the hit takes your hands off
+# the wound, it does not unwind what the press already served.
+static func _interrupt_struck(world: Variant, entity: int) -> void:
+	if entity < 0:
+		return
+	if world.components.has_component(entity, "treatment"):
+		cancel(world, entity)
+	var treated: Variant = world.components.get_component(entity, "treated")
+	if treated is Dictionary:
+		cancel(world, int((treated as Dictionary).get("treater", -1)))
+
+
+# R10's reach test: a live shambler inside its own SWIPE_METRES of this body. Reads the swipe's
+# radius rather than declaring one, so "close enough to be struck" and "too close to kneel" are
+# the same number by construction -- see R10 for why it is the claw's reach and not contact.
+static func _claw_in_reach(world: Variant, entity: int) -> bool:
+	var at: Variant = world.components.get_component(entity, "position")
+	if not (at is Dictionary):
+		return false
+	var reach_sq: float = SimShambler.SWIPE_METRES * SimShambler.SWIPE_METRES
+	for z in world.components.query(["shambler", "position"]):
+		var zbody: Variant = world.components.get_component(int(z), "body")
+		if zbody is Dictionary and not SimHealth.is_alive(zbody as Dictionary):
+			continue
+		var zp: Dictionary = world.components.get_component(int(z), "position") as Dictionary
+		var dx: float = float(zp["x"]) - float((at as Dictionary)["x"])
+		var dy: float = float(zp["y"]) - float((at as Dictionary)["y"])
+		if dx * dx + dy * dy <= reach_sq:
+			return true
+	return false
 
 
 static func _is_self_pressure(state: Dictionary, entity: int) -> bool:

@@ -9,7 +9,11 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 
 const GRACE_COMPOSITION_UNTIL_DAY: int = 3
 const GRACE_PRESSURE_UNTIL_DAY: int = 8
-const LIVE_CAP: int = 24
+# 32, up from 24 alongside the boot-wanderer raise (12 -> 20) and the bigger night packets in the
+# basic-combat slice: at 24 the denser boot population left four slots of headroom for the entire
+# night table, and every night after the first siege would have been refused "cap" -- exactly the
+# refusal loop the despawn trap in CLAUDE.md describes, reached honestly this time.
+const LIVE_CAP: int = 32
 const TRICKLE_LIVE: int = 8
 const TRICKLE_SIZE: int = 2
 const BASE_SIZE: int = 3
@@ -39,7 +43,9 @@ const ARMOR_IDS: Array[String] = ["item.wrap.cloth", "item.vest.scrap"]
 enum Night { Quiet = 0, Probe = 1, Press = 2, Siege = 3 }
 
 const NIGHT_NAMES: Array[String] = ["quiet", "probe", "press", "siege"]
-const NIGHT_SIZES: Array[int] = [0, 2, 4, 6]
+# [0, 3, 6, 9], up from [0, 2, 4, 6] in the basic-combat slice: swipes make each body count for
+# something, and the shapes keep their spacing -- a siege is still three probes.
+const NIGHT_SIZES: Array[int] = [0, 3, 6, 9]
 
 # Rows are strain bands, columns are the four shapes. Every row keeps a non-zero weight on quiet
 # and on siege: docs/17 rule 4 asks for a variance floor *and* ceiling, and a row that zeroed
