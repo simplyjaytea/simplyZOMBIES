@@ -188,6 +188,14 @@ static func _tick_one(world: Variant, ent: int) -> void:
 			_stop(world, ent)
 		_do_seek(world, ent, seek)
 		return
+	# Refusing assigned jobs, checked here rather than in _pick and for a measured reason: a
+	# survivor who has settled into a standing job never picks again. Guard and Rest have
+	# ticksLeft 0 and no completion, so an NPC that took Guard on tick one held it for the whole
+	# run -- gating the refusal on _pick made it fire exactly never in a booted colony. Placed
+	# after the seek branch above, so a sulking survivor still eats, drinks and sleeps: this is a
+	# refusal to *work*, not a refusal to live.
+	if _sulking(world, ent):
+		return
 	if job is Dictionary:
 		_advance_job(world, ent, job as Dictionary)
 		return
@@ -526,6 +534,97 @@ static func _stock_base(world: Variant, base_id: String) -> int:
 	return -1
 
 
+# --- mood consequences (docs/04) -----------------------------------------------------------
+#
+# "Low mood does not produce a rage meltdown. It produces: slower work, more mistakes ...
+# refusing assigned jobs." Three of the four consequences land here; the fourth (arguments) is in
+# needs.gd, because it is about mood rather than about work.
+#
+# Bands come from SimNeeds.mood_band, which is the one place a mood number becomes a word. Nothing
+# in this file compares against a mood threshold of its own.
+
+# A miserable worker loses one tick of progress in this many; a low one, one in LOW_SLOW_EVERY.
+# Deliberately a skipped tick on a schedule rather than a fractional multiplier: `ticksLeft` is an
+# integer countdown in seven places and a 0.75x multiplier on an integer is a rounding argument
+# waiting to happen. Keyed off world.tick so it is deterministic and needs no RNG at all -- the
+# mistake below is the part that is a gamble, and it should be the only part.
+const LOW_SLOW_EVERY: int = 4
+const MISERABLE_SLOW_EVERY: int = 2
+
+# A mistake costs back this many ticks of progress, once in MISTAKE_ONE_IN chances, rolled only
+# for a miserable worker. Capped at the job's own starting length by the countdown itself: a job
+# cannot regress past where it began because `left` is only ever written from here.
+const MISTAKE_TICKS: int = 20
+const MISTAKE_ONE_IN: int = 200
+
+# Refusing assigned jobs. A priority threshold was the obvious shape and is the wrong one: the
+# Auto preset ranks every column at 3, so any threshold either refuses nothing or refuses
+# everything, and a survivor who downs tools entirely is exactly the meltdown docs/04 rules out
+# ("nobody snaps ... the failure mode is a slow, sour decline").
+#
+# So a refusal is a *sulk*: a miserable survivor declines to pick up work, one time in
+# REFUSE_ONE_IN, and then does nothing for REFUSE_SULK_TICKS before trying again. Work still gets
+# done; it gets done later and less predictably, which is what a demoralised colony looks like.
+# Bounded by construction -- the sulk expires on its own, so no mood value can leave somebody idle
+# forever.
+const REFUSE_ONE_IN: int = 12
+const REFUSE_SULK_TICKS: int = 300
+
+const MOOD_STREAM: String = "mood"
+
+
+# Whether this survivor is currently declining to work, and whether they start doing so now.
+static func _sulking(world: Variant, ent: int) -> bool:
+	var n: Dictionary = SimNeeds.of(world, ent)
+	var until: int = int(n.get("refusedUntilTick", -1))
+	if int(world.tick) < until:
+		return true
+	var band: String = SimNeeds.mood_band(world, ent)
+	if band != "miserable" and band != "breaking":
+		return false
+	var rng: Variant = world.rng.stream(MOOD_STREAM)
+	if int(rng.call("int_range", 1, REFUSE_ONE_IN)) != 1:
+		return false
+	n["refusedUntilTick"] = int(world.tick) + REFUSE_SULK_TICKS
+	# The assignment goes with it. Dropping a half-finished job loses its progress, which is the
+	# cost of a demoralised colony and is the difference between "refused" and "paused".
+	if world.components.has_component(ent, "job"):
+		_stop(world, ent)
+	world.events.publish({"type": "job.refused", "entity": ent, "reason": "mood", "ticks": REFUSE_SULK_TICKS})
+	return true
+
+
+# The one place a job's countdown advances. It was seven copies of the same two lines, which is
+# six chances for a work-speed consequence to apply to most jobs and quietly miss one -- the same
+# shape as the shambler speed reads. Returns the new `ticksLeft`, already written to the job.
+static func _progress(world: Variant, ent: int, job: Dictionary) -> int:
+	var left: int = int(job.get("ticksLeft", 0))
+	var band: String = SimNeeds.mood_band(world, ent)
+
+	# Slower work. A skipped tick, not a slower one: the job simply does not advance this tick.
+	var every: int = 0
+	if band == "low":
+		every = LOW_SLOW_EVERY
+	elif band == "miserable" or band == "breaking":
+		every = MISERABLE_SLOW_EVERY
+	if every > 0 and int(world.tick) % every == 0:
+		job["ticksLeft"] = left
+		return left
+
+	left -= 1
+
+	# More mistakes. Progress goes backwards, and it says so, because a job that silently takes
+	# longer is indistinguishable from a job that is slow.
+	if (band == "miserable" or band == "breaking") and left > 0:
+		var rng: Variant = world.rng.stream(MOOD_STREAM)
+		if int(rng.call("int_range", 1, MISTAKE_ONE_IN)) == 1:
+			left += MISTAKE_TICKS
+			world.events.publish({"type": "job.mistake", "entity": ent, "kind": String(job.get("kind", "")), "ticks": MISTAKE_TICKS})
+
+	job["ticksLeft"] = left
+	return left
+
+
 static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 	var kind: String = String(job.get("kind", ""))
 	var dest: Vector2i = _job_tile(world, job)
@@ -628,8 +727,7 @@ static func _do_water(world: Variant, ent: int, job: Dictionary) -> void:
 	if well_tile.x < 0 or not _at(world, ent, well_tile, REACH):
 		_walk(world, ent, job, well_tile)
 		return
-	var left: int = int(job.get("ticksLeft", 0)) - 1
-	job["ticksLeft"] = left
+	var left: int = _progress(world, ent, job)
 	if left > 0:
 		return
 	var base: Variant = world.components.get_component(bottle, "itemBase")
@@ -648,8 +746,7 @@ static func _do_clean(world: Variant, ent: int, job: Dictionary) -> void:
 	if well_tile.x < 0 or not _at(world, ent, well_tile, REACH):
 		_walk(world, ent, job, well_tile)
 		return
-	var left: int = int(job.get("ticksLeft", 0)) - 1
-	job["ticksLeft"] = left
+	var left: int = _progress(world, ent, job)
 	if left > 0:
 		return
 	SimNeeds.wash_at_source(world, ent)
@@ -677,8 +774,7 @@ static func _do_bury(world: Variant, ent: int, job: Dictionary) -> void:
 	if not _at(world, ent, dump, REACH):
 		_walk(world, ent, job, dump)
 		return
-	var left: int = int(job.get("ticksLeft", 0)) - 1
-	job["ticksLeft"] = left
+	var left: int = _progress(world, ent, job)
 	if left > 0:
 		return
 	world.despawn(corpse)
@@ -712,8 +808,7 @@ static func _do_repair(world: Variant, ent: int, job: Dictionary) -> void:
 	if fire_tile.x < 0 or not _at(world, ent, fire_tile, REACH):
 		_walk(world, ent, job, fire_tile)
 		return
-	var left: int = int(job.get("ticksLeft", 0)) - 1
-	job["ticksLeft"] = left
+	var left: int = _progress(world, ent, job)
 	if left > 0:
 		return
 	if not _consume_owned(world, scrap):
@@ -798,8 +893,7 @@ static func _stock_drop(world: Variant) -> Vector2i:
 
 
 static func _do_construct(world: Variant, ent: int, job: Dictionary) -> void:
-	var left: int = int(job.get("ticksLeft", 0)) - 1
-	job["ticksLeft"] = left
+	var left: int = _progress(world, ent, job)
 	var pos: Variant = world.components.get_component(ent, "position")
 	if pos is Dictionary:
 		world.events.publish({
@@ -825,8 +919,7 @@ static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
 		SimNeeds.set_lit(world, fire, true, true)
 	else:
 		SimNeeds.set_lit(world, fire, true, true)
-	var left: int = int(job.get("ticksLeft", 0)) - 1
-	job["ticksLeft"] = left
+	var left: int = _progress(world, ent, job)
 	if left > 0:
 		return
 	var raw: int = int(job.get("target", -1))
@@ -843,8 +936,7 @@ static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
 
 
 static func _do_doctor(world: Variant, ent: int, job: Dictionary) -> void:
-	var left: int = int(job.get("ticksLeft", 0)) - 1
-	job["ticksLeft"] = left
+	var left: int = _progress(world, ent, job)
 	if left > 0:
 		return
 	var target: int = int(job.get("target", -1))

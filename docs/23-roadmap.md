@@ -534,7 +534,26 @@ table above are the authority on each):
   both still open regardless of the pick.
 - **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
   rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
-- **Needs** — mood consequences: slower work, mistakes, refusing jobs, arguments.
+- **Needs** — ~~mood consequences: slower work, mistakes, refusing jobs, arguments~~ **landed**
+  (`godot:m2:needs`, MOOD BANDS / MOOD WORK / ARGUMENTS). Mood previously had exactly one
+  consequence and it was a cliff: at `-80` the survivor walked out, and everything between "fine"
+  and "gone" did nothing — the opposite of docs/04's own summary, "a slow, sour decline where the
+  colony stops functioning ... more frightening and more recoverable than a dramatic break".
+  There are bands now — content / low / miserable / breaking, read through one canonical
+  `SimNeeds.mood_band` so a boundary moves in one place — and each adds a consequence to the one
+  below. Measured over a 200-tick window: **200 / 150 / 80** ticks of job progress at
+  content / low / miserable, where the slowdown alone would be 100, so the remainder is mistakes.
+  Mistakes (`job.mistake`) push progress *backwards* and belong to miserable and worse; sulks
+  (`job.refused`) drop the current assignment and idle for 300 ticks. Arguments spread misery to
+  the nearest survivor in earshot, accumulate to a **cap** and drain away — the cap is the design,
+  because an unbounded source would let two miserable survivors drive each other past the leave
+  threshold in minutes, which is the meltdown docs/04 rules out.
+  Two findings worth keeping. Job progress ran through **seven copies** of the same two-line
+  countdown, so a work-speed consequence had six chances to apply everywhere and quietly miss one;
+  it is one `_progress` now. And the refusal was first hooked on `_pick`, where it fired **exactly
+  never** in a booted colony — an NPC settles into a standing Guard job (`ticksLeft` 0, no
+  completion) and never picks again. It hooks `_tick_one` instead, after the needs-seek branch, so
+  a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
 - **Attention leftovers** — the sim half of last-known-position memory, and director-varied nights.
 - **Health & injury** — the remaining injury types (fracture, sprain, burn, concussion), continuous
   pain and exhaustion, bacterial infection kept distinct from zombie infection (sepsis), the full
