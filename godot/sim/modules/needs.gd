@@ -29,6 +29,46 @@ const RAW_SPOIL_DAYS: float = 2.0
 const COOKED_SPOIL_DAYS: float = 1.0
 const NEED_SOURCES: Array[String] = ["need.hunger", "need.thirst", "need.rest", "need.temperature", "need.hygiene"]
 
+# --- mood consequences (docs/04) -----------------------------------------------------------
+#
+# "Low mood does not produce a rage meltdown. It produces: slower work, more mistakes, more
+# injuries; refusing assigned jobs; arguments -- which damage other survivors' mood, so misery
+# spreads; ... at the extreme: leaving." Only the extreme was wired: mood <= LEAVE_AT publishes
+# mood.threshold and recruits.gd walks the survivor out. Everything between "fine" and "gone" did
+# nothing at all, which is the opposite of the document's own summary -- "a slow, sour decline
+# where the colony stops functioning ... more frightening and more recoverable than a dramatic
+# break". A cliff at -80 is a dramatic break.
+#
+# So there are bands rather than a threshold, and each one adds a consequence to the one below it.
+# The numbers sit between the existing mood sources (a filthy survivor is already -20, three needs
+# below SOFT another -30) and LEAVE_AT, so the bands are reachable by ordinary neglect rather than
+# only by contrivance.
+const MOOD_LOW: float = -20.0
+const MOOD_MISERABLE: float = -50.0
+const LEAVE_AT: float = -80.0
+
+# What each band is called. Ordered worst-first, and the strings are the vocabulary every
+# consequence and every gate uses -- jobs.gd matches on these rather than re-deriving thresholds,
+# so a band boundary moves in one place.
+const MOOD_BANDS: Array[String] = ["breaking", "miserable", "low", "content"]
+
+# Arguments. A miserable survivor within ARGUMENT_METRES of another takes it out on them every
+# ARGUMENT_TICKS, and the damage accumulates on the *victim* toward a cap.
+#
+# The cap is the whole design of this: an unbounded source would let two miserable survivors drive
+# each other past LEAVE_AT in a few minutes and empty the colony, which is the "rage meltdown"
+# docs/04 explicitly rules out. Capped and decaying, arguments are a drag that makes a bad mood
+# spread and stick without becoming a spiral that cannot be pulled out of -- feed and rest people
+# and it drains away.
+const ARGUMENT_METRES: float = 4.0
+const ARGUMENT_TICKS: int = 600
+const ARGUMENT_PER: float = 6.0
+const ARGUMENT_CAP: float = 24.0
+# Recovered per mood tick (every 20 ticks) once nobody is arguing at you. At 0.05 a survivor at the
+# cap is clear in about two in-game hours of peace.
+const ARGUMENT_DECAY: float = 0.05
+const ARGUMENT_SOURCE: String = "mood.argument"
+
 const TEMP_ORDER: Array[String] = [
 	"extremely_cold", "very_cold", "a_little_cold", "comfortable", "a_little_hot", "very_hot", "extremely_hot",
 ]
@@ -172,6 +212,9 @@ static func register_module(world: Variant) -> void:
 	world.systems.register("need.rest", "needs", 12, func(w: Variant) -> void:
 		_tick_rest(w)
 	)
+	world.systems.register("need.arguments", "needs", 12, func(w: Variant) -> void:
+		_tick_arguments(w)
+	)
 	world.systems.register("need.mood", "needs", 13, func(w: Variant) -> void:
 		_tick_mood(w)
 	)
@@ -293,8 +336,107 @@ static func _tick_mood(world: Variant) -> void:
 		if world.modifiers == null:
 			continue
 		var mood: float = float(world.modifiers.call("resolve", "mood", ent))
-		if mood <= -80.0:
+		if mood <= LEAVE_AT:
 			world.events.publish({"type": "mood.threshold", "entity": ent, "mood": mood})
+
+
+# The one canonical mood-band read. Every consequence matches on the string this returns rather
+# than comparing against a threshold of its own, so a boundary moves in one place.
+static func mood_band(world: Variant, entity: int) -> String:
+	if world.modifiers == null:
+		return "content"
+	var mood: float = float(world.modifiers.call("resolve", "mood", entity))
+	if mood <= LEAVE_AT:
+		return "breaking"
+	if mood <= MOOD_MISERABLE:
+		return "miserable"
+	if mood <= MOOD_LOW:
+		return "low"
+	return "content"
+
+
+# docs/04: "arguments -- which damage other survivors' mood, so misery spreads". A miserable
+# survivor argues with the nearest other survivor in earshot; the damage lands on the *other* one,
+# accumulates toward ARGUMENT_CAP, and drains away once nobody is arguing at them.
+#
+# Deliberately not symmetric: the arguer does not also lose mood. They are already miserable --
+# that is the precondition -- and charging both sides would make any two unhappy people a spiral,
+# which is the meltdown docs/04 rules out.
+static func _tick_arguments(world: Variant) -> void:
+	if int(world.tick) % 20 != 0:
+		return
+	var everyone: Array = _survivors(world)
+	# Decay first, and for everybody, so a survivor nobody has argued with this cycle recovers on
+	# the same tick the arguing happens rather than a cycle later.
+	for ent in everyone:
+		_decay_argument(world, int(ent))
+	if hold_max(world):
+		return
+	if int(world.tick) % ARGUMENT_TICKS != 0:
+		return
+	for ent in everyone:
+		if mood_band(world, int(ent)) != "miserable" and mood_band(world, int(ent)) != "breaking":
+			continue
+		if world.components.has_component(int(ent), "sleeping"):
+			continue
+		var victim: int = _nearest_other_survivor(world, int(ent), everyone)
+		if victim < 0:
+			continue
+		_argue(world, int(ent), victim)
+
+
+static func _nearest_other_survivor(world: Variant, ent: int, everyone: Array) -> int:
+	var here: Variant = world.components.get_component(ent, "position")
+	if not (here is Dictionary):
+		return -1
+	var best: int = -1
+	var best_sq: float = ARGUMENT_METRES * ARGUMENT_METRES
+	for other in everyone:
+		if int(other) == ent:
+			continue
+		var there: Variant = world.components.get_component(int(other), "position")
+		if not (there is Dictionary):
+			continue
+		var dx: float = float((there as Dictionary)["x"]) - float((here as Dictionary)["x"])
+		var dy: float = float((there as Dictionary)["y"]) - float((here as Dictionary)["y"])
+		var sq: float = dx * dx + dy * dy
+		if sq <= best_sq:
+			best_sq = sq
+			best = int(other)
+	return best
+
+
+static func _argue(world: Variant, arguer: int, victim: int) -> void:
+	var n: Dictionary = of(world, victim)
+	var before: float = float(n.get("argued", 0.0))
+	if before >= ARGUMENT_CAP:
+		# Already as sour as arguing can make them. Still worth publishing -- the colony is having
+		# the argument either way, and a listener that wants to say so should hear it.
+		world.events.publish({"type": "mood.argument", "entity": arguer, "victim": victim, "capped": true})
+		return
+	n["argued"] = minf(ARGUMENT_CAP, before + ARGUMENT_PER)
+	_apply_argument(world, victim, float(n["argued"]))
+	world.events.publish({"type": "mood.argument", "entity": arguer, "victim": victim, "capped": false})
+
+
+static func _decay_argument(world: Variant, ent: int) -> void:
+	var n: Dictionary = of(world, ent)
+	var carried: float = float(n.get("argued", 0.0))
+	if carried <= 0.0:
+		return
+	n["argued"] = maxf(0.0, carried - ARGUMENT_DECAY)
+	_apply_argument(world, ent, float(n["argued"]))
+
+
+# One modifier from one source, replaced rather than stacked. Adding a second modifier per
+# argument would accumulate without bound behind the cap this module thinks it is enforcing.
+static func _apply_argument(world: Variant, ent: int, amount: float) -> void:
+	if world.modifiers == null:
+		return
+	world.modifiers.call("remove_by_source", ARGUMENT_SOURCE, ent)
+	if amount <= 0.0:
+		return
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": -amount, "source": ARGUMENT_SOURCE}, ent)
 
 
 static func _tick_temperature(world: Variant) -> void:

@@ -98,7 +98,26 @@
       "h": 1
     },
     "massKg": 0.25,
-    "stack": 3
+    "stack": 3,
+    "modification": {
+      "operation": "reroll",
+      "appliesTo": ["weapon.melee", "weapon.ranged", "armor", "tool"]
+    }
+  },
+  {
+    "id": "item.kit.scrap",
+    "name": "Scrap Kit",
+    "class": "material",
+    "size": {
+      "w": 2,
+      "h": 1
+    },
+    "massKg": 1.2,
+    "stack": 2,
+    "modification": {
+      "operation": "add",
+      "appliesTo": ["weapon.melee", "weapon.ranged", "armor"]
+    }
   },
   {
     "id": "item.water.bottle",

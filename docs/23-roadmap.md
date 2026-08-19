@@ -534,7 +534,26 @@ table above are the authority on each):
   both still open regardless of the pick.
 - **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
   rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
-- **Needs** — mood consequences: slower work, mistakes, refusing jobs, arguments.
+- **Needs** — ~~mood consequences: slower work, mistakes, refusing jobs, arguments~~ **landed**
+  (`godot:m2:needs`, MOOD BANDS / MOOD WORK / ARGUMENTS). Mood previously had exactly one
+  consequence and it was a cliff: at `-80` the survivor walked out, and everything between "fine"
+  and "gone" did nothing — the opposite of docs/04's own summary, "a slow, sour decline where the
+  colony stops functioning ... more frightening and more recoverable than a dramatic break".
+  There are bands now — content / low / miserable / breaking, read through one canonical
+  `SimNeeds.mood_band` so a boundary moves in one place — and each adds a consequence to the one
+  below. Measured over a 200-tick window: **200 / 150 / 80** ticks of job progress at
+  content / low / miserable, where the slowdown alone would be 100, so the remainder is mistakes.
+  Mistakes (`job.mistake`) push progress *backwards* and belong to miserable and worse; sulks
+  (`job.refused`) drop the current assignment and idle for 300 ticks. Arguments spread misery to
+  the nearest survivor in earshot, accumulate to a **cap** and drain away — the cap is the design,
+  because an unbounded source would let two miserable survivors drive each other past the leave
+  threshold in minutes, which is the meltdown docs/04 rules out.
+  Two findings worth keeping. Job progress ran through **seven copies** of the same two-line
+  countdown, so a work-speed consequence had six chances to apply everywhere and quietly miss one;
+  it is one `_progress` now. And the refusal was first hooked on `_pick`, where it fired **exactly
+  never** in a booted colony — an NPC settles into a standing Guard job (`ticksLeft` 0, no
+  completion) and never picks again. It hooks `_tick_one` instead, after the needs-seek branch, so
+  a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
 - **Attention leftovers** — the sim half of last-known-position memory, and director-varied nights.
 - **Health & injury** — the remaining injury types (fracture, sprain, burn, concussion), continuous
   pain and exhaustion, bacterial infection kept distinct from zombie infection (sepsis), the full
@@ -560,8 +579,29 @@ table above are the authority on each):
   footstep noise, and a container has **no renderer path** — it is announced by prose
   (`SimContainers.hud_clause` in the HUD) and is otherwise invisible, the same as beds and
   campfires, which is the Art track's open tile/prop renderer rather than a gap in this.
-- **Modification** — Duct Tape (reroll an affix), Scrap Kit (add an affix), skill- and
-  trait-weighted outcomes, failure that consumes and damages.
+- **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
+  outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
+  consumable performs and against which item classes is **content** — a `modification:
+  {operation, appliesTo}` block on the item base, exactly as docs/11's content-shape section
+  describes — while what an operation *does* is code, in `SimModification.OPERATIONS`, which is the
+  registry that document points at. The other five consumables (Whetstone, Gun Oil, Solvent,
+  Machinist's Gauge, Salvage Rights) are not blocked on anything: a Solvent is one content entry
+  plus one `strip` operation.
+  Craft moves both odds in the directions docs/11 names — failure 0.200 → 0.080 over six points
+  (floored at 0.05, because a bench that cannot fail is not a gamble), and the mean affix tier
+  0.409 → 0.694 under the bias. Injured hands raise failure to 0.230 and cancel the tier bias, so
+  a good crafter working hurt is an ordinary one rather than a worse-than-novice one; two
+  destroyed hands refuse outright. Failure spends the consumable and costs 0.25 condition, and
+  below 0.20 it breaks the item outright with its ceiling, so it is scrap forever — reachable only
+  from an already-degraded item, so a fresh find is never one roll from scrap. The Scrap Kit is
+  findable in the military cache and duct tape in all three tables.
+  Two things fell out of this that were missing rather than new: an item's **tier was rolled at
+  spawn and thrown away**, so nothing could afterwards ask how many affix slots an item has — it
+  is now an `itemTier` component with `SimItems.tier_of`/`affix_capacity` — and there was no path
+  to re-derive an item's modifiers after its affixes change, now `SimItems.reapply_affix_modifiers`
+  (removing by affix source rather than clearing the item's scope, which would drop modifiers this
+  module never put there). **Still open:** trait-weighted outcomes, which have no hook to read
+  until traits ship in Milestone 3A — `SimModification.TRAIT_FAILURE_SHIFT` is the named seam.
 - **UI** — the diegetic condition and stamina readouts (in the world, not a corner), prose generated
   from modifier sources, the priority grid and skill web screens.
 - **Death & succession** — the colony morale hit on a death, and proving "the run ends only when the

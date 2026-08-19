@@ -917,6 +917,73 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   404 it still never does. That is a call about how the slice seats its people, not another lever
   in the contact loop.
 
+## Mood consequences are a decline, not a cliff
+
+- **A threshold was the shipped behaviour and it contradicted the spec.** Mood had one consequence
+  — at `-80` the survivor left — and nothing between "fine" and "gone". docs/04 describes the
+  opposite: "a slow, sour decline where the colony stops functioning ... more frightening and more
+  recoverable than a dramatic break". A cliff at -80 *is* the dramatic break. Hence bands, each
+  adding a consequence to the one below, read through one `SimNeeds.mood_band` so nothing compares
+  against a mood number of its own.
+- **Slower work is a skipped tick, not a multiplier.** `ticksLeft` is an integer countdown in
+  seven places, and a 0.75× multiplier on an integer is a rounding argument waiting to happen. The
+  skip is keyed off `world.tick`, so it needs no RNG at all — the mistake is the part that is a
+  gamble, and it should be the only part.
+- **Arguments are capped and decay, and that is the whole design.** An unbounded mood source would
+  let two miserable survivors drive each other past the leave threshold in a few minutes and empty
+  the colony, which is precisely the rage meltdown docs/04 rules out. Capped and draining, misery
+  spreads and sticks without becoming a spiral you cannot pull out of. The damage is also
+  deliberately **not symmetric** — the arguer loses nothing, because they are already miserable by
+  precondition and charging both sides makes any two unhappy people a spiral.
+- **Refusing jobs is a bounded sulk, not a priority threshold.** The obvious shape was "refuse
+  anything ranked below N", and it does not work: the Auto preset ranks every column at 3, so any
+  threshold refuses nothing or everything, and a survivor who downs tools entirely is the meltdown
+  again. A sulk drops the current assignment, idles for a bounded span, and expires on its own.
+- **Two things this slice found rather than introduced.** Job progress was seven copies of the same
+  two-line countdown — six chances for a consequence to apply nearly everywhere and miss one, the
+  same shape as the shambler speed reads. And hooking the refusal on `_pick` made it fire **exactly
+  never** in a booted colony: an NPC takes a standing Guard job (`ticksLeft` 0, no completion) on
+  the first tick and never picks again, so a gate that only asserted "a refusal is possible" would
+  have passed a consequence no player could ever meet. It hooks `_tick_one` now, placed after the
+  needs-seek branch so a sulking survivor still eats and sleeps — a refusal to work, not to live.
+
+## Modification: what is data, what is code, and what stays a gamble
+
+- **A consumable's operation is content; the operation itself is code.** docs/11 asks for exactly
+  this split — "a modification consumable declares which operation it performs and against which
+  item classes", and "adding a genuinely new operation is one entry in the
+  modification-operations registry". So `modification: {operation, appliesTo}` is an item-base
+  block and `SimModification.OPERATIONS` is the registry. The schema deliberately does **not**
+  make `operation` an enum: the registry is the authority, and a duplicated list in JSON would
+  drift from it. `check_mods.gd` asserts every declared operation is in the registry and every
+  `appliesTo` class is one items actually have — neither of which a schema can express.
+- **A reroll is unconditional.** It does not keep the better of the two outcomes and there is no
+  confirmation step, because docs/11 is explicit that "using Duct Tape on a Field-Tested item with
+  five good affixes might reroll the one you loved" *is* the mechanic. A reroll changes a tier and
+  never the set of affixes — that is what separates it from a Scrap Kit and from the Solvent that
+  will eventually strip.
+- **Craft moves two different odds, and injured hands move one of them back.** docs/11 draws the
+  distinction and this preserves it: Craft weights rolls toward higher affix *tiers* (a developed
+  crafter gets better affixes, not more of them) and separately reduces the *failure* chance.
+  Injured hands raise failure and **cancel** the tier bias rather than inverting it, so a good
+  crafter working hurt is an ordinary one and never worse than a novice. Two destroyed hands are a
+  refusal, not a penalty — "a wounded crafter should not be at the bench" read literally. Hands are
+  compared as `SimHealth.part_state` values, never raw integrity: a hand maxes at 10 and a torso at
+  40, which is the trap CLAUDE.md names.
+- **The failure floor is load-bearing.** `MIN_FAILURE` stops an arbitrarily good crafter reaching
+  certainty. docs/11's endpoint is "expensive control", not determinism, and a bench that cannot
+  fail is not a gamble.
+- **Breaking is reachable only from a degraded item.** A failure costs condition; a failure below
+  `CRITICAL_BELOW` zeroes the item *and its ceiling*, so repair cannot bring it back. Gating it on
+  prior degradation means a fresh find is never one bad roll from scrap, which keeps the tension in
+  "do I risk the axe I like" rather than in "do I dare touch anything".
+- **Two gaps this slice exposed rather than created.** An item's tier was rolled at spawn, used to
+  decide affix count, and discarded — so nothing could afterwards ask how many slots an item has,
+  which is the one question a Scrap Kit must answer. It is an `itemTier` component now. And there
+  was no way to re-derive an item's modifiers after editing its affixes;
+  `SimItems.reapply_affix_modifiers` removes **by affix source** rather than clearing the item's
+  modifier scope, because the scope can hold modifiers this module did not put there.
+
 ## What a place yields is content, not code
 
 - **Loot tables moved out of `boot.gd`, for the same reason appearance moved out of the draw
