@@ -362,21 +362,18 @@ zero on every seed**, blood loss becomes the whole of 90210's death list, and 40
 **`GRABS_ENABLED` stays `false`** and this is reason six rather than a flip record.
 `survivors_end >= 1` was not relaxed; it remains considered and rejected.
 
-Three residuals are named, in the order they cost the most, and each is a design call rather than
-something to pick unilaterally:
+Three residuals were named, in the order they cost the most. **The first is now answered** (see
+the slice below); the other two stand:
 
-- **A break-away runs into the wall it was released against.** This is the finding, and it is
-  measured rather than reasoned: over three days of seed 404 with the flag on, a `breakAway` body
-  carries its escape velocity into `movement.integrate` on 1,230 of 1,266 ticks and the integrator
-  **zeroes it on 1,124**, because the committed heading is blocked on the X axis on 1,107 ticks, on
-  the Y axis on 1,154, and on **both at once on 1,087 — 86%**. Total ground covered is 12.66 m,
-  0.010 m per tick against a nominal 0.105. `_break_away` takes its direction once, at the moment of
-  release, and never re-derives it (by design — it is a shove-off, not a pursuit solver), and
-  `_integrate_movement` zeroes a blocked axis. A colony is grabbed where a colony lives, which is
-  against the annex walls, so the shove-off points into masonry and the survivor spends all 26 ticks
-  leaning on it. That is why 404's mid-press escapes cover a mean of **0.063 m** before the re-grab
-  (4.71 m across 75 windows) while 31337's cover 0.72 m — and why **the re-grab is the same shambler
-  in 309 of 309 windows across the three seeds that have any**.
+- ~~**A break-away runs into the wall it was released against.**~~ **Answered.** The finding, which
+  was measured rather than reasoned: over three days of seed 404 with the flag on, a `breakAway`
+  body carried its escape velocity into `movement.integrate` on 1,230 of 1,266 ticks and the
+  integrator **zeroed it on 1,124**, because the committed heading was blocked on the X axis on
+  1,107 ticks, on the Y axis on 1,154, and on **both at once on 1,087 — 86%**. Total ground covered
+  was 12.66 m, 0.010 m per tick against a nominal 0.105. A colony is grabbed where a colony lives,
+  which is against the annex walls, so the shove-off pointed into masonry and the survivor spent all
+  26 ticks leaning on it — which is why 404's mid-press escapes covered a mean of **0.063 m** before
+  the re-grab and why the re-grab was the same shambler in 309 of 309 measured windows.
 - **The pinned escape tick.** The cancel lands at drain, so the escapee stands still for one tick
   while the holder keeps closing at 0.084 m. That single tick is worth 0.105 m of gap, which lifts
   `BREAK_AWAY_SPEED`'s own "a release from d0 < 0.58 m can still be inside reach when the cooldown
@@ -392,17 +389,129 @@ The balance tier is therefore still exactly what it was, plus bus-only `grab.sta
 counters that report and assert nothing, and `_the_flag_actually_gates_acquisition()` in the contact
 gate still exercises both directions.
 
+**Answered: a break-away now has somewhere to go, and one hard seed stops wiping.** The residual
+above was a locomotion bug wearing a design call's clothes: the shove-off insisted on going
+*straight* away, and straight away from a shambler that has you against a wall is into the wall.
+`_break_away` now treats straight-away as the **preference** rather than the commitment. It fans out
+in `BREAK_AWAY_FAN_DEGREES` order — 0, ±22.5, ±45 … ±135, stopping short of 180 because a survivor
+shoving off does not run through the thing that had hold of them — and commits to the first
+candidate with a clear run of `BREAK_AWAY_PROBE_METRES` (1.5 m, sampled every 0.25 m against the
+same tile lookup the integrator collides with, through the new `World.body_fits_at`). Falls back to
+the longest partial run when nothing is clear, and to straight-away when nothing is clear at all,
+which is a body wedged in a corner and has no better answer. It stays a shove-off: one heading,
+taken once at release, no per-tick re-derive, no RNG, no pursuit solver.
+
+`godot:m2:contact` grew **AWAY-CLEAR**, with a negative in each direction. Positive: a release with
+a wall column directly behind the victim commits 90° off straight-away and flies 2.00 m, against
+**0.11 m** for the identical release with the heading forced back to straight-away — the
+shipped-before control, which must fail to move, and does. Negative: the identical release in an
+empty field must commit to straight-away *exactly* (deviation asserted under 0.001°), so a fan that
+quietly re-aimed every escape in the game could not pass.
+
+Measured with the same driver as the previous slice, run on the clean tree and again on this one:
+
+| seed | before | after | how it ends |
+| --- | --- | --- | --- |
+| 20260805 | `3/2`, 0 grabs, 0 bites | `3/2`, 0 grabs, 0 bites | no contact at all in ten days |
+| 404 | `0/2`, 150 grabs, 88 bites, 8,490 living ticks, 50.2% held, **0.0086 m/tick** | `0/2`, 152 grabs, **79** bites, **12,011** living ticks, **31.4%** held, **0.1038 m/tick** | 3 × blood loss |
+| 31337 | `3/2`, 46 grabs, 20 bites, 0.0374 m/tick | `3/2`, **6** grabs, **2** bites, 0.1035 m/tick | colony never touched on either tree |
+| 90210 | `0/2`, 166 grabs, 65 bites, 0.0169 m/tick | **`1/2`**, **65** grabs, **20** bites, **0.1041 m/tick** | 2 × blood loss |
+
+(The before column reproduces the previous slice's recorded figures exactly — 150/88 and 166/65,
+both `0/2` — so the two measurements are comparable.)
+
+**An escape is now worth what the open-field arithmetic always claimed.** Ground covered per
+break-away tick goes from a tenth of nominal to 0.104 against a nominal 0.105 on both hard seeds.
+90210 is **the first hard seed to stop wiping**; 31337's contact all but disappears; 404's colony
+lives 41% longer and spends a third rather than half of its life held.
+
+**The flag stays `false`, and residual three is now the whole of what is left.** 404 still ends
+`0/2` with all three deaths blood loss — and **126 presses begun, zero completed**. A press
+cancelled at every escape banks nothing, so a 400-tick deep-wound press has no reachable completion
+path while holds arrive every ~50 ticks. That is the fragments arithmetic the R5 inversion bought
+the hold count with, and it is the single measured thing between this loop and the flip.
+
+**Answered: a press banks the time it has already served (R8).** This reverses a rule that was
+deliberate and written down — `check_m2_treatment.gd`'s header said in as many words that a partial
+hold must never bank, and named the assertion that would fail if one did. R5's inversion is what
+made it untenable, and the reversal is on measurement rather than taste, the same way R5's own was.
+`treatment.cancel` now writes the ticks a `pressure` channel served onto the open wounds of the
+part it was aimed at (capped at that part's own pressure cost), and `begin` asks for what is left.
+The bank lives **on the wound**, not on the presser, so whoever presses next inherits it. Two
+exceptions carry the cost: a **stagger** banks nothing — R3 already singles it out as the one thing
+that takes your hand off your own arm — and **bandaging never banks**, because a dressing is
+applied, not accumulated. No decay, and cleared at completion and at `SimWounds.reopen`.
+
+`godot:m2:treatment`'s `_a_hold_broken_early_buys_nothing` was **renamed and extended** rather than
+deleted, so the vocabulary stays complete: it is now
+`_a_partial_hold_clots_nothing_and_banks_everything`, and it still fails if a released hold ever
+clots by itself. What it gained is the other half — the resumed press asks for 1 tick of 400 and
+goes on to clot — plus the true negative that stops R8 making pressure free: the identical hold
+ended by a **stagger** pays the full 400 again.
+
+Measured on the same driver, before and after, with one correction carried into both columns: the
+previous slice's "presses completed" counter watched `treatment.completed`, which is not an event
+this sim publishes. The real signal is `wound.treated`, and both columns below use it.
+
+| seed | before | after | how it ends |
+| --- | --- | --- | --- |
+| 20260805 | `3/2`, no contact | `3/2`, no contact | never touched |
+| 404 | `0/2`, 126 presses begun / **0 completed**, 12,011 living ticks, 152 grabs | `0/2`, 219 begun / **20 completed**, **14,834** living ticks, 197 grabs | 2 × blood loss, 1 × head destroyed |
+| 31337 | `3/2`, no presses | `3/2`, no presses | colony never touched |
+| 90210 | `1/2`, 121 begun / **0 completed**, 29,825 living ticks, 65 grabs | `1/2`, 327 begun / **21 completed**, **36,573** living ticks, 239 grabs | 1 × blood loss, 1 × head destroyed |
+
+Fragments now add up: ~11 cancelled presses compose into one clot, which is exactly the arithmetic
+the rule was picked for. Both hard seeds live about 23% longer, and grabs *rise* on both — a
+survivor who is alive longer is a survivor there is more time to grab, which is the counter reading
+correctly rather than a regression.
+
+**`GRABS_ENABLED` still stays `false`, and what is left is no longer a bug.** 404 ends `0/2`, and
+the remaining constraint is the shape of the colony rather than another contact-loop lever. The
+"rescue can never reach" finding from two slices ago has been **re-measured and is now only partly
+true**, which is worth stating plainly rather than repeating: with escapees actually covering
+ground, a free colonist is within `RESCUE_METRES` (1.6 m) of a held one for 135 ticks on 90210 and
+18 on 31337, closest approach 0.52 m and 0.21 m — where the previous measurement found no approach
+inside 6 m on any seed. **On 404 it still never reaches**: closest all campaign is 4.40 m, improved
+from 6.41 m and still nearly three times the radius. That colony simply never stands together, and
+moving it is **People and economy** work — a bigger colony, or one posted closer — rather than
+anything left in the contact loop. It is a design call about the shape of the slice, not a
+measurement waiting to be taken.
+
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the
-bloater's open-wound check — all written against a bite nothing currently produces. Cripple and
-stagger remain unwired: `shambler.gd` subscribes to neither `injury.sustained` nor
-`entity.staggered`.
+bloater's open-wound check — all written against a bite nothing currently produces. Cripple and stagger are **no longer
+unwired** (`godot:m2:contact`, STAGGER and CRIPPLE). Both were sockets cut and connected to
+nothing: `shambler.gd` had a `Staggered` state and a `ticksStaggered` countdown the state machine
+already handled and nothing could ever enter, and `crawlFactor` had been on the shambler component
+since it was written and read by nobody. docs/09 says what a stagger is for — "landing a solid hit
+interrupts the target … a staggered zombie isn't grabbing you" — so `shambler.stagger` now enters
+the state *and* breaks the hold, publishing `grab.broken` with a new `staggered` cause and arming
+the ordinary re-grab cooldown, so the answer to a grab is not one swing followed by an instant
+re-take. Acquisition already required `Pursue`, so a staggered shambler cannot take you again
+while it is down. Cripple goes through a new `SimShambler._speed_of`, one accessor rather than a
+multiply at each of the four places a stored speed becomes a used one, and it is **derived from
+the body every tick** (`SimHealth.is_crawling`) rather than latched off `injury.sustained` — a
+flag would have to be kept in step with amputation and save/load, and a derivation cannot drift.
+Measured: a legless shambler covers 0.420 m against an intact one's 1.680 m over the same window,
+a ratio of 0.250 against `crawlFactor` 0.25.
 
 **Still open, by system** (condensed from the retired backlog; the spec links in the slice-scope
 table above are the authority on each):
 
-- **World & map** — ~15 resource types, the three location loot tables, site depletion, food
-  spoilage.
+- **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
+  place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`
+  holds `residential`, `medical` and `military_cache` against a new `loot.schema.json`, each
+  declaring location, danger, roll count, tier weights and per-entry quantity ranges — docs/12's
+  "a loot table declares location type, resource weights, tier weights, and quantity ranges",
+  which that document already claimed was JSON while the code had it in two `const` arrays.
+  `SimBoot.place_loot` rolls them off a dedicated `lootTable` RNG stream (new randomness gets its
+  own stream, so a table edit cannot shift the tier sequence for everything spawned afterwards),
+  and the tier now comes from the *place* — a military cache rolls 1.000 above `scavenged` against
+  a kitchen drawer's 0.141, where both used to be flat `scavenged`. The district gained a medical
+  site so the third table is reachable in play. **Still open here:** ~15 resource types, and food
+  spoilage (the spoilage clock itself already exists in `needs.gd`; what is open is the
+  content-declared rules docs/12 describes). Site depletion landed with container search — see
+  Inventory below.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
@@ -435,8 +544,22 @@ table above are the authority on each):
 - **Combat** — firing at a remembered position (and what it costs), jamming on degraded weapons.
 - **Items** — attachments gaining a reader (content declares slots nothing reads), repair that never
   restores the full ceiling, and finishing continuous condition-degradation effects.
-- **Inventory** — searching world containers (a car boot, a cupboard), weight affecting footstep
-  noise.
+- **Inventory** — ~~searching world containers (a car boot, a cupboard)~~ and ~~site
+  depletion~~ **both landed** (`godot:check:loot`, CONTAINER and CONTAINER SITES). A map loot site
+  that declares `container` is not scattered at boot: `SimContainers` stands a `searchable` there
+  holding the same table, and it rolls when somebody opens it — the same `SimLoot` roller and the
+  same `lootTable` stream, so loose tins and the cupboard they were in draw from one distribution.
+  Reached through the ordinary `use.context` key, after loose items and before everything else, so
+  one key empties the cupboard and then picks the contents up. Depletion is that `searched` is set
+  once and cleared by nothing, which is docs/12's cut of respawn timers made mechanical rather
+  than merely intended; a second search refuses `already-searched`, distinguished from
+  `nothing-here` because those mean different things to somebody deciding whether a building is
+  worth the walk. The district ships a cupboard, a car boot and a supply locker. Searching is
+  **instant, not a channel** — recorded as a decision in the module header, with fortify's channel
+  named as the template if it ever needs to be interruptible. **Still open here:** weight affecting
+  footstep noise, and a container has **no renderer path** — it is announced by prose
+  (`SimContainers.hud_clause` in the HUD) and is otherwise invisible, the same as beds and
+  campfires, which is the Art track's open tile/prop renderer rather than a gap in this.
 - **Modification** — Duct Tape (reroll an affix), Scrap Kit (add an affix), skill- and
   trait-weighted outcomes, failure that consumes and damages.
 - **UI** — the diegetic condition and stamina readouts (in the world, not a corner), prose generated

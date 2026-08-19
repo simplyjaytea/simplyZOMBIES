@@ -97,6 +97,14 @@ static func _content_get(world: Variant, type_id: String, id: String) -> Variant
 static func _content_has(world: Variant, type_id: String, id: String) -> bool:
 	return _content_get(world, type_id, id) != null
 
+# The one canonical content accessor, made public. _content_get above already handles every shape
+# a world's `content` can take -- the flat path->JSON dictionary ContentLoader.load_tree returns, a
+# pre-indexed type->id map, and a registry object -- and other modules reaching for content need
+# exactly that and should not each grow their own copy of it. SimBoot.place_loot is the first
+# caller outside this file.
+static func content_entry(world: Variant, type_id: String, id: String) -> Variant:
+	return _content_get(world, type_id, id)
+
 static func _all_entries(world: Variant, type_id: String) -> Array:
 	var out: Array = []
 	if world == null:

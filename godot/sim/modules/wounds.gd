@@ -332,8 +332,13 @@ static func _reopen_from_overwork(world: Variant, entity: int, wounds: Array) ->
 		wd["bandage"] = "none"
 		wd["healedTicks"] = 0
 		# A reopened wound has no clot to fall back on: whatever stopped it the first time
-		# (pressure, a dressing) is undone, and clotsAtTick was already spent.
+		# (pressure, a dressing) is undone, and clotsAtTick was already spent. Treatment's R8
+		# bank goes with it for the same reason -- the pressure that closed this once has been
+		# torn out, so the next press starts from cold. The key is erased by name rather than
+		# through treatment.gd to keep this module's dependency direction intact: treatment reads
+		# wounds, not the other way round.
 		wd["clotsAtTick"] = -1
+		wd.erase("pressedTicks")
 		torn.append(wd)
 	return torn
 

@@ -55,7 +55,10 @@ func _run() -> void:
 	ok = _a_held_body_gets_its_breath_back() and ok
 	ok = _release_arms_the_regrab_cooldown() and ok
 	ok = _an_escape_opens_a_gap_the_cooldown_cannot_close() and ok
+	ok = _a_break_away_has_somewhere_to_go() and ok
 	ok = _the_dead_are_not_worth_chasing() and ok
+	ok = _a_stagger_is_a_hold_broken_and_a_beat_of_nothing() and ok
+	ok = _a_shambler_with_no_legs_crawls() and ok
 	ok = _a_held_survivor_can_answer_their_own_bleeding() and ok
 	ok = _struggling_and_pressing_are_not_the_same_hand() and ok
 	ok = _flight_cancels_the_press_and_the_press_comes_back() and ok
@@ -897,6 +900,22 @@ func _every_ended_hold_says_why() -> bool:
 		return false
 	causes["victim-died"] = true
 
+	# docs/09: "a staggered zombie isn't grabbing you." A stagger names its own cause rather than
+	# releasing silently, so a bus-only harness can tell a swing that saved somebody from a
+	# struggle that did.
+	var hit: Variant = _world(6650)
+	_no_struggling(hit)
+	var struck: int = _spawn_shambler(hit, 17.2, 16.5, 999.0)
+	if _step_until_held(hit, 40) < 0:
+		push_error("no hold formed for the stagger release")
+		return false
+	hit.events.publish({"type": "entity.staggered", "entity": struck, "ticks": 8})
+	var shoved: Array = _grab_broken_over(hit, hit.player, 1)
+	if shoved.size() != 1 or String((shoved[0] as Dictionary).get("cause", "")) != "staggered":
+		push_error("a staggered holder published %s, expected one cause=staggered" % str(shoved))
+		return false
+	causes["staggered"] = true
+
 	# True negative: a hold nothing ends says nothing. Unbreakable grip, every struggle intake
 	# silenced, two hundred ticks -- if `grab.broken` were published on anything other than a
 	# victim actually becoming free, this is where it would show.
@@ -1094,6 +1113,232 @@ func _an_escape_opens_a_gap_the_cooldown_cannot_close() -> bool:
 	print("CLEAR-AWAY OK break-away %.2f vs seek %.2f: %.3f m at the %d-tick cooldown, %.3f m at %d, no re-grab; standing still, re-grabbed after %d" % [
 		SimShambler.BREAK_AWAY_SPEED, seek, float(ran["at_cooldown"]), SimShambler.REGRAB_COOLDOWN_TICKS,
 		float(ran["gap"]), SimShambler.BREAK_AWAY_TICKS, int(stood["regrabbed_at"]),
+	])
+	return true
+
+
+# An escape has to have somewhere to go, and for five slices it did not.
+#
+# CLEAR-AWAY above measures the shove-off in open field, where straight-away is a fine heading.
+# The balance harness measures it where a colony actually lives, which is against the annex walls,
+# and there it was worthless: over three days of seed 404 the committed heading was blocked on
+# both axes on 86% of breakAway ticks and the survivor covered 0.010 m per tick against a nominal
+# 0.105. The gap the cooldown could not close in open field was never opened indoors at all.
+#
+# So the positive is a release with masonry directly behind the victim: the heading must come off
+# straight-away, and -- the half that actually matters -- the body must cover real ground, which
+# is measured against the same release with the fan's own answer forced back to straight-away.
+# That control is the shipped-before behaviour, and it must fail to move.
+#
+# The negative is the other direction and is equally load-bearing: the identical release in an
+# empty field must commit to straight-away *exactly*. A fan that perturbs a heading with nothing
+# wrong with it would pass the positive and quietly re-aim every escape in the game.
+func _a_break_away_has_somewhere_to_go() -> bool:
+	# A wall running the full height at x=25, with the victim pressed against its west face and
+	# the shambler due west of them -- so straight-away points east, into the wall, and the two
+	# headings that slide along it are +/-90 degrees off.
+	var walls: Array = _column(25, 20, 30)
+	var runs: Dictionary = {}
+	for arena in ["walled", "open"]:
+		var w: Variant = _world(9300, walls if arena == "walled" else [])
+		_no_struggling(w)
+		var npc: int = _spawn_npc(w, 24.5, 25.5)
+		var zed: int = _spawn_shambler(w, 23.8, 25.5, 999.0)
+		var formed: bool = false
+		for _i in 40:
+			w.step()
+			if w.components.has_component(npc, "grabbed"):
+				formed = true
+				break
+		if not formed:
+			push_error("no hold formed on the NPC in the %s arena, so there is no escape to measure" % arena)
+			return false
+		_pin_the_bite_clock(w, zed)
+		var from: Dictionary = (w.components.get_component(npc, "position") as Dictionary).duplicate()
+		SimShambler._release_victim(w, npc, "struggle", npc)
+		var flight: Variant = w.components.get_component(npc, "breakAway")
+		if not (flight is Dictionary):
+			push_error("a release in the %s arena armed no break-away at all" % arena)
+			return false
+		var committed: float = atan2(float((flight as Dictionary)["dy"]), float((flight as Dictionary)["dx"]))
+		# Straight-away is due east here by construction, so the deviation is the committed angle
+		# itself, wrapped into (-PI, PI].
+		var deviation: float = rad_to_deg(wrapf(committed - 0.0, -PI, PI))
+		var covered: float = _flown(w, npc, from, SimShambler.BREAK_AWAY_TICKS)
+		runs[arena] = {"deviation": deviation, "covered": covered}
+
+	# The control: the same walled release with the heading forced back to straight-away, which is
+	# what shipped before this slice. Without it, "covered 2.4 m" proves nothing about the fan --
+	# it could be a wall the integrator was never going to catch.
+	var control: float = _straight_away_into_the_wall(walls)
+
+	var walled: Dictionary = runs["walled"] as Dictionary
+	var open_field: Dictionary = runs["open"] as Dictionary
+	if absf(float(open_field["deviation"])) > 0.001:
+		push_error("in open field the shove-off deviated %.3f degrees from straight-away -- the fan is re-aiming escapes that had nothing wrong with them" % float(open_field["deviation"]))
+		return false
+	if absf(float(walled["deviation"])) < 1.0:
+		push_error("with a wall directly behind them the shove-off still committed to straight-away (deviation %.3f degrees)" % float(walled["deviation"]))
+		return false
+	if float(walled["covered"]) <= control + 1.0:
+		push_error("the fanned break-away covered %.3f m against the straight-away control's %.3f m -- not enough of a difference to be the fan" % [float(walled["covered"]), control])
+		return false
+	if control > 0.5:
+		push_error("the straight-away control covered %.3f m, so this arena does not reproduce the wall the fan exists for" % control)
+		return false
+	print("AWAY-CLEAR OK wall behind: heading came %.1f degrees off straight-away and flew %.2f m, where straight-away covers %.2f m; open field committed to straight-away exactly and flew %.2f m" % [
+		float(walled["deviation"]), float(walled["covered"]), control, float(open_field["covered"]),
+	])
+	return true
+
+
+# The same walled release, with the committed heading overwritten with straight-away a tick before
+# flight begins. Models the behaviour that shipped before the fan: everything else -- the speed,
+# the duration, the integrator, the shambler still seeking -- is identical.
+func _straight_away_into_the_wall(walls: Array) -> float:
+	var w: Variant = _world(9300, walls)
+	_no_struggling(w)
+	var npc: int = _spawn_npc(w, 24.5, 25.5)
+	var zed: int = _spawn_shambler(w, 23.8, 25.5, 999.0)
+	for _i in 40:
+		w.step()
+		if w.components.has_component(npc, "grabbed"):
+			break
+	_pin_the_bite_clock(w, zed)
+	var from: Dictionary = (w.components.get_component(npc, "position") as Dictionary).duplicate()
+	SimShambler._release_victim(w, npc, "struggle", npc)
+	var flight: Variant = w.components.get_component(npc, "breakAway")
+	if not (flight is Dictionary):
+		return -1.0
+	(flight as Dictionary)["dx"] = SimShambler.BREAK_AWAY_SPEED
+	(flight as Dictionary)["dy"] = 0.0
+	return _flown(w, npc, from, SimShambler.BREAK_AWAY_TICKS)
+
+
+# Straight-line distance from `from` after `ticks` more steps. Distance from the release point,
+# not path length: what an escape is worth is how far away it got, not how far it walked.
+func _flown(w: Variant, entity: int, from: Dictionary, ticks: int) -> float:
+	for _i in ticks:
+		w.step()
+	var now: Dictionary = w.components.get_component(entity, "position") as Dictionary
+	var dx: float = float(now["x"]) - float(from["x"])
+	var dy: float = float(now["y"]) - float(from["y"])
+	return sqrt(dx * dx + dy * dy)
+
+
+# docs/09 states the whole of what a stagger is for: "landing a solid hit interrupts the target ...
+# stagger is the actual survival mechanic in a crowd, because a staggered zombie isn't grabbing
+# you." Neither half was wired. shambler.gd had a `Staggered` state and a `ticksStaggered`
+# countdown the state machine already handled, and subscribed to no `entity.staggered`, so nothing
+# could ever enter it -- a state the game could leave but never reach.
+#
+# Three things are asserted, because "isn't grabbing you" is three claims: the hold it had comes
+# off, it stands still for the duration, and it may not simply take you again the moment it
+# recovers. The negative is the same arena with no stagger published, where the hold survives all
+# three windows -- without it this would pass on a shambler that had merely lost interest.
+func _a_stagger_is_a_hold_broken_and_a_beat_of_nothing() -> bool:
+	const STAGGER_TICKS: int = 8
+	var outcomes: Array = []
+	for staggered in [true, false]:
+		var w: Variant = _world(9400)
+		_no_struggling(w)
+		var zed: int = _spawn_shambler(w, 17.2, 16.5, 999.0)
+		if _step_until_held(w, 40) < 0:
+			push_error("no hold formed in the %s arena" % ("staggered" if staggered else "control"))
+			return false
+		_pin_the_bite_clock(w, zed)
+		if staggered:
+			w.events.publish({"type": "entity.staggered", "entity": zed, "ticks": STAGGER_TICKS})
+		w.step()
+		var freed: bool = not _held(w)
+		# Ground covered while the stagger runs. A staggered body is pinned by its own state
+		# machine, so this is the "beat of nothing" the clause promises, measured rather than read
+		# off the state field.
+		var from: Dictionary = (w.components.get_component(zed, "position") as Dictionary).duplicate()
+		for _i in STAGGER_TICKS:
+			w.step()
+		var now: Dictionary = w.components.get_component(zed, "position") as Dictionary
+		var moved: float = sqrt(pow(float(now["x"]) - float(from["x"]), 2.0) + pow(float(now["y"]) - float(from["y"]), 2.0))
+		# And whether it has you again by the time the re-grab cooldown lapses.
+		var retaken: bool = false
+		for _i in SimShambler.REGRAB_COOLDOWN_TICKS:
+			w.step()
+			retaken = retaken or _held(w)
+		outcomes.append({"freed": freed, "moved": moved, "retaken": retaken})
+
+	var shoved: Dictionary = outcomes[0] as Dictionary
+	var control: Dictionary = outcomes[1] as Dictionary
+	if not bool(shoved["freed"]):
+		push_error("a staggered holder kept its grip")
+		return false
+	if float(shoved["moved"]) > 0.001:
+		push_error("a staggered shambler covered %.4f m during its own stagger" % float(shoved["moved"]))
+		return false
+	if bool(shoved["retaken"]):
+		push_error("a staggered shambler had hold again within REGRAB_COOLDOWN_TICKS -- the release did not arm the cooldown")
+		return false
+	if not bool(control["freed"]) == false:
+		push_error("the control was not holding at all, so the release above proves nothing")
+		return false
+	if bool(control["freed"]):
+		push_error("the un-staggered control released anyway, so the stagger is not what freed the victim")
+		return false
+	print("STAGGER OK the hold came off, %.4f m covered over %d staggered ticks, no re-grab through the %d-tick cooldown; the un-staggered control held throughout" % [
+		float(shoved["moved"]), STAGGER_TICKS, SimShambler.REGRAB_COOLDOWN_TICKS,
+	])
+	return true
+
+
+# `crawlFactor` sat on the shambler component from the day it was written and was read by nothing,
+# so a shambler whose legs were destroyed kept walking at full speed. It is applied through
+# SimShambler._speed_of now -- one accessor, because there are four places a stored speed becomes
+# a used one and three of them is not enough.
+#
+# Measured on ground covered rather than on the factor being the number it was written with, and
+# the intact shambler in the identical arena is both the control and the denominator.
+func _a_shambler_with_no_legs_crawls() -> bool:
+	# Short enough that neither body arrives: an intact shambler covers 1.68 m in this window from
+	# a 3.0 m start, which keeps it inside RELEASE_METRES (so it stays in Pursue and keeps moving)
+	# and outside GRAB_METRES (so the run is not cut short by a hold).
+	const RUN_TICKS: int = 20
+	var covered: Array = []
+	for crippled in [true, false]:
+		var w: Variant = _world(9500)
+		_no_struggling(w)
+		var zed: int = _spawn_shambler(w, 19.5, 16.5, 999.0)
+		# Pursue explicitly rather than waiting for noise to summon it: this measures a speed, and
+		# which state machine branch got it moving is somebody else's assertion. canGrab off for
+		# the same reason -- a hold pins both bodies and would measure the grab instead.
+		var sd: Dictionary = w.components.get_component(zed, "shambler") as Dictionary
+		sd["state"] = SimShambler.ShamblerState["Pursue"]
+		sd["canGrab"] = false
+		if crippled:
+			var body: Dictionary = w.components.get_component(zed, "body") as Dictionary
+			if not body.has("legs"):
+				push_error("a shambler body has no `legs` part, so there is nothing to destroy")
+				return false
+			body["legs"] = 0.0
+		var from: Dictionary = (w.components.get_component(zed, "position") as Dictionary).duplicate()
+		for _i in RUN_TICKS:
+			w.step()
+		var now: Dictionary = w.components.get_component(zed, "position") as Dictionary
+		covered.append(sqrt(pow(float(now["x"]) - float(from["x"]), 2.0) + pow(float(now["y"]) - float(from["y"]), 2.0)))
+
+	var crawled: float = float(covered[0])
+	var walked: float = float(covered[1])
+	if walked <= 0.001:
+		push_error("the intact control never moved, so there is no speed to compare against")
+		return false
+	if crawled <= 0.001:
+		push_error("a crippled shambler stopped dead -- crawlFactor is a fraction of a speed, not a halt")
+		return false
+	var ratio: float = crawled / walked
+	var want: float = float(SimShambler.DEFAULT_LOCOMOTION["crawl"])
+	if absf(ratio - want) > 0.05:
+		push_error("a crippled shambler covered %.3f of the intact one's ground over %d ticks, expected crawlFactor %.2f" % [ratio, RUN_TICKS, want])
+		return false
+	print("CRIPPLE OK legs gone: %.3f m against the intact control's %.3f m over %d ticks, a ratio of %.3f against crawlFactor %.2f" % [
+		crawled, walked, RUN_TICKS, ratio, want,
 	])
 	return true
 
