@@ -568,8 +568,9 @@ table above are the authority on each):
   never** in a booted colony — an NPC settles into a standing Guard job (`ticksLeft` 0, no
   completion) and never picks again. It hooks `_tick_one` instead, after the needs-seek branch, so
   a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
-- **Attention leftovers** — ~~the sim half of last-known-position memory~~ **landed**
-  (`godot:m2:sight`, MEMORY / EXPIRY / PROSE), leaving director-varied nights. docs/28 rated this
+- **Attention leftovers** — ~~the sim half of last-known-position memory~~ and
+  ~~director-varied nights~~ **both landed** (`godot:m2:sight`, MEMORY / EXPIRY / PROSE;
+  `godot:m2:director`, VARIANCE / BOUNDS / SIDES). docs/28 rated this
   "Half": the renderer faded a mark where a body was last drawn and the simulation had no
   per-observer memory at all, so a colonist forgot a shambler the instant a wall intervened and
   no prose could say otherwise. `SimSightings` keeps one record per observer per body — a position
@@ -587,6 +588,31 @@ table above are the authority on each):
   now the one place a survivor gets a view and a memory. And the memory is stored as an **Array of
   records rather than a Dictionary keyed by entity**, because a component round-trips through JSON
   on every save and JSON has no integer keys.
+  **Varied nights** is the other half of the same bullet and a bigger change than it sounds. docs/17
+  says "the director doesn't pick a number for the night" — and it was picking a number: `size`
+  fell straight out of the day, the live count, colony power and the week's noise peak, none of
+  which the seed moves. The balance harness had been reporting **the same 3 sieges and 7 quiet
+  nights on every seed**, and check_m2_balance.gd's own comment already said the seed reached
+  nothing but the edge pick. A night is **drawn** from a weighted table now, conditioned on
+  strain: strain decides how hard the week leans, not what tonight is. Measured over 60 nights at
+  one seed: **quiet 21 / probe 16 / press 13 / siege 10**, longest siege run 2, longest quiet run
+  3. The shipped fast tier now varies seed to seed — sieges **2 / 1 / 3 / 2** where it was
+  3 / 4 / 3 / 3.
+  docs/17 rule 4's variance floor and ceiling are mechanical: `MAX_CONSECUTIVE_SIEGE` steps a
+  third siege down to a press, and the quiet floor steps a fourth quiet night up to a probe. The
+  floor **already existed and was unreachable** — `if size == 0 and nightsSinceQuiet >= …` sat
+  after an unconditional `size = BASE_SIZE`, so it was written, gated and dead. Rule 5 ("never
+  rubber-band silently") is why every dusk publishes `director.night {shape, drawn, size, side,
+  reason}`; `drawn` is what lets a gate tell a bound that fired from a night that never tested it.
+  Packets also **arrive where the field points** rather than always from the south: the noise
+  along each district edge picks the side, and a silent district gets a seeded pick rather than a
+  default. Measured across 60 nights: all four sides, 12 / 10 / 8 / 9.
+  Two findings. `entities.despawn` flips an alive bit and `components.query` does not consult it,
+  so a harness that despawned bodies without removing the component left every one of them in the
+  director's live count — which read as "56 quiet nights in a row". And **`SimDirector.snapshot_of`
+  was called by nothing**: `world.gd` hand-listed three director keys, so `lullFromTick` and
+  `weekPeakNoise` were written every night and dropped by every save. `world.gd` now copies the
+  director's scalars generically, so a future dial is saved without world.gd learning what it is.
 - **Health & injury** — ~~the remaining injury types (fracture, sprain, burn, concussion)~~
   **landed** (`godot:m2:wounds`, KINDS and CAUSES). docs/05's injury table has nine rows and three
   shipped, as *severities* of one bleeding wound. The four remaining are structurally different —
