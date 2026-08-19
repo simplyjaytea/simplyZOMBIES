@@ -917,6 +917,36 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   404 it still never does. That is a call about how the slice seats its people, not another lever
   in the contact loop.
 
+## Mood consequences are a decline, not a cliff
+
+- **A threshold was the shipped behaviour and it contradicted the spec.** Mood had one consequence
+  — at `-80` the survivor left — and nothing between "fine" and "gone". docs/04 describes the
+  opposite: "a slow, sour decline where the colony stops functioning ... more frightening and more
+  recoverable than a dramatic break". A cliff at -80 *is* the dramatic break. Hence bands, each
+  adding a consequence to the one below, read through one `SimNeeds.mood_band` so nothing compares
+  against a mood number of its own.
+- **Slower work is a skipped tick, not a multiplier.** `ticksLeft` is an integer countdown in
+  seven places, and a 0.75× multiplier on an integer is a rounding argument waiting to happen. The
+  skip is keyed off `world.tick`, so it needs no RNG at all — the mistake is the part that is a
+  gamble, and it should be the only part.
+- **Arguments are capped and decay, and that is the whole design.** An unbounded mood source would
+  let two miserable survivors drive each other past the leave threshold in a few minutes and empty
+  the colony, which is precisely the rage meltdown docs/04 rules out. Capped and draining, misery
+  spreads and sticks without becoming a spiral you cannot pull out of. The damage is also
+  deliberately **not symmetric** — the arguer loses nothing, because they are already miserable by
+  precondition and charging both sides makes any two unhappy people a spiral.
+- **Refusing jobs is a bounded sulk, not a priority threshold.** The obvious shape was "refuse
+  anything ranked below N", and it does not work: the Auto preset ranks every column at 3, so any
+  threshold refuses nothing or everything, and a survivor who downs tools entirely is the meltdown
+  again. A sulk drops the current assignment, idles for a bounded span, and expires on its own.
+- **Two things this slice found rather than introduced.** Job progress was seven copies of the same
+  two-line countdown — six chances for a consequence to apply nearly everywhere and miss one, the
+  same shape as the shambler speed reads. And hooking the refusal on `_pick` made it fire **exactly
+  never** in a booted colony: an NPC takes a standing Guard job (`ticksLeft` 0, no completion) on
+  the first tick and never picks again, so a gate that only asserted "a refusal is possible" would
+  have passed a consequence no player could ever meet. It hooks `_tick_one` now, placed after the
+  needs-seek branch so a sulking survivor still eats and sleeps — a refusal to work, not to live.
+
 ## Modification: what is data, what is code, and what stays a gamble
 
 - **A consumable's operation is content; the operation itself is code.** docs/11 asks for exactly
