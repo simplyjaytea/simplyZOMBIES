@@ -182,7 +182,7 @@ way. Read 30 before changing something that looks arbitrary.
   `presentation/appearance.gd` resolves it and falls back to role colours when there is no art.
   Never reintroduce a `if id == "zombie.x": col = ...` branch in the draw loop — that is what
   this replaced, and `godot:check:appearance` fails if the tints move back into code.
-  `godot/assets/sprites/README.md` has the 32×16 grid and anchor convention.
+  `godot/assets/sprites/README.md` has the top-down grid and anchor convention.
 - Prose is hand-wrapped; `.prettierignore` excludes `docs/` and `*.md` for that reason.
 - **A gate that cannot fail is worse than no gate.** Every assertion wants a true positive *and* a
   true negative — `check_ban_health_bar.gd` set the convention after a field that was always

@@ -1,12 +1,13 @@
 extends Node2D
-# R4 presentation — isometric district, camera, visibility, light, paperdoll glimpse,
+# R4 presentation — top-down district, camera, visibility, light, paperdoll glimpse,
 # grid inventory (Controls), keyboard/pointer/pause/speed/save. Reads sim, never writes it.
-# Port of src/render/* + src/ui/inventory.ts + src/main.ts split for Godot native.
-# ponytail: no atlases yet (circles/rects for bodies, diamonds for tiles). Add ModelSprites when art lands.
+# Port of src/render/* + src/ui/inventory.ts + src/main.ts split for Godot native;
+# projection since diverged to top-down (the TS oracle stays isometric, frozen).
+# ponytail: no atlases yet (circles/rects for bodies and tiles). Add ModelSprites when art lands.
 
 const WorldRes = preload("res://sim/world.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
-const IsoProjection = preload("res://presentation/projection.gd")
+const TopDownProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
@@ -34,17 +35,6 @@ const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
 const NIGHT_WASH: float = 0.8
 const MEMORY_TICKS: int = 60
-# Drawing heights (metres), not a z-axis. Walls tall enough to hide rooms; windows are a sill.
-const OCCLUDER_RISE: Dictionary = {
-	SimTileMap.Tile.Wall: 4.8,
-	SimTileMap.Tile.Window: 2.6,
-	SimTileMap.Tile.Screen: 3.6,
-	SimTileMap.Tile.Low: 0.7,
-	SimTileMap.Tile.Tree: 3.2,
-}
-const OCCLUDER_FADED_ALPHA: float = 0.28
-# When indoors, walls drop to a stub so the room stays readable (LOS still blocks outdoors).
-const INDOOR_WALL_RISE_M: float = 0.4
 
 var world: Variant = null
 var content: Dictionary = {}
@@ -93,12 +83,13 @@ var _last_dy: float = 0.0
 # sees the stance commands _push_stance sends.
 var _selected_stance: int = 2 # Walk
 
-const DIAG: float = 0.70710678
+# Cardinal: screen axes are world axes under the top-down projection, so W is
+# straight up. Holding two adjacent keys still sums to a diagonal, same as ever.
 const MOVE_KEYS: Dictionary = {
-	KEY_W: {"dx": -DIAG, "dy": -DIAG}, KEY_UP: {"dx": -DIAG, "dy": -DIAG},
-	KEY_S: {"dx": DIAG, "dy": DIAG}, KEY_DOWN: {"dx": DIAG, "dy": DIAG},
-	KEY_A: {"dx": -DIAG, "dy": DIAG}, KEY_LEFT: {"dx": -DIAG, "dy": DIAG},
-	KEY_D: {"dx": DIAG, "dy": -DIAG}, KEY_RIGHT: {"dx": DIAG, "dy": -DIAG},
+	KEY_W: {"dx": 0.0, "dy": -1.0}, KEY_UP: {"dx": 0.0, "dy": -1.0},
+	KEY_S: {"dx": 0.0, "dy": 1.0}, KEY_DOWN: {"dx": 0.0, "dy": 1.0},
+	KEY_A: {"dx": -1.0, "dy": 0.0}, KEY_LEFT: {"dx": -1.0, "dy": 0.0},
+	KEY_D: {"dx": 1.0, "dy": 0.0}, KEY_RIGHT: {"dx": 1.0, "dy": 0.0},
 }
 
 func _ready() -> void:
@@ -267,6 +258,17 @@ func _input(event: InputEvent) -> void:
 		var ke2: InputEventKey = event as InputEventKey
 		if MOVE_KEYS.has(ke2.keycode): _held.erase(ke2.keycode)
 		if ke2.keycode == KEY_SHIFT: _push_stance(_selected_stance)
+	# Wheel zoom through the fixed ladder -- power-of-two multiples of the art-native
+	# 64 so nearest-neighbour scaling never shimmers. Not while the inventory is open:
+	# the wheel belongs to the panel there.
+	if event is InputEventMouseButton and event.pressed and not inventory_open:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			CameraUtil.zoom_step(camera, 1)
+			queue_redraw()
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			CameraUtil.zoom_step(camera, -1)
+			queue_redraw()
 	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if world != null and not inventory_open:
 			world.commands.push({"type": "fire"})
@@ -461,107 +463,114 @@ func _draw() -> void:
 
 func _draw_district() -> void:
 	var zoom: float = float(camera["zoom"])
-	var half_w: float = zoom * float(IsoProjection.TILE_WIDTH_RATIO) / 2.0
-	var half_h: float = zoom * float(IsoProjection.TILE_HEIGHT_RATIO) / 2.0
+	var half: float = zoom / 2.0
 	var seen: Variant = null
 	if world.vision != null:
 		seen = world.vision.tiles_for(int(world.player))
-	var player_depth: float = -1e9
-	var player_sx: float = 0.0
-	var player_sy: float = 0.0
-	var player_indoors: bool = false
-	var ppos: Variant = world.components.get_component(world.player, "position")
-	if ppos is Dictionary:
-		var px: float = float((ppos as Dictionary)["x"])
-		var py: float = float((ppos as Dictionary)["y"])
-		player_depth = IsoProjection.depth_of(px, py)
-		var psc: Dictionary = IsoProjection.world_to_screen(camera, px, py)
-		player_sx = float(psc["sx"])
-		player_sy = float(psc["sy"])
-		if world.tilemap != null:
-			player_indoors = SimTileMap.is_indoors(world.tilemap, floori(px), floori(py))
-	# depth sort tiles by x+y (same as bodies)
-	var tiles: Array[Dictionary] = []
-	var bounds: Dictionary = IsoProjection.visible_bounds(camera, 2.0)
+	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
 	var min_x: int = maxi(0, floori(float(bounds["minX"])))
 	var max_x: int = mini(int(world.map_width) - 1, ceili(float(bounds["maxX"])))
 	var min_y: int = maxi(0, floori(float(bounds["minY"])))
 	var max_y: int = mini(int(world.map_height) - 1, ceili(float(bounds["maxY"])))
+	# Row-major, no sort: flat tiles never overlap. Bodies overlap tiles and each
+	# other; they sort in _draw_entities.
 	for ty in range(min_y, max_y + 1):
 		for tx in range(min_x, max_x + 1):
 			# Walls block sight: only draw tiles the player has a sightline to (windows stay Clear).
 			if seen != null and not (seen as Object).call("has_tile", tx, ty):
 				continue
-			tiles.append({"x": tx, "y": ty, "d": float(tx + ty), "blocked": world.is_blocked_tile(tx, ty)})
-	tiles.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
-	var max_visible_depth: float = -1e9
-	for t in tiles:
-		max_visible_depth = maxf(max_visible_depth, float(t["d"]))
-	for t in tiles:
-		var tx: int = int(t["x"]); var ty: int = int(t["y"])
-		var sc: Dictionary = IsoProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 0.5)
-		var sx: float = float(sc["sx"]); var sy: float = float(sc["sy"])
-		var tile: int = SimTileMap.Tile.Floor
-		var col: Color = Palette.COLOURS["floor"]
-		if world.tilemap != null:
-			tile = int(SimTileMap.tile_at(world.tilemap, tx, ty))
-			match tile:
-				SimTileMap.Tile.Wall:
-					col = Palette.COLOURS["wall"]
-				SimTileMap.Tile.Window:
-					col = Palette.COLOURS["window"]
-				SimTileMap.Tile.Screen:
-					col = Palette.COLOURS["screen"]
-				SimTileMap.Tile.Low:
-					col = Palette.COLOURS["low"]
-				SimTileMap.Tile.Tree:
-					col = Palette.COLOURS["tree"]
-			var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
-			if ov is Dictionary:
-				var kind: String = String((ov as Dictionary).get("kind", ""))
-				if kind == "board":
-					col = Palette.COLOURS["wall"] if int((ov as Dictionary).get("stage", 0)) < 3 else Palette.COLOURS["window"].lightened(0.15)
-					# Boarded window reads as wall height so you cannot peek through.
-					if int((ov as Dictionary).get("stage", 0)) < 3:
+			var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 0.5)
+			var rect := Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom)
+			var tile: int = SimTileMap.Tile.Floor
+			var col: Color = Palette.COLOURS["floor"]
+			if world.tilemap != null:
+				tile = int(SimTileMap.tile_at(world.tilemap, tx, ty))
+				match tile:
+					SimTileMap.Tile.Wall:
+						col = Palette.COLOURS["wall"]
+					SimTileMap.Tile.Window:
+						col = Palette.COLOURS["window"]
+					SimTileMap.Tile.Screen:
+						col = Palette.COLOURS["screen"]
+					SimTileMap.Tile.Low:
+						col = Palette.COLOURS["low"]
+					SimTileMap.Tile.Tree:
+						col = Palette.COLOURS["tree"]
+				var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+				if ov is Dictionary:
+					var kind: String = String((ov as Dictionary).get("kind", ""))
+					if kind == "board":
+						col = Palette.COLOURS["wall"] if int((ov as Dictionary).get("stage", 0)) < 3 else Palette.COLOURS["window"].lightened(0.15)
+						# Boarded window reads as wall so you cannot peek through.
+						if int((ov as Dictionary).get("stage", 0)) < 3:
+							tile = SimTileMap.Tile.Wall
+					elif kind == "scrap":
+						col = Palette.COLOURS["rubble"]
 						tile = SimTileMap.Tile.Wall
-				elif kind == "scrap":
-					col = Palette.COLOURS["rubble"]
-					tile = SimTileMap.Tile.Wall
-		elif bool(t["blocked"]):
-			col = Palette.COLOURS["wall"]
-			tile = SimTileMap.Tile.Wall
-		# diamond
-		var pts: PackedVector2Array = PackedVector2Array([
-			Vector2(sx, sy - half_h), Vector2(sx + half_w, sy),
-			Vector2(sx, sy + half_h), Vector2(sx - half_w, sy)
-		])
-		draw_colored_polygon(pts, col)
-		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["background"] * 0.9, 2.0)
-		var rise_m: float = float(OCCLUDER_RISE.get(tile, 0.0))
-		if player_indoors and (tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Screen or tile == SimTileMap.Tile.Window):
-			rise_m = minf(rise_m, INDOOR_WALL_RISE_M)
-		if rise_m <= 0.0:
-			continue
-		var rise: float = IsoProjection.metres_to_rise(rise_m, zoom)
-		var top_pts: PackedVector2Array = PackedVector2Array([
-			Vector2(sx, sy - half_h - rise), Vector2(sx + half_w, sy - rise),
-			Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)
-		])
-		# Near walls that cover the player fade so indoor play stays readable, but only if
-		# there are visible tiles behind them (otherwise outdoors facades fade over void).
-		var tile_depth: float = float(tx + ty)
-		var hides: bool = tile_depth > player_depth and absf(sx - player_sx) < half_w * 2.2 and player_sy > sy - rise - 16.0 and player_sy < sy + half_h + 16.0
-		var has_backdrop: bool = max_visible_depth > tile_depth + 0.01
-		if hides and has_backdrop:
-			col = Color(col.r, col.g, col.b, OCCLUDER_FADED_ALPHA)
-		# Windows: bright glass faces + rim so they read against masonry.
-		var is_window: bool = tile == SimTileMap.Tile.Window
-		var face: Color = col.lightened(0.28) if is_window else col.lightened(0.12)
-		draw_colored_polygon(top_pts, face)
-		draw_colored_polygon(PackedVector2Array([Vector2(sx - half_w, sy), Vector2(sx, sy + half_h), Vector2(sx, sy + half_h - rise), Vector2(sx - half_w, sy - rise)]), col.darkened(0.08 if is_window else 0.18))
-		draw_colored_polygon(PackedVector2Array([Vector2(sx, sy + half_h), Vector2(sx + half_w, sy), Vector2(sx + half_w, sy - rise), Vector2(sx, sy + half_h - rise)]), col.lightened(0.1) if is_window else col.darkened(0.08))
-		if is_window:
-			draw_polyline(top_pts + PackedVector2Array([top_pts[0]]), Color("#b8eaff"), 4.0)
+			elif world.is_blocked_tile(tx, ty):
+				col = Palette.COLOURS["wall"]
+				tile = SimTileMap.Tile.Wall
+			match tile:
+				SimTileMap.Tile.Wall, SimTileMap.Tile.Screen:
+					_draw_solid_tile(rect, col)
+				SimTileMap.Tile.Window:
+					_draw_solid_tile(rect, col)
+					_draw_window_glass(rect, tx, ty)
+				SimTileMap.Tile.Low:
+					_draw_floor_tile(rect, Palette.COLOURS["floor"])
+					# Inset block with floor showing around it reads as waist-high.
+					var inset: float = zoom * 0.15625
+					draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
+				SimTileMap.Tile.Tree:
+					_draw_floor_tile(rect, Palette.COLOURS["floor"])
+					var centre: Vector2 = rect.get_center()
+					draw_circle(centre, zoom * 0.42, col)
+					draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
+				_:
+					_draw_floor_tile(rect, col)
+
+# Floors are flat fill plus a hairline grid line.
+func _draw_floor_tile(rect: Rect2, col: Color) -> void:
+	draw_rect(rect, col)
+	draw_rect(rect, Palette.COLOURS["background"] * 0.9, false, 1.0)
+
+# Solid tiles (walls, screens, boards, scrap) get a bevel -- light along the top
+# and left, dark along the bottom and right -- so built mass reads as raised
+# without any standing geometry. This is the whole top-down wall convention.
+func _draw_solid_tile(rect: Rect2, col: Color) -> void:
+	draw_rect(rect, col)
+	var b: float = 2.0
+	var light: Color = col.lightened(0.18)
+	var dark: Color = col.darkened(0.22)
+	draw_rect(Rect2(rect.position, Vector2(rect.size.x, b)), light)
+	draw_rect(Rect2(rect.position, Vector2(b, rect.size.y)), light)
+	draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dark)
+	draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dark)
+
+# Windows: a bright glass pane + rim so they read against masonry. Orientation
+# follows the neighbouring walls; a corner window falls back to a square pane.
+func _draw_window_glass(rect: Rect2, tx: int, ty: int) -> void:
+	var glass: Color = (Palette.COLOURS["window"] as Color).lightened(0.28)
+	var horizontal_walls: bool = _is_solid_at(tx - 1, ty) and _is_solid_at(tx + 1, ty)
+	var vertical_walls: bool = _is_solid_at(tx, ty - 1) and _is_solid_at(tx, ty + 1)
+	var c: Vector2 = rect.get_center()
+	var pane_long: float = rect.size.x * 0.75
+	var pane_short: float = rect.size.x * 0.25
+	var pane: Rect2
+	if horizontal_walls and not vertical_walls:
+		pane = Rect2(c - Vector2(pane_long / 2.0, pane_short / 2.0), Vector2(pane_long, pane_short))
+	elif vertical_walls and not horizontal_walls:
+		pane = Rect2(c - Vector2(pane_short / 2.0, pane_long / 2.0), Vector2(pane_short, pane_long))
+	else:
+		pane = Rect2(c - Vector2(pane_short * 0.75, pane_short * 0.75), Vector2(pane_short * 1.5, pane_short * 1.5))
+	draw_rect(pane, glass)
+	draw_rect(pane, Color("#b8eaff"), false, 2.0)
+
+func _is_solid_at(tx: int, ty: int) -> bool:
+	if world.tilemap == null:
+		return false
+	var t: int = int(SimTileMap.tile_at(world.tilemap, tx, ty))
+	return t == SimTileMap.Tile.Wall or t == SimTileMap.Tile.Screen
 
 func _draw_entities() -> void:
 	if world == null: return
@@ -580,8 +589,9 @@ func _draw_entities() -> void:
 		if not is_player and not is_unique and not is_zed and not is_bait:
 			continue
 		# Walls / boards block; windows stay Clear — match sim vision, not camera frustum.
+		var det: int = SimVisibility.Detail.Focal
 		if not is_player and world.vision != null:
-			var det: int = int(world.vision.detail(int(world.player), x, y))
+			det = int(world.vision.detail(int(world.player), x, y))
 			if det == SimVisibility.Detail.Unseen:
 				continue
 			if det == SimVisibility.Detail.Peripheral:
@@ -589,8 +599,8 @@ func _draw_entities() -> void:
 				if vel is Dictionary and float((vel as Dictionary).get("dx", 0.0)) == 0.0 and float((vel as Dictionary).get("dy", 0.0)) == 0.0:
 					continue
 			_memory[int(ent)] = {"x": x, "y": y, "tick": int(world.tick)}
-		var sc: Dictionary = IsoProjection.world_to_screen(camera, x, y)
-		var depth: float = IsoProjection.depth_of(x, y)
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, x, y)
+		var depth: float = TopDownProjection.depth_of(x, y)
 		var ztype: String = ""
 		if is_zed:
 			var zt: Variant = world.components.get_component(int(ent), "zombieType")
@@ -603,7 +613,7 @@ func _draw_entities() -> void:
 			var ident: Variant = world.components.get_component(int(ent), "identity")
 			if ident is Dictionary:
 				cid = String((ident as Dictionary).get("id", ""))
-		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "ztype": ztype, "cid": cid, "id": int(ent)})
+		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "det": det, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "ztype": ztype, "cid": cid, "id": int(ent)})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
@@ -611,15 +621,20 @@ func _draw_entities() -> void:
 		var look: Dictionary = Appearance.for_entity(world, it)
 		var col: Color = look["tint"] as Color
 		var r: float = float(look["radius"])
+		# A peripheral glimpse is one anonymous shape: no sprite, no gear, no facing
+		# (docs/30 -- posture and facing are information the glimpse did not earn).
+		if int(it["det"]) == SimVisibility.Detail.Peripheral:
+			draw_circle(Vector2(sx, sy), r, Color(0.32, 0.38, 0.32, 0.75))
+			continue
 		# contact shadow — under both branches, so a sprite still sits on the ground.
-		draw_circle(Vector2(sx, sy + 6), r * 0.9, Color(0, 0, 0, 0.35))
+		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
 		var texture: Texture2D = look["texture"] as Texture2D
 		if texture != null:
-			# Feet-anchored: the sprite stands on the entity's ground position rather than
-			# being centred on it. Rounded so a 1:1 pixel sprite never lands on a half-pixel
-			# as the camera follows the player.
+			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
+			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
+			# lands on a half-pixel as the camera follows the player.
 			var size: Vector2 = texture.get_size()
-			var at := Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y))
+			var at := Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0))
 			var rect := Rect2(at, size)
 			# Equipped gear composites at the identical rect the body draws at -- an
 			# equipSprite is authored on the same feet-anchored canvas, so there is no
@@ -642,7 +657,8 @@ func _draw_entities() -> void:
 		var face: float = 0.0
 		if facing_v is Dictionary:
 			face = float((facing_v as Dictionary).get("radians", 0.0))
-		var screen_ang: float = face - PI * 0.5
+		# Screen axes are world axes under the top-down projection: no rotation.
+		var screen_ang: float = face
 		draw_line(
 			Vector2(sx, sy),
 			Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
@@ -659,7 +675,7 @@ func _draw_entities() -> void:
 				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, Color(0.85, 0.9, 1.0, 0.35), 2.8)
 				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 2.0)
 				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 2.0)
-	# ground items as lozenges — focal only (searching a room is an action)
+	# ground items as small squares — focal only (searching a room is an action)
 	for ent in world.components.query(["position", "itemBase"]):
 		if world.components.has_component(int(ent), "stored"): continue
 		var p: Variant = world.components.get_component(int(ent), "position")
@@ -667,18 +683,16 @@ func _draw_entities() -> void:
 		var ix: float = float((p as Dictionary)["x"]); var iy: float = float((p as Dictionary)["y"])
 		if world.vision != null and int(world.vision.detail(int(world.player), ix, iy)) != SimVisibility.Detail.Focal:
 			continue
-		var sc: Dictionary = IsoProjection.world_to_screen(camera, ix, iy)
-		var sx: float = float(sc["sx"]); var sy: float = float(sc["sy"])
-		var w: float = 12.0; var h: float = 6.4
-		var pts: PackedVector2Array = PackedVector2Array([Vector2(sx, sy - h), Vector2(sx + w, sy), Vector2(sx, sy + h), Vector2(sx - w, sy)])
-		draw_colored_polygon(pts, Palette.COLOURS["groundItem"])
-		draw_polyline(pts + PackedVector2Array([pts[0]]), Palette.COLOURS["groundItemEdge"], 2.0)
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, ix, iy)
+		var item_rect := Rect2(float(sc["sx"]) - 5.0, float(sc["sy"]) - 5.0, 10.0, 10.0)
+		draw_rect(item_rect, Palette.COLOURS["groundItem"])
+		draw_rect(item_rect, Palette.COLOURS["groundItemEdge"], false, 1.5)
 	# last-known marks fading
 	for eid in _memory.keys():
 		var m: Dictionary = _memory[eid] as Dictionary
 		var age: int = int(world.tick) - int(m["tick"])
 		if age <= 0 or age > MEMORY_TICKS: continue
-		var sc: Dictionary = IsoProjection.world_to_screen(camera, float(m["x"]), float(m["y"]))
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(m["x"]), float(m["y"]))
 		var a: float = 0.5 * (1.0 - float(age) / float(MEMORY_TICKS))
 		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(0.24, 0.29, 0.24, a))
 

@@ -320,12 +320,17 @@ Four things, and one correction to a prediction this document made.
   constant while walls were the only thing with a height. A body standing in front of a wall has to
   rise at the same rate or it reads as the wrong size for the district, which is the projection's
   own argument -- one answer, because the place two pieces of code disagree is the place the bug
-  lives -- arriving one layer down.
+  lives -- arriving one layer down. *(Superseded by the top-down reversal below: with no vertical
+  axis to draw, `metres_to_rise` and `RISE_SCALE` are deleted rather than moved. The "one answer"
+  principle it argued for is what survives.)*
 - **The depth tie is the renderer's to break, not the projection's.** `depthOf` still ties for
   anything on the same diagonal and its test still says so, because that genuinely *is* the ordinary
   isometric ambiguity. Flat squares never showed it; standing bodies do. So the comparator resolves
   it -- occluder, body, player, entity id -- and the player sorting last on a tie is a fairness
   property rather than a cosmetic one: a shambler at identical depth must never hide you.
+  *(Superseded by the top-down reversal below: depth is now `y` alone and tiles left the depth
+  pass entirely, so the only tie left is two bodies on one row, where draw order is invisible --
+  their sprites share a baseline.)*
 - **A ground decal cannot live in the depth pass.** The swing wedge was drawn inside the player's
   own slot, which was correct while a body was a mark on a tile and wrong the moment bodies stood
   up: a mark on the floor was painting over the legs of anyone further along the diagonal. Anything
@@ -618,6 +623,11 @@ about.
 
 ## What the outline figure changed
 
+- *(Note from the top-down reversal, 2026-08: the "hostile camera" premise below is moot -- the
+  world view is now flat too. The paperdoll stays exactly as it is, because the argument that
+  actually decided it was never the camera but the job: a readout whose purpose is to say **which
+  part** wants a face-on diagram with every part in the same place every time, and no world
+  camera, isometric or top-down, is that diagram.)*
 - **The paperdoll is a diagram now, not a portrait, and the reason is the camera.** The record
   above — "one body, drawn at two sizes, rather than two bodies" — is reversed here on purpose, so
   it is worth being precise about what was wrong with it. The argument for reusing `drawHumanoid`
@@ -873,6 +883,41 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   docs/23 carries the seed-by-seed numbers and the three named residuals — chief among them that a
   break-away released against a wall covers 0.010 m per tick rather than 0.105, because its heading
   is taken once and `movement.integrate` zeroes a blocked axis.
+
+## What the top-down reversal made structural
+
+The projection moved from isometric 2:1 to flat top-down (docs/00 carries the reversal argument;
+this section carries what the change turned out to be made of).
+
+- **The projection is four functions now, and a gate holds them.** `world_to_screen`,
+  `screen_to_world`, `depth_of`, `visible_bounds` -- identity scale, its inverse, `y`, and the
+  camera AABB. Everything else in `projection.gd` (`metres_to_rise`, `project_angle`,
+  `projected_radii`, the raster helpers) existed to serve a skewed axis and is deleted, not
+  ported. `check_topdown.gd` (`TOPDOWN_OK`, in the `godot:m2` chain) pins the axes, the
+  round-trip, and depth-is-y; each assertion fails against the old isometric maths, which is the
+  true negative the gate convention demands. The TS oracle keeps its isometric
+  `projection.test.ts` frozen -- the parity ledger row is `replacement`, not `exact-port`.
+- **Occlusion management was the isometric view's real price, and it deletes whole.** The wall
+  extrusion, the fade heuristic for walls covering the player, the indoor stub height, and the
+  per-frame depth sort over every visible tile all existed to manage what standing geometry hides.
+  A top-down camera hides nothing, so none of them have a replacement -- built mass reads from a
+  2 px bevel on a flat fill instead. What must *not* be confused with them is sim vision:
+  `tiles_for` / `detail` gating survives untouched, because walls blocking *sight* is the
+  simulation's fact, and walls blocking *view* was only ever the camera's.
+- **The anonymity rule now binds facing indicators, and the code finally agrees.** The glimpse
+  rule above -- one anonymous shape, no posture, no limbs, no facing -- was being skirted by the
+  renderer, which drew a moving peripheral body with its full sprite, gear, and facing line. Under
+  top-down every drawn body would otherwise advertise its heading, so the rule is now enforced at
+  the draw site: a `Peripheral`-detail body is a flat untyped disc, and sprite, equipment, and
+  facing are `Focal`-only. A tightening, recorded here because it changes what a player sees.
+- **WASD stopped lying.** The 45-degree input rotation (`DIAG`) existed to make screen-up out of
+  world-diagonal. Screen axes are world axes now; the keys are cardinal unit vectors and the sim
+  sees the same command shape it always did.
+- **The interim art convention is upright-on-flat, on purpose.** The five shipped 64×96
+  feet-anchored figures keep drawing unchanged on the flat floor -- an upright pawn over a
+  top-down tile is precisely the RimWorld read -- so the projection could land without waiting on
+  art. The 64×64 centre-anchored canvas that replaces them is its own decision, taken with the
+  regenerated sprites in the same commit so the two conventions never coexist.
 
 ---
 
