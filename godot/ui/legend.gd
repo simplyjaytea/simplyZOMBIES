@@ -25,9 +25,11 @@ const GROUPS: Array = [
 		["Z / X / C / V", "crawl, crouch, walk, jog"],
 	]],
 	["Act", [
+		["Mouse", "aim — you turn to the cursor while standing; moving, you face where you go"],
+		["Click", "attack: fires if a gun or bow is in hand, swings if not"],
 		["F", "swing, or struggle out of a grab"],
 		["H", "pull someone out of a grab"],
-		["G / click", "fire"],
+		["G", "fire"],
 		["R", "reload"],
 		["E", "pick up"],
 		["T", "first aid — bandage if you have one, bare hands if not; again to stop"],

@@ -133,6 +133,9 @@ switch (mode) {
   case "--m2-gear":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_gear.gd"];
     break;
+  case "--m2-swipe":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_swipe.gd"];
+    break;
   case "--m2-attach":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_attach.gd"];
     break;

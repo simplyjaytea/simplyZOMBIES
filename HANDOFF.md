@@ -13,11 +13,14 @@ is** lives in [docs/30](docs/30-decisions.md). **What must not be broken** lives
 
 ## State, as of 2026-08-19
 
-`main` is green: `npm run godot:m2` chains **30 gates**, and CI's `check` job runs those plus the
+`main` is green: `npm run godot:m2` chains **32 gates**, and CI's `check` job runs those plus the
 frozen TypeScript oracle (45 files / 594 tests), typecheck, lint and format. The last merged change
-is PR #91.
+is PR #94 (the inventory/UI rework and the 12-slot gear taxonomy).
 
-The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight.
+The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight — and
+as of the basic-combat slice, **zombies can hurt you**: a shambler in arm's reach claws on a
+three-second cadence, wounds bleed, and the treatment loop is live in ordinary play. Grabs — and
+with them infection — remain behind `GRABS_ENABLED`, untouched.
 
 ## What landed in the last session
 
@@ -35,6 +38,14 @@ Six slices, working down docs/23's open list. Each names the gate that proves it
 After those, one presentation-only slice: the **inventory/UI rework** — moveable, pinnable bag
 windows, the Esc settings sheet, the shared `ui/chrome.gd` skin, the paperdoll glimpse to the
 bottom-left. No sim files were touched; docs/23's UI bullet has the detail and what remains.
+
+Then the **basic-combat slice** (`godot:m2:swipe`, plus INSTINCT in `godot:m2:npc`): the swipe —
+a part-scaled claw on a cadence, the one zombie damage path outside the grab flag — mouse aim and
+click-to-attack, boot wanderers 12 → 20 with night packets `[0,3,6,9]` under a cap of 32, and the
+three rules the diagnosis driver forced (a hit interrupts a first-aid channel and banks; self-aid
+refuses to kneel with a claw in reach; break-off narrows to cornered defense instead of surrender,
+and an unattended player defends on instinct). docs/23's "Basic combat is live" entry carries the
+seed-by-seed measurement.
 
 ## What is waiting on the owner, not on code
 

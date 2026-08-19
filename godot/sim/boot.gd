@@ -41,7 +41,10 @@ const SimDebugMod = preload("res://sim/modules/debug.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
-const WANDERERS: int = 12
+# 20, up from 12 in the basic-combat slice: with swipes live a wanderer is a threat rather than
+# scenery, and the district read as empty at 12 across a 64-tile map. check_m2_director.gd pins
+# this number exactly -- change both together.
+const WANDERERS: int = 20
 
 
 # Last world that called attach_kernel. Headless gates boot one world at a time.

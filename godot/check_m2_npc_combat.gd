@@ -37,8 +37,9 @@ func _run() -> void:
 	ok = _a_guard_engages_without_leaving_its_post() and ok
 	ok = _a_shambler_with_someone_in_its_hands_is_shot_first() and ok
 	ok = _hands_before_weapons_when_somebody_is_being_held() and ok
+	ok = _an_unattended_survivor_answers_the_claw() and ok
 	if ok:
-		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue")
+		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue instinct")
 		quit(0)
 	else:
 		push_error("M2_NPC_COMBAT_FAIL")
@@ -198,35 +199,109 @@ func _ranged_npc_spends_its_ammunition() -> bool:
 
 
 func _critically_injured_breaks_off() -> bool:
-	# Positive control first: this exact body, this exact placement, does fight. Without it the
-	# negative below would pass on a module that never fired at all.
-	var w: Variant = _arena()
-	var whole: int = _npc(w, 10.0, 10.0)
-	SimInventory.equip(w, whole, SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"}))
-	_zombie(w, 10.9, 10.0)
-	var fought: int = _swings(w, whole, 300)
-	if fought < 1:
-		push_error("whole NPC did not fight, so the break-off test proves nothing")
+	# Break-off is disengagement, not surrender -- the swipe slice split this claim in two.
+	# While zombies had no offense, "stand down" and "stand there" were the same thing; the
+	# moment they could claw, an NPC that crossed BadlyHurt fell out of npc.combat entirely and
+	# was ground down at arm's length, one swing answered in 2,460 ticks of contact. So the
+	# break-off now narrows the envelope rather than closing it, and this gate holds both
+	# halves: at range the critically injured spend nothing, and cornered they still fight.
+	#
+	# At range first, with its own positive control: a whole archer spends arrows on an
+	# approaching threat, a critically injured one holds them.
+	var whole_fired: int = _fires_at([], -1)
+	if whole_fired < 1:
+		push_error("whole archer did not fire, so the break-off test proves nothing")
+		return false
+	var broken_fired: int = _fires_at([], SimNpcCombat.BREAK_OFF_STATE)
+	if broken_fired != 0:
+		push_error("critically injured archer spent %d arrows -- break-off must refuse engagement at range" % broken_fired)
 		return false
 
+	# Cornered: the same critical wound with a claw already inside knife reach still swings.
 	var w2: Variant = _arena()
 	var hurt: int = _npc(w2, 10.0, 10.0)
 	SimInventory.equip(w2, hurt, SimItems.spawn_item(w2, "item.knife.kitchen", {"tier": "scavenged"}))
 	_wound_to(w2, hurt, "arm_right", SimNpcCombat.BREAK_OFF_STATE)
 	_zombie(w2, 10.9, 10.0)
-	var broken: int = _swings(w2, hurt, 300)
-	if broken != 0:
-		push_error("critically injured NPC connected %d times" % broken)
+	var cornered: int = _swings(w2, hurt, 300)
+	if cornered < 1:
+		push_error("cornered critically injured NPC stood down -- surrender is not what break-off means")
 		return false
 
 	# And traits move the threshold by a rung rather than changing the decision: at a merely
-	# Hurt arm the squeamish survivor is done and the ordinary one is not.
-	var squeamish_swings: int = _fights_at(["squeamish"], SimHealth.PartState.Hurt)
-	var ordinary_swings: int = _fights_at([], SimHealth.PartState.Hurt)
-	if squeamish_swings != 0 or ordinary_swings < 1:
-		push_error("trait threshold wrong: squeamish=%d ordinary=%d at Hurt" % [squeamish_swings, ordinary_swings])
+	# Hurt arm the squeamish survivor holds fire and the ordinary one looses.
+	var squeamish_fired: int = _fires_at(["squeamish"], SimHealth.PartState.Hurt)
+	var ordinary_fired: int = _fires_at([], SimHealth.PartState.Hurt)
+	if squeamish_fired != 0 or ordinary_fired < 1:
+		push_error("trait threshold wrong: squeamish=%d ordinary=%d at Hurt" % [squeamish_fired, ordinary_fired])
 		return false
-	print("BREAKOFF OK whole=%d broken=%d squeamish=%d ordinary=%d" % [fought, broken, squeamish_swings, ordinary_swings])
+	print("BREAKOFF OK whole=%d broken=%d cornered=%d squeamish=%d ordinary=%d" % [whole_fired, broken_fired, cornered, squeamish_fired, ordinary_fired])
+	return true
+
+
+# Instinct defense: the controlled survivor, unattended, answers a Pursuing claw in melee reach
+# with the swing a key press would have started -- npc.instinct-defense, the struggle instinct's
+# twin. Three claims: it fires, it does not fire early, and two silences -- any command at all,
+# and a shambler that has not noticed anybody (which is what keeps instinct from ever *opening* a
+# fight, or costing a hidden player their silence).
+func _an_unattended_survivor_answers_the_claw() -> bool:
+	var w: Variant = _arena()
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	SimInventory.make_inventory(w, w.player)
+	SimInventory.equip(w, w.player, SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"}))
+	var z: int = _zombie(w, 2.9, 2.0)
+	(w.components.get_component(z, "shambler") as Dictionary)["state"] = SimShambler.ShamblerState["Pursue"]
+	var connected: int = 0
+	var first_at: int = -1
+	for t in range(1, 201):
+		w.step()
+		for e in w.events.drained:
+			if String((e as Dictionary).get("type", "")) == "attack.connected" and int((e as Dictionary).get("attacker", -1)) == int(w.player):
+				connected += 1
+				if first_at < 0:
+					first_at = t
+	if connected < 1:
+		push_error("INSTINCT: an unattended armed survivor never answered the claw on them")
+		return false
+	if first_at < SimNpcCombat.DEFEND_INSTINCT_TICKS:
+		push_error("INSTINCT: the first swing connected on tick %d, before DEFEND_INSTINCT_TICKS %d -- instinct must wait for the player's own answer" % [first_at, SimNpcCombat.DEFEND_INSTINCT_TICKS])
+		return false
+
+	# A player who is present -- any command, even a wait -- is never overridden.
+	var w2: Variant = _arena()
+	w2.components.set_component(w2.player, "facing", {"radians": 0.0})
+	SimInventory.make_inventory(w2, w2.player)
+	SimInventory.equip(w2, w2.player, SimItems.spawn_item(w2, "item.knife.kitchen", {"tier": "scavenged"}))
+	var z2: int = _zombie(w2, 2.9, 2.0)
+	(w2.components.get_component(z2, "shambler") as Dictionary)["state"] = SimShambler.ShamblerState["Pursue"]
+	var attended: int = 0
+	for _t in 200:
+		w2.commands.push({"type": "wait"})
+		w2.step()
+		for e2 in w2.events.drained:
+			if String((e2 as Dictionary).get("type", "")) == "attack.connected" and int((e2 as Dictionary).get("attacker", -1)) == int(w2.player):
+				attended += 1
+	if attended != 0:
+		push_error("INSTINCT: instinct swung %d times over a player who was issuing commands" % attended)
+		return false
+
+	# And a claw that has not noticed anybody draws nothing: instinct defends a fight that is
+	# already on, it never starts one.
+	var w3: Variant = _arena()
+	w3.components.set_component(w3.player, "facing", {"radians": 0.0})
+	SimInventory.make_inventory(w3, w3.player)
+	SimInventory.equip(w3, w3.player, SimItems.spawn_item(w3, "item.knife.kitchen", {"tier": "scavenged"}))
+	_zombie(w3, 2.9, 2.0)
+	var oblivious: int = 0
+	for _t in 200:
+		w3.step()
+		for e3 in w3.events.drained:
+			if String((e3 as Dictionary).get("type", "")) == "attack.connected" and int((e3 as Dictionary).get("attacker", -1)) == int(w3.player):
+				oblivious += 1
+	if oblivious != 0:
+		push_error("INSTINCT: instinct opened a fight with a Wandering shambler %d times" % oblivious)
+		return false
+	print("INSTINCT OK first at %d (>= %d), %d connects; attended=%d oblivious=%d" % [first_at, SimNpcCombat.DEFEND_INSTINCT_TICKS, connected, attended, oblivious])
 	return true
 
 
@@ -242,13 +317,20 @@ func _wound_to(w: Variant, ent: int, part: String, state: int) -> void:
 			return
 
 
-func _fights_at(traits: Array, state: int) -> int:
+# Arrows spent by an archer with `traits`, wounded to `state` on one arm (-1 leaves them whole),
+# against a threat approaching from well outside melee reach -- the engagement half of break-off.
+func _fires_at(traits: Array, state: int) -> int:
 	var w: Variant = _arena()
 	var ent: int = _npc(w, 10.0, 10.0, traits)
-	SimInventory.equip(w, ent, SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"}))
-	_wound_to(w, ent, "arm_right", state)
-	_zombie(w, 10.9, 10.0)
-	return _swings(w, ent, 300)
+	SimInventory.equip(w, ent, SimItems.spawn_item(w, "item.bow.hunting", {"tier": "scavenged"}))
+	SimInventory.stow(w, ent, SimItems.spawn_item(w, "item.ammo.arrow", {"tier": "scavenged", "count": 12}))
+	if state >= 0:
+		_wound_to(w, ent, "arm_right", state)
+	var before: int = _arrows(w, ent)
+	_zombie(w, 18.0, 10.0)
+	for _t in 300:
+		w.step()
+	return before - _arrows(w, ent)
 
 
 func _distance_and_silence_are_both_negative_controls() -> bool:
