@@ -568,7 +568,25 @@ table above are the authority on each):
   never** in a booted colony — an NPC settles into a standing Guard job (`ticksLeft` 0, no
   completion) and never picks again. It hooks `_tick_one` instead, after the needs-seek branch, so
   a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
-- **Attention leftovers** — the sim half of last-known-position memory, and director-varied nights.
+- **Attention leftovers** — ~~the sim half of last-known-position memory~~ **landed**
+  (`godot:m2:sight`, MEMORY / EXPIRY / PROSE), leaving director-varied nights. docs/28 rated this
+  "Half": the renderer faded a mark where a body was last drawn and the simulation had no
+  per-observer memory at all, so a colonist forgot a shambler the instant a wall intervened and
+  no prose could say otherwise. `SimSightings` keeps one record per observer per body — a position
+  and a tick, never a track — with a two-minute horizon and three staleness bands. The prose
+  degrades in its **counting** as well as its clock ("two of them, east, a moment ago" becomes
+  "a few of them, east, a while ago"), which is docs/28's degradation and clause 4's refusal to
+  hand out unearned precision in the same table; there is no distance in it, because a remembered
+  distance is exactly the number nobody has. Watching something fall erases its record while a
+  kill out of sight leaves it standing, and that asymmetry is the model in one line. The renderer
+  now reads the sim's memory rather than keeping its own dictionary — a mark on the ground and a
+  colonist's decision have to be the same recollection.
+  Two findings worth keeping. **Only the player had eyes**: `boot.playable` set one `observer` and
+  nothing else got any, so every per-observer question about a colonist was being asked about a
+  view that did not exist — the sixth dead socket this milestone, and `SimSurvivors.give_eyes` is
+  now the one place a survivor gets a view and a memory. And the memory is stored as an **Array of
+  records rather than a Dictionary keyed by entity**, because a component round-trips through JSON
+  on every save and JSON has no integer keys.
 - **Health & injury** — ~~the remaining injury types (fracture, sprain, burn, concussion)~~
   **landed** (`godot:m2:wounds`, KINDS and CAUSES). docs/05's injury table has nine rows and three
   shipped, as *severities* of one bleeding wound. The four remaining are structurally different —
@@ -634,7 +652,27 @@ table above are the authority on each):
   budget pull without adding a death path to a lethality model whose balance is the thing currently
   standing between `GRABS_ENABLED` and its flip — making sepsis kill is a balance decision with a
   measurement attached, not a detail to slip in beside the mechanic.
-- **Combat** — firing at a remembered position (and what it costs). ~~Jamming on degraded
+- **Combat** — ~~firing at a remembered position (and what it costs)~~ **landed**
+  (`godot:m2:sight`, SIGHT / NO-EYES / RECALL-FIRE), together with the rule it depends on. docs/09
+  says aiming "inherits visibility wholesale" and `_fire_shot` inherited none of it — a shot was a
+  cone test against live positions, so a round went through a wall and connected.
+  `SimRanged.can_target` is the one refusal, asked by the shot and by
+  `npc_combat._nearest_threat`, which is where npc_combat.gd's own note said it should land
+  rather than being answered twice. It tests
+  **geometry, not the facing arc** (`SimVisibility.line_of_sight`): a wall stops a bullet and
+  peripheral vision does not, and an arc test would have left an NPC unable to swing at something
+  standing behind it. It is **permissive for a shooter with no `observer` at all**, which is what
+  keeps every pre-sightlines ranged fixture honest instead of silently missing — NO-EYES is that
+  assertion. Firing at a remembered position then costs exactly what docs/09 prices it at and not
+  a tick more, because the noise, the flash and the spent round all precede the hit test already;
+  the only thing added is the *decision*, which the player always had by pointing and pressing F
+  and an NPC now takes when nothing is visible and the memory is still inside the Recent band.
+  **Measured cost to the colony: none, and the measurement is weaker than it looks.** The shipped
+  fast tier is unchanged seed for seed (0 / 6 / 0 / 1 kills, 2/2 survivors on all four) after
+  giving every colonist eyes and refusing shots through walls — but every one of those kills is
+  melee (`m6/r0`), so the tier records that the sightline rule cost nothing, not that it was
+  exercised. A ranged reading needs the full grid, which is still deferred.
+  ~~Jamming on degraded
   weapons~~ **landed** (`godot:m2:ranged`, JAM and CLEAR). Condition already scaled melee and
   ranged damage, so a pistol at 10% was a slightly weaker pistol rather than one you could not
   trust; docs/09 asks for the other half — "degraded firearms jam, and clearing a jam takes longer

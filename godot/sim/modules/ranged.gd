@@ -313,6 +313,31 @@ static func _consume_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
 	return false
 
 
+# "What you cannot see, you cannot aim at" -- docs/09-combat.md. The one answer, here rather than
+# in npc_combat.gd, because npc_combat.gd's own note says a private line-of-sight check there
+# would be the second answer docs/28 warns about: the player and the colony have to be refused by
+# the same rule or the rule is a difficulty setting.
+#
+# Geometry and range, not the facing arc -- see `SimVisibility.line_of_sight`. A wall stops a
+# bullet; a survivor's peripheral vision does not, and the firing cone is already centred on
+# facing, so an arc test here would only ever produce the case where the thing inside your sights
+# is not the thing you are allowed to hit.
+#
+# **Permissive with no eyes at all.** A shooter with no `observer` has no view to consult, and a
+# fixture that spawns a body, a weapon and a target is not making a statement about sightlines.
+# `tiles_for` is the one call that separates "no eyes" from "eyes, and a wall between us", which
+# is why the refusal is written against it rather than against `line_of_sight` returning false.
+static func can_target(world: Variant, shooter: int, x: float, y: float) -> bool:
+	if world == null:
+		return true
+	var vision: Variant = world.vision if "vision" in world else null
+	if vision == null:
+		return true
+	if vision.call("tiles_for", shooter) == null:
+		return true
+	return bool(vision.call("line_of_sight", shooter, x, y))
+
+
 static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: Variant) -> void:
 	if String(weapon.get("ammo", "")) != "":
 		if not _consume_ammo(world, attacker, String(weapon["ammo"])):
@@ -353,6 +378,8 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 			continue
 		var cosine: float = (dx * facing_x + dy * facing_y) / sqrt(dist_sq)
 		if cosine < cos_half:
+			continue
+		if not can_target(world, attacker, float((there as Dictionary)["x"]), float((there as Dictionary)["y"])):
 			continue
 		if dist_sq < best_dist:
 			best_dist = dist_sq
