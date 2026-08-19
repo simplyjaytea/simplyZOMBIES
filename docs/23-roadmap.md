@@ -479,9 +479,21 @@ measurement waiting to be taken.
 
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the
-bloater's open-wound check — all written against a bite nothing currently produces. Cripple and
-stagger remain unwired: `shambler.gd` subscribes to neither `injury.sustained` nor
-`entity.staggered`.
+bloater's open-wound check — all written against a bite nothing currently produces. Cripple and stagger are **no longer
+unwired** (`godot:m2:contact`, STAGGER and CRIPPLE). Both were sockets cut and connected to
+nothing: `shambler.gd` had a `Staggered` state and a `ticksStaggered` countdown the state machine
+already handled and nothing could ever enter, and `crawlFactor` had been on the shambler component
+since it was written and read by nobody. docs/09 says what a stagger is for — "landing a solid hit
+interrupts the target … a staggered zombie isn't grabbing you" — so `shambler.stagger` now enters
+the state *and* breaks the hold, publishing `grab.broken` with a new `staggered` cause and arming
+the ordinary re-grab cooldown, so the answer to a grab is not one swing followed by an instant
+re-take. Acquisition already required `Pursue`, so a staggered shambler cannot take you again
+while it is down. Cripple goes through a new `SimShambler._speed_of`, one accessor rather than a
+multiply at each of the four places a stored speed becomes a used one, and it is **derived from
+the body every tick** (`SimHealth.is_crawling`) rather than latched off `injury.sustained` — a
+flag would have to be kept in step with amputation and save/load, and a derivation cannot drift.
+Measured: a legless shambler covers 0.420 m against an intact one's 1.680 m over the same window,
+a ratio of 0.250 against `crawlFactor` 0.25.
 
 **Still open, by system** (condensed from the retired backlog; the spec links in the slice-scope
 table above are the authority on each):
