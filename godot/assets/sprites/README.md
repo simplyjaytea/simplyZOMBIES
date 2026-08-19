@@ -2,13 +2,18 @@
 
 Drop a PNG here and a content entry can use it. No code change, no editor round-trip.
 
+> **Interim, mid-reversal:** the projection is now flat top-down (see docs/00's reversal), but the
+> art convention below is still the isometric-era one. The five shipped 64×96 feet-anchored
+> figures keep drawing unchanged — an upright pawn on a flat floor is the RimWorld read — until
+> the renderer and all sprites flip together to the 64×64 centre-anchored canvas, at which point
+> this file gets its real rewrite. Do not author new art to the convention below.
+
 ## The convention
 
-- **Grid:** isometric 2:1, **64×32 pixels per tile**. `presentation/camera.gd` sets `zoom = 32`,
-  and `projection.gd` derives a tile diamond of `(zoom * 2) × zoom` from it. A sprite taller than
-  32 px is fine and expected — a standing body occupies one tile of ground and rises above it.
-  A standing figure is authored at **64×96**. (The grid was 32×16 until the move to
-  native-resolution rendering; art density doubled with it so 1440p fills without letterboxing.)
+- **Grid:** top-down, **1 tile = 1 metre = `zoom` pixels square**; `presentation/camera.gd` sets
+  the art-native `zoom = 64`, so a tile is 64×64. A sprite taller than the tile is fine and
+  expected for now — a standing body occupies one tile of ground and is drawn upright on it.
+  A standing figure is authored at **64×96** (isometric-era canvas, see the note above).
 - **Anchor:** feet, bottom-centre. The renderer places a sprite so its bottom edge sits on the
   entity's ground position, and draws the contact shadow underneath. Do not centre the figure
   vertically in the canvas or it will float.

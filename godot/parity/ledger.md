@@ -39,7 +39,7 @@
 | test/unit/modifiers.test.ts | exact-port | godot/sim/modifiers/modifiers.gd | add/mul/min/max/set + source seq |
 | test/unit/paperdoll.test.ts | exact-port | godot/ui/paperdoll.gd | tint per region, no numbers cross, posture prose |
 | test/unit/pose.test.ts | exact-port | godot/ui/paperdoll.gd + presentation projection | pose selection + advancePhase by distance |
-| test/unit/projection.test.ts | exact-port | godot/presentation/projection.gd | world_to_screen / screen_to_world / depth / visible_bounds |
+| test/unit/projection.test.ts | replacement | godot/check_topdown.gd | TS oracle frozen on isometric 2:1; Godot projection moved to top-down (docs/00 reversal), gated by TOPDOWN_OK instead of a port |
 | test/unit/rng.test.ts | exact-port | godot/sim/rng_stream.gd + rng_registry.gd | named streams + (master, name) hash |
 | test/unit/serialize.test.ts | exact-port | godot/sim/kernel/serialize.gd | canonicalize (sorted keys, int/float norm) + fingerprint |
 | test/unit/shadowcast.test.ts | exact-port | godot/sim/vision/shadowcast.gd | FOV primitive + wall stop |
