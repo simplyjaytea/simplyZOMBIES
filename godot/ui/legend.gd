@@ -38,6 +38,7 @@ const GROUPS: Array = [
 		["J", "work priorities"],
 		["O", "attention overlay: noise, scent, sight, light"],
 		["M", "raw developer sheets"],
+		["Wheel", "zoom"],
 	]],
 	["Run", [
 		["1 / 2 / 3", "speed: 1x, 3x, 10x"],
