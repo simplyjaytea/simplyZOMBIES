@@ -408,13 +408,15 @@ table above are the authority on each):
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
   cardinal, and a peripheral glimpse is an anonymous disc with no sprite or facing — all pinned by
   the new `TOPDOWN_OK` gate (`check_topdown.gd`, in the `godot:m2` chain), each assertion of
-  which fails against the old isometric maths. The five shipped sprites (`survivor_mara`,
-  `zombie_shambler`, three equip overlays, all AI-generated at 64×96 feet-anchored, proven by
-  `APPEARANCE_OK`) draw unchanged as upright pawns on the flat floor — interim until the
-  64×64 centre-anchored regeneration lands renderer-and-art together. Screamer and bloater still
-  render as tinted shapes; tile art still has no renderer path (`_draw_district` draws flat
-  rects); zoom control and the art-style brainstorm (RimWorld × Zero Sievert pawns) are the next
-  slices of this track.
+  which fails against the old isometric maths. The five sprites (`survivor_mara`,
+  `zombie_shambler`, three equip overlays, AI-generated) are regenerated on the **64×64
+  centre-anchored canvas** — RimWorld proportions on a Zero Sievert palette — landed
+  renderer-and-art in one commit, with `APPEARANCE_OK` now failing any sprite off that canvas
+  (a stray 64×96 is a build failure, not a footnote). Wheel zoom steps the camera through
+  {16, 32, 64, 128} px/m. Screamer and bloater still render as tinted shapes; tile art still
+  has no renderer path (`_draw_district` draws flat rects); the art-style *flavour* stays open —
+  `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the three candidate directions and
+  the overhead re-authoring of the zombie visual language, for the owner to pick from.
 - **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
   rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
 - **Needs** — mood consequences: slower work, mistakes, refusing jobs, arguments.

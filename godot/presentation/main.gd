@@ -630,11 +630,11 @@ func _draw_entities() -> void:
 		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
 		var texture: Texture2D = look["texture"] as Texture2D
 		if texture != null:
-			# Feet-anchored: the sprite stands on the entity's ground position rather than
-			# being centred on it. Rounded so a 1:1 pixel sprite never lands on a half-pixel
-			# as the camera follows the player.
+			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
+			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
+			# lands on a half-pixel as the camera follows the player.
 			var size: Vector2 = texture.get_size()
-			var at := Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y))
+			var at := Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0))
 			var rect := Rect2(at, size)
 			# Equipped gear composites at the identical rect the body draws at -- an
 			# equipSprite is authored on the same feet-anchored canvas, so there is no
