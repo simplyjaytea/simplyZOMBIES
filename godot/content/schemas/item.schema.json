@@ -133,6 +133,26 @@
         "reloadTicks": { "type": "integer", "minimum": 1 },
         "rangeMetres": { "type": "number", "exclusiveMinimum": 0 }
       }
+    },
+    "modification": {
+      "type": "object",
+      "description": "Present on a modification consumable, per docs/11-crafting.md#content-shape: \"a modification consumable declares which operation it performs and against which item classes\". Adding a consumable is a data edit provided the operation it names already exists; adding an operation is an entry in SimModification.OPERATIONS. That registry is code because an operation is behaviour, and check_mods.gd is what asserts every declared operation is in it -- no schema can.",
+      "additionalProperties": false,
+      "required": ["operation", "appliesTo"],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "description": "The operation this consumable performs. Must name an entry in SimModification.OPERATIONS. Not an enum here: the registry is the authority and a duplicated list would drift from it."
+        },
+        "appliesTo": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Item classes this consumable may be used on. An empty list is not allowed -- a consumable that applies to nothing is a content mistake, not a universal one.",
+          "items": {
+            "enum": ["weapon.melee", "weapon.ranged", "armor", "tool", "container", "consumable", "material"]
+          }
+        }
+      }
     }
   },
   "$defs": {
