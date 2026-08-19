@@ -569,11 +569,54 @@ table above are the authority on each):
   completion) and never picks again. It hooks `_tick_one` instead, after the needs-seek branch, so
   a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
 - **Attention leftovers** — the sim half of last-known-position memory, and director-varied nights.
-- **Health & injury** — the remaining injury types (fracture, sprain, burn, concussion), continuous
-  pain and exhaustion, bacterial infection kept distinct from zombie infection (sepsis), the full
-  treatment ladder (clean → close → rest), supply quality tiers, skill-scaled diagnosis text,
-  permanent conditions that don't remove a survivor from play, and diegetic readouts for the
-  continuous conditions.
+- **Health & injury** — ~~the remaining injury types (fracture, sprain, burn, concussion)~~
+  **landed** (`godot:m2:wounds`, KINDS and CAUSES). docs/05's injury table has nine rows and three
+  shipped, as *severities* of one bleeding wound. The four remaining are structurally different —
+  not primarily bleeding, recovery that does not track severity, and two of them impairing far
+  beyond their severity band — so `kind` stopped being a label and became a table. Everything a
+  kind changes is declared in one `WOUND_KINDS` row rather than as four `if kind == …` branches
+  across `append_wound`, the recovery tick, the impairment pass and the sepsis roll, which is how
+  the bleed rate and the clot clock would end up disagreeing about what a fracture is.
+  Measured: the three closed kinds bleed **0.0000** against a cut's 8.0000 at the same severity;
+  recovery is the kind's own figure (sprain 5d < deep cut 16d < fracture **42d**) with kinds that
+  declare none still falling through to the severity table; a fractured leg moves at 0.880 against
+  a scratched leg's 0.960 *at identical severity*, which is "near-total loss of the part" made
+  mechanical; a concussion costs reactions where an ordinary head cut costs nothing; and a closed
+  injury cannot go septic at all while a burn (0.432) is twice a cut (0.216).
+  **Every kind has one reachable cause**, from docs/05's own Cause column, and none of them is a
+  new subsystem: a deep head hit concusses (a graze does not), 21 of 50 deep limb hits fractured
+  and 0 of 50 light ones, **cauterisation burns** — `infection.gd` had published
+  `injury.sustained/burn` since cauterise was written and nothing listened, so searing a bite left
+  no mark on the arm it seared — and 22 of 100 zero-stamina sprint collapses sprained a leg.
+  **Named rather than faked:** docs/05's other causes (falls, fence climbs, crush, fire) need
+  systems that do not exist, and a concussion's *perception* loss has no stat to attach to — vision
+  is a shadowcast with no modifier seam — so only the reaction half is wired. Adding a stat nothing
+  reads so the row could list three keys would be a modifier that looks wired and is not.
+  Still open here: continuous pain and exhaustion, the full treatment ladder (clean → close → rest), supply quality tiers,
+  skill-scaled diagnosis text, permanent conditions that don't remove a survivor from play, and
+  diegetic readouts for the continuous conditions.
+  ~~Bacterial infection kept distinct from zombie infection (sepsis)~~ **landed**
+  (`godot:m2:wounds`, SEPSIS and SEPSIS COST). This was a socket, not a gap: `needs.gd` published
+  `sepsis.checked` with a hygiene multiplier every dusk and **nothing subscribed to it**, so
+  `sepsis_mul` was gated, correct, and reached no wound. The roll now lives in `wounds.gd` (which
+  owns the record and the recovery clock sepsis has to block) and takes all four factors docs/05
+  names in one expression, so no caller can apply three of them — measured severity 0.018 scratch
+  → 0.122 deep, hygiene 0.059 clean → 0.154 filthy, the full dressing chain 0.021 sterile < 0.059
+  cloth < 0.094 dirty < 0.111 bare (an undressed wound worse than any dressing, which is what makes
+  a bad one better than none), and Medicine 0.171 → 0.090, floored so a good medic never makes a
+  dirty wound safe.
+  Both consequences docs/05 draws from the separation are real. **Antibiotics are pulled in two
+  directions**: `use_antibiotics` now accepts a septic survivor with no bite exposure at all, out
+  of the same finite stock and through the same spend path, so every ordinary wound spends the
+  infection budget — and a player cannot tell sepsis from a bite by which button lit up. **The
+  ambiguity is preserved**: the HUD clause is "You're feverish, and it isn't getting better", which
+  is deliberately the same word zombie infection's early stages use and says nothing about which it
+  is.
+  **Scoped deliberately:** sepsis is debilitating and permanent-until-treated, and **not directly
+  lethal**. A septic wound stops healing entirely and clears only to antibiotics. That produces the
+  budget pull without adding a death path to a lethality model whose balance is the thing currently
+  standing between `GRABS_ENABLED` and its flip — making sepsis kill is a balance decision with a
+  measurement attached, not a detail to slip in beside the mechanic.
 - **Combat** — firing at a remembered position (and what it costs). ~~Jamming on degraded
   weapons~~ **landed** (`godot:m2:ranged`, JAM and CLEAR). Condition already scaled melee and
   ranged damage, so a pistol at 10% was a slightly weaker pistol rather than one you could not

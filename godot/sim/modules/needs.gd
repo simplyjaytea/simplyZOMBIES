@@ -275,6 +275,9 @@ static func work_mul(world: Variant, entity: int) -> float:
 	# so it multiplies rather than joining the 0.85 floor the others share.
 	if is_ill(world, entity):
 		m *= ILLNESS_WORK_MUL
+	var Wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
+	if Wounds != null and bool(Wounds.call("is_septic", world, entity)):
+		m *= float(Wounds.get("SEPSIS_WORK_MUL"))
 	return m
 
 
@@ -608,6 +611,15 @@ static func _daily_sepsis(world: Variant, ent: int, n: Dictionary) -> void:
 		return
 	var mul: float = sepsis_mul(String(n.get("hygiene", "clean")))
 	world.events.publish({"type": "sepsis.checked", "entity": ent, "mul": mul, "kind": "wound"})
+	# The socket, finally connected. This published its multiplier every dusk and nothing
+	# subscribed, so `sepsis_mul` was gated, correct, and reached no wound. wounds.gd owns the
+	# wound record and the recovery clock sepsis has to block, so the roll lives there; hygiene
+	# lives here, so the multiplier is computed here and handed over rather than re-derived.
+	var Wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
+	if Wounds != null and Wounds.has_method("roll_sepsis"):
+		var SkillsRes: GDScript = load("res://sim/modules/skills.gd") as GDScript
+		var medicine: int = int(SkillsRes.call("points", world, ent, "Medicine")) if SkillsRes != null else 0
+		Wounds.call("roll_sepsis", world, ent, mul, medicine)
 
 
 static func treat_sepsis_mul(world: Variant, treater: int) -> float:

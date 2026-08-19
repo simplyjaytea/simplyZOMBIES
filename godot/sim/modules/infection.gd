@@ -185,8 +185,22 @@ static func use_antibiotics(world: Variant, entity: int) -> Dictionary:
 	# Consumes one course from inventory if present, starts course record.
 	# ponytail: consume one stack count from item.antibiotics.course; finite stock shared with sepsis
 	var st: Variant = world.components.get_component(entity, "zombieInfection")
-	if st == null:
+	# docs/05's first consequence of keeping bacterial infection separate: "the finite, uncraftable
+	# supply that saves someone from a bite is the same supply that saves someone from a dirty
+	# laceration. Every ordinary wound spends the infection budget." So a course is legal for a
+	# septic survivor with no exposure at all -- the ambiguity is the point, and refusing here
+	# would mean the player could tell sepsis from a bite by which button lit up.
+	var Wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
+	var septic: bool = Wounds != null and bool(Wounds.call("is_septic", world, entity))
+	if st == null and not septic:
 		return {"ok": false, "reason": "no-exposure"}
+	if st == null:
+		# Sepsis only. The course is spent through the same path below, and the whole of its
+		# effect is clearing the infection -- there is no zombie-infection record to update, and
+		# inventing an empty one so the code downstream has something to write to would leave a
+		# survivor who was never bitten looking, to every reader of that component, like one who
+		# was.
+		return _antibiotics_for_sepsis(world, entity, Wounds)
 	# Try to consume one antibiotics.course from carried items
 	var consumed: bool = false
 	for item in SimInventoryRes.carried_items(world, entity) as Array:
@@ -231,6 +245,35 @@ static func use_antibiotics(world: Variant, entity: int) -> Dictionary:
 				ed["transmitted"] = false
 	world.events.publish({"type": "antibiotics.used", "entity": entity, "clears": clears, "stage": worst})
 	return {"ok": true, "clears": clears, "stage": worst}
+
+# A course spent on sepsis and nothing else. Deterministic, unlike the zombie-infection roll:
+# docs/05 has bacterial infection as the treatable one and zombie infection as the gamble, and
+# that asymmetry is most of why the two are worth keeping apart.
+static func _antibiotics_for_sepsis(world: Variant, entity: int, Wounds: GDScript) -> Dictionary:
+	if not _spend_one_course(world, entity):
+		return {"ok": false, "reason": "no-antibiotics"}
+	var cleared: int = int(Wounds.call("clear_sepsis", world, entity))
+	world.events.publish({"type": "antibiotics.used", "entity": entity, "clears": cleared > 0, "stage": -1, "sepsis": cleared})
+	return {"ok": true, "clears": cleared > 0, "stage": -1, "sepsis": cleared}
+
+
+# One course out of the pack. Lifted out of use_antibiotics' body so the sepsis path spends from
+# exactly the same stock by exactly the same rule -- two copies of "take one off the stack" is how
+# the finite supply stops being one supply.
+static func _spend_one_course(world: Variant, entity: int) -> bool:
+	for item in SimInventoryRes.carried_items(world, entity) as Array:
+		var base: Variant = SimItemsRes.item_base_of(world, int(item))
+		if not (base is Dictionary) or String((base as Dictionary).get("id", "")) != ANTIBIOTICS_ID:
+			continue
+		var stk: Variant = world.components.get_component(int(item), "stack")
+		if stk is Dictionary and int((stk as Dictionary).get("count", 1)) > 1:
+			(stk as Dictionary)["count"] = int((stk as Dictionary)["count"]) - 1
+		else:
+			SimInventoryRes.remove_from_container(world, int(item))
+			world.entities.despawn(int(item))
+		return true
+	return false
+
 
 static func quarantine(world: Variant, entity: int, roomId: Variant = null) -> Dictionary:
 	var st: Variant = world.components.get_component(entity, "zombieInfection")

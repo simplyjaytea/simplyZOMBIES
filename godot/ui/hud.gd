@@ -88,6 +88,14 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 	if not needs.is_empty():
 		lines.append(needs)
 
+	# Fever, if there is any. Deliberately the same word zombie infection's early stages use and
+	# deliberately silent about which it is: docs/05 says sepsis "presents as fever, pain, and
+	# worsening -- which is also how zombie infection presents in its early stages", and that
+	# ambiguity is the feature, not a gap in the read model.
+	var fever: String = SimWounds.sepsis_clause(world, actor)
+	if not fever.is_empty():
+		lines.append(fever)
+
 	# What you are standing next to, if it is worth going through. Prose and no digits, like every
 	# other clause here -- it never says how much came out, only that there is something, or that
 	# you have already had it. Placed after the body and before the diagnosis because it is the
