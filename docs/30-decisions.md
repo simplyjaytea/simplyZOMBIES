@@ -1170,6 +1170,45 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   rather than a placeholder, but the missing sprite is the Art track's open prop renderer and
   docs/23 says so rather than letting it read as finished.
 
+## A night is drawn, not computed
+
+`SimDirector`, gated by `npm run godot:m2:director` (VARIANCE, BOUNDS, SIDES). docs/17's first
+sentence about what the director does is "the director doesn't pick a number for the night" — and
+it was picking a number.
+
+- **Strain chooses a distribution, not a night.** The three signals the old `size` calculation used
+  — a colony that can fight, a colony that has been loud, a colony left alone too long — are
+  unchanged in meaning; they pick a row of `NIGHT_WEIGHTS` now instead of adding up to a packet
+  size. That is the difference between pacing and a schedule, and it is what makes the seed reach
+  the director at all: check_m2_balance.gd's own comment already said the seed moved nothing but
+  the edge pick, and the harness had been reporting the same 3 sieges and 7 quiet nights on every
+  seed it ran.
+- **Every row keeps a non-zero weight on quiet and on siege.** docs/17 rule 4 asks for a variance
+  floor *and* ceiling; a row that zeroed either end would make one of them unreachable at that
+  strain rather than merely unlikely, which is a different design.
+- **The quiet floor already existed and was unreachable.** `if size == 0 and nightsSinceQuiet >=
+  FLOOR_QUIET_NIGHTS` sat directly after an unconditional `size = BASE_SIZE`, so `size == 0` was
+  never true: rule 4's floor was written, gated by a constant, and dead. It is reachable now
+  because a night can genuinely draw quiet.
+- **Rule 5 is why `director.night` carries `drawn` as well as `shape`.** "Never rubber-band
+  silently" is a player-facing rule, but the mechanical consequence is that a bound which fires and
+  a night which never tested the bound have to be distinguishable. Without `drawn` the gate could
+  only wait for a rare natural three-siege run and hope — with it, the state can be pinned and the
+  bound asked directly.
+- **Packets arrive where the field points.** They always came from the south, which was the one
+  authored approach, so ten nights of a campaign came down the same street. The noise along each
+  edge picks the side now — docs/17's migration lever says a crowd arrives "somewhere the field
+  decides" — and a silent district gets a *seeded* pick rather than a default, because falling back
+  to a fixed side would put the whole distribution back where it was on every quiet week.
+- **Its own RNG stream.** `directorNight` rather than `director`, so adding a draw per night leaves
+  the edge picks and zombie-type draws byte-identical. A new decision must not reshuffle old ones.
+- **`world.gd` copies the director's scalars instead of listing them.** `SimDirector.snapshot_of`
+  existed to keep the save complete and was called by nothing — the eighth dead socket of the
+  milestone — while `world.gd` hand-listed three keys, so `lullFromTick` and `weekPeakNoise` were
+  written every night and dropped by every save. Copying scalars keeps world.gd module-agnostic
+  (it must not depend on a module) and means a future dial is saved without world.gd learning what
+  it means.
+
 ## Grief is colony-wide, because relationships are Milestone 3A
 
 `SimNeeds`'s grief block, gated by `npm run godot:m2:needs` (GRIEF, ONCE). docs/23 asked for "the

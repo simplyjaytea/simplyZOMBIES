@@ -161,6 +161,17 @@ func parity_snapshot(fixture: Dictionary) -> Dictionary:
 	}
 
 
+# Scalars only: ints, floats, bools and strings. A component or a callable in here would not
+# survive JSON and would not be a director dial either.
+func _scalars(source: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for k in source.keys():
+		var v: Variant = source[k]
+		if v is int or v is float or v is bool or v is String:
+			out[String(k)] = v
+	return out
+
+
 func snapshot() -> Dictionary:
 	return {
 		"version": int(SimSerialize.SAVE_VERSION),
@@ -171,11 +182,14 @@ func snapshot() -> Dictionary:
 		"components": (components as RefCounted).call("save"),
 		"modifiers": (modifiers as RefCounted).call("save"),
 		"field": (field as RefCounted).call("save"),
-		"director": {
-			"lullUntilTick": int(director.get("lullUntilTick", 0)),
-			"lastMigrationTick": int(director.get("lastMigrationTick", 0)),
-			"nightsSinceQuiet": int(director.get("nightsSinceQuiet", 0)),
-		},
+		# Whatever the director module put here, rather than a hand-listed subset of it. The
+		# subset had already drifted: `lullFromTick` and `weekPeakNoise` were both being written
+		# every night and dropped by every save, so a restored colony forgot when its lull began
+		# and how loud its week had been. `SimDirector.snapshot_of` existed to prevent exactly
+		# that and was called by nothing. This stays module-agnostic -- world.gd must not depend
+		# on a module -- and copies scalars only, so a future key is saved without world.gd
+		# learning what it means.
+		"director": _scalars(director),
 		"recruits": {
 			"accepted": int(recruits.get("accepted", 0)),
 			"spawned": (recruits.get("spawned", []) as Array).duplicate(),
@@ -195,12 +209,10 @@ func restore(snap: Dictionary) -> void:
 	(modifiers as RefCounted).call("restore", snap["modifiers"])
 	(field as RefCounted).call("restore", snap["field"])
 	if snap.has("director") and snap["director"] is Dictionary:
-		var d: Dictionary = snap["director"] as Dictionary
-		director = {
-			"lullUntilTick": int(d.get("lullUntilTick", 0)),
-			"lastMigrationTick": int(d.get("lastMigrationTick", 0)),
-			"nightsSinceQuiet": int(d.get("nightsSinceQuiet", 0)),
-		}
+		# Merged over what is already there rather than replacing it, so a key the module set at
+		# registration and an older save never heard of keeps its default instead of vanishing.
+		for k in (snap["director"] as Dictionary).keys():
+			director[String(k)] = (snap["director"] as Dictionary)[k]
 	if snap.has("recruits") and snap["recruits"] is Dictionary:
 		var r: Dictionary = snap["recruits"] as Dictionary
 		recruits = {

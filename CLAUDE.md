@@ -257,6 +257,11 @@ Each of these was found the expensive way. They are not style opinions.
   as an **Array of records** (`{"e": id, …}`) and scan; `sim/modules/sightings.gd` is the
   precedent. Same family as the packed-array and lambda-capture traps above: a value that is
   quietly not what you stored.
+- **`entities.despawn` does not remove components, and `components.query` does not check alive.**
+  Despawning a body leaves every one of its components in place, so anything counting a population
+  by `query` still counts it. This made a director harness report "56 quiet nights in a row" --
+  the culled bodies still filled `LIVE_CAP`, so every night after the fourth was refused rather
+  than drawn. Remove the component you are counting, not just the entity.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.
