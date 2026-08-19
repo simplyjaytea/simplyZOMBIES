@@ -2,10 +2,26 @@ class_name SimShambler
 extends RefCounted
 
 # Port of src/sim/modules/shambler.ts — 5 states, gradient+bias pursuit, plus the
-# grab -> struggle -> bite loop ("Make harm real" slice, Part B). Cripple (the CRIPPLED_SOURCE
-# move_speed penalty on a destroyed pelvis) and stagger (a swing knocking a shambler out of
-# whatever it was doing) remain unwired here -- shambler.gd still subscribes to neither
-# injury.sustained nor entity.staggered -- and stay open for whoever picks that up next.
+# grab -> struggle -> bite loop ("Make harm real" slice, Part B), and -- as of the cripple/stagger
+# slice -- the two sockets that used to be cut here and wired to nothing.
+#
+# **Stagger.** docs/09 is explicit about what a stagger is for: "landing a solid hit interrupts the
+# target ... stagger is the actual survival mechanic in a crowd, because a staggered zombie isn't
+# grabbing you." The `Staggered` state and its `ticksStaggered` countdown were both already here
+# and already handled by the state machine; nothing ever put a shambler *into* them, because this
+# file subscribed to no `entity.staggered`. It does now (`shambler.stagger`), and because the
+# clause says "isn't grabbing you" rather than "is slower", a stagger also breaks whatever hold
+# the shambler had -- `grab.broken` cause `staggered` -- and arms the ordinary re-grab cooldown so
+# the answer to a grab is not one swing followed by an instant re-take.
+#
+# **Cripple.** `crawlFactor` was on the component from the start and read by nothing. A shambler
+# whose legs are gone now moves at that fraction of whatever speed it would otherwise use, through
+# `_speed_of` -- one accessor rather than a multiply at each of the four read sites, because four
+# sites is three chances to miss one. It is derived from the body every tick rather than latched
+# off `injury.sustained`: a flag set by an event has to be kept in step with the body through
+# amputation, save/load and anything else that edits integrity, and reading `SimHealth.is_crawling`
+# cannot drift from the thing it describes. The event still fires and is still the right hook for
+# anything that wants to *react* to the moment; it is just not the source of truth for the speed.
 
 const ShamblerState: Dictionary = {
 	"Wander": 0,
@@ -368,17 +384,36 @@ static func _grab_of(world: Variant, type_id: String) -> Dictionary:
 	return {"enabled": enabled, "strength": float(grab.get("strength", DEFAULT_GRAB_STRENGTH))}
 
 
-static func _steer_uphill(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary) -> bool:
+# The one place a shambler's speed is read. Every movement site goes through this so the cripple
+# penalty cannot be applied to three of the four and quietly missed on the fourth.
+static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String) -> float:
+	var base: float = float(shambler_data.get(key, 0.0))
+	if not _is_crawling(world, entity):
+		return base
+	return base * float(shambler_data.get("crawlFactor", DEFAULT_LOCOMOTION["crawl"]))
+
+
+# Derived, never latched. SimHealth.is_crawling reads the body itself -- "legs" for a zombie,
+# both leg_* for a survivor -- so a leg that is destroyed, amputated, or restored by a save
+# reload all say the same thing here without a flag to keep in step.
+static func _is_crawling(world: Variant, entity: int) -> bool:
+	var body: Variant = world.components.get_component(entity, "body")
+	return body is Dictionary and SimHealthRes.is_crawling(body as Dictionary)
+
+
+# `seek` is passed rather than read off shambler_data so the cripple penalty applies here too --
+# see _speed_of, which is the only thing that should ever turn a stored speed into a used one.
+static func _steer_uphill(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> bool:
 	var uphill: Variant = field.uphill_noise(float(pos["x"]), float(pos["y"]))
 	if uphill == null:
 		return false
 	var angle: float = atan2(float((uphill as Dictionary)["dy"]), float((uphill as Dictionary)["dx"])) + float(shambler_data["bias"])
-	vel["dx"] = cos(angle) * float(shambler_data["seekSpeed"])
-	vel["dy"] = sin(angle) * float(shambler_data["seekSpeed"])
+	vel["dx"] = cos(angle) * seek
+	vel["dy"] = sin(angle) * seek
 	return true
 
 
-static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary) -> void:
+static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:
 	var uphill: Variant = field.uphill_scent(float(pos["x"]), float(pos["y"]))
 	if uphill == null:
 		return
@@ -433,7 +468,7 @@ static func _gather_survivors(world: Variant) -> Array:
 	return out
 
 
-static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary) -> void:
+static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:
 	var at: Variant = world.components.get_component(target, "position")
 	if at == null:
 		return
@@ -442,8 +477,8 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 	var dist: float = sqrt(dx * dx + dy * dy)
 	if dist == 0.0:
 		return
-	vel["dx"] = dx / dist * float(shambler_data["seekSpeed"])
-	vel["dy"] = dy / dist * float(shambler_data["seekSpeed"])
+	vel["dx"] = dx / dist * seek
+	vel["dy"] = dy / dist * seek
 
 
 static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Dictionary) -> void:
@@ -775,6 +810,10 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			var pd: Dictionary = pos as Dictionary
 			var heard: bool = field.noise_at(float(pd["x"]), float(pd["y"])) >= audible
 			var smelled: bool = field.scent_at(float(pd["x"]), float(pd["y"])) >= detectable
+			# Resolved once per shambler per tick and handed to every steer below it, rather than
+			# each of them reaching for sd["seekSpeed"] -- which is what let the cripple penalty
+			# sit on the component unread for the whole of Milestone 2.
+			var seek: float = _speed_of(w, int(entity), sd, "seekSpeed")
 			if int(sd["ticksToGrab"]) > 0:
 				sd["ticksToGrab"] = int(sd["ticksToGrab"]) - 1
 			if w.components.has_component(int(entity), "grabState"):
@@ -799,14 +838,14 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["state"] = ShamblerState["Wander"]
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
 					else:
-						_chase(w, int(target), pd, vd, sd)
+						_chase(w, int(target), pd, vd, sd, seek)
 				ShamblerState["Seek"]:
 					var caught: Variant = _contact_target(survivors, pd, CONTACT_METRES)
 					if caught != null:
 						sd["state"] = ShamblerState["Pursue"]
 						sd["ticksCommitted"] = 0
-						_chase(w, int(caught), pd, vd, sd)
-					elif _steer_uphill(field, pd, vd, sd):
+						_chase(w, int(caught), pd, vd, sd, seek)
+					elif _steer_uphill(field, pd, vd, sd, seek):
 						sd["ticksCommitted"] = COMMIT_TICKS
 					elif heard:
 						sd["state"] = ShamblerState["Investigate"]
@@ -826,8 +865,8 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["ticksToTurn"] = 0
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle: float = rng.call("float_range", 0.0, PI * 2.0)
-						vd["dx"] = cos(angle) * float(sd["millSpeed"])
-						vd["dy"] = sin(angle) * float(sd["millSpeed"])
+						vd["dx"] = cos(angle) * _speed_of(w, int(entity), sd, "millSpeed")
+						vd["dy"] = sin(angle) * _speed_of(w, int(entity), sd, "millSpeed")
 						sd["ticksToTurn"] = int(rng.call("int_range", 10, 25))
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
@@ -835,20 +874,20 @@ static func register_module(world: Variant, _map: Variant) -> void:
 					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES)
 					if caught2 != null:
 						sd["state"] = ShamblerState["Pursue"]
-						_chase(w, int(caught2), pd, vd, sd)
+						_chase(w, int(caught2), pd, vd, sd, seek)
 					elif heard:
 						sd["state"] = ShamblerState["Seek"]
 						sd["ticksCommitted"] = COMMIT_TICKS
-						_steer_uphill(field, pd, vd, sd)
+						_steer_uphill(field, pd, vd, sd, seek)
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle2: float = rng.call("float_range", 0.0, PI * 2.0)
-						vd["dx"] = cos(angle2) * float(sd["wanderSpeed"])
-						vd["dy"] = sin(angle2) * float(sd["wanderSpeed"])
+						vd["dx"] = cos(angle2) * _speed_of(w, int(entity), sd, "wanderSpeed")
+						vd["dy"] = sin(angle2) * _speed_of(w, int(entity), sd, "wanderSpeed")
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 					if smelled:
-						_drift_upscent(field, pd, vd, sd)
+						_drift_upscent(field, pd, vd, sd, seek)
 					_lean_to_light(w, int(entity), pd, vd)
 
 		# --- Hold lifecycle, alongside the state machine above rather than in a separate
@@ -1144,4 +1183,29 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		var dead: int = int(event.get("entity", -1))
 		_release_grab(world, dead, "holder-died", dead)
 		_release_victim(world, dead, "victim-died", dead)
+	})
+
+	# docs/09: "landing a solid hit interrupts the target ... a staggered zombie isn't grabbing
+	# you." Both halves are here, because the state machine already had a Staggered state that
+	# nothing could enter and the clause is about grabbing rather than about speed.
+	#
+	# The hold is broken *before* the state is set: _release_grab reads `grabState` off this
+	# entity, and the ordering is only safe in one direction. It publishes `grab.broken` with
+	# cause `staggered` -- a cause rather than a silent release, so a bus-only harness can tell a
+	# swing that saved somebody from a struggle that did -- and arms REGRAB_COOLDOWN_TICKS on its
+	# way past, so the answer to a grab is not one swing followed by an instant re-take.
+	#
+	# `ticksStaggered` is taken as the max of what is already running and what this hit is worth,
+	# so a second hit during a stagger extends it rather than cutting it short. Melee's own
+	# staggerTicks comes off the weapon (melee.gd), which is where "blunt weapons stagger better"
+	# lives; nothing about that is decided here.
+	world.events.subscribe({"id": "shambler.stagger", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:
+		var entity: int = int(event.get("entity", -1))
+		var shambler_data: Variant = world.components.get_component(entity, "shambler")
+		if not (shambler_data is Dictionary):
+			return
+		_release_grab(world, entity, "staggered", entity)
+		var sd: Dictionary = shambler_data as Dictionary
+		sd["state"] = ShamblerState["Staggered"]
+		sd["ticksStaggered"] = maxi(int(sd.get("ticksStaggered", 0)), int(event.get("ticks", 0)))
 	})
