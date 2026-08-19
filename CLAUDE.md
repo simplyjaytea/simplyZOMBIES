@@ -239,7 +239,10 @@ Each of these was found the expensive way. They are not style opinions.
 - **GDScript lambdas capture primitives by value.** A closure assigning to an outer `int` or
   `bool` mutates its own copy, so an accumulator written inside an event handler reads back
   unchanged. Use an `Array` or `Dictionary` — reference types — for anything a handler accumulates.
-  Same family as the packed-array trap above.
+  Same family as the packed-array trap above. This one keeps being paid for: it most recently made
+  a jam gate report "never cleared" for a jam that had cleared exactly on schedule, because the
+  `cleared_at` an event handler assigned to was a captured `int`. The failure mode is the worst
+  kind — the gate goes red and blames the code under test.
 - **Diagnose the balance harness, do not theorise at it.** Two consecutive guesses at why a flag
   flip wiped colonies (blood loss; then NPCs having no way to treat themselves) were both wrong,
   and each cost a full harness run to disprove. A throwaway `SceneTree` driver that boots

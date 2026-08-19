@@ -917,6 +917,29 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   404 it still never does. That is a call about how the slice seats its people, not another lever
   in the contact loop.
 
+## A jam costs time, and the chance is not authored
+
+- **The jam chance is derived from the condition *band*, not written down.** `JAM_CHANCE_BY_BAND`
+  is keyed off `SimItems.condition_band` — the same function that produces the word the inventory
+  screen shows for that item. That coupling is the point: a weapon the player is told is "failing"
+  cannot be one that never jams, and docs/10's table ("49–20%: serious; firearms jam regularly") is
+  the authority for both at once. Authoring a per-weapon `jamChance` would have let the two drift
+  on the first content edit.
+- **`jams` is a content flag rather than an inference.** It would have been easy to say "anything
+  with a magazine can jam", but docs/09 and docs/11's Gun Oil both say *firearms*, and a bow has
+  nothing to stovepipe. A flag also means adding a crossbow that does jam stays a data edit.
+- **A jam costs time and nothing else.** The stuck round is not spent — it comes out during the
+  clear — because docs/09 specifies exactly one cost ("clearing a jam takes longer than a reload")
+  and an interruption that already costs more than a reload does not also need to eat ammunition.
+  The weapon returns to Idle rather than resuming the shot: a jam that auto-resumed would be a
+  pause, not a jam, and the decision to try again should be one somebody makes.
+- **The clear time is a multiple of the weapon's own reload, not a constant.** "Longer than a
+  reload" is the claim, so it is expressed as a relationship. A flat number would silently stop
+  being longer the first time a firearm was given a slower reload.
+- **The backlog's "content declares slots nothing reads" is the wrong half.** `slots` is in the
+  item schema and *no content declares it either*, so attachments are a slice — content, a reader,
+  and attachment items — rather than a hookup. docs/23 now says so.
+
 ## Mood consequences are a decline, not a cliff
 
 - **A threshold was the shipped behaviour and it contradicted the spec.** Mood had one consequence
