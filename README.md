@@ -101,13 +101,15 @@ in text.
 |---|---|
 | **Move** | `WASD` walk · `Shift` sprint (fast, and loud — latches while held) · `Z`/`X`/`C`/`V` crawl, crouch, walk, jog |
 | **Act** | `F` swing, or struggle out of a grab · `H` pull someone out of a grab · `G` or click — fire · `R` reload · `E` pick up · `T` first aid (bandage if you have one, bare hands if not; again to stop — and while something has hold of you, your own bare hands on your own wound is still allowed) · `Space` shout — heard across the district |
-| **Look** | `Tab` gear and injuries (drag to move, right-click or `R` to rotate) · `J` work priorities · `O` attention overlay: noise, scent, sight, light · `M` raw developer sheets |
+| **Look** | `Tab` gear and injuries (drag to move, right-click or `R` to rotate) · `J` work priorities · `O` attention overlay: noise, scent, sight, light · `M` raw developer sheets · scroll wheel zoom |
 | **Run** | `1`/`2`/`3` speed (1×, 3×, 10×) · `P` pause · `F5`/`F9` save and load · `F1` the key list |
 
 A day is four hours at 1×, so press `3` and wait for dark.
 
-The HUD reads in words rather than bars: what the district can sense of you sits in the top
-right, and a survivor with nothing wrong takes up almost no screen.
+The view is flat top-down — RimWorld and Zero Sievert are the closest comparisons — and the
+wheel zooms between a close-in read on your survivor and a wide look at the colony. The HUD reads
+in words rather than bars: what the district can sense of you sits in the top right, and a
+survivor with nothing wrong takes up almost no screen.
 
 **Current playable stack:** Godot 4.7.1 (Compatibility), typed GDScript. The archived
 TypeScript oracle remains at tag `ts-oracle-final` with parity fixtures under `godot/parity/`.
