@@ -39,7 +39,8 @@
         "consumable",
         "material",
         "armor",
-        "tool"
+        "tool",
+        "attachment"
       ],
       "description": "What the item is. Affixes declare the classes they can roll on via appliesTo, and equip slots accept by class."
     },
@@ -113,6 +114,30 @@
         "type": "string"
       },
       "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases."
+    },
+    "attachment": {
+      "type": "object",
+      "description": "Present on an attachment base and absent on everything else, per docs/10-items.md#attachment-slots. `fits` is the set of host slot names this will go into -- a list rather than one name, because 'moves freely between compatible bases' is the point of the mechanism. The `melee` and `ranged` tables are multipliers folded over the host weapon's own profile by sim/modules/attachments.gd, keyed by the profile field they scale, so an attachment declares what it multiplies and nothing has to know what an optic is. The content validator is shallow and will not look inside this, which is what godot/check_m2_attach.gd is for.",
+      "required": ["fits"],
+      "additionalProperties": false,
+      "properties": {
+        "fits": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Host slot names this attachment is compatible with."
+        },
+        "melee": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
+          "description": "Multipliers over the melee profile, keyed by field: damage, reachMetres, staggerTicks, speed."
+        },
+        "ranged": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
+          "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
+        }
+      }
     },
     "armor": {
       "type": "object",

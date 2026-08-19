@@ -687,12 +687,27 @@ table above are the authority on each):
   `CLEAR_JAM_MULTIPLIER` × the weapon's *own* reload — a multiple rather than a constant, so
   "longer than a reload" stays true if a reload time is ever retuned. Measured 80 ticks against a
   40-tick reload.
-- **Items** — attachments gaining a reader, and repair that never restores the full ceiling
-  (`SimItems.repair_item` already lowers the ceiling on every repair; what is open is the Craft/
-  station/material cost around it). Note the backlog's parenthetical "content declares slots
-  nothing reads" is only half true and the wrong half: `slots` is in the item schema and **no
-  content declares it either**, so attachments need content, a reader, and attachment items — a
-  slice, not a hookup. **Continuous condition-degradation effects** are now essentially closed:
+- **Items** — ~~attachments gaining a reader~~ **landed** (`godot:m2:attach`), leaving repair that
+  never restores the full ceiling (`SimItems.repair_item` already lowers the ceiling on every
+  repair; what is open is the Craft/station/material cost around it). The previous note here was
+  **wrong in an instructive way**: it said no content declared `slots` either, and every weapon
+  base has declared them since the item pipeline landed — what was missing was anything that fits
+  into one and anything that reads one. Five attachment items ship, findable in the residential
+  and military-cache tables (docs/10: "found, not crafted"), and `SimAttachments` is the reader.
+  **An attachment declares what it multiplies** — `{"noise": 0.22, "cone": 1.2}` is a suppressor —
+  so nothing in the module names an optic, a magazine or a suppressor, and a new kind is a data
+  edit. Multipliers rather than adders, so two attachments compose the same way in either order.
+  Measured: pistol noise **180 → 39.6** against docs/09's "suppressed firearm ~40", the aim cone
+  **0.4225 → 0.5070** with the suppressor's accuracy cost and **→ 0.2957** with a red dot, and a
+  magazine **8 → 12**. It moves: the same suppressor detached and refitted to a second pistol
+  gives the identical 39.6, which is the "your gems come with you" clause the whole mechanism
+  exists for. `cone` is a new **weapon** property rather than a use of the `ranged_accuracy`
+  stat, because that stat resolves on the entity and an optic is a property of the gun.
+  **Deliberately not in this slice**, and named rather than left to look finished: attachments do
+  not wear (docs/10's "suppressors wear out fast" is the condition half, and they have no
+  condition of their own yet), an optic is not yet useless in the dark, a weapon light is not yet
+  an attention emitter, and there is no inventory screen for fitting one — the `item.attach` /
+  `item.detach` commands are the reach, on the `item.modify` precedent. **Continuous condition-degradation effects** are now essentially closed:
   `condition_factor` already scaled melee damage and speed and ranged damage, and jamming (above)
   was the missing piece docs/10's table called for.
 - **Inventory** — ~~searching world containers (a car boot, a cupboard)~~ and ~~site

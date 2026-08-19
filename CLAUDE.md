@@ -34,6 +34,7 @@ npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
 npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~85 s, inside godot:m2)
 npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
+npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
 npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
 npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
 npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
