@@ -16,5 +16,59 @@
     "massKg": 2.1,
     "equipSlot": "vest",
     "armor": { "torso": 0.6, "arm_left": 0.3, "arm_right": 0.3 }
+  },
+  {
+    "id": "item.cap.canvas",
+    "name": "Canvas Cap",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "equipSlot": "head",
+    "armor": { "head": 0.15 }
+  },
+  {
+    "id": "item.mask.cloth",
+    "name": "Cloth Mask",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.05,
+    "equipSlot": "face",
+    "armor": { "head": 0.2 }
+  },
+  {
+    "id": "item.glasses.safety",
+    "name": "Safety Glasses",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.05,
+    "equipSlot": "eyes",
+    "armor": { "head": 0.1 }
+  },
+  {
+    "id": "item.gloves.work",
+    "name": "Work Gloves",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.15,
+    "equipSlot": "gloves",
+    "armor": { "hand_left": 0.4, "hand_right": 0.4 }
+  },
+  {
+    "id": "item.pants.canvas",
+    "name": "Canvas Work Pants",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.6,
+    "equipSlot": "legs",
+    "armor": { "leg_left": 0.3, "leg_right": 0.3 }
+  },
+  {
+    "id": "item.boots.leather",
+    "name": "Leather Boots",
+    "class": "armor",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 1.2,
+    "equipSlot": "feet",
+    "armor": { "foot_left": 0.5, "foot_right": 0.5 }
   }
 ]

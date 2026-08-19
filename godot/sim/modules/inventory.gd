@@ -5,7 +5,13 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimGrid = preload("res://sim/inventory/grid.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
 
-const EQUIP_SLOTS: Array[String] = ["back", "vest", "belt", "primary", "secondary", "head", "torso"]
+# The slot taxonomy, expanded 2026-08-19 on the owner's cut: only slots with a system that
+# reads them today. face/eyes/gloves/legs/feet all carry armor coverage (max-composed per
+# part by SimInfection.armor_coverage_of, which is what reduces bite transmission and marks
+# the paperdoll). Warmth/hygiene slots (undershirt, socks, underwear) deliberately wait for
+# the systems that would give them meaning -- an unreadable slot is a dead socket.
+# Layering is basic on purpose: slots are independent, no layered armour resolution.
+const EQUIP_SLOTS: Array[String] = ["back", "vest", "belt", "primary", "secondary", "head", "face", "eyes", "torso", "gloves", "legs", "feet"]
 const POCKET_GRID: Dictionary = {"w": 4, "h": 2}
 const MAX_CONTAINER_DEPTH: int = 3
 const PICKUP_REACH: float = 1.5

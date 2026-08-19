@@ -798,11 +798,23 @@ table above are the authority on each):
   **developer spawn menu on F8** (`ui/debug_panel.gd`) lists every item id and zombie type and
   spawns through a new command-driven `sim/modules/debug.gd` (`debug.spawn`, its randomness on a
   dedicated `debug` stream) — dev tooling in the M-raw-sheet family, not a player surface.
+  **The slot taxonomy is landed and gated** (`godot:m2:gear`): five new slots — face, eyes,
+  gloves, legs, feet — join the seven shipped ones, each with a findable armor item (cloth mask,
+  safety glasses, work gloves, canvas work pants, leather boots) in the loot tables, and a sixth
+  item closing a socket the gate found on arrival: **the head slot had shipped with no item that
+  could fill it**, so a canvas cap now exists. Layering is basic by decision — independent slots,
+  coverage composing by max per part through the one existing reader
+  (`SimInfection.armor_coverage_of`), which is what reduces bite transmission and marks the
+  paperdoll; the gate pins max-not-sum with two head pieces, findability for every piece, a
+  no-dead-slot sweep (every `EQUIP_SLOTS` entry must have at least one shipped item), and the
+  slot-mismatch refusal. The schema's `equipSlot` enum grew the five values — verified against
+  **both** validators, the shallow one and the frozen oracle's recursing Ajv. The paperdoll was
+  also rebuilt as a properly human figure (tapered limbs, A-pose, chest-to-hip taper, elliptical
+  head) after the owner rejected the capsule draft.
   **Still open here:** the diegetic condition and stamina readouts (in the world, not a corner),
   prose generated from modifier sources, the skill web screen, an attachment-fitting surface (the
-  `item.attach`/`item.detach` commands still have no screen), and the expanded equipment-slot
-  taxonomy — slot layering is decided (basic, independent slots for the slice; layered resolution
-  revisited later), what remains is which slots ship with which items, recorded in HANDOFF.md.
+  `item.attach`/`item.detach` commands still have no screen), and the deferred warmth/hygiene
+  slots (undershirt, socks, underwear), which wait for temperature and hygiene systems.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources

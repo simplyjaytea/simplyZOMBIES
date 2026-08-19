@@ -64,7 +64,7 @@
       "description": "How many units share one footprint. 1 means the item does not stack."
     },
     "equipSlot": {
-      "enum": ["back", "vest", "belt", "primary", "secondary", "head", "torso"],
+      "enum": ["back", "vest", "belt", "primary", "secondary", "head", "face", "eyes", "torso", "gloves", "legs", "feet"],
       "description": "Which equipment slot this base can occupy, if any. Wearing a container is what grants its grid (docs/10-items.md#what-you-can-carry-is-what-you-chose-to-wear)."
     },
     "container": {
