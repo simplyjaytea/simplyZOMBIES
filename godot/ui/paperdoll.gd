@@ -96,6 +96,42 @@ func _armored(part: String) -> bool:
 	var d: Variant = _by_part.get(part)
 	return d is Dictionary and bool((d as Dictionary).get("armored", false))
 
+# The figure is a filled silhouette now, not a stroked stick: every limb is a capsule
+# (thick round-capped segment), the torso a filled polygon with rounded shoulders, and the
+# whole body sits on a soft ground shadow -- the Tarkov-register body diagram the owner
+# asked for, drawn in code so every part stays individually tintable. Condition still
+# crosses only as the four state tints; armour is a steel outer stroke; nothing numeric.
+const BASE_FILL: Color = Color("#4d5546")
+const RIM: Color = Color("#12150f")
+const ARMOUR_COL: Color = Color(0.55, 0.66, 0.78)
+const TINT_BLEND: float = 0.72
+
+
+func _fill_for(part: String) -> Color:
+	var tint: Variant = _tint_for(part)
+	if tint == null:
+		return BASE_FILL
+	return BASE_FILL.lerp(tint as Color, TINT_BLEND)
+
+
+# A rounded limb: round-capped thick segment. Drawn twice -- rim then fill -- so every
+# part carries a dark edge that separates it from its neighbours and the panel.
+func _capsule(a: Vector2, b: Vector2, r: float, col: Color) -> void:
+	if a.distance_to(b) < 0.5:
+		draw_circle(a, r, col)
+		return
+	draw_line(a, b, col, r * 2.0)
+	draw_circle(a, r, col)
+	draw_circle(b, r, col)
+
+
+func _limb(a: Vector2, b: Vector2, r: float, part: String) -> void:
+	if _armored(part):
+		_capsule(a, b, r + maxf(2.6, r * 0.32), ARMOUR_COL)
+	_capsule(a, b, r + 1.6, RIM)
+	_capsule(a, b, r, _fill_for(part))
+
+
 func _draw() -> void:
 	if _view.is_empty():
 		return
@@ -108,6 +144,10 @@ func _draw() -> void:
 	var prone: bool = pose == OutlinePose.Prone
 	var pivot: float = 0.5
 	var mark_r: float = maxf(3.0, h * 0.028)
+	# soft ground shadow under the figure, squashed into an ellipse
+	draw_set_transform(Vector2(anchor_x, anchor_y), 0.0, Vector2(1.0, 0.3))
+	draw_circle(Vector2.ZERO, h * (0.5 if prone else 0.22), Color(0.0, 0.0, 0.0, 0.30))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# A part with both a wound and an infection needs two marks that don't sit on top of each
 	# other; offsets keeps them apart along whichever axis this pose draws limbs across.
 	var mark_backing: Color = Color(0.05, 0.055, 0.06)
@@ -123,18 +163,6 @@ func _draw() -> void:
 			draw_circle(pos2, mark_r * 0.85, mark_backing)
 			draw_circle(pos2, mark_r * 0.85, Color(0.68, 0.82, 0.36), false, 2.4)
 			slot += 1
-	# simplified prone span/pivot
-	var draw_poly: Callable = func(points: PackedVector2Array, part: String) -> void:
-		if points.size() < 3: return
-		var col: Variant = _tint_for(part)
-		if col != null:
-			draw_colored_polygon(points, col as Color)
-		# Armour reads as the stroke, not the fill: a protected part keeps whatever the fill
-		# already says about its condition and gets a distinct, thicker outline over it,
-		# rather than a second colour competing with the condition tint for the same shape.
-		var outline_col: Color = Color(0.55, 0.66, 0.78) if _armored(part) else Palette.COLOURS["outline"]
-		var outline_w: float = maxf(2.8, h * 0.02) if _armored(part) else maxf(2.0, h * 0.014)
-		draw_polyline(points + PackedVector2Array([points[0]]), outline_col, outline_w)
 	var project: Callable = func(fx: float, fy: float) -> Vector2:
 		if prone:
 			return Vector2(anchor_x + (pivot - fy) * h, anchor_y - CRAWL_FRAC * h + fx * h)
@@ -157,18 +185,12 @@ func _draw() -> void:
 		var p1: Vector2 = project.call(knee_x, (hip_y + ankle_y) / 2.0)
 		var p2: Vector2 = project.call(ankle_x, ankle_y)
 		var half: float = float(P["legHalf"]) * h
-		if not prone:
-			draw_poly.call(PackedVector2Array([p0 + Vector2(-half, 0), p0 + Vector2(half, 0), p1 + Vector2(half * 0.86, 0), p1 + Vector2(-half * 0.86, 0)]), leg_part)
-			draw_poly.call(PackedVector2Array([p1 + Vector2(-half * 0.86, 0), p1 + Vector2(half * 0.86, 0), p2 + Vector2(half * 0.86, 0), p2 + Vector2(-half * 0.86, 0)]), leg_part)
-		else:
-			draw_poly.call(PackedVector2Array([p0 + Vector2(0, -half), p0 + Vector2(0, half), p1 + Vector2(0, half * 0.86), p1 + Vector2(0, -half * 0.86)]), leg_part)
-			draw_poly.call(PackedVector2Array([p1 + Vector2(0, -half * 0.86), p1 + Vector2(0, half * 0.86), p2 + Vector2(0, half * 0.86), p2 + Vector2(0, -half * 0.86)]), leg_part)
-		draw_marks.call(p1, leg_part, Vector2(0, 1) if not prone else Vector2(1, 0))
+		_limb(p0, p1, half, leg_part)
+		_limb(p1, p2, half * 0.86, leg_part)
 		var foot_r: float = float(P["footR"]) * h
-		var foot_at: Vector2 = p2 + Vector2(0, -foot_r * 0.8)
-		draw_circle(foot_at, foot_r * 0.62, Palette.COLOURS["outline"] if _tint_for(foot_part) == null else _tint_for(foot_part) as Color)
-		if _armored(foot_part):
-			draw_circle(foot_at, foot_r * 0.62, Color(0.55, 0.66, 0.78), false, maxf(2.4, h * 0.016))
+		var foot_at: Vector2 = p2 + Vector2(0, -foot_r * 0.2) if not prone else p2 + Vector2(foot_r * 0.4, 0)
+		_limb(foot_at, foot_at, foot_r, foot_part)
+		draw_marks.call(p1, leg_part, Vector2(0, 1) if not prone else Vector2(1, 0))
 		draw_marks.call(foot_at, foot_part, Vector2(1, 0))
 	# arms
 	for side in [-1, 1]:
@@ -182,20 +204,15 @@ func _draw() -> void:
 		var pM: Vector2 = project.call(mid_x, mid_y)
 		var pW: Vector2 = project.call(wrist_x, wrist_y)
 		var aw: float = float(P["armHalf"]) * h
-		draw_poly.call(PackedVector2Array([pS + Vector2(-aw, 0), pS + Vector2(aw, 0), pM + Vector2(aw * 0.88, 0), pM + Vector2(-aw * 0.88, 0)]), arm_part)
-		draw_poly.call(PackedVector2Array([pM + Vector2(-aw * 0.88, 0), pM + Vector2(aw * 0.88, 0), pW + Vector2(aw * 0.88, 0), pW + Vector2(-aw * 0.88, 0)]), arm_part)
-		draw_marks.call(pM, arm_part, Vector2(0, 1) if not prone else Vector2(1, 0))
+		_limb(pS, pM, aw, arm_part)
+		_limb(pM, pW, aw * 0.88, arm_part)
 		var hand_r: float = float(P["handR"]) * h
 		var hand_at: Vector2 = pW + Vector2(0, hand_r * 0.6 if prone else -hand_r * 0.6)
-		draw_circle(hand_at, hand_r, Palette.COLOURS["outline"] if _tint_for(hand_part) == null else _tint_for(hand_part) as Color)
-		if _armored(hand_part):
-			draw_circle(hand_at, hand_r, Color(0.55, 0.66, 0.78), false, maxf(2.4, h * 0.016))
+		_limb(hand_at, hand_at, hand_r, hand_part)
+		draw_marks.call(pM, arm_part, Vector2(0, 1) if not prone else Vector2(1, 0))
 		draw_marks.call(hand_at, hand_part, Vector2(1, 0))
-	# torso
-	var neck_half: float = float(P["neckHalf"]) * h
-	var shoulder_half: float = float(P["shoulderHalf"]) * h
-	var waist_half: float = float(P["waistHalf"]) * h
-	var hip_half: float = float(P["hipHalf"]) * h
+	# torso -- filled polygon with a rim, shoulders and hips rounded by joint circles so
+	# the outline reads as a body rather than a kite
 	var poly: PackedVector2Array = PackedVector2Array([
 		project.call(-float(P["neckHalf"]), up.call(P["neckY"])),
 		project.call(float(P["neckHalf"]), up.call(P["neckY"])),
@@ -206,17 +223,29 @@ func _draw() -> void:
 		project.call(-float(P["waistHalf"]), up.call(P["waistY"])),
 		project.call(-float(P["shoulderHalf"]), shoulder_y),
 	])
-	draw_poly.call(poly, "torso")
+	var torso_fill: Color = _fill_for("torso")
+	var joint_r: float = float(P["armHalf"]) * h * 1.35
+	if _armored("torso"):
+		var grow: float = maxf(3.0, h * 0.022)
+		draw_polyline(poly + PackedVector2Array([poly[0]]), ARMOUR_COL, grow * 2.0)
+	draw_polyline(poly + PackedVector2Array([poly[0]]), RIM, 3.2)
+	draw_colored_polygon(poly, torso_fill)
+	for corner in [poly[2], poly[7], poly[4], poly[5]]:
+		draw_circle(corner as Vector2, joint_r, torso_fill)
 	draw_marks.call(project.call(0.0, up.call(P["waistY"])), "torso", Vector2(1, 0))
-	# head
+	# neck and head
 	var head: Vector2 = project.call(0.0, up.call(P["headCentreY"]))
+	var neck_at: Vector2 = project.call(0.0, up.call(P["neckY"]))
 	var rx: float = float(P["headRx"]) * h
 	var ry: float = float(P["headRy"]) * h
 	if prone:
 		var tmp: float = rx; rx = ry; ry = tmp
-	draw_circle(head, (rx + ry) / 2.0, Palette.COLOURS["outline"] if _tint_for("head") == null else _tint_for("head") as Color)
+	var head_r: float = (rx + ry) / 2.0
+	_capsule(neck_at, head, float(P["neckHalf"]) * h, torso_fill)
 	if _armored("head"):
-		draw_circle(head, (rx + ry) / 2.0, Color(0.55, 0.66, 0.78), false, maxf(2.4, h * 0.016))
+		draw_circle(head, head_r + maxf(2.6, head_r * 0.3), ARMOUR_COL)
+	draw_circle(head, head_r + 1.6, RIM)
+	draw_circle(head, head_r, _fill_for("head"))
 	draw_marks.call(head, "head", Vector2(1, 0))
 	# prose below figure — posture hint only, no numbers cross the boundary (docs/05)
 	if _view.has("parts"):

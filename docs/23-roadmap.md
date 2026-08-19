@@ -788,11 +788,21 @@ table above are the authority on each):
   in), the stance paperdoll moved to the **bottom-left** with the HUD key hints taking the freed
   corner, grid item labels are width-fitted rather than cut at six characters, and click-to-fire
   moved to `_unhandled_input` so a click on any UI surface is never also a trigger pull.
+  A second pass landed on the owner's direction: the survivor screen is **one view** now (tabs
+  gone — slots flank the doll and anything wrong with the body reads as prose beneath it), the
+  paperdoll is a **filled capsule silhouette** rather than a stroked stick figure (rounded joints,
+  per-part tint blend, armour as a steel outer stroke, a ground shadow — every part still
+  individually tintable and nothing numeric), **pinned belt and vest pouches stay fully usable
+  during play** while a backpack still needs the inventory open (`ContainerWindow.quick`, the
+  owner's cut: what is on your front is reachable, what is on your back is not), and a
+  **developer spawn menu on F8** (`ui/debug_panel.gd`) lists every item id and zombie type and
+  spawns through a new command-driven `sim/modules/debug.gd` (`debug.spawn`, its randomness on a
+  dedicated `debug` stream) — dev tooling in the M-raw-sheet family, not a player surface.
   **Still open here:** the diegetic condition and stamina readouts (in the world, not a corner),
   prose generated from modifier sources, the skill web screen, an attachment-fitting surface (the
   `item.attach`/`item.detach` commands still have no screen), and the expanded equipment-slot
-  taxonomy + Tarkov-style paperdoll — both waiting on the owner's slot design, recorded in
-  HANDOFF.md.
+  taxonomy — slot layering is decided (basic, independent slots for the slice; layered resolution
+  revisited later), what remains is which slots ship with which items, recorded in HANDOFF.md.
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
