@@ -1170,6 +1170,46 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   rather than a placeholder, but the missing sprite is the Art track's open prop renderer and
   docs/23 says so rather than letting it read as finished.
 
+## Attachments: the content declares what it multiplies
+
+`godot/sim/modules/attachments.gd`, `content/items/attachments.json`, gated by
+`npm run godot:m2:attach`. docs/10's attachment slots are "the mechanism that lets a build survive
+an upgrade", and the backlog's note that no content declared `slots` was wrong — every weapon base
+has declared them since the item pipeline landed. What was missing was anything that fits into one
+and anything that reads one.
+
+- **An attachment declares what it multiplies, and the module names none of them.**
+  `attachment.ranged` and `attachment.melee` are tables keyed by the profile field they scale, so
+  `{"noise": 0.22, "flash": 0.35, "cone": 1.2, "damage": 0.9}` *is* the suppressor. Adding a kind
+  of attachment is a data edit, which is the rule docs/10 already states for bases and affixes and
+  which has no reason to stop holding here. Nothing in `attachments.gd` says suppressor, optic or
+  magazine.
+- **Multipliers, never adders.** An extended magazine is 1.5× rather than +4 rounds, so two
+  attachments compose identically in either order and neither has to know the host's numbers. The
+  cost is that "+1 round on anything" cannot be expressed; nothing has asked for it.
+- **`SCALABLE` is a whitelist, and that is the point.** Folding "whatever key matches" would let a
+  typo — `magsize`, `range` — behave exactly like an attachment that does nothing, which is the
+  hardest bug in this codebase to see. The list is per kind, and the gate asserts every key any
+  shipped attachment declares is in it. That is the nested-shape check the content validator
+  cannot do, in the same slot `check_appearance.gd` occupies for `appearance`.
+- **`cone` is a property of the weapon, not of the person.** `ranged_accuracy` is a stat and
+  resolves on the *entity*, so an item-scoped modifier would have been read by nothing. The
+  profile carries a `cone` multiplier that `ranged.gd:_refresh_cone` folds in after the entity's
+  own accuracy, which is also the more correct model: an optic is bolted to the gun.
+- **The findability assertion is a dead-socket check.** docs/10 says attachments are "found, not
+  crafted", so an attachment in no loot table is content nobody will ever hold. CONTENT in the
+  gate fails on that, and on a `fits` naming a slot no shipped base declares — the two ways an
+  attachment can be complete, correct and inert. This milestone has turned up six of those; this
+  is the first slice that shipped with the check built in rather than the socket found later.
+- **Reachable by command, on the `item.modify` precedent.** `item.attach {host, item, slot}` and
+  `item.detach {item}`, two commands rather than one toggle, because they carry different
+  arguments and a toggle would have to guess. There is no inventory screen for it yet and docs/23
+  says so.
+- **Scoped out, deliberately:** attachments have no condition of their own, so docs/10's
+  "suppressors wear out fast" is half-shipped — the accuracy cost is real, the wearing out is not.
+  An optic is not yet useless in the dark and a weapon light is not yet an attention emitter; both
+  want the light channel, which is its own item.
+
 ## Sightlines and memory: one refusal, one recollection
 
 `godot/sim/modules/sightings.gd`, `SimRanged.can_target`, `SimVisibility.line_of_sight`, gated by
