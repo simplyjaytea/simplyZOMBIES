@@ -45,6 +45,7 @@ const GROUPS: Array = [
 		["P", "pause"],
 		["F5 / F9", "save and load"],
 		["Esc", "settings"],
+		["F8", "debug spawn menu (dev)"],
 		["F1", "these keys"],
 	]],
 ]
