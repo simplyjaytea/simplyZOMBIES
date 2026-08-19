@@ -917,6 +917,40 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   404 it still never does. That is a call about how the slice seats its people, not another lever
   in the contact loop.
 
+## Sepsis: a socket connected, and deliberately not lethal yet
+
+- **It was a socket, not a gap.** `needs.gd` published `sepsis.checked` with a hygiene multiplier
+  every dusk and nothing subscribed to it — `sepsis_mul` was gated, correct, and reached no wound.
+  That is the third one this run (the shambler's `crawlFactor` and `Staggered` state were the
+  others), which is enough of a pattern to name: a gate that asserts a *helper* returns the right
+  number does not assert anything reads it.
+- **All four factors in one expression.** docs/05 drives the probability from severity, hygiene,
+  cleanliness of the dressing, and treatment skill; `sepsis_chance` takes all four, so no caller
+  can apply three of them. An undressed wound is worse than a dirty rag, which is what makes a bad
+  dressing better than none.
+- **The roll lives with the wound, the hygiene stays with needs.** `wounds.gd` owns the record and
+  the recovery clock sepsis has to block, so the roll is there; `needs.gd` owns hygiene, so it
+  computes the multiplier and hands it over rather than having wounds reach across and re-derive
+  it.
+- **Antibiotics accept a septic survivor with no bite at all.** This is docs/05's first consequence
+  made mechanical — "the finite, uncraftable supply that saves someone from a bite is the same
+  supply that saves someone from a dirty laceration" — and it has a second effect that matters
+  more: refusing would let the player distinguish sepsis from a bite by which verb was legal, which
+  is exactly the ambiguity the separation exists to create. `_spend_one_course` is shared rather
+  than copied, because two implementations of "take one off the stack" is how one finite supply
+  becomes two.
+- **The sepsis cure is deterministic where the zombie-infection one is a roll.** docs/05 has
+  bacterial infection as the treatable one and zombie infection as the gamble, and that asymmetry
+  is most of why the two are worth keeping apart.
+- **Not lethal in Milestone 2, on purpose.** Sepsis is debilitating and permanent until treated: a
+  septic wound stops healing entirely and clears only to antibiotics. That produces the budget pull
+  docs/05 asks for without adding a death path to a lethality model whose balance is the thing
+  currently standing between `GRABS_ENABLED` and its flip. Making sepsis kill is a balance decision
+  with a measurement attached, and it should arrive with one.
+- **One modifier per survivor, not one per infected wound.** Two septic wounds are a worse
+  situation but not twice the fever, and stacking the source would make a survivor with four
+  scratches unplayable for reasons nothing in docs/05 asks for.
+
 ## Food is content, and bad food has a consequence
 
 - **The retired `FOOD` table is pinned by value in the gate.** Moving three foods from a GDScript
