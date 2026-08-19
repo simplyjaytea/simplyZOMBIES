@@ -390,6 +390,22 @@ func _blocked_at(x: float, y: float) -> bool:
 	return is_blocked_tile(floori(x), floori(y))
 
 
+# Whether a body of BODY_RADIUS centred here has room to stand. This is a different question from
+# the one _integrate_movement asks: that one tests the two leading corners of the axis it is about
+# to move along, because it is deciding "may I take this step". This tests the whole footprint,
+# because callers use it to ask "is there anywhere over there" about a point the body is not at
+# yet. Conservative by construction -- a footprint that fits here would also have passed either
+# axis test -- which is the safe direction for a probe.
+#
+# Public because SimShambler._break_away picks its heading with it, and a sim module must not
+# reach into world's privates to do collision maths that lives here.
+func body_fits_at(x: float, y: float) -> bool:
+	return not _blocked_at(x - BODY_RADIUS, y - BODY_RADIUS) \
+			and not _blocked_at(x + BODY_RADIUS, y - BODY_RADIUS) \
+			and not _blocked_at(x - BODY_RADIUS, y + BODY_RADIUS) \
+			and not _blocked_at(x + BODY_RADIUS, y + BODY_RADIUS)
+
+
 func _sign(value: float) -> float:
 	if value > 0.0:
 		return 1.0

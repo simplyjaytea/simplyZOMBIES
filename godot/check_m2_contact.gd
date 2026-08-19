@@ -55,6 +55,7 @@ func _run() -> void:
 	ok = _a_held_body_gets_its_breath_back() and ok
 	ok = _release_arms_the_regrab_cooldown() and ok
 	ok = _an_escape_opens_a_gap_the_cooldown_cannot_close() and ok
+	ok = _a_break_away_has_somewhere_to_go() and ok
 	ok = _the_dead_are_not_worth_chasing() and ok
 	ok = _a_held_survivor_can_answer_their_own_bleeding() and ok
 	ok = _struggling_and_pressing_are_not_the_same_hand() and ok
@@ -1096,6 +1097,115 @@ func _an_escape_opens_a_gap_the_cooldown_cannot_close() -> bool:
 		float(ran["gap"]), SimShambler.BREAK_AWAY_TICKS, int(stood["regrabbed_at"]),
 	])
 	return true
+
+
+# An escape has to have somewhere to go, and for five slices it did not.
+#
+# CLEAR-AWAY above measures the shove-off in open field, where straight-away is a fine heading.
+# The balance harness measures it where a colony actually lives, which is against the annex walls,
+# and there it was worthless: over three days of seed 404 the committed heading was blocked on
+# both axes on 86% of breakAway ticks and the survivor covered 0.010 m per tick against a nominal
+# 0.105. The gap the cooldown could not close in open field was never opened indoors at all.
+#
+# So the positive is a release with masonry directly behind the victim: the heading must come off
+# straight-away, and -- the half that actually matters -- the body must cover real ground, which
+# is measured against the same release with the fan's own answer forced back to straight-away.
+# That control is the shipped-before behaviour, and it must fail to move.
+#
+# The negative is the other direction and is equally load-bearing: the identical release in an
+# empty field must commit to straight-away *exactly*. A fan that perturbs a heading with nothing
+# wrong with it would pass the positive and quietly re-aim every escape in the game.
+func _a_break_away_has_somewhere_to_go() -> bool:
+	# A wall running the full height at x=25, with the victim pressed against its west face and
+	# the shambler due west of them -- so straight-away points east, into the wall, and the two
+	# headings that slide along it are +/-90 degrees off.
+	var walls: Array = _column(25, 20, 30)
+	var runs: Dictionary = {}
+	for arena in ["walled", "open"]:
+		var w: Variant = _world(9300, walls if arena == "walled" else [])
+		_no_struggling(w)
+		var npc: int = _spawn_npc(w, 24.5, 25.5)
+		var zed: int = _spawn_shambler(w, 23.8, 25.5, 999.0)
+		var formed: bool = false
+		for _i in 40:
+			w.step()
+			if w.components.has_component(npc, "grabbed"):
+				formed = true
+				break
+		if not formed:
+			push_error("no hold formed on the NPC in the %s arena, so there is no escape to measure" % arena)
+			return false
+		_pin_the_bite_clock(w, zed)
+		var from: Dictionary = (w.components.get_component(npc, "position") as Dictionary).duplicate()
+		SimShambler._release_victim(w, npc, "struggle", npc)
+		var flight: Variant = w.components.get_component(npc, "breakAway")
+		if not (flight is Dictionary):
+			push_error("a release in the %s arena armed no break-away at all" % arena)
+			return false
+		var committed: float = atan2(float((flight as Dictionary)["dy"]), float((flight as Dictionary)["dx"]))
+		# Straight-away is due east here by construction, so the deviation is the committed angle
+		# itself, wrapped into (-PI, PI].
+		var deviation: float = rad_to_deg(wrapf(committed - 0.0, -PI, PI))
+		var covered: float = _flown(w, npc, from, SimShambler.BREAK_AWAY_TICKS)
+		runs[arena] = {"deviation": deviation, "covered": covered}
+
+	# The control: the same walled release with the heading forced back to straight-away, which is
+	# what shipped before this slice. Without it, "covered 2.4 m" proves nothing about the fan --
+	# it could be a wall the integrator was never going to catch.
+	var control: float = _straight_away_into_the_wall(walls)
+
+	var walled: Dictionary = runs["walled"] as Dictionary
+	var open_field: Dictionary = runs["open"] as Dictionary
+	if absf(float(open_field["deviation"])) > 0.001:
+		push_error("in open field the shove-off deviated %.3f degrees from straight-away -- the fan is re-aiming escapes that had nothing wrong with them" % float(open_field["deviation"]))
+		return false
+	if absf(float(walled["deviation"])) < 1.0:
+		push_error("with a wall directly behind them the shove-off still committed to straight-away (deviation %.3f degrees)" % float(walled["deviation"]))
+		return false
+	if float(walled["covered"]) <= control + 1.0:
+		push_error("the fanned break-away covered %.3f m against the straight-away control's %.3f m -- not enough of a difference to be the fan" % [float(walled["covered"]), control])
+		return false
+	if control > 0.5:
+		push_error("the straight-away control covered %.3f m, so this arena does not reproduce the wall the fan exists for" % control)
+		return false
+	print("AWAY-CLEAR OK wall behind: heading came %.1f degrees off straight-away and flew %.2f m, where straight-away covers %.2f m; open field committed to straight-away exactly and flew %.2f m" % [
+		float(walled["deviation"]), float(walled["covered"]), control, float(open_field["covered"]),
+	])
+	return true
+
+
+# The same walled release, with the committed heading overwritten with straight-away a tick before
+# flight begins. Models the behaviour that shipped before the fan: everything else -- the speed,
+# the duration, the integrator, the shambler still seeking -- is identical.
+func _straight_away_into_the_wall(walls: Array) -> float:
+	var w: Variant = _world(9300, walls)
+	_no_struggling(w)
+	var npc: int = _spawn_npc(w, 24.5, 25.5)
+	var zed: int = _spawn_shambler(w, 23.8, 25.5, 999.0)
+	for _i in 40:
+		w.step()
+		if w.components.has_component(npc, "grabbed"):
+			break
+	_pin_the_bite_clock(w, zed)
+	var from: Dictionary = (w.components.get_component(npc, "position") as Dictionary).duplicate()
+	SimShambler._release_victim(w, npc, "struggle", npc)
+	var flight: Variant = w.components.get_component(npc, "breakAway")
+	if not (flight is Dictionary):
+		return -1.0
+	(flight as Dictionary)["dx"] = SimShambler.BREAK_AWAY_SPEED
+	(flight as Dictionary)["dy"] = 0.0
+	return _flown(w, npc, from, SimShambler.BREAK_AWAY_TICKS)
+
+
+# Straight-line distance from `from` after `ticks` more steps. Distance from the release point,
+# not path length: what an escape is worth is how far away it got, not how far it walked.
+func _flown(w: Variant, entity: int, from: Dictionary, ticks: int) -> float:
+	for _i in ticks:
+		w.step()
+	var now: Dictionary = w.components.get_component(entity, "position") as Dictionary
+	var dx: float = float(now["x"]) - float(from["x"])
+	var dy: float = float(now["y"]) - float(from["y"])
+	return sqrt(dx * dx + dy * dy)
 
 
 # `identity` survives recruits._make_corpse, and _gather_survivors looks for `identity`. So until

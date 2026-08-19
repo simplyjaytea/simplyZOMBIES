@@ -171,35 +171,38 @@ const RESCUE_RETRY_TICKS: int = 20
 # appear at all (0 of 119 -> 10 of 141 on 90210). FLIGHT-CANCELS-PRESS holds the whole cycle down,
 # against a paired control on the same geometry with the subscription lifted off the bus.
 #
-# Reason six, which is where it stands now: *a body that tears free does not go anywhere, and a
-# press that is cancelled at every escape never finishes.* The flag stays false, both hard seeds
-# still end 0/2, and the instrumentation names the residual rather than guessing at it.
+# Reason six was *a body that tears free does not go anywhere, and a press that is cancelled at
+# every escape never finishes* -- two residuals, named from instrumentation rather than guessed
+# at. **The first is answered.** The escape had nowhere to go because it insisted on going
+# straight away: over three days of seed 404 the committed heading was blocked on both axes on
+# 86% of breakAway ticks and the body covered 0.010 m per tick against a nominal 0.105, because
+# _break_away took one direction and _integrate_movement zeroed a blocked axis. A colony is
+# grabbed where a colony lives, which is against the annex walls. _break_away now fans out from
+# straight-away and commits to the nearest heading with room (see it, and AWAY-CLEAR), which
+# keeps the shove-off and gives it somewhere to go.
 #
-# The cost of the inversion is exact: presses **completed** go from 25/9/26 to **zero on every
-# seed**, because a 400-tick deep-wound press cancelled every ~50 ticks banks nothing. Blood loss
-# becomes the whole of 90210's death list and 404's colony lives 15% fewer ticks than it did with
-# the press winning. Fewer holds, fewer bites, and less clotting; the net is not survival.
+# Measured on the four fast seeds with the flag forced on, same driver both columns:
 #
-# The reason the win is that small is not the arbitration this time -- it is _break_away itself.
-# Measured over three days of seed 404 with the flag on: a `breakAway` body carries its escape
-# velocity into movement.integrate on 1,230 of 1,266 ticks, and the integrator **zeroes it on
-# 1,124**, because the committed heading is blocked on the X axis on 1,107 of those ticks, on the Y
-# axis on 1,154, and on **both at once on 1,087 -- 86%**. Ground actually covered: 12.66 m, which is
-# 0.010 m per tick against a nominal 0.105. The direction is taken once, at the moment of release,
-# and never re-derived -- deliberately, see _break_away, because this is a shove-off and not a
-# pursuit solver -- and world.gd's _integrate_movement zeroes a blocked axis. A colony is grabbed
-# where a colony lives, which is against the annex walls, so the shove-off points into masonry and
-# the escapee leans on it for all 26 ticks. Hence a mean of 0.063 m covered between escape and
-# re-grab on 404, and the same shambler taking them again in 309 of 309 windows across the seeds
-# that have any.
+#   seed     | before                              | after
+#   20260805 | 3/2, no contact                     | 3/2, no contact
+#   404      | 0/2, 150 grabs, 88 bites, 8,490     | 0/2, 152 grabs, 79 bites, **12,011** living
+#            | living ticks, 50.2% held, 0.0086    | ticks, 31.4% held, **0.1038** m/tick
+#   31337    | 3/2, 46 grabs, 20 bites             | 3/2, **6** grabs, **2** bites
+#   90210    | 0/2, 166 grabs, 65 bites, 0.0169    | **1/2**, **65** grabs, **20** bites, 0.1041
 #
-# So the candidates are: give a break-away somewhere to go (a heading that avoids a wall, or a
-# re-derive), let a press bank its progress, or cut contact rarity. All three are design calls, so
-# **do not pick one unilaterally**. Relaxing `survivors_end >= 1` remains considered and rejected.
-# docs/23's Milestone 2 status carries the measurement seed by seed, including the two smaller
-# residuals: the one pinned tick the drain ordering costs an escape (worth 0.105 m of gap, which
-# lifts BREAK_AWAY_SPEED's own d0 threshold from 0.58 m to about 0.69 m), and the fragments
-# arithmetic that leaves a deep press with no reachable completion path.
+# An escape is now worth roughly what the open-field arithmetic above always claimed -- 0.104 m
+# per tick against a nominal 0.105, up from a tenth of that -- and 90210 is the first hard seed to
+# stop wiping. 404's colony lives 41% longer and spends a third rather than half of its life held.
+#
+# **The flag is still false, and the second residual is why.** 404 still ends 0/2, all three
+# deaths blood loss, with 126 presses begun and **zero completed**: a press cancelled at every
+# escape banks nothing, so a 400-tick deep-wound press has no reachable completion path when holds
+# arrive every ~50 ticks. That is the fragments arithmetic R5's inversion bought the hold count
+# with, and it is now the only thing between this loop and the flip. The remaining smaller
+# residual is unchanged and is a tick of drain ordering: the cancel lands at drain, so an escapee
+# stands still for one tick, worth 0.105 m of gap, which lifts BREAK_AWAY_SPEED's own d0 threshold
+# from 0.58 m to about 0.69 m. Relaxing `survivors_end >= 1` remains considered and rejected.
+# docs/23's Milestone 2 status carries the measurement seed by seed.
 #
 # So the loop ships complete, gated and off for one more turn, the way
 # SimMelee.REFUSE_EXHAUSTED_SWINGS did: check_m2_contact.gd turns it on explicitly, so every
@@ -230,6 +233,22 @@ const BREAK_AWAY_TICKS: int = 26
 # ticks on seed 404 have the committed heading blocked on both axes, so the body covers 0.010 m per
 # tick rather than 0.105 and this open-field reasoning simply does not apply to it.
 const BREAK_AWAY_SPEED: float = 2.1
+# The fan _break_away chooses its heading from, in the order it tries them: straight away first,
+# then widening in 22.5-degree pairs. Order is the policy -- the first clear candidate wins, so a
+# heading is only ever traded for a wider one when the narrower one is into a wall. Sixteenths of
+# a turn is fine enough that a wall parallel to the escape always has a candidate within 22.5
+# degrees of sliding along it, and coarse enough that the probe stays thirteen cheap tile lookups.
+# Stops at +/-135: past that the shove-off would be through the holder.
+const BREAK_AWAY_FAN_DEGREES: Array = [
+	0.0, 22.5, -22.5, 45.0, -45.0, 67.5, -67.5, 90.0, -90.0, 112.5, -112.5, 135.0, -135.0,
+]
+# How far a candidate has to be clear to be taken as-is: 1.5 m, which is a shade over GRAB_METRES
+# plus the 0.42 m/s the escapee gains over the seek across the re-grab cooldown. Further than this
+# does not change whether the escape works and does make an indoor release more likely to find
+# nothing at all and fall back.
+const BREAK_AWAY_PROBE_METRES: float = 1.5
+# 0.25 m, comfortably under the 0.7 m body diameter, so no sample can straddle a wall.
+const BREAK_AWAY_PROBE_STEP: float = 0.25
 
 const SimLocomotionRes = preload("res://sim/locomotion.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
@@ -544,10 +563,30 @@ static func _release_grab(world: Variant, source: int, cause: String = "geometry
 		_break_away(world, freed, source)
 
 
-# Points a just-freed survivor directly away from whoever was holding them and commits them to
-# that heading for BREAK_AWAY_TICKS. Direction is taken once, at the moment of release, rather
-# than re-derived per tick: this is somebody shoving off and stumbling clear, not a pursuit
-# solver, and re-aiming every tick would have it orbit a shambler that follows.
+# Points a just-freed survivor away from whoever was holding them and commits them to that
+# heading for BREAK_AWAY_TICKS. Direction is taken once, at the moment of release, rather than
+# re-derived per tick: this is somebody shoving off and stumbling clear, not a pursuit solver, and
+# re-aiming every tick would have it orbit a shambler that follows.
+#
+# "Away" is the *preference*, not the commitment, and that distinction is the whole of this
+# slice. Straight-away was the commitment for five slices and it was measurably the wrong one: a
+# colony is grabbed where a colony lives, which is against the annex walls, so the shove-off
+# pointed into masonry and movement.integrate zeroed it. Over three days of seed 404 the committed
+# heading was blocked on both axes on 86% of breakAway ticks and the body covered 0.010 m per tick
+# against a nominal 0.105 -- an escape that opened no gap at all, which is why the same shambler
+# took the same survivor again in 309 of 309 measured windows.
+#
+# The fix keeps the shove-off and changes only which single heading it commits to: fan out from
+# straight-away in BREAK_AWAY_FAN_DEGREES order and take the first candidate with a clear run of
+# BREAK_AWAY_PROBE_METRES, falling back to whichever candidate has the longest clear run when none
+# is fully clear. Because the fan is ordered by increasing deviation and the comparison is strict,
+# the heading chosen is always the closest one to straight-away that qualifies -- in open field
+# that is straight-away itself, unchanged, which is the negative AWAY-CLEAR pins. The fan stops at
+# +/-135 rather than reaching 180: a survivor shoving off does not run through the thing that had
+# hold of them.
+#
+# This is geometry, not a search: no RNG is drawn and nothing is stored, so the same release in
+# the same world commits the same heading.
 static func _break_away(world: Variant, victim: int, from_source: int) -> void:
 	var at: Variant = world.components.get_component(victim, "position")
 	var away_from: Variant = world.components.get_component(from_source, "position")
@@ -558,11 +597,49 @@ static func _break_away(world: Variant, victim: int, from_source: int) -> void:
 	var length: float = sqrt(dx * dx + dy * dy)
 	if length == 0.0:
 		return
+	var heading: float = _somewhere_to_go(world, at as Dictionary, atan2(dy, dx))
 	world.components.set_component(victim, "breakAway", {
-		"dx": dx / length * BREAK_AWAY_SPEED,
-		"dy": dy / length * BREAK_AWAY_SPEED,
+		"dx": cos(heading) * BREAK_AWAY_SPEED,
+		"dy": sin(heading) * BREAK_AWAY_SPEED,
 		"ticksLeft": BREAK_AWAY_TICKS,
 	})
+
+
+# The heading the shove-off actually commits to: `away` if it has room, else the nearest thing to
+# it that does. Returns `away` unchanged when nothing is fully clear either, which is the old
+# behaviour and the right one -- a body wedged in a corner has no better answer, and inventing one
+# would be the pursuit solver this deliberately is not.
+static func _somewhere_to_go(world: Variant, at: Dictionary, away: float) -> float:
+	var best_angle: float = away
+	var best_run: float = -1.0
+	for degrees in BREAK_AWAY_FAN_DEGREES:
+		var angle: float = away + deg_to_rad(float(degrees))
+		var run: float = _clear_run(world, at, angle)
+		if run >= BREAK_AWAY_PROBE_METRES:
+			return angle
+		if run > best_run:
+			best_run = run
+			best_angle = angle
+	return best_angle
+
+
+# How far a body can travel along `angle` from `at` before its footprint stops fitting, capped at
+# BREAK_AWAY_PROBE_METRES. Sampled every BREAK_AWAY_PROBE_STEP, which is under the 0.7 m body
+# diameter, so a doorway-width gap cannot be stepped over. world.body_fits_at is the same tile
+# lookup movement.integrate collides against, so a run this reports as clear is one the integrator
+# will not zero.
+static func _clear_run(world: Variant, at: Dictionary, angle: float) -> float:
+	var cx: float = float(at["x"])
+	var cy: float = float(at["y"])
+	var ux: float = cos(angle)
+	var uy: float = sin(angle)
+	var travelled: float = 0.0
+	while travelled < BREAK_AWAY_PROBE_METRES:
+		var next: float = minf(travelled + BREAK_AWAY_PROBE_STEP, BREAK_AWAY_PROBE_METRES)
+		if not world.body_fits_at(cx + ux * next, cy + uy * next):
+			return travelled
+		travelled = next
+	return travelled
 
 
 # Frees a victim from every hand holding them at once -- the whole point of the contextual F
