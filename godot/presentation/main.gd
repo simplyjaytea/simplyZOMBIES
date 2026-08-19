@@ -57,6 +57,7 @@ var _legend: Control = null
 var _inventory_panel: Control = null
 var _work_panel: Control = null
 var _paperdoll: Control = null
+var _settings: Control = null
 var _selected: int = -1
 
 # paperdoll glimpse state (bottom-right diagram, not world sprite)
@@ -165,11 +166,11 @@ func _ensure_ui() -> void:
 		_legend.name = "Legend"
 		_legend.visible = true
 		layer.add_child(_legend)
-	# inventory panel (hidden until Tab)
+	# inventory layer (always present: draws the full screen on Tab, and any pinned bag
+	# windows while playing; input passes through it when closed)
 	var inv_script: GDScript = load("res://ui/inventory_panel.gd") as GDScript
 	if inv_script != null:
 		_inventory_panel = inv_script.new() as Control
-		_inventory_panel.visible = false
 		layer.add_child(_inventory_panel)
 	var work_script: GDScript = load("res://ui/work_panel.gd") as GDScript
 	if work_script != null:
@@ -178,14 +179,22 @@ func _ensure_ui() -> void:
 		_work_panel.position = Vector2(16, 240)
 		_work_panel.size = Vector2(1520, 320)
 		layer.add_child(_work_panel)
-	# paperdoll glimpse bottom-right (always visible, cheap)
+	# paperdoll glimpse bottom-left (always visible, cheap); the HUD keys hint moved to the
+	# bottom-right corner to make this one free.
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
 	if doll_script != null:
 		_paperdoll = doll_script.new() as Control
 		_paperdoll.custom_minimum_size = Vector2(280, 280)
-		_paperdoll.anchor_left = 1.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 1.0; _paperdoll.anchor_bottom = 1.0
-		_paperdoll.offset_left = -296; _paperdoll.offset_top = -296; _paperdoll.offset_right = -16; _paperdoll.offset_bottom = -16
+		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
+		_paperdoll.offset_left = 16; _paperdoll.offset_top = -296; _paperdoll.offset_right = 296; _paperdoll.offset_bottom = -16
 		layer.add_child(_paperdoll)
+	# settings (Esc), topmost so it draws over every other screen
+	var settings_script: GDScript = load("res://ui/settings_panel.gd") as GDScript
+	if settings_script != null:
+		_settings = settings_script.new() as Control
+		_settings.visible = false
+		_settings.set("on_changed", _on_ui_prefs_changed)
+		layer.add_child(_settings)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -199,14 +208,25 @@ func _input(event: InputEvent) -> void:
 				if _hud != null: _hud.set("show_raw", show_sheets)
 			KEY_O: _cycle_overlay()
 			KEY_F1: _toggle_legend()
-			KEY_ESCAPE, KEY_ENTER, KEY_KP_ENTER:
-				# Dismiss-only: Escape and Enter close the legend but never open it, so they
-				# stay free for whatever wants them later.
+			KEY_ENTER, KEY_KP_ENTER:
+				# Dismiss-only: Enter closes the legend but never opens anything.
 				if _legend != null and _legend.visible: _legend.visible = false
+			KEY_ESCAPE:
+				# Escape peels layers in order: the legend first, then settings toggles.
+				if _legend != null and _legend.visible:
+					_legend.visible = false
+				elif _settings != null:
+					_settings.visible = not _settings.visible
 			KEY_TAB:
 				inventory_open = not inventory_open
-				if _inventory_panel != null: _inventory_panel.visible = inventory_open
+				if _inventory_panel != null and _inventory_panel.has_method("set_open"):
+					_inventory_panel.call("set_open", inventory_open)
+					if inventory_open and _inventory_panel.has_method("set_world"):
+						_inventory_panel.call("set_world", world, world.player)
 				if _hud != null: _hud.visible = not inventory_open
+				# The body panel has its own doll; the corner glimpse duplicating it under
+				# the open screen is noise.
+				if _paperdoll != null: _paperdoll.visible = not inventory_open
 			KEY_J:
 				work_open = not work_open
 				if _work_panel != null:
@@ -257,6 +277,11 @@ func _input(event: InputEvent) -> void:
 		var ke2: InputEventKey = event as InputEventKey
 		if MOVE_KEYS.has(ke2.keycode): _held.erase(ke2.keycode)
 		if ke2.keycode == KEY_SHIFT: _push_stance(_selected_stance)
+
+# Pointer input lives in _unhandled_input, not _input, so any Control that consumed the
+# click -- a pinned bag window, the settings sheet, the work grid -- has already eaten it
+# and a click on UI never doubles as a trigger pull. GUI handling runs between the two.
+func _unhandled_input(event: InputEvent) -> void:
 	# Wheel zoom through the fixed ladder -- power-of-two multiples of the art-native
 	# 64 so nearest-neighbour scaling never shimmers. Not while the inventory is open:
 	# the wheel belongs to the panel there.
@@ -271,6 +296,10 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if world != null and not inventory_open:
 			world.commands.push({"type": "fire"})
+
+func _on_ui_prefs_changed() -> void:
+	if _inventory_panel != null and _inventory_panel.has_method("refresh_style"):
+		_inventory_panel.call("refresh_style")
 
 func _push_stance(target: int) -> void:
 	if world == null: return
@@ -448,7 +477,9 @@ func _update_hud() -> void:
 		_hud.call("refresh", world, who, base)
 	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
 		_work_panel.call("set_world", world)
-	if _inventory_panel != null and _inventory_panel.visible and _inventory_panel.has_method("set_world"):
+	# Always refreshed, not only while open: pinned bag windows read the same view during
+	# ordinary play, and a stale pinned bag is a lie about what you are carrying.
+	if _inventory_panel != null and _inventory_panel.has_method("set_world"):
 		_inventory_panel.call("set_world", world, world.player)
 
 func _draw() -> void:
