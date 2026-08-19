@@ -26,6 +26,14 @@ var items: Array = []
 var pinned: bool = false
 var layer_open: bool = true
 var drag_exclude: int = -1
+# Quick-access: pockets and anything worn on the belt or vest. A pouch on your front is
+# reachable mid-fight, so a pinned quick container stays fully interactive during play;
+# a backpack is on your back and needs the inventory open (the owner's call, 2026-08-19).
+var quick: bool = false
+
+
+func interactive() -> bool:
+	return layer_open or (pinned and quick)
 
 # All set by the layer at creation. press/release/rightclick receive layer-local points.
 var on_press: Callable = Callable()
@@ -89,7 +97,7 @@ func _gui_input(event: InputEvent) -> void:
 			elif mb.position.y < Chrome.HEADER_H:
 				_win_drag = true
 				_win_drag_grab = mb.position
-			elif layer_open and on_press.is_valid():
+			elif interactive() and on_press.is_valid():
 				on_press.call(layer_p)
 			accept_event()
 		elif mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
@@ -104,7 +112,7 @@ func _gui_input(event: InputEvent) -> void:
 				on_release.call(layer_p)
 			accept_event()
 		elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
-			if layer_open and on_rightclick.is_valid():
+			if interactive() and on_rightclick.is_valid():
 				on_rightclick.call(layer_p)
 			accept_event()
 	elif event is InputEventMouseMotion and _win_drag:
