@@ -30,6 +30,8 @@ extends SceneTree
 
 const World = preload("res://sim/world.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimInfection = preload("res://sim/modules/infection.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimCondition = preload("res://sim/condition.gd")
@@ -52,9 +54,13 @@ func _run() -> void:
 	ok = _bleeding_out_kills_exactly_once() and ok
 	ok = _a_bled_out_corpse_is_never_killed_again() and ok
 	ok = _the_view_says_bleeding_as_a_word() and ok
+	ok = _the_four_remaining_injury_types_differ_from_a_cut() and ok
+	ok = _each_new_injury_type_has_a_cause_that_reaches_it() and ok
+	ok = _a_wound_can_go_septic_on_the_four_factors_that_drive_it() and ok
+	ok = _a_septic_wound_never_heals_until_antibiotics_clear_it() and ok
 	ok = _deterministic_replay() and ok
 	if ok:
-		print("M2_WOUNDS_OK severity is a fraction, bleeding is a clock, impairment moves a body")
+		print("M2_WOUNDS_OK severity is a fraction, bleeding is a clock, impairment moves a body, four more injury types exist and are reachable, and a wound can go septic")
 		quit(0)
 	else:
 		push_error("M2_WOUNDS_FAIL")
@@ -545,3 +551,358 @@ func _deterministic_replay() -> bool:
 		return false
 	print("DETERMINISM OK identical runs match (%d chars), a heavier hit diverges" % sa.length())
 	return true
+
+
+# --- bacterial infection (docs/05) -----------------------------------------------------------
+#
+# "Any open wound can go septic, with probability driven by wound severity, hygiene, whether it was
+# cleaned, bandage cleanliness, and treatment skill."
+#
+# This was a socket: needs.gd published `sepsis.checked` with a hygiene multiplier every dusk and
+# nothing subscribed to it, so `sepsis_mul` was gated, correct, and reached no wound.
+
+const SEPSIS_ROLLS: int = 4000
+
+
+# The rate a wound in a given state goes septic, over enough dusks to be a rate. Rolled through
+# SimWounds.roll_sepsis rather than by calling sepsis_chance, so this measures the thing that
+# actually runs.
+func _septic_rate(seed_val: int, severity: int, dressing: String, hygiene_mul: float, skill: int) -> float:
+	var w: Variant = _world(seed_val)
+	var caught: int = 0
+	for i in SEPSIS_ROLLS:
+		var inj: Dictionary = {"wounds": [{
+			"severity": severity, "bodyPart": "torso", "bandage": dressing,
+			"bleeding": false, "healedTicks": 0, "septic": false,
+		}], "bloodLoss": 0.0}
+		w.components.set_component(w.player, "injuries", inj)
+		caught += SimWounds.roll_sepsis(w, w.player, hygiene_mul, skill)
+	return float(caught) / float(SEPSIS_ROLLS)
+
+
+func _a_wound_can_go_septic_on_the_four_factors_that_drive_it() -> bool:
+	# Severity: the base, with everything else held at neutral.
+	var scratch: float = _septic_rate(8801, SimWounds.Severity.Scratch, "cloth", 1.0, 0)
+	var deep: float = _septic_rate(8802, SimWounds.Severity.DeepWound, "cloth", 1.0, 0)
+	if scratch <= 0.0:
+		push_error("a scratch never went septic over %d dusks" % SEPSIS_ROLLS)
+		return false
+	if deep <= scratch:
+		push_error("a deep wound went septic at %.3f, no worse than a scratch's %.3f" % [deep, scratch])
+		return false
+
+	# Hygiene: needs.gd's own multiplier, which is what the dusk hook passes in.
+	var clean: float = _septic_rate(8803, SimWounds.Severity.Laceration, "cloth", SimNeeds.sepsis_mul("clean"), 0)
+	var filthy: float = _septic_rate(8804, SimWounds.Severity.Laceration, "cloth", SimNeeds.sepsis_mul("filthy"), 0)
+	if filthy <= clean:
+		push_error("a filthy survivor went septic at %.3f, no worse than a clean one's %.3f" % [filthy, clean])
+		return false
+
+	# Bandage cleanliness: "sterile > cloth > dirty rags, with rising infection risk down the
+	# chain", and an undressed wound worse than any of them -- which is what makes a bad dressing
+	# better than none.
+	var sterile: float = _septic_rate(8805, SimWounds.Severity.Laceration, "sterile", 1.0, 0)
+	var dirty: float = _septic_rate(8806, SimWounds.Severity.Laceration, "dirty", 1.0, 0)
+	var bare: float = _septic_rate(8807, SimWounds.Severity.Laceration, "none", 1.0, 0)
+	if not (sterile < clean and clean < dirty and dirty < bare):
+		push_error("the dressing chain is not ordered: sterile %.3f, cloth %.3f, dirty %.3f, none %.3f" % [sterile, clean, dirty, bare])
+		return false
+
+	# Treatment skill, floored so a good medic never makes a dirty wound safe.
+	var novice: float = _septic_rate(8808, SimWounds.Severity.DeepWound, "dirty", 1.0, 0)
+	var medic: float = _septic_rate(8809, SimWounds.Severity.DeepWound, "dirty", 1.0, 6)
+	if medic >= novice:
+		push_error("six Medicine points did not lower the rate: %.3f against %.3f" % [medic, novice])
+		return false
+	if SimWounds.sepsis_chance({"severity": SimWounds.Severity.DeepWound, "bandage": "dirty"}, 1.0, 999) <= 0.0:
+		push_error("an arbitrarily skilled medic drove the chance to zero -- SEPSIS_MIN_MUL is not holding")
+		return false
+
+	# The true negative: an already-septic wound is not re-rolled, or sepsis would be a stacking
+	# counter and severity would stop meaning anything.
+	var w: Variant = _world(8810)
+	w.components.set_component(w.player, "injuries", {"wounds": [{
+		"severity": SimWounds.Severity.DeepWound, "bodyPart": "torso", "bandage": "none",
+		"bleeding": false, "healedTicks": 0, "septic": true,
+	}], "bloodLoss": 0.0})
+	var again: int = 0
+	for _i in 200:
+		again += SimWounds.roll_sepsis(w, w.player, 2.5, 0)
+	if again != 0:
+		push_error("an already-septic wound was re-rolled %d times" % again)
+		return false
+
+	print("SEPSIS OK scratch %.3f < deep %.3f; clean %.3f < filthy %.3f; sterile %.3f < cloth %.3f < dirty %.3f < bare %.3f; novice %.3f -> medic %.3f; a septic wound is never re-rolled" % [
+		scratch, deep, clean, filthy, sterile, clean, dirty, bare, novice, medic,
+	])
+	return true
+
+
+# The cost, and the cure. A septic wound stops healing entirely and only antibiotics clear it --
+# which is docs/05's first consequence made mechanical: "the finite, uncraftable supply that saves
+# someone from a bite is the same supply that saves someone from a dirty laceration".
+func _a_septic_wound_never_heals_until_antibiotics_clear_it() -> bool:
+	const HEAL_TICKS: int = 4000
+	var healed: Dictionary = {}
+	for septic in [true, false]:
+		var w: Variant = _world(8820)
+		_hit(w, "torso", 20.0)
+		var wounds: Array = _wounds_of(w, w.player)
+		if wounds.is_empty():
+			push_error("no wound to infect")
+			return false
+		var wd: Dictionary = wounds[0] as Dictionary
+		wd["bleeding"] = false
+		wd["septic"] = septic
+		# Fed and idle, so recovery is earned rather than merely elapsed -- see RECOVERY_DAYS.
+		SimNeeds.attach(w, w.player)
+		var n: Dictionary = SimNeeds.of(w, w.player)
+		n["hunger"] = 100.0
+		n["thirst"] = 100.0
+		n["rest"] = 100.0
+		for _i in HEAL_TICKS:
+			w.step()
+			n["hunger"] = 100.0
+			n["thirst"] = 100.0
+			n["rest"] = 100.0
+		healed[str(septic)] = int((_wounds_of(w, w.player)[0] as Dictionary).get("healedTicks", 0))
+
+	if int(healed["false"]) <= 0:
+		push_error("a clean wound earned no recovery over %d ticks, so the septic one proves nothing" % HEAL_TICKS)
+		return false
+	if int(healed["true"]) != 0:
+		push_error("a septic wound earned %d ticks of recovery" % int(healed["true"]))
+		return false
+
+	# The cure, and that it comes out of the same stock. A survivor with no bite at all must be
+	# able to spend a course, or the player could tell sepsis from a bite by which button lit up.
+	var w2: Variant = _world(8830)
+	_hit(w2, "torso", 20.0)
+	SimInventory.make_inventory(w2, w2.player)
+	var wd2: Dictionary = _wounds_of(w2, w2.player)[0] as Dictionary
+	wd2["bleeding"] = false
+	wd2["septic"] = true
+	if not SimWounds.is_septic(w2, w2.player):
+		push_error("a wound marked septic does not read as septic")
+		return false
+	var course: int = SimItems.spawn_item(w2, "item.antibiotics.course", {"tier": "scavenged", "count": 2})
+	SimInventory.stow(w2, w2.player, course)
+	if w2.components.get_component(w2.player, "zombieInfection") != null:
+		push_error("the fixture survivor has a zombieInfection record, so this is not the no-exposure case")
+		return false
+	var used: Dictionary = SimInfection.use_antibiotics(w2, w2.player)
+	if not bool(used.get("ok", false)):
+		push_error("a septic survivor with no bite could not spend a course: %s" % str(used))
+		return false
+	if SimWounds.is_septic(w2, w2.player):
+		push_error("a course was spent and the sepsis remained")
+		return false
+	var left: Variant = w2.components.get_component(course, "stack")
+	if not (left is Dictionary) or int((left as Dictionary).get("count", 0)) != 1:
+		push_error("the course came out of a different stock: %s" % str(left))
+		return false
+
+	# And the negative: somebody with neither a bite nor sepsis is still refused, so this widened
+	# the door rather than removing it.
+	var w3: Variant = _world(8840)
+	SimInventory.make_inventory(w3, w3.player)
+	SimInventory.stow(w3, w3.player, SimItems.spawn_item(w3, "item.antibiotics.course", {"tier": "scavenged", "count": 2}))
+	var refused: Dictionary = SimInfection.use_antibiotics(w3, w3.player)
+	if bool(refused.get("ok", false)) or String(refused.get("reason", "")) != "no-exposure":
+		push_error("a well survivor was allowed a course: %s" % str(refused))
+		return false
+
+	print("SEPSIS COST OK a clean wound earned %d ticks of recovery and a septic one 0; one course from the shared stock cleared it (2 -> 1) with no bite involved; a well survivor is still refused" % int(healed["false"]))
+	return true
+
+
+# --- the remaining injury types (docs/05) -----------------------------------------------------
+#
+# docs/05's injury table has nine rows and three shipped, as severities of one bleeding wound.
+# Fracture, sprain, burn and concussion are structurally different: not primarily bleeding, with
+# recovery that does not track severity, and two of them impairing a part or a person far beyond
+# what their severity band suggests. `kind` had to stop being a label and become a table.
+
+func _a_wound(w: Variant, kind: String, part: String, severity: int) -> Dictionary:
+	return SimWounds.append_wound(w, w.player, kind, part, -1, 0.0, kind, severity)
+
+
+func _the_four_remaining_injury_types_differ_from_a_cut() -> bool:
+	# Every kind anything creates must be declared, or kind_spec silently treats it as a cut.
+	for kind in ["cut", "bite", "fracture", "sprain", "burn", "concussion"]:
+		if not SimWounds.WOUND_KINDS.has(kind):
+			push_error("%s is created somewhere but declared in no WOUND_KINDS row" % kind)
+			return false
+
+	# Closed injuries do not bleed, whatever their severity says. Measured on blood actually lost.
+	var closed: Array[String] = ["fracture", "sprain", "concussion"]
+	for kind in closed:
+		var w: Variant = _world(8900)
+		_a_wound(w, kind, ("head" if kind == "concussion" else "leg_left"), SimWounds.Severity.DeepWound)
+		for _i in 400:
+			w.step()
+		if _blood_loss(w, w.player) > 0.0:
+			push_error("a %s at DeepWound severity lost %.4f blood -- it is a closed injury" % [kind, _blood_loss(w, w.player)])
+			return false
+	# The control: a cut of the same severity on the same part bleeds plenty, so the zero above is
+	# the kind and not the fixture.
+	var bleeder: Variant = _world(8900)
+	_a_wound(bleeder, "cut", "leg_left", SimWounds.Severity.DeepWound)
+	for _i in 400:
+		bleeder.step()
+	if _blood_loss(bleeder, bleeder.player) <= 0.0:
+		push_error("the cut control did not bleed, so the closed injuries prove nothing")
+		return false
+
+	# Recovery is the kind's own figure, not the severity table's. docs/05: a sprain heals faster
+	# than a laceration and a fracture takes an order of magnitude longer than a deep wound.
+	var sprain_days: int = SimWounds.recovery_days_for("sprain", SimWounds.Severity.DeepWound)
+	var fracture_days: int = SimWounds.recovery_days_for("fracture", SimWounds.Severity.Scratch)
+	var deep_cut_days: int = SimWounds.recovery_days_for("cut", SimWounds.Severity.DeepWound)
+	if sprain_days >= deep_cut_days:
+		push_error("a sprain takes %d days against a deep cut's %d -- it should heal faster" % [sprain_days, deep_cut_days])
+		return false
+	if fracture_days <= deep_cut_days * 2:
+		push_error("a fracture takes %d days against a deep cut's %d -- docs/05 has it at weeks" % [fracture_days, deep_cut_days])
+		return false
+	# And a kind with no figure of its own still falls through to the severity table.
+	if SimWounds.recovery_days_for("cut", SimWounds.Severity.Scratch) != int(SimWounds.RECOVERY_DAYS[SimWounds.Severity.Scratch]):
+		push_error("a cut stopped using the per-severity recovery table")
+		return false
+
+	# "Near-total loss of the part": a fracture impairs at the top band even though its severity
+	# was set well below it. Measured on the modifier the leg actually carries.
+	var frac: Variant = _world(8910)
+	_a_wound(frac, "fracture", "leg_left", SimWounds.Severity.Scratch)
+	frac.step()
+	var frac_speed: float = float(frac.modifiers.call("resolve", "move_speed", frac.player))
+	var scratch: Variant = _world(8910)
+	_a_wound(scratch, "cut", "leg_left", SimWounds.Severity.Scratch)
+	scratch.step()
+	var scratch_speed: float = float(scratch.modifiers.call("resolve", "move_speed", scratch.player))
+	if frac_speed >= scratch_speed:
+		push_error("a fractured leg moves at %.3f against a scratched leg's %.3f at the same severity" % [frac_speed, scratch_speed])
+		return false
+
+	# A concussion impairs the person, not the part -- the head carries no per-part modifier, so a
+	# head wound that was only a cut must change nothing an arm wound would.
+	var conc: Variant = _world(8920)
+	var before_swing: float = float(conc.modifiers.call("resolve", "swing_speed", conc.player))
+	_a_wound(conc, "concussion", "head", SimWounds.Severity.Laceration)
+	conc.step()
+	if float(conc.modifiers.call("resolve", "swing_speed", conc.player)) >= before_swing:
+		push_error("a concussion did not slow reactions")
+		return false
+	if float(conc.modifiers.call("resolve", "ranged_accuracy", conc.player)) >= 1.0:
+		push_error("a concussion did not cost ranged accuracy")
+		return false
+	var head_cut: Variant = _world(8920)
+	_a_wound(head_cut, "cut", "head", SimWounds.Severity.Laceration)
+	head_cut.step()
+	if float(head_cut.modifiers.call("resolve", "swing_speed", head_cut.player)) != before_swing:
+		push_error("an ordinary head cut slowed reactions, so the concussion above is not what did it")
+		return false
+
+	# A closed injury cannot go septic; a burn is the worst thing there is for it.
+	var closed_chance: float = SimWounds.sepsis_chance({"severity": SimWounds.Severity.DeepWound, "bandage": "none", "kind": "fracture"}, 2.5, 0)
+	var burn_chance: float = SimWounds.sepsis_chance({"severity": SimWounds.Severity.DeepWound, "bandage": "none", "kind": "burn"}, 1.0, 0)
+	var cut_chance: float = SimWounds.sepsis_chance({"severity": SimWounds.Severity.DeepWound, "bandage": "none", "kind": "cut"}, 1.0, 0)
+	if closed_chance != 0.0:
+		push_error("a fracture can go septic at %.3f -- it is a closed injury" % closed_chance)
+		return false
+	if burn_chance <= cut_chance:
+		push_error("a burn goes septic at %.3f, no worse than a cut's %.3f" % [burn_chance, cut_chance])
+		return false
+
+	print("KINDS OK three closed kinds bled 0.0000 against a cut's %.4f; sprain %dd < deep cut %dd < fracture %dd; a fractured leg %.3f against a scratched %.3f; a concussion costs reactions where a head cut does not; fracture sepsis 0.000, burn %.3f > cut %.3f" % [
+		_blood_loss(bleeder, bleeder.player), sprain_days, deep_cut_days, fracture_days,
+		frac_speed, scratch_speed, burn_chance, cut_chance,
+	])
+	return true
+
+
+# A kind nothing produces is content, not a feature. Each of the four gets one reachable cause
+# from docs/05's own Cause column, and this is what fails if a cause is ever disconnected.
+func _each_new_injury_type_has_a_cause_that_reaches_it() -> bool:
+	# Concussion: a head hit hard enough to be a deep wound. The head max is 15, so 12 is deep.
+	var head: Variant = _world(8930)
+	_hit(head, "head", 12.0)
+	if _kinds_on(head, head.player).find("concussion") < 0:
+		push_error("a deep head hit produced no concussion: %s" % str(_kinds_on(head, head.player)))
+		return false
+	# The negative: a light head hit produces a cut and nothing more.
+	var tap: Variant = _world(8931)
+	_hit(tap, "head", 1.0)
+	if _kinds_on(tap, tap.player).find("concussion") >= 0:
+		push_error("a glancing head hit produced a concussion")
+		return false
+
+	# Fracture: a limb hit hard enough to be a deep wound, sometimes. Rolled, so this needs seeds.
+	var fractures: int = 0
+	var deep_limb_hits: int = 0
+	for seed_val in range(8940, 8990):
+		var w: Variant = _world(seed_val)
+		_hit(w, "arm_left", 12.0)
+		deep_limb_hits += 1
+		if _kinds_on(w, w.player).find("fracture") >= 0:
+			fractures += 1
+	if fractures == 0:
+		push_error("no fracture over %d deep limb hits" % deep_limb_hits)
+		return false
+	if fractures == deep_limb_hits:
+		push_error("every deep limb hit fractured -- FRACTURE_CHANCE is not a chance")
+		return false
+	# The negative: a light limb hit never fractures, because the severity band is the gate.
+	var light: int = 0
+	for seed_val2 in range(8990, 9040):
+		var w2: Variant = _world(seed_val2)
+		_hit(w2, "arm_left", 1.0)
+		if _kinds_on(w2, w2.player).find("fracture") >= 0:
+			light += 1
+	if light != 0:
+		push_error("%d light limb hits fractured" % light)
+		return false
+
+	# Burn: cauterisation. infection.gd has published this event since cauterise was written and
+	# nothing listened, so searing a bite left no mark on the arm it seared.
+	var burn: Variant = _world(9050)
+	burn.events.publish({"type": "injury.sustained", "entity": burn.player, "injury": "burn", "bodyPart": "arm_right"})
+	burn.step()
+	if _kinds_on(burn, burn.player).find("burn") < 0:
+		push_error("an injury.sustained/burn left no burn: %s" % str(_kinds_on(burn, burn.player)))
+		return false
+	# The negative: a different injury.sustained does not make a burn.
+	var other: Variant = _world(9051)
+	other.events.publish({"type": "injury.sustained", "entity": other.player, "injury": "crippled", "bodyPart": "leg_left"})
+	other.step()
+	if not _kinds_on(other, other.player).is_empty():
+		push_error("injury.sustained/crippled produced a wound: %s" % str(_kinds_on(other, other.player)))
+		return false
+
+	# Sprain: the zero-stamina sprint collapse world.gd already performs. Driven through the real
+	# event so a rename of it fails here rather than silently retiring the cause.
+	var sprains: int = 0
+	for seed_val3 in range(9060, 9160):
+		var w3: Variant = _world(seed_val3)
+		w3.events.publish({"type": "stance.collapsed", "entity": w3.player, "from": 4})
+		w3.step()
+		if _kinds_on(w3, w3.player).find("sprain") >= 0:
+			sprains += 1
+	if sprains == 0:
+		push_error("no sprain over 100 exhaustion collapses")
+		return false
+	if sprains == 100:
+		push_error("every collapse sprained -- SPRAIN_CHANCE is not a chance")
+		return false
+
+	print("CAUSES OK a deep head hit concusses and a graze does not; %d of %d deep limb hits fractured and 0 of 50 light ones; cauterisation burns and another injury.sustained does not; %d of 100 exhaustion collapses sprained" % [
+		fractures, deep_limb_hits, sprains,
+	])
+	return true
+
+
+func _kinds_on(w: Variant, entity: int) -> Array:
+	var out: Array = []
+	for wound in _wounds_of(w, entity):
+		out.append(String((wound as Dictionary).get("kind", "")))
+	return out

@@ -346,6 +346,10 @@ func _advance_posture(_world: Variant) -> void:
 			posture["current"] = SimStancesRes.Stance.Jog
 			posture["target"] = SimStancesRes.Stance.Jog
 			posture["ticks_left"] = 0
+			# Published, not acted on. docs/05 lists exhaustion as a cause of sprains and
+			# wounds.gd is what turns this into one; world.gd must not grow a dependency on a
+			# module, so the collapse is announced and whoever cares subscribes.
+			events.publish({"type": "stance.collapsed", "entity": int(entity), "from": SimStancesRes.Stance.Sprint})
 		var drain: float = SimStancesRes.drain_per_tick(int(posture["current"]))
 		# You are not jogging inside a grapple. A held body's posture is whatever it was when the
 		# hands closed, and shambler.pin already refuses it a step, so the ladder's drain is
