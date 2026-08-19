@@ -57,8 +57,8 @@ Four influences, and what each one contributes:
 
 | Influence | What we take | What we leave |
 |---|---|---|
-| **Project Zomboid** | Lethality, slow deliberate actions, injury depth, imperfect information, permadeath, **the isometric view and walls that stand up in it** | Its map scale; z-levels and everything that needs them |
-| **RimWorld** | Colony job priorities, pawn traits and relationships, the storyteller/director | Its comedy tone; its readiness to let you snowball |
+| **Project Zomboid** | Lethality, slow deliberate actions, injury depth, imperfect information, permadeath | Its map scale; the isometric view; z-levels and everything that needs them |
+| **RimWorld** | Colony job priorities, pawn traits and relationships, the storyteller/director, **the flat top-down view and pawns that read at a glance in it** (shared with Zero Sievert, whose grounded palette the art leans on) | Its comedy tone; its readiness to let you snowball |
 | **Tower defense** | Building fortifications that channel and kill, bait and routing as skill expression | Fixed wave timers and a build-phase/fight-phase split |
 | **Path of Exile** | Gear-as-build, rolled affixes, materials-as-currency, no classes | Its power curve, its speed, its economy |
 
@@ -74,6 +74,18 @@ Four influences, and what each one contributes:
 > stairs, no rooftop you can stand on. A wall has a height because it is drawn, not because anything
 > can be above or below it, and [the planar assumptions](23-roadmap.md#deferred-z-levels) the roadmap
 > lists are all still planar.
+>
+> **Reversed again:** the previous paragraph claimed *"walls that stand up are what make a district
+> read as a place rather than a floor plan"*, and the view is now flat top-down (RimWorld, Zero
+> Sievert). What that claim missed is that RimWorld's districts read as places with no standing
+> wall anywhere in them — mass, colour, and a bevel carry the read, and pawns are legible in a way
+> an isometric figure never was. What the standing walls actually bought was occlusion, and
+> occlusion had to be *managed*: a fade heuristic for walls that covered the player, stub-height
+> walls when indoors, a depth sort over every visible tile. Top-down deletes all three outright
+> rather than tuning them. The parts of the original argument that were load-bearing survive
+> untouched: the projection is still a change inside the presentation that the simulation cannot
+> observe (this sentence has now justified the change in both directions), and the z-level refusal
+> stands and gets cheaper — a flat view does not even tempt you to draw a second floor.
 
 ## What this game is **not**
 

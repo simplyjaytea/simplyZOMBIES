@@ -23,6 +23,7 @@ func _run() -> void:
 	var ok: bool = true
 	ok = _declared_appearances_are_well_formed() and ok
 	ok = _sprite_keys_resolve() and ok
+	ok = _every_canvas_is_64() and ok
 	ok = _procedural_fallback_still_works() and ok
 	ok = _tints_come_from_content_not_code() and ok
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
@@ -81,16 +82,56 @@ func _declared_appearances_are_well_formed() -> bool:
 
 # A key naming a file that does not exist must fail the build, not draw nothing.
 func _sprite_keys_resolve() -> bool:
+	var resolved: int = 0
 	for path in _all_blocks().keys():
 		var block: Dictionary = _all_blocks()[path]
 		for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
 			if not block.has(prop):
 				continue
 			var k: String = String(block[prop])
-			if Appearance.resolve(k) == null:
+			var tex: Variant = Appearance.resolve(k)
+			if tex == null:
 				push_error("%s: appearance.%s '%s' has no file at %s/%s.png" % [path, prop, k, SPRITE_DIR, k])
 				return false
-	print("KEYS OK")
+			# One canvas: 64x64 centre-anchored (assets/sprites/README.md). A stray sprite
+			# authored to the dead 64x96 feet-anchored convention would float half a tile
+			# high without ever erroring, so the shape is a build failure, not a footnote.
+			var size: Vector2 = (tex as Texture2D).get_size()
+			if size != Vector2(64, 64):
+				push_error("%s: appearance.%s '%s' is %dx%d, the canvas is 64x64" % [path, prop, k, int(size.x), int(size.y)])
+				return false
+			resolved += 1
+	# The canvas assertion must have judged real files, or it proves nothing.
+	if resolved == 0:
+		push_error("no sprite keys resolved -- the canvas assertion had nothing to judge")
+		return false
+	print("KEYS OK %d resolved on the 64x64 canvas" % resolved)
+	return true
+
+# Every file in the directory, referenced or not: item appearance blocks live nested inside
+# item-list files where _all_blocks cannot see them, and an unreferenced stray is one content
+# edit away from drawing. Raw Image.load, same as appearance.gd's headless fallback.
+func _every_canvas_is_64() -> bool:
+	var dir := DirAccess.open(SPRITE_DIR)
+	if dir == null:
+		push_error("cannot open %s" % SPRITE_DIR)
+		return false
+	var judged: int = 0
+	for f in dir.get_files():
+		if not String(f).ends_with(".png"):
+			continue
+		var img := Image.new()
+		if img.load("%s/%s" % [SPRITE_DIR, f]) != OK:
+			push_error("%s/%s does not load as an image" % [SPRITE_DIR, f])
+			return false
+		if img.get_width() != 64 or img.get_height() != 64:
+			push_error("%s/%s is %dx%d, the canvas is 64x64 (assets/sprites/README.md)" % [SPRITE_DIR, f, img.get_width(), img.get_height()])
+			return false
+		judged += 1
+	if judged == 0:
+		push_error("no PNGs in %s -- the canvas assertion had nothing to judge" % SPRITE_DIR)
+		return false
+	print("CANVAS OK %d files at 64x64" % judged)
 	return true
 
 # The fallback is the supported path, not a stopgap: with no sprite declared, every role

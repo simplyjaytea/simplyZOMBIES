@@ -250,6 +250,9 @@ switch (mode) {
       "res://check_appearance.gd",
     ];
     break;
+  case "--topdown":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_topdown.gd"];
+    break;
   case "--ban-health-bar":
     args = [
       "--headless",
