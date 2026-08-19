@@ -163,8 +163,10 @@ func _draw() -> void:
 		draw_string(font, Vector2(view.x - MARGIN - w, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["survivor"])
 		y += LINE
 
-	var keys: String = "F1 keys · Tab gear · J work · O overlay · M raw"
-	draw_string(font, Vector2(MARGIN, view.y - MARGIN), keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Palette.COLOURS["outline"])
+	# Bottom-right: the stance paperdoll owns the bottom-left corner now.
+	var keys: String = "F1 keys · Tab gear · J work · Esc settings · O overlay · M raw"
+	var kw: float = font.get_string_size(keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
+	draw_string(font, Vector2(view.x - MARGIN - kw, view.y - MARGIN), keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Palette.COLOURS["outline"])
 
 	if show_raw and not _raw.is_empty():
 		# The developer sheet, wrapped so a long line does not run off the district.
