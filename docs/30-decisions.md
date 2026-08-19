@@ -879,10 +879,43 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   or sheds the holder. Measured across four seeds, neither happened once — presses completed went
   from 25/9/26 to zero — while grabs and bites fell by about a third. Fewer holds, no clotting, and
   the net on survival was negative. The rule stands because the alternative was measured to be worse
-  for the lever it blocks, not because it made the colony live; `GRABS_ENABLED` stays `false`, and
-  docs/23 carries the seed-by-seed numbers and the three named residuals — chief among them that a
-  break-away released against a wall covers 0.010 m per tick rather than 0.105, because its heading
-  is taken once and `movement.integrate` zeroes a blocked axis.
+  for the lever it blocks, not because it made the colony live.
+- **A break-away's heading is a preference, not a commitment.** The residual the inversion left
+  behind was a locomotion bug wearing a design call's clothes. `_break_away` pointed *straight*
+  away from the holder and committed; a colony is grabbed where a colony lives, which is against
+  the annex walls, so it pointed into masonry and `_integrate_movement` zeroed a blocked axis — 86%
+  of break-away ticks blocked on both axes on seed 404, 0.010 m covered per tick against a nominal
+  0.105. It now fans out from straight-away and takes the nearest heading with a clear run, which
+  keeps everything the shove-off was (one heading, taken once, no per-tick re-derive, no RNG, no
+  pursuit solver) and changes only which one. Ground per tick went to 0.104, and 90210 became the
+  first hard seed to stop wiping. The negative in AWAY-CLEAR is the load-bearing half: in open
+  field the committed heading must still be straight-away *exactly*, so the fan cannot quietly
+  re-aim every escape in the game.
+- **R8 reverses "a partial press buys nothing", and the reversal is the same discipline that
+  produced R5.** The original rule was deliberate and is quoted in `check_m2_treatment.gd`'s
+  header: pressure was worth nothing until finished, and the assertion existed specifically to
+  fail if a partial hold ever banked. R5's inversion is what made it untenable — once the escape
+  cancels the press, a 400-tick deep-wound press has no reachable completion path while holds
+  arrive every ~50 ticks, and the harness measured exactly that: 126 presses begun and **zero**
+  completed across ten compressed days of 404, all three deaths blood loss. R8 banks the served
+  ticks **on the wound**, not on the presser, so whoever picks the press up next inherits it; a
+  medic finishing what the patient started with their own hand is the same wound getting the same
+  total pressure, and the sim has no reason to care whose palm it was. Two exceptions carry the
+  cost: a **stagger** banks nothing (R3 already singles it out as the one thing that takes your
+  hand off your own arm, and this is what makes that rule mean something), and **bandaging never
+  banks** (a dressing is applied, not accumulated, and it spends a supply at completion). The bank
+  does not decay — pressure that has been held is progress toward a clot, and a decay clock would
+  be a second timer nothing else in the module has — but it is cleared at completion and at
+  `SimWounds.reopen`, because a wound torn back open is not the wound that was pressed.
+- **What is still between the loop and the flip.** Both changes above are net positive and
+  measured, and neither is enough. `GRABS_ENABLED` stays `false` because seed 404 still ends `0/2`;
+  docs/23 carries the seed-by-seed numbers. What is left is no longer a bug but the shape of the
+  colony: a two-person colony spread across a district cannot answer the contact rate the district
+  produces. The "rescue can never reach" finding was **re-measured rather than repeated**, and it
+  has partly dissolved — with escapees covering ground, a free colonist now comes within
+  `RESCUE_METRES` for 135 ticks on 90210 and 18 on 31337, where nothing came inside 6 m before. On
+  404 it still never does. That is a call about how the slice seats its people, not another lever
+  in the contact loop.
 
 ## What the top-down reversal made structural
 

@@ -77,6 +77,23 @@ extends RefCounted
 #       two rather than waiting out the full 26.
 #   R7  `context()` picks `pressure` while the actor is grabbed even when they are carrying a
 #       dressing, or a held bandage-carrier would be refused every tick and never treat anything.
+#   R8  A press banks the time it has already served, on the wound rather than on the presser, and
+#       a later press on that part starts from what is left. R5 is what made this necessary: with
+#       the escape cancelling the press, a 400-tick deep-wound press has no reachable completion
+#       path while holds arrive every ~50 ticks, and the balance harness measured exactly that --
+#       126 presses begun and *zero completed* across ten compressed days of seed 404, with all
+#       three deaths blood loss. Fragments that bank add up; fragments that do not are wasted
+#       motion. The bank lives on the wound, so whoever picks the press up next inherits it: a
+#       medic finishing what the patient started with their own hand is the same wound getting the
+#       same total pressure, and there is no reason for the sim to care whose palm it was.
+#       Two exceptions, and both are the rule saying what it costs. A **stagger** banks nothing --
+#       R3 already singles it out as the one thing that takes your hand off your own arm, and being
+#       knocked off your feet undoing the work is what makes that rule mean something. And
+#       **bandaging never banks**: a dressing is applied, not accumulated, and it spends a supply
+#       at completion. The bank does not decay -- deliberately; pressure that has been held is
+#       progress toward a clot, and a decay clock would be a second timer nothing else in the
+#       module has -- but it is cleared whenever the wound stops being the same wound, which is at
+#       completion and at `wounds.reopen`.
 #
 # Why coexistence rather than "pressing costs you the hold": every new hold resets the bite clock
 # (`_start_grab` writes a fresh ticksUntilBite), and a struggle cycle resolves at ~17-33 ticks with
@@ -103,6 +120,9 @@ const TIER_ORDER: Array[String] = ["sterile", "cloth", "dirty"]
 # and nothing more, which is exactly how a wrong key inside an `armor` block sat for weeks
 # giving zero arm protection. A scalar under an enum in item.schema.json is actually checked.
 const TIER_KEY: String = "bandageTier"
+# R8's bank, a key on the wound record rather than a component: it belongs to the injury, outlives
+# every individual press, and is read back by whoever presses next.
+const BANK_KEY: String = "pressedTicks"
 
 # Surgery is a channel, not an instant. These are the spans; the window that decides whether
 # the surgery still helps belongs to SimInfection and is judged when the channel completes.
@@ -223,7 +243,10 @@ static func begin(world: Variant, actor: int, patient: int, part: String, verb: 
 
 	var ticks: int = 0
 	if verb == "pressure":
-		ticks = int(SimWounds.PRESSURE_TICKS.get(severity, 0))
+		# R8: what is left, not what it costs from cold. Floored at one tick rather than zero so a
+		# fully-banked wound still runs a channel and clots through the ordinary _complete path --
+		# returning "nothing-to-do" here would strand a wound one tick short of closed.
+		ticks = maxi(1, int(SimWounds.PRESSURE_TICKS.get(severity, 0)) - _banked(wound as Dictionary))
 	else:
 		if String(_best_bandage(world, actor).get("tier", "")) == "":
 			return {"ok": false, "reason": "no-bandage"}
@@ -332,17 +355,46 @@ static func _worst_bleeding_part(world: Variant, entity: int) -> String:
 	return best_part
 
 
-static func cancel(world: Variant, entity: int) -> void:
+# `banked` is R8's one exception hatch: a stagger passes false and every other end to a channel
+# takes the default. Completion calls it too -- _tick_channel completes and then cancels -- and
+# banking there is a no-op twice over: _complete has already cleared the key and stopped the
+# bleeding, so _open_wounds finds nothing left to write to.
+static func cancel(world: Variant, entity: int, banked: bool = true) -> void:
 	var t: Variant = world.components.get_component(entity, "treatment")
 	if t is Dictionary:
+		if banked:
+			_bank_pressure(world, t as Dictionary)
 		world.components.remove(int((t as Dictionary).get("patient", -1)), "treated")
 	world.components.remove(entity, "treatment")
+
+
+# R8. Writes the ticks this channel actually served onto every open wound of the part it was
+# aimed at, capped at the part's own pressure cost so a run of interrupted presses cannot bank
+# past what one uninterrupted press would have paid. Pressure only: a dressing is applied, not
+# accumulated.
+static func _bank_pressure(world: Variant, state: Dictionary) -> void:
+	if String(state.get("verb", "")) != "pressure":
+		return
+	var served: int = int(state.get("ticks", 0)) - int(state.get("ticksLeft", 0))
+	if served <= 0:
+		return
+	var patient: int = int(state.get("patient", -1))
+	for wound in _open_wounds(world, patient, String(state.get("part", ""))):
+		var wd: Dictionary = wound as Dictionary
+		var cost: int = int(SimWounds.PRESSURE_TICKS.get(int(wd.get("severity", SimWounds.Severity.Scratch)), 0))
+		wd[BANK_KEY] = mini(cost, _banked(wd) + served)
+
+
+static func _banked(wound: Dictionary) -> int:
+	return int(wound.get(BANK_KEY, 0))
 
 
 # --- channel ------------------------------------------------------------------------
 
 static func _engage(world: Variant, actor: int, patient: int, part: String, verb: String, ticks: int) -> void:
-	world.components.set_component(actor, "treatment", {"verb": verb, "patient": patient, "part": part, "ticksLeft": ticks})
+	# `ticks` is carried alongside `ticksLeft` so R8 can derive what a cancelled channel served
+	# without a second counter to keep in step with the decrement.
+	world.components.set_component(actor, "treatment", {"verb": verb, "patient": patient, "part": part, "ticksLeft": ticks, "ticks": ticks})
 	world.components.set_component(patient, "treated", {"treater": actor, "verb": verb, "part": part})
 	world.events.publish({"type": "treatment.begun", "entity": actor, "patient": patient, "bodyPart": part, "verb": verb, "ticks": ticks})
 
@@ -403,22 +455,30 @@ static func _complete(world: Variant, actor: int, patient: int, part: String, ve
 	for wound in open:
 		var wd: Dictionary = wound as Dictionary
 		wd["bleeding"] = false
+		# R8: this wound has been answered, so the bank it accumulated is spent. Cleared rather
+		# than left to be ignored, because SimWounds.reopen can make the same record bleed again
+		# and a stale bank would hand the second press the first one's work.
+		wd.erase(BANK_KEY)
 		if verb == "bandage":
 			wd["bandage"] = tier
 	world.events.publish({"type": "wound.treated", "entity": patient, "treater": actor, "bodyPart": part, "verb": verb, "tier": tier, "wounds": open.size()})
 
 
-# A stagger or a grab lands on one entity, and that entity may be either end of a treatment:
-# being staggered mid-bandage ruins your own work, and being staggered while someone is
-# bandaging *you* ruins theirs. Both directions cancel the one channel.
+# A stagger lands on one entity, and that entity may be either end of a treatment: being
+# staggered mid-bandage ruins your own work, and being staggered while someone is bandaging *you*
+# ruins theirs. Both directions cancel the one channel.
+#
+# R3 and R8 meet here, and this is the only place they do: `banked` is false, so a stagger is the
+# one end to a press that keeps nothing. That is what stops R8 from making pressure free -- every
+# other interruption is the world moving you along, and a stagger is you losing the wound.
 static func _interrupt(world: Variant, entity: int) -> void:
 	if entity < 0:
 		return
 	if world.components.has_component(entity, "treatment"):
-		cancel(world, entity)
+		cancel(world, entity, false)
 	var treated: Variant = world.components.get_component(entity, "treated")
 	if treated is Dictionary:
-		cancel(world, int((treated as Dictionary).get("treater", -1)))
+		cancel(world, int((treated as Dictionary).get("treater", -1)), false)
 
 
 # R2. A grab is not a stagger, and this is the one place the two part company. Everything a new
