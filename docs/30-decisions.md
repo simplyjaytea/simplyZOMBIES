@@ -917,6 +917,34 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   404 it still never does. That is a call about how the slice seats its people, not another lever
   in the contact loop.
 
+## Pain is derived; painkillers are the trap working
+
+- **Pain is a pure function of the wound list, never stored.** A cached total is one more thing
+  that can disagree with the wounds it summarises, and it would have to be saved, restored, and
+  kept in step with every path that adds, closes or reopens a wound. Deriving it costs a loop over
+  a handful of dictionaries and cannot drift.
+- **`pain_of` and `raw_pain_of` are both public, on purpose.** docs/05's whole argument about
+  painkillers is that what a survivor *feels* and how hurt they *are* come apart. Code that asks
+  "how impaired is this person" wants the first; code that asks "how bad is this actually" wants
+  the second. One function with a flag would have made every call site decide, badly.
+- **Suppression is strong enough to be worth taking.** A weak dose would make painkillers a
+  rounding error and the tactical option would not exist. docs/05 wants them to be genuinely useful
+  *and* a way to get someone killed, and the second only follows from the first.
+- **The exhaustion mood cost is deliberately small.** It stacks with the need sources and with the
+  mood bands landed earlier this milestone, and a large one would push an ordinary hard day into
+  the miserable band — which starts sulks and arguments. "Worked hard today" is not what that band
+  is for, and the gate asserts an empty tank alone stays clear of it.
+- **Work speed is not a modifier, so it is not in the modifier pass.** `needs.work_mul` is a plain
+  multiplier read directly by the walk and the job tick, so pain's and exhaustion's contributions
+  to it live there while their contributions to accuracy, swing and mood live with the other
+  modifiers. Splitting one condition across two mechanisms is not ideal; putting a non-modifier
+  into the modifier pipeline to avoid it would be worse.
+- **A gate correctly failed on correct behaviour, and the gate was what changed.** The concussion
+  assertion from the previous slice asserted that an ordinary head cut changes *nothing* about
+  reactions. Once pain landed, every wound slows reactions a little, so that control went red on a
+  change that was right. It is now a magnitude comparison — and a conservative one, because a
+  concussion carries *less* pain than a cut of the same severity and still has to come out slower.
+
 ## `kind` became a table, because four injuries are not severities
 
 - **The three shipped injuries were severities of one wound; the four remaining are not.** Scratch,
