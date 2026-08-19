@@ -26,6 +26,7 @@ func _run() -> void:
 	ok = _procedural_fallback_still_works() and ok
 	ok = _tints_come_from_content_not_code() and ok
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
+	ok = _equipped_gear_layers_resolve() and ok
 	if ok:
 		print("APPEARANCE_OK schema keys resolve, fallback intact, tints from content")
 		quit(0)
@@ -50,7 +51,7 @@ func _all_blocks() -> Dictionary:
 
 # The shape the schemas document but the validator cannot reach.
 func _declared_appearances_are_well_formed() -> bool:
-	var allowed: Array[String] = ["sprite", "tint", "features", "portrait"]
+	var allowed: Array[String] = ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront"]
 	var hex := RegEx.new(); hex.compile(HEX)
 	var key := RegEx.new(); key.compile(KEY)
 	for path in _all_blocks().keys():
@@ -69,6 +70,12 @@ func _declared_appearances_are_well_formed() -> bool:
 			if not (s is String) or key.search(String(s)) == null:
 				push_error("%s: appearance.sprite '%s' is not a registry key (a key, not a path)" % [path, str(s)])
 				return false
+		for prop in ["equipSprite", "equipSpriteFront"]:
+			if block.has(prop):
+				var es: Variant = block[prop]
+				if not (es is String) or key.search(String(es)) == null:
+					push_error("%s: appearance.%s '%s' is not a registry key (a key, not a path)" % [path, prop, str(es)])
+					return false
 	print("SHAPE OK")
 	return true
 
@@ -76,12 +83,13 @@ func _declared_appearances_are_well_formed() -> bool:
 func _sprite_keys_resolve() -> bool:
 	for path in _all_blocks().keys():
 		var block: Dictionary = _all_blocks()[path]
-		if not block.has("sprite"):
-			continue
-		var k: String = String(block["sprite"])
-		if Appearance.resolve(k) == null:
-			push_error("%s: appearance.sprite '%s' has no file at %s/%s.png" % [path, k, SPRITE_DIR, k])
-			return false
+		for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
+			if not block.has(prop):
+				continue
+			var k: String = String(block[prop])
+			if Appearance.resolve(k) == null:
+				push_error("%s: appearance.%s '%s' has no file at %s/%s.png" % [path, prop, k, SPRITE_DIR, k])
+				return false
 	print("KEYS OK")
 	return true
 
@@ -127,10 +135,23 @@ func _tints_come_from_content_not_code() -> bool:
 		if (look["tint"] as Color) != got:
 			push_error("%s: for_entity did not use the content tint" % id)
 			return false
-	# And a type that declares nothing still differs from one that does.
+	# The shambler is the one type with real art on disk and no declared tint: it must
+	# resolve its texture and pass through white, unstained by the wanderer role colour.
+	# (The declares-nothing fallback keeps its own true positive above, via the unknown type.)
 	var shambler: Dictionary = Appearance.for_entity(w, {"ztype": "zombie.shambler"})
-	if (shambler["tint"] as Color) != Palette.COLOURS["wanderer"]:
-		push_error("zombie.shambler declares no tint and should use the wanderer role colour")
+	if shambler["texture"] == null:
+		push_error("zombie.shambler declares appearance.sprite but resolved no texture")
+		return false
+	if (shambler["tint"] as Color) != Color.WHITE:
+		push_error("zombie.shambler's art declares no tint and must draw white, got %s" % str(shambler["tint"]))
+		return false
+	# Mara exercises the survivor cid path the same way: real art, no tint, drawn as painted.
+	var mara: Dictionary = Appearance.for_entity(w, {"unique": true, "cid": "survivor.unique.mara"})
+	if mara["texture"] == null:
+		push_error("survivor.unique.mara declares appearance.sprite but resolved no texture")
+		return false
+	if (mara["tint"] as Color) != Color.WHITE:
+		push_error("survivor.unique.mara's art declares no tint and must draw white, got %s" % str(mara["tint"]))
 		return false
 	print("TINTS OK")
 	return true
@@ -154,4 +175,63 @@ func _art_is_not_modulated_by_a_role_colour() -> bool:
 		push_error("with no sprite the role colour must survive for the procedural shape")
 		return false
 	print("MODULATE OK")
+	return true
+
+# Equipped-gear layers: a rendered slot holding an item with equipSprite must actually resolve
+# a texture (the true positives item.bat.aluminium and item.pack.hiking exist for, one over-body
+# and one under); an item with no equipSprite, an item in a slot the renderer does not draw, and
+# an entity with no equipment component at all (every zombie) must all fall out silently rather
+# than erroring -- each is its own assertion so a regression in any one path fails here instead
+# of drawing nothing, or the wrong thing, on screen.
+func _equipped_gear_layers_resolve() -> bool:
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	var actor: int = int(w.entities.spawn())
+	var bat: int = int(w.entities.spawn())
+	var pack: int = int(w.entities.spawn())
+	var knife: int = int(w.entities.spawn())
+	w.components.set_component(bat, "itemBase", {"baseId": "item.bat.aluminium"})
+	w.components.set_component(pack, "itemBase", {"baseId": "item.pack.hiking"})
+	w.components.set_component(knife, "itemBase", {"baseId": "item.knife.kitchen"})
+
+	w.components.set_component(actor, "equipment", {"slots": {"primary": bat}})
+	var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor)
+	if layers.size() != 1 or layers[0].get("texture") == null or not bool(layers[0].get("over", false)):
+		push_error("primary slot holding item.bat.aluminium should yield one over-body layer with a texture, got %s" % str(layers))
+		return false
+
+	# item.pack.hiking declares both equipSprite (the pack body, under) and equipSpriteFront
+	# (the straps crossing the chest, always over regardless of the back slot's own default) --
+	# one equipped item, two layers, split correctly.
+	w.components.set_component(actor, "equipment", {"slots": {"back": pack}})
+	layers = Appearance.equipment_layers_for(w, actor)
+	if layers.size() != 2 or layers[0].get("texture") == null or bool(layers[0].get("over", true)) \
+			or layers[1].get("texture") == null or not bool(layers[1].get("over", false)):
+		push_error("back slot holding item.pack.hiking should yield an under-body pack layer then an over-body strap layer, got %s" % str(layers))
+		return false
+
+	# Both a worn pack and a held weapon at once is the actual shipped case: three layers,
+	# correctly ordered under-then-over, not one clobbering another.
+	w.components.set_component(actor, "equipment", {"slots": {"back": pack, "primary": bat}})
+	layers = Appearance.equipment_layers_for(w, actor)
+	if layers.size() != 3 or bool(layers[0].get("over", true)) or not bool(layers[1].get("over", false)) \
+			or not bool(layers[2].get("over", false)):
+		push_error("back+primary together should yield three layers (pack under, pack straps over, bat over), got %s" % str(layers))
+		return false
+
+	w.components.set_component(actor, "equipment", {"slots": {"primary": knife}})
+	if not Appearance.equipment_layers_for(w, actor).is_empty():
+		push_error("item.knife.kitchen declares no equipSprite; equipping it should yield no layer")
+		return false
+
+	w.components.set_component(actor, "equipment", {"slots": {"belt": bat}})
+	if not Appearance.equipment_layers_for(w, actor).is_empty():
+		push_error("belt is not a rendered slot; an item there should yield no layer regardless of its equipSprite")
+		return false
+
+	if not Appearance.equipment_layers_for(w, bat).is_empty():
+		push_error("an entity with no equipment component (every zombie) should yield no layers")
+		return false
+
+	print("EQUIP OK")
 	return true

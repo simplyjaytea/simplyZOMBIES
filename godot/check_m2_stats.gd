@@ -115,7 +115,7 @@ func _mara_spawns() -> bool:
 		push_error("no unique spawned")
 		return false
 	var ident: Variant = w.components.get_component(mara, "identity")
-	if ident == null or String((ident as Dictionary).get("name", "")) != "Mara Okoro":
+	if ident == null or String((ident as Dictionary).get("name", "")) != "Mara Sato":
 		push_error("mara identity %s" % str(ident))
 		return false
 	var apt: Dictionary = SimAptitudes.of(w, mara)

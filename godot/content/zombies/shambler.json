@@ -3,6 +3,7 @@
   "extends": "zombie.base",
   "name": "Shambler",
   "introducedInWave": 0,
+  "appearance": { "sprite": "zombie_shambler" },
   "sensory": { "noise": 0.2, "light": 0.1, "scent": 0.9 },
   "locomotion": { "speed": 0.8, "wander": 0.35, "mill": 0.25, "crawl": 0.25 }
 }

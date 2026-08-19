@@ -36,6 +36,7 @@
     "size": { "w": 1, "h": 4 },
     "massKg": 1.0,
     "equipSlot": "primary",
+    "appearance": { "equipSprite": "item_bat_aluminium_equip" },
     "slots": ["haft", "wrap"],
     "melee": { "reachMetres": 1.4, "weight": 1.2, "damage": 11, "staggerTicks": 16 }
   },

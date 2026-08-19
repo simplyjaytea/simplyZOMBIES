@@ -16,17 +16,17 @@ const PART_STATE_WORDS: Array[String] = ["unhurt", "hurt", "badly hurt", "unusab
 #
 # Three cells wide rather than two: "Kitchen Knife" did not fit in two, and a slot that
 # cannot show what is in it is not doing its job. The right-hand column still lands inside
-# the 548px body panel (440 + 102 = 542).
+# the 1096px body panel (880 + 204 = 1084).
 const SLOT_W: float = float(CELL) * 3.0
 const SLOT_H: float = float(CELL)
 const SLOT_PLACEMENTS: Array[Dictionary] = [
-	{"slot": "head", "x": 24.0, "y": 43.0},
-	{"slot": "back", "x": 24.0, "y": 104.0},
-	{"slot": "vest", "x": 440.0, "y": 104.0},
-	{"slot": "primary", "x": 24.0, "y": 220.0},
-	{"slot": "secondary", "x": 440.0, "y": 220.0},
-	{"slot": "belt", "x": 24.0, "y": 324.0},
-	{"slot": "torso", "x": 440.0, "y": 324.0},
+	{"slot": "head", "x": 48.0, "y": 86.0},
+	{"slot": "back", "x": 48.0, "y": 208.0},
+	{"slot": "vest", "x": 880.0, "y": 208.0},
+	{"slot": "primary", "x": 48.0, "y": 440.0},
+	{"slot": "secondary", "x": 880.0, "y": 440.0},
+	{"slot": "belt", "x": 48.0, "y": 648.0},
+	{"slot": "torso", "x": 880.0, "y": 648.0},
 ]
 
 
@@ -35,9 +35,9 @@ static func slot_rect(body_x: float, body_y: float, placement: Dictionary) -> Re
 const Palette = preload("res://presentation/palette.gd")
 const Paperdoll = preload("res://ui/paperdoll.gd")
 
-const CELL: int = 34
-const PAD: int = 14
-const TITLE_H: int = 18
+const CELL: int = 68
+const PAD: int = 28
+const TITLE_H: int = 36
 
 var _world: Variant = null
 var _actor: int = -1
@@ -50,10 +50,10 @@ var _drag_from_container: int = -1
 var _paperdoll: Control = null
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(860, 520)
+	custom_minimum_size = Vector2(1720, 1040)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_paperdoll = Paperdoll.new()
-	_paperdoll.custom_minimum_size = Vector2(260, 260)
+	_paperdoll.custom_minimum_size = Vector2(520, 520)
 	add_child(_paperdoll)
 
 func set_world(world: Variant, actor: int) -> void:
@@ -94,19 +94,19 @@ func _try_pick(at: Vector2) -> void:
 	# tabs
 	var body_x: float = float(PAD)
 	var body_y: float = float(PAD)
-	var tab_w: float = 112.0
-	# two tabs at top-right of body panel (548x390 in TS, scaled to our size)
-	var tab_equip: Rect2 = Rect2(Vector2(body_x + 548.0 - PAD - tab_w * 2, body_y + 1), Vector2(tab_w, 26))
-	var tab_inj: Rect2 = Rect2(Vector2(body_x + 548.0 - PAD - tab_w, body_y + 1), Vector2(tab_w, 26))
+	var tab_w: float = 224.0
+	# two tabs at top-right of body panel (548x390 in TS, scaled 2x to our size)
+	var tab_equip: Rect2 = Rect2(Vector2(body_x + 1096.0 - PAD - tab_w * 2, body_y + 2), Vector2(tab_w, 52))
+	var tab_inj: Rect2 = Rect2(Vector2(body_x + 1096.0 - PAD - tab_w, body_y + 2), Vector2(tab_w, 52))
 	if tab_equip.has_point(at):
 		_body_view = "equipment"; queue_redraw(); return
 	if tab_inj.has_point(at):
 		_body_view = "injuries"; _drag_item = -1; queue_redraw(); return
 	if _body_view == "injuries":
 		# injury rows
-		var list_x: float = body_x + 276.0; var list_y: float = body_y + 52.0
+		var list_x: float = body_x + 552.0; var list_y: float = body_y + 104.0
 		for i in range(SimCondition.PART_ORDER.size()):
-			var r: Rect2 = Rect2(Vector2(list_x, list_y + float(i) * 27.0), Vector2(248, 27))
+			var r: Rect2 = Rect2(Vector2(list_x, list_y + float(i) * 54.0), Vector2(496, 54))
 			if r.has_point(at):
 				_selected_part = SimCondition.PART_ORDER[i]
 				queue_redraw(); return
@@ -196,27 +196,27 @@ func _try_drop(at: Vector2) -> void:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.06, 0.06, 0.07, 0.93))
 	if _view.is_empty():
-		draw_string(ThemeDB.fallback_font, Vector2(float(PAD), float(PAD) + 16), "no inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("#7b776e"))
+		draw_string(ThemeDB.fallback_font, Vector2(float(PAD), float(PAD) + 32), "no inventory", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color("#7b776e"))
 		return
 	# body panel header
 	var body_x: float = float(PAD)
 	var body_y: float = float(PAD)
-	var body_w: float = 548.0
-	var body_h: float = 390.0
+	var body_w: float = 1096.0
+	var body_h: float = 780.0
 	draw_rect(Rect2(Vector2(body_x, body_y), Vector2(body_w, body_h)), Color("#15181a"))
-	draw_rect(Rect2(Vector2(body_x, body_y), Vector2(body_w, body_h)), Color("#2b3033"), false, 1.0)
-	draw_string(ThemeDB.fallback_font, Vector2(body_x + float(PAD), body_y + 14), "survivor  %s" % _body_view, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
+	draw_rect(Rect2(Vector2(body_x, body_y), Vector2(body_w, body_h)), Color("#2b3033"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, Vector2(body_x + float(PAD), body_y + 28), "survivor  %s" % _body_view, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("#c9c4b8"))
 	# tabs
-	var tab_w: float = 112.0
+	var tab_w: float = 224.0
 	for i in range(2):
 		var name: String = ["equipment", "injuries"][i]
 		var tx: float = body_x + body_w - float(PAD) - tab_w * float(2 - i)
 		var sel: bool = name == _body_view
-		draw_rect(Rect2(Vector2(tx, body_y + 1), Vector2(tab_w, 26)), Color("#1e2225") if sel else Color("#15181a"))
-		draw_rect(Rect2(Vector2(tx, body_y + 1), Vector2(tab_w, 26)), Color("#6f8a72") if sel else Color("#2b3033"), false, 1.0)
-		draw_string(ThemeDB.fallback_font, Vector2(tx + 12, body_y + 18), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8") if sel else Color("#7b776e"))
+		draw_rect(Rect2(Vector2(tx, body_y + 2), Vector2(tab_w, 52)), Color("#1e2225") if sel else Color("#15181a"))
+		draw_rect(Rect2(Vector2(tx, body_y + 2), Vector2(tab_w, 52)), Color("#6f8a72") if sel else Color("#2b3033"), false, 2.0)
+		draw_string(ThemeDB.fallback_font, Vector2(tx + 24, body_y + 36), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("#c9c4b8") if sel else Color("#7b776e"))
 	if _body_view == "equipment":
-		_paperdoll.position = Vector2(body_x + body_w / 2.0 - 130, body_y + 42)
+		_paperdoll.position = Vector2(body_x + body_w / 2.0 - 260, body_y + 84)
 		_paperdoll.visible = true
 		# equipment slot boxes — geometry from SLOT_PLACEMENTS, the same source the click and
 		# drop handlers use, so what you can hit is what you can see.
@@ -227,19 +227,19 @@ func _draw() -> void:
 		for pl in SLOT_PLACEMENTS:
 			var box: Rect2 = slot_rect(body_x, body_y, pl)
 			draw_rect(box, Color("#191d20"))
-			draw_rect(box, Color("#2b3033"), false, 1.0)
+			draw_rect(box, Color("#2b3033"), false, 2.0)
 			var it: Variant = by_slot.get(String(pl["slot"]))
 			if it is Dictionary:
-				draw_rect(Rect2(box.position + Vector2(2, 2), box.size - Vector2(4, 4)), Color("#3a4a3e"))
-				var item_name: String = UiText.fit(ThemeDB.fallback_font, String((it as Dictionary).get("name", "")), 10, SLOT_W - 12.0)
-				draw_string(ThemeDB.fallback_font, box.position + Vector2(6, 20), item_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#c9c4b8"))
+				draw_rect(Rect2(box.position + Vector2(4, 4), box.size - Vector2(8, 8)), Color("#3a4a3e"))
+				var item_name: String = UiText.fit(ThemeDB.fallback_font, String((it as Dictionary).get("name", "")), 20, SLOT_W - 24.0)
+				draw_string(ThemeDB.fallback_font, box.position + Vector2(12, 40), item_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#c9c4b8"))
 			else:
-				draw_string(ThemeDB.fallback_font, box.position + Vector2(6, 20), String(pl["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#7b776e"))
+				draw_string(ThemeDB.fallback_font, box.position + Vector2(12, 40), String(pl["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#7b776e"))
 	else:
-		_paperdoll.position = Vector2(body_x + 12, body_y + 42)
+		_paperdoll.position = Vector2(body_x + 24, body_y + 84)
 		_paperdoll.visible = true
-		var list_x: float = body_x + 276.0; var list_y: float = body_y + 52.0
-		var list_w: float = 248.0
+		var list_x: float = body_x + 552.0; var list_y: float = body_y + 104.0
+		var list_w: float = 496.0
 		# Each part's state as a word, from the same read model the paperdoll and HUD use.
 		# Still no integrity value and no fraction -- docs/01 clause 4 and the ban gated by
 		# check_ban_health_bar.gd. The list previously showed only part names, which told a
@@ -253,14 +253,14 @@ func _draw() -> void:
 		for part in SimCondition.PART_ORDER:
 			var sel: bool = part == _selected_part
 			if sel:
-				draw_rect(Rect2(Vector2(list_x, list_y + float(idx) * 27.0), Vector2(list_w, 25)), Color("#1e2225"))
-			var row_y: float = list_y + float(idx) * 27.0 + 16
-			draw_string(ThemeDB.fallback_font, Vector2(list_x + 6, row_y), SimCondition.label_of(part), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
+				draw_rect(Rect2(Vector2(list_x, list_y + float(idx) * 54.0), Vector2(list_w, 50)), Color("#1e2225"))
+			var row_y: float = list_y + float(idx) * 54.0 + 32
+			draw_string(ThemeDB.fallback_font, Vector2(list_x + 12, row_y), SimCondition.label_of(part), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("#c9c4b8"))
 			var d: Dictionary = by_part.get(part, {}) as Dictionary
 			var st: int = int(d.get("state", 0))
 			var word: String = PART_STATE_WORDS[st] if st < PART_STATE_WORDS.size() else ""
 			var tint: Color = Palette.CONDITION_TINTS[st] if st < Palette.CONDITION_TINTS.size() else Color("#7b776e")
-			draw_string(ThemeDB.fallback_font, Vector2(list_x + 96, row_y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, tint)
+			draw_string(ThemeDB.fallback_font, Vector2(list_x + 192, row_y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, tint)
 			# The same three words the paperdoll draws as marks on the figure, here as text
 			# for the row the player is actually reading. `infected` is already a word
 			# (diagnosis_of_part's actionable) rather than a boolean, so it says more than
@@ -284,11 +284,11 @@ func _draw() -> void:
 			if bool(d.get("armored", false)):
 				tags.append("armoured")
 			if not tags.is_empty():
-				var tag_text: String = UiText.fit(ThemeDB.fallback_font, " · ".join(tags), 10, list_x + list_w - (list_x + 168.0) - 6.0)
-				draw_string(ThemeDB.fallback_font, Vector2(list_x + 168.0, row_y), tag_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#8b929c"))
+				var tag_text: String = UiText.fit(ThemeDB.fallback_font, " · ".join(tags), 20, list_x + list_w - (list_x + 336.0) - 12.0)
+				draw_string(ThemeDB.fallback_font, Vector2(list_x + 336.0, row_y), tag_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#8b929c"))
 			idx += 1
 	# grids to the right of body panel, wrapping
-	var gx: float = body_x + body_w + 12.0
+	var gx: float = body_x + body_w + 24.0
 	var gy: float = body_y
 	var col_w: float = 0
 	# layout containers into columns so they don't run off-screen
@@ -296,35 +296,35 @@ func _draw() -> void:
 		var c: Dictionary = cont as Dictionary
 		var gw: int = int(c.get("w", 0)); var gh: int = int(c.get("h", 0))
 		var pw: float = float(gw * CELL + PAD * 2)
-		var ph: float = float(gh * CELL + TITLE_H + PAD + 8)
+		var ph: float = float(gh * CELL + TITLE_H + PAD + 16)
 		if gy + ph > size.y - float(PAD) and gy > body_y:
-			gx += col_w + 12.0; gy = body_y; col_w = 0
+			gx += col_w + 24.0; gy = body_y; col_w = 0
 		col_w = maxf(col_w, pw)
 		# store origin for hit testing in _try_pick
 		(c as Dictionary)["_ox"] = gx + float(PAD)
-		(c as Dictionary)["_oy"] = gy + float(TITLE_H) + 8.0
+		(c as Dictionary)["_oy"] = gy + float(TITLE_H) + 16.0
 		draw_rect(Rect2(Vector2(gx, gy), Vector2(pw, ph)), Color("#15181a"))
-		draw_rect(Rect2(Vector2(gx, gy), Vector2(pw, ph)), Color("#2b3033"), false, 1.0)
-		draw_string(ThemeDB.fallback_font, Vector2(gx + float(PAD), gy + 14), String(c.get("label", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("#c9c4b8"))
-		var ox: float = gx + float(PAD); var oy: float = gy + float(TITLE_H) + 8.0
+		draw_rect(Rect2(Vector2(gx, gy), Vector2(pw, ph)), Color("#2b3033"), false, 2.0)
+		draw_string(ThemeDB.fallback_font, Vector2(gx + float(PAD), gy + 28), String(c.get("label", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("#c9c4b8"))
+		var ox: float = gx + float(PAD); var oy: float = gy + float(TITLE_H) + 16.0
 		for cy in range(gh):
 			for cx in range(gw):
-				draw_rect(Rect2(Vector2(ox + float(cx * CELL) + 1, oy + float(cy * CELL) + 1), Vector2(float(CELL) - 2, float(CELL) - 2)), Color("#1e2225"))
+				draw_rect(Rect2(Vector2(ox + float(cx * CELL) + 2, oy + float(cy * CELL) + 2), Vector2(float(CELL) - 4, float(CELL) - 4)), Color("#1e2225"))
 		for it in c.get("items", []) as Array:
 			var d: Dictionary = it as Dictionary
 			if int(d.get("item", -1)) == _drag_item: continue
 			var ix: int = int(d.get("x", 0)); var iy: int = int(d.get("y", 0))
 			var iw: int = int(d.get("w", 1)); var ih: int = int(d.get("h", 1))
-			var rx: float = ox + float(ix * CELL) + 2; var ry: float = oy + float(iy * CELL) + 2
-			draw_rect(Rect2(Vector2(rx, ry), Vector2(float(iw * CELL) - 4, float(ih * CELL) - 4)), Color("#3a4a3e"))
-			draw_rect(Rect2(Vector2(rx, ry), Vector2(float(iw * CELL) - 4, float(ih * CELL) - 4)), Color("#6f8a72"), false, 1.0)
+			var rx: float = ox + float(ix * CELL) + 4; var ry: float = oy + float(iy * CELL) + 4
+			draw_rect(Rect2(Vector2(rx, ry), Vector2(float(iw * CELL) - 8, float(ih * CELL) - 8)), Color("#3a4a3e"))
+			draw_rect(Rect2(Vector2(rx, ry), Vector2(float(iw * CELL) - 8, float(ih * CELL) - 8)), Color("#6f8a72"), false, 2.0)
 			var label: String = String(d.get("name", "")).substr(0, 6)
 			if int(d.get("count", 1)) > 1:
 				label += " x%d" % int(d.get("count", 1))
-			draw_string(ThemeDB.fallback_font, Vector2(rx + 4, ry + 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#c9c4b8"))
-		gy += ph + 12.0
+			draw_string(ThemeDB.fallback_font, Vector2(rx + 8, ry + 28), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#c9c4b8"))
+		gy += ph + 24.0
 	# drag ghost
 	if _drag_item != -1:
 		var mp: Vector2 = get_local_mouse_position()
-		draw_rect(Rect2(mp + Vector2(-16, -12), Vector2(32, 24)), Color(0.27, 0.34, 0.25, 0.9))
-		draw_rect(Rect2(mp + Vector2(-16, -12), Vector2(32, 24)), Color("#6f8a72"), false, 1.0)
+		draw_rect(Rect2(mp + Vector2(-32, -24), Vector2(64, 48)), Color(0.27, 0.34, 0.25, 0.9))
+		draw_rect(Rect2(mp + Vector2(-32, -24), Vector2(64, 48)), Color("#6f8a72"), false, 2.0)
