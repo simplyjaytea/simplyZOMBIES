@@ -32,14 +32,21 @@ const BODY_H: float = 780.0
 # see must be the same set of rects.
 const SLOT_W: float = float(CELL) * 3.0
 const SLOT_H: float = float(CELL)
+# Twelve slots, six a side, in body order top to bottom: what covers your head down the
+# left, what covers your trunk and legs down the right, weapons at the bottom of each.
 const SLOT_PLACEMENTS: Array[Dictionary] = [
-	{"slot": "head", "x": 48.0, "y": 126.0},
-	{"slot": "back", "x": 48.0, "y": 248.0},
-	{"slot": "vest", "x": 880.0, "y": 248.0},
-	{"slot": "primary", "x": 48.0, "y": 460.0},
-	{"slot": "secondary", "x": 880.0, "y": 460.0},
-	{"slot": "belt", "x": 48.0, "y": 648.0},
-	{"slot": "torso", "x": 880.0, "y": 648.0},
+	{"slot": "head", "x": 48.0, "y": 86.0},
+	{"slot": "eyes", "x": 48.0, "y": 206.0},
+	{"slot": "face", "x": 48.0, "y": 326.0},
+	{"slot": "gloves", "x": 48.0, "y": 446.0},
+	{"slot": "belt", "x": 48.0, "y": 566.0},
+	{"slot": "primary", "x": 48.0, "y": 686.0},
+	{"slot": "vest", "x": 880.0, "y": 86.0},
+	{"slot": "torso", "x": 880.0, "y": 206.0},
+	{"slot": "legs", "x": 880.0, "y": 326.0},
+	{"slot": "feet", "x": 880.0, "y": 446.0},
+	{"slot": "back", "x": 880.0, "y": 566.0},
+	{"slot": "secondary", "x": 880.0, "y": 686.0},
 ]
 
 
