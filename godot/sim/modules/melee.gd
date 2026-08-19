@@ -189,6 +189,16 @@ static func _apply_exhaustion(world: Variant, entity: int) -> void:
 	world.modifiers.call("add", {"stat": "swing_speed", "op": "mul", "value": 1.0 - 0.6 * emptiness, "source": EXHAUSTION_SOURCE}, entity)
 	world.modifiers.call("add", {"stat": "swing_recovery", "op": "mul", "value": 1.0 + 1.0 * emptiness, "source": EXHAUSTION_SOURCE}, entity)
 	world.modifiers.call("add", {"stat": "melee_damage", "op": "mul", "value": 1.0 - 0.45 * emptiness, "source": EXHAUSTION_SOURCE}, entity)
+	# docs/04: "exhaustion degrades melee accuracy, ranged accuracy, work speed, and mood
+	# simultaneously". Only the melee three were here, so an exhausted survivor swung badly and
+	# shot, worked and felt exactly as well as a rested one. Work speed is the fourth and lives in
+	# needs.work_mul, which reads stamina directly -- it is not a modifier, so it is not here.
+	#
+	# The mood figure is deliberately small next to the melee penalties: it stacks with the need
+	# sources and the mood bands landed earlier this milestone, and a large one would push an
+	# ordinary hard day into the miserable band and start colonies sulking for working.
+	world.modifiers.call("add", {"stat": "ranged_accuracy", "op": "mul", "value": 1.0 - 0.5 * emptiness, "source": EXHAUSTION_SOURCE}, entity)
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": -8.0 * emptiness, "source": EXHAUSTION_SOURCE}, entity)
 
 
 static func _capable_of(world: Variant, entity: int, cap: String) -> bool:

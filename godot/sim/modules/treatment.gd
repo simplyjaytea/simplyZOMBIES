@@ -133,7 +133,11 @@ const SURGERY_TICKS: Dictionary = {
 
 const CHANNEL_VERBS: Array[String] = ["pressure", "bandage"]
 const SURGERY_VERBS: Array[String] = ["cauterize", "amputate"]
-const INSTANT_VERBS: Array[String] = ["antibiotics", "quarantine", "put_down"]
+# `painkillers` sits with the infection verbs rather than with the channels because it is the same
+# shape: instant, its own precondition list, its own {ok, reason}. It is answered by SimWounds
+# rather than SimInfection -- pain is a wound property -- which is why _invoke_infection is no
+# longer the only destination this router has.
+const INSTANT_VERBS: Array[String] = ["antibiotics", "quarantine", "put_down", "painkillers"]
 
 
 static func register_module(world: Variant) -> void:
@@ -274,6 +278,11 @@ static func respond(world: Variant, actor: int, patient: int, part: String, verb
 		return {"ok": false, "reason": "unknown-verb"}
 	if actor != patient and not _in_reach(world, actor, patient):
 		return {"ok": false, "reason": "out-of-reach"}
+	if verb == "painkillers":
+		# Taken by the patient, from the patient's own supply: a blister goes in a mouth, and
+		# routing it through the actor's pack would let a medic dose somebody out of a bag the
+		# patient cannot reach.
+		return SimWounds.take_painkillers(world, patient)
 	return _invoke_infection(world, patient, part, verb)
 
 

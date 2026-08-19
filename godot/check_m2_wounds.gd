@@ -33,6 +33,7 @@ const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimMelee = preload("res://sim/modules/melee.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimItems = preload("res://sim/modules/items.gd")
@@ -54,13 +55,16 @@ func _run() -> void:
 	ok = _bleeding_out_kills_exactly_once() and ok
 	ok = _a_bled_out_corpse_is_never_killed_again() and ok
 	ok = _the_view_says_bleeding_as_a_word() and ok
+	ok = _pain_sums_across_injuries_and_degrades_everything() and ok
+	ok = _painkillers_suppress_without_healing() and ok
+	ok = _exhaustion_reaches_all_four_things_it_is_supposed_to() and ok
 	ok = _the_four_remaining_injury_types_differ_from_a_cut() and ok
 	ok = _each_new_injury_type_has_a_cause_that_reaches_it() and ok
 	ok = _a_wound_can_go_septic_on_the_four_factors_that_drive_it() and ok
 	ok = _a_septic_wound_never_heals_until_antibiotics_clear_it() and ok
 	ok = _deterministic_replay() and ok
 	if ok:
-		print("M2_WOUNDS_OK severity is a fraction, bleeding is a clock, impairment moves a body, four more injury types exist and are reachable, and a wound can go septic")
+		print("M2_WOUNDS_OK severity is a fraction, bleeding is a clock, pain and exhaustion degrade everything, four more injury types exist and are reachable, and a wound can go septic")
 		quit(0)
 	else:
 		push_error("M2_WOUNDS_FAIL")
@@ -784,23 +788,37 @@ func _the_four_remaining_injury_types_differ_from_a_cut() -> bool:
 		push_error("a fractured leg moves at %.3f against a scratched leg's %.3f at the same severity" % [frac_speed, scratch_speed])
 		return false
 
-	# A concussion impairs the person, not the part -- the head carries no per-part modifier, so a
-	# head wound that was only a cut must change nothing an arm wound would.
+	# A concussion impairs the person, not the part. The comparison is against an ordinary head cut
+	# of the same severity, and it has to be a *magnitude* comparison rather than "the cut changes
+	# nothing": since pain landed, every wound slows reactions a little, so a control that asserted
+	# no change would fail on correct behaviour -- as this one did, which is the gate working.
+	#
+	# The comparison is if anything conservative. A concussion carries LESS pain than a cut of the
+	# same severity (PAIN_KIND_MUL 0.8 against 1.0), so it starts behind on the shared channel and
+	# still has to come out slower overall -- which only its own impairment can do.
 	var conc: Variant = _world(8920)
-	var before_swing: float = float(conc.modifiers.call("resolve", "swing_speed", conc.player))
 	_a_wound(conc, "concussion", "head", SimWounds.Severity.Laceration)
 	conc.step()
-	if float(conc.modifiers.call("resolve", "swing_speed", conc.player)) >= before_swing:
-		push_error("a concussion did not slow reactions")
-		return false
-	if float(conc.modifiers.call("resolve", "ranged_accuracy", conc.player)) >= 1.0:
-		push_error("a concussion did not cost ranged accuracy")
-		return false
+	var conc_swing: float = float(conc.modifiers.call("resolve", "swing_speed", conc.player))
+	var conc_aim: float = float(conc.modifiers.call("resolve", "ranged_accuracy", conc.player))
+
 	var head_cut: Variant = _world(8920)
 	_a_wound(head_cut, "cut", "head", SimWounds.Severity.Laceration)
 	head_cut.step()
-	if float(head_cut.modifiers.call("resolve", "swing_speed", head_cut.player)) != before_swing:
-		push_error("an ordinary head cut slowed reactions, so the concussion above is not what did it")
+	var cut_swing: float = float(head_cut.modifiers.call("resolve", "swing_speed", head_cut.player))
+	var cut_aim: float = float(head_cut.modifiers.call("resolve", "ranged_accuracy", head_cut.player))
+
+	if conc_swing >= cut_swing:
+		push_error("a concussion slowed reactions to %.3f, no worse than an ordinary head cut's %.3f" % [conc_swing, cut_swing])
+		return false
+	if conc_aim >= cut_aim:
+		push_error("a concussion cost accuracy %.3f, no worse than an ordinary head cut's %.3f" % [conc_aim, cut_aim])
+		return false
+	# And the head still carries no *per-part* modifier, which is what separates this from an arm.
+	var unhurt: Variant = _world(8920)
+	unhurt.step()
+	if float(unhurt.modifiers.call("resolve", "swing_speed", unhurt.player)) <= cut_swing:
+		push_error("an unwounded survivor is no faster than one with a head cut, so neither reading means anything")
 		return false
 
 	# A closed injury cannot go septic; a burn is the worst thing there is for it.
@@ -814,9 +832,9 @@ func _the_four_remaining_injury_types_differ_from_a_cut() -> bool:
 		push_error("a burn goes septic at %.3f, no worse than a cut's %.3f" % [burn_chance, cut_chance])
 		return false
 
-	print("KINDS OK three closed kinds bled 0.0000 against a cut's %.4f; sprain %dd < deep cut %dd < fracture %dd; a fractured leg %.3f against a scratched %.3f; a concussion costs reactions where a head cut does not; fracture sepsis 0.000, burn %.3f > cut %.3f" % [
+	print("KINDS OK three closed kinds bled 0.0000 against a cut's %.4f; sprain %dd < deep cut %dd < fracture %dd; a fractured leg %.3f against a scratched %.3f; a concussion swings at %.3f against a head cut's %.3f and aims at %.3f against %.3f; fracture sepsis 0.000, burn %.3f > cut %.3f" % [
 		_blood_loss(bleeder, bleeder.player), sprain_days, deep_cut_days, fracture_days,
-		frac_speed, scratch_speed, burn_chance, cut_chance,
+		frac_speed, scratch_speed, conc_swing, cut_swing, conc_aim, cut_aim, burn_chance, cut_chance,
 	])
 	return true
 
@@ -906,3 +924,208 @@ func _kinds_on(w: Variant, entity: int) -> Array:
 	for wound in _wounds_of(w, entity):
 		out.append(String((wound as Dictionary).get("kind", "")))
 	return out
+
+
+# --- pain and exhaustion (docs/05's other two continuous conditions) --------------------------
+#
+# docs/05 runs four values continuously: blood loss, pain, exhaustion, bacterial infection. Blood
+# loss shipped, sepsis landed a slice ago, exhaustion was half-wired -- stamina emptiness reached
+# melee and nothing else -- and **pain did not exist**, with item.painkillers.blister sitting in
+# two loot tables and Mara's starting kit with no code reading it.
+
+# The wounds fixture plus the two modules pain and exhaustion actually reach through: needs for
+# work_mul, and melee for _apply_exhaustion, which is where docs/04's exhaustion penalties live.
+# Without melee registered an empty tank costs nothing and the exhaustion assertion below would
+# pass on a rested survivor -- which it did, first time.
+func _pain_world(seed_val: int) -> Variant:
+	var w: Variant = _world(seed_val)
+	SimMelee.register_module(w)
+	SimNeeds.attach(w, w.player)
+	SimInventory.make_inventory(w, w.player)
+	return w
+
+
+func _pain_sums_across_injuries_and_degrades_everything() -> bool:
+	# "Sums across all injuries": more wounds hurt more than fewer.
+	var one: Variant = _pain_world(9200)
+	_a_wound(one, "cut", "arm_left", SimWounds.Severity.Laceration)
+	var single: float = SimWounds.pain_of(one, one.player)
+	var many: Variant = _pain_world(9201)
+	for part in ["arm_left", "arm_right", "leg_left"]:
+		_a_wound(many, "cut", part, SimWounds.Severity.Laceration)
+	var summed: float = SimWounds.pain_of(many, many.player)
+	if single <= 0.0:
+		push_error("one laceration produced no pain at all")
+		return false
+	if summed <= single:
+		push_error("three lacerations hurt %.3f, no more than one's %.3f -- pain does not sum" % [summed, single])
+		return false
+	# A worse wound hurts more than a lesser one, and a burn more than a cut of the same band.
+	var deep: Variant = _pain_world(9202)
+	_a_wound(deep, "cut", "arm_left", SimWounds.Severity.DeepWound)
+	if SimWounds.pain_of(deep, deep.player) <= single:
+		push_error("a deep wound hurts no more than a laceration")
+		return false
+	var burn: Variant = _pain_world(9203)
+	_a_wound(burn, "burn", "arm_left", SimWounds.Severity.Laceration)
+	if SimWounds.pain_of(burn, burn.player) <= single:
+		push_error("a burn hurts no more than a cut of the same severity, though docs/05 lists pain first for it")
+		return false
+	# Sepsis throbs.
+	var septic: Variant = _pain_world(9204)
+	var sw: Dictionary = _a_wound(septic, "cut", "arm_left", SimWounds.Severity.Laceration)
+	sw["septic"] = true
+	if SimWounds.pain_of(septic, septic.player) <= single:
+		push_error("a septic wound hurts no more than a clean one")
+		return false
+
+	# "Degrades everything -- accuracy, work speed, mood". All three, measured against an
+	# unwounded control in the same world shape.
+	var well: Variant = _pain_world(9210)
+	var base_aim: float = float(well.modifiers.call("resolve", "ranged_accuracy", well.player))
+	var base_swing: float = float(well.modifiers.call("resolve", "swing_speed", well.player))
+	var base_mood: float = float(well.modifiers.call("resolve", "mood", well.player))
+	var base_work: float = SimNeeds.work_mul(well, well.player)
+
+	var hurt: Variant = _pain_world(9211)
+	for part2 in ["arm_left", "arm_right", "leg_left"]:
+		_a_wound(hurt, "cut", part2, SimWounds.Severity.DeepWound)
+	hurt.step()
+	if float(hurt.modifiers.call("resolve", "ranged_accuracy", hurt.player)) >= base_aim:
+		push_error("pain cost no accuracy")
+		return false
+	if float(hurt.modifiers.call("resolve", "swing_speed", hurt.player)) >= base_swing:
+		push_error("pain cost no swing speed")
+		return false
+	if float(hurt.modifiers.call("resolve", "mood", hurt.player)) >= base_mood:
+		push_error("pain cost no mood")
+		return false
+	if SimNeeds.work_mul(hurt, hurt.player) >= base_work:
+		push_error("pain cost no work speed: %.3f against %.3f" % [SimNeeds.work_mul(hurt, hurt.player), base_work])
+		return false
+
+	print("PAIN OK one laceration %.3f, three %.3f, deep %.3f, burn %.3f, septic %.3f; accuracy, swing, mood and work all degrade" % [
+		single, summed, SimWounds.pain_of(deep, deep.player), SimWounds.pain_of(burn, burn.player), SimWounds.pain_of(septic, septic.player),
+	])
+	return true
+
+
+# "Painkillers suppress it without healing anything, which is a genuine tactical option and a way
+# to get someone killed because they didn't notice how hurt they were." Both halves are asserted:
+# the felt pain drops, and nothing about the body changes.
+func _painkillers_suppress_without_healing() -> bool:
+	# Fractures rather than cuts: this assertion runs for PAINKILLER_TICKS to watch the dose wear
+	# off, and two deep cuts bleeding for that long change the body underneath the measurement --
+	# first time round the survivor's wounds were gone by the end and the "wore back off" check
+	# read 0.000. A fracture is closed and takes six weeks, so the body is the same at both ends
+	# and the only thing that moves is the suppression.
+	var w: Variant = _pain_world(9220)
+	for part in ["arm_left", "arm_right"]:
+		_a_wound(w, "fracture", part, SimWounds.Severity.DeepWound)
+	w.step()
+	var before_felt: float = SimWounds.pain_of(w, w.player)
+	var before_raw: float = SimWounds.raw_pain_of(w, w.player)
+	var before_wounds: int = _wounds_of(w, w.player).size()
+	var before_healed: int = 0
+
+	var empty: Dictionary = SimWounds.take_painkillers(w, w.player)
+	if bool(empty.get("ok", false)) or String(empty.get("reason", "")) != "no-painkillers":
+		push_error("a survivor with no blister was dosed anyway: %s" % str(empty))
+		return false
+
+	var blister: int = SimItems.spawn_item(w, SimWounds.PAINKILLERS_ID, {"tier": "scavenged", "count": 2})
+	SimInventory.stow(w, w.player, blister)
+	# Read the recovery clock immediately before the dose and immediately after, with no step in
+	# between: an ordinary recovery tick advances it by one, and comparing across a step would
+	# blame the painkillers for the clock doing its job.
+	before_healed = int((_wounds_of(w, w.player)[0] as Dictionary).get("healedTicks", 0))
+	var took: Dictionary = SimWounds.take_painkillers(w, w.player)
+	if not bool(took.get("ok", false)):
+		push_error("a survivor with a blister could not take it: %s" % str(took))
+		return false
+	if int((_wounds_of(w, w.player)[0] as Dictionary).get("healedTicks", 0)) != before_healed:
+		push_error("taking painkillers advanced the recovery clock")
+		return false
+	w.step()
+
+	# Suppressed, not healed.
+	if SimWounds.pain_of(w, w.player) >= before_felt:
+		push_error("painkillers suppressed nothing: %.3f against %.3f" % [SimWounds.pain_of(w, w.player), before_felt])
+		return false
+	if absf(SimWounds.raw_pain_of(w, w.player) - before_raw) > 0.001:
+		push_error("painkillers changed the underlying pain: %.3f against %.3f" % [SimWounds.raw_pain_of(w, w.player), before_raw])
+		return false
+	if _wounds_of(w, w.player).size() != before_wounds:
+		push_error("painkillers removed a wound")
+		return false
+	var stack: Variant = w.components.get_component(blister, "stack")
+	if not (stack is Dictionary) or int((stack as Dictionary).get("count", 0)) != 1:
+		push_error("the blister was not spent: %s" % str(stack))
+		return false
+
+	# And it wears off, back to exactly what it was -- which is the trap docs/05 describes.
+	for _i in SimWounds.PAINKILLER_TICKS + 5:
+		w.step()
+	if absf(SimWounds.pain_of(w, w.player) - before_felt) > 0.001:
+		push_error("after the dose wore off the pain was %.3f, not the %.3f it started at" % [SimWounds.pain_of(w, w.player), before_felt])
+		return false
+
+	# The negative: a survivor with no injuries at all cannot spend a blister on nothing.
+	var well: Variant = _pain_world(9221)
+	SimInventory.stow(well, well.player, SimItems.spawn_item(well, SimWounds.PAINKILLERS_ID, {"tier": "scavenged", "count": 2}))
+	var pointless: Dictionary = SimWounds.take_painkillers(well, well.player)
+	if bool(pointless.get("ok", false)) or String(pointless.get("reason", "")) != "nothing-to-treat":
+		push_error("an unwounded survivor spent a blister: %s" % str(pointless))
+		return false
+
+	print("PAINKILLERS OK felt pain %.3f -> suppressed, raw unchanged at %.3f, no wound removed and no recovery advanced, one blister spent, and it wore back off to %.3f" % [
+		before_felt, before_raw, before_felt,
+	])
+	return true
+
+
+# docs/04: "exhaustion degrades melee accuracy, ranged accuracy, work speed, and mood
+# simultaneously". Only the melee three were wired, so an exhausted survivor swung badly and shot,
+# worked and felt exactly as well as a rested one.
+func _exhaustion_reaches_all_four_things_it_is_supposed_to() -> bool:
+	var rested: Variant = _pain_world(9230)
+	SimHealth.make_stamina(rested, rested.player, 100)
+	rested.step()
+	var r_swing: float = float(rested.modifiers.call("resolve", "swing_speed", rested.player))
+	var r_aim: float = float(rested.modifiers.call("resolve", "ranged_accuracy", rested.player))
+	var r_mood: float = float(rested.modifiers.call("resolve", "mood", rested.player))
+	var r_work: float = SimNeeds.work_mul(rested, rested.player)
+
+	var spent: Variant = _pain_world(9231)
+	SimHealth.make_stamina(spent, spent.player, 100)
+	(spent.components.get_component(spent.player, "stamina") as Dictionary)["current"] = 0.0
+	spent.step()
+	var s_swing: float = float(spent.modifiers.call("resolve", "swing_speed", spent.player))
+	var s_aim: float = float(spent.modifiers.call("resolve", "ranged_accuracy", spent.player))
+	var s_mood: float = float(spent.modifiers.call("resolve", "mood", spent.player))
+	var s_work: float = SimNeeds.work_mul(spent, spent.player)
+
+	if s_swing >= r_swing:
+		push_error("an empty survivor swings at %.3f, no worse than a rested one's %.3f" % [s_swing, r_swing])
+		return false
+	if s_aim >= r_aim:
+		push_error("an empty survivor aims at %.3f, no worse than a rested one's %.3f -- docs/04 lists ranged accuracy" % [s_aim, r_aim])
+		return false
+	if s_mood >= r_mood:
+		push_error("an empty survivor feels %.3f, no worse than a rested one's %.3f -- docs/04 lists mood" % [s_mood, r_mood])
+		return false
+	if s_work >= r_work:
+		push_error("an empty survivor works at %.3f, no worse than a rested one's %.3f -- docs/04 lists work speed" % [s_work, r_work])
+		return false
+
+	# The mood cost has to stay small enough that an ordinary hard day does not tip somebody into
+	# the miserable band on its own -- that band starts sulks and arguments, and "worked hard
+	# today" is not what it is for.
+	if s_mood <= SimNeeds.MOOD_MISERABLE:
+		push_error("a completely empty tank alone puts a survivor at %.1f, past MOOD_MISERABLE %.1f" % [s_mood, SimNeeds.MOOD_MISERABLE])
+		return false
+
+	print("EXHAUSTION OK empty against rested: swing %.3f/%.3f, aim %.3f/%.3f, mood %.1f/%.1f, work %.3f/%.3f -- and the mood cost stays clear of the miserable band" % [
+		s_swing, r_swing, s_aim, r_aim, s_mood, r_mood, s_work, r_work,
+	])
+	return true

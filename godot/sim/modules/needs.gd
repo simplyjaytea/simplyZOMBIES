@@ -119,6 +119,11 @@ const ILLNESS_WORK_MUL: float = 0.6
 const ILLNESS_SOURCE: String = "need.illness"
 const ILLNESS_STREAM: String = "illness"
 
+# What a completely empty stamina pool costs work speed. docs/04 lists work speed among the four
+# things exhaustion degrades; melee.gd's _apply_exhaustion owns the other three, which are
+# modifiers. This one is not, so it lives with work_mul.
+const EXHAUSTION_WORK_PENALTY: float = 0.35
+
 # What eating something that has gone off does to mood, regardless of what the base declares --
 # spoiled is spoiled. Lifted out of the eat path as a constant so the one magic number in this
 # area has a name.
@@ -278,7 +283,22 @@ static func work_mul(world: Variant, entity: int) -> float:
 	var Wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
 	if Wounds != null and bool(Wounds.call("is_septic", world, entity)):
 		m *= float(Wounds.get("SEPSIS_WORK_MUL"))
-	return m
+	# docs/05: pain "degrades everything -- accuracy, work speed, mood". Accuracy and mood are
+	# modifiers and live in wounds.gd; work speed is this multiplier, which is not a modifier, so
+	# it is applied here. Scaled by the pain actually felt, so a dose of painkillers speeds
+	# somebody up without healing them -- which is the tactical option, and the trap.
+	if Wounds != null:
+		var pain: float = float(Wounds.call("pain_of", world, entity))
+		if pain > 0.0:
+			m *= 1.0 - float(Wounds.get("PAIN_WORK_PENALTY")) * pain
+	# docs/04 lists work speed among what exhaustion degrades. Read off stamina directly rather
+	# than through a modifier, because this multiplier is not one.
+	var stamina: Variant = world.components.get_component(entity, "stamina")
+	if stamina is Dictionary:
+		var maxv: float = maxf(1.0, float((stamina as Dictionary).get("max", 100)))
+		var emptiness: float = clampf(1.0 - float((stamina as Dictionary).get("current", maxv)) / maxv, 0.0, 1.0)
+		m *= 1.0 - EXHAUSTION_WORK_PENALTY * emptiness
+	return maxf(0.0, m)
 
 
 static func accuracy_mul(world: Variant, entity: int) -> float:

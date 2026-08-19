@@ -88,6 +88,13 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 	if not needs.is_empty():
 		lines.append(needs)
 
+	# How much it hurts -- which is the pain actually felt, not the damage carried. Somebody full
+	# of painkillers says less than their wounds warrant, which is docs/05's tactical option
+	# working as intended and, deliberately, its trap.
+	var hurt: String = SimWounds.pain_clause(world, actor)
+	if not hurt.is_empty():
+		lines.append(hurt)
+
 	# Fever, if there is any. Deliberately the same word zombie infection's early stages use and
 	# deliberately silent about which it is: docs/05 says sepsis "presents as fever, pain, and
 	# worsening -- which is also how zombie infection presents in its early stages", and that

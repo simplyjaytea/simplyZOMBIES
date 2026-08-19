@@ -121,6 +121,123 @@ static func recovery_days_for(kind: String, severity: int) -> int:
 	return int(RECOVERY_DAYS.get(severity, RECOVERY_DAYS[Severity.Scratch]))
 
 
+# --- pain (docs/05's second continuous condition) --------------------------------------------
+#
+# "Pain: sums across all injuries. Degrades everything -- accuracy, work speed, mood, sleep
+# quality. Painkillers suppress it without healing anything, which is a genuine tactical option
+# and a way to get someone killed because they didn't notice how hurt they were."
+#
+# Of docs/05's four continuous conditions, blood loss shipped, bacterial infection landed a slice
+# ago, exhaustion was half-wired (stamina emptiness reached melee and nothing else), and pain did
+# not exist. `item.painkillers.blister` was in two loot tables and in Mara's starting kit with no
+# code reading it -- the fifth dead socket this run.
+#
+# Pain is derived, never stored: it is a pure function of the wounds a body is carrying, so it
+# cannot drift from them and needs nothing in the save file. Suppression is the one piece of state,
+# because a dose is a thing that happens at a time.
+const PAIN_BY_SEVERITY: Array[float] = [0.08, 0.22, 0.45]
+# Some injuries hurt more than their severity band suggests. docs/05 gives burns "pain" as their
+# first listed effect and a fracture is near-total loss of the part; a sprain is the mild one.
+const PAIN_KIND_MUL: Dictionary = {
+	"cut": 1.0, "bite": 1.0, "sprain": 0.6, "concussion": 0.8, "burn": 1.5, "fracture": 1.4,
+}
+# A septic wound throbs. Same multiplier whatever the kind, applied on top.
+const PAIN_SEPTIC_MUL: float = 1.5
+# What full pain costs. Scaled linearly by the pain value, which is clamped to 0..1 -- so these are
+# the numbers a survivor at maximum pain carries, not per-wound increments.
+const PAIN_RANGED_PENALTY: float = 0.45
+const PAIN_SWING_PENALTY: float = 0.30
+const PAIN_WORK_PENALTY: float = 0.40
+const PAIN_MOOD: float = -25.0
+const PAIN_SOURCE: String = "wound.pain"
+# How long one blister of painkillers suppresses it, and by how much. Suppression is not healing:
+# the wounds are untouched, the recovery clock is untouched, and when it wears off the pain is
+# exactly what it was. docs/05 calls that "a way to get someone killed because they didn't notice
+# how hurt they were", so the suppression is deliberately strong enough to be worth taking.
+const PAINKILLER_TICKS: int = 7200
+const PAINKILLER_SUPPRESSION: float = 0.7
+const PAINKILLERS_ID: String = "item.painkillers.blister"
+
+
+# The sum across all injuries, 0..1, after any suppression. Derived every time rather than stored:
+# a cached total is one more thing that can disagree with the wound list.
+static func pain_of(world: Variant, entity: int) -> float:
+	return clampf(raw_pain_of(world, entity) * (1.0 - suppression_of(world, entity)), 0.0, 1.0)
+
+
+# What the body would feel with nothing taken for it. Kept separate from pain_of because the two
+# answer different questions -- a medic wants to know how hurt somebody actually is, and docs/05's
+# whole point about painkillers is that those two numbers come apart.
+static func raw_pain_of(world: Variant, entity: int) -> float:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return 0.0
+	var total: float = 0.0
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		var wd: Dictionary = wound as Dictionary
+		var sev: int = clampi(int(wd.get("severity", Severity.Scratch)), 0, PAIN_BY_SEVERITY.size() - 1)
+		var amount: float = PAIN_BY_SEVERITY[sev] * float(PAIN_KIND_MUL.get(String(wd.get("kind", "cut")), 1.0))
+		if bool(wd.get("septic", false)):
+			amount *= PAIN_SEPTIC_MUL
+		total += amount
+	return clampf(total, 0.0, 1.0)
+
+
+static func suppression_of(world: Variant, entity: int) -> float:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return 0.0
+	return PAINKILLER_SUPPRESSION if int(world.tick) < int((inj as Dictionary).get("painkillersUntilTick", -1)) else 0.0
+
+
+# One blister. Suppresses without healing: no wound is touched, no recovery clock moves, and when
+# it wears off the pain is exactly what it was.
+static func take_painkillers(world: Variant, entity: int) -> Dictionary:
+	if not _has_injuries(world, entity):
+		return {"ok": false, "reason": "nothing-to-treat"}
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs == null or not bool(Needs.call("consume_base", world, entity, PAINKILLERS_ID)):
+		return {"ok": false, "reason": "no-painkillers"}
+	var inj: Dictionary = world.components.get_component(entity, "injuries") as Dictionary
+	inj["painkillersUntilTick"] = int(world.tick) + PAINKILLER_TICKS
+	_apply_pain(world, entity)
+	world.events.publish({"type": "painkillers.taken", "entity": entity, "ticks": PAINKILLER_TICKS})
+	return {"ok": true, "reason": "", "ticks": PAINKILLER_TICKS}
+
+
+static func _has_injuries(world: Variant, entity: int) -> bool:
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	return inj is Dictionary and not ((inj as Dictionary).get("wounds", []) as Array).is_empty()
+
+
+# Family (c): pain, entity-scoped, one source, recomputed from the wound list every pass -- the
+# same shape blood loss uses, for the same reason.
+static func _apply_pain(world: Variant, entity: int) -> void:
+	if world.modifiers == null:
+		return
+	world.modifiers.call("remove_by_source", PAIN_SOURCE, entity)
+	var pain: float = pain_of(world, entity)
+	if pain <= 0.0:
+		return
+	world.modifiers.call("add", {"stat": "ranged_accuracy", "op": "mul", "value": 1.0 - PAIN_RANGED_PENALTY * pain, "source": PAIN_SOURCE}, entity)
+	world.modifiers.call("add", {"stat": "swing_speed", "op": "mul", "value": 1.0 - PAIN_SWING_PENALTY * pain, "source": PAIN_SOURCE}, entity)
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": PAIN_MOOD * pain, "source": PAIN_SOURCE}, entity)
+
+
+# What a survivor says about how much it hurts. Prose, no digits, and it describes the pain they
+# actually feel rather than the damage they carry -- somebody full of painkillers says less than
+# their wounds warrant, which is the tactical option docs/05 describes working as intended.
+static func pain_clause(world: Variant, entity: int) -> String:
+	var pain: float = pain_of(world, entity)
+	if pain >= 0.75:
+		return "Everything hurts. You can barely think past it."
+	if pain >= 0.45:
+		return "You're in a lot of pain."
+	if pain >= 0.2:
+		return "You ache."
+	return ""
+
+
 # --- bacterial infection (docs/05) --------------------------------------------------------
 #
 # "Any open wound can go septic, with probability driven by wound severity, hygiene, whether it was
@@ -742,6 +859,7 @@ static func register_module(world: Variant) -> void:
 			var d: Dictionary = inj as Dictionary
 			_apply_bloodloss_impairment(w, int(entity), float(d.get("bloodLoss", 0.0)))
 			_apply_part_impairment(w, int(entity), d.get("wounds", []) as Array)
+			_apply_pain(w, int(entity))
 	)
 
 	world.systems.register("wounds.bleed", "health", 1, func(w: Variant) -> void:

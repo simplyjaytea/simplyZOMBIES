@@ -592,7 +592,24 @@ table above are the authority on each):
   systems that do not exist, and a concussion's *perception* loss has no stat to attach to — vision
   is a shadowcast with no modifier seam — so only the reaction half is wired. Adding a stat nothing
   reads so the row could list three keys would be a modifier that looks wired and is not.
-  Still open here: continuous pain and exhaustion, the full treatment ladder (clean → close → rest), supply quality tiers,
+  ~~Continuous pain and exhaustion~~ **landed** (`godot:m2:wounds`, PAIN / PAINKILLERS /
+  EXHAUSTION), which completes docs/05's set of four continuous conditions — blood loss shipped,
+  sepsis landed above, and these were the remaining two. **Pain did not exist at all**, and
+  `item.painkillers.blister` was in two loot tables and Mara's starting kit with no code reading it
+  (the fifth dead socket this run). **Exhaustion was half-wired**: stamina emptiness reached melee
+  and nothing else, so an exhausted survivor swung badly and shot, worked and felt exactly as well
+  as a rested one — docs/04 lists all four.
+  Pain is **derived, never stored**: a pure function of the wounds carried, so it cannot drift from
+  them and needs nothing in the save file. It sums (one laceration 0.220, three 0.660), scales with
+  severity (deep 0.450) and kind (burn 0.330 against a cut's 0.220), and a septic wound throbs
+  (0.330). It costs accuracy, swing speed, mood and work speed. Painkillers **suppress without
+  healing** — the felt pain drops while the raw pain, the wound list and the recovery clock are all
+  untouched, and it wears back off to exactly what it was, which is docs/05's "way to get someone
+  killed because they didn't notice how hurt they were". Exhaustion now reaches all four: swing
+  0.400, aim 0.500, mood −8.0 and work 0.652 on an empty tank, with the mood cost deliberately kept
+  clear of the miserable band so an ordinary hard day does not start sulks and arguments.
+  Still open here: sleep quality (docs/05 lists it among what pain degrades; there is no sleep-
+  quality value to degrade yet), the full treatment ladder (clean → close → rest), supply quality tiers,
   skill-scaled diagnosis text, permanent conditions that don't remove a survivor from play, and
   diegetic readouts for the continuous conditions.
   ~~Bacterial infection kept distinct from zombie infection (sepsis)~~ **landed**
