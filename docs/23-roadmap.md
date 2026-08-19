@@ -362,21 +362,18 @@ zero on every seed**, blood loss becomes the whole of 90210's death list, and 40
 **`GRABS_ENABLED` stays `false`** and this is reason six rather than a flip record.
 `survivors_end >= 1` was not relaxed; it remains considered and rejected.
 
-Three residuals are named, in the order they cost the most, and each is a design call rather than
-something to pick unilaterally:
+Three residuals were named, in the order they cost the most. **The first is now answered** (see
+the slice below); the other two stand:
 
-- **A break-away runs into the wall it was released against.** This is the finding, and it is
-  measured rather than reasoned: over three days of seed 404 with the flag on, a `breakAway` body
-  carries its escape velocity into `movement.integrate` on 1,230 of 1,266 ticks and the integrator
-  **zeroes it on 1,124**, because the committed heading is blocked on the X axis on 1,107 ticks, on
-  the Y axis on 1,154, and on **both at once on 1,087 — 86%**. Total ground covered is 12.66 m,
-  0.010 m per tick against a nominal 0.105. `_break_away` takes its direction once, at the moment of
-  release, and never re-derives it (by design — it is a shove-off, not a pursuit solver), and
-  `_integrate_movement` zeroes a blocked axis. A colony is grabbed where a colony lives, which is
-  against the annex walls, so the shove-off points into masonry and the survivor spends all 26 ticks
-  leaning on it. That is why 404's mid-press escapes cover a mean of **0.063 m** before the re-grab
-  (4.71 m across 75 windows) while 31337's cover 0.72 m — and why **the re-grab is the same shambler
-  in 309 of 309 windows across the three seeds that have any**.
+- ~~**A break-away runs into the wall it was released against.**~~ **Answered.** The finding, which
+  was measured rather than reasoned: over three days of seed 404 with the flag on, a `breakAway`
+  body carried its escape velocity into `movement.integrate` on 1,230 of 1,266 ticks and the
+  integrator **zeroed it on 1,124**, because the committed heading was blocked on the X axis on
+  1,107 ticks, on the Y axis on 1,154, and on **both at once on 1,087 — 86%**. Total ground covered
+  was 12.66 m, 0.010 m per tick against a nominal 0.105. A colony is grabbed where a colony lives,
+  which is against the annex walls, so the shove-off pointed into masonry and the survivor spent all
+  26 ticks leaning on it — which is why 404's mid-press escapes covered a mean of **0.063 m** before
+  the re-grab and why the re-grab was the same shambler in 309 of 309 measured windows.
 - **The pinned escape tick.** The cancel lands at drain, so the escapee stands still for one tick
   while the holder keeps closing at 0.084 m. That single tick is worth 0.105 m of gap, which lifts
   `BREAK_AWAY_SPEED`'s own "a release from d0 < 0.58 m can still be inside reach when the cooldown
@@ -391,6 +388,48 @@ something to pick unilaterally:
 The balance tier is therefore still exactly what it was, plus bus-only `grab.started`/`grab.broken`
 counters that report and assert nothing, and `_the_flag_actually_gates_acquisition()` in the contact
 gate still exercises both directions.
+
+**Answered: a break-away now has somewhere to go, and one hard seed stops wiping.** The residual
+above was a locomotion bug wearing a design call's clothes: the shove-off insisted on going
+*straight* away, and straight away from a shambler that has you against a wall is into the wall.
+`_break_away` now treats straight-away as the **preference** rather than the commitment. It fans out
+in `BREAK_AWAY_FAN_DEGREES` order — 0, ±22.5, ±45 … ±135, stopping short of 180 because a survivor
+shoving off does not run through the thing that had hold of them — and commits to the first
+candidate with a clear run of `BREAK_AWAY_PROBE_METRES` (1.5 m, sampled every 0.25 m against the
+same tile lookup the integrator collides with, through the new `World.body_fits_at`). Falls back to
+the longest partial run when nothing is clear, and to straight-away when nothing is clear at all,
+which is a body wedged in a corner and has no better answer. It stays a shove-off: one heading,
+taken once at release, no per-tick re-derive, no RNG, no pursuit solver.
+
+`godot:m2:contact` grew **AWAY-CLEAR**, with a negative in each direction. Positive: a release with
+a wall column directly behind the victim commits 90° off straight-away and flies 2.00 m, against
+**0.11 m** for the identical release with the heading forced back to straight-away — the
+shipped-before control, which must fail to move, and does. Negative: the identical release in an
+empty field must commit to straight-away *exactly* (deviation asserted under 0.001°), so a fan that
+quietly re-aimed every escape in the game could not pass.
+
+Measured with the same driver as the previous slice, run on the clean tree and again on this one:
+
+| seed | before | after | how it ends |
+| --- | --- | --- | --- |
+| 20260805 | `3/2`, 0 grabs, 0 bites | `3/2`, 0 grabs, 0 bites | no contact at all in ten days |
+| 404 | `0/2`, 150 grabs, 88 bites, 8,490 living ticks, 50.2% held, **0.0086 m/tick** | `0/2`, 152 grabs, **79** bites, **12,011** living ticks, **31.4%** held, **0.1038 m/tick** | 3 × blood loss |
+| 31337 | `3/2`, 46 grabs, 20 bites, 0.0374 m/tick | `3/2`, **6** grabs, **2** bites, 0.1035 m/tick | colony never touched on either tree |
+| 90210 | `0/2`, 166 grabs, 65 bites, 0.0169 m/tick | **`1/2`**, **65** grabs, **20** bites, **0.1041 m/tick** | 2 × blood loss |
+
+(The before column reproduces the previous slice's recorded figures exactly — 150/88 and 166/65,
+both `0/2` — so the two measurements are comparable.)
+
+**An escape is now worth what the open-field arithmetic always claimed.** Ground covered per
+break-away tick goes from a tenth of nominal to 0.104 against a nominal 0.105 on both hard seeds.
+90210 is **the first hard seed to stop wiping**; 31337's contact all but disappears; 404's colony
+lives 41% longer and spends a third rather than half of its life held.
+
+**The flag stays `false`, and residual three is now the whole of what is left.** 404 still ends
+`0/2` with all three deaths blood loss — and **126 presses begun, zero completed**. A press
+cancelled at every escape banks nothing, so a 400-tick deep-wound press has no reachable completion
+path while holds arrive every ~50 ticks. That is the fragments arithmetic the R5 inversion bought
+the hold count with, and it is the single measured thing between this loop and the flip.
 
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the
