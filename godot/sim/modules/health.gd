@@ -128,7 +128,12 @@ static func register_module(world: Variant) -> void:
 		# A hit that removed no integrity records no wound -- a zero-damage (or fully
 		# absorbed) hit still returns a non-null result above, since "before" was positive.
 		if is_survivor_body(r["body"]) and float(r["after"]) != float(r["before"]) and Wounds != null:
-			Wounds.call("append_wound", world, int(event["target"]), "cut", hit_part, int(event["attacker"]), float(event["damage"]))
+			var cut: Variant = Wounds.call("append_wound", world, int(event["target"]), "cut", hit_part, int(event["attacker"]), float(event["damage"]))
+			# docs/05's "heavy hits" and "head impact": a hit hard enough to be a deep wound may
+			# also break the bone under it or rattle the skull. The severity band is the gate, so
+			# an ordinary scratch never rolls for either.
+			if cut is Dictionary:
+				Wounds.call("roll_impact_injury", world, int(event["target"]), hit_part, int((cut as Dictionary).get("severity", 0)), int(event["attacker"]))
 	})
 
 	world.events.subscribe({"id": "health.take-bite", "type": "bite.landed", "handler": func(event: Dictionary) -> void:

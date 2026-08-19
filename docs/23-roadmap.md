@@ -569,8 +569,30 @@ table above are the authority on each):
   completion) and never picks again. It hooks `_tick_one` instead, after the needs-seek branch, so
   a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
 - **Attention leftovers** — the sim half of last-known-position memory, and director-varied nights.
-- **Health & injury** — the remaining injury types (fracture, sprain, burn, concussion), continuous
-  pain and exhaustion, the full treatment ladder (clean → close → rest), supply quality tiers,
+- **Health & injury** — ~~the remaining injury types (fracture, sprain, burn, concussion)~~
+  **landed** (`godot:m2:wounds`, KINDS and CAUSES). docs/05's injury table has nine rows and three
+  shipped, as *severities* of one bleeding wound. The four remaining are structurally different —
+  not primarily bleeding, recovery that does not track severity, and two of them impairing far
+  beyond their severity band — so `kind` stopped being a label and became a table. Everything a
+  kind changes is declared in one `WOUND_KINDS` row rather than as four `if kind == …` branches
+  across `append_wound`, the recovery tick, the impairment pass and the sepsis roll, which is how
+  the bleed rate and the clot clock would end up disagreeing about what a fracture is.
+  Measured: the three closed kinds bleed **0.0000** against a cut's 8.0000 at the same severity;
+  recovery is the kind's own figure (sprain 5d < deep cut 16d < fracture **42d**) with kinds that
+  declare none still falling through to the severity table; a fractured leg moves at 0.880 against
+  a scratched leg's 0.960 *at identical severity*, which is "near-total loss of the part" made
+  mechanical; a concussion costs reactions where an ordinary head cut costs nothing; and a closed
+  injury cannot go septic at all while a burn (0.432) is twice a cut (0.216).
+  **Every kind has one reachable cause**, from docs/05's own Cause column, and none of them is a
+  new subsystem: a deep head hit concusses (a graze does not), 21 of 50 deep limb hits fractured
+  and 0 of 50 light ones, **cauterisation burns** — `infection.gd` had published
+  `injury.sustained/burn` since cauterise was written and nothing listened, so searing a bite left
+  no mark on the arm it seared — and 22 of 100 zero-stamina sprint collapses sprained a leg.
+  **Named rather than faked:** docs/05's other causes (falls, fence climbs, crush, fire) need
+  systems that do not exist, and a concussion's *perception* loss has no stat to attach to — vision
+  is a shadowcast with no modifier seam — so only the reaction half is wired. Adding a stat nothing
+  reads so the row could list three keys would be a modifier that looks wired and is not.
+  Still open here: continuous pain and exhaustion, the full treatment ladder (clean → close → rest), supply quality tiers,
   skill-scaled diagnosis text, permanent conditions that don't remove a survivor from play, and
   diegetic readouts for the continuous conditions.
   ~~Bacterial infection kept distinct from zombie infection (sepsis)~~ **landed**
