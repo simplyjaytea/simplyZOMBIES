@@ -51,6 +51,76 @@ const CLOT_TICKS: Dictionary = {
 # picked within each range. Slice 3 reads it twice: it is how long a wound takes to close,
 # and it is the denominator for how fast the struck part gets its integrity back, so a deep
 # wound is slow in both senses rather than slow in one and instant in the other.
+# --- the injury taxonomy (docs/05) ----------------------------------------------------------
+#
+# docs/05's injury table has nine rows. Three shipped -- Scratch, Laceration, Deep wound -- as
+# *severities* of one bleeding wound, plus Bite as a `kind` that differs only in carrying zombie
+# infection. The four below are structurally different: they are not primarily bleeding, their
+# recovery is not a function of how much integrity was lost, and two of them impair a part far
+# beyond what their severity band would suggest.
+#
+#   Fracture    | Falls, crush, heavy hits  | Near-total loss of the part; legs catastrophic | 4-8 weeks
+#   Sprain      | Falls, fence climbs, exhaustion | Partial impairment                       | 4-7 days
+#   Burn        | Fire, cauterization       | Pain, infection risk, impairment               | 1-3 weeks
+#   Concussion  | Head impact               | Reaction and perception loss                   | 3-10 days
+#
+# So `kind` stops being a label and becomes a table. Everything a kind changes about a wound is
+# declared in one place here, rather than as four `if kind == "..."` branches spread across
+# append_wound, the recovery tick, the impairment pass and the sepsis roll -- which is how the
+# bleed rate and the clot clock would end up disagreeing about what a fracture is.
+#
+# Each field, and why it is not derivable from severity:
+#
+#   bleeds        A fracture and a concussion are closed injuries. Severity says how badly the
+#                 part is hurt; it cannot say whether the skin is open.
+#   recoveryDays  docs/05's own recovery column, which ranges from 4 days to 8 weeks and does not
+#                 track severity at all -- a sprain heals faster than a laceration and a fracture
+#                 takes an order of magnitude longer than a deep wound.
+#   impairFloor   The severity band the part is impaired *at least* at. This is what "near-total
+#                 loss of the part" means for a fracture whose integrity loss was moderate: the
+#                 bone is broken whether or not much blood was lost.
+#   septicMul     "Burn: pain, infection risk, impairment" -- a burn is the worst thing here for
+#                 sepsis. A closed injury cannot go septic at all, which is 0.0 rather than a
+#                 small number.
+#   global        A per-entity impairment, for the one injury that is not about a body part:
+#                 a concussion is "reaction and perception loss", which is not a leg or an arm.
+const WOUND_KINDS: Dictionary = {
+	"cut": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}},
+	"bite": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}},
+	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}},
+	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}},
+	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}},
+	# A concussion impairs the person, not the part: docs/05 wants "reaction and perception loss".
+	# swing_speed and ranged_accuracy are the two stats this model already has that mean
+	# "reactions", and they are what it gets. **Perception has no stat to attach to** -- vision is
+	# a shadowcast with no modifier seam and docs/05's "blurred description text" is a
+	# presentation channel that does not exist -- so the perception half is deliberately not
+	# faked here. Adding a stat nothing else reads, purely so this row could list three keys,
+	# would be a modifier that looks wired and is not, which is the exact failure this slice keeps
+	# finding elsewhere.
+	"concussion": {
+		"bleeds": false, "recoveryDays": 6, "impairFloor": -1, "septicMul": 0.0,
+		"global": {"swing_speed": 0.85, "ranged_accuracy": 0.75},
+	},
+}
+const CONCUSSION_SOURCE: String = "wound.concussion"
+
+
+# A kind's row, or `cut`'s as the fallback -- an unknown kind behaving like an ordinary cut is the
+# safe direction, and check_m2_wounds.gd asserts every kind anything actually creates is declared.
+static func kind_spec(kind: String) -> Dictionary:
+	return WOUND_KINDS.get(kind, WOUND_KINDS["cut"]) as Dictionary
+
+
+# How many days this wound needs, which is the kind's own figure where it has one and docs/05's
+# per-severity table otherwise. A fracture takes six weeks whether it bled or not.
+static func recovery_days_for(kind: String, severity: int) -> int:
+	var declared: int = int(kind_spec(kind).get("recoveryDays", -1))
+	if declared > 0:
+		return declared
+	return int(RECOVERY_DAYS.get(severity, RECOVERY_DAYS[Severity.Scratch]))
+
+
 # --- bacterial infection (docs/05) --------------------------------------------------------
 #
 # "Any open wound can go septic, with probability driven by wound severity, hygiene, whether it was
@@ -207,7 +277,7 @@ static func severity_for(world: Variant, target: int, part: String, damage: floa
 # presentation_override lets the bite path keep its own lie (docs/06: "a bite can present as
 # a scratch") independent of severity; an ordinary cut has no override and gets the
 # severity's plain word instead.
-static func append_wound(world: Variant, entity: int, kind: String, part: String, source: int, damage: float, presentation_override: String = "") -> Dictionary:
+static func append_wound(world: Variant, entity: int, kind: String, part: String, source: int, damage: float, presentation_override: String = "", severity_override: int = -1) -> Dictionary:
 	var inj: Variant = world.components.get_component(entity, "injuries")
 	if inj == null:
 		inj = {"wounds": [], "bloodLoss": 0.0, "bledOut": false}
@@ -221,9 +291,12 @@ static func append_wound(world: Variant, entity: int, kind: String, part: String
 		d["bledOut"] = false
 	var wounds: Array = d["wounds"] as Array
 
-	var severity: int = severity_for(world, entity, part, damage)
-	var bleed_rate: float = float(BLEED_PER_TICK.get(severity, 0.0))
-	var clot_ticks: int = int(CLOT_TICKS.get(severity, 0))
+	var severity: int = severity_for(world, entity, part, damage) if severity_override < 0 else severity_override
+	var spec: Dictionary = kind_spec(kind)
+	# A fracture and a concussion are closed injuries: severity says how badly the part is hurt,
+	# not whether the skin is open. Without this a broken arm would bleed at a deep wound's rate.
+	var bleed_rate: float = float(BLEED_PER_TICK.get(severity, 0.0)) if bool(spec.get("bleeds", true)) else 0.0
+	var clot_ticks: int = int(CLOT_TICKS.get(severity, 0)) if bool(spec.get("bleeds", true)) else 0
 	var clots_at: int = int(world.tick) + clot_ticks if clot_ticks > 0 else -1
 	var presentation: String = presentation_override if presentation_override != "" else String(SEVERITY_WORD.get(severity, "scratch"))
 
@@ -278,12 +351,31 @@ static func _apply_bloodloss_impairment(world: Variant, entity: int, blood_loss:
 # worst wound on each part, not cumulative across wounds on that part.
 static func _apply_part_impairment(world: Variant, entity: int, wounds: Array) -> void:
 	var worst_by_part: Dictionary = {}
+	var concussed: bool = false
 	for w in wounds:
 		var wd: Dictionary = w as Dictionary
 		var part: String = String(wd.get("bodyPart", ""))
-		var sev: int = int(wd.get("severity", Severity.Scratch))
+		var kind: String = String(wd.get("kind", "cut"))
+		var spec: Dictionary = kind_spec(kind)
+		# "Near-total loss of the part" for a fracture whose integrity loss was moderate: the bone
+		# is broken whether or not much blood was lost, so the kind sets a floor under the band
+		# the part is impaired at rather than letting severity alone decide.
+		var sev: int = maxi(int(wd.get("severity", Severity.Scratch)), int(spec.get("impairFloor", -1)))
+		if not (spec.get("global", {}) as Dictionary).is_empty():
+			concussed = true
 		if not worst_by_part.has(part) or sev > int(worst_by_part[part]):
 			worst_by_part[part] = sev
+
+	# The one injury that is not about a body part. Applied entity-scoped and from one source, so
+	# two concussions are still one concussion's worth of impairment.
+	world.modifiers.call("remove_by_source", CONCUSSION_SOURCE, entity)
+	if concussed:
+		for stat in (kind_spec("concussion").get("global", {}) as Dictionary).keys():
+			world.modifiers.call("add", {
+				"stat": String(stat), "op": "mul",
+				"value": float((kind_spec("concussion")["global"] as Dictionary)[stat]),
+				"source": CONCUSSION_SOURCE,
+			}, entity)
 
 	for part in SimCombat.SURVIVOR_BODY_PARTS:
 		var source: String = "wound." + String(part)
@@ -480,6 +572,10 @@ static func sepsis_chance(wound: Dictionary, hygiene_mul: float, medicine_skill:
 	var base: float = float(SEPSIS_BASE_BY_SEVERITY.get(int(wound.get("severity", Severity.Scratch)), 0.0))
 	if base <= 0.0:
 		return 0.0
+	# A closed injury cannot go septic at all, and a burn is the worst thing here for it.
+	base *= float(kind_spec(String(wound.get("kind", "cut"))).get("septicMul", 1.0))
+	if base <= 0.0:
+		return 0.0
 	var dressing: String = String(wound.get("bandage", "none"))
 	var bandage_mul: float = float(SEPSIS_BANDAGE_MUL.get(dressing, float(SEPSIS_BANDAGE_MUL["none"])))
 	var skill_mul: float = maxf(SEPSIS_MIN_MUL, 1.0 - float(maxi(0, medicine_skill)) * SEPSIS_SKILL_RELIEF)
@@ -538,7 +634,87 @@ static func sepsis_clause(world: Variant, entity: int) -> String:
 	return "You're feverish, and it isn't getting better."
 
 
+# --- causes ------------------------------------------------------------------------------
+#
+# A kind nothing produces is content, not a feature, so each of the four gets exactly one
+# reachable cause from docs/05's own Cause column. None of them is a new subsystem: three ride
+# events that already fire, and the fourth rides a state change world.gd already makes.
+#
+#   Fracture   "heavy hits"    -- a limb hit hard enough to be a deep wound, sometimes breaks it
+#   Concussion "head impact"   -- a head hit hard enough to be a deep wound
+#   Burn       "cauterization" -- infection.gd already publishes injury.sustained/burn and nothing
+#                                 listened, so cauterising left no mark on the body it burned
+#   Sprain     "exhaustion"    -- the zero-stamina sprint collapse world.gd already performs
+#
+# docs/05's other causes (falls, fence climbs, fire, crush) need systems that do not exist yet.
+# Naming that here rather than inventing a fall so the table could look complete.
+const FRACTURE_CHANCE: float = 0.25
+const SPRAIN_CHANCE: float = 0.15
+const CAUSE_STREAM: String = "injury_kind"
+
+# Where a limb break or a sprain can land. Hands and feet are excluded from the sprain roll for
+# the same reason a collapse sprains an ankle and not a thumb.
+static func _is_limb(part: String) -> bool:
+	return part.begins_with("arm_") or part.begins_with("leg_")
+
+
+static func _is_leg(part: String) -> bool:
+	return part.begins_with("leg_") or part.begins_with("foot_")
+
+
+# A hit that was hard enough to be a deep wound may also break the bone under it, or rattle the
+# skull. Rolled once per qualifying hit and never on a lesser one -- docs/05 says "heavy hits", so
+# the severity band is the gate rather than a chance on everything.
+static func roll_impact_injury(world: Variant, entity: int, part: String, severity: int, source: int) -> void:
+	if severity < Severity.DeepWound:
+		return
+	var rng: Variant = world.rng.stream(CAUSE_STREAM)
+	if part == "head":
+		append_wound(world, entity, "concussion", part, source, 0.0, "concussion", Severity.Laceration)
+		world.events.publish({"type": "injury.sustained", "entity": entity, "injury": "concussion", "bodyPart": part})
+		return
+	if not _is_limb(part):
+		return
+	if float(rng.call("float_range", 0.0, 1.0)) >= FRACTURE_CHANCE:
+		return
+	append_wound(world, entity, "fracture", part, source, 0.0, "fracture", Severity.Laceration)
+	world.events.publish({"type": "injury.sustained", "entity": entity, "injury": "fracture", "bodyPart": part})
+
+
 static func register_module(world: Variant) -> void:
+	# Burn from cauterisation. infection.gd has published injury.sustained/burn since cauterise
+	# was written and nothing subscribed, so searing a bite left no mark on the arm it seared.
+	world.events.subscribe({"id": "wounds.cauterise-burns", "type": "injury.sustained", "handler": func(event: Dictionary) -> void:
+		if String(event.get("injury", "")) != "burn":
+			return
+		var entity: int = int(event.get("entity", -1))
+		var part: String = String(event.get("bodyPart", ""))
+		if entity < 0 or part == "":
+			return
+		append_wound(world, entity, "burn", part, entity, 0.0, "burn", Severity.Laceration)
+	})
+
+	# Sprain from exhaustion. world.gd demotes a sprinter whose pool hits zero; publishing that as
+	# an event rather than having this module watch posture keeps world.gd free of any dependency
+	# on wounds, which is the direction that has to hold.
+	world.events.subscribe({"id": "wounds.exhaustion-sprains", "type": "stance.collapsed", "handler": func(event: Dictionary) -> void:
+		var entity: int = int(event.get("entity", -1))
+		if entity < 0 or not world.components.has_component(entity, "body"):
+			return
+		var rng: Variant = world.rng.stream(CAUSE_STREAM)
+		if float(rng.call("float_range", 0.0, 1.0)) >= SPRAIN_CHANCE:
+			return
+		var legs: Array = []
+		for part in SimCombat.SURVIVOR_BODY_PARTS:
+			if _is_leg(String(part)):
+				legs.append(String(part))
+		if legs.is_empty():
+			return
+		var part2: String = String(legs[int(rng.call("int_range", 0, legs.size() - 1))])
+		append_wound(world, entity, "sprain", part2, entity, 0.0, "sprain", Severity.Scratch)
+		world.events.publish({"type": "injury.sustained", "entity": entity, "injury": "sprain", "bodyPart": part2})
+	})
+
 	var killed: Array[int] = []
 
 	# Impairment is recomputed every tick in "input" (order -1), the same phase and order as
@@ -684,7 +860,7 @@ static func register_module(world: Variant) -> void:
 				if not worst_by_part.has(part) or sev > int(worst_by_part[part]):
 					worst_by_part[part] = sev
 				wd["healedTicks"] = int(wd.get("healedTicks", 0)) + 1
-				if int(wd["healedTicks"]) >= int(RECOVERY_DAYS.get(sev, 2)) * SimClock.DAY_TICKS:
+				if int(wd["healedTicks"]) >= recovery_days_for(String(wd.get("kind", "cut")), sev) * SimClock.DAY_TICKS:
 					closed.append(wd)
 
 			for part in worst_by_part.keys():
