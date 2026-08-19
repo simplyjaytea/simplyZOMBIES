@@ -32,6 +32,10 @@ Six slices, working down docs/23's open list. Each names the gate that proves it
 | Grief | `godot:m2:needs` | A death costs every other survivor mood, more if they watched it |
 | Varied nights | `godot:m2:director` | A night is *drawn* from a strain-weighted table rather than computed. docs/17 rule 4's floor and ceiling are mechanical |
 
+After those, one presentation-only slice: the **inventory/UI rework** — moveable, pinnable bag
+windows, the Esc settings sheet, the shared `ui/chrome.gd` skin, the paperdoll glimpse to the
+bottom-left. No sim files were touched; docs/23's UI bullet has the detail and what remains.
+
 ## What is waiting on the owner, not on code
 
 These are design calls. They have been measured, written up, and deliberately **not** decided:
@@ -49,6 +53,16 @@ These are design calls. They have been measured, written up, and deliberately **
    `GRABS_ENABLED` and its flip.
 4. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
    docs/23's Art bullet has the ordered next steps.
+5. **The equipment-slot taxonomy.** The owner has sketched a layered, realistic slot set (head:
+   hat/mask/eyewear/ear; torso: undershirt/shirt/jacket/vest-rig/backpack; arms: gloves; legs:
+   underwear/pants/socks/boots). Expanding `SimInventory.EQUIP_SLOTS` touches the sim, the content
+   schema (both validators — the Ajv one recurses), armour coverage, and loot; most of those slots
+   currently have no items to fill them, which is the dead-socket pattern this milestone keeps
+   finding. Needs an owner decision on which slots ship with items now and which wait for the
+   systems (temperature, hygiene) that give them meaning.
+6. **The Tarkov-style paperdoll.** Slots arranged around the figure with injuries on the same
+   body — the inventory window rework landed the chrome for it, but the layout is a design pass
+   the owner wants to direct. States stay words and tints; the health-bar ban is not negotiable.
 
 ## The pattern worth knowing before you start
 

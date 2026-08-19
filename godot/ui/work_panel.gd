@@ -3,6 +3,7 @@ extends Control
 
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const UiText = preload("res://ui/text.gd")
+const Chrome = preload("res://ui/chrome.gd")
 
 # Grid geometry, shared by _draw and _gui_input. These were duplicated literals in both, so
 # moving a header down silently moved every cell out from under the cursor that clicks it.
@@ -46,12 +47,12 @@ func _gui_input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	var font: Font = ThemeDB.fallback_font
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.06, 0.06, 0.07, 0.94))
-	draw_string(font, Vector2(16, 32), "Work — click a cell to change priority", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color("#c9c4b8"))
+	Chrome.panel(self, Rect2(Vector2.ZERO, size), 0.95)
+	Chrome.header(self, Rect2(Vector2.ZERO, size), "work — click a cell to change priority", 0.95)
 	# The priority scale, which the grid previously assumed you already knew. 1 is most
 	# urgent; docs/07's row is an ordering the player sets, not a hidden stat, so the
 	# numbers are the honest presentation here.
-	draw_string(font, Vector2(16, 60), "1 first · 4 last · – never", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#7b776e"))
+	draw_string(font, Vector2(16, 64), "1 first · 4 last · – never", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_DIM)
 	var ox: float = GRID_X
 	var oy: float = GRID_Y
 	var col_w: float = COL_W
