@@ -560,9 +560,29 @@ table above are the authority on each):
   treatment ladder (clean → close → rest), supply quality tiers, skill-scaled diagnosis text,
   permanent conditions that don't remove a survivor from play, and diegetic readouts for the
   continuous conditions.
-- **Combat** — firing at a remembered position (and what it costs), jamming on degraded weapons.
-- **Items** — attachments gaining a reader (content declares slots nothing reads), repair that never
-  restores the full ceiling, and finishing continuous condition-degradation effects.
+- **Combat** — firing at a remembered position (and what it costs). ~~Jamming on degraded
+  weapons~~ **landed** (`godot:m2:ranged`, JAM and CLEAR). Condition already scaled melee and
+  ranged damage, so a pistol at 10% was a slightly weaker pistol rather than one you could not
+  trust; docs/09 asks for the other half — "degraded firearms jam, and clearing a jam takes longer
+  than a reload". The chance is **not authored**: `SimItems.JAM_CHANCE_BY_BAND` is keyed off
+  `condition_band`, the same function that produces the word the inventory screen shows, so a
+  weapon the player is told is "failing" cannot be one that never jams. Measured 0.130 over 400
+  trigger pulls against the table's 0.120, with a sound pistol at 0.000. `jams` is a **content
+  flag** on the ranged block, not inferred from having a magazine — docs/09 and docs/11's Gun Oil
+  both say *firearms*, and a bow at 5% condition jams at 0.000, which is the negative that keeps
+  the flag load-bearing. A jam costs **time only**: the stuck round is not spent (it comes out
+  during the clear), the weapon returns to Idle rather than resuming the shot, and clearing takes
+  `CLEAR_JAM_MULTIPLIER` × the weapon's *own* reload — a multiple rather than a constant, so
+  "longer than a reload" stays true if a reload time is ever retuned. Measured 80 ticks against a
+  40-tick reload.
+- **Items** — attachments gaining a reader, and repair that never restores the full ceiling
+  (`SimItems.repair_item` already lowers the ceiling on every repair; what is open is the Craft/
+  station/material cost around it). Note the backlog's parenthetical "content declares slots
+  nothing reads" is only half true and the wrong half: `slots` is in the item schema and **no
+  content declares it either**, so attachments need content, a reader, and attachment items — a
+  slice, not a hookup. **Continuous condition-degradation effects** are now essentially closed:
+  `condition_factor` already scaled melee damage and speed and ranged damage, and jamming (above)
+  was the missing piece docs/10's table called for.
 - **Inventory** — ~~searching world containers (a car boot, a cupboard)~~ and ~~site
   depletion~~ **both landed** (`godot:check:loot`, CONTAINER and CONTAINER SITES). A map loot site
   that declares `container` is not scattered at boot: `SimContainers` stands a `searchable` there

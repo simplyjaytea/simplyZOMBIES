@@ -131,7 +131,11 @@
         "recoverable": { "type": "number", "minimum": 0, "maximum": 1 },
         "magSize": { "type": "integer", "minimum": 1 },
         "reloadTicks": { "type": "integer", "minimum": 1 },
-        "rangeMetres": { "type": "number", "exclusiveMinimum": 0 }
+        "rangeMetres": { "type": "number", "exclusiveMinimum": 0 },
+        "jams": {
+          "type": "boolean",
+          "description": "Whether this weapon can jam as it degrades, per docs/09-combat.md: \"degraded firearms jam, and clearing a jam takes longer than a reload\". Firearms only -- a bow has nothing to stovepipe -- which is why it is declared here rather than inferred from having a magazine. The chance itself is not authored: SimItems.JAM_CHANCE_BY_BAND derives it from condition, so it cannot drift from the band the inventory screen shows for the same weapon."
+        }
       }
     },
     "modification": {
