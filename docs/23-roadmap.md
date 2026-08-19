@@ -403,14 +403,18 @@ table above are the authority on each):
 
 - **World & map** — ~15 resource types, the three location loot tables, site depletion, food
   spoilage.
-- **Art** — the first two real sprites landed via the content pipeline (`zombie_shambler`,
-  `survivor_mara`, AI-generated), proven by `APPEARANCE_OK`'s resolve-and-draw-white assertions;
-  screamer and bloater still render as tinted shapes, and tile art has no renderer path yet
-  (`_draw_district` still draws polygons). The presentation then moved to **native-resolution
-  rendering at double art density** (no stretch, camera zoom 32, 64×32 tiles, figures authored at
-  64×96) so 1440p fills exactly instead of letterboxing at the old 960×540 integer scale; the two
-  shipped sprites are 2× nearest-neighbour upscales of their 32×48 originals, placeholders until
-  they are regenerated at native 64×96.
+- **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
+  isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
+  64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
+  cardinal, and a peripheral glimpse is an anonymous disc with no sprite or facing — all pinned by
+  the new `TOPDOWN_OK` gate (`check_topdown.gd`, in the `godot:m2` chain), each assertion of
+  which fails against the old isometric maths. The five shipped sprites (`survivor_mara`,
+  `zombie_shambler`, three equip overlays, all AI-generated at 64×96 feet-anchored, proven by
+  `APPEARANCE_OK`) draw unchanged as upright pawns on the flat floor — interim until the
+  64×64 centre-anchored regeneration lands renderer-and-art together. Screamer and bloater still
+  render as tinted shapes; tile art still has no renderer path (`_draw_district` draws flat
+  rects); zoom control and the art-style brainstorm (RimWorld × Zero Sievert pawns) are the next
+  slices of this track.
 - **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
   rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
 - **Needs** — mood consequences: slower work, mistakes, refusing jobs, arguments.
