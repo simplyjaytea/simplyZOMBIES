@@ -947,6 +947,27 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   at `SimTileMap.DISTRICT_TILES`. Both are in the gate as pinned behaviour rather than as a fix
   somebody has to remember.
 
+- **A container is a loot site rolled late, and that is the whole of the difference.** Rather than
+  a second content type with its own table shape, a map site that declares `container` stands a
+  `searchable` holding the same table instead of scattering it. One roller (`sim/loot.gd`, extracted
+  from `boot.gd` precisely so the two callers cannot drift), one `lootTable` stream, one
+  distribution — a player who walks into a room of loose tins and one who opens the cupboard those
+  tins were in are drawing from the same table.
+- **Site depletion is a flag that nothing clears, and that is deliberate.** docs/12 puts resource
+  respawn timers on the cut list because they "would defuse the expanding-radius pressure, which is
+  load-bearing", so `searched` is set once and there is no timer, counter, or refill path to find.
+  The two "nothing"s are kept distinct — `nothing-here` against `already-searched` — because they
+  mean completely different things to somebody deciding whether a building is worth the walk.
+- **Searching is instant, not a channel.** `fortify.gd`'s channel machinery was right there and was
+  not used: a channel exists for things you can be interrupted out of, and the risk in a scavenging
+  run is the walk there and the noise on the way back, not a progress bar in an empty room. Recorded
+  rather than left as an omission, with fortify named as the template if it ever needs to change.
+- **A container is announced, not drawn.** It has a `position` and no renderer path, the same as
+  beds and campfires, so what the player gets is `SimContainers.hud_clause` in the HUD — prose, no
+  digits, and it never says how much came out. That is the standing scarcity ban doing its job
+  rather than a placeholder, but the missing sprite is the Art track's open prop renderer and
+  docs/23 says so rather than letting it read as finished.
+
 ## What the top-down reversal made structural
 
 The projection moved from isometric 2:1 to flat top-down (docs/00 carries the reversal argument;

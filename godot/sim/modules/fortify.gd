@@ -130,6 +130,16 @@ static func _use_context(world: Variant, actor: int) -> void:
 	if SimInventory.nearest_ground_item(world, actor) != null:
 		SimInventory.pick_up_nearest(world, actor)
 		return
+	# Loose items first, then the container that held them: searching a cupboard drops its
+	# contents on the floor, so this ordering means one key empties the cupboard and then picks
+	# the contents up, rather than needing a second verb the player has to know about. A
+	# already-searched container falls through to everything below it and costs nothing.
+	var Containers: GDScript = load("res://sim/modules/containers.gd") as GDScript
+	if Containers != null and Containers.has_method("nearest"):
+		var box: int = int(Containers.call("nearest", world, actor, true))
+		if box >= 0:
+			Containers.call("search", world, actor, box)
+			return
 	var Recruits: GDScript = load("res://sim/modules/recruits.gd") as GDScript
 	if Recruits != null and Recruits.has_method("waiting_in_reach"):
 		var waiting: int = int(Recruits.call("waiting_in_reach", world, actor))

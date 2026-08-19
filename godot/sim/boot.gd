@@ -20,6 +20,8 @@ const SimScreamer = preload("res://sim/modules/screamer.gd")
 const SimBloater = preload("res://sim/modules/bloater.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimLoot = preload("res://sim/loot.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
@@ -37,9 +39,6 @@ const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
 const WANDERERS: int = 12
 
-# How far apart two items dropped at one site are laid out, in metres. Purely cosmetic spacing so
-# a site is a scatter rather than a stack of coincident sprites.
-const LOOT_SPREAD_METRES: float = 0.4
 
 # Last world that called attach_kernel. Headless gates boot one world at a time.
 static var _KERNEL_WORLD: Variant = null
@@ -98,6 +97,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimInventory.register_module(world)
 	SimItems.register_module(world)
 	SimFortify.register_module(world)
+	SimContainers.register_module(world)
 	SimDirector.register_module(world)
 	SimNeeds.register_module(world)
 	SimJobs.register_module(world)
@@ -125,87 +125,29 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 # a determinism footgun for anything that measures across a change to this table.
 static func place_loot(world: Variant, patch: Dictionary) -> void:
 	var loot: Array = patch.get("loot", []) as Array
-	var rng: Variant = world.rng.stream("lootTable")
+	var rng: Variant = SimLoot.stream(world)
 	for entry in loot:
 		var e: Dictionary = entry as Dictionary
 		var tile: Dictionary = e.get("tile", {}) as Dictionary
 		var location: String = String(e.get("table", "residential"))
-		var table: Variant = SimItems.content_entry(world, "loot", "loot.%s" % location)
+		var table: Variant = SimLoot.table_for(world, location)
 		if not (table is Dictionary):
 			# Loud, not silent: a map naming a table that does not exist would otherwise place an
 			# empty site and read as a stingy seed. check_loot.gd asserts every shipped map's
 			# tables resolve, so reaching this in a gate run is a content bug.
 			push_error("boot: map loot site names unknown table \"%s\"" % location)
 			continue
-		_scatter_site(world, table as Dictionary, rng, float(tile.get("x", 0)) + 0.5, float(tile.get("y", 0)) + 0.5)
-
-
-# One site: roll how many picks it yields, then roll each pick from the weighted pool.
-static func _scatter_site(world: Variant, table: Dictionary, rng: Variant, x: float, y: float) -> void:
-	var rolls_spec: Dictionary = table.get("rolls", {}) as Dictionary
-	var picks: int = _roll_range(rng, rolls_spec, 1)
-	var entries: Array = table.get("entries", []) as Array
-	if entries.is_empty():
-		return
-	var ox: float = 0.0
-	for _i in picks:
-		var pick: Variant = _weighted_pick(rng, entries, "weight")
-		if not (pick is Dictionary):
+		var x: float = float(tile.get("x", 0)) + 0.5
+		var y: float = float(tile.get("y", 0)) + 0.5
+		# A site with a `container` is not scattered at boot -- it stands there holding its table
+		# until somebody opens it. Same table, same roller, rolled later; that is the whole of the
+		# difference, and it is what makes a searched cupboard finite rather than a respawn timer
+		# (docs/12 puts respawn on the cut list).
+		var kind: String = String(e.get("container", ""))
+		if kind != "":
+			SimContainers.make_container(world, x, y, kind, location)
 			continue
-		var chosen: Dictionary = pick as Dictionary
-		var opts: Dictionary = {"tier": _roll_tier(rng, table)}
-		if (chosen.get("count") is Dictionary):
-			# spawn_item clamps to the base's own stack limit, so a range wider than the base
-			# allows is a table being generous rather than a bug to guard against here.
-			opts["count"] = _roll_range(rng, chosen["count"] as Dictionary, 1)
-		var item: int = SimItems.spawn_item(world, String(chosen.get("item", "")), opts)
-		world.components.set_component(item, "position", {"x": x + ox, "y": y})
-		ox += LOOT_SPREAD_METRES
-
-
-# Inclusive on both ends, and tolerant of min > max rather than looping forever on it -- the
-# schema forbids neither, and check_loot.gd is what actually asserts they are ordered.
-static func _roll_range(rng: Variant, spec: Dictionary, fallback: int) -> int:
-	if not spec.has("min") or not spec.has("max"):
-		return fallback
-	var lo: int = int(spec["min"])
-	var hi: int = int(spec["max"])
-	if hi < lo:
-		hi = lo
-	# SimRngStream.int_range is inclusive on BOTH ends -- min + floor(next() * (max - min + 1)) --
-	# so the range is passed as authored. Writing `hi + 1` here is the obvious mistake and it
-	# rolled one over the declared maximum; QUANTITY in check_loot.gd is what caught it.
-	return int(rng.call("int_range", lo, hi))
-
-
-# Weighted pick over a table's tierWeights, falling back to SimItems.roll_tier's global
-# distribution when a table declares none. This is what makes a military cache come out better
-# than a kitchen drawer: the tier stops being a property of the world and becomes one of the place.
-static func _roll_tier(rng: Variant, table: Dictionary) -> String:
-	var weights: Variant = table.get("tierWeights")
-	if not (weights is Dictionary) or (weights as Dictionary).is_empty():
-		return SimItems.roll_tier(rng)
-	var pool: Array = []
-	for tier_id in (weights as Dictionary).keys():
-		pool.append({"id": String(tier_id), "weight": int((weights as Dictionary)[tier_id])})
-	var hit: Variant = _weighted_pick(rng, pool, "weight")
-	return String((hit as Dictionary)["id"]) if hit is Dictionary else SimItems.roll_tier(rng)
-
-
-# One weighted draw, shaped exactly like SimItems.roll_tier's: sum, one float in [0, total), walk
-# it down. Returns null on an empty pool or an all-zero one rather than picking arbitrarily.
-static func _weighted_pick(rng: Variant, pool: Array, weight_key: String) -> Variant:
-	var total: int = 0
-	for candidate in pool:
-		total += maxi(0, int((candidate as Dictionary).get(weight_key, 0)))
-	if total <= 0:
-		return null
-	var roll: float = float(rng.call("float_range", 0.0, float(total)))
-	for candidate in pool:
-		roll -= float(maxi(0, int((candidate as Dictionary).get(weight_key, 0))))
-		if roll < 0.0:
-			return candidate
-	return pool[pool.size() - 1]
+		SimLoot.scatter(world, table as Dictionary, rng, x, y)
 
 
 static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:

@@ -496,9 +496,10 @@ table above are the authority on each):
   own stream, so a table edit cannot shift the tier sequence for everything spawned afterwards),
   and the tier now comes from the *place* — a military cache rolls 1.000 above `scavenged` against
   a kitchen drawer's 0.141, where both used to be flat `scavenged`. The district gained a medical
-  site so the third table is reachable in play. **Still open here:** ~15 resource types, site
-  depletion, food spoilage (the spoilage clock itself already exists in `needs.gd`; what is open
-  is the content-declared rules docs/12 describes).
+  site so the third table is reachable in play. **Still open here:** ~15 resource types, and food
+  spoilage (the spoilage clock itself already exists in `needs.gd`; what is open is the
+  content-declared rules docs/12 describes). Site depletion landed with container search — see
+  Inventory below.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
@@ -531,10 +532,22 @@ table above are the authority on each):
 - **Combat** — firing at a remembered position (and what it costs), jamming on degraded weapons.
 - **Items** — attachments gaining a reader (content declares slots nothing reads), repair that never
   restores the full ceiling, and finishing continuous condition-degradation effects.
-- **Inventory** — searching world containers (a car boot, a cupboard), weight affecting footstep
-  noise. Container search is the natural home for **site depletion**: with respawn timers on
-  docs/12's cut list, a site is finite by construction, and what is missing is a searched thing
-  that knows it has been searched.
+- **Inventory** — ~~searching world containers (a car boot, a cupboard)~~ and ~~site
+  depletion~~ **both landed** (`godot:check:loot`, CONTAINER and CONTAINER SITES). A map loot site
+  that declares `container` is not scattered at boot: `SimContainers` stands a `searchable` there
+  holding the same table, and it rolls when somebody opens it — the same `SimLoot` roller and the
+  same `lootTable` stream, so loose tins and the cupboard they were in draw from one distribution.
+  Reached through the ordinary `use.context` key, after loose items and before everything else, so
+  one key empties the cupboard and then picks the contents up. Depletion is that `searched` is set
+  once and cleared by nothing, which is docs/12's cut of respawn timers made mechanical rather
+  than merely intended; a second search refuses `already-searched`, distinguished from
+  `nothing-here` because those mean different things to somebody deciding whether a building is
+  worth the walk. The district ships a cupboard, a car boot and a supply locker. Searching is
+  **instant, not a channel** — recorded as a decision in the module header, with fortify's channel
+  named as the template if it ever needs to be interruptible. **Still open here:** weight affecting
+  footstep noise, and a container has **no renderer path** — it is announced by prose
+  (`SimContainers.hud_clause` in the HUD) and is otherwise invisible, the same as beds and
+  campfires, which is the Art track's open tile/prop renderer rather than a gap in this.
 - **Modification** — Duct Tape (reroll an affix), Scrap Kit (add an affix), skill- and
   trait-weighted outcomes, failure that consumes and damages.
 - **UI** — the diegetic condition and stamina readouts (in the world, not a corner), prose generated

@@ -24,6 +24,7 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimAttentionRead = preload("res://sim/attention_read.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
@@ -86,6 +87,14 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 	var needs: String = SimNeeds.hud_clause(world, actor, false)
 	if not needs.is_empty():
 		lines.append(needs)
+
+	# What you are standing next to, if it is worth going through. Prose and no digits, like every
+	# other clause here -- it never says how much came out, only that there is something, or that
+	# you have already had it. Placed after the body and before the diagnosis because it is the
+	# least urgent thing on this list and the most easily ignored.
+	var here: String = SimContainers.hud_clause(world, actor)
+	if not here.is_empty():
+		lines.append(here)
 
 	# Infection reads as a symptom, never as a diagnosis the player has not earned.
 	var diag: Variant = SimInfection.diagnosis_of(world, actor, 0)
