@@ -54,7 +54,13 @@
       "h": 1
     },
     "massKg": 0.4,
-    "stack": 3
+    "stack": 3,
+    "food": {
+      "hunger": 40,
+      "mood": 0,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
   },
   {
     "id": "item.food.raw",
@@ -65,7 +71,13 @@
       "h": 1
     },
     "massKg": 0.35,
-    "stack": 3
+    "stack": 3,
+    "food": {
+      "hunger": 25,
+      "mood": -8,
+      "spoilDays": 2,
+      "illnessChance": 0.25
+    }
   },
   {
     "id": "item.food.cooked",
@@ -76,7 +88,13 @@
       "h": 1
     },
     "massKg": 0.3,
-    "stack": 3
+    "stack": 3,
+    "food": {
+      "hunger": 60,
+      "mood": 8,
+      "spoilDays": 1,
+      "illnessChance": 0
+    }
   },
   {
     "id": "item.scrap.metal",

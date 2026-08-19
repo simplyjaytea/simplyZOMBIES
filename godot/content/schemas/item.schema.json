@@ -138,6 +138,18 @@
         }
       }
     },
+    "food": {
+      "type": "object",
+      "description": "Present on anything edible. docs/12-resources.md#content-shape puts spoilage rules in JSON alongside loot tables, and docs/04-survival-needs.md is where the numbers come from: \"quality matters, not just quantity: raw and spoiled food fills the bar but damages mood and carries illness risk; cooked meals restore more and give a mood bonus\". Presence of this block is what makes an item food -- SimNeeds.is_food asks nothing else.",
+      "additionalProperties": false,
+      "required": ["hunger"],
+      "properties": {
+        "hunger": { "type": "number", "minimum": 0, "description": "Hunger restored, on the 0..100 need scale." },
+        "mood": { "type": "number", "description": "Mood applied on eating. Negative for raw, positive for cooked; a spoiled item overrides it with SimNeeds.SPOILED_MOOD regardless of what is declared here." },
+        "spoilDays": { "type": "number", "minimum": 0, "description": "In-game days before it goes off. 0 means it keeps indefinitely, which is what canned means." },
+        "illnessChance": { "type": "number", "minimum": 0, "maximum": 1, "description": "Chance per meal of a bout of food poisoning. Multiplied by SimNeeds.SPOILED_ILLNESS_MUL when the item has actually spoiled, so one authored number moves both cases together. The `iron_stomach` trait is full immunity rather than a reduction." }
+      }
+    },
     "modification": {
       "type": "object",
       "description": "Present on a modification consumable, per docs/11-crafting.md#content-shape: \"a modification consumable declares which operation it performs and against which item classes\". Adding a consumable is a data edit provided the operation it names already exists; adding an operation is an entry in SimModification.OPERATIONS. That registry is code because an operation is behaviour, and check_mods.gd is what asserts every declared operation is in it -- no schema can.",
