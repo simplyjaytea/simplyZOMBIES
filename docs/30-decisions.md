@@ -917,6 +917,36 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   404 it still never does. That is a call about how the slice seats its people, not another lever
   in the contact loop.
 
+## What a place yields is content, not code
+
+- **Loot tables moved out of `boot.gd`, for the same reason appearance moved out of the draw
+  loop.** docs/12 already said resources, location loot tables and spoilage rules are JSON, and
+  that "rebalancing the whole economy is a data pass with no code change" — while the code had two
+  `const` arrays, `RESIDENTIAL_KITS` cycled round-robin and a single `MILITARY_KIT`, with the ammo
+  counts as an `if` on the item id inside the placement loop. Adding a location type was a new
+  branch. It is now `content/loot/tables.json` against `loot.schema.json`, and adding a school or
+  a marina is one entry plus map tagging.
+- **The tier is a property of the place.** `tierWeights` per table replaces `SimItems.roll_tier`'s
+  global distribution for placed loot, which is what makes docs/12's risk gradient mean anything:
+  a military cache rolls 1.000 above `scavenged`, a house 0.141, and a table declaring no weights
+  falls back to the global 0.304 — the three measured in `TIER-BY-PLACE`, where the fallback
+  sitting *between* the other two is what proves the counter is reading the weights rather than
+  the seed.
+- **New randomness gets its own stream.** Table rolls draw from `lootTable`, not the `loot` stream
+  `SimItems.spawn_item` takes tiers from. Sharing one would make every table edit shift the tier
+  sequence for everything spawned afterwards, which is a determinism footgun for anything
+  measuring across such a change.
+- **The gate exists because the validator is shallow, and it paid for itself on the first run.**
+  `content_validator.gd` checks top-level types and rejects unexpected top-level keys; it does not
+  recurse, so nothing inside `entries`, `rolls` or `tierWeights` is schema-enforced — the same hole
+  a wrong key sat in inside `item.wrap.cloth`'s armor block for weeks. `check_loot.gd` found three
+  things nobody was looking for on its first run: `_roll_range` passed `hi + 1` to an `int_range`
+  that is inclusive on **both** ends and so rolled one over every declared maximum; and the siting
+  check, run against a 64-tile test map, reported the district's far half as masonry, which is
+  `world.is_blocked_tile` treating out-of-bounds as blocked and the reason that assertion now boots
+  at `SimTileMap.DISTRICT_TILES`. Both are in the gate as pinned behaviour rather than as a fix
+  somebody has to remember.
+
 ## What the top-down reversal made structural
 
 The projection moved from isometric 2:1 to flat top-down (docs/00 carries the reversal argument;

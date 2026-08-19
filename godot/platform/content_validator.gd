@@ -9,7 +9,7 @@ extends RefCounted
 
 static func _load_schemas(root: String = "res://content") -> Dictionary:
 	var out: Dictionary = {}
-	for id in ["item", "zombie", "affix", "calibration", "survivor", "map"]:
+	for id in ["item", "zombie", "affix", "calibration", "survivor", "map", "loot"]:
 		var path: String = "%s/schemas/%s.schema.json" % [root, id]
 		var f := FileAccess.open(path, FileAccess.READ)
 		if f == null:
@@ -93,6 +93,7 @@ static func _type_of_path(path: String) -> String:
 	if path.begins_with("calibration/"): return "calibration"
 	if path.begins_with("survivors/"): return "survivor"
 	if path.begins_with("maps/"): return "map"
+	if path.begins_with("loot/"): return "loot"
 	return path.get_slice("/", 0)
 
 static func _validate_shape(entry: Dictionary, schema: Dictionary, path: String) -> Array[String]:

@@ -1,0 +1,68 @@
+[
+  {
+    "id": "loot.residential",
+    "name": "Residential",
+    "location": "residential",
+    "danger": "low",
+    "rolls": { "min": 3, "max": 5 },
+    "tierWeights": { "scavenged": 85, "modified": 15 },
+    "entries": [
+      { "item": "item.food.canned", "weight": 14, "count": { "min": 1, "max": 3 } },
+      { "item": "item.food.raw", "weight": 10, "count": { "min": 1, "max": 2 } },
+      { "item": "item.water.bottle", "weight": 12, "count": { "min": 1, "max": 2 } },
+      { "item": "item.bandage.cloth", "weight": 11, "count": { "min": 1, "max": 3 } },
+      { "item": "item.rag.dirty", "weight": 9, "count": { "min": 1, "max": 4 } },
+      { "item": "item.painkillers.blister", "weight": 7, "count": { "min": 1, "max": 2 } },
+      { "item": "item.tape.duct", "weight": 7 },
+      { "item": "item.knife.kitchen", "weight": 8 },
+      { "item": "item.bat.aluminium", "weight": 5 },
+      { "item": "item.spear.improvised", "weight": 4 },
+      { "item": "item.axe.fire", "weight": 3 },
+      { "item": "item.candle.wax", "weight": 6, "count": { "min": 1, "max": 3 } },
+      { "item": "item.scrap.metal", "weight": 6, "count": { "min": 1, "max": 3 } },
+      { "item": "item.satchel.canvas", "weight": 3 },
+      { "item": "item.bow.hunting", "weight": 2 },
+      { "item": "item.ammo.arrow", "weight": 3, "count": { "min": 4, "max": 12 } }
+    ]
+  },
+  {
+    "id": "loot.medical",
+    "name": "Medical",
+    "location": "medical",
+    "danger": "very_high",
+    "rolls": { "min": 2, "max": 4 },
+    "tierWeights": { "scavenged": 25, "modified": 45, "field_tested": 30 },
+    "entries": [
+      { "item": "item.antibiotics.course", "weight": 16, "count": { "min": 1, "max": 2 } },
+      { "item": "item.medkit.field", "weight": 12 },
+      { "item": "item.bandage.cloth", "weight": 18, "count": { "min": 2, "max": 5 } },
+      { "item": "item.painkillers.blister", "weight": 15, "count": { "min": 1, "max": 4 } },
+      { "item": "item.wrap.cloth", "weight": 8 },
+      { "item": "item.rag.dirty", "weight": 6, "count": { "min": 1, "max": 3 } },
+      { "item": "item.drink.energy", "weight": 5, "count": { "min": 1, "max": 2 } },
+      { "item": "item.water.bottle", "weight": 7, "count": { "min": 1, "max": 2 } },
+      { "item": "item.scrap.metal", "weight": 4, "count": { "min": 1, "max": 2 } }
+    ]
+  },
+  {
+    "id": "loot.military_cache",
+    "name": "Military Cache",
+    "location": "military_cache",
+    "danger": "extreme",
+    "rolls": { "min": 3, "max": 5 },
+    "tierWeights": { "modified": 40, "field_tested": 60 },
+    "entries": [
+      { "item": "item.pistol.service", "weight": 12 },
+      { "item": "item.ammo.9mm", "weight": 20, "count": { "min": 10, "max": 20 } },
+      { "item": "item.vest.scrap", "weight": 12 },
+      { "item": "item.wrap.cloth", "weight": 10 },
+      { "item": "item.rig.chest", "weight": 8 },
+      { "item": "item.machete.rusted", "weight": 7 },
+      { "item": "item.medkit.field", "weight": 6 },
+      { "item": "item.floodlight.rigged", "weight": 4 },
+      { "item": "item.jerrycan.fuel", "weight": 5 },
+      { "item": "item.toolbox.steel", "weight": 5 },
+      { "item": "item.pack.hiking", "weight": 4 }
+    ]
+  }
+]

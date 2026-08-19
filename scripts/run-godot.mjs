@@ -238,6 +238,9 @@ switch (mode) {
       "res://check_m2_contact.gd",
     ];
     break;
+  case "--loot":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_loot.gd"];
+    break;
   case "--hud":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;

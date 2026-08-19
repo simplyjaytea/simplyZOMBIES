@@ -486,8 +486,19 @@ stagger remain unwired: `shambler.gd` subscribes to neither `injury.sustained` n
 **Still open, by system** (condensed from the retired backlog; the spec links in the slice-scope
 table above are the authority on each):
 
-- **World & map** — ~15 resource types, the three location loot tables, site depletion, food
-  spoilage.
+- **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
+  place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`
+  holds `residential`, `medical` and `military_cache` against a new `loot.schema.json`, each
+  declaring location, danger, roll count, tier weights and per-entry quantity ranges — docs/12's
+  "a loot table declares location type, resource weights, tier weights, and quantity ranges",
+  which that document already claimed was JSON while the code had it in two `const` arrays.
+  `SimBoot.place_loot` rolls them off a dedicated `lootTable` RNG stream (new randomness gets its
+  own stream, so a table edit cannot shift the tier sequence for everything spawned afterwards),
+  and the tier now comes from the *place* — a military cache rolls 1.000 above `scavenged` against
+  a kitchen drawer's 0.141, where both used to be flat `scavenged`. The district gained a medical
+  site so the third table is reachable in play. **Still open here:** ~15 resource types, site
+  depletion, food spoilage (the spoilage clock itself already exists in `needs.gd`; what is open
+  is the content-declared rules docs/12 describes).
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
@@ -521,7 +532,9 @@ table above are the authority on each):
 - **Items** — attachments gaining a reader (content declares slots nothing reads), repair that never
   restores the full ceiling, and finishing continuous condition-degradation effects.
 - **Inventory** — searching world containers (a car boot, a cupboard), weight affecting footstep
-  noise.
+  noise. Container search is the natural home for **site depletion**: with respawn timers on
+  docs/12's cut list, a site is finite by construction, and what is missing is a searched thing
+  that knows it has been searched.
 - **Modification** — Duct Tape (reroll an affix), Scrap Kit (add an affix), skill- and
   trait-weighted outcomes, failure that consumes and damages.
 - **UI** — the diegetic condition and stamina readouts (in the world, not a corner), prose generated
