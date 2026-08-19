@@ -22,8 +22,10 @@ func _run() -> void:
 	ok = _mood_bands_are_a_decline_not_a_cliff() and ok
 	ok = _low_mood_slows_work_and_miserable_mood_refuses_it() and ok
 	ok = _arguments_spread_misery_and_stop_short_of_a_spiral() and ok
+	ok = _food_is_content_and_says_the_same_thing_the_table_did() and ok
+	ok = _raw_and_spoiled_food_carry_illness_risk() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, and low mood has consequences")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -423,5 +425,146 @@ func _arguments_spread_misery_and_stop_short_of_a_spiral() -> bool:
 
 	print("ARGUMENTS OK %d arguments landed, the victim carried %.1f capped at %.1f and drained to %.1f; a content colony had none" % [
 		heard.size(), before_decay, SimNeeds.ARGUMENT_CAP, after,
+	])
+	return true
+
+
+# --- food is content, and bad food makes you ill (docs/12, docs/04) --------------------------
+
+# docs/12: "Resources, location loot tables, and spoilage rules are JSON." The loot tables moved a
+# slice ago; this is the spoilage half. The retired `SimNeeds.FOOD` table is pinned here by value,
+# so the move is provably a change of *where* the numbers live and not of what they say -- if a
+# content edit ever changes the diet, this fails and makes that deliberate rather than incidental.
+const RETIRED_FOOD_TABLE: Dictionary = {
+	"item.food.canned": {"hunger": 40.0, "mood": 0.0, "spoilDays": 0.0},
+	"item.food.raw": {"hunger": 25.0, "mood": -8.0, "spoilDays": 2.0},
+	"item.food.cooked": {"hunger": 60.0, "mood": 8.0, "spoilDays": 1.0},
+}
+
+func _food_is_content_and_says_the_same_thing_the_table_did() -> bool:
+	var w: Variant = _world()
+	for base_id in RETIRED_FOOD_TABLE.keys():
+		var want: Dictionary = RETIRED_FOOD_TABLE[base_id] as Dictionary
+		var got_v: Variant = SimNeeds.food_spec(w, String(base_id))
+		if not (got_v is Dictionary):
+			push_error("%s declares no `food` block, so it is no longer edible" % String(base_id))
+			return false
+		var got: Dictionary = got_v as Dictionary
+		for key in want.keys():
+			if absf(float(got.get(key, -999.0)) - float(want[key])) > 0.001:
+				push_error("%s.%s is %s in content, was %s in the retired table" % [
+					String(base_id), String(key), str(got.get(key)), str(want[key]),
+				])
+				return false
+
+	# The true negative and the thing that makes `food` load-bearing: is_food asks nothing but the
+	# presence of the block, so something that is obviously not edible must not be.
+	for not_food in ["item.scrap.metal", "item.bandage.cloth", "item.pistol.service"]:
+		if SimNeeds.is_food(w, not_food):
+			push_error("%s reads as food" % not_food)
+			return false
+	if SimNeeds.is_food(w, "item.not.a.real.base"):
+		push_error("a base that does not exist reads as food")
+		return false
+
+	# And the spoil clock is driven by the content number rather than a remembered one: canned
+	# declares 0 days and must never gain a spoilage component at all.
+	var canned: int = SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+	var raw: int = SimItems.spawn_item(w, "item.food.raw", {"tier": "scavenged"})
+	if w.components.has_component(canned, "spoilage"):
+		push_error("canned food, which declares spoilDays 0, was given a spoil clock")
+		return false
+	var sp: Variant = w.components.get_component(raw, "spoilage")
+	if not (sp is Dictionary):
+		push_error("raw food, which declares spoilDays 2, was given no spoil clock")
+		return false
+	var want_ticks: int = int(2.0 * float(Clock.DAY_TICKS))
+	if int((sp as Dictionary).get("spoilTicks", -1)) != want_ticks:
+		push_error("raw food's clock is %d ticks, expected %d from spoilDays 2" % [int((sp as Dictionary).get("spoilTicks", -1)), want_ticks])
+		return false
+
+	print("FOOD CONTENT OK %d foods read from content with the retired table's numbers; canned has no clock, raw has %d ticks; three non-foods and a missing base all refuse" % [
+		RETIRED_FOOD_TABLE.size(), want_ticks,
+	])
+	return true
+
+
+# docs/04: "raw and spoiled food fills the bar but damages mood and carries illness risk". The mood
+# half shipped; the illness half did not, so raw food was a mood tax and nothing else and there was
+# never a mechanical reason to cook anything you were not enjoying.
+func _raw_and_spoiled_food_carry_illness_risk() -> bool:
+	const MEALS: int = 400
+	var rates: Dictionary = {}
+	for case in [{"id": "item.food.raw", "spoil": false}, {"id": "item.food.cooked", "spoil": false}, {"id": "item.food.raw", "spoil": true}]:
+		var c: Dictionary = case as Dictionary
+		var key: String = String(c["id"]) + ("/spoiled" if bool(c["spoil"]) else "")
+		var w: Variant = _world()
+		var ill: Array = []
+		w.events.subscribe({"type": "illness.contracted", "id": "gate.ill", "handler": func(_e: Dictionary) -> void:
+			ill.append(1)
+		})
+		for _m in MEALS:
+			var meal: int = SimItems.spawn_item(w, String(c["id"]), {"tier": "scavenged"})
+			if not SimInventory.stow(w, w.player, meal):
+				w.components.set_component(meal, "stored", {"container": w.player})
+			if bool(c["spoil"]):
+				var sp: Variant = w.components.get_component(meal, "spoilage")
+				if sp is Dictionary:
+					(sp as Dictionary)["spoiled"] = true
+			# Room to eat: a full survivor is not refused, but keeping hunger low keeps this about
+			# the food rather than about the need.
+			SimNeeds.of(w, w.player)["hunger"] = 10.0
+			SimNeeds.eat(w, w.player, meal)
+			w.events.drain()
+		rates[key] = float(ill.size()) / float(MEALS)
+
+	var raw: float = float(rates["item.food.raw"])
+	var cooked: float = float(rates["item.food.cooked"])
+	var spoiled: float = float(rates["item.food.raw/spoiled"])
+	if cooked != 0.0:
+		push_error("cooked food made somebody ill at %.3f -- it declares illnessChance 0" % cooked)
+		return false
+	if raw <= 0.0:
+		push_error("raw food never made anybody ill over %d meals" % MEALS)
+		return false
+	if spoiled <= raw:
+		push_error("spoiled food (%.3f) is no worse than merely raw (%.3f)" % [spoiled, raw])
+		return false
+
+	# The bout itself: it costs mood and work while it runs, and it passes on its own. Both halves
+	# matter -- an illness that never ended would be a death sentence dressed as a debuff.
+	var w2: Variant = _world()
+	var ent: int = int(w2.player)
+	var well_work: float = SimNeeds.work_mul(w2, ent)
+	var before_mood: float = float(w2.modifiers.call("resolve", "mood", ent))
+	SimNeeds._fall_ill(w2, ent)
+	if not SimNeeds.is_ill(w2, ent):
+		push_error("a survivor who just fell ill does not read as ill")
+		return false
+	if SimNeeds.work_mul(w2, ent) >= well_work:
+		push_error("illness did not slow work: %.3f against %.3f" % [SimNeeds.work_mul(w2, ent), well_work])
+		return false
+	if float(w2.modifiers.call("resolve", "mood", ent)) >= before_mood:
+		push_error("illness cost no mood")
+		return false
+
+	var passed: Array = []
+	w2.events.subscribe({"type": "illness.passed", "id": "gate.passed", "handler": func(_e: Dictionary) -> void:
+		passed.append(1)
+	})
+	for _i in SimNeeds.ILLNESS_TICKS + 40:
+		w2.step()
+	if SimNeeds.is_ill(w2, ent):
+		push_error("the bout never ended over %d ticks" % (SimNeeds.ILLNESS_TICKS + 40))
+		return false
+	if passed.is_empty():
+		push_error("the bout ended silently -- nothing published illness.passed")
+		return false
+	if absf(SimNeeds.work_mul(w2, ent) - well_work) > 0.001:
+		push_error("work was still %.3f after recovery, expected %.3f" % [SimNeeds.work_mul(w2, ent), well_work])
+		return false
+
+	print("ILLNESS OK raw %.3f, spoiled %.3f, cooked %.3f over %d meals each; the bout slows work and costs mood, then passes and restores both" % [
+		raw, spoiled, cooked, MEALS,
 	])
 	return true

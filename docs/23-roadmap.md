@@ -508,10 +508,14 @@ table above are the authority on each):
   own stream, so a table edit cannot shift the tier sequence for everything spawned afterwards),
   and the tier now comes from the *place* — a military cache rolls 1.000 above `scavenged` against
   a kitchen drawer's 0.141, where both used to be flat `scavenged`. The district gained a medical
-  site so the third table is reachable in play. **Still open here:** ~15 resource types, and food
-  spoilage (the spoilage clock itself already exists in `needs.gd`; what is open is the
-  content-declared rules docs/12 describes). Site depletion landed with container search — see
-  Inventory below.
+  site so the third table is reachable in play. **Food spoilage** is now content too
+  (`godot:m2:needs`, FOOD CONTENT): `SimNeeds.FOOD` was a hardcoded dictionary of three foods, and
+  what a food restores, does to mood, how long it keeps and how likely it is to make you ill is a
+  `food` block on the item base — docs/12's "spoilage rules are JSON", the other half of the loot
+  move. The retired table is pinned **by value** in the gate, so the move is provably a change of
+  where the numbers live and not of what they say. Presence of the block is what makes an item
+  edible: `is_food` asks nothing else. **Still open here:** ~15 resource types. Site depletion
+  landed with container search — see Inventory below.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
@@ -534,7 +538,17 @@ table above are the authority on each):
   both still open regardless of the pick.
 - **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
   rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
-- **Needs** — ~~mood consequences: slower work, mistakes, refusing jobs, arguments~~ **landed**
+- **Needs** — ~~raw and spoiled food carrying illness risk~~ **landed** (`godot:m2:needs`,
+  ILLNESS). docs/04's food clause is "raw and spoiled food fills the bar but damages mood **and
+  carries illness risk**"; only the mood half shipped, so raw food was a mood tax and nothing else
+  and there was no mechanical reason to cook anything you were not enjoying. `illnessChance` is
+  authored per food and multiplied by `SPOILED_ILLNESS_MUL` when the item has actually gone off, so
+  one number moves both cases: measured 0.223 raw, 0.618 spoiled, 0.000 cooked over 400 meals each.
+  A bout is bounded and self-limiting — it costs mood and 0.6× work, then passes and restores both
+  — and is kept distinct from zombie infection *and* from sepsis, per the slice's own rule that
+  bacterial infection stays separate. Nobody dies of it in Milestone 2, which is why it lives in
+  `needs.gd` rather than growing a module. `iron_stomach` is full immunity rather than a reduction.
+  ~~mood consequences: slower work, mistakes, refusing jobs, arguments~~ **landed**
   (`godot:m2:needs`, MOOD BANDS / MOOD WORK / ARGUMENTS). Mood previously had exactly one
   consequence and it was a cliff: at `-80` the survivor walked out, and everything between "fine"
   and "gone" did nothing — the opposite of docs/04's own summary, "a slow, sour decline where the

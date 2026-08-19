@@ -917,6 +917,28 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   404 it still never does. That is a call about how the slice seats its people, not another lever
   in the contact loop.
 
+## Food is content, and bad food has a consequence
+
+- **The retired `FOOD` table is pinned by value in the gate.** Moving three foods from a GDScript
+  dictionary into content is the kind of change that silently rebalances a diet, so
+  `RETIRED_FOOD_TABLE` in `check_m2_needs.gd` holds the old numbers and asserts content still says
+  them. The move is provably about *where* the numbers live. A later content edit that changes the
+  diet will fail this and have to be deliberate about it.
+- **Presence of the `food` block is what makes something edible.** `is_food` asks nothing else — no
+  id prefix, no class check, no second list to keep in step. Adding a food is one block.
+- **Illness is a third thing, not a reuse of the first two.** docs/23 keeps bacterial infection
+  distinct from zombie infection; food poisoning is neither, so it is a bounded self-limiting bout
+  in `needs.gd` rather than a stage in `infection.gd` or a use of the sepsis path. Nobody dies of
+  it in Milestone 2. That is what lets it be a small thing that makes cooking worth the fuel,
+  instead of a second lethality system to balance.
+- **One authored number, two cases.** `illnessChance` is per food and multiplied by
+  `SPOILED_ILLNESS_MUL` when the item has actually gone off, rather than authoring raw and spoiled
+  chances separately. A content edit moves both together, which is the same reason the jam chance
+  is derived from the condition band rather than written per weapon.
+- **`iron_stomach` is immunity, not a discount.** It already zeroes the mood penalty; a trait that
+  half-protects from two related things is harder to reason about than one that fully protects
+  from both.
+
 ## A jam costs time, and the chance is not authored
 
 - **The jam chance is derived from the condition *band*, not written down.** `JAM_CHANCE_BY_BAND`
