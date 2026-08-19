@@ -26,6 +26,7 @@ const PlatformStorage = preload("res://platform/storage.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
 const ContentValidator = preload("res://platform/content_validator.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -63,8 +64,6 @@ var _glimpse_parts: Array = []
 var _glimpse_stance: int = 2 # Walk
 var _glimpse_worst: int = 0
 
-# memory marks for last-known positions
-var _memory: Dictionary = {} # entity -> {x,y,tick}
 var _fingerprint: String = ""
 var _fingerprint_at: float = -1e9
 var _visibility: Variant = null
@@ -598,7 +597,6 @@ func _draw_entities() -> void:
 				var vel: Variant = world.components.get_component(int(ent), "velocity")
 				if vel is Dictionary and float((vel as Dictionary).get("dx", 0.0)) == 0.0 and float((vel as Dictionary).get("dy", 0.0)) == 0.0:
 					continue
-			_memory[int(ent)] = {"x": x, "y": y, "tick": int(world.tick)}
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, x, y)
 		var depth: float = TopDownProjection.depth_of(x, y)
 		var ztype: String = ""
@@ -687,10 +685,14 @@ func _draw_entities() -> void:
 		var item_rect := Rect2(float(sc["sx"]) - 5.0, float(sc["sy"]) - 5.0, 10.0, 10.0)
 		draw_rect(item_rect, Palette.COLOURS["groundItem"])
 		draw_rect(item_rect, Palette.COLOURS["groundItemEdge"], false, 1.5)
-	# last-known marks fading
-	for eid in _memory.keys():
-		var m: Dictionary = _memory[eid] as Dictionary
-		var age: int = int(world.tick) - int(m["tick"])
+	# last-known marks fading. The positions are the *simulation's* memory, not a second copy
+	# kept by the renderer: a mark on the ground and a colonist's decision to shoot at one have
+	# to be the same recollection, or the mark is telling the player something nobody in the
+	# world knows. MEMORY_TICKS stays a presentation constant because how long a mark is drawn
+	# is a drawing question -- the sim remembers for far longer than this fades.
+	for row in SimSightings.remembered(world, int(world.player)):
+		var m: Dictionary = row as Dictionary
+		var age: int = int(m["age"])
 		if age <= 0 or age > MEMORY_TICKS: continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(m["x"]), float(m["y"]))
 		var a: float = 0.5 * (1.0 - float(age) / float(MEMORY_TICKS))

@@ -22,12 +22,13 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimShamblerRes = preload("res://sim/modules/shambler.gd")
+const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 
 # How close a threat comes before an NPC decides to spend a shot on it, capped again by the
 # weapon's own `rangeMetres`. This is a *pacing* constant -- "close enough to be worth the noise"
-# -- and deliberately not a sightline rule. "You cannot aim at what you cannot see" is an open
-# combat item that applies to the player too; when it lands it lands in `ranged.gd` for everybody,
-# and a private line-of-sight check here would be the second answer docs/28 warns about.
+# -- and deliberately not a sightline rule. The sightline rule has since landed where this note
+# said it would: `SimRanged.can_target` refuses the player and the colony with one test, and
+# `_nearest_threat` below asks it rather than carrying a second answer.
 const ENGAGE_METRES: float = 20.0
 
 # Critically injured, per docs/09 -- and expressed in `SimHealth.part_state`'s words rather than
@@ -116,6 +117,7 @@ static func _engage(world: Variant, ent: int, anyone_held: bool = false) -> void
 		return
 	var threat: int = _nearest_threat(world, ent, furthest)
 	if threat < 0:
+		_shoot_where_it_was(world, ent, range_metres)
 		return
 	_face(world, ent, threat)
 	# Rescue first, because _nearest_threat has already preferred a shambler with somebody in its
@@ -190,6 +192,11 @@ static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
 		var d_sq: float = dx * dx + dy * dy
 		if d_sq > limit_sq:
 			continue
+		# The same refusal the shot itself will make, asked before the NPC turns to face: a
+		# colonist who spun towards a shambler through a wall and then declined to fire would
+		# look broken in exactly the way the shot's own check would have hidden.
+		if not SimRanged.can_target(world, ent, float((there as Dictionary)["x"]), float((there as Dictionary)["y"])):
+			continue
 		var holds: bool = world.components.has_component(int(other), "grabState")
 		# Holding outranks distance; between two of the same kind, distance decides.
 		if best >= 0:
@@ -214,13 +221,21 @@ static func _distance(world: Variant, a: int, b: int) -> float:
 
 
 static func _face(world: Variant, ent: int, target: int) -> void:
-	var here: Variant = world.components.get_component(ent, "position")
 	var there: Variant = world.components.get_component(target, "position")
-	var facing: Variant = world.components.get_component(ent, "facing")
-	if not here is Dictionary or not there is Dictionary or not facing is Dictionary:
+	if not there is Dictionary:
 		return
-	var dx: float = float((there as Dictionary)["x"]) - float((here as Dictionary)["x"])
-	var dy: float = float((there as Dictionary)["y"]) - float((here as Dictionary)["y"])
+	_face_at(world, ent, float((there as Dictionary)["x"]), float((there as Dictionary)["y"]))
+
+
+# Turning to face a place rather than a body -- what a remembered position is. `_face` is this
+# with a lookup in front of it, so a body and the memory of one turn a survivor the same way.
+static func _face_at(world: Variant, ent: int, x: float, y: float) -> void:
+	var here: Variant = world.components.get_component(ent, "position")
+	var facing: Variant = world.components.get_component(ent, "facing")
+	if not here is Dictionary or not facing is Dictionary:
+		return
+	var dx: float = x - float((here as Dictionary)["x"])
+	var dy: float = y - float((here as Dictionary)["y"])
 	if dx == 0.0 and dy == 0.0:
 		return
 	var radians: float = atan2(dy, dx)
@@ -229,3 +244,31 @@ static func _face(world: Variant, ent: int, target: int) -> void:
 		# so this assignment is the collapse `headingOf` does.
 		radians = 0.0
 	(facing as Dictionary)["radians"] = radians
+
+
+# Firing at a body you remember rather than one you can see. docs/09: "allowed, and it is a
+# decision with a cost -- the shot is 180 noise and 60 of muzzle flash whether or not anything was
+# still standing there."
+#
+# Nothing here pays that cost specially, and that is the point: the noise and the flash are
+# published by `_fire_shot` before the hit test, and the round is spent before it, so a shot at an
+# empty patch of street already costs everything a hit costs except the hit. The only thing this
+# adds is the *decision* -- a colonist who has lost sight of the thing coming for them can put a
+# round where it was, which is the option the player has always had by pointing and pressing F.
+#
+# Only reached when `_nearest_threat` found nothing, so a visible target always outranks a
+# remembered one, and only for a survivor holding something that shoots -- there is no melee
+# equivalent of swinging at a place.
+static func _shoot_where_it_was(world: Variant, ent: int, range_metres: float) -> void:
+	if range_metres <= 0.0:
+		return
+	var row: Variant = SimSightingsRes.freshest_within(world, ent, range_metres)
+	if not row is Dictionary:
+		return
+	# Stale is stale: a memory the survivor would describe as "a while ago" is not a firing
+	# solution, and spending a round and 180 of noise on one would be the colony wasting the
+	# ammunition the player has to go out and find.
+	if int(SimSightingsRes.freshness(int((row as Dictionary)["age"]))) > SimSightingsRes.Freshness.Recent:
+		return
+	_face_at(world, ent, float((row as Dictionary)["x"]), float((row as Dictionary)["y"]))
+	SimRanged.try_begin_fire(world, ent)

@@ -140,3 +140,22 @@ func can_see(observer: int, x: float, y: float) -> bool:
 
 func observer_count() -> int:
 	return _views.size()
+
+
+## Geometry only — walls and range, with no facing arc. What a bullet is stopped by, which is not
+## the same question as what an observer is looking at: `detail` narrows by focal and peripheral
+## cones because attention is directional, and a shot leaving a barrel is not. `ranged.gd` and,
+## through it, `npc_combat.gd` ask this one; anything about *noticing* something asks `detail`.
+## Unseen for an observer with no view at all — callers that must stay permissive for a fixture
+## without eyes check `tiles_for` first, which is the one thing that distinguishes "no eyes" from
+## "eyes, and a wall".
+func line_of_sight(observer: int, x: float, y: float) -> bool:
+	var view: Variant = _views.get(observer)
+	if view == null:
+		return false
+	var tiles: Variant = (view as Dictionary)["tiles"]
+	if not (tiles as Shadowcast.VisibleTiles).has_tile(floori(x / float(SimTileMapRes.TILE_METRES)), floori(y / float(SimTileMapRes.TILE_METRES))):
+		return false
+	var dx: float = x - float((view as Dictionary)["x"])
+	var dy: float = y - float((view as Dictionary)["y"])
+	return dx * dx + dy * dy <= float((view as Dictionary)["range_squared"])

@@ -13,6 +13,8 @@ const SimAttentionRes = preload("res://sim/modules/attention_emitter.gd")
 const SimNeedsRes = preload("res://sim/modules/needs.gd")
 const SimJobsRes = preload("res://sim/modules/jobs.gd")
 const SimSkillsRes = preload("res://sim/modules/skills.gd")
+const SimSightingsRes = preload("res://sim/modules/sightings.gd")
+const SimVisibilityRes = preload("res://sim/vision/visibility.gd")
 
 
 static func entry_of(world: Variant, id: String) -> Variant:
@@ -55,6 +57,25 @@ static func list_uniques(world: Variant) -> Array[Dictionary]:
 	return out
 
 
+# Eyes, and somewhere to keep what they saw.
+#
+# Until now the *only* observer in a booted district was the player: `boot.playable` set one pair
+# of eyes and nothing else got any, so `world.vision` answered for one entity and every
+# per-observer question -- an alarm_on_sight zombie noticing a colonist, a colonist noticing
+# anything -- was being asked about a view that did not exist. A survivor has eyes. Giving every
+# survivor the same daylight eyes the player has is what makes "you cannot aim at what you cannot
+# see" mean the same thing for the colony as it does for the player, which docs/09 requires and
+# npc_combat.gd's own comment asked for by name.
+#
+# The cost is one shadowcast per survivor per tick at worst, and in practice far less: visibility
+# caches per observer by tile, range, eye and map generation, and a colonist working a post
+# stands on the same tile for minutes at a time.
+static func give_eyes(world: Variant, ent: int) -> void:
+	if not world.components.has_component(ent, "observer"):
+		world.components.set_component(ent, "observer", SimVisibilityRes.daylight_eyes())
+	SimSightingsRes.attach(world, ent)
+
+
 static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 	var entry: Variant = entry_of(world, id)
 	if entry == null:
@@ -90,6 +111,7 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 			row[String(k)] = int(raw[k])
 	SimJobsRes.attach(world, ent, focus, row)
 	SimSkillsRes.attach(world, ent)
+	give_eyes(world, ent)
 	var kit: Variant = e.get("kit", [])
 	if kit is Array:
 		for item_id in kit as Array:
@@ -132,6 +154,7 @@ static func boot_playable(world: Variant) -> int:
 	SimAptitudesRes.apply(world, world.player, {"str": SimAptitudesRes.DEFAULT, "dex": SimAptitudesRes.DEFAULT, "con": SimAptitudesRes.DEFAULT})
 	SimNeedsRes.attach(world, world.player)
 	SimSkillsRes.attach(world, world.player)
+	give_eyes(world, world.player)
 	var pos: Variant = world.components.get_component(world.player, "position")
 	var px: float = float((pos as Dictionary)["x"]) if pos is Dictionary else 5.0
 	var py: float = float((pos as Dictionary)["y"]) if pos is Dictionary else 5.0
