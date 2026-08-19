@@ -32,14 +32,21 @@ const BODY_H: float = 780.0
 # see must be the same set of rects.
 const SLOT_W: float = float(CELL) * 3.0
 const SLOT_H: float = float(CELL)
+# Twelve slots, six a side, in body order top to bottom: what covers your head down the
+# left, what covers your trunk and legs down the right, weapons at the bottom of each.
 const SLOT_PLACEMENTS: Array[Dictionary] = [
-	{"slot": "head", "x": 48.0, "y": 126.0},
-	{"slot": "back", "x": 48.0, "y": 248.0},
-	{"slot": "vest", "x": 880.0, "y": 248.0},
-	{"slot": "primary", "x": 48.0, "y": 460.0},
-	{"slot": "secondary", "x": 880.0, "y": 460.0},
-	{"slot": "belt", "x": 48.0, "y": 648.0},
-	{"slot": "torso", "x": 880.0, "y": 648.0},
+	{"slot": "head", "x": 48.0, "y": 86.0},
+	{"slot": "eyes", "x": 48.0, "y": 206.0},
+	{"slot": "face", "x": 48.0, "y": 326.0},
+	{"slot": "gloves", "x": 48.0, "y": 446.0},
+	{"slot": "belt", "x": 48.0, "y": 566.0},
+	{"slot": "primary", "x": 48.0, "y": 686.0},
+	{"slot": "vest", "x": 880.0, "y": 86.0},
+	{"slot": "torso", "x": 880.0, "y": 206.0},
+	{"slot": "legs", "x": 880.0, "y": 326.0},
+	{"slot": "feet", "x": 880.0, "y": 446.0},
+	{"slot": "back", "x": 880.0, "y": 566.0},
+	{"slot": "secondary", "x": 880.0, "y": 686.0},
 ]
 
 
@@ -51,8 +58,6 @@ var _world: Variant = null
 var _actor: int = -1
 var _view: Dictionary = {}
 var _open: bool = false
-var _body_view: String = "equipment" # equipment | injuries
-var _selected_part: String = "head"
 
 var _drag_item: int = -1
 var _drag_rotated: bool = false
@@ -173,6 +178,15 @@ func _sync_windows() -> void:
 	var seen: Dictionary = {}
 	_default_cursor = Vector2(float(PAD) + BODY_W + 24.0, float(PAD))
 	_default_col_w = 0.0
+	# Quick-access containers: the pockets, and anything worn on the belt or vest. The back
+	# slot is deliberately absent -- a backpack needs the inventory open.
+	var quick_ids: Dictionary = {_actor: true}
+	for entry in _view.get("slots", []) as Array:
+		var sd: Dictionary = entry as Dictionary
+		if String(sd.get("slot", "")) in ["belt", "vest"]:
+			var sit: Variant = sd.get("item")
+			if sit is Dictionary:
+				quick_ids[int((sit as Dictionary).get("item", -1))] = true
 	for cont in _view.get("containers", []) as Array:
 		var c: Dictionary = cont as Dictionary
 		var cid: int = int(c.get("container", -1))
@@ -196,6 +210,7 @@ func _sync_windows() -> void:
 			(win as Control).call("configure", cid, label, int(c.get("w", 0)), int(c.get("h", 0)), c.get("items", []) as Array)
 		(win as Control).set("layer_open", _open)
 		(win as Control).set("drag_exclude", _drag_item)
+		(win as Control).set("quick", quick_ids.has(cid))
 		(win as Control).visible = _open or bool((win as Control).get("pinned"))
 	for cid in _windows.keys().duplicate():
 		if not seen.has(cid):
@@ -264,55 +279,30 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 
 
-func _tab_rects() -> Dictionary:
-	var body_x: float = float(PAD)
-	var body_y: float = float(PAD)
-	var tab_w: float = 224.0
-	return {
-		"equipment": Rect2(Vector2(body_x + BODY_W - float(PAD) - tab_w * 2.0, body_y + 2.0), Vector2(tab_w, 52.0)),
-		"injuries": Rect2(Vector2(body_x + BODY_W - float(PAD) - tab_w, body_y + 2.0), Vector2(tab_w, 52.0)),
-	}
-
-
 func _press_at(p: Vector2) -> void:
-	if not _open or _world == null or _view.is_empty():
+	if _world == null or _view.is_empty():
 		return
-	var tabs: Dictionary = _tab_rects()
-	for name in tabs.keys():
-		if (tabs[name] as Rect2).has_point(p):
-			_body_view = String(name)
-			if _body_view == "injuries":
-				_cancel_drag()
-			queue_redraw()
-			return
 	var body_x: float = float(PAD)
 	var body_y: float = float(PAD)
-	if _body_view == "injuries":
-		var list_x: float = body_x + 552.0
-		var list_y: float = body_y + 104.0
-		for i in range(SimCondition.PART_ORDER.size()):
-			if Rect2(Vector2(list_x, list_y + float(i) * 54.0), Vector2(496, 54)).has_point(p):
-				_selected_part = SimCondition.PART_ORDER[i]
-				queue_redraw()
+	# equipment slot pick: lift the item out of the slot (only on the open screen -- the
+	# slots are not drawn during play)
+	if _open:
+		var slots: Array = _view.get("slots", []) as Array
+		for pl in SLOT_PLACEMENTS:
+			if slot_rect(body_x, body_y, pl).has_point(p):
+				for entry in slots:
+					var d: Dictionary = entry as Dictionary
+					if String(d.get("slot", "")) == String(pl["slot"]):
+						var it: Variant = d.get("item")
+						if it is Dictionary:
+							_begin_drag(int((it as Dictionary).get("item", -1)), -2, false, Vector2i(1, 1))
+							_world.commands.push({"type": "item.unequip", "slot": String(pl["slot"])})
+						return
 				return
-		return
-	# equipment slot pick: lift the item out of the slot
-	var slots: Array = _view.get("slots", []) as Array
-	for pl in SLOT_PLACEMENTS:
-		if slot_rect(body_x, body_y, pl).has_point(p):
-			for entry in slots:
-				var d: Dictionary = entry as Dictionary
-				if String(d.get("slot", "")) == String(pl["slot"]):
-					var it: Variant = d.get("item")
-					if it is Dictionary:
-						_begin_drag(int((it as Dictionary).get("item", -1)), -2, false, Vector2i(1, 1))
-						_world.commands.push({"type": "item.unequip", "slot": String(pl["slot"])})
-					return
-			return
-	# grid pick inside any window
+	# grid pick inside any interactive window (open screen, or a pinned quick-access pouch)
 	for win in _windows.values():
 		var w: Control = win as Control
-		if not w.visible:
+		if not w.visible or not bool(w.call("interactive")):
 			continue
 		var cell: Variant = w.call("cell_from_layer", p)
 		if cell == null:
@@ -343,14 +333,15 @@ func _release_at(p: Vector2) -> void:
 	_cancel_drag()
 	var body_x: float = float(PAD)
 	var body_y: float = float(PAD)
-	for pl in SLOT_PLACEMENTS:
-		if slot_rect(body_x, body_y, pl).has_point(p):
-			_world.commands.push({"type": "item.equip", "item": item, "slot": String(pl["slot"])})
-			queue_redraw()
-			return
+	if _open:
+		for pl in SLOT_PLACEMENTS:
+			if slot_rect(body_x, body_y, pl).has_point(p):
+				_world.commands.push({"type": "item.equip", "item": item, "slot": String(pl["slot"])})
+				queue_redraw()
+				return
 	for win in _windows.values():
 		var w: Control = win as Control
-		if not w.visible:
+		if not w.visible or not bool(w.call("interactive")):
 			continue
 		var cell: Variant = w.call("cell_from_layer", p)
 		if cell == null:
@@ -369,7 +360,7 @@ func _right_at(p: Vector2) -> void:
 		return
 	for win in _windows.values():
 		var w: Control = win as Control
-		if not w.visible:
+		if not w.visible or not bool(w.call("interactive")):
 			continue
 		var cell: Variant = w.call("cell_from_layer", p)
 		if cell == null:
@@ -428,79 +419,74 @@ func _draw() -> void:
 	var body_y: float = float(PAD)
 	var body := Rect2(Vector2(body_x, body_y), Vector2(BODY_W, BODY_H))
 	Chrome.panel(self, body, alpha)
-	Chrome.header(self, body, "survivor — %s" % _body_view, alpha)
-	# tabs
-	var tabs: Dictionary = _tab_rects()
-	for name in ["equipment", "injuries"]:
-		var r: Rect2 = tabs[name] as Rect2
-		var sel: bool = String(name) == _body_view
-		draw_rect(r, Chrome.HEADER if sel else Chrome.PANEL)
-		draw_rect(r, Chrome.ACCENT if sel else Chrome.PANEL_EDGE, false, 2.0)
-		draw_string(font, r.position + Vector2(24.0, 34.0), String(name), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Chrome.TEXT if sel else Chrome.TEXT_DIM)
-	if _body_view == "equipment":
-		_paperdoll.position = Vector2(body_x + BODY_W / 2.0 - 260.0, body_y + 104.0)
-		_paperdoll.visible = true
-		var by_slot: Dictionary = {}
-		for entry in _view.get("slots", []) as Array:
-			var d: Dictionary = entry as Dictionary
-			by_slot[String(d.get("slot", ""))] = d.get("item")
-		for pl in SLOT_PLACEMENTS:
-			var box: Rect2 = slot_rect(body_x, body_y, pl)
-			var it: Variant = by_slot.get(String(pl["slot"]))
-			draw_rect(box, Chrome.SLOT_EMPTY)
-			draw_rect(box, Chrome.PANEL_EDGE, false, 2.0)
-			if it is Dictionary:
-				Chrome.item_plate(self, Rect2(box.position + Vector2(4, 4), box.size - Vector2(8, 8)), alpha)
-				var item_name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 20, SLOT_W - 24.0)
-				draw_string(font, box.position + Vector2(12, 40), item_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT)
-			else:
-				draw_string(font, box.position + Vector2(12, 40), String(pl["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+	Chrome.header(self, body, "survivor", alpha)
+	# One screen (the owner's call, 2026-08-19): the doll carries injuries and armour, the
+	# slots flank it, and anything wrong with the body reads as prose below the figure.
+	_paperdoll.position = Vector2(body_x + BODY_W / 2.0 - 260.0, body_y + 84.0)
+	_paperdoll.visible = true
+	var by_slot: Dictionary = {}
+	for entry in _view.get("slots", []) as Array:
+		var d: Dictionary = entry as Dictionary
+		by_slot[String(d.get("slot", ""))] = d.get("item")
+	for pl in SLOT_PLACEMENTS:
+		var box: Rect2 = slot_rect(body_x, body_y, pl)
+		var it: Variant = by_slot.get(String(pl["slot"]))
+		draw_rect(box, Chrome.SLOT_EMPTY)
+		draw_rect(box, Chrome.PANEL_EDGE, false, 2.0)
+		if it is Dictionary:
+			Chrome.item_plate(self, Rect2(box.position + Vector2(4, 4), box.size - Vector2(8, 8)), alpha)
+			var item_name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 20, SLOT_W - 24.0)
+			draw_string(font, box.position + Vector2(12, 40), item_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT)
+		else:
+			draw_string(font, box.position + Vector2(12, 40), String(pl["slot"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+	# The condition readout: only the parts with something to say, as prose under the doll.
+	# Same read model as the doll's tints and the HUD -- states and words, never a number
+	# (docs/01 clause 4; check_ban_health_bar.gd).
+	var lines: Array = _condition_lines()
+	var ly: float = body_y + 620.0
+	if lines.is_empty():
+		draw_string(font, Vector2(body_x + BODY_W / 2.0 - 60.0, ly), "no injuries", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
 	else:
-		_paperdoll.position = Vector2(body_x + 24.0, body_y + 104.0)
-		_paperdoll.visible = true
-		var list_x: float = body_x + 552.0
-		var list_y: float = body_y + 104.0
-		var list_w: float = 496.0
-		# Each part's state as a word, from the same read model the paperdoll and HUD use.
-		# Still no integrity value and no fraction -- docs/01 clause 4 and the ban gated by
-		# check_ban_health_bar.gd.
-		var by_part: Dictionary = {}
-		if _world != null:
-			for entry in (SimCondition.view(_world, _actor).get("parts", []) as Array):
-				var pd: Dictionary = entry as Dictionary
-				by_part[String(pd.get("part", ""))] = pd
-		var idx: int = 0
-		for part in SimCondition.PART_ORDER:
-			var row_rect := Rect2(Vector2(list_x, list_y + float(idx) * 54.0), Vector2(list_w, 50))
-			if part == _selected_part:
-				draw_rect(row_rect, Chrome.HEADER)
-				draw_rect(row_rect, Chrome.PANEL_EDGE, false, 1.0)
-			var row_y: float = list_y + float(idx) * 54.0 + 32.0
-			draw_string(font, Vector2(list_x + 12, row_y), SimCondition.label_of(part), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Chrome.TEXT)
-			var d: Dictionary = by_part.get(part, {}) as Dictionary
-			var st: int = int(d.get("state", 0))
-			var word: String = PART_STATE_WORDS[st] if st < PART_STATE_WORDS.size() else ""
-			var tint: Color = Palette.CONDITION_TINTS[st] if st < Palette.CONDITION_TINTS.size() else Chrome.TEXT_DIM
-			draw_string(font, Vector2(list_x + 192, row_y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, tint)
-			# One tag for the wound, not three: an open wound is "bleeding", a dressed one is
-			# named by its dressing, and a wound that is neither is just "wound".
-			var tags: Array[String] = []
-			var dressing: String = String(d.get("bandage", "none"))
-			if bool(d.get("bleeding", false)):
-				tags.append("bleeding")
-			elif dressing != "none":
-				tags.append(dressing + " dressing")
-			elif bool(d.get("wounded", false)):
-				tags.append("wound")
-			var infected: String = String(d.get("infected", "none"))
-			if infected != "none":
-				tags.append(infected)
-			if bool(d.get("armored", false)):
-				tags.append("armoured")
-			if not tags.is_empty():
-				var tag_text: String = UiText.fit(font, " · ".join(tags), 20, list_x + list_w - (list_x + 336.0) - 12.0)
-				draw_string(font, Vector2(list_x + 336.0, row_y), tag_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
-			idx += 1
+		for line in lines:
+			var d2: Dictionary = line as Dictionary
+			var text: String = String(d2["text"])
+			var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+			draw_string(font, Vector2(body_x + BODY_W / 2.0 - tw / 2.0, ly), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, d2["colour"] as Color)
+			ly += 28.0
 	# how to work the screen, in one dim line under the body panel
-	var hint: String = "drag a bag by its title · the pin keeps it on screen while you play · right-click rotates a held item"
+	var hint: String = "drag a bag by its title · pin keeps it on screen — pinned belt and vest pouches stay usable in play · right-click rotates"
 	draw_string(font, Vector2(body_x, body_y + BODY_H + 30.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_DIM)
+
+
+# One prose line per part that has anything to report: "left arm — badly hurt · bleeding".
+func _condition_lines() -> Array:
+	var out: Array = []
+	if _world == null:
+		return out
+	for entry in (SimCondition.view(_world, _actor).get("parts", []) as Array):
+		var d: Dictionary = entry as Dictionary
+		var st: int = int(d.get("state", 0))
+		var tags: Array[String] = []
+		# One tag for the wound, not three: an open wound is "bleeding", a dressed one is
+		# named by its dressing, and a wound that is neither is just "wound".
+		var dressing: String = String(d.get("bandage", "none"))
+		if bool(d.get("bleeding", false)):
+			tags.append("bleeding")
+		elif dressing != "none":
+			tags.append(dressing + " dressing")
+		elif bool(d.get("wounded", false)):
+			tags.append("wound")
+		var infected: String = String(d.get("infected", "none"))
+		if infected != "none":
+			tags.append(infected)
+		if st == 0 and tags.is_empty():
+			continue
+		var word: String = PART_STATE_WORDS[st] if st < PART_STATE_WORDS.size() else ""
+		var text: String = SimCondition.label_of(String(d.get("part", "")))
+		if st > 0:
+			text += " — " + word
+		if not tags.is_empty():
+			text += " · " + " · ".join(tags)
+		var colour: Color = Palette.CONDITION_TINTS[st] if st < Palette.CONDITION_TINTS.size() else Chrome.TEXT
+		out.append({"text": text, "colour": colour})
+	return out

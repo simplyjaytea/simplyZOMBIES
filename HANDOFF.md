@@ -53,16 +53,12 @@ These are design calls. They have been measured, written up, and deliberately **
    `GRABS_ENABLED` and its flip.
 4. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
    docs/23's Art bullet has the ordered next steps.
-5. **The equipment-slot taxonomy.** The owner has sketched a layered, realistic slot set (head:
-   hat/mask/eyewear/ear; torso: undershirt/shirt/jacket/vest-rig/backpack; arms: gloves; legs:
-   underwear/pants/socks/boots). Expanding `SimInventory.EQUIP_SLOTS` touches the sim, the content
-   schema (both validators — the Ajv one recurses), armour coverage, and loot; most of those slots
-   currently have no items to fill them, which is the dead-socket pattern this milestone keeps
-   finding. Needs an owner decision on which slots ship with items now and which wait for the
-   systems (temperature, hygiene) that give them meaning.
-6. **The Tarkov-style paperdoll.** Slots arranged around the figure with injuries on the same
-   body — the inventory window rework landed the chrome for it, but the layout is a design pass
-   the owner wants to direct. States stay words and tints; the health-bar ban is not negotiable.
+5. **The equipment-slot taxonomy — landed** (`godot:m2:gear`). Twelve slots, each with at least
+   one findable item, coverage composing by max through `SimInfection.armor_coverage_of`, layering
+   deliberately basic (independent slots). The gate's no-dead-slot sweep found that the head slot
+   had shipped with no item able to fill it — a canvas cap closes it. Still deferred, by the same
+   dead-socket rule: warmth/hygiene slots (undershirt, socks, underwear), which wait for
+   temperature and hygiene systems.
 
 ## The pattern worth knowing before you start
 

@@ -58,6 +58,7 @@ var _inventory_panel: Control = null
 var _work_panel: Control = null
 var _paperdoll: Control = null
 var _settings: Control = null
+var _debug_panel: Control = null
 var _selected: int = -1
 
 # paperdoll glimpse state (bottom-right diagram, not world sprite)
@@ -188,6 +189,14 @@ func _ensure_ui() -> void:
 		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
 		_paperdoll.offset_left = 16; _paperdoll.offset_top = -296; _paperdoll.offset_right = 296; _paperdoll.offset_bottom = -16
 		layer.add_child(_paperdoll)
+	# debug spawn menu (F8) -- dev tooling beside the M raw sheet
+	var debug_script: GDScript = load("res://ui/debug_panel.gd") as GDScript
+	if debug_script != null:
+		_debug_panel = debug_script.new() as Control
+		_debug_panel.visible = false
+		_debug_panel.position = Vector2(16, 120)
+		_debug_panel.size = Vector2(480, 820)
+		layer.add_child(_debug_panel)
 	# settings (Esc), topmost so it draws over every other screen
 	var settings_script: GDScript = load("res://ui/settings_panel.gd") as GDScript
 	if settings_script != null:
@@ -259,6 +268,11 @@ func _input(event: InputEvent) -> void:
 			KEY_1: speed = 1
 			KEY_2: speed = 3
 			KEY_3: speed = 10
+			KEY_F8:
+				if _debug_panel != null:
+					_debug_panel.visible = not _debug_panel.visible
+					if _debug_panel.visible and _debug_panel.has_method("set_world"):
+						_debug_panel.call("set_world", world)
 		# movement keys tracked for pump
 		if MOVE_KEYS.has(ke.keycode):
 			_held[ke.keycode] = true
