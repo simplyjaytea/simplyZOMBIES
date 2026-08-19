@@ -23,6 +23,8 @@ extends SceneTree
 # Every assertion carries a true negative. A gate that cannot fail is worse than no gate.
 
 const SimBoot = preload("res://sim/boot.gd")
+const SimLoot = preload("res://sim/loot.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -44,8 +46,10 @@ func _run() -> void:
 	ok = _a_cache_yields_better_gear_than_a_kitchen() and ok
 	ok = _quantities_stay_inside_the_range_they_declare() and ok
 	ok = _the_scatter_is_seeded() and ok
+	ok = _a_container_yields_once_and_is_empty_after() and ok
+	ok = _every_container_site_names_a_table_that_exists() and ok
 	if ok:
-		print("LOOT_OK tables well formed, map sites resolve and stand open, tier is a property of the place, scatter is seeded")
+		print("LOOT_OK tables well formed, map sites resolve and stand open, tier is a property of the place, scatter is seeded, a container yields once")
 		quit(0)
 	else:
 		push_error("LOOT_FAIL")
@@ -346,7 +350,7 @@ func _table_for(tables: Dictionary, location: String) -> Variant:
 func _good_tier_share(rng: Variant, table: Dictionary) -> float:
 	var good: int = 0
 	for _i in TIER_SAMPLES:
-		if SimBoot._roll_tier(rng, table) != "scavenged":
+		if SimLoot.roll_tier(rng, table) != "scavenged":
 			good += 1
 	return float(good) / float(TIER_SAMPLES)
 
@@ -360,7 +364,7 @@ func _quantities_stay_inside_the_range_they_declare() -> bool:
 	var seen_lo: bool = false
 	var seen_hi: bool = false
 	for _i in TIER_SAMPLES:
-		var n: int = SimBoot._roll_range(rng, {"min": lo, "max": hi}, 1)
+		var n: int = SimLoot.roll_range(rng, {"min": lo, "max": hi}, 1)
 		if n < lo or n > hi:
 			push_error("a count range of %d..%d rolled %d" % [lo, hi, n])
 			return false
@@ -372,11 +376,11 @@ func _quantities_stay_inside_the_range_they_declare() -> bool:
 
 	# The true negative: a range whose ends are reversed must not loop or escape its own bounds,
 	# and a spec with no min/max at all must fall back rather than roll.
-	var reversed: int = SimBoot._roll_range(rng, {"min": 5, "max": 2}, 1)
+	var reversed: int = SimLoot.roll_range(rng, {"min": 5, "max": 2}, 1)
 	if reversed != 5:
 		push_error("a reversed 5..2 range rolled %d instead of collapsing to 5" % reversed)
 		return false
-	if SimBoot._roll_range(rng, {}, 9) != 9:
+	if SimLoot.roll_range(rng, {}, 9) != 9:
 		push_error("a spec with no range did not fall back")
 		return false
 	print("QUANTITY OK %d..%d inclusive at both ends over %d rolls, reversed collapses, missing falls back" % [lo, hi, TIER_SAMPLES])
@@ -403,3 +407,120 @@ func _the_scatter_is_seeded() -> bool:
 		total += int(a[id])
 	print("SEEDED OK %d loose items over %d bases, identical across two boots of one seed, different on another" % [total, a.size()])
 	return true
+
+
+# A container is a loot site whose table is rolled when somebody opens it rather than at boot, and
+# **site depletion is that it is rolled once**. docs/12 puts resource respawn timers on the cut
+# list because they "would defuse the expanding-radius pressure, which is load-bearing", so a
+# second search of the same cupboard must yield nothing, forever -- and must say which of the two
+# "nothing"s it is, because "there is nothing here" and "you already emptied this" mean completely
+# different things to somebody deciding whether a building is worth the walk.
+func _a_container_yields_once_and_is_empty_after() -> bool:
+	var w: Variant = _booted(7788)["world"]
+	var actor: int = int(w.player)
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+
+	# Nothing in reach yet: the refusal must name that, not "already-searched".
+	var empty_handed: Dictionary = SimContainers.search_nearest(w, actor)
+	if bool(empty_handed.get("ok", false)) or String(empty_handed.get("reason", "")) != "nothing-here":
+		push_error("with no container in reach the refusal was %s" % str(empty_handed))
+		return false
+
+	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	var before: int = _ground_count(w)
+	var first: Dictionary = SimContainers.search_nearest(w, actor)
+	if not bool(first.get("ok", false)):
+		push_error("a container in reach refused the first search: %s" % str(first))
+		return false
+	var after: int = _ground_count(w)
+	if after <= before:
+		push_error("a searched container yielded nothing: %d items on the ground before and %d after" % [before, after])
+		return false
+	if int(first.get("yielded", 0)) != after - before:
+		push_error("the search reported %d yielded but %d appeared" % [int(first.get("yielded", 0)), after - before])
+		return false
+
+	# Depletion, and the whole point: a second search yields nothing and says why.
+	var second: Dictionary = SimContainers.search_nearest(w, actor)
+	if bool(second.get("ok", false)):
+		push_error("a container was searched twice")
+		return false
+	if String(second.get("reason", "")) != "already-searched":
+		push_error("the second search refused with %s rather than already-searched" % str(second.get("reason", "")))
+		return false
+	if _ground_count(w) != after:
+		push_error("a second search put more on the ground: %d -> %d" % [after, _ground_count(w)])
+		return false
+
+	# Reach is real, and it is the true negative for the yield above: the identical container
+	# three metres away refuses, so the first search proves proximity rather than existence.
+	var far: int = SimContainers.make_container(w, float(at["x"]) + 3.0, float(at["y"]), "cupboard", "residential")
+	var reached: Dictionary = SimContainers.search(w, actor, far)
+	if bool(reached.get("ok", false)) or String(reached.get("reason", "")) != "out-of-reach":
+		push_error("a container 3.0 m away was searchable: %s" % str(reached))
+		return false
+
+	# And the prose, which is the only thing the player actually gets. No digits: godot:check:hud
+	# allows none on the player HUD but the day counter, and this is a player-facing read model.
+	var said: String = SimContainers.hud_clause(w, actor)
+	if said.find("already been through") < 0:
+		push_error("standing at a searched cupboard, the HUD said \"%s\"" % said)
+		return false
+	for ch in said:
+		if ch >= "0" and ch <= "9":
+			push_error("the container HUD clause carries a digit: \"%s\"" % said)
+			return false
+	# The silence half, and it needs its own body rather than reusing one of the containers above:
+	# a container stands at its own position, so asking for its clause always finds itself in
+	# reach and would pass no matter what the reach test did.
+	var bystander: int = int(w.entities.spawn())
+	w.components.set_component(bystander, "position", {"x": 5.5, "y": 5.5})
+	if SimContainers.hud_clause(w, bystander) != "":
+		push_error("the HUD clause spoke to somebody standing near no container at all")
+		return false
+
+	print("CONTAINER OK first search yielded %d, second refused already-searched with nothing added, 3.0 m refused out-of-reach, prose is digit-free: \"%s\"" % [int(first.get("yielded", 0)), said])
+	return true
+
+
+# A container naming a table nobody wrote would empty itself for nothing -- the worst outcome,
+# because the site is spent and the player got zero. SimContainers refuses rather than spending
+# it; this asserts no shipped map can reach that branch in the first place.
+func _every_container_site_names_a_table_that_exists() -> bool:
+	var by_location: Dictionary = {}
+	for key in _tables().keys():
+		by_location[String((_tables()[key] as Dictionary).get("location", ""))] = true
+	var containers: int = 0
+	var kinds: Dictionary = {}
+	for path in _maps().keys():
+		var loot: Variant = (_maps()[path] as Dictionary).get("loot")
+		if not (loot is Array):
+			continue
+		for site in loot as Array:
+			var s: Dictionary = site as Dictionary
+			var kind: String = String(s.get("container", ""))
+			if kind == "":
+				continue
+			containers += 1
+			kinds[kind] = true
+			if not by_location.has(String(s.get("table", ""))):
+				push_error("%s: container \"%s\" names table %s, which no content entry declares" % [path, kind, String(s.get("table", ""))])
+				return false
+	if containers == 0:
+		push_error("SKIP-WORTHY: no map declares a container, so nothing here was judged")
+		return false
+
+	# The true negative and the reason this is not just the map-sites walk again: a booted district
+	# must actually STAND these, and stand exactly as many as the map declares. A `container` key
+	# that place_loot ignored would scatter them instead and pass every assertion above.
+	var w: Variant = _booted(20260805)["world"]
+	var standing: int = w.components.query(["searchable", "position"]).size()
+	if standing != containers:
+		push_error("%d container sites declared but %d standing in a booted district" % [containers, standing])
+		return false
+	print("CONTAINER SITES OK %d declared (%s), %d standing, every table resolves" % [containers, str(kinds.keys()), standing])
+	return true
+
+
+func _ground_count(w: Variant) -> int:
+	return w.components.query(["itemBase", "position"]).size()

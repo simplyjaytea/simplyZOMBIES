@@ -220,6 +220,13 @@ Each of these was found the expensive way. They are not style opinions.
 - **The content validator will not catch a nested key.** It checks top-level types only. A wrong
   key inside an `armor` block sat in `item.wrap.cloth` for weeks giving zero arm protection, and
   only a purpose-built gate found it.
+- **But the frozen TypeScript oracle validates the same content with Ajv, and Ajv *does* recurse.**
+  The two validators read one shared tree under `godot/content/`, and they disagree about depth:
+  `npm run godot:validate` passes a nested violation that `npm test` rejects with a hard
+  `ContentError`. So a content edit is not verified until **both** have run — a new enum value, a
+  new nested key, anything under `content/schemas/`. This cost a red CI on a change where
+  `godot:validate`, `godot:m2` and a purpose-built gate were all green: the map schema's
+  `loot[].table` enum still listed two locations and the oracle refused the third.
 - **`velocity` uses `dx`/`dy`; `position` uses `x`/`y`.** Writing `vel["x"] = 0.0` adds a key
   nothing reads and raises nothing — a pin that silently does not pin. `shambler.pin` and
   `treatment.pin` are the precedent for both the phase slot (`movement`, order −1) and the names.

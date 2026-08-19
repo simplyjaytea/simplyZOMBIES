@@ -58,7 +58,8 @@
               "y": { "type": "integer", "minimum": 0 }
             }
           },
-          "table": { "enum": ["residential", "commercial", "industrial", "medical", "military_cache"], "description": "The location loot table this site rolls, matching a content/loot entry's `location`. docs/12's five scavenging locations; Milestone 2 authors three of them. Kept in step with loot.schema.json by hand -- LOCATIONS in check_loot.gd is what asserts a map never names a table nobody wrote." }
+          "table": { "enum": ["residential", "commercial", "industrial", "medical", "military_cache"], "description": "The location loot table this site rolls, matching a content/loot entry's `location`. docs/12's five scavenging locations; Milestone 2 authors three of them. Kept in step with loot.schema.json by hand -- LOCATIONS in check_loot.gd is what asserts a map never names a table nobody wrote." },
+              "container": { "type": "string", "description": "When present, this site is not scattered at boot -- SimBoot.place_loot stands a searchable container here holding the same table, and it yields when somebody opens it. The value is what the thing is called out loud (\"cupboard\", \"car boot\"); it is prose read only by SimContainers.hud_clause, so it is free text rather than an enum. Searched once and never again: docs/12 puts resource respawn timers on the cut list." }
         }
       }
     }
