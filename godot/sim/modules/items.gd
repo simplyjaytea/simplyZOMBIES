@@ -177,6 +177,29 @@ static func condition_factor(world: Variant, item: int) -> float:
 	return CONDITION_FLOOR + (1.0 - CONDITION_FLOOR) * clampf(cur, 0.0, 1.0)
 
 
+# docs/10's condition table, as a jam chance per band: "100-80% nominal / 79-50% noticeable
+# performance loss / 49-20% serious; firearms jam regularly / 19-1% barely functional". The bands
+# are CONDITION_BANDS, so this cannot drift from the words the inventory screen shows for the same
+# item -- a weapon the player is told is "failing" is the one that jams often.
+#
+# A broken firearm reads 1.0, but nothing reaches it: apply_wear unequips at zero condition. It is
+# here so the table is total rather than relying on that ordering.
+const JAM_CHANCE_BY_BAND: Dictionary = {
+	"sound": 0.0,
+	"worn": 0.02,
+	"failing": 0.12,
+	"barely holding": 0.30,
+	"broken": 1.0,
+}
+
+
+static func jam_chance(world: Variant, item: int) -> float:
+	var c: Variant = world.components.get_component(item, "condition")
+	if not (c is Dictionary):
+		return 0.0
+	return float(JAM_CHANCE_BY_BAND.get(condition_band(c as Dictionary), 0.0))
+
+
 static func apply_wear(world: Variant, item: int, amount: float = WEAR_PER_HIT) -> void:
 	if item < 0 or amount <= 0.0:
 		return
@@ -298,8 +321,16 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		return null
 	var wear: float = condition_factor(world, item)
 	var r: Dictionary = ranged as Dictionary
+	var jams: bool = bool(r.get("jams", false))
 	return {
 		"damage": float(r.get("damage", 12)) * wear,
+		# docs/09: "degraded firearms jam". Derived here rather than at the trigger so it rides
+		# _refresh_armed -- apply_wear merges this profile into the live weapon on every hit, so a
+		# jam chance computed here tracks a degrading weapon without anything else remembering to
+		# recompute it. Bows and crossbows declare no `jams` and so never jam, which is the whole
+		# reason it is a content flag: docs/09 and docs/11's Gun Oil both say *firearms*.
+		"jams": jams,
+		"jamChance": jam_chance(world, item) if jams else 0.0,
 		"noise": float(r.get("noise", 4)),
 		"flash": float(r.get("flash", 0)),
 		"ammo": String(r.get("ammo", "")),

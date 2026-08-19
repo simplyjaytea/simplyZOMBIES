@@ -10,7 +10,14 @@ const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 
-enum FireState { Idle = 0, Raise = 1, Steady = 2, Recover = 3, Reload = 4 }
+enum FireState { Idle = 0, Raise = 1, Steady = 2, Recover = 3, Reload = 4, Clearing = 5 }
+
+# docs/09: "Degraded firearms jam, and clearing a jam takes longer than a reload." Expressed as a
+# multiple of the weapon's own reloadTicks rather than a flat number, so "longer than a reload"
+# stays true when a weapon's reload time is retuned -- a constant would silently stop being longer
+# the first time somebody gave a firearm a 90-tick reload.
+const CLEAR_JAM_MULTIPLIER: float = 2.0
+const MIN_CLEAR_TICKS: int = 30
 
 const RAISE_TICKS: int = 8
 const STEADY_TICKS: int = 4
@@ -144,9 +151,20 @@ static func register_module(world: Variant) -> void:
 					r["ticksLeft"] = STEADY_TICKS
 					_refresh_cone(w, int(entity), r)
 				FireState.Steady:
-					_fire_shot(w, int(entity), r, rng)
-					r["state"] = FireState.Recover
-					r["ticksLeft"] = RECOVER_TICKS
+					# A jam is decided at the trigger, before the round is spent: the cost of a
+					# jam is time and tempo, which is exactly and only what docs/09 specifies.
+					# The round stays in the magazine -- it is stuck, not fired -- and comes out
+					# during the clear. Spending it too would be a second cost the document does
+					# not ask for, on top of an interruption that already costs more than a
+					# reload.
+					if _jammed(w, r, rng):
+						w.events.publish({"type": "weapon.jammed", "entity": int(entity), "ticks": _clear_ticks(r)})
+						r["state"] = FireState.Clearing
+						r["ticksLeft"] = _clear_ticks(r)
+					else:
+						_fire_shot(w, int(entity), r, rng)
+						r["state"] = FireState.Recover
+						r["ticksLeft"] = RECOVER_TICKS
 				FireState.Recover:
 					if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
 						if _begin_reload(w, int(entity), r):
@@ -169,7 +187,34 @@ static func register_module(world: Variant) -> void:
 						r["mag"] = int(r["magSize"])
 					r["state"] = FireState.Idle
 					r["ticksLeft"] = 0
+				FireState.Clearing:
+					# Cleared, and nothing else changed: the magazine is what it was, because the
+					# stuck round was never spent. Back to Idle rather than straight to Raise, so
+					# clearing a jam costs the shot you were taking and the player or the NPC has
+					# to decide again -- a jam that auto-resumed would be a pause, not a jam.
+					r["state"] = FireState.Idle
+					r["ticksLeft"] = 0
+					w.events.publish({"type": "weapon.cleared", "entity": int(entity)})
 	)
+
+
+# How long this weapon takes to clear, always longer than its own reload. See
+# CLEAR_JAM_MULTIPLIER for why it is a multiple rather than a number.
+static func _clear_ticks(weapon: Dictionary) -> int:
+	return maxi(MIN_CLEAR_TICKS, int(round(float(int(weapon.get("reloadTicks", 24))) * CLEAR_JAM_MULTIPLIER)))
+
+
+# Whether this trigger pull jams. Draws only when the weapon can jam at all *and* has a non-zero
+# chance, so a sound firearm and a bow both cost the RNG stream nothing -- a draw taken on every
+# shot regardless would make the whole ranged sequence depend on how worn the weapon happened to
+# be, which is a determinism trap rather than a balance one.
+static func _jammed(world: Variant, weapon: Dictionary, rng: Variant) -> bool:
+	if not bool(weapon.get("jams", false)):
+		return false
+	var chance: float = float(weapon.get("jamChance", 0.0))
+	if chance <= 0.0:
+		return false
+	return float(rng.call("float_range", 0.0, 1.0)) < chance
 
 
 # Every precondition a shot has to pass, in one place — see the note on SimMelee.try_begin_swing.

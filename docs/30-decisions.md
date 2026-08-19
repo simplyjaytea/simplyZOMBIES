@@ -917,6 +917,51 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   404 it still never does. That is a call about how the slice seats its people, not another lever
   in the contact loop.
 
+## Food is content, and bad food has a consequence
+
+- **The retired `FOOD` table is pinned by value in the gate.** Moving three foods from a GDScript
+  dictionary into content is the kind of change that silently rebalances a diet, so
+  `RETIRED_FOOD_TABLE` in `check_m2_needs.gd` holds the old numbers and asserts content still says
+  them. The move is provably about *where* the numbers live. A later content edit that changes the
+  diet will fail this and have to be deliberate about it.
+- **Presence of the `food` block is what makes something edible.** `is_food` asks nothing else — no
+  id prefix, no class check, no second list to keep in step. Adding a food is one block.
+- **Illness is a third thing, not a reuse of the first two.** docs/23 keeps bacterial infection
+  distinct from zombie infection; food poisoning is neither, so it is a bounded self-limiting bout
+  in `needs.gd` rather than a stage in `infection.gd` or a use of the sepsis path. Nobody dies of
+  it in Milestone 2. That is what lets it be a small thing that makes cooking worth the fuel,
+  instead of a second lethality system to balance.
+- **One authored number, two cases.** `illnessChance` is per food and multiplied by
+  `SPOILED_ILLNESS_MUL` when the item has actually gone off, rather than authoring raw and spoiled
+  chances separately. A content edit moves both together, which is the same reason the jam chance
+  is derived from the condition band rather than written per weapon.
+- **`iron_stomach` is immunity, not a discount.** It already zeroes the mood penalty; a trait that
+  half-protects from two related things is harder to reason about than one that fully protects
+  from both.
+
+## A jam costs time, and the chance is not authored
+
+- **The jam chance is derived from the condition *band*, not written down.** `JAM_CHANCE_BY_BAND`
+  is keyed off `SimItems.condition_band` — the same function that produces the word the inventory
+  screen shows for that item. That coupling is the point: a weapon the player is told is "failing"
+  cannot be one that never jams, and docs/10's table ("49–20%: serious; firearms jam regularly") is
+  the authority for both at once. Authoring a per-weapon `jamChance` would have let the two drift
+  on the first content edit.
+- **`jams` is a content flag rather than an inference.** It would have been easy to say "anything
+  with a magazine can jam", but docs/09 and docs/11's Gun Oil both say *firearms*, and a bow has
+  nothing to stovepipe. A flag also means adding a crossbow that does jam stays a data edit.
+- **A jam costs time and nothing else.** The stuck round is not spent — it comes out during the
+  clear — because docs/09 specifies exactly one cost ("clearing a jam takes longer than a reload")
+  and an interruption that already costs more than a reload does not also need to eat ammunition.
+  The weapon returns to Idle rather than resuming the shot: a jam that auto-resumed would be a
+  pause, not a jam, and the decision to try again should be one somebody makes.
+- **The clear time is a multiple of the weapon's own reload, not a constant.** "Longer than a
+  reload" is the claim, so it is expressed as a relationship. A flat number would silently stop
+  being longer the first time a firearm was given a slower reload.
+- **The backlog's "content declares slots nothing reads" is the wrong half.** `slots` is in the
+  item schema and *no content declares it either*, so attachments are a slice — content, a reader,
+  and attachment items — rather than a hookup. docs/23 now says so.
+
 ## Mood consequences are a decline, not a cliff
 
 - **A threshold was the shipped behaviour and it contradicted the spec.** Mood had one consequence
