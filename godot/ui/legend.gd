@@ -10,13 +10,13 @@ extends Control
 
 const Palette = preload("res://presentation/palette.gd")
 
-const PAD: float = 18.0
-const LINE: float = 19.0
-const TITLE_GAP: float = 10.0
-const GROUP_GAP: float = 9.0
-const KEY_COLUMN: float = 132.0
-const FONT_SIZE: int = 12
-const TITLE_SIZE: int = 15
+const PAD: float = 36.0
+const LINE: float = 38.0
+const TITLE_GAP: float = 20.0
+const GROUP_GAP: float = 18.0
+const KEY_COLUMN: float = 264.0
+const FONT_SIZE: int = 24
+const TITLE_SIZE: int = 30
 
 const GROUPS: Array = [
 	["Move", [
@@ -61,7 +61,7 @@ func _draw() -> void:
 	for group in GROUPS:
 		rows += ((group as Array)[1] as Array).size()
 	var height: float = PAD * 2.0 + TITLE_GAP + LINE * float(rows + GROUPS.size()) + GROUP_GAP * float(GROUPS.size())
-	var width: float = 430.0
+	var width: float = 860.0
 	var origin := Vector2(
 		roundf((view.x - width) / 2.0),
 		roundf((view.y - height) / 2.0),
@@ -71,11 +71,11 @@ func _draw() -> void:
 	# part of it.
 	draw_rect(Rect2(Vector2.ZERO, view), Color(0.02, 0.03, 0.04, 0.72))
 	draw_rect(Rect2(origin, Vector2(width, height)), Color(0.07, 0.08, 0.09, 0.97))
-	draw_rect(Rect2(origin, Vector2(width, height)), Palette.COLOURS["outline"], false, 1.0)
+	draw_rect(Rect2(origin, Vector2(width, height)), Palette.COLOURS["outline"], false, 2.0)
 
 	var y: float = origin.y + PAD + TITLE_SIZE
 	draw_string(font, Vector2(origin.x + PAD, y), "Keys", HORIZONTAL_ALIGNMENT_LEFT, -1, TITLE_SIZE, Palette.COLOURS["player"])
-	draw_string(font, Vector2(origin.x + width - PAD - 96.0, y), "F1 to close", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["outline"])
+	draw_string(font, Vector2(origin.x + width - PAD - 192.0, y), "F1 to close", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["outline"])
 	y += TITLE_GAP
 
 	for group in GROUPS:
@@ -84,6 +84,6 @@ func _draw() -> void:
 		for row in (group as Array)[1] as Array:
 			y += LINE
 			var r: Array = row as Array
-			draw_string(font, Vector2(origin.x + PAD + 12.0, y), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["player"])
+			draw_string(font, Vector2(origin.x + PAD + 24.0, y), String(r[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["player"])
 			draw_string(font, Vector2(origin.x + KEY_COLUMN, y), String(r[1]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, Palette.COLOURS["survivor"])
 		y += GROUP_GAP

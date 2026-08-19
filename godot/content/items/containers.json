@@ -40,6 +40,7 @@
     "size": { "w": 4, "h": 4 },
     "massKg": 1.1,
     "equipSlot": "back",
+    "appearance": { "equipSprite": "item_pack_hiking_equip", "equipSpriteFront": "item_pack_hiking_equip_front" },
     "container": { "w": 6, "h": 8 }
   }
 ]
