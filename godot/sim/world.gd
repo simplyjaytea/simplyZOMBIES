@@ -309,6 +309,17 @@ func _apply_commands(_world: Variant) -> void:
 				"wait":
 					velocity["dx"] = 0.0
 					velocity["dy"] = 0.0
+				"aim":
+					# Presentation proposes a facing; the sim decides whether it takes. Only a
+					# stationary body turns to aim -- movement.integrate derives facing from
+					# velocity, so a moving one faces where it goes and the proposal is simply
+					# ignored. That is the hardcore rule, not a compromise: you do not track a
+					# target over your shoulder at a jog. Checked against the velocity this same
+					# command list may just have written, so a move and an aim on one tick agree.
+					if float(velocity["dx"]) == 0.0 and float(velocity["dy"]) == 0.0:
+						var aim_facing: Variant = components.get_component(int(entity), "facing")
+						if aim_facing is Dictionary:
+							(aim_facing as Dictionary)["radians"] = float((command as Dictionary).get("radians", 0.0))
 				"shout":
 					var pos: Dictionary = components.get_component(int(entity), "position") as Dictionary
 					events.publish({

@@ -79,6 +79,10 @@ var _sfx: Node = null
 var _held: Dictionary = {}
 var _last_dx: float = 0.0
 var _last_dy: float = 0.0
+# Last aim angle pushed, so mouse motion only sends a command when the cursor has actually
+# swung the bearing -- the sim ignores aim while moving anyway (world.gd's "aim" case), this
+# just keeps the command queue from carrying a no-op per polled motion event.
+var _last_aim: float = 1e9
 # Which of the non-sprint rungs (Z/X/C/V) is selected, so releasing Shift returns to it rather
 # than to a fixed default. Presentation-local only -- the sim never reads this, it only ever
 # sees the stance commands _push_stance sends.
@@ -307,9 +311,44 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			CameraUtil.zoom_step(camera, -1)
 			queue_redraw()
+	# Mouse motion proposes an aim bearing; the sim takes it only while the body is
+	# stationary (world.gd's "aim" case), so this is turning on the spot to track the
+	# cursor, never steering.
+	if event is InputEventMouseMotion and world != null and not inventory_open:
+		var bearing: Variant = _aim_at((event as InputEventMouseMotion).position)
+		if bearing != null and absf(angle_difference(float(bearing), _last_aim)) > 0.02:
+			_last_aim = float(bearing)
+			world.commands.push({"type": "aim", "radians": _last_aim})
 	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if world != null and not inventory_open:
-			world.commands.push({"type": "fire"})
+			# Aim at the click first, then attack with whatever is actually in hand: the
+			# trigger if a ranged weapon is equipped (fire converts itself to a reload on an
+			# empty magazine -- ranged.gd owns that), the swing otherwise. G and F remain as
+			# the key equivalents; the sim decides everything past the verb.
+			var at: Variant = _aim_at((event as InputEventMouseButton).position)
+			if at != null:
+				_last_aim = float(at)
+				world.commands.push({"type": "aim", "radians": _last_aim})
+			if world.components.has_component(int(world.player), "rangedWeapon"):
+				world.commands.push({"type": "fire"})
+			else:
+				world.commands.push({"type": "swing"})
+
+
+# The bearing from the player's body to a screen point, in world space -- what an aim command
+# carries. Null when there is nothing to aim from.
+func _aim_at(screen_pos: Vector2) -> Variant:
+	if world == null:
+		return null
+	var pos: Variant = world.components.get_component(int(world.player), "position")
+	if not (pos is Dictionary):
+		return null
+	var at: Dictionary = CameraUtil.screen_to_world(camera, screen_pos.x, screen_pos.y)
+	var dx: float = float(at["x"]) - float((pos as Dictionary)["x"])
+	var dy: float = float(at["y"]) - float((pos as Dictionary)["y"])
+	if dx == 0.0 and dy == 0.0:
+		return null
+	return atan2(dy, dx)
 
 func _on_ui_prefs_changed() -> void:
 	if _inventory_panel != null and _inventory_panel.has_method("refresh_style"):
