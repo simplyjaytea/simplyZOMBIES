@@ -2,10 +2,26 @@ class_name SimShambler
 extends RefCounted
 
 # Port of src/sim/modules/shambler.ts — 5 states, gradient+bias pursuit, plus the
-# grab -> struggle -> bite loop ("Make harm real" slice, Part B). Cripple (the CRIPPLED_SOURCE
-# move_speed penalty on a destroyed pelvis) and stagger (a swing knocking a shambler out of
-# whatever it was doing) remain unwired here -- shambler.gd still subscribes to neither
-# injury.sustained nor entity.staggered -- and stay open for whoever picks that up next.
+# grab -> struggle -> bite loop ("Make harm real" slice, Part B), and -- as of the cripple/stagger
+# slice -- the two sockets that used to be cut here and wired to nothing.
+#
+# **Stagger.** docs/09 is explicit about what a stagger is for: "landing a solid hit interrupts the
+# target ... stagger is the actual survival mechanic in a crowd, because a staggered zombie isn't
+# grabbing you." The `Staggered` state and its `ticksStaggered` countdown were both already here
+# and already handled by the state machine; nothing ever put a shambler *into* them, because this
+# file subscribed to no `entity.staggered`. It does now (`shambler.stagger`), and because the
+# clause says "isn't grabbing you" rather than "is slower", a stagger also breaks whatever hold
+# the shambler had -- `grab.broken` cause `staggered` -- and arms the ordinary re-grab cooldown so
+# the answer to a grab is not one swing followed by an instant re-take.
+#
+# **Cripple.** `crawlFactor` was on the component from the start and read by nothing. A shambler
+# whose legs are gone now moves at that fraction of whatever speed it would otherwise use, through
+# `_speed_of` -- one accessor rather than a multiply at each of the four read sites, because four
+# sites is three chances to miss one. It is derived from the body every tick rather than latched
+# off `injury.sustained`: a flag set by an event has to be kept in step with the body through
+# amputation, save/load and anything else that edits integrity, and reading `SimHealth.is_crawling`
+# cannot drift from the thing it describes. The event still fires and is still the right hook for
+# anything that wants to *react* to the moment; it is just not the source of truth for the speed.
 
 const ShamblerState: Dictionary = {
 	"Wander": 0,
@@ -171,35 +187,50 @@ const RESCUE_RETRY_TICKS: int = 20
 # appear at all (0 of 119 -> 10 of 141 on 90210). FLIGHT-CANCELS-PRESS holds the whole cycle down,
 # against a paired control on the same geometry with the subscription lifted off the bus.
 #
-# Reason six, which is where it stands now: *a body that tears free does not go anywhere, and a
-# press that is cancelled at every escape never finishes.* The flag stays false, both hard seeds
-# still end 0/2, and the instrumentation names the residual rather than guessing at it.
+# Reason six was *a body that tears free does not go anywhere, and a press that is cancelled at
+# every escape never finishes* -- two residuals, named from instrumentation rather than guessed
+# at. **The first is answered.** The escape had nowhere to go because it insisted on going
+# straight away: over three days of seed 404 the committed heading was blocked on both axes on
+# 86% of breakAway ticks and the body covered 0.010 m per tick against a nominal 0.105, because
+# _break_away took one direction and _integrate_movement zeroed a blocked axis. A colony is
+# grabbed where a colony lives, which is against the annex walls. _break_away now fans out from
+# straight-away and commits to the nearest heading with room (see it, and AWAY-CLEAR), which
+# keeps the shove-off and gives it somewhere to go.
 #
-# The cost of the inversion is exact: presses **completed** go from 25/9/26 to **zero on every
-# seed**, because a 400-tick deep-wound press cancelled every ~50 ticks banks nothing. Blood loss
-# becomes the whole of 90210's death list and 404's colony lives 15% fewer ticks than it did with
-# the press winning. Fewer holds, fewer bites, and less clotting; the net is not survival.
+# Measured on the four fast seeds with the flag forced on, same driver both columns:
 #
-# The reason the win is that small is not the arbitration this time -- it is _break_away itself.
-# Measured over three days of seed 404 with the flag on: a `breakAway` body carries its escape
-# velocity into movement.integrate on 1,230 of 1,266 ticks, and the integrator **zeroes it on
-# 1,124**, because the committed heading is blocked on the X axis on 1,107 of those ticks, on the Y
-# axis on 1,154, and on **both at once on 1,087 -- 86%**. Ground actually covered: 12.66 m, which is
-# 0.010 m per tick against a nominal 0.105. The direction is taken once, at the moment of release,
-# and never re-derived -- deliberately, see _break_away, because this is a shove-off and not a
-# pursuit solver -- and world.gd's _integrate_movement zeroes a blocked axis. A colony is grabbed
-# where a colony lives, which is against the annex walls, so the shove-off points into masonry and
-# the escapee leans on it for all 26 ticks. Hence a mean of 0.063 m covered between escape and
-# re-grab on 404, and the same shambler taking them again in 309 of 309 windows across the seeds
-# that have any.
+#   seed     | before                              | after
+#   20260805 | 3/2, no contact                     | 3/2, no contact
+#   404      | 0/2, 150 grabs, 88 bites, 8,490     | 0/2, 152 grabs, 79 bites, **12,011** living
+#            | living ticks, 50.2% held, 0.0086    | ticks, 31.4% held, **0.1038** m/tick
+#   31337    | 3/2, 46 grabs, 20 bites             | 3/2, **6** grabs, **2** bites
+#   90210    | 0/2, 166 grabs, 65 bites, 0.0169    | **1/2**, **65** grabs, **20** bites, 0.1041
 #
-# So the candidates are: give a break-away somewhere to go (a heading that avoids a wall, or a
-# re-derive), let a press bank its progress, or cut contact rarity. All three are design calls, so
-# **do not pick one unilaterally**. Relaxing `survivors_end >= 1` remains considered and rejected.
-# docs/23's Milestone 2 status carries the measurement seed by seed, including the two smaller
-# residuals: the one pinned tick the drain ordering costs an escape (worth 0.105 m of gap, which
-# lifts BREAK_AWAY_SPEED's own d0 threshold from 0.58 m to about 0.69 m), and the fragments
-# arithmetic that leaves a deep press with no reachable completion path.
+# An escape is now worth roughly what the open-field arithmetic above always claimed -- 0.104 m
+# per tick against a nominal 0.105, up from a tenth of that -- and 90210 is the first hard seed to
+# stop wiping. 404's colony lives 41% longer and spends a third rather than half of its life held.
+#
+# **The second residual is answered too.** 404 ended 0/2 on blood loss with 126 presses begun and
+# *zero* completed, because a press cancelled at every escape banked nothing against a 400-tick
+# deep-wound cost while holds arrived every ~50 ticks. treatment.gd's R8 now banks the served
+# ticks on the wound, which reverses a rule that was deliberate and written down, on measurement
+# rather than taste -- the same discipline that produced R5's own inversion. Fragments compose:
+# presses completed go 0 -> 20 on 404 and 0 -> 21 on 90210, and both hard seeds live about 23%
+# longer (12,011 -> 14,834 and 29,825 -> 36,573 living ticks).
+#
+# **The flag is still false, and what is left is no longer a bug.** 404 still ends 0/2, and the
+# constraint is the shape of the colony rather than another lever in this file. Re-measured with
+# escapees that actually move, the old "rescue can never reach" finding is now only partly true and
+# is worth restating rather than repeating: a free colonist is within RESCUE_METRES of a held one
+# for 135 ticks on 90210 and 18 on 31337, closest approach 0.52 m and 0.21 m, where the previous
+# measurement found no approach inside 6 m on any seed. On 404 it still never reaches -- closest
+# all campaign is 4.40 m, improved from 6.41 m and still nearly three times the radius. That colony
+# never stands together, and moving it is People-and-economy work (a bigger colony, or one posted
+# closer) rather than anything left in the contact loop. The one smaller
+# residual is unchanged and is a tick of drain ordering: the cancel lands at drain, so an escapee
+# stands still for one tick, worth 0.105 m of gap, which lifts BREAK_AWAY_SPEED's own d0 threshold
+# from 0.58 m to about 0.69 m. Relaxing `survivors_end >= 1` remains considered and rejected.
+# docs/23's Milestone 2 status carries the measurement seed by seed.
 #
 # So the loop ships complete, gated and off for one more turn, the way
 # SimMelee.REFUSE_EXHAUSTED_SWINGS did: check_m2_contact.gd turns it on explicitly, so every
@@ -230,6 +261,22 @@ const BREAK_AWAY_TICKS: int = 26
 # ticks on seed 404 have the committed heading blocked on both axes, so the body covers 0.010 m per
 # tick rather than 0.105 and this open-field reasoning simply does not apply to it.
 const BREAK_AWAY_SPEED: float = 2.1
+# The fan _break_away chooses its heading from, in the order it tries them: straight away first,
+# then widening in 22.5-degree pairs. Order is the policy -- the first clear candidate wins, so a
+# heading is only ever traded for a wider one when the narrower one is into a wall. Sixteenths of
+# a turn is fine enough that a wall parallel to the escape always has a candidate within 22.5
+# degrees of sliding along it, and coarse enough that the probe stays thirteen cheap tile lookups.
+# Stops at +/-135: past that the shove-off would be through the holder.
+const BREAK_AWAY_FAN_DEGREES: Array = [
+	0.0, 22.5, -22.5, 45.0, -45.0, 67.5, -67.5, 90.0, -90.0, 112.5, -112.5, 135.0, -135.0,
+]
+# How far a candidate has to be clear to be taken as-is: 1.5 m, which is a shade over GRAB_METRES
+# plus the 0.42 m/s the escapee gains over the seek across the re-grab cooldown. Further than this
+# does not change whether the escape works and does make an indoor release more likely to find
+# nothing at all and fall back.
+const BREAK_AWAY_PROBE_METRES: float = 1.5
+# 0.25 m, comfortably under the 0.7 m body diameter, so no sample can straddle a wall.
+const BREAK_AWAY_PROBE_STEP: float = 0.25
 
 const SimLocomotionRes = preload("res://sim/locomotion.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
@@ -337,17 +384,36 @@ static func _grab_of(world: Variant, type_id: String) -> Dictionary:
 	return {"enabled": enabled, "strength": float(grab.get("strength", DEFAULT_GRAB_STRENGTH))}
 
 
-static func _steer_uphill(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary) -> bool:
+# The one place a shambler's speed is read. Every movement site goes through this so the cripple
+# penalty cannot be applied to three of the four and quietly missed on the fourth.
+static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String) -> float:
+	var base: float = float(shambler_data.get(key, 0.0))
+	if not _is_crawling(world, entity):
+		return base
+	return base * float(shambler_data.get("crawlFactor", DEFAULT_LOCOMOTION["crawl"]))
+
+
+# Derived, never latched. SimHealth.is_crawling reads the body itself -- "legs" for a zombie,
+# both leg_* for a survivor -- so a leg that is destroyed, amputated, or restored by a save
+# reload all say the same thing here without a flag to keep in step.
+static func _is_crawling(world: Variant, entity: int) -> bool:
+	var body: Variant = world.components.get_component(entity, "body")
+	return body is Dictionary and SimHealthRes.is_crawling(body as Dictionary)
+
+
+# `seek` is passed rather than read off shambler_data so the cripple penalty applies here too --
+# see _speed_of, which is the only thing that should ever turn a stored speed into a used one.
+static func _steer_uphill(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> bool:
 	var uphill: Variant = field.uphill_noise(float(pos["x"]), float(pos["y"]))
 	if uphill == null:
 		return false
 	var angle: float = atan2(float((uphill as Dictionary)["dy"]), float((uphill as Dictionary)["dx"])) + float(shambler_data["bias"])
-	vel["dx"] = cos(angle) * float(shambler_data["seekSpeed"])
-	vel["dy"] = sin(angle) * float(shambler_data["seekSpeed"])
+	vel["dx"] = cos(angle) * seek
+	vel["dy"] = sin(angle) * seek
 	return true
 
 
-static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary) -> void:
+static func _drift_upscent(field: Variant, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:
 	var uphill: Variant = field.uphill_scent(float(pos["x"]), float(pos["y"]))
 	if uphill == null:
 		return
@@ -402,7 +468,7 @@ static func _gather_survivors(world: Variant) -> Array:
 	return out
 
 
-static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary) -> void:
+static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary, shambler_data: Dictionary, seek: float) -> void:
 	var at: Variant = world.components.get_component(target, "position")
 	if at == null:
 		return
@@ -411,8 +477,8 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 	var dist: float = sqrt(dx * dx + dy * dy)
 	if dist == 0.0:
 		return
-	vel["dx"] = dx / dist * float(shambler_data["seekSpeed"])
-	vel["dy"] = dy / dist * float(shambler_data["seekSpeed"])
+	vel["dx"] = dx / dist * seek
+	vel["dy"] = dy / dist * seek
 
 
 static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Dictionary) -> void:
@@ -544,10 +610,30 @@ static func _release_grab(world: Variant, source: int, cause: String = "geometry
 		_break_away(world, freed, source)
 
 
-# Points a just-freed survivor directly away from whoever was holding them and commits them to
-# that heading for BREAK_AWAY_TICKS. Direction is taken once, at the moment of release, rather
-# than re-derived per tick: this is somebody shoving off and stumbling clear, not a pursuit
-# solver, and re-aiming every tick would have it orbit a shambler that follows.
+# Points a just-freed survivor away from whoever was holding them and commits them to that
+# heading for BREAK_AWAY_TICKS. Direction is taken once, at the moment of release, rather than
+# re-derived per tick: this is somebody shoving off and stumbling clear, not a pursuit solver, and
+# re-aiming every tick would have it orbit a shambler that follows.
+#
+# "Away" is the *preference*, not the commitment, and that distinction is the whole of this
+# slice. Straight-away was the commitment for five slices and it was measurably the wrong one: a
+# colony is grabbed where a colony lives, which is against the annex walls, so the shove-off
+# pointed into masonry and movement.integrate zeroed it. Over three days of seed 404 the committed
+# heading was blocked on both axes on 86% of breakAway ticks and the body covered 0.010 m per tick
+# against a nominal 0.105 -- an escape that opened no gap at all, which is why the same shambler
+# took the same survivor again in 309 of 309 measured windows.
+#
+# The fix keeps the shove-off and changes only which single heading it commits to: fan out from
+# straight-away in BREAK_AWAY_FAN_DEGREES order and take the first candidate with a clear run of
+# BREAK_AWAY_PROBE_METRES, falling back to whichever candidate has the longest clear run when none
+# is fully clear. Because the fan is ordered by increasing deviation and the comparison is strict,
+# the heading chosen is always the closest one to straight-away that qualifies -- in open field
+# that is straight-away itself, unchanged, which is the negative AWAY-CLEAR pins. The fan stops at
+# +/-135 rather than reaching 180: a survivor shoving off does not run through the thing that had
+# hold of them.
+#
+# This is geometry, not a search: no RNG is drawn and nothing is stored, so the same release in
+# the same world commits the same heading.
 static func _break_away(world: Variant, victim: int, from_source: int) -> void:
 	var at: Variant = world.components.get_component(victim, "position")
 	var away_from: Variant = world.components.get_component(from_source, "position")
@@ -558,11 +644,49 @@ static func _break_away(world: Variant, victim: int, from_source: int) -> void:
 	var length: float = sqrt(dx * dx + dy * dy)
 	if length == 0.0:
 		return
+	var heading: float = _somewhere_to_go(world, at as Dictionary, atan2(dy, dx))
 	world.components.set_component(victim, "breakAway", {
-		"dx": dx / length * BREAK_AWAY_SPEED,
-		"dy": dy / length * BREAK_AWAY_SPEED,
+		"dx": cos(heading) * BREAK_AWAY_SPEED,
+		"dy": sin(heading) * BREAK_AWAY_SPEED,
 		"ticksLeft": BREAK_AWAY_TICKS,
 	})
+
+
+# The heading the shove-off actually commits to: `away` if it has room, else the nearest thing to
+# it that does. Returns `away` unchanged when nothing is fully clear either, which is the old
+# behaviour and the right one -- a body wedged in a corner has no better answer, and inventing one
+# would be the pursuit solver this deliberately is not.
+static func _somewhere_to_go(world: Variant, at: Dictionary, away: float) -> float:
+	var best_angle: float = away
+	var best_run: float = -1.0
+	for degrees in BREAK_AWAY_FAN_DEGREES:
+		var angle: float = away + deg_to_rad(float(degrees))
+		var run: float = _clear_run(world, at, angle)
+		if run >= BREAK_AWAY_PROBE_METRES:
+			return angle
+		if run > best_run:
+			best_run = run
+			best_angle = angle
+	return best_angle
+
+
+# How far a body can travel along `angle` from `at` before its footprint stops fitting, capped at
+# BREAK_AWAY_PROBE_METRES. Sampled every BREAK_AWAY_PROBE_STEP, which is under the 0.7 m body
+# diameter, so a doorway-width gap cannot be stepped over. world.body_fits_at is the same tile
+# lookup movement.integrate collides against, so a run this reports as clear is one the integrator
+# will not zero.
+static func _clear_run(world: Variant, at: Dictionary, angle: float) -> float:
+	var cx: float = float(at["x"])
+	var cy: float = float(at["y"])
+	var ux: float = cos(angle)
+	var uy: float = sin(angle)
+	var travelled: float = 0.0
+	while travelled < BREAK_AWAY_PROBE_METRES:
+		var next: float = minf(travelled + BREAK_AWAY_PROBE_STEP, BREAK_AWAY_PROBE_METRES)
+		if not world.body_fits_at(cx + ux * next, cy + uy * next):
+			return travelled
+		travelled = next
+	return travelled
 
 
 # Frees a victim from every hand holding them at once -- the whole point of the contextual F
@@ -686,6 +810,10 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			var pd: Dictionary = pos as Dictionary
 			var heard: bool = field.noise_at(float(pd["x"]), float(pd["y"])) >= audible
 			var smelled: bool = field.scent_at(float(pd["x"]), float(pd["y"])) >= detectable
+			# Resolved once per shambler per tick and handed to every steer below it, rather than
+			# each of them reaching for sd["seekSpeed"] -- which is what let the cripple penalty
+			# sit on the component unread for the whole of Milestone 2.
+			var seek: float = _speed_of(w, int(entity), sd, "seekSpeed")
 			if int(sd["ticksToGrab"]) > 0:
 				sd["ticksToGrab"] = int(sd["ticksToGrab"]) - 1
 			if w.components.has_component(int(entity), "grabState"):
@@ -710,14 +838,14 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["state"] = ShamblerState["Wander"]
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
 					else:
-						_chase(w, int(target), pd, vd, sd)
+						_chase(w, int(target), pd, vd, sd, seek)
 				ShamblerState["Seek"]:
 					var caught: Variant = _contact_target(survivors, pd, CONTACT_METRES)
 					if caught != null:
 						sd["state"] = ShamblerState["Pursue"]
 						sd["ticksCommitted"] = 0
-						_chase(w, int(caught), pd, vd, sd)
-					elif _steer_uphill(field, pd, vd, sd):
+						_chase(w, int(caught), pd, vd, sd, seek)
+					elif _steer_uphill(field, pd, vd, sd, seek):
 						sd["ticksCommitted"] = COMMIT_TICKS
 					elif heard:
 						sd["state"] = ShamblerState["Investigate"]
@@ -737,8 +865,8 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["ticksToTurn"] = 0
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle: float = rng.call("float_range", 0.0, PI * 2.0)
-						vd["dx"] = cos(angle) * float(sd["millSpeed"])
-						vd["dy"] = sin(angle) * float(sd["millSpeed"])
+						vd["dx"] = cos(angle) * _speed_of(w, int(entity), sd, "millSpeed")
+						vd["dy"] = sin(angle) * _speed_of(w, int(entity), sd, "millSpeed")
 						sd["ticksToTurn"] = int(rng.call("int_range", 10, 25))
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
@@ -746,20 +874,20 @@ static func register_module(world: Variant, _map: Variant) -> void:
 					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES)
 					if caught2 != null:
 						sd["state"] = ShamblerState["Pursue"]
-						_chase(w, int(caught2), pd, vd, sd)
+						_chase(w, int(caught2), pd, vd, sd, seek)
 					elif heard:
 						sd["state"] = ShamblerState["Seek"]
 						sd["ticksCommitted"] = COMMIT_TICKS
-						_steer_uphill(field, pd, vd, sd)
+						_steer_uphill(field, pd, vd, sd, seek)
 					elif int(sd["ticksToTurn"]) <= 0:
 						var angle2: float = rng.call("float_range", 0.0, PI * 2.0)
-						vd["dx"] = cos(angle2) * float(sd["wanderSpeed"])
-						vd["dy"] = sin(angle2) * float(sd["wanderSpeed"])
+						vd["dx"] = cos(angle2) * _speed_of(w, int(entity), sd, "wanderSpeed")
+						vd["dy"] = sin(angle2) * _speed_of(w, int(entity), sd, "wanderSpeed")
 						sd["ticksToTurn"] = int(rng.call("int_range", 20, 120))
 					else:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 					if smelled:
-						_drift_upscent(field, pd, vd, sd)
+						_drift_upscent(field, pd, vd, sd, seek)
 					_lean_to_light(w, int(entity), pd, vd)
 
 		# --- Hold lifecycle, alongside the state machine above rather than in a separate
@@ -1055,4 +1183,29 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		var dead: int = int(event.get("entity", -1))
 		_release_grab(world, dead, "holder-died", dead)
 		_release_victim(world, dead, "victim-died", dead)
+	})
+
+	# docs/09: "landing a solid hit interrupts the target ... a staggered zombie isn't grabbing
+	# you." Both halves are here, because the state machine already had a Staggered state that
+	# nothing could enter and the clause is about grabbing rather than about speed.
+	#
+	# The hold is broken *before* the state is set: _release_grab reads `grabState` off this
+	# entity, and the ordering is only safe in one direction. It publishes `grab.broken` with
+	# cause `staggered` -- a cause rather than a silent release, so a bus-only harness can tell a
+	# swing that saved somebody from a struggle that did -- and arms REGRAB_COOLDOWN_TICKS on its
+	# way past, so the answer to a grab is not one swing followed by an instant re-take.
+	#
+	# `ticksStaggered` is taken as the max of what is already running and what this hit is worth,
+	# so a second hit during a stagger extends it rather than cutting it short. Melee's own
+	# staggerTicks comes off the weapon (melee.gd), which is where "blunt weapons stagger better"
+	# lives; nothing about that is decided here.
+	world.events.subscribe({"id": "shambler.stagger", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:
+		var entity: int = int(event.get("entity", -1))
+		var shambler_data: Variant = world.components.get_component(entity, "shambler")
+		if not (shambler_data is Dictionary):
+			return
+		_release_grab(world, entity, "staggered", entity)
+		var sd: Dictionary = shambler_data as Dictionary
+		sd["state"] = ShamblerState["Staggered"]
+		sd["ticksStaggered"] = maxi(int(sd.get("ticksStaggered", 0)), int(event.get("ticks", 0)))
 	})

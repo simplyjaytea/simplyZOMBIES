@@ -8,10 +8,13 @@ extends SceneTree
 #
 # What this gate is really holding down:
 #
-#  1. **Pressure is worth nothing until it is finished.** Suppressing a bleed while a hand is
-#     on it and clotting it for good are different outcomes, and the difference is the whole
-#     decision the verb exists to pose. `_a_hold_broken_early_buys_nothing` is the assertion
-#     that fails if a partial hold ever starts banking progress.
+#  1. **Pressure is worth nothing *now* until it is finished, and worth something *later* from
+#     the first tick.** Suppressing a bleed while a hand is on it and clotting it for good are
+#     different outcomes, and the difference is still the whole decision the verb exists to pose:
+#     `_a_partial_hold_clots_nothing_and_banks_everything` is what fails if a released hold ever
+#     stops the bleeding by itself. What that assertion no longer claims is that the time is
+#     *lost* -- treatment.gd's R8 banks it on the wound, on a measurement (docs/30), and the
+#     second half of the same assertion is what fails if the bank ever goes missing.
 #
 #  2. **Assert the effect, never the mechanism** (docs/30-decisions.md:513-524, and
 #     check_m2_wounds.gd's header for the long version). Every claim here is measured on
@@ -47,7 +50,7 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _pressure_suppresses_the_bleed_it_is_holding() and ok
-	ok = _a_hold_broken_early_buys_nothing() and ok
+	ok = _a_partial_hold_clots_nothing_and_banks_everything() and ok
 	ok = _a_completed_hold_clots_the_wound_for_good() and ok
 	ok = _a_bandage_survives_the_interrupt_a_hold_does_not() and ok
 	ok = _bandaging_spends_exactly_one_dressing() and ok
@@ -181,7 +184,7 @@ func _pressure_suppresses_the_bleed_it_is_holding() -> bool:
 
 # The decision the verb exists to pose. A hold released one tick before it completes must be
 # worth exactly nothing: the wound bleeds again immediately and no progress is banked.
-func _a_hold_broken_early_buys_nothing() -> bool:
+func _a_partial_hold_clots_nothing_and_banks_everything() -> bool:
 	var w: Variant = _world()
 	_deep_wound(w, w.player)
 	var full: int = int(SimWounds.PRESSURE_TICKS[SimWounds.Severity.DeepWound])
@@ -202,7 +205,47 @@ func _a_hold_broken_early_buys_nothing() -> bool:
 	if after <= before:
 		push_error("the wound stopped bleeding after an aborted hold: %.4f -> %.4f" % [before, after])
 		return false
-	print("ABORTED HOLD OK released at %d/%d, still bleeding, %.4f -> %.4f over 200 more ticks" % [full - 1, full, before, after])
+
+	# R8, and the effect rather than the field: the next press on this part must be short, and it
+	# must finish. `full - 1` was already served, so what is left is one tick, floored -- and one
+	# tick later the wound is clotted for good, which is the only observable that matters.
+	var resumed: Dictionary = SimTreatment.begin(w, w.player, w.player, PART, "pressure")
+	if not bool(resumed.get("ok", false)):
+		push_error("a press could not be resumed on the banked wound: %s" % str(resumed.get("reason", "")))
+		return false
+	var remaining: int = int(resumed.get("ticks", 0))
+	if remaining > 2:
+		push_error("the resumed press asked for %d of %d ticks -- %d were already served and banked" % [remaining, full, full - 1])
+		return false
+	_run_ticks(w, remaining)
+	var banked_end: float = _blood(w, w.player)
+	_run_ticks(w, 200)
+	if _blood(w, w.player) != banked_end:
+		push_error("the resumed press did not clot: %.4f -> %.4f over 200 ticks after it finished" % [banked_end, _blood(w, w.player)])
+		return false
+
+	# The true negative, and the one that stops R8 from making pressure free: the same wound, the
+	# same released hold, but ended by a stagger. R3 keeps nothing, so the next press pays in full.
+	var lost: Variant = _world()
+	_deep_wound(lost, lost.player)
+	SimTreatment.begin(lost, lost.player, lost.player, PART, "pressure")
+	# Two short, not one: events.publish only queues and handlers run at drain, at the END of
+	# world.step(), by which point treatment.channel has already ticked. A stagger arriving on the
+	# tick a hold completes is genuinely too late to stop it -- the same reason the DURABILITY
+	# assertion below counts the same way.
+	_run_ticks(lost, full - 2)
+	lost.events.publish({"type": "entity.staggered", "entity": lost.player})
+	lost.step()
+	if lost.components.has_component(lost.player, "treatment"):
+		push_error("the stagger control did not end its channel, so it is not a control")
+		return false
+	var from_cold: Dictionary = SimTreatment.begin(lost, lost.player, lost.player, PART, "pressure")
+	if int(from_cold.get("ticks", 0)) != full:
+		push_error("a press ended by a stagger banked %d ticks -- R3 keeps nothing" % (full - int(from_cold.get("ticks", 0))))
+		return false
+	print("ABORTED HOLD OK released at %d/%d, still bleeding, %.4f -> %.4f over 200 more ticks; the resumed press asked %d ticks and clotted, and the stagger control paid the full %d" % [
+		full - 1, full, before, after, remaining, int(from_cold.get("ticks", 0)),
+	])
 	return true
 
 

@@ -20,6 +20,8 @@ const SimScreamer = preload("res://sim/modules/screamer.gd")
 const SimBloater = preload("res://sim/modules/bloater.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimLoot = preload("res://sim/loot.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
@@ -37,13 +39,6 @@ const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
 const WANDERERS: int = 12
 
-const RESIDENTIAL_KITS: Array = [
-	["item.knife.kitchen", "item.bandage.cloth", "item.painkillers.blister", "item.bow.hunting", "item.ammo.arrow"],
-	["item.bat.aluminium", "item.bandage.cloth", "item.food.canned", "item.food.raw"],
-	["item.spear.improvised", "item.bandage.cloth", "item.water.bottle"],
-	["item.axe.fire", "item.bandage.cloth", "item.scrap.metal"],
-]
-const MILITARY_KIT: Array = ["item.pistol.service", "item.ammo.9mm", "item.wrap.cloth", "item.vest.scrap"]
 
 # Last world that called attach_kernel. Headless gates boot one world at a time.
 static var _KERNEL_WORLD: Variant = null
@@ -102,6 +97,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimInventory.register_module(world)
 	SimItems.register_module(world)
 	SimFortify.register_module(world)
+	SimContainers.register_module(world)
 	SimDirector.register_module(world)
 	SimNeeds.register_module(world)
 	SimJobs.register_module(world)
@@ -116,29 +112,42 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimFieldMemory.register_module(world)
 
 
+# Scatters each of the map's loot sites from the content table its `table` names, per docs/12:
+# "Resources, location loot tables, and spoilage rules are JSON. A loot table declares location
+# type, resource weights, tier weights, and quantity ranges." This used to be two hardcoded kits
+# in this file -- a fixed list per site, cycled round-robin -- which meant rebalancing the economy
+# was a code edit and adding a location type was a new branch, both of which docs/12 says are
+# supposed to be data passes. Same shape as the appearance move: what a place yields is content.
+#
+# Every roll comes off a dedicated `lootTable` stream rather than the `loot` stream
+# stream SimItems.spawn_item draws tiers from. New randomness gets its own stream: sharing one
+# would have every table roll shift the tier sequence for everything spawned afterwards, which is
+# a determinism footgun for anything that measures across a change to this table.
 static func place_loot(world: Variant, patch: Dictionary) -> void:
 	var loot: Array = patch.get("loot", []) as Array
-	var res_i: int = 0
+	var rng: Variant = SimLoot.stream(world)
 	for entry in loot:
 		var e: Dictionary = entry as Dictionary
 		var tile: Dictionary = e.get("tile", {}) as Dictionary
-		var table: String = String(e.get("table", "residential"))
+		var location: String = String(e.get("table", "residential"))
+		var table: Variant = SimLoot.table_for(world, location)
+		if not (table is Dictionary):
+			# Loud, not silent: a map naming a table that does not exist would otherwise place an
+			# empty site and read as a stingy seed. check_loot.gd asserts every shipped map's
+			# tables resolve, so reaching this in a gate run is a content bug.
+			push_error("boot: map loot site names unknown table \"%s\"" % location)
+			continue
 		var x: float = float(tile.get("x", 0)) + 0.5
 		var y: float = float(tile.get("y", 0)) + 0.5
-		var kit: Array = MILITARY_KIT
-		if table == "residential":
-			kit = RESIDENTIAL_KITS[res_i % RESIDENTIAL_KITS.size()] as Array
-			res_i += 1
-		var ox: float = 0.0
-		for item_id in kit:
-			var opts: Dictionary = {"tier": "scavenged"}
-			if String(item_id) == "item.ammo.arrow":
-				opts["count"] = 12
-			elif String(item_id) == "item.ammo.9mm":
-				opts["count"] = 20
-			var item: int = SimItems.spawn_item(world, String(item_id), opts)
-			world.components.set_component(item, "position", {"x": x + ox, "y": y})
-			ox += 0.4
+		# A site with a `container` is not scattered at boot -- it stands there holding its table
+		# until somebody opens it. Same table, same roller, rolled later; that is the whole of the
+		# difference, and it is what makes a searched cupboard finite rather than a respawn timer
+		# (docs/12 puts respawn on the cut list).
+		var kind: String = String(e.get("container", ""))
+		if kind != "":
+			SimContainers.make_container(world, x, y, kind, location)
+			continue
+		SimLoot.scatter(world, table as Dictionary, rng, x, y)
 
 
 static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:

@@ -879,10 +879,94 @@ to be a one-line change, because a hold and a channel had been mutually exclusiv
   or sheds the holder. Measured across four seeds, neither happened once — presses completed went
   from 25/9/26 to zero — while grabs and bites fell by about a third. Fewer holds, no clotting, and
   the net on survival was negative. The rule stands because the alternative was measured to be worse
-  for the lever it blocks, not because it made the colony live; `GRABS_ENABLED` stays `false`, and
-  docs/23 carries the seed-by-seed numbers and the three named residuals — chief among them that a
-  break-away released against a wall covers 0.010 m per tick rather than 0.105, because its heading
-  is taken once and `movement.integrate` zeroes a blocked axis.
+  for the lever it blocks, not because it made the colony live.
+- **A break-away's heading is a preference, not a commitment.** The residual the inversion left
+  behind was a locomotion bug wearing a design call's clothes. `_break_away` pointed *straight*
+  away from the holder and committed; a colony is grabbed where a colony lives, which is against
+  the annex walls, so it pointed into masonry and `_integrate_movement` zeroed a blocked axis — 86%
+  of break-away ticks blocked on both axes on seed 404, 0.010 m covered per tick against a nominal
+  0.105. It now fans out from straight-away and takes the nearest heading with a clear run, which
+  keeps everything the shove-off was (one heading, taken once, no per-tick re-derive, no RNG, no
+  pursuit solver) and changes only which one. Ground per tick went to 0.104, and 90210 became the
+  first hard seed to stop wiping. The negative in AWAY-CLEAR is the load-bearing half: in open
+  field the committed heading must still be straight-away *exactly*, so the fan cannot quietly
+  re-aim every escape in the game.
+- **R8 reverses "a partial press buys nothing", and the reversal is the same discipline that
+  produced R5.** The original rule was deliberate and is quoted in `check_m2_treatment.gd`'s
+  header: pressure was worth nothing until finished, and the assertion existed specifically to
+  fail if a partial hold ever banked. R5's inversion is what made it untenable — once the escape
+  cancels the press, a 400-tick deep-wound press has no reachable completion path while holds
+  arrive every ~50 ticks, and the harness measured exactly that: 126 presses begun and **zero**
+  completed across ten compressed days of 404, all three deaths blood loss. R8 banks the served
+  ticks **on the wound**, not on the presser, so whoever picks the press up next inherits it; a
+  medic finishing what the patient started with their own hand is the same wound getting the same
+  total pressure, and the sim has no reason to care whose palm it was. Two exceptions carry the
+  cost: a **stagger** banks nothing (R3 already singles it out as the one thing that takes your
+  hand off your own arm, and this is what makes that rule mean something), and **bandaging never
+  banks** (a dressing is applied, not accumulated, and it spends a supply at completion). The bank
+  does not decay — pressure that has been held is progress toward a clot, and a decay clock would
+  be a second timer nothing else in the module has — but it is cleared at completion and at
+  `SimWounds.reopen`, because a wound torn back open is not the wound that was pressed.
+- **What is still between the loop and the flip.** Both changes above are net positive and
+  measured, and neither is enough. `GRABS_ENABLED` stays `false` because seed 404 still ends `0/2`;
+  docs/23 carries the seed-by-seed numbers. What is left is no longer a bug but the shape of the
+  colony: a two-person colony spread across a district cannot answer the contact rate the district
+  produces. The "rescue can never reach" finding was **re-measured rather than repeated**, and it
+  has partly dissolved — with escapees covering ground, a free colonist now comes within
+  `RESCUE_METRES` for 135 ticks on 90210 and 18 on 31337, where nothing came inside 6 m before. On
+  404 it still never does. That is a call about how the slice seats its people, not another lever
+  in the contact loop.
+
+## What a place yields is content, not code
+
+- **Loot tables moved out of `boot.gd`, for the same reason appearance moved out of the draw
+  loop.** docs/12 already said resources, location loot tables and spoilage rules are JSON, and
+  that "rebalancing the whole economy is a data pass with no code change" — while the code had two
+  `const` arrays, `RESIDENTIAL_KITS` cycled round-robin and a single `MILITARY_KIT`, with the ammo
+  counts as an `if` on the item id inside the placement loop. Adding a location type was a new
+  branch. It is now `content/loot/tables.json` against `loot.schema.json`, and adding a school or
+  a marina is one entry plus map tagging.
+- **The tier is a property of the place.** `tierWeights` per table replaces `SimItems.roll_tier`'s
+  global distribution for placed loot, which is what makes docs/12's risk gradient mean anything:
+  a military cache rolls 1.000 above `scavenged`, a house 0.141, and a table declaring no weights
+  falls back to the global 0.304 — the three measured in `TIER-BY-PLACE`, where the fallback
+  sitting *between* the other two is what proves the counter is reading the weights rather than
+  the seed.
+- **New randomness gets its own stream.** Table rolls draw from `lootTable`, not the `loot` stream
+  `SimItems.spawn_item` takes tiers from. Sharing one would make every table edit shift the tier
+  sequence for everything spawned afterwards, which is a determinism footgun for anything
+  measuring across such a change.
+- **The gate exists because the validator is shallow, and it paid for itself on the first run.**
+  `content_validator.gd` checks top-level types and rejects unexpected top-level keys; it does not
+  recurse, so nothing inside `entries`, `rolls` or `tierWeights` is schema-enforced — the same hole
+  a wrong key sat in inside `item.wrap.cloth`'s armor block for weeks. `check_loot.gd` found three
+  things nobody was looking for on its first run: `_roll_range` passed `hi + 1` to an `int_range`
+  that is inclusive on **both** ends and so rolled one over every declared maximum; and the siting
+  check, run against a 64-tile test map, reported the district's far half as masonry, which is
+  `world.is_blocked_tile` treating out-of-bounds as blocked and the reason that assertion now boots
+  at `SimTileMap.DISTRICT_TILES`. Both are in the gate as pinned behaviour rather than as a fix
+  somebody has to remember.
+
+- **A container is a loot site rolled late, and that is the whole of the difference.** Rather than
+  a second content type with its own table shape, a map site that declares `container` stands a
+  `searchable` holding the same table instead of scattering it. One roller (`sim/loot.gd`, extracted
+  from `boot.gd` precisely so the two callers cannot drift), one `lootTable` stream, one
+  distribution — a player who walks into a room of loose tins and one who opens the cupboard those
+  tins were in are drawing from the same table.
+- **Site depletion is a flag that nothing clears, and that is deliberate.** docs/12 puts resource
+  respawn timers on the cut list because they "would defuse the expanding-radius pressure, which is
+  load-bearing", so `searched` is set once and there is no timer, counter, or refill path to find.
+  The two "nothing"s are kept distinct — `nothing-here` against `already-searched` — because they
+  mean completely different things to somebody deciding whether a building is worth the walk.
+- **Searching is instant, not a channel.** `fortify.gd`'s channel machinery was right there and was
+  not used: a channel exists for things you can be interrupted out of, and the risk in a scavenging
+  run is the walk there and the noise on the way back, not a progress bar in an empty room. Recorded
+  rather than left as an omission, with fortify named as the template if it ever needs to change.
+- **A container is announced, not drawn.** It has a `position` and no renderer path, the same as
+  beds and campfires, so what the player gets is `SimContainers.hud_clause` in the HUD — prose, no
+  digits, and it never says how much came out. That is the standing scarcity ban doing its job
+  rather than a placeholder, but the missing sprite is the Art track's open prop renderer and
+  docs/23 says so rather than letting it read as finished.
 
 ## What the top-down reversal made structural
 
