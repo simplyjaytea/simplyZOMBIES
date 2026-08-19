@@ -24,8 +24,10 @@ func _run() -> void:
 	ok = _arguments_spread_misery_and_stop_short_of_a_spiral() and ok
 	ok = _food_is_content_and_says_the_same_thing_the_table_did() and ok
 	ok = _raw_and_spoiled_food_carry_illness_risk() and ok
+	ok = _a_death_costs_the_living() and ok
+	ok = _grief_is_charged_once_and_drains_away() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -567,4 +569,163 @@ func _raw_and_spoiled_food_carry_illness_risk() -> bool:
 	print("ILLNESS OK raw %.3f, spoiled %.3f, cooked %.3f over %d meals each; the bout slows work and costs mood, then passes and restores both" % [
 		raw, spoiled, cooked, MEALS,
 	])
+	return true
+
+
+# --- grief (docs/04, docs/23's death-and-succession item) ---------------------------------------
+#
+# "The colony morale hit on a death." Two magnitudes, because docs/04 lists "grief" and
+# "witnessing a death" separately, and witnessing only became answerable for a colonist when every
+# survivor got eyes.
+
+func _mara(w: Variant) -> int:
+	for ent in w.components.query(["identity"]):
+		var ident: Variant = w.components.get_component(int(ent), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.mara":
+			return int(ent)
+	return -1
+
+
+# Kills through the ordinary damage path so health.gd publishes the real event, position and all.
+func _kill(w: Variant, victim: int) -> void:
+	w.events.publish({"type": "attack.connected", "attacker": -1, "target": victim, "bodyPart": "head", "damage": 999.0})
+	w.step()
+	w.step()
+
+
+func _a_death_costs_the_living() -> bool:
+	var seen: Variant = _world()
+	var mara: int = _mara(seen)
+	if mara < 0:
+		push_error("GRIEF: no Mara to lose")
+		return false
+	# Standing next to the player, in daylight, in plain view.
+	var here: Dictionary = seen.components.get_component(seen.player, "position") as Dictionary
+	seen.components.set_component(mara, "position", {"x": float(here["x"]) + 1.5, "y": float(here["y"])})
+	seen.step()
+	var before: float = float(seen.modifiers.call("resolve", "mood", seen.player))
+	if SimNeeds.grief_of(seen, seen.player) != 0.0:
+		push_error("GRIEF: the player was already grieving before anybody died")
+		return false
+	_kill(seen, mara)
+	var witnessed: float = SimNeeds.grief_of(seen, seen.player)
+	var after: float = float(seen.modifiers.call("resolve", "mood", seen.player))
+
+	# The same death, out of sight. 48 m is the daylight eye; the far corner of a 64 m map is not
+	# somewhere the player can see.
+	var unseen: Variant = _world()
+	var mara2: int = _mara(unseen)
+	unseen.components.set_component(mara2, "position", {"x": 3.5, "y": 3.5})
+	unseen.step()
+	_kill(unseen, mara2)
+	var heard: float = SimNeeds.grief_of(unseen, unseen.player)
+
+	# A shambler dying is not a bereavement. Without this the whole thing would pass for a handler
+	# that grieved every `entity.killed` in the district, which is most of them.
+	var zeds: Variant = _world()
+	var zed: int = -1
+	for ent in zeds.components.query(["shambler", "body"]):
+		zed = int(ent)
+		break
+	if zed < 0:
+		push_error("GRIEF: no shambler in the district to not mourn")
+		return false
+	_kill(zeds, zed)
+	if SimNeeds.grief_of(zeds, zeds.player) != 0.0:
+		push_error("GRIEF: the colony mourned a shambler")
+		return false
+
+	if witnessed <= 0.0 or heard <= 0.0:
+		push_error("GRIEF: a death cost nothing (witnessed %.2f, heard %.2f)" % [witnessed, heard])
+		return false
+	if witnessed <= heard:
+		push_error("GRIEF: watching it happen is no worse than hearing about it (%.2f vs %.2f)" % [witnessed, heard])
+		return false
+	if after >= before:
+		push_error("GRIEF: mood did not fall (%.2f -> %.2f)" % [before, after])
+		return false
+
+	# A put-down costs more than the same death otherwise -- docs/06's response #5 having a price.
+	var ours: Variant = _world()
+	var mara3: int = _mara(ours)
+	ours.components.set_component(mara3, "position", {"x": 3.5, "y": 3.5})
+	ours.step()
+	ours.events.publish({"type": "survivor.putDown", "entity": mara3})
+	ours.step()
+	_kill(ours, mara3)
+	var by_us: float = SimNeeds.grief_of(ours, ours.player)
+	if by_us <= heard:
+		push_error("GRIEF: doing it ourselves cost no more than it happening (%.2f vs %.2f)" % [by_us, heard])
+		return false
+
+	# The cap. The preload stands in for the deaths that came before this one; what is under test
+	# is that the clamp holds when the next one lands.
+	var many: Variant = _world()
+	var mara4: int = _mara(many)
+	var n: Dictionary = SimNeeds.of(many, many.player)
+	n["grief"] = SimNeeds.GRIEF_CAP - 1.0
+	many.components.set_component(mara4, "position", {"x": float(here["x"]) + 1.5, "y": float(here["y"])})
+	many.step()
+	_kill(many, mara4)
+	var capped: float = SimNeeds.grief_of(many, many.player)
+	if capped > SimNeeds.GRIEF_CAP + 0.001:
+		push_error("GRIEF: grief ran past the cap (%.2f > %.2f)" % [capped, SimNeeds.GRIEF_CAP])
+		return false
+	if capped <= SimNeeds.GRIEF_CAP - 1.0:
+		push_error("GRIEF: the capped case did not accumulate at all (%.2f)" % capped)
+		return false
+
+	var clause: String = SimNeeds.hud_clause(seen, seen.player)
+	if not clause.contains("shaken"):
+		push_error("GRIEF: the HUD says nothing about it ('%s')" % clause)
+		return false
+	print("GRIEF OK witnessed %.2f, heard %.2f, put down %.2f, capped %.2f, mood %.1f -> %.1f, hud '%s'" % [witnessed, heard, by_us, capped, before, after, clause])
+	return true
+
+
+func _grief_is_charged_once_and_drains_away() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var here: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	w.components.set_component(mara, "position", {"x": float(here["x"]) + 1.5, "y": float(here["y"])})
+	w.step()
+	_kill(w, mara)
+	var once: float = SimNeeds.grief_of(w, w.player)
+
+	# CLAUDE.md: `entity.killed` fires more than once for the same individual -- health.gd on a
+	# destroyed head, infection.gd on a put-down and again on turning. Republishing it is exactly
+	# what the sim does, and charging the colony twice for one funeral is the bug this asserts
+	# against.
+	for _i in 2:
+		w.events.publish({"type": "entity.killed", "entity": mara, "x": float(here["x"]) + 1.5, "y": float(here["y"])})
+		w.step()
+	var twice: float = SimNeeds.grief_of(w, w.player)
+	if twice > once + 0.001:
+		push_error("ONCE: three killed events charged more than one death (%.2f -> %.2f)" % [once, twice])
+		return false
+
+	# And it drains. Long enough to be unambiguous, short enough that the gate stays a gate: the
+	# decay is per mood tick, so this is the arithmetic rather than a wait for the full thirteen
+	# in-game hours a full load takes to clear.
+	var start: float = SimNeeds.grief_of(w, w.player)
+	for _i in 400:
+		w.step()
+	var later: float = SimNeeds.grief_of(w, w.player)
+	if later >= start:
+		push_error("DECAY: grief did not drain (%.4f -> %.4f)" % [start, later])
+		return false
+	var expected: float = start - SimNeeds.GRIEF_DECAY * 20.0
+	if absf(later - expected) > 0.01:
+		push_error("DECAY: grief drained %.4f over 400 ticks, expected %.4f" % [start - later, start - expected])
+		return false
+
+	# All the way to nothing, and the modifier goes with it.
+	var n: Dictionary = SimNeeds.of(w, w.player)
+	n["grief"] = SimNeeds.GRIEF_DECAY * 2.0
+	for _i in 80:
+		w.step()
+	if SimNeeds.grief_of(w, w.player) != 0.0:
+		push_error("CLEARED: grief stopped short of zero (%.4f)" % SimNeeds.grief_of(w, w.player))
+		return false
+	print("ONCE OK one funeral charged once (%.2f), decays %.4f -> %.4f and clears" % [once, start, later])
 	return true
