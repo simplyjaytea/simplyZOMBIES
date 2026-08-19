@@ -139,6 +139,13 @@ static func _all_entries(world: Variant, type_id: String) -> Array:
 				out.append_array(by_id as Array)
 	return out
 
+# Every loaded entry of a content type, in id order. `_all_entries` with a name a caller outside
+# this file can say: check_m2_attach.gd asks "does any shipped base declare the slot this
+# attachment fits", which is a question only the whole content tree can answer.
+static func content_entries(world: Variant, type_id: String) -> Array:
+	return _all_entries(world, type_id)
+
+
 static func item_base_of(world: Variant, item: int) -> Variant:
 	var b: Variant = world.components.get_component(item, "itemBase")
 	if b == null:
@@ -217,7 +224,7 @@ static func apply_wear(world: Variant, item: int, amount: float = WEAR_PER_HIT) 
 		if Inv != null:
 			Inv.call("unequip_item", world, item)
 		return
-	_refresh_armed(world, item)
+	refresh_armed(world, item)
 
 
 static func repair_item(world: Variant, item: int) -> bool:
@@ -231,12 +238,16 @@ static func repair_item(world: Variant, item: int) -> bool:
 	ceil = maxf(REPAIR_CEILING_FLOOR, ceil - REPAIR_CEILING_DROP)
 	(c as Dictionary)["ceiling"] = ceil
 	(c as Dictionary)["current"] = minf(ceil, cur + REPAIR_GAIN)
-	_refresh_armed(world, item)
+	refresh_armed(world, item)
 	world.events.publish({"type": "item.repaired", "item": item})
 	return true
 
 
-static func _refresh_armed(world: Variant, item: int) -> void:
+# Rebuilds the weapon profile of anybody holding this item, after something about the item has
+# changed -- wear, a repair, an affix edit, an attachment fitted or taken off. Public because
+# attachments.gd is the fourth caller and a fourth private-by-convention reach-in would be worse
+# than naming it.
+static func refresh_armed(world: Variant, item: int) -> void:
 	for actor in world.components.query(["equipment"]):
 		var eq: Variant = world.components.get_component(int(actor), "equipment")
 		if not eq is Dictionary:
@@ -289,6 +300,12 @@ static func register_module(world: Variant) -> void:
 			apply_wear(world, weapon)
 	})
 
+# Loaded lazily rather than preloaded: attachments.gd preloads *this* file, and a preload cycle
+# in GDScript is a parse error rather than something the engine resolves.
+static func _Attachments() -> GDScript:
+	return load("res://sim/modules/attachments.gd") as GDScript
+
+
 static func melee_profile_of(world: Variant, item: int) -> Variant:
 	var base: Variant = item_base_of(world, item)
 	if base == null:
@@ -302,7 +319,7 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 			return float(world.modifiers.call("resolve", stat, item))
 		return 1.0
 	var m: Dictionary = melee as Dictionary
-	return {
+	var profile: Dictionary = {
 		"reachMetres": float(m.get("reachMetres", 1.4)) * resolve.call("melee_reach"),
 		"weight": float(m.get("weight", 1.0)),
 		"damage": float(m.get("damage", 11)) * resolve.call("melee_damage") * wear,
@@ -311,6 +328,7 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 		"recovery": resolve.call("swing_recovery"),
 		"stamina": resolve.call("swing_stamina"),
 	}
+	return _Attachments().call("fold", world, item, "melee", profile)
 
 static func ranged_profile_of(world: Variant, item: int) -> Variant:
 	var base: Variant = item_base_of(world, item)
@@ -322,10 +340,10 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 	var wear: float = condition_factor(world, item)
 	var r: Dictionary = ranged as Dictionary
 	var jams: bool = bool(r.get("jams", false))
-	return {
+	var profile: Dictionary = {
 		"damage": float(r.get("damage", 12)) * wear,
 		# docs/09: "degraded firearms jam". Derived here rather than at the trigger so it rides
-		# _refresh_armed -- apply_wear merges this profile into the live weapon on every hit, so a
+		# refresh_armed -- apply_wear merges this profile into the live weapon on every hit, so a
 		# jam chance computed here tracks a degrading weapon without anything else remembering to
 		# recompute it. Bows and crossbows declare no `jams` and so never jam, which is the whole
 		# reason it is a content flag: docs/09 and docs/11's Gun Oil both say *firearms*.
@@ -338,7 +356,13 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		"magSize": int(r.get("magSize", 0)),
 		"reloadTicks": int(r.get("reloadTicks", 24)),
 		"rangeMetres": float(r.get("rangeMetres", 30)),
+		# An accuracy multiplier carried by the weapon rather than by the person. An optic is a
+		# property of the gun, and `ranged_accuracy` -- the stat an affix or a trait moves --
+		# resolves on the *entity*, so a scope with nothing in it was the wrong place to put one.
+		# `ranged.gd:_refresh_cone` folds this in with everything else that decides sway.
+		"cone": 1.0,
 	}
+	return _Attachments().call("fold", world, item, "ranged", profile)
 
 # ---- affixes ----
 
@@ -472,7 +496,7 @@ static func reapply_affix_modifiers(world: Variant, item: int) -> void:
 		world.modifiers.remove_by_source(String((entry as Dictionary).get("id", "")), item)
 	for mod in affix_modifiers(world, item):
 		world.modifiers.add(mod as Dictionary, item)
-	_refresh_armed(world, item)
+	refresh_armed(world, item)
 
 
 static func item_name(world: Variant, item: int) -> String:

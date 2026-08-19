@@ -78,8 +78,12 @@ static func _refresh_cone(world: Variant, entity: int, r: Dictionary) -> void:
 	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
 		var acc: float = float(world.modifiers.call("resolve", "ranged_accuracy", entity))
 		if acc > 0.0:
-			half = clampf(half / acc, TIGHT_HALF * 0.75, WIDE_HALF)
-	r["coneHalf"] = half
+			half = half / acc
+	# What is bolted to the weapon, after what is true of the person holding it. An optic tightens
+	# this and a suppressor widens it -- docs/09 charges accuracy for the quiet branch -- and it is
+	# a property of the gun, which is why it rides the profile rather than the entity's stats.
+	half = half * float(r.get("cone", 1.0))
+	r["coneHalf"] = clampf(half, TIGHT_HALF * 0.75, WIDE_HALF)
 
 
 static func register_module(world: Variant) -> void:

@@ -23,7 +23,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.9,
     "equipSlot": "secondary",
-    "slots": ["barrel", "magazine"],
+    "slots": ["optic", "barrel", "magazine", "furniture"],
     "ranged": {
       "damage": 18,
       "noise": 180,
