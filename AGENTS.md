@@ -1,7 +1,8 @@
 # AGENTS.md
 
-Environment and tooling. `CLAUDE.md` covers what the project *is* and what must not be broken —
-read that one for the standing bans, the conventions, and the traps.
+Environment and tooling. `CLAUDE.md` covers what the project *is*, how a unit of work runs, and
+what must not be broken — read that one for the workflow, the standing bans, the conventions, and
+the traps.
 
 This repo is the game **simplyZOMBIES**.
 
@@ -19,75 +20,24 @@ use those as the source of truth.
 
 ## Current work
 
-[docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) is the authority
-on implemented reality — each claim there names the gate that proves it. (`HANDOFF.md` was retired
-into it; the itemised backlog history is in git.) The active design record is
-`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is **not** implementation evidence.
-`CONTEXT.md` holds the slice vocabulary — what to call needs, jobs, stances, and their states — so
-prose and code stay in one language.
+This file does not carry status — a copy of it here drifted while docs/23 moved on, which is
+exactly the failure the project keeps re-learning. The pointers:
 
-- Pause new NPCs and adjacent feature scope. Mara remains the sole test survivor.
-- **The survival loop is built and switched off.** Wounds carry a severity and bleed
-  (`M2_WOUNDS_OK`), pressure and bandaging stop them and the five infection verbs are reachable
-  by command (`M2_TREATMENT_OK`), and recovery closes wounds and climbs integrity back
-  (`M2_RECOVERY_OK`). `SimShambler.GRABS_ENABLED` is still `false`, so nothing wounds a survivor
-  in ordinary play.
-- **Bite lethality during a hold has been answered; the flip has not.** All four levers landed
-  together — held-bite hit weights (head 0.05 against a free swing's 0.20), `REPEAT_BITE_TICKS`
-  40 → 80, part-scaled bite damage `maxf(2.0, minf(BITE_DAMAGE, 0.35 × part max))`, and a sooner,
-  cheaper struggle — and `M2_CONTACT_OK` grew HELD-AIM and BITE-SCALE to hold them.
-- **Colony agency has been answered too.** A held survivor nobody is answering for struggles on
-  instinct after `STRUGGLE_INSTINCT_TICKS`, with F still faster and still resetting the clock
-  (INSTINCT in `M2_CONTACT_OK`); a kit weapon is equipped rather than packed, so nobody boots
-  unarmed (`SimSurvivors._hold_it`, ARMED in `M2_BALANCE_OK`); and `npc.combat` prefers a shambler
-  that is holding someone (HOLDER in `M2_NPC_COMBAT_OK`). The shipped fast tier records the
-  colony's first kills at all as a result — 6 on seed 404, 1 on 90210.
-- **The price of an escape has been answered too.** Stamina recovers while held — `health.recover`
-  ignores the recovery delay for a `grabbed` body and `world.gd` stops charging that body the
-  posture drain, without which the first half does nothing (REGEN-HELD in `M2_CONTACT_OK`) — and a
-  free survivor can break somebody else's hold: `SimShambler.try_begin_rescue`, the `H` key, the
-  separate `shambler.rescue-intake` system, a rescue-first branch in `npc.combat`, and the new
-  `grab.broken {victim, by, cause}` event (RESCUE and BROKEN in `M2_CONTACT_OK`, RESCUE-FIRST in
-  `M2_NPC_COMBAT_OK`). Empty-tank ticks fell 38.3% → 13.3% on seed 404 and 48.9% → 0.0% on 90210.
-- **Aid while held has been answered too.** `treatment._can_channel` grants a `grabbed` body exactly
-  one channel — `pressure` on yourself — under seven arbitration rules written out at the top of
-  `treatment.gd` (R1–R7: the exemption at begin and per tick, `grab.started` sparing only the
-  victim's own press, a stagger still cancelling everything, struggle and press coexisting,
-  `grab.broken` cancelling only the victim's own press, self-aid deferring during a break-away, and
-  `context()` forcing `pressure` while held). AID-HELD and HELD-CONTEXT in `M2_TREATMENT_OK`;
-  PRESS-THROUGH, STRUGGLE-DURING-PRESS, FLIGHT-CANCELS-PRESS and BREAKAWAY-DEFER in
-  `M2_CONTACT_OK`.
-- **The re-grab treadmill was a speed bug, and is fixed.** Both bodies are pinned during a hold, so
-  a release starts inside `GRAB_METRES`, and `BREAK_AWAY_SPEED` 1.6 lost ground to the 1.68 seek —
-  the gap *shrank* across the cooldown. Now 2.1, pinned against the seek by CLEAR-AWAY in
-  `M2_CONTACT_OK`. Same file, same slice: `_gather_survivors` skips `corpse` carriers, because
-  `identity` survives `_make_corpse` and shamblers were grabbing the dead (CORPSE).
-- **R5 has been inverted, and the flag is still off.** R5 used to say a running press outranked a
-  break-away, which cancelled the churn fix for exactly the survivors using the aid. It now says the
-  opposite — `treatment.escape-releases-press` ends the victim's own self-pressure when
-  `grab.broken` names them, and only that, R2's exact mirror. Measured on four seeds with grabs
-  forced on: grabs 214 → 150 and 212 → 166, bites 136 → 88 and 122 → 65, and re-grab windows longer
-  than the cooldown appear at all. It costs the clotting — presses completed go 25/9/26 → **zero**
-  on every seed, because a press cancelled at every escape banks nothing — and 404 and 90210 still
-  end `0/2` by blood loss.
-- **The next step is still a design decision, not code, and the residual is now measured.** A
-  break-away released against a wall does not move: over three days of seed 404 the committed escape
-  heading is blocked on both axes on 86% of `breakAway` ticks, and the body covers 0.010 m per tick
-  against a nominal 0.105, because `_break_away` takes its heading once and `movement.integrate`
-  zeroes a blocked axis. The candidates — give a break-away somewhere to go, let a press bank its
-  progress, or cut contact rarity — are all design calls. **Do not pick an answer unilaterally**,
-  and note that relaxing `survivors_end >= 1` has been considered and rejected — see the full
-  measurement in docs/23's Milestone 2 status section and the "Where the work is" section of
-  `CLAUDE.md`.
-- Do not mark any survival item done until code and a focused Godot check exist. The full balance
-  grid and ten-day playtest remain required proof, deferred rather than cancelled.
-- Keep effects sim-owned and command-driven; preserve sim/presentation separation and the
-  health-bar ban. Player readouts stay diegetic and prose-only.
-
-This section used to say the loop was "being specified before code" and that a reproducible
-72-hour scenario had to be written before any survival behaviour landed. Five slices went in
-without it, each gated instead by a focused Godot check with true negatives. The scenario is still
-worth having; it was not the thing that made the work verifiable.
+- [docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) is the
+  authority on implemented reality — each claim there names the gate that proves it. Its
+  [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) section names every open piece as a
+  small named item, and [the record, by system](docs/23-roadmap.md#the-record-by-system) holds the
+  evidence for what landed.
+- `CLAUDE.md`'s **workflow** section is how a unit of work runs, start to finish; its "Where the
+  work is" section carries the three state facts worth repeating (the switched-off survival loop,
+  the top-down presentation track, the dead-socket pattern).
+- `HANDOFF.md` names what is waiting on the owner. Those items — the `GRABS_ENABLED` flip, the
+  colony-shape call it waits on, sepsis lethality, the art-style pick — are **decisions, never
+  picked unilaterally**.
+- The active design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is
+  **not** implementation evidence. `CONTEXT.md` holds the slice vocabulary — what to call needs,
+  jobs, stances, and their states — so prose and code stay in one language.
+- New NPCs and adjacent feature scope stay paused; **Mara remains the sole test survivor.**
 
 ## Two different containers, two different starting states
 
