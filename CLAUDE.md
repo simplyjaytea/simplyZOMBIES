@@ -103,8 +103,9 @@ a focused Godot check prove it.
 
 **A second, independent track just landed: the presentation is flat top-down now, not
 isometric.** `docs/00-vision.md` carries the reversal, `docs/30-decisions.md` what it made
-structural, and [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)'s Art
-bullet has the detail and the ordered next steps. It touched nothing under `godot/sim/` and
+structural, [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)'s Art bullet
+the detail, and [what's left](docs/23-roadmap.md#whats-left-in-milestone-2)'s art entries the
+ordered next steps. It touched nothing under `godot/sim/` and
 nothing below is affected by it — the two tracks are unrelated except that both gate on
 `npm run godot:m2`.
 
@@ -157,17 +158,24 @@ gate). And the re-grab treadmill turned out to be a speed bug — `BREAK_AWAY_SP
 them, and only that. R2 is its exact mirror and is untouched — a second holder arriving never takes
 your palm off your own wound; only becoming fully free does.
 
-**The flag is still `false`, and reason six is where it stands.** The inversion does what it was
-picked to do: grabs fall 214 → 150 and 212 → 166 on the two hard seeds, bites 136 → 88 and 122 → 65,
+**The flag is still `false`; reason six, and what has since answered it, follow.** The inversion
+does what it was picked to do: grabs fall 214 → 150 and 212 → 166 on the two hard seeds, bites 136 → 88 and 122 → 65,
 and re-grab windows longer than the cooldown appear at all. It costs the thing the aid bought —
 **presses completed go from 25/9/26 to zero on every seed**, because a press cancelled at every
 escape banks nothing — and 404 and 90210 still end `0/2` by blood loss. The residual is measured, not
 guessed: **a break-away released against a wall does not move.** Over three days of seed 404, the
 committed escape heading is blocked on both axes on 86% of `breakAway` ticks, and the body covers
 0.010 m per tick against a nominal 0.105, because `_break_away` takes its direction once and
-`movement.integrate` zeroes a blocked axis. The candidates from here — give a break-away somewhere to
-go, let a press bank its progress, or cut contact rarity — are design calls, so **do not pick one
-unilaterally**, and relaxing `survivors_end >= 1` has been considered and rejected.
+`movement.integrate` zeroes a blocked axis. Two of the candidates from there were owner-picked and
+have since landed: a break-away now fans for a clear heading instead of leaning on the wall it was
+released against (AWAY-CLEAR — 90210 stops wiping, escapes cover 0.104 m/tick against nominal
+0.105), and a press banks the ticks it has already served on the wound itself (R8,
+`_a_partial_hold_clots_nothing_and_banks_everything` — ~11 cancelled presses compose into one clot,
+both hard seeds live ~23% longer). What stands now is not a contact-loop bug: seed 404's two-person
+colony never stands close enough for rescue to reach (closest approach 4.40 m against a 1.6 m
+radius), so the blocker is **colony shape** — a bigger colony, or one posted closer — which is a
+design call about the slice. **Do not decide it, or flip the flag, unilaterally.** Relaxing
+`survivors_end >= 1` has been considered and rejected.
 [docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
 measurement, seed by seed.
 
@@ -192,6 +200,11 @@ its own gate, working down docs/23's open list rather than at the flip:
   than computed, with docs/17 rule 4's floor and ceiling made mechanical and every decision
   published as `director.night`.
 
+After those: the inventory/UI rework and the 12-slot gear taxonomy (`godot:m2:gear`), then the
+**basic-combat slice** (`godot:m2:swipe`) — the swipe, mouse aim and click-to-attack, instinct
+defense, and denser spawns — which made wounds, bleeding and treatment reachable in ordinary play
+without touching the grab flag. docs/23 has each in full.
+
 **The pattern worth carrying forward: this milestone has turned up eight dead sockets** — code that
 was complete, correct, often gated, and read by nothing. `crawlFactor`, the `Staggered` state,
 `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody but
@@ -206,8 +219,12 @@ still required Milestone 2 proof, deferred rather than cancelled.
 
 [docs/23](docs/23-roadmap.md) is the authority on what is intended **and**, in its milestone status
 sections, on what is built and what remains (`HANDOFF.md` was retired into it — its itemised history
-lives in git); [docs/30](docs/30-decisions.md) on why something that looks arbitrary is shaped that
-way. Read 30 before changing something that looks arbitrary.
+lives in git). Its [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) section names every
+remaining Milestone 2 piece — small, modular, named so the name alone says the work — and its
+[record, by system](docs/23-roadmap.md#the-record-by-system) holds the evidence for what landed;
+a landing moves its piece from the first to the second in the same commit.
+[docs/30](docs/30-decisions.md) is the authority on why something that looks arbitrary is shaped
+that way. Read 30 before changing something that looks arbitrary.
 
 ## Conventions
 
