@@ -11,11 +11,15 @@ is** lives in [docs/30](docs/30-decisions.md). **What must not be broken** lives
 
 ---
 
-## State, as of 2026-08-19
+## State, as of 2026-08-20
 
 `main` is green: `npm run godot:m2` chains **32 gates**, and CI's `check` job runs those plus the
-frozen TypeScript oracle (45 files / 594 tests), typecheck, lint and format. The last merged change
-is PR #95 (the basic-combat slice).
+frozen TypeScript oracle (45 files / 594 tests), typecheck, lint and format. The last merged code
+change is PR #95 (the basic-combat slice); since then the changes are docs only — the plan was
+renamed and split ([what's left](docs/23-roadmap.md#whats-left-in-milestone-2) /
+[the record](docs/23-roadmap.md#the-record-by-system)) and the workflow written into `CLAUDE.md`,
+with the duplicated status copies in `CLAUDE.md` and `AGENTS.md` trimmed to pointers. No code,
+content, or gates touched.
 
 The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight — and
 as of the basic-combat slice, **zombies can hurt you**: a shambler in arm's reach claws on a
@@ -67,20 +71,16 @@ These are design calls. They have been measured, written up, and deliberately **
    docs/23's what's-left section has the three candidates and which picks force a sprite
    regeneration.
 
-## The pattern worth knowing before you start
+## How a session runs
 
-This milestone has turned up **eight dead sockets** — code that was complete, correct, often
-gated, and read by nothing: `crawlFactor`, the `Staggered` state, `sepsis.checked`,
-`injury.sustained`, `item.painkillers.blister`, `SimVisibility` answering for the player alone,
-docs/17 rule 4's variance floor sitting behind an `if size == 0` that could never be true, and
-`SimDirector.snapshot_of`.
-
-**A gate asserting that a helper returns the right number does not assert that anything reads it.**
-When you add a mechanism, add the assertion that something reaches it. `check_m2_attach.gd`'s "is
-this findable in any loot table" is the cheapest example of that check.
-
-`CLAUDE.md`'s **Traps** section is the other thing to read first. Every entry in it cost someone a
-session.
+The loop is [CLAUDE.md's workflow section](CLAUDE.md#the-workflow), in eight steps: orient in the
+plan docs; pick **one named piece** from what's left (owner decisions are not pickable); design
+inside the seams; build the gate with the thing — true positive, true negative, and the
+dead-socket assertion that something *reads* the mechanism; measure any balance claim with a
+throwaway driver; verify (`npm run godot:m2`, plus `npm test` for content edits); move the piece
+from what's-left to the record in the same commit; and leave every claim naming the gate that
+proves it. `CLAUDE.md`'s **Traps** section is the other thing to read before starting — every
+entry in it cost someone a session.
 
 ## Picking up
 
