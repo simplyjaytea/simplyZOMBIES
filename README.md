@@ -95,11 +95,13 @@ of you (`T`), badly, and go on fighting to get free at the same time. Tearing lo
 off the wound, so an escape is a real run rather than a pause, and the hand goes back on once you
 are clear.
 
-What is left is one question nobody should answer alone. Running instead of pressing does mean fewer
-hands on you and fewer bites — but nobody ever finishes holding a wound closed that way, and on the
-hard seeds the colony still bleeds out. And a shove-off is aimed once, at the moment somebody lets go
-of you, which most of the time turns out to be straight at the wall you were pinned against. It is
-recorded in full in [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
+What is left is one question nobody should answer alone, and it is no longer a mechanical one. A
+shove-off now finds a heading with room to run instead of leaning on the wall you were pinned
+against, and a wound you had to let go of remembers the time already spent holding it, so
+interrupted first aid adds up instead of starting over. What still kills the hardest seed is that
+two people spread across a whole district can never reach each other in time to help — and how big
+the colony should be, or how close it should stand, is a design call, not a bug. It is recorded in
+full in [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands).
 
 **Godot 4.7.1 is the playable build.** The web export runs at `/` and the Windows artifact comes
 from the same green commit; a failed CI publishes nothing. The TypeScript/Canvas oracle is
@@ -157,12 +159,12 @@ status. Milestones close on their exit criterion, never on a feature count.
   and grief, building, a director that varies its nights, save/load, the shallow skill web, loot
   tables and searchable containers, workbench modification, weapon attachments, the full injury
   table with pain, exhaustion and sepsis, and the full wound-treatment-recovery loop (currently
-  switched off pending a design decision about how a survivor holding their own wound closed should
-  be able to run — see
-  [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open: the wider
-  resource taxonomy, the fuller survivor generator, the remaining crafting consumables, the UI
-  screens, and the balance grid plus a human ten-day playtest. **Exit criterion:** survive ten in-game days, lose a survivor you cared
-  about, continue through succession, and still want another run.
+  switched off pending a design call on the colony's shape — see
+  [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open — every
+  piece named in [what's left](docs/23-roadmap.md#whats-left-in-milestone-2): the wider resource
+  taxonomy, the fuller survivor generator, the remaining crafting consumables, the UI screens, and
+  the balance grid plus a human ten-day playtest. **Exit criterion:** survive ten in-game days,
+  lose a survivor you cared about, continue through succession, and still want another run.
 - ☐ **Milestone 3A — Survivor depth.** Relationships and grief, the full skill web, all six
   attributes, weather and temperature, full world decay, and the remaining zombie types.
 - ☐ **Milestone 3B — World range.** The continuous drivable region and streaming, vehicles, mobile
