@@ -11,11 +11,15 @@ is** lives in [docs/30](docs/30-decisions.md). **What must not be broken** lives
 
 ---
 
-## State, as of 2026-08-19
+## State, as of 2026-08-20
 
 `main` is green: `npm run godot:m2` chains **32 gates**, and CI's `check` job runs those plus the
-frozen TypeScript oracle (45 files / 594 tests), typecheck, lint and format. The last merged change
-is PR #94 (the inventory/UI rework and the 12-slot gear taxonomy).
+frozen TypeScript oracle (45 files / 594 tests), typecheck, lint and format. The last merged code
+change is PR #95 (the basic-combat slice); since then the changes are docs only — the plan was
+renamed and split ([what's left](docs/23-roadmap.md#whats-left-in-milestone-2) /
+[the record](docs/23-roadmap.md#the-record-by-system)) and the workflow written into `CLAUDE.md`,
+with the duplicated status copies in `CLAUDE.md` and `AGENTS.md` trimmed to pointers. No code,
+content, or gates touched.
 
 The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight — and
 as of the basic-combat slice, **zombies can hurt you**: a shambler in arm's reach claws on a
@@ -51,40 +55,32 @@ seed-by-seed measurement.
 
 These are design calls. They have been measured, written up, and deliberately **not** decided:
 
-1. **`SimShambler.GRABS_ENABLED` stays `false`.** The whole injury loop is built and gated behind
-   it. Six reasons have been recorded and five answered; the sixth is a genuine balance choice
-   between three named candidates — give a break-away somewhere to go, let a press bank its
-   progress, or cut contact rarity. The seed-by-seed measurement is in docs/23. **Do not pick one
-   unilaterally.** Nothing in the last session touched this flag.
-2. **Colony shape.** Two survivors spread across a 256 m district is part of why the hard seeds
-   end `0/2`. Whether the slice colony should be bigger or tighter is a design decision, not a
+1. **Colony shape: a bigger colony, or one posted closer.** Two survivors spread across a 256 m
+   district is why seed 404 still wipes with grabs forced on — rescue is built, gated and correct,
+   and a second body is simply never within reach. A design decision about the slice, not a
    tuning one.
+2. **Flip `SimShambler.GRABS_ENABLED`.** The whole injury loop is built and gated behind it. Every
+   recorded reason has been answered (docs/23's flag record is the seed-by-seed history — the last
+   two answers, escape routing and press banking, landed since this list was first written); what
+   stands now is the colony-shape call above. **Do not flip it unilaterally.** Nothing in the last
+   session touched this flag.
 3. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path, because lethality balance is the thing standing between
    `GRABS_ENABLED` and its flip.
 4. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
-   docs/23's Art bullet has the ordered next steps.
-5. **The equipment-slot taxonomy — landed** (`godot:m2:gear`). Twelve slots, each with at least
-   one findable item, coverage composing by max through `SimInfection.armor_coverage_of`, layering
-   deliberately basic (independent slots). The gate's no-dead-slot sweep found that the head slot
-   had shipped with no item able to fill it — a canvas cap closes it. Still deferred, by the same
-   dead-socket rule: warmth/hygiene slots (undershirt, socks, underwear), which wait for
-   temperature and hygiene systems.
+   docs/23's what's-left section has the three candidates and which picks force a sprite
+   regeneration.
 
-## The pattern worth knowing before you start
+## How a session runs
 
-This milestone has turned up **eight dead sockets** — code that was complete, correct, often
-gated, and read by nothing: `crawlFactor`, the `Staggered` state, `sepsis.checked`,
-`injury.sustained`, `item.painkillers.blister`, `SimVisibility` answering for the player alone,
-docs/17 rule 4's variance floor sitting behind an `if size == 0` that could never be true, and
-`SimDirector.snapshot_of`.
-
-**A gate asserting that a helper returns the right number does not assert that anything reads it.**
-When you add a mechanism, add the assertion that something reaches it. `check_m2_attach.gd`'s "is
-this findable in any loot table" is the cheapest example of that check.
-
-`CLAUDE.md`'s **Traps** section is the other thing to read first. Every entry in it cost someone a
-session.
+The loop is [CLAUDE.md's workflow section](CLAUDE.md#the-workflow), in eight steps: orient in the
+plan docs; pick **one named piece** from what's left (owner decisions are not pickable); design
+inside the seams; build the gate with the thing — true positive, true negative, and the
+dead-socket assertion that something *reads* the mechanism; measure any balance claim with a
+throwaway driver; verify (`npm run godot:m2`, plus `npm test` for content edits); move the piece
+from what's-left to the record in the same commit; and leave every claim naming the gate that
+proves it. `CLAUDE.md`'s **Traps** section is the other thing to read before starting — every
+entry in it cost someone a session.
 
 ## Picking up
 
@@ -94,8 +90,9 @@ npm run godot:m2                    # ~6 min, the gate that matters
 npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
 ```
 
-Then read [docs/23's Milestone 2 status](docs/23-roadmap.md#where-milestone-2-stands) for the open
-list. Candidates named there and not yet started: the five remaining modification consumables
-(Solvent, Whetstone, Gun Oil, Machinist's Gauge, Salvage Rights — the doc says each is one content
-entry plus one operation), weight affecting footstep noise, the fuller survivor generator and trait
-conflict rules, supply quality tiers and the wider resource taxonomy, and the UI screens.
+Then read [What's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2) — every
+remaining piece, named so the name alone says what the work is, grouped into: decisions waiting on
+the owner, content-only entries, people, medicine, gear, attention, art, UI, proof, debt, and what
+is parked for Milestone 3A. Pick a piece, land it with its gate, delete it from that list and write
+its record into [the record, by system](docs/23-roadmap.md#the-record-by-system) in the same
+commit.

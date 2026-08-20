@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Read this before touching anything. `AGENTS.md` covers environment setup; this file covers what
-the project is and what must not be broken.
+the project is, how a unit of work runs, and what must not be broken.
 
 ## Godot is the only implementation that ships
 
@@ -21,6 +21,45 @@ compares against, and tag `ts-oracle-final` is the rollback point.
 The engine pin is exact. `scripts/run-godot.mjs` rejects any engine whose `--version` does not
 start with `4.7.1`, and the same version and SHA-512 appear in `.github/workflows/ci.yml`,
 `pages.yml`, and `scripts/setup-web-session.sh`. Changing one means changing all of them.
+
+## The workflow
+
+How a unit of work goes through this repo — the same loop for a human, an agent, or both. The
+pattern that works here is the **slice**: one named piece, built together with the gate that can
+fail it, measured if it claims anything about balance, recorded in the same commit. The sessions
+that followed this loop landed six slices in a run; the sessions that did not are where the traps
+section came from.
+
+1. **Orient before touching anything.** This file top to bottom, then
+   [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) for what is open and
+   [the record, by system](docs/23-roadmap.md#the-record-by-system) for how the neighbouring
+   systems landed. `HANDOFF.md` names what is waiting on the owner. Read
+   [docs/30](docs/30-decisions.md) before changing anything that looks arbitrary — it usually
+   is not.
+2. **Pick one named piece from what's left.** They are sized to land in a session. The "waiting
+   on the owner" group is not pickable — those are decisions, and deciding one unilaterally is
+   the one mistake at this stage no gate will catch. Work that is not on the list gets named and
+   added there first (or asked about), never smuggled in beside a slice.
+3. **Design inside the seams.** Effects are sim-owned and command-driven; `godot/sim/` never
+   reads presentation state; how a thing looks is content; new randomness gets its own named RNG
+   stream. Anything player-facing goes through the standing bans *before* it is built, not after.
+4. **Build the gate with the thing.** Every assertion wants a true positive *and* a true
+   negative, and every mechanism wants the assertion that something **reads** it — the
+   dead-socket rule, paid for eight times this milestone. An assertion with no data to judge says
+   so and skips; it never passes quietly.
+5. **Measure balance claims; never theorise them.** A claim about campaign outcomes comes from a
+   throwaway driver, run before and after on the same driver — two consecutive guesses at the
+   harness each cost a full run to disprove. Check the throughput arithmetic first (~1,085
+   ticks/s headless: a game day is ~3 minutes, a ten-day campaign ~45). Drivers are deleted
+   afterwards; anything that stays behind gets a gate keeping it honest.
+6. **Verify before committing.** `npm run godot:m2`, always. A content edit is not verified until
+   `npm test` has also run — the frozen oracle's Ajv recurses where `godot:validate` does not.
+   Touching a `.ts` file or any prettier-covered path adds `typecheck`, `lint`, `format:check`.
+7. **Record in the same commit.** Delete the piece from what's left; write its record — named,
+   gated, measured — into the record, by system. Update `HANDOFF.md` only when what is waiting on
+   the owner changed. Prose is hand-wrapped.
+8. **Leave it honest.** No checkbox ledgers anywhere; every claim names the gate that proves it;
+   where only half a thing shipped, the record says which half.
 
 ## Verifying a change
 
@@ -98,116 +137,43 @@ succession, and still wanting another run.
 New NPCs and adjacent feature scope stay paused; **Mara remains the test survivor.** The design
 record is
 [`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`](.hermes/plans/2026-08-17_065300-vertical-slice-design.md).
-It captures decisions, not shipped behavior: do not move any health/injury checkbox until code and
-a focused Godot check prove it.
+It captures decisions, not shipped behavior: nothing counts as done until code and a focused Godot
+check prove it.
 
-**A second, independent track just landed: the presentation is flat top-down now, not
-isometric.** `docs/00-vision.md` carries the reversal, `docs/30-decisions.md` what it made
-structural, and [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)'s Art
-bullet has the detail and the ordered next steps. It touched nothing under `godot/sim/` and
-nothing below is affected by it — the two tracks are unrelated except that both gate on
-`npm run godot:m2`.
+[docs/23](docs/23-roadmap.md) is the authority on what is intended **and**, in its milestone status
+sections, on what is built and what remains (`HANDOFF.md` was retired into it — its itemised history
+lives in git). Its [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) section names every
+remaining Milestone 2 piece — small, modular, named so the name alone says the work — and its
+[record, by system](docs/23-roadmap.md#the-record-by-system) holds the evidence for what landed;
+a landing moves its piece from the first to the second in the same commit.
+[docs/30](docs/30-decisions.md) is the authority on why something that looks arbitrary is shaped
+that way. Read 30 before changing something that looks arbitrary. This file does not restate their
+contents — the one copy of the status lives in docs/23, because every duplicated copy of it has
+drifted. Three things about the current state matter enough to repeat anyway:
 
-**The survival loop is now built, end to end, and switched off.** Five slices landed it: the stance
-ladder became sim-owned (`M2_STANCE_OK`), the grab → struggle → bite loop was ported
-(`M2_CONTACT_OK`), wounds gained a severity and a bleed clock (`M2_WOUNDS_OK`), pressure and
-bandaging plus a command path to the five infection verbs answered them (`M2_TREATMENT_OK`), and
-recovery closes wounds and climbs integrity back (`M2_RECOVERY_OK`). A bite makes a located wound
-with a severity, it bleeds, you stop it with your hands or a dressing, and it mends over days you
-have to earn by eating and resting.
-
-**None of it is reachable in ordinary play, because `SimShambler.GRABS_ENABLED` is `false`, and the
-reason has now changed six times.** The first note said the flip waited on a recovery clock;
-recovery shipped, the flag was flipped, and the balance tier failed worse. The second, measured
-reason was that a held survivor was being executed — a head is 15, `BITE_DAMAGE` was a flat 8, and
-one bite in five aimed at the head. **Answered** by four levers landing together:
-`SimCombat.HELD_HIT_LOCATION_WEIGHTS` (a mouth inside a grapple reaches an arm, not a skull — head
-0.05 against the free-hit table's 0.20), a bite every 80 ticks rather than 40, part-scaled damage
-`maxf(2.0, minf(BITE_DAMAGE, 0.35 * part max))`, and a sooner, cheaper struggle with the contest
-maths untouched; `godot:m2:contact` grew HELD-AIM and BITE-SCALE to hold them.
-
-The third reason was that the harness colony had no agency, and **that one is answered too**, in
-three owner-approved pieces: a held survivor with nobody answering for them struggles on instinct
-after `STRUGGLE_INSTINCT_TICKS` (F stays faster and resets the clock — `INSTINCT` in the contact
-gate); a kit weapon is now equipped rather than packed, so the second colonist stops booting
-unarmed (`SimSurvivors._hold_it`, `ARMED` in the balance gate); and `npc.combat` prefers a shambler
-that has hold of somebody over a nearer one that does not (`HOLDER` in the NPC gate). With grabs
-still off, the shipped fast tier now records the colony's first kills at all — 6 on seed 404, 1 on
-90210, against zero before.
-
-The fourth reason was the price of an escape, and **that one is answered too**, by the two levers the
-owner picked. Stamina now recovers while held (`health.recover` ignores the recovery delay for a
-`grabbed` body; `world.gd` stops charging that body the posture drain, without which the first half
-does nothing — `REGEN-HELD` in the contact gate), and a free survivor can pull somebody out of a
-hold: `SimShambler.try_begin_rescue`, the `H` key, `shambler.rescue-intake` as its own system, an
-NPC rescue-first branch in `npc.combat`, and the new `grab.broken {victim, by, cause}` event
-(`RESCUE` and `BROKEN` in the contact gate, `RESCUE-FIRST` in the NPC gate). Measured before against
-after with one driver: empty-tank ticks fall 38.3% → 13.3% on seed 404 and 48.9% → 0.0% on 90210,
-with 71 and 136 escapes won.
-
-The fifth reason was that contact is relentless and a held body cannot treat itself, and **both
-halves are answered.** A held survivor may answer their own bleeding: `treatment._can_channel` grants
-exactly one channel while `grabbed`, `pressure` on yourself, under seven named arbitration rules
-written out at the top of `treatment.gd` (R1-R7 — `AID-HELD`/`HELD-CONTEXT` in the treatment gate,
-`PRESS-THROUGH`/`STRUGGLE-DURING-PRESS`/`FLIGHT-CANCELS-PRESS`/`BREAKAWAY-DEFER` in the contact
-gate). And the re-grab treadmill turned out to be a speed bug — `BREAK_AWAY_SPEED` was 1.6 against a
-1.68 seek, so the holder *gained* on somebody who had just escaped it — fixed at 2.1 and pinned by
-`CLEAR-AWAY`. What stood between the two levers was R5, and **R5 has now been inverted**:
-`treatment.escape-releases-press` cancels the victim's own self-pressure when `grab.broken` names
-them, and only that. R2 is its exact mirror and is untouched — a second holder arriving never takes
-your palm off your own wound; only becoming fully free does.
-
-**The flag is still `false`, and reason six is where it stands.** The inversion does what it was
-picked to do: grabs fall 214 → 150 and 212 → 166 on the two hard seeds, bites 136 → 88 and 122 → 65,
-and re-grab windows longer than the cooldown appear at all. It costs the thing the aid bought —
-**presses completed go from 25/9/26 to zero on every seed**, because a press cancelled at every
-escape banks nothing — and 404 and 90210 still end `0/2` by blood loss. The residual is measured, not
-guessed: **a break-away released against a wall does not move.** Over three days of seed 404, the
-committed escape heading is blocked on both axes on 86% of `breakAway` ticks, and the body covers
-0.010 m per tick against a nominal 0.105, because `_break_away` takes its direction once and
-`movement.integrate` zeroes a blocked axis. The candidates from here — give a break-away somewhere to
-go, let a press bank its progress, or cut contact rarity — are design calls, so **do not pick one
-unilaterally**, and relaxing `survivors_end >= 1` has been considered and rejected.
-[docs/23's Milestone 2 status section](docs/23-roadmap.md#where-milestone-2-stands) carries the full
-measurement, seed by seed.
-
-**Everything below landed after that note, and none of it touched the flag.** Six slices, each with
-its own gate, working down docs/23's open list rather than at the flip:
-
-- **Sepsis, and injury kinds as a table** (`godot:m2:wounds`) — a wound can go septic and stops
-  healing until antibiotics; `WOUND_KINDS` replaced four `if kind == …` branches so fracture,
-  sprain, burn and concussion are rows rather than special cases.
-- **Pain and exhaustion** (`godot:m2:wounds`) — docs/05's four continuous conditions are all four
-  now. Pain is *derived, never stored*, and `pain_of` (felt) and `raw_pain_of` (actual) are both
-  public because painkillers are supposed to make them disagree.
-- **Sightlines and memory** (`godot:m2:sight`) — a wall refuses a shot (`SimRanged.can_target`, the
-  one answer for the player and the colony alike), and a body that walked out of sight is
-  remembered for two minutes with prose that degrades. **Every survivor has eyes now**; before this
-  only the player did.
-- **Attachments** (`godot:m2:attach`) — five findable attachment items and a reader. An attachment
-  *declares what it multiplies*, so nothing in the module names a suppressor.
-- **Grief** (`godot:m2:needs`) — a survivor's death costs every other survivor mood, more if they
-  watched it. Deliberately the colony-wide half; closeness needs relationships, which are 3A.
-- **Varied nights** (`godot:m2:director`) — a night is *drawn* from a strain-weighted table rather
-  than computed, with docs/17 rule 4's floor and ceiling made mechanical and every decision
-  published as `director.night`.
-
-**The pattern worth carrying forward: this milestone has turned up eight dead sockets** — code that
-was complete, correct, often gated, and read by nothing. `crawlFactor`, the `Staggered` state,
-`sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody but
-the player, rule 4's variance floor sitting behind an `if size == 0` that could never be true, and
-`SimDirector.snapshot_of`. **A gate asserting that a helper returns the right number does not assert
-that anything reads it.** When you add a mechanism, add the assertion that something reaches it —
-`check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example.
+- **The survival loop is built end to end, gated, and switched off.** Grabs, bites, located
+  bleeding wounds, pressure and bandaging, recovery, infection — all behind
+  `SimShambler.GRABS_ENABLED = false`. Six recorded reasons for the flag have each been answered
+  (docs/23's flag record is the seed-by-seed history); what stands now is **colony shape** — a
+  bigger colony, or one posted closer — which is a design call about the slice. **Do not decide
+  it, or flip the flag, unilaterally.** Relaxing `survivors_end >= 1` has been considered and
+  rejected. The swipe (`godot:m2:swipe`) is the one zombie damage path outside the flag, so
+  ordinary play exercises wounds, bleeding and treatment — but never infection.
+- **The presentation is flat top-down, not isometric** — an independent track that touched nothing
+  under `godot/sim/`. `docs/00-vision.md` carries the reversal, docs/30 what it made structural,
+  and the art entries in what's left the ordered next steps; the style pick is the owner's.
+- **The dead-socket pattern.** This milestone has turned up eight pieces of code that were
+  complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
+  `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody
+  but the player, rule 4's variance floor behind an `if size == 0` that could never be true, and
+  `SimDirector.snapshot_of`. **A gate asserting that a helper returns the right number does not
+  assert that anything reads it.** When you add a mechanism, add the assertion that something
+  reaches it — `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest
+  example.
 
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
 not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are
 still required Milestone 2 proof, deferred rather than cancelled.
-
-[docs/23](docs/23-roadmap.md) is the authority on what is intended **and**, in its milestone status
-sections, on what is built and what remains (`HANDOFF.md` was retired into it — its itemised history
-lives in git); [docs/30](docs/30-decisions.md) on why something that looks arbitrary is shaped that
-way. Read 30 before changing something that looks arbitrary.
 
 ## Conventions
 
@@ -228,13 +194,12 @@ way. Read 30 before changing something that looks arbitrary.
   seed loop that ran four seeds and proved one. If an assertion has no data to judge (a shortened
   campaign the director never pressured), make it **say so and skip**, never pass quietly.
 - Update [docs/23's milestone status section](docs/23-roadmap.md#where-milestone-2-stands) in the
-  same commit as the work it describes. `HANDOFF.md` is back, but **it is not the old ledger** —
-  it is a short session handoff that points at docs/23 and names what is waiting on the owner. Do
-  not put per-item checkboxes in it; that is exactly what drifted four times. Its predecessor (`HANDOFF.md`) drifted four times, most
-  recently by ~34 shipped-but-unticked items, which is why the status is now condensed prose with
-  each claim naming the gate that proves it. There is no mechanical gate on this any more —
-  `godot:check:handoff` retired with the file — so the discipline is the convention. Where only
-  half an item shipped, say which half.
+  same commit as the work it describes (workflow step 7). `HANDOFF.md` is a short session handoff
+  that points at docs/23 and names what is waiting on the owner — **never** per-item checkboxes.
+  Its checkbox predecessor drifted four times, most recently by ~34 shipped-but-unticked items,
+  which is why status is condensed prose with each claim naming the gate that proves it. No gate
+  enforces this any more (`godot:check:handoff` retired with the old file), so the discipline is
+  the convention. Where only half an item shipped, say which half.
 
 ## Traps that have already cost someone a session
 
@@ -299,15 +264,8 @@ Each of these was found the expensive way. They are not style opinions.
 
 ## Seeing it actually run
 
-`npm run godot:run` needs a display (`DISPLAY=:1`; start one with
-`Xvfb :1 -screen 0 1920x1080x24 &`). It boots on **day 1 in daylight**, not at night.
-
-There is no `scrot`, `imagemagick` or `ffmpeg` in these containers, so screenshots come from Godot
-itself: run a throwaway `SceneTree` script that instantiates `res://presentation/main.tscn` into
-`root` (the way `test/project_smoke.gd` does), drives it, and calls
-`root.get_texture().get_image().save_png(path)`. That gives you the real app — real HUD, real
-presentation, real sim — and lets you set up a scenario before capturing it. Delete the script
-afterwards; it is a driver, not a fixture.
-
-The audio and V-Sync errors on boot (`libpulse.so.0`, ALSA, `All audio drivers failed`) are
-expected on a headless container and harmless.
+`npm run godot:run` needs a display and boots on **day 1 in daylight**, not at night. The
+environment detail lives in `AGENTS.md` — starting Xvfb, the two container types, screenshots
+through a throwaway Godot `SceneTree` script (there is no `scrot`/`imagemagick`/`ffmpeg` here;
+the script is a driver, so it is deleted afterwards), and the audio/V-Sync boot noise that is
+expected and harmless.
