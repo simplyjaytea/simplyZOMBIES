@@ -133,7 +133,128 @@ This section replaced `HANDOFF.md`'s live-status role when that file was retired
 current **in the same commit** as the work it describes. Every claim of "landed" below is proven by a
 named gate (`npm run godot:m2` chains them all); the full done-item history with per-item evidence
 lives in git — `git log -- HANDOFF.md` finds the retired file, and its final revision holds the
-itemised backlog.
+itemised backlog. The section runs in this order: [what's left](#whats-left-in-milestone-2), named
+so the name alone says what the work is; the landed summary; the flag record; and
+[the record, by system](#the-record-by-system) — everything landed, with its evidence.
+
+#### What's left in Milestone 2
+
+Everything still open, in one place, as small named pieces. The rule for a name here: **the name
+alone should say what the work is** — no codenames, no lever letters, no rule numbers. Each piece is
+sized to land in one session with its own gate (or an extension of a named one) unless it says
+otherwise. This list carries no evidence and no history; when a piece lands, delete it here and
+write its record — named, gated, measured — into [the record, by system](#the-record-by-system), in
+the same commit. That is the whole discipline: one list of what remains, one record of what landed,
+and nothing that has to be ticked.
+
+**Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
+decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks the project up.
+
+1. **Colony shape: a bigger colony, or one posted closer.** Two survivors spread across a 256 m
+   district is why seed 404 still wipes with grabs forced on — rescue is built and gated, and the
+   nearest free colonist never gets within reach of the held one (closest approach all campaign:
+   4.40 m against a 1.6 m radius). A design call about the slice, not a tuning lever.
+2. **Flip `GRABS_ENABLED`.** Follows the colony-shape call. Six recorded reasons have each been
+   answered — the flag record below is the full history — and the remaining constraint is the
+   colony's shape, above. The flip is what makes bites, and with them infection, reachable in
+   ordinary play.
+3. **Can sepsis kill?** Today it is debilitating and permanent-until-treated, deliberately not a
+   death path, because lethality balance is the thing standing between the flag and its flip.
+   Making it lethal is a balance decision that needs a measurement attached.
+4. **Pick the top-down art style.** `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the
+   three candidate directions and the overhead re-authoring of the zombie visual language; its
+   screenshot-fixture method is the way to compare them. The five shipped sprites need regenerating
+   only if the pick isn't A (the shipped baseline): B needs rotation support (`draw_set_transform`
+   around the blit — the centre anchor was chosen so that stays a contained change), and C needs a
+   rig-sheet pass before more sprites exist. The two art pieces below queue behind this pick.
+
+**Content only — data entries, no new systems:**
+
+- **Five more modification consumables.** Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage
+  Rights. Each is one content entry plus one operation in `SimModification.OPERATIONS` (a Solvent
+  is one entry plus one `strip`); nothing blocks them. Extends `godot:check:mods`.
+- **Round out the resources toward ~15 types.** The slice-scope table promises about fifteen
+  resource types across the three loot tables. Count what ships, then add entries — items and loot
+  rows, not systems.
+
+**People — the survivor pipeline:**
+
+- **Survivor generation: appearance, age, backstory, starting kit.** The generator stops at name
+  and traits today (`godot:m2:recruits`); the rest of the small pools are unwritten.
+- **Trait conflict rules.** Nothing yet stops the generator dealing contradictory traits.
+- **Focus auto-allocation: NPCs spend their own web points.** The shallow web is landed
+  (`godot:m2:web`); nobody but the player can walk it.
+- **The six-survivor automation checkpoint.** Risk 1's seeded colony, every NPC on Focus
+  automation — the micromanagement-cliff measurement. Needs the two pieces above first, and it is
+  also the cheapest place to answer the colony-shape question with data.
+
+**Medicine — the back half of treatment:**
+
+- **The full treatment ladder: clean, then close, then rest.** Pressure, bandaging and recovery
+  are live; cleaning and closing are not verbs yet. Extends `godot:m2:treatment`.
+- **Supply quality tiers.** The sepsis roll already prices sterile < cloth < dirty dressings; what
+  is open is quality as an authored property of medical supplies generally.
+- **Diagnosis text that scales with Medicine skill.** A good medic reads a wound better; a novice
+  reads it vaguely. Prose only — no numbers arrive with skill.
+- **Permanent conditions that keep a survivor in play.** A limp, a blind eye, a scar — loss that
+  does not remove the person, docs/05's permanent-consequences row.
+- **Sleep quality.** Blocked on itself: docs/05 lists sleep among what pain degrades, and there is
+  no sleep-quality value to degrade yet.
+
+**Gear — finishing what items started:**
+
+- **The repair economy: station, materials, Craft.** `SimItems.repair_item` already lowers the
+  ceiling on every repair; what is open is the cost of invoking it.
+- **Attachments wear out.** docs/10's "suppressors wear out fast" — attachments have no condition
+  of their own yet.
+- **Attachments meet the attention field.** An optic useless in the dark; a weapon light that is a
+  real light source and therefore a real emitter.
+- **An attachment-fitting screen.** `item.attach` / `item.detach` work and have no surface.
+
+**Attention:**
+
+- **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
+  is how it is supposed to read.
+
+**Art & renderer — queued behind the style pick, needed whichever way it goes:**
+
+- **Screamer and bloater sprites.** Both still render as tinted shapes.
+- **Tiles and props drawn for real.** `_draw_district` draws flat rects for terrain, and a
+  container, a bed or a campfire is announced by prose (`SimContainers.hud_clause` in the HUD) and
+  is otherwise invisible.
+
+**UI:**
+
+- **Condition and stamina readouts in the world, not a corner.** The diegetic half of the prose
+  contract — the words move onto the body and the scene.
+- **The skill web screen.**
+- **Prose that names its modifier sources.** "Slow because the leg is splinted", generated from
+  the modifier pipeline rather than hand-authored per case.
+
+**Proof — what closes the milestone, in this order:**
+
+- **Distribution assertions.** Quiet nights, sieges, deaths and run lengths asserted as
+  distributions in the balance harness, not as single-seed anecdotes.
+- **The melee-vs-ranged parity measurement.** Risk 6's checkpoint: melee-only against ranged-only
+  colony outcome distributions, before human tuning argues from anecdotes.
+- **The full balance grid.** `BALANCE_FULL=1`, ~9 h — an overnight job at measured throughput, not
+  a "quick run".
+- **The human ten-day playtest.** The exit criterion itself, run by a person.
+
+**Debt — not features, named so it stops being folklore:**
+
+- **The shallow content validator.** `npm run godot:validate` does not recurse, so every nested
+  content shape needs its own purpose-built gate, and the frozen oracle's Ajv disagrees with it
+  about depth — a content edit is unverified until both have run. `CLAUDE.md`'s traps section
+  carries what this has already cost.
+- **Bus-only counters in the balance tier.** The `grab.started` / `grab.broken` counters report
+  and assert nothing. They become assertions when the flag flips, or they go.
+
+**Parked until Milestone 3A — blocked by missing systems, not by choices:**
+
+- **Warmth and hygiene slots** (undershirt, socks, underwear) — wait for temperature and hygiene.
+- **Trait-weighted modification outcomes** — wait for traits; `SimModification.TRAIT_FAILURE_SHIFT`
+  is the named seam.
 
 **Landed, gated, and reachable in play:**
 
@@ -157,9 +278,10 @@ grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and
 (`godot:m2:treatment`), and recovery that closes wounds and climbs integrity back, earned only while
 fed and not exerting (`godot:m2:recovery`). A bite makes a located wound, it bleeds, you stop it with
 your hands or a dressing, and it mends over days you have to earn. The *bite* half of that is still
-unreachable in ordinary play because `SimShambler.GRABS_ENABLED` is `false` — see the four entries
-below: three blockers that have been answered, and the one measurement that now stands between the
-loop and the flip. The wound-treat-recover half stopped being unreachable when the **swipe** landed
+unreachable in ordinary play because `SimShambler.GRABS_ENABLED` is `false` — the flag record below
+walks the recorded reasons in order and what answered each; what stands now is the colony-shape
+design call, the first item in [what's left](#whats-left-in-milestone-2). The
+wound-treat-recover half stopped being unreachable when the **swipe** landed
 (the basic-combat slice, further down): a zombie can hurt you now, so ordinary play exercises
 wounds, bleeding, pressure and recovery — just never infection, which arrives only with a bite and
 so stays behind the flag.
@@ -550,8 +672,12 @@ as one slice without touching `GRABS_ENABLED`:
   `extends` key that no loader has ever resolved. Same numbers; the trap is that retuning
   `base.json` would have moved every type except the one that ships.
 
-**Still open, by system** (condensed from the retired backlog; the spec links in the slice-scope
-table above are the authority on each):
+#### The record, by system
+
+What landed and what proved it, system by system (condensed from the retired backlog; the spec
+links in the slice-scope table above are the authority on each). The open tails that used to end
+these bullets moved to [what's left](#whats-left-in-milestone-2), so a bullet here is evidence,
+not a to-do list:
 
 - **World & map** — ~~the three location loot tables~~ **landed** (`godot:check:loot`): what a
   place yields is content now, not two hardcoded kits in `boot.gd`. `content/loot/tables.json`
@@ -569,8 +695,8 @@ table above are the authority on each):
   `food` block on the item base — docs/12's "spoilage rules are JSON", the other half of the loot
   move. The retired table is pinned **by value** in the gate, so the move is provably a change of
   where the numbers live and not of what they say. Presence of the block is what makes an item
-  edible: `is_food` asks nothing else. **Still open here:** ~15 resource types. Site depletion
-  landed with container search — see Inventory below.
+  edible: `is_food` asks nothing else. Site depletion landed with container search — see Inventory
+  below; the ~15 resource types moved to [what's left](#whats-left-in-milestone-2).
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
@@ -581,18 +707,12 @@ table above are the authority on each):
   centre-anchored canvas** — RimWorld proportions on a Zero Sievert palette — landed
   renderer-and-art in one commit, with `APPEARANCE_OK` now failing any sprite off that canvas
   (a stray 64×96 is a build failure, not a footnote). Wheel zoom steps the camera through
-  {16, 32, 64, 128} px/m. Screamer and bloater still render as tinted shapes; tile art still
-  has no renderer path (`_draw_district` draws flat rects); the art-style *flavour* stays open —
-  `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the three candidate directions and
-  the overhead re-authoring of the zombie visual language, for the owner to pick from. **Next up,
-  in order:** get the flavour pick from the owner (the brainstorm doc's screenshot-fixture
-  method is the way to compare them); regenerate the five sprites again only if the pick isn't
-  A (the shipped baseline), since B needs rotation support (`draw_set_transform` around the
-  blit — the centre anchor was chosen so this stays a contained change) and C needs a rig-sheet
-  pass before more sprites exist; then screamer/bloater art and a tile/terrain renderer path,
-  both still open regardless of the pick.
-- **Survivors** — the fuller generator (appearance, age, backstory, starting kit), trait conflict
-  rules, Focus auto-allocation, and the risk-1 checkpoint (a seeded six-survivor colony on auto).
+  {16, 32, 64, 128} px/m. What remains on this track — the style pick (waiting on the owner) and
+  the screamer/bloater sprites and tile/prop renderer path queued behind it — is in
+  [what's left](#whats-left-in-milestone-2), including which picks force a sprite regeneration.
+- **Survivors** — nothing on this row has landed yet beyond the recruit generator's name-and-trait
+  pool; all four open pieces (fuller generation, trait conflict rules, Focus auto-allocation, the
+  six-survivor checkpoint) are in [what's left](#whats-left-in-milestone-2).
 - **Needs** — ~~raw and spoiled food carrying illness risk~~ **landed** (`godot:m2:needs`,
   ILLNESS). docs/04's food clause is "raw and spoiled food fills the bar but damages mood **and
   carries illness risk**"; only the mood half shipped, so raw food was a mood tax and nothing else
@@ -707,10 +827,9 @@ table above are the authority on each):
   killed because they didn't notice how hurt they were". Exhaustion now reaches all four: swing
   0.400, aim 0.500, mood −8.0 and work 0.652 on an empty tank, with the mood cost deliberately kept
   clear of the miserable band so an ordinary hard day does not start sulks and arguments.
-  Still open here: sleep quality (docs/05 lists it among what pain degrades; there is no sleep-
-  quality value to degrade yet), the full treatment ladder (clean → close → rest), supply quality tiers,
-  skill-scaled diagnosis text, permanent conditions that don't remove a survivor from play, and
-  diegetic readouts for the continuous conditions.
+  This system's open tails (the treatment ladder's clean/close verbs, supply quality tiers,
+  skill-scaled diagnosis, permanent conditions, sleep quality) are in
+  [what's left](#whats-left-in-milestone-2).
   ~~Bacterial infection kept distinct from zombie infection (sepsis)~~ **landed**
   (`godot:m2:wounds`, SEPSIS and SEPSIS COST). This was a socket, not a gap: `needs.gd` published
   `sepsis.checked` with a hygiene multiplier every dusk and **nothing subscribed to it**, so
@@ -768,9 +887,9 @@ table above are the authority on each):
   `CLEAR_JAM_MULTIPLIER` × the weapon's *own* reload — a multiple rather than a constant, so
   "longer than a reload" stays true if a reload time is ever retuned. Measured 80 ticks against a
   40-tick reload.
-- **Items** — ~~attachments gaining a reader~~ **landed** (`godot:m2:attach`), leaving repair that
-  never restores the full ceiling (`SimItems.repair_item` already lowers the ceiling on every
-  repair; what is open is the Craft/station/material cost around it). The previous note here was
+- **Items** — ~~attachments gaining a reader~~ **landed** (`godot:m2:attach`); the repair economy
+  around `SimItems.repair_item` moved to [what's left](#whats-left-in-milestone-2). The previous
+  note here was
   **wrong in an instructive way**: it said no content declared `slots` either, and every weapon
   base has declared them since the item pipeline landed — what was missing was anything that fits
   into one and anything that reads one. Five attachment items ship, findable in the residential
@@ -788,7 +907,8 @@ table above are the authority on each):
   not wear (docs/10's "suppressors wear out fast" is the condition half, and they have no
   condition of their own yet), an optic is not yet useless in the dark, a weapon light is not yet
   an attention emitter, and there is no inventory screen for fitting one — the `item.attach` /
-  `item.detach` commands are the reach, on the `item.modify` precedent. **Continuous condition-degradation effects** are now essentially closed:
+  `item.detach` commands are the reach, on the `item.modify` precedent. All four are named pieces
+  in [what's left](#whats-left-in-milestone-2). **Continuous condition-degradation effects** are now essentially closed:
   `condition_factor` already scaled melee damage and speed and ranged damage, and jamming (above)
   was the missing piece docs/10's table called for.
 - **Inventory** — ~~searching world containers (a car boot, a cupboard)~~ and ~~site
@@ -803,18 +923,17 @@ table above are the authority on each):
   `nothing-here` because those mean different things to somebody deciding whether a building is
   worth the walk. The district ships a cupboard, a car boot and a supply locker. Searching is
   **instant, not a channel** — recorded as a decision in the module header, with fortify's channel
-  named as the template if it ever needs to be interruptible. **Still open here:** weight affecting
-  footstep noise, and a container has **no renderer path** — it is announced by prose
-  (`SimContainers.hud_clause` in the HUD) and is otherwise invisible, the same as beds and
-  campfires, which is the Art track's open tile/prop renderer rather than a gap in this.
+  named as the template if it ever needs to be interruptible. The two open tails here — carried
+  weight loudening footsteps, and the container's missing renderer path (the Art track's
+  tile-and-prop piece rather than a gap in this) — are in
+  [what's left](#whats-left-in-milestone-2).
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:
   {operation, appliesTo}` block on the item base, exactly as docs/11's content-shape section
   describes — while what an operation *does* is code, in `SimModification.OPERATIONS`, which is the
-  registry that document points at. The other five consumables (Whetstone, Gun Oil, Solvent,
-  Machinist's Gauge, Salvage Rights) are not blocked on anything: a Solvent is one content entry
-  plus one `strip` operation.
+  registry that document points at. The other five consumables are unblocked and are the first
+  content entry in [what's left](#whats-left-in-milestone-2).
   Craft moves both odds in the directions docs/11 names — failure 0.200 → 0.080 over six points
   (floored at 0.05, because a bench that cannot fail is not a gamble), and the mean affix tier
   0.409 → 0.694 under the bias. Injured hands raise failure to 0.230 and cancel the tier bias, so
@@ -828,8 +947,8 @@ table above are the authority on each):
   is now an `itemTier` component with `SimItems.tier_of`/`affix_capacity` — and there was no path
   to re-derive an item's modifiers after its affixes change, now `SimItems.reapply_affix_modifiers`
   (removing by affix source rather than clearing the item's scope, which would drop modifiers this
-  module never put there). **Still open:** trait-weighted outcomes, which have no hook to read
-  until traits ship in Milestone 3A — `SimModification.TRAIT_FAILURE_SHIFT` is the named seam.
+  module never put there). Trait-weighted outcomes are parked for Milestone 3A — the seam is named
+  in [what's left](#whats-left-in-milestone-2).
 - **UI** — ~~the inventory screen as a fixed sheet~~ **reworked** (presentation-only, so the proof
   is `godot:smoke` plus the screenshots in the session record rather than a sim gate): every
   carried container is now its own **window** — draggable by its title bar, **pinnable** so its
@@ -866,10 +985,9 @@ table above are the authority on each):
   **both** validators, the shallow one and the frozen oracle's recursing Ajv. The paperdoll was
   also rebuilt as a properly human figure (tapered limbs, A-pose, chest-to-hip taper, elliptical
   head) after the owner rejected the capsule draft.
-  **Still open here:** the diegetic condition and stamina readouts (in the world, not a corner),
-  prose generated from modifier sources, the skill web screen, an attachment-fitting surface (the
-  `item.attach`/`item.detach` commands still have no screen), and the deferred warmth/hygiene
-  slots (undershirt, socks, underwear), which wait for temperature and hygiene systems.
+  This system's open tails (the diegetic readouts, prose from modifier sources, the skill web
+  screen, the attachment-fitting surface, the parked warmth/hygiene slots) are in
+  [what's left](#whats-left-in-milestone-2).
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
@@ -890,9 +1008,9 @@ table above are the authority on each):
   rather than a module-level set, because a static would be shared between the two worlds a gate
   boots and would not survive a save; ONCE republishes the event twice and asserts the total does
   not move.
-- **Proof** — distribution assertions (quiet nights, sieges, deaths, run lengths), the risk-6
-  melee-vs-ranged parity measurement, the full balance grid (`BALANCE_FULL=1`, ~9 h), and the human
-  ten-day playtest. Deferred, not cancelled.
+- **Proof** — nothing here has run yet; the four proof steps live in
+  [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
+  cancelled.
 
 ## Milestone 3A: Survivor depth
 
