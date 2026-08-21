@@ -5,6 +5,7 @@ extends RefCounted
 # Cone is the hit test — no displayed chance. No aim assist.
 
 const SimCombat = preload("res://sim/combat.gd")
+const SimStancesRes = preload("res://sim/stances.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
@@ -272,11 +273,20 @@ static func _begin_reload(world: Variant, entity: int, r: Dictionary) -> bool:
 	return true
 
 
+# docs/29's stance table, read off the constant that encodes it rather than re-derived here.
+# This used to say `current != 0` -- Crawl and nothing else -- so a **sprinting** survivor could
+# raise, steady and fire, against docs/29's "Sprint: cannot aim" and against
+# `SimStances.CAN_AIM`, which says `false` for Sprint and was called by nothing anywhere in the
+# repo. A ninth dead socket, on the list CLAUDE.md keeps. `CAN_SWING` has always been read by
+# melee.gd; this is its sibling finally being read too.
+#
+# A body with no posture is capable: only the player carries one (world.gd builds it for the
+# controlled entity), so this refuses nothing an NPC does.
 static func _capable_of(world: Variant, entity: int) -> bool:
 	var posture: Variant = world.components.get_component(entity, "posture")
 	if posture == null:
 		return true
-	return int((posture as Dictionary).get("current", 2)) != 0
+	return SimStancesRes.can_aim(int((posture as Dictionary).get("current", 2)))
 
 
 static func _abandon_aim(world: Variant, entity: int) -> void:
@@ -309,10 +319,10 @@ static func _consume_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
 				(stk as Dictionary)["count"] = cnt - 1
 			else:
 				SimInventoryRes.remove_from_container(world, int(item))
-				world.entities.despawn(int(item))
+				world.despawn(int(item))
 		else:
 			SimInventoryRes.remove_from_container(world, int(item))
-			world.entities.despawn(int(item))
+			world.despawn(int(item))
 		return true
 	return false
 

@@ -60,6 +60,7 @@ func _run() -> void:
 	ok = _a_patient_moved_out_of_reach_loses_the_dressing() and ok
 	ok = _a_channel_refuses_what_it_cannot_do() and ok
 	ok = _the_five_verbs_answer_in_their_own_words() and ok
+	ok = _a_put_down_actually_puts_them_down() and ok
 	ok = _one_key_picks_the_wound_and_the_verb() and ok
 	ok = _a_survivor_who_is_not_the_player_presses_on_it_themselves() and ok
 	ok = _a_held_survivor_may_press_on_their_own_wound() and ok
@@ -77,9 +78,9 @@ func _run() -> void:
 
 # --- fixture ----------------------------------------------------------------------------
 
-# Same bare-world shape check_m2_wounds.gd uses, and for the same reason: no
-# SimBoot.attach_kernel, so SimBoot._KERNEL_WORLD's single-world constraint stays out of a
-# gate that builds a fresh world per assertion.
+# Same bare-world shape check_m2_wounds.gd uses, and for the same reason: this gate needs no
+# kernel. (It used to also be dodging SimBoot's static attention-world; that is fixed -- the
+# handlers capture their own world now -- and check_m2_contact.gd's fixture note has the detail.)
 func _world(seed_val: int = 4242) -> Variant:
 	var fixture: Dictionary = {
 		"seed": seed_val,
@@ -105,6 +106,75 @@ func _bystander(w: Variant, x: float, y: float) -> int:
 	w.components.set_component(e, "velocity", {"dx": 0.0, "dy": 0.0})
 	SimHealth.make_survivor_body(w, e)
 	return e
+
+
+
+# docs/06 response #5 sells exactly one product -- "certainty, immediately, cheaply" -- and for
+# as long as `put_down` existed it delivered none of it. It published `survivor.putDown` and
+# `entity.killed`, returned `{ok: true}`, and **nothing reaps on that bus**: `finish_death` is
+# called by health.gd's own reaper off its local `killed` list, by wounds.gd's bled-out reaper,
+# and by needs.gd -- never by a subscription. The survivor walked away from their own mercy kill,
+# still bleeding and still on course to turn. The assertion that used to stand here watched the
+# two events go out and stopped there, which is CLAUDE.md's dead-socket pattern exactly: the
+# helper was right, and no consumer read it.
+#
+# Three ways for this to fail, so it cannot pass by accident:
+#   positive   a put-down body is a corpse on the next step
+#   negative   the same transmitted body reaped by the ordinary path **does** turn, so what
+#              suppresses the turn is the put-down and not a blanket "nothing turns any more"
+#   control    a body nobody put down is untouched -- alive, no corpse
+func _a_put_down_actually_puts_them_down() -> bool:
+	var w: Variant = _world()
+	var them: int = _bystander(w, 9.5, 16.5)
+	w.components.set_component(them, "identity", {"id": "survivor.gate", "name": "Ada"})
+	_transmitted(w, them)
+	var zeds_before: int = int(w.components.count("shambler"))
+	SimInfection.put_down(w, them)
+	w.step()
+	if not w.components.has_component(them, "corpse"):
+		push_error("put_down left the body standing: no corpse, alive=%s" % str(bool(w.entities.call("is_alive", them))))
+		return false
+	if int(w.components.count("shambler")) != zeds_before:
+		push_error("a put-down survivor turned anyway: shamblers %d -> %d" % [zeds_before, int(w.components.count("shambler"))])
+		return false
+
+	# Negative: identical body, identical exposure, reaped the ordinary way. This one must turn.
+	var w2: Variant = _world()
+	var other: int = _bystander(w2, 9.5, 16.5)
+	w2.components.set_component(other, "identity", {"id": "survivor.gate", "name": "Ada"})
+	_transmitted(w2, other)
+	var before2: int = int(w2.components.count("shambler"))
+	SimHealth.finish_death(w2, other)
+	w2.step()
+	if int(w2.components.count("shambler")) <= before2:
+		push_error("the control did not turn, so the put-down proves nothing: shamblers %d -> %d" % [before2, int(w2.components.count("shambler"))])
+		return false
+
+	# Control: nobody put this one down, so nothing may have happened to them.
+	var w3: Variant = _world()
+	var untouched: int = _bystander(w3, 9.5, 16.5)
+	w3.components.set_component(untouched, "identity", {"id": "survivor.gate", "name": "Ada"})
+	_transmitted(w3, untouched)
+	w3.step()
+	if w3.components.has_component(untouched, "corpse") or not bool(w3.entities.call("is_alive", untouched)):
+		push_error("a survivor nobody touched became a corpse")
+		return false
+	print("PUT-DOWN OK corpse on the step, no turn, and the ordinary death still turns")
+	return true
+
+
+# One transmitted exposure on PART, in the shape SimInfection writes.
+func _transmitted(w: Variant, entity: int) -> void:
+	w.components.set_component(entity, "zombieInfection", {"exposures": [{
+		"source": -1,
+		"bodyPart": PART,
+		"exposedAtTick": int(w.tick),
+		"transmitted": true,
+		"stage": SimInfection.Stage.Latent,
+		"stageEnteredAtTick": int(w.tick),
+		"cauterized": false,
+		"amputated": false,
+	}]})
 
 
 # A hold, in the shape SimShambler._start_grab actually writes -- all three keys, `sources` a

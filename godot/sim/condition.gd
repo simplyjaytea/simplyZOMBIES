@@ -29,8 +29,9 @@ const PART_ORDER: Array[String] = SimCombat.SURVIVOR_BODY_PARTS
 # The only keys a part may carry. The gate asserts this exactly.
 #
 # wounded, infected, and armored joined this session, for the paperdoll revamp -- all three
-# are words or booleans, never the number behind them: `wounded` says a wound was recorded
-# on this part, not what kind or how bad; `infected` is diagnosis_of_part's `actionable`
+# are words or booleans, never the number behind them: `wounded` says this part is carrying a
+# wound -- open or clotted, but not yet healed shut -- and never what kind or how bad;
+# `infected` is diagnosis_of_part's `actionable`
 # word ("none"/"watch"/"treat"/"critical"), the exact same non-leaking read the HUD already
 # uses, never a stage number and never `transmitted`; `armored` says coverage exists, never
 # the coverage fraction itself. Extending this dictionary with a raw one is still the change
@@ -64,10 +65,13 @@ static func label_of(part: String) -> String:
 	return String(PART_LABELS.get(part, part))
 
 
-# Does this part have a recorded wound? injuries.wounds is append-only today -- nothing
-# ever marks one treated (docs/05's fracture/sprain/burn/concussion types and treatment
-# state are open items, see docs/23) -- so this says a wound was sustained here, not that it
-# is still open. Honest about what the sim actually knows rather than implying more.
+# Does this part have an open wound? This comment used to say `injuries.wounds` was append-only
+# and that nothing ever marked a wound treated, so `wounded` meant "was hurt here once". That
+# stopped being true with the recovery slice: `wounds.recover` erases a wound from the array and
+# publishes `wound.closed` the tick it finishes knitting, so a part that has healed reports
+# false again. A survivor who has been patched up and rested reads as unwounded, which is the
+# honest answer -- and it is why this is not a scar record. Permanent consequences (docs/05's
+# limp, blind eye, scar) are a separate open item and will need their own field, not this one.
 static func _has_wound(world: Variant, actor: int, part: String) -> bool:
 	var inj: Variant = world.components.get_component(actor, "injuries")
 	if not (inj is Dictionary):

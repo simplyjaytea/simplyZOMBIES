@@ -229,8 +229,7 @@ static func merge_stacks(world: Variant, from: int, into: int) -> int:
 	(source as Dictionary)["count"] = int((source as Dictionary).get("count", 0)) - moved
 	if int((source as Dictionary).get("count", 0)) <= 0:
 		remove_from_container(world, from)
-		world.entities.despawn(from)
-		world.components.removeAll(from)
+		world.despawn(from)
 		return 0
 	return int((source as Dictionary).get("count", 0))
 
@@ -279,8 +278,7 @@ static func split_stack(world: Variant, item: int, count: int) -> Variant:
 		world.components.set_component(half, "condition", (cond as Dictionary).duplicate(true))
 	var cont: int = int((stored as Dictionary)["container"])
 	if not store_anywhere(world, half, cont):
-		world.entities.despawn(half)
-		world.components.removeAll(half)
+		world.despawn(half)
 		return null
 	(stack as Dictionary)["count"] = cur - count
 	return half
@@ -482,14 +480,36 @@ static func register_module(world: Variant) -> void:
 						if owns(w, int(actor), int(c["item"])):
 							equip(w, int(actor), int(c["item"]), String(c.get("slot", "")))
 				"item.unequip":
+					# Scoped, like the three cases around it. This used to unequip the named slot
+					# on **every** entity carrying an `equipment` component -- and
+					# ui/inventory_panel.gd pushes this command straight off the paperdoll, so one
+					# click on the player's own coat stripped that slot from every survivor in the
+					# colony. A slot name alone cannot say whose command it is, which is why the
+					# other three cases all name an item: the command carries one now, and the
+					# actor wearing it is the actor this is for. A command with no item falls back
+					# to the controlled survivor rather than to everybody.
 					for actor in w.components.query(["equipment"]):
+						var eq: Variant = w.components.get_component(int(actor), "equipment")
+						if not (eq is Dictionary):
+							continue
+						var worn: Variant = ((eq as Dictionary)["slots"] as Dictionary).get(String(c["slot"]))
+						if worn == null:
+							continue
+						if c.has("item"):
+							if int(c["item"]) != int(worn):
+								continue
+						elif not w.components.has_component(int(actor), "controlled"):
+							continue
 						unequip(w, int(actor), String(c["slot"]))
 				"item.drop":
 					for actor in w.components.query(["equipment"]):
 						if owns(w, int(actor), int(c["item"])):
 							drop_at_feet(w, int(actor), int(c["item"]))
 				"item.pickUp":
-					for actor in w.components.query(["equipment"]):
+					# Same shape as item.unequip above: this fired for every entity with an
+					# `equipment` component, so one pick-up command had the whole colony reach
+					# for whatever was nearest to each of them. The player is who pressed it.
+					for actor in w.components.query(["equipment", "controlled"]):
 						pick_up_nearest(w, int(actor))
 				"item.split":
 					split_stack(w, int(c["item"]), int(c["count"]))

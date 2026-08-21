@@ -32,6 +32,13 @@ func _armor_reduces_transmission() -> bool:
 	var trials: int = 500
 	var unarmored: int = _bite_trials(trials, false)
 	var armored: int = _bite_trials(trials, true)
+	# -1 is _bite_trials' "I could not set the trial up" sentinel, and it satisfied **both**
+	# comparisons below -- -1 is not >= 500, and -1.0 is not > 425.0 -- so an equip failure
+	# printed `ARMOR OK armored=-1` and the gate exited 0. A sentinel that passes every
+	# assertion it flows into is a gate that cannot fail; check it before comparing it.
+	if armored < 0 or unarmored < 0:
+		push_error("a bite trial could not be set up (armored=%d unarmored=%d); the comparisons below would have passed on the sentinel" % [armored, unarmored])
+		return false
 	if armored >= unarmored:
 		push_error("armor did not reduce transmission: armored=%d unarmored=%d of %d" % [armored, unarmored, trials])
 		return false
