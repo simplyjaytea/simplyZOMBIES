@@ -10,6 +10,8 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -20,8 +22,9 @@ func _run() -> void:
 	ok = _ticket10() and ok
 	ok = _needs_era() and ok
 	ok = _streams() and ok
+	ok = _a_despawn_leaves_nothing_behind() and ok
 	if ok:
-		print("M2_SAVE_OK v16 ticket10 needs-era")
+		print("M2_SAVE_OK v16 ticket10 needs-era despawn-clean")
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
@@ -188,3 +191,83 @@ func _streams() -> bool:
 		return false
 	print("STREAMS OK director isolated")
 	return true
+
+
+# What a save is allowed to contain: nothing belonging to a body that is gone.
+#
+# Two ways this was leaking, and both wrote into every save from the moment they happened.
+#
+#   1. `world.despawn` guarded the modifier cleanup on `has_method("removeScope")`. The method
+#      is `remove_scope`, so the guard was false on every despawn that has ever run and the
+#      whole line did nothing -- every dead body's affix and wound modifiers stayed in
+#      `_entries` and left `_invalidate(GLOBAL, ...)` scanning a `_cache` that only grew.
+#   2. Five call sites reached past `world.despawn` to `world.entities.despawn`, which retires
+#      the id and touches no components at all. Measured on a two-hour seed-404 world: eight
+#      arrows consumed through the shipped `_consume_ammo` path left eight ids that
+#      `components.query(["itemBase"])` still returned, for entities `entities.is_alive` said
+#      were dead. CLAUDE.md's trap #9, on the item path rather than the population one.
+#
+# The negative is the second failure reproduced deliberately: an entity retired through the
+# entity store alone must still leave its records behind. Without that row this assertion would
+# pass just as happily against a `component_store` that had quietly stopped storing anything.
+func _a_despawn_leaves_nothing_behind() -> bool:
+	var w: Variant = SimBoot.bare()["world"]
+
+	var item: int = SimItems.spawn_item(w, "item.ammo.arrow", {"tier": "scavenged", "count": 1})
+	w.components.set_component(item, "position", {"x": 4.5, "y": 4.5})
+	w.modifiers.call("add", {"stat": "move_speed", "op": "mul", "value": 0.5, "source": "gate.despawn"}, item)
+	if _components_of(w, item).is_empty():
+		push_error("the fixture item carried no components, so the assertion below is vacuous")
+		return false
+	w.despawn(item)
+	var left: Array[String] = _components_of(w, item)
+	if not left.is_empty():
+		push_error("world.despawn left %d component(s) behind: %s" % [left.size(), str(left)])
+		return false
+	if str(w.modifiers.call("save")).contains("gate.despawn"):
+		push_error("world.despawn left the entity's modifier scope in the table, and every save carries it")
+		return false
+
+	# Negative: the entity store on its own retires the id and nothing else. If this ever comes
+	# back empty, the positive above has stopped proving anything.
+	var ghost: int = SimItems.spawn_item(w, "item.ammo.arrow", {"tier": "scavenged", "count": 1})
+	w.components.set_component(ghost, "position", {"x": 5.5, "y": 5.5})
+	w.entities.call("despawn", ghost)
+	if _components_of(w, ghost).is_empty():
+		push_error("entities.despawn cleaned components up by itself, so this gate cannot fail")
+		return false
+
+	# And the shipped path that was leaking: consume ammo the way firing does, then ask the
+	# query the renderer and every counter ask.
+	var w2: Variant = SimBoot.bare()["world"]
+	var arrows: int = SimItems.spawn_item(w2, "item.ammo.arrow", {"tier": "scavenged", "count": 1})
+	SimInventory.make_inventory(w2, w2.player)
+	if not SimInventory.store_anywhere(w2, arrows, w2.player):
+		push_error("could not store the arrow the ammo assertion needs")
+		return false
+	if not SimRanged._consume_ammo(w2, int(w2.player), "item.ammo.arrow"):
+		push_error("the ammo path refused to consume the arrow it was given")
+		return false
+	var dead: int = 0
+	for e in w2.components.query(["itemBase"]):
+		if not bool(w2.entities.call("is_alive", int(e))):
+			dead += 1
+	if dead > 0:
+		push_error("firing left %d itemBase record(s) that components.query still returns for dead entities" % dead)
+		return false
+	print("DESPAWN-CLEAN OK components and modifier scope both go, and the raw store call still leaves them")
+	return true
+
+
+# Every component type that still holds a record for this id.
+func _components_of(w: Variant, entity: int) -> Array[String]:
+	var out: Array[String] = []
+	var tables: Variant = w.components.get("_tables")
+	if not (tables is Dictionary):
+		push_error("component store shape changed; this assertion reads _tables")
+		return out
+	for key in (tables as Dictionary).keys():
+		if ((tables as Dictionary)[key] as Dictionary).has(entity):
+			out.append(String(key))
+	out.sort()
+	return out

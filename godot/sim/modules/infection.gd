@@ -213,10 +213,10 @@ static func use_antibiotics(world: Variant, entity: int) -> Dictionary:
 					(stk as Dictionary)["count"] = cnt - 1
 				else:
 					SimInventoryRes.remove_from_container(world, int(item))
-					world.entities.despawn(int(item))
+					world.despawn(int(item))
 			else:
 					SimInventoryRes.remove_from_container(world, int(item))
-					world.entities.despawn(int(item))
+					world.despawn(int(item))
 			consumed = true
 			break
 	if not consumed:
@@ -270,7 +270,7 @@ static func _spend_one_course(world: Variant, entity: int) -> bool:
 			(stk as Dictionary)["count"] = int((stk as Dictionary)["count"]) - 1
 		else:
 			SimInventoryRes.remove_from_container(world, int(item))
-			world.entities.despawn(int(item))
+			world.despawn(int(item))
 		return true
 	return false
 
@@ -284,9 +284,26 @@ static func quarantine(world: Variant, entity: int, roomId: Variant = null) -> D
 	world.events.publish({"type": "quarantined", "entity": entity, "roomId": roomId})
 	return {"ok": true}
 
+# docs/06 response #5. Its whole product is "certainty, immediately, cheaply", and for as long as
+# this function existed it delivered none of it: it published the two events and returned `ok`,
+# and **nothing reaps on `entity.killed`**. `finish_death` is called by health.gd's own reaper off
+# its local `killed` list, by wounds.gd's bled-out reaper, and by needs.gd -- never by a bus
+# subscription -- so a survivor who had been "put down" walked away from it alive, still bleeding
+# and still on course to turn. `check_m2_treatment.gd` asserted that the two events were
+# *published*, which is CLAUDE.md's dead-socket pattern exactly: the helper was right and no
+# consumer read it.
+#
+# The marker goes on before the reap rather than waiting for `needs.mark-put-down` to set it at
+# drain, because `handle_death` runs *now* and has to know not to turn the body, and because the
+# grief handler charges the put-down's higher price (docs/30: x1.6) off the same fact. The
+# subscription stays -- it is still what marks a put-down published by anything else.
 static func put_down(world: Variant, entity: int) -> Dictionary:
+	world.components.set_component(entity, "putDown", {})
 	world.events.publish({"type": "survivor.putDown", "entity": entity})
 	world.events.publish({"type": "entity.killed", "entity": entity})
+	var Health: GDScript = load("res://sim/modules/health.gd") as GDScript
+	if Health != null:
+		Health.call("finish_death", world, entity)
 	return {"ok": true}
 
 static func record_extra_exposure(world: Variant, entity: int, source: int, rng: Variant, chance: float) -> Dictionary:

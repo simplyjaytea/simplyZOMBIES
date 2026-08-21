@@ -58,8 +58,10 @@ changing one means changing all of them.
 ## Headless verification (no display needed)
 
 Every correctness and performance gate runs headless through `scripts/run-godot.mjs`. The one to
-run before a commit is **`npm run godot:m2`**, which chains all of them; `npm run godot:r6` adds
-parity, coverage, mutation and soak on top. Individual gates are listed in `CLAUDE.md`.
+run before a commit is **`npm run godot:m2`**, which chains 32 of them; `npm run godot:r6` adds
+parity, coverage, mutation and soak on top. `CLAUDE.md` names the gates worth knowing by name; the
+authoritative list is the `godot:m2` script in `package.json`, and every gate has a
+`godot:m2:<name>` script of its own for iterating.
 
 Expected output that is **not** a failure:
 
@@ -111,6 +113,12 @@ committed.
 
 Check it against `main` before treating it as environment breakage — but note that this file
 previously listed three "known pre-existing" failures (`npm test` content-id and handoff-count
-drift, and `format:check` flagging `.scratch/*.html`) that have all since been **fixed**. As of
-this writing `npm test`, `npm run typecheck`, `npm run lint`, `npm run format:check` and the full
-`npm run godot:m2` chain are green on `main`. A red one is a real regression, most likely yours.
+drift, and `format:check` flagging `.scratch/*.html`) that have all since been **fixed**. Verified
+2026-08-21 on this container: `npm test` (45 files / 594 tests), `npm run typecheck`,
+`npm run lint`, `npm run format:check`, `npm run godot:validate`, `npm run godot:test`,
+`npm run godot:smoke` and the full 32-gate `npm run godot:m2` chain all pass. A red one is a real
+regression, most likely yours.
+
+One thing that is *not* environment breakage and is not yours either: `npm run godot:m2` takes
+about **seven minutes** here. `godot:m2:balance` (~85 s) and `godot:m2:harness` are most of it.
+Run the single `godot:m2:<name>` gate you are iterating on and save the chain for the commit.

@@ -77,8 +77,10 @@ func _run() -> void:
 # A bare fixture world with the two modules the loop actually needs. No SimBoot.attach_kernel:
 # World._init already builds a field and map_cells from the fixture (world.gd:88), and a plain
 # shambler never has an `observer`, so _lean_to_light returns before it would touch world.light.
-# Staying off attach_kernel also keeps SimBoot._KERNEL_WORLD's single-world constraint out of a
-# gate that builds a fresh world per assertion.
+# Staying off attach_kernel used to matter for a second reason as well: SimBoot kept the world its
+# noise and scent handlers wrote into in a `static var`, so the last world to call attach_kernel
+# received every other world's emissions. That is fixed -- the handlers capture their own world --
+# and this fixture stays bare because it does not need the kernel, not because it is avoiding it.
 func _world(seed_val: int, walls: Array = []) -> Variant:
 	var fixture: Dictionary = {
 		"seed": seed_val,

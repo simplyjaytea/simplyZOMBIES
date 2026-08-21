@@ -47,12 +47,7 @@ const PATCH_ID: String = "map.district.alpha"
 const WANDERERS: int = 20
 
 
-# Last world that called attach_kernel. Headless gates boot one world at a time.
-static var _KERNEL_WORLD: Variant = null
-
-
 static func attach_kernel(world: Variant, map: Variant) -> void:
-	_KERNEL_WORLD = world
 	world.adopt_map(map)
 	world.vision = SimVisibility.new()
 	world.light = SimLight.new()
@@ -60,8 +55,29 @@ static func attach_kernel(world: Variant, map: Variant) -> void:
 	world.systems.register("kernel.attention-scent", "attention-propagate", 0, _diffuse)
 	world.systems.register("kernel.light", "movement", 75, _refresh_light)
 	world.systems.register("kernel.visibility", "movement", 100, _refresh_vision)
-	world.events.subscribe({"id": "kernel.attention-noise", "type": "noise.emitted", "handler": _on_noise})
-	world.events.subscribe({"id": "kernel.attention-scent-emit", "type": "scent.accumulated", "handler": _on_scent})
+	# Bound to *this* world, by capture, and not to a static.
+	#
+	# These two used to be `static func _on_noise(event)` reaching for `SimBoot._KERNEL_WORLD`
+	# -- "the last world that called attach_kernel" -- with a comment claiming headless gates
+	# boot one world at a time. They do not: a gate boots a positive world and a negative world
+	# constantly, and this file's own `bare()` is called twice in a row by several of them. So
+	# the second world silently took delivery of the first world's noise and scent. Measured:
+	# boot A (seed 101) then B (seed 102), publish magnitude 500 at (8,8) on A and step A --
+	# A's own field reads 0.0000 and B's reads 500.0000. On the spine system (docs/03), which
+	# means every two-world assertion about noise or scent was reading the wrong field, negative
+	# controls included.
+	#
+	# docs/30 already records this hazard twice, for `putDown` and `mourned`: "a static would be
+	# shared between the two worlds a gate boots". It was still live here, in the kernel.
+	# `world` is an object, so the closure captures a reference -- the lambda-capture trap in
+	# CLAUDE.md is about primitives, and this is the shape that is safe. `world.field` is read
+	# at call time rather than captured, so `adopt_map` replacing the field still works.
+	world.events.subscribe({"id": "kernel.attention-noise", "type": "noise.emitted", "handler": func(event: Dictionary) -> void:
+		world.field.emit_noise(float(event["x"]), float(event["y"]), float(event["magnitude"]))
+	})
+	world.events.subscribe({"id": "kernel.attention-scent-emit", "type": "scent.accumulated", "handler": func(event: Dictionary) -> void:
+		world.field.add_scent(float(event["x"]), float(event["y"]), float(event["magnitude"]))
+	})
 
 
 static func _decay(w: Variant) -> void:
@@ -81,17 +97,6 @@ static func _refresh_light(w: Variant) -> void:
 static func _refresh_vision(w: Variant) -> void:
 	if w.vision != null and w.tilemap != null:
 		w.vision.refresh(w, w.tilemap)
-
-
-static func _on_noise(event: Dictionary) -> void:
-	# Bound at subscribe time via the world's field; handler is called with the event only.
-	# The field lives on the world that published. Event subscribers in this boot always
-	# run against the world that owns the bus — look up via a side channel stored below.
-	_KERNEL_WORLD.field.emit_noise(float(event["x"]), float(event["y"]), float(event["magnitude"]))
-
-
-static func _on_scent(event: Dictionary) -> void:
-	_KERNEL_WORLD.field.add_scent(float(event["x"]), float(event["y"]), float(event["magnitude"]))
 
 
 static func register_playable_modules(world: Variant, map: Variant) -> void:

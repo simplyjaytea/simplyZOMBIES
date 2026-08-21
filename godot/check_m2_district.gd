@@ -15,8 +15,9 @@ func _run() -> void:
 	ok = _blit_confined() and ok
 	ok = _annex_shell() and ok
 	ok = _playable_boot() and ok
+	ok = _two_worlds_do_not_share_an_attention_field() and ok
 	if ok:
-		print("M2_DISTRICT_OK validate blit annex boot")
+		print("M2_DISTRICT_OK validate blit annex boot isolation")
 		quit(0)
 	else:
 		push_error("M2_DISTRICT_FAIL")
@@ -143,4 +144,47 @@ func _playable_boot() -> bool:
 		push_error("player not armed")
 		return false
 	print("BOOT OK zeds=%d loot=%d" % [zeds, ground])
+	return true
+
+
+# Two worlds, two attention fields. The spine (docs/03) is per-world state, and for as long as
+# `attach_kernel` existed it was not: SimBoot kept "the last world that called attach_kernel" in a
+# `static var` and the `noise.emitted` / `scent.accumulated` handlers wrote into *that* world's
+# field rather than the field of the world that published. Measured before the fix -- boot A
+# (seed 101), boot B (seed 102), publish magnitude 500 at (8,8) on A, step A -- A's own field read
+# 0.0000 and B's read 500.0000. Every gate that boots a positive world and a negative world was
+# reading the wrong field for anything about noise or scent, negative controls included, and three
+# gates carried fixture comments explaining that they stayed off `attach_kernel` to dodge it.
+#
+# docs/30 records the same hazard twice already, for `putDown` and `mourned`: "a static would be
+# shared between the two worlds a gate boots."
+#
+# Both directions, because "B got nothing" would also be true of a field that had stopped
+# recording anything at all: A must receive its own noise, **and** B must receive none of it.
+func _two_worlds_do_not_share_an_attention_field() -> bool:
+	var a: Variant = SimBoot.bare(101, 32)["world"]
+	var b: Variant = SimBoot.bare(102, 32)["world"]
+	var cell_a: int = int(a.field.cell_at(8.0, 8.0))
+	var cell_b: int = int(b.field.cell_at(8.0, 8.0))
+	a.events.publish({"type": "noise.emitted", "x": 8.0, "y": 8.0, "magnitude": 500.0})
+	a.step()
+	var got_a: float = float(a.field.noise[cell_a])
+	var got_b: float = float(b.field.noise[cell_b])
+	if got_a <= 0.0:
+		push_error("the world that published its own noise did not hear it: %.4f" % got_a)
+		return false
+	if got_b != 0.0:
+		push_error("world A's noise landed in world B's field: A %.4f, B %.4f" % [got_a, got_b])
+		return false
+
+	# Same again for scent, which travels the other subscription.
+	b.events.publish({"type": "scent.accumulated", "x": 8.0, "y": 8.0, "magnitude": 40.0})
+	b.step()
+	if float(b.field.scent[cell_b]) <= 0.0:
+		push_error("world B did not receive its own scent: %.4f" % float(b.field.scent[cell_b]))
+		return false
+	if float(a.field.scent[cell_a]) != 0.0:
+		push_error("world B's scent landed in world A's field: %.4f" % float(a.field.scent[cell_a]))
+		return false
+	print("ISOLATION OK A hears %.2f of its own noise and B hears none of it, both ways" % got_a)
 	return true

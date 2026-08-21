@@ -375,6 +375,14 @@ static func register_module(world: Variant) -> void:
 	# between the two worlds a gate boots, and it would not survive a save. `putDown` is read by
 	# the grief handler below and by nothing else.
 	world.events.subscribe({"id": "needs.mark-put-down", "type": "survivor.putDown", "handler": func(event: Dictionary) -> void:
+		# Handlers run at drain, by which point the put-down has already been reaped, and a
+		# reap that ended in a despawn leaves nothing to mark. `set_component` on a dead id
+		# would happily create a component nothing can ever reach or remove -- `components`
+		# is keyed by id and does not consult `entities` -- so it would sit in every save
+		# from then on. SimInfection.put_down sets the marker before it reaps for exactly
+		# this reason; this stays the marker for a put-down published by anything else.
+		if not bool(world.entities.call("is_alive", int(event["entity"]))):
+			return
 		world.components.set_component(int(event["entity"]), "putDown", {})
 	})
 	world.events.subscribe({"id": "needs.grieve", "type": "entity.killed", "handler": func(event: Dictionary) -> void:

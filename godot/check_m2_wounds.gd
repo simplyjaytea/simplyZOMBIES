@@ -62,6 +62,7 @@ func _run() -> void:
 	ok = _each_new_injury_type_has_a_cause_that_reaches_it() and ok
 	ok = _a_wound_can_go_septic_on_the_four_factors_that_drive_it() and ok
 	ok = _a_septic_wound_never_heals_until_antibiotics_clear_it() and ok
+	ok = _every_bleed_clause_reads_in_both_voices() and ok
 	ok = _deterministic_replay() and ok
 	if ok:
 		print("M2_WOUNDS_OK severity is a fraction, bleeding is a clock, pain and exhaustion degrade everything, four more injury types exist and are reachable, and a wound can go septic")
@@ -71,9 +72,9 @@ func _run() -> void:
 		quit(1)
 
 
-# A bare fixture world with the modules the wound path needs. No SimBoot.attach_kernel, for
-# the reason check_m2_contact.gd records: it keeps SimBoot._KERNEL_WORLD's single-world
-# constraint out of a gate that builds a fresh world per assertion.
+# A bare fixture world with the modules the wound path needs. No SimBoot.attach_kernel, for the
+# reason check_m2_contact.gd's fixture note records -- the wound path does not need the kernel.
+# (The static attention-world that note used to warn about is fixed.)
 func _world(seed_val: int) -> Variant:
 	var fixture: Dictionary = {
 		"seed": seed_val,
@@ -88,6 +89,79 @@ func _world(seed_val: int) -> Variant:
 	SimHealth.make_survivor_body(w, w.player)
 	SimHealth.make_stamina(w, w.player, 100)
 	return w
+
+
+# hud_clause has four ranks and two voices, and the third-person voice used to be produced by
+# splicing a word into the first-person sentence: `name + " looks " + line.substr(7)` for anything
+# beginning with "You're ", and a hard-coded "has lost a lot of blood" for everything else. That
+# read "Ada looks going grey." and "Ada looks bleeding." -- two of the four ranks ungrammatical on
+# a HUD line every NPC survivor produces in ordinary play, since the swipe made bleeding reachable.
+# check_hud.gd could never have caught it: the rule that gate enforces is about digits.
+#
+# So: walk every rank, in both voices, and read the sentences. The list of forbidden fragments is
+# the true negative -- it is what the splice produced, and it must not come back by any route.
+func _every_bleed_clause_reads_in_both_voices() -> bool:
+	var never: Array[String] = ["looks going", "looks bleeding", "They is", "They looks", "They has", " %s"]
+	var seen_first: Dictionary = {}
+	var seen_third: Dictionary = {}
+	for row in SimWounds.BLEED_CLAUSES:
+		var rd: Dictionary = row as Dictionary
+		var frac: float = float(rd["at"])
+		var w: Variant = _world(97)
+		var them: int = int(w.entities.spawn())
+		w.components.set_component(them, "position", {"x": 6.5, "y": 16.5})
+		SimHealth.make_survivor_body(w, them)
+		w.components.set_component(them, "identity", {"id": "survivor.gate", "name": "Ada"})
+		# The rank is selected off blood lost, except the open-wound row, which has no threshold
+		# and is reached by carrying an open wound at zero loss.
+		var loss: float = 0.0 if frac < 0.0 else (frac + 0.01) * SimWounds.BLOOD_LOSS_FATAL
+		w.components.set_component(them, "injuries", {"bloodLoss": loss, "wounds": [
+			{"bodyPart": "torso", "kind": "cut", "severity": 1, "bleeding": frac < 0.0, "bandage": "none", "clotsAtTick": -1, "healedTicks": 0},
+		]})
+		var third: String = SimWounds.hud_clause(w, them)
+
+		# The same body, controlled: the first-person voice of the same rank.
+		var w2: Variant = _world(97)
+		w2.components.set_component(w2.player, "injuries", (w.components.get_component(them, "injuries") as Dictionary).duplicate(true))
+		var first: String = SimWounds.hud_clause(w2, w2.player)
+
+		if first != String(rd["first"]):
+			push_error("rank at %.2f said '%s' in the first person, expected '%s'" % [frac, first, String(rd["first"])])
+			return false
+		if not third.begins_with("Ada "):
+			push_error("rank at %.2f did not name the survivor: '%s'" % [frac, third])
+			return false
+		for bad in never:
+			if third.contains(bad):
+				push_error("rank at %.2f produced the spliced phrasing '%s': '%s'" % [frac, bad, third])
+				return false
+		if seen_first.has(first) or seen_third.has(third):
+			push_error("two ranks produced the same sentence, so one of them is not selectable: '%s' / '%s'" % [first, third])
+			return false
+		seen_first[first] = true
+		seen_third[third] = true
+
+	# A body with no identity still has to read as English. "They" took plural agreement against
+	# rows written for a singular subject, which is what "They looks bleeding." was.
+	var w3: Variant = _world(97)
+	var nameless: int = int(w3.entities.spawn())
+	w3.components.set_component(nameless, "position", {"x": 6.5, "y": 16.5})
+	SimHealth.make_survivor_body(w3, nameless)
+	w3.components.set_component(nameless, "injuries", {"bloodLoss": 0.0, "wounds": [
+		{"bodyPart": "torso", "kind": "cut", "severity": 1, "bleeding": true, "bandage": "none", "clotsAtTick": -1, "healedTicks": 0},
+	]})
+	var anon: String = SimWounds.hud_clause(w3, nameless)
+	if anon != "Someone is bleeding.":
+		push_error("an unnamed body said '%s'" % anon)
+		return false
+
+	# And nothing at all is still nothing: no wound, no loss, no sentence.
+	var w4: Variant = _world(97)
+	if SimWounds.hud_clause(w4, w4.player) != "":
+		push_error("an unhurt survivor produced a bleed clause: '%s'" % SimWounds.hud_clause(w4, w4.player))
+		return false
+	print("BLEED-VOICE OK %d ranks, both voices, no splice" % SimWounds.BLEED_CLAUSES.size())
+	return true
 
 
 # world.step() ends with events.drain() -- publish() only *queues*. So a hit needs a tick to

@@ -611,6 +611,25 @@ static func _reopen_from_overwork(world: Variant, entity: int, wounds: Array) ->
 # "You're bleeding" is deliberately the *first* thing said, at any loss at all: the player
 # needs to know to act while acting is still cheap, and by the time light-headedness arrives
 # a deep wound has already spent a quarter of its lethal budget.
+#
+# Both voices are **authored**, one row per rank, rather than derived by splicing a word into
+# the first-person sentence. The splice that shipped first said `name + " looks " + line.substr(7)`
+# for anything starting with "You're ", which read "Mara looks going grey." and "Mara looks
+# bleeding." -- two of the four ranks ungrammatical -- and fell through to a hard-coded
+# "has lost a lot of blood" for everything else, so a fifth rank would have described the wrong
+# state entirely. This is the same move WOUND_KINDS made on the four injury kinds: a table where
+# there were branches. check_hud.gd cannot catch it, because the rule it enforces is about digits.
+const BLEED_CLAUSES: Array[Dictionary] = [
+	{"at": 0.75, "first": "You're going grey.", "third": "%s is going grey."},
+	{"at": 0.50, "first": "You're light-headed.", "third": "%s looks light-headed."},
+	{"at": 0.25, "first": "You've lost a lot of blood.", "third": "%s has lost a lot of blood."},
+	# The open-wound rank has no blood-loss threshold to cross -- it fires at any loss at all,
+	# which is the "act while acting is cheap" rule above. -1.0 is never >= a clamped fraction,
+	# so the row is only ever selected by the `open` fallback below.
+	{"at": -1.0, "first": "You're bleeding.", "third": "%s is bleeding."},
+]
+
+
 static func hud_clause(world: Variant, entity: int) -> String:
 	var inj: Variant = world.components.get_component(entity, "injuries")
 	if not (inj is Dictionary):
@@ -623,27 +642,31 @@ static func hud_clause(world: Variant, entity: int) -> String:
 			break
 	var frac: float = float(d.get("bloodLoss", 0.0)) / BLOOD_LOSS_FATAL
 
-	var line: String = ""
-	if frac >= 0.75:
-		line = "You're going grey."
-	elif frac >= 0.50:
-		line = "You're light-headed."
-	elif frac >= 0.25:
-		line = "You've lost a lot of blood."
-	elif open:
-		line = "You're bleeding."
-	if line == "":
+	var row: Variant = null
+	for r in BLEED_CLAUSES:
+		var rd: Dictionary = r as Dictionary
+		var at: float = float(rd["at"])
+		if at >= 0.0 and frac >= at:
+			row = rd
+			break
+	if row == null and open:
+		row = BLEED_CLAUSES[BLEED_CLAUSES.size() - 1]
+	if row == null:
 		return ""
 
 	if world.components.has_component(entity, "controlled"):
-		return line
-	var name: String = "They"
+		return String((row as Dictionary)["first"])
+	# "Someone", not "They": every row's verb agrees with a third-person *singular* subject, and
+	# singular "they" takes plural agreement -- the old fallback produced "They looks bleeding."
+	# whenever a body had no identity to name. One noun that fits every row beats four rows that
+	# have to carry two agreements each.
+	var name: String = "Someone"
 	var ident: Variant = world.components.get_component(entity, "identity")
 	if ident is Dictionary:
-		name = String((ident as Dictionary).get("name", "They"))
-	if line.begins_with("You're "):
-		return name + " looks " + line.substr(7)
-	return name + " has lost a lot of blood."
+		name = String((ident as Dictionary).get("name", "Someone"))
+	if name.is_empty():
+		name = "Someone"
+	return String((row as Dictionary)["third"]) % name
 
 
 # --- sepsis: the roll, the effects, and the cure -------------------------------------------

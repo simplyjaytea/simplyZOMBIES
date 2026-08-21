@@ -295,8 +295,10 @@ func _press_at(p: Vector2) -> void:
 					if String(d.get("slot", "")) == String(pl["slot"]):
 						var it: Variant = d.get("item")
 						if it is Dictionary:
+							# The item, not just the slot: a slot name on its own does not say
+							# whose coat this is, and inventory.intake used to act on everybody's.
 							_begin_drag(int((it as Dictionary).get("item", -1)), -2, false, Vector2i(1, 1))
-							_world.commands.push({"type": "item.unequip", "slot": String(pl["slot"])})
+							_world.commands.push({"type": "item.unequip", "slot": String(pl["slot"]), "item": int((it as Dictionary).get("item", -1))})
 						return
 				return
 	# grid pick inside any interactive window (open screen, or a pinned quick-access pouch)
