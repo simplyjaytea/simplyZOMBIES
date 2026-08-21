@@ -481,12 +481,26 @@ func _update_hud() -> void:
 	var phase: String = Clock.PHASE_NAMES[Clock.phase_at(tod)]
 	var light: float = Clock.ambient_light(tod)
 	var now: float = Time.get_ticks_msec() / 1000.0
-	if now - _fingerprint_at > 0.25:
+	# Only while the sheet is actually up. `world.serialize()` is the whole save path --
+	# canonical JSON over every component, the entity store, the modifier table and the
+	# attention field -- and it was measured at **12.58 ms** on a two-hour-old seed-404 world
+	# with 46 entities. At four times a second that is 50 ms of every wall-clock second, or one
+	# blown 16.7 ms frame four times a second, spent hashing the world for a field nobody is
+	# looking at: `show_sheets` defaults to false and M is what reveals it. It also grows with
+	# the colony, so the cost was worst exactly when frames were tightest. docs/00 pillar 6:
+	# budgets are correctness. Pressing M recomputes within a quarter-second, which is the
+	# same latency the field always had.
+	if show_sheets and now - _fingerprint_at > 0.25:
 		# A hash, not a prefix. serialize() returns canonical JSON, so its first 8 characters
 		# are always the literal `{"compon` -- the field could never change and so could
 		# never show the divergence it exists to show.
 		_fingerprint = "%08x" % (world.serialize().hash() & 0xffffffff)
 		_fingerprint_at = now
+	elif not show_sheets:
+		# Cleared rather than left stale: a fingerprint from before the sheet was hidden would
+		# read as live and would be the one thing on the sheet that is quietly a lie.
+		_fingerprint = "--------"
+		_fingerprint_at = -1e9
 	var diag2: Dictionary = SimInfection.diagnosis_of(world, world.player, 0) as Dictionary
 	var diag_label: String = String(diag2.get("label", "clear"))
 	var apt: Dictionary = SimAptitudes.of(world, world.player)
@@ -496,12 +510,16 @@ func _update_hud() -> void:
 		if ident is Dictionary:
 			companion = String((ident as Dictionary).get("name", ""))
 			break
-	var zeds: int = 0
-	for _z in world.components.query(["shambler"]):
-		zeds += 1
+	# `count` reads the table's size; `query` allocated an Array and sorted it so the loop could
+	# throw every id away. Measured 0.0007 ms against 0.0068 ms -- small, but it was ten times
+	# the price for strictly less information.
+	var zeds: int = int(world.components.count("shambler"))
 	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  zed %d  F swing G fire  fp %s  dx:%s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, zeds, _fingerprint, diag_label]
+	# One look-at, read twice. It used to be computed once for the dev sheet and again, with
+	# identical arguments on the same tick, for the player's context line a few lines below.
+	var look: Dictionary = {}
 	if world.tilemap != null:
-		var look: Dictionary = SimFortify.look_at(world, world.player)
+		look = SimFortify.look_at(world, world.player)
 		if not String(look.get("window", "")).is_empty():
 			base += "  %s" % String(look["window"])
 		if not String(look.get("noisemaker", "")).is_empty():
@@ -518,12 +536,10 @@ func _update_hud() -> void:
 	if _hud != null:
 		# Fortify look-at is contextual and belongs on the player's line, not the dev sheet.
 		var context: String = ""
-		if world.tilemap != null:
-			var look2: Dictionary = SimFortify.look_at(world, world.player)
-			for k in ["window", "noisemaker"]:
-				if not String(look2.get(k, "")).is_empty():
-					context = String(look2[k])
-					break
+		for k in ["window", "noisemaker"]:
+			if not String(look.get(k, "")).is_empty():
+				context = String(look[k])
+				break
 		if not _content_error.is_empty():
 			context = "content: %s" % _content_error
 		_hud.set("hint", context)

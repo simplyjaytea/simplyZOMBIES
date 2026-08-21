@@ -158,8 +158,10 @@ status. Milestones close on their exit criterion, never on a feature count.
   turning, the zombie roster, ranged combat and sightlines, needs/jobs/recruits, mood consequences
   and grief, building, a director that varies its nights, save/load, the shallow skill web, loot
   tables and searchable containers, workbench modification, weapon attachments, the full injury
-  table with pain, exhaustion and sepsis, and the full wound-treatment-recovery loop (currently
-  switched off pending a design call on the colony's shape — see
+  table with pain, exhaustion and sepsis, basic melee combat, and the full
+  wound-treatment-recovery loop. A zombie can hurt you in ordinary play, and wounds, bleeding,
+  pressure, bandaging and recovery all run — what is switched off is the **bite**, and with it
+  infection, which waits behind `GRABS_ENABLED` on a design call about the colony's shape (see
   [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands)). Still open — every
   piece named in [what's left](docs/23-roadmap.md#whats-left-in-milestone-2): the wider resource
   taxonomy, the fuller survivor generator, the remaining crafting consumables, the UI screens, and

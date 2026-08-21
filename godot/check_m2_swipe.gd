@@ -161,12 +161,25 @@ func _reach_and_walls_both_refuse_it() -> bool:
 	if not seen.is_empty():
 		push_error("REACH: a swipe landed from 1.4 m, past SWIPE_METRES")
 		return false
-	# Wall: adjacent through masonry. Distance 1.0 m, well in reach, wall tile between -- the
-	# same _clear_contact that refuses a grab through it.
+	# Wall: adjacent through masonry, wall tile (16,16) between the two bodies -- the same
+	# _clear_contact that refuses a grab through it.
+	#
+	# The geometry is the assertion. This used to place the player at 17.5 against a shambler at
+	# 15.9, which is **1.6 m** apart against SWIPE_METRES 1.1: the swipe was refused by reach and
+	# the row passed identically with the wall deleted, while its comment claimed "Distance 1.0 m,
+	# well in reach". 17.05 and 15.98 is 1.07 m -- inside the claw -- with both bodies clear of
+	# tile 16 and the masonry squarely on the line. `_reach_refuses` above is the row that owns
+	# the out-of-range case; this row owns the wall, and now it can only pass for that reason.
+	# The distance is asserted rather than assumed, so a later nudge to either coordinate cannot
+	# quietly return this to measuring reach again.
 	var w2: Variant = _world(13, [{"x": 16, "y": 16}])
 	var pos: Dictionary = w2.components.get_component(w2.player, "position") as Dictionary
-	pos["x"] = 17.5
-	var z2: int = _spawn_shambler(w2, 15.9, 16.5)
+	pos["x"] = 17.05
+	var z2: int = _spawn_shambler(w2, 15.98, 16.5)
+	var gap: float = absf(float(pos["x"]) - 15.98)
+	if gap > SimShambler.SWIPE_METRES:
+		push_error("WALL: the bodies are %.3f m apart, past SWIPE_METRES %.3f -- this row is measuring reach, not the wall" % [gap, SimShambler.SWIPE_METRES])
+		return false
 	var sd2: Dictionary = w2.components.get_component(z2, "shambler") as Dictionary
 	sd2["seekSpeed"] = 0.0
 	sd2["wanderSpeed"] = 0.0
@@ -178,7 +191,25 @@ func _reach_and_walls_both_refuse_it() -> bool:
 	if not seen2.is_empty():
 		push_error("WALL: a swipe landed through a wall")
 		return false
-	print("  SWIPE-REFUSED out of reach and through a wall, %d + %d swipes" % [seen.size(), seen2.size()])
+	# And the control the wall row needs: the identical placement with no wall in the map must
+	# land swipes. Without it "no swipe" is satisfied by any reason at all, which is exactly how
+	# the old geometry hid.
+	var w3: Variant = _world(13)
+	var pos3: Dictionary = w3.components.get_component(w3.player, "position") as Dictionary
+	pos3["x"] = 17.05
+	var z3: int = _spawn_shambler(w3, 15.98, 16.5)
+	var sd3: Dictionary = w3.components.get_component(z3, "shambler") as Dictionary
+	sd3["seekSpeed"] = 0.0
+	sd3["wanderSpeed"] = 0.0
+	sd3["millSpeed"] = 0.0
+	sd3["state"] = SimShambler.ShamblerState["Pursue"]
+	var seen3: Array = _watch_swipes(w3)
+	for i in 120:
+		w3.step()
+	if seen3.is_empty():
+		push_error("WALL: the same placement without a wall landed no swipes either, so the wall proved nothing")
+		return false
+	print("  SWIPE-REFUSED out of reach (%d) and through a wall (%d), %d swipes at the same range unwalled" % [seen.size(), seen2.size(), seen3.size()])
 	return true
 
 

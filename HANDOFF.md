@@ -1,55 +1,58 @@
 # HANDOFF
 
-**This is not the old handoff ledger.** The per-item checkbox file of the same name was retired
-into [docs/23](docs/23-roadmap.md) after drifting four times, most recently by ~34 shipped-but-
-unticked items. Do not put checkboxes back in here.
+**This is not a status ledger.** A per-item checkbox file of this name was retired into
+[docs/23](docs/23-roadmap.md) after drifting four times, most recently by ~34 shipped-but-unticked
+items. This file came back a commit later as something smaller and it must stay that way. Do not
+put checkboxes back in here.
 
 What this file is: a short note for whoever picks the project up next. **Where the code is** lives
 in [where Milestone 2 stands](docs/23-roadmap.md#where-milestone-2-stands), which is the authority
-and is updated in the same commit as the work it describes. **Why something is shaped the way it
-is** lives in [docs/30](docs/30-decisions.md). **What must not be broken** lives in `CLAUDE.md`.
+and is updated in the same commit as the work it describes — where this file and that section ever
+disagree, that section is right. **Why something is shaped the way it is** lives in
+[docs/30](docs/30-decisions.md). **What must not be broken** lives in `CLAUDE.md`. **How to get a
+container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-08-20
+## State, as of 2026-08-21
 
-`main` is green: `npm run godot:m2` chains **32 gates**, and CI's `check` job runs those plus the
-frozen TypeScript oracle (45 files / 594 tests), typecheck, lint and format. The last merged code
-change is PR #95 (the basic-combat slice); since then the changes are docs only — the plan was
-renamed and split ([what's left](docs/23-roadmap.md#whats-left-in-milestone-2) /
-[the record](docs/23-roadmap.md#the-record-by-system)) and the workflow written into `CLAUDE.md`,
-with the duplicated status copies in `CLAUDE.md` and `AGENTS.md` trimmed to pointers. No code,
-content, or gates touched.
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **32 gates** and
+exits 0, `npm test` is **45 files / 594 tests** passing, and `godot:validate`, `godot:test` and
+`godot:smoke` are clean. CI's `check` job runs those plus typecheck, lint and format; its
+`performance` job runs the two TypeScript benchmarks.
 
-The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight — and
-as of the basic-combat slice, **zombies can hurt you**: a shambler in arm's reach claws on a
-three-second cadence, wounds bleed, and the treatment loop is live in ordinary play. Grabs — and
-with them infection — remain behind `GRABS_ENABLED`, untouched.
+The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight, and a
+shambler in arm's reach will claw you: wounds bleed, and pressure, bandaging and recovery are live
+in ordinary play. Grabs — and with them bites, and with bites infection — remain behind
+`SimShambler.GRABS_ENABLED`, untouched.
 
 ## What landed in the last session
 
-Six slices, working down docs/23's open list. Each names the gate that proves it:
+A **review sweep**: a read of the whole tree looking for defects rather than for the next feature.
+Eleven fixes, six gate assertions, each with its true negative, and everything else the sweep found
+written down instead of fixed. The record is in
+[docs/23 → the record, by system → Kernel & review sweep](docs/23-roadmap.md#the-record-by-system);
+what it deliberately did **not** fix is in
+[defects found by the review sweep](docs/23-roadmap.md#whats-left-in-milestone-2), named one at a
+time so the next session can take one.
 
-| Slice | Gate | What it is |
-|---|---|---|
-| Sepsis, and injury kinds as a table | `godot:m2:wounds` | A wound can go septic and stops healing until antibiotics. `WOUND_KINDS` made fracture/sprain/burn/concussion rows instead of four `if kind == …` branches |
-| Pain and exhaustion | `godot:m2:wounds` | docs/05's four continuous conditions are all four now. Pain is derived, never stored |
-| Sightlines and memory | `godot:m2:sight` | A wall refuses a shot; a body that walked out of sight is remembered for two minutes with prose that degrades. **Every survivor has eyes now** — before this, only the player did |
-| Attachments | `godot:m2:attach` | Five findable attachment items and a reader. An attachment declares what it multiplies, so nothing in the module names a suppressor |
-| Grief | `godot:m2:needs` | A death costs every other survivor mood, more if they watched it |
-| Varied nights | `godot:m2:director` | A night is *drawn* from a strain-weighted table rather than computed. docs/17 rule 4's floor and ceiling are mechanical |
+Three of the fixes are worth knowing about before you touch anything:
 
-After those, one presentation-only slice: the **inventory/UI rework** — moveable, pinnable bag
-windows, the Esc settings sheet, the shared `ui/chrome.gd` skin, the paperdoll glimpse to the
-bottom-left. No sim files were touched; docs/23's UI bullet has the detail and what remains.
+| What was wrong | Gate |
+|---|---|
+| **Two worlds shared one attention field.** `SimBoot` kept the world its noise/scent handlers wrote into in a `static var`, so the *last* world to call `attach_kernel` received every other world's emissions. Boot A then B, publish 500 at (8,8) on A: A's field read 0.0000, B's read 500.0000. Every gate that boots a positive and a negative world was reading the wrong field for anything about noise or scent | `godot:m2:district`, ISOLATION |
+| **`put_down` never put anyone down.** docs/06 response #5 published its two events and returned `ok`; nothing reaps on `entity.killed`, so the survivor walked away from their own mercy kill. The assertion that stood there watched the events go out and stopped | `godot:m2:treatment`, PUT-DOWN |
+| **A despawn left its components and modifiers behind**, in every save — a `has_method("removeScope")` guard against a method called `remove_scope`, and five call sites reaching past `world.despawn` to the entity store | `godot:m2:save`, DESPAWN-CLEAN |
 
-Then the **basic-combat slice** (`godot:m2:swipe`, plus INSTINCT in `godot:m2:npc`): the swipe —
-a part-scaled claw on a cadence, the one zombie damage path outside the grab flag — mouse aim and
-click-to-attack, boot wanderers 12 → 20 with night packets `[0,3,6,9]` under a cap of 32, and the
-three rules the diagnosis driver forced (a hit interrupts a first-aid channel and banks; self-aid
-refuses to kneel with a claw in reach; break-off narrows to cornered defense instead of surrender,
-and an unattended player defends on instinct). docs/23's "Basic combat is live" entry carries the
-seed-by-seed measurement.
+The rest: sprint can no longer aim (`CAN_AIM` had been read by nothing), `item.unequip` undresses
+one survivor instead of the whole colony, the hidden **M** sheet stopped serialising the entire
+world four times a second (measured at 12.58 ms a call), bleeding reads as English in the third
+person, and two gates that could not fail now can.
+
+**The sweep's own lesson, if you read nothing else:** three of the eleven were a guard, a
+subscription, or a constant that existed, looked right, and was **read by nothing**. That is the
+same dead-socket pattern CLAUDE.md has been recording all milestone; the list is now nine long.
+When you add a mechanism, add the assertion that something reaches it.
 
 ## What is waiting on the owner, not on code
 
@@ -60,13 +63,12 @@ These are design calls. They have been measured, written up, and deliberately **
    and a second body is simply never within reach. A design decision about the slice, not a
    tuning one.
 2. **Flip `SimShambler.GRABS_ENABLED`.** The whole injury loop is built and gated behind it. Every
-   recorded reason has been answered (docs/23's flag record is the seed-by-seed history — the last
-   two answers, escape routing and press banking, landed since this list was first written); what
-   stands now is the colony-shape call above. **Do not flip it unilaterally.** Nothing in the last
-   session touched this flag.
+   recorded reason has been answered (docs/23's flag record is the seed-by-seed history); what
+   stands now is the colony-shape call above. **Do not flip it unilaterally.**
 3. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path, because lethality balance is the thing standing between
-   `GRABS_ENABLED` and its flip.
+   `GRABS_ENABLED` and its flip. Note the sweep found that sepsis's only cure is unreachable in
+   play — `infection.respond` has no producer — which is a missing surface, not this decision.
 4. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
    docs/23's what's-left section has the three candidates and which picks force a sprite
    regeneration.
@@ -79,20 +81,20 @@ inside the seams; build the gate with the thing — true positive, true negative
 dead-socket assertion that something *reads* the mechanism; measure any balance claim with a
 throwaway driver; verify (`npm run godot:m2`, plus `npm test` for content edits); move the piece
 from what's-left to the record in the same commit; and leave every claim naming the gate that
-proves it. `CLAUDE.md`'s **Traps** section is the other thing to read before starting — every
-entry in it cost someone a session.
+proves it. `CLAUDE.md`'s **Traps** section is the other thing to read before starting — every entry
+in it cost someone a session, and two entries were added by the sweep above.
 
 ## Picking up
 
 ```bash
 bash scripts/setup-web-session.sh   # fresh container has no engine
-npm run godot:m2                    # ~6 min, the gate that matters
+npm run godot:m2                    # ~7 min, the gate that matters
 npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
 ```
 
 Then read [What's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2) — every
 remaining piece, named so the name alone says what the work is, grouped into: decisions waiting on
-the owner, content-only entries, people, medicine, gear, attention, art, UI, proof, debt, and what
-is parked for Milestone 3A. Pick a piece, land it with its gate, delete it from that list and write
-its record into [the record, by system](docs/23-roadmap.md#the-record-by-system) in the same
-commit.
+the owner, content-only entries, people, medicine, gear, attention, art, UI, proof, debt, the
+defects the review sweep left open, and what is parked for Milestone 3A. Pick a piece, land it with
+its gate, delete it from that list and write its record into
+[the record, by system](docs/23-roadmap.md#the-record-by-system) in the same commit.
