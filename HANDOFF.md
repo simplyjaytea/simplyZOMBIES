@@ -29,7 +29,7 @@ in ordinary play. Grabs — and with them bites, and with bites infection — re
 ## What landed in the last session
 
 A **review sweep**: a read of the whole tree looking for defects rather than for the next feature.
-Eleven fixes, six gate assertions, each with its true negative, and everything else the sweep found
+Thirteen fixes, seven gate assertions, each with its true negative, and everything else the sweep found
 written down instead of fixed. The record is in
 [docs/23 → the record, by system → Kernel & review sweep](docs/23-roadmap.md#the-record-by-system);
 what it deliberately did **not** fix is in
@@ -47,9 +47,15 @@ Three of the fixes are worth knowing about before you touch anything:
 The rest: sprint can no longer aim (`CAN_AIM` had been read by nothing), `item.unequip` undresses
 one survivor instead of the whole colony, the hidden **M** sheet stopped serialising the entire
 world four times a second (measured at 12.58 ms a call), bleeding reads as English in the third
-person, and two gates that could not fail now can.
+person, and **four gates that could not fail now can** — including one whose armour assertion was
+satisfied by a `-1` error sentinel and one that proved a modifier had applied by comparing it
+against its own base value.
 
-**The sweep's own lesson, if you read nothing else:** three of the eleven were a guard, a
+A read of all thirty-odd check scripts is where those four came from, and it found several more
+that are named but not fixed. If you are about to trust a gate, ask it the question that found
+them: **what change would turn this red?**
+
+**The sweep's own lesson, if you read nothing else:** three of the thirteen were a guard, a
 subscription, or a constant that existed, looked right, and was **read by nothing**. That is the
 same dead-socket pattern CLAUDE.md has been recording all milestone; the list is now nine long.
 When you add a mechanism, add the assertion that something reaches it.
@@ -82,7 +88,7 @@ dead-socket assertion that something *reads* the mechanism; measure any balance 
 throwaway driver; verify (`npm run godot:m2`, plus `npm test` for content edits); move the piece
 from what's-left to the record in the same commit; and leave every claim naming the gate that
 proves it. `CLAUDE.md`'s **Traps** section is the other thing to read before starting — every entry
-in it cost someone a session, and two entries were added by the sweep above.
+in it cost someone a session, and three entries were added by the sweep above.
 
 ## Picking up
 

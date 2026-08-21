@@ -345,14 +345,33 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `infection.respond` is the one that matters now: sepsis is reachable in ordinary play through the
   swipe and antibiotics are its only cure. This is a missing surface rather than a defect, and the
   attachment-fitting screen above is part of the same hole.
-- **More gates that cannot fail.** `check_appearance.gd`'s `_all_blocks()` skips every content file
-  whose top level is an Array, so **all item** appearance blocks are invisible to the gate;
-  `check_m2_save.gd`'s `_streams()` computes the sample proving the stepped world's `infection`
-  stream advanced and discards it in an `if ...: pass`; `check_r3_full.gd`'s block commented "seed
-  mismatch: restore should assert" never calls `restore`; `check_hud.gd`'s fixture world lacks the
-  components five of `hud.gd`'s clause builders read, so those clauses return `""` and their
-  assertions pass with no data to judge — which CLAUDE.md says must skip loudly instead. Two more
-  were found and fixed in the sweep; assume there are others and look with the same question.
+- **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
+  thirty-odd check scripts turned up and did **not** fix. Assume there are others and go at the
+  rest with the same question — *what change would turn this red?*
+  - `check_appearance.gd`'s `_all_blocks()` skips every content file whose top level is an Array,
+    so **all item** appearance blocks are invisible to the gate. It also calls the uncached
+    `ContentLoader.load_tree()` once per content path *inside* its own loop and is itself re-called
+    per iteration by two callers, turning a 27-file walk into thousands of full directory scans.
+  - `check_r6_mutation.gd`'s "validator not vacuous" lane asserts that a `RegEx` **the gate itself
+    just compiled** does not match `"BAD_ID"` — the subject is the gate's own local object, not
+    `ContentValidator`, so no change to the validator can turn it red. Its `_mutate_perf` lane
+    claims to prove the bench gate is not always PASS and never invokes the bench with a small
+    budget; it asserts that 100 iterations of `field.decay()` take more than 0.0001 ms/tick.
+  - `check_r6_coverage.gd`'s `_isolation` says it boots "with each non-kernel module disabled" and
+    disables nothing; its only guard is `if w == null` on the result of `World.new(...)`.
+  - `check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum` discards both `SimInventory.equip`
+    return values, so the max-vs-sum claim is satisfied by a world where only the mask was equipped.
+  - `check_m2_recruits.gd`'s "transmitted → shambler **with kit**" claim is an `if ...: pass` with
+    an empty body; only `turned < 1` is actually checked, so the kit half is enforced by nothing.
+    `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
+    assert" block have the same shape — a condition computed and thrown away, and a block that
+    never calls `restore`.
+  - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
+    those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
+    says must skip loudly instead.
+  - `check_r6_bench.gd` loads `bench.gd`, prints a "delegating" line and calls `quit(0)` without
+    running a benchmark — and no npm script or `run-godot.mjs` path references the file, so it is a
+    dead gate that would pass unconditionally if anyone wired it up.
 - **Three more dead sockets, on top of the nine now listed in CLAUDE.md.** `sim/spatial/hash.gd`
   in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
   check scripts, so the headless bench measures a structure the running simulation never touches
@@ -1129,7 +1148,7 @@ not a to-do list:
   boots and would not survive a save; ONCE republishes the event twice and asserts the total does
   not move.
 - **Kernel & review sweep** — a read of the whole tree looking for defects rather than for the
-  next feature. Eleven fixes landed with six gate assertions, each with its true negative; the rest
+  next feature. Thirteen fixes landed with seven gate assertions, each with its true negative; the rest
   of what the sweep turned up is named in
   [defects found by the review sweep](#whats-left-in-milestone-2) rather than fixed here, because
   each needs its own gate and two need a balance re-measurement.
@@ -1191,7 +1210,7 @@ not a to-do list:
     a hard-coded "has lost a lot of blood" for anything else. Both voices are authored per rank now,
     the same move `WOUND_KINDS` made on the injury kinds. The unnamed fallback is "Someone", because
     every row's verb agrees with a third-person singular subject and singular "they" does not.
-  - **Two gates that could not fail, and a third assertion that could not either.**
+  - **Four gates that could not fail.**
     `check_hud.gd` skipped every line beginning with `day `, and hud.gd emits `"day %d, %s"` — so
     anything numeric appended to that one line passed the digit ban untouched; the exemption is one
     token now, and the gate carries a row of lines it must catch, including `day 3, Dusk, 4 seen`.
@@ -1199,6 +1218,15 @@ not a to-do list:
     the swipe was refused by reach and the row passed identically with the wall deleted, while its
     comment claimed "Distance 1.0 m, well in reach"; it is 1.07 m now, the distance is asserted
     rather than assumed, and an unwalled control at the same range must land swipes.
+    `check_m2_lethality.gd`'s `_bite_trials` returned `-1` when the vest could not be equipped, and
+    `-1` satisfied **both** of the ARMOR comparisons — not `>= 500`, and not `> 425.0` — so a
+    broken setup printed `ARMOR OK armored=-1` and exited 0; the sentinel is checked before it is
+    compared now. And `check_m2_web.gd` asserted the melee-damage modifier had applied with
+    `if dmg < 1.0`, against a stat whose **base is 1.0** — so "the modifier applies" was satisfied
+    by the modifier not applying; it reads `<= 1.0` now and the real value is 1.040. That gate's
+    FOCUS lane was also wrapped in an `if mara >= 0:` with no else, so a fixture that stopped
+    producing a unique survivor would have taken the whole claim with it and still printed
+    `M2_WEB_OK`; it fails loudly instead.
   - **CI stopped running three gates twice.** `npm run godot:m2` already ends with
     `ban:healthbar`, `check:appearance` and `check:hud`, and the workflow listed all three again as
     separate steps. The step that runs the whole 32-gate chain was also named "M2 lethality", after
