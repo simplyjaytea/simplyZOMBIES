@@ -44,7 +44,15 @@ func _run() -> void:
 		if idn is Dictionary and bool((idn as Dictionary).get("unique", false)):
 			mara = int(e)
 			break
-	if mara >= 0:
+	if mara < 0:
+		# CLAUDE.md: an assertion with no data to judge says so and skips, it never passes
+		# quietly. This lane used to be an `if mara >= 0:` with no else, so a fixture that
+		# stopped producing a unique survivor would have taken the whole FOCUS claim with it
+		# and still printed M2_WEB_OK.
+		push_error("no unique survivor in the fixture, so the FOCUS lane asserted nothing")
+		quit(1)
+		return
+	if true:
 		SimJobs.set_focus(w, mara, "Medic")
 		for i in 4:
 			w.events.publish({"type": "job.completed", "entity": mara, "kind": "Doctor"})
@@ -57,8 +65,12 @@ func _run() -> void:
 	# Modifier applies when node owned
 	SimSkills._earn(w, player, "Melee", 5)
 	var dmg: float = float(w.modifiers.call("resolve", "melee_damage", player))
-	if dmg < 1.0:
-		push_error("melee_damage mul missing after spend")
+	# `> 1.0`, not `< 1.0`. `melee_damage` has base 1.0 (sim/modifiers/stats.gd), so a resolve
+	# with **no** skill modifier at all returns exactly 1.0 and sailed past the old comparison --
+	# the assertion for "the modifier applies when the node is owned" was satisfied by the
+	# modifier not applying.
+	if dmg <= 1.0:
+		push_error("melee_damage mul missing after spend: resolved %.3f against a base of 1.0" % dmg)
 		quit(1)
 		return
 	print("MOD OK melee_damage %.3f" % dmg)

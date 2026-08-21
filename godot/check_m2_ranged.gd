@@ -11,6 +11,7 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimStances = preload("res://sim/stances.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -21,8 +22,9 @@ func _run() -> void:
 	ok = _pistol_loud() and ok
 	ok = _a_degraded_firearm_jams_and_a_bow_never_does() and ok
 	ok = _clearing_a_jam_takes_longer_than_a_reload() and ok
+	ok = _a_sprint_cannot_aim_and_every_other_rung_can() and ok
 	if ok:
-		print("M2_RANGED_OK bow pistol jam")
+		print("M2_RANGED_OK bow pistol jam sprint")
 		quit(0)
 	else:
 		push_error("M2_RANGED_FAIL")
@@ -292,4 +294,47 @@ func _clearing_a_jam_takes_longer_than_a_reload() -> bool:
 	print("CLEAR OK jammed at %d, cleared %d ticks later against a reload of %d, magazine still %d, back to Idle" % [
 		jammed_at, spent, reload_ticks, mag_before,
 	])
+	return true
+
+
+# docs/29's stance table, walked rung by rung: "Sprint: cannot aim", and Crawl cannot either.
+#
+# `SimStances.CAN_AIM` has encoded exactly this since the ladder landed and was **read by nothing
+# anywhere in the repo** -- `SimRanged._capable_of` refused stance 0 with a hand-written `!= 0`
+# and let a sprinting survivor raise, steady and fire. A ninth entry for CLAUDE.md's dead-socket
+# list, and the reason this assertion walks all five rungs rather than checking the one that was
+# wrong: three of them must still fire, or "nobody can shoot" would pass just as well.
+func _a_sprint_cannot_aim_and_every_other_rung_can() -> bool:
+	var fired: Array[int] = []
+	var refused: Array[int] = []
+	for rung in [SimStances.Stance.Crawl, SimStances.Stance.Crouch, SimStances.Stance.Walk, SimStances.Stance.Jog, SimStances.Stance.Sprint]:
+		var w: Variant = _world()
+		var bow: int = SimItems.spawn_item(w, "item.bow.hunting", {"tier": "scavenged"})
+		SimInventory.equip(w, w.player, bow)
+		var arrows: int = SimItems.spawn_item(w, "item.ammo.arrow", {"tier": "scavenged", "count": 6})
+		if not SimInventory.stow(w, w.player, arrows):
+			w.components.set_component(arrows, "stored", {"container": w.player})
+		var rng: Variant = w.rng.stream("shambler")
+		SimRoster.spawn_zombie(w, 14.0, 12.0, SimRoster.TYPE_SHAMBLER, rng)
+		w.events.drain()
+		# Set the rung outright rather than through a stance command: request_stance takes
+		# STANCE_CHANGE_TICKS to arrive and this assertion is about the rung, not the ladder.
+		var posture: Dictionary = w.components.get_component(w.player, "posture") as Dictionary
+		posture["current"] = int(rung)
+		posture["target"] = int(rung)
+		posture["ticks_left"] = 0
+		if not _fire_through(w, 1).is_empty():
+			fired.append(int(rung))
+		else:
+			refused.append(int(rung))
+	var want_refused: Array[int] = [int(SimStances.Stance.Crawl), int(SimStances.Stance.Sprint)]
+	for rung in want_refused:
+		if not refused.has(rung):
+			push_error("%s fired, and SimStances.CAN_AIM says it cannot aim" % SimStances.NAMES[rung])
+			return false
+	for rung in [int(SimStances.Stance.Crouch), int(SimStances.Stance.Walk), int(SimStances.Stance.Jog)]:
+		if not fired.has(rung):
+			push_error("%s did not fire, so the two refusals above prove nothing" % SimStances.NAMES[rung])
+			return false
+	print("SPRINT OK fired from %d rungs, refused from crawling and sprinting" % fired.size())
 	return true

@@ -8,7 +8,7 @@ says what gets made, in what order, what proves each stage, and what may still b
 ## How to read this document
 
 This roadmap owns **intended scope, order, exit criteria, risks, and design questions**, and — since
-the retirement of the separate `HANDOFF.md` — the per-milestone status sections below, which say what
+the retirement of the per-item checkbox `HANDOFF.md` — the per-milestone status sections below, which say what
 has landed and what remains. What is *built* is proven by the Godot gate suite (`CLAUDE.md` lists the
 gates), not by any checkbox. [README.md](../README.md) is user-facing and stays at feature level.
 
@@ -129,11 +129,14 @@ end without a developer explaining it.
 
 ### Where Milestone 2 stands
 
-This section replaced `HANDOFF.md`'s live-status role when that file was retired (2026-08). Keep it
+This section took over `HANDOFF.md`'s live-status role when the per-item checkbox ledger of that
+name was retired (2026-08). A short `HANDOFF.md` came back a commit later and is still in the tree,
+but it is a cold-start pointer and an owner-decision list, **not** a status ledger: this section is
+the authority, and where the two ever disagree this one is right. Keep it
 current **in the same commit** as the work it describes. Every claim of "landed" below is proven by a
 named gate (`npm run godot:m2` chains them all); the full done-item history with per-item evidence
-lives in git — `git log -- HANDOFF.md` finds the retired file, and its final revision holds the
-itemised backlog. The section runs in this order: [what's left](#whats-left-in-milestone-2), named
+lives in git — `git log --diff-filter=D -- HANDOFF.md` finds the retired ledger, and the revision
+before its deletion holds the itemised backlog. The section runs in this order: [what's left](#whats-left-in-milestone-2), named
 so the name alone says what the work is; the landed summary; the flag record; and
 [the record, by system](#the-record-by-system) — everything landed, with its evidence.
 
@@ -249,6 +252,142 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
   carries what this has already cost.
 - **Bus-only counters in the balance tier.** The `grab.started` / `grab.broken` counters report
   and assert nothing. They become assertions when the flag flips, or they go.
+- **The Godot build has no enforced budget.** docs/00 pillar 6 says a feature that breaks budget
+  does not ship, and every budget CI actually enforces measures the **frozen oracle**: `npm run bench`
+  is vitest over `src/`, and `npm run bench:frame` spawns **vite** and drives the TypeScript/Canvas
+  build in a browser. `npm run godot:bench` benchmarks a synthetic `{components, field, spatial}`
+  dictionary rather than a `SimWorld`, and prints `BENCH_OVER_BUDGET` while exiting 0. So the only
+  thing that ships is the only thing nothing measures — which is how a 12.58 ms per-frame
+  serialisation lived in `_update_hud` (see the record's **Kernel & review sweep**).
+
+**Defects found by the review sweep, still open.** Every one was read in the shipped code and the
+measured ones say what was measured; none is a design question. They are not fixed here because
+each wants its own gate and several want a balance re-measurement, which is a slice apiece rather
+than a line apiece. Worst first. What the same sweep *did* fix is in
+[the record](#the-record-by-system) under **Kernel & review sweep**.
+
+- **Walls do not attenuate noise, at all.** `SimAttentionField.for_map` marks a 4 m attention cell
+  solid only when **all sixteen** of its 1 m tiles are solid. Measured on the shipped district:
+  2,097 solid tiles of 65,536 (3.2%), and **0 of the field's 4,096 cells marked solid** — so
+  `wallPenaltyMetres` (18 m of extra attenuation) and `_wall_cost` are applied on zero transitions
+  and `_uphill`'s solid skip is dead. docs/03 makes wall attenuation load-bearing and `world.gd`'s
+  own field-build comment says the mask exists so "noise leaks through walls in parity". Changing
+  the rule (any-solid, majority-solid, or a per-cell fraction) moves horde behaviour, so it needs a
+  before-and-after on the balance harness rather than a patch.
+- **`spawn_item` drains the whole event queue mid-tick.** `SimItems.spawn_item` ends with an
+  unconditional `world.events.drain()`. Everything else in the sim relies on handlers running at
+  the end of `world.step()` — CLAUDE.md's traps section is explicit — so any system that spawns an
+  item mid-tick (loot, cooking, stack splitting) flushes every queued event early, and *which*
+  events those are depends on where in the phase order the spawn happened. Whether a food item
+  spawns can depend on an RNG roll, so the ordering is not stable between two runs that differ in
+  an unrelated draw.
+- **The DEX noise guardrail is a no-op.** `attention_emitter.gd`'s surface-noise line reassigns
+  `magnitude` from `base`, throwing away the `move_speed` multiplier applied four lines earlier.
+- **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
+  writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
+  has this (`stance.eyes`); the port dropped it.
+- **A worn-out weapon is lost, not dropped.** `SimItems.apply_wear` unequips at zero condition and
+  nothing gives the item a home — no `stored`, no `position`, no slot. `item.detach` has the same
+  shape: `SimAttachments.detach` deliberately leaves the attachment homeless and the command does
+  nothing about it.
+- **A meal's mood never wears off, and stacks.** `SimNeeds` adds a `mood` modifier with the fixed
+  source `need.food` and never removes it; every other mood source in that file (grief, argument,
+  illness) pairs its `add` with a `remove_by_source`. Thirty meals over a ten-day campaign is
+  thirty permanent entries, all summing.
+- **A survivor who dies in bed keeps the bed.** `SimRecruits._make_corpse` strips `sleeping`
+  directly instead of going through `SimNeeds._wake`, the only thing that clears the bed's
+  `occupiedBy`. The bed is unusable for the rest of the run.
+- **Cook has no claim on its ingredient.** Nothing marks the raw item as spoken for and the job
+  does not re-check at completion, so two cooks turn one raw item into two meals — or into one meal
+  out of nothing. `Bury` has the same hole: `_do_bury` reads "the corpse has no position" as "I am
+  carrying it".
+- **A lull's opening edge is dead code.** `_begin_lull` guards its only write to `lullFromTick`
+  with `world.tick < lullFromTick`, and the field starts at 0 and is never written, so the
+  condition can never be true and the window is effectively `[0, lullUntilTick)`. `world.gd`'s
+  save comment already treats this field as load-bearing.
+- **An unreachable destination costs a full A\* every tick, forever.** `SimPath.find` scans the
+  open set linearly with a 4096-pop guard and the caller cannot tell "guard exhausted" from "no
+  path", so it re-runs the worst case on the next tick and every tick after.
+- **The content tree is re-parsed six times a second while you play.**
+  `main.gd::_poll_content_reload` runs every 0.5 s in a debug build and calls
+  `ContentValidator.validate_tree` and then `ContentReload.try_reload_world`, which validates again
+  and loads again — three full walks of all 27 JSON files, twice a second, with no change
+  detection. `ContentReload.poll_content_dir`, written to be that change detection, returns
+  `not paths.is_empty()` (always true) and is called by nothing.
+- **`write_file_atomic` is not atomic.** `platform/storage.gd` deletes the existing save before
+  renaming the temp file over it, which is the window the name, the comment and the module header
+  all promise there isn't.
+- **A missing schema silently disables validation for a whole content type.**
+  `content_validator.gd` treats it as a `push_warning` and a `continue`, and
+  `npm run godot:validate` still reports success.
+- **A dead colonist still triggers the screamer.** The screamer's survivor list filters on
+  `controlled`/`identity` with no `corpse` or alive check, so a body sets off the 300-magnitude
+  alarm on cadence, forever.
+- **`recorded` grows without bound.** `SimCommandQueue.recorded` deep-copies every command ever
+  pushed and is read only by `parity_snapshot`. In a played session that is every movement command
+  of every tick, kept for the life of the run.
+- **`deep_pockets` is computed in the wrong scope.** The suffix adds `carry_capacity` scoped to the
+  *item*; encumbrance resolves `carry_capacity` scoped to the *actor*. Rolled, named, saved, read
+  by nothing.
+- **`_weapon_for_attacker` wears the wrong weapon.** It returns the first of `primary`/`secondary`
+  carrying any weapon profile, so a survivor with a knife in `primary` and a pistol in `secondary`
+  wears the knife on every gunshot and the pistol never wears at all.
+- **`merge_into_stack` reads a failure as a success.** `merge_stacks` returns 0 both for "fully
+  merged" and for all five of its give-up paths, so `stow` can report an item stored that it did
+  not store.
+- **Sightings are recorded on geometry, not on sight.** `sightings.gd::_observe_one` uses
+  `line_of_sight` rather than `detail`, so a survivor remembers — and the HUD reports — bodies
+  standing in the 170-degree arc behind them. The information-stays-scarce ban is the reason to
+  care.
+- **The five infection verbs, and six other commands, have no way in.** `infection.respond`,
+  `item.modify`, `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search`
+  are live command handlers that nothing — no key, no button, no NPC decision — ever pushes.
+  `infection.respond` is the one that matters now: sepsis is reachable in ordinary play through the
+  swipe and antibiotics are its only cure. This is a missing surface rather than a defect, and the
+  attachment-fitting screen above is part of the same hole.
+- **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
+  thirty-odd check scripts turned up and did **not** fix. Assume there are others and go at the
+  rest with the same question — *what change would turn this red?*
+  - `check_appearance.gd`'s `_all_blocks()` skips every content file whose top level is an Array,
+    so **all item** appearance blocks are invisible to the gate. It also calls the uncached
+    `ContentLoader.load_tree()` once per content path *inside* its own loop and is itself re-called
+    per iteration by two callers, turning a 27-file walk into thousands of full directory scans.
+  - `check_r6_mutation.gd`'s "validator not vacuous" lane asserts that a `RegEx` **the gate itself
+    just compiled** does not match `"BAD_ID"` — the subject is the gate's own local object, not
+    `ContentValidator`, so no change to the validator can turn it red. Its `_mutate_perf` lane
+    claims to prove the bench gate is not always PASS and never invokes the bench with a small
+    budget; it asserts that 100 iterations of `field.decay()` take more than 0.0001 ms/tick.
+  - `check_r6_coverage.gd`'s `_isolation` says it boots "with each non-kernel module disabled" and
+    disables nothing; its only guard is `if w == null` on the result of `World.new(...)`.
+  - `check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum` discards both `SimInventory.equip`
+    return values, so the max-vs-sum claim is satisfied by a world where only the mask was equipped.
+  - `check_m2_recruits.gd`'s "transmitted → shambler **with kit**" claim is an `if ...: pass` with
+    an empty body; only `turned < 1` is actually checked, so the kit half is enforced by nothing.
+    `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
+    assert" block have the same shape — a condition computed and thrown away, and a block that
+    never calls `restore`.
+  - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
+    those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
+    says must skip loudly instead.
+  - `check_r6_bench.gd` loads `bench.gd`, prints a "delegating" line and calls `quit(0)` without
+    running a benchmark — and no npm script or `run-godot.mjs` path references the file, so it is a
+    dead gate that would pass unconditionally if anyone wired it up.
+- **Three more dead sockets, on top of the nine now listed in CLAUDE.md.** `sim/spatial/hash.gd`
+  in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
+  check scripts, so the headless bench measures a structure the running simulation never touches
+  (`melee.gd` says so out loud: "candidates via spatial would be faster but we scan for
+  correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
+  way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
+  which is now a second hand-listed copy of the director's save shape.
+- **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
+  time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
+  a no-op for them.
+- **`extremely_cold` is unreachable.** `_tick_temperature` can only write `comfortable`,
+  `very_cold` or `a_little_cold`, so the only "hard" temperature pressure and every branch keyed to
+  it are dead — including the assertion meant to police the band.
+- **A corpse looks exactly like a person.** Presentation has no notion of one: same sprite, same
+  tint, same facing pointer — and because `_make_corpse` removes `velocity`, the peripheral-motion
+  cull inverts for corpses.
 
 **Parked until Milestone 3A — blocked by missing systems, not by choices:**
 
@@ -1008,6 +1147,91 @@ not a to-do list:
   rather than a module-level set, because a static would be shared between the two worlds a gate
   boots and would not survive a save; ONCE republishes the event twice and asserts the total does
   not move.
+- **Kernel & review sweep** — a read of the whole tree looking for defects rather than for the
+  next feature. Thirteen fixes landed with seven gate assertions, each with its true negative; the rest
+  of what the sweep turned up is named in
+  [defects found by the review sweep](#whats-left-in-milestone-2) rather than fixed here, because
+  each needs its own gate and two need a balance re-measurement.
+
+  - **Two worlds no longer share one attention field** (`godot:m2:district`, ISOLATION). `SimBoot`
+    kept "the last world that called `attach_kernel`" in a `static var`, and the `noise.emitted` /
+    `scent.accumulated` handlers wrote into *that* world's field rather than the field of the world
+    that published. Measured on the parent commit: boot A (seed 101) then B (seed 102), publish
+    magnitude 500 at (8,8) on A and step A — **A's own field read 0.0000 and B's read 500.0000**.
+    On the spine (docs/03), which means every gate that boots a positive and a negative world was
+    reading the wrong field for anything about noise or scent, negative controls included; three
+    gates carried fixture comments explaining that they stayed off `attach_kernel` to dodge it, and
+    those comments are now history rather than instructions. The handlers capture their own world;
+    `world` is an object, so the closure captures a reference and CLAUDE.md's lambda-capture trap
+    (primitives by value) does not apply. This is the third time docs/30's "a static would be shared
+    between the two worlds a gate boots" has been paid for, after `putDown` and `mourned`.
+  - **A despawn takes its components and its modifiers with it** (`godot:m2:save`, DESPAWN-CLEAN).
+    Two leaks, both writing into every save. `world.despawn` guarded the modifier cleanup on
+    `has_method("removeScope")` — the method is `remove_scope`, so the guard was false on every
+    despawn that has ever run and the line did nothing; it is the only camelCase `has_method` in the
+    tree, and the same shape as the `vel["x"]` trap, a guard naming something that does not exist.
+    Separately, five call sites reached past `world.despawn` to `world.entities.despawn`, which
+    retires the id and touches no components: eight arrows consumed through the shipped
+    `_consume_ammo` path left eight ids that `components.query(["itemBase"])` still returned for
+    entities `is_alive` said were dead — CLAUDE.md's trap 9 on the item path rather than the
+    population one. The gate's negative is that second failure reproduced deliberately.
+  - **A put-down puts them down** (`godot:m2:treatment`, PUT-DOWN). docs/06 response #5 sells
+    "certainty, immediately, cheaply" and delivered none of it: `put_down` published
+    `survivor.putDown` and `entity.killed` and returned `ok`, and **nothing reaps on that bus** —
+    `finish_death` is called by health.gd's own reaper, wounds.gd's, and needs.gd, never by a
+    subscription. The survivor walked away from their own mercy kill. The assertion that stood here
+    watched the two events go out and stopped, which is the dead-socket pattern exactly. A body the
+    colony put down is also now the one body transmission does not raise, since a put-down that let
+    them turn anyway delivers the outcome the verb exists to buy your way out of.
+  - **You cannot shoot from a sprint** (`godot:m2:ranged`, SPRINT). `SimStances.CAN_AIM` has said
+    `false` for Sprint since the ladder landed and was **read by nothing in the repo**; `_capable_of`
+    refused Crawl with a hand-written `!= 0`. docs/29's stance table says "Sprint: cannot aim". A
+    ninth dead socket. Only the player carries a `posture`, so no NPC behaviour moved. The gate walks
+    all five rungs — three must still fire, or "nobody can shoot" would pass just as well.
+  - **One command undresses one survivor** (`godot:m2:gear`, UNEQUIP). `item.unequip` looped every
+    entity with an `equipment` component with no ownership test, where the three cases beside it all
+    had one — and `ui/inventory_panel.gd` pushes it straight off the paperdoll, so one click on your
+    own coat stripped that slot from everybody in the colony. A slot name cannot say whose command it
+    is, so the command carries the item. `item.pickUp` had the same shape and is now the controlled
+    survivor's alone.
+  - **The hidden developer sheet stops costing a frame** (`godot:check:hud`, SHEET-COST). Its
+    fingerprint is a hash of `world.serialize()` — canonical JSON over every component, the entity
+    store, the modifier table and the attention field — recomputed four times a second whether or not
+    anybody had pressed **M**. Measured at **12.58 ms per call** on a two-hour-old seed-404 world with
+    46 entities: one blown 16.7 ms frame, four times a second, growing with the colony, for a panel
+    nobody had opened. docs/00 pillar 6. Two smaller things in the same function went with it: the
+    zed counter built and sorted an array to count what `components.count` reads off a size
+    (0.0068 ms against 0.0007 ms), and `SimFortify.look_at` was called twice per update with
+    identical arguments.
+  - **Bleeding reads as English in both voices** (`godot:m2:wounds`, BLEED-VOICE). The third-person
+    HUD line was produced by splicing a word into the first-person sentence, which read "Ada looks
+    going grey." and "Ada looks bleeding." — two of four ranks ungrammatical on a line every NPC
+    survivor produces in ordinary play, since the swipe made bleeding reachable — and fell through to
+    a hard-coded "has lost a lot of blood" for anything else. Both voices are authored per rank now,
+    the same move `WOUND_KINDS` made on the injury kinds. The unnamed fallback is "Someone", because
+    every row's verb agrees with a third-person singular subject and singular "they" does not.
+  - **Four gates that could not fail.**
+    `check_hud.gd` skipped every line beginning with `day `, and hud.gd emits `"day %d, %s"` — so
+    anything numeric appended to that one line passed the digit ban untouched; the exemption is one
+    token now, and the gate carries a row of lines it must catch, including `day 3, Dusk, 4 seen`.
+    `check_m2_swipe.gd`'s WALL row placed the bodies **1.6 m** apart against `SWIPE_METRES` 1.1, so
+    the swipe was refused by reach and the row passed identically with the wall deleted, while its
+    comment claimed "Distance 1.0 m, well in reach"; it is 1.07 m now, the distance is asserted
+    rather than assumed, and an unwalled control at the same range must land swipes.
+    `check_m2_lethality.gd`'s `_bite_trials` returned `-1` when the vest could not be equipped, and
+    `-1` satisfied **both** of the ARMOR comparisons — not `>= 500`, and not `> 425.0` — so a
+    broken setup printed `ARMOR OK armored=-1` and exited 0; the sentinel is checked before it is
+    compared now. And `check_m2_web.gd` asserted the melee-damage modifier had applied with
+    `if dmg < 1.0`, against a stat whose **base is 1.0** — so "the modifier applies" was satisfied
+    by the modifier not applying; it reads `<= 1.0` now and the real value is 1.040. That gate's
+    FOCUS lane was also wrapped in an `if mara >= 0:` with no else, so a fixture that stopped
+    producing a unique survivor would have taken the whole claim with it and still printed
+    `M2_WEB_OK`; it fails loudly instead.
+  - **CI stopped running three gates twice.** `npm run godot:m2` already ends with
+    `ban:healthbar`, `check:appearance` and `check:hud`, and the workflow listed all three again as
+    separate steps. The step that runs the whole 32-gate chain was also named "M2 lethality", after
+    one of them.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.
@@ -1223,7 +1447,8 @@ sections above.
 
 ## Settled decisions: do not relitigate
 
-These were each decided explicitly by the repo owner. They moved here from the retired `HANDOFF.md`.
+These were each decided explicitly by the repo owner. They moved here from the retired checkbox
+`HANDOFF.md`.
 If you're about to "improve" one, don't:
 
 - **Hardcore is the thesis, not a difficulty slider.** Permadeath with succession into another
@@ -1260,7 +1485,7 @@ If you're about to "improve" one, don't:
 
 ## Roadmap cut list
 
-- **Per-item checkbox bookkeeping.** Retired with `HANDOFF.md`; the milestone status sections carry
+- **Per-item checkbox bookkeeping.** Retired with the checkbox `HANDOFF.md`; the milestone status sections carry
   condensed state, gates carry the proof, and git history carries the itemised record.
 - **Milestone 3 breadth inside the vertical slice.** The slice proves the thesis before expansion.
 - **Full storyteller presets in Milestone 2.** Only the slice director and an internal neutral baseline.

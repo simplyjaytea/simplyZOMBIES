@@ -41,8 +41,9 @@ func _run() -> void:
 	ok = _wearing_it_covers_the_part_and_the_view_says_so() and ok
 	ok = _coverage_composes_by_max_not_sum() and ok
 	ok = _a_slot_refuses_gear_that_does_not_belong_there() and ok
+	ok = _unequipping_one_coat_undresses_one_survivor() and ok
 	if ok:
-		print("M2_GEAR_OK slots have items, items are findable, coverage moves and composes by max")
+		print("M2_GEAR_OK slots have items, items are findable, coverage moves and composes by max, and a command undresses one person")
 		quit(0)
 	else:
 		push_error("M2_GEAR_FAIL")
@@ -195,3 +196,51 @@ func _a_slot_refuses_gear_that_does_not_belong_there() -> bool:
 		return false
 	print("  SLOTS: an item goes only where it belongs")
 	return true
+
+
+# One command, one wearer.
+#
+# `inventory.intake`'s `item.unequip` case looped every entity with an `equipment` component and
+# called `unequip(actor, slot)` on all of them -- no ownership test, where the `item.equip`,
+# `item.drop` and `item.pickUp` cases beside it all had one. ui/inventory_panel.gd pushes this
+# command straight off the paperdoll, so clicking your own coat took the coat off everybody in the
+# colony. A slot name cannot say whose command it is; the item in the slot can, so the command
+# carries one.
+#
+# Both directions: the addressed survivor must actually be undressed (or "nobody is undressed"
+# would pass), and the bystander must still be dressed.
+func _unequipping_one_coat_undresses_one_survivor() -> bool:
+	var w: Variant = _world()
+	var them: int = int(w.entities.spawn())
+	w.components.set_component(them, "position", {"x": 9.5, "y": 12.5})
+	SimHealth.make_survivor_body(w, them)
+	SimInventory.make_inventory(w, them)
+
+	var mine: int = _spawn(w, "item.gloves.work")
+	var theirs: int = _spawn(w, "item.gloves.work")
+	if not SimInventory.equip(w, w.player, mine) or not SimInventory.equip(w, them, theirs):
+		push_error("could not dress both survivors for the assertion")
+		return false
+	var slot: String = String(SimInventory.equip_slot_for(w, mine))
+	if slot.is_empty():
+		push_error("the fixture item has no equip slot")
+		return false
+
+	w.commands.push({"type": "item.unequip", "slot": slot, "item": mine})
+	w.step()
+
+	if _worn(w, w.player, slot) != null:
+		push_error("the survivor the command named is still wearing it")
+		return false
+	if _worn(w, them, slot) == null:
+		push_error("unequipping one survivor's %s took the bystander's off too" % slot)
+		return false
+	print("UNEQUIP OK one command, one wearer, the bystander keeps their gear")
+	return true
+
+
+func _worn(w: Variant, actor: int, slot: String) -> Variant:
+	var eq: Variant = w.components.get_component(actor, "equipment")
+	if not (eq is Dictionary):
+		return null
+	return ((eq as Dictionary)["slots"] as Dictionary).get(slot)

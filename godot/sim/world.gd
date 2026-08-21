@@ -240,8 +240,14 @@ func despawn(entity: int) -> bool:
 	if not ok:
 		return false
 	(components as RefCounted).call("removeAll", entity)
-	if modifiers != null and (modifiers as Object).has_method("removeScope"):
-		(modifiers as RefCounted).call("removeScope", entity)
+	# `remove_scope`, not `removeScope`. The guard used to name the camelCase spelling, which no
+	# script method has, so `has_method` was false on every despawn and the whole line was a
+	# no-op for as long as it existed: every dead zombie's affix and wound modifiers stayed in
+	# `_entries`, went into every save, and left `_invalidate(GLOBAL, ...)` scanning a `_cache`
+	# that only ever grew. A `has_method` guard naming a method that does not exist is the
+	# `vel["x"]` trap in another costume -- it raises nothing and does nothing.
+	if modifiers != null and (modifiers as Object).has_method("remove_scope"):
+		(modifiers as RefCounted).call("remove_scope", entity)
 	return true
 
 func invalidateMap() -> void:

@@ -283,7 +283,7 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		var next: int = _succession_pick(world, entity)
 		if next >= 0:
 			# Gear stays on the corpse; camera hands over (ADR 0013 / docs/01).
-			if _is_transmitted(world, entity):
+			if _turns_on_death(world, entity):
 				_turn_with_kit(world, entity)
 			else:
 				_make_corpse(world, entity)
@@ -291,7 +291,7 @@ static func handle_death(world: Variant, entity: int) -> bool:
 			return true
 		world.runOver = true
 		world.events.publish({"type": "run.over", "entity": entity})
-		if _is_transmitted(world, entity):
+		if _turns_on_death(world, entity):
 			_turn_with_kit(world, entity)
 			return true
 		world.despawn(entity)
@@ -300,7 +300,7 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		_drop_kit(world, entity)
 		world.despawn(entity)
 		return true
-	if _is_transmitted(world, entity):
+	if _turns_on_death(world, entity):
 		_turn_with_kit(world, entity)
 		return true
 	if world.components.has_component(entity, "needs") or world.components.has_component(entity, "identity"):
@@ -357,6 +357,18 @@ static func _handoff(world: Variant, dead: int, next: int) -> void:
 		world.components.remove(next, "job")
 	world.runOver = false
 	world.events.publish({"type": "player.succeeded", "from": dead, "to": next})
+
+
+# Does this body get up again? Transmission decides it everywhere except one place: a body the
+# colony **put down** stays down. docs/06 response #5 sells exactly one product -- "certainty,
+# immediately, cheaply" -- and a put-down that let the body turn anyway would deliver the outcome
+# the verb exists to buy your way out of. The marker is the same `putDown` component the grief
+# handler reads to charge the put-down's higher price, set by SimInfection.put_down before it
+# reaps, so both halves of response #5 read one fact.
+static func _turns_on_death(world: Variant, entity: int) -> bool:
+	if world.components.has_component(entity, "putDown"):
+		return false
+	return _is_transmitted(world, entity)
 
 
 static func _is_transmitted(world: Variant, entity: int) -> bool:

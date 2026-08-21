@@ -12,7 +12,8 @@ nowhere else. `npm run build` is `godot:export`, and Pages publishes the Godot b
 deny.** `src/`, `test/`, `bench/` and the Vite/vitest configs are all present on `main`, and the
 `check` job runs `npm test`, `npm run typecheck`, `npm run lint`, `npm run format:check` and
 `npm run bench` against them alongside the Godot gates. As of this writing all of it is green:
-**45 files / 594 tests** (one file, `handoff.test.ts`, retired with `HANDOFF.md`). It is a
+**45 files / 594 tests** (one file, `handoff.test.ts`, retired with the checkbox ledger it
+counted — see the note on `HANDOFF.md` under Conventions). It is a
 *frozen reference*, not a second product — do not add features
 to it, do not port Godot changes into it — but do not delete it or let it go red either, because
 CI will stop you. Its frozen parity fixtures under `godot/parity/` are what `npm run godot:test`
@@ -84,6 +85,11 @@ npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 ```
 
+Those are the ones worth naming, not all of them: `godot:m2` chains **32**, and the authoritative
+list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
+because a copy here is one more thing that drifts. Run an individual gate with the
+`godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
+
 `godot:m2` prints `ObjectDB ... leaked at exit` and `resources still in use` *after* it reports
 success. That is engine shutdown noise, not a failure — check the `_OK` line and the exit code.
 
@@ -105,7 +111,8 @@ amend them.
 
 **No health bar, and no way to compute one.** The
 [condition view](docs/05-health-injury.md#the-condition-view) hands the screen a state and a
-sentence per part — `{parts:[{part, state, prose}], stance, worst}` — and deliberately carries
+sentence per part — `{parts:[{part, state, prose, wounded, infected, armored, bleeding, bandage}],
+stance, worst}`, whose every added field is a word or a boolean — and deliberately carries
 **no integrity value, no maximum, and no fraction**, so a fill is not merely discouraged, it is
 not computable from what the screen has. `godot/sim/condition.gd` is the one builder;
 `npm run godot:ban:healthbar` serialises its output and asserts the absence, with a key
@@ -141,8 +148,10 @@ It captures decisions, not shipped behavior: nothing counts as done until code a
 check prove it.
 
 [docs/23](docs/23-roadmap.md) is the authority on what is intended **and**, in its milestone status
-sections, on what is built and what remains (`HANDOFF.md` was retired into it — its itemised history
-lives in git). Its [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) section names every
+sections, on what is built and what remains (the old per-item checkbox `HANDOFF.md` was retired
+into it and its itemised history lives in git; the `HANDOFF.md` in the tree today is the short
+pointer described under Conventions, and it is not a status ledger). Its
+[what's left](docs/23-roadmap.md#whats-left-in-milestone-2) section names every
 remaining Milestone 2 piece — small, modular, named so the name alone says the work — and its
 [record, by system](docs/23-roadmap.md#the-record-by-system) holds the evidence for what landed;
 a landing moves its piece from the first to the second in the same commit.
@@ -162,14 +171,18 @@ drifted. Three things about the current state matter enough to repeat anyway:
 - **The presentation is flat top-down, not isometric** — an independent track that touched nothing
   under `godot/sim/`. `docs/00-vision.md` carries the reversal, docs/30 what it made structural,
   and the art entries in what's left the ordered next steps; the style pick is the owner's.
-- **The dead-socket pattern.** This milestone has turned up eight pieces of code that were
+- **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody
-  but the player, rule 4's variance floor behind an `if size == 0` that could never be true, and
-  `SimDirector.snapshot_of`. **A gate asserting that a helper returns the right number does not
-  assert that anything reads it.** When you add a mechanism, add the assertion that something
-  reaches it — `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest
-  example.
+  but the player, rule 4's variance floor behind an `if size == 0` that could never be true,
+  `SimDirector.snapshot_of`, and — found by the review sweep — `SimStances.CAN_AIM`, which had said
+  "a sprint cannot aim" since the ladder landed while `SimRanged` let a sprinting survivor fire.
+  **A gate asserting that a helper returns the right number does not assert that anything reads
+  it.** When you add a mechanism, add the assertion that something reaches it —
+  `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example. The sweep
+  left three more sockets named but unfixed (`sim/spatial/hash.gd` entire, `SimThreat.threat_within`,
+  `SimStances.eye_of`); they are in
+  [docs/23's defect list](docs/23-roadmap.md#whats-left-in-milestone-2).
 
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must
 not weaken the condition-view health-bar ban. The full balance grid and human ten-day playtest are
@@ -258,6 +271,27 @@ Each of these was found the expensive way. They are not style opinions.
   by `query` still counts it. This made a director harness report "56 quiet nights in a row" --
   the culled bodies still filled `LIVE_CAP`, so every night after the fourth was refused rather
   than drawn. Remove the component you are counting, not just the entity.
+- **`Array.erase()` and `Array.find()` on Dictionaries match by *value*, not by reference.**
+  Measured in 4.7.1: with `a` and `b` two different Dictionaries holding identical content and
+  `arr = [a, c, b]`, `arr.find(b)` returns **0** and `arr.erase(b)` removes **`a`**. So an array of
+  records — a wound list, a sighting list, anything keyed by content rather than by id — cannot be
+  edited by handing the element back. Find the index yourself on a field that is unique, or give
+  the records an id. `wounds.gd`'s closing loop is safe only because two value-identical wounds
+  necessarily close on the same tick; one added field away, it would not be.
+- **A `has_method()` guard naming a method that does not exist is silently false forever.** It
+  raises nothing, logs nothing, and quietly turns the whole branch into a no-op — `world.despawn`
+  guarded its modifier cleanup on `has_method("removeScope")` against a method called
+  `remove_scope`, so no despawned entity ever had its modifiers cleared and every save carried
+  them. GDScript's `has_method` does **not** convert between snake_case and camelCase for script
+  methods. Same family as `vel["x"]`: a name that looks right and reaches nothing. If you write
+  one, grep for `func <name>(` before you trust it.
+- **A `static var` is shared between the two worlds a gate boots.** docs/30 records this twice for
+  components (`putDown`, `mourned`) and it was still live in the kernel: `SimBoot` kept "the last
+  world that called `attach_kernel`" in a static, and the attention handlers wrote into *that*
+  world's field rather than the publisher's. World A published magnitude 500 and A's own field read
+  0.0000 while world B's read 500.0000 — on the spine, under every two-world assertion about noise
+  or scent. Per-world state belongs on the world or in a closure over it; a closure over an object
+  is safe, because the lambda-capture trap above is about primitives.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.
