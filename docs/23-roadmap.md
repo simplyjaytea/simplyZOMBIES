@@ -182,11 +182,6 @@ owner's six scope decisions are recorded in
 [docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces, in landing order — each a
 session with its gate:
 
-- **Anchors on the map, constants deleted.** `SimDirector.ANNEX`, `SimFortify.GATE_A/B` and the
-  literal (46,45) start become data the generator writes (`map.anchors`); boot, director, jobs,
-  fortify, needs, recruits and every coordinate-pinning gate read them off the booted world. The
-  constants are deleted, not deprecated, so a missed consumer fails to compile. Extends
-  `godot:m2:district`.
 - **District types as data, and the generator rebuilt.** Streets from district JSON (block range,
   street width, connection points), parcels, weighted template placement — ~40–70 buildings at
   256 and a real miniature district at 64, so the gate boots stop running on empty maps. The
@@ -901,9 +896,22 @@ not a to-do list:
   plus the gate's own depth checks) with deliberately **zero shipped entries** — the pool arrives
   with the placer that reads it, in the district-types piece above. `map.schema.json` gained the
   optional `anchors` block, and the edit is proven load-bearing: without it the frozen oracle's
-  Ajv fails the content suite 9/9. `gate_a`/`gate_b`/`well_tile`/`annex_rect` are written and
-  gate-read but not yet production-read — that is the next piece, which deletes the compile-time
-  twins they replace.
+  Ajv fails the content suite 9/9.
+  ~~Anchors on the map, constants deleted~~ **landed** (`godot:m2:district`, ANCHORS lane) — the
+  arc's second slice. `SimDirector.ANNEX`, `SimFortify.GATE_A/GATE_B` and every literal colony
+  coordinate are gone; boot (well, station floors), director (edge legality, annex peak), jobs
+  (guard post, corpse dump, the three annex scans), needs (stockpile tiles), fortify (gate scrap
+  rules) and recruits (arrival, departure) read `map.anchors` through the `SimTileMap` accessors,
+  sentinel-guarded so an anchorless map degrades to a no-op rather than siting the colony at a
+  sentinel. Eight coordinate-pinning gates re-derive their windows from the booted world's
+  anchors — same band values, different source — and the district gate's new ANCHORS lane pins
+  the boot's anchors, their stability across two boots, and that an unstamped district reports
+  none; it also asserts a water source stands on the well anchor, so the anchor has a reader
+  rather than being a tenth dead socket. Behaviour is **bit-identical, measured**: the balance
+  fast tier, director variance and side distribution re-run against a HEAD worktree matched line
+  for line. The same slice found and fixed a gate that could not fail: `check_m2_fortify`'s
+  scrap-choke probed two tiles off its 24-tile arena, refused as walls whatever the rule did —
+  its arena now carries real gate anchors, a true positive and a control tile.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

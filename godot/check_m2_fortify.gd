@@ -111,7 +111,19 @@ func _board_opacity() -> bool:
 func _scrap_choke() -> bool:
 	var w: Variant = _world()
 	_set_tile(w, 10, 11, SimTileMap.Tile.Window)
-	if SimFortify.can_scrap(w.tilemap, 49, 49) or SimFortify.can_scrap(w.tilemap, 50, 49):
+	# The gate refusal, with something to refuse. This used to probe (49, 49) and (50, 49) --
+	# `SimFortify.GATE_A`'s old neighbourhood -- on a 24-tile arena, so both were off the map and
+	# refused as walls whatever the gate rule did. The gates are map anchors now, so the arena can
+	# carry a pair, on tiles that are otherwise perfectly scrappable: same open floor, same window
+	# to face, so the only difference between the control tile and the two gate tiles is the rule
+	# under test.
+	for gx in [3, 4, 5]:
+		_set_tile(w, int(gx), 3, SimTileMap.Tile.Window)
+	w.tilemap.anchors = {"gate_a": {"x": 4, "y": 4}, "gate_b": {"x": 5, "y": 4}}
+	if not SimFortify.can_scrap(w.tilemap, 3, 4):
+		push_error("the control tile beside the gate was refused, so this proves nothing")
+		return false
+	if SimFortify.can_scrap(w.tilemap, 4, 4) or SimFortify.can_scrap(w.tilemap, 5, 4):
 		push_error("gate accepted scrap")
 		return false
 	var scrap: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged", "count": 1})

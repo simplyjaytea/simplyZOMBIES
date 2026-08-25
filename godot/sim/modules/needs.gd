@@ -10,7 +10,6 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
-const SimDirector = preload("res://sim/modules/director.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 
 const HUNGER_EMPTY_DAYS: float = 2.0
@@ -1179,7 +1178,13 @@ static func is_stockpile_tile(world: Variant, tx: int, ty: int) -> bool:
 		return false
 	if SimTileMap.tile_at(world.tilemap, tx, ty) != SimTileMap.Tile.Floor:
 		return false
-	return SimDirector.ANNEX.has_point(Vector2i(tx, ty))
+	# The stockpile is the annex's indoor floor, and where the annex is comes off the map now
+	# rather than out of `SimDirector.ANNEX`. An unstamped district reports the empty rect, which
+	# has no points -- so it has no stockpile, rather than one at somebody else's coordinates.
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return false
+	return annex.has_point(Vector2i(tx, ty))
 
 
 static func stockpile_items(world: Variant) -> Array[int]:

@@ -13,8 +13,6 @@ const NOISEMAKER_MAG: float = 45.0
 const NOISEMAKER_TICKS: int = 12000
 const CONTACT_PER_STAGE: int = 40
 const SCRAP_ID: String = "item.scrap.metal"
-const GATE_A: Vector2i = Vector2i(50, 57)
-const GATE_B: Vector2i = Vector2i(51, 57)
 const WINDOW_PROSE: Array[String] = ["intact", "scratched", "splintering", "gaps, light leaking"]
 
 
@@ -111,8 +109,16 @@ static func look_at(world: Variant, actor: int) -> Dictionary:
 	return out
 
 
+# The two gate tiles are read off the map the colony was stamped onto rather than off a pair of
+# constants: where the gate is belongs to the district, and a map that carries no anchors answers
+# with the (-1, -1) sentinel, which is why each gate is compared only after it says it exists.
 static func can_scrap(map: Variant, tx: int, ty: int) -> bool:
-	if Vector2i(tx, ty) == GATE_A or Vector2i(tx, ty) == GATE_B:
+	var here := Vector2i(tx, ty)
+	var gate_a: Vector2i = SimTileMap.gate_a(map)
+	if gate_a.x >= 0 and here == gate_a:
+		return false
+	var gate_b: Vector2i = SimTileMap.gate_b(map)
+	if gate_b.x >= 0 and here == gate_b:
 		return false
 	if SimTileMap.tile_at(map, tx, ty) != SimTileMap.Tile.Floor:
 		return false

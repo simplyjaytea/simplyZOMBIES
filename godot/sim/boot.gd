@@ -42,6 +42,11 @@ const SimDebugMod = preload("res://sim/modules/debug.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
+# Where the colony gets stamped -- the one colony coordinate still written in code, and the only
+# one that is an *input* rather than a remembered copy of an output. Everything that used to name
+# the colony's tiles (`SimDirector.ANNEX`, `SimFortify.GATE_A`/`GATE_B`, the well) is now read off
+# the map's anchors, which this stamp writes. The generator takes this over in the "district types
+# as data" slice.
 const ANNEX_ORIGIN: Vector2i = Vector2i(38, 38)
 # 20, up from 12 in the basic-combat slice: with swipes live a wanderer is a threat rather than
 # scenery, and the district read as empty at 12 across a 64-tile map. check_m2_director.gd pins
@@ -174,10 +179,11 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 	var map: Variant = SimTileMap.generate_district(seed_val, map_size)
 	var patch: Variant = SimTileMap.load_patch_from_content(content, PATCH_ID)
 	if patch is Dictionary:
-		# ANNEX_ORIGIN is still a constant, and still (38, 38): this slice moves the annex from a
-		# blit to a stamped template without moving the annex. The generator chooses the origin in
-		# the "district types as data" slice; check_buildings.gd's migration lock is what says the
-		# switch changed no bytes on the canonical seed.
+		# The one call that decides where the colony is. Everything downstream -- the director's
+		# exclusions, the jobs router, the stockpile, the recruit beat, the well -- now asks the
+		# map what this wrote, so moving this origin moves the colony and nothing else has to
+		# agree. check_buildings.gd's migration lock is what says the stamp changed no bytes on
+		# the canonical seed.
 		SimTemplates.stamp(map, patch as Dictionary, ANNEX_ORIGIN.x, ANNEX_ORIGIN.y)
 	var start: Vector2i = colony_start(map)
 	var exam: Dictionary = SimTileMap.find_open_tile(map, start.x, start.y)
@@ -201,12 +207,12 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 
 
 # Where the colony starts, read off the map the template was stamped onto rather than off a
-# constant. The (46, 45) literal survives only as the fallback for a map that carries no anchors
-# at all -- a bare `generate_district`, or an old fixture that never had a template stamped on it.
-# The next slice ("anchors on the map, constants deleted") takes the fallback with the rest of the
-# compile-time twins; until then this is the one live reader of the anchor, and
-# check_buildings.gd's reader lane is what proves the anchor -- not the literal -- is what boot
-# used.
+# constant. Every other compile-time twin of a colony coordinate is gone -- `SimDirector.ANNEX`,
+# `SimFortify.GATE_A`/`GATE_B` and the well's `GATE_A + (1, 2)` are all map anchors now -- and this
+# (46, 45) is the one literal that stays, deliberately: it is the fallback for a map that carries
+# no anchors at all, a bare `generate_district` or an old fixture that never had a template
+# stamped on it. check_buildings.gd's reader lane proves it is the anchor and not the literal that
+# a stamped district uses, and that the fallback is reachable rather than theoretical.
 static func colony_start(map: Variant) -> Vector2i:
 	var anchor: Vector2i = SimTileMap.player_start(map)
 	if anchor.x < 0 or anchor.y < 0:
@@ -224,8 +230,12 @@ static func place_stations(world: Variant, map: Variant) -> void:
 		SimNeeds.make_bed(world, float(tiles[1].x) + 0.5, float(tiles[1].y) + 0.5)
 	if tiles.size() > 2:
 		SimNeeds.make_bed(world, float(tiles[2].x) + 0.5, float(tiles[2].y) + 0.5)
-	# Outdoor well just south of the gate (ADR 0013).
-	var well := Vector2i(SimFortify.GATE_A.x + 1, SimFortify.GATE_A.y + 2)
+	# Outdoor well just south of the gate (ADR 0013) -- the template's own anchor now, not
+	# `GATE_A + (1, 2)` computed here. A district nobody stamped has no well anchor and gets no
+	# well, which is the honest answer: there is nothing to site it against.
+	var well: Vector2i = SimTileMap.well_tile(map)
+	if well.x < 0 or well.y < 0:
+		return
 	if well.x > 0 and well.y > 0 and well.x < int(map.w) - 1 and well.y < int(map.h) - 1:
 		if not SimTileMap.is_solid(map, well.x, well.y):
 			SimNeeds.make_water_source(world, float(well.x) + 0.5, float(well.y) + 0.5)
@@ -233,10 +243,13 @@ static func place_stations(world: Variant, map: Variant) -> void:
 
 static func _indoor_floors(map: Variant, near_x: int, near_y: int, n: int) -> Array[Vector2i]:
 	var found: Array[Vector2i] = []
-	var rx: int = SimDirector.ANNEX.position.x
-	var ry: int = SimDirector.ANNEX.position.y
-	var rw: int = SimDirector.ANNEX.size.x
-	var rh: int = SimDirector.ANNEX.size.y
+	var annex: Rect2i = SimTileMap.annex_rect(map)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return found
+	var rx: int = annex.position.x
+	var ry: int = annex.position.y
+	var rw: int = annex.size.x
+	var rh: int = annex.size.y
 	var scored: Array[Dictionary] = []
 	for j in range(ry, ry + rh):
 		for i in range(rx, rx + rw):

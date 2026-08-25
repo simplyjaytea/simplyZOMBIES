@@ -3,7 +3,7 @@ extends SceneTree
 
 const SimBoot = preload("res://sim/boot.gd")
 const Clock = preload("res://sim/time/clock.gd")
-const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 
 func _init() -> void:
@@ -129,20 +129,29 @@ func _cull(world: Variant) -> void:
 
 func _never_gate() -> bool:
 	var w: Variant = _boot()["world"]
+	# Off the booted world, not off a pair of constants -- the gates and the annex are map state
+	# now, so when the generator moves the colony this assertion moves with it. Hoisted once
+	# because the loop below asks about every tile the night placed.
+	var gate_a: Vector2i = SimTileMap.gate_a(w.tilemap)
+	var gate_b: Vector2i = SimTileMap.gate_b(w.tilemap)
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	if gate_a.x < 0 or gate_b.x < 0 or annex.size.x <= 0:
+		push_error("the booted district names no gates or annex, so the exclusion is unmeasurable")
+		return false
 	var before: Array[int] = _ids(w)
 	_jump_dusk(w, 8)
 	for tile in _edge_new(w, before):
-		if tile == SimFortify.GATE_A or tile == SimFortify.GATE_B:
+		if tile == gate_a or tile == gate_b:
 			push_error("packet on gate %s" % str(tile))
 			return false
-		if SimDirector.ANNEX.has_point(tile):
+		if annex.has_point(tile):
 			push_error("packet in annex %s" % str(tile))
 			return false
 		var gx: float = float(tile.x) + 0.5
 		var gy: float = float(tile.y) + 0.5
-		for gate in [SimFortify.GATE_A, SimFortify.GATE_B]:
-			var dx: float = gx - (float(gate.x) + 0.5)
-			var dy: float = gy - (float(gate.y) + 0.5)
+		for gate in [gate_a, gate_b]:
+			var dx: float = gx - (float((gate as Vector2i).x) + 0.5)
+			var dy: float = gy - (float((gate as Vector2i).y) + 0.5)
 			if dx * dx + dy * dy < SimDirector.GATE_EXCLUSION * SimDirector.GATE_EXCLUSION:
 				push_error("packet within 32m of gate %s" % str(tile))
 				return false

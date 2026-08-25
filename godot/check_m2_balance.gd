@@ -30,7 +30,7 @@ extends SceneTree
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
-const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
@@ -312,7 +312,7 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 		return
 	for tile in _placed_since(w, before as Array[int]):
 		(run["placements"] as Array).append("%d,%d" % [tile.x, tile.y])
-		if not _legal_placement(tile):
+		if not _legal_placement(w, tile):
 			run["illegal_placements"] = int(run["illegal_placements"]) + 1
 
 
@@ -619,14 +619,23 @@ func _placed_since(w: Variant, before: Array[int]) -> Array[Vector2i]:
 
 # The director never spawns at your gate and never inside the annex -- `_legal_tile`'s promise,
 # checked from the outside against what actually landed rather than against the same code.
-func _legal_placement(tile: Vector2i) -> bool:
-	if tile == SimFortify.GATE_A or tile == SimFortify.GATE_B:
+#
+# Where the gate and the annex are comes off the campaign's own map: they are anchors the district
+# carries now, not constants, so this keeps checking the real colony rather than a remembered one.
+# Only reached for tiles a night actually placed, so there is no per-tick lookup here.
+func _legal_placement(w: Variant, tile: Vector2i) -> bool:
+	var gate_a: Vector2i = SimTileMap.gate_a(w.tilemap)
+	var gate_b: Vector2i = SimTileMap.gate_b(w.tilemap)
+	if tile == gate_a or tile == gate_b:
 		return false
-	if SimDirector.ANNEX.has_point(tile):
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	if annex.size.x > 0 and annex.size.y > 0 and annex.has_point(tile):
 		return false
-	for gate in [SimFortify.GATE_A, SimFortify.GATE_B]:
-		var dx: float = (float(tile.x) + 0.5) - (float(gate.x) + 0.5)
-		var dy: float = (float(tile.y) + 0.5) - (float(gate.y) + 0.5)
+	for gate in [gate_a, gate_b]:
+		if (gate as Vector2i).x < 0:
+			continue
+		var dx: float = (float(tile.x) + 0.5) - (float((gate as Vector2i).x) + 0.5)
+		var dy: float = (float(tile.y) + 0.5) - (float((gate as Vector2i).y) + 0.5)
 		if dx * dx + dy * dy < SimDirector.GATE_EXCLUSION * SimDirector.GATE_EXCLUSION:
 			return false
 	return true
