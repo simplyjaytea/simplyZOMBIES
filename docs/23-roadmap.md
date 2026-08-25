@@ -173,25 +173,14 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
-Today `generate_district` makes nine hollow one-room blocks where docs/24 says ~40–70 buildings,
-every seed but 20260805 strands the hardcoded colony anchors, and at gate size 64 the block loop
-never runs — so every gate boot but `check_loot`'s runs on a map with **zero generated
-buildings**. Region, roads-between-districts and streaming stay Milestone 3B; the road seam ships
-as data the street pass must actually reach (edge connection points), not as a dead field. The
-owner's six scope decisions are recorded in
-[docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces, in landing order — each a
-session with its gate:
+Three pieces have landed (the template stamp, the anchors, the generator itself — the record has
+each); the district is generated from data now, 51 buildings on the canonical seed, and the gate
+boots run on a real miniature district instead of an empty map. Region,
+roads-between-districts and streaming stay Milestone 3B; the road seam ships as data the street
+pass actually reaches (edge connection points). The owner's six scope decisions are recorded in
+[docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces still open, in landing
+order — each a session with its gate:
 
-- **District types as data, and the generator rebuilt.** Streets from district JSON (block range,
-  street width, connection points), parcels, weighted template placement — ~40–70 buildings at
-  256 and a real miniature district at 64, so the gate boots stop running on empty maps. The
-  template pool is authored here, with its placer: 8–12 residential/civic and 3–5 commercial
-  footprints under `content/buildings/` (the type and stamper landed with the annex migration —
-  see the record; the pool waited for the thing that reads it). Every placed building's interior
-  must be reachable through its door from the street network — the sandbox goal's "buildings are
-  enterable", asserted rather than assumed. Two live types ship: residential suburb and town
-  center. Named `worldgen.*` streams replace the XOR salts; `SAVE_VERSION` bumps; the balance
-  fast tier and harness bands are re-measured before/after in the same commit, never inherited.
 - **The annex sited per seed, survivability validated.** docs/01's "no unwinnable starts" made
   mechanical: start open, gates reachable from a street, station floor indoors, well, a site of
   each placed loot table reachable — bounded deterministic re-site on failure, and a gate that
@@ -912,6 +901,30 @@ not a to-do list:
   for line. The same slice found and fixed a gate that could not fail: `check_m2_fortify`'s
   scrap-choke probed two tiles off its 24-tile arena, refused as walls whatever the rule did —
   its arena now carries real gate anchors, a true positive and a control tile.
+  ~~District types as data, and the generator rebuilt~~ **landed** (`godot:m2:district` lanes
+  GENERATOR ROADS ENTERABLE DETERMINISM DISTRICT-DATA RESERVE; `godot:check:buildings`, SHIPPED
+  POOL) — the arc's third slice, and the big one. `sim/map/worldgen.gd` replaces the fixed
+  64-block lattice: streets drawn from district JSON and terminated at the declared edge
+  connection points (the Milestone 3B road seam, live — each a paved opening in the border wall),
+  parcels carved, buildings placed by weighted pick from an authored pool of **17 templates**
+  (7 residential, 3 sheds, 2 civic, 5 commercial), thinned by density — **51 buildings** on the
+  canonical 256 map (40–64 across twelve seeds, band pinned 40–70) and a real miniature district
+  at 64 (7 canonical, floor pinned ≥ 4), so the gate boots stopped running on empty maps. Two
+  types ship: `district.residential_suburb` (the default) and `district.town_center` (blocks
+  12–20, streets 3 wide, commercial-heavy — 148 buildings at 256). Every generation pass draws
+  from its own named stream (`worldgen.streets`/`parcels`/`buildings`/`occluders`/`terrain`, via
+  `derive_seed` — the XOR salts are gone), and the gate pins byte-identical same-seed
+  regeneration, different-seed divergence, and dressing that moves no walls. Every building's
+  interior is reachable through its door from the street walk-in — the sandbox goal's "buildings
+  are enterable", asserted: six bricked fixture shells report six unreachable rooms.
+  `SAVE_VERSION` 16 → 17, because the same seed no longer regenerates the pre-rebuild ground.
+  The balance fast tier, director variance, sides and harness pins were captured before and
+  re-run after: **no band moved** — pacing is stream-driven; only where bodies stand changed
+  (canonical-seed kills 2 → 5, one death, survival intact on all four seeds). The
+  attention-field baseline for the wall-attenuation slice, measured on the new 256 map: 0 of
+  4,096 cells solid under the all-16 rule, 6 under ≥ 8-of-16. Honest halves: `district.type` is
+  read today only by the gate's district-data lane (its real reader is the loot piece), and
+  `town_center` is reachable only by gates until the seeded-boot piece ships `--district`.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

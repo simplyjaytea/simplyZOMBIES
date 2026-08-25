@@ -1,0 +1,14 @@
+{
+  "id": "district.town_center",
+  "name": "Market Cross",
+  "type": "town_center",
+  "streets": { "blockMin": 12, "blockMax": 20, "streetWidth": 3 },
+  "connectionPoints": { "north": 2, "south": 2, "east": 2, "west": 2 },
+  "density": 0.82,
+  "pool": [
+    { "tag": "commercial", "weight": 10 },
+    { "tag": "civic", "weight": 4 },
+    { "tag": "residential", "weight": 3 },
+    { "tag": "shed", "weight": 1 }
+  ]
+}
