@@ -508,7 +508,7 @@ func _every_generated_site_resolves_and_stands_somewhere_open() -> bool:
 		"perBuilding": [{"table": "industrial", "tags": ["residential", "shed"], "sites": {"min": 1, "max": 1}}],
 	})
 	var bad_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree_with(fixture), String(fixture["id"]))
-	var bad_sites: Array = bad_map.sites as Array
+	var bad_sites: Array = _profile_sites(bad_map)
 	if bad_sites.is_empty():
 		push_error("the unwritten-table fixture district placed no sites, so the negative proves nothing")
 		return false
@@ -755,21 +755,36 @@ func _site_counts_stay_inside_the_bounds_the_profile_declares() -> bool:
 	if sheds < 1:
 		push_error("the one-per-shed fixture district built no sheds, so the count proves nothing")
 		return false
-	if (one_map.sites as Array).size() != sheds:
-		push_error("one site per shed over %d sheds placed %d sites" % [sheds, (one_map.sites as Array).size()])
+	if _profile_sites(one_map).size() != sheds:
+		push_error("one site per shed over %d sheds placed %d sites" % [sheds, _profile_sites(one_map).size()])
 		return false
 	var none: Dictionary = _fixture_district("district.fixture.none", {
 		"perBuilding": [{"table": "residential", "tags": ["civic"], "sites": {"min": 0, "max": 0}}],
 	})
 	var none_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree_with(none), String(none["id"]))
-	if not (none_map.sites as Array).is_empty():
-		push_error("a profile declaring 0..0 sites placed %d" % (none_map.sites as Array).size())
+	if not _profile_sites(none_map).is_empty():
+		push_error("a profile declaring 0..0 sites placed %d" % _profile_sites(none_map).size())
 		return false
 
 	print("COUNTS OK %s; the suburb holds exactly one medical and one cache at 256 and neither at %d; one-per-shed places %d over %d sheds and 0..0 places none" % [
-		", ".join(lines), GATE_SIZE, (one_map.sites as Array).size(), sheds,
+		", ".join(lines), GATE_SIZE, _profile_sites(one_map).size(), sheds,
 	])
 	return true
+
+
+# The sites the *district profile* put down, which is every site except the ones the colony's own
+# template carried in with it. The generator sites and stamps the annex on every district big
+# enough to hold one now -- fixture districts included -- so a lane that means "what this profile
+# placed" has to say so, or the annex's two authored rows turn up in every count and every fixture
+# whose profile places nothing looks like a profile that placed two.
+func _profile_sites(map: Variant) -> Array:
+	var annex: Rect2i = SimTileMap.annex_rect(map)
+	var out: Array = []
+	for site in map.sites as Array:
+		if annex.has_point(Vector2i(int((site as Dictionary)["x"]), int((site as Dictionary)["y"]))):
+			continue
+		out.append(site)
+	return out
 
 
 func _table_counts(sites: Array) -> Dictionary:
@@ -869,9 +884,9 @@ func _a_template_carries_its_own_loot() -> bool:
 	var map: Variant = boot["map"]
 	var w: Variant = boot["world"]
 	var annex: Rect2i = SimTileMap.annex_rect(map)
-	var patch: Variant = SimTileMap.load_patch_from_content(_tree(), SimBoot.PATCH_ID)
+	var patch: Variant = SimTileMap.load_patch_from_content(_tree(), SimWorldgen.ANNEX_PATCH_ID)
 	if not (patch is Dictionary):
-		push_error("no %s in content, so the annex's own loot cannot be judged" % SimBoot.PATCH_ID)
+		push_error("no %s in content, so the annex's own loot cannot be judged" % SimWorldgen.ANNEX_PATCH_ID)
 		return false
 	var rows: Variant = (patch as Dictionary).get("loot")
 	if not (rows is Array) or (rows as Array).is_empty():
@@ -911,8 +926,10 @@ func _a_template_carries_its_own_loot() -> bool:
 	if placed.is_empty():
 		push_error("the loot-bearing fixture district placed no buildings, so the mechanism proves nothing")
 		return false
-	if (carried.sites as Array).size() != placed.size():
-		push_error("%d loot-bearing buildings stamped %d sites" % [placed.size(), (carried.sites as Array).size()])
+	# The colony's own rows are excluded: the annex is a loot-bearing template too, and it is stamped
+	# on every district the generator sites one on, so counting every site on the map would count it.
+	if _profile_sites(carried).size() != placed.size():
+		push_error("%d loot-bearing buildings stamped %d sites" % [placed.size(), _profile_sites(carried).size()])
 		return false
 	var relative: Dictionary = ((loaded["loot"] as Array)[0] as Dictionary)["tile"] as Dictionary
 	for record in placed:
@@ -938,8 +955,8 @@ func _a_template_carries_its_own_loot() -> bool:
 	var tree2: Dictionary = _tree_with(_fixture_district("district.fixture.carrier", {}, [{"tag": "carrier", "weight": 1}], 1.0))
 	tree2["buildings/zz_carrier.json"] = anonymous
 	var bare_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree2, "district.fixture.carrier")
-	if not (bare_map.sites as Array).is_empty():
-		push_error("a template with no loot block still stamped %d sites" % (bare_map.sites as Array).size())
+	if not _profile_sites(bare_map).is_empty():
+		push_error("a template with no loot block still stamped %d sites" % _profile_sites(bare_map).size())
 		return false
 
 	print("TEMPLATE LOOT OK the annex's %d authored rows stand at their absolute tiles on the booted district, and %d fixture buildings each stamped their own; a template without the block stamps none" % [

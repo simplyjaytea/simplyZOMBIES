@@ -158,7 +158,11 @@ Hardcore must not mean arbitrary. The design owes the player:
 - **Warning before consequence.** Hordes are audible before they're visible. Infection has symptoms
   before it has a corpse. Structures visibly degrade before they fail.
 - **No unwinnable starts.** The director guarantees an opening grace period; generated starting
-  positions are validated for basic survivability.
+  positions are validated for basic survivability — mechanically, since the worldgen arc: the
+  generator's survivability validator (gated by `godot:m2:district`'s SURVIVABILITY lane) accepts
+  a colony site only when the start is open, both gates are reachable from a road, the station
+  floor exists, the well stands, and a site of every placed loot table is reachable; a failing
+  site is re-sited deterministically.
 - **Uncertainty is never a lie.** Ambiguous information is genuinely ambiguous — the game does not
   show you something false. A scratch that might be a bite really might be either.
 

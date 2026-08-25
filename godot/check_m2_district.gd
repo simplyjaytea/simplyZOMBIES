@@ -22,25 +22,45 @@ extends SceneTree
 #   5. **The district data is read.** A fixture district with a different density and a different
 #      pool builds a measurably different place on the same seed, and the second shipped type
 #      (town centre) generates and puts its commercial footprints down.
+#   6. **The colony is sited per seed, and the start is survivable.** docs/01's fairness rule --
+#      "No unwinnable starts: generated starting positions are validated for basic survivability"
+#      -- made mechanical: eight seeds at the gate size and two at the shipped one, every clause
+#      of the survivability pass true on each, and each clause shown to be able to say no.
 
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimTemplates = preload("res://sim/map/templates.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const SimBoot = preload("res://sim/boot.gd")
+const SimDirector = preload("res://sim/modules/director.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const ContentValidator = preload("res://platform/content_validator.gd")
 
 const CANON_SEED: int = 20260805
 const GATE_SIZE: int = 64
 const SHIPPED_SIZE: int = 256
-# docs/24: "At suburban density a 256 m district holds ~40-70 buildings." Measured on the shipped
-# residential type across twelve seeds: 40..64, canonical seed 51.
+# Too small to hold the annex and its clear ring, so the generator sites no colony on it: the one
+# shape that comes back with no anchors, and what the two isolation worlds boot at.
+const ISOLATION_SIZE: int = 32
+# The seeds the siting lane walks: the four the balance harness runs, and four more, because a
+# property asserted on the four campaigns it is measured against is a property asserted on the four
+# campaigns it is measured against.
+const SITING_SEEDS: Array[int] = [20260805, 404, 31337, 90210, 1, 2, 7, 12345]
+const SITING_SEEDS_256: Array[int] = [20260805, 404]
+# docs/24: "At suburban density a 256 m district holds ~40-70 buildings." Re-measured on the shipped
+# residential type after the annex moved off its fixed corner rect: 47, 63, 51, 50 on the four
+# harness seeds, canonical 47 (51 before).
 const BUILDINGS_256_MIN: int = 40
 const BUILDINGS_256_MAX: int = 70
 # The assertion that was impossible before: at 64 the old generator's block loop never ran, so
-# every gate but check_loot's booted a district with no buildings in it at all. Measured across
-# the same twelve seeds: 4..10, and 6..8 on the four the balance harness uses.
-const BUILDINGS_64_MIN: int = 4
+# every gate but check_loot's booted a district with no buildings in it at all.
+#
+# Re-measured after the siting slice, across twelve seeds: **3..10**, and 4..7 on the four the
+# balance harness uses (7, 4, 4, 6). It was 4..10 and 6..8 when the annex sat in the map's corner
+# with a quarter of its 26x26 footprint over the ring road and the wall. A colony sited inside the
+# district takes its whole footprint out of the buildable lots, and at 64 -- a *model* of a district
+# rather than a quarter of one -- that is roughly a third of them. The floor is what it has always
+# been for: zero buildings is the old lattice bug coming back, and three is a thin suburb.
+const BUILDINGS_64_MIN: int = 3
 # Outdoor ground a walk from a connection point has to reach. Not 100%: dressing can ring a pocket
 # of lawn with trees, which is a garden rather than a bug. Measured: 100.0% at both sizes.
 const REACH_SHARE_MIN: float = 0.9
@@ -63,9 +83,12 @@ func _run() -> void:
 	ok = _every_building_can_be_entered() and ok
 	ok = _the_same_inputs_build_the_same_district() and ok
 	ok = _the_district_entry_is_read() and ok
-	ok = _the_reserve_and_the_stamp_agree() and ok
+	ok = _the_generator_reserves_the_ground_it_sited() and ok
+	ok = _the_colony_is_sited_per_seed_and_survivable() and ok
+	ok = _the_survivability_pass_can_fail() and ok
+	ok = _a_refused_candidate_moves_the_colony_to_the_next_one() and ok
 	if ok:
-		print("M2_DISTRICT_OK validate blit annex anchors boot isolation generator roads enterable determinism district-data reserve")
+		print("M2_DISTRICT_OK validate blit annex anchors boot isolation generator roads enterable determinism district-data reserve siting survivability re-site")
 		quit(0)
 	else:
 		push_error("M2_DISTRICT_FAIL")
@@ -122,23 +145,21 @@ func _blit_confined() -> bool:
 	return true
 
 func _annex_shell() -> bool:
-	var content: Dictionary = ContentLoader.load_tree()
-	var patch: Variant = SimTileMap.load_patch_from_content(content, "map.district.alpha")
-	var map: Variant = SimTileMap.generate_district(20260805, 64)
-	# Stamped rather than blitted, so the map carries the template's anchors and the gate check
-	# below can ask where the gate is instead of remembering. check_buildings.gd's migration lock
-	# is what says the two lay identical bytes.
-	var rect_in: Dictionary = (patch as Dictionary)["rect"] as Dictionary
-	SimTemplates.stamp(map, patch as Dictionary, int(rect_in["x"]), int(rect_in["y"]))
+	# The colony arrives with the district now -- sited, stamped and reserved by the generator -- so
+	# this reads the rect off the map rather than stamping one itself and remembering where.
+	var map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree())
+	var rect: Rect2i = SimTileMap.annex_rect(map)
+	if rect.size.x <= 0 or rect.size.y <= 0:
+		push_error("the generated district carries no annex, so this shell check is measuring nothing")
+		return false
 	var windows: int = 0
 	var screens: int = 0
 	var lows: int = 0
 	var indoors: int = 0
-	var rect: Dictionary = (patch as Dictionary)["rect"] as Dictionary
-	for j in int(rect["h"]):
-		for i in int(rect["w"]):
-			var tx: int = int(rect["x"]) + i
-			var ty: int = int(rect["y"]) + j
+	for j in rect.size.y:
+		for i in rect.size.x:
+			var tx: int = rect.position.x + i
+			var ty: int = rect.position.y + j
 			var t: int = SimTileMap.tile_at(map, tx, ty)
 			if t == SimTileMap.Tile.Window:
 				windows += 1
@@ -172,7 +193,7 @@ func _annex_shell() -> bool:
 	if gate < 2:
 		push_error("gate missing at %s..%s" % [str(gate_a), str(gate_b + Vector2i(1, 0))])
 		return false
-	print("ANNEX OK windows=%d screens=%d indoors=%d" % [windows, screens, indoors])
+	print("ANNEX OK at %s windows=%d screens=%d indoors=%d" % [str(rect), windows, screens, indoors])
 	return true
 
 func _playable_boot() -> bool:
@@ -217,8 +238,47 @@ func _playable_boot() -> bool:
 	if not world.components.has_component(world.player, "meleeWeapon"):
 		push_error("player not armed")
 		return false
-	print("BOOT OK zeds=%d loot=%d containers=%d" % [zeds, ground, boxes])
+
+	# Not one of them inside the colony's own walls. The director has always refused to put a night
+	# packet in the annex; the boot scatter used to get the same answer for free, because the annex
+	# was a fixed rect in the district's corner and the box those rolls come from barely reached it.
+	# With the colony sited per seed it lands in the middle of that box, and before `SCATTER_TRIES`
+	# went in this booted 2, 7, 5 and 7 shamblers *inside* the annex on the four balance seeds --
+	# and the three seeds with five or more lost a colonist on day 1, 2 or 3 to one of them.
+	var map: Variant = boot["map"]
+	var annex: Rect2i = SimTileMap.annex_rect(map)
+	if annex.size.x <= 0:
+		push_error("the playable boot carries no annex, so this exclusion is measuring nothing")
+		return false
+	var indoors_at_boot: int = _wanderers_inside(world, annex)
+	if indoors_at_boot != 0:
+		push_error("%d of the %d boot wanderers stand inside the colony at %s" % [indoors_at_boot, zeds, str(annex)])
+		return false
+	# The true negative: "none inside" is also what a counter that cannot see anybody returns. Put
+	# one there by hand and the count has to move by exactly one.
+	var planted: int = int(world.entities.spawn())
+	world.components.set_component(planted, "shambler", {})
+	world.components.set_component(planted, "position", {
+		"x": float(annex.position.x + annex.size.x / 2) + 0.5,
+		"y": float(annex.position.y + annex.size.y / 2) + 0.5,
+	})
+	if _wanderers_inside(world, annex) != 1:
+		push_error("a shambler stood in the middle of the annex and the count still read %d" % _wanderers_inside(world, annex))
+		return false
+
+	print("BOOT OK zeds=%d loot=%d containers=%d, none of them inside the colony at %s" % [zeds, ground, boxes, str(annex)])
 	return true
+
+
+func _wanderers_inside(world: Variant, annex: Rect2i) -> int:
+	var n: int = 0
+	for e in world.components.query(["shambler", "position"]):
+		var p: Variant = world.components.get_component(int(e), "position")
+		if not p is Dictionary:
+			continue
+		if annex.has_point(Vector2i(floori(float((p as Dictionary)["x"])), floori(float((p as Dictionary)["y"])))):
+			n += 1
+	return n
 
 
 # The colony's fixed points are map state, not compile-time constants: `SimDirector.ANNEX` and
@@ -284,16 +344,18 @@ func _the_booted_world_carries_its_colony_anchors() -> bool:
 		push_error("two boots of seed 20260805 disagreed about where the colony is")
 		return false
 
-	# The true negative: an unstamped district must report absence rather than invent the colony's
-	# coordinates. Without this half, accessors that had started answering from a default would
-	# pass everything above.
-	var bare_map: Variant = SimTileMap.generate_district(20260805, 64)
+	# The true negative: a district with no colony on it must report absence rather than invent the
+	# colony's coordinates. Without this half, accessors that had started answering from a default
+	# would pass everything above. ISOLATION_SIZE is a map too small to hold the annex and its clear
+	# ring, which is the one shape that now comes back anchorless -- and it is the shape the two
+	# isolation worlds below boot at.
+	var bare_map: Variant = SimTileMap.generate_district(20260805, ISOLATION_SIZE)
 	if SimTileMap.gate_a(bare_map) != Vector2i(-1, -1) or SimTileMap.gate_b(bare_map) != Vector2i(-1, -1) \
 			or SimTileMap.player_start(bare_map) != Vector2i(-1, -1) or SimTileMap.well_tile(bare_map) != Vector2i(-1, -1):
-		push_error("a district nobody stamped answered with a coordinate instead of the absent sentinel")
+		push_error("a district too small for a colony answered with a coordinate instead of the absent sentinel")
 		return false
 	if SimTileMap.annex_rect(bare_map) != Rect2i(0, 0, 0, 0):
-		push_error("a district nobody stamped claimed an annex at %s" % str(SimTileMap.annex_rect(bare_map)))
+		push_error("a district too small for a colony claimed an annex at %s" % str(SimTileMap.annex_rect(bare_map)))
 		return false
 
 	print("ANCHORS OK boot carries gates %s/%s, start %s, well %s, annex %s; stable across two boots; an unstamped district reports none" % [
@@ -317,8 +379,8 @@ func _the_booted_world_carries_its_colony_anchors() -> bool:
 # Both directions, because "B got nothing" would also be true of a field that had stopped
 # recording anything at all: A must receive its own noise, **and** B must receive none of it.
 func _two_worlds_do_not_share_an_attention_field() -> bool:
-	var a: Variant = SimBoot.bare(101, 32)["world"]
-	var b: Variant = SimBoot.bare(102, 32)["world"]
+	var a: Variant = SimBoot.bare(101, ISOLATION_SIZE)["world"]
+	var b: Variant = SimBoot.bare(102, ISOLATION_SIZE)["world"]
 	var cell_a: int = int(a.field.cell_at(8.0, 8.0))
 	var cell_b: int = int(b.field.cell_at(8.0, 8.0))
 	a.events.publish({"type": "noise.emitted", "x": 8.0, "y": 8.0, "magnitude": 500.0})
@@ -846,37 +908,397 @@ func _tags_of(tree: Dictionary, id: String) -> Array:
 	return []
 
 
-# --- the reserve and the stamp ---
+# --- the reserve ---
 
-# Two constants naming one place: the generator keeps this rect clear and SimBoot stamps the annex
-# onto it. They are in different files because generation runs before a world exists, so this is
-# what stops them drifting apart -- and it is not a comparison of two literals, because the size
-# comes from the shipped template's own rect.
-func _the_reserve_and_the_stamp_agree() -> bool:
-	var patch: Variant = SimTileMap.load_patch_from_content(_tree(), SimBoot.PATCH_ID)
-	if not (patch is Dictionary):
-		push_error("no %s in content" % SimBoot.PATCH_ID)
+# The reserve used to be a constant rect two files had to agree about -- `SimWorldgen.ANNEX_RESERVE`
+# and `SimBoot.ANNEX_ORIGIN` -- and this lane pinned them together. Both are gone: the generator
+# chooses the rect per seed, stamps it, and then holds it clear for the two passes that follow. So
+# the question is no longer "do the two constants match" but "does the ground the generator sited
+# actually stay the colony's", which is the thing the constants were a proxy for.
+func _the_generator_reserves_the_ground_it_sited() -> bool:
+	if SimBoot.DEFAULT_DISTRICT != SimWorldgen.DEFAULT_DISTRICT:
+		push_error("the boot and the generator disagree about the default district: %s vs %s" % [
+			SimBoot.DEFAULT_DISTRICT, SimWorldgen.DEFAULT_DISTRICT,
+		])
 		return false
-	var rect: Dictionary = (patch as Dictionary)["rect"] as Dictionary
-	var want := Rect2i(SimBoot.ANNEX_ORIGIN.x, SimBoot.ANNEX_ORIGIN.y, int(rect["w"]), int(rect["h"]))
-	if SimWorldgen.ANNEX_RESERVE != want:
-		push_error("the generator reserves %s but the annex stamps as %s" % [str(SimWorldgen.ANNEX_RESERVE), str(want)])
-		return false
-
-	# And the reserve does its job: no street is carved into it, and nothing is built against it.
-	var map: Variant = SimWorldgen.generate(CANON_SEED, SHIPPED_SIZE, _tree())
-	var paved: int = 0
-	for y in range(want.position.y, want.position.y + want.size.y):
-		for x in range(want.position.x, want.position.x + want.size.x):
-			if int(map.surfaces[y * int(map.w) + x]) == SimTileMap.SURFACE_PAVED and int(map.tiles[y * int(map.w) + x]) == SimTileMap.Tile.Floor:
-				paved += 1
-	for record in map.buildings as Array:
-		var b: Dictionary = record as Dictionary
-		var footprint := Rect2i(int(b["x"]), int(b["y"]), int(b["w"]), int(b["h"]))
-		if footprint.intersects(want.grow(SimWorldgen.RESERVE_MARGIN)):
-			push_error("%s at %s was built on the colony's ground %s" % [String(b["id"]), str(footprint), str(want)])
+	for size in [GATE_SIZE, SHIPPED_SIZE]:
+		var map: Variant = SimWorldgen.generate(CANON_SEED, int(size), _tree())
+		var sited: Rect2i = SimTileMap.annex_rect(map)
+		if sited.size.x <= 0 or sited.size.y <= 0:
+			push_error("at %d the generator sited no colony, so there is no reserve to judge" % int(size))
 			return false
-	print("RESERVE OK the generator holds %s clear and SimBoot stamps there; %d of its tiles were left unpaved-or-built" % [
-		str(want), want.size.x * want.size.y - paved,
+		# The template's own footprint, so the rect is the annex rather than a number restated here.
+		var patch: Variant = SimWorldgen.annex_template_of(_tree())
+		if SimTemplates.footprint(patch as Dictionary) != sited.size:
+			push_error("the annex rect %s is not the template's footprint %s" % [
+				str(sited.size), str(SimTemplates.footprint(patch as Dictionary)),
+			])
+			return false
+		# Nothing built on it or against it: the reserve's whole job downstream of the stamp.
+		for record in map.buildings as Array:
+			var b: Dictionary = record as Dictionary
+			var footprint := Rect2i(int(b["x"]), int(b["y"]), int(b["w"]), int(b["h"]))
+			if footprint.intersects(sited.grow(SimWorldgen.RESERVE_MARGIN)):
+				push_error("at %d %s at %s was built on the colony's ground %s" % [
+					int(size), String(b["id"]), str(footprint), str(sited),
+				])
+				return false
+		# And no generated loot site inside it either -- the only sites in there are the annex
+		# template's own two rows, which arrive with the stamp rather than from the district profile.
+		var inside: int = 0
+		for site in map.sites as Array:
+			var s: Dictionary = site as Dictionary
+			if sited.has_point(Vector2i(int(s["x"]), int(s["y"]))):
+				inside += 1
+		var authored: int = ((SimWorldgen.annex_template_of(_tree()) as Dictionary).get("loot", []) as Array).size()
+		if inside != authored:
+			push_error("at %d the colony's %s holds %d loot sites and its template authored %d" % [
+				int(size), str(sited), inside, authored,
+			])
+			return false
+		# The margin it is held clear by is the one the district wall keeps too: a colony jammed
+		# against the wall is what ANNEX_BORDER_FULL exists to prevent.
+		var margin: int = SimWorldgen.annex_border(int(size))
+		if sited.position.x < margin or sited.position.y < margin \
+				or sited.position.x + sited.size.x > int(size) - margin \
+				or sited.position.y + sited.size.y > int(size) - margin:
+			push_error("at %d the colony %s sits inside the %d-tile border margin" % [int(size), str(sited), margin])
+			return false
+		print("RESERVE OK at %d the colony is sited at %s, %d tiles off the wall, nothing built within %d of it, and the only loot inside it is the %d rows its own template carries" % [
+			int(size), str(sited), margin, SimWorldgen.RESERVE_MARGIN, authored,
+		])
+	return true
+
+
+# --- the annex, sited per seed --------------------------------------------------------------
+#
+# The slice: where the colony stands is a property of the seed, and docs/01's fairness rule --
+# "No unwinnable starts: generated starting positions are validated for basic survivability" -- is
+# the thing that makes that safe rather than merely varied.
+#
+# Generation-only. Every question below is a question about a map, so none of it boots a world:
+# eight seeds at the gate size and two at the shipped size cost about four seconds, where ten
+# playable boots would cost minutes.
+func _the_colony_is_sited_per_seed_and_survivable() -> bool:
+	var placements: Dictionary = {}
+	var lines: Array[String] = []
+	for pair in [[GATE_SIZE, SITING_SEEDS], [SHIPPED_SIZE, SITING_SEEDS_256]]:
+		var size: int = int((pair as Array)[0])
+		for seed_value in (pair as Array)[1] as Array[int]:
+			var map: Variant = SimWorldgen.generate(int(seed_value), size, _tree())
+			var sited: Rect2i = SimTileMap.annex_rect(map)
+			if sited.size.x <= 0 or sited.size.y <= 0:
+				push_error("seed %d at %d generated a district with no colony on it" % [int(seed_value), size])
+				return false
+
+			# Anchors: present, standing room, and inside the annex they belong to.
+			var anchors: Array[Vector2i] = [
+				SimTileMap.gate_a(map), SimTileMap.gate_b(map),
+				SimTileMap.player_start(map), SimTileMap.well_tile(map),
+			]
+			var names: Array[String] = ["gate_a", "gate_b", "player_start", "well"]
+			for i in anchors.size():
+				var tile: Vector2i = anchors[i]
+				if tile.x < 0 or tile.y < 0 or tile.x >= int(map.w) or tile.y >= int(map.h):
+					push_error("seed %d at %d: anchor %s is %s" % [int(seed_value), size, names[i], str(tile)])
+					return false
+				if not sited.has_point(tile):
+					push_error("seed %d at %d: anchor %s at %s is outside the colony %s" % [
+						int(seed_value), size, names[i], str(tile), str(sited),
+					])
+					return false
+				if SimTileMap.is_solid(map, tile.x, tile.y):
+					push_error("seed %d at %d: anchor %s at %s stands in something solid" % [
+						int(seed_value), size, names[i], str(tile),
+					])
+					return false
+
+			# Every clause of the fairness rule, by name, so a failure says which one.
+			var report: Dictionary = SimWorldgen.survivability_report(map)
+			if not bool(report["sited"]):
+				push_error("seed %d at %d: the survivability pass judged nothing" % [int(seed_value), size])
+				return false
+			if (report["clauses"] as Array).size() < 6:
+				push_error("seed %d at %d: the report carries %d clauses" % [int(seed_value), size, (report["clauses"] as Array).size()])
+				return false
+			for clause in report["clauses"] as Array:
+				if not bool((clause as Dictionary)["ok"]):
+					push_error("seed %d at %d failed %s: %s" % [
+						int(seed_value), size, String((clause as Dictionary)["name"]), String((clause as Dictionary)["said"]),
+					])
+					return false
+				# A clause is allowed to skip when it has nothing to judge, and a shipped district
+				# is never that: it declares roads and it places loot. A skip here would be a clause
+				# quietly not running on the district the game actually plays.
+				if bool((clause as Dictionary)["skipped"]):
+					push_error("seed %d at %d skipped %s on a shipped district: %s" % [
+						int(seed_value), size, String((clause as Dictionary)["name"]), String((clause as Dictionary)["said"]),
+					])
+					return false
+
+			# The same seed sites the same colony. Generation is what a save regenerates from
+			# (`check_m2_save.gd` restores into a fresh `SimBoot.bare`), so a colony that moved
+			# between two generations of one seed would move under a loaded game.
+			var again: Variant = SimWorldgen.generate(int(seed_value), size, _tree())
+			if SimTileMap.annex_rect(again) != sited or SimTileMap.gate_a(again) != anchors[0] \
+					or SimTileMap.player_start(again) != anchors[2] or SimTileMap.well_tile(again) != anchors[3]:
+				push_error("two generations of seed %d at %d put the colony in different places" % [int(seed_value), size])
+				return false
+
+			if size == GATE_SIZE:
+				placements["%s" % str(sited.position)] = true
+				# The director still has somewhere to send a night from. This is the reason the
+				# border margin exists: `SimDirector._legal_tile` refuses any tile within
+				# GATE_EXCLUSION of a gate, and it draws packets from a three-tile band inside each
+				# wall -- so a colony sited badly enough turns a side into no side at all.
+				var pools: Array = _spawn_pools(map, SimTileMap.gate_a(map), SimTileMap.gate_b(map))
+				for s in 4:
+					if int(pools[s]) < 1:
+						push_error("seed %d: the colony at %s leaves the %s wall with no legal spawn tile at all (pools %s)" % [
+							int(seed_value), str(sited), SimDirector.SIDE_NAMES[s], str(pools),
+						])
+						return false
+				lines.append("%d %s pools %s" % [int(seed_value), str(sited.position), str(pools)])
+			else:
+				lines.append("%d at %d %s" % [int(seed_value), size, str(sited.position)])
+
+	# The seed reaches the siting, or eight seeds would be one seed asserted eight times.
+	if placements.size() < 2:
+		push_error("all %d seeds sited the colony at %s -- the seed is not reaching the siting pass" % [
+			SITING_SEEDS.size(), str(placements.keys()),
+		])
+		return false
+
+	# The true negative for the pool walk above: it has to be able to report an empty side, or
+	# "every side has tiles" is a sentence about a counter that cannot count. A gate fabricated at
+	# the centre of the north wall puts that whole band inside the exclusion disc.
+	var probe: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree())
+	var against_the_wall := Vector2i(int(probe.w) / 2, 4)
+	var starved: Array = _spawn_pools(probe, against_the_wall, against_the_wall)
+	if int(starved[0]) != 0:
+		push_error("a gate at %s, four tiles off the north wall, still left %d legal north tiles -- the pool walk is not measuring the exclusion" % [
+			str(against_the_wall), int(starved[0]),
+		])
+		return false
+
+	print("SITING OK %d districts sited from their own seed, %d distinct places at %d, every anchor standing inside its colony, every survivability clause true, stable across two generations, every wall keeping a spawn pool: %s" % [
+		SITING_SEEDS.size() + SITING_SEEDS_256.size(), placements.size(), GATE_SIZE, ", ".join(lines),
+	])
+	return true
+
+
+# `SimDirector._edges_by_side`'s question, asked of a map instead of a world: how many legal spawn
+# tiles each wall still has. The director's own `_legal_tile` is what answers it, so this measures
+# the rule rather than a second opinion about it.
+func _spawn_pools(map: Variant, gate_a: Vector2i, gate_b: Vector2i) -> Array:
+	var annex: Rect2i = SimTileMap.annex_rect(map)
+	var sides: Array = [0, 0, 0, 0]
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	for y in h:
+		for x in w:
+			if x > 2 and x < w - 3 and y > 2 and y < h - 3:
+				continue
+			if not SimDirector._legal_tile(map, x, y, annex, gate_a, gate_b):
+				continue
+			if y <= 2:
+				sides[0] = int(sides[0]) + 1
+			elif y >= h - 3:
+				sides[2] = int(sides[2]) + 1
+			elif x >= w - 3:
+				sides[1] = int(sides[1]) + 1
+			else:
+				sides[3] = int(sides[3]) + 1
+	return sides
+
+
+# --- the survivability pass can fail ----------------------------------------------------------
+#
+# A validator that has never said no is a validator nobody has tested, and this one runs on every
+# generated district in the game. Both negatives are done to a real district after it generated
+# clean, so what changed is the sabotage and nothing else.
+func _the_survivability_pass_can_fail() -> bool:
+	# 1. The gate bricked up. A colony nobody can walk out of fails `gates-open`, and the walk that
+	#    starts at the gate then reaches nothing, which is `gates-reachable` as well.
+	var bricked: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree())
+	if not bool(SimWorldgen.survivability_report(bricked)["ok"]):
+		push_error("the district this negative starts from is already failing, so the sabotage proves nothing")
+		return false
+	for gate in [SimTileMap.gate_a(bricked), SimTileMap.gate_b(bricked)]:
+		var t: Vector2i = gate as Vector2i
+		bricked.tiles[t.y * int(bricked.w) + t.x] = SimTileMap.Tile.Wall
+	var walled: Dictionary = SimWorldgen.survivability_report(bricked)
+	if bool(walled["ok"]):
+		push_error("the colony's gate was bricked over and the survivability pass reported no problem")
+		return false
+	if not (walled["failed"] as Array).has("gates-open"):
+		push_error("bricking the gate was reported as %s rather than gates-open" % str(walled["failed"]))
+		return false
+	if bool(SimWorldgen.clause_of(walled, "gates-reachable")["ok"]):
+		push_error("a bricked gate was still reported reachable from a road")
+		return false
+	# And the clauses the sabotage did not touch are still true, so the report is per clause rather
+	# than one verdict wearing six names.
+	for untouched in ["player-start", "stations-room", "well-open"]:
+		if not bool(SimWorldgen.clause_of(walled, String(untouched))["ok"]):
+			push_error("bricking the gate also turned %s false" % String(untouched))
+			return false
+
+	# 2. A loot table whose only site is sealed inside a doorless shell. This is the clause that
+	#    protects a campaign's balance: a medical store the player can never open is a table the
+	#    economy is tuned around and nobody will ever draw from.
+	var sealed_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree())
+	var shell: Vector2i = _room_for_a_shell(sealed_map)
+	if shell.x < 0:
+		push_error("no open ground on the district to build the sealed shell on")
+		return false
+	_seal_a_shell(sealed_map, shell)
+	var reachable_site: Vector2i = SimTileMap.gate_a(sealed_map)
+	# The positive control first: one site of one table, standing on the colony's own doorstep.
+	sealed_map.sites = [{"x": reachable_site.x, "y": reachable_site.y, "table": "medical"}]
+	if not bool(SimWorldgen.clause_of(SimWorldgen.survivability_report(sealed_map), "loot-reachable")["ok"]):
+		push_error("a site standing on the gate tile itself was reported out of reach")
+		return false
+	# The same table, the same count, inside the shell.
+	sealed_map.sites = [{"x": shell.x + 1, "y": shell.y + 1, "table": "medical"}]
+	var stranded: Dictionary = SimWorldgen.survivability_report(sealed_map)
+	if bool(stranded["ok"]):
+		push_error("the district's only medical site was sealed inside a doorless shell at %s and the pass reported no problem" % str(shell))
+		return false
+	if not (stranded["failed"] as Array).has("loot-reachable"):
+		push_error("a sealed loot table was reported as %s rather than loot-reachable" % str(stranded["failed"]))
+		return false
+	if String(SimWorldgen.clause_of(stranded, "loot-reachable")["said"]).find("medical") < 0:
+		push_error("the loot-reachable clause did not name the table it could not reach: %s" % String(SimWorldgen.clause_of(stranded, "loot-reachable")["said"]))
+		return false
+
+	# 3. A district too small to hold a colony judges nothing and says so, rather than passing a map
+	#    it never looked at.
+	var tiny: Dictionary = SimWorldgen.survivability_report(SimWorldgen.generate(CANON_SEED, ISOLATION_SIZE, _tree()))
+	if bool(tiny["sited"]) or not (tiny["clauses"] as Array).is_empty():
+		push_error("a district at %d with no colony on it was judged as though it had one: %s" % [ISOLATION_SIZE, str(tiny)])
+		return false
+
+	# 4. And a clause with nothing to judge skips rather than failing or passing. A district that
+	#    declares no roads out has no road for its gate to be reachable from, and reporting that as
+	#    an unwinnable start would refuse a district the generator is entitled to build -- while
+	#    reporting it as a pass would be the quiet kind of green this repo keeps paying for.
+	var shut: Dictionary = _fixture_district("district.fixture.roadless", 0.4, [{"tag": "residential", "weight": 1}])
+	shut["connectionPoints"] = {"north": 0, "south": 0, "east": 0, "west": 0}
+	var walled_in: Dictionary = SimWorldgen.survivability_report(
+		SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree_with(shut), String(shut["id"]))
+	)
+	var skipped: Dictionary = SimWorldgen.clause_of(walled_in, "gates-reachable")
+	if not bool(skipped.get("skipped", false)):
+		push_error("a district with no opening in its wall reported gates-reachable as %s rather than skipping it" % str(skipped))
+		return false
+	if not bool(walled_in["ok"]):
+		push_error("a district with no roads out failed %s -- the skip did not stand it down" % str(walled_in["failed"]))
+		return false
+	if bool(SimWorldgen.clause_of(walled_in, "loot-reachable").get("skipped", false)):
+		push_error("the roadless fixture skipped loot-reachable too, so the skip is not per clause")
+		return false
+
+	print("SURVIVABILITY OK a bricked gate fails gates-open and gates-reachable and nothing else, a table sealed in a doorless shell fails loot-reachable and names it, a district too small for a colony judges nothing, and a district with no roads out skips the one clause it cannot answer")
+	return true
+
+
+# Somewhere a 3x3 shell can be built without touching the colony, its ring, or a doorway: open
+# outdoor ground with open outdoor ground all round it.
+func _room_for_a_shell(map: Variant) -> Vector2i:
+	var annex: Rect2i = SimTileMap.annex_rect(map).grow(3)
+	for y in range(2, int(map.h) - 5):
+		for x in range(2, int(map.w) - 5):
+			if annex.has_point(Vector2i(x, y)) or annex.has_point(Vector2i(x + 3, y + 3)):
+				continue
+			var clear: bool = true
+			for j in range(-1, 4):
+				for i in range(-1, 4):
+					if not _walkable_outdoors(map, x + i, y + j):
+						clear = false
+			if clear:
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+
+func _seal_a_shell(map: Variant, at: Vector2i) -> void:
+	var w: int = int(map.w)
+	for j in 3:
+		for i in 3:
+			var idx: int = (at.y + j) * w + at.x + i
+			var edge: bool = i == 0 or j == 0 or i == 2 or j == 2
+			map.tiles[idx] = SimTileMap.Tile.Wall if edge else SimTileMap.Tile.Floor
+			map.indoors[idx] = 0 if edge else 1
+
+
+# --- re-siting ----------------------------------------------------------------------------------
+#
+# The loop that advances to the next-ranked lot when a district comes out unsurvivable. It is the
+# half of the slice a passing seed never exercises, so this finds out whether any tested seed does
+# -- and says so loudly and tests it synthetically when none does, rather than reporting a lane
+# that ran nothing as a lane that passed.
+func _a_refused_candidate_moves_the_colony_to_the_next_one() -> bool:
+	var district: Dictionary = SimWorldgen.district_of(_tree(), SimWorldgen.DEFAULT_DISTRICT)
+	var patch: Variant = SimWorldgen.annex_template_of(_tree())
+	var footprint: Vector2i = SimTemplates.footprint(patch as Dictionary)
+	var natural: Array[String] = []
+	var ranked: Array = []
+	for seed_value in SITING_SEEDS:
+		var ground: Dictionary = SimWorldgen.layout(int(seed_value), GATE_SIZE, district)
+		var candidates: Array = SimWorldgen.annex_candidates(int(seed_value), ground["map"], ground["parcels"] as Array, footprint)
+		if candidates.size() < 2:
+			push_error("seed %d ranked %d candidate lots -- there is no second one to move to" % [int(seed_value), candidates.size()])
+			return false
+		var sited: Rect2i = SimTileMap.annex_rect(SimWorldgen.generate(int(seed_value), GATE_SIZE, _tree()))
+		var at: int = candidates.find(sited)
+		if at < 0:
+			push_error("seed %d sited the colony at %s, which is not one of the %d lots the scorer ranked" % [
+				int(seed_value), str(sited), candidates.size(),
+			])
+			return false
+		if at > 0:
+			natural.append("%d took candidate %d" % [int(seed_value), at])
+		if int(seed_value) == CANON_SEED:
+			ranked = candidates
+
+	if not natural.is_empty():
+		print("RE-SITE OK exercised naturally: %s" % ", ".join(natural))
+		return true
+
+	# Nothing to judge. Say so -- loudly, and by name -- and then exercise the loop deliberately,
+	# because a loop that has never run is a loop nobody has tested.
+	print("RE-SITE SKIPPED no tested seed makes its first-ranked lot fail survivability: all %d sited on candidate 0, so the natural half of this lane judged nothing" % SITING_SEEDS.size())
+
+	var first: Rect2i = ranked[0] as Rect2i
+	var second: Rect2i = ranked[1] as Rect2i
+	var moved: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree(), SimWorldgen.DEFAULT_DISTRICT, true, func(rect: Rect2i) -> bool:
+		return rect == first
+	)
+	var landed: Rect2i = SimTileMap.annex_rect(moved)
+	if landed == first:
+		push_error("the top candidate %s was refused and the generator sited there anyway" % str(first))
+		return false
+	if landed != second:
+		push_error("refusing %s sited the colony at %s, and the second-ranked lot is %s" % [str(first), str(landed), str(second)])
+		return false
+	# And the district that came out of the re-site is a whole district, not a stamp moved sideways:
+	# the buildings were re-placed around the new reserve and it is survivable in its own right.
+	var report: Dictionary = SimWorldgen.survivability_report(moved)
+	if not bool(report["ok"]):
+		push_error("the re-sited district failed %s" % str(report["failed"]))
+		return false
+	for record in moved.buildings as Array:
+		var b: Dictionary = record as Dictionary
+		if Rect2i(int(b["x"]), int(b["y"]), int(b["w"]), int(b["h"])).intersects(landed.grow(SimWorldgen.RESERVE_MARGIN)):
+			push_error("after the re-site %s still stands on the colony's new ground %s" % [String(b["id"]), str(landed)])
+			return false
+	# The anchors followed, rather than staying where the refused candidate would have put them.
+	if not landed.has_point(SimTileMap.gate_a(moved)) or not landed.has_point(SimTileMap.player_start(moved)):
+		push_error("the colony moved to %s but its anchors are at %s / %s" % [
+			str(landed), str(SimTileMap.gate_a(moved)), str(SimTileMap.player_start(moved)),
+		])
+		return false
+	print("RE-SITE OK exercised synthetically: refusing the top lot %s sites the colony at the second, %s, with its buildings re-placed around it and every survivability clause true" % [
+		str(first), str(landed),
 	])
 	return true

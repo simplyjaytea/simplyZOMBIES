@@ -23,9 +23,11 @@ extends SceneTree
 #     blit did, on the canonical seed, at both the gate size and the shipped size. This is what
 #     lets the old path be deleted in a later slice without re-measuring every band pinned to the
 #     shipped layout.
-#  3. **The anchors are written, absolute, and correct.** The four points the constants name, plus
-#     the annex rect, land where the constants say -- which is what makes deleting the constants a
-#     later slice's edit rather than a re-balance.
+#  3. **The anchors are written, absolute, and correct.** Every anchor lands at the sited annex's
+#     origin plus the template's own relative point -- checked against where the generator actually
+#     put the colony rather than against a constant, because there is no constant any more: the
+#     annex is sited per seed inside `SimWorldgen.generate` and `SimBoot.ANNEX_ORIGIN` is gone.
+#     The canonical seed's site is pinned as a *measurement* so drift is still caught.
 #  4. **Something reads them.** `SimBoot.colony_start` is the anchor's first live reader; the map
 #     the player actually boots onto has to place them at the anchor tile, and the reader has to
 #     follow the anchor when the anchor moves. A mechanism nothing reads is the defect this
@@ -42,15 +44,31 @@ const ContentLoader = preload("res://platform/content_loader.gd")
 const SEED: int = 20260805
 const GATE_SIZE: int = 64
 const SHIPPED_SIZE: int = 256
+# The migration lock's origin, and nothing else's: it is where the retired blit put the annex, so
+# it is the origin both paths are asked to lay identical bytes at. It is deliberately NOT where the
+# generator sites the colony -- (38, 38) is outside the legal band at 64 -- which is what keeps
+# `_blit_confined` in check_m2_district.gd honest as well.
 const ORIGIN: Vector2i = Vector2i(38, 38)
 
-# The coordinate identities the shipped constants assert, restated here as the target the stamped
-# anchors have to hit. check_m2_district.gd pins the gate tiles the same way.
-const WANT_GATE_A: Vector2i = Vector2i(50, 57)
-const WANT_GATE_B: Vector2i = Vector2i(51, 57)
-const WANT_START: Vector2i = Vector2i(46, 45)
-const WANT_WELL: Vector2i = Vector2i(51, 59)
-const WANT_ANNEX := Rect2i(38, 38, 26, 26)
+# Where the generator sites the colony on the canonical seed. **Measured, not chosen**: run once and
+# written down, so a change to the scorer, the margin or the street pass has to come here and say so
+# rather than moving the shipped layout in silence. Everything else about the anchors is asserted
+# against `annex_rect(map)` plus the template's own relative points, which is the identity that
+# holds on every seed.
+const SITED_64 := Rect2i(21, 13, 26, 26)
+const SITED_256 := Rect2i(108, 107, 26, 26)
+# Derived from SITED_64 and the template's relative anchors -- gate_a (12, 19), gate_b (13, 19),
+# player_start (8, 7), well (13, 21) -- and written out so a wrong one reads as a wrong tile rather
+# than as arithmetic that agrees with itself.
+const WANT_GATE_A: Vector2i = Vector2i(33, 32)
+const WANT_GATE_B: Vector2i = Vector2i(34, 32)
+const WANT_START: Vector2i = Vector2i(29, 20)
+const WANT_WELL: Vector2i = Vector2i(34, 34)
+# The literal `SimBoot.colony_start` falls back to when a map carries no anchors at all.
+const FALLBACK_START: Vector2i = Vector2i(46, 45)
+# Too small to hold the annex and its clear ring, so the generator sites no colony: this is what an
+# anchorless district is now, and the two isolation boots in check_m2_district.gd run at it.
+const ANCHORLESS_SIZE: int = 32
 
 
 func _init() -> void:
@@ -373,7 +391,7 @@ func _every_shipped_template_is_sound_and_reachable() -> bool:
 # --- the migration lock ---------------------------------------------------------------------
 
 func _annex_patch() -> Variant:
-	return SimTileMap.load_patch_from_content(ContentLoader.load_tree(), SimBoot.PATCH_ID)
+	return SimTileMap.load_patch_from_content(ContentLoader.load_tree(), SimWorldgen.ANNEX_PATCH_ID)
 
 
 func _first_difference(a: PackedByteArray, b: PackedByteArray) -> int:
@@ -391,7 +409,7 @@ func _first_difference(a: PackedByteArray, b: PackedByteArray) -> int:
 func _the_stamp_lays_the_annex_exactly_where_the_blit_did() -> bool:
 	var patch: Variant = _annex_patch()
 	if not (patch is Dictionary):
-		push_error("no %s in content, so this lock is asserting nothing" % SimBoot.PATCH_ID)
+		push_error("no %s in content, so this lock is asserting nothing" % SimWorldgen.ANNEX_PATCH_ID)
 		return false
 
 	for size in [GATE_SIZE, SHIPPED_SIZE]:
@@ -400,7 +418,7 @@ func _the_stamp_lays_the_annex_exactly_where_the_blit_did() -> bool:
 		var stamped: Variant = SimTileMap.generate_district(SEED, int(size))
 		var landed: Dictionary = SimTemplates.stamp(stamped, patch as Dictionary, ORIGIN.x, ORIGIN.y)
 		var rect: Dictionary = landed["rect"] as Dictionary
-		if int(rect["x"]) != ORIGIN.x or int(rect["y"]) != ORIGIN.y or int(rect["w"]) != WANT_ANNEX.size.x or int(rect["h"]) != WANT_ANNEX.size.y:
+		if int(rect["x"]) != ORIGIN.x or int(rect["y"]) != ORIGIN.y or int(rect["w"]) != SITED_64.size.x or int(rect["h"]) != SITED_64.size.y:
 			push_error("the stamp reported landing at %s" % str(rect))
 			return false
 		for field in ["tiles", "surfaces", "indoors"]:
@@ -437,28 +455,52 @@ func _the_stamp_writes_the_anchors_the_constants_name() -> bool:
 		push_error("a booted district carries no anchors at all")
 		return false
 
-	var want: Dictionary = {
-		"gate_a": WANT_GATE_A,
-		"gate_b": WANT_GATE_B,
-		"player_start": WANT_START,
-		"well": WANT_WELL,
-	}
+	# The identity that holds on every seed: each anchor is the sited annex's own corner plus the
+	# template's relative point. Asserted before the canonical pin below, because this is the thing
+	# that has to be true and the pin is only how drift gets noticed.
+	var sited: Rect2i = SimTileMap.annex_rect(map)
+	var relative: Dictionary = (_annex_patch() as Dictionary)["anchors"] as Dictionary
 	var got: Dictionary = {
 		"gate_a": SimTileMap.gate_a(map),
 		"gate_b": SimTileMap.gate_b(map),
 		"player_start": SimTileMap.player_start(map),
 		"well": SimTileMap.well_tile(map),
 	}
-	for key in want.keys():
-		var here: Vector2i = got[key] as Vector2i
-		if here != (want[key] as Vector2i):
-			push_error("anchor %s landed at %s, not %s" % [String(key), str(here), str(want[key])])
+	for key in ["gate_a", "gate_b", "player_start", "well"]:
+		var point: Dictionary = relative[String(key)] as Dictionary
+		var here: Vector2i = got[String(key)] as Vector2i
+		var want_here := Vector2i(sited.position.x + int(point["x"]), sited.position.y + int(point["y"]))
+		if here != want_here:
+			push_error("anchor %s landed at %s; the annex is sited at %s and the template puts it at %s, so %s" % [
+				String(key), str(here), str(sited.position), str(point), str(want_here),
+			])
 			return false
 		if here.x < 0 or here.y < 0 or here.x >= int(map.w) or here.y >= int(map.h):
 			push_error("anchor %s at %s is off the map" % [String(key), str(here)])
 			return false
-	if SimTileMap.annex_rect(map) != WANT_ANNEX:
-		push_error("the annex rect came back as %s, not %s" % [str(SimTileMap.annex_rect(map)), str(WANT_ANNEX)])
+		if not sited.has_point(here):
+			push_error("anchor %s at %s is outside the annex it belongs to, %s" % [String(key), str(here), str(sited)])
+			return false
+
+	# The measurement. Where seed 20260805 puts the colony is a fact about the generator, and every
+	# band in this repo that boots that seed is measured on this layout -- so it is written down,
+	# and moving it is an edit here.
+	if sited != SITED_64:
+		push_error("seed %d sites the annex at %s, and the measured canonical site is %s" % [SEED, str(sited), str(SITED_64)])
+		return false
+	var want: Dictionary = {
+		"gate_a": WANT_GATE_A,
+		"gate_b": WANT_GATE_B,
+		"player_start": WANT_START,
+		"well": WANT_WELL,
+	}
+	for key2 in want.keys():
+		if (got[key2] as Vector2i) != (want[key2] as Vector2i):
+			push_error("anchor %s landed at %s, and the measured canonical tile is %s" % [String(key2), str(got[key2]), str(want[key2])])
+			return false
+	var shipped: Rect2i = SimTileMap.annex_rect(SimBoot.bare(SEED, SHIPPED_SIZE)["map"])
+	if shipped != SITED_256:
+		push_error("seed %d at %d sites the annex at %s, and the measured canonical site is %s" % [SEED, SHIPPED_SIZE, str(shipped), str(SITED_256)])
 		return false
 	# Standing room, not just coordinates: a start or a well inside masonry is a start nobody can
 	# stand on and a well nobody can draw from.
@@ -481,11 +523,17 @@ func _the_stamp_writes_the_anchors_the_constants_name() -> bool:
 		return false
 
 	# The true negative: a template with no anchors block claims nothing. An ordinary house must
-	# not rename where the colony is, and a bare map must report absence rather than a coordinate.
+	# not rename where the colony is, and a map with no colony on it must report absence rather than
+	# a coordinate. The base map is ANCHORLESS_SIZE rather than the gate size because the generator
+	# sites a colony on anything big enough to hold one -- at 64 the map arrives with anchors
+	# already on it, and stamping an anonymous template over that would prove nothing.
 	var anonymous: Dictionary = (_annex_patch() as Dictionary).duplicate(true)
 	anonymous.erase("anchors")
-	var plain: Variant = SimTileMap.generate_district(SEED, GATE_SIZE)
-	var wrote: Dictionary = SimTemplates.stamp(plain, anonymous, ORIGIN.x, ORIGIN.y)["anchors"] as Dictionary
+	var plain: Variant = SimTileMap.generate_district(SEED, ANCHORLESS_SIZE)
+	if not (plain.anchors as Dictionary).is_empty():
+		push_error("a district at %d, too small to site the annex, still carries %s" % [ANCHORLESS_SIZE, str(plain.anchors)])
+		return false
+	var wrote: Dictionary = SimTemplates.stamp(plain, anonymous, 2, 2)["anchors"] as Dictionary
 	if not wrote.is_empty():
 		push_error("a template with no anchors block still wrote %s" % str(wrote))
 		return false
@@ -501,8 +549,8 @@ func _the_stamp_writes_the_anchors_the_constants_name() -> bool:
 			push_error("an anchorless map claimed an annex rect of %s" % str(SimTileMap.annex_rect(probe)))
 			return false
 
-	print("ANCHORS OK gate_a %s, gate_b %s, start %s, well %s, annex %s, all in bounds; an anchorless template writes none" % [
-		str(WANT_GATE_A), str(WANT_GATE_B), str(WANT_START), str(WANT_WELL), str(WANT_ANNEX),
+	print("ANCHORS OK the sited annex %s carries gate_a %s, gate_b %s, start %s, well %s -- each its own corner plus the template's relative point, and %s at %d; an anchorless template writes none" % [
+		str(SITED_64), str(WANT_GATE_A), str(WANT_GATE_B), str(WANT_START), str(WANT_WELL), str(SITED_256), SHIPPED_SIZE,
 	])
 	return true
 
@@ -511,8 +559,9 @@ func _the_stamp_writes_the_anchors_the_constants_name() -> bool:
 
 # The dead-socket rule: anchors that nothing reads would be the tenth. `SimBoot.colony_start` is
 # the first reader, and this asserts both halves -- the booted player stands on the anchor tile,
-# and the reader follows the anchor when the anchor moves rather than answering (46, 45) from
-# memory.
+# and the reader follows the anchor when the anchor moves rather than answering a literal from
+# memory. That second half is not hypothetical any more: the anchor moves per seed now, so the
+# reader following it is what the game does every boot rather than what a fixture arranges.
 func _boot_reads_the_start_anchor_rather_than_the_literal() -> bool:
 	var boot: Dictionary = SimBoot.playable(SEED, GATE_SIZE)
 	var world: Variant = boot["world"]
@@ -542,17 +591,18 @@ func _boot_reads_the_start_anchor_rather_than_the_literal() -> bool:
 		push_error("the reader answered %s for a colony anchored at %s" % [str(SimBoot.colony_start(moved)), str(want_moved)])
 		return false
 
-	# And the fallback is reachable rather than theoretical: a district nobody stamped has no
-	# anchor, so the reader returns the literal that is still there for exactly that case.
-	var unstamped: Variant = SimTileMap.generate_district(SEED, GATE_SIZE)
-	if SimTileMap.player_start(unstamped) != Vector2i(-1, -1):
-		push_error("an unstamped district reported a start anchor")
+	# And the fallback is reachable rather than theoretical: a district too small to site the annex
+	# carries no anchor, so the reader returns the literal that is still there for exactly that case.
+	# This is the shape the two isolation boots run at.
+	var unsited: Variant = SimTileMap.generate_district(SEED, ANCHORLESS_SIZE)
+	if SimTileMap.player_start(unsited) != Vector2i(-1, -1):
+		push_error("a district at %d, too small for a colony, reported a start anchor" % ANCHORLESS_SIZE)
 		return false
-	if SimBoot.colony_start(unstamped) != WANT_START:
-		push_error("the fallback answered %s instead of %s" % [str(SimBoot.colony_start(unstamped)), str(WANT_START)])
+	if SimBoot.colony_start(unsited) != FALLBACK_START:
+		push_error("the fallback answered %s instead of %s" % [str(SimBoot.colony_start(unsited)), str(FALLBACK_START)])
 		return false
 
-	print("READER OK the player boots onto the anchor at %s, the reader follows it to %s when the template moves, and falls back to %s on an unstamped district" % [
-		str(stood), str(want_moved), str(WANT_START),
+	print("READER OK the player boots onto the anchor at %s, the reader follows it to %s when the template moves, and falls back to %s on a district too small to site one" % [
+		str(stood), str(want_moved), str(FALLBACK_START),
 	])
 	return true

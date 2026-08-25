@@ -56,6 +56,15 @@ static func stamp(map: Variant, template: Dictionary, origin_x: int, origin_y: i
 	}
 
 
+# What a template will cover, in tiles, before anything is stamped. The placer needs the answer to
+# choose an origin at all -- `SimWorldgen.annex_candidates` ranks positions for a footprint it has
+# not laid down yet -- and reading `size`/`rect` at the call site would be the third place in the
+# tree that knows a template can spell its extent two ways.
+static func footprint(template: Dictionary) -> Vector2i:
+	var f: Dictionary = _footprint(template)
+	return Vector2i(int(f.get("w", 0)), int(f.get("h", 0)))
+
+
 static func _footprint(template: Dictionary) -> Dictionary:
 	var size: Variant = template.get("size")
 	if size is Dictionary:

@@ -5,7 +5,6 @@ extends RefCounted
 
 const WorldRes = preload("res://sim/world.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
-const SimTemplates = preload("res://sim/map/templates.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/vision/light.gd")
@@ -42,22 +41,14 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimDebugMod = preload("res://sim/modules/debug.gd")
 
 const DISTRICT_SEED: int = 20260805
-const PATCH_ID: String = "map.district.alpha"
 const DEFAULT_DISTRICT: String = "district.residential_suburb"
-# Where the colony gets stamped -- the one colony coordinate still written in code, and the only
-# one that is an *input* rather than a remembered copy of an output. Everything that used to name
-# the colony's tiles (`SimDirector.ANNEX`, `SimFortify.GATE_A`/`GATE_B`, the well) is now read off
-# the map's anchors, which this stamp writes.
-#
-# The generator does not stamp: it *reserves* this ground (`SimWorldgen.ANNEX_RESERVE`) so no
-# street is carved through it and nothing is built against it, and this is still the one stamp
-# site. check_m2_district.gd pins the origin and the reserve together, so the two cannot drift.
-# Siting the annex per seed is the next slice in the arc.
-const ANNEX_ORIGIN: Vector2i = Vector2i(38, 38)
 # 20, up from 12 in the basic-combat slice: with swipes live a wanderer is a threat rather than
 # scenery, and the district read as empty at 12 across a 64-tile map. check_m2_director.gd pins
 # this number exactly -- change both together.
 const WANDERERS: int = 20
+# How many times a boot wanderer's tile is re-rolled to land outside the colony before it is placed
+# wherever it fell. See the scatter loop in `playable`.
+const SCATTER_TRIES: int = 8
 
 
 static func attach_kernel(world: Variant, map: Variant) -> void:
@@ -192,15 +183,15 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 	var content: Dictionary = ContentLoader.load_tree()
 	# The content tree is handed to the generator rather than letting it walk the directory again:
 	# `load_tree` is a full directory walk and the balance harness boots one of these per seed.
+	#
+	# The colony arrives with the district now. This file used to choose where it went -- one
+	# `SimTemplates.stamp` at a compile-time `ANNEX_ORIGIN`, on ground the generator had reserved at
+	# a rect two files had to agree about -- and that origin was the last colony coordinate written
+	# in code. `SimWorldgen` ranks its own lots and stamps the winner, so where the colony stands is
+	# a property of the seed like everything else about the district, and everything downstream --
+	# the director's exclusions, the jobs router, the stockpile, the recruit beat, the well -- reads
+	# the anchors the stamp wrote, exactly as it did before.
 	var map: Variant = SimWorldgen.generate(seed_val, map_size, content, district_id)
-	var patch: Variant = SimTileMap.load_patch_from_content(content, PATCH_ID)
-	if patch is Dictionary:
-		# The one call that decides where the colony is. Everything downstream -- the director's
-		# exclusions, the jobs router, the stockpile, the recruit beat, the well -- now asks the
-		# map what this wrote, so moving this origin moves the colony and nothing else has to
-		# agree. check_buildings.gd's migration lock is what says the stamp changed no bytes on
-		# the canonical seed.
-		SimTemplates.stamp(map, patch as Dictionary, ANNEX_ORIGIN.x, ANNEX_ORIGIN.y)
 	var start: Vector2i = colony_start(map)
 	var exam: Dictionary = SimTileMap.find_open_tile(map, start.x, start.y)
 	var fixture: Dictionary = {
@@ -219,18 +210,19 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 	attach_kernel(world, map)
 	register_playable_modules(world, map)
 	world.components.set_component(world.player, "facing", {"radians": 0.0})
-	# The patch is not handed back any more: its loot rows are `map.sites` by the time the stamp
-	# above returns, and a `patch` key nobody read would be a socket rather than a return value.
+	# The patch is not handed back any more: its loot rows are `map.sites` by the time the generator
+	# returns, and a `patch` key nobody read would be a socket rather than a return value.
 	return {"world": world, "map": map}
 
 
 # Where the colony starts, read off the map the template was stamped onto rather than off a
-# constant. Every other compile-time twin of a colony coordinate is gone -- `SimDirector.ANNEX`,
-# `SimFortify.GATE_A`/`GATE_B` and the well's `GATE_A + (1, 2)` are all map anchors now -- and this
-# (46, 45) is the one literal that stays, deliberately: it is the fallback for a map that carries
-# no anchors at all, a bare `generate_district` or an old fixture that never had a template
-# stamped on it. check_buildings.gd's reader lane proves it is the anchor and not the literal that
-# a stamped district uses, and that the fallback is reachable rather than theoretical.
+# constant. Every compile-time twin of a colony coordinate is gone -- `SimDirector.ANNEX`,
+# `SimFortify.GATE_A`/`GATE_B`, the well's `GATE_A + (1, 2)` and now `ANNEX_ORIGIN` itself are all
+# map anchors -- and this (46, 45) is the one literal that stays, deliberately: it is the fallback
+# for a map that carries no anchors at all, which is what a district too small to hold the annex and
+# its clear ring comes back as (the 16- and 32-tile fixture maps the isolation boots use).
+# check_buildings.gd's reader lane proves it is the anchor and not the literal that a generated
+# district uses, and that the fallback is reachable rather than theoretical.
 static func colony_start(map: Variant) -> Vector2i:
 	var anchor: Vector2i = SimTileMap.player_start(map)
 	if anchor.x < 0 or anchor.y < 0:
@@ -302,11 +294,30 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	SimInventory.equip(world, world.player, knife)
 	place_loot(world, map)
 	var place_rng: Variant = world.rng.stream("placement")
+	# Never inside the colony's own walls. `SimDirector._legal_tile` has always refused to put a
+	# night packet in the annex, and this scatter used to get the same answer for nothing: the annex
+	# was a fixed rect in the district's corner and the box these rolls come from barely reached it.
+	# The generator sites the colony per seed now, and it lands in the middle of that box -- measured
+	# on the four balance seeds, 2, 7, 5 and 7 of the twenty wanderers booted *inside* the annex,
+	# and the three seeds with five or more lost a colonist on day 1, 2 or 3 to one of them. A
+	# shambler in the kitchen at boot is not difficulty, it is the start docs/01's fairness rule
+	# says may not exist -- so the rule the director already follows is said out loud here.
+	#
+	# Re-rolled rather than pushed out: a walk to "the nearest tile outside the rect" would pile the
+	# refused rolls against the annex wall, which is the one place they must not be. The attempt
+	# count is fixed so the draw count stays bounded and the campaign stays a function of its seed;
+	# a roll that never lands outside places anyway rather than looping, which at these odds
+	# (a 26x26 rect inside a 48x48 box, eight times over) is a case nothing has reached.
+	var annex: Rect2i = SimTileMap.annex_rect(map)
 	for i in WANDERERS:
 		var type_id: String = SimRoster.pick_type(world, place_rng)
-		var tx: int = int(place_rng.call("int_range", 8, int(map.w) - 9))
-		var ty: int = int(place_rng.call("int_range", 8, int(map.h) - 9))
-		var tile: Dictionary = SimTileMap.find_open_tile(map, tx, ty)
+		var tile: Dictionary = {}
+		for _try in SCATTER_TRIES:
+			var tx: int = int(place_rng.call("int_range", 8, int(map.w) - 9))
+			var ty: int = int(place_rng.call("int_range", 8, int(map.h) - 9))
+			tile = SimTileMap.find_open_tile(map, tx, ty)
+			if annex.size.x <= 0 or not annex.has_point(Vector2i(int(tile["x"]), int(tile["y"]))):
+				break
 		SimRoster.spawn_zombie(world, float(tile["x"]) + 0.5, float(tile["y"]) + 0.5, type_id, place_rng)
 	world.events.drain()
 	return {"world": world, "map": map}

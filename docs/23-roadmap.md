@@ -181,10 +181,6 @@ pass actually reaches (edge connection points). The owner's six scope decisions 
 [docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces still open, in landing
 order — each a session with its gate:
 
-- **The annex sited per seed, survivability validated.** docs/01's "no unwinnable starts" made
-  mechanical: start open, gates reachable from a street, station floor indoors, well, a site of
-  each placed loot table reachable — bounded deterministic re-site on failure, and a gate that
-  proves the rejection path with a sabotaged candidate.
 - **The seeded sandbox boot.** `--seed=N` and `--district=<id>` user args, F2 rerolls a fresh
   city, the seed prints on the M sheet only — the HUD digit ban holds. New `godot:check:worldgen`:
   ~10 seeds boot, place the annex, validate, and step, inside a time budget the gate asserts on.
@@ -942,6 +938,26 @@ not a to-do list:
   failure). The same slice re-pinned `_playable_boot` (ground ≥ 8 loose, ≥ 1 container, measured
   across six boot seeds) and fixed a jobs-gate haul lane that had silently assumed a district
   with no reachable loot. Balance did not move: the four fast-tier lines are byte-identical.
+  ~~The annex sited per seed, survivability validated~~ **landed** (`godot:m2:district`, lanes
+  SITING SURVIVABILITY RE-SITE) — the arc's fifth slice, the one that makes a seed a world.
+  Siting is a pipeline pass on the `worldgen.annex` stream: ordered candidate lots
+  (street-adjacent, border-margined so no wall loses its spawn pool — the worst side across
+  eight tested seeds keeps 14 spawn tiles), one stamp site, and the survivability validator as
+  the pipeline's final pass — docs/01's "no unwinnable starts" made mechanical: start open, both
+  gates open and reachable from a road opening over walkable ground, ≥ 6 indoor station tiles,
+  well open, a site of every placed loot table reachable from the gates. A failing clause
+  advances to the next candidate, bounded and deterministic; a district failing every candidate
+  errors loudly. The canonical seed sites at (21,13) on the 64 miniature and (108,107) at 256;
+  eight seeds, eight distinct sites, every clause true. No tested seed re-sites naturally — the
+  lane says so loudly, then exercises the path synthetically through a documented reject hook.
+  The measured find: once the annex left the map's corner, `SimBoot.playable`'s wanderer scatter
+  booted 2–7 shamblers **inside** the colony and wiped three of the four balance seeds by day 3
+  — diagnosed with a throwaway driver, not theorised, and fixed by teaching the boot scatter the
+  rule the director always had (refuse the annex rect, bounded re-roll). After: zero inside,
+  survivors 2/2 on all four seeds, and a boot-lane assertion with a planted true negative.
+  Re-pins live in the gates (`SITED_64`/`SITED_256`, the sited anchor expectations,
+  `BUILDINGS_64_MIN` 4 → 3 measured across twelve seeds); balance, director and harness
+  thresholds held.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
