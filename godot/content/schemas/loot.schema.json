@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://simplyzombies.dev/schemas/loot.schema.json",
   "title": "Location loot table",
-  "description": "A loot table for one location type, per docs/12-resources.md: 'A loot table declares location type, resource weights, tier weights, and quantity ranges.' A map's loot entry names one of these by its location, and SimBoot.place_loot rolls it. Adding a location type -- a school, a marina, a police station -- is one entry here plus map tagging, with no code change. NOTE: the content validator is shallow (top-level types and unexpected top-level keys only) and does not recurse into `entries` or the range objects; check_loot.gd is the gate that does, and it is the reason a wrong key inside a nested block cannot sit here unnoticed the way one did in item.wrap.cloth's armor block.",
+  "description": "A loot table for one location type, per docs/12-resources.md: 'A loot table declares location type, resource weights, tier weights, and quantity ranges.' A loot site names one of these by its location and SimBoot.place_loot rolls it -- whether the site came from a district's lootProfile (SimWorldgen's worldgen.sites pass) or from a template's own loot rows. Adding a location type -- a school, a marina, a police station -- is one entry here plus map tagging, with no code change. NOTE: the content validator is shallow (top-level types and unexpected top-level keys only) and does not recurse into `entries` or the range objects; check_loot.gd is the gate that does, and it is the reason a wrong key inside a nested block cannot sit here unnoticed the way one did in item.wrap.cloth's armor block.",
   "type": "object",
   "required": ["id", "name", "location", "rolls", "tierWeights", "entries"],
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "location": {
       "type": "string",
       "enum": ["residential", "commercial", "industrial", "medical", "military_cache"],
-      "description": "The location type, matching the map loot entry's `table`. The enum is docs/12's five scavenging locations; Milestone 2 authors three of them."
+      "description": "The location type, matching a loot site's `table`. The enum is docs/12's five scavenging locations, kept in step by hand with map.schema.json, building.schema.json and district.schema.json; Milestone 2 authors four of them -- industrial is the slot still waiting for its table."
     },
     "danger": {
       "type": "string",

@@ -47,6 +47,17 @@ var anchors: Dictionary = {}
 # and it never round-trips through a save, because the map is regenerated from the seed rather
 # than serialised. Empty on a blank map and on any district nobody generated.
 var buildings: Array = []
+# Where the loot is, in absolute tiles: {x, y, table, container?} per site, in placement order.
+# Written by the generator's `worldgen.sites` pass and by `SimTemplates.stamp` for a template that
+# carries a `loot` block (the civic annex's two rows, and any building template that grows one);
+# read by `SimBoot.place_loot`, which scatters a plain site and stands a container for one that
+# names a `container`.
+#
+# An Array of records for the reason CLAUDE.md gives: a Dictionary keyed by a tile index comes back
+# from JSON with String keys and misses silently. This one never round-trips -- the map is
+# regenerated from the seed -- but the shape is the shape regardless, and iterating an Array is
+# also what keeps the pass's draw order independent of Dictionary ordering.
+var sites: Array = []
 
 func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	w = width
@@ -63,6 +74,7 @@ func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	overlays = {}
 	anchors = {}
 	buildings = []
+	sites = []
 
 
 static func blank_map(width: int, height: int, tile: int = Tile.Floor) -> Variant:

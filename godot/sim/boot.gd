@@ -148,30 +148,38 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 # was a code edit and adding a location type was a new branch, both of which docs/12 says are
 # supposed to be data passes. Same shape as the appearance move: what a place yields is content.
 #
+# The sites are `map.sites` now, not the annex patch's `loot` array: the generator draws them per
+# seed from the district's `lootProfile` (`worldgen.sites`), and `SimTemplates.stamp` adds the ones
+# a template authored itself -- the annex's kitchen scatter and its cupboard. One list, one shape,
+# whichever of the two put a record in it, so a hand-placed cupboard and a generated one are the
+# same thing to everything downstream.
+#
 # Every roll comes off a dedicated `lootTable` stream rather than the `loot` stream
 # stream SimItems.spawn_item draws tiers from. New randomness gets its own stream: sharing one
 # would have every table roll shift the tier sequence for everything spawned afterwards, which is
 # a determinism footgun for anything that measures across a change to this table.
-static func place_loot(world: Variant, patch: Dictionary) -> void:
-	var loot: Array = patch.get("loot", []) as Array
+static func place_loot(world: Variant, map: Variant) -> void:
+	if map == null:
+		return
+	var loot: Array = map.sites as Array
 	var rng: Variant = SimLoot.stream(world)
 	for entry in loot:
 		var e: Dictionary = entry as Dictionary
-		var tile: Dictionary = e.get("tile", {}) as Dictionary
 		var location: String = String(e.get("table", "residential"))
 		var table: Variant = SimLoot.table_for(world, location)
 		if not (table is Dictionary):
-			# Loud, not silent: a map naming a table that does not exist would otherwise place an
-			# empty site and read as a stingy seed. check_loot.gd asserts every shipped map's
-			# tables resolve, so reaching this in a gate run is a content bug.
-			push_error("boot: map loot site names unknown table \"%s\"" % location)
+			# Loud, not silent: a site naming a table that does not exist would otherwise place an
+			# empty site and read as a stingy seed. check_loot.gd asserts every site a shipped
+			# district generates resolves, so reaching this in a gate run is a content bug.
+			push_error("boot: loot site names unknown table \"%s\"" % location)
 			continue
-		var x: float = float(tile.get("x", 0)) + 0.5
-		var y: float = float(tile.get("y", 0)) + 0.5
+		var x: float = float(int(e.get("x", 0))) + 0.5
+		var y: float = float(int(e.get("y", 0))) + 0.5
 		# A site with a `container` is not scattered at boot -- it stands there holding its table
 		# until somebody opens it. Same table, same roller, rolled later; that is the whole of the
 		# difference, and it is what makes a searched cupboard finite rather than a respawn timer
-		# (docs/12 puts respawn on the cut list).
+		# (docs/12 puts respawn on the cut list). Which sites are containers is the district's
+		# `lootProfile` decision, or the template's, never this file's.
 		var kind: String = String(e.get("container", ""))
 		if kind != "":
 			SimContainers.make_container(world, x, y, kind, location)
@@ -211,7 +219,9 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 	attach_kernel(world, map)
 	register_playable_modules(world, map)
 	world.components.set_component(world.player, "facing", {"radians": 0.0})
-	return {"world": world, "map": map, "patch": patch}
+	# The patch is not handed back any more: its loot rows are `map.sites` by the time the stamp
+	# above returns, and a `patch` key nobody read would be a socket rather than a return value.
+	return {"world": world, "map": map}
 
 
 # Where the colony starts, read off the map the template was stamped onto rather than off a
@@ -290,9 +300,7 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# Annex knife is the default find — equip so F works without a scavenger loop.
 	var knife: int = SimItems.spawn_item(world, "item.knife.kitchen", {"tier": "scavenged"})
 	SimInventory.equip(world, world.player, knife)
-	var patch: Variant = boot.get("patch")
-	if patch is Dictionary:
-		place_loot(world, patch as Dictionary)
+	place_loot(world, map)
 	var place_rng: Variant = world.rng.stream("placement")
 	for i in WANDERERS:
 		var type_id: String = SimRoster.pick_type(world, place_rng)

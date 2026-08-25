@@ -1,24 +1,40 @@
 extends SceneTree
-# Location loot tables: content declares what a place yields, SimBoot.place_loot rolls it.
+# Location loot tables and the sites that place them: content declares what a place yields *and*
+# where the places are, the generator draws the sites per seed, SimBoot.place_loot rolls them.
 #
 # This gate carries the same extra weight check_appearance.gd does, and for the same reason:
 # content_validator.gd is shallow. It checks top-level property types and rejects unexpected
-# top-level keys, but it does not recurse -- so nothing in `entries`, `rolls` or `tierWeights` is
-# schema-enforced at load. A wrong key inside a nested block is exactly the failure that sat in
-# `item.wrap.cloth`'s armor block for weeks giving zero arm protection, and only a purpose-built
-# gate found it. Everything below is that gate for loot.
+# top-level keys, but it does not recurse -- so nothing in `entries`, `rolls`, `tierWeights` or a
+# district's `lootProfile` is schema-enforced at load. A wrong key inside a nested block is exactly
+# the failure that sat in `item.wrap.cloth`'s armor block for weeks giving zero arm protection, and
+# only a purpose-built gate found it. Everything below is that gate for loot.
 #
 # What it holds down:
 #
 #  1. **Every table is well formed all the way down.** Ids, the location enum, ordered ranges,
 #     positive weights, and -- the one a schema could never check -- every `item` naming an item
 #     base that actually exists.
-#  2. **Every shipped map's sites resolve to a table, and stand somewhere reachable.** A map
-#     naming a table that does not exist would place an empty site and read as a stingy seed; a
-#     site inside a wall would place items nobody can pick up.
-#  3. **The tier is a property of the place.** A military cache must come out measurably better
+#  2. **Every district's loot profile is well formed all the way down, and reaches real things.**
+#     A table nobody authored, a building tag no template carries, a container share with no
+#     container names behind it: each is a site that never places or places nothing.
+#  3. **Every site a shipped district generates resolves to a table and stands somewhere open.**
+#     Walked off the *booted district's* `map.sites` per shipped district type, not off a map JSON:
+#     the sites are drawn per seed now, so the manifest is the only place the truth lives.
+#  4. **Interiors are where the loot is.** docs/24: "interiors are where the game happens". Every
+#     indoor site stands inside a building the placer actually put down, holding a table that
+#     district's profile allows for that building's tags -- a shop does not hold a bedside table --
+#     and the handful of outdoor sites stand on open ground.
+#  5. **Every authored location is reachable in play.** Each is placed by at least one shipped
+#     district's canonical boot: commercial by the town centre, the military cache by the suburb.
+#  6. **The counts are the profile's.** Site counts per table sit inside the bounds the district's
+#     own profile declares, at the gate size and the shipped size both.
+#  7. **The sites are a function of the seed.** Same seed, same sites; a different seed, different
+#     ones; and the dressing passes cannot move one, because sites are layout.
+#  8. **A template carries its own loot.** The civic annex's two authored rows land at their
+#     absolute tiles, and a building template with a `loot` block stamps its site the same way.
+#  9. **The tier is a property of the place.** A military cache must come out measurably better
 #     than a kitchen drawer, or tierWeights is decoration.
-#  4. **It is seeded, not arbitrary.** Same seed, same scatter; a different seed, a different one.
+# 10. **A container is rolled once.** Site depletion is that it is searched once, forever.
 #
 # Every assertion carries a true negative. A gate that cannot fail is worse than no gate.
 
@@ -28,6 +44,8 @@ const SimContainers = preload("res://sim/modules/containers.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimWorldgen = preload("res://sim/map/worldgen.gd")
+const SimTemplates = preload("res://sim/map/templates.gd")
 
 const LOCATIONS: Array[String] = ["residential", "commercial", "industrial", "medical", "military_cache"]
 const DANGERS: Array[String] = ["low", "moderate", "high", "very_high", "extreme"]
@@ -35,21 +53,35 @@ const TIER_IDS: Array[String] = ["scavenged", "modified", "field_tested"]
 # Enough samples that a tier distribution is a distribution rather than a coin toss.
 const TIER_SAMPLES: int = 2000
 
+const CANON_SEED: int = 20260805
+const GATE_SIZE: int = 64
+# Interiors dominate, and the odd car boot is the exception that says so. Measured on the canonical
+# seed at 256: 67 of 69 sites indoors in the suburb, 171 of 174 in the town centre.
+const INDOOR_SHARE_MIN: float = 0.9
+
+var _tree_cache: Dictionary = {}
+var _boot_cache: Dictionary = {}
+
 func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
 	var ok: bool = true
 	ok = _every_table_is_well_formed_all_the_way_down() and ok
-	ok = _every_map_site_resolves_and_stands_somewhere_open() and ok
-	ok = _the_three_slice_locations_are_authored() and ok
+	ok = _every_district_profile_is_well_formed_and_reaches_real_things() and ok
+	ok = _every_generated_site_resolves_and_stands_somewhere_open() and ok
+	ok = _the_loot_is_indoors_and_in_the_kind_of_building_that_holds_it() and ok
+	ok = _every_authored_location_is_placed_by_a_shipped_district() and ok
+	ok = _site_counts_stay_inside_the_bounds_the_profile_declares() and ok
+	ok = _the_sites_are_a_function_of_the_seed() and ok
+	ok = _a_template_carries_its_own_loot() and ok
 	ok = _a_cache_yields_better_gear_than_a_kitchen() and ok
 	ok = _quantities_stay_inside_the_range_they_declare() and ok
 	ok = _the_scatter_is_seeded() and ok
 	ok = _a_container_yields_once_and_is_empty_after() and ok
-	ok = _every_container_site_names_a_table_that_exists() and ok
+	ok = _every_container_site_stands_in_the_booted_district() and ok
 	if ok:
-		print("LOOT_OK tables well formed, map sites resolve and stand open, tier is a property of the place, scatter is seeded, a container yields once")
+		print("LOOT_OK tables and profiles well formed, generated sites resolve and stand open indoors, every location placed, counts inside their bounds, sites seeded and dressing-proof, templates carry their own, tier is a property of the place, a container yields once")
 		quit(0)
 	else:
 		push_error("LOOT_FAIL")
@@ -58,14 +90,21 @@ func _run() -> void:
 
 # --- helpers ------------------------------------------------------------------------------
 
+# One directory walk for the whole gate: `load_tree` reads every JSON under content/, and this file
+# used to call it once per helper call, several of them inside loops.
+func _tree() -> Dictionary:
+	if _tree_cache.is_empty():
+		_tree_cache = ContentLoader.load_tree()
+	return _tree_cache
+
+
 # Every loot table in content, as {content_path: entry}.
 func _tables() -> Dictionary:
 	var out: Dictionary = {}
-	var tree: Dictionary = ContentLoader.load_tree()
-	for path in tree.keys():
+	for path in _tree().keys():
 		if not String(path).begins_with("loot/"):
 			continue
-		var value: Variant = tree[path]
+		var value: Variant = _tree()[path]
 		if value is Array:
 			for entry in value as Array:
 				if entry is Dictionary:
@@ -73,13 +112,20 @@ func _tables() -> Dictionary:
 	return out
 
 
+# The authored locations, as a set: {"residential": true, ...}.
+func _authored_locations() -> Dictionary:
+	var out: Dictionary = {}
+	for key in _tables().keys():
+		out[String((_tables()[key] as Dictionary).get("location", ""))] = true
+	return out
+
+
 func _item_ids() -> Dictionary:
 	var out: Dictionary = {}
-	var tree: Dictionary = ContentLoader.load_tree()
-	for path in tree.keys():
+	for path in _tree().keys():
 		if not String(path).begins_with("items/"):
 			continue
-		var value: Variant = tree[path]
+		var value: Variant = _tree()[path]
 		if value is Array:
 			for entry in value as Array:
 				if entry is Dictionary:
@@ -87,19 +133,46 @@ func _item_ids() -> Dictionary:
 	return out
 
 
-func _maps() -> Dictionary:
-	var out: Dictionary = {}
-	var tree: Dictionary = ContentLoader.load_tree()
-	for path in tree.keys():
-		if String(path).begins_with("maps/") and tree[path] is Dictionary:
-			out[String(path)] = tree[path] as Dictionary
+# The shipped district types, by id, in a fixed order.
+func _districts() -> Array[String]:
+	var out: Array[String] = []
+	for path in _tree().keys():
+		if not String(path).begins_with("districts/"):
+			continue
+		var entry: Variant = _tree()[path]
+		if entry is Dictionary:
+			out.append(String((entry as Dictionary).get("id", "")))
+	out.sort()
 	return out
 
 
-# A booted district at the size the game actually plays, which is the only size at which a site's
-# coordinates mean anything: world.is_blocked_tile treats out-of-bounds as blocked, so judging a
-# site at (230, 20) against a 64-tile test map would report the whole far half of the district as
-# masonry.
+# Every building tag any shipped template carries, and the tags of one template by id.
+func _shipped_tags() -> Dictionary:
+	var out: Dictionary = {}
+	for t in SimWorldgen.templates_of(_tree()):
+		for tag in (t as Dictionary).get("tags", []) as Array:
+			out[String(tag)] = true
+	return out
+
+
+func _tags_by_id() -> Dictionary:
+	var out: Dictionary = {}
+	for t in SimWorldgen.templates_of(_tree()):
+		out[String((t as Dictionary).get("id", ""))] = (t as Dictionary).get("tags", []) as Array
+	return out
+
+
+# A booted district at the size the game actually plays, one per district type, reused across every
+# lane that reads a manifest. Two boots of 256, not eight: generation is ~200 ms and the boot that
+# follows it places every site the district holds.
+func _district_boot(district_id: String) -> Dictionary:
+	if not _boot_cache.has(district_id):
+		_boot_cache[district_id] = SimBoot.playable(CANON_SEED, SimTileMap.DISTRICT_TILES, district_id)
+	return _boot_cache[district_id] as Dictionary
+
+
+# A booted district at the shipped size for one seed. Used by the lanes that need a world to roll
+# in rather than a manifest to read, which is why they take a seed rather than a district.
 func _booted(seed_val: int) -> Dictionary:
 	var boot: Dictionary = SimBoot.playable(seed_val, SimTileMap.DISTRICT_TILES)
 	return {"world": boot["world"], "map": boot.get("map")}
@@ -217,91 +290,720 @@ func _range_problems(label: String, spec: Variant, floor_value: int) -> Array[St
 	return out
 
 
-# A map naming a table that does not exist places an empty site and reads as a stingy seed; a site
-# inside a wall places items nobody can reach. Both are silent today, so both are asserted here.
-func _every_map_site_resolves_and_stands_somewhere_open() -> bool:
-	var tables: Dictionary = _tables()
-	var by_location: Dictionary = {}
-	for key in tables.keys():
-		by_location[String((tables[key] as Dictionary).get("location", ""))] = true
+# --- 2. the district's loot profile ---------------------------------------------------------
 
-	var booted: Dictionary = _booted(20260805)
-	var w: Variant = booted["world"]
-	var sites: int = 0
-	var problems: Array[String] = []
-	for path in _maps().keys():
-		var loot: Variant = (_maps()[path] as Dictionary).get("loot")
-		if not (loot is Array):
+# `lootProfile` is where a district says what it holds, and the validator reaches exactly one level
+# of it (that it is an object). Everything below that is here: the tables named must be authored,
+# the building tags named must be tags a shipped template actually carries, a container share with
+# no names behind it is a share of nothing, and a container's name reaches the player's HUD -- so a
+# digit in one would walk straight through godot:check:hud's ban, which only reads the screen.
+func _profile_problems(label: String, district: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	var profile: Variant = district.get("lootProfile")
+	if not (profile is Dictionary):
+		out.append("%s: no lootProfile, so this district generates no loot at all" % label)
+		return out
+	var p: Dictionary = profile as Dictionary
+	for key in p.keys():
+		if String(key) != "perBuilding" and String(key) != "perDistrict":
+			out.append("%s.lootProfile: unexpected key %s" % [label, String(key)])
+	if not p.has("perBuilding") and not p.has("perDistrict"):
+		out.append("%s.lootProfile: neither perBuilding nor perDistrict, so it declares nothing" % label)
+
+	var authored: Dictionary = _authored_locations()
+	var tags: Dictionary = _shipped_tags()
+	for group in ["perBuilding", "perDistrict"]:
+		var rows: Variant = p.get(String(group))
+		if rows == null:
 			continue
-		for site in loot as Array:
-			sites += 1
-			var s: Dictionary = site as Dictionary
-			var location: String = String(s.get("table", ""))
-			if not by_location.has(location):
-				problems.append("%s: site names table %s, which no content entry declares" % [path, location])
+		if not (rows is Array) or (rows as Array).is_empty():
+			out.append("%s.lootProfile.%s: present but not a non-empty array" % [label, String(group)])
+			continue
+		for row_v in rows as Array:
+			if not (row_v is Dictionary):
+				out.append("%s.lootProfile.%s: a non-object entry" % [label, String(group)])
 				continue
-			var tile: Dictionary = s.get("tile", {}) as Dictionary
-			if w.is_blocked_tile(int(tile.get("x", -1)), int(tile.get("y", -1))):
-				problems.append("%s: site at (%d, %d) stands inside a wall" % [path, int(tile.get("x", -1)), int(tile.get("y", -1))])
-	if sites == 0:
-		push_error("SKIP-WORTHY: no map declares a loot site, so nothing here was judged")
+			var row: Dictionary = row_v as Dictionary
+			var where: String = "%s.lootProfile.%s[%s]" % [label, String(group), String(row.get("table", "?"))]
+			var table: String = String(row.get("table", ""))
+			if not LOCATIONS.has(table):
+				out.append("%s: table %s is not one of docs/12's five" % [where, table])
+			elif not authored.has(table):
+				out.append("%s: table %s has no content entry, so every site of it would place nothing" % [where, table])
+			var wanted: Variant = row.get("tags")
+			var outdoors: bool = bool(row.get("outdoors", false))
+			if String(group) == "perBuilding" or not outdoors:
+				if not (wanted is Array) or (wanted as Array).is_empty():
+					out.append("%s: no tags, so no building qualifies and the sites have nowhere to go" % where)
+				else:
+					for tag in wanted as Array:
+						if not tags.has(String(tag)):
+							out.append("%s: tag %s is on no shipped building template" % [where, String(tag)])
+			if String(group) == "perBuilding":
+				out.append_array(_range_problems("%s.sites" % where, row.get("sites"), 0))
+				if row.get("sites") is Dictionary and int((row["sites"] as Dictionary).get("max", 0)) <= 0:
+					out.append("%s.sites: max is 0, so this entry places nothing" % where)
+				if row.has("count"):
+					out.append("%s: count belongs to perDistrict, not perBuilding" % where)
+			else:
+				if not row.has("count"):
+					out.append("%s: no count" % where)
+				elif int(row.get("count", 0)) <= 0:
+					out.append("%s: count %d places nothing" % [where, int(row.get("count", 0))])
+				if row.has("sites"):
+					out.append("%s: sites belongs to perBuilding, not perDistrict" % where)
+			var share: float = float(row.get("containerShare", 0.0))
+			if share < 0.0 or share > 1.0:
+				out.append("%s: containerShare %.2f is outside 0..1" % [where, share])
+			var kinds: Variant = row.get("containers")
+			if share > 0.0 and (not (kinds is Array) or (kinds as Array).is_empty()):
+				out.append("%s: containerShare %.2f with no container names behind it" % [where, share])
+			if kinds is Array:
+				for kind in kinds as Array:
+					var spoken: String = String(kind)
+					if spoken.strip_edges().is_empty():
+						out.append("%s: an empty container name" % where)
+					for ch in spoken:
+						if ch >= "0" and ch <= "9":
+							out.append("%s: container name \"%s\" carries a digit, and SimContainers.hud_clause puts it on the player's HUD" % [where, spoken])
+							break
+	return out
+
+
+func _every_district_profile_is_well_formed_and_reaches_real_things() -> bool:
+	var ids: Array[String] = _districts()
+	if ids.is_empty():
+		push_error("no district ships, so there is no loot profile to judge")
 		return false
+	var problems: Array[String] = []
+	var counted: int = 0
+	for id in ids:
+		var district: Dictionary = SimWorldgen.district_of(_tree(), String(id))
+		problems.append_array(_profile_problems(String(id), district))
+		var profile: Variant = district.get("lootProfile")
+		if profile is Dictionary:
+			counted += ((profile as Dictionary).get("perBuilding", []) as Array).size()
+			counted += ((profile as Dictionary).get("perDistrict", []) as Array).size()
 	if not problems.is_empty():
 		for p in problems:
 			push_error(p)
 		return false
 
-	# The true negative: the same lookup must reject a location nobody authored, and the same tile
-	# check must find the wall the annex is made of.
-	if by_location.has("marina"):
-		push_error("the location index answered for a table nobody wrote")
-		return false
-	if not _some_tile_is_blocked(w):
-		push_error("no tile in the booted district is blocked, so the siting check cannot fail")
+	# The true negative: a profile broken in each of the ways above must report each of them. The
+	# families are separate rows so one report cannot stand in for another.
+	var broken: Dictionary = {"lootProfile": {
+		"perBuilding": [
+			{"table": "industrial", "tags": ["residential"], "sites": {"min": 1, "max": 2}},
+			{"table": "residential", "tags": ["marina"], "sites": {"min": 2, "max": 1}},
+			{"table": "commercial", "tags": ["commercial"], "sites": {"min": 1, "max": 1}, "containerShare": 0.5, "containers": []},
+		],
+		"perDistrict": [
+			{"table": "medical", "count": 0, "tags": ["civic"]},
+			{"table": "medical", "count": 1, "tags": ["civic"], "containerShare": 1.0, "containers": ["locker 3"]},
+		],
+	}}
+	var said: Array[String] = _profile_problems("probe", broken)
+	var wanted: Array[String] = [
+		"has no content entry",
+		"is on no shipped building template",
+		"max 1 is below min 2",
+		"with no container names behind it",
+		"places nothing",
+		"carries a digit",
+	]
+	for phrase in wanted:
+		var matched: bool = false
+		for p in said:
+			if p.find(String(phrase)) >= 0:
+				matched = true
+		if not matched:
+			push_error("a profile broken with \"%s\" was not reported: %s" % [String(phrase), str(said)])
+			return false
+	if _profile_problems("probe", {}).is_empty():
+		push_error("a district with no lootProfile at all was passed as clean")
 		return false
 
-	print("MAP SITES OK %d sites across %d maps, every table resolves and every tile is open" % [sites, _maps().size()])
+	print("PROFILE OK %d district types, %d profile entries, every table authored, every tag on a shipped template, container names digit-free; %d families of breakage each reported" % [
+		ids.size(), counted, wanted.size(),
+	])
 	return true
 
 
-func _some_tile_is_blocked(w: Variant) -> bool:
+# --- 3. the generated sites ------------------------------------------------------------------
+
+# The problems with a list of `map.sites` records, judged against the authored tables and whatever
+# says a tile is blocked. Takes the blocking test as a Callable so the same walk can judge a booted
+# world's own view of its map (the strongest question: can somebody standing there pick it up) and
+# a bare generated fixture that has no world at all.
+func _site_problems(label: String, sites: Array, blocked: Callable) -> Array[String]:
+	var out: Array[String] = []
+	var authored: Dictionary = _authored_locations()
+	for site in sites:
+		if not (site is Dictionary):
+			out.append("%s: a non-object site record" % label)
+			continue
+		var s: Dictionary = site as Dictionary
+		for field in ["x", "y", "table"]:
+			if not s.has(field):
+				out.append("%s: a site record with no %s" % [label, String(field)])
+		if not s.has("x") or not s.has("y") or not s.has("table"):
+			continue
+		var location: String = String(s["table"])
+		if not authored.has(location):
+			out.append("%s: site at (%d, %d) names table %s, which no content entry declares" % [
+				label, int(s["x"]), int(s["y"]), location,
+			])
+		if bool(blocked.call(int(s["x"]), int(s["y"]))):
+			out.append("%s: site at (%d, %d) stands inside a wall" % [label, int(s["x"]), int(s["y"])])
+		if s.has("container") and String(s["container"]).strip_edges().is_empty():
+			out.append("%s: site at (%d, %d) carries an empty container name" % [label, int(s["x"]), int(s["y"])])
+	return out
+
+
+func _every_generated_site_resolves_and_stands_somewhere_open() -> bool:
+	var total: int = 0
+	var per_type: Array[String] = []
+	for id in _districts():
+		var boot: Dictionary = _district_boot(String(id))
+		var w: Variant = boot["world"]
+		var map: Variant = boot["map"]
+		var sites: Array = map.sites as Array
+		if sites.is_empty():
+			push_error("%s generated no loot sites at all, so nothing here was judged" % String(id))
+			return false
+		var problems: Array[String] = _site_problems(String(id), sites, func(x: int, y: int) -> bool:
+			return bool(w.is_blocked_tile(x, y))
+		)
+		if not problems.is_empty():
+			for p in problems:
+				push_error(p)
+			return false
+		total += sites.size()
+		per_type.append("%s %d" % [String(id), sites.size()])
+
+	# The true negatives, both on the walk that just passed: a record forced onto a wall must fail
+	# the standing check, and one naming a table nobody wrote must fail resolution. Without them a
+	# walk that had stopped judging would report every district clean.
+	var probe: Dictionary = _district_boot(SimWorldgen.DEFAULT_DISTRICT)
+	var pw: Variant = probe["world"]
+	var blocked_at: Callable = func(x: int, y: int) -> bool:
+		return bool(pw.is_blocked_tile(x, y))
+	var wall: Vector2i = _some_blocked_tile(pw)
+	if wall.x < 0:
+		push_error("no tile in the booted district is blocked, so the siting check cannot fail")
+		return false
+	var forced: Array = [{"x": wall.x, "y": wall.y, "table": "residential"}]
+	if _site_problems("probe", forced, blocked_at).size() != 1:
+		push_error("a site forced onto the wall at %s was not reported" % str(wall))
+		return false
+	var unwritten: Array = [{"x": int(SimTileMap.player_start(probe["map"]).x), "y": int(SimTileMap.player_start(probe["map"]).y), "table": "marina"}]
+	if _site_problems("probe", unwritten, blocked_at).size() != 1:
+		push_error("a site naming the unwritten table \"marina\" was not reported")
+		return false
+
+	# And the same walk over a district whose *profile* names a table nobody wrote: the pass places
+	# the sites the content asked for, and this gate is what refuses them. `industrial` is the enum
+	# slot with no table behind it, which is exactly what `commercial` was until this slice.
+	var fixture: Dictionary = _fixture_district("district.fixture.unwritten", {
+		"perBuilding": [{"table": "industrial", "tags": ["residential", "shed"], "sites": {"min": 1, "max": 1}}],
+	})
+	var bad_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree_with(fixture), String(fixture["id"]))
+	var bad_sites: Array = bad_map.sites as Array
+	if bad_sites.is_empty():
+		push_error("the unwritten-table fixture district placed no sites, so the negative proves nothing")
+		return false
+	if _site_problems("fixture", bad_sites, func(x: int, y: int) -> bool:
+		return SimTileMap.is_solid(bad_map, x, y)
+	).size() != bad_sites.size():
+		push_error("%d sites of an unauthored table were not all reported" % bad_sites.size())
+		return false
+
+	print("SITES OK %d generated sites across %d district types (%s), every table resolves and every tile is open; a walled site, an unwritten table and %d sites of an unauthored one are each rejected" % [
+		total, _districts().size(), ", ".join(per_type), bad_sites.size(),
+	])
+	return true
+
+
+func _some_blocked_tile(w: Variant) -> Vector2i:
 	for x in range(0, SimTileMap.DISTRICT_TILES):
 		for y in range(0, SimTileMap.DISTRICT_TILES):
 			if w.is_blocked_tile(x, y):
-				return true
-	return false
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
 
 
-# docs/23's slice scope says three location loot tables. Which three is a content decision; that
-# there are three, that each is distinct, and that each is actually reachable from a shipped map
-# is not.
-func _the_three_slice_locations_are_authored() -> bool:
-	var authored: Dictionary = {}
-	for key in _tables().keys():
-		authored[String((_tables()[key] as Dictionary).get("location", ""))] = true
-	if authored.size() < 3:
-		push_error("only %d location tables authored, the slice scope asks for three" % authored.size())
+# --- 4. interiors are where the loot is -------------------------------------------------------
+
+# docs/24: "interiors are authored, never generated ... interiors are where the game happens". So
+# the loot is inside buildings, and the building it is inside has to be the kind of building the
+# district's profile says holds that table -- a shop does not hold a bedside table. Judged per
+# site against the placement manifest, which is the only thing that knows what got built where.
+func _the_loot_is_indoors_and_in_the_kind_of_building_that_holds_it() -> bool:
+	var tags_by_id: Dictionary = _tags_by_id()
+	var lines: Array[String] = []
+	for id in _districts():
+		var boot: Dictionary = _district_boot(String(id))
+		var map: Variant = boot["map"]
+		var district: Dictionary = SimWorldgen.district_of(_tree(), String(id))
+		var allowed: Dictionary = _tables_by_tag(district)
+		var annex: Rect2i = SimTileMap.annex_rect(map)
+		var indoors: int = 0
+		var outdoors: int = 0
+		var problems: Array[String] = []
+		for site in map.sites as Array:
+			var s: Dictionary = site as Dictionary
+			var at := Vector2i(int(s["x"]), int(s["y"]))
+			if annex.has_point(at):
+				# The colony's own two authored sites: they belong to the annex template rather than
+				# to the district's profile, and `_a_template_carries_its_own_loot` is their lane.
+				continue
+			if not SimTileMap.is_indoors(map, at.x, at.y):
+				outdoors += 1
+				if SimTileMap.is_solid(map, at.x, at.y):
+					problems.append("%s: the outdoor site at %s does not stand on open ground" % [String(id), str(at)])
+				continue
+			indoors += 1
+			var host: Dictionary = _host_of(map, at)
+			if host.is_empty():
+				problems.append("%s: the indoor site at %s stands in no building the placer recorded" % [String(id), str(at)])
+				continue
+			var table: String = String(s["table"])
+			var fits: bool = false
+			for tag in tags_by_id.get(String(host.get("id", "")), []) as Array:
+				if (allowed.get(String(tag), {}) as Dictionary).has(table):
+					fits = true
+			if not fits:
+				problems.append("%s: a %s site stands in %s, whose tags are %s and whose profile allows %s" % [
+					String(id), table, String(host.get("id", "")), str(tags_by_id.get(String(host.get("id", "")), [])),
+					str(allowed.keys()),
+				])
+		if not problems.is_empty():
+			for p in problems:
+				push_error(p)
+			return false
+		var share: float = float(indoors) / float(maxi(1, indoors + outdoors))
+		if share < INDOOR_SHARE_MIN:
+			push_error("%s put %.1f%% of its loot indoors, floor is %.0f%%" % [String(id), 100.0 * share, 100.0 * INDOOR_SHARE_MIN])
+			return false
+		lines.append("%s %d indoors / %d out (%.1f%%)" % [String(id), indoors, outdoors, 100.0 * share])
+
+	# The true negative: the same host walk must reject a table the profile does not allow in that
+	# kind of building. Taken from the shipped suburb, whose commercial sites belong in commercial
+	# buildings and nowhere else.
+	var probe_map: Variant = _district_boot(SimWorldgen.DEFAULT_DISTRICT)["map"]
+	var allowed_probe: Dictionary = _tables_by_tag(SimWorldgen.district_of(_tree(), SimWorldgen.DEFAULT_DISTRICT))
+	var residential_only: Dictionary = allowed_probe.get("residential", {}) as Dictionary
+	if residential_only.has("commercial") or not residential_only.has("residential"):
+		push_error("the suburb's residential buildings are declared to hold %s -- the host test is not reading the profile" % str(residential_only.keys()))
+		return false
+	if not _host_of(probe_map, Vector2i(0, 0)).is_empty():
+		push_error("the map's own corner was reported as inside a building")
 		return false
 
+	print("INDOORS OK %s; every indoor site sits in a building whose tags its table is authored for" % ", ".join(lines))
+	return true
+
+
+# {tag: {table: true}} -- which tables a district's profile allows in a building carrying each tag.
+func _tables_by_tag(district: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	var profile: Variant = district.get("lootProfile")
+	if not (profile is Dictionary):
+		return out
+	for group in ["perBuilding", "perDistrict"]:
+		for row_v in (profile as Dictionary).get(String(group), []) as Array:
+			var row: Dictionary = row_v as Dictionary
+			for tag in row.get("tags", []) as Array:
+				if not out.has(String(tag)):
+					out[String(tag)] = {}
+				(out[String(tag)] as Dictionary)[String(row.get("table", ""))] = true
+	return out
+
+
+# The placed building a tile falls inside, or {}.
+func _host_of(map: Variant, at: Vector2i) -> Dictionary:
+	for record in map.buildings as Array:
+		var b: Dictionary = record as Dictionary
+		if Rect2i(int(b["x"]), int(b["y"]), int(b["w"]), int(b["h"])).has_point(at):
+			return b
+	return {}
+
+
+# --- 5. every authored location is reachable in play ------------------------------------------
+
+# The lane that used to ask whether a location appeared in a map JSON. Sites are drawn per seed
+# now, so the question is whether a shipped district's canonical boot actually places one: a table
+# authored and placed by nobody is the dead-socket pattern in content form, and `commercial` sat in
+# three synced enums with no table behind it for a milestone.
+func _every_authored_location_is_placed_by_a_shipped_district() -> bool:
+	var authored: Dictionary = _authored_locations()
+	if authored.size() < 4:
+		push_error("only %d location tables authored, the slice scope asks for four" % authored.size())
+		return false
 	var placed: Dictionary = {}
-	for path in _maps().keys():
-		var loot: Variant = (_maps()[path] as Dictionary).get("loot")
-		if loot is Array:
-			for site in loot as Array:
-				placed[String((site as Dictionary).get("table", ""))] = true
+	var by_district: Dictionary = {}
+	for id in _districts():
+		var here: Dictionary = {}
+		var manifest: Variant = _district_boot(String(id))["map"]
+		for site in manifest.sites as Array:
+			var table: String = String((site as Dictionary)["table"])
+			placed[table] = true
+			here[table] = int(here.get(table, 0)) + 1
+		by_district[String(id)] = here
 	var unreachable: Array[String] = []
 	for location in authored.keys():
 		if not placed.has(location):
 			unreachable.append(String(location))
 	if not unreachable.is_empty():
-		push_error("authored but on no map, so unreachable in play: %s" % str(unreachable))
+		push_error("authored but placed by no shipped district on the canonical seed, so unreachable in play: %s" % str(unreachable))
 		return false
-	print("LOCATIONS OK %d authored (%s), every one placed on a shipped map" % [authored.size(), str(authored.keys())])
+
+	# The two the district types exist to prove: the town centre is what makes commercial reachable
+	# (docs/30: "town center is the type that forces the second loot table"), and the suburb is
+	# where the cache is.
+	for named in [["district.town_center", "commercial"], [SimWorldgen.DEFAULT_DISTRICT, "military_cache"]]:
+		var id2: String = String((named as Array)[0])
+		var table2: String = String((named as Array)[1])
+		if int((by_district.get(id2, {}) as Dictionary).get(table2, 0)) < 1:
+			push_error("%s placed no %s site: it holds %s" % [id2, table2, str((by_district.get(id2, {}) as Dictionary))])
+			return false
+	# The true negative: a location nobody authored must not be answered for, and the count above
+	# must be reading the manifest rather than the enum.
+	if authored.has("marina") or placed.has("marina"):
+		push_error("a table nobody wrote was reported as authored or placed")
+		return false
+	if int((by_district.get("district.town_center", {}) as Dictionary).get("military_cache", 0)) != 0:
+		push_error("the town centre placed a military cache, which its profile does not declare")
+		return false
+
+	print("LOCATIONS OK %d authored (%s), each placed by a shipped district: %s" % [
+		authored.size(), str(authored.keys()), str(by_district),
+	])
 	return true
 
 
-# The point of tierWeights: the tier stops being a property of the world and becomes one of the
-# place. Measured on rolls, not on the table being the numbers it was written with.
+# --- 6. the counts are the profile's ----------------------------------------------------------
+
+# Site counts per table, against the bounds the district's own profile declares: a `perBuilding`
+# entry's min..max times the number of buildings that qualify for it, plus a `perDistrict` entry's
+# count scaled by area. Derived here from the content and the placement manifest rather than read
+# back off the generator, so a pass that ignored `sites`, or the tags, or the scaling, lands
+# outside its own band.
+func _site_counts_stay_inside_the_bounds_the_profile_declares() -> bool:
+	var tags_by_id: Dictionary = _tags_by_id()
+	var lines: Array[String] = []
+	for id in _districts():
+		var district: Dictionary = SimWorldgen.district_of(_tree(), String(id))
+		for size in [GATE_SIZE, SimTileMap.DISTRICT_TILES]:
+			# The shipped size is the district boot's own map, which is already in hand; the gate
+			# size is a bare generation, which costs ~15 ms and no world.
+			var map: Variant = _district_boot(String(id))["map"] if int(size) == SimTileMap.DISTRICT_TILES \
+					else SimWorldgen.generate(CANON_SEED, int(size), _tree(), String(id))
+			var counts: Dictionary = {}
+			for site in map.sites as Array:
+				var record: Dictionary = site as Dictionary
+				if SimTileMap.annex_rect(map).has_point(Vector2i(int(record["x"]), int(record["y"]))):
+					continue
+				counts[String(record["table"])] = int(counts.get(String(record["table"]), 0)) + 1
+			var bounds: Dictionary = _declared_bounds(district, map, tags_by_id, int(size))
+			for table in bounds.keys():
+				var band: Array = bounds[table] as Array
+				var got: int = int(counts.get(String(table), 0))
+				if got < int(band[0]) or got > int(band[1]):
+					push_error("%s at %d placed %d %s sites, its profile declares %d..%d" % [
+						String(id), int(size), got, String(table), int(band[0]), int(band[1]),
+					])
+					return false
+			for table2 in counts.keys():
+				if not bounds.has(String(table2)):
+					push_error("%s at %d placed %d %s sites its profile never declares" % [
+						String(id), int(size), int(counts[table2]), String(table2),
+					])
+					return false
+			lines.append("%s at %d %s" % [String(id), int(size), str(counts)])
+
+	# The rare tables specifically, because "scaled by area" is a decision rather than an accident:
+	# the shipped suburb holds exactly one medical store and one cache at 256, and the 64-tile
+	# miniature -- a sixteenth of the area -- holds neither. Pinned, so a change to the scaling has
+	# to come here and say so.
+	var suburb_map: Variant = _district_boot(SimWorldgen.DEFAULT_DISTRICT)["map"]
+	var suburb: Dictionary = _table_counts(suburb_map.sites as Array)
+	if int(suburb.get("medical", 0)) != 1 or int(suburb.get("military_cache", 0)) != 1:
+		push_error("the suburb at 256 holds %d medical and %d cache sites, not one of each" % [
+			int(suburb.get("medical", 0)), int(suburb.get("military_cache", 0)),
+		])
+		return false
+	var miniature: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree())
+	var few: Dictionary = _table_counts(miniature.sites as Array)
+	if int(few.get("medical", 0)) != 0 or int(few.get("military_cache", 0)) != 0:
+		push_error("the 64-tile miniature holds %d medical and %d cache sites, and the area scaling says neither" % [
+			int(few.get("medical", 0)), int(few.get("military_cache", 0)),
+		])
+		return false
+
+	# The true negative: a fixture district that declares one site per qualifying building places
+	# exactly one per qualifying building, and one that declares none places none. Without this,
+	# bounds derived from the same content the pass read could both be wrong together.
+	var one: Dictionary = _fixture_district("district.fixture.one", {
+		"perBuilding": [{"table": "residential", "tags": ["shed"], "sites": {"min": 1, "max": 1}}],
+	})
+	var one_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree_with(one), String(one["id"]))
+	var sheds: int = 0
+	for record2 in one_map.buildings as Array:
+		if (tags_by_id.get(String((record2 as Dictionary)["id"]), []) as Array).has("shed"):
+			sheds += 1
+	if sheds < 1:
+		push_error("the one-per-shed fixture district built no sheds, so the count proves nothing")
+		return false
+	if (one_map.sites as Array).size() != sheds:
+		push_error("one site per shed over %d sheds placed %d sites" % [sheds, (one_map.sites as Array).size()])
+		return false
+	var none: Dictionary = _fixture_district("district.fixture.none", {
+		"perBuilding": [{"table": "residential", "tags": ["civic"], "sites": {"min": 0, "max": 0}}],
+	})
+	var none_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree_with(none), String(none["id"]))
+	if not (none_map.sites as Array).is_empty():
+		push_error("a profile declaring 0..0 sites placed %d" % (none_map.sites as Array).size())
+		return false
+
+	print("COUNTS OK %s; the suburb holds exactly one medical and one cache at 256 and neither at %d; one-per-shed places %d over %d sheds and 0..0 places none" % [
+		", ".join(lines), GATE_SIZE, (one_map.sites as Array).size(), sheds,
+	])
+	return true
+
+
+func _table_counts(sites: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for site in sites:
+		out[String((site as Dictionary)["table"])] = int(out.get(String((site as Dictionary)["table"]), 0)) + 1
+	return out
+
+
+# {table: [min, max]} for one district on one map, from the profile and the placement manifest.
+# A perDistrict entry contributes its scaled count at both ends when it has somewhere to go, and
+# nothing at the low end when it does not -- a district whose pool never rolled a civic building
+# has nowhere to put the medical store, and gets fewer sites rather than one in a shed.
+func _declared_bounds(district: Dictionary, map: Variant, tags_by_id: Dictionary, size: int) -> Dictionary:
+	var out: Dictionary = {}
+	var profile: Variant = district.get("lootProfile")
+	if not (profile is Dictionary):
+		return out
+	for row_v in (profile as Dictionary).get("perBuilding", []) as Array:
+		var row: Dictionary = row_v as Dictionary
+		var hosts: int = _qualifying(map, tags_by_id, row.get("tags", []) as Array)
+		var spec: Dictionary = row.get("sites", {}) as Dictionary
+		_widen(out, String(row.get("table", "")), hosts * int(spec.get("min", 0)), hosts * int(spec.get("max", 0)))
+	for row_v2 in (profile as Dictionary).get("perDistrict", []) as Array:
+		var row2: Dictionary = row_v2 as Dictionary
+		# The same arithmetic the pass documents, written out here rather than called: a bound that
+		# asked the generator what it scaled to would agree with itself whatever it did.
+		var full: int = SimTileMap.DISTRICT_TILES
+		var count: int = int(round(float(int(row2.get("count", 0))) * float(size * size) / float(full * full)))
+		var reachable: bool = bool(row2.get("outdoors", false)) or _qualifying(map, tags_by_id, row2.get("tags", []) as Array) > 0
+		_widen(out, String(row2.get("table", "")), count if reachable else 0, count)
+	return out
+
+
+func _widen(bounds: Dictionary, table: String, lo: int, hi: int) -> void:
+	var band: Array = bounds.get(table, [0, 0]) as Array
+	bounds[table] = [int(band[0]) + lo, int(band[1]) + hi]
+
+
+func _qualifying(map: Variant, tags_by_id: Dictionary, wanted: Array) -> int:
+	var n: int = 0
+	for record in map.buildings as Array:
+		var tags: Array = tags_by_id.get(String((record as Dictionary)["id"]), []) as Array
+		for tag in wanted:
+			if tags.has(String(tag)):
+				n += 1
+				break
+	return n
+
+
+# --- 7. the sites are a function of the seed --------------------------------------------------
+
+# Same property the layout has, and for the same reason: a campaign is reproducible from its seed.
+# The dressing half is the one that would not be obvious -- sites are chosen before a tree is
+# planted, and `_protected_tiles` then stops the dressing planting anything on one, so the same
+# district with the dressing switched off holds the same loot in the same tiles.
+func _the_sites_are_a_function_of_the_seed() -> bool:
+	var first: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree())
+	var again: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree())
+	var other: Variant = SimWorldgen.generate(CANON_SEED + 1, GATE_SIZE, _tree())
+	var undressed: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree(), SimWorldgen.DEFAULT_DISTRICT, false)
+	if (first.sites as Array).is_empty():
+		push_error("the canonical seed generated no sites at %d, so nothing here was judged" % GATE_SIZE)
+		return false
+	var a: String = JSON.stringify(first.sites)
+	if a != JSON.stringify(again.sites):
+		push_error("two generations of seed %d disagreed about where the loot is" % CANON_SEED)
+		return false
+	if a == JSON.stringify(other.sites):
+		push_error("seed %d and seed %d put the loot in identical places -- the seed is not reaching the sites pass" % [CANON_SEED, CANON_SEED + 1])
+		return false
+	if a != JSON.stringify(undressed.sites):
+		push_error("the dressing passes moved the loot: %s with dressing, %s without" % [a, JSON.stringify(undressed.sites)])
+		return false
+	# And the dressing cannot bury one either, which is what `_protected_tiles` carrying the sites
+	# buys: a tree on a car boot would be loot inside a solid tile.
+	for site in first.sites as Array:
+		var s: Dictionary = site as Dictionary
+		if SimTileMap.is_solid(first, int(s["x"]), int(s["y"])):
+			push_error("the dressing planted something solid on the site at (%d, %d)" % [int(s["x"]), int(s["y"])])
+			return false
+	print("SITE SEED OK %d sites at %d are identical across two generations, differ from seed %d, and are the same with the dressing off" % [
+		(first.sites as Array).size(), GATE_SIZE, CANON_SEED + 1,
+	])
+	return true
+
+
+# --- 8. a template carries its own loot -------------------------------------------------------
+
+# The other half of where sites come from: a template's own `loot` rows, template-relative, turned
+# absolute by `SimTemplates.stamp`. The civic annex is the shipped case -- its kitchen scatter and
+# the cupboard in its store room -- and a fixture building template is what proves the *building*
+# half of the mechanism is wired rather than merely declared in a schema, because no shipped
+# building template carries loot (the district's profile covers those).
+func _a_template_carries_its_own_loot() -> bool:
+	var boot: Dictionary = _district_boot(SimWorldgen.DEFAULT_DISTRICT)
+	var map: Variant = boot["map"]
+	var w: Variant = boot["world"]
+	var annex: Rect2i = SimTileMap.annex_rect(map)
+	var patch: Variant = SimTileMap.load_patch_from_content(_tree(), SimBoot.PATCH_ID)
+	if not (patch is Dictionary):
+		push_error("no %s in content, so the annex's own loot cannot be judged" % SimBoot.PATCH_ID)
+		return false
+	var rows: Variant = (patch as Dictionary).get("loot")
+	if not (rows is Array) or (rows as Array).is_empty():
+		push_error("the annex template carries no loot rows, so this lane is asserting nothing")
+		return false
+	for row_v in rows as Array:
+		var row: Dictionary = row_v as Dictionary
+		var tile: Dictionary = row.get("tile", {}) as Dictionary
+		var want := Vector2i(annex.position.x + int(tile.get("x", 0)), annex.position.y + int(tile.get("y", 0)))
+		var found: Dictionary = {}
+		for site in map.sites as Array:
+			var s: Dictionary = site as Dictionary
+			if Vector2i(int(s["x"]), int(s["y"])) == want:
+				found = s
+		if found.is_empty():
+			push_error("the annex's authored site at relative %s is at no absolute tile %s on the booted map" % [str(tile), str(want)])
+			return false
+		if String(found["table"]) != String(row.get("table", "")):
+			push_error("the annex's site at %s came through as %s, not %s" % [str(want), String(found["table"]), String(row.get("table", ""))])
+			return false
+		if String(row.get("container", "")) != String(found.get("container", "")):
+			push_error("the annex's site at %s came through as container \"%s\", not \"%s\"" % [
+				str(want), String(found.get("container", "")), String(row.get("container", "")),
+			])
+			return false
+		if not SimTileMap.is_indoors(map, want.x, want.y) or w.is_blocked_tile(want.x, want.y):
+			push_error("the annex's site at %s is not open indoor floor" % str(want))
+			return false
+
+	# The building half: a fixture template with one loot row, in a fixture district whose profile
+	# places nothing of its own, so every site on the map came from the template.
+	var loaded: Dictionary = _loot_bearing_template()
+	var tree: Dictionary = _tree_with(_fixture_district("district.fixture.carrier", {}, [{"tag": "carrier", "weight": 1}], 1.0))
+	tree["buildings/zz_carrier.json"] = loaded
+	var carried: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree, "district.fixture.carrier")
+	var placed: Array = carried.buildings as Array
+	if placed.is_empty():
+		push_error("the loot-bearing fixture district placed no buildings, so the mechanism proves nothing")
+		return false
+	if (carried.sites as Array).size() != placed.size():
+		push_error("%d loot-bearing buildings stamped %d sites" % [placed.size(), (carried.sites as Array).size()])
+		return false
+	var relative: Dictionary = ((loaded["loot"] as Array)[0] as Dictionary)["tile"] as Dictionary
+	for record in placed:
+		var b: Dictionary = record as Dictionary
+		var want2 := Vector2i(int(b["x"]) + int(relative["x"]), int(b["y"]) + int(relative["y"]))
+		var hit: bool = false
+		for site2 in carried.sites as Array:
+			var s2: Dictionary = site2 as Dictionary
+			if Vector2i(int(s2["x"]), int(s2["y"])) != want2:
+				continue
+			hit = true
+			if String(s2["table"]) != "medical" or String(s2.get("container", "")) != "medicine cabinet":
+				push_error("the stamped site at %s came through as %s" % [str(want2), str(s2)])
+				return false
+		if not hit:
+			push_error("the building stamped at (%d, %d) left no site at %s" % [int(b["x"]), int(b["y"]), str(want2)])
+			return false
+
+	# The true negative: the same template with its loot block removed stamps none, so what landed
+	# above is the block rather than the stamp inventing sites for every building.
+	var anonymous: Dictionary = loaded.duplicate(true)
+	anonymous.erase("loot")
+	var tree2: Dictionary = _tree_with(_fixture_district("district.fixture.carrier", {}, [{"tag": "carrier", "weight": 1}], 1.0))
+	tree2["buildings/zz_carrier.json"] = anonymous
+	var bare_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, tree2, "district.fixture.carrier")
+	if not (bare_map.sites as Array).is_empty():
+		push_error("a template with no loot block still stamped %d sites" % (bare_map.sites as Array).size())
+		return false
+
+	print("TEMPLATE LOOT OK the annex's %d authored rows stand at their absolute tiles on the booted district, and %d fixture buildings each stamped their own; a template without the block stamps none" % [
+		(rows as Array).size(), placed.size(),
+	])
+	return true
+
+
+# A district type built here rather than shipped, so a lane can change one field and watch the
+# world change. Shipping it would be content nothing plays.
+func _fixture_district(id: String, profile: Dictionary, pool: Array = [{"tag": "residential", "weight": 6}, {"tag": "shed", "weight": 4}, {"tag": "civic", "weight": 2}], density: float = 0.6) -> Dictionary:
+	var out: Dictionary = {
+		"id": id,
+		"name": "fixture",
+		"type": "fixture",
+		"streets": {"blockMin": 24, "blockMax": 40, "streetWidth": 6},
+		"connectionPoints": {"north": 1, "south": 1, "east": 1, "west": 1},
+		"density": density,
+		"pool": pool,
+	}
+	if not profile.is_empty():
+		out["lootProfile"] = profile
+	return out
+
+
+func _tree_with(district: Dictionary) -> Dictionary:
+	var tree: Dictionary = _tree().duplicate()
+	tree["districts/zz_fixture.json"] = district
+	return tree
+
+
+# A sound 9x7 shell with a south door, carrying one loot row two tiles inside its own corner. No
+# shipped building template has a `loot` block -- the district profile covers the pool -- so this
+# is what keeps the mechanism from being a schema field nothing exercises.
+func _loot_bearing_template() -> Dictionary:
+	var w: int = 9
+	var h: int = 7
+	var tiles: Array = []
+	var surfaces: Array = []
+	var indoors: Array = []
+	for y in h:
+		for x in w:
+			var edge: bool = x == 0 or y == 0 or x == w - 1 or y == h - 1
+			tiles.append(SimTileMap.Tile.Wall if edge else SimTileMap.Tile.Floor)
+			surfaces.append(SimTileMap.SURFACE_PAVED)
+			indoors.append(0 if edge else 1)
+	tiles[6 * w + 4] = SimTileMap.Tile.Floor
+	return {
+		"id": "building.fixture.carrier",
+		"name": "nine by seven with a cabinet in it",
+		"size": {"w": w, "h": h},
+		"tiles": tiles,
+		"surfaces": surfaces,
+		"indoors": indoors,
+		"doors": [{"x": 4, "y": 6}],
+		"tags": ["carrier"],
+		"weight": 1,
+		"loot": [{"tile": {"x": 2, "y": 2}, "table": "medical", "container": "medicine cabinet"}],
+	}
+
+
+# --- 9. the tier is a property of the place ---------------------------------------------------
+
+# Measured on rolls, not on the table being the numbers it was written with.
 func _a_cache_yields_better_gear_than_a_kitchen() -> bool:
 	var tables: Dictionary = _tables()
 	var cache: Variant = _table_for(tables, "military_cache")
@@ -387,7 +1089,7 @@ func _quantities_stay_inside_the_range_they_declare() -> bool:
 	return true
 
 
-# Seeded, not arbitrary: the same seed scatters the same site, and a different one does not.
+# Seeded, not arbitrary: the same seed scatters the same district, and a different one does not.
 # Read off what is actually on the ground, which is the observable that matters.
 func _the_scatter_is_seeded() -> bool:
 	var a: Dictionary = _on_the_ground(_booted(90210)["world"])
@@ -483,42 +1185,72 @@ func _a_container_yields_once_and_is_empty_after() -> bool:
 	return true
 
 
-# A container naming a table nobody wrote would empty itself for nothing -- the worst outcome,
-# because the site is spent and the player got zero. SimContainers refuses rather than spending
-# it; this asserts no shipped map can reach that branch in the first place.
-func _every_container_site_names_a_table_that_exists() -> bool:
-	var by_location: Dictionary = {}
-	for key in _tables().keys():
-		by_location[String((_tables()[key] as Dictionary).get("location", ""))] = true
-	var containers: int = 0
+# The census, and the reason it is not the site walk again: a booted district must actually STAND
+# the containers its manifest declares, and stand exactly as many. A `container` key that
+# place_loot ignored would scatter them instead and pass every assertion above -- and a container
+# naming a table nobody wrote would empty itself for nothing, which is the worst outcome, because
+# the site is spent and the player got zero.
+func _every_container_site_stands_in_the_booted_district() -> bool:
+	var authored: Dictionary = _authored_locations()
+	var lines: Array[String] = []
 	var kinds: Dictionary = {}
-	for path in _maps().keys():
-		var loot: Variant = (_maps()[path] as Dictionary).get("loot")
-		if not (loot is Array):
-			continue
-		for site in loot as Array:
+	for id in _districts():
+		var boot: Dictionary = _district_boot(String(id))
+		var w: Variant = boot["world"]
+		var declared: int = 0
+		var manifest: Variant = boot["map"]
+		for site in manifest.sites as Array:
 			var s: Dictionary = site as Dictionary
-			var kind: String = String(s.get("container", ""))
-			if kind == "":
+			if not s.has("container"):
 				continue
-			containers += 1
-			kinds[kind] = true
-			if not by_location.has(String(s.get("table", ""))):
-				push_error("%s: container \"%s\" names table %s, which no content entry declares" % [path, kind, String(s.get("table", ""))])
+			declared += 1
+			kinds[String(s["container"])] = true
+			if not authored.has(String(s["table"])):
+				push_error("%s: container \"%s\" names table %s, which no content entry declares" % [
+					String(id), String(s["container"]), String(s["table"]),
+				])
 				return false
-	if containers == 0:
-		push_error("SKIP-WORTHY: no map declares a container, so nothing here was judged")
+		if declared == 0:
+			push_error("SKIP-WORTHY: %s declares no container, so nothing here was judged" % String(id))
+			return false
+		var standing: int = w.components.query(["searchable", "position"]).size()
+		if standing != declared:
+			push_error("%s: %d container sites declared but %d standing in a booted district" % [String(id), declared, standing])
+			return false
+		# Every one of them on its own tile, holding its own table: the census could otherwise be
+		# two numbers that happen to agree.
+		var by_tile: Dictionary = {}
+		for ent in w.components.query(["searchable", "position"]):
+			var p: Dictionary = w.components.get_component(int(ent), "position") as Dictionary
+			by_tile["%d,%d" % [floori(float(p["x"])), floori(float(p["y"]))]] = w.components.get_component(int(ent), "searchable")
+		for site2 in manifest.sites as Array:
+			var s2: Dictionary = site2 as Dictionary
+			if not s2.has("container"):
+				continue
+			var key: String = "%d,%d" % [int(s2["x"]), int(s2["y"])]
+			var state: Variant = by_tile.get(key)
+			if not (state is Dictionary):
+				push_error("%s: nothing stands on the container site at %s" % [String(id), key])
+				return false
+			if String((state as Dictionary).get("kind", "")) != String(s2["container"]) or String((state as Dictionary).get("table", "")) != String(s2["table"]):
+				push_error("%s: the container at %s stands as %s, not %s" % [String(id), key, str(state), str(s2)])
+				return false
+		lines.append("%s %d" % [String(id), declared])
+
+	# The true negative: a scattered site must NOT stand anything, or the census above would be
+	# counting every site rather than the containers.
+	var scattered: int = 0
+	var census_map: Variant = _district_boot(SimWorldgen.DEFAULT_DISTRICT)["map"]
+	for site3 in census_map.sites as Array:
+		if not (site3 as Dictionary).has("container"):
+			scattered += 1
+	if scattered == 0:
+		push_error("every site in the suburb is a container, so the census cannot tell the two apart")
 		return false
 
-	# The true negative and the reason this is not just the map-sites walk again: a booted district
-	# must actually STAND these, and stand exactly as many as the map declares. A `container` key
-	# that place_loot ignored would scatter them instead and pass every assertion above.
-	var w: Variant = _booted(20260805)["world"]
-	var standing: int = w.components.query(["searchable", "position"]).size()
-	if standing != containers:
-		push_error("%d container sites declared but %d standing in a booted district" % [containers, standing])
-		return false
-	print("CONTAINER SITES OK %d declared (%s), %d standing, every table resolves" % [containers, str(kinds.keys()), standing])
+	print("CONTAINER SITES OK %s declared and the same number standing, each on its own tile holding its own table (%s); %d scattered sites stand nothing" % [
+		", ".join(lines), str(kinds.keys()), scattered,
+	])
 	return true
 
 
