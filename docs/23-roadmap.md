@@ -182,12 +182,6 @@ owner's six scope decisions are recorded in
 [docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces, in landing order — each a
 session with its gate:
 
-- **Building templates as content.** A `building` content type (Godot-only, the `content/loot/`
-  precedent — the frozen oracle never sees it), 8–12 residential/civic and 3–5 commercial
-  authored footprints, and the civic annex reinterpreted as the first template:
-  `district_alpha.json` stays in place, its arrays stamped at a generator-chosen origin. Gate:
-  `godot:check:buildings`, including the migration lock — the stamp byte-identical to the old
-  blit on the canonical seed before the old path is deleted.
 - **Anchors on the map, constants deleted.** `SimDirector.ANNEX`, `SimFortify.GATE_A/B` and the
   literal (46,45) start become data the generator writes (`map.anchors`); boot, director, jobs,
   fortify, needs, recruits and every coordinate-pinning gate read them off the booted world. The
@@ -195,10 +189,14 @@ session with its gate:
   `godot:m2:district`.
 - **District types as data, and the generator rebuilt.** Streets from district JSON (block range,
   street width, connection points), parcels, weighted template placement — ~40–70 buildings at
-  256 and a real miniature district at 64, so the gate boots stop running on empty maps. Two live
-  types ship: residential suburb and town center. Named `worldgen.*` streams replace the XOR
-  salts; `SAVE_VERSION` bumps; the balance fast tier and harness bands are re-measured
-  before/after in the same commit, never inherited.
+  256 and a real miniature district at 64, so the gate boots stop running on empty maps. The
+  template pool is authored here, with its placer: 8–12 residential/civic and 3–5 commercial
+  footprints under `content/buildings/` (the type and stamper landed with the annex migration —
+  see the record; the pool waited for the thing that reads it). Every placed building's interior
+  must be reachable through its door from the street network — the sandbox goal's "buildings are
+  enterable", asserted rather than assumed. Two live types ship: residential suburb and town
+  center. Named `worldgen.*` streams replace the XOR salts; `SAVE_VERSION` bumps; the balance
+  fast tier and harness bands are re-measured before/after in the same commit, never inherited.
 - **The annex sited per seed, survivability validated.** docs/01's "no unwinnable starts" made
   mechanical: start open, gates reachable from a street, station floor indoors, well, a site of
   each placed loot table reachable — bounded deterministic re-site on failure, and a gate that
@@ -890,6 +888,22 @@ not a to-do list:
   where the numbers live and not of what they say. Presence of the block is what makes an item
   edible: `is_food` asks nothing else. Site depletion landed with container search — see Inventory
   below; the ~15 resource types moved to [what's left](#whats-left-in-milestone-2).
+  ~~The annex as a stamped template~~ **landed** (`godot:check:buildings`, the chain's 33rd gate)
+  — the worldgen arc's first slice. `SimTemplates.stamp` places a template's arrays at a
+  handed-in origin through `apply_patch`'s exact clipping; the origin is still (38, 38), and the
+  gate's migration lock proves the switch changed **no bytes** on the canonical seed at 64 and
+  256 — with a one-tile-east restamp as the true negative that proves the lock can fail. The
+  template's rect-relative anchors (gate_a, gate_b, player_start, well) land on the map as
+  `map.anchors` with absent-sentinel accessors on `SimTileMap`, and `SimBoot.colony_start` is the
+  anchor's first live production reader — the gate's reader lane proves the player boots onto the
+  anchor, follows it when the template moves, and falls back only on an anchorless map. A
+  `building` content type is registered and schema'd (`building.schema.json`, shallow-validated
+  plus the gate's own depth checks) with deliberately **zero shipped entries** — the pool arrives
+  with the placer that reads it, in the district-types piece above. `map.schema.json` gained the
+  optional `anchors` block, and the edit is proven load-bearing: without it the frozen oracle's
+  Ajv fails the content suite 9/9. `gate_a`/`gate_b`/`well_tile`/`annex_rect` are written and
+  gate-read but not yet production-read — that is the next piece, which deletes the compile-time
+  twins they replace.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

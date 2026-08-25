@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-08-21
+## State, as of 2026-08-25
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **32 gates** and
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **33 gates** and
 exits 0, `npm test` is **45 files / 594 tests** passing, and `godot:validate`, `godot:test` and
 `godot:smoke` are clean. CI's `check` job runs those plus typecheck, lint and format; its
 `performance` job runs the two TypeScript benchmarks.

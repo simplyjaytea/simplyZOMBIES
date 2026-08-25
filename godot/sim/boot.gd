@@ -5,6 +5,7 @@ extends RefCounted
 
 const WorldRes = preload("res://sim/world.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimTemplates = preload("res://sim/map/templates.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -41,6 +42,7 @@ const SimDebugMod = preload("res://sim/modules/debug.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
+const ANNEX_ORIGIN: Vector2i = Vector2i(38, 38)
 # 20, up from 12 in the basic-combat slice: with swipes live a wanderer is a threat rather than
 # scenery, and the district read as empty at 12 across a 64-tile map. check_m2_director.gd pins
 # this number exactly -- change both together.
@@ -172,8 +174,13 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 	var map: Variant = SimTileMap.generate_district(seed_val, map_size)
 	var patch: Variant = SimTileMap.load_patch_from_content(content, PATCH_ID)
 	if patch is Dictionary:
-		SimTileMap.apply_patch(map, patch as Dictionary)
-	var exam: Dictionary = SimTileMap.find_open_tile(map, 46, 45)
+		# ANNEX_ORIGIN is still a constant, and still (38, 38): this slice moves the annex from a
+		# blit to a stamped template without moving the annex. The generator chooses the origin in
+		# the "district types as data" slice; check_buildings.gd's migration lock is what says the
+		# switch changed no bytes on the canonical seed.
+		SimTemplates.stamp(map, patch as Dictionary, ANNEX_ORIGIN.x, ANNEX_ORIGIN.y)
+	var start: Vector2i = colony_start(map)
+	var exam: Dictionary = SimTileMap.find_open_tile(map, start.x, start.y)
 	var fixture: Dictionary = {
 		"seed": seed_val,
 		"tick_hz": 20,
@@ -193,8 +200,23 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 	return {"world": world, "map": map, "patch": patch}
 
 
+# Where the colony starts, read off the map the template was stamped onto rather than off a
+# constant. The (46, 45) literal survives only as the fallback for a map that carries no anchors
+# at all -- a bare `generate_district`, or an old fixture that never had a template stamped on it.
+# The next slice ("anchors on the map, constants deleted") takes the fallback with the rest of the
+# compile-time twins; until then this is the one live reader of the anchor, and
+# check_buildings.gd's reader lane is what proves the anchor -- not the literal -- is what boot
+# used.
+static func colony_start(map: Variant) -> Vector2i:
+	var anchor: Vector2i = SimTileMap.player_start(map)
+	if anchor.x < 0 or anchor.y < 0:
+		return Vector2i(46, 45)
+	return anchor
+
+
 static func place_stations(world: Variant, map: Variant) -> void:
-	var tiles: Array[Vector2i] = _indoor_floors(map, 46, 45, 6)
+	var start: Vector2i = colony_start(map)
+	var tiles: Array[Vector2i] = _indoor_floors(map, start.x, start.y, 6)
 	if tiles.is_empty():
 		return
 	SimNeeds.make_campfire(world, float(tiles[0].x) + 0.5, float(tiles[0].y) + 0.5, false)
