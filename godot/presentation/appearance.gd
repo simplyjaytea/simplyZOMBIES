@@ -15,6 +15,7 @@ extends RefCounted
 # supported path, not a temporary one, and check_appearance.gd asserts it stays that way.
 
 const Palette = preload("res://presentation/palette.gd")
+const SimSurface = preload("res://sim/map/surface.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 
@@ -61,6 +62,26 @@ static func resolve(key: String) -> Texture2D:
 # Clears the texture cache. For gates that probe resolution with and without files present.
 static func forget() -> void:
 	_cache.clear()
+
+
+# What the ground under a tile looks like: docs/24's surface layer, resolved to a flat tint.
+#
+# The map carries two independent arrays over one grid -- what is *in* a tile (the occluder
+# classes, docs/28) and what is *under* it (this) -- so the ground is never a tile type and
+# never a branch on one. `_draw_district` fills with this and then draws whatever the tile
+# itself is on top; a tree stands on grass and rubble lies on tarmac because the two layers
+# are asked separately.
+#
+# Out of bounds resolves to Paved, because SimSurface.surface_at says so -- the edge of the
+# map reads as street rather than as a hole, which is the same answer the sim gives a body
+# walking off the edge.
+static func ground_colour(map: Variant, tx: int, ty: int) -> Color:
+	if map == null:
+		return Palette.COLOURS["floor"]
+	var surface: int = int(SimSurface.surface_at(map, tx, ty))
+	if surface < 0 or surface >= Palette.SURFACE_TINTS.size():
+		return Palette.COLOURS["floor"]
+	return Palette.SURFACE_TINTS[surface]
 
 
 # The appearance block for a content id, or {} when the type declares none.
