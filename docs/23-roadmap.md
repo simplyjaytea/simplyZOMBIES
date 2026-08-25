@@ -173,23 +173,16 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
-Eight pieces have landed (the template stamp, the anchors, the generator, the loot pass, the
-sited annex, the seeded boot, the wall rule, the ground — the record has each); the district is generated from data now —
-51 buildings on the canonical seed, loot and colony sited per seed, any seed bootable from the
-command line — and the gate boots run on a real miniature district instead of an empty map. Region,
+**All nine pieces have landed** — the template stamp, the anchors, the generator, the loot pass,
+the sited annex, the seeded boot, the wall rule, the ground, the raiders; the record has each.
+The district is generated from data now — 51 buildings on the canonical seed, loot and colony
+sited per seed, any seed bootable from the command line, a raid band drawable from day 8 — and
+the gate boots run on a real miniature district instead of an empty map. Region,
 roads-between-districts and streaming stay Milestone 3B; the road seam ships as data the street
-pass actually reaches (edge connection points). The owner's six scope decisions are recorded in
-[docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces still open, in landing
-order — each a session with its gate:
-
-- **Raiders: a hostile band at the gate.** Added to the arc by the owner's sandbox goal
-  (2026-08-25). A human enemy the director can draw: an armed raider archetype as content, a
-  raid draw on its own RNG stream, and an allegiance the existing NPC combat AI reads — raiders
-  target survivors, defence targets raiders, and zombies treat raiders as the prey they are
-  (raiders emit noise and scent like any human). Melee, ranged and wounds are reused wholesale;
-  no looting AI in the first cut. Gate: a band spawns at an edge, closes on the colony and draws
-  blood; a grace night draws none; deaths de-duplicated by entity id. Lands after the generator
-  pieces — raiders walk the generated streets.
+pass actually reaches (edge connection points). The owner's scope decisions are recorded in
+[docs/30](30-decisions.md#what-the-worldgen-arc-decided). Nothing in this group remains open;
+what the arc left behind is named in the debt list (the ground is player-only today, rubble
+unplaced) rather than here.
 
 **Content only — data entries, no new systems:**
 
@@ -1005,6 +998,30 @@ not a to-do list:
   `controlled` entities take, so the ground is a **player-only** mechanic today (debt entry
   above), noise deliberately does not follow it, and rubble is never placed by any pass (debt
   entry above).
+  ~~Raiders: a hostile band at the gate~~ **landed** (`godot:m2:raiders`, the chain's 35th gate)
+  — the arc's ninth slice and its close. Hostility is one component, `allegiance: {faction}`,
+  read through `SimAllegiance.hostile`/`enemies_of`; substituting `enemies_of` for the hardcoded
+  shambler query in `npc_combat`'s target pick is the whole of it, so colonists shoot raiders,
+  raiders shoot colonists, both still fight zombies, and every existing line — range envelope,
+  sightline refusal, holder preference — applies unchanged. Unmarked bodies default to `colony`,
+  leaving every existing fixture standing. Zombies treat raiders as prey through the shared
+  `is_person`, and raiders feed the noise and scent field like anybody. The director draws raids
+  on the new `raid` stream: first day 8, 20% a night, bands of 2–4 landing on consecutive legal
+  pool tiles, under `RAID_LIVE_CAP` 8 kept apart from the horde's budget, with `director.raid`
+  published every night carrying its reason (rule 5). Two archetypes ship as content under
+  `content/raiders/` with their own schema (oracle-invisible, the `content/loot/` precedent):
+  `scav` — machete, weight 4 — and `gunhand` — pistol, 16 rounds, weight 1 — sharing one tint
+  and the survivor glimpse radius, so a peripheral disc cannot say it is not one of yours. A
+  dead raider drops its kit and despawns corpse-less (`components.query` does not check alive; a
+  corpse would hold the cap forever). The gate runs nine lanes — archetypes, draw, grace,
+  approach, blood, prey, seed, death, ledger — each with its true negative; the dead-socket
+  proof is BLOOD's: two bodies identical but for the faction trade 0/0 blows. Balance measured,
+  not theorised: every pre-existing counter identical on all four fast seeds, two seeds gained a
+  raid and held 2/2, harness byte-identical, no re-pin; the worst legal band forced onto day 8
+  costs one colonist of two on one seed of four, with three of the four raiders down on every
+  seed — a real loss, not a wipe. Honest halves: a band that reaches the gate stands its ground
+  — no withdrawal, so survivors accumulate against the cap across a long campaign — and there is
+  no looting AI; both named, neither hidden.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

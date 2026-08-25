@@ -14,6 +14,10 @@ const COLOURS: Dictionary = {
 	"low": Color("#2c2e33"),
 	"player": Color("#e8d7a0"),
 	"survivor": Color("#b9a97f"),
+	# The floor under a raider archetype that declares no appearance. Content overrides it -- both
+	# shipped archetypes do, with the *same* colour, because which raider is carrying the gun is
+	# not something a look across a street is supposed to tell you.
+	"raider": Color("#a2705a"),
 	"wanderer": Color("#6f8f6a"),
 	"glimpse": Color("#4a5a48"),
 	"groundItem": Color("#d8c07a"),

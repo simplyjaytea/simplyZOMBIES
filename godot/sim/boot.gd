@@ -39,6 +39,7 @@ const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimDebugMod = preload("res://sim/modules/debug.gd")
+const SimRaiders = preload("res://sim/modules/raiders.gd")
 
 const DISTRICT_SEED: int = 20260805
 const DEFAULT_DISTRICT: String = "district.residential_suburb"
@@ -116,6 +117,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimContainers.register_module(world)
 	SimModification.register_module(world)
 	SimDirector.register_module(world)
+	SimRaiders.register_module(world)
 	SimNeeds.register_module(world)
 	SimJobs.register_module(world)
 	SimNpcCombat.register_module(world)

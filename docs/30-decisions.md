@@ -1379,9 +1379,9 @@ this section carries what the change turned out to be made of).
 ## What the worldgen arc decided
 
 The owner authorized the sandbox arc (2026-08-25) — docs/24's district generation built for real —
-and made six scope calls in the same sitting. Recorded here because each will look arbitrary from
-the code alone, and because three of them deliberately move measurements that other decisions were
-parked on.
+and made six scope calls in the same sitting; a seventh, raiders, joined by the owner's session
+goal the same day. Recorded here because each will look arbitrary from the code alone, and because
+three of them deliberately move measurements that other decisions were parked on.
 
 - **Rich district before region.** One district, generated properly (authored templates,
   procedurally assembled, ~40–70 buildings, two live district types), before any multi-district
@@ -1414,6 +1414,16 @@ parked on.
   nothing places, which is the dead-socket pattern in content form. Town center is the type that
   forces the second loot table (`loot.commercial`) and the dense-streets generator path, which is
   exactly the coverage the claim needs.
+- **Raiders close the arc, as one component and one draw.** A hostile band the director draws on
+  its own `raid` stream (new randomness, new named stream), reusing melee, ranged and wounds
+  wholesale. Hostility is a single `allegiance: {faction}` component read through one helper —
+  not a second combat AI — and unmarked bodies default to `colony`, so every existing fixture
+  stands untouched. The band's live cap is separate from the horde's (`RAID_LIVE_CAP`, not
+  `LIVE_CAP`) because raiders must not eat the night-pressure budget; the entry side is drawn
+  rather than read off the attention field, because a band scouts, it does not follow a smell;
+  and a dead raider drops its kit and despawns corpse-less, because `components.query` does not
+  check alive and a corpse would hold the cap forever. No looting AI, no withdrawal, no factions
+  — docs/18 stays Milestone 3.
 
 Worldgen RNG stays off the world registry — generation runs before a world exists — but the three
 magic XOR salts become named derivations (`RngStream.derive_seed(seed, "worldgen.streets")` and

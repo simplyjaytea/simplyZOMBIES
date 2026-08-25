@@ -21,6 +21,7 @@ const SimCombat = preload("res://sim/combat.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 
 const BEATS: Array[int] = [8, 12, 16]
 const TRANSMIT_P: float = 0.15
@@ -207,6 +208,10 @@ static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: flo
 		"traits": (rolled.get("traits", []) as Array).duplicate(),
 		"backstory": String(rolled.get("backstory", "")),
 	})
+	# Same as `SimSurvivors.spawn_unique`: the colony says which side it is on, so a raider band
+	# can find it. `faction_of` already reads COLONY by default, so this changes nothing about
+	# existing behaviour -- it is what puts a generated colonist in `SimAllegiance.enemies_of`.
+	SimAllegiance.attach(world, ent, SimAllegiance.COLONY)
 	SimHealth.make_survivor_body(world, ent)
 	SimHealth.make_stamina(world, ent)
 	SimInventory.make_inventory(world, ent)
@@ -314,6 +319,29 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		return true
 	if _turns_on_death(world, entity):
 		_turn_with_kit(world, entity)
+		return true
+	# A dead raider drops what they were carrying and leaves the world. The kit falling is the
+	# point -- it is the only thing a raid leaves behind, since nothing loots for the colony --
+	# and `lootKit` on the body is what makes `_drop_kit` fire for them.
+	#
+	# Removed rather than left as a corpse, and that is a decision rather than laziness: the
+	# `raider` component is what the raid cap counts, and `components.query` does not check alive
+	# (CLAUDE.md's despawn trap), so a raider corpse would sit in the district's raider budget
+	# forever and every raid after the second would be refused for a cap full of dead men.
+	# `world.despawn` removes every component, which is what keeps that count honest.
+	if world.components.has_component(entity, "raider"):
+		# Announced before the body goes, because afterwards nothing can tell what it was: the
+		# despawn takes every component with it, so an observer reading `entity.killed` off the
+		# bus would find an id with nothing attached and book a raider as a colonist. That is
+		# exactly what the balance harness did on its first run with raids live.
+		var rd: Variant = world.components.get_component(entity, "raider")
+		world.events.publish({
+			"type": "raider.killed",
+			"entity": entity,
+			"id": String((rd as Dictionary).get("id", "")) if rd is Dictionary else "",
+		})
+		_drop_kit(world, entity)
+		world.despawn(entity)
 		return true
 	if world.components.has_component(entity, "needs") or world.components.has_component(entity, "identity"):
 		_make_corpse(world, entity)

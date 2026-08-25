@@ -740,9 +740,10 @@ func _draw_entities() -> void:
 		var is_unique: bool = world.components.has_component(int(ent), "identity")
 		var is_zed: bool = world.components.has_component(int(ent), "shambler")
 		var is_bait: bool = world.components.has_component(int(ent), "noisemaker")
+		var is_raider: bool = world.components.has_component(int(ent), "raider")
 		if world.components.has_component(int(ent), "itemBase"):
 			continue
-		if not is_player and not is_unique and not is_zed and not is_bait:
+		if not is_player and not is_unique and not is_zed and not is_bait and not is_raider:
 			continue
 		# Walls / boards block; windows stay Clear — match sim vision, not camera frustum.
 		var det: int = SimVisibility.Detail.Focal
@@ -768,7 +769,13 @@ func _draw_entities() -> void:
 			var ident: Variant = world.components.get_component(int(ent), "identity")
 			if ident is Dictionary:
 				cid = String((ident as Dictionary).get("id", ""))
-		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "det": det, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "ztype": ztype, "cid": cid, "id": int(ent)})
+		elif is_raider:
+			# The archetype id, exactly as a zombie hands over its type id: how a raider looks is
+			# a property of its content entry, never an `if id == ...` in this loop.
+			var rd: Variant = world.components.get_component(int(ent), "raider")
+			if rd is Dictionary:
+				cid = String((rd as Dictionary).get("id", ""))
+		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "det": det, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "raider": is_raider, "ztype": ztype, "cid": cid, "id": int(ent)})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])

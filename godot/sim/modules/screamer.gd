@@ -5,6 +5,9 @@ extends RefCounted
 # Visibility lives on world.vision (kernel). Missing vision = no alarm (tests without eyes).
 
 const SimVisibility = preload("res://sim/vision/visibility.gd")
+# `is_person`, shared with shambler.gd and bloater.gd. A screamer raises the district over
+# anybody it can see, and a raider is somebody: the alarm does not check whose side you are on.
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 
 
 static func register_module(world: Variant) -> void:
@@ -13,7 +16,7 @@ static func register_module(world: Variant) -> void:
 			return
 		var survivors: Array = []
 		for entity in w.components.query(["position"]):
-			if not (w.components.has_component(int(entity), "controlled") or w.components.has_component(int(entity), "identity")):
+			if not SimAllegiance.is_person(w, int(entity)):
 				continue
 			var at: Variant = w.components.get_component(int(entity), "position")
 			if at == null:

@@ -324,6 +324,9 @@ const SimEntityStoreRes = preload("res://sim/entity_store.gd")
 # every other cross-module reference in this file is.
 const SimHealthRes = preload("res://sim/modules/health.gd")
 const SimCombatRes = preload("res://sim/combat.gd")
+# `is_person` -- the one answer to "would a zombie chase that", shared with screamer.gd and
+# bloater.gd so a new kind of person (the raiders slice added one) reaches all three at once.
+const SimAllegianceRes = preload("res://sim/modules/allegiance.gd")
 
 
 static func default_shambler_speeds() -> Dictionary:
@@ -484,12 +487,15 @@ static func _contact_target(survivors: Array, pos: Dictionary, radius_metres: fl
 # reached, and grabbed, with `grab.started` and a hold that only geometry ever ends. That is a
 # contact the district pays for and nobody can answer, and it inflated every hold counter the
 # balance harness reports. A shambler that has already killed you has no further use for you.
+#
+# "Is that a person" is `SimAllegiance.is_person` rather than a pair of `has_component` calls
+# written out here, because the raiders slice added a third marker and three copies of this test
+# (here, screamer.gd, bloater.gd) would have learned about it separately or not at all. A zombie
+# has no side and asks no allegiance question: a raider is meat on legs like everybody else.
 static func _gather_survivors(world: Variant) -> Array:
 	var out: Array = []
 	for entity in world.components.query(["position"]):
-		var is_survivor: bool = world.components.has_component(int(entity), "controlled") \
-			or world.components.has_component(int(entity), "identity")
-		if not is_survivor:
+		if not SimAllegianceRes.is_person(world, int(entity)):
 			continue
 		if world.components.has_component(int(entity), "corpse"):
 			continue
