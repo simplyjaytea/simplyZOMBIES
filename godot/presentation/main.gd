@@ -633,7 +633,12 @@ func _draw_district() -> void:
 			var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tx) + 0.5, float(ty) + 0.5)
 			var rect := Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom)
 			var tile: int = SimTileMap.Tile.Floor
-			var col: Color = Palette.COLOURS["floor"]
+			# The ground, resolved before the tile: docs/24's surface layer is a second array
+			# over the same grid, so every tile that shows floor shows the ground it stands on
+			# rather than one shared slab colour. Paved resolves to the old floor colour, which
+			# is why a street looks exactly as it did (check_topdown.gd pins that identity).
+			var ground: Color = Appearance.ground_colour(world.tilemap, tx, ty)
+			var col: Color = ground
 			if world.tilemap != null:
 				tile = int(SimTileMap.tile_at(world.tilemap, tx, ty))
 				match tile:
@@ -668,12 +673,12 @@ func _draw_district() -> void:
 					_draw_solid_tile(rect, col)
 					_draw_window_glass(rect, tx, ty)
 				SimTileMap.Tile.Low:
-					_draw_floor_tile(rect, Palette.COLOURS["floor"])
+					_draw_floor_tile(rect, ground)
 					# Inset block with floor showing around it reads as waist-high.
 					var inset: float = zoom * 0.15625
 					draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Tree:
-					_draw_floor_tile(rect, Palette.COLOURS["floor"])
+					_draw_floor_tile(rect, ground)
 					var centre: Vector2 = rect.get_center()
 					draw_circle(centre, zoom * 0.42, col)
 					draw_circle(centre, zoom * 0.0625, col.darkened(0.45))

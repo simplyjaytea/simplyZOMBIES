@@ -5,6 +5,7 @@ const COLOURS: Dictionary = {
 	"floor": Color("#1a1c1f"),
 	"dirt": Color("#282219"),
 	"grass": Color("#1b2a1b"),
+	"undergrowth": Color("#1f3a1c"),
 	"rubble": Color("#26242a"),
 	"tree": Color("#2e4a2c"),
 	"wall": Color("#3b4048"),
@@ -40,6 +41,23 @@ const COLOUR_HEX: Dictionary = {
 	"groundItem": "#d8c07a",
 	"outline": "#8b93a0",
 }
+
+# The ground layer, indexed by SimSurface.Surface (Paved 0 .. Rubble 4). docs/24's second
+# array over the same grid: what is *under* a tile, as opposed to what is *in* it. Paved is
+# the floor colour and not a shade of its own -- the street is what the district already
+# looked like, so drawing the ground changed nothing about a paved tile, and check_topdown.gd
+# asserts that identity rather than trusting it.
+#
+# Undergrowth gets a colour of its own rather than borrowing the screen tile's: they coincide
+# often (docs/24 puts undergrowth under every screening tile) but they are different layers,
+# and a green a shade denser than grass is what says "this is the slow way" on sight.
+const SURFACE_TINTS: Array[Color] = [
+	COLOURS["floor"], # Paved
+	COLOURS["dirt"],
+	COLOURS["grass"],
+	COLOURS["undergrowth"],
+	COLOURS["rubble"],
+]
 
 const SWING_RGB: String = "232, 215, 160"
 const NIGHT_RGB: String = "6, 10, 26"

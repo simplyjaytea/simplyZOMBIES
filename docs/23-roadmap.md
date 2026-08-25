@@ -173,8 +173,8 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
-Seven pieces have landed (the template stamp, the anchors, the generator, the loot pass, the
-sited annex, the seeded boot, the wall rule — the record has each); the district is generated from data now —
+Eight pieces have landed (the template stamp, the anchors, the generator, the loot pass, the
+sited annex, the seeded boot, the wall rule, the ground — the record has each); the district is generated from data now —
 51 buildings on the canonical seed, loot and colony sited per seed, any seed bootable from the
 command line — and the gate boots run on a real miniature district instead of an empty map. Region,
 roads-between-districts and streaming stay Milestone 3B; the road seam ships as data the street
@@ -182,9 +182,6 @@ pass actually reaches (edge connection points). The owner's six scope decisions 
 [docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces still open, in landing
 order — each a session with its gate:
 
-- **The ground drawn, and load-bearing.** The surface layer rendered as flat tints (the art-style
-  pick stays the owner's), and `SimSurface.speed_on` wired into locomotion with a fast-tier
-  before/after — docs/24's unseen-or-unheard route choice, and one named dead socket gone.
 - **Raiders: a hostile band at the gate.** Added to the arc by the owner's sandbox goal
   (2026-08-25). A human enemy the director can draw: an armed raider archetype as content, a
   raid draw on its own RNG stream, and an allegiance the existing NPC combat AI reads — raiders
@@ -276,6 +273,18 @@ order — each a session with its gate:
   carries what this has already cost.
 - **Bus-only counters in the balance tier.** The `grab.started` / `grab.broken` counters report
   and assert nothing. They become assertions when the flag flips, or they go.
+- **Rubble is never placed.** `SURFACE_RUBBLE` is written by no generator pass and no building
+  template — counted over the shipped 256 district: 0 tiles on both measured seeds — so docs/24's
+  ×0.7/×1.7 rubble row, its palette colour and its tint are reachable only by hand. Undergrowth
+  places at ~0.7% of tiles, sparse for something meant to be a route choice; both are dressing
+  authoring, found by the ground slice.
+- **NPC and zombie locomotion ignore the ground.** `SimSurface.speed_on` is wired on the
+  command-driven path only, which `controlled` entities alone take — `jobs.gd`'s velocity write
+  and the nine in `shambler.gd` carry no surface term, so the ground is a player-only mechanic
+  today (which is also the mechanical reason the campaign harness could not move when it landed).
+  Widening it moves NPC pathing balance, so it wants its own before/after. `Palette.COLOUR_HEX`
+  (14 entries, zero readers) and `sim/map/surface.gd`'s unused `SimTileMapRes` preload were
+  found in the same sweep — dead sockets of the named shape, one line each when touched next.
 - **The Godot build has no enforced budget.** docs/00 pillar 6 says a feature that breaks budget
   does not ship, and every budget CI actually enforces measures the **frozen oracle**: `npm run bench`
   is vitest over `src/`, and `npm run bench:frame` spawns **vite** and drives the TypeScript/Canvas
@@ -976,6 +985,26 @@ not a to-do list:
   the regression cannot return silently. Balance, harness and director fast tiers re-run after
   the rule change: every pinned band held, no re-pin needed. `godot:check:worldgen`'s solid-cell
   witness now reads 9 at 256 where the slice before it recorded 0.
+  ~~The ground drawn, and load-bearing~~ **landed** (`godot:m2:stance` lane GROUND;
+  `godot:check:topdown` lane GROUND) — the arc's eighth slice. The surface layer draws as flat
+  tints: `Palette.SURFACE_TINTS`, five entries indexed by `SimSurface.Surface` with paved bound
+  to the exact floor colour the district already drew, resolved per tile by
+  `Appearance.ground_colour` and used by `_draw_district` as the base fill under Floor, the Low
+  inset and the Tree canopy — the same rects, different colours, no draw call added, and the
+  art-style pick still the owner's. Sim side, `SimSurface.speed_on` stops being a dead socket:
+  `SimWorld.surface_speed_at` multiplies into the command-path speed on the line between the
+  stance rung and the modifier resolve, re-sampled per tick, returning exactly 1.0 on a world
+  with no tilemap so the frozen parity fixtures cannot move (`R1_PARITY_OK`, byte-identical).
+  The stance gate asserts metres covered, never mechanism: paved 6.3000 m equals the
+  pre-surface arithmetic exactly, undergrowth 3.7800 m (×0.60), ratios compared against
+  `speed_on` itself — sabotaged three ways (wiring removed, everybody slowed, table replaced by
+  a literal) and each names its own failure. The topdown gate proves the draw path reads the
+  surfaces array, that no two tints collide, and that a sixth surface without a colour fails
+  rather than reading out of range. Balance and harness are byte-identical before and after —
+  measured, with the sharper reason recorded: the wiring sits on the command path only
+  `controlled` entities take, so the ground is a **player-only** mechanic today (debt entry
+  above), noise deliberately does not follow it, and rubble is never placed by any pass (debt
+  entry above).
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
