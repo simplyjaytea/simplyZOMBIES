@@ -32,6 +32,7 @@ const SimTemplates = preload("res://sim/map/templates.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
+const SimAttentionField = preload("res://sim/field/attention.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const ContentValidator = preload("res://platform/content_validator.gd")
 
@@ -64,6 +65,14 @@ const BUILDINGS_64_MIN: int = 3
 # Outdoor ground a walk from a connection point has to reach. Not 100%: dressing can ring a pocket
 # of lawn with trees, which is a garden rather than a bug. Measured: 100.0% at both sizes.
 const REACH_SHARE_MIN: float = 0.9
+# Cells of the attention field the shipped district must mark solid. Measured on the canonical seed
+# at 256 after `for_map` moved to the >= 8-of-16 rule: **9** of 4,096, against **0** under the old
+# all-16 rule -- which is docs/23's defect #1, a mask that could not be satisfied by a one-tile wall
+# and so applied `wallPenaltyMetres` on no transition anywhere. The floor is 1 rather than 9 on
+# purpose: the generator's density is allowed to move, and pinning 9 would make this gate a
+# tripwire for unrelated worldgen work. What may never come back is *zero*, because zero is the
+# mask being dead again, silently.
+const SOLID_CELLS_256_MIN: int = 1
 
 var _tree_cache: Dictionary = {}
 
@@ -78,6 +87,7 @@ func _run() -> void:
 	ok = _playable_boot() and ok
 	ok = _the_booted_world_carries_its_colony_anchors() and ok
 	ok = _two_worlds_do_not_share_an_attention_field() and ok
+	ok = _walls_are_solid_to_the_attention_field() and ok
 	ok = _the_generator_builds_a_district() and ok
 	ok = _the_roads_leave_where_the_district_says_they_do() and ok
 	ok = _every_building_can_be_entered() and ok
@@ -88,7 +98,7 @@ func _run() -> void:
 	ok = _the_survivability_pass_can_fail() and ok
 	ok = _a_refused_candidate_moves_the_colony_to_the_next_one() and ok
 	if ok:
-		print("M2_DISTRICT_OK validate blit annex anchors boot isolation generator roads enterable determinism district-data reserve siting survivability re-site")
+		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site")
 		quit(0)
 	else:
 		push_error("M2_DISTRICT_FAIL")
@@ -405,6 +415,138 @@ func _two_worlds_do_not_share_an_attention_field() -> bool:
 		return false
 	print("ISOLATION OK A hears %.2f of its own noise and B hears none of it, both ways" % got_a)
 	return true
+
+
+# The attention field's solid mask, and the two code paths that read it.
+#
+# docs/23's defect #1: `for_map` used to mark a 4 m cell solid only when all sixteen of its 1 m
+# tiles were, a district's walls are one tile thick, and the shipped 256 map therefore had **0 of
+# 4,096** cells solid. `wallPenaltyMetres` was applied on no transition and `_uphill`'s solid skip
+# never ran -- a mechanism that was complete, correct, and read by nothing, which is the dead-socket
+# pattern CLAUDE.md keeps paying for.
+#
+# So this lane asserts four things, each with the case that makes it say no:
+#   * the shipped district marks cells solid at all (floor), where a blank map marks none;
+#   * the threshold is exactly half -- 8 of 16 solid, 7 of 16 not;
+#   * an edge cell of a map whose size is not a multiple of 4 judges only the tiles it really
+#     covers, so half of 4 is 2 rather than 8 of a block that is not there;
+#   * noise arriving behind a wall is quieter than noise arriving the same distance across open
+#     ground, and `_uphill` refuses to point through a wall the open twin points straight at.
+# The last two are the dead-socket assertion: not "the mask holds the right number" but "something
+# reads it".
+func _walls_are_solid_to_the_attention_field() -> bool:
+	# --- the floor, on the map that ships, and the blank map that must report none ---
+	var shipped: Variant = SimWorldgen.generate(CANON_SEED, SHIPPED_SIZE, _tree())
+	var shipped_field: Variant = SimAttentionField.for_map(shipped)
+	var shipped_solid: int = _solid_cells(shipped_field)
+	if shipped_solid < SOLID_CELLS_256_MIN:
+		push_error("the shipped district at %d marks %d of %d attention cells solid, want at least %d: walls are not attenuating noise anywhere (docs/23 defect #1)" % [
+			SHIPPED_SIZE, shipped_solid, int(shipped_field.cell_count()), SOLID_CELLS_256_MIN,
+		])
+		return false
+	var blank_field: Variant = SimAttentionField.for_map(SimTileMap.blank_map(GATE_SIZE, GATE_SIZE))
+	var blank_solid: int = _solid_cells(blank_field)
+	if blank_solid != 0:
+		push_error("a map of nothing but floor marked %d cells solid" % blank_solid)
+		return false
+	# Context, not a claim: the 64 miniature is a model of a district rather than a quarter of one,
+	# and its buildings are too sparse to fill half a cell on the canonical seed. Printed so a
+	# reader of this gate does not mistake a legitimate zero at 64 for the defect coming back.
+	var gate_field: Variant = SimAttentionField.for_map(SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree()))
+	var gate_solid: int = _solid_cells(gate_field)
+
+	# --- the threshold, both sides of it ---
+	var seven: Variant = SimAttentionField.for_map(_block(8, 8, 7))
+	if bool(seven.is_solid(0)):
+		push_error("7 of 16 subtiles solid made the cell solid -- the threshold is below half")
+		return false
+	var eight: Variant = SimAttentionField.for_map(_block(8, 8, 8))
+	if not bool(eight.is_solid(0)):
+		push_error("8 of 16 subtiles solid did not make the cell solid -- the threshold is above half")
+		return false
+
+	# --- an edge cell that is not a full 4x4 block ---
+	# 6x6 tiles is 2x2 cells; cell (1,1) covers x 4..5, y 4..5, which is four subtiles, not sixteen.
+	var one_of_four: Variant = _block(6, 6, 0)
+	one_of_four.tiles[4 * 6 + 4] = int(SimTileMap.Tile.Wall)
+	var f1: Variant = SimAttentionField.for_map(one_of_four)
+	if bool(f1.is_solid(1 * int(f1.cols) + 1)):
+		push_error("one solid tile of the four an edge cell covers made it solid")
+		return false
+	one_of_four.tiles[4 * 6 + 5] = int(SimTileMap.Tile.Wall)
+	var f2: Variant = SimAttentionField.for_map(one_of_four)
+	if not bool(f2.is_solid(1 * int(f2.cols) + 1)):
+		push_error("two solid tiles of the four an edge cell covers left it clear -- the threshold did not scale to the partial block, or the void outside the map is voting")
+		return false
+
+	# --- something reads the mask: `_wall_cost` on the way through ---
+	var open_map: Variant = SimTileMap.blank_map(64, 64)
+	var walled_map: Variant = SimTileMap.blank_map(64, 64)
+	for y in 64:
+		for x in range(28, 32):
+			walled_map.tiles[y * 64 + x] = int(SimTileMap.Tile.Wall)
+	var open_field: Variant = SimAttentionField.for_map(open_map)
+	var walled_field: Variant = SimAttentionField.for_map(walled_map)
+	if _solid_cells(walled_field) <= 0:
+		push_error("a four-tile-thick wall the height of the map marked no cell solid, so the attenuation below is unmeasurable")
+		return false
+	open_field.emit_noise(10.0, 32.0, 200.0)
+	walled_field.emit_noise(10.0, 32.0, 200.0)
+	var heard_open: float = float(open_field.noise_at(50.0, 32.0))
+	var heard_walled: float = float(walled_field.noise_at(50.0, 32.0))
+	if heard_open <= 0.0:
+		push_error("nothing was heard across open ground, so the comparison below judges nothing")
+		return false
+	if heard_walled >= heard_open:
+		push_error("noise through a wall arrived at %.4f against %.4f across open ground -- `_wall_cost` is applied on no transition" % [heard_walled, heard_open])
+		return false
+
+	# --- something reads the mask: `_uphill` refuses to climb into a wall ---
+	var quiet: int = int(walled_field.cell_at(24.0, 32.0))
+	var inside: int = int(walled_field.cell_at(30.0, 32.0))
+	if not bool(walled_field.is_solid(inside)):
+		push_error("the cell inside the wall band is not solid, so the skip below judges nothing")
+		return false
+	walled_field.clear_field()
+	walled_field.noise[quiet] = 1.0
+	walled_field.noise[inside] = 900.0
+	if walled_field.uphill_noise(24.0, 32.0) != null:
+		push_error("`_uphill` climbed into a solid cell -- its solid skip is not reached")
+		return false
+	open_field.clear_field()
+	open_field.noise[quiet] = 1.0
+	open_field.noise[inside] = 900.0
+	var open_step: Variant = open_field.uphill_noise(24.0, 32.0)
+	if not (open_step is Dictionary):
+		push_error("`_uphill` refused the same neighbour with no wall in it, so the skip above proved nothing")
+		return false
+
+	print("WALLS OK the shipped district marks %d of %d attention cells solid (%d at %d, and a blank map none); the threshold is half, 8 of 16 solid and 7 not, and 2 of the 4 an edge cell really covers; noise through a wall arrives at %.2f against %.2f across open ground, and `_uphill` refuses a solid neighbour the open twin steps into" % [
+		shipped_solid, int(shipped_field.cell_count()), gate_solid, GATE_SIZE,
+		heard_walled, heard_open,
+	])
+	return true
+
+
+func _solid_cells(field: Variant) -> int:
+	var n: int = 0
+	for i in int(field.cell_count()):
+		if bool(field.is_solid(i)):
+			n += 1
+	return n
+
+
+# A blank map with `fill` of the top-left 4x4 block turned to wall, in row order.
+func _block(w: int, h: int, fill: int) -> Variant:
+	var map: Variant = SimTileMap.blank_map(w, h)
+	var placed: int = 0
+	for ty in 4:
+		for tx in 4:
+			if placed >= fill:
+				return map
+			map.tiles[ty * w + tx] = int(SimTileMap.Tile.Wall)
+			placed += 1
+	return map
 
 
 # --- the worldgen rebuild ----------------------------------------------------------------------
