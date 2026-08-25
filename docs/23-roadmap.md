@@ -173,8 +173,8 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
-Six pieces have landed (the template stamp, the anchors, the generator, the loot pass, the
-sited annex, the seeded boot — the record has each); the district is generated from data now —
+Seven pieces have landed (the template stamp, the anchors, the generator, the loot pass, the
+sited annex, the seeded boot, the wall rule — the record has each); the district is generated from data now —
 51 buildings on the canonical seed, loot and colony sited per seed, any seed bootable from the
 command line — and the gate boots run on a real miniature district instead of an empty map. Region,
 roads-between-districts and streaming stay Milestone 3B; the road seam ships as data the street
@@ -185,9 +185,6 @@ order — each a session with its gate:
 - **The ground drawn, and load-bearing.** The surface layer rendered as flat tints (the art-style
   pick stays the owner's), and `SimSurface.speed_on` wired into locomotion with a fast-tier
   before/after — docs/24's unseen-or-unheard route choice, and one named dead socket gone.
-- **Walls attenuate noise: the ≥ 8-of-16 rule.** The first defect in the list below, fixed as
-  this arc's close because every layout-derived calibration is being re-measured anyway; harness
-  and balance before/after recorded with the rule change.
 - **Raiders: a hostile band at the gate.** Added to the arc by the owner's sandbox goal
   (2026-08-25). A human enemy the director can draw: an armed raider archetype as content, a
   raid draw on its own RNG stream, and an allegiance the existing NPC combat AI reads — raiders
@@ -293,14 +290,6 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
-- **Walls do not attenuate noise, at all.** `SimAttentionField.for_map` marks a 4 m attention cell
-  solid only when **all sixteen** of its 1 m tiles are solid. Measured on the shipped district:
-  2,097 solid tiles of 65,536 (3.2%), and **0 of the field's 4,096 cells marked solid** — so
-  `wallPenaltyMetres` (18 m of extra attenuation) and `_wall_cost` are applied on zero transitions
-  and `_uphill`'s solid skip is dead. docs/03 makes wall attenuation load-bearing and `world.gd`'s
-  own field-build comment says the mask exists so "noise leaks through walls in parity". Changing
-  the rule (any-solid, majority-solid, or a per-cell fraction) moves horde behaviour, so it needs a
-  before-and-after on the balance harness rather than a patch.
 - **`spawn_item` drains the whole event queue mid-tick.** `SimItems.spawn_item` ends with an
   unconditional `world.events.drain()`. Everything else in the sim relies on handlers running at
   the end of `world.step()` — CLAUDE.md's traps section is explicit — so any system that spawns an
@@ -973,6 +962,20 @@ not a to-do list:
   failing gates-open alone, an empty district refused loot); and the gate asserts its own
   runtime, 14.1 s of a 90 s budget. Closes slice 3's honest half: `town_center` is reachable in
   play through `--district`.
+  ~~Walls attenuate noise: the ≥ 8-of-16 rule~~ **landed** (`godot:m2:district`, lane WALLS) —
+  the arc's seventh slice, and the worst defect of the review sweep closed.
+  `SimAttentionField.for_map` now marks a 4 m cell solid when at least half its subtiles are —
+  `solid_subtiles * 2 >= subtiles`, exactly 8 of 16 on a full cell — and an edge cell judges
+  only the tiles it really covers, so the out-of-bounds void no longer votes. On the shipped 256
+  district the field goes from **0 solid cells to 9** of 4,096 (the lane prints the exact count;
+  a blank floor map still marks none); the threshold is pinned exact — 8 solid marks the cell, 7
+  does not, and an edge cell covering 4 real tiles marks at 2 and not at 1; and the dead-socket
+  half is asserted live: noise behind a wall arrives at 159.40 against 172.00 across open
+  ground, and `_uphill` refuses a solid neighbour its open twin steps into. The lane's own true
+  negative was exercised by restoring the all-16 rule — the gate goes red naming the defect — so
+  the regression cannot return silently. Balance, harness and director fast tiers re-run after
+  the rule change: every pinned band held, no re-pin needed. `godot:check:worldgen`'s solid-cell
+  witness now reads 9 at 256 where the slice before it recorded 0.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

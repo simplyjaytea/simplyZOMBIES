@@ -85,24 +85,54 @@ static func default_calibration() -> Dictionary:
 	}
 
 
+# A 4 m attention cell covers a 4x4 block of 1 m tiles. It counts as solid when **at least half**
+# of the tiles it really covers are solid -- `solid_subtiles * 2 >= subtiles`, which is the
+# "8 of 16" rule stated without assuming the block is full.
+#
+# It used to demand all sixteen, and that made the mask a dead socket: a district's buildings are
+# one tile thick, one-tile walls can never fill a 4x4 block, and the shipped 256 map had **0 of
+# 4,096** cells marked solid. `wallPenaltyMetres` and `_wall_cost` were therefore applied on zero
+# transitions and `_uphill`'s solid skip never ran -- docs/23's open defect #1, and docs/03 makes
+# wall attenuation load-bearing. Measured under the new rule on the canonical seed: 9 cells at 256
+# (11/7/8 on the other balance seeds) and 0 on the 64 miniature, whose buildings are too sparse to
+# fill half a cell anywhere.
+#
+# The threshold **scales with the cell**, because the edge cells of a map whose size is not a
+# multiple of 4 cover fewer than sixteen tiles. Only real tiles are counted -- `SimTileMap.is_solid`
+# answers "solid" for anything out of bounds, so padding an edge cell with the void would have let
+# the map's own border vote itself solid. Half of what is there, whatever is there.
+#
+# Still one pass over the subtiles, as before, and it stops as soon as the verdict cannot change:
+# the field is rebuilt on every boot and on every `world.adopt_map`.
 static func for_map(map: Variant, calib: Variant = null, tick_hz: float = 20.0) -> Variant:
 	var c: Dictionary = calib if calib != null else default_calibration()
 	var per: int = maxi(1, int(round(float(c["cellMetres"]))))
-	var ncols: int = ceili(float(map.w) / float(per))
-	var nrows: int = ceili(float(map.h) / float(per))
+	var mw: int = int(map.w)
+	var mh: int = int(map.h)
+	var ncols: int = ceili(float(mw) / float(per))
+	var nrows: int = ceili(float(mh) / float(per))
 	var solid := PackedByteArray()
 	solid.resize(ncols * nrows)
 	for cy in nrows:
+		var hspan: int = mini(per, mh - cy * per)
 		for cx in ncols:
-			var all: bool = true
-			for ty in per:
-				if !all:
+			var wspan: int = mini(per, mw - cx * per)
+			var subtiles: int = wspan * hspan
+			if subtiles <= 0:
+				solid[cy * ncols + cx] = 0
+				continue
+			# solid * 2 >= subtiles, restated as a count so the loop can stop early either way.
+			var need: int = (subtiles + 1) / 2
+			var found: int = 0
+			var seen: int = 0
+			for ty in hspan:
+				if found >= need or found + (subtiles - seen) < need:
 					break
-				for tx in per:
-					if !SimTileMapRes.is_solid(map, cx * per + tx, cy * per + ty):
-						all = false
-						break
-			solid[cy * ncols + cx] = 1 if all else 0
+				for tx in wspan:
+					seen += 1
+					if SimTileMapRes.is_solid(map, cx * per + tx, cy * per + ty):
+						found += 1
+			solid[cy * ncols + cx] = 1 if found >= need else 0
 	var scr: GDScript = load("res://sim/field/attention.gd") as GDScript
 	return scr.new(ncols, nrows, solid, c, tick_hz)
 
