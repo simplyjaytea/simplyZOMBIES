@@ -25,7 +25,7 @@ func _run() -> void:
 	ok = _noisemaker_field() and ok
 	ok = _e_pickup_first() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v16")
+		print("M2_FORTIFY_OK board scrap alarm bait v17")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -60,8 +60,8 @@ func _version() -> bool:
 	# This duplicates check_m2_save.gd's _version() -- two gates asserting the same fact
 	# independently, which is exactly how one of them got missed on the last version bump.
 	# Left as-is rather than refactored under this fix; see docs/30-decisions.md.
-	if int(SimSerialize.SAVE_VERSION) != 16:
-		push_error("SAVE_VERSION %d want 16" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 17:
+		push_error("SAVE_VERSION %d want 17" % int(SimSerialize.SAVE_VERSION))
 		return false
 	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":13},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":

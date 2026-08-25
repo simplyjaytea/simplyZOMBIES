@@ -11,11 +11,14 @@ extends SceneTree
 #  1. **A template is well formed all the way down.** content_validator.gd is shallow -- it checks
 #     top-level property types and rejects unexpected top-level keys, and does not recurse. So
 #     nothing inside `doors`, `anchors` or the three arrays is schema-enforced at load, and none of
-#     "the shell is closed", "the door is on the perimeter" or "indoors stops at the walls" is
-#     expressible in a schema at all. The checks below are that enforcement, run against inline
-#     fixtures: **no `content/buildings/` entry ships yet.** The pool and the placer that reads it
-#     arrive in the "district types as data" slice, and content nothing reads is the dead-socket
-#     pattern in content form -- so this lane judges fixtures until there is a pool to walk.
+#     "the shell is closed", "the door is on the perimeter", "indoors stops at the walls" or "every
+#     room is reachable from a door" is expressible in a schema at all. The checks below are that
+#     enforcement, and they run twice: over inline fixtures, which can be broken on purpose, and
+#     over **every shipped `content/buildings/` entry**, which the placer now draws from.
+#  1b. **And the pool is reachable.** Every shipped template's tags appear in some district's pool,
+#     and every shipped template is actually placed by one of the two live districts on the
+#     canonical seed. A footprint nobody can roll is the dead-socket pattern in content form --
+#     `check_m2_attach.gd`'s "is this findable in any loot table" is the same lane for items.
 #  2. **The migration lock.** The new stamp must lay the civic annex byte-for-byte where the old
 #     blit did, on the canonical seed, at both the gate size and the shipped size. This is what
 #     lets the old path be deleted in a later slice without re-measuring every band pinned to the
@@ -32,6 +35,7 @@ extends SceneTree
 
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimTemplates = preload("res://sim/map/templates.gd")
+const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 
@@ -56,11 +60,12 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _a_sound_template_passes_every_structural_check_and_a_broken_one_does_not() and ok
+	ok = _every_shipped_template_is_sound_and_reachable() and ok
 	ok = _the_stamp_lays_the_annex_exactly_where_the_blit_did() and ok
 	ok = _the_stamp_writes_the_anchors_the_constants_name() and ok
 	ok = _boot_reads_the_start_anchor_rather_than_the_literal() and ok
 	if ok:
-		print("BUILDINGS_OK fixtures judged structurally, stamp byte-identical to the blit at 64 and 256, anchors written absolute, boot reads them")
+		print("BUILDINGS_OK shipped pool and fixtures judged structurally, every template placeable, stamp byte-identical to the blit at 64 and 256, anchors written absolute, boot reads them")
 		quit(0)
 	else:
 		push_error("BUILDINGS_FAIL")
@@ -172,6 +177,50 @@ func _structural_problems(t: Dictionary) -> Array[String]:
 				if int(indoors[idx]) != 1:
 					out.append("indoors: interior (%d, %d) is not flagged indoors" % [x, y])
 
+	# Every room reachable from a door, which is the sandbox goal at template scale: a partition
+	# with no doorway in it is a sealed room, and a door that opens onto a partition wall is a
+	# door onto nothing. Neither is expressible in a schema, and both look fine tile by tile.
+	var inside: Array[int] = []
+	for y in range(1, h - 1):
+		for x in range(1, w - 1):
+			if not SimTileMap.SOLID[int(tiles[y * w + x])]:
+				inside.append(y * w + x)
+	if inside.is_empty():
+		out.append("interior: no walkable tile inside the shell")
+		return out
+	var seen: Dictionary = {int(inside[0]): true}
+	var queue: Array[int] = [int(inside[0])]
+	while not queue.is_empty():
+		var at: int = int(queue.pop_back())
+		for step in [1, -1, w, -w]:
+			var next: int = at + int(step)
+			var nx: int = next % w
+			var ny: int = next / w
+			if nx < 1 or ny < 1 or nx >= w - 1 or ny >= h - 1:
+				continue
+			if absi(nx - (at % w)) + absi(ny - (at / w)) != 1:
+				continue
+			if seen.has(next) or SimTileMap.SOLID[int(tiles[next])]:
+				continue
+			seen[next] = true
+			queue.append(next)
+	if seen.size() != inside.size():
+		out.append("interior: %d of %d walkable tiles are sealed off from the rest" % [inside.size() - seen.size(), inside.size()])
+	for key in is_door.keys():
+		var parts: PackedStringArray = String(key).split(",")
+		var dx2: int = int(parts[0])
+		var dy2: int = int(parts[1])
+		var opens: bool = false
+		for step2 in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nx2: int = dx2 + (step2 as Vector2i).x
+			var ny2: int = dy2 + (step2 as Vector2i).y
+			if nx2 < 0 or ny2 < 0 or nx2 >= w or ny2 >= h:
+				continue
+			if seen.has(ny2 * w + nx2):
+				opens = true
+		if not opens:
+			out.append("doors: (%d, %d) opens onto no interior tile" % [dx2, dy2])
+
 	var anchors: Variant = t.get("anchors")
 	if anchors is Dictionary:
 		for key in (anchors as Dictionary).keys():
@@ -216,10 +265,19 @@ func _a_sound_template_passes_every_structural_check_and_a_broken_one_does_not()
 	flags[0] = 1
 	leaking["indoors"] = flags
 
+	# A partition straight across the shell, with no doorway in it: two rooms, one of them
+	# unreachable from the only door. The failure the pool's own interiors have to avoid.
+	var sealed_room: Dictionary = sound.duplicate(true)
+	var partition: Array = (sealed_room["tiles"] as Array).duplicate()
+	for x in range(1, 7):
+		partition[3 * 8 + x] = SimTileMap.Tile.Wall
+	sealed_room["tiles"] = partition
+
 	var cases: Array[Dictionary] = [
 		{"name": "a short tiles array", "template": short, "says": "tiles: length"},
 		{"name": "a door in the middle of the room", "template": inside, "says": "is not on the perimeter"},
 		{"name": "indoors leaking past the wall", "template": leaking, "says": "flagged indoors outside the shell"},
+		{"name": "a partition with no doorway", "template": sealed_room, "says": "sealed off from the rest"},
 	]
 	for c in cases:
 		var problems: Array[String] = _structural_problems(c["template"] as Dictionary)
@@ -232,6 +290,83 @@ func _a_sound_template_passes_every_structural_check_and_a_broken_one_does_not()
 			return false
 
 	print("TEMPLATE SHAPE OK a sound 8x6 fixture is clean, and %d broken ones each report their own failure" % cases.size())
+	return true
+
+
+# --- the shipped pool -------------------------------------------------------------------------
+
+# The lane that used to say "no `content/buildings/` entry ships yet". They ship now, with the
+# placer that draws them, so this walks them: the same structural checks the fixtures get, then
+# the two questions a schema cannot ask -- is every tag in some district's pool, and does either
+# live district actually put every one of these on the ground.
+func _every_shipped_template_is_sound_and_reachable() -> bool:
+	var tree: Dictionary = ContentLoader.load_tree()
+	var templates: Array = SimWorldgen.templates_of(tree)
+	if templates.size() < 8:
+		push_error("only %d building templates ship -- the pool is too thin to judge" % templates.size())
+		return false
+
+	var problems: Array[String] = []
+	var by_id: Dictionary = {}
+	for t in templates:
+		var entry: Dictionary = t as Dictionary
+		var id: String = String(entry.get("id", ""))
+		if by_id.has(id):
+			problems.append("%s: shipped twice" % id)
+		by_id[id] = true
+		for p in _structural_problems(entry):
+			problems.append("%s: %s" % [id, p])
+	if not problems.is_empty():
+		for p in problems:
+			push_error(p)
+		return false
+
+	# Findability, half one: a tag no district pool names is a template nothing can draw.
+	var pooled: Dictionary = {}
+	var districts: Array[String] = []
+	for path in tree.keys():
+		if not String(path).begins_with("districts/"):
+			continue
+		var district: Dictionary = tree[path] as Dictionary
+		districts.append(String(district.get("id", "")))
+		for entry in district.get("pool", []) as Array:
+			pooled[String((entry as Dictionary).get("tag", ""))] = true
+	if districts.is_empty():
+		push_error("no district ships, so no pool can name these tags")
+		return false
+	var orphans: Array[String] = []
+	for t in templates:
+		var named: bool = false
+		for tag in (t as Dictionary).get("tags", []) as Array:
+			if pooled.has(String(tag)):
+				named = true
+		if not named:
+			orphans.append(String((t as Dictionary).get("id", "")))
+	if not orphans.is_empty():
+		push_error("shipped but in no district's pool, so unplaceable: %s" % str(orphans))
+		return false
+
+	# Findability, half two, and the half that can actually fail: the pool is only real if the
+	# placer reaches it. Both live districts at the shipped size, one seed, and every template has
+	# to turn up somewhere. A footprint that fits no lot the generator makes would pass every
+	# check above and never once be built.
+	var seen: Dictionary = {}
+	districts.sort()
+	for id in districts:
+		var map: Variant = SimWorldgen.generate(SEED, SHIPPED_SIZE, tree, String(id))
+		for record in map.buildings as Array:
+			seen[String((record as Dictionary)["id"])] = int(seen.get(String((record as Dictionary)["id"]), 0)) + 1
+	var never: Array[String] = []
+	for t in templates:
+		if not seen.has(String((t as Dictionary).get("id", ""))):
+			never.append(String((t as Dictionary).get("id", "")))
+	if not never.is_empty():
+		push_error("never placed by any live district at %d on seed %d, so the entry is decoration: %s" % [SHIPPED_SIZE, SEED, str(never)])
+		return false
+
+	print("SHIPPED POOL OK %d templates, all structurally sound, every tag pooled, every one placed across %s" % [
+		templates.size(), str(districts),
+	])
 	return true
 
 

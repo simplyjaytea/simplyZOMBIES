@@ -6,6 +6,7 @@ extends RefCounted
 const WorldRes = preload("res://sim/world.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimTemplates = preload("res://sim/map/templates.gd")
+const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -42,11 +43,16 @@ const SimDebugMod = preload("res://sim/modules/debug.gd")
 
 const DISTRICT_SEED: int = 20260805
 const PATCH_ID: String = "map.district.alpha"
+const DEFAULT_DISTRICT: String = "district.residential_suburb"
 # Where the colony gets stamped -- the one colony coordinate still written in code, and the only
 # one that is an *input* rather than a remembered copy of an output. Everything that used to name
 # the colony's tiles (`SimDirector.ANNEX`, `SimFortify.GATE_A`/`GATE_B`, the well) is now read off
-# the map's anchors, which this stamp writes. The generator takes this over in the "district types
-# as data" slice.
+# the map's anchors, which this stamp writes.
+#
+# The generator does not stamp: it *reserves* this ground (`SimWorldgen.ANNEX_RESERVE`) so no
+# street is carved through it and nothing is built against it, and this is still the one stamp
+# site. check_m2_district.gd pins the origin and the reserve together, so the two cannot drift.
+# Siting the annex per seed is the next slice in the arc.
 const ANNEX_ORIGIN: Vector2i = Vector2i(38, 38)
 # 20, up from 12 in the basic-combat slice: with swipes live a wanderer is a threat rather than
 # scenery, and the district read as empty at 12 across a 64-tile map. check_m2_director.gd pins
@@ -173,10 +179,12 @@ static func place_loot(world: Variant, patch: Dictionary) -> void:
 		SimLoot.scatter(world, table as Dictionary, rng, x, y)
 
 
-static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:
+static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES, district_id: String = DEFAULT_DISTRICT) -> Dictionary:
 	# Same seed + content + modules. No placement, loot, or spawn_unique — F9 restore target.
 	var content: Dictionary = ContentLoader.load_tree()
-	var map: Variant = SimTileMap.generate_district(seed_val, map_size)
+	# The content tree is handed to the generator rather than letting it walk the directory again:
+	# `load_tree` is a full directory walk and the balance harness boots one of these per seed.
+	var map: Variant = SimWorldgen.generate(seed_val, map_size, content, district_id)
 	var patch: Variant = SimTileMap.load_patch_from_content(content, PATCH_ID)
 	if patch is Dictionary:
 		# The one call that decides where the colony is. Everything downstream -- the director's
@@ -271,8 +279,8 @@ static func _indoor_floors(map: Variant, near_x: int, near_y: int, n: int) -> Ar
 	return found
 
 
-static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:
-	var boot: Dictionary = bare(seed_val, map_size)
+static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES, district_id: String = DEFAULT_DISTRICT) -> Dictionary:
+	var boot: Dictionary = bare(seed_val, map_size, district_id)
 	var world: Variant = boot["world"]
 	var map: Variant = boot["map"]
 	var observer: Dictionary = SimVisibility.daylight_eyes()
