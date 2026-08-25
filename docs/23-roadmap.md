@@ -216,6 +216,14 @@ session with its gate:
 - **Walls attenuate noise: the ≥ 8-of-16 rule.** The first defect in the list below, fixed as
   this arc's close because every layout-derived calibration is being re-measured anyway; harness
   and balance before/after recorded with the rule change.
+- **Raiders: a hostile band at the gate.** Added to the arc by the owner's sandbox goal
+  (2026-08-25). A human enemy the director can draw: an armed raider archetype as content, a
+  raid draw on its own RNG stream, and an allegiance the existing NPC combat AI reads — raiders
+  target survivors, defence targets raiders, and zombies treat raiders as the prey they are
+  (raiders emit noise and scent like any human). Melee, ranged and wounds are reused wholesale;
+  no looting AI in the first cut. Gate: a band spawns at an edge, closes on the colony and draws
+  blood; a grace night draws none; deaths de-duplicated by entity id. Lands after the generator
+  pieces — raiders walk the generated streets.
 
 **Content only — data entries, no new systems:**
 
