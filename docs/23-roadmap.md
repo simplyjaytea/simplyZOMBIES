@@ -173,17 +173,15 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
-Three pieces have landed (the template stamp, the anchors, the generator itself — the record has
-each); the district is generated from data now, 51 buildings on the canonical seed, and the gate
-boots run on a real miniature district instead of an empty map. Region,
+Six pieces have landed (the template stamp, the anchors, the generator, the loot pass, the
+sited annex, the seeded boot — the record has each); the district is generated from data now —
+51 buildings on the canonical seed, loot and colony sited per seed, any seed bootable from the
+command line — and the gate boots run on a real miniature district instead of an empty map. Region,
 roads-between-districts and streaming stay Milestone 3B; the road seam ships as data the street
 pass actually reaches (edge connection points). The owner's six scope decisions are recorded in
 [docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces still open, in landing
 order — each a session with its gate:
 
-- **The seeded sandbox boot.** `--seed=N` and `--district=<id>` user args, F2 rerolls a fresh
-  city, the seed prints on the M sheet only — the HUD digit ban holds. New `godot:check:worldgen`:
-  ~10 seeds boot, place the annex, validate, and step, inside a time budget the gate asserts on.
 - **The ground drawn, and load-bearing.** The surface layer rendered as flat tints (the art-style
   pick stays the owner's), and `SimSurface.speed_on` wired into locomotion with a fast-tier
   before/after — docs/24's unseen-or-unheard route choice, and one named dead socket gone.
@@ -958,6 +956,23 @@ not a to-do list:
   Re-pins live in the gates (`SITED_64`/`SITED_256`, the sited anchor expectations,
   `BUILDINGS_64_MIN` 4 → 3 measured across twelve seeds); balance, director and harness
   thresholds held.
+  ~~The seeded sandbox boot~~ **landed** (`godot:check:worldgen`, the chain's 34th gate) — the
+  arc's sixth slice, the one that hands the sandbox to a player. `--seed=N` and `--district=<id>`
+  parse from the user args after `--` (the `--parity` precedent; a malformed value warns and
+  boots the default rather than dying), and F2 leaves for another city: a fresh run on a
+  presentation-side random seed, same district, through the one `_boot_world` path `_ready`
+  itself uses — every per-run read model reset, the sim RNG ban untouched because the roll lives
+  in `presentation/` and the chosen seed then determines everything downstream. The seed and
+  district print on the M developer sheet only; the HUD digit ban holds unchanged. The gate
+  boots **22 worlds** — ten seeds by both shipped types at 64, two at 256 — and judges every one
+  sited, survivable, loot-resolving, no wanderer booted into the colony, then steps each 200
+  ticks clean. Same-seed regeneration is byte-identical while the dressing stream moves 165
+  tiles and no walls; the attention solid-cell count prints per witnessed district (11 counts,
+  largest 0 — the wall-attenuation slice's regression witness, still reading the defect); four
+  negatives say no (a density-0 district, a planted shambler in the colony, a bricked gate
+  failing gates-open alone, an empty district refused loot); and the gate asserts its own
+  runtime, 14.1 s of a 90 s budget. Closes slice 3's honest half: `town_center` is reachable in
+  play through `--district`.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

@@ -40,6 +40,9 @@ const MEMORY_TICKS: int = 60
 var world: Variant = null
 var content: Dictionary = {}
 var fixture: Dictionary = {}
+# The district id the session started with, so F2 ("leave for another city") rerolls the seed
+# but keeps the same district rather than silently switching one out from under the player.
+var _district_id: String = SimBoot.DEFAULT_DISTRICT
 var camera: Dictionary = CameraUtil.create_camera()
 var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
@@ -100,10 +103,27 @@ const MOVE_KEYS: Dictionary = {
 func _ready() -> void:
 	content = ContentLoader.load_tree()
 	var parity: bool = false
+	var seed_arg: int = SimBoot.DISTRICT_SEED
+	var district_arg: String = SimBoot.DEFAULT_DISTRICT
+	# `--seed=N` / `--district=<id>` follow the `--parity` precedent (args after `--`, no
+	# separate lookup table) but carry their value inline rather than as a following token,
+	# since there is exactly one of each and never a bare flag needing a next-arg peek.
 	for arg in OS.get_cmdline_user_args():
-		if String(arg) == "--parity":
+		var a: String = String(arg)
+		if a == "--parity":
 			parity = true
-			break
+		elif a.begins_with("--seed="):
+			var raw_seed: String = a.trim_prefix("--seed=")
+			if raw_seed.is_valid_int():
+				seed_arg = int(raw_seed)
+			else:
+				push_warning("main: malformed --seed=%s, using default %d" % [raw_seed, seed_arg])
+		elif a.begins_with("--district="):
+			var raw_district: String = a.trim_prefix("--district=")
+			if raw_district.is_empty():
+				push_warning("main: malformed --district=, using default %s" % district_arg)
+			else:
+				district_arg = raw_district
 	if parity:
 		_visibility = SimVisibility.new()
 		_light = SimLight.new()
@@ -123,12 +143,7 @@ func _ready() -> void:
 		if world != null:
 			SimSurvivors.boot_playable(world)
 	else:
-		var boot: Dictionary = SimBoot.playable()
-		world = boot["world"]
-		_map = boot["map"]
-		_visibility = world.vision
-		_light = world.light
-		fixture = {"seed": int(world.seed), "tick_hz": TICK_HZ}
+		_boot_world(seed_arg, district_arg)
 	_resize_camera()
 	_ensure_ui()
 	_sfx = PresentationSfx.new()
@@ -137,6 +152,42 @@ func _ready() -> void:
 	print("GODOT_R1_READY")
 	if world != null:
 		print("GODOT_R4_READY zoom %.1f map %dx%d" % [float(camera["zoom"]), int(world.map_width), int(world.map_height)])
+
+# Boots (or reboots) the playable world on a given seed and district. _ready calls this once on
+# startup and F2 ("leave for another city") calls it again on a fresh random seed, so the two
+# share exactly one boot path -- nothing about standing up a world may live only in _ready.
+# Does not touch _ensure_ui() or _sfx: those are scene children created once, not per-run state.
+func _boot_world(seed_val: int, district_id: String) -> void:
+	var boot: Dictionary = SimBoot.playable(seed_val, SimTileMap.DISTRICT_TILES, district_id)
+	world = boot["world"]
+	_map = boot["map"]
+	_visibility = world.vision
+	_light = world.light
+	fixture = {"seed": int(world.seed), "tick_hz": TICK_HZ}
+	_district_id = district_id
+	# Per-run presentation state that _ready would otherwise leave stale on a reboot: the
+	# cached player-id selection, the paperdoll glimpse and dev-sheet fingerprint (all read
+	# models over the *previous* world), and the tick tally. The camera itself has no target
+	# to reset -- follow_camera recentres it below, unsmoothed.
+	_selected = -1
+	_glimpse_parts = []
+	_glimpse_stance = 2
+	_glimpse_worst = 0
+	_fingerprint = ""
+	_fingerprint_at = -1e9
+	_content_error = ""
+	tick_count = 0
+	_resize_camera()
+
+# F2: a fresh run on a new random seed, same district the session started with. The seed is
+# generated here, presentation-side, and everything downstream of it is deterministic --
+# RandomNumberGenerator is fine in godot/presentation/ (the sim/ RNG ban is sim/ only).
+func _leave_for_another_city() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var new_seed: int = rng.randi_range(1, 0x7fffffff) # positive 32-bit: SimBoot.playable's seed
+	_boot_world(new_seed, _district_id)
+	queue_redraw()
 
 func _notification(what: int) -> void:
 	if what == 413: # NOTIFICATION_RESIZED
@@ -215,6 +266,7 @@ func _input(event: InputEvent) -> void:
 		match ke.keycode:
 			KEY_F5: _save()
 			KEY_F9: _load()
+			KEY_F2: _leave_for_another_city()
 			KEY_P: _toggle_pause()
 			KEY_M:
 				show_sheets = not show_sheets
@@ -514,7 +566,7 @@ func _update_hud() -> void:
 	# throw every id away. Measured 0.0007 ms against 0.0068 ms -- small, but it was ten times
 	# the price for strictly less information.
 	var zeds: int = int(world.components.count("shambler"))
-	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  zed %d  F swing G fire  fp %s  dx:%s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, zeds, _fingerprint, diag_label]
+	var base: String = "tick %d  pos %.1f,%.1f  %s %.2f  light %.2f  %s  %dx %s  STR %d CON %d DEX %d  %s  zed %d  F swing G fire  fp %s  dx:%s  seed %d  district %s" % [int(world.tick), x, y, phase, tod, light, attention_channel, speed, ("PAUSED" if paused else ""), int(apt["str"]), int(apt["con"]), int(apt["dex"]), companion, zeds, _fingerprint, diag_label, int(world.seed), _district_id]
 	# One look-at, read twice. It used to be computed once for the dev sheet and again, with
 	# identical arguments on the same tick, for the player's context line a few lines below.
 	var look: Dictionary = {}

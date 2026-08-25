@@ -259,6 +259,9 @@ switch (mode) {
   case "--buildings":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_buildings.gd"];
     break;
+  case "--worldgen":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_worldgen.gd"];
+    break;
   case "--hud":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;
