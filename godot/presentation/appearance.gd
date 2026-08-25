@@ -15,6 +15,7 @@ extends RefCounted
 # supported path, not a temporary one, and check_appearance.gd asserts it stays that way.
 
 const Palette = preload("res://presentation/palette.gd")
+const SimSurface = preload("res://sim/map/surface.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 
@@ -63,6 +64,26 @@ static func forget() -> void:
 	_cache.clear()
 
 
+# What the ground under a tile looks like: docs/24's surface layer, resolved to a flat tint.
+#
+# The map carries two independent arrays over one grid -- what is *in* a tile (the occluder
+# classes, docs/28) and what is *under* it (this) -- so the ground is never a tile type and
+# never a branch on one. `_draw_district` fills with this and then draws whatever the tile
+# itself is on top; a tree stands on grass and rubble lies on tarmac because the two layers
+# are asked separately.
+#
+# Out of bounds resolves to Paved, because SimSurface.surface_at says so -- the edge of the
+# map reads as street rather than as a hole, which is the same answer the sim gives a body
+# walking off the edge.
+static func ground_colour(map: Variant, tx: int, ty: int) -> Color:
+	if map == null:
+		return Palette.COLOURS["floor"]
+	var surface: int = int(SimSurface.surface_at(map, tx, ty))
+	if surface < 0 or surface >= Palette.SURFACE_TINTS.size():
+		return Palette.COLOURS["floor"]
+	return Palette.SURFACE_TINTS[surface]
+
+
 # The appearance block for a content id, or {} when the type declares none.
 # Content `extends` is deliberately not merged here: nothing else in the codebase resolves
 # inheritance at runtime (content_validator.gd only checks it exists and does not cycle), so
@@ -81,6 +102,7 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	var is_player: bool = bool(it.get("player", false))
 	var is_unique: bool = bool(it.get("unique", false))
 	var is_bait: bool = bool(it.get("bait", false))
+	var is_raider: bool = bool(it.get("raider", false))
 
 	# Role colours are the floor: an entity with no content appearance looks exactly as it
 	# did before this file existed.
@@ -89,19 +111,25 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 		role = "player"
 	elif is_unique:
 		role = "survivor"
+	elif is_raider:
+		role = "raider"
 	elif is_bait:
 		role = "groundItem"
 	var tint: Color = Palette.COLOURS[role]
 	var sprite_key: String = ""
 
-	# Zombies carry their type id, unique survivors their identity id. Either is a content
-	# id, and content is what decides how a thing looks.
+	# Zombies carry their type id, unique survivors their identity id, raiders their archetype
+	# id. All three are content ids, and content is what decides how a thing looks.
 	var content_id: String = String(it.get("ztype", ""))
 	if content_id.is_empty():
 		content_id = String(it.get("cid", ""))
 	var declared_tint: bool = false
 	if not content_id.is_empty():
-		var kind: String = "zombie" if content_id.begins_with("zombie.") else "survivor"
+		var kind: String = "survivor"
+		if content_id.begins_with("zombie."):
+			kind = "zombie"
+		elif content_id.begins_with("raider."):
+			kind = "raider"
 		var block: Dictionary = of_content(world, kind, content_id)
 		if block.has("tint"):
 			tint = Color(String(block["tint"]))
@@ -110,7 +138,12 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 			sprite_key = String(block["sprite"])
 
 	var texture: Texture2D = resolve(sprite_key)
-	var radius: float = 14.0 if is_player else (12.0 if is_unique else 10.0)
+	# A raider is drawn at a survivor's radius, deliberately. At Peripheral detail main.gd draws
+	# one anonymous disc of exactly this size and nothing else -- no sprite, no gear, no facing --
+	# so a shape moving in the dark has to be as ambiguous as the contract says it is. Give
+	# raiders the wanderer's smaller radius and the glimpse would quietly tell the player "that
+	# one is not one of yours", which is the certainty docs/01 clause 4 refuses them.
+	var radius: float = 14.0 if is_player else (12.0 if (is_unique or is_raider) else 10.0)
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius}
 
 

@@ -16,6 +16,7 @@ extends RefCounted
 # It never sets a velocity. Engaging is something a guard does *from* the gate; a post that
 # chases is not a post, and `jobs.gd` stays the only thing that decides where a survivor stands.
 
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -69,7 +70,7 @@ static func register_module(world: Variant) -> void:
 		# which sorts: this runs every tick of every campaign and answers "no" on almost all of
 		# them. It is what widens the engagement envelope below, and only while somebody is held.
 		var anyone_held: bool = w.components.count("grabbed") > 0
-		for ent in w.components.query(["needs", "position", "facing"]):
+		for ent in _combatants(w):
 			if not _engages(w, int(ent)):
 				continue
 			_engage(w, int(ent), anyone_held)
@@ -103,6 +104,21 @@ static func register_module(world: Variant) -> void:
 			_face(w, int(ent), threat)
 			SimMelee.try_begin_swing(w, int(ent))
 	)
+
+
+# Everybody this module is an intake for: the colony (`needs`) and the band at the gate
+# (`raider`). Two queries rather than one on `allegiance`, deliberately -- the colony's own gate
+# fixtures build an NPC out of `needs` + a body and nothing else, and re-rooting the roster on a
+# component they do not carry would have silently stopped them fighting. Sorted, because
+# `components.query` sorts and an engagement order that depended on table iteration would not
+# survive a save/load.
+static func _combatants(world: Variant) -> Array[int]:
+	var out: Array[int] = world.components.query(["needs", "position", "facing"])
+	for ent in world.components.query(["raider", "position", "facing"]):
+		if not out.has(int(ent)):
+			out.append(int(ent))
+	out.sort()
+	return out
 
 
 # The roster of people this module is allowed to act for: survivors who are not the one the
@@ -230,6 +246,13 @@ static func _ranged_range(world: Variant, ent: int) -> float:
 # body its swing, and the escape is a contest they can lose several times over. The colony's
 # answer to a grab is somebody else's weapon, and before this the holder was simply one more
 # shambler in the queue -- usually not the closest, because it had stopped moving.
+#
+# The candidate list used to be `query(["shambler", "position", "body"])` -- "a threat is a
+# zombie", which was true right up until an armed human walked in. It is `SimAllegiance.enemies_of`
+# now, and that one substitution is the whole of hostility on this side: a colonist fights a
+# raider, a raider fights a colonist, and both of them still fight the shambler that arrives while
+# they are busy. Every line below it -- the range envelope, the sightline refusal, the holder
+# preference -- is untouched and now applies to all three.
 static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
 	var here: Variant = world.components.get_component(ent, "position")
 	if not here is Dictionary:
@@ -240,7 +263,7 @@ static func _nearest_threat(world: Variant, ent: int, metres: float) -> int:
 	var best: int = -1
 	var best_sq: float = 1e12
 	var best_holds: bool = false
-	for other in world.components.query(["shambler", "position", "body"]):
+	for other in SimAllegiance.enemies_of(world, ent):
 		var body: Variant = world.components.get_component(int(other), "body")
 		if not body is Dictionary or not SimHealth.is_alive(body as Dictionary):
 			continue

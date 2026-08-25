@@ -1,0 +1,48 @@
+{
+  "id": "district.town_center",
+  "name": "Market Cross",
+  "type": "town_center",
+  "streets": { "blockMin": 12, "blockMax": 20, "streetWidth": 3 },
+  "connectionPoints": { "north": 2, "south": 2, "east": 2, "west": 2 },
+  "density": 0.82,
+  "pool": [
+    { "tag": "commercial", "weight": 10 },
+    { "tag": "civic", "weight": 4 },
+    { "tag": "residential", "weight": 3 },
+    { "tag": "shed", "weight": 1 }
+  ],
+  "lootProfile": {
+    "perBuilding": [
+      {
+        "table": "commercial",
+        "tags": ["commercial"],
+        "sites": { "min": 1, "max": 2 },
+        "containerShare": 0.8,
+        "containers": ["stockroom shelf", "checkout counter", "display freezer", "back-office cabinet"]
+      },
+      {
+        "table": "residential",
+        "tags": ["residential", "shed"],
+        "sites": { "min": 1, "max": 1 },
+        "containerShare": 0.7,
+        "containers": ["cupboard", "chest of drawers", "kitchen drawer"]
+      }
+    ],
+    "perDistrict": [
+      {
+        "table": "medical",
+        "count": 2,
+        "tags": ["civic"],
+        "containerShare": 1,
+        "containers": ["supply locker", "pharmacy drawer"]
+      },
+      {
+        "table": "commercial",
+        "count": 3,
+        "outdoors": true,
+        "containerShare": 1,
+        "containers": ["delivery van", "car boot"]
+      }
+    ]
+  }
+}

@@ -15,6 +15,7 @@ const SimJobsRes = preload("res://sim/modules/jobs.gd")
 const SimSkillsRes = preload("res://sim/modules/skills.gd")
 const SimSightingsRes = preload("res://sim/modules/sightings.gd")
 const SimVisibilityRes = preload("res://sim/vision/visibility.gd")
+const SimAllegianceRes = preload("res://sim/modules/allegiance.gd")
 
 
 static func entry_of(world: Variant, id: String) -> Variant:
@@ -96,6 +97,11 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 		"unique": true,
 		"traits": (e.get("traits", []) as Array).duplicate() if e.get("traits", []) is Array else [],
 	})
+	# Whose side they are on, said out loud. `SimAllegiance.faction_of` reads COLONY for anything
+	# with no component at all, so this changes nothing about who fights whom today -- it is what
+	# lets a *raider* find them: `enemies_of` scans bodies carrying an allegiance, and a colony
+	# that never declared one would be a colony no band could see.
+	SimAllegianceRes.attach(world, ent, SimAllegianceRes.COLONY)
 	SimHealthRes.make_survivor_body(world, ent)
 	SimHealthRes.make_stamina(world, ent)
 	SimInventoryRes.make_inventory(world, ent)
@@ -145,6 +151,7 @@ static func _hold_it(world: Variant, ent: int, item: int) -> bool:
 
 static func boot_playable(world: Variant) -> int:
 	# Player: midpoint stats so a fixture boot without this stays parity-neutral.
+	SimAllegianceRes.attach(world, world.player, SimAllegianceRes.COLONY)
 	SimHealthRes.make_survivor_body(world, world.player)
 	SimHealthRes.make_stamina(world, world.player)
 	SimInventoryRes.make_inventory(world, world.player)

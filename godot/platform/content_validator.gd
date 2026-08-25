@@ -9,7 +9,11 @@ extends RefCounted
 
 static func _load_schemas(root: String = "res://content") -> Dictionary:
 	var out: Dictionary = {}
-	for id in ["item", "zombie", "affix", "calibration", "survivor", "map", "loot"]:
+	# A schema missing from this list is not a loud failure: `_type_of_path` still names the type,
+	# `schemas.get(type_id)` returns null, and `_validate_shape` is simply never called for it --
+	# shallow validation switches itself off for that whole directory in silence. Registering the
+	# id here is what keeps it on.
+	for id in ["item", "zombie", "affix", "calibration", "survivor", "map", "loot", "building", "district", "raider"]:
 		var path: String = "%s/schemas/%s.schema.json" % [root, id]
 		var f := FileAccess.open(path, FileAccess.READ)
 		if f == null:
@@ -93,7 +97,10 @@ static func _type_of_path(path: String) -> String:
 	if path.begins_with("calibration/"): return "calibration"
 	if path.begins_with("survivors/"): return "survivor"
 	if path.begins_with("maps/"): return "map"
+	if path.begins_with("buildings/"): return "building"
+	if path.begins_with("districts/"): return "district"
 	if path.begins_with("loot/"): return "loot"
+	if path.begins_with("raiders/"): return "raider"
 	return path.get_slice("/", 0)
 
 static func _validate_shape(entry: Dictionary, schema: Dictionary, path: String) -> Array[String]:

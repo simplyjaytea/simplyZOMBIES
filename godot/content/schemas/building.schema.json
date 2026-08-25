@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/building.schema.json",
+  "title": "Authored building template",
+  "description": "A footprint the generator stamps onto a district, per docs/24's \"authored templates, procedurally assembled\". Godot-only: the frozen TypeScript oracle's CONTENT_TYPES never lists it, so this schema is read by content_validator.gd alone. Coordinates inside a template are relative to its own top-left corner -- the generator chooses the origin, so nothing in here may name an absolute district tile.",
+  "type": "object",
+  "required": ["id", "name", "size", "tiles", "surfaces", "indoors", "doors", "tags", "weight"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^building\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "name": {
+      "type": "string",
+      "description": "What the place is called out loud. Prose, not an enum."
+    },
+    "size": {
+      "type": "object",
+      "required": ["w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "w": { "type": "integer", "minimum": 3 },
+        "h": { "type": "integer", "minimum": 3 }
+      },
+      "description": "Footprint in tiles. Three is the smallest shell with an interior."
+    },
+    "tiles": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0, "maximum": 5 },
+      "description": "Row-major tile enums matching SimTileMap.Tile, length w*h."
+    },
+    "surfaces": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0, "maximum": 4 },
+      "description": "Row-major surface enums, length w*h."
+    },
+    "indoors": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0, "maximum": 1 },
+      "description": "Row-major indoors flags, length w*h."
+    },
+    "doors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["x", "y"],
+        "additionalProperties": false,
+        "properties": {
+          "x": { "type": "integer", "minimum": 0 },
+          "y": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "description": "Size-relative tiles where the shell opens. At least one: a sealed footprint is a wall, not a building."
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "What the placer selects on (\"residential\", \"civic\", \"corner\"). Free text rather than an enum while the district types are still being authored."
+    },
+    "weight": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Relative draw weight within a district type's pool."
+    },
+    "anchors": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gate_a": {
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "gate_b": {
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "player_start": {
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "well": {
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        }
+      },
+      "description": "Size-relative points SimTemplates.stamp converts to absolute and writes onto the map object. Only the colony template carries these; an ordinary house has none."
+    },
+    "loot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tile", "table"],
+        "additionalProperties": false,
+        "properties": {
+          "tile": {
+            "type": "object",
+            "required": ["x", "y"],
+            "additionalProperties": false,
+            "properties": {
+              "x": { "type": "integer", "minimum": 0 },
+              "y": { "type": "integer", "minimum": 0 }
+            },
+            "description": "Size-relative, unlike map.schema.json's loot sites, which are absolute district tiles."
+          },
+          "table": {
+            "enum": ["residential", "commercial", "industrial", "medical", "military_cache"],
+            "description": "The location loot table this site rolls, matching a content/loot entry's `location`. Copied from map.schema.json and kept in step with it by hand -- LOCATIONS in check_loot.gd is what asserts nothing names a table nobody wrote."
+          },
+          "container": {
+            "type": "string",
+            "description": "When present the site stands as a searchable container holding the same table rather than being scattered at boot. Prose read only by SimContainers.hud_clause."
+          }
+        }
+      }
+    }
+  }
+}

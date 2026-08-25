@@ -26,7 +26,14 @@ extends RefCounted
 # and increments it unconditionally, so a v15 wound entry would start from a missing key. The
 # same slice made part integrity climb again, which is a value change rather than a shape one
 # and would not have needed a bump on its own.
-const SAVE_VERSION: int = 16
+# 17: the worldgen rebuild. No component changed shape at all -- this one is about the *map*.
+# A save carries the seed and the world is regenerated from it at load (docs/30: "a pure function
+# of (seed, size, content), so saves keep regenerating the world from the seed and
+# world.snapshot() never grows a map"). `SimWorldgen` puts a different district under the same
+# seed than the old block lattice did, so a v16 save restored into a v17 world would drop every
+# entity onto ground that is no longer there: survivors inside masonry, zombies in somebody's
+# kitchen, the stockpile under a wall. Loud rejection beats a world that loads and is wrong.
+const SAVE_VERSION: int = 17
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

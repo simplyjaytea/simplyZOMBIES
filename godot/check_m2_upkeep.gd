@@ -6,6 +6,7 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -76,7 +77,10 @@ func _repair() -> bool:
 	if not SimInventory.stow(w, mara, scrap):
 		push_error("stow scrap")
 		return false
-	var work: Dictionary = SimJobs._repair_work(w, mara, 46.0, 45.0)
+	# The colony's start tile, off the district's own anchor rather than the old (46.0, 45.0)
+	# literal twin of it -- the last of those outside check_buildings.gd's deliberate pins.
+	var start: Vector2i = SimTileMap.player_start(w.tilemap)
+	var work: Dictionary = SimJobs._repair_work(w, mara, float(start.x), float(start.y))
 	if work.is_empty() or int(work.get("target", -1)) != knife:
 		push_error("repair work %s" % str(work))
 		return false

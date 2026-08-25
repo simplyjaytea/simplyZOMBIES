@@ -163,6 +163,15 @@ switch (mode) {
       "res://check_m2_director.gd",
     ];
     break;
+  case "--m2-raiders":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_raiders.gd",
+    ];
+    break;
   case "--m2-save":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_save.gd"];
     break;
@@ -255,6 +264,12 @@ switch (mode) {
     break;
   case "--loot":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_loot.gd"];
+    break;
+  case "--buildings":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_buildings.gd"];
+    break;
+  case "--worldgen":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_worldgen.gd"];
     break;
   case "--hud":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];

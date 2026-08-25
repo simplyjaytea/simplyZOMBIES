@@ -13,6 +13,7 @@ const SimModifiersRes = preload("res://sim/modifiers/modifiers.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const AttentionFieldRes = preload("res://sim/field/attention.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
+const SimSurfaceRes = preload("res://sim/map/surface.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
 const SimFortifyRes = preload("res://sim/modules/fortify.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
@@ -274,6 +275,23 @@ func is_blocked_tile(x: int, y: int) -> bool:
 	return map_cells[y * map_width + x] == 1
 
 
+# How fast the ground here lets a body move, as the multiplier docs/24 tables: ×1.0 paved,
+# ×0.6 undergrowth, and the three in between. Metres in, multiplier out, so the caller does
+# not have to know that surfaces are indexed by tile.
+#
+# A world with no TileMap has no surface array to read -- every R1 parity fixture is built
+# from `_build_map`'s wall list and never adopts one -- and answers exactly 1.0, which is why
+# wiring this in did not move the frozen fixture by a float. Not a legacy path: the same
+# answer is correct for a body standing off the edge of a real map, where
+# `SimSurface.surface_at` returns Paved for the same reason.
+func surface_speed_at(x: float, y: float) -> float:
+	if tilemap == null:
+		return 1.0
+	var tx: int = floori(x / float(SimTileMapRes.TILE_METRES))
+	var ty: int = floori(y / float(SimTileMapRes.TILE_METRES))
+	return SimSurfaceRes.speed_on(SimSurfaceRes.surface_at(tilemap, tx, ty))
+
+
 func _build_map(map_fixture: Dictionary) -> void:
 	map_width = int(map_fixture["width"])
 	map_height = int(map_fixture["height"])
@@ -296,6 +314,7 @@ func _apply_commands(_world: Variant) -> void:
 	for entity in (components as RefCounted).call("query", ["position", "velocity", "controlled"]) as Array:
 		var velocity: Dictionary = components.get_component(int(entity), "velocity") as Dictionary
 		var posture: Dictionary = components.get_component(int(entity), "posture") as Dictionary
+		var body_pos: Dictionary = components.get_component(int(entity), "position") as Dictionary
 		for command in (commands as Variant).current as Array:
 			match String((command as Dictionary)["type"]):
 				"move":
@@ -308,6 +327,13 @@ func _apply_commands(_world: Variant) -> void:
 						continue
 					var stance: int = int(posture["current"])
 					var speed: float = WALK_SPEED * SimStancesRes.SPEED_FACTOR[stance]
+					# The ground you are standing on, beside the rung you are on: docs/24's
+					# surface table, ×1.0 on paved down to ×0.6 through undergrowth. Sampled
+					# here rather than at integration so it sits with the other two multipliers
+					# and answers the same question they do -- how fast is this body allowed to
+					# go this tick. Noise deliberately does *not* follow it (docs/30): emission
+					# reads the rung, so wading into undergrowth slows you without quieting you.
+					speed *= surface_speed_at(float(body_pos["x"]), float(body_pos["y"]))
 					if modifiers != null and (modifiers as Object).has_method("resolve"):
 						speed *= float(modifiers.call("resolve", "move_speed", int(entity)))
 					velocity["dx"] = dx / length * speed

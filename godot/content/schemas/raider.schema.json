@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/raider.schema.json",
+  "title": "Raider archetype",
+  "description": "An armed hostile human, drawn by the director as a band and walked in from the edge of the district. A raider is a survivor-shaped body with `allegiance.faction` set against the colony -- everything that then happens to them (melee, ranged, wounds, bleeding, being chased by zombies) is machinery that already existed, so adding an archetype is a JSON file and no code. Deliberately NOT a survivor entry: the survivor schema forbids unknown keys and its validator enforces aptitudes summing to 15, `SimSurvivors.list_uniques` boots everything under survivors/ whose id starts with survivor.unique., and the frozen TypeScript oracle reads a fixed list of content directories, which this one is not on. NOTE: the Godot content validator is shallow -- it checks top-level types, enums and patterns and rejects unexpected top-level keys, but does not recurse into `aptitudes`, `kit` or `appearance`. check_m2_raiders.gd is the gate that does, and it is why a wrong key inside a nested block cannot sit here unnoticed the way one did in item.wrap.cloth's armor block.",
+  "type": "object",
+  "required": ["id", "name", "allegiance", "kit"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^raider\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "name": { "type": "string", "description": "Human-readable archetype name." },
+    "allegiance": {
+      "type": "string",
+      "enum": ["raiders"],
+      "description": "Which side this archetype fights on, copied onto the spawned body's `allegiance` component and read by SimAllegiance.hostile. One value for now on purpose: docs/18's factions are Milestone 3, and an enum with one member is the seam they widen rather than a system pretending to exist.",
+      "default": "raiders"
+    },
+    "weight": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Relative draw weight within a band. Omitted counts as 1."
+    },
+    "speed": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Approach speed in metres per second. Between a shambler's walk and a colonist hurrying to a job: a band on its way somewhere, not a charge."
+    },
+    "aptitudes": {
+      "type": "object",
+      "description": "STR/DEX/CON, same three the survivor generator rolls and the same 3..8 clamp SimAptitudes applies. Unlike a survivor entry these are not budget-checked -- a raider is not a colonist and does not draw from the colony's 15 points.",
+      "additionalProperties": false,
+      "properties": {
+        "str": { "type": "integer", "minimum": 3, "maximum": 8 },
+        "dex": { "type": "integer", "minimum": 3, "maximum": 8 },
+        "con": { "type": "integer", "minimum": 3, "maximum": 8 }
+      }
+    },
+    "kit": {
+      "type": "array",
+      "minItems": 1,
+      "description": "What this archetype arrives carrying. Anything with an equipSlot goes into the hand it belongs to (a weapon in a satchel raises no meleeWeapon and would make the raid a walk); the rest goes in the pack. An entry is a bare item id, or an object when the quantity matters -- ammunition being the case that forced it, since a pistol arriving with a single round is a raider who fires once and then reloads for the rest of the night. Every id must exist in the item registry and every count must be a positive integer; check_m2_raiders.gd asserts both, because the shallow validator cannot see inside an array.",
+      "items": {
+        "oneOf": [
+          { "type": "string", "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$" },
+          {
+            "type": "object",
+            "required": ["item"],
+            "additionalProperties": false,
+            "properties": {
+              "item": { "type": "string", "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$" },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Quantity for a stackable base. SimItems clamps it to the base's own stack limit."
+              }
+            }
+          }
+        ]
+      }
+    },
+    "appearance": { "$ref": "#/$defs/appearance" }
+  },
+  "$defs": {
+    "appearance": {
+      "type": "object",
+      "description": "What this looks like. Omit it entirely and presentation/appearance.gd falls back to the `raider` role colour, which is the normal state until art exists. Note that every archetype deliberately shares one look: which raider is carrying the gun is exactly the sort of certainty the hardcore contract's information clause refuses the player.",
+      "additionalProperties": false,
+      "properties": {
+        "sprite": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$",
+          "description": "Registry key, resolved to assets/sprites/<key>.png. A key, not a path."
+        },
+        "tint": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$",
+          "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists."
+        }
+      }
+    }
+  }
+}

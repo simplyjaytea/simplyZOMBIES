@@ -14,12 +14,14 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 
 const BEATS: Array[int] = [8, 12, 16]
 const TRANSMIT_P: float = 0.15
@@ -69,12 +71,18 @@ static func _tick_beats(world: Variant) -> void:
 		return
 	if not world.components.query(["recruit"]).is_empty():
 		return
+	# A stranger arrives at the gate, and where the gate is comes off the map. A district with no
+	# gate anchor has nowhere for one to turn up, so the beat does not fire -- checked before the
+	# day is marked spawned and before the roll, so neither the beat nor the RNG stream is spent.
+	var gate: Vector2i = SimTileMap.gate_a(world.tilemap)
+	if gate.x < 0 or gate.y < 0:
+		return
 	spawned.append(day)
 	st["spawned"] = spawned
 	var rng: Variant = world.rng.stream(STREAM)
 	var rolled: Dictionary = roll(world, rng)
-	var gx: float = float(SimFortify.GATE_A.x) + 0.5
-	var gy: float = float(SimFortify.GATE_A.y) + 1.5
+	var gx: float = float(gate.x) + 0.5
+	var gy: float = float(gate.y) + 1.5
 	var ent: int = spawn_generated(world, rolled, gx, gy)
 	world.components.set_component(ent, "recruit", {"waiting": true, "beatDay": day})
 	world.events.publish({"type": "recruit.arrived", "entity": ent, "day": day})
@@ -97,15 +105,20 @@ static func _tick_leave(world: Variant) -> void:
 		if not lv is Dictionary:
 			continue
 		(lv as Dictionary)["ticksLeft"] = int((lv as Dictionary).get("ticksLeft", 0)) - 1
-		var dest := SimFortify.GATE_A
+		# They leave by the gate the map names. With no gate anchor there is nothing to walk to,
+		# so they simply run their clock down and go -- rather than pathing at (-1, -1).
+		var dest: Vector2i = SimTileMap.gate_a(world.tilemap)
 		var pos: Variant = world.components.get_component(int(e), "position")
 		if pos is Dictionary:
 			var here := Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
-			var job: Dictionary = {"path": (lv as Dictionary).get("path", []), "pathGen": int((lv as Dictionary).get("pathGen", -1))}
-			SimJobs._walk(world, int(e), job, dest)
-			(lv as Dictionary)["path"] = job.get("path", [])
-			(lv as Dictionary)["pathGen"] = job.get("pathGen", -1)
-			if here == dest or int((lv as Dictionary)["ticksLeft"]) <= 0:
+			var arrived: bool = false
+			if dest.x >= 0 and dest.y >= 0:
+				var job: Dictionary = {"path": (lv as Dictionary).get("path", []), "pathGen": int((lv as Dictionary).get("pathGen", -1))}
+				SimJobs._walk(world, int(e), job, dest)
+				(lv as Dictionary)["path"] = job.get("path", [])
+				(lv as Dictionary)["pathGen"] = job.get("pathGen", -1)
+				arrived = here == dest
+			if arrived or int((lv as Dictionary)["ticksLeft"]) <= 0:
 				world.events.publish({"type": "recruit.left", "entity": int(e), "reason": "mood"})
 				world.despawn(int(e))
 
@@ -195,6 +208,10 @@ static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: flo
 		"traits": (rolled.get("traits", []) as Array).duplicate(),
 		"backstory": String(rolled.get("backstory", "")),
 	})
+	# Same as `SimSurvivors.spawn_unique`: the colony says which side it is on, so a raider band
+	# can find it. `faction_of` already reads COLONY by default, so this changes nothing about
+	# existing behaviour -- it is what puts a generated colonist in `SimAllegiance.enemies_of`.
+	SimAllegiance.attach(world, ent, SimAllegiance.COLONY)
 	SimHealth.make_survivor_body(world, ent)
 	SimHealth.make_stamina(world, ent)
 	SimInventory.make_inventory(world, ent)
@@ -302,6 +319,29 @@ static func handle_death(world: Variant, entity: int) -> bool:
 		return true
 	if _turns_on_death(world, entity):
 		_turn_with_kit(world, entity)
+		return true
+	# A dead raider drops what they were carrying and leaves the world. The kit falling is the
+	# point -- it is the only thing a raid leaves behind, since nothing loots for the colony --
+	# and `lootKit` on the body is what makes `_drop_kit` fire for them.
+	#
+	# Removed rather than left as a corpse, and that is a decision rather than laziness: the
+	# `raider` component is what the raid cap counts, and `components.query` does not check alive
+	# (CLAUDE.md's despawn trap), so a raider corpse would sit in the district's raider budget
+	# forever and every raid after the second would be refused for a cap full of dead men.
+	# `world.despawn` removes every component, which is what keeps that count honest.
+	if world.components.has_component(entity, "raider"):
+		# Announced before the body goes, because afterwards nothing can tell what it was: the
+		# despawn takes every component with it, so an observer reading `entity.killed` off the
+		# bus would find an id with nothing attached and book a raider as a colonist. That is
+		# exactly what the balance harness did on its first run with raids live.
+		var rd: Variant = world.components.get_component(entity, "raider")
+		world.events.publish({
+			"type": "raider.killed",
+			"entity": entity,
+			"id": String((rd as Dictionary).get("id", "")) if rd is Dictionary else "",
+		})
+		_drop_kit(world, entity)
+		world.despawn(entity)
 		return true
 	if world.components.has_component(entity, "needs") or world.components.has_component(entity, "identity"):
 		_make_corpse(world, entity)

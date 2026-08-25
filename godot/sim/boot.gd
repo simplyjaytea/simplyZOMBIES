@@ -5,6 +5,7 @@ extends RefCounted
 
 const WorldRes = preload("res://sim/world.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -38,13 +39,17 @@ const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimDebugMod = preload("res://sim/modules/debug.gd")
+const SimRaiders = preload("res://sim/modules/raiders.gd")
 
 const DISTRICT_SEED: int = 20260805
-const PATCH_ID: String = "map.district.alpha"
+const DEFAULT_DISTRICT: String = "district.residential_suburb"
 # 20, up from 12 in the basic-combat slice: with swipes live a wanderer is a threat rather than
 # scenery, and the district read as empty at 12 across a 64-tile map. check_m2_director.gd pins
 # this number exactly -- change both together.
 const WANDERERS: int = 20
+# How many times a boot wanderer's tile is re-rolled to land outside the colony before it is placed
+# wherever it fell. See the scatter loop in `playable`.
+const SCATTER_TRIES: int = 8
 
 
 static func attach_kernel(world: Variant, map: Variant) -> void:
@@ -112,6 +117,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimContainers.register_module(world)
 	SimModification.register_module(world)
 	SimDirector.register_module(world)
+	SimRaiders.register_module(world)
 	SimNeeds.register_module(world)
 	SimJobs.register_module(world)
 	SimNpcCombat.register_module(world)
@@ -135,30 +141,38 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 # was a code edit and adding a location type was a new branch, both of which docs/12 says are
 # supposed to be data passes. Same shape as the appearance move: what a place yields is content.
 #
+# The sites are `map.sites` now, not the annex patch's `loot` array: the generator draws them per
+# seed from the district's `lootProfile` (`worldgen.sites`), and `SimTemplates.stamp` adds the ones
+# a template authored itself -- the annex's kitchen scatter and its cupboard. One list, one shape,
+# whichever of the two put a record in it, so a hand-placed cupboard and a generated one are the
+# same thing to everything downstream.
+#
 # Every roll comes off a dedicated `lootTable` stream rather than the `loot` stream
 # stream SimItems.spawn_item draws tiers from. New randomness gets its own stream: sharing one
 # would have every table roll shift the tier sequence for everything spawned afterwards, which is
 # a determinism footgun for anything that measures across a change to this table.
-static func place_loot(world: Variant, patch: Dictionary) -> void:
-	var loot: Array = patch.get("loot", []) as Array
+static func place_loot(world: Variant, map: Variant) -> void:
+	if map == null:
+		return
+	var loot: Array = map.sites as Array
 	var rng: Variant = SimLoot.stream(world)
 	for entry in loot:
 		var e: Dictionary = entry as Dictionary
-		var tile: Dictionary = e.get("tile", {}) as Dictionary
 		var location: String = String(e.get("table", "residential"))
 		var table: Variant = SimLoot.table_for(world, location)
 		if not (table is Dictionary):
-			# Loud, not silent: a map naming a table that does not exist would otherwise place an
-			# empty site and read as a stingy seed. check_loot.gd asserts every shipped map's
-			# tables resolve, so reaching this in a gate run is a content bug.
-			push_error("boot: map loot site names unknown table \"%s\"" % location)
+			# Loud, not silent: a site naming a table that does not exist would otherwise place an
+			# empty site and read as a stingy seed. check_loot.gd asserts every site a shipped
+			# district generates resolves, so reaching this in a gate run is a content bug.
+			push_error("boot: loot site names unknown table \"%s\"" % location)
 			continue
-		var x: float = float(tile.get("x", 0)) + 0.5
-		var y: float = float(tile.get("y", 0)) + 0.5
+		var x: float = float(int(e.get("x", 0))) + 0.5
+		var y: float = float(int(e.get("y", 0))) + 0.5
 		# A site with a `container` is not scattered at boot -- it stands there holding its table
 		# until somebody opens it. Same table, same roller, rolled later; that is the whole of the
 		# difference, and it is what makes a searched cupboard finite rather than a respawn timer
-		# (docs/12 puts respawn on the cut list).
+		# (docs/12 puts respawn on the cut list). Which sites are containers is the district's
+		# `lootProfile` decision, or the template's, never this file's.
 		var kind: String = String(e.get("container", ""))
 		if kind != "":
 			SimContainers.make_container(world, x, y, kind, location)
@@ -166,14 +180,22 @@ static func place_loot(world: Variant, patch: Dictionary) -> void:
 		SimLoot.scatter(world, table as Dictionary, rng, x, y)
 
 
-static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:
+static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES, district_id: String = DEFAULT_DISTRICT) -> Dictionary:
 	# Same seed + content + modules. No placement, loot, or spawn_unique — F9 restore target.
 	var content: Dictionary = ContentLoader.load_tree()
-	var map: Variant = SimTileMap.generate_district(seed_val, map_size)
-	var patch: Variant = SimTileMap.load_patch_from_content(content, PATCH_ID)
-	if patch is Dictionary:
-		SimTileMap.apply_patch(map, patch as Dictionary)
-	var exam: Dictionary = SimTileMap.find_open_tile(map, 46, 45)
+	# The content tree is handed to the generator rather than letting it walk the directory again:
+	# `load_tree` is a full directory walk and the balance harness boots one of these per seed.
+	#
+	# The colony arrives with the district now. This file used to choose where it went -- one
+	# `SimTemplates.stamp` at a compile-time `ANNEX_ORIGIN`, on ground the generator had reserved at
+	# a rect two files had to agree about -- and that origin was the last colony coordinate written
+	# in code. `SimWorldgen` ranks its own lots and stamps the winner, so where the colony stands is
+	# a property of the seed like everything else about the district, and everything downstream --
+	# the director's exclusions, the jobs router, the stockpile, the recruit beat, the well -- reads
+	# the anchors the stamp wrote, exactly as it did before.
+	var map: Variant = SimWorldgen.generate(seed_val, map_size, content, district_id)
+	var start: Vector2i = colony_start(map)
+	var exam: Dictionary = SimTileMap.find_open_tile(map, start.x, start.y)
 	var fixture: Dictionary = {
 		"seed": seed_val,
 		"tick_hz": 20,
@@ -190,11 +212,29 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 	attach_kernel(world, map)
 	register_playable_modules(world, map)
 	world.components.set_component(world.player, "facing", {"radians": 0.0})
-	return {"world": world, "map": map, "patch": patch}
+	# The patch is not handed back any more: its loot rows are `map.sites` by the time the generator
+	# returns, and a `patch` key nobody read would be a socket rather than a return value.
+	return {"world": world, "map": map}
+
+
+# Where the colony starts, read off the map the template was stamped onto rather than off a
+# constant. Every compile-time twin of a colony coordinate is gone -- `SimDirector.ANNEX`,
+# `SimFortify.GATE_A`/`GATE_B`, the well's `GATE_A + (1, 2)` and now `ANNEX_ORIGIN` itself are all
+# map anchors -- and this (46, 45) is the one literal that stays, deliberately: it is the fallback
+# for a map that carries no anchors at all, which is what a district too small to hold the annex and
+# its clear ring comes back as (the 16- and 32-tile fixture maps the isolation boots use).
+# check_buildings.gd's reader lane proves it is the anchor and not the literal that a generated
+# district uses, and that the fallback is reachable rather than theoretical.
+static func colony_start(map: Variant) -> Vector2i:
+	var anchor: Vector2i = SimTileMap.player_start(map)
+	if anchor.x < 0 or anchor.y < 0:
+		return Vector2i(46, 45)
+	return anchor
 
 
 static func place_stations(world: Variant, map: Variant) -> void:
-	var tiles: Array[Vector2i] = _indoor_floors(map, 46, 45, 6)
+	var start: Vector2i = colony_start(map)
+	var tiles: Array[Vector2i] = _indoor_floors(map, start.x, start.y, 6)
 	if tiles.is_empty():
 		return
 	SimNeeds.make_campfire(world, float(tiles[0].x) + 0.5, float(tiles[0].y) + 0.5, false)
@@ -202,8 +242,12 @@ static func place_stations(world: Variant, map: Variant) -> void:
 		SimNeeds.make_bed(world, float(tiles[1].x) + 0.5, float(tiles[1].y) + 0.5)
 	if tiles.size() > 2:
 		SimNeeds.make_bed(world, float(tiles[2].x) + 0.5, float(tiles[2].y) + 0.5)
-	# Outdoor well just south of the gate (ADR 0013).
-	var well := Vector2i(SimFortify.GATE_A.x + 1, SimFortify.GATE_A.y + 2)
+	# Outdoor well just south of the gate (ADR 0013) -- the template's own anchor now, not
+	# `GATE_A + (1, 2)` computed here. A district nobody stamped has no well anchor and gets no
+	# well, which is the honest answer: there is nothing to site it against.
+	var well: Vector2i = SimTileMap.well_tile(map)
+	if well.x < 0 or well.y < 0:
+		return
 	if well.x > 0 and well.y > 0 and well.x < int(map.w) - 1 and well.y < int(map.h) - 1:
 		if not SimTileMap.is_solid(map, well.x, well.y):
 			SimNeeds.make_water_source(world, float(well.x) + 0.5, float(well.y) + 0.5)
@@ -211,10 +255,13 @@ static func place_stations(world: Variant, map: Variant) -> void:
 
 static func _indoor_floors(map: Variant, near_x: int, near_y: int, n: int) -> Array[Vector2i]:
 	var found: Array[Vector2i] = []
-	var rx: int = SimDirector.ANNEX.position.x
-	var ry: int = SimDirector.ANNEX.position.y
-	var rw: int = SimDirector.ANNEX.size.x
-	var rh: int = SimDirector.ANNEX.size.y
+	var annex: Rect2i = SimTileMap.annex_rect(map)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return found
+	var rx: int = annex.position.x
+	var ry: int = annex.position.y
+	var rw: int = annex.size.x
+	var rh: int = annex.size.y
 	var scored: Array[Dictionary] = []
 	for j in range(ry, ry + rh):
 		for i in range(rx, rx + rw):
@@ -236,8 +283,8 @@ static func _indoor_floors(map: Variant, near_x: int, near_y: int, n: int) -> Ar
 	return found
 
 
-static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES) -> Dictionary:
-	var boot: Dictionary = bare(seed_val, map_size)
+static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES, district_id: String = DEFAULT_DISTRICT) -> Dictionary:
+	var boot: Dictionary = bare(seed_val, map_size, district_id)
 	var world: Variant = boot["world"]
 	var map: Variant = boot["map"]
 	var observer: Dictionary = SimVisibility.daylight_eyes()
@@ -247,15 +294,32 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# Annex knife is the default find — equip so F works without a scavenger loop.
 	var knife: int = SimItems.spawn_item(world, "item.knife.kitchen", {"tier": "scavenged"})
 	SimInventory.equip(world, world.player, knife)
-	var patch: Variant = boot.get("patch")
-	if patch is Dictionary:
-		place_loot(world, patch as Dictionary)
+	place_loot(world, map)
 	var place_rng: Variant = world.rng.stream("placement")
+	# Never inside the colony's own walls. `SimDirector._legal_tile` has always refused to put a
+	# night packet in the annex, and this scatter used to get the same answer for nothing: the annex
+	# was a fixed rect in the district's corner and the box these rolls come from barely reached it.
+	# The generator sites the colony per seed now, and it lands in the middle of that box -- measured
+	# on the four balance seeds, 2, 7, 5 and 7 of the twenty wanderers booted *inside* the annex,
+	# and the three seeds with five or more lost a colonist on day 1, 2 or 3 to one of them. A
+	# shambler in the kitchen at boot is not difficulty, it is the start docs/01's fairness rule
+	# says may not exist -- so the rule the director already follows is said out loud here.
+	#
+	# Re-rolled rather than pushed out: a walk to "the nearest tile outside the rect" would pile the
+	# refused rolls against the annex wall, which is the one place they must not be. The attempt
+	# count is fixed so the draw count stays bounded and the campaign stays a function of its seed;
+	# a roll that never lands outside places anyway rather than looping, which at these odds
+	# (a 26x26 rect inside a 48x48 box, eight times over) is a case nothing has reached.
+	var annex: Rect2i = SimTileMap.annex_rect(map)
 	for i in WANDERERS:
 		var type_id: String = SimRoster.pick_type(world, place_rng)
-		var tx: int = int(place_rng.call("int_range", 8, int(map.w) - 9))
-		var ty: int = int(place_rng.call("int_range", 8, int(map.h) - 9))
-		var tile: Dictionary = SimTileMap.find_open_tile(map, tx, ty)
+		var tile: Dictionary = {}
+		for _try in SCATTER_TRIES:
+			var tx: int = int(place_rng.call("int_range", 8, int(map.w) - 9))
+			var ty: int = int(place_rng.call("int_range", 8, int(map.h) - 9))
+			tile = SimTileMap.find_open_tile(map, tx, ty)
+			if annex.size.x <= 0 or not annex.has_point(Vector2i(int(tile["x"]), int(tile["y"]))):
+				break
 		SimRoster.spawn_zombie(world, float(tile["x"]) + 0.5, float(tile["y"]) + 0.5, type_id, place_rng)
 	world.events.drain()
 	return {"world": world, "map": map}
