@@ -171,6 +171,52 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
    around the blit — the centre anchor was chosen so that stays a contained change), and C needs a
    rig-sheet pass before more sprites exist. The two art pieces below queue behind this pick.
 
+**World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
+docs/24's "authored templates, procedurally assembled" built for real, still in one district.
+Today `generate_district` makes nine hollow one-room blocks where docs/24 says ~40–70 buildings,
+every seed but 20260805 strands the hardcoded colony anchors, and at gate size 64 the block loop
+never runs — so every gate boot but `check_loot`'s runs on a map with **zero generated
+buildings**. Region, roads-between-districts and streaming stay Milestone 3B; the road seam ships
+as data the street pass must actually reach (edge connection points), not as a dead field. The
+owner's six scope decisions are recorded in
+[docs/30](30-decisions.md#what-the-worldgen-arc-decided). The pieces, in landing order — each a
+session with its gate:
+
+- **Building templates as content.** A `building` content type (Godot-only, the `content/loot/`
+  precedent — the frozen oracle never sees it), 8–12 residential/civic and 3–5 commercial
+  authored footprints, and the civic annex reinterpreted as the first template:
+  `district_alpha.json` stays in place, its arrays stamped at a generator-chosen origin. Gate:
+  `godot:check:buildings`, including the migration lock — the stamp byte-identical to the old
+  blit on the canonical seed before the old path is deleted.
+- **Anchors on the map, constants deleted.** `SimDirector.ANNEX`, `SimFortify.GATE_A/B` and the
+  literal (46,45) start become data the generator writes (`map.anchors`); boot, director, jobs,
+  fortify, needs, recruits and every coordinate-pinning gate read them off the booted world. The
+  constants are deleted, not deprecated, so a missed consumer fails to compile. Extends
+  `godot:m2:district`.
+- **District types as data, and the generator rebuilt.** Streets from district JSON (block range,
+  street width, connection points), parcels, weighted template placement — ~40–70 buildings at
+  256 and a real miniature district at 64, so the gate boots stop running on empty maps. Two live
+  types ship: residential suburb and town center. Named `worldgen.*` streams replace the XOR
+  salts; `SAVE_VERSION` bumps; the balance fast tier and harness bands are re-measured
+  before/after in the same commit, never inherited.
+- **The annex sited per seed, survivability validated.** docs/01's "no unwinnable starts" made
+  mechanical: start open, gates reachable from a street, station floor indoors, well, a site of
+  each placed loot table reachable — bounded deterministic re-site on failure, and a gate that
+  proves the rejection path with a sabotaged candidate.
+- **Loot sites generated per seed.** Sites drawn from the district type's loot profile;
+  `loot.commercial` authored at last (the enum slot has existed in three synced places with no
+  table behind it); `check_loot` walks the booted district's site manifest per shipped type
+  instead of the map JSON.
+- **The seeded sandbox boot.** `--seed=N` and `--district=<id>` user args, F2 rerolls a fresh
+  city, the seed prints on the M sheet only — the HUD digit ban holds. New `godot:check:worldgen`:
+  ~10 seeds boot, place the annex, validate, and step, inside a time budget the gate asserts on.
+- **The ground drawn, and load-bearing.** The surface layer rendered as flat tints (the art-style
+  pick stays the owner's), and `SimSurface.speed_on` wired into locomotion with a fast-tier
+  before/after — docs/24's unseen-or-unheard route choice, and one named dead socket gone.
+- **Walls attenuate noise: the ≥ 8-of-16 rule.** The first defect in the list below, fixed as
+  this arc's close because every layout-derived calibration is being re-measured anyway; harness
+  and balance before/after recorded with the rule change.
+
 **Content only — data entries, no new systems:**
 
 - **Five more modification consumables.** Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage
