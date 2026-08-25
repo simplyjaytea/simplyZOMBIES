@@ -27,6 +27,49 @@
         "h": { "type": "integer", "minimum": 1 }
       }
     },
+    "anchors": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gate_a": {
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "gate_b": {
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "player_start": {
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "well": {
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        }
+      },
+      "description": "Rect-relative points SimTemplates.stamp converts to absolute and writes onto the map object, so the colony's gates, start tile and well stop being compile-time constants. Same shape as building.schema.json's anchors, and relative for the same reason: this entry is a template that happens to still be stamped at a fixed origin."
+    },
     "tiles": {
       "type": "array",
       "items": { "type": "integer", "minimum": 0, "maximum": 5 },

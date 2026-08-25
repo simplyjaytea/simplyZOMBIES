@@ -40,6 +40,10 @@ var surfaces: PackedByteArray
 var indoors: PackedByteArray
 # ponytail: overlay Dictionary on the window/scrap tile, not Tile.Barricade.
 var overlays: Dictionary = {}
+# Where the colony's fixed points ended up, written by SimTemplates.stamp from the template's own
+# relative anchors. Empty on a bare generated district, which is why every accessor below has an
+# absent sentinel rather than a default coordinate.
+var anchors: Dictionary = {}
 
 func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	w = width
@@ -54,6 +58,7 @@ func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	indoors = PackedByteArray()
 	indoors.resize(w * h)
 	overlays = {}
+	anchors = {}
 
 
 static func blank_map(width: int, height: int, tile: int = Tile.Floor) -> Variant:
@@ -326,6 +331,49 @@ static func find_open_tile(map: Variant, start_x: int, start_y: int) -> Dictiona
 				if not is_solid(map, tx, ty):
 					return {"x": tx, "y": ty}
 	return {"x": sx, "y": sy}
+
+
+static func _anchor(map: Variant, key: String) -> Variant:
+	var table: Variant = map.anchors
+	if not (table is Dictionary):
+		return null
+	var point: Variant = (table as Dictionary).get(key)
+	if point is Dictionary:
+		return point
+	return null
+
+
+# (-1, -1) rather than (0, 0) for "no such anchor": (0, 0) is a real tile, and a caller that
+# forgot to check would quietly site the colony in the map's corner instead of failing.
+static func _anchor_tile(map: Variant, key: String) -> Vector2i:
+	var point: Variant = _anchor(map, key)
+	if not (point is Dictionary):
+		return Vector2i(-1, -1)
+	return Vector2i(int((point as Dictionary).get("x", -1)), int((point as Dictionary).get("y", -1)))
+
+
+static func annex_rect(map: Variant) -> Rect2i:
+	var point: Variant = _anchor(map, "annex")
+	if not (point is Dictionary):
+		return Rect2i(0, 0, 0, 0)
+	var d: Dictionary = point as Dictionary
+	return Rect2i(int(d.get("x", 0)), int(d.get("y", 0)), int(d.get("w", 0)), int(d.get("h", 0)))
+
+
+static func gate_a(map: Variant) -> Vector2i:
+	return _anchor_tile(map, "gate_a")
+
+
+static func gate_b(map: Variant) -> Vector2i:
+	return _anchor_tile(map, "gate_b")
+
+
+static func player_start(map: Variant) -> Vector2i:
+	return _anchor_tile(map, "player_start")
+
+
+static func well_tile(map: Variant) -> Vector2i:
+	return _anchor_tile(map, "well")
 
 
 static func apply_patch(map: Variant, patch: Dictionary) -> void:

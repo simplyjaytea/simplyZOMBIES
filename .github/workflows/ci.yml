@@ -94,7 +94,7 @@ jobs:
       - name: R6 soak (memory/save/input/pause/tab)
         run: npm run godot:r6:soak
 
-      # Every Milestone 2 gate, chained by the npm script -- 32 of them, and the same command
+      # Every Milestone 2 gate, chained by the npm script -- 33 of them, and the same command
       # CLAUDE.md tells a contributor to run before every commit, so CI and the desk agree by
       # construction rather than by two lists being kept in step. It is the longest step here
       # (~7 min on a comparable container), which is what the job timeout above is sized for.
@@ -112,7 +112,7 @@ jobs:
       #   godot:check:hud          the HUD speaks in words. Same reasoning as the health-bar
       #                            ban: a number on screen invites optimising the number. Only
       #                            the day counter is excepted
-      - name: Godot Milestone 2 gates (all 32, standing bans included)
+      - name: Godot Milestone 2 gates (all 33, standing bans included)
         run: npm run godot:m2
 
   godot-exports:

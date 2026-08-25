@@ -256,6 +256,9 @@ switch (mode) {
   case "--loot":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_loot.gd"];
     break;
+  case "--buildings":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_buildings.gd"];
+    break;
   case "--hud":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;
