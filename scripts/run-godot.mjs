@@ -163,6 +163,15 @@ switch (mode) {
       "res://check_m2_director.gd",
     ];
     break;
+  case "--m2-raiders":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_raiders.gd",
+    ];
+    break;
   case "--m2-save":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_save.gd"];
     break;

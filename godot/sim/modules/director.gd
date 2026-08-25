@@ -5,6 +5,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimRaiders = preload("res://sim/modules/raiders.gd")
 
 const GRACE_COMPOSITION_UNTIL_DAY: int = 3
 const GRACE_PRESSURE_UNTIL_DAY: int = 8
@@ -62,6 +63,54 @@ const MAX_CONSECUTIVE_SIEGE: int = 2
 # Its own stream, so adding a draw per night leaves the `director` stream's existing sequence --
 # edge picks and zombie types -- byte-identical. A new decision must not reshuffle old ones.
 const NIGHT_STREAM: String = "directorNight"
+
+# --- the raid (raiders slice) ------------------------------------------------------------------
+#
+# A second thing the director can send at a colony, and the first one that is not a zombie. Its
+# own stream for the same reason NIGHT_STREAM has one: adding a draw per night must leave the
+# `director` stream's existing sequence -- edge picks and zombie types -- byte-identical, or every
+# campaign recorded before this slice would place its packets somewhere else.
+const RAID_STREAM: String = "raid"
+
+# The first night a band can be drawn at all: the same night pressure itself begins, so a raid is
+# inside the ten days Milestone 2's exit criterion measures rather than safely past them.
+#
+# That is a balance claim and it was measured three ways rather than argued, because the first
+# draft of this comment asserted a day-8 wipe that never happened.
+#
+#   * `godot:m2:balance` fast tier, four seeds x ten compressed days: raids fired on 404 and
+#     90210, bands of two, both killed to the last man, colonies 2/2 on all four seeds -- and
+#     every pre-existing counter (siege/quiet nights, packets, kills, deaths, max_live) identical
+#     to the same run before raiders existed. Nothing needed re-pinning.
+#   * A throwaway driver running five real game-minutes after each dusk from day 8 to day 18:
+#     eight bands across the four seeds, sizes two and three, no colony lost. The earliest was
+#     seed 90210 on day 9 -- inside the ten days -- and that colony held 2/2.
+#   * A second driver forcing the *worst legal band* (RAID_BAND_MAX, gunhand included) onto day 8
+#     with ten game-minutes to work: 20260805 lost one colonist of two; 404, 31337 and 90210 held
+#     2/2. Every seed killed three of the four raiders. A maximum band is a real loss and not a
+#     wipe, which is the shape a first cut wants.
+#
+# Both drivers were deleted. If this ever has to come down or the band up, do it the same way --
+# a driver, before and after, on the same driver.
+const RAID_FIRST_DAY: int = 8
+
+# The chance, in percent, that a post-grace night sends a band. Two nights in ten, so a raid is
+# an event rather than a schedule -- docs/17 rule 4's variance argument applies to raids for the
+# same reason it applies to sieges.
+const RAID_CHANCE_PERCENT: int = 20
+
+# How many walk in. Inclusive at both ends -- `int_range` is inclusive, which is the arithmetic
+# this file already relies on for the edge pick.
+const RAID_BAND_MIN: int = 2
+const RAID_BAND_MAX: int = 4
+
+# The raider budget, kept separate from LIVE_CAP rather than folded into it. LIVE_CAP is a
+# statement about how many *zombies* a district can hold before the frame budget and the pathing
+# stop being honest; mixing raiders into it would mean a quiet zombie week silently funded a
+# bigger raid, and a loud one refused a raid that had nothing to do with the horde. Small because
+# a band is a band: three raids' worth of survivors standing at your gate is already more than
+# the first cut claims to have balanced.
+const RAID_LIVE_CAP: int = 8
 
 # Sides, in the order _edges_by_side returns them.
 const SIDE_NAMES: Array[String] = ["north", "east", "south", "west"]
@@ -185,6 +234,11 @@ static func _on_dusk(world: Variant) -> void:
 		"reason": reason,
 	})
 
+	# The raid is drawn after the night and independently of it: a band turning up is not a shape
+	# of night, it does not consume the night's size, and a quiet night is a perfectly good night
+	# to be robbed on. Its own stream, so the two decisions cannot reshuffle each other.
+	_draw_raid(world, day, lull)
+
 
 # How hard the week is leaning, as a row index into NIGHT_WEIGHTS. The three signals the old size
 # calculation used, unchanged in meaning: a colony that can fight, a colony that has been loud,
@@ -215,6 +269,96 @@ static func _draw_night(world: Variant, band: int) -> int:
 		if roll < 0:
 			return i
 	return Night.Quiet
+
+
+# One night's raid decision, announced whether or not it sends anybody -- rule 5 applies to this
+# draw exactly as it applies to the night's: an adjustment nothing can observe is worse than one
+# the player cannot reason about.
+#
+# The order of the tests is the order of their cost and their authority. Grace first, because it
+# is a fact about the day and does not need the district. The lull outranks the draw for docs/17
+# rule 1's reason -- the quiet after a disaster is the quiet after a disaster, and a band walking
+# in the night the wall came down would read as the game punishing a loss. The cap is a budget.
+# Only then is the stream touched, so a campaign spends raid randomness only on nights a raid
+# could actually happen.
+static func _draw_raid(world: Variant, day: int, lull: bool) -> void:
+	var reason: String = "drawn"
+	var size: int = 0
+	var side: String = ""
+	var live: int = SimRaiders.live_count(world)
+	if day < RAID_FIRST_DAY:
+		reason = "grace"
+	elif lull:
+		reason = "lull"
+	elif live >= RAID_LIVE_CAP:
+		reason = "cap"
+	else:
+		var rng: Variant = world.rng.stream(RAID_STREAM)
+		if int(rng.call("int_range", 0, 99)) >= RAID_CHANCE_PERCENT:
+			reason = "quiet"
+		else:
+			size = int(rng.call("int_range", RAID_BAND_MIN, RAID_BAND_MAX))
+			size = mini(size, RAID_LIVE_CAP - live)
+			if size <= 0:
+				reason = "cap"
+			else:
+				# `size` is overwritten with what actually turned up, not with what was rolled.
+				# A district with no legal edge, or a content tree with no raider archetypes in
+				# it, both come back as nobody -- and announcing a band that was never placed is
+				# precisely the silent adjustment rule 5 forbids.
+				var placed: Dictionary = _emit_band(world, size, rng)
+				side = String(placed["side"])
+				size = int(placed["placed"])
+				if size <= 0:
+					reason = "no-edge"
+	world.events.publish({
+		"type": "director.raid",
+		"day": day,
+		"size": size,
+		"side": side,
+		"reason": reason,
+	})
+
+
+# Where a band comes in. The same edge legality a night packet gets -- no gate, no annex, nothing
+# inside GATE_EXCLUSION -- because the fairness rule those exclusions encode is about arriving
+# on top of the player, and it does not care what species did the arriving.
+#
+# The side is drawn rather than read off the attention field, which is the one place raiders
+# deliberately differ from a horde. A crowd goes where the noise is because a crowd is following
+# a stimulus; a band has been watching the district and picks its own approach, and having them
+# come down the loudest street too would make every arrival in the game a function of the same
+# number.
+#
+# The band lands on consecutive tiles from one side's pool, so it arrives *together*: the pool is
+# built in scan order, so consecutive entries are neighbours, and four raiders spread over a
+# 256 m edge would be four lone raiders rather than a band.
+static func _emit_band(world: Variant, size: int, rng: Variant) -> Dictionary:
+	var none: Dictionary = {"side": "", "placed": 0}
+	# Asked before a single draw is spent: a content tree with no `raiders/` directory in it must
+	# leave the stream exactly where it found it, or removing the archetypes would silently
+	# reshuffle every campaign's raid rolls.
+	if SimRaiders.types(world).is_empty():
+		return none
+	var sides: Array = _edges_by_side(world)
+	var usable: Array = []
+	for i in sides.size():
+		if not (sides[i] as Array).is_empty():
+			usable.append(i)
+	if usable.is_empty():
+		return none
+	var side: int = int(usable[int(rng.call("int_range", 0, usable.size() - 1))])
+	var pool: Array = sides[side] as Array
+	var at: int = int(rng.call("int_range", 0, pool.size() - 1))
+	var placed: int = 0
+	for i in size:
+		var pick: Vector2i = pool[(at + i) % pool.size()]
+		var type_id: String = SimRaiders.pick_type(world, rng)
+		if SimRaiders.spawn(world, float(pick.x) + 0.5, float(pick.y) + 0.5, type_id) >= 0:
+			placed += 1
+	if placed <= 0:
+		return none
+	return {"side": SIDE_NAMES[side], "placed": placed}
 
 
 # Returns the side it came from, for the `director.night` event. docs/17's migration lever says a

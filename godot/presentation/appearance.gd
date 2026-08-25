@@ -102,6 +102,7 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	var is_player: bool = bool(it.get("player", false))
 	var is_unique: bool = bool(it.get("unique", false))
 	var is_bait: bool = bool(it.get("bait", false))
+	var is_raider: bool = bool(it.get("raider", false))
 
 	# Role colours are the floor: an entity with no content appearance looks exactly as it
 	# did before this file existed.
@@ -110,19 +111,25 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 		role = "player"
 	elif is_unique:
 		role = "survivor"
+	elif is_raider:
+		role = "raider"
 	elif is_bait:
 		role = "groundItem"
 	var tint: Color = Palette.COLOURS[role]
 	var sprite_key: String = ""
 
-	# Zombies carry their type id, unique survivors their identity id. Either is a content
-	# id, and content is what decides how a thing looks.
+	# Zombies carry their type id, unique survivors their identity id, raiders their archetype
+	# id. All three are content ids, and content is what decides how a thing looks.
 	var content_id: String = String(it.get("ztype", ""))
 	if content_id.is_empty():
 		content_id = String(it.get("cid", ""))
 	var declared_tint: bool = false
 	if not content_id.is_empty():
-		var kind: String = "zombie" if content_id.begins_with("zombie.") else "survivor"
+		var kind: String = "survivor"
+		if content_id.begins_with("zombie."):
+			kind = "zombie"
+		elif content_id.begins_with("raider."):
+			kind = "raider"
 		var block: Dictionary = of_content(world, kind, content_id)
 		if block.has("tint"):
 			tint = Color(String(block["tint"]))
@@ -131,7 +138,12 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 			sprite_key = String(block["sprite"])
 
 	var texture: Texture2D = resolve(sprite_key)
-	var radius: float = 14.0 if is_player else (12.0 if is_unique else 10.0)
+	# A raider is drawn at a survivor's radius, deliberately. At Peripheral detail main.gd draws
+	# one anonymous disc of exactly this size and nothing else -- no sprite, no gear, no facing --
+	# so a shape moving in the dark has to be as ambiguous as the contract says it is. Give
+	# raiders the wanderer's smaller radius and the glimpse would quietly tell the player "that
+	# one is not one of yours", which is the certainty docs/01 clause 4 refuses them.
+	var radius: float = 14.0 if is_player else (12.0 if (is_unique or is_raider) else 10.0)
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius}
 
 

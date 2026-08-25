@@ -1,0 +1,14 @@
+{
+  "id": "raider.gunhand",
+  "name": "Gunhand",
+  "allegiance": "raiders",
+  "weight": 1,
+  "speed": 1.4,
+  "aptitudes": { "str": 5, "dex": 6, "con": 5 },
+  "appearance": { "tint": "#a2705a" },
+  "kit": [
+    "item.pistol.service",
+    { "item": "item.ammo.9mm", "count": 16 },
+    "item.bandage.cloth"
+  ]
+}
