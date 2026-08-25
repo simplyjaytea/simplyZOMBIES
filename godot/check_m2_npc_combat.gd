@@ -19,7 +19,6 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
-const SimFortify = preload("res://sim/modules/fortify.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 const ARENA_SEED: int = 4242
@@ -589,8 +588,13 @@ func _a_guard_engages_without_leaving_its_post() -> bool:
 	# Stand them on the post rather than waiting for the job router to walk them there --
 	# routing is `M2_JOBS_OK`'s claim, and a need seek can legitimately hold a survivor for
 	# hours. What is under test here is what they do once they are standing on it.
-	var post_x: float = float(SimFortify.GATE_A.x) + 0.5
-	var post_y: float = float(SimFortify.GATE_A.y) + 1.5
+	# The post is the district's own gate anchor, read off the world that booted, not a constant.
+	var gate: Vector2i = SimTileMap.gate_a(w.tilemap)
+	if gate.x < 0 or gate.y < 0:
+		push_error("the playable boot names no gate, so there is no post to stand on")
+		return false
+	var post_x: float = float(gate.x) + 0.5
+	var post_y: float = float(gate.y) + 1.5
 	w.components.set_component(guard, "position", {"x": post_x, "y": post_y})
 	w.components.set_component(guard, "job", SimJobs._work_for(w, guard, "Guard"))
 	_zombie(w, post_x + 0.9, post_y)

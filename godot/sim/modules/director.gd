@@ -5,7 +5,6 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
-const SimFortify = preload("res://sim/modules/fortify.gd")
 
 const GRACE_COMPOSITION_UNTIL_DAY: int = 3
 const GRACE_PRESSURE_UNTIL_DAY: int = 8
@@ -22,7 +21,6 @@ const FLOOR_QUIET_NIGHTS: int = 3
 const QUIET_NOISE: float = 25.0
 const FOOTPRINT_NOISE: float = 120.0
 const GATE_EXCLUSION: float = 32.0
-const ANNEX := Rect2i(38, 38, 26, 26)
 const ARMOR_IDS: Array[String] = ["item.wrap.cloth", "item.vest.scrap"]
 
 # --- the shape of a night (docs/17) ------------------------------------------------------------
@@ -246,13 +244,19 @@ static func _edges_by_side(world: Variant) -> Array:
 	var map: Variant = world.tilemap
 	if map == null:
 		return sides
+	# Hoisted, once per call, because the annex and the gates are map state now rather than
+	# constants and this loop asks about every edge tile in the district. Reading them per tile
+	# would put a dictionary lookup where a compile-time constant used to be.
+	var annex: Rect2i = SimTileMap.annex_rect(map)
+	var gate_a: Vector2i = SimTileMap.gate_a(map)
+	var gate_b: Vector2i = SimTileMap.gate_b(map)
 	var w: int = int(map.w)
 	var h: int = int(map.h)
 	for y in h:
 		for x in w:
 			if x > 2 and x < w - 3 and y > 2 and y < h - 3:
 				continue
-			if not _legal_tile(world, x, y):
+			if not _legal_tile(map, x, y, annex, gate_a, gate_b):
 				continue
 			if y <= 2:
 				(sides[0] as Array).append(Vector2i(x, y))
@@ -297,17 +301,25 @@ static func _side_from_field(world: Variant, sides: Array, rng: Variant) -> int:
 	return int(usable[int(rng.call("int_range", 0, usable.size() - 1))])
 
 
-static func _legal_tile(world: Variant, tx: int, ty: int) -> bool:
-	var map: Variant = world.tilemap
+# The annex rect and the two gates arrive as arguments rather than being read here: they are map
+# state now, and `_edges_by_side` asks this about every edge tile in the district.
+#
+# Both absences are guarded, and the gate one matters. An empty annex rect excludes nothing, which
+# is what an unstamped district should mean. A gate that is absent reads (-1, -1), and measuring a
+# 32 m disc around (-1, -1) would refuse every tile in the district's north-west corner for a gate
+# that is not there -- so an absent gate is skipped rather than measured.
+static func _legal_tile(map: Variant, tx: int, ty: int, annex: Rect2i, gate_a: Vector2i, gate_b: Vector2i) -> bool:
 	if SimTileMap.tile_at(map, tx, ty) != SimTileMap.Tile.Floor:
 		return false
 	if SimTileMap.is_solid(map, tx, ty):
 		return false
-	if ANNEX.has_point(Vector2i(tx, ty)):
+	if annex.size.x > 0 and annex.size.y > 0 and annex.has_point(Vector2i(tx, ty)):
 		return false
 	var gx: float = float(tx) + 0.5
 	var gy: float = float(ty) + 0.5
-	for gate in [SimFortify.GATE_A, SimFortify.GATE_B]:
+	for gate in [gate_a, gate_b]:
+		if gate.x < 0 or gate.y < 0:
+			continue
 		var dx: float = gx - (float(gate.x) + 0.5)
 		var dy: float = gy - (float(gate.y) + 0.5)
 		if dx * dx + dy * dy < GATE_EXCLUSION * GATE_EXCLUSION:
@@ -318,9 +330,12 @@ static func _legal_tile(world: Variant, tx: int, ty: int) -> bool:
 static func _annex_peak(world: Variant) -> float:
 	if world.field == null:
 		return 0.0
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return 0.0
 	var peak: float = 0.0
-	for y in range(ANNEX.position.y, ANNEX.position.y + ANNEX.size.y):
-		for x in range(ANNEX.position.x, ANNEX.position.x + ANNEX.size.x):
+	for y in range(annex.position.y, annex.position.y + annex.size.y):
+		for x in range(annex.position.x, annex.position.x + annex.size.x):
 			var n: float = float(world.field.noise_at(float(x) + 0.5, float(y) + 0.5))
 			if n > peak:
 				peak = n

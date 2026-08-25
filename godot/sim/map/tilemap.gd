@@ -334,6 +334,10 @@ static func find_open_tile(map: Variant, start_x: int, start_y: int) -> Dictiona
 
 
 static func _anchor(map: Variant, key: String) -> Variant:
+	# A world without a tilemap is a world without anchors, and the absent sentinels below say so.
+	# Callers now hand this `world.tilemap` directly, which some fixture worlds leave null.
+	if map == null:
+		return null
 	var table: Variant = map.anchors
 	if not (table is Dictionary):
 		return null

@@ -60,19 +60,28 @@ func _edge_new(world: Variant, before: Array[int]) -> Array[Vector2i]:
 		out.append(Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"]))))
 	return out
 
-func _packet_ok(tiles: Array[Vector2i]) -> bool:
+# The gates and the annex come off the world that placed the packet, not off constants: they are
+# map state now, so this follows the colony if the generator ever sites it elsewhere. Read once
+# per call rather than per tile.
+func _packet_ok(world: Variant, tiles: Array[Vector2i]) -> bool:
+	var gate_a: Vector2i = SimTileMap.gate_a(world.tilemap)
+	var gate_b: Vector2i = SimTileMap.gate_b(world.tilemap)
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if gate_a.x < 0 or gate_b.x < 0 or annex.size.x <= 0:
+		push_error("the booted district names no gates or annex, so the exclusion is unmeasurable")
+		return false
 	for tile in tiles:
-		if tile == SimFortify.GATE_A or tile == SimFortify.GATE_B:
+		if tile == gate_a or tile == gate_b:
 			push_error("packet on gate %s" % str(tile))
 			return false
-		if SimDirector.ANNEX.has_point(tile):
+		if annex.has_point(tile):
 			push_error("packet in annex %s" % str(tile))
 			return false
 		var gx: float = float(tile.x) + 0.5
 		var gy: float = float(tile.y) + 0.5
-		for gate in [SimFortify.GATE_A, SimFortify.GATE_B]:
-			var dx: float = gx - (float(gate.x) + 0.5)
-			var dy: float = gy - (float(gate.y) + 0.5)
+		for gate in [gate_a, gate_b]:
+			var dx: float = gx - (float((gate as Vector2i).x) + 0.5)
+			var dy: float = gy - (float((gate as Vector2i).y) + 0.5)
 			if dx * dx + dy * dy < SimDirector.GATE_EXCLUSION * SimDirector.GATE_EXCLUSION:
 				push_error("packet within 32m of gate %s" % str(tile))
 				return false
@@ -89,7 +98,7 @@ func _turtle_floor() -> bool:
 		var before: Array[int] = _ids(w)
 		_jump_dusk(w, day)
 		var spawned: Array[Vector2i] = _edge_new(w, before)
-		if not _packet_ok(spawned):
+		if not _packet_ok(w, spawned):
 			return false
 		packets += spawned.size()
 	if packets < 1:
@@ -117,7 +126,7 @@ func _nothing_personal() -> bool:
 func _windows(world: Variant) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	var map: Variant = world.tilemap
-	var a: Rect2i = SimDirector.ANNEX
+	var a: Rect2i = SimTileMap.annex_rect(map)
 	for y in range(a.position.y, a.position.y + a.size.y):
 		for x in range(a.position.x, a.position.x + a.size.x):
 			if SimTileMap.tile_at(map, x, y) == SimTileMap.Tile.Window:
@@ -126,7 +135,8 @@ func _windows(world: Variant) -> Array[Vector2i]:
 
 func _avenue_live(world: Variant) -> int:
 	var n: int = 0
-	var south: int = SimDirector.ANNEX.position.y + SimDirector.ANNEX.size.y
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	var south: int = annex.position.y + annex.size.y
 	for e in world.components.query(["shambler", "position"]):
 		var pos: Variant = world.components.get_component(int(e), "position")
 		if pos is Dictionary and float((pos as Dictionary)["y"]) >= float(south):
@@ -139,7 +149,8 @@ func _noisy_night() -> void:
 	if wins.size() >= 2:
 		SimFortify._board_window(w, wins[0].x, wins[0].y)
 		SimFortify._board_window(w, wins[1].x, wins[1].y)
-	var by: int = mini(int(w.tilemap.h) - 3, SimDirector.ANNEX.position.y + SimDirector.ANNEX.size.y + 8)
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	var by: int = mini(int(w.tilemap.h) - 3, annex.position.y + annex.size.y + 8)
 	SimFortify._place_noisemaker(w, 50, by)
 	SimFortify._wind_noisemaker(w)
 	for _i in 400:
@@ -232,6 +243,11 @@ func _full_ten_day() -> void:
 	var gate_touch: int = 0
 	var end_tick: int = Clock.tick_on_day(10, Clock.DUSK_ENDS)
 	var last_day: int = Clock.day_number(int(w.tick))
+	# Hoisted above a 2.88 M tick loop: the colony's fixed points are map lookups now, and this
+	# loop consults them on every tick that placed something.
+	var gate_a: Vector2i = SimTileMap.gate_a(w.tilemap)
+	var gate_b: Vector2i = SimTileMap.gate_b(w.tilemap)
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
 	while int(w.tick) < end_tick:
 		var before: Array[int] = _ids(w)
 		w.step()
@@ -248,14 +264,14 @@ func _full_ten_day() -> void:
 			print("FULL day=%d live=%d" % [day, live])
 			last_day = day
 		for tile in _edge_new(w, before):
-			if tile == SimFortify.GATE_A or tile == SimFortify.GATE_B or SimDirector.ANNEX.has_point(tile):
+			if tile == gate_a or tile == gate_b or annex.has_point(tile):
 				gate_touch += 1
 			else:
 				var gx: float = float(tile.x) + 0.5
 				var gy: float = float(tile.y) + 0.5
-				for gate in [SimFortify.GATE_A, SimFortify.GATE_B]:
-					var dx: float = gx - (float(gate.x) + 0.5)
-					var dy: float = gy - (float(gate.y) + 0.5)
+				for gate in [gate_a, gate_b]:
+					var dx: float = gx - (float((gate as Vector2i).x) + 0.5)
+					var dy: float = gy - (float((gate as Vector2i).y) + 0.5)
 					if dx * dx + dy * dy < SimDirector.GATE_EXCLUSION * SimDirector.GATE_EXCLUSION:
 						gate_touch += 1
 						break

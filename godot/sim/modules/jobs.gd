@@ -9,7 +9,6 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
-const SimDirector = preload("res://sim/modules/director.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
@@ -272,7 +271,12 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 				return {}
 			return {"kind": "Patient", "target": ent, "ticksLeft": 0, "path": [], "pathGen": -1}
 		"Guard":
-			return {"kind": "Guard", "tx": SimFortify.GATE_A.x, "ty": SimFortify.GATE_A.y, "ticksLeft": 0, "path": [], "pathGen": -1}
+			# The post is the map's gate, not a constant. A district with no gate anchor has
+			# nothing to stand on, so there is no Guard job to hand out.
+			var post: Vector2i = SimTileMap.gate_a(world.tilemap)
+			if post.x < 0 or post.y < 0:
+				return {}
+			return {"kind": "Guard", "tx": post.x, "ty": post.y, "ticksLeft": 0, "path": [], "pathGen": -1}
 		"Water":
 			return _water_work(world, ent, x, y)
 		"Clean":
@@ -305,7 +309,9 @@ static func _clean_work(world: Variant, ent: int, x: float, y: float) -> Diction
 
 
 static func _bury_work(world: Variant, x: float, y: float) -> Dictionary:
-	var dump: Vector2i = _corpse_dump()
+	var dump: Vector2i = _corpse_dump(world)
+	if dump.x < 0:
+		return {}
 	var best: int = -1
 	var best_d: float = 1e12
 	for c in world.components.query(["corpse", "position"]):
@@ -420,7 +426,9 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 		# Corpse haul-to-dump only when nobody has Bury enabled (ADR 0013 overflow).
 		if _anyone_buries(world):
 			return {}
-		var dump: Vector2i = _corpse_dump()
+		var dump: Vector2i = _corpse_dump(world)
+		if dump.x < 0:
+			return {}
 		for c in world.components.query(["corpse", "position"]):
 			var p2: Variant = world.components.get_component(int(c), "position")
 			if not p2 is Dictionary:
@@ -438,10 +446,15 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 static func _construct_work(world: Variant, x: float, y: float) -> Dictionary:
 	if world.tilemap == null:
 		return {}
+	# Hoisted at loop entry: this walks the whole annex footprint, and the rect is a lookup on the
+	# map now rather than a constant.
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return {}
 	var best: Vector2i = Vector2i(-1, -1)
 	var best_d: float = 1e12
-	for j in range(SimDirector.ANNEX.position.y, SimDirector.ANNEX.position.y + SimDirector.ANNEX.size.y):
-		for i in range(SimDirector.ANNEX.position.x, SimDirector.ANNEX.position.x + SimDirector.ANNEX.size.x):
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
 			if SimTileMap.tile_at(world.tilemap, i, j) != SimTileMap.Tile.Window:
 				continue
 			var d: float = pow(float(i) + 0.5 - x, 2.0) + pow(float(j) + 0.5 - y, 2.0)
@@ -466,8 +479,11 @@ static func _construct_work(world: Variant, x: float, y: float) -> Dictionary:
 
 
 static func _free_indoor(world: Variant) -> Vector2i:
-	for j in range(SimDirector.ANNEX.position.y, SimDirector.ANNEX.position.y + SimDirector.ANNEX.size.y):
-		for i in range(SimDirector.ANNEX.position.x, SimDirector.ANNEX.position.x + SimDirector.ANNEX.size.x):
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return Vector2i(-1, -1)
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
 			if not SimNeeds.is_stockpile_tile(world, i, j):
 				continue
 			if _bed_at(world, i, j) >= 0:
@@ -674,7 +690,9 @@ static func _job_tile(world: Variant, job: Dictionary) -> Vector2i:
 		return Vector2i(int(job["tx"]), int(job["ty"]))
 	var kind: String = String(job.get("kind", ""))
 	if kind == "Bury" and bool(job.get("carrying", false)):
-		return _corpse_dump()
+		# Absent gate, absent dump: `_corpse_dump` answers (-1, -1), which is this function's own
+		# "no tile" value already.
+		return _corpse_dump(world)
 	if kind in ["Water", "Clean"]:
 		if kind == "Water":
 			var bottle: int = int(job.get("target", -1))
@@ -759,7 +777,10 @@ static func _do_bury(world: Variant, ent: int, job: Dictionary) -> void:
 	if corpse < 0:
 		_stop(world, ent)
 		return
-	var dump: Vector2i = _corpse_dump()
+	var dump: Vector2i = _corpse_dump(world)
+	if dump.x < 0:
+		_stop(world, ent)
+		return
 	if not bool(job.get("carrying", false)):
 		if world.components.has_component(corpse, "position"):
 			var cp: Variant = world.components.get_component(corpse, "position")
@@ -843,7 +864,10 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 	if bool(job.get("carrying", false)):
 		# Corpses skip the Stockpile — ADR 0010: outdoor dump only (avoids stockpile↔dump oscillation).
 		if bool(job.get("corpse", false)):
-			var dump: Vector2i = _corpse_dump()
+			var dump: Vector2i = _corpse_dump(world)
+			if dump.x < 0:
+				_stop(world, ent)
+				return
 			if not _at(world, ent, dump, REACH):
 				_walk(world, ent, job, dump)
 				return
@@ -880,13 +904,22 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 	job["carrying"] = true
 
 
-static func _corpse_dump() -> Vector2i:
-	return Vector2i(SimFortify.GATE_A.x, SimFortify.GATE_A.y + 2)
+# Two tiles south of the gate (ADR 0010), measured from where the map says the gate is. Returns
+# the absent sentinel on a district with no gate anchor, and every caller checks it -- there is no
+# outdoor dump when there is no gate to put one south of.
+static func _corpse_dump(world: Variant) -> Vector2i:
+	var gate: Vector2i = SimTileMap.gate_a(world.tilemap)
+	if gate.x < 0 or gate.y < 0:
+		return Vector2i(-1, -1)
+	return Vector2i(gate.x, gate.y + 2)
 
 
 static func _stock_drop(world: Variant) -> Vector2i:
-	for j in range(SimDirector.ANNEX.position.y, SimDirector.ANNEX.position.y + SimDirector.ANNEX.size.y):
-		for i in range(SimDirector.ANNEX.position.x, SimDirector.ANNEX.position.x + SimDirector.ANNEX.size.x):
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return Vector2i(-1, -1)
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
 			if SimNeeds.is_stockpile_tile(world, i, j) and _bed_at(world, i, j) < 0 and _campfire_at(world, i, j) < 0:
 				return Vector2i(i, j)
 	return Vector2i(-1, -1)
