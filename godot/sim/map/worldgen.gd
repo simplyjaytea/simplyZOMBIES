@@ -20,12 +20,14 @@ extends RefCounted
 #   2. worldgen.streets  -- an irregular grid, plus a ring road, terminating at the district's
 #                           declared connection points (the M3B road seam, made live)
 #   3. worldgen.parcels  -- blocks split into lots
-#   4. (reserve)         -- the annex's rect is left alone; SimBoot stamps the colony onto it
+#   4. worldgen.annex    -- where the colony stands: lots ranked, the winner stamped and reserved
 #   5. worldgen.buildings-- a weighted pick per lot from the district's pool, thinned by density
 #   6. worldgen.sites    -- where the loot is, from the district's lootProfile: interiors first,
 #                           the odd car boot on a driveway, the rare tables once per district
-#   7. worldgen.occluders-- windows, screening, wrecks
-#   8. worldgen.terrain  -- lawns, stands of trees, thickets, the trodden edge of a green
+#   7. (survivability)   -- docs/01's fairness rule, judged; a district that fails re-sites the
+#                           annex on the next-ranked lot and runs 4-6 again
+#   8. worldgen.occluders-- windows, screening, wrecks
+#   9. worldgen.terrain  -- lawns, stands of trees, thickets, the trodden edge of a green
 #
 # Sites are **layout, not dressing**: they are chosen before a tree is planted, they are the same
 # with the dressing switched off, and the dressing is then forbidden to plant anything on one
@@ -40,20 +42,41 @@ extends RefCounted
 const RngStream = preload("res://sim/rng_stream.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimTemplatesRes = preload("res://sim/map/templates.gd")
+const SimPathRes = preload("res://sim/path.gd")
 const ContentLoaderRes = preload("res://platform/content_loader.gd")
 
 const DEFAULT_DISTRICT: String = "district.residential_suburb"
 
-# Where the civic annex goes, and the one place that says so. `SimBoot.ANNEX_ORIGIN` is the origin
-# it stamps at and check_m2_district.gd pins the two together, so this rect and that origin cannot
-# drift apart in silence. The generator does not stamp the annex -- it *reserves* the ground:
-# no street is carved through this rect and no building is placed within a tile of it, so the
-# colony lands on open ground with a walkable ring around it whatever the seed rolled. Siting it
-# per seed is the next slice; this is the seam it will replace.
-const ANNEX_RESERVE: Rect2i = Rect2i(38, 38, 26, 26)
-# One tile of clear ground around the reserve, so the colony always has a way out even when the
-# lot next door is built up.
+# The colony's own template, and the one place its id is written. It is a map patch rather than a
+# `content/buildings/` entry -- authored at a district's scale, carrying the four anchors and its
+# own two loot rows -- but it stamps through the same `SimTemplates.stamp` a house does.
+const ANNEX_PATCH_ID: String = "map.district.alpha"
+
+# One tile of clear ground around the sited annex, so the colony always has a way out even when the
+# lot next door is built up. The dressing keeps two (`_protected_tiles`), because a tree at arm's
+# length from the wall is a tree somebody has to walk around and a thicket against it is a wall.
 const RESERVE_MARGIN: int = 1
+
+# How far the colony keeps off the district wall, authored for a full 256 m district and scaled to
+# the map the way the blocks are -- 24 at 256, 6 at the gate's 64, and below the floor at 32, where
+# the annex plus its ring simply does not fit and the district gets no colony at all.
+#
+# The number is `SimDirector.GATE_EXCLUSION` reasoned about rather than picked. The director refuses
+# to spawn a night packet within 32 m of either gate, and it draws those packets from a three-tile
+# band inside each district wall: an annex shoved against a wall puts that whole band inside the
+# disc, and the side stops being an approach. At 256 a 24-tile margin keeps the gate ~30 tiles off
+# the nearest wall and every side keeps a pool. At 64 no margin can hold 32 m off four walls of a
+# 64-tile map -- the disc is bigger than the district -- so the margin there is the pragmatic one
+# that keeps the annex whole, off the ring road, and central enough that each wall keeps a run of
+# legal tiles outside the disc. check_m2_district.gd's siting lane measures exactly that, per side,
+# rather than trusting this paragraph.
+const ANNEX_BORDER_FULL: int = 24
+const ANNEX_BORDER_MIN: int = 3
+
+# `SimBoot.place_stations` wants a campfire and two beds on indoor floor inside the annex, and
+# docs/01's fairness rule is that a generated start is *survivable* -- so a colony with nowhere to
+# put the fire is an unwinnable start rather than a cramped one.
+const STATION_TILES: int = 6
 
 # A road leaving the district is three tiles of opening in the wall. Narrower than most streets on
 # purpose: the wall is the district's edge, and a gap you can see the far side of is a landmark.
@@ -95,29 +118,106 @@ const BUILDING_INSET: int = 1
 # caller already has rather than making this walk the directory again (`load_tree` is a full
 # directory walk, and this is called once per campaign seed by the balance harness).
 #
-# `dress` exists for the layout/dressing independence property: with it false, passes 7 and 8 do
+# `dress` exists for the layout/dressing independence property: with it false, passes 8 and 9 do
 # not run and the map carries layout only -- the same buildings, on the same lots, holding the same
-# loot sites. Nothing in the game turns it off; it is what lets a gate assert that the dressing
-# streams cannot move a wall or a cupboard.
-static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, content: Variant = null, district_id: String = DEFAULT_DISTRICT, dress: bool = true) -> Variant:
+# loot sites, with the colony on the same lot. Nothing in the game turns it off; it is what lets a
+# gate assert that the dressing streams cannot move a wall or a cupboard.
+#
+# `reject` is a test hook and says so. The re-site loop below advances to the next-ranked lot when a
+# district comes out unsurvivable, and no shipped seed yet makes the first-ranked lot fail -- so
+# without a way to refuse one from outside, the loop would be code nothing has ever run.
+# check_m2_district.gd's re-site lane hands it a predicate that refuses the top candidate and
+# asserts the second is taken; the game passes nothing and gets the empty Callable.
+static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, content: Variant = null, district_id: String = DEFAULT_DISTRICT, dress: bool = true, reject: Callable = Callable()) -> Variant:
 	var tree: Dictionary = content as Dictionary if content is Dictionary else ContentLoaderRes.load_tree()
 	var district: Dictionary = district_of(tree, district_id)
 	var templates: Array = templates_of(tree)
-	var map: Variant = SimTileMapRes.blank_map(size, size)
+	var patch: Variant = annex_template_of(tree)
+	var footprint: Vector2i = SimTemplatesRes.footprint(patch as Dictionary) if patch is Dictionary else Vector2i.ZERO
 
-	_border(map)
-	var streets: Dictionary = _streets(map, seed_val, district)
-	var parcels: Array = _parcels(seed_val, streets)
-	var placed: Array = _buildings(map, seed_val, district, templates, parcels)
-	map.buildings = placed
-	_sites(map, seed_val, district, templates, placed)
+	# One attempt is the whole district downstream of the layout: the colony stamped on one lot, the
+	# buildings that fit around it, the loot they hold, and the verdict on all three. The layout
+	# itself is re-run rather than copied -- it is a pure function of (seed, size, district), so
+	# every attempt regenerates the identical streets and lots, and a tilemap has no deep copy that
+	# would be cheaper to trust.
+	var ground: Dictionary = {}
+	var map: Variant = null
+	var candidates: Array = []
+	var reserve: Rect2i = Rect2i(0, 0, 0, 0)
+	var report: Dictionary = {}
+	var attempt: int = 0
+	while true:
+		ground = layout(seed_val, size, district)
+		map = ground["map"]
+		var parcels: Array = ground["parcels"] as Array
+		if attempt == 0:
+			candidates = annex_candidates(seed_val, map, parcels, footprint)
+		reserve = Rect2i(0, 0, 0, 0)
+		if attempt < candidates.size():
+			reserve = candidates[attempt] as Rect2i
+			SimTemplatesRes.stamp(map, patch as Dictionary, reserve.position.x, reserve.position.y)
+		var placed: Array = _buildings(map, seed_val, district, templates, parcels, reserve)
+		map.buildings = placed
+		_sites(map, seed_val, district, templates, placed, reserve)
+		report = survivability_report(map)
+		var refused: bool = not bool(report["ok"])
+		if not refused and not reject.is_null():
+			refused = bool(reject.call(reserve))
+		if not refused:
+			break
+		if attempt + 1 >= candidates.size():
+			# Loud, not silent, and the last candidate is kept: a district that can site no
+			# survivable colony anywhere is a content bug -- a pool of sealed footprints, a profile
+			# whose only table lives behind a locked door -- and shipping it quietly would put a
+			# player on a start docs/01 says may not exist. The gate is what turns this into red.
+			if not candidates.is_empty():
+				push_error("worldgen: %s at %d sited no survivable colony on any of its %d candidate lots; keeping %s, which failed %s" % [
+					district_id, size, candidates.size(), str(reserve), str(report.get("failed", [])),
+				])
+			break
+		attempt += 1
+
 	if dress:
 		# Read back off the map rather than out of the local: the manifest is the thing the loot
 		# slice will walk, and a pass that reads it here is what keeps it honest in the meantime.
-		var protected: Dictionary = _protected_tiles(map)
+		var protected: Dictionary = _protected_tiles(map, reserve)
 		_dress_occluders(map, seed_val, protected)
-		_dress_terrain(map, seed_val, streets, protected)
+		_dress_terrain(map, seed_val, ground["streets"] as Dictionary, protected)
+		# The siting decision is made on the layout, because the layout is what the dressing is
+		# forbidden to depend on: a colony sited off the trees would move when the trees were
+		# switched off, and the dressing-independence property (docs/30) would stop being true. So
+		# the finished map is asked the same question a second time, and a clause that was true
+		# before the trees went in and false after is a *dressing* bug -- something planted across
+		# the last route to a cupboard -- which is why it says so here rather than re-siting.
+		var after: Dictionary = survivability_report(map)
+		if bool(report["ok"]) and not bool(after["ok"]):
+			push_error("worldgen: the dressing broke %s on a district that was survivable without it (seed %d, %s at %d)" % [
+				str(after["failed"]), seed_val, district_id, size,
+			])
 	return map
+
+
+# Passes 1-3: the district wall, the streets, the lots. Split out because the siting pass has to be
+# handed the same ground the generator gives it -- a gate that wants to rank the candidate lots
+# itself, or to know which one the generator picked, rebuilds this and gets the identical map.
+static func layout(seed_val: int, size: int, district: Dictionary) -> Dictionary:
+	var map: Variant = SimTileMapRes.blank_map(size, size)
+	_border(map)
+	var streets: Dictionary = _streets(map, seed_val, district)
+	var parcels: Array = _parcels(seed_val, streets)
+	return {"map": map, "streets": streets, "parcels": parcels}
+
+
+# The colony's template out of a content tree. Absent is loud: every district in the game is a
+# district somebody lives in, and one generated without the annex would boot a world with no
+# anchors, no stations and no gate -- which reads downstream as "an old fixture map" rather than as
+# the content bug it is.
+static func annex_template_of(tree: Dictionary) -> Variant:
+	var patch: Variant = SimTileMapRes.load_patch_from_content(tree, ANNEX_PATCH_ID)
+	if not (patch is Dictionary):
+		push_error("worldgen: no %s in content, so no district can be given a colony" % ANNEX_PATCH_ID)
+		return null
+	return patch
 
 
 # Every district type in a content tree, by id. Missing means the caller named one nobody wrote,
@@ -271,8 +371,6 @@ static func _carve_street(map: Variant, x: int, y: int, w: int, h: int) -> void:
 			var ty: int = y + j
 			if tx <= 0 or ty <= 0 or tx >= int(map.w) - 1 or ty >= int(map.h) - 1:
 				continue
-			if _in_reserve(tx, ty, 0):
-				continue
 			var idx: int = ty * int(map.w) + tx
 			map.tiles[idx] = SimTileMapRes.Tile.Floor
 			map.surfaces[idx] = SimTileMapRes.SURFACE_PAVED
@@ -293,7 +391,7 @@ static func _connection_points(map: Variant, rng: Variant, district: Dictionary,
 			continue
 		var horizontal: bool = side == "north" or side == "south"
 		var length: int = int(map.w) if horizontal else int(map.h)
-		var tiers: Array = _opening_candidates(map, side, length, x_axis if horizontal else y_axis, width)
+		var tiers: Array = _opening_candidates(length, x_axis if horizontal else y_axis)
 		var primary: Array = tiers[0] as Array
 		var fallback: Array = tiers[1] as Array
 		if primary.is_empty() and fallback.is_empty():
@@ -314,10 +412,14 @@ static func _connection_points(map: Variant, rng: Variant, district: Dictionary,
 
 
 # Where a road could leave, in two tiers: the centre of a street, because a road that continues a
-# street is a road; and, when the streets are used up, anywhere far enough from a corner. Both are
-# filtered by the annex reserve, which at gate size reaches the wall -- an opening there would be
-# a hole in the colony's own back fence.
-static func _opening_candidates(map: Variant, side: String, length: int, axis: Dictionary, width: int) -> Array:
+# street is a road; and, when the streets are used up, anywhere far enough from a corner.
+#
+# These used to be filtered by the annex reserve, which was a compile-time rect and at gate size
+# reached the wall. The colony is sited per seed now, two passes later, so this pass cannot know
+# where it will land -- and does not have to: the siting margin keeps the annex clear of the wall by
+# more than the run of pavement an opening lays inward, and the survivability pass is what says so
+# about the finished district rather than a filter here saying it about a guess.
+static func _opening_candidates(length: int, axis: Dictionary) -> Array:
 	var primary: Array = []
 	var fallback: Array = []
 	var seen: Dictionary = {}
@@ -326,13 +428,13 @@ static func _opening_candidates(map: Variant, side: String, length: int, axis: D
 		if seen.has(at):
 			continue
 		seen[at] = true
-		if _opening_fits(map, side, at, length, width):
+		if _opening_fits(at, length):
 			primary.append(at)
 	for at2 in range(OPENING_WIDTH, length - OPENING_WIDTH, OPENING_WIDTH + 2):
 		if seen.has(int(at2)):
 			continue
 		seen[int(at2)] = true
-		if _opening_fits(map, side, int(at2), length, width):
+		if _opening_fits(int(at2), length):
 			fallback.append(int(at2))
 	return [primary, fallback]
 
@@ -345,18 +447,9 @@ static func _apart_from(candidates: Array, at: int) -> Array:
 	return kept
 
 
-static func _opening_fits(map: Variant, side: String, at: int, length: int, width: int) -> bool:
+static func _opening_fits(at: int, length: int) -> bool:
 	var half: int = OPENING_WIDTH / 2
-	if at - half < 1 or at + half > length - 2:
-		return false
-	# The opening and the ground it runs onto must both be clear of the reserve, and the ground
-	# must be street: an opening onto somebody's back garden is not a road.
-	for step in range(0, width + 1):
-		for offset in range(-half, half + 1):
-			var tile: Vector2i = _opening_tile(map, side, at + offset, step)
-			if _in_reserve(tile.x, tile.y, RESERVE_MARGIN):
-				return false
-	return true
+	return at - half >= 1 and at + half <= length - 2
 
 
 # `step` counts inward from the wall: 0 is the wall itself, 1 the first tile inside it.
@@ -423,20 +516,138 @@ static func _split_axis(rng: Variant, start: int, length: int) -> Array:
 	return out
 
 
-# --- 4. the reserve -------------------------------------------------------------------------
+# --- 4. siting the colony -------------------------------------------------------------------
 
-static func _in_reserve(tx: int, ty: int, margin: int) -> bool:
-	return tx >= ANNEX_RESERVE.position.x - margin \
-			and ty >= ANNEX_RESERVE.position.y - margin \
-			and tx < ANNEX_RESERVE.position.x + ANNEX_RESERVE.size.x + margin \
-			and ty < ANNEX_RESERVE.position.y + ANNEX_RESERVE.size.y + margin
+# Where the annex could stand, best first. The rect this returns is both the stamp origin and the
+# ground passes 5 and 6 then hold clear, which is what the fixed `ANNEX_RESERVE` used to be -- the
+# difference is that it is a decision about this seed's lots rather than a constant two files
+# agreed on.
+#
+# A candidate is one lot's answer to "if the colony went here, where exactly": the annex centred on
+# the lot, then pulled back inside the legal band, which is the map minus the border margin minus
+# the clear ring. Lots are much smaller than the annex at both shipped sizes -- 12..24 tiles a side
+# against 26 -- so a candidate is a *position derived from* a lot rather than a lot the annex fits
+# inside, and several lots can pull back to the same position, which is why they are deduplicated.
+#
+# The ordering, and it is the whole of the ordering:
+#
+#   1. street frontage, most first -- the count of paved tiles in the ring around the rect. A
+#      colony on a junction is a colony you can leave in four directions, and it is what makes the
+#      gate open onto a road rather than onto the back of somebody's garden.
+#   2. centrality, nearest first -- Manhattan distance from the annex's centre to the district's.
+#      This is the director's constraint made into a preference: a colony pushed against a wall
+#      puts that wall's whole spawn band inside the 32 m gate exclusion and the side stops being an
+#      approach (see ANNEX_BORDER_FULL).
+#   3. the `worldgen.annex` stream, as a tie-break, so two equally good lots are not always the
+#      same one; and finally the candidate's own ordinal, so the comparator is a total order and
+#      the sort's instability cannot reach the result.
+#
+# Deterministic: parcels arrive as an Array in a fixed order, the draw happens once per distinct
+# candidate whether or not it survives the frontage filter, and nothing here iterates a Dictionary.
+static func annex_candidates(seed_val: int, map: Variant, parcels: Array, footprint: Vector2i) -> Array:
+	var out: Array = []
+	if footprint.x <= 0 or footprint.y <= 0:
+		return out
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var margin: int = annex_border(mini(w, h))
+	var lo := Vector2i(margin + RESERVE_MARGIN, margin + RESERVE_MARGIN)
+	var hi := Vector2i(w - margin - RESERVE_MARGIN - footprint.x, h - margin - RESERVE_MARGIN - footprint.y)
+	if hi.x < lo.x or hi.y < lo.y:
+		# No room for the colony and its ring both. The 16- and 32-tile fixture maps, which exist to
+		# boot a world rather than to be a district: they get no annex, no anchors, and
+		# `SimBoot.colony_start`'s literal fallback, which is exactly what they got before.
+		return out
+	var rng: Variant = _stream(seed_val, "annex")
+	var seen: Dictionary = {}
+	var scored: Array = []
+	var ordinal: int = 0
+	for parcel in parcels:
+		var lot: Rect2i = parcel as Rect2i
+		var origin := Vector2i(
+			clampi(lot.position.x + (lot.size.x - footprint.x) / 2, lo.x, hi.x),
+			clampi(lot.position.y + (lot.size.y - footprint.y) / 2, lo.y, hi.y),
+		)
+		var key: int = origin.y * w + origin.x
+		if seen.has(key):
+			continue
+		seen[key] = true
+		# Drawn before the frontage is looked at, so the number of draws depends on the lots alone
+		# and not on how much pavement any of them turned out to have.
+		var toss: int = int(rng.call("int_range", 0, 1 << 20))
+		var rect := Rect2i(origin, footprint)
+		var fronting: int = _street_frontage(map, rect)
+		ordinal += 1
+		if fronting <= 0:
+			continue
+		scored.append({
+			"rect": rect,
+			"fronting": fronting,
+			"centre": absi(2 * (origin.x + footprint.x / 2) - w) + absi(2 * (origin.y + footprint.y / 2) - h),
+			"toss": toss,
+			"at": ordinal,
+		})
+	scored.sort_custom(func(a, b) -> bool:
+		var x: Dictionary = a as Dictionary
+		var y: Dictionary = b as Dictionary
+		if int(x["fronting"]) != int(y["fronting"]):
+			return int(x["fronting"]) > int(y["fronting"])
+		if int(x["centre"]) != int(y["centre"]):
+			return int(x["centre"]) < int(y["centre"])
+		if int(x["toss"]) != int(y["toss"]):
+			return int(x["toss"]) < int(y["toss"])
+		return int(x["at"]) < int(y["at"])
+	)
+	for entry in scored:
+		out.append((entry as Dictionary)["rect"] as Rect2i)
+	return out
 
 
-static func _rect_in_reserve(rect: Rect2i, margin: int) -> bool:
-	return rect.position.x < ANNEX_RESERVE.position.x + ANNEX_RESERVE.size.x + margin \
-			and rect.position.x + rect.size.x > ANNEX_RESERVE.position.x - margin \
-			and rect.position.y < ANNEX_RESERVE.position.y + ANNEX_RESERVE.size.y + margin \
-			and rect.position.y + rect.size.y > ANNEX_RESERVE.position.y - margin
+# 24 at the shipped 256 and scaled to the map, the way `_fit_scale` scales the blocks -- with a
+# floor, because past a point the margin is wider than the map and every position is illegal.
+static func annex_border(size: int) -> int:
+	return maxi(ANNEX_BORDER_MIN, int(round(float(ANNEX_BORDER_FULL) * float(size) / float(SimTileMapRes.DISTRICT_TILES))))
+
+
+# Paved open ground in the one-tile ring around a rect: how much road this position fronts onto.
+static func _street_frontage(map: Variant, rect: Rect2i) -> int:
+	var n: int = 0
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	for tx in range(rect.position.x - 1, rect.position.x + rect.size.x + 1):
+		for ty in range(rect.position.y - 1, rect.position.y + rect.size.y + 1):
+			if tx >= rect.position.x and tx < rect.position.x + rect.size.x \
+					and ty >= rect.position.y and ty < rect.position.y + rect.size.y:
+				continue
+			if tx < 0 or ty < 0 or tx >= w or ty >= h:
+				continue
+			var idx: int = ty * w + tx
+			if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
+				continue
+			if int(map.surfaces[idx]) == SimTileMapRes.SURFACE_PAVED:
+				n += 1
+	return n
+
+
+# `reserve` is the sited annex, or a zero rect on a district that got none. Zero reserves nothing,
+# which is what "no colony here" has to mean -- a zero rect treated as a rect at the origin would
+# hold the map's own corner clear for a colony that is not there.
+static func _in_reserve(reserve: Rect2i, tx: int, ty: int, margin: int) -> bool:
+	if reserve.size.x <= 0 or reserve.size.y <= 0:
+		return false
+	return tx >= reserve.position.x - margin \
+			and ty >= reserve.position.y - margin \
+			and tx < reserve.position.x + reserve.size.x + margin \
+			and ty < reserve.position.y + reserve.size.y + margin
+
+
+static func _rect_in_reserve(reserve: Rect2i, rect: Rect2i, margin: int) -> bool:
+	if reserve.size.x <= 0 or reserve.size.y <= 0:
+		return false
+	return rect.position.x < reserve.position.x + reserve.size.x + margin \
+			and rect.position.x + rect.size.x > reserve.position.x - margin \
+			and rect.position.y < reserve.position.y + reserve.size.y + margin \
+			and rect.position.y + rect.size.y > reserve.position.y - margin
 
 
 # --- 5. the buildings -----------------------------------------------------------------------
@@ -447,7 +658,7 @@ static func _rect_in_reserve(rect: Rect2i, margin: int) -> bool:
 # Returns the manifest: what landed where, with its doors in absolute tiles. The dressing passes
 # read it (nothing solid is planted across a doorway) and check_m2_district.gd's enterability lane
 # cross-checks it against the map's own indoor regions, so a manifest that lied would fail.
-static func _buildings(map: Variant, seed_val: int, district: Dictionary, templates: Array, parcels: Array) -> Array:
+static func _buildings(map: Variant, seed_val: int, district: Dictionary, templates: Array, parcels: Array, reserve: Rect2i) -> Array:
 	var rng: Variant = _stream(seed_val, "buildings")
 	var density: float = clampf(float(district.get("density", 0.0)), 0.0, 1.0)
 	var pool: Array = district.get("pool", []) as Array
@@ -455,7 +666,7 @@ static func _buildings(map: Variant, seed_val: int, district: Dictionary, templa
 	var placed: Array = []
 	for parcel in parcels:
 		var lot: Rect2i = parcel as Rect2i
-		if _rect_in_reserve(lot, RESERVE_MARGIN):
+		if _rect_in_reserve(reserve, lot, RESERVE_MARGIN):
 			continue
 		if rng.call("next") >= density:
 			continue
@@ -554,7 +765,7 @@ static func _weighted(rng: Variant, weights: Array) -> int:
 #
 # Deterministic: Arrays iterated in order (the profile's entries, the placement manifest, the
 # candidate tiles), never a raw Dictionary's key order, and every draw off this pass's own stream.
-static func _sites(map: Variant, seed_val: int, district: Dictionary, templates: Array, placed: Array) -> void:
+static func _sites(map: Variant, seed_val: int, district: Dictionary, templates: Array, placed: Array, reserve: Rect2i) -> void:
 	var profile: Variant = district.get("lootProfile")
 	if not (profile is Dictionary):
 		# A district that declares no profile yields nothing the generator put there. Silent rather
@@ -597,7 +808,7 @@ static func _sites(map: Variant, seed_val: int, district: Dictionary, templates:
 		var hosts: Array = []
 		if bool(entry2.get("outdoors", false)):
 			if not outdoors_built:
-				outdoors = _driveway_tiles(map, placed)
+				outdoors = _driveway_tiles(map, placed, reserve)
 				outdoors_built = true
 		else:
 			hosts = _buildings_tagged(placed, tags_by_id, entry2.get("tags", []) as Array)
@@ -695,7 +906,7 @@ static func _interior_floors(map: Variant, building: Dictionary) -> Array:
 # kerb outside the shop. Not "anywhere outdoors": a car boot in the middle of a field is a car boot
 # nobody will ever walk past, and the district is mostly field. In placement order, deduplicated,
 # and clear of the colony's reserve.
-static func _driveway_tiles(map: Variant, placed: Array) -> Array:
+static func _driveway_tiles(map: Variant, placed: Array, reserve: Rect2i) -> Array:
 	var out: Array = []
 	var seen: Dictionary = {}
 	var w: int = int(map.w)
@@ -709,7 +920,7 @@ static func _driveway_tiles(map: Variant, placed: Array) -> Array:
 				if seen.has(idx):
 					continue
 				seen[idx] = true
-				if _in_reserve(tx, ty, RESERVE_MARGIN):
+				if _in_reserve(reserve, tx, ty, RESERVE_MARGIN):
 					continue
 				if int(map.indoors[idx]) == 1:
 					continue
@@ -747,7 +958,7 @@ static func _buildings_tagged(placed: Array, tags_by_id: Dictionary, wanted: Arr
 # door would make a building unenterable, which is the one property the sandbox goal asks this
 # generator for -- and a tree grown over a car boot would be loot inside a solid tile, which is
 # what makes the sites layout rather than dressing.
-static func _protected_tiles(map: Variant) -> Dictionary:
+static func _protected_tiles(map: Variant, reserve: Rect2i) -> Dictionary:
 	var out: Dictionary = {}
 	for site in map.sites as Array:
 		var s: Dictionary = site as Dictionary
@@ -762,16 +973,232 @@ static func _protected_tiles(map: Variant) -> Dictionary:
 					if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
 						continue
 					out[ty * int(map.w) + tx] = true
+	if reserve.size.x <= 0 or reserve.size.y <= 0:
+		return out
 	var margin: int = RESERVE_MARGIN + 1
-	for ty in range(ANNEX_RESERVE.position.y - margin, ANNEX_RESERVE.position.y + ANNEX_RESERVE.size.y + margin):
-		for tx in range(ANNEX_RESERVE.position.x - margin, ANNEX_RESERVE.position.x + ANNEX_RESERVE.size.x + margin):
+	for ty in range(reserve.position.y - margin, reserve.position.y + reserve.size.y + margin):
+		for tx in range(reserve.position.x - margin, reserve.position.x + reserve.size.x + margin):
 			if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
 				continue
 			out[ty * int(map.w) + tx] = true
 	return out
 
 
-# --- 7. occluder dressing -------------------------------------------------------------------
+# --- 7. survivability -------------------------------------------------------------------------
+
+# docs/01's fairness rule, made mechanical: "No unwinnable starts: generated starting positions are
+# validated for basic survivability." A pure function of the finished map -- no draws, no world, no
+# writes -- so the generator can ask it of a candidate and a gate can ask it of a map somebody
+# sabotaged, and both get the same answer for the same reason.
+#
+# It reads the map through `SimPath.walkable_tile`, which is `SimPath.walkable` with the world taken
+# out: the routes it judges are the routes the survivors' own pathfinder will accept, rather than a
+# second opinion about what counts as ground. A flood fill rather than repeated A*, because the
+# question is reachability and not the route -- and because A* carries a 4096-node guard that a
+# 256 m district would hit honestly.
+#
+# The clauses, and what each one is protecting against:
+#
+#   player-start     -- the tile the player boots onto is open floor. A start inside masonry is
+#                       `find_open_tile` walking somebody out of their own colony.
+#   gates-open       -- both gate tiles are open floor. A colony you cannot leave.
+#   gates-reachable  -- a road that leaves the district reaches the gate over walkable ground, so
+#                       the colony is on the district's own network rather than behind it. A
+#                       district whose wall has no opening in it has no road to be reached from, so
+#                       this clause **skips** and says so rather than failing a district for a road
+#                       it never declared -- the fixture districts that declare no connection
+#                       points are exactly that, and a clause with no data to judge that quietly
+#                       returned true would be worse than one that failed.
+#   stations-room    -- STATION_TILES of indoor floor inside the annex, which is what
+#                       `SimBoot.place_stations` needs for a fire and two beds.
+#   well-open        -- the well anchor is open ground, or nobody can draw water.
+#   loot-reachable   -- every table the district actually placed has at least one site a walk from
+#                       the gate can get to. A medical store sealed behind a wall is a table the
+#                       campaign is balanced around and the player can never open.
+#
+# Returned as a report rather than a bool so a gate can assert one clause at a time and name the one
+# that failed. `sited` false is a district that got no colony -- the fixture maps too small to hold
+# one -- and it says so and judges nothing rather than passing a district it never looked at. A
+# clause can also come back `skipped`, which is the same discipline one clause down: it had nothing
+# to judge, it says so, and a caller that wants a district fully judged asks for that rather than
+# reading `ok` and assuming.
+static func survivability_report(map: Variant) -> Dictionary:
+	var clauses: Array = []
+	var annex: Rect2i = SimTileMapRes.annex_rect(map)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return {"ok": true, "sited": false, "annex": annex, "clauses": clauses, "failed": []}
+
+	var start: Vector2i = SimTileMapRes.player_start(map)
+	var gate_a: Vector2i = SimTileMapRes.gate_a(map)
+	var gate_b: Vector2i = SimTileMapRes.gate_b(map)
+	var well: Vector2i = SimTileMapRes.well_tile(map)
+
+	clauses.append(_clause("player-start", _open_floor(map, start), "the boot tile is %s" % str(start)))
+
+	var gates_open: bool = _open_floor(map, gate_a) and _open_floor(map, gate_b)
+	clauses.append(_clause("gates-open", gates_open, "the gate is %s..%s" % [str(gate_a), str(gate_b)]))
+
+	# One fill, from the gates outward, answers both reachability clauses: a road that reaches the
+	# gate and a cupboard the gate reaches are the same connected component walked from the same
+	# source. Empty when the gates are bricked, which is why those two clauses fail together and
+	# say which one caused it.
+	var reached: PackedByteArray = _walk_from(map, [gate_a, gate_b])
+	var w: int = int(map.w)
+	var roads: Array = _connection_tiles(map)
+	var joined: int = 0
+	for tile in roads:
+		var t: Vector2i = tile as Vector2i
+		if reached[t.y * w + t.x] == 1:
+			joined += 1
+	if roads.is_empty():
+		clauses.append(_skipped("gates-reachable", "the district wall carries no opening, so there is no road for the gate to be reachable from"))
+	else:
+		clauses.append(_clause("gates-reachable", joined > 0, "%d of %d roads out of the district reach the gate" % [joined, roads.size()]))
+
+	var floors: int = 0
+	for ty in range(annex.position.y, annex.position.y + annex.size.y):
+		for tx in range(annex.position.x, annex.position.x + annex.size.x):
+			if not SimTileMapRes.is_indoors(map, tx, ty):
+				continue
+			if SimTileMapRes.tile_at(map, tx, ty) != SimTileMapRes.Tile.Floor:
+				continue
+			if SimTileMapRes.is_solid(map, tx, ty):
+				continue
+			floors += 1
+	clauses.append(_clause("stations-room", floors >= STATION_TILES, "%d indoor floor tiles inside %s, %d wanted" % [floors, str(annex), STATION_TILES]))
+
+	var well_ok: bool = well.x > 0 and well.y > 0 and well.x < w - 1 and well.y < int(map.h) - 1 \
+			and not SimTileMapRes.is_solid(map, well.x, well.y)
+	clauses.append(_clause("well-open", well_ok, "the well is %s" % str(well)))
+
+	# An Array of records rather than a Dictionary keyed by table: the order a table is first seen is
+	# the order this reports in, and a Dictionary's key order is not something to build a report on.
+	var tables: Array = []
+	for site in map.sites as Array:
+		var s: Dictionary = site as Dictionary
+		var table: String = String(s.get("table", ""))
+		var at: int = -1
+		for i in tables.size():
+			if String((tables[i] as Dictionary)["table"]) == table:
+				at = i
+				break
+		if at < 0:
+			tables.append({"table": table, "sites": 0, "reached": 0})
+			at = tables.size() - 1
+		var record: Dictionary = tables[at] as Dictionary
+		record["sites"] = int(record["sites"]) + 1
+		var tx2: int = int(s.get("x", -1))
+		var ty2: int = int(s.get("y", -1))
+		if tx2 >= 0 and ty2 >= 0 and tx2 < w and ty2 < int(map.h) and reached[ty2 * w + tx2] == 1:
+			record["reached"] = int(record["reached"]) + 1
+	var stranded: Array = []
+	for record2 in tables:
+		if int((record2 as Dictionary)["reached"]) < 1:
+			stranded.append(String((record2 as Dictionary)["table"]))
+	if tables.is_empty():
+		clauses.append(_skipped("loot-reachable", "the district placed no loot at all, so there is no table to be out of reach"))
+	else:
+		clauses.append(_clause("loot-reachable", stranded.is_empty(), "%d tables placed, %s out of reach" % [
+			tables.size(), "none" if stranded.is_empty() else str(stranded),
+		]))
+
+	var failed: Array = []
+	for clause in clauses:
+		if not bool((clause as Dictionary)["ok"]):
+			failed.append(String((clause as Dictionary)["name"]))
+	return {"ok": failed.is_empty(), "sited": true, "annex": annex, "clauses": clauses, "failed": failed}
+
+
+# One clause of a report, by name, or {} -- so a gate asserts the clause it means rather than an
+# index into a list whose order it would then depend on.
+static func clause_of(report: Dictionary, name: String) -> Dictionary:
+	for clause in report.get("clauses", []) as Array:
+		if String((clause as Dictionary).get("name", "")) == name:
+			return clause as Dictionary
+	return {}
+
+
+static func _clause(name: String, ok: bool, said: String) -> Dictionary:
+	return {"name": name, "ok": ok, "skipped": false, "said": said}
+
+
+# A clause with nothing to judge. `ok` is true because there is no failure here to report, and
+# `skipped` is what stops that reading as a pass -- a district the generator is entitled to ship is
+# not the same thing as a district that answered the question.
+static func _skipped(name: String, said: String) -> Dictionary:
+	return {"name": name, "ok": true, "skipped": true, "said": said}
+
+
+static func _open_floor(map: Variant, tile: Vector2i) -> bool:
+	if tile.x < 0 or tile.y < 0 or tile.x >= int(map.w) or tile.y >= int(map.h):
+		return false
+	if SimTileMapRes.tile_at(map, tile.x, tile.y) != SimTileMapRes.Tile.Floor:
+		return false
+	return not SimTileMapRes.is_solid(map, tile.x, tile.y)
+
+
+# The tile inside each opening in the district wall: where a road that leaves arrives back. Read off
+# the tiles rather than off what `_connection_points` recorded, because an opening the generator
+# meant to carve and did not is exactly the failure this is looking for.
+static func _connection_tiles(map: Variant) -> Array:
+	var out: Array = []
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	for x in range(1, w - 1):
+		if SimTileMapRes.tile_at(map, x, 0) == SimTileMapRes.Tile.Floor:
+			out.append(Vector2i(x, 1))
+		if SimTileMapRes.tile_at(map, x, h - 1) == SimTileMapRes.Tile.Floor:
+			out.append(Vector2i(x, h - 2))
+	for y in range(1, h - 1):
+		if SimTileMapRes.tile_at(map, 0, y) == SimTileMapRes.Tile.Floor:
+			out.append(Vector2i(1, y))
+		if SimTileMapRes.tile_at(map, w - 1, y) == SimTileMapRes.Tile.Floor:
+			out.append(Vector2i(w - 2, y))
+	return out
+
+
+# Four-connected flood fill over ground `SimPath.walkable_tile` accepts, from every source at once.
+#
+# The footing is answered once per tile into a mask and the walk then reads the mask, rather than
+# asking `walkable_tile` again at every edge into a tile: a four-connected fill reaches most tiles
+# from more than one neighbour, and this pass runs twice per generated district at a size where
+# `is_solid` is a Dictionary lookup per call. One pass over the map, one queue, and the district is
+# judged in a fixed cost the seed cannot move.
+static func _walk_from(map: Variant, sources: Array) -> PackedByteArray:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var footing: PackedByteArray = PackedByteArray()
+	footing.resize(w * h)
+	for y in h:
+		for x in w:
+			if SimPathRes.walkable_tile(map, x, y):
+				footing[y * w + x] = 1
+	var seen: PackedByteArray = PackedByteArray()
+	seen.resize(w * h)
+	var queue: Array[Vector2i] = []
+	for source in sources:
+		var s: Vector2i = source as Vector2i
+		if s.x < 0 or s.y < 0 or s.x >= w or s.y >= h:
+			continue
+		if seen[s.y * w + s.x] == 1 or footing[s.y * w + s.x] == 0:
+			continue
+		seen[s.y * w + s.x] = 1
+		queue.append(s)
+	while not queue.is_empty():
+		var at: Vector2i = queue.pop_back()
+		for step in SimPathRes.DIRS:
+			var next: Vector2i = at + (step as Vector2i)
+			if next.x < 0 or next.y < 0 or next.x >= w or next.y >= h:
+				continue
+			var idx: int = next.y * w + next.x
+			if seen[idx] == 1 or footing[idx] == 0:
+				continue
+			seen[idx] = 1
+			queue.append(next)
+	return seen
+
+
+# --- 8. occluder dressing -------------------------------------------------------------------
 
 # Adapted from the old `SimTileMap._dress_occluders`, on its own named stream. Same three ideas:
 # a wall with open ground on both sides is a wall you can put a window in; screening clumps break
@@ -825,7 +1252,7 @@ static func _dress_tile(map: Variant, tx: int, ty: int, tile: int, protected: Di
 	return true
 
 
-# --- 8. terrain dressing --------------------------------------------------------------------
+# --- 9. terrain dressing --------------------------------------------------------------------
 
 # The old pass, rewritten around the block list instead of a hardcoded block=64 lattice: lawns
 # inside a block, a stand or two of trees, thickets of undergrowth, and the trodden dirt where a
