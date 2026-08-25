@@ -17,12 +17,30 @@ static func walkable(world: Variant, tx: int, ty: int) -> bool:
 	var map: Variant = world.tilemap
 	if map == null:
 		return not world.is_blocked_tile(tx, ty)
-	var tile: int = SimTileMap.tile_at(map, tx, ty)
-	if tile == SimTileMap.Tile.Floor:
+	return _footing(map, tx, ty)
+
+
+# The same question with the world taken out: what a survivor could put a foot on, read off a map
+# nobody has booted. `world.is_blocked_tile` is `SimTileMap.is_solid` over an adopted map (see
+# `World.adopt_map`), so the two answers agree tile for tile -- which is the point, because the
+# worldgen survivability pass judges routes before a world exists and must judge the routes this
+# pathfinder will actually accept rather than a second opinion about what counts as ground.
+static func walkable_tile(map: Variant, tx: int, ty: int) -> bool:
+	if map == null:
+		return false
+	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return false
+	if SimTileMap.is_solid(map, tx, ty):
+		return false
+	return _footing(map, tx, ty)
+
+
+# Open floor, or anything paved: a wreck in the road is cover you walk round the side of, and the
+# pavement under it is still pavement. Undergrowth is not, which is what makes a thicket a barrier.
+static func _footing(map: Variant, tx: int, ty: int) -> bool:
+	if SimTileMap.tile_at(map, tx, ty) == SimTileMap.Tile.Floor:
 		return true
-	if int(map.surfaces[ty * int(map.w) + tx]) == SimTileMap.SURFACE_PAVED:
-		return true
-	return false
+	return int(map.surfaces[ty * int(map.w) + tx]) == SimTileMap.SURFACE_PAVED
 
 
 static func find(world: Variant, from: Vector2i, to: Vector2i) -> Array[Vector2i]:

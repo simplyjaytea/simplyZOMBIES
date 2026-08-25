@@ -6,6 +6,9 @@ extends RefCounted
 
 const SimRosterRes = preload("res://sim/modules/roster.gd")
 const SimInfectionRes = preload("res://sim/modules/infection.gd")
+# `is_person`, shared with shambler.gd and screamer.gd. A bloater's plume gets into any open
+# wound in reach of it, and a raider standing in one has open wounds like anybody else.
+const SimAllegiance = preload("res://sim/modules/allegiance.gd")
 
 const SCENT_BURST: float = 30.0
 const FLAG_RADIUS: float = 6.0
@@ -56,7 +59,7 @@ static func register_module(world: Variant) -> void:
 		if flags.is_empty():
 			return
 		for survivor in w.components.query(["position"]):
-			if not (w.components.has_component(int(survivor), "controlled") or w.components.has_component(int(survivor), "identity")):
+			if not SimAllegiance.is_person(w, int(survivor)):
 				continue
 			if not _has_open_wound(w, int(survivor)):
 				continue

@@ -12,9 +12,14 @@ extends SceneTree
 
 const TopDownProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
+const Palette = preload("res://presentation/palette.gd")
+const Appearance = preload("res://presentation/appearance.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimSurface = preload("res://sim/map/surface.gd")
 
 const ZOOMS: Array[float] = [16.0, 32.0, 64.0, 128.0]
 const EPS: float = 0.000001
+const MAIN_GD: String = "res://presentation/main.gd"
 
 func _init() -> void:
 	call_deferred("_run")
@@ -25,8 +30,9 @@ func _run() -> void:
 	ok = _round_trip_is_exact() and ok
 	ok = _depth_is_y_alone() and ok
 	ok = _visible_bounds_is_the_camera_aabb() and ok
+	ok = _the_ground_reaches_the_draw_path() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -77,6 +83,97 @@ func _depth_is_y_alone() -> bool:
 		push_error("depth must increase with y")
 		return false
 	return true
+
+# The ground layer, docs/24: `map.surfaces` is a second array over the same grid, and the
+# draw loop tints each tile with what is *under* it before drawing what is *in* it. The whole
+# array existed and drew nothing until this slice, so the assertions are about reach, not maths:
+# distinct surfaces resolve distinct colours, the colours come out of the map rather than out of
+# the tile type, and `_draw_district` is the thing that asks.
+#
+# Paved-is-the-floor-colour is the true negative. A ground layer that repainted the street would
+# have "worked" on every other assertion here while changing every district that ships; pinning
+# paved to the colour the floor already was is what says the change is additive.
+func _the_ground_reaches_the_draw_path() -> bool:
+	# Every surface the sim can name must have a colour. Add a sixth to the enum and forget the
+	# palette and this is what says so, rather than an out-of-range read at draw time.
+	if Palette.SURFACE_TINTS.size() != SimSurface.SPEED.size():
+		push_error("%d surface tints for %d surfaces the sim can produce" % [Palette.SURFACE_TINTS.size(), SimSurface.SPEED.size()])
+		return false
+
+	if Palette.SURFACE_TINTS[SimSurface.Surface.Paved] != Palette.COLOURS["floor"]:
+		push_error("paved must stay the floor colour the district already drew, got %s" % str(Palette.SURFACE_TINTS[SimSurface.Surface.Paved]))
+		return false
+
+	var seen: Array[Color] = []
+	for s in Palette.SURFACE_TINTS.size():
+		var tint: Color = Palette.SURFACE_TINTS[s]
+		if seen.has(tint):
+			push_error("surface %d reuses tint %s -- two surfaces you cannot tell apart are one surface" % [s, str(tint)])
+			return false
+		seen.append(tint)
+
+	# Through a real map, because a table lookup proves nothing about whether the *array* is
+	# read: one tile of each surface, in a map whose tiles are all Floor, and the colour has to
+	# follow the surfaces array and not the tile.
+	var map: Variant = SimTileMap.blank_map(8, 8)
+	var surfaces := PackedByteArray()
+	surfaces.resize(8 * 8)
+	# Whole-array assignment, not `map.surfaces[i] = v` in a loop: a packed array read out of a
+	# property is a value, and CLAUDE.md's first trap is what happens when you forget that.
+	for s2 in Palette.SURFACE_TINTS.size():
+		surfaces[3 * 8 + s2] = s2
+	map.surfaces = surfaces
+	for s3 in Palette.SURFACE_TINTS.size():
+		var got: Color = Appearance.ground_colour(map, s3, 3)
+		if got != Palette.SURFACE_TINTS[s3]:
+			push_error("tile (%d,3) is surface %d; the draw path resolved %s, not %s" % [s3, s3, str(got), str(Palette.SURFACE_TINTS[s3])])
+			return false
+	# A tile nobody wrote is paved, and so is anywhere off the map -- the same answer the sim
+	# gives a body standing off the edge, rather than a hole or a crash.
+	if Appearance.ground_colour(map, 7, 7) != Palette.COLOURS["floor"]:
+		push_error("an unwritten tile must read as paved")
+		return false
+	if Appearance.ground_colour(map, -1, 400) != Palette.COLOURS["floor"]:
+		push_error("off the map must read as paved, the way SimSurface.surface_at answers")
+		return false
+	if Appearance.ground_colour(null, 0, 0) != Palette.COLOURS["floor"]:
+		push_error("a world with no tilemap must still draw a floor")
+		return false
+
+	# The dead-socket assertion. Everything above is true of a resolver nothing calls, which is
+	# exactly the state `SimSurface.speed_on` was in before this slice, so the last thing to
+	# prove is that the district's draw loop is the one asking.
+	var body: String = _function_body(MAIN_GD, "_draw_district")
+	if body.is_empty():
+		push_error("could not read _draw_district out of %s -- the reach assertion had nothing to judge" % MAIN_GD)
+		return false
+	if not body.contains("Appearance.ground_colour("):
+		push_error("_draw_district does not call Appearance.ground_colour: the surface array resolves a colour nothing draws")
+		return false
+	print("GROUND OK %d surfaces, distinct tints, paved still #%s, resolved off map.surfaces and read by _draw_district" % [Palette.SURFACE_TINTS.size(), (Palette.COLOURS["floor"] as Color).to_html(false)])
+	return true
+
+
+# The source text of one function, from its `func` line to the next top-level `func`. Used for
+# the reach assertion above: `_draw_district` cannot be called headless (it is a CanvasItem draw
+# pass), so what it calls is read rather than exercised.
+func _function_body(path: String, name: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var lines: PackedStringArray = f.get_as_text().split("\n")
+	var out: String = ""
+	var inside: bool = false
+	for line in lines:
+		if line.begins_with("func %s(" % name):
+			inside = true
+			continue
+		if inside and line.begins_with("func "):
+			break
+		if inside:
+			out += line + "\n"
+	return out
+
 
 func _visible_bounds_is_the_camera_aabb() -> bool:
 	for zoom in ZOOMS:

@@ -33,6 +33,30 @@ func _run() -> void:
 func _world() -> Variant:
 	return SimBoot.playable(20260805, 64)["world"]
 
+# Where the colony is comes off the booted district's anchors, not out of this file. Every
+# coordinate below used to be a literal twin of `SimDirector.ANNEX` or of boot's start tile, and
+# they are gone -- so these two say the same thing the sim says, and follow it if it moves.
+func _start(w: Variant) -> Vector2i:
+	return SimTileMap.player_start(w.tilemap)
+
+func _annex(w: Variant) -> Rect2i:
+	return SimTileMap.annex_rect(w.tilemap)
+
+# The first stockpile tile in the annex, scanned the way the callers below need it. `outer_break`
+# is the difference between "the nearest one" and "the first one on the last row that has any",
+# which is what these two loops each already did.
+func _first_stockpile(w: Variant, fallback: Vector2i, outer_break: bool) -> Vector2i:
+	var annex: Rect2i = _annex(w)
+	var drop: Vector2i = fallback
+	for j in range(annex.position.y, annex.position.y + annex.size.y):
+		for i in range(annex.position.x, annex.position.x + annex.size.x):
+			if SimNeeds.is_stockpile_tile(w, i, j):
+				drop = Vector2i(i, j)
+				break
+		if outer_break and drop != fallback:
+			break
+	return drop
+
 func _mara(w: Variant) -> int:
 	for e in w.components.query(["identity"]):
 		var ident: Variant = w.components.get_component(int(e), "identity")
@@ -49,19 +73,15 @@ func _astar() -> bool:
 		return false
 	var bp: Variant = w.components.get_component(beds[0], "position")
 	var fp: Variant = w.components.get_component(fires[0], "position")
-	var from := Vector2i(46, 45)
+	var from: Vector2i = _start(w)
+	if from.x < 0:
+		push_error("the booted district names no player start")
+		return false
 	var to_bed := Vector2i(floori(float((bp as Dictionary)["x"])), floori(float((bp as Dictionary)["y"])))
 	var to_fire := Vector2i(floori(float((fp as Dictionary)["x"])), floori(float((fp as Dictionary)["y"])))
 	var p1: Array[Vector2i] = SimPath.find(w, from, to_bed)
 	var p2: Array[Vector2i] = SimPath.find(w, from, to_fire)
-	var drop: Vector2i = Vector2i(-1, -1)
-	for j in range(40, 60):
-		for i in range(40, 62):
-			if SimNeeds.is_stockpile_tile(w, i, j):
-				drop = Vector2i(i, j)
-				break
-		if drop.x >= 0:
-			break
+	var drop: Vector2i = _first_stockpile(w, Vector2i(-1, -1), true)
 	var p3: Array[Vector2i] = SimPath.find(w, from, drop)
 	if p1.is_empty() and from != to_bed:
 		push_error("no path to bed")
@@ -110,31 +130,77 @@ func _focus() -> bool:
 	print("FOCUS OK auto medic grid")
 	return true
 
+# The nearest loose item that is not already stockpiled and is not a body, by the same rule
+# `SimJobs._haul_work` sorts on. A second copy of the rule rather than a call into it, so the lane
+# above is comparing the job's answer against the question rather than against itself.
+func _nearest_loose_item(w: Variant, sx: float, sy: float) -> int:
+	var best: int = -1
+	var best_d: float = 1e12
+	for item in SimInventory.ground_items(w):
+		var p: Variant = w.components.get_component(int(item), "position")
+		if not (p is Dictionary):
+			continue
+		var at: Dictionary = p as Dictionary
+		if SimNeeds.is_stockpile_tile(w, floori(float(at["x"])), floori(float(at["y"]))):
+			continue
+		if w.components.has_component(int(item), "corpse"):
+			continue
+		var dx: float = float(at["x"]) - sx
+		var dy: float = float(at["y"]) - sy
+		if dx * dx + dy * dy < best_d:
+			best_d = dx * dx + dy * dy
+			best = int(item)
+	return best
+
+
 func _jobs() -> bool:
 	var w: Variant = _world()
 	var mara: int = _mara(w)
-	# Haul: item outside annex
+	var start: Vector2i = _start(w)
+	# The tile corner, exactly as the literal 46.0/45.0 pair was: these feed distance sorts, and
+	# nudging them half a tile could reorder two near-equal candidates.
+	var sx: float = float(start.x)
+	var sy: float = float(start.y)
+	# Haul, in two halves, because a booted district now has loot lying about in it: the sites are
+	# drawn per seed from the district's `lootProfile` where the annex's map entry used to hand-place
+	# seven rows, five of which fell outside a 64-tile map entirely -- so "the only loose item in the
+	# world" is an assumption this lane can no longer make, and used to make silently.
+	#
+	# First half: the promise the job actually makes, judged against whatever the boot scattered --
+	# the nearest loose thing that is not already on the stockpile.
+	var loose: int = _nearest_loose_item(w, sx, sy)
+	if loose < 0:
+		push_error("the booted district left nothing loose outside the stockpile, so the haul sort judged nothing")
+		return false
+	var nearest: Dictionary = SimJobs._haul_work(w, sx, sy)
+	if nearest.is_empty() or int(nearest.get("target", -1)) != loose:
+		push_error("haul work %s did not target the nearest loose item, %d" % [str(nearest), loose])
+		return false
+	# Second half, and the true positive: with the boot's loot cleared away, a single new item
+	# outside the annex is what the job has to find. `world.despawn` rather than
+	# `entities.despawn` -- the latter leaves every component in place, so the items would still be
+	# lying on the ground as far as any query is concerned.
+	for lying in SimInventory.ground_items(w):
+		w.despawn(int(lying))
+	if _nearest_loose_item(w, sx, sy) >= 0:
+		push_error("clearing the boot's loose loot left something behind")
+		return false
 	var item: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
 	w.components.set_component(item, "position", {"x": 20.5, "y": 20.5})
-	var haul: Dictionary = SimJobs._haul_work(w, 46.0, 45.0)
+	var haul: Dictionary = SimJobs._haul_work(w, sx, sy)
 	if haul.is_empty() or int(haul.get("target", -1)) != item:
 		push_error("haul work %s" % str(haul))
 		return false
 	# Cook
 	var raw: int = SimItems.spawn_item(w, "item.food.raw", {"tier": "scavenged"})
-	var drop: Vector2i = Vector2i(46, 45)
-	for j in range(40, 60):
-		for i in range(40, 62):
-			if SimNeeds.is_stockpile_tile(w, i, j):
-				drop = Vector2i(i, j)
-				break
+	var drop: Vector2i = _first_stockpile(w, start, false)
 	w.components.set_component(raw, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
 	var cook: Dictionary = SimJobs._cook_work(w)
 	if cook.is_empty():
 		push_error("cook work empty")
 		return false
 	# Construct window
-	var con: Dictionary = SimJobs._construct_work(w, 46.0, 45.0)
+	var con: Dictionary = SimJobs._construct_work(w, sx, sy)
 	if con.is_empty() or String(con.get("verb", "")) != "window":
 		push_error("construct %s" % str(con))
 		return false
@@ -184,7 +250,7 @@ func _corpse_haul() -> bool:
 		push_error("corpse position still set while carrying")
 		return false
 	# Carrying branch must walk to dump, not stockpile. Place at dump and finish.
-	var dump: Vector2i = SimJobs._corpse_dump()
+	var dump: Vector2i = SimJobs._corpse_dump(w)
 	w.components.set_component(w.player, "position", {"x": float(dump.x) + 0.5, "y": float(dump.y) + 0.5})
 	w.components.set_component(w.player, "job", job)
 	SimJobs._advance_job(w, w.player, job)
@@ -280,16 +346,10 @@ func _water_clean_bury() -> bool:
 	var well_tile := Vector2i(floori(float((wp as Dictionary)["x"])), floori(float((wp as Dictionary)["y"])))
 	# Water: empty bottle → fill at well
 	var bottle: int = SimItems.spawn_item(w, "item.water.bottle.empty", {"tier": "scavenged"})
-	var drop := Vector2i(46, 45)
-	for j in range(40, 60):
-		for i in range(40, 62):
-			if SimNeeds.is_stockpile_tile(w, i, j):
-				drop = Vector2i(i, j)
-				break
-		if drop != Vector2i(46, 45):
-			break
+	var start: Vector2i = _start(w)
+	var drop: Vector2i = _first_stockpile(w, start, true)
 	w.components.set_component(bottle, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
-	var water: Dictionary = SimJobs._water_work(w, mara, 46.0, 45.0)
+	var water: Dictionary = SimJobs._water_work(w, mara, float(start.x), float(start.y))
 	if water.is_empty() or int(water.get("target", -1)) != bottle:
 		push_error("water work %s" % str(water))
 		return false
@@ -321,7 +381,8 @@ func _water_clean_bury() -> bool:
 	var w2: Variant = _world()
 	var m2: int = _mara(w2)
 	SimHealth.finish_death(w2, m2)
-	var bury: Dictionary = SimJobs._bury_work(w2, 46.0, 45.0)
+	var start2: Vector2i = _start(w2)
+	var bury: Dictionary = SimJobs._bury_work(w2, float(start2.x), float(start2.y))
 	if bury.is_empty() or int(bury.get("target", -1)) != m2:
 		push_error("bury work %s" % str(bury))
 		return false
@@ -333,7 +394,7 @@ func _water_clean_bury() -> bool:
 	if not bool(bury.get("carrying", false)):
 		push_error("bury not carrying")
 		return false
-	var dump: Vector2i = SimJobs._corpse_dump()
+	var dump: Vector2i = SimJobs._corpse_dump(w2)
 	w2.components.set_component(w2.player, "position", {"x": float(dump.x) + 0.5, "y": float(dump.y) + 0.5})
 	bury["ticksLeft"] = 1
 	w2.components.set_component(w2.player, "job", bury)

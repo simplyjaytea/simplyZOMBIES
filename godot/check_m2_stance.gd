@@ -19,6 +19,7 @@ const SimStances = preload("res://sim/stances.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimSurface = preload("res://sim/map/surface.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimCombat = preload("res://sim/combat.gd")
 
@@ -33,9 +34,10 @@ func _run() -> void:
 	ok = _zero_stamina_refuses_sprint_full_grants_it() and ok
 	ok = _sprint_demotes_when_stamina_hits_zero() and ok
 	ok = _sprint_louder_than_crouch_same_distance() and ok
+	ok = _the_ground_multiplies_the_rung() and ok
 	ok = _deterministic_replay() and ok
 	if ok:
-		print("M2_STANCE_OK ladder sim-owned, stamina drains and regenerates, zero-stamina gated")
+		print("M2_STANCE_OK ladder sim-owned, stamina drains and regenerates, zero-stamina gated, the ground multiplies the rung")
 		quit(0)
 	else:
 		push_error("M2_STANCE_FAIL")
@@ -259,6 +261,94 @@ func _drive_and_sum_noise(stance: int, distance: float) -> float:
 			if String(ev.get("type", "")) == "noise.emitted" and int(ev.get("source", -1)) == int(w.player):
 				noise += float(ev["magnitude"])
 	return noise
+
+
+# The ground under the body is the third multiplier on a step, beside the rung and the
+# move_speed modifiers -- docs/24's surface table, x1.0 paved down to x0.6 through undergrowth.
+# `SimSurface.speed_on` was authored, tabled and read by nothing until this slice, which is the
+# dead-socket shape CLAUDE.md keeps paying for.
+#
+# So this asserts the *effect*, not the mechanism: two survivors walk the same heading for the
+# same ticks and the one in the brambles covers less ground. docs/30 records exactly why -- the
+# encumbrance bug passed a test that asserted `resolve("move_speed")` came back lower while the
+# survivor walked at an unchanged pace, and "a test that asserts the mechanism instead of the
+# effect will pass through the effect being absent".
+#
+# Two true negatives, and they are the point of the lane rather than decoration:
+#   * paved covers exactly WALK_SPEED x SPEED_FACTOR x TICK_SECONDS x ticks, the arithmetic
+#     from before the wiring existed -- so this cannot pass on a build that slowed everybody.
+#   * a world that never adopted a TileMap (every R1 parity fixture) covers the same ground as
+#     paved, which is what keeps the frozen fixture frozen.
+# And the ratio is compared against `SimSurface.speed_on` itself rather than against 0.6, so a
+# hand-written multiplier in world.gd that happened to match the table would still fail the day
+# the table moved.
+func _the_ground_multiplies_the_rung() -> bool:
+	var ticks: int = 60
+	var stance: int = SimStances.Stance.Walk
+	var baseline: float = World.WALK_SPEED * SimStances.SPEED_FACTOR[stance] * World.TICK_SECONDS * float(ticks)
+	var paved: float = _walk_and_measure(SimTileMap.SURFACE_PAVED, stance, ticks)
+	var bare: float = _walk_and_measure(-1, stance, ticks)
+
+	if absf(paved - baseline) > 0.000001:
+		push_error("paved is not the old speed: covered %.6f m over %d ticks, the pre-surface arithmetic says %.6f" % [paved, ticks, baseline])
+		return false
+	if absf(bare - baseline) > 0.000001:
+		push_error("a world with no tilemap must walk at the old speed: covered %.6f m, expected %.6f" % [bare, baseline])
+		return false
+
+	# Every surface the table names, not just the two the roadmap bullet mentions: a boolean
+	# "is this rough ground" would pass a paved/undergrowth pair and fail here.
+	for surface in [SimSurface.Surface.Dirt, SimSurface.Surface.Grass, SimSurface.Surface.Undergrowth, SimSurface.Surface.Rubble]:
+		var covered: float = _walk_and_measure(int(surface), stance, ticks)
+		if covered >= paved:
+			push_error("surface %d covered %.6f m, no less than paved's %.6f" % [int(surface), covered, paved])
+			return false
+		var want: float = baseline * SimSurface.speed_on(int(surface))
+		if absf(covered - want) > 0.000001:
+			push_error("surface %d covered %.6f m; SimSurface.speed_on says %.4f, so %.6f" % [int(surface), covered, SimSurface.speed_on(int(surface)), want])
+			return false
+
+	# The ground multiplies the rung rather than replacing it: a jog through undergrowth is
+	# still faster than a crouch on tarmac, and both still answer to their own rung.
+	var jog_rough: float = _walk_and_measure(SimSurface.Surface.Undergrowth, SimStances.Stance.Jog, ticks)
+	var crouch_paved: float = _walk_and_measure(SimSurface.Surface.Paved, SimStances.Stance.Crouch, ticks)
+	if jog_rough <= crouch_paved:
+		push_error("the ground replaced the rung: jog through undergrowth %.6f m <= crouch on tarmac %.6f m" % [jog_rough, crouch_paved])
+		return false
+
+	var undergrowth: float = _walk_and_measure(SimSurface.Surface.Undergrowth, stance, ticks)
+	print("GROUND OK over %d walking ticks: paved %.4f m == baseline, undergrowth %.4f m (x%.2f), rubble %.4f m, no tilemap %.4f m" % [
+		ticks, paved, undergrowth, undergrowth / paved, _walk_and_measure(SimSurface.Surface.Rubble, stance, ticks), bare])
+	return true
+
+
+# Walks a survivor due east for `ticks` ticks over ground that is `surface` everywhere, and
+# returns the metres covered. A negative surface means "adopt no TileMap at all" -- the R1
+# fixture shape, and the negative control for the whole lane.
+#
+# A move command is pushed every tick rather than once, because the surface is sampled where
+# the body currently stands: a single command would pin the velocity from the first tile and
+# the assertion would then be about that tile rather than about the ground being crossed.
+func _walk_and_measure(surface: int, stance: int, ticks: int) -> float:
+	var w: Variant = _bare_world(stance, 909, 24.0, 24.0, 48)
+	if surface >= 0:
+		var map: Variant = SimTileMap.blank_map(48, 48)
+		# Built whole and assigned whole. `map.surfaces[i] = v` in a loop reads a *copy* of the
+		# packed array out of the property (CLAUDE.md's first trap), and a lane whose ground was
+		# silently still paved would report "undergrowth is exactly as fast as tarmac".
+		var ground := PackedByteArray()
+		ground.resize(48 * 48)
+		ground.fill(surface)
+		map.surfaces = ground
+		w.adopt_map(map)
+	var start: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	var x0: float = float(start["x"])
+	var y0: float = float(start["y"])
+	for _i in ticks:
+		w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+		w.step()
+	var finish: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	return sqrt((float(finish["x"]) - x0) ** 2.0 + (float(finish["y"]) - y0) ** 2.0)
 
 
 # Two identical seeded command logs must serialize byte-identical; a log with the stance

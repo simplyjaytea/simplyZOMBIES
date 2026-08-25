@@ -8,3 +8,4 @@ dist-godot/
 *.uid
 godot/**/*.uid
 roadmap-*.html
+.claude/worktrees/

@@ -1,0 +1,174 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/district.schema.json",
+  "title": "District type",
+  "description": "A district type as data, per docs/24's content shape: \"District templates, building footprints, road-graph generation rules, and district type definitions are JSON. A district template declares its type, footprint pool, density, loot table reference, and road connection points.\" Godot-only: the frozen TypeScript oracle's CONTENT_TYPES never lists it, so this schema is read by content_validator.gd alone. Everything here is read by SimWorldgen on the seed it generates from -- a field with no reader is the dead-socket pattern in content form, which is why the danger rating is still absent until the slice that reads it. NOTE: content_validator.gd is shallow -- it checks top-level property types and rejects unexpected top-level keys, and does not recurse -- so nothing inside `streets`, `pool` or `lootProfile` is enforced at load. check_loot.gd is the gate that walks the loot profile all the way down, the way check_appearance.gd does for sprites.",
+  "type": "object",
+  "required": ["id", "name", "type", "streets", "connectionPoints", "density", "pool"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^district\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "Stable namespaced id. Permanent once shipped; SimWorldgen.generate selects on it."
+    },
+    "name": {
+      "type": "string",
+      "description": "What the place is called out loud. Prose, not an enum."
+    },
+    "type": {
+      "type": "string",
+      "description": "The docs/24 district-type label (\"residential_suburb\", \"town_center\"). Declared here so the loot slice can select a profile by it; today only check_m2_district.gd reads it, which is stated in that gate rather than implied."
+    },
+    "streets": {
+      "type": "object",
+      "required": ["blockMin", "blockMax", "streetWidth"],
+      "additionalProperties": false,
+      "properties": {
+        "blockMin": {
+          "type": "integer",
+          "minimum": 8,
+          "description": "Smallest block edge in tiles. Eight is the smallest block a parcel with a shed on it can be."
+        },
+        "blockMax": {
+          "type": "integer",
+          "minimum": 8,
+          "description": "Largest block edge in tiles. Block edges are drawn from blockMin..blockMax, which is what makes the grid irregular."
+        },
+        "streetWidth": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Street width in tiles, and the width of the ring road just inside the district wall. docs/03: streets are noise highways, so this is an attention decision as much as a navigation one."
+        }
+      }
+    },
+    "connectionPoints": {
+      "type": "object",
+      "required": ["north", "south", "east", "west"],
+      "additionalProperties": false,
+      "properties": {
+        "north": { "type": "integer", "minimum": 0 },
+        "south": { "type": "integer", "minimum": 0 },
+        "east": { "type": "integer", "minimum": 0 },
+        "west": { "type": "integer", "minimum": 0 }
+      },
+      "description": "How many roads leave each side. The Milestone 3B road seam, shipped as data the street pass must reach: each one is an opening in the district wall with a street running to it, and check_m2_district.gd fails if a declared point has no opening or no street."
+    },
+    "density": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "The share of parcels that get a building. docs/24 puts a suburban 256 m district at ~40-70 buildings; this is the dial that lands it there."
+    },
+    "pool": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["tag", "weight"],
+        "additionalProperties": false,
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "A tag from content/buildings/*.json. Free text rather than an enum while the pool is still being authored."
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Relative draw weight of this tag within the district."
+          }
+        }
+      },
+      "description": "The footprint pool, by tag. A tag with no template that fits a parcel is skipped for that parcel rather than failing it."
+    },
+    "lootProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Where the loot is, per docs/24's \"each district is a loot profile, a danger profile, and a shape\". Read by SimWorldgen's `worldgen.sites` pass, which writes `map.sites` and is the only thing that decides where a district's loot stands. Optional at the top level -- a district without one generates no sites of its own, which is what the gates' fixture districts rely on -- but every field inside it is required when it is present, and check_loot.gd is what enforces that (the validator does not recurse).",
+      "properties": {
+        "perBuilding": {
+          "type": "array",
+          "description": "Ordinary loot, counted per qualifying building, so it scales with the district the way the buildings do. Every site lands on open indoor floor inside the building it was drawn for.",
+          "items": {
+            "type": "object",
+            "required": ["table", "tags", "sites"],
+            "additionalProperties": false,
+            "properties": {
+              "table": {
+                "enum": ["residential", "commercial", "industrial", "medical", "military_cache"],
+                "description": "The location loot table these sites roll, matching a content/loot entry's `location`. Kept in step with loot.schema.json and map.schema.json by hand -- LOCATIONS in check_loot.gd is what asserts nothing names a table nobody wrote."
+              },
+              "tags": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" },
+                "description": "Building tags this entry applies to, from content/buildings/*.json. A building whose tags meet none of these gets none of these sites: a shop does not hold a bedside table."
+              },
+              "sites": {
+                "type": "object",
+                "required": ["min", "max"],
+                "additionalProperties": false,
+                "properties": {
+                  "min": { "type": "integer", "minimum": 0 },
+                  "max": { "type": "integer", "minimum": 0 }
+                },
+                "description": "How many sites each qualifying building gets, inclusive. One draw per building whatever it rolls."
+              },
+              "containerShare": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "The share of these sites that stand as searchable containers rather than being scattered on the floor at boot. Same table either way; the difference is when it is rolled (docs/12's finite site, searched once). Ignored when `containers` is empty, because a container with no name is not a thing anybody can be told about."
+              },
+              "containers": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "What a container of this kind is called out loud (\"cupboard\", \"car boot\"), drawn from at random. Prose read only by SimContainers.hud_clause, so free text rather than an enum."
+              }
+            }
+          }
+        },
+        "perDistrict": {
+          "type": "array",
+          "description": "The rare tables, which are a property of the district rather than of any one building: one medical store, one cache, a couple of car boots. Counts are authored for a full 256 m district and scaled by area, so a 64-tile miniature carries none of them.",
+          "items": {
+            "type": "object",
+            "required": ["table", "count"],
+            "additionalProperties": false,
+            "properties": {
+              "table": {
+                "enum": ["residential", "commercial", "industrial", "medical", "military_cache"],
+                "description": "The location loot table these sites roll. Same enum as `perBuilding.table`."
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "How many of these a full 256 m district holds. SimWorldgen scales it by map area; see _district_count."
+              },
+              "tags": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Building tags a host must carry. Ignored when `outdoors` is true; when neither is given the site has nowhere to go and is skipped."
+              },
+              "outdoors": {
+                "type": "boolean",
+                "description": "When true the site stands on open ground beside a placed building -- a driveway, a kerb -- rather than inside one. The exception that keeps interiors dominant: docs/24 puts the game inside buildings."
+              },
+              "containerShare": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "As `perBuilding.containerShare`."
+              },
+              "containers": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "As `perBuilding.containers`."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

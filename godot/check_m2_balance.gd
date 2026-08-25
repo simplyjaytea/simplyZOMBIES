@@ -30,7 +30,7 @@ extends SceneTree
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
-const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
@@ -227,6 +227,18 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		"siege_nights": 0,
 		"quiet_nights": 0,
 		"breaches": 0,
+		# The raid, reported rather than banded. A band is a 20% roll on a post-grace night and a
+		# ten-day campaign has three of those, so a floor here would be a coin toss; what the
+		# harness owes is the number, plus the assertion that already covers it -- a colony wiped
+		# out by raiders fails `survivors_end >= 1` like a colony wiped out by anything else.
+		"raids": 0,
+		"raiders_in": 0,
+		"raiders_killed": 0,
+		# Two id sets rather than two counters, resolved against each other in `_close_run`. See
+		# the note in `_observe`'s `entity.killed` branch for why a count taken at event time
+		# cannot tell a dead raider from a dead colonist.
+		"dead_raiders": {},
+		"dead_people": {},
 		"kills": 0,
 		"melee_kills": 0,
 		"ranged_kills": 0,
@@ -266,6 +278,12 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 		match String(ev.get("type", "")):
 			"director.packet":
 				run["packets"] = int(run["packets"]) + 1
+			"director.raid":
+				if int(ev.get("size", 0)) > 0:
+					run["raids"] = int(run["raids"]) + 1
+					run["raiders_in"] = int(run["raiders_in"]) + int(ev.get("size", 0))
+			"raider.killed":
+				(run["dead_raiders"] as Dictionary)[int(ev.get("entity", -1))] = true
 			"fortify.breached":
 				run["breaches"] = int(run["breaches"]) + 1
 			"recruit.arrived":
@@ -293,9 +311,24 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 					# A survivor is a death however they died. Starving carries no killer, and
 					# requiring one here would quietly drop the deaths the needs system causes --
 					# which are exactly the ones a ten-day run is supposed to surface.
-					run["deaths"] = int(run["deaths"]) + 1
+					#
+					# Set aside rather than counted, because at this instant a raider and a
+					# colonist are indistinguishable and stay that way until `_close_run`. The
+					# reason is a tick, and it is worth writing down: `entity.killed` is published
+					# from a drain-time handler on tick N, while `raider.killed` comes from
+					# `health.reap` -> `handle_death` in tick N+1's *cleanup* phase -- so a
+					# per-tick pairing of the two never matches, and a first attempt at this
+					# booked every dead raider as a colonist death anyway. By N+1 the body has
+					# been despawned and carries no component that says what it was, which is why
+					# the answer has to come off the bus rather than out of the store.
+					(run["dead_people"] as Dictionary)[victim] = true
 					continue
 				if killer >= 0:
+					# A raider thinning the horde on its way in is not the colony's kill, and
+					# counting it would let an arm pass the risk-6 comparison on somebody else's
+					# work. The killer is still queryable here: only the *victim* was despawned.
+					if w.components.has_component(killer, "raider"):
+						continue
 					run["kills"] = int(run["kills"]) + 1
 					# The arms carry exactly one class of weapon, so this is unambiguous.
 					if w.components.has_component(killer, "rangedWeapon"):
@@ -312,19 +345,31 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 		return
 	for tile in _placed_since(w, before as Array[int]):
 		(run["placements"] as Array).append("%d,%d" % [tile.x, tile.y])
-		if not _legal_placement(tile):
+		if not _legal_placement(w, tile):
 			run["illegal_placements"] = int(run["illegal_placements"]) + 1
 
 
 func _close_run(w: Variant, run: Dictionary) -> void:
+	# The two id sets, settled. Everything that died and was not a zombie is in `dead_people`;
+	# whichever of those the bus later named a raider comes back out. A colony death and a raider
+	# death are the same event on the same tick, and only this difference tells them apart.
+	var raiders: Dictionary = run["dead_raiders"] as Dictionary
+	var people: Dictionary = run["dead_people"] as Dictionary
+	run["raiders_killed"] = raiders.size()
+	var colony: int = 0
+	for id in people.keys():
+		if not raiders.has(id):
+			colony += 1
+	run["deaths"] = colony
 	run["survivors_end"] = _survivors_alive(w)
 	run["run_over"] = bool(run["run_over"]) or bool(w.runOver)
 
 
 func _print_run(label: String, run: Dictionary) -> void:
-	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d broken=%s" % [
+	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d broken=%s" % [
 		label, int(run["seed"]), String(run["arm"]), int(run["days"]),
 		int(run["siege_nights"]), int(run["quiet_nights"]), int(run["packets"]),
+		int(run["raids"]), int(run["raiders_in"]), int(run["raiders_killed"]),
 		int(run["breaches"]), int(run["kills"]), int(run["melee_kills"]), int(run["ranged_kills"]),
 		int(run["deaths"]), int(run["turned"]), int(run["recruits"]), int(run["max_live"]),
 		int(run["survivors_end"]), int(run["survivors_start"]), str(run["run_over"]),
@@ -619,14 +664,23 @@ func _placed_since(w: Variant, before: Array[int]) -> Array[Vector2i]:
 
 # The director never spawns at your gate and never inside the annex -- `_legal_tile`'s promise,
 # checked from the outside against what actually landed rather than against the same code.
-func _legal_placement(tile: Vector2i) -> bool:
-	if tile == SimFortify.GATE_A or tile == SimFortify.GATE_B:
+#
+# Where the gate and the annex are comes off the campaign's own map: they are anchors the district
+# carries now, not constants, so this keeps checking the real colony rather than a remembered one.
+# Only reached for tiles a night actually placed, so there is no per-tick lookup here.
+func _legal_placement(w: Variant, tile: Vector2i) -> bool:
+	var gate_a: Vector2i = SimTileMap.gate_a(w.tilemap)
+	var gate_b: Vector2i = SimTileMap.gate_b(w.tilemap)
+	if tile == gate_a or tile == gate_b:
 		return false
-	if SimDirector.ANNEX.has_point(tile):
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	if annex.size.x > 0 and annex.size.y > 0 and annex.has_point(tile):
 		return false
-	for gate in [SimFortify.GATE_A, SimFortify.GATE_B]:
-		var dx: float = (float(tile.x) + 0.5) - (float(gate.x) + 0.5)
-		var dy: float = (float(tile.y) + 0.5) - (float(gate.y) + 0.5)
+	for gate in [gate_a, gate_b]:
+		if (gate as Vector2i).x < 0:
+			continue
+		var dx: float = (float(tile.x) + 0.5) - (float((gate as Vector2i).x) + 0.5)
+		var dy: float = (float(tile.y) + 0.5) - (float((gate as Vector2i).y) + 0.5)
 		if dx * dx + dy * dy < SimDirector.GATE_EXCLUSION * SimDirector.GATE_EXCLUSION:
 			return false
 	return true

@@ -171,6 +171,19 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
    around the blit — the centre anchor was chosen so that stays a contained change), and C needs a
    rig-sheet pass before more sprites exist. The two art pieces below queue behind this pick.
 
+**World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
+docs/24's "authored templates, procedurally assembled" built for real, still in one district.
+**All nine pieces have landed** — the template stamp, the anchors, the generator, the loot pass,
+the sited annex, the seeded boot, the wall rule, the ground, the raiders; the record has each.
+The district is generated from data now — 51 buildings on the canonical seed, loot and colony
+sited per seed, any seed bootable from the command line, a raid band drawable from day 8 — and
+the gate boots run on a real miniature district instead of an empty map. Region,
+roads-between-districts and streaming stay Milestone 3B; the road seam ships as data the street
+pass actually reaches (edge connection points). The owner's scope decisions are recorded in
+[docs/30](30-decisions.md#what-the-worldgen-arc-decided). Nothing in this group remains open;
+what the arc left behind is named in the debt list (the ground is player-only today, rubble
+unplaced) rather than here.
+
 **Content only — data entries, no new systems:**
 
 - **Five more modification consumables.** Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage
@@ -224,7 +237,8 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
 - **Screamer and bloater sprites.** Both still render as tinted shapes.
 - **Tiles and props drawn for real.** `_draw_district` draws flat rects for terrain, and a
   container, a bed or a campfire is announced by prose (`SimContainers.hud_clause` in the HUD) and
-  is otherwise invisible.
+  is otherwise invisible. The stakes rose with generated loot: a full district now stands 52–137
+  containers, all undrawn.
 
 **UI:**
 
@@ -252,6 +266,18 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
   carries what this has already cost.
 - **Bus-only counters in the balance tier.** The `grab.started` / `grab.broken` counters report
   and assert nothing. They become assertions when the flag flips, or they go.
+- **Rubble is never placed.** `SURFACE_RUBBLE` is written by no generator pass and no building
+  template — counted over the shipped 256 district: 0 tiles on both measured seeds — so docs/24's
+  ×0.7/×1.7 rubble row, its palette colour and its tint are reachable only by hand. Undergrowth
+  places at ~0.7% of tiles, sparse for something meant to be a route choice; both are dressing
+  authoring, found by the ground slice.
+- **NPC and zombie locomotion ignore the ground.** `SimSurface.speed_on` is wired on the
+  command-driven path only, which `controlled` entities alone take — `jobs.gd`'s velocity write
+  and the nine in `shambler.gd` carry no surface term, so the ground is a player-only mechanic
+  today (which is also the mechanical reason the campaign harness could not move when it landed).
+  Widening it moves NPC pathing balance, so it wants its own before/after. `Palette.COLOUR_HEX`
+  (14 entries, zero readers) and `sim/map/surface.gd`'s unused `SimTileMapRes` preload were
+  found in the same sweep — dead sockets of the named shape, one line each when touched next.
 - **The Godot build has no enforced budget.** docs/00 pillar 6 says a feature that breaks budget
   does not ship, and every budget CI actually enforces measures the **frozen oracle**: `npm run bench`
   is vitest over `src/`, and `npm run bench:frame` spawns **vite** and drives the TypeScript/Canvas
@@ -266,14 +292,6 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
-- **Walls do not attenuate noise, at all.** `SimAttentionField.for_map` marks a 4 m attention cell
-  solid only when **all sixteen** of its 1 m tiles are solid. Measured on the shipped district:
-  2,097 solid tiles of 65,536 (3.2%), and **0 of the field's 4,096 cells marked solid** — so
-  `wallPenaltyMetres` (18 m of extra attenuation) and `_wall_cost` are applied on zero transitions
-  and `_uphill`'s solid skip is dead. docs/03 makes wall attenuation load-bearing and `world.gd`'s
-  own field-build comment says the mask exists so "noise leaks through walls in parity". Changing
-  the rule (any-solid, majority-solid, or a per-cell fraction) moves horde behaviour, so it needs a
-  before-and-after on the balance harness rather than a patch.
 - **`spawn_item` drains the whole event queue mid-tick.** `SimItems.spawn_item` ends with an
   unconditional `world.events.drain()`. Everything else in the sim relies on handlers running at
   the end of `world.step()` — CLAUDE.md's traps section is explicit — so any system that spawns an
@@ -836,6 +854,174 @@ not a to-do list:
   where the numbers live and not of what they say. Presence of the block is what makes an item
   edible: `is_food` asks nothing else. Site depletion landed with container search — see Inventory
   below; the ~15 resource types moved to [what's left](#whats-left-in-milestone-2).
+  ~~The annex as a stamped template~~ **landed** (`godot:check:buildings`, the chain's 33rd gate)
+  — the worldgen arc's first slice. `SimTemplates.stamp` places a template's arrays at a
+  handed-in origin through `apply_patch`'s exact clipping; the origin is still (38, 38), and the
+  gate's migration lock proves the switch changed **no bytes** on the canonical seed at 64 and
+  256 — with a one-tile-east restamp as the true negative that proves the lock can fail. The
+  template's rect-relative anchors (gate_a, gate_b, player_start, well) land on the map as
+  `map.anchors` with absent-sentinel accessors on `SimTileMap`, and `SimBoot.colony_start` is the
+  anchor's first live production reader — the gate's reader lane proves the player boots onto the
+  anchor, follows it when the template moves, and falls back only on an anchorless map. A
+  `building` content type is registered and schema'd (`building.schema.json`, shallow-validated
+  plus the gate's own depth checks) with deliberately **zero shipped entries** — the pool arrives
+  with the placer that reads it, in the district-types piece above. `map.schema.json` gained the
+  optional `anchors` block, and the edit is proven load-bearing: without it the frozen oracle's
+  Ajv fails the content suite 9/9.
+  ~~Anchors on the map, constants deleted~~ **landed** (`godot:m2:district`, ANCHORS lane) — the
+  arc's second slice. `SimDirector.ANNEX`, `SimFortify.GATE_A/GATE_B` and every literal colony
+  coordinate are gone; boot (well, station floors), director (edge legality, annex peak), jobs
+  (guard post, corpse dump, the three annex scans), needs (stockpile tiles), fortify (gate scrap
+  rules) and recruits (arrival, departure) read `map.anchors` through the `SimTileMap` accessors,
+  sentinel-guarded so an anchorless map degrades to a no-op rather than siting the colony at a
+  sentinel. Eight coordinate-pinning gates re-derive their windows from the booted world's
+  anchors — same band values, different source — and the district gate's new ANCHORS lane pins
+  the boot's anchors, their stability across two boots, and that an unstamped district reports
+  none; it also asserts a water source stands on the well anchor, so the anchor has a reader
+  rather than being a tenth dead socket. Behaviour is **bit-identical, measured**: the balance
+  fast tier, director variance and side distribution re-run against a HEAD worktree matched line
+  for line. The same slice found and fixed a gate that could not fail: `check_m2_fortify`'s
+  scrap-choke probed two tiles off its 24-tile arena, refused as walls whatever the rule did —
+  its arena now carries real gate anchors, a true positive and a control tile.
+  ~~District types as data, and the generator rebuilt~~ **landed** (`godot:m2:district` lanes
+  GENERATOR ROADS ENTERABLE DETERMINISM DISTRICT-DATA RESERVE; `godot:check:buildings`, SHIPPED
+  POOL) — the arc's third slice, and the big one. `sim/map/worldgen.gd` replaces the fixed
+  64-block lattice: streets drawn from district JSON and terminated at the declared edge
+  connection points (the Milestone 3B road seam, live — each a paved opening in the border wall),
+  parcels carved, buildings placed by weighted pick from an authored pool of **17 templates**
+  (7 residential, 3 sheds, 2 civic, 5 commercial), thinned by density — **51 buildings** on the
+  canonical 256 map (40–64 across twelve seeds, band pinned 40–70) and a real miniature district
+  at 64 (7 canonical, floor pinned ≥ 4), so the gate boots stopped running on empty maps. Two
+  types ship: `district.residential_suburb` (the default) and `district.town_center` (blocks
+  12–20, streets 3 wide, commercial-heavy — 148 buildings at 256). Every generation pass draws
+  from its own named stream (`worldgen.streets`/`parcels`/`buildings`/`occluders`/`terrain`, via
+  `derive_seed` — the XOR salts are gone), and the gate pins byte-identical same-seed
+  regeneration, different-seed divergence, and dressing that moves no walls. Every building's
+  interior is reachable through its door from the street walk-in — the sandbox goal's "buildings
+  are enterable", asserted: six bricked fixture shells report six unreachable rooms.
+  `SAVE_VERSION` 16 → 17, because the same seed no longer regenerates the pre-rebuild ground.
+  The balance fast tier, director variance, sides and harness pins were captured before and
+  re-run after: **no band moved** — pacing is stream-driven; only where bodies stand changed
+  (canonical-seed kills 2 → 5, one death, survival intact on all four seeds). The
+  attention-field baseline for the wall-attenuation slice, measured on the new 256 map: 0 of
+  4,096 cells solid under the all-16 rule, 6 under ≥ 8-of-16. Honest halves: `district.type` is
+  read today only by the gate's district-data lane (its real reader is the loot piece), and
+  `town_center` is reachable only by gates until the seeded-boot piece ships `--district`.
+  ~~Loot sites generated per seed~~ **landed** (`godot:check:loot`, retargeted onto booted
+  manifests) — the arc's fourth slice. A `worldgen.sites` pass draws each district's
+  `lootProfile` (per-building rolls by tag, per-district counts for the rare tables, scaled by
+  area — the 64 miniature honestly carries zero medical or military caches, pinned both
+  directions) and records `map.sites`, an array of records the dressing passes protect and
+  `SimBoot.place_loot` now reads; the patch-loot path is deleted. The canonical 256 suburb
+  stands 71 sites (63 residential, 4 commercial, 1 medical, 1 military cache, the annex's 2);
+  town center 176, commercial-heavy; 97–98% indoors by construction, the outdoor exceptions car
+  boots on driveways. Most sites stand as containers (finite, searched-once — docs/12's site as
+  it was meant to read). The annex's two authored sites became template-relative loot rows that
+  `SimTemplates.stamp` converts and merges — the five stale absolute rows are gone.
+  `loot.commercial` is authored at last (24 entries over existing items; `industrial` is now the
+  one enum slot without a table, stated in the schema rather than implied). `check_loot` walks
+  the booted manifests of both shipped district types — every authored location placed, every
+  site resolving and standing open, containers counted against the manifest, site determinism
+  with the dressing off — each lane sabotage-proven (a wall-buried site, an out-of-bounds roll,
+  unstood containers, dropped template rows and a mistagged host each produce their named
+  failure). The same slice re-pinned `_playable_boot` (ground ≥ 8 loose, ≥ 1 container, measured
+  across six boot seeds) and fixed a jobs-gate haul lane that had silently assumed a district
+  with no reachable loot. Balance did not move: the four fast-tier lines are byte-identical.
+  ~~The annex sited per seed, survivability validated~~ **landed** (`godot:m2:district`, lanes
+  SITING SURVIVABILITY RE-SITE) — the arc's fifth slice, the one that makes a seed a world.
+  Siting is a pipeline pass on the `worldgen.annex` stream: ordered candidate lots
+  (street-adjacent, border-margined so no wall loses its spawn pool — the worst side across
+  eight tested seeds keeps 14 spawn tiles), one stamp site, and the survivability validator as
+  the pipeline's final pass — docs/01's "no unwinnable starts" made mechanical: start open, both
+  gates open and reachable from a road opening over walkable ground, ≥ 6 indoor station tiles,
+  well open, a site of every placed loot table reachable from the gates. A failing clause
+  advances to the next candidate, bounded and deterministic; a district failing every candidate
+  errors loudly. The canonical seed sites at (21,13) on the 64 miniature and (108,107) at 256;
+  eight seeds, eight distinct sites, every clause true. No tested seed re-sites naturally — the
+  lane says so loudly, then exercises the path synthetically through a documented reject hook.
+  The measured find: once the annex left the map's corner, `SimBoot.playable`'s wanderer scatter
+  booted 2–7 shamblers **inside** the colony and wiped three of the four balance seeds by day 3
+  — diagnosed with a throwaway driver, not theorised, and fixed by teaching the boot scatter the
+  rule the director always had (refuse the annex rect, bounded re-roll). After: zero inside,
+  survivors 2/2 on all four seeds, and a boot-lane assertion with a planted true negative.
+  Re-pins live in the gates (`SITED_64`/`SITED_256`, the sited anchor expectations,
+  `BUILDINGS_64_MIN` 4 → 3 measured across twelve seeds); balance, director and harness
+  thresholds held.
+  ~~The seeded sandbox boot~~ **landed** (`godot:check:worldgen`, the chain's 34th gate) — the
+  arc's sixth slice, the one that hands the sandbox to a player. `--seed=N` and `--district=<id>`
+  parse from the user args after `--` (the `--parity` precedent; a malformed value warns and
+  boots the default rather than dying), and F2 leaves for another city: a fresh run on a
+  presentation-side random seed, same district, through the one `_boot_world` path `_ready`
+  itself uses — every per-run read model reset, the sim RNG ban untouched because the roll lives
+  in `presentation/` and the chosen seed then determines everything downstream. The seed and
+  district print on the M developer sheet only; the HUD digit ban holds unchanged. The gate
+  boots **22 worlds** — ten seeds by both shipped types at 64, two at 256 — and judges every one
+  sited, survivable, loot-resolving, no wanderer booted into the colony, then steps each 200
+  ticks clean. Same-seed regeneration is byte-identical while the dressing stream moves 165
+  tiles and no walls; the attention solid-cell count prints per witnessed district (11 counts,
+  largest 0 — the wall-attenuation slice's regression witness, still reading the defect); four
+  negatives say no (a density-0 district, a planted shambler in the colony, a bricked gate
+  failing gates-open alone, an empty district refused loot); and the gate asserts its own
+  runtime, 14.1 s of a 90 s budget. Closes slice 3's honest half: `town_center` is reachable in
+  play through `--district`.
+  ~~Walls attenuate noise: the ≥ 8-of-16 rule~~ **landed** (`godot:m2:district`, lane WALLS) —
+  the arc's seventh slice, and the worst defect of the review sweep closed.
+  `SimAttentionField.for_map` now marks a 4 m cell solid when at least half its subtiles are —
+  `solid_subtiles * 2 >= subtiles`, exactly 8 of 16 on a full cell — and an edge cell judges
+  only the tiles it really covers, so the out-of-bounds void no longer votes. On the shipped 256
+  district the field goes from **0 solid cells to 9** of 4,096 (the lane prints the exact count;
+  a blank floor map still marks none); the threshold is pinned exact — 8 solid marks the cell, 7
+  does not, and an edge cell covering 4 real tiles marks at 2 and not at 1; and the dead-socket
+  half is asserted live: noise behind a wall arrives at 159.40 against 172.00 across open
+  ground, and `_uphill` refuses a solid neighbour its open twin steps into. The lane's own true
+  negative was exercised by restoring the all-16 rule — the gate goes red naming the defect — so
+  the regression cannot return silently. Balance, harness and director fast tiers re-run after
+  the rule change: every pinned band held, no re-pin needed. `godot:check:worldgen`'s solid-cell
+  witness now reads 9 at 256 where the slice before it recorded 0.
+  ~~The ground drawn, and load-bearing~~ **landed** (`godot:m2:stance` lane GROUND;
+  `godot:check:topdown` lane GROUND) — the arc's eighth slice. The surface layer draws as flat
+  tints: `Palette.SURFACE_TINTS`, five entries indexed by `SimSurface.Surface` with paved bound
+  to the exact floor colour the district already drew, resolved per tile by
+  `Appearance.ground_colour` and used by `_draw_district` as the base fill under Floor, the Low
+  inset and the Tree canopy — the same rects, different colours, no draw call added, and the
+  art-style pick still the owner's. Sim side, `SimSurface.speed_on` stops being a dead socket:
+  `SimWorld.surface_speed_at` multiplies into the command-path speed on the line between the
+  stance rung and the modifier resolve, re-sampled per tick, returning exactly 1.0 on a world
+  with no tilemap so the frozen parity fixtures cannot move (`R1_PARITY_OK`, byte-identical).
+  The stance gate asserts metres covered, never mechanism: paved 6.3000 m equals the
+  pre-surface arithmetic exactly, undergrowth 3.7800 m (×0.60), ratios compared against
+  `speed_on` itself — sabotaged three ways (wiring removed, everybody slowed, table replaced by
+  a literal) and each names its own failure. The topdown gate proves the draw path reads the
+  surfaces array, that no two tints collide, and that a sixth surface without a colour fails
+  rather than reading out of range. Balance and harness are byte-identical before and after —
+  measured, with the sharper reason recorded: the wiring sits on the command path only
+  `controlled` entities take, so the ground is a **player-only** mechanic today (debt entry
+  above), noise deliberately does not follow it, and rubble is never placed by any pass (debt
+  entry above).
+  ~~Raiders: a hostile band at the gate~~ **landed** (`godot:m2:raiders`, the chain's 35th gate)
+  — the arc's ninth slice and its close. Hostility is one component, `allegiance: {faction}`,
+  read through `SimAllegiance.hostile`/`enemies_of`; substituting `enemies_of` for the hardcoded
+  shambler query in `npc_combat`'s target pick is the whole of it, so colonists shoot raiders,
+  raiders shoot colonists, both still fight zombies, and every existing line — range envelope,
+  sightline refusal, holder preference — applies unchanged. Unmarked bodies default to `colony`,
+  leaving every existing fixture standing. Zombies treat raiders as prey through the shared
+  `is_person`, and raiders feed the noise and scent field like anybody. The director draws raids
+  on the new `raid` stream: first day 8, 20% a night, bands of 2–4 landing on consecutive legal
+  pool tiles, under `RAID_LIVE_CAP` 8 kept apart from the horde's budget, with `director.raid`
+  published every night carrying its reason (rule 5). Two archetypes ship as content under
+  `content/raiders/` with their own schema (oracle-invisible, the `content/loot/` precedent):
+  `scav` — machete, weight 4 — and `gunhand` — pistol, 16 rounds, weight 1 — sharing one tint
+  and the survivor glimpse radius, so a peripheral disc cannot say it is not one of yours. A
+  dead raider drops its kit and despawns corpse-less (`components.query` does not check alive; a
+  corpse would hold the cap forever). The gate runs nine lanes — archetypes, draw, grace,
+  approach, blood, prey, seed, death, ledger — each with its true negative; the dead-socket
+  proof is BLOOD's: two bodies identical but for the faction trade 0/0 blows. Balance measured,
+  not theorised: every pre-existing counter identical on all four fast seeds, two seeds gained a
+  raid and held 2/2, harness byte-identical, no re-pin; the worst legal band forced onto day 8
+  costs one colonist of two on one seed of four, with three of the four raiders down on every
+  seed — a real loss, not a wipe. Honest halves: a band that reaches the gate stands its ground
+  — no withdrawal, so survivors accumulate against the cap across a long campaign — and there is
+  no looting AI; both named, neither hidden.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

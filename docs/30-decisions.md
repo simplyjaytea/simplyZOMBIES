@@ -1376,6 +1376,60 @@ this section carries what the change turned out to be made of).
   art. The 64×64 centre-anchored canvas that replaces them is its own decision, taken with the
   regenerated sprites in the same commit so the two conventions never coexist.
 
+## What the worldgen arc decided
+
+The owner authorized the sandbox arc (2026-08-25) — docs/24's district generation built for real —
+and made six scope calls in the same sitting; a seventh, raiders, joined by the owner's session
+goal the same day. Recorded here because each will look arbitrary from the code alone, and because
+three of them deliberately move measurements that other decisions were parked on.
+
+- **Rich district before region.** One district, generated properly (authored templates,
+  procedurally assembled, ~40–70 buildings, two live district types), before any multi-district
+  work. Milestone 3B keeps the region, the connecting roads, and streaming; the arc ships the road
+  *seam* as district-JSON connection points the street pass must terminate at — data something
+  reads from day one, because a dead field named `connectionPoints` would be the tenth socket.
+- **Any seed is a playable world.** The sandbox is seeded: a run may roll or accept a world seed,
+  and generation plus siting plus a survivability validator (docs/01's "no unwinnable starts",
+  made mechanical) must hold on all of them. 20260805 stays the canonical seed the gates and
+  balance bands are measured against — variety is not an excuse to stop pinning numbers.
+- **The generator sites the annex.** The civic annex stops being a fixed blit at (38,38) with
+  compile-time twins (`SimDirector.ANNEX`, `SimFortify.GATE_A/B`, the (46,45) start) and becomes
+  an authored template the generator places per seed, its anchors written onto the map object —
+  a pure function of (seed, size, content), so saves keep regenerating the world from the seed
+  and `world.snapshot()` never grows a map. The constants are deleted rather than deprecated: a
+  missed consumer should fail to compile, not limp. This also turns "a bigger colony building" —
+  half of the owner's still-open colony-shape decision — into a future content edit rather than a
+  code change; the decision itself stays open.
+- **The wall-attenuation defect is fixed inside this arc, at ≥ 8 of 16.** A 4 m attention cell
+  goes solid when at least half its tiles are — building rows attenuate, a lone fence does not.
+  The all-16 rule had left 0 of 4,096 cells solid on the shipped district, an 18 m penalty applied
+  on zero transitions. Fixed now because the arc re-measures every layout-derived band anyway;
+  the same harness runs price both changes once.
+- **Surface speed goes live.** `SimSurface.speed_on` — authored, tabled in docs/24, and read by
+  nothing — gets wired into locomotion beside the stance multiplier, with the fast tier re-run
+  before and after. The street becomes the fast way that announces you; undergrowth stays the
+  slow way that hides you. Noise-only ground was half a mechanic.
+- **Two district types ship live, not one and not seven.** Residential suburb and town center.
+  One type would prove nothing about "a type is a data entry"; seven would ship five entries
+  nothing places, which is the dead-socket pattern in content form. Town center is the type that
+  forces the second loot table (`loot.commercial`) and the dense-streets generator path, which is
+  exactly the coverage the claim needs.
+- **Raiders close the arc, as one component and one draw.** A hostile band the director draws on
+  its own `raid` stream (new randomness, new named stream), reusing melee, ranged and wounds
+  wholesale. Hostility is a single `allegiance: {faction}` component read through one helper —
+  not a second combat AI — and unmarked bodies default to `colony`, so every existing fixture
+  stands untouched. The band's live cap is separate from the horde's (`RAID_LIVE_CAP`, not
+  `LIVE_CAP`) because raiders must not eat the night-pressure budget; the entry side is drawn
+  rather than read off the attention field, because a band scouts, it does not follow a smell;
+  and a dead raider drops its kit and despawns corpse-less, because `components.query` does not
+  check alive and a corpse would hold the cap forever. No looting AI, no withdrawal, no factions
+  — docs/18 stays Milestone 3.
+
+Worldgen RNG stays off the world registry — generation runs before a world exists — but the three
+magic XOR salts become named derivations (`RngStream.derive_seed(seed, "worldgen.streets")` and
+kin), one stream per pass, keeping the property this file already records for the occluder pass:
+dressing changes never move the layout.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

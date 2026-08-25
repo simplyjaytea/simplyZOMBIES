@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-08-21
+## State, as of 2026-08-25
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **32 gates** and
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **35 gates** and
 exits 0, `npm test` is **45 files / 594 tests** passing, and `godot:validate`, `godot:test` and
 `godot:smoke` are clean. CI's `check` job runs those plus typecheck, lint and format; its
 `performance` job runs the two TypeScript benchmarks.
@@ -78,6 +78,14 @@ These are design calls. They have been measured, written up, and deliberately **
 4. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
    docs/23's what's-left section has the three candidates and which picks force a sprite
    regeneration.
+
+One thing about #1 changed shape without being decided: the **worldgen arc** (authorized and
+landed 2026-08-25, all nine slices; scope decisions in
+[docs/30](docs/30-decisions.md#what-the-worldgen-arc-decided), the record per slice in
+[docs/23's record, by system](docs/23-roadmap.md#the-record-by-system)) made the civic annex an
+authored template the generator sites per seed, so "a bigger colony building" is now a content
+edit rather than a code change. The colony-shape call itself — and the `GRABS_ENABLED`
+flip behind it — remains the owner's.
 
 ## How a session runs
 
