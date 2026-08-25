@@ -99,12 +99,14 @@
             "properties": {
               "x": { "type": "integer", "minimum": 0 },
               "y": { "type": "integer", "minimum": 0 }
-            }
+            },
+            "description": "Rect-relative, like the anchors above and for the same reason: this entry is a template that happens to still be stamped at a fixed origin, and a template may not name an absolute district tile. SimTemplates.stamp adds the rect's origin and appends the result to map.sites, which is what SimBoot.place_loot reads. Same shape and same meaning as building.schema.json's loot."
           },
-          "table": { "enum": ["residential", "commercial", "industrial", "medical", "military_cache"], "description": "The location loot table this site rolls, matching a content/loot entry's `location`. docs/12's five scavenging locations; Milestone 2 authors three of them. Kept in step with loot.schema.json by hand -- LOCATIONS in check_loot.gd is what asserts a map never names a table nobody wrote." },
+          "table": { "enum": ["residential", "commercial", "industrial", "medical", "military_cache"], "description": "The location loot table this site rolls, matching a content/loot entry's `location`. docs/12's five scavenging locations; Milestone 2 authors four of them. Kept in step with loot.schema.json and district.schema.json by hand -- LOCATIONS in check_loot.gd is what asserts nothing names a table nobody wrote." },
               "container": { "type": "string", "description": "When present, this site is not scattered at boot -- SimBoot.place_loot stands a searchable container here holding the same table, and it yields when somebody opens it. The value is what the thing is called out loud (\"cupboard\", \"car boot\"); it is prose read only by SimContainers.hud_clause, so it is free text rather than an enum. Searched once and never again: docs/12 puts resource respawn timers on the cut list." }
         }
-      }
+      },
+      "description": "Loot sites this template carries with it, template-relative and converted to absolute district tiles on stamp. The district's own sites come from its lootProfile (SimWorldgen's worldgen.sites pass); these are the ones an authored interior owns -- the annex's kitchen scatter and the cupboard in its store room -- and they travel with the template wherever the generator puts it."
     }
   }
 }

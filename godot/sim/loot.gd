@@ -33,8 +33,9 @@ static func stream(world: Variant) -> Variant:
 	return world.rng.stream(STREAM)
 
 
-# The content table for a location, or null. `location` is the bare name a map site or a container
-# carries ("residential"); the content id is always "loot.<location>", which check_loot.gd pins.
+# The content table for a location, or null. `location` is the bare name a `map.sites` record or a
+# container carries ("residential"); the content id is always "loot.<location>", which check_loot.gd
+# pins.
 static func table_for(world: Variant, location: String) -> Variant:
 	var entry: Variant = SimItems.content_entry(world, "loot", "loot.%s" % location)
 	return entry if entry is Dictionary else null

@@ -185,10 +185,6 @@ order — each a session with its gate:
   mechanical: start open, gates reachable from a street, station floor indoors, well, a site of
   each placed loot table reachable — bounded deterministic re-site on failure, and a gate that
   proves the rejection path with a sabotaged candidate.
-- **Loot sites generated per seed.** Sites drawn from the district type's loot profile;
-  `loot.commercial` authored at last (the enum slot has existed in three synced places with no
-  table behind it); `check_loot` walks the booted district's site manifest per shipped type
-  instead of the map JSON.
 - **The seeded sandbox boot.** `--seed=N` and `--district=<id>` user args, F2 rerolls a fresh
   city, the seed prints on the M sheet only — the HUD digit ban holds. New `godot:check:worldgen`:
   ~10 seeds boot, place the annex, validate, and step, inside a time budget the gate asserts on.
@@ -260,7 +256,8 @@ order — each a session with its gate:
 - **Screamer and bloater sprites.** Both still render as tinted shapes.
 - **Tiles and props drawn for real.** `_draw_district` draws flat rects for terrain, and a
   container, a bed or a campfire is announced by prose (`SimContainers.hud_clause` in the HUD) and
-  is otherwise invisible.
+  is otherwise invisible. The stakes rose with generated loot: a full district now stands 52–137
+  containers, all undrawn.
 
 **UI:**
 
@@ -925,6 +922,26 @@ not a to-do list:
   4,096 cells solid under the all-16 rule, 6 under ≥ 8-of-16. Honest halves: `district.type` is
   read today only by the gate's district-data lane (its real reader is the loot piece), and
   `town_center` is reachable only by gates until the seeded-boot piece ships `--district`.
+  ~~Loot sites generated per seed~~ **landed** (`godot:check:loot`, retargeted onto booted
+  manifests) — the arc's fourth slice. A `worldgen.sites` pass draws each district's
+  `lootProfile` (per-building rolls by tag, per-district counts for the rare tables, scaled by
+  area — the 64 miniature honestly carries zero medical or military caches, pinned both
+  directions) and records `map.sites`, an array of records the dressing passes protect and
+  `SimBoot.place_loot` now reads; the patch-loot path is deleted. The canonical 256 suburb
+  stands 71 sites (63 residential, 4 commercial, 1 medical, 1 military cache, the annex's 2);
+  town center 176, commercial-heavy; 97–98% indoors by construction, the outdoor exceptions car
+  boots on driveways. Most sites stand as containers (finite, searched-once — docs/12's site as
+  it was meant to read). The annex's two authored sites became template-relative loot rows that
+  `SimTemplates.stamp` converts and merges — the five stale absolute rows are gone.
+  `loot.commercial` is authored at last (24 entries over existing items; `industrial` is now the
+  one enum slot without a table, stated in the schema rather than implied). `check_loot` walks
+  the booted manifests of both shipped district types — every authored location placed, every
+  site resolving and standing open, containers counted against the manifest, site determinism
+  with the dressing off — each lane sabotage-proven (a wall-buried site, an out-of-bounds roll,
+  unstood containers, dropped template rows and a mistagged host each produce their named
+  failure). The same slice re-pinned `_playable_boot` (ground ≥ 8 loose, ≥ 1 container, measured
+  across six boot seeds) and fixed a jobs-gate haul lane that had silently assumed a district
+  with no reachable loot. Balance did not move: the four fast-tier lines are byte-identical.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

@@ -130,6 +130,29 @@ func _focus() -> bool:
 	print("FOCUS OK auto medic grid")
 	return true
 
+# The nearest loose item that is not already stockpiled and is not a body, by the same rule
+# `SimJobs._haul_work` sorts on. A second copy of the rule rather than a call into it, so the lane
+# above is comparing the job's answer against the question rather than against itself.
+func _nearest_loose_item(w: Variant, sx: float, sy: float) -> int:
+	var best: int = -1
+	var best_d: float = 1e12
+	for item in SimInventory.ground_items(w):
+		var p: Variant = w.components.get_component(int(item), "position")
+		if not (p is Dictionary):
+			continue
+		var at: Dictionary = p as Dictionary
+		if SimNeeds.is_stockpile_tile(w, floori(float(at["x"])), floori(float(at["y"]))):
+			continue
+		if w.components.has_component(int(item), "corpse"):
+			continue
+		var dx: float = float(at["x"]) - sx
+		var dy: float = float(at["y"]) - sy
+		if dx * dx + dy * dy < best_d:
+			best_d = dx * dx + dy * dy
+			best = int(item)
+	return best
+
+
 func _jobs() -> bool:
 	var w: Variant = _world()
 	var mara: int = _mara(w)
@@ -138,7 +161,30 @@ func _jobs() -> bool:
 	# nudging them half a tile could reorder two near-equal candidates.
 	var sx: float = float(start.x)
 	var sy: float = float(start.y)
-	# Haul: item outside annex
+	# Haul, in two halves, because a booted district now has loot lying about in it: the sites are
+	# drawn per seed from the district's `lootProfile` where the annex's map entry used to hand-place
+	# seven rows, five of which fell outside a 64-tile map entirely -- so "the only loose item in the
+	# world" is an assumption this lane can no longer make, and used to make silently.
+	#
+	# First half: the promise the job actually makes, judged against whatever the boot scattered --
+	# the nearest loose thing that is not already on the stockpile.
+	var loose: int = _nearest_loose_item(w, sx, sy)
+	if loose < 0:
+		push_error("the booted district left nothing loose outside the stockpile, so the haul sort judged nothing")
+		return false
+	var nearest: Dictionary = SimJobs._haul_work(w, sx, sy)
+	if nearest.is_empty() or int(nearest.get("target", -1)) != loose:
+		push_error("haul work %s did not target the nearest loose item, %d" % [str(nearest), loose])
+		return false
+	# Second half, and the true positive: with the boot's loot cleared away, a single new item
+	# outside the annex is what the job has to find. `world.despawn` rather than
+	# `entities.despawn` -- the latter leaves every component in place, so the items would still be
+	# lying on the ground as far as any query is concerned.
+	for lying in SimInventory.ground_items(w):
+		w.despawn(int(lying))
+	if _nearest_loose_item(w, sx, sy) >= 0:
+		push_error("clearing the boot's loose loot left something behind")
+		return false
 	var item: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
 	w.components.set_component(item, "position", {"x": 20.5, "y": 20.5})
 	var haul: Dictionary = SimJobs._haul_work(w, sx, sy)

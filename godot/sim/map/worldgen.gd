@@ -11,7 +11,7 @@ extends RefCounted
 # was measured on a map with no buildings in it. It also carried three magic XOR salts where
 # docs/30 asks for named derivations.
 #
-# The pipeline, in order. Each pass has its own named stream, and passes 1-5 (the layout) draw
+# The pipeline, in order. Each pass has its own named stream, and passes 1-6 (the layout) draw
 # from none of the dressing streams -- so turning the dressing off leaves the layout byte-identical,
 # which is the property docs/30 already recorded for the occluder pass, under new names. It is
 # asserted rather than asserted-by-comment: check_m2_district.gd's dressing-independence lane.
@@ -22,8 +22,16 @@ extends RefCounted
 #   3. worldgen.parcels  -- blocks split into lots
 #   4. (reserve)         -- the annex's rect is left alone; SimBoot stamps the colony onto it
 #   5. worldgen.buildings-- a weighted pick per lot from the district's pool, thinned by density
-#   6. worldgen.occluders-- windows, screening, wrecks
-#   7. worldgen.terrain  -- lawns, stands of trees, thickets, the trodden edge of a green
+#   6. worldgen.sites    -- where the loot is, from the district's lootProfile: interiors first,
+#                           the odd car boot on a driveway, the rare tables once per district
+#   7. worldgen.occluders-- windows, screening, wrecks
+#   8. worldgen.terrain  -- lawns, stands of trees, thickets, the trodden edge of a green
+#
+# Sites are **layout, not dressing**: they are chosen before a tree is planted, they are the same
+# with the dressing switched off, and the dressing is then forbidden to plant anything on one
+# (`_protected_tiles` carries them). A car boot that a stand of trees had grown over would be loot
+# standing inside a solid tile, which is the one thing check_loot.gd's standing lane exists to
+# reject.
 #
 # Generation is a pure function of (seed, size, content, district) and runs before a world exists,
 # so the RNG stays off the world registry (docs/30) -- but the salts are `RngStream.derive_seed`
@@ -87,9 +95,10 @@ const BUILDING_INSET: int = 1
 # caller already has rather than making this walk the directory again (`load_tree` is a full
 # directory walk, and this is called once per campaign seed by the balance harness).
 #
-# `dress` exists for the layout/dressing independence property: with it false, passes 6 and 7 do
-# not run and the map carries layout only. Nothing in the game turns it off -- it is what lets a
-# gate assert that the dressing streams cannot move a wall.
+# `dress` exists for the layout/dressing independence property: with it false, passes 7 and 8 do
+# not run and the map carries layout only -- the same buildings, on the same lots, holding the same
+# loot sites. Nothing in the game turns it off; it is what lets a gate assert that the dressing
+# streams cannot move a wall or a cupboard.
 static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, content: Variant = null, district_id: String = DEFAULT_DISTRICT, dress: bool = true) -> Variant:
 	var tree: Dictionary = content as Dictionary if content is Dictionary else ContentLoaderRes.load_tree()
 	var district: Dictionary = district_of(tree, district_id)
@@ -101,6 +110,7 @@ static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, co
 	var parcels: Array = _parcels(seed_val, streets)
 	var placed: Array = _buildings(map, seed_val, district, templates, parcels)
 	map.buildings = placed
+	_sites(map, seed_val, district, templates, placed)
 	if dress:
 		# Read back off the map rather than out of the local: the manifest is the thing the loot
 		# slice will walk, and a pass that reads it here is what keeps it honest in the meantime.
@@ -521,11 +531,227 @@ static func _weighted(rng: Variant, weights: Array) -> int:
 	return weights.size() - 1
 
 
+# --- 6. loot sites --------------------------------------------------------------------------
+
+# Where the loot is, from the district's own `lootProfile`. docs/24 gives every district type "a
+# loot profile, a danger profile, and a shape", and this is the first half made real: which tables
+# a place yields, how many sites of each, and whether a site stands as a container or is scattered
+# on the floor -- all of it a data entry, none of it a branch in here.
+#
+# Two kinds of entry, because two questions are being asked:
+#
+#   `perBuilding` -- how much of an ordinary building's kind of loot there is. A count per
+#                    qualifying building, so it scales with the district the way the buildings do:
+#                    a 64-tile miniature has a handful of houses and gets a handful of cupboards.
+#   `perDistrict` -- the rare tables, which are a property of the district rather than of any one
+#                    building: one medical store, one cache. Authored for a full 256 m district
+#                    and scaled by area, so the miniature carries none of them (see
+#                    `_district_count`) and the shipped size carries exactly what it declares.
+#
+# Interiors dominate on purpose -- docs/24: "interiors are where the game happens" -- and an
+# `outdoors` entry is the exception that proves it: a car boot on a driveway, standing on open
+# ground beside the house it belongs to.
+#
+# Deterministic: Arrays iterated in order (the profile's entries, the placement manifest, the
+# candidate tiles), never a raw Dictionary's key order, and every draw off this pass's own stream.
+static func _sites(map: Variant, seed_val: int, district: Dictionary, templates: Array, placed: Array) -> void:
+	var profile: Variant = district.get("lootProfile")
+	if not (profile is Dictionary):
+		# A district that declares no profile yields nothing the generator put there. Silent rather
+		# than loud: the fixture districts the gates build are exactly this, and the shipped ones
+		# are held to having a profile by check_loot.gd instead.
+		return
+	var rng: Variant = _stream(seed_val, "sites")
+	var tags_by_id: Dictionary = _tags_by_id(templates)
+	var sites: Array = map.sites as Array
+	# Tiles already spoken for, so two sites never stand on one another -- seeded from whatever a
+	# template stamp has already written (a building template carrying its own `loot` rows).
+	var taken: Dictionary = {}
+	for record in sites:
+		taken[int((record as Dictionary)["y"]) * int(map.w) + int((record as Dictionary)["x"])] = true
+
+	for entry_v in (profile as Dictionary).get("perBuilding", []) as Array:
+		var entry: Dictionary = entry_v as Dictionary
+		var tags: Array = entry.get("tags", []) as Array
+		for record_v in placed:
+			var building: Dictionary = record_v as Dictionary
+			if not _tagged(tags_by_id, String(building.get("id", "")), tags):
+				continue
+			# Drawn before the interior is looked at, so the draw count depends on (seed, district,
+			# layout) and never on how big a room turned out to be.
+			var wanted: int = _roll_count(rng, entry.get("sites"))
+			var floors: Array = _interior_floors(map, building)
+			for _i in wanted:
+				var tile: int = _take_tile(rng, floors, taken)
+				if tile < 0:
+					break
+				sites.append(_site_record(rng, map, tile, entry))
+
+	var outdoors: Array = []
+	var outdoors_built: bool = false
+	for entry_v2 in (profile as Dictionary).get("perDistrict", []) as Array:
+		var entry2: Dictionary = entry_v2 as Dictionary
+		var count: int = _district_count(int(entry2.get("count", 0)), mini(int(map.w), int(map.h)))
+		if count <= 0:
+			continue
+		var hosts: Array = []
+		if bool(entry2.get("outdoors", false)):
+			if not outdoors_built:
+				outdoors = _driveway_tiles(map, placed)
+				outdoors_built = true
+		else:
+			hosts = _buildings_tagged(placed, tags_by_id, entry2.get("tags", []) as Array)
+			if hosts.is_empty():
+				# Nowhere to put it: a district whose pool never rolled the kind of building this
+				# table lives in gets fewer sites rather than a cache in somebody's shed. The gate
+				# is what asserts the shipped districts do have somewhere.
+				continue
+		for _i in count:
+			var tile2: int = -1
+			if bool(entry2.get("outdoors", false)):
+				tile2 = _take_tile(rng, outdoors, taken)
+			else:
+				var host: Dictionary = hosts[int(rng.call("int_range", 0, hosts.size() - 1))] as Dictionary
+				tile2 = _take_tile(rng, _interior_floors(map, host), taken)
+			if tile2 < 0:
+				continue
+			sites.append(_site_record(rng, map, tile2, entry2))
+	map.sites = sites
+
+
+# A per-district count is authored for a full 256 m district, and a smaller map gets the same
+# share of it by area. So the 64-tile miniature -- a sixteenth of the area -- carries none of a
+# table that ships one or two, which is the honest answer rather than a rounding accident: the
+# rare tables are what makes a *district* worth crossing, and a model of a district that fits four
+# of them into 64 tiles would be a different game. Pure arithmetic on the declared number, no
+# draws, so the count is the same on every seed.
+static func _district_count(count: int, size: int) -> int:
+	var full: int = SimTileMapRes.DISTRICT_TILES
+	var share: float = float(size * size) / float(full * full)
+	return int(round(float(count) * share))
+
+
+# Inclusive both ends, and one draw whichever way it goes.
+static func _roll_count(rng: Variant, spec: Variant) -> int:
+	if not (spec is Dictionary):
+		return 1
+	var lo: int = maxi(0, int((spec as Dictionary).get("min", 1)))
+	var hi: int = maxi(lo, int((spec as Dictionary).get("max", lo)))
+	return int(rng.call("int_range", lo, hi))
+
+
+# One site: the tile, the table, and whether it stands as a container. A container is the same
+# table rolled later (docs/12's finite site, searched once) -- which of the two a site is, is a
+# content decision here rather than a code one.
+static func _site_record(rng: Variant, map: Variant, tile: int, entry: Dictionary) -> Dictionary:
+	var w: int = int(map.w)
+	var record: Dictionary = {"x": tile % w, "y": tile / w, "table": String(entry.get("table", ""))}
+	var kinds: Array = entry.get("containers", []) as Array
+	if kinds.is_empty():
+		return record
+	if float(rng.call("next")) >= float(entry.get("containerShare", 0.0)):
+		return record
+	record["container"] = String(kinds[int(rng.call("int_range", 0, kinds.size() - 1))])
+	return record
+
+
+# One tile out of `candidates`, skipping the ones already spoken for. Picked, then walked forward
+# from the pick rather than re-rolled, so a crowded interior costs one draw like an empty one.
+# Returns -1 when every candidate is taken.
+static func _take_tile(rng: Variant, candidates: Array, taken: Dictionary) -> int:
+	if candidates.is_empty():
+		return -1
+	var at: int = int(rng.call("int_range", 0, candidates.size() - 1))
+	for step in candidates.size():
+		var tile: int = int(candidates[(at + step) % candidates.size()])
+		if taken.has(tile):
+			continue
+		taken[tile] = true
+		return tile
+	return -1
+
+
+# The open indoor floor of one placed building, as tile indices in row-major order. Doorways are
+# not indoors (a template flags its perimeter 0), so a site never stands in a doorway.
+static func _interior_floors(map: Variant, building: Dictionary) -> Array:
+	var out: Array = []
+	var w: int = int(map.w)
+	for j in int(building.get("h", 0)):
+		for i in int(building.get("w", 0)):
+			var tx: int = int(building.get("x", 0)) + i
+			var ty: int = int(building.get("y", 0)) + j
+			if tx < 0 or ty < 0 or tx >= w or ty >= int(map.h):
+				continue
+			var idx: int = ty * w + tx
+			if int(map.indoors[idx]) != 1:
+				continue
+			if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
+				continue
+			out.append(idx)
+	return out
+
+
+# Open outdoor ground within a couple of tiles of a placed building -- the driveway, the verge, the
+# kerb outside the shop. Not "anywhere outdoors": a car boot in the middle of a field is a car boot
+# nobody will ever walk past, and the district is mostly field. In placement order, deduplicated,
+# and clear of the colony's reserve.
+static func _driveway_tiles(map: Variant, placed: Array) -> Array:
+	var out: Array = []
+	var seen: Dictionary = {}
+	var w: int = int(map.w)
+	for record in placed:
+		var b: Dictionary = record as Dictionary
+		for ty in range(int(b.get("y", 0)) - 2, int(b.get("y", 0)) + int(b.get("h", 0)) + 2):
+			for tx in range(int(b.get("x", 0)) - 2, int(b.get("x", 0)) + int(b.get("w", 0)) + 2):
+				if tx <= 0 or ty <= 0 or tx >= w - 1 or ty >= int(map.h) - 1:
+					continue
+				var idx: int = ty * w + tx
+				if seen.has(idx):
+					continue
+				seen[idx] = true
+				if _in_reserve(tx, ty, RESERVE_MARGIN):
+					continue
+				if int(map.indoors[idx]) == 1:
+					continue
+				if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
+					continue
+				out.append(idx)
+	return out
+
+
+static func _tags_by_id(templates: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for t in templates:
+		out[String((t as Dictionary).get("id", ""))] = (t as Dictionary).get("tags", []) as Array
+	return out
+
+
+static func _tagged(tags_by_id: Dictionary, id: String, wanted: Array) -> bool:
+	var tags: Array = tags_by_id.get(id, []) as Array
+	for tag in wanted:
+		if tags.has(String(tag)):
+			return true
+	return false
+
+
+static func _buildings_tagged(placed: Array, tags_by_id: Dictionary, wanted: Array) -> Array:
+	var out: Array = []
+	for record in placed:
+		if _tagged(tags_by_id, String((record as Dictionary).get("id", "")), wanted):
+			out.append(record)
+	return out
+
+
 # Tiles the dressing may not plant anything solid on: every doorway, the ground immediately
-# outside it, and the ring around the annex reserve. A stand of trees across a door would make a
-# building unenterable, which is the one property the sandbox goal asks this generator for.
+# outside it, every loot site, and the ring around the annex reserve. A stand of trees across a
+# door would make a building unenterable, which is the one property the sandbox goal asks this
+# generator for -- and a tree grown over a car boot would be loot inside a solid tile, which is
+# what makes the sites layout rather than dressing.
 static func _protected_tiles(map: Variant) -> Dictionary:
 	var out: Dictionary = {}
+	for site in map.sites as Array:
+		var s: Dictionary = site as Dictionary
+		out[int(s["y"]) * int(map.w) + int(s["x"])] = true
 	for record in map.buildings as Array:
 		for door in (record as Dictionary)["doors"] as Array:
 			var d: Dictionary = door as Dictionary
@@ -545,7 +771,7 @@ static func _protected_tiles(map: Variant) -> Dictionary:
 	return out
 
 
-# --- 6. occluder dressing -------------------------------------------------------------------
+# --- 7. occluder dressing -------------------------------------------------------------------
 
 # Adapted from the old `SimTileMap._dress_occluders`, on its own named stream. Same three ideas:
 # a wall with open ground on both sides is a wall you can put a window in; screening clumps break
@@ -599,7 +825,7 @@ static func _dress_tile(map: Variant, tx: int, ty: int, tile: int, protected: Di
 	return true
 
 
-# --- 7. terrain dressing --------------------------------------------------------------------
+# --- 8. terrain dressing --------------------------------------------------------------------
 
 # The old pass, rewritten around the block list instead of a hardcoded block=64 lattice: lawns
 # inside a block, a stand or two of trees, thickets of undergrowth, and the trodden dirt where a

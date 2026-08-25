@@ -200,13 +200,24 @@ func _playable_boot() -> bool:
 		if world.components.has_component(int(e2), "stored"):
 			continue
 		ground += 1
-	if ground < 5:
-		push_error("loot missing ground=%d" % ground)
+	# The early game has to have something loose on the floor to find. The sites come from the
+	# district's `lootProfile` now rather than from seven hand-placed rows in the annex's map entry,
+	# so this floor was re-measured across the six seeds the gates boot at 64: 16, 17, 12, 17, 20, 12
+	# loose items behind 9..13 sites, most of which stand as containers rather than scattering.
+	# Canonical seed 20260805: 16 loose and 8 containers, against 15 loose before the profile landed.
+	# The floor is 8 rather than the measured 12 because a scatter's yield is a range; zero would be
+	# a profile that starves the start, which is a content bug rather than a re-pin.
+	var boxes: int = world.components.query(["searchable", "position"]).size()
+	if ground < 8:
+		push_error("loot missing ground=%d containers=%d" % [ground, boxes])
+		return false
+	if boxes < 1:
+		push_error("the booted district stands no searchable container at all: ground=%d" % ground)
 		return false
 	if not world.components.has_component(world.player, "meleeWeapon"):
 		push_error("player not armed")
 		return false
-	print("BOOT OK zeds=%d loot=%d" % [zeds, ground])
+	print("BOOT OK zeds=%d loot=%d containers=%d" % [zeds, ground, boxes])
 	return true
 
 

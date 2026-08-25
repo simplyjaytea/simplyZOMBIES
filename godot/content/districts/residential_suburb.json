@@ -10,5 +10,46 @@
     { "tag": "shed", "weight": 4 },
     { "tag": "civic", "weight": 2 },
     { "tag": "commercial", "weight": 1 }
-  ]
+  ],
+  "lootProfile": {
+    "perBuilding": [
+      {
+        "table": "residential",
+        "tags": ["residential", "shed"],
+        "sites": { "min": 1, "max": 2 },
+        "containerShare": 0.7,
+        "containers": ["cupboard", "chest of drawers", "wardrobe", "kitchen drawer", "tool chest"]
+      },
+      {
+        "table": "commercial",
+        "tags": ["commercial"],
+        "sites": { "min": 1, "max": 2 },
+        "containerShare": 0.6,
+        "containers": ["stockroom shelf", "checkout counter"]
+      }
+    ],
+    "perDistrict": [
+      {
+        "table": "medical",
+        "count": 1,
+        "tags": ["civic"],
+        "containerShare": 1,
+        "containers": ["supply locker"]
+      },
+      {
+        "table": "military_cache",
+        "count": 1,
+        "tags": ["civic", "shed"],
+        "containerShare": 1,
+        "containers": ["ammo crate"]
+      },
+      {
+        "table": "residential",
+        "count": 2,
+        "outdoors": true,
+        "containerShare": 1,
+        "containers": ["car boot"]
+      }
+    ]
+  }
 }
