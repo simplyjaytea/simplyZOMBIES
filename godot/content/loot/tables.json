@@ -30,7 +30,11 @@
       { "item": "item.glasses.safety", "weight": 4 },
       { "item": "item.gloves.work", "weight": 6 },
       { "item": "item.pants.canvas", "weight": 5 },
-      { "item": "item.boots.leather", "weight": 4 }
+      { "item": "item.boots.leather", "weight": 4 },
+      { "item": "item.whetstone", "weight": 5 },
+      { "item": "item.oil.gun", "weight": 4 },
+      { "item": "item.battery", "weight": 6, "count": { "min": 1, "max": 3 } },
+      { "item": "item.cloth.bolt", "weight": 6, "count": { "min": 1, "max": 2 } }
     ]
   },
   {
@@ -64,7 +68,10 @@
       { "item": "item.rag.dirty", "weight": 6, "count": { "min": 1, "max": 3 } },
       { "item": "item.bandage.cloth", "weight": 6, "count": { "min": 1, "max": 2 } },
       { "item": "item.painkillers.blister", "weight": 5 },
-      { "item": "item.scrap.metal", "weight": 5, "count": { "min": 1, "max": 3 } }
+      { "item": "item.scrap.metal", "weight": 5, "count": { "min": 1, "max": 3 } },
+      { "item": "item.whetstone", "weight": 5 },
+      { "item": "item.battery", "weight": 6, "count": { "min": 1, "max": 3 } },
+      { "item": "item.cloth.bolt", "weight": 6, "count": { "min": 1, "max": 2 } }
     ]
   },
   {
@@ -87,7 +94,8 @@
       { "item": "item.glasses.safety", "weight": 5 },
       { "item": "item.gloves.work", "weight": 4 },
       { "item": "item.scrap.metal", "weight": 4, "count": { "min": 1, "max": 2 } },
-      { "item": "item.tape.duct", "weight": 6 }
+      { "item": "item.tape.duct", "weight": 6 },
+      { "item": "item.solvent", "weight": 5 }
     ]
   },
   {
@@ -115,7 +123,10 @@
       { "item": "item.boots.leather", "weight": 6 },
       { "item": "item.attach.suppressor", "weight": 4 },
       { "item": "item.attach.optic.red_dot", "weight": 5 },
-      { "item": "item.attach.magazine.extended", "weight": 6 }
+      { "item": "item.attach.magazine.extended", "weight": 6 },
+      { "item": "item.oil.gun", "weight": 6 },
+      { "item": "item.gauge.machinist", "weight": 2 },
+      { "item": "item.rights.salvage", "weight": 1 }
     ]
   }
 ]
