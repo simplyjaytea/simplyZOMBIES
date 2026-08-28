@@ -26,8 +26,11 @@ func _run() -> void:
 	ok = _raw_and_spoiled_food_carry_illness_risk() and ok
 	ok = _a_death_costs_the_living() and ok
 	ok = _grief_is_charged_once_and_drains_away() and ok
+	ok = _the_bathroom_need_drains_and_is_answered_at_a_latrine() and ok
+	ok = _nowhere_to_go_costs_hygiene_and_pride() and ok
+	ok = _an_npc_takes_itself_to_the_latrine() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, and everybody has to go")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -728,4 +731,322 @@ func _grief_is_charged_once_and_drains_away() -> bool:
 		push_error("CLEARED: grief stopped short of zero (%.4f)" % SimNeeds.grief_of(w, w.player))
 		return false
 	print("ONCE OK one funeral charged once (%.2f), decays %.4f -> %.4f and clears" % [once, start, later])
+	return true
+
+
+# --- the bathroom need (docs/04) ---------------------------------------------------------------
+#
+# docs/04's cut list said latrines were scenery and nobody tracked a bladder. The owner reversed
+# that. Three lanes: the pool and the verb, the consequence of having nowhere to go, and the one
+# that keeps it from being a mechanism only the player can reach.
+
+# The colony's latrine, or -1. Every lane below says so out loud rather than passing quietly when
+# the district it booted has nowhere to go -- an assertion with no data to judge is not a pass.
+func _latrine(w: Variant) -> int:
+	var found: Array = w.components.query(["latrine", "position"])
+	return int(found[0]) if not found.is_empty() else -1
+
+
+# Stand somebody on a tile, and clear anything loose within reach of it: `use.context` picks up a
+# ground item before it does anything else, so a stray tin would eat the keypress.
+func _stand_at(w: Variant, ent: int, at: Dictionary) -> void:
+	w.components.set_component(ent, "position", {"x": float(at["x"]), "y": float(at["y"])})
+	for g in SimInventory.ground_items(w):
+		var gp: Variant = w.components.get_component(g, "position")
+		if not gp is Dictionary:
+			continue
+		var dx: float = float((gp as Dictionary)["x"]) - float(at["x"])
+		var dy: float = float((gp as Dictionary)["y"]) - float(at["y"])
+		if dx * dx + dy * dy <= 4.0:
+			w.components.remove(g, "position")
+
+
+func _the_bathroom_need_drains_and_is_answered_at_a_latrine() -> bool:
+	var w: Variant = _world()
+	var ent: int = int(w.player)
+
+	# Drains on a clock of its own, at the rate the constant declares.
+	var n: Dictionary = SimNeeds.of(w, ent)
+	n["relief"] = 100.0
+	for _i in 2000:
+		w.step()
+	n = SimNeeds.of(w, ent)
+	var fell: float = 100.0 - float(n["relief"])
+	var want: float = SimNeeds.drain_relief() * 2000.0
+	if absf(fell - want) > 0.05:
+		push_error("relief fell %.4f over 2000 ticks, expected %.4f" % [fell, want])
+		return false
+	# Faster than hunger and slower than nothing: the pressure this need creates is that it comes
+	# back sooner than the others, and a rate that matched hunger's would make it a duplicate.
+	if want <= SimNeeds.drain_hunger() * 2000.0:
+		push_error("relief drains no faster than hunger, so it is hunger with a different name")
+		return false
+
+	# Intake feeds it -- what goes in comes out, on a named amount rather than a fraction of what
+	# the food restores.
+	n["relief"] = 100.0
+	var meal: int = SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+	SimInventory.stow(w, ent, meal)
+	n["hunger"] = 10.0
+	SimNeeds.eat(w, ent, meal)
+	var after_meal: float = float(SimNeeds.of(w, ent)["relief"])
+	if absf(100.0 - after_meal - SimNeeds.RELIEF_PER_MEAL) > 0.001:
+		push_error("a meal moved the clock %.2f, expected %.2f" % [100.0 - after_meal, SimNeeds.RELIEF_PER_MEAL])
+		return false
+	var bottle: int = SimItems.spawn_item(w, "item.water.bottle", {"tier": "scavenged"})
+	SimInventory.stow(w, ent, bottle)
+	SimNeeds.of(w, ent)["thirst"] = 10.0
+	SimNeeds.drink(w, ent)
+	var after_drink: float = float(SimNeeds.of(w, ent)["relief"])
+	if absf(after_meal - after_drink - SimNeeds.RELIEF_PER_DRINK) > 0.001:
+		push_error("a drink moved the clock %.2f, expected %.2f" % [after_meal - after_drink, SimNeeds.RELIEF_PER_DRINK])
+		return false
+
+	# The verb, through the player's own key rather than through the leaf it calls: `use.context`
+	# is what E does, and a lane that called `relieve_at` directly would pass for a latrine the
+	# player can never actually use.
+	var latrine: int = _latrine(w)
+	if latrine < 0:
+		push_error("the booted district sited no latrine, so every assertion below has nothing to judge")
+		return false
+	var lp: Dictionary = w.components.get_component(latrine, "position") as Dictionary
+
+	# Refuses at a distance. Standing across the colony from the only latrine, the verb does
+	# nothing at all -- there is no relieving yourself from over there.
+	SimNeeds.of(w, ent)["relief"] = 30.0
+	w.components.set_component(ent, "position", {"x": float(lp["x"]) + 12.0, "y": float(lp["y"]) + 12.0})
+	if SimNeeds.relieve(w, ent):
+		push_error("relief was granted 17 m from the only latrine")
+		return false
+	if absf(float(SimNeeds.of(w, ent)["relief"]) - 30.0) > 0.001:
+		push_error("a refused relief moved the pool anyway")
+		return false
+
+	# And in reach, it works.
+	_stand_at(w, ent, lp)
+	var relieved: Array = []
+	w.events.subscribe({"type": "need.relieved", "id": "gate.relieved", "handler": func(e: Dictionary) -> void:
+		relieved.append(int(e.get("entity", -1)))
+	})
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if float(SimNeeds.of(w, ent)["relief"]) < 99.0:
+		push_error("E at the latrine left the pool at %.2f" % float(SimNeeds.of(w, ent)["relief"]))
+		return false
+	if relieved.is_empty():
+		push_error("the pool refilled and nothing published need.relieved")
+		return false
+
+	# And a colony with no latrine refuses the same verb standing in the same place -- so this is
+	# about the station, not about the position.
+	var bare: Variant = _world()
+	for e in bare.components.query(["latrine"]):
+		bare.components.remove(int(e), "latrine")
+	SimNeeds.of(bare, bare.player)["relief"] = 30.0
+	bare.components.set_component(bare.player, "position", {"x": float(lp["x"]), "y": float(lp["y"])})
+	if SimNeeds.relieve(bare, bare.player):
+		push_error("a colony with no latrine relieved somebody anyway")
+		return false
+
+	# The prose, at the band and not before. Every other need pinned at fine, so the line under
+	# test is the only one that can be picked.
+	var m: Dictionary = SimNeeds.of(w, ent)
+	m["hunger"] = 100.0
+	m["thirst"] = 100.0
+	m["rest"] = 100.0
+	m["temperature"] = "comfortable"
+	m["hygiene"] = "clean"
+	m["soiled"] = 0.0
+	w.modifiers.call("remove_by_source", SimNeeds.SOIL_SOURCE, ent)
+	m["relief"] = 90.0
+	if SimNeeds.hud_clause(w, ent, false) != "":
+		push_error("a survivor at 90 relief is already being told to go: '%s'" % SimNeeds.hud_clause(w, ent, false))
+		return false
+	m["relief"] = 50.0
+	if SimNeeds.hud_clause(w, ent, false) != "You need to go.":
+		push_error("relief 50 said '%s'" % SimNeeds.hud_clause(w, ent, false))
+		return false
+	m["relief"] = 20.0
+	if SimNeeds.hud_clause(w, ent, false) != "You badly need to go.":
+		push_error("relief 20 said '%s'" % SimNeeds.hud_clause(w, ent, false))
+		return false
+	# No digits, ever -- godot:check:hud reads the HUD, this reads the sentence.
+	for line in ["You need to go.", "You badly need to go."]:
+		for c in line:
+			if String(c).is_valid_int():
+				push_error("the relief clause carries a digit: '%s'" % line)
+				return false
+
+	print("RELIEF OK drains %.4f per 2000 ticks (hunger %.4f), a meal costs %.0f and a drink %.0f, E at the latrine refills it and 17 m away does not, no latrine refuses; prose at 80 and 30, silent at 90" % [
+		fell, SimNeeds.drain_hunger() * 2000.0, SimNeeds.RELIEF_PER_MEAL, SimNeeds.RELIEF_PER_DRINK,
+	])
+	return true
+
+
+# Nowhere to go. The consequence is a hygiene band and shame -- never damage.
+func _nowhere_to_go_costs_hygiene_and_pride() -> bool:
+	# True positive: a survivor with an empty pool and no latrine has an accident.
+	var w: Variant = _world()
+	var ent: int = int(w.player)
+	for e in w.components.query(["latrine"]):
+		w.components.remove(int(e), "latrine")
+	var n: Dictionary = SimNeeds.of(w, ent)
+	n["hygiene"] = "clean"
+	n["relief"] = SimNeeds.drain_relief() * 3.0
+	var before_mood: float = float(w.modifiers.call("resolve", "mood", ent))
+	var accidents: Array = []
+	w.events.subscribe({"type": "need.soiled", "id": "gate.soiled", "handler": func(e: Dictionary) -> void:
+		accidents.append(int(e.get("entity", -1)))
+	})
+	for _i in 10:
+		w.step()
+	if accidents.is_empty():
+		push_error("a survivor ran the pool dry with nowhere to go and nothing happened")
+		return false
+	var soiled: float = SimNeeds.soiled_of(w, ent)
+	if soiled <= 0.0:
+		push_error("the accident cost no pride")
+		return false
+	if String(SimNeeds.of(w, ent).get("hygiene", "")) != "a_little_dirty":
+		push_error("the accident left hygiene at %s, expected one band worse than clean" % str(SimNeeds.of(w, ent).get("hygiene")))
+		return false
+	if float(w.modifiers.call("resolve", "mood", ent)) >= before_mood:
+		push_error("the accident cost no mood (%.2f -> %.2f)" % [before_mood, float(w.modifiers.call("resolve", "mood", ent))])
+		return false
+	# Never damage. docs/04 has no bodily-harm clause for this, and the easiest wrong version of
+	# this feature is the one that starts injuring people.
+	var body: Variant = w.components.get_component(ent, "body")
+	if body is Dictionary:
+		for part in (body as Dictionary).keys():
+			var maxv: Variant = null
+			if (body as Dictionary)[part] is Dictionary:
+				maxv = ((body as Dictionary)[part] as Dictionary).get("max")
+			if maxv != null and float(((body as Dictionary)[part] as Dictionary).get("current", 0.0)) < float(maxv):
+				push_error("the accident injured %s -- this need must never do damage" % str(part))
+				return false
+	# The pool resets: the body has been relieved, whatever the dignity of it. Compared loosely
+	# because the clock keeps running -- the ticks between the accident and this line drain it
+	# again, which is the correct behaviour and not something to null out with a fudge inside the
+	# sim.
+	if float(SimNeeds.of(w, ent)["relief"]) < 99.0:
+		push_error("after the accident the pool sat at %.2f" % float(SimNeeds.of(w, ent)["relief"]))
+		return false
+	var clause: String = SimNeeds.hud_clause(w, ent, false)
+	if not clause.contains("humiliated"):
+		push_error("the HUD said nothing about it: '%s'" % clause)
+		return false
+
+	# It drains away, and it is capped -- the argument rule, because an unbounded shame source
+	# would walk a survivor out of the colony over a bad week.
+	var loaded: Dictionary = SimNeeds.of(w, ent)
+	loaded["soiled"] = SimNeeds.SOIL_CAP - 1.0
+	loaded["relief"] = SimNeeds.drain_relief() * 2.0
+	for _i in 10:
+		w.step()
+	if SimNeeds.soiled_of(w, ent) > SimNeeds.SOIL_CAP + 0.001:
+		push_error("shame ran past the cap (%.2f)" % SimNeeds.soiled_of(w, ent))
+		return false
+	var start: float = SimNeeds.soiled_of(w, ent)
+	SimNeeds.of(w, ent)["relief"] = 100.0
+	for _i in 400:
+		w.step()
+		SimNeeds.of(w, ent)["relief"] = 100.0
+	var ended: float = SimNeeds.soiled_of(w, ent)
+	if ended >= start:
+		push_error("shame did not drain over 400 quiet ticks (%.3f -> %.3f)" % [start, ended])
+		return false
+
+	# True negative: the identical survivor, on the identical clock, relieved in time. Same world
+	# seed, same window, same pool -- the only difference is that they went.
+	var kept: Variant = _world()
+	var ent2: int = int(kept.player)
+	var latrine: int = _latrine(kept)
+	if latrine < 0:
+		push_error("no latrine to be in time for")
+		return false
+	var quiet: Array = []
+	kept.events.subscribe({"type": "need.soiled", "id": "gate.quiet", "handler": func(_e: Dictionary) -> void:
+		quiet.append(1)
+	})
+	var lp: Dictionary = kept.components.get_component(latrine, "position") as Dictionary
+	_stand_at(kept, ent2, lp)
+	SimNeeds.of(kept, ent2)["relief"] = SimNeeds.drain_relief() * 3.0
+	kept.commands.push({"type": "use.context"})
+	for _i in 10:
+		kept.step()
+	if not quiet.is_empty():
+		push_error("a survivor who went to the latrine soiled themselves anyway")
+		return false
+	if SimNeeds.soiled_of(kept, ent2) != 0.0:
+		push_error("a survivor who went in time carries shame")
+		return false
+
+	print("ACCIDENT OK an empty pool with nowhere to go costs a hygiene band and %.1f of pride, no damage, mood %.1f -> %.1f, hud '%s'; capped at %.1f and drains %.3f -> %.3f; the same survivor relieved in time has none" % [
+		soiled, before_mood, float(w.modifiers.call("resolve", "mood", ent)), clause, SimNeeds.SOIL_CAP, start, ended,
+	])
+	return true
+
+
+# The dead-socket lane. A need only the player can answer is a mechanism nine colonists out of ten
+# never reach -- this milestone has already paid for that pattern nine times. So: no commands, no
+# hands on the NPC, and the assertion is that the colony's own AI walks somebody to the latrine.
+func _an_npc_takes_itself_to_the_latrine() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	if mara < 0:
+		push_error("no NPC in the colony to send")
+		return false
+	var latrine: int = _latrine(w)
+	if latrine < 0:
+		push_error("the booted district sited no latrine for an NPC to find")
+		return false
+	# Soft pressure on relief and nothing else pressing, so what is measured is this need winning
+	# the seek ladder rather than an NPC wandering into a latrine on other business.
+	var n: Dictionary = SimNeeds.of(w, mara)
+	n["relief"] = 20.0
+	n["hunger"] = 100.0
+	n["thirst"] = 100.0
+	n["rest"] = 100.0
+	if SimNeeds.seek_kind(w, mara) != "relief":
+		push_error("an NPC at 20 relief seeks '%s' instead" % SimNeeds.seek_kind(w, mara))
+		return false
+	var went: Array = []
+	w.events.subscribe({"type": "need.relieved", "id": "gate.npc", "handler": func(e: Dictionary) -> void:
+		went.append(int(e.get("entity", -1)))
+	})
+	var ticks: int = 0
+	for _i in 4000:
+		ticks += 1
+		w.step()
+		if went.has(mara):
+			break
+	if not went.has(mara):
+		push_error("an NPC needing to go never reached the latrine in 4000 ticks")
+		return false
+	if float(SimNeeds.of(w, mara)["relief"]) < 99.0:
+		push_error("the NPC relieved itself and the pool reads %.2f" % float(SimNeeds.of(w, mara)["relief"]))
+		return false
+
+	# True negative: the same NPC, the same pressure, in a colony with no latrine. Nobody publishes
+	# anything, so the lane above is measuring the walk rather than the timer.
+	var bare: Variant = _world()
+	var mara2: int = _mara(bare)
+	for e in bare.components.query(["latrine"]):
+		bare.components.remove(int(e), "latrine")
+	var m: Dictionary = SimNeeds.of(bare, mara2)
+	m["relief"] = 20.0
+	m["hunger"] = 100.0
+	m["thirst"] = 100.0
+	m["rest"] = 100.0
+	var nothing: Array = []
+	bare.events.subscribe({"type": "need.relieved", "id": "gate.npc.bare", "handler": func(_e: Dictionary) -> void:
+		nothing.append(1)
+	})
+	for _i in ticks:
+		bare.step()
+	if not nothing.is_empty():
+		push_error("an NPC relieved itself in a colony with no latrine")
+		return false
+
+	print("NPC RELIEF OK an NPC at 20 relief walked itself to the latrine in %d ticks with no player input; the same NPC with no latrine to walk to relieved nothing" % ticks)
 	return true

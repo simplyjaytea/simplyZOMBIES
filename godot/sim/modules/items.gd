@@ -567,8 +567,14 @@ static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}
 	# scope modifiers to item
 	for mod in affix_modifiers(world, item):
 		world.modifiers.add(mod as Dictionary, item)
-	world.events.publish({"type": "item.spawned", "item": item, "baseId": base_id})
-	world.events.drain()
+	# Delivered synchronously rather than published: the one subscriber attaches a container
+	# grid, and callers stow into a just-spawned pack on the same line. This was
+	# publish() + drain(), which got the synchrony by flushing the *whole* queue mid-tick --
+	# every handler another system had queued this tick ran early, and since whether a spawn
+	# happens can hang on an RNG roll (a recovered arrow, a cooked meal), *which* events those
+	# were was not stable between runs. The frozen oracle still carries that shape; parity is
+	# unaffected because the parity snapshot carries no event ordering.
+	world.events.deliver({"type": "item.spawned", "item": item, "baseId": base_id})
 	if base_id == "item.food.raw" or base_id == "item.food.cooked":
 		var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
 		if Needs != null and Needs.has_method("mark_spoilage"):

@@ -251,6 +251,61 @@ static func place_stations(world: Variant, map: Variant) -> void:
 	if well.x > 0 and well.y > 0 and well.x < int(map.w) - 1 and well.y < int(map.h) - 1:
 		if not SimTileMap.is_solid(map, well.x, well.y):
 			SimNeeds.make_water_source(world, float(well.x) + 0.5, float(well.y) + 0.5)
+	var latrine: Vector2i = latrine_tile(map)
+	if latrine.x >= 0:
+		SimNeeds.make_latrine(world, float(latrine.x) + 0.5, float(latrine.y) + 0.5)
+
+
+# Where the colony's latrine stands. Outdoors, walkable, near enough to reach on a full pool and
+# far enough from the well that nobody is drinking beside it -- the only two constraints the sim
+# can actually enforce, since there is no wind to be downwind of yet (docs/03's "place it downwind"
+# is a Milestone 3 weather clause, and this is not pretending to satisfy it).
+#
+# Sited off the colony anchor rather than a literal, like every other station since the anchors
+# landed, and it answers the absent sentinel on a district with no anchors at all -- which is why
+# `place_stations` checks before building one. A map too small or too solid to hold a latrine
+# simply has none, and the bathroom need's accident path is what happens then.
+const LATRINE_MIN_FROM_WELL: int = 4
+const LATRINE_MIN_FROM_START: int = 3
+const LATRINE_MAX_FROM_START: int = 9
+
+
+static func latrine_tile(map: Variant) -> Vector2i:
+	var start: Vector2i = colony_start(map)
+	var well: Vector2i = SimTileMap.well_tile(map)
+	var gate: Vector2i = SimTileMap.gate_a(map)
+	# The gate itself and the corpse dump two tiles south of it (ADR 0010) are spoken for.
+	var taken: Array[Vector2i] = []
+	if gate.x >= 0:
+		taken.append(gate)
+		taken.append(Vector2i(gate.x, gate.y + 2))
+	var gate_b: Vector2i = SimTileMap.gate_b(map)
+	if gate_b.x >= 0:
+		taken.append(gate_b)
+	var best: Vector2i = Vector2i(-1, -1)
+	var best_d: int = 1 << 30
+	for j in range(start.y - LATRINE_MAX_FROM_START, start.y + LATRINE_MAX_FROM_START + 1):
+		for i in range(start.x - LATRINE_MAX_FROM_START, start.x + LATRINE_MAX_FROM_START + 1):
+			if i <= 0 or j <= 0 or i >= int(map.w) - 1 or j >= int(map.h) - 1:
+				continue
+			if SimTileMap.is_indoors(map, i, j) or SimTileMap.is_solid(map, i, j):
+				continue
+			if SimTileMap.tile_at(map, i, j) != SimTileMap.Tile.Floor:
+				continue
+			var d: int = absi(i - start.x) + absi(j - start.y)
+			if d < LATRINE_MIN_FROM_START or d > LATRINE_MAX_FROM_START:
+				continue
+			if well.x >= 0 and absi(i - well.x) + absi(j - well.y) < LATRINE_MIN_FROM_WELL:
+				continue
+			if taken.has(Vector2i(i, j)):
+				continue
+			# Nearest wins, and the scan order breaks ties, so one map always sites one latrine in
+			# one place -- a station that moved between two boots of the same seed would take the
+			# save fixtures and the determinism gates with it.
+			if d < best_d:
+				best_d = d
+				best = Vector2i(i, j)
+	return best
 
 
 static func _indoor_floors(map: Variant, near_x: int, near_y: int, n: int) -> Array[Vector2i]:

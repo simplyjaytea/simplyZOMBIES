@@ -18,6 +18,12 @@ static func register_module(world: Variant) -> void:
 		for entity in w.components.query(["position"]):
 			if not SimAllegiance.is_person(w, int(entity)):
 				continue
+			# A corpse keeps identity (gear stays on the body per ADR 0013), so is_person alone
+			# would leave a dead colonist ringing the alarm forever. enemies_of already excludes
+			# corpses for the same reason (allegiance.gd:72-74); mirrored here rather than
+			# widened into is_person, which shambler.gd and bloater.gd also share.
+			if w.components.has_component(int(entity), "corpse"):
+				continue
 			var at: Variant = w.components.get_component(int(entity), "position")
 			if at == null:
 				continue

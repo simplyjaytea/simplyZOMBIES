@@ -188,5 +188,102 @@
     },
     "massKg": 0.08,
     "stack": 2
+  },
+  {
+    "id": "item.whetstone",
+    "name": "Whetstone",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.2,
+    "stack": 3,
+    "modification": {
+      "operation": "reroll",
+      "appliesTo": ["weapon.melee"]
+    }
+  },
+  {
+    "id": "item.oil.gun",
+    "name": "Gun Oil",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.15,
+    "stack": 3,
+    "modification": {
+      "operation": "condition_restore",
+      "appliesTo": ["weapon.ranged"]
+    }
+  },
+  {
+    "id": "item.solvent",
+    "name": "Solvent",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.2,
+    "stack": 2,
+    "modification": {
+      "operation": "strip",
+      "appliesTo": ["weapon.melee", "weapon.ranged", "armor", "tool"]
+    }
+  },
+  {
+    "id": "item.gauge.machinist",
+    "name": "Machinist's Gauge",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.3,
+    "stack": 1,
+    "modification": {
+      "operation": "reroll_chosen",
+      "appliesTo": ["weapon.melee", "weapon.ranged", "armor", "tool"]
+    }
+  },
+  {
+    "id": "item.rights.salvage",
+    "name": "Salvage Rights",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.05,
+    "stack": 1,
+    "modification": {
+      "operation": "upgrade_tier",
+      "appliesTo": ["weapon.melee", "weapon.ranged", "armor", "tool"]
+    }
+  },
+  {
+    "id": "item.battery",
+    "name": "Battery",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.1,
+    "stack": 6
+  },
+  {
+    "id": "item.cloth.bolt",
+    "name": "Bolt of Cloth",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.5,
+    "stack": 4
   }
 ]

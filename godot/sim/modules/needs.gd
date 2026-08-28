@@ -27,7 +27,47 @@ const CAMPFIRE_SCENT: float = 5.0
 const CAMPFIRE_COOK_SCENT: float = 15.0
 const RAW_SPOIL_DAYS: float = 2.0
 const COOKED_SPOIL_DAYS: float = 1.0
-const NEED_SOURCES: Array[String] = ["need.hunger", "need.thirst", "need.rest", "need.temperature", "need.hygiene"]
+const NEED_SOURCES: Array[String] = ["need.hunger", "need.thirst", "need.rest", "need.temperature", "need.hygiene", "need.relief"]
+
+# --- the bathroom need (docs/04) ---------------------------------------------------------------
+#
+# docs/04's cut list used to read "Latrines exist as a *scent emitter* and a hygiene facility, but
+# individual survivors do not track a bladder meter". The owner reversed that; this is the need,
+# and the shape is the one the file already uses for a periodic bodily need -- a draining pool with
+# `pressure` bands, not a banded state. Hunger, thirst and rest are pools because they empty on a
+# clock and are refilled by an act; temperature and hygiene are bands because they are read off the
+# world around the body. Relief empties on a clock and is refilled by an act, so it is a pool, and
+# being one it inherits the seek ladder, the crossing events and the HUD prose for free.
+#
+# It is deliberately the *cheapest* need to satisfy and the *fastest* to come back: twice a day at
+# rest, faster if you have just eaten and drunk, and answered in one visit to a latrine you already
+# own. What it costs is time and position -- it walks people out of the annex, on a clock that
+# eating and drinking speed up, which is exactly the pressure docs/04 asks a need to create.
+const RELIEF_EMPTY_DAYS: float = 0.5
+# A sleeping body is quieter. Half rate rather than none, so a survivor who went to bed on a nearly
+# empty pool gets up in the night -- and one who went before bed does not.
+const RELIEF_SLEEP_MUL: float = 0.5
+# Intake feeds it. A meal and a drink each move the clock forward by a named amount rather than by
+# a fraction of what they restore, so rebalancing food does not silently rebalance this.
+const RELIEF_PER_MEAL: float = 12.0
+const RELIEF_PER_DRINK: float = 18.0
+
+# The latrine. Scent 12 is docs/03's emitter table, unchanged -- a latrine was always going to be
+# an emitter; what is new is that somebody has a reason to walk to it.
+const LATRINE_SCENT: float = 12.0
+const LATRINE_REACH: float = 1.5
+
+# Nowhere to go. The consequence is *never* damage: docs/04 has no bodily-harm clause for this, and
+# the sim already owns the two prices that fit -- a hygiene band (which carries its own mood and
+# doubles scent through `_scent_mul`) and shame. Shame is shaped like grief and arguments, for the
+# same reason they are: one modifier from one source, accumulating to a cap and draining away, so a
+# bad week is a drag rather than a spiral that empties the colony through LEAVE_AT.
+const SOIL_MOOD: float = 12.0
+const SOIL_CAP: float = 24.0
+# Per mood tick (every 20 ticks). At 0.02 a survivor at the cap is clear after about two in-game
+# hours -- the same order as an argument, and deliberately shorter than grief.
+const SOIL_DECAY: float = 0.02
+const SOIL_SOURCE: String = "mood.soiled"
 
 # --- mood consequences (docs/04) -----------------------------------------------------------
 #
@@ -95,6 +135,11 @@ const GRIEF_CAP: float = 40.0
 # in-game hours -- grief lasts most of a day and then it does not.
 const GRIEF_DECAY: float = 0.005
 const GRIEF_SOURCE: String = "mood.grief"
+
+# The needs that are pools rather than bands. One list, because "below SOFT costs work and mood"
+# was written out twice as a literal array and a fourth pool would have joined one of them and
+# quietly missed the other -- the same shape as the seven copies of the job countdown.
+const POOLS: Array[String] = ["hunger", "thirst", "rest", "relief"]
 
 const TEMP_ORDER: Array[String] = [
 	"extremely_cold", "very_cold", "a_little_cold", "comfortable", "a_little_hot", "very_hot", "extremely_hot",
@@ -211,6 +256,7 @@ static func blank() -> Dictionary:
 		"hunger": 100.0,
 		"thirst": 100.0,
 		"rest": 100.0,
+		"relief": 100.0,
 		"temperature": "comfortable",
 		"hygiene": "clean",
 		"crisis": "none",
@@ -249,6 +295,10 @@ static func drain_thirst() -> float:
 static func drain_rest() -> float:
 	# Wake = dawn+day+dusk = 0.75 of a day.
 	return 100.0 / (0.75 * float(Clock.DAY_TICKS))
+
+
+static func drain_relief() -> float:
+	return 100.0 / (RELIEF_EMPTY_DAYS * float(Clock.DAY_TICKS))
 
 
 static func pressure(pool: float) -> String:
@@ -296,7 +346,7 @@ static func work_mul(world: Variant, entity: int) -> float:
 	if String(n.get("crisis", "none")) != "none":
 		return 0.0
 	var m: float = 1.0
-	for k in ["hunger", "thirst", "rest"]:
+	for k in POOLS:
 		if float(n.get(k, 100.0)) < SOFT:
 			m = minf(m, 0.85)
 	var t: String = String(n.get("temperature", "comfortable"))
@@ -359,6 +409,9 @@ static func register_module(world: Variant) -> void:
 	)
 	world.systems.register("need.rest", "needs", 12, func(w: Variant) -> void:
 		_tick_rest(w)
+	)
+	world.systems.register("need.relief", "needs", 12, func(w: Variant) -> void:
+		_tick_relief(w)
 	)
 	world.systems.register("need.illness", "needs", 11, func(w: Variant) -> void:
 		_tick_illness(w)
@@ -450,6 +503,112 @@ static func _tick_pools(world: Variant, key: String, rate: float, crisis: String
 			if String(n.get("crisis", "")) == crisis:
 				n["crisis"] = "none"
 				n["starvingSinceTick" if crisis == "starving" else "dehydratingSinceTick"] = -1
+
+
+# The bathroom need's clock. No crisis and no death path: an empty pool is an accident, not a
+# corpse, so this does not go near `_tick_pools`'s starve/dehydrate machinery.
+static func _tick_relief(world: Variant) -> void:
+	var hold: bool = hold_max(world)
+	for ent in _survivors(world):
+		var n: Dictionary = of(world, ent)
+		if hold:
+			n["relief"] = 100.0
+			n["soiled"] = 0.0
+			_apply_soiled(world, ent, 0.0)
+			continue
+		var rate: float = drain_relief()
+		if world.components.has_component(ent, "sleeping"):
+			rate *= RELIEF_SLEEP_MUL
+		var before: float = float(n.get("relief", 100.0))
+		var after: float = maxf(0.0, before - rate)
+		n["relief"] = after
+		_cross(world, ent, n, "relief", before, after)
+		if after <= HARD:
+			_soil(world, ent, n)
+	# Shame drains on the same cadence every other mood source does, and for everybody, so a
+	# survivor recovers on the tick the accounting happens rather than a cycle later.
+	if int(world.tick) % 20 == 0:
+		for ent2 in _survivors(world):
+			_decay_soiled(world, int(ent2))
+
+
+# Nowhere to go, and no longer able to wait. The pool resets because the body has been relieved --
+# what is left behind is a hygiene band and the shame of it.
+static func _soil(world: Variant, ent: int, n: Dictionary) -> void:
+	n["relief"] = 100.0
+	n["soiled"] = minf(SOIL_CAP, float(n.get("soiled", 0.0)) + SOIL_MOOD)
+	_apply_soiled(world, ent, float(n["soiled"]))
+	# After the modifier, because `_dirt` re-runs `_apply_muls`, and this way one accident leaves
+	# the body in one consistent state rather than two half-applied ones.
+	_dirt(world, ent, 1)
+	world.events.publish({"type": "need.soiled", "entity": ent})
+
+
+static func soiled_of(world: Variant, entity: int) -> float:
+	return float(of(world, entity).get("soiled", 0.0))
+
+
+static func _decay_soiled(world: Variant, ent: int) -> void:
+	var n: Dictionary = of(world, ent)
+	var carried: float = float(n.get("soiled", 0.0))
+	if carried <= 0.0:
+		return
+	n["soiled"] = maxf(0.0, carried - SOIL_DECAY)
+	_apply_soiled(world, ent, float(n["soiled"]))
+
+
+# One modifier from one source, replaced rather than stacked -- the argument and grief rule, and
+# for the same reason: a second modifier per accident would accumulate behind the cap this thinks
+# it is enforcing. Its source is deliberately *not* in NEED_SOURCES, because `_apply_muls` strips
+# those every time a pool crosses a mark and shame must outlive the accident that caused it.
+static func _apply_soiled(world: Variant, ent: int, amount: float) -> void:
+	if world.modifiers == null:
+		return
+	world.modifiers.call("remove_by_source", SOIL_SOURCE, ent)
+	if amount <= 0.0:
+		return
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": -amount, "source": SOIL_SOURCE}, ent)
+
+
+# The relief verb, place-bound. Refuses when the latrine is missing, is not a latrine, or is out of
+# reach -- there is no relieving yourself at a distance, and no relieving yourself into thin air.
+static func relieve_at(world: Variant, entity: int, latrine: int) -> bool:
+	if latrine < 0 or not world.components.has_component(latrine, "latrine"):
+		return false
+	var here: Variant = world.components.get_component(entity, "position")
+	var there: Variant = world.components.get_component(latrine, "position")
+	if not (here is Dictionary) or not (there is Dictionary):
+		return false
+	var dx: float = float((there as Dictionary)["x"]) - float((here as Dictionary)["x"])
+	var dy: float = float((there as Dictionary)["y"]) - float((here as Dictionary)["y"])
+	if dx * dx + dy * dy > LATRINE_REACH * LATRINE_REACH:
+		return false
+	var n: Dictionary = of(world, entity)
+	n["relief"] = 100.0
+	_apply_muls(world, entity, n)
+	world.events.publish({"type": "need.relieved", "entity": entity, "latrine": latrine})
+	return true
+
+
+# The same verb without a named target: the nearest latrine, if one is close enough. Returns false
+# for a colony that has not built one, which is what makes the accident above reachable.
+static func relieve(world: Variant, entity: int) -> bool:
+	var here: Variant = world.components.get_component(entity, "position")
+	if not (here is Dictionary):
+		return false
+	var latrine: int = nearest_latrine(world, float((here as Dictionary)["x"]), float((here as Dictionary)["y"]))
+	return relieve_at(world, entity, latrine)
+
+
+# Intake feeds the clock: what goes in comes out. Kept in one place so eat and drink cannot drift
+# apart, and clamped at zero rather than allowed to trigger an accident on the spot -- a meal
+# should hurry you along, not humiliate you mid-bite.
+static func _intake(world: Variant, entity: int, amount: float) -> void:
+	var n: Dictionary = of(world, entity)
+	n["relief"] = maxf(0.0, float(n.get("relief", 100.0)) - amount)
+	if float(n["relief"]) <= HARD:
+		n["relief"] = 0.01
+	_apply_muls(world, entity, n)
 
 
 static func _tick_rest(world: Variant) -> void:
@@ -827,11 +986,14 @@ static func _hold_one(world: Variant, ent: int, n: Dictionary) -> void:
 	n["hunger"] = 100.0
 	n["thirst"] = 100.0
 	n["rest"] = 100.0
+	n["relief"] = 100.0
 	n["temperature"] = "comfortable"
 	n["hygiene"] = "clean"
 	n["crisis"] = "none"
 	n["starvingSinceTick"] = -1
 	n["dehydratingSinceTick"] = -1
+	n["soiled"] = 0.0
+	_apply_soiled(world, ent, 0.0)
 	_strip_need_mood(world, ent)
 
 
@@ -865,7 +1027,7 @@ static func _apply_muls(world: Variant, ent: int, n: Dictionary) -> void:
 	if work != 1.0 and work > 0.0:
 		world.modifiers.call("add", {"stat": "ranged_accuracy", "op": "mul", "value": acc, "source": "need.hunger"}, ent)
 	var mood_v: float = 0.0
-	for k in ["hunger", "thirst", "rest"]:
+	for k in POOLS:
 		if float(n.get(k, 100.0)) < SOFT:
 			mood_v -= 10.0
 	var t: String = String(n.get("temperature", "comfortable"))
@@ -929,6 +1091,7 @@ static func drink(world: Variant, entity: int) -> bool:
 		n["crisis"] = "none"
 		n["dehydratingSinceTick"] = -1
 	_apply_muls(world, entity, n)
+	_intake(world, entity, RELIEF_PER_DRINK)
 	return true
 
 
@@ -967,6 +1130,7 @@ static func eat(world: Variant, entity: int, item: int) -> bool:
 	if ill:
 		_fall_ill(world, entity)
 	_apply_muls(world, entity, n)
+	_intake(world, entity, RELIEF_PER_MEAL)
 	return true
 
 
@@ -1076,6 +1240,40 @@ static func make_water_source(world: Variant, x: float, y: float) -> int:
 	world.components.set_component(ent, "position", {"x": x, "y": y})
 	world.components.set_component(ent, "water_source", {})
 	return ent
+
+
+# A latrine: the place the bathroom need is answered. Shaped exactly like the well -- a position, a
+# marker component, and a factory here -- because it is the same kind of thing, a station the
+# colony owns that a need walks somebody to. The emitter is the part that is not free: docs/03's
+# table prices a latrine at scent 12, so building one is a comfort you pay for in attention, which
+# is the trade docs/04 says every comfort is.
+static func make_latrine(world: Variant, x: float, y: float) -> int:
+	var ent: int = int(world.entities.spawn())
+	world.components.set_component(ent, "position", {"x": x, "y": y})
+	world.components.set_component(ent, "latrine", {})
+	var em: Dictionary = SimAttention.PERSON_EMITTER.duplicate(true)
+	em["walking"] = 0.0
+	em["sprinting"] = 0.0
+	em["ambient"] = 0.0
+	em["scent"] = LATRINE_SCENT
+	SimAttention.make_emitter(world, ent, em)
+	return ent
+
+
+static func nearest_latrine(world: Variant, x: float, y: float) -> int:
+	var best: int = -1
+	var best_d: float = 1e12
+	for e in world.components.query(["latrine", "position"]):
+		var p: Variant = world.components.get_component(int(e), "position")
+		if not p is Dictionary:
+			continue
+		var dx: float = float((p as Dictionary)["x"]) - x
+		var dy: float = float((p as Dictionary)["y"]) - y
+		var d: float = dx * dx + dy * dy
+		if d < best_d:
+			best_d = d
+			best = int(e)
+	return best
 
 
 static func nearest_water_source(world: Variant, x: float, y: float) -> int:
@@ -1204,7 +1402,9 @@ static func seek_kind(world: Variant, entity: int) -> String:
 	var n: Dictionary = of(world, entity)
 	var best: String = ""
 	var best_rank: int = 99
-	var order: Array[String] = ["thirst", "hunger", "rest", "temperature", "hygiene"]
+	# Relief sits between hunger and rest: more urgent than sleep, less urgent than the two needs
+	# that can actually kill you, and cheap enough that letting it interrupt work is not a tax.
+	var order: Array[String] = ["thirst", "hunger", "relief", "rest", "temperature", "hygiene"]
 	for i in order.size():
 		var k: String = order[i]
 		var p: String = ""
@@ -1227,7 +1427,7 @@ static func seek_kind(world: Variant, entity: int) -> String:
 	if best_rank >= 99:
 		return ""
 	# already recovering: stop seek at 80
-	if best == "thirst" or best == "hunger" or best == "rest":
+	if POOLS.has(best):
 		if float(n.get(best, 0.0)) >= SEEK_STOP and best_rank >= 20:
 			return ""
 	return best
@@ -1244,8 +1444,15 @@ static func hud_clause(world: Variant, entity: int, panel: bool = false) -> Stri
 	_hud_pool(picks, "thirst", float(n.get("thirst", 100.0)), String(n.get("crisis", "none")), panel)
 	_hud_pool(picks, "hunger", float(n.get("hunger", 100.0)), String(n.get("crisis", "none")), panel)
 	_hud_pool(picks, "rest", float(n.get("rest", 100.0)), String(n.get("crisis", "none")), panel)
+	_hud_pool(picks, "relief", float(n.get("relief", 100.0)), String(n.get("crisis", "none")), panel)
 	_hud_band(picks, "temperature", String(n.get("temperature", "comfortable")), panel)
 	_hud_band(picks, "hygiene", String(n.get("hygiene", "clean")), panel)
+	if float(n.get("soiled", 0.0)) > 0.0:
+		# Ranked above the pool's own "you need to go" and below the crisis lines: it has already
+		# happened, so it is news, but it is not the thing about to kill anybody.
+		# Phrased "You're <adjective>" like the grief line, so the third-person rewrite below turns
+		# it into a glimpse of somebody rather than a report about them.
+		picks.append({"rank": 8, "hud": "You're humiliated.", "panel": "You're humiliated — soiled, and needing a wash."})
 	if world.modifiers != null:
 		var mood: float = float(world.modifiers.call("resolve", "mood", entity))
 		if float(n.get("grief", 0.0)) >= GRIEF_HEARD and mood > -80.0:
@@ -1293,6 +1500,13 @@ static func _hud_pool(picks: Array[Dictionary], key: String, v: float, crisis: S
 			picks.append({"rank": 11, "hud": "You're thirsty.", "panel": "You're thirsty — work and aim are off."})
 		elif v <= SEEK_STOP:
 			picks.append({"rank": 21, "hud": "You're thirsty.", "panel": "You're thirsty."})
+	elif key == "relief":
+		# No crisis line: the pool never sits at empty, because emptying it is the accident. The
+		# shame that follows speaks for itself, in hud_clause.
+		if v < SOFT:
+			picks.append({"rank": 16, "hud": "You badly need to go.", "panel": "You badly need to go — find a latrine."})
+		elif v <= SEEK_STOP:
+			picks.append({"rank": 26, "hud": "You need to go.", "panel": "You need to go."})
 	elif key == "rest":
 		if crisis == "passed_out" or v <= 0.0:
 			picks.append({"rank": 3, "hud": "", "panel": "Collapsed. Sleeping where they fell."})

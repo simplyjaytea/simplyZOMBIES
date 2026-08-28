@@ -172,7 +172,7 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	var job: Variant = world.components.get_component(ent, "job")
 	if seek != "":
 		var hard: bool = false
-		if seek == "thirst" or seek == "hunger" or seek == "rest":
+		if SimNeeds.POOLS.has(seek):
 			hard = float(n.get(seek, 100.0)) <= 0.0
 		elif seek == "temperature":
 			hard = String(n.get("temperature", "")) == "extremely_cold"
@@ -1097,6 +1097,24 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 				SimNeeds.wash(world, ent)
 			else:
 				SimNeeds.drink(world, ent)
+		"relief":
+			# The NPC half of the bathroom need. Without this the whole thing would be a mechanism
+			# only the player can reach -- a tenth dead socket, and the one every colonist would
+			# hit twice a day. Same shape as the rest of this function: walk there, then act.
+			var latrine: int = SimNeeds.nearest_latrine(world, x, y)
+			if latrine < 0:
+				# No latrine anywhere. Nothing to walk to and nothing to refuse -- the pool runs
+				# down and `_soil` takes it from here.
+				return
+			var lp: Variant = world.components.get_component(latrine, "position")
+			if lp is Dictionary:
+				var lt := Vector2i(floori(float((lp as Dictionary)["x"])), floori(float((lp as Dictionary)["y"])))
+				if not _at(world, ent, lt, SimNeeds.LATRINE_REACH):
+					var sj4: Dictionary = {"kind": "Seek", "target": latrine, "path": [], "pathGen": -1}
+					_walk(world, ent, sj4, lt)
+					world.components.set_component(ent, "job", sj4)
+					return
+			SimNeeds.relieve_at(world, ent, latrine)
 		"rest":
 			var bed: int = SimNeeds.nearest_bed(world, x, y, true)
 			if bed >= 0:
