@@ -28,5 +28,10 @@
     "id": "prop.well",
     "name": "Well",
     "appearance": { "tint": "#6d7078", "shape": "ring", "size": 0.86 }
+  },
+  {
+    "id": "prop.latrine",
+    "name": "Latrine",
+    "appearance": { "tint": "#4e4a33", "shape": "box", "size": 0.55 }
   }
 ]

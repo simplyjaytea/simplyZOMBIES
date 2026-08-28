@@ -205,6 +205,7 @@ const PROP_KINDS: Array[Dictionary] = [
 	{"component": "campfire", "id": "prop.campfire", "flag": "lit", "flag_id": "prop.campfire.lit"},
 	{"component": "bed", "id": "prop.bed", "flag": "", "flag_id": ""},
 	{"component": "water_source", "id": "prop.well", "flag": "", "flag_id": ""},
+	{"component": "latrine", "id": "prop.latrine", "flag": "", "flag_id": ""},
 ]
 
 # The ground-footprint primitives a prop may ask for. Geometry, not identity -- `box` is a crate

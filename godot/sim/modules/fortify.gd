@@ -166,6 +166,12 @@ static func _use_context(world: Variant, actor: int) -> void:
 		if fire >= 0 and _entity_in_reach(world, actor, fire):
 			Needs.call("toggle_fire", world, fire)
 			return
+		# The latrine, before the reach-bed fallback: a bed you are merely near is somewhere to
+		# sleep later, and this is not something anybody is standing next to by accident.
+		var latrine: int = int(Needs.call("nearest_latrine", world, hx, hy))
+		if latrine >= 0 and _entity_in_reach(world, actor, latrine):
+			if bool(Needs.call("relieve_at", world, actor, latrine)):
+				return
 		if bed >= 0 and _entity_in_reach(world, actor, bed):
 			Needs.call("start_sleep", world, actor, bed)
 			return

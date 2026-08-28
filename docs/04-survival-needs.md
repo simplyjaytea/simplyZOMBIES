@@ -17,12 +17,13 @@ Needs are not a chore list. Each one exists to create a specific pressure:
 | **Rest** | Makes night dangerous even when nothing attacks; punishes the tense-quiet nights |
 | **Temperature** | Forces heat and light, which are the loudest emitters you own |
 | **Hygiene** | Ties directly to wound infection and to scent |
+| **Relief** | The short clock: it comes back twice a day and walks people out of the annex |
 | **Mood** | The counterweight to hiding — living safely makes people miserable |
 
-Every survivor has all six, including your controlled character. There is no "player is exempt"
+Every survivor has all seven, including your controlled character. There is no "player is exempt"
 shortcut.
 
-## The six needs
+## The needs
 
 ### Hunger
 
@@ -79,6 +80,25 @@ Not a comfort stat. It has two teeth:
 
 Washing needs water — competing directly with drinking — and soap, which is scavenged or crafted.
 
+### Relief
+
+The bathroom need, added to the slice on the owner's call (2026-08-28) after sitting on the cut
+list below since the document was written.
+
+- A pool, not a band: it empties on a clock, twice a day at rest, and is refilled by an act. That
+  is the same shape hunger, thirst and rest have, and the reason temperature and hygiene are bands
+  instead is that they are read off the world rather than off the body.
+- **Eating and drinking speed it up.** What goes in comes out; a fed, watered colony visits the
+  latrine more often than a hungry one.
+- Answered at a **latrine**, which is a station the colony owns — and, per the
+  [attention table](03-attention.md), a scent emitter. Comfort you pay for in attention, like
+  every other comfort here.
+- Nowhere to go is **never damage**: a survivor who cannot wait loses a hygiene band — which
+  carries its own mood cost and doubles their scent — and takes a capped, decaying hit of shame.
+  Humiliating and recoverable, which is the register the whole design works in.
+- Sleeping halves the clock rather than stopping it, so a survivor who went to bed on an empty
+  pool gets up in the night and one who went first does not.
+
 ### Mood
 
 The counterweight that makes hiding unsustainable. Mood is a running total of modifiers with named
@@ -126,8 +146,11 @@ ones — see the [cookbook](21-extensibility.md).
 
 ## Cut list
 
-- **Bladder/bathroom needs.** Latrines exist as a *scent emitter* and a hygiene facility, but
-  individual survivors do not track a bladder meter.
+- ~~**Bladder/bathroom needs.**~~ **Uncut on the owner's call (2026-08-28)** and shipped — see
+  [Relief](#relief) above and the record in [docs/23](23-roadmap.md#the-record-by-system). The
+  clause this replaces read: "Latrines exist as a *scent emitter* and a hygiene facility, but
+  individual survivors do not track a bladder meter." They do now; the latrine is still the scent
+  emitter it always was.
 - **Individual food preferences and cuisine variety bonuses.** Post-slice flavor; the raw/cooked/
   spoiled axis carries enough weight for now.
 - **Addiction systems.** Alcohol and stimulants have crashes but no dependency modeling yet.
