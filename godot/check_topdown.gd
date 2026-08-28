@@ -16,6 +16,7 @@ const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
+const SimBoot = preload("res://sim/boot.gd")
 
 const ZOOMS: Array[float] = [16.0, 32.0, 64.0, 128.0]
 const EPS: float = 0.000001
@@ -31,8 +32,11 @@ func _run() -> void:
 	ok = _depth_is_y_alone() and ok
 	ok = _visible_bounds_is_the_camera_aabb() and ok
 	ok = _the_ground_reaches_the_draw_path() and ok
+	ok = _buildings_read_as_buildings() and ok
+	ok = _props_reach_the_draw_path() and ok
+	ok = _built_mass_is_thin_and_still_solid() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -151,6 +155,253 @@ func _the_ground_reaches_the_draw_path() -> bool:
 		push_error("_draw_district does not call Appearance.ground_colour: the surface array resolves a colour nothing draws")
 		return false
 	print("GROUND OK %d surfaces, distinct tints, paved still #%s, resolved off map.surfaces and read by _draw_district" % [Palette.SURFACE_TINTS.size(), (Palette.COLOURS["floor"] as Color).to_html(false)])
+	return true
+
+
+# A building reads as a building: the floor inside it is not the floor outside it, and the tile you
+# walk through to get in is not the wall either side of it. Both are read off arrays and manifests
+# the generator already wrote and nothing drew -- `map.indoors` and `map.buildings[].doors` -- so
+# these assertions are about reach and about the two answers being distinguishable, not about the
+# maths.
+#
+# The true negative each carries is the outdoor case: an interior tint that also repainted the
+# street would satisfy "the two differ" while changing every district that ships, so an outdoor
+# tile returning its ground colour *unchanged* is asserted alongside, and so is a map nobody
+# stamped having no doorways at all.
+func _buildings_read_as_buildings() -> bool:
+	if Palette.INDOOR_MIX <= 0.0 or Palette.INDOOR_MIX > 1.0:
+		push_error("INDOOR_MIX %f is not a mix: at 0 an interior is indistinguishable from the street" % Palette.INDOOR_MIX)
+		return false
+
+	var map: Variant = SimTileMap.blank_map(8, 8)
+	var indoors := PackedByteArray()
+	indoors.resize(8 * 8)
+	indoors[3 * 8 + 3] = 1
+	map.indoors = indoors
+	var paved: Color = Palette.COLOURS["floor"]
+	var inside: Color = Appearance.indoor_floor(map, 3, 3, paved)
+	if inside == paved:
+		push_error("an indoor floor resolved the same colour as the street; a shell nobody can see into is not a building")
+		return false
+	if inside != paved.lerp(Palette.COLOURS["indoorFloor"], Palette.INDOOR_MIX):
+		push_error("indoor_floor did not mix the ground towards the board colour, got %s" % str(inside))
+		return false
+	# The surface underneath still shows through: two interiors on different ground are two
+	# different floors, which is what keeps the ground lane above meaning what it says.
+	if Appearance.indoor_floor(map, 3, 3, Palette.COLOURS["grass"]) == inside:
+		push_error("indoor_floor threw the surface away; every interior would be one slab colour")
+		return false
+	if Appearance.indoor_floor(map, 4, 3, paved) != paved:
+		push_error("a tile outside the shell must keep its ground colour exactly")
+		return false
+	if Appearance.indoor_floor(null, 0, 0, paved) != paved:
+		push_error("a world with no tilemap must still draw an outdoor floor")
+		return false
+
+	# Doorways off the manifest, including the two entries that must be refused: a door outside
+	# the map, and a record carrying none at all.
+	map.buildings = [
+		{"id": "b0", "x": 0, "y": 0, "w": 4, "h": 4, "doors": [{"x": 2, "y": 3}, {"x": 99, "y": 1}]},
+		{"id": "b1", "x": 5, "y": 0, "w": 3, "h": 3},
+	]
+	var doors: Dictionary = Appearance.door_tiles(map)
+	if doors.size() != 1 or not doors.has(3 * 8 + 2):
+		push_error("door_tiles should hold exactly the one in-bounds doorway, got %s" % str(doors.keys()))
+		return false
+	var bare: Variant = SimTileMap.blank_map(8, 8)
+	if not Appearance.door_tiles(bare).is_empty():
+		push_error("a map nobody built on has no doorways")
+		return false
+	if not Appearance.door_tiles(null).is_empty():
+		push_error("a null map has no doorways")
+		return false
+
+	# Reach. Neither of the two can be exercised headless -- both are inside a CanvasItem draw
+	# pass -- so what the draw loop calls is read, the same way the ground lane above reads it.
+	var district: String = _function_body(MAIN_GD, "_draw_district")
+	if district.is_empty():
+		push_error("could not read _draw_district out of %s -- the reach assertion had nothing to judge" % MAIN_GD)
+		return false
+	if not district.contains("Appearance.indoor_floor("):
+		push_error("_draw_district does not call Appearance.indoor_floor: map.indoors resolves a colour nothing draws")
+		return false
+	if not district.contains("_is_threshold("):
+		push_error("_draw_district does not ask which tiles are doorways: the manifest's doors draw as plain floor")
+		return false
+	var thresholds: String = _function_body(MAIN_GD, "_threshold_tiles")
+	if not thresholds.contains("Appearance.door_tiles("):
+		push_error("_threshold_tiles does not derive its cache from Appearance.door_tiles")
+		return false
+	print("BUILDINGS OK interiors mix %.2f towards #%s over the surface, %d doorway off a manifest of 3" % [Palette.INDOOR_MIX, (Palette.COLOURS["indoorFloor"] as Color).to_html(false), doors.size()])
+	return true
+
+
+# Props: a container, a bed, a campfire and the well stood in every district and were drawn by
+# nothing -- announced in prose and otherwise invisible, with a generated district standing 52-137
+# containers. So this lane is the dead-socket assertion in both directions: everything the sim
+# stands in a real district resolves a drawable look, and the draw loop is the thing asking.
+func _props_reach_the_draw_path() -> bool:
+	var boot: Dictionary = SimBoot.playable(4113, 64)
+	var world: Variant = boot["world"]
+	var found: Dictionary = {}
+	var props: int = 0
+	for kind in Appearance.PROP_KINDS:
+		found[String(kind["component"])] = 0
+	# Everything standing in the district that is not a body and not a carried item has to resolve
+	# something. This is what catches a fifth kind of prop added without a PROP_KINDS entry: it
+	# would stand there invisible, and this fails rather than shipping it.
+	#
+	# `corpse` is skipped by name: the bodies of the dead are their own listed piece of work
+	# (docs/23's defect list) and are drawn -- or not -- by _draw_entities, not here.
+	var bodies: Array[String] = ["controlled", "identity", "shambler", "raider", "itemBase", "noisemaker", "corpse"]
+	for ent in world.components.query(["position"]):
+		var e: int = int(ent)
+		var is_body: bool = false
+		for c in bodies:
+			if world.components.has_component(e, c):
+				is_body = true
+				break
+		if is_body:
+			continue
+		var look: Dictionary = Appearance.prop_look(world, e)
+		if look.is_empty():
+			push_error("entity %d stands in the district and resolves no look: neither a body, nor an item, nor a prop anything can draw" % e)
+			return false
+		if not Appearance.PROP_SHAPES.has(String(look["shape"])):
+			push_error("entity %d resolved shape '%s', which the renderer does not draw" % [e, look["shape"]])
+			return false
+		props += 1
+		for kind in Appearance.PROP_KINDS:
+			if world.components.has_component(e, String(kind["component"])):
+				found[String(kind["component"])] = int(found[String(kind["component"])]) + 1
+	if props == 0:
+		push_error("no props stood in a booted district -- this lane had nothing to judge")
+		return false
+	# Every kind is expected on a stamped district, but a missing one says so rather than passing
+	# quietly: an anchorless map gets no well, which is a real and legitimate case.
+	for comp in found.keys():
+		if int(found[comp]) == 0:
+			print("PROPS SKIP no `%s` stood in this district; its resolution went unjudged here" % comp)
+	# A body must resolve nothing, or the loop above would pass on anything at all.
+	var player_look: Dictionary = Appearance.prop_look(world, int(world.player))
+	if not player_look.is_empty():
+		push_error("the player resolved a prop look; prop_look must answer only for props")
+		return false
+
+	# The searched/lit states are what make two content ids necessary; flipping the flag has to
+	# change the look, or the second entry is decoration.
+	var container: int = -1
+	for ent2 in world.components.query(["searchable"]):
+		container = int(ent2)
+		break
+	if container < 0:
+		push_error("a booted district stood no container -- the state assertion had nothing to judge")
+		return false
+	var unsearched: Dictionary = Appearance.prop_look(world, container)
+	(world.components.get_component(container, "searchable") as Dictionary)["searched"] = true
+	var searched: Dictionary = Appearance.prop_look(world, container)
+	if String(unsearched["id"]) == String(searched["id"]) or unsearched["tint"] == searched["tint"]:
+		push_error("a searched container looks exactly like an unsearched one; the state is not readable")
+		return false
+
+	# Reach, textual for the same reason as above.
+	var district: String = _function_body(MAIN_GD, "_draw_district")
+	if not district.contains("_draw_props("):
+		push_error("_draw_district does not call _draw_props: every prop in the district resolves a look nothing draws")
+		return false
+	var draw_props: String = _function_body(MAIN_GD, "_draw_props")
+	if not draw_props.contains("Appearance.prop_look(") or not draw_props.contains("_draw_prop("):
+		push_error("_draw_props does not resolve looks from content and hand them to _draw_prop")
+		return false
+	# The shape vocabulary is content-facing (prop.schema.json's enum) and presentation-owned:
+	# every name content may ask for has to be a name this function draws.
+	var draw_prop: String = _function_body(MAIN_GD, "_draw_prop")
+	if draw_prop.is_empty():
+		push_error("could not read _draw_prop out of %s" % MAIN_GD)
+		return false
+	for shape in Appearance.PROP_SHAPES:
+		if not draw_prop.contains('"%s"' % shape):
+			push_error("_draw_prop draws no '%s'; content can ask for a shape nothing renders" % shape)
+			return false
+	print("PROPS OK %d props stood and resolved (%s), %d shapes drawn, states distinguishable" % [props, str(found), Appearance.PROP_SHAPES.size()])
+	return true
+
+
+# Built mass, drawn thin. A wall blocks a whole tile and is therefore drawn over a whole tile,
+# but a whole tile of flat wall colour made a one-tile wall the brightest and largest thing on the
+# screen -- brighter than a survivor, who is a fraction of a tile. So the tile is filled with the
+# cap and only the edges that meet something walkable carry a lit face.
+#
+# The two things that can go wrong pull in opposite directions, and both are asserted:
+#   * the mass creeps back to bright -- the face share reaching half a tile, or a face that is not
+#     a band but the fill, which is the look this replaced;
+#   * the mass recedes so far that a blocked tile reads as an unlit floor, which is worse than a
+#     chunky wall because it promises passage the sim refuses. That is measured, not asserted by
+#     eye: every ground the district can put against a wall (each surface tint and its indoor mix,
+#     the doorway boards) must sit clearly below both faces in luminance.
+# The true negative for the first is the old constants (a bevel of 2 px on every edge, cap ==
+# fill); for the second, a cap or face pulled down to the floor colours, which the margins below
+# fail on immediately.
+const FACE_LIT_MARGIN: float = 0.08
+const FACE_DIM_MARGIN: float = 0.04
+
+func _luma(c: Color) -> float:
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+func _built_mass_is_thin_and_still_solid() -> bool:
+	if Palette.WALL_FACE_SHARE <= 0.0 or Palette.WALL_FACE_SHARE >= 0.5:
+		push_error("WALL_FACE_SHARE %f is not a band: at 0 the faces vanish, at 0.5 they meet and the tile is face again" % Palette.WALL_FACE_SHARE)
+		return false
+	var wall: Color = Palette.COLOURS["wall"]
+	var cap: Color = wall.darkened(Palette.WALL_CAP_DARKEN)
+	var lit: Color = wall.lightened(Palette.WALL_FACE_LIT)
+	var dim: Color = wall.lightened(Palette.WALL_FACE_DIM)
+	if not (_luma(cap) < _luma(dim) and _luma(dim) < _luma(lit)):
+		push_error("cap %.3f, shaded face %.3f, lit face %.3f: a face has to be brighter than the cap it edges, or the mass has no drawn edge" % [_luma(cap), _luma(dim), _luma(lit)])
+		return false
+	if _luma(cap) >= _luma(wall):
+		push_error("the cap is not darker than the wall colour; the tile is as bright as it was and nothing receded")
+		return false
+
+	# Every floor a wall can stand beside: the five surfaces, each of them again as an interior,
+	# and the doorway. If the dimmest face does not clear the brightest of them, some wall
+	# somewhere in the district has an edge you cannot see.
+	var grounds: Array[Color] = []
+	for s in Palette.SURFACE_TINTS.size():
+		var g: Color = Palette.SURFACE_TINTS[s]
+		grounds.append(g)
+		grounds.append(g.lerp(Palette.COLOURS["indoorFloor"], Palette.INDOOR_MIX))
+	grounds.append((Palette.COLOURS["floor"] as Color).lerp(Palette.COLOURS["threshold"], 0.75))
+	var brightest: float = -1.0
+	for g2 in grounds:
+		brightest = maxf(brightest, _luma(g2))
+	if _luma(lit) - brightest < FACE_LIT_MARGIN:
+		push_error("the lit face is %.3f over the brightest ground (%.3f); a wall edge must read against every floor it touches" % [_luma(lit) - brightest, brightest])
+		return false
+	if _luma(dim) - brightest < FACE_DIM_MARGIN:
+		push_error("the shaded face is %.3f over the brightest ground (%.3f); the south and east edges of a wall would disappear into it" % [_luma(dim) - brightest, brightest])
+		return false
+
+	# Reach, textual for the same reason as the lanes above: a draw pass cannot be run headless.
+	# The face is only drawn where the mass ends, which is the whole reason a wall run reads as one
+	# thick line; a _draw_solid_tile that stopped asking its neighbours would bevel every tile again
+	# and this is what would say so.
+	var solid: String = _function_body(MAIN_GD, "_draw_solid_tile")
+	if solid.is_empty():
+		push_error("could not read _draw_solid_tile out of %s -- the wall lane had nothing to judge" % MAIN_GD)
+		return false
+	for needle in ["Palette.WALL_CAP_DARKEN", "Palette.WALL_FACE_SHARE", "_is_solid_at("]:
+		if not solid.contains(needle):
+			push_error("_draw_solid_tile does not use %s: the cap, the band width and the exposed-edge test are what make the mass thin" % needle)
+			return false
+	var district: String = _function_body(MAIN_GD, "_draw_district")
+	if not district.contains("_draw_solid_tile(rect, Palette.COLOURS[\"wall\"], tx, ty)"):
+		push_error("the window tile is not drawn as masonry; a window that fills its tile with glass is the same proportion problem as a bright wall")
+		return false
+	if not district.contains("_draw_window_glass(rect, tx, ty, col)"):
+		push_error("_draw_window_glass is not handed the tile's colour, so a boarded window's stage stops showing in its pane")
+		return false
+	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit face %.3f clear of the brightest ground %.3f" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit), brightest])
 	return true
 
 

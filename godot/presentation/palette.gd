@@ -23,6 +23,18 @@ const COLOURS: Dictionary = {
 	"groundItem": Color("#d8c07a"),
 	"groundItemEdge": Color("#4a3f22"),
 	"outline": Color("#8b93a0"),
+	# Inside a building, and the tile you step through to get there. `indoors` is a third array
+	# over the same grid (docs/24's ground layer is the second), so an interior is not a tile type
+	# and not a branch on one: the floor keeps the surface it stands on and is pulled towards this
+	# warm board colour by INDOOR_MIX, which is what makes a shell read as a room from outside it.
+	# The threshold is the door tile the generator recorded in map.buildings[].doors -- a walkable
+	# Floor in a wall run, invisible until it was drawn as worn boards between two jambs.
+	"indoorFloor": Color("#3a3128"),
+	"threshold": Color("#4d4030"),
+	# The floor under a prop whose content declares no tint. Every shipped prop declares one
+	# (prop.schema.json makes tint required), so this is the colour of a content mistake --
+	# deliberately drab and deliberately visible, never a thing to rely on.
+	"prop": Color("#5a5148"),
 	"memory": Color("#3d4a3c"),
 	"background": Color("#0d0e10"),
 	"night": Color("#060a1a"),
@@ -62,6 +74,32 @@ const SURFACE_TINTS: Array[Color] = [
 	COLOURS["undergrowth"],
 	COLOURS["rubble"],
 ]
+
+# How far an indoor floor is pulled from its own surface towards COLOURS["indoorFloor"]. Not 1.0
+# on purpose: the surface layer still has to show through, so a shop floored on rubble and a house
+# floored on paving are not the same slab, and check_topdown.gd's ground lane keeps meaning what
+# it says. Not 0.0 either -- at zero this is a mix that changes nothing, which is a dead socket.
+const INDOOR_MIX: float = 0.62
+
+# How built mass is shaded from above. A wall tile is a full tile because the sim blocks a full
+# tile, but a full tile of the flat wall colour was the brightest thing on the screen and made a
+# one-tile wall read as a block the size of the room behind it. So the tile is filled with the
+# *cap* -- the top of the wall, seen from directly above and therefore the darkest of it -- and
+# only the edges that meet something walkable get a lit *face* band a fraction of a tile wide.
+# The footprint is unchanged and still opaque; what shrank is the amount of it that is bright.
+#
+# WALL_FACE_SHARE is a fraction of the tile, so the face stays the same fraction of a wall at
+# every zoom (with a two-pixel floor, or it vanishes when a tile is 16 px). It must stay well
+# under 0.5: at 0.5 the four bands meet and the whole tile is face again, which is the look this
+# replaced. Both faces *lighten* the wall colour, the lit one more than the shaded one: every
+# boundary between built mass and floor is drawn as a line brighter than any ground the district
+# can put against it, which is what keeps a blocked tile from reading as an unlit walkable one.
+# check_topdown.gd's wall lane measures exactly that, against every surface tint and its indoor
+# mix, rather than trusting these four numbers to have been chosen carefully.
+const WALL_CAP_DARKEN: float = 0.28
+const WALL_FACE_LIT: float = 0.16
+const WALL_FACE_DIM: float = 0.04
+const WALL_FACE_SHARE: float = 0.17
 
 const SWING_RGB: String = "232, 215, 160"
 const NIGHT_RGB: String = "6, 10, 26"

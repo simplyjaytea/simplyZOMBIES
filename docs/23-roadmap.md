@@ -184,15 +184,6 @@ pass actually reaches (edge connection points). The owner's scope decisions are 
 what the arc left behind is named in the debt list (the ground is player-only today, rubble
 unplaced) rather than here.
 
-**Content only — data entries, no new systems:**
-
-- **Five more modification consumables.** Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage
-  Rights. Each is one content entry plus one operation in `SimModification.OPERATIONS` (a Solvent
-  is one entry plus one `strip`); nothing blocks them. Extends `godot:check:mods`.
-- **Round out the resources toward ~15 types.** The slice-scope table promises about fifteen
-  resource types across the three loot tables. Count what ships, then add entries — items and loot
-  rows, not systems.
-
 **People — the survivor pipeline:**
 
 - **Survivor generation: appearance, age, backstory, starting kit.** The generator stops at name
@@ -235,10 +226,9 @@ unplaced) rather than here.
 **Art & renderer — queued behind the style pick, needed whichever way it goes:**
 
 - **Screamer and bloater sprites.** Both still render as tinted shapes.
-- **Tiles and props drawn for real.** `_draw_district` draws flat rects for terrain, and a
-  container, a bed or a campfire is announced by prose (`SimContainers.hud_clause` in the HUD) and
-  is otherwise invisible. The stakes rose with generated loot: a full district now stands 52–137
-  containers, all undrawn.
+- **Prop art on the 64×64 canvas.** The props are drawn now (see the record) but as content-tinted
+  footprint shapes: a container, a bed, a campfire and the well each take an `appearance.sprite`
+  key today and none of them has a file behind it.
 
 **UI:**
 
@@ -292,15 +282,6 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
-- **`spawn_item` drains the whole event queue mid-tick.** `SimItems.spawn_item` ends with an
-  unconditional `world.events.drain()`. Everything else in the sim relies on handlers running at
-  the end of `world.step()` — CLAUDE.md's traps section is explicit — so any system that spawns an
-  item mid-tick (loot, cooking, stack splitting) flushes every queued event early, and *which*
-  events those are depends on where in the phase order the spawn happened. Whether a food item
-  spawns can depend on an RNG roll, so the ordering is not stable between two runs that differ in
-  an unrelated draw.
-- **The DEX noise guardrail is a no-op.** `attention_emitter.gd`'s surface-noise line reassigns
-  `magnitude` from `base`, throwing away the `move_speed` multiplier applied four lines earlier.
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
   writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
   has this (`stance.eyes`); the port dropped it.
@@ -338,9 +319,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **A missing schema silently disables validation for a whole content type.**
   `content_validator.gd` treats it as a `push_warning` and a `continue`, and
   `npm run godot:validate` still reports success.
-- **A dead colonist still triggers the screamer.** The screamer's survivor list filters on
-  `controlled`/`identity` with no `corpse` or alive check, so a body sets off the 300-magnitude
-  alarm on cadence, forever.
 - **`recorded` grows without bound.** `SimCommandQueue.recorded` deep-copies every command ever
   pushed and is read only by `parity_snapshot`. In a played session that is every movement command
   of every tick, kept for the life of the run.
@@ -853,7 +831,17 @@ not a to-do list:
   move. The retired table is pinned **by value** in the gate, so the move is provably a change of
   where the numbers live and not of what they say. Presence of the block is what makes an item
   edible: `is_food` asks nothing else. Site depletion landed with container search — see Inventory
-  below; the ~15 resource types moved to [what's left](#whats-left-in-milestone-2).
+  below.
+  ~~Round out the resources toward ~15 types~~ **landed**. Counting the scavenged raw materials
+  and consumables actually placed in a loot table — `class` `material`/`consumable`, docs/12's
+  taxonomy classes 1–4, kept apart from the seven currency-grade modification consumables above,
+  which are its class 5 and tracked as their own line — put **13** resource types in the ground
+  across the four shipped tables. Battery and Bolt of Cloth are the two docs/12 names residential
+  and commercial had always promised (batteries, cloth) with no item behind them; adding both, to
+  residential and commercial, brings the shipped count to **15**. `check_loot.gd` pins no resource
+  count — LOOT SHAPE and LOCATIONS OK only assert every entry resolves and every table is placed —
+  so this count is taken by hand off the tables, the honest measure where no gate keeps a number
+  honest for you.
   ~~The annex as a stamped template~~ **landed** (`godot:check:buildings`, the chain's 33rd gate)
   — the worldgen arc's first slice. `SimTemplates.stamp` places a template's arrays at a
   handed-in origin through `apply_patch`'s exact clipping; the origin is still (38, 38), and the
@@ -1033,8 +1021,59 @@ not a to-do list:
   renderer-and-art in one commit, with `APPEARANCE_OK` now failing any sprite off that canvas
   (a stray 64×96 is a build failure, not a footnote). Wheel zoom steps the camera through
   {16, 32, 64, 128} px/m. What remains on this track — the style pick (waiting on the owner) and
-  the screamer/bloater sprites and tile/prop renderer path queued behind it — is in
+  the screamer/bloater sprites and prop art queued behind it — is in
   [what's left](#whats-left-in-milestone-2), including which picks force a sprite regeneration.
+  ~~Tiles and props drawn for real~~ **landed** (`godot:check:topdown` lanes BUILDINGS and PROPS,
+  `godot:check:appearance` lane PROPS) — and it is the renderer half that landed, not the art half;
+  which half is which is spelled out below. A building reads as a building now: `map.indoors` —
+  the third array over the same grid, written by the generator and drawn by nothing — pulls an
+  interior floor 0.62 of the way towards a board colour **over** the surface it stands on, so a
+  shop floored on rubble and a house floored on paving stay two different floors while both read
+  as inside from across the street; and the doorways in `map.buildings[].doors`, which are ordinary
+  Floor tiles in a wall run with nothing in the tile array to tell them from the street, draw as
+  worn boards between whichever jambs the neighbouring tiles actually have (the garage template's
+  five-tile mouth therefore reads as a mouth, not as five doors). The door set is derived by a pure
+  `Appearance.door_tiles` and cached in `main.gd` against the map object it came from — on the
+  drawing node, where a static cache would be shared between the two worlds a gate boots. Props are
+  visible: a `prop` content type (`prop.schema.json`, registered in `content_validator.gd`, six
+  entries in `content/props/stations.json`) says how a container, a bed, a campfire and the well
+  look; `presentation/appearance.gd`'s `PROP_KINDS` is the entire mapping from component to content
+  id, including the one boolean per prop that changes the picture (searched, lit — two ids, not one
+  entry with two tints); and `_draw_props` culls to the camera bounds **and** to the player's own
+  sightline, so a cupboard on the far side of a wall is not visible through it. Content picks from
+  four presentation-owned footprint primitives (box, slab, disc, ring) and the gate asserts every
+  name the schema's enum allows is a shape `_draw_prop` actually draws; not one tint is in code
+  (Palette's `prop` is the drab colour of a content mistake, and an unauthored id degrades to it).
+  The load-bearing assertion is the dead-socket one: the PROPS lane boots a real district and fails
+  if **anything** standing in it that is neither a body nor a carried item resolves no look — so a
+  fifth kind of prop added without a `PROP_KINDS` entry is caught rather than standing there
+  invisible, which is exactly the state all four of these were in until this slice. Shown to fail
+  by deleting the bed row (entity 2 resolves nothing), by removing the `_draw_props()` call, and by
+  setting `INDOOR_MIX` to 0. Measured cost: the prop pass's queries are **~34 µs a frame** over the
+  47 containers of a booted 256 district, and everything else is culled to the viewport. **What did
+  not ship, deliberately:** no art — every prop is a content-tinted shape, which is the supported
+  fallback and not a stopgap, and prop art is now its own named piece in
+  [what's left](#whats-left-in-milestone-2); the screamer and bloater sprites are their own piece
+  and were not touched; corpses still draw as people, which is its own entry in the defect list.
+  Same slice, same commit, a gate that could not fail: `check_appearance.gd`'s `_all_blocks` now
+  walks **array-topped** content files, which it never did — so every item's appearance block,
+  `equipSprite` and all, was invisible to the shape and key assertions that name it. Fixed, and
+  shown to fail: an unknown key added to an item's appearance block now reds `APPEARANCE_OK`.
+  Tuning pass on the same slice, `godot:check:topdown` lane WALL: the walls were drawing too big
+  against everything else — a wall tile was a full tile of flat `#3b4048`, the brightest and
+  largest thing on the screen, while the survivor standing beside it is a fraction of a tile, so a
+  one-tile wall read as a block the size of the room behind it. The judgement was to keep the
+  footprint and shrink the *bright part* of it rather than inset the fill or show floor at the
+  base, because the sim blocks the whole tile and a visual that promises passage the sim refuses is
+  worse than chunky walls: the tile is now filled with a darker **cap** (the top of the wall, seen
+  from above) and only the edges that meet something walkable carry a lit **face** band 0.17 of a
+  tile wide, so a wall run reads as one thick line with a lit edge instead of a row of bright
+  blocks, and windows are drawn as masonry with the glass in the pane rather than as a tile of
+  glass. The gate measures the thing that could go wrong in the other direction — both faces stay
+  clear of the brightest ground the district can put against a wall (lit 0.369 against 0.220, in
+  luminance) so every wall/floor boundary is a drawn line — and was shown to fail at a face share
+  of 0.5, at a cap no darker than the fill, at a face that sinks into the ground, and with the
+  exposed-edge test removed.
 - **Survivors** — nothing on this row has landed yet beyond the recruit generator's name-and-trait
   pool; all four open pieces (fuller generation, trait conflict rules, Focus auto-allocation, the
   six-survivor checkpoint) are in [what's left](#whats-left-in-milestone-2).
@@ -1068,6 +1107,41 @@ not a to-do list:
   never** in a booted colony — an NPC settles into a standing Guard job (`ticksLeft` 0, no
   completion) and never picks again. It hooks `_tick_one` instead, after the needs-seek branch, so
   a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
+  ~~the bathroom need, and a latrine to answer it~~ **landed** (`godot:m2:needs`, RELIEF /
+  ACCIDENT / NPC RELIEF; `godot:m2:save`, NEEDS-ERA). New scope: the owner authorized it on
+  2026-08-28 **against docs/04's own cut list**, which had said latrines were a scent emitter and
+  nobody tracked a bladder — that clause is struck through in docs/04 rather than quietly deleted,
+  and the need is written up beside the other six there. It is a **pool, not a band**, because
+  that is how this file already treats a periodic bodily need: hunger, thirst and rest empty on a
+  clock and are refilled by an act, temperature and hygiene are read off the world. Being a pool
+  it inherits `pressure`, the seek ladder, the crossing events and the HUD prose for nothing.
+  Measured at **1.3889 per 2000 ticks** against hunger's 0.3472 — twice a day at rest — and
+  **eating and drinking speed it up** by a named 12 and 18 rather than a fraction of what they
+  restore, so rebalancing the diet cannot silently rebalance this. The two literal
+  `["hunger", "thirst", "rest"]` arrays in `work_mul` and `_apply_muls` are one `POOLS` constant
+  now: a fourth pool would otherwise have joined one of them and missed the other, which is the
+  seven-copies-of-the-countdown shape from the slice above.
+  The latrine is a station like the well — position, marker component, factory in `needs.gd`,
+  sited off the colony anchor by `SimBoot.latrine_tile` (outdoors, ≥ 4 tiles from the well, never
+  the gate or the corpse dump, nearest-wins so one seed sites one latrine in one place). It
+  carries docs/03's **scent 12**, so building one is comfort paid for in attention; the whole m2
+  chain including the balance fast tier and director variance is green with it standing in the
+  colony. **Nowhere to go is never damage** — the gate asserts no body part moved — it is one
+  hygiene band (which brings its own mood cost and doubles scent) plus capped, decaying shame
+  under `mood.soiled`, shaped like grief and arguments for the reason they are shaped that way.
+  Measured: mood 0.0 → **−33.6** on one accident, shame capped at 24 and draining, and the same
+  survivor relieved in time carries none of it.
+  The dead-socket assertion is the one that matters: an NPC at 20 relief **walked itself to the
+  latrine in 593 ticks with no player input**, and the same NPC in a colony with no latrine
+  relieved nothing — a need only the player could answer would have been the tenth socket, and the
+  one every colonist would hit twice a day. Prose is words only ("You need to go." at 80, "You
+  badly need to go." below 30, "You're humiliated." after an accident, silent at 90). No new RNG
+  stream, deliberately: the clock is deterministic and the accident is what happens when it runs
+  out, so there was nothing to roll. The slice was built before the prop renderer landed and
+  shipped its latrine undrawn; integration added the `prop.latrine` row to `PROP_KINDS` and
+  `content/props/stations.json`, so it stands visible under the same PROPS lane as the well.
+  **Not shipped:** nobody can build a *new* latrine, the colony boots with the one it is sited;
+  and there is no downwind, because there is no wind until weather lands in Milestone 3.
 - **Attention leftovers** — ~~the sim half of last-known-position memory~~ and
   ~~director-varied nights~~ **both landed** (`godot:m2:sight`, MEMORY / EXPIRY / PROSE;
   `godot:m2:director`, VARIANCE / BOUNDS / SIDES). docs/28 rated this
@@ -1236,6 +1310,21 @@ not a to-do list:
   in [what's left](#whats-left-in-milestone-2). **Continuous condition-degradation effects** are now essentially closed:
   `condition_factor` already scaled melee damage and speed and ranged damage, and jamming (above)
   was the missing piece docs/10's table called for.
+  ~~`spawn_item` draining the whole event queue mid-tick~~ **fixed** (`godot:m2:upkeep`,
+  SPAWN-DELIVER) — the worst-first defect on the review sweep's list. The synchrony the drain
+  bought is real — a just-spawned pack must carry its container grid before the caller's next
+  line stows into it — but `publish()` then `drain()` bought it by flushing every event other
+  systems had queued that tick, and since some spawns hang on an RNG roll (`ranged.gd`'s
+  recovered arrow, spawned *after* its own `attack.connected` was queued), **which** handlers ran
+  early was not stable between two runs differing in an unrelated draw. The bus gained
+  `deliver()`: one event, dispatched to its subscribers now, queue untouched, still entering the
+  record. The module decoupling stands — items still does not import inventory, and with the
+  inventory module unregistered a pack is still simply an item with no grid. The frozen oracle
+  keeps its own drain (`items.ts`, frozen); parity is unaffected because the parity snapshot
+  carries no event ordering. The gate lane holds a queued sentinel through a spawn, requires the
+  grid attached synchronously and the event in the record, and proves its probe can fail by
+  firing it with a real `drain()`; the old behaviour was re-applied against the lane and went
+  red before the fix went in.
 - **Inventory** — ~~searching world containers (a car boot, a cupboard)~~ and ~~site
   depletion~~ **both landed** (`godot:check:loot`, CONTAINER and CONTAINER SITES). A map loot site
   that declares `container` is not scattered at boot: `SimContainers` stands a `searchable` there
@@ -1248,25 +1337,40 @@ not a to-do list:
   `nothing-here` because those mean different things to somebody deciding whether a building is
   worth the walk. The district ships a cupboard, a car boot and a supply locker. Searching is
   **instant, not a channel** — recorded as a decision in the module header, with fortify's channel
-  named as the template if it ever needs to be interruptible. The two open tails here — carried
-  weight loudening footsteps, and the container's missing renderer path (the Art track's
-  tile-and-prop piece rather than a gap in this) — are in
-  [what's left](#whats-left-in-milestone-2).
+  named as the template if it ever needs to be interruptible. A container is drawn now, searched
+  or not — the Art track's tile-and-prop piece, recorded there. The one open tail here, carried
+  weight loudening footsteps, is in [what's left](#whats-left-in-milestone-2).
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:
   {operation, appliesTo}` block on the item base, exactly as docs/11's content-shape section
   describes — while what an operation *does* is code, in `SimModification.OPERATIONS`, which is the
-  registry that document points at. The other five consumables are unblocked and are the first
-  content entry in [what's left](#whats-left-in-milestone-2).
+  registry that document points at.
+  ~~The other five (Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage Rights)~~ **also
+  landed** (`godot:check:mods`, the FIVE MORE lane), each as docs/11's table names it. Whetstone
+  reuses `reroll` verbatim, restricted to `weapon.melee` — the same gamble Duct Tape runs, just
+  narrower, so it needed no new operation at all. Gun Oil is the new `condition_restore`
+  operation on `weapon.ranged`: it raises condition toward the ceiling, and docs/11's "small
+  jam-chance reduction" needed no second mechanic, because `SimItems.jam_chance` already derives
+  jam chance from the condition band. Solvent is the new `strip` operation — every affix gone and
+  the tier reset to scavenged, docs/11's "returning the item to Scavenged". Machinist's Gauge is
+  the new `reroll_chosen` operation: the same reroll as Duct Tape but on an affix the caller
+  names — `item.modify` grew an optional `affix` field, read by nothing else. Salvage Rights is
+  the new `upgrade_tier` operation: the item's `itemTier` moves one step up `SimItems.TIERS` and
+  every affix is rerolled fresh at the new tier's capacity. All four new operations refuse a wrong
+  item class exactly as `add` and `reroll` already did, plus their own true negatives —
+  already-at-ceiling, already-max-tier, no-target-affix, no-such-affix — each measured in the
+  FIVE MORE lane, not asserted on the function having returned "ok".
   Craft moves both odds in the directions docs/11 names — failure 0.200 → 0.080 over six points
   (floored at 0.05, because a bench that cannot fail is not a gamble), and the mean affix tier
   0.409 → 0.694 under the bias. Injured hands raise failure to 0.230 and cancel the tier bias, so
   a good crafter working hurt is an ordinary one rather than a worse-than-novice one; two
   destroyed hands refuse outright. Failure spends the consumable and costs 0.25 condition, and
   below 0.20 it breaks the item outright with its ceiling, so it is scrap forever — reachable only
-  from an already-degraded item, so a fresh find is never one roll from scrap. The Scrap Kit is
-  findable in the military cache and duct tape in all three tables.
+  from an already-degraded item, so a fresh find is never one roll from scrap. Every one of the
+  seven consumables is findable in a loot table, the same dead-socket check `check_m2_attach.gd`
+  runs for attachments — the Scrap Kit in the military cache, Duct Tape in all four, and each of
+  the five new ones in at least one.
   Two things fell out of this that were missing rather than new: an item's **tier was rolled at
   spawn and thrown away**, so nothing could afterwards ask how many affix slots an item has — it
   is now an `itemTier` component with `SimItems.tier_of`/`affix_capacity` — and there was no path
@@ -1337,7 +1441,8 @@ not a to-do list:
   next feature. Thirteen fixes landed with seven gate assertions, each with its true negative; the rest
   of what the sweep turned up is named in
   [defects found by the review sweep](#whats-left-in-milestone-2) rather than fixed here, because
-  each needs its own gate and two need a balance re-measurement.
+  each needs its own gate and two need a balance re-measurement. The last two sub-bullets below
+  were worked off that list in a later session; the sweep's own count stays thirteen.
 
   - **Two worlds no longer share one attention field** (`godot:m2:district`, ISOLATION). `SimBoot`
     kept "the last world that called `attach_kernel`" in a `static var`, and the `noise.emitted` /
@@ -1417,6 +1522,26 @@ not a to-do list:
     `ban:healthbar`, `check:appearance` and `check:hud`, and the workflow listed all three again as
     separate steps. The step that runs the whole 32-gate chain was also named "M2 lethality", after
     one of them.
+  - ~~The DEX noise guardrail is a no-op~~ **fixed** (`godot:m2:stance`, DEX GUARDRAIL).
+    `attention_emitter.gd` scaled the DEX-driven `move_speed` multiplier into `magnitude` and then
+    threw it away four lines later, recomputing `magnitude = base * SimSurface.noise_on(surf)` from
+    the un-scaled `base` — the surface branch runs whenever `speed > 0.0`, so the guardrail landed
+    for nobody moving. It reads `magnitude *= SimSurface.noise_on(surf)` now. Measured: two players
+    walking the same 40 ticks through undergrowth, one carrying a move_speed ×1.8 modifier, emit
+    52.0000 and 93.6000 total noise — a ratio of 1.8000, matching the modifier exactly; with no
+    modifier the two runs agree at 52.0000. The new lane was confirmed to fail against the bug it
+    targets: reverting the surface line collapses the ratio to 1.0000.
+  - ~~A dead colonist still triggers the screamer~~ **fixed** (`godot:m2:roster`, CORPSE).
+    `SimAllegiance.is_person` checks `controlled`/`identity`/`raider`, none of which
+    `SimRecruits._make_corpse` strips — gear stays on the body per ADR 0013 — so a corpse kept
+    setting off the screamer's 300-magnitude alarm on cadence, forever. `screamer.gd`'s survivor
+    scan now skips any entity carrying `corpse`, the same exclusion `enemies_of` already applies
+    (allegiance.gd) and for the same reason; `is_person` itself is untouched, since shambler.gd
+    and bloater.gd share it. Measured: a screamer with the run's one visible "person" turned into
+    a corpse via the real `_make_corpse` path stayed silent across 650 ticks, past its own
+    600-tick cooldown, while the sibling lane with a living survivor still alarms at magnitude
+    300. Confirmed to fail against the bug it targets: reverting the `corpse` skip alarms on the
+    corpse exactly like the living-survivor lane does.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

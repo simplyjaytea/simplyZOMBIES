@@ -1,7 +1,7 @@
 extends SceneTree
-# Modification: Duct Tape and Scrap Kit, the two currency-grade consumables in Milestone 2's slice
-# scope, plus the two things that make them a gamble rather than a button -- skill- and
-# trait-weighted outcomes, and failure that consumes and damages.
+# Modification: all seven currency-grade consumables docs/11 names, plus the two things that make
+# them a gamble rather than a button -- skill- and trait-weighted outcomes, and failure that
+# consumes and damages.
 #
 # What this gate is really holding down:
 #
@@ -15,6 +15,9 @@ extends SceneTree
 #     tier; injured hands up on failure; two ruined hands refuse outright.
 #  4. **Every declared operation exists.** No schema can assert that a content string names an
 #     entry in a GDScript registry, so this does.
+#  5. **Whetstone, Gun Oil, Solvent, Machinist's Gauge and Salvage Rights each resolve, apply only
+#     to their declared classes, refuse everything else, and are findable in a loot table** -- the
+#     same dead-socket shape `check_m2_attach.gd` catches for attachments.
 #
 # Every assertion carries a true negative. A gate that cannot fail is worse than no gate.
 
@@ -30,6 +33,11 @@ const ContentLoader = preload("res://platform/content_loader.gd")
 const WEAPON: String = "item.axe.fire"
 const TAPE: String = "item.tape.duct"
 const KIT: String = "item.kit.scrap"
+const WHETSTONE: String = "item.whetstone"
+const GUN_OIL: String = "item.oil.gun"
+const SOLVENT: String = "item.solvent"
+const GAUGE: String = "item.gauge.machinist"
+const SALVAGE_RIGHTS: String = "item.rights.salvage"
 # Enough draws that a rate is a rate. Modification is random by design, so every odds assertion
 # here is a distribution rather than a single roll.
 const ROLLS: int = 3000
@@ -45,6 +53,7 @@ func _run() -> void:
 	ok = _craft_moves_both_odds_and_hurt_hands_move_one_back() and ok
 	ok = _failure_damages_and_a_degraded_item_breaks() and ok
 	ok = _a_refusal_costs_nothing() and ok
+	ok = _five_more_consumables_resolve_apply_and_refuse_and_are_findable() and ok
 	if ok:
 		print("MODS_OK operations resolve, tape rerolls, a kit adds inside the tier, craft and hands move the odds, failure damages")
 		quit(0)
@@ -448,4 +457,167 @@ func _a_refusal_costs_nothing() -> bool:
 			push_error("refusal %s changed the item" % String(c["reason"]))
 			return false
 	print("REFUSALS OK %d refusal paths each cost nothing -- consumable, affixes and condition all untouched" % cases.size())
+	return true
+
+
+# A field-tested axe carrying at least one rolled affix, or {} after 200 seeds found none -- the
+# same defensive search TAPE OK above runs over 60 seeds, just returning the first hit instead of
+# counting a rate.
+func _axe_with_affix(seed_base: int) -> Dictionary:
+	for seed_val in range(seed_base, seed_base + 200):
+		var w: Variant = _world(seed_val)
+		var axe: int = _weapon(w, "field_tested")
+		if not _affixes(w, axe).is_empty():
+			return {"world": w, "axe": axe}
+	return {}
+
+
+# Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage Rights: each resolves, applies only to
+# the classes it declares, refuses everything else, and can actually be found. Findability is the
+# dead-socket check `check_m2_attach.gd` runs for attachments, done the same way here: read the
+# loot tree by path rather than assume a shape only items and affixes have.
+func _five_more_consumables_resolve_apply_and_refuse_and_are_findable() -> bool:
+	var droppable: Dictionary = {}
+	var tree: Dictionary = ContentLoader.load_tree()
+	for path in tree.keys():
+		if not String(path).begins_with("loot/"):
+			continue
+		var value: Variant = tree[path]
+		if not value is Array:
+			continue
+		for table_v in value as Array:
+			for entry_v in (table_v as Dictionary).get("entries", []) as Array:
+				droppable[String((entry_v as Dictionary).get("item", ""))] = true
+	for cid in [WHETSTONE, GUN_OIL, SOLVENT, GAUGE, SALVAGE_RIGHTS]:
+		if not droppable.has(cid):
+			push_error("%s is in no loot table, so it cannot be found" % cid)
+			return false
+
+	# Whetstone: melee only.
+	var found1: Dictionary = _axe_with_affix(7000)
+	if found1.is_empty():
+		push_error("SKIP-WORTHY: no field-tested axe over 200 seeds carried an affix for whetstone to reroll")
+		return false
+	var w1: Variant = found1["world"]
+	var axe1: int = int(found1["axe"])
+	var stone: int = _give(w1, WHETSTONE, 3)
+	var res1: Dictionary = SimMods.apply(w1, w1.player, axe1, stone)
+	if not bool(res1.get("ok", false)):
+		push_error("whetstone on a field-tested axe carrying an affix was refused: %s" % str(res1))
+		return false
+	var pistol1: int = SimItems.spawn_item(w1, "item.pistol.service", {"tier": "field_tested"})
+	var stone2: int = _give(w1, WHETSTONE, 3)
+	var res1b: Dictionary = SimMods.apply(w1, w1.player, pistol1, stone2)
+	if bool(res1b.get("ok", false)) or String(res1b.get("reason", "")) != "wrong-item-class":
+		push_error("whetstone on a pistol returned %s, expected wrong-item-class" % str(res1b))
+		return false
+
+	# Gun Oil: firearms only, restores condition toward the ceiling, refuses at the ceiling.
+	var w2: Variant = _world(7100)
+	var pistol2: int = SimItems.spawn_item(w2, "item.pistol.service", {"tier": "scavenged"})
+	var cond2: Dictionary = w2.components.get_component(pistol2, "condition") as Dictionary
+	cond2["current"] = 0.5
+	var oil: int = _give(w2, GUN_OIL, 3)
+	var before2: float = _condition(w2, pistol2)
+	var res2: Dictionary = SimMods.apply(w2, w2.player, pistol2, oil)
+	if not bool(res2.get("ok", false)):
+		push_error("gun oil on a damaged pistol was refused: %s" % str(res2))
+		return false
+	if String(res2.get("outcome", "")) == "success" and _condition(w2, pistol2) <= before2:
+		push_error("a successful gun oil application did not raise condition: %.3f -> %.3f" % [before2, _condition(w2, pistol2)])
+		return false
+	var axe2: int = _weapon(w2, "field_tested")
+	var oil2: int = _give(w2, GUN_OIL, 3)
+	var res2b: Dictionary = SimMods.apply(w2, w2.player, axe2, oil2)
+	if bool(res2b.get("ok", false)) or String(res2b.get("reason", "")) != "wrong-item-class":
+		push_error("gun oil on an axe returned %s, expected wrong-item-class" % str(res2b))
+		return false
+	var pistol3: int = SimItems.spawn_item(w2, "item.pistol.service", {"tier": "scavenged"})
+	var oil3: int = _give(w2, GUN_OIL, 3)
+	var res2c: Dictionary = SimMods.apply(w2, w2.player, pistol3, oil3)
+	if bool(res2c.get("ok", false)) or String(res2c.get("reason", "")) != "already-at-ceiling":
+		push_error("gun oil on a fresh pistol already at the ceiling returned %s, expected already-at-ceiling" % str(res2c))
+		return false
+
+	# Solvent: strips every affix and resets the tier, applies to affix-bearing classes only.
+	var found3: Dictionary = _axe_with_affix(7200)
+	if found3.is_empty():
+		push_error("SKIP-WORTHY: no field-tested axe over 200 seeds carried an affix for solvent to strip")
+		return false
+	var w3: Variant = found3["world"]
+	var axe3: int = int(found3["axe"])
+	var solv: int = _give(w3, SOLVENT, 2)
+	var res3: Dictionary = SimMods.apply(w3, w3.player, axe3, solv)
+	if not bool(res3.get("ok", false)):
+		push_error("solvent on a field-tested axe carrying an affix was refused: %s" % str(res3))
+		return false
+	if String(res3.get("outcome", "")) == "success":
+		if not _affixes(w3, axe3).is_empty():
+			push_error("a successful solvent left affixes behind: %s" % str(_affixes(w3, axe3)))
+			return false
+		if SimItems.tier_of(w3, axe3) != "scavenged":
+			push_error("a successful solvent left the tier at %s, expected scavenged" % SimItems.tier_of(w3, axe3))
+			return false
+	var food3: int = SimItems.spawn_item(w3, "item.food.canned", {"tier": "scavenged"})
+	var solv2: int = _give(w3, SOLVENT, 2)
+	var res3b: Dictionary = SimMods.apply(w3, w3.player, food3, solv2)
+	if bool(res3b.get("ok", false)) or String(res3b.get("reason", "")) != "wrong-item-class":
+		push_error("solvent on canned food returned %s, expected wrong-item-class" % str(res3b))
+		return false
+
+	# Machinist's Gauge: reroll_chosen targets the named affix, not one drawn at random.
+	var found4: Dictionary = _axe_with_affix(7300)
+	if found4.is_empty():
+		push_error("SKIP-WORTHY: no field-tested axe over 200 seeds carried an affix for the gauge to target")
+		return false
+	var w4: Variant = found4["world"]
+	var axe4: int = int(found4["axe"])
+	var target_id: String = String((_affixes(w4, axe4)[0] as Dictionary)["id"])
+	var gauge: int = _give(w4, GAUGE, 1)
+	var res4: Dictionary = SimMods.apply(w4, w4.player, axe4, gauge, target_id)
+	if not bool(res4.get("ok", false)):
+		push_error("machinist's gauge naming a carried affix was refused: %s" % str(res4))
+		return false
+	var gauge2: int = _give(w4, GAUGE, 1)
+	var res4b: Dictionary = SimMods.apply(w4, w4.player, axe4, gauge2)
+	if bool(res4b.get("ok", false)) or String(res4b.get("reason", "")) != "no-target-affix":
+		push_error("machinist's gauge with no target returned %s, expected no-target-affix" % str(res4b))
+		return false
+	var gauge3: int = _give(w4, GAUGE, 1)
+	var res4c: Dictionary = SimMods.apply(w4, w4.player, axe4, gauge3, "affix.nope.not-real")
+	if bool(res4c.get("ok", false)) or String(res4c.get("reason", "")) != "no-such-affix":
+		push_error("machinist's gauge naming an affix not carried returned %s, expected no-such-affix" % str(res4c))
+		return false
+	var food4: int = SimItems.spawn_item(w4, "item.food.canned", {"tier": "scavenged"})
+	var gauge4: int = _give(w4, GAUGE, 1)
+	var res4d: Dictionary = SimMods.apply(w4, w4.player, food4, gauge4, target_id)
+	if bool(res4d.get("ok", false)) or String(res4d.get("reason", "")) != "wrong-item-class":
+		push_error("machinist's gauge on canned food returned %s, expected wrong-item-class" % str(res4d))
+		return false
+
+	# Salvage Rights: one tier up, rerolling everything, and refuses at the top of the ladder.
+	var w5: Variant = _world(7400)
+	var axe5: int = _weapon(w5, "modified")
+	var rights: int = _give(w5, SALVAGE_RIGHTS, 1)
+	var res5: Dictionary = SimMods.apply(w5, w5.player, axe5, rights)
+	if not bool(res5.get("ok", false)):
+		push_error("salvage rights on a modified axe was refused: %s" % str(res5))
+		return false
+	if String(res5.get("outcome", "")) == "success" and SimItems.tier_of(w5, axe5) != "field_tested":
+		push_error("a successful salvage rights left the tier at %s, expected field_tested" % SimItems.tier_of(w5, axe5))
+		return false
+	var axe_top: int = _weapon(w5, "field_tested")
+	var rights2: int = _give(w5, SALVAGE_RIGHTS, 1)
+	var res5b: Dictionary = SimMods.apply(w5, w5.player, axe_top, rights2)
+	if bool(res5b.get("ok", false)) or String(res5b.get("reason", "")) != "already-max-tier":
+		push_error("salvage rights on a field-tested axe returned %s, expected already-max-tier" % str(res5b))
+		return false
+	var food5: int = SimItems.spawn_item(w5, "item.food.canned", {"tier": "scavenged"})
+	var rights3: int = _give(w5, SALVAGE_RIGHTS, 1)
+	var res5c: Dictionary = SimMods.apply(w5, w5.player, food5, rights3)
+	if bool(res5c.get("ok", false)) or String(res5c.get("reason", "")) != "wrong-item-class":
+		push_error("salvage rights on canned food returned %s, expected wrong-item-class" % str(res5c))
+		return false
+
+	print("FIVE MORE OK whetstone, gun oil, solvent, machinist's gauge and salvage rights each resolve, apply only to their classes, refuse others, and are all findable")
 	return true

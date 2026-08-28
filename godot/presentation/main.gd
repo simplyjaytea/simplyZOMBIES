@@ -75,6 +75,10 @@ var _visibility: Variant = null
 var _light: Variant = null
 var _map: Variant = null
 var _content_error: String = ""
+# Doorway tiles, {tile index: true}, and the map object they were read off. Rebuilt when the map
+# changes identity (a reboot, a load) and never per frame -- see _threshold_tiles.
+var _thresholds: Dictionary = {}
+var _thresholds_from: Variant = null
 var _content_poll_at: float = -1e9
 var _sfx: Node = null
 
@@ -668,45 +672,75 @@ func _draw_district() -> void:
 				tile = SimTileMap.Tile.Wall
 			match tile:
 				SimTileMap.Tile.Wall, SimTileMap.Tile.Screen:
-					_draw_solid_tile(rect, col)
+					_draw_solid_tile(rect, col, tx, ty)
 				SimTileMap.Tile.Window:
-					_draw_solid_tile(rect, col)
-					_draw_window_glass(rect, tx, ty)
+					# A window is a hole in masonry, so the tile is masonry and the glass is the
+					# pane: the tile colour that used to fill it edge to edge is handed to the
+					# pane instead, which is where the state a boarded-up window reaches stage 3
+					# in still shows.
+					_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
+					_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
-					_draw_floor_tile(rect, ground)
+					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
 					# Inset block with floor showing around it reads as waist-high.
 					var inset: float = zoom * 0.15625
 					draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Tree:
-					_draw_floor_tile(rect, ground)
+					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
 					var centre: Vector2 = rect.get_center()
 					draw_circle(centre, zoom * 0.42, col)
 					draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
 				_:
-					_draw_floor_tile(rect, col)
+					# A floor knows whether it is inside a building and whether it is the tile you
+					# step through to get there. Both are read from the map -- `indoors` is an
+					# array the generator writes, and the doorway is a record in map.buildings --
+					# so a shell reads as a room and a doorway reads as a way in without any tile
+					# type existing for either.
+					var floor_col: Color = Appearance.indoor_floor(world.tilemap, tx, ty, col)
+					if _is_threshold(tx, ty):
+						_draw_threshold(rect, floor_col, tx, ty)
+					else:
+						_draw_floor_tile(rect, floor_col)
+	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
+	# a campfire and the well all stood invisible in this district until this call existed.
+	_draw_props()
 
 # Floors are flat fill plus a hairline grid line.
 func _draw_floor_tile(rect: Rect2, col: Color) -> void:
 	draw_rect(rect, col)
 	draw_rect(rect, Palette.COLOURS["background"] * 0.9, false, 1.0)
 
-# Solid tiles (walls, screens, boards, scrap) get a bevel -- light along the top
-# and left, dark along the bottom and right -- so built mass reads as raised
-# without any standing geometry. This is the whole top-down wall convention.
-func _draw_solid_tile(rect: Rect2, col: Color) -> void:
-	draw_rect(rect, col)
-	var b: float = 2.0
-	var light: Color = col.lightened(0.18)
-	var dark: Color = col.darkened(0.22)
-	draw_rect(Rect2(rect.position, Vector2(rect.size.x, b)), light)
-	draw_rect(Rect2(rect.position, Vector2(b, rect.size.y)), light)
-	draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dark)
-	draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dark)
+# Solid tiles (walls, screens, boards, scrap): the whole tile is filled, because the whole tile
+# is what the sim blocks, but it is filled with the cap -- the top of the wall seen from above --
+# and only the edges that meet something walkable get the lit face. A run of wall is then one
+# dark band with a bright edge instead of a row of bright blocks each the size of a room, which
+# is the proportion complaint; the tile that is blocked is still the tile that is drawn, so
+# nothing here offers a way through that the sim refuses.
+#
+# Which edges are exposed is read off the neighbours rather than off a stored orientation, the
+# same way _draw_window_glass reads its pane, so a wall boarded up or torn open this tick is
+# shaded against what stands now.
+func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
+	draw_rect(rect, col.darkened(Palette.WALL_CAP_DARKEN))
+	var b: float = maxf(2.0, rect.size.x * Palette.WALL_FACE_SHARE)
+	# Light from the top-left, as the old bevel had it: the north and west faces catch it, the
+	# south and east ones are the same mass in shade. Both are lighter than the cap and than any
+	# ground -- an edge against floor is always drawn as a line, never as an absence of one.
+	var light: Color = col.lightened(Palette.WALL_FACE_LIT)
+	var dim: Color = col.lightened(Palette.WALL_FACE_DIM)
+	if not _is_solid_at(tx, ty - 1):
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x, b)), light)
+	if not _is_solid_at(tx - 1, ty):
+		draw_rect(Rect2(rect.position, Vector2(b, rect.size.y)), light)
+	if not _is_solid_at(tx, ty + 1):
+		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dim)
+	if not _is_solid_at(tx + 1, ty):
+		draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dim)
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
 # follows the neighbouring walls; a corner window falls back to a square pane.
-func _draw_window_glass(rect: Rect2, tx: int, ty: int) -> void:
-	var glass: Color = (Palette.COLOURS["window"] as Color).lightened(0.28)
+func _draw_window_glass(rect: Rect2, tx: int, ty: int, col: Color = Palette.COLOURS["window"]) -> void:
+	var glass: Color = col.lightened(0.28)
 	var horizontal_walls: bool = _is_solid_at(tx - 1, ty) and _is_solid_at(tx + 1, ty)
 	var vertical_walls: bool = _is_solid_at(tx, ty - 1) and _is_solid_at(tx, ty + 1)
 	var c: Vector2 = rect.get_center()
@@ -721,6 +755,139 @@ func _draw_window_glass(rect: Rect2, tx: int, ty: int) -> void:
 		pane = Rect2(c - Vector2(pane_short * 0.75, pane_short * 0.75), Vector2(pane_short * 1.5, pane_short * 1.5))
 	draw_rect(pane, glass)
 	draw_rect(pane, Color("#b8eaff"), false, 2.0)
+
+# Doorways, cached against the map object rather than recomputed per frame: the derivation itself
+# is Appearance.door_tiles, which is pure, and the cache lives here because a static one would be
+# shared between the two worlds a gate boots. A reboot or a load hands over a different map object,
+# which is what invalidates it.
+func _threshold_tiles() -> Dictionary:
+	var map: Variant = world.tilemap
+	if map == _thresholds_from:
+		return _thresholds
+	_thresholds_from = map
+	_thresholds = Appearance.door_tiles(map)
+	return _thresholds
+
+
+func _is_threshold(tx: int, ty: int) -> bool:
+	if world.tilemap == null:
+		return false
+	return _threshold_tiles().has(ty * int(world.tilemap.w) + tx)
+
+
+# The doorway: worn boards between whichever jambs are actually there. The jambs are read off the
+# neighbouring tiles rather than off a stored orientation, the same way _draw_window_glass reads
+# its pane orientation, so a door in a rebuilt or barricaded wall is drawn against what stands now.
+func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
+	_draw_floor_tile(rect, col.lerp(Palette.COLOURS["threshold"], 0.75))
+	# The jamb is the cap of the wall it belongs to, so a doorway is a gap in one mass rather than
+	# two stubs in a colour of their own -- the lit faces of the wall tiles either side already
+	# draw the line where the opening starts.
+	var jamb: Color = (Palette.COLOURS["wall"] as Color).darkened(Palette.WALL_CAP_DARKEN)
+	var t: float = maxf(2.0, rect.size.x * 0.14)
+	if _is_solid_at(tx - 1, ty):
+		draw_rect(Rect2(rect.position, Vector2(t, rect.size.y)), jamb)
+	if _is_solid_at(tx + 1, ty):
+		draw_rect(Rect2(rect.position + Vector2(rect.size.x - t, 0.0), Vector2(t, rect.size.y)), jamb)
+	if _is_solid_at(tx, ty - 1):
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), jamb)
+	if _is_solid_at(tx, ty + 1):
+		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), jamb)
+
+
+# Everything standing in the district that is neither a body nor a carried item. What each one
+# looks like comes from content through Appearance.prop_look; this loop owns only where it is,
+# whether you can see it, and which primitive draws it.
+func _draw_props() -> void:
+	if world == null or world.components == null:
+		return
+	var zoom: float = float(camera["zoom"])
+	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
+	var seen: Variant = null
+	if world.vision != null:
+		seen = world.vision.tiles_for(int(world.player))
+	# One query per prop component rather than one pass over every position: query picks the
+	# smallest store, so this walks the 137 containers rather than the whole district.
+	var drawn: Dictionary = {}
+	for kind in Appearance.PROP_KINDS:
+		for ent in world.components.query([String(kind["component"]), "position"]):
+			var e: int = int(ent)
+			if drawn.has(e):
+				continue
+			# components.query does not check alive (CLAUDE.md); a despawned prop keeps its
+			# components and would otherwise keep standing here.
+			if world.entities != null and not world.entities.is_alive(e):
+				continue
+			var p: Variant = world.components.get_component(e, "position")
+			if not (p is Dictionary):
+				continue
+			var x: float = float((p as Dictionary)["x"])
+			var y: float = float((p as Dictionary)["y"])
+			if x < float(bounds["minX"]) or x > float(bounds["maxX"]) or y < float(bounds["minY"]) or y > float(bounds["maxY"]):
+				continue
+			# The same sightline the tiles use. A cupboard on the far side of a wall is not
+			# visible through it -- information stays scarce, and the tile it stands on is not
+			# drawn either, so drawing the prop would be a thing floating on the background.
+			if seen != null and not (seen as Object).call("has_tile", floori(x), floori(y)):
+				continue
+			var look: Dictionary = Appearance.prop_look(world, e)
+			if look.is_empty():
+				continue
+			drawn[e] = true
+			_draw_prop(look, x, y, zoom)
+
+
+# The four ground-footprint primitives. Geometry only: which one, how big and in what colour all
+# arrived from content, and Appearance.PROP_SHAPES is the list check_topdown.gd matches against
+# this function so a shape content can name is a shape something draws.
+func _draw_prop(look: Dictionary, x: float, y: float, zoom: float) -> void:
+	var sc: Dictionary = TopDownProjection.world_to_screen(camera, x, y)
+	var centre := Vector2(float(sc["sx"]), float(sc["sy"]))
+	var tint: Color = look["tint"] as Color
+	var texture: Variant = look.get("texture")
+	if texture != null:
+		# Art, when a prop has any: one tile, centre-anchored, same canvas as a pawn.
+		var h: float = zoom / 2.0
+		draw_texture_rect(texture as Texture2D, Rect2(centre - Vector2(h, h), Vector2(zoom, zoom)), false, tint)
+		return
+	var span: float = float(look["size"]) * zoom
+	var edge: Color = tint.darkened(0.55)
+	match String(look["shape"]):
+		"slab":
+			var w: float = span * 0.66
+			var slab := Rect2(centre - Vector2(w / 2.0, span / 2.0), Vector2(w, span))
+			draw_rect(slab, tint)
+			draw_rect(Rect2(slab.position, Vector2(w, span * 0.24)), tint.lightened(0.32))
+			draw_rect(slab, edge, false, 1.0)
+		"disc":
+			draw_circle(centre, span / 2.0, tint)
+			draw_circle(centre, span * 0.18, tint.darkened(0.45))
+		"ring":
+			draw_circle(centre, span / 2.0, tint)
+			draw_circle(centre, span * 0.28, Palette.COLOURS["background"])
+			draw_arc(centre, span / 2.0, 0.0, TAU, 24, edge, 1.0)
+		"box", _:
+			# A bevelled square -- and the floor for anything a future content entry names that
+			# this match has not learned, because an unknown shape must still draw something.
+			var box := Rect2(centre - Vector2(span / 2.0, span / 2.0), Vector2(span, span))
+			_draw_bevelled_box(box, tint)
+			draw_rect(box, edge, false, 1.0)
+
+
+# A free-standing object lit from the top-left: light along the top and left, dark along the
+# bottom and right, all four edges every time. This is the bevel walls used to wear. A crate is
+# an object with four visible sides and no neighbours to be continuous with, so it keeps it; a
+# wall is a run, and _draw_solid_tile shades it as one.
+func _draw_bevelled_box(box: Rect2, col: Color) -> void:
+	draw_rect(box, col)
+	var b: float = 2.0
+	var light: Color = col.lightened(0.18)
+	var dark: Color = col.darkened(0.22)
+	draw_rect(Rect2(box.position, Vector2(box.size.x, b)), light)
+	draw_rect(Rect2(box.position, Vector2(b, box.size.y)), light)
+	draw_rect(Rect2(box.position + Vector2(0.0, box.size.y - b), Vector2(box.size.x, b)), dark)
+	draw_rect(Rect2(box.position + Vector2(box.size.x - b, 0.0), Vector2(b, box.size.y)), dark)
+
 
 func _is_solid_at(tx: int, ty: int) -> bool:
 	if world.tilemap == null:
