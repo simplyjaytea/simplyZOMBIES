@@ -81,6 +81,26 @@ const SURFACE_TINTS: Array[Color] = [
 # it says. Not 0.0 either -- at zero this is a mix that changes nothing, which is a dead socket.
 const INDOOR_MIX: float = 0.62
 
+# How built mass is shaded from above. A wall tile is a full tile because the sim blocks a full
+# tile, but a full tile of the flat wall colour was the brightest thing on the screen and made a
+# one-tile wall read as a block the size of the room behind it. So the tile is filled with the
+# *cap* -- the top of the wall, seen from directly above and therefore the darkest of it -- and
+# only the edges that meet something walkable get a lit *face* band a fraction of a tile wide.
+# The footprint is unchanged and still opaque; what shrank is the amount of it that is bright.
+#
+# WALL_FACE_SHARE is a fraction of the tile, so the face stays the same fraction of a wall at
+# every zoom (with a two-pixel floor, or it vanishes when a tile is 16 px). It must stay well
+# under 0.5: at 0.5 the four bands meet and the whole tile is face again, which is the look this
+# replaced. Both faces *lighten* the wall colour, the lit one more than the shaded one: every
+# boundary between built mass and floor is drawn as a line brighter than any ground the district
+# can put against it, which is what keeps a blocked tile from reading as an unlit walkable one.
+# check_topdown.gd's wall lane measures exactly that, against every surface tint and its indoor
+# mix, rather than trusting these four numbers to have been chosen carefully.
+const WALL_CAP_DARKEN: float = 0.28
+const WALL_FACE_LIT: float = 0.16
+const WALL_FACE_DIM: float = 0.04
+const WALL_FACE_SHARE: float = 0.17
+
 const SWING_RGB: String = "232, 215, 160"
 const NIGHT_RGB: String = "6, 10, 26"
 const SHADOW_RGB: String = "0, 0, 0"

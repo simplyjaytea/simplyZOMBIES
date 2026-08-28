@@ -1058,6 +1058,21 @@ not a to-do list:
   walks **array-topped** content files, which it never did — so every item's appearance block,
   `equipSprite` and all, was invisible to the shape and key assertions that name it. Fixed, and
   shown to fail: an unknown key added to an item's appearance block now reds `APPEARANCE_OK`.
+  Tuning pass on the same slice, `godot:check:topdown` lane WALL: the walls were drawing too big
+  against everything else — a wall tile was a full tile of flat `#3b4048`, the brightest and
+  largest thing on the screen, while the survivor standing beside it is a fraction of a tile, so a
+  one-tile wall read as a block the size of the room behind it. The judgement was to keep the
+  footprint and shrink the *bright part* of it rather than inset the fill or show floor at the
+  base, because the sim blocks the whole tile and a visual that promises passage the sim refuses is
+  worse than chunky walls: the tile is now filled with a darker **cap** (the top of the wall, seen
+  from above) and only the edges that meet something walkable carry a lit **face** band 0.17 of a
+  tile wide, so a wall run reads as one thick line with a lit edge instead of a row of bright
+  blocks, and windows are drawn as masonry with the glass in the pane rather than as a tile of
+  glass. The gate measures the thing that could go wrong in the other direction — both faces stay
+  clear of the brightest ground the district can put against a wall (lit 0.369 against 0.220, in
+  luminance) so every wall/floor boundary is a drawn line — and was shown to fail at a face share
+  of 0.5, at a cap no darker than the fill, at a face that sinks into the ground, and with the
+  exposed-edge test removed.
 - **Survivors** — nothing on this row has landed yet beyond the recruit generator's name-and-trait
   pool; all four open pieces (fuller generation, trait conflict rules, Focus auto-allocation, the
   six-survivor checkpoint) are in [what's left](#whats-left-in-milestone-2).
