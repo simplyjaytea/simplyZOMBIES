@@ -117,6 +117,11 @@ func _needs_era() -> bool:
 		return false
 	var n: Dictionary = SimNeeds.of(w, mara)
 	n["hunger"] = 22.0
+	# The bathroom need's two pieces of state. Both are plain floats on the needs component for
+	# exactly this reason -- a per-entity Dictionary would come back from JSON with String keys and
+	# miss silently, which CLAUDE.md records as a trap already paid for.
+	n["relief"] = 33.0
+	n["soiled"] = SimNeeds.SOIL_MOOD
 	var fires: Array[int] = w.components.query(["campfire"])
 	if fires.is_empty():
 		push_error("campfire missing")
@@ -142,6 +147,16 @@ func _needs_era() -> bool:
 	var n2: Dictionary = SimNeeds.of(w2, mara)
 	if absf(float(n2.get("hunger", 0)) - 22.0) > 0.01:
 		push_error("hungry mara lost")
+		return false
+	if absf(float(n2.get("relief", 0)) - 33.0) > 0.01 or absf(float(n2.get("soiled", 0)) - SimNeeds.SOIL_MOOD) > 0.01:
+		push_error("bathroom need lost across a save: relief %s soiled %s" % [str(n2.get("relief")), str(n2.get("soiled"))])
+		return false
+	var latrines: Array = w.components.query(["latrine"])
+	if latrines.is_empty():
+		push_error("the booted district sited no latrine, so the restore below has nothing to judge")
+		return false
+	if not w2.components.has_component(int(latrines[0]), "latrine"):
+		push_error("the colony's latrine did not survive the restore")
 		return false
 	var cf: Variant = w2.components.get_component(fires[0], "campfire")
 	if not cf is Dictionary or not bool((cf as Dictionary).get("lit", false)):

@@ -1107,6 +1107,41 @@ not a to-do list:
   never** in a booted colony — an NPC settles into a standing Guard job (`ticksLeft` 0, no
   completion) and never picks again. It hooks `_tick_one` instead, after the needs-seek branch, so
   a sulking survivor still eats and sleeps: this is a refusal to *work*, not to live.
+  ~~the bathroom need, and a latrine to answer it~~ **landed** (`godot:m2:needs`, RELIEF /
+  ACCIDENT / NPC RELIEF; `godot:m2:save`, NEEDS-ERA). New scope: the owner authorized it on
+  2026-08-28 **against docs/04's own cut list**, which had said latrines were a scent emitter and
+  nobody tracked a bladder — that clause is struck through in docs/04 rather than quietly deleted,
+  and the need is written up beside the other six there. It is a **pool, not a band**, because
+  that is how this file already treats a periodic bodily need: hunger, thirst and rest empty on a
+  clock and are refilled by an act, temperature and hygiene are read off the world. Being a pool
+  it inherits `pressure`, the seek ladder, the crossing events and the HUD prose for nothing.
+  Measured at **1.3889 per 2000 ticks** against hunger's 0.3472 — twice a day at rest — and
+  **eating and drinking speed it up** by a named 12 and 18 rather than a fraction of what they
+  restore, so rebalancing the diet cannot silently rebalance this. The two literal
+  `["hunger", "thirst", "rest"]` arrays in `work_mul` and `_apply_muls` are one `POOLS` constant
+  now: a fourth pool would otherwise have joined one of them and missed the other, which is the
+  seven-copies-of-the-countdown shape from the slice above.
+  The latrine is a station like the well — position, marker component, factory in `needs.gd`,
+  sited off the colony anchor by `SimBoot.latrine_tile` (outdoors, ≥ 4 tiles from the well, never
+  the gate or the corpse dump, nearest-wins so one seed sites one latrine in one place). It
+  carries docs/03's **scent 12**, so building one is comfort paid for in attention; the whole m2
+  chain including the balance fast tier and director variance is green with it standing in the
+  colony. **Nowhere to go is never damage** — the gate asserts no body part moved — it is one
+  hygiene band (which brings its own mood cost and doubles scent) plus capped, decaying shame
+  under `mood.soiled`, shaped like grief and arguments for the reason they are shaped that way.
+  Measured: mood 0.0 → **−33.6** on one accident, shame capped at 24 and draining, and the same
+  survivor relieved in time carries none of it.
+  The dead-socket assertion is the one that matters: an NPC at 20 relief **walked itself to the
+  latrine in 593 ticks with no player input**, and the same NPC in a colony with no latrine
+  relieved nothing — a need only the player could answer would have been the tenth socket, and the
+  one every colonist would hit twice a day. Prose is words only ("You need to go." at 80, "You
+  badly need to go." below 30, "You're humiliated." after an accident, silent at 90). No new RNG
+  stream, deliberately: the clock is deterministic and the accident is what happens when it runs
+  out, so there was nothing to roll. The slice was built before the prop renderer landed and
+  shipped its latrine undrawn; integration added the `prop.latrine` row to `PROP_KINDS` and
+  `content/props/stations.json`, so it stands visible under the same PROPS lane as the well.
+  **Not shipped:** nobody can build a *new* latrine, the colony boots with the one it is sited;
+  and there is no downwind, because there is no wind until weather lands in Milestone 3.
 - **Attention leftovers** — ~~the sim half of last-known-position memory~~ and
   ~~director-varied nights~~ **both landed** (`godot:m2:sight`, MEMORY / EXPIRY / PROSE;
   `godot:m2:director`, VARIANCE / BOUNDS / SIDES). docs/28 rated this
