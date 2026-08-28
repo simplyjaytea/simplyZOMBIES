@@ -56,7 +56,7 @@ static func register_module(world: Variant, map: Variant) -> void:
 			# Only footsteps scaled by surface; ambient not
 			if not (float((emitter as Dictionary)["ambient"]) > 0.0 and speed == 0.0):
 				var surf: int = SimSurface.surface_at(map, floori(float((pos as Dictionary)["x"]) / float(SimTileMapRes.TILE_METRES)), floori(float((pos as Dictionary)["y"]) / float(SimTileMapRes.TILE_METRES)))
-				magnitude = base * SimSurface.noise_on(surf)
+				magnitude *= SimSurface.noise_on(surf)
 			w.events.publish({"type": "noise.emitted", "x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"]), "magnitude": magnitude, "source": int(entity)})
 	)
 	world.systems.register("attention.emit-scent", "attention-emit", 0, func(w: Variant) -> void:

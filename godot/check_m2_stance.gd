@@ -34,6 +34,7 @@ func _run() -> void:
 	ok = _zero_stamina_refuses_sprint_full_grants_it() and ok
 	ok = _sprint_demotes_when_stamina_hits_zero() and ok
 	ok = _sprint_louder_than_crouch_same_distance() and ok
+	ok = _dex_speed_modifier_scales_surface_noise() and ok
 	ok = _the_ground_multiplies_the_rung() and ok
 	ok = _deterministic_replay() and ok
 	if ok:
@@ -231,6 +232,72 @@ func _sprint_louder_than_crouch_same_distance() -> bool:
 		return false
 	print("NOISE OK sprint=%.2f crouch=%.2f over the same %.1fm" % [sprint_noise, crouch_noise, distance])
 	return true
+
+
+# The DEX guardrail (docs/23): a move_speed modifier scales per-tick noise so noise-per-metre
+# stays constant regardless of how fast DEX moves the body -- a survivor who covers more ground
+# per tick makes proportionally louder footsteps per tick, so a fixed patrol time is louder in
+# proportion to the modifier while noise-per-metre is unchanged. attention_emitter.gd used to
+# apply that scale (`magnitude *= resolve("move_speed", entity)`) and then throw it away by
+# recomputing `magnitude = base * SimSurface.noise_on(surf)` from the un-scaled `base` for every
+# moving entity -- the surface branch runs whenever speed > 0, so the guardrail was a no-op for
+# everybody but a stationary emitter. Undergrowth is deliberately non-neutral (noise x1.3) so a
+# fix that scaled speed but dropped the surface multiplier, or vice versa, would still fail this.
+#
+# Two otherwise-identical entities walk the same ground for the same fixed number of ticks: one
+# carries no modifier, the other a move_speed x`MULT` modifier. With the guardrail intact, every
+# ticked noise.emitted magnitude for the modified entity is exactly MULT times the plain one, so
+# the fixed-tick sums differ by exactly that factor. True negative: with no modifier applied at
+# all (MULT of 1.0 both times) the two runs must match -- a modifier of exactly 1.0 is the
+# identity and changes nothing.
+#
+# This lane was confirmed to fail against the bug it targets: with attention_emitter.gd's surface
+# branch reverted to `magnitude = base * SimSurface.noise_on(surf)` (discarding the DEX scale),
+# the modified run no longer differs from the plain run by MULT.
+func _dex_speed_modifier_scales_surface_noise() -> bool:
+	var ticks: int = 40
+	const MULT: float = 1.8
+	var plain: float = _drive_ticks_and_sum_noise_on_surface(SimStances.Stance.Walk, ticks, SimSurface.Surface.Undergrowth, 1.0)
+	var scaled: float = _drive_ticks_and_sum_noise_on_surface(SimStances.Stance.Walk, ticks, SimSurface.Surface.Undergrowth, MULT)
+	var ratio: float = scaled / plain
+	if absf(ratio - MULT) > 0.01:
+		push_error("DEX guardrail did not survive the surface branch: plain=%.4f scaled=%.4f ratio=%.4f, wanted %.4f" % [plain, scaled, ratio, MULT])
+		return false
+	var plain_again: float = _drive_ticks_and_sum_noise_on_surface(SimStances.Stance.Walk, ticks, SimSurface.Surface.Undergrowth, 1.0)
+	if not is_equal_approx(plain, plain_again):
+		push_error("no-modifier runs diverged with nothing changed: %.4f vs %.4f" % [plain, plain_again])
+		return false
+	print("DEX GUARDRAIL OK plain=%.4f scaled(x%.2f)=%.4f ratio=%.4f over %d ticks" % [plain, MULT, scaled, ratio, ticks])
+	return true
+
+
+# Walks a survivor due east for a fixed number of ticks over a named (and optionally non-paved)
+# surface, with an optional move_speed modifier attached before the first step, and returns the
+# summed noise.emitted magnitude. Fixed ticks rather than fixed distance, deliberately: a
+# distance-until-covered loop would let a faster mover finish in fewer ticks and normalise the
+# very effect this lane is checking for.
+func _drive_ticks_and_sum_noise_on_surface(stance: int, ticks: int, surface: int, speed_mult: float) -> float:
+	var w: Variant = _bare_world(stance, 555, 24.0, 24.0, 48)
+	var map: Variant = SimTileMap.blank_map(48, 48)
+	var ground := PackedByteArray()
+	ground.resize(48 * 48)
+	ground.fill(surface)
+	map.surfaces = ground
+	w.adopt_map(map)
+	SimAttention.register_module(w, map)
+	SimAttention.make_emitter(w, w.player)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	if not is_equal_approx(speed_mult, 1.0):
+		w.modifiers.call("add", {"stat": "move_speed", "op": "mul", "value": speed_mult, "source": "test.dex"}, w.player)
+	var noise: float = 0.0
+	for _i in ticks:
+		w.commands.push({"type": "move", "dx": 1.0, "dy": 0.0})
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) == "noise.emitted" and int(ev.get("source", -1)) == int(w.player):
+				noise += float(ev["magnitude"])
+	return noise
 
 
 func _drive_and_sum_noise(stance: int, distance: float) -> float:

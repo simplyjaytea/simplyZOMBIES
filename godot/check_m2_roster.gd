@@ -10,6 +10,7 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimScreamer = preload("res://sim/modules/screamer.gd")
 const SimBloater = preload("res://sim/modules/bloater.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimCombat = preload("res://sim/combat.gd")
 
@@ -20,6 +21,7 @@ func _run() -> void:
 	var ok: bool = true
 	ok = _mix() and ok
 	ok = _screamer_alarms() and ok
+	ok = _screamer_ignores_corpse() and ok
 	ok = _bloater_blooms() and ok
 	ok = _exhausted_degrades() and ok
 	if ok:
@@ -90,6 +92,46 @@ func _screamer_alarms() -> bool:
 		return false
 	print("ALARM OK mag=%s peak=%s" % [mag, world.field.peak_noise()])
 	return true
+
+# `is_person` (allegiance.gd) checks `controlled`/`identity`/`raider`, and none of those is
+# stripped by `SimRecruits._make_corpse` -- gear stays on the body (ADR 0013), and so, until this
+# lane, did the alarm. `_screamer_alarms` above is the true-positive proof the alarm can fire at
+# all; this is the negative half of the same scenario, with the one visible survivor turned into
+# a corpse before the screamer ever looks. Stepped past the alarm's own cooldown window (not just
+# once) so a bug that alarmed on the very first sighting and then sat quiet for unrelated reasons
+# could not slip past a single-tick check.
+#
+# Confirmed to fail against the bug it targets: with the `corpse` skip reverted out of
+# screamer.gd, this lane alarms on the corpse exactly like `_screamer_alarms` does.
+func _screamer_ignores_corpse() -> bool:
+	var world: Variant = World.new(_fixture(11))
+	world.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(world, map)
+	SimScreamer.register_module(world)
+	world.components.set_component(world.player, "facing", {"radians": 0.0})
+	# Same body `_screamer_alarms` uses, turned into a corpse the way a dead colonist actually
+	# becomes one -- the real path, not a hand-rolled component dict standing in for it.
+	SimRecruits._make_corpse(world, world.player)
+	var rng: Variant = world.rng.stream("shambler")
+	var zed: int = SimRoster.spawn_zombie(world, 8.0, 12.0, SimRoster.TYPE_SCREAMER, rng)
+	world.components.set_component(zed, "facing", {"radians": 0.0})
+	var cooldown: int = int((world.components.get_component(zed, "alarm") as Dictionary).get("cooldownTicks", 600))
+	var span: int = cooldown + 50
+	var alarmed: bool = false
+	var mag: float = 0.0
+	for _i in span:
+		world.step()
+		for e in world.events.drained:
+			if String((e as Dictionary).get("type", "")) == "noise.emitted" and int((e as Dictionary).get("source", -1)) == zed:
+				alarmed = true
+				mag = float((e as Dictionary).get("magnitude", 0))
+	if alarmed:
+		push_error("screamer alarmed over a corpse mag=%s" % mag)
+		return false
+	print("CORPSE OK no alarm over %d ticks (past the %d-tick cooldown)" % [span, cooldown])
+	return true
+
 
 func _bloater_blooms() -> bool:
 	var world: Variant = World.new(_fixture(13))
