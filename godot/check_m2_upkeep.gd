@@ -12,9 +12,9 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var ok: bool = _wear() and _repair() and _focus()
+	var ok: bool = _wear() and _repair() and _focus() and _spawn_delivery()
 	if ok:
-		print("M2_UPKEEP_OK wear broke repair")
+		print("M2_UPKEEP_OK wear broke repair spawn-deliver")
 		quit(0)
 	else:
 		push_error("M2_UPKEEP_FAIL")
@@ -102,6 +102,47 @@ func _repair() -> bool:
 		push_error("current not restored %s" % str(cur))
 		return false
 	print("REPAIR OK current %.2f ceiling %.2f" % [cur, ceil])
+	return true
+
+# spawn_item used to end with events.drain(), so any system spawning an item mid-tick flushed
+# every event other systems had queued that tick -- and since some spawns hang on an RNG roll
+# (a recovered arrow), *which* events flushed was not stable between runs. It delivers just its
+# own item.spawned now. Four assertions: a queued sentinel survives the spawn untouched; the
+# synchronous half survives (a just-spawned pack already has its container grid -- the reason
+# the drain was there); the delivered event still enters the record; and the true negative --
+# a real drain() fires the probe, so "the probe stayed silent" above is a claim that can fail.
+func _spawn_delivery() -> bool:
+	var w: Variant = SimBoot.playable(20260805, 64)["world"]
+	# An Array, not an int: a lambda captures primitives by value (CLAUDE.md's trap).
+	var probe: Array = []
+	w.events.subscribe({"id": "upkeep.spawn-probe", "type": "upkeep.sentinel", "handler": func(_e: Dictionary) -> void:
+		probe.append(1)
+	})
+	w.events.publish({"type": "upkeep.sentinel"})
+	var pack: int = SimItems.spawn_item(w, "item.pack.hiking", {"tier": "scavenged"})
+	if not probe.is_empty():
+		push_error("spawn_item flushed the queue: the sentinel handler ran mid-spawn")
+		return false
+	if int(w.events.pending) < 1:
+		push_error("the sentinel is no longer queued after spawn_item")
+		return false
+	if w.components.get_component(pack, "container") == null:
+		push_error("a just-spawned pack has no container grid; delivery did not reach the subscriber")
+		return false
+	var recorded: bool = false
+	for e in w.events.drained:
+		var d: Dictionary = e as Dictionary
+		if String(d.get("type", "")) == "item.spawned" and int(d.get("item", -1)) == pack:
+			recorded = true
+			break
+	if not recorded:
+		push_error("item.spawned missing from the event record")
+		return false
+	w.events.drain()
+	if probe.is_empty():
+		push_error("a drain did not fire the probe; the flush assertion above proves nothing")
+		return false
+	print("SPAWN-DELIVER OK sentinel queued through spawn, grid attached")
 	return true
 
 func _focus() -> bool:
