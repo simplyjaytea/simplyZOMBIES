@@ -672,10 +672,14 @@ func _draw_district() -> void:
 				tile = SimTileMap.Tile.Wall
 			match tile:
 				SimTileMap.Tile.Wall, SimTileMap.Tile.Screen:
-					_draw_solid_tile(rect, col)
+					_draw_solid_tile(rect, col, tx, ty)
 				SimTileMap.Tile.Window:
-					_draw_solid_tile(rect, col)
-					_draw_window_glass(rect, tx, ty)
+					# A window is a hole in masonry, so the tile is masonry and the glass is the
+					# pane: the tile colour that used to fill it edge to edge is handed to the
+					# pane instead, which is where the state a boarded-up window reaches stage 3
+					# in still shows.
+					_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
+					_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
 					# Inset block with floor showing around it reads as waist-high.
@@ -706,23 +710,37 @@ func _draw_floor_tile(rect: Rect2, col: Color) -> void:
 	draw_rect(rect, col)
 	draw_rect(rect, Palette.COLOURS["background"] * 0.9, false, 1.0)
 
-# Solid tiles (walls, screens, boards, scrap) get a bevel -- light along the top
-# and left, dark along the bottom and right -- so built mass reads as raised
-# without any standing geometry. This is the whole top-down wall convention.
-func _draw_solid_tile(rect: Rect2, col: Color) -> void:
-	draw_rect(rect, col)
-	var b: float = 2.0
-	var light: Color = col.lightened(0.18)
-	var dark: Color = col.darkened(0.22)
-	draw_rect(Rect2(rect.position, Vector2(rect.size.x, b)), light)
-	draw_rect(Rect2(rect.position, Vector2(b, rect.size.y)), light)
-	draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dark)
-	draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dark)
+# Solid tiles (walls, screens, boards, scrap): the whole tile is filled, because the whole tile
+# is what the sim blocks, but it is filled with the cap -- the top of the wall seen from above --
+# and only the edges that meet something walkable get the lit face. A run of wall is then one
+# dark band with a bright edge instead of a row of bright blocks each the size of a room, which
+# is the proportion complaint; the tile that is blocked is still the tile that is drawn, so
+# nothing here offers a way through that the sim refuses.
+#
+# Which edges are exposed is read off the neighbours rather than off a stored orientation, the
+# same way _draw_window_glass reads its pane, so a wall boarded up or torn open this tick is
+# shaded against what stands now.
+func _draw_solid_tile(rect: Rect2, col: Color, tx: int, ty: int) -> void:
+	draw_rect(rect, col.darkened(Palette.WALL_CAP_DARKEN))
+	var b: float = maxf(2.0, rect.size.x * Palette.WALL_FACE_SHARE)
+	# Light from the top-left, as the old bevel had it: the north and west faces catch it, the
+	# south and east ones are the same mass in shade. Both are lighter than the cap and than any
+	# ground -- an edge against floor is always drawn as a line, never as an absence of one.
+	var light: Color = col.lightened(Palette.WALL_FACE_LIT)
+	var dim: Color = col.lightened(Palette.WALL_FACE_DIM)
+	if not _is_solid_at(tx, ty - 1):
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x, b)), light)
+	if not _is_solid_at(tx - 1, ty):
+		draw_rect(Rect2(rect.position, Vector2(b, rect.size.y)), light)
+	if not _is_solid_at(tx, ty + 1):
+		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - b), Vector2(rect.size.x, b)), dim)
+	if not _is_solid_at(tx + 1, ty):
+		draw_rect(Rect2(rect.position + Vector2(rect.size.x - b, 0.0), Vector2(b, rect.size.y)), dim)
 
 # Windows: a bright glass pane + rim so they read against masonry. Orientation
 # follows the neighbouring walls; a corner window falls back to a square pane.
-func _draw_window_glass(rect: Rect2, tx: int, ty: int) -> void:
-	var glass: Color = (Palette.COLOURS["window"] as Color).lightened(0.28)
+func _draw_window_glass(rect: Rect2, tx: int, ty: int, col: Color = Palette.COLOURS["window"]) -> void:
+	var glass: Color = col.lightened(0.28)
 	var horizontal_walls: bool = _is_solid_at(tx - 1, ty) and _is_solid_at(tx + 1, ty)
 	var vertical_walls: bool = _is_solid_at(tx, ty - 1) and _is_solid_at(tx, ty + 1)
 	var c: Vector2 = rect.get_center()
@@ -762,7 +780,10 @@ func _is_threshold(tx: int, ty: int) -> bool:
 # its pane orientation, so a door in a rebuilt or barricaded wall is drawn against what stands now.
 func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 	_draw_floor_tile(rect, col.lerp(Palette.COLOURS["threshold"], 0.75))
-	var jamb: Color = (Palette.COLOURS["wall"] as Color).darkened(0.25)
+	# The jamb is the cap of the wall it belongs to, so a doorway is a gap in one mass rather than
+	# two stubs in a colour of their own -- the lit faces of the wall tiles either side already
+	# draw the line where the opening starts.
+	var jamb: Color = (Palette.COLOURS["wall"] as Color).darkened(Palette.WALL_CAP_DARKEN)
 	var t: float = maxf(2.0, rect.size.x * 0.14)
 	if _is_solid_at(tx - 1, ty):
 		draw_rect(Rect2(rect.position, Vector2(t, rect.size.y)), jamb)
@@ -849,8 +870,23 @@ func _draw_prop(look: Dictionary, x: float, y: float, zoom: float) -> void:
 			# A bevelled square -- and the floor for anything a future content entry names that
 			# this match has not learned, because an unknown shape must still draw something.
 			var box := Rect2(centre - Vector2(span / 2.0, span / 2.0), Vector2(span, span))
-			_draw_solid_tile(box, tint)
+			_draw_bevelled_box(box, tint)
 			draw_rect(box, edge, false, 1.0)
+
+
+# A free-standing object lit from the top-left: light along the top and left, dark along the
+# bottom and right, all four edges every time. This is the bevel walls used to wear. A crate is
+# an object with four visible sides and no neighbours to be continuous with, so it keeps it; a
+# wall is a run, and _draw_solid_tile shades it as one.
+func _draw_bevelled_box(box: Rect2, col: Color) -> void:
+	draw_rect(box, col)
+	var b: float = 2.0
+	var light: Color = col.lightened(0.18)
+	var dark: Color = col.darkened(0.22)
+	draw_rect(Rect2(box.position, Vector2(box.size.x, b)), light)
+	draw_rect(Rect2(box.position, Vector2(b, box.size.y)), light)
+	draw_rect(Rect2(box.position + Vector2(0.0, box.size.y - b), Vector2(box.size.x, b)), dark)
+	draw_rect(Rect2(box.position + Vector2(box.size.x - b, 0.0), Vector2(b, box.size.y)), dark)
 
 
 func _is_solid_at(tx: int, ty: int) -> bool:

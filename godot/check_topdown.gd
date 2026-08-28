@@ -34,8 +34,9 @@ func _run() -> void:
 	ok = _the_ground_reaches_the_draw_path() and ok
 	ok = _buildings_read_as_buildings() and ok
 	ok = _props_reach_the_draw_path() and ok
+	ok = _built_mass_is_thin_and_still_solid() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -323,6 +324,84 @@ func _props_reach_the_draw_path() -> bool:
 			push_error("_draw_prop draws no '%s'; content can ask for a shape nothing renders" % shape)
 			return false
 	print("PROPS OK %d props stood and resolved (%s), %d shapes drawn, states distinguishable" % [props, str(found), Appearance.PROP_SHAPES.size()])
+	return true
+
+
+# Built mass, drawn thin. A wall blocks a whole tile and is therefore drawn over a whole tile,
+# but a whole tile of flat wall colour made a one-tile wall the brightest and largest thing on the
+# screen -- brighter than a survivor, who is a fraction of a tile. So the tile is filled with the
+# cap and only the edges that meet something walkable carry a lit face.
+#
+# The two things that can go wrong pull in opposite directions, and both are asserted:
+#   * the mass creeps back to bright -- the face share reaching half a tile, or a face that is not
+#     a band but the fill, which is the look this replaced;
+#   * the mass recedes so far that a blocked tile reads as an unlit floor, which is worse than a
+#     chunky wall because it promises passage the sim refuses. That is measured, not asserted by
+#     eye: every ground the district can put against a wall (each surface tint and its indoor mix,
+#     the doorway boards) must sit clearly below both faces in luminance.
+# The true negative for the first is the old constants (a bevel of 2 px on every edge, cap ==
+# fill); for the second, a cap or face pulled down to the floor colours, which the margins below
+# fail on immediately.
+const FACE_LIT_MARGIN: float = 0.08
+const FACE_DIM_MARGIN: float = 0.04
+
+func _luma(c: Color) -> float:
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+func _built_mass_is_thin_and_still_solid() -> bool:
+	if Palette.WALL_FACE_SHARE <= 0.0 or Palette.WALL_FACE_SHARE >= 0.5:
+		push_error("WALL_FACE_SHARE %f is not a band: at 0 the faces vanish, at 0.5 they meet and the tile is face again" % Palette.WALL_FACE_SHARE)
+		return false
+	var wall: Color = Palette.COLOURS["wall"]
+	var cap: Color = wall.darkened(Palette.WALL_CAP_DARKEN)
+	var lit: Color = wall.lightened(Palette.WALL_FACE_LIT)
+	var dim: Color = wall.lightened(Palette.WALL_FACE_DIM)
+	if not (_luma(cap) < _luma(dim) and _luma(dim) < _luma(lit)):
+		push_error("cap %.3f, shaded face %.3f, lit face %.3f: a face has to be brighter than the cap it edges, or the mass has no drawn edge" % [_luma(cap), _luma(dim), _luma(lit)])
+		return false
+	if _luma(cap) >= _luma(wall):
+		push_error("the cap is not darker than the wall colour; the tile is as bright as it was and nothing receded")
+		return false
+
+	# Every floor a wall can stand beside: the five surfaces, each of them again as an interior,
+	# and the doorway. If the dimmest face does not clear the brightest of them, some wall
+	# somewhere in the district has an edge you cannot see.
+	var grounds: Array[Color] = []
+	for s in Palette.SURFACE_TINTS.size():
+		var g: Color = Palette.SURFACE_TINTS[s]
+		grounds.append(g)
+		grounds.append(g.lerp(Palette.COLOURS["indoorFloor"], Palette.INDOOR_MIX))
+	grounds.append((Palette.COLOURS["floor"] as Color).lerp(Palette.COLOURS["threshold"], 0.75))
+	var brightest: float = -1.0
+	for g2 in grounds:
+		brightest = maxf(brightest, _luma(g2))
+	if _luma(lit) - brightest < FACE_LIT_MARGIN:
+		push_error("the lit face is %.3f over the brightest ground (%.3f); a wall edge must read against every floor it touches" % [_luma(lit) - brightest, brightest])
+		return false
+	if _luma(dim) - brightest < FACE_DIM_MARGIN:
+		push_error("the shaded face is %.3f over the brightest ground (%.3f); the south and east edges of a wall would disappear into it" % [_luma(dim) - brightest, brightest])
+		return false
+
+	# Reach, textual for the same reason as the lanes above: a draw pass cannot be run headless.
+	# The face is only drawn where the mass ends, which is the whole reason a wall run reads as one
+	# thick line; a _draw_solid_tile that stopped asking its neighbours would bevel every tile again
+	# and this is what would say so.
+	var solid: String = _function_body(MAIN_GD, "_draw_solid_tile")
+	if solid.is_empty():
+		push_error("could not read _draw_solid_tile out of %s -- the wall lane had nothing to judge" % MAIN_GD)
+		return false
+	for needle in ["Palette.WALL_CAP_DARKEN", "Palette.WALL_FACE_SHARE", "_is_solid_at("]:
+		if not solid.contains(needle):
+			push_error("_draw_solid_tile does not use %s: the cap, the band width and the exposed-edge test are what make the mass thin" % needle)
+			return false
+	var district: String = _function_body(MAIN_GD, "_draw_district")
+	if not district.contains("_draw_solid_tile(rect, Palette.COLOURS[\"wall\"], tx, ty)"):
+		push_error("the window tile is not drawn as masonry; a window that fills its tile with glass is the same proportion problem as a bright wall")
+		return false
+	if not district.contains("_draw_window_glass(rect, tx, ty, col)"):
+		push_error("_draw_window_glass is not handed the tile's colour, so a boarded window's stage stops showing in its pane")
+		return false
+	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit face %.3f clear of the brightest ground %.3f" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit), brightest])
 	return true
 
 
