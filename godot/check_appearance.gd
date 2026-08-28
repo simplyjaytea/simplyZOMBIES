@@ -28,6 +28,7 @@ func _run() -> void:
 	ok = _tints_come_from_content_not_code() and ok
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
 	ok = _equipped_gear_layers_resolve() and ok
+	ok = _props_look_like_something() and ok
 	if ok:
 		print("APPEARANCE_OK schema keys resolve, fallback intact, tints from content")
 		quit(0)
@@ -38,25 +39,39 @@ func _run() -> void:
 func _fixture() -> Dictionary:
 	return {"seed": 77, "tick_hz": 20, "map": {"width": 12, "height": 10, "walls": []}, "player": {"id": 0, "x": 6.0, "y": 5.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
 
-# Every appearance block anywhere in content, as {content_path: block}.
+# Every appearance block anywhere in content, as {"path#id": block}.
+#
+# Array-topped files are walked as well as object-topped ones. They were not until this slice, and
+# the omission was not cosmetic: every item file and the new props file is a JSON array, so every
+# item's `appearance` -- equipSprite, equipSpriteFront and all -- was invisible to the shape and
+# key assertions below, which is a gate that could not fail for most of the content it names.
+# Keyed by path *and* id because one array file holds many entries and "which one" is the first
+# thing a failure needs to say.
 func _all_blocks() -> Dictionary:
 	var out: Dictionary = {}
-	for path in ContentLoader.load_tree().keys():
-		var entry: Variant = ContentLoader.load_tree()[path]
-		if not (entry is Dictionary):
+	var tree: Dictionary = ContentLoader.load_tree()
+	for path in tree.keys():
+		if String(path).begins_with("schemas/"):
 			continue
-		var block: Variant = (entry as Dictionary).get("appearance")
-		if block is Dictionary:
-			out[String(path)] = block as Dictionary
+		var raw: Variant = tree[path]
+		var entries: Array = raw as Array if raw is Array else [raw]
+		for entry_v in entries:
+			if not (entry_v is Dictionary):
+				continue
+			var entry: Dictionary = entry_v as Dictionary
+			var block: Variant = entry.get("appearance")
+			if block is Dictionary:
+				out["%s#%s" % [String(path), String(entry.get("id", "?"))]] = block as Dictionary
 	return out
 
 # The shape the schemas document but the validator cannot reach.
 func _declared_appearances_are_well_formed() -> bool:
-	var allowed: Array[String] = ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront"]
+	var allowed: Array[String] = ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront", "shape", "size"]
 	var hex := RegEx.new(); hex.compile(HEX)
 	var key := RegEx.new(); key.compile(KEY)
-	for path in _all_blocks().keys():
-		var block: Dictionary = _all_blocks()[path]
+	var blocks: Dictionary = _all_blocks()
+	for path in blocks.keys():
+		var block: Dictionary = blocks[path]
 		for k in block.keys():
 			if not allowed.has(String(k)):
 				push_error("%s: appearance has unknown key '%s'; allowed %s" % [path, k, allowed])
@@ -77,14 +92,28 @@ func _declared_appearances_are_well_formed() -> bool:
 				if not (es is String) or key.search(String(es)) == null:
 					push_error("%s: appearance.%s '%s' is not a registry key (a key, not a path)" % [path, prop, str(es)])
 					return false
-	print("SHAPE OK")
+		# A prop's footprint. `shape` must be a primitive the renderer owns -- content naming a
+		# shape nothing draws would fall back to a box and look like a decision somebody made --
+		# and `size` is a fraction of a tile, so a 6 there is a prop the size of a house.
+		if block.has("shape"):
+			var sh: Variant = block["shape"]
+			if not (sh is String) or not Appearance.PROP_SHAPES.has(String(sh)):
+				push_error("%s: appearance.shape '%s' is not one of %s" % [path, str(sh), str(Appearance.PROP_SHAPES)])
+				return false
+		if block.has("size"):
+			var sz: Variant = block["size"]
+			if not (sz is float or sz is int) or float(sz) < 0.1 or float(sz) > 1.0:
+				push_error("%s: appearance.size '%s' is not a tile fraction in [0.1, 1.0]" % [path, str(sz)])
+				return false
+	print("SHAPE OK %d blocks" % blocks.size())
 	return true
 
 # A key naming a file that does not exist must fail the build, not draw nothing.
 func _sprite_keys_resolve() -> bool:
 	var resolved: int = 0
-	for path in _all_blocks().keys():
-		var block: Dictionary = _all_blocks()[path]
+	var blocks: Dictionary = _all_blocks()
+	for path in blocks.keys():
+		var block: Dictionary = blocks[path]
 		for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
 			if not block.has(prop):
 				continue
@@ -108,9 +137,10 @@ func _sprite_keys_resolve() -> bool:
 	print("KEYS OK %d resolved on the 64x64 canvas" % resolved)
 	return true
 
-# Every file in the directory, referenced or not: item appearance blocks live nested inside
-# item-list files where _all_blocks cannot see them, and an unreferenced stray is one content
-# edit away from drawing. Raw Image.load, same as appearance.gd's headless fallback.
+# Every file in the directory, referenced or not: an unreferenced stray is one content edit away
+# from drawing, and nothing above would have judged it. Raw Image.load, same as appearance.gd's
+# headless fallback. (It used to also cover the item blocks _all_blocks could not see, which it no
+# longer has to -- array-topped files are walked now -- but a stray file still has no entry.)
 func _every_canvas_is_64() -> bool:
 	var dir := DirAccess.open(SPRITE_DIR)
 	if dir == null:
@@ -275,4 +305,53 @@ func _equipped_gear_layers_resolve() -> bool:
 		return false
 
 	print("EQUIP OK")
+	return true
+
+
+# Every prop id the renderer can ask for has an entry in content, and that entry says enough to
+# draw. The true positive is the six shipped ids resolving distinct, well-formed looks; the true
+# negative is an id nobody authored, which must degrade to the drab fallback rather than resolving
+# a tint that looks deliberate -- and must *not* be mistaken for a real entry, which is what the
+# "declares a tint" assertion below would catch if a prop entry were ever deleted.
+func _props_look_like_something() -> bool:
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	var ids: Array[String] = []
+	for kind in Appearance.PROP_KINDS:
+		ids.append(String(kind["id"]))
+		if not String(kind["flag_id"]).is_empty():
+			ids.append(String(kind["flag_id"]))
+	if ids.is_empty():
+		push_error("PROP_KINDS is empty -- this lane had nothing to judge")
+		return false
+	var tints: Array[Color] = []
+	for id in ids:
+		var block: Dictionary = Appearance.of_content(w, "prop", id)
+		if not block.has("tint"):
+			push_error("%s declares no appearance.tint; a prop with no art and no tint is an invisible thing standing in the district" % id)
+			return false
+		var look: Dictionary = Appearance.prop_of(w, id)
+		if (look["tint"] as Color) != Color(String(block["tint"])):
+			push_error("%s: prop_of did not use the content tint" % id)
+			return false
+		if not Appearance.PROP_SHAPES.has(String(look["shape"])):
+			push_error("%s resolved shape '%s', which the renderer does not draw" % [id, look["shape"]])
+			return false
+		if float(look["size"]) < 0.1 or float(look["size"]) > 1.0:
+			push_error("%s resolved size %f, outside one tile" % [id, float(look["size"])])
+			return false
+		# Two states of one prop that look identical are one state: a searched cupboard and an
+		# unsearched one, a lit fire and a cold one, have to be distinguishable on sight.
+		if tints.has(look["tint"] as Color):
+			push_error("%s reuses tint %s -- two props you cannot tell apart" % [id, str(look["tint"])])
+			return false
+		tints.append(look["tint"] as Color)
+	var unknown: Dictionary = Appearance.prop_of(w, "prop.does_not_exist")
+	if (unknown["tint"] as Color) != Palette.COLOURS["prop"]:
+		push_error("an unauthored prop id should fall back to the drab prop colour, got %s" % str(unknown["tint"]))
+		return false
+	if String(unknown["shape"]) != Appearance.PROP_SHAPE_DEFAULT or unknown["texture"] != null:
+		push_error("an unauthored prop id should still be drawable as the default shape with no texture")
+		return false
+	print("PROPS OK %d ids, distinct tints, unknown id degrades" % ids.size())
 	return true

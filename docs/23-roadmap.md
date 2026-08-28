@@ -235,10 +235,9 @@ unplaced) rather than here.
 **Art & renderer — queued behind the style pick, needed whichever way it goes:**
 
 - **Screamer and bloater sprites.** Both still render as tinted shapes.
-- **Tiles and props drawn for real.** `_draw_district` draws flat rects for terrain, and a
-  container, a bed or a campfire is announced by prose (`SimContainers.hud_clause` in the HUD) and
-  is otherwise invisible. The stakes rose with generated loot: a full district now stands 52–137
-  containers, all undrawn.
+- **Prop art on the 64×64 canvas.** The props are drawn now (see the record) but as content-tinted
+  footprint shapes: a container, a bed, a campfire and the well each take an `appearance.sprite`
+  key today and none of them has a file behind it.
 
 **UI:**
 
@@ -1021,8 +1020,44 @@ not a to-do list:
   renderer-and-art in one commit, with `APPEARANCE_OK` now failing any sprite off that canvas
   (a stray 64×96 is a build failure, not a footnote). Wheel zoom steps the camera through
   {16, 32, 64, 128} px/m. What remains on this track — the style pick (waiting on the owner) and
-  the screamer/bloater sprites and tile/prop renderer path queued behind it — is in
+  the screamer/bloater sprites and prop art queued behind it — is in
   [what's left](#whats-left-in-milestone-2), including which picks force a sprite regeneration.
+  ~~Tiles and props drawn for real~~ **landed** (`godot:check:topdown` lanes BUILDINGS and PROPS,
+  `godot:check:appearance` lane PROPS) — and it is the renderer half that landed, not the art half;
+  which half is which is spelled out below. A building reads as a building now: `map.indoors` —
+  the third array over the same grid, written by the generator and drawn by nothing — pulls an
+  interior floor 0.62 of the way towards a board colour **over** the surface it stands on, so a
+  shop floored on rubble and a house floored on paving stay two different floors while both read
+  as inside from across the street; and the doorways in `map.buildings[].doors`, which are ordinary
+  Floor tiles in a wall run with nothing in the tile array to tell them from the street, draw as
+  worn boards between whichever jambs the neighbouring tiles actually have (the garage template's
+  five-tile mouth therefore reads as a mouth, not as five doors). The door set is derived by a pure
+  `Appearance.door_tiles` and cached in `main.gd` against the map object it came from — on the
+  drawing node, where a static cache would be shared between the two worlds a gate boots. Props are
+  visible: a `prop` content type (`prop.schema.json`, registered in `content_validator.gd`, six
+  entries in `content/props/stations.json`) says how a container, a bed, a campfire and the well
+  look; `presentation/appearance.gd`'s `PROP_KINDS` is the entire mapping from component to content
+  id, including the one boolean per prop that changes the picture (searched, lit — two ids, not one
+  entry with two tints); and `_draw_props` culls to the camera bounds **and** to the player's own
+  sightline, so a cupboard on the far side of a wall is not visible through it. Content picks from
+  four presentation-owned footprint primitives (box, slab, disc, ring) and the gate asserts every
+  name the schema's enum allows is a shape `_draw_prop` actually draws; not one tint is in code
+  (Palette's `prop` is the drab colour of a content mistake, and an unauthored id degrades to it).
+  The load-bearing assertion is the dead-socket one: the PROPS lane boots a real district and fails
+  if **anything** standing in it that is neither a body nor a carried item resolves no look — so a
+  fifth kind of prop added without a `PROP_KINDS` entry is caught rather than standing there
+  invisible, which is exactly the state all four of these were in until this slice. Shown to fail
+  by deleting the bed row (entity 2 resolves nothing), by removing the `_draw_props()` call, and by
+  setting `INDOOR_MIX` to 0. Measured cost: the prop pass's queries are **~34 µs a frame** over the
+  47 containers of a booted 256 district, and everything else is culled to the viewport. **What did
+  not ship, deliberately:** no art — every prop is a content-tinted shape, which is the supported
+  fallback and not a stopgap, and prop art is now its own named piece in
+  [what's left](#whats-left-in-milestone-2); the screamer and bloater sprites are their own piece
+  and were not touched; corpses still draw as people, which is its own entry in the defect list.
+  Same slice, same commit, a gate that could not fail: `check_appearance.gd`'s `_all_blocks` now
+  walks **array-topped** content files, which it never did — so every item's appearance block,
+  `equipSprite` and all, was invisible to the shape and key assertions that name it. Fixed, and
+  shown to fail: an unknown key added to an item's appearance block now reds `APPEARANCE_OK`.
 - **Survivors** — nothing on this row has landed yet beyond the recruit generator's name-and-trait
   pool; all four open pieces (fuller generation, trait conflict rules, Focus auto-allocation, the
   six-survivor checkpoint) are in [what's left](#whats-left-in-milestone-2).
@@ -1251,10 +1286,9 @@ not a to-do list:
   `nothing-here` because those mean different things to somebody deciding whether a building is
   worth the walk. The district ships a cupboard, a car boot and a supply locker. Searching is
   **instant, not a channel** — recorded as a decision in the module header, with fortify's channel
-  named as the template if it ever needs to be interruptible. The two open tails here — carried
-  weight loudening footsteps, and the container's missing renderer path (the Art track's
-  tile-and-prop piece rather than a gap in this) — are in
-  [what's left](#whats-left-in-milestone-2).
+  named as the template if it ever needs to be interruptible. A container is drawn now, searched
+  or not — the Art track's tile-and-prop piece, recorded there. The one open tail here, carried
+  weight loudening footsteps, is in [what's left](#whats-left-in-milestone-2).
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:
