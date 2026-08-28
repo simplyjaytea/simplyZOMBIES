@@ -184,15 +184,6 @@ pass actually reaches (edge connection points). The owner's scope decisions are 
 what the arc left behind is named in the debt list (the ground is player-only today, rubble
 unplaced) rather than here.
 
-**Content only — data entries, no new systems:**
-
-- **Five more modification consumables.** Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage
-  Rights. Each is one content entry plus one operation in `SimModification.OPERATIONS` (a Solvent
-  is one entry plus one `strip`); nothing blocks them. Extends `godot:check:mods`.
-- **Round out the resources toward ~15 types.** The slice-scope table promises about fifteen
-  resource types across the three loot tables. Count what ships, then add entries — items and loot
-  rows, not systems.
-
 **People — the survivor pipeline:**
 
 - **Survivor generation: appearance, age, backstory, starting kit.** The generator stops at name
@@ -840,7 +831,17 @@ not a to-do list:
   move. The retired table is pinned **by value** in the gate, so the move is provably a change of
   where the numbers live and not of what they say. Presence of the block is what makes an item
   edible: `is_food` asks nothing else. Site depletion landed with container search — see Inventory
-  below; the ~15 resource types moved to [what's left](#whats-left-in-milestone-2).
+  below.
+  ~~Round out the resources toward ~15 types~~ **landed**. Counting the scavenged raw materials
+  and consumables actually placed in a loot table — `class` `material`/`consumable`, docs/12's
+  taxonomy classes 1–4, kept apart from the seven currency-grade modification consumables above,
+  which are its class 5 and tracked as their own line — put **13** resource types in the ground
+  across the four shipped tables. Battery and Bolt of Cloth are the two docs/12 names residential
+  and commercial had always promised (batteries, cloth) with no item behind them; adding both, to
+  residential and commercial, brings the shipped count to **15**. `check_loot.gd` pins no resource
+  count — LOOT SHAPE and LOCATIONS OK only assert every entry resolves and every table is placed —
+  so this count is taken by hand off the tables, the honest measure where no gate keeps a number
+  honest for you.
   ~~The annex as a stamped template~~ **landed** (`godot:check:buildings`, the chain's 33rd gate)
   — the worldgen arc's first slice. `SimTemplates.stamp` places a template's arrays at a
   handed-in origin through `apply_patch`'s exact clipping; the origin is still (38, 38), and the
@@ -1309,16 +1310,32 @@ not a to-do list:
   consumable performs and against which item classes is **content** — a `modification:
   {operation, appliesTo}` block on the item base, exactly as docs/11's content-shape section
   describes — while what an operation *does* is code, in `SimModification.OPERATIONS`, which is the
-  registry that document points at. The other five consumables are unblocked and are the first
-  content entry in [what's left](#whats-left-in-milestone-2).
+  registry that document points at.
+  ~~The other five (Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage Rights)~~ **also
+  landed** (`godot:check:mods`, the FIVE MORE lane), each as docs/11's table names it. Whetstone
+  reuses `reroll` verbatim, restricted to `weapon.melee` — the same gamble Duct Tape runs, just
+  narrower, so it needed no new operation at all. Gun Oil is the new `condition_restore`
+  operation on `weapon.ranged`: it raises condition toward the ceiling, and docs/11's "small
+  jam-chance reduction" needed no second mechanic, because `SimItems.jam_chance` already derives
+  jam chance from the condition band. Solvent is the new `strip` operation — every affix gone and
+  the tier reset to scavenged, docs/11's "returning the item to Scavenged". Machinist's Gauge is
+  the new `reroll_chosen` operation: the same reroll as Duct Tape but on an affix the caller
+  names — `item.modify` grew an optional `affix` field, read by nothing else. Salvage Rights is
+  the new `upgrade_tier` operation: the item's `itemTier` moves one step up `SimItems.TIERS` and
+  every affix is rerolled fresh at the new tier's capacity. All four new operations refuse a wrong
+  item class exactly as `add` and `reroll` already did, plus their own true negatives —
+  already-at-ceiling, already-max-tier, no-target-affix, no-such-affix — each measured in the
+  FIVE MORE lane, not asserted on the function having returned "ok".
   Craft moves both odds in the directions docs/11 names — failure 0.200 → 0.080 over six points
   (floored at 0.05, because a bench that cannot fail is not a gamble), and the mean affix tier
   0.409 → 0.694 under the bias. Injured hands raise failure to 0.230 and cancel the tier bias, so
   a good crafter working hurt is an ordinary one rather than a worse-than-novice one; two
   destroyed hands refuse outright. Failure spends the consumable and costs 0.25 condition, and
   below 0.20 it breaks the item outright with its ceiling, so it is scrap forever — reachable only
-  from an already-degraded item, so a fresh find is never one roll from scrap. The Scrap Kit is
-  findable in the military cache and duct tape in all three tables.
+  from an already-degraded item, so a fresh find is never one roll from scrap. Every one of the
+  seven consumables is findable in a loot table, the same dead-socket check `check_m2_attach.gd`
+  runs for attachments — the Scrap Kit in the military cache, Duct Tape in all four, and each of
+  the five new ones in at least one.
   Two things fell out of this that were missing rather than new: an item's **tier was rolled at
   spawn and thrown away**, so nothing could afterwards ask how many affix slots an item has — it
   is now an `itemTier` component with `SimItems.tier_of`/`affix_capacity` — and there was no path

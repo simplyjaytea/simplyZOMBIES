@@ -8,10 +8,28 @@ extends RefCounted
 # rather than a button: skill- and trait-weighted outcomes, and failure that consumes the
 # consumable and damages the item.
 #
-# The other five (Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage Rights) are deliberately
-# not here. They are not blocked on anything in this file: docs/11 says "adding a consumable is a
-# data entry, provided the operation it names already exists", and OPERATIONS below is that
-# registry. A Solvent is one content entry plus one `strip` operation.
+# The other five (Whetstone, Gun Oil, Solvent, Machinist's Gauge, Salvage Rights) have landed too,
+# each as docs/11's table names it:
+#
+#   - **Whetstone** reuses `reroll` verbatim, restricted to `weapon.melee` -- docs/11's "reroll the
+#     quality value of a melee item" is the same gamble Duct Tape already runs, just narrower.
+#   - **Gun Oil** is the new `condition_restore` operation, restricted to `weapon.ranged`: it
+#     raises condition toward the ceiling, the same ceiling `_damage` and repair respect. docs/11's
+#     "small jam-chance reduction" is not a second effect to implement -- `SimItems.jam_chance`
+#     already derives jam chance from the condition band, so restoring condition *is* the jam-
+#     chance reduction.
+#   - **Solvent** is the new `strip` operation: every affix gone and the tier reset to scavenged,
+#     docs/11's "returning the item to Scavenged".
+#   - **Machinist's Gauge** is the new `reroll_chosen` operation: the same reroll as Duct Tape, but
+#     on the affix the caller names instead of one drawn at random -- `item.modify` grows an
+#     optional `affix` field the intake system passes through as `apply`'s `target` argument, read
+#     by nothing else.
+#   - **Salvage Rights** is the new `upgrade_tier` operation: the item's `itemTier` moves one step
+#     up `SimItems.TIERS` and every affix is rerolled fresh at the new tier's capacity, docs/11's
+#     "upgrade an item's tier by one, rerolling everything".
+#
+# docs/11 says "adding a consumable is a data entry, provided the operation it names already
+# exists", and OPERATIONS below is that registry.
 #
 # --- what is content and what is code ----------------------------------------------------
 #
@@ -70,7 +88,7 @@ const SimSkills = preload("res://sim/modules/skills.gd")
 
 # The operation registry docs/11's content-shape section points at. A consumable's content block
 # names one of these; adding a new one is an entry here plus its implementation in _perform.
-const OPERATIONS: Array[String] = ["reroll", "add"]
+const OPERATIONS: Array[String] = ["reroll", "add", "strip", "condition_restore", "reroll_chosen", "upgrade_tier"]
 
 # The RNG stream every modification draw comes from. Its own stream, not `loot`: a bench roll must
 # not shift the tier sequence for everything spawned afterwards.
@@ -98,6 +116,10 @@ const MAX_TIER_BIAS: float = 2.5
 const FAILURE_CONDITION_LOSS: float = 0.25
 const CRITICAL_BELOW: float = 0.2
 
+# Gun Oil. How much condition it restores toward the ceiling -- a strong service, not a full
+# repair; the ceiling itself is untouched, unlike `_damage`'s break case.
+const GUN_OIL_RESTORE: float = 0.2
+
 
 static func register_module(world: Variant) -> void:
 	world.systems.register("modification.intake", "input", 10, func(w: Variant) -> void:
@@ -106,7 +128,10 @@ static func register_module(world: Variant) -> void:
 			if String(c.get("type", "")) != "item.modify":
 				continue
 			for actor in w.components.query(["controlled", "position"]):
-				var res: Dictionary = apply(w, int(actor), int(c.get("item", -1)), int(c.get("consumable", -1)))
+				# `affix` is optional and only Machinist's Gauge's `reroll_chosen` reads it -- the
+				# affix id to reroll, in place of the random pick every other reroll draws. Absent
+				# for every other operation, and apply() treats that as "no target".
+				var res: Dictionary = apply(w, int(actor), int(c.get("item", -1)), int(c.get("consumable", -1)), c.get("affix"))
 				if not bool(res.get("ok", false)):
 					w.events.publish({"type": "modification.refused", "entity": int(actor), "reason": String(res.get("reason", "unknown"))})
 	)
@@ -114,7 +139,9 @@ static func register_module(world: Variant) -> void:
 
 # The one entry point. Returns {ok, reason} in the shape treatment.gd and SimInfection's responses
 # already use, plus `outcome` on success so a caller can say what happened without re-deriving it.
-static func apply(world: Variant, actor: int, item: int, consumable: int) -> Dictionary:
+# `target` is read by exactly one operation (`reroll_chosen`'s affix id); every other operation
+# ignores it, so passing null is always safe.
+static func apply(world: Variant, actor: int, item: int, consumable: int, target: Variant = null) -> Dictionary:
 	var spec: Variant = spec_of(world, consumable)
 	if not (spec is Dictionary):
 		return {"ok": false, "reason": "not-a-consumable"}
@@ -139,7 +166,7 @@ static func apply(world: Variant, actor: int, item: int, consumable: int) -> Dic
 	# Whether the operation *can* do anything is checked before the consumable is spent, so a
 	# Scrap Kit is never burned on an item with no free slot. A failed roll still spends it; being
 	# refused up front does not.
-	var ready: Dictionary = _can_perform(world, item, operation)
+	var ready: Dictionary = _can_perform(world, item, operation, target)
 	if not bool(ready.get("ok", false)):
 		return ready
 
@@ -164,7 +191,7 @@ static func apply(world: Variant, actor: int, item: int, consumable: int) -> Dic
 	# Injured hands cancel the Craft tier bias rather than inverting it: a good crafter working
 	# hurt is an ordinary one, never worse than a novice.
 	var bias: float = 0.0 if hands != SimHealth.PartState.Unhurt else _tier_bias(craft)
-	var changed: Dictionary = _perform(world, item, item_class, operation, rng, bias)
+	var changed: Dictionary = _perform(world, item, item_class, operation, rng, bias, target)
 	SimItems.reapply_affix_modifiers(world, item)
 	world.events.publish({
 		"type": "modification.applied", "entity": actor, "item": item,
@@ -185,28 +212,63 @@ static func spec_of(world: Variant, consumable: int) -> Variant:
 # --- operations -----------------------------------------------------------------------------
 
 # Whether the operation has anything to work with, checked before the consumable is spent.
-static func _can_perform(world: Variant, item: int, operation: String) -> Dictionary:
+static func _can_perform(world: Variant, item: int, operation: String, target: Variant = null) -> Dictionary:
+	# condition_restore and upgrade_tier work on condition and tier, not the affix block, so an
+	# affix-less scavenged base (Gun Oil on a bare pistol; Salvage Rights on anything at the top
+	# tier) must not be refused for a reason that has nothing to do with what they check.
+	if operation == "condition_restore":
+		var cond: Variant = world.components.get_component(item, "condition")
+		if not (cond is Dictionary):
+			return {"ok": false, "reason": "no-condition"}
+		if float((cond as Dictionary).get("current", SimItems.FULL_CONDITION)) >= float((cond as Dictionary).get("ceiling", SimItems.FULL_CONDITION)):
+			return {"ok": false, "reason": "already-at-ceiling"}
+		return {"ok": true, "reason": ""}
+	if operation == "upgrade_tier":
+		var idx: int = _tier_index(SimItems.tier_of(world, item))
+		if idx < 0 or idx >= SimItems.TIERS.size() - 1:
+			return {"ok": false, "reason": "already-max-tier"}
+		return {"ok": true, "reason": ""}
+
 	var aff: Variant = world.components.get_component(item, "affixes")
 	if not (aff is Dictionary):
 		return {"ok": false, "reason": "no-affix-block"}
 	var rolled: Array = _all_rolled(aff as Dictionary)
 	match operation:
-		"reroll":
+		"reroll", "strip":
 			if rolled.is_empty():
 				return {"ok": false, "reason": "no-affixes"}
 		"add":
 			if _free_slots(world, item, aff as Dictionary) <= 0:
 				return {"ok": false, "reason": "no-free-slot"}
+		"reroll_chosen":
+			var wanted: String = String(target) if target != null else ""
+			if wanted == "":
+				return {"ok": false, "reason": "no-target-affix"}
+			var found: bool = false
+			for entry in rolled:
+				if String((entry as Dictionary)["id"]) == wanted:
+					found = true
+					break
+			if not found:
+				return {"ok": false, "reason": "no-such-affix"}
 	return {"ok": true, "reason": ""}
 
 
-static func _perform(world: Variant, item: int, item_class: String, operation: String, rng: Variant, bias: float) -> Dictionary:
+static func _perform(world: Variant, item: int, item_class: String, operation: String, rng: Variant, bias: float, target: Variant = null) -> Dictionary:
+	if operation == "condition_restore":
+		return _restore_condition(world, item)
+	if operation == "upgrade_tier":
+		return _upgrade_tier(world, item, item_class, rng)
 	var aff: Dictionary = world.components.get_component(item, "affixes") as Dictionary
 	match operation:
 		"reroll":
 			return _reroll(world, aff, item_class, rng, bias)
 		"add":
 			return _add(world, aff, item_class, rng, bias)
+		"strip":
+			return _strip(world, item, aff)
+		"reroll_chosen":
+			return _reroll_chosen(world, aff, String(target), rng, bias)
 	return {}
 
 
@@ -249,6 +311,68 @@ static func _add(world: Variant, aff: Dictionary, item_class: String, rng: Varia
 		(aff[("prefixes" if slot == "prefix" else "suffixes")] as Array).append(rolled)
 		return {"affix": String(affix["id"])}
 	return {}
+
+
+# Solvent. Every affix gone and the tier reset to scavenged -- docs/11: "Strip all affixes,
+# returning the item to Scavenged." A clean slate, not a partial one: this is what makes it the
+# expensive-control endpoint of the determinism gradient, not a bigger Duct Tape.
+static func _strip(world: Variant, item: int, aff: Dictionary) -> Dictionary:
+	aff["prefixes"] = []
+	aff["suffixes"] = []
+	world.components.set_component(item, "itemTier", {"id": "scavenged"})
+	return {"affix": ""}
+
+
+# Machinist's Gauge. The same reroll Duct Tape performs, except the affix is the one the caller
+# named rather than one drawn at random -- docs/11: "Reroll a chosen affix instead of a random
+# one." `_can_perform` has already proven `target` names an affix this item actually carries.
+static func _reroll_chosen(world: Variant, aff: Dictionary, target: String, rng: Variant, bias: float) -> Dictionary:
+	for slot in ["prefixes", "suffixes"]:
+		for entry in aff.get(slot, []) as Array:
+			var rolled: Dictionary = entry as Dictionary
+			if String(rolled["id"]) != target:
+				continue
+			var affix: Variant = SimItems.content_entry(world, "affix", target)
+			if not (affix is Dictionary):
+				return {}
+			rolled["tier"] = _biased_affix_tier(affix as Dictionary, rng, bias)
+			return {"affix": target}
+	return {}
+
+
+# Gun Oil. Restores condition toward the ceiling -- never past it, the same ceiling `_damage`'s
+# break case and repair both respect. docs/11's "small jam-chance reduction" needs no separate
+# mechanic: `SimItems.jam_chance` derives jam chance from the condition band, so raising condition
+# is the jam-chance reduction.
+static func _restore_condition(world: Variant, item: int) -> Dictionary:
+	var cond: Dictionary = world.components.get_component(item, "condition") as Dictionary
+	var before: float = float(cond.get("current", SimItems.FULL_CONDITION))
+	var ceiling: float = float(cond.get("ceiling", SimItems.FULL_CONDITION))
+	cond["current"] = minf(ceiling, before + GUN_OIL_RESTORE)
+	return {"affix": ""}
+
+
+# Salvage Rights. One step up SimItems.TIERS and every affix rerolled fresh at the new tier's own
+# capacity -- docs/11: "Upgrade an item's tier by one, rerolling everything." `_can_perform` has
+# already proven the item is not already at the top tier.
+static func _upgrade_tier(world: Variant, item: int, item_class: String, rng: Variant) -> Dictionary:
+	var idx: int = _tier_index(SimItems.tier_of(world, item))
+	var next_tier: String = String((SimItems.TIERS[idx + 1] as Dictionary)["id"])
+	world.components.set_component(item, "itemTier", {"id": next_tier})
+	var fresh: Dictionary = SimItems.roll_affixes(world, item_class, next_tier, rng)
+	var aff: Dictionary = world.components.get_component(item, "affixes") as Dictionary
+	aff["prefixes"] = fresh["prefixes"]
+	aff["suffixes"] = fresh["suffixes"]
+	return {"affix": "", "tier": next_tier}
+
+
+# Index of a tier id in SimItems.TIERS, or -1 if the item predates tiers being recorded at all
+# (tier_of already floors that case to "scavenged", index 0, so -1 is unreachable in practice).
+static func _tier_index(id: String) -> int:
+	for i in SimItems.TIERS.size():
+		if String((SimItems.TIERS[i] as Dictionary)["id"]) == id:
+			return i
+	return -1
 
 
 # How many more affixes this item's tier allows. Reads the same TIERS table generation does, so a
