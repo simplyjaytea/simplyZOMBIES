@@ -292,13 +292,6 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
-- **`spawn_item` drains the whole event queue mid-tick.** `SimItems.spawn_item` ends with an
-  unconditional `world.events.drain()`. Everything else in the sim relies on handlers running at
-  the end of `world.step()` — CLAUDE.md's traps section is explicit — so any system that spawns an
-  item mid-tick (loot, cooking, stack splitting) flushes every queued event early, and *which*
-  events those are depends on where in the phase order the spawn happened. Whether a food item
-  spawns can depend on an RNG roll, so the ordering is not stable between two runs that differ in
-  an unrelated draw.
 - **The DEX noise guardrail is a no-op.** `attention_emitter.gd`'s surface-noise line reassigns
   `magnitude` from `base`, throwing away the `move_speed` multiplier applied four lines earlier.
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
@@ -1236,6 +1229,21 @@ not a to-do list:
   in [what's left](#whats-left-in-milestone-2). **Continuous condition-degradation effects** are now essentially closed:
   `condition_factor` already scaled melee damage and speed and ranged damage, and jamming (above)
   was the missing piece docs/10's table called for.
+  ~~`spawn_item` draining the whole event queue mid-tick~~ **fixed** (`godot:m2:upkeep`,
+  SPAWN-DELIVER) — the worst-first defect on the review sweep's list. The synchrony the drain
+  bought is real — a just-spawned pack must carry its container grid before the caller's next
+  line stows into it — but `publish()` then `drain()` bought it by flushing every event other
+  systems had queued that tick, and since some spawns hang on an RNG roll (`ranged.gd`'s
+  recovered arrow, spawned *after* its own `attack.connected` was queued), **which** handlers ran
+  early was not stable between two runs differing in an unrelated draw. The bus gained
+  `deliver()`: one event, dispatched to its subscribers now, queue untouched, still entering the
+  record. The module decoupling stands — items still does not import inventory, and with the
+  inventory module unregistered a pack is still simply an item with no grid. The frozen oracle
+  keeps its own drain (`items.ts`, frozen); parity is unaffected because the parity snapshot
+  carries no event ordering. The gate lane holds a queued sentinel through a spawn, requires the
+  grid attached synchronously and the event in the record, and proves its probe can fail by
+  firing it with a real `drain()`; the old behaviour was re-applied against the lane and went
+  red before the fix went in.
 - **Inventory** — ~~searching world containers (a car boot, a cupboard)~~ and ~~site
   depletion~~ **both landed** (`godot:check:loot`, CONTAINER and CONTAINER SITES). A map loot site
   that declares `container` is not scattered at boot: `SimContainers` stands a `searchable` there

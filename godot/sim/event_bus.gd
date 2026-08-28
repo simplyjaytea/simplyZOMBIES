@@ -39,6 +39,24 @@ func publish(event: Dictionary) -> void:
 	_queue.append(event)
 
 
+# Dispatch ONE event to its subscribers now, leaving the queue alone. For the rare effect
+# that must be synchronous -- spawn_item's container attach, where the caller stows into the
+# just-spawned pack on its next line. The old shape there, publish() followed by drain(),
+# bought the synchrony by flushing every event other systems had queued this tick, in an
+# order that depended on where in the phase order the spawn happened. The delivered event
+# still enters the record, so gates that scan `drained` see it; anything a handler publishes
+# during delivery queues as normal and runs at the tick's drain.
+func deliver(event: Dictionary) -> void:
+	_record.append(event)
+	var type: String = String(event["type"])
+	var list: Variant = _subs.get(type)
+	if list == null:
+		return
+	for sub in (list as Array):
+		var handler: Callable = (sub as Dictionary)["handler"] as Callable
+		handler.call(event)
+
+
 func drain() -> void:
 	var passes: int = 0
 	while not _queue.is_empty():
