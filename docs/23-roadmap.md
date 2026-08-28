@@ -292,8 +292,6 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
-- **The DEX noise guardrail is a no-op.** `attention_emitter.gd`'s surface-noise line reassigns
-  `magnitude` from `base`, throwing away the `move_speed` multiplier applied four lines earlier.
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
   writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
   has this (`stance.eyes`); the port dropped it.
@@ -331,9 +329,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **A missing schema silently disables validation for a whole content type.**
   `content_validator.gd` treats it as a `push_warning` and a `continue`, and
   `npm run godot:validate` still reports success.
-- **A dead colonist still triggers the screamer.** The screamer's survivor list filters on
-  `controlled`/`identity` with no `corpse` or alive check, so a body sets off the 300-magnitude
-  alarm on cadence, forever.
 - **`recorded` grows without bound.** `SimCommandQueue.recorded` deep-copies every command ever
   pushed and is read only by `parity_snapshot`. In a played session that is every movement command
   of every tick, kept for the life of the run.
@@ -1345,7 +1340,8 @@ not a to-do list:
   next feature. Thirteen fixes landed with seven gate assertions, each with its true negative; the rest
   of what the sweep turned up is named in
   [defects found by the review sweep](#whats-left-in-milestone-2) rather than fixed here, because
-  each needs its own gate and two need a balance re-measurement.
+  each needs its own gate and two need a balance re-measurement. The last two sub-bullets below
+  were worked off that list in a later session; the sweep's own count stays thirteen.
 
   - **Two worlds no longer share one attention field** (`godot:m2:district`, ISOLATION). `SimBoot`
     kept "the last world that called `attach_kernel`" in a `static var`, and the `noise.emitted` /
@@ -1425,6 +1421,26 @@ not a to-do list:
     `ban:healthbar`, `check:appearance` and `check:hud`, and the workflow listed all three again as
     separate steps. The step that runs the whole 32-gate chain was also named "M2 lethality", after
     one of them.
+  - ~~The DEX noise guardrail is a no-op~~ **fixed** (`godot:m2:stance`, DEX GUARDRAIL).
+    `attention_emitter.gd` scaled the DEX-driven `move_speed` multiplier into `magnitude` and then
+    threw it away four lines later, recomputing `magnitude = base * SimSurface.noise_on(surf)` from
+    the un-scaled `base` — the surface branch runs whenever `speed > 0.0`, so the guardrail landed
+    for nobody moving. It reads `magnitude *= SimSurface.noise_on(surf)` now. Measured: two players
+    walking the same 40 ticks through undergrowth, one carrying a move_speed ×1.8 modifier, emit
+    52.0000 and 93.6000 total noise — a ratio of 1.8000, matching the modifier exactly; with no
+    modifier the two runs agree at 52.0000. The new lane was confirmed to fail against the bug it
+    targets: reverting the surface line collapses the ratio to 1.0000.
+  - ~~A dead colonist still triggers the screamer~~ **fixed** (`godot:m2:roster`, CORPSE).
+    `SimAllegiance.is_person` checks `controlled`/`identity`/`raider`, none of which
+    `SimRecruits._make_corpse` strips — gear stays on the body per ADR 0013 — so a corpse kept
+    setting off the screamer's 300-magnitude alarm on cadence, forever. `screamer.gd`'s survivor
+    scan now skips any entity carrying `corpse`, the same exclusion `enemies_of` already applies
+    (allegiance.gd) and for the same reason; `is_person` itself is untouched, since shambler.gd
+    and bloater.gd share it. Measured: a screamer with the run's one visible "person" turned into
+    a corpse via the real `_make_corpse` path stayed silent across 650 ticks, past its own
+    600-tick cooldown, while the sibling lane with a living survivor still alarms at magnitude
+    300. Confirmed to fail against the bug it targets: reverting the `corpse` skip alarms on the
+    corpse exactly like the living-survivor lane does.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
