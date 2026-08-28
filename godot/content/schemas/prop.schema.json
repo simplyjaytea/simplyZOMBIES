@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/prop.schema.json",
+  "title": "Prop",
+  "description": "What a thing standing in the district looks like. A prop is a sim entity that is neither a body nor a carried item -- a container, a bed, a campfire, the well -- and this is the entry that says how it draws, per CLAUDE.md's 'how a thing looks is content, not code'. Nothing in sim/ reads this file: the sim knows a `searchable`/`bed`/`campfire`/`water_source` component and nothing about pictures, and presentation/appearance.gd's PROP_KINDS is the one table mapping a component (and the one boolean that changes its look -- searched, lit) onto an id here. NOTE: the content validator is shallow -- top-level types and unexpected top-level keys only -- and does not recurse into `appearance`; check_appearance.gd is the gate that checks the block's inner shape, and check_topdown.gd is the one that proves the draw loop reads it.",
+  "type": "object",
+  "required": ["id", "name", "appearance"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^prop\\.[a-z0-9_.]+$",
+      "description": "Stable namespaced id, always prop.<thing>, with a state suffix where one boolean changes the look (prop.container.searched, prop.campfire.lit). Two ids rather than one entry with two tints, because a state that draws differently is a different picture and this keeps the resolver a lookup rather than a branch."
+    },
+    "name": { "type": "string", "description": "Human-readable name. Not shown to the player -- SimContainers.hud_clause and needs.hud_clause own the prose; this is for whoever is reading the content." },
+    "appearance": {
+      "type": "object",
+      "required": ["tint"],
+      "additionalProperties": false,
+      "description": "Same block as a zombie's or a survivor's, plus the two keys a prop needs because it draws as a footprint on the ground rather than as a pawn. A prop with a `sprite` draws the art and ignores `shape`.",
+      "properties": {
+        "sprite": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$",
+          "description": "Registry key for assets/sprites/<key>.png, 64x64 centre-anchored. Optional and currently unused by every shipped prop -- the shapes below are the supported floor, not a stopgap."
+        },
+        "tint": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$",
+          "description": "The colour the shape draws in, and the modulate on a sprite if one is declared. Required here, unlike on a pawn: a prop with no art and no tint would be an invisible thing standing in the world, which is the defect this content type exists to end."
+        },
+        "shape": {
+          "type": "string",
+          "enum": ["box", "slab", "disc", "ring"],
+          "description": "Which of the renderer's ground-footprint primitives draws this prop: box (a bevelled square -- a crate, a cupboard), slab (a long rectangle with a pale band at the head -- a bed), disc (a filled circle with a darker core -- a fire pit), ring (an annulus -- a well). Geometry, not identity: the vocabulary is presentation's and check_topdown.gd asserts main.gd actually draws every name in it."
+        },
+        "size": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1,
+          "description": "Footprint as a fraction of a tile, longest side. Defaults to Appearance.PROP_SIZE when absent."
+        }
+      }
+    }
+  }
+}

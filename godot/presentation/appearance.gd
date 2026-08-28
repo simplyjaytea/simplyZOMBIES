@@ -16,6 +16,7 @@ extends RefCounted
 
 const Palette = preload("res://presentation/palette.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 
@@ -84,6 +85,46 @@ static func ground_colour(map: Variant, tx: int, ty: int) -> Color:
 	return Palette.SURFACE_TINTS[surface]
 
 
+# What a floor tile looks like once it is known to be inside a building.
+#
+# `indoors` is a third array over the same grid -- docs/24's surface layer is the second -- so an
+# interior is no more a tile type than the ground is. The floor keeps the surface it stands on and
+# is pulled towards the board colour by INDOOR_MIX: a shop floored on rubble and a house floored
+# on paving stay different floors, while both read as inside from across the street. Out of bounds
+# and a null map both answer "outdoors", which is what `SimTileMap.is_indoors` says too.
+static func indoor_floor(map: Variant, tx: int, ty: int, col: Color) -> Color:
+	if map == null or not SimTileMap.is_indoors(map, tx, ty):
+		return col
+	return col.lerp(Palette.COLOURS["indoorFloor"], Palette.INDOOR_MIX)
+
+
+# The doorways on a map, as {tile index: true}.
+#
+# Read off the generator's own manifest (`map.buildings[i].doors`, absolute tiles) rather than off
+# the tile array, because a door *is* a Floor tile in a wall run and nothing in the tiles tells it
+# from the street. Pure and uncached on purpose: the cache belongs to whoever is drawing, keyed on
+# the map it came from, because a static cache is shared between the two worlds a gate boots.
+static func door_tiles(map: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	if map == null:
+		return out
+	for record in map.buildings as Array:
+		if not (record is Dictionary):
+			continue
+		var doors: Variant = (record as Dictionary).get("doors", [])
+		if not (doors is Array):
+			continue
+		for door in doors as Array:
+			if not (door is Dictionary):
+				continue
+			var dx: int = int((door as Dictionary).get("x", -1))
+			var dy: int = int((door as Dictionary).get("y", -1))
+			if dx < 0 or dy < 0 or dx >= int(map.w) or dy >= int(map.h):
+				continue
+			out[dy * int(map.w) + dx] = true
+	return out
+
+
 # The appearance block for a content id, or {} when the type declares none.
 # Content `extends` is deliberately not merged here: nothing else in the codebase resolves
 # inheritance at runtime (content_validator.gd only checks it exists and does not cycle), so
@@ -145,6 +186,76 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	# one is not one of yours", which is the certainty docs/01 clause 4 refuses them.
 	var radius: float = 14.0 if is_player else (12.0 if (is_unique or is_raider) else 10.0)
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius}
+
+
+# The props that stand in a district, as component -> content id.
+#
+# A prop is an entity that is neither a body nor a carried item: a container, a bed, a campfire,
+# the well. The sim spawns all four (SimContainers.make_container, SimNeeds.make_bed /
+# make_campfire / make_water_source) and knows nothing about how they look; this is the whole of
+# the mapping, and content/props/*.json is the whole of the look. Adding a fifth prop is an entry
+# here plus an entry there -- and check_topdown.gd's PROPS lane boots a real district and fails if
+# anything standing in it resolves nothing, so a fifth prop that skips this table is caught rather
+# than silently invisible, which is the state all four of these were in until this slice.
+#
+# `flag` is the one boolean whose value changes the picture; a prop without one leaves it empty.
+# Two content ids rather than one entry with two tints, so the resolver stays a lookup.
+const PROP_KINDS: Array[Dictionary] = [
+	{"component": "searchable", "id": "prop.container", "flag": "searched", "flag_id": "prop.container.searched"},
+	{"component": "campfire", "id": "prop.campfire", "flag": "lit", "flag_id": "prop.campfire.lit"},
+	{"component": "bed", "id": "prop.bed", "flag": "", "flag_id": ""},
+	{"component": "water_source", "id": "prop.well", "flag": "", "flag_id": ""},
+]
+
+# The ground-footprint primitives a prop may ask for. Geometry, not identity -- `box` is a crate
+# or a cupboard or anything else square. main.gd's _draw_prop is the one place that draws them and
+# check_topdown.gd asserts every name here appears there, so a shape content can name but nothing
+# can draw fails the build instead of drawing nothing.
+const PROP_SHAPES: Array[String] = ["box", "slab", "disc", "ring"]
+const PROP_SHAPE_DEFAULT: String = "box"
+const PROP_SIZE: float = 0.6
+
+
+# What one entity looks like standing on the ground, or {} when it is not a prop at all.
+# Returns {id, texture, tint, shape, size} -- the same {texture, tint} pair for_entity returns,
+# plus the two keys a footprint needs. Fallbacks are the supported path here as everywhere: an
+# unknown id, or content that declares only a tint, still yields something drawable.
+static func prop_look(world: Variant, entity: int) -> Dictionary:
+	if world == null or world.components == null:
+		return {}
+	for kind in PROP_KINDS:
+		var comp: Variant = world.components.get_component(entity, String(kind["component"]))
+		if not (comp is Dictionary):
+			continue
+		var id: String = String(kind["id"])
+		var flag: String = String(kind["flag"])
+		if not flag.is_empty() and bool((comp as Dictionary).get(flag, false)):
+			id = String(kind["flag_id"])
+		return prop_of(world, id)
+	return {}
+
+
+# The look for one prop content id, resolved the same way an entity's is: content decides, the
+# role colour is the floor, art passes through white unless content asked for a tint.
+static func prop_of(world: Variant, id: String) -> Dictionary:
+	var block: Dictionary = of_content(world, "prop", id)
+	var tint: Color = Palette.COLOURS["prop"]
+	var declared_tint: bool = false
+	if block.has("tint"):
+		tint = Color(String(block["tint"]))
+		declared_tint = true
+	var texture: Texture2D = resolve(String(block.get("sprite", "")))
+	var shape: String = String(block.get("shape", PROP_SHAPE_DEFAULT))
+	if not PROP_SHAPES.has(shape):
+		shape = PROP_SHAPE_DEFAULT
+	var size: float = clampf(float(block.get("size", PROP_SIZE)), 0.1, 1.0)
+	return {
+		"id": id,
+		"texture": texture,
+		"tint": modulate_for(texture != null, declared_tint, tint),
+		"shape": shape,
+		"size": size,
+	}
 
 
 # Textures for whatever this entity has equipped in a slot the renderer draws, ordered

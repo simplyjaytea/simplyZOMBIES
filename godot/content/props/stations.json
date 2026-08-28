@@ -1,0 +1,32 @@
+[
+  {
+    "id": "prop.container",
+    "name": "Container",
+    "appearance": { "tint": "#7a5f38", "shape": "box", "size": 0.62 }
+  },
+  {
+    "id": "prop.container.searched",
+    "name": "Searched container",
+    "appearance": { "tint": "#443a2b", "shape": "box", "size": 0.62 }
+  },
+  {
+    "id": "prop.bed",
+    "name": "Bed",
+    "appearance": { "tint": "#b3ac9a", "shape": "slab", "size": 0.82 }
+  },
+  {
+    "id": "prop.campfire",
+    "name": "Cold campfire",
+    "appearance": { "tint": "#4a4038", "shape": "disc", "size": 0.5 }
+  },
+  {
+    "id": "prop.campfire.lit",
+    "name": "Lit campfire",
+    "appearance": { "tint": "#e08430", "shape": "disc", "size": 0.56 }
+  },
+  {
+    "id": "prop.well",
+    "name": "Well",
+    "appearance": { "tint": "#6d7078", "shape": "ring", "size": 0.86 }
+  }
+]
