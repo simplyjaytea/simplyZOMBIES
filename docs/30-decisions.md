@@ -1581,6 +1581,23 @@ dressing changes never move the layout.
   absorption is partial, not total. Running the two nudges through the loop separately would let
   the second nudge's rebalance partially undo the first's in the same tie-prone way; running them
   together means there is exactly one rebalance to reason about, and the harness measured that one.
+- **`traitConflicts` ships with one pair, not the four docs/07 once sketched.** docs/07's example
+  prose named *Tough*/*Frail*, *Hoarder* and *Grudge-holder* alongside *squeamish*/*iron_stomach*,
+  but only the last pair is drawn from the eight traits `generator.json` actually authors — the
+  other three name traits that were never added to the pool. Shipping conflict entries for traits
+  that do not exist would not be a conflict rule, it would be a rule with nothing to erase, and
+  `check_m2_recruits.gd`'s dead-socket lane (`traitConflicts` names must resolve into the `traits`
+  pool) would fail the build the moment it tried. The honest scope is the one pair the pool can
+  actually contradict: `squeamish` pushes a survivor to break off a fight sooner, `iron_stomach`
+  lets them stand more of it — `npc_combat.gd`'s `break_off_state` already reads them as the two
+  ends of the same threshold, which is what makes the pair a genuine contradiction rather than a
+  decorative one. The mechanism itself is general — `SimRecruits._erase_conflicts_of` walks
+  whatever pairs `traitConflicts` declares, and the dead-socket and true-positive lanes are
+  written against a synthetic multi-pair fixture pool precisely so a second pair can be added
+  later by editing content, not code, the day a trait exists to conflict with something else.
+  Adding *Tough*/*Frail*-shaped traits to the pool today just to give the conflict table a second
+  row would be four traits nobody reads (the same shape as the four already-inert ones,
+  `steady_hands`/`loud`/`night_blind`/`fast_healer`) authored solely to decorate a list.
 
 ---
 
