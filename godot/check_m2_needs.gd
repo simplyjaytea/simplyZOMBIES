@@ -6,6 +6,9 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimRecruits = preload("res://sim/modules/recruits.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 func _init() -> void:
@@ -29,8 +32,11 @@ func _run() -> void:
 	ok = _the_bathroom_need_drains_and_is_answered_at_a_latrine() and ok
 	ok = _nowhere_to_go_costs_hygiene_and_pride() and ok
 	ok = _an_npc_takes_itself_to_the_latrine() and ok
+	ok = _a_meals_mood_is_bounded_and_wears_off() and ok
+	ok = _a_survivor_who_dies_in_bed_gives_the_bed_back() and ok
+	ok = _the_deep_cold_is_reachable_and_interrupts_work() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, and everybody has to go")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, and the deep cold is reachable")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -1049,4 +1055,356 @@ func _an_npc_takes_itself_to_the_latrine() -> bool:
 		return false
 
 	print("NPC RELIEF OK an NPC at 20 relief walked itself to the latrine in %d ticks with no player input; the same NPC with no latrine to walk to relieved nothing" % ticks)
+	return true
+
+
+# --- the three needs defects the review sweep found (docs/23) -----------------------------------
+
+# Eat one, of a named base, from the survivor's own hands. Mirrors the illness lane's setup: stow
+# it, spoil it if asked, and leave room in the pool so the meal is not refused for a full stomach.
+func _eat_one(w: Variant, ent: int, base_id: String, spoil: bool) -> bool:
+	var meal: int = SimItems.spawn_item(w, base_id, {"tier": "scavenged"})
+	if not SimInventory.stow(w, ent, meal):
+		w.components.set_component(meal, "stored", {"container": ent})
+	if spoil:
+		var sp: Variant = w.components.get_component(meal, "spoilage")
+		if sp is Dictionary:
+			(sp as Dictionary)["spoiled"] = true
+		else:
+			w.components.set_component(meal, "spoilage", {"bornTick": 0, "spoilTicks": 1, "spoiled": true})
+	SimNeeds.of(w, ent)["hunger"] = 10.0
+	return SimNeeds.eat(w, ent, meal)
+
+
+# Mood with every *need* source zeroed out, so what is left is the meal and nothing else. Eating
+# moves hunger and relief, and both of those carry mood of their own through `_apply_muls`; without
+# this the measurement below would be reading the pools rather than the plate.
+func _mood_without_the_pools(w: Variant, ent: int) -> float:
+	var n: Dictionary = SimNeeds.of(w, ent)
+	n["hunger"] = 100.0
+	n["thirst"] = 100.0
+	n["rest"] = 100.0
+	n["relief"] = 100.0
+	n["temperature"] = "comfortable"
+	n["hygiene"] = "clean"
+	SimNeeds._apply_muls(w, ent, n)
+	return float(w.modifiers.call("resolve", "mood", ent))
+
+
+# `SimNeeds.eat` added a mood modifier with the fixed source `need.food` and nothing ever removed
+# one, while every other mood source in that file -- shame, grief, arguments, illness -- pairs its
+# `add` with a `remove_by_source`. Thirty meals over a ten-day campaign were thirty entries, all
+# summing and none expiring.
+func _a_meals_mood_is_bounded_and_wears_off() -> bool:
+	var w: Variant = _world()
+	var ent: int = int(w.player)
+	var spec_v: Variant = SimNeeds.food_spec(w, "item.food.cooked")
+	if not (spec_v is Dictionary):
+		push_error("MEAL MOOD: cooked food declares no `food` block, so there is no meal mood to bound")
+		return false
+	var per_meal: float = float((spec_v as Dictionary).get("mood", 0.0))
+	if per_meal <= 0.0:
+		push_error("MEAL MOOD: cooked food is worth %.2f mood, so this lane has nothing to judge" % per_meal)
+		return false
+
+	# True positive, first half: one meal is worth exactly what content says it is. Without this the
+	# whole lane would pass for a meal that did nothing at all.
+	var baseline: float = _mood_without_the_pools(w, ent)
+	if not _eat_one(w, ent, "item.food.cooked", false):
+		push_error("MEAL MOOD: the survivor refused a cooked meal")
+		return false
+	var one: float = _mood_without_the_pools(w, ent) - baseline
+	if absf(one - per_meal) > 0.001:
+		push_error("MEAL MOOD: one cooked meal moved mood %.2f, content says %.2f" % [one, per_meal])
+		return false
+
+	# True positive, second half: thirty of them are worth one of them.
+	for _i in 29:
+		if not _eat_one(w, ent, "item.food.cooked", false):
+			push_error("MEAL MOOD: a meal was refused partway through the run of thirty")
+			return false
+	var thirty: float = _mood_without_the_pools(w, ent) - baseline
+	if absf(thirty - per_meal) > 0.001:
+		push_error("MEAL MOOD: thirty meals carry %.2f of mood against one meal's %.2f -- they stack" % [thirty, per_meal])
+		return false
+	if int(SimNeeds.of(w, ent).get("mealMoodUntilTick", -1)) < 0:
+		push_error("MEAL MOOD: thirty meals left no clock running, so the lift above is permanent")
+		return false
+
+	# And it expires. The clock is three in-game hours, which is 36000 ticks -- skipped rather than
+	# stepped, because a gate that waits out the whole bout is a gate nobody runs.
+	var faded: Array = []
+	w.events.subscribe({"type": "mood.mealFaded", "id": "gate.meal", "handler": func(e: Dictionary) -> void:
+		faded.append(int(e.get("entity", -1)))
+	})
+	w.tick = int(w.tick) + SimNeeds.MEAL_MOOD_TICKS
+	w.step()
+	if not faded.has(ent):
+		push_error("MEAL MOOD: the clock ran out and nothing published mood.mealFaded")
+		return false
+	var after: float = _mood_without_the_pools(w, ent) - baseline
+	if absf(after) > 0.001:
+		push_error("MEAL MOOD: %.2f of meal mood survived its own clock" % after)
+		return false
+
+	# The dead-socket half: something *reads* it. Mood is read through `mood_band`, which is what
+	# every consequence in jobs.gd matches on, so a bad meal must be able to move the band -- and
+	# the band must come back when the meal wears off. Spoiled *cooked* food, deliberately: it
+	# declares illnessChance 0, so this measures the meal rather than a bout of food poisoning.
+	var w2: Variant = _world()
+	var ent2: int = int(w2.player)
+	_mood_without_the_pools(w2, ent2)
+	_set_mood(w2, ent2, SimNeeds.MOOD_LOW + 5.0)
+	if SimNeeds.mood_band(w2, ent2) != "content":
+		push_error("MEAL MOOD: the survivor was already past `content` before the bad meal")
+		return false
+	if not _eat_one(w2, ent2, "item.food.cooked", true):
+		push_error("MEAL MOOD: the survivor refused a spoiled meal")
+		return false
+	if SimNeeds.is_ill(w2, ent2):
+		push_error("MEAL MOOD: spoiled cooked food made somebody ill, so the band below is not the meal")
+		return false
+	var sour: float = _mood_without_the_pools(w2, ent2)
+	if SimNeeds.mood_band(w2, ent2) != "low":
+		push_error("MEAL MOOD: a %.0f-mood meal did not move the band off `content` (mood %.2f)" % [SimNeeds.SPOILED_MOOD, sour])
+		return false
+	w2.tick = int(w2.tick) + SimNeeds.MEAL_MOOD_TICKS
+	w2.step()
+	_mood_without_the_pools(w2, ent2)
+	if SimNeeds.mood_band(w2, ent2) != "content":
+		push_error("MEAL MOOD: the band never came back after the bad meal wore off")
+		return false
+
+	print("MEAL MOOD OK one meal %.1f, thirty meals %.1f, gone after %d ticks; a spoiled one drops the band to `low` and the band returns when it fades" % [
+		one, thirty, SimNeeds.MEAL_MOOD_TICKS,
+	])
+	return true
+
+
+# `SimRecruits._make_corpse` stripped the `sleeping` component directly instead of going through
+# `SimNeeds._wake`, which is the only thing that clears the bed's `occupiedBy` -- so a survivor who
+# died in bed held it for the rest of the run and `nearest_bed`'s free-only scan, which is what
+# jobs.gd's Rest asks, never offered it to anybody again.
+func _a_survivor_who_dies_in_bed_gives_the_bed_back() -> bool:
+	for case in [{"how": "corpse"}, {"how": "turned"}]:
+		var c: Dictionary = case as Dictionary
+		var w: Variant = _world()
+		var sleeper: int = _mara(w)
+		if sleeper < 0:
+			push_error("BED: no NPC in the colony to put to bed")
+			return false
+		var beds: Array[int] = w.components.query(["bed", "position"])
+		if beds.is_empty():
+			push_error("BED: the booted district sited no bed, so this lane has nothing to judge")
+			return false
+		var bed: int = int(beds[0])
+		var bp: Dictionary = w.components.get_component(bed, "position") as Dictionary
+		SimNeeds.start_sleep(w, sleeper, bed)
+		var b: Dictionary = w.components.get_component(bed, "bed") as Dictionary
+		if int(b.get("occupiedBy", -1)) != sleeper:
+			push_error("BED: going to bed did not claim it (%s)" % str(b))
+			return false
+		# The true negative, and the thing that makes the assertion below mean something: while it is
+		# claimed, the free-only scan refuses this bed.
+		if SimNeeds.nearest_bed(w, float(bp["x"]), float(bp["y"]), true) == bed:
+			push_error("BED: an occupied bed was offered to the next sleeper anyway")
+			return false
+
+		# Killed where they lie, through the funnel every death in the sim goes through --
+		# `entity.killed` then `finish_death`, which is exactly what starvation does in `_tick_pools`.
+		# No `attack.connected`, deliberately: that publishes into `need.wake-hit`, which would wake
+		# them and free the bed for reasons that have nothing to do with the fix.
+		if String(c["how"]) == "corpse":
+			w.events.publish({"type": "entity.killed", "entity": sleeper, "need": "hunger"})
+			SimHealth.finish_death(w, sleeper)
+			if not w.components.has_component(sleeper, "corpse"):
+				push_error("BED: the death left no corpse to check")
+				return false
+			if w.components.has_component(sleeper, "sleeping"):
+				push_error("BED: the corpse is still asleep")
+				return false
+		else:
+			# The other door into the same hole: a survivor who turns in their sleep is despawned,
+			# and a despawn takes the sleeper's components with it while leaving the *bed* pointing
+			# at a dead id.
+			SimRecruits._turn_with_kit(w, sleeper)
+
+		if int(b.get("occupiedBy", -1)) != -1:
+			push_error("BED: the dead (%s) still hold the bed, occupiedBy %d" % [String(c["how"]), int(b.get("occupiedBy", -1))])
+			return false
+		# And the read: the scan jobs.gd's Rest uses offers it again.
+		if SimNeeds.nearest_bed(w, float(bp["x"]), float(bp["y"]), true) != bed:
+			push_error("BED: the bed is free and the free-only scan still refuses it (%s)" % String(c["how"]))
+			return false
+
+	print("BED OK a survivor who dies in bed -- as a corpse or by turning in their sleep -- gives it back, and the free-only scan offers it again")
+	return true
+
+
+# A tile outdoors, and a tile indoors, on the booted district's own map. Returned as (-1, -1) when
+# the map has none, so the lane says so rather than measuring a position it invented.
+func _tile_where(w: Variant, indoors: bool) -> Vector2i:
+	if w.tilemap == null:
+		return Vector2i(-1, -1)
+	for y in 64:
+		for x in 64:
+			if SimTileMap.is_indoors(w.tilemap, x, y) == indoors:
+				return Vector2i(x, y)
+	return Vector2i(-1, -1)
+
+
+# `_tick_temperature` could write `comfortable`, `very_cold` and `a_little_cold` and nothing else,
+# so `extremely_cold` -- the only band `band_pressure` calls "hard", with its own HUD line and its
+# own branch in jobs.gd -- was unreachable and every one of those branches was dead code.
+func _the_deep_cold_is_reachable_and_interrupts_work() -> bool:
+	var w: Variant = _world()
+	var ent: int = int(w.player)
+	var out: Vector2i = _tile_where(w, false)
+	var inside: Vector2i = _tile_where(w, true)
+	if out.x < 0 or inside.x < 0:
+		push_error("COLD: the booted district has no outdoor tile or no indoor one, so this lane has nothing to judge")
+		return false
+	# Every fire out, so the only warmth in question is the roof. A wrap would shift the band one
+	# step toward comfortable, which is the wrap working -- but it is not what is under test here.
+	for fire in w.components.query(["campfire"]):
+		SimNeeds.set_lit(w, int(fire), false)
+	for item in SimInventory.equipped_items(w, ent):
+		var base: Variant = w.components.get_component(item, "itemBase")
+		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == "item.wrap.cloth":
+			SimInventory.unequip_item(w, item)
+	if SimNeeds.wearing_wrap(w, ent):
+		push_error("COLD: the survivor is still wearing a wrap, so the band under test is shifted")
+		return false
+
+	# Deep night, outdoors, no fire.
+	w.tick = Clock.tick_on_day(2, 0.8)
+	w.components.set_component(ent, "position", {"x": float(out.x) + 0.5, "y": float(out.y) + 0.5})
+	w.step()
+	var n: Dictionary = SimNeeds.of(w, ent)
+	if String(n.get("temperature", "")) != "very_cold":
+		push_error("COLD: a night outdoors with no fire read %s" % str(n.get("temperature")))
+		return false
+	if int(n.get("coldSinceTick", -1)) < 0:
+		push_error("COLD: nothing started the exposure clock")
+		return false
+
+	# The dose, not the switch: it is not deep yet, and it becomes deep when the clock runs out.
+	var started: int = int(n.get("coldSinceTick", -1))
+	w.tick = started + SimNeeds.EXPOSURE_TICKS - 2
+	w.components.set_component(ent, "position", {"x": float(out.x) + 0.5, "y": float(out.y) + 0.5})
+	w.step()
+	if String(SimNeeds.of(w, ent).get("temperature", "")) != "very_cold":
+		push_error("COLD: the band deepened before the exposure clock ran out")
+		return false
+	w.tick = started + SimNeeds.EXPOSURE_TICKS
+	w.components.set_component(ent, "position", {"x": float(out.x) + 0.5, "y": float(out.y) + 0.5})
+	w.step()
+	if String(SimNeeds.of(w, ent).get("temperature", "")) != "extremely_cold":
+		push_error("COLD: %d ticks outdoors at night still read %s" % [SimNeeds.EXPOSURE_TICKS, str(SimNeeds.of(w, ent).get("temperature"))])
+		return false
+	if SimNeeds.band_pressure("temperature", "extremely_cold") != "hard":
+		push_error("COLD: the deep band is not the hard one")
+		return false
+	# The prose, with every other need pinned fine so the line under test is the one that is picked.
+	var m: Dictionary = SimNeeds.of(w, ent)
+	m["hunger"] = 100.0
+	m["thirst"] = 100.0
+	m["rest"] = 100.0
+	m["relief"] = 100.0
+	m["hygiene"] = "clean"
+	m["soiled"] = 0.0
+	m["grief"] = 0.0
+	var clause: String = SimNeeds.hud_clause(w, ent, false)
+	if clause != "You're freezing.":
+		push_error("COLD: the deep band says '%s', which is the `very_cold` line or worse" % clause)
+		return false
+	for ch in clause:
+		if String(ch).is_valid_int():
+			push_error("COLD: the deep-cold clause carries a digit: '%s'" % clause)
+			return false
+
+	# True negative one: the same night, the same span, under a roof. Never deepens past a_little.
+	var roofed: Variant = _world()
+	var ent2: int = int(roofed.player)
+	for fire2 in roofed.components.query(["campfire"]):
+		SimNeeds.set_lit(roofed, int(fire2), false)
+	roofed.tick = Clock.tick_on_day(2, 0.8)
+	roofed.components.set_component(ent2, "position", {"x": float(inside.x) + 0.5, "y": float(inside.y) + 0.5})
+	roofed.step()
+	var indoor_band: String = String(SimNeeds.of(roofed, ent2).get("temperature", ""))
+	roofed.tick = int(roofed.tick) + SimNeeds.EXPOSURE_TICKS * 2
+	roofed.components.set_component(ent2, "position", {"x": float(inside.x) + 0.5, "y": float(inside.y) + 0.5})
+	roofed.step()
+	if String(SimNeeds.of(roofed, ent2).get("temperature", "")) == "extremely_cold":
+		push_error("COLD: a survivor indoors all night froze anyway")
+		return false
+	if int(SimNeeds.of(roofed, ent2).get("coldSinceTick", -1)) >= 0:
+		push_error("COLD: a survivor indoors is carrying an exposure clock")
+		return false
+
+	# True negative two: warmth clears the clock. Back outside after a step by the fire, the same
+	# survivor starts again at `very_cold` rather than picking up where they left off.
+	var thawed: Variant = _world()
+	var ent3: int = int(thawed.player)
+	for item3 in SimInventory.equipped_items(thawed, ent3):
+		var base3: Variant = thawed.components.get_component(item3, "itemBase")
+		if base3 is Dictionary and String((base3 as Dictionary).get("baseId", "")) == "item.wrap.cloth":
+			SimInventory.unequip_item(thawed, item3)
+	thawed.tick = Clock.tick_on_day(2, 0.8)
+	thawed.components.set_component(ent3, "position", {"x": float(out.x) + 0.5, "y": float(out.y) + 0.5})
+	thawed.step()
+	var began: int = int(SimNeeds.of(thawed, ent3).get("coldSinceTick", -1))
+	if began < 0:
+		push_error("COLD: the exposure clock never started in the thaw lane")
+		return false
+	# Indoors for one tick, most of the way through the exposure window.
+	thawed.tick = began + SimNeeds.EXPOSURE_TICKS - 4
+	thawed.components.set_component(ent3, "position", {"x": float(inside.x) + 0.5, "y": float(inside.y) + 0.5})
+	thawed.step()
+	if int(SimNeeds.of(thawed, ent3).get("coldSinceTick", -1)) >= 0:
+		push_error("COLD: stepping under a roof did not clear the exposure clock")
+		return false
+	thawed.tick = int(thawed.tick) + 1
+	thawed.components.set_component(ent3, "position", {"x": float(out.x) + 0.5, "y": float(out.y) + 0.5})
+	thawed.step()
+	if String(SimNeeds.of(thawed, ent3).get("temperature", "")) != "very_cold":
+		push_error("COLD: a survivor who warmed up came back out at %s" % str(SimNeeds.of(thawed, ent3).get("temperature")))
+		return false
+
+	# The dead-socket half: something reads the band. jobs.gd's `_tick_one` treats `extremely_cold`
+	# as hard, which is what lets a need interrupt a job mid-action; `very_cold` waits for the job
+	# to finish. Same NPC, same job, same pinned needs -- only the band differs.
+	var kept: Dictionary = {}
+	for band in ["very_cold", "extremely_cold"]:
+		var w4: Variant = _world()
+		var npc: int = _mara(w4)
+		if npc < 0:
+			push_error("COLD: no NPC to hold a job")
+			return false
+		var nn: Dictionary = SimNeeds.of(w4, npc)
+		nn["hunger"] = 100.0
+		nn["thirst"] = 100.0
+		nn["rest"] = 100.0
+		nn["relief"] = 100.0
+		nn["hygiene"] = "clean"
+		nn["temperature"] = String(band)
+		if SimNeeds.seek_kind(w4, npc) != "temperature":
+			push_error("COLD: an NPC at %s seeks '%s' instead of temperature" % [String(band), SimNeeds.seek_kind(w4, npc)])
+			return false
+		# `Patient` is a job with somewhere to be and nothing to do, so what happens to it is the
+		# interrupt and not the work.
+		w4.components.set_component(npc, "job", {"kind": "Patient", "ticksLeft": 100, "path": [], "pathGen": -1})
+		SimJobs._tick_one(w4, npc)
+		var job: Variant = w4.components.get_component(npc, "job")
+		kept[String(band)] = job is Dictionary and String((job as Dictionary).get("kind", "")) == "Patient"
+	if not bool(kept["very_cold"]):
+		push_error("COLD: a `very_cold` NPC dropped its job mid-action, so the interrupt is not about the deep band")
+		return false
+	if bool(kept["extremely_cold"]):
+		push_error("COLD: an `extremely_cold` NPC worked on regardless -- nothing reads the hard band")
+		return false
+
+	print("COLD OK a night outdoors reads very_cold, deepens to extremely_cold after %d ticks of exposure and no sooner, says '%s'; a roof and a thaw both clear the clock; the deep band interrupts a job mid-action and very_cold does not" % [
+		SimNeeds.EXPOSURE_TICKS, clause,
+	])
 	return true
