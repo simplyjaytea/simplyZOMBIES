@@ -1496,6 +1496,43 @@ dressing changes never move the layout.
   leave the limb permanently weaker for having been treated. The rate is derived from the same
   number in both places rather than authored twice.
 
+## Survivor generation: a look is a tint, an age is a word, a line is its own field
+
+- **`colony/looks.json` declares `tint` only, never `sprite`.** `check_appearance.gd`'s
+  `_sprite_keys_resolve` fails the build for any declared sprite with no 64×64 PNG behind it, and
+  no art exists for a generated colonist's face today. A look could have waited for that art, but
+  a colony of identical role-colour discs is the worse failure in the meantime — docs/01's variety
+  is a variety of *tint*, an axis art can widen later without a second content shape or a code
+  change; `presentation/main.gd` already reads `identity.look` as a plain content id, the same
+  path a sprite would take. Six looks ship, not sixty: enough for the vertical slice's handful of
+  survivors to read as different people, sized like the eight backstories and four age bands
+  beside it rather than authored as a finished palette.
+- **The rolled age lives on `identity.age` as an integer and is printed nowhere.** The
+  condition-view health-bar ban (docs/05 clause 4, `godot:ban:healthbar`) is about integrity, not
+  age, so an age number would not trip that gate — but printing "34" on a screen that otherwise
+  says "barely out of school" would be the one number on the whole survivor sheet, and docs/01's
+  scarce-and-unreliable information contract does not carve out an exception for age just because
+  it is harmless to know. The number exists so the aptitude nudge and the age-band prose lookup
+  have something to compute from; `person_clause` is the only other reader, and it always goes
+  through the band's authored word. `godot/check_m2_recruits.gd`'s PROSE lane greps the rendered
+  clause for `[0-9]` so the rule is mechanical, the same shape as the health-bar ban's key
+  allowlist.
+- **A backstory's `line` is authored separately from its `label`, even where the two would read
+  almost the same today.** `label` is the short tag `_generator_pool` and `check_m2_recruits.gd`
+  match ids and traits against; `line` is prose meant to sit inside a sentence, looked up at read
+  time by `person_clause` rather than baked onto `identity` at spawn. Collapsing them into one
+  field would save eight lines of content today and cost the ability to make "a line cook" read as
+  "ran the line at a diner downtown until the power went" tomorrow without touching code — the same
+  bet docs/12 already made for item names versus their flavour text.
+- **The age nudge and the backstory nudge share one clamp-and-rebalance-to-15 pass, applied
+  together rather than as two sequential passes.** The loop that brings a triple back to budget
+  after a nudge will, on a tie, decrement whichever stat the nudge just raised — measured on the
+  probe that set the ±2 dex threshold in `check_m2_recruits.gd`'s AGE READS lane, a single ±1 nudge
+  still moved the same-direction average by about 1 point over 200 same-seeded pairs, so the
+  absorption is partial, not total. Running the two nudges through the loop separately would let
+  the second nudge's rebalance partially undo the first's in the same tie-prone way; running them
+  together means there is exactly one rebalance to reason about, and the harness measured that one.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

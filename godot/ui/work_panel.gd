@@ -2,13 +2,16 @@ extends Control
 # 17-column Work grid (docs/07 order). Player is not a row. Stub columns store a number.
 
 const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const UiText = preload("res://ui/text.gd")
 const Chrome = preload("res://ui/chrome.gd")
 
 # Grid geometry, shared by _draw and _gui_input. These were duplicated literals in both, so
 # moving a header down silently moved every cell out from under the cursor that clicks it.
+# ROW_H carries two lines now -- the name and, beneath it, `person_clause`'s dimmer second
+# line -- so it grew from the one-line 36 to fit both without crowding.
 const COL_W: float = 72.0
-const ROW_H: float = 36.0
+const ROW_H: float = 52.0
 const GRID_X: float = 240.0
 const GRID_Y: float = 88.0
 
@@ -67,6 +70,17 @@ func _draw() -> void:
 		var row_y: float = oy + 28.0 + float(r) * ROW_H
 		var who: String = UiText.fit(font, String(row.get("name", "?")), 20, ox - 32.0)
 		draw_string(font, Vector2(16, row_y), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#c9c4b8"))
+		# Who they are, past the name: backstory, roughly how old they read, what a look at
+		# them shows -- one prose sentence, no digits, `identity`'s dead sockets read at last.
+		# The row already says the name, so the clause's own leading "name, " is dropped here
+		# rather than repeated.
+		var clause: String = SimSurvivors.person_clause(_world, int(row.get("entity", -1)))
+		var lead: String = String(row.get("name", "?")) + ", "
+		if clause.begins_with(lead):
+			clause = clause.substr(lead.length())
+		if not clause.is_empty():
+			var fitted: String = UiText.fit(font, clause, 14, ox - 32.0)
+			draw_string(font, Vector2(16, row_y + 18.0), fitted, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Chrome.TEXT_DIM)
 		var cols: Dictionary = row.get("cols", {}) as Dictionary
 		for i in SimJobs.COLUMNS.size():
 			var v: int = int(cols.get(SimJobs.COLUMNS[i], 0))

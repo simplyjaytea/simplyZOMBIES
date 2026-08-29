@@ -186,8 +186,6 @@ unplaced) rather than here.
 
 **People — the survivor pipeline:**
 
-- **Survivor generation: appearance, age, backstory, starting kit.** The generator stops at name
-  and traits today (`godot:m2:recruits`); the rest of the small pools are unwritten.
 - **Trait conflict rules.** Nothing yet stops the generator dealing contradictory traits.
 - **Focus auto-allocation: NPCs spend their own web points.** The shallow web is landed
   (`godot:m2:web`); nobody but the player can walk it.
@@ -356,11 +354,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
     disables nothing; its only guard is `if w == null` on the result of `World.new(...)`.
   - `check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum` discards both `SimInventory.equip`
     return values, so the max-vs-sum claim is satisfied by a world where only the mask was equipped.
-  - `check_m2_recruits.gd`'s "transmitted → shambler **with kit**" claim is an `if ...: pass` with
-    an empty body; only `turned < 1` is actually checked, so the kit half is enforced by nothing.
-    `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
-    assert" block have the same shape — a condition computed and thrown away, and a block that
-    never calls `restore`.
+  - `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
+    assert" block have the same shape as `check_m2_recruits.gd`'s old "transmitted → shambler
+    **with kit**" lane (fixed in the survivor-generation slice, see the record) — a condition
+    computed and thrown away, and a block that never calls `restore`.
   - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
     those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
     says must skip loudly instead.
@@ -402,6 +399,71 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   (`godot:m2:director`), save/load (`godot:m2:save`), the shallow skill web (`godot:m2:web`).
 - **The stance ladder, sim-owned** — Z/X/C/V plus the Sprint latch, with the zero-stamina gate in
   the sim (`godot:m2:stance`).
+
+**Survivor generation: appearance, age, backstory, starting kit** — **landed**
+(`godot:m2:recruits`, seven new lanes). `SimRecruits.roll` already rolled a name, 2-3 traits, a
+backstory label, aptitudes with a backstory nudge, a kit and a feature list; what was missing was
+never the pools, it was five dead sockets between the roll and the screen. All five are wired:
+
+- **Age.** `generator.json` gained `ageBands` (young/adult/midlife/elder, each an authored prose
+  word and an aptitude nudge); `roll` picks a band, then an integer inside it, and the nudge feeds
+  the same clamp-and-rebalance-to-15 loop the backstory nudge already used, applied together
+  rather than as two separate passes. The integer lands on `identity.age` and is never printed —
+  `person_clause` below is its only other reader, and it reads the word, not the number.
+- **Backstory.** Each of the eight backstories gained a `line` (one authored sentence); identity
+  now carries `backstoryId` alongside the existing label, and the line is looked up from content
+  at read time rather than copied onto `identity`, so editing a line changes what an existing save
+  says with no migration.
+- **Appearance, visual.** New `godot/content/colony/looks.json`, a **tint-only** array (docs/30
+  records why no `sprite` key) that `check_appearance.gd`'s array-topped `_all_blocks()` walk
+  already validates for free; `generator.json` gained a `looks` list, `roll` picks one onto
+  `identity.look`, and `presentation/main.gd` prefers `identity.look` over `identity.id` for a
+  generated colonist's `cid` — a data pass-through, not a branch, so the appearance ban holds. A
+  generated colonist no longer renders as an identical role-colour disc.
+- **Appearance, prose.** The rolled feature list reaches `identity.features`, unread by anything
+  before this slice.
+- **Kit.** `survivors.gd::_hold_it`, previously wired for uniques only, is now
+  `SimSurvivors.equip_kit(world, ent, kit, x, y)` and both spawn paths call it: a kit weapon lands
+  in the hand, a pack item falls back to the pack, and a failed stow still drops at the spawn
+  point. Before this, `SimRecruits.spawn_generated` only ever `stow`ed — a generated colonist
+  carrying `item.bat.aluminium` had no `meleeWeapon` component, unarmed in the same way the
+  pre-armed-kit unique colonist once was (see "A weapon somebody actually holds", above).
+- **The surface.** `SimSurvivors.person_clause(world, ent) -> String` turns backstory, age and
+  features into one prose sentence — "Asha Chen, a night auditor, settled into adulthood; broad
+  shoulders, tired eyes, crooked nose" — with no digit in it anywhere, and `godot/ui/work_panel.gd`
+  draws it as a second line under each row's name (`ROW_H` grew from 36 to 52 to fit it, and the
+  panel from 320 to 420 tall to keep the same six rows on screen). Mara's own content already
+  authored an `age` and `appearance.features` that nothing read; `spawn_unique` now reads both
+  onto `identity`, so the one hand-authored survivor gets a clause too, off the same function.
+
+Seven lanes: GEN SHAPE (rolled dict against content, including a bogus look id resolving no
+block); READERS (`identity.age/look/backstoryId/features` after `spawn_generated` — the assertion
+that would have caught the dropped appearance list); KIT IN HAND (every kit id resolves through
+`SimItems.spawn_item`, and `fired_security`'s bat lands as a `meleeWeapon` — **measured red**
+against the pre-slice code, where it stowed instead); AGE READS (a forced band rolls
+bit-identical twice; two opposite-nudged bands, ±2 dex, diverge by 1.5-1.8 average dex over 24
+same-seeded pairs, measured before the 0.5 threshold was written — CLAUDE.md's "measure balance
+claims, never theorise them", because the rebalance loop can partly re-absorb a nudge into
+whichever stat it makes the new unique max); PROSE (non-empty, contains the backstory line,
+no digit — `[0-9]` finds none); LOOK RESOLVES (a rolled look's tint differs from the role colour,
+two looks give two tints, a missing id falls back to the role colour); DETERMINISM (same seed
+rolls identical, a different seed diverges, with a loud skip if it doesn't rather than a silent
+pass). A mutation check dropping the `identity.look` write turned READERS red
+(`readers: identity.look is empty`) with every other lane untouched, confirming the lane is
+watching the write and not just the shape of the dict. The same slice closed the sweep's
+`check_m2_recruits.gd` "with kit" defect (`turned < 1` was the only real check; the `if
+w3.components.query(["container"]).has(int(e)) ...: pass` around it did nothing) — the death
+lane's turn-to-shambler case now asserts `SimInventory.carried_items` is non-empty on the
+shambler, having first asserted it was non-empty on Mara before she turned.
+
+New randomness (age band, age integer, look pick) draws from a new named stream,
+`recruitLook`, never from `recruits` — `npm run godot:m2:balance`'s fast tier was not re-run
+because nothing about it could have moved: the `recruits` stream's draw order (name, surname,
+story, traits, composition, features) and `accept`'s 15% transmit roll are byte-for-byte what
+they were, which is exactly what a new stream costs nothing to guarantee.
+`godot/content/colony/` stays outside `CONTENT_TYPES` (`src/sim/content/types.ts`), so the
+frozen oracle's Ajv never walks it — `npm test`'s 594 passes prove the invisibility rather than
+assume it, same as the existing `skill_web.json` in the same directory.
 
 **Landed, gated, and switched off — the survival loop.** Five slices built it end to end: the
 grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and a bleed clock
