@@ -1445,6 +1445,56 @@ dressing changes never move the layout.
   can answer — the same "no rage meltdown" shape docs/04 already rules out for mood. 0.2 keeps a
   night in a warzone worth a fifth of a good one: real, felt the next morning in `work_mul`, and
   never a trap nothing can climb out of.
+## The treatment ladder: what each rung costs, and what stays legal
+
+- **Two verbs, not three, and the record says which.** docs/05's first aid is stop it, clean it,
+  close it, then rest. `pressure`/`bandage` were the first rung and `SimWounds._is_recovering` —
+  fed and not exerting — has been the fourth since Slice 3. Only the two in the middle were
+  missing. Writing "the ladder landed" as though four rungs arrived would have hidden the one that
+  was already there and gated, which is the kind of drift the checkbox ledger died of.
+- **They are entries in `CHANNEL_VERBS`, not a state machine.** Everything about a channel — the
+  pin, the interrupts, the per-tick re-check, the whole R1–R10 arbitration — is verb-agnostic, and
+  the R1 held-body exemption is derived by name from `verb == "pressure" and actor == patient`. So
+  a verb added afterwards is refused to a grabbed body *by inheritance*, for free. "For free" is
+  precisely the kind of claim that quietly stops being true, so the gate asserts it explicitly
+  rather than reasoning about it.
+- **Bandaging an uncleaned wound stays legal.** It is the shortcut, and refusing it would turn a
+  decision made under pressure into a rule: a survivor with a deep wound, a dressing, and no
+  antiseptic would be forbidden the only answer they have and would go on bleeding while they
+  looked for one. What the shortcut costs is priced instead — 31 septic against clean-then-dress's
+  17 over the same 240 seeded rolls — and it is charged twice over, because a dressed wound is out
+  of reach of the `clean` verb afterwards. Taking a dressing off is not a verb, so "dress it dirty
+  now" is a commitment rather than an ordering preference. That is the decision the rung exists to
+  pose; a refusal would have deleted it.
+- **`close` requires a stopped bleed.** Suturing an artery that is still open is not first aid, and
+  mechanically it would collapse the ladder into one verb: a `close` that also stopped the bleeding
+  would make `pressure` and `bandage` optional, and the first rung is the one that decides whether
+  a survivor lives. The refusal has its own word — `still-bleeding`, not `not-bleeding` — because
+  the two point at opposite problems and the reason string is what the panel shows.
+- **`clean` does not stop a bleed either**, for the same reason from the other side. Cleaning is
+  time spent losing blood, which is what makes "clean it first" a real cost rather than a free
+  prefix.
+- **The Medicine floor is deep-wound-only.** A skill wall over the whole verb would make suturing
+  a colony capability that either exists or does not, and would lock every early colony out of the
+  rung entirely; a floor on the deep wound alone says the thing docs/05 actually says, which is
+  that the hard case needs a medic. Anybody can close a laceration, and the gate asserts the novice
+  who is refused a deep wound is granted the lesser one — otherwise "unskilled" would pass on a
+  flat wall.
+- **A reopened wound is dirty again.** `_reopen_from_overwork` already erased the pressure bank by
+  name; it now erases `cleaned`/`cleanTier` beside it. A flag left behind would go on buying a
+  sepsis discount every dusk for work the sprint had undone, silently and with no wrong number to
+  notice — the same failure mode as the stale bank, and the reason the assertion is an exact
+  reprice rather than a directional one.
+- **The uninvested paths are numerically unchanged, on purpose.** `SEPSIS_CLEAN_MUL["none"]` is
+  1.0 and an unsutured wound's earned tick is still `+ 1`. A new rung should cost the player who
+  ignores it nothing new, or the balance measurement it rides on stops being about the rung. Both
+  are pinned by the gate, so a future edit that "improves" the discount by taxing the base instead
+  goes red.
+- **Suturing speeds the part, not just the wound.** A closed wound knits at `CLOSED_RECOVERY_MUL`,
+  and the limb's integrity regen carries the same multiplier — because the wound closing is what
+  ends the recovery window, so a wound that closes twice as fast on an unchanged regen rate would
+  leave the limb permanently weaker for having been treated. The rate is derived from the same
+  number in both places rather than authored twice.
 
 ---
 

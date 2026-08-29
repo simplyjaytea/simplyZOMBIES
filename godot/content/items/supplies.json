@@ -145,7 +145,32 @@
       "w": 1,
       "h": 2
     },
-    "massKg": 1.0
+    "massKg": 1.0,
+    "cleanTier": "water"
+  },
+  {
+    "id": "item.antiseptic.bottle",
+    "name": "Antiseptic",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.25,
+    "stack": 3,
+    "cleanTier": "antiseptic"
+  },
+  {
+    "id": "item.suture.kit",
+    "name": "Suture Kit",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.2,
+    "stack": 2,
+    "closeKind": "suture"
   },
   {
     "id": "item.water.bottle.empty",

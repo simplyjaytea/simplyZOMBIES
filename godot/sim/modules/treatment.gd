@@ -15,6 +15,9 @@ extends RefCounted
 #             wound is bleeding again on the next tick and the time is simply gone.
 #   bandage   costs a bandage, takes longer, and is durable: it survives the stagger that
 #             would have cost you a pressure hold, and it records which tier was used.
+#   clean     costs a cleaning supply and buys docs/05's sepsis discount. It does not stop a bleed.
+#   close     costs a suture kit, refuses a wound that is still bleeding, and needs a medic for a
+#             deep one. See the constant block below for what each of the two later rungs reads.
 #
 # The infection verbs are **routed, not reimplemented**. SimInfection.cauterize/amputate/
 # use_antibiotics/quarantine/put_down already validate their own windows and already return
@@ -126,6 +129,7 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
 const SimCombat = preload("res://sim/combat.gd")
 
 const REACH: float = 1.5
@@ -139,6 +143,38 @@ const TIER_ORDER: Array[String] = ["sterile", "cloth", "dirty"]
 # and nothing more, which is exactly how a wrong key inside an `armor` block sat for weeks
 # giving zero arm protection. A scalar under an enum in item.schema.json is actually checked.
 const TIER_KEY: String = "bandageTier"
+
+# --- the back half of the ladder: clean, then close ------------------------------------------
+#
+# docs/05's first aid is four steps and only two of them were verbs: you stop the bleeding, you
+# clean the wound, you close it, and then it heals while the survivor rests. `pressure` and
+# `bandage` were the first rung; `SimWounds._is_recovering` has been the fourth since Slice 3 (fed
+# and not exerting is the rest rung, and it was already built and already gated). These are the two
+# in the middle, and they are two more entries in the tables above rather than a second state
+# machine -- everything about a channel, its interrupts, its pin, its R1..R10 arbitration and its
+# per-tick re-check is verb-agnostic, and inheriting all of it is the point.
+#
+#   clean  spends one cleaning supply and stamps the grade onto every open-or-undressed wound of
+#          the part. Its whole effect is `SimWounds.sepsis_chance`'s clean term -- docs/05's third
+#          factor, which had been named in that function's own comment and applied by nothing.
+#          It does **not** stop a bleed, so cleaning is time spent losing blood.
+#   close  spends one suture kit and holds the wound shut. Its two readers already existed:
+#          `wounds.recover` gives a closed wound `CLOSED_RECOVERY_MUL` on its earned tick, and
+#          `_reopen_from_overwork` will not tear one open. It refuses a wound that is still
+#          bleeding -- you close what you have already stopped -- and refuses a deep wound below
+#          `CLOSE_MEDICINE_FLOOR` Medicine, which is the one place on this ladder a skill wall sits.
+#
+# Both flat content keys, for the reason `bandageTier` is one: the validator is shallow, and a
+# scalar under an enum is the only part of an item entry it actually checks.
+const CLEAN_KEY: String = "cleanTier"
+const CLOSE_KEY: String = "closeKind"
+# Best first, and the rank doubles as the pick order the way TIER_ORDER does: reach for the
+# antiseptic before rinsing it with the drinking water. `alcohol` is declared and unauthored --
+# no content entry carries it yet -- and is named as such in docs/23 rather than left to look wired.
+const CLEAN_ORDER: Array[String] = ["antiseptic", "alcohol", "water"]
+# What `close` will accept out of the pack. `splint` is deferred with the fracture immobilisation
+# it belongs to (docs/23); a kit that declares it is refused rather than silently sutured with.
+const CLOSE_KINDS: Array[String] = ["suture"]
 # R8's bank, a key on the wound record rather than a component: it belongs to the injury, outlives
 # every individual press, and is read back by whoever presses next.
 const BANK_KEY: String = "pressedTicks"
@@ -150,7 +186,7 @@ const SURGERY_TICKS: Dictionary = {
 	"amputate": 900,
 }
 
-const CHANNEL_VERBS: Array[String] = ["pressure", "bandage"]
+const CHANNEL_VERBS: Array[String] = ["pressure", "bandage", "clean", "close"]
 const SURGERY_VERBS: Array[String] = ["cauterize", "amputate"]
 # `painkillers` sits with the infection verbs rather than with the channels because it is the same
 # shape: instant, its own precondition list, its own {ok, reason}. It is answered by SimWounds
@@ -215,7 +251,10 @@ static func register_module(world: Variant) -> void:
 			# whole answer -- and the radius is the shambler's own CONTACT_METRES, not a copy.
 			if not w.components.has_component(e, "grabbed") and _claw_in_reach(w, e):
 				continue
-			if _worst_bleeding_part(w, e) == "":
+			# Every rung, not just the bleeding one. `context` is the one first-aid decision
+			# procedure in this simulation, and gating entry to it on "is this body bleeding"
+			# would have left the two new verbs reachable only by the player's own key.
+			if not _needs_care(w, e):
 				continue
 			context(w, e)
 	)
@@ -269,26 +308,65 @@ static func begin(world: Variant, actor: int, patient: int, part: String, verb: 
 	if not bool(pre.get("ok", false)):
 		return pre
 
-	var wound: Variant = _worst_open_wound(world, patient, part)
+	var plan: Dictionary = _plan(world, actor, patient, part, verb)
+	if not bool(plan.get("ok", false)):
+		return plan
+
+	_engage(world, actor, patient, part, verb, int(plan.get("ticks", 0)))
+	return {"ok": true, "ticks": int(plan.get("ticks", 0))}
+
+
+# Everything about a verb that is not the actor-and-posture arbitration `_can_begin` owns: is there
+# anything on this part for it to do, is the supply in the pack, and how long does it take. One
+# function so `begin` and `options_for`'s dry run cannot answer the same question differently --
+# they used to be two lists of checks kept in step by hand, and a fourth verb is exactly how that
+# ends badly.
+static func _plan(world: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
+	var wound: Variant = _worst_target(world, patient, part, verb)
 	if wound == null:
-		return {"ok": false, "reason": "not-bleeding"}
+		return {"ok": false, "reason": _nothing_reason(world, patient, part, verb)}
 	var severity: int = int((wound as Dictionary).get("severity", SimWounds.Severity.Scratch))
 
 	var ticks: int = 0
-	if verb == "pressure":
-		# R8: what is left, not what it costs from cold. Floored at one tick rather than zero so a
-		# fully-banked wound still runs a channel and clots through the ordinary _complete path --
-		# returning "nothing-to-do" here would strand a wound one tick short of closed.
-		ticks = maxi(1, int(SimWounds.PRESSURE_TICKS.get(severity, 0)) - _banked(wound as Dictionary))
-	else:
-		if String(_best_bandage(world, actor).get("tier", "")) == "":
-			return {"ok": false, "reason": "no-bandage"}
-		ticks = int(SimWounds.BANDAGE_TICKS.get(severity, 0))
+	match verb:
+		"pressure":
+			# R8: what is left, not what it costs from cold. Floored at one tick rather than zero so
+			# a fully-banked wound still runs a channel and clots through the ordinary _complete
+			# path -- returning "nothing-to-do" here would strand a wound one tick short of closed.
+			ticks = maxi(1, int(SimWounds.PRESSURE_TICKS.get(severity, 0)) - _banked(wound as Dictionary))
+		"bandage":
+			if String(_best_bandage(world, actor).get("tier", "")) == "":
+				return {"ok": false, "reason": "no-bandage"}
+			ticks = int(SimWounds.BANDAGE_TICKS.get(severity, 0))
+		"clean":
+			if String(_best_clean(world, actor).get("tier", "")) == "":
+				return {"ok": false, "reason": "no-supply"}
+			ticks = int(SimWounds.CLEAN_TICKS.get(severity, 0))
+		"close":
+			# You close what you have already stopped. Checked before the kit and before the skill
+			# so the reason the panel shows is the one the survivor can actually act on.
+			if not _open_wounds(world, patient, part).is_empty():
+				return {"ok": false, "reason": "still-bleeding"}
+			if severity >= SimWounds.Severity.DeepWound and _medicine_of(world, actor) < SimWounds.CLOSE_MEDICINE_FLOOR:
+				return {"ok": false, "reason": "unskilled"}
+			if String(_best_closer(world, actor).get("kind", "")) == "":
+				return {"ok": false, "reason": "no-kit"}
+			ticks = int(SimWounds.CLOSE_TICKS.get(severity, 0))
 	if ticks <= 0:
 		return {"ok": false, "reason": "nothing-to-do"}
-
-	_engage(world, actor, patient, part, verb, ticks)
 	return {"ok": true, "ticks": ticks}
+
+
+# Why there was nothing to work on. `pressure` and `bandage` keep "not-bleeding" verbatim -- it is
+# the vocabulary the panel already speaks and the gate already asserts -- and the two new verbs say
+# what is actually true of them: a bleeding wound is not refused "not-bleeding" by `close`, it is
+# refused "still-bleeding", which is the opposite problem and a different thing to do about it.
+static func _nothing_reason(world: Variant, patient: int, part: String, verb: String) -> String:
+	if verb == "pressure" or verb == "bandage":
+		return "not-bleeding"
+	if verb == "close" and not _open_wounds(world, patient, part).is_empty():
+		return "still-bleeding"
+	return "nothing-to-do"
 
 
 # The router. Every one of these five already exists, already validates its own window and
@@ -329,29 +407,63 @@ static func context(world: Variant, actor: int) -> Dictionary:
 		cancel(world, actor)
 		return {"ok": false, "reason": "cancelled"}
 
-	var target: int = _nearest_bleeding(world, actor)
+	var target: int = _nearest_needing_care(world, actor)
 	if target < 0:
 		return {"ok": false, "reason": "nothing-to-treat"}
-	var part: String = _worst_bleeding_part(world, target)
-	if part == "":
+	var held: bool = world.components.has_component(actor, "grabbed")
+
+	# Rung one, and it outranks everything: blood loss is the only thing on this ladder that kills.
+	var bleeding_part: String = _worst_bleeding_part(world, target)
+	if bleeding_part != "":
+		# Reach for a dressing when there is one: it costs supply and time, and it is the only
+		# one of the two that survives being interrupted.
+		#
+		# R7: not while somebody has hold of you. A held survivor carrying a sterile dressing would
+		# otherwise pick `bandage` every tick, be refused `cannot-channel` every tick by R1, and
+		# bleed to death with the answer in their pack -- the pick has to know what is actually
+		# legal, and the one thing that is legal held is a hand on your own wound.
+		var verb: String = "pressure"
+		if not held and String(_best_bandage(world, actor).get("tier", "")) != "":
+			verb = "bandage"
+		return begin(world, actor, target, bleeding_part, verb)
+
+	# R7 again, and the reason this is a guard rather than a fall-through: `clean` and `close`
+	# inherit R1's refusal (the exemption `_can_begin` derives is `pressure` and self, by name), so
+	# a held survivor with nothing bleeding has no legal rung. Offering one anyway would publish a
+	# `cannot-channel` refusal every tick for as long as the hold lasted.
+	if held:
 		return {"ok": false, "reason": "nothing-to-treat"}
-	# Reach for a dressing when there is one: it costs supply and time, and it is the only
-	# one of the two that survives being interrupted.
-	#
-	# R7: not while somebody has hold of you. A held survivor carrying a sterile dressing would
-	# otherwise pick `bandage` every tick, be refused `cannot-channel` every tick by R1, and bleed
-	# to death with the answer in their pack -- the pick has to know what is actually legal, and
-	# the one thing that is legal held is a hand on your own wound.
-	var verb: String = "pressure"
-	if not world.components.has_component(actor, "grabbed") and String(_best_bandage(world, actor).get("tier", "")) != "":
-		verb = "bandage"
-	return begin(world, actor, target, part, verb)
+
+	# Rungs two and three, in order, each skipped rather than refused when its supply is missing:
+	# a survivor with no antiseptic and a suture kit should sew, not stall on the rung they cannot
+	# pay for. Rung four is `SimWounds._is_recovering` and needs no verb -- resting is what a
+	# survivor does when this function has nothing left to offer.
+	if String(_best_clean(world, actor).get("tier", "")) != "":
+		var dirty: String = _worst_part_for(world, target, "clean")
+		if dirty != "":
+			return begin(world, actor, target, dirty, "clean")
+	if String(_best_closer(world, actor).get("kind", "")) != "":
+		var openable: String = _worst_part_for(world, target, "close")
+		if openable != "":
+			var res: Dictionary = begin(world, actor, target, openable, "close")
+			# "unskilled" is a refusal the ladder should absorb rather than repeat: a survivor who
+			# cannot suture a deep wound is not going to become able to between ticks, and the one
+			# key would otherwise complain forever.
+			if bool(res.get("ok", false)) or String(res.get("reason", "")) != "unskilled":
+				return res
+	return {"ok": false, "reason": "nothing-to-treat"}
 
 
-# Self first, then the nearest bleeding body in reach. Self first because a survivor who is
-# losing blood and reaches for someone else's arm is not a decision anyone meant to make.
-static func _nearest_bleeding(world: Variant, actor: int) -> int:
-	if _worst_bleeding_part(world, actor) != "":
+# Self first, then the nearest body in reach that wants any rung of the ladder. Self first because
+# a survivor who is losing blood and reaches for someone else's arm is not a decision anyone meant
+# to make.
+#
+# This used to ask only about bleeding, which was correct while bleeding was the only thing a verb
+# could answer. Left that way, `clean` and `close` would have been reachable exclusively through a
+# direct `begin` -- player-only, unreachable by every survivor the player is not personally
+# standing beside, and a dead socket the moment the T key had walked its own ladder to the end.
+static func _nearest_needing_care(world: Variant, actor: int) -> int:
+	if _needs_care(world, actor):
 		return actor
 	var best: int = -1
 	var best_d: float = INF
@@ -361,7 +473,7 @@ static func _nearest_bleeding(world: Variant, actor: int) -> int:
 	for entity in world.components.query(["injuries", "position", "body"]):
 		if int(entity) == actor or world.components.has_component(int(entity), "corpse"):
 			continue
-		if _worst_bleeding_part(world, int(entity)) == "":
+		if not _needs_care(world, int(entity)):
 			continue
 		if not _in_reach(world, actor, int(entity)):
 			continue
@@ -391,6 +503,29 @@ static func _worst_bleeding_part(world: Variant, entity: int) -> String:
 				best_sev = sev
 				best_part = String(part)
 	return best_part
+
+
+# The same pick, for a verb other than the bleeding pair. Same head-down tie-break, so the sim and
+# the condition view still agree about which wound is "the" wound whichever rung is being offered.
+static func _worst_part_for(world: Variant, entity: int, verb: String) -> String:
+	var best_part: String = ""
+	var best_sev: int = -1
+	for part in SimCombat.SURVIVOR_BODY_PARTS:
+		for wound in _targets(world, entity, String(part), verb):
+			var sev: int = int((wound as Dictionary).get("severity", 0))
+			if sev > best_sev:
+				best_sev = sev
+				best_part = String(part)
+	return best_part
+
+
+# Is there any rung of the ladder this body wants? Bleeding, dirty, or stopped and unsutured.
+# Whether the *actor* can pay for the rung is not asked here -- `context` decides that, and a body
+# whose only need is a suture kit nobody is carrying is still a body that needs care.
+static func _needs_care(world: Variant, entity: int) -> bool:
+	if _worst_bleeding_part(world, entity) != "":
+		return true
+	return _worst_part_for(world, entity, "clean") != "" or _worst_part_for(world, entity, "close") != ""
 
 
 # `banked` is R8's one exception hatch: a stagger passes false and every other end to a channel
@@ -475,31 +610,53 @@ static func _complete(world: Variant, actor: int, patient: int, part: String, ve
 	# An interrupted channel has cost nothing, and a channel that finishes after the wound
 	# already clotted (or after the last bandage was used elsewhere) simply fails -- both
 	# fall out of the structure rather than needing their own guards.
-	var open: Array = _open_wounds(world, patient, part)
-	if open.is_empty():
+	var targets: Array = _targets(world, patient, part, verb)
+	if targets.is_empty():
 		return
 
+	# The supply, chosen and spent at completion for all three verbs that cost one. Same
+	# re-validate-then-consume order fortify._place_scrap uses: an interrupted channel has cost
+	# nothing, and a channel that finishes after the last dressing went elsewhere simply fails.
 	var tier: String = "none"
-	if verb == "bandage":
-		var best: Dictionary = _best_bandage(world, actor)
-		tier = String(best.get("tier", ""))
-		if tier == "":
-			_refuse(world, actor, verb, "no-bandage")
-			return
-		if not SimNeeds.consume_base(world, actor, String(best.get("baseId", ""))):
-			_refuse(world, actor, verb, "no-bandage")
-			return
+	match verb:
+		"bandage":
+			var best: Dictionary = _best_bandage(world, actor)
+			tier = String(best.get("tier", ""))
+			if tier == "" or not SimNeeds.consume_base(world, actor, String(best.get("baseId", ""))):
+				_refuse(world, actor, verb, "no-bandage")
+				return
+		"clean":
+			var supply: Dictionary = _best_clean(world, actor)
+			tier = String(supply.get("tier", ""))
+			if tier == "" or not SimNeeds.consume_base(world, actor, String(supply.get("baseId", ""))):
+				_refuse(world, actor, verb, "no-supply")
+				return
+		"close":
+			var kit: Dictionary = _best_closer(world, actor)
+			tier = String(kit.get("kind", ""))
+			if tier == "" or not SimNeeds.consume_base(world, actor, String(kit.get("baseId", ""))):
+				_refuse(world, actor, verb, "no-kit")
+				return
 
-	for wound in open:
+	for wound in targets:
 		var wd: Dictionary = wound as Dictionary
-		wd["bleeding"] = false
-		# R8: this wound has been answered, so the bank it accumulated is spent. Cleared rather
-		# than left to be ignored, because SimWounds.reopen can make the same record bleed again
-		# and a stale bank would hand the second press the first one's work.
-		wd.erase(BANK_KEY)
-		if verb == "bandage":
-			wd["bandage"] = tier
-	world.events.publish({"type": "wound.treated", "entity": patient, "treater": actor, "bodyPart": part, "verb": verb, "tier": tier, "wounds": open.size()})
+		match verb:
+			"pressure", "bandage":
+				wd["bleeding"] = false
+				# R8: this wound has been answered, so the bank it accumulated is spent. Cleared
+				# rather than left to be ignored, because SimWounds.reopen can make the same record
+				# bleed again and a stale bank would hand the second press the first one's work.
+				wd.erase(BANK_KEY)
+				if verb == "bandage":
+					wd["bandage"] = tier
+			"clean":
+				# Deliberately does not touch `bleeding`: cleaning a wound is not stopping it, and
+				# a clean that closed a bleed would make the first rung optional.
+				wd["cleaned"] = true
+				wd["cleanTier"] = tier
+			"close":
+				wd["closed"] = true
+	world.events.publish({"type": "wound.treated", "entity": patient, "treater": actor, "bodyPart": part, "verb": verb, "tier": tier, "wounds": targets.size()})
 
 
 # A stagger lands on one entity, and that entity may be either end of a treatment: being
@@ -707,15 +864,73 @@ static func _open_wounds(world: Variant, entity: int, part: String) -> Array:
 	return out
 
 
-# The channel's length comes from the worst wound on the part, and completion then treats
-# every open wound on it. Treating a part is one act of first aid, not one per laceration.
-static func _worst_open_wound(world: Variant, entity: int, part: String) -> Variant:
+# What each verb has to work on, on this part. One selector per rung, and every caller goes through
+# it: `_plan` for the channel length, `_complete` for what it writes, `context` for whether the rung
+# is reachable at all. Treating a part is one act of first aid, not one per laceration, so all four
+# answer with every wound the verb applies to.
+static func _targets(world: Variant, entity: int, part: String, verb: String) -> Array:
+	match verb:
+		"clean":
+			return _cleanable_wounds(world, entity, part)
+		"close":
+			return _closable_wounds(world, entity, part)
+	return _open_wounds(world, entity, part)
+
+
+# The channel's length comes from the worst wound on the part.
+static func _worst_target(world: Variant, entity: int, part: String, verb: String = "pressure") -> Variant:
 	var worst: Variant = null
-	for wound in _open_wounds(world, entity, part):
+	for wound in _targets(world, entity, part, verb):
 		var wd: Dictionary = wound as Dictionary
 		if worst == null or int(wd.get("severity", 0)) > int((worst as Dictionary).get("severity", 0)):
 			worst = wd
 	return worst
+
+
+static func _worst_open_wound(world: Variant, entity: int, part: String) -> Variant:
+	return _worst_target(world, entity, part, "pressure")
+
+
+# Open or undressed, and not already cleaned. A wound under a dressing is out of reach of a bottle
+# of antiseptic without taking the dressing off, and taking it off is not a verb -- which is
+# exactly what makes "dress it dirty now" a decision with a price rather than a free ordering
+# choice (docs/30). A closed injury (a fracture, a concussion) has nothing to clean.
+static func _cleanable_wounds(world: Variant, entity: int, part: String) -> Array:
+	var out: Array = []
+	for wound in _wounds_on(world, entity, part):
+		var wd: Dictionary = wound as Dictionary
+		if bool(wd.get("cleaned", false)) or bool(wd.get("closed", false)):
+			continue
+		if not bool(SimWounds.kind_spec(String(wd.get("kind", "cut"))).get("bleeds", true)):
+			continue
+		if not bool(wd.get("bleeding", false)) and String(wd.get("bandage", "none")) != "none":
+			continue
+		out.append(wd)
+	return out
+
+
+# Stopped, not yet sutured, and the kind of injury a suture applies to.
+static func _closable_wounds(world: Variant, entity: int, part: String) -> Array:
+	var out: Array = []
+	for wound in _wounds_on(world, entity, part):
+		var wd: Dictionary = wound as Dictionary
+		if bool(wd.get("bleeding", false)) or bool(wd.get("closed", false)):
+			continue
+		if not bool(SimWounds.kind_spec(String(wd.get("kind", "cut"))).get("bleeds", true)):
+			continue
+		out.append(wd)
+	return out
+
+
+static func _wounds_on(world: Variant, entity: int, part: String) -> Array:
+	var out: Array = []
+	var inj: Variant = world.components.get_component(entity, "injuries")
+	if not (inj is Dictionary):
+		return out
+	for wound in (inj as Dictionary).get("wounds", []) as Array:
+		if String((wound as Dictionary).get("bodyPart", "")) == part:
+			out.append(wound)
+	return out
 
 
 # The best dressing this actor is carrying, as {tier, baseId}, or {} if none. Reads the
@@ -739,6 +954,43 @@ static func _best_bandage(world: Variant, actor: int) -> Dictionary:
 	return out
 
 
+# The best cleaning supply carried, as {tier, baseId}, or {} if none. Same shape and same rule as
+# _best_bandage: the rank in CLEAN_ORDER is the pick order, and adding a grade is a data edit.
+static func _best_clean(world: Variant, actor: int) -> Dictionary:
+	return _best_by_key(world, actor, CLEAN_KEY, CLEAN_ORDER, "tier")
+
+
+# The best closing kit carried, as {kind, baseId}, or {} if none. CLOSE_KINDS is one entry today,
+# so this is a filter rather than a ranking -- but it is written as the ranking so `splint` landing
+# beside `suture` is a content edit and an entry in the array, not a branch here.
+static func _best_closer(world: Variant, actor: int) -> Dictionary:
+	return _best_by_key(world, actor, CLOSE_KEY, CLOSE_KINDS, "kind")
+
+
+static func _best_by_key(world: Variant, actor: int, key: String, order: Array[String], label: String) -> Dictionary:
+	var best_rank: int = order.size()
+	var out: Dictionary = {}
+	for item in SimInventory.carried_items(world, actor):
+		var base: Variant = SimItems.item_base_of(world, int(item))
+		if not (base is Dictionary):
+			continue
+		var value: String = String((base as Dictionary).get(key, ""))
+		if value == "":
+			continue
+		var rank: int = order.find(value)
+		if rank < 0 or rank >= best_rank:
+			continue
+		best_rank = rank
+		out = {label: value, "baseId": String((base as Dictionary).get("id", ""))}
+	return out
+
+
+# The treater's Medicine, read from the one place that owns it. The actor's, not the patient's:
+# it is the hands doing the suturing that need to know what they are doing.
+static func _medicine_of(world: Variant, actor: int) -> int:
+	return int(SimSkills.points(world, actor, "Medicine"))
+
+
 # The read model the panel uses to decide which verbs to offer. Same {ok, reason} the sim
 # returns, computed by the sim, so the screen and the sim cannot disagree about whether a
 # verb is available -- and no numbers cross the boundary.
@@ -754,8 +1006,9 @@ static func _dry_run(world: Variant, actor: int, patient: int, part: String, ver
 	var pre: Dictionary = _can_begin(world, actor, patient, verb)
 	if not bool(pre.get("ok", false)):
 		return pre
-	if _worst_open_wound(world, patient, part) == null:
-		return {"ok": false, "reason": "not-bleeding"}
-	if verb == "bandage" and String(_best_bandage(world, actor).get("tier", "")) == "":
-		return {"ok": false, "reason": "no-bandage"}
+	# The same plan `begin` runs, minus the engaging. Two hand-kept lists of preconditions is how
+	# the panel ends up offering a verb the sim refuses.
+	var plan: Dictionary = _plan(world, actor, patient, part, verb)
+	if not bool(plan.get("ok", false)):
+		return plan
 	return {"ok": true}
