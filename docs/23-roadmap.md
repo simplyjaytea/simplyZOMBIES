@@ -197,12 +197,17 @@ unplaced) rather than here.
 
 **Medicine — the back half of treatment:**
 
-- **The full treatment ladder: clean, then close, then rest.** Pressure, bandaging and recovery
-  are live; cleaning and closing are not verbs yet. Extends `godot:m2:treatment`.
 - **Supply quality tiers.** The sepsis roll already prices sterile < cloth < dirty dressings; what
   is open is quality as an authored property of medical supplies generally.
 - **Diagnosis text that scales with Medicine skill.** A good medic reads a wound better; a novice
-  reads it vaguely. Prose only — no numbers arrive with skill.
+  reads it vaguely. Prose only — no numbers arrive with skill. This is also where the condition
+  view learns to say a wound has been cleaned or sutured: the ladder writes both, and neither is
+  in `sim/condition.gd` yet, deliberately — a field with one possible value is a gate that cannot
+  fail, which is the lesson the `bandage` field's arrival taught.
+- **The splint, and fracture immobilisation.** `closeKind` declares `splint` and
+  `SimTreatment.CLOSE_KINDS` accepts only `suture`, so a kit declaring one is refused rather than
+  silently sutured with. `cleanTier`'s `alcohol` grade is priced in `SEPSIS_CLEAN_MUL` and carried
+  by no content entry — both are named here rather than left to look wired.
 - **Permanent conditions that keep a survivor in play.** A limp, a blind eye, a scar — loss that
   does not remove the person, docs/05's permanent-consequences row.
 
@@ -1290,8 +1295,52 @@ not a to-do list:
   killed because they didn't notice how hurt they were". Exhaustion now reaches all four: swing
   0.400, aim 0.500, mood −8.0 and work 0.652 on an empty tank, with the mood cost deliberately kept
   clear of the miserable band so an ordinary hard day does not start sulks and arguments.
-  This system's open tails (the treatment ladder's clean/close verbs, supply quality tiers,
-  skill-scaled diagnosis, permanent conditions, sleep quality) are in
+  ~~The full treatment ladder: clean, then close, then rest~~ **landed** (`godot:m2:treatment`,
+  CLEAN SEPSIS / CLEAN SUPPLY / CLOSE / CLOSE REFUSALS / SHORTCUT / LADDER SUPPLY / HELD LADDER /
+  LADDER KEY / SELF-CLEAN / REOPEN ERASE / LADDER CONTENT, and the extended DETERMINISM).
+  **Two rungs were added, not three**: `SimWounds._is_recovering` — fed and not exerting — has been
+  the rest rung since Slice 3 and is gated by `godot:m2:recovery`, so the record says so rather than
+  claiming a verb for it. `clean` and `close` are two more entries in `CHANNEL_VERBS` and nothing
+  else: no second state machine, and every interrupt, the pin, the per-tick re-check and the whole
+  R1–R10 arbitration are inherited unchanged. `jobs._do_doctor` still goes through
+  `SimWounds.dress_worst` and was not touched.
+  **Cleaning was the missing sepsis factor.** `sepsis_chance`'s own comment said "the four factors
+  docs/05 names" and docs/05 names five — "whether it was cleaned" had no verb behind it and no
+  term in the arithmetic, which is the same socket shape the roll itself was written to close.
+  Measured over 240 seeded dusk rolls at fixed hygiene and Medicine 0: **55/240 septic uncleaned
+  against 25/240 cleaned with antiseptic**, and the water grade in between at 45/240, so rinsing a
+  wound with drinking water is worth something and worth less. Neither end is absolute — the
+  uncleaned control goes septic and the cleaned run still does, floored by `SEPSIS_CLEAN_MIN_MUL`
+  for the reason `SEPSIS_MIN_MUL` floors the skill term.
+  **Closing buys speed and holds it shut**, through the two readers that already existed: a sutured
+  wound reached `wound.closed` in **5 earned ticks against an unsutured wound's 10**, and a fresh
+  sutured deep wound held under a sprint (0.0000 blood) that tore the identical unsutured one open
+  (3.9800). The part's integrity regen carries the same multiplier as the wound's earned tick, so
+  suturing cannot leave a limb permanently weaker by closing its own wound early.
+  **The shortcut stays legal and stays expensive**: bandaging an uncleaned wound succeeds and stops
+  the bleed, at 31/240 septic against clean-then-dress's 17/240 (docs/30 for why refusing it would
+  be the wrong rule). `close` refuses a wound that is still bleeding ("still-bleeding") and a deep
+  wound below Medicine 2 ("unskilled") while a novice may still close a laceration — the floor is
+  deep-wound-only.
+  **Two dead sockets closed by assertion rather than by hope.** `treatment.self-aid` and
+  `_nearest_bleeding` widened from bleeding-only to "any rung this body wants", so an NPC with a
+  dirty wound and antiseptic in their pack opens a clean channel with no player input (0.216000 →
+  0.097200 chance) — left as it was, both verbs would have been player-only on the day they landed.
+  And `_reopen_from_overwork` now erases `cleaned`/`cleanTier` beside the `pressedTicks` it already
+  erased: a torn wound reprices **exactly** as one nobody ever cleaned, which is asserted to seven
+  decimals rather than directionally. Reverting either term was checked to turn its row red.
+  **Calibration: the uninvested paths are unchanged.** `SEPSIS_CLEAN_MUL["none"]` is 1.0 and an
+  unsutured wound's earned tick is still literally `+ 1`, and the gate pins both — an uncleaned
+  wound's chance is bit-identical to the pre-change expression, and an unsutured wound still needs
+  its full ten earned ticks. So `godot:m2:balance` was the only balance evidence this needed; the
+  campaign-scale sepsis-incidence measurement rides with the deferred full balance grid, unchanged
+  by this slice because a colony that invests nothing plays exactly as it did.
+  Content: `cleanTier` and `closeKind` are flat scalars under enums (the shallow validator only
+  checks those), `item.water.bottle` gains `cleanTier: water` — `SimNeeds.use_item` matches on
+  `baseId`, so drinking is untouched — and `item.antiseptic.bottle` and `item.suture.kit` are new
+  and in the medical table, antiseptic thinly in residential too.
+  This system's open tails (supply quality tiers, skill-scaled diagnosis and the condition view's
+  words for a cleaned or sutured wound, the splint, permanent conditions, sleep quality) are in
   [what's left](#whats-left-in-milestone-2).
   ~~Bacterial infection kept distinct from zombie infection (sepsis)~~ **landed**
   (`godot:m2:wounds`, SEPSIS and SEPSIS COST). This was a socket, not a gap: `needs.gd` published

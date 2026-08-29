@@ -281,6 +281,22 @@ const SEPSIS_BANDAGE_MUL: Dictionary = {
 	"dirty": 1.5,
 	"none": 1.8,
 }
+# "...whether it was cleaned..." -- docs/05's third factor, and the one the expression below claimed
+# to apply and did not. Keyed by the grade of the supply the clean actually spent, so the ladder's
+# first rung has a quality gradient of its own the way the dressing chain does: antiseptic beats
+# alcohol beats rinsing it with drinking water, and all three beat leaving it dirty. `none` is the
+# uncleaned wound and is deliberately 1.0 -- the multiplier is a *discount for investing*, so a
+# wound nobody cleaned prices exactly as it did before this factor existed.
+const SEPSIS_CLEAN_MUL: Dictionary = {
+	"antiseptic": 0.45,
+	"alcohol": 0.60,
+	"water": 0.80,
+	"none": 1.0,
+}
+# A good clean never makes a wound safe, the same way a good medic never does. Without a floor a
+# future tier could zero the risk, and "cleaned it properly, so it cannot go septic" is certainty
+# the player is not supposed to have.
+const SEPSIS_CLEAN_MIN_MUL: float = 0.40
 # "...and treatment skill." Each Medicine point buys this much off the chance, floored so a good
 # medic never makes a dirty wound safe.
 const SEPSIS_SKILL_RELIEF: float = 0.08
@@ -342,6 +358,49 @@ const BANDAGE_TICKS: Dictionary = {
 	Severity.Laceration: 400,
 	Severity.DeepWound: 800,
 }
+# The back half of docs/05's ladder, and the same shape as the two above: a span per severity,
+# declared here beside the rungs it extends so nothing has to reconcile two tables. treatment.gd
+# preloads this file for all four; the dependency runs one way and must keep doing so.
+#
+#   clean  costs a cleaning supply and buys the sepsis discount below. Slower than pressure and
+#          faster than a dressing: it is fiddly rather than committed, and it does not stop a
+#          bleed, so a survivor who cleans instead of pressing is still losing blood while they do
+#          it. That is the decision the rung poses and the reason bandaging a dirty wound stays
+#          legal (docs/30).
+#   close  costs a suture kit and is the longest channel in the module. It knits faster and it
+#          holds under a sprint, which is the pair of effects the gate measures.
+const CLEAN_TICKS: Dictionary = {
+	Severity.Scratch: 150,
+	Severity.Laceration: 300,
+	Severity.DeepWound: 600,
+}
+const CLOSE_TICKS: Dictionary = {
+	Severity.Scratch: 200,
+	Severity.Laceration: 450,
+	Severity.DeepWound: 900,
+}
+# Suturing a deep wound is the one act on this ladder that needs a medic rather than a pair of
+# hands. Scratches and lacerations are within anybody's reach -- docs/30 records why the floor is
+# deep-wound-only rather than a flat skill wall over the whole verb.
+const CLOSE_MEDICINE_FLOOR: int = 2
+
+# What a closed wound earns per resting tick, against an open-but-stopped wound's one. A whole
+# number by construction: `healedTicks` is an integer tick count, and a fractional multiplier would
+# either round away or force the field to a float that has to survive a JSON round-trip. The
+# UNCLOSED path multiplies by nothing at all -- it is still literally `+ 1` -- so an unsutured
+# wound recovers exactly as it did before this rung existed, which is the calibration the gate
+# pins.
+const CLOSED_RECOVERY_MUL: float = 2.0
+
+
+# The whole-tick gain one wound earns per resting tick. Kept as a function rather than inlined so
+# the recovery loop and the part-regen loop below cannot disagree about the rate: the part climbs
+# at the same multiple the wound knits at, which is what keeps a sutured limb from being left
+# permanently weaker by its own wound closing early.
+static func recovery_gain(wound: Dictionary) -> int:
+	if not bool(wound.get("closed", false)):
+		return 1
+	return maxi(1, int(round(CLOSED_RECOVERY_MUL)))
 
 # The accumulator's ceiling. bloodLoss >= BLOOD_LOSS_FATAL is death.
 const BLOOD_LOSS_FATAL: float = 100.0
@@ -585,6 +644,11 @@ static func _reopen_from_overwork(world: Variant, entity: int, wounds: Array) ->
 			continue
 		if bool(wd.get("bleeding", false)):
 			continue
+		# A sutured wound is held shut, and holding it shut is most of what the third rung buys.
+		# This is one of the two existing readers `closed` was written for; the other is the
+		# recovery gain below.
+		if bool(wd.get("closed", false)):
+			continue
 		var budget: int = int(RECOVERY_DAYS[Severity.DeepWound]) * SimClock.DAY_TICKS
 		if float(wd.get("healedTicks", 0)) >= float(budget) * REOPEN_BELOW_FRACTION:
 			continue
@@ -599,6 +663,15 @@ static func _reopen_from_overwork(world: Variant, entity: int, wounds: Array) ->
 		# wounds, not the other way round.
 		wd["clotsAtTick"] = -1
 		wd.erase("pressedTicks")
+		# The rest of the ladder goes with it, for exactly the reason the bank does: a wound torn
+		# back open is not the wound anybody cleaned. Erased rather than left to be ignored --
+		# `sepsis_chance` reads `cleaned` every dusk, so a stale flag would go on quietly buying a
+		# discount for work the sprint has just undone. (`closed` cannot be set here: a closed
+		# wound never reaches this loop, guarded above. It is erased anyway so the record cannot
+		# carry a lie if that guard ever moves.)
+		wd.erase("cleaned")
+		wd.erase("cleanTier")
+		wd.erase("closed")
 		torn.append(wd)
 	return torn
 
@@ -706,8 +779,14 @@ static func roll_sepsis(world: Variant, entity: int, hygiene_mul: float, medicin
 	return caught
 
 
-# The four factors docs/05 names, in one expression so no caller can apply three of them.
-# Severity is the base; hygiene, bandage cleanliness and treatment skill are multipliers on it.
+# The **five** factors docs/05 names, in one expression so no caller can apply four of them.
+# Severity is the base; hygiene, whether it was cleaned, bandage cleanliness and treatment skill are
+# multipliers on it.
+#
+# This comment used to say four, and the code applied three of docs/05's five: "whether it was
+# cleaned" had no verb behind it and no term here. That is the same shape as the socket this whole
+# roll was written to close -- a factor named in the design, absent from the arithmetic -- so the
+# clean term arrived with the verb that produces it rather than ahead of it.
 static func sepsis_chance(wound: Dictionary, hygiene_mul: float, medicine_skill: int) -> float:
 	var base: float = float(SEPSIS_BASE_BY_SEVERITY.get(int(wound.get("severity", Severity.Scratch)), 0.0))
 	if base <= 0.0:
@@ -719,7 +798,13 @@ static func sepsis_chance(wound: Dictionary, hygiene_mul: float, medicine_skill:
 	var dressing: String = String(wound.get("bandage", "none"))
 	var bandage_mul: float = float(SEPSIS_BANDAGE_MUL.get(dressing, float(SEPSIS_BANDAGE_MUL["none"])))
 	var skill_mul: float = maxf(SEPSIS_MIN_MUL, 1.0 - float(maxi(0, medicine_skill)) * SEPSIS_SKILL_RELIEF)
-	return clampf(base * maxf(0.0, hygiene_mul) * bandage_mul * skill_mul, 0.0, 1.0)
+	# The tier is only ever read through the `cleaned` flag, so the two cannot disagree in the
+	# direction that would matter: a stray `cleanTier` with no clean behind it buys nothing.
+	var clean_mul: float = 1.0
+	if bool(wound.get("cleaned", false)):
+		var grade: String = String(wound.get("cleanTier", "none"))
+		clean_mul = maxf(SEPSIS_CLEAN_MIN_MUL, float(SEPSIS_CLEAN_MUL.get(grade, float(SEPSIS_CLEAN_MUL["none"]))))
+	return clampf(base * maxf(0.0, hygiene_mul) * bandage_mul * skill_mul * clean_mul, 0.0, 1.0)
 
 
 static func is_septic(world: Variant, entity: int) -> bool:
@@ -981,6 +1066,11 @@ static func register_module(world: Variant) -> void:
 			# The worst open wound on each part sets that part's healing rate, so a limb
 			# carrying both a scratch and a deep wound mends at the deep wound's pace.
 			var worst_by_part: Dictionary = {}
+			# The gain of the wound that set each part's pace, carried alongside it so the part
+			# climbs at the same multiple the wound knits at. Without this a sutured wound would
+			# close in half the days and take the limb's remaining integrity recovery with it, and
+			# suturing would quietly leave a survivor permanently weaker for having been treated.
+			var gain_by_part: Dictionary = {}
 			var closed: Array = []
 			for wound in wounds:
 				var wd: Dictionary = wound as Dictionary
@@ -998,9 +1088,11 @@ static func register_module(world: Variant) -> void:
 					continue
 				var part: String = String(wd.get("bodyPart", ""))
 				var sev: int = int(wd.get("severity", Severity.Scratch))
+				var gain: int = recovery_gain(wd)
 				if not worst_by_part.has(part) or sev > int(worst_by_part[part]):
 					worst_by_part[part] = sev
-				wd["healedTicks"] = int(wd.get("healedTicks", 0)) + 1
+					gain_by_part[part] = gain
+				wd["healedTicks"] = int(wd.get("healedTicks", 0)) + gain
 				if int(wd["healedTicks"]) >= recovery_days_for(String(wd.get("kind", "cut")), sev) * SimClock.DAY_TICKS:
 					closed.append(wd)
 
@@ -1014,7 +1106,7 @@ static func register_module(world: Variant) -> void:
 				var maxv: Variant = SimHealth.max_of(body, String(part))
 				if maxv == null or current >= float(int(maxv)):
 					continue
-				body[String(part)] = minf(float(int(maxv)), current + regen_per_tick(int(maxv), int(worst_by_part[part])))
+				body[String(part)] = minf(float(int(maxv)), current + regen_per_tick(int(maxv), int(worst_by_part[part])) * float(int(gain_by_part.get(String(part), 1))))
 
 			for done in closed:
 				wounds.erase(done)
