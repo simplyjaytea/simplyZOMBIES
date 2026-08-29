@@ -235,7 +235,12 @@ unplaced) rather than here.
 
 - **Condition and stamina readouts in the world, not a corner.** The diegetic half of the prose
   contract — the words move onto the body and the scene.
-- **The skill web screen.**
+- **The skill web screen.** **Presentation only, now.** The mechanism underneath it landed with
+  [Focus and the Manual learn line](#the-record-by-system) — the `web.buy` command, the
+  `SimSkills.web_view` read model and the choice of who manages a survivor, all gated by
+  `godot:m2:autonomy`. What remains is a *screen*: the web drawn as a web, with regions and
+  adjacency and the shape of a survivor's history visible in it, rather than the one prose line
+  the work grid can fit. Nothing in the sim is waiting on it.
 - **Prose that names its modifier sources.** "Slow because the leg is splinted", generated from
   the modifier pipeline rather than hand-authored per case.
 
@@ -1239,6 +1244,80 @@ not a to-do list:
   ownable while the stat it moves, `repair_cost`, is resolved by nobody — see the defect list.
   The other three pieces on this row (fuller generation, trait conflict rules, the six-survivor
   checkpoint) are still in [what's left](#whats-left-in-milestone-2).
+- **Survivors** — ~~Focus and the Manual learn line, on the work grid~~ **landed**
+  (`godot:m2:autonomy`, lanes CYCLE / DRIFT / MANUAL HOLDS / BUY / CONTENT / VIEW / SAVE). The half
+  above gave a survivor a focus and let them drift into it; this one gives the *player* the say,
+  and it is deliberately **not** a new toggle. docs/07 already made the choice: with a Focus set a
+  survivor auto-allocates their web, and "setting Focus to Manual gives full control of that one
+  survivor's web". So the autonomy choice **is** Focus, and the work grid now draws it — one
+  lowercase word at the end of each name, dim for the five self-managing values and amber for
+  `manual`, the one that means the learning is in your hands. Clicking cycles it forward and
+  right-clicking backward (so Manual is one click from Auto), and the click pushes `job.focus`
+  through the command queue rather than calling `SimJobs.set_focus`. That word also closes a dead
+  socket: `work_view` has delivered a `focus` field since the grid was written and nothing had ever
+  drawn it — the twelfth of this milestone, and the first one found by looking for a place to put a
+  feature rather than by a sweep.
+  **The manual path is a real path, not a label.** A new `web.buy {entity, node}` command, consumed
+  by `skills.intake` (input phase, order **15** — one after `jobs.intake` at 14, so a focus flip and
+  a buy pushed in the same frame resolve the flip first and the buy is not refused for a survivor
+  who is no longer on auto). Four refusals, each with its own reason on `web.refused`: `auto` (the
+  survivor manages their own web), `unknown`, `owned`, `points`. The affordability check, the spend,
+  the append and the modifier re-apply moved into one static `_buy` that the focus path, the surplus
+  pass and the intake all call — `melee.gd`'s two-intakes argument, applied before the drift rather
+  than after it.
+  **The screen gets a shape from which a number cannot be computed.** `SimSkills.web_view` returns
+  `{known:[prose], learnable:[{node, name}]}` and nothing else: no cost, no point total, no count.
+  Affordability is boolean *by construction* — a node the survivor cannot pay for is simply absent
+  from `learnable` — which is the condition-view pattern applied to progression, and the VIEW lane
+  enforces it with a key allowlist plus a `[0-9]` scan over the serialised view, health-bar-ban
+  style. The prose names are **content**: every node in `skill_web.json` gained a `name` ("a surer
+  grip", "a healer's hands", "tape and patience"), because an id-to-phrase dictionary in the draw
+  loop is exactly the pattern `godot:check:appearance` exists to keep out. Neither validator
+  constrains that key — `godot:validate` is shallow and the frozen oracle's `CONTENT_TYPES` does not
+  list `colony/` (both re-run here, both green) — so the CONTENT lane carries the assertion itself,
+  with a scanner self-test so it can fail.
+  **Choosing Auto is a handback.** The `job.focus` intake stamps `"player"` for every focus except
+  `Auto`, which it stamps `"auto"`. Without that one exception a player who clicks round to Auto —
+  the word that means "you decide" — would have locked that survivor out of drift for the rest of
+  the run, irreversibly, with nothing on screen to say so. `set_priority`'s forced flip to Manual
+  now writes `"player"` too, because hand-editing a grid cell is a person's choice by any reading.
+  **And the UI's last queue bypass is gone.** `work_panel.gd` called `SimJobs.set_priority` directly
+  and then re-pulled the view synchronously — the only place in the UI that reached into the sim and
+  mutated it, which meant a grid edit never reached `commands.recorded` and R6's replay could not
+  reproduce a run the player had steered. It is a `job.priority` command now; `main.gd` re-pulls the
+  view every frame anyway, so the row updates on the tick the command lands.
+  **Every lane carries its negative,** and two mutation runs confirm they fail. CYCLE asserts the
+  command writes `player` *and* that `SimJobs.set_focus` — drift's own path — writes `auto`, so the
+  seam is shown to distinguish its callers rather than to stamp one value; breaking the handback so
+  Auto writes `"player"` reds it with `CYCLE: choosing Auto left setBy player, so the handback locks
+  instead of releasing`. DRIFT proves the positive half first (an auto survivor with five Doctor
+  jobs *does* move Auto → Medic) before asserting a player-set Fighter holds on the same evidence,
+  because "never overrides the player" is vacuous if drift never fires. BUY provokes each of the
+  four refusals and pairs every one with an unchanged component and no `web.learned`; deleting the
+  Manual guard in `skills.intake` reds it with `BUY: buying surv.cook expected refusal "auto", got
+  [... "reason": "owned"]` — the auto survivor had already spent the points itself, which is the
+  interleaving the guard prevents. SAVE is the one that would otherwise fail silently: a player-set
+  focus is put through a real `JSON.stringify`/`parse_string` round trip and the drift assertion run
+  again on the far side, because `focusSetBy` is a String inside a component and a key lost in JSON
+  re-enables drift over a player's choice with nothing to report it.
+  **The honest half.** This is the *mechanism* of "the skill web screen", not the screen. What
+  ships is one prose line per row — "knows a surer grip · long legs — could learn: tape and
+  patience, plain grit" — with the learnable names clickable. The web drawn *as a web*, with regions
+  and adjacency, is still in [what's left](#whats-left-in-milestone-2), annotated presentation-only.
+  Nothing was measured about balance because nothing in the campaign path changed: the refactor into
+  `_buy` is behaviour-identical (same order, same affordability, same modifier set), and the new
+  intake consumes a command no headless driver pushes. Confirmed rather than assumed —
+  `godot:m2:balance` prints the same four rows as the slice above (404 = 7 kills m7 / 0 deaths,
+  20260805 = 5 kills / 1 death) and `godot:m2:harness` the same six lines (knife 24/3, bow 14/3,
+  pistol 20/4).
+  **One existing lane had to move, and it is worth saying which.** `check_m2_web.gd`'s DRIFT lane
+  locked its survivor by pushing `job.focus` with focus `Auto` and asserting `focusSetBy == player` —
+  an assertion of exactly the behaviour the handback rule reverses, and it went red here. The lane
+  now locks with `Fighter`, which serves it better anyway: the five Doctor jobs it then runs argue
+  *against* Fighter, so "did not move" is a refusal rather than a coincidence, where under `Auto`
+  the survivor was being asked to stay on the focus drift starts from. The assertion the old line
+  was reaching for — that a command stamps provenance — is unchanged and now has both halves in
+  `godot:m2:autonomy`'s CYCLE lane.
 - **Needs** — ~~raw and spoiled food carrying illness risk~~ **landed** (`godot:m2:needs`,
   ILLNESS). docs/04's food clause is "raw and spoiled food fills the bar but damages mood **and
   carries illness risk**"; only the mood half shipped, so raw food was a mood tax and nothing else
