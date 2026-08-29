@@ -264,7 +264,14 @@ func _drift_lane(w: Variant) -> bool:
 		push_error("could not generate colonists, so the drift lane asserted nothing")
 		return false
 	# The player's choice arrives as a command, which is the one path that stamps provenance.
-	w.commands.push({"type": "job.focus", "entity": locked, "focus": "Auto"})
+	#
+	# The locked survivor is put on **Fighter**, not Auto. Choosing Auto is a handback -- the
+	# player saying "you decide" -- so it is deliberately stamped "auto" and is the one focus a
+	# command does not lock (docs/30, "who manages a survivor's skill web"; the whole rule is
+	# gated by `godot:m2:autonomy`'s CYCLE lane). Locking with Auto here would have asserted the
+	# opposite. Fighter serves the lane better anyway: the five Doctor jobs below argue *against*
+	# it, so "did not move" is a refusal rather than a coincidence.
+	w.commands.push({"type": "job.focus", "entity": locked, "focus": "Fighter"})
 	w.step()
 	if _set_by(w, locked) != "player" or _set_by(w, drifter) != "auto":
 		push_error("provenance: the job.focus command wrote \"%s\" and an untouched NPC reads \"%s\"" % [
@@ -288,7 +295,7 @@ func _drift_lane(w: Variant) -> bool:
 	if _focus_of(w, drifter) != "Medic":
 		push_error("5 Doctor jobs and a day boundary left the NPC on %s" % _focus_of(w, drifter))
 		return false
-	if _focus_of(w, locked) != "Auto":
+	if _focus_of(w, locked) != "Fighter":
 		push_error("drift overrode a player-set focus: %s" % _focus_of(w, locked))
 		return false
 	# And the new focus is what allocates from now on. Two Endurance points at once is the one
