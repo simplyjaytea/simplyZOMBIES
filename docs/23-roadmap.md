@@ -186,7 +186,6 @@ unplaced) rather than here.
 
 **People — the survivor pipeline:**
 
-- **Trait conflict rules.** Nothing yet stops the generator dealing contradictory traits.
 - **The six-survivor automation checkpoint.** Risk 1's seeded colony, every NPC on Focus
   automation — the micromanagement-cliff measurement. Needs the two pieces above first, and it is
   also the cheapest place to answer the colony-shape question with data.
@@ -470,6 +469,43 @@ they were, which is exactly what a new stream costs nothing to guarantee.
 `godot/content/colony/` stays outside `CONTENT_TYPES` (`src/sim/content/types.ts`), so the
 frozen oracle's Ajv never walks it — `npm test`'s 594 passes prove the invisibility rather than
 assume it, same as the existing `skill_web.json` in the same directory.
+
+**Trait conflict rules** — **landed** (`godot:m2:recruits`, four new CONFLICTS lanes). Conflicts
+are content, not a GDScript constant: `generator.json` gained `traitConflicts`, a list of pairs,
+and `SimRecruits.roll`'s trait-bag loop calls the new `_erase_conflicts_of(bag, picked_id,
+conflicts)` after every pick — including the backstory `bias` pre-pick, which runs *before* the
+loop starts and is the case a naive "erase inside the loop only" implementation misses. `bag`
+stays a plain Array end to end (the packed-array-is-a-value trap does not apply; `Array.erase`
+matching by value is exactly right for a list of trait-id strings). Of the shipped eight traits,
+exactly one pair is a genuine contradiction: `squeamish` vs `iron_stomach`, which
+`npc_combat.gd`'s `break_off_state` already reads as opposite ends of the same threshold — the
+honest scope is recorded in docs/30 rather than papered over with docs/07's other three named
+pairs, none of which are traits the pool actually authors. Four lanes prove the *mechanism*, not
+just the one-entry table: TRUE POSITIVE (200 rolls off one fixed seed's `recruits` stream never
+co-occur a declared pair, and the lane refuses to pass quietly — it fails loudly if the sample
+never drew one of the pair's members at all, which it does not, having drawn both); TRUE NEGATIVE
+(a synthetic two-trait fixture pool declared conflicting returns one trait; the same fixture with
+the conflict list emptied returns two — the general case docs/07's four-pair sketch would have
+needed, proved without adding four unread traits to the pool); BIAS (every roll forced onto
+`line_cook`, whose bias is verified against content to be `iron_stomach`, never carries
+`squeamish` alongside it, over 60 rolls); DEAD SOCKET (every id `traitConflicts` names resolves
+into the `traits` pool, and every id in the pool is either read by sim code or named in the
+lane's own INERT allowlist — grep-verified against `sim/`: `steady_hands`, `loud`, `night_blind`
+and `fast_healer` are read nowhere, `squeamish`/`iron_stomach`/`optimist`/`light_sleeper` are).
+A mutation check dropping both `_erase_conflicts_of` calls turned TRUE POSITIVE, TRUE NEGATIVE
+and BIAS all red; restoring only the loop-pick call and leaving the bias pre-pick's call removed
+turned BIAS red on its own (TRUE POSITIVE went red too, incidentally, since `line_cook` and
+`night_auditor`'s biases feed the same stream the loop draws from) — both runs are in the session
+log for this change. Erasing from `bag` changes its size, which is what a plain `int_range(0,
+size-1)` draws against, so this is a determinism-affecting change by design and was measured
+rather than assumed safe: `godot:m2:balance` (fast tier) and `godot:m2:harness` were run before
+and after, same four seeds. Both came back **byte-identical**, line for line — `M2_BALANCE_OK`'s
+four `FAST seed=...` lines and `M2_HARNESS_OK`'s TURTLE/NOISY/KD lines matched exactly. The single
+recruit each balance seed draws never rolled a `squeamish`/`iron_stomach` pair to begin with (an
+eight-trait bag with one conflicting pair rarely draws both in one 2–3-trait pick, and the four
+fixed seeds landed on the rarely side this run), so the erase never fired on this measurement —
+an honest "did not move," not evidence the mechanism is a no-op, which the gate's own TRUE
+POSITIVE lane (200 rolls off the `recruits` stream, not four) is what actually exercises it.
 
 **Landed, gated, and switched off — the survival loop.** Five slices built it end to end: the
 grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and a bleed clock
