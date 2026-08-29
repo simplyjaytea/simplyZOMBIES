@@ -237,7 +237,9 @@ func _ensure_ui() -> void:
 		_work_panel = work_script.new() as Control
 		_work_panel.visible = false
 		_work_panel.position = Vector2(16, 240)
-		_work_panel.size = Vector2(1520, 320)
+		# Taller than before: work_panel.gd's rows grew a second line (person_clause), so ROW_H
+		# grew with them -- the same six rows now need more height to stay on screen at once.
+		_work_panel.size = Vector2(1520, 420)
 		layer.add_child(_work_panel)
 	# paperdoll glimpse bottom-left (always visible, cheap); the HUD keys hint moved to the
 	# bottom-right corner to make this one free.
@@ -930,12 +932,16 @@ func _draw_entities() -> void:
 			if zt is Dictionary:
 				ztype = String((zt as Dictionary).get("id", ""))
 		# Content id for a unique survivor, so appearance resolves for people as well as for
-		# zombies. Generated survivors have no content entry and stay on the role colour.
+		# zombies. A generated colonist has no content entry under its own `identity.id`, but
+		# does carry a rolled `identity.look` pointing at one of `colony/looks.json`'s tint-only
+		# entries -- a data pass-through, not a branch, same as the raider archetype id below.
 		var cid: String = ""
 		if is_unique:
 			var ident: Variant = world.components.get_component(int(ent), "identity")
 			if ident is Dictionary:
-				cid = String((ident as Dictionary).get("id", ""))
+				cid = String((ident as Dictionary).get("look", ""))
+				if cid.is_empty():
+					cid = String((ident as Dictionary).get("id", ""))
 		elif is_raider:
 			# The archetype id, exactly as a zombie hands over its type id: how a raider looks is
 			# a property of its content entry, never an `if id == ...` in this loop.
