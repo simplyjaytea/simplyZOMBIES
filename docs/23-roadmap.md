@@ -187,8 +187,6 @@ unplaced) rather than here.
 **People — the survivor pipeline:**
 
 - **Trait conflict rules.** Nothing yet stops the generator dealing contradictory traits.
-- **Focus auto-allocation: NPCs spend their own web points.** The shallow web is landed
-  (`godot:m2:web`); nobody but the player can walk it.
 - **The six-survivor automation checkpoint.** Risk 1's seeded colony, every NPC on Focus
   automation — the micromanagement-cliff measurement. Needs the two pieces above first, and it is
   also the cheapest place to answer the colony-shape question with data.
@@ -371,6 +369,14 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
   way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
   which is now a second hand-listed copy of the director's save shape.
+- **`repair_cost` and `spoilage_rate` are stats nothing resolves.** Both are declared in
+  `sim/modifiers/stats.gd` and both are the target of a shipped web node — `craft.tape`,
+  `craft.scrap`, `surv.cook` — and no code anywhere calls `resolve` on either, so those three
+  nodes are bought, applied, and felt by nobody. Named here because the focus-auto-allocation
+  slice made `craft.scrap` ownable for the first time and it would be dishonest to record that as
+  a node arriving in play: what arrived is a node that can be owned. Repair already spends a
+  fixed scrap cost (`SimJobs.REPAIR_TICKS` and the fortify scrap rules) and cooking already has a
+  spoilage clock, so both have an obvious reader waiting.
 - **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
   time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
   a no-op for them.
@@ -1132,9 +1138,71 @@ not a to-do list:
   luminance) so every wall/floor boundary is a drawn line — and was shown to fail at a face share
   of 0.5, at a cap no darker than the fill, at a face that sinks into the ground, and with the
   exposed-edge test removed.
-- **Survivors** — nothing on this row has landed yet beyond the recruit generator's name-and-trait
-  pool; all four open pieces (fuller generation, trait conflict rules, Focus auto-allocation, the
-  six-survivor checkpoint) are in [what's left](#whats-left-in-milestone-2).
+- **Survivors** — ~~Focus auto-allocation: NPCs spend their own web points~~ **landed**
+  (`godot:m2:web`, lanes NPC / SURPLUS / REACH / DRIFT). What this list used to say — "the shallow
+  web is landed; nobody but the player can walk it" — was wrong, and the correction is the
+  interesting part. `SimSkills._autospend` has always been entity-agnostic and the gate's FOCUS
+  lane has always spent *Mara's* points down the Medic path, so an NPC could walk the web from the
+  day the web landed. Three real things were missing, all found by reading the code rather than the
+  list:
+  **Nobody ever chose.** Every survivor booted on `Auto`, `Auto` is one flat path, and nothing in
+  the sim ever called `set_focus` — so six colonists bought the same five nodes in the same order
+  whatever they had spent their lives doing, which is the opposite of docs/08's "a survivor's
+  position on it is a record of what they survived". `SimSkills.suggest_focus` derives a focus from
+  what has actually been earned and a new `skills.drift` system (ai phase, order −1) applies it on
+  a day boundary; the rules are in
+  [docs/30](30-decisions.md#focus-drift-what-moves-a-survivor-off-auto).
+  **Points earned off the path were stranded for life.** `_autospend` walked `focusPaths[focus]`
+  and nothing else, so an Auto colonist doing Construct banked Craft points against a path with no
+  Craft node in it. A second pass now spends the leftovers on the cheapest affordable node in any
+  region, ties by content order, and only ever with points of that node's own region — so it can
+  never raid a path's savings, and a survivor drifts outward from the cheap centre the way docs/08
+  describes.
+  **Two nodes nobody in the game could ever own.** `ranged.calm` and `craft.scrap` appear in no
+  `focusPaths` entry, and with no web screen there is no other way to buy a node: dead content
+  sockets, the tenth and eleventh of this milestone. The surplus pass is what reaches them, and the
+  REACH lane is the assertion that *something reads* every node — it probes all 15 with the focus
+  that lists them, or Auto where none does, and names which mechanism bought each. Run against
+  pre-slice code it says so out loud: `ranged.calm (Ranged, cost 2) is on no focus path and the
+  surplus pass never buys it: nobody in the game can own it`, exit 1. It now prints
+  `REACH OK 15 nodes: 13 by path, 2 by surplus ["ranged.calm", "craft.scrap"]`. The two orphans
+  were deliberately **not** added to a path, because a path entry would make the lane green without
+  the mechanism it exists to prove.
+  Provenance is the third piece and it is one field: `set_focus` takes `by`, the `job.focus`
+  command intake passes `"player"`, and drift refuses to move anybody whose `focusSetBy` reads
+  `player` — docs/07's "never touch anything you've manually locked", made mechanical rather than
+  promised. Every lane carries its negative: a Manual NPC given the same six jobs holds all six
+  points and buys nothing; a probe with no points owns no nodes; the player-set twin stays on Auto
+  through the same five Doctor jobs; one Medicine point plus a history that names medicine drifts
+  while the same point with a history that names nothing does not; and the twin who has only ever
+  rested stays on Auto, because Endurance votes for no focus. Four mutation runs confirm the lanes
+  can fail: deleting the surplus loop reds SURPLUS (`5 Craft points bought no Craft node on a path
+  that has none: nodes []`) and REACH (above); deleting the provenance guard reds with
+  `drift overrode a player-set focus: Medic`; deleting the cadence guard reds with `drift ran twice
+  in one day`; and writing the cadence as `tick % DAY_TICKS != 0` — the compressed-campaign trap —
+  reds with `5 Doctor jobs and a day boundary left the NPC on Auto`, which is the whole reason the
+  cadence is a day *number* compared against `driftDay` on the component.
+  **Before and after, same seeds.** `godot:m2:jobs` is line-for-line identical. `godot:m2:harness`
+  is identical on all six lines (turtle packets=3, noisy live=20/avenue=17/peak=45.00, knife 24/3,
+  bow 14/3, pistol 20/4). The balance fast tier moved on exactly one of four seeds: **404, kills
+  8(m8) → 7(m7) and deaths 1 → 0**; 20260805, 31337 and 90210 are unchanged in every field, and no
+  band moved. Diagnosed rather than theorised, with a throwaway driver that replayed 404's
+  compressed campaign printing every `job.focus_changed` and `entity.killed`: Mara kills five
+  shamblers by day 3, drifts Auto → Fighter on the day-4 boundary, kills two more, and no colonist
+  dies. A second balance run with the drift system disabled reproduced 404 = 7 kills, 0 deaths
+  *exactly*, which puts the movement on the **surplus pass**, not on drift — Mara now owns
+  `melee.tempo` and `melee.reach` (swing_speed ×1.04, melee_reach ×1.05), which under the old path
+  pass she could never buy, and that changes her kill timing. Drift fired on 404 and moved no
+  counter. The driver was deleted.
+  **Honest halves.** `SimSkills.points` is *unspent* points, and treatment (`CLOSE_MEDICINE_FLOOR`)
+  and modification (the Craft tier bias) read it as a skill level — so spending points now costs a
+  little of that reading. The shift is bounded and one-directional: an Auto survivor reaches the
+  same Medicine reading three earned points later than before, and the same Craft bias three later,
+  after which every further point banks as it always did. That "unspent doubles as skill" oddity
+  predates this slice and is left alone rather than quietly redefined. And `craft.scrap` is now
+  ownable while the stat it moves, `repair_cost`, is resolved by nobody — see the defect list.
+  The other three pieces on this row (fuller generation, trait conflict rules, the six-survivor
+  checkpoint) are still in [what's left](#whats-left-in-milestone-2).
 - **Needs** — ~~raw and spoiled food carrying illness risk~~ **landed** (`godot:m2:needs`,
   ILLNESS). docs/04's food clause is "raw and spoiled food fills the bar but damages mood **and
   carries illness risk**"; only the mood half shipped, so raw food was a mood tax and nothing else

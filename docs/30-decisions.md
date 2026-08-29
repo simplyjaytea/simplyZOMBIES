@@ -1495,6 +1495,55 @@ dressing changes never move the layout.
   ends the recovery window, so a wound that closes twice as fast on an unchanged regen rate would
   leave the limb permanently weaker for having been treated. The rate is derived from the same
   number in both places rather than authored twice.
+## Focus drift: what moves a survivor off Auto
+
+- **A day number, never the tick the day turns over.** The cadence is
+  `Clock.day_number(world.tick) != skillWeb.driftDay`, compared per survivor. The obvious spelling
+  — fire on the tick the day changes — is a gate that passes and a feature that never runs, because
+  the balance harness's fast tier and every compressed campaign *jump* the clock to each day's dusk
+  and land on no boundary tick at all. Written that way the drift fires for nobody in exactly the
+  runs that measure it; `check_m2_web.gd` mutates the cadence into that shape and the lane goes red,
+  which is the only reason to trust the shape that shipped. `driftDay` lives on the component rather
+  than in a `static var`, because a static is shared between the two worlds a gate boots (this
+  document has said so twice already for components and once for the kernel), and it round-trips a
+  save as an int value rather than as a Dictionary key.
+- **A lead of two, because one is a coin flip.** A survivor whose top two focuses are one point
+  apart is one job away from being the other thing, and a focus change rewrites the whole job row —
+  so a margin of one would have colonists changing careers most mornings and thrashing the work
+  grid with them. Two points is the smallest margin that cannot be produced by a single job, which
+  is the honest definition of "settled" here.
+- **The player's choice outranks the sim's, and provenance is what says so.** `jobPriorities`
+  carries `focusSetBy`; the `job.focus` command writes `"player"` and everything else writes
+  `"auto"`. Drift refuses to move a `player` row. It is deliberately *not* keyed on the focus name:
+  a player who deliberately puts their medic back on `Auto` has made a choice, and a rule that read
+  "Auto means nobody has decided" would undo it the next morning. Manual keeps its own early return
+  as well, so the lock survives even where provenance is absent (an old save, a fixture that writes
+  the component by hand).
+- **Endurance votes for nobody.** `focusRegions` maps Melee → Fighter, Ranged → Scout, Medicine →
+  Medic, and Craft *and* Survival → Worker; Endurance is in none of them. Every survivor sleeps and
+  Rest earns Endurance, so a region everybody earns equally is not evidence about anybody — include
+  it and it wins most votes and points at no focus. Craft and Survival are summed rather than taken
+  at their max because the Worker job row spans both (Haul, Cook, Construct, Repair): they are two
+  halves of one role, not two roles.
+- **One point for who they used to be.** A backstory that names a trade adds `HISTORY_NUDGE` (1) to
+  that focus, matched by word against `focusHistory` in the web content. It is a nudge in the
+  arithmetic rather than a tie-break, and that is the whole reason it exists: under a lead of two a
+  tie-break can never change an outcome, so a tie-break here would have been a twelfth dead socket.
+  As a nudge it decides a near-tie — one Doctor job plus a nursing history drifts, the same job with
+  a history that names nothing does not — and it can never outvote a career. A survivor whose
+  winning focus rests on the nudge alone, with no earned points behind it, is not moved at all:
+  docs/08's "you cannot grind a build you aren't living" runs the other way too.
+- **The tables are content, next to `focusPaths`.** `focusRegions` and `focusHistory` live in
+  `content/colony/skill_web.json` because they are the same kind of statement as the paths already
+  there — which region argues for which focus is a design knob, not a branch. Nothing validates that
+  file (there is no `colony` schema, and the frozen oracle's `CONTENT_TYPES` does not list the
+  directory either — proven by running `npm test`, not assumed), so the gate asserts the shapes it
+  depends on itself, including that the Auto path still names no Craft node.
+- **The surplus pass buys cheapest-first, and only ever in the node's own region.** Points are
+  region-tagged (docs/08), so leftovers can only ever reach nodes of the region that earned them,
+  and a path's savings can never be spent on something else. Cheapest-first with ties by content
+  order makes the spend deterministic without a coin, so no new RNG stream was needed — and it
+  matches docs/08's own shape, where the cheap broad nodes near the centre are where anyone drifts.
 
 ## Survivor generation: a look is a tint, an age is a word, a line is its own field
 
