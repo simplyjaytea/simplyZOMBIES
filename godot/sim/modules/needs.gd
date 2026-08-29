@@ -205,6 +205,22 @@ const SPOILED_MOOD: float = -16.0
 # second authored number, so a content edit to illnessChance moves both together.
 const SPOILED_ILLNESS_MUL: float = 2.5
 
+# --- a meal's mood is a mood, not a trait -----------------------------------------------------
+#
+# Every other mood source in this file pairs its `add` with a `remove_by_source` -- shame, grief,
+# arguments, illness -- and eating did not. `eat` added a modifier with the fixed source
+# `need.food` and nothing ever took one away, so thirty meals over a ten-day campaign were thirty
+# entries, all summing: a colony that ate cooked food was permanently and unboundedly cheerful,
+# and one that lived on spoiled tins was permanently miserable, for reasons no clock could undo.
+#
+# So it is bounded twice, in the shape `_fall_ill` already uses: one modifier from one source,
+# replaced rather than stacked, and expiring on a clock of its own. A good meal is worth three
+# in-game hours of goodwill (36000 ticks at 12000 to the in-game hour) and after that it is a
+# memory -- comfortably shorter than the gap between meals, so two meals can never be carried at
+# once even before the replacement above rules it out.
+const MEAL_MOOD_SOURCE: String = "need.food"
+const MEAL_MOOD_TICKS: int = 36000
+
 
 # Whether this meal makes them ill. `iron_stomach` is immunity here rather than a reduction: the
 # trait already zeroes the mood penalty, and a trait that half-protects from two things is harder
@@ -236,6 +252,37 @@ static func is_ill(world: Variant, entity: int) -> bool:
 	return int(world.tick) < int(of(world, entity).get("illUntilTick", -1))
 
 
+# The lift (or the sting) a meal leaves behind. Removed before it is added, so a second meal
+# replaces the first rather than joining it, and stamped with the tick it runs out on -- an int on
+# the needs component, which is what survives a save. Zero means the meal said nothing about mood,
+# and that clears the clock rather than leaving one running over nothing.
+static func _apply_meal_mood(world: Variant, entity: int, mood: float) -> void:
+	if world.modifiers == null:
+		return
+	var n: Dictionary = of(world, entity)
+	world.modifiers.call("remove_by_source", MEAL_MOOD_SOURCE, entity)
+	if mood == 0.0:
+		n["mealMoodUntilTick"] = -1
+		return
+	n["mealMoodUntilTick"] = int(world.tick) + MEAL_MOOD_TICKS
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": mood, "source": MEAL_MOOD_SOURCE}, entity)
+
+
+# And it wears off. The illness clock's shape exactly: one comparison per survivor, and the
+# modifier goes when the clock does, so nothing is left behind for the next meal to sum with.
+static func _tick_meal_mood(world: Variant) -> void:
+	if world.modifiers == null:
+		return
+	for ent in _survivors(world):
+		var n: Dictionary = of(world, int(ent))
+		var until: int = int(n.get("mealMoodUntilTick", -1))
+		if until < 0 or int(world.tick) < until:
+			continue
+		n["mealMoodUntilTick"] = -1
+		world.modifiers.call("remove_by_source", MEAL_MOOD_SOURCE, int(ent))
+		world.events.publish({"type": "mood.mealFaded", "entity": int(ent)})
+
+
 # Clears the modifier once the bout has run its course. Driven from the mood tick rather than its
 # own system: it is one comparison per survivor and does not need a phase slot of its own.
 static func _tick_illness(world: Variant) -> void:
@@ -265,6 +312,8 @@ static func blank() -> Dictionary:
 		"slept": "up",
 		"wakeJob": "",
 		"dirtyWake": false,
+		"mealMoodUntilTick": -1,
+		"coldSinceTick": -1,
 	}
 
 
@@ -351,7 +400,10 @@ static func work_mul(world: Variant, entity: int) -> float:
 			m = minf(m, 0.85)
 	var t: String = String(n.get("temperature", "comfortable"))
 	var h: String = String(n.get("hygiene", "clean"))
-	if t == "very_cold" or t == "very_hot" or h == "dirty" or h == "filthy":
+	# Read through band_pressure rather than by naming the bands, so the deep band -- which is
+	# worse than `very_cold` and used to be unreachable -- cannot be the one case a list forgets.
+	var tp: String = band_pressure("temperature", t)
+	if tp == "soft" or tp == "hard" or h == "dirty" or h == "filthy":
 		m = minf(m, 0.85)
 	# Food poisoning is the one need-adjacent state that is worse than being merely uncomfortable,
 	# so it multiplies rather than joining the 0.85 floor the others share.
@@ -415,6 +467,9 @@ static func register_module(world: Variant) -> void:
 	)
 	world.systems.register("need.illness", "needs", 11, func(w: Variant) -> void:
 		_tick_illness(w)
+	)
+	world.systems.register("need.mealMood", "needs", 11, func(w: Variant) -> void:
+		_tick_meal_mood(w)
 	)
 	world.systems.register("need.arguments", "needs", 12, func(w: Variant) -> void:
 		_tick_arguments(w)
@@ -869,6 +924,26 @@ static func _apply_argument(world: Variant, ent: int, amount: float) -> void:
 	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": -amount, "source": ARGUMENT_SOURCE}, ent)
 
 
+# --- the deep cold, which used to be unreachable ----------------------------------------------
+#
+# `extremely_cold` was in TEMP_ORDER, was the only "hard" temperature `band_pressure` could return,
+# had its own HUD line, and drove jobs.gd's mid-job interrupt -- and `_tick_temperature` could
+# write `comfortable`, `very_cold` and `a_little_cold` and nothing else. So the hard band was
+# unreachable, every branch keyed to it was dead, and a night outdoors read the same on the first
+# tick as on the last however long somebody stood in it.
+#
+# Cold is a dose, not a reading of the sky. docs/04 lists the consequences in order -- "mood
+# damage, then temporary movement and fine-motor penalties, then hypothermia" -- which is a thing
+# that gets worse the longer it lasts. So a survivor left in the `very_cold` case keeps a clock,
+# and once they have been out in it for EXPOSURE_TICKS the band deepens. Any warmth at all -- a
+# roof, a lit fire, the end of the night -- clears the clock, so the deep band is the price of a
+# sustained night outdoors rather than a moment of one, and the cloth wrap (which shifts one band
+# toward comfortable) is worth a real hour and a half out there.
+#
+# 18000 ticks is an hour and a half in game, a quarter of the six-hour night.
+const EXPOSURE_TICKS: int = 18000
+
+
 static func _tick_temperature(world: Variant) -> void:
 	var hold: bool = hold_max(world)
 	var night: bool = Clock.phase_of(int(world.tick)) == Clock.Phase.Night
@@ -876,6 +951,7 @@ static func _tick_temperature(world: Variant) -> void:
 		var n: Dictionary = of(world, ent)
 		if hold:
 			n["temperature"] = "comfortable"
+			n["coldSinceTick"] = -1
 			continue
 		var pos: Variant = world.components.get_component(ent, "position")
 		if not pos is Dictionary:
@@ -885,12 +961,21 @@ static func _tick_temperature(world: Variant) -> void:
 		var indoors: bool = world.tilemap != null and SimTileMap.is_indoors(world.tilemap, tx, ty)
 		var fire: bool = lit_campfire_near(world, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), CAMPFIRE_HEAT_M)
 		var before: String = String(n.get("temperature", "comfortable"))
+		var exposed: bool = night and not fire and not indoors
+		var since: int = int(n.get("coldSinceTick", -1))
+		if not exposed:
+			since = -1
+		elif since < 0:
+			since = int(world.tick)
+		n["coldSinceTick"] = since
 		var band: String = "comfortable"
 		if night:
 			if fire:
 				band = "comfortable"
 			elif not indoors:
 				band = "very_cold"
+				if since >= 0 and int(world.tick) - since >= EXPOSURE_TICKS:
+					band = "extremely_cold"
 			else:
 				band = "a_little_cold"
 		if wearing_wrap(world, ent):
@@ -1032,10 +1117,15 @@ static func _apply_muls(world: Variant, ent: int, n: Dictionary) -> void:
 			mood_v -= 10.0
 	var t: String = String(n.get("temperature", "comfortable"))
 	var h: String = String(n.get("hygiene", "clean"))
-	if t.begins_with("a_little_") or h == "a_little_dirty":
+	# Same reading as work_mul's, and for the same reason: the deep band is worse than `very_cold`,
+	# and a list of band names is exactly where it went missing before.
+	var tp: String = band_pressure("temperature", t)
+	if tp == "seek" or h == "a_little_dirty":
 		mood_v -= 4.0
-	if t == "very_cold" or t == "very_hot" or h == "dirty":
+	if tp == "soft" or h == "dirty":
 		mood_v -= 10.0
+	if tp == "hard":
+		mood_v -= 20.0
 	if h == "filthy":
 		mood_v -= 20.0
 	if mood_v != 0.0:
@@ -1125,8 +1215,7 @@ static func eat(world: Variant, entity: int, item: int) -> bool:
 	if String(n.get("crisis", "")) == "starving" and float(n["hunger"]) > 0.0:
 		n["crisis"] = "none"
 		n["starvingSinceTick"] = -1
-	if mood != 0.0 and world.modifiers != null:
-		world.modifiers.call("add", {"stat": "mood", "op": "add", "value": mood, "source": "need.food"}, entity)
+	_apply_meal_mood(world, entity, mood)
 	if ill:
 		_fall_ill(world, entity)
 	_apply_muls(world, entity, n)
@@ -1524,7 +1613,9 @@ static func _hud_band(picks: Array[Dictionary], key: String, band: String, _pane
 			"very_cold":
 				picks.append({"rank": 14, "hud": "You're very cold.", "panel": "You're very cold."})
 			"extremely_cold":
-				picks.append({"rank": 4, "hud": "You're very cold.", "panel": "You're very cold."})
+				# Its own words now that the band is reachable: it outranks "very cold" and used to
+				# read identically to it, which would have made the deep band invisible in play.
+				picks.append({"rank": 4, "hud": "You're freezing.", "panel": "You're freezing — get to a fire or indoors."})
 	elif key == "hygiene":
 		match band:
 			"a_little_dirty":

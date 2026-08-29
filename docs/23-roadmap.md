@@ -289,13 +289,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   nothing gives the item a home — no `stored`, no `position`, no slot. `item.detach` has the same
   shape: `SimAttachments.detach` deliberately leaves the attachment homeless and the command does
   nothing about it.
-- **A meal's mood never wears off, and stacks.** `SimNeeds` adds a `mood` modifier with the fixed
-  source `need.food` and never removes it; every other mood source in that file (grief, argument,
-  illness) pairs its `add` with a `remove_by_source`. Thirty meals over a ten-day campaign is
-  thirty permanent entries, all summing.
-- **A survivor who dies in bed keeps the bed.** `SimRecruits._make_corpse` strips `sleeping`
-  directly instead of going through `SimNeeds._wake`, the only thing that clears the bed's
-  `occupiedBy`. The bed is unusable for the rest of the run.
 - **Cook has no claim on its ingredient.** Nothing marks the raw item as spoken for and the job
   does not re-check at completion, so two cooks turn one raw item into two meals — or into one meal
   out of nothing. `Bury` has the same hole: `_do_bury` reads "the corpse has no position" as "I am
@@ -378,9 +371,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
   time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
   a no-op for them.
-- **`extremely_cold` is unreachable.** `_tick_temperature` can only write `comfortable`,
-  `very_cold` or `a_little_cold`, so the only "hard" temperature pressure and every branch keyed to
-  it are dead — including the assertion meant to police the band.
 - **A corpse looks exactly like a person.** Presentation has no notion of one: same sprite, same
   tint, same facing pointer — and because `_make_corpse` removes `velocity`, the peripheral-motion
   cull inverts for corpses.
@@ -1142,6 +1132,43 @@ not a to-do list:
   `content/props/stations.json`, so it stands visible under the same PROPS lane as the well.
   **Not shipped:** nobody can build a *new* latrine, the colony boots with the one it is sited;
   and there is no downwind, because there is no wind until weather lands in Milestone 3.
+  ~~a meal's mood never wearing off, a survivor who dies in bed keeping it, and `extremely_cold`
+  being unreachable~~ **landed** (`godot:m2:needs`, MEAL MOOD / BED / COLD). Three review-sweep
+  defects, one gate lane each; every lane has a true positive, a true negative and the assertion
+  that something *reads* the mechanism, and all three lanes were shown to go red with the fix
+  reverted before they were trusted green.
+  **A meal's mood.** `eat` added a `mood` modifier with the fixed source `need.food` and nothing
+  ever removed one, while shame, grief, arguments and illness all pair their `add` with a
+  `remove_by_source` — thirty meals were thirty summing, permanent entries. It is bounded twice
+  now, in `_fall_ill`'s shape: one modifier from one source, replaced rather than stacked, and
+  expiring on `MEAL_MOOD_TICKS` (36000 — three in-game hours, comfortably shorter than the gap
+  between meals) through a `need.mealMood` system that publishes `mood.mealFaded`. Measured: one
+  cooked meal **8.0**, thirty cooked meals **8.0** where the old code carried 100.0, and nothing
+  left once the clock runs out. The read: a spoiled meal drops `mood_band` from `content` to
+  `low` — which is what every consequence in jobs.gd matches on — and the band comes back when the
+  meal fades.
+  **The bed.** `_make_corpse` stripped `sleeping` directly instead of going through
+  `SimNeeds._wake`, the one place that clears a bed's `occupiedBy`, so a survivor who died in bed
+  held it for the rest of the run and `nearest_bed`'s free-only scan — which is what jobs.gd's
+  Rest asks — never offered it to anybody again. Both doors are shut: `_make_corpse`, and
+  `_turn_with_kit`, where the despawn takes the sleeper's components and leaves the *bed* pointing
+  at a dead id. The lane kills through `entity.killed` + `finish_death` (the funnel starvation
+  already uses) rather than `attack.connected`, deliberately: that publishes into `need.wake-hit`,
+  which would wake them and free the bed for reasons that have nothing to do with the fix.
+  **The deep cold.** `_tick_temperature` could write `comfortable`, `very_cold` and
+  `a_little_cold` and nothing else, so `extremely_cold` — the only band `band_pressure` calls
+  "hard", with its own HUD line and its own branch in jobs.gd — was unreachable and every branch
+  keyed to it was dead. Cold is a **dose** now, which is the order docs/04 lists its consequences
+  in: a survivor outdoors at night with no fire keeps a `coldSinceTick`, and `EXPOSURE_TICKS`
+  (18000 — an hour and a half, a quarter of the night) later the band deepens. Any warmth clears
+  the clock, so the deep band is the price of a sustained night out rather than a moment of one,
+  and the cloth wrap's one-band shift is worth a real hour and a half. `work_mul` and
+  `_apply_muls` now read the band through `band_pressure` instead of naming `very_cold` in a list
+  — a list is exactly where the band went missing — so the hard band costs −20 mood against
+  `very_cold`'s −10 rather than the nothing it would otherwise have cost. The HUD line is its own
+  words ("You're freezing."); it read identically to `very_cold`, which would have made the band
+  invisible in play. The read: an `extremely_cold` NPC drops a job mid-action through jobs.gd's
+  `hard` branch and a `very_cold` one works on to the end of it.
 - **Attention leftovers** — ~~the sim half of last-known-position memory~~ and
   ~~director-varied nights~~ **both landed** (`godot:m2:sight`, MEMORY / EXPIRY / PROSE;
   `godot:m2:director`, VARIANCE / BOUNDS / SIDES). docs/28 rated this
