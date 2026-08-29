@@ -1495,6 +1495,92 @@ dressing changes never move the layout.
   ends the recovery window, so a wound that closes twice as fast on an unchanged regen rate would
   leave the limb permanently weaker for having been treated. The rate is derived from the same
   number in both places rather than authored twice.
+## Focus drift: what moves a survivor off Auto
+
+- **A day number, never the tick the day turns over.** The cadence is
+  `Clock.day_number(world.tick) != skillWeb.driftDay`, compared per survivor. The obvious spelling
+  — fire on the tick the day changes — is a gate that passes and a feature that never runs, because
+  the balance harness's fast tier and every compressed campaign *jump* the clock to each day's dusk
+  and land on no boundary tick at all. Written that way the drift fires for nobody in exactly the
+  runs that measure it; `check_m2_web.gd` mutates the cadence into that shape and the lane goes red,
+  which is the only reason to trust the shape that shipped. `driftDay` lives on the component rather
+  than in a `static var`, because a static is shared between the two worlds a gate boots (this
+  document has said so twice already for components and once for the kernel), and it round-trips a
+  save as an int value rather than as a Dictionary key.
+- **A lead of two, because one is a coin flip.** A survivor whose top two focuses are one point
+  apart is one job away from being the other thing, and a focus change rewrites the whole job row —
+  so a margin of one would have colonists changing careers most mornings and thrashing the work
+  grid with them. Two points is the smallest margin that cannot be produced by a single job, which
+  is the honest definition of "settled" here.
+- **The player's choice outranks the sim's, and provenance is what says so.** `jobPriorities`
+  carries `focusSetBy`; the `job.focus` command writes `"player"` and everything else writes
+  `"auto"`. Drift refuses to move a `player` row. It is deliberately *not* keyed on the focus name:
+  a player who deliberately puts their medic back on `Auto` has made a choice, and a rule that read
+  "Auto means nobody has decided" would undo it the next morning. Manual keeps its own early return
+  as well, so the lock survives even where provenance is absent (an old save, a fixture that writes
+  the component by hand).
+- **Endurance votes for nobody.** `focusRegions` maps Melee → Fighter, Ranged → Scout, Medicine →
+  Medic, and Craft *and* Survival → Worker; Endurance is in none of them. Every survivor sleeps and
+  Rest earns Endurance, so a region everybody earns equally is not evidence about anybody — include
+  it and it wins most votes and points at no focus. Craft and Survival are summed rather than taken
+  at their max because the Worker job row spans both (Haul, Cook, Construct, Repair): they are two
+  halves of one role, not two roles.
+- **One point for who they used to be.** A backstory that names a trade adds `HISTORY_NUDGE` (1) to
+  that focus, matched by word against `focusHistory` in the web content. It is a nudge in the
+  arithmetic rather than a tie-break, and that is the whole reason it exists: under a lead of two a
+  tie-break can never change an outcome, so a tie-break here would have been a twelfth dead socket.
+  As a nudge it decides a near-tie — one Doctor job plus a nursing history drifts, the same job with
+  a history that names nothing does not — and it can never outvote a career. A survivor whose
+  winning focus rests on the nudge alone, with no earned points behind it, is not moved at all:
+  docs/08's "you cannot grind a build you aren't living" runs the other way too.
+- **The tables are content, next to `focusPaths`.** `focusRegions` and `focusHistory` live in
+  `content/colony/skill_web.json` because they are the same kind of statement as the paths already
+  there — which region argues for which focus is a design knob, not a branch. Nothing validates that
+  file (there is no `colony` schema, and the frozen oracle's `CONTENT_TYPES` does not list the
+  directory either — proven by running `npm test`, not assumed), so the gate asserts the shapes it
+  depends on itself, including that the Auto path still names no Craft node.
+- **The surplus pass buys cheapest-first, and only ever in the node's own region.** Points are
+  region-tagged (docs/08), so leftovers can only ever reach nodes of the region that earned them,
+  and a path's savings can never be spent on something else. Cheapest-first with ties by content
+  order makes the spend deterministic without a coin, so no new RNG stream was needed — and it
+  matches docs/08's own shape, where the cheap broad nodes near the centre are where anyone drifts.
+
+## Survivor generation: a look is a tint, an age is a word, a line is its own field
+
+- **`colony/looks.json` declares `tint` only, never `sprite`.** `check_appearance.gd`'s
+  `_sprite_keys_resolve` fails the build for any declared sprite with no 64×64 PNG behind it, and
+  no art exists for a generated colonist's face today. A look could have waited for that art, but
+  a colony of identical role-colour discs is the worse failure in the meantime — docs/01's variety
+  is a variety of *tint*, an axis art can widen later without a second content shape or a code
+  change; `presentation/main.gd` already reads `identity.look` as a plain content id, the same
+  path a sprite would take. Six looks ship, not sixty: enough for the vertical slice's handful of
+  survivors to read as different people, sized like the eight backstories and four age bands
+  beside it rather than authored as a finished palette.
+- **The rolled age lives on `identity.age` as an integer and is printed nowhere.** The
+  condition-view health-bar ban (docs/05 clause 4, `godot:ban:healthbar`) is about integrity, not
+  age, so an age number would not trip that gate — but printing "34" on a screen that otherwise
+  says "barely out of school" would be the one number on the whole survivor sheet, and docs/01's
+  scarce-and-unreliable information contract does not carve out an exception for age just because
+  it is harmless to know. The number exists so the aptitude nudge and the age-band prose lookup
+  have something to compute from; `person_clause` is the only other reader, and it always goes
+  through the band's authored word. `godot/check_m2_recruits.gd`'s PROSE lane greps the rendered
+  clause for `[0-9]` so the rule is mechanical, the same shape as the health-bar ban's key
+  allowlist.
+- **A backstory's `line` is authored separately from its `label`, even where the two would read
+  almost the same today.** `label` is the short tag `_generator_pool` and `check_m2_recruits.gd`
+  match ids and traits against; `line` is prose meant to sit inside a sentence, looked up at read
+  time by `person_clause` rather than baked onto `identity` at spawn. Collapsing them into one
+  field would save eight lines of content today and cost the ability to make "a line cook" read as
+  "ran the line at a diner downtown until the power went" tomorrow without touching code — the same
+  bet docs/12 already made for item names versus their flavour text.
+- **The age nudge and the backstory nudge share one clamp-and-rebalance-to-15 pass, applied
+  together rather than as two sequential passes.** The loop that brings a triple back to budget
+  after a nudge will, on a tie, decrement whichever stat the nudge just raised — measured on the
+  probe that set the ±2 dex threshold in `check_m2_recruits.gd`'s AGE READS lane, a single ±1 nudge
+  still moved the same-direction average by about 1 point over 200 same-seeded pairs, so the
+  absorption is partial, not total. Running the two nudges through the loop separately would let
+  the second nudge's rebalance partially undo the first's in the same tie-prone way; running them
+  together means there is exactly one rebalance to reason about, and the harness measured that one.
 
 ---
 

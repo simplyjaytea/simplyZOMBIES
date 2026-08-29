@@ -48,16 +48,32 @@
     "broad shoulders",
     "quiet voice"
   ],
+  "ageBands": [
+    { "id": "young", "min": 17, "max": 24, "prose": "barely out of school", "nudge": { "dex": 1 } },
+    { "id": "adult", "min": 25, "max": 44, "prose": "settled into adulthood", "nudge": {} },
+    { "id": "midlife", "min": 45, "max": 59, "prose": "steady, past the point of surprises", "nudge": { "con": 1 } },
+    { "id": "elder", "min": 60, "max": 75, "prose": "greying at the temples", "nudge": { "con": -1 } }
+  ],
+  "looks": [
+    "colony.look.01",
+    "colony.look.02",
+    "colony.look.03",
+    "colony.look.04",
+    "colony.look.05",
+    "colony.look.06"
+  ],
   "backstories": [
     {
       "id": "school_caretaker",
       "label": "school caretaker",
+      "line": "a school caretaker",
       "kit": ["item.scrap.metal"],
       "nudge": { "str": 1 }
     },
     {
       "id": "line_cook",
       "label": "line cook",
+      "line": "a line cook",
       "kit": ["item.food.canned"],
       "bias": "iron_stomach",
       "nudge": { "con": 1 }
@@ -65,36 +81,42 @@
     {
       "id": "long_haul_driver",
       "label": "long-haul driver",
+      "line": "a long-haul driver",
       "kit": ["item.water.bottle"],
       "nudge": { "con": 1 }
     },
     {
       "id": "veterinary_nurse",
       "label": "veterinary nurse",
+      "line": "a veterinary nurse",
       "kit": ["item.bandage.cloth"],
       "nudge": { "dex": 1 }
     },
     {
       "id": "fired_security",
       "label": "fired security guard",
+      "line": "a fired security guard",
       "kit": ["item.bat.aluminium"],
       "nudge": { "str": 1 }
     },
     {
       "id": "cyclist",
       "label": "cyclist",
+      "line": "a cyclist",
       "kit": [],
       "nudge": { "dex": 1 }
     },
     {
       "id": "warehouse_picker",
       "label": "warehouse picker",
+      "line": "a warehouse picker",
       "kit": ["item.scrap.metal"],
       "nudge": { "str": 1 }
     },
     {
       "id": "night_auditor",
       "label": "night auditor",
+      "line": "a night auditor",
       "kit": [],
       "bias": "light_sleeper",
       "nudge": { "dex": 1 }
