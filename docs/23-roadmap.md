@@ -197,16 +197,19 @@ unplaced) rather than here.
 
 **Medicine — the back half of treatment:**
 
-- **The full treatment ladder: clean, then close, then rest.** Pressure, bandaging and recovery
-  are live; cleaning and closing are not verbs yet. Extends `godot:m2:treatment`.
 - **Supply quality tiers.** The sepsis roll already prices sterile < cloth < dirty dressings; what
   is open is quality as an authored property of medical supplies generally.
 - **Diagnosis text that scales with Medicine skill.** A good medic reads a wound better; a novice
-  reads it vaguely. Prose only — no numbers arrive with skill.
+  reads it vaguely. Prose only — no numbers arrive with skill. This is also where the condition
+  view learns to say a wound has been cleaned or sutured: the ladder writes both, and neither is
+  in `sim/condition.gd` yet, deliberately — a field with one possible value is a gate that cannot
+  fail, which is the lesson the `bandage` field's arrival taught.
+- **The splint, and fracture immobilisation.** `closeKind` declares `splint` and
+  `SimTreatment.CLOSE_KINDS` accepts only `suture`, so a kit declaring one is refused rather than
+  silently sutured with. `cleanTier`'s `alcohol` grade is priced in `SEPSIS_CLEAN_MUL` and carried
+  by no content entry — both are named here rather than left to look wired.
 - **Permanent conditions that keep a survivor in play.** A limp, a blind eye, a scar — loss that
   does not remove the person, docs/05's permanent-consequences row.
-- **Sleep quality.** Blocked on itself: docs/05 lists sleep among what pain degrades, and there is
-  no sleep-quality value to degrade yet.
 
 **Gear — finishing what items started:**
 
@@ -217,6 +220,9 @@ unplaced) rather than here.
 - **Attachments meet the attention field.** An optic useless in the dark; a weapon light that is a
   real light source and therefore a real emitter.
 - **An attachment-fitting screen.** `item.attach` / `item.detach` work and have no surface.
+- **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
+  in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
+  bed beats a cot; content would carry the difference once more than one kind of bed exists.
 
 **Attention:**
 
@@ -289,13 +295,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   nothing gives the item a home — no `stored`, no `position`, no slot. `item.detach` has the same
   shape: `SimAttachments.detach` deliberately leaves the attachment homeless and the command does
   nothing about it.
-- **A meal's mood never wears off, and stacks.** `SimNeeds` adds a `mood` modifier with the fixed
-  source `need.food` and never removes it; every other mood source in that file (grief, argument,
-  illness) pairs its `add` with a `remove_by_source`. Thirty meals over a ten-day campaign is
-  thirty permanent entries, all summing.
-- **A survivor who dies in bed keeps the bed.** `SimRecruits._make_corpse` strips `sleeping`
-  directly instead of going through `SimNeeds._wake`, the only thing that clears the bed's
-  `occupiedBy`. The bed is unusable for the rest of the run.
 - **Cook has no claim on its ingredient.** Nothing marks the raw item as spoken for and the job
   does not re-check at completion, so two cooks turn one raw item into two meals — or into one meal
   out of nothing. `Bury` has the same hole: `_do_bury` reads "the corpse has no position" as "I am
@@ -378,9 +377,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
   time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
   a no-op for them.
-- **`extremely_cold` is unreachable.** `_tick_temperature` can only write `comfortable`,
-  `very_cold` or `a_little_cold`, so the only "hard" temperature pressure and every branch keyed to
-  it are dead — including the assertion meant to police the band.
 - **A corpse looks exactly like a person.** Presentation has no notion of one: same sprite, same
   tint, same facing pointer — and because `_make_corpse` removes `velocity`, the peripheral-motion
   cull inverts for corpses.
@@ -1142,6 +1138,79 @@ not a to-do list:
   `content/props/stations.json`, so it stands visible under the same PROPS lane as the well.
   **Not shipped:** nobody can build a *new* latrine, the colony boots with the one it is sited;
   and there is no downwind, because there is no wind until weather lands in Milestone 3.
+  ~~a meal's mood never wearing off, a survivor who dies in bed keeping it, and `extremely_cold`
+  being unreachable~~ **landed** (`godot:m2:needs`, MEAL MOOD / BED / COLD). Three review-sweep
+  defects, one gate lane each; every lane has a true positive, a true negative and the assertion
+  that something *reads* the mechanism, and all three lanes were shown to go red with the fix
+  reverted before they were trusted green.
+  **A meal's mood.** `eat` added a `mood` modifier with the fixed source `need.food` and nothing
+  ever removed one, while shame, grief, arguments and illness all pair their `add` with a
+  `remove_by_source` — thirty meals were thirty summing, permanent entries. It is bounded twice
+  now, in `_fall_ill`'s shape: one modifier from one source, replaced rather than stacked, and
+  expiring on `MEAL_MOOD_TICKS` (36000 — three in-game hours, comfortably shorter than the gap
+  between meals) through a `need.mealMood` system that publishes `mood.mealFaded`. Measured: one
+  cooked meal **8.0**, thirty cooked meals **8.0** where the old code carried 100.0, and nothing
+  left once the clock runs out. The read: a spoiled meal drops `mood_band` from `content` to
+  `low` — which is what every consequence in jobs.gd matches on — and the band comes back when the
+  meal fades.
+  **The bed.** `_make_corpse` stripped `sleeping` directly instead of going through
+  `SimNeeds._wake`, the one place that clears a bed's `occupiedBy`, so a survivor who died in bed
+  held it for the rest of the run and `nearest_bed`'s free-only scan — which is what jobs.gd's
+  Rest asks — never offered it to anybody again. Both doors are shut: `_make_corpse`, and
+  `_turn_with_kit`, where the despawn takes the sleeper's components and leaves the *bed* pointing
+  at a dead id. The lane kills through `entity.killed` + `finish_death` (the funnel starvation
+  already uses) rather than `attack.connected`, deliberately: that publishes into `need.wake-hit`,
+  which would wake them and free the bed for reasons that have nothing to do with the fix.
+  **The deep cold.** `_tick_temperature` could write `comfortable`, `very_cold` and
+  `a_little_cold` and nothing else, so `extremely_cold` — the only band `band_pressure` calls
+  "hard", with its own HUD line and its own branch in jobs.gd — was unreachable and every branch
+  keyed to it was dead. Cold is a **dose** now, which is the order docs/04 lists its consequences
+  in: a survivor outdoors at night with no fire keeps a `coldSinceTick`, and `EXPOSURE_TICKS`
+  (18000 — an hour and a half, a quarter of the night) later the band deepens. Any warmth clears
+  the clock, so the deep band is the price of a sustained night out rather than a moment of one,
+  and the cloth wrap's one-band shift is worth a real hour and a half. `work_mul` and
+  `_apply_muls` now read the band through `band_pressure` instead of naming `very_cold` in a list
+  — a list is exactly where the band went missing — so the hard band costs −20 mood against
+  `very_cold`'s −10 rather than the nothing it would otherwise have cost. The HUD line is its own
+  words ("You're freezing."); it read identically to `very_cold`, which would have made the band
+  invisible in play. The read: an `extremely_cold` NPC drops a job mid-action through jobs.gd's
+  `hard` branch and a `very_cold` one works on to the end of it.
+  ~~Sleep quality~~ **landed** (`godot:m2:needs`, SLEEP / SLEEP FACTORS / PAIN SLEEP / SLEEP
+  MOOD) — the Medicine group's own blocked-on-itself item. docs/05 lists sleep last among what
+  pain degrades ("accuracy, work speed, mood, sleep quality") and there was no sleep-quality value
+  for it to degrade; `SimNeeds.sleep_quality` is that value now, derived every sleeping tick from
+  the same discipline `SimWounds.pain_of` already keeps rather than stored as truth. Of docs/04's
+  factor list — "bed quality, warmth, darkness, quiet, and safety" — what the sim already tracks a
+  state for is a bed, a temperature band, felt pain and the noise field; darkness and safety are
+  not modelled by anything today and are not faked here, so bed quality's own authored property
+  moved to what's left (Gear group) rather than being invented alongside this. **The calibration
+  constraint:** a survivor in a bed, indoors, comfortable, unwounded, in quiet still restores
+  exactly the pre-slice 100 a night — measured, so a typical good night is unchanged and only a
+  degraded one moves. A bad night is floored at `SLEEP_QUALITY_FLOOR` (0.2, an arbitrary-looking
+  number recorded in docs/30) rather than allowed toward zero — the same "never a dead night"
+  shape pain's own floor keeps — so the worst measured night restored 20 against a good night's
+  100, never nothing. Each factor moves the number alone, measured in isolation: a rough bed
+  0.5000, `very_cold` 0.7500, a deep wound 0.8200, a noise source beside the sleeper 0.8000,
+  against a perfect-night baseline of 1.0000; a light-sleeper trait multiplies the *penalties*
+  rather than the total, so a light sleeper in a quiet room sleeps exactly as well as anybody
+  else and only pays more when something actually disturbs them. Painkillers buy a night back
+  through the same suppressed `pain_of` a medic already reads: measured, an unwounded control and
+  a dosed Scratch both read 1.0000 against an undosed 0.9680. A bad night costs mood at `_wake`,
+  `_apply_grief`'s shape exactly — one modifier from one source (`mood.sleep`, deliberately kept
+  out of `NEED_SOURCES` for the reason `SOIL_SOURCE` is, so `_apply_muls` cannot strip a cost it
+  did not cause), capped, and drained on the mood tick: measured, one rough night cost 8.00 named
+  in `explain`, three in a row capped at 16.00 in exactly one modifier (never three summed ones),
+  and decay ticks alone returned mood to baseline. `jobs.gd`'s Rest needed no change — it already
+  stops at `rest >= 80`, so a poor night simply keeps a survivor in bed longer rather than needing
+  a new stopping rule — and `condition.gd` is untouched, so the health-bar ban's key allowlist did
+  not move. The dead-socket half: `hud_clause` reads a quality word grown out of the old
+  `slept: "bed"/"rough"` field (now `rested`/`broken`/`barely_slept`, silent on `rested` the way
+  every other band in this file already is) and, isolated from the rest pool's own "You're
+  exhausted" line, says a different sentence after a bad night than a good one with no digit in
+  either; and the smaller rest pool a bad night leaves behind measurably drops `work_mul` the next
+  morning (1.000 → 0.850) on the pool alone, temperature band cleared first so it cannot be doing
+  that instead. All four lanes were shown to go red with `sleep_quality` reverted to a constant
+  1.0 before being trusted green.
 - **Attention leftovers** — ~~the sim half of last-known-position memory~~ and
   ~~director-varied nights~~ **both landed** (`godot:m2:sight`, MEMORY / EXPIRY / PROSE;
   `godot:m2:director`, VARIANCE / BOUNDS / SIDES). docs/28 rated this
@@ -1226,8 +1295,52 @@ not a to-do list:
   killed because they didn't notice how hurt they were". Exhaustion now reaches all four: swing
   0.400, aim 0.500, mood −8.0 and work 0.652 on an empty tank, with the mood cost deliberately kept
   clear of the miserable band so an ordinary hard day does not start sulks and arguments.
-  This system's open tails (the treatment ladder's clean/close verbs, supply quality tiers,
-  skill-scaled diagnosis, permanent conditions, sleep quality) are in
+  ~~The full treatment ladder: clean, then close, then rest~~ **landed** (`godot:m2:treatment`,
+  CLEAN SEPSIS / CLEAN SUPPLY / CLOSE / CLOSE REFUSALS / SHORTCUT / LADDER SUPPLY / HELD LADDER /
+  LADDER KEY / SELF-CLEAN / REOPEN ERASE / LADDER CONTENT, and the extended DETERMINISM).
+  **Two rungs were added, not three**: `SimWounds._is_recovering` — fed and not exerting — has been
+  the rest rung since Slice 3 and is gated by `godot:m2:recovery`, so the record says so rather than
+  claiming a verb for it. `clean` and `close` are two more entries in `CHANNEL_VERBS` and nothing
+  else: no second state machine, and every interrupt, the pin, the per-tick re-check and the whole
+  R1–R10 arbitration are inherited unchanged. `jobs._do_doctor` still goes through
+  `SimWounds.dress_worst` and was not touched.
+  **Cleaning was the missing sepsis factor.** `sepsis_chance`'s own comment said "the four factors
+  docs/05 names" and docs/05 names five — "whether it was cleaned" had no verb behind it and no
+  term in the arithmetic, which is the same socket shape the roll itself was written to close.
+  Measured over 240 seeded dusk rolls at fixed hygiene and Medicine 0: **55/240 septic uncleaned
+  against 25/240 cleaned with antiseptic**, and the water grade in between at 45/240, so rinsing a
+  wound with drinking water is worth something and worth less. Neither end is absolute — the
+  uncleaned control goes septic and the cleaned run still does, floored by `SEPSIS_CLEAN_MIN_MUL`
+  for the reason `SEPSIS_MIN_MUL` floors the skill term.
+  **Closing buys speed and holds it shut**, through the two readers that already existed: a sutured
+  wound reached `wound.closed` in **5 earned ticks against an unsutured wound's 10**, and a fresh
+  sutured deep wound held under a sprint (0.0000 blood) that tore the identical unsutured one open
+  (3.9800). The part's integrity regen carries the same multiplier as the wound's earned tick, so
+  suturing cannot leave a limb permanently weaker by closing its own wound early.
+  **The shortcut stays legal and stays expensive**: bandaging an uncleaned wound succeeds and stops
+  the bleed, at 31/240 septic against clean-then-dress's 17/240 (docs/30 for why refusing it would
+  be the wrong rule). `close` refuses a wound that is still bleeding ("still-bleeding") and a deep
+  wound below Medicine 2 ("unskilled") while a novice may still close a laceration — the floor is
+  deep-wound-only.
+  **Two dead sockets closed by assertion rather than by hope.** `treatment.self-aid` and
+  `_nearest_bleeding` widened from bleeding-only to "any rung this body wants", so an NPC with a
+  dirty wound and antiseptic in their pack opens a clean channel with no player input (0.216000 →
+  0.097200 chance) — left as it was, both verbs would have been player-only on the day they landed.
+  And `_reopen_from_overwork` now erases `cleaned`/`cleanTier` beside the `pressedTicks` it already
+  erased: a torn wound reprices **exactly** as one nobody ever cleaned, which is asserted to seven
+  decimals rather than directionally. Reverting either term was checked to turn its row red.
+  **Calibration: the uninvested paths are unchanged.** `SEPSIS_CLEAN_MUL["none"]` is 1.0 and an
+  unsutured wound's earned tick is still literally `+ 1`, and the gate pins both — an uncleaned
+  wound's chance is bit-identical to the pre-change expression, and an unsutured wound still needs
+  its full ten earned ticks. So `godot:m2:balance` was the only balance evidence this needed; the
+  campaign-scale sepsis-incidence measurement rides with the deferred full balance grid, unchanged
+  by this slice because a colony that invests nothing plays exactly as it did.
+  Content: `cleanTier` and `closeKind` are flat scalars under enums (the shallow validator only
+  checks those), `item.water.bottle` gains `cleanTier: water` — `SimNeeds.use_item` matches on
+  `baseId`, so drinking is untouched — and `item.antiseptic.bottle` and `item.suture.kit` are new
+  and in the medical table, antiseptic thinly in residential too.
+  This system's open tails (supply quality tiers, skill-scaled diagnosis and the condition view's
+  words for a cleaned or sutured wound, the splint, permanent conditions, sleep quality) are in
   [what's left](#whats-left-in-milestone-2).
   ~~Bacterial infection kept distinct from zombie infection (sepsis)~~ **landed**
   (`godot:m2:wounds`, SEPSIS and SEPSIS COST). This was a socket, not a gap: `needs.gd` published

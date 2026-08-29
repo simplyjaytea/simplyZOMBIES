@@ -426,7 +426,12 @@ static func _make_corpse(world: Variant, entity: int) -> void:
 	world.components.remove(entity, "needs")
 	world.components.remove(entity, "job")
 	world.components.remove(entity, "jobPriorities")
-	world.components.remove(entity, "sleeping")
+	# Through _wake rather than by stripping `sleeping` here: the bed's `occupiedBy` is cleared in
+	# exactly one place, and dropping the component behind its back left a survivor who died in bed
+	# holding it for the rest of the run -- `nearest_bed`'s free-only scan (jobs.gd's Rest) would
+	# never offer it to anybody again. _wake reads the `sleeping` component and the bed, neither of
+	# which the removals above touch, so it is safe here at the end of them.
+	SimNeeds.wake(world, entity)
 	world.components.remove(entity, "velocity")
 	var em: Variant = world.components.get_component(entity, "attention_emitter")
 	if em is Dictionary:
@@ -442,6 +447,10 @@ static func _make_corpse(world: Variant, entity: int) -> void:
 
 
 static func _turn_with_kit(world: Variant, entity: int) -> void:
+	# The other door into the same hole `_make_corpse` had: `world.despawn` takes the sleeper's
+	# components with it and leaves the *bed* pointing at a dead id, which reads as occupied
+	# forever. Turning in your sleep must hand the bed back too.
+	SimNeeds.wake(world, entity)
 	var pos: Variant = world.components.get_component(entity, "position")
 	var px: float = float((pos as Dictionary).get("x", 0.0)) if pos is Dictionary else 0.0
 	var py: float = float((pos as Dictionary).get("y", 0.0)) if pos is Dictionary else 0.0
