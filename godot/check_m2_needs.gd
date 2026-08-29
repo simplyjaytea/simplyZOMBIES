@@ -9,6 +9,7 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 func _init() -> void:
@@ -35,8 +36,12 @@ func _run() -> void:
 	ok = _a_meals_mood_is_bounded_and_wears_off() and ok
 	ok = _a_survivor_who_dies_in_bed_gives_the_bed_back() and ok
 	ok = _the_deep_cold_is_reachable_and_interrupts_work() and ok
+	ok = _a_good_nights_sleep_beats_a_bad_one_and_it_shows_the_next_morning() and ok
+	ok = _each_sleep_factor_moves_the_quality_alone() and ok
+	ok = _pain_degrades_sleep_and_painkillers_buy_a_night() and ok
+	ok = _a_rough_night_costs_mood_then_stops_costing_it() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, and the deep cold is reachable")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, and sleep has a quality")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -1406,5 +1411,372 @@ func _the_deep_cold_is_reachable_and_interrupts_work() -> bool:
 
 	print("COLD OK a night outdoors reads very_cold, deepens to extremely_cold after %d ticks of exposure and no sooner, says '%s'; a roof and a thaw both clear the clock; the deep band interrupts a job mid-action and very_cold does not" % [
 		SimNeeds.EXPOSURE_TICKS, clause,
+	])
+	return true
+
+
+# --- sleep quality (docs/04, docs/05) -----------------------------------------------------------
+#
+# docs/23's Medicine group: "Blocked on itself: docs/05 lists sleep among what pain degrades, and
+# there is no sleep-quality value to degrade yet." `SimNeeds.sleep_quality` is that value now,
+# derived every sleeping tick from the same discipline `SimWounds.pain_of` already keeps -- never
+# stored as truth, so it cannot drift from the state it reads.
+
+# One night's worth of ticks. Named once so a rebalance of the night length moves every lane here
+# together rather than four copies of the same arithmetic quietly disagreeing.
+func _night_ticks() -> int:
+	return int(0.25 * float(Clock.DAY_TICKS))
+
+
+func _first_bed(w: Variant) -> int:
+	var beds: Array[int] = w.components.query(["bed", "position"])
+	return int(beds[0]) if not beds.is_empty() else -1
+
+
+# A full night, direct: `_refill_sleep` called once per tick rather than `world.step()`, the same
+# way `_apply_muls` is called directly elsewhere in this file -- it isolates the mechanism under
+# test from everything else a tick would otherwise touch (time of day, other survivors' AI, the
+# attention field's own decay), which is what lets a "bed, comfortable, unwounded, quiet" scenario
+# mean exactly that and nothing else.
+func _sleep_a_night(w: Variant, ent: int, n: Dictionary) -> void:
+	for _i in _night_ticks():
+		SimNeeds._refill_sleep(w, ent, n)
+
+
+# The calibration constraint docs/23 names: a good night is materially better than a bad one, a
+# bad night is never a dead one, and the difference reads on the HUD and in tomorrow's work speed
+# -- the dead-socket half, without which `sleep_quality` would be gated and correct and reach no
+# survivor's morning.
+func _a_good_nights_sleep_beats_a_bad_one_and_it_shows_the_next_morning() -> bool:
+	# The good night: in bed, comfortable, unwounded, quiet. This is the calibration constraint
+	# itself -- it must land on exactly today's 100/night, or an ordinary night just got worse.
+	var wg: Variant = _world()
+	var eg: int = int(wg.player)
+	var bed: int = _first_bed(wg)
+	if bed < 0:
+		push_error("SLEEP: the booted district sited no bed, so this lane has nothing to judge")
+		return false
+	SimNeeds.start_sleep(wg, eg, bed)
+	var ng: Dictionary = SimNeeds.of(wg, eg)
+	ng["rest"] = 0.0
+	ng["hunger"] = 100.0
+	ng["thirst"] = 100.0
+	ng["relief"] = 100.0
+	ng["temperature"] = "comfortable"
+	ng["hygiene"] = "clean"
+	_sleep_a_night(wg, eg, ng)
+	var good_gain: float = float(ng["rest"])
+	if absf(good_gain - SimNeeds.SLEEP_FULL_NIGHT) > 0.5:
+		push_error("SLEEP: a good night restored %.2f, not the calibrated %.1f -- an ordinary night moved" % [good_gain, SimNeeds.SLEEP_FULL_NIGHT])
+		return false
+	if String(ng.get("slept", "")) != "rested":
+		push_error("SLEEP: a perfect night did not read as `rested` (%s)" % String(ng.get("slept", "")))
+		return false
+
+	# Two identical good nights restore the same amount -- there is no hidden roll in here.
+	var wg2: Variant = _world()
+	var eg2: int = int(wg2.player)
+	SimNeeds.start_sleep(wg2, eg2, _first_bed(wg2))
+	var ng2: Dictionary = SimNeeds.of(wg2, eg2)
+	ng2["rest"] = 0.0
+	ng2["hunger"] = 100.0
+	ng2["thirst"] = 100.0
+	ng2["relief"] = 100.0
+	ng2["temperature"] = "comfortable"
+	ng2["hygiene"] = "clean"
+	_sleep_a_night(wg2, eg2, ng2)
+	if absf(float(ng2["rest"]) - good_gain) > 0.001:
+		push_error("SLEEP: two identical good nights restored %.4f and %.4f" % [good_gain, float(ng2["rest"])])
+		return false
+
+	# The bad night: rough (no bed), the hard cold band, and a noise source sitting right beside
+	# the sleeper -- deliberately no wound, so the rest-pool comparison below is not entangled
+	# with pain's own contribution to `work_mul`.
+	var wb: Variant = _world()
+	var eb: int = int(wb.player)
+	SimNeeds.start_sleep(wb, eb, -1)
+	var nb: Dictionary = SimNeeds.of(wb, eb)
+	nb["rest"] = 0.0
+	nb["hunger"] = 100.0
+	nb["thirst"] = 100.0
+	nb["relief"] = 100.0
+	nb["temperature"] = "extremely_cold"
+	nb["hygiene"] = "clean"
+	if wb.field == null:
+		push_error("SLEEP: the booted district has no attention field, so the quiet factor has nothing to judge")
+		return false
+	var pos: Dictionary = wb.components.get_component(eb, "position") as Dictionary
+	wb.field.emit_noise(float(pos["x"]), float(pos["y"]), 150.0)
+	_sleep_a_night(wb, eb, nb)
+	var bad_gain: float = float(nb["rest"])
+	if bad_gain <= 0.0:
+		push_error("SLEEP: a bad night restored nothing -- a night is bad, never dead")
+		return false
+	if bad_gain >= good_gain:
+		push_error("SLEEP: a bad night (%.2f) restored as much as a good one (%.2f)" % [bad_gain, good_gain])
+		return false
+	if absf(bad_gain - SimNeeds.SLEEP_FULL_NIGHT * SimNeeds.SLEEP_QUALITY_FLOOR) > 0.5:
+		push_error("SLEEP: the worst night restored %.2f, not the floored %.2f" % [bad_gain, SimNeeds.SLEEP_FULL_NIGHT * SimNeeds.SLEEP_QUALITY_FLOOR])
+		return false
+	if String(nb.get("slept", "")) != "barely_slept":
+		push_error("SLEEP: the worst night did not read as `barely_slept` (%s)" % String(nb.get("slept", "")))
+		return false
+
+	# work_mul first, on the rest pool exactly as the bad night left it (temperature cleared, so
+	# the deep-cold band -- which also clamps work_mul -- cannot be doing this instead of rest).
+	nb["temperature"] = "comfortable"
+	var work_good: float = SimNeeds.work_mul(wg, eg)
+	var work_bad: float = SimNeeds.work_mul(wb, eb)
+	if work_bad >= work_good:
+		push_error("SLEEP: the smaller rest pool after a bad night did not change work_mul (%.3f vs %.3f)" % [work_bad, work_good])
+		return false
+
+	# The HUD read, isolated from the rest pool's own "You're exhausted" line by handing rest back
+	# a healthy number -- what is left standing is the sleep-quality word alone, `barely_slept`
+	# from a night that stayed bad even though the sleeper is not short on hours. Without this the
+	# assertion below could pass on the strength of a line this slice did not add.
+	nb["rest"] = 90.0
+	var clause_good: String = SimNeeds.hud_clause(wg, eg)
+	var clause_bad: String = SimNeeds.hud_clause(wb, eb)
+	if clause_bad == clause_good:
+		push_error("SLEEP: hud_clause said the same thing after a good night and a barely-slept one ('%s')" % clause_bad)
+		return false
+	if not clause_bad.contains("reeling"):
+		push_error("SLEEP: with rest healthy again, hud_clause read '%s' instead of the sleep-quality line" % clause_bad)
+		return false
+	var digit := RegEx.new()
+	digit.compile("[0-9]")
+	if digit.search(clause_bad) != null or digit.search(clause_good) != null:
+		push_error("SLEEP: a sleep-quality HUD line carried a digit -- good '%s' bad '%s'" % [clause_good, clause_bad])
+		return false
+
+	print("SLEEP OK a good night restores %.1f (twice, identically), a rough/cold/loud one restores %.1f (floored, never zero); work_mul drops from %.3f to %.3f on the rest pool alone, and the HUD reads '%s' once rest is no longer also the story" % [
+		good_gain, bad_gain, work_good, work_bad, clause_bad,
+	])
+	return true
+
+
+# Each of docs/04's tractable factors moves the number alone -- the true positive for each, one at
+# a time, a control that changes nothing, and a `world.field == null` world that still sleeps
+# rather than crashing reaching for a field it does not have.
+func _each_sleep_factor_moves_the_quality_alone() -> bool:
+	var wc: Variant = _world()
+	var ec: int = int(wc.player)
+	var bed: int = _first_bed(wc)
+	if bed < 0:
+		push_error("SLEEP FACTORS: the booted district sited no bed, so this lane has nothing to judge")
+		return false
+	SimNeeds.start_sleep(wc, ec, bed)
+	var nc: Dictionary = SimNeeds.of(wc, ec)
+	nc["temperature"] = "comfortable"
+	var baseline: float = SimNeeds.sleep_quality(wc, ec)
+	if absf(baseline - 1.0) > 0.001:
+		push_error("SLEEP FACTORS: the baseline scenario is not a perfect night (%.4f)" % baseline)
+		return false
+
+	# The control: an identical second world, changing nothing, reduces nothing.
+	var w0: Variant = _world()
+	var e0: int = int(w0.player)
+	SimNeeds.start_sleep(w0, e0, _first_bed(w0))
+	var n0: Dictionary = SimNeeds.of(w0, e0)
+	n0["temperature"] = "comfortable"
+	var control: float = SimNeeds.sleep_quality(w0, e0)
+	if absf(control - baseline) > 0.001:
+		push_error("SLEEP FACTORS: an unchanged control scenario read %.4f against baseline %.4f" % [control, baseline])
+		return false
+
+	# bed -> rough.
+	var w1: Variant = _world()
+	var e1: int = int(w1.player)
+	SimNeeds.start_sleep(w1, e1, -1)
+	var n1: Dictionary = SimNeeds.of(w1, e1)
+	n1["temperature"] = "comfortable"
+	var q_rough: float = SimNeeds.sleep_quality(w1, e1)
+	if q_rough >= baseline:
+		push_error("SLEEP FACTORS: a rough bed alone did not reduce quality (%.4f vs %.4f)" % [q_rough, baseline])
+		return false
+
+	# comfortable -> very_cold.
+	var w2: Variant = _world()
+	var e2: int = int(w2.player)
+	SimNeeds.start_sleep(w2, e2, _first_bed(w2))
+	var n2: Dictionary = SimNeeds.of(w2, e2)
+	n2["temperature"] = "very_cold"
+	var q_cold: float = SimNeeds.sleep_quality(w2, e2)
+	if q_cold >= baseline:
+		push_error("SLEEP FACTORS: `very_cold` alone did not reduce quality (%.4f vs %.4f)" % [q_cold, baseline])
+		return false
+
+	# unwounded -> a deep wound.
+	var w3: Variant = _world()
+	var e3: int = int(w3.player)
+	SimNeeds.start_sleep(w3, e3, _first_bed(w3))
+	var n3: Dictionary = SimNeeds.of(w3, e3)
+	n3["temperature"] = "comfortable"
+	SimWounds.append_wound(w3, e3, "cut", "torso", -1, 40.0, "", SimWounds.Severity.DeepWound)
+	var q_hurt: float = SimNeeds.sleep_quality(w3, e3)
+	if q_hurt >= baseline:
+		push_error("SLEEP FACTORS: a deep wound alone did not reduce quality (%.4f vs %.4f)" % [q_hurt, baseline])
+		return false
+
+	# quiet -> a noise source beside the sleeper.
+	var w4: Variant = _world()
+	var e4: int = int(w4.player)
+	SimNeeds.start_sleep(w4, e4, _first_bed(w4))
+	var n4: Dictionary = SimNeeds.of(w4, e4)
+	n4["temperature"] = "comfortable"
+	if w4.field == null:
+		push_error("SLEEP FACTORS: the booted district has no attention field, so the quiet factor has nothing to judge")
+		return false
+	var p4: Dictionary = w4.components.get_component(e4, "position") as Dictionary
+	w4.field.emit_noise(float(p4["x"]), float(p4["y"]), 150.0)
+	var q_loud: float = SimNeeds.sleep_quality(w4, e4)
+	if q_loud >= baseline:
+		push_error("SLEEP FACTORS: noise beside the sleeper alone did not reduce quality (%.4f vs %.4f)" % [q_loud, baseline])
+		return false
+
+	# A world with no attention field at all still sleeps rather than crashing reaching for one --
+	# the guard sim/attention_read.gd:69 already uses for the same field, on the same reasoning.
+	var w5: Variant = _world()
+	var e5: int = int(w5.player)
+	SimNeeds.start_sleep(w5, e5, _first_bed(w5))
+	var n5: Dictionary = SimNeeds.of(w5, e5)
+	n5["temperature"] = "comfortable"
+	w5.field = null
+	var q_no_field: float = SimNeeds.sleep_quality(w5, e5)
+	if absf(q_no_field - baseline) > 0.001:
+		push_error("SLEEP FACTORS: a world with no attention field read %.4f against baseline %.4f" % [q_no_field, baseline])
+		return false
+
+	print("SLEEP FACTORS OK baseline %.4f; bed %.4f, cold %.4f, wound %.4f, noise %.4f each strictly worse; a control read the same and a fieldless world did not crash" % [
+		baseline, q_rough, q_cold, q_hurt, q_loud,
+	])
+	return true
+
+
+# docs/05: "Pain ... Degrades everything -- accuracy, work speed, mood, sleep quality. Painkillers
+# suppress it without healing anything." `pain_of` already applies suppression, so this is the
+# read that makes that sentence true for sleep specifically: a dose buys a night back.
+func _pain_degrades_sleep_and_painkillers_buy_a_night() -> bool:
+	var wc: Variant = _world()
+	var ec: int = int(wc.player)
+	SimNeeds.start_sleep(wc, ec, _first_bed(wc))
+	var nc: Dictionary = SimNeeds.of(wc, ec)
+	nc["temperature"] = "comfortable"
+	var control: float = SimNeeds.sleep_quality(wc, ec)
+
+	var wu: Variant = _world()
+	var eu: int = int(wu.player)
+	SimNeeds.start_sleep(wu, eu, _first_bed(wu))
+	var nu: Dictionary = SimNeeds.of(wu, eu)
+	nu["temperature"] = "comfortable"
+	SimWounds.append_wound(wu, eu, "cut", "arm", -1, 3.0, "", SimWounds.Severity.Scratch)
+	var undosed: float = SimNeeds.sleep_quality(wu, eu)
+	if undosed >= control:
+		push_error("PAIN SLEEP: an untreated wound did not cost any sleep quality (%.4f vs unwounded %.4f)" % [undosed, control])
+		return false
+
+	var wd: Variant = _world()
+	var ed: int = int(wd.player)
+	SimNeeds.start_sleep(wd, ed, _first_bed(wd))
+	var nd: Dictionary = SimNeeds.of(wd, ed)
+	nd["temperature"] = "comfortable"
+	SimWounds.append_wound(wd, ed, "cut", "arm", -1, 3.0, "", SimWounds.Severity.Scratch)
+	var pk: int = SimItems.spawn_item(wd, "item.painkillers.blister", {"tier": "scavenged"})
+	if not SimInventory.stow(wd, ed, pk):
+		wd.components.set_component(pk, "stored", {"container": ed})
+	var dosed_res: Dictionary = SimWounds.take_painkillers(wd, ed)
+	if not bool(dosed_res.get("ok", false)):
+		push_error("PAIN SLEEP: the survivor refused their own painkillers (%s)" % String(dosed_res.get("reason", "")))
+		return false
+	var dosed: float = SimNeeds.sleep_quality(wd, ed)
+	if dosed <= undosed:
+		push_error("PAIN SLEEP: dosed (%.4f) did not sleep better than undosed (%.4f)" % [dosed, undosed])
+		return false
+	if absf(dosed - control) > 0.01:
+		push_error("PAIN SLEEP: dosed quality %.4f did not reach the unwounded ceiling %.4f" % [dosed, control])
+		return false
+
+	print("PAIN SLEEP OK unwounded %.4f, undosed %.4f, dosed %.4f -- painkillers buy back the unwounded ceiling" % [
+		control, undosed, dosed,
+	])
+	return true
+
+
+# A bad night costs mood at `_wake`, the same shape `_apply_grief` uses, and stops costing it once
+# decay has run -- so a run of rough nights is a drag, never a spiral no bandage or bed can answer.
+func _a_rough_night_costs_mood_then_stops_costing_it() -> bool:
+	var w: Variant = _world()
+	var ent: int = int(w.player)
+	var baseline_mood: float = float(w.modifiers.call("resolve", "mood", ent))
+
+	# The true negative first: a good night's sleep charges nothing.
+	SimNeeds.start_sleep(w, ent, _first_bed(w))
+	var ngood: Dictionary = SimNeeds.of(w, ent)
+	ngood["temperature"] = "comfortable"
+	_sleep_a_night(w, ent, ngood)
+	SimNeeds._wake(w, ent)
+	if absf(float(w.modifiers.call("resolve", "mood", ent)) - baseline_mood) > 0.001:
+		push_error("SLEEP MOOD: a perfect night charged mood anyway")
+		return false
+
+	# One rough night: mood drops, and `explain` names the source, so this is not a modifier
+	# nobody can point at.
+	SimNeeds.start_sleep(w, ent, -1)
+	var n: Dictionary = SimNeeds.of(w, ent)
+	n["temperature"] = "comfortable"
+	_sleep_a_night(w, ent, n)
+	SimNeeds._wake(w, ent)
+	var after_one: float = float(w.modifiers.call("resolve", "mood", ent))
+	if after_one >= baseline_mood:
+		push_error("SLEEP MOOD: a rough night did not cost any mood (%.3f vs baseline %.3f)" % [after_one, baseline_mood])
+		return false
+	var ex: Dictionary = w.modifiers.call("explain", "mood", ent)
+	var named: bool = false
+	for c in ex.get("contributions", []) as Array:
+		if String((c as Dictionary).get("source", "")) == SimNeeds.SLEEP_SOURCE:
+			named = true
+			break
+	if not named:
+		push_error("SLEEP MOOD: mood dropped after a rough night and `explain` names nothing at `mood.sleep`")
+		return false
+
+	# Two more rough nights: the accumulator caps, and it is still exactly one modifier -- not
+	# three summed ones, which is the meltdown docs/04 already rules out for grief and arguments.
+	for _i in 2:
+		SimNeeds.start_sleep(w, ent, -1)
+		var n2: Dictionary = SimNeeds.of(w, ent)
+		n2["temperature"] = "comfortable"
+		_sleep_a_night(w, ent, n2)
+		SimNeeds._wake(w, ent)
+	var capped: float = float(SimNeeds.of(w, ent).get("sleptMood", 0.0))
+	if absf(capped - SimNeeds.SLEEP_MOOD_CAP) > 0.01:
+		push_error("SLEEP MOOD: three rough nights carry %.2f, not the cap of %.2f" % [capped, SimNeeds.SLEEP_MOOD_CAP])
+		return false
+	var ex3: Dictionary = w.modifiers.call("explain", "mood", ent)
+	var sleep_entries: int = 0
+	for c3 in ex3.get("contributions", []) as Array:
+		if String((c3 as Dictionary).get("source", "")) == SimNeeds.SLEEP_SOURCE:
+			sleep_entries += 1
+	if sleep_entries != 1:
+		push_error("SLEEP MOOD: three rough nights left %d `mood.sleep` entries, not one" % sleep_entries)
+		return false
+
+	# And it stops costing it: decay ticks (the same `% 20` mood-tick cadence grief and arguments
+	# drain on) bring the accumulator, and the mood it costs, back to nothing.
+	var decay_ticks: int = int(ceil(SimNeeds.SLEEP_MOOD_CAP / SimNeeds.SLEEP_DECAY)) + 1
+	for _j in decay_ticks:
+		w.tick += 20
+		SimNeeds._tick_slept_mood(w)
+	var recovered: float = float(SimNeeds.of(w, ent).get("sleptMood", 0.0))
+	if recovered > 0.001:
+		push_error("SLEEP MOOD: %.4f of sleep-cost mood survived %d decay ticks" % [recovered, decay_ticks])
+		return false
+	if absf(float(w.modifiers.call("resolve", "mood", ent)) - baseline_mood) > 0.001:
+		push_error("SLEEP MOOD: mood did not return to baseline after decay (%.3f vs %.3f)" % [float(w.modifiers.call("resolve", "mood", ent)), baseline_mood])
+		return false
+
+	print("SLEEP MOOD OK a good night charges nothing, one rough night costs %.2f (named `mood.sleep`), three cap at %.2f in one modifier, and decay clears it back to baseline" % [
+		baseline_mood - after_one, capped,
 	])
 	return true

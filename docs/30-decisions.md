@@ -1430,6 +1430,22 @@ magic XOR salts become named derivations (`RngStream.derive_seed(seed, "worldgen
 kin), one stream per pass, keeping the property this file already records for the occluder pass:
 dressing changes never move the layout.
 
+## Sleep quality: a fixed calibration point, and a floor that never reaches zero
+
+- **A typical good night is pinned to the pre-slice number, exactly.** `sleep_quality` could have
+  been introduced at any scale — 0..1, 0..100, its own units — but the moment it multiplies
+  `SLEEP_FULL_NIGHT` it can silently rebalance every night the colony has ever had. Fixing "bed,
+  indoors, comfortable, unwounded, quiet" to read exactly 1.0, so the pre-slice `full = 100.0` on
+  a bed is unchanged, means this slice is provably about *bad* nights only — the ordinary case
+  nobody was complaining about does not move a point.
+- **The floor (`SLEEP_QUALITY_FLOOR`, 0.2) is arbitrary and deliberate**, the same family as
+  `PAINKILLER_SUPPRESSION` and the mood-band thresholds: a night can be bad, never a night that
+  restores nothing. A sim where the worst possible night is a zero has a way to starve a survivor
+  of rest entirely through pure environmental bad luck, which is a death spiral no bandage or bed
+  can answer — the same "no rage meltdown" shape docs/04 already rules out for mood. 0.2 keeps a
+  night in a warzone worth a fifth of a good one: real, felt the next morning in `work_mul`, and
+  never a trap nothing can climb out of.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
