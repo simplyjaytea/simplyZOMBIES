@@ -57,6 +57,14 @@
       "enum": ["dirty", "cloth", "sterile"],
       "description": "What grade of dressing this item makes when it is used to bandage a wound, per docs/05-health-injury.md. Absent means the item cannot dress a wound at all. A flat scalar, not a nested block: the content validator is shallow, so a nested object would get an is-it-an-object check and nothing more -- this way the enum is actually enforced."
     },
+    "cleanTier": {
+      "enum": ["water", "alcohol", "antiseptic"],
+      "description": "What grade of clean this item buys when it is spent on the `clean` verb, per docs/05-health-injury.md's \"whether it was cleaned\" sepsis factor. Absent means the item cannot clean a wound at all. Ranked worst-first here and best-first in SimTreatment.CLEAN_ORDER, which is the pick order when an actor carries more than one. A flat scalar for the same reason bandageTier is one: the content validator is shallow, so an enum on a top-level key is actually enforced."
+    },
+    "closeKind": {
+      "enum": ["suture", "splint"],
+      "description": "How this item closes a wound when it is spent on the `close` verb. Absent means it cannot close one. `suture` is what SimTreatment.CLOSE_KINDS accepts today; `splint` is declared here and deliberately unauthored -- it belongs with fracture immobilisation, which is not built, and a kit declaring it is refused rather than silently sutured with."
+    },
     "stack": {
       "type": "integer",
       "minimum": 1,

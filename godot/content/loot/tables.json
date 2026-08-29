@@ -13,6 +13,7 @@
       { "item": "item.bandage.cloth", "weight": 11, "count": { "min": 1, "max": 3 } },
       { "item": "item.rag.dirty", "weight": 9, "count": { "min": 1, "max": 4 } },
       { "item": "item.painkillers.blister", "weight": 7, "count": { "min": 1, "max": 2 } },
+      { "item": "item.antiseptic.bottle", "weight": 4 },
       { "item": "item.tape.duct", "weight": 7, "count": { "min": 1, "max": 2 } },
       { "item": "item.knife.kitchen", "weight": 8 },
       { "item": "item.bat.aluminium", "weight": 5 },
@@ -83,6 +84,8 @@
     "tierWeights": { "scavenged": 25, "modified": 45, "field_tested": 30 },
     "entries": [
       { "item": "item.antibiotics.course", "weight": 16, "count": { "min": 1, "max": 2 } },
+      { "item": "item.antiseptic.bottle", "weight": 13, "count": { "min": 1, "max": 3 } },
+      { "item": "item.suture.kit", "weight": 10, "count": { "min": 1, "max": 2 } },
       { "item": "item.medkit.field", "weight": 12 },
       { "item": "item.bandage.cloth", "weight": 18, "count": { "min": 2, "max": 5 } },
       { "item": "item.painkillers.blister", "weight": 15, "count": { "min": 1, "max": 4 } },
