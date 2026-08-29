@@ -205,8 +205,6 @@ unplaced) rather than here.
   reads it vaguely. Prose only — no numbers arrive with skill.
 - **Permanent conditions that keep a survivor in play.** A limp, a blind eye, a scar — loss that
   does not remove the person, docs/05's permanent-consequences row.
-- **Sleep quality.** Blocked on itself: docs/05 lists sleep among what pain degrades, and there is
-  no sleep-quality value to degrade yet.
 
 **Gear — finishing what items started:**
 
@@ -217,6 +215,9 @@ unplaced) rather than here.
 - **Attachments meet the attention field.** An optic useless in the dark; a weapon light that is a
   real light source and therefore a real emitter.
 - **An attachment-fitting screen.** `item.attach` / `item.detach` work and have no surface.
+- **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
+  in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
+  bed beats a cot; content would carry the difference once more than one kind of bed exists.
 
 **Attention:**
 
@@ -1169,6 +1170,42 @@ not a to-do list:
   words ("You're freezing."); it read identically to `very_cold`, which would have made the band
   invisible in play. The read: an `extremely_cold` NPC drops a job mid-action through jobs.gd's
   `hard` branch and a `very_cold` one works on to the end of it.
+  ~~Sleep quality~~ **landed** (`godot:m2:needs`, SLEEP / SLEEP FACTORS / PAIN SLEEP / SLEEP
+  MOOD) — the Medicine group's own blocked-on-itself item. docs/05 lists sleep last among what
+  pain degrades ("accuracy, work speed, mood, sleep quality") and there was no sleep-quality value
+  for it to degrade; `SimNeeds.sleep_quality` is that value now, derived every sleeping tick from
+  the same discipline `SimWounds.pain_of` already keeps rather than stored as truth. Of docs/04's
+  factor list — "bed quality, warmth, darkness, quiet, and safety" — what the sim already tracks a
+  state for is a bed, a temperature band, felt pain and the noise field; darkness and safety are
+  not modelled by anything today and are not faked here, so bed quality's own authored property
+  moved to what's left (Gear group) rather than being invented alongside this. **The calibration
+  constraint:** a survivor in a bed, indoors, comfortable, unwounded, in quiet still restores
+  exactly the pre-slice 100 a night — measured, so a typical good night is unchanged and only a
+  degraded one moves. A bad night is floored at `SLEEP_QUALITY_FLOOR` (0.2, an arbitrary-looking
+  number recorded in docs/30) rather than allowed toward zero — the same "never a dead night"
+  shape pain's own floor keeps — so the worst measured night restored 20 against a good night's
+  100, never nothing. Each factor moves the number alone, measured in isolation: a rough bed
+  0.5000, `very_cold` 0.7500, a deep wound 0.8200, a noise source beside the sleeper 0.8000,
+  against a perfect-night baseline of 1.0000; a light-sleeper trait multiplies the *penalties*
+  rather than the total, so a light sleeper in a quiet room sleeps exactly as well as anybody
+  else and only pays more when something actually disturbs them. Painkillers buy a night back
+  through the same suppressed `pain_of` a medic already reads: measured, an unwounded control and
+  a dosed Scratch both read 1.0000 against an undosed 0.9680. A bad night costs mood at `_wake`,
+  `_apply_grief`'s shape exactly — one modifier from one source (`mood.sleep`, deliberately kept
+  out of `NEED_SOURCES` for the reason `SOIL_SOURCE` is, so `_apply_muls` cannot strip a cost it
+  did not cause), capped, and drained on the mood tick: measured, one rough night cost 8.00 named
+  in `explain`, three in a row capped at 16.00 in exactly one modifier (never three summed ones),
+  and decay ticks alone returned mood to baseline. `jobs.gd`'s Rest needed no change — it already
+  stops at `rest >= 80`, so a poor night simply keeps a survivor in bed longer rather than needing
+  a new stopping rule — and `condition.gd` is untouched, so the health-bar ban's key allowlist did
+  not move. The dead-socket half: `hud_clause` reads a quality word grown out of the old
+  `slept: "bed"/"rough"` field (now `rested`/`broken`/`barely_slept`, silent on `rested` the way
+  every other band in this file already is) and, isolated from the rest pool's own "You're
+  exhausted" line, says a different sentence after a bad night than a good one with no digit in
+  either; and the smaller rest pool a bad night leaves behind measurably drops `work_mul` the next
+  morning (1.000 → 0.850) on the pool alone, temperature band cleared first so it cannot be doing
+  that instead. All four lanes were shown to go red with `sleep_quality` reverted to a constant
+  1.0 before being trusted green.
 - **Attention leftovers** — ~~the sim half of last-known-position memory~~ and
   ~~director-varied nights~~ **both landed** (`godot:m2:sight`, MEMORY / EXPIRY / PROSE;
   `godot:m2:director`, VARIANCE / BOUNDS / SIDES). docs/28 rated this
