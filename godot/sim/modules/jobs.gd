@@ -82,15 +82,20 @@ static func attach(world: Variant, entity: int, focus: String = "Auto", row: Dic
 	world.components.set_component(entity, "jobPriorities", {"focus": focus, "cols": r})
 
 
-static func set_focus(world: Variant, entity: int, focus: String) -> void:
+# `by` is provenance, not flavour: "player" when a person chose this focus, "auto" when the sim
+# did. `SimSkills`'s daily drift refuses to move anybody whose focus reads "player", which is
+# docs/07's "never touch anything you've manually locked" made mechanical. A component minted
+# before the field existed reads as "auto", which is what it was.
+static func set_focus(world: Variant, entity: int, focus: String, by: String = "auto") -> void:
 	var jp: Variant = world.components.get_component(entity, "jobPriorities")
 	var injured: bool = _injured(world, entity)
 	if focus == "Manual" and jp is Dictionary:
 		(jp as Dictionary)["focus"] = "Manual"
+		(jp as Dictionary)["focusSetBy"] = by
 		world.events.publish({"type": "job.focus_changed", "entity": entity, "focus": "Manual"})
 		return
 	var row: Dictionary = preset(focus, injured)
-	world.components.set_component(entity, "jobPriorities", {"focus": focus, "cols": row})
+	world.components.set_component(entity, "jobPriorities", {"focus": focus, "cols": row, "focusSetBy": by})
 	world.events.publish({"type": "job.focus_changed", "entity": entity, "focus": focus})
 
 
@@ -134,7 +139,9 @@ static func register_module(world: Variant) -> void:
 			var c: Dictionary = cmd as Dictionary
 			match String(c.get("type", "")):
 				"job.focus":
-					set_focus(w, int(c.get("entity", -1)), String(c.get("focus", "Auto")))
+					# The one path a person's own choice arrives on, so it is the one place
+					# that stamps "player" on it.
+					set_focus(w, int(c.get("entity", -1)), String(c.get("focus", "Auto")), "player")
 				"job.priority":
 					set_priority(w, int(c.get("entity", -1)), String(c.get("column", "")), int(c.get("value", 0)))
 	)

@@ -24,5 +24,29 @@
     "Medic": ["med.hands", "med.triage", "end.grit", "surv.haul"],
     "Scout": ["surv.haul", "ranged.breath", "end.legs", "ranged.follow"],
     "Auto": ["surv.haul", "melee.grip", "med.hands", "ranged.breath", "end.legs"]
-  }
+  },
+  "focusRegions": {
+    "Fighter": ["Melee"],
+    "Scout": ["Ranged"],
+    "Medic": ["Medicine"],
+    "Worker": ["Craft", "Survival"]
+  },
+  "focusHistory": [
+    {"word": "nurse", "focus": "Medic"},
+    {"word": "clinic", "focus": "Medic"},
+    {"word": "vet", "focus": "Medic"},
+    {"word": "paramedic", "focus": "Medic"},
+    {"word": "security", "focus": "Fighter"},
+    {"word": "guard", "focus": "Fighter"},
+    {"word": "soldier", "focus": "Fighter"},
+    {"word": "cook", "focus": "Worker"},
+    {"word": "caretaker", "focus": "Worker"},
+    {"word": "warehouse", "focus": "Worker"},
+    {"word": "picker", "focus": "Worker"},
+    {"word": "driver", "focus": "Worker"},
+    {"word": "mechanic", "focus": "Worker"},
+    {"word": "cyclist", "focus": "Scout"},
+    {"word": "courier", "focus": "Scout"},
+    {"word": "runner", "focus": "Scout"}
+  ]
 }
