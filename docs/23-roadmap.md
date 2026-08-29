@@ -186,11 +186,7 @@ unplaced) rather than here.
 
 **People — the survivor pipeline:**
 
-- **Survivor generation: appearance, age, backstory, starting kit.** The generator stops at name
-  and traits today (`godot:m2:recruits`); the rest of the small pools are unwritten.
 - **Trait conflict rules.** Nothing yet stops the generator dealing contradictory traits.
-- **Focus auto-allocation: NPCs spend their own web points.** The shallow web is landed
-  (`godot:m2:web`); nobody but the player can walk it.
 - **The six-survivor automation checkpoint.** Risk 1's seeded colony, every NPC on Focus
   automation — the micromanagement-cliff measurement. Needs the two pieces above first, and it is
   also the cheapest place to answer the colony-shape question with data.
@@ -356,11 +352,10 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
     disables nothing; its only guard is `if w == null` on the result of `World.new(...)`.
   - `check_m2_gear.gd`'s `_coverage_composes_by_max_not_sum` discards both `SimInventory.equip`
     return values, so the max-vs-sum claim is satisfied by a world where only the mask was equipped.
-  - `check_m2_recruits.gd`'s "transmitted → shambler **with kit**" claim is an `if ...: pass` with
-    an empty body; only `turned < 1` is actually checked, so the kit half is enforced by nothing.
-    `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
-    assert" block have the same shape — a condition computed and thrown away, and a block that
-    never calls `restore`.
+  - `check_m2_save.gd`'s `_streams()` and `check_r3_full.gd`'s "seed mismatch: restore should
+    assert" block have the same shape as `check_m2_recruits.gd`'s old "transmitted → shambler
+    **with kit**" lane (fixed in the survivor-generation slice, see the record) — a condition
+    computed and thrown away, and a block that never calls `restore`.
   - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
     those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
     says must skip loudly instead.
@@ -374,6 +369,14 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
   way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
   which is now a second hand-listed copy of the director's save shape.
+- **`repair_cost` and `spoilage_rate` are stats nothing resolves.** Both are declared in
+  `sim/modifiers/stats.gd` and both are the target of a shipped web node — `craft.tape`,
+  `craft.scrap`, `surv.cook` — and no code anywhere calls `resolve` on either, so those three
+  nodes are bought, applied, and felt by nobody. Named here because the focus-auto-allocation
+  slice made `craft.scrap` ownable for the first time and it would be dishonest to record that as
+  a node arriving in play: what arrived is a node that can be owned. Repair already spends a
+  fixed scrap cost (`SimJobs.REPAIR_TICKS` and the fortify scrap rules) and cooking already has a
+  spoilage clock, so both have an obvious reader waiting.
 - **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
   time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
   a no-op for them.
@@ -402,6 +405,71 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   (`godot:m2:director`), save/load (`godot:m2:save`), the shallow skill web (`godot:m2:web`).
 - **The stance ladder, sim-owned** — Z/X/C/V plus the Sprint latch, with the zero-stamina gate in
   the sim (`godot:m2:stance`).
+
+**Survivor generation: appearance, age, backstory, starting kit** — **landed**
+(`godot:m2:recruits`, seven new lanes). `SimRecruits.roll` already rolled a name, 2-3 traits, a
+backstory label, aptitudes with a backstory nudge, a kit and a feature list; what was missing was
+never the pools, it was five dead sockets between the roll and the screen. All five are wired:
+
+- **Age.** `generator.json` gained `ageBands` (young/adult/midlife/elder, each an authored prose
+  word and an aptitude nudge); `roll` picks a band, then an integer inside it, and the nudge feeds
+  the same clamp-and-rebalance-to-15 loop the backstory nudge already used, applied together
+  rather than as two separate passes. The integer lands on `identity.age` and is never printed —
+  `person_clause` below is its only other reader, and it reads the word, not the number.
+- **Backstory.** Each of the eight backstories gained a `line` (one authored sentence); identity
+  now carries `backstoryId` alongside the existing label, and the line is looked up from content
+  at read time rather than copied onto `identity`, so editing a line changes what an existing save
+  says with no migration.
+- **Appearance, visual.** New `godot/content/colony/looks.json`, a **tint-only** array (docs/30
+  records why no `sprite` key) that `check_appearance.gd`'s array-topped `_all_blocks()` walk
+  already validates for free; `generator.json` gained a `looks` list, `roll` picks one onto
+  `identity.look`, and `presentation/main.gd` prefers `identity.look` over `identity.id` for a
+  generated colonist's `cid` — a data pass-through, not a branch, so the appearance ban holds. A
+  generated colonist no longer renders as an identical role-colour disc.
+- **Appearance, prose.** The rolled feature list reaches `identity.features`, unread by anything
+  before this slice.
+- **Kit.** `survivors.gd::_hold_it`, previously wired for uniques only, is now
+  `SimSurvivors.equip_kit(world, ent, kit, x, y)` and both spawn paths call it: a kit weapon lands
+  in the hand, a pack item falls back to the pack, and a failed stow still drops at the spawn
+  point. Before this, `SimRecruits.spawn_generated` only ever `stow`ed — a generated colonist
+  carrying `item.bat.aluminium` had no `meleeWeapon` component, unarmed in the same way the
+  pre-armed-kit unique colonist once was (see "A weapon somebody actually holds", above).
+- **The surface.** `SimSurvivors.person_clause(world, ent) -> String` turns backstory, age and
+  features into one prose sentence — "Asha Chen, a night auditor, settled into adulthood; broad
+  shoulders, tired eyes, crooked nose" — with no digit in it anywhere, and `godot/ui/work_panel.gd`
+  draws it as a second line under each row's name (`ROW_H` grew from 36 to 52 to fit it, and the
+  panel from 320 to 420 tall to keep the same six rows on screen). Mara's own content already
+  authored an `age` and `appearance.features` that nothing read; `spawn_unique` now reads both
+  onto `identity`, so the one hand-authored survivor gets a clause too, off the same function.
+
+Seven lanes: GEN SHAPE (rolled dict against content, including a bogus look id resolving no
+block); READERS (`identity.age/look/backstoryId/features` after `spawn_generated` — the assertion
+that would have caught the dropped appearance list); KIT IN HAND (every kit id resolves through
+`SimItems.spawn_item`, and `fired_security`'s bat lands as a `meleeWeapon` — **measured red**
+against the pre-slice code, where it stowed instead); AGE READS (a forced band rolls
+bit-identical twice; two opposite-nudged bands, ±2 dex, diverge by 1.5-1.8 average dex over 24
+same-seeded pairs, measured before the 0.5 threshold was written — CLAUDE.md's "measure balance
+claims, never theorise them", because the rebalance loop can partly re-absorb a nudge into
+whichever stat it makes the new unique max); PROSE (non-empty, contains the backstory line,
+no digit — `[0-9]` finds none); LOOK RESOLVES (a rolled look's tint differs from the role colour,
+two looks give two tints, a missing id falls back to the role colour); DETERMINISM (same seed
+rolls identical, a different seed diverges, with a loud skip if it doesn't rather than a silent
+pass). A mutation check dropping the `identity.look` write turned READERS red
+(`readers: identity.look is empty`) with every other lane untouched, confirming the lane is
+watching the write and not just the shape of the dict. The same slice closed the sweep's
+`check_m2_recruits.gd` "with kit" defect (`turned < 1` was the only real check; the `if
+w3.components.query(["container"]).has(int(e)) ...: pass` around it did nothing) — the death
+lane's turn-to-shambler case now asserts `SimInventory.carried_items` is non-empty on the
+shambler, having first asserted it was non-empty on Mara before she turned.
+
+New randomness (age band, age integer, look pick) draws from a new named stream,
+`recruitLook`, never from `recruits` — `npm run godot:m2:balance`'s fast tier was not re-run
+because nothing about it could have moved: the `recruits` stream's draw order (name, surname,
+story, traits, composition, features) and `accept`'s 15% transmit roll are byte-for-byte what
+they were, which is exactly what a new stream costs nothing to guarantee.
+`godot/content/colony/` stays outside `CONTENT_TYPES` (`src/sim/content/types.ts`), so the
+frozen oracle's Ajv never walks it — `npm test`'s 594 passes prove the invisibility rather than
+assume it, same as the existing `skill_web.json` in the same directory.
 
 **Landed, gated, and switched off — the survival loop.** Five slices built it end to end: the
 grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and a bleed clock
@@ -1070,9 +1138,71 @@ not a to-do list:
   luminance) so every wall/floor boundary is a drawn line — and was shown to fail at a face share
   of 0.5, at a cap no darker than the fill, at a face that sinks into the ground, and with the
   exposed-edge test removed.
-- **Survivors** — nothing on this row has landed yet beyond the recruit generator's name-and-trait
-  pool; all four open pieces (fuller generation, trait conflict rules, Focus auto-allocation, the
-  six-survivor checkpoint) are in [what's left](#whats-left-in-milestone-2).
+- **Survivors** — ~~Focus auto-allocation: NPCs spend their own web points~~ **landed**
+  (`godot:m2:web`, lanes NPC / SURPLUS / REACH / DRIFT). What this list used to say — "the shallow
+  web is landed; nobody but the player can walk it" — was wrong, and the correction is the
+  interesting part. `SimSkills._autospend` has always been entity-agnostic and the gate's FOCUS
+  lane has always spent *Mara's* points down the Medic path, so an NPC could walk the web from the
+  day the web landed. Three real things were missing, all found by reading the code rather than the
+  list:
+  **Nobody ever chose.** Every survivor booted on `Auto`, `Auto` is one flat path, and nothing in
+  the sim ever called `set_focus` — so six colonists bought the same five nodes in the same order
+  whatever they had spent their lives doing, which is the opposite of docs/08's "a survivor's
+  position on it is a record of what they survived". `SimSkills.suggest_focus` derives a focus from
+  what has actually been earned and a new `skills.drift` system (ai phase, order −1) applies it on
+  a day boundary; the rules are in
+  [docs/30](30-decisions.md#focus-drift-what-moves-a-survivor-off-auto).
+  **Points earned off the path were stranded for life.** `_autospend` walked `focusPaths[focus]`
+  and nothing else, so an Auto colonist doing Construct banked Craft points against a path with no
+  Craft node in it. A second pass now spends the leftovers on the cheapest affordable node in any
+  region, ties by content order, and only ever with points of that node's own region — so it can
+  never raid a path's savings, and a survivor drifts outward from the cheap centre the way docs/08
+  describes.
+  **Two nodes nobody in the game could ever own.** `ranged.calm` and `craft.scrap` appear in no
+  `focusPaths` entry, and with no web screen there is no other way to buy a node: dead content
+  sockets, the tenth and eleventh of this milestone. The surplus pass is what reaches them, and the
+  REACH lane is the assertion that *something reads* every node — it probes all 15 with the focus
+  that lists them, or Auto where none does, and names which mechanism bought each. Run against
+  pre-slice code it says so out loud: `ranged.calm (Ranged, cost 2) is on no focus path and the
+  surplus pass never buys it: nobody in the game can own it`, exit 1. It now prints
+  `REACH OK 15 nodes: 13 by path, 2 by surplus ["ranged.calm", "craft.scrap"]`. The two orphans
+  were deliberately **not** added to a path, because a path entry would make the lane green without
+  the mechanism it exists to prove.
+  Provenance is the third piece and it is one field: `set_focus` takes `by`, the `job.focus`
+  command intake passes `"player"`, and drift refuses to move anybody whose `focusSetBy` reads
+  `player` — docs/07's "never touch anything you've manually locked", made mechanical rather than
+  promised. Every lane carries its negative: a Manual NPC given the same six jobs holds all six
+  points and buys nothing; a probe with no points owns no nodes; the player-set twin stays on Auto
+  through the same five Doctor jobs; one Medicine point plus a history that names medicine drifts
+  while the same point with a history that names nothing does not; and the twin who has only ever
+  rested stays on Auto, because Endurance votes for no focus. Four mutation runs confirm the lanes
+  can fail: deleting the surplus loop reds SURPLUS (`5 Craft points bought no Craft node on a path
+  that has none: nodes []`) and REACH (above); deleting the provenance guard reds with
+  `drift overrode a player-set focus: Medic`; deleting the cadence guard reds with `drift ran twice
+  in one day`; and writing the cadence as `tick % DAY_TICKS != 0` — the compressed-campaign trap —
+  reds with `5 Doctor jobs and a day boundary left the NPC on Auto`, which is the whole reason the
+  cadence is a day *number* compared against `driftDay` on the component.
+  **Before and after, same seeds.** `godot:m2:jobs` is line-for-line identical. `godot:m2:harness`
+  is identical on all six lines (turtle packets=3, noisy live=20/avenue=17/peak=45.00, knife 24/3,
+  bow 14/3, pistol 20/4). The balance fast tier moved on exactly one of four seeds: **404, kills
+  8(m8) → 7(m7) and deaths 1 → 0**; 20260805, 31337 and 90210 are unchanged in every field, and no
+  band moved. Diagnosed rather than theorised, with a throwaway driver that replayed 404's
+  compressed campaign printing every `job.focus_changed` and `entity.killed`: Mara kills five
+  shamblers by day 3, drifts Auto → Fighter on the day-4 boundary, kills two more, and no colonist
+  dies. A second balance run with the drift system disabled reproduced 404 = 7 kills, 0 deaths
+  *exactly*, which puts the movement on the **surplus pass**, not on drift — Mara now owns
+  `melee.tempo` and `melee.reach` (swing_speed ×1.04, melee_reach ×1.05), which under the old path
+  pass she could never buy, and that changes her kill timing. Drift fired on 404 and moved no
+  counter. The driver was deleted.
+  **Honest halves.** `SimSkills.points` is *unspent* points, and treatment (`CLOSE_MEDICINE_FLOOR`)
+  and modification (the Craft tier bias) read it as a skill level — so spending points now costs a
+  little of that reading. The shift is bounded and one-directional: an Auto survivor reaches the
+  same Medicine reading three earned points later than before, and the same Craft bias three later,
+  after which every further point banks as it always did. That "unspent doubles as skill" oddity
+  predates this slice and is left alone rather than quietly redefined. And `craft.scrap` is now
+  ownable while the stat it moves, `repair_cost`, is resolved by nobody — see the defect list.
+  The other three pieces on this row (fuller generation, trait conflict rules, the six-survivor
+  checkpoint) are still in [what's left](#whats-left-in-milestone-2).
 - **Needs** — ~~raw and spoiled food carrying illness risk~~ **landed** (`godot:m2:needs`,
   ILLNESS). docs/04's food clause is "raw and spoiled food fills the bar but damages mood **and
   carries illness risk**"; only the mood half shipped, so raw food was a mood tax and nothing else

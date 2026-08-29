@@ -10,7 +10,6 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
-const SimItems = preload("res://sim/modules/items.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
@@ -158,10 +157,35 @@ static func roll(world: Variant, rng: Variant) -> Dictionary:
 	var apt: Dictionary = {"str": 5, "dex": 5, "con": 5}
 	var comps: Array[Dictionary] = SimAptitudes.compositions()
 	apt = comps[int(rng.call("int_range", 0, comps.size() - 1))]
-	var nudge: Variant = story.get("nudge", {})
-	if nudge is Dictionary:
-		for k in (nudge as Dictionary).keys():
-			apt[k] = clampi(int(apt.get(k, 5)) + int((nudge as Dictionary)[k]), 3, 8)
+	var feat: Array = []
+	var fbag: Array = features.duplicate()
+	var fn: int = int(rng.call("int_range", 2, 3))
+	while feat.size() < fn and not fbag.is_empty():
+		var fi: int = int(rng.call("int_range", 0, fbag.size() - 1))
+		feat.append(String(fbag[fi]))
+		fbag.remove_at(fi)
+	# Age and visual look draw from their own stream, `recruitLook` -- never from `rng` above.
+	# `rng` is the `recruits` stream, and its draw order (name, surname, story, traits,
+	# composition, features) is measured by the balance harness; a new draw threaded into it
+	# would land every later call, including `accept`'s 15% transmit roll, on a different byte
+	# of the stream. A second named stream costs nothing and perturbs nothing (docs/23,
+	# CLAUDE.md's "new randomness gets its own stream").
+	var look_rng: Variant = world.rng.stream("recruitLook")
+	var bands: Array = pool.get("ageBands", [{"id": "adult", "min": 25, "max": 44, "prose": "", "nudge": {}}]) as Array
+	var band: Dictionary = bands[int(look_rng.call("int_range", 0, bands.size() - 1))] as Dictionary
+	var age: int = int(look_rng.call("int_range", int(band.get("min", 18)), int(band.get("max", 60))))
+	var looks: Array = pool.get("looks", []) as Array
+	var look_id: String = ""
+	if not looks.is_empty():
+		look_id = String(looks[int(look_rng.call("int_range", 0, looks.size() - 1))])
+	# Both nudges feed the one clamp-and-rebalance-to-15 loop below, applied before it runs
+	# rather than each getting its own pass, so a backstory and an age band pulling the same
+	# stat land as one combined push, not a push-then-push that could overshoot and silently
+	# clamp twice.
+	for nudge in [story.get("nudge", {}), band.get("nudge", {})]:
+		if nudge is Dictionary:
+			for k in (nudge as Dictionary).keys():
+				apt[k] = clampi(int(apt.get(k, 5)) + int((nudge as Dictionary)[k]), 3, 8)
 	var sum: int = int(apt["str"]) + int(apt["dex"]) + int(apt["con"])
 	while sum != 15:
 		var k2: String = "con"
@@ -178,20 +202,16 @@ static func roll(world: Variant, rng: Variant) -> Dictionary:
 				k2 = "dex"
 			apt[k2] = mini(8, int(apt[k2]) + 1)
 		sum = int(apt["str"]) + int(apt["dex"]) + int(apt["con"])
-	var look: Array = []
-	var fbag: Array = features.duplicate()
-	var fn: int = int(rng.call("int_range", 2, 3))
-	while look.size() < fn and not fbag.is_empty():
-		var fi: int = int(rng.call("int_range", 0, fbag.size() - 1))
-		look.append(String(fbag[fi]))
-		fbag.remove_at(fi)
 	return {
 		"name": g + " " + s,
 		"backstory": String(story.get("label", "")),
+		"backstoryId": String(story.get("id", "")),
 		"traits": picked,
 		"aptitudes": apt,
 		"kit": (story.get("kit", []) as Array).duplicate(),
-		"appearance": look,
+		"features": feat,
+		"age": age,
+		"look": look_id,
 	}
 
 
@@ -207,6 +227,10 @@ static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: flo
 		"unique": false,
 		"traits": (rolled.get("traits", []) as Array).duplicate(),
 		"backstory": String(rolled.get("backstory", "")),
+		"backstoryId": String(rolled.get("backstoryId", "")),
+		"age": int(rolled.get("age", 0)),
+		"look": String(rolled.get("look", "")),
+		"features": (rolled.get("features", []) as Array).duplicate(),
 	})
 	# Same as `SimSurvivors.spawn_unique`: the colony says which side it is on, so a raider band
 	# can find it. `faction_of` already reads COLONY by default, so this changes nothing about
@@ -221,12 +245,7 @@ static func spawn_generated(world: Variant, rolled: Dictionary, x: float, y: flo
 	SimJobs.attach(world, ent, "Auto")
 	SimSkills.attach(world, ent)
 	SimSurvivors.give_eyes(world, ent)
-	for item_id in rolled.get("kit", []) as Array:
-		var item: int = SimItems.spawn_item(world, String(item_id), {"tier": "scavenged"})
-		if String(item_id).begins_with("item.food."):
-			SimNeeds.mark_spoilage(world, item, String(item_id))
-		if not SimInventory.stow(world, ent, item):
-			world.components.set_component(item, "position", {"x": x, "y": y})
+	SimSurvivors.equip_kit(world, ent, rolled.get("kit", []) as Array, x, y)
 	return ent
 
 

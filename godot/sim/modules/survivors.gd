@@ -91,11 +91,19 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
 	world.components.set_component(ent, "posture", SimStancesRes.make_posture(SimStancesRes.Stance.Walk))
 	world.components.set_component(ent, "facing", {"radians": 0.0})
+	# `age` and `appearance.features` are both already authored on the unique's own content
+	# entry (mara.json has carried an age since before this slice) -- reading them here is what
+	# gives `person_clause` something to say about a hand-authored survivor, the same as it does
+	# for a generated one. Neither was read by anything before this slice.
+	var app: Variant = e.get("appearance", {})
+	var feats: Array = (app as Dictionary).get("features", []) as Array if app is Dictionary else []
 	world.components.set_component(ent, "identity", {
 		"id": String(e.get("id", id)),
 		"name": String(e.get("name", id)),
 		"unique": true,
 		"traits": (e.get("traits", []) as Array).duplicate() if e.get("traits", []) is Array else [],
+		"age": int(e.get("age", 0)),
+		"features": feats.duplicate(),
 	})
 	# Whose side they are on, said out loud. `SimAllegiance.faction_of` reads COLONY for anything
 	# with no component at all, so this changes nothing about who fights whom today -- it is what
@@ -119,21 +127,27 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 	SimSkillsRes.attach(world, ent)
 	give_eyes(world, ent)
 	var kit: Variant = e.get("kit", [])
-	if kit is Array:
-		for item_id in kit as Array:
-			var item: int = SimItemsRes.spawn_item(world, String(item_id), {"tier": "scavenged"})
-			# Anything the kit lists that can be *held* is held, rather than packed. A weapon in
-			# a satchel is not a weapon: `melee.gd` builds the meleeWeapon profile off
-			# `item.equipped`, so a stowed knife left a colonist with nothing to swing and
-			# npc_combat.gd with nothing to reach with -- which is exactly how the second
-			# colonist came to boot unarmed while carrying her own kit. Bandages and pills have
-			# no equipSlot and are unaffected; a second primary falls through to the pack.
-			if _hold_it(world, ent, item):
-				continue
-			if not SimInventoryRes.stow(world, ent, item):
-				world.components.set_component(item, "position", {"x": x, "y": y})
+	equip_kit(world, ent, kit as Array if kit is Array else [], x, y)
 	world.events.publish({"type": "survivor.joined", "entity": ent, "id": id})
 	return ent
+
+
+# Spawns and places one kit, for either spawn path. Anything the kit lists that can be *held*
+# is held, rather than packed: a weapon in a satchel is not a weapon -- `melee.gd` and
+# `ranged.gd` both build their weapon profile off `item.equipped`, so a stowed knife or bat
+# left a colonist with nothing to swing and npc_combat.gd with nothing to reach with, which is
+# exactly how the second colonist once came to boot unarmed while carrying her own kit.
+# Bandages, food and anything else with no equipSlot fall through to the pack; a pack with no
+# room, or no pack at all, drops the item at the spawn point rather than losing it.
+static func equip_kit(world: Variant, ent: int, kit: Array, x: float, y: float) -> void:
+	for item_id in kit:
+		var item: int = SimItemsRes.spawn_item(world, String(item_id), {"tier": "scavenged"})
+		if String(item_id).begins_with("item.food."):
+			SimNeedsRes.mark_spoilage(world, item, String(item_id))
+		if _hold_it(world, ent, item):
+			continue
+		if not SimInventoryRes.stow(world, ent, item):
+			world.components.set_component(item, "position", {"x": x, "y": y})
 
 
 # Puts a kit item in the hand or on the body it belongs to, if that place is still empty.
@@ -147,6 +161,82 @@ static func _hold_it(world: Variant, ent: int, item: int) -> bool:
 	if eq is Dictionary and ((eq as Dictionary).get("slots", {}) as Dictionary).has(String(slot)):
 		return false
 	return SimInventoryRes.equip(world, ent, item)
+
+
+# One prose sentence naming who somebody is: name, what they did before, roughly how old they
+# read, and what a look at them shows. No digits ever appear in it -- age is stored as an
+# integer on `identity.age` for the aptitude nudge above, and this is the only other reader,
+# translating it through the same age-band prose the nudge came from rather than printing it.
+# `work_panel.gd` is the one screen that shows it today; nothing stops a second one calling the
+# same function later, which is the point of a read model over a hand-authored line per screen.
+static func person_clause(world: Variant, ent: int) -> String:
+	var ident: Variant = world.components.get_component(ent, "identity")
+	if not ident is Dictionary:
+		return ""
+	var id: Dictionary = ident as Dictionary
+	var name: String = String(id.get("name", "Someone"))
+	var parts: Array[String] = [name]
+	var line: String = _backstory_line(world, String(id.get("backstoryId", "")), String(id.get("id", "")))
+	if line != "":
+		parts.append(line)
+	var prose: String = _age_prose(world, int(id.get("age", 0)))
+	if prose != "":
+		parts.append(prose)
+	var clause: String = ", ".join(parts)
+	var feats: Array = id.get("features", []) as Array
+	if not feats.is_empty():
+		var words: Array[String] = []
+		for f in feats:
+			words.append(String(f))
+		clause += "; " + ", ".join(words)
+	return clause
+
+
+# The generator's own content block, found the same way `SimRecruits._pool` finds it. Kept as
+# its own small scan rather than a shared helper, because `survivors.gd` and `recruits.gd`
+# already `preload` each other one way (recruits -> survivors) and a preload back the other way
+# is a cycle; `_content_entry`-style duplication is the accepted shape for this codebase (see
+# `presentation/appearance.gd`'s own comment on the same triplication).
+static func _generator_pool(world: Variant) -> Dictionary:
+	if world == null or world.content == null:
+		return {}
+	var c: Variant = world.content
+	if c is Dictionary:
+		for v in (c as Dictionary).values():
+			if v is Dictionary and String((v as Dictionary).get("id", "")) == "colony.generator.survivors":
+				return v as Dictionary
+	return {}
+
+
+# The authored line for a generated backstory, or a hand-authored unique's own `backstory`
+# prose (mara.json's full sentence) when there is no backstory id to look up. Looked up at
+# read time rather than copied onto `identity` at spawn, so editing a line in content changes
+# what every existing save says without a migration.
+static func _backstory_line(world: Variant, backstory_id: String, content_id: String) -> String:
+	if backstory_id != "":
+		var pool: Dictionary = _generator_pool(world)
+		for story in pool.get("backstories", []) as Array:
+			if story is Dictionary and String((story as Dictionary).get("id", "")) == backstory_id:
+				return String((story as Dictionary).get("line", ""))
+		return ""
+	var entry: Variant = entry_of(world, content_id)
+	if entry is Dictionary:
+		return String((entry as Dictionary).get("backstory", ""))
+	return ""
+
+
+# The word for an age, off the same bands the aptitude nudge reads -- an age with no band
+# covering it (no age known at all reads as 0) says nothing rather than guessing.
+static func _age_prose(world: Variant, age: int) -> String:
+	if age <= 0:
+		return ""
+	var pool: Dictionary = _generator_pool(world)
+	for band in pool.get("ageBands", []) as Array:
+		if not band is Dictionary:
+			continue
+		if age >= int((band as Dictionary).get("min", 0)) and age <= int((band as Dictionary).get("max", 999)):
+			return String((band as Dictionary).get("prose", ""))
+	return ""
 
 
 static func boot_playable(world: Variant) -> int:
