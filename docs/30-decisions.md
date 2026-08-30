@@ -1581,6 +1581,69 @@ dressing changes never move the layout.
   absorption is partial, not total. Running the two nudges through the loop separately would let
   the second nudge's rebalance partially undo the first's in the same tie-prone way; running them
   together means there is exactly one rebalance to reason about, and the harness measured that one.
+- **`traitConflicts` ships with one pair, not the four docs/07 once sketched.** docs/07's example
+  prose named *Tough*/*Frail*, *Hoarder* and *Grudge-holder* alongside *squeamish*/*iron_stomach*,
+  but only the last pair is drawn from the eight traits `generator.json` actually authors — the
+  other three name traits that were never added to the pool. Shipping conflict entries for traits
+  that do not exist would not be a conflict rule, it would be a rule with nothing to erase, and
+  `check_m2_recruits.gd`'s dead-socket lane (`traitConflicts` names must resolve into the `traits`
+  pool) would fail the build the moment it tried. The honest scope is the one pair the pool can
+  actually contradict: `squeamish` pushes a survivor to break off a fight sooner, `iron_stomach`
+  lets them stand more of it — `npc_combat.gd`'s `break_off_state` already reads them as the two
+  ends of the same threshold, which is what makes the pair a genuine contradiction rather than a
+  decorative one. The mechanism itself is general — `SimRecruits._erase_conflicts_of` walks
+  whatever pairs `traitConflicts` declares, and the dead-socket and true-positive lanes are
+  written against a synthetic multi-pair fixture pool precisely so a second pair can be added
+  later by editing content, not code, the day a trait exists to conflict with something else.
+  Adding *Tough*/*Frail*-shaped traits to the pool today just to give the conflict table a second
+  row would be four traits nobody reads (the same shape as the four already-inert ones,
+  `steady_hands`/`loud`/`night_blind`/`fast_healer`) authored solely to decorate a list.
+
+## Who manages a survivor's skill web: the choice is Focus, and nothing beside it
+
+- **There is no autonomy toggle, because Focus already is one.** The obvious shape for "let the
+  player decide whether the NPC assigns their own points" is a boolean beside the focus word, and
+  it is the wrong one: docs/07 already says that a survivor *with* a Focus auto-allocates along a
+  path and that "setting Focus to Manual gives full control of that one survivor's web and
+  inventory". A separate flag would make two fields that can disagree — `Medic` + "manual", or
+  `Manual` + "auto" — and every reader of the web would then have to decide which one wins. One
+  field cannot disagree with itself. The work grid renders and cycles the focus word directly, and
+  `FOCUS_CYCLE` ends on `Manual` so it sits one right-click from `Auto`.
+- **Choosing `Auto` is a handback, so it is stamped `"auto"`, not `"player"`.** Provenance
+  (`jobPriorities.focusSetBy`) is what daily drift asks before it moves anybody, so "the player set
+  this" means "do not touch it". Stamping every command `"player"` — which is what the intake did
+  when provenance landed, because nothing yet clicked it — makes `Auto` the one choice that cannot
+  be undone: a player who clicks round to the word meaning *you decide* freezes that survivor out of
+  drift for the rest of the run, with nothing on screen that could say so. The exception is one
+  ternary in the `job.focus` intake and it is the difference between a cycle and a trapdoor.
+  `set_priority`'s forced flip to `Manual` goes the other way for the same reason: hand-editing a
+  cell of the grid is unambiguously a person's choice, so it stamps `"player"`.
+- **`web_view` carries no cost and no point total, so affordability is boolean by construction.**
+  The temptation is `{name, cost, affordable}` — it is one more field and it draws a nicer screen.
+  It is also a number crossing into presentation, and two of them (cost, and the points implied by
+  which nodes are affordable) reconstruct a progress bar over a survivor's web. This is the
+  [condition view's](05-health-injury.md#the-condition-view) argument, transplanted: a node the
+  survivor cannot pay for is simply **absent** from `learnable`, so the screen cannot compute what
+  it was not given. `godot:m2:autonomy`'s VIEW lane is the mechanical half — a key allowlist plus a
+  `[0-9]` scan over the serialised view, the same shape as `godot:ban:healthbar`.
+- **A buy is refused outright for anybody not on Manual, rather than merged with autospend.** Two
+  spenders on one purse is a race with no correct answer: the player picks a node, `_autospend`
+  fires on the next `_earn` and takes the points first, and the click silently did nothing. Refusing
+  it with a reason (`web.refused` `"auto"`) keeps the bargain docs/07 actually offers — a Focus buys
+  freedom from the decision, Manual buys it back — and keeps the surface honest, because
+  `web_view.learnable` is empty for the same survivors the intake would refuse. The order of the
+  four reasons (`auto`, `unknown`, `owned`, `points`) is the order in which knowing is useful.
+- **No per-node provenance.** `skillWeb.nodes` stays a flat array of ids; nothing records whether a
+  node was bought by the player, by a focus path or by the surplus pass. Recording it would force an
+  array of records, and an array of Dictionaries cannot be edited by handing an element back —
+  `Array.erase` and `Array.find` match by *value* in 4.7.1 (CLAUDE.md). That is a real trap to walk
+  into for a field no rule reads: nothing in the design treats a player-bought node differently from
+  an auto-bought one, and a node once bought is permanent either way.
+- **The intake registers at input order 15, one after `jobs.intake` at 14.** A player who flips a
+  survivor to Manual and clicks a node in the same frame pushes two commands into one tick. At
+  order 13 the buy would read the focus as it was *before* the flip and be refused `"auto"` for a
+  survivor who is no longer on auto — a click that fails for a reason the screen has already
+  stopped showing. The ordering is one integer and it is load-bearing.
 
 ---
 

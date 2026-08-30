@@ -237,9 +237,10 @@ func _ensure_ui() -> void:
 		_work_panel = work_script.new() as Control
 		_work_panel.visible = false
 		_work_panel.position = Vector2(16, 240)
-		# Taller than before: work_panel.gd's rows grew a second line (person_clause), so ROW_H
-		# grew with them -- the same six rows now need more height to stay on screen at once.
-		_work_panel.size = Vector2(1520, 420)
+		# Taller than before: work_panel.gd's rows grew a second line (person_clause) and then a
+		# third (what they know, and what a Manual survivor could learn), so ROW_H grew with
+		# them -- the same six rows now need more height to stay on screen at once.
+		_work_panel.size = Vector2(1520, 540)
 		layer.add_child(_work_panel)
 	# paperdoll glimpse bottom-left (always visible, cheap); the HUD keys hint moved to the
 	# bottom-right corner to make this one free.

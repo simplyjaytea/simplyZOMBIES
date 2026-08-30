@@ -117,6 +117,89 @@ static func register_module(world: Variant) -> void:
 		last_day[0] = day
 		_drift_all(w, day)
 	)
+	# Order 15, one after `jobs.intake` at 14, and that ordering is the whole point: a player who
+	# flips a survivor to Manual and buys a node in the same frame pushes two commands into one
+	# tick, and the buy has to see the focus the flip just wrote or it is refused as "auto" for a
+	# survivor who is no longer on auto.
+	world.systems.register("skills.intake", "input", 15, func(w: Variant) -> void:
+		for cmd in w.commands.current as Array:
+			var c: Dictionary = cmd as Dictionary
+			if String(c.get("type", "")) != "web.buy":
+				continue
+			var ent: int = int(c.get("entity", -1))
+			var nid: String = String(c.get("node", ""))
+			var reason: String = _refuse_buy(w, ent, nid)
+			if reason != "":
+				w.events.publish({"type": "web.refused", "entity": ent, "node": nid, "reason": reason})
+				continue
+			if not _buy(w, ent, nid):
+				# Belt and braces: `_refuse_buy` has already asked every question `_buy` asks, so
+				# this is unreachable unless the two drift apart. It says "points" rather than
+				# passing quietly, because a buy that silently did nothing is the worst outcome.
+				w.events.publish({"type": "web.refused", "entity": ent, "node": nid, "reason": "points"})
+				continue
+			w.events.publish({"type": "web.learned", "entity": ent, "node": nid})
+	)
+
+
+# Why a buy is refused, in the order the reasons are worth knowing, or "" when it is allowed.
+#
+# "auto" comes first and is the load-bearing one: a survivor whose focus is anything but Manual is
+# managing their own web, and letting a player buy into that would interleave two spenders on one
+# purse -- the player's pick and the next `_autospend` racing for the same points. docs/07's
+# bargain is exactly this: a Focus buys you freedom from the decision, and Manual buys it back.
+static func _refuse_buy(world: Variant, entity: int, node_id: String) -> String:
+	if _focus_of(world, entity) != "Manual":
+		return "auto"
+	var node: Variant = _nodes_by_id(_web()).get(node_id)
+	if not node is Dictionary:
+		return "unknown"
+	var web: Variant = world.components.get_component(entity, "skillWeb")
+	if not web is Dictionary:
+		# No web at all: nothing owned and nothing banked, so the honest reason is that they
+		# cannot pay. Not "unknown" -- the node exists; it is the buyer who does not.
+		return "points"
+	if ((web as Dictionary).get("nodes", []) as Array).has(node_id):
+		return "owned"
+	var region: String = String((node as Dictionary).get("region", ""))
+	var pts: Dictionary = (web as Dictionary).get("points", {}) as Dictionary
+	if int(pts.get(region, 0)) < int((node as Dictionary).get("cost", 1)):
+		return "points"
+	return ""
+
+
+# The one place a node is bought. Every path into the web goes through here -- the focus path,
+# the surplus pass and the player's own click -- so there is one affordability check, one place
+# points are spent, and one place modifiers are re-applied. `melee.gd` already made the argument
+# about two intakes with independently written effects; this is the same argument, kept ahead of
+# the drift.
+static func _buy(world: Variant, entity: int, node_id: String) -> bool:
+	var def: Dictionary = _web()
+	if def.is_empty():
+		return false
+	var nodes_by_id: Dictionary = _nodes_by_id(def)
+	var node: Variant = nodes_by_id.get(node_id)
+	if not node is Dictionary:
+		return false
+	var web: Variant = world.components.get_component(entity, "skillWeb")
+	if not web is Dictionary:
+		return false
+	var w: Dictionary = web as Dictionary
+	var owned: Array = (w.get("nodes", []) as Array).duplicate()
+	if owned.has(node_id):
+		return false
+	var region: String = String((node as Dictionary).get("region", ""))
+	var cost: int = int((node as Dictionary).get("cost", 1))
+	var pts: Dictionary = (w.get("points", {}) as Dictionary).duplicate()
+	if int(pts.get(region, 0)) < cost:
+		return false
+	pts[region] = int(pts.get(region, 0)) - cost
+	owned.append(node_id)
+	w["points"] = pts
+	w["nodes"] = owned
+	world.components.set_component(entity, "skillWeb", w)
+	_apply_mods(world, entity, owned, nodes_by_id)
+	return true
 
 
 static func _earn(world: Variant, entity: int, region: String, amount: int) -> void:
@@ -144,30 +227,13 @@ static func _autospend(world: Variant, entity: int) -> void:
 	var web: Variant = world.components.get_component(entity, "skillWeb")
 	if not web is Dictionary:
 		return
-	var w: Dictionary = web as Dictionary
-	var pts: Dictionary = (w.get("points", {}) as Dictionary).duplicate()
-	var owned: Array = (w.get("nodes", []) as Array).duplicate()
 	var focus: String = _focus_of(world, entity)
 	if focus == "Manual":
 		return
 	var paths: Dictionary = def.get("focusPaths", {}) as Dictionary
 	var path: Array = paths.get(focus, paths.get("Auto", [])) as Array
-	var nodes_by_id: Dictionary = _nodes_by_id(def)
-	var changed: bool = false
 	for nid_v in path:
-		var nid: String = String(nid_v)
-		if owned.has(nid):
-			continue
-		var node: Variant = nodes_by_id.get(nid)
-		if not node is Dictionary:
-			continue
-		var region: String = String((node as Dictionary).get("region", ""))
-		var cost: int = int((node as Dictionary).get("cost", 1))
-		if int(pts.get(region, 0)) < cost:
-			continue
-		pts[region] = int(pts.get(region, 0)) - cost
-		owned.append(nid)
-		changed = true
+		_buy(world, entity, String(nid_v))
 	# Second pass: what the focus path cannot take. Points are region-tagged (docs/08) and a
 	# path names five nodes at most, so everything earned off the path used to sit in the
 	# component forever -- an Auto survivor who spent the campaign on Construct banked Craft
@@ -180,8 +246,12 @@ static func _autospend(world: Variant, entity: int) -> void:
 	# centre: cheap, broad ... anyone drifts here") instead of stalling. The loop terminates
 	# because every pass appends to `owned`, which the scan then skips.
 	while true:
+		var cur: Variant = world.components.get_component(entity, "skillWeb")
+		if not cur is Dictionary:
+			break
+		var pts: Dictionary = (cur as Dictionary).get("points", {}) as Dictionary
+		var owned: Array = (cur as Dictionary).get("nodes", []) as Array
 		var best_id: String = ""
-		var best_region: String = ""
 		var best_cost: int = 0
 		for n in def.get("nodes", []) as Array:
 			if not n is Dictionary:
@@ -196,19 +266,11 @@ static func _autospend(world: Variant, entity: int) -> void:
 				continue
 			if best_id == "" or ccost < best_cost:
 				best_id = cid
-				best_region = creg
 				best_cost = ccost
 		if best_id == "":
 			break
-		pts[best_region] = int(pts.get(best_region, 0)) - best_cost
-		owned.append(best_id)
-		changed = true
-	if not changed and owned == (w.get("nodes", []) as Array):
-		return
-	w["points"] = pts
-	w["nodes"] = owned
-	world.components.set_component(entity, "skillWeb", w)
-	_apply_mods(world, entity, owned, nodes_by_id)
+		if not _buy(world, entity, best_id):
+			break
 
 
 static func _apply_mods(world: Variant, entity: int, owned: Array, nodes_by_id: Dictionary) -> void:
@@ -252,6 +314,51 @@ static func has_node(world: Variant, entity: int, node_id: String) -> bool:
 	if not web is Dictionary:
 		return false
 	return ((web as Dictionary).get("nodes", []) as Array).has(node_id)
+
+
+# What a screen is allowed to know about somebody's web: `{known:[prose], learnable:[{node, name}]}`.
+#
+# Built the way `sim/condition.gd` builds the condition view, and for the same reason. There is no
+# cost here, no point total, no count and no percentage -- affordability is boolean *by
+# construction*, because a node the survivor cannot pay for simply is not in `learnable`. So a
+# progress bar over the web is not merely discouraged; like the health bar, it is not computable
+# from what the screen has (docs/01 clause 4: information stays scarce).
+#
+# `name` is content -- the prose lives beside the node in `skill_web.json`, never in a
+# `if id == "melee.grip"` branch in the draw loop, which is the pattern `godot:check:appearance`
+# exists to keep out. `node` is command plumbing for `web.buy` and is never drawn.
+#
+# `learnable` is empty for anybody not on Manual, matching the intake's "auto" refusal: a survivor
+# managing their own web offers the player nothing to click, so the surface cannot suggest a buy
+# the sim would then refuse.
+static func web_view(world: Variant, entity: int) -> Dictionary:
+	var out: Dictionary = {"known": [], "learnable": []}
+	var def: Dictionary = _web()
+	var web: Variant = world.components.get_component(entity, "skillWeb")
+	if def.is_empty() or not web is Dictionary:
+		return out
+	var manual: bool = _focus_of(world, entity) == "Manual"
+	var pts: Dictionary = (web as Dictionary).get("points", {}) as Dictionary
+	var owned: Array = (web as Dictionary).get("nodes", []) as Array
+	var known: Array = []
+	var learnable: Array = []
+	for n in def.get("nodes", []) as Array:
+		if not n is Dictionary:
+			continue
+		var nd: Dictionary = n as Dictionary
+		var nid: String = String(nd.get("id", ""))
+		var prose: String = String(nd.get("name", ""))
+		if owned.has(nid):
+			known.append(prose)
+			continue
+		if not manual:
+			continue
+		if int(pts.get(String(nd.get("region", "")), 0)) < int(nd.get("cost", 1)):
+			continue
+		learnable.append({"node": nid, "name": prose})
+	out["known"] = known
+	out["learnable"] = learnable
+	return out
 
 
 static func _nodes_by_id(def: Dictionary) -> Dictionary:

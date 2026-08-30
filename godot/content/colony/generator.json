@@ -38,6 +38,7 @@
     "night_blind",
     "fast_healer"
   ],
+  "traitConflicts": [["squeamish", "iron_stomach"]],
   "features": [
     "short hair",
     "tired eyes",
