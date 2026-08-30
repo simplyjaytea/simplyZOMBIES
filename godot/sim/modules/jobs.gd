@@ -105,6 +105,11 @@ static func set_priority(world: Variant, entity: int, column: String, value: int
 		attach(world, entity, "Manual")
 		jp = world.components.get_component(entity, "jobPriorities")
 	(jp as Dictionary)["focus"] = "Manual"
+	# Hand-editing a cell of the grid *is* a person's choice, so it carries the same provenance
+	# the `job.focus` command does. Without this line the forced flip to Manual left `focusSetBy`
+	# reading "auto", and the daily drift -- which asks provenance, not the focus name -- was free
+	# to move a survivor off a row the player had just set by hand.
+	(jp as Dictionary)["focusSetBy"] = "player"
 	var cols: Dictionary = (jp as Dictionary).get("cols", empty_row()) as Dictionary
 	cols[column] = clampi(value, 0, 4)
 	(jp as Dictionary)["cols"] = cols
@@ -140,8 +145,15 @@ static func register_module(world: Variant) -> void:
 			match String(c.get("type", "")):
 				"job.focus":
 					# The one path a person's own choice arrives on, so it is the one place
-					# that stamps "player" on it.
-					set_focus(w, int(c.get("entity", -1)), String(c.get("focus", "Auto")), "player")
+					# that stamps "player" on it -- with one exception, and it is the whole
+					# reason the choice is Focus rather than a second toggle beside it.
+					# Choosing **Auto** is a handback: the player is saying "you decide",
+					# which is the opposite of a lock. Stamped "player" it would be a lock,
+					# and a survivor put back on Auto would be frozen out of drift for the
+					# rest of the run with nothing on screen to say so -- an irreversible
+					# choice made by clicking the word that means "not my problem".
+					var picked: String = String(c.get("focus", "Auto"))
+					set_focus(w, int(c.get("entity", -1)), picked, "auto" if picked == "Auto" else "player")
 				"job.priority":
 					set_priority(w, int(c.get("entity", -1)), String(c.get("column", "")), int(c.get("value", 0)))
 	)

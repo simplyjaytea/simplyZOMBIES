@@ -196,6 +196,15 @@ switch (mode) {
   case "--m2-web":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_web.gd"];
     break;
+  case "--m2-autonomy":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_autonomy.gd",
+    ];
+    break;
   case "--m2-upkeep":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_upkeep.gd"];
     break;

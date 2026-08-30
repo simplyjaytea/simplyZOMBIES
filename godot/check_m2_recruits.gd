@@ -31,8 +31,12 @@ func _run() -> void:
 	ok = _prose() and ok
 	ok = _look_resolves() and ok
 	ok = _determinism() and ok
+	ok = _conflicts_true_positive() and ok
+	ok = _conflicts_true_negative() and ok
+	ok = _conflicts_bias() and ok
+	ok = _conflicts_dead_socket() and ok
 	if ok:
-		print("M2_RECRUITS_OK beat transmit inspect death shape readers kit age prose looks determinism")
+		print("M2_RECRUITS_OK beat transmit inspect death shape readers kit age prose looks determinism conflicts-truepos conflicts-trueneg conflicts-bias conflicts-deadsocket")
 		quit(0)
 	else:
 		push_error("M2_RECRUITS_FAIL")
@@ -504,4 +508,155 @@ func _determinism() -> bool:
 		print("DETERMINISM SKIP: a different seed rolled identically -- the pools are too small to tell apart (not a failure)")
 		return true
 	print("DETERMINISM OK same seed identical, different seed diverges")
+	return true
+
+# ---- trait conflict rules ----
+#
+# Conflicts are content (`generator.json`'s `traitConflicts`, a list of pairs), never a
+# GDScript constant, and of the shipped eight traits exactly one pair is a genuine
+# contradiction -- `squeamish` vs `iron_stomach`, which `npc_combat.gd`'s `break_off_state`
+# already reads as opposite signs. So these lanes prove the *mechanism* against a synthetic
+# multi-pair fixture pool (TRUE NEGATIVE) rather than leaning on the one-entry shipped table to
+# demonstrate generality it cannot alone.
+
+# TRUE POSITIVE: 200 rolls off one fixed seed's `recruits` stream, drawn by calling `roll`
+# repeatedly against the same `rng` object so the stream advances naturally rather than
+# rebooting 200 worlds. No roll may carry both members of any declared pair. The claim is
+# unjudged, and says so loudly rather than passing quietly, unless the sample actually drew
+# every member of every pair at least once -- otherwise a pair that never appears "passes" for
+# having nothing to contradict.
+func _conflicts_true_positive() -> bool:
+	var w: Variant = _world()
+	var pool: Dictionary = _gen_pool(w)
+	var pairs: Array = pool.get("traitConflicts", []) as Array
+	if pairs.is_empty():
+		push_error("conflicts true positive: content declares no traitConflicts -- nothing to judge")
+		return false
+	var rng: Variant = w.rng.stream("recruits")
+	var seen: Dictionary = {}
+	var n: int = 200
+	for i in n:
+		var rolled: Dictionary = SimRecruits.roll(w, rng)
+		var traits: Array = rolled.get("traits", []) as Array
+		for t in traits:
+			seen[String(t)] = true
+		for pair in pairs:
+			var p: Array = pair as Array
+			if p.size() != 2:
+				continue
+			var a: String = String(p[0])
+			var b: String = String(p[1])
+			if traits.has(a) and traits.has(b):
+				push_error("conflicts true positive: roll %d carries both %s and %s: %s" % [i, a, b, str(traits)])
+				return false
+	for pair in pairs:
+		var p2: Array = pair as Array
+		if p2.size() != 2:
+			continue
+		for member in p2:
+			if not bool(seen.get(String(member), false)):
+				push_error("conflicts true positive: UNJUDGED -- %d rolls never drew %s, so this lane has nothing to contradict" % [n, member])
+				return false
+	print("CONFLICTS TRUE POSITIVE OK %d rolls, no pair co-occurred, every pair member drawn at least once" % n)
+	return true
+
+# TRUE NEGATIVE: a fixture pool of exactly two traits declared conflicting must return one of
+# them; with the conflict list emptied, the same code (same seed, same draw order) must return
+# both. The fixture pool's size forces this deterministically -- `want` is 2 or 3 but the bag
+# can hold at most 2, so the loop's own `bag.is_empty()` guard is what stops it, not luck.
+func _conflicts_true_negative() -> bool:
+	var w1: Variant = _world()
+	var pool1: Dictionary = _gen_pool(w1)
+	pool1["traits"] = ["fixture_a", "fixture_b"]
+	pool1["backstories"] = [{"id": "fixture_story", "label": "fixture", "line": "a fixture", "kit": []}]
+	pool1["traitConflicts"] = [["fixture_a", "fixture_b"]]
+	var rolled1: Dictionary = SimRecruits.roll(w1, w1.rng.stream("recruits"))
+	var traits1: Array = rolled1.get("traits", []) as Array
+	if traits1.size() != 1:
+		push_error("conflicts true negative: conflicting fixture pool returned %d traits, want 1: %s" % [traits1.size(), str(traits1)])
+		return false
+	var w2: Variant = _world()
+	var pool2: Dictionary = _gen_pool(w2)
+	pool2["traits"] = ["fixture_a", "fixture_b"]
+	pool2["backstories"] = [{"id": "fixture_story", "label": "fixture", "line": "a fixture", "kit": []}]
+	pool2["traitConflicts"] = []
+	var rolled2: Dictionary = SimRecruits.roll(w2, w2.rng.stream("recruits"))
+	var traits2: Array = rolled2.get("traits", []) as Array
+	if traits2.size() != 2:
+		push_error("conflicts true negative: empty conflict list returned %d traits, want 2: %s" % [traits2.size(), str(traits2)])
+		return false
+	print("CONFLICTS TRUE NEGATIVE OK 2-trait fixture: conflicting -> 1, cleared -> 2")
+	return true
+
+# BIAS LANE: the backstory `bias` pre-pick runs *before* the trait-bag loop starts, which is
+# exactly the case a naive "erase conflicts inside the loop" implementation misses. `line_cook`
+# is the one backstory whose bias is `iron_stomach` (verified against content, not assumed);
+# forcing every roll onto it must never let `squeamish` ride along.
+func _conflicts_bias() -> bool:
+	var w: Variant = _world()
+	var pool: Dictionary = _gen_pool(w)
+	var backstories: Array = pool.get("backstories", []) as Array
+	var line_cook: Dictionary = {}
+	for s in backstories:
+		if String((s as Dictionary).get("id", "")) == "line_cook":
+			line_cook = (s as Dictionary).duplicate(true)
+			break
+	if line_cook.is_empty():
+		push_error("conflicts bias: content has no line_cook backstory -- nothing to judge")
+		return false
+	if String(line_cook.get("bias", "")) != "iron_stomach":
+		push_error("conflicts bias: line_cook's bias is %s, not iron_stomach -- fixture assumption wrong" % line_cook.get("bias", ""))
+		return false
+	pool["backstories"] = [line_cook]
+	var rng: Variant = w.rng.stream("recruits")
+	var n: int = 60
+	var bias_seen: int = 0
+	for i in n:
+		var rolled: Dictionary = SimRecruits.roll(w, rng)
+		var traits: Array = rolled.get("traits", []) as Array
+		if not traits.has("iron_stomach"):
+			push_error("conflicts bias: roll %d lost the forced bias iron_stomach entirely: %s" % [i, str(traits)])
+			return false
+		bias_seen += 1
+		if traits.has("squeamish"):
+			push_error("conflicts bias: roll %d carries squeamish alongside the forced bias iron_stomach: %s" % [i, str(traits)])
+			return false
+	if bias_seen == 0:
+		push_error("conflicts bias: UNJUDGED -- %d rolls, the bias was never present" % n)
+		return false
+	print("CONFLICTS BIAS OK %d rolls forced onto line_cook, iron_stomach bias survives, squeamish never joins it" % n)
+	return true
+
+# DEAD SOCKET LANE: every id named in `traitConflicts` must exist in the `traits` pool (a
+# typo'd rule is a rule that never fires -- the has_method trap's shape), and every id in the
+# `traits` pool must be either read by sim code or named in this gate-local INERT allowlist, so
+# a silently-dead ninth trait cannot join the pool without this lane noticing. The allowlist was
+# grep-verified against `godot/sim/` when this lane was written: `steady_hands`, `loud`,
+# `night_blind` and `fast_healer` are read nowhere; `squeamish` and `iron_stomach` are read by
+# `jobs.gd`/`needs.gd`/`npc_combat.gd`, `optimist` and `light_sleeper` by `needs.gd`.
+func _conflicts_dead_socket() -> bool:
+	var w: Variant = _world()
+	var pool: Dictionary = _gen_pool(w)
+	var traits: Array = pool.get("traits", []) as Array
+	var pairs: Array = pool.get("traitConflicts", []) as Array
+	if pairs.is_empty() or traits.is_empty():
+		push_error("conflicts dead socket: content has no traits or no traitConflicts -- nothing to judge")
+		return false
+	for pair in pairs:
+		var p: Array = pair as Array
+		if p.size() != 2:
+			push_error("conflicts dead socket: traitConflicts entry %s is not a pair" % str(p))
+			return false
+		for member in p:
+			if not traits.has(String(member)):
+				push_error("conflicts dead socket: traitConflicts names %s, not in the traits pool -- a typo'd rule that never fires" % member)
+				return false
+	var read_by_sim: Array[String] = ["squeamish", "iron_stomach", "optimist", "light_sleeper"]
+	var inert_allowlist: Array[String] = ["steady_hands", "loud", "night_blind", "fast_healer"]
+	for t in traits:
+		var id: String = String(t)
+		if not read_by_sim.has(id) and not inert_allowlist.has(id):
+			push_error("conflicts dead socket: trait %s is neither read by sim code nor named in the INERT allowlist -- a silently-dead ninth trait" % id)
+			return false
+	print("CONFLICTS DEAD SOCKET OK traitConflicts ids all in pool; %d read (%s), %d inert (%s)" % [read_by_sim.size(), str(read_by_sim), inert_allowlist.size(), str(inert_allowlist)])
 	return true

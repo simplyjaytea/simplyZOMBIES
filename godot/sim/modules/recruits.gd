@@ -133,6 +133,27 @@ static func _tick_corpse(world: Variant) -> void:
 				(em as Dictionary)["scent"] = CORPSE_SCENT_OLD
 
 
+# Removes every id conflicting with `picked_id` from `bag`, per `traitConflicts` -- content, not
+# a GDScript constant (docs/30). `bag` is a plain Array (a reference type in GDScript, unlike a
+# PackedStringArray -- CLAUDE.md's packed-array trap), so the erase is visible to the caller's
+# copy of the same array; `Array.erase` matches Strings by value, which is exactly what a trait id
+# needs (the by-value/by-reference trap only bites Dictionaries and other composite elements).
+# Called both after the backstory `bias` pre-pick (before the loop starts) and after every loop
+# pick -- the bias case is the one a naive implementation misses, since it runs before `bag` is
+# ever touched by the loop.
+static func _erase_conflicts_of(bag: Array, picked_id: String, conflicts: Array) -> void:
+	for pair in conflicts:
+		var p: Array = pair as Array
+		if p.size() != 2:
+			continue
+		var a: String = String(p[0])
+		var b: String = String(p[1])
+		if a == picked_id:
+			bag.erase(b)
+		elif b == picked_id:
+			bag.erase(a)
+
+
 static func roll(world: Variant, rng: Variant) -> Dictionary:
 	var pool: Dictionary = _pool(world)
 	var given: Array = pool.get("given", ["Sam"]) as Array
@@ -143,17 +164,21 @@ static func roll(world: Variant, rng: Variant) -> Dictionary:
 	var g: String = String(given[int(rng.call("int_range", 0, given.size() - 1))])
 	var s: String = String(surnames[int(rng.call("int_range", 0, surnames.size() - 1))])
 	var story: Dictionary = stories[int(rng.call("int_range", 0, stories.size() - 1))] as Dictionary
+	var conflicts: Array = pool.get("traitConflicts", []) as Array
 	var picked: Array = []
 	var bag: Array = traits.duplicate()
 	var bias: String = String(story.get("bias", ""))
 	if bias != "" and bag.has(bias):
 		picked.append(bias)
 		bag.erase(bias)
+		_erase_conflicts_of(bag, bias, conflicts)
 	var want: int = int(rng.call("int_range", 2, 3))
 	while picked.size() < want and not bag.is_empty():
 		var i: int = int(rng.call("int_range", 0, bag.size() - 1))
-		picked.append(String(bag[i]))
+		var picked_id: String = String(bag[i])
+		picked.append(picked_id)
 		bag.remove_at(i)
+		_erase_conflicts_of(bag, picked_id, conflicts)
 	var apt: Dictionary = {"str": 5, "dex": 5, "con": 5}
 	var comps: Array[Dictionary] = SimAptitudes.compositions()
 	apt = comps[int(rng.call("int_range", 0, comps.size() - 1))]
