@@ -20,6 +20,24 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 
+# The content id the player's own body resolves its look from.
+#
+# Every other body on screen carries an id already: a zombie hands over its type id, a unique
+# survivor its identity (or rolled `look`) id, a raider its archetype id. The player carries none
+# of the three, so `for_entity` had nothing to look up and the shipped game had no player art at
+# all -- which is what the style fixtures turned up. This constant is the one place the id is
+# named, so `main.gd` still contains no `if id == ...` (the same rule PROP_KINDS follows).
+#
+# It lives under content/players/, not content/survivors/: survivor.schema.json pins ids to
+# ^survivor\.unique\. and `SimSurvivors.list_uniques` boots everything in that directory, so an
+# entry there would both fail the frozen oracle's Ajv and spawn a phantom colonist.
+const PLAYER_LOOK_ID: String = "player.body"
+
+# Which way the art faces on its own canvas, as a screen angle: up-canvas is -PI/2 under the
+# top-down projection (screen +x east, +y south), and the player's rig is authored pointing up.
+# Every rotation below is the difference between where the sim says the body is looking and this.
+const SPRITE_FORWARD: float = -PI / 2.0
+
 # Equipment slots the renderer draws on a body. A slot with no anchor point defined here
 # stays declarable in content (item.schema.json) but is silently not drawn -- extending this
 # list is a renderer change, not a content one, because a new slot needs a decision about
@@ -164,6 +182,10 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	var content_id: String = String(it.get("ztype", ""))
 	if content_id.is_empty():
 		content_id = String(it.get("cid", ""))
+	# The player is the fourth case and the one with no id of its own to hand over. Last, so a
+	# player who somehow *does* carry a content id keeps it -- this is a floor, not an override.
+	if content_id.is_empty() and is_player:
+		content_id = PLAYER_LOOK_ID
 	var declared_tint: bool = false
 	if not content_id.is_empty():
 		var kind: String = "survivor"
@@ -171,6 +193,8 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 			kind = "zombie"
 		elif content_id.begins_with("raider."):
 			kind = "raider"
+		elif content_id.begins_with("player."):
+			kind = "player"
 		var block: Dictionary = of_content(world, kind, content_id)
 		if block.has("tint"):
 			tint = Color(String(block["tint"]))
@@ -186,6 +210,36 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	# one is not one of yours", which is the certainty docs/01 clause 4 refuses them.
 	var radius: float = 14.0 if is_player else (12.0 if (is_unique or is_raider) else 10.0)
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius}
+
+
+# How far to spin a body's art, given the facing the sim arbitrated for it.
+#
+# The whole of the "only the player rotates" clause lives here, as a rule rather than as an `if`
+# in the draw loop, so it can be asserted without a draw pass: docs/30's art decision adopts the
+# reference's rotating player and explicitly refuses to rotate anybody else, because a loop that
+# spun every body would leak facing for the people the peripheral-anonymity clause
+# (docs/01 clause 4) says the player has not earned. Everyone else answers exactly 0.0.
+#
+# The angle is a screen angle, and screen axes are world axes under the top-down projection, so
+# no basis change happens here -- only the offset between the sim's heading and where the art was
+# painted pointing. `facing - SPRITE_FORWARD` is `facing + PI/2`: north (-PI/2) draws unrotated,
+# east (0.0) draws a quarter turn clockwise.
+static func body_rotation(is_player: bool, facing: float) -> float:
+	if not is_player:
+		return 0.0
+	return facing - SPRITE_FORWARD
+
+
+# Whether the white indicator line out of a body still has a job.
+#
+# The line exists because a coloured disc cannot say which way it is looking. Art that is
+# authored with a front says it itself, and drawing both puts a hairline on top of the thing it
+# was standing in for. So it comes off exactly one body -- the player, once the player's art
+# resolves -- and stays on every procedural shape, including the player's own when content is
+# missing, because the fallback is a supported path and not a stopgap. NPCs keep it whatever
+# they are wearing: their sprites are face-on and their bodies do not turn.
+static func wants_facing_line(is_player: bool, has_texture: bool) -> bool:
+	return not (is_player and has_texture)
 
 
 # The props that stand in a district, as component -> content id.

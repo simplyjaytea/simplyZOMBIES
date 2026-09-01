@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/player.schema.json",
+  "title": "Player",
+  "description": "What the player's own body looks like. A content type with exactly one entry, and it exists because the player is the one body in the world that carries no content id of its own: a zombie hands over its type id, a unique survivor its identity id, a raider its archetype id, and the player -- who is none of those -- had nothing to resolve a look from, so `Appearance.for_entity` never found a sprite for it and the shipped game had no player art at all. `presentation/appearance.gd`'s PLAYER_LOOK_ID is the one place that names the id below, so the draw loop still carries no `if id ==` branch. Deliberately NOT an entry under survivors/: survivor.schema.json pins ids to ^survivor\\.unique\\. (the frozen TypeScript oracle validates that with Ajv and would refuse a player id), and SimSurvivors.list_uniques boots everything under survivors/ -- an entry there would spawn a phantom NPC. NOTE: the content validator is shallow -- top-level types and unexpected top-level keys only -- and does not recurse into `appearance`; check_appearance.gd is the gate that checks the block's inner shape, and check_topdown.gd is the one that proves the draw loop reads it. The oracle knows six content directories and players/ is not one of them, so this schema is read by content_validator.gd alone.",
+  "type": "object",
+  "required": ["id", "name", "appearance"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^player\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id, always player.<thing>. One entry ships -- player.body -- and the namespace is open because the rig is not necessarily the only thing about the player that content will come to decide."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name. Never shown to the player: the HUD speaks in prose from sim read models, and this is for whoever is reading the content."
+    },
+    "appearance": {
+      "type": "object",
+      "required": ["sprite"],
+      "additionalProperties": false,
+      "description": "The same block a zombie or a survivor carries. `sprite` is required here, unlike on a pawn: the whole point of this type is that the player has art, and an entry declaring only a tint would leave the body a coloured disc while claiming to have fixed that.",
+      "properties": {
+        "sprite": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$",
+          "description": "Registry key for assets/sprites/<key>.png, 64x64 centre-anchored. The player's is the one sprite in the project authored for rotation -- a true-overhead rig with its mass on the pivot, see assets/sprites/README.md."
+        },
+        "tint": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$",
+          "description": "Optional, and absent on the shipped entry: finished art draws as painted and a declared tint would multiply every pixel of it (Appearance.modulate_for). Palette's `player` colour is the fallback when this content is missing entirely, not a tint."
+        }
+      }
+    }
+  }
+}

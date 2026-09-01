@@ -1093,32 +1093,11 @@ func _draw_entities() -> void:
 		if int(it["det"]) == SimVisibility.Detail.Peripheral:
 			draw_circle(Vector2(sx, sy), r, Color(0.32, 0.38, 0.32, 0.75))
 			continue
-		# contact shadow — under both branches, so a sprite still sits on the ground.
-		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
-		var texture: Texture2D = look["texture"] as Texture2D
-		if texture != null:
-			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
-			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
-			# lands on a half-pixel as the camera follows the player.
-			var size: Vector2 = texture.get_size()
-			var at := Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0))
-			var rect := Rect2(at, size)
-			# Equipped gear composites at the identical rect the body draws at -- an
-			# equipSprite is authored on the same feet-anchored canvas, so there is no
-			# per-item offset to compute here. Drawn white, never the role/tint colour:
-			# a backpack is its own object, not a stand-in shape for the entity itself.
-			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, int(it["id"]))
-			for layer in equip:
-				if not bool(layer["over"]):
-					draw_texture_rect(layer["texture"] as Texture2D, rect, false)
-			draw_texture_rect(texture, rect, false, col)
-			for layer in equip:
-				if bool(layer["over"]):
-					draw_texture_rect(layer["texture"] as Texture2D, rect, false)
-		else:
-			draw_circle(Vector2(sx, sy), r, col)
-			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
-		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
+		# Facing, read once and before anything is drawn: the body's own rotation, the
+		# indicator line and the aim cone are three readings of one number, and the sim is the
+		# only thing that arbitrates it: the `aim` command turns a stationary body, and
+		# `world._integrate_movement` overwrites facing from the velocity of a moving one, in
+		# that order. Nothing here computes a second aim angle of its own.
 		var eid: int = int(it["id"])
 		var facing_v: Variant = world.components.get_component(eid, "facing")
 		var face: float = 0.0
@@ -1126,12 +1105,50 @@ func _draw_entities() -> void:
 			face = float((facing_v as Dictionary).get("radians", 0.0))
 		# Screen axes are world axes under the top-down projection: no rotation.
 		var screen_ang: float = face
-		draw_line(
-			Vector2(sx, sy),
-			Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
-			Color(1, 1, 1, 0.55),
-			2.4 if bool(it["player"]) else 1.6,
-		)
+		# contact shadow — under both branches, and deliberately *outside* the rotation below:
+		# a shadow is cast by the world's light, not by the body, so it must not spin with it.
+		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
+		var texture: Texture2D = look["texture"] as Texture2D
+		if texture != null:
+			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
+			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
+			# lands on a half-pixel as the camera follows the player.
+			var size: Vector2 = texture.get_size()
+			# Equipped gear composites at the identical rect the body draws at -- an
+			# equipSprite is authored on the same centre-anchored canvas, so there is no
+			# per-item offset to compute here. Drawn white, never the role/tint colour:
+			# a backpack is its own object, not a stand-in shape for the entity itself.
+			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid)
+			# Asked for every body, not only the player: the anonymity clause is the helper's
+			# answer of 0.0 for everybody else, so this is the call that makes it load-bearing
+			# rather than a rule stated in a file nothing reads (docs/30, the art decision).
+			var spin: float = Appearance.body_rotation(bool(it["player"]), screen_ang)
+			if bool(it["player"]):
+				# The one rotated blit in the renderer. Centre anchor is what makes it
+				# contained: the transform's origin is the entity's own ground position and
+				# the rect is hung symmetrically around it, so the body turns on the spot
+				# instead of orbiting. Reset with the identity matrix rather than a second
+				# draw_set_transform, so "exactly one body rotates" stays countable in the
+				# source -- check_topdown.gd's _only_the_player_rotates counts it.
+				draw_set_transform(Vector2(roundf(sx), roundf(sy)), spin, Vector2.ONE)
+				_blit_body(Rect2(-size / 2.0, size), texture, col, equip)
+				draw_set_transform_matrix(Transform2D.IDENTITY)
+			else:
+				_blit_body(Rect2(Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0)), size), texture, col, equip)
+		else:
+			draw_circle(Vector2(sx, sy), r, col)
+			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
+		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
+		# The line is what a shape with no front uses to say where it is looking; art with a
+		# front says it itself, so the player's line comes off once the art resolves and every
+		# procedural body keeps it. Appearance owns that rule; this only obeys it.
+		if Appearance.wants_facing_line(bool(it["player"]), texture != null):
+			draw_line(
+				Vector2(sx, sy),
+				Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
+				Color(1, 1, 1, 0.55),
+				2.4 if bool(it["player"]) else 1.6,
+			)
 		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
 			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
 			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
@@ -1166,6 +1183,27 @@ func _draw_entities() -> void:
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(m["x"]), float(m["y"]))
 		var a: float = 0.5 * (1.0 - float(age) / float(MEMORY_TICKS))
 		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(0.24, 0.29, 0.24, a))
+
+
+# One body and everything it is wearing, composited at one rect: under-body layers, the body,
+# then over-body layers.
+#
+# Factored out of _draw_entities so the player's rotated rig and every other pawn's axis-aligned
+# blit are literally the *same* composite. The equip layers therefore ride whatever transform is
+# in force when this is called rather than being a second, unrotated copy of the ordering — which
+# is what "the overlays ride the rig" means mechanically, and it is the half of the equip story
+# that shipped: the pack and bat art itself is still authored face-on, and pulling those layers
+# back out of the transform to hide that would be the wrong fix (docs/23 names the re-authoring
+# as the characters slice's work).
+func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictionary]) -> void:
+	for layer in equip:
+		if not bool(layer["over"]):
+			draw_texture_rect(layer["texture"] as Texture2D, rect, false)
+	draw_texture_rect(texture, rect, false, col)
+	for layer in equip:
+		if bool(layer["over"]):
+			draw_texture_rect(layer["texture"] as Texture2D, rect, false)
+
 
 # The night, last, over everything. The alpha is derived from the *same number the survivor's
 # range is* -- light_look.gd's sight-derived fraction, not raw ambient -- so the screen and the
