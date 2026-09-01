@@ -175,7 +175,10 @@ drifted. Three things about the current state matter enough to repeat anyway:
   survives its own contact loop. Sepsis lethality remains undecided and the owner's.
 - **The presentation is flat top-down, not isometric** — an independent track that touched nothing
   under `godot/sim/`. `docs/00-vision.md` carries the reversal, docs/30 what it made structural,
-  and the art entries in what's left the ordered next steps; the style pick is the owner's.
+  and the art entries in what's left the ordered next steps. The style pick is made: **B, the
+  rotating player**, decided by the owner 2026-09-01 from the comparison fixtures and a reference
+  image (docs/30 records the pick and its boundaries — the reference's health-bar HUD is
+  explicitly not adopted, and only the player rotates).
 - **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody
