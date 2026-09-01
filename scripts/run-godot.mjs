@@ -295,6 +295,9 @@ switch (mode) {
   case "--topdown":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_topdown.gd"];
     break;
+  case "--respond":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_respond.gd"];
+    break;
   case "--ban-health-bar":
     args = [
       "--headless",
