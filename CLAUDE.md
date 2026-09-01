@@ -82,14 +82,26 @@ npm run godot:m2:raiders   # the band at the gate       → M2_RAIDERS_OK
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
+npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
+npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
+npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
+npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
+npm run godot:check:wrecks   # wrecks, props, debris art → WRECKS_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
+npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **35**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **41**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
+
+`sprites:check` is the one gate deliberately **outside** `godot:m2`: it needs Pillow
+(`pip install pillow==12.3.0`) and that chain stays engine-only and pip-free, so it runs as its
+own step in CI's `check` job. Run it after editing anything under `tools/sprites/` or any PNG
+that package generates — it re-renders every registry key and compares decoded pixels against
+the committed file, so a palette edited without regenerating is a red build.
 
 `godot:m2` prints `ObjectDB ... leaked at exit` and `resources still in use` *after* it reports
 success. That is engine shutdown noise, not a failure — check the `_OK` line and the exit code.
@@ -172,7 +184,10 @@ drifted. Three things about the current state matter enough to repeat anyway:
   survives its own contact loop. Sepsis lethality remains undecided and the owner's.
 - **The presentation is flat top-down, not isometric** — an independent track that touched nothing
   under `godot/sim/`. `docs/00-vision.md` carries the reversal, docs/30 what it made structural,
-  and the art entries in what's left the ordered next steps; the style pick is the owner's.
+  and the art entries in what's left the ordered next steps. The style pick is made: **B, the
+  rotating player**, decided by the owner 2026-09-01 from the comparison fixtures and a reference
+  image (docs/30 records the pick and its boundaries — the reference's health-bar HUD is
+  explicitly not adopted, and only the player rotates).
 - **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody

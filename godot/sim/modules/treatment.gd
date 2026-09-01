@@ -1002,6 +1002,44 @@ static func options_for(world: Variant, actor: int, patient: int, part: String) 
 	return out
 
 
+# The other read model the screen offers from, and `options_for`'s companion: which of the
+# infection responses is worth showing this survivor right now, as prose rows the body screen can
+# draw and click. Same contract -- the sim decides what is on offer, so the screen cannot show a
+# word the sim would refuse, and nothing numeric crosses the boundary.
+#
+# **Antibiotics only, deliberately.** The other four responses are not omissions to be tidied up
+# later, and each is left out for its own reason, which is written down here rather than in a
+# commit message: `quarantine` writes a record nothing reads (a no-op with a surface would be worse
+# than a no-op without one); `cauterize` and `amputate` are aimed at a body *part* and `put_down` at
+# a *person*, and none of the three has a way to say which -- a patient-and-part selection surface
+# is its own piece of work, named in docs/23.
+#
+# The presence rule is the honesty core, and it is two questions, both of which the player could
+# answer for themselves from what is already on their screen:
+#
+#   supply   is there a course in the pack (`SimInfection.carries_course`) -- work_panel.gd's rule,
+#            that a name you can afford is simply present and one you cannot is absent, rather than
+#            a greyed word with a reason attached;
+#   symptom  is anything showing that a course might answer (`SimInfection.symptom_of`) -- which is
+#            the fever, from either cause, and never `transmitted` and never `is_septic`. A bite
+#            still in its latent stage reads "clear" and is offered nothing, which is the point:
+#            a word that appeared the moment you were bitten would hand the player the one thing
+#            docs/01 clause 4 says they do not get.
+#
+# So the row is offered iff it would succeed, and it says the same thing whichever infection is
+# underneath it.
+static func response_view(world: Variant, actor: int) -> Array:
+	var out: Array = []
+	if world == null or actor < 0:
+		return out
+	if not SimInfection.carries_course(world, actor):
+		return out
+	if not bool(SimInfection.symptom_of(world, actor, 0).get("symptomatic", false)):
+		return out
+	out.append({"verb": "antibiotics", "text": "take the antibiotics"})
+	return out
+
+
 static func _dry_run(world: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
 	var pre: Dictionary = _can_begin(world, actor, patient, verb)
 	if not bool(pre.get("ok", false)):

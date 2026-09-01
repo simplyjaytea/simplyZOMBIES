@@ -13,6 +13,7 @@ extends Control
 
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const SimTreatment = preload("res://sim/modules/treatment.gd")
 const UiText = preload("res://ui/text.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Paperdoll = preload("res://ui/paperdoll.gd")
@@ -63,6 +64,11 @@ var _drag_item: int = -1
 var _drag_rotated: bool = false
 var _drag_from_container: int = -1
 var _drag_dims: Vector2i = Vector2i.ONE
+
+# Clickable words under the condition readout, built by _draw and read by _press_at:
+# {rect, verb}. Derived every draw and never stored, which is work_panel.gd's rule and the
+# reason the word you can see and the word you can click cannot drift apart.
+var _hit: Array[Dictionary] = []
 
 var _paperdoll: Control = null
 var _ghost: Control = null
@@ -282,6 +288,16 @@ func _gui_input(event: InputEvent) -> void:
 func _press_at(p: Vector2) -> void:
 	if _world == null or _view.is_empty():
 		return
+	# Words first, and for work_panel.gd's reason: they sit inside the body panel the slot and
+	# grid maths also cover, so whichever target is more specific has to win. `_hit` is empty
+	# whenever the screen is closed, so this needs no `_open` guard of its own.
+	for h in _hit:
+		if (h["rect"] as Rect2).has_point(p):
+			# Through the queue like every other player act, and with no patient named: the
+			# intake defaults it to the player (treatment.gd's `infection.respond` arm), which
+			# is the same "one key, one obvious target" rule the T key already follows.
+			_world.commands.push({"type": "infection.respond", "verb": String(h.get("verb", ""))})
+			return
 	var body_x: float = float(PAD)
 	var body_y: float = float(PAD)
 	# equipment slot pick: lift the item out of the slot (only on the open screen -- the
@@ -406,6 +422,9 @@ func _cancel_drag() -> void:
 # ---- drawing ----
 
 func _draw() -> void:
+	# Cleared before the early returns, not inside the body: a closed screen has no clickable
+	# words, and rects left over from the last frame it was open would still be hit-testable.
+	_hit.clear()
 	if not _open:
 		return
 	var view: Vector2 = get_viewport_rect().size
@@ -455,9 +474,54 @@ func _draw() -> void:
 			var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
 			draw_string(font, Vector2(body_x + BODY_W / 2.0 - tw / 2.0, ly), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, d2["colour"] as Color)
 			ly += 28.0
+	_draw_responses(font, body_x, ly + 10.0)
 	# how to work the screen, in one dim line under the body panel
 	var hint: String = "drag a bag by its title · pin keeps it on screen — pinned belt and vest pouches stay usable in play · right-click rotates"
 	draw_string(font, Vector2(body_x, body_y + BODY_H + 30.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_DIM)
+
+
+# What you could do about an infection, under the body it is in. One clickable word per offered
+# response, in work_panel.gd's idiom exactly: the sim decides what is on offer
+# (`SimTreatment.response_view`), a response you can afford is simply *there* in the accent colour,
+# and one you cannot is absent rather than greyed with a reason beside it. Amber is chrome.gd's one
+# colour for the thing that matters, and on this screen an answer to a fever is that thing.
+#
+# No numbers reach here and none could: the view carries a verb and a sentence, which is the same
+# contract the condition readout above it has (docs/01 clause 4, check_ban_health_bar.gd).
+func _draw_responses(font: Font, body_x: float, y: float) -> void:
+	if _world == null:
+		return
+	var rows: Array = SimTreatment.response_view(_world, _actor)
+	if rows.is_empty():
+		return
+	var lead: String = "you could "
+	var sep: String = " · "
+	# Centred by measurement, the way the condition lines above are, rather than nudged by a
+	# constant: a second response one day must not push the first off centre.
+	var total: float = font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	for i in rows.size():
+		total += font.get_string_size(String((rows[i] as Dictionary).get("text", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		if i < rows.size() - 1:
+			total += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	var at: float = body_x + BODY_W / 2.0 - total / 2.0
+	draw_string(font, Vector2(at, y), lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+	at += font.get_string_size(lead, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+	for i in rows.size():
+		var row: Dictionary = rows[i] as Dictionary
+		var word: String = String(row.get("text", ""))
+		draw_string(font, Vector2(at, y), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.ACCENT)
+		_hit.append({"rect": _word_rect(font, Vector2(at, y), word, 20), "verb": String(row.get("verb", ""))})
+		at += font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		if i < rows.size() - 1:
+			draw_string(font, Vector2(at, y), sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT_DIM)
+			at += font.get_string_size(sep, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+
+
+# The one place a word's extent is measured, so the rectangle that is drawn and the rectangle that
+# is clicked cannot drift apart. Same shape as work_panel.gd's, which set the convention.
+func _word_rect(font: Font, at: Vector2, word: String, font_size: int) -> Rect2:
+	var w: float = font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	return Rect2(Vector2(at.x, at.y - float(font_size) * 0.8), Vector2(w, float(font_size) * 1.15))
 
 
 # One prose line per part that has anything to report: "left arm — badly hurt · bleeding".

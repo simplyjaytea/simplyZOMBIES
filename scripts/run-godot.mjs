@@ -295,6 +295,27 @@ switch (mode) {
   case "--topdown":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_topdown.gd"];
     break;
+  case "--respond":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_respond.gd"];
+    break;
+  case "--camera":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_camera.gd"];
+    break;
+  case "--light":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_light_look.gd",
+    ];
+    break;
+  case "--road":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_road_look.gd"];
+    break;
+  case "--wrecks":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_wrecks.gd"];
+    break;
   case "--ban-health-bar":
     args = [
       "--headless",

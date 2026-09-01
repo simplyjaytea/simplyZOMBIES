@@ -35,8 +35,9 @@ func _run() -> void:
 	ok = _buildings_read_as_buildings() and ok
 	ok = _props_reach_the_draw_path() and ok
 	ok = _built_mass_is_thin_and_still_solid() and ok
+	ok = _only_the_player_rotates() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, one body rotates")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -300,7 +301,15 @@ func _props_reach_the_draw_path() -> bool:
 	var unsearched: Dictionary = Appearance.prop_look(world, container)
 	(world.components.get_component(container, "searchable") as Dictionary)["searched"] = true
 	var searched: Dictionary = Appearance.prop_look(world, container)
-	if String(unsearched["id"]) == String(searched["id"]) or unsearched["tint"] == searched["tint"]:
+	if String(unsearched["id"]) == String(searched["id"]):
+		push_error("a searched container resolves the same content id as an unsearched one; the flag is not reaching PROP_KINDS")
+		return false
+	# The two ids have to draw differently, and *how* they differ moved with the art: they were
+	# two tints until props had sprites, and are now two pictures drawn unstained (white on both
+	# sides, so a tint comparison alone would read "identical" for props that are nothing of the
+	# sort). Either axis differing is enough; neither differing is one state wearing two names.
+	# check_appearance's prop lane is the finer version, comparing the decoded pixels.
+	if unsearched["tint"] == searched["tint"] and unsearched["texture"] == searched["texture"]:
 		push_error("a searched container looks exactly like an unsearched one; the state is not readable")
 		return false
 
@@ -402,6 +411,81 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 		push_error("_draw_window_glass is not handed the tile's colour, so a boarded window's stage stops showing in its pane")
 		return false
 	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit face %.3f clear of the brightest ground %.3f" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit), brightest])
+	return true
+
+
+# One body rotates, and it is the player's.
+#
+# docs/30's art decision takes the reference's rotating player and refuses the rest of it: NPCs,
+# colonists and zombies stay face-on, because a loop that spun every body would leak facing for
+# the people docs/01 clause 4 says the player has not earned to read. That clause is not a comment
+# here -- it is `body_rotation` answering 0.0 for everybody who is not the player, and it is the
+# draw loop having exactly one transform in it.
+#
+# The pure half is exact maths on two static functions, both true positives and true negatives.
+# The textual half is the dead-socket assertion: `crawlFactor`, `SimStances.CAN_AIM` and seven
+# others were correct helpers nothing called, and a rotation helper nobody reaches is a player who
+# does not turn. A draw pass cannot be run headless, so what the frame loop calls is read.
+func _only_the_player_rotates() -> bool:
+	# The head-up convention: the rig is authored pointing up-canvas, so a body facing north
+	# (-PI/2 under the top-down projection, screen +y south) draws exactly as it was painted.
+	if absf(Appearance.body_rotation(true, -PI / 2.0)) > EPS:
+		push_error("a player facing north must draw unrotated (the art is authored head-up), got %f" % Appearance.body_rotation(true, -PI / 2.0))
+		return false
+	# And the sign: east is a quarter turn clockwise, not anticlockwise. A body that turns the
+	# wrong way passes every "it rotates" assertion and looks backwards on every frame.
+	if absf(Appearance.body_rotation(true, 0.0) - PI / 2.0) > EPS:
+		push_error("a player facing east must draw a quarter turn clockwise (+PI/2), got %f" % Appearance.body_rotation(true, 0.0))
+		return false
+	# The clause itself. Nobody else turns, at any heading.
+	for f in [0.0, 1.3, -PI / 2.0, PI]:
+		if Appearance.body_rotation(false, f) != 0.0:
+			push_error("a body that is not the player must not rotate: facing %f gave %f, and peripheral anonymity is what that costs" % [f, Appearance.body_rotation(false, f)])
+			return false
+
+	# The indicator line: it stands in for a front the art does not have, so it comes off exactly
+	# one body -- the player, once the player's art resolves -- and nowhere else.
+	if Appearance.wants_facing_line(true, true):
+		push_error("the player's art has a front of its own; the indicator line must come off it")
+		return false
+	if not Appearance.wants_facing_line(true, false):
+		push_error("a player drawn as a procedural disc has no front and must keep the line; the fallback is a supported path")
+		return false
+	for has_art in [true, false]:
+		if not Appearance.wants_facing_line(false, has_art):
+			push_error("an NPC must keep its indicator line (art on disk: %s); their sprites are face-on and their bodies do not turn" % str(has_art))
+			return false
+
+	var body: String = _function_body(MAIN_GD, "_draw_entities")
+	if body.is_empty():
+		push_error("could not read _draw_entities out of %s -- the rotation lane had nothing to judge" % MAIN_GD)
+		return false
+	# Called by the frame loop, with the player guard as its *argument* rather than around it:
+	# that is what makes the 0.0 above load-bearing instead of a rule stated in a file nothing
+	# reads, and it is why the anonymity clause cannot be lost by rewriting an `if` here.
+	if not body.contains("Appearance.body_rotation(bool(it[\"player\"])"):
+		push_error("_draw_entities does not call Appearance.body_rotation with the player flag: the rotation rule resolves an angle nothing turns")
+		return false
+	# Exactly one. Two would mean a second body somewhere in the loop had learned to rotate.
+	var transforms: int = body.count("draw_set_transform(")
+	if transforms != 1:
+		push_error("_draw_entities holds %d draw_set_transform( calls; exactly one body rotates, and it is the player's" % transforms)
+		return false
+	# Reset by matrix, not by a second draw_set_transform -- otherwise the count above stops
+	# being able to tell a reset from a second rotating body. A missing reset leaves the
+	# transform in force for the aim cone, the ground items and the memory marks below it.
+	if not body.contains("draw_set_transform_matrix(Transform2D.IDENTITY)"):
+		push_error("_draw_entities never resets the canvas transform; everything drawn after the player would inherit the player's rotation")
+		return false
+	if not body.contains("Appearance.wants_facing_line("):
+		push_error("_draw_entities does not ask Appearance whether the facing line is still wanted; the rule would be a second copy in the draw loop")
+		return false
+	# The equip layers ride the rig because they are drawn by the same helper inside the same
+	# transform. Pull them out of it and a backpack floats beside a turned body.
+	if not body.contains("_blit_body("):
+		push_error("_draw_entities does not composite through _blit_body; the equipped layers no longer ride the transform the body is drawn under")
+		return false
+	print("ROTATION OK head-up at -PI/2, +PI/2 east, 0.0 for everybody else, %d transform in the draw loop, reset by matrix" % transforms)
 	return true
 
 
