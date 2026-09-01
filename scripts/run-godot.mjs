@@ -310,6 +310,9 @@ switch (mode) {
       "res://check_light_look.gd",
     ];
     break;
+  case "--road":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_road_look.gd"];
+    break;
   case "--ban-health-bar":
     args = [
       "--headless",

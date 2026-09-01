@@ -173,8 +173,8 @@ the gate boots run on a real miniature district instead of an empty map. Region,
 roads-between-districts and streaming stay Milestone 3B; the road seam ships as data the street
 pass actually reaches (edge connection points). The owner's scope decisions are recorded in
 [docs/30](30-decisions.md#what-the-worldgen-arc-decided). Nothing in this group remains open;
-what the arc left behind is named in the debt list (the ground is player-only today, rubble
-unplaced) rather than here.
+what the arc left behind is named in the debt list (the ground is player-only today) rather
+than here.
 
 **People — the survivor pipeline:**
 
@@ -222,9 +222,6 @@ is made (see the decision above and docs/30); what remains is the work it forces
 order. The reference mood throughout: muted, overcast, desaturated urban decay — and its HUD is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
 
-- **Ground & road dressing.** Lane markings, sidewalk edges, kerbs and surface variation in the
-  reference's palette — the streets read as streets. Markings are content-driven dressing, not
-  `if id ==` branches in the draw loop.
 - **Vehicle and wreck props.** Abandoned cars, dumpsters, debris piles — the reference's blocking
   volumes. Folds in the old **prop art on the 64×64 canvas** item: a container, a bed, a campfire
   and the well each take an `appearance.sprite` key today and none has a file behind it.
@@ -281,18 +278,23 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
   dead-socket proof) and `_the_grab_counters_can_see_a_grab` (the true negative: one fabricated
   started/broken pair through a real drain must move each counter by exactly one), both in
   `check_m2_balance.gd`'s fast tier.
-- **Rubble is never placed.** `SURFACE_RUBBLE` is written by no generator pass and no building
-  template — counted over the shipped 256 district: 0 tiles on both measured seeds — so docs/24's
-  ×0.7/×1.7 rubble row, its palette colour and its tint are reachable only by hand. Undergrowth
-  places at ~0.7% of tiles, sparse for something meant to be a route choice; both are dressing
-  authoring, found by the ground slice.
+- ~~**Rubble is never placed.**~~ **Half resolved by the road slice:** the tenth worldgen pass
+  (`worldgen.rubble`, its own derived stream) now writes `SURFACE_RUBBLE` — building aprons,
+  blobs, street patches; 1,019 tiles on the canonical 256 seed where the debt measured 0 — and
+  `ROAD_LOOK_OK`'s placement and socket lanes hold the write rule (outdoor open Floor only, the
+  `_footing` trap) and prove a placed tile reaches the ×0.7 speed read and the rubble tint.
+  **The undergrowth half stays open, deliberately:** it places at ~0.7% of tiles, sparse for
+  something meant to be a route choice, and densifying it moves cover, noise and route balance —
+  balance-shaped work that wants its own measured slice, not a rider on a look slice.
 - **NPC and zombie locomotion ignore the ground.** `SimSurface.speed_on` is wired on the
   command-driven path only, which `controlled` entities alone take — `jobs.gd`'s velocity write
   and the nine in `shambler.gd` carry no surface term, so the ground is a player-only mechanic
   today (which is also the mechanical reason the campaign harness could not move when it landed).
   Widening it moves NPC pathing balance, so it wants its own before/after. `Palette.COLOUR_HEX`
-  (14 entries, zero readers) and `sim/map/surface.gd`'s unused `SimTileMapRes` preload were
-  found in the same sweep — dead sockets of the named shape, one line each when touched next.
+  (14 entries, zero readers) is gone — deleted by the road slice as the tenth dead *code*
+  socket of the milestone (the content pair `ranged.calm`/`craft.scrap` counts separately),
+  closed by removal rather than by inventing a reader. `sim/map/surface.gd`'s unused
+  `SimTileMapRes` preload, found in the same sweep, is still one line when touched next.
 - **Three of the five attention overlays draw nothing.** `O` cycles `attention_channel` through
   `off`/`noise`/`scent`/`sight`/`light`; the light channel draws the lit pools since the light-look
   slice, and `noise`, `scent` and `sight` still reach no draw call at all — the field and the
@@ -1347,6 +1349,93 @@ not a to-do list:
   the one claim this slice makes and the screenshot it is judged by. `assets/sprites/README.md`
   now documents both coexisting authoring conventions (face-on pawn, rotating rig) and says which
   applies when; the seam between them is owner-accepted until the roster is re-authored.
+  ~~Ground & road dressing~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK`, the chain's 40th
+  gate) — the second slice of the style-B reference arc: the streets read as streets, and the
+  district takes the reference's overcast grade. Four pieces, one gate.
+  **The street manifest** (sim, layout metadata). `map.streets` — `{axis, at, width, from, to}`
+  per span, a plain Array of plain Dictionaries on the `map.buildings` precedent — is appended
+  by the `_streets` pass, one record per `_carve_street` call, where worldgen.gd's own comment
+  used to say a returned copy of the spans "would be a field nothing looks at"; the comment is
+  rewritten, because the spans now have two readers (the paint below and the gate's MANIFEST
+  lane). No draw, no tile write: the canonical seed's tiles/surfaces/indoors hashes were
+  captured before the edit and are byte-identical after it, at 64 and 256, dressed and
+  undressed. The MANIFEST lane proves the records exact on the pure layout (every span tile
+  Floor, paved, outdoors) and by measured majority on the finished map — worst span 0.44 at 64,
+  because the annex stamp and the terrain pass legitimately wear streets through, against a
+  0.33 floor that still refuses a fabricated lawn span reading 0.00 — plus per-seed
+  determinism. The LAYOUT lane holds dress=false byte-identical with an equal manifest the
+  dressing never touches (shown red by a rubble pass made to append a record). Never
+  serialised — the map regenerates from the seed — so the String-keys save trap is pre-empted,
+  not survived.
+  **Draw-time paint** (presentation). New `presentation/road_paint.gd`, pure statics with
+  deliberately no static state (the two-worlds trap): `mask_for` resolves asphalt / sidewalk
+  (outermost rows, span width ≥ 5) / centre dash (width ≥ 4, alternating `(tx+ty)%2`,
+  suppressed at junctions so crossings read worn) **only where the tile is still paved
+  outdoors** — worn-through wins; `kerb_edges` reads the paved-to-unpaved outdoor boundary per
+  tile per frame, the `_draw_solid_tile` exposed-edge pattern; `vary` is a position hash
+  (±0.025 in value, the spatial-hash primes) with **no RNG stream on purpose** — deterministic
+  across boots, saves and gate worlds by construction, which the VARIATION lane pins
+  (identical twice, bounded, ≥ 2 distinct over 32×32 — a dead constant is red).
+  `_draw_district`'s Floor branch composes sidewalk substitution, the variation offset, the
+  dash and the kerbs around the existing `_draw_floor_tile`, still resolving through
+  `Appearance.ground_colour` (check_topdown's GROUND scan stays green); the mask caches as
+  instance vars on main.gd against the map object (`_thresholds` precedent). The PAINT lane
+  runs a width-6 in-gate fixture district (blocks pinned to 8 so `_fit_scale` leaves the width
+  alone at 64): dashes, sidewalks and kerbs present, every masked tile paved outdoors, 748
+  junction tiles all worn asphalt, the shipped suburb's width-2 miniature streets and a
+  hand-built width-3 (the town-centre width) street kerbs-only, indoor tiles and manifest-free
+  maps (fixtures, `blank_map`) silent. Shown red by mutation: junction suppression removed,
+  the sidewalk width floor removed (736 sidewalk cells on width-2 alleys), `_draw_kerbs`
+  deleted from the loop, `vary` made constant.
+  **The palette regrade.** The near-black oracle grounds read as a cave, not the reference's
+  overcast street; every ground, built-mass and interior colour is regraded to muted
+  greys/browns (floor `#3f4143` up from `#1a1c1f`, grass desaturated `#4e5442` from `#1b2a1b`,
+  and so on), with three road colours added (`roadPaint` translucent worn paint, `kerb`,
+  `sidewalk`). The `SURFACE_TINTS[Paved] == COLOURS["floor"]` identity holds, both moved
+  together. `palette.gd`'s header now records the deliberate divergence from the frozen
+  `palette.ts`. The PALETTE lane holds the mood by property, not hex — every surface tint
+  S ≤ 0.25, paved V in [0.20, 0.40], sidewalk > paved > background in value, roadPaint
+  brightest of the road family, pairwise RGB distance ≥ 0.02 — with the built-in true negative
+  that the *old* table fails (`#1a1c1f` under the value floor, `#1b2a1b` over the saturation
+  cap), so a revert is provably caught. One deviation from the slice spec, resolved in the
+  gate's own comment: the spec sketched a pairwise **V**-distance floor, but its own table
+  separates dirt/grass/undergrowth by hue at near-equal value — deliberately — so the
+  distinctness floor is RGB distance, which still reds two identical tints.
+  `Palette.COLOUR_HEX` (14 string copies, zero readers ever) is **deleted** — the tenth dead
+  code socket of the milestone, closed by removal. `WALL_FACE_DIM` 0.04 → 0.07, a value retune
+  under check_topdown's wall lane (the regraded grounds rose; the shaded face has to clear the
+  brightest of them), assertions untouched. `tools/sprites/palette.py`'s hard-copied ground
+  hexes are updated in the same commit (its comment names palette.gd as source of record);
+  **no sprite regeneration** — the ground-contrast guard runs at generate time, still passes
+  with the raised grounds (fatigue_drab clears by 0.127 ≥ 0.10), and `sprites:check` stays
+  green because the committed `player_body.png` derives from ramps this slice never touched.
+  **Rubble is placed** (sim, the tenth worldgen pass, its own `worldgen.rubble` stream).
+  Building apron rings (1–2 tiles out, ~1 in 4 stream-drawn), 2–4 blobs authored for the full
+  district and area-scaled with a floor of one so the gate size still runs the shape, and
+  1×2/2×2 street patches per third block — 129 tiles on the canonical 64 map, 1,019 at 256,
+  where the debt entry measured 0. The write rule is the `_footing` trap made mechanical:
+  outdoor open Floor only, protected tiles (doorway rings, loot sites, the annex ring) skipped
+  whole; draws happen before eligibility tests, every branch. The RUBBLE lane pins placement,
+  the rule (rubble hand-written under a Low wreck and on an indoor floor both refused; the
+  Floor-check mutation shown red by rubble landing under a Screen), and dress=false placing
+  exactly 0; the SOCKETS lane closes the reach question — a placed tile reads ×0.7 through
+  `world.surface_speed_at` against pavement's ×1.0, resolves the rubble tint through
+  `Appearance.ground_colour`, and `_draw_district` provably reads `RoadPaint.`.
+  **Balance, measured, not theorised.** Rubble changes worldgen output, so the fast tier was
+  byte-compared: all four `FAST seed=` lines are **byte-identical** before and after the whole
+  slice (manifest + paint + palette + rubble), `M2_BALANCE_OK` green — the spec's cut line
+  ("ship without rubble if the harness moves") was armed and never triggered. Consistent with
+  the standing debt entry: NPC and zombie locomotion ignore the ground, and the noise
+  multiplier changes on rubble tiles moved no counter on these seeds.
+  **Open halves, named.** Undergrowth density is deliberately untouched — balance-shaped,
+  wants its own measured slice (the debt entry keeps that half). Entity and prop contrast
+  against the lighter ground is eyeballed-only (the day/night shots beside this record's arc:
+  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice2-day.png`, `slice2-night.png`,
+  captured through a throwaway Xvfb `SceneTree` driver, deleted after) and is re-judged in the
+  characters slice, never by palette revert. The bright window glass `#7ec8e8` now visibly
+  clashes with the muted grade and stays the weather/mood slice's named material. Night
+  tuning: nothing read washed out, so `NIGHT_WASH` stays 0.8 and `light_look.gd` untouched.
+  docs/30: no new entry. `HANDOFF.md` unchanged.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used
