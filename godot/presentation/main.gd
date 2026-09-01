@@ -44,6 +44,18 @@ var fixture: Dictionary = {}
 # but keeps the same district rather than silently switching one out from under the player.
 var _district_id: String = SimBoot.DEFAULT_DISTRICT
 var camera: Dictionary = CameraUtil.create_camera()
+# The true, unshaken follow centre -- what follow_smoothed advances every frame. `camera`
+# itself is the *displayed* camera (centre + shake, combined in _update_camera, the one
+# place world_to_screen/screen_to_world ever see), so shake must live somewhere else or it
+# would feed back into next frame's follow and the view would slowly drift off in whatever
+# direction the last few kicks happened to land.
+var _camera_centre: Dictionary = {"x": 0.0, "y": 0.0}
+# Decaying screen-shake offset, in pixels -- see camera.gd's shake_impulse/shake_decay.
+var _shake: Dictionary = {"x": 0.0, "y": 0.0}
+# Direction for shake kicks only. Presentation-side and never seeded from the sim: shake is
+# feel, not simulation, and a sim stream here would put the camera's wobble on the seeded
+# sequence and make a replay's *view* depend on how hard something got hit.
+var _shake_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
 var paused: bool = false
@@ -148,7 +160,9 @@ func _ready() -> void:
 			SimSurvivors.boot_playable(world)
 	else:
 		_boot_world(seed_arg, district_arg)
+	_shake_rng.randomize()
 	_resize_camera()
+	_snap_camera()
 	_ensure_ui()
 	_sfx = PresentationSfx.new()
 	add_child(_sfx)
@@ -171,8 +185,9 @@ func _boot_world(seed_val: int, district_id: String) -> void:
 	_district_id = district_id
 	# Per-run presentation state that _ready would otherwise leave stale on a reboot: the
 	# cached player-id selection, the paperdoll glimpse and dev-sheet fingerprint (all read
-	# models over the *previous* world), and the tick tally. The camera itself has no target
-	# to reset -- follow_camera recentres it below, unsmoothed.
+	# models over the *previous* world), and the tick tally. The camera itself recentres
+	# below, unsmoothed -- _snap_camera, not the per-frame follow, so a reboot is never
+	# watched swooping in from wherever the old world's camera happened to be.
 	_selected = -1
 	_glimpse_parts = []
 	_glimpse_stance = 2
@@ -182,6 +197,7 @@ func _boot_world(seed_val: int, district_id: String) -> void:
 	_content_error = ""
 	tick_count = 0
 	_resize_camera()
+	_snap_camera()
 
 # F2: a fresh run on a new random seed, same district the session started with. The seed is
 # generated here, presentation-side, and everything downstream of it is deterministic --
@@ -203,11 +219,81 @@ func _resize_camera() -> void:
 	if vp.x < 1: vp = Vector2(1920, 1080)
 	camera["width"] = vp.x
 	camera["height"] = vp.y
-	# follow player
+
+# Jumps the follow centre straight to the clamped player position and clears any shake in
+# flight -- boot, F2 and F9 all call this instead of letting the per-frame follow arrive on
+# its own, so a fresh or loaded world is never watched swooping in from an unrelated camera
+# position (or shaking from a hit that happened in a different run entirely).
+func _snap_camera() -> void:
+	if world == null: return
+	var pos: Variant = world.components.get_component(world.player, "position")
+	if not (pos is Dictionary): return
+	CameraUtil.snap(camera, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), int(world.map_width), int(world.map_height))
+	_camera_centre["x"] = float(camera["x"])
+	_camera_centre["y"] = float(camera["y"])
+	_shake["x"] = 0.0
+	_shake["y"] = 0.0
+
+# The per-frame camera update: runs every rendered frame (wall-clock delta), not every sim
+# tick, so the follow lerp and the shake decay both advance smoothly whether the tick loop
+# below this frame ran zero ticks, one, or the fast-forward cap. `camera` -- the Dictionary
+# every draw call and _aim_at reads -- becomes the *displayed* camera here: smoothed centre
+# plus the shake offset, combined in this one place, so world_to_screen and screen_to_world
+# always agree (aim never drifts against what the shake is doing to the view). `_camera_centre`
+# stays unshaken so shake never feeds back into next frame's follow target.
+func _update_camera(delta: float) -> void:
+	_resize_camera()
 	if world != null:
 		var pos: Variant = world.components.get_component(world.player, "position")
 		if pos is Dictionary:
-			CameraUtil.follow_camera(camera, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), int(world.map_width), int(world.map_height))
+			var target: Dictionary = CameraUtil.follow_target(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), int(world.map_width), int(world.map_height))
+			CameraUtil.follow_smoothed(_camera_centre, float(target["x"]), float(target["y"]), CameraUtil.FOLLOW_RATE, delta)
+	CameraUtil.shake_decay(_shake, CameraUtil.SHAKE_DECAY_RATE, delta)
+	var zoom: float = maxf(1.0, float(camera["zoom"]))
+	camera["x"] = float(_camera_centre["x"]) + float(_shake["x"]) / zoom
+	camera["y"] = float(_camera_centre["y"]) + float(_shake["y"]) / zoom
+
+# Screen shake, fed from the same drained-events read sfx.gd uses -- never a subscription to
+# the sim bus. `attack.connected` kicks the view when the target is any survivor (`controlled`:
+# the player or a colonist, never a raider or a zombie taking the hit), distance-attenuated off
+# the player's own position so a colonist getting hit across the district is felt faintly rather
+# than not at all. `grab.started` and `bite.landed` neither carry a useful distance for a body
+# that is not the player (a hand closing or a bite lands with no "how hard" to attenuate), so
+# both are scoped to the player alone. Direction is randomised through _shake_rng.
+func _camera_shake_from_events(drained: Array) -> void:
+	if world == null: return
+	var player_pos: Variant = world.components.get_component(world.player, "position")
+	if not (player_pos is Dictionary): return
+	var px: float = float((player_pos as Dictionary)["x"])
+	var py: float = float((player_pos as Dictionary)["y"])
+	for e in drained:
+		if not (e is Dictionary): continue
+		var ev: Dictionary = e as Dictionary
+		var base_px: float = 0.0
+		var at_x: float = px
+		var at_y: float = py
+		match String(ev.get("type", "")):
+			"attack.connected":
+				var target: int = int(ev.get("target", -1))
+				if not world.components.has_component(target, "controlled"):
+					continue
+				var tp: Variant = world.components.get_component(target, "position")
+				if tp is Dictionary:
+					at_x = float((tp as Dictionary)["x"])
+					at_y = float((tp as Dictionary)["y"])
+				base_px = CameraUtil.SHAKE_HIT_PX
+			"grab.started":
+				if int(ev.get("victim", -1)) != int(world.player): continue
+				base_px = CameraUtil.SHAKE_GRAB_PX
+			"bite.landed":
+				if int(ev.get("victim", -1)) != int(world.player): continue
+				base_px = CameraUtil.SHAKE_BITE_PX
+			_:
+				continue
+		var dist: float = sqrt((at_x - px) * (at_x - px) + (at_y - py) * (at_y - py))
+		var mag: float = CameraUtil.shake_attenuate(base_px, dist, CameraUtil.SHAKE_FALL_PER_M)
+		if mag <= 0.0: continue
+		CameraUtil.shake_impulse(_shake, mag, _shake_rng.randf_range(0.0, TAU), CameraUtil.SHAKE_CAP_PX)
 
 func _ensure_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -461,6 +547,9 @@ func _load() -> void:
 	if snap is Dictionary and bool((snap as Dictionary).get("runOver", false)):
 		return
 	SimSave.apply_save(world, parsed)
+	# The loaded body can be anywhere on the map; recentre unsmoothed rather than let the
+	# per-frame follow visibly pan there from wherever the camera sat before the load.
+	_snap_camera()
 
 func _poll_content_reload() -> void:
 	if not OS.is_debug_build():
@@ -485,8 +574,14 @@ func _poll_content_reload() -> void:
 func _process(delta: float) -> void:
 	if world == null: return
 	_poll_content_reload()
+	# Every rendered frame, paused or not: the follow lerp and shake decay both run on
+	# wall-clock delta, not on the sim's fixed tick, so they must not wait behind `paused`'s
+	# early return below or a shake in flight would freeze mid-decay instead of finishing.
+	_update_camera(delta)
 	if paused:
 		_update_hud()
+		if CameraUtil.shake_magnitude(_shake) > CameraUtil.SHAKE_EPSILON:
+			queue_redraw()
 		return
 	_pump_input()
 	# speed scales tick debt: more ticks per frame, not smaller tick
@@ -502,9 +597,9 @@ func _process(delta: float) -> void:
 		world.step()
 		tick_count += 1
 		ticks_done += 1
-		_resize_camera()
 		if _sfx != null:
 			_sfx.tick(world, camera, world.events.drained)
+		_camera_shake_from_events(world.events.drained)
 		if speed >= 10:
 			speed = SimFortify.speed_after_events(speed, world.events.drained)
 			if speed < 10:

@@ -298,6 +298,9 @@ switch (mode) {
   case "--respond":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_respond.gd"];
     break;
+  case "--camera":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_camera.gd"];
+    break;
   case "--ban-health-bar":
     args = [
       "--headless",

@@ -1253,6 +1253,63 @@ not a to-do list:
   luminance) so every wall/floor boundary is a drawn line — and was shown to fail at a face share
   of 0.5, at a cap no darker than the fill, at a face that sinks into the ground, and with the
   exposed-edge test removed.
+- **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
+  session plan: a smoothed follow and a screen shake, both presentation-only (parity and
+  `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used
+  to run inside the per-tick `_resize_camera` — recentring the camera exactly onto the player
+  every tick — is gone; `main.gd::_process` now runs a new `_update_camera(delta)` every rendered
+  frame, wall-clock `delta` and all, so the follow keeps advancing whether the tick loop that
+  frame ran zero ticks, one, or the fast-forward cap. `camera.gd` gained three pure statics the
+  gate drives headlessly with a fabricated `{"x", "y"}` Dictionary: `follow_target` (the clamp
+  alone, today's `follow_camera` renamed — the mutation that name used to do moved elsewhere),
+  `follow_smoothed` (one frame-rate-independent exponential-lerp step, `pos += (target - pos) *
+  (1 - exp(-RATE*delta))`, `FOLLOW_RATE` 6.0 nats/s — the gap halves roughly every 0.116 s and is
+  under 5% within half a second), and `snap` (jump straight to the clamp). No `static var` scratch
+  state lives in `camera.gd` — the true, unshaken follow centre and the shake offset both live on
+  `main.gd` as instance Dictionaries (`_camera_centre`, `_shake`), the same reason the camera
+  itself has always been a plain Dictionary rather than a singleton: two worlds a gate boots in
+  one process must not share either. Boot, F2 ("leave for another city") and F9 (load) all call a
+  new `_snap_camera()` rather than let the smoothed follow arrive on its own — the reboot/load
+  recentre stays unsmoothed, as `_boot_world`'s own comment already promised it would.
+
+  **No zoom smoothing, deliberately.** The ladder is pinned to power-of-two multiples of the
+  art-native 64 px/m specifically so nearest-neighbour scaling never shimmers; a tween between two
+  steps would pass through non-integer scales — 47.3 px/m, say — with no clean answer for that.
+  Wheel zoom stays an instant step, unchanged; the refusal is recorded, not silently skipped.
+
+  **Shake.** Read off `world.events.drained` after `world.step()`, inside the existing tick loop —
+  `sfx.gd`'s pattern, not a subscription to the sim bus. `attack.connected` kicks the view when
+  the target is any survivor (`controlled`: the player or a colonist, never a raider or a
+  zombie), distance-attenuated off the player's own position on `sfx.gd`'s `FALL_PER_M`
+  precedent (`SHAKE_FALL_PER_M`, 1.5 px lost per metre, linear); `grab.started` and `bite.landed`
+  are scoped to the player alone, since neither carries a useful "how hard" to attenuate a hit
+  landing on somebody else. Kick sizes are small and in screen pixels — `SHAKE_HIT_PX` 5,
+  `SHAKE_BITE_PX` 8, `SHAKE_GRAB_PX` 4, all comfortably clear of "1 px at rest zoom 64" so pixel
+  snapping never quantizes a kick away — capped at `SHAKE_CAP_PX` 14 combined and decaying at
+  `SHAKE_DECAY_RATE` 10 nats/s, the same frame-rate-independent shape the follow uses. Direction
+  is randomised through a presentation-side `RandomNumberGenerator` (`main.gd`'s own F2 comment
+  already sanctions RNG here) — never a sim stream, which would put the camera's wobble on the
+  seeded sequence and make a replay's *view* depend on how hard something got hit. The displayed
+  `camera` Dictionary — what every draw call and `_aim_at` reads — is built in exactly one place,
+  `_update_camera`: smoothed centre plus the shake offset (converted from pixels to world units by
+  the current zoom), so `world_to_screen` and `screen_to_world` always agree and aim never drifts
+  against what the shake is doing to the view.
+
+  **The gate.** `godot:check:camera` → `CAMERA_OK`, the chain's 38th gate — five lanes, each with
+  its own true negative. CONVERGES: repeated `follow_smoothed` steps close on an in-bounds target
+  to within 1e-6. SHORT STEP is the lane that actually separates a lerp from a hard snap
+  (CONVERGES alone cannot — a hard snap converges in exactly one step too): one frame from far
+  away must land strictly short of the target, and was shown red — `CAMERA_FAIL`, "landed exactly
+  on the target" — against `follow_smoothed` temporarily hard-snapped during development, reverted
+  before commit; rate 0 is asserted to hold exactly, not to crawl. CLAMP IDENTITY checks an
+  off-map target's smoothed steady state against a clamp spelled out by hand in the gate, not by
+  calling `follow_target` itself, which would grade its own homework. SHAKE DECAYS: an impulse
+  decays below epsilon within a bounded 300 frames and never exceeds its own magnitude along the
+  way; the true negative is a decay factor of 1.0 (rate 0) fed to the same helper, asserted *not*
+  to decay below epsilon in the same bound, proving the "decays within bound" assertion can
+  actually go red. DEAD SOCKET source-scans `main.gd` (the `check_topdown.gd`/`check_respond.gd`
+  precedent) for the `follow_smoothed`/`snap`/`shake_impulse`/`shake_decay` call sites, so the
+  helpers are provably wired into the frame loop rather than sitting beside it unread.
 - **Survivors** — ~~Focus auto-allocation: NPCs spend their own web points~~ **landed**
   (`godot:m2:web`, lanes NPC / SURPLUS / REACH / DRIFT). What this list used to say — "the shallow
   web is landed; nobody but the player can walk it" — was wrong, and the correction is the
