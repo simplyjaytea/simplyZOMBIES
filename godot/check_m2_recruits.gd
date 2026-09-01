@@ -145,9 +145,16 @@ func _death() -> bool:
 	if not w2.components.has_component(dead, "corpse"):
 		push_error("dead player not corpse")
 		return false
-	# solo player death → runOver
+	# solo player death → runOver. "Solo" kills every other colonist, not a named Mara -- the
+	# boot colony is three now (docs/23's flag record), and a hard-coded list left Ellis alive.
 	var w_solo: Variant = _world()
-	SimHealth.finish_death(w_solo, _mara(w_solo))
+	for ent in w_solo.components.query(["needs", "body"]):
+		if int(ent) == int(w_solo.player) or w_solo.components.has_component(int(ent), "recruit"):
+			continue
+		SimHealth.finish_death(w_solo, int(ent))
+	if bool(w_solo.runOver):
+		push_error("the run ended while the player still lived")
+		return false
 	SimHealth.finish_death(w_solo, w_solo.player)
 	if not bool(w_solo.runOver):
 		push_error("solo player death no runOver")

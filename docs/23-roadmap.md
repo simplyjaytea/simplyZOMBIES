@@ -153,18 +153,11 @@ and nothing that has to be ticked.
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
 decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks the project up.
 
-1. **Colony shape: a bigger colony, or one posted closer.** Two survivors spread across a 256 m
-   district is why seed 404 still wipes with grabs forced on — rescue is built and gated, and the
-   nearest free colonist never gets within reach of the held one (closest approach all campaign:
-   4.40 m against a 1.6 m radius). A design call about the slice, not a tuning lever.
-2. **Flip `GRABS_ENABLED`.** Follows the colony-shape call. Six recorded reasons have each been
-   answered — the flag record below is the full history — and the remaining constraint is the
-   colony's shape, above. The flip is what makes bites, and with them infection, reachable in
-   ordinary play.
-3. **Can sepsis kill?** Today it is debilitating and permanent-until-treated, deliberately not a
-   death path, because lethality balance is the thing standing between the flag and its flip.
+1. **Can sepsis kill?** Today it is debilitating and permanent-until-treated, deliberately not a
+   death path. The `GRABS_ENABLED` flip has landed (the flag record below closes with it), which
+   makes sepsis reachable in ordinary play and makes this decision live rather than hypothetical.
    Making it lethal is a balance decision that needs a measurement attached.
-4. **Pick the top-down art style.** `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the
+2. **Pick the top-down art style.** `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the
    three candidate directions and the overhead re-authoring of the zombie visual language; its
    screenshot-fixture method is the way to compare them. The five shipped sprites need regenerating
    only if the pick isn't A (the shipped baseline): B needs rotation support (`draw_set_transform`
@@ -187,8 +180,9 @@ unplaced) rather than here.
 **People — the survivor pipeline:**
 
 - **The six-survivor automation checkpoint.** Risk 1's seeded colony, every NPC on Focus
-  automation — the micromanagement-cliff measurement. Needs the two pieces above first, and it is
-  also the cheapest place to answer the colony-shape question with data.
+  automation — the micromanagement-cliff measurement. The colony-shape question it was once
+  queued behind is decided (the flag record: a bigger colony, three at boot), so what it measures
+  now is the cliff itself.
 
 **Medicine — the back half of treatment:**
 
@@ -260,8 +254,12 @@ unplaced) rather than here.
   content shape needs its own purpose-built gate, and the frozen oracle's Ajv disagrees with it
   about depth — a content edit is unverified until both have run. `CLAUDE.md`'s traps section
   carries what this has already cost.
-- **Bus-only counters in the balance tier.** The `grab.started` / `grab.broken` counters report
-  and assert nothing. They become assertions when the flag flips, or they go.
+- ~~**Bus-only counters in the balance tier.**~~ **Resolved with the flip:** the `grab.started` /
+  `grab.broken` counters became assertions — `_assert_grabs_reach_the_campaign` (the floor: at
+  least one fast seed records a grab and a named `grab.broken` cause, which is also the flip's
+  dead-socket proof) and `_the_grab_counters_can_see_a_grab` (the true negative: one fabricated
+  started/broken pair through a real drain must move each counter by exactly one), both in
+  `check_m2_balance.gd`'s fast tier.
 - **Rubble is never placed.** `SURFACE_RUBBLE` is written by no generator pass and no building
   template — counted over the shipped 256 district: 0 tiles on both measured seeds — so docs/24's
   ×0.7/×1.7 rubble row, its palette colour and its tint are reachable only by hand. Undergrowth
@@ -512,19 +510,20 @@ fixed seeds landed on the rarely side this run), so the erase never fired on thi
 an honest "did not move," not evidence the mechanism is a no-op, which the gate's own TRUE
 POSITIVE lane (200 rolls off the `recruits` stream, not four) is what actually exercises it.
 
-**Landed, gated, and switched off — the survival loop.** Five slices built it end to end: the
+**Landed, gated, and switched ON — the survival loop.** Five slices built it end to end: the
 grab → struggle → bite loop (`godot:m2:contact`), wounds with a severity and a bleed clock
 (`godot:m2:wounds`), pressure and bandaging plus a command path to the five infection verbs
 (`godot:m2:treatment`), and recovery that closes wounds and climbs integrity back, earned only while
 fed and not exerting (`godot:m2:recovery`). A bite makes a located wound, it bleeds, you stop it with
-your hands or a dressing, and it mends over days you have to earn. The *bite* half of that is still
-unreachable in ordinary play because `SimShambler.GRABS_ENABLED` is `false` — the flag record below
-walks the recorded reasons in order and what answered each; what stands now is the colony-shape
-design call, the first item in [what's left](#whats-left-in-milestone-2). The
-wound-treat-recover half stopped being unreachable when the **swipe** landed
-(the basic-combat slice, further down): a zombie can hurt you now, so ordinary play exercises
-wounds, bleeding, pressure and recovery — just never infection, which arrives only with a bite and
-so stays behind the flag.
+your hands or a dressing, and it mends over days you have to earn. All of it is reachable in
+ordinary play now: `SimShambler.GRABS_ENABLED` ships `true` — the flag record below walks the
+recorded reasons in order, what answered each, and closes with the flip itself (the owner's
+2026-09-01 decision, taken together with the bigger colony that unblocked it). The
+wound-treat-recover half had already stopped being unreachable when the **swipe** landed (the
+basic-combat slice, further down); the flip adds the bite, and with the bite, infection.
+Post-flip, `M2_BALANCE_OK`'s `survivors_end >= 1` over the four fast seeds measures the shipped
+default with grabs live, which makes it the standing "the colony survives its own contact loop"
+assertion.
 
 **Answered: bite lethality during a hold.** The owner's call was to pull four levers together and
 conservatively rather than one of them hard, and all four have landed:
@@ -841,6 +840,72 @@ from 6.41 m and still nearly three times the radius. That colony simply never st
 moving it is **People and economy** work — a bigger colony, or one posted closer — rather than
 anything left in the contact loop. It is a design call about the shape of the slice, not a
 measurement waiting to be taken.
+
+**Flipped: `GRABS_ENABLED` ships `true` — the owner's decision, with the colony that carries it.**
+The owner decided both halves of the standing question in one session (2026-09-01): grow the boot
+colony rather than reposting it, then flip. What landed, each half gated:
+
+- **A third boot colonist.** `survivor.unique.ellis` — Ellis Okafor, a depot night watchman with a
+  steel pipe, STR 6 / DEX 4 / CON 5, Fighter focus, Guard 1 — is pure content under
+  `content/survivors/uniques/`, the "drop another JSON, no code change" promise finally cashed.
+  Two boot defects stood in the way and were fixed with it: `SimSurvivors.boot_playable` computed
+  the same +1.6 m offset for every unique, so a second colonist stacked on the first's point — it
+  now takes one fixed offset per unique by index (`BOOT_SPAWN_OFFSETS`, a table, no RNG, the
+  blocked-tile mirror fallback kept per spawn), which posts the colony inside `RESCUE_METRES` of
+  itself; and `SimBoot.place_stations` made exactly two beds, so somebody would have slept on the
+  floor — it makes three now. `check_m2_stats.gd`'s MARA lane still pins `boot_playable`'s return
+  (the last unique in id order — Mara), and `godot:m2:balance`'s ARMED lane now counts three armed
+  colonists at every boot.
+- **The flip itself.** `shambler.gd`'s six-reason rationale block became a pointer at this record;
+  the flag stays a `static var` (gates drive it both ways), deliberately not world state and not
+  saved. The swipe gate's three swipe-only lanes now pin the flag **off** for themselves with a
+  restore-to-previous — at 0.9 m a live grab wins the approach and every swipe assertion would be
+  measuring a grapple — and its grapple lane, like the contact gate, pins it on and restores.
+  Three campaign gates needed the same isolation, each red diagnosed rather than theorised:
+  `check_m2_raiders.gd`'s prey arena measures pursuit and the claw ("closed ≥ 0.8 m") and a
+  live grab pins both bodies at arm's length; `check_m2_needs.gd`'s NPC-latrine lane measures
+  the seek ladder and the walk, and a probe driver showed a shambler taking hold of Mara
+  mid-walk at tick ~1200 of its 4000; `check_m2_npc_combat.gd`'s guard-post lane spawns its
+  zombie 0.9 m off — inside `GRAB_METRES` — so "drift off the post" was reading accumulated
+  2.1 m/s break-away flights (8.3 m) rather than a chase. Each pins the flag off for the lane
+  and restores the previous value. Two more gates assumed a two-person colony rather than a
+  flag value: the "solo death ends the run" lanes in `check_m2_jobs.gd` and
+  `check_m2_recruits.gd` killed a hard-coded Mara then the player, which left Ellis alive and
+  read the run's correct refusal to end as a failure — "solo" now kills every other colonist,
+  with a new intermediate assertion that the run must NOT have ended while the player lives.
+  No assertion band was widened anywhere in the triage.
+
+Measured with the flag-record driver (the compressed fast-tier campaign, `entity.killed`
+de-duplicated by id, closest-rescue-approach instrumented) on this commit's parent and on this
+commit, one driver, both columns. "Deaths" counts every person the bus reported dead who was never
+named a raider — waiting strangers at the gate included — which is why a seed can end `3/3` and
+still carry two:
+
+| seed | before (colony 2, parent) | after (colony 3, this commit) | rescue approach (min) |
+| --- | --- | --- | --- |
+| 20260805 | `2/2`, 66 grabs, 0 deaths | `1/3`, 83 grabs, 2 deaths (head), **2 rescues** | 2.27 m → **0.10 m** |
+| 404 | `2/2`, 24 grabs, 0 deaths | `1/3`, 66 grabs, 3 deaths (head), **1 rescue** | 2.47 m → **1.05 m** |
+| 31337 | `1/2`, 16 grabs, 2 deaths (bloodloss, head) | `3/3`, 11 grabs, 0 deaths | 0.53 m → colony never held |
+| 90210 | `2/2`, 31 grabs, 2 deaths (head) | `3/3`, 29 grabs, 2 deaths (head) | colony never held on either tree |
+
+Two findings the table forces out loud. First: **the parent commit already ended every seed with a
+survivor.** The last recorded measurement (above) had 404 at `0/2` with a 4.40 m closest approach;
+the recruit-kit and NPC-focus slices that landed in between moved the balance more than any contact
+lever did — an armed recruit is a fourth pair of hands. The bigger colony was the owner's decision
+and was executed and measured as decided, not re-litigated against that surprise. Second: **a
+third body is not a free win.** Contact rises where the colony stands together (grabs 66 → 83 and
+24 → 66 on the two hard seeds), and two seeds that ended `2/2` at colony 2 end `1/3` at colony 3 —
+more people near the noise is more people in reach. What the colony buys is exactly what the
+flag record said it could not have: **rescue fires in real campaigns now** — three of four seeds
+record a `grab.broken` cause of `rescue`, and 404's closest approach falls from three radii out to
+1.05 m, inside `RESCUE_METRES` 1.6. No seed wipes; `survivors_end >= 1` was not touched and now
+measures the shipped default with grabs live, four seeds green (`M2_BALANCE_OK`).
+
+The balance tier's bus-only `grab.started` / `grab.broken` counters were promoted to assertions in
+the same commit — `_assert_grabs_reach_the_campaign` (the floor and the flip's dead-socket proof:
+189 grabs and four distinct causes across the fast seeds on this commit) and
+`_the_grab_counters_can_see_a_grab` (the true negative: one fabricated pair through a real drain
+moves each counter by exactly one) — which closes the debt item that named them.
 
 **What the flip makes reachable rather than builds:** the located wound with its presentation lie,
 armour-reduced transmission and the private `transmitted` flag, the paperdoll's wound ring, and the
@@ -1606,9 +1671,10 @@ not a to-do list:
   is.
   **Scoped deliberately:** sepsis is debilitating and permanent-until-treated, and **not directly
   lethal**. A septic wound stops healing entirely and clears only to antibiotics. That produces the
-  budget pull without adding a death path to a lethality model whose balance is the thing currently
-  standing between `GRABS_ENABLED` and its flip — making sepsis kill is a balance decision with a
-  measurement attached, not a detail to slip in beside the mechanic.
+  budget pull without adding a death path to a lethality model whose balance was, when this landed,
+  the thing standing between `GRABS_ENABLED` and its flip. The flip has since landed (the flag
+  record) and the scoping stands unchanged: making sepsis kill is a balance decision with a
+  measurement attached, not a detail to slip in beside the mechanic, and it remains the owner's.
 - **Combat** — ~~firing at a remembered position (and what it costs)~~ **landed**
   (`godot:m2:sight`, SIGHT / NO-EYES / RECALL-FIRE), together with the rule it depends on. docs/09
   says aiming "inherits visibility wholesale" and `_fire_shot` inherited none of it — a shot was a

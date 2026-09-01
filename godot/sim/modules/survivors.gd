@@ -239,6 +239,16 @@ static func _age_prose(world: Variant, age: int) -> String:
 	return ""
 
 
+# Where the boot's unique survivors stand relative to the player, one entry per index in id
+# order. 1.6 m -- inside RESCUE_METRES, an arm's reach apart -- because the colony-shape
+# measurement behind the GRABS_ENABLED flip found a colony that never stands together cannot
+# rescue anybody (docs/23's flag record).
+const BOOT_SPAWN_OFFSETS: Array[Vector2] = [
+	Vector2(1.6, 0.0), Vector2(0.0, 1.6), Vector2(-1.6, 0.0), Vector2(0.0, -1.6),
+	Vector2(1.6, 1.6), Vector2(-1.6, 1.6),
+]
+
+
 static func boot_playable(world: Variant) -> int:
 	# Player: midpoint stats so a fixture boot without this stays parity-neutral.
 	SimAllegianceRes.attach(world, world.player, SimAllegianceRes.COLONY)
@@ -255,12 +265,19 @@ static func boot_playable(world: Variant) -> int:
 	var pos: Variant = world.components.get_component(world.player, "position")
 	var px: float = float((pos as Dictionary)["x"]) if pos is Dictionary else 5.0
 	var py: float = float((pos as Dictionary)["y"]) if pos is Dictionary else 5.0
-	var mara: int = -1
+	# One fixed offset per unique, by index -- before this every unique computed the same +1.6 m
+	# offset and a second boot colonist stacked on the first's point. A table rather than an RNG
+	# draw so a boot stays deterministic and parity-neutral; the blocked-tile fallback (mirror the
+	# offset) is kept per spawn, same discipline as before.
+	var last: int = -1
+	var index: int = 0
 	for u in list_uniques(world):
 		var id: String = String(u.get("id", ""))
-		var ox: float = 1.6
-		var oy: float = 0.0
-		if world.is_blocked_tile(floori(px + ox), floori(py + oy)):
-			ox = -1.6
-		mara = spawn_unique(world, id, px + ox, py + oy)
-	return mara
+		var offset: Vector2 = BOOT_SPAWN_OFFSETS[index % BOOT_SPAWN_OFFSETS.size()]
+		index += 1
+		if world.is_blocked_tile(floori(px + offset.x), floori(py + offset.y)):
+			offset = -offset
+		last = spawn_unique(world, id, px + offset.x, py + offset.y)
+	# The last unique in id order -- Mara today, and check_m2_stats._mara_spawns pins that; a
+	# unique whose id sorts after "mara" changes what this returns and that gate says so.
+	return last
