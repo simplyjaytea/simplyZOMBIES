@@ -12,6 +12,7 @@ const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const LightLook = preload("res://presentation/light_look.gd")
+const RoadPaint = preload("res://presentation/road_paint.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -92,6 +93,12 @@ var _content_error: String = ""
 # changes identity (a reboot, a load) and never per frame -- see _threshold_tiles.
 var _thresholds: Dictionary = {}
 var _thresholds_from: Variant = null
+# The road-paint mask, {byte per tile}, and the map object it was resolved from. Same shape and
+# same reason as _thresholds above: RoadPaint.mask_for is pure, and the cache lives on this node
+# because a static one would be shared between the two worlds a gate boots. Rebuilt when the map
+# changes identity (a reboot, a load) and never per frame -- see _road_mask.
+var _road_mask_cache: PackedByteArray = PackedByteArray()
+var _road_mask_from: Variant = null
 var _content_poll_at: float = -1e9
 var _sfx: Node = null
 
@@ -800,7 +807,29 @@ func _draw_district() -> void:
 					if _is_threshold(tx, ty):
 						_draw_threshold(rect, floor_col, tx, ty)
 					else:
+						# The road dressing, composed over the same rect: RoadPaint.mask_for
+						# (cached per map in _road_mask) says what this tile of pavement is, a
+						# sidewalk substitutes its slab colour before the fill, the dash and the
+						# kerb lines draw after it, and every plain floor takes the position-hash
+						# value offset so the ground stops being one flat slab up close. All of it
+						# is paint over the tile the sim already owns -- the fill still comes
+						# through Appearance.ground_colour above, and a map with no street
+						# manifest simply draws unpainted.
+						var mask: PackedByteArray = _road_mask()
+						var paint: int = _mask_at(mask, tx, ty)
+						if paint == RoadPaint.MASK_SIDEWALK:
+							floor_col = Palette.COLOURS["sidewalk"]
+						var vo: float = RoadPaint.vary(tx, ty)
+						floor_col = Color(
+							clampf(floor_col.r + vo, 0.0, 1.0),
+							clampf(floor_col.g + vo, 0.0, 1.0),
+							clampf(floor_col.b + vo, 0.0, 1.0),
+							floor_col.a)
 						_draw_floor_tile(rect, floor_col)
+						if paint == RoadPaint.MASK_DASH:
+							_draw_road_dash(rect, mask, tx, ty)
+						if paint != RoadPaint.MASK_NONE:
+							_draw_kerbs(rect, RoadPaint.kerb_edges(world.tilemap, mask, tx, ty))
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
@@ -809,6 +838,67 @@ func _draw_district() -> void:
 func _draw_floor_tile(rect: Rect2, col: Color) -> void:
 	draw_rect(rect, col)
 	draw_rect(rect, Palette.COLOURS["background"] * 0.9, false, 1.0)
+
+# The road-paint mask, cached against the map object it was resolved from. RoadPaint.mask_for is
+# pure and the cache lives here because a static one would be shared between the two worlds a
+# gate boots (the _thresholds precedent, two functions down). A reboot or a load hands over a
+# different map object, which is what invalidates it.
+func _road_mask() -> PackedByteArray:
+	var map: Variant = world.tilemap
+	if map == _road_mask_from:
+		return _road_mask_cache
+	_road_mask_from = map
+	_road_mask_cache = RoadPaint.mask_for(map)
+	return _road_mask_cache
+
+
+func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:
+	if world == null or tx < 0 or ty < 0 or tx >= int(world.map_width) or ty >= int(world.map_height):
+		return RoadPaint.MASK_NONE
+	var idx: int = ty * int(world.map_width) + tx
+	if idx >= mask.size():
+		return RoadPaint.MASK_NONE
+	return int(mask[idx])
+
+
+# Lane paint: a worn dash on the street's centre row. Orientation is read off the mask itself --
+# the next dash along the same street sits two tiles away on the same row or column (the
+# (tx+ty)%2 alternation skips one) -- so a probe two out says which way the line runs, and a dash
+# with no neighbour, boxed in by junctions or worn ends, falls back to a square blotch of the
+# same paint rather than guessing an axis.
+func _draw_road_dash(rect: Rect2, mask: PackedByteArray, tx: int, ty: int) -> void:
+	var vertical: bool = _mask_at(mask, tx, ty - 2) == RoadPaint.MASK_DASH \
+			or _mask_at(mask, tx, ty + 2) == RoadPaint.MASK_DASH
+	var horizontal: bool = _mask_at(mask, tx - 2, ty) == RoadPaint.MASK_DASH \
+			or _mask_at(mask, tx + 2, ty) == RoadPaint.MASK_DASH
+	var centre: Vector2 = rect.get_center()
+	var long_side: float = rect.size.x * 0.62
+	var short_side: float = maxf(2.0, rect.size.x * 0.14)
+	var dash: Rect2
+	if vertical and not horizontal:
+		dash = Rect2(centre - Vector2(short_side / 2.0, long_side / 2.0), Vector2(short_side, long_side))
+	elif horizontal and not vertical:
+		dash = Rect2(centre - Vector2(long_side / 2.0, short_side / 2.0), Vector2(long_side, short_side))
+	else:
+		dash = Rect2(centre - Vector2(short_side, short_side), Vector2(short_side * 2.0, short_side * 2.0))
+	draw_rect(dash, Palette.COLOURS["roadPaint"])
+
+
+# The kerb: a thin strip on each edge where pavement meets ground that is not pavement, read per
+# frame off the neighbours the way _draw_solid_tile reads its exposed faces.
+func _draw_kerbs(rect: Rect2, edges: int) -> void:
+	if edges == 0:
+		return
+	var t: float = maxf(1.0, rect.size.x * 0.09)
+	var kerb: Color = Palette.COLOURS["kerb"]
+	if (edges & RoadPaint.EDGE_N) != 0:
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), kerb)
+	if (edges & RoadPaint.EDGE_S) != 0:
+		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), kerb)
+	if (edges & RoadPaint.EDGE_W) != 0:
+		draw_rect(Rect2(rect.position, Vector2(t, rect.size.y)), kerb)
+	if (edges & RoadPaint.EDGE_E) != 0:
+		draw_rect(Rect2(rect.position + Vector2(rect.size.x - t, 0.0), Vector2(t, rect.size.y)), kerb)
 
 # Solid tiles (walls, screens, boards, scrap): the whole tile is filled, because the whole tile
 # is what the sim blocks, but it is filled with the cap -- the top of the wall seen from above --

@@ -47,6 +47,15 @@ var anchors: Dictionary = {}
 # and it never round-trips through a save, because the map is regenerated from the seed rather
 # than serialised. Empty on a blank map and on any district nobody generated.
 var buildings: Array = []
+# The streets the generator carved, in carve order: {axis, at, width, from, to} per span, in
+# absolute tiles -- axis "x" is a vertical street standing at column `at`, axis "y" a horizontal
+# one at row `at`, each `width` tiles wide running `from`..`to` inclusive along its length. Layout
+# metadata, not tiles: `_streets` appends one record per `_carve_street` call and draws nothing
+# extra for it, so the layout stays byte-identical (check_road_look.gd holds that). A plain Array
+# of plain Dictionaries (the `buildings` precedent), never serialised -- the map is regenerated
+# from the seed -- and empty on fixture maps and `blank_map`, which is what "no paint" means to
+# the draw path that reads it (presentation/road_paint.gd).
+var streets: Array = []
 # Where the loot is, in absolute tiles: {x, y, table, container?} per site, in placement order.
 # Written by the generator's `worldgen.sites` pass and by `SimTemplates.stamp` for a template that
 # carries a `loot` block (the civic annex's two rows, and any building template that grows one);
@@ -74,6 +83,7 @@ func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	overlays = {}
 	anchors = {}
 	buildings = []
+	streets = []
 	sites = []
 
 

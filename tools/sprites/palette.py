@@ -39,11 +39,11 @@ GROUND_CONTRAST = 0.10
 # the ground means editing both in the same commit; a stale copy here makes the guard lie
 # about a district nobody is drawing any more.
 SURFACE_TINTS = {
-    "paved": "#1a1c1f",
-    "dirt": "#282219",
-    "grass": "#1b2a1b",
-    "undergrowth": "#1f3a1c",
-    "rubble": "#26242a",
+    "paved": "#3f4143",
+    "dirt": "#524e40",
+    "grass": "#4e5442",
+    "undergrowth": "#46503d",
+    "rubble": "#4a4644",
 }
 
 
