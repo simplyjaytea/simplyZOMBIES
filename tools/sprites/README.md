@@ -39,6 +39,8 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `palette.py` | ramps, the desaturation/value clamps, the ground-luminance guard |
 | `draw.py` | pixel primitives — no PIL drawing, no resampling, no anti-aliasing |
 | `parts/characters.py` | one function per body, and the `REGISTRY` naming them |
+| `parts/props.py` | the seven district props, each authored to the footprint its content entry declares |
+| `parts/wrecks.py` | car segment sets, and the debris scatter |
 | `build.py` | the CLI, the registry merge, `--check` |
 
 ## The rules the art is held to
@@ -55,12 +57,18 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
   cannot read GDScript — regrading the ground means editing both **in the same commit**, and a
   stale copy makes the guard lie. Tells drawn *inside* a silhouette (a strap on cloth) are exempt
   and say so in `GROUND_FACING`.
-- **Light comes from the top-left**, matching `main.gd::_draw_bevelled_box`. The one exception is
-  the player's rotating rig, which is shaded radially: a directional bake on a body that spins
-  claims the sun swings round the district when the player turns.
-- **Regeneration is pixel-stable.** No randomness is used today. When a wear pass wants some, it
-  takes `random.Random(f"{key}:{salt}")` — seeded per key, never the global RNG — so a rebuild of
-  one sprite cannot move another, and `--check` stays meaningful.
+- **Light comes from the top-left**, matching `main.gd::_draw_bevelled_box` — `light_top_left`.
+  Two exceptions, each with a reason: the player's rotating rig is shaded radially, because a
+  directional bake on a body that spins claims the sun swings round the district when the player
+  turns; and a **segment set** (a car spanning two or three tiles) keeps only the lateral half of
+  the gradient, because a diagonal one restarts at every canvas and bands the finished car
+  light-dark-light along its length.
+- **Regeneration is pixel-stable.** The wear passes (`Canvas.speckle`) take
+  `random.Random(f"{key}:{salt}")` — seeded per key, never the global RNG — so a rebuild of one
+  sprite cannot move another, and `--check` stays meaningful. The roll is taken for every canvas
+  pixel *before* the eligibility test, the same fixed-draw-count discipline the worldgen passes
+  follow: a stream advanced by the shape underneath it moves every speck downstream the day
+  somebody widens a panel by a pixel.
 - **Hand-authored art is never registry-owned.** The five PNGs that came from a person
   (`survivor_mara`, `zombie_shambler`, the three equip overlays) have no key here. Hand-polish
   later *replaces* generated art by deleting its key in the same commit as the authored file.

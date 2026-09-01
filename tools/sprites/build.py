@@ -29,7 +29,7 @@ from pathlib import Path  # noqa: E402
 
 from PIL import Image  # noqa: E402
 
-from parts import characters  # noqa: E402
+from parts import characters, props, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -38,7 +38,7 @@ SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 # came from a person are not registry-owned, and hand-polish later *replaces* generated art by
 # deleting its key here in the same commit as the authored file -- so this map is always the
 # exact set of pictures this package claims to be able to reproduce.
-MODULES = (characters,)
+MODULES = (characters, props, wrecks)
 
 
 def registry():

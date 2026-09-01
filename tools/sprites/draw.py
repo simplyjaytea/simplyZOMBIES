@@ -10,6 +10,8 @@ The canvas is 64x64 and the pivot is its centre -- which sits *between* pixels 3
 shape drawn symmetric about 32 is a pixel off-centre and orbits when the renderer rotates it.
 """
 
+import random
+
 from PIL import Image
 
 from palette import to_rgb
@@ -58,6 +60,42 @@ class Canvas:
 
     def disc(self, ox, oy, r, colour):
         self.ellipse(ox, oy, r, r, colour)
+
+    def rect(self, ox, oy, half_w, half_h, colour, inside_only=False):
+        """Filled axis-aligned rectangle, centred `ox`/`oy` from the pivot.
+
+        Street furniture is boxy where a body is not: a crate, a dumpster, a car shell are all
+        rectangles with the corners knocked off, so this and `rounded_rect` below are what the
+        static families are drawn out of.
+        """
+        for y in range(self.size):
+            for x in range(self.size):
+                if inside_only and not self.opaque(x, y):
+                    continue
+                dx, dy = self.offset(x, y)
+                if abs(dx - ox) <= half_w and abs(dy - oy) <= half_h:
+                    self.put(x, y, colour)
+
+    def rounded_rect(self, ox, oy, half_w, half_h, radius, colour, inside_only=False):
+        """A rectangle with rounded corners -- the car-body primitive.
+
+        Rounded because a 1 px square corner on a shape the renderer may rotate a quarter turn
+        is the same protrusion the rotating rig avoids, and because nothing in a wrecked street
+        has a sharp corner left.
+        """
+        radius = max(0.0, min(radius, min(half_w, half_h)))
+        for y in range(self.size):
+            for x in range(self.size):
+                if inside_only and not self.opaque(x, y):
+                    continue
+                dx, dy = self.offset(x, y)
+                ax = abs(dx - ox) - (half_w - radius)
+                ay = abs(dy - oy) - (half_h - radius)
+                if ax <= 0.0 or ay <= 0.0:
+                    if abs(dx - ox) <= half_w and abs(dy - oy) <= half_h:
+                        self.put(x, y, colour)
+                elif ax * ax + ay * ay <= radius * radius:
+                    self.put(x, y, colour)
 
     def band(self, start, end, width, colour, inside_only=True):
         """A thick segment from `start` to `end` (both pivot-relative), round ends.
@@ -108,28 +146,93 @@ class Canvas:
                     255,
                 )
 
-    def outline(self, colour):
+    def light_top_left(self, gain, radius, axis="diagonal"):
+        """Directional shading: brighter towards the top-left, darker towards the bottom-right.
+
+        The rule every *static* sprite is drawn under, and the counterpart to `radial_shade`
+        above: `main.gd::_draw_bevelled_box` lights a free-standing object from the top-left, so
+        a generated crate lit from anywhere else would disagree with the procedural props drawn
+        beside it. Nothing here rotates, so a baked direction is honest.
+
+        The gradient runs along the north-west/south-east diagonal, which is what "top-left"
+        means once the light is a direction rather than a corner.
+
+        `axis="x"` keeps only the lateral half of it, and exists for **segment sets**. A car
+        spans two or three canvases, and a diagonal gradient baked into each one restarts at
+        every tile: the finished car is banded light-dark-light-dark along its length, which
+        reads as three cars parked nose to tail rather than as one. The component perpendicular
+        to the run is the part that tiles, so that is the part a segment keeps. Objects that fit
+        in one tile take the diagonal.
+        """
+        for y in range(self.size):
+            for x in range(self.size):
+                r, g, b, a = self.get(x, y)
+                if a == 0:
+                    continue
+                dx, dy = self.offset(x, y)
+                reach = dx if axis == "x" else (dx + dy) / 2.0
+                t = max(-1.0, min(1.0, reach / float(radius)))
+                factor = 1.0 - gain * t
+                self.px[y][x] = (
+                    max(0, min(255, int(round(r * factor)))),
+                    max(0, min(255, int(round(g * factor)))),
+                    max(0, min(255, int(round(b * factor)))),
+                    255,
+                )
+
+    def outline(self, colour, sides="nesw"):
         """1 px outline, drawn *inwards*.
 
         Inwards, not outwards: the silhouette bound is what keeps the rig near-radial, and an
         outline that grew it would put a corner of dark 1 px further out on the diagonals than
         anywhere else -- which is exactly the protrusion that strobes at 20 Hz when the body
         turns.
+
+        `sides` picks which edges get the line. All four is the default and what every solid
+        object takes. Debris takes `"se"` instead: a 3 px scrap of paper outlined on all four
+        sides is 100% outline and no paper, while a line on the shaded edges alone reads as the
+        thing lying on the ground and lit from the top-left, which is the same light every other
+        static sprite is drawn under.
         """
+        probes = {"n": (0, -1), "e": (1, 0), "s": (0, 1), "w": (-1, 0)}
+        offsets = [probes[s] for s in sides]
         edge = []
         for y in range(self.size):
             for x in range(self.size):
                 if not self.opaque(x, y):
                     continue
-                if not (
-                    self.opaque(x - 1, y)
-                    and self.opaque(x + 1, y)
-                    and self.opaque(x, y - 1)
-                    and self.opaque(x, y + 1)
-                ):
-                    edge.append((x, y))
+                for ox, oy in offsets:
+                    if not self.opaque(x + ox, y + oy):
+                        edge.append((x, y))
+                        break
         for x, y in edge:
             self.put(x, y, colour)
+
+    def speckle(self, key, salt, colour, chance, inside_only=True, region=None):
+        """Wear: scatter single pixels across the shape at `chance` per opaque pixel.
+
+        Seeded per key and salt (`random.Random(f"{key}:{salt}")`, the rule in the package
+        README), never the global RNG: a rebuild of one sprite must not move another, or
+        `build.py --check` stops meaning anything. `region` is an optional
+        `(x0, y0, x1, y1)` box in pivot coordinates, for rusting one panel rather than a body.
+        """
+        rng = random.Random("%s:%s" % (key, salt))
+        for y in range(self.size):
+            for x in range(self.size):
+                # One draw per canvas pixel, taken *before* any eligibility test -- the fixed
+                # draw-count discipline the worldgen passes follow, for the same reason: a
+                # stream advanced by the shape underneath it would move every speck downstream
+                # the day somebody widens a panel by a pixel.
+                roll = rng.random()
+                if inside_only and not self.opaque(x, y):
+                    continue
+                dx, dy = self.offset(x, y)
+                if region is not None:
+                    x0, y0, x1, y1 = region
+                    if dx < x0 or dx > x1 or dy < y0 or dy > y1:
+                        continue
+                if roll < chance:
+                    self.put(x, y, colour)
 
     # --- output -----------------------------------------------------------
 

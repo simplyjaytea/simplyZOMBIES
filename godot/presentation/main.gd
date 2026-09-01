@@ -13,6 +13,7 @@ const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
+const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -99,6 +100,13 @@ var _thresholds_from: Variant = null
 # changes identity (a reboot, a load) and never per frame -- see _road_mask.
 var _road_mask_cache: PackedByteArray = PackedByteArray()
 var _road_mask_from: Variant = null
+# The map-dressing block (wreck and debris sprite keys), and the content tree it came from. Third
+# instance of the same pattern for the third time it is the right one: the lookup is a scan over
+# content and this is asked once per drawn tile, the resolution is pure, and a static cache would
+# be shared between the two worlds a gate boots. A content hot-reload swaps the tree, which is
+# what invalidates it -- see _dressing.
+var _dressing_cache: Dictionary = {}
+var _dressing_from: Variant = null
 var _content_poll_at: float = -1e9
 var _sfx: Node = null
 
@@ -725,6 +733,9 @@ func _draw() -> void:
 
 func _draw_district() -> void:
 	var zoom: float = float(camera["zoom"])
+	# Resolved once per frame rather than once per tile: the lookup is a scan over the content
+	# tree and the loop below asks about every visible tile.
+	var dress: Dictionary = _dressing()
 	var half: float = zoom / 2.0
 	var seen: Variant = null
 	if world.vision != null:
@@ -789,9 +800,14 @@ func _draw_district() -> void:
 					_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
-					# Inset block with floor showing around it reads as waist-high.
-					var inset: float = zoom * 0.15625
-					draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
+					# A Low tile is a wreck: a car where it stands in a run, a skip where it stands
+					# alone. Which picture that is comes out of content through Dressing, and when
+					# content declares none the inset block still draws -- the procedural cover shape
+					# is a supported path here as everywhere, not a stopgap.
+					if not _draw_wreck(rect, dress, tx, ty):
+						# Inset block with floor showing around it reads as waist-high.
+						var inset: float = zoom * 0.15625
+						draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Tree:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
 					var centre: Vector2 = rect.get_center()
@@ -830,6 +846,11 @@ func _draw_district() -> void:
 							_draw_road_dash(rect, mask, tx, ty)
 						if paint != RoadPaint.MASK_NONE:
 							_draw_kerbs(rect, RoadPaint.kerb_edges(world.tilemap, mask, tx, ty))
+						# And the loose stuff on top of all of it: broken concrete where the
+						# rubble pass laid rubble, a scrap of litter every so many tiles of
+						# pavement. Cosmetic, hash-picked, and drawn over the paint rather than
+						# under it, because litter blows onto a road marking and not beneath one.
+						_draw_scatter(rect, dress, tx, ty)
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
@@ -850,6 +871,66 @@ func _road_mask() -> PackedByteArray:
 	_road_mask_from = map
 	_road_mask_cache = RoadPaint.mask_for(map)
 	return _road_mask_cache
+
+
+# The map-dressing block, cached against the content tree it was read from -- the _road_mask and
+# _thresholds pattern, and here for the same two reasons: a static cache would be shared between
+# the two worlds a gate boots, and the resolution itself (Dressing.block_of) is pure. A content
+# hot-reload hands over a different tree object, which is what invalidates it.
+func _dressing() -> Dictionary:
+	var tree: Variant = world.content
+	if tree == _dressing_from:
+		return _dressing_cache
+	_dressing_from = tree
+	_dressing_cache = Dressing.block_of(world)
+	return _dressing_cache
+
+
+# One wrecked-car segment over a Low tile. False when content declares no dressing or names no key
+# for this segment -- a lone Low tile is the shipped case of the latter -- which is the caller's
+# cue to draw the procedural cover block instead.
+#
+# The rotation is the whole of the east-west story: the art is authored pointing north, one tile
+# wide, and a run lying across the street is the same three files turned a quarter circle rather
+# than a second set of them. The turn is geometry read off the map, the way _draw_solid_tile reads
+# its exposed faces; the *key* still comes from content, so the loop stays content-driven. Reset with draw_set_transform_matrix, not with a second
+# draw_set_transform, so the identity that follows is unambiguous -- the player's rig set that
+# convention one slice ago and check_topdown counts on it there.
+func _draw_wreck(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> bool:
+	if dress.is_empty():
+		return false
+	var key: String = Dressing.wreck_key(dress, world.tilemap, int(world.seed), tx, ty)
+	var texture: Texture2D = Appearance.resolve(key)
+	if texture == null:
+		return false
+	var angle: float = Dressing.run_angle(world.tilemap, tx, ty)
+	if angle == 0.0:
+		draw_texture_rect(texture, rect, false)
+		return true
+	draw_set_transform(rect.get_center(), angle, Vector2.ONE)
+	draw_texture_rect(texture, Rect2(-rect.size / 2.0, rect.size), false)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	return true
+
+
+# The loose stuff: broken concrete over a rubble tile, a scrap of litter over street pavement.
+# Both keys are resolved from content and both are hash-picked from the map seed and the tile, so
+# a district's debris is the same debris on every boot and after every load. Which tiles are
+# eligible is Dressing's business, not this loop's -- it draws whatever comes back and nothing
+# when nothing does.
+func _draw_scatter(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
+	if dress.is_empty():
+		return
+	var seed_val: int = int(world.seed)
+	var key: String = Dressing.rubble_key(dress, world.tilemap, seed_val, tx, ty)
+	if key.is_empty():
+		key = Dressing.litter_key(dress, world.tilemap, seed_val, tx, ty)
+	if key.is_empty():
+		return
+	var texture: Texture2D = Appearance.resolve(key)
+	if texture == null:
+		return
+	draw_texture_rect(texture, rect, false)
 
 
 func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:

@@ -222,9 +222,17 @@ is made (see the decision above and docs/30); what remains is the work it forces
 order. The reference mood throughout: muted, overcast, desaturated urban decay — and its HUD is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
 
-- **Vehicle and wreck props.** Abandoned cars, dumpsters, debris piles — the reference's blocking
-  volumes. Folds in the old **prop art on the 64×64 canvas** item: a container, a bed, a campfire
-  and the well each take an `appearance.sprite` key today and none has a file behind it.
+- **The wreck dumpster — designed and drawn, cut at the balance line.** A `wreck_dumpster` sprite
+  was authored for the lone `Tile.Low` tiles a district stands, and standing more than the annex's
+  single one meant widening the wreck pass's run length from 2–3 to 1–3 in `_dress_occluders`.
+  That one-word change moved **two of the four `M2_BALANCE_OK` FAST seed lines** (see the vehicles
+  record), and dressing is not allowed to move the simulation, so both the sim edit and the art
+  were cut together — no stray PNG, per the arc's own rule that every picture lands with its
+  reader. Solo-Low placement wants its own **measured** slice: a driver that answers whether the
+  movement is the layout perturbation it looks like, at enough seeds to say so, before the
+  constant moves again. `presentation/dressing.gd` already classifies a lone tile as `solo` and
+  resolves nothing for it; `check_wrecks.gd`'s SEGMENTS and DISTRICT lanes say out loud which half
+  went unjudged, so the socket is named rather than hidden.
 - **Weather & mood.** A rain pass and overcast grade, presentation-only, reading nothing the
   player has not seen.
 - **Characters re-authored for overhead.** The brainstorm's overhead visual language: survivors
@@ -1436,6 +1444,106 @@ not a to-do list:
   clashes with the muted grade and stays the weather/mood slice's named material. Night
   tuning: nothing read washed out, so `NIGHT_WASH` stays 0.8 and `light_look.gd` untouched.
   docs/30: no new entry. `HANDOFF.md` unchanged.
+  ~~Vehicles, props and debris~~ **mostly landed** (`godot:check:wrecks` → `WRECKS_OK`, the
+  chain's 41st gate) — the third slice of the style-B reference arc: the district stops being
+  coloured rectangles standing on coloured rectangles. Five pieces, one gate, one cut.
+  **The tint amendment** (the slice's own prerequisite). `prop.schema.json`'s `appearance`
+  required `tint` outright, which is exactly what could not survive art: a tint declared beside a
+  sprite is multiplied over every pixel of it (`Appearance.modulate_for`), so "every prop declares
+  a tint" and "props draw as they were painted" cannot both hold. It is now
+  `anyOf: [{required: [tint]}, {required: [sprite]}]` — required-unless-sprite, which keeps the
+  guarantee the old rule existed for (no invisible thing standing in the district) without forcing
+  the stain. **Nothing validates it but the gate**, and that is worth stating plainly rather than
+  assuming: the Godot validator is shallow and never recurses into `appearance`, and the frozen
+  oracle loads schemas only for its own six `CONTENT_TYPES` (zombie, affix, item, calibration,
+  survivor, map) — `prop` is not among them, so `prop.schema.json` is oracle-invisible and
+  `npm test` staying green proves nothing about the anyOf. It was checked directly instead, by
+  compiling the schema with the repo's own Ajv: the seven shipped entries validate, a block with
+  neither key is refused with `must match a schema in anyOf`, and `additionalProperties: false`
+  still bites inside the block. `check_appearance.gd`'s PROPS lane is the real enforcement, and it
+  was rewritten around the look rather than around one field of it — every prop resolves art or a
+  tint, art draws unstained, no two props resolve the same look, and the two **state pairs** are
+  compared as decoded pixels, because two files with different names and identical contents would
+  satisfy every assertion about keys. Shown red six ways: a tint added beside `prop_well`'s
+  sprite, `prop.bed` given a crate's `size`, `prop.latrine` stripped of both keys, two ids pointed
+  at one sprite, and `prop_campfire.png` copied over `prop_campfire_lit.png` (different keys,
+  identical pixels — caught only by the pixel comparison). `check_topdown`'s prop-state assertion
+  moved with it: it compared tints, and two unstained sprites are both white, so it now needs the
+  ids to differ **and** either the tint or the texture to.
+  **Seven prop sprites.** `prop_container`, `prop_container_searched`, `prop_bed`,
+  `prop_campfire`, `prop_campfire_lit`, `prop_well`, `prop_latrine` — the entry that had carried
+  an `appearance.sprite` key with no file behind it since props became content. State variants are
+  separate files, and the lit fire learns nothing the content id did not already carry: the flip
+  is `PROP_KINDS`' existing `lit` → `prop.campfire.lit`, and the art is a warmer picture of the
+  same pit, not a fuel gauge. `appearance.size` stopped being decoration in the same commit —
+  `_draw_prop` reads it only on the procedural path, so the gate started reading it instead, and
+  each sprite's opaque bounding box must sit within 8 px of `size × 64`.
+  **Wreck cars as segment sets** (presentation). 64×64 is gate-forbidden to widen, so a car two or
+  three tiles long is one file per tile: `wreck_car_{a,b,c}_{front,mid,rear}`, north-authored,
+  `front` running to the south edge of its canvas and `rear` starting at the north edge of its, so
+  a two-tile car (front+rear) and a three-tile one both close with no seam. New
+  `presentation/dressing.gd` — pure statics, **no static state**, the `road_paint.gd` shape — reads
+  the segment off the neighbours per tile the way `_draw_solid_tile` reads its exposed faces, and
+  the variant off a **pure hash of the map seed and the run's anchor tile**, never a sim RNG
+  stream: a stream here would either sit on the layout's own registry or reseed per boot, and the
+  anchor is what stops a pale bonnet landing on a burnt boot. East-west runs were the one open
+  decision and are settled as **rotation by transform, not authored-rotated variants** — the key
+  set the arc settled has no east variants, so a second set would have been new content; the draw
+  loop stays content-driven because the *key* still comes from content and only the angle is read
+  off the map, and `_draw_wreck` resets with `draw_set_transform_matrix(Transform2D.IDENTITY)`
+  (the player rig's convention, and `check_topdown`'s count==1 lane is unaffected — it reads
+  `_draw_entities`). The segment→key mapping is a **content dressing block**
+  (`content/dressing/street.json`, new `dressing` kind + schema, registered in
+  `content_validator.gd`; the frozen oracle cannot see the directory, so no TS edit). Nested, so
+  the shallow validator checks that `wrecks` is an object and never once looks inside it — the
+  DRESSING lane walks it, resolves every key at 64×64, refuses a fabricated key and a duplicated
+  one, and an empty block resolves nothing rather than defaulting.
+  **Debris** (presentation). `debris_rubble_a/b` over every tile the slice-2 rubble pass painted —
+  129 of them on the canonical seed, which had been flat tint — and `debris_litter_a/b/c` on 1 in
+  17 tiles of outdoor street pavement, two independent hash salts so making the scatter denser
+  cannot silently reshuffle which scrap lands where. Both cosmetic, both deterministic across
+  boots and saves by construction.
+  **Gate lanes, red both ways.** `WRECKS_OK`: DRESSING (fabricated key, duplicated key, empty
+  block), SEGMENTS (a lone tile mis-classified as a car front; front/rear swapped; `mid` never
+  returned; the quarter turn removed; the run anchor made per-tile), VARIATION (a constant
+  `variant_index`; a `static var` added to `dressing.gd` — the forbidden-name scan reads the file
+  with its comments stripped, or it fails the file for documenting the rule it obeys), DISTRICT (a
+  stray `solo` key pointed at real art, caught as "a lone tile is not a car"), SCATTER (litter's
+  surface test removed → litter on grass; rarity 1 → 1,622 of 1,622 paved tiles; rubble debris
+  suppressed), SOCKETS (`_draw_scatter` unwired; the transform reset deleted; the wreck drawn
+  unconditionally, which would leave a dressing-free map with nothing over its Low tiles).
+  `sprites:check` too: a `steel` ramp nudged one hex without regenerating went red on
+  `wreck_dumpster` before that key was cut.
+  **The cut, and the diagnosis behind it.** The dumpster needed lone Low tiles, which meant
+  `_dress_occluders`' run length going 2–3 → 1–3. That is one draw either way (fixed draw count,
+  nothing downstream shifts), and it still moved **two of the four FAST balance seed lines**: seed
+  20260805 went deaths 2 → 0 and survivors 1/3 → 3/3, seed 31337 moved its grab counts, and seeds
+  404 and 90210 stayed byte-identical. `M2_BALANCE_OK` stayed green — the bands and invariants are
+  property assertions, not seed transcripts. The diagnosis was interrupted mid-driver, and had
+  established this much: the change is a *layout* change by construction (the canonical 64 map
+  goes 7 Low tiles to 6, measured through the gate's own scan), the wreck stream's draw count is
+  unchanged so nothing downstream is re-phased, and a ten-day campaign is chaotic enough that one
+  tile of cover on day 1 rewrites the rest — i.e. every sign pointed at perturbation rather than
+  at a balance effect, but *pointed at* is not *measured*, and two consecutive guesses at this
+  harness have cost a full run each before. The owner's call, taken on that evidence: **dressing
+  must stay balance-neutral**. So the worldgen edit is reverted (byte-identical to 8b7b247), the
+  dumpster's sprite, its generator key, its `steel` palette ramp and its dressing mapping are all
+  deleted rather than left as a stray PNG, and the piece is back in what's-left with the
+  measurement it owes. After the revert all four FAST seed lines are **byte-identical** to the
+  pre-slice baseline.
+  **Which halves shipped.** Shipped: the tint amendment and all seven prop sprites; the three car
+  variants on the Low-tile runs a district already stands, east-west runs included; the rubble and
+  litter scatter; `WRECKS_OK` with its six lanes. Cut: the dumpster and the solo-Low placement it
+  needed (above). Not attempted and named rather than hidden: a lone Low tile still draws the
+  procedural inset cover block, which is the supported fallback everywhere else in this pipeline;
+  the annex's own single Low tile is the one that reads that way on a shipped map. The
+  entity-blit zoom-scale defect is still deferred to the characters slice and is visible in the
+  shots — prop and tile art blit at the tile rect and are correctly sized, bodies do not.
+  Eyeballed as well as gated: day and night at a street wreck, captured through a throwaway Xvfb
+  `SceneTree` driver (deleted after, per the rule), committed at
+  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice3-day.png` and `slice3-night.png`. The
+  night shot is nearly dark on purpose — sight collapses after dusk and the dressing goes with it,
+  which is the contract, not a missing feature. docs/30: no new entry. `HANDOFF.md` unchanged.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

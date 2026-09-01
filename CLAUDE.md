@@ -86,12 +86,13 @@ npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
 npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
 npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
+npm run godot:check:wrecks   # wrecks, props, debris art → WRECKS_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **40**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **41**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
