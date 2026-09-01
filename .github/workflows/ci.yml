@@ -70,6 +70,18 @@ jobs:
       - name: Test
         run: npm test
 
+      # The generated art under godot/assets/sprites/ is produced by tools/sprites/, and this
+      # re-renders every registry key and compares decoded pixels against the committed PNG --
+      # so a palette edited without regenerating is a red build rather than art that has
+      # drifted from the code that made it. Deliberately its own step and NOT part of
+      # `npm run godot:m2`: that chain is engine-only and stays pip-free, so every gate that
+      # decides whether the game is correct still runs for a contributor with no Python.
+      - name: Install Pillow (sprite generators)
+        run: pip install pillow==12.3.0
+
+      - name: Sprite reproducibility
+        run: npm run sprites:check
+
       - name: Godot R1 parity
         run: npm run godot:test
 
@@ -94,7 +106,7 @@ jobs:
       - name: R6 soak (memory/save/input/pause/tab)
         run: npm run godot:r6:soak
 
-      # Every Milestone 2 gate, chained by the npm script -- 34 of them, and the same command
+      # Every Milestone 2 gate, chained by the npm script -- 39 of them, and the same command
       # CLAUDE.md tells a contributor to run before every commit, so CI and the desk agree by
       # construction rather than by two lists being kept in step. It is the longest step here
       # (~7 min on a comparable container), which is what the job timeout above is sized for.
@@ -112,7 +124,7 @@ jobs:
       #   godot:check:hud          the HUD speaks in words. Same reasoning as the health-bar
       #                            ban: a number on screen invites optimising the number. Only
       #                            the day counter is excepted
-      - name: Godot Milestone 2 gates (all 34, standing bans included)
+      - name: Godot Milestone 2 gates (all 39, standing bans included)
         run: npm run godot:m2
 
   godot-exports:

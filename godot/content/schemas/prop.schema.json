@@ -15,30 +15,30 @@
     "name": { "type": "string", "description": "Human-readable name. Not shown to the player -- SimContainers.hud_clause and needs.hud_clause own the prose; this is for whoever is reading the content." },
     "appearance": {
       "type": "object",
-      "required": ["tint"],
+      "anyOf": [{ "required": ["tint"] }, { "required": ["sprite"] }],
       "additionalProperties": false,
-      "description": "Same block as a zombie's or a survivor's, plus the two keys a prop needs because it draws as a footprint on the ground rather than as a pawn. A prop with a `sprite` draws the art and ignores `shape`.",
+      "description": "Same block as a zombie's or a survivor's, plus the two keys a prop needs because it draws as a footprint on the ground rather than as a pawn. A prop with a `sprite` draws the art and ignores `shape` and `size`. The `anyOf` is the whole rule: `tint` was flatly required here until props had art, because a prop with neither would be an invisible thing standing in the world -- but a prop that declares a tint *and* a sprite has that tint multiplied over every pixel of the art (appearance.gd's `modulate_for`), so demanding one of art would have stained all of it. Required-unless-sprite is the shape that keeps the original guarantee -- every prop draws as something -- without forcing the stain. NOTE that neither validator enforces this: the Godot one is shallow and never recurses into `appearance`, and the frozen TypeScript oracle loads schemas only for its own six content types, of which `prop` is not one. check_appearance.gd's prop lane is the enforcement, in both directions.",
       "properties": {
         "sprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
-          "description": "Registry key for assets/sprites/<key>.png, 64x64 centre-anchored. Optional and currently unused by every shipped prop -- the shapes below are the supported floor, not a stopgap."
+          "description": "Registry key for assets/sprites/<key>.png, 64x64 centre-anchored. Every shipped prop declares one; the shapes below remain the supported floor for a prop authored without art, not a stopgap."
         },
         "tint": {
           "type": "string",
           "pattern": "^#[0-9a-f]{6}$",
-          "description": "The colour the shape draws in, and the modulate on a sprite if one is declared. Required here, unlike on a pawn: a prop with no art and no tint would be an invisible thing standing in the world, which is the defect this content type exists to end."
+          "description": "The colour the shape draws in, and the modulate on a sprite if one is declared -- which is why a prop with art declares no tint: it would multiply the art. Required unless `sprite` is (see the anyOf above): a prop with neither would be an invisible thing standing in the world, which is the defect this content type exists to end."
         },
         "shape": {
           "type": "string",
           "enum": ["box", "slab", "disc", "ring"],
-          "description": "Which of the renderer's ground-footprint primitives draws this prop: box (a bevelled square -- a crate, a cupboard), slab (a long rectangle with a pale band at the head -- a bed), disc (a filled circle with a darker core -- a fire pit), ring (an annulus -- a well). Geometry, not identity: the vocabulary is presentation's and check_topdown.gd asserts main.gd actually draws every name in it."
+          "description": "Which of the renderer's ground-footprint primitives draws this prop when it has no art: box (a bevelled square -- a crate, a cupboard), slab (a long rectangle with a pale band at the head -- a bed), disc (a filled circle with a darker core -- a fire pit), ring (an annulus -- a well). Geometry, not identity: the vocabulary is presentation's and check_topdown.gd asserts main.gd actually draws every name in it."
         },
         "size": {
           "type": "number",
           "minimum": 0.1,
           "maximum": 1,
-          "description": "Footprint as a fraction of a tile, longest side. Defaults to Appearance.PROP_SIZE when absent."
+          "description": "Footprint as a fraction of a tile, longest side. Defaults to Appearance.PROP_SIZE when absent. _draw_prop reads it only on the procedural path -- art is blitted at one tile -- but it is not decoration once a prop has art: check_appearance.gd measures the sprite's opaque bounding box against size x 64, so this number is what the picture was authored to and a bed drawn the size of a crate fails the build."
         }
       }
     }

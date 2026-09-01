@@ -1645,6 +1645,35 @@ dressing changes never move the layout.
   survivor who is no longer on auto — a click that fails for a reason the screen has already
   stopped showing. The ordering is one integer and it is load-bearing.
 
+## The art style: B, picked from a reference
+
+Decided by the owner, 2026-09-01, from the built comparison fixtures
+(`.hermes/plans/2026-09-01_art-style-fixtures/`) and a supplied reference screenshot rather than
+from the fixtures alone. The pick is **B — the rotating player**, the brainstorm doc's Zero
+Sievert read, and the reference fixes the mood the arc is aimed at: muted, overcast, desaturated
+urban decay — lane-marked asphalt, wrecked cars, dumpsters, debris and corpse dressing, rain,
+high-overhead pixel art with 3/4 touches on roofs and props.
+
+Three boundaries were set in the same decision, because the reference image contains things the
+pick does **not** adopt:
+
+- **The reference's HUD is not the pick.** It shows a red health bar and a green stamina bar —
+  exactly what [clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) bans
+  and `godot:ban:healthbar` enforces. Asked directly, the owner re-affirmed the ban. The art
+  direction is the *world*; the HUD stays prose.
+- **Only the player rotates.** B's cost is rotation support and equip overlays re-authored on the
+  rotated rig; its risk is the peripheral-anonymity clause — a loop that rotates every body leaks
+  facing for people the player should read as anonymous. NPCs, colonists and zombies stay
+  face-on.
+- **Fidelity is allowed to arrive gradually.** The reference is hand-crafted pixel art; the arc
+  starts from procedural and placeholder passes and improves, and a slice is judged by the
+  brainstorm's invariants (silhouette → tint → detail, one loud tell per type, art never leaks
+  sim state) rather than by matching the reference stroke for stroke.
+
+The fixtures earned their keep here twice over: they showed B's rotation working under the
+anonymity clause before the pick, and they surfaced that the shipped game has no player sprite at
+all — the first slice of the arc authors one, which no candidate style could have skipped.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

@@ -25,12 +25,13 @@ func _run() -> void:
 	ok = _sprite_keys_resolve() and ok
 	ok = _every_canvas_is_64() and ok
 	ok = _procedural_fallback_still_works() and ok
+	ok = _the_player_has_a_body() and ok
 	ok = _tints_come_from_content_not_code() and ok
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, tints from content")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, tints from content")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -164,15 +165,26 @@ func _every_canvas_is_64() -> bool:
 	print("CANVAS OK %d files at 64x64" % judged)
 	return true
 
-# The fallback is the supported path, not a stopgap: with no sprite declared, every role
-# still yields a drawable tint and radius and an explicitly null texture.
+# The fallback is the supported path, not a stopgap: with no content at all, every role still
+# yields a drawable tint and radius and an explicitly null texture.
+#
+# The empty content tree is what makes this lane mean something now that the player resolves art
+# like everybody else. It used to probe all four roles against the *real* tree, which worked only
+# because none of the four resolved anything -- the moment `player.body` shipped, the same
+# assertion would have started failing for the right behaviour, which is a gate reading its own
+# subject as a regression. So the roles are probed with `content_tree: {}` (nothing to resolve, by
+# construction) and the real tree keeps the three roles that legitimately declare no look.
 func _procedural_fallback_still_works() -> bool:
+	# Between the two worlds, because Appearance._cache is a `static var` and therefore shared
+	# between every world one gate process boots (CLAUDE.md's static-var trap).
 	Appearance.forget()
-	var w: Variant = World.new(_fixture())
+	var fixture: Dictionary = _fixture()
+	fixture["content_tree"] = {}
+	var bare: Variant = World.new(fixture)
 	for role in [{"player": true}, {"unique": true}, {"bait": true}, {}]:
-		var look: Dictionary = Appearance.for_entity(w, role as Dictionary)
+		var look: Dictionary = Appearance.for_entity(bare, role as Dictionary)
 		if look["texture"] != null:
-			push_error("role %s resolved a texture with no sprite declared" % str(role))
+			push_error("role %s resolved a texture out of an empty content tree; the look is in code, not in content" % str(role))
 			return false
 		if not (look["tint"] is Color):
 			push_error("role %s produced no tint" % str(role))
@@ -180,13 +192,82 @@ func _procedural_fallback_still_works() -> bool:
 		if float(look["radius"]) <= 0.0:
 			push_error("role %s produced a non-positive radius" % str(role))
 			return false
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	# The roles that declare no look in the shipped tree either. The player is deliberately not
+	# among them any more -- `_the_player_has_a_body` owns that case in both directions.
+	for role2 in [{"unique": true}, {"bait": true}, {}]:
+		var real: Dictionary = Appearance.for_entity(w, role2 as Dictionary)
+		if real["texture"] != null:
+			push_error("role %s resolved a texture with no sprite declared" % str(role2))
+			return false
+		if not (real["tint"] is Color) or float(real["radius"]) <= 0.0:
+			push_error("role %s produced no drawable shape" % str(role2))
+			return false
 	# An unknown zombie type must degrade to the role colour rather than erroring.
 	var unknown: Dictionary = Appearance.for_entity(w, {"ztype": "zombie.does_not_exist"})
 	if (unknown["tint"] as Color) != Palette.COLOURS["wanderer"]:
 		push_error("an unknown zombie type should fall back to the wanderer colour")
 		return false
-	print("FALLBACK OK")
+	print("FALLBACK OK 4 roles on an empty tree, 3 on the shipped one")
 	return true
+
+
+# The player has art, and it comes from content.
+#
+# The style fixtures turned up that the shipped game had no player sprite at all: every other body
+# hands `for_entity` a content id (a zombie its type, a unique survivor its identity or rolled
+# look, a raider its archetype) and the player carried none, so the resolver had nothing to look
+# up and the protagonist drew as a disc. `Appearance.PLAYER_LOOK_ID` is the floor that fixes it,
+# and this lane is what stops the fix from quietly becoming a hardcoded texture in presentation.
+#
+# True positive: the shipped tree resolves the rig, unstained, at the player's radius.
+# True negative: the same probe against a tree with players/ erased must resolve *nothing* and
+# fall back to the role colour -- which is red if anybody ever reaches for the file directly.
+func _the_player_has_a_body() -> bool:
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	var look: Dictionary = Appearance.for_entity(w, {"player": true})
+	if look["texture"] == null:
+		push_error("the player resolved no texture; %s declares appearance.sprite and nothing read it" % Appearance.PLAYER_LOOK_ID)
+		return false
+	if (look["tint"] as Color) != Color.WHITE:
+		push_error("the player's art declares no tint and must draw white, got %s" % str(look["tint"]))
+		return false
+	if float(look["radius"]) != 14.0:
+		push_error("the player draws at radius %f; the shadow and the fallback disc are sized off it" % float(look["radius"]))
+		return false
+	var block: Dictionary = Appearance.of_content(w, "player", Appearance.PLAYER_LOOK_ID)
+	if not block.has("sprite"):
+		push_error("%s declares no appearance.sprite; the player's look belongs in content, not in the draw loop" % Appearance.PLAYER_LOOK_ID)
+		return false
+
+	# The true negative. Same world shape, same probe, one directory removed. The drop is
+	# counted rather than assumed: a tree that dropped nothing would satisfy every assertion
+	# below by accident, which is a true negative that cannot fail.
+	Appearance.forget()
+	var stripped: Dictionary = ContentLoader.load_tree()
+	var dropped: int = 0
+	for path in stripped.keys():
+		if String(path).begins_with("players/"):
+			stripped.erase(path)
+			dropped += 1
+	if dropped == 0:
+		push_error("no content under players/ to drop -- the true negative had nothing to remove")
+		return false
+	var fixture: Dictionary = _fixture()
+	fixture["content_tree"] = stripped
+	var bare: Variant = World.new(fixture)
+	var fallback: Dictionary = Appearance.for_entity(bare, {"player": true})
+	if fallback["texture"] != null:
+		push_error("with content/players/ erased the player still resolved a texture: the sprite key is in presentation, not in content")
+		return false
+	if (fallback["tint"] as Color) != Palette.COLOURS["player"]:
+		push_error("with no content the player must fall back to the player role colour, got %s" % str(fallback["tint"]))
+		return false
+	print("PLAYER OK %s resolves '%s' white at r14, and degrades to the role colour without its %d content file(s)" % [Appearance.PLAYER_LOOK_ID, String(block["sprite"]), dropped])
+	return true
+
 
 # Guards the migration: these two colours used to be literals in _draw_entities. If someone
 # moves them back into code, the content block disappears and this fails.
@@ -308,11 +389,63 @@ func _equipped_gear_layers_resolve() -> bool:
 	return true
 
 
+# Whether a prop's content says enough for it to be drawn at all: art, or a colour to draw the
+# footprint in. This is the rule prop.schema.json's `anyOf` writes down and **nothing else
+# enforces** -- the Godot validator never recurses into `appearance`, and the frozen oracle loads
+# schemas only for its own six content types, of which `prop` is not one. Named as a function so
+# the fabricated negatives below refuse through exactly the predicate the shipped props pass.
+#
+# Deliberately *not* asked through `modulate_for`: that helper answers what colour multiplies a
+# drawn thing and has its own lane above, and teaching it about props would make one rule two.
+func _prop_is_drawable(block: Dictionary, look: Dictionary) -> bool:
+	return look.get("texture") != null or block.has("tint")
+
+
+# What makes this prop's look different from another's -- the art it draws, or the colour it
+# draws in. Two props that answer the same string are two props you cannot tell apart.
+func _prop_look_identity(block: Dictionary, look: Dictionary) -> String:
+	if look.get("texture") != null:
+		return "sprite:%s" % String(block.get("sprite", "?"))
+	return "tint:%s" % str(look.get("tint"))
+
+
+# The opaque bounding box of a texture, longest side in pixels. Zero for art that is entirely
+# transparent, which is its own failure.
+func _footprint_px(texture: Variant) -> int:
+	var image: Image = (texture as Texture2D).get_image()
+	var min_x: int = image.get_width()
+	var min_y: int = image.get_height()
+	var max_x: int = -1
+	var max_y: int = -1
+	for y in image.get_height():
+		for x in image.get_width():
+			if image.get_pixel(x, y).a <= 0.0:
+				continue
+			min_x = mini(min_x, x)
+			min_y = mini(min_y, y)
+			max_x = maxi(max_x, x)
+			max_y = maxi(max_y, y)
+	if max_x < 0:
+		return 0
+	return maxi(max_x - min_x + 1, max_y - min_y + 1)
+
+
+# How far the art may sit from the footprint its content declares, in pixels of a 64 px tile.
+# Wide enough that a bumper or a flame tongue is not a build failure, narrow enough that a bed
+# drawn at a crate's size is.
+const FOOTPRINT_SLACK_PX: int = 8
+
 # Every prop id the renderer can ask for has an entry in content, and that entry says enough to
-# draw. The true positive is the six shipped ids resolving distinct, well-formed looks; the true
-# negative is an id nobody authored, which must degrade to the drab fallback rather than resolving
-# a tint that looks deliberate -- and must *not* be mistaken for a real entry, which is what the
-# "declares a tint" assertion below would catch if a prop entry were ever deleted.
+# draw: art, or a tint, and now that the props have art it is art for every one of them.
+#
+# The lane changed shape with the sprites. It used to require `tint` outright, which is exactly
+# what could not survive the art: a tint declared beside a sprite is multiplied over every pixel
+# of it (`modulate_for`), so "every prop declares a tint" and "props draw as they were painted"
+# cannot both hold. What survives is the *guarantee* underneath the old assertion -- every prop
+# draws as something, and no two of them draw as the same thing -- restated over the look rather
+# than over one field of it. Distinctness is over the resolved look; for the two state pairs it
+# is additionally over the decoded pixels, because two files with different names and identical
+# contents would satisfy every assertion about keys.
 func _props_look_like_something() -> bool:
 	Appearance.forget()
 	var w: Variant = World.new(_fixture())
@@ -324,14 +457,34 @@ func _props_look_like_something() -> bool:
 	if ids.is_empty():
 		push_error("PROP_KINDS is empty -- this lane had nothing to judge")
 		return false
-	var tints: Array[Color] = []
+	var identities: Array[String] = []
+	var textured: int = 0
 	for id in ids:
 		var block: Dictionary = Appearance.of_content(w, "prop", id)
-		if not block.has("tint"):
-			push_error("%s declares no appearance.tint; a prop with no art and no tint is an invisible thing standing in the district" % id)
-			return false
 		var look: Dictionary = Appearance.prop_of(w, id)
-		if (look["tint"] as Color) != Color(String(block["tint"])):
+		if not _prop_is_drawable(block, look):
+			push_error("%s declares neither appearance.sprite that resolves nor appearance.tint; a prop with neither is an invisible thing standing in the district" % id)
+			return false
+		if block.has("sprite"):
+			# Art is drawn as it was painted. A tint beside a sprite is a stain on it, so the
+			# schema's anyOf is satisfied by the sprite and the tint is absent -- and if one
+			# were added by accident, the look would stop being white and this would say so.
+			if look["texture"] == null:
+				push_error("%s declares appearance.sprite '%s' and resolved no texture" % [id, String(block["sprite"])])
+				return false
+			if (look["tint"] as Color) != Color.WHITE:
+				push_error("%s has art and must draw it unstained; got tint %s" % [id, str(look["tint"])])
+				return false
+			# The footprint the content declares is the footprint the art was authored to. This
+			# is what keeps `size` from becoming decoration the moment a prop has a sprite: the
+			# procedural path stops reading it, so the gate starts.
+			var want: int = int(round(float(look["size"]) * 64.0))
+			var got: int = _footprint_px(look["texture"])
+			if absi(got - want) > FOOTPRINT_SLACK_PX:
+				push_error("%s declares size %.2f (%d px of a tile) and its art measures %d px across; the number in content is what the picture was authored to" % [id, float(look["size"]), want, got])
+				return false
+			textured += 1
+		elif (look["tint"] as Color) != Color(String(block["tint"])):
 			push_error("%s: prop_of did not use the content tint" % id)
 			return false
 		if not Appearance.PROP_SHAPES.has(String(look["shape"])):
@@ -342,10 +495,44 @@ func _props_look_like_something() -> bool:
 			return false
 		# Two states of one prop that look identical are one state: a searched cupboard and an
 		# unsearched one, a lit fire and a cold one, have to be distinguishable on sight.
-		if tints.has(look["tint"] as Color):
-			push_error("%s reuses tint %s -- two props you cannot tell apart" % [id, str(look["tint"])])
+		var identity: String = _prop_look_identity(block, look)
+		if identities.has(identity):
+			push_error("%s resolves the same look (%s) as another prop -- two props you cannot tell apart" % [id, identity])
 			return false
-		tints.append(look["tint"] as Color)
+		identities.append(identity)
+	if textured == 0:
+		push_error("not one prop resolved art -- the unstained and footprint assertions had nothing to judge")
+		return false
+
+	# The state pairs, compared as pictures rather than as key names: two files called different
+	# things and holding identical pixels would pass every assertion above and still ship a
+	# searched cupboard that looks unsearched.
+	for pair in [["prop.container", "prop.container.searched"], ["prop.campfire", "prop.campfire.lit"]]:
+		var a: Dictionary = Appearance.prop_of(w, String((pair as Array)[0]))
+		var b: Dictionary = Appearance.prop_of(w, String((pair as Array)[1]))
+		if a["texture"] == null or b["texture"] == null:
+			continue
+		if (a["texture"] as Texture2D).get_image().get_data() == (b["texture"] as Texture2D).get_image().get_data():
+			push_error("%s and %s are the same picture; the state is not readable on sight" % [(pair as Array)[0], (pair as Array)[1]])
+			return false
+
+	# The true negatives, each through the predicate the shipped props just passed.
+	if _prop_is_drawable({"shape": "box", "size": 0.5}, {"texture": null, "tint": Palette.COLOURS["prop"]}):
+		push_error("a prop block with neither a sprite nor a tint was judged drawable; the anyOf has no enforcement anywhere")
+		return false
+	if not _prop_is_drawable({"tint": "#112233"}, {"texture": null, "tint": Color("#112233")}):
+		push_error("a tint-only prop block was judged undrawable; the procedural footprint is a supported path")
+		return false
+	var stand_in: Variant = Appearance.resolve("prop_bed")
+	if _prop_look_identity({"sprite": "prop_bed"}, {"texture": stand_in}) \
+			!= _prop_look_identity({"sprite": "prop_bed"}, {"texture": stand_in}):
+		push_error("two prop entries naming one sprite resolved different identities; the distinctness check above cannot catch a duplicated key")
+		return false
+	if _prop_look_identity({"sprite": "prop_bed"}, {"texture": stand_in}) \
+			== _prop_look_identity({"sprite": "prop_well"}, {"texture": stand_in}):
+		push_error("two prop entries naming different sprites resolved one identity; the distinctness check reads nothing")
+		return false
+
 	var unknown: Dictionary = Appearance.prop_of(w, "prop.does_not_exist")
 	if (unknown["tint"] as Color) != Palette.COLOURS["prop"]:
 		push_error("an unauthored prop id should fall back to the drab prop colour, got %s" % str(unknown["tint"]))
@@ -353,5 +540,5 @@ func _props_look_like_something() -> bool:
 	if String(unknown["shape"]) != Appearance.PROP_SHAPE_DEFAULT or unknown["texture"] != null:
 		push_error("an unauthored prop id should still be drawable as the default shape with no texture")
 		return false
-	print("PROPS OK %d ids, distinct tints, unknown id degrades" % ids.size())
+	print("PROPS OK %d ids, %d with art drawn unstained at their declared footprint, distinct looks, both state pairs different pictures, unknown id degrades" % [ids.size(), textured])
 	return true

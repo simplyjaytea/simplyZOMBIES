@@ -182,8 +182,8 @@ const ANTIBIOTICS_DOSES_PER_COURSE: int = 6
 const ANTIBIOTIC_BASE_CLEAR: float = 0.6
 
 static func use_antibiotics(world: Variant, entity: int) -> Dictionary:
-	# Consumes one course from inventory if present, starts course record.
-	# ponytail: consume one stack count from item.antibiotics.course; finite stock shared with sepsis
+	# Spends exactly one course out of the pack, or refuses; both paths below go through
+	# `_spend_one_course`, so there is one stock and one price whatever is being treated.
 	var st: Variant = world.components.get_component(entity, "zombieInfection")
 	# docs/05's first consequence of keeping bacterial infection separate: "the finite, uncraftable
 	# supply that saves someone from a bite is the same supply that saves someone from a dirty
@@ -201,28 +201,19 @@ static func use_antibiotics(world: Variant, entity: int) -> Dictionary:
 		# survivor who was never bitten looking, to every reader of that component, like one who
 		# was.
 		return _antibiotics_for_sepsis(world, entity, Wounds)
-	# Try to consume one antibiotics.course from carried items
-	var consumed: bool = false
-	for item in SimInventoryRes.carried_items(world, entity) as Array:
-		var base: Variant = SimItemsRes.item_base_of(world, int(item))
-		if base is Dictionary and String((base as Dictionary).get("id", "")) == ANTIBIOTICS_ID:
-			var stk: Variant = world.components.get_component(int(item), "stack")
-			if stk is Dictionary:
-				var cnt: int = int((stk as Dictionary).get("count", 1))
-				if cnt > 1:
-					(stk as Dictionary)["count"] = cnt - 1
-				else:
-					SimInventoryRes.remove_from_container(world, int(item))
-					world.despawn(int(item))
-			else:
-					SimInventoryRes.remove_from_container(world, int(item))
-					world.despawn(int(item))
-			consumed = true
-			break
-	if not consumed:
-		# still allow course without item in tests (determinism harness) — but mark not consumed
-		pass
-	# Find course item to consume — caller strips it; here we just record course
+	# The course comes out of the pack or it does not happen. This path used to keep its own copy
+	# of the spend, fall through a `pass` when it found nothing, and record the course anyway --
+	# a comment about the determinism harness holding open a door nothing in the harness went
+	# through. It made antibiotics free for anybody carrying a zombieInfection record while the
+	# sepsis path beside it had always refused, so the same act cost a course through one door and
+	# nothing through the other, and the finite supply docs/05 builds the whole trade on was
+	# finite only for the survivor who had not been bitten.
+	#
+	# Refused in the word `_antibiotics_for_sepsis` already uses, and spent through the one
+	# `_spend_one_course`: a refusal that differed by cause, like a spend that differed by cause,
+	# would tell the player which of the two they have.
+	if not _spend_one_course(world, entity):
+		return {"ok": false, "reason": "no-antibiotics"}
 	var state: Dictionary = st as Dictionary
 	if not state.has("antibioticsCourses"):
 		state["antibioticsCourses"] = []
@@ -261,18 +252,62 @@ static func _antibiotics_for_sepsis(world: Variant, entity: int, Wounds: GDScrip
 # exactly the same stock by exactly the same rule -- two copies of "take one off the stack" is how
 # the finite supply stops being one supply.
 static func _spend_one_course(world: Variant, entity: int) -> bool:
+	var item: int = _find_course(world, entity)
+	if item < 0:
+		return false
+	var stk: Variant = world.components.get_component(item, "stack")
+	if stk is Dictionary and int((stk as Dictionary).get("count", 1)) > 1:
+		(stk as Dictionary)["count"] = int((stk as Dictionary)["count"]) - 1
+	else:
+		SimInventoryRes.remove_from_container(world, item)
+		world.despawn(item)
+	return true
+
+
+# Is there a course in this pack, without taking it? The offer's half of the spend above, and it
+# goes through the same `_find_course` for the same reason the spend was lifted out in the first
+# place: a screen that asks "have I got one" its own way is a screen that can show a word the sim
+# then refuses.
+static func carries_course(world: Variant, entity: int) -> bool:
+	return _find_course(world, entity) >= 0
+
+
+static func _find_course(world: Variant, entity: int) -> int:
 	for item in SimInventoryRes.carried_items(world, entity) as Array:
 		var base: Variant = SimItemsRes.item_base_of(world, int(item))
-		if not (base is Dictionary) or String((base as Dictionary).get("id", "")) != ANTIBIOTICS_ID:
-			continue
-		var stk: Variant = world.components.get_component(int(item), "stack")
-		if stk is Dictionary and int((stk as Dictionary).get("count", 1)) > 1:
-			(stk as Dictionary)["count"] = int((stk as Dictionary)["count"]) - 1
-		else:
-			SimInventoryRes.remove_from_container(world, int(item))
-			world.despawn(int(item))
-		return true
-	return false
+		if base is Dictionary and String((base as Dictionary).get("id", "")) == ANTIBIOTICS_ID:
+			return int(item)
+	return -1
+
+
+# Is this body showing anything a course of antibiotics might answer -- and deliberately without
+# saying which of the two it is.
+#
+# This is the read the response surface is allowed to ask, and the reason it exists rather than the
+# screen asking `is_septic` or reading `transmitted` itself. docs/05 gives bacterial infection and
+# zombie infection the same early presentation, "fever, pain, and worsening", and use_antibiotics'
+# own comment names what a surface built on the distinction would cost: the player could tell sepsis
+# from a bite by which button lit up. So both causes reach this function through what the player can
+# *already* read -- the diagnosis label the HUD prints, and the fever clause it prints beside it --
+# and come back indistinguishable.
+#
+# Two consequences worth stating, because both are asserted in check_respond.gd:
+#   * A latent exposure reads "clear" (that is `_diagnosis_for_stage`'s first row, and it is the
+#     same answer whether or not the bite transmitted), so a bitten survivor with no symptom yet is
+#     offered nothing. Suspicion dosing has no surface, on purpose -- a word that appeared the
+#     moment you were bitten would be the certainty clause 4 refuses to hand out.
+#   * `examinerSkill` changes the *wording* at Progression and Critical and never the answer here:
+#     every stage above Latent is symptomatic to a novice and to a medic alike.
+static func symptom_of(world: Variant, entity: int, examinerSkill: int) -> Dictionary:
+	var label: String = String(diagnosis_of(world, entity, examinerSkill).get("label", "clear"))
+	if label != "clear" and not label.is_empty():
+		return {"symptomatic": true, "label": label}
+	# Loaded rather than preloaded: wounds.gd preloads this module, and the const pair would be a
+	# cycle. Same call the rest of this file makes for the same reason.
+	var Wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
+	if Wounds != null and not String(Wounds.call("sepsis_clause", world, entity)).is_empty():
+		return {"symptomatic": true, "label": "fever"}
+	return {"symptomatic": false, "label": ""}
 
 
 static func quarantine(world: Variant, entity: int, roomId: Variant = null) -> Dictionary:

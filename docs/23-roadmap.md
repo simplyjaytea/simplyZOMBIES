@@ -152,17 +152,16 @@ and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
 decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks the project up.
+(The art-style pick came off this list on 2026-09-01, decided by the owner from the built
+fixtures and a supplied reference image: **style B, the rotating player**, under the reference's
+muted urban mood. The record below and
+[docs/30](30-decisions.md#the-art-style-b-picked-from-a-reference) carry the decision; the arc
+it opens is the art group below.)
 
 1. **Can sepsis kill?** Today it is debilitating and permanent-until-treated, deliberately not a
    death path. The `GRABS_ENABLED` flip has landed (the flag record below closes with it), which
    makes sepsis reachable in ordinary play and makes this decision live rather than hypothetical.
    Making it lethal is a balance decision that needs a measurement attached.
-2. **Pick the top-down art style.** `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the
-   three candidate directions and the overhead re-authoring of the zombie visual language; its
-   screenshot-fixture method is the way to compare them. The five shipped sprites need regenerating
-   only if the pick isn't A (the shipped baseline): B needs rotation support (`draw_set_transform`
-   around the blit — the centre anchor was chosen so that stays a contained change), and C needs a
-   rig-sheet pass before more sprites exist. The two art pieces below queue behind this pick.
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
@@ -174,8 +173,8 @@ the gate boots run on a real miniature district instead of an empty map. Region,
 roads-between-districts and streaming stay Milestone 3B; the road seam ships as data the street
 pass actually reaches (edge connection points). The owner's scope decisions are recorded in
 [docs/30](30-decisions.md#what-the-worldgen-arc-decided). Nothing in this group remains open;
-what the arc left behind is named in the debt list (the ground is player-only today, rubble
-unplaced) rather than here.
+what the arc left behind is named in the debt list (the ground is player-only today) rather
+than here.
 
 **People — the survivor pipeline:**
 
@@ -218,12 +217,39 @@ unplaced) rather than here.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
 
-**Art & renderer — queued behind the style pick, needed whichever way it goes:**
+**Art & renderer — the style-B reference arc, authorized by the owner (2026-09-01).** The pick
+is made (see the decision above and docs/30); what remains is the work it forces, in rough
+order. The reference mood throughout: muted, overcast, desaturated urban decay — and its HUD is
+explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
 
-- **Screamer and bloater sprites.** Both still render as tinted shapes.
-- **Prop art on the 64×64 canvas.** The props are drawn now (see the record) but as content-tinted
-  footprint shapes: a container, a bed, a campfire and the well each take an `appearance.sprite`
-  key today and none of them has a file behind it.
+- **The wreck dumpster — designed and drawn, cut at the balance line.** A `wreck_dumpster` sprite
+  was authored for the lone `Tile.Low` tiles a district stands, and standing more than the annex's
+  single one meant widening the wreck pass's run length from 2–3 to 1–3 in `_dress_occluders`.
+  That one-word change moved **two of the four `M2_BALANCE_OK` FAST seed lines** (see the vehicles
+  record), and dressing is not allowed to move the simulation, so both the sim edit and the art
+  were cut together — no stray PNG, per the arc's own rule that every picture lands with its
+  reader. Solo-Low placement wants its own **measured** slice: a driver that answers whether the
+  movement is the layout perturbation it looks like, at enough seeds to say so, before the
+  constant moves again. `presentation/dressing.gd` already classifies a lone tile as `solo` and
+  resolves nothing for it; `check_wrecks.gd`'s SEGMENTS and DISTRICT lanes say out loud which half
+  went unjudged, so the socket is named rather than hidden.
+- **Weather & mood.** A rain pass and overcast grade, presentation-only, reading nothing the
+  player has not seen.
+- **Characters re-authored for overhead.** The brainstorm's overhead visual language: survivors
+  and the zombie roster on the rotated-rig conventions. Folds in the old **screamer and bloater
+  sprites** item — both still render as tinted shapes. Carries three deferrals the player's own
+  rig left named rather than hidden (see its record): the **entity-blit zoom-scale defect** (every
+  textured body blits at its native 64 px whatever the camera zoom, so a pawn is the wrong size at
+  every zoom but 64 — fixed here, where all character art is re-judged anyway, not inside a
+  rotation slice); **overhead equip art** (the pack and bat overlays are still face-on placeholders
+  riding the rotated rig, and are never "fixed" by pulling those layers out of the transform); and
+  a **display-rotation lerp** if a playtest reads the 20 Hz rotation steps as jitter.
+- **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
+  the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
+  only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
+  a `tint` beside the existing `light: {magnitude}` block, resolved through `appearance.gd` and
+  never an `if id ==` in the draw loop. Wants the nested-shape gate every content block wants,
+  because the validator does not recurse.
 
 **UI:**
 
@@ -260,18 +286,28 @@ unplaced) rather than here.
   dead-socket proof) and `_the_grab_counters_can_see_a_grab` (the true negative: one fabricated
   started/broken pair through a real drain must move each counter by exactly one), both in
   `check_m2_balance.gd`'s fast tier.
-- **Rubble is never placed.** `SURFACE_RUBBLE` is written by no generator pass and no building
-  template — counted over the shipped 256 district: 0 tiles on both measured seeds — so docs/24's
-  ×0.7/×1.7 rubble row, its palette colour and its tint are reachable only by hand. Undergrowth
-  places at ~0.7% of tiles, sparse for something meant to be a route choice; both are dressing
-  authoring, found by the ground slice.
+- ~~**Rubble is never placed.**~~ **Half resolved by the road slice:** the tenth worldgen pass
+  (`worldgen.rubble`, its own derived stream) now writes `SURFACE_RUBBLE` — building aprons,
+  blobs, street patches; 1,019 tiles on the canonical 256 seed where the debt measured 0 — and
+  `ROAD_LOOK_OK`'s placement and socket lanes hold the write rule (outdoor open Floor only, the
+  `_footing` trap) and prove a placed tile reaches the ×0.7 speed read and the rubble tint.
+  **The undergrowth half stays open, deliberately:** it places at ~0.7% of tiles, sparse for
+  something meant to be a route choice, and densifying it moves cover, noise and route balance —
+  balance-shaped work that wants its own measured slice, not a rider on a look slice.
 - **NPC and zombie locomotion ignore the ground.** `SimSurface.speed_on` is wired on the
   command-driven path only, which `controlled` entities alone take — `jobs.gd`'s velocity write
   and the nine in `shambler.gd` carry no surface term, so the ground is a player-only mechanic
   today (which is also the mechanical reason the campaign harness could not move when it landed).
   Widening it moves NPC pathing balance, so it wants its own before/after. `Palette.COLOUR_HEX`
-  (14 entries, zero readers) and `sim/map/surface.gd`'s unused `SimTileMapRes` preload were
-  found in the same sweep — dead sockets of the named shape, one line each when touched next.
+  (14 entries, zero readers) is gone — deleted by the road slice as the tenth dead *code*
+  socket of the milestone (the content pair `ranged.calm`/`craft.scrap` counts separately),
+  closed by removal rather than by inventing a reader. `sim/map/surface.gd`'s unused
+  `SimTileMapRes` preload, found in the same sweep, is still one line when touched next.
+- **Three of the five attention overlays draw nothing.** `O` cycles `attention_channel` through
+  `off`/`noise`/`scent`/`sight`/`light`; the light channel draws the lit pools since the light-look
+  slice, and `noise`, `scent` and `sight` still reach no draw call at all — the field and the
+  visibility index are both there to read, and the frozen renderer draws all four. A dead control
+  of exactly the named shape, one channel apiece when touched next.
 - **The Godot build has no enforced budget.** docs/00 pillar 6 says a feature that breaks budget
   does not ship, and every budget CI actually enforces measures the **frozen oracle**: `npm run bench`
   is vitest over `src/`, and `npm run bench:frame` spawns **vite** and drives the TypeScript/Canvas
@@ -332,12 +368,21 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `line_of_sight` rather than `detail`, so a survivor remembers — and the HUD reports — bodies
   standing in the 170-degree arc behind them. The information-stays-scarce ban is the reason to
   care.
-- **The five infection verbs, and six other commands, have no way in.** `infection.respond`,
-  `item.modify`, `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search`
-  are live command handlers that nothing — no key, no button, no NPC decision — ever pushes.
-  `infection.respond` is the one that matters now: sepsis is reachable in ordinary play through the
-  swipe and antibiotics are its only cure. This is a missing surface rather than a defect, and the
-  attachment-fitting screen above is part of the same hole.
+- **Four of the five infection verbs, and six other commands, have no way in.** `item.modify`,
+  `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search` are live command
+  handlers that nothing — no key, no button, no NPC decision — ever pushes, and the
+  attachment-fitting screen above is part of the same hole. `infection.respond` **now has a
+  producer** for exactly one of its verbs: the antibiotics word on the body screen
+  (`godot:check:respond`, see the record). What is still unreachable, and why each is left that
+  way rather than tidied up beside it:
+  - **`quarantine`** is a mechanical no-op — it writes a `quarantined` record and publishes an
+    event, and nothing reads either. It is deliberately **not** surfaced: a button that does
+    nothing is worse than a verb that cannot be reached, because only one of the two is a lie.
+    Giving it an effect is the piece of work, and the surface follows it.
+  - **`cauterize` and `amputate`** are aimed at a body *part*, and **`put_down`** at a *person*.
+    Neither selection exists on any screen — the body screen names one survivor and no part, and
+    `treat.context` deliberately picks the wound for you. A patient-and-part selection surface is
+    what all three are waiting on, and it is one piece of work for the three of them.
 - **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
   thirty-odd check scripts turned up and did **not** fix. Assume there are others and go at the
   rest with the same question — *what change would turn this red?*
@@ -1244,6 +1289,440 @@ not a to-do list:
   luminance) so every wall/floor boundary is a drawn line — and was shown to fail at a face share
   of 0.5, at a cap no darker than the fill, at a face that sinks into the ground, and with the
   exposed-edge test removed.
+  ~~The player exists as a sprite, and rotates~~ **landed** (`godot:check:appearance` lane PLAYER,
+  `godot:check:topdown` lane ROTATION) — the first slice of the style-B reference arc, and the
+  first time the protagonist has had a body. The style fixtures found the shipped game had no
+  player sprite at all, and the reason was structural rather than an omission: every other body
+  hands `Appearance.for_entity` a content id — a zombie its type, a unique survivor its identity
+  or rolled `look`, a raider its archetype — and the player carried none, so the resolver had
+  nothing to look up and the protagonist drew as a disc. So the player's look is content now,
+  like everything else's: a new **`player` content type** (`content/players/player.json`,
+  `player.schema.json`, registered in `content_validator.gd`) holding the single entry
+  `player.body`, and `Appearance.PLAYER_LOOK_ID` is the one place that id is named, so `main.gd`
+  still carries no `if id ==`. It is deliberately **not** an entry under `survivors/`:
+  `survivor.schema.json` pins ids to `^survivor\.unique\.` — which the frozen oracle's Ajv would
+  refuse, a red CI — and `SimSurvivors.list_uniques` boots everything in that directory, so an
+  entry there would also spawn a phantom colonist. `players/` is invisible to the oracle's six
+  content directories, the `content/loot/` and `content/raiders/` precedent.
+  The art is **generated**: `tools/sprites/` (`build.py --only/--check`, `palette.py`, `draw.py`,
+  `parts/characters.py`) lands with its first registry key, `player_body` — a true-overhead rig,
+  visual mass radially centred on the pivot at (31.5, 31.5) rather than a pawn's feet-low mass,
+  which is what stops a rotating body orbiting a point it does not occupy; near-radial silhouette
+  inside 14.6 px, inward 1 px `#161614` outline so it cannot grow on the diagonals, neutral radial
+  shading — the one exception to the top-left light every static sprite is drawn under, because a
+  directional bake on a body that spins claims the sun swings round the district — and one
+  asymmetric slung-strap tell, since the indicator line comes off the player and the art has to
+  carry the facing itself. `palette.py` enforces the reference mood mechanically (saturation
+  ≤ 0.35, value in [0.12, 0.80], and a body-forming ramp's mid tone must clear the brightest
+  surface tint by 0.10 in luminance or the import raises). `npm run sprites:check` re-renders every
+  key and compares **decoded pixels** — not file bytes — against the committed PNG; it runs in
+  CI's `check` job behind one `pip install pillow==12.3.0` line and deliberately **not** in
+  `godot:m2`, which stays engine-only and pip-free at 39 gates. Shown red both ways: a ramp
+  edited without regenerating (275 of 4096 pixels), and a registry key whose file is missing.
+  Rotation is one `draw_set_transform` in `_draw_entities`, the player's alone, reset with
+  `draw_set_transform_matrix(Transform2D.IDENTITY)` rather than a second transform so "exactly one
+  body rotates" stays countable in the source. The angle comes from `facing.radians` only — the
+  sim already arbitrates aim against heading, and presentation computes no second aim angle. The
+  contact shadow is drawn outside the transform (a shadow is cast by the world's light, not by the
+  body); the equip layers are drawn inside it, through a new `_blit_body` that both branches share.
+  `Appearance.body_rotation(is_player, facing)` is where the "only the player rotates" clause
+  lives — `0.0` for everybody else, so docs/30's peripheral-anonymity boundary is a rule with a
+  true negative rather than a comment — and `wants_facing_line(is_player, has_texture)` takes the
+  white indicator line off exactly one body: the player, once art resolves. Every procedural shape
+  keeps it, the player's own included when content is missing, because the fallback is a supported
+  path. Shown red both ways in ten sabotages: rotating everybody (the anonymity clause), the sign
+  flipped, the line never coming off, the line coming off a player with no art, a second
+  `draw_set_transform`, no reset, the helper bypassed with inline maths, `_blit_body` unpicked,
+  the guard removed from the loop, and `_draw_entities` renamed (which reports *had nothing to
+  judge* rather than passing quietly). On the appearance side: the content file deleted, its id
+  renamed, an accidental tint on the art, and a hardcoded player texture in presentation — which
+  reds the reworked FALLBACK lane too, since that lane now probes all four roles against an
+  **empty content tree** (`content_tree: {}`) instead of relying on the shipped tree happening to
+  declare nothing, with `Appearance.forget()` between worlds because `_cache` is a `static var`
+  shared across every world one gate process boots. Eyeballed as well as gated: four headings
+  captured under Xvfb through a throwaway `SceneTree` driver (deleted after, per the rule) — the
+  composite is committed at `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice1-player.png`,
+  and a second pass with a pack force-equipped confirmed the overlay turns with the body.
+  **Which halves shipped.** The equip overlays ride the rig **mechanically** — same transform,
+  same rect, same compositor — but the overlay *art* is still authored face-on: a pack and a bat
+  drawn for a face-on pawn, riding a rotating body. That is the characters slice's work and must
+  never be "fixed" by pulling those layers out of the transform. Two more deferrals are named
+  rather than left to be rediscovered: **display-rotation smoothing** was considered and
+  deliberately not built — rotation steps at the 20 Hz tick and the art is drawn to tolerate it;
+  if a playtest reads that as jitter, `camera.gd`'s exponential-lerp is the precedent. And the
+  **entity-blit zoom-scale defect** — every textured body is blitted at its native 64 px
+  regardless of camera zoom, so a pawn is the wrong size at every zoom but 64 — is real, pre-dates
+  this slice, and is deferred to the characters slice, which re-authors and re-judges all
+  character art anyway; coupling a global size change to "the player rotates" would have muddied
+  the one claim this slice makes and the screenshot it is judged by. `assets/sprites/README.md`
+  now documents both coexisting authoring conventions (face-on pawn, rotating rig) and says which
+  applies when; the seam between them is owner-accepted until the roster is re-authored.
+  ~~Ground & road dressing~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK`, the chain's 40th
+  gate) — the second slice of the style-B reference arc: the streets read as streets, and the
+  district takes the reference's overcast grade. Four pieces, one gate.
+  **The street manifest** (sim, layout metadata). `map.streets` — `{axis, at, width, from, to}`
+  per span, a plain Array of plain Dictionaries on the `map.buildings` precedent — is appended
+  by the `_streets` pass, one record per `_carve_street` call, where worldgen.gd's own comment
+  used to say a returned copy of the spans "would be a field nothing looks at"; the comment is
+  rewritten, because the spans now have two readers (the paint below and the gate's MANIFEST
+  lane). No draw, no tile write: the canonical seed's tiles/surfaces/indoors hashes were
+  captured before the edit and are byte-identical after it, at 64 and 256, dressed and
+  undressed. The MANIFEST lane proves the records exact on the pure layout (every span tile
+  Floor, paved, outdoors) and by measured majority on the finished map — worst span 0.44 at 64,
+  because the annex stamp and the terrain pass legitimately wear streets through, against a
+  0.33 floor that still refuses a fabricated lawn span reading 0.00 — plus per-seed
+  determinism. The LAYOUT lane holds dress=false byte-identical with an equal manifest the
+  dressing never touches (shown red by a rubble pass made to append a record). Never
+  serialised — the map regenerates from the seed — so the String-keys save trap is pre-empted,
+  not survived.
+  **Draw-time paint** (presentation). New `presentation/road_paint.gd`, pure statics with
+  deliberately no static state (the two-worlds trap): `mask_for` resolves asphalt / sidewalk
+  (outermost rows, span width ≥ 5) / centre dash (width ≥ 4, alternating `(tx+ty)%2`,
+  suppressed at junctions so crossings read worn) **only where the tile is still paved
+  outdoors** — worn-through wins; `kerb_edges` reads the paved-to-unpaved outdoor boundary per
+  tile per frame, the `_draw_solid_tile` exposed-edge pattern; `vary` is a position hash
+  (±0.025 in value, the spatial-hash primes) with **no RNG stream on purpose** — deterministic
+  across boots, saves and gate worlds by construction, which the VARIATION lane pins
+  (identical twice, bounded, ≥ 2 distinct over 32×32 — a dead constant is red).
+  `_draw_district`'s Floor branch composes sidewalk substitution, the variation offset, the
+  dash and the kerbs around the existing `_draw_floor_tile`, still resolving through
+  `Appearance.ground_colour` (check_topdown's GROUND scan stays green); the mask caches as
+  instance vars on main.gd against the map object (`_thresholds` precedent). The PAINT lane
+  runs a width-6 in-gate fixture district (blocks pinned to 8 so `_fit_scale` leaves the width
+  alone at 64): dashes, sidewalks and kerbs present, every masked tile paved outdoors, 748
+  junction tiles all worn asphalt, the shipped suburb's width-2 miniature streets and a
+  hand-built width-3 (the town-centre width) street kerbs-only, indoor tiles and manifest-free
+  maps (fixtures, `blank_map`) silent. Shown red by mutation: junction suppression removed,
+  the sidewalk width floor removed (736 sidewalk cells on width-2 alleys), `_draw_kerbs`
+  deleted from the loop, `vary` made constant.
+  **The palette regrade.** The near-black oracle grounds read as a cave, not the reference's
+  overcast street; every ground, built-mass and interior colour is regraded to muted
+  greys/browns (floor `#3f4143` up from `#1a1c1f`, grass desaturated `#4e5442` from `#1b2a1b`,
+  and so on), with three road colours added (`roadPaint` translucent worn paint, `kerb`,
+  `sidewalk`). The `SURFACE_TINTS[Paved] == COLOURS["floor"]` identity holds, both moved
+  together. `palette.gd`'s header now records the deliberate divergence from the frozen
+  `palette.ts`. The PALETTE lane holds the mood by property, not hex — every surface tint
+  S ≤ 0.25, paved V in [0.20, 0.40], sidewalk > paved > background in value, roadPaint
+  brightest of the road family, pairwise RGB distance ≥ 0.02 — with the built-in true negative
+  that the *old* table fails (`#1a1c1f` under the value floor, `#1b2a1b` over the saturation
+  cap), so a revert is provably caught. One deviation from the slice spec, resolved in the
+  gate's own comment: the spec sketched a pairwise **V**-distance floor, but its own table
+  separates dirt/grass/undergrowth by hue at near-equal value — deliberately — so the
+  distinctness floor is RGB distance, which still reds two identical tints.
+  `Palette.COLOUR_HEX` (14 string copies, zero readers ever) is **deleted** — the tenth dead
+  code socket of the milestone, closed by removal. `WALL_FACE_DIM` 0.04 → 0.07, a value retune
+  under check_topdown's wall lane (the regraded grounds rose; the shaded face has to clear the
+  brightest of them), assertions untouched. `tools/sprites/palette.py`'s hard-copied ground
+  hexes are updated in the same commit (its comment names palette.gd as source of record);
+  **no sprite regeneration** — the ground-contrast guard runs at generate time, still passes
+  with the raised grounds (fatigue_drab clears by 0.127 ≥ 0.10), and `sprites:check` stays
+  green because the committed `player_body.png` derives from ramps this slice never touched.
+  **Rubble is placed** (sim, the tenth worldgen pass, its own `worldgen.rubble` stream).
+  Building apron rings (1–2 tiles out, ~1 in 4 stream-drawn), 2–4 blobs authored for the full
+  district and area-scaled with a floor of one so the gate size still runs the shape, and
+  1×2/2×2 street patches per third block — 129 tiles on the canonical 64 map, 1,019 at 256,
+  where the debt entry measured 0. The write rule is the `_footing` trap made mechanical:
+  outdoor open Floor only, protected tiles (doorway rings, loot sites, the annex ring) skipped
+  whole; draws happen before eligibility tests, every branch. The RUBBLE lane pins placement,
+  the rule (rubble hand-written under a Low wreck and on an indoor floor both refused; the
+  Floor-check mutation shown red by rubble landing under a Screen), and dress=false placing
+  exactly 0; the SOCKETS lane closes the reach question — a placed tile reads ×0.7 through
+  `world.surface_speed_at` against pavement's ×1.0, resolves the rubble tint through
+  `Appearance.ground_colour`, and `_draw_district` provably reads `RoadPaint.`.
+  **Balance, measured, not theorised.** Rubble changes worldgen output, so the fast tier was
+  byte-compared: all four `FAST seed=` lines are **byte-identical** before and after the whole
+  slice (manifest + paint + palette + rubble), `M2_BALANCE_OK` green — the spec's cut line
+  ("ship without rubble if the harness moves") was armed and never triggered. Consistent with
+  the standing debt entry: NPC and zombie locomotion ignore the ground, and the noise
+  multiplier changes on rubble tiles moved no counter on these seeds.
+  **Open halves, named.** Undergrowth density is deliberately untouched — balance-shaped,
+  wants its own measured slice (the debt entry keeps that half). Entity and prop contrast
+  against the lighter ground is eyeballed-only (the day/night shots beside this record's arc:
+  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice2-day.png`, `slice2-night.png`,
+  captured through a throwaway Xvfb `SceneTree` driver, deleted after) and is re-judged in the
+  characters slice, never by palette revert. The bright window glass `#7ec8e8` now visibly
+  clashes with the muted grade and stays the weather/mood slice's named material. Night
+  tuning: nothing read washed out, so `NIGHT_WASH` stays 0.8 and `light_look.gd` untouched.
+  docs/30: no new entry. `HANDOFF.md` unchanged.
+  ~~Vehicles, props and debris~~ **mostly landed** (`godot:check:wrecks` → `WRECKS_OK`, the
+  chain's 41st gate) — the third slice of the style-B reference arc: the district stops being
+  coloured rectangles standing on coloured rectangles. Five pieces, one gate, one cut.
+  **The tint amendment** (the slice's own prerequisite). `prop.schema.json`'s `appearance`
+  required `tint` outright, which is exactly what could not survive art: a tint declared beside a
+  sprite is multiplied over every pixel of it (`Appearance.modulate_for`), so "every prop declares
+  a tint" and "props draw as they were painted" cannot both hold. It is now
+  `anyOf: [{required: [tint]}, {required: [sprite]}]` — required-unless-sprite, which keeps the
+  guarantee the old rule existed for (no invisible thing standing in the district) without forcing
+  the stain. **Nothing validates it but the gate**, and that is worth stating plainly rather than
+  assuming: the Godot validator is shallow and never recurses into `appearance`, and the frozen
+  oracle loads schemas only for its own six `CONTENT_TYPES` (zombie, affix, item, calibration,
+  survivor, map) — `prop` is not among them, so `prop.schema.json` is oracle-invisible and
+  `npm test` staying green proves nothing about the anyOf. It was checked directly instead, by
+  compiling the schema with the repo's own Ajv: the seven shipped entries validate, a block with
+  neither key is refused with `must match a schema in anyOf`, and `additionalProperties: false`
+  still bites inside the block. `check_appearance.gd`'s PROPS lane is the real enforcement, and it
+  was rewritten around the look rather than around one field of it — every prop resolves art or a
+  tint, art draws unstained, no two props resolve the same look, and the two **state pairs** are
+  compared as decoded pixels, because two files with different names and identical contents would
+  satisfy every assertion about keys. Shown red six ways: a tint added beside `prop_well`'s
+  sprite, `prop.bed` given a crate's `size`, `prop.latrine` stripped of both keys, two ids pointed
+  at one sprite, and `prop_campfire.png` copied over `prop_campfire_lit.png` (different keys,
+  identical pixels — caught only by the pixel comparison). `check_topdown`'s prop-state assertion
+  moved with it: it compared tints, and two unstained sprites are both white, so it now needs the
+  ids to differ **and** either the tint or the texture to.
+  **Seven prop sprites.** `prop_container`, `prop_container_searched`, `prop_bed`,
+  `prop_campfire`, `prop_campfire_lit`, `prop_well`, `prop_latrine` — the entry that had carried
+  an `appearance.sprite` key with no file behind it since props became content. State variants are
+  separate files, and the lit fire learns nothing the content id did not already carry: the flip
+  is `PROP_KINDS`' existing `lit` → `prop.campfire.lit`, and the art is a warmer picture of the
+  same pit, not a fuel gauge. `appearance.size` stopped being decoration in the same commit —
+  `_draw_prop` reads it only on the procedural path, so the gate started reading it instead, and
+  each sprite's opaque bounding box must sit within 8 px of `size × 64`.
+  **Wreck cars as segment sets** (presentation). 64×64 is gate-forbidden to widen, so a car two or
+  three tiles long is one file per tile: `wreck_car_{a,b,c}_{front,mid,rear}`, north-authored,
+  `front` running to the south edge of its canvas and `rear` starting at the north edge of its, so
+  a two-tile car (front+rear) and a three-tile one both close with no seam. New
+  `presentation/dressing.gd` — pure statics, **no static state**, the `road_paint.gd` shape — reads
+  the segment off the neighbours per tile the way `_draw_solid_tile` reads its exposed faces, and
+  the variant off a **pure hash of the map seed and the run's anchor tile**, never a sim RNG
+  stream: a stream here would either sit on the layout's own registry or reseed per boot, and the
+  anchor is what stops a pale bonnet landing on a burnt boot. East-west runs were the one open
+  decision and are settled as **rotation by transform, not authored-rotated variants** — the key
+  set the arc settled has no east variants, so a second set would have been new content; the draw
+  loop stays content-driven because the *key* still comes from content and only the angle is read
+  off the map, and `_draw_wreck` resets with `draw_set_transform_matrix(Transform2D.IDENTITY)`
+  (the player rig's convention, and `check_topdown`'s count==1 lane is unaffected — it reads
+  `_draw_entities`). The segment→key mapping is a **content dressing block**
+  (`content/dressing/street.json`, new `dressing` kind + schema, registered in
+  `content_validator.gd`; the frozen oracle cannot see the directory, so no TS edit). Nested, so
+  the shallow validator checks that `wrecks` is an object and never once looks inside it — the
+  DRESSING lane walks it, resolves every key at 64×64, refuses a fabricated key and a duplicated
+  one, and an empty block resolves nothing rather than defaulting.
+  **Debris** (presentation). `debris_rubble_a/b` over every tile the slice-2 rubble pass painted —
+  129 of them on the canonical seed, which had been flat tint — and `debris_litter_a/b/c` on 1 in
+  17 tiles of outdoor street pavement, two independent hash salts so making the scatter denser
+  cannot silently reshuffle which scrap lands where. Both cosmetic, both deterministic across
+  boots and saves by construction.
+  **Gate lanes, red both ways.** `WRECKS_OK`: DRESSING (fabricated key, duplicated key, empty
+  block), SEGMENTS (a lone tile mis-classified as a car front; front/rear swapped; `mid` never
+  returned; the quarter turn removed; the run anchor made per-tile), VARIATION (a constant
+  `variant_index`; a `static var` added to `dressing.gd` — the forbidden-name scan reads the file
+  with its comments stripped, or it fails the file for documenting the rule it obeys), DISTRICT (a
+  stray `solo` key pointed at real art, caught as "a lone tile is not a car"), SCATTER (litter's
+  surface test removed → litter on grass; rarity 1 → 1,622 of 1,622 paved tiles; rubble debris
+  suppressed), SOCKETS (`_draw_scatter` unwired; the transform reset deleted; the wreck drawn
+  unconditionally, which would leave a dressing-free map with nothing over its Low tiles).
+  `sprites:check` too: a `steel` ramp nudged one hex without regenerating went red on
+  `wreck_dumpster` before that key was cut.
+  **The cut, and the diagnosis behind it.** The dumpster needed lone Low tiles, which meant
+  `_dress_occluders`' run length going 2–3 → 1–3. That is one draw either way (fixed draw count,
+  nothing downstream shifts), and it still moved **two of the four FAST balance seed lines**: seed
+  20260805 went deaths 2 → 0 and survivors 1/3 → 3/3, seed 31337 moved its grab counts, and seeds
+  404 and 90210 stayed byte-identical. `M2_BALANCE_OK` stayed green — the bands and invariants are
+  property assertions, not seed transcripts. The diagnosis was interrupted mid-driver, and had
+  established this much: the change is a *layout* change by construction (the canonical 64 map
+  goes 7 Low tiles to 6, measured through the gate's own scan), the wreck stream's draw count is
+  unchanged so nothing downstream is re-phased, and a ten-day campaign is chaotic enough that one
+  tile of cover on day 1 rewrites the rest — i.e. every sign pointed at perturbation rather than
+  at a balance effect, but *pointed at* is not *measured*, and two consecutive guesses at this
+  harness have cost a full run each before. The owner's call, taken on that evidence: **dressing
+  must stay balance-neutral**. So the worldgen edit is reverted (byte-identical to 8b7b247), the
+  dumpster's sprite, its generator key, its `steel` palette ramp and its dressing mapping are all
+  deleted rather than left as a stray PNG, and the piece is back in what's-left with the
+  measurement it owes. After the revert all four FAST seed lines are **byte-identical** to the
+  pre-slice baseline.
+  **Which halves shipped.** Shipped: the tint amendment and all seven prop sprites; the three car
+  variants on the Low-tile runs a district already stands, east-west runs included; the rubble and
+  litter scatter; `WRECKS_OK` with its six lanes. Cut: the dumpster and the solo-Low placement it
+  needed (above). Not attempted and named rather than hidden: a lone Low tile still draws the
+  procedural inset cover block, which is the supported fallback everywhere else in this pipeline;
+  the annex's own single Low tile is the one that reads that way on a shipped map. The
+  entity-blit zoom-scale defect is still deferred to the characters slice and is visible in the
+  shots — prop and tile art blit at the tile rect and are correctly sized, bodies do not.
+  Eyeballed as well as gated: day and night at a street wreck, captured through a throwaway Xvfb
+  `SceneTree` driver (deleted after, per the rule), committed at
+  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice3-day.png` and `slice3-night.png`. The
+  night shot is nearly dark on purpose — sight collapses after dusk and the dressing goes with it,
+  which is the contract, not a missing feature. docs/30: no new entry. `HANDOFF.md` unchanged.
+- **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
+  session plan: a smoothed follow and a screen shake, both presentation-only (parity and
+  `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used
+  to run inside the per-tick `_resize_camera` — recentring the camera exactly onto the player
+  every tick — is gone; `main.gd::_process` now runs a new `_update_camera(delta)` every rendered
+  frame, wall-clock `delta` and all, so the follow keeps advancing whether the tick loop that
+  frame ran zero ticks, one, or the fast-forward cap. `camera.gd` gained three pure statics the
+  gate drives headlessly with a fabricated `{"x", "y"}` Dictionary: `follow_target` (the clamp
+  alone, today's `follow_camera` renamed — the mutation that name used to do moved elsewhere),
+  `follow_smoothed` (one frame-rate-independent exponential-lerp step, `pos += (target - pos) *
+  (1 - exp(-RATE*delta))`, `FOLLOW_RATE` 6.0 nats/s — the gap halves roughly every 0.116 s and is
+  under 5% within half a second), and `snap` (jump straight to the clamp). No `static var` scratch
+  state lives in `camera.gd` — the true, unshaken follow centre and the shake offset both live on
+  `main.gd` as instance Dictionaries (`_camera_centre`, `_shake`), the same reason the camera
+  itself has always been a plain Dictionary rather than a singleton: two worlds a gate boots in
+  one process must not share either. Boot, F2 ("leave for another city") and F9 (load) all call a
+  new `_snap_camera()` rather than let the smoothed follow arrive on its own — the reboot/load
+  recentre stays unsmoothed, as `_boot_world`'s own comment already promised it would.
+
+  **No zoom smoothing, deliberately.** The ladder is pinned to power-of-two multiples of the
+  art-native 64 px/m specifically so nearest-neighbour scaling never shimmers; a tween between two
+  steps would pass through non-integer scales — 47.3 px/m, say — with no clean answer for that.
+  Wheel zoom stays an instant step, unchanged; the refusal is recorded, not silently skipped.
+
+  **Shake.** Read off `world.events.drained` after `world.step()`, inside the existing tick loop —
+  `sfx.gd`'s pattern, not a subscription to the sim bus. `attack.connected` kicks the view when
+  the target is any survivor (`controlled`: the player or a colonist, never a raider or a
+  zombie), distance-attenuated off the player's own position on `sfx.gd`'s `FALL_PER_M`
+  precedent (`SHAKE_FALL_PER_M`, 1.5 px lost per metre, linear); `grab.started` and `bite.landed`
+  are scoped to the player alone, since neither carries a useful "how hard" to attenuate a hit
+  landing on somebody else. Kick sizes are small and in screen pixels — `SHAKE_HIT_PX` 5,
+  `SHAKE_BITE_PX` 8, `SHAKE_GRAB_PX` 4, all comfortably clear of "1 px at rest zoom 64" so pixel
+  snapping never quantizes a kick away — capped at `SHAKE_CAP_PX` 14 combined and decaying at
+  `SHAKE_DECAY_RATE` 10 nats/s, the same frame-rate-independent shape the follow uses. Direction
+  is randomised through a presentation-side `RandomNumberGenerator` (`main.gd`'s own F2 comment
+  already sanctions RNG here) — never a sim stream, which would put the camera's wobble on the
+  seeded sequence and make a replay's *view* depend on how hard something got hit. The displayed
+  `camera` Dictionary — what every draw call and `_aim_at` reads — is built in exactly one place,
+  `_update_camera`: smoothed centre plus the shake offset (converted from pixels to world units by
+  the current zoom), so `world_to_screen` and `screen_to_world` always agree and aim never drifts
+  against what the shake is doing to the view.
+
+  **The gate.** `godot:check:camera` → `CAMERA_OK`, the chain's 38th gate — five lanes, each with
+  its own true negative. CONVERGES: repeated `follow_smoothed` steps close on an in-bounds target
+  to within 1e-6. SHORT STEP is the lane that actually separates a lerp from a hard snap
+  (CONVERGES alone cannot — a hard snap converges in exactly one step too): one frame from far
+  away must land strictly short of the target, and was shown red — `CAMERA_FAIL`, "landed exactly
+  on the target" — against `follow_smoothed` temporarily hard-snapped during development, reverted
+  before commit; rate 0 is asserted to hold exactly, not to crawl. CLAMP IDENTITY checks an
+  off-map target's smoothed steady state against a clamp spelled out by hand in the gate, not by
+  calling `follow_target` itself, which would grade its own homework. SHAKE DECAYS: an impulse
+  decays below epsilon within a bounded 300 frames and never exceeds its own magnitude along the
+  way; the true negative is a decay factor of 1.0 (rate 0) fed to the same helper, asserted *not*
+  to decay below epsilon in the same bound, proving the "decays within bound" assertion can
+  actually go red. DEAD SOCKET source-scans `main.gd` (the `check_topdown.gd`/`check_respond.gd`
+  precedent) for the `follow_smoothed`/`snap`/`shake_impulse`/`shake_decay` call sites, so the
+  helpers are provably wired into the frame loop rather than sitting beside it unread.
+- **Light & the night look** — authorized by the owner (2026-09-01 session), package 4 of the same
+  plan: the port of the one design clause light left unported.
+  [docs/30](30-decisions.md#what-light-made-structural) ("the screen may draw a lit region only
+  where the survivor can see it") says two things — the overlay draws **lit ∩ seen**, and the night
+  wash derives from `sightMetres` rather than raw ambient — and the Godot renderer had neither: one
+  flat wash off `Clock.ambient_light` and no pools at all, while the sim underneath ran a full
+  per-emitter shadowcast. Presentation-only; nothing under `godot/sim/` changed and no new sim
+  accessor was needed, which parity (`R1_PARITY_OK`) and `TOPDOWN_OK` both prove.
+
+  **The wash comes from sight.** New `presentation/light_look.gd`, four pure statics and no state
+  at all — no `static var` for two gate worlds to share, which is the shape the kernel's own
+  static cost a session over. `local_light_fraction(world, eyes)` is
+  `clamp(SimLight.sight_metres(observer at its own position) / observer.range_metres, 0, 1)`;
+  `wash_alpha` scales `(1 - fraction)` by the `NIGHT_WASH` main.gd still owns and returns 0 at
+  full daylight, so the early-out is preserved rather than reimplemented. Standing beside a 20 m
+  campfire at midnight now lifts the fraction from ambient's 0.04 to 0.396 and the wash from alpha
+  0.768 to 0.483 — and it lifts it *because the range genuinely grew*, one number with two
+  consumers rather than the screen deciding to draw light. With nobody to ask — the parity boot, a
+  world with no player, a body carrying no `observer` — it falls back to raw ambient exactly,
+  which is the frozen renderer's `eyes === null` branch and is what the wash always was.
+
+  **Pools are lit and seen.** `lit_pool_tiles(world, eyes, bounds)` walks the viewport bounds
+  clamped to the map and returns `{near, far}` tile arrays: skip what the player cannot see, skip
+  what has no light reach, split the rest at 3 m of remaining reach (the frozen renderer's
+  `LIGHT_OVERLAY_SPLIT`). `main.gd::_draw` fills them between `_draw_district` and
+  `_draw_entities` — over the floor, under the bodies, because tinting a survivor is the entity
+  pass's business — in the oracle's two warm alphas, now `Palette.LIGHT_POOL_NEAR` / `_FAR`
+  (0.20 and 0.09 of rgb(255, 214, 140)). The seen test is `vision.tiles_for(eyes).has_tile`,
+  deliberately the *same* question `_draw_district` asks before it draws a floor tile, so a pool
+  appears exactly where its tile appears and never on the background; the frozen renderer
+  additionally narrowed by `detail` (the facing cone) and the top-down district draw does not, so
+  matching the district is the tighter join of the two here. In **full daylight an ordinary frame
+  paints no pools**: `sight_metres` caps at the observer's own range, so a lamp at noon changes
+  nothing about what anyone can see and a warm circle round it would be the screen claiming an
+  effect the simulation refuses.
+
+  **One warm tint for every source, this slice.** A candle, a campfire, a lamp and a floodlight
+  all paint the same colour and differ only in how far the pool reaches. Per-source tint is a
+  content axis (`light: {tint}` beside `light: {magnitude}`), not a branch to grow in the draw
+  loop, so it is named in [what's left](#whats-left-in-milestone-2) rather than half-built here.
+
+  **The O key's light channel is no longer a dead control** — the optional rider, taken. `O` cycled
+  `attention_channel` through five values and *nothing anywhere drew any of them*; the `light`
+  channel now draws the same `lit_pool_tiles` in two louder alphas (0.45/0.22), one mechanism with
+  two consumers, and it ignores the daylight refusal above because a developer overlay reading the
+  light index is exactly what it is for. Honest half: `noise`, `scent` and `sight` still draw
+  nothing, and that is now a named line in the debt list instead of folklore.
+
+  **The gate.** `godot:check:light` → `LIGHT_LOOK_OK`, the chain's 39th, six lanes, each fixture
+  its own world read through that world's own light and vision indices and stepped once after the
+  emitters are placed (light refreshes in the `movement` phase, events drain at the end of
+  `step()`). SIGHT-DERIVED: the campfire scene above, with the raw-ambient formula written out by
+  hand in the gate as the control — the lane that goes red the moment somebody quietly reverts the
+  wash — and `ambient_of` pinned to that same hand-written formula so the number main.gd's
+  daylight refusal reads cannot drift silently. AMBIENT FALLBACK is its true negative, twice over:
+  the same scene at magnitude 0 reads ambient exactly, and in a world where the player reads 0.396
+  both a body with no `observer` and no body at all read 0.040. LIT AND SEEN is the no-leak lane —
+  a campfire behind a solid wall, its own tile asserted to carry 20 m of genuine reach and then
+  required to appear in neither pool (nothing past the wall may), with every returned tile
+  asserted to be in the seen set and the tile count asserted non-zero so the check has something
+  to judge; the true negative is a **fresh** world without the wall, where the same tile must
+  appear in `near`. Both directions were shown red during development: dropping the seen test
+  returned the far-side tile ("a tile lit by 20 m of campfire on the far side of a wall was
+  returned for drawing"), and making `local_light_fraction` return ambient failed SIGHT-DERIVED
+  ("no better than raw ambient, which is the quiet revert this lane exists to catch"). SPLIT puts
+  a 3 m candle in daylight and asserts near/far/neither at the source, two tiles out and four.
+  DAYLIGHT: the fraction clamps to 1.0 beside a campfire at noon and the alpha is 0, with the
+  midnight scene alongside as the negative. DEAD SOCKET source-scans `main.gd` for the call sites
+  and for the draw *order* (pools strictly between district and entities), and asserts
+  `_draw_night_wash` no longer contains `Clock.ambient_light` at all.
+- **Art-style fixtures** — authorized by the owner (2026-09-01 session), package 5 of the same
+  plan, and the only one of the five that ships no code. Twelve screenshots (A/B/C ×
+  day/indoors/night/combat, canonical seed 20260805) and a written comparison, both in
+  `.hermes/plans/2026-09-01_art-style-fixtures/` — the method the brainstorm doc named for
+  choosing among its three candidate directions, built rather than left theoretical. A throwaway
+  `SceneTree` script (`godot/screenshot_fixture.gd`, `project_smoke.gd`'s boot pattern, deleted
+  after) posed each moment and stepped `world.step()` directly rather than relying on wall-clock
+  frame timing, so the four moments are deterministic: as-booted for day; the player's `position`
+  written onto the annex's own indoor floor tile for indoors; `world.tick` pushed past
+  `Clock.DUSK_ENDS` and the boot campfire lit through `SimNeeds.set_lit` (the needs/fire path) for
+  night; `SimRoster.spawn_zombie` at an open adjacent tile, faced and stepped 80 ticks to engage,
+  for combat (`GRABS_ENABLED` live, so a real threat).
+
+  **What was mocked, and how — both reverted, neither shipped.** Style B (rotating player) is one
+  patch to `main.gd::_draw_entities`, wrapping only the player's own sprite blit in
+  `draw_set_transform(screen_pos, facing + PI/2, Vector2.ONE)` / reset; the shipped game has no
+  player sprite at all yet (only colonists and zombies carry art — `Appearance.for_entity` never
+  sets a content id for `is_player` alone), so the same patch borrows `survivor_mara.png` as a
+  screenshot-only stand-in, without which B's shots would show nothing different from A's. Style C
+  (hybrid 3/4) is a Python pass over every PNG in `godot/assets/sprites/`: each resized to 85%
+  height anchored at the bottom (compression comes off the head, not the planted feet) with the
+  bottom ~22% darkened to ~55% brightness — placeholder foreshortening, sanctioned by the
+  brainstorm doc's own "legibility and layout, not pixel identity" standard. Both were reverted
+  before the next style ran (`git checkout -- godot/presentation/main.gd` for B; a byte-for-byte
+  restore from `.orig.png` backups for C) and verified against `git status`/`git diff` each time;
+  the driver script and the squash script are both gone. The tree this package's own commit
+  touches is code-identical to the one it started from — `godot:m2` is the proof, run after
+  cleanup, not before.
+
+  **What the comparison found**, in `comparison.md`, briefly: A's shots are the true "as shipped"
+  state (a plain circle and tick for the player, since there is no player sprite yet); B's rotated
+  stand-in visibly turns to face the threat in the combat shot, and the peripheral-anonymity
+  clause holds under it because Peripheral detail returns before any sprite or rotation code runs
+  at all — confirmed against the same anonymous colonist glyph in both the unpatched and patched
+  shots; C's day/indoors/night shots are byte-identical to A's (nothing in those framings carries
+  a sprite today — beds, the campfire, the storage box are all procedural shapes), so its one real
+  data point is the shambler in the combat shot, which is the honest limit this fixture set has
+  without more art on disk. A **package-4 visual sanity pass** on `a-night.png` (requested
+  alongside this package, since the lit-and-seen pools had passed their gate but nobody had looked
+  at them) found what the gate says: a warm pool visibly around the lit campfire, no light bleed
+  past the west wall, and a wash that dims without crushing the room to black.
+
+  **The pick was made the same day, from these fixtures and a reference.** The owner chose
+  **style B — the rotating player** (2026-09-01), supplying a reference screenshot of the target
+  mood: a muted, overcast, rain-streaked urban scene, lane-marked roads, wrecked cars, debris
+  and corpse dressing, high-overhead pixel art with 3/4 touches on roofs and props — the Zero
+  Sievert read the brainstorm doc named as B's source. Two boundaries were confirmed in the same
+  decision: the reference's HUD (a red health bar, a green stamina bar) is **not** adopted — the
+  health-bar ban and the prose HUD stand, re-affirmed explicitly — and only the player rotates,
+  per the peripheral-anonymity clause. The work the pick forces is the style-B reference arc in
+  [what's left](#whats-left-in-milestone-2);
+  [docs/30](30-decisions.md#the-art-style-b-picked-from-a-reference) records the why.
 - **Survivors** — ~~Focus auto-allocation: NPCs spend their own web points~~ **landed**
   (`godot:m2:web`, lanes NPC / SURPLUS / REACH / DRIFT). What this list used to say — "the shallow
   web is landed; nobody but the player can walk it" — was wrong, and the correction is the
@@ -1675,6 +2154,53 @@ not a to-do list:
   the thing standing between `GRABS_ENABLED` and its flip. The flip has since landed (the flag
   record) and the scoping stands unchanged: making sepsis kill is a balance decision with a
   measurement attached, not a detail to slip in beside the mechanic, and it remains the owner's.
+  ~~Sepsis's only cure is unreachable in play~~ **half landed** (`godot:check:respond`,
+  `RESPOND_OK`). `infection.respond` had been a live command handler nothing pushed, which meant
+  antibiotics — the one thing that clears sepsis, and the only answer to a bite that is not a
+  saw — could not be reached by a player at the moment the `GRABS_ENABLED` flip made both
+  ordinary. **The half that shipped is antibiotics**, as a clickable word under the condition
+  readout on the Tab body screen, in work_panel.gd's idiom: the sim owns what is offered
+  (`SimTreatment.response_view`, the companion to `options_for`), a response you can afford is
+  simply *there* in the accent colour, one you cannot is absent rather than greyed, and a click
+  pushes `infection.respond` through the command queue like every other player act. **The half
+  that did not** is the other four verbs, each left out for its own reason and named in
+  [what's left](#whats-left-in-milestone-2): `quarantine` is a no-op, and `cauterize`, `amputate`
+  and `put_down` need a patient-and-part selection surface that does not exist.
+  **The presence rule is the honesty core**, and it is two questions the player could already
+  answer from their own screen: is there a course in the pack (`SimInfection.carries_course`,
+  which goes through the same `_find_course` the spend does, so the word cannot promise what the
+  sim would refuse), and is anything showing that a course might answer
+  (`SimInfection.symptom_of`). The second reads the diagnosis label and the fever clause — the two
+  things the HUD already prints — and never `transmitted`, never `is_septic`: a latent bite reads
+  "clear" and is offered nothing, so **suspicion dosing has no surface, deliberately**, and a
+  fever from either cause offers the identical word. `use_antibiotics`' own comment is the rule
+  being obeyed: the player must not be able to tell sepsis from a bite by which button lights up.
+  **The free-course hole closed with it.** `use_antibiotics`' zombie-infection path kept its own
+  copy of the spend, fell through a `pass` when the pack was empty ("still allow course without
+  item in tests") and recorded the course anyway — so a bitten survivor dosed for free while the
+  sepsis path beside it had always refused, and the finite uncraftable supply the whole docs/05
+  trade rests on was finite only for whoever had not been bitten. It now spends through the one
+  `_spend_one_course` and refuses `no-antibiotics`, which is the word the sepsis path already
+  used; a refusal that differed by cause would leak precisely what the button lighting up would
+  have leaked. No gate lane had relied on the itemless course (the two that spend one already
+  granted the item, and the router lane runs on a world with no exposure at all), so nothing was
+  weakened to accommodate the fix.
+  Six lanes, each with its true negative: TRUE POSITIVE (a feverish survivor carrying a stack of
+  two is offered the word; pushing the command the click builds and stepping once spends exactly
+  one, publishes `antibiotics.used`, clears the sepsis, and the word goes with the fever —
+  asserted after the step, because handlers run at drain); NO NEED (the same full pack with
+  nothing wrong offers nothing, and the same world one fever later offers the word); NO SUPPLY
+  (both stocks — a symptomatic bite and a fever — offer nothing with an empty pack, and a forced
+  push is refused `no-antibiotics` with nothing spent and **no course recorded**, both with the
+  same word, and the same push with a course in the pack doses); NO LEAK (the rows are a function
+  of the *stage* alone: two worlds identical but for `transmitted` produce byte-identical views at
+  Latent and at Onset, latent offers nothing and onset offers the word); PROSE (no digit in any
+  offered row, check_hud.gd's scanner and its three seeded catches); DEAD SOCKET (the reach chain
+  read out of `ui/inventory_panel.gd` — `_draw` calls `_draw_responses`, which resolves
+  `response_view` and turns its rows into click rects, which `_press_at` reads to push
+  `infection.respond` — plus the verb being one the router answers). NO SUPPLY is the fix's own
+  true negative and was **run red before the fix and green after**: with the `pass` restored it
+  reports "a symptomatic bite with nothing in the pack was dosed anyway".
 - **Combat** — ~~firing at a remembered position (and what it costs)~~ **landed**
   (`godot:m2:sight`, SIGHT / NO-EYES / RECALL-FIRE), together with the rule it depends on. docs/09
   says aiming "inherits visibility wholesale" and `_fire_shot` inherited none of it — a shot was a
@@ -1838,9 +2364,15 @@ not a to-do list:
   **both** validators, the shallow one and the frozen oracle's recursing Ajv. The paperdoll was
   also rebuilt as a properly human figure (tapered limbs, A-pose, chest-to-hip taper, elliptical
   head) after the owner rejected the capsule draft.
+  **The body screen answers an infection now** (`godot:check:respond`): a clickable word under the
+  condition readout, drawn from `SimTreatment.response_view` and pushing `infection.respond`, in
+  the same idiom the work grid's learnable node names set — present when it would work, absent
+  when it would not, prose and no digits. The rule that decides when it appears, the four verbs
+  that deliberately have no surface yet, and the free-course hole it closed are under Health &
+  injury above.
   This system's open tails (the diegetic readouts, prose from modifier sources, the skill web
-  screen, the attachment-fitting surface, the parked warmth/hygiene slots) are in
-  [what's left](#whats-left-in-milestone-2).
+  screen, the attachment-fitting surface, the patient-and-part selection the other infection verbs
+  wait on, the parked warmth/hygiene slots) are in [what's left](#whats-left-in-milestone-2).
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources

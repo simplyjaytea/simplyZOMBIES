@@ -11,6 +11,9 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const LightLook = preload("res://presentation/light_look.gd")
+const RoadPaint = preload("res://presentation/road_paint.gd")
+const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -44,6 +47,18 @@ var fixture: Dictionary = {}
 # but keeps the same district rather than silently switching one out from under the player.
 var _district_id: String = SimBoot.DEFAULT_DISTRICT
 var camera: Dictionary = CameraUtil.create_camera()
+# The true, unshaken follow centre -- what follow_smoothed advances every frame. `camera`
+# itself is the *displayed* camera (centre + shake, combined in _update_camera, the one
+# place world_to_screen/screen_to_world ever see), so shake must live somewhere else or it
+# would feed back into next frame's follow and the view would slowly drift off in whatever
+# direction the last few kicks happened to land.
+var _camera_centre: Dictionary = {"x": 0.0, "y": 0.0}
+# Decaying screen-shake offset, in pixels -- see camera.gd's shake_impulse/shake_decay.
+var _shake: Dictionary = {"x": 0.0, "y": 0.0}
+# Direction for shake kicks only. Presentation-side and never seeded from the sim: shake is
+# feel, not simulation, and a sim stream here would put the camera's wobble on the seeded
+# sequence and make a replay's *view* depend on how hard something got hit.
+var _shake_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var commands_by_tick: Dictionary = {}
 var accumulator: float = 0.0
 var paused: bool = false
@@ -79,6 +94,19 @@ var _content_error: String = ""
 # changes identity (a reboot, a load) and never per frame -- see _threshold_tiles.
 var _thresholds: Dictionary = {}
 var _thresholds_from: Variant = null
+# The road-paint mask, {byte per tile}, and the map object it was resolved from. Same shape and
+# same reason as _thresholds above: RoadPaint.mask_for is pure, and the cache lives on this node
+# because a static one would be shared between the two worlds a gate boots. Rebuilt when the map
+# changes identity (a reboot, a load) and never per frame -- see _road_mask.
+var _road_mask_cache: PackedByteArray = PackedByteArray()
+var _road_mask_from: Variant = null
+# The map-dressing block (wreck and debris sprite keys), and the content tree it came from. Third
+# instance of the same pattern for the third time it is the right one: the lookup is a scan over
+# content and this is asked once per drawn tile, the resolution is pure, and a static cache would
+# be shared between the two worlds a gate boots. A content hot-reload swaps the tree, which is
+# what invalidates it -- see _dressing.
+var _dressing_cache: Dictionary = {}
+var _dressing_from: Variant = null
 var _content_poll_at: float = -1e9
 var _sfx: Node = null
 
@@ -148,7 +176,9 @@ func _ready() -> void:
 			SimSurvivors.boot_playable(world)
 	else:
 		_boot_world(seed_arg, district_arg)
+	_shake_rng.randomize()
 	_resize_camera()
+	_snap_camera()
 	_ensure_ui()
 	_sfx = PresentationSfx.new()
 	add_child(_sfx)
@@ -171,8 +201,9 @@ func _boot_world(seed_val: int, district_id: String) -> void:
 	_district_id = district_id
 	# Per-run presentation state that _ready would otherwise leave stale on a reboot: the
 	# cached player-id selection, the paperdoll glimpse and dev-sheet fingerprint (all read
-	# models over the *previous* world), and the tick tally. The camera itself has no target
-	# to reset -- follow_camera recentres it below, unsmoothed.
+	# models over the *previous* world), and the tick tally. The camera itself recentres
+	# below, unsmoothed -- _snap_camera, not the per-frame follow, so a reboot is never
+	# watched swooping in from wherever the old world's camera happened to be.
 	_selected = -1
 	_glimpse_parts = []
 	_glimpse_stance = 2
@@ -182,6 +213,7 @@ func _boot_world(seed_val: int, district_id: String) -> void:
 	_content_error = ""
 	tick_count = 0
 	_resize_camera()
+	_snap_camera()
 
 # F2: a fresh run on a new random seed, same district the session started with. The seed is
 # generated here, presentation-side, and everything downstream of it is deterministic --
@@ -203,11 +235,81 @@ func _resize_camera() -> void:
 	if vp.x < 1: vp = Vector2(1920, 1080)
 	camera["width"] = vp.x
 	camera["height"] = vp.y
-	# follow player
+
+# Jumps the follow centre straight to the clamped player position and clears any shake in
+# flight -- boot, F2 and F9 all call this instead of letting the per-frame follow arrive on
+# its own, so a fresh or loaded world is never watched swooping in from an unrelated camera
+# position (or shaking from a hit that happened in a different run entirely).
+func _snap_camera() -> void:
+	if world == null: return
+	var pos: Variant = world.components.get_component(world.player, "position")
+	if not (pos is Dictionary): return
+	CameraUtil.snap(camera, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), int(world.map_width), int(world.map_height))
+	_camera_centre["x"] = float(camera["x"])
+	_camera_centre["y"] = float(camera["y"])
+	_shake["x"] = 0.0
+	_shake["y"] = 0.0
+
+# The per-frame camera update: runs every rendered frame (wall-clock delta), not every sim
+# tick, so the follow lerp and the shake decay both advance smoothly whether the tick loop
+# below this frame ran zero ticks, one, or the fast-forward cap. `camera` -- the Dictionary
+# every draw call and _aim_at reads -- becomes the *displayed* camera here: smoothed centre
+# plus the shake offset, combined in this one place, so world_to_screen and screen_to_world
+# always agree (aim never drifts against what the shake is doing to the view). `_camera_centre`
+# stays unshaken so shake never feeds back into next frame's follow target.
+func _update_camera(delta: float) -> void:
+	_resize_camera()
 	if world != null:
 		var pos: Variant = world.components.get_component(world.player, "position")
 		if pos is Dictionary:
-			CameraUtil.follow_camera(camera, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), int(world.map_width), int(world.map_height))
+			var target: Dictionary = CameraUtil.follow_target(float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), int(world.map_width), int(world.map_height))
+			CameraUtil.follow_smoothed(_camera_centre, float(target["x"]), float(target["y"]), CameraUtil.FOLLOW_RATE, delta)
+	CameraUtil.shake_decay(_shake, CameraUtil.SHAKE_DECAY_RATE, delta)
+	var zoom: float = maxf(1.0, float(camera["zoom"]))
+	camera["x"] = float(_camera_centre["x"]) + float(_shake["x"]) / zoom
+	camera["y"] = float(_camera_centre["y"]) + float(_shake["y"]) / zoom
+
+# Screen shake, fed from the same drained-events read sfx.gd uses -- never a subscription to
+# the sim bus. `attack.connected` kicks the view when the target is any survivor (`controlled`:
+# the player or a colonist, never a raider or a zombie taking the hit), distance-attenuated off
+# the player's own position so a colonist getting hit across the district is felt faintly rather
+# than not at all. `grab.started` and `bite.landed` neither carry a useful distance for a body
+# that is not the player (a hand closing or a bite lands with no "how hard" to attenuate), so
+# both are scoped to the player alone. Direction is randomised through _shake_rng.
+func _camera_shake_from_events(drained: Array) -> void:
+	if world == null: return
+	var player_pos: Variant = world.components.get_component(world.player, "position")
+	if not (player_pos is Dictionary): return
+	var px: float = float((player_pos as Dictionary)["x"])
+	var py: float = float((player_pos as Dictionary)["y"])
+	for e in drained:
+		if not (e is Dictionary): continue
+		var ev: Dictionary = e as Dictionary
+		var base_px: float = 0.0
+		var at_x: float = px
+		var at_y: float = py
+		match String(ev.get("type", "")):
+			"attack.connected":
+				var target: int = int(ev.get("target", -1))
+				if not world.components.has_component(target, "controlled"):
+					continue
+				var tp: Variant = world.components.get_component(target, "position")
+				if tp is Dictionary:
+					at_x = float((tp as Dictionary)["x"])
+					at_y = float((tp as Dictionary)["y"])
+				base_px = CameraUtil.SHAKE_HIT_PX
+			"grab.started":
+				if int(ev.get("victim", -1)) != int(world.player): continue
+				base_px = CameraUtil.SHAKE_GRAB_PX
+			"bite.landed":
+				if int(ev.get("victim", -1)) != int(world.player): continue
+				base_px = CameraUtil.SHAKE_BITE_PX
+			_:
+				continue
+		var dist: float = sqrt((at_x - px) * (at_x - px) + (at_y - py) * (at_y - py))
+		var mag: float = CameraUtil.shake_attenuate(base_px, dist, CameraUtil.SHAKE_FALL_PER_M)
+		if mag <= 0.0: continue
+		CameraUtil.shake_impulse(_shake, mag, _shake_rng.randf_range(0.0, TAU), CameraUtil.SHAKE_CAP_PX)
 
 func _ensure_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -461,6 +563,9 @@ func _load() -> void:
 	if snap is Dictionary and bool((snap as Dictionary).get("runOver", false)):
 		return
 	SimSave.apply_save(world, parsed)
+	# The loaded body can be anywhere on the map; recentre unsmoothed rather than let the
+	# per-frame follow visibly pan there from wherever the camera sat before the load.
+	_snap_camera()
 
 func _poll_content_reload() -> void:
 	if not OS.is_debug_build():
@@ -485,8 +590,14 @@ func _poll_content_reload() -> void:
 func _process(delta: float) -> void:
 	if world == null: return
 	_poll_content_reload()
+	# Every rendered frame, paused or not: the follow lerp and shake decay both run on
+	# wall-clock delta, not on the sim's fixed tick, so they must not wait behind `paused`'s
+	# early return below or a shake in flight would freeze mid-decay instead of finishing.
+	_update_camera(delta)
 	if paused:
 		_update_hud()
+		if CameraUtil.shake_magnitude(_shake) > CameraUtil.SHAKE_EPSILON:
+			queue_redraw()
 		return
 	_pump_input()
 	# speed scales tick debt: more ticks per frame, not smaller tick
@@ -502,9 +613,9 @@ func _process(delta: float) -> void:
 		world.step()
 		tick_count += 1
 		ticks_done += 1
-		_resize_camera()
 		if _sfx != null:
 			_sfx.tick(world, camera, world.events.drained)
+		_camera_shake_from_events(world.events.drained)
 		if speed >= 10:
 			speed = SimFortify.speed_after_events(speed, world.events.drained)
 			if speed < 10:
@@ -615,12 +726,16 @@ func _draw() -> void:
 	# background
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Palette.COLOURS["background"])
 	_draw_district()
+	_draw_light_pools()
 	_draw_entities()
 	_draw_night_wash()
 	# glimpse drawn by Control; nothing else needed here
 
 func _draw_district() -> void:
 	var zoom: float = float(camera["zoom"])
+	# Resolved once per frame rather than once per tile: the lookup is a scan over the content
+	# tree and the loop below asks about every visible tile.
+	var dress: Dictionary = _dressing()
 	var half: float = zoom / 2.0
 	var seen: Variant = null
 	if world.vision != null:
@@ -685,9 +800,14 @@ func _draw_district() -> void:
 					_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
-					# Inset block with floor showing around it reads as waist-high.
-					var inset: float = zoom * 0.15625
-					draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
+					# A Low tile is a wreck: a car where it stands in a run, a skip where it stands
+					# alone. Which picture that is comes out of content through Dressing, and when
+					# content declares none the inset block still draws -- the procedural cover shape
+					# is a supported path here as everywhere, not a stopgap.
+					if not _draw_wreck(rect, dress, tx, ty):
+						# Inset block with floor showing around it reads as waist-high.
+						var inset: float = zoom * 0.15625
+						draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Tree:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
 					var centre: Vector2 = rect.get_center()
@@ -703,7 +823,34 @@ func _draw_district() -> void:
 					if _is_threshold(tx, ty):
 						_draw_threshold(rect, floor_col, tx, ty)
 					else:
+						# The road dressing, composed over the same rect: RoadPaint.mask_for
+						# (cached per map in _road_mask) says what this tile of pavement is, a
+						# sidewalk substitutes its slab colour before the fill, the dash and the
+						# kerb lines draw after it, and every plain floor takes the position-hash
+						# value offset so the ground stops being one flat slab up close. All of it
+						# is paint over the tile the sim already owns -- the fill still comes
+						# through Appearance.ground_colour above, and a map with no street
+						# manifest simply draws unpainted.
+						var mask: PackedByteArray = _road_mask()
+						var paint: int = _mask_at(mask, tx, ty)
+						if paint == RoadPaint.MASK_SIDEWALK:
+							floor_col = Palette.COLOURS["sidewalk"]
+						var vo: float = RoadPaint.vary(tx, ty)
+						floor_col = Color(
+							clampf(floor_col.r + vo, 0.0, 1.0),
+							clampf(floor_col.g + vo, 0.0, 1.0),
+							clampf(floor_col.b + vo, 0.0, 1.0),
+							floor_col.a)
 						_draw_floor_tile(rect, floor_col)
+						if paint == RoadPaint.MASK_DASH:
+							_draw_road_dash(rect, mask, tx, ty)
+						if paint != RoadPaint.MASK_NONE:
+							_draw_kerbs(rect, RoadPaint.kerb_edges(world.tilemap, mask, tx, ty))
+						# And the loose stuff on top of all of it: broken concrete where the
+						# rubble pass laid rubble, a scrap of litter every so many tiles of
+						# pavement. Cosmetic, hash-picked, and drawn over the paint rather than
+						# under it, because litter blows onto a road marking and not beneath one.
+						_draw_scatter(rect, dress, tx, ty)
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
@@ -712,6 +859,127 @@ func _draw_district() -> void:
 func _draw_floor_tile(rect: Rect2, col: Color) -> void:
 	draw_rect(rect, col)
 	draw_rect(rect, Palette.COLOURS["background"] * 0.9, false, 1.0)
+
+# The road-paint mask, cached against the map object it was resolved from. RoadPaint.mask_for is
+# pure and the cache lives here because a static one would be shared between the two worlds a
+# gate boots (the _thresholds precedent, two functions down). A reboot or a load hands over a
+# different map object, which is what invalidates it.
+func _road_mask() -> PackedByteArray:
+	var map: Variant = world.tilemap
+	if map == _road_mask_from:
+		return _road_mask_cache
+	_road_mask_from = map
+	_road_mask_cache = RoadPaint.mask_for(map)
+	return _road_mask_cache
+
+
+# The map-dressing block, cached against the content tree it was read from -- the _road_mask and
+# _thresholds pattern, and here for the same two reasons: a static cache would be shared between
+# the two worlds a gate boots, and the resolution itself (Dressing.block_of) is pure. A content
+# hot-reload hands over a different tree object, which is what invalidates it.
+func _dressing() -> Dictionary:
+	var tree: Variant = world.content
+	if tree == _dressing_from:
+		return _dressing_cache
+	_dressing_from = tree
+	_dressing_cache = Dressing.block_of(world)
+	return _dressing_cache
+
+
+# One wrecked-car segment over a Low tile. False when content declares no dressing or names no key
+# for this segment -- a lone Low tile is the shipped case of the latter -- which is the caller's
+# cue to draw the procedural cover block instead.
+#
+# The rotation is the whole of the east-west story: the art is authored pointing north, one tile
+# wide, and a run lying across the street is the same three files turned a quarter circle rather
+# than a second set of them. The turn is geometry read off the map, the way _draw_solid_tile reads
+# its exposed faces; the *key* still comes from content, so the loop stays content-driven. Reset with draw_set_transform_matrix, not with a second
+# draw_set_transform, so the identity that follows is unambiguous -- the player's rig set that
+# convention one slice ago and check_topdown counts on it there.
+func _draw_wreck(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> bool:
+	if dress.is_empty():
+		return false
+	var key: String = Dressing.wreck_key(dress, world.tilemap, int(world.seed), tx, ty)
+	var texture: Texture2D = Appearance.resolve(key)
+	if texture == null:
+		return false
+	var angle: float = Dressing.run_angle(world.tilemap, tx, ty)
+	if angle == 0.0:
+		draw_texture_rect(texture, rect, false)
+		return true
+	draw_set_transform(rect.get_center(), angle, Vector2.ONE)
+	draw_texture_rect(texture, Rect2(-rect.size / 2.0, rect.size), false)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	return true
+
+
+# The loose stuff: broken concrete over a rubble tile, a scrap of litter over street pavement.
+# Both keys are resolved from content and both are hash-picked from the map seed and the tile, so
+# a district's debris is the same debris on every boot and after every load. Which tiles are
+# eligible is Dressing's business, not this loop's -- it draws whatever comes back and nothing
+# when nothing does.
+func _draw_scatter(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
+	if dress.is_empty():
+		return
+	var seed_val: int = int(world.seed)
+	var key: String = Dressing.rubble_key(dress, world.tilemap, seed_val, tx, ty)
+	if key.is_empty():
+		key = Dressing.litter_key(dress, world.tilemap, seed_val, tx, ty)
+	if key.is_empty():
+		return
+	var texture: Texture2D = Appearance.resolve(key)
+	if texture == null:
+		return
+	draw_texture_rect(texture, rect, false)
+
+
+func _mask_at(mask: PackedByteArray, tx: int, ty: int) -> int:
+	if world == null or tx < 0 or ty < 0 or tx >= int(world.map_width) or ty >= int(world.map_height):
+		return RoadPaint.MASK_NONE
+	var idx: int = ty * int(world.map_width) + tx
+	if idx >= mask.size():
+		return RoadPaint.MASK_NONE
+	return int(mask[idx])
+
+
+# Lane paint: a worn dash on the street's centre row. Orientation is read off the mask itself --
+# the next dash along the same street sits two tiles away on the same row or column (the
+# (tx+ty)%2 alternation skips one) -- so a probe two out says which way the line runs, and a dash
+# with no neighbour, boxed in by junctions or worn ends, falls back to a square blotch of the
+# same paint rather than guessing an axis.
+func _draw_road_dash(rect: Rect2, mask: PackedByteArray, tx: int, ty: int) -> void:
+	var vertical: bool = _mask_at(mask, tx, ty - 2) == RoadPaint.MASK_DASH \
+			or _mask_at(mask, tx, ty + 2) == RoadPaint.MASK_DASH
+	var horizontal: bool = _mask_at(mask, tx - 2, ty) == RoadPaint.MASK_DASH \
+			or _mask_at(mask, tx + 2, ty) == RoadPaint.MASK_DASH
+	var centre: Vector2 = rect.get_center()
+	var long_side: float = rect.size.x * 0.62
+	var short_side: float = maxf(2.0, rect.size.x * 0.14)
+	var dash: Rect2
+	if vertical and not horizontal:
+		dash = Rect2(centre - Vector2(short_side / 2.0, long_side / 2.0), Vector2(short_side, long_side))
+	elif horizontal and not vertical:
+		dash = Rect2(centre - Vector2(long_side / 2.0, short_side / 2.0), Vector2(long_side, short_side))
+	else:
+		dash = Rect2(centre - Vector2(short_side, short_side), Vector2(short_side * 2.0, short_side * 2.0))
+	draw_rect(dash, Palette.COLOURS["roadPaint"])
+
+
+# The kerb: a thin strip on each edge where pavement meets ground that is not pavement, read per
+# frame off the neighbours the way _draw_solid_tile reads its exposed faces.
+func _draw_kerbs(rect: Rect2, edges: int) -> void:
+	if edges == 0:
+		return
+	var t: float = maxf(1.0, rect.size.x * 0.09)
+	var kerb: Color = Palette.COLOURS["kerb"]
+	if (edges & RoadPaint.EDGE_N) != 0:
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), kerb)
+	if (edges & RoadPaint.EDGE_S) != 0:
+		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), kerb)
+	if (edges & RoadPaint.EDGE_W) != 0:
+		draw_rect(Rect2(rect.position, Vector2(t, rect.size.y)), kerb)
+	if (edges & RoadPaint.EDGE_E) != 0:
+		draw_rect(Rect2(rect.position + Vector2(rect.size.x - t, 0.0), Vector2(t, rect.size.y)), kerb)
 
 # Solid tiles (walls, screens, boards, scrap): the whole tile is filled, because the whole tile
 # is what the sim blocks, but it is filled with the cap -- the top of the wall seen from above --
@@ -898,6 +1166,40 @@ func _is_solid_at(tx: int, ty: int) -> bool:
 	var t: int = int(SimTileMap.tile_at(world.tilemap, tx, ty))
 	return t == SimTileMap.Tile.Wall or t == SimTileMap.Tile.Screen
 
+# Warm pools where the district is lit *and* the survivor can see it. docs/30's clause on the
+# overlay: lit alone is a fact about the world, lit and seen is a fact about the survivor, and a
+# pool painted where nobody has a sightline is the screen asserting what the simulation denies.
+# The set of tiles is light_look.gd's, so the no-leak rule is one function with a gate on it
+# rather than a condition repeated in a draw loop.
+#
+# Over the floor and under the bodies: the pool is light landing on the ground, so a body standing
+# in one is drawn on top of it rather than tinted by it -- the entity pass owns what a body looks
+# like, and this may not reach into that.
+func _draw_light_pools() -> void:
+	if world == null: return
+	var overlay: bool = attention_channel == "light"
+	# At noon a lamp changes nothing about what anyone can see -- sight_metres caps at the
+	# observer's own range -- so an ordinary frame paints no pools at all in full daylight, and
+	# the warm look belongs to dusk, night and dawn. The O channel is a developer overlay reading
+	# the light index directly and draws them regardless, which is the whole point of it.
+	if not overlay and LightLook.ambient_of(world) >= 1.0: return
+	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
+	var pools: Dictionary = LightLook.lit_pool_tiles(world, int(world.player), bounds)
+	_fill_pool_tiles(pools["near"] as Array, Palette.LIGHT_POOL_NEAR_OVERLAY if overlay else Palette.LIGHT_POOL_NEAR)
+	_fill_pool_tiles(pools["far"] as Array, Palette.LIGHT_POOL_FAR_OVERLAY if overlay else Palette.LIGHT_POOL_FAR)
+
+
+# Geometry only, and the same tile rect _draw_district lays down, so a pool covers its floor tile
+# exactly rather than sitting a half-pixel off it at some zooms.
+func _fill_pool_tiles(tiles: Array, col: Color) -> void:
+	var zoom: float = float(camera["zoom"])
+	var half: float = zoom / 2.0
+	for t in tiles:
+		var tile: Vector2i = t as Vector2i
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tile.x) + 0.5, float(tile.y) + 0.5)
+		draw_rect(Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom), col)
+
+
 func _draw_entities() -> void:
 	if world == null: return
 	var items: Array[Dictionary] = []
@@ -962,32 +1264,11 @@ func _draw_entities() -> void:
 		if int(it["det"]) == SimVisibility.Detail.Peripheral:
 			draw_circle(Vector2(sx, sy), r, Color(0.32, 0.38, 0.32, 0.75))
 			continue
-		# contact shadow — under both branches, so a sprite still sits on the ground.
-		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
-		var texture: Texture2D = look["texture"] as Texture2D
-		if texture != null:
-			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
-			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
-			# lands on a half-pixel as the camera follows the player.
-			var size: Vector2 = texture.get_size()
-			var at := Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0))
-			var rect := Rect2(at, size)
-			# Equipped gear composites at the identical rect the body draws at -- an
-			# equipSprite is authored on the same feet-anchored canvas, so there is no
-			# per-item offset to compute here. Drawn white, never the role/tint colour:
-			# a backpack is its own object, not a stand-in shape for the entity itself.
-			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, int(it["id"]))
-			for layer in equip:
-				if not bool(layer["over"]):
-					draw_texture_rect(layer["texture"] as Texture2D, rect, false)
-			draw_texture_rect(texture, rect, false, col)
-			for layer in equip:
-				if bool(layer["over"]):
-					draw_texture_rect(layer["texture"] as Texture2D, rect, false)
-		else:
-			draw_circle(Vector2(sx, sy), r, col)
-			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
-		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
+		# Facing, read once and before anything is drawn: the body's own rotation, the
+		# indicator line and the aim cone are three readings of one number, and the sim is the
+		# only thing that arbitrates it: the `aim` command turns a stationary body, and
+		# `world._integrate_movement` overwrites facing from the velocity of a moving one, in
+		# that order. Nothing here computes a second aim angle of its own.
 		var eid: int = int(it["id"])
 		var facing_v: Variant = world.components.get_component(eid, "facing")
 		var face: float = 0.0
@@ -995,12 +1276,50 @@ func _draw_entities() -> void:
 			face = float((facing_v as Dictionary).get("radians", 0.0))
 		# Screen axes are world axes under the top-down projection: no rotation.
 		var screen_ang: float = face
-		draw_line(
-			Vector2(sx, sy),
-			Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
-			Color(1, 1, 1, 0.55),
-			2.4 if bool(it["player"]) else 1.6,
-		)
+		# contact shadow — under both branches, and deliberately *outside* the rotation below:
+		# a shadow is cast by the world's light, not by the body, so it must not spin with it.
+		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
+		var texture: Texture2D = look["texture"] as Texture2D
+		if texture != null:
+			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
+			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
+			# lands on a half-pixel as the camera follows the player.
+			var size: Vector2 = texture.get_size()
+			# Equipped gear composites at the identical rect the body draws at -- an
+			# equipSprite is authored on the same centre-anchored canvas, so there is no
+			# per-item offset to compute here. Drawn white, never the role/tint colour:
+			# a backpack is its own object, not a stand-in shape for the entity itself.
+			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid)
+			# Asked for every body, not only the player: the anonymity clause is the helper's
+			# answer of 0.0 for everybody else, so this is the call that makes it load-bearing
+			# rather than a rule stated in a file nothing reads (docs/30, the art decision).
+			var spin: float = Appearance.body_rotation(bool(it["player"]), screen_ang)
+			if bool(it["player"]):
+				# The one rotated blit in the renderer. Centre anchor is what makes it
+				# contained: the transform's origin is the entity's own ground position and
+				# the rect is hung symmetrically around it, so the body turns on the spot
+				# instead of orbiting. Reset with the identity matrix rather than a second
+				# draw_set_transform, so "exactly one body rotates" stays countable in the
+				# source -- check_topdown.gd's _only_the_player_rotates counts it.
+				draw_set_transform(Vector2(roundf(sx), roundf(sy)), spin, Vector2.ONE)
+				_blit_body(Rect2(-size / 2.0, size), texture, col, equip)
+				draw_set_transform_matrix(Transform2D.IDENTITY)
+			else:
+				_blit_body(Rect2(Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0)), size), texture, col, equip)
+		else:
+			draw_circle(Vector2(sx, sy), r, col)
+			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
+		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
+		# The line is what a shape with no front uses to say where it is looking; art with a
+		# front says it itself, so the player's line comes off once the art resolves and every
+		# procedural body keeps it. Appearance owns that rule; this only obeys it.
+		if Appearance.wants_facing_line(bool(it["player"]), texture != null):
+			draw_line(
+				Vector2(sx, sy),
+				Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
+				Color(1, 1, 1, 0.55),
+				2.4 if bool(it["player"]) else 1.6,
+			)
 		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
 			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
 			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
@@ -1036,9 +1355,33 @@ func _draw_entities() -> void:
 		var a: float = 0.5 * (1.0 - float(age) / float(MEMORY_TICKS))
 		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(0.24, 0.29, 0.24, a))
 
+
+# One body and everything it is wearing, composited at one rect: under-body layers, the body,
+# then over-body layers.
+#
+# Factored out of _draw_entities so the player's rotated rig and every other pawn's axis-aligned
+# blit are literally the *same* composite. The equip layers therefore ride whatever transform is
+# in force when this is called rather than being a second, unrotated copy of the ordering — which
+# is what "the overlays ride the rig" means mechanically, and it is the half of the equip story
+# that shipped: the pack and bat art itself is still authored face-on, and pulling those layers
+# back out of the transform to hide that would be the wrong fix (docs/23 names the re-authoring
+# as the characters slice's work).
+func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictionary]) -> void:
+	for layer in equip:
+		if not bool(layer["over"]):
+			draw_texture_rect(layer["texture"] as Texture2D, rect, false)
+	draw_texture_rect(texture, rect, false, col)
+	for layer in equip:
+		if bool(layer["over"]):
+			draw_texture_rect(layer["texture"] as Texture2D, rect, false)
+
+
+# The night, last, over everything. The alpha is derived from the *same number the survivor's
+# range is* -- light_look.gd's sight-derived fraction, not raw ambient -- so the screen and the
+# simulation cannot drift apart. Standing in a lit pool visibly lifts the wash, and it lifts it
+# because the range genuinely grew (docs/30). With nobody to ask, the fraction falls back to
+# ambient, which is what this always was.
 func _draw_night_wash() -> void:
-	var tod: float = Clock.time_of_day(int(world.tick))
-	var light: float = Clock.ambient_light(tod)
-	if light >= 1.0: return
-	var a: float = (1.0 - light) * NIGHT_WASH
+	var a: float = LightLook.wash_alpha(world, int(world.player), NIGHT_WASH)
+	if a <= 0.0: return
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.023, 0.039, 0.102, a))

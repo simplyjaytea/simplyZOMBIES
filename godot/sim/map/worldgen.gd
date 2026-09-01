@@ -28,6 +28,8 @@ extends RefCounted
 #                           annex on the next-ranked lot and runs 4-6 again
 #   8. worldgen.occluders-- windows, screening, wrecks
 #   9. worldgen.terrain  -- lawns, stands of trees, thickets, the trodden edge of a green
+#  10. worldgen.rubble   -- the decay: aprons of broken slab round the buildings, blobs on open
+#                           ground, patches heaved up through the street
 #
 # Sites are **layout, not dressing**: they are chosen before a tree is planted, they are the same
 # with the dressing switched off, and the dressing is then forbidden to plant anything on one
@@ -183,6 +185,7 @@ static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, co
 		var protected: Dictionary = _protected_tiles(map, reserve)
 		_dress_occluders(map, seed_val, protected)
 		_dress_terrain(map, seed_val, ground["streets"] as Dictionary, protected)
+		_rubble(map, seed_val, ground["streets"] as Dictionary, protected)
 		# The siting decision is made on the layout, because the layout is what the dressing is
 		# forbidden to depend on: a colony sited off the trees would move when the trees were
 		# switched off, and the dressing-independence property (docs/30) would stop being true. So
@@ -292,15 +295,21 @@ static func _streets(map: Variant, seed_val: int, district: Dictionary) -> Dicti
 
 	# Vertical streets first, then horizontal, so the paved surface under a crossing is written
 	# twice and identically -- order matters only for reproducibility, and this is the order.
+	# Each carve appends its record to `map.streets` in the same order: the manifest is a
+	# transcript of the carving, not a second decision, so it costs no draw and moves no tile.
 	for span in x_axis["streets"] as Array:
 		_carve_street(map, int((span as Array)[0]), 1, int((span as Array)[1]), int(map.h) - 2)
+		map.streets.append({"axis": "x", "at": int((span as Array)[0]), "width": int((span as Array)[1]), "from": 1, "to": int(map.h) - 2})
 	for span in y_axis["streets"] as Array:
 		_carve_street(map, 1, int((span as Array)[0]), int(map.w) - 2, int((span as Array)[1]))
+		map.streets.append({"axis": "y", "at": int((span as Array)[0]), "width": int((span as Array)[1]), "from": 1, "to": int(map.w) - 2})
 
 	_connection_points(map, rng, district, x_axis, y_axis, width)
-	# Only the blocks: they are what passes 3 and 7 read. The street spans and the openings are on
-	# the map by now, and a returned copy of them would be a field nothing looks at -- the gate
-	# reads the openings off the tiles instead, which is the stronger question anyway.
+	# Only the blocks: they are what passes 3 and 7 read. The street spans went onto the map as
+	# `map.streets` above -- the road-paint pass (presentation/road_paint.gd) and
+	# check_road_look.gd's manifest lane read them there -- and the openings stay tiles-only: the
+	# gate reads openings off the tiles instead, which is the stronger question anyway, and paint
+	# on the short run inside a wall opening would be paint the seam slice re-judges.
 	return {"x_blocks": x_axis["blocks"], "y_blocks": y_axis["blocks"]}
 
 
@@ -1335,3 +1344,123 @@ static func _on_grass(map: Variant, tx: int, ty: int) -> bool:
 	if tx <= 0 or ty <= 0 or tx >= int(map.w) - 1 or ty >= int(map.h) - 1:
 		return false
 	return int(map.surfaces[ty * int(map.w) + tx]) == SimTileMapRes.SURFACE_GRASS
+
+
+# --- 10. rubble dressing ----------------------------------------------------------------------
+
+# The last dressing pass: SURFACE_RUBBLE, which docs/24 prices (x0.7 speed, x1.7 noise) and which
+# no pass had ever placed -- the debt entry measured 0 tiles on both shipped 256 seeds, so the
+# row, its palette colour and its tint were reachable only by hand. Three shapes, every one a
+# surface write and nothing else:
+#
+#   * an apron ring round each placed building, one and two tiles out, roughly one ring tile in
+#     four -- the collapsed guttering and shed masonry of a structure nobody maintains;
+#   * a few small blobs on open ground, authored 2-4 for a full 256 m district and scaled by
+#     area like the rare loot tables -- but floored at one rather than rounded to zero, because
+#     a shape the gate's 64-tile miniature never runs is a shape nobody knows runs (the
+#     dead-socket rule applied to a generator pass);
+#   * the odd 1x2/2x2 patch on the street bordering a block -- frost heave through the tarmac,
+#     which is also what gives the road paint something to be worn through by.
+#
+# Draws happen before eligibility tests, every branch, so the draw count is a function of
+# (layout, size, seed) and a refused tile cannot shift what the next building sheds.
+static func _rubble(map: Variant, seed_val: int, streets: Dictionary, protected: Dictionary) -> void:
+	var rng: Variant = _stream(seed_val, "rubble")
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+
+	for record in map.buildings as Array:
+		var b: Dictionary = record as Dictionary
+		for ring in [1, 2]:
+			for tile in _ring_tiles(int(b["x"]), int(b["y"]), int(b["w"]), int(b["h"]), int(ring)):
+				# Drawn whether or not the tile survives the write rule, so the count depends on
+				# the building manifest alone.
+				if int(rng.call("int_range", 0, 3)) != 0:
+					continue
+				_rubble_tile(map, (tile as Vector2i).x, (tile as Vector2i).y, protected)
+
+	var authored: int = 2 + int(rng.call("int_range", 0, 2))
+	var share: float = float(w * h) / float(SimTileMapRes.DISTRICT_TILES * SimTileMapRes.DISTRICT_TILES)
+	var blobs: int = maxi(1, int(round(float(authored) * share)))
+	for _i in blobs:
+		var ox: int = int(rng.call("int_range", 1, w - 2))
+		var oy: int = int(rng.call("int_range", 1, h - 2))
+		var bw: int = int(rng.call("int_range", 2, 3))
+		var bh: int = int(rng.call("int_range", 2, 3))
+		for dy in bh:
+			for dx in bw:
+				_rubble_tile(map, ox + dx, oy + dy, protected)
+
+	for yb in streets["y_blocks"] as Array:
+		var by: int = int((yb as Array)[0])
+		var bh2: int = int((yb as Array)[1])
+		for xb in streets["x_blocks"] as Array:
+			var bx: int = int((xb as Array)[0])
+			var bw2: int = int((xb as Array)[1])
+			# All four draws happen for every block, whichever way presence goes.
+			var presence: int = int(rng.call("int_range", 0, 2))
+			var side: int = int(rng.call("int_range", 0, 3))
+			var along: int = int(rng.call("int_range", 0, maxi(0, (bw2 if side < 2 else bh2) - 1)))
+			var square: int = int(rng.call("int_range", 0, 1))
+			if presence != 0:
+				continue
+			for tile2 in _street_patch(bx, by, bw2, bh2, side, along, square == 1):
+				_rubble_tile(map, (tile2 as Vector2i).x, (tile2 as Vector2i).y, protected)
+
+
+# The one place rubble is written. The write rule, pinned by check_road_look.gd's placement
+# lane: outdoor open Floor only -- **`tiles[idx] == Tile.Floor and indoors[idx] == 0`** --
+# because `_footing` grants a non-Floor tile walkability only while the surface under it stays
+# PAVED, so rubble under a Low wreck or a Screen would silently turn cover you walk around into
+# a wall; and a room re-grounded through the surface layer would change floors nothing indoors
+# ever reads. Protected tiles -- doorway rings, loot sites, the annex ring -- are skipped whole,
+# the same courtesy the solid dressing pays them.
+static func _rubble_tile(map: Variant, tx: int, ty: int, protected: Dictionary) -> bool:
+	if tx <= 0 or ty <= 0 or tx >= int(map.w) - 1 or ty >= int(map.h) - 1:
+		return false
+	var idx: int = ty * int(map.w) + tx
+	if protected.has(idx):
+		return false
+	if int(map.indoors[idx]) != 0:
+		return false
+	if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
+		return false
+	map.surfaces[idx] = SimTileMapRes.SURFACE_RUBBLE
+	return true
+
+
+# The one-tile-thick ring `ring` tiles out from a building's footprint: top and bottom rows
+# first, then the two sides, in a fixed order so the apron's shape is a function of the manifest
+# and never of what any draw refused.
+static func _ring_tiles(x: int, y: int, w: int, h: int, ring: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var left: int = x - ring
+	var top: int = y - ring
+	var right: int = x + w - 1 + ring
+	var bottom: int = y + h - 1 + ring
+	for tx in range(left, right + 1):
+		out.append(Vector2i(tx, top))
+		out.append(Vector2i(tx, bottom))
+	for ty in range(top + 1, bottom):
+		out.append(Vector2i(left, ty))
+		out.append(Vector2i(right, ty))
+	return out
+
+
+# A 1x2 (or 2x2, when `square`) patch standing just outside a block on the street that borders
+# the chosen side, extending two tiles into the street. Sides 0/1 are north/south, 2/3 west/east.
+static func _street_patch(bx: int, by: int, bw: int, bh: int, side: int, along: int, square: bool) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var breadth: int = 2 if square else 1
+	for d in 2:
+		for b in breadth:
+			match side:
+				0:
+					out.append(Vector2i(bx + along + b, by - 1 - d))
+				1:
+					out.append(Vector2i(bx + along + b, by + bh + d))
+				2:
+					out.append(Vector2i(bx - 1 - d, by + along + b))
+				_:
+					out.append(Vector2i(bx + bw + d, by + along + b))
+	return out
