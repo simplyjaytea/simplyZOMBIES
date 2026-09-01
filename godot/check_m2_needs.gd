@@ -10,6 +10,7 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimShambler = preload("res://sim/modules/shambler.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 func _init() -> void:
@@ -1001,7 +1002,21 @@ func _nowhere_to_go_costs_hygiene_and_pride() -> bool:
 # The dead-socket lane. A need only the player can answer is a mechanism nine colonists out of ten
 # never reach -- this milestone has already paid for that pattern nine times. So: no commands, no
 # hands on the NPC, and the assertion is that the colony's own AI walks somebody to the latrine.
+#
+# The walk is what this lane measures, so the grab loop is pinned off for it: with GRABS_ENABLED
+# shipping true (docs/23's flag record), a shambler took hold of Mara mid-walk on this very seed
+# -- measured with a driver, grabbed from tick ~1200 of the 4000 -- and a lane about the seek
+# ladder was timing a struggle instead. Restore-to-previous, because the flag is a static shared
+# by every world this gate process boots; the grab loop has its own gate (check_m2_contact.gd).
 func _an_npc_takes_itself_to_the_latrine() -> bool:
+	var flag_was: bool = SimShambler.GRABS_ENABLED
+	SimShambler.GRABS_ENABLED = false
+	var ok: bool = _npc_latrine_walk()
+	SimShambler.GRABS_ENABLED = flag_was
+	return ok
+
+
+func _npc_latrine_walk() -> bool:
 	var w: Variant = _world()
 	var mara: int = _mara(w)
 	if mara < 0:

@@ -1,0 +1,21 @@
+{
+  "id": "survivor.unique.ellis",
+  "name": "Ellis Okafor",
+  "backstory": "Depot night watchman — kept the doors locked and the log honest long after the pay stopped. Slow to spook, first to stand in the way.",
+  "age": 41,
+  "appearance": {
+    "features": ["broad shoulders", "grey-flecked beard", "a watchman's slow scan", "knuckles that have met a door frame"]
+  },
+  "traits": ["iron_stomach", "optimist"],
+  "aptitudes": { "str": 6, "dex": 4, "con": 5 },
+  "kit": ["item.pipe.steel", "item.bandage.cloth", "item.food.canned"],
+  "focus": "Fighter",
+  "jobPriorities": { "Guard": 1, "Firefight": 1, "Haul": 2, "Rest": 3 },
+  "spawn": { "kind": "start_companion", "locationHint": "the annex — posted inside the door" },
+  "barks": {
+    "onSeen": ["Movement. Hold still a second.", "One of them. Keep your spacing."],
+    "onHurt": ["Caught me. Still standing.", "That one's mine to carry."],
+    "onBite": ["It bit through. Say nothing yet."],
+    "onIdle": ["Door stays shut after dark.", "Somebody should walk the wall."]
+  }
+}

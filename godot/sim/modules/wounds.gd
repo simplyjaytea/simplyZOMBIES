@@ -259,9 +259,10 @@ static func pain_clause(world: Variant, entity: int) -> String:
 # **What Milestone 2 scopes in, and what it does not.** Sepsis here is debilitating and permanent
 # until treated; it is deliberately **not directly lethal**. A septic wound stops healing entirely,
 # costs mood and work while it runs, and clears only to antibiotics -- so it spends the budget and
-# creates the pull docs/05 asks for, without adding a death path to a lethality model whose
-# balance is currently the thing standing between GRABS_ENABLED and its flip. Making sepsis kill is
-# a balance decision with a measurement attached, not a detail to slip in beside the mechanic.
+# creates the pull docs/05 asks for, without adding a death path. GRABS_ENABLED has since flipped
+# (docs/23's flag record), which makes sepsis reachable in ordinary play and leaves its
+# non-lethality exactly where it was: an owner decision. Making sepsis kill is a balance decision
+# with a measurement attached, not a detail to slip in beside the mechanic.
 const SEPSIS_SOURCE: String = "wound.sepsis"
 const SEPSIS_STREAM: String = "sepsis"
 # Per-day chance before any multiplier, by severity. A scratch going septic is meant to be an

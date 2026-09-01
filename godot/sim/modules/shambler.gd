@@ -46,11 +46,11 @@ const RELEASE_METRES: float = 3.2
 const MILL_TICKS: int = 90
 const COMMIT_TICKS: int = 400
 
-# The swipe: a clawed cuff from a Pursuing shambler, and the one way a zombie hurts anybody in
-# ordinary play while GRABS_ENABLED stays false. It is deliberately not a bite -- it publishes
-# `attack.connected`, the same channel a survivor's swing uses, so it lands as a "cut" wound
-# through health.take-damage with no infection roll; the whole infection loop stays behind the
-# grab flag, and the balance questions recorded on that flag stay that flag's. Small on purpose,
+# The swipe: a clawed cuff from a Pursuing shambler -- landed as the one zombie damage path
+# outside GRABS_ENABLED while that flag was false, and kept deliberately not a bite now that
+# grabs are live. It publishes `attack.connected`, the same channel a survivor's swing uses, so
+# it lands as a "cut" wound through health.take-damage with no infection roll; infection stays
+# the bite's alone, behind the grab loop. Small on purpose,
 # and part-scaled the way a bite is (CLAUDE.md's standing trap: parts do not share a scale) --
 # the first cut of this shipped flat 3.0 and the diagnosis driver measured what that means: a
 # passive body's 15-point head is destroyed by five swipes, and both hard balance seeds wiped on
@@ -58,8 +58,8 @@ const COMMIT_TICKS: int = 400
 # maximum, floored and capped, lands every swipe at the Scratch/Laceration boundary of its own
 # part -- never DeepWound (that band starts at 0.40), and a head takes seven, not five. A swipe
 # threatens by attrition, bleeding and crowds, never by execution; execution stays the grab
-# loop's, behind its flag. Reach sits just past GRAB_METRES so a grab, when enabled, is the
-# closer and worse outcome of the same approach.
+# loop's. Reach sits just past GRAB_METRES so the grab is the closer and worse outcome of the
+# same approach.
 const SWIPE_METRES: float = 1.1
 # One second of raised arms before the first swipe lands, so walking into reach is a mistake you
 # can still step back out of. The clock only runs while a mark is in reach and resets the moment
@@ -164,114 +164,24 @@ const RESCUE_RETRY_TICKS: int = 20
 # ticks, the re-grab landing on the very tick the cooldown lapsed, 149 separate holds on one
 # victim in a ten-day compressed campaign. See BREAK_AWAY_SPEED for the arithmetic that fixes it.
 
-# Grabs are still off by default, and the reason has changed six times now. The first two were
-# guesses; every one since has been measured, and the measurement is the point of the note.
+# Grabs are ON -- the owner's 2026-09-01 decision, taken together with the bigger colony that
+# unblocked it. The flag spent Milestone 2 false while six recorded reasons were answered one
+# measurement at a time; docs/23's flag record (the "survival loop" entries under "Where
+# Milestone 2 stands") is the seed-by-seed history, and its final entry is the flip itself: a
+# third boot colonist (survivor.unique.ellis), spawn offsets spread so the colony stands inside
+# rescue reach of itself, a third bed, and the before/after table over the four fast balance
+# seeds. `survivors_end >= 1` in check_m2_balance.gd now measures the shipped default with
+# grabs live, which makes M2_BALANCE_OK the standing "the colony survives its own contact
+# loop" assertion.
 #
-# Reason one (retired): "the flip waits on a recovery clock" -- a bite rolled over all ten parts
-# and nothing raised a part's integrity again, so grabs were cumulative rather than hard.
-# Recovery shipped (M2_RECOVERY_OK), the flag was flipped, and the fast balance tier failed
-# *worse*.
-#
-# Reason two (retired, and fixed): a held survivor was being executed. A head is 15, a bite was a
-# flat 8, and one bite in five aimed at the head, so two rolls killed. Seed 404 lost both
-# colonists on day one with `cause=head-destroyed`. That is what the four levers above answer --
-# HELD_HIT_LOCATION_WEIGHTS, REPEAT_BITE_TICKS 40 -> 80, part-scaled damage, a cheaper struggle --
-# and it worked: on the same seed the head share falls from a fifth to a twentieth and the first
-# death moves off day one.
-#
-# Reason three (retired as an explanation, and answered): the harness colony had no agency. An
-# unattended `controlled` survivor never struggled because F is a key press and a harness presses
-# nothing, the second colonist booted unarmed, and `npc.combat` dropped a holder to the back of
-# its own threat queue. All three are fixed -- instinct (STRUGGLE_INSTINCT_TICKS above, INSTINCT
-# in check_m2_contact.gd), a kit weapon that is actually held (SimSurvivors._hold_it, ARMED in
-# check_m2_balance.gd), and holder-first target selection (HOLDER in check_m2_npc_combat.gd) --
-# and they moved every number except the one that decides. On seed 404 a campaign with grabs on
-# went from 111 bites and 0 struggles to 57 bites and 73 struggles; the shipped default, with
-# grabs still off, records the colony's first kills in the fast tier at all (6 on 404, 1 on
-# 90210, where every arm previously read zero).
-#
-# Reason four (retired as the blocker, and answered): *an escape costs stamina, and a survivor
-# held over and over cannot afford it.* Two owner-picked levers answer it, and the arithmetic is
-# no longer the thing in the way. Stamina now recovers while held -- health.recover ignores the
-# recovery delay for a `grabbed` body and world.gd stops charging that body the posture ladder's
-# drain, so an empty tank is a pause of about 25 ticks rather than a hold with no exit -- and a
-# free survivor can pull somebody out of one (try_begin_rescue above, H, and npc.combat's
-# rescue-first branch). Measured on the same four seeds with the flag forced on, before against
-# after with one driver: on 404 the share of held ticks with a tank too empty to pay
-# STRUGGLE_STAMINA falls from 38.3% to 13.3%, and on 90210 from 48.9% to 0.0%, while struggles won
-# go from none the instrumentation could see to 71 and 136.
-#
-# Reason five (retired as an explanation, and answered in both halves): *the hold itself is too
-# frequent, and a held body cannot treat the bleeding.* Both levers landed and both do what they
-# were picked to do. `treatment._can_channel` grants exactly one channel to a held body, a hand on
-# your own wound (R1-R7 are written out at the top of treatment.gd; AID-HELD and HELD-CONTEXT in
-# check_m2_treatment.gd, PRESS-THROUGH and STRUGGLE-DURING-PRESS here), and BREAK_AWAY_SPEED
-# 1.6 -> 2.1 turns a release into separation (CLEAR-AWAY). What stood between them was R5: with a
-# running press outranking a break-away, the survivors using the aid were exactly the ones the
-# break-away no longer moved, 94 of 120 escapes on seed 404 were mid-press, 89 of the 91 following
-# re-grab windows were exactly REGRAB_COOLDOWN_TICKS with none above, and total grabs rose 149 ->
-# 214. R5 has now been inverted -- `treatment.escape-releases-press` cancels the victim's own
-# self-pressure when `grab.broken` names them, and only that, R2's mirror -- and it does what the
-# arithmetic said it would: on the same four seeds with the flag forced on, grabs fall 214 -> 150
-# and 212 -> 166, bites fall 136 -> 88 and 122 -> 65, and re-grab windows longer than the cooldown
-# appear at all (0 of 119 -> 10 of 141 on 90210). FLIGHT-CANCELS-PRESS holds the whole cycle down,
-# against a paired control on the same geometry with the subscription lifted off the bus.
-#
-# Reason six was *a body that tears free does not go anywhere, and a press that is cancelled at
-# every escape never finishes* -- two residuals, named from instrumentation rather than guessed
-# at. **The first is answered.** The escape had nowhere to go because it insisted on going
-# straight away: over three days of seed 404 the committed heading was blocked on both axes on
-# 86% of breakAway ticks and the body covered 0.010 m per tick against a nominal 0.105, because
-# _break_away took one direction and _integrate_movement zeroed a blocked axis. A colony is
-# grabbed where a colony lives, which is against the annex walls. _break_away now fans out from
-# straight-away and commits to the nearest heading with room (see it, and AWAY-CLEAR), which
-# keeps the shove-off and gives it somewhere to go.
-#
-# Measured on the four fast seeds with the flag forced on, same driver both columns:
-#
-#   seed     | before                              | after
-#   20260805 | 3/2, no contact                     | 3/2, no contact
-#   404      | 0/2, 150 grabs, 88 bites, 8,490     | 0/2, 152 grabs, 79 bites, **12,011** living
-#            | living ticks, 50.2% held, 0.0086    | ticks, 31.4% held, **0.1038** m/tick
-#   31337    | 3/2, 46 grabs, 20 bites             | 3/2, **6** grabs, **2** bites
-#   90210    | 0/2, 166 grabs, 65 bites, 0.0169    | **1/2**, **65** grabs, **20** bites, 0.1041
-#
-# An escape is now worth roughly what the open-field arithmetic above always claimed -- 0.104 m
-# per tick against a nominal 0.105, up from a tenth of that -- and 90210 is the first hard seed to
-# stop wiping. 404's colony lives 41% longer and spends a third rather than half of its life held.
-#
-# **The second residual is answered too.** 404 ended 0/2 on blood loss with 126 presses begun and
-# *zero* completed, because a press cancelled at every escape banked nothing against a 400-tick
-# deep-wound cost while holds arrived every ~50 ticks. treatment.gd's R8 now banks the served
-# ticks on the wound, which reverses a rule that was deliberate and written down, on measurement
-# rather than taste -- the same discipline that produced R5's own inversion. Fragments compose:
-# presses completed go 0 -> 20 on 404 and 0 -> 21 on 90210, and both hard seeds live about 23%
-# longer (12,011 -> 14,834 and 29,825 -> 36,573 living ticks).
-#
-# **The flag is still false, and what is left is no longer a bug.** 404 still ends 0/2, and the
-# constraint is the shape of the colony rather than another lever in this file. Re-measured with
-# escapees that actually move, the old "rescue can never reach" finding is now only partly true and
-# is worth restating rather than repeating: a free colonist is within RESCUE_METRES of a held one
-# for 135 ticks on 90210 and 18 on 31337, closest approach 0.52 m and 0.21 m, where the previous
-# measurement found no approach inside 6 m on any seed. On 404 it still never reaches -- closest
-# all campaign is 4.40 m, improved from 6.41 m and still nearly three times the radius. That colony
-# never stands together, and moving it is People-and-economy work (a bigger colony, or one posted
-# closer) rather than anything left in the contact loop. The one smaller
-# residual is unchanged and is a tick of drain ordering: the cancel lands at drain, so an escapee
-# stands still for one tick, worth 0.105 m of gap, which lifts BREAK_AWAY_SPEED's own d0 threshold
-# from 0.58 m to about 0.69 m. Relaxing `survivors_end >= 1` remains considered and rejected.
-# docs/23's Milestone 2 status carries the measurement seed by seed.
-#
-# So the loop ships complete, gated and off for one more turn, the way
-# SimMelee.REFUSE_EXHAUSTED_SWINGS did: check_m2_contact.gd turns it on explicitly, so every
-# assertion there exercises the real thing rather than the shipped default.
-#
-# A static var rather than a const purely so that gate can switch it on for the worlds it builds;
-# `_the_flag_actually_gates_acquisition` exercises both directions, which is what keeps the flag
-# honest. Treat it as a compile-time constant everywhere else. It is deliberately NOT world state
-# and deliberately not saved -- a flag that could differ between a save and its reload would be a
-# determinism bug, and this one is set once, at boot or by a gate, and never again.
-static var GRABS_ENABLED: bool = false
+# A static var rather than a const purely so gates can drive it both ways:
+# `_the_flag_actually_gates_acquisition` in check_m2_contact.gd exercises both directions,
+# which is what keeps the flag honest, and any lane that pins it must restore the previous
+# value -- one gate process shares this static across every world it boots. Treat it as a
+# compile-time constant everywhere else. It is deliberately NOT world state and deliberately
+# not saved -- a flag that could differ between a save and its reload would be a determinism
+# bug, and this one is set once, at boot or by a gate, and never again.
+static var GRABS_ENABLED: bool = true
 const BREAK_AWAY_TICKS: int = 26
 # 2.1 m/s, which is SimLocomotion.WALK_SPEED -- a shove-off at your own stride, not a free sprint
 # at 6.3. The number that matters is the difference against the shambler's seek, 2.1 * 0.8 = 1.68:

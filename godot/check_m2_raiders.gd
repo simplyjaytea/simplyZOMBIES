@@ -496,6 +496,14 @@ func _zombies_treat_a_raider_as_prey() -> bool:
 
 
 func _prey_arena(marked: bool, armed: bool) -> Dictionary:
+	# This arena isolates pursuit and the claw -- `is_person` deciding prey, ground covered,
+	# swipes landing. With GRABS_ENABLED shipping true (docs/23's flag record) a live grab pins
+	# both bodies at arm's length, so "closed the distance" would read the pin rather than the
+	# pursuit. The grab loop is switched off for the arena and the previous value restored --
+	# the flag is a static shared by every world one gate process boots, and the grab loop has
+	# its own gate (check_m2_contact.gd).
+	var flag_was: bool = SimShambler.GRABS_ENABLED
+	SimShambler.GRABS_ENABLED = false
 	var w: Variant = _arena()
 	SimShambler.register_module(w, SimTileMap.blank_map(32, 32))
 	var raider: int = SimRaiders.spawn(w, 16.0, 16.0, "raider.scav")
@@ -531,6 +539,7 @@ func _prey_arena(marked: bool, armed: bool) -> Dictionary:
 			# distance the shambler covered while it was alive.
 			break
 		closest = minf(closest, _distance(w, z, raider))
+	SimShambler.GRABS_ENABLED = flag_was
 	return {"pursued": pursued, "closed": start - closest, "zombie_hits": int(hits["zombie"]), "raider_hits": int(hits["raider"])}
 
 

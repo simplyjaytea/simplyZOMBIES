@@ -1,8 +1,11 @@
 extends SceneTree
-# The swipe -- the one way a zombie hurts anybody while SimShambler.GRABS_ENABLED is false, and
-# therefore the assertion that basic combat is *reachable in ordinary play*: nothing here touches
-# the flag for the positive cases, so if a refactor ever routes zombie offense back behind it,
-# the cadence assertion below is what goes red.
+# The swipe -- the claw a Pursuing shambler lands from just past grab range. It shipped as the
+# one zombie damage path outside SimShambler.GRABS_ENABLED while that flag was false; the flag
+# ships true now (docs/23's flag record has the history and the flip), so the swipe-only lanes
+# here pin it OFF for themselves -- at 0.9 m a live grab wins the same approach and every
+# assertion below would be measuring a grapple -- and restore the previous value, because one
+# gate process shares the static across every world it boots. The grapple lane pins it ON the
+# same way. Each lane that depends on the flag sets it explicitly; none trusts the default.
 #
 # What is pinned, and why:
 #   - the first swipe lands exactly SWIPE_FIRST_TICKS after reach and repeats exactly every
@@ -10,10 +13,10 @@ extends SceneTree
 #     the way the bite cadence is pinned in check_m2_contact.gd;
 #   - each swipe records one located "cut" wound (the melee pipeline, not a parallel one);
 #   - a swipe is chip damage by construction: never a DeepWound, and never a bite -- no
-#     bite.landed, no infection -- because the infection loop stays behind the grab flag and its
-#     recorded balance questions must not gain a back door. The infection half carries its own
-#     live-channel control (a synthetic bite must still infect this victim) so the absence is a
-#     refusal, not a dead subscription;
+#     bite.landed, no infection -- because infection is the bite's alone, and the swipe must not
+#     be a second, cheaper way in. The infection half carries its own live-channel control (a
+#     synthetic bite must still infect this victim) so the absence is a refusal, not a dead
+#     subscription;
 #   - reach and walls refuse it, the same geometry that refuses a grab;
 #   - a holder does not swipe and a held body is not swiped -- inside a grapple the mouth is the
 #     threat, and piling swipes onto a hold would change the flip's lethality question unmeasured.
@@ -30,9 +33,14 @@ func _init() -> void:
 
 func _run() -> void:
 	var ok: bool = true
+	# The three swipe-only lanes run with grabs pinned off -- see the header. Restore-previous
+	# rather than restore-true, so a run order that pinned the flag earlier is never clobbered.
+	var flag_was: bool = SimShambler.GRABS_ENABLED
+	SimShambler.GRABS_ENABLED = false
 	ok = _a_swipe_lands_on_cadence_and_each_leaves_a_wound() and ok
 	ok = _reach_and_walls_both_refuse_it() and ok
 	ok = _a_swipe_is_chip_damage_never_a_bite() and ok
+	SimShambler.GRABS_ENABLED = flag_was
 	ok = _a_grapple_takes_both_bodies_off_the_swipe_menu() and ok
 	if ok:
 		print("M2_SWIPE_OK a shambler in reach swipes on cadence, wounds land shallow and clean, walls and grapples refuse it")
@@ -265,6 +273,7 @@ func _transmitted(w: Variant, entity: int) -> bool:
 
 
 func _a_grapple_takes_both_bodies_off_the_swipe_menu() -> bool:
+	var flag_was: bool = SimShambler.GRABS_ENABLED
 	SimShambler.GRABS_ENABLED = true
 	var ok: bool = true
 	var w: Variant = _world(15)
@@ -293,7 +302,7 @@ func _a_grapple_takes_both_bodies_off_the_swipe_menu() -> bool:
 		if not seen.is_empty():
 			push_error("GRAPPLE: %d swipe(s) landed during the grapple -- holder or bystander, neither may, and a held body is off the menu" % seen.size())
 			ok = false
-	SimShambler.GRABS_ENABLED = false
+	SimShambler.GRABS_ENABLED = flag_was
 	if ok:
 		print("  SWIPE-GRAPPLE 150 held ticks, holder and bystander both kept their claws down")
 	return ok

@@ -433,9 +433,17 @@ func _succession() -> bool:
 	if int(w.player) != mara:
 		push_error("restore player %d" % int(w.player))
 		return false
-	# Solo player → runOver
+	# Solo player → runOver. "Solo" is every OTHER colonist dead first, not a named list -- the
+	# boot colony is three now (docs/23's flag record) and a hard-coded Mara left Ellis alive,
+	# so the run correctly refused to end and this lane read that correctness as a failure.
 	var w2: Variant = _world()
-	SimHealth.finish_death(w2, _mara(w2))
+	for ent in w2.components.query(["needs", "body"]):
+		if int(ent) == int(w2.player) or w2.components.has_component(int(ent), "recruit"):
+			continue
+		SimHealth.finish_death(w2, int(ent))
+	if bool(w2.runOver):
+		push_error("the run ended while the player still lived")
+		return false
 	SimHealth.finish_death(w2, w2.player)
 	if not bool(w2.runOver):
 		push_error("solo death no runOver")
