@@ -11,6 +11,7 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const LightLook = preload("res://presentation/light_look.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -710,6 +711,7 @@ func _draw() -> void:
 	# background
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Palette.COLOURS["background"])
 	_draw_district()
+	_draw_light_pools()
 	_draw_entities()
 	_draw_night_wash()
 	# glimpse drawn by Control; nothing else needed here
@@ -993,6 +995,40 @@ func _is_solid_at(tx: int, ty: int) -> bool:
 	var t: int = int(SimTileMap.tile_at(world.tilemap, tx, ty))
 	return t == SimTileMap.Tile.Wall or t == SimTileMap.Tile.Screen
 
+# Warm pools where the district is lit *and* the survivor can see it. docs/30's clause on the
+# overlay: lit alone is a fact about the world, lit and seen is a fact about the survivor, and a
+# pool painted where nobody has a sightline is the screen asserting what the simulation denies.
+# The set of tiles is light_look.gd's, so the no-leak rule is one function with a gate on it
+# rather than a condition repeated in a draw loop.
+#
+# Over the floor and under the bodies: the pool is light landing on the ground, so a body standing
+# in one is drawn on top of it rather than tinted by it -- the entity pass owns what a body looks
+# like, and this may not reach into that.
+func _draw_light_pools() -> void:
+	if world == null: return
+	var overlay: bool = attention_channel == "light"
+	# At noon a lamp changes nothing about what anyone can see -- sight_metres caps at the
+	# observer's own range -- so an ordinary frame paints no pools at all in full daylight, and
+	# the warm look belongs to dusk, night and dawn. The O channel is a developer overlay reading
+	# the light index directly and draws them regardless, which is the whole point of it.
+	if not overlay and LightLook.ambient_of(world) >= 1.0: return
+	var bounds: Dictionary = TopDownProjection.visible_bounds(camera, 2.0)
+	var pools: Dictionary = LightLook.lit_pool_tiles(world, int(world.player), bounds)
+	_fill_pool_tiles(pools["near"] as Array, Palette.LIGHT_POOL_NEAR_OVERLAY if overlay else Palette.LIGHT_POOL_NEAR)
+	_fill_pool_tiles(pools["far"] as Array, Palette.LIGHT_POOL_FAR_OVERLAY if overlay else Palette.LIGHT_POOL_FAR)
+
+
+# Geometry only, and the same tile rect _draw_district lays down, so a pool covers its floor tile
+# exactly rather than sitting a half-pixel off it at some zooms.
+func _fill_pool_tiles(tiles: Array, col: Color) -> void:
+	var zoom: float = float(camera["zoom"])
+	var half: float = zoom / 2.0
+	for t in tiles:
+		var tile: Vector2i = t as Vector2i
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(tile.x) + 0.5, float(tile.y) + 0.5)
+		draw_rect(Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom), col)
+
+
 func _draw_entities() -> void:
 	if world == null: return
 	var items: Array[Dictionary] = []
@@ -1131,9 +1167,12 @@ func _draw_entities() -> void:
 		var a: float = 0.5 * (1.0 - float(age) / float(MEMORY_TICKS))
 		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(0.24, 0.29, 0.24, a))
 
+# The night, last, over everything. The alpha is derived from the *same number the survivor's
+# range is* -- light_look.gd's sight-derived fraction, not raw ambient -- so the screen and the
+# simulation cannot drift apart. Standing in a lit pool visibly lifts the wash, and it lifts it
+# because the range genuinely grew (docs/30). With nobody to ask, the fraction falls back to
+# ambient, which is what this always was.
 func _draw_night_wash() -> void:
-	var tod: float = Clock.time_of_day(int(world.tick))
-	var light: float = Clock.ambient_light(tod)
-	if light >= 1.0: return
-	var a: float = (1.0 - light) * NIGHT_WASH
+	var a: float = LightLook.wash_alpha(world, int(world.player), NIGHT_WASH)
+	if a <= 0.0: return
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.023, 0.039, 0.102, a))

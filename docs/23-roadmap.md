@@ -224,6 +224,12 @@ unplaced) rather than here.
 - **Prop art on the 64×64 canvas.** The props are drawn now (see the record) but as content-tinted
   footprint shapes: a container, a bed, a campfire and the well each take an `appearance.sprite`
   key today and none of them has a file behind it.
+- **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
+  the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
+  only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
+  a `tint` beside the existing `light: {magnitude}` block, resolved through `appearance.gd` and
+  never an `if id ==` in the draw loop. Wants the nested-shape gate every content block wants,
+  because the validator does not recurse.
 
 **UI:**
 
@@ -272,6 +278,11 @@ unplaced) rather than here.
   Widening it moves NPC pathing balance, so it wants its own before/after. `Palette.COLOUR_HEX`
   (14 entries, zero readers) and `sim/map/surface.gd`'s unused `SimTileMapRes` preload were
   found in the same sweep — dead sockets of the named shape, one line each when touched next.
+- **Three of the five attention overlays draw nothing.** `O` cycles `attention_channel` through
+  `off`/`noise`/`scent`/`sight`/`light`; the light channel draws the lit pools since the light-look
+  slice, and `noise`, `scent` and `sight` still reach no draw call at all — the field and the
+  visibility index are both there to read, and the frozen renderer draws all four. A dead control
+  of exactly the named shape, one channel apiece when touched next.
 - **The Godot build has no enforced budget.** docs/00 pillar 6 says a feature that breaks budget
   does not ship, and every budget CI actually enforces measures the **frozen oracle**: `npm run bench`
   is vitest over `src/`, and `npm run bench:frame` spawns **vite** and drives the TypeScript/Canvas
@@ -1310,6 +1321,76 @@ not a to-do list:
   actually go red. DEAD SOCKET source-scans `main.gd` (the `check_topdown.gd`/`check_respond.gd`
   precedent) for the `follow_smoothed`/`snap`/`shake_impulse`/`shake_decay` call sites, so the
   helpers are provably wired into the frame loop rather than sitting beside it unread.
+- **Light & the night look** — authorized by the owner (2026-09-01 session), package 4 of the same
+  plan: the port of the one design clause light left unported.
+  [docs/30](30-decisions.md#what-light-made-structural) ("the screen may draw a lit region only
+  where the survivor can see it") says two things — the overlay draws **lit ∩ seen**, and the night
+  wash derives from `sightMetres` rather than raw ambient — and the Godot renderer had neither: one
+  flat wash off `Clock.ambient_light` and no pools at all, while the sim underneath ran a full
+  per-emitter shadowcast. Presentation-only; nothing under `godot/sim/` changed and no new sim
+  accessor was needed, which parity (`R1_PARITY_OK`) and `TOPDOWN_OK` both prove.
+
+  **The wash comes from sight.** New `presentation/light_look.gd`, four pure statics and no state
+  at all — no `static var` for two gate worlds to share, which is the shape the kernel's own
+  static cost a session over. `local_light_fraction(world, eyes)` is
+  `clamp(SimLight.sight_metres(observer at its own position) / observer.range_metres, 0, 1)`;
+  `wash_alpha` scales `(1 - fraction)` by the `NIGHT_WASH` main.gd still owns and returns 0 at
+  full daylight, so the early-out is preserved rather than reimplemented. Standing beside a 20 m
+  campfire at midnight now lifts the fraction from ambient's 0.04 to 0.396 and the wash from alpha
+  0.768 to 0.483 — and it lifts it *because the range genuinely grew*, one number with two
+  consumers rather than the screen deciding to draw light. With nobody to ask — the parity boot, a
+  world with no player, a body carrying no `observer` — it falls back to raw ambient exactly,
+  which is the frozen renderer's `eyes === null` branch and is what the wash always was.
+
+  **Pools are lit and seen.** `lit_pool_tiles(world, eyes, bounds)` walks the viewport bounds
+  clamped to the map and returns `{near, far}` tile arrays: skip what the player cannot see, skip
+  what has no light reach, split the rest at 3 m of remaining reach (the frozen renderer's
+  `LIGHT_OVERLAY_SPLIT`). `main.gd::_draw` fills them between `_draw_district` and
+  `_draw_entities` — over the floor, under the bodies, because tinting a survivor is the entity
+  pass's business — in the oracle's two warm alphas, now `Palette.LIGHT_POOL_NEAR` / `_FAR`
+  (0.20 and 0.09 of rgb(255, 214, 140)). The seen test is `vision.tiles_for(eyes).has_tile`,
+  deliberately the *same* question `_draw_district` asks before it draws a floor tile, so a pool
+  appears exactly where its tile appears and never on the background; the frozen renderer
+  additionally narrowed by `detail` (the facing cone) and the top-down district draw does not, so
+  matching the district is the tighter join of the two here. In **full daylight an ordinary frame
+  paints no pools**: `sight_metres` caps at the observer's own range, so a lamp at noon changes
+  nothing about what anyone can see and a warm circle round it would be the screen claiming an
+  effect the simulation refuses.
+
+  **One warm tint for every source, this slice.** A candle, a campfire, a lamp and a floodlight
+  all paint the same colour and differ only in how far the pool reaches. Per-source tint is a
+  content axis (`light: {tint}` beside `light: {magnitude}`), not a branch to grow in the draw
+  loop, so it is named in [what's left](#whats-left-in-milestone-2) rather than half-built here.
+
+  **The O key's light channel is no longer a dead control** — the optional rider, taken. `O` cycled
+  `attention_channel` through five values and *nothing anywhere drew any of them*; the `light`
+  channel now draws the same `lit_pool_tiles` in two louder alphas (0.45/0.22), one mechanism with
+  two consumers, and it ignores the daylight refusal above because a developer overlay reading the
+  light index is exactly what it is for. Honest half: `noise`, `scent` and `sight` still draw
+  nothing, and that is now a named line in the debt list instead of folklore.
+
+  **The gate.** `godot:check:light` → `LIGHT_LOOK_OK`, the chain's 39th, six lanes, each fixture
+  its own world read through that world's own light and vision indices and stepped once after the
+  emitters are placed (light refreshes in the `movement` phase, events drain at the end of
+  `step()`). SIGHT-DERIVED: the campfire scene above, with the raw-ambient formula written out by
+  hand in the gate as the control — the lane that goes red the moment somebody quietly reverts the
+  wash — and `ambient_of` pinned to that same hand-written formula so the number main.gd's
+  daylight refusal reads cannot drift silently. AMBIENT FALLBACK is its true negative, twice over:
+  the same scene at magnitude 0 reads ambient exactly, and in a world where the player reads 0.396
+  both a body with no `observer` and no body at all read 0.040. LIT AND SEEN is the no-leak lane —
+  a campfire behind a solid wall, its own tile asserted to carry 20 m of genuine reach and then
+  required to appear in neither pool (nothing past the wall may), with every returned tile
+  asserted to be in the seen set and the tile count asserted non-zero so the check has something
+  to judge; the true negative is a **fresh** world without the wall, where the same tile must
+  appear in `near`. Both directions were shown red during development: dropping the seen test
+  returned the far-side tile ("a tile lit by 20 m of campfire on the far side of a wall was
+  returned for drawing"), and making `local_light_fraction` return ambient failed SIGHT-DERIVED
+  ("no better than raw ambient, which is the quiet revert this lane exists to catch"). SPLIT puts
+  a 3 m candle in daylight and asserts near/far/neither at the source, two tiles out and four.
+  DAYLIGHT: the fraction clamps to 1.0 beside a campfire at noon and the alpha is 0, with the
+  midnight scene alongside as the negative. DEAD SOCKET source-scans `main.gd` for the call sites
+  and for the draw *order* (pools strictly between district and entities), and asserts
+  `_draw_night_wash` no longer contains `Clock.ambient_light` at all.
 - **Survivors** — ~~Focus auto-allocation: NPCs spend their own web points~~ **landed**
   (`godot:m2:web`, lanes NPC / SURPLUS / REACH / DRIFT). What this list used to say — "the shallow
   web is landed; nobody but the player can walk it" — was wrong, and the correction is the

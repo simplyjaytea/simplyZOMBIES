@@ -16,11 +16,12 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-01
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **37 gates**
-(counted off the script in `package.json`, which is the authoritative list — the number here had
-drifted one behind) and exits 0, `npm test` is **45 files / 594 tests** passing, and
-`godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check` job runs those plus
-typecheck, lint and format; its `performance` job runs the two TypeScript benchmarks.
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **39 gates**
+(counted off the script in `package.json`, which is the authoritative list — the number here keeps
+drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
+594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
+job runs those plus typecheck, lint and format; its `performance` job runs the two TypeScript
+benchmarks.
 
 The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight with
 **three colonists** (you, Mara, and Ellis — the bigger-colony decision), and the survival loop is
