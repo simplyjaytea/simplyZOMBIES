@@ -94,7 +94,10 @@ record in docs/23 closes with both.)
    reasons docs/23's defect list gives.
 2. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
    docs/23's what's-left section has the three candidates and which picks force a sprite
-   regeneration.
+   regeneration. **The comparison fixtures are built** (authorized by the owner, 2026-09-01
+   session): twelve screenshots and a written comparison at
+   `.hermes/plans/2026-09-01_art-style-fixtures/` (`comparison.md`) — see docs/23's record for
+   the method. The pick itself is still open.
 
 ## How a session runs
 
