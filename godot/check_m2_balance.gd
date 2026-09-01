@@ -122,6 +122,8 @@ func _fast_tier() -> bool:
 	ok = _assert_bands(runs) and ok
 	ok = _assert_the_seed_moves_placement(runs) and ok
 	ok = _the_armed_count_can_see_an_empty_hand() and ok
+	ok = _assert_grabs_reach_the_campaign(runs) and ok
+	ok = _the_grab_counters_can_see_a_grab() and ok
 	return ok
 
 
@@ -246,7 +248,8 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		# The hold loop, counted off the bus like everything else here. `grab.started` is one per
 		# hand that closes; `grab.broken` is one per victim who becomes fully free, tagged with why,
 		# which is the only way a harness that reads nothing but events can tell an escape from a
-		# rescue from a corpse. Reported, not asserted -- see the note above `_assert_bands`.
+		# rescue from a corpse. Asserted since the GRABS_ENABLED flip: `_assert_grabs_reach_the_campaign`
+		# is the floor, `_the_grab_counters_can_see_a_grab` is the counters' own true negative.
 		"grabs": 0,
 		"broken": {},
 		"seen_dead": {},
@@ -422,6 +425,54 @@ func _the_armed_count_can_see_an_empty_hand() -> bool:
 		push_error("disarming one colonist moved the unarmed count to %d, expected 1 -- the counter is not measuring hands" % stripped)
 		return false
 	print("ARMED OK %d colonists all armed at boot; disarming one is seen (0 -> %d)" % [colonists.size(), stripped])
+	return true
+
+
+# The flip's dead-socket proof, and the promotion of two counters that spent the whole milestone
+# bus-only. With GRABS_ENABLED shipping true, a compressed campaign must actually reach the hold
+# loop: at least one seed records a grab, and at least one hold ends with a named cause. A zero
+# here would mean the flag flipped and connected to nothing -- exactly the mechanism-nobody-reads
+# shape CLAUDE.md's dead-socket list exists to catch. A floor, not a band: how *many* grabs a
+# seed sees is pacing, and pacing belongs to the full tier.
+func _assert_grabs_reach_the_campaign(runs: Array[Dictionary]) -> bool:
+	var grabs: int = 0
+	var causes: Dictionary = {}
+	for run in runs:
+		grabs += int(run["grabs"])
+		for why in (run["broken"] as Dictionary).keys():
+			causes[String(why)] = true
+	if grabs < 1:
+		push_error("no seed recorded a single grab with GRABS_ENABLED shipping true -- the flip reaches no campaign")
+		return false
+	if causes.is_empty():
+		push_error("%d grabs and not one grab.broken cause -- holds start and never resolve, or the counter is dead" % grabs)
+		return false
+	print("GRABS OK %d grabs across %d seeds, broken causes %s" % [grabs, runs.size(), str(causes.keys())])
+	return true
+
+
+# The true negative for the counters the floor above reads: feed `_observe` one fabricated
+# grab.started / grab.broken pair through a real drain and require each counter to move by
+# exactly one. Without this, "grabs > 0" is worth exactly as much as the counter's ability to
+# see a grab -- the `_the_armed_count_can_see_an_empty_hand` discipline, applied to the bus.
+# Publish queues and handlers run at drain, at the end of world.step(), so the step sits
+# between the publish and the read.
+func _the_grab_counters_can_see_a_grab() -> bool:
+	var w: Variant = _boot(int(FAST_SEEDS[0]), "mixed")
+	var run: Dictionary = _blank_run(int(FAST_SEEDS[0]), "mixed", w)
+	var grabs_before: int = int(run["grabs"])
+	w.events.publish({"type": "grab.started", "victim": 999902, "source": 999901})
+	w.events.publish({"type": "grab.broken", "victim": 999902, "by": 999901, "cause": "synthetic"})
+	w.step()
+	_observe(w, run, null)
+	var moved: int = int(run["grabs"]) - grabs_before
+	if moved != 1:
+		push_error("one fabricated grab.started moved the grab counter by %d, expected exactly 1" % moved)
+		return false
+	if int((run["broken"] as Dictionary).get("synthetic", 0)) != 1:
+		push_error("one fabricated grab.broken left the cause tally at %s, expected synthetic=1" % str(run["broken"]))
+		return false
+	print("GRAB-COUNTERS OK a fabricated started/broken pair moves each counter by exactly one")
 	return true
 
 

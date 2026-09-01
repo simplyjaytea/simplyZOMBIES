@@ -31,13 +31,16 @@ exactly the failure the project keeps re-learning. The pointers:
 - `CLAUDE.md`'s **workflow** section is how a unit of work runs, start to finish; its "Where the
   work is" section carries the three state facts worth repeating (the switched-off survival loop,
   the top-down presentation track, the dead-socket pattern).
-- `HANDOFF.md` names what is waiting on the owner. Those items — the `GRABS_ENABLED` flip, the
-  colony-shape call it waits on, sepsis lethality, the art-style pick — are **decisions, never
-  picked unilaterally**.
+- `HANDOFF.md` names what is waiting on the owner. Those items — sepsis lethality, the
+  art-style pick — are **decisions, never picked unilaterally**. (The `GRABS_ENABLED` flip and
+  the colony-shape call it waited on were decided by the owner 2026-09-01 and are landed; the
+  flag record in docs/23 closes with them.)
 - The active design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is
   **not** implementation evidence. `CONTEXT.md` holds the slice vocabulary — what to call needs,
   jobs, stances, and their states — so prose and code stay in one language.
-- New NPCs and adjacent feature scope stay paused; **Mara remains the sole test survivor.**
+- New NPCs and adjacent feature scope stay paused. The boot colony is **three** by the owner's
+  2026-09-01 decision — the player, Mara, and Ellis (`survivor.unique.ellis`); further roster
+  growth stays paused.
 
 ## Two different containers, two different starting states
 

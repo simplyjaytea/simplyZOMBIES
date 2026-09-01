@@ -242,6 +242,10 @@ static func place_stations(world: Variant, map: Variant) -> void:
 		SimNeeds.make_bed(world, float(tiles[1].x) + 0.5, float(tiles[1].y) + 0.5)
 	if tiles.size() > 2:
 		SimNeeds.make_bed(world, float(tiles[2].x) + 0.5, float(tiles[2].y) + 0.5)
+	# Three beds for three boot colonists -- the bigger-colony decision (docs/23's flag record).
+	# _indoor_floors fetches 6 tiles, so a stamped annex always has the floor for it.
+	if tiles.size() > 3:
+		SimNeeds.make_bed(world, float(tiles[3].x) + 0.5, float(tiles[3].y) + 0.5)
 	# Outdoor well just south of the gate (ADR 0013) -- the template's own anchor now, not
 	# `GATE_A + (1, 2)` computed here. A district nobody stamped has no well anchor and gets no
 	# well, which is the honest answer: there is nothing to site it against.

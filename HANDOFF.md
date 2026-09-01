@@ -14,21 +14,27 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-08-25
+## State, as of 2026-09-01
 
 Green, and verified this session rather than quoted: `npm run godot:m2` chains **35 gates** and
 exits 0, `npm test` is **45 files / 594 tests** passing, and `godot:validate`, `godot:test` and
 `godot:smoke` are clean. CI's `check` job runs those plus typecheck, lint and format; its
 `performance` job runs the two TypeScript benchmarks.
 
-The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight, and a
-shambler in arm's reach will claw you: wounds bleed, and pressure, bandaging and recovery are live
-in ordinary play. Grabs — and with them bites, and with bites infection — remain behind
-`SimShambler.GRABS_ENABLED`, untouched.
+The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight with
+**three colonists** (you, Mara, and Ellis — the bigger-colony decision), and the survival loop is
+**on**: `SimShambler.GRABS_ENABLED` ships `true`, so a shambler in reach swipes, closes into a
+hold, bites, and a bite can infect. Wounds bleed; pressure, bandaging, rescue and recovery are all
+live in ordinary play. The decision, the measurement and the gate promotions are in
+[docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
-## What landed in the last session
+## What landed recently
 
-A **review sweep**: a read of the whole tree looking for defects rather than for the next feature.
+**2026-09-01 — the bigger colony and the `GRABS_ENABLED` flip**, described in the state section
+above; the flag record in docs/23 has the decision, the before/after table, and the gate work.
+
+**2026-08-25 — a review sweep**: a read of the whole tree looking for defects rather than for the
+next feature.
 Thirteen fixes, seven gate assertions, each with its true negative, and everything else the sweep found
 written down instead of fixed. The record is in
 [docs/23 → the record, by system → Kernel & review sweep](docs/23-roadmap.md#the-record-by-system);
@@ -62,30 +68,19 @@ When you add a mechanism, add the assertion that something reaches it.
 
 ## What is waiting on the owner, not on code
 
-These are design calls. They have been measured, written up, and deliberately **not** decided:
+These are design calls. They have been measured, written up, and deliberately **not** decided.
+(Two long-standing items came off this list on 2026-09-01, decided by the owner and landed
+together: colony shape — a bigger colony, three at boot — and the `GRABS_ENABLED` flip. The flag
+record in docs/23 closes with both.)
 
-1. **Colony shape: a bigger colony, or one posted closer.** Two survivors spread across a 256 m
-   district is why seed 404 still wipes with grabs forced on — rescue is built, gated and correct,
-   and a second body is simply never within reach. A design decision about the slice, not a
-   tuning one.
-2. **Flip `SimShambler.GRABS_ENABLED`.** The whole injury loop is built and gated behind it. Every
-   recorded reason has been answered (docs/23's flag record is the seed-by-seed history); what
-   stands now is the colony-shape call above. **Do not flip it unilaterally.**
-3. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
-   deliberately not a death path, because lethality balance is the thing standing between
-   `GRABS_ENABLED` and its flip. Note the sweep found that sepsis's only cure is unreachable in
-   play — `infection.respond` has no producer — which is a missing surface, not this decision.
-4. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
+1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
+   deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
+   this decision live too; making it lethal is a balance decision that needs a measurement
+   attached. Note the sweep found that sepsis's only cure is unreachable in play —
+   `infection.respond` has no producer — which is a missing surface, not this decision.
+2. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
    docs/23's what's-left section has the three candidates and which picks force a sprite
    regeneration.
-
-One thing about #1 changed shape without being decided: the **worldgen arc** (authorized and
-landed 2026-08-25, all nine slices; scope decisions in
-[docs/30](docs/30-decisions.md#what-the-worldgen-arc-decided), the record per slice in
-[docs/23's record, by system](docs/23-roadmap.md#the-record-by-system)) made the civic annex an
-authored template the generator sites per seed, so "a bigger colony building" is now a content
-edit rather than a code change. The colony-shape call itself — and the `GRABS_ENABLED`
-flip behind it — remains the owner's.
 
 ## How a session runs
 

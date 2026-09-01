@@ -142,8 +142,9 @@ Milestone 2, the vertical slice — one district, a handful of survivors, enough
 find out whether the loop is fun. Its exit criterion is ten in-game days, permanent loss,
 succession, and still wanting another run.
 
-New NPCs and adjacent feature scope stay paused; **Mara remains the test survivor.** The design
-record is
+New NPCs and adjacent feature scope stay paused. The boot colony is **three by the owner's
+2026-09-01 decision** — the player, Mara, and Ellis (`survivor.unique.ellis`); further roster
+growth stays paused. The design record is
 [`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`](.hermes/plans/2026-08-17_065300-vertical-slice-design.md).
 It captures decisions, not shipped behavior: nothing counts as done until code and a focused Godot
 check prove it.
@@ -161,14 +162,14 @@ that way. Read 30 before changing something that looks arbitrary. This file does
 contents — the one copy of the status lives in docs/23, because every duplicated copy of it has
 drifted. Three things about the current state matter enough to repeat anyway:
 
-- **The survival loop is built end to end, gated, and switched off.** Grabs, bites, located
-  bleeding wounds, pressure and bandaging, recovery, infection — all behind
-  `SimShambler.GRABS_ENABLED = false`. Six recorded reasons for the flag have each been answered
-  (docs/23's flag record is the seed-by-seed history); what stands now is **colony shape** — a
-  bigger colony, or one posted closer — which is a design call about the slice. **Do not decide
-  it, or flip the flag, unilaterally.** Relaxing `survivors_end >= 1` has been considered and
-  rejected. The swipe (`godot:m2:swipe`) is the one zombie damage path outside the flag, so
-  ordinary play exercises wounds, bleeding and treatment — but never infection.
+- **The survival loop is built end to end, gated, and ON.** Grabs, bites, located bleeding
+  wounds, pressure and bandaging, rescue, recovery, infection — `SimShambler.GRABS_ENABLED`
+  ships `true` since the owner's 2026-09-01 decision (a bigger colony, then the flip; docs/23's
+  flag record is the seed-by-seed history and closes with it). The flag stays a gate-drivable
+  static: any gate lane that pins it must **restore the previous value**, because one gate
+  process shares it across every world it boots. Relaxing `survivors_end >= 1` has been
+  considered and rejected — post-flip it is the standing assertion that the shipped default
+  survives its own contact loop. Sepsis lethality remains undecided and the owner's.
 - **The presentation is flat top-down, not isometric** — an independent track that touched nothing
   under `godot/sim/`. `docs/00-vision.md` carries the reversal, docs/30 what it made structural,
   and the art entries in what's left the ordered next steps; the style pick is the owner's.
