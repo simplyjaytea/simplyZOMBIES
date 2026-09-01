@@ -301,7 +301,15 @@ func _props_reach_the_draw_path() -> bool:
 	var unsearched: Dictionary = Appearance.prop_look(world, container)
 	(world.components.get_component(container, "searchable") as Dictionary)["searched"] = true
 	var searched: Dictionary = Appearance.prop_look(world, container)
-	if String(unsearched["id"]) == String(searched["id"]) or unsearched["tint"] == searched["tint"]:
+	if String(unsearched["id"]) == String(searched["id"]):
+		push_error("a searched container resolves the same content id as an unsearched one; the flag is not reaching PROP_KINDS")
+		return false
+	# The two ids have to draw differently, and *how* they differ moved with the art: they were
+	# two tints until props had sprites, and are now two pictures drawn unstained (white on both
+	# sides, so a tint comparison alone would read "identical" for props that are nothing of the
+	# sort). Either axis differing is enough; neither differing is one state wearing two names.
+	# check_appearance's prop lane is the finer version, comparing the decoded pixels.
+	if unsearched["tint"] == searched["tint"] and unsearched["texture"] == searched["texture"]:
 		push_error("a searched container looks exactly like an unsearched one; the state is not readable")
 		return false
 

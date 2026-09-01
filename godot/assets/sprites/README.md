@@ -62,6 +62,29 @@ draws it and `npm run sprites:check` fails if the committed PNG and that code di
 - **Filename:** `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the
   registry key.
 
+## Tile art: segment sets, and the third authoring convention
+
+Props draw on an entity's position and pawns draw on a body's. **Tile art draws on a tile** —
+`main.gd::_draw_district` blits it into the tile rect, and `presentation/dressing.gd` decides
+which key that tile takes out of `content/dressing/street.json`. Three rules follow from the
+canvas being 64×64 and staying that way:
+
+- **A thing longer than a tile is a set of files, one per tile.** `wreck_car_{a,b,c}_{front,
+  mid,rear}` is a car two or three tiles long: `front` runs to the **south** edge of its canvas,
+  `rear` starts at the **north** edge of its, and `mid` fills its canvas end to end, so
+  front+rear (two tiles) and front+mid+rear (three) both close up with no seam. All three share
+  one body half-width, or the car steps in width at a tile boundary.
+- **The join edges carry no outline.** A dark line drawn on an edge that meets another segment is
+  a seam across the middle of the car; `Canvas.outline(colour, sides)` in the generator takes the
+  sides that are actually silhouette.
+- **Authored north, turned by the renderer.** A run lying east-west draws the same north-authored
+  keys through one quarter-turn transform (`Dressing.run_angle`), never a second set of files.
+  The lighting bakes only the component perpendicular to the run (`light_top_left(..., "x")`) —
+  a diagonal gradient restarts at every tile and bands a long car light-dark-light.
+
+Debris (`debris_litter_*`, `debris_rubble_*`) is tile art too, mostly transparent, with a
+selective bottom/right outline: a 3 px scrap outlined on four sides is all outline and no scrap.
+
 ## Equipped-item overlays
 
 An item base can also carry `appearance.equipSprite` (item.schema.json), a **different** picture

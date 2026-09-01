@@ -2,36 +2,36 @@
   {
     "id": "prop.container",
     "name": "Container",
-    "appearance": { "tint": "#7a5f38", "shape": "box", "size": 0.62 }
+    "appearance": { "sprite": "prop_container", "shape": "box", "size": 0.62 }
   },
   {
     "id": "prop.container.searched",
     "name": "Searched container",
-    "appearance": { "tint": "#443a2b", "shape": "box", "size": 0.62 }
+    "appearance": { "sprite": "prop_container_searched", "shape": "box", "size": 0.62 }
   },
   {
     "id": "prop.bed",
     "name": "Bed",
-    "appearance": { "tint": "#b3ac9a", "shape": "slab", "size": 0.82 }
+    "appearance": { "sprite": "prop_bed", "shape": "slab", "size": 0.82 }
   },
   {
     "id": "prop.campfire",
     "name": "Cold campfire",
-    "appearance": { "tint": "#4a4038", "shape": "disc", "size": 0.5 }
+    "appearance": { "sprite": "prop_campfire", "shape": "disc", "size": 0.5 }
   },
   {
     "id": "prop.campfire.lit",
     "name": "Lit campfire",
-    "appearance": { "tint": "#e08430", "shape": "disc", "size": 0.56 }
+    "appearance": { "sprite": "prop_campfire_lit", "shape": "disc", "size": 0.56 }
   },
   {
     "id": "prop.well",
     "name": "Well",
-    "appearance": { "tint": "#6d7078", "shape": "ring", "size": 0.86 }
+    "appearance": { "sprite": "prop_well", "shape": "ring", "size": 0.86 }
   },
   {
     "id": "prop.latrine",
     "name": "Latrine",
-    "appearance": { "tint": "#4e4a33", "shape": "box", "size": 0.55 }
+    "appearance": { "sprite": "prop_latrine", "shape": "box", "size": 0.55 }
   }
 ]

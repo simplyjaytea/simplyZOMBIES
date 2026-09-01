@@ -143,6 +143,18 @@ static func door_tiles(map: Variant) -> Dictionary:
 	return out
 
 
+# A whole content entry, or {} when nothing carries that id.
+#
+# `of_content` below answers with the `appearance` sub-block, which is the right answer for
+# everything that draws as a body or a footprint. The map dressing (presentation/dressing.gd) is
+# not one of those: its content entry *is* the look -- keys per wreck segment, per debris
+# family -- with no pawn for an `appearance` block to hang off. So it asks for the entry, through
+# the one content lookup this file already owns, rather than growing a second one beside it.
+static func entry_of(world: Variant, kind: String, id: String) -> Dictionary:
+	var entry: Variant = _content_entry(world, kind, id)
+	return entry as Dictionary if entry is Dictionary else {}
+
+
 # The appearance block for a content id, or {} when the type declares none.
 # Content `extends` is deliberately not merged here: nothing else in the codebase resolves
 # inheritance at runtime (content_validator.gd only checks it exists and does not cycle), so
