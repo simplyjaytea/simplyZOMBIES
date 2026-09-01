@@ -101,6 +101,19 @@ const WALL_FACE_LIT: float = 0.16
 const WALL_FACE_DIM: float = 0.04
 const WALL_FACE_SHARE: float = 0.17
 
+# The warm tint a lit pool is painted with, in two alphas split at POOL_SPLIT_METRES of remaining
+# reach -- rgb(255, 214, 140), the frozen renderer's light overlay, unchanged. **One** warm tint
+# for every source this slice: a candle, a campfire and a floodlight all paint the same colour and
+# differ only in how far the pool reaches. Per-source tint from content (`light: {tint}` beside
+# `light: {magnitude}`) is the named follow-up in docs/23 -- it is a content axis, not a branch to
+# grow in the draw loop, so it waits for the content shape rather than for an `if id ==` here.
+const LIGHT_POOL_NEAR: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.20)
+const LIGHT_POOL_FAR: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.09)
+# The same two tints for the O-key light channel, which is a developer overlay rather than the
+# look: it is being read as a diagram, so it is loud enough to see against a sunlit street.
+const LIGHT_POOL_NEAR_OVERLAY: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.45)
+const LIGHT_POOL_FAR_OVERLAY: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.22)
+
 const SWING_RGB: String = "232, 215, 160"
 const NIGHT_RGB: String = "6, 10, 26"
 const SHADOW_RGB: String = "0, 0, 0"
