@@ -36,10 +36,11 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	# Grabs ship off by default (SimShambler.GRABS_ENABLED) -- see that constant for the five
-	# reasons, in order, and which of them are answered. Switched on here for the whole gate, so
-	# every assertion below exercises the real loop rather than the shipped default. When the
-	# default flips this line becomes a no-op and nothing here changes.
+	# Grabs ship ON now (SimShambler.GRABS_ENABLED -- docs/23's flag record carries the six
+	# answered reasons and the flip). Still set explicitly here rather than trusted: the flag is
+	# a static shared by every world one gate process boots, and another lane may have pinned it
+	# the other way. `_the_flag_actually_gates_acquisition` below drives it in both directions
+	# and restores it, which is what keeps the flag honest whatever the shipped default is.
 	SimShambler.GRABS_ENABLED = true
 	var ok: bool = true
 	ok = _grab_forms_in_reach_but_not_at_distance() and ok

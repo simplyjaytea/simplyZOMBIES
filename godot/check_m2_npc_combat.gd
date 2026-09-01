@@ -567,6 +567,20 @@ func _rescue_arena() -> Variant:
 
 
 func _a_guard_engages_without_leaving_its_post() -> bool:
+	# This lane measures engaging-from-a-post against chasing, and its zombie stands 0.9 m off --
+	# inside GRAB_METRES. With GRABS_ENABLED shipping true (docs/23's flag record) the zombie
+	# takes hold and every escape is a 2.1 m/s break-away flight, so "drift" reads the grab
+	# loop's own shove-offs rather than a chase (measured: 8.3 m of accumulated flight). Pinned
+	# off for the lane, previous value restored -- the flag is a static shared by every world
+	# this gate process boots; the grab loop has its own gate (check_m2_contact.gd).
+	var flag_was: bool = SimShambler.GRABS_ENABLED
+	SimShambler.GRABS_ENABLED = false
+	var ok: bool = _guard_post_lane()
+	SimShambler.GRABS_ENABLED = flag_was
+	return ok
+
+
+func _guard_post_lane() -> bool:
 	# The real district this time, with every module the playable boot registers.
 	var w: Variant = SimBoot.playable(20260805, 64)["world"]
 	var guard: int = -1
