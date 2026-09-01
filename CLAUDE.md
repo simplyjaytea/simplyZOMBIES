@@ -87,12 +87,19 @@ npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
+npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 ```
 
 Those are the ones worth naming, not all of them: `godot:m2` chains **39**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
+
+`sprites:check` is the one gate deliberately **outside** `godot:m2`: it needs Pillow
+(`pip install pillow==12.3.0`) and that chain stays engine-only and pip-free, so it runs as its
+own step in CI's `check` job. Run it after editing anything under `tools/sprites/` or any PNG
+that package generates — it re-renders every registry key and compares decoded pixels against
+the committed file, so a palette edited without regenerating is a red build.
 
 `godot:m2` prints `ObjectDB ... leaked at exit` and `resources still in use` *after* it reports
 success. That is engine shutdown noise, not a failure — check the `_OK` line and the exit code.

@@ -16,8 +16,49 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
   head toward the top, feet by ~y=57 — and do not bake a shadow in.
 - **The pawn read:** RimWorld proportions on a Zero Sievert palette — oversized head (~40% of
   figure height), rounded shoulder-mass torso, stub legs, 1 px near-black outline, desaturated
-  mid-tones. Figures do not rotate; facing is the sim's indicator line, not the body.
+  mid-tones. Everyone but the player is drawn this way, does not rotate, and shows facing
+  through the sim's indicator line rather than through the body.
   `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the open flavour directions.
+- **Two conventions coexist**, and which one a sprite follows is decided by whether it turns:
+  the face-on pawn above, and the rotating rig below. That seam is deliberate and owner-accepted
+  (docs/30, "The art style: B, picked from a reference") until the roster is re-authored for
+  overhead — it is not a mistake to tidy up by rotating everybody.
+
+## The rotating rig — the player, and only the player
+
+docs/30's style pick takes the reference's rotating player and refuses the rest of it: **only the
+player rotates.** A loop that spun every body would tell the player which way a shape in the dark
+is looking, which is exactly the certainty the peripheral-anonymity clause
+(`docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable`) denies them.
+`Appearance.body_rotation` answers `0.0` for everybody else, and `check_topdown.gd`'s
+`_only_the_player_rotates` fails if the draw loop grows a second `draw_set_transform`.
+
+Authoring one:
+
+- **True overhead, not a pawn.** Crown, shoulders, forearms forward. A pawn's mass sits low on
+  the canvas (feet by ~y=57) and rotating that orbits the figure around a point it does not
+  occupy; a rig's mass is radially centred on the pivot, which is the point **between** pixels 31
+  and 32 — (31.5, 31.5) in pixel-centre terms, not 32.
+- **Forward is up-canvas.** `Appearance.SPRITE_FORWARD` is `-PI/2` and everything follows from
+  it: a body facing north draws unrotated, facing east draws a quarter turn clockwise.
+- **Near-radial silhouette, ~26–30 px, no 1 px protrusions.** Rotation is free (no pre-baked
+  direction frames) and unsmoothed at 20 Hz, so anything that sticks out crawls and strobes as
+  the body turns. Blunt extremities, and the 1 px `#161614` outline is drawn *inwards* so it
+  cannot grow the silhouette on the diagonals.
+- **Neutral or radial shading — never a directional bake.** Every static sprite is lit from the
+  top-left (matching `main.gd::_draw_bevelled_box`); a rotating one must not be, or the sun
+  appears to swing round the district whenever the player turns.
+- **Carry the facing in the art.** The indicator line comes *off* the player once the art
+  resolves (`Appearance.wants_facing_line`), so the rig has to say which way it is pointed by
+  itself: one asymmetric tell — the shipped rig uses a slung strap — plus a forward-of-centre
+  brow. A radially symmetric body is legible as a body and illegible as a facing.
+- **Equipped overlays ride the rig.** They are composited inside the same transform, at the same
+  rect, by `main.gd::_blit_body`. Mechanically that already works; the shipped overlay *art* is
+  still authored face-on, which is the characters slice's work and not something to "fix" by
+  pulling the layers back out of the transform.
+
+`player_body` is the one rig today, and it is **generated** — `tools/sprites/` holds the code that
+draws it and `npm run sprites:check` fails if the committed PNG and that code disagree.
 - **Filename:** `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the
   registry key.
 

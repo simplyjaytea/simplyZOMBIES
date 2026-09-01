@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "parity:r1:oracle": "node scripts/write-r1-oracle.mjs",
+    "sprites:check": "python3 tools/sprites/build.py --check",
     "godot:test": "node scripts/run-godot.mjs --test",
     "godot:smoke": "node scripts/run-godot.mjs --smoke",
     "godot:export": "node scripts/run-godot.mjs --export",

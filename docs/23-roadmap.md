@@ -222,11 +222,6 @@ is made (see the decision above and docs/30); what remains is the work it forces
 order. The reference mood throughout: muted, overcast, desaturated urban decay — and its HUD is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
 
-- **The player exists as a sprite, and rotates.** The B mechanic: `draw_set_transform` around
-  the player's own blit (centre anchor makes it contained), equip overlays riding the rotated
-  rig, and **only** the player rotating — peripheral anonymity is the clause a careless loop
-  breaks. The fixtures found the shipped game has no player sprite at all (`Appearance.for_entity`
-  never sets a content id for `is_player` alone), so this slice authors one too.
 - **Ground & road dressing.** Lane markings, sidewalk edges, kerbs and surface variation in the
   reference's palette — the streets read as streets. Markings are content-driven dressing, not
   `if id ==` branches in the draw loop.
@@ -237,7 +232,13 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
   player has not seen.
 - **Characters re-authored for overhead.** The brainstorm's overhead visual language: survivors
   and the zombie roster on the rotated-rig conventions. Folds in the old **screamer and bloater
-  sprites** item — both still render as tinted shapes.
+  sprites** item — both still render as tinted shapes. Carries three deferrals the player's own
+  rig left named rather than hidden (see its record): the **entity-blit zoom-scale defect** (every
+  textured body blits at its native 64 px whatever the camera zoom, so a pawn is the wrong size at
+  every zoom but 64 — fixed here, where all character art is re-judged anyway, not inside a
+  rotation slice); **overhead equip art** (the pack and bat overlays are still face-on placeholders
+  riding the rotated rig, and are never "fixed" by pulling those layers out of the transform); and
+  a **display-rotation lerp** if a playtest reads the 20 Hz rotation steps as jitter.
 - **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
   the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
   only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
@@ -1278,6 +1279,74 @@ not a to-do list:
   luminance) so every wall/floor boundary is a drawn line — and was shown to fail at a face share
   of 0.5, at a cap no darker than the fill, at a face that sinks into the ground, and with the
   exposed-edge test removed.
+  ~~The player exists as a sprite, and rotates~~ **landed** (`godot:check:appearance` lane PLAYER,
+  `godot:check:topdown` lane ROTATION) — the first slice of the style-B reference arc, and the
+  first time the protagonist has had a body. The style fixtures found the shipped game had no
+  player sprite at all, and the reason was structural rather than an omission: every other body
+  hands `Appearance.for_entity` a content id — a zombie its type, a unique survivor its identity
+  or rolled `look`, a raider its archetype — and the player carried none, so the resolver had
+  nothing to look up and the protagonist drew as a disc. So the player's look is content now,
+  like everything else's: a new **`player` content type** (`content/players/player.json`,
+  `player.schema.json`, registered in `content_validator.gd`) holding the single entry
+  `player.body`, and `Appearance.PLAYER_LOOK_ID` is the one place that id is named, so `main.gd`
+  still carries no `if id ==`. It is deliberately **not** an entry under `survivors/`:
+  `survivor.schema.json` pins ids to `^survivor\.unique\.` — which the frozen oracle's Ajv would
+  refuse, a red CI — and `SimSurvivors.list_uniques` boots everything in that directory, so an
+  entry there would also spawn a phantom colonist. `players/` is invisible to the oracle's six
+  content directories, the `content/loot/` and `content/raiders/` precedent.
+  The art is **generated**: `tools/sprites/` (`build.py --only/--check`, `palette.py`, `draw.py`,
+  `parts/characters.py`) lands with its first registry key, `player_body` — a true-overhead rig,
+  visual mass radially centred on the pivot at (31.5, 31.5) rather than a pawn's feet-low mass,
+  which is what stops a rotating body orbiting a point it does not occupy; near-radial silhouette
+  inside 14.6 px, inward 1 px `#161614` outline so it cannot grow on the diagonals, neutral radial
+  shading — the one exception to the top-left light every static sprite is drawn under, because a
+  directional bake on a body that spins claims the sun swings round the district — and one
+  asymmetric slung-strap tell, since the indicator line comes off the player and the art has to
+  carry the facing itself. `palette.py` enforces the reference mood mechanically (saturation
+  ≤ 0.35, value in [0.12, 0.80], and a body-forming ramp's mid tone must clear the brightest
+  surface tint by 0.10 in luminance or the import raises). `npm run sprites:check` re-renders every
+  key and compares **decoded pixels** — not file bytes — against the committed PNG; it runs in
+  CI's `check` job behind one `pip install pillow==12.3.0` line and deliberately **not** in
+  `godot:m2`, which stays engine-only and pip-free at 39 gates. Shown red both ways: a ramp
+  edited without regenerating (275 of 4096 pixels), and a registry key whose file is missing.
+  Rotation is one `draw_set_transform` in `_draw_entities`, the player's alone, reset with
+  `draw_set_transform_matrix(Transform2D.IDENTITY)` rather than a second transform so "exactly one
+  body rotates" stays countable in the source. The angle comes from `facing.radians` only — the
+  sim already arbitrates aim against heading, and presentation computes no second aim angle. The
+  contact shadow is drawn outside the transform (a shadow is cast by the world's light, not by the
+  body); the equip layers are drawn inside it, through a new `_blit_body` that both branches share.
+  `Appearance.body_rotation(is_player, facing)` is where the "only the player rotates" clause
+  lives — `0.0` for everybody else, so docs/30's peripheral-anonymity boundary is a rule with a
+  true negative rather than a comment — and `wants_facing_line(is_player, has_texture)` takes the
+  white indicator line off exactly one body: the player, once art resolves. Every procedural shape
+  keeps it, the player's own included when content is missing, because the fallback is a supported
+  path. Shown red both ways in ten sabotages: rotating everybody (the anonymity clause), the sign
+  flipped, the line never coming off, the line coming off a player with no art, a second
+  `draw_set_transform`, no reset, the helper bypassed with inline maths, `_blit_body` unpicked,
+  the guard removed from the loop, and `_draw_entities` renamed (which reports *had nothing to
+  judge* rather than passing quietly). On the appearance side: the content file deleted, its id
+  renamed, an accidental tint on the art, and a hardcoded player texture in presentation — which
+  reds the reworked FALLBACK lane too, since that lane now probes all four roles against an
+  **empty content tree** (`content_tree: {}`) instead of relying on the shipped tree happening to
+  declare nothing, with `Appearance.forget()` between worlds because `_cache` is a `static var`
+  shared across every world one gate process boots. Eyeballed as well as gated: four headings
+  captured under Xvfb through a throwaway `SceneTree` driver (deleted after, per the rule) — the
+  composite is committed at `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice1-player.png`,
+  and a second pass with a pack force-equipped confirmed the overlay turns with the body.
+  **Which halves shipped.** The equip overlays ride the rig **mechanically** — same transform,
+  same rect, same compositor — but the overlay *art* is still authored face-on: a pack and a bat
+  drawn for a face-on pawn, riding a rotating body. That is the characters slice's work and must
+  never be "fixed" by pulling those layers out of the transform. Two more deferrals are named
+  rather than left to be rediscovered: **display-rotation smoothing** was considered and
+  deliberately not built — rotation steps at the 20 Hz tick and the art is drawn to tolerate it;
+  if a playtest reads that as jitter, `camera.gd`'s exponential-lerp is the precedent. And the
+  **entity-blit zoom-scale defect** — every textured body is blitted at its native 64 px
+  regardless of camera zoom, so a pawn is the wrong size at every zoom but 64 — is real, pre-dates
+  this slice, and is deferred to the characters slice, which re-authors and re-judges all
+  character art anyway; coupling a global size change to "the player rotates" would have muddied
+  the one claim this slice makes and the screenshot it is judged by. `assets/sprites/README.md`
+  now documents both coexisting authoring conventions (face-on pawn, rotating rig) and says which
+  applies when; the seam between them is owner-accepted until the roster is re-authored.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

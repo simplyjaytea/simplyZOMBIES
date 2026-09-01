@@ -1,0 +1,5 @@
+{
+  "id": "player.body",
+  "name": "The player's body",
+  "appearance": { "sprite": "player_body" }
+}
