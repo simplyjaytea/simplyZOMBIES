@@ -16,10 +16,11 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-01
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **35 gates** and
-exits 0, `npm test` is **45 files / 594 tests** passing, and `godot:validate`, `godot:test` and
-`godot:smoke` are clean. CI's `check` job runs those plus typecheck, lint and format; its
-`performance` job runs the two TypeScript benchmarks.
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **37 gates**
+(counted off the script in `package.json`, which is the authoritative list — the number here had
+drifted one behind) and exits 0, `npm test` is **45 files / 594 tests** passing, and
+`godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check` job runs those plus
+typecheck, lint and format; its `performance` job runs the two TypeScript benchmarks.
 
 The game is playable — `npm run godot:run`, needs a display. It boots on day 1 in daylight with
 **three colonists** (you, Mara, and Ellis — the bigger-colony decision), and the survival loop is
@@ -32,6 +33,15 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 **2026-09-01 — the bigger colony and the `GRABS_ENABLED` flip**, described in the state section
 above; the flag record in docs/23 has the decision, the before/after table, and the gate work.
+
+**2026-09-01 — antibiotics became reachable** (`npm run godot:check:respond`, `RESPOND_OK`), the
+surface the flip needed beside it: a clickable word under the condition readout on the Tab body
+screen, offered by the sim (`SimTreatment.response_view`) only when a course is in the pack *and*
+something is showing that a course might answer — never on `transmitted`, never on `is_septic`, so
+a latent bite is offered nothing and a fever from either cause offers the same word. Antibiotics
+only; the other four verbs and why each is still unsurfaced are in docs/23's defect list. It also
+closed a free-course hole: `use_antibiotics`' zombie-infection path used to record a course with
+no item spent, which made antibiotics free for the bitten and priced only for the septic.
 
 **2026-08-25 — a review sweep**: a read of the whole tree looking for defects rather than for the
 next feature.
@@ -76,8 +86,11 @@ record in docs/23 closes with both.)
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement
-   attached. Note the sweep found that sepsis's only cure is unreachable in play —
-   `infection.respond` has no producer — which is a missing surface, not this decision.
+   attached. The cure is no longer out of reach: the sweep's "`infection.respond` has no
+   producer" is closed for antibiotics — they are a clickable word on the body screen now
+   (`godot:check:respond`) — so the decision is about lethality alone rather than about lethality
+   with no answer available. The other four infection verbs still have no surface, for the
+   reasons docs/23's defect list gives.
 2. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
    docs/23's what's-left section has the three candidates and which picks force a sprite
    regeneration.

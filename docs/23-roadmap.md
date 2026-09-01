@@ -332,12 +332,21 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   `line_of_sight` rather than `detail`, so a survivor remembers — and the HUD reports — bodies
   standing in the 170-degree arc behind them. The information-stays-scarce ban is the reason to
   care.
-- **The five infection verbs, and six other commands, have no way in.** `infection.respond`,
-  `item.modify`, `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search`
-  are live command handlers that nothing — no key, no button, no NPC decision — ever pushes.
-  `infection.respond` is the one that matters now: sepsis is reachable in ordinary play through the
-  swipe and antibiotics are its only cure. This is a missing surface rather than a defect, and the
-  attachment-fitting screen above is part of the same hole.
+- **Four of the five infection verbs, and six other commands, have no way in.** `item.modify`,
+  `item.attach`, `item.detach`, `item.split`, `item.pickUp` and `container.search` are live command
+  handlers that nothing — no key, no button, no NPC decision — ever pushes, and the
+  attachment-fitting screen above is part of the same hole. `infection.respond` **now has a
+  producer** for exactly one of its verbs: the antibiotics word on the body screen
+  (`godot:check:respond`, see the record). What is still unreachable, and why each is left that
+  way rather than tidied up beside it:
+  - **`quarantine`** is a mechanical no-op — it writes a `quarantined` record and publishes an
+    event, and nothing reads either. It is deliberately **not** surfaced: a button that does
+    nothing is worse than a verb that cannot be reached, because only one of the two is a lie.
+    Giving it an effect is the piece of work, and the surface follows it.
+  - **`cauterize` and `amputate`** are aimed at a body *part*, and **`put_down`** at a *person*.
+    Neither selection exists on any screen — the body screen names one survivor and no part, and
+    `treat.context` deliberately picks the wound for you. A patient-and-part selection surface is
+    what all three are waiting on, and it is one piece of work for the three of them.
 - **More gates that cannot fail.** Four were fixed in the sweep; these are what a read of all
   thirty-odd check scripts turned up and did **not** fix. Assume there are others and go at the
   rest with the same question — *what change would turn this red?*
@@ -1675,6 +1684,53 @@ not a to-do list:
   the thing standing between `GRABS_ENABLED` and its flip. The flip has since landed (the flag
   record) and the scoping stands unchanged: making sepsis kill is a balance decision with a
   measurement attached, not a detail to slip in beside the mechanic, and it remains the owner's.
+  ~~Sepsis's only cure is unreachable in play~~ **half landed** (`godot:check:respond`,
+  `RESPOND_OK`). `infection.respond` had been a live command handler nothing pushed, which meant
+  antibiotics — the one thing that clears sepsis, and the only answer to a bite that is not a
+  saw — could not be reached by a player at the moment the `GRABS_ENABLED` flip made both
+  ordinary. **The half that shipped is antibiotics**, as a clickable word under the condition
+  readout on the Tab body screen, in work_panel.gd's idiom: the sim owns what is offered
+  (`SimTreatment.response_view`, the companion to `options_for`), a response you can afford is
+  simply *there* in the accent colour, one you cannot is absent rather than greyed, and a click
+  pushes `infection.respond` through the command queue like every other player act. **The half
+  that did not** is the other four verbs, each left out for its own reason and named in
+  [what's left](#whats-left-in-milestone-2): `quarantine` is a no-op, and `cauterize`, `amputate`
+  and `put_down` need a patient-and-part selection surface that does not exist.
+  **The presence rule is the honesty core**, and it is two questions the player could already
+  answer from their own screen: is there a course in the pack (`SimInfection.carries_course`,
+  which goes through the same `_find_course` the spend does, so the word cannot promise what the
+  sim would refuse), and is anything showing that a course might answer
+  (`SimInfection.symptom_of`). The second reads the diagnosis label and the fever clause — the two
+  things the HUD already prints — and never `transmitted`, never `is_septic`: a latent bite reads
+  "clear" and is offered nothing, so **suspicion dosing has no surface, deliberately**, and a
+  fever from either cause offers the identical word. `use_antibiotics`' own comment is the rule
+  being obeyed: the player must not be able to tell sepsis from a bite by which button lights up.
+  **The free-course hole closed with it.** `use_antibiotics`' zombie-infection path kept its own
+  copy of the spend, fell through a `pass` when the pack was empty ("still allow course without
+  item in tests") and recorded the course anyway — so a bitten survivor dosed for free while the
+  sepsis path beside it had always refused, and the finite uncraftable supply the whole docs/05
+  trade rests on was finite only for whoever had not been bitten. It now spends through the one
+  `_spend_one_course` and refuses `no-antibiotics`, which is the word the sepsis path already
+  used; a refusal that differed by cause would leak precisely what the button lighting up would
+  have leaked. No gate lane had relied on the itemless course (the two that spend one already
+  granted the item, and the router lane runs on a world with no exposure at all), so nothing was
+  weakened to accommodate the fix.
+  Six lanes, each with its true negative: TRUE POSITIVE (a feverish survivor carrying a stack of
+  two is offered the word; pushing the command the click builds and stepping once spends exactly
+  one, publishes `antibiotics.used`, clears the sepsis, and the word goes with the fever —
+  asserted after the step, because handlers run at drain); NO NEED (the same full pack with
+  nothing wrong offers nothing, and the same world one fever later offers the word); NO SUPPLY
+  (both stocks — a symptomatic bite and a fever — offer nothing with an empty pack, and a forced
+  push is refused `no-antibiotics` with nothing spent and **no course recorded**, both with the
+  same word, and the same push with a course in the pack doses); NO LEAK (the rows are a function
+  of the *stage* alone: two worlds identical but for `transmitted` produce byte-identical views at
+  Latent and at Onset, latent offers nothing and onset offers the word); PROSE (no digit in any
+  offered row, check_hud.gd's scanner and its three seeded catches); DEAD SOCKET (the reach chain
+  read out of `ui/inventory_panel.gd` — `_draw` calls `_draw_responses`, which resolves
+  `response_view` and turns its rows into click rects, which `_press_at` reads to push
+  `infection.respond` — plus the verb being one the router answers). NO SUPPLY is the fix's own
+  true negative and was **run red before the fix and green after**: with the `pass` restored it
+  reports "a symptomatic bite with nothing in the pack was dosed anyway".
 - **Combat** — ~~firing at a remembered position (and what it costs)~~ **landed**
   (`godot:m2:sight`, SIGHT / NO-EYES / RECALL-FIRE), together with the rule it depends on. docs/09
   says aiming "inherits visibility wholesale" and `_fire_shot` inherited none of it — a shot was a
@@ -1838,9 +1894,15 @@ not a to-do list:
   **both** validators, the shallow one and the frozen oracle's recursing Ajv. The paperdoll was
   also rebuilt as a properly human figure (tapered limbs, A-pose, chest-to-hip taper, elliptical
   head) after the owner rejected the capsule draft.
+  **The body screen answers an infection now** (`godot:check:respond`): a clickable word under the
+  condition readout, drawn from `SimTreatment.response_view` and pushing `infection.respond`, in
+  the same idiom the work grid's learnable node names set — present when it would work, absent
+  when it would not, prose and no digits. The rule that decides when it appears, the four verbs
+  that deliberately have no surface yet, and the free-course hole it closed are under Health &
+  injury above.
   This system's open tails (the diegetic readouts, prose from modifier sources, the skill web
-  screen, the attachment-fitting surface, the parked warmth/hygiene slots) are in
-  [what's left](#whats-left-in-milestone-2).
+  screen, the attachment-fitting surface, the patient-and-part selection the other infection verbs
+  wait on, the parked warmth/hygiene slots) are in [what's left](#whats-left-in-milestone-2).
 - **Death & succession** — ~~the colony morale hit on a death~~ **landed** (`godot:m2:needs`,
   GRIEF and ONCE), leaving the balance-grid proof that "the run ends only when the last survivor
   dies". docs/04 lists **grief** and **witnessing a death** as two separate negative mood sources
