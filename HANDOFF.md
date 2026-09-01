@@ -80,9 +80,12 @@ When you add a mechanism, add the assertion that something reaches it.
 ## What is waiting on the owner, not on code
 
 These are design calls. They have been measured, written up, and deliberately **not** decided.
-(Two long-standing items came off this list on 2026-09-01, decided by the owner and landed
-together: colony shape — a bigger colony, three at boot — and the `GRABS_ENABLED` flip. The flag
-record in docs/23 closes with both.)
+(Three long-standing items came off this list on 2026-09-01, decided by the owner: colony shape
+— a bigger colony, three at boot — and the `GRABS_ENABLED` flip, both landed together and closed
+in docs/23's flag record; and the top-down art style — **B, the rotating player**, picked from
+the built fixtures and a supplied reference image. docs/30's
+"The art style: B, picked from a reference" entry records that pick and its boundaries; the
+work it forces is docs/23's style-B reference arc.)
 
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
@@ -92,12 +95,6 @@ record in docs/23 closes with both.)
    (`godot:check:respond`) — so the decision is about lethality alone rather than about lethality
    with no answer available. The other four infection verbs still have no surface, for the
    reasons docs/23's defect list gives.
-2. **The top-down art flavour.** The presentation track is unblocked and waiting on a pick;
-   docs/23's what's-left section has the three candidates and which picks force a sprite
-   regeneration. **The comparison fixtures are built** (authorized by the owner, 2026-09-01
-   session): twelve screenshots and a written comparison at
-   `.hermes/plans/2026-09-01_art-style-fixtures/` (`comparison.md`) — see docs/23's record for
-   the method. The pick itself is still open.
 
 ## How a session runs
 

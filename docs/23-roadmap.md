@@ -152,22 +152,16 @@ and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
 decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks the project up.
+(The art-style pick came off this list on 2026-09-01, decided by the owner from the built
+fixtures and a supplied reference image: **style B, the rotating player**, under the reference's
+muted urban mood. The record below and
+[docs/30](30-decisions.md#the-art-style-b-picked-from-a-reference) carry the decision; the arc
+it opens is the art group below.)
 
 1. **Can sepsis kill?** Today it is debilitating and permanent-until-treated, deliberately not a
    death path. The `GRABS_ENABLED` flip has landed (the flag record below closes with it), which
    makes sepsis reachable in ordinary play and makes this decision live rather than hypothetical.
    Making it lethal is a balance decision that needs a measurement attached.
-2. **Pick the top-down art style.** `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the
-   three candidate directions and the overhead re-authoring of the zombie visual language; its
-   screenshot-fixture method is the way to compare them. The five shipped sprites need regenerating
-   only if the pick isn't A (the shipped baseline): B needs rotation support (`draw_set_transform`
-   around the blit — the centre anchor was chosen so that stays a contained change), and C needs a
-   rig-sheet pass before more sprites exist. The two art pieces below queue behind this pick.
-   **The fixtures are built** (authorized by the owner, 2026-09-01 session): twelve screenshots
-   (A/B/C × day/indoors/night/combat) and a written comparison sit in
-   `.hermes/plans/2026-09-01_art-style-fixtures/` (`comparison.md`) — see the flag/session record
-   below for the method. The pick itself is still open and still the owner's; nothing here decides
-   it.
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
@@ -223,12 +217,27 @@ unplaced) rather than here.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
 
-**Art & renderer — queued behind the style pick, needed whichever way it goes:**
+**Art & renderer — the style-B reference arc, authorized by the owner (2026-09-01).** The pick
+is made (see the decision above and docs/30); what remains is the work it forces, in rough
+order. The reference mood throughout: muted, overcast, desaturated urban decay — and its HUD is
+explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
 
-- **Screamer and bloater sprites.** Both still render as tinted shapes.
-- **Prop art on the 64×64 canvas.** The props are drawn now (see the record) but as content-tinted
-  footprint shapes: a container, a bed, a campfire and the well each take an `appearance.sprite`
-  key today and none of them has a file behind it.
+- **The player exists as a sprite, and rotates.** The B mechanic: `draw_set_transform` around
+  the player's own blit (centre anchor makes it contained), equip overlays riding the rotated
+  rig, and **only** the player rotating — peripheral anonymity is the clause a careless loop
+  breaks. The fixtures found the shipped game has no player sprite at all (`Appearance.for_entity`
+  never sets a content id for `is_player` alone), so this slice authors one too.
+- **Ground & road dressing.** Lane markings, sidewalk edges, kerbs and surface variation in the
+  reference's palette — the streets read as streets. Markings are content-driven dressing, not
+  `if id ==` branches in the draw loop.
+- **Vehicle and wreck props.** Abandoned cars, dumpsters, debris piles — the reference's blocking
+  volumes. Folds in the old **prop art on the 64×64 canvas** item: a container, a bed, a campfire
+  and the well each take an `appearance.sprite` key today and none has a file behind it.
+- **Weather & mood.** A rain pass and overcast grade, presentation-only, reading nothing the
+  player has not seen.
+- **Characters re-authored for overhead.** The brainstorm's overhead visual language: survivors
+  and the zombie roster on the rotated-rig conventions. Folds in the old **screamer and bloater
+  sprites** item — both still render as tinted shapes.
 - **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
   the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
   only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
@@ -1436,9 +1445,18 @@ not a to-do list:
   without more art on disk. A **package-4 visual sanity pass** on `a-night.png` (requested
   alongside this package, since the lit-and-seen pools had passed their gate but nobody had looked
   at them) found what the gate says: a warm pool visibly around the lit campfire, no light bleed
-  past the west wall, and a wash that dims without crushing the room to black. The style pick
-  itself remains open and is not made here — see
-  [what's left](#whats-left-in-milestone-2)'s art-style item, now pointing at this record.
+  past the west wall, and a wash that dims without crushing the room to black.
+
+  **The pick was made the same day, from these fixtures and a reference.** The owner chose
+  **style B — the rotating player** (2026-09-01), supplying a reference screenshot of the target
+  mood: a muted, overcast, rain-streaked urban scene, lane-marked roads, wrecked cars, debris
+  and corpse dressing, high-overhead pixel art with 3/4 touches on roofs and props — the Zero
+  Sievert read the brainstorm doc named as B's source. Two boundaries were confirmed in the same
+  decision: the reference's HUD (a red health bar, a green stamina bar) is **not** adopted — the
+  health-bar ban and the prose HUD stand, re-affirmed explicitly — and only the player rotates,
+  per the peripheral-anonymity clause. The work the pick forces is the style-B reference arc in
+  [what's left](#whats-left-in-milestone-2);
+  [docs/30](30-decisions.md#the-art-style-b-picked-from-a-reference) records the why.
 - **Survivors** — ~~Focus auto-allocation: NPCs spend their own web points~~ **landed**
   (`godot:m2:web`, lanes NPC / SURPLUS / REACH / DRIFT). What this list used to say — "the shallow
   web is landed; nobody but the player can walk it" — was wrong, and the correction is the
