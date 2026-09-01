@@ -163,6 +163,11 @@ decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks
    only if the pick isn't A (the shipped baseline): B needs rotation support (`draw_set_transform`
    around the blit — the centre anchor was chosen so that stays a contained change), and C needs a
    rig-sheet pass before more sprites exist. The two art pieces below queue behind this pick.
+   **The fixtures are built** (authorized by the owner, 2026-09-01 session): twelve screenshots
+   (A/B/C × day/indoors/night/combat) and a written comparison sit in
+   `.hermes/plans/2026-09-01_art-style-fixtures/` (`comparison.md`) — see the flag/session record
+   below for the method. The pick itself is still open and still the owner's; nothing here decides
+   it.
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
@@ -1391,6 +1396,49 @@ not a to-do list:
   midnight scene alongside as the negative. DEAD SOCKET source-scans `main.gd` for the call sites
   and for the draw *order* (pools strictly between district and entities), and asserts
   `_draw_night_wash` no longer contains `Clock.ambient_light` at all.
+- **Art-style fixtures** — authorized by the owner (2026-09-01 session), package 5 of the same
+  plan, and the only one of the five that ships no code. Twelve screenshots (A/B/C ×
+  day/indoors/night/combat, canonical seed 20260805) and a written comparison, both in
+  `.hermes/plans/2026-09-01_art-style-fixtures/` — the method the brainstorm doc named for
+  choosing among its three candidate directions, built rather than left theoretical. A throwaway
+  `SceneTree` script (`godot/screenshot_fixture.gd`, `project_smoke.gd`'s boot pattern, deleted
+  after) posed each moment and stepped `world.step()` directly rather than relying on wall-clock
+  frame timing, so the four moments are deterministic: as-booted for day; the player's `position`
+  written onto the annex's own indoor floor tile for indoors; `world.tick` pushed past
+  `Clock.DUSK_ENDS` and the boot campfire lit through `SimNeeds.set_lit` (the needs/fire path) for
+  night; `SimRoster.spawn_zombie` at an open adjacent tile, faced and stepped 80 ticks to engage,
+  for combat (`GRABS_ENABLED` live, so a real threat).
+
+  **What was mocked, and how — both reverted, neither shipped.** Style B (rotating player) is one
+  patch to `main.gd::_draw_entities`, wrapping only the player's own sprite blit in
+  `draw_set_transform(screen_pos, facing + PI/2, Vector2.ONE)` / reset; the shipped game has no
+  player sprite at all yet (only colonists and zombies carry art — `Appearance.for_entity` never
+  sets a content id for `is_player` alone), so the same patch borrows `survivor_mara.png` as a
+  screenshot-only stand-in, without which B's shots would show nothing different from A's. Style C
+  (hybrid 3/4) is a Python pass over every PNG in `godot/assets/sprites/`: each resized to 85%
+  height anchored at the bottom (compression comes off the head, not the planted feet) with the
+  bottom ~22% darkened to ~55% brightness — placeholder foreshortening, sanctioned by the
+  brainstorm doc's own "legibility and layout, not pixel identity" standard. Both were reverted
+  before the next style ran (`git checkout -- godot/presentation/main.gd` for B; a byte-for-byte
+  restore from `.orig.png` backups for C) and verified against `git status`/`git diff` each time;
+  the driver script and the squash script are both gone. The tree this package's own commit
+  touches is code-identical to the one it started from — `godot:m2` is the proof, run after
+  cleanup, not before.
+
+  **What the comparison found**, in `comparison.md`, briefly: A's shots are the true "as shipped"
+  state (a plain circle and tick for the player, since there is no player sprite yet); B's rotated
+  stand-in visibly turns to face the threat in the combat shot, and the peripheral-anonymity
+  clause holds under it because Peripheral detail returns before any sprite or rotation code runs
+  at all — confirmed against the same anonymous colonist glyph in both the unpatched and patched
+  shots; C's day/indoors/night shots are byte-identical to A's (nothing in those framings carries
+  a sprite today — beds, the campfire, the storage box are all procedural shapes), so its one real
+  data point is the shambler in the combat shot, which is the honest limit this fixture set has
+  without more art on disk. A **package-4 visual sanity pass** on `a-night.png` (requested
+  alongside this package, since the lit-and-seen pools had passed their gate but nobody had looked
+  at them) found what the gate says: a warm pool visibly around the lit campfire, no light bleed
+  past the west wall, and a wash that dims without crushing the room to black. The style pick
+  itself remains open and is not made here — see
+  [what's left](#whats-left-in-milestone-2)'s art-style item, now pointing at this record.
 - **Survivors** — ~~Focus auto-allocation: NPCs spend their own web points~~ **landed**
   (`godot:m2:web`, lanes NPC / SURPLUS / REACH / DRIFT). What this list used to say — "the shallow
   web is landed; nobody but the player can walk it" — was wrong, and the correction is the
