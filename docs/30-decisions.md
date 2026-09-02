@@ -1758,6 +1758,19 @@ the slice that lands it (docs/23, "the reference-look arc", in order):
 - **Not adopted, re-affirmed.** The HP and stamina bars (`godot:ban:healthbar`), the status-icon
   row (the HUD speaks in words), and NPC rotation (only the player's body turns).
 
+**The ground is a texture whose mean is the palette** (the ground slice, under the same
+decision). The reference has no tile grid and a visibly textured ground; ours was a flat tint
+per surface with a hairline between tiles. The texture is one atlas of cells, four variants a
+row, one row per ground the draw loop knows, and the palette keeps its authority: every cell is
+authored around its row's tint, a gate pins each cell's mean to that tint from the decoded
+pixels, and the blit is modulated by `flat / tint` so a cell averages to exactly the colour the
+flat fill drew — the indoor mix, the sidewalk substitution and the position-hash variation all
+survive as tints over the picture, and every lane that reasons about ground colour keeps meaning
+what it says. Below zoom 32 the flat tint draws, because at 16 px a tile the texture is noise;
+the hairline is gone from both branches. One shape was refused with the decision: a texture
+whose colour lives in the PNG, which would have moved the mood out of `palette.gd` and into
+pixels no gate reads.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

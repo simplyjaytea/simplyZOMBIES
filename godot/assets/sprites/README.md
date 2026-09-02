@@ -38,6 +38,23 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
   outside the canvas — and the reason nothing else goes near the tile edge. Head ≤ r 7.5 — the
   screamer's is that bound, not merely under it.
 
+## The ground atlas — the one table of tiles
+
+`ground_atlas.png` is the one file that is not a single tile: **4 variants across × 7 rows
+down** of `ART_NATIVE` cells (128×224 at 32), rows `paved, dirt, grass, undergrowth, rubble,
+sidewalk, boards` — the five surfaces in `SimSurface.Surface` order, then the two substitutions
+the draw loop makes (the sidewalk paint, the indoor board mix). Its size is an entry in
+`Appearance.canvas_of`, mirrored by `tools/sprites/build.py`'s `canvas_of`, and both canvas
+lanes in `check_appearance.gd` read that table; a second table shape is a line in each, not a
+new exception. The rules a cell is held to (`check_road_look.gd`'s TEXTURE lane, on the decoded
+pixels): opaque; its **mean within 0.03 RGB of its row's palette tint**; no pixel more than
+0.06 luma brighter than the tint; not flat; and the four variants of a row pixel-distinct. The
+atlas is the *shape* of a ground and the palette stays its colour — the renderer modulates the
+blit by `flat colour / row tint`, so a cell averages to exactly what the flat fill would have
+drawn, and the indoor mix, the sidewalk substitution and the position-hash variation all ride
+on top as tints. Which variant a tile draws is `Dressing.SALT_GROUND` hashed on the seed and
+the tile; never an RNG. Below zoom 32 the flat tint draws instead (`GROUND_TEXTURE_MIN_ZOOM`).
+
 ## The rotating rig — the player, and only the player
 
 docs/30's style pick takes the reference's rotating player and refuses the rest of it: **only the

@@ -30,7 +30,7 @@ from pathlib import Path  # noqa: E402
 from PIL import Image  # noqa: E402
 
 from draw import SIZE  # noqa: E402
-from parts import characters, props, wrecks  # noqa: E402
+from parts import characters, ground, props, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -40,7 +40,21 @@ SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 # PNG it takes over (`survivor_mara` and `zombie_shambler` crossed over in this slice). What
 # remains hand-authored and outside this map is the `item_*_equip*` files, and the worn-look
 # slice takes the last of them -- at which point this comment stops needing to say "remains".
-MODULES = (characters, props, wrecks)
+MODULES = (characters, props, wrecks, ground)
+
+# Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a
+# sheet of cells rather than one silhouette -- `parts/ground.py`'s own module docstring says why
+# it cannot go through `draw.Canvas`, which is square and centre-addressed by construction. Kept
+# in build.py rather than draw.py: draw.py is the pixel-primitive module every part renders
+# through, and a per-key exception list belongs beside the CLI that enforces it, not inside the
+# primitives every square canvas still uses unchanged.
+CANVAS = {
+    "ground_atlas": (len(ground.VARIANTS) * SIZE, len(ground.ROWS) * SIZE),
+}
+
+
+def canvas_of(key):
+    return CANVAS.get(key, (SIZE, SIZE))
 
 
 def registry():
@@ -65,8 +79,9 @@ def path_for(key):
 
 def write(key, render):
     image = render()
-    if image.size != (SIZE, SIZE):
-        raise SystemExit("%s rendered %dx%d; the canvas is %dx%d" % (key, *image.size, SIZE, SIZE))
+    want_w, want_h = canvas_of(key)
+    if image.size != (want_w, want_h):
+        raise SystemExit("%s rendered %dx%d; the canvas is %dx%d" % (key, *image.size, want_w, want_h))
     target = path_for(key)
     image.save(target)
     print("wrote %s" % target.relative_to(ROOT))

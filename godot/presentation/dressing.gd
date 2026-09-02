@@ -60,6 +60,8 @@ const SALT_VARIANT: int = 1
 const SALT_LITTER_PICK: int = 2
 const SALT_LITTER_KEY: int = 3
 const SALT_RUBBLE_KEY: int = 4
+# The ground atlas variant under a floor tile (Appearance.ground_cell): one salt, four cells a row.
+const SALT_GROUND: int = 5
 
 
 # The dressing block for a world, or {} when content declares none -- a fixture tree, an old save,

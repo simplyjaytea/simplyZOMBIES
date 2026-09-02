@@ -52,6 +52,17 @@ SURFACE_TINTS = {
     "rubble": "#4a4644",
 }
 
+# A HARD COPY of two entries from `COLOURS` in godot/presentation/palette.gd -- the paint layer's
+# sidewalk slab and the indoor board floor, the two ground rows that are not one of the five
+# `SURFACE_TINTS` surfaces. Same rule as the copy above: this file cannot read GDScript, and
+# regrading either colour means editing both in the same commit or this guard lies about a floor
+# nobody is drawing any more. `sidewalk` matches `COLOURS["sidewalk"]`; `boards` matches
+# `COLOURS["indoorFloor"]`.
+PAINT_TINTS = {
+    "sidewalk": "#5c5e60",
+    "boards": "#5a4c3c",
+}
+
 
 def to_rgb(value):
     """'#rrggbb' -> (r, g, b), each 0-255."""

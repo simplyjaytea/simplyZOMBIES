@@ -123,6 +123,11 @@ const INDOOR_MIX: float = 0.62
 # face has to clear the brightest of them by check_topdown's FACE_DIM_MARGIN or a wall's south
 # and east edges vanish into a doorway. A value retune under that lane's arbitration, not an
 # assertion change.
+# The zoom at and above which a floor tile draws its atlas cell (Appearance.ground_cell) rather
+# than its flat tint. At 16 px a tile the texture is noise, so the flat tint stays the look
+# there; a member of CameraUtil.ZOOM_STEPS on purpose, and check_road_look.gd asserts it.
+const GROUND_TEXTURE_MIN_ZOOM: float = 32.0
+
 const WALL_CAP_DARKEN: float = 0.28
 const WALL_FACE_LIT: float = 0.16
 const WALL_FACE_DIM: float = 0.07

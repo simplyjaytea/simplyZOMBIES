@@ -132,8 +132,9 @@ func _sprite_keys_resolve() -> bool:
 			# sprite authored to the dead 64x96 feet-anchored convention would float half a
 			# tile high without ever erroring, so the shape is a build failure, not a footnote.
 			var size: Vector2 = (tex as Texture2D).get_size()
-			if size != Vector2(native, native):
-				push_error("%s: appearance.%s '%s' is %dx%d, the canvas is %dx%d (CameraUtil.ART_NATIVE)" % [path, prop, k, int(size.x), int(size.y), native, native])
+			var want_size: Vector2i = Appearance.canvas_of(k)
+			if Vector2i(size) != want_size:
+				push_error("%s: appearance.%s '%s' is %dx%d, its canvas is %dx%d (Appearance.canvas_of; %d is CameraUtil.ART_NATIVE)" % [path, prop, k, int(size.x), int(size.y), want_size.x, want_size.y, native])
 				return false
 			resolved += 1
 	# The canvas assertion must have judged real files, or it proves nothing.
@@ -149,6 +150,7 @@ func _sprite_keys_resolve() -> bool:
 # longer has to -- array-topped files are walked now -- but a stray file still has no entry.)
 func _every_canvas_is_native() -> bool:
 	var native: int = int(CameraUtil.ART_NATIVE)
+	var atlases: int = 0
 	var dir := DirAccess.open(SPRITE_DIR)
 	if dir == null:
 		push_error("cannot open %s" % SPRITE_DIR)
@@ -161,14 +163,27 @@ func _every_canvas_is_native() -> bool:
 		if img.load("%s/%s" % [SPRITE_DIR, f]) != OK:
 			push_error("%s/%s does not load as an image" % [SPRITE_DIR, f])
 			return false
-		if img.get_width() != native or img.get_height() != native:
-			push_error("%s/%s is %dx%d, the canvas is %dx%d (CameraUtil.ART_NATIVE; assets/sprites/README.md)" % [SPRITE_DIR, f, img.get_width(), img.get_height(), native, native])
+		# The canvas table, not the tile: an atlas is a table of tiles and its size is an entry
+		# in Appearance.canvas_of, the one place a second shape is allowed to be named.
+		var want_size: Vector2i = Appearance.canvas_of(String(f).trim_suffix(".png"))
+		if img.get_width() != want_size.x or img.get_height() != want_size.y:
+			push_error("%s/%s is %dx%d, its canvas is %dx%d (Appearance.canvas_of; %d is CameraUtil.ART_NATIVE; assets/sprites/README.md)" % [SPRITE_DIR, f, img.get_width(), img.get_height(), want_size.x, want_size.y, native])
 			return false
+		if want_size != Vector2i(native, native):
+			atlases += 1
 		judged += 1
 	if judged == 0:
 		push_error("no PNGs in %s -- the canvas assertion had nothing to judge" % SPRITE_DIR)
 		return false
-	print("CANVAS OK %d files at %dx%d" % [judged, native, native])
+	# The table must have been read for real: the atlas is the shape it exists for, and a lane
+	# that only ever saw tiles would pass a table nobody consults.
+	if atlases == 0:
+		push_error("no file in %s is on a non-tile canvas -- Appearance.canvas_of was never exercised" % SPRITE_DIR)
+		return false
+	if Appearance.canvas_of("no_such_key") != Vector2i(native, native):
+		push_error("canvas_of does not default an unknown key to the %dx%d tile" % [native, native])
+		return false
+	print("CANVAS OK %d files, %d of them on a table canvas, every one at its Appearance.canvas_of size (tile %dx%d)" % [judged, atlases, native, native])
 	return true
 
 # The fallback is the supported path, not a stopgap: with no content at all, every role still
