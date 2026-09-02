@@ -5,9 +5,9 @@ is inside the shape, so output is byte-stable across Pillow versions and a regen
 compares equal to the committed one for reasons stronger than "the same library was
 installed". `build.py --check` is what makes that a build failure rather than a hope.
 
-The canvas is 64x64 and the pivot is its centre -- which sits *between* pixels 31 and 32, at
-(31.5, 31.5) in pixel-centre coordinates. `Canvas.centre` is that number and not 32, because a
-shape drawn symmetric about 32 is a pixel off-centre and orbits when the renderer rotates it.
+The canvas is 32x32 and the pivot is its centre -- which sits *between* pixels 15 and 16, at
+(15.5, 15.5) in pixel-centre coordinates. `Canvas.centre` is that number and not 16, because a
+shape drawn symmetric about 16 is a pixel off-centre and orbits when the renderer rotates it.
 """
 
 import random
@@ -16,7 +16,7 @@ from PIL import Image
 
 from palette import to_rgb
 
-SIZE = 64
+SIZE = 32
 
 # The one radius every human rig shades at. Props each pick a radius to suit their own
 # footprint (see `nw_shade` below for why the rigs do not).
@@ -24,7 +24,7 @@ RIG_LIGHT_RADIUS = 13.0
 
 
 class Canvas:
-    """A 64x64 RGBA grid, addressed from the centre outwards."""
+    """A 32x32 RGBA grid, addressed from the centre outwards."""
 
     def __init__(self, size=SIZE):
         self.size = size

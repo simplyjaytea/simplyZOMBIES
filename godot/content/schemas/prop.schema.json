@@ -22,7 +22,7 @@
         "sprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
-          "description": "Registry key for assets/sprites/<key>.png, 64x64 centre-anchored. Every shipped prop declares one; the shapes below remain the supported floor for a prop authored without art, not a stopgap."
+          "description": "Registry key for assets/sprites/<key>.png, centre-anchored on the ART_NATIVE square canvas (32x32; presentation/camera.gd). Every shipped prop declares one; the shapes below remain the supported floor for a prop authored without art, not a stopgap."
         },
         "tint": {
           "type": "string",

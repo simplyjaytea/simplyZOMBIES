@@ -33,6 +33,7 @@ const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const CameraUtil = preload("res://presentation/camera.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 
 const CANON_SEED: int = 20260805
@@ -147,7 +148,7 @@ func _first_broken_key(keys: Array[String]) -> String:
 		var texture: Texture2D = Appearance.resolve(key)
 		if texture == null:
 			return key
-		if texture.get_size() != Vector2(64, 64):
+		if texture.get_size() != Vector2(CameraUtil.ART_NATIVE, CameraUtil.ART_NATIVE):
 			return key
 	return ""
 
@@ -185,7 +186,7 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 		return false
 
 	stash["keys"] = keys.size()
-	print("DRESSING OK %d keys declared in %s, every one a 64x64 texture, no duplicates; a fabricated key and an empty block both refused" % [keys.size(), Dressing.BLOCK_ID])
+	print("DRESSING OK %d keys declared in %s, every one a %dx%d texture, no duplicates; a fabricated key and an empty block both refused" % [keys.size(), Dressing.BLOCK_ID, int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE)])
 	return true
 
 

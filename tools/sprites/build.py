@@ -12,7 +12,7 @@ too: the registry and godot/assets/sprites/ are two halves of one statement, and
 file behind it is a generator nothing reads.
 
 The PNGs are the source of record for the *game* -- appearance.gd resolves files, not this
-package, and check_appearance.gd judges every one of them on the 64x64 canvas every build.
+package, and check_appearance.gd judges every one of them on the 32x32 canvas every build.
 This package is the source of record for the *art*: the reason a colour is that colour.
 """
 
@@ -29,6 +29,7 @@ from pathlib import Path  # noqa: E402
 
 from PIL import Image  # noqa: E402
 
+from draw import SIZE  # noqa: E402
 from parts import characters, props, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -64,8 +65,8 @@ def path_for(key):
 
 def write(key, render):
     image = render()
-    if image.size != (64, 64):
-        raise SystemExit("%s rendered %dx%d; the canvas is 64x64" % (key, *image.size))
+    if image.size != (SIZE, SIZE):
+        raise SystemExit("%s rendered %dx%d; the canvas is %dx%d" % (key, *image.size, SIZE, SIZE))
     target = path_for(key)
     image.save(target)
     print("wrote %s" % target.relative_to(ROOT))

@@ -6,9 +6,9 @@ this rewrite retires used. The two splits that remain are shading (radial on the
 player alone, top-left everywhere else static -- `Canvas.nw_shade`) and rotation (the player
 alone; every other rig is drawn once and never turns).
 
-The bloater (~33 px) is the *only* rig allowed to approach the 64 px tile edge -- see its own
-comment for why nothing else may. The screamer's r 7.5 head is the rig that defines the
-roster's head bound; nothing else on the roster draws a head that large.
+The bloater is the rig at the canvas bound -- see its own comment for why nothing else may sit
+that close. The screamer's r 7.5 head is the rig that defines the roster's head bound; nothing
+else on the roster draws a head that large.
 
 The ordering invariant -- body, then limbs, then the marks that lie under the crown, then the
 head, then the marks that lie over it, then shading, then the outline last -- lives in
@@ -271,8 +271,8 @@ def zombie_screamer():
 
 
 def zombie_bloater():
-    """The tile-edge exception, ~33x31 px: nothing else on the roster may approach the 64 px
-    canvas edge this closely, because nothing else's silhouette is this distended."""
+    """The rig at the canvas bound, ~28x27 px opaque: nothing else on the roster may approach
+    the 32 px canvas edge this closely, because nothing else's silhouette is this distended."""
     green = RAMPS["bloater_green"]
     canvas = Canvas()
 
@@ -283,9 +283,9 @@ def zombie_bloater():
     _figure(
         canvas,
         {
-            "body": (16.5, 15.5, 0.5, green[2]),
-            "arm": (11.0, -1.0, 3.6, 4.6, green[1]),
-            "hand": (9.6, -5.6, 2.4, green[1]),
+            "body": (14.4, 14.0, 0.5, green[2]),
+            "arm": (9.6, -1.0, 3.6, 4.6, green[1]),
+            "hand": (8.4, -5.6, 2.4, green[1]),
             "head": (-0.5, 4.2, green[0]),  # small and sunk into the distended body
             "tells": [tells],
             "shade": ("nw", 0.12),

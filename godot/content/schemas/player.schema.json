@@ -25,7 +25,7 @@
         "sprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
-          "description": "Registry key for assets/sprites/<key>.png, 64x64 centre-anchored. The player's is the one sprite in the project authored for rotation -- a true-overhead rig with its mass on the pivot, see assets/sprites/README.md."
+          "description": "Registry key for assets/sprites/<key>.png, centre-anchored on the ART_NATIVE square canvas (32x32; presentation/camera.gd). The player's is the one sprite in the project authored for rotation -- a true-overhead rig with its mass on the pivot, see assets/sprites/README.md."
         },
         "tint": {
           "type": "string",

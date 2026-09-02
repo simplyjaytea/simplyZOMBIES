@@ -5,15 +5,20 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
 ## The convention
 
 - **Grid:** top-down, **1 tile = 1 metre = `zoom` pixels square**. `presentation/camera.gd`
-  sets the art-native `zoom = 64`, so a tile draws 64×64; the wheel steps zoom through
-  power-of-two multiples of it, which keeps nearest-neighbour scaling clean. (The grid was an
-  isometric 64×32 diamond until the top-down reversal — docs/00 — and 32×16 before that.)
-- **Canvas:** every sprite is **64×64**, one tile. `npm run godot:check:appearance` fails the
-  build on any other shape — a sprite authored to the dead 64×96 convention would float half a
-  tile high without ever erroring, so the canvas is enforced, not documented.
+  names the art-native scale `ART_NATIVE = 32`, so a sprite is drawn 1:1 at zoom 32 and at a
+  clean 2× on the boot zoom of 64; the wheel steps zoom through power-of-two multiples, which
+  keeps nearest-neighbour scaling clean. (The art was 64 px a tile until the 2026-09-02
+  reference-look decision — docs/30 — when the tile shrank around the rigs; before that the
+  grid was an isometric 64×32 diamond until the top-down reversal, docs/00, and 32×16 before.)
+- **Canvas:** every sprite is **32×32**, one tile — `ART_NATIVE` square, and every gate reads
+  the constant rather than the number. `npm run godot:check:appearance` fails the build on any
+  other shape — a sprite authored to the dead 64×96 convention would float half a tile high
+  without ever erroring, so the canvas is enforced, not documented. `tools/sprites/draw.py`
+  carries `SIZE = 32` as the one other copy (Python cannot read GDScript); a PNG at the wrong
+  size fails `sprites:check` and `check:appearance` both, which is the cross-check.
 - **Anchor: centre.** The renderer places the sprite's canvas centre on the entity's ground
   position and draws the contact shadow itself. Author the body's visual mass radially centred
-  on the pivot — the point **between** pixels 31 and 32, (31.5, 31.5) in pixel-centre terms —
+  on the pivot — the point **between** pixels 15 and 16, (15.5, 15.5) in pixel-centre terms —
   and do not bake a shadow in.
 - **One authoring convention: true overhead** (2026-09-01 owner directive; docs/30, the art
   decision's dated entry). Crown, shoulders, forearms forward, 1 px near-black inward outline,
@@ -23,11 +28,15 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
   unrotated, so its painted front is a lie about heading and the sim's indicator line carries
   the truth. `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the open flavour
   directions.
-- **Rig guarantees, three-tiered** because the roster is honest about its own sizes: shoulders
-  ≤ ~21 px on the *rotating* rig (the player — a wide silhouette strobes at 20 Hz as it turns);
-  ≤ ~24 px on a *static* human rig (Ellis is the broad one at 23.6); and the bloater at ~33 px
-  is the single named exception and the reason nothing else goes near the tile edge. Head
-  ≤ r 7.5 — the screamer's is that bound, not merely under it.
+- **Rig guarantees, three-tiered** because the roster is honest about its own sizes, and
+  stated in the same pixel numbers the 64 px tile had — the rigs kept their pixels when the
+  tile shrank, so a person now fills three-quarters of a tile instead of a third: shoulders
+  ≤ ~21 px on the *rotating* rig (the player — a wide silhouette strobes at 20 Hz as it turns;
+  0.66 of the tile, max radial extent 13.7 of a 15.5 half-canvas); ≤ ~24 px on a *static* human
+  rig (Ellis is the broad one at 23.6, radial 14.3); and the bloater at 28 px is the rig at
+  the canvas bound — its body half-width is 14.4 because at 14.5 the outline lands one pixel
+  outside the canvas — and the reason nothing else goes near the tile edge. Head ≤ r 7.5 — the
+  screamer's is that bound, not merely under it.
 
 ## The rotating rig — the player, and only the player
 
@@ -42,8 +51,8 @@ Authoring one:
 
 - **True overhead, not a pawn.** Crown, shoulders, forearms forward. A pawn's mass sits low on
   the canvas (feet by ~y=57) and rotating that orbits the figure around a point it does not
-  occupy; a rig's mass is radially centred on the pivot, which is the point **between** pixels 31
-  and 32 — (31.5, 31.5) in pixel-centre terms, not 32.
+  occupy; a rig's mass is radially centred on the pivot, which is the point **between** pixels 15
+  and 16 — (15.5, 15.5) in pixel-centre terms, not 16.
 - **Forward is up-canvas.** `Appearance.SPRITE_FORWARD` is `-PI/2` and everything follows from
   it: a body facing north draws unrotated, facing east draws a quarter turn clockwise.
 - **Near-radial silhouette, ~21–24 px, no 1 px protrusions.** Rotation is free (no pre-baked
@@ -76,7 +85,7 @@ worn-look slice retires.
 Props draw on an entity's position and pawns draw on a body's. **Tile art draws on a tile** —
 `main.gd::_draw_district` blits it into the tile rect, and `presentation/dressing.gd` decides
 which key that tile takes out of `content/dressing/street.json`. Three rules follow from the
-canvas being 64×64 and staying that way:
+canvas being `ART_NATIVE` square (32×32) and staying that way:
 
 - **A thing longer than a tile is a set of files, one per tile.** `wreck_car_{a,b,c}_{front,
   mid,rear}` is a car two or three tiles long: `front` runs to the **south** edge of its canvas,
@@ -98,7 +107,7 @@ selective bottom/right outline: a 3 px scrap outlined on four sides is all outli
 
 An item base can also carry `appearance.equipSprite` (item.schema.json), a **different** picture
 from its ground `sprite` — what it looks like worn or held on a body, not lying on the floor.
-Author it on the **same 64×64 centre-anchored canvas** as a body sprite, with everything except
+Author it on the **same 32×32 centre-anchored canvas** as a body sprite, with everything except
 the item itself left transparent. The renderer composites it at the exact same rect the body
 draws at, so there is no per-item offset to configure — get the item's position right within its
 own canvas (a bat gripped at the hand, ~(43,44); a backpack peeking over the shoulders and past

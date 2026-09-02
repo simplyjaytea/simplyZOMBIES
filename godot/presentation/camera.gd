@@ -2,18 +2,24 @@ extends RefCounted
 # Plain data owned by render/, never by sim.
 const TopDownProjection = preload("res://presentation/projection.gd")
 
-# zoom is pixels per metre, so a 1 m tile draws zoom x zoom pixels. 64 is the
-# art-native scale: assets/sprites/ is authored against a 64 px tile, and other
-# zoom steps are power-of-two multiples of it so nearest-neighbour scaling stays
-# clean. Changing the art-native scale changes the size of every future sprite,
-# so it is a content decision rather than a camera preference.
+# zoom is pixels per metre, so a 1 m tile draws zoom x zoom pixels. 32 is the
+# art-native scale: assets/sprites/ is authored against a 32 px tile, and every
+# zoom step is a power-of-two multiple of it so nearest-neighbour scaling stays
+# clean -- the default zoom of 64 (create_camera below) is the art at a clean 2x.
+# Changing the art-native scale changes the size of every future sprite, so it is
+# a content decision rather than a camera preference: 64 -> 32 was the owner's
+# 2026-09-02 reference-look decision (docs/30), and every gate that pins a canvas
+# size reads this constant rather than carrying its own copy of the number.
 const ZOOM_STEPS: Array[float] = [16.0, 32.0, 64.0, 128.0]
 
 # The zoom at which one art pixel is one screen pixel. It is a member of ZOOM_STEPS on
 # purpose, and check_topdown.gd asserts the membership: an art-native scale the camera
 # cannot reach is a 1:1 body nobody can ever see. Appearance.blit_scale divides by this,
-# which is the whole of how a 64 px rig knows what size to draw at zoom 16.
-const ART_NATIVE: float = 64.0
+# which is the whole of how a 32 px rig knows what size to draw at zoom 16 or 64.
+# tools/sprites/draw.py carries SIZE = 32 as its own copy -- Python cannot read this
+# file -- and the pair is cross-checked by sprites:check and check_appearance.gd: a PNG
+# at the wrong size fails both.
+const ART_NATIVE: float = 32.0
 
 # No zoom smoothing -- a deliberate refusal, not an oversight. A tween between two of
 # the steps above would pass through non-integer scales -- 47.3 px/m, say -- and

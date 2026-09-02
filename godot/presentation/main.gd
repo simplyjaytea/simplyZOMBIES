@@ -463,7 +463,7 @@ func _input(event: InputEvent) -> void:
 # and a click on UI never doubles as a trigger pull. GUI handling runs between the two.
 func _unhandled_input(event: InputEvent) -> void:
 	# Wheel zoom through the fixed ladder -- power-of-two multiples of the art-native
-	# 64 so nearest-neighbour scaling never shimmers. Not while the inventory is open:
+	# 32 so nearest-neighbour scaling never shimmers. Not while the inventory is open:
 	# the wheel belongs to the panel there.
 	if event is InputEventMouseButton and event.pressed and not inventory_open:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
@@ -1298,7 +1298,7 @@ func _draw_entities() -> void:
 		var texture: Texture2D = look["texture"] as Texture2D
 		if texture != null:
 			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
-			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
+			# (ART_NATIVE square canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
 			# lands on a half-pixel as the camera follows the player. Scaled by px_scale so
 			# a body covers the same fraction of a tile at every step on the zoom ladder.
 			var size: Vector2 = texture.get_size() * px_scale
