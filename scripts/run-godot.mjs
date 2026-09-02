@@ -316,6 +316,9 @@ switch (mode) {
   case "--wrecks":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_wrecks.gd"];
     break;
+  case "--weather":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_weather.gd"];
+    break;
   case "--ban-health-bar":
     args = [
       "--headless",

@@ -4,9 +4,10 @@ extends RefCounted
 # art decision ("The art style: B, picked from a reference") fixes the mood as muted, overcast,
 # desaturated urban decay, and the near-black grounds the oracle shipped read as a cave, not an
 # overcast street. The regrade is held by properties rather than by anybody's memory —
-# check_road_look.gd's palette lane pins saturation and value bounds and proves the old table
-# fails them — so tune by screenshot inside those bounds, and never by reverting to palette.ts,
-# which stays frozen with its oracle.
+# check_road_look.gd's palette lane pins the ground and road bounds, check_weather.gd's accent
+# lane pins the glass, the ground items and the screen's own marks, and both prove the old
+# tables fail them — so tune by screenshot inside those bounds, and never by reverting to
+# palette.ts, which stays frozen with its oracle.
 
 const COLOURS: Dictionary = {
 	"floor": Color("#3f4143"),
@@ -16,7 +17,12 @@ const COLOURS: Dictionary = {
 	"rubble": Color("#4a4644"),
 	"tree": Color("#3d4a38"),
 	"wall": Color("#55575c"),
-	"window": Color("#7ec8e8"),
+	# An overcast pane, not a lit aquarium — the last of the oracle's bright accents to go in
+	# the weather slice's regrade. The rim is the sash around it, darker than the pane the
+	# renderer lightens out of the glass colour, because a rim the pane's own value is invisible
+	# (check_weather.gd's separation bound is the arithmetic).
+	"window": Color("#6b8794"),
+	"windowRim": Color("#5f7480"),
 	"screen": Color("#3f4a3b"),
 	"low": Color("#484a4d"),
 	"player": Color("#e8d7a0"),
@@ -27,7 +33,10 @@ const COLOURS: Dictionary = {
 	"raider": Color("#a2705a"),
 	"wanderer": Color("#6f8f6a"),
 	"glimpse": Color("#4a5a48"),
-	"groundItem": Color("#d8c07a"),
+	# Findable but no longer a gold coin on wet asphalt: check_weather.gd holds this from both
+	# sides — muted under its value ceiling, and still clearing the brightest ground tint by a
+	# named margin, so a future tune cannot sink an item into the pavement.
+	"groundItem": Color("#a89a70"),
 	"groundItemEdge": Color("#4a3f22"),
 	"outline": Color("#8b93a0"),
 	# Inside a building, and the tile you step through to get there. `indoors` is a third array
@@ -52,10 +61,24 @@ const COLOURS: Dictionary = {
 	"roadPaint": Color("#8e8d848c"),
 	"kerb": Color("#6d6f6e"),
 	"sidewalk": Color("#5c5e60"),
+	# The screen's own marks, as opposed to the district's: the line a shape with no front uses
+	# to say where it is looking, the aim cone's sway readout, and the rain. All three were
+	# near-white literals inside the draw loop and read as the brightest things on an overcast
+	# street; they are keys now so check_weather.gd's property bounds can hold them muted and a
+	# revert to the bright grade is caught rather than noticed. Eight-digit hex is RGBA — the
+	# alpha is part of the colour, because these are washes over the world, not fills of it.
+	"facing": Color("#cfccc08c"),
+	"aimCone": Color("#b9c2c94d"),
+	"rain": Color("#c2c9cf21"),
 }
-# (`COLOUR_HEX`, fourteen string copies of the table above "for serialization, comparison", was
-# deleted here: zero readers ever existed — the tenth dead code socket of the milestone, closed
-# by removal rather than by inventing one.)
+# (Two deletion batches live in this file's history rather than its text. `COLOUR_HEX`,
+# fourteen string copies of the table above "for serialization, comparison": zero readers ever
+# existed — the tenth dead code socket of the milestone, closed by removal. Then the weather
+# slice's batch, the eleventh: three RGB string triplets, a three-entry shade table and a hex
+# copy of the condition tints, every one read by nothing since the frozen renderer stayed
+# behind with the oracle. The condition tints themselves are alive — the inventory panel and
+# the paperdoll read them — and check_weather.gd asserts they survived the batch, so the next
+# sweep cannot mistake the live table for the dead copies.)
 
 # The ground layer, indexed by SimSurface.Surface (Paved 0 .. Rubble 4). docs/24's second
 # array over the same grid: what is *under* a tile, as opposed to what is *in* it. Paved is
@@ -118,22 +141,19 @@ const LIGHT_POOL_FAR: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.09)
 const LIGHT_POOL_NEAR_OVERLAY: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.45)
 const LIGHT_POOL_FAR_OVERLAY: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.22)
 
-const SWING_RGB: String = "232, 215, 160"
-const NIGHT_RGB: String = "6, 10, 26"
-const SHADOW_RGB: String = "0, 0, 0"
+# The aim cone is drawn twice from one colour: the arc at the key's own alpha (it is the
+# readout) and the two edge rays a shade quieter (they only say where it stops). A second key
+# for "the same colour, dimmer" would be two values to keep in step; a factor is one, and
+# check_weather.gd pins it strictly between 0 and 1 — a derived copy must be dimmer than its
+# source, and never dead. The WALL_FACE_* constants above are the precedent for a look scalar
+# living here.
+const AIM_EDGE_DIM: float = 0.7
 
-const SHADE: Dictionary = {
-	"away": Color("00000057"), # 0.34 alpha
-	"near": Color("00000029"), # 0.16
-	"cap": Color("ffffff1a"), # 0.10
-}
-
-# Four tints indexed by PartState (Unhurt 0..Unusable 3). Port of CONDITION_TINTS.
+# Four tints indexed by PartState (Unhurt 0..Unusable 3), read by the inventory panel and the
+# paperdoll.
 const CONDITION_TINTS: Array[Color] = [
 	Color("#c9c4b8"), # Unhurt — bare line
 	Color("#d9a253"), # Hurt
 	Color("#c9564a"), # Badly hurt
 	Color("#4a3b3a"), # Unusable
 ]
-
-const CONDITION_TINT_HEX: Array[String] = ["#c9c4b8", "#d9a253", "#c9564a", "#4a3b3a"]
