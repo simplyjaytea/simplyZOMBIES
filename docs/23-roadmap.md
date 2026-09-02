@@ -239,6 +239,29 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
   collides with the one-transform spine — `count("draw_set_transform(") == 1` is *why* corpse art
   was deferred, not forgotten — and what a glimpsed corpse is allowed to show is an
   information-scarcity call that belongs beside the owner's other scarcity decisions.
+- **Cars are cars: the 2-wide vehicle footprint.** Today's car is 42 px, about 0.66 m wide — a
+  1:2.7 scale model that two survivors cannot stand abreast in — and the wreck resolver decides
+  front/mid/rear from one-axis neighbours (`presentation/dressing.gd`), which cannot express a
+  two-wide vehicle at all. The piece: a `worldgen.vehicles` **layout** pass (its own stream, a
+  fixed draw count, all-or-nothing placement on a street span aligned to its axis) writing a
+  `map.vehicles` manifest of `{x, y, w, h, axis, class}` records on the `map.streets` precedent;
+  the resolver reads the manifest instead of guessing; classes named from
+  [docs/25](25-vehicles.md)'s base table so a wreck previews the base it becomes; generated art
+  per column × row (left/right × nose/cabin/body/tail, eight files a variant whatever the
+  length). The class table — every class 2 wide, length by class (sedan 2×5 first) — waits on the
+  owner's look at the widened streets (the roads record's screenshot). Balance: vehicles are
+  layout, so the dressing rule stands and the layout change is measured, structural driver and
+  FAST tier both (docs/30). Side-find to close here: the suburb stands two `car boot` loot sites
+  with no car under them — `_protected_tiles` forbids a wreck on a site tile, so the boot has
+  never had a car.
+- **The van and the truck.** Two more classes on the same vocabulary once the sedan proves it.
+- **Vehicles you can drive** — *named, not scheduled*: [docs/23 puts vehicles outside Milestone
+  2](#what-is-explicitly-not-in-the-slice) and driving is Milestone 3B item 3, behind the drive
+  benchmark (risk 7's checkpoint). It is named here so its size is visible — a vehicle entity and
+  footprint, multi-tile swept collision where `blocked_at` floors one point, mount and dismount,
+  engine noise into the attention field at a range that rewrites the director's pressure model,
+  sight from inside, a road-graph pathfinder for NPC drivers, fuel and breakdowns — and so that
+  the two pieces above are shaped for it rather than against it.
 - **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
   the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
   only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
@@ -1712,6 +1735,107 @@ not a to-do list:
   rig, ≤ ~24 px on a static human — Ellis is the broad one at 23.6 — and the bloater the single
   named exception); docs/30 carries the four owner directives as one dated entry.
   `HANDOFF.md` unchanged.
+- ~~The streets are wide enough for a centred line~~ **landed** (`godot:check:road` →
+  `ROAD_LOOK_OK` grew three lanes; no chain change) — the first slice of the roads-and-vehicles
+  arc the owner authorised on 2026-09-02 (docs/30, "Road width is a layout decision"), named on
+  what's-left and landed in the same commit, with the vehicle pieces named beside it and held.
+  **The arithmetic.** The suburb declared `streetWidth: 6`; with a sidewalk each side that is a
+  four-row carriageway, and `road_paint.gd` put the dash on `at + width / 2` — row 3 of 1..4, two
+  lanes one side and one the other, which is the off-centre line the owner saw. A run of rows has
+  a middle row only when it is an odd count, so the fix is the width, not the paint: **7** is a
+  five-row carriageway with the line on its middle row and two tiles of lane each way, one
+  two-tile vehicle per direction. The paint now asks `RoadPaint.dash_row(at, width)`, which
+  answers −1 for any even carriageway (and anything under `DASH_MIN_WIDTH`) rather than shift
+  the line half a tile onto nothing; the header comment that called MASK_DASH "the centre row"
+  was a lie for even widths and says so no longer. The town centre stays at 3 — docs/24 wants it
+  narrow — and 3 is under the dash floor, so it never carried a line and still does not. One
+  more fact governed everything: every gate and every balance seed line runs at the 64-tile map,
+  where `_fit_scale` scales the suburb to width 2 with **no markings at all**; the centre-line
+  defect existed only at the 256-tile map the player sees, and 7 × 0.353 still rounds to 2, so
+  the gate map is unchanged in width and changed in blocks.
+  **Measured, not theorised.** `_fit_scale` consumes the width twice, so widening moves blocks,
+  parcels and buildings at every size. A throwaway `SceneTree` driver (deleted after, per the
+  rule) generated the same 24 seeds at 64 and 4 at 256 before and after, printing spans,
+  widths, buildings, indoor and tile counts, loot sites, annex, gates, 4-connected reach from a
+  gate and the survivability report. At **256**: width 6 → 7 on all four seeds; buildings
+  47 → 49, 63 → 59, 51 → 45, 50 → 45 — every one inside `check_m2_district.gd`'s 40–70 band, and
+  the reason 9 was refused before it was tried (a ~30 % parcel loss by the same arithmetic);
+  spans 16 → 15, 15, 16, 16; reach 1.0000 and survivability `ok` on both columns. At **64**:
+  width 2 both columns; canonical buildings 7 → 7, 4 → 6, 4 → 5, 6 → 8; over all 24 seeds the
+  mean rose 4.17 → 5.46 (min 1 → 1, max 7 → 9), because the block band went 9..15 → 8..14 and
+  smaller blocks split into more parcels; minimum reach 0.9997 → 1.0000. The FAST balance tier
+  (`M2_BALANCE_OK`, four seeds, ten days), before and after:
+  ```
+  before (slice 5 head, 0e51fa8):
+  FAST seed=20260805 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=0(0in/0down) breaches=0
+      kills=0(m0/r0) deaths=2 turned=0 recruits=1 max_live=28 survivors=1/3 over=false
+      grabs=83 broken={ "rescue": 2, "struggle": 26, "victim-died": 2 }
+  FAST seed=404 arm=mixed days=10 siege=1 quiet=9 packets=1 raids=1(2in/0down) breaches=0
+      kills=1(m1/r0) deaths=3 turned=0 recruits=1 max_live=24 survivors=1/3 over=false
+      grabs=66 broken={ "staggered": 2, "struggle": 33, "victim-died": 2, "rescue": 1 }
+  FAST seed=31337 arm=mixed days=10 siege=3 quiet=7 packets=3 raids=0(0in/0down) breaches=0
+      kills=1(m1/r0) deaths=0 turned=0 recruits=1 max_live=31 survivors=3/3 over=false
+      grabs=11 broken={ "struggle": 10, "staggered": 1 }
+  FAST seed=90210 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=1(2in/0down) breaches=0
+      kills=0(m0/r0) deaths=2 turned=0 recruits=1 max_live=28 survivors=3/3 over=false
+      grabs=29 broken={ "rescue": 1, "victim-died": 2 }
+  after (streetWidth 7):
+  FAST seed=20260805 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=0(0in/0down) breaches=0
+      kills=4(m4/r0) deaths=1 turned=0 recruits=1 max_live=23 survivors=2/3 over=false
+      grabs=85 broken={ "staggered": 2, "struggle": 41 }
+  FAST seed=404 arm=mixed days=10 siege=1 quiet=9 packets=1 raids=1(2in/0down) breaches=0
+      kills=5(m5/r0) deaths=0 turned=0 recruits=1 max_live=20 survivors=3/3 over=false
+      grabs=16 broken={ "staggered": 4, "struggle": 11 }
+  FAST seed=31337 arm=mixed days=10 siege=3 quiet=7 packets=3 raids=0(0in/0down) breaches=0
+      kills=1(m1/r0) deaths=2 turned=0 recruits=1 max_live=32 survivors=2/3 over=false
+      grabs=95 broken={ "struggle": 51, "staggered": 3, "victim-died": 1 }
+  FAST seed=90210 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=1(2in/0down) breaches=0
+      kills=5(m5/r0) deaths=2 turned=0 recruits=1 max_live=23 survivors=1/3 over=false
+      grabs=127 broken={ "struggle": 59, "rescue": 1, "victim-died": 1 }
+  ```
+  The lines moved the way a layout change moves them — different blocks, different sites,
+  different nights — and the bands and invariants held. Four seeds are a transcript, not a
+  distribution: this is a **re-baseline**, recorded so the next comparison has its column, and
+  not a claim that the district got easier or harder. A 12-seed grid would be an overnight job
+  (~6 h a column at ~1,085 ticks/s) and was not promised.
+  **The gate.** The in-gate fixture went to width 7 — and to **80 tiles**, because at 64 a
+  width-7 street leaves usable 48 and fits 3 blocks under `BLOCKS_PER_AXIS_MIN` 4, so
+  `_fit_scale` would scale it straight back to 6 and the paint would correctly mark nothing;
+  `MIN_BLOCK` floors the blocks at 8, so the map had to grow rather than the blocks shrink.
+  Three lanes, each red both ways through one predicate that reads the *mask* and never the
+  formula: **CENTRE** (`dash_row` 7 → at+3, 5 → at+2, 9 → at+4 and 6/4/3/2 refused; every
+  marked fixture span splits 2|2; the old width-6 picture, sidewalks outermost and the dash on
+  row 3 of 1..4, reads 2|1 and is refused, and under the new rule that span resolves sidewalks
+  and asphalt but no line), **LANES** (every lane beside the line ≥ 2 tiles; the old geometry's
+  1-tile lane refused), and **PLAYED** (the shipped suburb generated once at 256 inside the
+  budget — width 7, 1,502 dashes on 15 centred spans — while the same suburb at 64 must still
+  resolve zero dashes: one district, two sizes, two answers). Shown red in development by
+  sabotage: the dash painted one row off its centre (CENTRE, 3|1), the content width reverted
+  to 6 (PLAYED, "carves streets 6 wide"), and — the first natural red — the old width-6 fixture
+  under the new rule (PAINT, "0 dashes"). 0.8 s of the 60 s budget. Not touched: `worldgen.gd`
+  (the width flows through content), `dressing.gd`, `wrecks.py`, `package.json`, CI; the three
+  gate-private fixture districts that also declare width 6 are their own maps and stay.
+  **What the moved layout reached.** `godot:m2:needs` went red on its ARGUMENTS lane — "5
+  arguments landed and the victim carries none of it" — and a throwaway driver (deleted) said
+  why: on the canonical seed at 64 the widened suburb brings a shambler pack into the annex
+  around tick 37,500 of the lane's 4,800-tick hold; Mara is grabbed by one, Ellis by another and
+  is a corpse by 38,400, three arguments in, so the lane was reading a corpse's rebuilt needs.
+  Pinning the grab loop off (the latrine walk's precedent on this seed) was tried first and was
+  not enough — the held, miserable player was then swiped to death instead — so the lane now
+  empties the colony of shamblers for its measurement (`world.despawn`, every tick, both worlds)
+  and fails by name if either party dies mid-hold. The sim was not touched; the seed lines above
+  already carry the pack. `godot:check:buildings` went red next, exactly as its header says it
+  should: it pins where seed 20260805 sites the colony as a *measurement*, so that a change to
+  the street pass has to come there and say so. It did — the annex moved from (21, 13) to
+  (18, 12) at 64 and from (108, 107) to (112, 110) at 256, the player start with it from
+  (29, 20) to (26, 19) — and the six pins are re-measured from the gate's own error text, not
+  chosen. Nothing else in the tree named the old tiles.
+  **The picture.** `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice-roads-after.png`,
+  a street at 256 through a throwaway Xvfb driver (deleted): sidewalk, two lanes, the line, two
+  lanes, sidewalk. The before is the street in `slice5-roster.png` from the characters slice,
+  dash on row 3 of 4. This is the frame the owner judges the vehicle class table against
+  (what's-left, "Cars are cars"). `HANDOFF.md`'s stale "39 gates" was corrected to 42 in
+  passing — the count lives in `package.json`.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

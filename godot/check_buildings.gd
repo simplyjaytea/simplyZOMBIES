@@ -54,16 +54,18 @@ const ORIGIN: Vector2i = Vector2i(38, 38)
 # written down, so a change to the scorer, the margin or the street pass has to come here and say so
 # rather than moving the shipped layout in silence. Everything else about the anchors is asserted
 # against `annex_rect(map)` plus the template's own relative points, which is the identity that
-# holds on every seed.
-const SITED_64 := Rect2i(21, 13, 26, 26)
-const SITED_256 := Rect2i(108, 107, 26, 26)
+# holds on every seed. Re-measured 2026-09-02 when the suburb's street pass widened from 6 to 7:
+# `_fit_scale` consumes the width twice, so the block grid moved at every size and the colony with
+# it (docs/23, "The streets are wide enough for a centred line").
+const SITED_64 := Rect2i(18, 12, 26, 26)
+const SITED_256 := Rect2i(112, 110, 26, 26)
 # Derived from SITED_64 and the template's relative anchors -- gate_a (12, 19), gate_b (13, 19),
 # player_start (8, 7), well (13, 21) -- and written out so a wrong one reads as a wrong tile rather
 # than as arithmetic that agrees with itself.
-const WANT_GATE_A: Vector2i = Vector2i(33, 32)
-const WANT_GATE_B: Vector2i = Vector2i(34, 32)
-const WANT_START: Vector2i = Vector2i(29, 20)
-const WANT_WELL: Vector2i = Vector2i(34, 34)
+const WANT_GATE_A: Vector2i = Vector2i(30, 31)
+const WANT_GATE_B: Vector2i = Vector2i(31, 31)
+const WANT_START: Vector2i = Vector2i(26, 19)
+const WANT_WELL: Vector2i = Vector2i(31, 33)
 # The literal `SimBoot.colony_start` falls back to when a map carries no anchors at all.
 const FALLBACK_START: Vector2i = Vector2i(46, 45)
 # Too small to hold the annex and its clear ring, so the generator sites no colony: this is what an
