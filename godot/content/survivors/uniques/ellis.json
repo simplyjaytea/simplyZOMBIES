@@ -4,6 +4,7 @@
   "backstory": "Depot night watchman — kept the doors locked and the log honest long after the pay stopped. Slow to spook, first to stand in the way.",
   "age": 41,
   "appearance": {
+    "sprite": "survivor_ellis",
     "features": ["broad shoulders", "grey-flecked beard", "a watchman's slow scan", "knuckles that have met a door frame"]
   },
   "traits": ["iron_stomach", "optimist"],

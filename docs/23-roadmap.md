@@ -233,15 +233,12 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
   constant moves again. `presentation/dressing.gd` already classifies a lone tile as `solo` and
   resolves nothing for it; `check_wrecks.gd`'s SEGMENTS and DISTRICT lanes say out loud which half
   went unjudged, so the socket is named rather than hidden.
-- **Characters re-authored for overhead.** The brainstorm's overhead visual language: survivors
-  and the zombie roster on the rotated-rig conventions. Folds in the old **screamer and bloater
-  sprites** item — both still render as tinted shapes. Carries three deferrals the player's own
-  rig left named rather than hidden (see its record): the **entity-blit zoom-scale defect** (every
-  textured body blits at its native 64 px whatever the camera zoom, so a pawn is the wrong size at
-  every zoom but 64 — fixed here, where all character art is re-judged anyway, not inside a
-  rotation slice); **overhead equip art** (the pack and bat overlays are still face-on placeholders
-  riding the rotated rig, and are never "fixed" by pulling those layers out of the transform); and
-  a **display-rotation lerp** if a playtest reads the 20 Hz rotation steps as jitter.
+- **A corpse reads as a corpse.** The art half of the corpse defect, left after the characters
+  slice landed the mechanical half (a still body is no longer glimpsed — the GLIMPSE lane in its
+  record): at Focal a dead body still draws the same upright rig as a living one. Prone art
+  collides with the one-transform spine — `count("draw_set_transform(") == 1` is *why* corpse art
+  was deferred, not forgotten — and what a glimpsed corpse is allowed to show is an
+  information-scarcity call that belongs beside the owner's other scarcity decisions.
 - **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
   the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
   only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
@@ -425,9 +422,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
   time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
   a no-op for them.
-- **A corpse looks exactly like a person.** Presentation has no notion of one: same sprite, same
-  tint, same facing pointer — and because `_make_corpse` removes `velocity`, the peripheral-motion
-  cull inverts for corpses.
+- **A corpse looks exactly like a person at Focal.** Presentation has no notion of one: same
+  sprite, same tint, same facing pointer. The glimpse half is fixed — `Appearance.moving` reads a
+  missing `velocity` as motionless and `check_topdown.gd`'s GLIMPSE lane holds it, so the dead are
+  no longer drawn as bodies standing in the dark — and the art half is the what's-left entry
+  "a corpse reads as a corpse".
 
 **Parked until Milestone 3A — blocked by missing systems, not by choices:**
 
@@ -1352,9 +1351,12 @@ not a to-do list:
   regardless of camera zoom, so a pawn is the wrong size at every zoom but 64 — is real, pre-dates
   this slice, and is deferred to the characters slice, which re-authors and re-judges all
   character art anyway; coupling a global size change to "the player rotates" would have muddied
-  the one claim this slice makes and the screenshot it is judged by. `assets/sprites/README.md`
-  now documents both coexisting authoring conventions (face-on pawn, rotating rig) and says which
-  applies when; the seam between them is owner-accepted until the roster is re-authored.
+  the one claim this slice makes and the screenshot it is judged by. (Both landed there since:
+  `Appearance.blit_scale` under `check_topdown.gd`'s SCALE lane, and the lerp remains deferred
+  and named — see the characters record.) `assets/sprites/README.md`
+  documented both coexisting authoring conventions (face-on pawn, rotating rig) and said which
+  applies when; the seam was owner-accepted until the roster was re-authored, which the
+  2026-09-01 directives then did — one convention, true overhead, in the characters slice.
   ~~Ground & road dressing~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK`, the chain's 40th
   gate) — the second slice of the style-B reference arc: the streets read as streets, and the
   district takes the reference's overcast grade. Four pieces, one gate.
@@ -1536,7 +1538,9 @@ not a to-do list:
   procedural inset cover block, which is the supported fallback everywhere else in this pipeline;
   the annex's own single Low tile is the one that reads that way on a shipped map. The
   entity-blit zoom-scale defect is still deferred to the characters slice and is visible in the
-  shots — prop and tile art blit at the tile rect and are correctly sized, bodies do not.
+  shots — prop and tile art blit at the tile rect and are correctly sized, bodies do not (fixed
+  there since: `Appearance.blit_scale`, `check_topdown.gd`'s SCALE lane — see the characters
+  record).
   Eyeballed as well as gated: day and night at a street wreck, captured through a throwaway Xvfb
   `SceneTree` driver (deleted after, per the rule), committed at
   `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice3-day.png` and `slice3-night.png`. The
@@ -1625,6 +1629,89 @@ not a to-do list:
   ground splashes and ripples; per-streak brightening inside lit pools; slant driven by sim wind
   when docs/16 lands. docs/30: one new clause under the art decision — rain is ambience, not
   weather. `HANDOFF.md` unchanged.
+- ~~Characters re-authored for overhead~~ **landed** — the fifth slice of the style-B arc, under
+  the 2026-09-01 owner directives recorded in docs/30: every body is an overhead rig, one
+  authoring convention, and NPCs still never rotate. No new gate and no chain change — the four
+  new lanes live inside `APPEARANCE_OK` and `TOPDOWN_OK`, which were already chained.
+  **Eight rigs, one assembler.** `tools/sprites/parts/characters.py` is rewritten around
+  `_figure`, a single entry point that owns the draw order — body, limbs, under-crown marks,
+  head, brow, tells, shade, outline — because the order is load-bearing, not stylistic: the
+  `#161614` outline is channel-delta exactly 2, on the colonist lane's achromatic bound, and an
+  outline laid *before* the shade pass gets multiplied to (25, 25, 22) — five pixels over the
+  bound, measured both ways. Geometry is a missing-key error, never an inherited default: a rig
+  that says nothing about arms has no arms, because silently inheriting the player's limbs from
+  a typo'd key is a bug `sprites:check` would bless. The player slims (BODY 12.4/11.8 →
+  10.6/11.4, shoulders 24.8 → 21.2 px — a wide silhouette strobes at 20 Hz), Mara gets her bob
+  and rolled sleeves, Ellis his breadth and grey-flecked beard, the shambler a dragging limb and
+  seeded rot, the screamer narrow shoulders under an r 7.5 pale head with a mouth void (the head
+  that defines the roster's head bound), the bloater 33×31 px of distended bulk (the one rig
+  allowed near the tile edge), and every raider archetype one hooded `raider_body` — which
+  raider carries the gun is not readable across a street. Six colonists are one achromatic
+  `survivor_colonist` rig; identity is the tint. `nw_shade(0.12)` closes every static rig — a
+  named fixed-radius wrapper over the existing top-left light, so two colonists side by side
+  shade identically — and the rotating player alone keeps `radial_shade`. `survivor_mara.png`
+  and `zombie_shambler.png` cross from hand-authored to registry-owned in this commit
+  (queue-doc amendment 4); the only hand art left is the three `item_*_equip*` overlays, which
+  the worn-look slice takes. `sprites:check` counts 29 keys.
+  **Colour moves from content tint to generator ramp; the look stays content-owned.** The
+  screamer's and bloater's flat tints retire; their colour now lives in `screamer_red` /
+  `bloater_green` ramps behind the mood clamp — which mutes the old `#d95947` hard (mid clamps
+  to `#cc8d85`, a desaturated salmon), and that is the intended consequence of routing the
+  colour through the clamp instead of around it. `looks.json` regrades its six tints brighter
+  (`#a89478 #c99a6f #a2917b #e0c49a #b58a63 #d9c7ab`), because the composed colonist is
+  grey × tint: the rig being achromatic makes the modulate's luma exactly
+  `median grey × luma(tint)`, which is what makes the ground guard computable at all — median
+  0.7569 against a threshold of 0.3793 (brightest ground + 0.06), tightest margin +0.049 on
+  look.05. The retired `#5c4632` fails the same predicate at 0.2174, and is the lane's built-in
+  negative. `GROUND_FACING` gains the four ramps that meet the street; `colonist_grey` is
+  deliberately absent from it, with the comment naming the lane that owns the composition.
+  **The two inherited defects land.** `Appearance.blit_scale(zoom) = zoom / ART_NATIVE` and a
+  hoisted `px_scale` in `_draw_entities` scale every body rect, glimpse disc, shadow and
+  fallback shape — the SCALE lane walks the whole zoom ladder, pins `ART_NATIVE` to a step the
+  camera can reach, and refuses the native-size resolver outright. And the corpse cull inverts:
+  `Appearance.moving` reads a *missing* velocity component as motionless (that is what
+  `_make_corpse` leaves behind), so the dead are no longer glimpsed as bodies standing in the
+  dark; the GLIMPSE lane's negatives include `{"x": 1.0}` — CLAUDE.md's velocity-keys trap made
+  mechanical — and it forbids the old inline test surviving beside the helper. The facing line
+  changes no code: unrotated rigs mean the art's front is a lie about heading, so every NPC
+  keeps the line as the truth (conflict 9's wording, now in the helper's comment and the lane's
+  error prose).
+  **The gates.** `_tints_come_from_content_not_code` (pinned hexes) retires with the tints it
+  pinned; its successor ROSTER judges all fourteen roster ids through `for_entity` — art
+  resolves, white for undeclared tints, the looks.json tint for colonists, sharing by texture
+  *identity* (colonists one picture, raiders one picture, eight distinct pictures otherwise) —
+  and walks the content tree so a body added to `players/`, `zombies/`, `survivors/uniques/`,
+  `raiders/` or `colony/looks.json` must join the roster or be exempted with a reason
+  (`zombie.base` is the one exemption: it spawns nowhere and gets no art). Its negative strips
+  five named files and requires the role-colour fallback per family, so a colour can never move
+  back into the draw loop. GREY holds the achromatic bound and the composed-luminance
+  arithmetic above, with Mara's coloured rig as the proof the bound can refuse real data.
+  `check_m2_raiders.gd`'s archetype lane was reworked in the same commit — it read the tint
+  with a hard subscript (a crash once the tint left) and its shared-tint set passed quietly
+  when empty; it now requires every archetype to declare the shared body, asserts one resolved
+  texture by identity, and fails loudly on nothing-to-judge. Shown red in development by
+  sabotage: an unresolvable sprite key (ROSTER), the retired brown re-graded in (GREY, failing
+  at 0.2174 < 0.3793), the `* px_scale` multiply removed (SCALE), the `moving` call removed and
+  separately the old inline test restored beside it (GLIMPSE, both directions), and a second
+  raider body (`M2_RAIDERS`). `godot:check:weather` was re-run after every `_draw_entities`
+  edit and stayed green.
+  **The interim, named.** Face-on gear art still composites onto overhead rigs through the
+  unchanged equip table until the worn-look slice retires it; that seam is accepted and this
+  sentence is its record (queue-doc amendment 3). Deferred, named rather than hidden: the
+  display-rotation lerp (still unmoved); the whole worn look including the equip-table rework
+  (slice 6); corpse prone art and the glimpsed-corpse scarcity question (what's-left, "a corpse
+  reads as a corpse"); per-source light tint; Detail tiers unchanged — "detailed NPC" still
+  maps to Focal. Eyeballed as well as gated: the roster in a row, the zoom ladder walked, and a
+  night street, captured through a throwaway Xvfb `SceneTree` driver (deleted after, per the
+  rule), committed at `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice5-{roster,zoom16,
+  zoom32,zoom128,night}.png` — the roster shot is the zoom-64 frame; the sim is paused before
+  the display-only stand-ins spawn, so the row is art evidence, not behaviour. At zoom 16 the
+  unscaled facing lines outweigh the 5 px bodies, which is the named UI-constant decision and
+  reads as a readout rather than as a wrong-sized body. `assets/sprites/README.md` now states the one overhead
+  convention with the rig guarantees three-tiered honestly (≤ ~21 px shoulders on the rotating
+  rig, ≤ ~24 px on a static human — Ellis is the broad one at 23.6 — and the bloater the single
+  named exception); docs/30 carries the four owner directives as one dated entry.
+  `HANDOFF.md` unchanged.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

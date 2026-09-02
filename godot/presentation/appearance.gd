@@ -15,6 +15,7 @@ extends RefCounted
 # supported path, not a temporary one, and check_appearance.gd asserts it stays that way.
 
 const Palette = preload("res://presentation/palette.gd")
+const CameraUtil = preload("res://presentation/camera.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 
@@ -224,6 +225,31 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 	return {"texture": texture, "tint": modulate_for(texture != null, declared_tint, tint), "radius": radius}
 
 
+# How many screen pixels one art pixel covers at this zoom. The sprites are authored against
+# a 64 px tile (CameraUtil.ART_NATIVE); every other zoom step is a power-of-two multiple of
+# it, so the factor is exact and nearest-neighbour stays clean. The resolver above is
+# deliberately zoom-innocent -- `for_entity` answers *what* a body looks like, this answers
+# *how big*, and keeping them apart is what lets a gate probe either without a camera.
+# A zero zoom answers zero: a degenerate camera draws nothing rather than dividing wrong.
+static func blit_scale(zoom: float) -> float:
+	return zoom / CameraUtil.ART_NATIVE
+
+
+# Whether a body is moving, read off its velocity component -- the peripheral-glimpse test.
+#
+# A missing component is *motionless, not unknown*: SimRecruits' corpse-making removes
+# `velocity` outright, so `null` here is exactly the dead. The old inline test in
+# _draw_entities read that backwards -- it culled only entities that HAD a velocity of zero,
+# so a corpse (no component at all) was glimpsed forever as a body standing in the dark.
+# The keys are `dx`/`dy` and never `x`/`y` (CLAUDE.md's velocity trap); check_topdown.gd
+# feeds this `{"x": 1.0}` and requires false, which is that trap made mechanical.
+static func moving(vel: Variant) -> bool:
+	if not (vel is Dictionary):
+		return false
+	var d: Dictionary = vel as Dictionary
+	return float(d.get("dx", 0.0)) != 0.0 or float(d.get("dy", 0.0)) != 0.0
+
+
 # How far to spin a body's art, given the facing the sim arbitrated for it.
 #
 # The whole of the "only the player rotates" clause lives here, as a rule rather than as an `if`
@@ -249,7 +275,8 @@ static func body_rotation(is_player: bool, facing: float) -> float:
 # was standing in for. So it comes off exactly one body -- the player, once the player's art
 # resolves -- and stays on every procedural shape, including the player's own when content is
 # missing, because the fallback is a supported path and not a stopgap. NPCs keep it whatever
-# they are wearing: their sprites are face-on and their bodies do not turn.
+# they are wearing: their rigs draw unrotated, so the art's front is a lie about heading and
+# the line is the truth.
 static func wants_facing_line(is_player: bool, has_texture: bool) -> bool:
 	return not (is_player and has_texture)
 
