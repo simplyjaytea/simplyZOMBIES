@@ -18,6 +18,10 @@ from palette import to_rgb
 
 SIZE = 64
 
+# The one radius every human rig shades at. Props each pick a radius to suit their own
+# footprint (see `nw_shade` below for why the rigs do not).
+RIG_LIGHT_RADIUS = 13.0
+
 
 class Canvas:
     """A 64x64 RGBA grid, addressed from the centre outwards."""
@@ -179,6 +183,17 @@ class Canvas:
                     max(0, min(255, int(round(b * factor)))),
                     255,
                 )
+
+    def nw_shade(self, gain):
+        """Directional shading at the one radius every human rig is drawn at.
+
+        `factor = 1 - gain*clamp((dx+dy)/26, -1, 1)` -- exactly `light_top_left` at radius 13,
+        named here so nobody has to re-derive it. Props each pick a radius to suit their own
+        footprint, but the human rigs are one family drawn at one size, and a per-rig radius
+        would make two colonists standing side by side shade differently. This is the static
+        counterpart to `radial_shade` above, which the rotating player alone takes.
+        """
+        self.light_top_left(gain, RIG_LIGHT_RADIUS)
 
     def outline(self, colour, sides="nesw"):
         """1 px outline, drawn *inwards*.

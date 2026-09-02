@@ -179,13 +179,42 @@ RAMPS = {
     "concrete": ramp("#8a8781"),
     # Paper, plastic, a flattened box: the cosmetic scatter on street pavement.
     "litter": ramp("#9d9891"),
+    # --- bodies: the overhead roster -------------------------------------------------------
+    # Mara's bob, Ellis's crown.
+    "hair_black": ramp("#2a2622"),
+    # Ellis's grey-flecked beard.
+    "beard_grey": ramp("#8d8579"),
+    # The achromatic colonist rig -- S=0 by construction; the tint in looks.json supplies all
+    # colour via modulate.
+    "colonist_grey": ramp("#c2c2c2"),
+    # The shambler's dead flesh.
+    "gore_rot": ramp("#8a8f7c"),
+    # The screamer's old flat content tint, routed through the mood clamp instead of around
+    # it. The clamp mutes this hard -- mid clamps to #cc8d85, a desaturated salmon -- and that
+    # is deliberate: nothing on this roster gets to keep a saturation the mood does not allow,
+    # not even the one colour that used to mean "aggressive".
+    "screamer_red": ramp("#d95947"),
+    # The screamer's pale head.
+    "screamer_pale": ramp("#cfc9bd"),
+    # The bloater's distended bulk.
+    "bloater_green": ramp("#6b8c47"),
+    # The one shared raider body. The darker #6d6558 fails the ground guard by arithmetic --
+    # mid luma 0.3991, clearance +0.0798 < GROUND_CONTRAST 0.10 -- so this is as dark as the
+    # drab can go and still read as a body rather than a hole in the street.
+    "raider_drab": ramp("#7d7568"),
 }
 
 # Which ramps make a silhouette against the ground, and are therefore held to the clearance
 # above. A tell drawn *inside* a silhouette is not: a slung strap reads against the cloth it
 # lies on, and holding it to the street's contrast would force every webbing on the roster
 # lighter than the body it is worn over, which is the wrong picture rather than a safe one.
-GROUND_FACING = ["skin", "fatigue_drab"]
+# `hair_black`, `beard_grey` and `screamer_pale` follow the same rule as `strap`: each is
+# drawn *inside* another silhouette -- the crown disc sits entirely within the body ellipse --
+# and never itself meets the street. `colonist_grey` is absent for a different reason: the
+# colour that meets the ground there is `grey x tint`, not grey alone, and
+# `check_appearance.gd`'s `_colonists_are_tinted_grey` lane is the assertion that computes
+# that composition and holds *it*, not this ramp in isolation, to the ground.
+GROUND_FACING = ["skin", "fatigue_drab", "gore_rot", "screamer_red", "bloater_green", "raider_drab"]
 
 # The standing things, held to the either-direction rule instead. `glass` and `ash` are
 # deliberately absent for the same reason `strap` is absent above: both are drawn inside another

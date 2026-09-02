@@ -79,7 +79,7 @@ func _the_archetypes_are_well_formed() -> bool:
 		return false
 	var hex := RegEx.new()
 	hex.compile("^#[0-9a-f]{6}$")
-	var tints: Dictionary = {}
+	var looks: Dictionary = {}
 	var armed: int = 0
 	for entry in pool:
 		var id: String = String(entry.get("id", ""))
@@ -147,17 +147,27 @@ func _the_archetypes_are_well_formed() -> bool:
 					push_error("%s aptitude %s=%d is outside SimAptitudes' 3..8 clamp" % [id, k, v])
 					return false
 		var look: Variant = entry.get("appearance", {})
-		if look is Dictionary and (look as Dictionary).has("tint"):
+		if not (look is Dictionary) or not (look as Dictionary).has("sprite"):
+			push_error("%s declares no appearance.sprite -- the one shared body is the anonymity mechanism, not a nicety" % id)
+			return false
+		looks[String((look as Dictionary)["sprite"])] = true
+		# The hex shape survives conditionally: no archetype declares a tint today (the shared
+		# art draws unstained), but one that ever returns must still be well-formed rather than
+		# a play-time surprise the shallow validator waves through.
+		if (look as Dictionary).has("tint"):
 			var t: String = String((look as Dictionary)["tint"])
 			if hex.search(t) == null:
 				push_error("%s appearance.tint '%s' is not #rrggbb lowercase" % [id, t])
 				return false
-			tints[t] = true
 	# Information stays scarce: which raider is carrying the gun is not something a look across a
-	# street may answer, so every archetype wears the same colour. A second tint here would be a
-	# free read on the band's loadout.
-	if tints.size() > 1:
-		push_error("raider archetypes declare %d different tints %s -- a glance must not say which one has the gun" % [tints.size(), str(tints.keys())])
+	# street may answer, so every archetype wears the same body. A second sprite here would be a
+	# free read on the band's loadout. The zero check is not paranoia -- the tint version of this
+	# lane passed quietly on an empty set, which is the gate-that-cannot-fail hole.
+	if looks.size() == 0:
+		push_error("no archetype declared a look -- the shared-body assertion had nothing to judge")
+		return false
+	if looks.size() > 1:
+		push_error("raider archetypes declare %d different bodies %s -- a glance must not say which one has the gun" % [looks.size(), str(looks.keys())])
 		return false
 
 	# And the anonymity rule at a glimpse, asserted where it is decided rather than where it is
@@ -173,17 +183,26 @@ func _the_archetypes_are_well_formed() -> bool:
 	if float(zombie_look["radius"]) == float(survivor_look["radius"]):
 		push_error("a zombie and a survivor draw at the same radius, so the radius assertion above proves nothing")
 		return false
-	# The declared tint reaches the renderer, and an archetype that declares none falls back to
-	# the role colour rather than to a zombie's.
-	var declared: Color = Color(String((pool[0].get("appearance", {}) as Dictionary)["tint"]))
-	if (raider_look["tint"] as Color) != declared:
-		push_error("for_entity ignored the content tint: %s != %s" % [str(raider_look["tint"]), str(declared)])
+	# The declared body reaches the renderer: the art resolves, draws unstained (no tint
+	# declared, so `modulate_for` answers white), and every archetype hands back the *same*
+	# Texture2D -- Appearance._cache holds one object per key, so `==` here is identity, and
+	# the sharing property is asserted at the resolver rather than assumed from the JSON.
+	if raider_look["texture"] == null:
+		push_error("%s declares appearance.sprite and resolved no texture" % String(pool[0].get("id", "")))
 		return false
+	if (raider_look["tint"] as Color) != Color.WHITE:
+		push_error("the shared raider body declares no tint and must draw white, got %s" % str(raider_look["tint"]))
+		return false
+	for other in pool:
+		var other_look: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": String((other as Dictionary).get("id", ""))})
+		if other_look["texture"] != raider_look["texture"]:
+			push_error("%s resolves a different texture from %s -- two bodies a glance can tell apart" % [String((other as Dictionary).get("id", "")), String(pool[0].get("id", ""))])
+			return false
 	var undeclared: Dictionary = Appearance.for_entity(w, {"raider": true, "cid": "raider.does_not_exist"})
 	if (undeclared["tint"] as Color) != Palette.COLOURS["raider"]:
 		push_error("an unknown raider archetype must fall back to the raider role colour, got %s" % str(undeclared["tint"]))
 		return false
-	print("ARCHETYPES OK %d entries, all armed, one shared tint %s, glimpse radius %.0f == survivor" % [armed, str(tints.keys()), float(raider_look["radius"])])
+	print("ARCHETYPES OK %d entries, all armed, one shared body %s drawn unstained, glimpse radius %.0f == survivor" % [armed, str(looks.keys()), float(raider_look["radius"])])
 	return true
 
 
