@@ -17,7 +17,13 @@ extends SceneTree
 #   6. the three dead sockets are wired: the draw loop reads the mask, the one mechanism that
 #      reads surfaces reads a placed rubble tile, and the rubble tint is resolved, not defined;
 #   7. rubble is placed, dressing-only, and only ever on outdoor open Floor (the `_footing`
-#      trap: rubble under a Low wreck would silently delete walkability).
+#      trap: rubble under a Low wreck would silently delete walkability);
+#   8. the centre line is centred -- painted only where the carriageway has a middle row, with
+#      the same number of lanes either side, and the old off-centre placement refused;
+#   9. each lane beside the line is wide enough for a two-tile vehicle, which is what the roads
+#      slice widened the suburb for;
+#  10. the shipped suburb at the size the player sees (256) actually carries that line -- or the
+#      two lanes above are claims about no lines.
 #
 # Boots are shared through one stash (check_worldgen's precedent) and the budget lane at the
 # bottom is what keeps a future lane from quietly doubling them.
@@ -36,11 +42,20 @@ const OTHER_SEED: int = 404
 const GATE_SIZE: int = 64
 const MAIN_GD: String = "res://presentation/main.gd"
 
-# The in-gate fixture district: blocks of exactly 8 so `_fit_scale` leaves the declared
-# streetWidth 6 unscaled at 64 (usable 50, four blocks fit), which is what puts sidewalks and
-# dashes on a 64-tile boot -- the shipped suburb scales to width 2 there and correctly gets
-# kerbs only, so the wide positives need this fixture rather than a 256 generation.
+# The in-gate fixture district: blocks of exactly 8 (MIN_BLOCK -- they cannot go smaller) and
+# streetWidth 7, generated at FIXTURE_SIZE rather than GATE_SIZE. The arithmetic is the reason:
+# `_fit_scale` wants BLOCKS_PER_AXIS_MIN (4) blocks on an axis, and at 64 a width-7 street
+# leaves usable 48, fits 3, so the width scales back to 6 -- an even carriageway that the paint
+# now correctly refuses to mark. At 80, usable 64, fits 4, scale 1.0, and the fixture keeps its
+# 7. The shipped suburb still scales to width 2 at 64 and correctly gets kerbs only, so the
+# wide positives need this fixture; the shipped 256 district is generated once, in lane 10.
 const FIXTURE_ID: String = "district.fixture.road_wide"
+const FIXTURE_SIZE: int = 80
+const FIXTURE_WIDTH: int = 7
+# The size the player plays at (main.gd boots SimTileMap.DISTRICT_TILES); lane 10 generates it.
+const PLAYED_SIZE: int = 256
+# Tiles of carriageway each side of the line -- one two-tile vehicle per direction.
+const LANE_MIN: int = 2
 
 # How much of a manifest span must still be paved outdoor floor on the *finished* map. The
 # manifest is exact at carve time (lane 1 proves 1.0 on the pure layout); the annex stamp and
@@ -71,6 +86,9 @@ func _run() -> void:
 		ok = _the_manifest_tells_the_truth(stash) and ok
 		ok = _the_manifest_and_the_rubble_moved_no_layout(stash) and ok
 		ok = _paint_lands_on_streets_and_nowhere_else(stash) and ok
+		ok = _the_centre_line_is_centred(stash) and ok
+		ok = _each_lane_is_wide_enough(stash) and ok
+		ok = _the_shipped_district_carries_a_centred_line(stash) and ok
 		ok = _variation_is_deterministic_and_alive() and ok
 		ok = _the_palette_holds_the_mood_and_can_say_no() and ok
 		ok = _the_three_sockets_are_wired(stash) and ok
@@ -80,8 +98,8 @@ func _run() -> void:
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("ROAD_LOOK_OK manifest true (exact on layout, worst dressed span %.2f over a %.2f floor), layout untouched, paint on streets only, variation hashed not drawn, palette propertied with the old table refused, mask/speed/tint sockets wired, %d rubble tiles lawful; %.1f s of a %.0f s budget" % [
-			float(stash.get("worst_span", 0.0)), SPAN_PAVED_FLOOR, int(stash.get("rubble", 0)), seconds, BUDGET_SECONDS,
+		print("ROAD_LOOK_OK manifest true (exact on layout, worst dressed span %.2f over a %.2f floor), layout untouched, paint on streets only, centre line centred on %d fixture spans with %d lanes a side and the old placement refused, the shipped %d district carries %d centred dashes at width %d, variation hashed not drawn, palette propertied with the old table refused, mask/speed/tint sockets wired, %d rubble tiles lawful; %.1f s of a %.0f s budget" % [
+			float(stash.get("worst_span", 0.0)), SPAN_PAVED_FLOOR, int(stash.get("centred_spans", 0)), LANE_MIN, PLAYED_SIZE, int(stash.get("played_dashes", 0)), int(stash.get("played_width", 0)), int(stash.get("rubble", 0)), seconds, BUDGET_SECONDS,
 		])
 		quit(0)
 	else:
@@ -100,7 +118,7 @@ func _fixture_district() -> Dictionary:
 		"id": FIXTURE_ID,
 		"name": "fixture",
 		"type": "fixture",
-		"streets": {"blockMin": 8, "blockMax": 8, "streetWidth": 6},
+		"streets": {"blockMin": 8, "blockMax": 8, "streetWidth": FIXTURE_WIDTH},
 		"density": 0.0,
 		"pool": [{"tag": "residential", "weight": 1}],
 	}
@@ -122,7 +140,7 @@ func _boot(stash: Dictionary) -> bool:
 		push_error("no %s in content; the gate has no district to judge" % SimWorldgen.DEFAULT_DISTRICT)
 		return false
 	stash["layout"] = SimWorldgen.layout(CANON_SEED, GATE_SIZE, district)["map"]
-	stash["fixture"] = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree_with_fixture(), FIXTURE_ID)
+	stash["fixture"] = SimWorldgen.generate(CANON_SEED, FIXTURE_SIZE, _tree_with_fixture(), FIXTURE_ID)
 	if (stash["map"].streets as Array).is_empty() or (stash["fixture"].streets as Array).is_empty():
 		push_error("a generated district carries no street manifest at all; every lane below would judge nothing")
 		return false
@@ -301,7 +319,7 @@ func _paint_lands_on_streets_and_nowhere_else(stash: Dictionary) -> bool:
 	var mask: PackedByteArray = RoadPaint.mask_for(wide)
 	var counts: Dictionary = _mask_counts(wide, mask)
 	if int(counts["dash"]) < 1 or int(counts["sidewalk"]) < 1:
-		push_error("the width-6 fixture resolved %d dashes and %d sidewalk cells; wide streets are not being marked" % [int(counts["dash"]), int(counts["sidewalk"])])
+		push_error("the width-%d fixture resolved %d dashes and %d sidewalk cells; wide streets are not being marked" % [FIXTURE_WIDTH, int(counts["dash"]), int(counts["sidewalk"])])
 		return false
 	if int(counts["kerbed"]) < 1:
 		push_error("not one masked tile on the fixture meets non-paved ground; kerb_edges is finding no boundary")
@@ -417,6 +435,201 @@ func _mask_counts(map: Variant, mask: PackedByteArray) -> Dictionary:
 		if RoadPaint.kerb_edges(map, mask, i % w, i / w) != 0:
 			out["kerbed"] = int(out["kerbed"]) + 1
 	return out
+
+
+# --- 8, 9, 10. the centre line ---------------------------------------------------------------
+
+# How a span's rows split around its painted line at one position along it, read off the MASK
+# and never off the formula that placed the line -- an assertion that recomputed `dash_row` would
+# agree with itself by construction. `dash` is the offset of the MASK_DASH row (-1 if none at this
+# position), `before`/`after` count MASK_ASPHALT rows either side of it (sidewalks are their own
+# mask value and fall out), and `complete` says every row of the span carried some paint here --
+# a worn-through row (lawn to the kerb, the annex wall) would undercount a side and blame the
+# line for it, so only complete positions are judged.
+func _lane_split(map: Variant, mask: PackedByteArray, span: Dictionary, along: int) -> Dictionary:
+	var w: int = int(map.w)
+	var at: int = int(span["at"])
+	var vertical: bool = String(span["axis"]) == "x"
+	var dash: int = -1
+	var asphalt: Array[int] = []
+	var painted: int = 0
+	for off in int(span["width"]):
+		var tx: int = at + off if vertical else along
+		var ty: int = along if vertical else at + off
+		if tx < 0 or ty < 0 or tx >= w or ty >= int(map.h):
+			continue
+		var value: int = int(mask[ty * w + tx])
+		if value != RoadPaint.MASK_NONE:
+			painted += 1
+		if value == RoadPaint.MASK_DASH:
+			dash = off
+		elif value == RoadPaint.MASK_ASPHALT:
+			asphalt.append(off)
+	var before: int = 0
+	var after: int = 0
+	for off2 in asphalt:
+		if dash >= 0 and off2 < dash:
+			before += 1
+		elif dash >= 0 and off2 > dash:
+			after += 1
+	return {"dash": dash, "before": before, "after": after, "complete": painted == int(span["width"])}
+
+
+# The first complete, dash-bearing position along each span that has one, as {span, split}.
+# Spans the rule refuses to mark (narrow, or an even carriageway) contribute nothing, which is
+# what lets the caller say "had nothing to judge" instead of passing on an empty set.
+func _judged_splits(map: Variant, mask: PackedByteArray) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for span_value in map.streets as Array:
+		var span: Dictionary = span_value as Dictionary
+		for along in range(int(span["from"]), int(span["to"]) + 1):
+			var split: Dictionary = _lane_split(map, mask, span, along)
+			if int(split["dash"]) >= 0 and bool(split["complete"]):
+				out.append({"span": span, "split": split})
+				break
+	return out
+
+
+# A 16x16 blank map with one paved width-6 span, and a mask for it painted the way the OLD rule
+# painted it (sidewalks outermost, the dash on `at + width / 2` = row 3 of a 1..4 carriageway):
+# the exact off-centre picture the shipped suburb carried. Both negatives below read this.
+func _old_width_six() -> Dictionary:
+	var map: Variant = SimTileMap.blank_map(16, 16)
+	var surfaces := PackedByteArray()
+	surfaces.resize(16 * 16)
+	for i in surfaces.size():
+		surfaces[i] = SimTileMap.SURFACE_GRASS
+	for ty in range(1, 15):
+		for off in 6:
+			surfaces[ty * 16 + 4 + off] = SimTileMap.SURFACE_PAVED
+	map.surfaces = surfaces
+	map.streets = [{"axis": "x", "at": 4, "width": 6, "from": 1, "to": 14}]
+	var old := PackedByteArray()
+	old.resize(16 * 16)
+	for ty2 in range(1, 15):
+		for off2 in 6:
+			var value: int = RoadPaint.MASK_ASPHALT
+			if off2 == 0 or off2 == 5:
+				value = RoadPaint.MASK_SIDEWALK
+			elif off2 == 3:
+				value = RoadPaint.MASK_DASH
+			old[ty2 * 16 + 4 + off2] = value
+	return {"map": map, "old_mask": old}
+
+
+func _the_centre_line_is_centred(stash: Dictionary) -> bool:
+	# The rule itself, both ways: a 7 paints at at+3 (rows 1..5, the middle), a 5 at at+2; a 6
+	# and a 4 are even carriageways and refuse; a 3 is under DASH_MIN_WIDTH and refuses.
+	var expect: Dictionary = {7: 13, 5: 12, 9: 14, 6: -1, 4: -1, 3: -1, 2: -1}
+	for width in expect.keys():
+		if RoadPaint.dash_row(10, int(width)) != int(expect[width]):
+			push_error("dash_row(10, %d) answered %d, want %d" % [int(width), RoadPaint.dash_row(10, int(width)), int(expect[width])])
+			return false
+
+	# On the fixture, read off the paint: every marked span splits evenly around its line.
+	var wide: Variant = stash["fixture"]
+	var mask: PackedByteArray = RoadPaint.mask_for(wide)
+	var judged: Array[Dictionary] = _judged_splits(wide, mask)
+	if judged.is_empty():
+		push_error("no span on the width-%d fixture carries a complete dash-bearing row; the symmetry assertion had nothing to judge" % FIXTURE_WIDTH)
+		return false
+	for j in judged:
+		var split: Dictionary = j["split"]
+		var span: Dictionary = j["span"]
+		if int(split["before"]) != int(split["after"]):
+			push_error("span %s splits %d lanes before its line and %d after -- the line is off-centre" % [str(span), int(split["before"]), int(split["after"])])
+			return false
+		if int(split["dash"]) != RoadPaint.dash_row(int(span["at"]), int(span["width"])) - int(span["at"]):
+			push_error("span %s carries its dash on row %d, not the row dash_row names" % [str(span), int(split["dash"])])
+			return false
+	stash["centred_spans"] = judged.size()
+
+	# The negatives, through the same predicate. The old width-6 picture -- sidewalks outermost,
+	# dash on row 3 of 1..4 -- must read asymmetric; and the new rule must paint that span with
+	# no dash at all rather than a shifted one.
+	var six: Dictionary = _old_width_six()
+	var old_split: Dictionary = _lane_split(six["map"], six["old_mask"], (six["map"].streets as Array)[0] as Dictionary, 5)
+	if int(old_split["dash"]) < 0 or not bool(old_split["complete"]):
+		push_error("the fabricated old-rule mask carries no complete dash row at along 5; the negative is malformed")
+		return false
+	if int(old_split["before"]) == int(old_split["after"]):
+		push_error("the old off-centre placement (%d before, %d after) read as symmetric; the split predicate reads nothing" % [int(old_split["before"]), int(old_split["after"])])
+		return false
+	var new_mask: PackedByteArray = RoadPaint.mask_for(six["map"])
+	var new_counts: Dictionary = _mask_counts(six["map"], new_mask)
+	if int(new_counts["dash"]) != 0:
+		push_error("a width-6 span resolved %d dashes under the new rule; an even carriageway has no row to paint" % int(new_counts["dash"]))
+		return false
+	if int(new_counts["sidewalk"]) != 2 * 14 or int(new_counts["asphalt"]) != 4 * 14:
+		push_error("a width-6 span resolved %d sidewalk and %d asphalt cells; refusing the line must not refuse the street" % [int(new_counts["sidewalk"]), int(new_counts["asphalt"])])
+		return false
+	print("CENTRE OK dash_row 7->at+3, 5->at+2, 9->at+4 and 6/4/3/2 refused; %d fixture spans split evenly (%d|%d); the old width-6 placement reads %d|%d and is refused, and the new rule paints that span with sidewalks and asphalt but no line" % [
+		judged.size(), int((judged[0]["split"] as Dictionary)["before"]), int((judged[0]["split"] as Dictionary)["after"]), int(old_split["before"]), int(old_split["after"]),
+	])
+	return true
+
+
+func _each_lane_is_wide_enough(stash: Dictionary) -> bool:
+	var wide: Variant = stash["fixture"]
+	var mask: PackedByteArray = RoadPaint.mask_for(wide)
+	var judged: Array[Dictionary] = _judged_splits(wide, mask)
+	if judged.is_empty():
+		push_error("no marked span on the fixture to measure a lane on")
+		return false
+	var narrowest: int = 999
+	for j in judged:
+		var split: Dictionary = j["split"]
+		narrowest = mini(narrowest, mini(int(split["before"]), int(split["after"])))
+	if narrowest < LANE_MIN:
+		push_error("a lane beside the centre line is %d tiles wide; a two-tile vehicle needs %d each side, which is what the width went to %d for" % [narrowest, LANE_MIN, FIXTURE_WIDTH])
+		return false
+	# The old geometry, through the same measure: one of its lanes is a single tile.
+	var six: Dictionary = _old_width_six()
+	var old_split: Dictionary = _lane_split(six["map"], six["old_mask"], (six["map"].streets as Array)[0] as Dictionary, 5)
+	if mini(int(old_split["before"]), int(old_split["after"])) >= LANE_MIN:
+		push_error("the old width-6 geometry passes the lane-width floor; the floor reads nothing")
+		return false
+	print("LANES OK every fixture lane beside the line is >= %d tiles (narrowest %d); the old width-6 geometry's %d-tile lane refused" % [LANE_MIN, narrowest, mini(int(old_split["before"]), int(old_split["after"]))])
+	return true
+
+
+# The shipped district, at the size the player actually sees. Every other lane judges the
+# suburb at 64, where it scales to width 2 and carries no line at all -- so without this
+# generation, "the line is centred" is true of no shipped line. ~0.6 s, inside the budget.
+func _the_shipped_district_carries_a_centred_line(stash: Dictionary) -> bool:
+	var played: Variant = SimWorldgen.generate(CANON_SEED, PLAYED_SIZE, _tree())
+	var widest: int = 0
+	for span_value in played.streets as Array:
+		widest = maxi(widest, int((span_value as Dictionary)["width"]))
+	if widest != FIXTURE_WIDTH:
+		push_error("the shipped suburb at %d carves streets %d wide; the content declares %d and the fixture is judged at %d" % [PLAYED_SIZE, widest, FIXTURE_WIDTH, FIXTURE_WIDTH])
+		return false
+	var mask: PackedByteArray = RoadPaint.mask_for(played)
+	var counts: Dictionary = _mask_counts(played, mask)
+	if int(counts["dash"]) < 1:
+		push_error("the shipped suburb at %d resolved no dashes; the centred line is a claim about no lines" % PLAYED_SIZE)
+		return false
+	var judged: Array[Dictionary] = _judged_splits(played, mask)
+	if judged.is_empty():
+		push_error("the shipped suburb at %d has dashes but no complete dash-bearing row to judge them on" % PLAYED_SIZE)
+		return false
+	for j in judged:
+		var split: Dictionary = j["split"]
+		if int(split["before"]) != int(split["after"]) or mini(int(split["before"]), int(split["after"])) < LANE_MIN:
+			push_error("shipped span %s splits %d|%d around its line" % [str(j["span"]), int(split["before"]), int(split["after"])])
+			return false
+	stash["played_dashes"] = int(counts["dash"])
+	stash["played_width"] = widest
+	# The true negative stays where it already is: the same suburb at GATE_SIZE scales to width
+	# 2 and lane 3 requires it to resolve zero dashes -- one district, two sizes, two answers.
+	var small_counts: Dictionary = _mask_counts(stash["map"], RoadPaint.mask_for(stash["map"]))
+	if int(small_counts["dash"]) != 0:
+		push_error("the suburb at %d resolved %d dashes; the size split this lane rests on has collapsed" % [GATE_SIZE, int(small_counts["dash"])])
+		return false
+	print("PLAYED OK the shipped suburb at %d carves width %d, resolves %d dashes on %d centred spans with >= %d lanes a side; at %d it stays width 2 with no line" % [
+		PLAYED_SIZE, widest, int(counts["dash"]), judged.size(), LANE_MIN, GATE_SIZE,
+	])
+	return true
 
 
 # --- 4. variation --------------------------------------------------------------------------

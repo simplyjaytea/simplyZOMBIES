@@ -34,10 +34,11 @@ from parts import characters, props, wrecks  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 
-# One entry per family module. Hand-authored art is deliberately absent: the five PNGs that
-# came from a person are not registry-owned, and hand-polish later *replaces* generated art by
-# deleting its key here in the same commit as the authored file -- so this map is always the
-# exact set of pictures this package claims to be able to reproduce.
+# One entry per family module. The overhead re-author moves the other way from how this map
+# used to read: generated art now replaces hand art, the key added in the same commit as the
+# PNG it takes over (`survivor_mara` and `zombie_shambler` crossed over in this slice). What
+# remains hand-authored and outside this map is the `item_*_equip*` files, and the worn-look
+# slice takes the last of them -- at which point this comment stops needing to say "remains".
 MODULES = (characters, props, wrecks)
 
 

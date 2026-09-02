@@ -365,10 +365,30 @@ func _low_mood_slows_work_and_miserable_mood_refuses_it() -> bool:
 	return true
 
 
+# Every shambler out of the world, components and modifiers with it. Called each tick by the
+# arguments lane: what it measures is two survivors standing together, and a pack in the annex is
+# a death, not an argument.
+func _clear_shamblers(w: Variant) -> void:
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+
+
 # "Arguments -- which damage other survivors' mood, so misery spreads." And the half that keeps it
 # from being the meltdown docs/04 rules out: the damage is capped and it drains away.
+#
+# The colony is emptied of shamblers for the measurement. The roads slice's widened suburb brought
+# a pack into the annex on this very seed around tick 37,500 of the 4,800-tick hold -- measured
+# with a driver: Mara grabbed by one, Ellis by another and a corpse by 38,400, three arguments in --
+# and a lane about arguing was reading a corpse's rebuilt needs and reporting "the victim carries
+# none of it". Pinning the grab loop off (the latrine walk's precedent) was not enough: a held,
+# miserable player standing still in a pack is swiped to death instead. So the pack goes, through
+# `world.despawn` (components and modifiers with it -- `entities.despawn` leaves both behind), and
+# goes again every tick in case the director sends more; the contact loop has its own gates. The
+# lane also says out loud if either party dies mid-hold, so the next layout change that reaches
+# the annex fails by name rather than by a number that reads zero.
 func _arguments_spread_misery_and_stop_short_of_a_spiral() -> bool:
 	var w: Variant = _world()
+	_clear_shamblers(w)
 	var others: Array = []
 	for ent in w.components.query(["needs", "position"]):
 		others.append(int(ent))
@@ -394,6 +414,7 @@ func _arguments_spread_misery_and_stop_short_of_a_spiral() -> bool:
 	# is that it stops.
 	var runs: int = SimNeeds.ARGUMENT_TICKS * 8
 	for _i in runs:
+		_clear_shamblers(w)
 		w.step()
 		# Hold both in place and the arguer miserable, so this measures arguing rather than the
 		# job AI walking one of them out of earshot.
@@ -404,6 +425,10 @@ func _arguments_spread_misery_and_stop_short_of_a_spiral() -> bool:
 	if heard.is_empty():
 		push_error("no argument in %d ticks with a miserable survivor standing next to somebody" % runs)
 		return false
+	for party in [arguer, victim]:
+		if w.components.has_component(int(party), "corpse") or not w.components.has_component(int(party), "needs"):
+			push_error("survivor %d died during the %d-tick hold (a shambler reached the annex); this lane measured a death, not an argument" % [int(party), runs])
+			return false
 	var carried: float = float(SimNeeds.of(w, victim).get("argued", 0.0))
 	if carried <= 0.0:
 		push_error("%d arguments landed and the victim carries none of it" % heard.size())
@@ -426,6 +451,7 @@ func _arguments_spread_misery_and_stop_short_of_a_spiral() -> bool:
 	# The true negative: the same colony with nobody miserable has no arguments at all, so this is
 	# measuring mood rather than proximity.
 	var calm: Variant = _world()
+	_clear_shamblers(calm)
 	var quiet: Array = []
 	calm.events.subscribe({"type": "mood.argument", "id": "gate.calm", "handler": func(_e: Dictionary) -> void:
 		quiet.append(1)
@@ -433,6 +459,7 @@ func _arguments_spread_misery_and_stop_short_of_a_spiral() -> bool:
 	for ent4 in calm.components.query(["needs", "position"]):
 		_set_mood(calm, int(ent4), 0.0)
 	for _i in runs:
+		_clear_shamblers(calm)
 		calm.step()
 		for ent5 in calm.components.query(["needs", "position"]):
 			_set_mood(calm, int(ent5), 0.0)

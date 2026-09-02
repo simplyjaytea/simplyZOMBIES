@@ -1670,6 +1670,39 @@ pick does **not** adopt:
   brainstorm's invariants (silhouette → tint → detail, one loud tell per type, art never leaks
   sim state) rather than by matching the reference stroke for stroke.
 
+**Rain is ambience, not weather** (added by the weather slice under the same decision). The
+reference's rain is adopted as a presentation layer keyed off the tick, not as a simulation: it
+never starts and never stops, nothing in the sim reads it, and no mechanism depends on it.
+docs/16's weather is Milestone 3, and when it lands the layer is re-keyed to it rather than
+competing with it.
+
+**Every body is an overhead rig** (added by the characters slice, under four further owner
+directives of 2026-09-01). All character sprites are authored true-overhead like the player's,
+which retires the second boundary's "stay face-on" half — and only that half: **NPCs still never
+rotate.** `body_rotation(false, *) == 0.0` and the one-transform socket stand untouched, so an
+unrotated rig faces up-canvas whatever its body's real heading, and the indicator line keeps
+carrying the truth. The player's own rig slims (a wide silhouette strobes at 20 Hz under free
+unsmoothed rotation). Gear renders on detailed bodies — pack, long gun, headwear — as earned
+Focal information, beside the standing shared-raider-body clause: every raider archetype resolves
+one body, because which raider carries the gun is not something a look across a street may
+answer. `check_m2_raiders.gd` holds that from the content side and `check_appearance.gd`'s roster
+lane from the resolver's.
+
+**Road width is a layout decision, paid for in buildings** (owner, 2026-09-02, from the roads
+plan). The suburb's streets went from 6 to 7 wide because a centre line needs a centre row: with
+a sidewalk each side, a 6-wide street is a four-row carriageway and its line sat on row 3 of 1..4
+— two lanes one side, one the other — and no amount of paint fixes an even count. The paint now
+refuses to mark an even carriageway rather than shift the line half a tile, and 7 gives two tiles
+of lane each way, which is what a two-tile vehicle needs. `_fit_scale` consumes the width, so the
+number is not free: at 256 every extra tile of street is a tile of block, and the 40–70 building
+band `check_m2_district.gd` pins is the ceiling on how wide a road may get (9 was refused on that
+arithmetic before it was tried). Two further decisions were taken with it: **vehicles will be
+layout, not dressing** — a worldgen pass writing a `map.vehicles` manifest beside `map.streets` —
+so the standing rule that dressing stays balance-neutral is honoured rather than amended when the
+2-wide footprints land; and **driving stays in Milestone 3B**, behind the drive benchmark, with
+the footprints and the manifest shaped so a future vehicle entity is spawned from a record that
+already exists.
+
 The fixtures earned their keep here twice over: they showed B's rotation working under the
 anonymity clause before the pick, and they surfaced that the shipped game has no player sprite at
 all — the first slice of the arc authors one, which no candidate style could have skipped.

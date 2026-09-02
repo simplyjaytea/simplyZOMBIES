@@ -16,16 +16,18 @@ extends RefCounted
 #   MASK_NONE     -- not street pavement; draw nothing extra.
 #   MASK_ASPHALT  -- in a street span and still paved; kerbs may edge it.
 #   MASK_SIDEWALK -- the outermost row each side of a wide street; drawn as its own slab colour.
-#   MASK_DASH     -- the centre row's alternating lane-paint tiles.
+#   MASK_DASH     -- the carriageway's centre row, alternating lane-paint tiles -- painted only
+#                    where a centre row exists (see `dash_row`).
 #
 # "Still paved" is load-bearing: the annex stamp and the terrain pass legitimately overwrite
 # parts of a span (a lawn grown to the kerb, a colony wall across the old road), and worn-through
 # wins -- the mask goes quiet wherever the pavement is gone rather than painting markings on
 # grass. Junctions -- tiles covered by an x-span and a y-span at once -- carry plain asphalt with
 # markings suppressed, which is how a crossing reads worn instead of gridded. Sidewalks want a
-# span at least SIDEWALK_MIN_WIDTH wide and dashes at least DASH_MIN_WIDTH, so the shipped
-# width-3 town-centre streets (and the suburb's width-2 miniature alleys) get kerbs only -- an
-# authored floor, asserted by check_road_look.gd, not an accident of the data.
+# span at least SIDEWALK_MIN_WIDTH wide and dashes at least DASH_MIN_WIDTH *and a carriageway
+# with a middle row*, so the shipped width-3 town-centre streets (and the suburb's width-2
+# miniature alleys) get kerbs only -- an authored floor, asserted by check_road_look.gd, not
+# an accident of the data.
 
 const SimSurface = preload("res://sim/map/surface.gd")
 
@@ -46,6 +48,24 @@ const EDGE_W: int = 8
 # How far the per-tile ground variation may push a channel, in colour value. Small on purpose:
 # it exists to break the flat fill up close, not to be a second palette.
 const VARIATION_MAX: float = 0.025
+
+
+# The row a centre line may be painted on, or -1 when the carriageway has no centre. The
+# carriageway is the span minus its sidewalks (one row each side once the span is wide enough to
+# carry them), and a run of rows has a middle row only when it is an odd count. The shipped
+# suburb was width 6 until the roads slice: with sidewalks that is a four-row carriageway, and
+# `at + width / 2` put the line on row 3 of 1..4 -- two lanes one side, one the other, which is
+# the asymmetry the owner saw. Refusing to paint is the honest answer for an even carriageway:
+# there is no row to paint on, and shifting the paint half a tile draws a line centred on
+# nothing. check_road_look.gd's CENTRE lane holds both halves -- 7 paints at at+3, 6 paints not.
+static func dash_row(at: int, width: int) -> int:
+	if width < DASH_MIN_WIDTH:
+		return -1
+	var inset: int = 1 if width >= SIDEWALK_MIN_WIDTH else 0
+	var lanes: int = width - 2 * inset
+	if lanes % 2 == 0:
+		return -1
+	return at + inset + lanes / 2
 
 
 # One byte per tile, resolved from the manifest. A map with no manifest -- a fixture, a
@@ -85,7 +105,7 @@ static func mask_for(map: Variant) -> PackedByteArray:
 		var at: int = int(span2["at"])
 		var width: int = int(span2["width"])
 		var vertical: bool = String(span2["axis"]) == "x"
-		var centre: int = at + width / 2
+		var centre: int = dash_row(at, width)
 		for along in range(int(span2["from"]), int(span2["to"]) + 1):
 			for off in width:
 				var tx: int = at + off if vertical else along
@@ -104,7 +124,7 @@ static func mask_for(map: Variant) -> PackedByteArray:
 				var value: int = MASK_ASPHALT
 				if width >= SIDEWALK_MIN_WIDTH and (off == 0 or off == width - 1):
 					value = MASK_SIDEWALK
-				elif width >= DASH_MIN_WIDTH and at + off == centre and (tx + ty) % 2 == 0:
+				elif centre >= 0 and at + off == centre and (tx + ty) % 2 == 0:
 					value = MASK_DASH
 				out[idx] = value
 	return out

@@ -26,12 +26,13 @@ func _run() -> void:
 	ok = _every_canvas_is_64() and ok
 	ok = _procedural_fallback_still_works() and ok
 	ok = _the_player_has_a_body() and ok
-	ok = _tints_come_from_content_not_code() and ok
+	ok = _the_roster_resolves_bodies() and ok
+	ok = _colonists_are_tinted_grey() and ok
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, tints from content")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists compose grey x tint over the ground")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -269,43 +270,284 @@ func _the_player_has_a_body() -> bool:
 	return true
 
 
-# Guards the migration: these two colours used to be literals in _draw_entities. If someone
-# moves them back into code, the content block disappears and this fails.
-func _tints_come_from_content_not_code() -> bool:
+# The whole roster, one row per body the game can stand in a district. `probe` is the
+# role-flag Dictionary _draw_entities builds; `kind` feeds of_content. This lane replaced
+# `_tints_come_from_content_not_code` in the commit that moved the screamer's and bloater's
+# colours out of content tints and into the sprite ramps: the pinned hexes retired with the
+# tints they pinned, and the guarantee underneath -- a colour can never move back into the
+# draw loop -- survives below as the stripped-tree negative over every family at once.
+#
+# A colony.look id routes through kind "survivor" inside for_entity and resolves anyway,
+# because _content_entry ignores `kind` for a Dictionary tree (world.content always is one;
+# `c is Object` is false for it). Noted, not "fixed": the lookup is by id, the ids do not
+# collide, and a fix in passing is how a resolver grows a second code path.
+const ROSTER: Array[Dictionary] = [
+	{"id": "player.body", "kind": "player", "probe": {"player": true}, "colonist": false},
+	{"id": "survivor.unique.mara", "kind": "survivor", "probe": {"unique": true, "cid": "survivor.unique.mara"}, "colonist": false},
+	{"id": "survivor.unique.ellis", "kind": "survivor", "probe": {"unique": true, "cid": "survivor.unique.ellis"}, "colonist": false},
+	{"id": "colony.look.01", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.01"}, "colonist": true},
+	{"id": "colony.look.02", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.02"}, "colonist": true},
+	{"id": "colony.look.03", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.03"}, "colonist": true},
+	{"id": "colony.look.04", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.04"}, "colonist": true},
+	{"id": "colony.look.05", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.05"}, "colonist": true},
+	{"id": "colony.look.06", "kind": "survivor", "probe": {"unique": true, "cid": "colony.look.06"}, "colonist": true},
+	{"id": "zombie.shambler", "kind": "zombie", "probe": {"ztype": "zombie.shambler"}, "colonist": false},
+	{"id": "zombie.screamer", "kind": "zombie", "probe": {"ztype": "zombie.screamer"}, "colonist": false},
+	{"id": "zombie.bloater", "kind": "zombie", "probe": {"ztype": "zombie.bloater"}, "colonist": false},
+	{"id": "raider.scav", "kind": "raider", "probe": {"raider": true, "cid": "raider.scav"}, "colonist": false},
+	{"id": "raider.gunhand", "kind": "raider", "probe": {"raider": true, "cid": "raider.gunhand"}, "colonist": false},
+]
+
+# zombie.base spawns nowhere and gets no art -- it is the `extends` parent the wave types
+# inherit stats (never looks) from, and the roadmap record says so.
+const ROSTER_EXEMPT: Array[String] = ["zombie.base"]
+
+# Where roster ids live. colony/ also holds the generator and the skill web, which are not
+# bodies, so the colony entry names the one file rather than the directory.
+const ROSTER_DIRS: Array[String] = ["players/", "zombies/", "survivors/uniques/", "raiders/", "colony/looks.json"]
+
+# Ids that deliberately resolve one shared texture: six colonists are one rig (the tint is
+# the identity), and every raider archetype is one body (which raider carries the gun is not
+# something a look across a street may answer -- check_m2_raiders.gd asserts the same thing
+# from the content side).
+const ROSTER_SHARED: Array = [
+	["colony.look.01", "colony.look.02", "colony.look.03", "colony.look.04", "colony.look.05", "colony.look.06"],
+	["raider.scav", "raider.gunhand"],
+]
+
+# One id per distinct picture; every pair must resolve different textures.
+const ROSTER_DISTINCT: Array[String] = [
+	"player.body", "survivor.unique.mara", "survivor.unique.ellis", "colony.look.01",
+	"zombie.shambler", "zombie.screamer", "zombie.bloater", "raider.scav",
+]
+
+
+# Every body resolves generated art through the resolver the draw loop asks, tinted exactly
+# as content declared: white for art with no tint, the looks.json tint for a colonist. The
+# sharing and distinctness assertions work by texture *identity* -- Appearance._cache holds
+# one Texture2D per key, so `==` says whether two ids reached one file.
+func _the_roster_resolves_bodies() -> bool:
+	Appearance.forget()
 	var w: Variant = World.new(_fixture())
-	var expected: Dictionary = {"zombie.screamer": "#d95947", "zombie.bloater": "#6b8c47"}
-	for id in expected.keys():
-		var block: Dictionary = Appearance.of_content(w, "zombie", String(id))
-		if not block.has("tint"):
-			push_error("%s declares no appearance.tint; its colour belongs in content, not in the draw loop" % id)
+	var textures: Dictionary = {}
+	for row in ROSTER:
+		var id: String = String(row["id"])
+		var look: Dictionary = Appearance.for_entity(w, (row["probe"] as Dictionary).duplicate())
+		if look["texture"] == null:
+			push_error("%s resolves no texture; its content declares a sprite key and nothing read it" % id)
 			return false
-		var got: Color = Color(String(block["tint"]))
-		if got != Color(String(expected[id])):
-			push_error("%s tint %s != expected %s" % [id, block["tint"], expected[id]])
+		textures[id] = look["texture"]
+		if bool(row["colonist"]):
+			var block: Dictionary = Appearance.of_content(w, String(row["kind"]), id)
+			if not block.has("tint"):
+				push_error("%s declares no tint beside its sprite; six colonists with no tints are six identical grey people" % id)
+				return false
+			if (look["tint"] as Color) != Color(String(block["tint"])):
+				push_error("%s: for_entity did not hand the looks.json tint to the modulate, got %s" % [id, str(look["tint"])])
+				return false
+		elif (look["tint"] as Color) != Color.WHITE:
+			push_error("%s has art with no declared tint and must draw white, got %s" % [id, str(look["tint"])])
 			return false
-		var look: Dictionary = Appearance.for_entity(w, {"ztype": String(id)})
-		if (look["tint"] as Color) != got:
-			push_error("%s: for_entity did not use the content tint" % id)
+	for group in ROSTER_SHARED:
+		for id2 in group as Array:
+			if textures[String(id2)] != textures[String((group as Array)[0])]:
+				push_error("%s resolves a different texture from %s -- these ids share one body on purpose" % [String(id2), String((group as Array)[0])])
+				return false
+	for i in ROSTER_DISTINCT.size():
+		for j in range(i + 1, ROSTER_DISTINCT.size()):
+			if textures[ROSTER_DISTINCT[i]] == textures[ROSTER_DISTINCT[j]]:
+				push_error("%s and %s resolve one texture -- two bodies you cannot tell apart" % [ROSTER_DISTINCT[i], ROSTER_DISTINCT[j]])
+				return false
+
+	# Completeness: a body added to content joins ROSTER or is exempted with its reason,
+	# never slips past unjudged.
+	var tree: Dictionary = ContentLoader.load_tree()
+	var known: Dictionary = {}
+	for row2 in ROSTER:
+		known[String(row2["id"])] = true
+	var walked: int = 0
+	for path in tree.keys():
+		var in_scope: bool = false
+		for prefix in ROSTER_DIRS:
+			if String(path).begins_with(prefix):
+				in_scope = true
+				break
+		if not in_scope:
+			continue
+		var raw: Variant = tree[path]
+		var entries: Array = raw as Array if raw is Array else [raw]
+		for entry_v in entries:
+			if not (entry_v is Dictionary):
+				continue
+			var walked_id: String = String((entry_v as Dictionary).get("id", ""))
+			if walked_id.is_empty():
+				continue
+			walked += 1
+			if not known.has(walked_id) and not ROSTER_EXEMPT.has(walked_id):
+				push_error("%s joined the roster and nothing judged its art -- add it to ROSTER, or to ROSTER_EXEMPT with the reason" % walked_id)
+				return false
+	if walked == 0:
+		push_error("the roster walk found no ids -- the completeness assertion had nothing to judge")
+		return false
+
+	# The true negative, one family at a time: with its content dropped, each probe must
+	# resolve nothing and fall back to its role colour -- red the moment a sprite key or a
+	# colour moves into presentation. The drops are counted, because a tree that dropped
+	# nothing would pass every assertion below by accident.
+	Appearance.forget()
+	var stripped: Dictionary = ContentLoader.load_tree()
+	var dropped: int = 0
+	for path2 in stripped.keys():
+		var p: String = String(path2)
+		if p.begins_with("players/") or p == "survivors/uniques/mara.json" or p == "colony/looks.json" \
+				or p == "raiders/scav.json" or p == "zombies/screamer.json":
+			stripped.erase(path2)
+			dropped += 1
+	if dropped < 5:
+		push_error("only %d of the 5 named roster files dropped -- the true negative had less to remove than it promises" % dropped)
+		return false
+	var fixture: Dictionary = _fixture()
+	fixture["content_tree"] = stripped
+	var bare: Variant = World.new(fixture)
+	var fallbacks: Array[Dictionary] = [
+		{"probe": {"player": true}, "role": "player", "label": "the player"},
+		{"probe": {"unique": true, "cid": "survivor.unique.mara"}, "role": "survivor", "label": "mara"},
+		{"probe": {"unique": true, "cid": "colony.look.01"}, "role": "survivor", "label": "a colonist"},
+		{"probe": {"raider": true, "cid": "raider.scav"}, "role": "raider", "label": "a raider"},
+		{"probe": {"ztype": "zombie.screamer"}, "role": "wanderer", "label": "a screamer"},
+	]
+	for c in fallbacks:
+		var fb: Dictionary = Appearance.for_entity(bare, (c["probe"] as Dictionary))
+		if fb["texture"] != null:
+			push_error("with its content dropped %s still resolved a texture: the sprite key lives in presentation, not in content" % String(c["label"]))
 			return false
-	# The shambler is the one type with real art on disk and no declared tint: it must
-	# resolve its texture and pass through white, unstained by the wanderer role colour.
-	# (The declares-nothing fallback keeps its own true positive above, via the unknown type.)
-	var shambler: Dictionary = Appearance.for_entity(w, {"ztype": "zombie.shambler"})
-	if shambler["texture"] == null:
-		push_error("zombie.shambler declares appearance.sprite but resolved no texture")
+		if (fb["tint"] as Color) != Palette.COLOURS[String(c["role"])]:
+			push_error("with no content %s must fall back to the %s role colour, got %s" % [String(c["label"]), String(c["role"]), str(fb["tint"])])
+			return false
+	Appearance.forget()
+	print("ROSTER OK %d bodies resolve, %d shared groups, %d distinct pictures, %d ids walked, 5 fallbacks refused without content" % [ROSTER.size(), ROSTER_SHARED.size(), ROSTER_DISTINCT.size(), walked])
+	return true
+
+
+func _luma(c: Color) -> float:
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+
+# On sRGB byte values, because that is what the achromatic bound is about: the outline
+# #161614 is (22, 22, 20), channel delta exactly 2, and it must stay inside the bound after
+# the shade pass multiplies it -- which is why _figure in the sprite package outlines last.
+func _is_achromatic(c: Color) -> bool:
+	var r: int = int(round(c.r * 255.0))
+	var g: int = int(round(c.g * 255.0))
+	var b: int = int(round(c.b * 255.0))
+	return maxi(absi(r - g), absi(g - b)) <= 2
+
+
+# Whether a grey of this luminance, multiplied by this tint, still reads against the
+# brightest ground the district can draw. The threshold reads the real palette, never a
+# copied number. This models the modulate as a per-channel multiply on sRGB values with
+# Rec. 709 luma and no linearisation -- which is what Godot's 2D Compatibility path does
+# and what tools/sprites/palette.py::luma already assumes. A model of the renderer, not a
+# rendering; if the renderer ever changes, this is the line to revisit.
+const GREY_CLEARANCE: float = 0.06
+
+func _composed_clears(median_grey: float, tint: Color) -> bool:
+	var brightest: float = 0.0
+	for i in Palette.SURFACE_TINTS.size():
+		brightest = maxf(brightest, _luma(Palette.SURFACE_TINTS[i]))
+	return median_grey * _luma(tint) >= brightest + GREY_CLEARANCE
+
+
+# The colonist rig is achromatic and the looks.json tint supplies all the colour -- the one
+# legitimate grayscale-to-tint case on the roster. Because the rig is achromatic
+# (r == g == b), the modulate product's luma is exactly grey x luma(tint), which is what
+# makes the ground-contrast guard computable here at all: palette.py's import-time guard
+# cannot see the composition, so this lane is its other half and GROUND_FACING's comment
+# names it. check_m2_recruits.gd independently pins that every rolled look declares a tint;
+# this lane pins the pairing and the arithmetic.
+func _colonists_are_tinted_grey() -> bool:
+	Appearance.forget()
+	var w: Variant = World.new(_fixture())
+	var hex := RegEx.new()
+	hex.compile(HEX)
+	var tints: Array[Color] = []
+	for n in range(1, 7):
+		var id: String = "colony.look.%02d" % n
+		var block: Dictionary = Appearance.of_content(w, "survivor", id)
+		if String(block.get("sprite", "")) != "survivor_colonist":
+			push_error("%s does not declare sprite 'survivor_colonist'; the composition needs both halves" % id)
+			return false
+		var t: Variant = block.get("tint")
+		if not (t is String) or hex.search(String(t)) == null:
+			push_error("%s tint '%s' is not #rrggbb lowercase" % [id, str(t)])
+			return false
+		tints.append(Color(String(t)))
+	if tints.size() != 6:
+		push_error("expected 6 colony looks, judged %d" % tints.size())
 		return false
-	if (shambler["tint"] as Color) != Color.WHITE:
-		push_error("zombie.shambler's art declares no tint and must draw white, got %s" % str(shambler["tint"]))
+
+	var tex: Variant = Appearance.resolve("survivor_colonist")
+	if tex == null:
+		push_error("survivor_colonist resolved no texture")
 		return false
-	# Mara exercises the survivor cid path the same way: real art, no tint, drawn as painted.
-	var mara: Dictionary = Appearance.for_entity(w, {"unique": true, "cid": "survivor.unique.mara"})
-	if mara["texture"] == null:
-		push_error("survivor.unique.mara declares appearance.sprite but resolved no texture")
+	var img: Image = (tex as Texture2D).get_image()
+	var lumas: Array[float] = []
+	var worst_delta: int = 0
+	var worst_at: Vector2i = Vector2i(-1, -1)
+	for y in img.get_height():
+		for x in img.get_width():
+			var px: Color = img.get_pixel(x, y)
+			if px.a <= 0.0:
+				continue
+			if not _is_achromatic(px):
+				push_error("survivor_colonist pixel (%d,%d) is not achromatic: %s -- a coloured pixel here fights the tint instead of carrying it" % [x, y, str(px)])
+				return false
+			var delta: int = maxi(absi(int(round(px.r * 255.0)) - int(round(px.g * 255.0))), absi(int(round(px.g * 255.0)) - int(round(px.b * 255.0))))
+			if delta > worst_delta:
+				worst_delta = delta
+				worst_at = Vector2i(x, y)
+			lumas.append(_luma(px))
+	if lumas.is_empty():
+		push_error("survivor_colonist has no opaque pixels -- the achromatic assertion had nothing to judge")
 		return false
-	if (mara["tint"] as Color) != Color.WHITE:
-		push_error("survivor.unique.mara's art declares no tint and must draw white, got %s" % str(mara["tint"]))
+	lumas.sort()
+	var median: float = lumas[lumas.size() / 2]
+	var brightest: float = 0.0
+	for i in Palette.SURFACE_TINTS.size():
+		brightest = maxf(brightest, _luma(Palette.SURFACE_TINTS[i]))
+	var tightest: float = 1.0
+	for tint in tints:
+		if not _composed_clears(median, tint):
+			push_error("median grey %.4f x tint %s luma %.4f = %.4f, under the ground threshold %.4f -- that colonist is a silhouette on undergrowth" % [median, str(tint), _luma(tint), median * _luma(tint), brightest + GREY_CLEARANCE])
+			return false
+		tightest = minf(tightest, median * _luma(tint) - (brightest + GREY_CLEARANCE))
+
+	# True negatives, through the same predicates the shipped data just passed. The brown is
+	# colony.look.03's retired tint: the regrade exists because the composition failed on it.
+	if _composed_clears(median, Color("#5c4632")):
+		push_error("the retired #5c4632 clears the composed-luminance guard; the predicate reads nothing")
 		return false
-	print("TINTS OK")
+	if _is_achromatic(Color(0.6, 0.5, 0.4)):
+		push_error("_is_achromatic accepted a colour 25 bytes off grey; the bound reads nothing")
+		return false
+	# And on real data: Mara's rig is painted in colour, so if every one of her opaque pixels
+	# passes the achromatic bound, the bound is not measuring what it claims to.
+	var mara_tex: Variant = Appearance.resolve("survivor_mara")
+	if mara_tex == null:
+		push_error("survivor_mara resolved no texture for the achromatic negative")
+		return false
+	var mara_img: Image = (mara_tex as Texture2D).get_image()
+	var coloured: int = 0
+	for y2 in mara_img.get_height():
+		for x2 in mara_img.get_width():
+			var px2: Color = mara_img.get_pixel(x2, y2)
+			if px2.a > 0.0 and not _is_achromatic(px2):
+				coloured += 1
+	if coloured == 0:
+		push_error("every opaque pixel of survivor_mara passed the achromatic bound; a check Mara's art satisfies reads nothing")
+		return false
+	Appearance.forget()
+	print("GREY OK %d opaque px, worst delta %d at %s, median %.4f, threshold %.4f, tightest margin +%.3f, retired brown refused, %d coloured px on mara" % [lumas.size(), worst_delta, str(worst_at), median, brightest + GREY_CLEARANCE, tightest, coloured])
 	return true
 
 # A role colour stands in for missing art; it must not filter art that exists. Drawn as a

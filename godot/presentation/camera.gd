@@ -9,6 +9,12 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 # so it is a content decision rather than a camera preference.
 const ZOOM_STEPS: Array[float] = [16.0, 32.0, 64.0, 128.0]
 
+# The zoom at which one art pixel is one screen pixel. It is a member of ZOOM_STEPS on
+# purpose, and check_topdown.gd asserts the membership: an art-native scale the camera
+# cannot reach is a 1:1 body nobody can ever see. Appearance.blit_scale divides by this,
+# which is the whole of how a 64 px rig knows what size to draw at zoom 16.
+const ART_NATIVE: float = 64.0
+
 # No zoom smoothing -- a deliberate refusal, not an oversight. A tween between two of
 # the steps above would pass through non-integer scales -- 47.3 px/m, say -- and
 # nearest-neighbour has no clean answer for that: every tile edge shimmers while it's

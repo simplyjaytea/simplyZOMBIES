@@ -233,17 +233,35 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
   constant moves again. `presentation/dressing.gd` already classifies a lone tile as `solo` and
   resolves nothing for it; `check_wrecks.gd`'s SEGMENTS and DISTRICT lanes say out loud which half
   went unjudged, so the socket is named rather than hidden.
-- **Weather & mood.** A rain pass and overcast grade, presentation-only, reading nothing the
-  player has not seen.
-- **Characters re-authored for overhead.** The brainstorm's overhead visual language: survivors
-  and the zombie roster on the rotated-rig conventions. Folds in the old **screamer and bloater
-  sprites** item — both still render as tinted shapes. Carries three deferrals the player's own
-  rig left named rather than hidden (see its record): the **entity-blit zoom-scale defect** (every
-  textured body blits at its native 64 px whatever the camera zoom, so a pawn is the wrong size at
-  every zoom but 64 — fixed here, where all character art is re-judged anyway, not inside a
-  rotation slice); **overhead equip art** (the pack and bat overlays are still face-on placeholders
-  riding the rotated rig, and are never "fixed" by pulling those layers out of the transform); and
-  a **display-rotation lerp** if a playtest reads the 20 Hz rotation steps as jitter.
+- **A corpse reads as a corpse.** The art half of the corpse defect, left after the characters
+  slice landed the mechanical half (a still body is no longer glimpsed — the GLIMPSE lane in its
+  record): at Focal a dead body still draws the same upright rig as a living one. Prone art
+  collides with the one-transform spine — `count("draw_set_transform(") == 1` is *why* corpse art
+  was deferred, not forgotten — and what a glimpsed corpse is allowed to show is an
+  information-scarcity call that belongs beside the owner's other scarcity decisions.
+- **Cars are cars: the 2-wide vehicle footprint.** Today's car is 42 px, about 0.66 m wide — a
+  1:2.7 scale model that two survivors cannot stand abreast in — and the wreck resolver decides
+  front/mid/rear from one-axis neighbours (`presentation/dressing.gd`), which cannot express a
+  two-wide vehicle at all. The piece: a `worldgen.vehicles` **layout** pass (its own stream, a
+  fixed draw count, all-or-nothing placement on a street span aligned to its axis) writing a
+  `map.vehicles` manifest of `{x, y, w, h, axis, class}` records on the `map.streets` precedent;
+  the resolver reads the manifest instead of guessing; classes named from
+  [docs/25](25-vehicles.md)'s base table so a wreck previews the base it becomes; generated art
+  per column × row (left/right × nose/cabin/body/tail, eight files a variant whatever the
+  length). The class table — every class 2 wide, length by class (sedan 2×5 first) — waits on the
+  owner's look at the widened streets (the roads record's screenshot). Balance: vehicles are
+  layout, so the dressing rule stands and the layout change is measured, structural driver and
+  FAST tier both (docs/30). Side-find to close here: the suburb stands two `car boot` loot sites
+  with no car under them — `_protected_tiles` forbids a wreck on a site tile, so the boot has
+  never had a car.
+- **The van and the truck.** Two more classes on the same vocabulary once the sedan proves it.
+- **Vehicles you can drive** — *named, not scheduled*: [docs/23 puts vehicles outside Milestone
+  2](#what-is-explicitly-not-in-the-slice) and driving is Milestone 3B item 3, behind the drive
+  benchmark (risk 7's checkpoint). It is named here so its size is visible — a vehicle entity and
+  footprint, multi-tile swept collision where `blocked_at` floors one point, mount and dismount,
+  engine noise into the attention field at a range that rewrites the director's pressure model,
+  sight from inside, a road-graph pathfinder for NPC drivers, fuel and breakdowns — and so that
+  the two pieces above are shaped for it rather than against it.
 - **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
   the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
   only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
@@ -427,9 +445,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
   time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
   a no-op for them.
-- **A corpse looks exactly like a person.** Presentation has no notion of one: same sprite, same
-  tint, same facing pointer — and because `_make_corpse` removes `velocity`, the peripheral-motion
-  cull inverts for corpses.
+- **A corpse looks exactly like a person at Focal.** Presentation has no notion of one: same
+  sprite, same tint, same facing pointer. The glimpse half is fixed — `Appearance.moving` reads a
+  missing `velocity` as motionless and `check_topdown.gd`'s GLIMPSE lane holds it, so the dead are
+  no longer drawn as bodies standing in the dark — and the art half is the what's-left entry
+  "a corpse reads as a corpse".
 
 **Parked until Milestone 3A — blocked by missing systems, not by choices:**
 
@@ -1354,9 +1374,12 @@ not a to-do list:
   regardless of camera zoom, so a pawn is the wrong size at every zoom but 64 — is real, pre-dates
   this slice, and is deferred to the characters slice, which re-authors and re-judges all
   character art anyway; coupling a global size change to "the player rotates" would have muddied
-  the one claim this slice makes and the screenshot it is judged by. `assets/sprites/README.md`
-  now documents both coexisting authoring conventions (face-on pawn, rotating rig) and says which
-  applies when; the seam between them is owner-accepted until the roster is re-authored.
+  the one claim this slice makes and the screenshot it is judged by. (Both landed there since:
+  `Appearance.blit_scale` under `check_topdown.gd`'s SCALE lane, and the lerp remains deferred
+  and named — see the characters record.) `assets/sprites/README.md`
+  documented both coexisting authoring conventions (face-on pawn, rotating rig) and said which
+  applies when; the seam was owner-accepted until the roster was re-authored, which the
+  2026-09-01 directives then did — one convention, true overhead, in the characters slice.
   ~~Ground & road dressing~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK`, the chain's 40th
   gate) — the second slice of the style-B reference arc: the streets read as streets, and the
   district takes the reference's overcast grade. Four pieces, one gate.
@@ -1538,12 +1561,281 @@ not a to-do list:
   procedural inset cover block, which is the supported fallback everywhere else in this pipeline;
   the annex's own single Low tile is the one that reads that way on a shipped map. The
   entity-blit zoom-scale defect is still deferred to the characters slice and is visible in the
-  shots — prop and tile art blit at the tile rect and are correctly sized, bodies do not.
+  shots — prop and tile art blit at the tile rect and are correctly sized, bodies do not (fixed
+  there since: `Appearance.blit_scale`, `check_topdown.gd`'s SCALE lane — see the characters
+  record).
   Eyeballed as well as gated: day and night at a street wreck, captured through a throwaway Xvfb
   `SceneTree` driver (deleted after, per the rule), committed at
   `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice3-day.png` and `slice3-night.png`. The
   night shot is nearly dark on purpose — sight collapses after dusk and the dressing goes with it,
   which is the contract, not a missing feature. docs/30: no new entry. `HANDOFF.md` unchanged.
+- ~~Weather & mood~~ **landed** (`godot:check:weather` → `WEATHER_OK`, the chain's 42nd gate) —
+  the fourth slice of the style-B reference arc: the rain, and the accent regrade the reference
+  mood was still owed. Zero sprites shipped — nobody should go looking for the missing art.
+
+  **The rain.** One screen-space streak layer, `presentation/rain_look.gd` — pure statics with no
+  state of any kind (a `static var` there would be shared between the two worlds a gate boots) —
+  keyed off `world.tick` plus the sub-tick fraction and hashed with `road_paint.gd`'s two primes,
+  **not** an RNG stream, so the sky is identical on every boot of every seed by construction. It
+  **never stops raining** (`INTENSITY_MIN` 0.4): an onset and an end would read as a weather
+  *event* and imply a system that does not exist — docs/16's weather sim stays Milestone 3, and
+  re-keying this layer to it then is the named forward edge. What varies is intensity, a slow
+  ~90 s swell with a faster flutter inside it, measured spread [0.40, 0.99] over a day. Drawn
+  over the bodies and under the night wash in one `draw_multiline` for the whole sky; frozen
+  while paused because `_process` returns before the accumulator moves; 10× under fast-forward,
+  accepted as ambience rather than fixed as a clock. Indoors it is culled through
+  `RainLook.falls_at`, which reads the map's own `indoors` byte — a roof is a fact about the
+  district, not a second list the renderer keeps — and an off-map, null-map or `blank_map` sky
+  stays open, because the visible failure is rain that vanished, not rain over a tile that does
+  not exist. One honest residue: the cull reads the roof, not the player's knowledge of it, so a
+  streak-free hole over a block never yet seen is a soft tell that something roofed stands there.
+  Accepted as ambience at drizzle alpha; named here so a playtest that reads it as intel knows
+  where the decision lives.
+
+  **A rasteriser fact, measured and now load-bearing:** a 1 px `draw_multiline` quad hung between
+  whole-number coordinates lays its edges exactly on the sample points and draws *nothing* on the
+  Compatibility renderer — a whole sky at alpha 0.8 left a pixel diff of zero between frames.
+  `segments` therefore snaps every endpoint to the **pixel centre** (floor + 0.5), where a 1 px
+  quad covers exactly one column, and the gate asserts the half-pixel snap rather than the
+  integer one. The wider draw calls in the entity pass (facing line at 1.6–2.4 px) never hit
+  this, which is why it survived until a layer drew at width 1.
+
+  **The accent regrade.** The screen's brightest survivors of the oracle's palette went through
+  the muted grade, held by two-sided property bounds rather than hex pins: `window`
+  `#7ec8e8 → #6b8794`, `groundItem` `#d8c07a → #a89a70` (with a readability floor — it must still
+  clear the brightest ground tint by 0.15 in value, so the next tune cannot sink an item into the
+  pavement), the facing line `Color(1,1,1,0.55) → #cfccc08c`, the aim cone
+  `Color(0.85,0.9,1.0,…) → #b9c2c94d` with its edge rays derived through `Palette.AIM_EDGE_DIM`
+  (one colour dimmed by a pinned factor, never a second literal), the pane rim `#b8eaff` literal
+  → new key `windowRim`, and the new `rain` key `#c2c9cf21`. The rim is the one place the spec's
+  starting value was refused by the gate's own arithmetic, which is the arbitration working as
+  granted: `#8fa9b4` sits 0.023 in RGB from the pane the renderer paints (`window` lightened
+  0.28) — a rim you cannot see — so the shipped value is the darker sash `#5f7480` at distance
+  0.35, judged at dusk. The boarded stage-3 pane inherits the regrade automatically (it lightens
+  the `window` key) and stays strictly brighter than a plain pane. Lamp pools stay warm **on
+  purpose** and are now pinned warm (`r > b`, α ≤ 0.25; the loud O-key overlay variants hold the
+  warmth only). Every old value is carried through the same predicates and refused, so a revert
+  to the bright table is provably caught.
+
+  **The eleventh dead-socket batch.** Three palette keys that existed and were read by nothing —
+  `glimpse`, `memory`, `night` — are now the draw loop's actual colours (`night` is byte-exact
+  with the literal it replaces, so the wash is unchanged pixel for pixel; the other two are
+  near-zero moves), and five dead constants left behind by the frozen renderer are deleted:
+  three RGB string triplets, the three-entry shade table, and the hex copy of the condition
+  tints. `CONDITION_TINTS` itself is alive (the inventory panel and the paperdoll read it) and
+  the gate asserts it survived the batch, so the next sweep cannot mistake the live table for
+  the dead copies.
+
+  **The gate.** Five lanes, each red both ways: ACCENT (property bounds with the old table
+  refused and over-mute negatives, the pool pin, the dim factor's own bounds), DEAD SOCKET
+  (`_draw_window_glass` / `_draw_entities` / `_draw_night_wash` reach the keys and no longer
+  carry the literals, palette deletion scanned with the live table as control, an empty function
+  body fails loudly), RAIN PURE (determinism, pixel-centre snap, bounds, lean, exact 9 px/tick
+  fall, intensity spread with dead-spread and dead-column negatives, textual no-state/no-RNG
+  scan proven on a violating fixture), RAIN WIRED (entities → rain → wash strictly ascending
+  with the reversed real indices refused; `_draw_rain` reaches the resolver and is forbidden the
+  night's tunables), and ROOF (suburb@64 seed 20260805: 3,064 open tiles rained on, 454 roofed
+  tiles dry — the true negative a cull-that-culls-nothing cannot pass — with off-map, null-map
+  and blank-map skies open, and "no indoor tiles" failing rather than skipping). Shown red in
+  development by sabotage: the bright `window` reverted (ACCENT), the frame reordered wash
+  before rain (RAIN WIRED), and `falls_at` hardwired true (ROOF). `check_light_look.gd` keeps
+  district → pools → entities and the wash's `wash_alpha` assertion; `check_weather` names it as
+  the standing co-assertion rather than duplicating it. CI's stale "39 gates" comment and step
+  name were corrected to 42 in the same commit, since this is the commit that moved the count.
+
+  Eyeballed as well as gated: noon, dusk, night and a roofed interior, captured through a
+  throwaway Xvfb `SceneTree` driver (deleted after, per the rule), committed at
+  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice4-{noon,dusk,night,interior}.png`. The
+  noon shot is the daylight-veil evidence: drizzle over an unwashed daylight street reads as
+  rain, not as noise, so the veil stays **considered and screenshot-refused** — no disabled
+  toggle ships, and nothing escalates to `HANDOFF.md`. Deferred, named rather than hidden:
+  ground splashes and ripples; per-streak brightening inside lit pools; slant driven by sim wind
+  when docs/16 lands. docs/30: one new clause under the art decision — rain is ambience, not
+  weather. `HANDOFF.md` unchanged.
+- ~~Characters re-authored for overhead~~ **landed** — the fifth slice of the style-B arc, under
+  the 2026-09-01 owner directives recorded in docs/30: every body is an overhead rig, one
+  authoring convention, and NPCs still never rotate. No new gate and no chain change — the four
+  new lanes live inside `APPEARANCE_OK` and `TOPDOWN_OK`, which were already chained.
+  **Eight rigs, one assembler.** `tools/sprites/parts/characters.py` is rewritten around
+  `_figure`, a single entry point that owns the draw order — body, limbs, under-crown marks,
+  head, brow, tells, shade, outline — because the order is load-bearing, not stylistic: the
+  `#161614` outline is channel-delta exactly 2, on the colonist lane's achromatic bound, and an
+  outline laid *before* the shade pass gets multiplied to (25, 25, 22) — five pixels over the
+  bound, measured both ways. Geometry is a missing-key error, never an inherited default: a rig
+  that says nothing about arms has no arms, because silently inheriting the player's limbs from
+  a typo'd key is a bug `sprites:check` would bless. The player slims (BODY 12.4/11.8 →
+  10.6/11.4, shoulders 24.8 → 21.2 px — a wide silhouette strobes at 20 Hz), Mara gets her bob
+  and rolled sleeves, Ellis his breadth and grey-flecked beard, the shambler a dragging limb and
+  seeded rot, the screamer narrow shoulders under an r 7.5 pale head with a mouth void (the head
+  that defines the roster's head bound), the bloater 33×31 px of distended bulk (the one rig
+  allowed near the tile edge), and every raider archetype one hooded `raider_body` — which
+  raider carries the gun is not readable across a street. Six colonists are one achromatic
+  `survivor_colonist` rig; identity is the tint. `nw_shade(0.12)` closes every static rig — a
+  named fixed-radius wrapper over the existing top-left light, so two colonists side by side
+  shade identically — and the rotating player alone keeps `radial_shade`. `survivor_mara.png`
+  and `zombie_shambler.png` cross from hand-authored to registry-owned in this commit
+  (queue-doc amendment 4); the only hand art left is the three `item_*_equip*` overlays, which
+  the worn-look slice takes. `sprites:check` counts 29 keys.
+  **Colour moves from content tint to generator ramp; the look stays content-owned.** The
+  screamer's and bloater's flat tints retire; their colour now lives in `screamer_red` /
+  `bloater_green` ramps behind the mood clamp — which mutes the old `#d95947` hard (mid clamps
+  to `#cc8d85`, a desaturated salmon), and that is the intended consequence of routing the
+  colour through the clamp instead of around it. `looks.json` regrades its six tints brighter
+  (`#a89478 #c99a6f #a2917b #e0c49a #b58a63 #d9c7ab`), because the composed colonist is
+  grey × tint: the rig being achromatic makes the modulate's luma exactly
+  `median grey × luma(tint)`, which is what makes the ground guard computable at all — median
+  0.7569 against a threshold of 0.3793 (brightest ground + 0.06), tightest margin +0.049 on
+  look.05. The retired `#5c4632` fails the same predicate at 0.2174, and is the lane's built-in
+  negative. `GROUND_FACING` gains the four ramps that meet the street; `colonist_grey` is
+  deliberately absent from it, with the comment naming the lane that owns the composition.
+  **The two inherited defects land.** `Appearance.blit_scale(zoom) = zoom / ART_NATIVE` and a
+  hoisted `px_scale` in `_draw_entities` scale every body rect, glimpse disc, shadow and
+  fallback shape — the SCALE lane walks the whole zoom ladder, pins `ART_NATIVE` to a step the
+  camera can reach, and refuses the native-size resolver outright. And the corpse cull inverts:
+  `Appearance.moving` reads a *missing* velocity component as motionless (that is what
+  `_make_corpse` leaves behind), so the dead are no longer glimpsed as bodies standing in the
+  dark; the GLIMPSE lane's negatives include `{"x": 1.0}` — CLAUDE.md's velocity-keys trap made
+  mechanical — and it forbids the old inline test surviving beside the helper. The facing line
+  changes no code: unrotated rigs mean the art's front is a lie about heading, so every NPC
+  keeps the line as the truth (conflict 9's wording, now in the helper's comment and the lane's
+  error prose).
+  **The gates.** `_tints_come_from_content_not_code` (pinned hexes) retires with the tints it
+  pinned; its successor ROSTER judges all fourteen roster ids through `for_entity` — art
+  resolves, white for undeclared tints, the looks.json tint for colonists, sharing by texture
+  *identity* (colonists one picture, raiders one picture, eight distinct pictures otherwise) —
+  and walks the content tree so a body added to `players/`, `zombies/`, `survivors/uniques/`,
+  `raiders/` or `colony/looks.json` must join the roster or be exempted with a reason
+  (`zombie.base` is the one exemption: it spawns nowhere and gets no art). Its negative strips
+  five named files and requires the role-colour fallback per family, so a colour can never move
+  back into the draw loop. GREY holds the achromatic bound and the composed-luminance
+  arithmetic above, with Mara's coloured rig as the proof the bound can refuse real data.
+  `check_m2_raiders.gd`'s archetype lane was reworked in the same commit — it read the tint
+  with a hard subscript (a crash once the tint left) and its shared-tint set passed quietly
+  when empty; it now requires every archetype to declare the shared body, asserts one resolved
+  texture by identity, and fails loudly on nothing-to-judge. Shown red in development by
+  sabotage: an unresolvable sprite key (ROSTER), the retired brown re-graded in (GREY, failing
+  at 0.2174 < 0.3793), the `* px_scale` multiply removed (SCALE), the `moving` call removed and
+  separately the old inline test restored beside it (GLIMPSE, both directions), and a second
+  raider body (`M2_RAIDERS`). `godot:check:weather` was re-run after every `_draw_entities`
+  edit and stayed green.
+  **The interim, named.** Face-on gear art still composites onto overhead rigs through the
+  unchanged equip table until the worn-look slice retires it; that seam is accepted and this
+  sentence is its record (queue-doc amendment 3). Deferred, named rather than hidden: the
+  display-rotation lerp (still unmoved); the whole worn look including the equip-table rework
+  (slice 6); corpse prone art and the glimpsed-corpse scarcity question (what's-left, "a corpse
+  reads as a corpse"); per-source light tint; Detail tiers unchanged — "detailed NPC" still
+  maps to Focal. Eyeballed as well as gated: the roster in a row, the zoom ladder walked, and a
+  night street, captured through a throwaway Xvfb `SceneTree` driver (deleted after, per the
+  rule), committed at `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice5-{roster,zoom16,
+  zoom32,zoom128,night}.png` — the roster shot is the zoom-64 frame; the sim is paused before
+  the display-only stand-ins spawn, so the row is art evidence, not behaviour. At zoom 16 the
+  unscaled facing lines outweigh the 5 px bodies, which is the named UI-constant decision and
+  reads as a readout rather than as a wrong-sized body. `assets/sprites/README.md` now states the one overhead
+  convention with the rig guarantees three-tiered honestly (≤ ~21 px shoulders on the rotating
+  rig, ≤ ~24 px on a static human — Ellis is the broad one at 23.6 — and the bloater the single
+  named exception); docs/30 carries the four owner directives as one dated entry.
+  `HANDOFF.md` unchanged.
+- ~~The streets are wide enough for a centred line~~ **landed** (`godot:check:road` →
+  `ROAD_LOOK_OK` grew three lanes; no chain change) — the first slice of the roads-and-vehicles
+  arc the owner authorised on 2026-09-02 (docs/30, "Road width is a layout decision"), named on
+  what's-left and landed in the same commit, with the vehicle pieces named beside it and held.
+  **The arithmetic.** The suburb declared `streetWidth: 6`; with a sidewalk each side that is a
+  four-row carriageway, and `road_paint.gd` put the dash on `at + width / 2` — row 3 of 1..4, two
+  lanes one side and one the other, which is the off-centre line the owner saw. A run of rows has
+  a middle row only when it is an odd count, so the fix is the width, not the paint: **7** is a
+  five-row carriageway with the line on its middle row and two tiles of lane each way, one
+  two-tile vehicle per direction. The paint now asks `RoadPaint.dash_row(at, width)`, which
+  answers −1 for any even carriageway (and anything under `DASH_MIN_WIDTH`) rather than shift
+  the line half a tile onto nothing; the header comment that called MASK_DASH "the centre row"
+  was a lie for even widths and says so no longer. The town centre stays at 3 — docs/24 wants it
+  narrow — and 3 is under the dash floor, so it never carried a line and still does not. One
+  more fact governed everything: every gate and every balance seed line runs at the 64-tile map,
+  where `_fit_scale` scales the suburb to width 2 with **no markings at all**; the centre-line
+  defect existed only at the 256-tile map the player sees, and 7 × 0.353 still rounds to 2, so
+  the gate map is unchanged in width and changed in blocks.
+  **Measured, not theorised.** `_fit_scale` consumes the width twice, so widening moves blocks,
+  parcels and buildings at every size. A throwaway `SceneTree` driver (deleted after, per the
+  rule) generated the same 24 seeds at 64 and 4 at 256 before and after, printing spans,
+  widths, buildings, indoor and tile counts, loot sites, annex, gates, 4-connected reach from a
+  gate and the survivability report. At **256**: width 6 → 7 on all four seeds; buildings
+  47 → 49, 63 → 59, 51 → 45, 50 → 45 — every one inside `check_m2_district.gd`'s 40–70 band, and
+  the reason 9 was refused before it was tried (a ~30 % parcel loss by the same arithmetic);
+  spans 16 → 15, 15, 16, 16; reach 1.0000 and survivability `ok` on both columns. At **64**:
+  width 2 both columns; canonical buildings 7 → 7, 4 → 6, 4 → 5, 6 → 8; over all 24 seeds the
+  mean rose 4.17 → 5.46 (min 1 → 1, max 7 → 9), because the block band went 9..15 → 8..14 and
+  smaller blocks split into more parcels; minimum reach 0.9997 → 1.0000. The FAST balance tier
+  (`M2_BALANCE_OK`, four seeds, ten days), before and after:
+  ```
+  before (slice 5 head, 0e51fa8):
+  FAST seed=20260805 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=0(0in/0down) breaches=0
+      kills=0(m0/r0) deaths=2 turned=0 recruits=1 max_live=28 survivors=1/3 over=false
+      grabs=83 broken={ "rescue": 2, "struggle": 26, "victim-died": 2 }
+  FAST seed=404 arm=mixed days=10 siege=1 quiet=9 packets=1 raids=1(2in/0down) breaches=0
+      kills=1(m1/r0) deaths=3 turned=0 recruits=1 max_live=24 survivors=1/3 over=false
+      grabs=66 broken={ "staggered": 2, "struggle": 33, "victim-died": 2, "rescue": 1 }
+  FAST seed=31337 arm=mixed days=10 siege=3 quiet=7 packets=3 raids=0(0in/0down) breaches=0
+      kills=1(m1/r0) deaths=0 turned=0 recruits=1 max_live=31 survivors=3/3 over=false
+      grabs=11 broken={ "struggle": 10, "staggered": 1 }
+  FAST seed=90210 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=1(2in/0down) breaches=0
+      kills=0(m0/r0) deaths=2 turned=0 recruits=1 max_live=28 survivors=3/3 over=false
+      grabs=29 broken={ "rescue": 1, "victim-died": 2 }
+  after (streetWidth 7):
+  FAST seed=20260805 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=0(0in/0down) breaches=0
+      kills=4(m4/r0) deaths=1 turned=0 recruits=1 max_live=23 survivors=2/3 over=false
+      grabs=85 broken={ "staggered": 2, "struggle": 41 }
+  FAST seed=404 arm=mixed days=10 siege=1 quiet=9 packets=1 raids=1(2in/0down) breaches=0
+      kills=5(m5/r0) deaths=0 turned=0 recruits=1 max_live=20 survivors=3/3 over=false
+      grabs=16 broken={ "staggered": 4, "struggle": 11 }
+  FAST seed=31337 arm=mixed days=10 siege=3 quiet=7 packets=3 raids=0(0in/0down) breaches=0
+      kills=1(m1/r0) deaths=2 turned=0 recruits=1 max_live=32 survivors=2/3 over=false
+      grabs=95 broken={ "struggle": 51, "staggered": 3, "victim-died": 1 }
+  FAST seed=90210 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=1(2in/0down) breaches=0
+      kills=5(m5/r0) deaths=2 turned=0 recruits=1 max_live=23 survivors=1/3 over=false
+      grabs=127 broken={ "struggle": 59, "rescue": 1, "victim-died": 1 }
+  ```
+  The lines moved the way a layout change moves them — different blocks, different sites,
+  different nights — and the bands and invariants held. Four seeds are a transcript, not a
+  distribution: this is a **re-baseline**, recorded so the next comparison has its column, and
+  not a claim that the district got easier or harder. A 12-seed grid would be an overnight job
+  (~6 h a column at ~1,085 ticks/s) and was not promised.
+  **The gate.** The in-gate fixture went to width 7 — and to **80 tiles**, because at 64 a
+  width-7 street leaves usable 48 and fits 3 blocks under `BLOCKS_PER_AXIS_MIN` 4, so
+  `_fit_scale` would scale it straight back to 6 and the paint would correctly mark nothing;
+  `MIN_BLOCK` floors the blocks at 8, so the map had to grow rather than the blocks shrink.
+  Three lanes, each red both ways through one predicate that reads the *mask* and never the
+  formula: **CENTRE** (`dash_row` 7 → at+3, 5 → at+2, 9 → at+4 and 6/4/3/2 refused; every
+  marked fixture span splits 2|2; the old width-6 picture, sidewalks outermost and the dash on
+  row 3 of 1..4, reads 2|1 and is refused, and under the new rule that span resolves sidewalks
+  and asphalt but no line), **LANES** (every lane beside the line ≥ 2 tiles; the old geometry's
+  1-tile lane refused), and **PLAYED** (the shipped suburb generated once at 256 inside the
+  budget — width 7, 1,502 dashes on 15 centred spans — while the same suburb at 64 must still
+  resolve zero dashes: one district, two sizes, two answers). Shown red in development by
+  sabotage: the dash painted one row off its centre (CENTRE, 3|1), the content width reverted
+  to 6 (PLAYED, "carves streets 6 wide"), and — the first natural red — the old width-6 fixture
+  under the new rule (PAINT, "0 dashes"). 0.8 s of the 60 s budget. Not touched: `worldgen.gd`
+  (the width flows through content), `dressing.gd`, `wrecks.py`, `package.json`, CI; the three
+  gate-private fixture districts that also declare width 6 are their own maps and stay.
+  **What the moved layout reached.** `godot:m2:needs` went red on its ARGUMENTS lane — "5
+  arguments landed and the victim carries none of it" — and a throwaway driver (deleted) said
+  why: on the canonical seed at 64 the widened suburb brings a shambler pack into the annex
+  around tick 37,500 of the lane's 4,800-tick hold; Mara is grabbed by one, Ellis by another and
+  is a corpse by 38,400, three arguments in, so the lane was reading a corpse's rebuilt needs.
+  Pinning the grab loop off (the latrine walk's precedent on this seed) was tried first and was
+  not enough — the held, miserable player was then swiped to death instead — so the lane now
+  empties the colony of shamblers for its measurement (`world.despawn`, every tick, both worlds)
+  and fails by name if either party dies mid-hold. The sim was not touched; the seed lines above
+  already carry the pack. `godot:check:buildings` went red next, exactly as its header says it
+  should: it pins where seed 20260805 sites the colony as a *measurement*, so that a change to
+  the street pass has to come there and say so. It did — the annex moved from (21, 13) to
+  (18, 12) at 64 and from (108, 107) to (112, 110) at 256, the player start with it from
+  (29, 20) to (26, 19) — and the six pins are re-measured from the gate's own error text, not
+  chosen. Nothing else in the tree named the old tiles.
+  **The picture.** `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice-roads-after.png`,
+  a street at 256 through a throwaway Xvfb driver (deleted): sidewalk, two lanes, the line, two
+  lanes, sidewalk. The before is the street in `slice5-roster.png` from the characters slice,
+  dash on row 3 of 4. This is the frame the owner judges the vehicle class table against
+  (what's-left, "Cars are cars"). `HANDOFF.md`'s stale "39 gates" was corrected to 42 in
+  passing — the count lives in `package.json`.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used
