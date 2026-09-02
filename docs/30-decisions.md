@@ -1707,6 +1707,57 @@ The fixtures earned their keep here twice over: they showed B's rotation working
 anonymity clause before the pick, and they surfaced that the shipped game has no player sprite at
 all — the first slice of the arc authors one, which no candidate style could have skipped.
 
+**The reference look** (owner, 2026-09-02, from four supplied screenshots of a Zero Sievert-like
+top-down game — third-party, so not committed, and described here in words the way the first
+reference was: chunky pixel art with 1 px outlines; people about a tile in size seen from
+straight above, gun held forward; cars, vans, dump trucks and forklifts from above at real scale,
+a sedan two tiles by five; buildings drawn three-quarter, a roof seen from above over a south
+wall of windows, doors and garage doors; dense pine forest with cabins and dirt paths; an
+industrial yard of silos, radio towers and containers; a brick warehouse street with a dashed
+centre line; textured ground with no tile grid; rain; a torch cone at night; and the red and
+green bars clause 4 bans). The 2026-09-01 pick stands — B *is* this read, the brainstorm named
+it so — and what the references decide is everything around the bodies. Eight decisions, taken
+in one sitting from the exploration that preceded them, recorded once here and each paid for in
+the slice that lands it (docs/23, "the reference-look arc", in order):
+
+- **The art-native scale is 32 px per tile, down from 64.** The boot zoom of 64 becomes a clean
+  2× upscale and the 16/32/64/128 ladder is untouched. A person was 24 px of a 64 tile (0.38)
+  and the reference's person fills the tile; the honest migration keeps the rigs' pixels and
+  shrinks the tile around them, so props and street art halve and bodies do not. The choice was
+  put as 16 / 32 / stay-at-64; 16 is the reference's own grain and 32 was chosen as one step
+  finer. Every gate that pinned `64x64` now reads `CameraUtil.ART_NATIVE`; `draw.py`'s `SIZE`
+  is the one other copy, because Python cannot read GDScript, and the two gates are the
+  cross-check.
+- **Buildings read three-quarter inside their footprint.** The south-facing wall row draws as a
+  face carrying that row's windows and doors, a roof draws over interior tiles while the player
+  is outside, every other wall stays the flat cap. Nothing hangs over a walkable tile, so the
+  tile depth sort docs/00's reversal deleted does not return, and roof and wall material are
+  template content (`look: {roof, wall}`) with a purpose-built gate, because the validator is
+  shallow.
+- **A roof is cut out where the sim sees.** It replaces only the black: an interior tile seen
+  through a window or door still shows floor and bodies. Whole roofs — the reference's look —
+  would hide a zombie the sim says is seen and the colonists act on; that is the screen refusing
+  a fact, and clause 4 is about what the sim withholds, not what the screen hides. Draw ⊆ seen
+  holds for interiors, the lit-pool discipline again. The footprint of a partly-seen building is
+  the one new tell, the same soft one the rain cull already gives.
+- **A canopy is a picture; a body under it is a silhouette.** Pine canopies are three-tile
+  pictures drawn after the entities at alpha 0.85, thinning to 0.45 within a tile of the
+  player; a body under one is a dark shape, never gone. The opaque, solid Tree tile is untouched.
+- **A forest district lands inside this arc, ahead of the sedan.** Denser stands, dirt streets
+  and trodden paths, cabin templates, its own structural before/after and a hand-run FAST
+  column. The industrial yard — silos, towers, containers, the warehouse street, the forklift —
+  is named under Milestone 3B and not built: new district scope is what CLAUDE.md's pause is
+  about, and one district is the size of a slice.
+- **The old one-wide wreck runs stay in worldgen and draw as junk heaps.** They are what the
+  balance harness was measured on, and the dumpster episode showed the run length moving two of
+  four seeds. Real vehicles are two-wide `map.vehicles` records — sedan 2×5, van 2×6, truck
+  2×7, the class table the references settled, which closes the wait the roads record left open.
+- **The torch is named, not built.** A light item with a direction, a cone drawn from the gun
+  hand, its own attention cost. It is sim, not paint, and lands as its own gated slice after the
+  look does.
+- **Not adopted, re-affirmed.** The HP and stamina bars (`godot:ban:healthbar`), the status-icon
+  row (the HUD speaks in words), and NPC rotation (only the player's body turns).
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

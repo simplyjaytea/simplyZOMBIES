@@ -1,7 +1,7 @@
 # tools/sprites — the generators behind the generated art
 
 The PNGs under `godot/assets/sprites/` are the source of record for the **game**: `appearance.gd`
-resolves files, and `npm run godot:check:appearance` judges every one of them on the 64×64 canvas
+resolves files, and `npm run godot:check:appearance` judges every one of them on the 32×32 canvas
 every build. This package is the source of record for the **art** — the reason a colour is that
 colour, and the thing that lets a whole batch be regraded without re-drawing it by hand.
 
@@ -45,7 +45,8 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 
 ## The rules the art is held to
 
-- **The canvas is 64×64, anchored on its centre.** `godot/assets/sprites/README.md` is the
+- **The canvas is 32×32, anchored on its centre** (`draw.SIZE`, the one copy of the number Python
+  holds; `presentation/camera.gd`'s `ART_NATIVE` is the engine's, and the two gates cross-check). `godot/assets/sprites/README.md` is the
   authority; `build.py` refuses anything else before it writes, and `check_appearance.gd` refuses
   it again from the engine side.
 - **Muted, always.** Every colour goes through `palette.clamp`: saturation ≤ 0.35, value in

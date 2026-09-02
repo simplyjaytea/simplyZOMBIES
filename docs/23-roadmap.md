@@ -217,11 +217,37 @@ than here.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
 
-**Art & renderer — the style-B reference arc, authorized by the owner (2026-09-01).** The pick
-is made (see the decision above and docs/30); what remains is the work it forces, in rough
-order. The reference mood throughout: muted, overcast, desaturated urban decay — and its HUD is
-explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
+**Art & renderer — the reference-look arc, authorized by the owner (2026-09-02), on the
+style-B pick of 2026-09-01.** Four supplied reference screenshots fixed what surrounds the
+bodies (docs/30, "The reference look": eight decisions, and the plan is
+`.hermes/plans/2026-09-02_reference-look-arc.md`). The pieces below are in the order they
+land, each one session, each with its gate red both ways and its record. The reference mood
+throughout: muted, overcast, desaturated decay — and its HUD is explicitly **not** part of the
+pick; the health-bar ban and the prose HUD stand.
 
+- **The ground has no grid.** One `ground_atlas.png` of four variants × seven rows (paved, dirt,
+  grass, undergrowth, rubble, sidewalk, boards) at the art-native size, blitted by region at
+  zoom 32 and above and left as today's flat tint below it; the hairline grid deleted in both
+  branches. The palette stays the mood: a gate computes each cell's mean from the PNG and pins
+  it to the surface tint, so `palette.py`'s ground-contrast guards keep meaning what they say.
+  Two lanes in `ROAD_LOOK_OK` (texture and grid); a draw-call count before and after.
+- **A tree is a trunk and a canopy.** A one-tile trunk on the tile and a three-tile pine canopy
+  drawn after the entities at alpha 0.85, 0.45 within a tile of the player, never opaque
+  (docs/30); the Tree tile stays solid and opaque. A `trees` block on the dressing content, a
+  `godot:check:trees` gate (chain 43).
+- **Buildings read three-quarter inside their footprint.** A per-tile facade rule (a wall whose
+  south neighbour is open ground draws as a face carrying its window or door; adjacent doors
+  read as one garage mouth) and a roof rule (over the interior tiles the player cannot see, of a
+  building at least one tile of which is in view, while the player is outside — cut out where
+  the sim sees). `look: {roof, wall}` becomes a required block on every template and the annex
+  (the annex is under the oracle's map schema, so `npm test` judges it), materials resolve
+  through the dressing content, a `godot:check:roof` gate (chain 44).
+- **A forest district: cabins, stands and dirt paths.** `district.forest_edge` with a `terrain`
+  block (stand density, spread, thickets, paths) and dirt streets; `_dress_terrain` reads the
+  block with defaults equal to today's literals, so the suburb is byte-identical; a
+  `worldgen.paths` pass on its own stream treads dirt from every cabin door to the nearest
+  street. Two cabin templates. `check_worldgen`'s sweep gains the district; a forest FAST column
+  is run by hand and recorded, never added to the chain.
 - **The wreck dumpster — designed and drawn, cut at the balance line.** A `wreck_dumpster` sprite
   was authored for the lone `Tile.Low` tiles a district stands, and standing more than the annex's
   single one meant widening the wreck pass's run length from 2–3 to 1–3 in `_dress_occluders`.
@@ -248,13 +274,26 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
   the resolver reads the manifest instead of guessing; classes named from
   [docs/25](25-vehicles.md)'s base table so a wreck previews the base it becomes; generated art
   per column × row (left/right × nose/cabin/body/tail, eight files a variant whatever the
-  length). The class table — every class 2 wide, length by class (sedan 2×5 first) — waits on the
-  owner's look at the widened streets (the roads record's screenshot). Balance: vehicles are
-  layout, so the dressing rule stands and the layout change is measured, structural driver and
-  FAST tier both (docs/30). Side-find to close here: the suburb stands two `car boot` loot sites
-  with no car under them — `_protected_tiles` forbids a wreck on a site tile, so the boot has
-  never had a car.
+  length). The class table is decided (docs/30, 2026-09-02): every class 2 wide, sedan 2×5
+  first, van 2×6 and truck 2×7 after. The old one-wide runs **stay in worldgen** as they are and
+  draw as junk heaps by hash — the run-length lesson of the dumpster — so the neighbour resolver
+  and the nine car-segment files retire with the sedan. Balance: vehicles are layout, so the
+  dressing rule stands and the layout change is measured, structural driver and FAST tier both
+  (docs/30); at 64 the suburb's streets are two wide, so the harness never stands one, which the
+  record says. Side-find to close here: the suburb stands two `car boot` loot sites with no car
+  under them — `_protected_tiles` forbids a wreck on a site tile, so the boot has never had a car;
+  a `host: vehicle` site stands on a manifest tail tile when any exist.
 - **The van and the truck.** Two more classes on the same vocabulary once the sedan proves it.
+- **The torch.** The reference's night is a cone from the player's hand; every light here is an
+  omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
+  item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
+  shadowcast to the wedge, the cone drawn from the gun hand in the lit-pool geometry, and the
+  attention cost a lit torch is — an emitter zombies read. Its own gated slice, after the look
+  lands, and not before: the arc is presentation and this is the one sim change in it.
+- **Ground items draw as squares.** A dropped item is a fixed ten-pixel `draw_rect`
+  (`_draw_entities`), and `item.appearance.sprite` — declared in the schema, read by nothing —
+  is the twelfth dead socket of the milestone. Named here so the 32 px tile does not make the
+  square look like a decision; a ground sprite per item base is content and a resolver call.
 - **Vehicles you can drive** — *named, not scheduled*: [docs/23 puts vehicles outside Milestone
   2](#what-is-explicitly-not-in-the-slice) and driving is Milestone 3B item 3, behind the drive
   benchmark (risk 7's checkpoint). It is named here so its size is visible — a vehicle entity and
@@ -1836,6 +1875,50 @@ not a to-do list:
   dash on row 3 of 4. This is the frame the owner judges the vehicle class table against
   (what's-left, "Cars are cars"). `HANDOFF.md`'s stale "39 gates" was corrected to 42 in
   passing — the count lives in `package.json`.
+- ~~The tile is 32 pixels, and a person fills it~~ **landed** (no new gate — `APPEARANCE_OK`,
+  `TOPDOWN_OK`, `WRECKS_OK` and `sprites:check` re-pointed; slice 1 of the reference-look arc,
+  owner decision 2026-09-02, docs/30 "The reference look"). The four supplied references are
+  chunky pixel art where a person fills a tile; ours was authored at 64 px a tile with a person
+  24 px of it. The owner chose 32 over 16 and over staying at 64, and the migration is **the
+  tile shrinking around the rigs**, not a global halving: `camera.gd`'s `ART_NATIVE` goes 64 →
+  32 and nothing else in the renderer moves — `Appearance.blit_scale(64)` now answers 2.0, so
+  every body, glimpse disc and shadow draws at a clean 2× on the boot zoom, and the ladder
+  16/32/64/128 is untouched. In `tools/sprites/`, `draw.SIZE` goes 64 → 32 (pivot 15.5) and the
+  eight rigs keep every pixel they had — shoulders 21.2 px are now 0.66 of the tile, bodies 24
+  of 32 — while the seven props, nine car segments and five debris scraps are restated at half
+  size (each number rewritten, no `SIZE / 64` factor kept alive). The bloater is the rig at the
+  canvas bound: its body half-width is 14.4, because at 14.5 the outline lands a pixel outside
+  the canvas (measured, 30 px), and it renders 28×27. The three hand-authored equip overlays
+  were downsampled once by hand — `Image.open(p).convert("RGBA").resize((32, 32),
+  Image.NEAREST).save(p)` — and stay hand-owned and face-on until the worn-look slice retires
+  them. **Measured** on the regenerated files: every one of the 32 PNGs is 32×32; opaque bodies
+  24×24 (player, Mara, colonist, raider; radial 13.7 of a 15.5 half-canvas), Ellis 26×25
+  (14.3), shambler 25×24, screamer 20×23, bloater 28×27 (14.3); props 16–28 px across, cars
+  22 px wide (interim, retired by the sedan slice). **The gates**: `check_appearance.gd`'s
+  KEYS and CANVAS lanes read `CameraUtil.ART_NATIVE` rather than a literal (the rename
+  `_every_canvas_is_64` → `_every_canvas_is_native` is the point), its PROPS footprint lane
+  wants `size × ART_NATIVE` within a slack that halved with the tile (8 → 4); `check_wrecks.gd`
+  judges the dressing keys at the same constant; `check_topdown.gd`'s SCALE lane gained two
+  negatives beside the old one — the default zoom read off `create_camera()` must scale to
+  exactly `default / ART_NATIVE` (2.0) and must **not** be 1.0, so a default equal to native is
+  the 64-era 1:1 boot screen and reads red. Shown red by sabotage: `ART_NATIVE = 64.0` against
+  the 32 px files (CANVAS, KEYS, PROPS all refuse), the un-regenerated 64 px files against 32
+  (the natural red mid-slice), and `sprites:check` on one stale committed PNG (`SIZE`). Python
+  cannot read GDScript, so `draw.SIZE` and `ART_NATIVE` are two copies by construction, the
+  `SURFACE_TINTS` precedent; a PNG at the wrong size fails both gates, which is the cross-check,
+  and this sentence is here so the next reader does not "fix" one of them. Nothing under
+  `godot/sim/` moved; the four `M2_BALANCE_OK` FAST seed lines are byte-identical to the roads
+  slice's after-column. Stale text cleared in passing: `project.godot`'s isometric-era comment,
+  `appearance.gd`'s "sprites are absent" header, the `64x96 feet-anchored` description in
+  `item.schema.json` (oracle-visible, so `npm test` judged it) and the `64x64` in the player and
+  prop schemas, the `64` in `main.gd`'s wheel comment, and both sprite READMEs (tier bounds
+  restated in the same pixel numbers plus their new tile fractions). **The pictures.**
+  `.hermes/plans/2026-09-02_reference-look-shots/slice1-{street-64,roster-64,zoom-16,zoom-32,
+  zoom-128}.png` through a throwaway Xvfb driver (deleted): the roster row in front of the
+  player at the boot zoom, and the ladder walked. Named on what's-left in the same commit:
+  **The torch**, **Ground items draw as squares** (the twelfth dead socket), and under
+  Milestone 3B the **industrial yard**; the arc's plan is committed as
+  `.hermes/plans/2026-09-02_reference-look-arc.md`.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used
@@ -2850,6 +2933,9 @@ This is a separate completion track rather than a requirement bundled into survi
 2. **Drive benchmark:** synthetic streaming-at-speed load before a drivable vehicle exists.
 3. **Vehicles:** bases, slots, affixes, driving, fuel, breakdowns, route trails, and attention output.
 4. **Mobile bases:** interior modules, volume budgeting, convoys, relocation, and nomad play.
+5. **Industrial yard district:** silos, radio towers, shipping containers, a brick warehouse
+   street with the dashed centre line, the forklift at 2×3 — the reference scenes the 2026-09-02
+   reference-look decision named for here rather than building inside Milestone 2 (docs/30).
 
 **Exit criterion:** travel across multiple streamed districts at the target speed without breaking the
 frame budget, then prove fixed, nomad, and hybrid colonies all have distinct viable failure modes.

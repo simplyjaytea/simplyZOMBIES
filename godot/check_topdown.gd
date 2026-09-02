@@ -528,6 +528,21 @@ func _bodies_scale_with_the_zoom() -> bool:
 	if absf(Appearance.blit_scale(16.0) - 1.0) <= EPS:
 		push_error("blit_scale(16.0) answered 1.0 -- the native-size blit is back and the lane read nothing")
 		return false
+	# The default zoom is the art at a clean multiple, and not at 1:1: since the 2026-09-02
+	# move to a 32 px tile the camera boots at 64, so a body draws at exactly 2x. Read off
+	# create_camera rather than written here, so the lane follows the default if it moves --
+	# and a default equal to ART_NATIVE is the 64-era look back (art at 1:1 on the boot
+	# screen), which is the second true negative.
+	var default_zoom: float = float(CameraUtil.create_camera()["zoom"])
+	if absf(Appearance.blit_scale(default_zoom) - default_zoom / CameraUtil.ART_NATIVE) > EPS:
+		push_error("blit_scale at the default zoom %.0f answered %f, not %.1f" % [default_zoom, Appearance.blit_scale(default_zoom), default_zoom / CameraUtil.ART_NATIVE])
+		return false
+	if absf(Appearance.blit_scale(default_zoom) - 1.0) <= EPS:
+		push_error("blit_scale at the default zoom %.0f answered 1.0 -- the boot screen draws art at 1:1, which is the old 64 px native back" % default_zoom)
+		return false
+	if absf(Appearance.blit_scale(default_zoom) - 2.0) > EPS:
+		push_error("the default zoom %.0f is not a clean 2x of ART_NATIVE %.0f; the boot screen's upscale is the reference-look decision (docs/30, 2026-09-02)" % [default_zoom, CameraUtil.ART_NATIVE])
+		return false
 
 	# The dead socket: a correct scale nothing multiplies by is a body still drawn native.
 	var body: String = _function_body(MAIN_GD, "_draw_entities")
@@ -547,7 +562,7 @@ func _bodies_scale_with_the_zoom() -> bool:
 	if not missing.is_empty():
 		push_error("_draw_entities does not contain %s: the scale resolves a factor nothing multiplies by" % missing)
 		return false
-	print("SCALE OK blit_scale walks the %d-step ladder, 1.0 at %.0f, 0.0 at 0, native-size refused, and _draw_entities multiplies by it" % [CameraUtil.ZOOM_STEPS.size(), CameraUtil.ART_NATIVE])
+	print("SCALE OK blit_scale walks the %d-step ladder, 1.0 at %.0f, 2.0 at the default %.0f, 0.0 at 0, native-size refused, and _draw_entities multiplies by it" % [CameraUtil.ZOOM_STEPS.size(), CameraUtil.ART_NATIVE, default_zoom])
 	return true
 
 

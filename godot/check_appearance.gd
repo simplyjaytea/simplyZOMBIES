@@ -10,6 +10,7 @@ extends SceneTree
 const World = preload("res://sim/world.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
@@ -23,7 +24,7 @@ func _run() -> void:
 	var ok: bool = true
 	ok = _declared_appearances_are_well_formed() and ok
 	ok = _sprite_keys_resolve() and ok
-	ok = _every_canvas_is_64() and ok
+	ok = _every_canvas_is_native() and ok
 	ok = _procedural_fallback_still_works() and ok
 	ok = _the_player_has_a_body() and ok
 	ok = _the_roster_resolves_bodies() and ok
@@ -112,6 +113,7 @@ func _declared_appearances_are_well_formed() -> bool:
 
 # A key naming a file that does not exist must fail the build, not draw nothing.
 func _sprite_keys_resolve() -> bool:
+	var native: int = int(CameraUtil.ART_NATIVE)
 	var resolved: int = 0
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
@@ -124,26 +126,29 @@ func _sprite_keys_resolve() -> bool:
 			if tex == null:
 				push_error("%s: appearance.%s '%s' has no file at %s/%s.png" % [path, prop, k, SPRITE_DIR, k])
 				return false
-			# One canvas: 64x64 centre-anchored (assets/sprites/README.md). A stray sprite
-			# authored to the dead 64x96 feet-anchored convention would float half a tile
-			# high without ever erroring, so the shape is a build failure, not a footnote.
+			# One canvas: ART_NATIVE square, centre-anchored (assets/sprites/README.md), and the
+			# size is read off camera.gd rather than carried here -- the 64 -> 32 move of
+			# 2026-09-02 is what a second copy of the number would have drifted from. A stray
+			# sprite authored to the dead 64x96 feet-anchored convention would float half a
+			# tile high without ever erroring, so the shape is a build failure, not a footnote.
 			var size: Vector2 = (tex as Texture2D).get_size()
-			if size != Vector2(64, 64):
-				push_error("%s: appearance.%s '%s' is %dx%d, the canvas is 64x64" % [path, prop, k, int(size.x), int(size.y)])
+			if size != Vector2(native, native):
+				push_error("%s: appearance.%s '%s' is %dx%d, the canvas is %dx%d (CameraUtil.ART_NATIVE)" % [path, prop, k, int(size.x), int(size.y), native, native])
 				return false
 			resolved += 1
 	# The canvas assertion must have judged real files, or it proves nothing.
 	if resolved == 0:
 		push_error("no sprite keys resolved -- the canvas assertion had nothing to judge")
 		return false
-	print("KEYS OK %d resolved on the 64x64 canvas" % resolved)
+	print("KEYS OK %d resolved on the %dx%d canvas" % [resolved, native, native])
 	return true
 
 # Every file in the directory, referenced or not: an unreferenced stray is one content edit away
 # from drawing, and nothing above would have judged it. Raw Image.load, same as appearance.gd's
 # headless fallback. (It used to also cover the item blocks _all_blocks could not see, which it no
 # longer has to -- array-topped files are walked now -- but a stray file still has no entry.)
-func _every_canvas_is_64() -> bool:
+func _every_canvas_is_native() -> bool:
+	var native: int = int(CameraUtil.ART_NATIVE)
 	var dir := DirAccess.open(SPRITE_DIR)
 	if dir == null:
 		push_error("cannot open %s" % SPRITE_DIR)
@@ -156,14 +161,14 @@ func _every_canvas_is_64() -> bool:
 		if img.load("%s/%s" % [SPRITE_DIR, f]) != OK:
 			push_error("%s/%s does not load as an image" % [SPRITE_DIR, f])
 			return false
-		if img.get_width() != 64 or img.get_height() != 64:
-			push_error("%s/%s is %dx%d, the canvas is 64x64 (assets/sprites/README.md)" % [SPRITE_DIR, f, img.get_width(), img.get_height()])
+		if img.get_width() != native or img.get_height() != native:
+			push_error("%s/%s is %dx%d, the canvas is %dx%d (CameraUtil.ART_NATIVE; assets/sprites/README.md)" % [SPRITE_DIR, f, img.get_width(), img.get_height(), native, native])
 			return false
 		judged += 1
 	if judged == 0:
 		push_error("no PNGs in %s -- the canvas assertion had nothing to judge" % SPRITE_DIR)
 		return false
-	print("CANVAS OK %d files at 64x64" % judged)
+	print("CANVAS OK %d files at %dx%d" % [judged, native, native])
 	return true
 
 # The fallback is the supported path, not a stopgap: with no content at all, every role still
@@ -672,10 +677,11 @@ func _footprint_px(texture: Variant) -> int:
 	return maxi(max_x - min_x + 1, max_y - min_y + 1)
 
 
-# How far the art may sit from the footprint its content declares, in pixels of a 64 px tile.
-# Wide enough that a bumper or a flame tongue is not a build failure, narrow enough that a bed
-# drawn at a crate's size is.
-const FOOTPRINT_SLACK_PX: int = 8
+# How far the art may sit from the footprint its content declares, in pixels of an ART_NATIVE
+# tile. Wide enough that a bumper or a flame tongue is not a build failure, narrow enough that a
+# bed drawn at a crate's size is. Halved with the tile (8 at 64, 4 at 32): it is a fraction of
+# the picture, not a number of screen pixels.
+const FOOTPRINT_SLACK_PX: int = 4
 
 # Every prop id the renderer can ask for has an entry in content, and that entry says enough to
 # draw: art, or a tint, and now that the props have art it is art for every one of them.
@@ -720,7 +726,7 @@ func _props_look_like_something() -> bool:
 			# The footprint the content declares is the footprint the art was authored to. This
 			# is what keeps `size` from becoming decoration the moment a prop has a sprite: the
 			# procedural path stops reading it, so the gate starts.
-			var want: int = int(round(float(look["size"]) * 64.0))
+			var want: int = int(round(float(look["size"]) * CameraUtil.ART_NATIVE))
 			var got: int = _footprint_px(look["texture"])
 			if absi(got - want) > FOOTPRINT_SLACK_PX:
 				push_error("%s declares size %.2f (%d px of a tile) and its art measures %d px across; the number in content is what the picture was authored to" % [id, float(look["size"]), want, got])

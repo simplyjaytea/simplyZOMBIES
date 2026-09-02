@@ -3,7 +3,7 @@
 Fifteen keys in three families, all of them **tile art** rather than prop art: they are drawn by
 `main.gd::_draw_district` into a tile rect, not by `_draw_prop` onto an entity's position.
 
-**Cars are segment sets.** The canvas is 64x64 and gate-forbidden to widen (check_appearance's
+**Cars are segment sets.** The canvas is 32x32 and gate-forbidden to widen (check_appearance's
 CANVAS lane), so a car that is two or three tiles long is authored as one file per tile:
 `wreck_car_<variant>_{front,mid,rear}`. Every segment is authored **north-facing** -- the nose is
 at the top of the front segment's canvas -- and a run that lies east-west is drawn through one
@@ -35,18 +35,18 @@ other static sprite is drawn under.
 from draw import Canvas
 from palette import OUTLINE, RAMPS
 
-# One tile is 64 px and the pivot is (31.5, 31.5), so the canvas runs -32.0 .. +31.0 in pivot
+# One tile is 32 px and the pivot is (15.5, 15.5), so the canvas runs -16.0 .. +15.0 in pivot
 # coordinates. EDGE is where a segment has to reach to meet its neighbour.
-EDGE = 32.0
+EDGE = 16.0
 
 # The car body: a hair under 0.7 of a tile wide, so a wreck leaves walkable street either side
 # of it and does not read as a wall.
-SIDE_HALF = 21.0
-CORNER = 5.0
+SIDE_HALF = 10.5
+CORNER = 2.5
 
 # Where the shapes sit inside a segment, north-authored.
-NOSE_Y = -22.0  # front bumper, front segment
-TAIL_Y = 20.0  # rear bumper, rear segment
+NOSE_Y = -11.0  # front bumper, front segment
+TAIL_Y = 10.0  # rear bumper, rear segment
 
 SHELLS = {
     "a": "car_pale",
@@ -58,7 +58,7 @@ SHELLS = {
 def _panels(canvas, key, shell):
     """Roof furniture and wear, shared by all three segments so a car looks like one car."""
     # A lighter crown down the middle: from overhead a car roof catches the sky along its spine.
-    canvas.rect(0.0, 0.0, SIDE_HALF - 7.0, EDGE, shell[3], inside_only=True)
+    canvas.rect(0.0, 0.0, SIDE_HALF - 3.5, EDGE, shell[3], inside_only=True)
     # Rust and dirt. Seeded per key, so re-rendering one segment never moves another's specks.
     canvas.speckle(key, "rust", shell[0], 0.055)
     canvas.speckle(key, "grime", shell[1], 0.045)
@@ -72,19 +72,19 @@ def _car_front(variant):
     # The body: rounded at the nose, and then squared off along the south edge where the next
     # segment starts. Squaring it back is not decoration -- a rounded corner at a *join* is a
     # notch in the middle of a car, which is what the two-tile case would have shipped.
-    canvas.rounded_rect(0.0, 4.0, SIDE_HALF, EDGE - 4.0, CORNER, shell[2])
+    canvas.rounded_rect(0.0, 2.0, SIDE_HALF, EDGE - 2.0, CORNER, shell[2])
     canvas.rect(0.0, EDGE - CORNER, SIDE_HALF, CORNER, shell[2])
     _panels(canvas, key, shell)
     # Bonnet: a flat panel with a shut line across it.
-    canvas.rounded_rect(0.0, -12.0, SIDE_HALF - 2.0, 12.0, 3.0, shell[2])
-    canvas.rect(0.0, 0.4, SIDE_HALF - 2.0, 0.6, shell[0], inside_only=True)
+    canvas.rounded_rect(0.0, -6.0, SIDE_HALF - 1.0, 6.0, 1.5, shell[2])
+    canvas.rect(0.0, 0.2, SIDE_HALF - 1.0, 0.3, shell[0], inside_only=True)
     # Windscreen, raked, its own dark shape at the south of the bonnet.
-    canvas.rounded_rect(0.0, 8.0, SIDE_HALF - 4.0, 6.0, 2.0, glass[1])
-    canvas.rect(0.0, 8.0, 0.6, 6.0, glass[3], inside_only=True)
+    canvas.rounded_rect(0.0, 4.0, SIDE_HALF - 2.0, 3.0, 1.0, glass[1])
+    canvas.rect(0.0, 4.0, 0.3, 3.0, glass[3], inside_only=True)
     # Bumper and the two headlamps -- the tell that says which end this is.
-    canvas.rect(0.0, NOSE_Y - 3.4, SIDE_HALF - 3.0, 1.8, shell[0], inside_only=True)
-    canvas.ellipse(-12.4, NOSE_Y - 0.6, 3.4, 2.2, RAMPS["cloth"][4])
-    canvas.ellipse(12.4, NOSE_Y - 0.6, 3.4, 2.2, RAMPS["cloth"][3])
+    canvas.rect(0.0, NOSE_Y - 1.7, SIDE_HALF - 1.5, 0.9, shell[0], inside_only=True)
+    canvas.ellipse(-6.2, NOSE_Y - 0.3, 1.7, 1.1, RAMPS["cloth"][4])
+    canvas.ellipse(6.2, NOSE_Y - 0.3, 1.7, 1.1, RAMPS["cloth"][3])
     canvas.light_top_left(0.17, SIDE_HALF, "x")
     # No line on the south edge: that edge is a *join*, and an outline there draws a dark seam
     # across the middle of every car longer than one tile.
@@ -101,12 +101,12 @@ def _car_mid(variant):
     canvas.rect(0.0, 0.0, SIDE_HALF, EDGE, shell[2])
     _panels(canvas, key, shell)
     # Side windows down both flanks, and the door shut-lines between them.
-    canvas.rounded_rect(-SIDE_HALF + 3.4, -6.0, 2.6, 9.0, 1.0, glass[2])
-    canvas.rounded_rect(SIDE_HALF - 3.4, -6.0, 2.6, 9.0, 1.0, glass[2])
-    canvas.rounded_rect(-SIDE_HALF + 3.4, 8.0, 2.6, 8.0, 1.0, glass[1])
-    canvas.rounded_rect(SIDE_HALF - 3.4, 8.0, 2.6, 8.0, 1.0, glass[1])
-    canvas.rect(-SIDE_HALF + 4.0, 1.6, 4.0, 0.6, shell[0], inside_only=True)
-    canvas.rect(SIDE_HALF - 4.0, 1.6, 4.0, 0.6, shell[0], inside_only=True)
+    canvas.rounded_rect(-SIDE_HALF + 1.7, -3.0, 1.3, 4.5, 0.5, glass[2])
+    canvas.rounded_rect(SIDE_HALF - 1.7, -3.0, 1.3, 4.5, 0.5, glass[2])
+    canvas.rounded_rect(-SIDE_HALF + 1.7, 4.0, 1.3, 4.0, 0.5, glass[1])
+    canvas.rounded_rect(SIDE_HALF - 1.7, 4.0, 1.3, 4.0, 0.5, glass[1])
+    canvas.rect(-SIDE_HALF + 2.0, 0.8, 2.0, 0.3, shell[0], inside_only=True)
+    canvas.rect(SIDE_HALF - 2.0, 0.8, 2.0, 0.3, shell[0], inside_only=True)
     canvas.light_top_left(0.17, SIDE_HALF, "x")
     # Both ends are joins; only the flanks get a line.
     canvas.outline(OUTLINE, "ew")
@@ -119,17 +119,17 @@ def _car_rear(variant):
     glass = RAMPS["glass"]
     canvas = Canvas()
     # Rounded at the tail, squared back along the north edge where the previous segment ends.
-    canvas.rounded_rect(0.0, -4.0, SIDE_HALF, EDGE - 4.0, CORNER, shell[2])
+    canvas.rounded_rect(0.0, -2.0, SIDE_HALF, EDGE - 2.0, CORNER, shell[2])
     canvas.rect(0.0, -(EDGE - CORNER), SIDE_HALF, CORNER, shell[2])
     _panels(canvas, key, shell)
     # Rear screen, then the boot lid and its shut line.
-    canvas.rounded_rect(0.0, -9.0, SIDE_HALF - 4.0, 5.0, 2.0, glass[1])
-    canvas.rounded_rect(0.0, 6.0, SIDE_HALF - 2.0, 9.0, 3.0, shell[2])
-    canvas.rect(0.0, -2.6, SIDE_HALF - 2.0, 0.6, shell[0], inside_only=True)
+    canvas.rounded_rect(0.0, -4.5, SIDE_HALF - 2.0, 2.5, 1.0, glass[1])
+    canvas.rounded_rect(0.0, 3.0, SIDE_HALF - 1.0, 4.5, 1.5, shell[2])
+    canvas.rect(0.0, -1.3, SIDE_HALF - 1.0, 0.3, shell[0], inside_only=True)
     # Bumper and tail lamps. Dimmer than the headlamps, which is the read: this end is going away.
-    canvas.rect(0.0, TAIL_Y + 3.0, SIDE_HALF - 3.0, 1.8, shell[0], inside_only=True)
-    canvas.ellipse(-12.8, TAIL_Y + 0.4, 3.0, 2.0, RAMPS["ember"][1])
-    canvas.ellipse(12.8, TAIL_Y + 0.4, 3.0, 2.0, RAMPS["ember"][0])
+    canvas.rect(0.0, TAIL_Y + 1.5, SIDE_HALF - 1.5, 0.9, shell[0], inside_only=True)
+    canvas.ellipse(-6.4, TAIL_Y + 0.2, 1.5, 1.0, RAMPS["ember"][1])
+    canvas.ellipse(6.4, TAIL_Y + 0.2, 1.5, 1.0, RAMPS["ember"][0])
     canvas.light_top_left(0.17, SIDE_HALF, "x")
     canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
@@ -138,14 +138,14 @@ def _car_rear(variant):
 # Debris: scatter positions authored rather than rolled, so each key is a *composition* somebody
 # can look at and reject, and three of them beside each other do not repeat.
 LITTER = {
-    "a": [(-19.0, -11.0, 3.0, 2.0), (-4.0, -20.0, 2.0, 3.0), (9.0, -6.0, 4.0, 2.5), (-13.0, 8.0, 2.5, 2.0), (17.0, 14.0, 3.5, 2.0), (2.0, 19.0, 2.0, 2.0)],
-    "b": [(-22.0, 6.0, 2.5, 3.5), (-8.0, -3.0, 3.5, 2.0), (6.0, -17.0, 2.0, 2.5), (14.0, 2.0, 2.0, 2.0), (-2.0, 11.0, 4.0, 2.0), (20.0, -13.0, 2.5, 2.0)],
-    "c": [(-15.0, -17.0, 2.0, 2.5), (0.0, -8.0, 2.5, 2.0), (18.0, -2.0, 3.0, 3.0), (-19.0, 15.0, 3.5, 2.0), (7.0, 16.0, 2.0, 2.5), (11.0, 22.0, 2.0, 2.0)],
+    "a": [(-9.5, -5.5, 1.5, 1.0), (-2.0, -10.0, 1.0, 1.5), (4.5, -3.0, 2.0, 1.25), (-6.5, 4.0, 1.25, 1.0), (8.5, 7.0, 1.75, 1.0), (1.0, 9.5, 1.0, 1.0)],
+    "b": [(-11.0, 3.0, 1.25, 1.75), (-4.0, -1.5, 1.75, 1.0), (3.0, -8.5, 1.0, 1.25), (7.0, 1.0, 1.0, 1.0), (-1.0, 5.5, 2.0, 1.0), (10.0, -6.5, 1.25, 1.0)],
+    "c": [(-7.5, -8.5, 1.0, 1.25), (0.0, -4.0, 1.25, 1.0), (9.0, -1.0, 1.5, 1.5), (-9.5, 7.5, 1.75, 1.0), (3.5, 8.0, 1.0, 1.25), (5.5, 11.0, 1.0, 1.0)],
 }
 
 RUBBLE = {
-    "a": [(-13.0, -9.0, 6.0, 4.5), (4.0, -14.0, 4.0, 3.5), (12.0, 3.0, 5.5, 4.0), (-6.0, 9.0, 4.5, 3.5), (-18.0, 13.0, 3.5, 3.0), (17.0, -12.0, 3.0, 2.5)],
-    "b": [(-9.0, -15.0, 5.0, 4.0), (11.0, -6.0, 6.0, 4.5), (-16.0, 2.0, 4.0, 3.5), (2.0, 12.0, 5.5, 4.0), (16.0, 15.0, 3.5, 3.0), (-3.0, -3.0, 3.0, 2.5)],
+    "a": [(-6.5, -4.5, 3.0, 2.25), (2.0, -7.0, 2.0, 1.75), (6.0, 1.5, 2.75, 2.0), (-3.0, 4.5, 2.25, 1.75), (-9.0, 6.5, 1.75, 1.5), (8.5, -6.0, 1.5, 1.25)],
+    "b": [(-4.5, -7.5, 2.5, 2.0), (5.5, -3.0, 3.0, 2.25), (-8.0, 1.0, 2.0, 1.75), (1.0, 6.0, 2.75, 2.0), (8.0, 7.5, 1.75, 1.5), (-1.5, -1.5, 1.5, 1.25)],
 }
 
 
@@ -156,7 +156,7 @@ def _scatter(key, pieces, ramp_name, salt_chance):
         canvas.ellipse(ox, oy, a, b, ramp[1 + (i % 3)])
     # Grit between the pieces: the thing that stops six blobs reading as six blobs.
     canvas.speckle(key, "grit", ramp[2], salt_chance, inside_only=False)
-    canvas.light_top_left(0.18, 20.0)
+    canvas.light_top_left(0.18, 10.0)
     # South and east only -- see the module docstring.
     canvas.outline(OUTLINE, "se")
     return canvas.to_image()

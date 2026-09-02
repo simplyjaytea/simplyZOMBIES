@@ -10,9 +10,10 @@ extends RefCounted
 # Presentation-only, per ui/README.md's boundary: sim/ must never import this. It reads
 # world.content, which is the same tree the sim modules read.
 #
-# Sprites are optional and currently absent. `resolve` returns null for a key with no file,
-# and every caller falls back to the procedural shapes that ship today -- the fallback is a
-# supported path, not a temporary one, and check_appearance.gd asserts it stays that way.
+# Sprites are optional: `resolve` returns null for a key with no file, and every caller falls
+# back to the procedural shapes -- the fallback is a supported path, not a temporary one, and
+# check_appearance.gd asserts it stays that way. Every shipped body, prop and street key has
+# art today, authored on the ART_NATIVE (32 px) centre-anchored canvas camera.gd names.
 
 const Palette = preload("res://presentation/palette.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
@@ -226,7 +227,7 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 
 
 # How many screen pixels one art pixel covers at this zoom. The sprites are authored against
-# a 64 px tile (CameraUtil.ART_NATIVE); every other zoom step is a power-of-two multiple of
+# an ART_NATIVE px tile (32, CameraUtil); every other zoom step is a power-of-two multiple of
 # it, so the factor is exact and nearest-neighbour stays clean. The resolver above is
 # deliberately zoom-innocent -- `for_entity` answers *what* a body looks like, this answers
 # *how big*, and keeping them apart is what lets a gate probe either without a camera.
