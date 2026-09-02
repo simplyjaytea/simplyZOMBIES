@@ -118,6 +118,89 @@ static func indoor_floor(map: Variant, tx: int, ty: int, col: Color) -> Color:
 	return col.lerp(Palette.COLOURS["indoorFloor"], Palette.INDOOR_MIX)
 
 
+# --- the ground atlas ------------------------------------------------------------------------
+#
+# One atlas for every floor: GROUND_VARIANTS cells across and one row per ground the renderer
+# knows -- rows 0..4 mirror SimSurface.Surface, then the two substitutions the draw loop makes,
+# the sidewalk paint and the indoor board mix. The atlas is the *shape* of a ground and the
+# palette is still its colour: every cell is authored around its row tint (check_road_look.gd's
+# TEXTURE lane pins each cell's mean to it from the decoded pixels) and the blit is modulated by
+# `flat / row tint`, so the textured branch averages to exactly the colour the flat branch would
+# have drawn. The indoor mix, the sidewalk substitution and the position-hash variation all
+# survive as tints over the picture, which is what keeps every palette lane meaning what it says.
+# Which cell a tile draws is a hash the drawing node takes through Dressing (SALT_GROUND); this
+# file cannot preload dressing.gd, which preloads it.
+const GROUND_ATLAS_KEY: String = "ground_atlas"
+const GROUND_VARIANTS: int = 4
+enum GroundRow { Paved = 0, Dirt = 1, Grass = 2, Undergrowth = 3, Rubble = 4, Sidewalk = 5, Boards = 6 }
+const GROUND_ROWS: int = 7
+
+
+# The canvas a registry key is authored on. Everything is one ART_NATIVE tile except the atlases,
+# which are a table of them -- and this is the one table, read by check_appearance.gd's canvas
+# lanes and mirrored by tools/sprites/build.py's `canvas_of`, so a second shape is a one-line
+# entry here and there rather than a new exception in a gate.
+static func canvas_of(key: String) -> Vector2i:
+	var n: int = int(CameraUtil.ART_NATIVE)
+	if key == GROUND_ATLAS_KEY:
+		return Vector2i(GROUND_VARIANTS * n, GROUND_ROWS * n)
+	return Vector2i(n, n)
+
+
+static func ground_atlas() -> Texture2D:
+	return resolve(GROUND_ATLAS_KEY)
+
+
+# The tint a row was authored around: the surface tint for the five surfaces, the two paints for
+# the two substitutions. What `ground_modulate` divides by.
+static func ground_row_tint(row: int) -> Color:
+	match row:
+		GroundRow.Sidewalk:
+			return Palette.COLOURS["sidewalk"]
+		GroundRow.Boards:
+			return Palette.COLOURS["indoorFloor"]
+		_:
+			if row >= 0 and row < Palette.SURFACE_TINTS.size():
+				return Palette.SURFACE_TINTS[row]
+			return Palette.COLOURS["floor"]
+
+
+# Which row a floor tile draws: boards indoors, the sidewalk paint where the road mask says so,
+# else the surface under it. Out of bounds reads Paved, as ground_colour does.
+static func ground_row_for(map: Variant, tx: int, ty: int, sidewalk: bool) -> int:
+	if map != null and SimTileMap.is_indoors(map, tx, ty):
+		return GroundRow.Boards
+	if sidewalk:
+		return GroundRow.Sidewalk
+	if map == null:
+		return GroundRow.Paved
+	var surface: int = int(SimSurface.surface_at(map, tx, ty))
+	if surface < 0 or surface >= Palette.SURFACE_TINTS.size():
+		return GroundRow.Paved
+	return surface
+
+
+# The atlas region of one cell. Pure: a row out of range clamps and a variant wraps, so a caller
+# can never ask for pixels outside the picture.
+static func ground_cell(row: int, variant: int) -> Rect2:
+	var n: float = CameraUtil.ART_NATIVE
+	var r: int = clampi(row, 0, GROUND_ROWS - 1)
+	var v: int = posmod(variant, GROUND_VARIANTS)
+	return Rect2(float(v) * n, float(r) * n, n, n)
+
+
+# `flat / base` per channel: a cell whose pixels average `base` draws averaging `flat`. Identity
+# when the flat colour is the row's own tint.
+static func ground_modulate(flat: Color, base: Color) -> Color:
+	return Color(_ratio(flat.r, base.r), _ratio(flat.g, base.g), _ratio(flat.b, base.b), flat.a)
+
+
+static func _ratio(a: float, b: float) -> float:
+	if b <= 0.0001:
+		return 1.0
+	return clampf(a / b, 0.0, 4.0)
+
+
 # The doorways on a map, as {tile index: true}.
 #
 # Read off the generator's own manifest (`map.buildings[i].doors`, absolute tiles) rather than off

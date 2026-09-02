@@ -35,6 +35,7 @@ const SimBoot = preload("res://sim/boot.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const CameraUtil = preload("res://presentation/camera.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 
 const CANON_SEED: int = 20260805
@@ -91,6 +92,8 @@ func _run() -> void:
 		ok = _the_shipped_district_carries_a_centred_line(stash) and ok
 		ok = _variation_is_deterministic_and_alive() and ok
 		ok = _the_palette_holds_the_mood_and_can_say_no() and ok
+		ok = _the_ground_is_a_texture_whose_mean_is_the_palette(stash) and ok
+		ok = _the_floor_blits_its_cell_and_draws_no_grid() and ok
 		ok = _the_three_sockets_are_wired(stash) and ok
 		ok = _rubble_is_placed_and_lawful(stash) and ok
 
@@ -98,8 +101,8 @@ func _run() -> void:
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("ROAD_LOOK_OK manifest true (exact on layout, worst dressed span %.2f over a %.2f floor), layout untouched, paint on streets only, centre line centred on %d fixture spans with %d lanes a side and the old placement refused, the shipped %d district carries %d centred dashes at width %d, variation hashed not drawn, palette propertied with the old table refused, mask/speed/tint sockets wired, %d rubble tiles lawful; %.1f s of a %.0f s budget" % [
-			float(stash.get("worst_span", 0.0)), SPAN_PAVED_FLOOR, int(stash.get("centred_spans", 0)), LANE_MIN, PLAYED_SIZE, int(stash.get("played_dashes", 0)), int(stash.get("played_width", 0)), int(stash.get("rubble", 0)), seconds, BUDGET_SECONDS,
+		print("ROAD_LOOK_OK manifest true (exact on layout, worst dressed span %.2f over a %.2f floor), layout untouched, paint on streets only, centre line centred on %d fixture spans with %d lanes a side and the old placement refused, the shipped %d district carries %d centred dashes at width %d, variation hashed not drawn, palette propertied with the old table refused, the ground atlas %d cells each averaging its palette tint with a flat cell and a bright cell refused, floors blit their cell at zoom %.0f and up with no grid, mask/speed/tint sockets wired, %d rubble tiles lawful; %.1f s of a %.0f s budget" % [
+			float(stash.get("worst_span", 0.0)), SPAN_PAVED_FLOOR, int(stash.get("centred_spans", 0)), LANE_MIN, PLAYED_SIZE, int(stash.get("played_dashes", 0)), int(stash.get("played_width", 0)), int(stash.get("atlas_cells", 0)), Palette.GROUND_TEXTURE_MIN_ZOOM, int(stash.get("rubble", 0)), seconds, BUDGET_SECONDS,
 		])
 		quit(0)
 	else:
@@ -730,6 +733,163 @@ func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 # draw loop reads the mask; (b) a placed rubble tile reaches the one sim mechanism that reads
 # surfaces; (c) the rubble tint is resolved through the draw path's own resolver, not merely
 # defined in the table.
+# --- 6. the ground atlas ---------------------------------------------------------------------
+
+# The atlas is the shape of a ground and the palette is still its colour. Each cell is judged on
+# its decoded pixels against the tint its row was authored around: the mean within
+# CELL_MEAN_MAX of the tint (so the modulated blit averages to the flat colour), the brightest
+# pixel no more than CELL_BRIGHT_MAX luma over it (so palette.py's ground-contrast guards keep
+# their clearance against the brightest pixel a body can stand on), and a variance that is not
+# zero (a flat cell is a texture in name only). The predicate is one function so the fabricated
+# negatives below refuse through the same code the real cells pass through.
+const CELL_MEAN_MAX: float = 0.03
+const CELL_BRIGHT_MAX: float = 0.06
+
+
+func _luma(c: Color) -> float:
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+
+# "" when the n x n cell at (x0, y0) is a lawful picture of `tint`, else what is wrong with it.
+func _cell_problem(img: Image, x0: int, y0: int, n: int, tint: Color) -> String:
+	var sum: Vector3 = Vector3.ZERO
+	var brightest: float = 0.0
+	# Flatness is an exact question, not a variance under a float epsilon: a Vector3 running sum
+	# of squares over a thousand pixels carries enough rounding to read a flat cell as textured.
+	var first: Color = img.get_pixel(x0, y0)
+	var textured: bool = false
+	for y in n:
+		for x in n:
+			var c: Color = img.get_pixel(x0 + x, y0 + y)
+			if c.a < 0.999:
+				return "a transparent pixel at (%d, %d); ground is opaque" % [x0 + x, y0 + y]
+			sum += Vector3(c.r, c.g, c.b)
+			if c != first:
+				textured = true
+			brightest = maxf(brightest, _luma(c))
+	var count: float = float(n * n)
+	var mean: Vector3 = sum / count
+	if not textured:
+		return "flat -- every pixel the same colour, a texture in name only"
+	var d: float = Vector3(tint.r, tint.g, tint.b).distance_to(mean)
+	if d > CELL_MEAN_MAX:
+		return "mean (%.3f, %.3f, %.3f) sits %.3f from its tint %s, over %.2f" % [mean.x, mean.y, mean.z, d, tint.to_html(false), CELL_MEAN_MAX]
+	if brightest > _luma(tint) + CELL_BRIGHT_MAX:
+		return "brightest pixel luma %.3f is %.3f over the tint's %.3f, past %.2f" % [brightest, brightest - _luma(tint), _luma(tint), CELL_BRIGHT_MAX]
+	return ""
+
+
+func _the_ground_is_a_texture_whose_mean_is_the_palette(stash: Dictionary) -> bool:
+	Appearance.forget()
+	var atlas: Texture2D = Appearance.ground_atlas()
+	if atlas == null:
+		push_error("no %s.png resolves; the floors have no picture to blit" % Appearance.GROUND_ATLAS_KEY)
+		return false
+	var n: int = int(CameraUtil.ART_NATIVE)
+	var want: Vector2i = Appearance.canvas_of(Appearance.GROUND_ATLAS_KEY)
+	if Vector2i(atlas.get_size()) != want:
+		push_error("the atlas is %s, its canvas is %s (%d variants x %d rows of %d px)" % [str(atlas.get_size()), str(want), Appearance.GROUND_VARIANTS, Appearance.GROUND_ROWS, n])
+		return false
+	var img: Image = atlas.get_image()
+	if img == null:
+		push_error("the atlas texture yields no image to judge")
+		return false
+	var judged: int = 0
+	for row in Appearance.GROUND_ROWS:
+		var tint: Color = Appearance.ground_row_tint(row)
+		var cells: Array[PackedByteArray] = []
+		for v in Appearance.GROUND_VARIANTS:
+			var region: Rect2 = Appearance.ground_cell(row, v)
+			if region != Rect2(float(v * n), float(row * n), float(n), float(n)):
+				push_error("ground_cell(%d, %d) answered %s, not the cell at column %d row %d" % [row, v, str(region), v, row])
+				return false
+			var problem: String = _cell_problem(img, int(region.position.x), int(region.position.y), n, tint)
+			if not problem.is_empty():
+				push_error("atlas row %d variant %d: %s" % [row, v, problem])
+				return false
+			cells.append(img.get_region(Rect2i(region)).get_data())
+			judged += 1
+		for a in cells.size():
+			for b in range(a + 1, cells.size()):
+				if cells[a] == cells[b]:
+					push_error("atlas row %d: variants %d and %d are the same pixels; four names for one picture" % [row, a, b])
+					return false
+	# The pure helpers: a row past the end clamps and a variant wraps, so no caller can ask for
+	# pixels outside the picture; the modulate is the identity on a row's own tint and the exact
+	# ratio otherwise.
+	if Appearance.ground_cell(99, Appearance.GROUND_VARIANTS + 1) != Rect2(float(n), float((Appearance.GROUND_ROWS - 1) * n), float(n), float(n)):
+		push_error("ground_cell does not clamp the row and wrap the variant: %s" % str(Appearance.ground_cell(99, Appearance.GROUND_VARIANTS + 1)))
+		return false
+	var grass: Color = Appearance.ground_row_tint(Appearance.GroundRow.Grass)
+	var same: Color = Appearance.ground_modulate(grass, grass)
+	if absf(same.r - 1.0) > 0.0001 or absf(same.g - 1.0) > 0.0001 or absf(same.b - 1.0) > 0.0001:
+		push_error("ground_modulate(tint, tint) is %s, not white" % str(same))
+		return false
+	var doubled: Color = Appearance.ground_modulate(Color(0.6, 0.6, 0.6), Color(0.3, 0.3, 0.3))
+	if absf(doubled.r - 2.0) > 0.0001:
+		push_error("ground_modulate(0.6, 0.3) answered %s, not the 2.0 ratio" % str(doubled))
+		return false
+	if Appearance.ground_row_for(null, 0, 0, true) != Appearance.GroundRow.Sidewalk or Appearance.ground_row_for(null, 0, 0, false) != Appearance.GroundRow.Paved:
+		push_error("ground_row_for does not answer Sidewalk for painted and Paved for an absent map")
+		return false
+	# The built-in negatives, through the one predicate: a flat cell and a cell painted a tenth
+	# brighter than its tint must both be refused, or a dead atlas would pass the lane above.
+	var flat: Image = Image.create(n, n, false, Image.FORMAT_RGBA8)
+	flat.fill(Appearance.ground_row_tint(0))
+	if _cell_problem(flat, 0, 0, n, Appearance.ground_row_tint(0)).is_empty():
+		push_error("a flat cell passed the texture predicate; a dead atlas would pass this lane")
+		return false
+	var bright: Image = img.get_region(Rect2i(0, 0, n, n))
+	for y in n:
+		for x in n:
+			var c: Color = bright.get_pixel(x, y)
+			bright.set_pixel(x, y, Color(minf(c.r + 0.1, 1.0), minf(c.g + 0.1, 1.0), minf(c.b + 0.1, 1.0), 1.0))
+	if _cell_problem(bright, 0, 0, n, Appearance.ground_row_tint(0)).is_empty():
+		push_error("a cell a tenth brighter than its tint passed the texture predicate; the mean pin reads nothing")
+		return false
+	stash["atlas_cells"] = judged
+	print("TEXTURE OK %s is %dx%d: %d cells, every one averaging within %.2f of its row tint with no pixel over %.2f luma above it and none flat, %d variants a row pixel-distinct; the flat cell and the brightened cell both refused" % [
+		Appearance.GROUND_ATLAS_KEY, want.x, want.y, judged, CELL_MEAN_MAX, CELL_BRIGHT_MAX, Appearance.GROUND_VARIANTS,
+	])
+	return true
+
+
+# The socket and the deletion: _draw_floor_tile blits the cell through every helper above, at the
+# zoom floor the palette names, and the hairline grid the flat fill used to draw is gone from
+# both branches. Textual, on the function body, because the assertion is about what the draw
+# loop reaches for and not about a number a helper returns.
+func _the_floor_blits_its_cell_and_draws_no_grid() -> bool:
+	var body: String = _function_body(MAIN_GD, "_draw_floor_tile")
+	if body.is_empty():
+		push_error("could not read _draw_floor_tile out of %s -- the grid lane had nothing to judge" % MAIN_GD)
+		return false
+	for needle in ["draw_texture_rect_region(", "Appearance.ground_atlas(", "Appearance.ground_cell(", "Dressing.SALT_GROUND", "Appearance.ground_modulate(", "Appearance.ground_row_tint(", "Palette.GROUND_TEXTURE_MIN_ZOOM", "draw_rect(rect, col)"]:
+		if not body.contains(needle):
+			push_error("_draw_floor_tile does not contain %s; the atlas resolves a cell nothing blits, or the flat fallback is gone" % needle)
+			return false
+	if body.contains(", false, 1.0)"):
+		push_error("_draw_floor_tile still draws the hairline grid; the reference has no tile grid")
+		return false
+	if not CameraUtil.ZOOM_STEPS.has(Palette.GROUND_TEXTURE_MIN_ZOOM):
+		push_error("GROUND_TEXTURE_MIN_ZOOM %.0f is not on the zoom ladder; a floor nobody can zoom to" % Palette.GROUND_TEXTURE_MIN_ZOOM)
+		return false
+	# Every caller hands the row over: the district loop for its three floor kinds and the
+	# threshold for its boards. A caller that fell back to a flat colour and no row would draw
+	# the paved cell under a lawn.
+	var district: String = _function_body(MAIN_GD, "_draw_district")
+	var calls: int = district.count("_draw_floor_tile(")
+	var rows: int = district.count("Appearance.ground_row_for(")
+	if calls < 3 or rows != calls:
+		push_error("_draw_district calls _draw_floor_tile %d times and resolves a row %d times; every floor wants its row" % [calls, rows])
+		return false
+	var threshold: String = _function_body(MAIN_GD, "_draw_threshold")
+	if not threshold.contains("Appearance.GroundRow.Boards"):
+		push_error("_draw_threshold does not draw a doorway on boards")
+		return false
+	print("GRID OK _draw_floor_tile blits the atlas cell through the resolver at zoom >= %.0f, keeps the flat fill as its fallback, draws no hairline; %d district callers and the threshold all name their row" % [Palette.GROUND_TEXTURE_MIN_ZOOM, calls])
+	return true
+
+
 func _the_three_sockets_are_wired(stash: Dictionary) -> bool:
 	var district: String = _function_body(MAIN_GD, "_draw_district")
 	if district.is_empty():

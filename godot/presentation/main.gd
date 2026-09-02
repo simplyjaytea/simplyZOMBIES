@@ -801,7 +801,7 @@ func _draw_district() -> void:
 					_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
 					_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
-					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
+					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
 					# A Low tile is a wreck: a car where it stands in a run, a skip where it stands
 					# alone. Which picture that is comes out of content through Dressing, and when
 					# content declares none the inset block still draws -- the procedural cover shape
@@ -811,7 +811,7 @@ func _draw_district() -> void:
 						var inset: float = zoom * 0.15625
 						draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Tree:
-					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
+					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
 					var centre: Vector2 = rect.get_center()
 					draw_circle(centre, zoom * 0.42, col)
 					draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
@@ -843,7 +843,7 @@ func _draw_district() -> void:
 							clampf(floor_col.g + vo, 0.0, 1.0),
 							clampf(floor_col.b + vo, 0.0, 1.0),
 							floor_col.a)
-						_draw_floor_tile(rect, floor_col)
+						_draw_floor_tile(rect, floor_col, tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, paint == RoadPaint.MASK_SIDEWALK))
 						if paint == RoadPaint.MASK_DASH:
 							_draw_road_dash(rect, mask, tx, ty)
 						if paint != RoadPaint.MASK_NONE:
@@ -857,10 +857,19 @@ func _draw_district() -> void:
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
 
-# Floors are flat fill plus a hairline grid line.
-func _draw_floor_tile(rect: Rect2, col: Color) -> void:
-	draw_rect(rect, col)
-	draw_rect(rect, Palette.COLOURS["background"] * 0.9, false, 1.0)
+# A floor is its ground's atlas cell, modulated to the flat colour the palette would have drawn,
+# at GROUND_TEXTURE_MIN_ZOOM and above; below that (16 px a tile, where the texture is noise) and
+# whenever no atlas resolves, the flat colour alone -- the supported fallback, not a stopgap. No
+# hairline grid in either branch any more: the reference has no tile grid, and the cells' own
+# edges carry the tiling. One region blit from one texture per tile so the batcher keeps
+# consecutive floors in one call; the cell is a position hash through Dressing, never an RNG.
+func _draw_floor_tile(rect: Rect2, col: Color, tx: int, ty: int, row: int) -> void:
+	var atlas: Texture2D = Appearance.ground_atlas()
+	if atlas != null and float(camera["zoom"]) >= Palette.GROUND_TEXTURE_MIN_ZOOM:
+		var variant: int = Dressing.variant_index(int(world.seed), tx, ty, Dressing.SALT_GROUND, Appearance.GROUND_VARIANTS)
+		draw_texture_rect_region(atlas, rect, Appearance.ground_cell(row, variant), Appearance.ground_modulate(col, Appearance.ground_row_tint(row)))
+	else:
+		draw_rect(rect, col)
 
 # The road-paint mask, cached against the map object it was resolved from. RoadPaint.mask_for is
 # pure and the cache lives here because a static one would be shared between the two worlds a
@@ -1052,7 +1061,7 @@ func _is_threshold(tx: int, ty: int) -> bool:
 # neighbouring tiles rather than off a stored orientation, the same way _draw_window_glass reads
 # its pane orientation, so a door in a rebuilt or barricaded wall is drawn against what stands now.
 func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
-	_draw_floor_tile(rect, col.lerp(Palette.COLOURS["threshold"], 0.75))
+	_draw_floor_tile(rect, col.lerp(Palette.COLOURS["threshold"], 0.75), tx, ty, Appearance.GroundRow.Boards)
 	# The jamb is the cap of the wall it belongs to, so a doorway is a gap in one mass rather than
 	# two stubs in a colour of their own -- the lit faces of the wall tiles either side already
 	# draw the line where the opening starts.
