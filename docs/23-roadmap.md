@@ -233,8 +233,6 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
   constant moves again. `presentation/dressing.gd` already classifies a lone tile as `solo` and
   resolves nothing for it; `check_wrecks.gd`'s SEGMENTS and DISTRICT lanes say out loud which half
   went unjudged, so the socket is named rather than hidden.
-- **Weather & mood.** A rain pass and overcast grade, presentation-only, reading nothing the
-  player has not seen.
 - **Characters re-authored for overhead.** The brainstorm's overhead visual language: survivors
   and the zombie roster on the rotated-rig conventions. Folds in the old **screamer and bloater
   sprites** item — both still render as tinted shapes. Carries three deferrals the player's own
@@ -1544,6 +1542,89 @@ not a to-do list:
   `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice3-day.png` and `slice3-night.png`. The
   night shot is nearly dark on purpose — sight collapses after dusk and the dressing goes with it,
   which is the contract, not a missing feature. docs/30: no new entry. `HANDOFF.md` unchanged.
+- ~~Weather & mood~~ **landed** (`godot:check:weather` → `WEATHER_OK`, the chain's 42nd gate) —
+  the fourth slice of the style-B reference arc: the rain, and the accent regrade the reference
+  mood was still owed. Zero sprites shipped — nobody should go looking for the missing art.
+
+  **The rain.** One screen-space streak layer, `presentation/rain_look.gd` — pure statics with no
+  state of any kind (a `static var` there would be shared between the two worlds a gate boots) —
+  keyed off `world.tick` plus the sub-tick fraction and hashed with `road_paint.gd`'s two primes,
+  **not** an RNG stream, so the sky is identical on every boot of every seed by construction. It
+  **never stops raining** (`INTENSITY_MIN` 0.4): an onset and an end would read as a weather
+  *event* and imply a system that does not exist — docs/16's weather sim stays Milestone 3, and
+  re-keying this layer to it then is the named forward edge. What varies is intensity, a slow
+  ~90 s swell with a faster flutter inside it, measured spread [0.40, 0.99] over a day. Drawn
+  over the bodies and under the night wash in one `draw_multiline` for the whole sky; frozen
+  while paused because `_process` returns before the accumulator moves; 10× under fast-forward,
+  accepted as ambience rather than fixed as a clock. Indoors it is culled through
+  `RainLook.falls_at`, which reads the map's own `indoors` byte — a roof is a fact about the
+  district, not a second list the renderer keeps — and an off-map, null-map or `blank_map` sky
+  stays open, because the visible failure is rain that vanished, not rain over a tile that does
+  not exist. One honest residue: the cull reads the roof, not the player's knowledge of it, so a
+  streak-free hole over a block never yet seen is a soft tell that something roofed stands there.
+  Accepted as ambience at drizzle alpha; named here so a playtest that reads it as intel knows
+  where the decision lives.
+
+  **A rasteriser fact, measured and now load-bearing:** a 1 px `draw_multiline` quad hung between
+  whole-number coordinates lays its edges exactly on the sample points and draws *nothing* on the
+  Compatibility renderer — a whole sky at alpha 0.8 left a pixel diff of zero between frames.
+  `segments` therefore snaps every endpoint to the **pixel centre** (floor + 0.5), where a 1 px
+  quad covers exactly one column, and the gate asserts the half-pixel snap rather than the
+  integer one. The wider draw calls in the entity pass (facing line at 1.6–2.4 px) never hit
+  this, which is why it survived until a layer drew at width 1.
+
+  **The accent regrade.** The screen's brightest survivors of the oracle's palette went through
+  the muted grade, held by two-sided property bounds rather than hex pins: `window`
+  `#7ec8e8 → #6b8794`, `groundItem` `#d8c07a → #a89a70` (with a readability floor — it must still
+  clear the brightest ground tint by 0.15 in value, so the next tune cannot sink an item into the
+  pavement), the facing line `Color(1,1,1,0.55) → #cfccc08c`, the aim cone
+  `Color(0.85,0.9,1.0,…) → #b9c2c94d` with its edge rays derived through `Palette.AIM_EDGE_DIM`
+  (one colour dimmed by a pinned factor, never a second literal), the pane rim `#b8eaff` literal
+  → new key `windowRim`, and the new `rain` key `#c2c9cf21`. The rim is the one place the spec's
+  starting value was refused by the gate's own arithmetic, which is the arbitration working as
+  granted: `#8fa9b4` sits 0.023 in RGB from the pane the renderer paints (`window` lightened
+  0.28) — a rim you cannot see — so the shipped value is the darker sash `#5f7480` at distance
+  0.35, judged at dusk. The boarded stage-3 pane inherits the regrade automatically (it lightens
+  the `window` key) and stays strictly brighter than a plain pane. Lamp pools stay warm **on
+  purpose** and are now pinned warm (`r > b`, α ≤ 0.25; the loud O-key overlay variants hold the
+  warmth only). Every old value is carried through the same predicates and refused, so a revert
+  to the bright table is provably caught.
+
+  **The eleventh dead-socket batch.** Three palette keys that existed and were read by nothing —
+  `glimpse`, `memory`, `night` — are now the draw loop's actual colours (`night` is byte-exact
+  with the literal it replaces, so the wash is unchanged pixel for pixel; the other two are
+  near-zero moves), and five dead constants left behind by the frozen renderer are deleted:
+  three RGB string triplets, the three-entry shade table, and the hex copy of the condition
+  tints. `CONDITION_TINTS` itself is alive (the inventory panel and the paperdoll read it) and
+  the gate asserts it survived the batch, so the next sweep cannot mistake the live table for
+  the dead copies.
+
+  **The gate.** Five lanes, each red both ways: ACCENT (property bounds with the old table
+  refused and over-mute negatives, the pool pin, the dim factor's own bounds), DEAD SOCKET
+  (`_draw_window_glass` / `_draw_entities` / `_draw_night_wash` reach the keys and no longer
+  carry the literals, palette deletion scanned with the live table as control, an empty function
+  body fails loudly), RAIN PURE (determinism, pixel-centre snap, bounds, lean, exact 9 px/tick
+  fall, intensity spread with dead-spread and dead-column negatives, textual no-state/no-RNG
+  scan proven on a violating fixture), RAIN WIRED (entities → rain → wash strictly ascending
+  with the reversed real indices refused; `_draw_rain` reaches the resolver and is forbidden the
+  night's tunables), and ROOF (suburb@64 seed 20260805: 3,064 open tiles rained on, 454 roofed
+  tiles dry — the true negative a cull-that-culls-nothing cannot pass — with off-map, null-map
+  and blank-map skies open, and "no indoor tiles" failing rather than skipping). Shown red in
+  development by sabotage: the bright `window` reverted (ACCENT), the frame reordered wash
+  before rain (RAIN WIRED), and `falls_at` hardwired true (ROOF). `check_light_look.gd` keeps
+  district → pools → entities and the wash's `wash_alpha` assertion; `check_weather` names it as
+  the standing co-assertion rather than duplicating it. CI's stale "39 gates" comment and step
+  name were corrected to 42 in the same commit, since this is the commit that moved the count.
+
+  Eyeballed as well as gated: noon, dusk, night and a roofed interior, captured through a
+  throwaway Xvfb `SceneTree` driver (deleted after, per the rule), committed at
+  `.hermes/plans/2026-09-01_style-b-arc-slices-shots/slice4-{noon,dusk,night,interior}.png`. The
+  noon shot is the daylight-veil evidence: drizzle over an unwashed daylight street reads as
+  rain, not as noise, so the veil stays **considered and screenshot-refused** — no disabled
+  toggle ships, and nothing escalates to `HANDOFF.md`. Deferred, named rather than hidden:
+  ground splashes and ripples; per-streak brightening inside lit pools; slant driven by sim wind
+  when docs/16 lands. docs/30: one new clause under the art decision — rain is ambience, not
+  weather. `HANDOFF.md` unchanged.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

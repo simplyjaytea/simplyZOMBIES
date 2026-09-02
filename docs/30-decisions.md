@@ -1670,6 +1670,12 @@ pick does **not** adopt:
   brainstorm's invariants (silhouette → tint → detail, one loud tell per type, art never leaks
   sim state) rather than by matching the reference stroke for stroke.
 
+**Rain is ambience, not weather** (added by the weather slice under the same decision). The
+reference's rain is adopted as a presentation layer keyed off the tick, not as a simulation: it
+never starts and never stops, nothing in the sim reads it, and no mechanism depends on it.
+docs/16's weather is Milestone 3, and when it lands the layer is re-keyed to it rather than
+competing with it.
+
 The fixtures earned their keep here twice over: they showed B's rotation working under the
 anonymity clause before the pick, and they surfaced that the shipped game has no player sprite at
 all — the first slice of the arc authors one, which no candidate style could have skipped.

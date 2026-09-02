@@ -13,6 +13,7 @@ const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
+const RainLook = preload("res://presentation/rain_look.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
@@ -728,6 +729,7 @@ func _draw() -> void:
 	_draw_district()
 	_draw_light_pools()
 	_draw_entities()
+	_draw_rain()
 	_draw_night_wash()
 	# glimpse drawn by Control; nothing else needed here
 
@@ -1025,7 +1027,7 @@ func _draw_window_glass(rect: Rect2, tx: int, ty: int, col: Color = Palette.COLO
 	else:
 		pane = Rect2(c - Vector2(pane_short * 0.75, pane_short * 0.75), Vector2(pane_short * 1.5, pane_short * 1.5))
 	draw_rect(pane, glass)
-	draw_rect(pane, Color("#b8eaff"), false, 2.0)
+	draw_rect(pane, Palette.COLOURS["windowRim"], false, 2.0)
 
 # Doorways, cached against the map object rather than recomputed per frame: the derivation itself
 # is Appearance.door_tiles, which is pure, and the cache lives here because a static one would be
@@ -1262,7 +1264,10 @@ func _draw_entities() -> void:
 		# A peripheral glimpse is one anonymous shape: no sprite, no gear, no facing
 		# (docs/30 -- posture and facing are information the glimpse did not earn).
 		if int(it["det"]) == SimVisibility.Detail.Peripheral:
-			draw_circle(Vector2(sx, sy), r, Color(0.32, 0.38, 0.32, 0.75))
+			# The alpha stays a call-site fact: the palette key is the glimpse's colour, and how
+			# solid the disc draws is this branch's own business, not a second colour to tune.
+			var glimpse: Color = Palette.COLOURS["glimpse"] as Color
+			draw_circle(Vector2(sx, sy), r, Color(glimpse.r, glimpse.g, glimpse.b, 0.75))
 			continue
 		# Facing, read once and before anything is drawn: the body's own rotation, the
 		# indicator line and the aim cone are three readings of one number, and the sim is the
@@ -1317,7 +1322,7 @@ func _draw_entities() -> void:
 			draw_line(
 				Vector2(sx, sy),
 				Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
-				Color(1, 1, 1, 0.55),
+				Palette.COLOURS["facing"],
 				2.4 if bool(it["player"]) else 1.6,
 			)
 		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
@@ -1327,9 +1332,13 @@ func _draw_entities() -> void:
 				var reach_px: float = r + 36.0 + half * 44.0
 				var a0: float = screen_ang - half
 				var a1: float = screen_ang + half
-				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, Color(0.85, 0.9, 1.0, 0.35), 2.8)
-				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 2.0)
-				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), Color(0.85, 0.9, 1.0, 0.25), 2.0)
+				# One colour, drawn twice: the arc at the key's own alpha, the edge rays dimmed
+				# by the palette's factor -- never a second literal to keep in step.
+				var cone: Color = Palette.COLOURS["aimCone"] as Color
+				var edge: Color = Color(cone.r, cone.g, cone.b, cone.a * Palette.AIM_EDGE_DIM)
+				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, cone, 2.8)
+				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), edge, 2.0)
+				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), edge, 2.0)
 	# ground items as small squares — focal only (searching a room is an action)
 	for ent in world.components.query(["position", "itemBase"]):
 		if world.components.has_component(int(ent), "stored"): continue
@@ -1347,13 +1356,49 @@ func _draw_entities() -> void:
 	# to be the same recollection, or the mark is telling the player something nobody in the
 	# world knows. MEMORY_TICKS stays a presentation constant because how long a mark is drawn
 	# is a drawing question -- the sim remembers for far longer than this fades.
+	var mem: Color = Palette.COLOURS["memory"] as Color
 	for row in SimSightings.remembered(world, int(world.player)):
 		var m: Dictionary = row as Dictionary
 		var age: int = int(m["age"])
 		if age <= 0 or age > MEMORY_TICKS: continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(m["x"]), float(m["y"]))
 		var a: float = 0.5 * (1.0 - float(age) / float(MEMORY_TICKS))
-		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(0.24, 0.29, 0.24, a))
+		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(mem.r, mem.g, mem.b, a))
+
+
+# The rain, over the bodies and under the night wash: a survivor standing in it is standing in
+# it, and rain the night has already darkened is rain you cannot see. Presentation-only
+# ambience -- the sim has no weather (docs/16's is Milestone 3, and re-keying this layer to it
+# is the named forward edge), so the whole sky is a pure function of the tick and a hash,
+# rain_look.gd's own rule. Nothing here reads the night's tunables and nothing draws from a
+# generator; check_weather.gd scans this body for both.
+func _draw_rain() -> void:
+	if world == null:
+		return
+	var size: Vector2 = get_viewport_rect().size
+	# The sub-tick fraction, so streaks fall smoothly between the 20 Hz steps instead of
+	# stepping with them. Frozen while paused -- _process returns before either term moves --
+	# and 10x under fast-forward, which is accepted and recorded: this is ambience, not a clock.
+	var t: float = float(world.tick) + clampf(accumulator / TICK_SECONDS, 0.0, 1.0)
+	var pts: PackedVector2Array = RainLook.segments(t, size.x, size.y, RainLook.STREAK_COUNT)
+	var map: Variant = world.tilemap
+	var open := PackedVector2Array()
+	for i in range(0, pts.size(), 2):
+		var head: Vector2 = pts[i]
+		# The head's ground position, asked of the same projection the district draws through,
+		# so a streak stops exactly where the roof it would land on starts.
+		var w: Dictionary = TopDownProjection.screen_to_world(camera, head.x, head.y)
+		if not RainLook.falls_at(map, floori(float(w["x"])), floori(float(w["y"]))):
+			continue
+		open.append(head)
+		open.append(pts[i + 1])
+	if open.is_empty():
+		return
+	# One call for the whole sky: 140 draw_line calls would be 140 draw commands where one does,
+	# on a layer rebuilt every frame.
+	var key: Color = Palette.COLOURS["rain"] as Color
+	var a: float = key.a * RainLook.alpha_scale(RainLook.intensity(t))
+	draw_multiline(open, Color(key.r, key.g, key.b, a), 1.0)
 
 
 # One body and everything it is wearing, composited at one rect: under-body layers, the body,
@@ -1384,4 +1429,5 @@ func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictio
 func _draw_night_wash() -> void:
 	var a: float = LightLook.wash_alpha(world, int(world.player), NIGHT_WASH)
 	if a <= 0.0: return
-	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.023, 0.039, 0.102, a))
+	var night: Color = Palette.COLOURS["night"] as Color
+	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(night.r, night.g, night.b, a))
