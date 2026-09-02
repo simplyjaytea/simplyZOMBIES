@@ -1676,6 +1676,18 @@ never starts and never stops, nothing in the sim reads it, and no mechanism depe
 docs/16's weather is Milestone 3, and when it lands the layer is re-keyed to it rather than
 competing with it.
 
+**Every body is an overhead rig** (added by the characters slice, under four further owner
+directives of 2026-09-01). All character sprites are authored true-overhead like the player's,
+which retires the second boundary's "stay face-on" half — and only that half: **NPCs still never
+rotate.** `body_rotation(false, *) == 0.0` and the one-transform socket stand untouched, so an
+unrotated rig faces up-canvas whatever its body's real heading, and the indicator line keeps
+carrying the truth. The player's own rig slims (a wide silhouette strobes at 20 Hz under free
+unsmoothed rotation). Gear renders on detailed bodies — pack, long gun, headwear — as earned
+Focal information, beside the standing shared-raider-body clause: every raider archetype resolves
+one body, because which raider carries the gun is not something a look across a street may
+answer. `check_m2_raiders.gd` holds that from the content side and `check_appearance.gd`'s roster
+lane from the resolver's.
+
 The fixtures earned their keep here twice over: they showed B's rotation working under the
 anonymity clause before the pick, and they surfaced that the shipped game has no player sprite at
 all — the first slice of the arc authors one, which no candidate style could have skipped.

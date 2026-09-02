@@ -2,7 +2,7 @@
   "id": "zombie.screamer",
   "extends": "zombie.base",
   "introducedInWave": 1,
-  "appearance": { "tint": "#d95947" },
+  "appearance": { "sprite": "zombie_screamer" },
   "sensory": { "noise": 0.4, "light": 0.9, "scent": 0.2 },
   "locomotion": { "speed": 1.1 },
   "body": { "head": 20, "torso": 40, "legs": 30 },

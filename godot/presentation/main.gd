@@ -1204,6 +1204,10 @@ func _fill_pool_tiles(tiles: Array, col: Color) -> void:
 
 func _draw_entities() -> void:
 	if world == null: return
+	# One art pixel in screen pixels, asked once: the camera cannot change inside a draw
+	# pass, and every body, shadow and glimpse disc below is sized off the same answer --
+	# a rig that ignored the zoom would draw a 64 px body over a 16 px tile.
+	var px_scale: float = Appearance.blit_scale(float(camera["zoom"]))
 	var items: Array[Dictionary] = []
 	# collect all positions
 	for ent in world.components.query(["position"]):
@@ -1226,8 +1230,11 @@ func _draw_entities() -> void:
 			if det == SimVisibility.Detail.Unseen:
 				continue
 			if det == SimVisibility.Detail.Peripheral:
+				# A glimpse is motion or nothing. Appearance.moving owns what "moving" means --
+				# a missing velocity component is motionless (a corpse), not unknown -- so the
+				# still, the dead and the parked all stay undrawn here.
 				var vel: Variant = world.components.get_component(int(ent), "velocity")
-				if vel is Dictionary and float((vel as Dictionary).get("dx", 0.0)) == 0.0 and float((vel as Dictionary).get("dy", 0.0)) == 0.0:
+				if not Appearance.moving(vel):
 					continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, x, y)
 		var depth: float = TopDownProjection.depth_of(x, y)
@@ -1260,7 +1267,9 @@ func _draw_entities() -> void:
 		# Colours and sprites come from content now, not from a chain of type-id checks here.
 		var look: Dictionary = Appearance.for_entity(world, it)
 		var col: Color = look["tint"] as Color
-		var r: float = float(look["radius"])
+		# The radius is authored in art pixels (the resolver is zoom-innocent); the glimpse
+		# disc, contact shadow, fallback disc and outline ring all follow this one scaling.
+		var r: float = float(look["radius"]) * px_scale
 		# A peripheral glimpse is one anonymous shape: no sprite, no gear, no facing
 		# (docs/30 -- posture and facing are information the glimpse did not earn).
 		if int(it["det"]) == SimVisibility.Detail.Peripheral:
@@ -1283,13 +1292,16 @@ func _draw_entities() -> void:
 		var screen_ang: float = face
 		# contact shadow — under both branches, and deliberately *outside* the rotation below:
 		# a shadow is cast by the world's light, not by the body, so it must not spin with it.
+		# The +3 offset is a screen-pixel constant on purpose, like the facing line's +12 and
+		# the aim cone's +36/+44 below: readouts of the interface, not lengths in the world.
 		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
 		var texture: Texture2D = look["texture"] as Texture2D
 		if texture != null:
 			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
 			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
-			# lands on a half-pixel as the camera follows the player.
-			var size: Vector2 = texture.get_size()
+			# lands on a half-pixel as the camera follows the player. Scaled by px_scale so
+			# a body covers the same fraction of a tile at every step on the zoom ladder.
+			var size: Vector2 = texture.get_size() * px_scale
 			# Equipped gear composites at the identical rect the body draws at -- an
 			# equipSprite is authored on the same centre-anchored canvas, so there is no
 			# per-item offset to compute here. Drawn white, never the role/tint colour:

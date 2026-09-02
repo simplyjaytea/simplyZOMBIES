@@ -1,8 +1,8 @@
 [
-  { "id": "colony.look.01", "appearance": { "tint": "#7a6a58" } },
-  { "id": "colony.look.02", "appearance": { "tint": "#c98a5a" } },
-  { "id": "colony.look.03", "appearance": { "tint": "#5c4632" } },
-  { "id": "colony.look.04", "appearance": { "tint": "#e0b98f" } },
-  { "id": "colony.look.05", "appearance": { "tint": "#8f6b4a" } },
-  { "id": "colony.look.06", "appearance": { "tint": "#d9c1a3" } }
+  { "id": "colony.look.01", "appearance": { "sprite": "survivor_colonist", "tint": "#a89478" } },
+  { "id": "colony.look.02", "appearance": { "sprite": "survivor_colonist", "tint": "#c99a6f" } },
+  { "id": "colony.look.03", "appearance": { "sprite": "survivor_colonist", "tint": "#a2917b" } },
+  { "id": "colony.look.04", "appearance": { "sprite": "survivor_colonist", "tint": "#e0c49a" } },
+  { "id": "colony.look.05", "appearance": { "sprite": "survivor_colonist", "tint": "#b58a63" } },
+  { "id": "colony.look.06", "appearance": { "sprite": "survivor_colonist", "tint": "#d9c7ab" } }
 ]

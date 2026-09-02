@@ -36,8 +36,10 @@ func _run() -> void:
 	ok = _props_reach_the_draw_path() and ok
 	ok = _built_mass_is_thin_and_still_solid() and ok
 	ok = _only_the_player_rotates() and ok
+	ok = _bodies_scale_with_the_zoom() and ok
+	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, one body rotates")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, one body rotates, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -453,7 +455,7 @@ func _only_the_player_rotates() -> bool:
 		return false
 	for has_art in [true, false]:
 		if not Appearance.wants_facing_line(false, has_art):
-			push_error("an NPC must keep its indicator line (art on disk: %s); their sprites are face-on and their bodies do not turn" % str(has_art))
+			push_error("an NPC must keep its indicator line (art on disk: %s); their rigs draw unrotated, so the art's front is a lie about heading and the line is the truth" % str(has_art))
 			return false
 
 	var body: String = _function_body(MAIN_GD, "_draw_entities")
@@ -486,6 +488,114 @@ func _only_the_player_rotates() -> bool:
 		push_error("_draw_entities does not composite through _blit_body; the equipped layers no longer ride the transform the body is drawn under")
 		return false
 	print("ROTATION OK head-up at -PI/2, +PI/2 east, 0.0 for everybody else, %d transform in the draw loop, reset by matrix" % transforms)
+	return true
+
+
+# The first needle missing from a function body, or "" when all are present. Named so the
+# scale and glimpse lanes below can prove the scanner on a fabricated body before trusting
+# it on the real one -- a scanner that answers "" for everything is a gate that cannot fail.
+func _needles_missing(body: String, needles: Array[String]) -> String:
+	for needle in needles:
+		if not body.contains(needle):
+			return needle
+	return ""
+
+
+# A body's art scales with the camera: one art pixel is `zoom / ART_NATIVE` screen pixels,
+# so a rig covers the same fraction of a tile at every step on the ladder. Before this lane
+# the blit used the texture's native size, which drew a 64 px body over a 16 px tile -- four
+# tiles of survivor at the widest zoom. The resolver stays zoom-innocent (`for_entity`
+# answers *what*, `blit_scale` answers *how big*), which is why the pure half needs no world.
+func _bodies_scale_with_the_zoom() -> bool:
+	# The whole ladder walked, not one probe: a resolver correct at 64 alone is the bug below.
+	for step in CameraUtil.ZOOM_STEPS:
+		if absf(Appearance.blit_scale(step) * CameraUtil.ART_NATIVE - step) > EPS:
+			push_error("blit_scale(%.0f) * ART_NATIVE != %.0f -- one art pixel must be zoom/ART_NATIVE screen pixels" % [step, step])
+			return false
+	if absf(Appearance.blit_scale(CameraUtil.ART_NATIVE) - 1.0) > EPS:
+		push_error("at the art-native zoom the scale must be exactly 1.0, got %f" % Appearance.blit_scale(CameraUtil.ART_NATIVE))
+		return false
+	if not CameraUtil.ZOOM_STEPS.has(CameraUtil.ART_NATIVE):
+		push_error("ART_NATIVE %.0f is not on the zoom ladder -- an art-native scale the camera cannot reach is a 1:1 body nobody can ever see" % CameraUtil.ART_NATIVE)
+		return false
+	# Graceful absence, stated as behaviour: a degenerate camera scales everything to nothing
+	# rather than dividing wrong (the divisor is a nonzero const, so there is no zero to hit).
+	if Appearance.blit_scale(0.0) != 0.0:
+		push_error("blit_scale(0.0) must answer 0.0, got %f" % Appearance.blit_scale(0.0))
+		return false
+	# The true negative: a resolver that answered 1.0 at every zoom is exactly the defect this
+	# lane exists for, and a lane that probed only 64 would bless it.
+	if absf(Appearance.blit_scale(16.0) - 1.0) <= EPS:
+		push_error("blit_scale(16.0) answered 1.0 -- the native-size blit is back and the lane read nothing")
+		return false
+
+	# The dead socket: a correct scale nothing multiplies by is a body still drawn native.
+	var body: String = _function_body(MAIN_GD, "_draw_entities")
+	if body.is_empty():
+		push_error("could not read _draw_entities out of %s -- the scale lane had nothing to judge" % MAIN_GD)
+		return false
+	# Prove the scanner on a fabricated body first (the convention check_weather.gd set):
+	# a body lacking the needle must be refused, or the real scan below proves nothing.
+	if _needles_missing("var x = 1\n", ["Appearance.blit_scale("]).is_empty():
+		push_error("the needle scanner passed a body with no needles in it; the socket assertion reads nothing")
+		return false
+	var missing: String = _needles_missing(body, [
+		"Appearance.blit_scale(",
+		"texture.get_size() * px_scale",
+		"float(look[\"radius\"]) * px_scale",
+	])
+	if not missing.is_empty():
+		push_error("_draw_entities does not contain %s: the scale resolves a factor nothing multiplies by" % missing)
+		return false
+	print("SCALE OK blit_scale walks the %d-step ladder, 1.0 at %.0f, 0.0 at 0, native-size refused, and _draw_entities multiplies by it" % [CameraUtil.ZOOM_STEPS.size(), CameraUtil.ART_NATIVE])
+	return true
+
+
+# A peripheral glimpse is motion or nothing, and "moving" is Appearance.moving's answer.
+# The old inline test read a missing velocity component backwards: it culled only entities
+# that HAD a velocity of zero, so a corpse -- whose velocity component the sim removes
+# outright -- was glimpsed forever as a body standing in the dark. The inversion is the
+# mechanical half of the corpse defect; what a corpse *looks* like at Focal stays on the
+# roadmap's what's-left list.
+func _a_still_body_is_not_glimpsed() -> bool:
+	for tp in [{"dx": 1.0, "dy": 0.0}, {"dx": 0.0, "dy": -0.4}]:
+		if not Appearance.moving(tp):
+			push_error("moving(%s) answered false; a walking body would vanish from the glimpse" % str(tp))
+			return false
+	if Appearance.moving({"dx": 0.0, "dy": 0.0}):
+		push_error("moving({0,0}) answered true; a parked body would be glimpsed")
+		return false
+	if Appearance.moving(null):
+		push_error("moving(null) answered true; the corpse case -- a removed component is motionless, not unknown")
+		return false
+	if Appearance.moving({}):
+		push_error("moving({}) answered true; an empty component is motionless")
+		return false
+	if Appearance.moving("not a dict"):
+		push_error("moving on a non-Dictionary answered true")
+		return false
+	# CLAUDE.md's velocity trap made mechanical: the component's keys are dx/dy, and a probe
+	# written against x/y must read as motionless -- a pin that silently does not pin.
+	if Appearance.moving({"x": 1.0, "y": 0.0}):
+		push_error("moving({x,y}) answered true; velocity keys are dx/dy and a reader of x/y is reading nothing")
+		return false
+
+	# The socket, both halves: the helper is called, and the old inline test is *gone* --
+	# an inversion that landed beside the literal it replaced would cull nothing.
+	var body: String = _function_body(MAIN_GD, "_draw_entities")
+	if body.is_empty():
+		push_error("could not read _draw_entities out of %s -- the glimpse lane had nothing to judge" % MAIN_GD)
+		return false
+	if _needles_missing("var x = 1\n", ["Appearance.moving("]).is_empty():
+		push_error("the needle scanner passed a body with no needles in it; the socket assertion reads nothing")
+		return false
+	if not _needles_missing(body, ["Appearance.moving("]).is_empty():
+		push_error("_draw_entities does not call Appearance.moving: the inversion resolves an answer nothing reads")
+		return false
+	if body.contains(".get(\"dx\", 0.0)) == 0.0"):
+		push_error("_draw_entities still carries the old inline stillness test beside the helper; two rules for one glimpse")
+		return false
+	print("GLIMPSE OK moving true on 2 walks, false on parked/corpse/empty/non-dict/x-y, and _draw_entities asks the helper")
 	return true
 
 

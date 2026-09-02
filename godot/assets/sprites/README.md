@@ -12,17 +12,22 @@ Drop a PNG here and a content entry can use it. No code change, no editor round-
   build on any other shape — a sprite authored to the dead 64×96 convention would float half a
   tile high without ever erroring, so the canvas is enforced, not documented.
 - **Anchor: centre.** The renderer places the sprite's canvas centre on the entity's ground
-  position and draws the contact shadow itself. Author the pawn's visual mass around (32,32) —
-  head toward the top, feet by ~y=57 — and do not bake a shadow in.
-- **The pawn read:** RimWorld proportions on a Zero Sievert palette — oversized head (~40% of
-  figure height), rounded shoulder-mass torso, stub legs, 1 px near-black outline, desaturated
-  mid-tones. Everyone but the player is drawn this way, does not rotate, and shows facing
-  through the sim's indicator line rather than through the body.
-  `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the open flavour directions.
-- **Two conventions coexist**, and which one a sprite follows is decided by whether it turns:
-  the face-on pawn above, and the rotating rig below. That seam is deliberate and owner-accepted
-  (docs/30, "The art style: B, picked from a reference") until the roster is re-authored for
-  overhead — it is not a mistake to tidy up by rotating everybody.
+  position and draws the contact shadow itself. Author the body's visual mass radially centred
+  on the pivot — the point **between** pixels 31 and 32, (31.5, 31.5) in pixel-centre terms —
+  and do not bake a shadow in.
+- **One authoring convention: true overhead** (2026-09-01 owner directive; docs/30, the art
+  decision's dated entry). Crown, shoulders, forearms forward, 1 px near-black inward outline,
+  desaturated mid-tones through `tools/sprites/palette.py`'s clamp. The two remaining splits
+  are **shading** — radial on the rotating player, NW top-left on everything static
+  (`Canvas.nw_shade`) — and **rotation**, which stays the player's alone: every other rig draws
+  unrotated, so its painted front is a lie about heading and the sim's indicator line carries
+  the truth. `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the open flavour
+  directions.
+- **Rig guarantees, three-tiered** because the roster is honest about its own sizes: shoulders
+  ≤ ~21 px on the *rotating* rig (the player — a wide silhouette strobes at 20 Hz as it turns);
+  ≤ ~24 px on a *static* human rig (Ellis is the broad one at 23.6); and the bloater at ~33 px
+  is the single named exception and the reason nothing else goes near the tile edge. Head
+  ≤ r 7.5 — the screamer's is that bound, not merely under it.
 
 ## The rotating rig — the player, and only the player
 
@@ -41,7 +46,7 @@ Authoring one:
   and 32 — (31.5, 31.5) in pixel-centre terms, not 32.
 - **Forward is up-canvas.** `Appearance.SPRITE_FORWARD` is `-PI/2` and everything follows from
   it: a body facing north draws unrotated, facing east draws a quarter turn clockwise.
-- **Near-radial silhouette, ~26–30 px, no 1 px protrusions.** Rotation is free (no pre-baked
+- **Near-radial silhouette, ~21–24 px, no 1 px protrusions.** Rotation is free (no pre-baked
   direction frames) and unsmoothed at 20 Hz, so anything that sticks out crawls and strobes as
   the body turns. Blunt extremities, and the 1 px `#161614` outline is drawn *inwards* so it
   cannot grow the silhouette on the diagonals.
@@ -57,8 +62,12 @@ Authoring one:
   still authored face-on, which is the characters slice's work and not something to "fix" by
   pulling the layers back out of the transform.
 
-`player_body` is the one rig today, and it is **generated** — `tools/sprites/` holds the code that
-draws it and `npm run sprites:check` fails if the committed PNG and that code disagree.
+Every body on the roster is **generated** — `tools/sprites/parts/characters.py` holds the eight
+rigs (drawn through one `_figure` assembler, whose fixed order — shade before outline — is
+load-bearing, not style) and `npm run sprites:check` fails if a committed PNG and that code
+disagree. `survivor_mara.png` and `zombie_shambler.png` were the last hand-authored bodies and
+are registry-owned now; the only hand art left is the `item_*_equip*` overlays, which the
+worn-look slice retires.
 - **Filename:** `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the
   registry key.
 
@@ -119,10 +128,11 @@ it names a file that is not here, so a typo is caught rather than silently drawi
 ## Colour
 
 `appearance.tint` is optional and multiplies the sprite. **Leave it out for finished art** — a
-sprite with no declared tint draws exactly as painted. Tint exists so a type can have a distinct
-colour *before* it has art: `zombie.screamer` and `zombie.bloater` currently carry only a tint, and
-the renderer draws them as coloured shapes. Adding a `sprite` key to either replaces the shape
-with the art and stops the role colour from staining it.
+sprite with no declared tint draws exactly as painted. Tint exists for two things: a type can
+have a distinct colour *before* it has art (the renderer draws it as a coloured shape), and the
+one legitimate grayscale-to-tint case — the achromatic `survivor_colonist` rig, where the
+`colony/looks.json` tint *is* the identity and `check_appearance.gd`'s GREY lane guards both the
+rig's achromaticity and the composed grey × tint contrast against the ground.
 
 ## Why raw PNGs work
 
