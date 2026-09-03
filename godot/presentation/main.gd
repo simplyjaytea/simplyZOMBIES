@@ -107,6 +107,11 @@ var _road_mask_from: Variant = null
 var _roof_index_cache: PackedInt32Array = PackedInt32Array()
 var _roof_index_from: Variant = null
 var _looks: Dictionary = {}
+# One byte per tile, the ground row every floor draws (Appearance.ROW_NONE where there is no
+# ground), cached against the map object: the edge rule reads nine of these per tile, and nine
+# ground_row_for calls per tile per frame is what this replaces.
+var _ground_rows_cache: PackedByteArray = PackedByteArray()
+var _ground_rows_from: Variant = null
 # The map-dressing block (wreck and debris sprite keys), and the content tree it came from. Third
 # instance of the same pattern for the third time it is the right one: the lookup is a scan over
 # content and this is asked once per drawn tile, the resolution is pure, and a static cache would
@@ -858,6 +863,10 @@ func _draw_district() -> void:
 							clampf(floor_col.b + vo, 0.0, 1.0),
 							floor_col.a)
 						_draw_floor_tile(rect, floor_col, tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, paint == RoadPaint.MASK_SIDEWALK))
+						# The edges of the ground: where a darker ground lies beside this one,
+						# its ragged fringe over this tile's floor -- before the dash, the
+						# kerbs and the scatter, all of which lie on top of the ground.
+						_draw_ground_edges(rect, _ground_rows(), tx, ty)
 						if paint == RoadPaint.MASK_DASH:
 							_draw_road_dash(rect, mask, tx, ty)
 						if paint != RoadPaint.MASK_NONE:
@@ -888,6 +897,64 @@ func _draw_floor_tile(rect: Rect2, col: Color, tx: int, ty: int, row: int) -> vo
 		draw_texture_rect_region(atlas, rect, Appearance.ground_cell(row, variant), Appearance.ground_modulate(col, Appearance.ground_row_tint(row)))
 	else:
 		draw_rect(rect, col)
+
+# The ground row of every tile, one byte each, cached against the map object like the road mask
+# it is built from: a wall, a window, a screen or a tree is ROW_NONE, everything else is what
+# ground_row_for answers for it, the sidewalk paint included. Nine lookups here per drawn floor
+# is the whole cost of the edge rule.
+func _ground_rows() -> PackedByteArray:
+	var map: Variant = world.tilemap
+	if map == _ground_rows_from:
+		return _ground_rows_cache
+	_ground_rows_from = map
+	_ground_rows_cache = PackedByteArray()
+	if map == null:
+		return _ground_rows_cache
+	var mask: PackedByteArray = _road_mask()
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	_ground_rows_cache.resize(w * h)
+	for ty in h:
+		for tx in w:
+			var i: int = ty * w + tx
+			var tile: int = int(SimTileMap.tile_at(map, tx, ty))
+			if tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Window or tile == SimTileMap.Tile.Screen or tile == SimTileMap.Tile.Tree:
+				_ground_rows_cache[i] = Appearance.ROW_NONE
+			else:
+				_ground_rows_cache[i] = Appearance.ground_row_for(map, tx, ty, _mask_at(mask, tx, ty) == RoadPaint.MASK_SIDEWALK)
+	return _ground_rows_cache
+
+
+# A neighbour's row off the cache, ROW_NONE past the map's edge.
+func _row_at(rows: PackedByteArray, tx: int, ty: int) -> int:
+	var map: Variant = world.tilemap
+	if map == null or tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return Appearance.ROW_NONE
+	var i: int = ty * int(map.w) + tx
+	if i >= rows.size():
+		return Appearance.ROW_NONE
+	return int(rows[i])
+
+
+# The darker neighbours' fringes over this tile's floor: Appearance.edge_shapes says which
+# (row, shape) cells the lighter tile takes, and each is one region blit of the same atlas
+# the floor came from, modulated white because the cell's own mean is the row tint (the ground
+# slice's rule, re-applied). Only at the zoom the texture itself draws at: below it the floor
+# is a flat fill and a fringe on a flat fill is a smudge.
+func _draw_ground_edges(rect: Rect2, rows: PackedByteArray, tx: int, ty: int) -> void:
+	var atlas: Texture2D = Appearance.ground_atlas()
+	if atlas == null or float(camera["zoom"]) < Palette.GROUND_TEXTURE_MIN_ZOOM:
+		return
+	var centre: int = _row_at(rows, tx, ty)
+	if centre == Appearance.ROW_NONE:
+		return
+	var around := PackedInt32Array([
+		_row_at(rows, tx, ty - 1), _row_at(rows, tx + 1, ty), _row_at(rows, tx, ty + 1), _row_at(rows, tx - 1, ty),
+		_row_at(rows, tx + 1, ty - 1), _row_at(rows, tx + 1, ty + 1), _row_at(rows, tx - 1, ty + 1), _row_at(rows, tx - 1, ty - 1),
+	])
+	for cell in Appearance.edge_shapes(centre, around):
+		draw_texture_rect_region(atlas, rect, Appearance.edge_cell(cell.x, cell.y), Color.WHITE)
+
 
 # The road-paint mask, cached against the map object it was resolved from. RoadPaint.mask_for is
 # pure and the cache lives here because a static one would be shared between the two worlds a

@@ -62,15 +62,16 @@ PAWN_KEYS = (
     "item_bat_aluminium_equip",
 )
 
-# Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a
-# sheet of cells rather than one silhouette -- `parts/ground.py`'s own module docstring says why
-# it cannot go through `draw.Canvas` at all. The pawn keys are 32x48 and feet-anchored, the
-# shape a standing body needs and the shape the renderer hangs by its bottom row. Kept in
-# build.py rather than draw.py: draw.py is the pixel-primitive module every part renders
-# through, and a per-key shape table belongs beside the CLI that enforces it, not inside the
-# primitives every canvas uses unchanged.
+# Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a sheet
+# of cells rather than one silhouette -- `parts/ground.py`'s own module docstring says why it
+# cannot go through `draw.Canvas` at all -- four variant columns and, since the edges slice, the
+# eight edge cells of `parts/edges.py` beside them. The pawn keys are 32x48 and feet-anchored, the
+# shape a standing body needs and the shape the renderer hangs by its bottom row. Kept in build.py
+# rather than draw.py: draw.py is the pixel-primitive module every part renders through, and a per-
+# key shape table belongs beside the CLI that enforces it, not inside the primitives every canvas
+# uses unchanged.
 CANVAS = {
-    "ground_atlas": (len(ground.VARIANTS) * SIZE, len(ground.ROWS) * SIZE),
+    "ground_atlas": (ground.SHEET_W, ground.SHEET_H),
 }
 for _key in PAWN_KEYS:
     CANVAS[_key] = (characters.PAWN_W, characters.PAWN_H)

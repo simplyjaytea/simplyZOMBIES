@@ -1965,6 +1965,18 @@ is content — `look: {roof, wall}` on every template and the annex, the materia
 resolving through the dressing block to sprite keys — and a material nobody has drawn yet
 draws the procedural cap and bands, the supported fallback that keeps the wall lane's subject.
 
+**Paid for, the edges slice (2026-09-03) — the darker ground draws the edge, once, onto the
+lighter tile.** Between two different grounds the darker one's ragged fringe is blitted over
+the lighter tile's floor, on the side or outer corner the darker one lies on; the lighter never
+draws onto the darker, and a corner draws only where neither of its sides already carries the
+boundary, so every boundary is drawn exactly once. Darker is the luma of the row's palette
+tint, so the order is the palette's and there is no second table to drift. The cells are held
+to the ground's own rule — their mean is the row tint — and live in the ground atlas beside
+the variants, because an edge is drawn right after the floor it lies on and a second texture
+between two floor blits breaks the batch (measured: one draw call became two thousand). A
+wall, a window or a tree is not ground: it takes no edge and gives none, and its own picture is
+the edge.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

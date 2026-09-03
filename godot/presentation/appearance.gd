@@ -156,6 +156,17 @@ const GROUND_ATLAS_KEY: String = "ground_atlas"
 const GROUND_VARIANTS: int = 4
 enum GroundRow { Paved = 0, Dirt = 1, Grass = 2, Undergrowth = 3, Rubble = 4, Sidewalk = 5, Boards = 6 }
 const GROUND_ROWS: int = 7
+# The edge cells: eight more columns to the right of the variants, one ragged fringe per side
+# and outer corner of a tile, authored around the same row tint. In the atlas rather than on a
+# sheet of their own because the edge is blitted right after the floor it lies on, and a second
+# texture between two floor blits breaks the batch on every boundary tile (measured in the
+# edges slice; docs/23). EdgeShape's order is the column order, N first.
+enum EdgeShape { N = 0, E = 1, S = 2, W = 3, NE = 4, SE = 5, SW = 6, NW = 7 }
+const EDGE_SHAPES: int = 8
+# What a tile with no ground reads as in the per-map row cache (a wall, a window, a screen, a
+# tree): it takes no edge and gives none, so a floor beside a wall keeps its own colour to the
+# wall's foot, where the wall's own picture is the edge.
+const ROW_NONE: int = 255
 
 
 # The canvas a registry key is authored on. Everything is one ART_NATIVE tile except the atlases,
@@ -165,7 +176,7 @@ const GROUND_ROWS: int = 7
 static func canvas_of(key: String) -> Vector2i:
 	var n: int = int(CameraUtil.ART_NATIVE)
 	if key == GROUND_ATLAS_KEY:
-		return Vector2i(GROUND_VARIANTS * n, GROUND_ROWS * n)
+		return Vector2i((GROUND_VARIANTS + EDGE_SHAPES) * n, GROUND_ROWS * n)
 	if PAWN_KEYS.has(key):
 		return PAWN_CANVAS
 	return Vector2i(n, n)
@@ -217,6 +228,73 @@ static func ground_cell(row: int, variant: int) -> Rect2:
 	var r: int = clampi(row, 0, GROUND_ROWS - 1)
 	var v: int = posmod(variant, GROUND_VARIANTS)
 	return Rect2(float(v) * n, float(r) * n, n, n)
+
+
+# --- the ground edges ------------------------------------------------------------------------
+#
+# docs/30's edges clause: between two grounds the darker draws the edge, once, onto the lighter
+# tile. The rule is pure over a tile's row and its eight neighbours' rows, read off main.gd's
+# per-map row cache, and answers which edge cells the *lighter* tile blits over its own floor:
+# for each darker 4-neighbour, that neighbour's row in the shape of the side it lies on; for
+# each darker diagonal whose two shared 4-neighbours are the centre's own ground, that row in
+# the shape of the outer corner. So every boundary is drawn exactly once, by the lighter side,
+# and a corner only where no side already carries it. Darker by Rec. 709 luma of the row tint,
+# so the order follows the palette rather than a second table.
+
+# Rec. 709 luma of a row's tint, the one ordering the edge rule reads.
+static func row_luma(row: int) -> float:
+	var c: Color = ground_row_tint(row)
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+
+# Whether `other` draws its edge onto a tile of `centre`: a different ground, and darker; on
+# equal luma the lower row index wins, so the answer is total and never both ways.
+static func _edge_wins(other: int, centre: int) -> bool:
+	if other == centre or other == ROW_NONE or centre == ROW_NONE:
+		return false
+	var lo: float = row_luma(other)
+	var lc: float = row_luma(centre)
+	if absf(lo - lc) < 0.000001:
+		return other < centre
+	return lo < lc
+
+
+# The edge cells a tile of row `centre` draws, given its eight neighbours' rows in the fixed
+# order N E S W NE SE SW NW (ROW_NONE for a neighbour with no ground, or off the map). Each
+# answer is (row, EdgeShape). Sides first, then the corners that no side already covers.
+static func edge_shapes(centre: int, neighbours: PackedInt32Array) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if neighbours.size() != 8 or centre == ROW_NONE:
+		return out
+	for side in 4:
+		if _edge_wins(neighbours[side], centre):
+			out.append(Vector2i(neighbours[side], side))
+	# A corner needs both of its sides to be the centre's own ground: with a side already
+	# drawing the neighbour's fringe, the corner would draw the same boundary twice.
+	var sides_of: Array = [
+		[EdgeShape.N, EdgeShape.E],
+		[EdgeShape.S, EdgeShape.E],
+		[EdgeShape.S, EdgeShape.W],
+		[EdgeShape.N, EdgeShape.W],
+	]
+	for i in 4:
+		var corner: int = EdgeShape.NE + i
+		var a: int = neighbours[int(sides_of[i][0])]
+		var b: int = neighbours[int(sides_of[i][1])]
+		if a != centre or b != centre:
+			continue
+		if _edge_wins(neighbours[corner], centre):
+			out.append(Vector2i(neighbours[corner], corner))
+	return out
+
+
+# The atlas region of one edge cell: the shape's column past the variants, on the row. Pure and
+# clamped like ground_cell, so no caller can ask for pixels outside the picture.
+static func edge_cell(row: int, shape: int) -> Rect2:
+	var n: float = CameraUtil.ART_NATIVE
+	var r: int = clampi(row, 0, GROUND_ROWS - 1)
+	var sh: int = clampi(shape, 0, EDGE_SHAPES - 1)
+	return Rect2(float(GROUND_VARIANTS + sh) * n, float(r) * n, n, n)
 
 
 # `flat / base` per channel: a cell whose pixels average `base` draws averaging `flat`. Identity

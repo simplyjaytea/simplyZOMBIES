@@ -231,11 +231,13 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
 piece by piece**: the palette, pawn and wall pieces landed 2026-09-03; the edges, trees, worn
 look and vehicles below are still the old code, and their comments say so on purpose.
 
-- **The ground has edges.** Between two grounds the darker draws the edge, once, onto the
-  lighter tile: one sheet of eight shapes by seven rows, hash-free, its cells held to the atlas's
-  mean-is-the-palette rule, a pure `edge_shapes` mask over the eight neighbours read from a
-  per-map row cache. An EDGES lane in `ROAD_LOOK_OK`; a draw-call ceiling against the ground
-  slice's table.
+- **The walls share one atlas.** Measured in the edges slice: draw calls on the 256 district at
+  zoom 16 went 539 → 1,410 between the ground slice and the wall slice, because every wall
+  material is its own texture and a texture change between two blits breaks the 2D batch
+  (two thousand region blits from one texture are one draw call; alternating two textures,
+  two thousand). The sixteen building keys move into one sheet addressed by region, the way
+  the ground's cells are, and `_draw_wall_art`/`_draw_roofs` blit regions of it; the edges
+  slice's perf driver re-run, the 539 restored or the record says why not. No look changes.
 - **Trees stand up.** A tree is one 32×96 feet-anchored sprite, one tile wide, y-sorted with
   the bodies through the same `body_rect`; the two fallback circles stay for a dressing block
   that resolves nothing; the tree fades to about half alpha while a Focal body's ground point
@@ -2198,6 +2200,66 @@ not a to-do list:
   `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice5-front-64.png`,
   `slice5-annex-front-64.png`, `slice5-interior-64.png`, `slice5-street-32.png`,
   `slice5-night-64.png`.
+- ~~The ground has edges~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK` grew an EDGES lane;
+  slice 6 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the edges clause).
+  Between two different grounds the darker draws the edge, once, onto the lighter tile. **The
+  rule** is pure in `Appearance.edge_shapes(centre, neighbours)`: over a tile's eight
+  neighbours in the fixed order N E S W NE SE SW NW, each darker 4-neighbour contributes its
+  own row in the shape of the side it lies on, and each darker diagonal contributes its row in
+  the shape of the outer corner only when both of that corner's sides are the centre's own
+  ground — so every boundary is drawn exactly once, by the lighter side, and a corner never
+  doubles a side. Darker is Rec. 709 luma of the row tint (`row_luma`), so the order follows
+  the palette (paved 0.262 < undergrowth 0.277 < rubble 0.292 < dirt 0.310 < grass 0.320 <
+  boards 0.345 < sidewalk 0.348) and no second table exists; a tile with no ground (a wall, a
+  window, a screen, a tree; `ROW_NONE`) neither takes nor gives an edge. **The cells** live in
+  the ground atlas itself, eight columns past the four variants (`EdgeShape` is the column
+  order; `canvas_of` answers 384×224), one ragged fringe per row and shape from
+  `tools/sprites/parts/edges.py`: 1–6 px deep along a seeded random walk closed at the ends so
+  a run tiles, fading inward in four alpha steps, the row's tint with a ±0.02 value wobble,
+  nothing past 8 px from the named edge; corners a ragged quarter-blob of reach 4–7 in the 8×8
+  square. No variants and no hash — raggedness comes from neighbours taking different shapes
+  — and three depth profiles shared out by row so grass and asphalt are not one silhouette.
+  Measured on the decoded pixels: every cell's mean over its counted pixels within 0.012 of
+  its tint (the lane's bound 0.03), coverage 0.29–0.48 of a side's band and 0.23–0.52 of a
+  corner's square (bound 0.20–0.60), three or four alphas each, the 28 variant cells
+  byte-identical to the ground slice's. **In the atlas, not on a second sheet**, and the
+  reason is a measurement rather than a preference: in 4.7.1 two thousand region blits from
+  one texture are one draw call, the same two thousand alternating between two textures are
+  two thousand, and a `draw_rect` every fourth blit makes them 1,001 — so an edge sheet of its
+  own would have cost a draw call per boundary tile and the atlas costs none. **The renderer**:
+  `_ground_rows()` is one byte per tile cached against the map object (the road mask's
+  sidewalk folded in, `ROW_NONE` for the four solid kinds; never static), `_draw_ground_edges`
+  reads nine of them per drawn floor, blits each answered cell over the floor it just drew,
+  modulated white because the cell's mean is the tint, only at `GROUND_TEXTURE_MIN_ZOOM` and
+  above, before the dash, the kerbs and the scatter. **Measured** (the ground slice's driver
+  re-run on the 256 district, 60 frames a zoom, llvmpipe so relative; deleted): draw calls
+  1,410 / 672 / 251 at zoom 16 / 32 / 64 with the edges and 1,410 / 672 / 251 without them —
+  the edges add none, and 672 sits under the 1,024 ceiling the plan set at 1.5 × the ground
+  slice's 683; frame time 321 / 135 / 74 ms without, 320 / 199 / 92 with, the fill cost of the
+  extra quads. The zoom-16 count is not this slice's: it went 539 → 1,410 between the ground
+  slice and the wall slice, every wall material being its own texture, and is named on
+  what's-left as "The walls share one atlas". **The lane**, EDGES in `ROAD_LOOK_OK`: CELLS
+  (every one of the 56 cells on its decoded pixels — inside its band, the opposite edge
+  transparent, a solid pixel on the named edge, three or more alphas, coverage 20–60 %, mean
+  within 0.03 of its tint; a flat cell, a fringe on the wrong edge and a brightened fringe
+  refused; TEXTURE keeps judging the four variant columns at the wider canvas), MASK (the
+  negatives first: identical neighbours draw nothing, the lighter never draws on the darker, a
+  `ROW_NONE` neighbour and a short array draw nothing; a darker N and E in side order; a corner
+  only with both sides own and suppressed where a side carries it; the seven rows' luma
+  strictly ordered and no pair ever winning both ways, `row_luma` matching Rec. 709 of the
+  tint), REGION (`edge_cell` clamps, and never overlaps a variant cell), SOCKET (the scanner
+  proved on a fabricated body; the blit named with its helpers and zoom floor, the row cache
+  with `ROW_NONE` and the road mask, the call after the floor and before the dash), EDGE
+  PLAYED (the shipped 256 district: 17,628 outdoor floor tiles draw at least one edge and
+  42,275 draw none, no tile whose eight neighbours share its row draws one, and its 34,690 edge
+  draws are 34,690 distinct boundaries each drawn once). **Sabotage, each red as named**:
+  darker-wins inverted in `_edge_wins` (MASK); an equal neighbour allowed to win (MASK's first
+  negative); the `_draw_ground_edges` call deleted (SOCKET); the corner rule's both-sides test
+  dropped (MASK); one edge cell filled opaque with its tint (CELLS, and `sprites:check`);
+  `edge_cell` addressing the variant columns (REGION). No sim change; the FAST lines are
+  byte-identical to slice 5's. **The
+  pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice6-edges-64.png`,
+  `slice6-edges-32.png`, `slice6-edges-128.png`, `slice6-dirt-64.png`.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used
