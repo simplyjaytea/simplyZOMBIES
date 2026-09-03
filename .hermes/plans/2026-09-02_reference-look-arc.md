@@ -1,5 +1,12 @@
 # The reference-look arc — seven slices toward the supplied references
 
+> **Superseded in part, 2026-09-03.** Slices 1 and 2 landed as written (`aebd1e0`, `e841729`).
+> Slices 3–7 are replaced by `.hermes/plans/2026-09-03_dungeon-settlers-arc.md` after the owner
+> moved the art direction to Dungeon Settlers (docs/30, "The Dungeon Settlers look"): upright
+> pawns that flip, a warm palette, walls with thickness, sorted trees and vehicles. The
+> decisions below that survive are marked in docs/30's entry; this file stays as the record of
+> what the first two slices were built to.
+
 ## Context
 
 The owner supplied four reference screenshots (a Zero Sievert-like top-down pixel game) and said:

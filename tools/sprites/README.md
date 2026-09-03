@@ -51,7 +51,11 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
   it again from the engine side.
 - **Muted, always.** Every colour goes through `palette.clamp`: saturation ≤ 0.35, value in
   [0.12, 0.80]. docs/30's reference mood is not a thing to remember, it is a thing the module
-  enforces.
+  enforces. *(That mood is the overcast one, superseded 2026-09-03 by the warm dark-fantasy
+  palette of the Dungeon Settlers look; the palette slice of that arc replaces this one clamp
+  with three named families — muted, timber, accent — and re-pins every band from a measured
+  table. Until it lands the module enforces the old cap on purpose: a colour that passes here
+  today is not evidence about the new mood.)*
 - **It has to read against the ground.** A body-forming ramp's mid tone must clear the brightest
   surface tint the district can draw by `GROUND_CONTRAST` in luminance, or importing `palette`
   raises. `SURFACE_TINTS` here is a hard copy of `presentation/palette.gd`'s, because Python
@@ -61,7 +65,9 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 - **Light comes from the top-left**, matching `main.gd::_draw_bevelled_box` — `light_top_left`.
   Two exceptions, each with a reason: the player's rotating rig is shaded radially, because a
   directional bake on a body that spins claims the sun swings round the district when the player
-  turns; and a **segment set** (a car spanning two or three tiles) keeps only the lateral half of
+  turns *(this exception retires with the pawn slice of the Dungeon Settlers arc — nothing
+  turns, so every rig is lit from the top-left; docs/30, 2026-09-03)*; and a **segment set**
+  (a car spanning two or three tiles) keeps only the lateral half of
   the gradient, because a diagonal one restarts at every canvas and bands the finished car
   light-dark-light along its length.
 - **Regeneration is pixel-stable.** The wear passes (`Canvas.speckle`) take

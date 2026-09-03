@@ -2,7 +2,37 @@
 
 Drop a PNG here and a content entry can use it. No code change, no editor round-trip.
 
-## The convention
+## The direction, as of 2026-09-03 — read this before the sections below
+
+The owner moved the art to **the Dungeon Settlers look** on 2026-09-03 (docs/30, "The Dungeon
+Settlers look"): every body is an upright, **face-on pawn**, feet-anchored on a **32×48**
+canvas, mirrored by a horizontal flip when it faces west — **nobody rotates, the player
+included**; the palette is warm dark fantasy rather than overcast; trees are tall 32×96
+feet-anchored sprites sorted with the bodies; vehicles are one three-quarter picture per axis.
+That is what is *decided*. What *ships* in this directory today is still the previous
+convention — 32×32, centre-anchored, true overhead, the player's rig rotating — and the
+sections below describe it accurately until the pawn slice of the Dungeon Settlers arc lands
+and rewrites them. The two are kept apart on purpose: a reader must never mistake the target
+for the tree. The pawn convention, stated now so the slice authors to it:
+
+- **Canvas 32×48, anchored on the feet.** The soles sit on the canvas's bottom row (row 47);
+  the renderer hangs the picture above the entity's ground point with the sole line on the
+  contact shadow's own offset, so shadow, glimpse disc, facing line and sort key all stay on
+  the one ground point. A rig floating above the bottom row is a build failure.
+- **Front view, flipped, never turned.** Heading east or west is a mirror of one picture; north
+  and south draw the same unflipped picture, and the indicator line carries the exact facing
+  for every body. Keep ≥ 3 px clear of the left and right edges so the flip cannot clip.
+- **A person is about 0.7 of a tile wide and 1.3 tall**: height 38–44 px, shoulders ≤ 22 px on
+  a human, ≤ 26 on the bloater (the rig at the bound), head ≤ 11 wide × 12 tall, a 1 px
+  `#161614` inward outline, top-left shading on every rig without exception — nothing turns,
+  so the radial exception goes.
+- **One skeleton, published.** The rigs share named rows — feet, leg top, shoulder, hand, head
+  centre — so one generated gear overlay fits all eight bodies; the slice that lands the rigs
+  writes those numbers here.
+- **A face is three pixels**: two eyes and a brow shadow. At 32 px wide there is no room for a
+  mouth, and the placement is the whole of it.
+
+## The convention — ships today, until the pawn slice
 
 - **Grid:** top-down, **1 tile = 1 metre = `zoom` pixels square**. `presentation/camera.gd`
   names the art-native scale `ART_NATIVE = 32`, so a sprite is drawn 1:1 at zoom 32 and at a
@@ -55,7 +85,7 @@ drawn, and the indoor mix, the sidewalk substitution and the position-hash varia
 on top as tints. Which variant a tile draws is `Dressing.SALT_GROUND` hashed on the seed and
 the tile; never an RNG. Below zoom 32 the flat tint draws instead (`GROUND_TEXTURE_MIN_ZOOM`).
 
-## The rotating rig — the player, and only the player
+## The rotating rig — the player, and only the player (ships today; retires with the pawn slice)
 
 docs/30's style pick takes the reference's rotating player and refuses the rest of it: **only the
 player rotates.** A loop that spun every body would tell the player which way a shape in the dark
@@ -66,7 +96,9 @@ is looking, which is exactly the certainty the peripheral-anonymity clause
 
 Authoring one:
 
-- **True overhead, not a pawn.** Crown, shoulders, forearms forward. A pawn's mass sits low on
+- **True overhead, not a pawn** *(the clause the 2026-09-03 decision reverses — kept here
+  because it is what the shipped rig is)*. Crown, shoulders, forearms forward. A pawn's mass
+  sits low on
   the canvas (feet by ~y=57) and rotating that orbits the figure around a point it does not
   occupy; a rig's mass is radially centred on the pivot, which is the point **between** pixels 15
   and 16 — (15.5, 15.5) in pixel-centre terms, not 16.
@@ -97,7 +129,7 @@ worn-look slice retires.
 - **Filename:** `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the
   registry key.
 
-## Tile art: segment sets, and the third authoring convention
+## Tile art: segment sets, and the third authoring convention (heaps and road paint keep this)
 
 Props draw on an entity's position and pawns draw on a body's. **Tile art draws on a tile** —
 `main.gd::_draw_district` blits it into the tile rect, and `presentation/dressing.gd` decides
