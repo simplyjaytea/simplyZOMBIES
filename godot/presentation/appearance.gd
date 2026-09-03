@@ -35,10 +35,32 @@ const SPRITE_DIR: String = "res://assets/sprites"
 # entry there would both fail the frozen oracle's Ajv and spawn a phantom colonist.
 const PLAYER_LOOK_ID: String = "player.body"
 
-# Which way the art faces on its own canvas, as a screen angle: up-canvas is -PI/2 under the
-# top-down projection (screen +x east, +y south), and the player's rig is authored pointing up.
-# Every rotation below is the difference between where the sim says the body is looking and this.
-const SPRITE_FORWARD: float = -PI / 2.0
+# The pawn canvas: one ART_NATIVE tile wide and one and a half tall, anchored on the feet
+# (assets/sprites/README.md). The reference's own proportion -- a person about 0.7 of a tile wide
+# and 1.3 tall -- with three or four pixels of side margin so the flip never clips, and eight rows
+# of headroom. Its blit height is 1.5 x zoom, an integer on every rung of the ladder; a 64-tall
+# canvas was refused because it wastes 24 rows and a full-tile overhang north clips against wall
+# rows. Every body and every equip overlay is authored on it (PAWN_KEYS); tools/sprites/build.py
+# carries the mirror list, because Python cannot read GDScript.
+const PAWN_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 3 / 2)
+const PAWN_KEYS: Array[String] = [
+	"player_body", "survivor_mara", "survivor_ellis", "survivor_colonist",
+	"zombie_shambler", "zombie_screamer", "zombie_bloater", "raider_body",
+	"item_pack_hiking_equip", "item_pack_hiking_equip_front", "item_bat_aluminium_equip",
+]
+
+# Where a picture hangs on its entity's ground point. A square canvas is a tile-sized thing seen
+# from above and centres on the point; anything else is a standing picture and stands on it --
+# derived from the shape rather than from a second list of keys, so the tree and vehicle sheets
+# the later slices add are feet-anchored by construction (a second list is the dead-socket
+# family: one entry forgotten and a picture floats half a tile high without ever erroring).
+enum Anchor { Centre = 0, Feet = 1 }
+
+# How far below the ground point the soles stand, in screen pixels: the contact shadow's own
+# offset, which main.gd draws at exactly this drop, so the shadow line and the sole line are one
+# number and cannot drift apart. A screen-pixel constant on purpose, like the facing line's +12:
+# a readout of the interface, not a length in the world.
+const FOOT_DROP_PX: float = 3.0
 
 # Equipment slots the renderer draws on a body. A slot with no anchor point defined here
 # stays declarable in content (item.schema.json) but is silently not drawn -- extending this
@@ -144,7 +166,15 @@ static func canvas_of(key: String) -> Vector2i:
 	var n: int = int(CameraUtil.ART_NATIVE)
 	if key == GROUND_ATLAS_KEY:
 		return Vector2i(GROUND_VARIANTS * n, GROUND_ROWS * n)
+	if PAWN_KEYS.has(key):
+		return PAWN_CANVAS
 	return Vector2i(n, n)
+
+
+static func anchor_of(size: Vector2i) -> int:
+	if size.x == size.y:
+		return Anchor.Centre
+	return Anchor.Feet
 
 
 static func ground_atlas() -> Texture2D:
@@ -334,35 +364,40 @@ static func moving(vel: Variant) -> bool:
 	return float(d.get("dx", 0.0)) != 0.0 or float(d.get("dy", 0.0)) != 0.0
 
 
-# How far to spin a body's art, given the facing the sim arbitrated for it.
+# The screen rect a body's picture is drawn into, given its ground point, its blit size and
+# which way it faces. Pure, so check_topdown.gd's flip lane can hold it to exact numbers at
+# every rung of the ladder without a draw pass.
 #
-# The whole of the "only the player rotates" clause lives here, as a rule rather than as an `if`
-# in the draw loop, so it can be asserted without a draw pass: docs/30's art decision adopts the
-# reference's rotating player and explicitly refuses to rotate anybody else, because a loop that
-# spun every body would leak facing for the people the peripheral-anonymity clause
-# (docs/01 clause 4) says the player has not earned. Everyone else answers exactly 0.0.
+# A feet-anchored picture (anchor_of: anything not square) stands with its bottom row on the
+# contact-shadow line, sy + FOOT_DROP_PX; a centred one hangs symmetrically around the point,
+# which is the rect every tile-square picture has always been drawn into. Rounded so a 1:1 pixel
+# sprite never lands on a half-pixel as the camera follows the player.
 #
-# The angle is a screen angle, and screen axes are world axes under the top-down projection, so
-# no basis change happens here -- only the offset between the sim's heading and where the art was
-# painted pointing. `facing - SPRITE_FORWARD` is `facing + PI/2`: north (-PI/2) draws unrotated,
-# east (0.0) draws a quarter turn clockwise.
-static func body_rotation(is_player: bool, facing: float) -> float:
-	if not is_player:
-		return 0.0
-	return facing - SPRITE_FORWARD
+# `flip` is body_flip's answer: -1.0 mirrors the picture by handing the renderer a NEGATIVE
+# WIDTH, never a transform. Probed in 4.7.1 before this was written: draw_texture_rect with a
+# negative-width rect draws the texture mirrored at position .. position + |width|, so the
+# flipped rect keeps the same left edge as the unflipped one and the body stays on its point.
+# Nobody rotates, the player included (docs/30, the Dungeon Settlers look) -- the draw loop holds
+# zero transforms and the flip lane counts them.
+static func body_rect(sx: float, sy: float, size: Vector2, flip: float) -> Rect2:
+	var left: float = roundf(sx - size.x / 2.0)
+	var top: float = roundf(sy - size.y / 2.0)
+	if anchor_of(Vector2i(size)) == Anchor.Feet:
+		top = roundf(sy + FOOT_DROP_PX - size.y)
+	return Rect2(left, top, size.x * flip, size.y)
 
 
-# Whether the white indicator line out of a body still has a job.
-#
-# The line exists because a coloured disc cannot say which way it is looking. Art that is
-# authored with a front says it itself, and drawing both puts a hairline on top of the thing it
-# was standing in for. So it comes off exactly one body -- the player, once the player's art
-# resolves -- and stays on every procedural shape, including the player's own when content is
-# missing, because the fallback is a supported path and not a stopgap. NPCs keep it whatever
-# they are wearing: their rigs draw unrotated, so the art's front is a lie about heading and
-# the line is the truth.
-static func wants_facing_line(is_player: bool, has_texture: bool) -> bool:
-	return not (is_player and has_texture)
+# Which way a face-on picture is shown for a heading: mirrored (-1.0) when the body looks west
+# of straight up or down, as painted (+1.0) otherwise -- north, south and east all draw the one
+# picture. A flip is a two-state readout of a continuous heading, which is why the indicator
+# line draws for every body: the picture can never say more than "east or west", and the line
+# carries the exact facing. Every body flips, the player included; the peripheral-anonymity
+# clause is unharmed because a glimpsed body never reaches the blit -- it draws as the anonymous
+# disc and the loop moves on before facing is read.
+static func body_flip(facing: float) -> float:
+	if cos(facing) < 0.0:
+		return -1.0
+	return 1.0
 
 
 # The props that stand in a district, as component -> content id.

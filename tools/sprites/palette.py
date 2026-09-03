@@ -44,9 +44,9 @@ district can put under it, which is measured (`guard_against_ground`,
 import colorsys
 from collections import namedtuple
 
-# The 1 px outline every generated sprite closes with. Matches the five hand-authored PNGs
-# already in godot/assets/sprites/ -- the seam between hand and generated art should not be
-# visible in the outline, of all places.
+# The 1 px outline every generated sprite closes with. It was chosen to match the hand-authored
+# PNGs this package has since taken over one by one; nothing in godot/assets/sprites/ is hand
+# art any more, and the constant stays because every rig, prop and wreck now closes on it.
 OUTLINE = "#161614"
 
 # One family: the saturation ceiling and the value band a colour of that kind may occupy. A
@@ -205,7 +205,7 @@ RAMPS = {
     # name and by family -- this is the material the warm grade is named after.
     "wood": ramp("#8a7560", family="timber"),
     # Bedding and canvas -- the lightest material on the roster, because a bed read from
-    # overhead is mostly sheet. Its top step wants V 0.809 and the muted ceiling now holds it at
+    # from the front is mostly sheet. Its top step wants V 0.809 and the muted ceiling holds it at
     # 0.72 where the old cap held it at 0.80 -- which is the point: in a warm grade a bedsheet is
     # not allowed to be the brightest thing outdoors.
     "cloth": ramp("#9a958a"),
@@ -235,7 +235,7 @@ RAMPS = {
     "concrete": ramp("#8a8781"),
     # Paper, plastic, a flattened box: the cosmetic scatter on street pavement.
     "litter": ramp("#9d9891"),
-    # --- bodies: the overhead roster -------------------------------------------------------
+    # --- bodies: the pawn roster -------------------------------------------------------------
     # Mara's bob, Ellis's crown.
     "hair_black": ramp("#2a2622"),
     # Ellis's grey-flecked beard.

@@ -334,6 +334,12 @@ pinned by TOPDOWN. `aimCone`'s alpha is in the 8-digit hex.
 
 ## Slice 4 — "Bodies stand up"
 
+**Landed 2026-09-03.** Four numbers moved by measurement (head radius 5.0, colonist shade 0.07, an
+arm seam in the draw order, a required face); the flip probe corrected the example arithmetic
+(a flipped rect keeps its left edge: `Rect2(68, 7, -64, 96)`, and the top is `sy + 3 − h`); the
+contact shadow became an ellipse the body's width; the glimpse-bail assertion was added. The
+numbers are in docs/23's record.
+
 **Canvas.** `PAWN_CANVAS = Vector2i(n, n * 3 / 2)` = **32×48**, feet-anchored. The reference's
 own proportion (~0.78 × 1.25 tile; a 25×40 figure leaves 3–4 px side margin so the flip never
 clips, 8 px headroom); blit height `1.5 × zoom` is an integer on every rung (24/48/96/192);

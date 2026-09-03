@@ -2,37 +2,48 @@
 
 Drop a PNG here and a content entry can use it. No code change, no editor round-trip.
 
-## The direction, as of 2026-09-03 — read this before the sections below
+## The pawn convention, as of 2026-09-03 — read this before the sections below
 
 The owner moved the art to **the Dungeon Settlers look** on 2026-09-03 (docs/30, "The Dungeon
-Settlers look"): every body is an upright, **face-on pawn**, feet-anchored on a **32×48**
-canvas, mirrored by a horizontal flip when it faces west — **nobody rotates, the player
-included**; the palette is warm dark fantasy rather than overcast; trees are tall 32×96
-feet-anchored sprites sorted with the bodies; vehicles are one three-quarter picture per axis.
-That is what is *decided*. What *ships* in this directory today is still the previous
-convention — 32×32, centre-anchored, true overhead, the player's rig rotating — and the
-sections below describe it accurately until the pawn slice of the Dungeon Settlers arc lands
-and rewrites them. The two are kept apart on purpose: a reader must never mistake the target
-for the tree. The pawn convention, stated now so the slice authors to it:
+Settlers look"; docs/23's "Bodies stand up" is the pawn slice's record). Every body — the
+player, colonists, zombies, raiders — is an upright, **face-on pawn**, feet-anchored on a
+**32×48** canvas, mirrored by a horizontal flip when it faces west. **Nobody rotates, the
+player included.** This is what ships; the sections below are the convention, not a target it
+is approaching.
 
-- **Canvas 32×48, anchored on the feet.** The soles sit on the canvas's bottom row (row 47);
-  the renderer hangs the picture above the entity's ground point with the sole line on the
-  contact shadow's own offset, so shadow, glimpse disc, facing line and sort key all stay on
-  the one ground point. A rig floating above the bottom row is a build failure.
-- **Front view, flipped, never turned.** Heading east or west is a mirror of one picture; north
-  and south draw the same unflipped picture, and the indicator line carries the exact facing
-  for every body. Keep ≥ 3 px clear of the left and right edges so the flip cannot clip.
-- **A person is about 0.7 of a tile wide and 1.3 tall**: height 38–44 px, shoulders ≤ 22 px on
-  a human, ≤ 26 on the bloater (the rig at the bound), head ≤ 11 wide × 12 tall, a 1 px
-  `#161614` inward outline, top-left shading on every rig without exception — nothing turns,
-  so the radial exception goes.
-- **One skeleton, published.** The rigs share named rows — feet, leg top, shoulder, hand, head
-  centre — so one generated gear overlay fits all eight bodies; the slice that lands the rigs
-  writes those numbers here.
-- **A face is three pixels**: two eyes and a brow shadow. At 32 px wide there is no room for a
-  mouth, and the placement is the whole of it.
+- **Feet-anchored, 32×48.** `Appearance.PAWN_CANVAS` is one `ART_NATIVE` tile wide and one and
+  a half tall. The soles sit on the canvas's bottom row (row 47); the renderer hangs the
+  picture above the entity's ground point with the sole line on `Appearance.FOOT_DROP_PX`
+  (3.0), the contact shadow's own offset, so the sole line and the shadow line are one number
+  and cannot drift apart. `Appearance.anchor_of(size)` derives the anchor from the canvas shape
+  — a square canvas centres on its point, anything else stands on it — so the tree and vehicle
+  sheets the later slices add are feet-anchored by construction, not by a second list of keys
+  to remember.
+- **Front view, flipped, never turned.** Heading east, north or south draws the one painted
+  picture; west is that same picture handed to the renderer in a negative-width rect, which
+  mirrors it in place (probed in Godot 4.7.1: `draw_texture_rect` with a negative width mirrors
+  the texture at position .. position + |width|). The indicator line draws for every body, the
+  player's included: a flip is a two-state readout of a continuous heading, and the picture can
+  never say more than "east or west".
+- **Measured against the reference's proportion.** A person is about 0.7 of a tile wide and 1.3
+  tall: height 38–42 px against a 38–44 bound; shoulders 16–22 px on a human against a ≤ 22
+  bound, and the bloater at 26 sits exactly on its own ≤ 26 bound — the rig at the bound, and
+  the reason nothing else on the roster may come near it; head 10×10 or 10×11 against a
+  ≤ 11×12 bound; side clearance ≥ 3 px on every rig (bloater exactly 3, the rest 5–8), because
+  the flip is a mirror inside the same rect and a rig that touches the edge clips itself the
+  moment it turns around.
+- **One skeleton, published.** `FEET_Y 0, LEG_TOP_Y -13, TORSO_TOP_Y -30, SHOULDER_Y -28,
+  HAND_Y -17, HAND_X 8.4, HEAD_CY -35, HEAD_R 5.0, SHOULDER_HALF 8.0` — pixels above the soles,
+  negative upward. One generated gear overlay fits all eight bodies by reading these rows
+  instead of being redrawn per rig; the bloater is the one rig that moves them.
+- **A face is three pixels.** Two 1 px eyes 3 px apart and one brow pixel above and to the left
+  — at 32 px wide there is no room for a mouth, and the placement is the whole of it.
 
-## The convention — ships today, until the pawn slice
+Still **decided and not shipped**: tall 32×96 trees in the entity sort, one three-quarter
+picture per axis for vehicles, walls with a lit cap and a south face, roofs cut out where the
+sim sees, and the worn look beyond the pack and the bat.
+
+## The convention
 
 - **Grid:** top-down, **1 tile = 1 metre = `zoom` pixels square**. `presentation/camera.gd`
   names the art-native scale `ART_NATIVE = 32`, so a sprite is drawn 1:1 at zoom 32 and at a
@@ -40,33 +51,45 @@ for the tree. The pawn convention, stated now so the slice authors to it:
   keeps nearest-neighbour scaling clean. (The art was 64 px a tile until the 2026-09-02
   reference-look decision — docs/30 — when the tile shrank around the rigs; before that the
   grid was an isometric 64×32 diamond until the top-down reversal, docs/00, and 32×16 before.)
-- **Canvas:** every sprite is **32×32**, one tile — `ART_NATIVE` square, and every gate reads
-  the constant rather than the number. `npm run godot:check:appearance` fails the build on any
-  other shape — a sprite authored to the dead 64×96 convention would float half a tile high
-  without ever erroring, so the canvas is enforced, not documented. `tools/sprites/draw.py`
-  carries `SIZE = 32` as the one other copy (Python cannot read GDScript); a PNG at the wrong
-  size fails `sprites:check` and `check:appearance` both, which is the cross-check.
-- **Anchor: centre.** The renderer places the sprite's canvas centre on the entity's ground
-  position and draws the contact shadow itself. Author the body's visual mass radially centred
-  on the pivot — the point **between** pixels 15 and 16, (15.5, 15.5) in pixel-centre terms —
-  and do not bake a shadow in.
-- **One authoring convention: true overhead** (2026-09-01 owner directive; docs/30, the art
-  decision's dated entry). Crown, shoulders, forearms forward, 1 px near-black inward outline,
-  mid-tones through `tools/sprites/palette.py`'s family clamps. The two remaining splits
-  are **shading** — radial on the rotating player, NW top-left on everything static
-  (`Canvas.nw_shade`) — and **rotation**, which stays the player's alone: every other rig draws
-  unrotated, so its painted front is a lie about heading and the sim's indicator line carries
-  the truth. `.hermes/plans/2026-08-19_topdown-art-brainstorm.md` holds the open flavour
-  directions.
-- **Rig guarantees, three-tiered** because the roster is honest about its own sizes, and
-  stated in the same pixel numbers the 64 px tile had — the rigs kept their pixels when the
-  tile shrank, so a person now fills three-quarters of a tile instead of a third: shoulders
-  ≤ ~21 px on the *rotating* rig (the player — a wide silhouette strobes at 20 Hz as it turns;
-  0.66 of the tile, max radial extent 13.7 of a 15.5 half-canvas); ≤ ~24 px on a *static* human
-  rig (Ellis is the broad one at 23.6, radial 14.3); and the bloater at 28 px is the rig at
-  the canvas bound — its body half-width is 14.4 because at 14.5 the outline lands one pixel
-  outside the canvas — and the reason nothing else goes near the tile edge. Head ≤ r 7.5 — the
-  screamer's is that bound, not merely under it.
+- **Canvas: three shapes, one table.** `Appearance.canvas_of` is the one place a size is
+  decided, mirrored by `tools/sprites/build.py`'s `CANVAS`: a **tile**, `ART_NATIVE` square
+  (32×32) — props, tile art, debris; a **pawn**, `PAWN_CANVAS` (32×48) — every body and every
+  equip overlay, the eleven keys `PAWN_KEYS` names; the **ground atlas** (128×224) — the one
+  file that is a table of cells rather than one picture. `npm run godot:check:appearance` fails
+  the build on any file whose size does not match its own canvas — a sprite authored to the
+  wrong shape would float or stretch without ever erroring otherwise, so the canvas is
+  enforced, not documented. `tools/sprites/draw.py` carries `SIZE = 32` as the one other copy
+  (Python cannot read GDScript); a PNG at the wrong size fails `sprites:check` and
+  `check:appearance` both, which is the cross-check.
+- **Anchor: derived from the shape.** A square canvas centres on the entity's ground point — a
+  tile-sized picture seen from above, which is every prop, every tile-art key and every
+  ground-atlas cell — and anything else stands on it: a pawn's soles sit on the canvas's bottom
+  row, hung at the ground point plus `FOOT_DROP_PX`. Deriving the anchor from the canvas shape
+  rather than keeping a second list of which keys stand is what lets the tree and vehicle
+  sheets the later slices add be feet-anchored by construction — one more line in `canvas_of`,
+  not a list to remember to update.
+- **One authoring convention: face-on, flipped, never turned** (2026-09-03 owner directive, the
+  Dungeon Settlers look; docs/30's dated entry). A standing figure seen from the front — crown,
+  shoulders, forearms — 1 px near-black inward outline, mid-tones through
+  `tools/sprites/palette.py`'s family clamps, top-left shading on every rig without exception
+  (`Canvas.nw_shade`). The shading split the old convention carried — radial on the rotating
+  player, NW on everything static — is gone with the rig that needed it: nothing rotates, so
+  nothing is shaded any other way. `.hermes/plans/2026-09-03_dungeon-settlers-arc.md` is the
+  slice-by-slice plan for the arc this convention belongs to.
+- **Rig guarantees, bound and measured.** Every rig's lowest opaque pixel sits on row 47 — a
+  rig floating above the sole row is a build failure, not a style note. Height runs 38–42 px
+  against a 38–44 bound. Shoulders run 16–22 px on a human against a ≤ 22 bound; the bloater at
+  26 sits exactly on its own ≤ 26 bound, which is why nothing else on the roster may come near
+  it. Head runs 10×10 or 10×11 against a ≤ 11×12 bound — the bloater's, sunk into its
+  shoulders, measures 8×7, well under it. Side clearance holds ≥ 3 px on every rig (the bloater
+  exactly 3, the rest 5–8), because the flip is a mirror inside the same rect. Every rig
+  carries a 1 px `#161614` inward outline and `nw_shade` at `RIG_LIGHT_RADIUS` 15.0 — the
+  smallest radius that clamps almost nothing of the union of the eight rigs' 4254 opaque pixels
+  (0.02%, one pixel) while still spending the whole gain, measured from the picture's *middle*
+  (`Canvas.middle`) rather than its feet pivot: from the soles every body pixel sits on one
+  side of the origin, and the ramp would clamp flat across the whole figure if it measured from
+  there. Centre-anchored canvases are unaffected — every prop, wreck and debris key regenerated
+  pixel-identical across the change that added `middle`.
 
 ## The ground atlas — the one table of tiles
 
@@ -85,47 +108,71 @@ drawn, and the indoor mix, the sidewalk substitution and the position-hash varia
 on top as tints. Which variant a tile draws is `Dressing.SALT_GROUND` hashed on the seed and
 the tile; never an RNG. Below zoom 32 the flat tint draws instead (`GROUND_TEXTURE_MIN_ZOOM`).
 
-## The rotating rig — the player, and only the player (ships today; retires with the pawn slice)
+## The pawn — upright, face-on, flipped
 
-docs/30's style pick takes the reference's rotating player and refuses the rest of it: **only the
-player rotates.** A loop that spun every body would tell the player which way a shape in the dark
-is looking, which is exactly the certainty the peripheral-anonymity clause
-(`docs/01-hardcore-contract.md#4-information-is-scarce-and-unreliable`) denies them.
-`Appearance.body_rotation` answers `0.0` for everybody else, and `check_topdown.gd`'s
-`_only_the_player_rotates` fails if the draw loop grows a second `draw_set_transform`.
+Every rig on the roster — player, colonists, zombies, raiders — is one family: a standing
+figure seen face-on, drawn once and mirrored rather than turned.
+`tools/sprites/parts/characters.py` holds the eight rigs and the one `_figure` assembler every
+one of them is drawn through; this section is the convention that assembler enforces, so a
+ninth rig reads it rather than reinventing the roster.
 
 Authoring one:
 
-- **True overhead, not a pawn** *(the clause the 2026-09-03 decision reverses — kept here
-  because it is what the shipped rig is)*. Crown, shoulders, forearms forward. A pawn's mass
-  sits low on
-  the canvas (feet by ~y=57) and rotating that orbits the figure around a point it does not
-  occupy; a rig's mass is radially centred on the pivot, which is the point **between** pixels 15
-  and 16 — (15.5, 15.5) in pixel-centre terms, not 16.
-- **Forward is up-canvas.** `Appearance.SPRITE_FORWARD` is `-PI/2` and everything follows from
-  it: a body facing north draws unrotated, facing east draws a quarter turn clockwise.
-- **Near-radial silhouette, ~21–24 px, no 1 px protrusions.** Rotation is free (no pre-baked
-  direction frames) and unsmoothed at 20 Hz, so anything that sticks out crawls and strobes as
-  the body turns. Blunt extremities, and the 1 px `#161614` outline is drawn *inwards* so it
-  cannot grow the silhouette on the diagonals.
-- **Neutral or radial shading — never a directional bake.** Every static sprite is lit from the
-  top-left (matching `main.gd::_draw_bevelled_box`); a rotating one must not be, or the sun
-  appears to swing round the district whenever the player turns.
-- **Carry the facing in the art.** The indicator line comes *off* the player once the art
-  resolves (`Appearance.wants_facing_line`), so the rig has to say which way it is pointed by
-  itself: one asymmetric tell — the shipped rig uses a slung strap — plus a forward-of-centre
-  brow. A radially symmetric body is legible as a body and illegible as a facing.
-- **Equipped overlays ride the rig.** They are composited inside the same transform, at the same
-  rect, by `main.gd::_blit_body`. Mechanically that already works; the shipped overlay *art* is
-  still authored face-on, which is the characters slice's work and not something to "fix" by
-  pulling the layers back out of the transform.
+- **Feet on row 47.** The canvas is feet-anchored (`origin="feet"` in `draw.Canvas`): row 47,
+  the bottom of the 32×48 picture, is where the soles sit, and the renderer hangs that row on
+  the entity's ground point plus `Appearance.FOOT_DROP_PX`. A rig whose lowest opaque pixel
+  sits above row 47 floats above its own shadow.
+- **Face-on, not overhead.** The figure is seen from the front — crown, shoulders, forearms —
+  the way the reference draws every pawn, not from above. Heading is carried entirely by the
+  flip and the indicator line; the picture itself never says more than "I am a body".
+- **≥ 3 px clear of both edges.** A body facing west is the same picture handed to the renderer
+  in a negative-width rect, which mirrors it in place — so a rig that touches the canvas edge
+  clips itself the moment it turns around. The bloater, at exactly 3 px, is the rig that proves
+  the bound rather than merely respecting it.
+- **The skeleton is published, not private.** `FEET_Y 0, LEG_TOP_Y -13, TORSO_TOP_Y -30,
+  SHOULDER_Y -28, HAND_Y -17, HAND_X 8.4, HEAD_CY -35, HEAD_R 5.0, SHOULDER_HALF 8.0` — pixels
+  above the soles, negative upward. One generated gear overlay has to fit all eight bodies, and
+  it fits them by reading these rows rather than by being redrawn per rig — eight overlays
+  redrawn per rig is eight chances to disagree. The bloater is the one rig that moves the
+  numbers (below), and every other rig is authored against them unchanged.
+- **A face is three pixels.** Two 1 px eyes 3 px apart and one brow pixel above and slightly
+  left of centre — at 32 px wide there is no room for a mouth, and where the two dots and the
+  shadow sit is the whole of the expression.
+- **One loud tell, and only one.** Because the picture is mirrored rather than turned, an
+  asymmetric tell is not the hazard it would be on a rotating rig — a slung strap swaps sides
+  with the flip, which is what a strap does when a person turns round. Every rig gets exactly
+  one: the player's slung strap and darkest jacket; Mara's bob, drawn as `hair_back` behind the
+  face and `hair` over it; Ellis's beard at the shoulder bound (22 px, the human ceiling) with
+  a grey fleck for the years; the colonist's pure achromaticity, tinted only by
+  `colony/looks.json` at draw time, whose shade gain is 0.07 rather than the family's 0.12 so
+  its median grey clears the GREY lane's composed threshold by +0.022; the shambler's reaching
+  arm; the screamer's mouth void; the bloater's own bound, 26 px wide with exactly 3 px
+  clearance each side; the raider's crossed webbing.
+- **Outline inward, and last.** `Canvas.outline` draws 1 px inward so it cannot grow the
+  silhouette, and `_figure` draws it *after* the shade pass — load-bearing, not style: OUTLINE
+  (`#161614`) is a channel delta of exactly 2, and a shaded outline drifts to delta 3, past the
+  colonist lane's achromatic bound (`check_appearance.gd`'s GREY lane). The colonist's face is
+  a pure grey for the identical reason — a face is drawn before shading, so an OUTLINE eye
+  would be multiplied too.
+- **Shaded from the picture middle, not the feet.** `nw_shade` measures from `Canvas.middle`
+  rather than from the origin: from the soles every body pixel sits on one side of the pivot
+  and the ramp would clamp flat across the whole figure if it measured from there.
+  `RIG_LIGHT_RADIUS` is 15.0, the smallest radius that clamps almost nothing of the roster
+  (0.02%, one pixel) while still spending the whole gain.
+- **The bloater is the rig at the bound.** It is the one rig that moves the published skeleton,
+  and it moves exactly three numbers: the torso half-width (11.0 instead of `SHOULDER_HALF`,
+  starting 2 px above `TORSO_TOP_Y`, because the distension is in the trunk), the arm x (11.6
+  instead of `HAND_X`), and the head centre (`HEAD_CY + 2`, sunk into the shoulders). `FEET_Y`,
+  `LEG_TOP_Y` and `HAND_Y` are untouched, which is what keeps the gear overlays fitting it too.
 
 Every body on the roster is **generated** — `tools/sprites/parts/characters.py` holds the eight
-rigs (drawn through one `_figure` assembler, whose fixed order — shade before outline — is
-load-bearing, not style) and `npm run sprites:check` fails if a committed PNG and that code
-disagree. `survivor_mara.png` and `zombie_shambler.png` were the last hand-authored bodies and
-are registry-owned now; the only hand art left is the `item_*_equip*` overlays, which the
-worn-look slice retires.
+rigs, drawn through one `_figure` assembler whose fixed order (shade before outline) is
+load-bearing, not style — and `npm run sprites:check` fails if a committed PNG and that code
+disagree. `survivor_mara.png` and `zombie_shambler.png` were the last hand-authored bodies;
+the three `item_*_equip*` overlays (`tools/sprites/parts/gear.py`) were the last hand art of
+any kind. **Nothing in the sprite directory is hand-authored any more** — the next
+hand-polished replacement, whenever it lands, is a deletion here rather than an addition
+(`tools/sprites/README.md`'s standing rule).
 - **Filename:** `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the
   registry key.
 
@@ -156,14 +203,16 @@ selective bottom/right outline: a 3 px scrap outlined on four sides is all outli
 
 An item base can also carry `appearance.equipSprite` (item.schema.json), a **different** picture
 from its ground `sprite` — what it looks like worn or held on a body, not lying on the floor.
-Author it on the **same 32×32 centre-anchored canvas** as a body sprite, with everything except
-the item itself left transparent. The renderer composites it at the exact same rect the body
-draws at, so there is no per-item offset to configure — get the item's position right within its
-own canvas (a bat gripped at the hand, ~(43,44); a backpack peeking over the shoulders and past
-the torso sides) and it lands correctly on any body wearing it. Only slots
-`presentation/appearance.gd` renders matter today: `back` draws under the body sprite,
-`primary` and `secondary` draw over it. Other equipment slots may declare `equipSprite` but
-nothing draws them yet.
+Overlays are generated, not hand-drawn: `tools/sprites/parts/gear.py` authors each one on the
+same feet-anchored 32×48 pawn canvas the bodies stand on, against the published skeleton
+(`SHOULDER_Y`, `LEG_TOP_Y`, `HAND_X`, `HAND_Y` from `parts/characters.py`) rather than against a
+canvas row — the same reason the skeleton is published at all: one overlay fits all eight
+bodies instead of eight overlays fitting one each. `main.gd::_blit_body` composites every layer
+into the identical rect the body draws at, so there is no per-item offset to configure, and a
+west-facing negative-width rect mirrors the gear with its wearer, same as the body underneath
+it. Only slots `presentation/appearance.gd` renders matter today: `back` draws under the body
+sprite, `primary` and `secondary` draw over it. Other equipment slots may declare `equipSprite`
+but nothing draws them yet.
 
 An under-body item can also declare `appearance.equipSpriteFront` — a second, optional picture
 that always draws over the body, independent of the slot's own under/over default. A worn

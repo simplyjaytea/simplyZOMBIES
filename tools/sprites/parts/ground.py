@@ -8,8 +8,9 @@ two are the paint layer's sidewalk slab and an indoor board floor) and a variant
 run of the same surface does not read as one repeated stamp.
 
 Unlike every other generator in this package, a cell is not drawn with `draw.Canvas` -- that
-class addresses a single **square** canvas from its centre, which is right for a silhouette that
-may rotate and wrong for a flat, edge-to-edge tileable texture with no pivot. So this module
+class addresses one canvas outwards from a pivot, which is right for a silhouette the renderer
+hangs somewhere and wrong for a flat, edge-to-edge tileable texture with no pivot at all. So
+this module
 stays inside the same no-PIL-drawing, no-resampling, no-anti-aliasing discipline `draw.py`
 states, but works directly on a flat pixel buffer sized for the whole sheet.
 

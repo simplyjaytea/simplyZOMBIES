@@ -11,7 +11,8 @@ Two rules bind every function below:
 
 * **Light from the top-left.** `main.gd::_draw_bevelled_box` lights a free-standing object that
   way and these sprites stand beside procedurally drawn ones; `Canvas.light_top_left` bakes it.
-  (The rotating player rig is the one exception in the package, and says so.)
+  Nothing in the package is exempt any more: the rotating player rig was the one exception
+  and it retired with the pawn slice.
 * **Footprint = `appearance.size` x 32.** The content entry declares how much of a tile the prop
   covers, `_draw_prop` uses it for the procedural fallback, and `check_appearance.gd`'s prop lane
   measures the opaque bounding box of the art against it -- so the number in content is the
