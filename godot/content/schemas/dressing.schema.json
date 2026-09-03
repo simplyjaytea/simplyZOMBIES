@@ -29,6 +29,18 @@
       "type": "array",
       "description": "Scatter keys drawn over tiles whose surface layer is SURFACE_RUBBLE -- the ground the worldgen rubble pass places. Unlike litter this one lies over something the sim does read (rubble slows a body and loudens a step), but the art still says nothing the surface did not already say.",
       "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+    },
+    "walls": {
+      "type": "object",
+      "description": "Wall material name -> {cap, face} sprite keys, one entry per building.schema.json / map.schema.json `look.wall` value. Optional, and the shallow validator never looks inside it -- it checks only that `walls` itself is an object -- so check_roof_look.gd is what resolves every key a shipped template's `look.wall` names and refuses one with no entry here."
+    },
+    "roofs": {
+      "type": "object",
+      "description": "Roof material name -> sprite keys, one entry per building.schema.json / map.schema.json `look.roof` value: `{n, s}` for a pitched material (north/south faces) or `{flat}` for a flat one. Optional, and the shallow validator never looks inside it -- it checks only that `roofs` itself is an object -- so check_roof_look.gd is what resolves every key a shipped template's `look.roof` names and refuses one with no entry here."
+    },
+    "faces": {
+      "type": "object",
+      "description": "Fixed sprite keys for the wall openings a building shell cuts, independent of wall material: `{window, door, garage}`. Optional, and the shallow validator never looks inside it -- it checks only that `faces` itself is an object -- so check_roof_look.gd is what resolves every key it declares and refuses a fabricated one."
     }
   }
 }

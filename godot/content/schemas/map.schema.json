@@ -107,6 +107,22 @@
         }
       },
       "description": "Loot sites this template carries with it, template-relative and converted to absolute district tiles on stamp. The district's own sites come from its lootProfile (SimWorldgen's worldgen.sites pass); these are the ones an authored interior owns -- the annex's kitchen scatter and the cupboard in its store room -- and they travel with the template wherever the generator puts it."
+    },
+    "look": {
+      "type": "object",
+      "required": ["roof", "wall"],
+      "additionalProperties": false,
+      "properties": {
+        "roof": {
+          "enum": ["shingle", "tin", "tar"],
+          "description": "Roof material. The name resolves through content/dressing/street.json's `roofs` table to the sprite keys the renderer blits -- presentation/roof_look.gd decides cap vs face per tile and which interior tiles take a roof. A material with no table entry draws the procedural wall, which is the supported fallback."
+        },
+        "wall": {
+          "enum": ["timber", "brick", "render", "block"],
+          "description": "Wall material. The name resolves through content/dressing/street.json's `walls` table to the sprite keys the renderer blits -- presentation/roof_look.gd decides cap vs face per tile and which interior tiles take a roof. A material with no table entry draws the procedural wall, which is the supported fallback."
+        }
+      },
+      "description": "How this template looks: `{roof, wall}` material names that content/dressing/street.json's `roofs`/`walls` tables resolve to sprite keys. Optional here -- the shipped annex declares it, but the oracle's own fixtures may not. The Godot validator is shallow -- it accepts any object satisfying the top-level required/type check here and never re-checks the enum below at load -- so check_roof_look.gd's LOOK lane is what actually enforces `roof`/`wall` against the enum on every shipped template."
     }
   }
 }

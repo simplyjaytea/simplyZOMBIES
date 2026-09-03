@@ -31,5 +31,17 @@
   "rubble": [
     "debris_rubble_a",
     "debris_rubble_b"
-  ]
+  ],
+  "walls": {
+    "timber": { "cap": "wall_timber_cap", "face": "wall_timber_face" },
+    "brick": { "cap": "wall_brick_cap", "face": "wall_brick_face" },
+    "render": { "cap": "wall_render_cap", "face": "wall_render_face" },
+    "block": { "cap": "wall_block_cap", "face": "wall_block_face" }
+  },
+  "roofs": {
+    "shingle": { "n": "roof_shingle_n", "s": "roof_shingle_s" },
+    "tin": { "n": "roof_tin_n", "s": "roof_tin_s" },
+    "tar": { "flat": "roof_tar_flat" }
+  },
+  "faces": { "window": "face_window", "door": "face_door", "garage": "face_garage" }
 }

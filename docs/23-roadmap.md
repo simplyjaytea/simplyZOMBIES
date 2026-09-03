@@ -228,18 +228,9 @@ style-B pick of 2026-09-01 for the bodies and the mood; the plan is
 slices 1–2). The pieces below are in the order they land, each one session, each with its gate
 red both ways and its record. The reference's HUD — portraits, bars, numbers, name plates — is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided lands
-piece by piece**: the palette and pawn pieces landed 2026-09-03; the walls, edges, trees, worn
+piece by piece**: the palette, pawn and wall pieces landed 2026-09-03; the edges, trees, worn
 look and vehicles below are still the old code, and their comments say so on purpose.
 
-- **Walls have thickness, roofs come off.** A per-tile facade rule (a wall whose south
-  neighbour is open ground draws as a face carrying its window or door; adjacent doors read as
-  one garage mouth) and a wall-face rule (a lit cap everywhere, a south face where the south
-  neighbour is open — inside the wall tile's own footprint, over no walkable tile) plus the
-  approved roof rule (over the interior tiles the player cannot see, of a building at least one
-  tile of which is in view, while the player is outside — cut out where the sim sees).
-  `look: {roof, wall}` becomes a required block on every template and the annex (the annex is
-  under the oracle's map schema, so `npm test` judges it), materials resolve through the
-  dressing content, a `godot:check:roof` gate (chain 43).
 - **The ground has edges.** Between two grounds the darker draws the edge, once, onto the
   lighter tile: one sheet of eight shapes by seven rows, hash-free, its cells held to the atlas's
   mean-is-the-palette rule, a pure `edge_shapes` mask over the eight neighbours read from a
@@ -2128,6 +2119,85 @@ not a to-do list:
   `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice4-roster-64.png`,
   `slice4-street-64.png`, `slice4-flip-east-west-64.png`, `slice4-zoom-16.png`,
   `slice4-zoom-128.png`, `slice4-night-64.png`.
+- ~~Walls have thickness, roofs come off~~ **landed** (`godot:check:roof` → `ROOF_LOOK_OK`, the
+  chain's 43rd gate; slice 5 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look",
+  the wall-and-roof clause). **The rules** live in `presentation/roof_look.gd`, pure functions
+  of the map, the seen set and tile coordinates: `south_open` (the tile south of a wall is in
+  bounds, not solid, outdoors), `wall_face_at` (a Wall or Window tile draws its face rather than
+  its cap when its south is open), `facade_at` (what the face shows — plain wall, a window, a
+  door for a doorway, a garage mouth when the doorway beside it is one too — per tile, never a
+  footprint's south row), `building_index` (tile → building, the annex as `INDEX_ANNEX`),
+  `look_of` (the `look` block off the content entry the manifest's record names), `known`
+  (the observer sees at least one tile of the footprint), `roof_tiles` (for every known
+  building in the visible bounds that the player is not inside, every indoor tile the observer
+  cannot see) and `slope_of` (rows north of the footprint's middle row face north, the rest
+  south; a flat material is flat). **The content**: `look: {roof, wall}` is required on all
+  seventeen templates (`building.schema.json`) and declared on the annex (`map.schema.json`,
+  oracle-visible, `npm test` judged it); roofs are shingle, tin or tar and walls timber,
+  brick, render or block; `dressing/street.json` gains `walls` (cap and face keys per
+  material), `roofs` (north and south halves for a pitched material, one flat sheet for tar)
+  and `faces` (window, door, garage), and `Dressing.wall_key`/`roof_key`/`face_key` resolve
+  them, answering `""` for anything undeclared. **The art**: sixteen tile-art keys in
+  `tools/sprites/parts/buildings.py` — four caps, four faces (the top twenty rows the cap, the
+  bottom twelve the front: the eave's shadow, a lit top edge, the boards or courses, a dark
+  foot), five roof sheets (pitched halves about the footprint's middle row, the south one a
+  ramp step lighter; tar flat), three face overlays — with no bevel, gradient or outline on
+  a cap or a roof (a per-tile bevel is a grid, a per-tile gradient bands a run), so a cap's
+  whole read is its marks and its value. The seven ramps are timber-family and held either
+  side of **every floor**, the two paint rows included (`palette.BUILT_READING`,
+  `guard_either_side_of_floors`), because a front stands on the sidewalk and a roof covers
+  the boards; measured, four of the plan's seven bases sat inside the floor band and moved —
+  timber `#7a6244` (luma 0.396) → `#8a6f4d` (0.448), brick `#7a5342` (0.356) → `#9a6a58`
+  (0.451), shingle `#6a5a4a` (0.362) → `#8a765e` (0.473) up to the lit side, the nearest
+  values clearing the sidewalk (0.348) by the 0.08; tar `#46403a` (0.254, on paved 0.262)
+  down to `#2c2722` (0.156), the one dark built surface; render, block and tin were clear
+  (tin nudged to `#837f78`). Every picture's mean measured warm (r − b ≥ 0.039, tin and
+  block the thinnest) and 0.088–0.232 from its nearest floor; each face's top twenty rows
+  within 0.005 of its cap's mean; south slopes lighter than north (shingle 0.539 over 0.460,
+  tin 0.580 over 0.496); tar 0.156 under the darkest cap 0.447. `sprites:check` counts 49.
+  **The renderer**: a wall tile in a building with a look blits its cap or face into its own rect
+  (`_draw_wall_art`; a window in a face is the face's window picture, in a cap the procedural
+  pane; a barricade overlay keeps the procedural cap so a boarded window still reads boarded),
+  a doorway takes the door or garage picture over its boards (`_draw_door_face`), and
+  `_draw_roofs` runs after the tile loop and before the props, filling tiles the loop skipped
+  as unseen — a roof draws where the screen was black. The tile → building index and the
+  per-building looks are cached against the map object on `main.gd`, never static. A building
+  with no look, a material with no table entry or a key with no file draws the procedural
+  cap and bands, so `TOPDOWN_OK`'s WALL lane keeps its subject and its needles. The palette
+  gains `roof` (`#2c2722`, the tar sheet's own mid, so the fallback and the art agree; the
+  first pick `#4e4740` sat 0.005 from undergrowth by luma and read as ground), the
+  fourteenth key in PALETTE's warm family.
+  **The gate**: LOOK (the seventeen templates and the annex name materials inside the enum and
+  every one resolves its cap, face, roof sheets and the three overlays at 32×32; thatch, a
+  missing look and a key with no file refused), FACADE
+  (a hand 10×10 map: two shells, a south window, a door, a two-doorway garage, a north window,
+  a partition, a Low tile in front of a wall — and the whole table differs with the probe one
+  row up), WALL FACE, ROOF (a fake seen set: outside → every unseen interior tile of the known
+  shell and none of the never-seen one, the tile seen through the door excluded; inside →
+  none; nothing seen → none; nobody → none; bounds exclude a shell → none of it), SLOPE, INDEX,
+  PLAYED (suburb@64 seed 20260805: 158 of 554 indoor tiles roofed with 381 seen, every one
+  indoors, unseen and in a known building; all eight buildings resolve a look), MOOD (sixteen
+  keys opaque and warm, each clearing every floor by 0.08 and each face's cap rows within
+  0.04 of its cap; a neutral grey, a grass-coloured slab and an overlay
+  with a pixel in the cap rows refused), SOCKETS (the draw loop reaches every rule, the roofs
+  after the scatter and before the props, the fallback still present; scanner proved on a
+  fabricated body). **Sabotage, each red as named**: `south_open` probing `ty − 1` (FACADE
+  and WALL FACE, every south-row tile); the `known` test dropped from `roof_tiles` (ROOF,
+  case c); the `_draw_roofs` call deleted from `_draw_district` (SOCKETS); `house_small`'s
+  roof set to `thatch` (LOOK); `wall_timber_cap.png` deleted (LOOK, the resolve null);
+  `wall_block_cap.png` replaced by a flat grass-tinted slab (MOOD, luma 0.320 inside the
+  floor band). Nothing under `godot/sim/`
+  moved (`SimTemplates.stamp` copies tiles, surfaces, indoors, anchors and loot, so a `look` is
+  inert to worldgen); the FAST lines are byte-identical to slice 4's. **One finding for the
+  owner**, from `slice5-front-64.png`: the rule roofs a known building's unseen *indoor*
+  tiles, as approved, so its unseen perimeter wall tiles stay black and the roof reads as a
+  mass inside a black ring. Roofing every unseen tile of the footprint instead — walls
+  included, the eave over the wall — is one condition in `RoofLook.roof_tiles` and leaks
+  nothing the footprint tell does not already; left as the owner's call, since the look is
+  arbitrated by screenshot. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice5-front-64.png`,
+  `slice5-annex-front-64.png`, `slice5-interior-64.png`, `slice5-street-32.png`,
+  `slice5-night-64.png`.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

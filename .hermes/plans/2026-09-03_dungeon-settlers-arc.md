@@ -426,6 +426,19 @@ a line, and nobody rotates."* Sprites README: the pawn section becomes "ships".
 
 ## Slice 5 — "Walls have thickness, roofs come off" (chain 43, `ROOF_LOOK_OK`)
 
+**Landed 2026-09-03.** The rules, the content, the renderer and the gate as written below; the
+measured numbers are in docs/23's record. Two things moved by measurement: four of the seven
+ramp bases sat inside the floor band by luma (timber 0.396, brick 0.356, shingle 0.362 against
+grass 0.320 / boards 0.345 / sidewalk 0.348; tar 0.254 on paved 0.262) and moved — the three up
+to the lit side, tar down to the dark — under a guard that counts the two paint rows among the
+floors (`palette.BUILT_READING`); and the `roof` fallback moved from `#4e4740` (0.005 from
+undergrowth) to the tar sheet's own `#2c2722`. Caps and roofs carry no per-tile bevel or light
+gradient (a bevel is a grid, a gradient bands a run); the light direction lives in the face.
+One finding for the owner: the unseen perimeter walls of a roofed building stay black, so the
+roof reads as a mass inside a black ring (`slice5-front-64.png`); roofing every unseen tile of
+the footprint is one condition in `roof_tiles`. The art worker was refused by the API twice
+(overloaded), so the art was authored by the integrating session.
+
 **Rules in new `presentation/roof_look.gd` (`RoofLook`, no state).** `facade_at(map,
 thresholds, tx, ty) -> int ∈ {FACE_NONE, FACE_WALL, FACE_WINDOW, FACE_DOOR, FACE_GARAGE}` — a
 per-tile south-neighbour rule (in bounds, not solid, `indoors == 0`), never the rect

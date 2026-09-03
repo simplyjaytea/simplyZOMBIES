@@ -75,6 +75,13 @@ const COLOURS: Dictionary = {
 	# deliberately drab and deliberately visible, never a thing to rely on.
 	"prop": Color("#6a5c4c"),
 	"memory": Color("#454a38"),
+	# The roof a known building draws over the interior the survivor cannot see, when the
+	# building's look names a material nobody has drawn yet -- the supported fallback, one warm
+	# dark slab. A material with art draws its own sheet (dressing/street.json's `roofs`). The
+	# tar sheet's own mid (tools/sprites/palette.py's `roof_tar`), so the fallback and the art
+	# agree: dark, below every floor by 0.08 in luma (paved is the nearest, 0.107 away), where
+	# the first pick #4e4740 sat 0.005 from undergrowth and read as ground seen from above.
+	"roof": Color("#2c2722"),
 	# The cool near-black the warm district sits in. Not a neutral dark and not a cheaper black:
 	# these two are the *only* large areas allowed to go cold, and check_road_look.gd's cool family
 	# pins them there, which is what makes a lit street read as lit rather than as merely brighter.
