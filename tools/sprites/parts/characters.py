@@ -197,8 +197,10 @@ def survivor_colonist():
     S=0 by construction, and at least half of the opaque pixels have to be painted at grey[2]
     or brighter -- only the head and the outline may sit below that. `check_appearance.gd`'s
     composed-luminance guard multiplies the *median* opaque luma by each tint's luma, and
-    grey[1] (luma 0.63) can never clear it -- clearing it would need v_base > 0.807, past
-    VALUE_MAX. Darkening the limbs to grey[1] fails look.05 by measurement, which is why the
+    grey[1] (luma 0.631) can never clear it -- clearing it would need v_base > 0.808, past the
+    muted family's V ceiling of 0.72, which is where the warm regrade put the top of this ramp
+    (grey[2..4] all clamp to #b8b8b8, so the rig's own shading comes from the shade pass now).
+    Darkening the limbs to grey[1] fails look.05 by measurement, which is why the
     body, arms, forearms and hands below are all grey[2] and only the head sits a step darker.
     """
     grey = RAMPS["colonist_grey"]

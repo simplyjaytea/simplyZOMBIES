@@ -29,7 +29,9 @@ that hue sector)`. Two things fall out of that linearity, and the generator belo
 Marks themselves are value-only (`_mark_min`/`_mark_max`, floor/ceiling rather than accumulate,
 so overlapping marks cannot stack past their own bound) plus a flat per-pixel dither for cells
 that would otherwise have long unmarked runs -- both keep hue and saturation exactly at the
-tint's own, so `palette.SAT_MAX` is inherited rather than re-checked.
+tint's own, so the saturation the row tint arrived with -- the ground's own, capped by
+check_road_look.gd's palette lane rather than by a sprite family -- is inherited rather than
+re-checked.
 """
 
 import colorsys

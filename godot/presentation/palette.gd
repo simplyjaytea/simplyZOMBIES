@@ -1,30 +1,53 @@
 extends RefCounted
-# Began as a port of src/render/palette.ts — colours the district is. Not a theme. The ground
-# and built-mass entries have since **diverged from the frozen palette.ts** on purpose: docs/30's
-# art decision ("The art style: B, picked from a reference") fixes the mood as muted, overcast,
-# desaturated urban decay, and the near-black grounds the oracle shipped read as a cave, not an
-# overcast street. The regrade is held by properties rather than by anybody's memory —
-# check_road_look.gd's palette lane pins the ground and road bounds, check_weather.gd's accent
-# lane pins the glass, the ground items and the screen's own marks, and both prove the old
-# tables fail them — so tune by screenshot inside those bounds, and never by reverting to
-# palette.ts, which stays frozen with its oracle.
+# Began as a port of src/render/palette.ts — colours the district is. Not a theme. The ground and
+# built-mass entries have since **diverged from the frozen palette.ts** on purpose, and this table
+# is the second regrade: docs/30's Dungeon Settlers decision fixes the mood as **warm dark
+# fantasy** — a cool near-black dark wrapped around a warm-lit district, timber browns for built
+# mass, and saturated fire and lamplight as the only loud things on screen. It supersedes the
+# muted-overcast grade that preceded it.
+#
+# The difference is what holds the mood. Overcast was held by *mutedness* — one ceiling on
+# saturation, which produced a street where nothing was colourful and therefore nothing was warm
+# either. This grade is held by **warmth and value**: every district surface is warmer than it is
+# cool (r - b), everything the district sits *in* is the other way round (b - r), and the read
+# comes from value separation rather than from a hue nobody is allowed. Saturation still has a
+# ceiling on the ground, because a bright green lawn is not this world; it is no longer the thing
+# doing the work.
+#
+# Enforced by properties, not by anybody's memory. Four lanes hold this table:
+#   * check_road_look.gd's PALETTE lane — the warm family (r - b >= 0.02 over every district
+#     surface, kerb, wall, paint, prop and memory tint) and the cool family (b - r >= 0.02 over
+#     background, night and the glass), the ground saturation ceiling S <= 0.30, paved's value
+#     band, the road family's ordering, and the pairwise distinctness of the five surfaces;
+#   * check_weather.gd's ACCENT lane — the glass and its rim, the ground items, the screen's own
+#     marks, and the lamp pools held both warm (r - b) and thin (alpha);
+#   * check_topdown.gd's WALL lane — every wall face measured in luminance against every ground
+#     the district can put beside it, interiors and doorway included;
+#   * check_appearance.gd's GREY lane — the colonist rig's median grey times each colony tint,
+#     against the brightest surface this table declares.
+# So tune by screenshot inside those bounds, and never by reverting to palette.ts, which stays
+# frozen with its oracle.
 
 const COLOURS: Dictionary = {
-	"floor": Color("#3f4143"),
-	"dirt": Color("#524e40"),
-	"grass": Color("#4e5442"),
-	"undergrowth": Color("#46503d"),
-	"rubble": Color("#4a4644"),
-	"tree": Color("#3d4a38"),
-	"wall": Color("#55575c"),
-	# An overcast pane, not a lit aquarium — the last of the oracle's bright accents to go in
-	# the weather slice's regrade. The rim is the sash around it, darker than the pane the
-	# renderer lightens out of the glass colour, because a rim the pane's own value is invisible
-	# (check_weather.gd's separation bound is the arithmetic).
+	"floor": Color("#474240"),
+	"dirt": Color("#584e40"),
+	"grass": Color("#4f5440"),
+	"undergrowth": Color("#414a37"),
+	"rubble": Color("#4e4a46"),
+	"tree": Color("#3f4a33"),
+	# Timber and daub, not the concrete tower block the overcast table painted. Built mass is the
+	# warmest large area in the district, which is what makes a shell read as *somebody's* wall
+	# rather than as an unlit patch of street; check_topdown.gd's wall lane measures the faces
+	# lifted out of this colour against every floor that can touch them.
+	"wall": Color("#6b5a45"),
+	# Glass reflects a sky, so it is the one cool thing on a warm street — the entry that says
+	# what the mood is by being the exception to it. The rim is the sash around it, darker than
+	# the pane the renderer lightens out of the glass colour, because a rim the pane's own value
+	# is invisible (check_weather.gd's separation bound is the arithmetic).
 	"window": Color("#6b8794"),
 	"windowRim": Color("#5f7480"),
-	"screen": Color("#3f4a3b"),
-	"low": Color("#484a4d"),
+	"screen": Color("#454a37"),
+	"low": Color("#524d47"),
 	"player": Color("#e8d7a0"),
 	"survivor": Color("#b9a97f"),
 	# The floor under a raider archetype that declares no appearance. Content overrides it -- both
@@ -32,10 +55,10 @@ const COLOURS: Dictionary = {
 	# not something a look across a street is supposed to tell you.
 	"raider": Color("#a2705a"),
 	"wanderer": Color("#6f8f6a"),
-	"glimpse": Color("#4a5a48"),
+	"glimpse": Color("#525a44"),
 	# Findable but no longer a gold coin on wet asphalt: check_weather.gd holds this from both
-	# sides — muted under its value ceiling, and still clearing the brightest ground tint by a
-	# named margin, so a future tune cannot sink an item into the pavement.
+	# sides — under its saturation and value ceilings, and still clearing the brightest ground
+	# tint by a named margin, so a future tune cannot sink an item into the pavement.
 	"groundItem": Color("#a89a70"),
 	"groundItemEdge": Color("#4a3f22"),
 	"outline": Color("#8b93a0"),
@@ -45,30 +68,36 @@ const COLOURS: Dictionary = {
 	# warm board colour by INDOOR_MIX, which is what makes a shell read as a room from outside it.
 	# The threshold is the door tile the generator recorded in map.buildings[].doors -- a walkable
 	# Floor in a wall run, invisible until it was drawn as worn boards between two jambs.
-	"indoorFloor": Color("#5a4c3c"),
-	"threshold": Color("#6a5844"),
+	"indoorFloor": Color("#6a5540"),
+	"threshold": Color("#6f5a44"),
 	# The floor under a prop whose content declares no tint. Every shipped prop declares one
 	# (prop.schema.json makes tint required), so this is the colour of a content mistake --
 	# deliberately drab and deliberately visible, never a thing to rely on.
-	"prop": Color("#5a5148"),
-	"memory": Color("#3d4a3c"),
-	"background": Color("#1b1c1e"),
-	"night": Color("#060a1a"),
+	"prop": Color("#6a5c4c"),
+	"memory": Color("#454a38"),
+	# The cool near-black the warm district sits in. Not a neutral dark and not a cheaper black:
+	# these two are the *only* large areas allowed to go cold, and check_road_look.gd's cool family
+	# pins them there, which is what makes a lit street read as lit rather than as merely brighter.
+	"background": Color("#15141f"),
+	"night": Color("#090820"),
 	# The road dressing (presentation/road_paint.gd): worn lane paint, translucent so the asphalt
 	# shows through; the kerb line where pavement meets ground; the sidewalk slab that replaces
 	# the outermost rows of a wide street. check_road_look.gd's palette lane holds their ordering
 	# — paint brightest of the road family, sidewalk over asphalt over background.
-	"roadPaint": Color("#8e8d848c"),
-	"kerb": Color("#6d6f6e"),
-	"sidewalk": Color("#5c5e60"),
+	"roadPaint": Color("#a99a7c8c"),
+	"kerb": Color("#6b645b"),
+	"sidewalk": Color("#5e5852"),
 	# The screen's own marks, as opposed to the district's: the line a shape with no front uses
 	# to say where it is looking, the aim cone's sway readout, and the rain. All three were
-	# near-white literals inside the draw loop and read as the brightest things on an overcast
-	# street; they are keys now so check_weather.gd's property bounds can hold them muted and a
-	# revert to the bright grade is caught rather than noticed. Eight-digit hex is RGBA — the
-	# alpha is part of the colour, because these are washes over the world, not fills of it.
+	# near-white literals inside the draw loop and read as the brightest things in the district;
+	# they are keys now so check_weather.gd's property bounds can hold them quiet and a revert to
+	# the bright grade is caught rather than noticed. The first two carry a little of the warm
+	# grade so a mark does not read as a cold cutout over a warm street; the rain keeps its cool
+	# cast, because rain is weather and weather belongs to the sky, not to the district. Eight-digit
+	# hex is RGBA — the alpha is part of the colour, because these are washes over the world, not
+	# fills of it.
 	"facing": Color("#cfccc08c"),
-	"aimCone": Color("#b9c2c94d"),
+	"aimCone": Color("#c9c2b04d"),
 	"rain": Color("#c2c9cf21"),
 }
 # (Two deletion batches live in this file's history rather than its text. `COLOUR_HEX`,
@@ -89,6 +118,10 @@ const COLOURS: Dictionary = {
 # Undergrowth gets a colour of its own rather than borrowing the screen tile's: they coincide
 # often (docs/24 puts undergrowth under every screening tile) but they are different layers,
 # and a green a shade denser than grass is what says "this is the slow way" on sight.
+#
+# tools/sprites/palette.py holds a HARD COPY of these five as `SURFACE_TINTS`, because that
+# package cannot read GDScript and its import-time ground guards need the numbers. The copy and
+# this table move in the same commit or the guard lies about a district nobody is drawing.
 const SURFACE_TINTS: Array[Color] = [
 	COLOURS["floor"], # Paved
 	COLOURS["dirt"],
@@ -118,11 +151,12 @@ const INDOOR_MIX: float = 0.62
 # can put against it, which is what keeps a blocked tile from reading as an unlit walkable one.
 # check_topdown.gd's wall lane measures exactly that, against every surface tint and its indoor
 # mix, rather than trusting these four numbers to have been chosen carefully.
-# WALL_FACE_DIM went 0.04 -> 0.07 with the overcast regrade: the grounds all rose (a threshold
-# tile mixes to 0.329 luma where the old table's brightest ground sat far lower), and the shaded
-# face has to clear the brightest of them by check_topdown's FACE_DIM_MARGIN or a wall's south
-# and east edges vanish into a doorway. A value retune under that lane's arbitration, not an
-# assertion change.
+# WALL_FACE_DIM went 0.04 -> 0.07 when the grounds first rose off the oracle's near-black, and it
+# held through the warm regrade without moving: the brightest ground a wall can touch is the
+# threshold blend at luma 0.339, and the shaded face clears it by 0.067 against a FACE_DIM_MARGIN
+# of 0.04 (the lit face by 0.125 against 0.08). If a future regrade eats those margins the fix is
+# to bring `threshold`/`indoorFloor` down, under that lane's arbitration -- never to widen the
+# assertion.
 # The zoom at and above which a floor tile draws its atlas cell (Appearance.ground_cell) rather
 # than its flat tint. At 16 px a tile the texture is noise, so the flat tint stays the look
 # there; a member of CameraUtil.ZOOM_STEPS on purpose, and check_road_look.gd asserts it.
@@ -134,17 +168,22 @@ const WALL_FACE_DIM: float = 0.07
 const WALL_FACE_SHARE: float = 0.17
 
 # The warm tint a lit pool is painted with, in two alphas split at POOL_SPLIT_METRES of remaining
-# reach -- rgb(255, 214, 140), the frozen renderer's light overlay, unchanged. **One** warm tint
-# for every source this slice: a candle, a campfire and a floodlight all paint the same colour and
-# differ only in how far the pool reaches. Per-source tint from content (`light: {tint}` beside
-# `light: {magnitude}`) is the named follow-up in docs/23 -- it is a content axis, not a branch to
-# grow in the draw loop, so it waits for the content shape rather than for an `if id ==` here.
-const LIGHT_POOL_NEAR: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.20)
-const LIGHT_POOL_FAR: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.09)
+# reach -- rgb(255, 204, 122), a step deeper and a step stronger than the frozen renderer's
+# rgb(255, 214, 140). The warm-dark-fantasy grade puts a cool near-black around the district, so
+# lamplight is now the thing that says where the district *is* rather than a nicety on top of it:
+# check_weather.gd's accent lane pins the pools warm at r - b >= 0.35 (these clear it at 0.52) and
+# still thin at alpha <= 0.25, so a pool stays a wash over the world and never a fill of it.
+# **One** warm tint for every source this slice: a candle, a campfire and a floodlight all paint
+# the same colour and differ only in how far the pool reaches. Per-source tint from content
+# (`light: {tint}` beside `light: {magnitude}`) is the named follow-up in docs/23 -- it is a
+# content axis, not a branch to grow in the draw loop, so it waits for the content shape rather
+# than for an `if id ==` here.
+const LIGHT_POOL_NEAR: Color = Color(1.0, 0.80, 0.48, 0.24)
+const LIGHT_POOL_FAR: Color = Color(1.0, 0.80, 0.48, 0.11)
 # The same two tints for the O-key light channel, which is a developer overlay rather than the
 # look: it is being read as a diagram, so it is loud enough to see against a sunlit street.
-const LIGHT_POOL_NEAR_OVERLAY: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.45)
-const LIGHT_POOL_FAR_OVERLAY: Color = Color(1.0, 214.0 / 255.0, 140.0 / 255.0, 0.22)
+const LIGHT_POOL_NEAR_OVERLAY: Color = Color(1.0, 0.80, 0.48, 0.45)
+const LIGHT_POOL_FAR_OVERLAY: Color = Color(1.0, 0.80, 0.48, 0.22)
 
 # The aim cone is drawn twice from one colour: the arc at the key's own alpha (it is the
 # readout) and the two edge rays a shade quieter (they only say where it stops). A second key
