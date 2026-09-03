@@ -49,19 +49,20 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
   holds; `presentation/camera.gd`'s `ART_NATIVE` is the engine's, and the two gates cross-check). `godot/assets/sprites/README.md` is the
   authority; `build.py` refuses anything else before it writes, and `check_appearance.gd` refuses
   it again from the engine side.
-- **Muted, always.** Every colour goes through `palette.clamp`: saturation ≤ 0.35, value in
-  [0.12, 0.80]. docs/30's reference mood is not a thing to remember, it is a thing the module
-  enforces. *(That mood is the overcast one, superseded 2026-09-03 by the warm dark-fantasy
-  palette of the Dungeon Settlers look; the palette slice of that arc replaces this one clamp
-  with three named families — muted, timber, accent — and re-pins every band from a measured
-  table. Until it lands the module enforces the old cap on purpose: a colour that passes here
-  today is not evidence about the new mood.)*
+- **In its family, always.** Every colour goes through `palette.clamp` under a named family —
+  `muted` (S ≤ 0.30, V in [0.12, 0.72]: cloth, stone, glass, concrete, litter, the achromatic
+  colonist rig — the manufactured and the worn-out), `timber` (S ≤ 0.45, V in [0.15, 0.80]:
+  skin, sawn wood, rot, the zombie roster's flesh), `accent` (S ≤ 0.85, V in [0.30, 0.95]:
+  fire, and nothing else so far) — and `clamp` and `ramp` default to `muted`, the tightest, so
+  a call that names no family gets the strictest answer. docs/30's warm dark-fantasy mood (the
+  Dungeon Settlers look, 2026-09-03) is not a thing to remember, it is a thing the module
+  enforces; the overcast grade's single 0.35 ceiling is what this replaced.
 - **It has to read against the ground.** A body-forming ramp's mid tone must clear the brightest
   surface tint the district can draw by `GROUND_CONTRAST` in luminance, or importing `palette`
-  raises. `SURFACE_TINTS` here is a hard copy of `presentation/palette.gd`'s, because Python
-  cannot read GDScript — regrading the ground means editing both **in the same commit**, and a
-  stale copy makes the guard lie. Tells drawn *inside* a silhouette (a strap on cloth) are exempt
-  and say so in `GROUND_FACING`.
+  raises. `SURFACE_TINTS` (and `PAINT_TINTS`, the two paint rows) here are hard copies of
+  `presentation/palette.gd`'s, because Python cannot read GDScript — regrading the ground means
+  editing both **in the same commit**, and a stale copy makes the guard lie. Tells drawn
+  *inside* a silhouette (a strap on cloth) are exempt and say so in `GROUND_FACING`.
 - **Light comes from the top-left**, matching `main.gd::_draw_bevelled_box` — `light_top_left`.
   Two exceptions, each with a reason: the player's rotating rig is shaded radially, because a
   directional bake on a body that spins claims the sun swings round the district when the player

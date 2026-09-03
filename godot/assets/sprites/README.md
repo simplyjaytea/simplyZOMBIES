@@ -52,7 +52,7 @@ for the tree. The pawn convention, stated now so the slice authors to it:
   and do not bake a shadow in.
 - **One authoring convention: true overhead** (2026-09-01 owner directive; docs/30, the art
   decision's dated entry). Crown, shoulders, forearms forward, 1 px near-black inward outline,
-  desaturated mid-tones through `tools/sprites/palette.py`'s clamp. The two remaining splits
+  mid-tones through `tools/sprites/palette.py`'s family clamps. The two remaining splits
   are **shading** — radial on the rotating player, NW top-left on everything static
   (`Canvas.nw_shade`) — and **rotation**, which stays the player's alone: every other rig draws
   unrotated, so its painted front is a lie about heading and the sim's indicator line carries

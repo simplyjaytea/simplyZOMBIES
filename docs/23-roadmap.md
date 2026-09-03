@@ -228,16 +228,9 @@ style-B pick of 2026-09-01 for the bodies and the mood; the plan is
 slices 1–2). The pieces below are in the order they land, each one session, each with its gate
 red both ways and its record. The reference's HUD — portraits, bars, numbers, name plates — is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided is
-not shipped**: until the palette and pawn pieces land, the code still draws the overhead
-rotating rig under the overcast clamp, and its comments say so on purpose.
+not shipped**: the palette piece landed 2026-09-03; until the pawn piece lands, the code still
+draws the overhead rotating rig, and its comments say so on purpose.
 
-- **The palette turns warm.** `palette.gd`'s table and `palette.py`'s copies move together to
-  a cool near-black dark around warm timber, dirt and stone, with the campfire's ember as a
-  saturated accent; the generator's one clamp becomes three named families (muted, timber,
-  accent), the road lane's palette clause gains warm and cool family predicates and moves its
-  one saturation cap 0.25 → 0.30, the weather lane's pool pin tightens, and every other margin
-  is re-measured and printed rather than moved. `RoadPaint.VARIATION_MAX` 0.025 → 0.01 lands
-  here (the owner's call, 2026-09-03, from the ground slice's zoom-64 picture). No chain change.
 - **Bodies stand up.** Eight rigs re-authored as face-on pawns on a 32×48 feet-anchored canvas
   (`Appearance.canvas_of` learns the shape; `anchor_of` derives the anchor from it), blitted
   through a pure `body_rect` whose soles sit on the contact shadow's own offset and mirrored by
@@ -2005,6 +1998,65 @@ not a to-do list:
   The same day the owner moved the art direction to Dungeon Settlers (docs/30, "The Dungeon
   Settlers look"); the record was turned first, in a docs-only commit, so that a reader between
   that decision and its first code slice can tell what is decided from what ships.
+- ~~The palette turns warm~~ **landed** (no new gate — `ROAD_LOOK_OK`'s PALETTE lane rewritten
+  with two new properties, `WEATHER_OK`'s pool pin tightened, `TOPDOWN_OK`'s WALL line and
+  `APPEARANCE_OK`'s GREY line printing their margins; slice 3 of the Dungeon Settlers arc,
+  docs/30 "The Dungeon Settlers look", the palette clause). The first code slice under the
+  2026-09-03 decision, and the cheapest: every later screenshot is judged in the right mood.
+  **The table** (`palette.gd`, twenty keys moved, eleven untouched): the five surfaces go from
+  neutral-cool greys to warm earth — floor `#3f4143` → `#474240`, dirt `#524e40` → `#584e40`,
+  grass `#4e5442` → `#4f5440`, undergrowth `#46503d` → `#414a37`, rubble `#4a4644` →
+  `#4e4a46` — the built mass from concrete to timber (wall `#55575c` → `#6b5a45`, indoorFloor
+  `#5a4c3c` → `#6a5540`, threshold `#6a5844` → `#6f5a44`, prop `#5a5148` → `#6a5c4c`), the
+  road family with it (sidewalk `#5e5852`, kerb `#6b645b`, roadPaint `#a99a7c8c`), the two
+  darks the district sits in the *other* way — background `#1b1c1e` → `#15141f`, night
+  `#060a1a` → `#090820`, the one place the table is allowed to go cold — and the lamp pools
+  from rgb(255, 214, 140) to rgb(255, 204, 122) at alpha 0.24/0.11. Glass, its rim, the
+  ground item, the facing line, the rain and every role colour stay where the weather slice
+  put them; `aimCone` takes a warm cast (`#c9c2b04d`). **What holds it** is the sentence that
+  made the pivot affordable — the mood is enforced by properties, not remembered — with the
+  properties changed from "muted" to "warm, and cool only where the dark is": PALETTE gains
+  `WARM_MARGIN 0.02` with `_warm_ok` (r − b ≥ 0.02) over the five surfaces and thirteen
+  district keys and `_cool_ok` (b − r ≥ 0.02) over background, night, window and windowRim;
+  the one band that moves is the surface saturation cap, 0.25 → 0.30 (dirt measures S 0.273
+  — the plan's "≈ 0.33" was an estimate — and 0.30 is as far as ground goes and stays
+  ground); paved V stays in [0.20, 0.40] (0.278), sidewalk > paved > background and
+  roadPaint-brightest stand, pairwise RGB distance ≥ 0.02 (thinnest 0.042, dirt/grass).
+  Measured margins, printed by the lane: thinnest warm floor +0.027, thinnest cool
+  background +0.039. The whole overcast table is refused in one line by the warmth property
+  — five of its "warm" keys were literally cool (wall r − b = −0.027) — and the old grass,
+  the cave floor, a warm background and the neutral `#4a4a4a` (both margins exactly zero)
+  are refused through the same predicates. ACCENT's `_pool_warm_ok` becomes a floor, r − b ≥
+  0.35 (the pools clear it at 0.52; a near-white pool at 0.08 is refused); groundItem's
+  readability floor re-measures at V 0.659 over dirt's 0.345 + 0.15. WALL: nothing moves; lit
+  face +0.125 over the brightest ground (the threshold blend, luma 0.339) against 0.08, the
+  shaded face +0.067 against 0.04, both printed now. **The generator** (`palette.py`) trades
+  its one clamp for three named families — muted S ≤ 0.30, V [0.12, 0.72]; timber S ≤ 0.45,
+  V [0.15, 0.80]; accent S ≤ 0.85, V [0.30, 0.95] — with `clamp` and `ramp` defaulting to the
+  tightest so an un-migrated call gets the strictest answer; skin, wood, rot, the bloater and
+  the screamer are timber, the ember is the one accent (`#c8a189` → `#e07b2a`, the torch
+  orange, shipped as authored: S 0.81 and V 0.88 sit inside the family), everything
+  manufactured is muted. `SURFACE_TINTS`/`PAINT_TINTS` hard copies move in the same commit;
+  brightest ground luma 0.3193 → 0.3196 (grass both times), so `GROUND_CONTRAST 0.10` and
+  `_EITHER 0.08` hold with no ramp base moved (raider drab +0.142, fatigue +0.127, car_burnt
+  0.093 either side). Thirteen PNGs regenerated — the atlas re-pins itself to the new copies
+  and TEXTURE passes on it; the lit campfire, the bed, the colonist, the screamer, the
+  bloater, seven car segments — and `sprites:check` counts 30 keys. `RoadPaint.VARIATION_MAX`
+  0.025 → 0.01 lands here, the owner's call closing the ground slice's finding; VARIATION
+  still counts 637 distinct values. **One measured consequence, left for the owner**: the
+  muted family's 0.72 value ceiling clamps the colonist rig's top three greys together
+  (`#b8b8b8`), so its median grey falls 0.7569 → 0.6941 and GREY's tightest composed margin
+  (`colony.look.05`, `#b58a63`) from +0.049 to **+0.013** — passing, and thin; `screamer_pale`
+  and `litter` flatten the same way. The fixes, if wanted, are the ceiling (0.75 restores
+  about +0.036) or the tint in content, never `GREY_CLEARANCE`; the pawn slice re-authors
+  every rig and re-measures this anyway. **Sabotage, each red as named**: the five surface
+  hexes reverted in `palette.gd` → PALETTE red on the warmth property and TEXTURE red on the
+  atlas mean; `SURFACE_TINTS` reverted in `palette.py` alone → `sprites:check` red (the atlas
+  regenerates around the stale copy); `WARM_MARGIN` set to 0 → the neutral-grey negative
+  trips; the pool pin back to a sign test → the near-white negative trips. Nothing under
+  `godot/sim/` moved; the FAST lines are byte-identical to slice 2's. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice3-street-day-64.png`,
+  `slice3-street-night-64.png`, `slice3-interior-64.png`, `slice3-ladder-32.png`.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

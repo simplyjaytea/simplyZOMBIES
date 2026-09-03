@@ -1,10 +1,10 @@
 extends SceneTree
 # The ground and road dressing: the street manifest the generator now carves alongside its
 # streets (`map.streets`), the draw-time paint resolved from it (presentation/road_paint.gd),
-# the overcast palette regrade the docs/30 art decision asked for, and the rubble pass -- the
-# tenth worldgen pass, closing the "rubble is never placed" debt entry. Seven lanes, every
-# assertion with a true positive and a true negative, because a gate that cannot fail is worse
-# than no gate:
+# the warm dark-fantasy palette regrade the docs/30 art decision asked for, and the rubble
+# pass -- the tenth worldgen pass, closing the "rubble is never placed" debt entry. Seven
+# lanes, every assertion with a true positive and a true negative, because a gate that cannot
+# fail is worse than no gate:
 #
 #   1. the manifest tells the truth -- exactly, on the pure layout; by a measured majority, on
 #      the finished map the annex stamp and the terrain pass have legitimately worn through;
@@ -13,7 +13,8 @@ extends SceneTree
 #   3. paint lands on streets and nowhere else, junctions read worn, narrow streets get kerbs
 #      only, and a map with no manifest draws nothing;
 #   4. the ground variation is deterministic and alive -- a hash, deliberately not a stream;
-#   5. the palette holds the overcast mood by property, and provably refuses the old table;
+#   5. the palette holds the warm dark-fantasy mood by property, and provably refuses the old
+#      table;
 #   6. the three dead sockets are wired: the draw loop reads the mask, the one mechanism that
 #      reads surfaces reads a placed rubble tile, and the rubble tint is resolved, not defined;
 #   7. rubble is placed, dressing-only, and only ever on outdoor open Floor (the `_footing`
@@ -667,17 +668,45 @@ func _variation_is_deterministic_and_alive() -> bool:
 # Properties, not hexes, so the owner can tune by screenshot inside the bounds and a revert to
 # the pre-regrade table is caught mechanically. One deliberate divergence from the slice spec's
 # sketch: the sketch floored *pairwise V-distance* at 0.02, but the authored table separates
-# dirt, grass and undergrowth by hue at near-equal value -- muted overcast, on purpose -- so the
-# distinctness floor is on RGB distance instead, which still reds two-identical tints and does
-# not outlaw the mood the regrade exists to hit.
+# dirt, grass and undergrowth by hue at near-equal value -- warm and low-key, on purpose -- so
+# the distinctness floor is on RGB distance instead, which still reds two-identical tints and
+# does not outlaw the mood the regrade exists to hit. The mood itself is warmth held by
+# property too: a cool near-black dark around a warm-lit district, so WARM_MARGIN pins r - b (or
+# b - r for the dark) rather than a hue pin that would refuse every tune inside the mood along
+# with every one outside it.
 const PAIR_DISTANCE_MIN: float = 0.02
+const WARM_MARGIN: float = 0.02
+
+# The district's own surfaces, walls, props and screen marks -- everything the warm-lit street
+# is built from. Judged with _warm_ok (r - b >= WARM_MARGIN), together with all five ground
+# tints in Palette.SURFACE_TINTS below.
+const WARM_FAMILY: Array[String] = [
+	"sidewalk", "kerb", "threshold", "indoorFloor", "wall", "roadPaint", "prop", "low",
+	"screen", "tree", "groundItem", "glimpse", "memory",
+]
+# The dark the district sits inside: the night, the background behind it, and the one district
+# surface meant to read as glass rather than as ground. Judged with _cool_ok (b - r >=
+# WARM_MARGIN).
+const COOL_FAMILY: Array[String] = ["background", "night", "window", "windowRim"]
+
+# The five ground tints, named to match Palette.SURFACE_TINTS' order, for the warm-family print
+# below -- SURFACE_TINTS itself carries no names, only an index.
+const SURFACE_NAMES: Array[String] = ["floor", "dirt", "grass", "undergrowth", "rubble"]
 
 func _sat_ok(c: Color) -> bool:
-	return c.s <= 0.25
+	return c.s <= 0.30
 
 
 func _paved_value_ok(c: Color) -> bool:
 	return c.v >= 0.20 and c.v <= 0.40
+
+
+func _warm_ok(c: Color) -> bool:
+	return c.r - c.b >= WARM_MARGIN
+
+
+func _cool_ok(c: Color) -> bool:
+	return c.b - c.r >= WARM_MARGIN
 
 
 func _rgb_distance(a: Color, b: Color) -> float:
@@ -687,7 +716,7 @@ func _rgb_distance(a: Color, b: Color) -> float:
 func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 	for s in Palette.SURFACE_TINTS.size():
 		if not _sat_ok(Palette.SURFACE_TINTS[s]):
-			push_error("surface tint %d has saturation %.3f, over the 0.25 overcast cap" % [s, (Palette.SURFACE_TINTS[s] as Color).s])
+			push_error("surface tint %d has saturation %.3f, over the 0.30 warm-mood cap" % [s, (Palette.SURFACE_TINTS[s] as Color).s])
 			return false
 	var paved: Color = Palette.SURFACE_TINTS[SimSurface.Surface.Paved]
 	if not _paved_value_ok(paved):
@@ -703,26 +732,74 @@ func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 		if road_paint.v <= (Palette.COLOURS[member] as Color).v:
 			push_error("roadPaint (%.3f) is not brighter than %s (%.3f); worn markings must read against the whole road family" % [road_paint.v, member, (Palette.COLOURS[member] as Color).v])
 			return false
+	var min_pair: float = INF
 	for a in Palette.SURFACE_TINTS.size():
 		for b in range(a + 1, Palette.SURFACE_TINTS.size()):
 			var d: float = _rgb_distance(Palette.SURFACE_TINTS[a], Palette.SURFACE_TINTS[b])
+			min_pair = minf(min_pair, d)
 			if d < PAIR_DISTANCE_MIN:
 				push_error("surface tints %d and %d sit %.4f apart in RGB; two grounds you cannot tell apart are one ground" % [a, b, d])
 				return false
 
+	# Warmth and coolness, held the same way as saturation and value above: a measured margin,
+	# not a hex pin, so a tune stays legal inside the mood and a creep toward neutral shows up in
+	# the thinnest margin before it goes grey.
+	var warm_min: float = INF
+	var warm_min_key: String = ""
+	for si in Palette.SURFACE_TINTS.size():
+		var sc: Color = Palette.SURFACE_TINTS[si]
+		var smargin: float = sc.r - sc.b
+		if smargin < warm_min:
+			warm_min = smargin
+			warm_min_key = SURFACE_NAMES[si]
+		if not _warm_ok(sc):
+			push_error("ground %s has r - b = %.4f, under WARM_MARGIN %.2f; it has cooled out of the district" % [SURFACE_NAMES[si], smargin, WARM_MARGIN])
+			return false
+	for key in WARM_FAMILY:
+		var wc: Color = Palette.COLOURS[key] as Color
+		var wmargin: float = wc.r - wc.b
+		if wmargin < warm_min:
+			warm_min = wmargin
+			warm_min_key = key
+		if not _warm_ok(wc):
+			push_error("%s has r - b = %.4f, under WARM_MARGIN %.2f; it has cooled out of the district" % [key, wmargin, WARM_MARGIN])
+			return false
+	var cool_min: float = INF
+	var cool_min_key: String = ""
+	for key2 in COOL_FAMILY:
+		var cc: Color = Palette.COLOURS[key2] as Color
+		var cmargin: float = cc.b - cc.r
+		if cmargin < cool_min:
+			cool_min = cmargin
+			cool_min_key = key2
+		if not _cool_ok(cc):
+			push_error("%s has b - r = %.4f, under WARM_MARGIN %.2f; the dark has warmed into the district" % [key2, cmargin, WARM_MARGIN])
+			return false
+
 	# The built-in true negative: the exact table this regrade replaced must fail these
 	# properties, or a quiet revert would pass the lane that exists to catch it. #1a1c1f is the
-	# old floor (value 0.12, under the paved floor); #1b2a1b the old grass (saturation 0.36,
-	# over the overcast cap).
+	# old floor (value 0.12, under the paved floor); #1b2a1b the old grass (saturation 0.36, over
+	# the warm-mood cap); #3f4143 the old floor again, now judged for warmth; #2a1f18 a warm
+	# background; #4a4a4a a neutral grey that must fail both family pins at once, at exactly zero.
 	if _paved_value_ok(Color("#1a1c1f")):
 		push_error("the old floor #1a1c1f passes the paved value band; a revert to the cave grade would not be caught")
 		return false
 	if _sat_ok(Color("#1b2a1b")):
 		push_error("the old grass #1b2a1b passes the saturation cap; a revert to the saturated grade would not be caught")
 		return false
+	if _warm_ok(Color("#3f4143")):
+		push_error("the old overcast floor #3f4143 passes the warm pin; the whole overcast table would slip back in on this one line")
+		return false
+	if _cool_ok(Color("#2a1f18")):
+		push_error("a warm background #2a1f18 passes the cool pin; the dark would stop reading as dark")
+		return false
+	var neutral := Color("#4a4a4a")
+	if _warm_ok(neutral) or _cool_ok(neutral):
+		push_error("neutral grey #4a4a4a passes a family pin; the margin is a strict floor, not a sign test")
+		return false
 
-	print("PALETTE OK 5 surface tints under S 0.25, paved V %.2f in [0.20, 0.40], sidewalk > paved > background, roadPaint brightest of the family, pairwise RGB >= %.2f; the pre-regrade floor and grass both refused" % [
-		paved.v, PAIR_DISTANCE_MIN,
+	print("PALETTE OK 5 surface tints under S 0.30, paved V %.2f in [0.20, 0.40], sidewalk > paved > background, roadPaint brightest of the family, pairwise RGB >= %.2f (min %.4f); warm family r-b >= %.2f (thinnest %s +%.4f), cool family b-r >= %.2f (thinnest %s +%.4f); the pre-regrade table refused throughout" % [
+		paved.v, PAIR_DISTANCE_MIN, min_pair, WARM_MARGIN, warm_min_key, warm_min, WARM_MARGIN, cool_min_key, cool_min,
 	])
 	return true
 

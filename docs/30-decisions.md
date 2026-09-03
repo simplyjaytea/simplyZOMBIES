@@ -1910,11 +1910,27 @@ this stands on. Twelve decisions, recorded once here, each paid for in the slice
 12. docs/00's depth-sort reversal — not reopened; the entity sort was always there.
 
 **What ships today versus what is decided** is the distinction every reader between this entry
-and the pawn slice needs: the code, its comments and the schema descriptions still describe the
-overhead rotating rig and the overcast clamp, because they still do that, and each moves with
-its own slice. The sprite READMEs carry the same split under dated headings. Anyone reading
-"only the player rotates" in a comment should read this entry before "fixing" it in either
-direction.
+and the pawn slice needs: the palette slice landed the same day (its clause closes this entry),
+and the code, its comments and the schema descriptions still describe the overhead rotating
+rig, because they still do that, and it moves with its own slice. The sprite READMEs carry the
+same split under dated headings. Anyone reading "only the player rotates" in a comment should
+read this entry before "fixing" it in either direction.
+
+**Paid for, the palette slice (2026-09-03) — the mood is warm dark fantasy: a cool near-black
+dark around a warm-lit district, held by warmth and value, not mutedness.** The property that
+holds it is a sign with a margin: every district surface, wall, paint, prop and memory tint is
+warmer than it is cool (r − b ≥ 0.02), and the two darks the district sits in plus the glass
+are the other way round (b − r ≥ 0.02) — the old overcast table is refused by that one line,
+five of its keys being literally cool. Saturation keeps a ceiling on the ground (0.30, moved
+from 0.25 for the dirt, the one band the slice moved) because a bright lawn is not this world,
+but it is no longer the thing doing the work. The generator's clamp becomes three families —
+muted, timber, accent — and the default is the tightest, so an un-migrated call cannot loosen
+the mood by omission. The one accent so far is fire: the campfire's ember ships at the torch
+orange as authored, because this document's clamp note always said the one thing allowed past
+the ceiling is a light source, and the warm grade takes it at its word. Every other margin —
+the wall faces, the ground item, the composed colonist grey, the ramps' ground clearance — was
+re-measured and printed rather than moved; docs/23's record carries the numbers, and the one
+thin one (the colonist grey at +0.013) is named there as the owner's to widen.
 
 ---
 

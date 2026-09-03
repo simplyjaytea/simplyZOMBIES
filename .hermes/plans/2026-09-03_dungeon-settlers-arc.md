@@ -258,6 +258,10 @@ grid"; specs in `.hermes/plans/2026-09-02_reference-look-arc.md`, records in doc
 
 ## Slice 3 — "The palette turns warm"
 
+**Landed 2026-09-03** as written; the measured numbers are in docs/23's record. One fact was
+an estimate: dirt measures S 0.273, not ≈ 0.33; the 0.30 cap stands on it. One consequence
+the owner has not ruled on: the muted 0.72 ceiling thins the GREY margin to +0.013.
+
 **Step 0.** Re-arm the PR check-in. Then `road_paint.gd` `VARIATION_MAX 0.025 → 0.01` (the
 VARIATION lane's bound follows it and still demands ≥ 2 distinct values; run `godot:check:road`).
 
