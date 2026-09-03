@@ -485,6 +485,16 @@ black, never where the sim can see."*
 
 ## Slice 6 — "The ground has edges" (ROAD_LOOK_OK +1 lane)
 
+**Landed 2026-09-03**, with one deviation from the text below, decided by measurement: the
+edge cells live in the ground atlas's columns 4–11 rather than on a `ground_edges.png` of their
+own, because a second texture between two floor blits breaks the 2D batch (two thousand region
+blits from one texture are one draw call; alternating two textures, two thousand) and the atlas
+costs no draw call at all — measured 1,410 / 672 / 251 at zoom 16 / 32 / 64 with and without
+the edges. So `canvas_of(GROUND_ATLAS_KEY)` is `((GROUND_VARIANTS + EDGE_SHAPES) * n, 7n)`,
+`edge_cell` addresses the atlas and there is no `ground_edges()` texture. The zoom-16 count is
+the wall slice's per-material textures, named on what's-left. The art was again authored by the
+integrating session after the API refused the art worker.
+
 **Rule: the darker surface wins the edge, drawn once, onto the lighter tile.** One sheet
 `ground_edges.png`, `canvas_of("ground_edges") = (8n, 7n)` = 256×224: rows the seven
 `GroundRow`s, columns `enum EdgeShape { N, E, S, W, NE, SE, SW, NW }` (sides and outer

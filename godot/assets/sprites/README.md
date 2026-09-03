@@ -95,9 +95,10 @@ art" below.
 ## The ground atlas — the one table of tiles
 
 `ground_atlas.png` is the one file that is not a single tile: **4 variants across × 7 rows
-down** of `ART_NATIVE` cells (128×224 at 32), rows `paved, dirt, grass, undergrowth, rubble,
-sidewalk, boards` — the five surfaces in `SimSurface.Surface` order, then the two substitutions
-the draw loop makes (the sidewalk paint, the indoor board mix). Its size is an entry in
+down** of `ART_NATIVE` cells, then **8 edge cells** beside them (384×224 at 32), rows `paved,
+dirt, grass, undergrowth, rubble, sidewalk, boards` — the five surfaces in `SimSurface.Surface`
+order, then the two substitutions the draw loop makes (the sidewalk paint, the indoor board
+mix). Its size is an entry in
 `Appearance.canvas_of`, mirrored by `tools/sprites/build.py`'s `canvas_of`, and both canvas
 lanes in `check_appearance.gd` read that table; a second table shape is a line in each, not a
 new exception. The rules a cell is held to (`check_road_look.gd`'s TEXTURE lane, on the decoded
@@ -108,6 +109,20 @@ blit by `flat colour / row tint`, so a cell averages to exactly what the flat fi
 drawn, and the indoor mix, the sidewalk substitution and the position-hash variation all ride
 on top as tints. Which variant a tile draws is `Dressing.SALT_GROUND` hashed on the seed and
 the tile; never an RNG. Below zoom 32 the flat tint draws instead (`GROUND_TEXTURE_MIN_ZOOM`).
+
+**The edge cells** (columns 4–11, in `Appearance.EdgeShape` order N, E, S, W, NE, SE, SW, NW;
+`tools/sprites/parts/edges.py`) are the fifth authoring shape: a cell transparent except a
+ragged fringe on its named edge — 1–6 px deep, fading inward in four alpha steps, nothing past
+8 px from the edge, the row's tint under a ±0.02 value wobble; a corner cell a quarter-blob in
+its 8×8 corner. The rule that reads them (`Appearance.edge_shapes`, docs/30's edges clause):
+between two different grounds the **darker draws the edge, once, onto the lighter tile** —
+the lighter tile blits the darker neighbour's row in the shape of the side it lies on, and a
+corner only where neither of its sides already carries that boundary. No variants and no hash:
+raggedness comes from neighbours taking different shapes. They live in the atlas rather than on
+a sheet of their own because an edge blit follows the floor blit it lies on, and a second
+texture between two blits breaks the batch (measured, docs/23). `check_road_look.gd`'s EDGES
+lane holds every cell on the decoded pixels: mean within 0.03 of its tint over the pixels that
+count, coverage 20–60 % of its band, every pixel inside the band, the fade present.
 
 ## The pawn — upright, face-on, flipped
 

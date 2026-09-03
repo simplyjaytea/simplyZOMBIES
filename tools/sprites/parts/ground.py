@@ -42,11 +42,15 @@ from PIL import Image
 
 from draw import SIZE
 from palette import PAINT_TINTS, SURFACE_TINTS, to_rgb
+from parts import edges
 
 VARIANTS = "abcd"
 ROWS = ["paved", "dirt", "grass", "undergrowth", "rubble", "sidewalk", "boards"]
 
-SHEET_W = len(VARIANTS) * SIZE
+# Four variant columns, then the eight edge cells of `parts/edges.py` -- one texture, so an
+# edge blit batches with the floor blit it follows (the module docstring there has the
+# measurement). Mirrored by Appearance.canvas_of on the Godot side.
+SHEET_W = (len(VARIANTS) + len(edges.SHAPES)) * SIZE
 SHEET_H = len(ROWS) * SIZE
 
 # Row tint, one lookup that covers both source tables -- rows 0-4 are the ground surfaces
@@ -305,6 +309,12 @@ def ground_atlas():
                 for x in range(SIZE):
                     cr, cg, cb = cell[y][x]
                     px[oy + y][ox + x] = (cr, cg, cb, 255)
+        for e, shape in enumerate(edges.SHAPES):
+            cell = edges.edge_cell(name, shape)
+            ox, oy = (len(VARIANTS) + e) * SIZE, r * SIZE
+            for y in range(SIZE):
+                for x in range(SIZE):
+                    px[oy + y][ox + x] = cell[y][x]
     image.putdata([px[y][x] for y in range(SHEET_H) for x in range(SHEET_W)])
     return image
 
