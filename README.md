@@ -132,7 +132,7 @@ in text.
 
 A day is four hours at 1×, so press `3` and wait for dark.
 
-The view is flat top-down — RimWorld and Zero Sievert are the closest comparisons — and the
+The view is flat top-down — RimWorld and Dungeon Settlers are the closest comparisons — and the
 wheel zooms between a close-in read on your survivor and a wide look at the colony. The HUD reads
 in words rather than bars: what the district can sense of you sits in the top right, and a
 survivor with nothing wrong takes up almost no screen.

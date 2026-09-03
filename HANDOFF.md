@@ -14,7 +14,7 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-01
+## State, as of 2026-09-03
 
 Green, and verified this session rather than quoted: `npm run godot:m2` chains **42 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
@@ -82,10 +82,14 @@ When you add a mechanism, add the assertion that something reaches it.
 These are design calls. They have been measured, written up, and deliberately **not** decided.
 (Three long-standing items came off this list on 2026-09-01, decided by the owner: colony shape
 — a bigger colony, three at boot — and the `GRABS_ENABLED` flip, both landed together and closed
-in docs/23's flag record; and the top-down art style — **B, the rotating player**, picked from
-the built fixtures and a supplied reference image. docs/30's
-"The art style: B, picked from a reference" entry records that pick and its boundaries; the
-work it forces is docs/23's style-B reference arc.)
+in docs/23's flag record; and the top-down art style, picked 2026-09-01 as **B, the rotating
+player** and **superseded 2026-09-03 by the Dungeon Settlers look** — upright face-on pawns
+that flip, nobody rotates, a warm dark-fantasy palette, walls with a lit cap and a south face,
+roofs cut out where seen. docs/30's "The Dungeon Settlers look" entry records the twelve
+decisions and what each earlier clause becomes; the work it forces is docs/23's Dungeon
+Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. Until its pawn
+and palette slices land, the code still ships the overhead rotating rig and the overcast
+clamp, on purpose.)
 
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes

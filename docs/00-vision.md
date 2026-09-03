@@ -58,7 +58,7 @@ Four influences, and what each one contributes:
 | Influence | What we take | What we leave |
 |---|---|---|
 | **Project Zomboid** | Lethality, slow deliberate actions, injury depth, imperfect information, permadeath | Its map scale; the isometric view; z-levels and everything that needs them |
-| **RimWorld** | Colony job priorities, pawn traits and relationships, the storyteller/director, **the flat top-down view and pawns that read at a glance in it** (shared with Zero Sievert, whose grounded palette the art leans on) | Its comedy tone; its readiness to let you snowball |
+| **RimWorld** | Colony job priorities, pawn traits and relationships, the storyteller/director, **the flat top-down view and pawns that read at a glance in it** (the read Dungeon Settlers shares, whose upright pawns and warm dark palette the art follows since 2026-09-03; Zero Sievert's grounded palette was the model before) | Its comedy tone; its readiness to let you snowball |
 | **Tower defense** | Building fortifications that channel and kill, bait and routing as skill expression | Fixed wave timers and a build-phase/fight-phase split |
 | **Path of Exile** | Gear-as-build, rolled affixes, materials-as-currency, no classes | Its power curve, its speed, its economy |
 
@@ -86,6 +86,16 @@ Four influences, and what each one contributes:
 > untouched: the projection is still a change inside the presentation that the simulation cannot
 > observe (this sentence has now justified the change in both directions), and the z-level refusal
 > stands and gets cheaper — a flat view does not even tempt you to draw a second floor.
+>
+> **Amended (2026-09-03):** the view stays flat top-down; what changed is the *read* inside it.
+> The art now follows Dungeon Settlers rather than Zero Sievert: upright, face-on pawns that
+> flip rather than rotate, walls drawn with a lit cap and a one-tile south face, interiors
+> always in view, a warm dark-fantasy palette. The paragraph above is qualified, not reversed —
+> a wall face drawn inside its own tile is not the occlusion machinery that was deleted: it never
+> covers a walkable tile, no fade heuristic returns, and no *tile* is depth-sorted. Pawns, trees
+> and vehicles are y-sorted as sprites, the entity sort the flat view has had since this
+> reversal. docs/30's "The Dungeon Settlers look" entry carries the decisions and what each
+> earlier one becomes.
 
 ## What this game is **not**
 
