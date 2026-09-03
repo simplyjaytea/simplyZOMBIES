@@ -1909,12 +1909,12 @@ this stands on. Twelve decisions, recorded once here, each paid for in the slice
 11. "The ground is a texture whose mean is the palette" — stands, extends to the edge sheet.
 12. docs/00's depth-sort reversal — not reopened; the entity sort was always there.
 
-**What ships today versus what is decided** is the distinction every reader between this entry
-and the pawn slice needs: the palette slice landed the same day (its clause closes this entry),
-and the code, its comments and the schema descriptions still describe the overhead rotating
-rig, because they still do that, and it moves with its own slice. The sprite READMEs carry the
-same split under dated headings. Anyone reading "only the player rotates" in a comment should
-read this entry before "fixing" it in either direction.
+**What ships today versus what is decided** is the distinction every reader of this entry needs:
+the palette and pawn slices landed the same day (their clauses close this entry), so the table
+is warm and every body is a face-on pawn that flips; the walls, the edges, the trees, the worn
+look and the vehicles are still the old code, their comments say so, and each moves with its
+own slice. Anyone reading a comment that describes the old direction should read this entry
+before "fixing" it in either direction.
 
 **Paid for, the palette slice (2026-09-03) — the mood is warm dark fantasy: a cool near-black
 dark around a warm-lit district, held by warmth and value, not mutedness.** The property that
@@ -1931,6 +1931,24 @@ the ceiling is a light source, and the warm grade takes it at its word. Every ot
 the wall faces, the ground item, the composed colonist grey, the ramps' ground clearance — was
 re-measured and printed rather than moved; docs/23's record carries the numbers, and the one
 thin one (the colonist grey at +0.013) is named there as the owner's to widen.
+
+**Paid for, the pawn slice (2026-09-03) — a body is a face-on pawn standing on its own point;
+facing is a flip and a line, and nobody rotates.** The canvas is one tile wide and one and a
+half tall, anchored on the feet, and the anchor is derived from the shape — a square picture
+centres on its point, anything else stands on it — so the tree and vehicle sheets that follow
+are feet-anchored by construction rather than by a second list. The soles stand on the contact
+shadow's own three-pixel drop, one number read by both, so the shadow line and the sole line
+cannot drift apart. A body facing west is the same picture handed to the renderer in a
+negative-width rect (probed in 4.7.1 before it was written: the texture mirrors at position ..
+position + |width|, so the flipped rect keeps its left edge); the draw loop holds zero
+transforms and the flip lane counts them, proved on a fabricated body first. The indicator line
+comes back on for the player: a flip is a two-state readout of a continuous heading, and the
+line carries the exact facing for everybody. The rotation, its forward constant, its
+facing-line rule and the generator's radial shade are gone rather than stubbed. The rigs
+publish their skeleton — feet, leg top, shoulder, hand, head — as named constants, because the
+worn-look slice fits one gear overlay to all eight bodies on them; the three hand-authored
+overlays retire for generated ones on the pawn canvas, and nothing in the sprite directory is
+hand-authored any more.
 
 ---
 

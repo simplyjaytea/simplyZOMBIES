@@ -88,8 +88,8 @@ that flip, nobody rotates, a warm dark-fantasy palette, walls with a lit cap and
 roofs cut out where seen. docs/30's "The Dungeon Settlers look" entry records the twelve
 decisions and what each earlier clause becomes; the work it forces is docs/23's Dungeon
 Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. Its palette
-slice landed the same day; until its pawn slice lands, the code still ships the overhead
-rotating rig, on purpose.)
+and pawn slices landed the same day; walls, edges, trees, the worn look and the vehicles are
+still the old code, on purpose.)
 
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes

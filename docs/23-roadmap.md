@@ -227,19 +227,10 @@ style-B pick of 2026-09-01 for the bodies and the mood; the plan is
 `.hermes/plans/2026-09-03_dungeon-settlers-arc.md` (the 2026-09-02 plan stays as the record of
 slices 1–2). The pieces below are in the order they land, each one session, each with its gate
 red both ways and its record. The reference's HUD — portraits, bars, numbers, name plates — is
-explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided is
-not shipped**: the palette piece landed 2026-09-03; until the pawn piece lands, the code still
-draws the overhead rotating rig, and its comments say so on purpose.
+explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided lands
+piece by piece**: the palette and pawn pieces landed 2026-09-03; the walls, edges, trees, worn
+look and vehicles below are still the old code, and their comments say so on purpose.
 
-- **Bodies stand up.** Eight rigs re-authored as face-on pawns on a 32×48 feet-anchored canvas
-  (`Appearance.canvas_of` learns the shape; `anchor_of` derives the anchor from it), blitted
-  through a pure `body_rect` whose soles sit on the contact shadow's own offset and mirrored by
-  a negative width, never a transform; `body_rotation`, `SPRITE_FORWARD`, `wants_facing_line`,
-  the one transform in `_draw_entities` and the generator's radial shade all retire, and the
-  three hand-authored equip overlays are replaced by generated ones on the pawn canvas.
-  `TOPDOWN_OK`'s rotation lane becomes a flip lane (zero transforms, proved on a fabricated body
-  first). The rigs publish their skeleton rows as named constants, because the worn-look piece
-  fits one overlay to all eight bodies on them.
 - **Walls have thickness, roofs come off.** A per-tile facade rule (a wall whose south
   neighbour is open ground draws as a face carrying its window or door; adjacent doors read as
   one garage mouth) and a wall-face rule (a lit cap everywhere, a south face where the south
@@ -2057,6 +2048,86 @@ not a to-do list:
   `godot/sim/` moved; the FAST lines are byte-identical to slice 2's. **The pictures**, under
   `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice3-street-day-64.png`,
   `slice3-street-night-64.png`, `slice3-interior-64.png`, `slice3-ladder-32.png`.
+- ~~Bodies stand up~~ **landed** (no new gate — `TOPDOWN_OK`'s ROTATION lane becomes FLIP,
+  `APPEARANCE_OK`'s canvas lanes learn a second shape, GREY re-measured; slice 4 of the Dungeon
+  Settlers arc, docs/30 "The Dungeon Settlers look", the pawn clause). The pivot's headline: every
+  body is an upright, face-on pawn that flips, and nobody rotates, the player included. **The
+  canvas** is `Appearance.PAWN_CANVAS`, one tile wide by one and a half tall (32×48), feet-anchored
+  — the reference's own proportion (a person about 0.7 of a tile wide and 1.3 tall), three or four
+  pixels of side margin so the flip never clips, eight rows of headroom, and a blit height of 1.5 ×
+  zoom, an integer on every rung; a 64-tall canvas was refused for wasting 24 rows and overhanging a
+  full tile north. Eleven keys are on it (`PAWN_KEYS`: the eight rigs and the three gear overlays),
+  mirrored in `build.py`'s `CANVAS`, and both `check_appearance` canvas lanes judge them off the
+  table. **The anchor is the shape**: `Appearance.anchor_of(size)` answers Centre for a square
+  canvas and Feet for anything else — derived, never a second key list — so the tree and vehicle
+  sheets of the later slices stand on their points by construction. **The blit** is one pure
+  function, `Appearance.body_rect(sx, sy, size, flip)`: a feet-anchored picture's bottom row sits on
+  `FOOT_DROP_PX` (3.0, the contact shadow's own offset, now read by both the shadow and the rect so
+  the sole line and the shadow line are one number), a centred picture reproduces the old symmetric
+  rect exactly, and a body facing west is the same rect with a **negative width** — probed in 4.7.1
+  before a line was written: `draw_texture_rect` with a negative-width rect draws the texture
+  mirrored at position .. position + |width|, so the flipped rect keeps the unflipped one's left
+  edge (the plan's example had the position at the right edge; the probe corrected it). Exact at the
+  boot zoom: `body_rect(100, 100, (64, 96), +1) == Rect2(68, 7, 64, 96)`, flipped
+  `Rect2(68, 7, -64, 96)`, a square `Rect2(68, 68, 64, 64)`. `Appearance.body_flip(facing)` is −1
+  when cos(facing) < 0 and +1 otherwise — north, south and east all draw the one painted picture —
+  and every body flips: a glimpsed body never reaches the blit (the disc branch `continue`s first,
+  asserted as an index order), so the anonymity clause is untouched. The contact shadow is an
+  ellipse the body's width and a fifth as tall (`_shadow_ellipse`, twelve points, no transform): the
+  frames showed the overhead rig's disc as a puddle twice a pawn's width. The facing line comes back
+  on for the player: a flip is a two-state readout of a continuous heading, and the line carries the
+  exact facing for everybody. **Retired, not stubbed**: `body_rotation`, `SPRITE_FORWARD`,
+  `wants_facing_line`, the `draw_set_transform` / `_matrix` pair in `_draw_entities` (`_draw_wreck`
+  keeps its one quarter-turn, counted), and the generator's `radial_shade` (one caller, the rotating
+  player). **The rigs** (`tools/sprites/parts/characters.py`): `draw.Canvas(w, h, origin)` grows a
+  feet origin (every `self.size` loop became `w`/ `h`; the light passes measure from the picture's
+  middle rather than the origin, so every prop, wreck and debris key regenerated pixel-identical —
+  proved by `sprites:check` on the refactor alone before a rig moved); eight face-on pawns through
+  one `_figure` assembler whose order is legs → feet → torso → arms → hands → hair_back → head →
+  hair → face → tells → shade → outline (outline last, for the achromatic bound); the skeleton
+  published as constants for the worn-look slice — `FEET_Y 0`, `LEG_TOP_Y −13`, `TORSO_TOP_Y −30`,
+  `SHOULDER_Y −28`, `HAND_Y −17`, `HAND_X 8.4`, `HEAD_CY −35`, `HEAD_R 5.0` (an ellipse 5 × 6: a
+  shape centred between pixel columns renders an even width, so the plan's 5.5 drew a 12 px head
+  over the 11 bound), `SHOULDER_HALF 8`; tier bounds measured per rig (soles on row 47, height
+  38–42, shoulders 16–22 on the humans and 26 on the bloater, which sits on both bounds at once,
+  head 10 × 10 or 10 × 11, ≥ 3 px side clearance, `#161614` inward outline, `nw_shade` at
+  `RIG_LIGHT_RADIUS` 15.0, measured from the picture's middle rather than the feet pivot (from the
+  soles every body pixel is on one side of the origin and the ramp would clamp flat) as the smallest
+  radius that clamps almost nothing while spending the whole gain on every rig); one loud tell each
+  (the player's slung strap and darkest jacket, Mara's bob, Ellis's beard at the shoulder bound, the
+  achromatic colonist, the shambler's trailing arm, the screamer's mouth void, the bloater at the
+  bound, the raider's crossed webbing); a face is two 1 px eyes and a 1 px brow shadow. **The
+  gear**: `tools/sprites/parts/gear.py` generates the pack, its straps and the bat on the pawn
+  canvas, on the published skeleton; the three hand-authored 32×32 overlays are gone, the keys and
+  content entries unchanged so the EQUIP lane passed untouched, and nothing in the sprite directory
+  is hand-authored any more; `sprites:check` counts 33 keys. GREY re-measured on the pawn: median
+  0.7098, tightest composed margin +0.022 on `colony.look.05`, with the colonist's shade gain at
+  0.07 rather than the family's 0.12 because that is what the arithmetic needed — and quantised to
+  about a byte, so a belt or a collar added to that rig later drops it back to +0.020 (was +0.013 on
+  the overhead rig). The player and item schema descriptions say the pawn canvas now
+  (`item.schema.json` is oracle-visible; `npm test` judged it). **The lane**
+  (`_bodies_face_by_flipping`): `body_flip` at 0, π, ±π/2, ±2.4 with the true negative that east and
+  west differ and neither is zero; `anchor_of` on the tile, the pawn, a 2×2-tile square and a 1×3
+  sheet; `body_rect` exact at all four rungs, soles on the shadow line, the square on the old rect,
+  the flip a negative width at the same position, with a centred pawn refused by the same equality;
+  every pawn key resolves a picture on `PAWN_CANVAS` (a rig left on the tile refused — the lane went
+  red on exactly that line while the rigs were being re-authored); textual on `_draw_entities` —
+  `body_flip(`, `body_rect(`, `_blit_body(`, the facing colour, `FOOT_DROP_PX` present, zero
+  `draw_set_transform(` and zero `_matrix(` with the counter proved on a fabricated body first, no
+  `wants_facing_line`, the peripheral disc before the blit, `_draw_wreck` holding exactly one
+  transform, and the three retired helpers absent from `appearance.gd`. SCALE and GLIMPSE untouched
+  — their needles survive because the multiply and the `moving` call stay in the loop. **Sabotage,
+  each red as named**: one `draw_set_transform(` back in the loop ("holds 1 draw_set_transform( and
+  0 _matrix( calls"); `body_flip` always +1 ("body_flip(3.141593) answered 1.000000"); the player
+  cropped to 32×32 (KEYS and CANVAS in `APPEARANCE_OK`, and FLIP: "a rig left on the tile"); the
+  feet branch deleted from `body_rect` ("stood a pawn at (92, 88), not (92, 79)" at zoom 16); the
+  glimpse branch's `continue` deleted ("no `continue` between the glimpse disc and the body blit" —
+  an assertion the lane gained when the plan's version turned out to check only the order of two
+  needles); `ART_NATIVE = 64` (every file refused by CANVAS). Nothing under `godot/sim/` moved; the
+  FAST lines are byte-identical to slice 3's. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice4-roster-64.png`,
+  `slice4-street-64.png`, `slice4-flip-east-west-64.png`, `slice4-zoom-16.png`,
+  `slice4-zoom-128.png`, `slice4-night-64.png`.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

@@ -191,11 +191,12 @@ drifted. Three things about the current state matter enough to repeat anyway:
   lit cap and a south face, roofs cut out where the sim sees, three-quarter props and vehicles,
   32 px a tile at 2×. It supersedes the 2026-09-01 style-B pick (the rotating player, the
   overcast mood); docs/30's "The Dungeon Settlers look" entry records the twelve decisions and
-  what each earlier clause becomes. **Decided is not shipped, slice by slice**: the palette
-  slice landed 2026-09-03 (the table is warm, and `ROAD_LOOK_OK`'s warm and cool families hold
-  it), but until the pawn slice lands the code, its comments and the sprite READMEs' "ships
-  today" sections still describe the overhead rotating rig, on purpose. The reference's HUD —
-  portraits, bars, numbers, name plates — is explicitly not adopted.
+  what each earlier clause becomes. **Decided lands slice by slice**: the palette and pawn
+  slices landed 2026-09-03 (the table is warm, and every body is a 32×48 face-on pawn that
+  flips through a negative-width rect — `TOPDOWN_OK`'s FLIP lane counts zero transforms in
+  the entity loop); walls, edges, trees, the worn look and the vehicles are still the old
+  code, and their comments say so on purpose. The reference's HUD — portraits, bars, numbers,
+  name plates — is explicitly not adopted.
 - **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody

@@ -1287,11 +1287,11 @@ func _draw_entities() -> void:
 			var glimpse: Color = Palette.COLOURS["glimpse"] as Color
 			draw_circle(Vector2(sx, sy), r, Color(glimpse.r, glimpse.g, glimpse.b, 0.75))
 			continue
-		# Facing, read once and before anything is drawn: the body's own rotation, the
-		# indicator line and the aim cone are three readings of one number, and the sim is the
-		# only thing that arbitrates it: the `aim` command turns a stationary body, and
-		# `world._integrate_movement` overwrites facing from the velocity of a moving one, in
-		# that order. Nothing here computes a second aim angle of its own.
+		# Facing, read once and before anything is drawn: the body's flip, the indicator line
+		# and the aim cone are three readings of one number, and the sim is the only thing that
+		# arbitrates it: the `aim` command turns a stationary body, and `world._integrate_movement`
+		# overwrites facing from the velocity of a moving one, in that order. Nothing here
+		# computes a second aim angle of its own.
 		var eid: int = int(it["id"])
 		var facing_v: Variant = world.components.get_component(eid, "facing")
 		var face: float = 0.0
@@ -1299,53 +1299,45 @@ func _draw_entities() -> void:
 			face = float((facing_v as Dictionary).get("radians", 0.0))
 		# Screen axes are world axes under the top-down projection: no rotation.
 		var screen_ang: float = face
-		# contact shadow — under both branches, and deliberately *outside* the rotation below:
-		# a shadow is cast by the world's light, not by the body, so it must not spin with it.
-		# The +3 offset is a screen-pixel constant on purpose, like the facing line's +12 and
-		# the aim cone's +36/+44 below: readouts of the interface, not lengths in the world.
-		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
+		# contact shadow — under both branches, on the ground point: an ellipse the body's width
+		# and a fifth as tall, because a pawn's feet are not the overhead rig's silhouette and the
+		# reference's shadow is a small dark pool under the soles, not a disc the figure stands in.
+		# FOOT_DROP_PX is a screen-pixel constant on purpose, like the facing line's +12 and the
+		# aim cone's +36/+44 below: a readout of the interface, not a length in the world -- and
+		# it is the same number Appearance.body_rect stands a pawn's soles on, so the shadow line
+		# and the sole line cannot drift apart.
+		draw_colored_polygon(_shadow_ellipse(sx, sy + Appearance.FOOT_DROP_PX, r * 0.55, r * 0.22), Color(0, 0, 0, 0.35))
 		var texture: Texture2D = look["texture"] as Texture2D
 		if texture != null:
-			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
-			# (ART_NATIVE square canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
-			# lands on a half-pixel as the camera follows the player. Scaled by px_scale so
-			# a body covers the same fraction of a tile at every step on the zoom ladder.
+			# Scaled by px_scale so a body covers the same fraction of a tile at every step on
+			# the zoom ladder. Where the picture hangs is Appearance.body_rect's answer: a pawn
+			# (taller than wide) stands with its soles on the shadow line, a tile-square picture
+			# centres on the ground point, and a body facing west is the same picture in a
+			# negative-width rect -- the renderer mirrors it, and no transform is set anywhere in
+			# this loop. Nobody rotates, the player included (docs/30, the Dungeon Settlers look);
+			# check_topdown.gd's flip lane counts the transforms here and requires zero.
 			var size: Vector2 = texture.get_size() * px_scale
 			# Equipped gear composites at the identical rect the body draws at -- an
-			# equipSprite is authored on the same centre-anchored canvas, so there is no
-			# per-item offset to compute here. Drawn white, never the role/tint colour:
-			# a backpack is its own object, not a stand-in shape for the entity itself.
+			# equipSprite is authored on the same feet-anchored canvas, so there is no per-item
+			# offset to compute here, and a negative width mirrors the gear with its wearer.
+			# Drawn white, never the role/tint colour: a backpack is its own object, not a
+			# stand-in shape for the entity itself.
 			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid)
-			# Asked for every body, not only the player: the anonymity clause is the helper's
-			# answer of 0.0 for everybody else, so this is the call that makes it load-bearing
-			# rather than a rule stated in a file nothing reads (docs/30, the art decision).
-			var spin: float = Appearance.body_rotation(bool(it["player"]), screen_ang)
-			if bool(it["player"]):
-				# The one rotated blit in the renderer. Centre anchor is what makes it
-				# contained: the transform's origin is the entity's own ground position and
-				# the rect is hung symmetrically around it, so the body turns on the spot
-				# instead of orbiting. Reset with the identity matrix rather than a second
-				# draw_set_transform, so "exactly one body rotates" stays countable in the
-				# source -- check_topdown.gd's _only_the_player_rotates counts it.
-				draw_set_transform(Vector2(roundf(sx), roundf(sy)), spin, Vector2.ONE)
-				_blit_body(Rect2(-size / 2.0, size), texture, col, equip)
-				draw_set_transform_matrix(Transform2D.IDENTITY)
-			else:
-				_blit_body(Rect2(Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0)), size), texture, col, equip)
+			_blit_body(Appearance.body_rect(sx, sy, size, Appearance.body_flip(screen_ang)), texture, col, equip)
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
 			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
 		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
-		# The line is what a shape with no front uses to say where it is looking; art with a
-		# front says it itself, so the player's line comes off once the art resolves and every
-		# procedural body keeps it. Appearance owns that rule; this only obeys it.
-		if Appearance.wants_facing_line(bool(it["player"]), texture != null):
-			draw_line(
-				Vector2(sx, sy),
-				Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
-				Palette.COLOURS["facing"],
-				2.4 if bool(it["player"]) else 1.6,
-			)
+		# The line draws for every body, the player's included: a flip is a two-state readout of
+		# a continuous heading, so the picture can never say more than "east or west" and the
+		# line carries the exact facing for everybody. (The 2026-09-01 rule that took it off the
+		# player's rotating rig retired with the rotation -- docs/30, the Dungeon Settlers look.)
+		draw_line(
+			Vector2(sx, sy),
+			Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
+			Palette.COLOURS["facing"],
+			2.4 if bool(it["player"]) else 1.6,
+		)
 		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
 			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
 			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
@@ -1425,13 +1417,11 @@ func _draw_rain() -> void:
 # One body and everything it is wearing, composited at one rect: under-body layers, the body,
 # then over-body layers.
 #
-# Factored out of _draw_entities so the player's rotated rig and every other pawn's axis-aligned
-# blit are literally the *same* composite. The equip layers therefore ride whatever transform is
-# in force when this is called rather than being a second, unrotated copy of the ordering — which
-# is what "the overlays ride the rig" means mechanically, and it is the half of the equip story
-# that shipped: the pack and bat art itself is still authored face-on, and pulling those layers
-# back out of the transform to hide that would be the wrong fix (docs/23 names the re-authoring
-# as the characters slice's work).
+# Factored out of _draw_entities so a body and its gear are literally the *same* composite at
+# one rect -- which, since the pawn slice, is also what mirrors them together: a negative-width
+# rect flips every layer identically, so a slung pack faces the way its wearer does. The gear is
+# generated on the pawn canvas beside the rigs (tools/sprites/parts/gear.py); what a survivor
+# wears beyond the pack and the bat is the worn-look slice's work (docs/23).
 func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictionary]) -> void:
 	for layer in equip:
 		if not bool(layer["over"]):
@@ -1441,6 +1431,17 @@ func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictio
 		if bool(layer["over"]):
 			draw_texture_rect(layer["texture"] as Texture2D, rect, false)
 
+
+
+# The contact shadow's outline: a twelve-point ellipse, half-axes `a` across and `b` down, so
+# the shadow can be a flat pool under the feet without a transform (the entity loop holds none;
+# check_topdown.gd's flip lane counts them).
+func _shadow_ellipse(cx: float, cy: float, a: float, b: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for i in 12:
+		var t: float = TAU * float(i) / 12.0
+		points.append(Vector2(cx + cos(t) * a, cy + sin(t) * b))
+	return points
 
 # The night, last, over everything. The alpha is derived from the *same number the survivor's
 # range is* -- light_look.gd's sight-derived fraction, not raw ambient -- so the screen and the

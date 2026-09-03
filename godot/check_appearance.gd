@@ -126,11 +126,12 @@ func _sprite_keys_resolve() -> bool:
 			if tex == null:
 				push_error("%s: appearance.%s '%s' has no file at %s/%s.png" % [path, prop, k, SPRITE_DIR, k])
 				return false
-			# One canvas: ART_NATIVE square, centre-anchored (assets/sprites/README.md), and the
-			# size is read off camera.gd rather than carried here -- the 64 -> 32 move of
-			# 2026-09-02 is what a second copy of the number would have drifted from. A stray
-			# sprite authored to the dead 64x96 feet-anchored convention would float half a
-			# tile high without ever erroring, so the shape is a build failure, not a footnote.
+			# The canvas table: a tile for props and tile art, the pawn shape for bodies and
+			# gear, the atlas (assets/sprites/README.md), every size read off camera.gd rather
+			# than carried here -- the 64 -> 32 move of 2026-09-02 is what a second copy of the
+			# number would have drifted from. A body left on the old square would stand half a
+			# tile short of its shadow without ever erroring, so the shape is a build failure,
+			# not a footnote.
 			var size: Vector2 = (tex as Texture2D).get_size()
 			var want_size: Vector2i = Appearance.canvas_of(k)
 			if Vector2i(size) != want_size:
@@ -175,15 +176,15 @@ func _every_canvas_is_native() -> bool:
 	if judged == 0:
 		push_error("no PNGs in %s -- the canvas assertion had nothing to judge" % SPRITE_DIR)
 		return false
-	# The table must have been read for real: the atlas is the shape it exists for, and a lane
-	# that only ever saw tiles would pass a table nobody consults.
+	# The table must have been read for real: the atlas and the pawns are the shapes it exists
+	# for, and a lane that only ever saw tiles would pass a table nobody consults.
 	if atlases == 0:
 		push_error("no file in %s is on a non-tile canvas -- Appearance.canvas_of was never exercised" % SPRITE_DIR)
 		return false
 	if Appearance.canvas_of("no_such_key") != Vector2i(native, native):
 		push_error("canvas_of does not default an unknown key to the %dx%d tile" % [native, native])
 		return false
-	print("CANVAS OK %d files, %d of them on a table canvas, every one at its Appearance.canvas_of size (tile %dx%d)" % [judged, atlases, native, native])
+	print("CANVAS OK %d files, %d of them on a non-tile canvas (the atlas, the pawns, the gear), every one at its Appearance.canvas_of size (tile %dx%d)" % [judged, atlases, native, native])
 	return true
 
 # The fallback is the supported path, not a stopgap: with no content at all, every role still
