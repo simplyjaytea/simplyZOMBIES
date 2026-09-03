@@ -13,6 +13,7 @@ const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
+const RoofLook = preload("res://presentation/roof_look.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -101,6 +102,11 @@ var _thresholds_from: Variant = null
 # changes identity (a reboot, a load) and never per frame -- see _road_mask.
 var _road_mask_cache: PackedByteArray = PackedByteArray()
 var _road_mask_from: Variant = null
+# tile -> building, and building -> look, both cached against the map object (RoofLook builds
+# them; a static cache would be shared between the two worlds a gate boots).
+var _roof_index_cache: PackedInt32Array = PackedInt32Array()
+var _roof_index_from: Variant = null
+var _looks: Dictionary = {}
 # The map-dressing block (wreck and debris sprite keys), and the content tree it came from. Third
 # instance of the same pattern for the third time it is the right one: the lookup is a scan over
 # content and this is asked once per drawn tile, the resolution is pure, and a static cache would
@@ -792,14 +798,21 @@ func _draw_district() -> void:
 				tile = SimTileMap.Tile.Wall
 			match tile:
 				SimTileMap.Tile.Wall, SimTileMap.Tile.Screen:
-					_draw_solid_tile(rect, col, tx, ty)
+					# A wall in a building with a look draws its material: the cap seen from
+					# above, or the face where the street is to its south (RoofLook decides,
+					# Dressing names the picture). Everything else -- a screen, a barricade, a
+					# wall no template stamped -- keeps the procedural cap and bands, the
+					# supported fallback and check_topdown.gd's WALL lane's subject.
+					if not _draw_wall_art(rect, dress, tx, ty, false):
+						_draw_solid_tile(rect, col, tx, ty)
 				SimTileMap.Tile.Window:
 					# A window is a hole in masonry, so the tile is masonry and the glass is the
 					# pane: the tile colour that used to fill it edge to edge is handed to the
 					# pane instead, which is where the state a boarded-up window reaches stage 3
-					# in still shows.
-					_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
-					_draw_window_glass(rect, tx, ty, col)
+					# in still shows. In a face the pane is the face's own window picture.
+					if not _draw_wall_art(rect, dress, tx, ty, true):
+						_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
+						_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
 					# A Low tile is a wreck: a car where it stands in a run, a skip where it stands
@@ -824,6 +837,7 @@ func _draw_district() -> void:
 					var floor_col: Color = Appearance.indoor_floor(world.tilemap, tx, ty, col)
 					if _is_threshold(tx, ty):
 						_draw_threshold(rect, floor_col, tx, ty)
+						_draw_door_face(rect, dress, tx, ty)
 					else:
 						# The road dressing, composed over the same rect: RoadPaint.mask_for
 						# (cached per map in _road_mask) says what this tile of pavement is, a
@@ -853,6 +867,10 @@ func _draw_district() -> void:
 						# pavement. Cosmetic, hash-picked, and drawn over the paint rather than
 						# under it, because litter blows onto a road marking and not beneath one.
 						_draw_scatter(rect, dress, tx, ty)
+	# The roofs, over the interiors the survivor cannot see: they fill tiles the loop above
+	# skipped as unseen, so a roof draws where the screen was black and never where the sim
+	# can see (RoofLook.roof_tiles is the rule; check_roof_look.gd holds it both ways).
+	_draw_roofs(dress, seen, bounds)
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
@@ -1075,6 +1093,122 @@ func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 		draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), jamb)
 	if _is_solid_at(tx, ty + 1):
 		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), jamb)
+
+
+# tile -> building index, cached against the map object like the road mask: a reboot or a load
+# hands over a different map, which is what invalidates it.
+func _building_index() -> PackedInt32Array:
+	var map: Variant = world.tilemap
+	if map == _roof_index_from:
+		return _roof_index_cache
+	_roof_index_from = map
+	_roof_index_cache = RoofLook.building_index(map)
+	_looks = {}
+	return _roof_index_cache
+
+
+# The look of the building a tile lies in, or {} for a tile in none. Resolved once per building
+# per map, never per tile: the content lookup is a scan over the tree.
+func _look_at(tx: int, ty: int) -> Dictionary:
+	var map: Variant = world.tilemap
+	if map == null:
+		return {}
+	var index: PackedInt32Array = _building_index()
+	var at: int = ty * int(map.w) + tx
+	if at < 0 or at >= index.size():
+		return {}
+	return _look_for(index[at])
+
+
+func _look_for(building: int) -> Dictionary:
+	if building == RoofLook.INDEX_NONE:
+		return {}
+	if not _looks.has(building):
+		_looks[building] = RoofLook.look_of(world, building)
+	return _looks[building] as Dictionary
+
+
+# A wall tile in a building with a look: its material's cap, or its face where the street is to
+# the south, blitted into the tile's own rect; a window in a face is the face's window picture,
+# and a window in a cap is the pane the procedural path draws. False when there is nothing to
+# draw this way -- no building, no look, a material with no art, or a barricade overlay, which
+# keeps the procedural cap so a boarded window still reads as boarded -- and the caller falls
+# back. Nothing here reaches outside the rect: the face is inside the wall tile, not over the
+# street.
+func _draw_wall_art(rect: Rect2, dress: Dictionary, tx: int, ty: int, window: bool) -> bool:
+	var look: Dictionary = _look_at(tx, ty)
+	if look.is_empty():
+		return false
+	if SimTileMap.overlay_at(world.tilemap, tx, ty) is Dictionary:
+		return false
+	var face: bool = RoofLook.wall_face_at(world.tilemap, tx, ty)
+	var texture: Texture2D = Appearance.resolve(Dressing.wall_key(dress, String(look.get("wall", "")), face))
+	if texture == null:
+		return false
+	draw_texture_rect(texture, rect, false)
+	if window:
+		var pane: Texture2D = null
+		if face:
+			pane = Appearance.resolve(Dressing.face_key(dress, "window"))
+		if pane != null:
+			draw_texture_rect(pane, rect, false)
+		else:
+			_draw_window_glass(rect, tx, ty)
+	return true
+
+
+# The door in a front face: a doorway whose south neighbour is the street takes the door
+# picture, or the garage mouth when the doorway beside it is one too, over the boards
+# _draw_threshold already drew. In the doorway's own rect -- a body walking through draws over
+# it, because entities draw after the district -- and nothing when the building has no look or
+# the dressing names no picture.
+func _draw_door_face(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
+	if _look_at(tx, ty).is_empty():
+		return
+	var kind: int = RoofLook.facade_at(world.tilemap, _threshold_tiles(), tx, ty)
+	var key: String = ""
+	if kind == RoofLook.Face.DOOR:
+		key = Dressing.face_key(dress, "door")
+	elif kind == RoofLook.Face.GARAGE:
+		key = Dressing.face_key(dress, "garage")
+	if key.is_empty():
+		return
+	var texture: Texture2D = Appearance.resolve(key)
+	if texture != null:
+		draw_texture_rect(texture, rect, false)
+
+
+# The roofs: RoofLook.roof_tiles says which interior tiles the survivor cannot see belong to a
+# building they can see part of, and each takes its material's sheet -- the north or south half
+# of a pitched roof about the footprint's ridge row, or the flat one -- or, with no art for the
+# material, the palette's roof slab. Drawn after the tile loop (those tiles were skipped as
+# unseen, so this is the first paint on them) and before the props, which are never drawn on
+# an unseen tile anyway.
+func _draw_roofs(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
+	if world.tilemap == null or seen == null:
+		return
+	var zoom: float = float(camera["zoom"])
+	var half: float = zoom / 2.0
+	var player_tile := Vector2i(-1, -1)
+	var pos: Variant = world.components.get_component(int(world.player), "position")
+	if pos is Dictionary:
+		player_tile = Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+	var index: PackedInt32Array = _building_index()
+	var w: int = int(world.tilemap.w)
+	for t in RoofLook.roof_tiles(world.tilemap, seen, bounds, player_tile):
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(t.x) + 0.5, float(t.y) + 0.5)
+		var rect := Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom)
+		var building: int = index[t.y * w + t.x]
+		var look: Dictionary = _look_for(building)
+		var texture: Texture2D = null
+		if not look.is_empty():
+			var material: String = String(look.get("roof", ""))
+			var slope: int = RoofLook.slope_of(RoofLook.rect_of(world.tilemap, building), t.y, Dressing.roof_pitched(dress, material))
+			texture = Appearance.resolve(Dressing.roof_key(dress, material, slope))
+		if texture != null:
+			draw_texture_rect(texture, rect, false)
+		else:
+			draw_rect(rect, Palette.COLOURS["roof"])
 
 
 # Everything standing in the district that is neither a body nor a carried item. What each one

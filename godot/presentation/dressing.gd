@@ -194,6 +194,56 @@ static func wreck_key(block: Dictionary, map: Variant, seed_val: int, tx: int, t
 
 
 # Whether a tile is outdoor open floor carrying `surface` -- the eligibility both scatters share.
+
+# --- the building materials ----------------------------------------------------------------
+# `walls`, `roofs` and `faces` in the dressing block: a material name (a template's `look`)
+# to the keys the renderer blits. "" for anything the block does not declare, which every
+# caller reads as "draw the procedural fallback" -- a district dressed before looks existed,
+# or a material nobody has drawn yet, still draws as it did. Which tile takes a cap, a face, a
+# door or a roof is roof_look.gd's business; this only names the picture.
+static func wall_key(block: Dictionary, material: String, face: bool) -> String:
+	var walls: Variant = block.get("walls")
+	if not (walls is Dictionary):
+		return ""
+	var entry: Variant = (walls as Dictionary).get(material)
+	if not (entry is Dictionary):
+		return ""
+	return String((entry as Dictionary).get("face" if face else "cap", ""))
+
+
+static func _roof_entry(block: Dictionary, material: String) -> Dictionary:
+	var roofs: Variant = block.get("roofs")
+	if not (roofs is Dictionary):
+		return {}
+	var entry: Variant = (roofs as Dictionary).get(material)
+	return entry as Dictionary if entry is Dictionary else {}
+
+
+# A pitched material declares a north and a south half; a flat one declares one sheet.
+static func roof_pitched(block: Dictionary, material: String) -> bool:
+	var entry: Dictionary = _roof_entry(block, material)
+	return entry.has("n") and entry.has("s")
+
+
+static func roof_key(block: Dictionary, material: String, slope: int) -> String:
+	var entry: Dictionary = _roof_entry(block, material)
+	match slope:
+		1:
+			return String(entry.get("n", ""))
+		2:
+			return String(entry.get("s", ""))
+		_:
+			return String(entry.get("flat", ""))
+
+
+# `kind` is "window", "door" or "garage": the picture composited over a face or a doorway.
+static func face_key(block: Dictionary, kind: String) -> String:
+	var faces: Variant = block.get("faces")
+	if not (faces is Dictionary):
+		return ""
+	return String((faces as Dictionary).get(kind, ""))
+
+
 static func _ground_is(map: Variant, tx: int, ty: int, surface: int) -> bool:
 	if map == null:
 		return false

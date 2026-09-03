@@ -267,6 +267,25 @@ RAMPS = {
     # a body rather than a hole in the street. The margin moved by 0.0003 across the regrade:
     # the old table's brightest ground was grass too, at 0.3193.
     "raider_drab": ramp("#7d7568"),
+    # --- buildings: wall caps and faces, roof sheets -------------------------------------------
+    # The built materials the wall-and-roof slice draws (`parts/buildings.py`), all timber-family
+    # because the mood's warmth lives in the browns and a wall is the largest brown on screen.
+    # Every one is held to `guard_either_side_of_floors` below -- the either-side rule over the
+    # two paint rows as well as the five grounds, because the sidewalk is what a front stands on
+    # and the board floor is what a roof covers. That rule moved four of the plan's seven bases:
+    # timber #7a6244 (luma 0.396), brick #7a5342 (0.356) and shingle #6a5a4a (0.362) all sat
+    # inside the floor band (grass 0.320, boards 0.345, sidewalk 0.348) and moved up to the lit
+    # side, the nearest value clearing sidewalk by the 0.08; tar #46403a (0.254) sat on paved
+    # (0.262) and moved down to the dark side instead -- a flat tar roof is the one built
+    # surface that is allowed to be the darkest thing on screen, and it draws where the screen
+    # used to be black. Render, block and tin (0.521, 0.479, moved 0.417 -> 0.499) were clear.
+    "wall_timber": ramp("#8a6f4d", family="timber"),
+    "wall_brick": ramp("#9a6a58", family="timber"),
+    "wall_render": ramp("#8d8474", family="timber"),
+    "wall_block": ramp("#7d7a72", family="timber"),
+    "roof_shingle": ramp("#8a765e", family="timber"),
+    "roof_tin": ramp("#837f78", family="timber"),
+    "roof_tar": ramp("#2c2722", family="timber"),
 }
 
 # Which ramps make a silhouette against the ground, and are therefore held to the clearance
@@ -300,5 +319,39 @@ GROUND_READING = [
 for _name in GROUND_FACING:
     guard_against_ground(_name, RAMPS[_name])
 
+# The built surfaces: a wall cap, a wall face, a roof. Held to `guard_either_side_of_floors`,
+# the either-side rule over every floor the district draws rather than the five grounds alone,
+# because these are the materials that stand *on* the paint rows: a front rises off the
+# sidewalk and a roof covers the board floor, and a wall the colour of the pavement under it
+# is the exact confusion this slice exists to remove. check_roof_look.gd's MOOD lane measures
+# the same clearance on the decoded pictures rather than on the ramp, so the two agree by
+# construction rather than by trust.
+BUILT_READING = [
+    "wall_timber",
+    "wall_brick",
+    "wall_render",
+    "wall_block",
+    "roof_shingle",
+    "roof_tin",
+    "roof_tar",
+]
+
+
+def guard_either_side_of_floors(name, steps):
+    """`guard_either_side_of_ground`, with the two paint rows counted among the floors."""
+    mid_luma = luma(steps[len(steps) // 2])
+    floors = list(SURFACE_TINTS.values()) + list(PAINT_TINTS.values())
+    nearest = min(abs(mid_luma - luma(hex_value)) for hex_value in floors)
+    if nearest < GROUND_CONTRAST_EITHER:
+        raise ValueError(
+            "ramp '%s' sits %.3f from its nearest floor tint, under GROUND_CONTRAST_EITHER %.2f: "
+            "a wall painted in it reads as the pavement it stands on"
+            % (name, nearest, GROUND_CONTRAST_EITHER)
+        )
+
+
 for _name in GROUND_READING:
     guard_either_side_of_ground(_name, RAMPS[_name])
+
+for _name in BUILT_READING:
+    guard_either_side_of_floors(_name, RAMPS[_name])

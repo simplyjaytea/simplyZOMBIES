@@ -1910,11 +1910,12 @@ this stands on. Twelve decisions, recorded once here, each paid for in the slice
 12. docs/00's depth-sort reversal — not reopened; the entity sort was always there.
 
 **What ships today versus what is decided** is the distinction every reader of this entry needs:
-the palette and pawn slices landed the same day (their clauses close this entry), so the table
-is warm and every body is a face-on pawn that flips; the walls, the edges, the trees, the worn
-look and the vehicles are still the old code, their comments say so, and each moves with its
-own slice. Anyone reading a comment that describes the old direction should read this entry
-before "fixing" it in either direction.
+the palette, pawn and wall slices landed the same day (their clauses close this entry), so the
+table is warm, every body is a face-on pawn that flips, and a building draws its walls thick
+and its roof where the survivor cannot see; the edges, the trees, the worn look and the
+vehicles are still the old code, their comments say so, and each moves with its own slice.
+Anyone reading a comment that describes the old direction should read this entry before
+"fixing" it in either direction.
 
 **Paid for, the palette slice (2026-09-03) — the mood is warm dark fantasy: a cool near-black
 dark around a warm-lit district, held by warmth and value, not mutedness.** The property that
@@ -1949,6 +1950,20 @@ publish their skeleton — feet, leg top, shoulder, hand, head — as named cons
 worn-look slice fits one gear overlay to all eight bodies on them; the three hand-authored
 overlays retire for generated ones on the pawn canvas, and nothing in the sprite directory is
 hand-authored any more.
+
+**Paid for, the wall-and-roof slice (2026-09-03) — a wall is drawn with a thickness inside its
+own tile, and a roof draws where the screen was black, never where the sim can see.** A wall
+tile in a building that declares a look draws its material's cap seen from above, or its face
+where the tile south of it is open ground — the building's front, with that tile's window or
+door drawn in the face — and everything stays inside the wall tile's own rect: nothing hangs
+over a walkable tile and no tile is sorted. The rule is per tile, never a footprint's south
+row, because a gabled front is not one flat row and the annex's south wall is compound. A roof
+draws over the interior tiles the survivor cannot see, of a building at least one tile of
+which they can see, while they stand outside it; a tile the sim says is seen never takes a
+roof, so an interior seen through a door keeps its floor and its bodies. How a building looks
+is content — `look: {roof, wall}` on every template and the annex, the material names
+resolving through the dressing block to sprite keys — and a material nobody has drawn yet
+draws the procedural cap and bands, the supported fallback that keeps the wall lane's subject.
 
 ---
 

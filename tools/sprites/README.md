@@ -43,6 +43,7 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `parts/gear.py` | the three equip overlays, generated against the published skeleton |
 | `parts/props.py` | the seven district props, each authored to its content entry's footprint |
 | `parts/wrecks.py` | car segment sets, and the debris scatter |
+| `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
 | `build.py` | the CLI, the registry merge, `--check`, `CANVAS`/`PAWN_KEYS` (mirrors `canvas_of`) |
 
 ## The rigs, the skeleton, and the draw order
@@ -113,7 +114,12 @@ exactly what it does on a person who turns round, which was not true when a rig 
   raises. `SURFACE_TINTS` (and `PAINT_TINTS`, the two paint rows) here are hard copies of
   `presentation/palette.gd`'s, because Python cannot read GDScript — regrading the ground means
   editing both **in the same commit**, and a stale copy makes the guard lie. Tells drawn
-  *inside* a silhouette (a strap on cloth) are exempt and say so in `GROUND_FACING`.
+  *inside* a silhouette (a strap on cloth) are exempt and say so in `GROUND_FACING`. Standing
+  things (`GROUND_READING`) are held either side of the ground instead, and the built surfaces
+  (`BUILT_READING`: the wall and roof ramps `parts/buildings.py` paints with) either side of
+  every floor including the two paint rows, because a front stands on the sidewalk and a roof
+  covers the board floor — `guard_either_side_of_floors`. That rule moved four of the plan's
+  seven building bases: timber, brick and shingle up to the lit side, tar down to the dark.
 - **Light comes from the top-left**, matching `main.gd::_draw_bevelled_box` — `light_top_left`.
   Nothing on the roster rotates any more, so the exception that used to carve the player's rig
   out of this rule is gone with the rig: every pawn takes the same `nw_shade` (`Canvas.nw_shade`,

@@ -682,7 +682,7 @@ const WARM_MARGIN: float = 0.02
 # tints in Palette.SURFACE_TINTS below.
 const WARM_FAMILY: Array[String] = [
 	"sidewalk", "kerb", "threshold", "indoorFloor", "wall", "roadPaint", "prop", "low",
-	"screen", "tree", "groundItem", "glimpse", "memory",
+	"screen", "tree", "groundItem", "glimpse", "memory", "roof",
 ]
 # The dark the district sits inside: the night, the background behind it, and the one district
 # surface meant to read as glass rather than as ground. Judged with _cool_ok (b - r >=
