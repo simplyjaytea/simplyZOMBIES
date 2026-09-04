@@ -17,7 +17,13 @@ jobs:
   # the export templates this job never has.
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 30, not 15. Measured 2026-09-04 rather than guessed: `npm run godot:m2` alone is ~11.8 min
+    # on a comparable container, and this job also runs npm ci, the engine install, the whole
+    # TypeScript side, sprites:check and the four R6 gates. The 15 it had was sized when the
+    # chain was 42 gates and genuinely ~7 min; it stopped being true somewhere around the 45th,
+    # and two runs died at exactly 15m13s and 15m23s with every gate green and the balance
+    # harness still going. A timeout that kills a passing build teaches people to ignore red.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -108,8 +114,11 @@ jobs:
 
       # Every Milestone 2 gate, chained by the npm script -- 45 of them, and the same command
       # CLAUDE.md tells a contributor to run before every commit, so CI and the desk agree by
-      # construction rather than by two lists being kept in step. It is the longest step here
-      # (~7 min on a comparable container), which is what the job timeout above is sized for.
+      # construction rather than by two lists being kept in step. It is by far the longest step
+      # here -- ~11.8 min measured 2026-09-04, of which five gates are 79%: balance 282 s,
+      # lethality 139 s, needs 70 s, raiders 36 s, worldgen 28 s -- which is what the job timeout
+      # above is sized for. Re-measure it when the chain grows rather than raising the timeout
+      # again; the number belongs beside the thing it describes.
       #
       # The chain already ends with the three standing-ban gates, which used to be listed again
       # as separate steps below and so ran twice on every push:

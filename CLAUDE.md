@@ -65,14 +65,14 @@ section came from.
 ## Verifying a change
 
 Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — it chains all of them and takes a few minutes:
+every commit — it chains all of them and takes about twelve minutes (measured 2026-09-04):
 
 ```bash
 npm run godot:smoke      # project boots            → GODOT_PROJECT_SMOKE_OK
 npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
-npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~85 s, inside godot:m2)
+npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~4.5 min, in godot:m2)
 npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
 npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
 npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
