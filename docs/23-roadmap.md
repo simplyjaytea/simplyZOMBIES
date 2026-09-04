@@ -265,26 +265,6 @@ purpose.
   collision with the one-transform spine disappears with the pawn piece; what a glimpsed corpse
   is allowed to show is still an information-scarcity call that belongs beside the owner's other
   scarcity decisions.
-- **Cars are cars: the 2-wide vehicle footprint.** Today's car is 42 px, about 0.66 m wide — a
-  1:2.7 scale model that two survivors cannot stand abreast in — and the wreck resolver decides
-  front/mid/rear from one-axis neighbours (`presentation/dressing.gd`), which cannot express a
-  two-wide vehicle at all. The piece: a `worldgen.vehicles` **layout** pass (its own stream, a
-  fixed draw count, all-or-nothing placement on a street span aligned to its axis) writing a
-  `map.vehicles` manifest of `{x, y, w, h, axis, class}` records on the `map.streets` precedent;
-  the resolver reads the manifest instead of guessing; classes named from
-  [docs/25](25-vehicles.md)'s base table so a wreck previews the base it becomes; the art is
-  **one three-quarter picture per class, variant and axis** (docs/30, 2026-09-03 — two keys a
-  variant, feet-anchored on the footprint's south edge and y-sorted like a tree, because a
-  three-quarter roofline cannot be cut at a tile seam). The class table is decided (docs/30,
-  2026-09-02): every class 2 wide, sedan 2×5 first, van 2×6 and truck 2×7 after. The old
-  one-wide runs **stay in worldgen** as they are and draw as junk heaps by hash — the run-length
-  lesson of the dumpster — so the neighbour resolver and the nine car-segment files retire with
-  the sedan. Balance: vehicles are layout, so the
-  dressing rule stands and the layout change is measured, structural driver and FAST tier both
-  (docs/30); at 64 the suburb's streets are two wide, so the harness never stands one, which the
-  record says. Side-find to close here: the suburb stands two `car boot` loot sites with no car
-  under them — `_protected_tiles` forbids a wreck on a site tile, so the boot has never had a car;
-  a `host: vehicle` site stands on a manifest tail tile when any exist.
 - **The van and the truck.** Two more classes on the same vocabulary once the sedan proves it.
 - **The torch.** The reference's night is a cone from the player's hand; every light here is an
   omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
@@ -2445,6 +2425,96 @@ not a to-do list:
   and conifers thinning away downhill — the clearest single frame of the arc so far;
   `slice9-stand-64.png` and `slice9-stand-32.png`, the densest stand at both rungs, which is the
   finding above made visible.
+- ~~Cars are cars: the 2-wide vehicle footprint~~ **landed** (no new gate — `WRECKS_OK` goes
+  from six lanes to nine, so the chain stays 45; slice 10 of the Dungeon Settlers arc, docs/30
+  "The Dungeon Settlers look", the vehicle clause). **The mechanism**: a car stops being a shape
+  read off its neighbours and becomes a record the layout wrote. `_vehicles`, on its own
+  `worldgen.vehicles` stream after `_buildings` and before `_sites`, walks every `map.streets` span
+  at least `VEHICLE_MIN_WIDTH` 4 wide in slots of `VEHICLE_SLOT` 8, makes exactly four draws a
+  slot — presence, class, lane offset, facing — and then decides all-or-nothing, writing
+  `Tile.Low` and
+  appending `{x, y, w, h, axis, class, facing}` to `map.vehicles`. The renderer reads the record:
+  `Dressing.vehicle_index` marks the footprint, `vehicle_key` picks one colour for the whole car by
+  hashing its north-west corner, and `main.gd` stands one picture on the footprint's south-edge
+  centre in the same entity sort the pawns and the trees are in.
+  **The art is two keys a variant, one per axis** (the owner's decision 11): a car seen from the
+  side is a different picture, not a rotation. Which is why the last transform in the renderer
+  retired with the segments it used to turn — `main.gd` now sets **zero** `draw_set_transform`
+  anywhere, and `TOPDOWN_OK`'s flip lane asserts that over the whole file rather than over one
+  loop, with the counter proved on a fabricated file first.
+  **What retired with it**: `segment_at`, `run_angle`, `run_anchor`, `wreck_key`, the four `SEG_*`
+  constants, `ANCHOR_MAX_STEPS`, `main.gd::_draw_wreck` and the nine `wreck_car_*` files. A Low
+  tile no record covers is now a heap (`heap_key`, per tile, out of the dressing block's `heaps`),
+  which is the run-length lesson of the dumpster: a heap has no run to agree with.
+  **Measured, not asserted** — the first arc slice whose layout genuinely moves. A SHA-256 over
+  `tiles + surfaces + indoors`, taken before anything moved, is unchanged on all **24 seeds at 64**
+  and on `town_center` and `forest_edge` at 256; the suburb at 256 goes from 89–105 Low tiles to
+  1,169–1,274, which is **108–118 cars**. Vehicles a map: 0 at 64, 27–38 at 128, 108–118 at 256.
+  Nothing stands one at 64 because every street there is 2 tiles wide, below the 4 a two-wide car
+  needs with a kerb row either side — so the balance harness never sees a car and the FAST lines
+  cannot move, which is what let a `godot/sim/` change ship without re-running the grid. The
+  four-draws-a-slot invariant is *demonstrated* rather than argued: the same seed at density 0.35
+  and 0.60 places 108 then 203 cars, and **not one** of the 0.35 cars is absent or moved in the
+  0.60 run. Walkability is unchanged — `_footing` grants a non-Floor tile passage while its
+  surface is paved, so a parked car is walk-through cover and `M2_DISTRICT_OK` still reports a
+  walk covering 100% of outdoor tiles at 256.
+  **The side-find this closes**: the suburb stood two `car boot` loot sites and no car could ever
+  be under one, because `_protected_tiles` forbids a dressing pass on a site tile. A `perDistrict`
+  row may now declare `host: "vehicle"`, which stands the site on a car's tail tile when the map
+  has one and falls back to a driveway when it does not. Both branches have a **shipped** reader
+  and neither is a fixture: the suburb's two boots at 256 are on cars, and `forest_edge` — 3-tile
+  streets at every size, so it parks nothing — exercises the fallback. That district's row was
+  pointed at the host for exactly that reason; the branch had no shipped reader without it.
+  **Where a car is never parked, and why the record says so**: only the suburb carries a
+  `vehicles` block. The town centre and the forest are 3 tiles wide at every map size, so a block
+  there would be a socket nothing reaches — measured, not assumed.
+  **A gap found by looking rather than by reasoning.** The tile branch defers a covered Low tile
+  to the sorted picture, which is right — but the first live frame showed what happens when that
+  picture does not resolve: the ten tiles of a car drew *nothing at all*, so cover the sim knows
+  about was invisible on screen. Every other resolver in this pipeline degrades to a procedural
+  shape, and this one now does too: `main.gd`'s per-map index keeps only the records that actually
+  draw, so an unresolved car falls through to a heap and then to the cover block. The frame that
+  found it is the reason the fallback is a lane rather than a sentence.
+  **The projection, stated rather than eyeballed.** The ground stays plan — 32 px is a tile, no
+  perspective — and a vehicle is drawn obliquely on top of it: a surface *h* metres up draws that
+  many pixels north of where it stands, `LIFT_DECK` 32 px for the lids and `LIFT_ROOF` 46 for the
+  roof. So each picture is exactly one whole tile of near-vertical face plus the plan of
+  everything above it, and the two add to the canvas with nothing left over. It is why the
+  windscreen is thin and the rear screen fat: a screen raked away from the viewer stretches
+  up-canvas and one raked towards it collapses. The greenhouse is inset 8 px each side and the
+  body is drawn in two widths, 48 px at the bumpers and 54 across the doors, which is what stops
+  it reading as a box.
+  **The constraint slice 11 inherits, measured now rather than discovered then.** `_ew` is the
+  tight canvas: 96 rows must hold the car's width *plus* the roof lift, leaving 3 rows clear
+  against `_ns`'s 7. A taller near face costs a narrower car — 36 px of face would force the
+  sedan down to 48 px across to fit `_ew` at all — so 32/54 was chosen and written down as a
+  number. The van (2×6) and truck (2×7) extend the *long* axis only, so their `_ew` grows in
+  width and inherits this same 92-row ceiling. Anything genuinely taller than a car needs a
+  four-tile `_ew` canvas, which is a decision rather than a tweak.
+  **The gate** goes from six lanes to nine, all inside a 60-second budget it spends 2.3 of.
+  DRESSING (13 keys, each at its own derived canvas), MANIFEST (a hand map and a hand manifest —
+  *one* key over a whole footprint, where a per-tile hash would have given three), VARIATION,
+  LAYOUT (134 records identical with dressing on and off, which is what "a car is layout" means),
+  PLACED (two lines: the districts that park nothing, naming the 3-wide reason, and the 134 cars
+  that do park), EXCLUSIVE, HOST, SCATTER, SOCKETS. Two of them are worth naming for how they
+  avoid passing vacuously: EXCLUSIVE reports that **1,340 of the covered tiles would have heaped
+  had the arm not asked first**, and MANIFEST names the number a broken implementation would have
+  produced. The scanner behind EXCLUSIVE had to be taught that `_draw_district` matches
+  `Tile.Low` **twice** — once to pick a colour and once to draw — because reading the first arm
+  found four lines of colour arithmetic and reported that the loop never asks about vehicles,
+  which is the worst thing a gate can do: go red and blame the code under test.
+  **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`:
+  `slice10-pale-64.png`, a pale sedan seen roof-and-side with the player in front of it;
+  `slice10-ns-64.png` and `slice10-behind-64.png`, the same car north-south with a pawn south of
+  it and then north of it, which is the sort; `slice10-ew-64.png`; and `slice10-street-32.png`,
+  two cars, a conifer, cut-away roofs and ground edges in one frame.
+  **A finding for the owner** (`slice10-pale-64.png`): the sedan reads *van-like*. Its body is a
+  tall box for its whole length, where a sedan is a low bonnet, a raised and inset cabin, and a
+  low boot. It is legible as a car and the three-quarter read is unambiguous, so it ships — but
+  slice 11 puts an actual van (2×6) and a truck (2×7) on this vocabulary, and three classes that
+  differ only in length will not read as three classes. The cheapest fix is a lower bonnet and
+  boot on the sedan, which re-authors art that has just shipped; it is recorded rather than taken
+  in passing, and it is the risk slice 11 has to clear before it adds anything.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

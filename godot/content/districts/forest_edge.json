@@ -46,6 +46,7 @@
         "table": "residential",
         "count": 1,
         "outdoors": true,
+        "host": "vehicle",
         "containerShare": 1,
         "containers": ["car boot"]
       }

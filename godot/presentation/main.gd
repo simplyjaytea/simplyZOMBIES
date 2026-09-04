@@ -41,6 +41,10 @@ const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
 const NIGHT_WASH: float = 0.8
 const MEMORY_TICKS: int = 60
+# How far outside the visible box to look for parked vehicles, in tiles. Wider than the two the
+# trees use because a sedan is five tiles long and its picture six tall: a car whose south edge
+# has just left the screen still has most of itself on it.
+const VEHICLE_BOUNDS_MARGIN_TILES: float = 7.0
 
 var world: Variant = null
 var content: Dictionary = {}
@@ -112,7 +116,12 @@ var _looks: Dictionary = {}
 # ground_row_for calls per tile per frame is what this replaces.
 var _ground_rows_cache: PackedByteArray = PackedByteArray()
 var _ground_rows_from: Variant = null
-# The map-dressing block (wreck and debris sprite keys), and the content tree it came from. Third
+# tile -> parked-vehicle manifest index (Dressing.VEHICLE_NONE where none), cached against the
+# map object for the same reason as the three above. This is what makes the Low branch's two
+# cases exclusive without walking `map.vehicles` per tile.
+var _vehicle_index_cache: PackedInt32Array = PackedInt32Array()
+var _vehicle_index_from: Variant = null
+# The map-dressing block (heap and debris sprite keys), and the content tree it came from. Third
 # instance of the same pattern for the third time it is the right one: the lookup is a scan over
 # content and this is asked once per drawn tile, the resolution is pure, and a static cache would
 # be shared between the two worlds a gate boots. A content hot-reload swaps the tree, which is
@@ -820,14 +829,19 @@ func _draw_district() -> void:
 						_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
-					# A Low tile is a wreck: a car where it stands in a run, a skip where it stands
-					# alone. Which picture that is comes out of content through Dressing, and when
-					# content declares none the inset block still draws -- the procedural cover shape
-					# is a supported path here as everywhere, not a stopgap.
-					if not _draw_wreck(rect, dress, tx, ty):
-						# Inset block with floor showing around it reads as waist-high.
-						var inset: float = zoom * 0.15625
-						draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
+					# A Low tile is one of exactly two things, and the manifest says which: a tile
+					# a parked vehicle covers is part of one feet-anchored picture standing in the
+					# entity sort (_draw_entities blits it through _blit_vehicle), so this branch
+					# draws only the ground under it; every other Low tile is a heap, out of
+					# content through Dressing. The two are mutually exclusive by construction and
+					# check_wrecks.gd holds this branch to it. When content declares no heap the
+					# inset block still draws -- the procedural cover shape is a supported path
+					# here as everywhere, not a stopgap.
+					if Dressing.vehicle_at(_vehicle_index(), world.tilemap, tx, ty) == Dressing.VEHICLE_NONE:
+						if not _draw_heap(rect, dress, tx, ty):
+							# Inset block with floor showing around it reads as waist-high.
+							var inset: float = zoom * 0.15625
+							draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Tree:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
 					# A tree with a picture stands in the entity sort (Dressing.tree_tiles feeds
@@ -988,30 +1002,21 @@ func _dressing() -> Dictionary:
 	return _dressing_cache
 
 
-# One wrecked-car segment over a Low tile. False when content declares no dressing or names no key
-# for this segment -- a lone Low tile is the shipped case of the latter -- which is the caller's
-# cue to draw the procedural cover block instead.
+# One heap of junk over a Low tile no parked vehicle covers. False when content declares no
+# dressing or no heaps, which is the caller's cue to draw the procedural cover block instead.
 #
-# The rotation is the whole of the east-west story: the art is authored pointing north, one tile
-# wide, and a run lying across the street is the same three files turned a quarter circle rather
-# than a second set of them. The turn is geometry read off the map, the way _draw_solid_tile reads
-# its exposed faces; the *key* still comes from content, so the loop stays content-driven. Reset with draw_set_transform_matrix, not with a second
-# draw_set_transform, so the identity that follows is unambiguous -- the player's rig set that
-# convention one slice ago and check_topdown counts on it there.
-func _draw_wreck(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> bool:
+# There is no transform here and no second one to reset. The quarter turn that used to draw an
+# east-west run of car segments retired with the segments themselves: a car is one three-quarter
+# picture per axis now (docs/30, the Dungeon Settlers look, decision 11), and a heap is a heap
+# whichever way its neighbours lie. This file now sets no transform anywhere.
+func _draw_heap(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> bool:
 	if dress.is_empty():
 		return false
-	var key: String = Dressing.wreck_key(dress, world.tilemap, int(world.seed), tx, ty)
+	var key: String = Dressing.heap_key(dress, world.tilemap, int(world.seed), tx, ty)
 	var texture: Texture2D = Appearance.resolve(key)
 	if texture == null:
 		return false
-	var angle: float = Dressing.run_angle(world.tilemap, tx, ty)
-	if angle == 0.0:
-		draw_texture_rect(texture, rect, false)
-		return true
-	draw_set_transform(rect.get_center(), angle, Vector2.ONE)
-	draw_texture_rect(texture, Rect2(-rect.size / 2.0, rect.size), false)
-	draw_set_transform_matrix(Transform2D.IDENTITY)
+	draw_texture_rect(texture, rect, false)
 	return true
 
 
@@ -1178,6 +1183,42 @@ func _building_index() -> PackedInt32Array:
 	_roof_index_cache = RoofLook.building_index(map)
 	_looks = {}
 	return _roof_index_cache
+
+
+# tile -> parked vehicle, cached against the map object exactly as the building index is -- but
+# holding only the records that will actually be *drawn* as a picture, which is a stronger thing
+# than the manifest says and is what the Low branch needs.
+#
+# Dressing.vehicle_index is pure and content-innocent: it marks every footprint tile of every
+# record. A record whose class declares no art, or whose key has no file behind it, still occupies
+# those tiles -- and if the tile branch deferred to a picture that never draws, ten tiles of cover
+# the sim knows about would show as bare road. So the records that resolve nothing are cleared
+# here, and their tiles fall through to a heap and then to the procedural cover block, the same
+# graceful absence the tree branch has when a dressing block names no tree. Resolved once per map,
+# never per tile: the content lookup is a scan over the tree.
+func _vehicle_index() -> PackedInt32Array:
+	var map: Variant = world.tilemap
+	if map == _vehicle_index_from:
+		return _vehicle_index_cache
+	_vehicle_index_from = map
+	_vehicle_index_cache = Dressing.vehicle_index(map)
+	var records: Variant = null if map == null else map.get("vehicles")
+	if not (records is Array):
+		return _vehicle_index_cache
+	var undrawn: Dictionary = {}
+	for i in (records as Array).size():
+		var rec: Variant = (records as Array)[i]
+		if not (rec is Dictionary):
+			continue
+		var key: String = Dressing.vehicle_key(world, rec as Dictionary, int(world.seed))
+		if key.is_empty() or Appearance.resolve(key) == null:
+			undrawn[i] = true
+	if undrawn.is_empty():
+		return _vehicle_index_cache
+	for i2 in _vehicle_index_cache.size():
+		if undrawn.has(int(_vehicle_index_cache[i2])):
+			_vehicle_index_cache[i2] = Dressing.VEHICLE_NONE
+	return _vehicle_index_cache
 
 
 # The look of the building a tile lies in, or {} for a tile in none. Resolved once per building
@@ -1499,10 +1540,34 @@ func _draw_entities() -> void:
 		var ty_w: float = float(t.y) + 1.0
 		var tsc: Dictionary = TopDownProjection.world_to_screen(camera, tx_w, ty_w)
 		items.append({"kind": "tree", "key": tree_key, "sx": float(tsc["sx"]), "sy": float(tsc["sy"]), "d": TopDownProjection.depth_of(tx_w, ty_w), "det": SimVisibility.Detail.Focal})
+	# The parked vehicles join the same sort on the same rule: each is one three-quarter picture
+	# standing on its footprint's south-edge centre (docs/30, decision 11), so a body north of a
+	# car is behind it and one south is in front. Draw is a subset of seen -- vehicle_records
+	# asks the survivor's own seen set -- and the tile branch has already deferred every covered
+	# Low tile to this picture, so an unseen car draws nothing at all. The margin is wider than
+	# the trees': a sedan is five tiles long, so a car whose ground point is off the bottom of
+	# the screen can still have most of its picture on it.
+	var records: Variant = null
+	if world.tilemap != null:
+		records = world.tilemap.get("vehicles")
+	if records is Array:
+		var box: Dictionary = TopDownProjection.visible_bounds(camera, VEHICLE_BOUNDS_MARGIN_TILES)
+		for i in Dressing.vehicle_records(world.tilemap, seen, box):
+			var rec: Dictionary = (records as Array)[i] as Dictionary
+			var vkey: String = Dressing.vehicle_key(world, rec, int(world.seed))
+			if vkey.is_empty() or Appearance.resolve(vkey) == null:
+				continue
+			var gp: Vector2 = Dressing.vehicle_ground_point(rec)
+			var vsc: Dictionary = TopDownProjection.world_to_screen(camera, gp.x, gp.y)
+			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
+			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
 		if String(it.get("kind", "")) == "tree":
 			_blit_tree(it, px_scale, focal_points)
+			continue
+		if String(it.get("kind", "")) == "vehicle":
+			_blit_vehicle(it, px_scale)
 			continue
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
 		# Colours and sprites come from content now, not from a chain of type-id checks here.
@@ -1659,6 +1724,23 @@ func _blit_tree(it: Dictionary, px_scale: float, focal_points: Array[Vector2]) -
 	var rect: Rect2 = Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, 1.0)
 	var alpha: float = Dressing.tree_alpha(rect, focal_points)
 	draw_texture_rect(texture, rect, false, Color(1.0, 1.0, 1.0, alpha))
+
+
+# One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge
+# centre, through the same body_rect a pawn and a tree use. The canvas is never square -- a sedan
+# is 2x6 tiles north-south and 5x3 east-west -- so anchor_of answers Feet and the picture stands
+# on the line rather than centring on the point.
+#
+# A west-facing car is the east-facing picture in a negative-width rect: the pawn's own flip, and
+# the one place a manifest record's `facing` reaches the art. Appearance.vehicle_flip records why
+# the north-south axis has no second picture, and no transform is set here or anywhere else in
+# this file.
+func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
+	var texture: Texture2D = Appearance.resolve(String(it["key"]))
+	if texture == null:
+		return
+	var size: Vector2 = texture.get_size() * px_scale
+	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, float(it["flip"])), false)
 
 
 # One body and everything it is wearing, composited at one rect: under-body layers, the body,

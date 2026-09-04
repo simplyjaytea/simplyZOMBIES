@@ -11,6 +11,7 @@
     { "tag": "civic", "weight": 2 },
     { "tag": "commercial", "weight": 1 }
   ],
+  "vehicles": { "density": 0.35, "classes": [{ "id": "vehicle.sedan", "weight": 10 }] },
   "lootProfile": {
     "perBuilding": [
       {
@@ -47,6 +48,7 @@
         "table": "residential",
         "count": 2,
         "outdoors": true,
+        "host": "vehicle",
         "containerShare": 1,
         "containers": ["car boot"]
       }

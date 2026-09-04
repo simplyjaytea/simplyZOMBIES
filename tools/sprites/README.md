@@ -42,10 +42,11 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `parts/characters.py` | the eight rigs, the published skeleton, the `REGISTRY` naming them |
 | `parts/gear.py` | the three equip overlays, generated against the published skeleton |
 | `parts/props.py` | the seven district props, each authored to its content entry's footprint |
-| `parts/wrecks.py` | car segment sets, and the debris scatter |
+| `parts/wrecks.py` | the low heaps a bare Low tile draws, and the debris scatter |
 | `parts/edges.py` | the ground's edge cells, eight fringes a row, pasted into the atlas |
 | `parts/trees.py` | the three tall conifers, feet-anchored on the tree canvas |
 | `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
+| `parts/vehicles.py` | the sedan, three variants x two axes, three-quarter and feet-anchored |
 | `build.py` | the CLI, the registry merge, `--check`, `CANVAS`/`PAWN_KEYS` (mirrors `canvas_of`) |
 
 ## The rigs, the skeleton, and the draw order
@@ -85,17 +86,20 @@ exactly what it does on a person who turns round, which was not true when a rig 
 
 ## The rules the art is held to
 
-- **Two canvases, one table.** `draw.SIZE` (32) is still the one tile-square number Python
+- **Several canvases, one table.** `draw.SIZE` (32) is still the one tile-square number Python
   holds — `presentation/camera.gd`'s `ART_NATIVE` is the engine's copy, and the two gates
-  cross-check. A tile-sized picture seen from above — a prop, a tile-art key, a scrap of debris
-  — renders on `Canvas(SIZE, SIZE, origin="centre")`; every body and every equip overlay renders
-  on `Canvas(characters.PAWN_W, characters.PAWN_H, origin="feet")` — 32×48, one tile wide and
-  one and a half tall. `build.py`'s `CANVAS` table and `PAWN_KEYS` mirror `Appearance.canvas_of`
-  and its own `PAWN_KEYS` — two copies because Python cannot read GDScript, the same standing
-  arrangement as `SIZE` — and `check_appearance.gd` measures every committed PNG against the
-  engine's copy every build. `godot/assets/sprites/README.md` is the authority on the shapes;
-  `build.py` refuses a render at the wrong size before it writes, and `check_appearance.gd`
-  refuses it again from the engine side.
+  cross-check. A tile-sized picture seen from above — a prop, a tile-art key, a heap, a scrap of
+  debris — renders on `Canvas(SIZE, SIZE, origin="centre")`; every body and every equip overlay
+  renders on `Canvas(characters.PAWN_W, characters.PAWN_H, origin="feet")` — 32×48, one tile
+  wide and one and a half tall; a tree on `trees.TREE_W/TREE_H` (32×96) and a vehicle on
+  `vehicles.VEHICLE_CANVAS_NS` (64×192) or `VEHICLE_CANVAS_EW` (160×96), all three feet-anchored
+  the same way. `build.py`'s `CANVAS` table, `PAWN_KEYS`, `trees.TREE_KEYS` and
+  `vehicles.VEHICLE_NS_KEYS`/`VEHICLE_EW_KEYS` mirror `Appearance.canvas_of` and its own tables
+  — two copies because Python cannot read GDScript, the same standing arrangement as `SIZE` —
+  and `check_appearance.gd` measures every committed PNG against the engine's copy every build.
+  `godot/assets/sprites/README.md` is the authority on the shapes; `build.py` refuses a render
+  at the wrong size before it writes, and `check_appearance.gd` refuses it again from the engine
+  side.
 - **The origin is the pivot, and it means two different things.** `origin="centre"` puts (0, 0)
   in the middle of the picture — on the 32×32 canvas that is between pixels 15 and 16, not
   pixel 16 — and the renderer hangs a centred picture symmetrically on the entity's ground
@@ -125,10 +129,15 @@ exactly what it does on a person who turns round, which was not true when a rig 
 - **Light comes from the top-left**, matching `main.gd::_draw_bevelled_box` — `light_top_left`.
   Nothing on the roster rotates any more, so the exception that used to carve the player's rig
   out of this rule is gone with the rig: every pawn takes the same `nw_shade` (`Canvas.nw_shade`,
-  `RIG_LIGHT_RADIUS` 15.0) as every prop, wreck and scrap of debris. The one remaining exception
-  is a **segment set** (a car spanning two or three tiles), which keeps only the lateral half of
-  the gradient (`axis="x"`), because a diagonal one restarts at every canvas and bands the
-  finished car light-dark-light along its length.
+  `RIG_LIGHT_RADIUS` 15.0) as every prop, heap and scrap of debris. **`axis="x"` has no callers
+  left either.** It existed for a segment set — a car authored one tile at a time, where a
+  diagonal gradient restarted at every canvas and banded the finished car light-dark-light along
+  its length — and the vehicles slice retired segment sets, so every key in the package now takes
+  the whole diagonal. `parts/vehicles.py` takes it at `LIGHT_RADIUS` 64.0 and a gain of 0.08,
+  because a car's modelling is in its panel steps (a face is the shaded step, a lid a mid one,
+  the roof the lightest) exactly as a wall cap's read is its value; the pass is the tint over the
+  top of that. The parameter stays on `Canvas.light_top_left` for the van and the truck, which
+  are the same pictures on a longer axis.
 - **The light passes measure from the picture middle, not the pivot.** `Canvas.middle` is a
   second coordinate frame that differs from the origin only on a feet-anchored canvas: measured
   from a pawn's soles, every body pixel sits on one side of the origin, so the ramp would clamp

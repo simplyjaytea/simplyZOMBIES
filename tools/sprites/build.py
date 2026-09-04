@@ -31,7 +31,7 @@ from pathlib import Path  # noqa: E402
 from PIL import Image  # noqa: E402
 
 from draw import SIZE  # noqa: E402
-from parts import buildings, characters, gear, ground, props, trees, wrecks  # noqa: E402
+from parts import buildings, characters, gear, ground, props, trees, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -42,7 +42,7 @@ SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 # into a 32x48 rect stretches -- `_blit_body` draws every layer at the identical rect, so an
 # overlay has to be authored on the body's own canvas or it does not line up with it. Every
 # key under this map is generated, and `--check` is what keeps every one of them honest.
-MODULES = (characters, gear, props, wrecks, ground, buildings, trees)
+MODULES = (characters, gear, props, wrecks, ground, buildings, trees, vehicles)
 
 # The keys drawn on the pawn canvas: the eight bodies and every equip overlay that composites
 # onto them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS -- two copies
@@ -80,6 +80,14 @@ for _key in PAWN_KEYS:
 # side by `Appearance.TREE_KEYS` and `TREE_CANVAS` under the same two-copies arrangement.
 for _key in trees.TREE_KEYS:
     CANVAS[_key] = (trees.TREE_W, trees.TREE_H)
+# The vehicles: two shapes, one per axis, feet-anchored on the footprint's south edge. A sedan's
+# 2x5 footprint plus a tile of roofline north is 64x192 nose-north and 160x96 nose-east -- the
+# same two-copies arrangement again, mirrored on the Godot side by `Appearance.VEHICLE_NS_KEYS` /
+# `VEHICLE_EW_KEYS` and `VEHICLE_CANVAS_NS` / `VEHICLE_CANVAS_EW`.
+for _key in vehicles.VEHICLE_NS_KEYS:
+    CANVAS[_key] = vehicles.VEHICLE_CANVAS_NS
+for _key in vehicles.VEHICLE_EW_KEYS:
+    CANVAS[_key] = vehicles.VEHICLE_CANVAS_EW
 
 
 def canvas_of(key):

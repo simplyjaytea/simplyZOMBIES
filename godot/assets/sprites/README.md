@@ -39,11 +39,11 @@ is approaching.
 - **A face is three pixels.** Two 1 px eyes 3 px apart and one brow pixel above and to the left
   — at 32 px wide there is no room for a mouth, and the placement is the whole of it.
 
-Still **decided and not shipped**: one three-quarter picture per axis for vehicles. The worn
-look landed 2026-09-04 — sixteen overlays, one per base declaring a drawn slot, under
-"Equipped-item overlays" below. Walls and roofs landed the same day as the pawns:
-`wall_*`, `roof_*` and `face_*` are tile art, under "Tile art" below; the trees landed with
-them, under "The tree" below.
+The worn look landed 2026-09-04 — sixteen overlays, one per base declaring a drawn slot, under
+"Equipped-item overlays" below. Walls and roofs landed the same day as the pawns: `wall_*`,
+`roof_*` and `face_*` are tile art, under "Tile art" below; the trees landed with them, under
+"The tree" below. The vehicles landed after them — one three-quarter picture per class, variant
+and axis, under "The vehicle" below — and took the nine `wreck_car_*` segment keys with them.
 
 ## The convention
 
@@ -53,11 +53,16 @@ them, under "The tree" below.
   keeps nearest-neighbour scaling clean. (The art was 64 px a tile until the 2026-09-02
   reference-look decision — docs/30 — when the tile shrank around the rigs; before that the
   grid was an isometric 64×32 diamond until the top-down reversal, docs/00, and 32×16 before.)
-- **Canvas: three shapes, one table.** `Appearance.canvas_of` is the one place a size is
+- **Canvas: five shapes, one table.** `Appearance.canvas_of` is the one place a size is
   decided, mirrored by `tools/sprites/build.py`'s `CANVAS`: a **tile**, `ART_NATIVE` square
-  (32×32) — props, tile art, debris; a **pawn**, `PAWN_CANVAS` (32×48) — every body and every
-  equip overlay, the twenty-four keys `PAWN_KEYS` names; the **ground atlas** (128×224) — the one
-  file that is a table of cells rather than one picture. `npm run godot:check:appearance` fails
+  (32×32) — props, tile art, heaps, debris; a **pawn**, `PAWN_CANVAS` (32×48) — every body and
+  every equip overlay, the twenty-four keys `PAWN_KEYS` names; a **tree**, `TREE_CANVAS`
+  (32×96); a **vehicle**, one shape per axis — for the sedan's 2×5 footprint, 64×192 nose-north
+  and 160×96 nose-east, each the footprint plus a tile of roofline north; and the **ground
+  atlas** (128×224) — the one file that is a table of cells rather than one picture. The two
+  vehicle shapes are derived from the class's footprint rather than listed per key, so the van
+  and the truck are a row in the footprint table and not a fourth and fifth entry here.
+  `npm run godot:check:appearance` fails
   the build on any file whose size does not match its own canvas — a sprite authored to the
   wrong shape would float or stretch without ever erroring otherwise, so the canvas is
   enforced, not documented. `tools/sprites/draw.py` carries `SIZE = 32` as the one other copy
@@ -192,28 +197,28 @@ is hand-authored any more** — the next hand-polished replacement, whenever it 
 here rather than an addition (`tools/sprites/README.md`'s standing rule). - **Filename:**
 `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the registry key.
 
-## Tile art: segment sets, and the third authoring convention (heaps and road paint keep this)
+## Tile art: one tile, one picture, no joins
 
 Props draw on an entity's position and pawns draw on a body's. **Tile art draws on a tile** —
 `main.gd::_draw_district` blits it into the tile rect, and `presentation/dressing.gd` decides
-which key that tile takes out of `content/dressing/street.json`. Three rules follow from the
-canvas being `ART_NATIVE` square (32×32) and staying that way:
+which key that tile takes out of `content/dressing/street.json`. One rule follows from the canvas
+being `ART_NATIVE` square (32×32) and staying that way: **a tile-art key is a whole picture that
+fits in its own tile and joins nothing.**
 
-- **A thing longer than a tile is a set of files, one per tile.** `wreck_car_{a,b,c}_{front,
-  mid,rear}` is a car two or three tiles long: `front` runs to the **south** edge of its canvas,
-  `rear` starts at the **north** edge of its, and `mid` fills its canvas end to end, so
-  front+rear (two tiles) and front+mid+rear (three) both close up with no seam. All three share
-  one body half-width, or the car steps in width at a tile boundary.
-- **The join edges carry no outline.** A dark line drawn on an edge that meets another segment is
-  a seam across the middle of the car; `Canvas.outline(colour, sides)` in the generator takes the
-  sides that are actually silhouette.
-- **Authored north, turned by the renderer.** A run lying east-west draws the same north-authored
-  keys through one quarter-turn transform (`Dressing.run_angle`), never a second set of files.
-  The lighting bakes only the component perpendicular to the run (`light_top_left(..., "x")`) —
-  a diagonal gradient restarts at every tile and bands a long car light-dark-light.
+That is a narrower rule than it used to be. Until the vehicles slice this section opened with a
+**segment set** — `wreck_car_{a,b,c}_{front,mid,rear}`, a car two or three tiles long authored
+one file per tile, with squared join edges, no outline on a join, a shared body half-width and a
+lateral-only light pass so a run did not band light-dark-light along its length, drawn
+north-authored and turned east-west by `Dressing.run_angle`. docs/30's Dungeon Settlers decision
+11 retired all nine keys and every rule that served them: a vehicle is one three-quarter picture
+per class, variant and axis now, feet-anchored and y-sorted rather than blitted per tile. See
+"The vehicle" below. What a Low tile draws instead of a car is `low_heap_a` / `low_heap_b`,
+ordinary tile art, one tile, no joins.
 
 Debris (`debris_litter_*`, `debris_rubble_*`) is tile art too, mostly transparent, with a
 selective bottom/right outline: a 3 px scrap outlined on four sides is all outline and no scrap.
+The heaps take the full four-sided outline, because a heap is an object standing on its tile
+rather than a mark lying on it.
 
 The building keys (`wall_*`, `roof_*`, `face_*`, generated by `tools/sprites/parts/buildings.py`)
 are tile art too, and bring two rules of their own:
@@ -250,6 +255,46 @@ beside it, which no depth rule can answer), a five-to-nine-pixel foot, the three
 pixel-distinct. The inward `#161614` outline and the baked top-left light are `draw.py`'s, shared
 with every other rig. The ramps are `pine_dark`, `pine_light` and `bark`, timber-family and in
 `GROUND_READING`.
+
+## The vehicle — one three-quarter picture per class, variant and axis
+
+`vehicle_sedan_{pale,green,burnt}_{ns,ew}` (`tools/sprites/parts/vehicles.py`) are the sedan:
+**64×192 nose-north and 160×96 nose-east, feet-anchored on the footprint's south edge**, hung
+and y-sorted the way a tree is. docs/30's Dungeon Settlers decision 11 is what shapes them —
+one picture per class × variant × axis, and the per-tile segment set retired with it, so a
+survivor walks in front of a car or behind it rather than through the seam between two tiles of
+one. A car seen end-on and a car seen from the side are different pictures, not one rotated;
+west is the `_ew` picture in a negative-width rect, exactly the flip a pawn takes, so the
+picture carries no word, badge or plate that would read as a mistake reversed.
+
+- **The canvas is the footprint plus a tile of roofline north.** A sedan occupies 2×5 tiles, so
+  `_ns` is 2×6 tiles of canvas and `_ew` is 5×3. The extra tile is not decoration: it is the
+  room the three-quarter read needs, and it is spent exactly.
+- **The read is three-quarter, not overhead.** The ground stays plan — one tile is 32 px and no
+  perspective — and the vehicle is drawn obliquely on top of it: a surface *h* metres up draws
+  that many pixels north of where it stands, `LIFT_DECK` (32, the boot and bonnet lids) and
+  `LIFT_ROOF` (46). So each picture is **one tile of near vertical face** plus the plan of
+  everything above it. On `_ns` the face is the rear of the car — rows 159–191: valance and a
+  hint of tyre, bumper, tail panel, two lamps — with the boot lid, rear screen, roof, a
+  windscreen almost edge-on and the bonnet receding north above it. On `_ew` the face is a whole
+  flank — rows 63–95: sill, two wheels in their arches, door lines, a lamp at each end — under
+  the side glass and the top plane.
+- **A sedan is three masses.** Bonnet, raised cabin, boot, and the greenhouse is inset from the
+  body sides by `CABIN_INSET` (8 px each side) so the shoulders stay in shade either side of the
+  roof. The body is also drawn in two widths — narrow at both bumpers, wide across the doors —
+  because a picture of constant width reads as a bus.
+- **Three variants differing in value, not only hue.** `car_pale` (mid luma 0.581), `car_green`
+  (0.468) and `car_burnt` (0.170), all muted-family and all held either side of every ground in
+  `tools/sprites/palette.py`. The burnt shell is a different picture in the same shapes rather
+  than a recolour: no glass (the openings are the darkest step of its own ramp), soot streaks out
+  of every opening, a buckled bonnet, ash on the roof, and dead lamp housings round a dark
+  socket.
+- **Lit from the top-left like everything else**, at `LIGHT_RADIUS` 64.0 and a gain of 0.08 —
+  small, because the modelling is in the panel steps (a face is the shaded step, a lid a mid one,
+  the roof the lightest) the same way a wall cap's read is its value.
+
+Which picture a vehicle record takes is the class, the variant and the axis in its own manifest
+record; nothing is hashed at draw time beyond what that record already says.
 
 ## Equipped-item overlays
 

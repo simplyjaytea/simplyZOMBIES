@@ -1,28 +1,7 @@
 {
   "id": "dressing.street",
   "name": "Street dressing",
-  "wrecks": {
-    "variants": [
-      {
-        "id": "a",
-        "front": "wreck_car_a_front",
-        "mid": "wreck_car_a_mid",
-        "rear": "wreck_car_a_rear"
-      },
-      {
-        "id": "b",
-        "front": "wreck_car_b_front",
-        "mid": "wreck_car_b_mid",
-        "rear": "wreck_car_b_rear"
-      },
-      {
-        "id": "c",
-        "front": "wreck_car_c_front",
-        "mid": "wreck_car_c_mid",
-        "rear": "wreck_car_c_rear"
-      }
-    ]
-  },
+  "heaps": ["low_heap_a", "low_heap_b"],
   "litter": [
     "debris_litter_a",
     "debris_litter_b",

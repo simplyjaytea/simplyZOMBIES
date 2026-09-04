@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/vehicle.schema.json",
+  "title": "Vehicle class",
+  "description": "A class of car left standing in the street: how big it is on the ground, and which pictures draw it. Godot-only -- the frozen TypeScript oracle's CONTENT_TYPES lists six directories (zombies, affixes, items, calibration, survivors, maps) and reads only those schemas, so nothing here reaches Ajv and content_validator.gd is the only validator that sees it. Two readers, and they read different halves: SimWorldgen's `worldgen.vehicles` pass reads `footprint` to decide which street tiles a parked car covers, and presentation reads `appearance.variants` to decide which picture stands on them. NOTE the Godot validator is shallow -- top-level property types and unexpected top-level keys only, no recursion -- so neither `footprint` nor `appearance` is enforced at load, and a purpose-built gate is what checks their insides.",
+  "type": "object",
+  "required": ["id", "name", "footprint", "appearance"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^vehicle\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "Stable namespaced id, always vehicle.<class>. A district's `vehicles.classes[].id` names one of these, and a name nobody wrote is loud rather than silent: SimWorldgen._vehicles push_errors on it instead of quietly parking nothing."
+    },
+    "name": {
+      "type": "string",
+      "description": "What the class is called out loud. Prose for whoever is reading the content; no HUD reads it."
+    },
+    "footprint": {
+      "type": "object",
+      "required": ["w", "l"],
+      "additionalProperties": false,
+      "description": "The ground the car covers, in tiles, given nose-to-tail: `w` across the body, `l` along it. The generator orients it per street -- a vehicle on a vertical street is w x l, one on a horizontal street is l x w -- which is why this is a breadth and a length rather than an x and a y. Both are written Tile.Low, so a parked car is cover you can shoot over and walk around, the same as a wreck.",
+      "properties": {
+        "w": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Breadth across the body. Two for every car the arc ships, and the reason SimWorldgen.VEHICLE_MIN_WIDTH is four: a 2-wide body needs a kerb row free on each side of it, so a 3-wide street has nowhere to park."
+        },
+        "l": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Length nose to tail. Five for a sedan, which is what sets SimWorldgen.VEHICLE_SLOT at eight -- a car and a gap you can walk through."
+        }
+      }
+    },
+    "appearance": {
+      "type": "object",
+      "required": ["variants"],
+      "additionalProperties": false,
+      "description": "Which pictures draw this class. Not the `{sprite, tint}` block a prop or a pawn carries: the owner's Dungeon Settlers decision 11 is one three-quarter picture per class x variant x axis, so a car is two whole sprites rather than a per-tile segment vocabulary assembled at draw time. There is deliberately no `rows` key and no segment names -- that convention is retired.",
+      "properties": {
+        "variants": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The paint jobs, in the order a picker draws from. Every entry declares both axes, because a car parked on a horizontal street is a different picture and not a rotation -- nobody rotates.",
+          "items": {
+            "type": "object",
+            "required": ["id", "ns", "ew"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9_]+$",
+                "description": "Which paint job this is (\"pale\", \"green\", \"burnt\"). Unique within the class."
+              },
+              "ns": {
+                "type": "string",
+                "pattern": "^[a-z0-9_.]+$",
+                "description": "Registry key for assets/sprites/<key>.png, the picture of this variant standing nose-north on a vertical street. Drawn for a record whose `axis` is \"ns\", and flipped rather than redrawn for the two facings."
+              },
+              "ew": {
+                "type": "string",
+                "pattern": "^[a-z0-9_.]+$",
+                "description": "Registry key for the same variant standing along a horizontal street. Drawn for a record whose `axis` is \"ew\"."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

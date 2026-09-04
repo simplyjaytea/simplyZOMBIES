@@ -2,9 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://simplyzombies.dev/schemas/dressing.schema.json",
   "title": "Dressing",
-  "description": "What the *map* looks like where the sim has only a tile class. A Low tile is 'cover you can shoot over' to every mechanism that walks, sees or shoots -- the sim knows nothing finer -- and this entry is what says a run of them is a wrecked car and a lone one is a dumpster. Same rule as prop.schema.json and for the same reason (CLAUDE.md, 'how a thing looks is content, not code'): presentation/dressing.gd resolves keys out of this block and main.gd blits them, and neither contains a sprite key of its own. NOTE: the content validator is shallow -- it checks these top-level types and rejects unexpected top-level keys, and never once looks inside `wrecks` -- so the whole nested shape below is enforced by check_wrecks.gd, which resolves every key it declares and refuses a fabricated one.",
+  "description": "What the *map* looks like where the sim has only a tile class. A Low tile is 'cover you can shoot over' to every mechanism that walks, sees or shoots -- the sim knows nothing finer -- and this entry is what says the ones no parked vehicle covers are heaps of junk. Same rule as prop.schema.json and for the same reason (CLAUDE.md, 'how a thing looks is content, not code'): presentation/dressing.gd resolves keys out of this block and main.gd blits them, and neither contains a sprite key of its own. NOTE: the content validator is shallow -- it checks these top-level types and rejects unexpected top-level keys, and never once looks inside `wrecks` -- so the whole nested shape below is enforced by check_wrecks.gd, which resolves every key it declares and refuses a fabricated one.",
   "type": "object",
-  "required": ["id", "name", "wrecks", "litter", "rubble"],
+  "required": ["id", "name", "heaps", "litter", "rubble"],
   "additionalProperties": false,
   "properties": {
     "id": {
@@ -16,9 +16,10 @@
       "type": "string",
       "description": "Human-readable name. Never shown to the player -- the district describes itself in prose, not in labels."
     },
-    "wrecks": {
-      "type": "object",
-      "description": "How a Low tile draws. `variants` is a list of {id, front, mid, rear} car segment sets, each authored north-facing over one tile; a run of two takes front+rear and a run of three front+mid+rear, and the variant for a whole run is picked by a pure hash of the map seed and the run's anchor tile (never a sim RNG stream -- presentation may not spend a draw the layout would have to account for). An east-west run draws the same north-authored keys through a quarter-turn transform, which is why there is no second set of keys for it. An optional `solo` key draws a Low tile that has no Low neighbour, which is one tile long and therefore not a car; none is declared today (see docs/23 -- the skip was drawn and cut with the worldgen change that would have stood more of them), and a lone Low tile draws the renderer's procedural cover block instead."
+    "heaps": {
+      "type": "array",
+      "description": "How a Low tile draws when no parked vehicle covers it: a heap of junk, one key per tile, picked by a pure hash of the map seed and the tile (never a sim RNG stream -- presentation may not spend a draw the layout would have to account for). A Low tile a `map.vehicles` record does cover draws nothing here at all: the car is one feet-anchored three-quarter picture standing in the entity sort, and presentation/main.gd's tile branch defers the whole footprint to it. The two cases are mutually exclusive by construction and check_wrecks.gd holds the draw loop to it. The front/mid/rear car segment sets this replaced retired with the per-tile vehicle convention (docs/30, the Dungeon Settlers look, decision 11). An empty list draws the renderer's procedural cover block, which is the supported fallback.",
+      "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
     },
     "litter": {
       "type": "array",

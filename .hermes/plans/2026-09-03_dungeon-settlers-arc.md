@@ -604,6 +604,12 @@ skeleton."* Registered; 44 → 45.
 
 ## Slice 9 — "A forest district: cabins, stands and dirt paths"
 
+**Landed 2026-09-04** (`35201a8`) as written; the measured numbers are in docs/23's record. The
+note was missed when the slice landed and is added by slice 10. One thing the plan did not
+predict: a second district found a bug in the first one's code -- `_street_frontage` counted
+*paved* tiles, so a dirt-street district could only ever have sited its colony beside a paved
+connection-point opening, silently, with every gate green.
+
 As the 2026-09-02 plan's slice 5 in every particular: `content/districts/forest_edge.json`
 ("Blackpine Reach", `streets.surface "dirt"`, the `terrain` block, cabin pool), two cabin
 templates with `look {shingle, timber}`; `_carve_street` takes a surface and `map.streets`
@@ -623,6 +629,17 @@ face. Traps: `_dress_terrain`'s draw order is load-bearing; never Dirt under a L
 ---
 
 ## Slice 10 — "The sedan is two by five"
+
+**Landed 2026-09-04** as written, with the owner's two calls taken on the day: `facing` reaches
+the art through the pawn's own flip on the east-west axis and nowhere else (the north-south
+reverse is the picture two keys a variant does not buy, recorded in docs/30), and only the
+suburb carries a `vehicles` block, because the town centre and the forest measure 3 tiles wide
+at every map size against a 4 minimum. Three things the plan did not predict: the whole-file
+zero-transform property that fell out of retiring the segments; a Low tile covered by a record
+whose picture does not resolve drawing *nothing at all*, found by looking at a frame rather than
+by reasoning, and fixed by having the per-map index keep only records that draw; and the
+`host: "vehicle"` fallback having no shipped reader until `forest_edge`'s car boot was pointed
+at it. The measured numbers are in docs/23's record.
 
 **Convention (decision 11): one three-quarter picture per class × variant × axis**,
 feet-anchored on the footprint's south edge and y-sorted like a tree, `"kind": "vehicle"`,

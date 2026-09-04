@@ -2017,6 +2017,37 @@ already existed and adds none of its own. Where a new district's numbers are jud
 question — a lane that judges a sparse district at the gate's small size can pass on a handful of
 tiles, or fail for having nothing to judge, neither of which is about the code under test.
 
+**Paid for, the vehicle slice (2026-09-04) — a car is a record the layout wrote, not a shape read
+off its neighbours; and the picture is one three-quarter view per axis, standing in the entity
+sort.** The resolver this replaced decided front, middle or rear from one-axis neighbours, which
+cannot express a two-wide object at all: it could only ever draw a car one tile wide, and it
+answered from whatever Low tiles happened to touch, so a doorway or a protected tile shortened a
+car rather than moving it. Now the `worldgen.vehicles` pass parks `{x, y, w, h, axis, class,
+facing}` into `map.vehicles` and writes the Low under it, and every reader asks the record. A Low
+tile is therefore exactly two things and the manifest says which — part of a parked car, or a heap
+of junk — which is a property a gate can hold, and does.
+
+Two keys a variant, one per axis, is what decision 11 bought, and it has three consequences worth
+writing down. The first is that the last transform in the renderer retired with the segments it
+turned: `main.gd` now sets none at all, and the flip lane asserts that over the whole file rather
+than over one loop. The second is that a west-facing car is the east-facing picture in a
+negative-width rect — the pawn's own flip, reused — so `facing` reaches the art on the east-west
+axis and not on the north-south one, where a car seen from behind and one seen from the front are
+the second picture two keys does not buy. That is a limit, it is recorded here rather than left to
+be discovered, and closing it is a third key per variant whenever it is worth the files. The third
+is that a picture standing on its footprint's south edge overlaps tiles it does not occupy, the
+way a pawn and a tree already do; a body sorts against the car's south edge, so one north of it is
+behind and one south is in front, and a body standing *on* the bonnet sorts by its own y, which is
+consistent and slightly odd.
+
+Where the gate stands one is the honest part. Street width is scaled to the map, and measured it
+is 2 tiles at the 64 the balance harness boots — below the 4 a two-wide car needs a kerb row
+either side of — so the harness never stands a vehicle and the FAST lines cannot move. The suburb
+reaches 5 at 128 and 7 at 256, and it is the only district that ever exceeds 3: the town centre and
+the forest are 3 wide at every size, so neither stands a car at all, and neither carries a
+`vehicles` block, because a block on a district whose streets can never hold one is a socket
+nothing reaches.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

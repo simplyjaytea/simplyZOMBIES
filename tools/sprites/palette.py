@@ -220,13 +220,27 @@ RAMPS = {
     # colour ships as authored rather than as whatever the clamp left of it. It is in
     # GROUND_READING and still clears every ground either side by 0.224.
     "ember": ramp("#e07b2a", family="accent"),
-    # --- wrecks --------------------------------------------------------------------------
+    # --- vehicles ------------------------------------------------------------------------
     # Three car shells, chosen so the variants differ in *value* and not only in hue: a pale
-    # saloon, a green one, and a burnt-out dark one. The dark shell is exactly the case the
-    # pawn-only guard would have refused and the either-side guard correctly allows -- and the
-    # only muted ramp the tightened cap actually bites: S 0.340 -> 0.30, mid #352723 -> #352925.
+    # saloon at mid luma 0.581, a green one at 0.468, and a burnt-out shell at 0.170. The dark
+    # shell is exactly the case the pawn-only guard would have refused and the either-side guard
+    # correctly allows -- and the only muted ramp the tightened cap actually bites: S 0.340 ->
+    # 0.30, mid #352723 -> #352925.
+    #
+    # `car_green` was re-based from #7f8a82 in the vehicles slice, inside the muted family and
+    # not by touching it. The old base was S 0.080 and mid luma 0.530: against `car_pale`'s
+    # 0.581 that is a 0.051 gap in value and almost none in hue, so the two shells rendered as
+    # the same grey car twice and the variant bought nothing. #63805c is S 0.281 -- still under
+    # muted's 0.30 ceiling, so the clamp passes it through untouched -- and mid luma 0.468, a
+    # 0.113 gap under the pale and 0.148 clear of its nearest ground (grass, 0.3196) against
+    # GROUND_CONTRAST_EITHER's 0.08. A failing colour is fixed as a colour, never as a band.
+    #
+    # `car_pale` is where it is because it is as light as this family goes: `ramp` spreads V by
+    # +-34% about the base and muted ceilings V at 0.72, so a base above V 0.604 collapses its
+    # own top two steps into one flat tone. It ships at that base, mid luma 0.581, a quarter of
+    # a luma clear of the brightest ground.
     "car_pale": ramp("#8f959a"),
-    "car_green": ramp("#7f8a82"),
+    "car_green": ramp("#63805c"),
     "car_burnt": ramp("#352723"),
     # Glass: windscreens and side windows, dark from above because a car interior is.
     "glass": ramp("#46504f"),

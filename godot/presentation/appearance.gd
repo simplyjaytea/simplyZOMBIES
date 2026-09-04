@@ -193,6 +193,53 @@ const ROW_NONE: int = 255
 const TREE_KEYS: Array[String] = ["tree_pine_a", "tree_pine_b", "tree_pine_c"]
 const TREE_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 3)
 
+# The vehicles: one three-quarter picture per class x variant x axis (docs/30, the Dungeon
+# Settlers look, decision 11). A car seen from the side is a different picture, not a rotation,
+# so a variant has two keys and no per-tile segments; the picture stands feet-anchored on its
+# footprint's south-edge centre and y-sorts with the bodies, exactly as a tree does.
+#
+# The canvas is derived rather than tabled, because a class has a length and slice 11's van and
+# truck have different ones: it is the footprint plus one tile of roofline north, which is the
+# room a three-quarter picture needs to lean up-canvas from the base it stands on. An unknown
+# class, variant or axis answers ZERO, which falls through to the tile canvas below and is what
+# refuses a fabricated file at check_appearance.gd's canvas lane.
+const VEHICLE_PREFIX: String = "vehicle_"
+const VEHICLE_ROOFLINE_TILES: int = 1
+const VEHICLE_FOOTPRINTS: Dictionary = {"sedan": Vector2i(2, 5)}
+const VEHICLE_VARIANTS: Array[String] = ["pale", "green", "burnt"]
+const AXIS_NS: String = "ns"
+const AXIS_EW: String = "ew"
+
+
+# The canvas `key` is authored on when it names a shipped vehicle picture, ZERO otherwise.
+static func vehicle_canvas(key: String) -> Vector2i:
+	if not key.begins_with(VEHICLE_PREFIX):
+		return Vector2i.ZERO
+	var parts: PackedStringArray = key.substr(VEHICLE_PREFIX.length()).split("_")
+	if parts.size() != 3:
+		return Vector2i.ZERO
+	if not VEHICLE_FOOTPRINTS.has(parts[0]) or not VEHICLE_VARIANTS.has(parts[1]):
+		return Vector2i.ZERO
+	var foot: Vector2i = VEHICLE_FOOTPRINTS[parts[0]] as Vector2i
+	var n: int = int(CameraUtil.ART_NATIVE)
+	if parts[2] == AXIS_NS:
+		return Vector2i(foot.x * n, (foot.y + VEHICLE_ROOFLINE_TILES) * n)
+	if parts[2] == AXIS_EW:
+		return Vector2i(foot.y * n, (foot.x + VEHICLE_ROOFLINE_TILES) * n)
+	return Vector2i.ZERO
+
+
+# Which way a vehicle picture is shown for a parked facing. The east-west picture is authored
+# nose-east, so a west-facing car is the same picture in a negative-width rect -- the pawn's own
+# flip, and the one place a manifest record's `facing` reaches the art. On the north-south axis
+# both facings draw the one nose-north picture: decision 11 buys two keys a variant, and a car
+# seen from behind and one seen from the front are the picture it does not buy. Recorded rather
+# than hidden -- docs/23 names it as what a later slice would close.
+static func vehicle_flip(facing: String) -> float:
+	if facing == "w":
+		return -1.0
+	return 1.0
+
 
 # The canvas a registry key is authored on. Everything is one ART_NATIVE tile except the atlases,
 # which are a table of them -- and this is the one table, read by check_appearance.gd's canvas
@@ -206,6 +253,9 @@ static func canvas_of(key: String) -> Vector2i:
 		return PAWN_CANVAS
 	if TREE_KEYS.has(key):
 		return TREE_CANVAS
+	var vehicle: Vector2i = vehicle_canvas(key)
+	if vehicle != Vector2i.ZERO:
+		return vehicle
 	return Vector2i(n, n)
 
 

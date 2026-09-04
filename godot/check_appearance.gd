@@ -67,17 +67,43 @@ func _all_blocks() -> Dictionary:
 				out["%s#%s" % [String(path), String(entry.get("id", "?"))]] = block as Dictionary
 	return out
 
+# Whether one key is legal inside one entry's `appearance` block. One predicate, so the loop below
+# and the negatives that prove it cannot drift apart.
+#
+# Every kind shares one vocabulary, and this list is what catches a nested typo the content
+# validator cannot see (it checks top-level types only). A vehicle is the single exception: its
+# picture set is one three-quarter view per axis rather than a single `sprite`, so `variants` is
+# legal there and refused everywhere else. Its inner shape -- {id, ns, ew}, each key resolving at
+# its own canvas -- is check_wrecks.gd's DRESSING lane, not this one.
+func _appearance_key_ok(k: String, path: String) -> bool:
+	if ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront", "shape", "size"].has(k):
+		return true
+	return k == "variants" and path.begins_with("vehicles/")
+
+
 # The shape the schemas document but the validator cannot reach.
 func _declared_appearances_are_well_formed() -> bool:
-	var allowed: Array[String] = ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront", "shape", "size"]
 	var hex := RegEx.new(); hex.compile(HEX)
 	var key := RegEx.new(); key.compile(KEY)
+	# Prove the predicate before trusting it: it has to refuse `variants` on a kind that is not a
+	# vehicle, or the exception below is a hole rather than an exception. A shared allowlist that
+	# accepted `variants` everywhere would make it legal on a zombie, where it would resolve
+	# nothing and report nothing -- exactly the nested-key trap this lane exists to catch.
+	if _appearance_key_ok("variants", "zombies/walker.json#zombie.walker"):
+		push_error("the appearance allowlist accepts 'variants' outside content/vehicles/; the vehicle exception is a hole")
+		return false
+	if not _appearance_key_ok("variants", "vehicles/sedan.json#vehicle.sedan"):
+		push_error("the appearance allowlist refuses 'variants' on a vehicle, which is where the per-axis picture set lives")
+		return false
+	if _appearance_key_ok("sprrite", "vehicles/sedan.json#vehicle.sedan"):
+		push_error("the appearance allowlist accepts a misspelled key on a vehicle; the exception widened the whole list")
+		return false
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
 		var block: Dictionary = blocks[path]
 		for k in block.keys():
-			if not allowed.has(String(k)):
-				push_error("%s: appearance has unknown key '%s'; allowed %s" % [path, k, allowed])
+			if not _appearance_key_ok(String(k), String(path)):
+				push_error("%s: appearance has unknown key '%s'" % [path, k])
 				return false
 		if block.has("tint"):
 			var t: Variant = block["tint"]

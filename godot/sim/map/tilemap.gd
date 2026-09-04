@@ -56,6 +56,17 @@ var buildings: Array = []
 # from the seed -- and empty on fixture maps and `blank_map`, which is what "no paint" means to
 # the draw path that reads it (presentation/road_paint.gd).
 var streets: Array = []
+# The cars the generator parked, in placement order: {x, y, w, h, axis, class, facing} per
+# vehicle, in absolute tiles -- (x, y) the footprint's north-west corner, `axis` "ns" for a car
+# standing along a vertical street (w 2, h 5) and "ew" for one along a horizontal street (w 5,
+# h 2), `facing` which way it points ("n"/"s" on a vertical street, "e"/"w" on a horizontal one),
+# `class` the content id it was drawn from. Unlike `streets` this is *not* only metadata: the
+# `worldgen.vehicles` pass writes Tile.Low under every footprint tile, so a car is cover on the
+# map as well as a record here -- the record is what says which picture stands on it and which
+# way round. A plain Array of plain Dictionaries (the `buildings` and `streets` precedent), never
+# serialised -- the map is regenerated from the seed -- and empty on fixture maps, on `blank_map`,
+# and on every district that declares no `vehicles` block.
+var vehicles: Array = []
 # Where the loot is, in absolute tiles: {x, y, table, container?} per site, in placement order.
 # Written by the generator's `worldgen.sites` pass and by `SimTemplates.stamp` for a template that
 # carries a `loot` block (the civic annex's two rows, and any building template that grows one);
@@ -84,6 +95,7 @@ func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	anchors = {}
 	buildings = []
 	streets = []
+	vehicles = []
 	sites = []
 
 
