@@ -592,9 +592,16 @@ func _art_is_not_modulated_by_a_role_colour() -> bool:
 	print("MODULATE OK")
 	return true
 
+# The base the EQUIP lane leans on for "an equipped item with no art draws nothing". It is
+# deliberately one the renderer does not draw a slot for either, so no art slice will hand it a
+# picture in passing; the lane re-checks that it still declares none before trusting it.
+const NO_ART_BASE: String = "item.glasses.safety"
+
+
 # Equipped-gear layers: a rendered slot holding an item with equipSprite must actually resolve
 # a texture (the true positives item.bat.aluminium and item.pack.hiking exist for, one over-body
-# and one under); an item with no equipSprite, an item in a slot the renderer does not draw, and
+# and one under); an item with no equipSprite (NO_ART_BASE, whose art-lessness the lane
+# verifies first), an item in a slot the renderer does not draw, and
 # an entity with no equipment component at all (every zombie) must all fall out silently rather
 # than erroring -- each is its own assertion so a regression in any one path fails here instead
 # of drawing nothing, or the wrong thing, on screen.
@@ -604,10 +611,10 @@ func _equipped_gear_layers_resolve() -> bool:
 	var actor: int = int(w.entities.spawn())
 	var bat: int = int(w.entities.spawn())
 	var pack: int = int(w.entities.spawn())
-	var knife: int = int(w.entities.spawn())
+	var bare: int = int(w.entities.spawn())
 	w.components.set_component(bat, "itemBase", {"baseId": "item.bat.aluminium"})
 	w.components.set_component(pack, "itemBase", {"baseId": "item.pack.hiking"})
-	w.components.set_component(knife, "itemBase", {"baseId": "item.knife.kitchen"})
+	w.components.set_component(bare, "itemBase", {"baseId": NO_ART_BASE})
 
 	w.components.set_component(actor, "equipment", {"slots": {"primary": bat}})
 	var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor)
@@ -634,9 +641,23 @@ func _equipped_gear_layers_resolve() -> bool:
 		push_error("back+primary together should yield three layers (pack under, pack straps over, bat over), got %s" % str(layers))
 		return false
 
-	w.components.set_component(actor, "equipment", {"slots": {"primary": knife}})
+	# The no-art negative checks its own subject first. It used to name a real weapon, and the
+	# worn-look slice gave that weapon art -- which did not fail anything, it just quietly
+	# stopped asserting, because an item with art in a drawn slot yields a layer for the
+	# *right* reason. A negative whose subject can be taken away silently is the dead-socket
+	# family; this one says so instead.
+	var bare_entry: Dictionary = Appearance.entry_of(w, "item", NO_ART_BASE)
+	if bare_entry.is_empty():
+		push_error("%s is not in content; the no-art negative has no subject" % NO_ART_BASE)
+		return false
+	var bare_look: Variant = bare_entry.get("appearance")
+	if bare_look is Dictionary and (bare_look as Dictionary).has("equipSprite"):
+		push_error("%s now declares an equipSprite, so it can no longer serve as the no-art negative -- point NO_ART_BASE at a base that declares none" % NO_ART_BASE)
+		return false
+
+	w.components.set_component(actor, "equipment", {"slots": {"primary": bare}})
 	if not Appearance.equipment_layers_for(w, actor).is_empty():
-		push_error("item.knife.kitchen declares no equipSprite; equipping it should yield no layer")
+		push_error("%s declares no equipSprite; equipping it should yield no layer" % NO_ART_BASE)
 		return false
 
 	w.components.set_component(actor, "equipment", {"slots": {"belt": bat}})

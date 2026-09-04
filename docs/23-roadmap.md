@@ -239,10 +239,14 @@ on purpose.
   two thousand). The sixteen building keys move into one sheet addressed by region, the way
   the ground's cells are, and `_draw_wall_art`/`_draw_roofs` blit regions of it; the edges
   slice's perf driver re-run, the 539 restored or the record says why not. No look changes.
-- **What you wear shows on your body.** One generated overlay per item base that declares one,
-  on the pawn canvas, drawn in one ordered slot list on the published skeleton — no per-rig
-  variants; tailoring, layered pieces and dye are a later piece. A `godot:check:worn` gate
-  (chain 45) whose FITS lane reads the decoded pixels against the shoulder row.
+- **The other six equipment slots draw.** `SimInventory.EQUIP_SLOTS` has twelve and
+  `Appearance.EQUIP_DRAW_ORDER` draws six of them; `vest`, `belt`, `face`, `eyes`, `gloves` and
+  `feet` stay equippable in content and reach no picture, which is the dead-socket shape even though
+  nothing is wrong with the code. The vest is the one that matters for play — a scrap vest is armour
+  a survivor equips for protection and the screen does not show it — so this piece is a slot's worth
+  of order-table entry and one overlay per base, on slice 8's skeleton, judged by `WORN_LOOK_OK`'s
+  existing lanes. Whether the remaining five are worth drawing at 32 px at all is a judgement to
+  make with the pictures in hand, not before.
 - **A forest district: cabins, stands and dirt paths.** `district.forest_edge` with a `terrain`
   block (stand density, spread, thickets, paths) and dirt streets; `_dress_terrain` reads the
   block with defaults equal to today's literals, so the suburb is byte-identical; a
@@ -2327,6 +2331,67 @@ not a to-do list:
   point one tile south sits 61 px outside it and never fades, while one tile north sits inside. That
   is the fade decision 10 asks for — it fires for exactly the body the tree would otherwise hide —
   so the rule is unchanged and the pictures are named for what they show.
+- ~~What you wear shows on your body~~ **landed** (`godot:check:worn` → `WORN_LOOK_OK`, the chain's
+  forty-fifth; slice 8 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the worn
+  clause). **The mechanism**: `Appearance`'s two lists, `EQUIP_UNDER_BODY` and `EQUIP_OVER_BODY`,
+  become one ordered table, `EQUIP_DRAW_ORDER` — six slots, each saying which side of the body draw
+  call it goes on, `back` under and the rest over. Two lists could only express an order by their
+  concatenation, which put every over-body slot after every under-body one whether or not that was
+  the intent; the order layers compose in *is* the picture, so it is written down once.
+  `equipment_layers_for` walks the table in order, and an `equipSpriteFront` still lands over the
+  body whatever its slot, because "in front" is a property of the strap and not of the slot it hangs
+  from. The drawn slots go from three to six: `legs`, `torso` and `head` were declarable in content
+  and reached nothing before this. **The content**: thirteen bases that already declared an
+  `equipSlot` gain `appearance.equipSprite` (`item.schema.json` is oracle-visible, so `npm test`
+  judged them in the same commit). Nothing in the sim moved — `SimInventory.equip` already read a
+  base's `equipSlot` and filled the slot on pickup, so the pictures hang on a path that was already
+  live. **The art**: `tools/sprites/parts/gear.py` grows from three overlays to sixteen, one per
+  base plus the pack's straps, every one on `Canvas(32, 48, origin="feet")` — the pawn canvas, so
+  slice 4's published skeleton is what makes one picture fit all eight rigs with no per-rig variant.
+  Measured against that skeleton (canvas rows `FEET_Y` 47, `LEG_TOP_Y` 34, `SHOULDER_Y` 19, `HAND_Y`
+  30, `HEAD_CY` 12): the trousers span rows 32–44, waist above the leg top and hem above the boot;
+  the wrap 20–33, strictly between shoulder and leg top; the cap 7–11, clear of the eyes on row 12;
+  every held weapon hangs from `HAND_Y`. All sixteen sit inside the union of the eight rigs' own
+  opaque boxes (x 3–28, y 6–47). No new ramp base was authored and none was refused: cloth, stone,
+  strap, wood and the burnt-metal ramp carry everything, and `ember` appears exactly twice, on the
+  candle's flame and the lamp's lens, the two bases whose content carries a `light` block.
+  `sprites:check` 65, with no existing PNG moved a pixel. `build.py`'s overlay list becomes
+  `tuple(gear.REGISTRY)`, so the canvas table cannot drift behind the registry again. **The gate**:
+  `godot/check_worn.gd`, six lanes each with its true negative — ORDER (the table's shape, then a
+  fully kitted actor's seven layers coming back in that order, with a back-slot front piece over
+  anyway; a shuffled expectation refused), CANVAS (all sixteen keys at `PAWN_CANVAS`; a 32×32
+  overlay refused), FITS (decoded pixels inside the eight-rig envelope and each clothing piece on
+  its own skeleton line; a piece 6 px off its line refused), REACHES (the dead-socket lane: fifteen
+  bases each worn in its own slot resolve a layer; refused for no equipment component, no art, an
+  undrawn slot and an empty slot), SHARED (all eight rigs on one canvas and no per-rig overlay key,
+  the scan proved on a fabricated one) and PLAYED (the shipped colony at seed 20260805: three of
+  three equipped survivors wear something drawn). **Sabotage, each red as named**: two slots swapped
+  in the order fixture; the canvas predicate made size-blind; the line predicate made always-true;
+  the true-positive loop equipping into the wrong slot; the per-rig scan made blind; the wearer list
+  emptied. **One repair the slice forced**: `APPEARANCE_OK`'s EQUIP lane used `item.knife.kitchen`
+  as its "declares no equipSprite" negative, and giving the knife a picture did not fail anything —
+  it quietly stopped asserting, which is the dead-socket family wearing a different hat. The
+  negative now names a base in an undrawn slot and **checks that its subject still declares no
+  art**, failing loudly if a later slice takes that away. **A finding for the owner**: at 32 px the
+  four one-handed bars — bat, machete, pipe and kitchen knife — share a fist, an angle and a value
+  range, and while they are distinguishable side by side in the contact sheet, a player would not
+  tell them apart at a glance mid-fight. The cheapest fix is to give each primary weapon its own
+  lean rather than sharing the bat's, which changes the shipped bat, so it is left as the owner's
+  call rather than taken in passing; the service pistol is the weakest single key for the same
+  reason of size. Recorded, not fixed. Nothing under `godot/sim/` moved; the FAST lines are
+  byte-identical to slice 7's. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice8-kitted-128.png`, the player wearing
+  every drawn slot at once — cap, wrap, trousers, pack and bat — the five layers composing with none
+  clobbering another; `slice8-kitted-64.png`, the same at the boot zoom, where the gear still reads
+  as gear; `slice8-flip-east-128.png` and `slice8-flip-west-128.png`, one kit on one body at both
+  headings, the overlays mirroring with their wearer through the body's own negative-width rect; and
+  `slice8-weapons-128.png`, a montage of three in-game frames cropped around the pawn — bat,
+  machete, pipe — which is the finding above made visible: the machete's rust and its belly near the
+  tip and the pipe's coupling are all there when you look for them, and none of it is what a player
+  sees at a glance. Only the player is posed in any of these. A companion is drawn only where the
+  sim says the player sees it at Focal detail, and a body teleported into place for a screenshot is
+  neither — three staging attempts established that faster than reading the rule would have, and it
+  is the same anonymity clause that makes a still peripheral body no body at all.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

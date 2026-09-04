@@ -47,6 +47,11 @@ const PAWN_KEYS: Array[String] = [
 	"player_body", "survivor_mara", "survivor_ellis", "survivor_colonist",
 	"zombie_shambler", "zombie_screamer", "zombie_bloater", "raider_body",
 	"item_pack_hiking_equip", "item_pack_hiking_equip_front", "item_bat_aluminium_equip",
+	"item_pants_canvas_equip", "item_wrap_cloth_equip", "item_cap_canvas_equip",
+	"item_knife_kitchen_equip", "item_machete_rusted_equip", "item_pipe_steel_equip",
+	"item_spear_improvised_equip", "item_axe_fire_equip", "item_sledge_demolition_equip",
+	"item_bow_hunting_equip", "item_candle_wax_equip", "item_lamp_electric_equip",
+	"item_pistol_service_equip",
 ]
 
 # Where a picture hangs on its entity's ground point. A square canvas is a tile-sized thing seen
@@ -62,12 +67,26 @@ enum Anchor { Centre = 0, Feet = 1 }
 # a readout of the interface, not a length in the world.
 const FOOT_DROP_PX: float = 3.0
 
-# Equipment slots the renderer draws on a body. A slot with no anchor point defined here
-# stays declarable in content (item.schema.json) but is silently not drawn -- extending this
-# list is a renderer change, not a content one, because a new slot needs a decision about
-# whether it draws under or over the body.
-const EQUIP_UNDER_BODY: Array[String] = ["back"]
-const EQUIP_OVER_BODY: Array[String] = ["primary", "secondary"]
+# Equipment slots the renderer draws on a body, in the one order they compose, each saying
+# which side of the body draw call it goes on. One table rather than an under list and an over
+# list: the order layers compose in *is* the picture, and two lists could only express it by
+# their concatenation, which put every over-body slot after every under-body one whether or not
+# that was the intent. A slot absent from this table stays declarable in content
+# (item.schema.json) but is silently not drawn -- extending it is a renderer change, not a
+# content one, because a new slot needs a decision about where in this order it sits.
+#
+# Only `back` goes under: a pack hangs behind the body. Clothing covers the body it is worn on,
+# and a held weapon is in front of the hand holding it, so everything else is over. `vest`,
+# `belt`, `feet`, `gloves`, `eyes` and `face` are equippable in content and deliberately not
+# here -- they are named on docs/23's what's-left as their own piece rather than smuggled in.
+const EQUIP_DRAW_ORDER: Array[Dictionary] = [
+	{"slot": "back", "over": false},
+	{"slot": "legs", "over": true},
+	{"slot": "torso", "over": true},
+	{"slot": "primary", "over": true},
+	{"slot": "secondary", "over": true},
+	{"slot": "head", "over": true},
+]
 
 # key -> Texture2D, or null when the key has no file. Cached either way: a miss is the
 # common case and re-probing the filesystem every frame would cost more than the sprites.
@@ -557,13 +576,13 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 	}
 
 
-# Textures for whatever this entity has equipped in a slot the renderer draws, ordered
-# under-body first then over-body, each tagged with which side of the body draw call it goes
-# on. A slot with nothing equipped, an item with no equipSprite, or an entity with no
-# equipment component at all (zombies) all fall out silently -- equipment is optional the
-# same way a sprite is. An under-body item may also carry a front piece (straps crossing the
-# torso) -- that piece is always an over-body layer, independent of its slot's own default,
-# because "in front of the body" is a property of the strap, not of the slot it hangs from.
+# Textures for whatever this entity has equipped in a slot the renderer draws, walked in
+# EQUIP_DRAW_ORDER, each tagged with which side of the body draw call it goes on. A slot with
+# nothing equipped, an item with no equipSprite, or an entity with no equipment component at all
+# (zombies) all fall out silently -- equipment is optional the same way a sprite is. An under-body
+# item may also carry a front piece (straps crossing the torso) -- that piece is always an
+# over-body layer, independent of its slot's own default, because "in front of the body" is a
+# property of the strap, not of the slot it hangs from.
 static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if world == null or world.components == null:
@@ -572,17 +591,16 @@ static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary
 	if not (eq is Dictionary):
 		return out
 	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
-	for group in [{"names": EQUIP_UNDER_BODY, "over": false}, {"names": EQUIP_OVER_BODY, "over": true}]:
-		for slot in group["names"] as Array[String]:
-			var block: Variant = _equip_block_for(world, slots.get(slot))
-			if not (block is Dictionary):
-				continue
-			var texture: Texture2D = _resolve_equip_key(block as Dictionary, "equipSprite")
-			if texture != null:
-				out.append({"texture": texture, "over": bool(group["over"])})
-			var front: Texture2D = _resolve_equip_key(block as Dictionary, "equipSpriteFront")
-			if front != null:
-				out.append({"texture": front, "over": true})
+	for entry in EQUIP_DRAW_ORDER:
+		var block: Variant = _equip_block_for(world, slots.get(String(entry["slot"])))
+		if not (block is Dictionary):
+			continue
+		var texture: Texture2D = _resolve_equip_key(block as Dictionary, "equipSprite")
+		if texture != null:
+			out.append({"texture": texture, "over": bool(entry["over"])})
+		var front: Texture2D = _resolve_equip_key(block as Dictionary, "equipSpriteFront")
+		if front != null:
+			out.append({"texture": front, "over": true})
 	return out
 
 
