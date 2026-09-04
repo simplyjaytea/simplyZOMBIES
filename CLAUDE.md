@@ -326,6 +326,14 @@ Each of these was found the expensive way. They are not style opinions.
   0.0000 while world B's read 500.0000 — on the spine, under every two-world assertion about noise
   or scent. Per-world state belongs on the world or in a closure over it; a closure over an object
   is safe, because the lambda-capture trap above is about primitives.
+- **`main.gd` matches on the tile class twice, and a textual gate that reads the first arm judges
+  the wrong one.** `_draw_district` has a `match tile:` that picks a *colour* and a second one that
+  *draws*, each with its own `SimTileMap.Tile.Low:` arm. A gate slicing from the first label found
+  four lines of colour arithmetic and reported that the draw loop never asks whether a vehicle
+  covers the tile — red, and blaming code that was correct, which is the worst thing a gate can do.
+  Enumerate every arm and pick the one calling the draw helper; `check_wrecks.gd`'s `_low_arms` is
+  the precedent. Same family as proving a scanner on a fabricated body before trusting it: a
+  textual assertion needs to be shown it is reading what it thinks it is.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.

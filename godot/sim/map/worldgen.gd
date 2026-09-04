@@ -11,7 +11,7 @@ extends RefCounted
 # was measured on a map with no buildings in it. It also carried three magic XOR salts where
 # docs/30 asks for named derivations.
 #
-# The pipeline, in order. Each pass has its own named stream, and passes 1-6 (the layout) draw
+# The pipeline, in order. Each pass has its own named stream, and passes 1-7 (the layout) draw
 # from none of the dressing streams -- so turning the dressing off leaves the layout byte-identical,
 # which is the property docs/30 already recorded for the occluder pass, under new names. It is
 # asserted rather than asserted-by-comment: check_m2_district.gd's dressing-independence lane.
@@ -22,13 +22,14 @@ extends RefCounted
 #   3. worldgen.parcels  -- blocks split into lots
 #   4. worldgen.annex    -- where the colony stands: lots ranked, the winner stamped and reserved
 #   5. worldgen.buildings-- a weighted pick per lot from the district's pool, thinned by density
-#   6. worldgen.sites    -- where the loot is, from the district's lootProfile: interiors first,
+#   6. worldgen.vehicles -- the cars left in the carriageway, from the district's `vehicles` block
+#   7. worldgen.sites    -- where the loot is, from the district's lootProfile: interiors first,
 #                           the odd car boot on a driveway, the rare tables once per district
-#   7. (survivability)   -- docs/01's fairness rule, judged; a district that fails re-sites the
-#                           annex on the next-ranked lot and runs 4-6 again
-#   8. worldgen.occluders-- windows, screening, wrecks
-#   9. worldgen.terrain  -- lawns, stands of trees, thickets, the trodden edge of a green
-#  10. worldgen.rubble   -- the decay: aprons of broken slab round the buildings, blobs on open
+#   8. (survivability)   -- docs/01's fairness rule, judged; a district that fails re-sites the
+#                           annex on the next-ranked lot and runs 4-7 again
+#   9. worldgen.occluders-- windows, screening, wrecks
+#  10. worldgen.terrain  -- lawns, stands of trees, thickets, the trodden edge of a green
+#  11. worldgen.rubble   -- the decay: aprons of broken slab round the buildings, blobs on open
 #                           ground, patches heaved up through the street
 #
 # Sites are **layout, not dressing**: they are chosen before a tree is planted, they are the same
@@ -113,6 +114,17 @@ const SCALE_FLOOR: float = 0.32
 # boundaries are always open, so the ring around any building reaches the street.
 const BUILDING_INSET: int = 1
 
+# Parking. A car is 2 tiles across and must keep a kerb row free on each side of it, so the
+# narrowest street it fits in is four tiles wide -- the usable lane offsets for a 2-wide body on a
+# span of `width` are 1..width-3, which is empty below four. Measured on seed 20260805, that is
+# what keeps the town centre (streets 2/3/3 at 64/128/256) and the forest edge (2/2/3) empty and
+# the suburb (2/5/7) parked at 128 and 256 but not at the 64 every gate boots.
+const VEHICLE_MIN_WIDTH: int = 4
+# How often a slot comes up along a span: a sedan is five tiles long, so eight leaves three tiles
+# of gap between two parked bumper to bumper. Slots are walked whatever the street's width, and
+# every one of them draws the same four times -- see `_vehicles`.
+const VEHICLE_SLOT: int = 8
+
 
 # --- entry points ---------------------------------------------------------------------------
 
@@ -134,6 +146,7 @@ static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, co
 	var tree: Dictionary = content as Dictionary if content is Dictionary else ContentLoaderRes.load_tree()
 	var district: Dictionary = district_of(tree, district_id)
 	var templates: Array = templates_of(tree)
+	var vehicles: Array = vehicles_of(tree)
 	var patch: Variant = annex_template_of(tree)
 	var footprint: Vector2i = SimTemplatesRes.footprint(patch as Dictionary) if patch is Dictionary else Vector2i.ZERO
 
@@ -160,6 +173,8 @@ static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, co
 			SimTemplatesRes.stamp(map, patch as Dictionary, reserve.position.x, reserve.position.y)
 		var placed: Array = _buildings(map, seed_val, district, templates, parcels, reserve)
 		map.buildings = placed
+		# Before the loot and after the buildings; `_vehicles` says why both halves matter.
+		_vehicles(map, seed_val, district, vehicles, reserve)
 		_sites(map, seed_val, district, templates, placed, reserve)
 		report = survivability_report(map)
 		var refused: bool = not bool(report["ok"])
@@ -245,6 +260,21 @@ static func templates_of(tree: Dictionary) -> Array:
 	var out: Array = []
 	for path in _sorted_keys(tree):
 		if not path.begins_with("buildings/"):
+			continue
+		var entry: Variant = tree[path]
+		if entry is Dictionary:
+			out.append(entry as Dictionary)
+	out.sort_custom(func(a, b): return String(a.get("id", "")) < String(b.get("id", "")))
+	return out
+
+
+# The vehicle classes a content tree declares, sorted by id for the same reason the building pool
+# is: nothing this generator draws may depend on directory order. Which of them a district parks
+# is the district's own `vehicles.classes` list, not this -- this is only what exists to be named.
+static func vehicles_of(tree: Dictionary) -> Array:
+	var out: Array = []
+	for path in _sorted_keys(tree):
+		if not path.begins_with("vehicles/"):
 			continue
 		var entry: Variant = tree[path]
 		if entry is Dictionary:
@@ -794,7 +824,160 @@ static func _weighted(rng: Variant, weights: Array) -> int:
 	return weights.size() - 1
 
 
-# --- 6. loot sites --------------------------------------------------------------------------
+# --- 6. parked vehicles ---------------------------------------------------------------------
+
+# The cars left standing in the street, from the district's own `vehicles` block: how thickly they
+# park and which classes do, both data, neither a branch in here. A district that declares no block
+# parks none and draws nothing, which is what lets the two districts whose streets are too narrow
+# for a car say so by omission rather than by a zero nobody could tell from a bug.
+#
+# Runs after the buildings and before the loot, and the order is load-bearing both ways. After the
+# buildings, because `_protected_tiles` reads the building manifest and a car may not stand on a
+# doorway. Before the loot, because a site written first would be a cupboard this pass could then
+# bury under a car -- `_driveway_tiles` and `_interior_floors` both demand Tile.Floor, so running
+# second is what makes the sites see the cars instead of the other way round.
+#
+# THE FOUR DRAWS ARE THE WHOLE DISCIPLINE. An RNG stream is a sequence, so a slot that drew a
+# different number of times depending on which way a comparison went would move every decision
+# after it -- the same trap the terrain block's dials are documented under. So every slot draws
+# presence, class, lane side and facing, in that order, always, and only then is anything decided.
+# Draw first, branch second; never `if x: rng.draw()`.
+#
+# Not drawn at all: a span narrower than VEHICLE_MIN_WIDTH is skipped whole and costs no draw,
+# because a street's width is a property of the layout rather than of a roll. That is what keeps
+# the 64-tile map every gate boots byte-identical to what it was before this pass existed -- at 64
+# the suburb's streets come out two tiles wide, no span qualifies, and the stream is never touched.
+static func _vehicles(map: Variant, seed_val: int, district: Dictionary, templates: Array, reserve: Rect2i) -> void:
+	var spec: Variant = district.get("vehicles")
+	if not (spec is Dictionary):
+		return
+	var density: float = clampf(float((spec as Dictionary).get("density", 0.0)), 0.0, 1.0)
+	var by_id: Dictionary = {}
+	for entry in templates:
+		by_id[String((entry as Dictionary).get("id", ""))] = entry
+	# The classes in the district's own order, so which one a weighted pick lands on depends on the
+	# district's list and never on the content directory.
+	var classes: Array = []
+	var weights: Array = []
+	for raw in (spec as Dictionary).get("classes", []) as Array:
+		var declared: Dictionary = raw as Dictionary
+		var id: String = String(declared.get("id", ""))
+		var found: Variant = by_id.get(id)
+		if not (found is Dictionary):
+			# Loud rather than silent, the same way a missing district is: a class nobody wrote
+			# would otherwise be a street that quietly never parks anything, and no gate looking at
+			# the map could tell that from a district whose streets are all too narrow.
+			push_error("worldgen: district %s parks %s, which no content/vehicles entry declares" % [
+				String(district.get("id", "?")), id,
+			])
+			continue
+		# The footprint is judged here rather than defaulted at the slot: the schema requires it but
+		# the validator does not recurse, so a class that declares none would otherwise park a
+		# silent sedan-shaped guess -- a wrong number nothing reports, which is the trap this
+		# project keeps paying for. A class with no footprint parks nothing and says so.
+		var footprint: Dictionary = (found as Dictionary).get("footprint", {}) as Dictionary
+		if int(footprint.get("w", 0)) < 1 or int(footprint.get("l", 0)) < 1:
+			push_error("worldgen: %s declares no usable footprint {w, l}, so nothing can be parked from it" % id)
+			continue
+		classes.append(found as Dictionary)
+		weights.append(maxi(1, int(declared.get("weight", 1))))
+	if classes.is_empty():
+		return
+
+	var surface: int = street_surface_of(district)
+	var protected: Dictionary = _protected_tiles(map, reserve)
+	var rng: Variant = _stream(seed_val, "vehicles")
+	for street in map.streets as Array:
+		if not (street is Dictionary):
+			continue
+		var span: Dictionary = street as Dictionary
+		var width: int = int(span.get("width", 0))
+		if width < VEHICLE_MIN_WIDTH:
+			continue
+		var vertical: bool = String(span.get("axis", "x")) == "x"
+		var at: int = int(span.get("at", 0))
+		var from: int = int(span.get("from", 0))
+		var to: int = int(span.get("to", 0))
+		for along in range(from, to + 1, VEHICLE_SLOT):
+			var present: bool = float(rng.call("next")) < density
+			var pick: int = _weighted(rng, weights)
+			# The body sits inside the carriageway with a kerb row free on each side: offset 0 is
+			# the near kerb and width-1 the far one, so a 2-wide car starts at 1..width-3.
+			var lane: int = int(rng.call("int_range", 1, width - 3))
+			var heading: int = int(rng.call("int_range", 0, 1))
+			if not present:
+				continue
+			var shape: Dictionary = (classes[pick] as Dictionary)["footprint"] as Dictionary
+			var breadth: int = int(shape["w"])
+			var length: int = int(shape["l"])
+			var rect := Rect2i(at + lane, along, breadth, length) if vertical else Rect2i(along, at + lane, length, breadth)
+			# One picture per class x variant x axis (the owner's decision 11), so the record
+			# carries which axis it stands on and which end is the nose, and nothing rotates.
+			var axis: String = "ns" if vertical else "ew"
+			var facing: String = ("n" if heading == 0 else "s") if vertical else ("e" if heading == 0 else "w")
+			if not _vehicle_fits(map, rect, surface, protected, String(span.get("axis", "x"))):
+				continue
+			for ty in range(rect.position.y, rect.position.y + rect.size.y):
+				for tx in range(rect.position.x, rect.position.x + rect.size.x):
+					map.tiles[ty * int(map.w) + tx] = SimTileMapRes.Tile.Low
+			map.vehicles.append({
+				"x": rect.position.x, "y": rect.position.y,
+				"w": rect.size.x, "h": rect.size.y,
+				"axis": axis,
+				"class": String((classes[pick] as Dictionary).get("id", "")),
+				"facing": facing,
+			})
+
+
+# All or nothing: a car is a five-tile object and half of one parked through a junction is worse
+# than no car, so every tile of the footprint is judged and the first refusal ends the slot. The
+# four draws have already happened by the time this is asked, which is the point.
+static func _vehicle_fits(map: Variant, rect: Rect2i, surface: int, protected: Dictionary, axis: String) -> bool:
+	for ty in range(rect.position.y, rect.position.y + rect.size.y):
+		for tx in range(rect.position.x, rect.position.x + rect.size.x):
+			if tx <= 0 or ty <= 0 or tx >= int(map.w) - 1 or ty >= int(map.h) - 1:
+				return false
+			var idx: int = ty * int(map.w) + tx
+			if int(map.indoors[idx]) != 0:
+				return false
+			if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
+				return false
+			# The district's own street surface, not "paved": on a dirt district the carriageway is
+			# dirt, and a car parked on grass is a car in somebody's garden.
+			if int(map.surfaces[idx]) != surface:
+				return false
+			# Doorways, loot sites and the colony's ring, the same set every dressing pass refuses.
+			if protected.has(idx):
+				return false
+			if _on_crossing(map, tx, ty, axis):
+				return false
+	return true
+
+
+# Is this tile part of a street running the other way? Junctions stay clear: a car in the middle of
+# a crossing blocks the one place two routes meet, and it is also the one place the lane offsets
+# above stop meaning anything, because the perpendicular street has no kerb there.
+static func _on_crossing(map: Variant, tx: int, ty: int, axis: String) -> bool:
+	for street in map.streets as Array:
+		if not (street is Dictionary):
+			continue
+		var span: Dictionary = street as Dictionary
+		var other: String = String(span.get("axis", "x"))
+		if other == axis:
+			continue
+		var at: int = int(span.get("at", 0))
+		var width: int = maxi(1, int(span.get("width", 1)))
+		var from: int = int(span.get("from", 0))
+		var to: int = int(span.get("to", 0))
+		if other == "x":
+			if tx >= at and tx < at + width and ty >= from and ty <= to:
+				return true
+		elif ty >= at and ty < at + width and tx >= from and tx <= to:
+			return true
+	return false
+
+
+# --- 7. loot sites --------------------------------------------------------------------------
 
 # Where the loot is, from the district's own `lootProfile`. docs/24 gives every district type "a
 # loot profile, a danger profile, and a shape", and this is the first half made real: which tables
@@ -852,16 +1035,35 @@ static func _sites(map: Variant, seed_val: int, district: Dictionary, templates:
 
 	var outdoors: Array = []
 	var outdoors_built: bool = false
+	var tails: Array = []
+	var tails_built: bool = false
 	for entry_v2 in (profile as Dictionary).get("perDistrict", []) as Array:
 		var entry2: Dictionary = entry_v2 as Dictionary
 		var count: int = _district_count(int(entry2.get("count", 0)), mini(int(map.w), int(map.h)))
 		if count <= 0:
 			continue
 		var hosts: Array = []
+		# Where this entry's outdoor sites may stand. Chosen once for the whole entry and never per
+		# site: which list is used is a property of the map (did this district park any cars?) and
+		# a per-site fallback would draw a different number of times on a district with one car
+		# than on a district with none, which is the stream-shifting trap the vehicles pass is
+		# documented under. `_take_tile` costs the same one draw whichever list it is handed.
+		var open_ground: Array = []
 		if bool(entry2.get("outdoors", false)):
-			if not outdoors_built:
-				outdoors = _driveway_tiles(map, placed, reserve)
-				outdoors_built = true
+			# `host: vehicle` -- a car boot stands on a car, at the tail end where a boot is.
+			# Falling back to the driveway is the normal path rather than a failure: a district
+			# with no `vehicles` block parks nothing at any size, and the suburb parks nothing at
+			# the 64 every gate boots, because its streets come out two tiles wide there.
+			if String(entry2.get("host", "")) == "vehicle":
+				if not tails_built:
+					tails = _vehicle_tails(map)
+					tails_built = true
+				open_ground = tails
+			if open_ground.is_empty():
+				if not outdoors_built:
+					outdoors = _driveway_tiles(map, placed, reserve)
+					outdoors_built = true
+				open_ground = outdoors
 		else:
 			hosts = _buildings_tagged(placed, tags_by_id, entry2.get("tags", []) as Array)
 			if hosts.is_empty():
@@ -872,7 +1074,7 @@ static func _sites(map: Variant, seed_val: int, district: Dictionary, templates:
 		for _i in count:
 			var tile2: int = -1
 			if bool(entry2.get("outdoors", false)):
-				tile2 = _take_tile(rng, outdoors, taken)
+				tile2 = _take_tile(rng, open_ground, taken)
 			else:
 				var host: Dictionary = hosts[int(rng.call("int_range", 0, hosts.size() - 1))] as Dictionary
 				tile2 = _take_tile(rng, _interior_floors(map, host), taken)
@@ -982,6 +1184,41 @@ static func _driveway_tiles(map: Variant, placed: Array, reserve: Rect2i) -> Arr
 	return out
 
 
+# The back end of every parked car, as tile indices in manifest order: the row (or column) of the
+# footprint away from the nose, both tiles of the body's breadth. Where the boot is -- so a
+# `host: vehicle` site stands at the back of a car and not on its bonnet.
+#
+# Pure and drawless, like `_driveway_tiles`, and empty on any map that parked nothing: a fixture,
+# a district with no `vehicles` block, and the 64-tile map every gate boots. The tiles are
+# Tile.Low rather than Tile.Floor, which is what a car is -- not solid, walkable while the ground
+# under it is paved, and cover you can shoot over -- so a site standing on one still stands
+# somewhere open, which is the question check_loot.gd asks of it.
+static func _vehicle_tails(map: Variant) -> Array:
+	var out: Array = []
+	var w: int = int(map.w)
+	for record in map.vehicles as Array:
+		if not (record is Dictionary):
+			continue
+		var car: Dictionary = record as Dictionary
+		var x: int = int(car.get("x", 0))
+		var y: int = int(car.get("y", 0))
+		var cw: int = int(car.get("w", 0))
+		var ch: int = int(car.get("h", 0))
+		if cw <= 0 or ch <= 0:
+			continue
+		var facing: String = String(car.get("facing", ""))
+		if String(car.get("axis", "ns")) == "ns":
+			# Nose north puts the tail on the southern row, and the other way round.
+			var row: int = (y + ch - 1) if facing == "n" else y
+			for tx in range(x, x + cw):
+				out.append(row * w + tx)
+		else:
+			var col: int = x if facing == "e" else (x + cw - 1)
+			for ty in range(y, y + ch):
+				out.append(ty * w + col)
+	return out
+
+
 static func _tags_by_id(templates: Array) -> Dictionary:
 	var out: Dictionary = {}
 	for t in templates:
@@ -1036,7 +1273,7 @@ static func _protected_tiles(map: Variant, reserve: Rect2i) -> Dictionary:
 	return out
 
 
-# --- 7. survivability -------------------------------------------------------------------------
+# --- 8. survivability -------------------------------------------------------------------------
 
 # docs/01's fairness rule, made mechanical: "No unwinnable starts: generated starting positions are
 # validated for basic survivability." A pure function of the finished map -- no draws, no world, no
@@ -1250,7 +1487,7 @@ static func _walk_from(map: Variant, sources: Array) -> PackedByteArray:
 	return seen
 
 
-# --- 8. occluder dressing -------------------------------------------------------------------
+# --- 9. occluder dressing -------------------------------------------------------------------
 
 # Adapted from the old `SimTileMap._dress_occluders`, on its own named stream. Same three ideas:
 # a wall with open ground on both sides is a wall you can put a window in; screening clumps break
@@ -1304,7 +1541,7 @@ static func _dress_tile(map: Variant, tx: int, ty: int, tile: int, protected: Di
 	return true
 
 
-# --- 9. terrain dressing --------------------------------------------------------------------
+# --- 10. terrain dressing --------------------------------------------------------------------
 
 # The old pass, rewritten around the block list instead of a hardcoded block=64 lattice: lawns
 # inside a block, a stand or two of trees, thickets of undergrowth, and the trodden dirt where a
@@ -1416,7 +1653,7 @@ static func _on_grass(map: Variant, tx: int, ty: int) -> bool:
 	return int(map.surfaces[ty * int(map.w) + tx]) == SimTileMapRes.SURFACE_GRASS
 
 
-# --- 10. rubble dressing ----------------------------------------------------------------------
+# --- 11. rubble dressing ----------------------------------------------------------------------
 
 # The last dressing pass: SURFACE_RUBBLE, which docs/24 prices (x0.7 speed, x1.7 noise) and which
 # no pass had ever placed -- the debt entry measured 0 tiles on both shipped 256 seeds, so the

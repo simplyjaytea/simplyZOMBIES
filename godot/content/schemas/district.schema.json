@@ -85,6 +85,42 @@
       },
       "description": "The footprint pool, by tag. A tag with no template that fits a parcel is skipped for that parcel rather than failing it."
     },
+    "vehicles": {
+      "type": "object",
+      "required": ["density", "classes"],
+      "additionalProperties": false,
+      "description": "The cars left in this district's streets, read by SimWorldgen's `worldgen.vehicles` pass. Optional, and absent means none: every district authored before this key existed generates exactly the map it always did, which is what makes adding it safe. It is deliberately absent from town_center and forest_edge rather than declared at zero -- measured on seed 20260805, their streets come out 3 tiles wide at every size the game generates (town centre 2/3/3 at 64/128/256, forest edge 2/2/3) against SimWorldgen.VEHICLE_MIN_WIDTH of 4, so a block there would be a field nothing could ever read: the dead-socket pattern in content form. The suburb's are 2/5/7, so it parks cars at 128 and 256 and none at the 64 the gates boot. NOTE the Godot validator is shallow and never looks inside this object.",
+      "properties": {
+        "density": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "The share of parking slots that get a car. A slot is SimWorldgen.VEHICLE_SLOT tiles of street; the pass draws presence, class, lane side and facing at every one of them whatever it decides, so this dial changes which slots are taken and never how many draws happen -- an RNG stream is a sequence, and a dial that moved the draw count would re-roll every car after it."
+        },
+        "classes": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Which classes park here, by weight. Each id names a content/vehicles entry; one nobody wrote is a push_error rather than a car that quietly never appears.",
+          "items": {
+            "type": "object",
+            "required": ["id", "weight"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^vehicle\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+                "description": "A content/vehicles/*.json id."
+              },
+              "weight": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Relative draw weight of this class within the district."
+              }
+            }
+          }
+        }
+      }
+    },
     "terrain": {
       "type": "object",
       "additionalProperties": false,
@@ -228,6 +264,10 @@
               "outdoors": {
                 "type": "boolean",
                 "description": "When true the site stands on open ground beside a placed building -- a driveway, a kerb -- rather than inside one. The exception that keeps interiors dominant: docs/24 puts the game inside buildings."
+              },
+              "host": {
+                "enum": ["vehicle"],
+                "description": "What an outdoor site stands on, when it stands on something in particular. \"vehicle\" puts it on the tail tile of a car from `map.vehicles` -- the end of the footprint away from the nose, because that is where a boot is -- and is only meaningful with `outdoors` true. Absent means the driveway, which is what every outdoor site was before this key existed. The fallback is the normal path, not a failure: a district that parked no car (no `vehicles` block, or a map whose streets are all too narrow -- the 64-tile map every gate boots) puts the site on a driveway instead, and it costs the same one draw either way, because the choice is made once per entry and never per site. Before this key, the suburb's two `car boot` sites stood on driveways with no car under them: _protected_tiles forbids the dressing from putting a wreck on a site tile, so the boot had never once had a car."
               },
               "containerShare": {
                 "type": "number",

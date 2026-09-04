@@ -554,11 +554,22 @@ func _bodies_face_by_flipping() -> bool:
 	if disc < 0 or bail < 0 or bail >= blit:
 		push_error("no `continue` between the glimpse disc (%d) and the body blit (%d); a glimpsed body would be drawn as a pawn with its heading" % [disc, blit])
 		return false
-	# The wreck keeps its own quarter-turn for east-west runs; it is outside this loop and its
-	# one transform is counted here so a second one cannot creep in unnoticed.
-	var wreck: String = _function_body(MAIN_GD, "_draw_wreck")
-	if wreck.count("draw_set_transform(") != 1:
-		push_error("_draw_wreck holds %d draw_set_transform( calls; the tile-art quarter-turn is exactly one" % wreck.count("draw_set_transform("))
+	# And now the whole file, not just this loop. The one transform left in main.gd was the tile
+	# art's quarter turn for an east-west run of car segments, and that retired with the segments
+	# when a vehicle became one three-quarter picture per axis (docs/30, decision 11). So the
+	# assertion widens from "the loop holds none and the wreck holds one" to "main.gd holds none",
+	# which is both stronger and the truth. Proved on a fabricated file first, the same way the
+	# loop's counter is, so a scanner that answers zero for everything cannot pass this.
+	var whole: String = _file_text(MAIN_GD)
+	if whole.is_empty():
+		push_error("could not read %s" % MAIN_GD)
+		return false
+	if "\tdraw_set_transform(a, b, c)\n".count("draw_set_transform(") != 1:
+		push_error("the file-wide transform counter cannot see a transform it was handed")
+		return false
+	var whole_transforms: int = whole.count("draw_set_transform(")
+	if whole_transforms != 0:
+		push_error("main.gd holds %d draw_set_transform( calls; nothing rotates since the vehicle slice" % whole_transforms)
 		return false
 	# The retired helpers are gone, not stubbed: a body_rotation that answers 0.0 for everybody
 	# is the dead-socket family.
@@ -570,7 +581,7 @@ func _bodies_face_by_flipping() -> bool:
 		if resolver.contains(gone):
 			push_error("appearance.gd still carries %s; the rotation retired with the pawn slice" % gone)
 			return false
-	print("FLIP OK east +1, west -1, north and south unflipped; square centres and the pawn stands, soles on +%.0f at all %d rungs, Rect2(68, 7, 64, 96) at 64; %d pawn keys on %s; zero transforms in the loop (counter proved), the wreck's one, the disc bails before the blit, three helpers gone" % [Appearance.FOOT_DROP_PX, ZOOMS.size(), pawns, str(Appearance.PAWN_CANVAS)])
+	print("FLIP OK east +1, west -1, north and south unflipped; square centres and the pawn stands, soles on +%.0f at all %d rungs, Rect2(68, 7, 64, 96) at 64; %d pawn keys on %s; zero transforms in the loop and zero in all of main.gd (both counters proved), the disc bails before the blit, three helpers gone" % [Appearance.FOOT_DROP_PX, ZOOMS.size(), pawns, str(Appearance.PAWN_CANVAS)])
 	return true
 
 
