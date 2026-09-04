@@ -286,6 +286,18 @@ RAMPS = {
     "roof_shingle": ramp("#8a765e", family="timber"),
     "roof_tin": ramp("#837f78", family="timber"),
     "roof_tar": ramp("#2c2722", family="timber"),
+    # --- trees: the tall conifers of the trees slice ------------------------------------------
+    # Three ramps a tree is drawn from, all timber (needles and bark are the warm organic
+    # things), all in GROUND_READING because a tree stands on every ground the district draws.
+    # The plan's bases all sat inside the ground band -- pine_dark #3f4a33 at luma 0.275 and
+    # bark #4f4132 at 0.262 on paved (0.262), pine_light #566139 at 0.360 by grass (0.320) --
+    # so the two darks moved down (the shaded needle mass and the trunk are allowed to be
+    # darker than the street, the either-side rule) and the light moved up, each to the
+    # nearest value clearing every ground by the 0.08. The lit and the shaded needle ramps sit
+    # 0.27 apart in luma, which is what makes a bough read as a bough.
+    "pine_dark": ramp("#28301f", family="timber"),
+    "pine_light": ramp("#6b7a48", family="timber"),
+    "bark": ramp("#33291f", family="timber"),
 }
 
 # Which ramps make a silhouette against the ground, and are therefore held to the clearance
@@ -314,6 +326,9 @@ GROUND_READING = [
     "car_burnt",
     "concrete",
     "litter",
+    "pine_dark",
+    "pine_light",
+    "bark",
 ]
 
 for _name in GROUND_FACING:

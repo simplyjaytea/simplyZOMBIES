@@ -43,5 +43,6 @@
     "tin": { "n": "roof_tin_n", "s": "roof_tin_s" },
     "tar": { "flat": "roof_tar_flat" }
   },
-  "faces": { "window": "face_window", "door": "face_door", "garage": "face_garage" }
+  "faces": { "window": "face_window", "door": "face_door", "garage": "face_garage" },
+  "trees": { "tall": ["tree_pine_a", "tree_pine_b", "tree_pine_c"] }
 }

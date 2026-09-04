@@ -167,6 +167,12 @@ const EDGE_SHAPES: int = 8
 # tree): it takes no edge and gives none, so a floor beside a wall keeps its own colour to the
 # wall's foot, where the wall's own picture is the edge.
 const ROW_NONE: int = 255
+# The trees: one tall feet-anchored picture per tree tile, one tile wide and three tall, hung on
+# the trunk tile's south-edge centre and y-sorted with the bodies (docs/30, the Dungeon
+# Settlers look, decisions 4 and 9). Named here the way the pawn keys are, because canvas_of is
+# what check_appearance.gd's canvas lanes read; mirrored by tools/sprites/build.py's TREE_KEYS.
+const TREE_KEYS: Array[String] = ["tree_pine_a", "tree_pine_b", "tree_pine_c"]
+const TREE_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 3)
 
 
 # The canvas a registry key is authored on. Everything is one ART_NATIVE tile except the atlases,
@@ -179,6 +185,8 @@ static func canvas_of(key: String) -> Vector2i:
 		return Vector2i((GROUND_VARIANTS + EDGE_SHAPES) * n, GROUND_ROWS * n)
 	if PAWN_KEYS.has(key):
 		return PAWN_CANVAS
+	if TREE_KEYS.has(key):
+		return TREE_CANVAS
 	return Vector2i(n, n)
 
 

@@ -830,9 +830,15 @@ func _draw_district() -> void:
 						draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Tree:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
-					var centre: Vector2 = rect.get_center()
-					draw_circle(centre, zoom * 0.42, col)
-					draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
+					# A tree with a picture stands in the entity sort (Dressing.tree_tiles feeds
+					# _draw_entities, which blits it through _blit_tree), so this branch draws
+					# only the ground under it. The two discs stay as the fallback for a
+					# dressing block that names no tree, or a key with no file behind it.
+					var tree_key: String = Dressing.tree_key(dress, int(world.seed), tx, ty)
+					if tree_key.is_empty() or Appearance.resolve(tree_key) == null:
+						var centre: Vector2 = rect.get_center()
+						draw_circle(centre, zoom * 0.42, col)
+						draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
 				_:
 					# A floor knows whether it is inside a building and whether it is the tile you
 					# step through to get there. Both are read from the map -- `indoors` is an
@@ -1471,8 +1477,33 @@ func _draw_entities() -> void:
 			if rd is Dictionary:
 				cid = String((rd as Dictionary).get("id", ""))
 		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "det": det, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "raider": is_raider, "ztype": ztype, "cid": cid, "id": int(ent)})
+	# The trees join the same sort: each is a picture standing on its trunk tile's south-edge
+	# centre, so a body north of the trunk sorts behind it and one south sorts in front
+	# (docs/30, the Dungeon Settlers look, decision 9). Draw is a subset of seen --
+	# Dressing.tree_tiles asks the survivor's own seen set, and an unseen trunk draws nothing.
+	# The Focal bodies' ground points are gathered first, for the one fade rule: the tree
+	# fades while a body stands inside its rect, and the body is never dimmed.
+	var focal_points: Array[Vector2] = []
+	for body in items:
+		if int(body["det"]) == SimVisibility.Detail.Focal:
+			focal_points.append(Vector2(float(body["sx"]), float(body["sy"])))
+	var dress: Dictionary = _dressing()
+	var seen: Variant = null
+	if world.vision != null:
+		seen = world.vision.tiles_for(int(world.player))
+	for t in Dressing.tree_tiles(world.tilemap, seen, TopDownProjection.visible_bounds(camera, 2.0)):
+		var tree_key: String = Dressing.tree_key(dress, int(world.seed), t.x, t.y)
+		if tree_key.is_empty() or Appearance.resolve(tree_key) == null:
+			continue
+		var tx_w: float = float(t.x) + 0.5
+		var ty_w: float = float(t.y) + 1.0
+		var tsc: Dictionary = TopDownProjection.world_to_screen(camera, tx_w, ty_w)
+		items.append({"kind": "tree", "key": tree_key, "sx": float(tsc["sx"]), "sy": float(tsc["sy"]), "d": TopDownProjection.depth_of(tx_w, ty_w), "det": SimVisibility.Detail.Focal})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
+		if String(it.get("kind", "")) == "tree":
+			_blit_tree(it, px_scale, focal_points)
+			continue
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
 		# Colours and sprites come from content now, not from a chain of type-id checks here.
 		var look: Dictionary = Appearance.for_entity(world, it)
@@ -1613,6 +1644,21 @@ func _draw_rain() -> void:
 	var key: Color = Palette.COLOURS["rain"] as Color
 	var a: float = key.a * RainLook.alpha_scale(RainLook.intensity(t))
 	draw_multiline(open, Color(key.r, key.g, key.b, a), 1.0)
+
+
+# A tree: one tall picture standing on its trunk tile's south-edge centre, hung the way a pawn
+# is (Appearance.body_rect with the feet anchor and FOOT_DROP_PX unchanged), never flipped and
+# never rotated, and faded -- the tree, never the body -- while a Focal body's ground point lies
+# inside its rect (Dressing.tree_alpha, docs/30 decision 10). Drawn white: a tree is its own
+# object, not a stand-in shape for anything.
+func _blit_tree(it: Dictionary, px_scale: float, focal_points: Array[Vector2]) -> void:
+	var texture: Texture2D = Appearance.resolve(String(it["key"]))
+	if texture == null:
+		return
+	var size: Vector2 = texture.get_size() * px_scale
+	var rect: Rect2 = Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, 1.0)
+	var alpha: float = Dressing.tree_alpha(rect, focal_points)
+	draw_texture_rect(texture, rect, false, Color(1.0, 1.0, 1.0, alpha))
 
 
 # One body and everything it is wearing, composited at one rect: under-body layers, the body,

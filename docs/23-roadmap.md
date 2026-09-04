@@ -228,8 +228,9 @@ style-B pick of 2026-09-01 for the bodies and the mood; the plan is
 slices 1–2). The pieces below are in the order they land, each one session, each with its gate
 red both ways and its record. The reference's HUD — portraits, bars, numbers, name plates — is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided lands
-piece by piece**: the palette, pawn and wall pieces landed 2026-09-03; the edges, trees, worn
-look and vehicles below are still the old code, and their comments say so on purpose.
+piece by piece**: the palette, pawn, wall and edge pieces landed 2026-09-03 and the trees on
+2026-09-04; the worn look and the vehicles below are still the old code, and their comments say so
+on purpose.
 
 - **The walls share one atlas.** Measured in the edges slice: draw calls on the 256 district at
   zoom 16 went 539 → 1,410 between the ground slice and the wall slice, because every wall
@@ -238,11 +239,6 @@ look and vehicles below are still the old code, and their comments say so on pur
   two thousand). The sixteen building keys move into one sheet addressed by region, the way
   the ground's cells are, and `_draw_wall_art`/`_draw_roofs` blit regions of it; the edges
   slice's perf driver re-run, the 539 restored or the record says why not. No look changes.
-- **Trees stand up.** A tree is one 32×96 feet-anchored sprite, one tile wide, y-sorted with
-  the bodies through the same `body_rect`; the two fallback circles stay for a dressing block
-  that resolves nothing; the tree fades to about half alpha while a Focal body's ground point
-  is inside its rect, and the body is never dimmed (docs/30). The Tree tile stays solid and
-  opaque. A `trees` block on the dressing content, a `godot:check:trees` gate (chain 44).
 - **What you wear shows on your body.** One generated overlay per item base that declares one,
   on the pawn canvas, drawn in one ordered slot list on the published skeleton — no per-rig
   variants; tailoring, layered pieces and dye are a later piece. A `godot:check:worn` gate
@@ -2260,6 +2256,77 @@ not a to-do list:
   byte-identical to slice 5's. **The
   pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice6-edges-64.png`,
   `slice6-edges-32.png`, `slice6-edges-128.png`, `slice6-dirt-64.png`.
+- ~~Trees stand up~~ **landed** (`godot:check:trees` → `TREES_OK`, the chain's forty-fourth; slice 7
+  of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the trees clause). A tree stops
+  being two circles drawn on its tile and becomes a picture that stands in the entity sort. **The
+  mechanism**: `TREE_CANVAS` is 32×96 and feet-anchored, so `anchor_of` answers Feet from the shape
+  alone and `body_rect` hangs it exactly as it hangs a pawn; the ground point is the trunk tile's
+  south-edge centre, `(tx + 0.5, ty + 1.0)`. `Dressing.tree_tiles(map, seen, bounds)` collects every
+  Tree tile inside the visible box that the observer can see — draw is a subset of seen, and a null
+  observer sees none — `tree_key(block, seed, tx, ty)` names the picture out of the dressing block's
+  `trees.tall` through `variant_index` on `SALT_TREE` 6 (a pure hash of the seed and the tile, never
+  a sim stream), and `tree_alpha(rect, points)` is the one fade: `TREE_FADE_ALPHA` 0.55 while a
+  Focal body's ground point lies inside the tree's screen rect, 1.0 otherwise — the tree fades,
+  never the body. **The renderer**: `_draw_entities` gathers the Focal ground points, appends a
+  `"kind": "tree"` item per seen tree with `d = depth_of(tx + 0.5, ty + 1.0)` before the one sort,
+  and `_blit_tree` hangs the picture through `body_rect` at the fade's alpha; a body north of the
+  trunk sorts behind the tree and one south sorts in front. The tile branch draws only the ground
+  under a tree that has a picture, and keeps its two procedural discs as the fallback for a block
+  that names no tree or a key with no file. **The content**: `dressing/street.json` gains `trees:
+  {tall: [tree_pine_a, tree_pine_b, tree_pine_c]}` (`dressing.schema.json`, an optional object).
+  **The art**: `tools/sprites/parts/trees.py`, three conifers on `Canvas(32, 96, origin="feet")` — a
+  bark trunk narrowing from eight pixels at the foot, a tapering dark core of overlapping ellipses
+  every four rows (without it the boughs were discs on a stick with the trunk showing between them),
+  six or seven lit boughs with needle tufts hanging under each, the top-left light baked, the inward
+  outline; `a` symmetric and dense, `b` leaning with a bare east side, `c` shorter with a double
+  top. Measured: bboxes 26×91, 26×91 and 26×87, the soles on row 95, tops on rows 5, 5 and 9, three
+  clear pixels either side, a six-pixel foot, pairwise distinct. The three ramps are timber and join
+  `GROUND_READING`; the plan's bases all sat inside the ground band (`pine_dark` `#3f4a33` at luma
+  0.275 and `bark` `#4f4132` at 0.262 on paved, `pine_light` `#566139` at 0.360 by grass) and moved
+  — the darks down to `#28301f` (0.177) and `#33291f` (0.166), the light up to `#6b7a48` (0.452),
+  each the nearest value clearing every ground by 0.08. `sprites:check` 52. **The gate**:
+  `godot/check_trees.gd`, `npm run godot:check:trees` → `TREES_OK`, the chain's forty-fourth (43 →
+  44 recomputed in `package.json`, `run-godot.mjs`, `ci.yml`, `CLAUDE.md` and `HANDOFF.md`). Nine
+  lanes, each with its true negative. KEYS: `trees.tall` is exactly `TREE_KEYS`, every key resolves
+  at `TREE_CANVAS` with `canvas_of` and `anchor_of` agreeing on Feet, and `tree_key` picked all
+  three over a 16×16 scan; a fabricated key, an empty block and an empty list all answer nothing.
+  SORT: bodies at 9.2 and 11.4 either side of a tree at 11.0 sort body-tree-body, while appending
+  after the sort and sorting on x both give a different order. RECT: the bottom is `sy +
+  FOOT_DROP_PX` and the size 32×96 times the scale at all four rungs; a square canvas centres
+  instead. ALPHA: a point inside answers 0.55, a point just outside and an empty list answer 1.0,
+  all inside (0, 1]. TILES: a seen Floor tile, a null observer and an out-of-bounds rect each answer
+  nothing, bounds excluding a seen tree drop it, and a seen-everything set answers exactly both
+  trees. FALLBACK: the draw loop reaches every helper in the named order — gather before the sort,
+  `continue` after the blit, no transform in the loop, no `body_flip` in `_blit_tree` — with the
+  disc fallback still gated by `tree_key`, and the needle scanner proved on a fabricated body before
+  it is trusted on the real one. SIM UNMOVED: `Tile.Tree` stays Opaque and Solid, and `dressing.gd`
+  reaches for no RNG — scanned over the code with comments stripped, because the file's own header
+  explains that rule using the word. PLAYED: suburb@64 seed 20260805 has 36 Tree tiles, 18 of them
+  seen and drawable, each a real Tree tile resolving a texture, with a see-everything set accounting
+  for all 36. TIERS: the decoded pixels of the three pictures stand inside the tier the sprites
+  README quotes — boxes 26×91, 26×91 and 26×87, every one standing on the sole row 95, tips on rows
+  5, 5 and 9, three clear pixels either side, six-pixel feet, pairwise distinct — while a fully
+  opaque canvas and one hanging above the sole line are both refused by the same predicate. 0.1 s of
+  a 60 s budget. **Sabotage, each red as named**: the tree gathered after the sort (SORT and
+  FALLBACK); `tree_alpha` returning 1.0 always (ALPHA); the `_blit_tree` call deleted (FALLBACK);
+  `tree_pine_b.png` deleted (KEYS); `tree_tiles` ignoring the seen set (TILES and PLAYED);
+  `TREE_CANVAS` made square (KEYS, RECT and PLAYED); a picture lifted four pixels off the sole line
+  (TIERS). Nothing under `godot/sim/` moved (`Tile.Tree` stays Opaque and Solid, asserted); the FAST
+  lines are byte-identical to slice 6's. Two traps the record keeps: `depth_of` wants a world
+  coordinate, so the tree's is `ty + 1.0`; rain draws after entities and so in front of the trees,
+  which is right, while ground items draw after the sorted loop, so an item north of a trunk draws
+  over the tree — the lesser evil, recorded. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice7-stand-64.png`, four conifers beside a
+  pawn at the district's north edge, the three variants' heights and tops telling apart at a glance;
+  `slice7-behind-64.png`, a body one tile north of a trunk, where the tree drops to 0.55 and the
+  pawn reads through it while the body itself is never dimmed; `slice7-south-64.png`, the same trunk
+  with the body one tile south of it and every tree opaque at 1.0; and `slice7-stand-32.png`, the
+  same stand at the lower rung, where the trees are small but still read as trees. The plan named
+  those middle two the wrong way round, which the shot run measured and this record keeps: the rect
+  stands 96 px north of the trunk's south edge with only `FOOT_DROP_PX` below it, so at 64 a ground
+  point one tile south sits 61 px outside it and never fades, while one tile north sits inside. That
+  is the fade decision 10 asks for — it fires for exactly the body the tree would otherwise hide —
+  so the rule is unchanged and the pictures are named for what they show.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

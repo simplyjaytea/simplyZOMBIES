@@ -41,6 +41,17 @@
     "faces": {
       "type": "object",
       "description": "Fixed sprite keys for the wall openings a building shell cuts, independent of wall material: `{window, door, garage}`. Optional, and the shallow validator never looks inside it -- it checks only that `faces` itself is an object -- so check_roof_look.gd is what resolves every key it declares and refuses a fabricated one."
+    },
+    "trees": {
+      "type": "object",
+      "description": "How a Tree tile draws: `tall` is a list of sprite keys, each a 32x96 feet-anchored picture (Appearance.TREE_CANVAS) that presentation/main.gd stands on the trunk tile's south-edge centre and y-sorts with the bodies, picked per tile by a pure hash of the seed and the tile (Dressing.SALT_TREE). Optional: a block with no trees draws the two procedural discs the tile branch always drew. The shallow validator never looks inside; check_trees.gd resolves every key at its canvas and refuses a fabricated one.",
+      "additionalProperties": false,
+      "properties": {
+        "tall": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9_.]+$" }
+        }
+      }
     }
   }
 }
