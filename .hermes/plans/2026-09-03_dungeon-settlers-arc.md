@@ -577,6 +577,13 @@ the lesser evil, recorded.
 
 ## Slice 8 — "What you wear shows on your body" (chain 45, `WORN_LOOK_OK`)
 
+**Landed 2026-09-04** as written. The plan's `EQUIP_DRAW_ORDER` with a per-slot `over` flag is
+exactly what shipped, and slice 4's published skeleton did carry one overlay onto all eight rigs
+with no per-rig variant. Two things the plan did not anticipate: giving a real base art killed
+`APPEARANCE_OK`'s "declares no equipSprite" negative silently, so that negative now verifies its
+own subject; and at 32 px the one-handed weapons in a shared fist read alike, which is recorded as
+the owner's call rather than fixed by re-leaning the shipped bat.
+
 **Scope, fixed now:** the slots the sim already has, one generated overlay per item base
 declaring one, on the pawn canvas, one fixed draw order, **no per-rig variants** — one overlay
 fits eight rigs because slice 4 published the skeleton. More (tailoring, layered pieces, dye)

@@ -1990,6 +1990,18 @@ dimmed — the 2026-09-02 silhouette clause is superseded before it shipped. One
 load-bearing number: a canopy wider than its trunk hides the bodies east and west of it, and a
 y-sort has no answer to that.
 
+**Paid for, the worn slice (2026-09-04) — what a survivor is wearing is drawn on the pawn, in one
+order, on one skeleton.** One ordered table names the slots the renderer draws and which side of
+the body each goes on, because the order layers compose in is the picture and an under list plus
+an over list can only say it by their concatenation. One overlay serves every rig: slice 4
+published the skeleton, overlays are authored on the same pawn canvas, and the renderer composites
+them at the body's own rect, so there are no per-rig variants to keep in step. A slot absent from
+the table stays declarable in content and draws nothing, which is a renderer decision and not a
+content one. Two limits are the size's, not the method's, and are recorded rather than papered
+over: at 32 px several one-handed weapons in the same fist at the same angle read alike, and a
+piece fitted to the shared skeleton sits a little wide on the narrowest rig and off the hand of
+the widest — both acceptable because the rigs that strain equip nothing.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

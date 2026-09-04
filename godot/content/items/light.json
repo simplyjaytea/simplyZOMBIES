@@ -7,6 +7,7 @@
     "massKg": 0.1,
     "stack": 4,
     "equipSlot": "secondary",
+    "appearance": { "equipSprite": "item_candle_wax_equip" },
     "light": { "magnitude": 3 }
   },
   {
@@ -16,6 +17,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.6,
     "equipSlot": "secondary",
+    "appearance": { "equipSprite": "item_lamp_electric_equip" },
     "light": { "magnitude": 35 }
   },
   {

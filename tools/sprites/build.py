@@ -44,10 +44,14 @@ SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 # key under this map is generated, and `--check` is what keeps every one of them honest.
 MODULES = (characters, gear, props, wrecks, ground, buildings, trees)
 
-# The keys drawn on the pawn canvas: the eight bodies and the three equip overlays that
-# composite onto them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS --
-# two copies because Python cannot read GDScript, the same standing arrangement as `SIZE`, and
-# `check_appearance.gd` measures the committed PNGs against its copy every build.
+# The keys drawn on the pawn canvas: the eight bodies and every equip overlay that composites
+# onto them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS -- two copies
+# because Python cannot read GDScript, the same standing arrangement as `SIZE`, and
+# `check_appearance.gd` measures the committed PNGs against its copy every build. The overlays
+# are `gear.REGISTRY`'s keys in full: an overlay is composited into the body's own rect, so
+# every one of them is a pawn-canvas picture by construction and there is no second list to
+# forget to extend -- the failure this used to invite was a new overlay rendered 32x32, which
+# `write` refuses and `_blit_body` would have stretched.
 PAWN_KEYS = (
     "player_body",
     "survivor_mara",
@@ -57,10 +61,7 @@ PAWN_KEYS = (
     "zombie_screamer",
     "zombie_bloater",
     "raider_body",
-    "item_pack_hiking_equip",
-    "item_pack_hiking_equip_front",
-    "item_bat_aluminium_equip",
-)
+) + tuple(gear.REGISTRY)
 
 # Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a sheet
 # of cells rather than one silhouette -- `parts/ground.py`'s own module docstring says why it

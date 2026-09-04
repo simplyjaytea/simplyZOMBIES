@@ -39,8 +39,9 @@ is approaching.
 - **A face is three pixels.** Two 1 px eyes 3 px apart and one brow pixel above and to the left
   — at 32 px wide there is no room for a mouth, and the placement is the whole of it.
 
-Still **decided and not shipped**: one three-quarter picture per axis for vehicles, and the
-worn look beyond the pack and the bat. Walls and roofs landed the same day as the pawns:
+Still **decided and not shipped**: one three-quarter picture per axis for vehicles. The worn
+look landed 2026-09-04 — sixteen overlays, one per base declaring a drawn slot, under
+"Equipped-item overlays" below. Walls and roofs landed the same day as the pawns:
 `wall_*`, `roof_*` and `face_*` are tile art, under "Tile art" below; the trees landed with
 them, under "The tree" below.
 
@@ -55,7 +56,7 @@ them, under "The tree" below.
 - **Canvas: three shapes, one table.** `Appearance.canvas_of` is the one place a size is
   decided, mirrored by `tools/sprites/build.py`'s `CANVAS`: a **tile**, `ART_NATIVE` square
   (32×32) — props, tile art, debris; a **pawn**, `PAWN_CANVAS` (32×48) — every body and every
-  equip overlay, the eleven keys `PAWN_KEYS` names; the **ground atlas** (128×224) — the one
+  equip overlay, the twenty-four keys `PAWN_KEYS` names; the **ground atlas** (128×224) — the one
   file that is a table of cells rather than one picture. `npm run godot:check:appearance` fails
   the build on any file whose size does not match its own canvas — a sprite authored to the
   wrong shape would float or stretch without ever erroring otherwise, so the canvas is
@@ -185,12 +186,11 @@ Every body on the roster is **generated** — `tools/sprites/parts/characters.py
 rigs, drawn through one `_figure` assembler whose fixed order (shade before outline) is
 load-bearing, not style — and `npm run sprites:check` fails if a committed PNG and that code
 disagree. `survivor_mara.png` and `zombie_shambler.png` were the last hand-authored bodies;
-the three `item_*_equip*` overlays (`tools/sprites/parts/gear.py`) were the last hand art of
-any kind. **Nothing in the sprite directory is hand-authored any more** — the next
-hand-polished replacement, whenever it lands, is a deletion here rather than an addition
-(`tools/sprites/README.md`'s standing rule).
-- **Filename:** `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the
-  registry key.
+the three hand-drawn `item_*_equip*` overlays were the last hand art of any kind, and
+`tools/sprites/parts/gear.py` generates all sixteen of them now. **Nothing in the sprite directory
+is hand-authored any more** — the next hand-polished replacement, whenever it lands, is a deletion
+here rather than an addition (`tools/sprites/README.md`'s standing rule). - **Filename:**
+`<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the registry key.
 
 ## Tile art: segment sets, and the third authoring convention (heaps and road paint keep this)
 
@@ -262,9 +262,12 @@ canvas row — the same reason the skeleton is published at all: one overlay fit
 bodies instead of eight overlays fitting one each. `main.gd::_blit_body` composites every layer
 into the identical rect the body draws at, so there is no per-item offset to configure, and a
 west-facing negative-width rect mirrors the gear with its wearer, same as the body underneath
-it. Only slots `presentation/appearance.gd` renders matter today: `back` draws under the body
-sprite, `primary` and `secondary` draw over it. Other equipment slots may declare `equipSprite`
-but nothing draws them yet.
+it. Which slots draw, and in what order, is `Appearance.EQUIP_DRAW_ORDER` — one ordered table
+rather than an under list and an over list, because the order layers compose in *is* the
+picture and a pair of lists can only say it by their concatenation. Six slots today: `back`
+under the body, then `legs`, `torso`, `primary`, `secondary` and `head` over it. `vest`,
+`belt`, `face`, `eyes`, `gloves` and `feet` are equippable in content and draw nothing — a
+renderer decision, not a content one, named on docs/23's what's-left.
 
 An under-body item can also declare `appearance.equipSpriteFront` — a second, optional picture
 that always draws over the body, independent of the slot's own under/over default. A worn
