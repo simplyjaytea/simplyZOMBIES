@@ -120,6 +120,7 @@ func _sound_fixture() -> Dictionary:
 		"doors": [{"x": 3, "y": 5}],
 		"tags": ["fixture"],
 		"weight": 1,
+		"look": {"roof": "tar", "wall": "block"},
 		"anchors": {"player_start": {"x": 3, "y": 3}, "gate_a": {"x": 3, "y": 5}},
 	}
 

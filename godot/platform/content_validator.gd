@@ -13,7 +13,7 @@ static func _load_schemas(root: String = "res://content") -> Dictionary:
 	# `schemas.get(type_id)` returns null, and `_validate_shape` is simply never called for it --
 	# shallow validation switches itself off for that whole directory in silence. Registering the
 	# id here is what keeps it on.
-	for id in ["item", "zombie", "affix", "calibration", "survivor", "map", "loot", "building", "district", "raider", "prop", "player", "dressing"]:
+	for id in ["item", "zombie", "affix", "calibration", "survivor", "map", "loot", "building", "district", "raider", "prop", "player", "dressing", "vehicle"]:
 		var path: String = "%s/schemas/%s.schema.json" % [root, id]
 		var f := FileAccess.open(path, FileAccess.READ)
 		if f == null:
@@ -104,6 +104,7 @@ static func _type_of_path(path: String) -> String:
 	if path.begins_with("props/"): return "prop"
 	if path.begins_with("players/"): return "player"
 	if path.begins_with("dressing/"): return "dressing"
+	if path.begins_with("vehicles/"): return "vehicle"
 	return path.get_slice("/", 0)
 
 static func _validate_shape(entry: Dictionary, schema: Dictionary, path: String) -> Array[String]:

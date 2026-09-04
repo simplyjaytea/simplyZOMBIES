@@ -1,34 +1,64 @@
 """Colour for generated sprites, and the clamps that keep it in the mood.
 
-docs/30's art decision fixes the reference mood: muted, overcast, desaturated urban decay.
-A ramp authored by eye drifts towards whatever looked good in the last batch, so the mood is
-enforced here rather than remembered: every colour a generator paints with goes through
-`clamp`, and every ramp is checked against the ground it will be seen on before the module
-finishes importing. A ramp that would disappear into the street is an ImportError, not a
+docs/30's Dungeon Settlers decision fixes the mood: warm dark fantasy -- a cool near-black dark
+wrapped around a warm-lit district, timber browns for built mass, and saturated fire and lamplight
+as the only loud things on screen. It replaces the muted-overcast grade this package was first
+written for, and the difference is structural rather than cosmetic: overcast was held by *one*
+saturation ceiling over everything, which is why a torch and a bedsheet came out the same
+temperature. A ramp authored by eye drifts towards whatever looked good in the last batch, so the
+mood is still enforced here rather than remembered -- but it is enforced per **family**, because
+"how saturated may this be" has three different right answers on one roster.
+
+`FAMILIES` below is that statement. Every colour a generator paints with goes through `clamp`
+under a named family, and every ramp is checked against the ground it will be seen on before the
+module finishes importing. A ramp that would disappear into the street is an ImportError, not a
 sprite somebody notices three batches later.
 
-The clamps, all three of them settled with the arc:
+The three families, and why each bound is where it is:
 
-* **S <= 0.35** -- nothing in this world is saturated. The one thing on screen allowed past
-  this is a light source, and light is not a sprite.
-* **V in [0.12, 0.80]** -- the floor keeps a colour off pure black (where the outline lives
-  and where a shape stops reading as a shape); the ceiling keeps it off white, which under
-  the night wash is the only thing that still glares.
-* **Luminance clearance over the ground** -- a pawn has to read against every surface the
-  district can put under it, which is a *measured* property of the two palettes together and
-  not a matter of taste.
+* **muted** (S <= 0.30, V in [0.12, 0.72]) -- cloth, stone, glass, concrete, litter, the
+  achromatic colonist rig: the manufactured and the worn-out, which is most of a district. The
+  saturation ceiling is the ground's own (check_road_look.gd's palette lane caps a surface at
+  0.30) so a crate cannot out-colour the street it stands on. The floor keeps a colour off pure
+  black, where the outline lives and where a shape stops reading as a shape; the ceiling keeps it
+  off white, which under the night wash is the only thing that still glares -- and it sits lower
+  than the old single ceiling on purpose, because in a warm grade the loud thing on screen has to
+  be the fire, not a bedsheet.
+* **timber** (S <= 0.45, V in [0.15, 0.80]) -- skin, sawn wood, and the warm organic things
+  including the zombie roster's flesh tones. These are allowed a colour the manufactured world is
+  not: the mood's warmth lives in the browns, and muting them was exactly what made the old grade
+  read as grey.
+* **accent** (S <= 0.85, V in [0.30, 0.95]) -- fire, and nothing else so far. docs/30's clamp
+  note always said the one thing allowed past the ceiling is a light source; the warm grade takes
+  it at its word and gives that exception a family instead of a footnote.
+
+`clamp` and `ramp` both default to **muted**, the tightest of the three, so a call that has not
+been given a family gets the strictest answer rather than the loosest.
+
+The fourth constraint is not a family and cannot be, because it is a property of two palettes
+together: **luminance clearance over the ground**. A pawn has to read against every surface the
+district can put under it, which is measured (`guard_against_ground`,
+`guard_either_side_of_ground`) rather than a matter of taste.
 """
 
 import colorsys
+from collections import namedtuple
 
-# The 1 px outline every generated sprite closes with. Matches the five hand-authored PNGs
-# already in godot/assets/sprites/ -- the seam between hand and generated art should not be
-# visible in the outline, of all places.
+# The 1 px outline every generated sprite closes with. It was chosen to match the hand-authored
+# PNGs this package has since taken over one by one; nothing in godot/assets/sprites/ is hand
+# art any more, and the constant stays because every rig, prop and wreck now closes on it.
 OUTLINE = "#161614"
 
-SAT_MAX = 0.35
-VALUE_MIN = 0.12
-VALUE_MAX = 0.80
+# One family: the saturation ceiling and the value band a colour of that kind may occupy. A
+# namedtuple rather than three parallel dicts, so a family is one thing to read and one thing to
+# add to, and a member cannot be edited without its siblings in view.
+Family = namedtuple("Family", "sat_max value_min value_max")
+
+FAMILIES = {
+    "muted": Family(0.30, 0.12, 0.72),
+    "timber": Family(0.45, 0.15, 0.80),
+    "accent": Family(0.85, 0.30, 0.95),
+}
 
 # How far a ramp's mid tone must clear the brightest ground the district can draw, in
 # luminance. Below this a pawn standing on undergrowth is a silhouette with no interior.
@@ -36,8 +66,8 @@ GROUND_CONTRAST = 0.10
 
 # The same idea for street furniture, which is allowed to be *darker* than the street rather
 # than lighter -- see `guard_either_side_of_ground`. Lower than GROUND_CONTRAST because the
-# grounds sit at luminance 0.25-0.32 and VALUE_MIN floors a colour at 0.12: a 0.10 clearance
-# downwards would leave a burnt car shell almost no room to be a colour at all.
+# grounds sit at luminance 0.26-0.32 and the muted family floors a colour at V 0.12: a 0.10
+# clearance downwards would leave a burnt car shell almost no room to be a colour at all.
 GROUND_CONTRAST_EITHER = 0.08
 
 # A HARD COPY of `SURFACE_TINTS` in godot/presentation/palette.gd, which is the source of
@@ -45,11 +75,22 @@ GROUND_CONTRAST_EITHER = 0.08
 # the ground means editing both in the same commit; a stale copy here makes the guard lie
 # about a district nobody is drawing any more.
 SURFACE_TINTS = {
-    "paved": "#3f4143",
-    "dirt": "#524e40",
-    "grass": "#4e5442",
-    "undergrowth": "#46503d",
-    "rubble": "#4a4644",
+    "paved": "#474240",
+    "dirt": "#584e40",
+    "grass": "#4f5440",
+    "undergrowth": "#414a37",
+    "rubble": "#4e4a46",
+}
+
+# A HARD COPY of two entries from `COLOURS` in godot/presentation/palette.gd -- the paint layer's
+# sidewalk slab and the indoor board floor, the two ground rows that are not one of the five
+# `SURFACE_TINTS` surfaces. Same rule as the copy above: this file cannot read GDScript, and
+# regrading either colour means editing both in the same commit or this guard lies about a floor
+# nobody is drawing any more. `sidewalk` matches `COLOURS["sidewalk"]`; `boards` matches
+# `COLOURS["indoorFloor"]`.
+PAINT_TINTS = {
+    "sidewalk": "#5e5852",
+    "boards": "#6a5540",
 }
 
 
@@ -64,12 +105,17 @@ def to_hex(rgb):
     return "#%02x%02x%02x" % tuple(max(0, min(255, int(round(c)))) for c in rgb)
 
 
-def clamp(value):
-    """The mood, applied to one colour: desaturated, and off both black and white."""
+def clamp(value, family="muted"):
+    """The mood, applied to one colour: inside its family's saturation cap and value band.
+
+    The default is `muted`, the tightest family, so a call written before the families existed
+    -- or one that simply forgot -- gets the strictest clamp rather than the most permissive.
+    """
+    bounds = FAMILIES[family]
     r, g, b = (c / 255.0 for c in to_rgb(value))
     h, s, v = colorsys.rgb_to_hsv(r, g, b)
-    s = min(s, SAT_MAX)
-    v = max(VALUE_MIN, min(VALUE_MAX, v))
+    s = min(s, bounds.sat_max)
+    v = max(bounds.value_min, min(bounds.value_max, v))
     return to_hex(tuple(c * 255.0 for c in colorsys.hsv_to_rgb(h, s, v)))
 
 
@@ -83,12 +129,13 @@ def brightest_ground():
     return max(luma(hex_value) for hex_value in SURFACE_TINTS.values())
 
 
-def ramp(base, steps=5, spread=0.34):
-    """A value ramp around `base`, darkest first, every step clamped.
+def ramp(base, steps=5, spread=0.34, family="muted"):
+    """A value ramp around `base`, darkest first, every step clamped into `family`.
 
     Value only -- hue and saturation stay where the base put them, because a ramp that
     drifts in hue reads as two materials rather than one lit unevenly. `steps` is odd by
-    convention so `mid` is a real entry rather than an interpolation.
+    convention so `mid` is a real entry rather than an interpolation. `family` defaults to the
+    tightest of the three for the same reason `clamp`'s does.
     """
     if steps < 2:
         raise ValueError("a ramp needs at least two steps")
@@ -98,7 +145,8 @@ def ramp(base, steps=5, spread=0.34):
     for i in range(steps):
         t = (i / (steps - 1.0)) - 0.5  # -0.5 .. +0.5
         stepped = v * (1.0 + spread * 2.0 * t)
-        out.append(clamp(to_hex(tuple(c * 255.0 for c in colorsys.hsv_to_rgb(h, s, stepped)))))
+        rgb = colorsys.hsv_to_rgb(h, s, stepped)
+        out.append(clamp(to_hex(tuple(c * 255.0 for c in rgb)), family))
     return out
 
 
@@ -144,33 +192,55 @@ def guard_either_side_of_ground(name, steps):
 RAMPS = {
     # Skin as the hand-authored survivor already has it (#c8a888 is survivor_mara.png's own
     # face tone), so a generated body and a hand-painted one are the same person's species.
-    "skin": ramp("#c8a888"),
+    # Timber: a face is one of the warm organic things, and the old ceiling was already above
+    # its S 0.320, so the family change costs this ramp nothing and buys it room to warm later.
+    "skin": ramp("#c8a888", family="timber"),
     # Working clothes: olive-grey fatigues, the reference's one wearable colour. Muted enough
     # that the strap tell reads as a shape rather than as a second colour.
     "fatigue_drab": ramp("#6f7464"),
     # Webbing, boot leather, a slung strap: the dark material that draws the tells.
     "strap": ramp("#4a4438"),
     # --- street furniture: the props that stand in a district ------------------------------
-    # Sawn timber, weathered pale: crates, the latrine's boards, a well's headgear.
-    "wood": ramp("#8a7560"),
+    # Sawn timber, weathered pale: crates, the latrine's boards, a well's headgear. Timber by
+    # name and by family -- this is the material the warm grade is named after.
+    "wood": ramp("#8a7560", family="timber"),
     # Bedding and canvas -- the lightest material on the roster, because a bed read from
-    # overhead is mostly sheet.
+    # from the front is mostly sheet. Its top step wants V 0.809 and the muted ceiling holds it at
+    # 0.72 where the old cap held it at 0.80 -- which is the point: in a warm grade a bedsheet is
+    # not allowed to be the brightest thing outdoors.
     "cloth": ramp("#9a958a"),
     # Masonry: the well's ring and the stones round a fire pit.
     "stone": ramp("#8b8b86"),
     # A cold fire: char and ash, dark and dead. Not ground-facing -- it lives *inside* the
     # stone ring, and the ring is what makes the pit read from across the street.
     "ash": ramp("#4f4b48"),
-    # The lit fire's tell. Warm, and no warmer than the mood allows: SAT_MAX puts a hard cap on
-    # fire orange, and docs/30's clamp note is explicit that the one thing allowed past it is a
-    # light source -- which the campfire also is, painted by the light pass, not by this sprite.
-    "ember": ramp("#c8a189"),
-    # --- wrecks --------------------------------------------------------------------------
+    # The lit fire's tell, and the one accent-family ramp on the roster. Re-based from the old
+    # #c8a189 (a warm beige, all the muted ceiling would allow) to the torch orange the warm
+    # grade is built around: S 0.812 and V 0.878 both sit inside `accent` untouched, so this
+    # colour ships as authored rather than as whatever the clamp left of it. It is in
+    # GROUND_READING and still clears every ground either side by 0.224.
+    "ember": ramp("#e07b2a", family="accent"),
+    # --- vehicles ------------------------------------------------------------------------
     # Three car shells, chosen so the variants differ in *value* and not only in hue: a pale
-    # saloon, a green one, and a burnt-out dark one. The dark shell is exactly the case the
-    # pawn-only guard would have refused and the either-side guard correctly allows.
+    # saloon at mid luma 0.581, a green one at 0.468, and a burnt-out shell at 0.170. The dark
+    # shell is exactly the case the pawn-only guard would have refused and the either-side guard
+    # correctly allows -- and the only muted ramp the tightened cap actually bites: S 0.340 ->
+    # 0.30, mid #352723 -> #352925.
+    #
+    # `car_green` was re-based from #7f8a82 in the vehicles slice, inside the muted family and
+    # not by touching it. The old base was S 0.080 and mid luma 0.530: against `car_pale`'s
+    # 0.581 that is a 0.051 gap in value and almost none in hue, so the two shells rendered as
+    # the same grey car twice and the variant bought nothing. #63805c is S 0.281 -- still under
+    # muted's 0.30 ceiling, so the clamp passes it through untouched -- and mid luma 0.468, a
+    # 0.113 gap under the pale and 0.148 clear of its nearest ground (grass, 0.3196) against
+    # GROUND_CONTRAST_EITHER's 0.08. A failing colour is fixed as a colour, never as a band.
+    #
+    # `car_pale` is where it is because it is as light as this family goes: `ramp` spreads V by
+    # +-34% about the base and muted ceilings V at 0.72, so a base above V 0.604 collapses its
+    # own top two steps into one flat tone. It ships at that base, mid luma 0.581, a quarter of
+    # a luma clear of the brightest ground.
     "car_pale": ramp("#8f959a"),
-    "car_green": ramp("#7f8a82"),
+    "car_green": ramp("#63805c"),
     "car_burnt": ramp("#352723"),
     # Glass: windscreens and side windows, dark from above because a car interior is.
     "glass": ramp("#46504f"),
@@ -179,29 +249,69 @@ RAMPS = {
     "concrete": ramp("#8a8781"),
     # Paper, plastic, a flattened box: the cosmetic scatter on street pavement.
     "litter": ramp("#9d9891"),
-    # --- bodies: the overhead roster -------------------------------------------------------
+    # --- bodies: the pawn roster -------------------------------------------------------------
     # Mara's bob, Ellis's crown.
     "hair_black": ramp("#2a2622"),
     # Ellis's grey-flecked beard.
     "beard_grey": ramp("#8d8579"),
     # The achromatic colonist rig -- S=0 by construction; the tint in looks.json supplies all
-    # colour via modulate.
+    # colour via modulate. The muted ceiling clamps the top three steps together at V 0.72
+    # (#b8b8b8), so the rig's internal shading now comes from `_figure`'s shade pass rather than
+    # from the ramp; check_appearance.gd's GREY lane is what says whether that is still bright
+    # enough to carry a colony tint over the brightest ground, and it is measured there, here.
     "colonist_grey": ramp("#c2c2c2"),
-    # The shambler's dead flesh.
-    "gore_rot": ramp("#8a8f7c"),
+    # The shambler's dead flesh. Timber: rot is organic, and the family lets it keep the green
+    # cast the muted cap was already leaving alone at S 0.133.
+    "gore_rot": ramp("#8a8f7c", family="timber"),
     # The screamer's old flat content tint, routed through the mood clamp instead of around
-    # it. The clamp mutes this hard -- mid clamps to #cc8d85, a desaturated salmon -- and that
-    # is deliberate: nothing on this roster gets to keep a saturation the mood does not allow,
-    # not even the one colour that used to mean "aggressive".
-    "screamer_red": ramp("#d95947"),
+    # it. Timber rather than accent -- the screamer is flesh, not fire -- so the clamp still
+    # mutes it hard, from S 0.673 to 0.45, and mid lands on #cc7c70 rather than the old grade's
+    # #cc8d85. A step redder than it was and still nowhere near the authored #d95947: nothing on
+    # this roster gets to keep a saturation the mood does not allow, not even the one colour
+    # that used to mean "aggressive".
+    "screamer_red": ramp("#d95947", family="timber"),
     # The screamer's pale head.
     "screamer_pale": ramp("#cfc9bd"),
-    # The bloater's distended bulk.
-    "bloater_green": ramp("#6b8c47"),
+    # The bloater's distended bulk. Timber lifts the clamp from S 0.35 to 0.45 against an
+    # authored 0.493, so the green reads as sickness rather than as olive drab.
+    "bloater_green": ramp("#6b8c47", family="timber"),
     # The one shared raider body. The darker #6d6558 fails the ground guard by arithmetic --
-    # mid luma 0.3991, clearance +0.0798 < GROUND_CONTRAST 0.10 -- so this is as dark as the
-    # drab can go and still read as a body rather than a hole in the street.
+    # mid luma 0.3991, clearance +0.0795 over the warm grade's brightest ground (grass, 0.3196)
+    # and under GROUND_CONTRAST 0.10 -- so this is as dark as the drab can go and still read as
+    # a body rather than a hole in the street. The margin moved by 0.0003 across the regrade:
+    # the old table's brightest ground was grass too, at 0.3193.
     "raider_drab": ramp("#7d7568"),
+    # --- buildings: wall caps and faces, roof sheets -------------------------------------------
+    # The built materials the wall-and-roof slice draws (`parts/buildings.py`), all timber-family
+    # because the mood's warmth lives in the browns and a wall is the largest brown on screen.
+    # Every one is held to `guard_either_side_of_floors` below -- the either-side rule over the
+    # two paint rows as well as the five grounds, because the sidewalk is what a front stands on
+    # and the board floor is what a roof covers. That rule moved four of the plan's seven bases:
+    # timber #7a6244 (luma 0.396), brick #7a5342 (0.356) and shingle #6a5a4a (0.362) all sat
+    # inside the floor band (grass 0.320, boards 0.345, sidewalk 0.348) and moved up to the lit
+    # side, the nearest value clearing sidewalk by the 0.08; tar #46403a (0.254) sat on paved
+    # (0.262) and moved down to the dark side instead -- a flat tar roof is the one built
+    # surface that is allowed to be the darkest thing on screen, and it draws where the screen
+    # used to be black. Render, block and tin (0.521, 0.479, moved 0.417 -> 0.499) were clear.
+    "wall_timber": ramp("#8a6f4d", family="timber"),
+    "wall_brick": ramp("#9a6a58", family="timber"),
+    "wall_render": ramp("#8d8474", family="timber"),
+    "wall_block": ramp("#7d7a72", family="timber"),
+    "roof_shingle": ramp("#8a765e", family="timber"),
+    "roof_tin": ramp("#837f78", family="timber"),
+    "roof_tar": ramp("#2c2722", family="timber"),
+    # --- trees: the tall conifers of the trees slice ------------------------------------------
+    # Three ramps a tree is drawn from, all timber (needles and bark are the warm organic
+    # things), all in GROUND_READING because a tree stands on every ground the district draws.
+    # The plan's bases all sat inside the ground band -- pine_dark #3f4a33 at luma 0.275 and
+    # bark #4f4132 at 0.262 on paved (0.262), pine_light #566139 at 0.360 by grass (0.320) --
+    # so the two darks moved down (the shaded needle mass and the trunk are allowed to be
+    # darker than the street, the either-side rule) and the light moved up, each to the
+    # nearest value clearing every ground by the 0.08. The lit and the shaded needle ramps sit
+    # 0.27 apart in luma, which is what makes a bough read as a bough.
+    "pine_dark": ramp("#28301f", family="timber"),
+    "pine_light": ramp("#6b7a48", family="timber"),
+    "bark": ramp("#33291f", family="timber"),
 }
 
 # Which ramps make a silhouette against the ground, and are therefore held to the clearance
@@ -230,10 +340,47 @@ GROUND_READING = [
     "car_burnt",
     "concrete",
     "litter",
+    "pine_dark",
+    "pine_light",
+    "bark",
 ]
 
 for _name in GROUND_FACING:
     guard_against_ground(_name, RAMPS[_name])
 
+# The built surfaces: a wall cap, a wall face, a roof. Held to `guard_either_side_of_floors`,
+# the either-side rule over every floor the district draws rather than the five grounds alone,
+# because these are the materials that stand *on* the paint rows: a front rises off the
+# sidewalk and a roof covers the board floor, and a wall the colour of the pavement under it
+# is the exact confusion this slice exists to remove. check_roof_look.gd's MOOD lane measures
+# the same clearance on the decoded pictures rather than on the ramp, so the two agree by
+# construction rather than by trust.
+BUILT_READING = [
+    "wall_timber",
+    "wall_brick",
+    "wall_render",
+    "wall_block",
+    "roof_shingle",
+    "roof_tin",
+    "roof_tar",
+]
+
+
+def guard_either_side_of_floors(name, steps):
+    """`guard_either_side_of_ground`, with the two paint rows counted among the floors."""
+    mid_luma = luma(steps[len(steps) // 2])
+    floors = list(SURFACE_TINTS.values()) + list(PAINT_TINTS.values())
+    nearest = min(abs(mid_luma - luma(hex_value)) for hex_value in floors)
+    if nearest < GROUND_CONTRAST_EITHER:
+        raise ValueError(
+            "ramp '%s' sits %.3f from its nearest floor tint, under GROUND_CONTRAST_EITHER %.2f: "
+            "a wall painted in it reads as the pavement it stands on"
+            % (name, nearest, GROUND_CONTRAST_EITHER)
+        )
+
+
 for _name in GROUND_READING:
     guard_either_side_of_ground(_name, RAMPS[_name])
+
+for _name in BUILT_READING:
+    guard_either_side_of_floors(_name, RAMPS[_name])

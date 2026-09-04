@@ -1374,7 +1374,9 @@ this section carries what the change turned out to be made of).
   feet-anchored figures keep drawing unchanged on the flat floor -- an upright pawn over a
   top-down tile is precisely the RimWorld read -- so the projection could land without waiting on
   art. The 64×64 centre-anchored canvas that replaces them is its own decision, taken with the
-  regenerated sprites in the same commit so the two conventions never coexist.
+  regenerated sprites in the same commit so the two conventions never coexist. *(Note,
+  2026-09-03: the interim convention turned out to be the direction -- "The Dungeon Settlers
+  look" below returns to a feet-anchored upright pawn, on a 32×48 canvas this time.)*
 
 ## What the worldgen arc decided
 
@@ -1652,7 +1654,9 @@ Decided by the owner, 2026-09-01, from the built comparison fixtures
 from the fixtures alone. The pick is **B — the rotating player**, the brainstorm doc's Zero
 Sievert read, and the reference fixes the mood the arc is aimed at: muted, overcast, desaturated
 urban decay — lane-marked asphalt, wrecked cars, dumpsters, debris and corpse dressing, rain,
-high-overhead pixel art with 3/4 touches on roofs and props.
+high-overhead pixel art with 3/4 touches on roofs and props. *(Superseded 2026-09-03 by "The
+Dungeon Settlers look" below: the rotating player and the overcast mood both go. What survives
+of this entry is the HUD boundary, the gradual-fidelity boundary and the anonymity clause.)*
 
 Three boundaries were set in the same decision, because the reference image contains things the
 pick does **not** adopt:
@@ -1664,7 +1668,9 @@ pick does **not** adopt:
 - **Only the player rotates.** B's cost is rotation support and equip overlays re-authored on the
   rotated rig; its risk is the peripheral-anonymity clause — a loop that rotates every body leaks
   facing for people the player should read as anonymous. NPCs, colonists and zombies stay
-  face-on.
+  face-on. *(Reversed 2026-09-03: nobody rotates, the player included -- heading is a
+  horizontal flip plus the indicator line. The anonymity clause this boundary protected lives
+  where it always did, the peripheral disc, and is untouched. See below.)*
 - **Fidelity is allowed to arrive gradually.** The reference is hand-crafted pixel art; the arc
   starts from procedural and placeholder passes and improves, and a slice is judged by the
   brainstorm's invariants (silhouette → tint → detail, one loud tell per type, art never leaks
@@ -1686,7 +1692,11 @@ unsmoothed rotation). Gear renders on detailed bodies — pack, long gun, headwe
 Focal information, beside the standing shared-raider-body clause: every raider archetype resolves
 one body, because which raider carries the gun is not something a look across a street may
 answer. `check_m2_raiders.gd` holds that from the content side and `check_appearance.gd`'s roster
-lane from the resolver's.
+lane from the resolver's. *(Reversed 2026-09-03: the one convention is the face-on pawn,
+feet-anchored on a 32×48 canvas -- see below. What survives: one convention for all eight rigs,
+the shared raider body, gear as Focal information, and the assembler's shade-before-outline
+order. The radial-shading exception retires with the rotation, and the indicator line comes
+back on for the player, because a flip is two-state and facing is continuous.)*
 
 **Road width is a layout decision, paid for in buildings** (owner, 2026-09-02, from the roads
 plan). The suburb's streets went from 6 to 7 wide because a centre line needs a centre row: with
@@ -1706,6 +1716,337 @@ already exists.
 The fixtures earned their keep here twice over: they showed B's rotation working under the
 anonymity clause before the pick, and they surfaced that the shipped game has no player sprite at
 all — the first slice of the arc authors one, which no candidate style could have skipped.
+
+**The reference look** (owner, 2026-09-02, from four supplied screenshots of a Zero Sievert-like
+top-down game — third-party, so not committed, and described here in words the way the first
+reference was: chunky pixel art with 1 px outlines; people about a tile in size seen from
+straight above, gun held forward; cars, vans, dump trucks and forklifts from above at real scale,
+a sedan two tiles by five; buildings drawn three-quarter, a roof seen from above over a south
+wall of windows, doors and garage doors; dense pine forest with cabins and dirt paths; an
+industrial yard of silos, radio towers and containers; a brick warehouse street with a dashed
+centre line; textured ground with no tile grid; rain; a torch cone at night; and the red and
+green bars clause 4 bans). The 2026-09-01 pick stands — B *is* this read, the brainstorm named
+it so — and what the references decide is everything around the bodies *(2026-09-03: the pick
+no longer stands for the bodies or the mood; the decisions below that survive are marked)*.
+Eight decisions, taken
+in one sitting from the exploration that preceded them, recorded once here and each paid for in
+the slice that lands it (docs/23, "the reference-look arc", in order):
+
+- **The art-native scale is 32 px per tile, down from 64.** The boot zoom of 64 becomes a clean
+  2× upscale and the 16/32/64/128 ladder is untouched. A person was 24 px of a 64 tile (0.38)
+  and the reference's person fills the tile; the honest migration keeps the rigs' pixels and
+  shrinks the tile around them, so props and street art halve and bodies do not. The choice was
+  put as 16 / 32 / stay-at-64; 16 is the reference's own grain and 32 was chosen as one step
+  finer. Every gate that pinned `64x64` now reads `CameraUtil.ART_NATIVE`; `draw.py`'s `SIZE`
+  is the one other copy, because Python cannot read GDScript, and the two gates are the
+  cross-check. *(Amended 2026-09-03: the 32 px tile and the ladder stand; the "rigs keep their
+  pixels" sentence does not -- the pawns are re-authored on a taller canvas, a person about
+  0.7 of a tile wide and 1.3 tall.)*
+- **Buildings read three-quarter inside their footprint.** The south-facing wall row draws as a
+  face carrying that row's windows and doors, a roof draws over interior tiles while the player
+  is outside, every other wall stays the flat cap. Nothing hangs over a walkable tile, so the
+  tile depth sort docs/00's reversal deleted does not return, and roof and wall material are
+  template content (`look: {roof, wall}`) with a purpose-built gate, because the validator is
+  shallow. *(Extended 2026-09-03: the roof rule stands; every wall tile also draws with
+  thickness -- a lit cap and, where its south neighbour is open, a south face -- inside its own
+  footprint. See below.)*
+- **A roof is cut out where the sim sees.** It replaces only the black: an interior tile seen
+  through a window or door still shows floor and bodies. Whole roofs — the reference's look —
+  would hide a zombie the sim says is seen and the colonists act on; that is the screen refusing
+  a fact, and clause 4 is about what the sim withholds, not what the screen hides. Draw ⊆ seen
+  holds for interiors, the lit-pool discipline again. The footprint of a partly-seen building is
+  the one new tell, the same soft one the rain cull already gives.
+- **A canopy is a picture; a body under it is a silhouette.** Pine canopies are three-tile
+  pictures drawn after the entities at alpha 0.85, thinning to 0.45 within a tile of the
+  player; a body under one is a dark shape, never gone. The opaque, solid Tree tile is untouched.
+  *(Superseded 2026-09-03 before it shipped: no canopy layer. A tree is a tall feet-anchored
+  sprite in the entity sort, and it is the tree that fades behind a body, never the body.
+  "Never gone" survives; the Tree tile is still untouched.)*
+- **A forest district lands inside this arc, ahead of the sedan.** Denser stands, dirt streets
+  and trodden paths, cabin templates, its own structural before/after and a hand-run FAST
+  column. The industrial yard — silos, towers, containers, the warehouse street, the forklift —
+  is named under Milestone 3B and not built: new district scope is what CLAUDE.md's pause is
+  about, and one district is the size of a slice.
+- **The old one-wide wreck runs stay in worldgen and draw as junk heaps.** They are what the
+  balance harness was measured on, and the dumpster episode showed the run length moving two of
+  four seeds. Real vehicles are two-wide `map.vehicles` records — sedan 2×5, van 2×6, truck
+  2×7, the class table the references settled, which closes the wait the roads record left open.
+- **The torch is named, not built.** A light item with a direction, a cone drawn from the gun
+  hand, its own attention cost. It is sim, not paint, and lands as its own gated slice after the
+  look does.
+- **Not adopted, re-affirmed.** The HP and stamina bars (`godot:ban:healthbar`), the status-icon
+  row (the HUD speaks in words), and NPC rotation (only the player's body turns). *(Amended
+  2026-09-03: rotation is no longer the boundary -- nobody rotates. The bars and the icon row
+  stay refused, and Dungeon Settlers' name plates join them.)*
+
+**The ground is a texture whose mean is the palette** (the ground slice, under the same
+decision). The reference has no tile grid and a visibly textured ground; ours was a flat tint
+per surface with a hairline between tiles. The texture is one atlas of cells, four variants a
+row, one row per ground the draw loop knows, and the palette keeps its authority: every cell is
+authored around its row's tint, a gate pins each cell's mean to that tint from the decoded
+pixels, and the blit is modulated by `flat / tint` so a cell averages to exactly the colour the
+flat fill drew — the indoor mix, the sidewalk substitution and the position-hash variation all
+survive as tints over the picture, and every lane that reasons about ground colour keeps meaning
+what it says. Below zoom 32 the flat tint draws, because at 16 px a tile the texture is noise;
+the hairline is gone from both branches. One shape was refused with the decision: a texture
+whose colour lives in the PNG, which would have moved the mood out of `palette.gd` and into
+pixels no gate reads.
+
+## The Dungeon Settlers look, 2026-09-03
+
+Decided by the owner, 2026-09-03, from the Steam store screenshots of *Dungeon Settlers*
+(store.steampowered.com/app/2798330) — third-party, so not committed, and described here in words
+the way the two earlier references were. What they show: a flat top-down settlement at about 32
+px a tile seen at 2×, which is slice 1's ladder exactly; **upright, face-on pawns** about one tile
+wide and one and a half tall, with faces, hair and clothing, feet on the tile, a small dark shadow
+under them and a name floating above; **no roofs at all** — timber walls drawn as thick beams with
+a lit top cap and a one-tile front face on the south side, every interior, its furniture and its
+pawns always in view, props drawn three-quarter; a **dark, cool, near-black ground** around the
+settlement with warm, light walkable ground inside it — flagstone, olive grass, brown dirt,
+planks — meeting at organic, ragged edges with no grid anywhere; a **warm dark-fantasy mood** in
+which torches are the loudest thing on screen, fully saturated orange with a warm pool, and the
+void and the night are the one cool thing; and a HUD of portraits, health bars and numbers. No
+frame shows a tall conifer: the forest in the overview is small flat dead trees drawn as
+background dressing.
+
+This entry supersedes the 2026-09-01 style pick for the bodies and the mood and amends the
+2026-09-02 reference-look decisions where they touch either; each earlier clause carries its own
+italic note at the point it changed, and the list at the end of this entry names, in one place,
+what dies and what survives. It was taken before slice 3 of the reference-look arc, so nothing
+built under the old direction is thrown away: the 32 px tile and the ground atlas are the floor
+this stands on. Twelve decisions, recorded once here, each paid for in the slice that lands it
+(docs/23, "the Dungeon Settlers arc", in order; the plan is
+`.hermes/plans/2026-09-03_dungeon-settlers-arc.md`):
+
+- **Bodies stand up.** Every rig — player, colonists, zombies — is an upright, face-on pawn,
+  feet-anchored on a taller-than-wide canvas, and heading is a horizontal flip: **nobody
+  rotates, the player included.** This reverses "B, the rotating player" and "one convention,
+  true overhead". A flip is a two-state readout and facing is continuous, so the indicator line
+  comes back on for the player; the peripheral-anonymity clause is unharmed because a glimpsed
+  body never reaches the blit — it draws as the anonymous disc, as it always has. The rotation,
+  its forward constant, its facing-line helper and the one-transform socket retire in the pawn
+  slice, and `TOPDOWN_OK`'s rotation lane becomes a flip lane with the same red-both-ways
+  discipline: zero transforms in the entity loop, proved on a fabricated body first.
+- **The mood is warm dark fantasy.** A cool near-black dark around a warm-lit district, timber
+  browns, saturated fire and lamp light. This reverses "muted, overcast, desaturated urban
+  decay". Every band that pinned the overcast mood — the generator's single saturation clamp,
+  the road lane's saturation cap and paved-value band, the weather lane's accent bounds — is
+  **re-pinned to a measured table in the palette slice, never loosened in passing**; the
+  generator's one clamp becomes three named families (muted, timber, accent) and an un-migrated
+  call gets the tightest. The sentence that made this affordable survives verbatim: the mood is
+  enforced by properties, not remembered. The properties change from "muted" to "warm, and cool
+  only where the dark is".
+- **Roofs are cut out where the sim sees, as approved, and walls gain thickness.** The
+  2026-09-02 roof rule stands unchanged: draw ⊆ seen. What is added is the wall treatment —
+  every wall tile draws inside its own footprint as thick mass with a lit cap and, where its
+  south neighbour is open ground, a south face in the building's `look` material, with that
+  tile's window or door drawn in the face. Nothing hangs over a walkable tile and no tile depth
+  sort returns.
+- **Trees stand up.** A tree is one tall feet-anchored sprite, one tile wide and three high,
+  y-sorted with the bodies — not a canopy drawn over them. The frames' own small flat trees were
+  offered and declined: the tall conifer extrapolates the style, and it buys the multi-tile
+  sorted sprite the vehicles spend. A canopy wider than its trunk would hide bodies east and
+  west of it, which no depth rule can answer, so one tile wide is the rule. The opaque, solid
+  Tree tile is untouched.
+- **The tree fades, never the body.** A tree draws opaque and drops to about half alpha only
+  while a Focal body's ground point falls inside its screen rect. The recorded silhouette rule
+  (bodies under canopies at 0.85, 0.45 near the player) is superseded before it shipped: a
+  dimmed body is a body carrying a fact about foliage, the wrong place for it. "Never hidden"
+  survives; where it lives changes.
+- **Props, furniture and vehicles read three-quarter**, matching the walls. Vehicles stay
+  two-wide `map.vehicles` records at the decided footprints — sedan 2×5, van 2×6, truck 2×7 —
+  and their art is **one three-quarter picture per class, variant and axis**, two keys a variant,
+  feet-anchored on the footprint's south edge and y-sorted like a tree. Per-tile segments (eight
+  keys a variant, turned by the renderer) retire for vehicles: a three-quarter roofline cannot be
+  cut at a tile seam and a segment cannot overhang the tile to its north. The junk heaps keep
+  the segment convention.
+- **The ground has edges.** Between two grounds the darker one draws the edge, once, onto the
+  lighter tile — one sheet of eight shapes by seven rows, hash-free and deterministic, its cells
+  held to the same mean-is-the-palette rule as the atlas. A tile with no unlike neighbour draws
+  no edge.
+- **What a survivor wears is drawn on the pawn, in one order, on one skeleton.** The pawn rigs
+  publish their shoulder, hand, leg and head rows as named constants, so one generated overlay
+  per item base fits all eight bodies; per-rig tailoring, layered pieces and dye are a later
+  slice, named rather than smuggled.
+- **The per-tile vary softens.** `RoadPaint.VARIATION_MAX` 0.025 → 0.01, the owner's call from
+  the ground slice's zoom-64 picture, where the offset read as patchwork once the grid was gone.
+- **Unchanged, restated so nobody re-litigates.** 32 px a tile at 2× and the zoom ladder; the
+  ground is a texture whose mean is the palette, extended to the edge sheet; rain is ambience
+  and keeps its cool hex; the forest district lands inside the arc; the torch is named, not
+  built; the industrial yard is Milestone 3B; the old one-wide wreck runs stay and draw as
+  heaps; the entity y-sort that trees and vehicles join is the one `TopDownProjection.depth_of`
+  has carried since the top-down reversal — no *tile* is sorted, no wall fades, no stub height,
+  and the z-level refusal stands.
+- **Not adopted.** The portraits, health bars and numbers of the reference's HUD (clause 4,
+  `godot:ban:healthbar`, `godot:check:hud`), and its name plates over every pawn: a floating
+  name is a certainty about identity the peripheral clause denies, and the frames show one on
+  every figure, so the next session will be tempted. Names stay in inspect text and prose.
+- **The fourth canvas convention in a month, said out loud.** Hand-authored 64×96 face-on, then
+  generated overhead 64×64, then 32×32, now a generated 32×48 pawn. What makes this one
+  different is that it is chosen from a named reference's gameplay proportion rather than
+  derived from a projection argument, and the constraint that drove the churn — free rotation,
+  which forced a square, centre-anchored, radially shaded canvas — is gone. Nothing mechanical
+  prevents a fifth; all eight rigs are generated, so a re-author is one assembler edit and a
+  rebuild.
+
+**What each earlier decision becomes**, in one place:
+
+1. "The art style: B, picked from a reference" — amended: the rotating player dies; the HUD
+   boundary, the gradual-fidelity boundary and the anonymity clause survive.
+2. "Only the player rotates" — reversed: nobody rotates. The clause it protected lives in the
+   peripheral disc, untouched.
+3. "Every body is an overhead rig" — reversed: the convention is the face-on pawn on 32×48.
+   Survives: one convention for every rig, the shared raider body, gear as Focal information,
+   the assembler's shade-before-outline order. The radial-shading exception retires.
+4. "The reference look", the 32 px tile — stands; its "rigs keep their pixels" sentence is
+   amended.
+5. Three-quarter buildings — extended: the roof rule stands, the wall gains thickness.
+6. The canopy silhouette — superseded before it shipped.
+7. Two-wide vehicles — stand; the art convention is amended to one picture per axis.
+8. "Not adopted" — re-affirmed and extended with the name plates.
+9. The overcast mood — superseded by warm dark fantasy, held by per-family properties.
+10. "Rain is ambience" — unchanged.
+11. "The ground is a texture whose mean is the palette" — stands, extends to the edge sheet.
+12. docs/00's depth-sort reversal — not reopened; the entity sort was always there.
+
+**What ships today versus what is decided** is the distinction every reader of this entry needs:
+the palette, pawn and wall slices landed the same day (their clauses close this entry), so the
+table is warm, every body is a face-on pawn that flips, and a building draws its walls thick
+and its roof where the survivor cannot see; the edges, the trees, the worn look and the
+vehicles are still the old code, their comments say so, and each moves with its own slice.
+Anyone reading a comment that describes the old direction should read this entry before
+"fixing" it in either direction.
+
+**Paid for, the palette slice (2026-09-03) — the mood is warm dark fantasy: a cool near-black
+dark around a warm-lit district, held by warmth and value, not mutedness.** The property that
+holds it is a sign with a margin: every district surface, wall, paint, prop and memory tint is
+warmer than it is cool (r − b ≥ 0.02), and the two darks the district sits in plus the glass
+are the other way round (b − r ≥ 0.02) — the old overcast table is refused by that one line,
+five of its keys being literally cool. Saturation keeps a ceiling on the ground (0.30, moved
+from 0.25 for the dirt, the one band the slice moved) because a bright lawn is not this world,
+but it is no longer the thing doing the work. The generator's clamp becomes three families —
+muted, timber, accent — and the default is the tightest, so an un-migrated call cannot loosen
+the mood by omission. The one accent so far is fire: the campfire's ember ships at the torch
+orange as authored, because this document's clamp note always said the one thing allowed past
+the ceiling is a light source, and the warm grade takes it at its word. Every other margin —
+the wall faces, the ground item, the composed colonist grey, the ramps' ground clearance — was
+re-measured and printed rather than moved; docs/23's record carries the numbers, and the one
+thin one (the colonist grey at +0.013) is named there as the owner's to widen.
+
+**Paid for, the pawn slice (2026-09-03) — a body is a face-on pawn standing on its own point;
+facing is a flip and a line, and nobody rotates.** The canvas is one tile wide and one and a
+half tall, anchored on the feet, and the anchor is derived from the shape — a square picture
+centres on its point, anything else stands on it — so the tree and vehicle sheets that follow
+are feet-anchored by construction rather than by a second list. The soles stand on the contact
+shadow's own three-pixel drop, one number read by both, so the shadow line and the sole line
+cannot drift apart. A body facing west is the same picture handed to the renderer in a
+negative-width rect (probed in 4.7.1 before it was written: the texture mirrors at position ..
+position + |width|, so the flipped rect keeps its left edge); the draw loop holds zero
+transforms and the flip lane counts them, proved on a fabricated body first. The indicator line
+comes back on for the player: a flip is a two-state readout of a continuous heading, and the
+line carries the exact facing for everybody. The rotation, its forward constant, its
+facing-line rule and the generator's radial shade are gone rather than stubbed. The rigs
+publish their skeleton — feet, leg top, shoulder, hand, head — as named constants, because the
+worn-look slice fits one gear overlay to all eight bodies on them; the three hand-authored
+overlays retire for generated ones on the pawn canvas, and nothing in the sprite directory is
+hand-authored any more.
+
+**Paid for, the wall-and-roof slice (2026-09-03) — a wall is drawn with a thickness inside its
+own tile, and a roof draws where the screen was black, never where the sim can see.** A wall
+tile in a building that declares a look draws its material's cap seen from above, or its face
+where the tile south of it is open ground — the building's front, with that tile's window or
+door drawn in the face — and everything stays inside the wall tile's own rect: nothing hangs
+over a walkable tile and no tile is sorted. The rule is per tile, never a footprint's south
+row, because a gabled front is not one flat row and the annex's south wall is compound. A roof
+draws over the interior tiles the survivor cannot see, of a building at least one tile of
+which they can see, while they stand outside it; a tile the sim says is seen never takes a
+roof, so an interior seen through a door keeps its floor and its bodies. How a building looks
+is content — `look: {roof, wall}` on every template and the annex, the material names
+resolving through the dressing block to sprite keys — and a material nobody has drawn yet
+draws the procedural cap and bands, the supported fallback that keeps the wall lane's subject.
+
+**Paid for, the edges slice (2026-09-03) — the darker ground draws the edge, once, onto the
+lighter tile.** Between two different grounds the darker one's ragged fringe is blitted over
+the lighter tile's floor, on the side or outer corner the darker one lies on; the lighter never
+draws onto the darker, and a corner draws only where neither of its sides already carries the
+boundary, so every boundary is drawn exactly once. Darker is the luma of the row's palette
+tint, so the order is the palette's and there is no second table to drift. The cells are held
+to the ground's own rule — their mean is the row tint — and live in the ground atlas beside
+the variants, because an edge is drawn right after the floor it lies on and a second texture
+between two floor blits breaks the batch (measured: one draw call became two thousand). A
+wall, a window or a tree is not ground: it takes no edge and gives none, and its own picture is
+the edge.
+
+**Paid for, the trees slice (2026-09-04) — a tree is a picture that stands in the entity sort;
+a pawn north of the trunk is behind it, one south is in front, and the tree fades rather than
+the body.** One tall picture, one tile wide and three tall, hung on its trunk tile's south-edge
+centre the way a pawn is hung on its soles, sorted with the bodies by that point and never
+flipped or rotated. Draw is a subset of seen: an unseen trunk draws nothing, and the tile stays
+Opaque and Solid to the sim. Which picture a tree takes is a hash of the seed and the tile out
+of the dressing block's list, never a sim stream, and a block that names no tree draws the two
+discs it always drew. The fade is the one rule about a body under a canopy: the tree goes to
+about half alpha while a Focal body's ground point lies inside its rect, and the body is never
+dimmed — the 2026-09-02 silhouette clause is superseded before it shipped. One tile wide is the
+load-bearing number: a canopy wider than its trunk hides the bodies east and west of it, and a
+y-sort has no answer to that.
+
+**Paid for, the worn slice (2026-09-04) — what a survivor is wearing is drawn on the pawn, in one
+order, on one skeleton.** One ordered table names the slots the renderer draws and which side of
+the body each goes on, because the order layers compose in is the picture and an under list plus
+an over list can only say it by their concatenation. One overlay serves every rig: slice 4
+published the skeleton, overlays are authored on the same pawn canvas, and the renderer composites
+them at the body's own rect, so there are no per-rig variants to keep in step. A slot absent from
+the table stays declarable in content and draws nothing, which is a renderer decision and not a
+content one. Two limits are the size's, not the method's, and are recorded rather than papered
+over: at 32 px several one-handed weapons in the same fist at the same angle read alike, and a
+piece fitted to the shared skeleton sits a little wide on the narrowest rig and off the hand of
+the widest — both acceptable because the rigs that strain equip nothing.
+
+**Paid for, the district slice (2026-09-04) — a district's character is content, and the numbers
+that make it are defaults a district may override, never literals a second district must be forked
+to change.** The terrain pass's thirteen numbers, and the surface its streets are laid on, are
+read off the district; every default equals the literal it replaced, so the district that existed
+first is byte-identical and is checked to be, by hashing the generated map before and after. That
+check is the point: an RNG stream is a sequence, so a pass that draws a different number of times
+moves every tile decided after it, and a refactor that *looks* like pure extraction is exactly
+where that happens. A second district is also the cheapest test of what the first one's code
+assumed — dirt streets found a frontage test that counted pavement, which would have sited every
+colony beside a connection-point opening with no gate red. And a path is a *dressing* pass: it
+writes the surface layer only, so it feeds the speed, noise and ground-texture readers that
+already existed and adds none of its own. Where a new district's numbers are judged is its own
+question — a lane that judges a sparse district at the gate's small size can pass on a handful of
+tiles, or fail for having nothing to judge, neither of which is about the code under test.
+
+**Paid for, the vehicle slice (2026-09-04) — a car is a record the layout wrote, not a shape read
+off its neighbours; and the picture is one three-quarter view per axis, standing in the entity
+sort.** The resolver this replaced decided front, middle or rear from one-axis neighbours, which
+cannot express a two-wide object at all: it could only ever draw a car one tile wide, and it
+answered from whatever Low tiles happened to touch, so a doorway or a protected tile shortened a
+car rather than moving it. Now the `worldgen.vehicles` pass parks `{x, y, w, h, axis, class,
+facing}` into `map.vehicles` and writes the Low under it, and every reader asks the record. A Low
+tile is therefore exactly two things and the manifest says which — part of a parked car, or a heap
+of junk — which is a property a gate can hold, and does.
+
+Two keys a variant, one per axis, is what decision 11 bought, and it has three consequences worth
+writing down. The first is that the last transform in the renderer retired with the segments it
+turned: `main.gd` now sets none at all, and the flip lane asserts that over the whole file rather
+than over one loop. The second is that a west-facing car is the east-facing picture in a
+negative-width rect — the pawn's own flip, reused — so `facing` reaches the art on the east-west
+axis and not on the north-south one, where a car seen from behind and one seen from the front are
+the second picture two keys does not buy. That is a limit, it is recorded here rather than left to
+be discovered, and closing it is a third key per variant whenever it is worth the files. The third
+is that a picture standing on its footprint's south edge overlaps tiles it does not occupy, the
+way a pawn and a tree already do; a body sorts against the car's south edge, so one north of it is
+behind and one south is in front, and a body standing *on* the bonnet sorts by its own y, which is
+consistent and slightly odd.
+
+Where the gate stands one is the honest part. Street width is scaled to the map, and measured it
+is 2 tiles at the 64 the balance harness boots — below the 4 a two-wide car needs a kerb row
+either side of — so the harness never stands a vehicle and the FAST lines cannot move. The suburb
+reaches 5 at 128 and 7 at 256, and it is the only district that ever exceeds 3: the town centre and
+the forest are 3 wide at every size, so neither stands a car at all, and neither carries a
+`vehicles` block, because a block on a district whose streets can never hold one is a socket
+nothing reaches.
 
 ---
 

@@ -10,6 +10,7 @@ extends SceneTree
 const World = preload("res://sim/world.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
@@ -23,7 +24,7 @@ func _run() -> void:
 	var ok: bool = true
 	ok = _declared_appearances_are_well_formed() and ok
 	ok = _sprite_keys_resolve() and ok
-	ok = _every_canvas_is_64() and ok
+	ok = _every_canvas_is_native() and ok
 	ok = _procedural_fallback_still_works() and ok
 	ok = _the_player_has_a_body() and ok
 	ok = _the_roster_resolves_bodies() and ok
@@ -66,17 +67,43 @@ func _all_blocks() -> Dictionary:
 				out["%s#%s" % [String(path), String(entry.get("id", "?"))]] = block as Dictionary
 	return out
 
+# Whether one key is legal inside one entry's `appearance` block. One predicate, so the loop below
+# and the negatives that prove it cannot drift apart.
+#
+# Every kind shares one vocabulary, and this list is what catches a nested typo the content
+# validator cannot see (it checks top-level types only). A vehicle is the single exception: its
+# picture set is one three-quarter view per axis rather than a single `sprite`, so `variants` is
+# legal there and refused everywhere else. Its inner shape -- {id, ns, ew}, each key resolving at
+# its own canvas -- is check_wrecks.gd's DRESSING lane, not this one.
+func _appearance_key_ok(k: String, path: String) -> bool:
+	if ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront", "shape", "size"].has(k):
+		return true
+	return k == "variants" and path.begins_with("vehicles/")
+
+
 # The shape the schemas document but the validator cannot reach.
 func _declared_appearances_are_well_formed() -> bool:
-	var allowed: Array[String] = ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront", "shape", "size"]
 	var hex := RegEx.new(); hex.compile(HEX)
 	var key := RegEx.new(); key.compile(KEY)
+	# Prove the predicate before trusting it: it has to refuse `variants` on a kind that is not a
+	# vehicle, or the exception below is a hole rather than an exception. A shared allowlist that
+	# accepted `variants` everywhere would make it legal on a zombie, where it would resolve
+	# nothing and report nothing -- exactly the nested-key trap this lane exists to catch.
+	if _appearance_key_ok("variants", "zombies/walker.json#zombie.walker"):
+		push_error("the appearance allowlist accepts 'variants' outside content/vehicles/; the vehicle exception is a hole")
+		return false
+	if not _appearance_key_ok("variants", "vehicles/sedan.json#vehicle.sedan"):
+		push_error("the appearance allowlist refuses 'variants' on a vehicle, which is where the per-axis picture set lives")
+		return false
+	if _appearance_key_ok("sprrite", "vehicles/sedan.json#vehicle.sedan"):
+		push_error("the appearance allowlist accepts a misspelled key on a vehicle; the exception widened the whole list")
+		return false
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
 		var block: Dictionary = blocks[path]
 		for k in block.keys():
-			if not allowed.has(String(k)):
-				push_error("%s: appearance has unknown key '%s'; allowed %s" % [path, k, allowed])
+			if not _appearance_key_ok(String(k), String(path)):
+				push_error("%s: appearance has unknown key '%s'" % [path, k])
 				return false
 		if block.has("tint"):
 			var t: Variant = block["tint"]
@@ -112,6 +139,7 @@ func _declared_appearances_are_well_formed() -> bool:
 
 # A key naming a file that does not exist must fail the build, not draw nothing.
 func _sprite_keys_resolve() -> bool:
+	var native: int = int(CameraUtil.ART_NATIVE)
 	var resolved: int = 0
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():
@@ -124,26 +152,32 @@ func _sprite_keys_resolve() -> bool:
 			if tex == null:
 				push_error("%s: appearance.%s '%s' has no file at %s/%s.png" % [path, prop, k, SPRITE_DIR, k])
 				return false
-			# One canvas: 64x64 centre-anchored (assets/sprites/README.md). A stray sprite
-			# authored to the dead 64x96 feet-anchored convention would float half a tile
-			# high without ever erroring, so the shape is a build failure, not a footnote.
+			# The canvas table: a tile for props and tile art, the pawn shape for bodies and
+			# gear, the atlas (assets/sprites/README.md), every size read off camera.gd rather
+			# than carried here -- the 64 -> 32 move of 2026-09-02 is what a second copy of the
+			# number would have drifted from. A body left on the old square would stand half a
+			# tile short of its shadow without ever erroring, so the shape is a build failure,
+			# not a footnote.
 			var size: Vector2 = (tex as Texture2D).get_size()
-			if size != Vector2(64, 64):
-				push_error("%s: appearance.%s '%s' is %dx%d, the canvas is 64x64" % [path, prop, k, int(size.x), int(size.y)])
+			var want_size: Vector2i = Appearance.canvas_of(k)
+			if Vector2i(size) != want_size:
+				push_error("%s: appearance.%s '%s' is %dx%d, its canvas is %dx%d (Appearance.canvas_of; %d is CameraUtil.ART_NATIVE)" % [path, prop, k, int(size.x), int(size.y), want_size.x, want_size.y, native])
 				return false
 			resolved += 1
 	# The canvas assertion must have judged real files, or it proves nothing.
 	if resolved == 0:
 		push_error("no sprite keys resolved -- the canvas assertion had nothing to judge")
 		return false
-	print("KEYS OK %d resolved on the 64x64 canvas" % resolved)
+	print("KEYS OK %d resolved on the %dx%d canvas" % [resolved, native, native])
 	return true
 
 # Every file in the directory, referenced or not: an unreferenced stray is one content edit away
 # from drawing, and nothing above would have judged it. Raw Image.load, same as appearance.gd's
 # headless fallback. (It used to also cover the item blocks _all_blocks could not see, which it no
 # longer has to -- array-topped files are walked now -- but a stray file still has no entry.)
-func _every_canvas_is_64() -> bool:
+func _every_canvas_is_native() -> bool:
+	var native: int = int(CameraUtil.ART_NATIVE)
+	var atlases: int = 0
 	var dir := DirAccess.open(SPRITE_DIR)
 	if dir == null:
 		push_error("cannot open %s" % SPRITE_DIR)
@@ -156,14 +190,27 @@ func _every_canvas_is_64() -> bool:
 		if img.load("%s/%s" % [SPRITE_DIR, f]) != OK:
 			push_error("%s/%s does not load as an image" % [SPRITE_DIR, f])
 			return false
-		if img.get_width() != 64 or img.get_height() != 64:
-			push_error("%s/%s is %dx%d, the canvas is 64x64 (assets/sprites/README.md)" % [SPRITE_DIR, f, img.get_width(), img.get_height()])
+		# The canvas table, not the tile: an atlas is a table of tiles and its size is an entry
+		# in Appearance.canvas_of, the one place a second shape is allowed to be named.
+		var want_size: Vector2i = Appearance.canvas_of(String(f).trim_suffix(".png"))
+		if img.get_width() != want_size.x or img.get_height() != want_size.y:
+			push_error("%s/%s is %dx%d, its canvas is %dx%d (Appearance.canvas_of; %d is CameraUtil.ART_NATIVE; assets/sprites/README.md)" % [SPRITE_DIR, f, img.get_width(), img.get_height(), want_size.x, want_size.y, native])
 			return false
+		if want_size != Vector2i(native, native):
+			atlases += 1
 		judged += 1
 	if judged == 0:
 		push_error("no PNGs in %s -- the canvas assertion had nothing to judge" % SPRITE_DIR)
 		return false
-	print("CANVAS OK %d files at 64x64" % judged)
+	# The table must have been read for real: the atlas and the pawns are the shapes it exists
+	# for, and a lane that only ever saw tiles would pass a table nobody consults.
+	if atlases == 0:
+		push_error("no file in %s is on a non-tile canvas -- Appearance.canvas_of was never exercised" % SPRITE_DIR)
+		return false
+	if Appearance.canvas_of("no_such_key") != Vector2i(native, native):
+		push_error("canvas_of does not default an unknown key to the %dx%d tile" % [native, native])
+		return false
+	print("CANVAS OK %d files, %d of them on a non-tile canvas (the atlas, the pawns, the gear), every one at its Appearance.canvas_of size (tile %dx%d)" % [judged, atlases, native, native])
 	return true
 
 # The fallback is the supported path, not a stopgap: with no content at all, every role still
@@ -571,9 +618,16 @@ func _art_is_not_modulated_by_a_role_colour() -> bool:
 	print("MODULATE OK")
 	return true
 
+# The base the EQUIP lane leans on for "an equipped item with no art draws nothing". It is
+# deliberately one the renderer does not draw a slot for either, so no art slice will hand it a
+# picture in passing; the lane re-checks that it still declares none before trusting it.
+const NO_ART_BASE: String = "item.glasses.safety"
+
+
 # Equipped-gear layers: a rendered slot holding an item with equipSprite must actually resolve
 # a texture (the true positives item.bat.aluminium and item.pack.hiking exist for, one over-body
-# and one under); an item with no equipSprite, an item in a slot the renderer does not draw, and
+# and one under); an item with no equipSprite (NO_ART_BASE, whose art-lessness the lane
+# verifies first), an item in a slot the renderer does not draw, and
 # an entity with no equipment component at all (every zombie) must all fall out silently rather
 # than erroring -- each is its own assertion so a regression in any one path fails here instead
 # of drawing nothing, or the wrong thing, on screen.
@@ -583,10 +637,10 @@ func _equipped_gear_layers_resolve() -> bool:
 	var actor: int = int(w.entities.spawn())
 	var bat: int = int(w.entities.spawn())
 	var pack: int = int(w.entities.spawn())
-	var knife: int = int(w.entities.spawn())
+	var bare: int = int(w.entities.spawn())
 	w.components.set_component(bat, "itemBase", {"baseId": "item.bat.aluminium"})
 	w.components.set_component(pack, "itemBase", {"baseId": "item.pack.hiking"})
-	w.components.set_component(knife, "itemBase", {"baseId": "item.knife.kitchen"})
+	w.components.set_component(bare, "itemBase", {"baseId": NO_ART_BASE})
 
 	w.components.set_component(actor, "equipment", {"slots": {"primary": bat}})
 	var layers: Array[Dictionary] = Appearance.equipment_layers_for(w, actor)
@@ -613,9 +667,23 @@ func _equipped_gear_layers_resolve() -> bool:
 		push_error("back+primary together should yield three layers (pack under, pack straps over, bat over), got %s" % str(layers))
 		return false
 
-	w.components.set_component(actor, "equipment", {"slots": {"primary": knife}})
+	# The no-art negative checks its own subject first. It used to name a real weapon, and the
+	# worn-look slice gave that weapon art -- which did not fail anything, it just quietly
+	# stopped asserting, because an item with art in a drawn slot yields a layer for the
+	# *right* reason. A negative whose subject can be taken away silently is the dead-socket
+	# family; this one says so instead.
+	var bare_entry: Dictionary = Appearance.entry_of(w, "item", NO_ART_BASE)
+	if bare_entry.is_empty():
+		push_error("%s is not in content; the no-art negative has no subject" % NO_ART_BASE)
+		return false
+	var bare_look: Variant = bare_entry.get("appearance")
+	if bare_look is Dictionary and (bare_look as Dictionary).has("equipSprite"):
+		push_error("%s now declares an equipSprite, so it can no longer serve as the no-art negative -- point NO_ART_BASE at a base that declares none" % NO_ART_BASE)
+		return false
+
+	w.components.set_component(actor, "equipment", {"slots": {"primary": bare}})
 	if not Appearance.equipment_layers_for(w, actor).is_empty():
-		push_error("item.knife.kitchen declares no equipSprite; equipping it should yield no layer")
+		push_error("%s declares no equipSprite; equipping it should yield no layer" % NO_ART_BASE)
 		return false
 
 	w.components.set_component(actor, "equipment", {"slots": {"belt": bat}})
@@ -672,10 +740,11 @@ func _footprint_px(texture: Variant) -> int:
 	return maxi(max_x - min_x + 1, max_y - min_y + 1)
 
 
-# How far the art may sit from the footprint its content declares, in pixels of a 64 px tile.
-# Wide enough that a bumper or a flame tongue is not a build failure, narrow enough that a bed
-# drawn at a crate's size is.
-const FOOTPRINT_SLACK_PX: int = 8
+# How far the art may sit from the footprint its content declares, in pixels of an ART_NATIVE
+# tile. Wide enough that a bumper or a flame tongue is not a build failure, narrow enough that a
+# bed drawn at a crate's size is. Halved with the tile (8 at 64, 4 at 32): it is a fraction of
+# the picture, not a number of screen pixels.
+const FOOTPRINT_SLACK_PX: int = 4
 
 # Every prop id the renderer can ask for has an entry in content, and that entry says enough to
 # draw: art, or a tint, and now that the props have art it is art for every one of them.
@@ -720,7 +789,7 @@ func _props_look_like_something() -> bool:
 			# The footprint the content declares is the footprint the art was authored to. This
 			# is what keeps `size` from becoming decoration the moment a prop has a sprite: the
 			# procedural path stops reading it, so the gate starts.
-			var want: int = int(round(float(look["size"]) * 64.0))
+			var want: int = int(round(float(look["size"]) * CameraUtil.ART_NATIVE))
 			var got: int = _footprint_px(look["texture"])
 			if absi(got - want) > FOOTPRINT_SLACK_PX:
 				push_error("%s declares size %.2f (%d px of a tile) and its art measures %d px across; the number in content is what the picture was authored to" % [id, float(look["size"]), want, got])

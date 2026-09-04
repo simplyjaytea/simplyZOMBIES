@@ -21,6 +21,7 @@ const SimBoot = preload("res://sim/boot.gd")
 const ZOOMS: Array[float] = [16.0, 32.0, 64.0, 128.0]
 const EPS: float = 0.000001
 const MAIN_GD: String = "res://presentation/main.gd"
+const APPEARANCE_GD: String = "res://presentation/appearance.gd"
 
 func _init() -> void:
 	call_deferred("_run")
@@ -35,11 +36,11 @@ func _run() -> void:
 	ok = _buildings_read_as_buildings() and ok
 	ok = _props_reach_the_draw_path() and ok
 	ok = _built_mass_is_thin_and_still_solid() and ok
-	ok = _only_the_player_rotates() and ok
+	ok = _bodies_face_by_flipping() and ok
 	ok = _bodies_scale_with_the_zoom() and ok
 	ok = _a_still_body_is_not_glimpsed() and ok
 	if ok:
-		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, one body rotates, bodies scale with the zoom, a still body is not glimpsed")
+		print("TOPDOWN_OK axes aligned, round-trip exact, depth is y, bounds are the AABB, ground tinted from the map, interiors and doorways drawn, props resolved from content, built mass capped and faced, nobody rotates and every body flips, bodies scale with the zoom, a still body is not glimpsed")
 		quit(0)
 	else:
 		push_error("TOPDOWN_FAIL")
@@ -412,82 +413,175 @@ func _built_mass_is_thin_and_still_solid() -> bool:
 	if not district.contains("_draw_window_glass(rect, tx, ty, col)"):
 		push_error("_draw_window_glass is not handed the tile's colour, so a boarded window's stage stops showing in its pane")
 		return false
-	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit face %.3f clear of the brightest ground %.3f" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit), brightest])
+	print("WALL OK cap -%.2f, faces +%.2f/+%.2f over a %.2f-tile band, lit margin +%.3f (>= %.2f), dim margin +%.3f (>= %.2f), brightest ground %.3f" % [Palette.WALL_CAP_DARKEN, Palette.WALL_FACE_LIT, Palette.WALL_FACE_DIM, Palette.WALL_FACE_SHARE, _luma(lit) - brightest, FACE_LIT_MARGIN, _luma(dim) - brightest, FACE_DIM_MARGIN, brightest])
 	return true
 
 
-# One body rotates, and it is the player's.
+# Nobody rotates, and every body flips.
 #
-# docs/30's art decision takes the reference's rotating player and refuses the rest of it: NPCs,
-# colonists and zombies stay face-on, because a loop that spun every body would leak facing for
-# the people docs/01 clause 4 says the player has not earned to read. That clause is not a comment
-# here -- it is `body_rotation` answering 0.0 for everybody who is not the player, and it is the
-# draw loop having exactly one transform in it.
+# docs/30's Dungeon Settlers decision (2026-09-03) reverses "only the player rotates": every rig
+# is a face-on pawn standing on its own point, heading is a horizontal flip, and the one
+# transform the old player rig turned under is gone from the loop. The flip is a negative-width
+# rect handed to the renderer -- probed in 4.7.1 to mirror the texture at position .. position +
+# |width| -- so `body_rect` keeps its left edge and a body never leaves its point. The
+# peripheral-anonymity clause (docs/01 clause 4) is unharmed because a glimpsed body never
+# reaches the blit: the disc branch `continue`s before facing is read, asserted below as an
+# index order in the source rather than trusted.
 #
-# The pure half is exact maths on two static functions, both true positives and true negatives.
-# The textual half is the dead-socket assertion: `crawlFactor`, `SimStances.CAN_AIM` and seven
-# others were correct helpers nothing called, and a rotation helper nobody reaches is a player who
-# does not turn. A draw pass cannot be run headless, so what the frame loop calls is read.
-func _only_the_player_rotates() -> bool:
-	# The head-up convention: the rig is authored pointing up-canvas, so a body facing north
-	# (-PI/2 under the top-down projection, screen +y south) draws exactly as it was painted.
-	if absf(Appearance.body_rotation(true, -PI / 2.0)) > EPS:
-		push_error("a player facing north must draw unrotated (the art is authored head-up), got %f" % Appearance.body_rotation(true, -PI / 2.0))
-		return false
-	# And the sign: east is a quarter turn clockwise, not anticlockwise. A body that turns the
-	# wrong way passes every "it rotates" assertion and looks backwards on every frame.
-	if absf(Appearance.body_rotation(true, 0.0) - PI / 2.0) > EPS:
-		push_error("a player facing east must draw a quarter turn clockwise (+PI/2), got %f" % Appearance.body_rotation(true, 0.0))
-		return false
-	# The clause itself. Nobody else turns, at any heading.
-	for f in [0.0, 1.3, -PI / 2.0, PI]:
-		if Appearance.body_rotation(false, f) != 0.0:
-			push_error("a body that is not the player must not rotate: facing %f gave %f, and peripheral anonymity is what that costs" % [f, Appearance.body_rotation(false, f)])
+# The pure half is exact maths on three static functions, both true positives and true negatives.
+# The textual half is the dead-socket assertion on what the frame loop reaches for, with the
+# transform counter proved on a fabricated body first: a counter that answered zero for
+# everything would be a lane that cannot fail.
+func _bodies_face_by_flipping() -> bool:
+	# The flip: mirrored only when the heading has a westward component. North, south and east
+	# all draw the one painted picture.
+	for probe in [[0.0, 1.0], [PI, -1.0], [PI / 2.0, 1.0], [-PI / 2.0, 1.0], [2.4, -1.0], [-2.4, -1.0]]:
+		var facing: float = float((probe as Array)[0])
+		var want: float = float((probe as Array)[1])
+		if Appearance.body_flip(facing) != want:
+			push_error("body_flip(%f) answered %f, not %f" % [facing, Appearance.body_flip(facing), want])
 			return false
+	if Appearance.body_flip(0.0) == Appearance.body_flip(PI) or Appearance.body_flip(0.0) == 0.0 or Appearance.body_flip(PI) == 0.0:
+		push_error("body_flip answers the same, or zero, for east and west; a flip that does not flip draws every body one way")
+		return false
 
-	# The indicator line: it stands in for a front the art does not have, so it comes off exactly
-	# one body -- the player, once the player's art resolves -- and nowhere else.
-	if Appearance.wants_facing_line(true, true):
-		push_error("the player's art has a front of its own; the indicator line must come off it")
+	# The anchor is the shape: square centres, anything else stands.
+	var native: int = int(CameraUtil.ART_NATIVE)
+	if Appearance.anchor_of(Vector2i(native, native)) != Appearance.Anchor.Centre:
+		push_error("a tile-square canvas must centre on its point; a prop would float")
 		return false
-	if not Appearance.wants_facing_line(true, false):
-		push_error("a player drawn as a procedural disc has no front and must keep the line; the fallback is a supported path")
+	if Appearance.anchor_of(Appearance.PAWN_CANVAS) != Appearance.Anchor.Feet:
+		push_error("the pawn canvas must stand on its point")
 		return false
-	for has_art in [true, false]:
-		if not Appearance.wants_facing_line(false, has_art):
-			push_error("an NPC must keep its indicator line (art on disk: %s); their rigs draw unrotated, so the art's front is a lie about heading and the line is the truth" % str(has_art))
+	if Appearance.anchor_of(Vector2i(native * 2, native * 2)) != Appearance.Anchor.Centre or Appearance.anchor_of(Vector2i(native, native * 3)) != Appearance.Anchor.Feet:
+		push_error("anchor_of is not derived from the shape: a 2x2-tile square must centre and a 1x3 sheet must stand")
+		return false
+	if Appearance.PAWN_CANVAS != Vector2i(native, native * 3 / 2):
+		push_error("PAWN_CANVAS is %s, not one tile wide by one and a half tall" % str(Appearance.PAWN_CANVAS))
+		return false
+
+	# The rect, exact at every rung: a pawn's soles on the shadow line, a tile-square picture on
+	# the old symmetric rect, a flipped pawn the same rect with a negative width.
+	for zoom in ZOOMS:
+		var scale: float = Appearance.blit_scale(zoom)
+		var pawn: Vector2 = Vector2(Appearance.PAWN_CANVAS) * scale
+		var square: Vector2 = Vector2(native, native) * scale
+		var stood: Rect2 = Appearance.body_rect(100.0, 100.0, pawn, 1.0)
+		var want_stood := Rect2(roundf(100.0 - pawn.x / 2.0), roundf(100.0 + Appearance.FOOT_DROP_PX - pawn.y), pawn.x, pawn.y)
+		if stood != want_stood:
+			push_error("body_rect at zoom %.0f stood a pawn at %s, not %s" % [zoom, str(stood), str(want_stood)])
 			return false
+		if absf(stood.position.y + stood.size.y - (100.0 + Appearance.FOOT_DROP_PX)) > EPS:
+			push_error("at zoom %.0f the soles sit at %f, not on the shadow line %f" % [zoom, stood.position.y + stood.size.y, 100.0 + Appearance.FOOT_DROP_PX])
+			return false
+		var centred: Rect2 = Appearance.body_rect(100.0, 100.0, square, 1.0)
+		var want_centred := Rect2(Vector2(roundf(100.0 - square.x / 2.0), roundf(100.0 - square.y / 2.0)), square)
+		if centred != want_centred:
+			push_error("body_rect at zoom %.0f centred a square at %s, not the old rect %s" % [zoom, str(centred), str(want_centred)])
+			return false
+		var flipped: Rect2 = Appearance.body_rect(100.0, 100.0, pawn, -1.0)
+		if flipped.position != stood.position or flipped.size != Vector2(-pawn.x, pawn.y):
+			push_error("a flipped pawn at zoom %.0f is %s; it must keep %s's position with a negative width" % [zoom, str(flipped), str(stood)])
+			return false
+		# The true negative: a pawn hung symmetrically -- the old rect applied to the new
+		# shape -- is refused by the same exact equality, because its soles sit half a body
+		# below the point.
+		var symmetric := Rect2(Vector2(roundf(100.0 - pawn.x / 2.0), roundf(100.0 - pawn.y / 2.0)), pawn)
+		if stood == symmetric:
+			push_error("a centred pawn passes the feet-anchor equality at zoom %.0f; the anchor reads nothing" % zoom)
+			return false
+	# The exact numbers at the boot zoom, so a reader can check the arithmetic by hand.
+	var at64: Rect2 = Appearance.body_rect(100.0, 100.0, Vector2(64.0, 96.0), 1.0)
+	if at64 != Rect2(68.0, 7.0, 64.0, 96.0):
+		push_error("body_rect(100, 100, (64, 96), +1) is %s, not Rect2(68, 7, 64, 96)" % str(at64))
+		return false
 
+	# Every pawn key resolves a picture on the pawn canvas: a rig left at the old tile size would
+	# stand on the shadow line half a tile short and check_appearance's canvas lanes would say
+	# so, but this is the assertion that the roster is pawns, not merely that files are sized.
+	Appearance.forget()
+	var pawns: int = 0
+	for key in Appearance.PAWN_KEYS:
+		var tex: Variant = Appearance.resolve(String(key))
+		if tex == null:
+			push_error("pawn key %s resolves no picture" % key)
+			return false
+		if Vector2i((tex as Texture2D).get_size()) != Appearance.PAWN_CANVAS:
+			push_error("pawn key %s is %s, not the pawn canvas %s -- a rig left on the tile" % [key, str((tex as Texture2D).get_size()), str(Appearance.PAWN_CANVAS)])
+			return false
+		pawns += 1
+	Appearance.forget()
+	if pawns < 8:
+		push_error("only %d pawn keys resolved; the roster is eight rigs and three overlays" % pawns)
+		return false
+
+	# The loop, read: what it reaches for and what it no longer holds.
 	var body: String = _function_body(MAIN_GD, "_draw_entities")
 	if body.is_empty():
-		push_error("could not read _draw_entities out of %s -- the rotation lane had nothing to judge" % MAIN_GD)
+		push_error("could not read _draw_entities out of %s -- the flip lane had nothing to judge" % MAIN_GD)
 		return false
-	# Called by the frame loop, with the player guard as its *argument* rather than around it:
-	# that is what makes the 0.0 above load-bearing instead of a rule stated in a file nothing
-	# reads, and it is why the anonymity clause cannot be lost by rewriting an `if` here.
-	if not body.contains("Appearance.body_rotation(bool(it[\"player\"])"):
-		push_error("_draw_entities does not call Appearance.body_rotation with the player flag: the rotation rule resolves an angle nothing turns")
+	var fabricated: String = "\tdraw_set_transform(a, b, c)\n\tdraw_set_transform_matrix(Transform2D.IDENTITY)\n"
+	if fabricated.count("draw_set_transform(") != 1 or fabricated.count("_matrix(") != 1:
+		push_error("the transform counter did not count one of each on a fabricated body; a zero below would prove nothing")
 		return false
-	# Exactly one. Two would mean a second body somewhere in the loop had learned to rotate.
 	var transforms: int = body.count("draw_set_transform(")
-	if transforms != 1:
-		push_error("_draw_entities holds %d draw_set_transform( calls; exactly one body rotates, and it is the player's" % transforms)
+	var resets: int = body.count("_matrix(")
+	if transforms != 0 or resets != 0:
+		push_error("_draw_entities holds %d draw_set_transform( and %d _matrix( calls; nobody rotates, so the loop holds none" % [transforms, resets])
 		return false
-	# Reset by matrix, not by a second draw_set_transform -- otherwise the count above stops
-	# being able to tell a reset from a second rotating body. A missing reset leaves the
-	# transform in force for the aim cone, the ground items and the memory marks below it.
-	if not body.contains("draw_set_transform_matrix(Transform2D.IDENTITY)"):
-		push_error("_draw_entities never resets the canvas transform; everything drawn after the player would inherit the player's rotation")
+	var missing: String = _needles_missing(body, [
+		"Appearance.body_flip(",
+		"Appearance.body_rect(",
+		"_blit_body(",
+		"Palette.COLOURS[\"facing\"]",
+		"Appearance.FOOT_DROP_PX",
+	])
+	if not missing.is_empty():
+		push_error("_draw_entities does not contain %s: the flip, the rect, the composite, the line or the shadow drop is resolved by nothing" % missing)
 		return false
-	if not body.contains("Appearance.wants_facing_line("):
-		push_error("_draw_entities does not ask Appearance whether the facing line is still wanted; the rule would be a second copy in the draw loop")
+	if body.contains("wants_facing_line"):
+		push_error("_draw_entities still asks wants_facing_line; the line draws for every body since the pawn slice")
 		return false
-	# The equip layers ride the rig because they are drawn by the same helper inside the same
-	# transform. Pull them out of it and a backpack floats beside a turned body.
-	if not body.contains("_blit_body("):
-		push_error("_draw_entities does not composite through _blit_body; the equipped layers no longer ride the transform the body is drawn under")
+	var peripheral: int = body.find("Detail.Peripheral")
+	var blit: int = body.find("Appearance.body_rect(")
+	if peripheral < 0 or blit < 0 or peripheral >= blit:
+		push_error("the peripheral disc branch (%d) does not precede the body blit (%d); a glimpsed body would reach the flip and leak its heading" % [peripheral, blit])
 		return false
-	print("ROTATION OK head-up at -PI/2, +PI/2 east, 0.0 for everybody else, %d transform in the draw loop, reset by matrix" % transforms)
+	# And the disc branch bails: the `continue` after the glimpse disc is what keeps a glimpsed
+	# body out of the blit, so it is found between the disc and the blit rather than assumed.
+	var disc: int = body.find("Palette.COLOURS[\"glimpse\"]")
+	var bail: int = body.find("continue", disc) if disc >= 0 else -1
+	if disc < 0 or bail < 0 or bail >= blit:
+		push_error("no `continue` between the glimpse disc (%d) and the body blit (%d); a glimpsed body would be drawn as a pawn with its heading" % [disc, blit])
+		return false
+	# And now the whole file, not just this loop. The one transform left in main.gd was the tile
+	# art's quarter turn for an east-west run of car segments, and that retired with the segments
+	# when a vehicle became one three-quarter picture per axis (docs/30, decision 11). So the
+	# assertion widens from "the loop holds none and the wreck holds one" to "main.gd holds none",
+	# which is both stronger and the truth. Proved on a fabricated file first, the same way the
+	# loop's counter is, so a scanner that answers zero for everything cannot pass this.
+	var whole: String = _file_text(MAIN_GD)
+	if whole.is_empty():
+		push_error("could not read %s" % MAIN_GD)
+		return false
+	if "\tdraw_set_transform(a, b, c)\n".count("draw_set_transform(") != 1:
+		push_error("the file-wide transform counter cannot see a transform it was handed")
+		return false
+	var whole_transforms: int = whole.count("draw_set_transform(")
+	if whole_transforms != 0:
+		push_error("main.gd holds %d draw_set_transform( calls; nothing rotates since the vehicle slice" % whole_transforms)
+		return false
+	# The retired helpers are gone, not stubbed: a body_rotation that answers 0.0 for everybody
+	# is the dead-socket family.
+	var resolver: String = _file_text(APPEARANCE_GD)
+	if resolver.is_empty():
+		push_error("could not read %s" % APPEARANCE_GD)
+		return false
+	for gone in ["func body_rotation(", "SPRITE_FORWARD", "func wants_facing_line("]:
+		if resolver.contains(gone):
+			push_error("appearance.gd still carries %s; the rotation retired with the pawn slice" % gone)
+			return false
+	print("FLIP OK east +1, west -1, north and south unflipped; square centres and the pawn stands, soles on +%.0f at all %d rungs, Rect2(68, 7, 64, 96) at 64; %d pawn keys on %s; zero transforms in the loop and zero in all of main.gd (both counters proved), the disc bails before the blit, three helpers gone" % [Appearance.FOOT_DROP_PX, ZOOMS.size(), pawns, str(Appearance.PAWN_CANVAS)])
 	return true
 
 
@@ -528,6 +622,21 @@ func _bodies_scale_with_the_zoom() -> bool:
 	if absf(Appearance.blit_scale(16.0) - 1.0) <= EPS:
 		push_error("blit_scale(16.0) answered 1.0 -- the native-size blit is back and the lane read nothing")
 		return false
+	# The default zoom is the art at a clean multiple, and not at 1:1: since the 2026-09-02
+	# move to a 32 px tile the camera boots at 64, so a body draws at exactly 2x. Read off
+	# create_camera rather than written here, so the lane follows the default if it moves --
+	# and a default equal to ART_NATIVE is the 64-era look back (art at 1:1 on the boot
+	# screen), which is the second true negative.
+	var default_zoom: float = float(CameraUtil.create_camera()["zoom"])
+	if absf(Appearance.blit_scale(default_zoom) - default_zoom / CameraUtil.ART_NATIVE) > EPS:
+		push_error("blit_scale at the default zoom %.0f answered %f, not %.1f" % [default_zoom, Appearance.blit_scale(default_zoom), default_zoom / CameraUtil.ART_NATIVE])
+		return false
+	if absf(Appearance.blit_scale(default_zoom) - 1.0) <= EPS:
+		push_error("blit_scale at the default zoom %.0f answered 1.0 -- the boot screen draws art at 1:1, which is the old 64 px native back" % default_zoom)
+		return false
+	if absf(Appearance.blit_scale(default_zoom) - 2.0) > EPS:
+		push_error("the default zoom %.0f is not a clean 2x of ART_NATIVE %.0f; the boot screen's upscale is the reference-look decision (docs/30, 2026-09-02)" % [default_zoom, CameraUtil.ART_NATIVE])
+		return false
 
 	# The dead socket: a correct scale nothing multiplies by is a body still drawn native.
 	var body: String = _function_body(MAIN_GD, "_draw_entities")
@@ -547,7 +656,7 @@ func _bodies_scale_with_the_zoom() -> bool:
 	if not missing.is_empty():
 		push_error("_draw_entities does not contain %s: the scale resolves a factor nothing multiplies by" % missing)
 		return false
-	print("SCALE OK blit_scale walks the %d-step ladder, 1.0 at %.0f, 0.0 at 0, native-size refused, and _draw_entities multiplies by it" % [CameraUtil.ZOOM_STEPS.size(), CameraUtil.ART_NATIVE])
+	print("SCALE OK blit_scale walks the %d-step ladder, 1.0 at %.0f, 2.0 at the default %.0f, 0.0 at 0, native-size refused, and _draw_entities multiplies by it" % [CameraUtil.ZOOM_STEPS.size(), CameraUtil.ART_NATIVE, default_zoom])
 	return true
 
 
@@ -602,6 +711,13 @@ func _a_still_body_is_not_glimpsed() -> bool:
 # The source text of one function, from its `func` line to the next top-level `func`. Used for
 # the reach assertion above: `_draw_district` cannot be called headless (it is a CanvasItem draw
 # pass), so what it calls is read rather than exercised.
+func _file_text(path: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	return f.get_as_text()
+
+
 func _function_body(path: String, name: String) -> String:
 	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if f == null:

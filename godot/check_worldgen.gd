@@ -45,15 +45,28 @@ extends SceneTree
 
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
+const SimSurface = preload("res://sim/map/surface.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimLoot = preload("res://sim/loot.gd")
 const SimAttentionField = preload("res://sim/field/attention.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 
 const GATE_SIZE: int = 64
+
+# The paths lane's own size and floor -- see the comment at the generate() call for why it is not
+# GATE_SIZE. Twenty is comfortably under the 30 the three swept seeds each write at this size and
+# comfortably over the 3 the 64 produced, so it fails on a pass that stops working without
+# failing on ordinary seed-to-seed variation.
+const PATHS_SIZE: int = 128
+const PATHS_MIN_TILES: int = 20
 const SHIPPED_SIZE: int = 256
 const RESIDENTIAL: String = "district.residential_suburb"
 const TOWN_CENTER: String = "district.town_center"
+# Slice 9's forest district: authored concurrently with this gate and possibly not yet in
+# content (see the FOREST and PATHS lanes below, both of which say so and skip loudly rather
+# than fabricate a stand-in for it).
+const FOREST: String = "district.forest_edge"
+const FOREST_SIZES: Array[int] = [64, 128]
 
 # The four the balance harness runs come first and are not optional: a robustness claim that skips
 # the campaigns the bands were measured against is a robustness claim about other campaigns. The
@@ -107,12 +120,16 @@ func _run() -> void:
 	var witnessed: Array = []
 	ok = _the_attention_field_says_how_much_of_the_map_is_solid(sweep, witnessed) and ok
 	ok = _every_expectation_the_sweep_makes_can_say_no(sweep, stash) and ok
+	# Slice 9: terrain defaults, the forest district (if it exists yet), and the paths pass.
+	ok = _the_terrain_defaults_are_the_historical_thirteen() and ok
+	ok = _the_forest_district_generates_and_is_denser_than_the_suburb() and ok
+	ok = _the_paths_pass_wears_dirt_between_doors_and_streets() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("WORLDGEN_OK %d worlds booted and stepped %d ticks each (%d seeds x 2 districts at %d, %d seeds at %d), every colony sited and survivable, no wanderer indoors, loot resolved; one seed builds one district and two build two; %d solid-cell counts witnessed, the largest %d; four expectations shown to say no; %.1f s of a %.0f s budget" % [
+		print("WORLDGEN_OK %d worlds booted and stepped %d ticks each (%d seeds x 2 districts at %d, %d seeds at %d), every colony sited and survivable, no wanderer indoors, loot resolved; one seed builds one district and two build two; %d solid-cell counts witnessed, the largest %d; four expectations shown to say no; terrain defaults pinned to the historical thirteen, the forest district judged (and denser than the suburb) when it exists or skipped loudly when it does not, paths wear dirt measurably slower and quieter than pavement; %.1f s of a %.0f s budget" % [
 			sweep.size(), STEP_TICKS, SWEEP_SEEDS.size(), GATE_SIZE,
 			SHIPPED_SEEDS.size(), SHIPPED_SIZE,
 			int(witnessed[0]) if not witnessed.is_empty() else 0,
@@ -630,7 +647,335 @@ func _tree_with(district: Dictionary) -> Dictionary:
 	return tree
 
 
-# --- 5. the budget -----------------------------------------------------------------------------
+# --- 5. terrain defaults (slice 9) --------------------------------------------------------------
+
+# `SimWorldgen._terrain_of`'s defaults are the load-bearing property of the whole slice: every one
+# of the thirteen is the literal `_dress_terrain` carried before the `terrain` content block
+# existed, so a district that declares none dresses byte-identically to what shipped before this
+# slice landed. A pure assertion, no world or map needed -- and the one that makes a future edit to
+# those thirteen numbers a red build instead of a silent drift in what an undeclared district (every
+# shipped district today) generates.
+const TERRAIN_DEFAULTS: Dictionary = {
+	"grass_jitter": 3, "stand_odds": 1, "stands_min": 1, "stands_max": 3,
+	"trees_min": 3, "trees_max": 8, "tree_spread": 2,
+	"thickets_min": 1, "thickets_max": 3, "thicket_min": 2, "thicket_max": 4,
+	"worn_odds": 2, "paths": false,
+}
+
+# The content key each default above is read from -- same keys, same order -- so the override
+# half of the lane can build one `terrain` block that sets every one of the thirteen at once.
+const TERRAIN_CONTENT_KEYS: Dictionary = {
+	"grass_jitter": "grassJitter", "stand_odds": "standOdds",
+	"stands_min": "standsMin", "stands_max": "standsMax",
+	"trees_min": "treesMin", "trees_max": "treesMax", "tree_spread": "treeSpread",
+	"thickets_min": "thicketsMin", "thickets_max": "thicketsMax",
+	"thicket_min": "thicketMin", "thicket_max": "thicketMax",
+	"worn_odds": "wornOdds", "paths": "paths",
+}
+
+
+func _terrain_values_match(got: Dictionary, want: Dictionary) -> bool:
+	if got.size() != want.size():
+		return false
+	for key in want.keys():
+		if not got.has(key) or got[key] != want[key]:
+			return false
+	return true
+
+
+func _the_terrain_defaults_are_the_historical_thirteen() -> bool:
+	var bare: Dictionary = SimWorldgen._terrain_of({})
+	if not _terrain_values_match(bare, TERRAIN_DEFAULTS):
+		push_error("_terrain_of({}) answered %s, want the historical %s" % [str(bare), str(TERRAIN_DEFAULTS)])
+		return false
+
+	# The true negative this lane exists for: a table that silently drifted has to be caught by
+	# the same comparison, one key at a time, or "matches the historical thirteen" is a sentence
+	# about a comparison that stopped comparing.
+	for key in TERRAIN_DEFAULTS.keys():
+		var wrong: Dictionary = TERRAIN_DEFAULTS.duplicate()
+		wrong[key] = (not bool(wrong[key])) if key == "paths" else int(wrong[key]) + 1
+		if _terrain_values_match(bare, wrong):
+			push_error("_terrain_of({}) matched a table with %s perturbed to %s; the comparison reads nothing" % [key, str(wrong[key])])
+			return false
+
+	# The override half: a `terrain` block naming every one of the thirteen content keys must come
+	# back with every one of them changed, not merely accepted alongside the defaults.
+	var block: Dictionary = {}
+	var expect: Dictionary = {}
+	var n: int = 0
+	for key2 in TERRAIN_DEFAULTS.keys():
+		var content_key: String = String(TERRAIN_CONTENT_KEYS[key2])
+		if key2 == "paths":
+			block[content_key] = true
+			expect[key2] = true
+		else:
+			var v: int = int(TERRAIN_DEFAULTS[key2]) + 5 + n
+			block[content_key] = v
+			expect[key2] = v
+		n += 1
+	var overridden: Dictionary = SimWorldgen._terrain_of({"terrain": block})
+	if not _terrain_values_match(overridden, expect):
+		push_error("_terrain_of with every key overridden answered %s, want %s" % [str(overridden), str(expect)])
+		return false
+
+	print("TERRAIN DEFAULTS OK _terrain_of({}) matches the historical thirteen exactly, refused on a one-key-perturbed table for all 13 keys; a full override block moves every one of them off its default")
+	return true
+
+
+# --- 6. the forest district (slice 9) -------------------------------------------------------------
+
+# `district.forest_edge` is authored concurrently with this gate and may not exist on disk yet.
+# When it is absent this says so, loudly, and passes -- there is nothing here to fabricate a
+# stand-in for, per the slice-9 brief: inventing a fixture forest would test the fixture, not the
+# district. When it lands, this asks the sweep's own question of it (every colony sites and is
+# survivable, at two sizes) and the one property slice 9 exists to prove: a forest's tree stands
+# are measurably denser than a suburb's, at the same seed.
+func _the_forest_district_generates_and_is_denser_than_the_suburb() -> bool:
+	var tree: Dictionary = _tree()
+	if SimWorldgen.district_of(tree, FOREST).is_empty():
+		print("FOREST SKIPPED no %s in content yet -- slice 9's forest district is authored concurrently with this gate; nothing to generate, site or compare" % FOREST)
+		return true
+
+	for size in FOREST_SIZES:
+		var record: Dictionary = _boot_and_judge(BALANCE_SEEDS[0], size, FOREST, {})
+		if record.is_empty():
+			return false
+
+	var suburb: Variant = SimWorldgen.generate(BALANCE_SEEDS[0], GATE_SIZE, tree, RESIDENTIAL)
+	var forest: Variant = SimWorldgen.generate(BALANCE_SEEDS[0], GATE_SIZE, tree, FOREST)
+	var suburb_trees: int = _tree_tile_count(suburb)
+	var forest_trees: int = _tree_tile_count(forest)
+	if not _denser_ok(forest_trees, suburb_trees):
+		push_error("the forest district counted %d Tree tiles against the suburb's %d at seed %d/%d -- its stands are not denser" % [
+			forest_trees, suburb_trees, BALANCE_SEEDS[0], GATE_SIZE,
+		])
+		return false
+	# The true negative: the same comparison, handed the two counts the other way round, must
+	# refuse -- or "denser" is a predicate that always says yes.
+	if _denser_ok(suburb_trees, forest_trees):
+		push_error("the density comparison answered yes for the suburb (%d) against the forest (%d) -- it is not comparing anything" % [suburb_trees, forest_trees])
+		return false
+
+	print("FOREST OK %s sites and is survivable at 64 and 128; %d Tree tiles against the suburb's %d at seed %d/%d, the swapped comparison refused" % [
+		FOREST, forest_trees, suburb_trees, BALANCE_SEEDS[0], GATE_SIZE,
+	])
+	return true
+
+
+func _tree_tile_count(map: Variant) -> int:
+	var n: int = 0
+	for i in (map.tiles as PackedByteArray).size():
+		if int(map.tiles[i]) == SimTileMap.Tile.Tree:
+			n += 1
+	return n
+
+
+func _denser_ok(a: int, b: int) -> bool:
+	return a > b
+
+
+# --- 7. paths: dirt worn from doors to streets (slice 9) -----------------------------------------
+
+# `_paths` is the one dressing pass a district opts into by name (`terrain.paths: true`), so this
+# lane holds it three ways: the pass actually wears a route from a door to the street it faces, on
+# the forest when it exists (or a hand-built fixture district when it does not -- say which);
+# the dead socket the whole pass exists to feed, `SimSurface` reading a worn tile as measurably
+# slower and quieter than pavement rather than merely "written"; and every refusal `generate`'s own
+# gate on the terrain flag and `_wear` itself are supposed to make.
+#
+# The comparison is one seed, one district, `terrain.paths` forced true and then forced false --
+# every pass before `_paths` (streets, parcels, annex, buildings, sites, occluders, terrain,
+# rubble) reads nothing from that flag, so the two generations are byte-identical up to the moment
+# `generate` does or does not call `_paths`, and a surfaces diff names exactly what the pass wrote.
+# That single mechanism carries both the positive (a door-to-street tile reads dirt) and the first
+# negative (a district whose terrain block omits paths writes none) through the same code.
+func _the_paths_pass_wears_dirt_between_doors_and_streets() -> bool:
+	var tree: Dictionary = _tree()
+	var used: String
+	var on_tree: Dictionary
+	var off_tree: Dictionary
+	var district_id: String
+
+	var forest: Dictionary = SimWorldgen.district_of(tree, FOREST)
+	if not forest.is_empty():
+		district_id = FOREST
+		on_tree = _tree_with_district_paths(tree, FOREST, true)
+		off_tree = _tree_with_district_paths(tree, FOREST, false)
+		used = "district.forest_edge (terrain.paths forced true, then false, for the comparison)"
+	else:
+		var fixture: Dictionary = _fixture_district("district.fixture.worldgen_paths", 0.9)
+		district_id = String(fixture["id"])
+		var on_district: Dictionary = fixture.duplicate(true)
+		on_district["terrain"] = {"paths": true}
+		var off_district: Dictionary = fixture.duplicate(true)
+		off_district["terrain"] = {"paths": false}
+		on_tree = _tree_with(on_district)
+		off_tree = _tree_with(off_district)
+		used = "a hand-built fixture district (density 0.9, real building templates); district.forest_edge is not yet in content"
+
+	if on_tree.is_empty() or off_tree.is_empty():
+		return false
+
+	# Judged at PATHS_SIZE, not GATE_SIZE. The forest's blocks are 36-56 tiles because a forest
+	# wants big ones, so a 64-tile map is barely one block: measured, it places 0 to 6 buildings
+	# there and one swept seed places NONE, which would fail this lane for having nothing to
+	# judge rather than for anything being wrong. At 128 the same three seeds place 6 to 13
+	# buildings and the pass writes 30 to 32 tiles; at the 256 it is played at, 36 to 45
+	# buildings and 169 to 230 tiles. The floor below is what stops this passing on one
+	# accidental tile the way it would have at 64.
+	var on_map: Variant = SimWorldgen.generate(BALANCE_SEEDS[0], PATHS_SIZE, on_tree, district_id)
+	var off_map: Variant = SimWorldgen.generate(BALANCE_SEEDS[0], PATHS_SIZE, off_tree, district_id)
+	if (on_map.surfaces as PackedByteArray).size() != (off_map.surfaces as PackedByteArray).size():
+		push_error("PATHS: the paths-true and paths-false generations of %s came out different sizes" % district_id)
+		return false
+
+	var diffs: Array[int] = []
+	for i in (on_map.surfaces as PackedByteArray).size():
+		if int(on_map.surfaces[i]) != int(off_map.surfaces[i]):
+			diffs.append(i)
+	# TN: a district whose terrain block omits `paths` writes no dirt path at all. Two generations
+	# that differ nowhere prove that as strongly as an empty diff can -- and if they differ
+	# somewhere, the negative below still holds for every tile the pass could have touched.
+	if diffs.size() < PATHS_MIN_TILES:
+		push_error("PATHS: %s wore %d door-to-street tiles with terrain.paths true against false, under the %d this lane needs to be judging a path rather than a coincidence" % [used, diffs.size(), PATHS_MIN_TILES])
+		return false
+	for idx in diffs:
+		if int(on_map.surfaces[idx]) != SimTileMap.SURFACE_DIRT:
+			push_error("PATHS: surfaces[%d] differs between the two generations but the paths:true side reads %d, not SURFACE_DIRT" % [idx, int(on_map.surfaces[idx])])
+			return false
+		if int(off_map.surfaces[idx]) == SimTileMap.SURFACE_DIRT:
+			push_error("PATHS: the paths:false generation already carried dirt at %d; the diff cannot tell the pass's writes from something else's" % idx)
+			return false
+		if int(on_map.tiles[idx]) != SimTileMap.Tile.Floor or int(on_map.indoors[idx]) == 1:
+			push_error("PATHS: a paths-only diff at %d sits on tile %d indoors=%d, not outdoor Floor" % [idx, int(on_map.tiles[idx]), int(on_map.indoors[idx])])
+			return false
+
+	# TP, and the dead socket: at least one such tile reads dirt, and SimSurface -- the one
+	# mechanism that reads surfaces -- answers it as measurably slower and quieter than pavement,
+	# not merely present.
+	var idx0: int = diffs[0]
+	var speed: float = SimSurface.speed_on(int(on_map.surfaces[idx0]))
+	var noise: float = SimSurface.noise_on(int(on_map.surfaces[idx0]))
+	if absf(speed - 0.95) > 0.000001:
+		push_error("PATHS: SimSurface.speed_on(SURFACE_DIRT) is %.4f, not 0.95" % speed)
+		return false
+	if absf(noise - 0.85) > 0.000001:
+		push_error("PATHS: SimSurface.noise_on(SURFACE_DIRT) is %.4f, not 0.85" % noise)
+		return false
+	if absf(SimSurface.speed_on(SimTileMap.SURFACE_PAVED) - 1.0) > 0.000001 or absf(SimSurface.noise_on(SimTileMap.SURFACE_PAVED) - 1.0) > 0.000001:
+		push_error("PATHS: pavement no longer reads x1.0 speed and x1.0 noise -- the contrast this lane measures has moved")
+		return false
+
+	# `off_map` shares tiles/indoors byte-for-byte with `on_map` (only surfaces differ, established
+	# above) and carries no dirt of its own -- so exercising `_wear` destructively on it proves the
+	# same three refusals without touching the tile this lane just used as its dead-socket witness.
+	if not _the_wear_function_refuses_protected_indoors_and_non_floor(off_map):
+		return false
+
+	print("PATHS OK %d door-to-street tiles worn on %s (e.g. %s), reading x%.2f speed and x%.2f noise against pavement's x1.0/x1.0; the paths-false twin writes none of them, and _wear refuses a protected, an indoors and a non-Floor tile" % [
+		diffs.size(), used, str(Vector2i(idx0 % int(on_map.w), idx0 / int(on_map.w))), speed, noise,
+	])
+	return true
+
+
+# The forest's own district entry, duplicated with `terrain.paths` forced to `wanted` and swapped
+# back into a copy of the tree at the *same* path key it already occupies -- `_tree_with` cannot be
+# used here, because it adds a second entry under a fixed key and `district_of` would still find
+# the original (unmodified) forest first by sorted path order.
+func _tree_with_district_paths(tree: Dictionary, district_id: String, wanted: bool) -> Dictionary:
+	var out: Dictionary = tree.duplicate()
+	for path in tree.keys():
+		if not String(path).begins_with("districts/"):
+			continue
+		var entry: Variant = tree[path]
+		if not (entry is Dictionary) or String((entry as Dictionary).get("id", "")) != district_id:
+			continue
+		var replacement: Dictionary = (entry as Dictionary).duplicate(true)
+		var terrain_block: Dictionary = (replacement.get("terrain", {}) as Dictionary).duplicate(true)
+		terrain_block["paths"] = wanted
+		replacement["terrain"] = terrain_block
+		out[path] = replacement
+		return out
+	push_error("no districts/ entry named %s to force terrain.paths on" % district_id)
+	return {}
+
+
+# TN, TN, TN: `_wear` refuses a protected tile, an indoors tile and a non-Floor tile -- each shown
+# against a baseline call on the same kind of tile (outdoor, unprotected, Floor) that succeeds, so
+# a guard that always refused would not pass this either. Runs on the already-generated `map`
+# (mutating its surfaces is safe: this lane owns it and nothing else reads it afterward).
+func _the_wear_function_refuses_protected_indoors_and_non_floor(map: Variant) -> bool:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+
+	# Every search below stays strictly inside the border (tx, ty in [1, w-2]/[1, h-2]) so a hit
+	# is refused for the *named* reason -- indoors, non-Floor -- and never merely because it
+	# landed on the district wall, which `_wear`'s own bounds check would also refuse.
+	var base: Vector2i = _find_interior_tile(map, w, h, func(idx: int) -> bool:
+		return int(map.tiles[idx]) == SimTileMap.Tile.Floor and int(map.indoors[idx]) == 0)
+	if base.x < 0:
+		push_error("PATHS: no outdoor Floor tile on the fixture to exercise _wear's baseline")
+		return false
+	var base_idx: int = base.y * w + base.x
+
+	# The baseline: unprotected, outdoor, Floor -- _wear must actually write dirt, or the three
+	# refusals below would be indistinguishable from a _wear that never writes anything at all.
+	map.surfaces[base_idx] = SimTileMap.SURFACE_PAVED
+	SimWorldgen._wear(map, base.x, base.y, {})
+	if int(map.surfaces[base_idx]) != SimTileMap.SURFACE_DIRT:
+		push_error("PATHS: _wear on an unprotected outdoor Floor tile left surface %d, not SURFACE_DIRT -- the baseline does not work" % int(map.surfaces[base_idx]))
+		return false
+
+	# TN: a protected tile is refused.
+	map.surfaces[base_idx] = SimTileMap.SURFACE_PAVED
+	SimWorldgen._wear(map, base.x, base.y, {base_idx: true})
+	if int(map.surfaces[base_idx]) == SimTileMap.SURFACE_DIRT:
+		push_error("PATHS: _wear wrote dirt onto a protected tile")
+		return false
+
+	# TN: an indoors tile is refused.
+	var indoor: Vector2i = _find_interior_tile(map, w, h, func(idx: int) -> bool:
+		return int(map.tiles[idx]) == SimTileMap.Tile.Floor and int(map.indoors[idx]) == 1)
+	if indoor.x < 0:
+		push_error("PATHS: no indoor Floor tile on the fixture to exercise _wear's indoors refusal")
+		return false
+	var indoor_idx: int = indoor.y * w + indoor.x
+	var indoor_before: int = int(map.surfaces[indoor_idx])
+	SimWorldgen._wear(map, indoor.x, indoor.y, {})
+	if int(map.surfaces[indoor_idx]) != indoor_before:
+		push_error("PATHS: _wear changed an indoor Floor tile's surface from %d to %d" % [indoor_before, int(map.surfaces[indoor_idx])])
+		return false
+
+	# TN: a non-Floor tile is refused (a building wall, not the district border, so the refusal is
+	# the tile-type check and not merely the bounds check every border tile would also trip).
+	var wall: Vector2i = _find_interior_tile(map, w, h, func(idx: int) -> bool:
+		return int(map.tiles[idx]) == SimTileMap.Tile.Wall)
+	if wall.x < 0:
+		push_error("PATHS: no interior Wall tile on the fixture to exercise _wear's non-Floor refusal")
+		return false
+	var wall_idx: int = wall.y * w + wall.x
+	var wall_before: int = int(map.surfaces[wall_idx])
+	SimWorldgen._wear(map, wall.x, wall.y, {})
+	if int(map.surfaces[wall_idx]) != wall_before:
+		push_error("PATHS: _wear changed a Wall tile's surface from %d to %d" % [wall_before, int(map.surfaces[wall_idx])])
+		return false
+
+	return true
+
+
+# The first interior tile (tx, ty in [1, w-2]/[1, h-2]) `matches` accepts, as (-1, -1) if none.
+# GDScript lambdas capture `map` by reference here, not by value -- safe, per CLAUDE.md's note
+# that the primitive-capture trap does not apply to a closure over an object.
+func _find_interior_tile(map: Variant, w: int, h: int, matches: Callable) -> Vector2i:
+	for ty in range(1, h - 1):
+		for tx in range(1, w - 1):
+			if matches.call(ty * w + tx):
+				return Vector2i(tx, ty)
+	return Vector2i(-1, -1)
+
+
+# --- 8. the budget -----------------------------------------------------------------------------
 
 # docs/00 pillar 6, applied to the gate itself. Boots are this file's entire cost and a lane that
 # adds ten more is a lane that adds five seconds; the budget is what makes that a red build rather

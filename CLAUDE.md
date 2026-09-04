@@ -65,14 +65,14 @@ section came from.
 ## Verifying a change
 
 Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — it chains all of them and takes a few minutes:
+every commit — it chains all of them and takes about twelve minutes (measured 2026-09-04):
 
 ```bash
 npm run godot:smoke      # project boots            → GODOT_PROJECT_SMOKE_OK
 npm run godot:validate   # content registry
 npm run godot:test       # R1 parity vs the frozen fixture
 npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
-npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~85 s, inside godot:m2)
+npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~4.5 min, in godot:m2)
 npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
 npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
 npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
@@ -88,12 +88,15 @@ npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_
 npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
 npm run godot:check:wrecks   # wrecks, props, debris art → WRECKS_OK
 npm run godot:check:weather  # rain, accent regrade, dead keys → WEATHER_OK
+npm run godot:check:roof     # wall caps and faces, roofs cut out where seen → ROOF_LOOK_OK
+npm run godot:check:trees    # tall trees in the entity sort, the fade → TREES_OK
+npm run godot:check:worn     # gear layers, order and skeleton fit → WORN_LOOK_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **42**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **45**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
@@ -185,10 +188,23 @@ drifted. Three things about the current state matter enough to repeat anyway:
   survives its own contact loop. Sepsis lethality remains undecided and the owner's.
 - **The presentation is flat top-down, not isometric** — an independent track that touched nothing
   under `godot/sim/`. `docs/00-vision.md` carries the reversal, docs/30 what it made structural,
-  and the art entries in what's left the ordered next steps. The style pick is made: **B, the
-  rotating player**, decided by the owner 2026-09-01 from the comparison fixtures and a reference
-  image (docs/30 records the pick and its boundaries — the reference's health-bar HUD is
-  explicitly not adopted, and only the player rotates).
+  and the art entries in what's left the ordered next steps. The style is **the Dungeon
+  Settlers read, decided by the owner 2026-09-03**: upright, face-on pawns that flip rather than
+  rotate — nobody rotates, the player included — a warm dark-fantasy palette, walls drawn with a
+  lit cap and a south face, roofs cut out where the sim sees, three-quarter props and vehicles,
+  32 px a tile at 2×. It supersedes the 2026-09-01 style-B pick (the rotating player, the
+  overcast mood); docs/30's "The Dungeon Settlers look" entry records the twelve decisions and
+  what each earlier clause becomes. **Decided lands slice by slice, and [docs/23's
+  record](docs/23-roadmap.md#the-record-by-system) is the one copy of which ones have.** This file
+  deliberately does not list them: that list has now drifted three times, each time a slice landed
+  without its copy here being updated, which is the same reason the milestone status lives in one
+  place. What the style *is*, either way: the table is warm; every body is a 32×48 face-on pawn
+  that flips through a negative-width rect, and nobody rotates; walls draw their material's cap or
+  south face and roofs cover what the sim cannot see; the darker ground draws a boundary once onto
+  the lighter tile; a tree is a 32×96 picture standing in the entity sort; and equipment draws on
+  the pawn, in one order, on one skeleton. Where a piece has not landed yet, its code comments say
+  so on purpose. The reference's HUD — portraits, bars, numbers, name plates — is explicitly not
+  adopted.
 - **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody
@@ -310,6 +326,14 @@ Each of these was found the expensive way. They are not style opinions.
   0.0000 while world B's read 500.0000 — on the spine, under every two-world assertion about noise
   or scent. Per-world state belongs on the world or in a closure over it; a closure over an object
   is safe, because the lambda-capture trap above is about primitives.
+- **`main.gd` matches on the tile class twice, and a textual gate that reads the first arm judges
+  the wrong one.** `_draw_district` has a `match tile:` that picks a *colour* and a second one that
+  *draws*, each with its own `SimTileMap.Tile.Low:` arm. A gate slicing from the first label found
+  four lines of colour arithmetic and reported that the draw loop never asks whether a vehicle
+  covers the tile — red, and blaming code that was correct, which is the worst thing a gate can do.
+  Enumerate every arm and pick the one calling the draw helper; `check_wrecks.gd`'s `_low_arms` is
+  the precedent. Same family as proving a scanner on a fabricated body before trusting it: a
+  textual assertion needs to be shown it is reading what it thinks it is.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.
