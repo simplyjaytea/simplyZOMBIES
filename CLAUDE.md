@@ -86,7 +86,7 @@ npm run godot:check:respond  # the antibiotics word  → RESPOND_OK
 npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
 npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
-npm run godot:check:wrecks   # wrecks, props, debris art → WRECKS_OK
+npm run godot:check:wrecks   # parked vehicles, heaps, debris art → WRECKS_OK
 npm run godot:check:weather  # rain, accent regrade, dead keys → WEATHER_OK
 npm run godot:check:roof     # wall caps and faces, roofs cut out where seen → ROOF_LOOK_OK
 npm run godot:check:trees    # tall trees in the entity sort, the fade → TREES_OK
@@ -201,10 +201,11 @@ drifted. Three things about the current state matter enough to repeat anyway:
   place. What the style *is*, either way: the table is warm; every body is a 32×48 face-on pawn
   that flips through a negative-width rect, and nobody rotates; walls draw their material's cap or
   south face and roofs cover what the sim cannot see; the darker ground draws a boundary once onto
-  the lighter tile; a tree is a 32×96 picture standing in the entity sort; and equipment draws on
-  the pawn, in one order, on one skeleton. Where a piece has not landed yet, its code comments say
-  so on purpose. The reference's HUD — portraits, bars, numbers, name plates — is explicitly not
-  adopted.
+  the lighter tile; a tree is a 32×96 picture standing in the entity sort; a parked car is a
+  manifest record the layout wrote, drawn as one three-quarter picture per class, variant and axis
+  in that same sort; and equipment draws on the pawn, in one order, on one skeleton. Where a piece
+  has not landed yet, its code comments say so on purpose. The reference's HUD — portraits, bars,
+  numbers, name plates — is explicitly not adopted.
 - **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody

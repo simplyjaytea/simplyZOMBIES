@@ -14,7 +14,7 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-04
+## State, as of 2026-09-04 (PR #106 merged)
 
 Green, and verified this session rather than quoted: `npm run godot:m2` chains **45 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
