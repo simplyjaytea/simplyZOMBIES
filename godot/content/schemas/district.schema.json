@@ -39,6 +39,10 @@
           "type": "integer",
           "minimum": 2,
           "description": "Street width in tiles, and the width of the ring road just inside the district wall. docs/03: streets are noise highways, so this is an attention decision as much as a navigation one."
+        },
+        "surface": {
+          "enum": ["paved", "dirt"],
+          "description": "What the streets are laid on. Optional, and absent means \"paved\" -- every district authored before this key existed carves exactly the surface it always did, which is what makes adding it safe. The name is content's and the SURFACE_* int is the sim's: SimWorldgen.street_surface_of does the one translation, and an unknown name resolves to paved rather than failing, because a typo should not make a district's roads vanish. docs/24 prices the ground table, so this is a movement and noise decision as much as a look one -- and road_paint.mask_for already refuses anything but paved, so a dirt street carries no sidewalk, no dash and no kerb without a second switch."
         }
       }
     },
@@ -80,6 +84,77 @@
         }
       },
       "description": "The footprint pool, by tag. A tag with no template that fits a parcel is skipped for that parcel rather than failing it."
+    },
+    "terrain": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What grows on the ground between the buildings, read by SimWorldgen's `worldgen.terrain` pass through _terrain_of. Optional, and every default below is the literal that pass carried before this block existed -- so a district that declares no terrain dresses byte-identically to the way it always did, which is asserted rather than assumed. Two things to know before tuning it. First, an RNG stream is a *sequence*: a key here changes an argument to a draw, but the loop counts that follow from it -- how many stands, how many trees, how many thickets -- move the draws after them, so raising standsMax re-rolls every tree on every later block and not just the block being tuned. Values are worth measuring rather than reasoning about. Second, the odds keys read the way a die does and not the way a probability does -- see each one. The Godot validator is shallow and never looks inside this object, so check_worldgen.gd's FOREST lane is what asserts these values reach the pass.",
+      "properties": {
+        "grassJitter": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The +/- tile wobble on the grass disc's radius, drawn once per tile. The disc is inscribed in the block, so this is a raggedness dial and not a coverage one: a large value softens the edge and punches holes in the middle in equal measure. Default 3."
+        },
+        "standOdds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "A block is skipped when int_range(0, standOdds) is not zero, so this counts *against* stands: 0 plants a stand on every block, 1 on half of them, 2 on a third. Default 1."
+        },
+        "standsMin": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Fewest stands of trees on a block that gets any. Default 1."
+        },
+        "standsMax": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Most stands of trees on a block that gets any. Counted per block whatever the block's size, so the same number is a thinner wood on a big block than on a small one. Default 3."
+        },
+        "treesMin": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Fewest trees scattered from one stand's origin. Default 3."
+        },
+        "treesMax": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Most trees scattered from one stand's origin. Trees land only on grass and can land on the same tile twice, so this is a draw count rather than a tile count. Default 8."
+        },
+        "treeSpread": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The +/- tile radius a stand's trees scatter over, so a stand fills a (2*treeSpread+1)-square box. Widening it thins a stand of the same size rather than growing it. Default 2."
+        },
+        "thicketsMin": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Fewest thickets of undergrowth on a block that gets stands. Default 1."
+        },
+        "thicketsMax": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Most thickets of undergrowth on a block that gets stands. Default 3."
+        },
+        "thicketMin": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Shortest edge a thicket's rectangle is drawn at, in tiles -- width and height are drawn separately from the same pair. Default 2."
+        },
+        "thicketMax": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Longest edge a thicket's rectangle is drawn at, in tiles. Default 4."
+        },
+        "wornOdds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The trodden dirt where grass meets pavement: a grass tile beside a paved one wears through when int_range(0, wornOdds) is not zero, so this counts *for* the worn edge and is the opposite reading to standOdds -- 0 wears nothing at all, 2 wears two edge tiles in three. Only pavement triggers it, so on a district whose streets are dirt this dial reaches nothing but the colony's own apron. Default 2."
+        },
+        "paths": {
+          "type": "boolean",
+          "description": "Whether people have worn a walk from every door to the street it faces -- SimWorldgen's `worldgen.paths` pass, one draw per door, on its own stream so treading them moves no tile any other pass decided. Surfaces only: a path wears open outdoor floor down to dirt and steps over anything indoors, solid or protected, so it clears no tree and opens no route that was not already walkable. Default false, which is every district authored before the pass existed."
+        }
+      }
     },
     "lootProfile": {
       "type": "object",

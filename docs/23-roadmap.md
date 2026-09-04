@@ -247,13 +247,6 @@ purpose.
   of order-table entry and one overlay per base, on slice 8's skeleton, judged by `WORN_LOOK_OK`'s
   existing lanes. Whether the remaining five are worth drawing at 32 px at all is a judgement to
   make with the pictures in hand, not before.
-- **A forest district: cabins, stands and dirt paths.** `district.forest_edge` with a `terrain`
-  block (stand density, spread, thickets, paths) and dirt streets; `_dress_terrain` reads the
-  block with defaults equal to today's literals, so the suburb is byte-identical; a
-  `worldgen.paths` pass on its own stream treads dirt from every cabin door to the nearest
-  street. Two cabin templates with the wall face. `check_worldgen`'s sweep gains the district; a
-  forest FAST column is run by hand and recorded, never added to the chain. A dense stand of
-  sorted tree sprites is where the fade rule is judged.
 - **The wreck dumpster — designed and drawn, cut at the balance line.** A `wreck_dumpster` sprite
   was authored for the lone `Tile.Low` tiles a district stands, and standing more than the annex's
   single one meant widening the wreck pass's run length from 2–3 to 1–3 in `_dress_occluders`.
@@ -2392,6 +2385,66 @@ not a to-do list:
   sim says the player sees it at Focal detail, and a body teleported into place for a screenshot is
   neither — three staging attempts established that faster than reading the rule would have, and it
   is the same anonymity clause that makes a still peripheral body no body at all.
+- ~~A forest district: cabins, stands and dirt paths~~ **landed** (no new gate — `WORLDGEN_OK` grows
+  TERRAIN DEFAULTS, FOREST and PATHS, `ROAD_LOOK_OK` grows DIRT ROADS; slice 9 of the Dungeon
+  Settlers arc, docs/30 "The Dungeon Settlers look", the district clause). The first slice of the
+  arc to touch `godot/sim/`, and so the first measured rather than only asserted. **The mechanism**:
+  `_dress_terrain`'s thirteen magic numbers move into a district's optional `terrain` block through
+  `_terrain_of`, every default equal to the literal it replaced; `street_surface_of` reads an
+  optional `streets.surface` name through `STREET_SURFACES` so `_carve_street` lays dirt where a
+  district asks and paves where it does not, and every `map.streets` record carries the surface it
+  was laid on; and `_paths` — after `_rubble`, on its own `paths` stream, one draw per door — wears
+  an L from every door to the nearest point on any street span. **Why the defaults are the
+  load-bearing part**: an RNG stream is a sequence, so a pass that draws a different number of
+  times, or the same number from a different range, moves every tile decided after it and not just
+  the one being tuned. Every entry in the block therefore changes an argument to a draw and never
+  how many draws happen. That is proved, not assumed: a SHA-256 over `tiles + surfaces + indoors`
+  was taken for four seeds at two sizes **before** anything moved, and the suburb is byte-identical
+  after all five changes. `R1_PARITY_OK` and `npm test` 594/594 agree. **A path is a dressing pass,
+  not a layout one**: the ground under it stays `Floor`, so nothing about sight, cover or movement
+  changes — only the surface layer, which `SimSurface` already read for speed (dirt ×0.95) and noise
+  (×0.85) and which the ground atlas already had a row for. It adds no reader; it feeds three that
+  existed. **The bug the district found**: `_street_frontage` counted tiles whose surface was
+  *paved* to decide whether a lot fronts a street, and `annex_candidates` refuses a lot with no
+  frontage — so on a district whose streets are dirt the colony could only ever have sited beside a
+  paved connection-point opening, silently, with every gate green. Frontage now counts the
+  district's own street surface, read back off the manifest the carving writes rather than threaded
+  through five call sites, and `_carve_opening` lays that surface too instead of paving every
+  opening regardless. Fixing it moved the forest's tree counts (671 from 635 at seed 20260805),
+  which is how the record knows it was changing placement and not just reading. **Measured, and the
+  numbers are size-dependent in a way worth keeping**: the forest's blocks are 36–56 tiles because a
+  forest wants big ones, so at the 64 the gates sweep it places 0 to 6 buildings — one swept seed
+  places **none** — and the paths pass writes 0 to 3 tiles; at 128 it places 6 to 13 and writes 30
+  to 32; at the 256 it is played at, 36 to 45 buildings, 59 to 70 doors and **169 to 230 path
+  tiles**. Trees: 671 and 771 at seeds 20260805 and 404 against the suburb's 36 and 21. **The
+  balance column**, run by hand on `BALANCE_DISTRICT=district.forest_edge` and never added to the
+  85-second chain: the forest **passes the suburb-measured bands** (`M2_BALANCE_OK`, four seeds, ten
+  days). Across those four seeds the aggregate barely moves — 6 deaths against the suburb's 5, 330
+  grabs against 323 — while individual seeds swing hard both ways (404 goes 3/3 survivors to 1/3,
+  90210 goes 1/3 to 3/3). Four seeds on a wholly different layout is far too few to call the
+  district harder or easier, and this record does not; what it claims is that the bands hold. **The
+  lanes**: TERRAIN DEFAULTS (`_terrain_of({})` is exactly the historical thirteen, with a wrong
+  expected value refused, so a future edit to those defaults must break it), FOREST (generates,
+  sites, survives, and counts strictly more Tree tiles than the suburb at one seed; the comparison
+  refused when handed its arguments the other way round), PATHS (the same district generated with
+  `terrain.paths` true and false and the surfaces diffed, so worn-edge dirt cannot be mistaken for a
+  trodden path; every differing tile must be dirt on the true side, not dirt on the false side, and
+  outdoor `Floor`; then the dead socket — `SimSurface` answers that tile ×0.95 speed and ×0.85 noise
+  against pavement's ×1.0) and DIRT ROADS (paved for no block, no name and an unknown name; dirt
+  when named). **PATHS is judged at 128, not at the gate's 64**, with a floor of 20 tiles: at 64 the
+  lane would have passed on 3 tiles and failed outright on the swept seed that places no building,
+  which is a lane failing for having nothing to judge rather than for anything being wrong. **A
+  finding for the owner** (`slice9-stand-64.png`): in the densest stand the generator makes — 44
+  Tree tiles in a 9×9 — the player is very nearly invisible. Trees are Opaque, so sight collapses to
+  a few tiles, and the fade rule cannot help as much as it does in the open because several trunks
+  overlap the body at once. That is the forest's character rather than a defect in the fade, but
+  whether a stand should ever be that dense is a content decision, not one to take in passing: the
+  knobs are the terrain block's `standsMax`, `treesMax` and `treeSpread`. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice9-cabin-64.png`, a cabin with slice 5's
+  timber south face and windows, its shingle roof cut away where the sim sees, a pawn at the door
+  and conifers thinning away downhill — the clearest single frame of the arc so far;
+  `slice9-stand-64.png` and `slice9-stand-32.png`, the densest stand at both rungs, which is the
+  finding above made visible.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

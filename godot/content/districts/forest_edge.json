@@ -1,0 +1,54 @@
+{
+  "id": "district.forest_edge",
+  "name": "Blackpine Reach",
+  "type": "forest_edge",
+  "streets": { "blockMin": 36, "blockMax": 56, "streetWidth": 3, "surface": "dirt" },
+  "connectionPoints": { "north": 1, "south": 1, "east": 0, "west": 1 },
+  "density": 0.3,
+  "pool": [
+    { "tag": "cabin", "weight": 10 },
+    { "tag": "shed", "weight": 3 }
+  ],
+  "terrain": {
+    "grassJitter": 3,
+    "standOdds": 0,
+    "standsMin": 10,
+    "standsMax": 18,
+    "treesMin": 12,
+    "treesMax": 24,
+    "treeSpread": 3,
+    "thicketsMin": 3,
+    "thicketsMax": 7,
+    "thicketMin": 3,
+    "thicketMax": 6,
+    "wornOdds": 2,
+    "paths": true
+  },
+  "lootProfile": {
+    "perBuilding": [
+      {
+        "table": "residential",
+        "tags": ["cabin", "shed"],
+        "sites": { "min": 1, "max": 2 },
+        "containerShare": 0.6,
+        "containers": ["footlocker", "bunk drawer", "larder shelf", "tool chest"]
+      }
+    ],
+    "perDistrict": [
+      {
+        "table": "military_cache",
+        "count": 1,
+        "tags": ["shed"],
+        "containerShare": 1,
+        "containers": ["ammo crate"]
+      },
+      {
+        "table": "residential",
+        "count": 1,
+        "outdoors": true,
+        "containerShare": 1,
+        "containers": ["car boot"]
+      }
+    ]
+  }
+}
