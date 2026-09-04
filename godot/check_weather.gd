@@ -93,7 +93,7 @@ func _rgb_distance(a: Color, b: Color) -> float:
 	return sqrt(dr * dr + dg * dg + db * db)
 
 
-# Window glass: muted and mid-dark, an overcast pane rather than a lit aquarium.
+# Window glass: muted and mid-dark -- glass reflects a sky, the one cool thing on a warm street.
 func _window_ok(c: Color) -> bool:
 	return c.s <= 0.35 and c.v >= 0.40 and c.v <= 0.65
 
@@ -118,7 +118,7 @@ func _mark_ok(c: Color) -> bool:
 
 
 func _pool_warm_ok(c: Color) -> bool:
-	return c.r > c.b and c.a <= 0.25
+	return c.r - c.b >= 0.35 and c.a <= 0.25
 
 
 # The rain wash's own band: visible, never a curtain.
@@ -189,9 +189,10 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		)
 		return false
 
-	# Lamp pools stay warm on purpose -- the one deliberate warmth on an overcast street.
+	# The pools are the fire-and-lamp warmth of the mood; the pin is now a floor (r - b >=
+	# 0.35), not a sign (r > b), so a pool tuned merely off-cold still refuses.
 	if not _pool_warm_ok(Palette.LIGHT_POOL_NEAR) or not _pool_warm_ok(Palette.LIGHT_POOL_FAR):
-		push_error("a light pool tint has gone cold or thick: the pools must stay warm (r > b) at alpha <= 0.25")
+		push_error("a light pool tint has gone cold or thick: the pools must clear r - b >= 0.35 at alpha <= 0.25")
 		return false
 	# The O-key overlay variants are a developer diagram, loud by design: hold the warmth only.
 	if not (Palette.LIGHT_POOL_NEAR_OVERLAY.r > Palette.LIGHT_POOL_NEAR_OVERLAY.b):
@@ -253,9 +254,14 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		push_error("the rim-separation bound accepted zero distance; it cannot say no")
 		return false
 
-	# Cold and thick pools refused through the same predicate.
+	# Cold and thick pools refused through the same predicate: the cold blue fails because
+	# r - b is negative, well under the new 0.35 floor, and a near-white pool that would have
+	# passed the old sign test (r > b) does not clear the floor either.
 	if _pool_warm_ok(Color(0.5, 0.6, 1.0, 0.2)):
 		push_error("a cold blue pool passes the warm pin")
+		return false
+	if _pool_warm_ok(Color(1.0, 0.95, 0.92, 0.2)):
+		push_error("a near-white pool (r - b = 0.08) passes the warm pin; the sign test would have let it through")
 		return false
 	if _pool_warm_ok(Color(1.0, 0.84, 0.55, 0.45)):
 		push_error("a heavy pool passes the alpha cap")
@@ -267,8 +273,8 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		return false
 
 	print(
-		"ACCENT OK window #%s, rim #%s, groundItem #%s, marks muted at alpha; pools pinned warm; %d bright values refused"
-		% [window.to_html(false), rim.to_html(false), ground_item.to_html(false), refused]
+		"ACCENT OK window #%s, rim #%s, groundItem #%s, marks muted at alpha; pools pinned warm (near r-b %.3f); %d bright values refused"
+		% [window.to_html(false), rim.to_html(false), ground_item.to_html(false), Palette.LIGHT_POOL_NEAR.r - Palette.LIGHT_POOL_NEAR.b, refused]
 	)
 	return true
 

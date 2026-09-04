@@ -10,9 +10,10 @@ extends RefCounted
 # Presentation-only, per ui/README.md's boundary: sim/ must never import this. It reads
 # world.content, which is the same tree the sim modules read.
 #
-# Sprites are optional and currently absent. `resolve` returns null for a key with no file,
-# and every caller falls back to the procedural shapes that ship today -- the fallback is a
-# supported path, not a temporary one, and check_appearance.gd asserts it stays that way.
+# Sprites are optional: `resolve` returns null for a key with no file, and every caller falls
+# back to the procedural shapes -- the fallback is a supported path, not a temporary one, and
+# check_appearance.gd asserts it stays that way. Every shipped body, prop and street key has
+# art today, authored on the ART_NATIVE (32 px) centre-anchored canvas camera.gd names.
 
 const Palette = preload("res://presentation/palette.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
@@ -34,17 +35,58 @@ const SPRITE_DIR: String = "res://assets/sprites"
 # entry there would both fail the frozen oracle's Ajv and spawn a phantom colonist.
 const PLAYER_LOOK_ID: String = "player.body"
 
-# Which way the art faces on its own canvas, as a screen angle: up-canvas is -PI/2 under the
-# top-down projection (screen +x east, +y south), and the player's rig is authored pointing up.
-# Every rotation below is the difference between where the sim says the body is looking and this.
-const SPRITE_FORWARD: float = -PI / 2.0
+# The pawn canvas: one ART_NATIVE tile wide and one and a half tall, anchored on the feet
+# (assets/sprites/README.md). The reference's own proportion -- a person about 0.7 of a tile wide
+# and 1.3 tall -- with three or four pixels of side margin so the flip never clips, and eight rows
+# of headroom. Its blit height is 1.5 x zoom, an integer on every rung of the ladder; a 64-tall
+# canvas was refused because it wastes 24 rows and a full-tile overhang north clips against wall
+# rows. Every body and every equip overlay is authored on it (PAWN_KEYS); tools/sprites/build.py
+# carries the mirror list, because Python cannot read GDScript.
+const PAWN_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 3 / 2)
+const PAWN_KEYS: Array[String] = [
+	"player_body", "survivor_mara", "survivor_ellis", "survivor_colonist",
+	"zombie_shambler", "zombie_screamer", "zombie_bloater", "raider_body",
+	"item_pack_hiking_equip", "item_pack_hiking_equip_front", "item_bat_aluminium_equip",
+	"item_pants_canvas_equip", "item_wrap_cloth_equip", "item_cap_canvas_equip",
+	"item_knife_kitchen_equip", "item_machete_rusted_equip", "item_pipe_steel_equip",
+	"item_spear_improvised_equip", "item_axe_fire_equip", "item_sledge_demolition_equip",
+	"item_bow_hunting_equip", "item_candle_wax_equip", "item_lamp_electric_equip",
+	"item_pistol_service_equip",
+]
 
-# Equipment slots the renderer draws on a body. A slot with no anchor point defined here
-# stays declarable in content (item.schema.json) but is silently not drawn -- extending this
-# list is a renderer change, not a content one, because a new slot needs a decision about
-# whether it draws under or over the body.
-const EQUIP_UNDER_BODY: Array[String] = ["back"]
-const EQUIP_OVER_BODY: Array[String] = ["primary", "secondary"]
+# Where a picture hangs on its entity's ground point. A square canvas is a tile-sized thing seen
+# from above and centres on the point; anything else is a standing picture and stands on it --
+# derived from the shape rather than from a second list of keys, so the tree and vehicle sheets
+# the later slices add are feet-anchored by construction (a second list is the dead-socket
+# family: one entry forgotten and a picture floats half a tile high without ever erroring).
+enum Anchor { Centre = 0, Feet = 1 }
+
+# How far below the ground point the soles stand, in screen pixels: the contact shadow's own
+# offset, which main.gd draws at exactly this drop, so the shadow line and the sole line are one
+# number and cannot drift apart. A screen-pixel constant on purpose, like the facing line's +12:
+# a readout of the interface, not a length in the world.
+const FOOT_DROP_PX: float = 3.0
+
+# Equipment slots the renderer draws on a body, in the one order they compose, each saying
+# which side of the body draw call it goes on. One table rather than an under list and an over
+# list: the order layers compose in *is* the picture, and two lists could only express it by
+# their concatenation, which put every over-body slot after every under-body one whether or not
+# that was the intent. A slot absent from this table stays declarable in content
+# (item.schema.json) but is silently not drawn -- extending it is a renderer change, not a
+# content one, because a new slot needs a decision about where in this order it sits.
+#
+# Only `back` goes under: a pack hangs behind the body. Clothing covers the body it is worn on,
+# and a held weapon is in front of the hand holding it, so everything else is over. `vest`,
+# `belt`, `feet`, `gloves`, `eyes` and `face` are equippable in content and deliberately not
+# here -- they are named on docs/23's what's-left as their own piece rather than smuggled in.
+const EQUIP_DRAW_ORDER: Array[Dictionary] = [
+	{"slot": "back", "over": false},
+	{"slot": "legs", "over": true},
+	{"slot": "torso", "over": true},
+	{"slot": "primary", "over": true},
+	{"slot": "secondary", "over": true},
+	{"slot": "head", "over": true},
+]
 
 # key -> Texture2D, or null when the key has no file. Cached either way: a miss is the
 # common case and re-probing the filesystem every frame would cost more than the sprites.
@@ -115,6 +157,233 @@ static func indoor_floor(map: Variant, tx: int, ty: int, col: Color) -> Color:
 	if map == null or not SimTileMap.is_indoors(map, tx, ty):
 		return col
 	return col.lerp(Palette.COLOURS["indoorFloor"], Palette.INDOOR_MIX)
+
+
+# --- the ground atlas ------------------------------------------------------------------------
+#
+# One atlas for every floor: GROUND_VARIANTS cells across and one row per ground the renderer
+# knows -- rows 0..4 mirror SimSurface.Surface, then the two substitutions the draw loop makes,
+# the sidewalk paint and the indoor board mix. The atlas is the *shape* of a ground and the
+# palette is still its colour: every cell is authored around its row tint (check_road_look.gd's
+# TEXTURE lane pins each cell's mean to it from the decoded pixels) and the blit is modulated by
+# `flat / row tint`, so the textured branch averages to exactly the colour the flat branch would
+# have drawn. The indoor mix, the sidewalk substitution and the position-hash variation all
+# survive as tints over the picture, which is what keeps every palette lane meaning what it says.
+# Which cell a tile draws is a hash the drawing node takes through Dressing (SALT_GROUND); this
+# file cannot preload dressing.gd, which preloads it.
+const GROUND_ATLAS_KEY: String = "ground_atlas"
+const GROUND_VARIANTS: int = 4
+enum GroundRow { Paved = 0, Dirt = 1, Grass = 2, Undergrowth = 3, Rubble = 4, Sidewalk = 5, Boards = 6 }
+const GROUND_ROWS: int = 7
+# The edge cells: eight more columns to the right of the variants, one ragged fringe per side
+# and outer corner of a tile, authored around the same row tint. In the atlas rather than on a
+# sheet of their own because the edge is blitted right after the floor it lies on, and a second
+# texture between two floor blits breaks the batch on every boundary tile (measured in the
+# edges slice; docs/23). EdgeShape's order is the column order, N first.
+enum EdgeShape { N = 0, E = 1, S = 2, W = 3, NE = 4, SE = 5, SW = 6, NW = 7 }
+const EDGE_SHAPES: int = 8
+# What a tile with no ground reads as in the per-map row cache (a wall, a window, a screen, a
+# tree): it takes no edge and gives none, so a floor beside a wall keeps its own colour to the
+# wall's foot, where the wall's own picture is the edge.
+const ROW_NONE: int = 255
+# The trees: one tall feet-anchored picture per tree tile, one tile wide and three tall, hung on
+# the trunk tile's south-edge centre and y-sorted with the bodies (docs/30, the Dungeon
+# Settlers look, decisions 4 and 9). Named here the way the pawn keys are, because canvas_of is
+# what check_appearance.gd's canvas lanes read; mirrored by tools/sprites/build.py's TREE_KEYS.
+const TREE_KEYS: Array[String] = ["tree_pine_a", "tree_pine_b", "tree_pine_c"]
+const TREE_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 3)
+
+# The vehicles: one three-quarter picture per class x variant x axis (docs/30, the Dungeon
+# Settlers look, decision 11). A car seen from the side is a different picture, not a rotation,
+# so a variant has two keys and no per-tile segments; the picture stands feet-anchored on its
+# footprint's south-edge centre and y-sorts with the bodies, exactly as a tree does.
+#
+# The canvas is derived rather than tabled, because a class has a length and slice 11's van and
+# truck have different ones: it is the footprint plus one tile of roofline north, which is the
+# room a three-quarter picture needs to lean up-canvas from the base it stands on. An unknown
+# class, variant or axis answers ZERO, which falls through to the tile canvas below and is what
+# refuses a fabricated file at check_appearance.gd's canvas lane.
+const VEHICLE_PREFIX: String = "vehicle_"
+const VEHICLE_ROOFLINE_TILES: int = 1
+const VEHICLE_FOOTPRINTS: Dictionary = {"sedan": Vector2i(2, 5)}
+const VEHICLE_VARIANTS: Array[String] = ["pale", "green", "burnt"]
+const AXIS_NS: String = "ns"
+const AXIS_EW: String = "ew"
+
+
+# The canvas `key` is authored on when it names a shipped vehicle picture, ZERO otherwise.
+static func vehicle_canvas(key: String) -> Vector2i:
+	if not key.begins_with(VEHICLE_PREFIX):
+		return Vector2i.ZERO
+	var parts: PackedStringArray = key.substr(VEHICLE_PREFIX.length()).split("_")
+	if parts.size() != 3:
+		return Vector2i.ZERO
+	if not VEHICLE_FOOTPRINTS.has(parts[0]) or not VEHICLE_VARIANTS.has(parts[1]):
+		return Vector2i.ZERO
+	var foot: Vector2i = VEHICLE_FOOTPRINTS[parts[0]] as Vector2i
+	var n: int = int(CameraUtil.ART_NATIVE)
+	if parts[2] == AXIS_NS:
+		return Vector2i(foot.x * n, (foot.y + VEHICLE_ROOFLINE_TILES) * n)
+	if parts[2] == AXIS_EW:
+		return Vector2i(foot.y * n, (foot.x + VEHICLE_ROOFLINE_TILES) * n)
+	return Vector2i.ZERO
+
+
+# Which way a vehicle picture is shown for a parked facing. The east-west picture is authored
+# nose-east, so a west-facing car is the same picture in a negative-width rect -- the pawn's own
+# flip, and the one place a manifest record's `facing` reaches the art. On the north-south axis
+# both facings draw the one nose-north picture: decision 11 buys two keys a variant, and a car
+# seen from behind and one seen from the front are the picture it does not buy. Recorded rather
+# than hidden -- docs/23 names it as what a later slice would close.
+static func vehicle_flip(facing: String) -> float:
+	if facing == "w":
+		return -1.0
+	return 1.0
+
+
+# The canvas a registry key is authored on. Everything is one ART_NATIVE tile except the atlases,
+# which are a table of them -- and this is the one table, read by check_appearance.gd's canvas
+# lanes and mirrored by tools/sprites/build.py's `canvas_of`, so a second shape is a one-line
+# entry here and there rather than a new exception in a gate.
+static func canvas_of(key: String) -> Vector2i:
+	var n: int = int(CameraUtil.ART_NATIVE)
+	if key == GROUND_ATLAS_KEY:
+		return Vector2i((GROUND_VARIANTS + EDGE_SHAPES) * n, GROUND_ROWS * n)
+	if PAWN_KEYS.has(key):
+		return PAWN_CANVAS
+	if TREE_KEYS.has(key):
+		return TREE_CANVAS
+	var vehicle: Vector2i = vehicle_canvas(key)
+	if vehicle != Vector2i.ZERO:
+		return vehicle
+	return Vector2i(n, n)
+
+
+static func anchor_of(size: Vector2i) -> int:
+	if size.x == size.y:
+		return Anchor.Centre
+	return Anchor.Feet
+
+
+static func ground_atlas() -> Texture2D:
+	return resolve(GROUND_ATLAS_KEY)
+
+
+# The tint a row was authored around: the surface tint for the five surfaces, the two paints for
+# the two substitutions. What `ground_modulate` divides by.
+static func ground_row_tint(row: int) -> Color:
+	match row:
+		GroundRow.Sidewalk:
+			return Palette.COLOURS["sidewalk"]
+		GroundRow.Boards:
+			return Palette.COLOURS["indoorFloor"]
+		_:
+			if row >= 0 and row < Palette.SURFACE_TINTS.size():
+				return Palette.SURFACE_TINTS[row]
+			return Palette.COLOURS["floor"]
+
+
+# Which row a floor tile draws: boards indoors, the sidewalk paint where the road mask says so,
+# else the surface under it. Out of bounds reads Paved, as ground_colour does.
+static func ground_row_for(map: Variant, tx: int, ty: int, sidewalk: bool) -> int:
+	if map != null and SimTileMap.is_indoors(map, tx, ty):
+		return GroundRow.Boards
+	if sidewalk:
+		return GroundRow.Sidewalk
+	if map == null:
+		return GroundRow.Paved
+	var surface: int = int(SimSurface.surface_at(map, tx, ty))
+	if surface < 0 or surface >= Palette.SURFACE_TINTS.size():
+		return GroundRow.Paved
+	return surface
+
+
+# The atlas region of one cell. Pure: a row out of range clamps and a variant wraps, so a caller
+# can never ask for pixels outside the picture.
+static func ground_cell(row: int, variant: int) -> Rect2:
+	var n: float = CameraUtil.ART_NATIVE
+	var r: int = clampi(row, 0, GROUND_ROWS - 1)
+	var v: int = posmod(variant, GROUND_VARIANTS)
+	return Rect2(float(v) * n, float(r) * n, n, n)
+
+
+# --- the ground edges ------------------------------------------------------------------------
+#
+# docs/30's edges clause: between two grounds the darker draws the edge, once, onto the lighter
+# tile. The rule is pure over a tile's row and its eight neighbours' rows, read off main.gd's
+# per-map row cache, and answers which edge cells the *lighter* tile blits over its own floor:
+# for each darker 4-neighbour, that neighbour's row in the shape of the side it lies on; for
+# each darker diagonal whose two shared 4-neighbours are the centre's own ground, that row in
+# the shape of the outer corner. So every boundary is drawn exactly once, by the lighter side,
+# and a corner only where no side already carries it. Darker by Rec. 709 luma of the row tint,
+# so the order follows the palette rather than a second table.
+
+# Rec. 709 luma of a row's tint, the one ordering the edge rule reads.
+static func row_luma(row: int) -> float:
+	var c: Color = ground_row_tint(row)
+	return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+
+
+# Whether `other` draws its edge onto a tile of `centre`: a different ground, and darker; on
+# equal luma the lower row index wins, so the answer is total and never both ways.
+static func _edge_wins(other: int, centre: int) -> bool:
+	if other == centre or other == ROW_NONE or centre == ROW_NONE:
+		return false
+	var lo: float = row_luma(other)
+	var lc: float = row_luma(centre)
+	if absf(lo - lc) < 0.000001:
+		return other < centre
+	return lo < lc
+
+
+# The edge cells a tile of row `centre` draws, given its eight neighbours' rows in the fixed
+# order N E S W NE SE SW NW (ROW_NONE for a neighbour with no ground, or off the map). Each
+# answer is (row, EdgeShape). Sides first, then the corners that no side already covers.
+static func edge_shapes(centre: int, neighbours: PackedInt32Array) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if neighbours.size() != 8 or centre == ROW_NONE:
+		return out
+	for side in 4:
+		if _edge_wins(neighbours[side], centre):
+			out.append(Vector2i(neighbours[side], side))
+	# A corner needs both of its sides to be the centre's own ground: with a side already
+	# drawing the neighbour's fringe, the corner would draw the same boundary twice.
+	var sides_of: Array = [
+		[EdgeShape.N, EdgeShape.E],
+		[EdgeShape.S, EdgeShape.E],
+		[EdgeShape.S, EdgeShape.W],
+		[EdgeShape.N, EdgeShape.W],
+	]
+	for i in 4:
+		var corner: int = EdgeShape.NE + i
+		var a: int = neighbours[int(sides_of[i][0])]
+		var b: int = neighbours[int(sides_of[i][1])]
+		if a != centre or b != centre:
+			continue
+		if _edge_wins(neighbours[corner], centre):
+			out.append(Vector2i(neighbours[corner], corner))
+	return out
+
+
+# The atlas region of one edge cell: the shape's column past the variants, on the row. Pure and
+# clamped like ground_cell, so no caller can ask for pixels outside the picture.
+static func edge_cell(row: int, shape: int) -> Rect2:
+	var n: float = CameraUtil.ART_NATIVE
+	var r: int = clampi(row, 0, GROUND_ROWS - 1)
+	var sh: int = clampi(shape, 0, EDGE_SHAPES - 1)
+	return Rect2(float(GROUND_VARIANTS + sh) * n, float(r) * n, n, n)
+
+
+# `flat / base` per channel: a cell whose pixels average `base` draws averaging `flat`. Identity
+# when the flat colour is the row's own tint.
+static func ground_modulate(flat: Color, base: Color) -> Color:
+	return Color(_ratio(flat.r, base.r), _ratio(flat.g, base.g), _ratio(flat.b, base.b), flat.a)
+
+
+static func _ratio(a: float, b: float) -> float:
+	if b <= 0.0001:
+		return 1.0
+	return clampf(a / b, 0.0, 4.0)
 
 
 # The doorways on a map, as {tile index: true}.
@@ -226,7 +495,7 @@ static func for_entity(world: Variant, it: Dictionary) -> Dictionary:
 
 
 # How many screen pixels one art pixel covers at this zoom. The sprites are authored against
-# a 64 px tile (CameraUtil.ART_NATIVE); every other zoom step is a power-of-two multiple of
+# an ART_NATIVE px tile (32, CameraUtil); every other zoom step is a power-of-two multiple of
 # it, so the factor is exact and nearest-neighbour stays clean. The resolver above is
 # deliberately zoom-innocent -- `for_entity` answers *what* a body looks like, this answers
 # *how big*, and keeping them apart is what lets a gate probe either without a camera.
@@ -250,35 +519,40 @@ static func moving(vel: Variant) -> bool:
 	return float(d.get("dx", 0.0)) != 0.0 or float(d.get("dy", 0.0)) != 0.0
 
 
-# How far to spin a body's art, given the facing the sim arbitrated for it.
+# The screen rect a body's picture is drawn into, given its ground point, its blit size and
+# which way it faces. Pure, so check_topdown.gd's flip lane can hold it to exact numbers at
+# every rung of the ladder without a draw pass.
 #
-# The whole of the "only the player rotates" clause lives here, as a rule rather than as an `if`
-# in the draw loop, so it can be asserted without a draw pass: docs/30's art decision adopts the
-# reference's rotating player and explicitly refuses to rotate anybody else, because a loop that
-# spun every body would leak facing for the people the peripheral-anonymity clause
-# (docs/01 clause 4) says the player has not earned. Everyone else answers exactly 0.0.
+# A feet-anchored picture (anchor_of: anything not square) stands with its bottom row on the
+# contact-shadow line, sy + FOOT_DROP_PX; a centred one hangs symmetrically around the point,
+# which is the rect every tile-square picture has always been drawn into. Rounded so a 1:1 pixel
+# sprite never lands on a half-pixel as the camera follows the player.
 #
-# The angle is a screen angle, and screen axes are world axes under the top-down projection, so
-# no basis change happens here -- only the offset between the sim's heading and where the art was
-# painted pointing. `facing - SPRITE_FORWARD` is `facing + PI/2`: north (-PI/2) draws unrotated,
-# east (0.0) draws a quarter turn clockwise.
-static func body_rotation(is_player: bool, facing: float) -> float:
-	if not is_player:
-		return 0.0
-	return facing - SPRITE_FORWARD
+# `flip` is body_flip's answer: -1.0 mirrors the picture by handing the renderer a NEGATIVE
+# WIDTH, never a transform. Probed in 4.7.1 before this was written: draw_texture_rect with a
+# negative-width rect draws the texture mirrored at position .. position + |width|, so the
+# flipped rect keeps the same left edge as the unflipped one and the body stays on its point.
+# Nobody rotates, the player included (docs/30, the Dungeon Settlers look) -- the draw loop holds
+# zero transforms and the flip lane counts them.
+static func body_rect(sx: float, sy: float, size: Vector2, flip: float) -> Rect2:
+	var left: float = roundf(sx - size.x / 2.0)
+	var top: float = roundf(sy - size.y / 2.0)
+	if anchor_of(Vector2i(size)) == Anchor.Feet:
+		top = roundf(sy + FOOT_DROP_PX - size.y)
+	return Rect2(left, top, size.x * flip, size.y)
 
 
-# Whether the white indicator line out of a body still has a job.
-#
-# The line exists because a coloured disc cannot say which way it is looking. Art that is
-# authored with a front says it itself, and drawing both puts a hairline on top of the thing it
-# was standing in for. So it comes off exactly one body -- the player, once the player's art
-# resolves -- and stays on every procedural shape, including the player's own when content is
-# missing, because the fallback is a supported path and not a stopgap. NPCs keep it whatever
-# they are wearing: their rigs draw unrotated, so the art's front is a lie about heading and
-# the line is the truth.
-static func wants_facing_line(is_player: bool, has_texture: bool) -> bool:
-	return not (is_player and has_texture)
+# Which way a face-on picture is shown for a heading: mirrored (-1.0) when the body looks west
+# of straight up or down, as painted (+1.0) otherwise -- north, south and east all draw the one
+# picture. A flip is a two-state readout of a continuous heading, which is why the indicator
+# line draws for every body: the picture can never say more than "east or west", and the line
+# carries the exact facing. Every body flips, the player included; the peripheral-anonymity
+# clause is unharmed because a glimpsed body never reaches the blit -- it draws as the anonymous
+# disc and the loop moves on before facing is read.
+static func body_flip(facing: float) -> float:
+	if cos(facing) < 0.0:
+		return -1.0
+	return 1.0
 
 
 # The props that stand in a district, as component -> content id.
@@ -352,13 +626,13 @@ static func prop_of(world: Variant, id: String) -> Dictionary:
 	}
 
 
-# Textures for whatever this entity has equipped in a slot the renderer draws, ordered
-# under-body first then over-body, each tagged with which side of the body draw call it goes
-# on. A slot with nothing equipped, an item with no equipSprite, or an entity with no
-# equipment component at all (zombies) all fall out silently -- equipment is optional the
-# same way a sprite is. An under-body item may also carry a front piece (straps crossing the
-# torso) -- that piece is always an over-body layer, independent of its slot's own default,
-# because "in front of the body" is a property of the strap, not of the slot it hangs from.
+# Textures for whatever this entity has equipped in a slot the renderer draws, walked in
+# EQUIP_DRAW_ORDER, each tagged with which side of the body draw call it goes on. A slot with
+# nothing equipped, an item with no equipSprite, or an entity with no equipment component at all
+# (zombies) all fall out silently -- equipment is optional the same way a sprite is. An under-body
+# item may also carry a front piece (straps crossing the torso) -- that piece is always an
+# over-body layer, independent of its slot's own default, because "in front of the body" is a
+# property of the strap, not of the slot it hangs from.
 static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	if world == null or world.components == null:
@@ -367,17 +641,16 @@ static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary
 	if not (eq is Dictionary):
 		return out
 	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
-	for group in [{"names": EQUIP_UNDER_BODY, "over": false}, {"names": EQUIP_OVER_BODY, "over": true}]:
-		for slot in group["names"] as Array[String]:
-			var block: Variant = _equip_block_for(world, slots.get(slot))
-			if not (block is Dictionary):
-				continue
-			var texture: Texture2D = _resolve_equip_key(block as Dictionary, "equipSprite")
-			if texture != null:
-				out.append({"texture": texture, "over": bool(group["over"])})
-			var front: Texture2D = _resolve_equip_key(block as Dictionary, "equipSpriteFront")
-			if front != null:
-				out.append({"texture": front, "over": true})
+	for entry in EQUIP_DRAW_ORDER:
+		var block: Variant = _equip_block_for(world, slots.get(String(entry["slot"])))
+		if not (block is Dictionary):
+			continue
+		var texture: Texture2D = _resolve_equip_key(block as Dictionary, "equipSprite")
+		if texture != null:
+			out.append({"texture": texture, "over": bool(entry["over"])})
+		var front: Texture2D = _resolve_equip_key(block as Dictionary, "equipSpriteFront")
+		if front != null:
+			out.append({"texture": front, "over": true})
 	return out
 
 

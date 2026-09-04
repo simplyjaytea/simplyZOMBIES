@@ -29,12 +29,14 @@ exactly the failure the project keeps re-learning. The pointers:
   small named item, and [the record, by system](docs/23-roadmap.md#the-record-by-system) holds the
   evidence for what landed.
 - `CLAUDE.md`'s **workflow** section is how a unit of work runs, start to finish; its "Where the
-  work is" section carries the three state facts worth repeating (the switched-off survival loop,
-  the top-down presentation track, the dead-socket pattern).
-- `HANDOFF.md` names what is waiting on the owner. Those items — sepsis lethality, the
-  art-style pick — are **decisions, never picked unilaterally**. (The `GRABS_ENABLED` flip and
-  the colony-shape call it waited on were decided by the owner 2026-09-01 and are landed; the
-  flag record in docs/23 closes with them.)
+  work is" section carries the three state facts worth repeating (the survival loop, on since
+  2026-09-01; the top-down presentation track, whose art direction is the Dungeon Settlers look
+  of 2026-09-03; the dead-socket pattern).
+- `HANDOFF.md` names what is waiting on the owner. Those items — sepsis lethality is the one
+  standing — are **decisions, never picked unilaterally**. (The `GRABS_ENABLED` flip and the
+  colony-shape call it waited on were decided by the owner 2026-09-01 and are landed; the
+  flag record in docs/23 closes with them. The art-style pick was decided 2026-09-01 and
+  re-decided 2026-09-03; docs/30 carries both.)
 - The active design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is
   **not** implementation evidence. `CONTEXT.md` holds the slice vocabulary — what to call needs,
   jobs, stances, and their states — so prose and code stay in one language.

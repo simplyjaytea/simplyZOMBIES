@@ -46,8 +46,10 @@ const EDGE_S: int = 4
 const EDGE_W: int = 8
 
 # How far the per-tile ground variation may push a channel, in colour value. Small on purpose:
-# it exists to break the flat fill up close, not to be a second palette.
-const VARIATION_MAX: float = 0.025
+# it exists to break the flat fill up close, not to be a second palette. 0.025 -> 0.01 on the
+# owner's 2026-09-03 call from the ground slice's zoom-64 picture: once the grid was gone and the
+# atlas carried the texture, the old offset read as patchwork rather than as wear.
+const VARIATION_MAX: float = 0.01
 
 
 # The row a centre line may be painted on, or -1 when the carriageway has no centre. The

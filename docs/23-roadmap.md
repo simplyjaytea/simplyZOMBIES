@@ -152,11 +152,12 @@ and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
 decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks the project up.
-(The art-style pick came off this list on 2026-09-01, decided by the owner from the built
-fixtures and a supplied reference image: **style B, the rotating player**, under the reference's
-muted urban mood. The record below and
-[docs/30](30-decisions.md#the-art-style-b-picked-from-a-reference) carry the decision; the arc
-it opens is the art group below.)
+(The art-style pick came off this list on 2026-09-01 — **style B, the rotating player**, under
+an overcast mood — and was **re-decided by the owner on 2026-09-03 as the Dungeon Settlers
+look**: upright face-on pawns that flip, nobody rotates, a warm dark-fantasy palette, walls
+with thickness, roofs cut out where seen. The record below and
+[docs/30](30-decisions.md#the-dungeon-settlers-look-2026-09-03) carry the decisions; the arc
+they open is the art group below.)
 
 1. **Can sepsis kill?** Today it is debilitating and permanent-until-treated, deliberately not a
    death path. The `GRABS_ENABLED` flip has landed (the flag record below closes with it), which
@@ -217,11 +218,35 @@ than here.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
 
-**Art & renderer — the style-B reference arc, authorized by the owner (2026-09-01).** The pick
-is made (see the decision above and docs/30); what remains is the work it forces, in rough
-order. The reference mood throughout: muted, overcast, desaturated urban decay — and its HUD is
-explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
+**Art & renderer — the Dungeon Settlers arc, decided by the owner (2026-09-03), on the floor
+the reference-look arc's first two slices laid (32 px a tile at 2×, the ground atlas).** The
+direction is docs/30's "The Dungeon Settlers look": upright face-on pawns that flip and never
+rotate, a warm dark-fantasy palette, walls drawn with a lit cap and a south face, roofs cut out
+where the sim sees, tall trees and three-quarter vehicles in the entity sort. It supersedes the
+style-B pick of 2026-09-01 for the bodies and the mood; the plan is
+`.hermes/plans/2026-09-03_dungeon-settlers-arc.md` (the 2026-09-02 plan stays as the record of
+slices 1–2). The pieces below are in the order they land, each one session, each with its gate
+red both ways and its record. The reference's HUD — portraits, bars, numbers, name plates — is
+explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided lands
+piece by piece**: the palette, pawn, wall and edge pieces landed 2026-09-03, the trees and the
+worn look on 2026-09-04; the vehicles below are still the old code, and their comments say so on
+purpose.
 
+- **The walls share one atlas.** Measured in the edges slice: draw calls on the 256 district at
+  zoom 16 went 539 → 1,410 between the ground slice and the wall slice, because every wall
+  material is its own texture and a texture change between two blits breaks the 2D batch
+  (two thousand region blits from one texture are one draw call; alternating two textures,
+  two thousand). The sixteen building keys move into one sheet addressed by region, the way
+  the ground's cells are, and `_draw_wall_art`/`_draw_roofs` blit regions of it; the edges
+  slice's perf driver re-run, the 539 restored or the record says why not. No look changes.
+- **The other six equipment slots draw.** `SimInventory.EQUIP_SLOTS` has twelve and
+  `Appearance.EQUIP_DRAW_ORDER` draws six of them; `vest`, `belt`, `face`, `eyes`, `gloves` and
+  `feet` stay equippable in content and reach no picture, which is the dead-socket shape even though
+  nothing is wrong with the code. The vest is the one that matters for play — a scrap vest is armour
+  a survivor equips for protection and the screen does not show it — so this piece is a slot's worth
+  of order-table entry and one overlay per base, on slice 8's skeleton, judged by `WORN_LOOK_OK`'s
+  existing lanes. Whether the remaining five are worth drawing at 32 px at all is a judgement to
+  make with the pictures in hand, not before.
 - **The wreck dumpster — designed and drawn, cut at the balance line.** A `wreck_dumpster` sprite
   was authored for the lone `Tile.Low` tiles a district stands, and standing more than the annex's
   single one meant widening the wreck pass's run length from 2–3 to 1–3 in `_dress_occluders`.
@@ -235,26 +260,22 @@ explicitly **not** part of the pick; the health-bar ban and the prose HUD stand.
   went unjudged, so the socket is named rather than hidden.
 - **A corpse reads as a corpse.** The art half of the corpse defect, left after the characters
   slice landed the mechanical half (a still body is no longer glimpsed — the GLIMPSE lane in its
-  record): at Focal a dead body still draws the same upright rig as a living one. Prone art
-  collides with the one-transform spine — `count("draw_set_transform(") == 1` is *why* corpse art
-  was deferred, not forgotten — and what a glimpsed corpse is allowed to show is an
-  information-scarcity call that belongs beside the owner's other scarcity decisions.
-- **Cars are cars: the 2-wide vehicle footprint.** Today's car is 42 px, about 0.66 m wide — a
-  1:2.7 scale model that two survivors cannot stand abreast in — and the wreck resolver decides
-  front/mid/rear from one-axis neighbours (`presentation/dressing.gd`), which cannot express a
-  two-wide vehicle at all. The piece: a `worldgen.vehicles` **layout** pass (its own stream, a
-  fixed draw count, all-or-nothing placement on a street span aligned to its axis) writing a
-  `map.vehicles` manifest of `{x, y, w, h, axis, class}` records on the `map.streets` precedent;
-  the resolver reads the manifest instead of guessing; classes named from
-  [docs/25](25-vehicles.md)'s base table so a wreck previews the base it becomes; generated art
-  per column × row (left/right × nose/cabin/body/tail, eight files a variant whatever the
-  length). The class table — every class 2 wide, length by class (sedan 2×5 first) — waits on the
-  owner's look at the widened streets (the roads record's screenshot). Balance: vehicles are
-  layout, so the dressing rule stands and the layout change is measured, structural driver and
-  FAST tier both (docs/30). Side-find to close here: the suburb stands two `car boot` loot sites
-  with no car under them — `_protected_tiles` forbids a wreck on a site tile, so the boot has
-  never had a car.
+  record): at Focal a dead body still draws the same upright pawn as a living one. Under the
+  Dungeon Settlers look a prone body is a second picture per rig, not a rotation, so the old
+  collision with the one-transform spine disappears with the pawn piece; what a glimpsed corpse
+  is allowed to show is still an information-scarcity call that belongs beside the owner's other
+  scarcity decisions.
 - **The van and the truck.** Two more classes on the same vocabulary once the sedan proves it.
+- **The torch.** The reference's night is a cone from the player's hand; every light here is an
+  omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
+  item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
+  shadowcast to the wedge, the cone drawn from the gun hand in the lit-pool geometry, and the
+  attention cost a lit torch is — an emitter zombies read. Its own gated slice, after the look
+  lands, and not before: the arc is presentation and this is the one sim change in it.
+- **Ground items draw as squares.** A dropped item is a fixed ten-pixel `draw_rect`
+  (`_draw_entities`), and `item.appearance.sprite` — declared in the schema, read by nothing —
+  is the twelfth dead socket of the milestone. Named here so the 32 px tile does not make the
+  square look like a decision; a ground sprite per item base is content and a resolver call.
 - **Vehicles you can drive** — *named, not scheduled*: [docs/23 puts vehicles outside Milestone
   2](#what-is-explicitly-not-in-the-slice) and driving is Milestone 3B item 3, behind the drive
   benchmark (risk 7's checkpoint). It is named here so its size is visible — a vehicle entity and
@@ -1255,9 +1276,10 @@ not a to-do list:
   centre-anchored canvas** — RimWorld proportions on a Zero Sievert palette — landed
   renderer-and-art in one commit, with `APPEARANCE_OK` now failing any sprite off that canvas
   (a stray 64×96 is a build failure, not a footnote). Wheel zoom steps the camera through
-  {16, 32, 64, 128} px/m. What remains on this track — the style pick (waiting on the owner) and
-  the screamer/bloater sprites and prop art queued behind it — is in
-  [what's left](#whats-left-in-milestone-2), including which picks force a sprite regeneration.
+  {16, 32, 64, 128} px/m. (The canvas has since moved to 32 px a tile — the reference-look
+  record below — and the style pick was made 2026-09-01 and re-made 2026-09-03 as the Dungeon
+  Settlers look, docs/30; what remains on the track is the art group in
+  [what's left](#whats-left-in-milestone-2).)
   ~~Tiles and props drawn for real~~ **landed** (`godot:check:topdown` lanes BUILDINGS and PROPS,
   `godot:check:appearance` lane PROPS) — and it is the renderer half that landed, not the art half;
   which half is which is spelled out below. A building reads as a building now: `map.indoors` —
@@ -1836,6 +1858,663 @@ not a to-do list:
   dash on row 3 of 4. This is the frame the owner judges the vehicle class table against
   (what's-left, "Cars are cars"). `HANDOFF.md`'s stale "39 gates" was corrected to 42 in
   passing — the count lives in `package.json`.
+- ~~The tile is 32 pixels, and a person fills it~~ **landed** (no new gate — `APPEARANCE_OK`,
+  `TOPDOWN_OK`, `WRECKS_OK` and `sprites:check` re-pointed; slice 1 of the reference-look arc,
+  owner decision 2026-09-02, docs/30 "The reference look"). The four supplied references are
+  chunky pixel art where a person fills a tile; ours was authored at 64 px a tile with a person
+  24 px of it. The owner chose 32 over 16 and over staying at 64, and the migration is **the
+  tile shrinking around the rigs**, not a global halving: `camera.gd`'s `ART_NATIVE` goes 64 →
+  32 and nothing else in the renderer moves — `Appearance.blit_scale(64)` now answers 2.0, so
+  every body, glimpse disc and shadow draws at a clean 2× on the boot zoom, and the ladder
+  16/32/64/128 is untouched. In `tools/sprites/`, `draw.SIZE` goes 64 → 32 (pivot 15.5) and the
+  eight rigs keep every pixel they had — shoulders 21.2 px are now 0.66 of the tile, bodies 24
+  of 32 — while the seven props, nine car segments and five debris scraps are restated at half
+  size (each number rewritten, no `SIZE / 64` factor kept alive). The bloater is the rig at the
+  canvas bound: its body half-width is 14.4, because at 14.5 the outline lands a pixel outside
+  the canvas (measured, 30 px), and it renders 28×27. The three hand-authored equip overlays
+  were downsampled once by hand — `Image.open(p).convert("RGBA").resize((32, 32),
+  Image.NEAREST).save(p)` — and stay hand-owned and face-on until the worn-look slice retires
+  them. **Measured** on the regenerated files: every one of the 32 PNGs is 32×32; opaque bodies
+  24×24 (player, Mara, colonist, raider; radial 13.7 of a 15.5 half-canvas), Ellis 26×25
+  (14.3), shambler 25×24, screamer 20×23, bloater 28×27 (14.3); props 16–28 px across, cars
+  22 px wide (interim, retired by the sedan slice). **The gates**: `check_appearance.gd`'s
+  KEYS and CANVAS lanes read `CameraUtil.ART_NATIVE` rather than a literal (the rename
+  `_every_canvas_is_64` → `_every_canvas_is_native` is the point), its PROPS footprint lane
+  wants `size × ART_NATIVE` within a slack that halved with the tile (8 → 4); `check_wrecks.gd`
+  judges the dressing keys at the same constant; `check_topdown.gd`'s SCALE lane gained two
+  negatives beside the old one — the default zoom read off `create_camera()` must scale to
+  exactly `default / ART_NATIVE` (2.0) and must **not** be 1.0, so a default equal to native is
+  the 64-era 1:1 boot screen and reads red. Shown red by sabotage: `ART_NATIVE = 64.0` against
+  the 32 px files (CANVAS, KEYS, PROPS all refuse), the un-regenerated 64 px files against 32
+  (the natural red mid-slice), and `sprites:check` on one stale committed PNG (`SIZE`). Python
+  cannot read GDScript, so `draw.SIZE` and `ART_NATIVE` are two copies by construction, the
+  `SURFACE_TINTS` precedent; a PNG at the wrong size fails both gates, which is the cross-check,
+  and this sentence is here so the next reader does not "fix" one of them. Nothing under
+  `godot/sim/` moved; the four `M2_BALANCE_OK` FAST seed lines are byte-identical to the roads
+  slice's after-column. Stale text cleared in passing: `project.godot`'s isometric-era comment,
+  `appearance.gd`'s "sprites are absent" header, the `64x96 feet-anchored` description in
+  `item.schema.json` (oracle-visible, so `npm test` judged it) and the `64x64` in the player and
+  prop schemas, the `64` in `main.gd`'s wheel comment, and both sprite READMEs (tier bounds
+  restated in the same pixel numbers plus their new tile fractions). **The pictures.**
+  `.hermes/plans/2026-09-02_reference-look-shots/slice1-{street-64,roster-64,zoom-16,zoom-32,
+  zoom-128}.png` through a throwaway Xvfb driver (deleted): the roster row in front of the
+  player at the boot zoom, and the ladder walked. Named on what's-left in the same commit:
+  **The torch**, **Ground items draw as squares** (the twelfth dead socket), and under
+  Milestone 3B the **industrial yard**; the arc's plan is committed as
+  `.hermes/plans/2026-09-02_reference-look-arc.md`.
+- ~~The ground has no grid~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK` grew two lanes,
+  TEXTURE and GRID; slice 2 of the reference-look arc, docs/30 "The ground is a texture whose
+  mean is the palette"). The reference has a textured ground and no tile grid; ours was one
+  `draw_rect` of the surface tint per tile plus a hairline of `background` around it. **The
+  atlas**: `ground_atlas.png`, four variants across by seven rows down of 32 px cells (128×224),
+  rows in `SimSurface.Surface` order then the two substitutions the loop makes — sidewalk paint
+  and the indoor board mix — generated by `tools/sprites/parts/ground.py` with every cell
+  authored as value-only noise around its row tint (`palette.py` gains `PAINT_TINTS` for the
+  two paints, hard copies of `palette.gd`'s the way `SURFACE_TINTS` is) and finished by one
+  uniform correction so its mean lands on the tint. Its size is an entry in a canvas table that
+  now exists on both sides — `Appearance.canvas_of` and `build.py`'s `canvas_of` — and both
+  `check_appearance.gd` canvas lanes read the table, refusing to pass if no file ever exercised
+  it. **The blit**: `_draw_floor_tile` takes the tile and its row and, at
+  `Palette.GROUND_TEXTURE_MIN_ZOOM` (32, asserted a member of the ladder) and above, does one
+  `draw_texture_rect_region` of the cell `Dressing.SALT_GROUND` hashes for the tile, modulated by
+  `flat / row tint` (`Appearance.ground_modulate`) so the picture averages to exactly the colour
+  the flat fill drew — which is how the indoor mix, the sidewalk substitution and `vary` all
+  survive as tints and `TOPDOWN_OK`'s ground and INDOOR_MIX lanes stayed green untouched. Below
+  32 and whenever no atlas resolves, the flat fill draws (the supported fallback). The hairline
+  is deleted from both branches. Every floor caller names its row (`Appearance.ground_row_for`:
+  boards indoors, sidewalk where the mask says, else the surface); a threshold is boards.
+  **Measured** (throwaway driver, deleted; the 256 district at a street vantage, 60 rendered
+  frames a zoom, llvmpipe under Xvfb so the numbers are relative, not a frame budget):
+  ```
+  zoom   before ms  calls   after ms  calls
+  16       181.25   6846      102.83    539
+  32       112.61   3812       79.50    683
+  64        67.47   1553       52.35    310
+  ```
+  The ceiling was "draw calls at 32 no worse than 2× before"; they fell by 5.6×, because the
+  outlined hairline rect was a draw call of its own on every tile and the region blits from one
+  texture batch. At 16 the flat branch draws and the drop is the hairline alone. **The gates**:
+  TEXTURE judges every cell on its decoded pixels — opaque, mean within 0.03 RGB of its row tint
+  (the atlas measures ≤ 0.0003), brightest pixel ≤ 0.06 luma over it, not flat (an exact
+  any-pixel-differs test; a float variance under an epsilon read a flat cell as textured, which
+  is why), four variants pixel-distinct — plus the pure helpers (clamp and wrap, identity
+  modulate, the 2.0 ratio, `ground_row_for` on a null map), with two built-in negatives through
+  the one predicate: a flat cell and the paved cell brightened by 0.1 are both refused. GRID is
+  textual on `_draw_floor_tile` — the region blit, the atlas, the cell, the salt, the modulate,
+  the row tint, the zoom floor and the flat fallback all present, `, false, 1.0)` absent — and
+  counts that every district caller and the threshold name a row. Shown red by sabotage: the
+  hairline restored ("still draws the hairline grid") and the region blit replaced by a flat
+  fill ("does not contain draw_texture_rect_region"). Nothing under `godot/sim/` moved; the FAST
+  lines are byte-identical to slice 1's. **The pictures**:
+  `.hermes/plans/2026-09-02_reference-look-shots/slice2-zoom-{16,32,64}.png`. **A finding for
+  the owner**: with the hairline gone, `RoadPaint.vary`'s ±0.025 per-tile value offset reads as
+  a patchwork of tiles at 64, which the grid used to make look intentional; the approved plan
+  keeps `vary` as it was, so it is unchanged here, and the tune — `VARIATION_MAX` 0.025 → about
+  0.01, inside the VARIATION lane's bounds — is the owner's, judged from `slice2-zoom-64.png`.
+  **Decided 2026-09-03: 0.01**, landing with the palette piece of the Dungeon Settlers arc.
+  The same day the owner moved the art direction to Dungeon Settlers (docs/30, "The Dungeon
+  Settlers look"); the record was turned first, in a docs-only commit, so that a reader between
+  that decision and its first code slice can tell what is decided from what ships.
+- ~~The palette turns warm~~ **landed** (no new gate — `ROAD_LOOK_OK`'s PALETTE lane rewritten
+  with two new properties, `WEATHER_OK`'s pool pin tightened, `TOPDOWN_OK`'s WALL line and
+  `APPEARANCE_OK`'s GREY line printing their margins; slice 3 of the Dungeon Settlers arc,
+  docs/30 "The Dungeon Settlers look", the palette clause). The first code slice under the
+  2026-09-03 decision, and the cheapest: every later screenshot is judged in the right mood.
+  **The table** (`palette.gd`, twenty keys moved, eleven untouched): the five surfaces go from
+  neutral-cool greys to warm earth — floor `#3f4143` → `#474240`, dirt `#524e40` → `#584e40`,
+  grass `#4e5442` → `#4f5440`, undergrowth `#46503d` → `#414a37`, rubble `#4a4644` →
+  `#4e4a46` — the built mass from concrete to timber (wall `#55575c` → `#6b5a45`, indoorFloor
+  `#5a4c3c` → `#6a5540`, threshold `#6a5844` → `#6f5a44`, prop `#5a5148` → `#6a5c4c`), the
+  road family with it (sidewalk `#5e5852`, kerb `#6b645b`, roadPaint `#a99a7c8c`), the two
+  darks the district sits in the *other* way — background `#1b1c1e` → `#15141f`, night
+  `#060a1a` → `#090820`, the one place the table is allowed to go cold — and the lamp pools
+  from rgb(255, 214, 140) to rgb(255, 204, 122) at alpha 0.24/0.11. Glass, its rim, the
+  ground item, the facing line, the rain and every role colour stay where the weather slice
+  put them; `aimCone` takes a warm cast (`#c9c2b04d`). **What holds it** is the sentence that
+  made the pivot affordable — the mood is enforced by properties, not remembered — with the
+  properties changed from "muted" to "warm, and cool only where the dark is": PALETTE gains
+  `WARM_MARGIN 0.02` with `_warm_ok` (r − b ≥ 0.02) over the five surfaces and thirteen
+  district keys and `_cool_ok` (b − r ≥ 0.02) over background, night, window and windowRim;
+  the one band that moves is the surface saturation cap, 0.25 → 0.30 (dirt measures S 0.273
+  — the plan's "≈ 0.33" was an estimate — and 0.30 is as far as ground goes and stays
+  ground); paved V stays in [0.20, 0.40] (0.278), sidewalk > paved > background and
+  roadPaint-brightest stand, pairwise RGB distance ≥ 0.02 (thinnest 0.042, dirt/grass).
+  Measured margins, printed by the lane: thinnest warm floor +0.027, thinnest cool
+  background +0.039. The whole overcast table is refused in one line by the warmth property
+  — five of its "warm" keys were literally cool (wall r − b = −0.027) — and the old grass,
+  the cave floor, a warm background and the neutral `#4a4a4a` (both margins exactly zero)
+  are refused through the same predicates. ACCENT's `_pool_warm_ok` becomes a floor, r − b ≥
+  0.35 (the pools clear it at 0.52; a near-white pool at 0.08 is refused); groundItem's
+  readability floor re-measures at V 0.659 over dirt's 0.345 + 0.15. WALL: nothing moves; lit
+  face +0.125 over the brightest ground (the threshold blend, luma 0.339) against 0.08, the
+  shaded face +0.067 against 0.04, both printed now. **The generator** (`palette.py`) trades
+  its one clamp for three named families — muted S ≤ 0.30, V [0.12, 0.72]; timber S ≤ 0.45,
+  V [0.15, 0.80]; accent S ≤ 0.85, V [0.30, 0.95] — with `clamp` and `ramp` defaulting to the
+  tightest so an un-migrated call gets the strictest answer; skin, wood, rot, the bloater and
+  the screamer are timber, the ember is the one accent (`#c8a189` → `#e07b2a`, the torch
+  orange, shipped as authored: S 0.81 and V 0.88 sit inside the family), everything
+  manufactured is muted. `SURFACE_TINTS`/`PAINT_TINTS` hard copies move in the same commit;
+  brightest ground luma 0.3193 → 0.3196 (grass both times), so `GROUND_CONTRAST 0.10` and
+  `_EITHER 0.08` hold with no ramp base moved (raider drab +0.142, fatigue +0.127, car_burnt
+  0.093 either side). Thirteen PNGs regenerated — the atlas re-pins itself to the new copies
+  and TEXTURE passes on it; the lit campfire, the bed, the colonist, the screamer, the
+  bloater, seven car segments — and `sprites:check` counts 30 keys. `RoadPaint.VARIATION_MAX`
+  0.025 → 0.01 lands here, the owner's call closing the ground slice's finding; VARIATION
+  still counts 637 distinct values. **One measured consequence, left for the owner**: the
+  muted family's 0.72 value ceiling clamps the colonist rig's top three greys together
+  (`#b8b8b8`), so its median grey falls 0.7569 → 0.6941 and GREY's tightest composed margin
+  (`colony.look.05`, `#b58a63`) from +0.049 to **+0.013** — passing, and thin; `screamer_pale`
+  and `litter` flatten the same way. The fixes, if wanted, are the ceiling (0.75 restores
+  about +0.036) or the tint in content, never `GREY_CLEARANCE`; the pawn slice re-authors
+  every rig and re-measures this anyway. **Sabotage, each red as named**: the five surface
+  hexes reverted in `palette.gd` → PALETTE red on the warmth property and TEXTURE red on the
+  atlas mean; `SURFACE_TINTS` reverted in `palette.py` alone → `sprites:check` red (the atlas
+  regenerates around the stale copy); `WARM_MARGIN` set to 0 → the neutral-grey negative
+  trips; the pool pin back to a sign test → the near-white negative trips. Nothing under
+  `godot/sim/` moved; the FAST lines are byte-identical to slice 2's. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice3-street-day-64.png`,
+  `slice3-street-night-64.png`, `slice3-interior-64.png`, `slice3-ladder-32.png`.
+- ~~Bodies stand up~~ **landed** (no new gate — `TOPDOWN_OK`'s ROTATION lane becomes FLIP,
+  `APPEARANCE_OK`'s canvas lanes learn a second shape, GREY re-measured; slice 4 of the Dungeon
+  Settlers arc, docs/30 "The Dungeon Settlers look", the pawn clause). The pivot's headline: every
+  body is an upright, face-on pawn that flips, and nobody rotates, the player included. **The
+  canvas** is `Appearance.PAWN_CANVAS`, one tile wide by one and a half tall (32×48), feet-anchored
+  — the reference's own proportion (a person about 0.7 of a tile wide and 1.3 tall), three or four
+  pixels of side margin so the flip never clips, eight rows of headroom, and a blit height of 1.5 ×
+  zoom, an integer on every rung; a 64-tall canvas was refused for wasting 24 rows and overhanging a
+  full tile north. Eleven keys are on it (`PAWN_KEYS`: the eight rigs and the three gear overlays),
+  mirrored in `build.py`'s `CANVAS`, and both `check_appearance` canvas lanes judge them off the
+  table. **The anchor is the shape**: `Appearance.anchor_of(size)` answers Centre for a square
+  canvas and Feet for anything else — derived, never a second key list — so the tree and vehicle
+  sheets of the later slices stand on their points by construction. **The blit** is one pure
+  function, `Appearance.body_rect(sx, sy, size, flip)`: a feet-anchored picture's bottom row sits on
+  `FOOT_DROP_PX` (3.0, the contact shadow's own offset, now read by both the shadow and the rect so
+  the sole line and the shadow line are one number), a centred picture reproduces the old symmetric
+  rect exactly, and a body facing west is the same rect with a **negative width** — probed in 4.7.1
+  before a line was written: `draw_texture_rect` with a negative-width rect draws the texture
+  mirrored at position .. position + |width|, so the flipped rect keeps the unflipped one's left
+  edge (the plan's example had the position at the right edge; the probe corrected it). Exact at the
+  boot zoom: `body_rect(100, 100, (64, 96), +1) == Rect2(68, 7, 64, 96)`, flipped
+  `Rect2(68, 7, -64, 96)`, a square `Rect2(68, 68, 64, 64)`. `Appearance.body_flip(facing)` is −1
+  when cos(facing) < 0 and +1 otherwise — north, south and east all draw the one painted picture —
+  and every body flips: a glimpsed body never reaches the blit (the disc branch `continue`s first,
+  asserted as an index order), so the anonymity clause is untouched. The contact shadow is an
+  ellipse the body's width and a fifth as tall (`_shadow_ellipse`, twelve points, no transform): the
+  frames showed the overhead rig's disc as a puddle twice a pawn's width. The facing line comes back
+  on for the player: a flip is a two-state readout of a continuous heading, and the line carries the
+  exact facing for everybody. **Retired, not stubbed**: `body_rotation`, `SPRITE_FORWARD`,
+  `wants_facing_line`, the `draw_set_transform` / `_matrix` pair in `_draw_entities` (`_draw_wreck`
+  keeps its one quarter-turn, counted), and the generator's `radial_shade` (one caller, the rotating
+  player). **The rigs** (`tools/sprites/parts/characters.py`): `draw.Canvas(w, h, origin)` grows a
+  feet origin (every `self.size` loop became `w`/ `h`; the light passes measure from the picture's
+  middle rather than the origin, so every prop, wreck and debris key regenerated pixel-identical —
+  proved by `sprites:check` on the refactor alone before a rig moved); eight face-on pawns through
+  one `_figure` assembler whose order is legs → feet → torso → arms → hands → hair_back → head →
+  hair → face → tells → shade → outline (outline last, for the achromatic bound); the skeleton
+  published as constants for the worn-look slice — `FEET_Y 0`, `LEG_TOP_Y −13`, `TORSO_TOP_Y −30`,
+  `SHOULDER_Y −28`, `HAND_Y −17`, `HAND_X 8.4`, `HEAD_CY −35`, `HEAD_R 5.0` (an ellipse 5 × 6: a
+  shape centred between pixel columns renders an even width, so the plan's 5.5 drew a 12 px head
+  over the 11 bound), `SHOULDER_HALF 8`; tier bounds measured per rig (soles on row 47, height
+  38–42, shoulders 16–22 on the humans and 26 on the bloater, which sits on both bounds at once,
+  head 10 × 10 or 10 × 11, ≥ 3 px side clearance, `#161614` inward outline, `nw_shade` at
+  `RIG_LIGHT_RADIUS` 15.0, measured from the picture's middle rather than the feet pivot (from the
+  soles every body pixel is on one side of the origin and the ramp would clamp flat) as the smallest
+  radius that clamps almost nothing while spending the whole gain on every rig); one loud tell each
+  (the player's slung strap and darkest jacket, Mara's bob, Ellis's beard at the shoulder bound, the
+  achromatic colonist, the shambler's trailing arm, the screamer's mouth void, the bloater at the
+  bound, the raider's crossed webbing); a face is two 1 px eyes and a 1 px brow shadow. **The
+  gear**: `tools/sprites/parts/gear.py` generates the pack, its straps and the bat on the pawn
+  canvas, on the published skeleton; the three hand-authored 32×32 overlays are gone, the keys and
+  content entries unchanged so the EQUIP lane passed untouched, and nothing in the sprite directory
+  is hand-authored any more; `sprites:check` counts 33 keys. GREY re-measured on the pawn: median
+  0.7098, tightest composed margin +0.022 on `colony.look.05`, with the colonist's shade gain at
+  0.07 rather than the family's 0.12 because that is what the arithmetic needed — and quantised to
+  about a byte, so a belt or a collar added to that rig later drops it back to +0.020 (was +0.013 on
+  the overhead rig). The player and item schema descriptions say the pawn canvas now
+  (`item.schema.json` is oracle-visible; `npm test` judged it). **The lane**
+  (`_bodies_face_by_flipping`): `body_flip` at 0, π, ±π/2, ±2.4 with the true negative that east and
+  west differ and neither is zero; `anchor_of` on the tile, the pawn, a 2×2-tile square and a 1×3
+  sheet; `body_rect` exact at all four rungs, soles on the shadow line, the square on the old rect,
+  the flip a negative width at the same position, with a centred pawn refused by the same equality;
+  every pawn key resolves a picture on `PAWN_CANVAS` (a rig left on the tile refused — the lane went
+  red on exactly that line while the rigs were being re-authored); textual on `_draw_entities` —
+  `body_flip(`, `body_rect(`, `_blit_body(`, the facing colour, `FOOT_DROP_PX` present, zero
+  `draw_set_transform(` and zero `_matrix(` with the counter proved on a fabricated body first, no
+  `wants_facing_line`, the peripheral disc before the blit, `_draw_wreck` holding exactly one
+  transform, and the three retired helpers absent from `appearance.gd`. SCALE and GLIMPSE untouched
+  — their needles survive because the multiply and the `moving` call stay in the loop. **Sabotage,
+  each red as named**: one `draw_set_transform(` back in the loop ("holds 1 draw_set_transform( and
+  0 _matrix( calls"); `body_flip` always +1 ("body_flip(3.141593) answered 1.000000"); the player
+  cropped to 32×32 (KEYS and CANVAS in `APPEARANCE_OK`, and FLIP: "a rig left on the tile"); the
+  feet branch deleted from `body_rect` ("stood a pawn at (92, 88), not (92, 79)" at zoom 16); the
+  glimpse branch's `continue` deleted ("no `continue` between the glimpse disc and the body blit" —
+  an assertion the lane gained when the plan's version turned out to check only the order of two
+  needles); `ART_NATIVE = 64` (every file refused by CANVAS). Nothing under `godot/sim/` moved; the
+  FAST lines are byte-identical to slice 3's. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice4-roster-64.png`,
+  `slice4-street-64.png`, `slice4-flip-east-west-64.png`, `slice4-zoom-16.png`,
+  `slice4-zoom-128.png`, `slice4-night-64.png`.
+- ~~Walls have thickness, roofs come off~~ **landed** (`godot:check:roof` → `ROOF_LOOK_OK`, the
+  chain's 43rd gate; slice 5 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look",
+  the wall-and-roof clause). **The rules** live in `presentation/roof_look.gd`, pure functions
+  of the map, the seen set and tile coordinates: `south_open` (the tile south of a wall is in
+  bounds, not solid, outdoors), `wall_face_at` (a Wall or Window tile draws its face rather than
+  its cap when its south is open), `facade_at` (what the face shows — plain wall, a window, a
+  door for a doorway, a garage mouth when the doorway beside it is one too — per tile, never a
+  footprint's south row), `building_index` (tile → building, the annex as `INDEX_ANNEX`),
+  `look_of` (the `look` block off the content entry the manifest's record names), `known`
+  (the observer sees at least one tile of the footprint), `roof_tiles` (for every known
+  building in the visible bounds that the player is not inside, every indoor tile the observer
+  cannot see) and `slope_of` (rows north of the footprint's middle row face north, the rest
+  south; a flat material is flat). **The content**: `look: {roof, wall}` is required on all
+  seventeen templates (`building.schema.json`) and declared on the annex (`map.schema.json`,
+  oracle-visible, `npm test` judged it); roofs are shingle, tin or tar and walls timber,
+  brick, render or block; `dressing/street.json` gains `walls` (cap and face keys per
+  material), `roofs` (north and south halves for a pitched material, one flat sheet for tar)
+  and `faces` (window, door, garage), and `Dressing.wall_key`/`roof_key`/`face_key` resolve
+  them, answering `""` for anything undeclared. **The art**: sixteen tile-art keys in
+  `tools/sprites/parts/buildings.py` — four caps, four faces (the top twenty rows the cap, the
+  bottom twelve the front: the eave's shadow, a lit top edge, the boards or courses, a dark
+  foot), five roof sheets (pitched halves about the footprint's middle row, the south one a
+  ramp step lighter; tar flat), three face overlays — with no bevel, gradient or outline on
+  a cap or a roof (a per-tile bevel is a grid, a per-tile gradient bands a run), so a cap's
+  whole read is its marks and its value. The seven ramps are timber-family and held either
+  side of **every floor**, the two paint rows included (`palette.BUILT_READING`,
+  `guard_either_side_of_floors`), because a front stands on the sidewalk and a roof covers
+  the boards; measured, four of the plan's seven bases sat inside the floor band and moved —
+  timber `#7a6244` (luma 0.396) → `#8a6f4d` (0.448), brick `#7a5342` (0.356) → `#9a6a58`
+  (0.451), shingle `#6a5a4a` (0.362) → `#8a765e` (0.473) up to the lit side, the nearest
+  values clearing the sidewalk (0.348) by the 0.08; tar `#46403a` (0.254, on paved 0.262)
+  down to `#2c2722` (0.156), the one dark built surface; render, block and tin were clear
+  (tin nudged to `#837f78`). Every picture's mean measured warm (r − b ≥ 0.039, tin and
+  block the thinnest) and 0.088–0.232 from its nearest floor; each face's top twenty rows
+  within 0.005 of its cap's mean; south slopes lighter than north (shingle 0.539 over 0.460,
+  tin 0.580 over 0.496); tar 0.156 under the darkest cap 0.447. `sprites:check` counts 49.
+  **The renderer**: a wall tile in a building with a look blits its cap or face into its own rect
+  (`_draw_wall_art`; a window in a face is the face's window picture, in a cap the procedural
+  pane; a barricade overlay keeps the procedural cap so a boarded window still reads boarded),
+  a doorway takes the door or garage picture over its boards (`_draw_door_face`), and
+  `_draw_roofs` runs after the tile loop and before the props, filling tiles the loop skipped
+  as unseen — a roof draws where the screen was black. The tile → building index and the
+  per-building looks are cached against the map object on `main.gd`, never static. A building
+  with no look, a material with no table entry or a key with no file draws the procedural
+  cap and bands, so `TOPDOWN_OK`'s WALL lane keeps its subject and its needles. The palette
+  gains `roof` (`#2c2722`, the tar sheet's own mid, so the fallback and the art agree; the
+  first pick `#4e4740` sat 0.005 from undergrowth by luma and read as ground), the
+  fourteenth key in PALETTE's warm family.
+  **The gate**: LOOK (the seventeen templates and the annex name materials inside the enum and
+  every one resolves its cap, face, roof sheets and the three overlays at 32×32; thatch, a
+  missing look and a key with no file refused), FACADE
+  (a hand 10×10 map: two shells, a south window, a door, a two-doorway garage, a north window,
+  a partition, a Low tile in front of a wall — and the whole table differs with the probe one
+  row up), WALL FACE, ROOF (a fake seen set: outside → every unseen interior tile of the known
+  shell and none of the never-seen one, the tile seen through the door excluded; inside →
+  none; nothing seen → none; nobody → none; bounds exclude a shell → none of it), SLOPE, INDEX,
+  PLAYED (suburb@64 seed 20260805: 158 of 554 indoor tiles roofed with 381 seen, every one
+  indoors, unseen and in a known building; all eight buildings resolve a look), MOOD (sixteen
+  keys opaque and warm, each clearing every floor by 0.08 and each face's cap rows within
+  0.04 of its cap; a neutral grey, a grass-coloured slab and an overlay
+  with a pixel in the cap rows refused), SOCKETS (the draw loop reaches every rule, the roofs
+  after the scatter and before the props, the fallback still present; scanner proved on a
+  fabricated body). **Sabotage, each red as named**: `south_open` probing `ty − 1` (FACADE
+  and WALL FACE, every south-row tile); the `known` test dropped from `roof_tiles` (ROOF,
+  case c); the `_draw_roofs` call deleted from `_draw_district` (SOCKETS); `house_small`'s
+  roof set to `thatch` (LOOK); `wall_timber_cap.png` deleted (LOOK, the resolve null);
+  `wall_block_cap.png` replaced by a flat grass-tinted slab (MOOD, luma 0.320 inside the
+  floor band). Nothing under `godot/sim/`
+  moved (`SimTemplates.stamp` copies tiles, surfaces, indoors, anchors and loot, so a `look` is
+  inert to worldgen); the FAST lines are byte-identical to slice 4's. **One finding for the
+  owner**, from `slice5-front-64.png`: the rule roofs a known building's unseen *indoor*
+  tiles, as approved, so its unseen perimeter wall tiles stay black and the roof reads as a
+  mass inside a black ring. Roofing every unseen tile of the footprint instead — walls
+  included, the eave over the wall — is one condition in `RoofLook.roof_tiles` and leaks
+  nothing the footprint tell does not already; left as the owner's call, since the look is
+  arbitrated by screenshot. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice5-front-64.png`,
+  `slice5-annex-front-64.png`, `slice5-interior-64.png`, `slice5-street-32.png`,
+  `slice5-night-64.png`.
+- ~~The ground has edges~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK` grew an EDGES lane;
+  slice 6 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the edges clause).
+  Between two different grounds the darker draws the edge, once, onto the lighter tile. **The
+  rule** is pure in `Appearance.edge_shapes(centre, neighbours)`: over a tile's eight
+  neighbours in the fixed order N E S W NE SE SW NW, each darker 4-neighbour contributes its
+  own row in the shape of the side it lies on, and each darker diagonal contributes its row in
+  the shape of the outer corner only when both of that corner's sides are the centre's own
+  ground — so every boundary is drawn exactly once, by the lighter side, and a corner never
+  doubles a side. Darker is Rec. 709 luma of the row tint (`row_luma`), so the order follows
+  the palette (paved 0.262 < undergrowth 0.277 < rubble 0.292 < dirt 0.310 < grass 0.320 <
+  boards 0.345 < sidewalk 0.348) and no second table exists; a tile with no ground (a wall, a
+  window, a screen, a tree; `ROW_NONE`) neither takes nor gives an edge. **The cells** live in
+  the ground atlas itself, eight columns past the four variants (`EdgeShape` is the column
+  order; `canvas_of` answers 384×224), one ragged fringe per row and shape from
+  `tools/sprites/parts/edges.py`: 1–6 px deep along a seeded random walk closed at the ends so
+  a run tiles, fading inward in four alpha steps, the row's tint with a ±0.02 value wobble,
+  nothing past 8 px from the named edge; corners a ragged quarter-blob of reach 4–7 in the 8×8
+  square. No variants and no hash — raggedness comes from neighbours taking different shapes
+  — and three depth profiles shared out by row so grass and asphalt are not one silhouette.
+  Measured on the decoded pixels: every cell's mean over its counted pixels within 0.012 of
+  its tint (the lane's bound 0.03), coverage 0.29–0.48 of a side's band and 0.23–0.52 of a
+  corner's square (bound 0.20–0.60), three or four alphas each, the 28 variant cells
+  byte-identical to the ground slice's. **In the atlas, not on a second sheet**, and the
+  reason is a measurement rather than a preference: in 4.7.1 two thousand region blits from
+  one texture are one draw call, the same two thousand alternating between two textures are
+  two thousand, and a `draw_rect` every fourth blit makes them 1,001 — so an edge sheet of its
+  own would have cost a draw call per boundary tile and the atlas costs none. **The renderer**:
+  `_ground_rows()` is one byte per tile cached against the map object (the road mask's
+  sidewalk folded in, `ROW_NONE` for the four solid kinds; never static), `_draw_ground_edges`
+  reads nine of them per drawn floor, blits each answered cell over the floor it just drew,
+  modulated white because the cell's mean is the tint, only at `GROUND_TEXTURE_MIN_ZOOM` and
+  above, before the dash, the kerbs and the scatter. **Measured** (the ground slice's driver
+  re-run on the 256 district, 60 frames a zoom, llvmpipe so relative; deleted): draw calls
+  1,410 / 672 / 251 at zoom 16 / 32 / 64 with the edges and 1,410 / 672 / 251 without them —
+  the edges add none, and 672 sits under the 1,024 ceiling the plan set at 1.5 × the ground
+  slice's 683; frame time 321 / 135 / 74 ms without, 320 / 199 / 92 with, the fill cost of the
+  extra quads. The zoom-16 count is not this slice's: it went 539 → 1,410 between the ground
+  slice and the wall slice, every wall material being its own texture, and is named on
+  what's-left as "The walls share one atlas". **The lane**, EDGES in `ROAD_LOOK_OK`: CELLS
+  (every one of the 56 cells on its decoded pixels — inside its band, the opposite edge
+  transparent, a solid pixel on the named edge, three or more alphas, coverage 20–60 %, mean
+  within 0.03 of its tint; a flat cell, a fringe on the wrong edge and a brightened fringe
+  refused; TEXTURE keeps judging the four variant columns at the wider canvas), MASK (the
+  negatives first: identical neighbours draw nothing, the lighter never draws on the darker, a
+  `ROW_NONE` neighbour and a short array draw nothing; a darker N and E in side order; a corner
+  only with both sides own and suppressed where a side carries it; the seven rows' luma
+  strictly ordered and no pair ever winning both ways, `row_luma` matching Rec. 709 of the
+  tint), REGION (`edge_cell` clamps, and never overlaps a variant cell), SOCKET (the scanner
+  proved on a fabricated body; the blit named with its helpers and zoom floor, the row cache
+  with `ROW_NONE` and the road mask, the call after the floor and before the dash), EDGE
+  PLAYED (the shipped 256 district: 17,628 outdoor floor tiles draw at least one edge and
+  42,275 draw none, no tile whose eight neighbours share its row draws one, and its 34,690 edge
+  draws are 34,690 distinct boundaries each drawn once). **Sabotage, each red as named**:
+  darker-wins inverted in `_edge_wins` (MASK); an equal neighbour allowed to win (MASK's first
+  negative); the `_draw_ground_edges` call deleted (SOCKET); the corner rule's both-sides test
+  dropped (MASK); one edge cell filled opaque with its tint (CELLS, and `sprites:check`);
+  `edge_cell` addressing the variant columns (REGION). No sim change; the FAST lines are
+  byte-identical to slice 5's. **The
+  pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice6-edges-64.png`,
+  `slice6-edges-32.png`, `slice6-edges-128.png`, `slice6-dirt-64.png`.
+- ~~Trees stand up~~ **landed** (`godot:check:trees` → `TREES_OK`, the chain's forty-fourth; slice 7
+  of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the trees clause). A tree stops
+  being two circles drawn on its tile and becomes a picture that stands in the entity sort. **The
+  mechanism**: `TREE_CANVAS` is 32×96 and feet-anchored, so `anchor_of` answers Feet from the shape
+  alone and `body_rect` hangs it exactly as it hangs a pawn; the ground point is the trunk tile's
+  south-edge centre, `(tx + 0.5, ty + 1.0)`. `Dressing.tree_tiles(map, seen, bounds)` collects every
+  Tree tile inside the visible box that the observer can see — draw is a subset of seen, and a null
+  observer sees none — `tree_key(block, seed, tx, ty)` names the picture out of the dressing block's
+  `trees.tall` through `variant_index` on `SALT_TREE` 6 (a pure hash of the seed and the tile, never
+  a sim stream), and `tree_alpha(rect, points)` is the one fade: `TREE_FADE_ALPHA` 0.55 while a
+  Focal body's ground point lies inside the tree's screen rect, 1.0 otherwise — the tree fades,
+  never the body. **The renderer**: `_draw_entities` gathers the Focal ground points, appends a
+  `"kind": "tree"` item per seen tree with `d = depth_of(tx + 0.5, ty + 1.0)` before the one sort,
+  and `_blit_tree` hangs the picture through `body_rect` at the fade's alpha; a body north of the
+  trunk sorts behind the tree and one south sorts in front. The tile branch draws only the ground
+  under a tree that has a picture, and keeps its two procedural discs as the fallback for a block
+  that names no tree or a key with no file. **The content**: `dressing/street.json` gains `trees:
+  {tall: [tree_pine_a, tree_pine_b, tree_pine_c]}` (`dressing.schema.json`, an optional object).
+  **The art**: `tools/sprites/parts/trees.py`, three conifers on `Canvas(32, 96, origin="feet")` — a
+  bark trunk narrowing from eight pixels at the foot, a tapering dark core of overlapping ellipses
+  every four rows (without it the boughs were discs on a stick with the trunk showing between them),
+  six or seven lit boughs with needle tufts hanging under each, the top-left light baked, the inward
+  outline; `a` symmetric and dense, `b` leaning with a bare east side, `c` shorter with a double
+  top. Measured: bboxes 26×91, 26×91 and 26×87, the soles on row 95, tops on rows 5, 5 and 9, three
+  clear pixels either side, a six-pixel foot, pairwise distinct. The three ramps are timber and join
+  `GROUND_READING`; the plan's bases all sat inside the ground band (`pine_dark` `#3f4a33` at luma
+  0.275 and `bark` `#4f4132` at 0.262 on paved, `pine_light` `#566139` at 0.360 by grass) and moved
+  — the darks down to `#28301f` (0.177) and `#33291f` (0.166), the light up to `#6b7a48` (0.452),
+  each the nearest value clearing every ground by 0.08. `sprites:check` 52. **The gate**:
+  `godot/check_trees.gd`, `npm run godot:check:trees` → `TREES_OK`, the chain's forty-fourth (43 →
+  44 recomputed in `package.json`, `run-godot.mjs`, `ci.yml`, `CLAUDE.md` and `HANDOFF.md`). Nine
+  lanes, each with its true negative. KEYS: `trees.tall` is exactly `TREE_KEYS`, every key resolves
+  at `TREE_CANVAS` with `canvas_of` and `anchor_of` agreeing on Feet, and `tree_key` picked all
+  three over a 16×16 scan; a fabricated key, an empty block and an empty list all answer nothing.
+  SORT: bodies at 9.2 and 11.4 either side of a tree at 11.0 sort body-tree-body, while appending
+  after the sort and sorting on x both give a different order. RECT: the bottom is `sy +
+  FOOT_DROP_PX` and the size 32×96 times the scale at all four rungs; a square canvas centres
+  instead. ALPHA: a point inside answers 0.55, a point just outside and an empty list answer 1.0,
+  all inside (0, 1]. TILES: a seen Floor tile, a null observer and an out-of-bounds rect each answer
+  nothing, bounds excluding a seen tree drop it, and a seen-everything set answers exactly both
+  trees. FALLBACK: the draw loop reaches every helper in the named order — gather before the sort,
+  `continue` after the blit, no transform in the loop, no `body_flip` in `_blit_tree` — with the
+  disc fallback still gated by `tree_key`, and the needle scanner proved on a fabricated body before
+  it is trusted on the real one. SIM UNMOVED: `Tile.Tree` stays Opaque and Solid, and `dressing.gd`
+  reaches for no RNG — scanned over the code with comments stripped, because the file's own header
+  explains that rule using the word. PLAYED: suburb@64 seed 20260805 has 36 Tree tiles, 18 of them
+  seen and drawable, each a real Tree tile resolving a texture, with a see-everything set accounting
+  for all 36. TIERS: the decoded pixels of the three pictures stand inside the tier the sprites
+  README quotes — boxes 26×91, 26×91 and 26×87, every one standing on the sole row 95, tips on rows
+  5, 5 and 9, three clear pixels either side, six-pixel feet, pairwise distinct — while a fully
+  opaque canvas and one hanging above the sole line are both refused by the same predicate. 0.1 s of
+  a 60 s budget. **Sabotage, each red as named**: the tree gathered after the sort (SORT and
+  FALLBACK); `tree_alpha` returning 1.0 always (ALPHA); the `_blit_tree` call deleted (FALLBACK);
+  `tree_pine_b.png` deleted (KEYS); `tree_tiles` ignoring the seen set (TILES and PLAYED);
+  `TREE_CANVAS` made square (KEYS, RECT and PLAYED); a picture lifted four pixels off the sole line
+  (TIERS). Nothing under `godot/sim/` moved (`Tile.Tree` stays Opaque and Solid, asserted); the FAST
+  lines are byte-identical to slice 6's. Two traps the record keeps: `depth_of` wants a world
+  coordinate, so the tree's is `ty + 1.0`; rain draws after entities and so in front of the trees,
+  which is right, while ground items draw after the sorted loop, so an item north of a trunk draws
+  over the tree — the lesser evil, recorded. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice7-stand-64.png`, four conifers beside a
+  pawn at the district's north edge, the three variants' heights and tops telling apart at a glance;
+  `slice7-behind-64.png`, a body one tile north of a trunk, where the tree drops to 0.55 and the
+  pawn reads through it while the body itself is never dimmed; `slice7-south-64.png`, the same trunk
+  with the body one tile south of it and every tree opaque at 1.0; and `slice7-stand-32.png`, the
+  same stand at the lower rung, where the trees are small but still read as trees. The plan named
+  those middle two the wrong way round, which the shot run measured and this record keeps: the rect
+  stands 96 px north of the trunk's south edge with only `FOOT_DROP_PX` below it, so at 64 a ground
+  point one tile south sits 61 px outside it and never fades, while one tile north sits inside. That
+  is the fade decision 10 asks for — it fires for exactly the body the tree would otherwise hide —
+  so the rule is unchanged and the pictures are named for what they show.
+- ~~What you wear shows on your body~~ **landed** (`godot:check:worn` → `WORN_LOOK_OK`, the chain's
+  forty-fifth; slice 8 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look", the worn
+  clause). **The mechanism**: `Appearance`'s two lists, `EQUIP_UNDER_BODY` and `EQUIP_OVER_BODY`,
+  become one ordered table, `EQUIP_DRAW_ORDER` — six slots, each saying which side of the body draw
+  call it goes on, `back` under and the rest over. Two lists could only express an order by their
+  concatenation, which put every over-body slot after every under-body one whether or not that was
+  the intent; the order layers compose in *is* the picture, so it is written down once.
+  `equipment_layers_for` walks the table in order, and an `equipSpriteFront` still lands over the
+  body whatever its slot, because "in front" is a property of the strap and not of the slot it hangs
+  from. The drawn slots go from three to six: `legs`, `torso` and `head` were declarable in content
+  and reached nothing before this. **The content**: thirteen bases that already declared an
+  `equipSlot` gain `appearance.equipSprite` (`item.schema.json` is oracle-visible, so `npm test`
+  judged them in the same commit). Nothing in the sim moved — `SimInventory.equip` already read a
+  base's `equipSlot` and filled the slot on pickup, so the pictures hang on a path that was already
+  live. **The art**: `tools/sprites/parts/gear.py` grows from three overlays to sixteen, one per
+  base plus the pack's straps, every one on `Canvas(32, 48, origin="feet")` — the pawn canvas, so
+  slice 4's published skeleton is what makes one picture fit all eight rigs with no per-rig variant.
+  Measured against that skeleton (canvas rows `FEET_Y` 47, `LEG_TOP_Y` 34, `SHOULDER_Y` 19, `HAND_Y`
+  30, `HEAD_CY` 12): the trousers span rows 32–44, waist above the leg top and hem above the boot;
+  the wrap 20–33, strictly between shoulder and leg top; the cap 7–11, clear of the eyes on row 12;
+  every held weapon hangs from `HAND_Y`. All sixteen sit inside the union of the eight rigs' own
+  opaque boxes (x 3–28, y 6–47). No new ramp base was authored and none was refused: cloth, stone,
+  strap, wood and the burnt-metal ramp carry everything, and `ember` appears exactly twice, on the
+  candle's flame and the lamp's lens, the two bases whose content carries a `light` block.
+  `sprites:check` 65, with no existing PNG moved a pixel. `build.py`'s overlay list becomes
+  `tuple(gear.REGISTRY)`, so the canvas table cannot drift behind the registry again. **The gate**:
+  `godot/check_worn.gd`, six lanes each with its true negative — ORDER (the table's shape, then a
+  fully kitted actor's seven layers coming back in that order, with a back-slot front piece over
+  anyway; a shuffled expectation refused), CANVAS (all sixteen keys at `PAWN_CANVAS`; a 32×32
+  overlay refused), FITS (decoded pixels inside the eight-rig envelope and each clothing piece on
+  its own skeleton line; a piece 6 px off its line refused), REACHES (the dead-socket lane: fifteen
+  bases each worn in its own slot resolve a layer; refused for no equipment component, no art, an
+  undrawn slot and an empty slot), SHARED (all eight rigs on one canvas and no per-rig overlay key,
+  the scan proved on a fabricated one) and PLAYED (the shipped colony at seed 20260805: three of
+  three equipped survivors wear something drawn). **Sabotage, each red as named**: two slots swapped
+  in the order fixture; the canvas predicate made size-blind; the line predicate made always-true;
+  the true-positive loop equipping into the wrong slot; the per-rig scan made blind; the wearer list
+  emptied. **One repair the slice forced**: `APPEARANCE_OK`'s EQUIP lane used `item.knife.kitchen`
+  as its "declares no equipSprite" negative, and giving the knife a picture did not fail anything —
+  it quietly stopped asserting, which is the dead-socket family wearing a different hat. The
+  negative now names a base in an undrawn slot and **checks that its subject still declares no
+  art**, failing loudly if a later slice takes that away. **A finding for the owner**: at 32 px the
+  four one-handed bars — bat, machete, pipe and kitchen knife — share a fist, an angle and a value
+  range, and while they are distinguishable side by side in the contact sheet, a player would not
+  tell them apart at a glance mid-fight. The cheapest fix is to give each primary weapon its own
+  lean rather than sharing the bat's, which changes the shipped bat, so it is left as the owner's
+  call rather than taken in passing; the service pistol is the weakest single key for the same
+  reason of size. Recorded, not fixed. Nothing under `godot/sim/` moved; the FAST lines are
+  byte-identical to slice 7's. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice8-kitted-128.png`, the player wearing
+  every drawn slot at once — cap, wrap, trousers, pack and bat — the five layers composing with none
+  clobbering another; `slice8-kitted-64.png`, the same at the boot zoom, where the gear still reads
+  as gear; `slice8-flip-east-128.png` and `slice8-flip-west-128.png`, one kit on one body at both
+  headings, the overlays mirroring with their wearer through the body's own negative-width rect; and
+  `slice8-weapons-128.png`, a montage of three in-game frames cropped around the pawn — bat,
+  machete, pipe — which is the finding above made visible: the machete's rust and its belly near the
+  tip and the pipe's coupling are all there when you look for them, and none of it is what a player
+  sees at a glance. Only the player is posed in any of these. A companion is drawn only where the
+  sim says the player sees it at Focal detail, and a body teleported into place for a screenshot is
+  neither — three staging attempts established that faster than reading the rule would have, and it
+  is the same anonymity clause that makes a still peripheral body no body at all.
+- ~~A forest district: cabins, stands and dirt paths~~ **landed** (no new gate — `WORLDGEN_OK` grows
+  TERRAIN DEFAULTS, FOREST and PATHS, `ROAD_LOOK_OK` grows DIRT ROADS; slice 9 of the Dungeon
+  Settlers arc, docs/30 "The Dungeon Settlers look", the district clause). The first slice of the
+  arc to touch `godot/sim/`, and so the first measured rather than only asserted. **The mechanism**:
+  `_dress_terrain`'s thirteen magic numbers move into a district's optional `terrain` block through
+  `_terrain_of`, every default equal to the literal it replaced; `street_surface_of` reads an
+  optional `streets.surface` name through `STREET_SURFACES` so `_carve_street` lays dirt where a
+  district asks and paves where it does not, and every `map.streets` record carries the surface it
+  was laid on; and `_paths` — after `_rubble`, on its own `paths` stream, one draw per door — wears
+  an L from every door to the nearest point on any street span. **Why the defaults are the
+  load-bearing part**: an RNG stream is a sequence, so a pass that draws a different number of
+  times, or the same number from a different range, moves every tile decided after it and not just
+  the one being tuned. Every entry in the block therefore changes an argument to a draw and never
+  how many draws happen. That is proved, not assumed: a SHA-256 over `tiles + surfaces + indoors`
+  was taken for four seeds at two sizes **before** anything moved, and the suburb is byte-identical
+  after all five changes. `R1_PARITY_OK` and `npm test` 594/594 agree. **A path is a dressing pass,
+  not a layout one**: the ground under it stays `Floor`, so nothing about sight, cover or movement
+  changes — only the surface layer, which `SimSurface` already read for speed (dirt ×0.95) and noise
+  (×0.85) and which the ground atlas already had a row for. It adds no reader; it feeds three that
+  existed. **The bug the district found**: `_street_frontage` counted tiles whose surface was
+  *paved* to decide whether a lot fronts a street, and `annex_candidates` refuses a lot with no
+  frontage — so on a district whose streets are dirt the colony could only ever have sited beside a
+  paved connection-point opening, silently, with every gate green. Frontage now counts the
+  district's own street surface, read back off the manifest the carving writes rather than threaded
+  through five call sites, and `_carve_opening` lays that surface too instead of paving every
+  opening regardless. Fixing it moved the forest's tree counts (671 from 635 at seed 20260805),
+  which is how the record knows it was changing placement and not just reading. **Measured, and the
+  numbers are size-dependent in a way worth keeping**: the forest's blocks are 36–56 tiles because a
+  forest wants big ones, so at the 64 the gates sweep it places 0 to 6 buildings — one swept seed
+  places **none** — and the paths pass writes 0 to 3 tiles; at 128 it places 6 to 13 and writes 30
+  to 32; at the 256 it is played at, 36 to 45 buildings, 59 to 70 doors and **169 to 230 path
+  tiles**. Trees: 671 and 771 at seeds 20260805 and 404 against the suburb's 36 and 21. **The
+  balance column**, run by hand on `BALANCE_DISTRICT=district.forest_edge` and never added to the
+  85-second chain: the forest **passes the suburb-measured bands** (`M2_BALANCE_OK`, four seeds, ten
+  days). Across those four seeds the aggregate barely moves — 6 deaths against the suburb's 5, 330
+  grabs against 323 — while individual seeds swing hard both ways (404 goes 3/3 survivors to 1/3,
+  90210 goes 1/3 to 3/3). Four seeds on a wholly different layout is far too few to call the
+  district harder or easier, and this record does not; what it claims is that the bands hold. **The
+  lanes**: TERRAIN DEFAULTS (`_terrain_of({})` is exactly the historical thirteen, with a wrong
+  expected value refused, so a future edit to those defaults must break it), FOREST (generates,
+  sites, survives, and counts strictly more Tree tiles than the suburb at one seed; the comparison
+  refused when handed its arguments the other way round), PATHS (the same district generated with
+  `terrain.paths` true and false and the surfaces diffed, so worn-edge dirt cannot be mistaken for a
+  trodden path; every differing tile must be dirt on the true side, not dirt on the false side, and
+  outdoor `Floor`; then the dead socket — `SimSurface` answers that tile ×0.95 speed and ×0.85 noise
+  against pavement's ×1.0) and DIRT ROADS (paved for no block, no name and an unknown name; dirt
+  when named). **PATHS is judged at 128, not at the gate's 64**, with a floor of 20 tiles: at 64 the
+  lane would have passed on 3 tiles and failed outright on the swept seed that places no building,
+  which is a lane failing for having nothing to judge rather than for anything being wrong. **A
+  finding for the owner** (`slice9-stand-64.png`): in the densest stand the generator makes — 44
+  Tree tiles in a 9×9 — the player is very nearly invisible. Trees are Opaque, so sight collapses to
+  a few tiles, and the fade rule cannot help as much as it does in the open because several trunks
+  overlap the body at once. That is the forest's character rather than a defect in the fade, but
+  whether a stand should ever be that dense is a content decision, not one to take in passing: the
+  knobs are the terrain block's `standsMax`, `treesMax` and `treeSpread`. **The pictures**, under
+  `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice9-cabin-64.png`, a cabin with slice 5's
+  timber south face and windows, its shingle roof cut away where the sim sees, a pawn at the door
+  and conifers thinning away downhill — the clearest single frame of the arc so far;
+  `slice9-stand-64.png` and `slice9-stand-32.png`, the densest stand at both rungs, which is the
+  finding above made visible.
+- ~~Cars are cars: the 2-wide vehicle footprint~~ **landed** (no new gate — `WRECKS_OK` goes
+  from six lanes to nine, so the chain stays 45; slice 10 of the Dungeon Settlers arc, docs/30
+  "The Dungeon Settlers look", the vehicle clause). **The mechanism**: a car stops being a shape
+  read off its neighbours and becomes a record the layout wrote. `_vehicles`, on its own
+  `worldgen.vehicles` stream after `_buildings` and before `_sites`, walks every `map.streets` span
+  at least `VEHICLE_MIN_WIDTH` 4 wide in slots of `VEHICLE_SLOT` 8, makes exactly four draws a
+  slot — presence, class, lane offset, facing — and then decides all-or-nothing, writing
+  `Tile.Low` and
+  appending `{x, y, w, h, axis, class, facing}` to `map.vehicles`. The renderer reads the record:
+  `Dressing.vehicle_index` marks the footprint, `vehicle_key` picks one colour for the whole car by
+  hashing its north-west corner, and `main.gd` stands one picture on the footprint's south-edge
+  centre in the same entity sort the pawns and the trees are in.
+  **The art is two keys a variant, one per axis** (the owner's decision 11): a car seen from the
+  side is a different picture, not a rotation. Which is why the last transform in the renderer
+  retired with the segments it used to turn — `main.gd` now sets **zero** `draw_set_transform`
+  anywhere, and `TOPDOWN_OK`'s flip lane asserts that over the whole file rather than over one
+  loop, with the counter proved on a fabricated file first.
+  **What retired with it**: `segment_at`, `run_angle`, `run_anchor`, `wreck_key`, the four `SEG_*`
+  constants, `ANCHOR_MAX_STEPS`, `main.gd::_draw_wreck` and the nine `wreck_car_*` files. A Low
+  tile no record covers is now a heap (`heap_key`, per tile, out of the dressing block's `heaps`),
+  which is the run-length lesson of the dumpster: a heap has no run to agree with.
+  **Measured, not asserted** — the first arc slice whose layout genuinely moves. A SHA-256 over
+  `tiles + surfaces + indoors`, taken before anything moved, is unchanged on all **24 seeds at 64**
+  and on `town_center` and `forest_edge` at 256; the suburb at 256 goes from 89–105 Low tiles to
+  1,169–1,274, which is **108–118 cars**. Vehicles a map: 0 at 64, 27–38 at 128, 108–118 at 256.
+  Nothing stands one at 64 because every street there is 2 tiles wide, below the 4 a two-wide car
+  needs with a kerb row either side — so the balance harness never sees a car and the FAST lines
+  cannot move, which is what let a `godot/sim/` change ship without re-running the grid. The
+  four-draws-a-slot invariant is *demonstrated* rather than argued: the same seed at density 0.35
+  and 0.60 places 108 then 203 cars, and **not one** of the 0.35 cars is absent or moved in the
+  0.60 run. Walkability is unchanged — `_footing` grants a non-Floor tile passage while its
+  surface is paved, so a parked car is walk-through cover and `M2_DISTRICT_OK` still reports a
+  walk covering 100% of outdoor tiles at 256.
+  **The side-find this closes**: the suburb stood two `car boot` loot sites and no car could ever
+  be under one, because `_protected_tiles` forbids a dressing pass on a site tile. A `perDistrict`
+  row may now declare `host: "vehicle"`, which stands the site on a car's tail tile when the map
+  has one and falls back to a driveway when it does not. Both branches have a **shipped** reader
+  and neither is a fixture: the suburb's two boots at 256 are on cars, and `forest_edge` — 3-tile
+  streets at every size, so it parks nothing — exercises the fallback. That district's row was
+  pointed at the host for exactly that reason; the branch had no shipped reader without it.
+  **Where a car is never parked, and why the record says so**: only the suburb carries a
+  `vehicles` block. The town centre and the forest are 3 tiles wide at every map size, so a block
+  there would be a socket nothing reaches — measured, not assumed.
+  **A gap found by looking rather than by reasoning.** The tile branch defers a covered Low tile
+  to the sorted picture, which is right — but the first live frame showed what happens when that
+  picture does not resolve: the ten tiles of a car drew *nothing at all*, so cover the sim knows
+  about was invisible on screen. Every other resolver in this pipeline degrades to a procedural
+  shape, and this one now does too: `main.gd`'s per-map index keeps only the records that actually
+  draw, so an unresolved car falls through to a heap and then to the cover block. The frame that
+  found it is the reason the fallback is a lane rather than a sentence.
+  **The projection, stated rather than eyeballed.** The ground stays plan — 32 px is a tile, no
+  perspective — and a vehicle is drawn obliquely on top of it: a surface *h* metres up draws that
+  many pixels north of where it stands, `LIFT_DECK` 32 px for the lids and `LIFT_ROOF` 46 for the
+  roof. So each picture is exactly one whole tile of near-vertical face plus the plan of
+  everything above it, and the two add to the canvas with nothing left over. It is why the
+  windscreen is thin and the rear screen fat: a screen raked away from the viewer stretches
+  up-canvas and one raked towards it collapses. The greenhouse is inset 8 px each side and the
+  body is drawn in two widths, 48 px at the bumpers and 54 across the doors, which is what stops
+  it reading as a box.
+  **The constraint slice 11 inherits, measured now rather than discovered then.** `_ew` is the
+  tight canvas: 96 rows must hold the car's width *plus* the roof lift, leaving 3 rows clear
+  against `_ns`'s 7. A taller near face costs a narrower car — 36 px of face would force the
+  sedan down to 48 px across to fit `_ew` at all — so 32/54 was chosen and written down as a
+  number. The van (2×6) and truck (2×7) extend the *long* axis only, so their `_ew` grows in
+  width and inherits this same 92-row ceiling. Anything genuinely taller than a car needs a
+  four-tile `_ew` canvas, which is a decision rather than a tweak.
+  **The gate** goes from six lanes to nine, all inside a 60-second budget it spends 2.3 of.
+  DRESSING (13 keys, each at its own derived canvas), MANIFEST (a hand map and a hand manifest —
+  *one* key over a whole footprint, where a per-tile hash would have given three), VARIATION,
+  LAYOUT (134 records identical with dressing on and off, which is what "a car is layout" means),
+  PLACED (two lines: the districts that park nothing, naming the 3-wide reason, and the 134 cars
+  that do park), EXCLUSIVE, HOST, SCATTER, SOCKETS. Two of them are worth naming for how they
+  avoid passing vacuously: EXCLUSIVE reports that **1,340 of the covered tiles would have heaped
+  had the arm not asked first**, and MANIFEST names the number a broken implementation would have
+  produced. The scanner behind EXCLUSIVE had to be taught that `_draw_district` matches
+  `Tile.Low` **twice** — once to pick a colour and once to draw — because reading the first arm
+  found four lines of colour arithmetic and reported that the loop never asks about vehicles,
+  which is the worst thing a gate can do: go red and blame the code under test.
+  **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`:
+  `slice10-pale-64.png`, a pale sedan seen roof-and-side with the player in front of it;
+  `slice10-ns-64.png` and `slice10-behind-64.png`, the same car north-south with a pawn south of
+  it and then north of it, which is the sort; `slice10-ew-64.png`; and `slice10-street-32.png`,
+  two cars, a conifer, cut-away roofs and ground edges in one frame.
+  **A finding for the owner** (`slice10-pale-64.png`): the sedan reads *van-like*. Its body is a
+  tall box for its whole length, where a sedan is a low bonnet, a raised and inset cabin, and a
+  low boot. It is legible as a car and the three-quarter read is unambiguous, so it ships — but
+  slice 11 puts an actual van (2×6) and a truck (2×7) on this vocabulary, and three classes that
+  differ only in length will not read as three classes. The cheapest fix is a lower bonnet and
+  boot on the sedan, which re-authors art that has just shipped; it is recorded rather than taken
+  in passing, and it is the risk slice 11 has to clear before it adds anything.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used
@@ -2850,6 +3529,9 @@ This is a separate completion track rather than a requirement bundled into survi
 2. **Drive benchmark:** synthetic streaming-at-speed load before a drivable vehicle exists.
 3. **Vehicles:** bases, slots, affixes, driving, fuel, breakdowns, route trails, and attention output.
 4. **Mobile bases:** interior modules, volume budgeting, convoys, relocation, and nomad play.
+5. **Industrial yard district:** silos, radio towers, shipping containers, a brick warehouse
+   street with the dashed centre line, the forklift at 2×3 — the reference scenes the 2026-09-02
+   reference-look decision named for here rather than building inside Milestone 2 (docs/30).
 
 **Exit criterion:** travel across multiple streamed districts at the target speed without breaking the
 frame budget, then prove fixed, nomad, and hybrid colonies all have distinct viable failure modes.

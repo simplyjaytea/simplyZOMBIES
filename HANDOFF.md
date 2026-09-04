@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-01
+## State, as of 2026-09-04
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **42 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **45 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -82,10 +82,14 @@ When you add a mechanism, add the assertion that something reaches it.
 These are design calls. They have been measured, written up, and deliberately **not** decided.
 (Three long-standing items came off this list on 2026-09-01, decided by the owner: colony shape
 — a bigger colony, three at boot — and the `GRABS_ENABLED` flip, both landed together and closed
-in docs/23's flag record; and the top-down art style — **B, the rotating player**, picked from
-the built fixtures and a supplied reference image. docs/30's
-"The art style: B, picked from a reference" entry records that pick and its boundaries; the
-work it forces is docs/23's style-B reference arc.)
+in docs/23's flag record; and the top-down art style, picked 2026-09-01 as **B, the rotating
+player** and **superseded 2026-09-03 by the Dungeon Settlers look** — upright face-on pawns
+that flip, nobody rotates, a warm dark-fantasy palette, walls with a lit cap and a south face,
+roofs cut out where seen. docs/30's "The Dungeon Settlers look" entry records the twelve
+decisions and what each earlier clause becomes; the work it forces is docs/23's Dungeon
+Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. **Which of its
+slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
+days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
 
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
@@ -95,6 +99,24 @@ work it forces is docs/23's style-B reference arc.)
    (`godot:check:respond`) — so the decision is about lethality alone rather than about lethality
    with no answer available. The other four infection verbs still have no surface, for the
    reasons docs/23's defect list gives.
+2. **Whether a roof covers a known building's unseen walls too.** The wall-and-roof slice roofs
+   the unseen *indoor* tiles of a building the survivor can see part of, as approved, so the
+   unseen perimeter walls stay black and the roof reads as a mass inside a black ring
+   (`slice5-front-64.png` in the plan's shots). Roofing every unseen tile of the footprint is
+   one condition in `RoofLook.roof_tiles` and leaks nothing the footprint does not already;
+   the look is arbitrated by screenshot, so it is the owner's.
+3. **Whether the one-handed weapons need their own silhouettes at 32 px.** The worn slice found
+   that the bat, machete, pipe and kitchen knife share a fist, an angle and a value range: they
+   are distinguishable side by side and would not be at a glance mid-fight. The cheapest fix
+   gives each primary weapon its own lean rather than sharing the bat's, which re-authors the
+   shipped bat -- so it is recorded rather than taken in passing. The service pistol is the
+   weakest single key for the same reason of size.
+4. **Whether a forest stand should ever be as dense as the generator can make it.** In the
+   densest one measured -- 44 Tree tiles in a 9x9 -- the player is very nearly invisible: trees
+   are Opaque, so sight collapses to a few tiles, and the fade rule cannot help much because
+   several trunks overlap the body at once (`slice9-stand-64.png`). That is the forest's
+   character rather than a defect in the fade, but the density is content: the knobs are the
+   terrain block's `standsMax`, `treesMax` and `treeSpread`.
 
 ## How a session runs
 

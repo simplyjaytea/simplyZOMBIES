@@ -13,6 +13,7 @@ const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
+const RoofLook = preload("res://presentation/roof_look.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -40,6 +41,10 @@ const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
 const NIGHT_WASH: float = 0.8
 const MEMORY_TICKS: int = 60
+# How far outside the visible box to look for parked vehicles, in tiles. Wider than the two the
+# trees use because a sedan is five tiles long and its picture six tall: a car whose south edge
+# has just left the screen still has most of itself on it.
+const VEHICLE_BOUNDS_MARGIN_TILES: float = 7.0
 
 var world: Variant = null
 var content: Dictionary = {}
@@ -101,7 +106,22 @@ var _thresholds_from: Variant = null
 # changes identity (a reboot, a load) and never per frame -- see _road_mask.
 var _road_mask_cache: PackedByteArray = PackedByteArray()
 var _road_mask_from: Variant = null
-# The map-dressing block (wreck and debris sprite keys), and the content tree it came from. Third
+# tile -> building, and building -> look, both cached against the map object (RoofLook builds
+# them; a static cache would be shared between the two worlds a gate boots).
+var _roof_index_cache: PackedInt32Array = PackedInt32Array()
+var _roof_index_from: Variant = null
+var _looks: Dictionary = {}
+# One byte per tile, the ground row every floor draws (Appearance.ROW_NONE where there is no
+# ground), cached against the map object: the edge rule reads nine of these per tile, and nine
+# ground_row_for calls per tile per frame is what this replaces.
+var _ground_rows_cache: PackedByteArray = PackedByteArray()
+var _ground_rows_from: Variant = null
+# tile -> parked-vehicle manifest index (Dressing.VEHICLE_NONE where none), cached against the
+# map object for the same reason as the three above. This is what makes the Low branch's two
+# cases exclusive without walking `map.vehicles` per tile.
+var _vehicle_index_cache: PackedInt32Array = PackedInt32Array()
+var _vehicle_index_from: Variant = null
+# The map-dressing block (heap and debris sprite keys), and the content tree it came from. Third
 # instance of the same pattern for the third time it is the right one: the lookup is a scan over
 # content and this is asked once per drawn tile, the resolution is pure, and a static cache would
 # be shared between the two worlds a gate boots. A content hot-reload swaps the tree, which is
@@ -463,7 +483,7 @@ func _input(event: InputEvent) -> void:
 # and a click on UI never doubles as a trigger pull. GUI handling runs between the two.
 func _unhandled_input(event: InputEvent) -> void:
 	# Wheel zoom through the fixed ladder -- power-of-two multiples of the art-native
-	# 64 so nearest-neighbour scaling never shimmers. Not while the inventory is open:
+	# 32 so nearest-neighbour scaling never shimmers. Not while the inventory is open:
 	# the wheel belongs to the panel there.
 	if event is InputEventMouseButton and event.pressed and not inventory_open:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
@@ -792,29 +812,47 @@ func _draw_district() -> void:
 				tile = SimTileMap.Tile.Wall
 			match tile:
 				SimTileMap.Tile.Wall, SimTileMap.Tile.Screen:
-					_draw_solid_tile(rect, col, tx, ty)
+					# A wall in a building with a look draws its material: the cap seen from
+					# above, or the face where the street is to its south (RoofLook decides,
+					# Dressing names the picture). Everything else -- a screen, a barricade, a
+					# wall no template stamped -- keeps the procedural cap and bands, the
+					# supported fallback and check_topdown.gd's WALL lane's subject.
+					if not _draw_wall_art(rect, dress, tx, ty, false):
+						_draw_solid_tile(rect, col, tx, ty)
 				SimTileMap.Tile.Window:
 					# A window is a hole in masonry, so the tile is masonry and the glass is the
 					# pane: the tile colour that used to fill it edge to edge is handed to the
 					# pane instead, which is where the state a boarded-up window reaches stage 3
-					# in still shows.
-					_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
-					_draw_window_glass(rect, tx, ty, col)
+					# in still shows. In a face the pane is the face's own window picture.
+					if not _draw_wall_art(rect, dress, tx, ty, true):
+						_draw_solid_tile(rect, Palette.COLOURS["wall"], tx, ty)
+						_draw_window_glass(rect, tx, ty, col)
 				SimTileMap.Tile.Low:
-					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
-					# A Low tile is a wreck: a car where it stands in a run, a skip where it stands
-					# alone. Which picture that is comes out of content through Dressing, and when
-					# content declares none the inset block still draws -- the procedural cover shape
-					# is a supported path here as everywhere, not a stopgap.
-					if not _draw_wreck(rect, dress, tx, ty):
-						# Inset block with floor showing around it reads as waist-high.
-						var inset: float = zoom * 0.15625
-						draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
+					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
+					# A Low tile is one of exactly two things, and the manifest says which: a tile
+					# a parked vehicle covers is part of one feet-anchored picture standing in the
+					# entity sort (_draw_entities blits it through _blit_vehicle), so this branch
+					# draws only the ground under it; every other Low tile is a heap, out of
+					# content through Dressing. The two are mutually exclusive by construction and
+					# check_wrecks.gd holds this branch to it. When content declares no heap the
+					# inset block still draws -- the procedural cover shape is a supported path
+					# here as everywhere, not a stopgap.
+					if Dressing.vehicle_at(_vehicle_index(), world.tilemap, tx, ty) == Dressing.VEHICLE_NONE:
+						if not _draw_heap(rect, dress, tx, ty):
+							# Inset block with floor showing around it reads as waist-high.
+							var inset: float = zoom * 0.15625
+							draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
 				SimTileMap.Tile.Tree:
-					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground))
-					var centre: Vector2 = rect.get_center()
-					draw_circle(centre, zoom * 0.42, col)
-					draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
+					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
+					# A tree with a picture stands in the entity sort (Dressing.tree_tiles feeds
+					# _draw_entities, which blits it through _blit_tree), so this branch draws
+					# only the ground under it. The two discs stay as the fallback for a
+					# dressing block that names no tree, or a key with no file behind it.
+					var tree_key: String = Dressing.tree_key(dress, int(world.seed), tx, ty)
+					if tree_key.is_empty() or Appearance.resolve(tree_key) == null:
+						var centre: Vector2 = rect.get_center()
+						draw_circle(centre, zoom * 0.42, col)
+						draw_circle(centre, zoom * 0.0625, col.darkened(0.45))
 				_:
 					# A floor knows whether it is inside a building and whether it is the tile you
 					# step through to get there. Both are read from the map -- `indoors` is an
@@ -824,6 +862,7 @@ func _draw_district() -> void:
 					var floor_col: Color = Appearance.indoor_floor(world.tilemap, tx, ty, col)
 					if _is_threshold(tx, ty):
 						_draw_threshold(rect, floor_col, tx, ty)
+						_draw_door_face(rect, dress, tx, ty)
 					else:
 						# The road dressing, composed over the same rect: RoadPaint.mask_for
 						# (cached per map in _road_mask) says what this tile of pavement is, a
@@ -843,7 +882,11 @@ func _draw_district() -> void:
 							clampf(floor_col.g + vo, 0.0, 1.0),
 							clampf(floor_col.b + vo, 0.0, 1.0),
 							floor_col.a)
-						_draw_floor_tile(rect, floor_col)
+						_draw_floor_tile(rect, floor_col, tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, paint == RoadPaint.MASK_SIDEWALK))
+						# The edges of the ground: where a darker ground lies beside this one,
+						# its ragged fringe over this tile's floor -- before the dash, the
+						# kerbs and the scatter, all of which lie on top of the ground.
+						_draw_ground_edges(rect, _ground_rows(), tx, ty)
 						if paint == RoadPaint.MASK_DASH:
 							_draw_road_dash(rect, mask, tx, ty)
 						if paint != RoadPaint.MASK_NONE:
@@ -853,14 +896,85 @@ func _draw_district() -> void:
 						# pavement. Cosmetic, hash-picked, and drawn over the paint rather than
 						# under it, because litter blows onto a road marking and not beneath one.
 						_draw_scatter(rect, dress, tx, ty)
+	# The roofs, over the interiors the survivor cannot see: they fill tiles the loop above
+	# skipped as unseen, so a roof draws where the screen was black and never where the sim
+	# can see (RoofLook.roof_tiles is the rule; check_roof_look.gd holds it both ways).
+	_draw_roofs(dress, seen, bounds)
 	# Props last, over the ground and under the bodies _draw_entities sorts: a container, a bed,
 	# a campfire and the well all stood invisible in this district until this call existed.
 	_draw_props()
 
-# Floors are flat fill plus a hairline grid line.
-func _draw_floor_tile(rect: Rect2, col: Color) -> void:
-	draw_rect(rect, col)
-	draw_rect(rect, Palette.COLOURS["background"] * 0.9, false, 1.0)
+# A floor is its ground's atlas cell, modulated to the flat colour the palette would have drawn,
+# at GROUND_TEXTURE_MIN_ZOOM and above; below that (16 px a tile, where the texture is noise) and
+# whenever no atlas resolves, the flat colour alone -- the supported fallback, not a stopgap. No
+# hairline grid in either branch any more: the reference has no tile grid, and the cells' own
+# edges carry the tiling. One region blit from one texture per tile so the batcher keeps
+# consecutive floors in one call; the cell is a position hash through Dressing, never an RNG.
+func _draw_floor_tile(rect: Rect2, col: Color, tx: int, ty: int, row: int) -> void:
+	var atlas: Texture2D = Appearance.ground_atlas()
+	if atlas != null and float(camera["zoom"]) >= Palette.GROUND_TEXTURE_MIN_ZOOM:
+		var variant: int = Dressing.variant_index(int(world.seed), tx, ty, Dressing.SALT_GROUND, Appearance.GROUND_VARIANTS)
+		draw_texture_rect_region(atlas, rect, Appearance.ground_cell(row, variant), Appearance.ground_modulate(col, Appearance.ground_row_tint(row)))
+	else:
+		draw_rect(rect, col)
+
+# The ground row of every tile, one byte each, cached against the map object like the road mask
+# it is built from: a wall, a window, a screen or a tree is ROW_NONE, everything else is what
+# ground_row_for answers for it, the sidewalk paint included. Nine lookups here per drawn floor
+# is the whole cost of the edge rule.
+func _ground_rows() -> PackedByteArray:
+	var map: Variant = world.tilemap
+	if map == _ground_rows_from:
+		return _ground_rows_cache
+	_ground_rows_from = map
+	_ground_rows_cache = PackedByteArray()
+	if map == null:
+		return _ground_rows_cache
+	var mask: PackedByteArray = _road_mask()
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	_ground_rows_cache.resize(w * h)
+	for ty in h:
+		for tx in w:
+			var i: int = ty * w + tx
+			var tile: int = int(SimTileMap.tile_at(map, tx, ty))
+			if tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Window or tile == SimTileMap.Tile.Screen or tile == SimTileMap.Tile.Tree:
+				_ground_rows_cache[i] = Appearance.ROW_NONE
+			else:
+				_ground_rows_cache[i] = Appearance.ground_row_for(map, tx, ty, _mask_at(mask, tx, ty) == RoadPaint.MASK_SIDEWALK)
+	return _ground_rows_cache
+
+
+# A neighbour's row off the cache, ROW_NONE past the map's edge.
+func _row_at(rows: PackedByteArray, tx: int, ty: int) -> int:
+	var map: Variant = world.tilemap
+	if map == null or tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
+		return Appearance.ROW_NONE
+	var i: int = ty * int(map.w) + tx
+	if i >= rows.size():
+		return Appearance.ROW_NONE
+	return int(rows[i])
+
+
+# The darker neighbours' fringes over this tile's floor: Appearance.edge_shapes says which
+# (row, shape) cells the lighter tile takes, and each is one region blit of the same atlas
+# the floor came from, modulated white because the cell's own mean is the row tint (the ground
+# slice's rule, re-applied). Only at the zoom the texture itself draws at: below it the floor
+# is a flat fill and a fringe on a flat fill is a smudge.
+func _draw_ground_edges(rect: Rect2, rows: PackedByteArray, tx: int, ty: int) -> void:
+	var atlas: Texture2D = Appearance.ground_atlas()
+	if atlas == null or float(camera["zoom"]) < Palette.GROUND_TEXTURE_MIN_ZOOM:
+		return
+	var centre: int = _row_at(rows, tx, ty)
+	if centre == Appearance.ROW_NONE:
+		return
+	var around := PackedInt32Array([
+		_row_at(rows, tx, ty - 1), _row_at(rows, tx + 1, ty), _row_at(rows, tx, ty + 1), _row_at(rows, tx - 1, ty),
+		_row_at(rows, tx + 1, ty - 1), _row_at(rows, tx + 1, ty + 1), _row_at(rows, tx - 1, ty + 1), _row_at(rows, tx - 1, ty - 1),
+	])
+	for cell in Appearance.edge_shapes(centre, around):
+		draw_texture_rect_region(atlas, rect, Appearance.edge_cell(cell.x, cell.y), Color.WHITE)
+
 
 # The road-paint mask, cached against the map object it was resolved from. RoadPaint.mask_for is
 # pure and the cache lives here because a static one would be shared between the two worlds a
@@ -888,30 +1002,21 @@ func _dressing() -> Dictionary:
 	return _dressing_cache
 
 
-# One wrecked-car segment over a Low tile. False when content declares no dressing or names no key
-# for this segment -- a lone Low tile is the shipped case of the latter -- which is the caller's
-# cue to draw the procedural cover block instead.
+# One heap of junk over a Low tile no parked vehicle covers. False when content declares no
+# dressing or no heaps, which is the caller's cue to draw the procedural cover block instead.
 #
-# The rotation is the whole of the east-west story: the art is authored pointing north, one tile
-# wide, and a run lying across the street is the same three files turned a quarter circle rather
-# than a second set of them. The turn is geometry read off the map, the way _draw_solid_tile reads
-# its exposed faces; the *key* still comes from content, so the loop stays content-driven. Reset with draw_set_transform_matrix, not with a second
-# draw_set_transform, so the identity that follows is unambiguous -- the player's rig set that
-# convention one slice ago and check_topdown counts on it there.
-func _draw_wreck(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> bool:
+# There is no transform here and no second one to reset. The quarter turn that used to draw an
+# east-west run of car segments retired with the segments themselves: a car is one three-quarter
+# picture per axis now (docs/30, the Dungeon Settlers look, decision 11), and a heap is a heap
+# whichever way its neighbours lie. This file now sets no transform anywhere.
+func _draw_heap(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> bool:
 	if dress.is_empty():
 		return false
-	var key: String = Dressing.wreck_key(dress, world.tilemap, int(world.seed), tx, ty)
+	var key: String = Dressing.heap_key(dress, world.tilemap, int(world.seed), tx, ty)
 	var texture: Texture2D = Appearance.resolve(key)
 	if texture == null:
 		return false
-	var angle: float = Dressing.run_angle(world.tilemap, tx, ty)
-	if angle == 0.0:
-		draw_texture_rect(texture, rect, false)
-		return true
-	draw_set_transform(rect.get_center(), angle, Vector2.ONE)
-	draw_texture_rect(texture, Rect2(-rect.size / 2.0, rect.size), false)
-	draw_set_transform_matrix(Transform2D.IDENTITY)
+	draw_texture_rect(texture, rect, false)
 	return true
 
 
@@ -1052,7 +1157,7 @@ func _is_threshold(tx: int, ty: int) -> bool:
 # neighbouring tiles rather than off a stored orientation, the same way _draw_window_glass reads
 # its pane orientation, so a door in a rebuilt or barricaded wall is drawn against what stands now.
 func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
-	_draw_floor_tile(rect, col.lerp(Palette.COLOURS["threshold"], 0.75))
+	_draw_floor_tile(rect, col.lerp(Palette.COLOURS["threshold"], 0.75), tx, ty, Appearance.GroundRow.Boards)
 	# The jamb is the cap of the wall it belongs to, so a doorway is a gap in one mass rather than
 	# two stubs in a colour of their own -- the lit faces of the wall tiles either side already
 	# draw the line where the opening starts.
@@ -1066,6 +1171,158 @@ func _draw_threshold(rect: Rect2, col: Color, tx: int, ty: int) -> void:
 		draw_rect(Rect2(rect.position, Vector2(rect.size.x, t)), jamb)
 	if _is_solid_at(tx, ty + 1):
 		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - t), Vector2(rect.size.x, t)), jamb)
+
+
+# tile -> building index, cached against the map object like the road mask: a reboot or a load
+# hands over a different map, which is what invalidates it.
+func _building_index() -> PackedInt32Array:
+	var map: Variant = world.tilemap
+	if map == _roof_index_from:
+		return _roof_index_cache
+	_roof_index_from = map
+	_roof_index_cache = RoofLook.building_index(map)
+	_looks = {}
+	return _roof_index_cache
+
+
+# tile -> parked vehicle, cached against the map object exactly as the building index is -- but
+# holding only the records that will actually be *drawn* as a picture, which is a stronger thing
+# than the manifest says and is what the Low branch needs.
+#
+# Dressing.vehicle_index is pure and content-innocent: it marks every footprint tile of every
+# record. A record whose class declares no art, or whose key has no file behind it, still occupies
+# those tiles -- and if the tile branch deferred to a picture that never draws, ten tiles of cover
+# the sim knows about would show as bare road. So the records that resolve nothing are cleared
+# here, and their tiles fall through to a heap and then to the procedural cover block, the same
+# graceful absence the tree branch has when a dressing block names no tree. Resolved once per map,
+# never per tile: the content lookup is a scan over the tree.
+func _vehicle_index() -> PackedInt32Array:
+	var map: Variant = world.tilemap
+	if map == _vehicle_index_from:
+		return _vehicle_index_cache
+	_vehicle_index_from = map
+	_vehicle_index_cache = Dressing.vehicle_index(map)
+	var records: Variant = null if map == null else map.get("vehicles")
+	if not (records is Array):
+		return _vehicle_index_cache
+	var undrawn: Dictionary = {}
+	for i in (records as Array).size():
+		var rec: Variant = (records as Array)[i]
+		if not (rec is Dictionary):
+			continue
+		var key: String = Dressing.vehicle_key(world, rec as Dictionary, int(world.seed))
+		if key.is_empty() or Appearance.resolve(key) == null:
+			undrawn[i] = true
+	if undrawn.is_empty():
+		return _vehicle_index_cache
+	for i2 in _vehicle_index_cache.size():
+		if undrawn.has(int(_vehicle_index_cache[i2])):
+			_vehicle_index_cache[i2] = Dressing.VEHICLE_NONE
+	return _vehicle_index_cache
+
+
+# The look of the building a tile lies in, or {} for a tile in none. Resolved once per building
+# per map, never per tile: the content lookup is a scan over the tree.
+func _look_at(tx: int, ty: int) -> Dictionary:
+	var map: Variant = world.tilemap
+	if map == null:
+		return {}
+	var index: PackedInt32Array = _building_index()
+	var at: int = ty * int(map.w) + tx
+	if at < 0 or at >= index.size():
+		return {}
+	return _look_for(index[at])
+
+
+func _look_for(building: int) -> Dictionary:
+	if building == RoofLook.INDEX_NONE:
+		return {}
+	if not _looks.has(building):
+		_looks[building] = RoofLook.look_of(world, building)
+	return _looks[building] as Dictionary
+
+
+# A wall tile in a building with a look: its material's cap, or its face where the street is to
+# the south, blitted into the tile's own rect; a window in a face is the face's window picture,
+# and a window in a cap is the pane the procedural path draws. False when there is nothing to
+# draw this way -- no building, no look, a material with no art, or a barricade overlay, which
+# keeps the procedural cap so a boarded window still reads as boarded -- and the caller falls
+# back. Nothing here reaches outside the rect: the face is inside the wall tile, not over the
+# street.
+func _draw_wall_art(rect: Rect2, dress: Dictionary, tx: int, ty: int, window: bool) -> bool:
+	var look: Dictionary = _look_at(tx, ty)
+	if look.is_empty():
+		return false
+	if SimTileMap.overlay_at(world.tilemap, tx, ty) is Dictionary:
+		return false
+	var face: bool = RoofLook.wall_face_at(world.tilemap, tx, ty)
+	var texture: Texture2D = Appearance.resolve(Dressing.wall_key(dress, String(look.get("wall", "")), face))
+	if texture == null:
+		return false
+	draw_texture_rect(texture, rect, false)
+	if window:
+		var pane: Texture2D = null
+		if face:
+			pane = Appearance.resolve(Dressing.face_key(dress, "window"))
+		if pane != null:
+			draw_texture_rect(pane, rect, false)
+		else:
+			_draw_window_glass(rect, tx, ty)
+	return true
+
+
+# The door in a front face: a doorway whose south neighbour is the street takes the door
+# picture, or the garage mouth when the doorway beside it is one too, over the boards
+# _draw_threshold already drew. In the doorway's own rect -- a body walking through draws over
+# it, because entities draw after the district -- and nothing when the building has no look or
+# the dressing names no picture.
+func _draw_door_face(rect: Rect2, dress: Dictionary, tx: int, ty: int) -> void:
+	if _look_at(tx, ty).is_empty():
+		return
+	var kind: int = RoofLook.facade_at(world.tilemap, _threshold_tiles(), tx, ty)
+	var key: String = ""
+	if kind == RoofLook.Face.DOOR:
+		key = Dressing.face_key(dress, "door")
+	elif kind == RoofLook.Face.GARAGE:
+		key = Dressing.face_key(dress, "garage")
+	if key.is_empty():
+		return
+	var texture: Texture2D = Appearance.resolve(key)
+	if texture != null:
+		draw_texture_rect(texture, rect, false)
+
+
+# The roofs: RoofLook.roof_tiles says which interior tiles the survivor cannot see belong to a
+# building they can see part of, and each takes its material's sheet -- the north or south half
+# of a pitched roof about the footprint's ridge row, or the flat one -- or, with no art for the
+# material, the palette's roof slab. Drawn after the tile loop (those tiles were skipped as
+# unseen, so this is the first paint on them) and before the props, which are never drawn on
+# an unseen tile anyway.
+func _draw_roofs(dress: Dictionary, seen: Variant, bounds: Dictionary) -> void:
+	if world.tilemap == null or seen == null:
+		return
+	var zoom: float = float(camera["zoom"])
+	var half: float = zoom / 2.0
+	var player_tile := Vector2i(-1, -1)
+	var pos: Variant = world.components.get_component(int(world.player), "position")
+	if pos is Dictionary:
+		player_tile = Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+	var index: PackedInt32Array = _building_index()
+	var w: int = int(world.tilemap.w)
+	for t in RoofLook.roof_tiles(world.tilemap, seen, bounds, player_tile):
+		var sc: Dictionary = TopDownProjection.world_to_screen(camera, float(t.x) + 0.5, float(t.y) + 0.5)
+		var rect := Rect2(roundf(float(sc["sx"]) - half), roundf(float(sc["sy"]) - half), zoom, zoom)
+		var building: int = index[t.y * w + t.x]
+		var look: Dictionary = _look_for(building)
+		var texture: Texture2D = null
+		if not look.is_empty():
+			var material: String = String(look.get("roof", ""))
+			var slope: int = RoofLook.slope_of(RoofLook.rect_of(world.tilemap, building), t.y, Dressing.roof_pitched(dress, material))
+			texture = Appearance.resolve(Dressing.roof_key(dress, material, slope))
+		if texture != null:
+			draw_texture_rect(texture, rect, false)
+		else:
+			draw_rect(rect, Palette.COLOURS["roof"])
 
 
 # Everything standing in the district that is neither a body nor a carried item. What each one
@@ -1261,8 +1518,57 @@ func _draw_entities() -> void:
 			if rd is Dictionary:
 				cid = String((rd as Dictionary).get("id", ""))
 		items.append({"x": x, "y": y, "sx": float(sc["sx"]), "sy": float(sc["sy"]), "d": depth, "det": det, "player": is_player, "unique": is_unique, "zed": is_zed, "bait": is_bait, "raider": is_raider, "ztype": ztype, "cid": cid, "id": int(ent)})
+	# The trees join the same sort: each is a picture standing on its trunk tile's south-edge
+	# centre, so a body north of the trunk sorts behind it and one south sorts in front
+	# (docs/30, the Dungeon Settlers look, decision 9). Draw is a subset of seen --
+	# Dressing.tree_tiles asks the survivor's own seen set, and an unseen trunk draws nothing.
+	# The Focal bodies' ground points are gathered first, for the one fade rule: the tree
+	# fades while a body stands inside its rect, and the body is never dimmed.
+	var focal_points: Array[Vector2] = []
+	for body in items:
+		if int(body["det"]) == SimVisibility.Detail.Focal:
+			focal_points.append(Vector2(float(body["sx"]), float(body["sy"])))
+	var dress: Dictionary = _dressing()
+	var seen: Variant = null
+	if world.vision != null:
+		seen = world.vision.tiles_for(int(world.player))
+	for t in Dressing.tree_tiles(world.tilemap, seen, TopDownProjection.visible_bounds(camera, 2.0)):
+		var tree_key: String = Dressing.tree_key(dress, int(world.seed), t.x, t.y)
+		if tree_key.is_empty() or Appearance.resolve(tree_key) == null:
+			continue
+		var tx_w: float = float(t.x) + 0.5
+		var ty_w: float = float(t.y) + 1.0
+		var tsc: Dictionary = TopDownProjection.world_to_screen(camera, tx_w, ty_w)
+		items.append({"kind": "tree", "key": tree_key, "sx": float(tsc["sx"]), "sy": float(tsc["sy"]), "d": TopDownProjection.depth_of(tx_w, ty_w), "det": SimVisibility.Detail.Focal})
+	# The parked vehicles join the same sort on the same rule: each is one three-quarter picture
+	# standing on its footprint's south-edge centre (docs/30, decision 11), so a body north of a
+	# car is behind it and one south is in front. Draw is a subset of seen -- vehicle_records
+	# asks the survivor's own seen set -- and the tile branch has already deferred every covered
+	# Low tile to this picture, so an unseen car draws nothing at all. The margin is wider than
+	# the trees': a sedan is five tiles long, so a car whose ground point is off the bottom of
+	# the screen can still have most of its picture on it.
+	var records: Variant = null
+	if world.tilemap != null:
+		records = world.tilemap.get("vehicles")
+	if records is Array:
+		var box: Dictionary = TopDownProjection.visible_bounds(camera, VEHICLE_BOUNDS_MARGIN_TILES)
+		for i in Dressing.vehicle_records(world.tilemap, seen, box):
+			var rec: Dictionary = (records as Array)[i] as Dictionary
+			var vkey: String = Dressing.vehicle_key(world, rec, int(world.seed))
+			if vkey.is_empty() or Appearance.resolve(vkey) == null:
+				continue
+			var gp: Vector2 = Dressing.vehicle_ground_point(rec)
+			var vsc: Dictionary = TopDownProjection.world_to_screen(camera, gp.x, gp.y)
+			var flip: float = Appearance.vehicle_flip(String(rec.get("facing", "")))
+			items.append({"kind": "vehicle", "key": vkey, "flip": flip, "sx": float(vsc["sx"]), "sy": float(vsc["sy"]), "d": TopDownProjection.depth_of(gp.x, gp.y), "det": SimVisibility.Detail.Focal})
 	items.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	for it in items:
+		if String(it.get("kind", "")) == "tree":
+			_blit_tree(it, px_scale, focal_points)
+			continue
+		if String(it.get("kind", "")) == "vehicle":
+			_blit_vehicle(it, px_scale)
+			continue
 		var sx: float = float(it["sx"]); var sy: float = float(it["sy"])
 		# Colours and sprites come from content now, not from a chain of type-id checks here.
 		var look: Dictionary = Appearance.for_entity(world, it)
@@ -1278,11 +1584,11 @@ func _draw_entities() -> void:
 			var glimpse: Color = Palette.COLOURS["glimpse"] as Color
 			draw_circle(Vector2(sx, sy), r, Color(glimpse.r, glimpse.g, glimpse.b, 0.75))
 			continue
-		# Facing, read once and before anything is drawn: the body's own rotation, the
-		# indicator line and the aim cone are three readings of one number, and the sim is the
-		# only thing that arbitrates it: the `aim` command turns a stationary body, and
-		# `world._integrate_movement` overwrites facing from the velocity of a moving one, in
-		# that order. Nothing here computes a second aim angle of its own.
+		# Facing, read once and before anything is drawn: the body's flip, the indicator line
+		# and the aim cone are three readings of one number, and the sim is the only thing that
+		# arbitrates it: the `aim` command turns a stationary body, and `world._integrate_movement`
+		# overwrites facing from the velocity of a moving one, in that order. Nothing here
+		# computes a second aim angle of its own.
 		var eid: int = int(it["id"])
 		var facing_v: Variant = world.components.get_component(eid, "facing")
 		var face: float = 0.0
@@ -1290,53 +1596,45 @@ func _draw_entities() -> void:
 			face = float((facing_v as Dictionary).get("radians", 0.0))
 		# Screen axes are world axes under the top-down projection: no rotation.
 		var screen_ang: float = face
-		# contact shadow — under both branches, and deliberately *outside* the rotation below:
-		# a shadow is cast by the world's light, not by the body, so it must not spin with it.
-		# The +3 offset is a screen-pixel constant on purpose, like the facing line's +12 and
-		# the aim cone's +36/+44 below: readouts of the interface, not lengths in the world.
-		draw_circle(Vector2(sx, sy + 3), r * 0.9, Color(0, 0, 0, 0.35))
+		# contact shadow — under both branches, on the ground point: an ellipse the body's width
+		# and a fifth as tall, because a pawn's feet are not the overhead rig's silhouette and the
+		# reference's shadow is a small dark pool under the soles, not a disc the figure stands in.
+		# FOOT_DROP_PX is a screen-pixel constant on purpose, like the facing line's +12 and the
+		# aim cone's +36/+44 below: a readout of the interface, not a length in the world -- and
+		# it is the same number Appearance.body_rect stands a pawn's soles on, so the shadow line
+		# and the sole line cannot drift apart.
+		draw_colored_polygon(_shadow_ellipse(sx, sy + Appearance.FOOT_DROP_PX, r * 0.55, r * 0.22), Color(0, 0, 0, 0.35))
 		var texture: Texture2D = look["texture"] as Texture2D
 		if texture != null:
-			# Centre-anchored: the pawn's visual mass sits on the entity's ground position
-			# (64x64 canvas, assets/sprites/README.md). Rounded so a 1:1 pixel sprite never
-			# lands on a half-pixel as the camera follows the player. Scaled by px_scale so
-			# a body covers the same fraction of a tile at every step on the zoom ladder.
+			# Scaled by px_scale so a body covers the same fraction of a tile at every step on
+			# the zoom ladder. Where the picture hangs is Appearance.body_rect's answer: a pawn
+			# (taller than wide) stands with its soles on the shadow line, a tile-square picture
+			# centres on the ground point, and a body facing west is the same picture in a
+			# negative-width rect -- the renderer mirrors it, and no transform is set anywhere in
+			# this loop. Nobody rotates, the player included (docs/30, the Dungeon Settlers look);
+			# check_topdown.gd's flip lane counts the transforms here and requires zero.
 			var size: Vector2 = texture.get_size() * px_scale
 			# Equipped gear composites at the identical rect the body draws at -- an
-			# equipSprite is authored on the same centre-anchored canvas, so there is no
-			# per-item offset to compute here. Drawn white, never the role/tint colour:
-			# a backpack is its own object, not a stand-in shape for the entity itself.
+			# equipSprite is authored on the same feet-anchored canvas, so there is no per-item
+			# offset to compute here, and a negative width mirrors the gear with its wearer.
+			# Drawn white, never the role/tint colour: a backpack is its own object, not a
+			# stand-in shape for the entity itself.
 			var equip: Array[Dictionary] = Appearance.equipment_layers_for(world, eid)
-			# Asked for every body, not only the player: the anonymity clause is the helper's
-			# answer of 0.0 for everybody else, so this is the call that makes it load-bearing
-			# rather than a rule stated in a file nothing reads (docs/30, the art decision).
-			var spin: float = Appearance.body_rotation(bool(it["player"]), screen_ang)
-			if bool(it["player"]):
-				# The one rotated blit in the renderer. Centre anchor is what makes it
-				# contained: the transform's origin is the entity's own ground position and
-				# the rect is hung symmetrically around it, so the body turns on the spot
-				# instead of orbiting. Reset with the identity matrix rather than a second
-				# draw_set_transform, so "exactly one body rotates" stays countable in the
-				# source -- check_topdown.gd's _only_the_player_rotates counts it.
-				draw_set_transform(Vector2(roundf(sx), roundf(sy)), spin, Vector2.ONE)
-				_blit_body(Rect2(-size / 2.0, size), texture, col, equip)
-				draw_set_transform_matrix(Transform2D.IDENTITY)
-			else:
-				_blit_body(Rect2(Vector2(roundf(sx - size.x / 2.0), roundf(sy - size.y / 2.0)), size), texture, col, equip)
+			_blit_body(Appearance.body_rect(sx, sy, size, Appearance.body_flip(screen_ang)), texture, col, equip)
 		else:
 			draw_circle(Vector2(sx, sy), r, col)
 			draw_circle(Vector2(sx, sy), r, col.lightened(0.25), false, 2.4 if bool(it["player"]) else 1.6)
 		# Facing + aim sway (cone half-angle). No hit % — wobble is the readout.
-		# The line is what a shape with no front uses to say where it is looking; art with a
-		# front says it itself, so the player's line comes off once the art resolves and every
-		# procedural body keeps it. Appearance owns that rule; this only obeys it.
-		if Appearance.wants_facing_line(bool(it["player"]), texture != null):
-			draw_line(
-				Vector2(sx, sy),
-				Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
-				Palette.COLOURS["facing"],
-				2.4 if bool(it["player"]) else 1.6,
-			)
+		# The line draws for every body, the player's included: a flip is a two-state readout of
+		# a continuous heading, so the picture can never say more than "east or west" and the
+		# line carries the exact facing for everybody. (The 2026-09-01 rule that took it off the
+		# player's rotating rig retired with the rotation -- docs/30, the Dungeon Settlers look.)
+		draw_line(
+			Vector2(sx, sy),
+			Vector2(sx + cos(screen_ang) * (r + 12.0), sy + sin(screen_ang) * (r + 12.0)),
+			Palette.COLOURS["facing"],
+			2.4 if bool(it["player"]) else 1.6,
+		)
 		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
 			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
 			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
@@ -1413,16 +1711,46 @@ func _draw_rain() -> void:
 	draw_multiline(open, Color(key.r, key.g, key.b, a), 1.0)
 
 
+# A tree: one tall picture standing on its trunk tile's south-edge centre, hung the way a pawn
+# is (Appearance.body_rect with the feet anchor and FOOT_DROP_PX unchanged), never flipped and
+# never rotated, and faded -- the tree, never the body -- while a Focal body's ground point lies
+# inside its rect (Dressing.tree_alpha, docs/30 decision 10). Drawn white: a tree is its own
+# object, not a stand-in shape for anything.
+func _blit_tree(it: Dictionary, px_scale: float, focal_points: Array[Vector2]) -> void:
+	var texture: Texture2D = Appearance.resolve(String(it["key"]))
+	if texture == null:
+		return
+	var size: Vector2 = texture.get_size() * px_scale
+	var rect: Rect2 = Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, 1.0)
+	var alpha: float = Dressing.tree_alpha(rect, focal_points)
+	draw_texture_rect(texture, rect, false, Color(1.0, 1.0, 1.0, alpha))
+
+
+# One parked vehicle: a three-quarter picture standing feet-anchored on its footprint's south-edge
+# centre, through the same body_rect a pawn and a tree use. The canvas is never square -- a sedan
+# is 2x6 tiles north-south and 5x3 east-west -- so anchor_of answers Feet and the picture stands
+# on the line rather than centring on the point.
+#
+# A west-facing car is the east-facing picture in a negative-width rect: the pawn's own flip, and
+# the one place a manifest record's `facing` reaches the art. Appearance.vehicle_flip records why
+# the north-south axis has no second picture, and no transform is set here or anywhere else in
+# this file.
+func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
+	var texture: Texture2D = Appearance.resolve(String(it["key"]))
+	if texture == null:
+		return
+	var size: Vector2 = texture.get_size() * px_scale
+	draw_texture_rect(texture, Appearance.body_rect(float(it["sx"]), float(it["sy"]), size, float(it["flip"])), false)
+
+
 # One body and everything it is wearing, composited at one rect: under-body layers, the body,
 # then over-body layers.
 #
-# Factored out of _draw_entities so the player's rotated rig and every other pawn's axis-aligned
-# blit are literally the *same* composite. The equip layers therefore ride whatever transform is
-# in force when this is called rather than being a second, unrotated copy of the ordering — which
-# is what "the overlays ride the rig" means mechanically, and it is the half of the equip story
-# that shipped: the pack and bat art itself is still authored face-on, and pulling those layers
-# back out of the transform to hide that would be the wrong fix (docs/23 names the re-authoring
-# as the characters slice's work).
+# Factored out of _draw_entities so a body and its gear are literally the *same* composite at
+# one rect -- which, since the pawn slice, is also what mirrors them together: a negative-width
+# rect flips every layer identically, so a slung pack faces the way its wearer does. The gear is
+# generated on the pawn canvas beside the rigs (tools/sprites/parts/gear.py); what a survivor
+# wears beyond the pack and the bat is the worn-look slice's work (docs/23).
 func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictionary]) -> void:
 	for layer in equip:
 		if not bool(layer["over"]):
@@ -1432,6 +1760,17 @@ func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictio
 		if bool(layer["over"]):
 			draw_texture_rect(layer["texture"] as Texture2D, rect, false)
 
+
+
+# The contact shadow's outline: a twelve-point ellipse, half-axes `a` across and `b` down, so
+# the shadow can be a flat pool under the feet without a transform (the entity loop holds none;
+# check_topdown.gd's flip lane counts them).
+func _shadow_ellipse(cx: float, cy: float, a: float, b: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for i in 12:
+		var t: float = TAU * float(i) / 12.0
+		points.append(Vector2(cx + cos(t) * a, cy + sin(t) * b))
+	return points
 
 # The night, last, over everything. The alpha is derived from the *same number the survivor's
 # range is* -- light_look.gd's sight-derived fraction, not raw ambient -- so the screen and the

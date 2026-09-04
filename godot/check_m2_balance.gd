@@ -610,8 +610,18 @@ func _six_survivors_on_auto() -> bool:
 
 # --- world helpers -----------------------------------------------------------------------
 
+# Which district the harness boots. The suburb unless `BALANCE_DISTRICT` names another, because
+# the FAST tier's bands are suburb-measured and belong to the suburb: a second district's column
+# is run BY HAND and recorded beside them, never folded into the 85-second chain, where it would
+# quietly re-baseline numbers the owner arbitrated. With the variable unset this is the constant
+# it always was, so the chain's four FAST lines cannot move.
+func _district() -> String:
+	var named: String = OS.get_environment("BALANCE_DISTRICT")
+	return named if not named.is_empty() else SimBoot.DEFAULT_DISTRICT
+
+
 func _boot(seed_value: int, arm: String) -> Variant:
-	var w: Variant = SimBoot.playable(seed_value, MAP_TILES)["world"]
+	var w: Variant = SimBoot.playable(seed_value, MAP_TILES, _district())["world"]
 	_configure_arm(w, arm)
 	w.events.drain()
 	return w

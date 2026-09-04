@@ -24,10 +24,12 @@ gdscript/warnings/unsafe_method_access=1
 
 ; Native-resolution rendering: no stretch. The old 960x540 canvas with integer
 ; scale_mode filled 1080p (2x) and 4K (4x) but letterboxed 1440p, which only
-; reaches 2.67x. Instead the canvas is the window, art density doubled with it
-; (camera zoom 32, 64x32 tiles, sprites authored at 2x), and every resolution
-; is crisp and fills the screen. A larger window sees more of the district --
-; sim vision still gates what is drawn, so it shows more fog, not more facts.
+; reaches 2.67x. Instead the canvas is the window: a 1 m tile is camera zoom
+; pixels square (16/32/64/128, default 64), sprites are authored at 32 px a tile
+; (presentation/camera.gd ART_NATIVE) and drawn at a clean 2x on the boot zoom,
+; and every resolution is crisp and fills the screen. A larger window sees more
+; of the district -- sim vision still gates what is drawn, so it shows more
+; fog, not more facts.
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/resizable=true

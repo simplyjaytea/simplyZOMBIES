@@ -6,6 +6,7 @@
     "size": { "w": 1, "h": 4 },
     "massKg": 1.1,
     "equipSlot": "primary",
+    "appearance": { "equipSprite": "item_bow_hunting_equip" },
     "slots": ["sight", "limb", "string"],
     "ranged": {
       "damage": 12,
@@ -23,6 +24,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.9,
     "equipSlot": "secondary",
+    "appearance": { "equipSprite": "item_pistol_service_equip" },
     "slots": ["optic", "barrel", "magazine", "furniture"],
     "ranged": {
       "damage": 18,

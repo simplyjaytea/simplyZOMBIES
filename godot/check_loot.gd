@@ -49,6 +49,9 @@ const SimTemplates = preload("res://sim/map/templates.gd")
 
 const LOCATIONS: Array[String] = ["residential", "commercial", "industrial", "medical", "military_cache"]
 const DANGERS: Array[String] = ["low", "moderate", "high", "very_high", "extreme"]
+# What an outdoor perDistrict site may declare it stands on, kept in step with district.schema.json
+# by hand the way LOCATIONS is. One value today: a car out of `map.vehicles`.
+const HOSTS: Array[String] = ["vehicle"]
 const TIER_IDS: Array[String] = ["scavenged", "modified", "field_tested"]
 # Enough samples that a tier distribution is a distribution rather than a coin toss.
 const TIER_SAMPLES: int = 2000
@@ -352,6 +355,17 @@ func _profile_problems(label: String, district: Dictionary) -> Array[String]:
 					out.append("%s: count %d places nothing" % [where, int(row.get("count", 0))])
 				if row.has("sites"):
 					out.append("%s: sites belongs to perBuilding, not perDistrict" % where)
+			# `host` says what an outdoor site stands *on*. Only one value exists (a car from
+			# `map.vehicles`), it is only meaningful outdoors, and it is perDistrict's alone --
+			# a perBuilding site stands on the floor of the building it was drawn for.
+			if row.has("host"):
+				var host: String = String(row.get("host", ""))
+				if not HOSTS.has(host):
+					out.append("%s: host %s is not one of %s" % [where, host, str(HOSTS)])
+				if String(group) == "perBuilding":
+					out.append("%s: host belongs to perDistrict, not perBuilding" % where)
+				elif not outdoors:
+					out.append("%s: host %s on a site that is not outdoors, which stands inside a building instead" % [where, host])
 			var share: float = float(row.get("containerShare", 0.0))
 			if share < 0.0 or share > 1.0:
 				out.append("%s: containerShare %.2f is outside 0..1" % [where, share])
@@ -396,10 +410,13 @@ func _every_district_profile_is_well_formed_and_reaches_real_things() -> bool:
 			{"table": "industrial", "tags": ["residential"], "sites": {"min": 1, "max": 2}},
 			{"table": "residential", "tags": ["marina"], "sites": {"min": 2, "max": 1}},
 			{"table": "commercial", "tags": ["commercial"], "sites": {"min": 1, "max": 1}, "containerShare": 0.5, "containers": []},
+			{"table": "residential", "tags": ["residential"], "sites": {"min": 1, "max": 1}, "host": "vehicle"},
 		],
 		"perDistrict": [
 			{"table": "medical", "count": 0, "tags": ["civic"]},
 			{"table": "medical", "count": 1, "tags": ["civic"], "containerShare": 1.0, "containers": ["locker 3"]},
+			{"table": "residential", "count": 1, "outdoors": true, "host": "hovercraft"},
+			{"table": "residential", "count": 1, "tags": ["residential"], "host": "vehicle"},
 		],
 	}}
 	var said: Array[String] = _profile_problems("probe", broken)
@@ -410,6 +427,9 @@ func _every_district_profile_is_well_formed_and_reaches_real_things() -> bool:
 		"with no container names behind it",
 		"places nothing",
 		"carries a digit",
+		"host hovercraft is not one of",
+		"on a site that is not outdoors",
+		"host belongs to perDistrict, not perBuilding",
 	]
 	for phrase in wanted:
 		var matched: bool = false

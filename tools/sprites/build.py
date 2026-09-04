@@ -12,8 +12,9 @@ too: the registry and godot/assets/sprites/ are two halves of one statement, and
 file behind it is a generator nothing reads.
 
 The PNGs are the source of record for the *game* -- appearance.gd resolves files, not this
-package, and check_appearance.gd judges every one of them on the 64x64 canvas every build.
-This package is the source of record for the *art*: the reason a colour is that colour.
+package, and check_appearance.gd judges every one of them against the canvas its own
+`canvas_of` declares, every build. This package is the source of record for the *art*: the
+reason a colour is that colour.
 """
 
 import argparse
@@ -29,17 +30,68 @@ from pathlib import Path  # noqa: E402
 
 from PIL import Image  # noqa: E402
 
-from parts import characters, props, wrecks  # noqa: E402
+from draw import SIZE  # noqa: E402
+from parts import buildings, characters, gear, ground, props, trees, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 
-# One entry per family module. The overhead re-author moves the other way from how this map
-# used to read: generated art now replaces hand art, the key added in the same commit as the
-# PNG it takes over (`survivor_mara` and `zombie_shambler` crossed over in this slice). What
-# remains hand-authored and outside this map is the `item_*_equip*` files, and the worn-look
-# slice takes the last of them -- at which point this comment stops needing to say "remains".
-MODULES = (characters, props, wrecks)
+# One entry per family module. Nothing in godot/assets/sprites/ is hand-authored any more:
+# `gear` took the last three files (`item_pack_hiking_equip`, its `_front` half and
+# `item_bat_aluminium_equip`) when the pawn slice landed, because a 32x32 overlay composited
+# into a 32x48 rect stretches -- `_blit_body` draws every layer at the identical rect, so an
+# overlay has to be authored on the body's own canvas or it does not line up with it. Every
+# key under this map is generated, and `--check` is what keeps every one of them honest.
+MODULES = (characters, gear, props, wrecks, ground, buildings, trees, vehicles)
+
+# The keys drawn on the pawn canvas: the eight bodies and every equip overlay that composites
+# onto them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS -- two copies
+# because Python cannot read GDScript, the same standing arrangement as `SIZE`, and
+# `check_appearance.gd` measures the committed PNGs against its copy every build. The overlays
+# are `gear.REGISTRY`'s keys in full: an overlay is composited into the body's own rect, so
+# every one of them is a pawn-canvas picture by construction and there is no second list to
+# forget to extend -- the failure this used to invite was a new overlay rendered 32x32, which
+# `write` refuses and `_blit_body` would have stretched.
+PAWN_KEYS = (
+    "player_body",
+    "survivor_mara",
+    "survivor_ellis",
+    "survivor_colonist",
+    "zombie_shambler",
+    "zombie_screamer",
+    "zombie_bloater",
+    "raider_body",
+) + tuple(gear.REGISTRY)
+
+# Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a sheet
+# of cells rather than one silhouette -- `parts/ground.py`'s own module docstring says why it
+# cannot go through `draw.Canvas` at all -- four variant columns and, since the edges slice, the
+# eight edge cells of `parts/edges.py` beside them. The pawn keys are 32x48 and feet-anchored, the
+# shape a standing body needs and the shape the renderer hangs by its bottom row. Kept in build.py
+# rather than draw.py: draw.py is the pixel-primitive module every part renders through, and a per-
+# key shape table belongs beside the CLI that enforces it, not inside the primitives every canvas
+# uses unchanged.
+CANVAS = {
+    "ground_atlas": (ground.SHEET_W, ground.SHEET_H),
+}
+for _key in PAWN_KEYS:
+    CANVAS[_key] = (characters.PAWN_W, characters.PAWN_H)
+# The trees: one tile wide and three tall, feet-anchored like a pawn, mirrored on the Godot
+# side by `Appearance.TREE_KEYS` and `TREE_CANVAS` under the same two-copies arrangement.
+for _key in trees.TREE_KEYS:
+    CANVAS[_key] = (trees.TREE_W, trees.TREE_H)
+# The vehicles: two shapes, one per axis, feet-anchored on the footprint's south edge. A sedan's
+# 2x5 footprint plus a tile of roofline north is 64x192 nose-north and 160x96 nose-east -- the
+# same two-copies arrangement again, mirrored on the Godot side by `Appearance.VEHICLE_NS_KEYS` /
+# `VEHICLE_EW_KEYS` and `VEHICLE_CANVAS_NS` / `VEHICLE_CANVAS_EW`.
+for _key in vehicles.VEHICLE_NS_KEYS:
+    CANVAS[_key] = vehicles.VEHICLE_CANVAS_NS
+for _key in vehicles.VEHICLE_EW_KEYS:
+    CANVAS[_key] = vehicles.VEHICLE_CANVAS_EW
+
+
+def canvas_of(key):
+    return CANVAS.get(key, (SIZE, SIZE))
 
 
 def registry():
@@ -64,8 +116,9 @@ def path_for(key):
 
 def write(key, render):
     image = render()
-    if image.size != (64, 64):
-        raise SystemExit("%s rendered %dx%d; the canvas is 64x64" % (key, *image.size))
+    want_w, want_h = canvas_of(key)
+    if image.size != (want_w, want_h):
+        raise SystemExit("%s rendered %dx%d; the canvas is %dx%d" % (key, *image.size, want_w, want_h))
     target = path_for(key)
     image.save(target)
     print("wrote %s" % target.relative_to(ROOT))
