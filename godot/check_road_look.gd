@@ -98,13 +98,15 @@ func _run() -> void:
 		ok = _the_ground_has_edges(stash) and ok
 		ok = _the_three_sockets_are_wired(stash) and ok
 		ok = _rubble_is_placed_and_lawful(stash) and ok
+		# Slice 9: the street-surface name a district can declare.
+		ok = _street_surface_of_defaults_to_paved_and_dirt_is_named(stash) and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("ROAD_LOOK_OK manifest true (exact on layout, worst dressed span %.2f over a %.2f floor), layout untouched, paint on streets only, centre line centred on %d fixture spans with %d lanes a side and the old placement refused, the shipped %d district carries %d centred dashes at width %d, variation hashed not drawn, palette propertied with the old table refused, the ground atlas %d cells each averaging its palette tint with a flat cell and a bright cell refused, floors blit their cell at zoom %.0f and up with no grid, %d edge cells authored with %d/%d shipped floor tiles edged/plain, mask/speed/tint sockets wired, %d rubble tiles lawful; %.1f s of a %.0f s budget" % [
-			float(stash.get("worst_span", 0.0)), SPAN_PAVED_FLOOR, int(stash.get("centred_spans", 0)), LANE_MIN, PLAYED_SIZE, int(stash.get("played_dashes", 0)), int(stash.get("played_width", 0)), int(stash.get("atlas_cells", 0)), Palette.GROUND_TEXTURE_MIN_ZOOM, int(stash.get("edge_cells", 0)), int(stash.get("edge_with", 0)), int(stash.get("edge_without", 0)), int(stash.get("rubble", 0)), seconds, BUDGET_SECONDS,
+		print("ROAD_LOOK_OK manifest true (exact on layout, worst dressed span %.2f over a %.2f floor), layout untouched, paint on streets only, centre line centred on %d fixture spans with %d lanes a side and the old placement refused, the shipped %d district carries %d centred dashes at width %d, variation hashed not drawn, palette propertied with the old table refused, the ground atlas %d cells each averaging its palette tint with a flat cell and a bright cell refused, floors blit their cell at zoom %.0f and up with no grid, %d edge cells authored with %d/%d shipped floor tiles edged/plain, mask/speed/tint sockets wired, %d rubble tiles lawful, street_surface_of paved-by-default with dirt named and %d suburb spans carrying it; %.1f s of a %.0f s budget" % [
+			float(stash.get("worst_span", 0.0)), SPAN_PAVED_FLOOR, int(stash.get("centred_spans", 0)), LANE_MIN, PLAYED_SIZE, int(stash.get("played_dashes", 0)), int(stash.get("played_width", 0)), int(stash.get("atlas_cells", 0)), Palette.GROUND_TEXTURE_MIN_ZOOM, int(stash.get("edge_cells", 0)), int(stash.get("edge_with", 0)), int(stash.get("edge_without", 0)), int(stash.get("rubble", 0)), int(stash.get("surfaced_spans", 0)), seconds, BUDGET_SECONDS,
 		])
 		quit(0)
 	else:
@@ -1573,6 +1575,63 @@ func _rubble_is_placed_and_lawful(stash: Dictionary) -> bool:
 	print("RUBBLE OK %d tiles on the canonical %d map (expectation: aprons at ~1-in-4 over two rings per building, one blob, street patches), every one outdoor open Floor; dress=false places 0; a wreck and an indoor floor both refused" % [
 		placed, GATE_SIZE,
 	])
+	return true
+
+
+# --- 11. dirt roads (slice 9) -----------------------------------------------------------------
+
+# `street_surface_of` reads a district's declared `streets.surface` name through
+# `SimWorldgen.STREET_SURFACES`, defaulting to paved for anything it does not recognise -- so a
+# typo in a district file draws a street rather than erasing one. Held four ways at the function
+# (no `streets` block at all, a block naming no surface, a block naming an unknown surface, and
+# the name this slice adds), then on the booted map: every carved span carries the answer as a
+# `"surface"` key, and the shipped suburb -- which declares none -- is paved throughout.
+func _street_surface_of_defaults_to_paved_and_dirt_is_named(stash: Dictionary) -> bool:
+	var no_block: int = int(SimWorldgen.street_surface_of({}))
+	if no_block != SimTileMap.SURFACE_PAVED:
+		push_error("street_surface_of({}) (no streets block at all) answered %d, not SURFACE_PAVED" % no_block)
+		return false
+	var no_name: int = int(SimWorldgen.street_surface_of({"streets": {}}))
+	if no_name != SimTileMap.SURFACE_PAVED:
+		push_error("street_surface_of naming no surface answered %d, not SURFACE_PAVED" % no_name)
+		return false
+	var unknown_name: int = int(SimWorldgen.street_surface_of({"streets": {"surface": "cobblestone"}}))
+	if unknown_name != SimTileMap.SURFACE_PAVED:
+		push_error("street_surface_of naming an unknown surface answered %d, not the SURFACE_PAVED default" % unknown_name)
+		return false
+	var dirt_name: int = int(SimWorldgen.street_surface_of({"streets": {"surface": "dirt"}}))
+	if dirt_name != SimTileMap.SURFACE_DIRT:
+		push_error("street_surface_of naming \"dirt\" answered %d, not SURFACE_DIRT" % dirt_name)
+		return false
+
+	# The true negative this lane exists for: an unknown name has to be reaching the default
+	# through the table rather than matching some accident of the fallback -- hand it a name the
+	# table *does* recognise and show the answer moves.
+	if not (SimWorldgen.STREET_SURFACES as Dictionary).has("dirt"):
+		push_error("STREET_SURFACES does not carry \"dirt\" any more; the negative below would prove nothing")
+		return false
+	if unknown_name == dirt_name:
+		push_error("an unknown surface name and \"dirt\" answered the same int (%d); the unknown case may be matching by accident rather than falling through to the default" % unknown_name)
+		return false
+
+	# On the booted map: every carved span carries a surface key, and the shipped suburb (which
+	# declares no streets.surface) is paved throughout.
+	var map: Variant = stash["map"]
+	var spans: Array = map.streets as Array
+	if spans.is_empty():
+		push_error("the booted suburb carries no street manifest at all; the surface-key assertion has nothing to judge")
+		return false
+	for span_value in spans:
+		var span: Dictionary = span_value as Dictionary
+		if not span.has("surface"):
+			push_error("street span %s carries no \"surface\" key" % str(span))
+			return false
+		if int(span["surface"]) != SimTileMap.SURFACE_PAVED:
+			push_error("the shipped suburb, which declares no streets.surface, carved a span at %s with surface %d, not paved" % [str(span), int(span["surface"])])
+			return false
+
+	stash["surfaced_spans"] = spans.size()
+	print("DIRT ROADS OK street_surface_of: no block, no name and an unknown name all answer paved, \"dirt\" answers SURFACE_DIRT (the unknown case differs from the known one); all %d carved spans on the suburb carry \"surface\" and read paved" % spans.size())
 	return true
 
 

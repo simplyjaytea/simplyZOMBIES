@@ -2002,6 +2002,21 @@ over: at 32 px several one-handed weapons in the same fist at the same angle rea
 piece fitted to the shared skeleton sits a little wide on the narrowest rig and off the hand of
 the widest — both acceptable because the rigs that strain equip nothing.
 
+**Paid for, the district slice (2026-09-04) — a district's character is content, and the numbers
+that make it are defaults a district may override, never literals a second district must be forked
+to change.** The terrain pass's thirteen numbers, and the surface its streets are laid on, are
+read off the district; every default equals the literal it replaced, so the district that existed
+first is byte-identical and is checked to be, by hashing the generated map before and after. That
+check is the point: an RNG stream is a sequence, so a pass that draws a different number of times
+moves every tile decided after it, and a refactor that *looks* like pure extraction is exactly
+where that happens. A second district is also the cheapest test of what the first one's code
+assumed — dirt streets found a frontage test that counted pavement, which would have sited every
+colony beside a connection-point opening with no gate red. And a path is a *dressing* pass: it
+writes the surface layer only, so it feeds the speed, noise and ground-texture readers that
+already existed and adds none of its own. Where a new district's numbers are judged is its own
+question — a lane that judges a sparse district at the gate's small size can pass on a handful of
+tiles, or fail for having nothing to judge, neither of which is about the code under test.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

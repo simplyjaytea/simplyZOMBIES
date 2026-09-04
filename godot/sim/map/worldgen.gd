@@ -184,8 +184,11 @@ static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, co
 		# slice will walk, and a pass that reads it here is what keeps it honest in the meantime.
 		var protected: Dictionary = _protected_tiles(map, reserve)
 		_dress_occluders(map, seed_val, protected)
-		_dress_terrain(map, seed_val, ground["streets"] as Dictionary, protected)
+		var terrain: Dictionary = _terrain_of(district)
+		_dress_terrain(map, seed_val, ground["streets"] as Dictionary, protected, terrain)
 		_rubble(map, seed_val, ground["streets"] as Dictionary, protected)
+		if bool(terrain["paths"]):
+			_paths(map, seed_val, protected)
 		# The siting decision is made on the layout, because the layout is what the dressing is
 		# forbidden to depend on: a colony sited off the trees would move when the trees were
 		# switched off, and the dressing-independence property (docs/30) would stop being true. So
@@ -279,9 +282,42 @@ static func _border(map: Variant) -> void:
 # passes 3 and 7 read. Blocks are what is left between streets; the ring road hugs the wall, so
 # the tiles the director spawns on stay open on all four sides and every connection point has a
 # street waiting on the other side of the wall.
+# Which ground a district's streets are laid on. `paved` unless the district says otherwise, so
+# every district that existed before this read stays exactly as it was; an unknown name is paved
+# too rather than an error, because a street is a street and a typo should not make one vanish.
+# The name is content's, the int is the sim's -- SURFACE_* is not an enum content may spell.
+const STREET_SURFACES: Dictionary = {
+	"paved": SimTileMapRes.SURFACE_PAVED,
+	"dirt": SimTileMapRes.SURFACE_DIRT,
+}
+
+
+static func street_surface_of(district: Dictionary) -> int:
+	var spec: Variant = district.get("streets")
+	if not (spec is Dictionary):
+		return SimTileMapRes.SURFACE_PAVED
+	var name: String = String((spec as Dictionary).get("surface", "paved"))
+	return int(STREET_SURFACES.get(name, SimTileMapRes.SURFACE_PAVED))
+
+
+# What surface this map's streets were laid on, read back off the manifest the carving wrote.
+# Read off the map rather than passed down: `annex_candidates` and `_street_frontage` are called
+# by gates with the arguments they have always had, and one answer living on the map cannot
+# disagree with a second one threaded through five call sites. A map with no manifest -- a hand
+# built fixture -- reads paved, which is what every map was before districts could say otherwise.
+static func street_surface_on(map: Variant) -> int:
+	if map == null or map.get("streets") == null:
+		return SimTileMapRes.SURFACE_PAVED
+	for street in map.streets as Array:
+		if street is Dictionary and (street as Dictionary).has("surface"):
+			return int((street as Dictionary)["surface"])
+	return SimTileMapRes.SURFACE_PAVED
+
+
 static func _streets(map: Variant, seed_val: int, district: Dictionary) -> Dictionary:
 	var rng: Variant = _stream(seed_val, "streets")
 	var spec: Dictionary = district.get("streets", {}) as Dictionary
+	var surface: int = street_surface_of(district)
 	var declared_min: int = maxi(MIN_BLOCK, int(spec.get("blockMin", 24)))
 	var declared_max: int = maxi(declared_min, int(spec.get("blockMax", 40)))
 	var declared_width: int = maxi(2, int(spec.get("streetWidth", 6)))
@@ -298,11 +334,11 @@ static func _streets(map: Variant, seed_val: int, district: Dictionary) -> Dicti
 	# Each carve appends its record to `map.streets` in the same order: the manifest is a
 	# transcript of the carving, not a second decision, so it costs no draw and moves no tile.
 	for span in x_axis["streets"] as Array:
-		_carve_street(map, int((span as Array)[0]), 1, int((span as Array)[1]), int(map.h) - 2)
-		map.streets.append({"axis": "x", "at": int((span as Array)[0]), "width": int((span as Array)[1]), "from": 1, "to": int(map.h) - 2})
+		_carve_street(map, int((span as Array)[0]), 1, int((span as Array)[1]), int(map.h) - 2, surface)
+		map.streets.append({"axis": "x", "at": int((span as Array)[0]), "width": int((span as Array)[1]), "from": 1, "to": int(map.h) - 2, "surface": surface})
 	for span in y_axis["streets"] as Array:
-		_carve_street(map, 1, int((span as Array)[0]), int(map.w) - 2, int((span as Array)[1]))
-		map.streets.append({"axis": "y", "at": int((span as Array)[0]), "width": int((span as Array)[1]), "from": 1, "to": int(map.w) - 2})
+		_carve_street(map, 1, int((span as Array)[0]), int(map.w) - 2, int((span as Array)[1]), surface)
+		map.streets.append({"axis": "y", "at": int((span as Array)[0]), "width": int((span as Array)[1]), "from": 1, "to": int(map.w) - 2, "surface": surface})
 
 	_connection_points(map, rng, district, x_axis, y_axis, width)
 	# Only the blocks: they are what passes 3 and 7 read. The street spans went onto the map as
@@ -373,7 +409,7 @@ static func _fit_scale(size: int, block_min: int, block_max: int, width: int) ->
 	return clampf(float(usable + width) / float(BLOCKS_PER_AXIS_MIN * (average + width)), SCALE_FLOOR, 1.0)
 
 
-static func _carve_street(map: Variant, x: int, y: int, w: int, h: int) -> void:
+static func _carve_street(map: Variant, x: int, y: int, w: int, h: int, surface: int = SimTileMapRes.SURFACE_PAVED) -> void:
 	for j in h:
 		for i in w:
 			var tx: int = x + i
@@ -382,7 +418,7 @@ static func _carve_street(map: Variant, x: int, y: int, w: int, h: int) -> void:
 				continue
 			var idx: int = ty * int(map.w) + tx
 			map.tiles[idx] = SimTileMapRes.Tile.Floor
-			map.surfaces[idx] = SimTileMapRes.SURFACE_PAVED
+			map.surfaces[idx] = surface
 
 
 # docs/30: the arc ships the road seam "as district-JSON connection points the street pass must
@@ -417,7 +453,7 @@ static func _connection_points(map: Variant, rng: Variant, district: Dictionary,
 			# district would quietly have fewer than it declares.
 			primary = _apart_from(primary, at)
 			fallback = _apart_from(fallback, at)
-			_carve_opening(map, side, at, width)
+			_carve_opening(map, side, at, width, street_surface_of(district))
 
 
 # Where a road could leave, in two tiers: the centre of a street, because a road that continues a
@@ -474,7 +510,7 @@ static func _opening_tile(map: Variant, side: String, along: int, step: int) -> 
 			return Vector2i(step, along)
 
 
-static func _carve_opening(map: Variant, side: String, at: int, width: int) -> void:
+static func _carve_opening(map: Variant, side: String, at: int, width: int, surface: int = SimTileMapRes.SURFACE_PAVED) -> void:
 	var half: int = OPENING_WIDTH / 2
 	for step in range(0, width + 1):
 		for offset in range(-half, half + 1):
@@ -483,7 +519,7 @@ static func _carve_opening(map: Variant, side: String, at: int, width: int) -> v
 				continue
 			var idx: int = tile.y * int(map.w) + tile.x
 			map.tiles[idx] = SimTileMapRes.Tile.Floor
-			map.surfaces[idx] = SimTileMapRes.SURFACE_PAVED
+			map.surfaces[idx] = surface
 
 
 # --- 3. parcels -----------------------------------------------------------------------------
@@ -619,10 +655,17 @@ static func annex_border(size: int) -> int:
 
 
 # Paved open ground in the one-tile ring around a rect: how much road this position fronts onto.
+# How many tiles around a lot are street. It asks the map which surface its streets are, rather
+# than assuming pavement: on a dirt district every street tile is SURFACE_DIRT, and a frontage
+# test hunting for pavement would have answered "none" for every lot on it -- which
+# `annex_candidates` reads as "this lot does not front a street" and skips. The colony would then
+# have been sited only where a paved connection-point opening happened to reach, silently, with
+# no gate red. Found by generating a dirt district, not by reading this function.
 static func _street_frontage(map: Variant, rect: Rect2i) -> int:
 	var n: int = 0
 	var w: int = int(map.w)
 	var h: int = int(map.h)
+	var street: int = street_surface_on(map)
 	for tx in range(rect.position.x - 1, rect.position.x + rect.size.x + 1):
 		for ty in range(rect.position.y - 1, rect.position.y + rect.size.y + 1):
 			if tx >= rect.position.x and tx < rect.position.x + rect.size.x \
@@ -633,7 +676,7 @@ static func _street_frontage(map: Variant, rect: Rect2i) -> int:
 			var idx: int = ty * w + tx
 			if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
 				continue
-			if int(map.surfaces[idx]) == SimTileMapRes.SURFACE_PAVED:
+			if int(map.surfaces[idx]) == street:
 				n += 1
 	return n
 
@@ -1267,7 +1310,34 @@ static func _dress_tile(map: Variant, tx: int, ty: int, tile: int, protected: Di
 # inside a block, a stand or two of trees, thickets of undergrowth, and the trodden dirt where a
 # green meets the pavement. docs/24's ground table is what makes this a mechanic rather than a
 # texture -- grass is quiet and slow, undergrowth is cover you cannot see out of.
-static func _dress_terrain(map: Variant, seed_val: int, streets: Dictionary, protected: Dictionary) -> void:
+# The terrain pass's numbers, read off a district's optional `terrain` block. Every default here
+# is the literal this pass carried before the block existed, so a district that declares none
+# dresses exactly as it did -- and that is asserted byte-identical rather than assumed, because
+# an RNG stream is a *sequence*: a pass that draws a different number of times, or draws the same
+# number of times from a different range, moves every tile decided after it and not just the one
+# being tuned. Every entry below therefore changes an argument to a draw, never how many draws
+# happen; the loop counts that follow from those values are the only thing allowed to move.
+static func _terrain_of(district: Dictionary) -> Dictionary:
+	var raw: Variant = district.get("terrain")
+	var t: Dictionary = (raw as Dictionary) if raw is Dictionary else {}
+	return {
+		"grass_jitter": int(t.get("grassJitter", 3)),
+		"stand_odds": int(t.get("standOdds", 1)),
+		"stands_min": int(t.get("standsMin", 1)),
+		"stands_max": int(t.get("standsMax", 3)),
+		"trees_min": int(t.get("treesMin", 3)),
+		"trees_max": int(t.get("treesMax", 8)),
+		"tree_spread": int(t.get("treeSpread", 2)),
+		"thickets_min": int(t.get("thicketsMin", 1)),
+		"thickets_max": int(t.get("thicketsMax", 3)),
+		"thicket_min": int(t.get("thicketMin", 2)),
+		"thicket_max": int(t.get("thicketMax", 4)),
+		"worn_odds": int(t.get("wornOdds", 2)),
+		"paths": bool(t.get("paths", false)),
+	}
+
+
+static func _dress_terrain(map: Variant, seed_val: int, streets: Dictionary, protected: Dictionary, terrain: Dictionary) -> void:
 	var rng: Variant = _stream(seed_val, "terrain")
 	var w: int = int(map.w)
 	for yb in streets["y_blocks"] as Array:
@@ -1289,28 +1359,28 @@ static func _dress_terrain(map: Variant, seed_val: int, streets: Dictionary, pro
 					if SimTileMapRes.is_indoors(map, tx, ty):
 						continue
 					var distance: float = sqrt(pow(float(tx) + 0.5 - cx, 2.0) + pow(float(ty) + 0.5 - cy, 2.0))
-					if distance > radius + float(rng.call("int_range", -3, 3)):
+					if distance > radius + float(rng.call("int_range", -int(terrain["grass_jitter"]), int(terrain["grass_jitter"]))):
 						continue
 					map.surfaces[idx] = SimTileMapRes.SURFACE_GRASS
-			if int(rng.call("int_range", 0, 1)) != 0:
+			if int(rng.call("int_range", 0, int(terrain["stand_odds"]))) != 0:
 				continue
-			var stands: int = int(rng.call("int_range", 1, 3))
+			var stands: int = int(rng.call("int_range", int(terrain["stands_min"]), int(terrain["stands_max"])))
 			for _i in stands:
 				var ox: int = bx + int(rng.call("int_range", 1, maxi(1, bw - 2)))
 				var oy: int = by + int(rng.call("int_range", 1, maxi(1, bh - 2)))
-				var trees: int = int(rng.call("int_range", 3, 8))
+				var trees: int = int(rng.call("int_range", int(terrain["trees_min"]), int(terrain["trees_max"])))
 				for _t in trees:
-					var tx: int = ox + int(rng.call("int_range", -2, 2))
-					var ty: int = oy + int(rng.call("int_range", -2, 2))
+					var tx: int = ox + int(rng.call("int_range", -int(terrain["tree_spread"]), int(terrain["tree_spread"])))
+					var ty: int = oy + int(rng.call("int_range", -int(terrain["tree_spread"]), int(terrain["tree_spread"])))
 					if not _on_grass(map, tx, ty):
 						continue
 					_dress_tile(map, tx, ty, SimTileMapRes.Tile.Tree, protected)
-			var thickets: int = int(rng.call("int_range", 1, 3))
+			var thickets: int = int(rng.call("int_range", int(terrain["thickets_min"]), int(terrain["thickets_max"])))
 			for _i in thickets:
 				var ox2: int = bx + int(rng.call("int_range", 1, maxi(1, bw - 2)))
 				var oy2: int = by + int(rng.call("int_range", 1, maxi(1, bh - 2)))
-				var th: int = int(rng.call("int_range", 2, 4))
-				var tw: int = int(rng.call("int_range", 2, 4))
+				var th: int = int(rng.call("int_range", int(terrain["thicket_min"]), int(terrain["thicket_max"])))
+				var tw: int = int(rng.call("int_range", int(terrain["thicket_min"]), int(terrain["thicket_max"])))
 				for dy in th:
 					for dx in tw:
 						if not _on_grass(map, ox2 + dx, oy2 + dy):
@@ -1334,7 +1404,7 @@ static func _dress_terrain(map: Variant, seed_val: int, streets: Dictionary, pro
 					or int(map.surfaces[idx + 1]) == SimTileMapRes.SURFACE_PAVED \
 					or int(map.surfaces[idx - w]) == SimTileMapRes.SURFACE_PAVED \
 					or int(map.surfaces[idx + w]) == SimTileMapRes.SURFACE_PAVED
-			if edge and int(rng.call("int_range", 0, 2)) != 0:
+			if edge and int(rng.call("int_range", 0, int(terrain["worn_odds"]))) != 0:
 				worn.append(idx)
 	for idx in worn:
 		map.surfaces[idx] = SimTileMapRes.SURFACE_DIRT
@@ -1364,6 +1434,103 @@ static func _on_grass(map: Variant, tx: int, ty: int) -> bool:
 #
 # Draws happen before eligibility tests, every branch, so the draw count is a function of
 # (layout, size, seed) and a refused tile cannot shift what the next building sheds.
+# A trodden path from every door to the street it faces. Surfaces only: the ground under a path
+# stays Floor, so nothing about sight, cover or what a body can walk through moves -- what moves
+# is the surface layer, which `SimSurface` already reads for speed (dirt is x0.95) and noise
+# (x0.85), and which the ground atlas already carries a row for. So this pass adds no reader; it
+# feeds three that existed, which is why it is a dressing pass and not a layout one.
+#
+# One draw per door, on `worldgen.paths` -- its own named stream, so treading paths cannot move a
+# tile any other pass decided, and a district that treads none draws nothing at all. The draw
+# picks which leg of the L runs first, because a path that always turned the same way would read
+# as a drawn right angle rather than as a route people wore.
+static func _paths(map: Variant, seed_val: int, protected: Dictionary) -> void:
+	var rng: Variant = _stream(seed_val, "paths")
+	var w: int = int(map.w)
+	for record in map.buildings as Array:
+		if not (record is Dictionary):
+			continue
+		var doors: Variant = (record as Dictionary).get("doors", [])
+		if not (doors is Array):
+			continue
+		for door in doors as Array:
+			if not (door is Dictionary):
+				continue
+			var dx: int = int((door as Dictionary).get("x", -1))
+			var dy: int = int((door as Dictionary).get("y", -1))
+			if dx < 0 or dy < 0 or dx >= w or dy >= int(map.h):
+				continue
+			var target: Vector2i = _nearest_street_point(map, dx, dy)
+			if target.x < 0:
+				continue
+			var x_first: bool = int(rng.call("int_range", 0, 1)) == 0
+			_tread(map, dx, dy, target, x_first, protected)
+
+
+# The closest point on any street span to a tile, or (-1, -1) when the map carries no street
+# manifest at all (a hand-built fixture). Read off `map.streets` rather than off the surfaces,
+# because in a dirt district the street and the path are the same surface and "nearest paved"
+# would answer nothing.
+static func _nearest_street_point(map: Variant, tx: int, ty: int) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d: int = 1 << 30
+	for street in map.streets as Array:
+		if not (street is Dictionary):
+			continue
+		var rec: Dictionary = street as Dictionary
+		var at: int = int(rec.get("at", 0))
+		var width: int = maxi(1, int(rec.get("width", 1)))
+		var from: int = int(rec.get("from", 0))
+		var to: int = int(rec.get("to", 0))
+		var px: int = 0
+		var py: int = 0
+		if String(rec.get("axis", "x")) == "x":
+			px = clampi(tx, at, at + width - 1)
+			py = clampi(ty, from, to)
+		else:
+			px = clampi(tx, from, to)
+			py = clampi(ty, at, at + width - 1)
+		var d: int = absi(px - tx) + absi(py - ty)
+		if d < best_d:
+			best_d = d
+			best = Vector2i(px, py)
+	return best
+
+
+# Walk one L from the door to the street, wearing every open outdoor floor it crosses down to
+# dirt. A tile that is indoors, not a floor, or protected is stepped over rather than written:
+# a path may not pave a doorway shut, and `protected` is the same set every other dressing pass
+# refuses to touch.
+static func _tread(map: Variant, dx: int, dy: int, target: Vector2i, x_first: bool, protected: Dictionary) -> void:
+	var x: int = dx
+	var y: int = dy
+	var legs: Array = [[target.x, y], [x, target.y]] if x_first else [[x, target.y], [target.x, y]]
+	for leg in legs:
+		var to_x: int = int((leg as Array)[0])
+		var to_y: int = int((leg as Array)[1])
+		while x != to_x or y != to_y:
+			if x != to_x:
+				x += signi(to_x - x)
+			elif y != to_y:
+				y += signi(to_y - y)
+			_wear(map, x, y, protected)
+	_wear(map, target.x, target.y, protected)
+
+
+static func _wear(map: Variant, tx: int, ty: int, protected: Dictionary) -> void:
+	var w: int = int(map.w)
+	if tx <= 0 or ty <= 0 or tx >= w - 1 or ty >= int(map.h) - 1:
+		return
+	var idx: int = ty * w + tx
+	if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
+		return
+	if SimTileMapRes.is_indoors(map, tx, ty):
+		return
+	if protected.has(idx):
+		return
+	map.surfaces[idx] = SimTileMapRes.SURFACE_DIRT
+
+
 static func _rubble(map: Variant, seed_val: int, streets: Dictionary, protected: Dictionary) -> void:
 	var rng: Variant = _stream(seed_val, "rubble")
 	var w: int = int(map.w)
