@@ -530,6 +530,15 @@ onto the lighter tile."* Sprites README: the fifth authoring shape.
 
 ## Slice 7 — "Trees stand up" (chain 44, `TREES_OK`)
 
+**Landed 2026-09-04**, as written but for the two shot names; the measured numbers are in
+docs/23's record. The three ramp bases all sat inside the ground band and moved to the nearest
+values clearing every ground by 0.08 (the darks down, the light up). The boughs needed a tapering
+dark core under them to read as one tree rather than discs on a stick. The art was authored by the
+integrating session after the API refused the art worker. The two body-and-tree shots were named
+the wrong way round above: the fade fires for a body one tile *north* of the trunk, not south, so
+the shot planned as `fade-64` is kept as `south-64` and `behind-64` is the one that shows the
+fade.
+
 **Form (decisions 9–10).** `TREE_CANVAS = Vector2i(n, 3n)` = 32×96 feet-anchored; one tile wide on
 purpose (a canopy wider than its trunk hides bodies east and west, which no depth rule can
 answer); ground point the trunk tile's south-edge centre `(tx + 0.5, ty + 1.0)` so `Anchor.Feet`

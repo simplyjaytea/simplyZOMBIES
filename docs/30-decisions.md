@@ -1977,6 +1977,19 @@ between two floor blits breaks the batch (measured: one draw call became two tho
 wall, a window or a tree is not ground: it takes no edge and gives none, and its own picture is
 the edge.
 
+**Paid for, the trees slice (2026-09-04) — a tree is a picture that stands in the entity sort;
+a pawn north of the trunk is behind it, one south is in front, and the tree fades rather than
+the body.** One tall picture, one tile wide and three tall, hung on its trunk tile's south-edge
+centre the way a pawn is hung on its soles, sorted with the bodies by that point and never
+flipped or rotated. Draw is a subset of seen: an unseen trunk draws nothing, and the tile stays
+Opaque and Solid to the sim. Which picture a tree takes is a hash of the seed and the tile out
+of the dressing block's list, never a sim stream, and a block that names no tree draws the two
+discs it always drew. The fade is the one rule about a body under a canopy: the tree goes to
+about half alpha while a Focal body's ground point lies inside its rect, and the body is never
+dimmed — the 2026-09-02 silhouette clause is superseded before it shipped. One tile wide is the
+load-bearing number: a canopy wider than its trunk hides the bodies east and west of it, and a
+y-sort has no answer to that.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

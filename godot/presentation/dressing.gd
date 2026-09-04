@@ -62,6 +62,11 @@ const SALT_LITTER_KEY: int = 3
 const SALT_RUBBLE_KEY: int = 4
 # The ground atlas variant under a floor tile (Appearance.ground_cell): one salt, four cells a row.
 const SALT_GROUND: int = 5
+# Which tall tree picture a Tree tile takes out of the block's `trees.tall` list.
+const SALT_TREE: int = 6
+# A tree's alpha while a Focal body's ground point lies inside its screen rect: the tree fades,
+# never the body (docs/30 decision 10). Opaque otherwise.
+const TREE_FADE_ALPHA: float = 0.55
 
 
 # The dressing block for a world, or {} when content declares none -- a fixture tree, an old save,
@@ -194,6 +199,57 @@ static func wreck_key(block: Dictionary, map: Variant, seed_val: int, tx: int, t
 
 
 # Whether a tile is outdoor open floor carrying `surface` -- the eligibility both scatters share.
+
+# --- the trees ------------------------------------------------------------------------------
+# A tree is a picture standing in the entity sort, not a canopy over the tiles: `tree_tiles`
+# says which Tree tiles draw one this frame (seen, and in the visible bounds -- draw is a subset
+# of seen, an unseen trunk draws nothing), `tree_key` names the picture out of the dressing
+# block's `trees.tall` list by a pure hash of the seed and the tile, and `tree_alpha` is the one
+# fade rule: the tree goes to TREE_FADE_ALPHA while a Focal body's ground point is inside its
+# rect, and the body is never dimmed. "" from tree_key is the caller's cue to draw the two
+# procedural discs the tile branch always drew -- a block with no trees still draws a district.
+
+static func tree_key(block: Dictionary, seed_val: int, tx: int, ty: int) -> String:
+	var trees: Variant = block.get("trees")
+	if not (trees is Dictionary):
+		return ""
+	var tall: Variant = (trees as Dictionary).get("tall")
+	if not (tall is Array) or (tall as Array).is_empty():
+		return ""
+	var index: int = variant_index(seed_val, tx, ty, SALT_TREE, (tall as Array).size())
+	return String((tall as Array)[index])
+
+
+# Every Tree tile inside `bounds` (the visible AABB, minX/maxX/minY/maxY in tiles) that the
+# observer can see. `seen` is the observer's tile set (SimVisibility.tiles_for) or null for
+# nobody, and nobody sees no trees: the same shape as LightLook.lit_pool_tiles.
+static func tree_tiles(map: Variant, seen: Variant, bounds: Dictionary) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if map == null or seen == null:
+		return out
+	var min_x: int = maxi(0, floori(float(bounds.get("minX", 0.0))))
+	var max_x: int = mini(int(map.w) - 1, ceili(float(bounds.get("maxX", 0.0))))
+	var min_y: int = maxi(0, floori(float(bounds.get("minY", 0.0))))
+	var max_y: int = mini(int(map.h) - 1, ceili(float(bounds.get("maxY", 0.0))))
+	for ty in range(min_y, max_y + 1):
+		for tx in range(min_x, max_x + 1):
+			if int(SimTileMap.tile_at(map, tx, ty)) != SimTileMap.Tile.Tree:
+				continue
+			if not (seen as Object).call("has_tile", tx, ty):
+				continue
+			out.append(Vector2i(tx, ty))
+	return out
+
+
+# The alpha a tree draws at: TREE_FADE_ALPHA while any of `body_points` (Focal bodies' ground
+# points, in screen pixels) lies inside `tree_rect` (the tree's screen rect), 1.0 otherwise.
+# Pure, so check_trees.gd holds it both ways with a point just inside and one just outside.
+static func tree_alpha(tree_rect: Rect2, body_points: Array) -> float:
+	for point in body_points:
+		if tree_rect.has_point(point as Vector2):
+			return TREE_FADE_ALPHA
+	return 1.0
+
 
 # --- the building materials ----------------------------------------------------------------
 # `walls`, `roofs` and `faces` in the dressing block: a material name (a template's `look`)

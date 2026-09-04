@@ -31,7 +31,7 @@ from pathlib import Path  # noqa: E402
 from PIL import Image  # noqa: E402
 
 from draw import SIZE  # noqa: E402
-from parts import buildings, characters, gear, ground, props, wrecks  # noqa: E402
+from parts import buildings, characters, gear, ground, props, trees, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -42,7 +42,7 @@ SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 # into a 32x48 rect stretches -- `_blit_body` draws every layer at the identical rect, so an
 # overlay has to be authored on the body's own canvas or it does not line up with it. Every
 # key under this map is generated, and `--check` is what keeps every one of them honest.
-MODULES = (characters, gear, props, wrecks, ground, buildings)
+MODULES = (characters, gear, props, wrecks, ground, buildings, trees)
 
 # The keys drawn on the pawn canvas: the eight bodies and the three equip overlays that
 # composite onto them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS --
@@ -75,6 +75,10 @@ CANVAS = {
 }
 for _key in PAWN_KEYS:
     CANVAS[_key] = (characters.PAWN_W, characters.PAWN_H)
+# The trees: one tile wide and three tall, feet-anchored like a pawn, mirrored on the Godot
+# side by `Appearance.TREE_KEYS` and `TREE_CANVAS` under the same two-copies arrangement.
+for _key in trees.TREE_KEYS:
+    CANVAS[_key] = (trees.TREE_W, trees.TREE_H)
 
 
 def canvas_of(key):

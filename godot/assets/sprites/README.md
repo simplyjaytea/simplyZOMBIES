@@ -39,10 +39,10 @@ is approaching.
 - **A face is three pixels.** Two 1 px eyes 3 px apart and one brow pixel above and to the left
   — at 32 px wide there is no room for a mouth, and the placement is the whole of it.
 
-Still **decided and not shipped**: tall 32×96 trees in the entity sort, one three-quarter
-picture per axis for vehicles, and the worn look beyond the pack and the bat. Walls and roofs
-landed the same day as the pawns: `wall_*`, `roof_*` and `face_*` are tile art, under "Tile
-art" below.
+Still **decided and not shipped**: one three-quarter picture per axis for vehicles, and the
+worn look beyond the pack and the bat. Walls and roofs landed the same day as the pawns:
+`wall_*`, `roof_*` and `face_*` are tile art, under "Tile art" below; the trees landed with
+them, under "The tree" below.
 
 ## The convention
 
@@ -231,6 +231,25 @@ are tile art too, and bring two rules of their own:
   south half the lit one; `roof_tar_flat` is one sheet. A roof draws over interior tiles the
   survivor cannot see and only there, so a seam at 2× would be the one thing on a roof a player
   could read.
+
+## The tree — one tall picture in the sort
+
+`tree_pine_{a,b,c}` (`tools/sprites/parts/trees.py`) are **32×96, feet-anchored** — one tile
+wide and three tall, `Appearance.TREE_CANVAS`, named by `TREE_KEYS` for `canvas_of` the way
+the pawn keys are, and hung by `body_rect` on the trunk tile's south-edge centre with the same
+`FOOT_DROP_PX` a pawn's soles take. A tree is not a canopy drawn over the tiles: `main.gd`
+puts each seen tree into `_draw_entities`' y-sort with `d = ty + 1.0`, so a body north of the
+trunk is behind it and one south is in front, and the tree — never the body — fades to
+`Dressing.TREE_FADE_ALPHA` while a Focal body's ground point lies inside its rect. Never
+flipped, never rotated. Which picture a Tree tile takes is a hash of the seed and the tile
+over the dressing block's `trees.tall` list (`Dressing.SALT_TREE`); a block that names none
+draws the two procedural discs. **Tier bounds**, held by `check_trees.gd`'s TIERS lane on the
+decoded pixels: opaque box 20–26 wide and 84–92 tall, the soles on row 95, the tip within the top
+twelve rows, three clear pixels either side (a canopy wider than its trunk would hide the bodies
+beside it, which no depth rule can answer), a five-to-nine-pixel foot, the three variants
+pixel-distinct. The inward `#161614` outline and the baked top-left light are `draw.py`'s, shared
+with every other rig. The ramps are `pine_dark`, `pine_light` and `bark`, timber-family and in
+`GROUND_READING`.
 
 ## Equipped-item overlays
 

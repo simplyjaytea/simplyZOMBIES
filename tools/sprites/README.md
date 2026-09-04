@@ -44,6 +44,7 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `parts/props.py` | the seven district props, each authored to its content entry's footprint |
 | `parts/wrecks.py` | car segment sets, and the debris scatter |
 | `parts/edges.py` | the ground's edge cells, eight fringes a row, pasted into the atlas |
+| `parts/trees.py` | the three tall conifers, feet-anchored on the tree canvas |
 | `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
 | `build.py` | the CLI, the registry merge, `--check`, `CANVAS`/`PAWN_KEYS` (mirrors `canvas_of`) |
 

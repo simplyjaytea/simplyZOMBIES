@@ -89,12 +89,13 @@ npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_
 npm run godot:check:wrecks   # wrecks, props, debris art → WRECKS_OK
 npm run godot:check:weather  # rain, accent regrade, dead keys → WEATHER_OK
 npm run godot:check:roof     # wall caps and faces, roofs cut out where seen → ROOF_LOOK_OK
+npm run godot:check:trees    # tall trees in the entity sort, the fade → TREES_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **43**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **44**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
@@ -192,13 +193,14 @@ drifted. Three things about the current state matter enough to repeat anyway:
   lit cap and a south face, roofs cut out where the sim sees, three-quarter props and vehicles,
   32 px a tile at 2×. It supersedes the 2026-09-01 style-B pick (the rotating player, the
   overcast mood); docs/30's "The Dungeon Settlers look" entry records the twelve decisions and
-  what each earlier clause becomes. **Decided lands slice by slice**: the palette, pawn and
-  wall slices landed 2026-09-03 (the table is warm; every body is a 32×48 face-on pawn that
-  flips through a negative-width rect, with `TOPDOWN_OK`'s FLIP lane counting zero transforms;
-  walls draw their material's cap or south face and roofs cover what the sim cannot see, held
-  by `ROOF_LOOK_OK`); edges, trees, the worn look and the vehicles are still the old code, and
-  their comments say so on purpose. The reference's HUD — portraits, bars, numbers, name
-  plates — is explicitly not adopted.
+  what each earlier clause becomes. **Decided lands slice by slice**: the palette, pawn, wall and
+  edge slices landed 2026-09-03 and the trees on 2026-09-04 (the table is warm; every body is a
+  32×48 face-on pawn that flips through a negative-width rect, with `TOPDOWN_OK`'s FLIP lane
+  counting zero transforms; walls draw their material's cap or south face and roofs cover what the
+  sim cannot see, held by `ROOF_LOOK_OK`; the darker ground draws a boundary once onto the lighter
+  tile, and a tree is a 32×96 picture standing in the entity sort, held by `TREES_OK`); the worn
+  look and the vehicles are still the old code, and their comments say so on purpose. The
+  reference's HUD — portraits, bars, numbers, name plates — is explicitly not adopted.
 - **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody

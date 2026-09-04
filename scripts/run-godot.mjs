@@ -322,6 +322,9 @@ switch (mode) {
   case "--roof":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_roof_look.gd"];
     break;
+  case "--trees":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_trees.gd"];
+    break;
   case "--ban-health-bar":
     args = [
       "--headless",
