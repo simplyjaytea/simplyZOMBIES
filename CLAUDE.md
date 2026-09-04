@@ -194,14 +194,17 @@ drifted. Three things about the current state matter enough to repeat anyway:
   lit cap and a south face, roofs cut out where the sim sees, three-quarter props and vehicles,
   32 px a tile at 2×. It supersedes the 2026-09-01 style-B pick (the rotating player, the
   overcast mood); docs/30's "The Dungeon Settlers look" entry records the twelve decisions and
-  what each earlier clause becomes. **Decided lands slice by slice**: the palette, pawn, wall and
-  edge slices landed 2026-09-03 and the trees on 2026-09-04 (the table is warm; every body is a
-  32×48 face-on pawn that flips through a negative-width rect, with `TOPDOWN_OK`'s FLIP lane
-  counting zero transforms; walls draw their material's cap or south face and roofs cover what the
-  sim cannot see, held by `ROOF_LOOK_OK`; the darker ground draws a boundary once onto the lighter
-  tile, and a tree is a 32×96 picture standing in the entity sort, held by `TREES_OK`); the worn
-  look and the vehicles are still the old code, and their comments say so on purpose. The
-  reference's HUD — portraits, bars, numbers, name plates — is explicitly not adopted.
+  what each earlier clause becomes. **Decided lands slice by slice, and [docs/23's
+  record](docs/23-roadmap.md#the-record-by-system) is the one copy of which ones have.** This file
+  deliberately does not list them: that list has now drifted three times, each time a slice landed
+  without its copy here being updated, which is the same reason the milestone status lives in one
+  place. What the style *is*, either way: the table is warm; every body is a 32×48 face-on pawn
+  that flips through a negative-width rect, and nobody rotates; walls draw their material's cap or
+  south face and roofs cover what the sim cannot see; the darker ground draws a boundary once onto
+  the lighter tile; a tree is a 32×96 picture standing in the entity sort; and equipment draws on
+  the pawn, in one order, on one skeleton. Where a piece has not landed yet, its code comments say
+  so on purpose. The reference's HUD — portraits, bars, numbers, name plates — is explicitly not
+  adopted.
 - **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody

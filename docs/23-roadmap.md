@@ -228,9 +228,9 @@ style-B pick of 2026-09-01 for the bodies and the mood; the plan is
 slices 1–2). The pieces below are in the order they land, each one session, each with its gate
 red both ways and its record. The reference's HUD — portraits, bars, numbers, name plates — is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided lands
-piece by piece**: the palette, pawn, wall and edge pieces landed 2026-09-03 and the trees on
-2026-09-04; the worn look and the vehicles below are still the old code, and their comments say so
-on purpose.
+piece by piece**: the palette, pawn, wall and edge pieces landed 2026-09-03, the trees and the
+worn look on 2026-09-04; the vehicles below are still the old code, and their comments say so on
+purpose.
 
 - **The walls share one atlas.** Measured in the edges slice: draw calls on the 256 district at
   zoom 16 went 539 → 1,410 between the ground slice and the wall slice, because every wall
