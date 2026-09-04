@@ -133,7 +133,11 @@ in text.
 A day is four hours at 1×, so press `3` and wait for dark.
 
 The view is flat top-down — RimWorld and Dungeon Settlers are the closest comparisons — and the
-wheel zooms between a close-in read on your survivor and a wide look at the colony. The HUD reads
+wheel zooms between a close-in read on your survivor and a wide look at the colony. Bodies stand
+up and face you, flipping rather than rotating; walls carry a lit cap and a south face; a roof
+covers a building until you can see inside it; the ground's surfaces meet in ragged edges rather
+than on a grid; and trees and parked cars stand in the same depth sort as the people, so a
+survivor walks behind a conifer and in front of a car. The HUD reads
 in words rather than bars: what the district can sense of you sits in the top right, and a
 survivor with nothing wrong takes up almost no screen.
 
