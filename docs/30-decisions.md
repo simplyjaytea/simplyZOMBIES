@@ -2048,6 +2048,27 @@ the forest are 3 wide at every size, so neither stands a car at all, and neither
 `vehicles` block, because a block on a district whose streets can never hold one is a socket
 nothing reaches.
 
+**Decided but not yet shipped (owner, 2026-09-04) — three vehicle classes are told apart by
+height, not by length, so the sedan comes down before the van and truck go in.** Slice 10's rule
+gives a vehicle picture its footprint plus one tile of roofline north. That fixes every class's
+east-west canvas at 96 rows *whatever its length*, and the sedan shipped filling 93 of them, which
+is why it reads van-like. A van and a truck built on the same rule could therefore only have been
+drawn longer than a car, never taller — three boxes of one height differing in length, which is
+not three classes. The owner's call was to lower the sedan rather than change the rule: a car is a
+low bonnet, a raised inset cabin and a low boot, and once it occupies about seventy rows the
+twenty it gives back are exactly the headroom a van and a truck need to stand taller. Nothing
+mechanical moves — not the canvas rule, not `VEHICLE_ROOFLINE_TILES`, not `vehicle_canvas()`. The
+headroom was in the canvas all along; the sedan was simply spending it.
+
+The general fact worth keeping, because it will outlive these three classes: **the constraint is a
+property of the axis, not of the class.** A north-south canvas grows with length freely (192, 224,
+256 rows) because length runs up-canvas there. It is only east-west, where length runs across and
+height runs up, that every class shares one ceiling. A rule that reads as symmetric in the table
+is asymmetric in what it permits. And note how the problem was found: from a screenshot, not a
+proof — the slice-10 record called the sedan van-like off one frame, and 93-of-96 was measured
+afterwards off the committed PNG. Every gate was green throughout and none of them could have
+caught it, because no gate judges whether a picture reads as the thing it depicts.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

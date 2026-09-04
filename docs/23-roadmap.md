@@ -265,7 +265,18 @@ purpose.
   collision with the one-transform spine disappears with the pawn piece; what a glimpsed corpse
   is allowed to show is still an information-scarcity call that belongs beside the owner's other
   scarcity decisions.
-- **The van and the truck.** Two more classes on the same vocabulary once the sedan proves it.
+- **The van and the truck.** Two more classes on the same vocabulary now the sedan has proved it:
+  `van.json` 2×6 and `truck.json` 2×7, district weights sedan 10 / van 3 / truck 1, MANIFEST and
+  PLACED extended to three classes with a lane that **names any class that never landed** rather
+  than passing quietly. Worldgen needs no change — `_vehicles` already reads each class's
+  `footprint` out of content and weights the pick from the district's list. **Do the sedan first**
+  (owner, 2026-09-04, docs/30): every class's east-west canvas is 96 rows whatever its length, and
+  the shipped sedan fills 93 of them, so a van and a truck could otherwise differ only in length.
+  Re-author the sedan to about 70 rows — low bonnet, raised inset cabin, low boot, which also
+  closes slice 10's "reads van-like" finding — then draw the van and truck at 88–92 so height is
+  the primary tell. The truck's open bed is its silhouette against the van's closed box, so it is
+  a flatbed and not a box truck. `Appearance.VEHICLE_FOOTPRINTS` is the one table to extend; the
+  canvases derive from it (van `_ns` 64×224 / `_ew` 192×96, truck 64×256 / 224×96).
 - **The torch.** The reference's night is a cone from the player's hand; every light here is an
   omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
   item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's

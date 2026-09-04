@@ -32,9 +32,11 @@ exactly the failure the project keeps re-learning. The pointers:
   work is" section carries the three state facts worth repeating (the survival loop, on since
   2026-09-01; the top-down presentation track, whose art direction is the Dungeon Settlers look
   of 2026-09-03; the dead-socket pattern).
-- `HANDOFF.md` names what is waiting on the owner. Those items — sepsis lethality is the one
-  standing — are **decisions, never picked unilaterally**. (The `GRABS_ENABLED` flip and the
-  colony-shape call it waited on were decided by the owner 2026-09-01 and are landed; the
+- `HANDOFF.md` names what is waiting on the owner. Those items — sepsis lethality, whether a roof
+  covers a known building's unseen walls, whether the one-handed weapons need their own
+  silhouettes at 32 px, and how dense a forest stand may get — are **decisions, never picked
+  unilaterally**. Read the list there rather than trusting a count here. (The `GRABS_ENABLED` flip
+  and the colony-shape call it waited on were decided by the owner 2026-09-01 and are landed; the
   flag record in docs/23 closes with them. The art-style pick was decided 2026-09-01 and
   re-decided 2026-09-03; docs/30 carries both.)
 - The active design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is
