@@ -54,6 +54,14 @@ extends SceneTree
 #             the report is words on the HUD for HOOD_REPORT_TICKS and then gone; the view's keys
 #             are HOOD_KEYS and nothing else, every value a word or a boolean -- the health-bar
 #             ban's allowlist, applied to a car -- and a numeric key fabricated into it is caught.
+#   DASH      the driver's seat: `dash_view` is {} off the wheel and DASH_KEYS on it -- words
+#             and booleans plus exactly the two needle fractions, in [0, 1], never a digit in a
+#             string -- with the gear following the pedals (park stopped, drive under throttle,
+#             neutral coasting, the brake lamp on the other keys), the speed word rising to
+#             "flat out" at the cap, the engine lamp on a battered car and red on a wreck, the
+#             fuel needle at the tank's fraction; a fabricated numeric key is caught; main.gd
+#             feeds ui/dashboard.gd every refresh, and that file's string literals carry no
+#             digit -- the scanner proved on a fabricated one.
 #   SHELTER   a body at the wheel is off the shambler's menu: `_gather_survivors` lists it on
 #             foot and not in the car.
 #   SAVE      a car driven and saved comes back where it was driven to: the restored world's
@@ -90,6 +98,7 @@ const BOOT_GD: String = "res://sim/boot.gd"
 const SHAMBLER_GD: String = "res://sim/modules/shambler.gd"
 const MAIN_GD: String = "res://presentation/main.gd"
 const DRESSING_GD: String = "res://presentation/dressing.gd"
+const DASH_GD: String = "res://ui/dashboard.gd"
 const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
 const SCHEMA: String = "res://content/schemas/vehicle.schema.json"
 
@@ -117,13 +126,14 @@ func _run() -> void:
 	ok = _the_tank_runs_down(stash) and ok
 	ok = _a_crash_costs_condition(stash) and ok
 	ok = _the_hood_speaks_in_words(stash) and ok
+	ok = _the_dash_shows_the_seat(stash) and ok
 	ok = _a_driver_is_off_the_menu(stash) and ok
 	ok = _a_driven_car_survives_a_save(stash) and ok
 	ok = _the_sockets_are_wired() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 	if ok:
-		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; the tank runs down and a dry one stops the car; a crash costs condition and a wreck will not move; the hood speaks in words; a driver is off the shambler's menu; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
+		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; the tank runs down and a dry one stops the car; a crash costs condition and a wreck will not move; the hood speaks in words; the dash shows gear, speed, fuel and the engine lamp with no digit; a driver is off the shambler's menu; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
 			int(stash.get("classes", 0)), PARK_SIZE, int(stash.get("suburb_cars", 0)),
 			float(stash.get("top_speed", 0.0)), float(stash.get("noise_driving", 0.0)), float(stash.get("noise_idle", 0.0)),
 			seconds, BUDGET_SECONDS,
@@ -1320,7 +1330,198 @@ func _the_hood_speaks_in_words(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 11. SHELTER ---------------------------------------------------------------------------
+# --- 11. DASH ------------------------------------------------------------------------------
+
+func _string_literal_digit(code: String) -> String:
+	# The first string literal in `code` that carries a digit, or "" -- skipping colour codes
+	# and resource paths, which are literals nobody draws (the first cut caught "#1b1a17e6").
+	var rx := RegEx.new()
+	rx.compile("\"[^\"\\n]*\"")
+	for m in rx.search_all(code):
+		var literal: String = m.get_string()
+		if literal.begins_with("\"#") or literal.begins_with("\"res://"):
+			continue
+		if _has_digit(literal):
+			return literal
+	return ""
+
+
+func _dash_problem(view: Dictionary) -> String:
+	for key in view.keys():
+		if not SimVehicles.DASH_KEYS.has(String(key)):
+			return "disallowed key '%s'" % key
+		var value: Variant = view[key]
+		if SimVehicles.DASH_NEEDLES.has(String(key)):
+			if not (value is float):
+				return "needle '%s' is not a float" % key
+			if float(value) < 0.0 or float(value) > 1.0:
+				return "needle '%s' is %.3f, outside [0, 1]" % [key, float(value)]
+		elif not (value is String or value is bool):
+			return "'%s' is a %s, not a word or a boolean" % [key, type_string(typeof(value))]
+		elif value is String and _has_digit(String(value)):
+			return "'%s' carries a digit: '%s'" % [key, value]
+	for required in SimVehicles.DASH_KEYS:
+		if not view.has(required):
+			return "missing '%s'" % required
+	return ""
+
+
+func _the_dash_shows_the_seat(stash: Dictionary) -> bool:
+	var w: Variant = _hand_world()
+	var car: int = _car_of(w)
+	var v: Dictionary = _v(w, car)
+	var top: float = float(SimVehicles.drive_of(SimVehicles.class_of(w, "vehicle.sedan"))["speed"])
+	var tank: float = float(stash.get("tank", 40.0))
+	# Off the wheel: nothing.
+	if not SimVehicles.dash_view(w, w.player).is_empty():
+		push_error("DASH: a body on foot has a dashboard")
+		return false
+	# At the wheel, stopped: park, stopped, needle at zero, gauge full, engine sound, no lamps.
+	_toggle(w)
+	var view: Dictionary = SimVehicles.dash_view(w, w.player)
+	var problem: String = _dash_problem(view)
+	if not problem.is_empty():
+		push_error("DASH: %s in %s" % [problem, str(view)])
+		return false
+	if String(view["gear"]) != "park" or String(view["speed"]) != "stopped" or float(view["speedo"]) != 0.0 or bool(view["braking"]) or bool(view["throttle"]) or not bool(view["running"]):
+		push_error("DASH: at a stopped wheel the dash reads %s" % str(view))
+		return false
+	# The toggle tick already idled once, so the gauge sits a hair under full.
+	if float(view["gauge"]) < 0.999 or String(view["fuel"]) != "full" or String(view["engine"]) != "sound" or bool(view["warning"]):
+		push_error("DASH: a full sound sedan's dash reads %s" % str(view))
+		return false
+	# Throttle: drive, the needle climbing, the word climbing to flat out at the cap.
+	var words: Array = []
+	var last_needle: float = 0.0
+	w.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
+	for i in 60:
+		w.step()
+		view = SimVehicles.dash_view(w, w.player)
+		problem = _dash_problem(view)
+		if not problem.is_empty():
+			push_error("DASH: %s on tick %d" % [problem, i])
+			return false
+		if String(view["gear"]) != "drive" or not bool(view["throttle"]):
+			push_error("DASH: under throttle on tick %d the gear is %s" % [i, view["gear"]])
+			return false
+		if float(view["speedo"]) < last_needle:
+			push_error("DASH: the speedo fell under steady throttle on tick %d" % i)
+			return false
+		last_needle = float(view["speedo"])
+		if words.is_empty() or String(words[-1]) != String(view["speed"]):
+			words.append(String(view["speed"]))
+	if String(view["speed"]) != "flat out" or absf(float(view["speedo"]) - 1.0) > 1e-9:
+		push_error("DASH: sixty ticks of throttle read '%s' at needle %.2f" % [view["speed"], float(view["speedo"])])
+		return false
+	if words.size() < 3:
+		push_error("DASH: the speed word passed through only %s on the way to flat out" % str(words))
+		return false
+	if float(view["gauge"]) >= 1.0:
+		push_error("DASH: the fuel needle did not move off full after sixty ticks of driving")
+		return false
+	if absf(float(view["gauge"]) - float(v["fuel"]) / tank) > 1e-9:
+		push_error("DASH: the fuel needle %.4f is not the tank's fraction %.4f" % [float(view["gauge"]), float(v["fuel"]) / tank])
+		return false
+	# Foot off: neutral while rolling, then park at rest.
+	w.commands.push({"type": "wait"})
+	w.step()
+	view = SimVehicles.dash_view(w, w.player)
+	if String(view["gear"]) != "neutral" or bool(view["throttle"]) or String(view["speed"]) == "stopped":
+		push_error("DASH: coasting reads %s" % str(view))
+		return false
+	for i in 80:
+		w.step()
+	view = SimVehicles.dash_view(w, w.player)
+	if String(view["gear"]) != "park" or String(view["speed"]) != "stopped":
+		push_error("DASH: at rest after coasting the dash reads %s" % str(view))
+		return false
+	# The brake lamp: the opposite key while rolling, and off once stopped.
+	_move(w, 0.0, -1.0, 30)
+	w.commands.push({"type": "move", "dx": 0.0, "dy": 1.0})
+	w.step()
+	view = SimVehicles.dash_view(w, w.player)
+	if not bool(view["braking"]) or String(view["gear"]) != "neutral" or not String(view["prose"]).contains("braking"):
+		push_error("DASH: braking from speed reads %s" % str(view))
+		return false
+	for i in 60:
+		w.step()
+	view = SimVehicles.dash_view(w, w.player)
+	if bool(view["braking"]) and float(v["speed"]) == 0.0:
+		push_error("DASH: the brake lamp stayed on at rest")
+		return false
+	# The engine lamp: off sound, on battered, red on a wreck; a dry tank reads as such.
+	w.commands.push({"type": "wait"})
+	for i in 80:
+		w.step()
+	v["integrity"] = 45.0
+	view = SimVehicles.dash_view(w, w.player)
+	if not bool(view["warning"]) or String(view["engine"]) != "battered":
+		push_error("DASH: a battered engine reads %s" % str(view))
+		return false
+	v["integrity"] = 0.0
+	view = SimVehicles.dash_view(w, w.player)
+	if String(view["engine"]) != "wrecked" or bool(view["running"]) or not String(view["prose"]).contains("wrecked"):
+		push_error("DASH: a wreck reads %s" % str(view))
+		return false
+	v["integrity"] = 100.0
+	v["fuel"] = 0.0
+	view = SimVehicles.dash_view(w, w.player)
+	if bool(view["running"]) or float(view["gauge"]) != 0.0 or String(view["fuel"]) != "dry" or not String(view["prose"]).contains("dry"):
+		push_error("DASH: a dry tank reads %s" % str(view))
+		return false
+	# The allowlist can say no.
+	var leaked: Dictionary = view.duplicate()
+	leaked["kph"] = 32.0
+	if _dash_problem(leaked).is_empty():
+		push_error("DASH: a numeric kph fabricated into the view passed the allowlist")
+		return false
+	var leaked2: Dictionary = view.duplicate()
+	leaked2["speed"] = "32 km/h"
+	if _dash_problem(leaked2).is_empty():
+		push_error("DASH: a speed word with digits passed the allowlist")
+		return false
+	var leaked3: Dictionary = view.duplicate()
+	leaked3["speedo"] = 1.5
+	if _dash_problem(leaked3).is_empty():
+		push_error("DASH: a needle past the end of its dial passed the allowlist")
+		return false
+	# The screen: main.gd stands the dashboard and feeds it, and dashboard.gd draws no digit.
+	if _string_literal_digit("draw_string(f, p, \"32 km/h\")").is_empty():
+		push_error("DASH: the literal scanner passed a string with a digit in it; it cannot say no")
+		return false
+	if not _string_literal_digit("draw_string(f, p, \"flat out\") + 32.0; Color(\"#1b1a17\")").is_empty():
+		push_error("DASH: the literal scanner blamed a number outside a string, or a colour code; it cannot say yes")
+		return false
+	var dash_code: String = _code_of(DASH_GD)
+	if dash_code.is_empty():
+		push_error("DASH: could not read %s" % DASH_GD)
+		return false
+	var digit_literal: String = _string_literal_digit(dash_code)
+	if not digit_literal.is_empty():
+		push_error("DASH: %s draws a string with a digit in it: %s" % [DASH_GD, digit_literal])
+		return false
+	var draw_body: String = _function_body(DASH_GD, "_draw")
+	var missing: String = _missing_needle(draw_body, ["_dial(", "\"gear\"", "\"braking\"", "\"engine\"", "\"prose\""])
+	if not missing.is_empty():
+		push_error("DASH: dashboard.gd's _draw never reads %s" % missing)
+		return false
+	var dial_body: String = _function_body(DASH_GD, "_dial")
+	if _missing_needle(dial_body, ["draw_arc(", "draw_line("]) != "":
+		push_error("DASH: the dial draws no arc or needle")
+		return false
+	var ensure: String = _function_body(MAIN_GD, "_ensure_ui")
+	if not ensure.contains("res://ui/dashboard.gd"):
+		push_error("DASH: main.gd never stands the dashboard")
+		return false
+	var hud_body: String = _function_body(MAIN_GD, "_update_hud")
+	if _missing_needle(hud_body, ["SimVehicles.dash_view(", "_dashboard"]) != "":
+		push_error("DASH: main.gd's _update_hud never feeds the dashboard the seat's view")
+		return false
+	print("DASH OK off the wheel nothing; stopped it reads park and stopped with the needle at zero and the gauge full; under throttle it reads drive with the needle climbing through %s to flat out and the gauge off full at the tank's fraction; foot off reads neutral then park; the brake lamp lights on the opposite key; the engine lamp on battered and red on a wreck; a dry tank reads dry; a numeric kph, a speed with digits and a needle past its dial are all caught; dashboard.gd draws no digit and main.gd feeds it every refresh" % str(words))
+	return true
+
+
+# --- 12. SHELTER ---------------------------------------------------------------------------
 
 func _a_driver_is_off_the_menu(stash: Dictionary) -> bool:
 	var w: Variant = _hand_world()
@@ -1351,7 +1552,7 @@ func _a_driver_is_off_the_menu(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 12. SAVE -------------------------------------------------------------------------------
+# --- 13. SAVE -------------------------------------------------------------------------------
 
 func _a_driven_car_survives_a_save(stash: Dictionary) -> bool:
 	var a: Variant = _hand_world()
@@ -1415,7 +1616,7 @@ func _a_driven_car_survives_a_save(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 13. SOCKETS ----------------------------------------------------------------------------
+# --- 14. SOCKETS ----------------------------------------------------------------------------
 
 func _missing_needle(body: String, needles: Array) -> String:
 	for needle in needles:
