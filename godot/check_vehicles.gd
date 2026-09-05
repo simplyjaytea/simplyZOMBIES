@@ -3,7 +3,7 @@ extends SceneTree
 # layout wrote (`map.vehicles`, Tile.Low under it, one picture per axis); this slice makes every
 # record an entity at boot and lets the player get in and drive it. `sim/modules/vehicles.gd` is
 # the module: `spawn_from_manifest` stands one `vehicle` entity per record, `vehicle.toggle` is
-# the command (Q in main.gd) that mounts the car in reach or dismounts, the driver's `move` is the
+# the command (and E, through fortify's ladder) that mounts the car in reach or dismounts, the driver's `move` is the
 # car's intent, `_drive` integrates a four-heading car with a leading-edge probe, and `sync_map`
 # keeps the map's Low tiles and its records as the entity's shadow -- at spawn, after every
 # footprint change, and after a restore.
@@ -38,6 +38,9 @@ extends SceneTree
 #             which is louder than under a parked one, which is silent -- and with the emitter
 #             component taken off the car the field stays silent, which is the dead-socket
 #             assertion that the field reads the component and not the module.
+#   E-KEY     the owner's 2026-09-05 decision: E is the door. On fortify's ladder, `use.context`
+#             from the wheel gets out (never picks up what the car stands over), from the kerb
+#             gets in -- after a loose item beside the car, which E still picks up first.
 #   SHELTER   a body at the wheel is off the shambler's menu: `_gather_survivors` lists it on
 #             foot and not in the car.
 #   SAVE      a car driven and saved comes back where it was driven to: the restored world's
@@ -45,8 +48,8 @@ extends SceneTree
 #             the car parked where the layout put it.
 #   SOCKETS   textual, every scanner proved on a fabricated string first: world's integrate skips
 #             the `vehicle` component and its restore re-syncs the shadow; boot registers the
-#             module and spawns from the manifest; the shambler's gather skips `mounted`; main.gd
-#             pushes the toggle, skips the mounted body, keys its index on the map's vehicle
+#             module and spawns from the manifest; the shambler's gather skips `mounted`; fortify's
+#             E ladder mounts and dismounts; main.gd skips the mounted body, keys its index on the map's vehicle
 #             generation and reads the HUD clause; dressing hashes paint on the home corner and
 #             stands the picture on the live ground point.
 #   BUDGET    the whole gate inside a minute.
@@ -59,6 +62,10 @@ const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimShambler = preload("res://sim/modules/shambler.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
+const SimFortify = preload("res://sim/modules/fortify.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimItems = preload("res://sim/modules/items.gd")
 
 const CANON_SEED: int = 20260805
 const PARK_SIZE: int = 128
@@ -70,6 +77,7 @@ const BOOT_GD: String = "res://sim/boot.gd"
 const SHAMBLER_GD: String = "res://sim/modules/shambler.gd"
 const MAIN_GD: String = "res://presentation/main.gd"
 const DRESSING_GD: String = "res://presentation/dressing.gd"
+const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
 const SCHEMA: String = "res://content/schemas/vehicle.schema.json"
 
 # The hand sedan: 2x5, nose north, parked in the middle of an empty paved square, so a drive in
@@ -92,13 +100,14 @@ func _run() -> void:
 	ok = _the_driver_moves_the_car(stash) and ok
 	ok = _the_leading_edge_stops_it(stash) and ok
 	ok = _the_engine_reaches_the_field(stash) and ok
+	ok = _e_is_the_door(stash) and ok
 	ok = _a_driver_is_off_the_menu(stash) and ok
 	ok = _a_driven_car_survives_a_save(stash) and ok
 	ok = _the_sockets_are_wired() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 	if ok:
-		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; a driver is off the shambler's menu; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
+		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; a driver is off the shambler's menu; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
 			int(stash.get("classes", 0)), PARK_SIZE, int(stash.get("suburb_cars", 0)),
 			float(stash.get("top_speed", 0.0)), float(stash.get("noise_driving", 0.0)), float(stash.get("noise_idle", 0.0)),
 			seconds, BUDGET_SECONDS,
@@ -821,7 +830,75 @@ func _the_engine_reaches_the_field(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 7. SHELTER ----------------------------------------------------------------------------
+# --- 7. E-KEY ------------------------------------------------------------------------------
+
+func _e_is_the_door(stash: Dictionary) -> bool:
+	var w: Variant = _hand_world()
+	SimHealth.register_module(w)
+	SimInventory.register_module(w)
+	SimFortify.register_module(w)
+	SimHealth.make_survivor_body(w, w.player)
+	SimHealth.make_stamina(w, w.player)
+	SimInventory.make_inventory(w, w.player)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	var car: int = _car_of(w)
+	var p: Dictionary = _pos(w, w.player)
+	var door_x: float = float(p["x"])
+	var door_y: float = float(p["y"])
+	# A loose knife on the door tile: E picks it up and does not get in.
+	var knife: int = SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"})
+	w.components.set_component(knife, "position", {"x": door_x, "y": door_y})
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(knife, "position"):
+		push_error("E-KEY: E beside a car did not pick up the knife at the driver's feet")
+		return false
+	if w.components.has_component(w.player, "mounted"):
+		push_error("E-KEY: E got into the car with a knife at the driver's feet; the loot rung must come first")
+		return false
+	# Nothing loose: E gets in.
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if not w.components.has_component(w.player, "mounted"):
+		push_error("E-KEY: E beside the car with nothing else in reach did not get in (%s)" % SimVehicles.mount_problem(w, w.player, car))
+		return false
+	# A knife under the car: from the wheel E gets out and leaves it where it is.
+	var under: int = SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"})
+	w.components.set_component(under, "position", {"x": float(p["x"]), "y": float(p["y"])})
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(w.player, "mounted"):
+		push_error("E-KEY: E from the wheel did not get out")
+		return false
+	if not w.components.has_component(under, "position"):
+		push_error("E-KEY: E from the wheel picked up the knife under the car instead of opening the door")
+		return false
+	# And at speed, E from the wheel does nothing at all -- no dismount, no fall-through.
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if not w.components.has_component(w.player, "mounted"):
+		push_error("E-KEY: could not get back in for the at-speed case (%s)" % SimVehicles.mount_problem(w, w.player, car))
+		return false
+	_v(w, car)["speed"] = 3.0
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if not w.components.has_component(w.player, "mounted"):
+		push_error("E-KEY: E opened the door at speed")
+		return false
+	if not w.components.has_component(under, "position"):
+		push_error("E-KEY: E at speed fell through the ladder and picked up the knife under the car")
+		return false
+	_v(w, car)["speed"] = 0.0
+	# Nothing in presentation pushes the toggle any more: E is the one door.
+	var input_body: String = _function_body(MAIN_GD, "_input")
+	if input_body.contains("SimVehicles.TOGGLE") or input_body.contains("vehicle.toggle"):
+		push_error("E-KEY: main.gd still pushes the toggle from a key of its own; the owner's decision is E")
+		return false
+	print("E-KEY OK a knife at the door is picked up before the car; with nothing loose E gets in; from the wheel E gets out and leaves the knife under the car; at speed E does nothing; no key of its own remains in main.gd")
+	return true
+
+
+# --- 8. SHELTER ----------------------------------------------------------------------------
 
 func _a_driver_is_off_the_menu(stash: Dictionary) -> bool:
 	var w: Variant = _hand_world()
@@ -852,7 +929,7 @@ func _a_driver_is_off_the_menu(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 8. SAVE -------------------------------------------------------------------------------
+# --- 9. SAVE -------------------------------------------------------------------------------
 
 func _a_driven_car_survives_a_save(stash: Dictionary) -> bool:
 	var a: Variant = _hand_world()
@@ -910,7 +987,7 @@ func _a_driven_car_survives_a_save(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 9. SOCKETS ----------------------------------------------------------------------------
+# --- 10. SOCKETS ----------------------------------------------------------------------------
 
 func _missing_needle(body: String, needles: Array) -> String:
 	for needle in needles:
@@ -932,7 +1009,8 @@ func _the_sockets_are_wired() -> bool:
 		[BOOT_GD, "register_playable_modules", ["SimVehicles.register_module(world)"], "the toggle and the drive would run in no world"],
 		[BOOT_GD, "playable", ["SimVehicles.spawn_from_manifest(world, map)"], "no record would ever become an entity"],
 		[SHAMBLER_GD, "_gather_survivors", ["\"mounted\""], "a driver would be chased and grabbed through the door"],
-		[MAIN_GD, "_input", ["SimVehicles.TOGGLE"], "no key would push the toggle"],
+		[FORTIFY_GD, "_use_context", ["SimVehicles.dismount(", "SimVehicles.mount(", "SimVehicles.nearest_in_reach("], "E would never open a car door"],
+		[MAIN_GD, "_input", ["\"use.context\""], "no key would push the context command"],
 		[MAIN_GD, "_draw_entities", ["\"mounted\""], "the driver's pawn would draw on the bonnet"],
 		[MAIN_GD, "_vehicle_index", ["vehicle_generation"], "the tile index would go stale the moment a car moved"],
 		[MAIN_GD, "_update_hud", ["SimVehicles.hud_clause("], "the HUD would never say a car is beside you"],
@@ -948,7 +1026,7 @@ func _the_sockets_are_wired() -> bool:
 		if not missing.is_empty():
 			push_error("SOCKETS: %s::%s does not contain %s; %s" % [check[0], check[1], missing, check[3]])
 			return false
-	print("SOCKETS OK world skips the vehicle component and re-syncs the shadow on restore; boot registers the module and spawns from the manifest; the shambler's gather skips mounted; main.gd pushes the toggle, skips the mounted body, keys its index on the vehicle generation and reads the HUD clause; dressing hashes paint on the home corner and stands the picture on the live ground point; the scanner was proved on a fabricated string")
+	print("SOCKETS OK world skips the vehicle component and re-syncs the shadow on restore; boot registers the module and spawns from the manifest; the shambler's gather skips mounted; fortify's E ladder mounts and dismounts; main.gd pushes the context command, skips the mounted body, keys its index on the vehicle generation and reads the HUD clause; dressing hashes paint on the home corner and stands the picture on the live ground point; the scanner was proved on a fabricated string")
 	return true
 
 

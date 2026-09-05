@@ -72,7 +72,10 @@ const COAST_FRACTION: float = 0.5
 static func register_module(world: Variant) -> void:
 	# Input order 4: after world's apply-commands (0) has written the driver's velocity from the
 	# move command -- so the pin below zeroes what it wrote rather than racing it -- and before
-	# fortify's intake at 5, which never sees TOGGLE because nothing there asks for it.
+	# fortify's intake at 5, whose E ladder (SimFortify._use_context) is how the player gets in
+	# and out: from the wheel E dismounts, from the kerb it mounts after the loot and the people
+	# beside the car (the owner's 2026-09-05 decision, docs/30 "Driving"). TOGGLE stays a command
+	# of its own for gates and replays; nothing in presentation pushes it.
 	world.systems.register("vehicle.intake", "input", 4, func(w: Variant) -> void:
 		_intake(w)
 	)
@@ -722,12 +725,12 @@ static func hud_clause(world: Variant, actor: int) -> String:
 		if v is Dictionary:
 			var name: String = String(class_of(world, String((v as Dictionary).get("class", ""))).get("name", "car")).to_lower()
 			if float((v as Dictionary).get("speed", 0.0)) > 0.0:
-				return "driving the %s; Q to get out once it stops" % name
-			return "at the wheel of the %s, engine running; Q to get out" % name
+				return "driving the %s; E to get out once it stops" % name
+			return "at the wheel of the %s, engine running; E to get out" % name
 		return ""
 	var near: int = nearest_in_reach(world, actor)
 	if near == NO_DRIVER:
 		return ""
 	var nv: Dictionary = world.components.get_component(near, "vehicle") as Dictionary
 	var near_name: String = String(class_of(world, String(nv.get("class", ""))).get("name", "car")).to_lower()
-	return "a %s beside you; Q to get in" % near_name
+	return "a %s beside you; E to get in" % near_name
