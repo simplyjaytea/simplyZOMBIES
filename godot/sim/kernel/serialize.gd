@@ -37,7 +37,10 @@ extends RefCounted
 # a driver, and the map's Low tiles and `map.vehicles` records are rebuilt from them after a
 # restore (SimVehicles.sync_map). A v17 save has no vehicle entities, so restoring it into a v18
 # world would clear every parked car off the street; refused instead, per the rule below.
-const SAVE_VERSION: int = 18
+# 19: the light vehicles. The suburb's parking pass weights five more classes, so the manifest a
+# v18 seed regenerates no longer matches the entities a v18 save carries -- a saved sedan would
+# restore over a freshly parked bicycle's picture. Refused, same rule.
+const SAVE_VERSION: int = 19
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

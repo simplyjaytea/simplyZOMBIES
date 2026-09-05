@@ -116,7 +116,10 @@ const BUILDING_INSET: int = 1
 
 # Parking. A car is 2 tiles across and must keep a kerb row free on each side of it, so the
 # narrowest street it fits in is four tiles wide -- the usable lane offsets for a 2-wide body on a
-# span of `width` are 1..width-3, which is empty below four. Measured on seed 20260805, that is
+# span of `width` are 1..width-3, which is empty below four. The light classes are one across and
+# would fit a 3-wide span, but the span test stays at four for every class on purpose: it is what
+# keeps the 64-tile map every gate boots byte-identical (no span qualifies, the stream is never
+# touched), and a bicycle-only pass on the narrow streets is a slice of its own, named in docs/23. Measured on seed 20260805, that is
 # what keeps the town centre (streets 2/3/3 at 64/128/256) and the forest edge (2/2/3) empty and
 # the suburb (2/5/7) parked at 128 and 256 but not at the 64 every gate boots.
 const VEHICLE_MIN_WIDTH: int = 4
@@ -901,15 +904,17 @@ static func _vehicles(map: Variant, seed_val: int, district: Dictionary, templat
 		for along in range(from, to + 1, VEHICLE_SLOT):
 			var present: bool = float(rng.call("next")) < density
 			var pick: int = _weighted(rng, weights)
-			# The body sits inside the carriageway with a kerb row free on each side: offset 0 is
-			# the near kerb and width-1 the far one, so a 2-wide car starts at 1..width-3.
-			var lane: int = int(rng.call("int_range", 1, width - 3))
-			var heading: int = int(rng.call("int_range", 0, 1))
-			if not present:
-				continue
 			var shape: Dictionary = (classes[pick] as Dictionary)["footprint"] as Dictionary
 			var breadth: int = int(shape["w"])
 			var length: int = int(shape["l"])
+			# The body sits inside the carriageway with a kerb row free on each side: offset 0 is
+			# the near kerb and width-1 the far one, so a 2-wide car starts at 1..width-3 and a
+			# 1-wide bicycle at 1..width-2. Still one draw whatever the range, so the class's
+			# breadth moves the lane a light vehicle lands in and never a draw downstream of it.
+			var lane: int = int(rng.call("int_range", 1, maxi(1, width - 1 - breadth)))
+			var heading: int = int(rng.call("int_range", 0, 1))
+			if not present:
+				continue
 			var rect := Rect2i(at + lane, along, breadth, length) if vertical else Rect2i(along, at + lane, length, breadth)
 			# One picture per class x variant x axis (the owner's decision 11), so the record
 			# carries which axis it stands on and which end is the nose, and nothing rotates.
@@ -1205,6 +1210,10 @@ static func _vehicle_tails(map: Variant) -> Array:
 		var cw: int = int(car.get("w", 0))
 		var ch: int = int(car.get("h", 0))
 		if cw <= 0 or ch <= 0:
+			continue
+		# A boot needs a body two tiles across: a bicycle or a board parked one tile wide has
+		# no tail anything could be stood in, so a `host: vehicle` site never lands on one.
+		if mini(cw, ch) < 2:
 			continue
 		var facing: String = String(car.get("facing", ""))
 		if String(car.get("axis", "ns")) == "ns":

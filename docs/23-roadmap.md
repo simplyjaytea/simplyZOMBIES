@@ -298,6 +298,28 @@ landed, and what is below is what the arc named and left.
   director's pressure model, because the 64-tile harness parks no car; and **a car seen from
   behind** — the north-south axis still draws one picture for both facings (decision 11's
   limit), which a driven car now shows every time it turns round.
+- **What the light vehicles left behind.** The bicycle, the e-bike, the e-scooter, the kick
+  scooter and the skateboard landed 2026-09-05 (the record below, the LIGHT lane of
+  `godot:m2:vehicles`), and named these rather than building them: **the rider's body** — a
+  grab or a crash at speed puts a rider off an open vehicle (`SimVehicles._unseat`) and the
+  body takes nothing from it, the same half the cars shipped (the machine is hurt, the body is
+  not); a fall at 6 m/s is a wound, and which part and how bad is a `SimWounds` slice with a
+  measurement, not a number typed here; **legs are free** — pedalling and pushing cost the
+  rider no stamina and no hunger, so a bicycle is a tireless sprint that is quieter than a
+  sprint, priced only by exposure and by the frame's condition; whether it should draw on the
+  stamina pool a sprint draws on is a balance call that wants the harness, and the 64-tile
+  harness parks no bicycle either; **the narrow streets** — a one-wide body would fit a 3-wide
+  span, and `SimWorldgen._vehicles` still skips every span under `VEHICLE_MIN_WIDTH` (4) so the
+  64-tile map every gate boots stays byte-identical; a bicycle-only pass on the 3-wide streets
+  of the town centre and the forest edge is where light vehicles belong most and is its own
+  measured slice, because it moves the balance harness's map; **light vehicles at the
+  director** — a bicycle's 3 and a skateboard's 5 on the field are first-cut numbers under a
+  sprint's 6, never run against the director's pressure model; **the rider's picture** — the
+  pawn stands on the machine's ground point lifted a fixed 0.35 m (`main.gd`'s `RIDER_LIFT_M`)
+  and sorted a hair in front of it, so a rider on a skateboard floats as high as one on a
+  saddle; a per-class seat height is one content key and one line, held back until the
+  pictures have been looked at; and **charging** — a flat battery is flat for good, exactly as
+  a dry tank is dry, and a charger is the same refuelling verb the cars are waiting on.
 - **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
   the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
   only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
@@ -2773,6 +2795,88 @@ not a to-do list:
   gear, the lamps and the prose and `_dial` draws an arc and a needle; `main.gd` stands the
   control and feeds it. **The picture**: `slice12-dashboard-64.png` under the shots directory,
   the sedan under way with the cluster below it.
+- ~~Light vehicles: bikes, scooters, boards~~ **landed** (`godot:m2:vehicles` grows a LIGHT
+  lane, sixteen in all, and CONTENT, SHELTER, DASH and SOCKETS each grow; `WRECKS_OK`'s
+  MANIFEST and SILHOUETTE lanes judge the five new classes; no chain change; the owner's
+  fourth goal of 2026-09-05: "add bikes, scooters, skateboards, and maybe even electric bikes
+  ... driveable, similar to cars, but with more balanced speeds ... a small dash as well").
+  **Five classes, no new code path:** `content/vehicles/{bicycle,ebike,escooter,kickscooter,
+  skateboard}.json` are `vehicle` entities, manifest records and one three-quarter picture per
+  class × variant × axis exactly as the cars are, told apart by three content keys the schema
+  now requires of every class. `drive.power` is `engine` (the cars), `battery` (the e-bike and
+  the e-scooter: charge in the tank field, spent per metre and per standby minute exactly as
+  litres are, and when flat the rider falls back to the block's `unpowered` speed — pedalling
+  the e-bike at 5.5, kicking the e-scooter at 3.0) or `muscle` (the bicycle, the kick scooter
+  and the skateboard: no tank, the three tank keys optional and read as zero, never dry).
+  `cab` is whether the driver sits inside anything: true for the cars, false for everything
+  else, carried onto the `mounted` component at mount so the shambler's gather and the drawing
+  loop read a boolean and never look a class up per body per tick. `dash` names the
+  instrument layout. **The speeds sit between a walk and a car, deliberately** — bicycle 6.5,
+  e-bike 7.5 under power, e-scooter 6.0, skateboard 4.5, kick scooter 4.0, against a walk's
+  2.1, a sprint's 6.3 and the cars' 8..10 — and the CONTENT lane holds the spread: an engine
+  class is faster and louder than a sprint, every other class faster than a walk, quieter than
+  a sprint (bicycle 3, e-bike 4, e-scooter 4, kick scooter 4, skateboard 5 on the field, tyres
+  and a hub motor rather than an engine) and slower than a truck. **What a light vehicle
+  trades for its speed is the cab:** a rider is on the shambler's menu (`_gather_survivors`
+  skips only a `mounted` body whose `cab` is true), and a grab or a crash at
+  `CRASH_MIN_SPEED` or more puts the rider off it — `_unseat` releases the driver where they
+  stand (the tile under an open vehicle is Low and walkable), stops the machine and publishes
+  `vehicle.unseated` with why; a car's driver is never unseated by either. `_pin_driver` now
+  also turns the rider's `facing` to the heading, and `main.gd` draws a rider on an open
+  vehicle on the machine's own ground point, lifted `RIDER_LIFT_M` and sorted `RIDER_DEPTH_EPS`
+  in front of the picture, where a car's driver stays undrawn. **Words:** a battery reads
+  flat / a sliver of charge / under a quarter / about half a charge / most of a charge / full
+  on the tank's own fractions (`CHARGE_WORDS`), a muscle class reads "no tank"; the hood check
+  on anything without a hood is "looking the bicycle over: the frame is scuffed; nothing to
+  fill"; the HUD says get on and get off, in the saddle of, standing on, riding, and "the
+  battery is flat, so it is legs from here". **The dash** (`ui/dashboard.gd`) grew two layouts
+  beside the car's cluster, picked by `dash_view.layout`: `handlebar` (bicycle, e-bike,
+  e-scooter) is a 360-px panel with one small speed dial, the motion word, a brake lamp, a
+  frame lamp, and a marked-nothing charge bar only when `powered`; `board` (skateboard, kick
+  scooter) is a 300-px strip with the motion word, six speed pips lit to the needle's
+  fraction, a foot-down lamp and the frame lamp. `dash_view` gained `layout`, `motion` (the
+  gear in the layout's own words — in park / in neutral / in drive, stopped / coasting /
+  pedalling or under power, stopped / rolling / pushing; `MOTION_WORDS`) and `powered`; the
+  allowlist is still every value a word or a boolean plus the two needles, and the flat e-bike
+  pedalled at 5.5 reads a needle part-way up the *same* dial, because the dial is the class's
+  top and the ride got slower, not the dial. **Parking:** the suburb weights the five beside
+  the cars (sedan 10, van 3, truck 1, bicycle 4, e-bike 2, e-scooter 2, kick scooter 1,
+  skateboard 1); `_vehicles` draws the lane after the class so a one-wide body parks at
+  1..width-2 where a car parks at 1..width-3 — one draw whatever the range, so the stream's
+  discipline holds — and the span test stays at `VEHICLE_MIN_WIDTH` 4 for every class, which
+  is what keeps the 64-tile gate map byte-identical (`M2_BALANCE_OK` cannot move). A car-boot
+  site never stands on a bicycle: `_vehicle_tails` skips a record under two across. Over the
+  four wrecks seeds at 128 the suburb now parks 140 vehicles (28..40 a map; sedan 56, van 12,
+  truck 4, bicycle 21, e-bike 13, e-scooter 20, kick scooter 5, skateboard 9), against 133
+  cars before, so the streets read the same and a third of what stands in them is something
+  you sit on. `SAVE_VERSION` is **19**: the weighted list changed what a v18 seed parks, so a
+  v18 save's sedan would restore over a fresh bicycle's picture. **The pictures**
+  (`tools/sprites/parts/light_vehicles.py`, merged into `vehicles.py`'s tables; thirty keys,
+  `SPRITES_OK` 106): the same 20 px/m camera as the cars — the bicycle and the e-bike two
+  wheels and a diamond frame in 25 rows of their 64, the e-bike's frame filled by a battery
+  block on the down tube and a fat hub motor (37 px more paint than the bicycle in the same
+  outline), the scooters a low deck with a stem at the nose rising 18..20 rows over it, the
+  skateboard a deck on four wheels in 9 rows; `Appearance.VEHICLE_FOOTPRINTS` gained the five
+  and the canvases derive as before (32×96 / 64×64 for a 1×2, 32×64 both ways for a 1×1).
+  **The gates**, red both ways: LIGHT (the bicycle peaks at exactly its content top and no
+  more with the tank at zero throughout, its emitter at 3 and no idle, pedalling then coasting
+  then stopped, a wreck goes nowhere, a grab and a crash at 4.4 m/s unseat the rider and
+  neither reaches a sedan's driver behind its door, the e-bike peaks at 7.5 spending 0.76 Wh
+  and flat rides at 5.5 pedalling with the words saying so, the skateboard pushes, drags a
+  foot and turns on its own tile, nine motion words and no digit, an unknown `dash` word falls
+  to the board, suburb@128 parks 18 light vehicles and hosts no boot on any); CONTENT (no
+  power, a power nobody named, a battery with no tank and a negative `unpowered` refused, a
+  muscle block with no tank keys read as zero, every class's `cab` agreeing with its power);
+  SHELTER (a rider on a bicycle is gathered, and a mount lying about a cab is spared — the
+  dead-socket assertion that the gather reads the boolean); DASH (the three layout bodies each
+  read their own needles, the handlebar draws no P N D, the board no dial); SILHOUETTE (the
+  bicycles level in 20..36 rows, the scooters' stems 10+ over their decks, the skateboard under
+  12, the e-bike 20+ px fuller than the bicycle, each rule refused on a fabricated block);
+  MANIFEST (`HAND_SLOTS` keyed by class on a 24-tile hand map, every class on both axes).
+  **What it leaves** is in what's left under "What the light vehicles left behind": the rider's
+  body, legs being free, the narrow streets, the director, the rider's seat height, and
+  charging. **First cuts taken without an owner** are in docs/30's Driving entry under "Light
+  vehicles", listed for re-deciding.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

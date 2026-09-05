@@ -1,0 +1,41 @@
+{
+  "id": "vehicle.ebike",
+  "name": "Electric bike",
+  "drive": {
+    "power": "battery",
+    "speed": 7.5,
+    "accel": 2.5,
+    "brake": 5.0,
+    "noise": 4,
+    "idle": 0,
+    "tank": 500,
+    "range": 8000,
+    "idleMinutes": 600,
+    "unpowered": 5.5
+  },
+  "cab": false,
+  "dash": "handlebar",
+  "footprint": {
+    "w": 1,
+    "l": 2
+  },
+  "appearance": {
+    "variants": [
+      {
+        "id": "pale",
+        "ns": "vehicle_ebike_pale_ns",
+        "ew": "vehicle_ebike_pale_ew"
+      },
+      {
+        "id": "green",
+        "ns": "vehicle_ebike_green_ns",
+        "ew": "vehicle_ebike_green_ew"
+      },
+      {
+        "id": "burnt",
+        "ns": "vehicle_ebike_burnt_ns",
+        "ew": "vehicle_ebike_burnt_ew"
+      }
+    ]
+  }
+}

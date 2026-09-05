@@ -79,7 +79,7 @@ npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
 npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
 npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
 npm run godot:m2:raiders   # the band at the gate       → M2_RAIDERS_OK
-npm run godot:m2:vehicles  # the parked cars, driven    → M2_VEHICLES_OK
+npm run godot:m2:vehicles  # the parked cars and bikes, driven → M2_VEHICLES_OK
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK

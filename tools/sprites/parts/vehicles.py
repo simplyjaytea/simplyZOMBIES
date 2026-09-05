@@ -1,4 +1,4 @@
-"""The vehicles: one three-quarter picture per class, variant and axis. Eighteen keys, three classes.
+"""The vehicles: one three-quarter picture per class, variant and axis. Forty-eight keys, eight classes -- the three cars here, the five light classes in `light_vehicles.py`.
 
 docs/30's Dungeon Settlers decision 11 retires the per-tile segment set for cars. A vehicle is
 **one picture**, feet-anchored on its footprint's south edge and y-sorted with the bodies and
@@ -68,6 +68,8 @@ is charred to `wood`'s darkest step.
 from draw import SIZE, Canvas
 from palette import OUTLINE, RAMPS
 
+from parts import light_vehicles
+
 # --- the classes and their canvases ----------------------------------------------------------
 #
 # The Godot side keeps the *footprint*, not the canvas: `Appearance.vehicle_canvas()` derives the
@@ -77,6 +79,10 @@ from palette import OUTLINE, RAMPS
 # measures every committed PNG against the engine's answer, and `build.py` refuses a render at
 # the wrong size before it writes.
 FOOTPRINTS = {"sedan": (2, 5), "van": (2, 6), "truck": (2, 7)}
+# The light classes -- bicycle, e-bike, e-scooter, kick scooter, skateboard -- are drawn in
+# `parts/light_vehicles.py` under this file's camera and merged here, so `build.py` and the
+# Godot side see one footprint table and one key set.
+FOOTPRINTS.update(light_vehicles.FOOTPRINTS)
 ROOFLINE_TILES = 1
 
 VARIANTS = ("pale", "green", "burnt")
@@ -803,6 +809,7 @@ _RENDERERS = {
     "van": (_van_ns, _van_ew),
     "truck": (_truck_ns, _truck_ew),
 }
+_RENDERERS.update(light_vehicles.RENDERERS)
 
 REGISTRY = {}
 for _cls, (_ns, _ew) in _RENDERERS.items():

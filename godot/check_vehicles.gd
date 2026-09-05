@@ -63,7 +63,16 @@ extends SceneTree
 #             feeds ui/dashboard.gd every refresh, and that file's string literals carry no
 #             digit -- the scanner proved on a fabricated one.
 #   SHELTER   a body at the wheel is off the shambler's menu: `_gather_survivors` lists it on
-#             foot and not in the car.
+#             foot and not in the car -- and a rider on a bicycle IS listed, because the shelter
+#             is the cab and a bicycle has none.
+#   LIGHT     the light vehicles (the owner's fourth goal of 2026-09-05): every class content
+#             declares names a power, a cab and a dash the schema allows; a muscle class rides
+#             with no tank and burns nothing, a battery class rides under power and, flat, at
+#             its unpowered speed; a bicycle outruns a sprint and a skateboard does not, both
+#             quieter than a sprint; a grab and a crash at speed put a rider off an open vehicle
+#             and never a driver out of a cab; each layout's dash carries its own motion words
+#             and no digit; the HUD says get on and off; a light class parks one tile wide at
+#             128 with a kerb row free either side and never hosts a car-boot site.
 #   SAVE      a car driven and saved comes back where it was driven to: the restored world's
 #             entity, record, Low tiles and cleared tail all match, in a second world that had
 #             the car parked where the layout put it.
@@ -100,6 +109,7 @@ const MAIN_GD: String = "res://presentation/main.gd"
 const DRESSING_GD: String = "res://presentation/dressing.gd"
 const DASH_GD: String = "res://ui/dashboard.gd"
 const FORTIFY_GD: String = "res://sim/modules/fortify.gd"
+const WORLDGEN_GD: String = "res://sim/map/worldgen.gd"
 const SCHEMA: String = "res://content/schemas/vehicle.schema.json"
 
 # The hand sedan: 2x5, nose north, parked in the middle of an empty paved square, so a drive in
@@ -128,14 +138,16 @@ func _run() -> void:
 	ok = _the_hood_speaks_in_words(stash) and ok
 	ok = _the_dash_shows_the_seat(stash) and ok
 	ok = _a_driver_is_off_the_menu(stash) and ok
+	ok = _the_light_vehicles_ride(stash) and ok
 	ok = _a_driven_car_survives_a_save(stash) and ok
 	ok = _the_sockets_are_wired() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 	if ok:
-		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; the tank runs down and a dry one stops the car; a crash costs condition and a wreck will not move; the hood speaks in words; the dash shows gear, speed, fuel and the engine lamp with no digit; a driver is off the shambler's menu; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
+		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; the tank runs down and a dry one stops the car; a crash costs condition and a wreck will not move; the hood speaks in words; the dash shows gear, speed, fuel and the engine lamp with no digit; a driver is off the shambler's menu and a rider on it; the bicycle rides at %.1f with no tank, the e-bike drops to %.1f flat, a grab and a crash unseat a rider and never a driver, three dash layouts and no digit; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
 			int(stash.get("classes", 0)), PARK_SIZE, int(stash.get("suburb_cars", 0)),
 			float(stash.get("top_speed", 0.0)), float(stash.get("noise_driving", 0.0)), float(stash.get("noise_idle", 0.0)),
+			float(stash.get("bicycle_top", 0.0)), float(stash.get("ebike_flat", 0.0)),
 			seconds, BUDGET_SECONDS,
 		])
 		quit(0)
@@ -178,6 +190,16 @@ func _hand_world(record: Dictionary = {}) -> Variant:
 
 func _sedan_record() -> Dictionary:
 	return {"x": CAR_X, "y": CAR_Y, "w": 2, "h": 5, "axis": "ns", "class": "vehicle.sedan", "facing": "n"}
+
+
+# A light vehicle parked where the sedan would be: one tile across, nose north, the player's
+# tile west of it still beside it.
+func _light_record(cls: String, length: int) -> Dictionary:
+	return {"x": CAR_X, "y": CAR_Y, "w": 1, "h": length, "axis": "ns", "class": "vehicle.%s" % cls, "facing": "n"}
+
+
+func _bicycle_record() -> Dictionary:
+	return _light_record("bicycle", 2)
 
 
 # What the generator does for a record: the record into the manifest and Low under it.
@@ -268,32 +290,85 @@ func _every_class_declares_how_it_drives(stash: Dictionary) -> bool:
 		if drive.is_empty():
 			push_error("CONTENT: %s declares no whole drive block {speed, accel, brake, noise, idle}" % id)
 			return false
-		if float(drive["speed"]) <= 6.3:
-			push_error("CONTENT: %s tops out at %.1f m/s, slower than a sprint (6.3); a car you cannot outrun on foot is not a car" % [id, float(drive["speed"])])
+		# The speed and noise rules follow the power: an engine is faster and louder than a
+		# sprint or it is not a car; a muscle or battery class is faster than a walk (or it is
+		# not worth getting on) and no louder than a sprint (tyres and a hub motor are not).
+		var power: String = SimVehicles.power_of(drive)
+		if power == SimVehicles.POWER_ENGINE:
+			if float(drive["speed"]) <= 6.3:
+				push_error("CONTENT: %s tops out at %.1f m/s, slower than a sprint (6.3); a car you cannot outrun on foot is not a car" % [id, float(drive["speed"])])
+				return false
+			if float(drive["noise"]) <= 6.0:
+				push_error("CONTENT: %s's engine (%.1f) is no louder than a sprint (6.0)" % [id, float(drive["noise"])])
+				return false
+		else:
+			if float(drive["speed"]) <= 2.1:
+				push_error("CONTENT: %s tops out at %.1f m/s, no faster than a walk (2.1); a ride slower than walking is not worth getting on" % [id, float(drive["speed"])])
+				return false
+			if float(drive["noise"]) > 6.0:
+				push_error("CONTENT: %s makes %.1f under way, louder than a sprint (6.0); a bicycle is not an engine" % [id, float(drive["noise"])])
+				return false
+			if float(drive["speed"]) >= 8.0:
+				push_error("CONTENT: %s tops out at %.1f m/s, as fast as a truck (8); the light classes sit between a walk and a car" % [id, float(drive["speed"])])
+				return false
+		if power == SimVehicles.POWER_MUSCLE and float(drive["tank"]) != 0.0:
+			push_error("CONTENT: %s is muscle-powered and declares a tank" % id)
 			return false
-		if float(drive["noise"]) <= 6.0:
-			push_error("CONTENT: %s's engine (%.1f) is no louder than a sprint (6.0)" % [id, float(drive["noise"])])
+		if power != SimVehicles.POWER_MUSCLE and float(drive["tank"]) <= 0.0:
+			push_error("CONTENT: %s has a motor and no tank or battery" % id)
+			return false
+		if not SimVehicles.DASH_LAYOUTS.has(String((entry as Dictionary).get("dash", ""))):
+			push_error("CONTENT: %s declares dash '%s', not one of %s" % [id, String((entry as Dictionary).get("dash", "")), str(SimVehicles.DASH_LAYOUTS)])
+			return false
+		if not ((entry as Dictionary).get("cab") is bool):
+			push_error("CONTENT: %s declares no boolean `cab`" % id)
+			return false
+		if bool((entry as Dictionary).get("cab", false)) != (power == SimVehicles.POWER_ENGINE):
+			push_error("CONTENT: %s's cab (%s) disagrees with its power (%s); every car here has a cab and nothing else does" % [id, str((entry as Dictionary).get("cab")), power])
 			return false
 	# The negatives: the same reader refuses a block missing a key, a zero speed and a non-number.
-	var whole: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
+	var whole: Dictionary = {"drive": {"power": "engine", "speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
 	if SimVehicles.drive_of(whole).is_empty():
 		push_error("CONTENT: the reader refused a whole block; it cannot say yes")
 		return false
-	var short: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "tank": 40, "range": 12000, "idleMinutes": 90}}
+	var short: Dictionary = {"drive": {"power": "engine", "speed": 10, "accel": 4, "brake": 8, "noise": 24, "tank": 40, "range": 12000, "idleMinutes": 90}}
 	if not SimVehicles.drive_of(short).is_empty():
 		push_error("CONTENT: the reader accepted a block with no idle; a car would drive on a default nothing declared")
 		return false
-	var no_tank: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "range": 12000, "idleMinutes": 90}}
+	var no_tank: Dictionary = {"drive": {"power": "engine", "speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "range": 12000, "idleMinutes": 90}}
 	if not SimVehicles.drive_of(no_tank).is_empty():
 		push_error("CONTENT: the reader accepted a block with no tank; a car would burn fuel it never had")
 		return false
-	var still: Dictionary = {"drive": {"speed": 0, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
+	var still: Dictionary = {"drive": {"power": "engine", "speed": 0, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
 	if not SimVehicles.drive_of(still).is_empty():
 		push_error("CONTENT: the reader accepted speed 0")
 		return false
-	var words: Dictionary = {"drive": {"speed": "fast", "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
+	var words: Dictionary = {"drive": {"power": "engine", "speed": "fast", "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
 	if not SimVehicles.drive_of(words).is_empty():
 		push_error("CONTENT: the reader accepted a string for a number")
+		return false
+	# The power's own negatives: no power, a power nobody named, a battery with no tank, a
+	# muscle block with none -- accepted, its tank keys reading zero -- and a negative unpowered.
+	var unpowered: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
+	if not SimVehicles.drive_of(unpowered).is_empty():
+		push_error("CONTENT: the reader accepted a block that names no power")
+		return false
+	var steam: Dictionary = {"drive": {"power": "steam", "speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
+	if not SimVehicles.drive_of(steam).is_empty():
+		push_error("CONTENT: the reader accepted a power nobody named")
+		return false
+	var flat_battery: Dictionary = {"drive": {"power": "battery", "speed": 7, "accel": 2, "brake": 5, "noise": 4, "idle": 0}}
+	if not SimVehicles.drive_of(flat_battery).is_empty():
+		push_error("CONTENT: the reader accepted a battery class with no tank; it would spend charge it never had")
+		return false
+	var legs: Dictionary = {"drive": {"power": "muscle", "speed": 6, "accel": 2, "brake": 5, "noise": 3, "idle": 0}}
+	var legs_read: Dictionary = SimVehicles.drive_of(legs)
+	if legs_read.is_empty() or float(legs_read["tank"]) != 0.0 or float(legs_read["range"]) != 0.0 or float(legs_read["unpowered"]) != 0.0:
+		push_error("CONTENT: a muscle block with no tank keys was refused or read a tank: %s" % str(legs_read))
+		return false
+	var backwards: Dictionary = {"drive": {"power": "battery", "speed": 7, "accel": 2, "brake": 5, "noise": 4, "idle": 0, "tank": 500, "range": 8000, "idleMinutes": 600, "unpowered": -1}}
+	if not SimVehicles.drive_of(backwards).is_empty():
+		push_error("CONTENT: the reader accepted a negative unpowered speed")
 		return false
 	if not SimVehicles.drive_of({}).is_empty():
 		push_error("CONTENT: the reader accepted an entry with no drive block at all")
@@ -308,10 +383,17 @@ func _every_class_declares_how_it_drives(stash: Dictionary) -> bool:
 		if not schema_text.contains("\"%s\"" % key):
 			push_error("CONTENT: %s never names drive.%s; a class could omit it and only the reader would notice" % [SCHEMA, key])
 			return false
+	for key2 in ["\"power\"", "\"unpowered\"", "\"cab\"", "\"dash\"", "\"muscle\"", "\"battery\"", "\"handlebar\"", "\"board\""]:
+		if not schema_text.contains(String(key2)):
+			push_error("CONTENT: %s never names %s; the light-vehicle keys are unschema'd" % [SCHEMA, String(key2)])
+			return false
+	if not schema_text.contains("\"required\": [\"id\", \"name\", \"drive\", \"cab\", \"dash\""):
+		push_error("CONTENT: %s does not require cab and dash" % SCHEMA)
+		return false
 	# And a class the world does not declare, or declares without a drive, cannot be mounted:
 	# the hand world with a fabricated class that has a footprint and no drive.
 	var w: Variant = _hand_world()
-	(w.content as Dictionary)["vehicles/zz_fake.json"] = {"id": "vehicle.fake", "name": "Fake", "footprint": {"w": 2, "l": 5}, "appearance": {"variants": []}}
+	(w.content as Dictionary)["vehicles/zz_fake.json"] = {"id": "vehicle.fake", "name": "Fake", "cab": true, "dash": "cluster", "footprint": {"w": 2, "l": 5}, "appearance": {"variants": []}}
 	var fake: Dictionary = {"x": CAR_X + 10, "y": CAR_Y, "w": 2, "h": 5, "axis": "ns", "class": "vehicle.fake", "facing": "n"}
 	_park(w.tilemap, fake)
 	var spawned: Array[int] = SimVehicles.spawn_from_manifest(w, w.tilemap)
@@ -326,7 +408,7 @@ func _every_class_declares_how_it_drives(stash: Dictionary) -> bool:
 		push_error("CONTENT: a class with no drive block was not refused at the wheel (problem: '%s')" % problem)
 		return false
 	stash["classes"] = classes.size()
-	print("CONTENT OK %d classes each declare a whole drive block of %d keys, faster than a sprint and louder than one; the schema requires it and names every key; a block missing idle, one missing its tank, a zero speed, a string and no block are refused, and a fabricated class with no drive block cannot be mounted ('%s')" % [classes.size(), SimVehicles.DRIVE_KEYS.size(), problem])
+	print("CONTENT OK %d classes each declare a power, a cab, a dash and a whole drive block of %d keys -- the engines faster and louder than a sprint, the rest faster than a walk, quieter than a sprint and slower than a truck; the schema requires it and names every key; a block missing idle, one missing its tank, a zero speed, a string, no block, no power, a power nobody named, a battery with no tank and a negative unpowered are refused, a muscle block with no tank keys reads zero, and a fabricated class with no drive block cannot be mounted ('%s')" % [classes.size(), SimVehicles.DRIVE_KEYS.size(), problem])
 	return true
 
 
@@ -1500,10 +1582,35 @@ func _the_dash_shows_the_seat(stash: Dictionary) -> bool:
 	if not digit_literal.is_empty():
 		push_error("DASH: %s draws a string with a digit in it: %s" % [DASH_GD, digit_literal])
 		return false
+	# `_draw` dispatches on the view's layout word and each layout draws its own instruments; the
+	# needles are read in the layout bodies, so those are what is scanned.
 	var draw_body: String = _function_body(DASH_GD, "_draw")
-	var missing: String = _missing_needle(draw_body, ["_dial(", "\"gear\"", "\"braking\"", "\"engine\"", "\"prose\""])
+	if _missing_needle(draw_body, ["\"layout\"", "_draw_cluster(", "_draw_handlebar(", "_draw_board("]) != "":
+		push_error("DASH: dashboard.gd's _draw does not dispatch on the layout to all three drawings")
+		return false
+	var cluster_body: String = _function_body(DASH_GD, "_draw_cluster")
+	var missing: String = _missing_needle(cluster_body, ["_dial(", "\"gear\"", "\"braking\"", "\"prose\"", "_engine_colour("])
 	if not missing.is_empty():
-		push_error("DASH: dashboard.gd's _draw never reads %s" % missing)
+		push_error("DASH: dashboard.gd's _draw_cluster never reads %s" % missing)
+		return false
+	if _missing_needle(_function_body(DASH_GD, "_engine_colour"), ["\"engine\"", "\"warning\""]) != "":
+		push_error("DASH: the engine lamp reads neither the engine word nor the warning")
+		return false
+	var handlebar_body: String = _function_body(DASH_GD, "_draw_handlebar")
+	missing = _missing_needle(handlebar_body, ["_dial(", "\"motion\"", "\"braking\"", "\"powered\"", "\"gauge\"", "\"prose\""])
+	if not missing.is_empty():
+		push_error("DASH: dashboard.gd's _draw_handlebar never reads %s" % missing)
+		return false
+	if handlebar_body.contains("\"P\"") or handlebar_body.contains("\"D\""):
+		push_error("DASH: the handlebar layout draws a car's gear letters; a bicycle has no P N D")
+		return false
+	var board_body: String = _function_body(DASH_GD, "_draw_board")
+	missing = _missing_needle(board_body, ["\"motion\"", "\"speedo\"", "\"braking\"", "\"prose\""])
+	if not missing.is_empty():
+		push_error("DASH: dashboard.gd's _draw_board never reads %s" % missing)
+		return false
+	if board_body.contains("_dial(") or board_body.contains("\"gauge\""):
+		push_error("DASH: the board layout draws a dial or a gauge; a skateboard has neither")
 		return false
 	var dial_body: String = _function_body(DASH_GD, "_dial")
 	if _missing_needle(dial_body, ["draw_arc(", "draw_line("]) != "":
@@ -1548,7 +1655,370 @@ func _a_driver_is_off_the_menu(stash: Dictionary) -> bool:
 	if not back:
 		push_error("SHELTER: out of the car and still not on the menu")
 		return false
-	print("SHELTER OK the player is gathered on foot, not at the wheel, and again once out")
+	# The true negative of the shelter: a rider on a bicycle is still on the menu, because the
+	# shelter is the cab and a bicycle has none -- `mounted.cab` says so and the gather reads it.
+	var b: Variant = _hand_world(_bicycle_record())
+	_toggle(b)
+	var bm: Variant = b.components.get_component(b.player, "mounted")
+	if not (bm is Dictionary) or bool((bm as Dictionary).get("cab", true)):
+		push_error("SHELTER: could not get on the bicycle, or its mount claims a cab: %s" % str(bm))
+		return false
+	var riding: bool = false
+	for s in SimShambler._gather_survivors(b):
+		if int((s as Dictionary)["entity"]) == int(b.player):
+			riding = true
+	if not riding:
+		push_error("SHELTER: a rider on a bicycle is off the shambler's menu; a bicycle is not a shelter")
+		return false
+	# And the gather reads the mount's own word: a bicycle whose mount lies about a cab is spared,
+	# which is the dead-socket assertion that the boolean is what the shambler asks.
+	(bm as Dictionary)["cab"] = true
+	for s in SimShambler._gather_survivors(b):
+		if int((s as Dictionary)["entity"]) == int(b.player):
+			push_error("SHELTER: the gather does not read mounted.cab; it would shelter or expose every vehicle alike")
+			return false
+	(bm as Dictionary)["cab"] = false
+	print("SHELTER OK the player is gathered on foot, not at the wheel, and again once out; a rider on a bicycle is gathered, and the gather reads mounted.cab")
+	return true
+
+
+# --- 12b. LIGHT ----------------------------------------------------------------------------
+
+# Whether the bus carried a `vehicle.unseated` for `why` this tick.
+func _unseated_for(w: Variant, why: String) -> bool:
+	for ev in w.events.drained as Array:
+		if String((ev as Dictionary).get("type", "")) == "vehicle.unseated" and String((ev as Dictionary).get("why", "")) == why:
+			return true
+	return false
+
+
+func _the_light_vehicles_ride(stash: Dictionary) -> bool:
+	var sprint: float = 6.3
+	# --- the bicycle: no tank, rides at its own top, quieter than a sprint, drawn on -------
+	var b: Variant = _hand_world(_bicycle_record())
+	var bike: int = _car_of(b)
+	var bv: Dictionary = _v(b, bike)
+	var bdrive: Dictionary = SimVehicles.drive_of(SimVehicles.class_of(b, "vehicle.bicycle"))
+	if SimVehicles.power_of(bdrive) != SimVehicles.POWER_MUSCLE or float(bdrive["tank"]) != 0.0:
+		push_error("LIGHT: the bicycle is not a muscle class with no tank: %s" % str(bdrive))
+		return false
+	if SimVehicles.motor_runs(bv, bdrive) or not SimVehicles.can_ride(bv, bdrive):
+		push_error("LIGHT: a sound bicycle has a motor running, or cannot be ridden")
+		return false
+	var beside: String = SimVehicles.hud_clause(b, b.player)
+	if not beside.contains("bicycle") or not beside.contains("get on") or beside.contains("get in"):
+		push_error("LIGHT: beside a bicycle the HUD says '%s'" % beside)
+		return false
+	_toggle(b)
+	var bm: Variant = b.components.get_component(b.player, "mounted")
+	if not (bm is Dictionary) or bool((bm as Dictionary).get("cab", true)):
+		push_error("LIGHT: could not get on the bicycle, or the mount claims a cab (%s)" % SimVehicles.mount_problem(b, b.player, bike))
+		return false
+	var em: Variant = b.components.get_component(bike, "attention_emitter")
+	if not (em is Dictionary) or float((em as Dictionary)["walking"]) != float(bdrive["noise"]) or float((em as Dictionary)["ambient"]) != 0.0:
+		push_error("LIGHT: a ridden bicycle's emitter reads %s; wanted the tyres at %.1f and no idle" % [str(em), float(bdrive["noise"])])
+		return false
+	if float((em as Dictionary)["walking"]) > sprint:
+		push_error("LIGHT: a bicycle is louder than a sprint")
+		return false
+	var saddle: String = SimVehicles.hud_clause(b, b.player)
+	if not saddle.contains("saddle") or not saddle.contains("get off"):
+		push_error("LIGHT: in the saddle the HUD says '%s'" % saddle)
+		return false
+	var peak: float = 0.0
+	var seen_motion: Dictionary = {}
+	b.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
+	for i in 80:
+		b.step()
+		peak = maxf(peak, float(bv["speed"]))
+		var dv: Dictionary = SimVehicles.dash_view(b, b.player)
+		var problem: String = _dash_problem(dv)
+		if not problem.is_empty():
+			push_error("LIGHT: the bicycle's dash: %s in %s" % [problem, str(dv)])
+			return false
+		if String(dv["layout"]) != "handlebar" or bool(dv["powered"]) or float(dv["gauge"]) != 0.0 or String(dv["fuel"]) != SimVehicles.NO_TANK_WORD:
+			push_error("LIGHT: pedalling, the bicycle's dash reads %s" % str(dv))
+			return false
+		seen_motion[String(dv["motion"])] = true
+	if absf(peak - float(bdrive["speed"])) > 1e-6:
+		push_error("LIGHT: eighty ticks of pedalling peaked at %.2f against the bicycle's %.2f" % [peak, float(bdrive["speed"])])
+		return false
+	if peak <= sprint:
+		push_error("LIGHT: the bicycle (%.1f) does not outrun a sprint (%.1f)" % [peak, sprint])
+		return false
+	if not seen_motion.has("pedalling") or seen_motion.has("in drive"):
+		push_error("LIGHT: the bicycle's motion words were %s; a bicycle pedals, it is never in drive" % str(seen_motion.keys()))
+		return false
+	if float(bv["fuel"]) != 0.0:
+		push_error("LIGHT: a bicycle burned or gained fuel: %.3f" % float(bv["fuel"]))
+		return false
+	var riding: String = SimVehicles.hud_clause(b, b.player)
+	if not riding.begins_with("riding the bicycle") or not riding.contains("get off"):
+		push_error("LIGHT: under way the HUD says '%s'" % riding)
+		return false
+	b.commands.push({"type": "wait"})
+	b.step()
+	if String(SimVehicles.dash_view(b, b.player)["motion"]) != "coasting":
+		push_error("LIGHT: foot off, the bicycle reads %s" % str(SimVehicles.dash_view(b, b.player)))
+		return false
+	for i in 80:
+		b.step()
+	if String(SimVehicles.dash_view(b, b.player)["motion"]) != "stopped" or float(bv["speed"]) != 0.0:
+		push_error("LIGHT: at rest the bicycle reads %s" % str(SimVehicles.dash_view(b, b.player)))
+		return false
+	# A wrecked bicycle goes nowhere, muscle or not.
+	bv["integrity"] = 0.0
+	_move(b, 0.0, -1.0, 20)
+	if float(bv["speed"]) != 0.0:
+		push_error("LIGHT: a wrecked bicycle moved")
+		return false
+	if not SimVehicles.hud_clause(b, b.player).contains("frame is wrecked"):
+		push_error("LIGHT: on a wrecked bicycle the HUD says '%s'" % SimVehicles.hud_clause(b, b.player))
+		return false
+	bv["integrity"] = SimVehicles.INTEGRITY_MAX
+	stash["bicycle_top"] = peak
+	# The sedan is faster than the bicycle and the skateboard slower than a sprint: the spread
+	# the goal asked for, read off content and held here so a rebalance that flattens it says so.
+	var sedan_top: float = float(SimVehicles.drive_of(SimVehicles.class_of(b, "vehicle.sedan"))["speed"])
+	var board_top: float = float(SimVehicles.drive_of(SimVehicles.class_of(b, "vehicle.skateboard"))["speed"])
+	if not (sedan_top > peak and peak > sprint and sprint > board_top and board_top > 2.1):
+		push_error("LIGHT: the speeds do not spread: sedan %.1f, bicycle %.1f, sprint %.1f, skateboard %.1f, walk 2.1" % [sedan_top, peak, sprint, board_top])
+		return false
+
+	# --- a grab puts the rider off; a car's driver stays in ------------------------------------
+	b.components.set_component(b.player, "grabbed", {"sources": [], "struggleTicks": 0, "heldTicks": 0})
+	b.step()
+	if b.components.has_component(b.player, "mounted") or int(bv["driver"]) != SimVehicles.NO_DRIVER or not _unseated_for(b, "grabbed"):
+		push_error("LIGHT: a grabbed rider stayed in the saddle (mounted %s, driver %d)" % [str(b.components.has_component(b.player, "mounted")), int(bv["driver"])])
+		return false
+	if b.components.has_component(bike, "velocity"):
+		push_error("LIGHT: an unseated bicycle kept its engine components")
+		return false
+	b.components.remove(b.player, "grabbed")
+	var c: Variant = _hand_world()
+	var car: int = _car_of(c)
+	_toggle(c)
+	c.components.set_component(c.player, "grabbed", {"sources": [], "struggleTicks": 0, "heldTicks": 0})
+	c.step()
+	if not c.components.has_component(c.player, "mounted") or _unseated_for(c, "grabbed"):
+		push_error("LIGHT: a grab reached a driver through the car door and unseated them")
+		return false
+	c.components.remove(c.player, "grabbed")
+
+	# --- a crash at speed throws the rider; the driver keeps the seat ---------------------------
+	var b2: Variant = _hand_world(_bicycle_record())
+	var bike2: int = _car_of(b2)
+	var bv2: Dictionary = _v(b2, bike2)
+	_wall(b2, CAR_X, CAR_Y - 6)
+	_toggle(b2)
+	b2.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
+	var crashed_at: float = -1.0
+	for i in 120:
+		var before_speed: float = float(bv2["speed"])
+		b2.step()
+		if _unseated_for(b2, "crashed"):
+			crashed_at = before_speed
+			break
+	if crashed_at < SimVehicles.CRASH_MIN_SPEED:
+		push_error("LIGHT: a bicycle ridden at a wall did not throw its rider (unseated at speed %.2f)" % crashed_at)
+		return false
+	if b2.components.has_component(b2.player, "mounted") or float(bv2["integrity"]) >= SimVehicles.INTEGRITY_MAX:
+		push_error("LIGHT: after the crash the rider is still on (%s) or the frame is unmarked (%.1f)" % [str(b2.components.has_component(b2.player, "mounted")), float(bv2["integrity"])])
+		return false
+	var c2: Variant = _hand_world()
+	var car2: int = _car_of(c2)
+	_wall(c2, CAR_X, CAR_Y - 8)
+	_wall(c2, CAR_X + 1, CAR_Y - 8)
+	_toggle(c2)
+	var car_crashed: bool = false
+	c2.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
+	for i in 120:
+		c2.step()
+		for ev in c2.events.drained as Array:
+			if String((ev as Dictionary).get("type", "")) == "vehicle.crashed":
+				car_crashed = true
+		if car_crashed:
+			break
+	if not car_crashed:
+		push_error("LIGHT: the sedan never crashed; the negative has nothing to judge")
+		return false
+	if not c2.components.has_component(c2.player, "mounted") or _unseated_for(c2, "crashed"):
+		push_error("LIGHT: a crash threw the driver out of a car; a car has a windscreen")
+		return false
+
+	# --- the e-bike: under power to its top, flat to its unpowered speed, the charge in words -----
+	var e: Variant = _hand_world(_light_record("ebike", 2))
+	var ebike: int = _car_of(e)
+	var ev2: Dictionary = _v(e, ebike)
+	var edrive: Dictionary = SimVehicles.drive_of(SimVehicles.class_of(e, "vehicle.ebike"))
+	if SimVehicles.power_of(edrive) != SimVehicles.POWER_BATTERY or float(edrive["unpowered"]) <= 0.0:
+		push_error("LIGHT: the e-bike is not a battery class with an unpowered speed: %s" % str(edrive))
+		return false
+	var full: float = float(ev2["fuel"])
+	if full != float(edrive["tank"]):
+		push_error("LIGHT: the hand e-bike is not on a full charge")
+		return false
+	var hood: Dictionary = SimVehicles.hood_view(e, ebike)
+	if String(hood["fuel"]) != "full" or not String(hood["prose"]).begins_with("looking the electric bike over"):
+		push_error("LIGHT: the e-bike's hood view reads %s" % str(hood))
+		return false
+	_toggle(e)
+	var epeak: float = 0.0
+	var powered_word: bool = false
+	# Sixty ticks is exactly the run to the e-bike's top at its accel, and keeps the flat run
+	# after it a dozen tiles short of the map's north edge -- the first cut ran it into the edge
+	# and read a crash as a flat battery.
+	e.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
+	for i in 60:
+		e.step()
+		epeak = maxf(epeak, float(ev2["speed"]))
+		var dv2: Dictionary = SimVehicles.dash_view(e, e.player)
+		if not _dash_problem(dv2).is_empty():
+			push_error("LIGHT: the e-bike's dash: %s" % _dash_problem(dv2))
+			return false
+		if String(dv2["motion"]) == SimVehicles.MOTION_POWERED:
+			powered_word = true
+		if not bool(dv2["powered"]) or String(dv2["layout"]) != "handlebar":
+			push_error("LIGHT: under power the e-bike's dash reads %s" % str(dv2))
+			return false
+	if absf(epeak - float(edrive["speed"])) > 1e-6 or not powered_word:
+		push_error("LIGHT: sixty ticks under power peaked at %.2f (top %.2f), powered word %s" % [epeak, float(edrive["speed"]), str(powered_word)])
+		return false
+	if float(ev2["fuel"]) >= full:
+		push_error("LIGHT: sixty ticks under power spent no charge")
+		return false
+	var spent: float = full - float(ev2["fuel"])
+	# Flat: the rider pedals on at the unpowered speed, the words say so, no charge moves.
+	ev2["fuel"] = 0.0
+	for i in 50:
+		e.step()
+	var flat_speed: float = float(ev2["speed"])
+	if absf(flat_speed - float(edrive["unpowered"])) > 1e-6:
+		push_error("LIGHT: with the battery flat the e-bike rides at %.2f, not its unpowered %.2f" % [flat_speed, float(edrive["unpowered"])])
+		return false
+	var flat: Dictionary = SimVehicles.dash_view(e, e.player)
+	if String(flat["motion"]) != "pedalling" or String(flat["fuel"]) != SimVehicles.CHARGE_WORDS[0] or not bool(flat["running"]) or float(flat["gauge"]) != 0.0 or not String(flat["prose"]).contains("flat"):
+		push_error("LIGHT: with the battery flat the e-bike's dash reads %s" % str(flat))
+		return false
+	if float(flat["speedo"]) >= 1.0 or float(flat["speedo"]) <= 0.0:
+		push_error("LIGHT: a flat e-bike pedalled at its unpowered speed reads a needle of %.2f; the dial is the class's top" % float(flat["speedo"]))
+		return false
+	var eem: Dictionary = e.components.get_component(ebike, "attention_emitter") as Dictionary
+	if float(eem["walking"]) != float(edrive["noise"]):
+		push_error("LIGHT: a flat e-bike under way is silent; the tyres still roll")
+		return false
+	if float(ev2["fuel"]) != 0.0:
+		push_error("LIGHT: a flat battery moved")
+		return false
+	e.commands.push({"type": "wait"})
+	for i in 100:
+		e.step()
+	if not SimVehicles.hud_clause(e, e.player).contains("battery is flat"):
+		push_error("LIGHT: on a flat e-bike the HUD says '%s'" % SimVehicles.hud_clause(e, e.player))
+		return false
+	if SimVehicles.hood_view(e, ebike)["fuel"] != SimVehicles.CHARGE_WORDS[0]:
+		push_error("LIGHT: a flat e-bike's hood reads %s" % str(SimVehicles.hood_view(e, ebike)))
+		return false
+	for word in SimVehicles.CHARGE_WORDS:
+		if _has_digit(String(word)):
+			push_error("LIGHT: a charge word carries a digit: '%s'" % String(word))
+			return false
+	if SimVehicles.charge_word(full * 0.5, full) != "about half a charge":
+		push_error("LIGHT: half a charge reads '%s'" % SimVehicles.charge_word(full * 0.5, full))
+		return false
+	stash["ebike_flat"] = flat_speed
+
+	# --- the skateboard: a board's strip, a foot down, turns on its own tile -------------------
+	var k: Variant = _hand_world(_light_record("skateboard", 1))
+	var board: int = _car_of(k)
+	var kv: Dictionary = _v(k, board)
+	var kp: Dictionary = _pos(k, k.player)
+	kp["x"] = float(CAR_X - 1) + 0.5
+	kp["y"] = float(CAR_Y) + 0.5
+	if not SimVehicles.hud_clause(k, k.player).contains("skateboard"):
+		push_error("LIGHT: beside a skateboard the HUD says '%s'" % SimVehicles.hud_clause(k, k.player))
+		return false
+	_toggle(k)
+	if not k.components.has_component(k.player, "mounted"):
+		push_error("LIGHT: could not get on the skateboard (%s)" % SimVehicles.mount_problem(k, k.player, board))
+		return false
+	if not SimVehicles.hud_clause(k, k.player).begins_with("standing on the skateboard"):
+		push_error("LIGHT: on the skateboard the HUD says '%s'" % SimVehicles.hud_clause(k, k.player))
+		return false
+	_move(k, 0.0, -1.0, 40)
+	var kd: Dictionary = SimVehicles.dash_view(k, k.player)
+	if not _dash_problem(kd).is_empty() or String(kd["layout"]) != "board" or String(kd["motion"]) != "pushing" or bool(kd["powered"]):
+		push_error("LIGHT: pushing, the skateboard's dash reads %s (%s)" % [str(kd), _dash_problem(kd)])
+		return false
+	if float(kv["speed"]) > sprint:
+		push_error("LIGHT: a skateboard outruns a sprint")
+		return false
+	k.commands.push({"type": "move", "dx": 0.0, "dy": 1.0})
+	k.step()
+	kd = SimVehicles.dash_view(k, k.player)
+	if not bool(kd["braking"]) or not String(kd["prose"]).contains("a foot down") or String(kd["prose"]).contains("braking"):
+		push_error("LIGHT: a foot dragged on the skateboard reads %s" % str(kd))
+		return false
+	# The opposite key brakes, turns the board round and then rides it south; foot off and let
+	# it roll to a stop before asking for east, which is a turn about its one tile.
+	k.commands.push({"type": "wait"})
+	for i in 100:
+		k.step()
+	if float(kv["speed"]) != 0.0:
+		push_error("LIGHT: the skateboard did not roll to a stop in a hundred ticks")
+		return false
+	var before_turn: Rect2i = SimVehicles.footprint(kv, _pos(k, board))
+	_move(k, 1.0, 0.0, 1)
+	var after_turn: Rect2i = SimVehicles.footprint(kv, _pos(k, board))
+	if String(kv["heading"]) != "e" or after_turn.size != Vector2i(1, 1) or not before_turn.grow(1).intersects(after_turn):
+		push_error("LIGHT: a stopped skateboard asked east reads heading %s on %s (was %s); a 1x1 turns on its own tile" % [String(kv["heading"]), str(after_turn), str(before_turn)])
+		return false
+
+	# --- the words: three layouts, three motion words each, no digit; an unknown dash is a board --
+	for layout in SimVehicles.DASH_LAYOUTS:
+		var words: Array = SimVehicles.MOTION_WORDS[layout] as Array
+		if words.size() != SimVehicles.GEARS.size():
+			push_error("LIGHT: layout %s has %d motion words for %d gears" % [layout, words.size(), SimVehicles.GEARS.size()])
+			return false
+		for word in words:
+			if _has_digit(String(word)):
+				push_error("LIGHT: a motion word carries a digit: '%s'" % String(word))
+				return false
+	if SimVehicles.dash_layout({"dash": "cockpit"}) != "board" or SimVehicles.dash_layout({}) != "board" or SimVehicles.dash_layout({"dash": "cluster"}) != "cluster":
+		push_error("LIGHT: dash_layout does not fall to the board on a word nobody drew")
+		return false
+	if SimVehicles.has_cab({}) or not SimVehicles.has_cab({"cab": true}):
+		push_error("LIGHT: has_cab defaults to sheltered, or refuses a declared cab")
+		return false
+
+	# --- the street: the suburb at 128 parks light classes one tile wide, kerb free, no boot on them --
+	var tree: Dictionary = ContentLoader.load_tree()
+	var map: Variant = SimWorldgen.generate(CANON_SEED, PARK_SIZE, tree)
+	var light: int = 0
+	var narrow_tiles: Dictionary = {}
+	for rec in map.vehicles as Array:
+		var r: Dictionary = rec as Dictionary
+		if mini(int(r["w"]), int(r["h"])) != 1:
+			continue
+		light += 1
+		for dy in int(r["h"]):
+			for dx in int(r["w"]):
+				narrow_tiles[(int(r["y"]) + dy) * int(map.w) + int(r["x"]) + dx] = true
+	if light == 0:
+		push_error("LIGHT: the suburb at %d parked no light vehicle on seed %d; the pass never reaches them" % [PARK_SIZE, CANON_SEED])
+		return false
+	for tail in SimWorldgen._vehicle_tails(map) as Array:
+		if narrow_tiles.has(int(tail)):
+			push_error("LIGHT: a car-boot tail stands on a one-wide vehicle at tile %d" % int(tail))
+			return false
+	# The tails scanner has to be able to say yes on a car, or the line above judges nothing.
+	if (SimWorldgen._vehicle_tails(map) as Array).is_empty():
+		push_error("LIGHT: no car tail at all at %d; the boot-on-a-bicycle assertion judged nothing" % PARK_SIZE)
+		return false
+	stash["light_parked"] = light
+	print("LIGHT OK the bicycle rides at %.1f (a sprint is %.1f, a sedan %.1f, a skateboard %.1f) with no tank, its tyres at %.1f and no idle, pedalling then coasting then stopped, and a wreck goes nowhere; a grab and a crash at %.1f m/s put the rider off and neither reaches a car's driver; the e-bike peaks at %.1f under power, spends %.2f of its charge, and flat rides at %.1f pedalling with the needle part-way up the same dial; the skateboard pushes, drags a foot and turns on its own tile; three layouts, nine motion words, no digit, an unknown dash is a board; suburb@%d parks %d light vehicles and hosts no boot on any" % [
+		peak, sprint, sedan_top, board_top, float(bdrive["noise"]), crashed_at, epeak, spent, flat_speed, PARK_SIZE, light,
+	])
 	return true
 
 
@@ -1637,10 +2107,12 @@ func _the_sockets_are_wired() -> bool:
 		[WORLD_GD, "restore", ["SimVehiclesRes.sync_map(self)"], "a restored car would stand on the kerb's Low tiles with its picture where it was driven"],
 		[BOOT_GD, "register_playable_modules", ["SimVehicles.register_module(world)"], "the toggle and the drive would run in no world"],
 		[BOOT_GD, "playable", ["SimVehicles.spawn_from_manifest(world, map)"], "no record would ever become an entity"],
-		[SHAMBLER_GD, "_gather_survivors", ["\"mounted\""], "a driver would be chased and grabbed through the door"],
+		[SHAMBLER_GD, "_gather_survivors", ["\"mounted\"", "\"cab\""], "a driver would be chased and grabbed through the door, or a rider sheltered by a bicycle"],
 		[FORTIFY_GD, "_use_context", ["SimVehicles.dismount(", "SimVehicles.mount(", "SimVehicles.nearest_in_reach(", "SimVehicles.at_hood(", "SimVehicles.check_hood("], "E would never open a car door or a hood"],
 		[MAIN_GD, "_input", ["\"use.context\""], "no key would push the context command"],
-		[MAIN_GD, "_draw_entities", ["\"mounted\""], "the driver's pawn would draw on the bonnet"],
+		[MAIN_GD, "_draw_entities", ["\"mounted\"", "\"cab\"", "SimVehicles.ground_point("], "the driver's pawn would draw on the bonnet, or a rider would vanish off a bicycle"],
+		[WORLDGEN_GD, "_vehicle_tails", ["mini(cw, ch) < 2"], "a car-boot site could stand on a bicycle"],
+		[WORLDGEN_GD, "_vehicles", ["width - 1 - breadth"], "a one-wide class would park in a two-wide lane"],
 		[MAIN_GD, "_vehicle_index", ["vehicle_generation"], "the tile index would go stale the moment a car moved"],
 		[MAIN_GD, "_update_hud", ["SimVehicles.hud_clause("], "the HUD would never say a car is beside you"],
 		[DRESSING_GD, "vehicle_key", ["\"hx\"", "\"hy\""], "a car would change colour every tile it drove"],
@@ -1655,7 +2127,7 @@ func _the_sockets_are_wired() -> bool:
 		if not missing.is_empty():
 			push_error("SOCKETS: %s::%s does not contain %s; %s" % [check[0], check[1], missing, check[3]])
 			return false
-	print("SOCKETS OK world skips the vehicle component and re-syncs the shadow on restore; boot registers the module and spawns from the manifest; the shambler's gather skips mounted; fortify's E ladder mounts and dismounts; main.gd pushes the context command, skips the mounted body, keys its index on the vehicle generation and reads the HUD clause; dressing hashes paint on the home corner and stands the picture on the live ground point; the scanner was proved on a fabricated string")
+	print("SOCKETS OK world skips the vehicle component and re-syncs the shadow on restore; boot registers the module and spawns from the manifest; the shambler's gather skips a mounted cab; main draws a rider on an open vehicle; worldgen parks a one-wide body in a one-wide lane and hosts no boot on it; fortify's E ladder mounts and dismounts; main.gd pushes the context command, skips the mounted body, keys its index on the vehicle generation and reads the HUD clause; dressing hashes paint on the home corner and stands the picture on the live ground point; the scanner was proved on a fabricated string")
 	return true
 
 

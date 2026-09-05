@@ -1,0 +1,37 @@
+{
+  "id": "vehicle.bicycle",
+  "name": "Bicycle",
+  "drive": {
+    "power": "muscle",
+    "speed": 6.5,
+    "accel": 2.0,
+    "brake": 5.0,
+    "noise": 3,
+    "idle": 0
+  },
+  "cab": false,
+  "dash": "handlebar",
+  "footprint": {
+    "w": 1,
+    "l": 2
+  },
+  "appearance": {
+    "variants": [
+      {
+        "id": "pale",
+        "ns": "vehicle_bicycle_pale_ns",
+        "ew": "vehicle_bicycle_pale_ew"
+      },
+      {
+        "id": "green",
+        "ns": "vehicle_bicycle_green_ns",
+        "ew": "vehicle_bicycle_green_ew"
+      },
+      {
+        "id": "burnt",
+        "ns": "vehicle_bicycle_burnt_ns",
+        "ew": "vehicle_bicycle_burnt_ew"
+      }
+    ]
+  }
+}

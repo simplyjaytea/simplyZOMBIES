@@ -126,15 +126,28 @@ const SEEDS: Array[int] = [20260805, 404, 31337, 90210]
 
 # The hand-built map the MANIFEST lane works on. Big enough to hold both axes of every class clear
 # of each other and of the edge, small enough to scan exhaustively. The two sedans sit where slice
-# 10 hand-checked them; every further class takes the next pair of slots below, in id order --
-# a class with no slot left is named by `_hand_map_problem`, so a fourth class extends these two
-# tables rather than going unjudged.
-const HAND_SIZE: int = 16
-const HAND_NS_SLOTS: Array[Vector2i] = [Vector2i(6, 1), Vector2i(13, 1)]
-const HAND_EW_SLOTS: Array[Vector2i] = [Vector2i(1, 12), Vector2i(8, 12)]
+# 10 hand-checked them; every further class has a slot pair of its own below, keyed by id (the
+# north-south corner, then the east-west one), sized for that class's footprint turned to the
+# axis -- a class with no slot is named by `_hand_map_problem`, so a ninth class extends this
+# table rather than going unjudged. 24 rather than 16 since the light vehicles: five more classes
+# on both axes did not fit beside the van and the truck.
+const HAND_SIZE: int = 24
+const HAND_SLOTS: Dictionary = {
+	"vehicle.van": [Vector2i(6, 1), Vector2i(1, 12)],
+	"vehicle.truck": [Vector2i(13, 1), Vector2i(8, 12)],
+	"vehicle.bicycle": [Vector2i(16, 1), Vector2i(1, 16)],
+	"vehicle.ebike": [Vector2i(18, 1), Vector2i(5, 16)],
+	"vehicle.escooter": [Vector2i(20, 1), Vector2i(9, 16)],
+	"vehicle.kickscooter": [Vector2i(16, 5), Vector2i(13, 16)],
+	"vehicle.skateboard": [Vector2i(18, 5), Vector2i(16, 16)],
+}
 const SEDAN_ID: String = "vehicle.sedan"
 const VAN_ID: String = "vehicle.van"
 const TRUCK_ID: String = "vehicle.truck"
+const LIGHT_IDS: Array[String] = ["vehicle.bicycle", "vehicle.ebike", "vehicle.escooter", "vehicle.kickscooter", "vehicle.skateboard"]
+const BICYCLE_ID: String = "vehicle.bicycle"
+const EBIKE_ID: String = "vehicle.ebike"
+const SKATEBOARD_ID: String = "vehicle.skateboard"
 
 # The height decision (docs/30, the vehicle-class clause of 2026-09-04) as the numbers SILHOUETTE
 # holds the decoded east-west pictures to. Rows are opaque rows of the 96 that axis has; the
@@ -146,6 +159,19 @@ const HEIGHT_MARGIN: int = 12
 const BED_DROP_MIN: int = 10
 const BOX_LEVEL_MAX: int = 4
 const CLEAR_MIN: int = 3
+# The light classes, on their 64-row east-west canvases (a tile of footprint plus the roofline):
+# a bicycle, an e-bike and the two scooters stand a rider's-hip height, between these rows; a
+# skateboard is a deck on wheels and stands under BOARD_ROWS_MAX. The scooters have their stem at
+# the nose, so their east end stands STEM_RISE_MIN over their deck end (the truck's step rule
+# turned round); the bicycles are level end to end, two wheels of one size. The e-bike is told
+# from the bicycle by its battery filling the frame: FILL_MARGIN more opaque pixels than any
+# bicycle in the same outline. Shipped pictures measure bicycle 25 rows / 528 px, e-bike 25..27 /
+# 565..573, e-scooter 29..30 with a 20-row rise, kick scooter 25 with 18, skateboard 9.
+const LIGHT_ROWS_MIN: int = 20
+const LIGHT_ROWS_MAX: int = 36
+const BOARD_ROWS_MAX: int = 12
+const STEM_RISE_MIN: int = 10
+const FILL_MARGIN: int = 20
 const SPRITE_DIR: String = "res://assets/sprites"
 
 # The gate's own wall clock, docs/00 pillar 6. Measured 2.1 s on this container -- one playable
@@ -528,10 +554,9 @@ func _ground_point_problem(r: Dictionary) -> String:
 # What stops the hand map standing every class, or "". Named rather than silently truncated: a
 # class with no slot would be a class this whole lane never judged.
 func _hand_map_problem() -> String:
-	var others: Array[String] = _other_classes()
-	if others.size() > HAND_NS_SLOTS.size():
-		return "content declares %d classes beyond the sedan and the hand map has slots for %d, so %s would go unjudged -- extend HAND_NS_SLOTS and HAND_EW_SLOTS" % [others.size(), HAND_NS_SLOTS.size(), others[HAND_NS_SLOTS.size()]]
-	for id in others:
+	for id in _other_classes():
+		if not HAND_SLOTS.has(id):
+			return "content declares %s and the hand map has no slot for it, so it would go unjudged -- extend HAND_SLOTS" % id
 		if _footprint_of(id) == Vector2i.ZERO:
 			return "%s declares no footprint, so the hand map cannot stand it" % id
 	return ""
@@ -549,13 +574,14 @@ func _hand_map() -> Variant:
 		{"x": 3, "y": 2, "w": 2, "h": 5, "axis": "ns", "class": SEDAN_ID, "facing": "n"},
 		{"x": 8, "y": 9, "w": 5, "h": 2, "axis": "ew", "class": SEDAN_ID, "facing": "w"},
 	]
-	var others: Array[String] = _other_classes()
-	for i in mini(others.size(), HAND_NS_SLOTS.size()):
-		var foot: Vector2i = _footprint_of(others[i])
-		var ns: Vector2i = HAND_NS_SLOTS[i]
-		var ew: Vector2i = HAND_EW_SLOTS[i]
-		records.append({"x": ns.x, "y": ns.y, "w": foot.x, "h": foot.y, "axis": "ns", "class": others[i], "facing": "s"})
-		records.append({"x": ew.x, "y": ew.y, "w": foot.y, "h": foot.x, "axis": "ew", "class": others[i], "facing": "e"})
+	for id in _other_classes():
+		if not HAND_SLOTS.has(id):
+			continue
+		var foot: Vector2i = _footprint_of(id)
+		var ns: Vector2i = (HAND_SLOTS[id] as Array)[0] as Vector2i
+		var ew: Vector2i = (HAND_SLOTS[id] as Array)[1] as Vector2i
+		records.append({"x": ns.x, "y": ns.y, "w": foot.x, "h": foot.y, "axis": "ns", "class": id, "facing": "s"})
+		records.append({"x": ew.x, "y": ew.y, "w": foot.y, "h": foot.x, "axis": "ew", "class": id, "facing": "e"})
 	map.vehicles = records
 	# Whole-array write: packed arrays are values, and an element write through the property would
 	# land on a copy (CLAUDE.md's first trap).
@@ -1260,6 +1286,7 @@ func _silhouette(img: Image) -> Dictionary:
 	var tops: PackedInt32Array = PackedInt32Array()
 	tops.resize(w)
 	tops.fill(0)
+	var fill: int = 0
 	for y in h:
 		for x in w:
 			if img.get_pixel(x, y).a <= 0.0:
@@ -1269,8 +1296,9 @@ func _silhouette(img: Image) -> Dictionary:
 			left = mini(left, x)
 			right = maxi(right, x)
 			tops[x] = maxi(int(tops[x]), h - y)
+			fill += 1
 	if bottom < 0:
-		return {"rows": 0, "top_clear": h, "left_clear": w, "right_clear": w, "west": 0, "east": 0}
+		return {"rows": 0, "top_clear": h, "left_clear": w, "right_clear": w, "west": 0, "east": 0, "fill": 0}
 	var third: int = maxi(1, (right - left + 1) / 3)
 	var west: int = 0
 	var east: int = 0
@@ -1278,7 +1306,7 @@ func _silhouette(img: Image) -> Dictionary:
 		west = maxi(west, int(tops[x2]))
 	for x3 in range(right - third + 1, right + 1):
 		east = maxi(east, int(tops[x3]))
-	return {"rows": bottom - top + 1, "top_clear": top, "left_clear": left, "right_clear": w - 1 - right, "west": west, "east": east}
+	return {"rows": bottom - top + 1, "top_clear": top, "left_clear": left, "right_clear": w - 1 - right, "west": west, "east": east, "fill": fill}
 
 
 # What is wrong with a picture's clearance, or "". Every picture keeps CLEAR_MIN rows under the
@@ -1313,6 +1341,19 @@ func _class_problem(id: String, m: Dictionary) -> String:
 				return "the truck stands %d rows, under the %d a tall class must" % [rows, TALL_ROWS_MIN]
 			if int(m["east"]) - int(m["west"]) < BED_DROP_MIN:
 				return "the truck's bed end stands %d rows against its cab's %d; an open bed sits at least %d under the cab, or it is a box truck and collides with the van" % [int(m["west"]), int(m["east"]), BED_DROP_MIN]
+		BICYCLE_ID, EBIKE_ID:
+			if rows < LIGHT_ROWS_MIN or rows > LIGHT_ROWS_MAX:
+				return "%s stands %d rows, outside the %d..%d a bicycle does on its canvas" % [id, rows, LIGHT_ROWS_MIN, LIGHT_ROWS_MAX]
+			if absi(int(m["west"]) - int(m["east"])) > BOX_LEVEL_MAX:
+				return "%s's two ends stand %d and %d rows; two wheels of one size are level" % [id, int(m["west"]), int(m["east"])]
+		"vehicle.escooter", "vehicle.kickscooter":
+			if rows < LIGHT_ROWS_MIN or rows > LIGHT_ROWS_MAX:
+				return "%s stands %d rows, outside the %d..%d a scooter's stem does on its canvas" % [id, rows, LIGHT_ROWS_MIN, LIGHT_ROWS_MAX]
+			if int(m["east"]) - int(m["west"]) < STEM_RISE_MIN:
+				return "%s's nose end stands %d rows against its deck end's %d; a scooter's stem rises at least %d over its deck, or it is a board" % [id, int(m["east"]), int(m["west"]), STEM_RISE_MIN]
+		SKATEBOARD_ID:
+			if rows > BOARD_ROWS_MAX:
+				return "the skateboard stands %d rows, over the %d a deck on wheels may; it would read as a scooter" % [rows, BOARD_ROWS_MAX]
 		_:
 			return "this lane has no expectation for %s; a class the height decision did not place is unjudged until it gets one" % id
 	return ""
@@ -1367,9 +1408,40 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 	if _class_problem("vehicle.hovercraft", flat).is_empty():
 		push_error("SILHOUETTE: a class this lane has no expectation for passed; it must be named, not skipped")
 		return false
+	# The light rows, on 64-row canvases: a level 25-row block is a bicycle and not a scooter, a
+	# stepped block with its high end east is a scooter and not a bicycle, a 9-row block is a
+	# board and not a bicycle, and a bicycle-height block called a skateboard is refused.
+	var level_light: Dictionary = _fabricated(64, 64, [Rect2i(8, 39, 48, 25)])
+	if not _class_problem(BICYCLE_ID, level_light).is_empty():
+		push_error("SILHOUETTE: a level 25-row block refused as a bicycle: %s" % _class_problem(BICYCLE_ID, level_light))
+		return false
+	if _class_problem("vehicle.escooter", level_light).is_empty():
+		push_error("SILHOUETTE: a level block passed as a scooter; the stem rule cannot say no")
+		return false
+	if _class_problem(SKATEBOARD_ID, level_light).is_empty():
+		push_error("SILHOUETTE: a 25-row block passed as a skateboard; the board rule cannot say no")
+		return false
+	var stemmed: Dictionary = _fabricated(64, 64, [Rect2i(8, 55, 40, 9), Rect2i(46, 34, 10, 30)])
+	if not _class_problem("vehicle.escooter", stemmed).is_empty():
+		push_error("SILHOUETTE: a stemmed block refused as a scooter: %s" % _class_problem("vehicle.escooter", stemmed))
+		return false
+	if _class_problem(EBIKE_ID, stemmed).is_empty():
+		push_error("SILHOUETTE: a stemmed block passed as an e-bike; the level rule cannot say no")
+		return false
+	var deck: Dictionary = _fabricated(32, 64, [Rect2i(4, 55, 24, 9)])
+	if not _class_problem(SKATEBOARD_ID, deck).is_empty():
+		push_error("SILHOUETTE: a 9-row deck refused as a skateboard: %s" % _class_problem(SKATEBOARD_ID, deck))
+		return false
+	if _class_problem(BICYCLE_ID, deck).is_empty() or _class_problem("vehicle.kickscooter", deck).is_empty():
+		push_error("SILHOUETTE: a 9-row deck passed as a bicycle or a scooter; the light-rows floor cannot say no")
+		return false
+	if int(_fabricated(32, 64, [Rect2i(0, 0, 4, 4)])["fill"]) != 16:
+		push_error("SILHOUETTE: the fill count of a 4x4 block is not 16; the e-bike's battery margin would be judged on nothing")
+		return false
 
 	# The real pictures, every variant of every class, on the east-west axis.
 	var rows_by_class: Dictionary = {}
+	var fill_by_class: Dictionary = {}
 	var drops: Array[int] = []
 	var judged: int = 0
 	for raw in SimWorldgen.vehicles_of(_tree()):
@@ -1396,6 +1468,9 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 			if not rows_by_class.has(id):
 				rows_by_class[id] = []
 			(rows_by_class[id] as Array).append(int(m["rows"]))
+			if not fill_by_class.has(id):
+				fill_by_class[id] = []
+			(fill_by_class[id] as Array).append(int(m["fill"]))
 			if id == TRUCK_ID:
 				drops.append(int(m["east"]) - int(m["west"]))
 			judged += 1
@@ -1403,6 +1478,22 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 		if not rows_by_class.has(want):
 			push_error("content declares no %s, so the height decision has one class fewer to hold than it placed" % String(want))
 			return false
+	for want2 in LIGHT_IDS:
+		if not rows_by_class.has(want2):
+			push_error("content declares no %s, so the light-vehicle rows above judged one class fewer than they name" % String(want2))
+			return false
+	# The e-bike against the bicycle: the same outline, more paint -- the battery on the down
+	# tube and the hub motor -- by FILL_MARGIN on every variant pair, the fullest bicycle against
+	# the emptiest e-bike.
+	var bicycle_max: int = 0
+	for f in fill_by_class[BICYCLE_ID] as Array:
+		bicycle_max = maxi(bicycle_max, int(f))
+	var ebike_min: int = 1 << 30
+	for f2 in fill_by_class[EBIKE_ID] as Array:
+		ebike_min = mini(ebike_min, int(f2))
+	if ebike_min - bicycle_max < FILL_MARGIN:
+		push_error("the emptiest e-bike carries %d opaque px and the fullest bicycle %d; %d apart against the %d that says the battery is there" % [ebike_min, bicycle_max, ebike_min - bicycle_max, FILL_MARGIN])
+		return false
 
 	# The margin between the low class and the tall ones, over every variant: the tallest sedan
 	# against the shortest van or truck.
@@ -1423,8 +1514,8 @@ func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
 	stash["sedan_rows"] = sedan_max
 	stash["tall_rows"] = tall_min
 	stash["bed_drop"] = drop_min
-	print("SILHOUETTE OK %d east-west pictures measured: the sedan stands at most %d rows, the van and the truck at least %d (%d apart against a %d margin), the truck's bed end at least %d under its cab, every picture %d+ clear of the top and both sides; a full-canvas block, an edge-flush block, a low block called a van, a level block called a truck or a sedan, a stepped block called a van and a class with no expectation are all refused" % [
-		judged, sedan_max, tall_min, tall_min - sedan_max, HEIGHT_MARGIN, drop_min, CLEAR_MIN,
+	print("SILHOUETTE OK %d east-west pictures measured: the sedan stands at most %d rows, the van and the truck at least %d (%d apart against a %d margin), the truck's bed end at least %d under its cab, every picture %d+ clear of the top and both sides; the bicycles level in %d..%d rows, the scooters' stems %d+ over their decks, the skateboard under %d, the e-bike %d px fuller than the bicycle; a full-canvas block, an edge-flush block, a low block called a van, a level block called a truck or a sedan, a stepped block called a van, a level block called a scooter or a skateboard, a stemmed block called an e-bike, a deck called a bicycle and a class with no expectation are all refused" % [
+		judged, sedan_max, tall_min, tall_min - sedan_max, HEIGHT_MARGIN, drop_min, CLEAR_MIN, LIGHT_ROWS_MIN, LIGHT_ROWS_MAX, STEM_RISE_MIN, BOARD_ROWS_MAX, ebike_min - bicycle_max,
 	])
 	return true
 
