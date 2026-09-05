@@ -4,7 +4,7 @@
   "title": "Vehicle class",
   "description": "A class of car left standing in the street: how big it is on the ground, and which pictures draw it. Godot-only -- the frozen TypeScript oracle's CONTENT_TYPES lists six directories (zombies, affixes, items, calibration, survivors, maps) and reads only those schemas, so nothing here reaches Ajv and content_validator.gd is the only validator that sees it. Two readers, and they read different halves: SimWorldgen's `worldgen.vehicles` pass reads `footprint` to decide which street tiles a parked car covers, and presentation reads `appearance.variants` to decide which picture stands on them. NOTE the Godot validator is shallow -- top-level property types and unexpected top-level keys only, no recursion -- so neither `footprint` nor `appearance` is enforced at load, and a purpose-built gate is what checks their insides.",
   "type": "object",
-  "required": ["id", "name", "footprint", "appearance"],
+  "required": ["id", "name", "drive", "footprint", "appearance"],
   "additionalProperties": false,
   "properties": {
     "id": {
@@ -15,6 +15,19 @@
     "name": {
       "type": "string",
       "description": "What the class is called out loud. Prose for whoever is reading the content; no HUD reads it."
+    },
+    "drive": {
+      "type": "object",
+      "required": ["speed", "accel", "brake", "noise", "idle"],
+      "additionalProperties": false,
+      "description": "How the class drives, read by SimVehicles (sim/modules/vehicles.gd) and by nothing else. Metres and seconds throughout, on the same scale a body walks at 2.1 and sprints at 6.3. Judged whole at the wheel: a class missing any of the five is a class nobody can get into (`SimVehicles.drive_of` answers {} and `mount_problem` names it), never one that drives on a guess, because the validator does not recurse and a silent default here is the wrong-number-nothing-reports trap. check_vehicles.gd's CONTENT lane reads every class's block.",
+      "properties": {
+        "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Top speed along the heading, metres a second, before the ground's own multiplier (world.surface_speed_at, the same table a body walks on)." },
+        "accel": { "type": "number", "exclusiveMinimum": 0, "description": "Metres a second gained each second the driver holds the heading." },
+        "brake": { "type": "number", "exclusiveMinimum": 0, "description": "Metres a second lost each second the driver holds the opposite or a perpendicular; coasting with no intent loses half this." },
+        "noise": { "type": "number", "exclusiveMinimum": 0, "description": "The engine under way: the attention emitter's walking and sprinting figure, every tick the car moves, scaled by the surface's noise like a footstep. A sprint is 6 and a shout 120." },
+        "idle": { "type": "number", "minimum": 0, "description": "The engine running with the car stopped and a driver at the wheel: the emitter's ambient while mounted, zero once the driver gets out." }
+      }
     },
     "footprint": {
       "type": "object",

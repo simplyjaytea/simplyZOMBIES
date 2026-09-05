@@ -40,6 +40,7 @@ const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimDebugMod = preload("res://sim/modules/debug.gd")
 const SimRaiders = preload("res://sim/modules/raiders.gd")
+const SimVehicles = preload("res://sim/modules/vehicles.gd")
 
 const DISTRICT_SEED: int = 20260805
 const DEFAULT_DISTRICT: String = "district.residential_suburb"
@@ -132,6 +133,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimSightings.register_module(world)
 	SimAttachments.register_module(world)
 	SimDebugMod.register_module(world)
+	SimVehicles.register_module(world)
 
 
 # Scatters each of the map's loot sites from the content table its `table` names, per docs/12:
@@ -354,6 +356,12 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	var knife: int = SimItems.spawn_item(world, "item.knife.kitchen", {"tier": "scavenged"})
 	SimInventory.equip(world, world.player, knife)
 	place_loot(world, map)
+	# The parked cars become entities here and not in `bare`: a bare world is the one every gate
+	# boots two of, and its entity table stays exactly what it was. At 64 the suburb parks
+	# nothing (its streets are too narrow -- check_wrecks.gd's PLACED lane holds the reason), so
+	# the balance harness and every 64-tile gate spawn zero of these and see no change at all.
+	# No RNG: one entity per record, in manifest order.
+	SimVehicles.spawn_from_manifest(world, map)
 	var place_rng: Variant = world.rng.stream("placement")
 	# Never inside the colony's own walls. `SimDirector._legal_tile` has always refused to put a
 	# night packet in the annex, and this scatter used to get the same answer for nothing: the annex

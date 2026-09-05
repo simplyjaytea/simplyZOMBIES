@@ -1,6 +1,7 @@
 {
   "id": "vehicle.sedan",
   "name": "Sedan",
+  "drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4},
   "footprint": { "w": 2, "l": 5 },
   "appearance": {
     "variants": [

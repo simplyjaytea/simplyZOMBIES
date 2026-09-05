@@ -108,7 +108,9 @@ balance baseline, not a player-facing preset. Full storyteller presets remain Mi
 
 **Explicitly not in the slice:** survivor attributes, relationships, weather, factions, full world
 decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web, most zombie
-types, vehicles, multiplayer, and the escape endgame.
+types, vehicles, multiplayer, and the escape endgame. (Vehicles came in anyway, twice, by the
+owner's direction: parked as layout in the Dungeon Settlers arc, and driven by the player on
+2026-09-05 — the record has both; what driving deliberately left out is in what's left.)
 
 ### Build order
 
@@ -275,13 +277,22 @@ landed, and what is below is what the arc named and left.
   (`_draw_entities`), and `item.appearance.sprite` — declared in the schema, read by nothing —
   is the twelfth dead socket of the milestone. Named here so the 32 px tile does not make the
   square look like a decision; a ground sprite per item base is content and a resolver call.
-- **Vehicles you can drive** — *named, not scheduled*: [docs/23 puts vehicles outside Milestone
-  2](#what-is-explicitly-not-in-the-slice) and driving is Milestone 3B item 3, behind the drive
-  benchmark (risk 7's checkpoint). It is named here so its size is visible — a vehicle entity and
-  footprint, multi-tile swept collision where `blocked_at` floors one point, mount and dismount,
-  engine noise into the attention field at a range that rewrites the director's pressure model,
-  sight from inside, a road-graph pathfinder for NPC drivers, fuel and breakdowns — and so that
-  the two pieces above are shaped for it rather than against it.
+- **What driving left behind.** The first driving slice landed 2026-09-05 (the record below,
+  `godot:m2:vehicles`) at the owner's direction, ahead of the Milestone 3B schedule it used to
+  sit behind; these are the halves it named rather than built, each its own piece:
+  **running things over** — a moving car passes through bodies exactly as a parked one does,
+  because bodies are not probed and a hit is a balance mechanism (a car that kills shamblers
+  is a weapon) that wants a measured slice; **the door under siege** — a shambler cannot reach
+  a body at the wheel and does nothing about it, where hammering the glass, rocking the car
+  and a bite through a broken window are the pressure a besieged car should feel; **the
+  driver's hands** — nothing refuses a swing, a shot, a stance change or a bandage from the
+  driver's seat; **NPC drivers** — nobody but the player mounts, and a road-graph pathfinder
+  for a car is a different pathfinder from a body's four-connected A\*; **fuel and
+  breakdowns**; **the engine at the director** — the engine's noise is a first-cut number
+  (24 under way for a sedan, a sprint is 6, a shout 120) that has never been run against the
+  director's pressure model, because the 64-tile harness parks no car; and **a car seen from
+  behind** — the north-south axis still draws one picture for both facings (decision 11's
+  limit), which a driven car now shows every time it turns round.
 - **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
   the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
   only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
@@ -2582,6 +2593,83 @@ not a to-do list:
   (decision 11's limit, recorded in the sedan's entry); the hand map has slots for two classes
   beyond the sedan and says so when a third arrives; the forklift stays with the industrial
   yard under Milestone 3B.
+- ~~Vehicles you can drive~~ **landed, the first slice** (`godot:m2:vehicles` →
+  `M2_VEHICLES_OK`; the chain goes from 45 to **46**; directed by the owner 2026-09-05 as a goal,
+  ahead of the Milestone 3B schedule it sat behind, and docs/30's "Driving" entry records the
+  calls that were taken to build it and which of them are the owner's to re-decide).
+  **The mechanism, sim-owned and command-driven:** `sim/modules/vehicles.gd`. Every
+  `map.vehicles` record becomes an entity at `SimBoot.playable` — a `vehicle` component
+  `{class, w, l, heading, speed, driver, intent, home}`, a `position` at the footprint's centre,
+  a `facing` — and from then on the entity is the truth and the map is its shadow: `sync_map`
+  rewrites the Low under the footprint and the manifest record beside it (`entity`, the `hx`/`hy`
+  home corner the paint hashes on, the `gx`/`gy` live ground point the picture stands on) at
+  spawn, on every footprint change, and after `world.restore`, exactly as `SimFortify.sync_map`
+  puts boards back on windows. Every existing reader of the record — the tile branch, the
+  car-boot loot host, `Dressing.vehicle_records` — keeps reading it and never learns the car can
+  move. `vehicle.toggle` (Q, its own key because E beside a car must keep meaning "search the
+  boot") mounts the nearest undriven car whose footprint edge is within 1.5 m or dismounts a
+  stopped one onto the first free walkable tile in the ring; the driver carries `mounted`, is
+  pinned to the centre every tick with a zero velocity, and is drawn by nothing (the picture is
+  the car). The driver's `move` is the car's intent, kept until replaced as a body's velocity
+  is: four headings, the dominant axis of the intent naming the wanted one — the same heading
+  accelerates to the class's cap (× the ground's own multiplier), the opposite brakes to a stop
+  and turns the car round, a perpendicular brakes and then turns the footprint about its centre
+  onto whole tiles (a snap of at most half a tile) or is refused where it would cover anything,
+  no key coasts at half the brake. Collision is a leading-edge probe every tick: each across-tile
+  of the footprint one step ahead, and a solid tile, an indoor tile, another car or a heap (a Low
+  tile no record covers) stops the car **flush** against it. `world._integrate_movement` skips
+  the `vehicle` component so the two-corner body test never moves a car. The engine is the one
+  emitter system every footstep uses: `velocity` and an `attention_emitter` arrive with the
+  driver and leave with them, so a parked car sits in no per-tick query at all, and a body at
+  the wheel is off `SimShambler._gather_survivors`' menu — shelter for noise, which is the trade
+  a car makes.
+  **Content:** every class carries a `drive` block `{speed, accel, brake, noise, idle}` in metres
+  and seconds on the body's own scale — sedan 10 / 4 / 8 / 24 / 4, van 9 / 3.5 / 7 / 28 / 5,
+  truck 8 / 3 / 6 / 36 / 6 — required by the schema and judged whole by `drive_of`, because the
+  validator does not recurse and a class missing `brake` would otherwise drive on a silent
+  guess; a class without one cannot be mounted and `mount_problem` says why. `SAVE_VERSION` is
+  **18**: a v17 save has no vehicle entities and would restore into a street with every car
+  cleared off it.
+  **Measured, not asserted.** At 128 with 33 parked cars a tick costs what it cost before
+  (5.74 ms against 5.87 baseline, the per-system profile within noise), because a parked car has
+  no engine components; the first cut, which looked every car's class up every tick, cost 1.9 ms
+  a tick on its own and was found by profiling the systems rather than by reasoning. Driving
+  adds 0.3 ms. The first probe hung instead of finishing sixty ticks, because a footprint change
+  called `world.invalidateMap()` and every NPC job's path re-searched at every crossing; the
+  module now bumps the map's own `vehicle_generation` and leaves the world's alone, and the cost
+  of that is a crouched observer's occlusion cache staying stale until that observer moves a
+  tile. The 64-tile map every gate boots stands no car (its streets are two wide against the
+  four a car needs), so the balance harness sees no change and its FAST lines cannot move —
+  which is also why the engine's numbers are a first cut and not a measurement.
+  **The gate**, ten lanes and a budget it spends 2.4 s of 60: CONTENT (three classes whole, a
+  block missing `idle`, a zero, a string and a fabricated class refused at the wheel), SPAWN
+  (suburb@128 stands 33 entities for 33 records, each at its centre on Low with no engine, the
+  manifest identical to the generator's; bare@128 records and no entities; playable@64 none; a
+  real suburb car driven 4.1 m in thirty ticks), MOUNT (out of reach, a held wheel, the door at
+  speed and a walled-in car all refused; in, pinned, out onto a free tile), DRIVE (8.2 m in
+  forty ticks with the driver pinned every tick, the cap reached and not passed, the 180 on
+  tick 24, coasting, the turn onto a 5×2 record, a turn into a wall refused on the tile the
+  turned footprint would cover), BLOCK (a wall, a car, a heap and a doorway each stop it flush
+  at the same number, the open road does not, both cars' twenty tiles intact), NOISE (parked 0,
+  idling 4, driving 24 on the field; one engine note and no footstep on the bus; the emitter
+  taken off, a driving car reads 0 — the dead-socket assertion, and its first cut read 3.2 from
+  the mount tick's one idle note still decaying twenty ticks later), SHELTER, SAVE (driven ten
+  tiles and turned, restored into a world with the car at the kerb: entity, record, Low and the
+  cleared kerb all match, and both worlds drive on in step), SOCKETS (eleven needles across
+  world, boot, shambler, main and dressing, the scanner proved on a fabricated string).
+  **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`, captured through
+  a throwaway Xvfb `SceneTree` driver (deleted after, per the rule) on the 256 suburb at zoom
+  64: `slice12-beside-64.png`, `slice12-in-64.png` and `slice12-driving-64.png`, the player's
+  sedan pulling away south past a parked van with the HUD reading "driving the sedan; Q to get
+  out once it stops" and the attention line "audible nearby" — the engine on the field, in
+  words. (The driver's capture ran a frame late, so the first two frames are already under
+  way; they are three frames of one drive rather than the three states the names suggest.)
+  Two things the frame shows that the gate cannot: the driver's pawn is gone from the street
+  and the car is what moves, and the stance readout still says "walking" at the wheel, which
+  is the "driver's hands" half named below.
+  **What it leaves** is in what's left under "What driving left behind": running things over,
+  the door under siege, the driver's hands, NPC drivers, fuel and breakdowns, the engine at the
+  director, and the nose-south picture.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

@@ -67,6 +67,11 @@ var streets: Array = []
 # serialised -- the map is regenerated from the seed -- and empty on fixture maps, on `blank_map`,
 # and on every district that declares no `vehicles` block.
 var vehicles: Array = []
+# Bumped by SimVehicles every time a car's footprint tiles or record change, so a reader that
+# caches something derived from `vehicles` (the drawing node's tile -> record index) can tell a
+# moved car from the map object it already knows. Never serialised; the module re-syncs after a
+# restore and bumps it then.
+var vehicle_generation: int = 0
 # Where the loot is, in absolute tiles: {x, y, table, container?} per site, in placement order.
 # Written by the generator's `worldgen.sites` pass and by `SimTemplates.stamp` for a template that
 # carries a `loot` block (the civic annex's two rows, and any building template that grows one);
@@ -96,6 +101,7 @@ func _init(width: int, height: int, tile: int = Tile.Floor) -> void:
 	buildings = []
 	streets = []
 	vehicles = []
+	vehicle_generation = 0
 	sites = []
 
 
