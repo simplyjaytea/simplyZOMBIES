@@ -1,0 +1,37 @@
+{
+  "id": "vehicle.skateboard",
+  "name": "Skateboard",
+  "drive": {
+    "power": "muscle",
+    "speed": 4.5,
+    "accel": 2.0,
+    "brake": 4.0,
+    "noise": 5,
+    "idle": 0
+  },
+  "cab": false,
+  "dash": "board",
+  "footprint": {
+    "w": 1,
+    "l": 1
+  },
+  "appearance": {
+    "variants": [
+      {
+        "id": "pale",
+        "ns": "vehicle_skateboard_pale_ns",
+        "ew": "vehicle_skateboard_pale_ew"
+      },
+      {
+        "id": "green",
+        "ns": "vehicle_skateboard_green_ns",
+        "ew": "vehicle_skateboard_green_ew"
+      },
+      {
+        "id": "burnt",
+        "ns": "vehicle_skateboard_burnt_ns",
+        "ew": "vehicle_skateboard_burnt_ew"
+      }
+    ]
+  }
+}

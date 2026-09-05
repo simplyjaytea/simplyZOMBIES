@@ -53,6 +53,19 @@ extends RefCounted
 # the view to, exactly as SimCondition.PART_KEYS is held: a numeric field there is a red build.
 # A dry tank or a wrecked engine will not run: the car coasts to a stop and the idle goes quiet.
 #
+# The light vehicles (the owner's goal of 2026-09-05, the fourth of the driving session): a
+# bicycle, an electric bike, an electric scooter, a kick scooter and a skateboard are the same
+# module and the same component, told apart by content and not by code. The class's `drive.power`
+# says what moves it -- `engine` (the cars), `battery` (charge that runs flat, and then the rider
+# pedals or kicks at `unpowered`), `muscle` (the rider, never dry) -- and picks the words: a
+# battery reads flat..full, a hood check on a bike is a look over the frame. `cab` says whether
+# the driver is inside anything: a car's driver is off the shambler's menu and is not drawn; a
+# rider is on it, is drawn on the machine, and is put off it by a grab or by a crash at speed
+# (`_unseat`) -- the balance a light vehicle buys with its speed. `dash` names which instrument
+# layout the seat shows (`dash_view.layout`): a car's cluster, a handlebar computer, or the
+# next-to-nothing a board gives you. Speeds sit between a walk (2.1) and a car (8..10): a bicycle
+# just outruns a sprint (6.3) and a skateboard does not, which is the balance the goal asked for.
+#
 # Determinism: the one RNG here is the `vehicles` stream, drawn exactly twice per record at spawn
 # (fuel, then condition) in manifest order, so a seed parks the same tanks every boot. Everything
 # after that is a function of the commands and the map, and a replay of the same commands drives
@@ -113,9 +126,32 @@ const HOOD_KEYS: Array[String] = ["name", "condition", "fuel", "runs", "prose"]
 # and `gauge`, fractions of the class's top and of the tank -- which are the machine's own
 # instruments and not the body's, docs/30 records why that is not the health bar. No digits
 # anywhere in it; a speedometer with no numbers on the dial is still a speedometer.
-const DASH_KEYS: Array[String] = ["name", "gear", "braking", "throttle", "running", "speed", "speedo", "engine", "warning", "fuel", "gauge", "prose"]
+# `layout`, `motion` and `powered` came with the light vehicles: which instrument layout the
+# screen draws (the class's `dash` word), the gear in the vehicle's own words (a car is in drive,
+# a bicycle is pedalling, a board is being pushed), and whether there is a tank or a battery to
+# gauge at all -- a bicycle's dash has no fuel needle because a bicycle has no fuel.
+const DASH_KEYS: Array[String] = ["name", "layout", "gear", "motion", "braking", "throttle", "running", "powered", "speed", "speedo", "engine", "warning", "fuel", "gauge", "prose"]
 const DASH_NEEDLES: Array[String] = ["speedo", "gauge"]
 const GEARS: Array[String] = ["park", "neutral", "drive"]
+# What moves a class, the schema's `drive.power` enum. Judged whole with the rest of the block.
+const POWER_ENGINE: String = "engine"
+const POWER_BATTERY: String = "battery"
+const POWER_MUSCLE: String = "muscle"
+const POWERS: Array[String] = [POWER_ENGINE, POWER_BATTERY, POWER_MUSCLE]
+# The drive keys a tank needs: required for an engine or a battery, zero for muscle.
+const TANK_KEYS: Array[String] = ["tank", "range", "idleMinutes"]
+# The instrument layouts the schema's `dash` enum names; ui/dashboard.gd draws one per word.
+const DASH_LAYOUTS: Array[String] = ["cluster", "handlebar", "board"]
+# A battery's six words, on the same fractions as the tank's: the whole readout of a charge.
+const CHARGE_WORDS: Array[String] = ["flat", "a sliver of charge", "under a quarter", "about half a charge", "most of a charge", "full"]
+# The gear in each layout's own words, indexed park / neutral / drive. A battery class under
+# power says so; with the charge flat it says what the rider is doing instead.
+const MOTION_WORDS: Dictionary = {
+	"cluster": ["in park", "in neutral", "in drive"],
+	"handlebar": ["stopped", "coasting", "pedalling"],
+	"board": ["stopped", "rolling", "pushing"],
+}
+const MOTION_POWERED: String = "under power"
 # Speed, in words, on the fraction of the class's top: the whole readout beside the needle.
 const SPEED_WORDS: Array[String] = ["stopped", "crawling", "rolling", "a fair clip", "flat out"]
 const SPEED_FLOORS: Array[float] = [0.0, 0.0, 0.25, 0.5, 0.8]
@@ -156,26 +192,98 @@ static func class_of(world: Variant, id: String) -> Dictionary:
 const DRIVE_KEYS: Array[String] = ["speed", "accel", "brake", "noise", "idle", "tank", "range", "idleMinutes"]
 
 
-# The eight numbers a class drives on -- {speed, accel, brake, noise, idle, tank, range,
-# idleMinutes} -- or {} when the class declares no usable `drive` block. Judged whole rather than
-# defaulted a key at a time: the validator does not recurse, so a class missing `brake` would
-# otherwise drive on a silent guess, and a car that never stops is exactly the wrong number
-# nothing reports. A class with no drive block cannot be mounted, and `mount_problem` says so.
+# The power word and the eight numbers a class drives on -- {power, speed, accel, brake, noise,
+# idle, tank, range, idleMinutes, unpowered} -- or {} when the class declares no usable `drive`
+# block. Judged whole rather than defaulted a key at a time: the validator does not recurse, so a
+# class missing `brake` would otherwise drive on a silent guess, and a car that never stops is
+# exactly the wrong number nothing reports. The one allowance is the power's own: a muscle class
+# has no tank, so its three tank keys may be absent or zero and read as zero; an engine or a
+# battery must declare all three above zero. `unpowered` is optional and zero when absent -- what
+# a battery class does with the charge flat. A class with no drive block cannot be mounted, and
+# `mount_problem` says so.
 static func drive_of(entry: Dictionary) -> Dictionary:
 	var block: Variant = entry.get("drive")
 	if not (block is Dictionary):
 		return {}
 	var d: Dictionary = block as Dictionary
-	var out: Dictionary = {}
+	var power: String = String(d.get("power", ""))
+	if not POWERS.has(power):
+		return {}
+	var out: Dictionary = {"power": power}
 	for key in DRIVE_KEYS:
+		var needed: bool = power != POWER_MUSCLE or not TANK_KEYS.has(key)
 		var v: Variant = d.get(key)
+		if v == null and not needed:
+			out[key] = 0.0
+			continue
 		if not (v is float or v is int):
 			return {}
 		var f: float = float(v)
-		if f < 0.0 or (key != "idle" and f <= 0.0):
+		if f < 0.0 or (key != "idle" and needed and f <= 0.0):
 			return {}
 		out[key] = f
+	var fallback: Variant = d.get("unpowered")
+	if fallback == null:
+		out["unpowered"] = 0.0
+	elif not (fallback is float or fallback is int) or float(fallback) < 0.0:
+		return {}
+	else:
+		out["unpowered"] = float(fallback)
 	return out
+
+
+# What moves a class: one of POWERS, or "" for a block `drive_of` refused.
+static func power_of(drive: Dictionary) -> String:
+	return String(drive.get("power", ""))
+
+
+# Whether the driver sits inside a closed body. Read off the class entry's `cab`; a class that
+# says nothing is open, because a shelter nobody declared is a shelter nobody should get.
+static func has_cab(entry: Dictionary) -> bool:
+	return bool(entry.get("cab", false))
+
+
+# Which instrument layout the seat shows, one of DASH_LAYOUTS; a word nobody declared, or one
+# not on the list, falls to the board -- the least instrument, never the most.
+static func dash_layout(entry: Dictionary) -> String:
+	var word: String = String(entry.get("dash", ""))
+	return word if DASH_LAYOUTS.has(word) else "board"
+
+
+# Whether the motor is turning over: an engine or a battery with something in the tank on a
+# vehicle that is not a wreck. A muscle class has no motor and answers false always -- its rider
+# is what moves it, which is `can_ride`.
+static func motor_runs(v: Dictionary, drive: Dictionary) -> bool:
+	if drive.is_empty() or power_of(drive) == POWER_MUSCLE:
+		return false
+	return engine_runs(v)
+
+
+# The speed the rider makes with no motor helping: a muscle class's own top, a battery class's
+# `unpowered`, nothing at all for an engine.
+static func muscle_top(drive: Dictionary) -> float:
+	match power_of(drive):
+		POWER_MUSCLE:
+			return float(drive.get("speed", 0.0))
+		POWER_BATTERY:
+			return float(drive.get("unpowered", 0.0))
+	return 0.0
+
+
+# The top speed this vehicle can be asked for right now, before the ground and the condition
+# take their cut: the class's top under power, the rider's own without it, nothing for a wreck.
+static func top_of(v: Dictionary, drive: Dictionary) -> float:
+	if drive.is_empty() or condition_band(float(v.get("integrity", 0.0))) == 0:
+		return 0.0
+	if motor_runs(v, drive):
+		return float(drive.get("speed", 0.0))
+	return muscle_top(drive)
+
+
+# Whether the vehicle will move at all under the driver's intent: a running motor or a rider
+# who can push it, on something that is not a wreck.
+static func can_ride(v: Dictionary, drive: Dictionary) -> bool:
+	return top_of(v, drive) > 0.0
 
 
 # --- spawning and the map shadow ---------------------------------------------------------------
@@ -256,19 +364,21 @@ static func spawn_from_manifest(world: Variant, map: Variant) -> Array[int]:
 static func _start_engine(world: Variant, entity: int, drive: Dictionary) -> void:
 	world.components.set_component(entity, "velocity", {"dx": 0.0, "dy": 0.0})
 	SimAttention.make_emitter(world, entity, {"walking": 0.0, "sprinting": 0.0, "ambient": 0.0, "scent": 0.0})
-	_set_engine_noise(world, entity, drive, engine_runs(world.components.get_component(entity, "vehicle") as Dictionary))
+	var v: Dictionary = world.components.get_component(entity, "vehicle") as Dictionary
+	_set_engine_noise(world, entity, drive, can_ride(v, drive), motor_runs(v, drive))
 
 
-# The emitter's three figures follow whether the engine is turning over: a dry or wrecked car
-# rolls in silence, a running one idles and roars.
-static func _set_engine_noise(world: Variant, entity: int, drive: Dictionary, running: bool) -> void:
+# The emitter's three figures follow the machine: the moving noise (an engine's roar, a bike's
+# tyres and chain) whenever the thing can move at all, the idle only while a motor turns over.
+# A dry or wrecked car rolls in silence; a bicycle is never idle-loud, because it has no idle.
+static func _set_engine_noise(world: Variant, entity: int, drive: Dictionary, moving: bool, motor: bool) -> void:
 	var em: Variant = world.components.get_component(entity, "attention_emitter")
 	if not (em is Dictionary):
 		return
-	var noise: float = float(drive.get("noise", 0.0)) if running else 0.0
+	var noise: float = float(drive.get("noise", 0.0)) if moving else 0.0
 	(em as Dictionary)["walking"] = noise
 	(em as Dictionary)["sprinting"] = noise
-	(em as Dictionary)["ambient"] = (float(drive.get("idle", 0.0)) if running else 0.0)
+	(em as Dictionary)["ambient"] = (float(drive.get("idle", 0.0)) if motor else 0.0)
 
 
 static func _stop_engine(world: Variant, entity: int) -> void:
@@ -320,6 +430,25 @@ static func fuel_band(fuel: float, tank: float) -> int:
 
 static func fuel_word(fuel: float, tank: float) -> String:
 	return FUEL_WORDS[fuel_band(fuel, tank)]
+
+
+# The word for what is in the tank, in the class's own vocabulary: litres for an engine, charge
+# for a battery, and for a muscle class the one word that says there is nothing to fill.
+static func charge_word(fuel: float, tank: float) -> String:
+	return CHARGE_WORDS[fuel_band(fuel, tank)]
+
+
+const NO_TANK_WORD: String = "no tank"
+
+
+static func fill_word(drive: Dictionary, fuel: float) -> String:
+	var tank: float = float(drive.get("tank", 0.0))
+	match power_of(drive):
+		POWER_BATTERY:
+			return charge_word(fuel, tank)
+		POWER_MUSCLE:
+			return NO_TANK_WORD
+	return fuel_word(fuel, tank)
 
 
 # Whether the engine can turn over at all: fuel in the tank and a car that is not a wreck.
@@ -387,18 +516,34 @@ static func hood_view(world: Variant, entity: int) -> Dictionary:
 	if not (v is Dictionary):
 		return {}
 	var d: Dictionary = v as Dictionary
-	var drive: Dictionary = drive_of(class_of(world, String(d.get("class", ""))))
-	var name: String = String(class_of(world, String(d.get("class", ""))).get("name", "car")).to_lower()
+	var entry: Dictionary = class_of(world, String(d.get("class", "")))
+	var drive: Dictionary = drive_of(entry)
+	var name: String = String(entry.get("name", "car")).to_lower()
 	var condition: String = condition_word(float(d.get("integrity", 0.0)))
-	var fuel: String = fuel_word(float(d.get("fuel", 0.0)), float(drive.get("tank", 0.0)))
-	var runs: bool = engine_runs(d) and not drive.is_empty()
+	var fuel: String = fill_word(drive, float(d.get("fuel", 0.0)))
+	var runs: bool = can_ride(d, drive)
 	var prose: String
-	if condition == "wrecked":
-		prose = "under the %s's hood: the engine is wrecked; it will never run again" % name
-	elif fuel == "dry":
-		prose = "under the %s's hood: the engine is %s, but the tank is dry" % [name, condition]
-	else:
-		prose = "under the %s's hood: the engine is %s; %s" % [name, condition, fuel]
+	match power_of(drive):
+		POWER_MUSCLE:
+			# Nothing under a bicycle's hood but the bicycle: the frame is the whole report.
+			if condition == "wrecked":
+				prose = "looking the %s over: the frame is wrecked; nobody rides that again" % name
+			else:
+				prose = "looking the %s over: the frame is %s; nothing to fill" % [name, condition]
+		POWER_BATTERY:
+			if condition == "wrecked":
+				prose = "looking the %s over: the frame is wrecked; nobody rides that again" % name
+			elif fuel == CHARGE_WORDS[0]:
+				prose = "looking the %s over: the frame is %s, and the battery is flat" % [name, condition]
+			else:
+				prose = "looking the %s over: the frame is %s; %s" % [name, condition, fuel]
+		_:
+			if condition == "wrecked":
+				prose = "under the %s's hood: the engine is wrecked; it will never run again" % name
+			elif fuel == "dry":
+				prose = "under the %s's hood: the engine is %s, but the tank is dry" % [name, condition]
+			else:
+				prose = "under the %s's hood: the engine is %s; %s" % [name, condition, fuel]
 	return {"name": name, "condition": condition, "fuel": fuel, "runs": runs, "prose": prose}
 
 
@@ -445,36 +590,53 @@ static func dash_view(world: Variant, actor: int) -> Dictionary:
 	var entry: Dictionary = class_of(world, String(d.get("class", "")))
 	var drive: Dictionary = drive_of(entry)
 	var name: String = String(entry.get("name", "car")).to_lower()
+	var layout: String = dash_layout(entry)
+	var power: String = power_of(drive)
+	# The needle's full-scale is the class's top under power, so a flat e-bike pedalled at its
+	# unpowered speed reads part-way up the same dial -- the dial did not shrink, the ride did.
 	var top: float = float(drive.get("speed", 0.0))
 	var tank: float = float(drive.get("tank", 0.0))
 	var speed: float = float(d.get("speed", 0.0))
 	var fuel: float = float(d.get("fuel", 0.0))
 	var integrity: float = float(d.get("integrity", 0.0))
 	var gear: String = String(d.get("gear", "park"))
-	var running: bool = engine_runs(d) and not drive.is_empty()
+	var motor: bool = motor_runs(d, drive)
+	var running: bool = can_ride(d, drive)
 	var band: int = condition_band(integrity)
+	var powered: bool = power == POWER_ENGINE or power == POWER_BATTERY
+	var words: Array = MOTION_WORDS.get(layout, MOTION_WORDS["board"]) as Array
+	var motion: String = String(words[maxi(0, GEARS.find(gear))])
+	if gear == "drive" and power == POWER_BATTERY and motor:
+		motion = MOTION_POWERED
 	var view: Dictionary = {
 		"name": name,
+		"layout": layout,
 		"gear": gear,
+		"motion": motion,
 		"braking": bool(d.get("braking", false)),
 		"throttle": gear == "drive",
 		"running": running,
+		"powered": powered,
 		"speed": speed_word(speed, top),
 		"speedo": clampf(speed / top, 0.0, 1.0) if top > 0.0 else 0.0,
 		"engine": condition_word(integrity),
 		"warning": band <= 2,
-		"fuel": fuel_word(fuel, tank),
+		"fuel": fill_word(drive, fuel),
 		"gauge": clampf(fuel / tank, 0.0, 1.0) if tank > 0.0 else 0.0,
 	}
 	var prose: String
 	if band == 0:
-		prose = "the %s is wrecked; nothing on the dash answers" % name
-	elif not running:
-		prose = "in %s, %s; the tank is dry" % [gear, view["speed"]]
+		prose = "the %s is wrecked; nothing on the dash answers" % name if layout == "cluster" else "the %s is wrecked; it goes nowhere" % name
+	elif power == POWER_ENGINE and not motor:
+		prose = "%s, %s; the tank is dry" % [motion, view["speed"]]
+	elif power == POWER_BATTERY and not motor:
+		prose = "%s, %s; the battery is flat" % [motion, view["speed"]]
+	elif powered:
+		prose = "%s, %s; %s" % [motion, view["speed"], view["fuel"]]
 	else:
-		prose = "in %s, %s; %s" % [gear, view["speed"], view["fuel"]]
+		prose = "%s, %s" % [motion, view["speed"]]
 	if bool(view["braking"]):
-		prose += "; braking"
+		prose += "; braking" if layout != "board" else "; a foot down"
 	view["prose"] = prose
 	return view
 
@@ -723,9 +885,12 @@ static func mount(world: Variant, actor: int, entity: int) -> bool:
 	var vpos: Dictionary = world.components.get_component(entity, "position") as Dictionary
 	v["driver"] = actor
 	v["intent"] = {"dx": 0.0, "dy": 0.0}
-	world.components.set_component(actor, "mounted", {"vehicle": entity})
-	_pin_driver(world, actor, vpos)
-	_start_engine(world, entity, drive_of(class_of(world, String(v.get("class", "")))))
+	var entry: Dictionary = class_of(world, String(v.get("class", "")))
+	# `cab` rides on the mount so the shambler's gather and the drawing loop read a boolean and
+	# never look a class up per body per tick (the 1.9 ms lesson, docs/23).
+	world.components.set_component(actor, "mounted", {"vehicle": entity, "cab": has_cab(entry)})
+	_pin_driver(world, actor, vpos, v)
+	_start_engine(world, entity, drive_of(entry))
 	world.events.publish({"type": "vehicle.mounted", "entity": entity, "driver": actor})
 	return true
 
@@ -797,7 +962,7 @@ static func exit_tile(world: Variant, v: Dictionary, vpos: Dictionary) -> Varian
 	return null
 
 
-static func _pin_driver(world: Variant, actor: int, vpos: Dictionary) -> void:
+static func _pin_driver(world: Variant, actor: int, vpos: Dictionary, v: Dictionary = {}) -> void:
 	var pos: Variant = world.components.get_component(actor, "position")
 	if pos is Dictionary:
 		(pos as Dictionary)["x"] = float(vpos.get("x", 0.0))
@@ -806,6 +971,30 @@ static func _pin_driver(world: Variant, actor: int, vpos: Dictionary) -> void:
 	if vel is Dictionary:
 		(vel as Dictionary)["dx"] = 0.0
 		(vel as Dictionary)["dy"] = 0.0
+	# A rider faces the way the machine points: the pinned velocity is zero, so nothing else
+	# would turn the pawn drawn on an open vehicle, and a bicycle ridden west with its rider
+	# facing east is a picture contradicting itself.
+	if not v.is_empty():
+		var facing: Variant = world.components.get_component(actor, "facing")
+		if facing is Dictionary and HEADINGS.has(String(v.get("heading", ""))):
+			var dir: Vector2 = HEADINGS[String(v.get("heading", ""))] as Vector2
+			(facing as Dictionary)["radians"] = atan2(dir.y, dir.x)
+
+
+# Off the machine where it stands: the rider is released in place (the tile under an open
+# vehicle is Low and walkable, so there is nowhere to fall to), the vehicle stops and goes quiet.
+# What a grab or a crash does to a rider; a car's driver is never unseated, because a car has
+# doors. The body takes no injury from it -- named in docs/23 rather than half-built here.
+static func _unseat(world: Variant, entity: int, v: Dictionary, driver: int, why: String) -> void:
+	if world.components.has_component(driver, "mounted"):
+		world.components.remove(driver, "mounted")
+	v["driver"] = NO_DRIVER
+	v["intent"] = {"dx": 0.0, "dy": 0.0}
+	v["speed"] = 0.0
+	v["gear"] = "park"
+	v["braking"] = false
+	_stop_engine(world, entity)
+	world.events.publish({"type": "vehicle.unseated", "entity": entity, "driver": driver, "why": why})
 
 
 # --- the systems --------------------------------------------------------------------------------
@@ -885,9 +1074,17 @@ static func _drive(w: Variant) -> void:
 				v["speed"] = 0.0
 				_stop_engine(w, e)
 				continue
+			# A rider in the open who has been grabbed is off the machine: the hold pins the body
+			# where it is and the pin below would drag it along, so the grab wins and the bike
+			# stops under it. A driver behind a door is never on the menu (the shambler skips a
+			# cab), so this only ever fires on an open vehicle.
+			if not bool((m as Dictionary).get("cab", false)) and w.components.has_component(driver, "grabbed"):
+				_unseat(w, e, v, driver, "grabbed")
+				continue
 		var speed: float = float(v.get("speed", 0.0))
 		var heading: String = String(v.get("heading", "n"))
 		var moved: bool = false
+		var thrown: bool = false
 		# Only a car with a driver has a velocity, so only a car with a driver is in this loop --
 		# and only then is the class looked up. Looking it up for every parked car every tick was
 		# measured at 1.9 ms a tick at 128 (`SimWorldgen.vehicles_of` sorts the whole content
@@ -897,8 +1094,12 @@ static func _drive(w: Variant) -> void:
 			continue
 		else:
 			var drive: Dictionary = drive_of(class_of(w, String(v.get("class", ""))))
-			var running: bool = engine_runs(v) and not drive.is_empty()
-			_set_engine_noise(w, e, drive, running)
+			# `running` is whether the thing will go at all under the driver's intent -- a motor
+			# turning over, or a rider who can pedal or push it -- and `motor` whether there is a
+			# motor turning over to burn anything or to idle out loud.
+			var running: bool = can_ride(v, drive)
+			var motor: bool = motor_runs(v, drive)
+			_set_engine_noise(w, e, drive, running, motor)
 			# The gear and the brake lamp, derived here and read by the dashboard: drive is the
 			# throttle held along the heading with an engine that runs, neutral is rolling with
 			# no throttle (or a dead engine coasting), park is stopped with no throttle; the lamp
@@ -914,15 +1115,17 @@ static func _drive(w: Variant) -> void:
 				# steering below is refused too -- a car that will not run does not turn.
 				if not running:
 					want = ""
-				else:
-					# The idle, every tick the engine turns over; the metres are charged below.
+				elif motor:
+					# The idle, every tick the motor turns over; the metres are charged below.
 					v["fuel"] = maxf(0.0, float(v.get("fuel", 0.0)) - idle_burn(drive) * TICK_SECONDS)
 				if want.is_empty():
 					speed = maxf(0.0, speed - brake * COAST_FRACTION)
 					gear = "neutral" if speed > 0.0 else "park"
 				elif want == heading:
 					gear = "drive"
-					var cap: float = float(drive["speed"]) * w.surface_speed_at(float(pos["x"]), float(pos["y"])) * CONDITION_CAP[condition_band(float(v.get("integrity", 0.0)))]
+					# The class's top under power, the rider's own without it (top_of), the ground's
+					# cut and the condition's.
+					var cap: float = top_of(v, drive) * w.surface_speed_at(float(pos["x"]), float(pos["y"])) * CONDITION_CAP[condition_band(float(v.get("integrity", 0.0)))]
 					speed += float(drive["accel"]) * TICK_SECONDS
 					# Over the cap -- a paved car rolling onto grass -- sheds speed at the brake
 					# rather than snapping down to it.
@@ -985,6 +1188,11 @@ static func _drive(w: Variant) -> void:
 						w.events.publish({"type": "noise.emitted", "x": float(pos["x"]), "y": float(pos["y"]), "magnitude": crash_noise(speed, class_cap), "source": e})
 						if before > 0.0 and float(v["integrity"]) <= 0.0:
 							w.events.publish({"type": "vehicle.wrecked", "entity": e})
+						# Over the handlebars: a crash that costs the machine anything puts a rider
+						# in the open off it. The car's driver stays in the seat.
+						var mm: Variant = w.components.get_component(driver, "mounted")
+						if mm is Dictionary and not bool((mm as Dictionary).get("cab", false)):
+							thrown = true
 					speed = 0.0
 				else:
 					along += sign * step
@@ -1006,7 +1214,9 @@ static func _drive(w: Variant) -> void:
 		if moved:
 			_sync_one(w, map, e, v, pos)
 		if driver != NO_DRIVER:
-			_pin_driver(w, driver, pos)
+			_pin_driver(w, driver, pos, v)
+			if thrown:
+				_unseat(w, e, v, driver, "crashed")
 
 
 # The shadow of one car after it moved: the record's ground point every time, the tiles and the
@@ -1050,14 +1260,28 @@ static func hud_clause(world: Variant, actor: int) -> String:
 	if m is Dictionary:
 		var v: Variant = world.components.get_component(int((m as Dictionary).get("vehicle", NO_DRIVER)), "vehicle")
 		if v is Dictionary:
-			var name: String = String(class_of(world, String((v as Dictionary).get("class", ""))).get("name", "car")).to_lower()
+			var entry: Dictionary = class_of(world, String((v as Dictionary).get("class", "")))
+			var drive: Dictionary = drive_of(entry)
+			var name: String = String(entry.get("name", "car")).to_lower()
+			var out: String = "E to get out" if has_cab(entry) else "E to get off"
+			var verb: String = "driving" if has_cab(entry) else "riding"
+			var seat: String = seat_phrase(entry)
 			if float((v as Dictionary).get("speed", 0.0)) > 0.0:
-				return "driving the %s; E to get out once it stops" % name
+				return "%s the %s; %s once it stops" % [verb, name, out]
 			if condition_band(float((v as Dictionary).get("integrity", 0.0))) == 0:
-				return "at the wheel of the %s; the engine is wrecked and will not turn over; E to get out" % name
-			if float((v as Dictionary).get("fuel", 0.0)) <= 0.0:
-				return "at the wheel of the %s; the tank is dry; E to get out" % name
-			return "at the wheel of the %s, engine running; E to get out" % name
+				if power_of(drive) == POWER_ENGINE:
+					return "%s the %s; the engine is wrecked and will not turn over; %s" % [seat, name, out]
+				return "%s the %s; the frame is wrecked and it goes nowhere; %s" % [seat, name, out]
+			match power_of(drive):
+				POWER_ENGINE:
+					if float((v as Dictionary).get("fuel", 0.0)) <= 0.0:
+						return "%s the %s; the tank is dry; %s" % [seat, name, out]
+					return "%s the %s, engine running; %s" % [seat, name, out]
+				POWER_BATTERY:
+					if float((v as Dictionary).get("fuel", 0.0)) <= 0.0:
+						return "%s the %s; the battery is flat, so it is legs from here; %s" % [seat, name, out]
+					return "%s the %s, battery humming; %s" % [seat, name, out]
+			return "%s the %s; %s" % [seat, name, out]
 		return ""
 	# A hood you have just looked under outranks the car beside you for as long as the report
 	# lasts; then the kerb clauses come back.
@@ -1068,7 +1292,23 @@ static func hud_clause(world: Variant, actor: int) -> String:
 	if near == NO_DRIVER:
 		return ""
 	var nv: Dictionary = world.components.get_component(near, "vehicle") as Dictionary
-	var near_name: String = String(class_of(world, String(nv.get("class", ""))).get("name", "car")).to_lower()
+	var near_entry: Dictionary = class_of(world, String(nv.get("class", "")))
+	var near_name: String = String(near_entry.get("name", "car")).to_lower()
 	if at_hood(world, actor, near):
-		return "the %s's hood before you; E to look under it" % near_name
-	return "a %s beside you; E to get in" % near_name
+		if has_cab(near_entry):
+			return "the %s's hood before you; E to look under it" % near_name
+		return "a %s before you; E to look it over" % near_name
+	if has_cab(near_entry):
+		return "a %s beside you; E to get in" % near_name
+	return "a %s beside you; E to get on" % near_name
+
+
+# Where the body is, in the class's own words: a car has a wheel, a bicycle a saddle, a board
+# is stood on. Picked by the dash layout, which is the same distinction drawn.
+static func seat_phrase(entry: Dictionary) -> String:
+	match dash_layout(entry):
+		"cluster":
+			return "at the wheel of"
+		"handlebar":
+			return "in the saddle of"
+	return "standing on"

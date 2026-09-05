@@ -2,15 +2,15 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://simplyzombies.dev/schemas/vehicle.schema.json",
   "title": "Vehicle class",
-  "description": "A class of car left standing in the street: how big it is on the ground, and which pictures draw it. Godot-only -- the frozen TypeScript oracle's CONTENT_TYPES lists six directories (zombies, affixes, items, calibration, survivors, maps) and reads only those schemas, so nothing here reaches Ajv and content_validator.gd is the only validator that sees it. Two readers, and they read different halves: SimWorldgen's `worldgen.vehicles` pass reads `footprint` to decide which street tiles a parked car covers, and presentation reads `appearance.variants` to decide which picture stands on them. NOTE the Godot validator is shallow -- top-level property types and unexpected top-level keys only, no recursion -- so neither `footprint` nor `appearance` is enforced at load, and a purpose-built gate is what checks their insides.",
+  "description": "A class of vehicle left standing in the street -- a car, or since the light-vehicle slice a bicycle, an electric bike or scooter, a kick scooter or a skateboard: how it is powered and how it drives, whether it has a cab, which dash the rider sees, how big it is on the ground, and which pictures draw it. Godot-only -- the frozen TypeScript oracle's CONTENT_TYPES lists six directories (zombies, affixes, items, calibration, survivors, maps) and reads only those schemas, so nothing here reaches Ajv and content_validator.gd is the only validator that sees it. Readers: SimWorldgen's `worldgen.vehicles` pass reads `footprint` to decide which street tiles a parked vehicle covers, SimVehicles reads `drive`, `cab` and `dash`, and presentation reads `appearance.variants` to decide which picture stands on them. NOTE the Godot validator is shallow -- top-level property types and unexpected top-level keys only, no recursion -- so neither `drive`, `footprint` nor `appearance` is enforced inside at load, and check_vehicles.gd / check_wrecks.gd are what check their insides.",
   "type": "object",
-  "required": ["id", "name", "drive", "footprint", "appearance"],
+  "required": ["id", "name", "drive", "cab", "dash", "footprint", "appearance"],
   "additionalProperties": false,
   "properties": {
     "id": {
       "type": "string",
       "pattern": "^vehicle\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
-      "description": "Stable namespaced id, always vehicle.<class>. A district's `vehicles.classes[].id` names one of these, and a name nobody wrote is loud rather than silent: SimWorldgen._vehicles push_errors on it instead of quietly parking nothing."
+      "description": "Stable namespaced id, always vehicle.<class> (sedan, van, truck, bicycle, ebike, escooter, kickscooter, skateboard). A district's `vehicles.classes[].id` names one of these, and a name nobody wrote is loud rather than silent: SimWorldgen._vehicles push_errors on it instead of quietly parking nothing."
     },
     "name": {
       "type": "string",
@@ -18,19 +18,70 @@
     },
     "drive": {
       "type": "object",
-      "required": ["speed", "accel", "brake", "noise", "idle", "tank", "range", "idleMinutes"],
+      "required": ["power", "speed", "accel", "brake", "noise", "idle"],
       "additionalProperties": false,
-      "description": "How the class drives, read by SimVehicles (sim/modules/vehicles.gd) and by nothing else. Metres and seconds throughout, on the same scale a body walks at 2.1 and sprints at 6.3. Judged whole at the wheel: a class missing any of the five is a class nobody can get into (`SimVehicles.drive_of` answers {} and `mount_problem` names it), never one that drives on a guess, because the validator does not recurse and a silent default here is the wrong-number-nothing-reports trap. check_vehicles.gd's CONTENT lane reads every class's block.",
+      "description": "How the class drives, read by SimVehicles (sim/modules/vehicles.gd) and by nothing else. Metres and seconds throughout, on the same scale a body walks at 2.1 and sprints at 6.3. Judged whole at the wheel: a class missing any key its power needs is a class nobody can get into (`SimVehicles.drive_of` answers {} and `mount_problem` names it), never one that drives on a guess, because the validator does not recurse and a silent default here is the wrong-number-nothing-reports trap. `power` decides which keys are needed: an `engine` or a `battery` must declare `tank`, `range` and `idleMinutes`; `muscle` has no tank and may omit all three (they read as zero). check_vehicles.gd's CONTENT lane reads every class's block.",
       "properties": {
-        "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Top speed along the heading, metres a second, before the ground's own multiplier (world.surface_speed_at, the same table a body walks on)." },
-        "accel": { "type": "number", "exclusiveMinimum": 0, "description": "Metres a second gained each second the driver holds the heading." },
-        "brake": { "type": "number", "exclusiveMinimum": 0, "description": "Metres a second lost each second the driver holds the opposite or a perpendicular; coasting with no intent loses half this." },
-        "noise": { "type": "number", "exclusiveMinimum": 0, "description": "The engine under way: the attention emitter's walking and sprinting figure, every tick the car moves, scaled by the surface's noise like a footstep. A sprint is 6 and a shout 120." },
-        "idle": { "type": "number", "minimum": 0, "description": "The engine running with the car stopped and a driver at the wheel: the emitter's ambient while mounted, zero once the driver gets out." },
-        "tank": { "type": "number", "exclusiveMinimum": 0, "description": "Litres a full tank holds. A parked car spawns with the square of a roll times this (SimVehicles.rolled_fuel), so most stand low; the player only ever reads the fraction as a word (dry .. full)." },
-        "range": { "type": "number", "exclusiveMinimum": 0, "description": "Metres a full tank drives, under way. Litres a metre is tank/range. Game-scaled to the district, not to a road atlas: a 256 m district at 12 000 m of range is a tank that lasts a session, not a lifetime." },
-        "idleMinutes": { "type": "number", "exclusiveMinimum": 0, "description": "Minutes a full tank idles with a driver at the wheel and the car stopped. Litres a second is tank/(idleMinutes*60)." }
+        "power": {
+          "type": "string",
+          "enum": ["engine", "battery", "muscle"],
+          "description": "What moves it. `engine` burns litres and is loud (the cars); `battery` spends charge and hums, and when the charge is flat the rider falls back to `unpowered` -- pedalling an e-bike, kicking an e-scooter along; `muscle` is the rider's own legs, never dry, never louder than the tyres. Power also picks the words: a battery class reads flat..full rather than dry..full, and its hood check is a look at the battery."
+        },
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Top speed along the heading, metres a second, before the ground's own multiplier (world.surface_speed_at, the same table a body walks on). An engine class is faster than a sprint (6.3) or it is not a car; a muscle or battery class is faster than a walk (2.1) or it is not worth getting on -- the light classes sit between, deliberately: a bicycle just outruns a sprint and a skateboard does not, which is the balance the slice was asked for."
+        },
+        "accel": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Metres a second gained each second the driver holds the heading."
+        },
+        "brake": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Metres a second lost each second the driver holds the opposite or a perpendicular; coasting with no intent loses half this."
+        },
+        "noise": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "The vehicle under way: the attention emitter's walking and sprinting figure, every tick it moves, scaled by the surface's noise like a footstep. An engine is louder than a sprint (6); tyres and a hub motor are not, so a muscle or battery class stays at or under a sprint. A sprint is 6 and a shout 120."
+        },
+        "idle": {
+          "type": "number",
+          "minimum": 0,
+          "description": "The engine running with the car stopped and a driver at the wheel: the emitter's ambient while mounted, zero once the driver gets out. Zero for every class without an engine."
+        },
+        "tank": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Litres a full tank holds, or watt-hours a full battery does. A parked vehicle spawns with the square of a roll times this (SimVehicles.rolled_fuel), so most stand low; the player only ever reads the fraction as a word (dry .. full, or flat .. full). Required for engine and battery; a muscle class has none."
+        },
+        "range": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Metres a full tank drives, under way. Litres a metre is tank/range. Game-scaled to the district, not to a road atlas: a 256 m district at 12 000 m of range is a tank that lasts a session, not a lifetime. Required for engine and battery; absent on muscle."
+        },
+        "idleMinutes": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Minutes a full tank idles with a driver at the wheel and the car stopped, or a full battery stands switched on. Litres (or watt-hours) a second is tank/(idleMinutes*60). Required for engine and battery; absent on muscle."
+        },
+        "unpowered": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Battery classes only: the top speed the rider makes with the charge flat -- pedalling the e-bike, kicking the e-scooter along -- so a dead battery is a slower ride rather than a dead ride. Zero or absent means the class will not move without power, which is what an engine is; a muscle class ignores it because its `speed` already is the rider's."
+        }
       }
+    },
+    "cab": {
+      "type": "boolean",
+      "description": "Whether the driver sits inside a closed body. True for the cars: a body at the wheel is off the shambler's menu (SimShambler._gather_survivors skips a `mounted` body whose vehicle has a cab) and its pawn is not drawn, the car's picture is. False for everything you sit or stand on in the open: the rider is drawn on the machine, stays on the menu, and a grab or a crash at speed puts them off it (SimVehicles._unseat). check_vehicles.gd's SHELTER lane holds both."
+    },
+    "dash": {
+      "type": "string",
+      "enum": ["cluster", "handlebar", "board"],
+      "description": "Which instrument layout ui/dashboard.gd draws while the player is on this class, carried through SimVehicles.dash_view's `layout` word. `cluster` is a car's: two dials, P N D, brake and engine lamps. `handlebar` is a bicycle's or an e-bike's: one small speed dial, the motion word, a brake lamp, a frame lamp, and a charge gauge only when the class has a battery. `board` is a skateboard's or a kick scooter's: a strip with the motion word, a row of speed pips and a foot-down lamp -- the least instrument a rider could be said to read. Every layout is words and needles and never a digit."
     },
     "footprint": {
       "type": "object",
@@ -41,12 +92,12 @@
         "w": {
           "type": "integer",
           "minimum": 1,
-          "description": "Breadth across the body. Two for every car the arc ships, and the reason SimWorldgen.VEHICLE_MIN_WIDTH is four: a 2-wide body needs a kerb row free on each side of it, so a 3-wide street has nowhere to park."
+          "description": "Breadth across the body. Two for every car, one for every light class -- a body one tile across needs a kerb row free on each side of it, so it parks at lane offsets 1..width-2 where a car parks at 1..width-3 (SimWorldgen._vehicles); the span itself still has to be VEHICLE_MIN_WIDTH wide, so the 64-tile map every gate boots stays byte-identical."
         },
         "l": {
           "type": "integer",
           "minimum": 1,
-          "description": "Length nose to tail. Five for a sedan, which is what sets SimWorldgen.VEHICLE_SLOT at eight -- a car and a gap you can walk through."
+          "description": "Length nose to tail. Five for a sedan, which is what sets SimWorldgen.VEHICLE_SLOT at eight -- a car and a gap you can walk through; two for a bicycle, one for a skateboard."
         }
       }
     },

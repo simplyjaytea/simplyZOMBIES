@@ -14,7 +14,7 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-05 (the driving slice)
+## State, as of 2026-09-05 (the driving slices)
 
 Green, and verified this session rather than quoted: `npm run godot:m2` chains **46 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
@@ -32,6 +32,18 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-05 — the light vehicles** (the LIGHT lane of `npm run godot:m2:vehicles`, and
+`WRECKS_OK` judging the new pictures), the owner's fourth goal of the driving session: a
+bicycle, an electric bike, an electric scooter, a kick scooter and a skateboard park in the
+suburb beside the cars and ride the same way — E from the side gets on, WASD rides, E gets off
+once stopped — at speeds between a walk and a car (bicycle 6.5 just outruns a sprint's 6.3, a
+skateboard's 4.5 does not), each with its own small dash (a handlebar computer or a board's
+strip, words and needles, no digit). What they trade for it is the cab: a rider is on the
+shambler's menu and a grab or a crash throws them off. A flat e-bike is pedalled at its
+unpowered speed; a bicycle has no tank at all. Every call was a first cut taken without an
+owner (docs/30's Driving entry, "Light vehicles"), and the halves it named rather than built are
+docs/23's "What the light vehicles left behind".
+
 **2026-09-05 — the parked cars drive** (`npm run godot:m2:vehicles`, `M2_VEHICLES_OK`), at the
 owner's direction and ahead of the Milestone 3B schedule it sat behind. Every `map.vehicles`
 record is an entity at boot; **E** beside a car gets in (after the loot and the people beside
@@ -40,7 +52,8 @@ WASD drives it on four headings with a makeshift dashboard under the car (a spee
 with no numbers, E-to-F fuel, P N D, brake and engine lamps, one line of prose), E again gets
 out once it has stopped; a crash at speed costs condition and a dry tank or a wreck will not
 run; the engine is loud on the attention field and a body at the
-wheel is off the shambler's menu; a driven car survives a save (`SAVE_VERSION` 18). The record
+wheel is off the shambler's menu; a driven car survives a save (`SAVE_VERSION` 19 since the
+light vehicles, below). The record
 is docs/23's, the design calls are docs/30's "Driving" entry, and the halves it named rather
 than built — running things over, the door under siege, the driver's hands, NPC drivers, fuel —
 are in what's left under "What driving left behind". **Several of those calls were taken as
@@ -117,7 +130,16 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    and the reading of "define the interact key" as *name E once* rather than *add a key for
    the hood* — docs/30's "Fuel and hitpoints" and "One interact key" clauses. **And by the
    third:** a gauge may show a machine's state and never a body's, which is how a dashboard
-   with two needles sits beside a HUD that forbids gauges — docs/30's "The dashboard".
+   with two needles sits beside a HUD that forbids gauges — docs/30's "The dashboard". **And by
+   the fourth, the light vehicles:** the five classes and their numbers (bicycle 6.5 / e-bike
+   7.5 / e-scooter 6.0 / skateboard 4.5 / kick scooter 4.0, noise 3..5 against a sprint's 6);
+   the trade being exposure rather than a speed nerf (a rider is on the shambler's menu, a grab
+   or a crash unseats them, the body takes no injury from it); a flat battery riding on at
+   `unpowered`; legs costing no stamina; the dash layouts (handlebar, board) and their words;
+   parking in the cars' pass on 4-wide spans only, weighted sedan 10 / van 3 / truck 1 /
+   bicycle 4 / e-bike 2 / e-scooter 2 / kick scooter 1 / skateboard 1; the car shells as the
+   bike paint; and `SAVE_VERSION` 19 — docs/30's "Light vehicles" clause, each a content edit
+   or a line.
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement

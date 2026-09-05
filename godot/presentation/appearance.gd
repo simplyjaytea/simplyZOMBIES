@@ -205,7 +205,13 @@ const TREE_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUti
 # refuses a fabricated file at check_appearance.gd's canvas lane.
 const VEHICLE_PREFIX: String = "vehicle_"
 const VEHICLE_ROOFLINE_TILES: int = 1
-const VEHICLE_FOOTPRINTS: Dictionary = {"sedan": Vector2i(2, 5), "van": Vector2i(2, 6), "truck": Vector2i(2, 7)}
+# The light classes stand one tile across: a bicycle, an e-bike and an e-scooter are 1x2, a
+# kick scooter and a skateboard 1x1, so their pictures are 32x96 / 64x64 and 32x64 / 32x64.
+const VEHICLE_FOOTPRINTS: Dictionary = {
+	"sedan": Vector2i(2, 5), "van": Vector2i(2, 6), "truck": Vector2i(2, 7),
+	"bicycle": Vector2i(1, 2), "ebike": Vector2i(1, 2), "escooter": Vector2i(1, 2),
+	"kickscooter": Vector2i(1, 1), "skateboard": Vector2i(1, 1),
+}
 const VEHICLE_VARIANTS: Array[String] = ["pale", "green", "burnt"]
 const AXIS_NS: String = "ns"
 const AXIS_EW: String = "ew"
