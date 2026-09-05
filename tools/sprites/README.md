@@ -46,7 +46,7 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `parts/edges.py` | the ground's edge cells, eight fringes a row, pasted into the atlas |
 | `parts/trees.py` | the three tall conifers, feet-anchored on the tree canvas |
 | `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
-| `parts/vehicles.py` | the sedan, three variants x two axes, three-quarter and feet-anchored |
+| `parts/vehicles.py` | the sedan, the van and the truck, three variants x two axes each |
 | `build.py` | the CLI, the registry merge, `--check`, `CANVAS`/`PAWN_KEYS` (mirrors `canvas_of`) |
 
 ## The rigs, the skeleton, and the draw order
@@ -91,12 +91,13 @@ exactly what it does on a person who turns round, which was not true when a rig 
   cross-check. A tile-sized picture seen from above — a prop, a tile-art key, a heap, a scrap of
   debris — renders on `Canvas(SIZE, SIZE, origin="centre")`; every body and every equip overlay
   renders on `Canvas(characters.PAWN_W, characters.PAWN_H, origin="feet")` — 32×48, one tile
-  wide and one and a half tall; a tree on `trees.TREE_W/TREE_H` (32×96) and a vehicle on
-  `vehicles.VEHICLE_CANVAS_NS` (64×192) or `VEHICLE_CANVAS_EW` (160×96), all three feet-anchored
-  the same way. `build.py`'s `CANVAS` table, `PAWN_KEYS`, `trees.TREE_KEYS` and
-  `vehicles.VEHICLE_NS_KEYS`/`VEHICLE_EW_KEYS` mirror `Appearance.canvas_of` and its own tables
-  — two copies because Python cannot read GDScript, the same standing arrangement as `SIZE` —
-  and `check_appearance.gd` measures every committed PNG against the engine's copy every build.
+  wide and one and a half tall; a tree on `trees.TREE_W/TREE_H` (32×96) and a vehicle on the
+  canvas `vehicles.canvas_ns()`/`canvas_ew()` derive from its class's footprint (a sedan 64×192
+  or 160×96, a van 64×224 or 192×96, a truck 64×256 or 224×96), all feet-anchored the same
+  way. `build.py`'s `CANVAS` table, `PAWN_KEYS`, `trees.TREE_KEYS` and `vehicles.CANVASES`
+  mirror `Appearance.canvas_of` and its own tables — two copies because Python cannot read
+  GDScript, the same standing arrangement as `SIZE` — and `check_appearance.gd` measures every
+  committed PNG against the engine's copy every build.
   `godot/assets/sprites/README.md` is the authority on the shapes; `build.py` refuses a render
   at the wrong size before it writes, and `check_appearance.gd` refuses it again from the engine
   side.
@@ -133,11 +134,12 @@ exactly what it does on a person who turns round, which was not true when a rig 
   left either.** It existed for a segment set — a car authored one tile at a time, where a
   diagonal gradient restarted at every canvas and banded the finished car light-dark-light along
   its length — and the vehicles slice retired segment sets, so every key in the package now takes
-  the whole diagonal. `parts/vehicles.py` takes it at `LIGHT_RADIUS` 64.0 and a gain of 0.08,
-  because a car's modelling is in its panel steps (a face is the shaded step, a lid a mid one,
-  the roof the lightest) exactly as a wall cap's read is its value; the pass is the tint over the
-  top of that. The parameter stays on `Canvas.light_top_left` for the van and the truck, which
-  are the same pictures on a longer axis.
+  the whole diagonal. `parts/vehicles.py` takes it at `light_radius(w, h)` = `(w + h) / 4` — the
+  reach at which `(dx + dy) / 2` from the picture's middle spends the whole ramp on any canvas,
+  64 for the sedan's two and 72 and 80 for the van's and the truck's — and a gain of 0.08,
+  because a vehicle's modelling is in its panel steps (a face is the shaded step, a lid a mid
+  one, the roof the lightest) exactly as a wall cap's read is its value; the pass is the tint
+  over the top of that. The `axis` parameter stays on `Canvas.light_top_left` with no caller.
 - **The light passes measure from the picture middle, not the pivot.** `Canvas.middle` is a
   second coordinate frame that differs from the origin only on a feet-anchored canvas: measured
   from a pawn's soles, every body pixel sits on one side of the origin, so the ramp would clamp

@@ -205,7 +205,7 @@ const TREE_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUti
 # refuses a fabricated file at check_appearance.gd's canvas lane.
 const VEHICLE_PREFIX: String = "vehicle_"
 const VEHICLE_ROOFLINE_TILES: int = 1
-const VEHICLE_FOOTPRINTS: Dictionary = {"sedan": Vector2i(2, 5)}
+const VEHICLE_FOOTPRINTS: Dictionary = {"sedan": Vector2i(2, 5), "van": Vector2i(2, 6), "truck": Vector2i(2, 7)}
 const VEHICLE_VARIANTS: Array[String] = ["pale", "green", "burnt"]
 const AXIS_NS: String = "ns"
 const AXIS_EW: String = "ew"
@@ -239,6 +239,18 @@ static func vehicle_flip(facing: String) -> float:
 	if facing == "w":
 		return -1.0
 	return 1.0
+
+
+# The tallest picture any class stands, in tiles: the longest footprint plus the roofline tile,
+# which is how far below the visible box a record's south edge can be while its picture is still
+# on screen. main.gd's entity pass widens its search box by this, so the margin follows the
+# footprint table instead of remembering one class -- a margin sized for a five-tile sedan would
+# have popped an eight-tile truck out at the bottom of the screen with its cab still showing.
+static func vehicle_reach_tiles() -> int:
+	var longest: int = 0
+	for foot in VEHICLE_FOOTPRINTS.values():
+		longest = maxi(longest, maxi((foot as Vector2i).x, (foot as Vector2i).y))
+	return longest + VEHICLE_ROOFLINE_TILES
 
 
 # The canvas a registry key is authored on. Everything is one ART_NATIVE tile except the atlases,
