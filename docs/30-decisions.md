@@ -2160,15 +2160,37 @@ shambler does about a car it cannot open is nothing, and that is the half named 
 **A parked car costs the tick nothing.** `velocity` and `attention_emitter` arrive with the
 driver and leave with them, so a parked car sits in no per-tick query. The first cut looked
 every car's class up every tick and cost 1.9 ms a tick at 128; the profile of the systems found
-it, not reasoning. And a footprint change bumps the map's own `vehicle_generation` and not
-`world.invalidateMap()`: the first probe hung, because the world's generation is what every NPC
-path caches on and a car crossing a tile every few ticks re-searched every path in the district
-at each crossing. The cost of that choice is a crouched observer's occlusion cache staying
-stale until that observer moves a tile, which is recorded rather than hidden.
+it, not reasoning. A footprint change bumps both the map's own `vehicle_generation` (the
+drawing node's tile index) and `world.invalidateMap()` (every NPC path and every occlusion
+cache), because a car that has moved is a map that has changed; measured at 128 with jobs
+running, driving costs 0.3 ms a tick with the invalidation in, so it stays.
 
 **SAVE_VERSION 18.** A v17 save has no vehicle entities, so restoring one into this build would
 sync a street with no cars on it. Refused, per the standing rule that saves may break before
 1.0 and are not migrated.
+
+**Fuel and "hitpoints" are numbers the player never sees (owner's goal, 2026-09-05, the second
+of the session).** The goal asked for a fuel and hitpoint system checked by interacting with the
+hood. The health-bar ban is not about bodies, it is about certainty the player has not earned,
+so a car's integrity and litres live on the component and reach the screen only as words —
+five for the engine (sound, scuffed, battered, failing, wrecked), six for the tank (dry to
+full) — through a `hood_view` held to a key allowlist exactly as the condition view is. What
+the words *do* is mechanical and legible: a battered car is slower, a failing one crawls, a
+wreck or a dry tank will not run. A crash is the one thing that spends integrity, and it spends
+it on the square of the speed against the class's own top, so a damaged car crashing at the
+lower top it can still reach is hurt less; a wreck takes four runs at a wall, not two, which
+was found by the gate rather than designed. Nothing puts litres or integrity back yet: a jerry
+can, a siphon and a repair channel are each a verb on the E ladder with its own gate, and they
+are named in what's left rather than half-built here.
+
+**One interact key, two places to stand.** "Define the interact key" was read as *name it once
+and make it mean one thing*, not as *add a key*: `main.gd`'s `INTERACT_KEY` is E, routed by
+name, pushing `use.context` and nothing else, and the legend's E row says what it does. The
+hood and the door are that one key at the nose and at the side, because a body standing at the
+front of a car and pressing "interact" is looking under the hood and one at the driver's door is
+getting in — the place is the verb, which is the diegetic rule the HUD already follows. If the
+owner wants the hood on a key of its own, `at_hood` is the test and the ladder is the one place
+to move it.
 
 ---
 

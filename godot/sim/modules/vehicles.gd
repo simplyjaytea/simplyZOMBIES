@@ -41,8 +41,22 @@ extends RefCounted
 # against it. Bodies are not probed: a parked car is walk-through cover today and a moving one
 # stays walk-through, so nothing is run over -- named in docs/23 rather than half-built here.
 #
-# Determinism: no RNG anywhere in this file. Every decision is a function of the commands and the
-# map, and a replay of the same commands drives the same car to the same tile.
+# Fuel and condition (the "hitpoints"), both numbers the sim keeps and the player never sees as
+# numbers -- the condition-view rule (CLAUDE.md's health-bar ban) applied to a car. `fuel` is
+# litres against the class's `tank`, burned per metre under way (`range` metres on a full tank)
+# and per second idling (`idleMinutes` on a full tank); `integrity` is 0..100, rolled at spawn
+# and spent by crashes -- a car that hits something at speed takes damage in proportion to the
+# square of that speed and puts a bang on the attention field. What the player reads is
+# `hood_view`: the state word for the engine (sound, scuffed, battered, failing, wrecked) and the
+# fuel word (dry .. full), reached by standing at the nose and pressing the interact key
+# (`check_hood`, on fortify's E ladder before the door). HOOD_KEYS is the allowlist the gate holds
+# the view to, exactly as SimCondition.PART_KEYS is held: a numeric field there is a red build.
+# A dry tank or a wrecked engine will not run: the car coasts to a stop and the idle goes quiet.
+#
+# Determinism: the one RNG here is the `vehicles` stream, drawn exactly twice per record at spawn
+# (fuel, then condition) in manifest order, so a seed parks the same tanks every boot. Everything
+# after that is a function of the commands and the map, and a replay of the same commands drives
+# the same car to the same tile with the same litres left.
 
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
@@ -67,6 +81,33 @@ const TOGGLE: String = "vehicle.toggle"
 # Coasting with no intent loses speed at this fraction of the class's braking. Engine braking,
 # not a handbrake: a car you take your foot off rolls on for a while.
 const COAST_FRACTION: float = 0.5
+# Condition. 0..100 in the sim; the words below are the whole of what leaves it. The bands are
+# the body-part convention: compare states, never the number.
+const INTEGRITY_MAX: float = 100.0
+const CONDITION_WORDS: Array[String] = ["wrecked", "failing", "battered", "scuffed", "sound"]
+const CONDITION_FLOORS: Array[float] = [0.0, 0.0, 30.0, 60.0, 85.0]
+# What each band does to the class's top speed: a failing engine crawls, a wrecked one is dead.
+const CONDITION_CAP: Array[float] = [0.0, 0.45, 0.7, 0.9, 1.0]
+# One in ten parked cars is a wreck at boot; the rest roll 40..100.
+const WRECKED_AT_BOOT: float = 0.1
+const INTEGRITY_ROLL_FLOOR: float = 40.0
+# A crash: below this speed a bump costs nothing; at the class's own top speed it costs
+# CRASH_DAMAGE_AT_CAP, scaling with the square of the speed between. The cap is the class's, so
+# a battered car crashing at the lower top it can still reach is hurt less: a sound sedan takes
+# four runs at a wall to wreck (55, 27, 11, 11), not two. The bang on the field is CRASH_NOISE
+# at the cap, scaled the same way -- louder than a shout at full tilt (120), because sheet
+# metal on a wall is.
+const CRASH_MIN_SPEED: float = 2.0
+const CRASH_DAMAGE_AT_CAP: float = 55.0
+const CRASH_NOISE: float = 150.0
+# Fuel, in words: the thresholds are fractions of the tank, the words are the whole readout.
+const FUEL_WORDS: Array[String] = ["dry", "a splash in the tank", "under a quarter", "about half a tank", "most of a tank", "full"]
+const FUEL_FLOORS: Array[float] = [0.0, 0.0, 0.1, 0.3, 0.6, 0.9]
+# How long a hood report stays on the HUD after the look, in ticks: ten seconds.
+const HOOD_REPORT_TICKS: int = 200
+# The hood view's keys, every one a word or a boolean. check_vehicles.gd's HOOD lane holds the
+# view to this list the way check_ban_health_bar.gd holds the condition view to PART_KEYS.
+const HOOD_KEYS: Array[String] = ["name", "condition", "fuel", "runs", "prose"]
 
 
 static func register_module(world: Variant) -> void:
@@ -101,18 +142,21 @@ static func class_of(world: Variant, id: String) -> Dictionary:
 	return {}
 
 
-# The five numbers a class drives on -- {speed, accel, brake, noise, idle} -- or {} when the class
-# declares no usable `drive` block. Judged whole rather than defaulted a key at a time: the
-# validator does not recurse, so a class missing `brake` would otherwise drive on a silent guess,
-# and a car that never stops is exactly the wrong number nothing reports. A class with no drive
-# block cannot be mounted, and `mount_problem` says so.
+const DRIVE_KEYS: Array[String] = ["speed", "accel", "brake", "noise", "idle", "tank", "range", "idleMinutes"]
+
+
+# The eight numbers a class drives on -- {speed, accel, brake, noise, idle, tank, range,
+# idleMinutes} -- or {} when the class declares no usable `drive` block. Judged whole rather than
+# defaulted a key at a time: the validator does not recurse, so a class missing `brake` would
+# otherwise drive on a silent guess, and a car that never stops is exactly the wrong number
+# nothing reports. A class with no drive block cannot be mounted, and `mount_problem` says so.
 static func drive_of(entry: Dictionary) -> Dictionary:
 	var block: Variant = entry.get("drive")
 	if not (block is Dictionary):
 		return {}
 	var d: Dictionary = block as Dictionary
 	var out: Dictionary = {}
-	for key in ["speed", "accel", "brake", "noise", "idle"]:
+	for key in DRIVE_KEYS:
 		var v: Variant = d.get(key)
 		if not (v is float or v is int):
 			return {}
@@ -136,12 +180,18 @@ static func spawn_from_manifest(world: Variant, map: Variant) -> Array[int]:
 	var records: Variant = map.get("vehicles")
 	if not (records is Array):
 		return spawned
+	# Its own named stream (the loot-table precedent): two draws a record, fuel then condition,
+	# always both, so a record that is refused below still costs its draws and every car after
+	# it rolls the same tank whatever came before.
+	var rng: Variant = world.rng.stream("vehicles")
 	for rec in records as Array:
 		if not (rec is Dictionary):
 			continue
 		var r: Dictionary = rec as Dictionary
 		if r.has("entity"):
 			continue
+		var fuel_roll: float = float(rng.call("next"))
+		var wear_roll: float = float(rng.call("next"))
 		var entry: Dictionary = class_of(world, String(r.get("class", "")))
 		var foot: Dictionary = entry.get("footprint", {}) as Dictionary
 		var breadth: int = int(foot.get("w", 0))
@@ -166,6 +216,8 @@ static func spawn_from_manifest(world: Variant, map: Variant) -> Array[int]:
 			"driver": NO_DRIVER,
 			"intent": {"dx": 0.0, "dy": 0.0},
 			"home": {"x": x, "y": y},
+			"fuel": rolled_fuel(drive_of(entry), fuel_roll),
+			"integrity": rolled_integrity(wear_roll),
 		})
 		world.components.set_component(entity, "position", {"x": float(x) + float(w) / 2.0, "y": float(y) + float(h) / 2.0})
 		var dir: Vector2 = HEADINGS[facing] as Vector2
@@ -190,13 +242,172 @@ static func spawn_from_manifest(world: Variant, map: Variant) -> Array[int]:
 # and a car is never quiet at either), `ambient` the idle, scent nothing.
 static func _start_engine(world: Variant, entity: int, drive: Dictionary) -> void:
 	world.components.set_component(entity, "velocity", {"dx": 0.0, "dy": 0.0})
-	var noise: float = float(drive.get("noise", 0.0))
-	SimAttention.make_emitter(world, entity, {"walking": noise, "sprinting": noise, "ambient": float(drive.get("idle", 0.0)), "scent": 0.0})
+	SimAttention.make_emitter(world, entity, {"walking": 0.0, "sprinting": 0.0, "ambient": 0.0, "scent": 0.0})
+	_set_engine_noise(world, entity, drive, engine_runs(world.components.get_component(entity, "vehicle") as Dictionary))
+
+
+# The emitter's three figures follow whether the engine is turning over: a dry or wrecked car
+# rolls in silence, a running one idles and roars.
+static func _set_engine_noise(world: Variant, entity: int, drive: Dictionary, running: bool) -> void:
+	var em: Variant = world.components.get_component(entity, "attention_emitter")
+	if not (em is Dictionary):
+		return
+	var noise: float = float(drive.get("noise", 0.0)) if running else 0.0
+	(em as Dictionary)["walking"] = noise
+	(em as Dictionary)["sprinting"] = noise
+	(em as Dictionary)["ambient"] = (float(drive.get("idle", 0.0)) if running else 0.0)
 
 
 static func _stop_engine(world: Variant, entity: int) -> void:
 	world.components.remove(entity, "velocity")
 	world.components.remove(entity, "attention_emitter")
+
+
+# --- fuel and condition -------------------------------------------------------------------------
+
+# Litres in a parked tank for one roll in [0, 1): the square of the roll times the tank, so most
+# cars stand low and a full one is rare -- a street of abandoned cars, not a forecourt. A class
+# with no drive block has no tank and parks dry.
+static func rolled_fuel(drive: Dictionary, roll: float) -> float:
+	return float(drive.get("tank", 0.0)) * roll * roll
+
+
+# Condition for one roll in [0, 1): the bottom tenth is a wreck, the rest lands evenly between
+# INTEGRITY_ROLL_FLOOR and the maximum.
+static func rolled_integrity(roll: float) -> float:
+	if roll < WRECKED_AT_BOOT:
+		return 0.0
+	return INTEGRITY_ROLL_FLOOR + (INTEGRITY_MAX - INTEGRITY_ROLL_FLOOR) * (roll - WRECKED_AT_BOOT) / (1.0 - WRECKED_AT_BOOT)
+
+
+# The condition band an integrity falls in: an index into CONDITION_WORDS and CONDITION_CAP.
+static func condition_band(integrity: float) -> int:
+	if integrity <= 0.0:
+		return 0
+	for i in range(CONDITION_FLOORS.size() - 1, 0, -1):
+		if integrity >= CONDITION_FLOORS[i]:
+			return i
+	return 1
+
+
+static func condition_word(integrity: float) -> String:
+	return CONDITION_WORDS[condition_band(integrity)]
+
+
+# The fuel band, on the fraction of the tank: an index into FUEL_WORDS.
+static func fuel_band(fuel: float, tank: float) -> int:
+	if fuel <= 0.0 or tank <= 0.0:
+		return 0
+	var fraction: float = fuel / tank
+	for i in range(FUEL_FLOORS.size() - 1, 0, -1):
+		if fraction >= FUEL_FLOORS[i]:
+			return i
+	return 1
+
+
+static func fuel_word(fuel: float, tank: float) -> String:
+	return FUEL_WORDS[fuel_band(fuel, tank)]
+
+
+# Whether the engine can turn over at all: fuel in the tank and a car that is not a wreck.
+static func engine_runs(v: Dictionary) -> bool:
+	return float(v.get("fuel", 0.0)) > 0.0 and condition_band(float(v.get("integrity", 0.0))) > 0
+
+
+# Litres a second idling and litres a metre under way, from the class's tank and reach.
+static func idle_burn(drive: Dictionary) -> float:
+	var minutes: float = float(drive.get("idleMinutes", 0.0))
+	if minutes <= 0.0:
+		return 0.0
+	return float(drive.get("tank", 0.0)) / (minutes * 60.0)
+
+
+static func move_burn(drive: Dictionary) -> float:
+	var reach: float = float(drive.get("range", 0.0))
+	if reach <= 0.0:
+		return 0.0
+	return float(drive.get("tank", 0.0)) / reach
+
+
+# A crash, at `speed` against a class whose top is `cap`: the damage taken and the bang made,
+# both scaling with the square of the speed fraction, and nothing at all under CRASH_MIN_SPEED.
+static func crash_damage(speed: float, cap: float) -> float:
+	if speed < CRASH_MIN_SPEED or cap <= 0.0:
+		return 0.0
+	var f: float = speed / cap
+	return CRASH_DAMAGE_AT_CAP * f * f
+
+
+static func crash_noise(speed: float, cap: float) -> float:
+	if speed < CRASH_MIN_SPEED or cap <= 0.0:
+		return 0.0
+	var f: float = speed / cap
+	return CRASH_NOISE * f * f
+
+
+# --- the hood -----------------------------------------------------------------------------------
+
+# Whether a body stands at the nose of this car: within REACH of the nose edge along the heading
+# and inside the car's breadth across it (half a metre of slack either side). The door is the
+# side; the hood is the front; a body at a corner is at the hood if it is past the nose.
+static func at_hood(world: Variant, actor: int, entity: int) -> bool:
+	var v: Variant = world.components.get_component(entity, "vehicle")
+	var vpos: Variant = world.components.get_component(entity, "position")
+	var pos: Variant = world.components.get_component(actor, "position")
+	if not (v is Dictionary) or not (vpos is Dictionary) or not (pos is Dictionary):
+		return false
+	var heading: String = String((v as Dictionary).get("heading", "n"))
+	var dir: Vector2 = HEADINGS[heading] as Vector2
+	var ext: Vector2i = extent_of(v as Dictionary, heading)
+	var rel: Vector2 = Vector2(float((pos as Dictionary)["x"]) - float((vpos as Dictionary)["x"]), float((pos as Dictionary)["y"]) - float((vpos as Dictionary)["y"]))
+	var along: float = rel.dot(dir)
+	var across: float = absf(rel.dot(Vector2(-dir.y, dir.x)))
+	var half_along: float = float(ext.x if dir.x != 0.0 else ext.y) / 2.0
+	var half_across: float = float(ext.y if dir.x != 0.0 else ext.x) / 2.0
+	return along > half_along and along <= half_along + REACH and across <= half_across + 0.5
+
+
+# What a look under the hood tells: words and booleans only, per HOOD_KEYS. The engine's
+# condition band, the fuel band, whether it would turn over, and one sentence built from them.
+static func hood_view(world: Variant, entity: int) -> Dictionary:
+	var v: Variant = world.components.get_component(entity, "vehicle")
+	if not (v is Dictionary):
+		return {}
+	var d: Dictionary = v as Dictionary
+	var drive: Dictionary = drive_of(class_of(world, String(d.get("class", ""))))
+	var name: String = String(class_of(world, String(d.get("class", ""))).get("name", "car")).to_lower()
+	var condition: String = condition_word(float(d.get("integrity", 0.0)))
+	var fuel: String = fuel_word(float(d.get("fuel", 0.0)), float(drive.get("tank", 0.0)))
+	var runs: bool = engine_runs(d) and not drive.is_empty()
+	var prose: String
+	if condition == "wrecked":
+		prose = "under the %s's hood: the engine is wrecked; it will never run again" % name
+	elif fuel == "dry":
+		prose = "under the %s's hood: the engine is %s, but the tank is dry" % [name, condition]
+	else:
+		prose = "under the %s's hood: the engine is %s; %s" % [name, condition, fuel]
+	return {"name": name, "condition": condition, "fuel": fuel, "runs": runs, "prose": prose}
+
+
+# Looking under the hood: the report sits on the body for HOOD_REPORT_TICKS, where the HUD
+# clause reads it, and the bus hears that it happened. Refused off the nose.
+static func check_hood(world: Variant, actor: int, entity: int) -> bool:
+	if not at_hood(world, actor, entity):
+		return false
+	world.components.set_component(actor, "hoodReport", {"vehicle": entity, "until": int(world.tick) + HOOD_REPORT_TICKS})
+	world.events.publish({"type": "vehicle.hood.checked", "entity": entity, "actor": actor})
+	return true
+
+
+# The report a body is still reading, or {} once it has lapsed (and the lapsed component gone).
+static func hood_report(world: Variant, actor: int) -> Dictionary:
+	var report: Variant = world.components.get_component(actor, "hoodReport")
+	if not (report is Dictionary):
+		return {}
+	if int((report as Dictionary).get("until", 0)) < int(world.tick):
+		world.components.remove(actor, "hoodReport")
+		return {}
+	return hood_view(world, int((report as Dictionary).get("vehicle", NO_DRIVER)))
 
 
 # Rebuilds the map's shadow of every vehicle entity: the Tile.Low under each footprint and the
@@ -604,15 +815,24 @@ static func _drive(w: Variant) -> void:
 			continue
 		else:
 			var drive: Dictionary = drive_of(class_of(w, String(v.get("class", ""))))
+			var running: bool = engine_runs(v) and not drive.is_empty()
+			_set_engine_noise(w, e, drive, running)
 			if drive.is_empty():
 				speed = 0.0
 			else:
 				var brake: float = float(drive["brake"]) * TICK_SECONDS
 				var want: String = wanted_heading(v.get("intent", {}) as Dictionary, heading)
+				# A dead engine takes no throttle: the car coasts on whatever it had, and the
+				# steering below is refused too -- a car that will not run does not turn.
+				if not running:
+					want = ""
+				else:
+					# The idle, every tick the engine turns over; the metres are charged below.
+					v["fuel"] = maxf(0.0, float(v.get("fuel", 0.0)) - idle_burn(drive) * TICK_SECONDS)
 				if want.is_empty():
 					speed = maxf(0.0, speed - brake * COAST_FRACTION)
 				elif want == heading:
-					var cap: float = float(drive["speed"]) * w.surface_speed_at(float(pos["x"]), float(pos["y"]))
+					var cap: float = float(drive["speed"]) * w.surface_speed_at(float(pos["x"]), float(pos["y"])) * CONDITION_CAP[condition_band(float(v.get("integrity", 0.0)))]
 					speed += float(drive["accel"]) * TICK_SECONDS
 					# Over the cap -- a paved car rolling onto grass -- sheds speed at the brake
 					# rather than snapping down to it.
@@ -658,12 +878,25 @@ static func _drive(w: Variant) -> void:
 							blocked = true
 							break
 				if blocked:
-					# Flush against the tile it cannot enter, and stopped.
+					# Flush against the tile it cannot enter, and stopped -- and at speed, a crash:
+					# the car takes damage on the square of its speed and the field hears the bang.
 					var boundary: float = float(probe_tile) if sign > 0.0 else float(probe_tile + 1)
 					along = boundary - sign * half
+					var class_cap: float = float(drive.get("speed", 0.0)) if not drive.is_empty() else 0.0
+					var damage: float = crash_damage(speed, class_cap)
+					if damage > 0.0:
+						var before: float = float(v.get("integrity", 0.0))
+						v["integrity"] = maxf(0.0, before - damage)
+						w.events.publish({"type": "vehicle.crashed", "entity": e, "speed": speed, "damage": damage})
+						w.events.publish({"type": "noise.emitted", "x": float(pos["x"]), "y": float(pos["y"]), "magnitude": crash_noise(speed, class_cap), "source": e})
+						if before > 0.0 and float(v["integrity"]) <= 0.0:
+							w.events.publish({"type": "vehicle.wrecked", "entity": e})
 					speed = 0.0
 				else:
 					along += sign * step
+					# The metres, charged only to a running engine: a dead one coasting is free.
+					if running:
+						v["fuel"] = maxf(0.0, float(v.get("fuel", 0.0)) - move_burn(drive) * step)
 				if along_axis_x:
 					pos["x"] = along
 				else:
@@ -726,11 +959,22 @@ static func hud_clause(world: Variant, actor: int) -> String:
 			var name: String = String(class_of(world, String((v as Dictionary).get("class", ""))).get("name", "car")).to_lower()
 			if float((v as Dictionary).get("speed", 0.0)) > 0.0:
 				return "driving the %s; E to get out once it stops" % name
+			if condition_band(float((v as Dictionary).get("integrity", 0.0))) == 0:
+				return "at the wheel of the %s; the engine is wrecked and will not turn over; E to get out" % name
+			if float((v as Dictionary).get("fuel", 0.0)) <= 0.0:
+				return "at the wheel of the %s; the tank is dry; E to get out" % name
 			return "at the wheel of the %s, engine running; E to get out" % name
 		return ""
+	# A hood you have just looked under outranks the car beside you for as long as the report
+	# lasts; then the kerb clauses come back.
+	var report: Dictionary = hood_report(world, actor)
+	if not report.is_empty():
+		return String(report.get("prose", ""))
 	var near: int = nearest_in_reach(world, actor)
 	if near == NO_DRIVER:
 		return ""
 	var nv: Dictionary = world.components.get_component(near, "vehicle") as Dictionary
 	var near_name: String = String(class_of(world, String(nv.get("class", ""))).get("name", "car")).to_lower()
+	if at_hood(world, actor, near):
+		return "the %s's hood before you; E to look under it" % near_name
 	return "a %s beside you; E to get in" % near_name
