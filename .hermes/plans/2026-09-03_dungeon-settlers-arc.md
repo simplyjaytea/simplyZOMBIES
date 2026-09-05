@@ -672,6 +672,12 @@ van 3, truck 1`; MANIFEST/PLACED extended to three classes (each placed at least
 the 128 seeds, or the lane names which never landed). Structural driver; FAST byte-identical.
 The forklift stays with the industrial yard under M3B.
 
+**Landed 2026-09-05** as written, plus the owner's 2026-09-04 rider (the sedan first, lowered
+from 93 to 73 east-west rows by taking the projection from 32 to 20 px a metre) and one lane
+the plan did not name: SILHOUETTE, because the decision was stated as numbers — lower, taller,
+stepped — and numbers on decoded pixels are what a lane can hold. The measured numbers and the
+frames are in docs/23's record; the clause is in docs/30.
+
 ---
 
 ## Verification

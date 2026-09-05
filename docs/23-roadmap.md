@@ -228,9 +228,9 @@ style-B pick of 2026-09-01 for the bodies and the mood; the plan is
 slices 1–2). The pieces below are in the order they land, each one session, each with its gate
 red both ways and its record. The reference's HUD — portraits, bars, numbers, name plates — is
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided lands
-piece by piece**: the palette, pawn, wall and edge pieces landed 2026-09-03, the trees and the
-worn look on 2026-09-04; the vehicles below are still the old code, and their comments say so on
-purpose.
+piece by piece**: the palette, pawn, wall and edge pieces landed 2026-09-03, the trees, the worn
+look and the sedan on 2026-09-04, the van and the truck on 2026-09-05; every arc slice has
+landed, and what is below is what the arc named and left.
 
 - **The walls share one atlas.** Measured in the edges slice: draw calls on the 256 district at
   zoom 16 went 539 → 1,410 between the ground slice and the wall slice, because every wall
@@ -265,18 +265,6 @@ purpose.
   collision with the one-transform spine disappears with the pawn piece; what a glimpsed corpse
   is allowed to show is still an information-scarcity call that belongs beside the owner's other
   scarcity decisions.
-- **The van and the truck.** Two more classes on the same vocabulary now the sedan has proved it:
-  `van.json` 2×6 and `truck.json` 2×7, district weights sedan 10 / van 3 / truck 1, MANIFEST and
-  PLACED extended to three classes with a lane that **names any class that never landed** rather
-  than passing quietly. Worldgen needs no change — `_vehicles` already reads each class's
-  `footprint` out of content and weights the pick from the district's list. **Do the sedan first**
-  (owner, 2026-09-04, docs/30): every class's east-west canvas is 96 rows whatever its length, and
-  the shipped sedan fills 93 of them, so a van and a truck could otherwise differ only in length.
-  Re-author the sedan to about 70 rows — low bonnet, raised inset cabin, low boot, which also
-  closes slice 10's "reads van-like" finding — then draw the van and truck at 88–92 so height is
-  the primary tell. The truck's open bed is its silhouette against the van's closed box, so it is
-  a flatbed and not a box truck. `Appearance.VEHICLE_FOOTPRINTS` is the one table to extend; the
-  canvases derive from it (van `_ns` 64×224 / `_ew` 192×96, truck 64×256 / 224×96).
 - **The torch.** The reference's night is a cone from the player's hand; every light here is an
   omnidirectional shadowcast and there is no torch item. The piece is sim, not paint: a light
   item whose `light` block carries a direction and a cone, `SimLight` masking that emitter's
@@ -2525,7 +2513,75 @@ not a to-do list:
   slice 11 puts an actual van (2×6) and a truck (2×7) on this vocabulary, and three classes that
   differ only in length will not read as three classes. The cheapest fix is a lower bonnet and
   boot on the sedan, which re-authors art that has just shipped; it is recorded rather than taken
-  in passing, and it is the risk slice 11 has to clear before it adds anything.
+  in passing, and it is the risk slice 11 has to clear before it adds anything. *(Cleared by the
+  van-and-truck slice below: the sedan was re-authored to 73 rows on 2026-09-05.)*
+- ~~The van and the truck~~ **landed** (no new gate — `WRECKS_OK` goes from nine lanes to ten,
+  so the chain stays 45; slice 11 of the Dungeon Settlers arc and the last of the arc, docs/30
+  "The Dungeon Settlers look", the van-and-truck clause). **The mechanism, which is content:**
+  `van.json` (2×6) and `truck.json` (2×7) on the sedan's own vocabulary — a footprint and three
+  variants of two keys each — the suburb's `vehicles.classes` weighted sedan 10 / van 3 /
+  truck 1, and `Appearance.VEHICLE_FOOTPRINTS` two entries longer, from which the canvases
+  derive (van 64×224 nose-north and 192×96 nose-east, truck 64×256 and 224×96). Nothing under
+  `godot/sim/` moved: `_vehicles` already read each class's footprint out of content and
+  weighted the pick from the district's list. One renderer constant did move, and it is the
+  tenth dead-socket cousin of the milestone: `main.gd`'s vehicle search margin was 7 tiles,
+  sized for "a sedan five tiles long and its picture six tall", so a truck — seven long, its
+  picture eight tall — whose ground point had just left the bottom of the screen would have
+  vanished with its cab still on it. The margin is now `Appearance.vehicle_reach_tiles()`, the
+  longest declared footprint plus the roofline tile; MANIFEST holds it to content's longest
+  class and SOCKETS holds the read in `_draw_entities`.
+  **The sedan came down first**, the owner's 2026-09-04 rider (docs/30): every class's
+  east-west picture shares one 96-row ceiling whatever its length, and the shipped sedan spent
+  93 of them, so the projection went from 32 to 20 px a metre for every class and both axes —
+  one camera for one street — and the sedan is a low bonnet, a raised cabin inset eight pixels
+  each side and a low boot in **73 rows**, which closes slice 10's "reads van-like" finding.
+  The **van** is a closed box the whole of its length, ribbed roof, one cab window, standing to
+  **row 92**; the **truck** is a **flatbed**, a cab at the van's height over an open timber bed
+  between two rails whose end stands **13 rows under the cab**. A box truck was refused for the
+  decision's own reason — it and a panel van are both closed boxes — and the three paint jobs
+  are shared across the classes: the record's variant is the paint, its class the shape.
+  **Measured, not asserted.** A SHA-256 over `tiles + surfaces + indoors` is unchanged on all
+  **24 seeds at 64** — the size every gate and the balance harness boot, so FAST is
+  byte-identical by construction — and on `town_center` and `forest_edge` at 256, which park
+  nothing. Only the suburb's parked rows moved: at 128 the four gate seeds stand 133 vehicles
+  where they stood 134 sedans (26–38 a map), **sedan 91 / van 32 / truck 10**; at 256 the same
+  four stand 447 where they stood 452, 312 / 100 / 35, which is 69.8 / 22.4 / 7.8 % against
+  weights of 71.4 / 21.4 / 7.1. The four-seed totals fall by one at 128 and five at 256 — no
+  single map loses more than two — because a truck refuses a slot a sedan fit, and the Low
+  tiles rise (1,227–1,366 at 256, from 1,169–1,274) because the classes are longer. Every
+  car-boot site still stands on a tail: 2 of 2 at 256, 1 of 1 at 128.
+  **The gate.** MANIFEST's hand map now stands every class content declares on both axes —
+  six records of three classes, 72 tiles — built from the content footprints with the two
+  sedans where slice 10 hand-checked them, and it names a class it has no slot for rather than
+  leaving it unjudged; it also proves the `class` field reaches the art (three classes on one
+  corner resolve three pictures — a resolver that handed every van the sedan's picture would
+  still have passed "one key for the whole car"). PLACED judges every record's extent against
+  its class's footprint turned to its axis, counts what landed per class, and **names any
+  weighted class that never did** — the detector proved on a fabricated zero first — and holds
+  every declared class to being weighted by some district, because a `van.json` nobody parks is
+  the dead-socket shape. The new **SILHOUETTE** lane reads the decoded east-west pictures and
+  holds them to the decision as numbers: a sedan over 76 rows, a van or truck under 86, a van
+  whose two ends differ by more than 4, a truck whose bed end is not 10 under its cab, any
+  picture within 3 of the canvas top or sides (the mirror clips), and any class the lane has no
+  expectation for are all refused; the shipped set measures 73 / 92 / 92 with the bed at 79,
+  19 rows between the low class and the tall ones against a 12 margin. Every predicate was
+  refused on a fabricated block before it judged a real picture, and two sabotages of the code
+  under test went red naming the culprit: the pick pinned to index 0 was refused as
+  "vehicle.van is weighted in the suburb's classes and never landed", and a van drawn at the
+  sedan's roof as "the van stands 76 rows, under the 86 a tall class must". 1.6 s of the 60 s
+  budget. `npm test` (594) and `sprites:check` (76 keys) green beside the chain.
+  **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`:
+  `slice11-street-32.png`, the frame that judges the decision — two green sedans, a white van
+  north-south and the flatbed facing west in one street at 32, the three classes apart at a
+  glance by height and silhouette; `slice11-truck-ew-64.png`, the cab standing over the bed
+  with the player in front of it; `slice11-truck-ns-64.png`, the tailgate, the planked bed and
+  the cab receding; `slice11-van-ns-64.png`, the back doors and the long ribbed roof;
+  `slice11-van-ew-64.png`, a burnt van beside a burnt sedan, the shape still reading through
+  the char; `slice11-sedan-ew-64.png`, two pale sedans nose to tail at the lower roofline.
+  **What it leaves, named**: the north-south axis still draws one picture for both facings
+  (decision 11's limit, recorded in the sedan's entry); the hand map has slots for two classes
+  beyond the sedan and says so when a third arrives; the forklift stays with the industrial
+  yard under Milestone 3B.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

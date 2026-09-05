@@ -1915,7 +1915,10 @@ table is warm, every body is a face-on pawn that flips, and a building draws its
 and its roof where the survivor cannot see; the edges, the trees, the worn look and the
 vehicles are still the old code, their comments say so, and each moves with its own slice.
 Anyone reading a comment that describes the old direction should read this entry before
-"fixing" it in either direction.
+"fixing" it in either direction. *(Every one of those has landed since — the edges on
+2026-09-03, the trees, the worn look and the sedan on 2026-09-04, the van and the truck on
+2026-09-05 — so no comment in the tree describes the old direction any more, and docs/23's
+record is the one copy of which slice landed when.)*
 
 **Paid for, the palette slice (2026-09-03) — the mood is warm dark fantasy: a cool near-black
 dark around a warm-lit district, held by warmth and value, not mutedness.** The property that
@@ -2067,7 +2070,40 @@ height runs up, that every class shares one ceiling. A rule that reads as symmet
 is asymmetric in what it permits. And note how the problem was found: from a screenshot, not a
 proof — the slice-10 record called the sedan van-like off one frame, and 93-of-96 was measured
 afterwards off the committed PNG. Every gate was green throughout and none of them could have
-caught it, because no gate judges whether a picture reads as the thing it depicts.
+caught it, because no gate judges whether a picture reads as the thing it depicts. *(Shipped
+2026-09-05 as the van-and-truck slice; the clause below records what it cost and what it holds.)*
+
+**Paid for, the van and truck slice (2026-09-05) — the height decision is a property of the
+pictures, and a property of the pictures can be gated.** The scale came down from 32 to 20 px a
+metre for every class and both axes — one camera for one street — and the sedan sits in 73 of
+its 96 east-west rows where it filled 93, a low deck and a cabin inset eight pixels each side.
+The van is a box to row 92; the truck is a **flatbed**, its cab at the van's height over an open
+timber bed whose end stands 13 rows under it. A box truck was refused for the reason the decision
+gave: a box truck and a panel van are both closed boxes and would collide exactly where the
+decision separates them, and the bed is the one silhouette a van cannot have. The three paint
+jobs are shared across the classes — the record's variant is the paint and its class is the
+shape, and a white van needs no fourth ramp.
+
+The clause above ended on "no gate judges whether a picture reads as the thing it depicts", and
+that is the sentence this slice answers, narrowly: nothing judges *reading*, but the decision was
+stated as numbers — lower, taller, stepped — and numbers on decoded pixels are exactly what a
+lane can hold. `WRECKS_OK`'s SILHOUETTE lane reads every east-west picture and refuses a sedan
+over 76 rows, a van or truck under 86, a van whose two ends differ, a truck whose bed end is not
+at least 10 rows under its cab, and any class it has no expectation for; the shipped set clears
+each band by 3 to 6 rows, and a van drawn at the sedan's roof was refused as "under the 86 a
+tall class must" before the change was committed. The same slice closed the two sockets three
+classes open up: the manifest lane stands every declared class on both axes of its hand map and
+proves two records on one corner differing only in class resolve two pictures, and the placement
+lane counts what landed per class and **names** any weighted class that never did — the
+sabotage that pinned the pick to the sedan was refused as "vehicle.van ... never landed", which
+is the assertion a zero passing quietly would have hidden. Sim: none. `_vehicles` already read
+each class's footprint out of content and weighted the pick from the district's list, so the
+suburb's classes block gained two rows and nothing in `godot/sim/` moved; the 64-tile map every
+gate boots is byte-identical on twenty-four seeds, and at 128 and 256 only the suburb's parked
+rows changed. The one renderer number that had remembered the sedan — a seven-tile search
+margin "because a sedan is five tiles long and its picture six tall" — now derives from the
+footprint table (`Appearance.vehicle_reach_tiles`), because a constant sized for one class is
+the same shape as a guard read by nothing: right until the second class arrives.
 
 ---
 

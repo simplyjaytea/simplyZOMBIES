@@ -41,11 +41,6 @@ const TICK_HZ: int = 20
 const TICK_SECONDS: float = 1.0 / 20.0
 const NIGHT_WASH: float = 0.8
 const MEMORY_TICKS: int = 60
-# How far outside the visible box to look for parked vehicles, in tiles. Wider than the two the
-# trees use because a sedan is five tiles long and its picture six tall: a car whose south edge
-# has just left the screen still has most of itself on it.
-const VEHICLE_BOUNDS_MARGIN_TILES: float = 7.0
-
 var world: Variant = null
 var content: Dictionary = {}
 var fixture: Dictionary = {}
@@ -1545,13 +1540,15 @@ func _draw_entities() -> void:
 	# car is behind it and one south is in front. Draw is a subset of seen -- vehicle_records
 	# asks the survivor's own seen set -- and the tile branch has already deferred every covered
 	# Low tile to this picture, so an unseen car draws nothing at all. The margin is wider than
-	# the trees': a sedan is five tiles long, so a car whose ground point is off the bottom of
-	# the screen can still have most of its picture on it.
+	# the trees' and follows the footprint table rather than any one class: a vehicle whose
+	# ground point is off the bottom of the screen still has most of its picture on it, and the
+	# longest class decides how far off that can be (Appearance.vehicle_reach_tiles -- a margin
+	# that remembered the sedan's six popped an eight-tile truck out with its cab still showing).
 	var records: Variant = null
 	if world.tilemap != null:
 		records = world.tilemap.get("vehicles")
 	if records is Array:
-		var box: Dictionary = TopDownProjection.visible_bounds(camera, VEHICLE_BOUNDS_MARGIN_TILES)
+		var box: Dictionary = TopDownProjection.visible_bounds(camera, float(Appearance.vehicle_reach_tiles()))
 		for i in Dressing.vehicle_records(world.tilemap, seen, box):
 			var rec: Dictionary = (records as Array)[i] as Dictionary
 			var vkey: String = Dressing.vehicle_key(world, rec, int(world.seed))

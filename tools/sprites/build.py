@@ -80,14 +80,14 @@ for _key in PAWN_KEYS:
 # side by `Appearance.TREE_KEYS` and `TREE_CANVAS` under the same two-copies arrangement.
 for _key in trees.TREE_KEYS:
     CANVAS[_key] = (trees.TREE_W, trees.TREE_H)
-# The vehicles: two shapes, one per axis, feet-anchored on the footprint's south edge. A sedan's
-# 2x5 footprint plus a tile of roofline north is 64x192 nose-north and 160x96 nose-east -- the
-# same two-copies arrangement again, mirrored on the Godot side by `Appearance.VEHICLE_NS_KEYS` /
-# `VEHICLE_EW_KEYS` and `VEHICLE_CANVAS_NS` / `VEHICLE_CANVAS_EW`.
-for _key in vehicles.VEHICLE_NS_KEYS:
-    CANVAS[_key] = vehicles.VEHICLE_CANVAS_NS
-for _key in vehicles.VEHICLE_EW_KEYS:
-    CANVAS[_key] = vehicles.VEHICLE_CANVAS_EW
+# The vehicles: two shapes a class, one per axis, feet-anchored on the footprint's south edge --
+# the footprint plus a tile of roofline north, so a sedan's 2x5 is 64x192 nose-north and 160x96
+# nose-east, a van's 2x6 is 64x224 / 192x96 and a truck's 2x7 is 64x256 / 224x96.
+# `parts/vehicles.py` derives every one of them from its own `FOOTPRINTS` table, mirrored on the
+# Godot side by `Appearance.VEHICLE_FOOTPRINTS` and `vehicle_canvas()` under the same two-copies
+# arrangement, so a fourth class is one entry there and one here rather than two more constants.
+for _key, _shape in vehicles.CANVASES.items():
+    CANVAS[_key] = _shape
 
 
 def canvas_of(key):
