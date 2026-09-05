@@ -1,0 +1,37 @@
+{
+  "id": "vehicle.kickscooter",
+  "name": "Kick scooter",
+  "drive": {
+    "power": "muscle",
+    "speed": 4.0,
+    "accel": 2.5,
+    "brake": 6.0,
+    "noise": 4,
+    "idle": 0
+  },
+  "cab": false,
+  "dash": "board",
+  "footprint": {
+    "w": 1,
+    "l": 1
+  },
+  "appearance": {
+    "variants": [
+      {
+        "id": "pale",
+        "ns": "vehicle_kickscooter_pale_ns",
+        "ew": "vehicle_kickscooter_pale_ew"
+      },
+      {
+        "id": "green",
+        "ns": "vehicle_kickscooter_green_ns",
+        "ew": "vehicle_kickscooter_green_ew"
+      },
+      {
+        "id": "burnt",
+        "ns": "vehicle_kickscooter_burnt_ns",
+        "ew": "vehicle_kickscooter_burnt_ew"
+      }
+    ]
+  }
+}

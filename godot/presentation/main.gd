@@ -147,6 +147,11 @@ var _selected_stance: int = 2 # Walk
 # The interact key. E, by the owner's 2026-09-05 decision: doors, hoods, loot and everything
 # else on the context ladder hang off this one key, and the legend names it once.
 const INTERACT_KEY: Key = KEY_E
+# A rider drawn on an open vehicle: how far above the machine's ground point the pawn's soles
+# stand (a saddle is about that high off the road), and how far in front of the picture it
+# sorts. Both are readouts of the interface, not lengths the sim knows.
+const RIDER_LIFT_M: float = 0.35
+const RIDER_DEPTH_EPS: float = 0.01
 const MOVE_KEYS: Dictionary = {
 	KEY_W: {"dx": 0.0, "dy": -1.0}, KEY_UP: {"dx": 0.0, "dy": -1.0},
 	KEY_S: {"dx": 0.0, "dy": 1.0}, KEY_DOWN: {"dx": 0.0, "dy": 1.0},
@@ -1510,8 +1515,22 @@ func _draw_entities() -> void:
 		# A body at a wheel is inside the car, and the car's picture is what stands there: the
 		# sim pins its position to the car's centre, so drawing it too would stand a pawn on the
 		# bonnet. The car itself joins the sort below as a manifest record SimVehicles keeps.
-		if world.components.has_component(int(ent), "mounted"):
-			continue
+		# A rider on an open vehicle (`mounted.cab` false -- a bicycle, a scooter, a board) is
+		# drawn: the pawn stands on the machine's own ground point, lifted a little off it, and
+		# sorts a hair in front of the picture so the frame does not paint over the legs.
+		var mounted: Variant = world.components.get_component(int(ent), "mounted")
+		var rider_depth: float = -1.0
+		if mounted is Dictionary:
+			if bool((mounted as Dictionary).get("cab", false)):
+				continue
+			var ridden: int = int((mounted as Dictionary).get("vehicle", -1))
+			var rv: Variant = world.components.get_component(ridden, "vehicle")
+			var rpos: Variant = world.components.get_component(ridden, "position")
+			if rv is Dictionary and rpos is Dictionary:
+				var gp: Vector2 = SimVehicles.ground_point(rv as Dictionary, rpos as Dictionary)
+				x = gp.x
+				y = gp.y - RIDER_LIFT_M
+				rider_depth = TopDownProjection.depth_of(gp.x, gp.y) + RIDER_DEPTH_EPS
 		# Walls / boards block; windows stay Clear — match sim vision, not camera frustum.
 		var det: int = SimVisibility.Detail.Focal
 		if not is_player and world.vision != null:
@@ -1526,7 +1545,7 @@ func _draw_entities() -> void:
 				if not Appearance.moving(vel):
 					continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, x, y)
-		var depth: float = TopDownProjection.depth_of(x, y)
+		var depth: float = TopDownProjection.depth_of(x, y) if rider_depth < 0.0 else rider_depth
 		var ztype: String = ""
 		if is_zed:
 			var zt: Variant = world.components.get_component(int(ent), "zombieType")

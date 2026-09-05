@@ -24,15 +24,15 @@ func _run() -> void:
 	ok = _streams() and ok
 	ok = _a_despawn_leaves_nothing_behind() and ok
 	if ok:
-		print("M2_SAVE_OK v18 ticket10 needs-era despawn-clean")
+		print("M2_SAVE_OK v19 ticket10 needs-era despawn-clean")
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
 		quit(1)
 
 func _version() -> bool:
-	if int(SimSerialize.SAVE_VERSION) != 18:
-		push_error("SAVE_VERSION %d want 18" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 19:
+		push_error("SAVE_VERSION %d want 19" % int(SimSerialize.SAVE_VERSION))
 		return false
 	# 13 is stale -- it predates posture's target/ticks_left and float stamina. 15 is current
 	# (Slice 2 Part A's bloodLoss/wound-severity shape change), so 13 is two versions behind

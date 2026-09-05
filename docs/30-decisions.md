@@ -2207,6 +2207,56 @@ getting in — the place is the verb, which is the diegetic rule the HUD already
 owner wants the hood on a key of its own, `at_hood` is the test and the ladder is the one place
 to move it.
 
+**Light vehicles: the same module, told apart by content (owner's goal, 2026-09-05, the fourth
+of the session).** The goal asked for bikes, scooters, skateboards and electric bikes, driveable
+like the cars but with more balanced speeds, each with a small dash that makes sense. Every call
+below was taken as a first cut with no owner to ask, and each is a content edit or a line:
+
+- **One module, three content keys, no `if class == "bicycle"` anywhere.** A bicycle is a
+  `vehicle` entity with a manifest record and a picture per axis exactly as a sedan is; what
+  differs is `drive.power` (engine / battery / muscle), `cab` (a closed body or not) and `dash`
+  (which instruments). The alternative — a `SimBikes` module beside `SimVehicles` — would have
+  been a second copy of the leading-edge probe, the map shadow and the save path, and every
+  later fix would have landed in one of them. Content decides; the module reads.
+- **The speeds sit between a walk and a car, on purpose.** Bicycle 6.5, e-bike 7.5 under power,
+  e-scooter 6.0, skateboard 4.5, kick scooter 4.0, against a walk's 2.1, a sprint's 6.3 and the
+  cars' 8..10. A bicycle just outruns a sprint and a skateboard does not; that is the "more
+  balanced" the goal asked for, read as a spread the CONTENT lane now holds (an engine is faster
+  and louder than a sprint; everything else is faster than a walk, quieter than a sprint and
+  slower than a truck). None of it has met the director; the 64-tile harness parks nothing.
+- **The trade is the cab.** A car's driver is off the shambler's menu; a rider is not, and a grab
+  or a crash at speed puts them off the machine where they stand (`_unseat`). That is what
+  balances a quiet tireless bicycle against a loud thirsty sedan — exposure, not a speed nerf.
+  The rider's body takes nothing from the fall, the same half the cars shipped; the wound is a
+  measured slice named in docs/23.
+- **A flat battery is a slower ride, not a dead one.** `unpowered` on a battery class is what
+  the rider makes with the charge gone — pedalling the e-bike, kicking the e-scooter along —
+  because an e-bike with a flat battery is still a bicycle and refusing to move it would be the
+  sim lying about the object. An engine's `unpowered` is zero, which is what a dry tank means.
+- **Legs are free.** Pedalling costs no stamina and no hunger. Considered and deferred rather
+  than typed in: the stamina pool a sprint draws on exists, and hooking a ride into it is one
+  line, but what rate is a balance claim and CLAUDE.md says measure, never theorise.
+- **The dash follows the machine.** A car's cluster is a car's; a handlebar computer is one
+  small dial, the motion word, two lamps and a charge bar only where there is a battery to
+  gauge; a board's strip is the motion word, a row of pips and a foot-down lamp. `motion` puts
+  the gear in the layout's own words — a bicycle is pedalling, never in drive. The dial on a
+  flat e-bike stays the class's top, so the ride reads slower on the same dial; a dial that
+  rescaled itself would be a gauge that lies. Still words and needles, never a digit: the
+  machine-not-body line of "The dashboard" above holds unchanged.
+- **They park in the same pass, on the same spans.** A one-wide body parks at lane 1..width-2
+  where a car parks at 1..width-3 — the lane draw happens after the class draw either way, one
+  draw whatever the range — and the span test stays at four tiles for every class, so the
+  64-tile map every gate boots is byte-identical and `M2_BALANCE_OK` cannot move. The right
+  place for a bicycle is a 3-wide town-centre street, and that pass is a slice of its own
+  because it moves the harness's map. A car-boot site never hosts on a body under two across.
+- **The three car shells are the bike shells.** `car_pale`, `car_green`, `car_burnt` paint the
+  frames, so a pale bicycle beside a pale sedan is one street's paint; burnt on a bicycle is the
+  rust and char a fire leaves. Told apart by silhouette, never by length alone — the cars'
+  rule carried down: bicycles level, scooters stemmed at the nose, the skateboard under a dozen
+  rows, the e-bike fuller than the bicycle by its battery.
+- **SAVE_VERSION 19.** The weighted class list changed what a seed parks, so a v18 save's cars
+  would restore over freshly parked bicycles. Refused, per the standing rule.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

@@ -46,7 +46,8 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `parts/edges.py` | the ground's edge cells, eight fringes a row, pasted into the atlas |
 | `parts/trees.py` | the three tall conifers, feet-anchored on the tree canvas |
 | `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
-| `parts/vehicles.py` | the sedan, the van and the truck, three variants x two axes each |
+| `parts/vehicles.py` | the sedan, the van and the truck, three variants x two axes each; merges the light classes' tables |
+| `parts/light_vehicles.py` | the bicycle, the e-bike, the e-scooter, the kick scooter and the skateboard, under the cars' camera |
 | `build.py` | the CLI, the registry merge, `--check`, `CANVAS`/`PAWN_KEYS` (mirrors `canvas_of`) |
 
 ## The rigs, the skeleton, and the draw order
