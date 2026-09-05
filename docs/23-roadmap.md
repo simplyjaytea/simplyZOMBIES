@@ -287,8 +287,13 @@ landed, and what is below is what the arc named and left.
   and a bite through a broken window are the pressure a besieged car should feel; **the
   driver's hands** — nothing refuses a swing, a shot, a stance change or a bandage from the
   driver's seat; **NPC drivers** — nobody but the player mounts, and a road-graph pathfinder
-  for a car is a different pathfinder from a body's four-connected A\*; **fuel and
-  breakdowns**; **the engine at the director** — the engine's noise is a first-cut number
+  for a car is a different pathfinder from a body's four-connected A\*; **refuelling and
+  repair** — fuel and condition landed (the record below) but nothing puts litres back in a
+  tank or integrity back in an engine: a jerry can, a siphon between two cars and a repair
+  channel are each a content entry and a verb on the E ladder, and each wants its own gate;
+  **breakdowns** — a failing engine is slow, never stalled or refused at random, because a
+  random stall is a roll the player cannot read and wants a rule (a threshold, a tell) rather
+  than a dice; **the engine at the director** — the engine's noise is a first-cut number
   (24 under way for a sedan, a sprint is 6, a shout 120) that has never been run against the
   director's pressure model, because the 64-tile harness parks no car; and **a car seen from
   behind** — the north-south axis still draws one picture for both facings (decision 11's
@@ -2638,11 +2643,12 @@ not a to-do list:
   (5.74 ms against 5.87 baseline, the per-system profile within noise), because a parked car has
   no engine components; the first cut, which looked every car's class up every tick, cost 1.9 ms
   a tick on its own and was found by profiling the systems rather than by reasoning. Driving
-  adds 0.3 ms. The first probe hung instead of finishing sixty ticks, because a footprint change
-  called `world.invalidateMap()` and every NPC job's path re-searched at every crossing; the
-  module now bumps the map's own `vehicle_generation` and leaves the world's alone, and the cost
-  of that is a crouched observer's occlusion cache staying stale until that observer moves a
-  tile. The 64-tile map every gate boots stands no car (its streets are two wide against the
+  adds 0.3 ms — with `world.invalidateMap()` called on every footprint change, which is what
+  keeps a crouched observer's occlusion and every NPC path honest about where the car now is,
+  and was measured cheap enough to keep. (An earlier draft of this record blamed that call for a
+  hung probe; the probe had hung on its own typing error and the claim was withdrawn before it
+  shipped anything — the module bumps the map's `vehicle_generation` for the drawing node *and*
+  the world's generation for the sim.) The 64-tile map every gate boots stands no car (its streets are two wide against the
   four a car needs), so the balance harness sees no change and its FAST lines cannot move —
   which is also why the engine's numbers are a first cut and not a measurement.
   **The gate**, eleven lanes and a budget it spends 2 s of 60: CONTENT (three classes whole, a
@@ -2677,6 +2683,66 @@ not a to-do list:
   **What it leaves** is in what's left under "What driving left behind": running things over,
   the door under siege, the driver's hands, NPC drivers, fuel and breakdowns, the engine at the
   director, and the nose-south picture.
+- ~~Vehicle fuel and condition, read under the hood~~ **landed** (`godot:m2:vehicles` grows
+  from eleven lanes to **fourteen** — FUEL, CONDITION, HOOD — so the chain stays 46; directed
+  by the owner 2026-09-05 as the second goal of the driving session, with "define the interact
+  key" beside it). **The mechanism:** two numbers on the `vehicle` component the sim keeps and
+  the player never sees as numbers — the condition-view rule applied to a car. `fuel` is litres
+  against the class's `tank`, rolled at spawn off the new `vehicles` RNG stream as the square
+  of a roll (most cars stand low; two draws a record, always both, in manifest order) and burned
+  under way at `tank / range` a metre and idling at `tank / (idleMinutes × 60)` a second, only
+  while the engine turns over. `integrity` is 0..100, rolled at spawn (one in ten a wreck, the
+  rest 40..100) and spent by **crashes**: the leading-edge probe that stops a car flush now
+  charges it `CRASH_DAMAGE_AT_CAP` × (speed / class top)² when the speed was `CRASH_MIN_SPEED`
+  or more, publishes `vehicle.crashed` (and `vehicle.wrecked` once, on the crash that empties
+  it) and puts a `noise.emitted` bang of up to 150 on the field — louder than a shout, because
+  sheet metal on a wall is. The cap is the class's, so a battered car crashing at the lower
+  top it can still reach is hurt less: a sound sedan is wrecked by its **fourth** run at a
+  wall (55, 27, 11, 11), not its second. Condition is five words — sound, scuffed, battered,
+  failing, wrecked — each with a multiplier on the top speed (1.0 / 0.9 / 0.7 / 0.45 / 0); a
+  dry tank or a wrecked engine takes no throttle and refuses the steering, so the car coasts to
+  a stop and the emitter's three figures go to zero — the engine is silent because it is not
+  running, not because it was muted. A wreck can still be sat in.
+  **The hood** is the read model: `hood_view` hands the screen `{name, condition, fuel, runs,
+  prose}` — every value a word or a boolean, `HOOD_KEYS` the allowlist the gate holds it to
+  exactly as `check_ban_health_bar.gd` holds `PART_KEYS` — and `check_hood` from the nose
+  (`at_hood`: past the nose edge, within reach, inside the breadth) leaves a `hoodReport` on the
+  body that the HUD clause reads for ten seconds and then drops. On fortify's E ladder the hood
+  comes before the door: at the nose E looks, along the side E gets in, at the tail neither.
+  Six fuel words — dry, a splash in the tank, under a quarter, about half a tank, most of a
+  tank, full — on fractions of the tank; the clause at a dry or wrecked wheel says which.
+  **The interact key is defined once**: `main.gd`'s `INTERACT_KEY` is `KEY_E`, routed by name
+  ahead of the key match (a match arm binds an identifier rather than comparing it), and it
+  pushes `use.context` and nothing else; the F1 legend's E row now reads "interact — pick up,
+  search, a car door from the side, its hood from the nose". There is no second key: the hood
+  and the door are one key and two places to stand.
+  **Content:** the `drive` block grows `tank`, `range` and `idleMinutes` (sedan 40 L / 12 000 m
+  / 90 min, van 60 / 11 000 / 80, truck 80 / 9 000 / 70), required by the schema and judged
+  whole by `drive_of` with the five it already had — a class missing its tank cannot be
+  mounted. Range is game-scaled to a 256 m district, not to a road atlas: a full sedan is a
+  session of driving, not a lifetime.
+  **Measured, not asserted:** forty ticks idling burn 0.015 L and forty driving 0.042 L off a
+  sedan's 40; a run at a wall from the kerb arrives at 8.4 m/s and costs 38.8 (scuffed to
+  battered's edge) with one bang on the bus; battered drives 15.1 m in sixty ticks against
+  sound's 17.8; over four seeds at 128, 15 of 158 cars spawn wrecked. The 64-tile harness
+  parks no car, so `M2_BALANCE_OK` cannot move and every number above is a first cut the owner
+  can re-decide from the words alone.
+  **The gate**, three lanes on top of the eleven, each red both ways: FUEL (33 cars, 32
+  distinct tanks inside their capacity, moving with the seed and identical on one; the roll
+  is the square; idling burns less than driving; six words in order with no digit; a dry car
+  takes no throttle, coasts to a stop in silence and says so, and a splash starts it again),
+  CONDITION (the roll's shape; five words in order; a run at a wall costs what `crash_damage`
+  says and bangs once; a wall hard against the nose costs nothing — the first cut gave the
+  bump a tile of run-up and learned that a sedan does 2.8 m/s by the end of it; battered is
+  slower than sound; a wreck can be sat in and does not move; six runs at a wall wreck a sound
+  car with exactly one `vehicle.wrecked`), HOOD (the view's keys and types, a numeric key
+  fabricated in and caught, E at the nose reads the report for 200 ticks and then it lapses
+  off the body, E at the side gets in, the tail is not the hood, a wreck and a dry tank read
+  as such, `INTERACT_KEY` named and routed and the legend saying so). SAVE now proves the
+  litres and the integrity restore, and SOCKETS reads the two hood calls on fortify's ladder.
+  **What it leaves**, named in what's left: refuelling and repair (nothing puts litres or
+  integrity back), breakdowns as a rule rather than a roll, and the driver taking no injury
+  from a crash — the car is hurt, the body is not, which is the half that shipped.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

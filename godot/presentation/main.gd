@@ -143,6 +143,9 @@ var _selected_stance: int = 2 # Walk
 
 # Cardinal: screen axes are world axes under the top-down projection, so W is
 # straight up. Holding two adjacent keys still sums to a diagonal, same as ever.
+# The interact key. E, by the owner's 2026-09-05 decision: doors, hoods, loot and everything
+# else on the context ladder hang off this one key, and the legend names it once.
+const INTERACT_KEY: Key = KEY_E
 const MOVE_KEYS: Dictionary = {
 	KEY_W: {"dx": 0.0, "dy": -1.0}, KEY_UP: {"dx": 0.0, "dy": -1.0},
 	KEY_S: {"dx": 0.0, "dy": 1.0}, KEY_DOWN: {"dx": 0.0, "dy": 1.0},
@@ -390,6 +393,14 @@ func _ensure_ui() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var ke: InputEventKey = event as InputEventKey
+		# The one interact key, named once (INTERACT_KEY) rather than as a literal in the match
+		# below, because a match arm binds an identifier instead of comparing against it. It
+		# pushes `use.context` and nothing else: fortify's ladder (SimFortify._use_context)
+		# decides what "interact" means where you stand -- a loose item, a container, a
+		# survivor at the gate, a car's hood from the nose, its door from the side, out from
+		# the wheel, a window, a bed. Nothing here knows which; the sim decides.
+		if ke.keycode == INTERACT_KEY:
+			if world != null: world.commands.push({"type": "use.context"})
 		match ke.keycode:
 			KEY_F5: _save()
 			KEY_F9: _load()
@@ -441,12 +452,6 @@ func _input(event: InputEvent) -> void:
 					_inventory_panel.call("rotate")
 				elif world != null:
 					world.commands.push({"type": "reload"})
-			KEY_E:
-				# The context key, and since the owner's 2026-09-05 decision also the car door:
-				# fortify's ladder (SimFortify._use_context) gets you out from the wheel and in
-				# from the kerb, after the loot and the people beside it. Nothing here knows
-				# about cars; the sim decides.
-				if world != null: world.commands.push({"type": "use.context"})
 			KEY_T:
 				# One key, two meanings, both decided in the sim: start first aid on the
 				# wound that matters, or stop the one already in progress. Presentation

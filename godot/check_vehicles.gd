@@ -41,6 +41,19 @@ extends SceneTree
 #   E-KEY     the owner's 2026-09-05 decision: E is the door. On fortify's ladder, `use.context`
 #             from the wheel gets out (never picks up what the car stands over), from the kerb
 #             gets in -- after a loose item beside the car, which E still picks up first.
+#   FUEL      the tank: spawn rolls every car's litres off the `vehicles` stream (varying by car
+#             and by seed, never above the tank), driving burns them at the class's range and
+#             idling at its idle minutes, a dry tank takes no throttle and rolls to a stop in
+#             silence, and a fabricated full tank drives the same road. The words are the only
+#             readout, and they move with the litres.
+#   CONDITION the hitpoints: spawn rolls integrity (some wrecks, none over the maximum), a crash
+#             at speed costs integrity on the square of the speed and puts a bang on the field,
+#             a bump under CRASH_MIN_SPEED costs nothing, a battered car is slower than a sound
+#             one and a wrecked one will not move at all. The five words are the whole readout.
+#   HOOD      E at the nose looks under the hood and E at the side gets in, on fortify's ladder;
+#             the report is words on the HUD for HOOD_REPORT_TICKS and then gone; the view's keys
+#             are HOOD_KEYS and nothing else, every value a word or a boolean -- the health-bar
+#             ban's allowlist, applied to a car -- and a numeric key fabricated into it is caught.
 #   SHELTER   a body at the wheel is off the shambler's menu: `_gather_survivors` lists it on
 #             foot and not in the car.
 #   SAVE      a car driven and saved comes back where it was driven to: the restored world's
@@ -101,13 +114,16 @@ func _run() -> void:
 	ok = _the_leading_edge_stops_it(stash) and ok
 	ok = _the_engine_reaches_the_field(stash) and ok
 	ok = _e_is_the_door(stash) and ok
+	ok = _the_tank_runs_down(stash) and ok
+	ok = _a_crash_costs_condition(stash) and ok
+	ok = _the_hood_speaks_in_words(stash) and ok
 	ok = _a_driver_is_off_the_menu(stash) and ok
 	ok = _a_driven_car_survives_a_save(stash) and ok
 	ok = _the_sockets_are_wired() and ok
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 	if ok:
-		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; a driver is off the shambler's menu; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
+		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; the tank runs down and a dry one stops the car; a crash costs condition and a wreck will not move; the hood speaks in words; a driver is off the shambler's menu; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
 			int(stash.get("classes", 0)), PARK_SIZE, int(stash.get("suburb_cars", 0)),
 			float(stash.get("top_speed", 0.0)), float(stash.get("noise_driving", 0.0)), float(stash.get("noise_idle", 0.0)),
 			seconds, BUDGET_SECONDS,
@@ -138,6 +154,12 @@ func _hand_world(record: Dictionary = {}) -> Variant:
 	var rec: Dictionary = record if not record.is_empty() else _sedan_record()
 	_park(map, rec)
 	SimVehicles.spawn_from_manifest(w, map)
+	# The hand car is fuelled and sound whatever the stream rolled, so every lane that drives it
+	# is judging steering and collision and not a tank; FUEL and CONDITION set their own.
+	for c in w.components.query(["vehicle"]):
+		var hv: Dictionary = w.components.get_component(int(c), "vehicle") as Dictionary
+		hv["fuel"] = float(SimVehicles.drive_of(SimVehicles.class_of(w, String(hv["class"]))).get("tank", 0.0))
+		hv["integrity"] = SimVehicles.INTEGRITY_MAX
 	var pos: Dictionary = w.components.get_component(w.player, "position") as Dictionary
 	pos["x"] = float(CAR_X - 1) + 0.5
 	pos["y"] = float(CAR_Y + 2) + 0.5
@@ -243,19 +265,23 @@ func _every_class_declares_how_it_drives(stash: Dictionary) -> bool:
 			push_error("CONTENT: %s's engine (%.1f) is no louder than a sprint (6.0)" % [id, float(drive["noise"])])
 			return false
 	# The negatives: the same reader refuses a block missing a key, a zero speed and a non-number.
-	var whole: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4}}
+	var whole: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
 	if SimVehicles.drive_of(whole).is_empty():
 		push_error("CONTENT: the reader refused a whole block; it cannot say yes")
 		return false
-	var short: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24}}
+	var short: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "tank": 40, "range": 12000, "idleMinutes": 90}}
 	if not SimVehicles.drive_of(short).is_empty():
 		push_error("CONTENT: the reader accepted a block with no idle; a car would drive on a default nothing declared")
 		return false
-	var still: Dictionary = {"drive": {"speed": 0, "accel": 4, "brake": 8, "noise": 24, "idle": 4}}
+	var no_tank: Dictionary = {"drive": {"speed": 10, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "range": 12000, "idleMinutes": 90}}
+	if not SimVehicles.drive_of(no_tank).is_empty():
+		push_error("CONTENT: the reader accepted a block with no tank; a car would burn fuel it never had")
+		return false
+	var still: Dictionary = {"drive": {"speed": 0, "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
 	if not SimVehicles.drive_of(still).is_empty():
 		push_error("CONTENT: the reader accepted speed 0")
 		return false
-	var words: Dictionary = {"drive": {"speed": "fast", "accel": 4, "brake": 8, "noise": 24, "idle": 4}}
+	var words: Dictionary = {"drive": {"speed": "fast", "accel": 4, "brake": 8, "noise": 24, "idle": 4, "tank": 40, "range": 12000, "idleMinutes": 90}}
 	if not SimVehicles.drive_of(words).is_empty():
 		push_error("CONTENT: the reader accepted a string for a number")
 		return false
@@ -268,6 +294,10 @@ func _every_class_declares_how_it_drives(stash: Dictionary) -> bool:
 	if not schema_text.contains("\"drive\"") or not schema_text.contains("\"required\": [\"id\", \"name\", \"drive\""):
 		push_error("CONTENT: %s does not require a drive block" % SCHEMA)
 		return false
+	for key in SimVehicles.DRIVE_KEYS:
+		if not schema_text.contains("\"%s\"" % key):
+			push_error("CONTENT: %s never names drive.%s; a class could omit it and only the reader would notice" % [SCHEMA, key])
+			return false
 	# And a class the world does not declare, or declares without a drive, cannot be mounted:
 	# the hand world with a fabricated class that has a footprint and no drive.
 	var w: Variant = _hand_world()
@@ -286,7 +316,7 @@ func _every_class_declares_how_it_drives(stash: Dictionary) -> bool:
 		push_error("CONTENT: a class with no drive block was not refused at the wheel (problem: '%s')" % problem)
 		return false
 	stash["classes"] = classes.size()
-	print("CONTENT OK %d classes each declare a whole drive block, faster than a sprint and louder than one; the schema requires it; a block missing idle, a zero speed, a string and no block are refused, and a fabricated class with no drive block cannot be mounted ('%s')" % [classes.size(), problem])
+	print("CONTENT OK %d classes each declare a whole drive block of %d keys, faster than a sprint and louder than one; the schema requires it and names every key; a block missing idle, one missing its tank, a zero speed, a string and no block are refused, and a fabricated class with no drive block cannot be mounted ('%s')" % [classes.size(), SimVehicles.DRIVE_KEYS.size(), problem])
 	return true
 
 
@@ -898,7 +928,399 @@ func _e_is_the_door(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 8. SHELTER ----------------------------------------------------------------------------
+# --- 8. FUEL -------------------------------------------------------------------------------
+
+func _the_tank_runs_down(stash: Dictionary) -> bool:
+	var tank: float = float(SimVehicles.drive_of(SimVehicles.class_of(_hand_world(), "vehicle.sedan"))["tank"])
+	# Spawn: the suburb's tanks vary car to car, none over the tank, and move with the seed.
+	var a: Dictionary = SimBoot.playable(CANON_SEED, PARK_SIZE)
+	var b: Dictionary = SimBoot.playable(CANON_SEED + 1, PARK_SIZE)
+	var seen: Dictionary = {}
+	var a_fuels: Array = []
+	for c in (a["world"]).components.query(["vehicle"]):
+		var v: Dictionary = (a["world"]).components.get_component(int(c), "vehicle") as Dictionary
+		var t: float = float(SimVehicles.drive_of(SimVehicles.class_of(a["world"], String(v["class"])))["tank"])
+		if float(v["fuel"]) < 0.0 or float(v["fuel"]) > t:
+			push_error("FUEL: car %d spawned with %.2f litres in a %.0f litre tank" % [int(c), float(v["fuel"]), t])
+			return false
+		seen[snappedf(float(v["fuel"]), 0.01)] = true
+		a_fuels.append(float(v["fuel"]))
+	if seen.size() < 5:
+		push_error("FUEL: %d cars spawned with only %d distinct tanks; the roll is not reaching the litres" % [a_fuels.size(), seen.size()])
+		return false
+	var b_fuels: Array = []
+	for c in (b["world"]).components.query(["vehicle"]):
+		b_fuels.append(float((b["world"]).components.get_component(int(c), "vehicle")["fuel"]))
+	if a_fuels.size() == b_fuels.size() and a_fuels == b_fuels:
+		push_error("FUEL: two seeds parked identical tanks; the stream is not seeded")
+		return false
+	var again: Dictionary = SimBoot.playable(CANON_SEED, PARK_SIZE)
+	var again_fuels: Array = []
+	for c in (again["world"]).components.query(["vehicle"]):
+		again_fuels.append(float((again["world"]).components.get_component(int(c), "vehicle")["fuel"]))
+	if again_fuels != a_fuels:
+		push_error("FUEL: the same seed parked different tanks twice; the roll is not deterministic")
+		return false
+	# The roll itself: a low roll is a low tank, a roll of one a full one, and a class with no
+	# drive block parks dry.
+	if SimVehicles.rolled_fuel({"tank": 40.0}, 0.5) != 10.0 or SimVehicles.rolled_fuel({"tank": 40.0}, 1.0) != 40.0 or SimVehicles.rolled_fuel({}, 0.9) != 0.0:
+		push_error("FUEL: rolled_fuel is not the square of the roll times the tank")
+		return false
+	# Driving burns it, idling burns less, and the word follows the litres.
+	var w: Variant = _hand_world()
+	var car: int = _car_of(w)
+	var v: Dictionary = _v(w, car)
+	v["fuel"] = tank * 0.5
+	_toggle(w)
+	for i in 40:
+		w.step()
+	var after_idle: float = float(v["fuel"])
+	if after_idle >= tank * 0.5:
+		push_error("FUEL: forty ticks idling burned nothing")
+		return false
+	var idle_cost: float = tank * 0.5 - after_idle
+	_move(w, 0.0, -1.0, 40)
+	var drive_cost: float = after_idle - float(v["fuel"])
+	if drive_cost <= idle_cost:
+		push_error("FUEL: forty ticks driving (%.4f L) burned no more than forty idling (%.4f L)" % [drive_cost, idle_cost])
+		return false
+	if SimVehicles.fuel_word(float(v["fuel"]), tank) != "about half a tank":
+		push_error("FUEL: half a tank reads '%s'" % SimVehicles.fuel_word(float(v["fuel"]), tank))
+		return false
+	# The words, over the whole range, in order, and never a digit.
+	var last: int = -1
+	for f in [0.0, 0.05, 0.2, 0.45, 0.75, 0.95, 1.0]:
+		var band: int = SimVehicles.fuel_band(f * tank, tank)
+		if band < last:
+			push_error("FUEL: the fuel bands are not monotone")
+			return false
+		last = band
+		if _has_digit(SimVehicles.fuel_word(f * tank, tank)):
+			push_error("FUEL: a fuel word carries a digit: '%s'" % SimVehicles.fuel_word(f * tank, tank))
+			return false
+	if SimVehicles.fuel_word(0.0, tank) != "dry" or SimVehicles.fuel_word(tank, tank) != "full":
+		push_error("FUEL: the ends of the scale are not dry and full")
+		return false
+	# A dry tank: no throttle, the car rolls to a stop, the engine goes quiet on the field, and
+	# the clause at the wheel says so.
+	var dry: Variant = _hand_world()
+	var dc: int = _car_of(dry)
+	var dv: Dictionary = _v(dry, dc)
+	_toggle(dry)
+	_move(dry, 0.0, -1.0, 40)
+	var y_running: float = float(_pos(dry, dc)["y"])
+	dv["fuel"] = 0.0
+	_move(dry, 0.0, -1.0, 100)
+	if float(dv["speed"]) != 0.0:
+		push_error("FUEL: a dry car is still doing %.2f m/s a hundred ticks on" % float(dv["speed"]))
+		return false
+	if float(_pos(dry, dc)["y"]) >= y_running:
+		push_error("FUEL: the dry car did not even coast")
+		return false
+	var em: Dictionary = dry.components.get_component(dc, "attention_emitter") as Dictionary
+	if float(em["ambient"]) != 0.0 or float(em["walking"]) != 0.0:
+		push_error("FUEL: a dry engine still idles at %.1f on the emitter" % float(em["ambient"]))
+		return false
+	var clause: String = SimVehicles.hud_clause(dry, dry.player)
+	if not clause.contains("dry") or _has_digit(clause):
+		push_error("FUEL: the clause at a dry wheel reads '%s'" % clause)
+		return false
+	# And a splash makes it go again.
+	dv["fuel"] = tank * 0.05
+	_move(dry, 0.0, -1.0, 20)
+	if float(dv["speed"]) <= 0.0:
+		push_error("FUEL: a splash in the tank did not move the car")
+		return false
+	stash["tank"] = tank
+	print("FUEL OK suburb@%d spawns %d cars with %d distinct tanks inside their capacity, differing between seeds and identical on one; the roll is the square; forty ticks idling burned %.3f L and forty driving %.3f L off a %.0f L tank; six words in order, dry to full, no digits; a dry car takes no throttle, coasts to a stop in silence and says so, and a splash starts it again" % [PARK_SIZE, a_fuels.size(), seen.size(), idle_cost, drive_cost, tank])
+	return true
+
+
+# --- 9. CONDITION --------------------------------------------------------------------------
+
+func _a_crash_costs_condition(stash: Dictionary) -> bool:
+	# Spawn: integrity within 0..100, some wrecks over four seeds and most not.
+	var wrecked: int = 0
+	var total: int = 0
+	for seed_val in [CANON_SEED, CANON_SEED + 1, CANON_SEED + 2, CANON_SEED + 3]:
+		var boot: Dictionary = SimBoot.playable(seed_val, PARK_SIZE)
+		for c in (boot["world"]).components.query(["vehicle"]):
+			var v: Dictionary = (boot["world"]).components.get_component(int(c), "vehicle") as Dictionary
+			var integrity: float = float(v["integrity"])
+			if integrity < 0.0 or integrity > SimVehicles.INTEGRITY_MAX:
+				push_error("CONDITION: car %d spawned at integrity %.1f" % [int(c), integrity])
+				return false
+			total += 1
+			if SimVehicles.condition_band(integrity) == 0:
+				wrecked += 1
+	if wrecked == 0 or wrecked == total:
+		push_error("CONDITION: %d of %d cars over four seeds are wrecks; the roll is not reaching the street" % [wrecked, total])
+		return false
+	# The roll's shape: the bottom tenth is a wreck, just over it is the floor, one is the top.
+	if SimVehicles.rolled_integrity(0.05) != 0.0 or SimVehicles.rolled_integrity(0.1) != SimVehicles.INTEGRITY_ROLL_FLOOR or absf(SimVehicles.rolled_integrity(1.0) - SimVehicles.INTEGRITY_MAX) > 1e-9:
+		push_error("CONDITION: rolled_integrity's shape is off")
+		return false
+	# The words: five, in order, no digits, and the bands the caps follow.
+	var last_band: int = -1
+	for integrity in [0.0, 10.0, 45.0, 70.0, 100.0]:
+		var band: int = SimVehicles.condition_band(integrity)
+		if band <= last_band:
+			push_error("CONDITION: the bands are not strictly rising through 0, 10, 45, 70, 100")
+			return false
+		last_band = band
+		if _has_digit(SimVehicles.condition_word(integrity)):
+			push_error("CONDITION: a condition word carries a digit")
+			return false
+	if SimVehicles.condition_word(0.0) != "wrecked" or SimVehicles.condition_word(100.0) != "sound":
+		push_error("CONDITION: the ends of the scale are not wrecked and sound")
+		return false
+	# A crash into a wall at speed costs integrity, bangs on the bus, and a bump costs nothing.
+	var w: Variant = _hand_world()
+	for tx in range(CAR_X - 2, CAR_X + 4):
+		_wall(w, tx, 30)
+	var car: int = _car_of(w)
+	var v: Dictionary = _v(w, car)
+	_toggle(w)
+	var bangs: Array = []
+	var crashes: Array = []
+	w.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
+	for i in 60:
+		w.step()
+		for e in w.events.drained:
+			var ev: Dictionary = e as Dictionary
+			if String(ev.get("type", "")) == "vehicle.crashed":
+				crashes.append(ev)
+			if String(ev.get("type", "")) == "noise.emitted" and int(ev.get("source", -1)) == car and float(ev.get("magnitude", 0.0)) > 50.0:
+				bangs.append(ev)
+	if crashes.size() != 1:
+		push_error("CONDITION: a run at a wall produced %d crash events, not one" % crashes.size())
+		return false
+	var damage: float = float((crashes[0] as Dictionary)["damage"])
+	if damage <= 0.0 or absf((SimVehicles.INTEGRITY_MAX - damage) - float(v["integrity"])) > 1e-6:
+		push_error("CONDITION: the crash reported %.1f damage and the car is at %.1f" % [damage, float(v["integrity"])])
+		return false
+	if bangs.size() != 1:
+		push_error("CONDITION: the crash put %d bangs on the bus, not one" % bangs.size())
+		return false
+	if SimVehicles.condition_band(float(v["integrity"])) >= SimVehicles.condition_band(SimVehicles.INTEGRITY_MAX):
+		push_error("CONDITION: a full-speed crash left the car sound")
+		return false
+	var crash_speed: float = float((crashes[0] as Dictionary)["speed"])
+	if absf(damage - SimVehicles.crash_damage(crash_speed, 10.0)) > 1e-6:
+		push_error("CONDITION: damage %.2f is not crash_damage(%.2f) = %.2f" % [damage, crash_speed, SimVehicles.crash_damage(crash_speed, 10.0)])
+		return false
+	# A bump: a wall hard against the nose, so the car meets it on its first tick at a fifth of
+	# a metre a second, costs nothing. (A tile of run-up is not a bump: over one metre at the
+	# sedan's acceleration a car is already doing 2.8 m/s, above CRASH_MIN_SPEED, and the first
+	# cut of this case learned that the expensive way.)
+	if SimVehicles.crash_damage(1.5, 10.0) != 0.0 or SimVehicles.crash_noise(1.5, 10.0) != 0.0:
+		push_error("CONDITION: a bump under CRASH_MIN_SPEED costs or sounds")
+		return false
+	var bump: Variant = _hand_world()
+	for tx in range(CAR_X - 2, CAR_X + 4):
+		_wall(bump, tx, CAR_Y - 1)
+	var bc: int = _car_of(bump)
+	_toggle(bump)
+	var bumped: bool = false
+	bump.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
+	for i in 20:
+		bump.step()
+		for e in bump.events.drained:
+			if String((e as Dictionary).get("type", "")) == "vehicle.crashed":
+				bumped = true
+	if bumped or float(_v(bump, bc)["integrity"]) != SimVehicles.INTEGRITY_MAX:
+		push_error("CONDITION: a bump from one tile off cost the car condition")
+		return false
+	if float(_pos(bump, bc)["y"]) != float(CAR_Y) + 2.5 or float(_v(bump, bc)["speed"]) != 0.0:
+		push_error("CONDITION: the bump case moved or is still rolling (y %.2f, %.2f m/s)" % [float(_pos(bump, bc)["y"]), float(_v(bump, bc)["speed"])])
+		return false
+	# Battered is slower than sound over the same road, and wrecked does not move.
+	var sound: Variant = _hand_world()
+	var sc: int = _car_of(sound)
+	_toggle(sound)
+	_move(sound, 0.0, -1.0, 60)
+	var sound_y: float = float(_pos(sound, sc)["y"])
+	var battered: Variant = _hand_world()
+	var bat: int = _car_of(battered)
+	_v(battered, bat)["integrity"] = 45.0
+	_toggle(battered)
+	_move(battered, 0.0, -1.0, 60)
+	var battered_y: float = float(_pos(battered, bat)["y"])
+	if battered_y <= sound_y:
+		push_error("CONDITION: a battered car (y %.2f) drove as far as a sound one (y %.2f)" % [battered_y, sound_y])
+		return false
+	var wreck: Variant = _hand_world()
+	var wc: int = _car_of(wreck)
+	_v(wreck, wc)["integrity"] = 0.0
+	_toggle(wreck)
+	if not wreck.components.has_component(wreck.player, "mounted"):
+		push_error("CONDITION: a wreck cannot even be sat in")
+		return false
+	_move(wreck, 0.0, -1.0, 40)
+	if float(_pos(wreck, wc)["y"]) != float(CAR_Y) + 2.5 or float(_v(wreck, wc)["speed"]) != 0.0:
+		push_error("CONDITION: a wrecked car moved")
+		return false
+	var wreck_clause: String = SimVehicles.hud_clause(wreck, wreck.player)
+	if not wreck_clause.contains("wrecked") or _has_digit(wreck_clause):
+		push_error("CONDITION: the clause at a wrecked wheel reads '%s'" % wreck_clause)
+		return false
+	# Runs at a wall wreck a sound car -- four of them, because each crash lowers the cap the
+	# next one is made at (55 at full speed, then 27 battered, 11 failing, 11 again): the
+	# vehicle.wrecked event, exactly once, and the car in the wrecked band at the end.
+	var twice: Variant = _hand_world()
+	for tx in range(CAR_X - 2, CAR_X + 4):
+		_wall(twice, tx, 20)
+	var tc: int = _car_of(twice)
+	_toggle(twice)
+	var wrecks: int = 0
+	for run in 6:
+		# Back off to the kerb and run at the wall again, at whatever speed the car still makes.
+		var tp: Dictionary = _pos(twice, tc)
+		tp["y"] = float(CAR_Y) + 2.5
+		_v(twice, tc)["speed"] = 0.0
+		twice.commands.push({"type": "move", "dx": 0.0, "dy": -1.0})
+		for i in 120:
+			twice.step()
+			for e in twice.events.drained:
+				if String((e as Dictionary).get("type", "")) == "vehicle.wrecked":
+					wrecks += 1
+	if wrecks != 1:
+		push_error("CONDITION: six runs at a wall produced %d vehicle.wrecked events; expected exactly one" % wrecks)
+		return false
+	if SimVehicles.condition_band(float(_v(twice, tc)["integrity"])) != 0:
+		push_error("CONDITION: six runs at a wall left the car %s" % SimVehicles.condition_word(float(_v(twice, tc)["integrity"])))
+		return false
+	stash["crash_damage"] = damage
+	print("CONDITION OK %d of %d cars over four seeds spawn wrecked and the rest 40..100; five words in order, no digits; a run at a wall at %.1f m/s cost %.1f, bangs once on the bus and leaves the car %s, a bump against the nose costs nothing; battered drove %.1f m against sound's %.1f in sixty ticks; a wreck can be sat in and does not move; repeated runs at a wall wreck a sound car with one vehicle.wrecked, each crash slower than the last" % [wrecked, total, crash_speed, damage, SimVehicles.condition_word(float(v["integrity"])), float(CAR_Y) + 2.5 - battered_y, float(CAR_Y) + 2.5 - sound_y])
+	return true
+
+
+# --- 10. HOOD ------------------------------------------------------------------------------
+
+func _the_hood_speaks_in_words(stash: Dictionary) -> bool:
+	var w: Variant = _hand_world()
+	SimHealth.register_module(w)
+	SimInventory.register_module(w)
+	SimFortify.register_module(w)
+	SimHealth.make_survivor_body(w, w.player)
+	SimHealth.make_stamina(w, w.player)
+	SimInventory.make_inventory(w, w.player)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	var car: int = _car_of(w)
+	var v: Dictionary = _v(w, car)
+	var p: Dictionary = _pos(w, w.player)
+	# The view's shape, on a car in a known state: every key allowed, every value a word or a
+	# boolean, and the words the state says.
+	v["integrity"] = 45.0
+	v["fuel"] = float(stash.get("tank", 40.0)) * 0.5
+	var view: Dictionary = SimVehicles.hood_view(w, car)
+	for key in view.keys():
+		if not SimVehicles.HOOD_KEYS.has(String(key)):
+			push_error("HOOD: the view carries a disallowed key '%s'; allowed: %s" % [key, SimVehicles.HOOD_KEYS])
+			return false
+		var value: Variant = view[key]
+		if not (value is String or value is bool):
+			push_error("HOOD: the view's '%s' is a %s, not a word or a boolean -- that is the number the ban forbids" % [key, type_string(typeof(value))])
+			return false
+		if value is String and _has_digit(String(value)):
+			push_error("HOOD: the view's '%s' carries a digit: '%s'" % [key, value])
+			return false
+	for required in SimVehicles.HOOD_KEYS:
+		if not view.has(required):
+			push_error("HOOD: the view is missing '%s'" % required)
+			return false
+	if String(view["condition"]) != "battered" or String(view["fuel"]) != "about half a tank" or not bool(view["runs"]):
+		push_error("HOOD: a battered half-full sedan reads %s" % str(view))
+		return false
+	# The allowlist can say no: a numeric key fabricated into a copy is caught by the same test.
+	var leaked: Dictionary = view.duplicate()
+	leaked["integrity"] = 45.0
+	var caught: bool = false
+	for key in leaked.keys():
+		if not SimVehicles.HOOD_KEYS.has(String(key)) or not (leaked[key] is String or leaked[key] is bool):
+			caught = true
+	if not caught:
+		push_error("HOOD: the allowlist passed a view with a numeric integrity in it; it cannot say no")
+		return false
+	# At the nose: E looks under the hood, the report is words on the HUD, and it lapses.
+	p["x"] = float(CAR_X) + 1.0
+	p["y"] = float(CAR_Y) - 0.5
+	if not SimVehicles.at_hood(w, w.player, car):
+		push_error("HOOD: a body a tile off the nose is not at the hood")
+		return false
+	var nose_clause: String = SimVehicles.hud_clause(w, w.player)
+	if not nose_clause.contains("hood") or _has_digit(nose_clause):
+		push_error("HOOD: the clause at the nose reads '%s'" % nose_clause)
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(w.player, "mounted"):
+		push_error("HOOD: E at the nose got into the car instead of looking under the hood")
+		return false
+	var report: String = SimVehicles.hud_clause(w, w.player)
+	if report != String(view["prose"]) or not report.contains("battered") or not report.contains("half"):
+		push_error("HOOD: after E at the nose the HUD reads '%s'" % report)
+		return false
+	for i in SimVehicles.HOOD_REPORT_TICKS + 2:
+		w.step()
+	if SimVehicles.hud_clause(w, w.player) == report:
+		push_error("HOOD: the report never lapsed")
+		return false
+	if w.components.has_component(w.player, "hoodReport"):
+		push_error("HOOD: the lapsed report is still on the body")
+		return false
+	# At the side: not at the hood, and E gets in.
+	p["x"] = float(CAR_X - 1) + 0.5
+	p["y"] = float(CAR_Y + 2) + 0.5
+	if SimVehicles.at_hood(w, w.player, car):
+		push_error("HOOD: a body at the driver's door is at the hood")
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if not w.components.has_component(w.player, "mounted"):
+		push_error("HOOD: E at the side did not get in")
+		return false
+	# The tail is not the hood either: the nose is where the heading points.
+	w.commands.push({"type": "use.context"})
+	w.step()
+	p["x"] = float(CAR_X) + 1.0
+	p["y"] = float(CAR_Y + 5) + 0.5
+	if SimVehicles.at_hood(w, w.player, car):
+		push_error("HOOD: a body at the tail of a north-facing car is at the hood")
+		return false
+	if not SimVehicles.check_hood(w, w.player, car):
+		pass
+	else:
+		push_error("HOOD: check_hood accepted a body at the tail")
+		return false
+	# A wreck and a dry tank each read as what they are.
+	v["integrity"] = 0.0
+	if not SimVehicles.hood_view(w, car)["prose"].contains("wrecked") or bool(SimVehicles.hood_view(w, car)["runs"]):
+		push_error("HOOD: a wreck reads %s" % str(SimVehicles.hood_view(w, car)))
+		return false
+	v["integrity"] = 100.0
+	v["fuel"] = 0.0
+	if not SimVehicles.hood_view(w, car)["prose"].contains("dry") or bool(SimVehicles.hood_view(w, car)["runs"]):
+		push_error("HOOD: a dry tank reads %s" % str(SimVehicles.hood_view(w, car)))
+		return false
+	# The interact key is named once in main.gd and the legend says what E does at a car.
+	var main_code: String = _code_of(MAIN_GD)
+	if not main_code.contains("const INTERACT_KEY: Key = KEY_E"):
+		push_error("HOOD: main.gd does not name INTERACT_KEY as E")
+		return false
+	var input_body: String = _function_body(MAIN_GD, "_input")
+	if not input_body.contains("INTERACT_KEY") or input_body.contains("KEY_E:"):
+		push_error("HOOD: main.gd's _input does not route the named interact key, or still matches a literal E")
+		return false
+	var legend: String = _code_of("res://ui/legend.gd")
+	if not legend.contains("\"E\"") or not legend.contains("hood"):
+		push_error("HOOD: the legend's E row does not mention the hood")
+		return false
+	print("HOOD OK the view is %s, every value a word or a boolean, and a numeric key fabricated in is caught; E at the nose reads '%s' for %d ticks and then lapses; E at the side gets in; the tail is not the hood; a wreck and a dry tank read as such; INTERACT_KEY is E, routed by name, and the legend says so" % [str(SimVehicles.HOOD_KEYS), report, SimVehicles.HOOD_REPORT_TICKS])
+	return true
+
+
+# --- 11. SHELTER ---------------------------------------------------------------------------
 
 func _a_driver_is_off_the_menu(stash: Dictionary) -> bool:
 	var w: Variant = _hand_world()
@@ -929,7 +1351,7 @@ func _a_driver_is_off_the_menu(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 9. SAVE -------------------------------------------------------------------------------
+# --- 12. SAVE -------------------------------------------------------------------------------
 
 func _a_driven_car_survives_a_save(stash: Dictionary) -> bool:
 	var a: Variant = _hand_world()
@@ -962,6 +1384,12 @@ func _a_driven_car_survives_a_save(stash: Dictionary) -> bool:
 	if String(bv["heading"]) != String(av["heading"]) or int(bv["driver"]) != int(av["driver"]):
 		push_error("SAVE: restored heading/driver %s/%d against %s/%d" % [bv["heading"], int(bv["driver"]), av["heading"], int(av["driver"])])
 		return false
+	if float(av["fuel"]) >= float(SimVehicles.drive_of(SimVehicles.class_of(a, "vehicle.sedan"))["tank"]):
+		push_error("SAVE: the drive burned no fuel, so the restored litres would prove nothing")
+		return false
+	if absf(float(bv["fuel"]) - float(av["fuel"])) > 1e-9 or absf(float(bv["integrity"]) - float(av["integrity"])) > 1e-9:
+		push_error("SAVE: restored fuel/integrity %.4f/%.1f against %.4f/%.1f" % [bv["fuel"], bv["integrity"], av["fuel"], av["integrity"]])
+		return false
 	if not b.components.has_component(b.player, "mounted"):
 		push_error("SAVE: the driver came back on foot")
 		return false
@@ -987,7 +1415,7 @@ func _a_driven_car_survives_a_save(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 10. SOCKETS ----------------------------------------------------------------------------
+# --- 13. SOCKETS ----------------------------------------------------------------------------
 
 func _missing_needle(body: String, needles: Array) -> String:
 	for needle in needles:
@@ -1009,7 +1437,7 @@ func _the_sockets_are_wired() -> bool:
 		[BOOT_GD, "register_playable_modules", ["SimVehicles.register_module(world)"], "the toggle and the drive would run in no world"],
 		[BOOT_GD, "playable", ["SimVehicles.spawn_from_manifest(world, map)"], "no record would ever become an entity"],
 		[SHAMBLER_GD, "_gather_survivors", ["\"mounted\""], "a driver would be chased and grabbed through the door"],
-		[FORTIFY_GD, "_use_context", ["SimVehicles.dismount(", "SimVehicles.mount(", "SimVehicles.nearest_in_reach("], "E would never open a car door"],
+		[FORTIFY_GD, "_use_context", ["SimVehicles.dismount(", "SimVehicles.mount(", "SimVehicles.nearest_in_reach(", "SimVehicles.at_hood(", "SimVehicles.check_hood("], "E would never open a car door or a hood"],
 		[MAIN_GD, "_input", ["\"use.context\""], "no key would push the context command"],
 		[MAIN_GD, "_draw_entities", ["\"mounted\""], "the driver's pawn would draw on the bonnet"],
 		[MAIN_GD, "_vehicle_index", ["vehicle_generation"], "the tile index would go stale the moment a car moved"],

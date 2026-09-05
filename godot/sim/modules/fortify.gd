@@ -168,7 +168,12 @@ static func _use_context(world: Variant, actor: int) -> void:
 	# "Driving"); the sim decides reach and whether the wheel is free (SimVehicles.mount).
 	var car: int = SimVehicles.nearest_in_reach(world, actor)
 	if car != SimVehicles.NO_DRIVER:
-		SimVehicles.mount(world, actor, car)
+		# The hood before the door: standing at the nose, E looks under it (fuel and condition,
+		# in words -- SimVehicles.hood_view); standing anywhere else along it, E gets in.
+		if SimVehicles.at_hood(world, actor, car):
+			SimVehicles.check_hood(world, actor, car)
+		else:
+			SimVehicles.mount(world, actor, car)
 		return
 	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
 	if Needs != null:
