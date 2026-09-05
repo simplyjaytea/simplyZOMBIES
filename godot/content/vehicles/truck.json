@@ -1,6 +1,7 @@
 {
   "id": "vehicle.truck",
   "name": "Flatbed truck",
+  "drive": {"speed": 8, "accel": 3, "brake": 6, "noise": 36, "idle": 6},
   "footprint": { "w": 2, "l": 7 },
   "appearance": {
     "variants": [

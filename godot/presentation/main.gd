@@ -22,6 +22,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
@@ -116,6 +117,7 @@ var _ground_rows_from: Variant = null
 # cases exclusive without walking `map.vehicles` per tile.
 var _vehicle_index_cache: PackedInt32Array = PackedInt32Array()
 var _vehicle_index_from: Variant = null
+var _vehicle_index_gen: int = -1
 # The map-dressing block (heap and debris sprite keys), and the content tree it came from. Third
 # instance of the same pattern for the third time it is the right one: the lookup is a scan over
 # content and this is asked once per drawn tile, the resolution is pure, and a static cache would
@@ -441,6 +443,13 @@ func _input(event: InputEvent) -> void:
 					world.commands.push({"type": "reload"})
 			KEY_E:
 				if world != null: world.commands.push({"type": "use.context"})
+			KEY_Q:
+				# In or out of the car beside you. Its own key rather than a rung of E's ladder:
+				# the suburb stands its car-boot loot on a car's tail tile, so E next to a car
+				# has to keep meaning "search the boot". The sim decides whether anything is in
+				# reach (SimVehicles.nearest_in_reach) and whether the door opens (stopped, a
+				# free tile beside it); this only proposes.
+				if world != null: world.commands.push({"type": SimVehicles.TOGGLE})
 			KEY_T:
 				# One key, two meanings, both decided in the sim: start first aid on the
 				# wound that matters, or stop the one already in progress. Presentation
@@ -726,6 +735,10 @@ func _update_hud() -> void:
 			if not String(look.get(k, "")).is_empty():
 				context = String(look[k])
 				break
+		# The car beside you, or the one you are in: prose from the sim's own read model, words
+		# only, after fortify's look-at because a window you are facing is the nearer thing.
+		if context.is_empty():
+			context = SimVehicles.hud_clause(world, world.player)
 		if not _content_error.is_empty():
 			context = "content: %s" % _content_error
 		_hud.set("hint", context)
@@ -1193,9 +1206,13 @@ func _building_index() -> PackedInt32Array:
 # never per tile: the content lookup is a scan over the tree.
 func _vehicle_index() -> PackedInt32Array:
 	var map: Variant = world.tilemap
-	if map == _vehicle_index_from:
+	# The map object alone is not the key any more: a driven car moves its record and its Low
+	# tiles under the same map, and SimVehicles bumps `vehicle_generation` every time it does.
+	var gen: int = 0 if map == null else int(map.vehicle_generation)
+	if map == _vehicle_index_from and gen == _vehicle_index_gen:
 		return _vehicle_index_cache
 	_vehicle_index_from = map
+	_vehicle_index_gen = gen
 	_vehicle_index_cache = Dressing.vehicle_index(map)
 	var records: Variant = null if map == null else map.get("vehicles")
 	if not (records is Array):
@@ -1474,6 +1491,11 @@ func _draw_entities() -> void:
 		if world.components.has_component(int(ent), "itemBase"):
 			continue
 		if not is_player and not is_unique and not is_zed and not is_bait and not is_raider:
+			continue
+		# A body at a wheel is inside the car, and the car's picture is what stands there: the
+		# sim pins its position to the car's centre, so drawing it too would stand a pawn on the
+		# bonnet. The car itself joins the sort below as a manifest record SimVehicles keeps.
+		if world.components.has_component(int(ent), "mounted"):
 			continue
 		# Walls / boards block; windows stay Clear — match sim vision, not camera frustum.
 		var det: int = SimVisibility.Detail.Focal

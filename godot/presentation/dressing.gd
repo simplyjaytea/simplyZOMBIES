@@ -222,8 +222,12 @@ static func vehicle_key(world: Variant, record: Dictionary, seed_val: int) -> St
 	var variants: Variant = (look as Dictionary).get("variants")
 	if not (variants is Array) or (variants as Array).is_empty():
 		return ""
-	var rx: int = int(record.get("x", 0))
-	var ry: int = int(record.get("y", 0))
+	# The corner the layout parked it on. A record SimVehicles is keeping for a car that can move
+	# carries `hx`/`hy` -- the home corner -- beside the live `x`/`y`, so a car keeps its paint
+	# when it leaves the kerb; a record with no home (the generator's own, a hand-built one)
+	# hashes on the corner it has, which is the same number.
+	var rx: int = int(record.get("hx", record.get("x", 0)))
+	var ry: int = int(record.get("hy", record.get("y", 0)))
 	var index: int = variant_index(seed_val, rx, ry, SALT_VEHICLE, (variants as Array).size())
 	if index < 0:
 		return ""
@@ -236,7 +240,14 @@ static func vehicle_key(world: Variant, record: Dictionary, seed_val: int) -> St
 # Where a record's picture stands, in world tiles: the centre of its footprint's south edge, so a
 # body north of a parked car sorts behind it and one south sorts in front. The tree's rule for a
 # multi-tile thing, and the reason `d` in the entity sort is the record's own south edge.
+#
+# A record SimVehicles keeps for a car that can move carries `gx`/`gy`, the same point off the
+# car's live centre in metres, and that wins: a car mid-tile draws where it is rather than
+# snapping tile to tile. A record without them (the generator's, a hand-built one) stands on
+# its tiles.
 static func vehicle_ground_point(record: Dictionary) -> Vector2:
+	if record.has("gx") and record.has("gy"):
+		return Vector2(float(record["gx"]), float(record["gy"]))
 	var x: float = float(int(record.get("x", 0)))
 	var y: float = float(int(record.get("y", 0)))
 	return Vector2(x + float(int(record.get("w", 0))) / 2.0, y + float(int(record.get("h", 0))))

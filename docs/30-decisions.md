@@ -2107,6 +2107,65 @@ the same shape as a guard read by nothing: right until the second class arrives.
 
 ---
 
+## Driving, 2026-09-05
+
+**Directed by the owner as a session goal** ("make vehicle props into drivable things"), which
+moved the piece out from behind Milestone 3B's drive benchmark. Several calls had to be taken to
+build it at all; they were taken as first cuts under the standing rules rather than put to the
+owner mid-session, and each is recorded here so it can be re-decided by looking at it rather
+than by discovering it. The record of what shipped is docs/23's; this is why it is shaped so.
+
+**The entity is the truth and the map is its shadow.** A car had to survive a save, and the map
+does not: it is regenerated from the seed. So every record becomes an entity at boot, and the
+Low tiles and the manifest record are rebuilt from the entity — at spawn, after every footprint
+change, and after `world.restore`, the way `SimFortify.sync_map` already puts boards back on
+windows. The alternative, mutating the record in place, would have parked every driven car back
+at the kerb on load. The record keeps the layout's corner as `hx`/`hy` so the paint hash does
+not change colour as the car moves, and carries `gx`/`gy` so the picture stands on the live
+centre rather than snapping tile to tile. Every reader that already asked the record keeps
+asking it.
+
+**Four headings, and nobody rotates.** The Dungeon Settlers look gives a car exactly two
+pictures, so a driven car has four headings and not an angle: the dominant axis of the driver's
+move names the wanted heading; the same heading accelerates, the opposite brakes to a stop and
+turns the car round in place, a perpendicular brakes and then turns the footprint about its
+centre onto whole tiles. A turn snaps the centre by at most half a tile so the footprint is
+always whole tiles, which is what lets the Low tiles be exactly the record. A car turning round
+shows decision 11's limit (one picture for both north-south facings) every time it does it; that
+was already recorded and is now visible.
+
+**Q, not E.** E is fortify's context ladder and the suburb stands its car-boot loot on a car's
+tail tile, so E beside a car has to keep meaning "search the boot". A dedicated key was the
+cheapest way to leave that alone. The owner may prefer E with the boot demoted; that is a
+one-line change in `main.gd` and a re-ordering in `fortify._use_context`.
+
+**Bodies are not probed.** A parked car is walk-through cover today (docs/30, the vehicle
+slice), and a moving one stays walk-through: nothing is run over, nothing is pushed. A hit is a
+balance mechanism — a car that kills shamblers is a weapon the director never priced — and it
+wants a measured slice of its own rather than a probe added in passing. Named in what's left.
+
+**Shelter for noise.** A body at the wheel is off the shambler's menu (`_gather_survivors`
+skips `mounted`), and the engine is loud: 24 under way for a sedan against a sprint's 6 and a
+shout's 120, 4 idling with the driver in. Those numbers are a first cut on the body's scale
+and have never been run against the director, because the 64-tile harness parks no car; the
+engine is the emitter system every footstep already uses, so changing them is content. What a
+shambler does about a car it cannot open is nothing, and that is the half named in what's left.
+
+**A parked car costs the tick nothing.** `velocity` and `attention_emitter` arrive with the
+driver and leave with them, so a parked car sits in no per-tick query. The first cut looked
+every car's class up every tick and cost 1.9 ms a tick at 128; the profile of the systems found
+it, not reasoning. And a footprint change bumps the map's own `vehicle_generation` and not
+`world.invalidateMap()`: the first probe hung, because the world's generation is what every NPC
+path caches on and a car crossing a tile every few ticks re-searched every path in the district
+at each crossing. The cost of that choice is a crouched observer's occlusion cache staying
+stale until that observer moves a tile, which is recorded rather than hidden.
+
+**SAVE_VERSION 18.** A v17 save has no vehicle entities, so restoring one into this build would
+sync a street with no cars on it. Refused, per the standing rule that saves may break before
+1.0 and are not migrated.
+
+---
+
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
 **Next:** [31 — Godot Rebuild Roadmap](31-godot-rebuild-roadmap.md) ·
 [Doc index](../README.md#documentation)

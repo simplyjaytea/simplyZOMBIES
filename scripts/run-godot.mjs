@@ -328,6 +328,9 @@ switch (mode) {
   case "--worn":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_worn.gd"];
     break;
+  case "--m2-vehicles":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_vehicles.gd"];
+    break;
   case "--ban-health-bar":
     args = [
       "--headless",

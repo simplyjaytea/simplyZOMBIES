@@ -409,6 +409,12 @@ static func _gather_survivors(world: Variant) -> Array:
 			continue
 		if world.components.has_component(int(entity), "corpse"):
 			continue
+		# A body at a wheel is inside a car, and a shambler has no way through the door: not
+		# chased, not swiped, not grabbed. The engine it is sitting behind is what the shambler
+		# hears instead (SimVehicles' emitter), which is the trade the car makes -- shelter for
+		# noise. check_vehicles.gd's SHELTER lane holds this both ways.
+		if world.components.has_component(int(entity), "mounted"):
+			continue
 		var at: Variant = world.components.get_component(int(entity), "position")
 		if at == null:
 			continue
