@@ -108,6 +108,17 @@ const HOOD_REPORT_TICKS: int = 200
 # The hood view's keys, every one a word or a boolean. check_vehicles.gd's HOOD lane holds the
 # view to this list the way check_ban_health_bar.gd holds the condition view to PART_KEYS.
 const HOOD_KEYS: Array[String] = ["name", "condition", "fuel", "runs", "prose"]
+# The dashboard: what the driver sees from the seat, a makeshift instrument cluster (the
+# owner's third goal of 2026-09-05). Words and booleans, plus exactly two needles -- `speedo`
+# and `gauge`, fractions of the class's top and of the tank -- which are the machine's own
+# instruments and not the body's, docs/30 records why that is not the health bar. No digits
+# anywhere in it; a speedometer with no numbers on the dial is still a speedometer.
+const DASH_KEYS: Array[String] = ["name", "gear", "braking", "throttle", "running", "speed", "speedo", "engine", "warning", "fuel", "gauge", "prose"]
+const DASH_NEEDLES: Array[String] = ["speedo", "gauge"]
+const GEARS: Array[String] = ["park", "neutral", "drive"]
+# Speed, in words, on the fraction of the class's top: the whole readout beside the needle.
+const SPEED_WORDS: Array[String] = ["stopped", "crawling", "rolling", "a fair clip", "flat out"]
+const SPEED_FLOORS: Array[float] = [0.0, 0.0, 0.25, 0.5, 0.8]
 
 
 static func register_module(world: Variant) -> void:
@@ -218,6 +229,8 @@ static func spawn_from_manifest(world: Variant, map: Variant) -> Array[int]:
 			"home": {"x": x, "y": y},
 			"fuel": rolled_fuel(drive_of(entry), fuel_roll),
 			"integrity": rolled_integrity(wear_roll),
+			"gear": "park",
+			"braking": false,
 		})
 		world.components.set_component(entity, "position", {"x": float(x) + float(w) / 2.0, "y": float(y) + float(h) / 2.0})
 		var dir: Vector2 = HEADINGS[facing] as Vector2
@@ -397,6 +410,73 @@ static func check_hood(world: Variant, actor: int, entity: int) -> bool:
 	world.components.set_component(actor, "hoodReport", {"vehicle": entity, "until": int(world.tick) + HOOD_REPORT_TICKS})
 	world.events.publish({"type": "vehicle.hood.checked", "entity": entity, "actor": actor})
 	return true
+
+
+# --- the dashboard ------------------------------------------------------------------------------
+
+static func speed_band(speed: float, top: float) -> int:
+	if speed <= 0.0 or top <= 0.0:
+		return 0
+	var fraction: float = speed / top
+	for i in range(SPEED_FLOORS.size() - 1, 0, -1):
+		if fraction >= SPEED_FLOORS[i]:
+			return i
+	return 1
+
+
+static func speed_word(speed: float, top: float) -> String:
+	return SPEED_WORDS[speed_band(speed, top)]
+
+
+# What the driver's seat shows, or {} for a body not at a wheel. DASH_KEYS is the whole of it:
+# the gear, the brake lamp, whether the throttle is down and the engine turning over, the speed
+# as a word and as a needle (fraction of the class's top -- an unlabelled dial), the engine's
+# condition word and its warning lamp, the fuel as a word and as a needle (fraction of the
+# tank, E to F), and one line of prose. Never a digit.
+static func dash_view(world: Variant, actor: int) -> Dictionary:
+	var m: Variant = world.components.get_component(actor, "mounted")
+	if not (m is Dictionary):
+		return {}
+	var entity: int = int((m as Dictionary).get("vehicle", NO_DRIVER))
+	var v: Variant = world.components.get_component(entity, "vehicle")
+	if not (v is Dictionary):
+		return {}
+	var d: Dictionary = v as Dictionary
+	var entry: Dictionary = class_of(world, String(d.get("class", "")))
+	var drive: Dictionary = drive_of(entry)
+	var name: String = String(entry.get("name", "car")).to_lower()
+	var top: float = float(drive.get("speed", 0.0))
+	var tank: float = float(drive.get("tank", 0.0))
+	var speed: float = float(d.get("speed", 0.0))
+	var fuel: float = float(d.get("fuel", 0.0))
+	var integrity: float = float(d.get("integrity", 0.0))
+	var gear: String = String(d.get("gear", "park"))
+	var running: bool = engine_runs(d) and not drive.is_empty()
+	var band: int = condition_band(integrity)
+	var view: Dictionary = {
+		"name": name,
+		"gear": gear,
+		"braking": bool(d.get("braking", false)),
+		"throttle": gear == "drive",
+		"running": running,
+		"speed": speed_word(speed, top),
+		"speedo": clampf(speed / top, 0.0, 1.0) if top > 0.0 else 0.0,
+		"engine": condition_word(integrity),
+		"warning": band <= 2,
+		"fuel": fuel_word(fuel, tank),
+		"gauge": clampf(fuel / tank, 0.0, 1.0) if tank > 0.0 else 0.0,
+	}
+	var prose: String
+	if band == 0:
+		prose = "the %s is wrecked; nothing on the dash answers" % name
+	elif not running:
+		prose = "in %s, %s; the tank is dry" % [gear, view["speed"]]
+	else:
+		prose = "in %s, %s; %s" % [gear, view["speed"], view["fuel"]]
+	if bool(view["braking"]):
+		prose += "; braking"
+	view["prose"] = prose
+	return view
 
 
 # The report a body is still reading, or {} once it has lapsed (and the lapsed component gone).
@@ -674,6 +754,8 @@ static func dismount(world: Variant, actor: int) -> bool:
 	(v as Dictionary)["driver"] = NO_DRIVER
 	(v as Dictionary)["speed"] = 0.0
 	(v as Dictionary)["intent"] = {"dx": 0.0, "dy": 0.0}
+	(v as Dictionary)["gear"] = "park"
+	(v as Dictionary)["braking"] = false
 	_stop_engine(world, entity)
 	world.components.remove(actor, "mounted")
 	var pos: Dictionary = world.components.get_component(actor, "position") as Dictionary
@@ -817,6 +899,12 @@ static func _drive(w: Variant) -> void:
 			var drive: Dictionary = drive_of(class_of(w, String(v.get("class", ""))))
 			var running: bool = engine_runs(v) and not drive.is_empty()
 			_set_engine_noise(w, e, drive, running)
+			# The gear and the brake lamp, derived here and read by the dashboard: drive is the
+			# throttle held along the heading with an engine that runs, neutral is rolling with
+			# no throttle (or a dead engine coasting), park is stopped with no throttle; the lamp
+			# is any key that is not the heading while the car still moves.
+			var gear: String = "park"
+			var braking: bool = false
 			if drive.is_empty():
 				speed = 0.0
 			else:
@@ -831,7 +919,9 @@ static func _drive(w: Variant) -> void:
 					v["fuel"] = maxf(0.0, float(v.get("fuel", 0.0)) - idle_burn(drive) * TICK_SECONDS)
 				if want.is_empty():
 					speed = maxf(0.0, speed - brake * COAST_FRACTION)
+					gear = "neutral" if speed > 0.0 else "park"
 				elif want == heading:
+					gear = "drive"
 					var cap: float = float(drive["speed"]) * w.surface_speed_at(float(pos["x"]), float(pos["y"])) * CONDITION_CAP[condition_band(float(v.get("integrity", 0.0)))]
 					speed += float(drive["accel"]) * TICK_SECONDS
 					# Over the cap -- a paved car rolling onto grass -- sheds speed at the brake
@@ -840,6 +930,8 @@ static func _drive(w: Variant) -> void:
 						speed = maxf(cap, speed - brake - float(drive["accel"]) * TICK_SECONDS)
 				else:
 					speed = maxf(0.0, speed - brake)
+					braking = speed > 0.0
+					gear = "neutral" if speed > 0.0 else "park"
 					if speed == 0.0:
 						if want == String(OPPOSITE[heading]):
 							# Turning round in place covers the same tiles; the record's facing and
@@ -854,6 +946,8 @@ static func _drive(w: Variant) -> void:
 								pos["y"] = float(centre["y"])
 								moved = true
 			v["heading"] = heading
+			v["gear"] = gear
+			v["braking"] = braking
 			if speed > 0.0:
 				var dir: Vector2 = HEADINGS[heading] as Vector2
 				var ext: Vector2i = extent_of(v, heading)

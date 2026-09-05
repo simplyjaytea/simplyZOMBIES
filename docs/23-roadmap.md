@@ -2743,6 +2743,36 @@ not a to-do list:
   **What it leaves**, named in what's left: refuelling and repair (nothing puts litres or
   integrity back), breakdowns as a rule rather than a roll, and the driver taking no injury
   from a crash — the car is hurt, the body is not, which is the half that shipped.
+- ~~The dashboard~~ **landed** (`godot:m2:vehicles` grows a DASH lane, fifteen in all; the
+  owner's third goal of 2026-09-05: "when driving, it should show speed, a makeshift dashboard,
+  if car is in drive, park, neutral, gas"). **The mechanism:** `SimVehicles.dash_view` is the
+  seat's read model — `{}` for a body on foot, and on the wheel `DASH_KEYS`: the gear (`park`
+  stopped with no throttle, `drive` under throttle with an engine that runs, `neutral` rolling
+  with no throttle or a dead engine coasting — derived every tick in `_drive` and stored on the
+  component), the brake lamp (any key that is not the heading while the car still moves), the
+  throttle and running booleans, the speed as a **word** (stopped, crawling, rolling, a fair
+  clip, flat out — on fractions of the class's top) and as a **needle** (`speedo`, the same
+  fraction), the engine's condition word and its warning lamp (battered or worse), the fuel as
+  a word and as a needle (`gauge`, the tank's fraction), and one line of prose. `ui/dashboard.gd`
+  draws it bottom centre while the view is non-empty: two dials with tick marks and needles and
+  **no numbers on either** — the fuel dial has E and F — the letters P N D with the one you are
+  in lit, a brake lamp, an engine lamp that goes amber on a battered car and red on a wreck, and
+  the prose under. `main.gd` feeds it from `_update_hud` every refresh. **The line it draws
+  against the HUD's "no gauges" rule** is docs/30's "The dashboard": these are the *machine's*
+  instruments, not the body's — a speedometer with no numbers on the dial is exactly as scarce
+  as a real one, and the HUD's own lines stay prose (`godot:check:hud` unchanged, green).
+  **The gate**, DASH, red both ways: off the wheel nothing; stopped it reads park and stopped
+  with the needle at zero and the gauge full; under throttle it reads drive with the needle
+  never falling and the word climbing through crawling, rolling and a fair clip to flat out at
+  the cap, the gauge off full at exactly the tank's fraction; foot off reads neutral, then park
+  at rest; the brake lamp lights on the opposite key and clears at rest; the engine lamp on a
+  battered car and red on a wreck; a dry tank reads dry with the engine not running; a numeric
+  `kph`, a speed word with digits and a needle past its dial are each caught by the allowlist;
+  `dashboard.gd`'s drawn string literals carry no digit (the scanner proved on a fabricated
+  "32 km/h" and taught to pass a colour code, which its first cut blamed); `_draw` reads the
+  gear, the lamps and the prose and `_dial` draws an arc and a needle; `main.gd` stands the
+  control and feeds it. **The picture**: `slice12-dashboard-64.png` under the shots directory,
+  the sedan under way with the cluster below it.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

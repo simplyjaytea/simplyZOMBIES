@@ -2183,6 +2183,21 @@ was found by the gate rather than designed. Nothing puts litres or integrity bac
 can, a siphon and a repair channel are each a verb on the E ladder with its own gate, and they
 are named in what's left rather than half-built here.
 
+**The dashboard: the machine's instruments are not the body's (owner's goal, 2026-09-05, the
+third of the session).** The goal asked for speed, a makeshift dashboard, and whether the car
+is in drive, park or neutral. `ui/hud.gd` opens with "no gauges — not for needs, not for
+condition, not for threat", and the health-bar ban is the same thought: a number on the body
+invites optimising the number. A car's instrument cluster is a different thing. A speedometer
+and a fuel gauge are what a driver actually looks at, they belong to the object and not to the
+interface, and a needle on an unlabelled dial gives the player exactly what a real one does —
+a fraction they read by eye and cannot quote. So `dash_view` carries two needle fractions
+(`speedo`, `gauge`) beside its words and booleans, and nothing else numeric; the dials have
+tick marks and no numbers; the speed is also a word; the engine's condition is a lamp (off,
+amber, red) and a word, never a value; and the HUD's own prose lines are untouched. The line
+this draws: **a gauge may show a machine's state, never a body's**, and the digit rule holds
+on both sides of it. If the owner wants numbers on the dial, that is a change to
+`check_vehicles.gd`'s DASH lane and to `godot:check:hud`'s premise, not a tweak.
+
 **One interact key, two places to stand.** "Define the interact key" was read as *name it once
 and make it mean one thing*, not as *add a key*: `main.gd`'s `INTERACT_KEY` is E, routed by
 name, pushing `use.context` and nothing else, and the legend's E row says what it does. The

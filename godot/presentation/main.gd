@@ -77,6 +77,7 @@ var _legend: Control = null
 var _inventory_panel: Control = null
 var _work_panel: Control = null
 var _paperdoll: Control = null
+var _dashboard: Control = null
 var _settings: Control = null
 var _debug_panel: Control = null
 var _selected: int = -1
@@ -374,6 +375,15 @@ func _ensure_ui() -> void:
 		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
 		_paperdoll.offset_left = 16; _paperdoll.offset_top = -296; _paperdoll.offset_right = 296; _paperdoll.offset_bottom = -16
 		layer.add_child(_paperdoll)
+	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
+	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the
+	# body's -- dashboard.gd's header says why that is not the health bar.
+	var dash_script: GDScript = load("res://ui/dashboard.gd") as GDScript
+	if dash_script != null:
+		_dashboard = dash_script.new() as Control
+		_dashboard.name = "Dashboard"
+		_dashboard.visible = false
+		layer.add_child(_dashboard)
 	# debug spawn menu (F8) -- dev tooling beside the M raw sheet
 	var debug_script: GDScript = load("res://ui/debug_panel.gd") as GDScript
 	if debug_script != null:
@@ -745,6 +755,9 @@ func _update_hud() -> void:
 			context = "content: %s" % _content_error
 		_hud.set("hint", context)
 		_hud.call("refresh", world, who, base)
+	# The dashboard reads the seat every refresh: {} off the wheel hides it.
+	if _dashboard != null and _dashboard.has_method("set_view"):
+		_dashboard.call("set_view", SimVehicles.dash_view(world, world.player))
 	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
 		_work_panel.call("set_world", world)
 	# Always refreshed, not only while open: pinned bag windows read the same view during

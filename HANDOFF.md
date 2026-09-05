@@ -36,8 +36,10 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 owner's direction and ahead of the Milestone 3B schedule it sat behind. Every `map.vehicles`
 record is an entity at boot; **E** beside a car gets in (after the loot and the people beside
 it), E at the nose looks under the hood (fuel and condition, in words, never a number),
-WASD drives it on four headings, E again gets out once it has stopped; a crash at speed costs
-condition and a dry tank or a wreck will not run; the engine is loud on the attention field and a body at the
+WASD drives it on four headings with a makeshift dashboard under the car (a speedo needle
+with no numbers, E-to-F fuel, P N D, brake and engine lamps, one line of prose), E again gets
+out once it has stopped; a crash at speed costs condition and a dry tank or a wreck will not
+run; the engine is loud on the attention field and a body at the
 wheel is off the shambler's menu; a driven car survives a save (`SAVE_VERSION` 18). The record
 is docs/23's, the design calls are docs/30's "Driving" entry, and the halves it named rather
 than built — running things over, the door under siege, the driver's hands, NPC drivers, fuel —
@@ -113,7 +115,9 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    40 L, 12 000 m of range, 90 minutes of idle), the crash curve (55 at full speed on the
    square of the speed, a wreck after four runs at a wall), one in ten cars spawning wrecked,
    and the reading of "define the interact key" as *name E once* rather than *add a key for
-   the hood* — docs/30's "Fuel and hitpoints" and "One interact key" clauses.
+   the hood* — docs/30's "Fuel and hitpoints" and "One interact key" clauses. **And by the
+   third:** a gauge may show a machine's state and never a body's, which is how a dashboard
+   with two needles sits beside a HUD that forbids gauges — docs/30's "The dashboard".
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement

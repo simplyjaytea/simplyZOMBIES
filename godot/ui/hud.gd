@@ -11,6 +11,9 @@ extends Control
 #   No gauges. Not for needs, not for condition, not for threat. A bar invites optimising a
 #   number; a sentence makes you decide. Every clause on this screen comes from a sim read
 #   model that returns prose -- needs.hud_clause, attention_read.clause, condition.view.
+#   (The one dial on the screen is the car's, not this file's: ui/dashboard.gd draws a
+#   speedometer and a fuel needle while the player is at a wheel, because those are the
+#   machine's own instruments and carry no numbers; docs/30 "The dashboard" records the line.)
 #
 #   No raw pool values. The HUD never prints hunger 34 or integrity 12. If a number would
 #   be genuinely useful it is because the design owes the player a sentence instead.
