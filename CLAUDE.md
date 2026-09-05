@@ -79,6 +79,7 @@ npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
 npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
 npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
 npm run godot:m2:raiders   # the band at the gate       → M2_RAIDERS_OK
+npm run godot:m2:vehicles  # the parked cars, driven    → M2_VEHICLES_OK
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
@@ -96,7 +97,7 @@ npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **45**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **46**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.

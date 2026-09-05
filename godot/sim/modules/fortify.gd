@@ -4,6 +4,7 @@ extends RefCounted
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
+const SimVehicles = preload("res://sim/modules/vehicles.gd")
 
 const REACH: float = 1.5
 const CHANNEL_TICKS: int = 40
@@ -133,6 +134,14 @@ static func can_scrap(map: Variant, tx: int, ty: int) -> bool:
 
 
 static func _use_context(world: Variant, actor: int) -> void:
+	# From the wheel, E means one thing: out. Nothing lower on this ladder is reachable from
+	# inside a car -- the body's position is the car's centre, so "nearest ground item" would
+	# be whatever the car is standing over. The door only opens once the car has stopped
+	# (SimVehicles.dismount refuses at speed), and a refusal is a no-op rather than a fall
+	# through to the rungs below.
+	if world.components.has_component(actor, "mounted"):
+		SimVehicles.dismount(world, actor)
+		return
 	if SimInventory.nearest_ground_item(world, actor) != null:
 		SimInventory.pick_up_nearest(world, actor)
 		return
@@ -152,6 +161,20 @@ static func _use_context(world: Variant, actor: int) -> void:
 		if waiting >= 0:
 			Recruits.call("accept", world, waiting)
 			return
+	# The car beside you, after the loot and the people and before the furniture: the suburb
+	# stands its car-boot loot on a car's tail tile, so a boot still gets searched before the
+	# door opens, and a survivor waiting at the kerb is spoken to before you drive off. The
+	# owner's 2026-09-05 decision put this on E rather than on a key of its own (docs/30,
+	# "Driving"); the sim decides reach and whether the wheel is free (SimVehicles.mount).
+	var car: int = SimVehicles.nearest_in_reach(world, actor)
+	if car != SimVehicles.NO_DRIVER:
+		# The hood before the door: standing at the nose, E looks under it (fuel and condition,
+		# in words -- SimVehicles.hood_view); standing anywhere else along it, E gets in.
+		if SimVehicles.at_hood(world, actor, car):
+			SimVehicles.check_hood(world, actor, car)
+		else:
+			SimVehicles.mount(world, actor, car)
+		return
 	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
 	if Needs != null:
 		var here: Vector2i = _tile_of(world, actor)
