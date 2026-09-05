@@ -60,8 +60,8 @@ func _version() -> bool:
 	# This duplicates check_m2_save.gd's _version() -- two gates asserting the same fact
 	# independently, which is exactly how one of them got missed on the last version bump.
 	# Left as-is rather than refactored under this fix; see docs/30-decisions.md.
-	if int(SimSerialize.SAVE_VERSION) != 18:
-		push_error("SAVE_VERSION %d want 18" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 19:
+		push_error("SAVE_VERSION %d want 19" % int(SimSerialize.SAVE_VERSION))
 		return false
 	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":13},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":

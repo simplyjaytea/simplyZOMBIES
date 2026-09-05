@@ -412,8 +412,11 @@ static func _gather_survivors(world: Variant) -> Array:
 		# A body at a wheel is inside a car, and a shambler has no way through the door: not
 		# chased, not swiped, not grabbed. The engine it is sitting behind is what the shambler
 		# hears instead (SimVehicles' emitter), which is the trade the car makes -- shelter for
-		# noise. check_vehicles.gd's SHELTER lane holds this both ways.
-		if world.components.has_component(int(entity), "mounted"):
+		# noise. Only a car: `mounted.cab` is false on a bicycle, a scooter or a board, and a
+		# rider in the open is as much on the menu as a body on foot -- the trade a light vehicle
+		# makes is speed for no shelter. check_vehicles.gd's SHELTER lane holds this both ways.
+		var mounted: Variant = world.components.get_component(int(entity), "mounted")
+		if mounted is Dictionary and bool((mounted as Dictionary).get("cab", false)):
 			continue
 		var at: Variant = world.components.get_component(int(entity), "position")
 		if at == null:

@@ -259,7 +259,8 @@ with every other rig. The ramps are `pine_dark`, `pine_light` and `bark`, timber
 ## The vehicle — one three-quarter picture per class, variant and axis
 
 `vehicle_{sedan,van,truck}_{pale,green,burnt}_{ns,ew}` (`tools/sprites/parts/vehicles.py`) are
-the three classes, eighteen keys: **feet-anchored on the footprint's south edge**, hung and
+the three car classes, eighteen keys — the five light classes below make forty-eight in all:
+**feet-anchored on the footprint's south edge**, hung and
 y-sorted the way a tree is. docs/30's Dungeon Settlers decision 11 is what shapes them — one
 picture per class × variant × axis, and the per-tile segment set retired with it, so a survivor
 walks in front of a vehicle or behind it rather than through the seam between two tiles of one.
@@ -290,7 +291,18 @@ carries no word, badge or plate that would read as a mistake reversed.
   refused on purpose — a box truck and a panel van are both closed boxes and would collide
   exactly where the decision separates them. `check_wrecks.gd`'s SILHOUETTE lane measures the
   decoded `_ew` pictures for exactly those properties, so the tell is held rather than trusted.
-- **Three variants differing in value, not only hue**, shared by the three classes: `car_pale`
+- **The light vehicles** (`vehicle_{bicycle,ebike,escooter,kickscooter,skateboard}_{pale,green,
+  burnt}_{ns,ew}`, `tools/sprites/parts/light_vehicles.py`, merged into `vehicles.py`'s tables;
+  thirty keys, landed 2026-09-05) are drawn under the same 20 px/m camera on the same derived
+  canvases — a 1×2 footprint is 32×96 nose-north and 64×64 nose-east, a 1×1 is 32×64 both ways
+  — and told apart by silhouette the same way: the bicycle and the e-bike are two wheels and a
+  diamond frame standing 25 rows, level end to end, the e-bike's frame filled by a battery block
+  on its down tube and a fat hub motor (37 px more paint than the bicycle in the same outline);
+  the e-scooter and the kick scooter are a low deck with a stem at the nose rising 18–20 rows
+  over it; the skateboard is a deck on four small wheels in 9 rows. `check_wrecks.gd`'s
+  SILHOUETTE lane holds each of those, and `Appearance.VEHICLE_FOOTPRINTS` carries the five
+  footprints beside the cars'.
+- **Three variants differing in value, not only hue**, shared by all eight classes: `car_pale`
   (mid luma 0.581), `car_green` (0.468) and `car_burnt` (0.170), all muted-family and all held
   either side of every ground in `tools/sprites/palette.py`. The paint is the record's variant
   and the shape is its class. The burnt shell is a different picture in the same shapes rather

@@ -16,7 +16,12 @@
     "classes": [
       { "id": "vehicle.sedan", "weight": 10 },
       { "id": "vehicle.van", "weight": 3 },
-      { "id": "vehicle.truck", "weight": 1 }
+      { "id": "vehicle.truck", "weight": 1 },
+      { "id": "vehicle.bicycle", "weight": 4 },
+      { "id": "vehicle.ebike", "weight": 2 },
+      { "id": "vehicle.escooter", "weight": 2 },
+      { "id": "vehicle.kickscooter", "weight": 1 },
+      { "id": "vehicle.skateboard", "weight": 1 }
     ]
   },
   "lootProfile": {

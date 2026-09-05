@@ -1,0 +1,41 @@
+{
+  "id": "vehicle.escooter",
+  "name": "Electric scooter",
+  "drive": {
+    "power": "battery",
+    "speed": 6.0,
+    "accel": 3.0,
+    "brake": 5.0,
+    "noise": 4,
+    "idle": 0,
+    "tank": 350,
+    "range": 6000,
+    "idleMinutes": 600,
+    "unpowered": 3.0
+  },
+  "cab": false,
+  "dash": "handlebar",
+  "footprint": {
+    "w": 1,
+    "l": 2
+  },
+  "appearance": {
+    "variants": [
+      {
+        "id": "pale",
+        "ns": "vehicle_escooter_pale_ns",
+        "ew": "vehicle_escooter_pale_ew"
+      },
+      {
+        "id": "green",
+        "ns": "vehicle_escooter_green_ns",
+        "ew": "vehicle_escooter_green_ew"
+      },
+      {
+        "id": "burnt",
+        "ns": "vehicle_escooter_burnt_ns",
+        "ew": "vehicle_escooter_burnt_ew"
+      }
+    ]
+  }
+}
