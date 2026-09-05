@@ -11,7 +11,14 @@
     { "tag": "civic", "weight": 2 },
     { "tag": "commercial", "weight": 1 }
   ],
-  "vehicles": { "density": 0.35, "classes": [{ "id": "vehicle.sedan", "weight": 10 }] },
+  "vehicles": {
+    "density": 0.35,
+    "classes": [
+      { "id": "vehicle.sedan", "weight": 10 },
+      { "id": "vehicle.van", "weight": 3 },
+      { "id": "vehicle.truck", "weight": 1 }
+    ]
+  },
   "lootProfile": {
     "perBuilding": [
       {
