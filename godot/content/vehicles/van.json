@@ -1,6 +1,7 @@
 {
   "id": "vehicle.van",
   "name": "Panel van",
+  "drive": {"speed": 9, "accel": 3.5, "brake": 7, "noise": 28, "idle": 5, "tank": 60, "range": 11000, "idleMinutes": 80},
   "footprint": { "w": 2, "l": 6 },
   "appearance": {
     "variants": [

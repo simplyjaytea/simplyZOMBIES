@@ -31,7 +31,7 @@ const GROUPS: Array = [
 		["H", "pull someone out of a grab"],
 		["G", "fire"],
 		["R", "reload"],
-		["E", "pick up"],
+		["E", "interact — pick up, search, a car door from the side, its hood from the nose"],
 		["T", "first aid — bandage if you have one, bare hands if not; again to stop"],
 		["Space", "shout — heard across the district"],
 	]],

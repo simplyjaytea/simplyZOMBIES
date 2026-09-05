@@ -16,6 +16,7 @@ const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimSurfaceRes = preload("res://sim/map/surface.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
 const SimFortifyRes = preload("res://sim/modules/fortify.gd")
+const SimVehiclesRes = preload("res://sim/modules/vehicles.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
 
 const TICK_HZ: int = 20
@@ -230,6 +231,11 @@ func restore(snap: Dictionary) -> void:
 			break
 	if tilemap != null:
 		SimFortifyRes.sync_map(self)
+		# The cars are entities and the map is regenerated from the seed, so the Low under each
+		# footprint and the manifest record beside it are rebuilt from the restored components --
+		# the boards-on-windows precedent one line up. A car driven across town and saved comes
+		# back where it was driven to, not where the layout parked it.
+		SimVehiclesRes.sync_map(self)
 
 
 func serialize() -> String:
@@ -420,6 +426,12 @@ func _advance_posture(_world: Variant) -> void:
 
 func _integrate_movement(_world: Variant) -> void:
 	for entity in (components as RefCounted).call("query", ["position", "velocity"]) as Array:
+		# A car is not a body: it is two tiles wide and five long, and the two-corner test below
+		# would let it clip through a wall it should stop flush against. SimVehicles integrates
+		# it at movement order 1 with its own leading-edge probe -- a component check here, the
+		# same shape as the `grabbed` check in _advance_posture, not a module dependency.
+		if components.has_component(int(entity), "vehicle"):
+			continue
 		var position: Dictionary = components.get_component(int(entity), "position") as Dictionary
 		var velocity: Dictionary = components.get_component(int(entity), "velocity") as Dictionary
 		var dx: float = float(velocity["dx"])

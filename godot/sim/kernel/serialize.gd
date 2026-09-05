@@ -33,7 +33,11 @@ extends RefCounted
 # seed than the old block lattice did, so a v16 save restored into a v17 world would drop every
 # entity onto ground that is no longer there: survivors inside masonry, zombies in somebody's
 # kitchen, the stockpile under a wall. Loud rejection beats a world that loads and is wrong.
-const SAVE_VERSION: int = 17
+# 18: the cars became entities. A `vehicle` component per parked record and a `mounted` one on
+# a driver, and the map's Low tiles and `map.vehicles` records are rebuilt from them after a
+# restore (SimVehicles.sync_map). A v17 save has no vehicle entities, so restoring it into a v18
+# world would clear every parked car off the street; refused instead, per the rule below.
+const SAVE_VERSION: int = 18
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

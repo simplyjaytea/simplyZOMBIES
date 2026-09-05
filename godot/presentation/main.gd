@@ -22,6 +22,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCondition = preload("res://sim/condition.gd")
+const SimVehicles = preload("res://sim/modules/vehicles.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimBoot = preload("res://sim/boot.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
@@ -76,6 +77,7 @@ var _legend: Control = null
 var _inventory_panel: Control = null
 var _work_panel: Control = null
 var _paperdoll: Control = null
+var _dashboard: Control = null
 var _settings: Control = null
 var _debug_panel: Control = null
 var _selected: int = -1
@@ -116,6 +118,7 @@ var _ground_rows_from: Variant = null
 # cases exclusive without walking `map.vehicles` per tile.
 var _vehicle_index_cache: PackedInt32Array = PackedInt32Array()
 var _vehicle_index_from: Variant = null
+var _vehicle_index_gen: int = -1
 # The map-dressing block (heap and debris sprite keys), and the content tree it came from. Third
 # instance of the same pattern for the third time it is the right one: the lookup is a scan over
 # content and this is asked once per drawn tile, the resolution is pure, and a static cache would
@@ -141,6 +144,9 @@ var _selected_stance: int = 2 # Walk
 
 # Cardinal: screen axes are world axes under the top-down projection, so W is
 # straight up. Holding two adjacent keys still sums to a diagonal, same as ever.
+# The interact key. E, by the owner's 2026-09-05 decision: doors, hoods, loot and everything
+# else on the context ladder hang off this one key, and the legend names it once.
+const INTERACT_KEY: Key = KEY_E
 const MOVE_KEYS: Dictionary = {
 	KEY_W: {"dx": 0.0, "dy": -1.0}, KEY_UP: {"dx": 0.0, "dy": -1.0},
 	KEY_S: {"dx": 0.0, "dy": 1.0}, KEY_DOWN: {"dx": 0.0, "dy": 1.0},
@@ -369,6 +375,15 @@ func _ensure_ui() -> void:
 		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
 		_paperdoll.offset_left = 16; _paperdoll.offset_top = -296; _paperdoll.offset_right = 296; _paperdoll.offset_bottom = -16
 		layer.add_child(_paperdoll)
+	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
+	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the
+	# body's -- dashboard.gd's header says why that is not the health bar.
+	var dash_script: GDScript = load("res://ui/dashboard.gd") as GDScript
+	if dash_script != null:
+		_dashboard = dash_script.new() as Control
+		_dashboard.name = "Dashboard"
+		_dashboard.visible = false
+		layer.add_child(_dashboard)
 	# debug spawn menu (F8) -- dev tooling beside the M raw sheet
 	var debug_script: GDScript = load("res://ui/debug_panel.gd") as GDScript
 	if debug_script != null:
@@ -388,6 +403,14 @@ func _ensure_ui() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var ke: InputEventKey = event as InputEventKey
+		# The one interact key, named once (INTERACT_KEY) rather than as a literal in the match
+		# below, because a match arm binds an identifier instead of comparing against it. It
+		# pushes `use.context` and nothing else: fortify's ladder (SimFortify._use_context)
+		# decides what "interact" means where you stand -- a loose item, a container, a
+		# survivor at the gate, a car's hood from the nose, its door from the side, out from
+		# the wheel, a window, a bed. Nothing here knows which; the sim decides.
+		if ke.keycode == INTERACT_KEY:
+			if world != null: world.commands.push({"type": "use.context"})
 		match ke.keycode:
 			KEY_F5: _save()
 			KEY_F9: _load()
@@ -439,8 +462,6 @@ func _input(event: InputEvent) -> void:
 					_inventory_panel.call("rotate")
 				elif world != null:
 					world.commands.push({"type": "reload"})
-			KEY_E:
-				if world != null: world.commands.push({"type": "use.context"})
 			KEY_T:
 				# One key, two meanings, both decided in the sim: start first aid on the
 				# wound that matters, or stop the one already in progress. Presentation
@@ -726,10 +747,17 @@ func _update_hud() -> void:
 			if not String(look.get(k, "")).is_empty():
 				context = String(look[k])
 				break
+		# The car beside you, or the one you are in: prose from the sim's own read model, words
+		# only, after fortify's look-at because a window you are facing is the nearer thing.
+		if context.is_empty():
+			context = SimVehicles.hud_clause(world, world.player)
 		if not _content_error.is_empty():
 			context = "content: %s" % _content_error
 		_hud.set("hint", context)
 		_hud.call("refresh", world, who, base)
+	# The dashboard reads the seat every refresh: {} off the wheel hides it.
+	if _dashboard != null and _dashboard.has_method("set_view"):
+		_dashboard.call("set_view", SimVehicles.dash_view(world, world.player))
 	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
 		_work_panel.call("set_world", world)
 	# Always refreshed, not only while open: pinned bag windows read the same view during
@@ -1193,9 +1221,13 @@ func _building_index() -> PackedInt32Array:
 # never per tile: the content lookup is a scan over the tree.
 func _vehicle_index() -> PackedInt32Array:
 	var map: Variant = world.tilemap
-	if map == _vehicle_index_from:
+	# The map object alone is not the key any more: a driven car moves its record and its Low
+	# tiles under the same map, and SimVehicles bumps `vehicle_generation` every time it does.
+	var gen: int = 0 if map == null else int(map.vehicle_generation)
+	if map == _vehicle_index_from and gen == _vehicle_index_gen:
 		return _vehicle_index_cache
 	_vehicle_index_from = map
+	_vehicle_index_gen = gen
 	_vehicle_index_cache = Dressing.vehicle_index(map)
 	var records: Variant = null if map == null else map.get("vehicles")
 	if not (records is Array):
@@ -1474,6 +1506,11 @@ func _draw_entities() -> void:
 		if world.components.has_component(int(ent), "itemBase"):
 			continue
 		if not is_player and not is_unique and not is_zed and not is_bait and not is_raider:
+			continue
+		# A body at a wheel is inside the car, and the car's picture is what stands there: the
+		# sim pins its position to the car's centre, so drawing it too would stand a pawn on the
+		# bonnet. The car itself joins the sort below as a manifest record SimVehicles keeps.
+		if world.components.has_component(int(ent), "mounted"):
 			continue
 		# Walls / boards block; windows stay Clear — match sim vision, not camera frustum.
 		var det: int = SimVisibility.Detail.Focal

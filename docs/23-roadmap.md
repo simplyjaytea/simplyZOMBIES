@@ -108,7 +108,9 @@ balance baseline, not a player-facing preset. Full storyteller presets remain Mi
 
 **Explicitly not in the slice:** survivor attributes, relationships, weather, factions, full world
 decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web, most zombie
-types, vehicles, multiplayer, and the escape endgame.
+types, vehicles, multiplayer, and the escape endgame. (Vehicles came in anyway, twice, by the
+owner's direction: parked as layout in the Dungeon Settlers arc, and driven by the player on
+2026-09-05 — the record has both; what driving deliberately left out is in what's left.)
 
 ### Build order
 
@@ -275,13 +277,27 @@ landed, and what is below is what the arc named and left.
   (`_draw_entities`), and `item.appearance.sprite` — declared in the schema, read by nothing —
   is the twelfth dead socket of the milestone. Named here so the 32 px tile does not make the
   square look like a decision; a ground sprite per item base is content and a resolver call.
-- **Vehicles you can drive** — *named, not scheduled*: [docs/23 puts vehicles outside Milestone
-  2](#what-is-explicitly-not-in-the-slice) and driving is Milestone 3B item 3, behind the drive
-  benchmark (risk 7's checkpoint). It is named here so its size is visible — a vehicle entity and
-  footprint, multi-tile swept collision where `blocked_at` floors one point, mount and dismount,
-  engine noise into the attention field at a range that rewrites the director's pressure model,
-  sight from inside, a road-graph pathfinder for NPC drivers, fuel and breakdowns — and so that
-  the two pieces above are shaped for it rather than against it.
+- **What driving left behind.** The first driving slice landed 2026-09-05 (the record below,
+  `godot:m2:vehicles`) at the owner's direction, ahead of the Milestone 3B schedule it used to
+  sit behind; these are the halves it named rather than built, each its own piece:
+  **running things over** — a moving car passes through bodies exactly as a parked one does,
+  because bodies are not probed and a hit is a balance mechanism (a car that kills shamblers
+  is a weapon) that wants a measured slice; **the door under siege** — a shambler cannot reach
+  a body at the wheel and does nothing about it, where hammering the glass, rocking the car
+  and a bite through a broken window are the pressure a besieged car should feel; **the
+  driver's hands** — nothing refuses a swing, a shot, a stance change or a bandage from the
+  driver's seat; **NPC drivers** — nobody but the player mounts, and a road-graph pathfinder
+  for a car is a different pathfinder from a body's four-connected A\*; **refuelling and
+  repair** — fuel and condition landed (the record below) but nothing puts litres back in a
+  tank or integrity back in an engine: a jerry can, a siphon between two cars and a repair
+  channel are each a content entry and a verb on the E ladder, and each wants its own gate;
+  **breakdowns** — a failing engine is slow, never stalled or refused at random, because a
+  random stall is a roll the player cannot read and wants a rule (a threshold, a tell) rather
+  than a dice; **the engine at the director** — the engine's noise is a first-cut number
+  (24 under way for a sedan, a sprint is 6, a shout 120) that has never been run against the
+  director's pressure model, because the 64-tile harness parks no car; and **a car seen from
+  behind** — the north-south axis still draws one picture for both facings (decision 11's
+  limit), which a driven car now shows every time it turns round.
 - **Per-source light tint.** The lit pools landed with **one** warm colour for every emitter (see
   the record): a candle, a campfire and a floodlight paint the same rgb(255, 214, 140) and differ
   only in reach. What a source's light *looks* like is content, the same way a prop's tint is —
@@ -2582,6 +2598,181 @@ not a to-do list:
   (decision 11's limit, recorded in the sedan's entry); the hand map has slots for two classes
   beyond the sedan and says so when a third arrives; the forklift stays with the industrial
   yard under Milestone 3B.
+- ~~Vehicles you can drive~~ **landed, the first slice** (`godot:m2:vehicles` →
+  `M2_VEHICLES_OK`; the chain goes from 45 to **46**; directed by the owner 2026-09-05 as a goal,
+  ahead of the Milestone 3B schedule it sat behind, and docs/30's "Driving" entry records the
+  calls that were taken to build it and which of them are the owner's to re-decide).
+  **The mechanism, sim-owned and command-driven:** `sim/modules/vehicles.gd`. Every
+  `map.vehicles` record becomes an entity at `SimBoot.playable` — a `vehicle` component
+  `{class, w, l, heading, speed, driver, intent, home}`, a `position` at the footprint's centre,
+  a `facing` — and from then on the entity is the truth and the map is its shadow: `sync_map`
+  rewrites the Low under the footprint and the manifest record beside it (`entity`, the `hx`/`hy`
+  home corner the paint hashes on, the `gx`/`gy` live ground point the picture stands on) at
+  spawn, on every footprint change, and after `world.restore`, exactly as `SimFortify.sync_map`
+  puts boards back on windows. Every existing reader of the record — the tile branch, the
+  car-boot loot host, `Dressing.vehicle_records` — keeps reading it and never learns the car can
+  move. **E is the door** (the owner's decision, 2026-09-05, after the first push had put it on
+  Q): on fortify's context ladder, `use.context` from the wheel gets out and nothing else, and
+  from the kerb gets in after the loose items and the people beside the car — so the car-boot
+  loot the suburb stands on a car's tail tile is still searched before the door opens.
+  `vehicle.toggle` stays a command for gates and replays; nothing in presentation pushes it.
+  Mounting takes the nearest undriven car whose footprint edge is within 1.5 m; dismounting
+  puts a stopped car's driver on the first free walkable tile in the ring; the driver carries `mounted`, is
+  pinned to the centre every tick with a zero velocity, and is drawn by nothing (the picture is
+  the car). The driver's `move` is the car's intent, kept until replaced as a body's velocity
+  is: four headings, the dominant axis of the intent naming the wanted one — the same heading
+  accelerates to the class's cap (× the ground's own multiplier), the opposite brakes to a stop
+  and turns the car round, a perpendicular brakes and then turns the footprint about its centre
+  onto whole tiles (a snap of at most half a tile) or is refused where it would cover anything,
+  no key coasts at half the brake. Collision is a leading-edge probe every tick: each across-tile
+  of the footprint one step ahead, and a solid tile, an indoor tile, another car or a heap (a Low
+  tile no record covers) stops the car **flush** against it. `world._integrate_movement` skips
+  the `vehicle` component so the two-corner body test never moves a car. The engine is the one
+  emitter system every footstep uses: `velocity` and an `attention_emitter` arrive with the
+  driver and leave with them, so a parked car sits in no per-tick query at all, and a body at
+  the wheel is off `SimShambler._gather_survivors`' menu — shelter for noise, which is the trade
+  a car makes.
+  **Content:** every class carries a `drive` block `{speed, accel, brake, noise, idle}` in metres
+  and seconds on the body's own scale — sedan 10 / 4 / 8 / 24 / 4, van 9 / 3.5 / 7 / 28 / 5,
+  truck 8 / 3 / 6 / 36 / 6 — required by the schema and judged whole by `drive_of`, because the
+  validator does not recurse and a class missing `brake` would otherwise drive on a silent
+  guess; a class without one cannot be mounted and `mount_problem` says why. `SAVE_VERSION` is
+  **18**: a v17 save has no vehicle entities and would restore into a street with every car
+  cleared off it.
+  **Measured, not asserted.** At 128 with 33 parked cars a tick costs what it cost before
+  (5.74 ms against 5.87 baseline, the per-system profile within noise), because a parked car has
+  no engine components; the first cut, which looked every car's class up every tick, cost 1.9 ms
+  a tick on its own and was found by profiling the systems rather than by reasoning. Driving
+  adds 0.3 ms — with `world.invalidateMap()` called on every footprint change, which is what
+  keeps a crouched observer's occlusion and every NPC path honest about where the car now is,
+  and was measured cheap enough to keep. (An earlier draft of this record blamed that call for a
+  hung probe; the probe had hung on its own typing error and the claim was withdrawn before it
+  shipped anything — the module bumps the map's `vehicle_generation` for the drawing node *and*
+  the world's generation for the sim.) The 64-tile map every gate boots stands no car (its streets are two wide against the
+  four a car needs), so the balance harness sees no change and its FAST lines cannot move —
+  which is also why the engine's numbers are a first cut and not a measurement.
+  **The gate**, eleven lanes and a budget it spends 2 s of 60: CONTENT (three classes whole, a
+  block missing `idle`, a zero, a string and a fabricated class refused at the wheel), SPAWN
+  (suburb@128 stands 33 entities for 33 records, each at its centre on Low with no engine, the
+  manifest identical to the generator's; bare@128 records and no entities; playable@64 none; a
+  real suburb car driven 4.1 m in thirty ticks), MOUNT (out of reach, a held wheel, the door at
+  speed and a walled-in car all refused; in, pinned, out onto a free tile), DRIVE (8.2 m in
+  forty ticks with the driver pinned every tick, the cap reached and not passed, the 180 on
+  tick 24, coasting, the turn onto a 5×2 record, a turn into a wall refused on the tile the
+  turned footprint would cover), BLOCK (a wall, a car, a heap and a doorway each stop it flush
+  at the same number, the open road does not, both cars' twenty tiles intact), NOISE (parked 0,
+  idling 4, driving 24 on the field; one engine note and no footstep on the bus; the emitter
+  taken off, a driving car reads 0 — the dead-socket assertion, and its first cut read 3.2 from
+  the mount tick's one idle note still decaying twenty ticks later), E-KEY (a knife at the door
+  is picked up before the car, with nothing loose E gets in, from the wheel E gets out and
+  leaves the knife under the car, at speed E does nothing, and no key of its own remains in
+  `main.gd`), SHELTER, SAVE (driven ten
+  tiles and turned, restored into a world with the car at the kerb: entity, record, Low and the
+  cleared kerb all match, and both worlds drive on in step), SOCKETS (twelve needles across
+  world, boot, shambler, fortify, main and dressing, the scanner proved on a fabricated string).
+  **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`, captured through
+  a throwaway Xvfb `SceneTree` driver (deleted after, per the rule) on the 256 suburb at zoom
+  64: `slice12-beside-64.png`, `slice12-in-64.png` and `slice12-driving-64.png`, the player's
+  sedan pulling away south past a parked van with the HUD reading "driving the sedan; Q to get
+  out once it stops" (captured before the key moved to E; the clause now says E) and the
+  attention line "audible nearby" — the engine on the field, in words. (The driver's capture ran a frame late, so the first two frames are already under
+  way; they are three frames of one drive rather than the three states the names suggest.)
+  Two things the frame shows that the gate cannot: the driver's pawn is gone from the street
+  and the car is what moves, and the stance readout still says "walking" at the wheel, which
+  is the "driver's hands" half named below.
+  **What it leaves** is in what's left under "What driving left behind": running things over,
+  the door under siege, the driver's hands, NPC drivers, fuel and breakdowns, the engine at the
+  director, and the nose-south picture.
+- ~~Vehicle fuel and condition, read under the hood~~ **landed** (`godot:m2:vehicles` grows
+  from eleven lanes to **fourteen** — FUEL, CONDITION, HOOD — so the chain stays 46; directed
+  by the owner 2026-09-05 as the second goal of the driving session, with "define the interact
+  key" beside it). **The mechanism:** two numbers on the `vehicle` component the sim keeps and
+  the player never sees as numbers — the condition-view rule applied to a car. `fuel` is litres
+  against the class's `tank`, rolled at spawn off the new `vehicles` RNG stream as the square
+  of a roll (most cars stand low; two draws a record, always both, in manifest order) and burned
+  under way at `tank / range` a metre and idling at `tank / (idleMinutes × 60)` a second, only
+  while the engine turns over. `integrity` is 0..100, rolled at spawn (one in ten a wreck, the
+  rest 40..100) and spent by **crashes**: the leading-edge probe that stops a car flush now
+  charges it `CRASH_DAMAGE_AT_CAP` × (speed / class top)² when the speed was `CRASH_MIN_SPEED`
+  or more, publishes `vehicle.crashed` (and `vehicle.wrecked` once, on the crash that empties
+  it) and puts a `noise.emitted` bang of up to 150 on the field — louder than a shout, because
+  sheet metal on a wall is. The cap is the class's, so a battered car crashing at the lower
+  top it can still reach is hurt less: a sound sedan is wrecked by its **fourth** run at a
+  wall (55, 27, 11, 11), not its second. Condition is five words — sound, scuffed, battered,
+  failing, wrecked — each with a multiplier on the top speed (1.0 / 0.9 / 0.7 / 0.45 / 0); a
+  dry tank or a wrecked engine takes no throttle and refuses the steering, so the car coasts to
+  a stop and the emitter's three figures go to zero — the engine is silent because it is not
+  running, not because it was muted. A wreck can still be sat in.
+  **The hood** is the read model: `hood_view` hands the screen `{name, condition, fuel, runs,
+  prose}` — every value a word or a boolean, `HOOD_KEYS` the allowlist the gate holds it to
+  exactly as `check_ban_health_bar.gd` holds `PART_KEYS` — and `check_hood` from the nose
+  (`at_hood`: past the nose edge, within reach, inside the breadth) leaves a `hoodReport` on the
+  body that the HUD clause reads for ten seconds and then drops. On fortify's E ladder the hood
+  comes before the door: at the nose E looks, along the side E gets in, at the tail neither.
+  Six fuel words — dry, a splash in the tank, under a quarter, about half a tank, most of a
+  tank, full — on fractions of the tank; the clause at a dry or wrecked wheel says which.
+  **The interact key is defined once**: `main.gd`'s `INTERACT_KEY` is `KEY_E`, routed by name
+  ahead of the key match (a match arm binds an identifier rather than comparing it), and it
+  pushes `use.context` and nothing else; the F1 legend's E row now reads "interact — pick up,
+  search, a car door from the side, its hood from the nose". There is no second key: the hood
+  and the door are one key and two places to stand.
+  **Content:** the `drive` block grows `tank`, `range` and `idleMinutes` (sedan 40 L / 12 000 m
+  / 90 min, van 60 / 11 000 / 80, truck 80 / 9 000 / 70), required by the schema and judged
+  whole by `drive_of` with the five it already had — a class missing its tank cannot be
+  mounted. Range is game-scaled to a 256 m district, not to a road atlas: a full sedan is a
+  session of driving, not a lifetime.
+  **Measured, not asserted:** forty ticks idling burn 0.015 L and forty driving 0.042 L off a
+  sedan's 40; a run at a wall from the kerb arrives at 8.4 m/s and costs 38.8 (scuffed to
+  battered's edge) with one bang on the bus; battered drives 15.1 m in sixty ticks against
+  sound's 17.8; over four seeds at 128, 15 of 158 cars spawn wrecked. The 64-tile harness
+  parks no car, so `M2_BALANCE_OK` cannot move and every number above is a first cut the owner
+  can re-decide from the words alone.
+  **The gate**, three lanes on top of the eleven, each red both ways: FUEL (33 cars, 32
+  distinct tanks inside their capacity, moving with the seed and identical on one; the roll
+  is the square; idling burns less than driving; six words in order with no digit; a dry car
+  takes no throttle, coasts to a stop in silence and says so, and a splash starts it again),
+  CONDITION (the roll's shape; five words in order; a run at a wall costs what `crash_damage`
+  says and bangs once; a wall hard against the nose costs nothing — the first cut gave the
+  bump a tile of run-up and learned that a sedan does 2.8 m/s by the end of it; battered is
+  slower than sound; a wreck can be sat in and does not move; six runs at a wall wreck a sound
+  car with exactly one `vehicle.wrecked`), HOOD (the view's keys and types, a numeric key
+  fabricated in and caught, E at the nose reads the report for 200 ticks and then it lapses
+  off the body, E at the side gets in, the tail is not the hood, a wreck and a dry tank read
+  as such, `INTERACT_KEY` named and routed and the legend saying so). SAVE now proves the
+  litres and the integrity restore, and SOCKETS reads the two hood calls on fortify's ladder.
+  **What it leaves**, named in what's left: refuelling and repair (nothing puts litres or
+  integrity back), breakdowns as a rule rather than a roll, and the driver taking no injury
+  from a crash — the car is hurt, the body is not, which is the half that shipped.
+- ~~The dashboard~~ **landed** (`godot:m2:vehicles` grows a DASH lane, fifteen in all; the
+  owner's third goal of 2026-09-05: "when driving, it should show speed, a makeshift dashboard,
+  if car is in drive, park, neutral, gas"). **The mechanism:** `SimVehicles.dash_view` is the
+  seat's read model — `{}` for a body on foot, and on the wheel `DASH_KEYS`: the gear (`park`
+  stopped with no throttle, `drive` under throttle with an engine that runs, `neutral` rolling
+  with no throttle or a dead engine coasting — derived every tick in `_drive` and stored on the
+  component), the brake lamp (any key that is not the heading while the car still moves), the
+  throttle and running booleans, the speed as a **word** (stopped, crawling, rolling, a fair
+  clip, flat out — on fractions of the class's top) and as a **needle** (`speedo`, the same
+  fraction), the engine's condition word and its warning lamp (battered or worse), the fuel as
+  a word and as a needle (`gauge`, the tank's fraction), and one line of prose. `ui/dashboard.gd`
+  draws it bottom centre while the view is non-empty: two dials with tick marks and needles and
+  **no numbers on either** — the fuel dial has E and F — the letters P N D with the one you are
+  in lit, a brake lamp, an engine lamp that goes amber on a battered car and red on a wreck, and
+  the prose under. `main.gd` feeds it from `_update_hud` every refresh. **The line it draws
+  against the HUD's "no gauges" rule** is docs/30's "The dashboard": these are the *machine's*
+  instruments, not the body's — a speedometer with no numbers on the dial is exactly as scarce
+  as a real one, and the HUD's own lines stay prose (`godot:check:hud` unchanged, green).
+  **The gate**, DASH, red both ways: off the wheel nothing; stopped it reads park and stopped
+  with the needle at zero and the gauge full; under throttle it reads drive with the needle
+  never falling and the word climbing through crawling, rolling and a fair clip to flat out at
+  the cap, the gauge off full at exactly the tank's fraction; foot off reads neutral, then park
+  at rest; the brake lamp lights on the opposite key and clears at rest; the engine lamp on a
+  battered car and red on a wreck; a dry tank reads dry with the engine not running; a numeric
+  `kph`, a speed word with digits and a needle past its dial are each caught by the allowlist;
+  `dashboard.gd`'s drawn string literals carry no digit (the scanner proved on a fabricated
+  "32 km/h" and taught to pass a colour code, which its first cut blamed); `_draw` reads the
+  gear, the lamps and the prose and `_dial` draws an arc and a needle; `main.gd` stands the
+  control and feeds it. **The picture**: `slice12-dashboard-64.png` under the shots directory,
+  the sedan under way with the cluster below it.
 - **Camera** — authorized by the owner (2026-09-01 session), package 3 of the camera/light/art
   session plan: a smoothed follow and a screen shake, both presentation-only (parity and
   `TOPDOWN_OK` stay green, proving the sim and the projection untouched). The hard snap that used

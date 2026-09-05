@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-04 (PR #106 merged)
+## State, as of 2026-09-05 (the driving slice)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **45 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **46 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,20 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-05 — the parked cars drive** (`npm run godot:m2:vehicles`, `M2_VEHICLES_OK`), at the
+owner's direction and ahead of the Milestone 3B schedule it sat behind. Every `map.vehicles`
+record is an entity at boot; **E** beside a car gets in (after the loot and the people beside
+it), E at the nose looks under the hood (fuel and condition, in words, never a number),
+WASD drives it on four headings with a makeshift dashboard under the car (a speedo needle
+with no numbers, E-to-F fuel, P N D, brake and engine lamps, one line of prose), E again gets
+out once it has stopped; a crash at speed costs condition and a dry tank or a wreck will not
+run; the engine is loud on the attention field and a body at the
+wheel is off the shambler's menu; a driven car survives a save (`SAVE_VERSION` 18). The record
+is docs/23's, the design calls are docs/30's "Driving" entry, and the halves it named rather
+than built — running things over, the door under siege, the driver's hands, NPC drivers, fuel —
+are in what's left under "What driving left behind". **Several of those calls were taken as
+first cuts because the session had no owner to ask**; they are listed below for the owner.
 
 **2026-09-01 — the bigger colony and the `GRABS_ENABLED` flip**, described in the state section
 above; the flag record in docs/23 has the decision, the before/after table, and the gate work.
@@ -91,6 +105,19 @@ Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. 
 slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
 
+0. **The driving slice's first-cut calls**, each recorded in docs/30's "Driving" entry and each
+   a small change if re-decided (the key is decided: the owner chose **E** on 2026-09-05 and it
+   landed as a rung of fortify's ladder): four headings with the opposite
+   key turning the car round; a moving car passing through bodies (nothing run over); a body at
+   the wheel unreachable by shamblers; and the engine's numbers (sedan 24 under way, 4 idling,
+   against a sprint's 6) — never measured against the director, because the 64-tile harness
+   parks no car. **Added by the second goal of the same day:** the fuel numbers (a sedan's
+   40 L, 12 000 m of range, 90 minutes of idle), the crash curve (55 at full speed on the
+   square of the speed, a wreck after four runs at a wall), one in ten cars spawning wrecked,
+   and the reading of "define the interact key" as *name E once* rather than *add a key for
+   the hood* — docs/30's "Fuel and hitpoints" and "One interact key" clauses. **And by the
+   third:** a gauge may show a machine's state and never a body's, which is how a dashboard
+   with two needles sits beside a HUD that forbids gauges — docs/30's "The dashboard".
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement
