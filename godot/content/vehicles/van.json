@@ -1,0 +1,12 @@
+{
+  "id": "vehicle.van",
+  "name": "Panel van",
+  "footprint": { "w": 2, "l": 6 },
+  "appearance": {
+    "variants": [
+      { "id": "pale", "ns": "vehicle_van_pale_ns", "ew": "vehicle_van_pale_ew" },
+      { "id": "green", "ns": "vehicle_van_green_ns", "ew": "vehicle_van_green_ew" },
+      { "id": "burnt", "ns": "vehicle_van_burnt_ns", "ew": "vehicle_van_burnt_ew" }
+    ]
+  }
+}

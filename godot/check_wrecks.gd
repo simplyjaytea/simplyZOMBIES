@@ -15,7 +15,14 @@ extends SceneTree
 # car or a heap, never both, never neither, and it is the *draw loop's* branch that separates them
 # rather than the resolver's, because `heap_key` answers for any Low tile at all.
 #
-# Nine lanes plus the budget, each with a true positive and a true negative, because a gate that
+# Slice 11 ("the van and the truck") put two more classes on the same vocabulary -- `van.json`
+# 2x6 and `truck.json` 2x7, weighted sedan 10 / van 3 / truck 1 in the suburb -- and this gate
+# grew with them in exactly the places where three classes could otherwise have passed as one:
+# the hand map stands every declared class on both axes, PLACED counts what landed per class and
+# names any class that never did, and SILHOUETTE holds the decoded pictures to the owner's
+# 2026-09-04 decision that the classes are told apart by height rather than by length.
+#
+# Ten lanes plus the budget, each with a true positive and a true negative, because a gate that
 # cannot fail is worse than no gate:
 #
 #   DRESSING   the block is declared and every key in it resolves art at the canvas it is authored
@@ -27,7 +34,10 @@ extends SceneTree
 #              `vehicle_at` answers inside and VEHICLE_NONE outside/off-map/past the array end,
 #              `vehicle_ground_point` is exact on both axes, `vehicle_key` is the axis's key and one
 #              key for the whole car, `vehicle_records` is a subset of seen, `vehicle_flip` mirrors
-#              only west. Refused for an unknown class, an unknown axis, a record hanging off the
+#              only west. Every class content declares stands on the hand map on both axes, or
+#              the lane names the one that does not, and the record's `class` picks that class's
+#              own picture -- two records on one corner differing only in class resolve two
+#              pictures. Refused for an unknown class, an unknown axis, a record hanging off the
 #              map edge and a manifest that is not an Array.
 #   VARIATION  the colour is a pure hash of the seed and the record's north-west corner:
 #              deterministic in-process, alive, moving with the seed, and independent of the car's
@@ -43,7 +53,18 @@ extends SceneTree
 #              record inside a carriageway with a kerb row free either side. Then the negative --
 #              suburb at 64 stands exactly zero, and the lane asserts the *reason* (every street
 #              there is narrower than VEHICLE_MIN_WIDTH), so a change that widens them says so
-#              rather than passing quietly.
+#              rather than passing quietly. Per class: every record's extent is its class's
+#              footprint turned to its axis, every class the suburb weights lands at least once
+#              across the four seeds -- or the lane NAMES the one that never did, rather than
+#              passing on a zero -- and every class content declares is weighted by some
+#              district, because a van nobody parks is the dead-socket shape.
+#   SILHOUETTE the owner's height decision made mechanical: three classes are told apart by
+#              height, not by length. Measured off the decoded east-west pictures -- the axis on
+#              which every class shares one 96-row ceiling -- the sedan stands low, the van and
+#              the truck stand tall by a margin over it, the truck's bed end sits well under its
+#              cab where the van's two ends are level, and every picture keeps the clearance the
+#              mirror needs. A class this lane has no expectation for is named, not skipped, and
+#              every predicate is refused on a fabricated picture first.
 #   EXCLUSIVE  the mutual exclusion, over every Low tile of every parked district: covered by a
 #              record, or resolving a heap -- never both, never neither. And textually, because the
 #              exclusion is the branch's and not the resolver's: the Tile.Low arm of
@@ -98,13 +119,34 @@ const GATE_SIZE: int = 64
 const PARK_SIZE: int = 128
 
 # Four rather than one: a claim about what the generator parks is a claim about the band the pass
-# draws from, and one seed is an anecdote about a handful of dice rolls. Measured, the four stand
-# 27 to 38 cars each at PARK_SIZE.
+# draws from, and one seed is an anecdote about a handful of dice rolls. Measured with the three
+# classes weighted, the four stand 26 to 38 vehicles each at PARK_SIZE (27 to 38 when the sedan
+# was the only class; a truck refuses a slot a sedan fit).
 const SEEDS: Array[int] = [20260805, 404, 31337, 90210]
 
-# The hand-built map the MANIFEST lane works on. Big enough to hold both axes of sedan clear of
-# each other and of the edge, small enough to scan exhaustively.
+# The hand-built map the MANIFEST lane works on. Big enough to hold both axes of every class clear
+# of each other and of the edge, small enough to scan exhaustively. The two sedans sit where slice
+# 10 hand-checked them; every further class takes the next pair of slots below, in id order --
+# a class with no slot left is named by `_hand_map_problem`, so a fourth class extends these two
+# tables rather than going unjudged.
 const HAND_SIZE: int = 16
+const HAND_NS_SLOTS: Array[Vector2i] = [Vector2i(6, 1), Vector2i(13, 1)]
+const HAND_EW_SLOTS: Array[Vector2i] = [Vector2i(1, 12), Vector2i(8, 12)]
+const SEDAN_ID: String = "vehicle.sedan"
+const VAN_ID: String = "vehicle.van"
+const TRUCK_ID: String = "vehicle.truck"
+
+# The height decision (docs/30, the vehicle-class clause of 2026-09-04) as the numbers SILHOUETTE
+# holds the decoded east-west pictures to. Rows are opaque rows of the 96 that axis has; the
+# shipped pictures measure sedan 73, van 92, truck 92 with its bed end at 79, and the bands sit
+# between those and the failure they exist to refuse (a class that only differs in length).
+const SEDAN_ROWS_MAX: int = 76
+const TALL_ROWS_MIN: int = 86
+const HEIGHT_MARGIN: int = 12
+const BED_DROP_MIN: int = 10
+const BOX_LEVEL_MAX: int = 4
+const CLEAR_MIN: int = 3
+const SPRITE_DIR: String = "res://assets/sprites"
 
 # The gate's own wall clock, docs/00 pillar 6. Measured 2.1 s on this container -- one playable
 # boot at 64, eight district generations at 128, one town centre at 128 and one forest edge at 256,
@@ -165,6 +207,7 @@ func _run() -> void:
 		ok = _the_colour_is_a_pure_hash_of_the_record(stash) and ok
 		ok = _a_car_is_layout_and_not_dressing(stash) and ok
 		ok = _the_generator_parks_them_lawfully(stash) and ok
+		ok = _the_classes_read_apart_by_height(stash) and ok
 		ok = _every_low_tile_is_a_car_or_a_heap(stash) and ok
 		ok = _a_hosted_site_stands_on_a_car_or_falls_back(stash) and ok
 		ok = _the_scatter_lands_where_the_ground_says(stash) and ok
@@ -174,11 +217,12 @@ func _run() -> void:
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("WRECKS_OK %d sprite keys resolve (%d of them vehicle pictures); the manifest answers for its footprint alone; the colour is one hash per record; the manifest is identical with dressing off; suburb@%d parked %d cars over %d seeds (%d..%d a map) and suburb@%d parked 0 because every street there is %d wide against a %d minimum; %d Low tiles covered by a record and %d heaped, never both and never neither; %d hosted sites stood on a car tail and %d fell back to a driveway; scatter on %d rubble and %d litter tiles; sockets wired and the segment names gone; %.1f s of a %.0f s budget" % [
+		print("WRECKS_OK %d sprite keys resolve (%d of them vehicle pictures); the manifest answers for its footprint alone, every class on both axes; the colour is one hash per record; the manifest is identical with dressing off; suburb@%d parked %d vehicles over %d seeds (%d..%d a map; %s) and suburb@%d parked 0 because every street there is %d wide against a %d minimum; the sedan stands %d east-west rows against %d for the van and the truck, the truck's bed %d under its cab; %d Low tiles covered by a record and %d heaped, never both and never neither; %d hosted sites stood on a car tail and %d fell back to a driveway; scatter on %d rubble and %d litter tiles; sockets wired and the segment names gone; %.1f s of a %.0f s budget" % [
 			int(stash.get("keys", 0)), int(stash.get("vehicle_keys", 0)),
 			PARK_SIZE, int(stash.get("parked", 0)), SEEDS.size(),
-			int(stash.get("parked_min", 0)), int(stash.get("parked_max", 0)),
+			int(stash.get("parked_min", 0)), int(stash.get("parked_max", 0)), String(stash.get("by_class", "")),
 			GATE_SIZE, int(stash.get("narrow_width", 0)), SimWorldgen.VEHICLE_MIN_WIDTH,
+			int(stash.get("sedan_rows", 0)), int(stash.get("tall_rows", 0)), int(stash.get("bed_drop", 0)),
 			int(stash.get("covered", 0)), int(stash.get("heaped", 0)),
 			int(stash.get("hosted_on_car", 0)), int(stash.get("hosted_fallback", 0)),
 			int(stash.get("rubble", 0)), int(stash.get("litter", 0)),
@@ -243,6 +287,22 @@ func _key_problem(key: String, want: Vector2i) -> String:
 	if texture.get_size() != Vector2(want):
 		return "'%s' decodes at %s but is authored on %s" % [key, str(texture.get_size()), str(want)]
 	return ""
+
+
+# The canvas a class's CONTENT footprint implies for an axis. There are three copies of the
+# footprint now -- content's `footprint` (what worldgen parks and writes Low under),
+# `Appearance.VEHICLE_FOOTPRINTS` (what sizes the picture) and `parts/vehicles.py`'s (what draws
+# it) -- and the picture is judged against the second while the cover comes from the first. Held
+# to agree per class, because agreeing only at the longest class would let a van's picture stand
+# eight tiles tall on six tiles of Low.
+func _canvas_from_content(entry: Dictionary, axis: String) -> Vector2i:
+	var foot: Dictionary = entry.get("footprint", {}) as Dictionary
+	var w: int = int(foot.get("w", 0))
+	var l: int = int(foot.get("l", 0))
+	var n: int = int(CameraUtil.ART_NATIVE)
+	if axis == Appearance.AXIS_NS:
+		return Vector2i(w * n, (l + Appearance.VEHICLE_ROOFLINE_TILES) * n)
+	return Vector2i(l * n, (w + Appearance.VEHICLE_ROOFLINE_TILES) * n)
 
 
 # The `ns`/`ew` keys one vehicle class declares, in variant order.
@@ -352,6 +412,11 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 				if not problem3.is_empty():
 					push_error("vehicle key on %s: %s" % [String(entry.get("id", "?")), problem3])
 					return false
+				# Appearance's footprint for this class against content's, per class and per
+				# axis: the picture is sized by one and the cover under it by the other.
+				if want != _canvas_from_content(entry, String(axis)):
+					push_error("%s's '%s' picture is sized %s by Appearance.VEHICLE_FOOTPRINTS where its content footprint implies %s; the picture would stand on cover of another length" % [String(entry.get("id", "?")), key, str(want), str(_canvas_from_content(entry, String(axis)))])
+					return false
 				# The table and the deriver have to agree, or a picture that measures correctly
 				# here would be blitted at another size by the draw loop.
 				if Appearance.canvas_of(key) != want:
@@ -383,6 +448,23 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 	if _key_problem("vehicle_sedan_zz_ns", Appearance.vehicle_canvas("vehicle_sedan_zz_ns")).is_empty():
 		push_error("a fabricated vehicle key passed the key check")
 		return false
+	# The per-class footprint cross-check can say no: one class's content footprint held against
+	# another class's picture of a different length must disagree.
+	var crossed: bool = false
+	for raw4 in classes:
+		for raw5 in classes:
+			var a: Dictionary = raw4 as Dictionary
+			var b: Dictionary = raw5 as Dictionary
+			var a_ns: Array[String] = _variant_keys(a, Appearance.AXIS_NS)
+			if a_ns.is_empty() or _canvas_from_content(a, Appearance.AXIS_NS) == _canvas_from_content(b, Appearance.AXIS_NS):
+				continue
+			if Appearance.vehicle_canvas(a_ns[0]) == _canvas_from_content(b, Appearance.AXIS_NS):
+				push_error("%s's picture passed against %s's footprint; the per-class footprint cross-check cannot say no" % [String(a.get("id", "?")), String(b.get("id", "?"))])
+				return false
+			crossed = true
+	if not crossed:
+		push_error("every declared class has the same footprint, so the per-class footprint cross-check was never given a negative to refuse")
+		return false
 	# And a block that declares nothing resolves nothing rather than falling through to a default.
 	var hand: Variant = _hand_map()
 	if not Dressing.heap_key({}, hand, CANON_SEED, 3, 2).is_empty():
@@ -394,7 +476,7 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 
 	stash["keys"] = keys.size()
 	stash["vehicle_keys"] = vehicle_keys
-	print("DRESSING OK %d keys resolve: %d heaps at %s, %d scatter scraps, %d vehicle pictures at their own derived canvases, no duplicates; a fabricated heap key, a fabricated variant, an empty block and an empty list are all refused" % [
+	print("DRESSING OK %d keys resolve: %d heaps at %s, %d scatter scraps, %d vehicle pictures at their own derived canvases, each class's Appearance footprint agreeing with its content footprint on both axes, no duplicates; a fabricated heap key, a fabricated variant, one class's picture against another's footprint, an empty block and an empty list are all refused" % [
 		keys.size(), (heaps as Array).size(), str(tile_canvas), keys.size() - (heaps as Array).size() - vehicle_keys, vehicle_keys,
 	])
 	return true
@@ -402,16 +484,79 @@ func _the_block_declares_working_art(stash: Dictionary) -> bool:
 
 # --- 2. MANIFEST: the record answers for its footprint and nothing else -------------------------
 
+# Every class content declares beyond the sedan, in id order -- the order the hand-map slots are
+# handed out in, so the layout is a function of content and not of directory order.
+func _other_classes() -> Array[String]:
+	var out: Array[String] = []
+	for raw in SimWorldgen.vehicles_of(_tree()):
+		var id: String = String((raw as Dictionary).get("id", ""))
+		if id != SEDAN_ID and not id.is_empty():
+			out.append(id)
+	out.sort()
+	return out
+
+
+# A class's footprint as content declares it, `(w, l)` nose-to-tail, or ZERO for a class nobody
+# wrote. Read out of content so a record's extent can be judged against something the record did
+# not itself say.
+func _footprint_of(id: String) -> Vector2i:
+	for raw in SimWorldgen.vehicles_of(_tree()):
+		var entry: Dictionary = raw as Dictionary
+		if String(entry.get("id", "")) == id:
+			var foot: Dictionary = entry.get("footprint", {}) as Dictionary
+			return Vector2i(int(foot.get("w", 0)), int(foot.get("l", 0)))
+	return Vector2i.ZERO
+
+
+# What is wrong with where a record stands its picture, or "": the centre of the footprint's south
+# edge as CONTENT's footprint for the record's class, turned to its axis, would put it -- so a
+# record whose own w and h disagree with its class is refused rather than agreed with.
+func _ground_point_problem(r: Dictionary) -> String:
+	var foot: Vector2i = _footprint_of(String(r.get("class", "")))
+	if foot == Vector2i.ZERO:
+		return "a record of class %s, which content does not declare, has no footprint to stand on" % String(r.get("class", "?"))
+	var want: Vector2
+	if String(r.get("axis", "")) == Appearance.AXIS_NS:
+		want = Vector2(float(int(r["x"])) + float(foot.x) / 2.0, float(int(r["y"])) + float(foot.y))
+	else:
+		want = Vector2(float(int(r["x"])) + float(foot.y) / 2.0, float(int(r["y"])) + float(foot.x))
+	if Dressing.vehicle_ground_point(r) != want:
+		return "a %s on the '%s' axis parked %dx%d stands its picture at %s, where its content footprint %s puts it at %s" % [String(r["class"]), String(r.get("axis", "")), int(r.get("w", 0)), int(r.get("h", 0)), str(Dressing.vehicle_ground_point(r)), str(foot), str(want)]
+	return ""
+
+
+# What stops the hand map standing every class, or "". Named rather than silently truncated: a
+# class with no slot would be a class this whole lane never judged.
+func _hand_map_problem() -> String:
+	var others: Array[String] = _other_classes()
+	if others.size() > HAND_NS_SLOTS.size():
+		return "content declares %d classes beyond the sedan and the hand map has slots for %d, so %s would go unjudged -- extend HAND_NS_SLOTS and HAND_EW_SLOTS" % [others.size(), HAND_NS_SLOTS.size(), others[HAND_NS_SLOTS.size()]]
+	for id in others:
+		if _footprint_of(id) == Vector2i.ZERO:
+			return "%s declares no footprint, so the hand map cannot stand it" % id
+	return ""
+
+
 # The hand-built map every assertion in this lane stands on: HAND_SIZE square, Floor everywhere,
-# two parked sedans in the manifest and Tile.Low written under both -- one on each axis, clear of
-# each other and of the edge. Never the generator: a property of the record shape must not depend
-# on a dice roll.
+# every class content declares parked once on each axis and Tile.Low written under all of them,
+# clear of each other and of the edge. The two sedans are records 0 and 1, where slice 10
+# hand-checked them and where the lanes below still reach for "a shipped car"; every other class
+# takes the next slot pair in id order with its content footprint turned to the axis. Never the
+# generator: a property of the record shape must not depend on a dice roll.
 func _hand_map() -> Variant:
 	var map: Variant = SimTileMap.blank_map(HAND_SIZE, HAND_SIZE)
-	map.vehicles = [
-		{"x": 3, "y": 2, "w": 2, "h": 5, "axis": "ns", "class": "vehicle.sedan", "facing": "n"},
-		{"x": 8, "y": 9, "w": 5, "h": 2, "axis": "ew", "class": "vehicle.sedan", "facing": "w"},
+	var records: Array = [
+		{"x": 3, "y": 2, "w": 2, "h": 5, "axis": "ns", "class": SEDAN_ID, "facing": "n"},
+		{"x": 8, "y": 9, "w": 5, "h": 2, "axis": "ew", "class": SEDAN_ID, "facing": "w"},
 	]
+	var others: Array[String] = _other_classes()
+	for i in mini(others.size(), HAND_NS_SLOTS.size()):
+		var foot: Vector2i = _footprint_of(others[i])
+		var ns: Vector2i = HAND_NS_SLOTS[i]
+		var ew: Vector2i = HAND_EW_SLOTS[i]
+		records.append({"x": ns.x, "y": ns.y, "w": foot.x, "h": foot.y, "axis": "ns", "class": others[i], "facing": "s"})
+		records.append({"x": ew.x, "y": ew.y, "w": foot.y, "h": foot.x, "axis": "ew", "class": others[i], "facing": "e"})
+	map.vehicles = records
 	# Whole-array write: packed arrays are values, and an element write through the property would
 	# land on a copy (CLAUDE.md's first trap).
 	var tiles: PackedByteArray = map.tiles as PackedByteArray
@@ -481,17 +626,37 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 	if gp_ns != Vector2(4.0, 7.0) or gp_ew != Vector2(10.5, 11.0):
 		push_error("vehicle_ground_point answered %s and %s, wanted (4, 7) and (10.5, 11)" % [str(gp_ns), str(gp_ew)])
 		return false
+	# And every other class's pair, derived from the CONTENT footprint turned to the record's axis
+	# rather than from the record's own w and h. The hand map builds its extents from that same
+	# content, so the shipped records cannot disagree with it by construction -- which is why the
+	# predicate is also handed a record parked at the WRONG extent, and has to refuse it.
+	for i6 in range(2, records.size()):
+		var problem6: String = _ground_point_problem(records[i6] as Dictionary)
+		if not problem6.is_empty():
+			push_error(problem6)
+			return false
+	var others6: Array[String] = _other_classes()
+	if others6.is_empty():
+		push_error("content declares no class beyond the sedan, so the ground-point rule had no second class to judge")
+		return false
+	if _ground_point_problem({"x": 6, "y": 1, "w": 2, "h": 5, "axis": "ns", "class": others6[0], "facing": "s"}).is_empty():
+		push_error("a %s parked at the sedan's extent stood its picture where its own footprint would; the ground-point rule cannot say no" % others6[0])
+		return false
 
 	# One key for the whole car, and the axis picks which of the variant's two it is. Asked through
 	# the index, tile by tile, because that is the question a two-colour car would answer wrongly.
-	var entry: Dictionary = Appearance.entry_of(world, "vehicle", "vehicle.sedan")
+	var entry: Dictionary = Appearance.entry_of(world, "vehicle", SEDAN_ID)
 	if entry.is_empty():
-		push_error("no vehicle.sedan in the booted world's content; this lane had nothing to judge")
+		push_error("no %s in the booted world's content; this lane had nothing to judge" % SEDAN_ID)
 		return false
-	var ns_keys: Array[String] = _variant_keys(entry, Appearance.AXIS_NS)
-	var ew_keys: Array[String] = _variant_keys(entry, Appearance.AXIS_EW)
 	for i3 in records.size():
 		var r2: Dictionary = records[i3] as Dictionary
+		var entry2: Dictionary = Appearance.entry_of(world, "vehicle", String(r2["class"]))
+		if entry2.is_empty():
+			push_error("no %s in the booted world's content, though the hand map stands one" % String(r2["class"]))
+			return false
+		var ns_keys: Array[String] = _variant_keys(entry2, Appearance.AXIS_NS)
+		var ew_keys: Array[String] = _variant_keys(entry2, Appearance.AXIS_EW)
 		var per_tile: Dictionary = {}
 		for dy2 in int(r2["h"]):
 			for dx2 in int(r2["w"]):
@@ -503,7 +668,7 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 		var key: String = String(per_tile.keys()[0])
 		var wanted: Array[String] = ns_keys if String(r2["axis"]) == Appearance.AXIS_NS else ew_keys
 		if not wanted.has(key):
-			push_error("a record on the '%s' axis resolved '%s', which is not one of that axis's keys" % [String(r2["axis"]), key])
+			push_error("a %s on the '%s' axis resolved '%s', which is not one of that class's keys for that axis" % [String(r2["class"]), String(r2["axis"]), key])
 			return false
 
 	# The teeth under "one key for the whole car": hashing the same car per tile really would give
@@ -520,6 +685,51 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 			}, CANON_SEED)] = true
 	if as_tiles.size() < 2:
 		push_error("hashing this car per tile would have given it one colour anyway, so the per-record rule is unjudged here; move the fixture car until the per-tile hash disagrees with itself")
+		return false
+
+	# The class field reaches the art. Every class content declares is on the hand map on both
+	# axes -- or the lane names the one that is not -- and two records on one corner that differ
+	# only in class resolve two different pictures, which is the assertion a resolver that ignored
+	# `class` and handed every van the sedan's picture would fail. Nothing above could have seen
+	# that: a van resolving a sedan key would still have been "one key for the whole car".
+	var slot_problem: String = _hand_map_problem()
+	if not slot_problem.is_empty():
+		push_error(slot_problem)
+		return false
+	var on_map: Dictionary = {}
+	for rec7 in records:
+		on_map[String((rec7 as Dictionary)["class"]) + "/" + String((rec7 as Dictionary)["axis"])] = true
+	var declared: Array = SimWorldgen.vehicles_of(_tree())
+	for raw7 in declared:
+		var id7: String = String((raw7 as Dictionary).get("id", ""))
+		for axis7 in [Appearance.AXIS_NS, Appearance.AXIS_EW]:
+			if not on_map.has(id7 + "/" + String(axis7)):
+				push_error("%s stands on the hand map on no '%s' record; that class's manifest surface is unjudged" % [id7, String(axis7)])
+				return false
+	if declared.size() < 2:
+		push_error("content declares %d vehicle class(es), so whether the record's class reaches the art cannot be judged" % declared.size())
+		return false
+	var by_class: Dictionary = {}
+	for raw8 in declared:
+		var id8: String = String((raw8 as Dictionary).get("id", ""))
+		var k8: String = Dressing.vehicle_key(world, {"x": 3, "y": 2, "w": 2, "h": 5, "axis": "ns", "class": id8, "facing": "n"}, CANON_SEED)
+		if k8.is_empty():
+			push_error("%s resolved no picture on the sedan's own corner" % id8)
+			return false
+		if by_class.has(k8):
+			push_error("%s and %s resolve the same picture '%s' on one corner; the record's class is not reaching the art" % [String(by_class[k8]), id8, k8])
+			return false
+		by_class[k8] = id8
+	# The renderer's search margin follows the footprint table: the tallest picture any class
+	# stands is the longest declared footprint plus the roofline tile, derived here from CONTENT so
+	# the two copies of the table agree, and read by _draw_entities (SOCKETS holds the read). A
+	# margin that remembered one class is how an eight-tile truck would pop out at the bottom of
+	# the screen with its cab still showing.
+	var longest: int = 0
+	for raw9 in declared:
+		longest = maxi(longest, _footprint_of(String((raw9 as Dictionary).get("id", ""))).y)
+	if Appearance.vehicle_reach_tiles() != longest + Appearance.VEHICLE_ROOFLINE_TILES:
+		push_error("Appearance.vehicle_reach_tiles answers %d tiles where content's longest footprint (%d) plus the roofline tile says %d; the renderer's search margin would miss the longest class" % [Appearance.vehicle_reach_tiles(), longest, longest + Appearance.VEHICLE_ROOFLINE_TILES])
 		return false
 
 	# Which way it is shown. Only west mirrors: the east-west picture is authored nose-east, and the
@@ -591,8 +801,8 @@ func _the_manifest_answers_for_its_footprint_alone(stash: Dictionary) -> bool:
 		push_error("vehicle_index(null) answered an index rather than nothing")
 		return false
 
-	print("MANIFEST OK %d records mark %d tiles and nothing else on a hand-built %dx%d map; vehicle_at says none outside, off-map and past a short index; ground points (4, 7) and (10.5, 11) exact; one key per car over its whole footprint (a per-tile hash would have given %d); only 'w' mirrors; draw is a subset of seen; an unknown class, an unknown axis, an off-edge record and a non-Array manifest all answer nothing" % [
-		records.size(), marked, HAND_SIZE, HAND_SIZE, as_tiles.size(),
+	print("MANIFEST OK %d records of %d classes mark %d tiles and nothing else on a hand-built %dx%d map; vehicle_at says none outside, off-map and past a short index; the sedan's ground points (4, 7) and (10.5, 11) exact and every other class's derived from its content footprint; one key per vehicle over its whole footprint (a per-tile hash would have given %d), from its own class's list; every class on both axes and %d classes resolving %d different pictures on one corner; the renderer's reach is %d tiles, content's longest footprint plus the roofline; only 'w' mirrors; draw is a subset of seen; an unknown class, an unknown axis, an off-edge record and a non-Array manifest all answer nothing" % [
+		records.size(), declared.size(), marked, HAND_SIZE, HAND_SIZE, as_tiles.size(), declared.size(), by_class.size(), Appearance.vehicle_reach_tiles(),
 	])
 	return true
 
@@ -822,11 +1032,43 @@ func _span_of(map: Variant, r: Dictionary) -> Dictionary:
 	return {}
 
 
+# The first id in `declared` that `counts` records none of, or "". Proved on a fabricated table
+# below: a never-landed detector that cannot name a zero is a gate that cannot fail.
+func _unlanded(counts: Dictionary, declared: Array) -> String:
+	for id in declared:
+		if int(counts.get(String(id), 0)) == 0:
+			return String(id)
+	return ""
+
+
+# The ids every district's `vehicles.classes` list weights, across the whole content tree.
+func _weighted_anywhere() -> Dictionary:
+	var out: Dictionary = {}
+	var tree: Dictionary = _tree()
+	for path in tree.keys():
+		if not String(path).begins_with("districts/"):
+			continue
+		var entries: Array = []
+		var raw: Variant = tree[path]
+		if raw is Array:
+			entries = raw as Array
+		elif raw is Dictionary:
+			entries = [raw]
+		for entry in entries:
+			var spec: Variant = (entry as Dictionary).get("vehicles")
+			if not (spec is Dictionary):
+				continue
+			for cls in (spec as Dictionary).get("classes", []) as Array:
+				out[String((cls as Dictionary).get("id", ""))] = true
+	return out
+
+
 func _the_generator_parks_them_lawfully(stash: Dictionary) -> bool:
 	var total: int = 0
 	var least: int = 1 << 30
 	var most: int = 0
 	var junction_probed: bool = false
+	var counts: Dictionary = {}
 	for i in SEEDS.size():
 		var map: Variant = _parked()[i]
 		var records: Array = map.vehicles as Array
@@ -841,6 +1083,18 @@ func _the_generator_parks_them_lawfully(stash: Dictionary) -> bool:
 		for record in records:
 			var r: Dictionary = record as Dictionary
 			var street_axis: String = "x" if String(r["axis"]) == Appearance.AXIS_NS else "y"
+			# Which class, counted, and the extent it was parked at judged against the footprint
+			# its class declares, turned to the axis: a van parked at a sedan's size would cover
+			# the wrong tiles and draw a picture two tiles longer than its cover.
+			var cls: String = String(r.get("class", ""))
+			counts[cls] = int(counts.get(cls, 0)) + 1
+			var foot: Vector2i = _footprint_of(cls)
+			var want_wh: Vector2i = foot if String(r["axis"]) == Appearance.AXIS_NS else Vector2i(foot.y, foot.x)
+			if foot == Vector2i.ZERO or Vector2i(int(r["w"]), int(r["h"])) != want_wh:
+				push_error("seed %d: a %s at (%d,%d) is parked %dx%d on the '%s' axis, where its class's footprint turned that way is %s" % [
+					SEEDS[i], cls, int(r["x"]), int(r["y"]), int(r["w"]), int(r["h"]), String(r["axis"]), str(want_wh),
+				])
+				return false
 			for dy in int(r["h"]):
 				for dx in int(r["w"]):
 					var tx: int = int(r["x"]) + dx
@@ -889,6 +1143,40 @@ func _the_generator_parks_them_lawfully(stash: Dictionary) -> bool:
 	if not junction_probed:
 		push_error("no tile of any generated district read as a junction; the crossing scanner cannot say yes and the assertion above is judging nothing")
 		return false
+
+	# Every class the suburb weights landed somewhere across the four seeds, or the lane says
+	# WHICH never did. A class whose footprint never fits a slot, or which the weighted pick never
+	# reaches, is content that draws nothing -- and a zero passing quietly is exactly how it would
+	# stay that way. The detector is proved on a fabricated table before it judges the real one.
+	if _unlanded({"a": 3, "b": 0}, ["a", "b"]) != "b":
+		push_error("the never-landed detector found nothing in a table built to contain a zero; it cannot say yes")
+		return false
+	if not _unlanded({"a": 3, "b": 1}, ["a", "b"]).is_empty():
+		push_error("the never-landed detector named a class that landed; it cannot say no")
+		return false
+	var suburb: Dictionary = SimWorldgen.district_of(_tree(), SimWorldgen.DEFAULT_DISTRICT)
+	var weighted: Array = []
+	for raw in (suburb.get("vehicles", {}) as Dictionary).get("classes", []) as Array:
+		weighted.append(String((raw as Dictionary).get("id", "")))
+	if weighted.size() < 2:
+		push_error("the suburb weights %d vehicle class(es); with one class the pick is never exercised and this assertion judges nothing" % weighted.size())
+		return false
+	var never: String = _unlanded(counts, weighted)
+	if not never.is_empty():
+		push_error("%s is weighted in the suburb's classes and never landed across %d seeds at %d; either its footprint never fits a slot or the pick never reaches it" % [never, SEEDS.size(), PARK_SIZE])
+		return false
+	# And every class content declares is weighted by some district, or it is a picture nothing
+	# can ever park -- a `van.json` the districts do not name is the dead-socket shape exactly.
+	var anywhere: Dictionary = _weighted_anywhere()
+	for raw3 in SimWorldgen.vehicles_of(_tree()):
+		var id3: String = String((raw3 as Dictionary).get("id", ""))
+		if not anywhere.has(id3):
+			push_error("%s is declared under content/vehicles and weighted by no district's `vehicles.classes`; a class nobody parks is a socket nothing reaches" % id3)
+			return false
+	var by_class: Array = []
+	for id4 in weighted:
+		by_class.append("%s %d" % [String(id4).trim_prefix("vehicle."), int(counts.get(String(id4), 0))])
+	stash["by_class"] = ", ".join(by_class)
 
 	# The true negative, and the whole reason GATE_SIZE is where it is: at 64 the suburb's streets
 	# come out too narrow to park in, so the pass never touches its stream and the district stands
@@ -940,13 +1228,208 @@ func _the_generator_parks_them_lawfully(stash: Dictionary) -> bool:
 	stash["parked_max"] = most
 	stash["narrow_width"] = widest
 	print("PLACED OK the two districts that park nothing declare no block and have no room either (%s), against a %d minimum" % [", ".join(quiet), SimWorldgen.VEHICLE_MIN_WIDTH])
-	print("PLACED OK %d cars over %d seeds at %d (%d..%d a map), every footprint tile Low, outdoors, on the street surface, clear of doorways and junctions, inside a carriageway with a kerb row free either side; the crossing scanner was proved on a real junction; suburb@%d parked 0 because its widest street is %d against a %d minimum" % [
-		total, SEEDS.size(), PARK_SIZE, least, most, GATE_SIZE, widest, SimWorldgen.VEHICLE_MIN_WIDTH,
+	print("PLACED OK %d vehicles over %d seeds at %d (%d..%d a map; %s), every one the size its class's footprint says turned to its axis, every footprint tile Low, outdoors, on the street surface, clear of doorways and junctions, inside a carriageway with a kerb row free either side; every class the suburb weights landed and every declared class is weighted somewhere, and the never-landed detector was proved on a fabricated zero; the crossing scanner was proved on a real junction; suburb@%d parked 0 because its widest street is %d against a %d minimum" % [
+		total, SEEDS.size(), PARK_SIZE, least, most, String(stash["by_class"]), GATE_SIZE, widest, SimWorldgen.VEHICLE_MIN_WIDTH,
 	])
 	return true
 
 
-# --- 6. EXCLUSIVE: a Low tile is a car or a heap, never both, never neither ----------------------
+# --- 6. SILHOUETTE: three classes are told apart by height, not by length -----------------------
+#
+# The owner's decision of 2026-09-04, made mechanical. Slice 10's rule gives every class's
+# east-west picture the same 96-row canvas whatever its length, and the sedan shipped filling 93
+# of them -- so a van and a truck drawn beside it could only ever have been longer, never taller,
+# and three boxes differing in length are not three classes. The decision lowered the sedan and
+# spent the rows it gave back on the other two, and what that decision *is*, as a property of the
+# decoded pictures, is what this lane holds: the sedan low, the van and the truck tall by a
+# margin, the truck's bed end well under its cab where the van's two ends are level. It is the
+# first lane in this file that reads pixels, and the reason is in docs/30's clause: the finding
+# came from a screenshot, every gate was green throughout, and none of them could have caught it.
+# The mirror's clearance is held here too, because `_ew` is the picture the renderer flips.
+
+# What the picture is, as numbers: how many of its rows carry paint, how far its paint sits from
+# the top and the two sides of the canvas, and the tallest column in the west third and the east
+# third of the painted span -- nose east, so "east" is the cab end of a truck.
+func _silhouette(img: Image) -> Dictionary:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var top: int = h
+	var bottom: int = -1
+	var left: int = w
+	var right: int = -1
+	var tops: PackedInt32Array = PackedInt32Array()
+	tops.resize(w)
+	tops.fill(0)
+	for y in h:
+		for x in w:
+			if img.get_pixel(x, y).a <= 0.0:
+				continue
+			top = mini(top, y)
+			bottom = maxi(bottom, y)
+			left = mini(left, x)
+			right = maxi(right, x)
+			tops[x] = maxi(int(tops[x]), h - y)
+	if bottom < 0:
+		return {"rows": 0, "top_clear": h, "left_clear": w, "right_clear": w, "west": 0, "east": 0}
+	var third: int = maxi(1, (right - left + 1) / 3)
+	var west: int = 0
+	var east: int = 0
+	for x2 in range(left, left + third):
+		west = maxi(west, int(tops[x2]))
+	for x3 in range(right - third + 1, right + 1):
+		east = maxi(east, int(tops[x3]))
+	return {"rows": bottom - top + 1, "top_clear": top, "left_clear": left, "right_clear": w - 1 - right, "west": west, "east": east}
+
+
+# What is wrong with a picture's clearance, or "". Every picture keeps CLEAR_MIN rows under the
+# canvas top -- the roofline tile is spent, never overrun -- and CLEAR_MIN px off both sides,
+# because a silhouette on the edge clips itself the moment the vehicle faces west.
+func _clearance_problem(m: Dictionary) -> String:
+	if int(m["rows"]) <= 0:
+		return "it has no opaque pixel at all"
+	if int(m["top_clear"]) < CLEAR_MIN:
+		return "its paint reaches %d rows from the canvas top, under the %d the roofline tile keeps clear" % [int(m["top_clear"]), CLEAR_MIN]
+	if int(m["left_clear"]) < CLEAR_MIN or int(m["right_clear"]) < CLEAR_MIN:
+		return "its paint runs %d px from the west edge and %d from the east, under the %d the mirror needs" % [int(m["left_clear"]), int(m["right_clear"]), CLEAR_MIN]
+	return ""
+
+
+# What is wrong with a picture for the class it claims to be, or "". A class this lane has no
+# expectation for is a problem, not a pass: the height decision placed three classes, and a
+# fourth would need its own row here before it could be said to read apart from them.
+func _class_problem(id: String, m: Dictionary) -> String:
+	var rows: int = int(m["rows"])
+	match id:
+		SEDAN_ID:
+			if rows > SEDAN_ROWS_MAX:
+				return "the sedan stands %d rows, over the %d a low car may; it is the tall box the decision lowered" % [rows, SEDAN_ROWS_MAX]
+		VAN_ID:
+			if rows < TALL_ROWS_MIN:
+				return "the van stands %d rows, under the %d a tall class must; it would differ from a sedan only in length" % [rows, TALL_ROWS_MIN]
+			if absi(int(m["west"]) - int(m["east"])) > BOX_LEVEL_MAX:
+				return "the van's two ends stand %d and %d rows; a closed box is level end to end" % [int(m["west"]), int(m["east"])]
+		TRUCK_ID:
+			if rows < TALL_ROWS_MIN:
+				return "the truck stands %d rows, under the %d a tall class must" % [rows, TALL_ROWS_MIN]
+			if int(m["east"]) - int(m["west"]) < BED_DROP_MIN:
+				return "the truck's bed end stands %d rows against its cab's %d; an open bed sits at least %d under the cab, or it is a box truck and collides with the van" % [int(m["west"]), int(m["east"]), BED_DROP_MIN]
+		_:
+			return "this lane has no expectation for %s; a class the height decision did not place is unjudged until it gets one" % id
+	return ""
+
+
+# A fabricated picture: `boxes` are Rect2i blocks painted opaque on a transparent canvas.
+func _fabricated(w: int, h: int, boxes: Array) -> Dictionary:
+	var img: Image = Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	for box in boxes:
+		img.fill_rect(box as Rect2i, Color(1.0, 1.0, 1.0, 1.0))
+	return _silhouette(img)
+
+
+func _the_classes_read_apart_by_height(stash: Dictionary) -> bool:
+	# Every predicate refused on a fabricated picture first, and passed on one too, so a scanner
+	# that answered the same thing for everything cannot get past this block.
+	var full: Dictionary = _fabricated(160, 96, [Rect2i(0, 0, 160, 96)])
+	if _clearance_problem(full).is_empty():
+		push_error("SILHOUETTE: a picture painted to every edge passed the clearance rule; it cannot say no")
+		return false
+	var flush: Dictionary = _fabricated(160, 96, [Rect2i(0, 30, 150, 66)])
+	if _clearance_problem(flush).is_empty():
+		push_error("SILHOUETTE: a picture on the west edge passed the clearance rule; the mirror would clip it")
+		return false
+	var low: Dictionary = _fabricated(160, 96, [Rect2i(5, 30, 150, 66)])
+	if not _clearance_problem(low).is_empty():
+		push_error("SILHOUETTE: a well-clear fabricated picture failed the clearance rule: %s" % _clearance_problem(low))
+		return false
+	if not _class_problem(SEDAN_ID, low).is_empty():
+		push_error("SILHOUETTE: a 66-row block refused as a sedan: %s" % _class_problem(SEDAN_ID, low))
+		return false
+	if _class_problem(VAN_ID, low).is_empty():
+		push_error("SILHOUETTE: a 66-row block passed as a van; the tall rule cannot say no")
+		return false
+	var flat: Dictionary = _fabricated(224, 96, [Rect2i(5, 4, 214, 92)])
+	if not _class_problem(VAN_ID, flat).is_empty():
+		push_error("SILHOUETTE: a level 92-row block refused as a van: %s" % _class_problem(VAN_ID, flat))
+		return false
+	if _class_problem(TRUCK_ID, flat).is_empty():
+		push_error("SILHOUETTE: a level 92-row block passed as a truck; a box truck is exactly what the bed rule refuses")
+		return false
+	if _class_problem(SEDAN_ID, flat).is_empty():
+		push_error("SILHOUETTE: a 92-row block passed as a sedan; the low rule cannot say no")
+		return false
+	var stepped: Dictionary = _fabricated(224, 96, [Rect2i(5, 20, 150, 76), Rect2i(150, 4, 69, 92)])
+	if not _class_problem(TRUCK_ID, stepped).is_empty():
+		push_error("SILHOUETTE: a stepped block refused as a truck: %s" % _class_problem(TRUCK_ID, stepped))
+		return false
+	if _class_problem(VAN_ID, stepped).is_empty():
+		push_error("SILHOUETTE: a stepped block passed as a van; the level rule cannot say no")
+		return false
+	if _class_problem("vehicle.hovercraft", flat).is_empty():
+		push_error("SILHOUETTE: a class this lane has no expectation for passed; it must be named, not skipped")
+		return false
+
+	# The real pictures, every variant of every class, on the east-west axis.
+	var rows_by_class: Dictionary = {}
+	var drops: Array[int] = []
+	var judged: int = 0
+	for raw in SimWorldgen.vehicles_of(_tree()):
+		var entry: Dictionary = raw as Dictionary
+		var id: String = String(entry.get("id", ""))
+		var keys: Array[String] = _variant_keys(entry, Appearance.AXIS_EW)
+		if keys.is_empty():
+			push_error("%s declares no east-west keys; the height decision is about that axis and there is nothing to measure" % id)
+			return false
+		for key in keys:
+			var img := Image.new()
+			if img.load("%s/%s.png" % [SPRITE_DIR, key]) != OK:
+				push_error("%s/%s.png does not load; the silhouette had nothing to measure" % [SPRITE_DIR, key])
+				return false
+			var m: Dictionary = _silhouette(img)
+			var problem: String = _clearance_problem(m)
+			if not problem.is_empty():
+				push_error("%s: %s" % [key, problem])
+				return false
+			problem = _class_problem(id, m)
+			if not problem.is_empty():
+				push_error("%s: %s" % [key, problem])
+				return false
+			if not rows_by_class.has(id):
+				rows_by_class[id] = []
+			(rows_by_class[id] as Array).append(int(m["rows"]))
+			if id == TRUCK_ID:
+				drops.append(int(m["east"]) - int(m["west"]))
+			judged += 1
+	for want in [SEDAN_ID, VAN_ID, TRUCK_ID]:
+		if not rows_by_class.has(want):
+			push_error("content declares no %s, so the height decision has one class fewer to hold than it placed" % String(want))
+			return false
+
+	# The margin between the low class and the tall ones, over every variant: the tallest sedan
+	# against the shortest van or truck.
+	var sedan_max: int = 0
+	for r in rows_by_class[SEDAN_ID] as Array:
+		sedan_max = maxi(sedan_max, int(r))
+	var tall_min: int = 1 << 30
+	for id2 in [VAN_ID, TRUCK_ID]:
+		for r2 in rows_by_class[id2] as Array:
+			tall_min = mini(tall_min, int(r2))
+	if tall_min - sedan_max < HEIGHT_MARGIN:
+		push_error("the tallest sedan stands %d rows and the shortest van or truck %d; the classes are %d apart against the %d that tells them apart at a glance" % [sedan_max, tall_min, tall_min - sedan_max, HEIGHT_MARGIN])
+		return false
+	var drop_min: int = 1 << 30
+	for d in drops:
+		drop_min = mini(drop_min, d)
+
+	stash["sedan_rows"] = sedan_max
+	stash["tall_rows"] = tall_min
+	stash["bed_drop"] = drop_min
+	print("SILHOUETTE OK %d east-west pictures measured: the sedan stands at most %d rows, the van and the truck at least %d (%d apart against a %d margin), the truck's bed end at least %d under its cab, every picture %d+ clear of the top and both sides; a full-canvas block, an edge-flush block, a low block called a van, a level block called a truck or a sedan, a stepped block called a van and a class with no expectation are all refused" % [
+		judged, sedan_max, tall_min, tall_min - sedan_max, HEIGHT_MARGIN, drop_min, CLEAR_MIN,
+	])
+	return true
+
+
+# --- 7. EXCLUSIVE: a Low tile is a car or a heap, never both, never neither ----------------------
 
 # Every arm of a `match tile:` that handles Tile.Low, each sliced from its own case label to the
 # next case label of any tile class. Plural on purpose: `_draw_district` matches on the tile class
@@ -1104,7 +1587,7 @@ func _every_low_tile_is_a_car_or_a_heap(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 7. HOST: the sim side reads the manifest too -----------------------------------------------
+# --- 8. HOST: the sim side reads the manifest too -----------------------------------------------
 #
 # The other dead-socket assertion, and the one the presentation lanes cannot make. `map.vehicles`
 # has a second reader in `SimWorldgen._sites`: an outdoor loot row declaring `host: "vehicle"`
@@ -1292,7 +1775,7 @@ func _a_hosted_site_stands_on_a_car_or_falls_back(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 8. SCATTER: the loose stuff --------------------------------------------------------------
+# --- 9. SCATTER: the loose stuff --------------------------------------------------------------
 #
 # Untouched by this slice and deliberately left as it was: the litter and the broken concrete are
 # ground dressing, drawn into the tile under everything above, and neither reads the manifest.
@@ -1390,7 +1873,7 @@ func _the_scatter_lands_where_the_ground_says(stash: Dictionary) -> bool:
 	return true
 
 
-# --- 9. SOCKETS -------------------------------------------------------------------------------
+# --- 10. SOCKETS ------------------------------------------------------------------------------
 
 # The rule this milestone has paid for nine times: a resolver nothing calls is not a feature. A
 # CanvasItem draw pass cannot run headless, so what it calls is read -- check_topdown.gd's
@@ -1433,9 +1916,9 @@ func _the_sockets_are_wired() -> bool:
 	if entities.is_empty():
 		push_error("could not read _draw_entities out of %s" % MAIN_GD)
 		return false
-	var missing2: String = _missing_needle(entities, ["Dressing.vehicle_records(", "Dressing.vehicle_key(", "Appearance.vehicle_flip(", "_blit_vehicle("])
+	var missing2: String = _missing_needle(entities, ["Dressing.vehicle_records(", "Dressing.vehicle_key(", "Appearance.vehicle_flip(", "Appearance.vehicle_reach_tiles(", "_blit_vehicle("])
 	if not missing2.is_empty():
-		push_error("_draw_entities does not call %s; a parked car would be a record nothing stands a picture on" % missing2)
+		push_error("_draw_entities does not call %s; a parked car would be a record nothing stands a picture on, or one the search box loses before its picture leaves the screen" % missing2)
 		return false
 
 	var blit: String = _function_body(MAIN_GD, "_blit_vehicle")

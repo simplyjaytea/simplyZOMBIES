@@ -1,0 +1,12 @@
+{
+  "id": "vehicle.truck",
+  "name": "Flatbed truck",
+  "footprint": { "w": 2, "l": 7 },
+  "appearance": {
+    "variants": [
+      { "id": "pale", "ns": "vehicle_truck_pale_ns", "ew": "vehicle_truck_pale_ew" },
+      { "id": "green", "ns": "vehicle_truck_green_ns", "ew": "vehicle_truck_green_ew" },
+      { "id": "burnt", "ns": "vehicle_truck_burnt_ns", "ew": "vehicle_truck_burnt_ew" }
+    ]
+  }
+}

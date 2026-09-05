@@ -258,40 +258,50 @@ with every other rig. The ramps are `pine_dark`, `pine_light` and `bark`, timber
 
 ## The vehicle — one three-quarter picture per class, variant and axis
 
-`vehicle_sedan_{pale,green,burnt}_{ns,ew}` (`tools/sprites/parts/vehicles.py`) are the sedan:
-**64×192 nose-north and 160×96 nose-east, feet-anchored on the footprint's south edge**, hung
-and y-sorted the way a tree is. docs/30's Dungeon Settlers decision 11 is what shapes them —
-one picture per class × variant × axis, and the per-tile segment set retired with it, so a
-survivor walks in front of a car or behind it rather than through the seam between two tiles of
-one. A car seen end-on and a car seen from the side are different pictures, not one rotated;
-west is the `_ew` picture in a negative-width rect, exactly the flip a pawn takes, so the
-picture carries no word, badge or plate that would read as a mistake reversed.
+`vehicle_{sedan,van,truck}_{pale,green,burnt}_{ns,ew}` (`tools/sprites/parts/vehicles.py`) are
+the three classes, eighteen keys: **feet-anchored on the footprint's south edge**, hung and
+y-sorted the way a tree is. docs/30's Dungeon Settlers decision 11 is what shapes them — one
+picture per class × variant × axis, and the per-tile segment set retired with it, so a survivor
+walks in front of a vehicle or behind it rather than through the seam between two tiles of one.
+A vehicle seen end-on and one seen from the side are different pictures, not one rotated; west
+is the `_ew` picture in a negative-width rect, exactly the flip a pawn takes, so the picture
+carries no word, badge or plate that would read as a mistake reversed.
 
-- **The canvas is the footprint plus a tile of roofline north.** A sedan occupies 2×5 tiles, so
-  `_ns` is 2×6 tiles of canvas and `_ew` is 5×3. The extra tile is not decoration: it is the
-  room the three-quarter read needs, and it is spent exactly.
+- **The canvas is the footprint plus a tile of roofline north**, derived from the class's
+  footprint rather than tabled per key: a sedan is 2×5 tiles, so `_ns` is 64×192 and `_ew`
+  160×96; a van (2×6) is 64×224 / 192×96; a truck (2×7) is 64×256 / 224×96.
+  `Appearance.VEHICLE_FOOTPRINTS` and `vehicles.FOOTPRINTS` are the two copies of that table,
+  and `check_appearance.gd` measures every committed PNG against the engine's answer.
 - **The read is three-quarter, not overhead.** The ground stays plan — one tile is 32 px and no
   perspective — and the vehicle is drawn obliquely on top of it: a surface *h* metres up draws
-  that many pixels north of where it stands, `LIFT_DECK` (32, the boot and bonnet lids) and
-  `LIFT_ROOF` (46). So each picture is **one tile of near vertical face** plus the plan of
-  everything above it. On `_ns` the face is the rear of the car — rows 159–191: valance and a
-  hint of tyre, bumper, tail panel, two lamps — with the boot lid, rear screen, roof, a
-  windscreen almost edge-on and the bonnet receding north above it. On `_ew` the face is a whole
-  flank — rows 63–95: sill, two wheels in their arches, door lines, a lamp at each end — under
-  the side glass and the top plane.
-- **A sedan is three masses.** Bonnet, raised cabin, boot, and the greenhouse is inset from the
-  body sides by `CABIN_INSET` (8 px each side) so the shoulders stay in shade either side of the
-  roof. The body is also drawn in two widths — narrow at both bumpers, wide across the doors —
-  because a picture of constant width reads as a bus.
-- **Three variants differing in value, not only hue.** `car_pale` (mid luma 0.581), `car_green`
-  (0.468) and `car_burnt` (0.170), all muted-family and all held either side of every ground in
-  `tools/sprites/palette.py`. The burnt shell is a different picture in the same shapes rather
-  than a recolour: no glass (the openings are the darkest step of its own ramp), soot streaks out
-  of every opening, a buckled bonnet, ash on the roof, and dead lamp housings round a dark
-  socket.
-- **Lit from the top-left like everything else**, at `LIGHT_RADIUS` 64.0 and a gain of 0.08 —
-  small, because the modelling is in the panel steps (a face is the shaded step, a lid a mid one,
-  the roof the lightest) the same way a wall cap's read is its value.
+  `LIFT` × *h* pixels north of where it stands, and `LIFT` is **20 px a metre** for every class
+  and both axes (down from slice 10's 32; see the next point). So each picture is a near
+  vertical face plus the plan of everything above it. On `_ns` the face is the rear — the
+  sedan's tail panel, the van's two back doors, the truck's tailgate — with everything else
+  receding north in the order you meet it walking away. On `_ew` the face is a whole flank —
+  sill, wheels in their arches, door lines, a lamp at each end — under the top plane.
+- **Three classes are told apart by height and silhouette, never by length alone** — the
+  owner's 2026-09-04 call, recorded in docs/30. Every class's `_ew` shares one 96-row ceiling
+  whatever its length, and the slice-10 sedan spent 93 of them, so the projection came down and
+  the sedan is now a low bonnet, a raised inset cabin (`SEDAN_INSET` 8 px each side) and a low
+  boot in **73 rows**; the **van** is a closed box the whole of its length, ribbed roof, one cab
+  window, standing to **row 92**; the **truck** is a **flatbed**, a cab as tall as the van over
+  an open timber bed between two rails, its bed end **13 rows under its cab**. A box truck was
+  refused on purpose — a box truck and a panel van are both closed boxes and would collide
+  exactly where the decision separates them. `check_wrecks.gd`'s SILHOUETTE lane measures the
+  decoded `_ew` pictures for exactly those properties, so the tell is held rather than trusted.
+- **Three variants differing in value, not only hue**, shared by the three classes: `car_pale`
+  (mid luma 0.581), `car_green` (0.468) and `car_burnt` (0.170), all muted-family and all held
+  either side of every ground in `tools/sprites/palette.py`. The paint is the record's variant
+  and the shape is its class. The burnt shell is a different picture in the same shapes rather
+  than a recolour: no glass (the openings are the darkest step of its own ramp), soot streaks
+  out of every opening, ash on the roof, dead lamp housings round a dark socket, and the truck's
+  bed charred to `wood`'s darkest step.
+- **Lit from the top-left like everything else**, at a radius of `(w + h) / 4` — the reach at
+  which the diagonal ramp spends itself exactly on any canvas, 64 for the sedan's two and 72
+  and 80 for the van's and the truck's — and a gain of 0.08, small because the modelling is in
+  the panel steps (a face is the shaded step, a lid a mid one, the roof the lightest) the same
+  way a wall cap's read is its value.
 
 Which picture a vehicle record takes is the class, the variant and the axis in its own manifest
 record; nothing is hashed at draw time beyond what that record already says.
