@@ -2134,10 +2134,16 @@ always whole tiles, which is what lets the Low tiles be exactly the record. A ca
 shows decision 11's limit (one picture for both north-south facings) every time it does it; that
 was already recorded and is now visible.
 
-**Q, not E.** E is fortify's context ladder and the suburb stands its car-boot loot on a car's
-tail tile, so E beside a car has to keep meaning "search the boot". A dedicated key was the
-cheapest way to leave that alone. The owner may prefer E with the boot demoted; that is a
-one-line change in `main.gd` and a re-ordering in `fortify._use_context`.
+**E, not Q — the owner's call, 2026-09-05.** The first push put the door on a key of its own,
+because E is fortify's context ladder and the suburb stands its car-boot loot on a car's tail
+tile, so E beside a car had to keep meaning "search the boot". The owner asked for E within the
+hour, and the boot did not have to be demoted to grant it: the car is a rung of the ladder
+below the loose items and the containers (the boot is one) and the people waiting in reach, and
+above the furniture — so E beside a car with a boot on it still searches the boot first, and E
+with nothing else in reach opens the door. From the wheel E means exactly one thing, out, and
+never falls through to whatever the car happens to be standing over; at speed it does nothing
+at all. `vehicle.toggle` stays a command for gates and replays, and `M2_VEHICLES_OK`'s E-KEY
+lane holds every one of those orderings both ways.
 
 **Bodies are not probed.** A parked car is walk-through cover today (docs/30, the vehicle
 slice), and a moving one stays walk-through: nothing is run over, nothing is pushed. A hit is a

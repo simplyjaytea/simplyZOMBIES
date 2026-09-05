@@ -34,8 +34,8 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 **2026-09-05 — the parked cars drive** (`npm run godot:m2:vehicles`, `M2_VEHICLES_OK`), at the
 owner's direction and ahead of the Milestone 3B schedule it sat behind. Every `map.vehicles`
-record is an entity at boot; **Q** beside a car gets in, WASD drives it on four headings, Q
-again gets out once it has stopped; the engine is loud on the attention field and a body at the
+record is an entity at boot; **E** beside a car gets in (after the loot and the people beside
+it), WASD drives it on four headings, E again gets out once it has stopped; the engine is loud on the attention field and a body at the
 wheel is off the shambler's menu; a driven car survives a save (`SAVE_VERSION` 18). The record
 is docs/23's, the design calls are docs/30's "Driving" entry, and the halves it named rather
 than built — running things over, the door under siege, the driver's hands, NPC drivers, fuel —
@@ -102,7 +102,8 @@ slices have landed is docs/23's record, not this file** -- a list here went stal
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
 
 0. **The driving slice's first-cut calls**, each recorded in docs/30's "Driving" entry and each
-   a small change if re-decided: **Q** as the key rather than E; four headings with the opposite
+   a small change if re-decided (the key is decided: the owner chose **E** on 2026-09-05 and it
+   landed as a rung of fortify's ladder): four headings with the opposite
    key turning the car round; a moving car passing through bodies (nothing run over); a body at
    the wheel unreachable by shamblers; and the engine's numbers (sedan 24 under way, 4 idling,
    against a sprint's 6) — never measured against the director, because the 64-tile harness

@@ -442,14 +442,11 @@ func _input(event: InputEvent) -> void:
 				elif world != null:
 					world.commands.push({"type": "reload"})
 			KEY_E:
+				# The context key, and since the owner's 2026-09-05 decision also the car door:
+				# fortify's ladder (SimFortify._use_context) gets you out from the wheel and in
+				# from the kerb, after the loot and the people beside it. Nothing here knows
+				# about cars; the sim decides.
 				if world != null: world.commands.push({"type": "use.context"})
-			KEY_Q:
-				# In or out of the car beside you. Its own key rather than a rung of E's ladder:
-				# the suburb stands its car-boot loot on a car's tail tile, so E next to a car
-				# has to keep meaning "search the boot". The sim decides whether anything is in
-				# reach (SimVehicles.nearest_in_reach) and whether the door opens (stopped, a
-				# free tile beside it); this only proposes.
-				if world != null: world.commands.push({"type": SimVehicles.TOGGLE})
 			KEY_T:
 				# One key, two meanings, both decided in the sim: start first aid on the
 				# wound that matters, or stop the one already in progress. Presentation

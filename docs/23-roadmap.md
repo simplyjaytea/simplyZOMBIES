@@ -2606,9 +2606,13 @@ not a to-do list:
   spawn, on every footprint change, and after `world.restore`, exactly as `SimFortify.sync_map`
   puts boards back on windows. Every existing reader of the record — the tile branch, the
   car-boot loot host, `Dressing.vehicle_records` — keeps reading it and never learns the car can
-  move. `vehicle.toggle` (Q, its own key because E beside a car must keep meaning "search the
-  boot") mounts the nearest undriven car whose footprint edge is within 1.5 m or dismounts a
-  stopped one onto the first free walkable tile in the ring; the driver carries `mounted`, is
+  move. **E is the door** (the owner's decision, 2026-09-05, after the first push had put it on
+  Q): on fortify's context ladder, `use.context` from the wheel gets out and nothing else, and
+  from the kerb gets in after the loose items and the people beside the car — so the car-boot
+  loot the suburb stands on a car's tail tile is still searched before the door opens.
+  `vehicle.toggle` stays a command for gates and replays; nothing in presentation pushes it.
+  Mounting takes the nearest undriven car whose footprint edge is within 1.5 m; dismounting
+  puts a stopped car's driver on the first free walkable tile in the ring; the driver carries `mounted`, is
   pinned to the centre every tick with a zero velocity, and is drawn by nothing (the picture is
   the car). The driver's `move` is the car's intent, kept until replaced as a body's velocity
   is: four headings, the dominant axis of the intent naming the wanted one — the same heading
@@ -2641,7 +2645,7 @@ not a to-do list:
   tile. The 64-tile map every gate boots stands no car (its streets are two wide against the
   four a car needs), so the balance harness sees no change and its FAST lines cannot move —
   which is also why the engine's numbers are a first cut and not a measurement.
-  **The gate**, ten lanes and a budget it spends 2.4 s of 60: CONTENT (three classes whole, a
+  **The gate**, eleven lanes and a budget it spends 2 s of 60: CONTENT (three classes whole, a
   block missing `idle`, a zero, a string and a fabricated class refused at the wheel), SPAWN
   (suburb@128 stands 33 entities for 33 records, each at its centre on Low with no engine, the
   manifest identical to the generator's; bare@128 records and no entities; playable@64 none; a
@@ -2653,16 +2657,19 @@ not a to-do list:
   at the same number, the open road does not, both cars' twenty tiles intact), NOISE (parked 0,
   idling 4, driving 24 on the field; one engine note and no footstep on the bus; the emitter
   taken off, a driving car reads 0 — the dead-socket assertion, and its first cut read 3.2 from
-  the mount tick's one idle note still decaying twenty ticks later), SHELTER, SAVE (driven ten
+  the mount tick's one idle note still decaying twenty ticks later), E-KEY (a knife at the door
+  is picked up before the car, with nothing loose E gets in, from the wheel E gets out and
+  leaves the knife under the car, at speed E does nothing, and no key of its own remains in
+  `main.gd`), SHELTER, SAVE (driven ten
   tiles and turned, restored into a world with the car at the kerb: entity, record, Low and the
-  cleared kerb all match, and both worlds drive on in step), SOCKETS (eleven needles across
-  world, boot, shambler, main and dressing, the scanner proved on a fabricated string).
+  cleared kerb all match, and both worlds drive on in step), SOCKETS (twelve needles across
+  world, boot, shambler, fortify, main and dressing, the scanner proved on a fabricated string).
   **The pictures**, under `.hermes/plans/2026-09-03_dungeon-settlers-shots/`, captured through
   a throwaway Xvfb `SceneTree` driver (deleted after, per the rule) on the 256 suburb at zoom
   64: `slice12-beside-64.png`, `slice12-in-64.png` and `slice12-driving-64.png`, the player's
   sedan pulling away south past a parked van with the HUD reading "driving the sedan; Q to get
-  out once it stops" and the attention line "audible nearby" — the engine on the field, in
-  words. (The driver's capture ran a frame late, so the first two frames are already under
+  out once it stops" (captured before the key moved to E; the clause now says E) and the
+  attention line "audible nearby" — the engine on the field, in words. (The driver's capture ran a frame late, so the first two frames are already under
   way; they are three frames of one drive rather than the three states the names suggest.)
   Two things the frame shows that the gate cannot: the driver's pawn is gone from the street
   and the car is what moves, and the stance readout still says "walking" at the wheel, which
