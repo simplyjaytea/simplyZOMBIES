@@ -32,6 +32,13 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-06 — the pantry and the cook's claim** (`npm run godot:m2:needs` PANTRY, `godot:m2:jobs`
+COOK CLAIM), the second slice of the survival session, two named defects: `spoilage_rate` has a
+reader — every perishable ages at the best living colonist's rate, the owner's call, so the
+`surv.cook` web node is finally felt — and Cook claims its raw item and re-checks at completion,
+so two cooks make one meal and a vanished raw makes none. `repair_cost` stays dead and the debt
+entry says why. Balance lines before and after are in docs/23's record.
+
 **2026-09-06 — the splint, and the limp** (`npm run godot:m2:splint`, `M2_SPLINT_OK`, nine
 lanes), the first slice of the owner's survival-systems session. A splint kit on the medical
 table immobilises a fracture through the existing `close` rung — the closer is now the wound

@@ -1261,20 +1261,46 @@ static func treat_sepsis_mul(world: Variant, treater: int) -> float:
 	return sepsis_mul(String(of(world, treater).get("hygiene", "clean")))
 
 
+# Spoilage is a clock the pantry-keeper can slow. `spoilage_rate` was declared in stats.gd, bought
+# through the `surv.cook` web node ("a careful pantry", x0.95) and resolved by nothing -- a node a
+# survivor could own and nobody could feel (docs/23's defect list). The owner's rule (2026-09-06):
+# every perishable ages at the rate of the **best living colonist**, resolved once a tick, because
+# the pantry is the colony's and one careful pair of hands keeps all of it. `aged` is the clock,
+# advanced by the rate each tick, so the old `bornTick` comparison becomes a special case of it
+# at rate 1.0; the field is defaulted from `bornTick` when absent so a spoilage record written
+# before this key existed keeps its age.
 static func _tick_spoilage(world: Variant) -> void:
-	for item in world.components.query(["spoilage"]):
+	var items: Array[int] = world.components.query(["spoilage"])
+	if items.is_empty():
+		return
+	var rate: float = pantry_rate(world)
+	for item in items:
 		var sp: Variant = world.components.get_component(int(item), "spoilage")
 		if not sp is Dictionary:
 			continue
 		var s: Dictionary = sp as Dictionary
 		if bool(s.get("spoiled", false)):
 			continue
-		var born: int = int(s.get("bornTick", 0))
 		var need: int = int(s.get("spoilTicks", 0))
 		if need <= 0:
 			continue
-		if int(world.tick) - born >= need:
+		var aged: float = float(s.get("aged", int(world.tick) - int(s.get("bornTick", 0)))) + rate
+		s["aged"] = aged
+		if aged >= float(need):
 			s["spoiled"] = true
+
+
+# The colony's spoilage rate: the lowest `spoilage_rate` any living colonist resolves to, or 1.0
+# with nobody to keep a pantry. Corpses lose `needs` at `_make_corpse`, so the dead drop out.
+static func pantry_rate(world: Variant) -> float:
+	var best: float = 1.0
+	if world.modifiers == null:
+		return best
+	for ent in _survivors(world):
+		if world.components.has_component(int(ent), "recruit"):
+			continue
+		best = minf(best, float(world.modifiers.call("resolve", "spoilage_rate", int(ent))))
+	return maxf(0.0, best)
 
 
 static func mark_spoilage(world: Variant, item: int, base_id: String) -> void:
@@ -1288,6 +1314,7 @@ static func mark_spoilage(world: Variant, item: int, base_id: String) -> void:
 		"bornTick": int(world.tick),
 		"spoilTicks": int(days * float(Clock.DAY_TICKS)),
 		"spoiled": false,
+		"aged": 0.0,
 	})
 
 

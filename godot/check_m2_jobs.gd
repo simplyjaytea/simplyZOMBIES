@@ -24,8 +24,9 @@ func _run() -> void:
 	ok = _water_clean_bury() and ok
 	ok = _an_empty_left_by_a_drink_is_what_the_water_job_wants() and ok
 	ok = _succession() and ok
+	ok = _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, and the well is reachable from a bottle the sim emptied")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, and a cook claims its raw")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -196,7 +197,7 @@ func _jobs() -> bool:
 	var raw: int = SimItems.spawn_item(w, "item.food.raw", {"tier": "scavenged"})
 	var drop: Vector2i = _first_stockpile(w, start, false)
 	w.components.set_component(raw, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
-	var cook: Dictionary = SimJobs._cook_work(w)
+	var cook: Dictionary = SimJobs._cook_work(w, _mara(w))
 	if cook.is_empty():
 		push_error("cook work empty")
 		return false
@@ -493,3 +494,139 @@ func _an_empty_left_by_a_drink_is_what_the_water_job_wants() -> bool:
 		return false
 	print("WELL OK a bottle Mara drank became the empty the Water job wants -- the first empty the sim itself has ever produced")
 	return true
+
+
+# Cook claims its ingredient. docs/23's defect: nothing marked the raw as spoken for and the
+# completion never re-checked, so two cooks on one raw made two meals -- or one meal from nothing,
+# because the cooked spawn was unconditional. Six claims, each with its negative beside it:
+#   two cooks, one raw   -> the first claims it and the second finds no work; a second raw and the
+#                           second cook finds *that* one
+#   completion           -> exactly one meal, the raw gone, the claim gone, one job.completed
+#   a vanished raw       -> no meal, no job.completed, the job dropped; the intact control cooks one
+#   _stop                -> releases the claim, and the next cook can take it
+#   the holder dies      -> the stale claim heals on sight; a living holder's does not
+func _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	var ellis: int = _ellis(w)
+	if mara < 0 or ellis < 0:
+		push_error("COOK CLAIM: the booted colony has no Mara or no Ellis, so nothing was judged")
+		return false
+	if w.components.query(["campfire"]).is_empty():
+		push_error("COOK CLAIM: no campfire, so Cook has no work to claim")
+		return false
+	var raw: int = _drop_raw(w)
+	var job_m: Dictionary = SimJobs._cook_work(w, mara)
+	if job_m.is_empty() or int(job_m.get("target", -1)) != raw:
+		push_error("COOK CLAIM: Mara's cook work was %s" % str(job_m))
+		return false
+	w.components.set_component(mara, "job", job_m)
+	var r: Variant = w.components.get_component(raw, "reserved")
+	if not (r is Dictionary) or int((r as Dictionary).get("by", -1)) != mara:
+		push_error("COOK CLAIM: the raw carries no claim in Mara's name: %s" % str(r))
+		return false
+	var job_e: Dictionary = SimJobs._cook_work(w, ellis)
+	if not job_e.is_empty():
+		push_error("COOK CLAIM: Ellis was handed the raw Mara had already claimed: %s" % str(job_e))
+		return false
+	var raw2: int = _drop_raw(w)
+	job_e = SimJobs._cook_work(w, ellis)
+	if job_e.is_empty() or int(job_e.get("target", -1)) != raw2:
+		push_error("COOK CLAIM: with a second raw on the pile Ellis got %s" % str(job_e))
+		return false
+	w.components.set_component(ellis, "job", job_e)
+
+	# Completion: one meal, the raw gone, the claim gone, one completion.
+	var completed: Array = []
+	w.events.subscribe({"id": "gate.cook.done", "type": "job.completed", "handler": func(e: Dictionary) -> void:
+		if String(e.get("kind", "")) == "Cook":
+			completed.append(e)
+	})
+	var before: int = _count_base(w, "item.food.cooked")
+	_stand_at_fire(w, mara)
+	job_m["ticksLeft"] = 1
+	SimJobs._do_cook(w, mara, job_m)
+	w.events.drain()
+	if _count_base(w, "item.food.cooked") != before + 1:
+		push_error("COOK CLAIM: a completed cook made %d meals, not one" % (_count_base(w, "item.food.cooked") - before))
+		return false
+	if w.components.has_component(raw, "itemBase") or w.components.has_component(raw, "reserved"):
+		push_error("COOK CLAIM: the cooked raw is still there, or still claimed")
+		return false
+	if w.components.has_component(mara, "job") or completed.size() != 1:
+		push_error("COOK CLAIM: after cooking Mara still has a job, or job.completed fired %d times" % completed.size())
+		return false
+
+	# The vanished raw: Ellis's ingredient leaves the world before the pot is done. No meal, no
+	# completion, the job dropped -- the fire goes back to idle.
+	completed.clear()
+	before = _count_base(w, "item.food.cooked")
+	w.despawn(raw2)
+	_stand_at_fire(w, ellis)
+	job_e["ticksLeft"] = 1
+	SimJobs._do_cook(w, ellis, job_e)
+	w.events.drain()
+	if _count_base(w, "item.food.cooked") != before:
+		push_error("COOK CLAIM: a raw that vanished still cooked %d meals" % (_count_base(w, "item.food.cooked") - before))
+		return false
+	if w.components.has_component(ellis, "job") or not completed.is_empty():
+		push_error("COOK CLAIM: a cook whose raw vanished kept the job (%s) or completed it (%d)" % [str(w.components.get_component(ellis, "job")), completed.size()])
+		return false
+
+	# Release on _stop, and a stale claim healing when its holder dies -- while a live one holds.
+	var w2: Variant = _world()
+	var m2: int = _mara(w2)
+	var e2: int = _ellis(w2)
+	var raw3: int = _drop_raw(w2)
+	var jm: Dictionary = SimJobs._cook_work(w2, m2)
+	w2.components.set_component(m2, "job", jm)
+	if not SimJobs._cook_work(w2, e2).is_empty():
+		push_error("COOK CLAIM: a live claim by a living Mara was healed away")
+		return false
+	SimJobs._stop(w2, m2)
+	if w2.components.has_component(raw3, "reserved"):
+		push_error("COOK CLAIM: _stop left Mara's claim on the raw")
+		return false
+	var je: Dictionary = SimJobs._cook_work(w2, e2)
+	if je.is_empty() or int(je.get("target", -1)) != raw3:
+		push_error("COOK CLAIM: after Mara stopped, Ellis could not take the raw: %s" % str(je))
+		return false
+	w2.components.set_component(e2, "job", je)
+	SimHealth.finish_death(w2, e2)
+	w2.events.drain()
+	var jm2: Dictionary = SimJobs._cook_work(w2, m2)
+	if jm2.is_empty() or int(jm2.get("target", -1)) != raw3:
+		push_error("COOK CLAIM: a dead cook's claim still blocks the raw: %s" % str(jm2))
+		return false
+	print("COOK CLAIM OK one raw one cook, a second raw a second cook, one meal per completion, a vanished raw cooks nothing, _stop releases, a dead cook's claim heals and a live one holds")
+	return true
+
+
+func _ellis(w: Variant) -> int:
+	for e in w.components.query(["identity"]):
+		var ident: Variant = w.components.get_component(int(e), "identity")
+		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.ellis":
+			return int(e)
+	return -1
+
+
+func _drop_raw(w: Variant) -> int:
+	var raw: int = SimItems.spawn_item(w, "item.food.raw", {"tier": "scavenged"})
+	var drop: Vector2i = _first_stockpile(w, _start(w), true)
+	w.components.set_component(raw, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
+	return raw
+
+
+func _count_base(w: Variant, base_id: String) -> int:
+	var n: int = 0
+	for item in w.components.query(["itemBase"]):
+		var b: Variant = w.components.get_component(int(item), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == base_id:
+			n += 1
+	return n
+
+
+func _stand_at_fire(w: Variant, ent: int) -> void:
+	var fires: Array[int] = w.components.query(["campfire"])
+	var fp: Variant = w.components.get_component(fires[0], "position")
+	w.components.set_component(ent, "position", {"x": float((fp as Dictionary)["x"]), "y": float((fp as Dictionary)["y"])})

@@ -419,10 +419,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   nothing gives the item a home — no `stored`, no `position`, no slot. `item.detach` has the same
   shape: `SimAttachments.detach` deliberately leaves the attachment homeless and the command does
   nothing about it.
-- **Cook has no claim on its ingredient.** Nothing marks the raw item as spoken for and the job
-  does not re-check at completion, so two cooks turn one raw item into two meals — or into one meal
-  out of nothing. `Bury` has the same hole: `_do_bury` reads "the corpse has no position" as "I am
-  carrying it".
+- **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
+  Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
+  record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
+  unclaimed target in the same shape and have not been measured to double up; the `reserved`
+  component the Cook fix added is the seam if either ever does.
 - **A lull's opening edge is dead code.** `_begin_lull` guards its only write to `lullFromTick`
   with `world.tick < lullFromTick`, and the field starts at 0 and is never written, so the
   condition can never be true and the window is effectively `[0, lullUntilTick)`. `world.gd`'s
@@ -506,14 +507,15 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
   way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
   which is now a second hand-listed copy of the director's save shape.
-- **`repair_cost` and `spoilage_rate` are stats nothing resolves.** Both are declared in
-  `sim/modifiers/stats.gd` and both are the target of a shipped web node — `craft.tape`,
-  `craft.scrap`, `surv.cook` — and no code anywhere calls `resolve` on either, so those three
-  nodes are bought, applied, and felt by nobody. Named here because the focus-auto-allocation
-  slice made `craft.scrap` ownable for the first time and it would be dishonest to record that as
-  a node arriving in play: what arrived is a node that can be owned. Repair already spends a
-  fixed scrap cost (`SimJobs.REPAIR_TICKS` and the fortify scrap rules) and cooking already has a
-  spoilage clock, so both have an obvious reader waiting.
+- **`repair_cost` is a stat nothing resolves.** Declared in `sim/modifiers/stats.gd`, the target
+  of two shipped web nodes (`craft.tape`, `craft.scrap`) and of a suffix line, and no code calls
+  `resolve` on it, so those nodes are bought, applied, and felt by nobody. Named here because the
+  focus-auto-allocation slice made `craft.scrap` ownable for the first time and it would be
+  dishonest to record that as a node arriving in play: what arrived is a node that can be owned.
+  Repair spends **one whole scrap** (`_do_repair` through `_consume_owned`), and a ×0.9 on an
+  integer unit has no honest reader without a debt accumulator or a fractional cost — a design,
+  not a line, which is why it stayed when `spoilage_rate` got its reader (2026-09-06, the record's
+  Needs bullet, `godot:m2:needs` PANTRY).
 - **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
   time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
   a no-op for them.
@@ -3237,6 +3239,33 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Jobs** — ~~Cook has no claim on its ingredient~~ **landed** (`godot:m2:jobs`, COOK CLAIM),
+  2026-09-06. `_cook_work` now writes a `reserved: {by, job}` component onto the raw it hands
+  out; `_stock_base` skips a claim that is *live* — the holder still carries a Cook job targeting
+  that item — and erases a stale one on sight (the holder died, was re-assigned, or finished),
+  `_stop` releases the claim of the job it drops, and `_do_cook` re-validates at completion: a raw
+  that is gone or is somebody else's cooks nothing — no meal, no `job.completed`, no Survival
+  point — and the fire goes back to idle. Measured in the lane: two cooks and one raw — the first
+  claims it, the second's `_cook_work` is `{}`, and a second raw on the pile hands the second cook
+  *that* one; a completion makes exactly one `item.food.cooked`, the raw and its claim gone, one
+  `job.completed`; a raw despawned mid-job cooks **zero** meals and fires zero completions where
+  the intact control cooks one; `_stop` releases; a dead cook's claim heals on sight while a living
+  one holds. `reserved` is transient and a new component, so no save bump. Named rather than
+  fixed: `_water_work` and `_repair_work` hand out an unclaimed target in the same shape, `Bury`'s
+  "no position means I am carrying it" stays in the defect list, and `_do_cook` still despawns the
+  whole raw *stack* for one meal — pre-existing, balance-relevant, and its own line.
+- **Needs** — ~~`spoilage_rate` is a stat nothing resolves~~ **landed** (`godot:m2:needs`,
+  PANTRY), 2026-09-06, with the owner's rule: **a perishable ages at the best living colonist's
+  rate.** `_tick_spoilage` resolves `spoilage_rate` once a tick as the minimum over every
+  `needs`-holder that is not a recruit (corpses lose `needs` at `_make_corpse`, so the dead drop
+  out) and advances a new `aged` field on each spoilage record by it; `spoiled` is `aged >=
+  spoilTicks`, so the old `tick - bornTick` comparison is the rate-1.0 case of the new clock and a
+  record written before `aged` existed is defaulted from `bornTick` and keeps its age. Measured
+  on a fixture food with a 576-tick clock: with nobody owning `surv.cook` it spoils on tick 576
+  and not on 575; with Mara having bought the node through the real `web.buy` path (×0.95,
+  `resolve` reads 0.95 and `pantry_rate` reads 0.95) it is unspoiled at 606 and spoiled by 607;
+  with Mara dead, on 576 again. `repair_cost` stays dead, and the debt entry now says why. The
+  four FAST balance lines were run before and after and are byte-identical — the fast tier never saw two cooks contend for one raw, and nobody in it owns `surv.cook`.
 - **Needs** — ~~drinks as content, the stimulant, and what a spent unit leaves behind~~
   **landed** (`godot:m2:needs`, DRINK and STIMULANT; `godot:m2:jobs`, WELL; with the gear
   catalogue, 2026-09-06). A `drink: {thirst, rest?, crashRest?, crashAfterTicks?, mood?}` block

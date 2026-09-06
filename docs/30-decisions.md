@@ -2365,6 +2365,29 @@ on a job (the locomotion debt entry); and the impact-fracture roll gives every f
 severity, so setting a bone needs no Medicine at all — whether it should is the
 diagnosis-with-skill piece's question.
 
+## The pantry reads its keeper, and a cook claims the pot, 2026-09-06
+
+Two named defects from the food side of the survival session, one decision each.
+
+- **Spoilage reads the best living colonist's `spoilage_rate`.** The `surv.cook` node ("a careful
+  pantry", ×0.95) is bought per survivor and the modifier it applies is scoped to that survivor;
+  spoilage sits on the item. Three scopes were offered and the owner picked the first: the
+  pantry is the colony's, so one careful pair of hands keeps all of it — `min` over the living,
+  resolved once a tick, not once per item. "The survivor who stowed it" would have needed a
+  per-item owner and a save-shape change to feel one node; "global only" would have moved how web
+  nodes apply. The clock is a new `aged` field advanced by the rate rather than a rescaled
+  `spoilTicks`, because a rate that changes mid-life (a keeper dies, a node is bought) has to
+  apply from that tick forward and a baked-in deadline cannot. `repair_cost`, the other dead
+  stat in the same entry, stayed dead: repair spends one whole scrap, and ×0.9 of an integer is
+  a design (a debt accumulator, or fractional scrap) rather than a reader.
+- **A cook's claim is a component on the item, live only while the job is.** `reserved: {by,
+  job}` on the raw, checked against the holder's *current* job rather than trusted, so a claim
+  whose holder died or was re-assigned heals the moment anybody looks at the pile instead of
+  blocking it until somebody remembers to clear it. `_do_cook` re-validates at completion the way
+  `treatment._complete` and `fortify._place_scrap` do — a meal is spawned only if the raw is still
+  there and still this cook's — which closes both halves of the defect (two meals from one raw,
+  one meal from nothing) without a second bookkeeping system.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
