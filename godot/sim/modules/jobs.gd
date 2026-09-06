@@ -277,7 +277,7 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 		"Construct":
 			return _construct_work(world, x, y)
 		"Cook":
-			return _cook_work(world)
+			return _cook_work(world, ent)
 		"Doctor":
 			return _doctor_work(world, ent)
 		"Rest":
@@ -529,14 +529,48 @@ static func _campfire_at(world: Variant, tx: int, ty: int) -> int:
 	return -1
 
 
-static func _cook_work(world: Variant) -> Dictionary:
+# Cook claims its ingredient. Before this, nothing marked the raw item as spoken for and the
+# completion did not re-check, so two cooks assigned in one tick both targeted the same raw and,
+# 2400 ticks later, the first despawned it and the second cooked a meal out of nothing -- the
+# `_do_cook` spawn was unconditional (docs/23's defect list, "Cook has no claim on its
+# ingredient"). The claim is a `reserved` component on the item, live only while its holder still
+# holds this very job; `_stock_base` skips a live claim and erases a stale one, `_stop` releases it,
+# and `_do_cook` cooks nothing when the raw is gone or is somebody else's.
+static func _cook_work(world: Variant, ent: int) -> Dictionary:
 	var raw: int = _stock_base(world, "item.food.raw")
 	if raw < 0:
 		return {}
 	var fires: Array[int] = world.components.query(["campfire"])
 	if fires.is_empty():
 		return {}
+	world.components.set_component(raw, "reserved", {"by": ent, "job": "Cook"})
 	return {"kind": "Cook", "target": raw, "fire": fires[0], "ticksLeft": COOK_TICKS, "path": [], "pathGen": -1, "stage": "goto"}
+
+
+# Is this item's claim still held? Live means the holder is alive to the job system and carries a
+# job of the claimed kind targeting this item. Anything else -- the holder died (`_make_corpse`
+# removes `job` directly), was re-assigned, or finished -- is stale, and a stale claim is erased on
+# sight rather than left to block the pantry forever.
+static func _claim_live(world: Variant, item: int) -> bool:
+	var r: Variant = world.components.get_component(item, "reserved")
+	if not (r is Dictionary):
+		return false
+	var by: int = int((r as Dictionary).get("by", -1))
+	var job: Variant = world.components.get_component(by, "job")
+	if job is Dictionary and String((job as Dictionary).get("kind", "")) == String((r as Dictionary).get("job", "")) and int((job as Dictionary).get("target", -1)) == item:
+		return true
+	world.components.remove(item, "reserved")
+	return false
+
+
+# Release the claim `ent` holds on its job's target, if the target carries one in ent's name.
+static func _release_claim(world: Variant, ent: int, job: Dictionary) -> void:
+	var target: int = int(job.get("target", -1))
+	if target < 0:
+		return
+	var r: Variant = world.components.get_component(target, "reserved")
+	if r is Dictionary and int((r as Dictionary).get("by", -1)) == ent:
+		world.components.remove(target, "reserved")
 
 
 static func _doctor_work(world: Variant, _ent: int) -> Dictionary:
@@ -565,6 +599,8 @@ static func _stock_base(world: Variant, base_id: String) -> int:
 	for item in SimNeeds.stockpile_items(world):
 		var b: Variant = world.components.get_component(item, "itemBase")
 		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == base_id:
+			if _claim_live(world, int(item)):
+				continue
 			return item
 	return -1
 
@@ -966,18 +1002,22 @@ static func _do_construct(world: Variant, ent: int, job: Dictionary) -> void:
 
 static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
 	var fire: int = int(job.get("fire", -1))
-	var cf: Variant = world.components.get_component(fire, "campfire")
-	if cf is Dictionary and not bool((cf as Dictionary).get("lit", false)):
-		SimNeeds.set_lit(world, fire, true, true)
-	else:
-		SimNeeds.set_lit(world, fire, true, true)
+	SimNeeds.set_lit(world, fire, true, true)
 	var left: int = _progress(world, ent, job)
 	if left > 0:
 		return
 	var raw: int = int(job.get("target", -1))
-	if world.components.has_component(raw, "itemBase"):
-		world.components.remove(raw, "position")
-		world.despawn(raw)
+	# Re-validated at completion: the raw is still there and still this cook's. A raw that was
+	# eaten, hauled off or cooked by somebody else cooks nothing -- no meal, no `job.completed`,
+	# no Survival point -- and the fire goes back to idle exactly as it would after a real meal.
+	var r: Variant = world.components.get_component(raw, "reserved")
+	var mine: bool = r is Dictionary and int((r as Dictionary).get("by", -1)) == ent
+	if not world.components.has_component(raw, "itemBase") or not mine:
+		SimNeeds.set_lit(world, fire, true, false)
+		_stop(world, ent)
+		return
+	world.components.remove(raw, "position")
+	world.despawn(raw)
 	var cooked: int = SimItems.spawn_item(world, "item.food.cooked", {"tier": "scavenged"})
 	SimNeeds.mark_spoilage(world, cooked, "item.food.cooked")
 	var drop: Vector2i = _stock_drop(world)
@@ -1265,6 +1305,9 @@ static func _stop(world: Variant, ent: int, completed: String = "") -> void:
 		world.events.publish({"type": "job.completed", "entity": ent, "kind": completed})
 	if world.components.has_component(ent, "sleeping"):
 		SimNeeds.wake(world, ent)
+	var job: Variant = world.components.get_component(ent, "job")
+	if job is Dictionary:
+		_release_claim(world, ent, job as Dictionary)
 	world.components.remove(ent, "job")
 	_still(world, ent)
 

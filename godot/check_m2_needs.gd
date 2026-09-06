@@ -7,6 +7,7 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
@@ -43,8 +44,9 @@ func _run() -> void:
 	ok = _a_rough_night_costs_mood_then_stops_costing_it() and ok
 	ok = _drink_is_content_and_the_bottle_leaves_an_empty() and ok
 	ok = _a_stimulant_lifts_rest_now_and_crashes_later() and ok
+	ok = _a_careful_pantry_slows_spoilage() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, drinks are content and leave their empties, and a stimulant is a loan")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, drinks are content and leave their empties, a stimulant is a loan, and a careful pantry keeps")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -1864,6 +1866,8 @@ func _inject_fixture(w: Variant) -> void:
 			"food": {"hunger": 10, "spoilDays": 1}},
 		{"id": "item.gate.keeps", "name": "Gate Keeper", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1,
 			"food": {"hunger": 10, "spoilDays": 0}},
+		{"id": "item.gate.quick", "name": "Gate Quick", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1,
+			"food": {"hunger": 10, "spoilDays": 0.002}},
 	]
 
 
@@ -2179,4 +2183,94 @@ func _a_stimulant_lifts_rest_now_and_crashes_later() -> bool:
 		push_error("STIMULANT: the hold left a clock of %s and a debt of %s" % [str(n6.get("stimulantUntilTick")), str(n6.get("stimulantCrashRest"))])
 		return false
 	print("STIMULANT OK %d stimulant(s) in content, each a loan; the energy drink lifts 20 now, books 25 in 36000 ticks and reads 'wired' with no digit; on a forty-tick fixture the crash lands after %d steps for 25, a twin that drank nothing never crashes, two cans land one crash of 50, three on a pool of five collapse, and the hold clears it" % [stims.size(), steps])
+	return true
+
+
+# `spoilage_rate` has a reader. It was declared in stats.gd, sold by the `surv.cook` web node and
+# resolved by nothing, so "a careful pantry" was a node a survivor could own and nobody could feel.
+# The owner's rule: a perishable ages at the best living colonist's rate. Measured on a fixture
+# food that spoils in 576 ticks: with nobody owning the node it spoils at 576 and not at 575; with
+# Mara owning it, not at 606 and by 607 (576 / 0.95, rounded up); with Mara dead, at 576 again.
+func _a_careful_pantry_slows_spoilage() -> bool:
+	var w: Variant = _world()
+	_inject_fixture(w)
+	w.needsHoldMax = true
+	var mara: int = _mara(w)
+	if mara < 0:
+		push_error("PANTRY: no Mara in the booted colony, so nothing was judged")
+		return false
+	var node: Variant = null
+	for n in (SimSkills._web().get("nodes", []) as Array):
+		if String((n as Dictionary).get("id", "")) == "surv.cook":
+			node = n
+	if node == null or String((node as Dictionary).get("stat", "")) != "spoilage_rate":
+		push_error("PANTRY: the web has no surv.cook node targeting spoilage_rate, so there is nothing to feel")
+		return false
+	var mul: float = float((node as Dictionary).get("value", 1.0))
+
+	# Nobody owns the node: on schedule, to the tick.
+	var quick: int = SimItems.spawn_item(w, "item.gate.quick", {"tier": "scavenged"})
+	var sp: Variant = w.components.get_component(quick, "spoilage")
+	if not (sp is Dictionary) or int((sp as Dictionary).get("spoilTicks", 0)) != 576:
+		push_error("PANTRY: the fixture food did not get a 576-tick spoilage clock: %s" % str(sp))
+		return false
+	for _i in 575:
+		w.step()
+	if bool((sp as Dictionary).get("spoiled", false)):
+		push_error("PANTRY: spoiled a tick early with nobody keeping the pantry")
+		return false
+	w.step()
+	if not bool((sp as Dictionary).get("spoiled", false)):
+		push_error("PANTRY: not spoiled on its 576th tick with nobody keeping the pantry")
+		return false
+	if absf(SimNeeds.pantry_rate(w) - 1.0) > 0.0001:
+		push_error("PANTRY: the rate with nobody owning the node is %.4f, not 1.0" % SimNeeds.pantry_rate(w))
+		return false
+
+	# Mara buys it through the real command path, and every perishable in the colony feels it.
+	SimJobs.set_focus(w, mara, "Manual")
+	SimSkills._earn(w, mara, "Survival", 1)
+	var learned: Array = []
+	w.events.subscribe({"id": "gate.pantry.learned", "type": "web.learned", "handler": func(e: Dictionary) -> void:
+		learned.append(e)
+	})
+	w.commands.push({"type": "web.buy", "entity": mara, "node": "surv.cook"})
+	w.step()
+	if learned.size() != 1 or not SimSkills.has_node(w, mara, "surv.cook"):
+		push_error("PANTRY: Mara did not learn surv.cook (learned %d, owns %s)" % [learned.size(), str(SimSkills.has_node(w, mara, "surv.cook"))])
+		return false
+	if absf(float(w.modifiers.resolve("spoilage_rate", mara)) - mul) > 0.0001 or absf(SimNeeds.pantry_rate(w) - mul) > 0.0001:
+		push_error("PANTRY: Mara resolves spoilage_rate %.4f and the pantry reads %.4f, wanted %.4f" % [float(w.modifiers.resolve("spoilage_rate", mara)), SimNeeds.pantry_rate(w), mul])
+		return false
+	var slow: int = SimItems.spawn_item(w, "item.gate.quick", {"tier": "scavenged"})
+	var ssp: Dictionary = w.components.get_component(slow, "spoilage") as Dictionary
+	var later: int = int(ceil(576.0 / mul))
+	for _i in later - 1:
+		w.step()
+	if bool(ssp.get("spoiled", false)):
+		push_error("PANTRY: with a careful pantry the food spoiled by tick %d, no later than before" % (later - 1))
+		return false
+	w.step()
+	if not bool(ssp.get("spoiled", false)):
+		push_error("PANTRY: with a careful pantry the food had not spoiled by tick %d" % later)
+		return false
+
+	# The dead keep no pantry: Mara's node dies with her and the clock runs at full speed again.
+	SimHealth.finish_death(w, mara)
+	w.events.drain()
+	if absf(SimNeeds.pantry_rate(w) - 1.0) > 0.0001:
+		push_error("PANTRY: a dead Mara still keeps the pantry at %.4f" % SimNeeds.pantry_rate(w))
+		return false
+	var after: int = SimItems.spawn_item(w, "item.gate.quick", {"tier": "scavenged"})
+	var asp: Dictionary = w.components.get_component(after, "spoilage") as Dictionary
+	for _i in 575:
+		w.step()
+	if bool(asp.get("spoiled", false)):
+		push_error("PANTRY: spoiled early after the pantry-keeper died")
+		return false
+	w.step()
+	if not bool(asp.get("spoiled", false)):
+		push_error("PANTRY: not spoiled on its 576th tick after the pantry-keeper died")
+		return false
+	print("PANTRY OK 576 ticks with nobody, %d with Mara's careful pantry (x%.2f), 576 again once she is dead" % [later, mul])
 	return true
