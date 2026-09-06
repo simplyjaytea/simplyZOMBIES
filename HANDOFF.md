@@ -292,7 +292,8 @@ in it cost someone a session, and three entries were added by the sweep above.
 
 ```bash
 bash scripts/setup-web-session.sh   # fresh container has no engine
-npm run godot:m2                    # ~7 min, the gate that matters
+npm run godot:m2                    # ~12 min, the gate that matters
+npm run check:routing               # the routing table in AGENTS.md, and every gate reachable
 npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
 ```
 

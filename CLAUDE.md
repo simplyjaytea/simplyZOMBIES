@@ -31,7 +31,9 @@ fail it, measured if it claims anything about balance, recorded in the same comm
 that followed this loop landed six slices in a run; the sessions that did not are where the traps
 section came from.
 
-1. **Orient before touching anything.** This file top to bottom, then
+1. **Orient before touching anything.** This file top to bottom, then the
+   [routing table](AGENTS.md#routing-table) for where each kind of work lives and which gate
+   judges it, then
    [what's left](docs/23-roadmap.md#whats-left-in-milestone-2) for what is open and
    [the record, by system](docs/23-roadmap.md#the-record-by-system) for how the neighbouring
    systems landed. `HANDOFF.md` names what is waiting on the owner. Read
@@ -100,6 +102,7 @@ npm run godot:check:worn     # gear layers, order and skeleton fit → WORN_LOOK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
+npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
 ```
 
 Those are the ones worth naming, not all of them: `godot:m2` chains **51**, and the authoritative
@@ -112,6 +115,14 @@ because a copy here is one more thing that drifts. Run an individual gate with t
 own step in CI's `check` job. Run it after editing anything under `tools/sprites/` or any PNG
 that package generates — it re-renders every registry key and compares decoded pixels against
 the committed file, so a palette edited without regenerating is a red build.
+
+`check:routing` is the other gate outside `godot:m2`, and the one that judges the desk rather
+than the game: it reads the routing table in `AGENTS.md` and fails on any path, npm script or
+doc anchor that no longer resolves, then asks the dead-socket question of the gates themselves
+(every `godot/check_*.gd` reachable from `scripts/run-godot.mjs`, every runner mode reachable
+from `package.json`, every `godot:m2:*` / `godot:check:*` / `godot:ban:*` script inside the
+`godot:m2` chain or excused by name). Run it after touching any of those four things. Node only,
+about a second.
 
 `godot:m2` prints `ObjectDB ... leaked at exit` and `resources still in use` *after* it reports
 success. That is engine shutdown noise, not a failure — check the `_OK` line and the exit code.
@@ -222,7 +233,9 @@ drifted. Three things about the current state matter enough to repeat anyway:
   never resolved it, so the limp, encumbrance and blood loss had only ever slowed the player.
   **A gate asserting that a helper returns the right number does not assert that anything reads
   it.** When you add a mechanism, add the assertion that something reaches it —
-  `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example. The sweep
+  `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example, and
+  `npm run check:routing` applies the same rule to the gates themselves (a check script no npm
+  script reaches is red, which retired `check_r6_bench.gd`). The sweep
   left three more sockets named but unfixed (`sim/spatial/hash.gd` entire, `SimThreat.threat_within`,
   `SimStances.eye_of`); they are in
   [docs/23's defect list](docs/23-roadmap.md#whats-left-in-milestone-2).
