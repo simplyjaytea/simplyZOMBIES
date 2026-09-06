@@ -88,7 +88,10 @@ static func attach_kernel(world: Variant, map: Variant) -> void:
 
 
 static func _decay(w: Variant) -> void:
-	w.field.decay()
+	# A storm masks noise: the tick's half-life is multiplied by the weather's factor, exactly
+	# 1.0 under any sky that does not declare one (docs/adr/0016). The field never learns what
+	# weather is -- the same shape as `_diffuse` below.
+	w.field.decay(SimWeather.noise_half_life_mul(w))
 
 
 static func _diffuse(w: Variant) -> void:

@@ -412,12 +412,6 @@ the calendar, the wind, the shift, the slowed living and dead) landed in the rec
 **Weather**, and each kind's own effects is a piece here with its own gate. Every number is a
 content first cut for the owner.
 
-- **The storm's noise and lightning.** `noiseHalfLifeMul` read by `attention.decay()` through
-  `SimBoot._decay` the way the scent factor is; lightning every `intervalTicks` on an open
-  outdoor tile as `noise.emitted` (magnitude 240 — never 180, 120 or 4, which `sfx.gd` plays as
-  a gun, a shout and a bow) and a `weather.lightning` event; outdoor work refused at `_pick` and
-  a running outdoor job dropped before `_advance_job` (Guard is watch, not work). Gate
-  `godot:m2:storm`. Barricade damage and a thunder sample are not this piece.
 - **What the weather left behind.** Fog (sight collapse both ways); the ranged accuracy penalty
   in rain; rain filling water; barricade damage and rot in a storm; firewood consumption and
   frostbite in a cold snap; tracks in snow; seasons changing the phase lengths (docs/02);
@@ -3393,6 +3387,50 @@ not a to-do list:
   the storm and heat lines). Chores done alongside: `--m2-storm` / `--m2-cold` / `--m2-heat` in
   `scripts/run-godot.mjs` and their three `godot:m2:*` scripts in `package.json`, all three
   appended to the `godot:m2` chain after `godot:m2:weather`.
+- **Weather** — ~~the storm's noise and lightning~~ **landed** (`npm run godot:m2:storm`, new,
+  `M2_STORM_OK`, five lanes), 2026-09-06 — the first of the spine's per-kind slices (ADR 0016;
+  docs/30 "The sky has kinds" carries the three calls). The storm's three readers, all of them
+  content-driven and identity under every other sky: `attention.decay()` gained a
+  `half_life_mul` parameter in `diffuse_scent`'s exact shape — a factor on *this tick's*
+  half-life, `pow(_decay_per_tick, 1.0 / mul)`, never a per-step multiplier, because this decay
+  runs every tick rather than every fifth and the scent's first cut already paid for that
+  mistake once — handed in by `SimBoot._decay` as `SimWeather.noise_half_life_mul(w)`, so the
+  field still never learns what weather is; `SimWeather._tick_lightning` strikes every
+  `intervalTicks` (600..2400, content) on an open outdoor tile picked by rejection (x and y on
+  the `weather` stream, sixteen tries then silence — a map walk for an event this rare is not
+  worth 4096 tile reads), publishing a bare `noise.emitted` at **240** for the kernel's own
+  handler plus a `weather.lightning {x, y, tick}` for the look slice, and `nextLightningTick` is
+  reset to 0 by `set_kind` for any sky that declares no `lightning`, so a storm never inherits
+  the last one's clock and never strikes on its own first tick; and `SimJobs._refused_outdoors`
+  turns `outdoorWork: false` into two refusals — `_pick` skips a candidate whose `_job_tile`
+  is outdoors, and `_tick_one` `_stop`s a running one before `_advance_job`, which releases the
+  claim the way any abandoned job's is. **Guard and Rest are exempt** and need-seek returns
+  above the refusal entirely: a storm stops work, not life. Measured in the gate: NOISE (one
+  shout of 200 at one tile on three worlds off one seed — forty ticks later a storm's field
+  holds **62.996** where a clear sky holds **125.992**, x0.40 against x1.00, and clear equals a
+  world with its weather record emptied to within 1e-6; masked, never wiped); LIGHTNING (a
+  storm with `intervalTicks` pinned to 100 on its own duplicated content entry struck **3
+  times in 350** where the shipped range allows at most one, every bolt on a tile that is
+  neither wall nor roof, and the field reads **50.1** at the first — the socket, since an
+  event nothing hears would pass every other assertion; the shipped 600..2400 struck **6 times
+  in 10 000 ticks**, inside the 4..16 its own arithmetic allows; the same seed twice drew the
+  same strikes and seed 404 drew **7** of its own; a forced clear sky struck **nothing in
+  20 000** and carries a strike clock of 0; a fixture that never registered the module, forced
+  to a storm by hand, struck nothing in 2 000); WORK (an outdoor haul one tile from Mara is
+  refused under a storm and taken under rain — just as wet, just as loud — an indoor one
+  taken under both, a running outdoor Construct dropped inside one `_tick_one` under a storm
+  and kept under rain and kept indoors under a storm, and the guard still on the gate at
+  (30, 31), which is outdoors); WET (the spine's fixture re-keyed on `wets`: soaked at **201**
+  ticks outdoors, never under a roof); HUD ("A storm is over the district." under a storm, not
+  under rain, digit-free, and now in `check_hud.gd`'s clean list). Every lane was proved able
+  to fail: dropping the factor in `SimBoot._decay` reads 125.992 against 125.992; deleting
+  either refusal site names which one; dropping the Guard exemption empties the gate post;
+  dropping the `noise.emitted` reads 0.0000 at the strike; deleting the rejection loop lands a
+  bolt on a wall at (53, 0). Named rather than built, and still in what's left: barricade
+  damage and rot in a storm, a thunder sample (`sfx.gd` has none, and 240 is chosen so it plays
+  nothing rather than a gunshot), the sim light pulse the owner refused, the screen flash and
+  the storm's rain intensity (the look slice), and noise carried downwind. No balance run —
+  the integrator's.
 - **Weather** — ~~the sky has kinds, seasons and a wind~~ **landed** (`npm run godot:m2:weather`
   rewritten, `M2_WEATHER_OK`, thirteen lanes; `godot:m2:save` and `godot:m2:fortify` at v21),
   2026-09-06 — the spine of the owner's weather session, opened the same day rain landed
