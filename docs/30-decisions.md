@@ -2591,6 +2591,59 @@ director's minimum siege cadence (risk 3) is measured against that and nothing m
 ten-day playtest finds building without a trap has nothing to defend *with*, that is a reason to
 revisit, and it is a playtest finding to bring back here, not a reason to smuggle one in.
 
+## The playable state, 2026-09-06
+
+The owner's session on getting the game to a good playable state. Three code-grounded surveys
+(survival and needs, the NPC colonists, the zombies and the director) were read against docs/02's
+ratchet and docs/04, 07, 14 and 17, and found both loops the exit criterion needs open-circuited:
+the colony loop at the NPC's end (the boot colony does no work, because Ellis's authored row is
+Guard 1 and the Guard job never completes; NPCs never open a container; a colonist at zero hunger
+stops seeking and dies beside a full pantry) and the attention loop at the zombie's end (a
+shambler acquires a survivor only inside 1.6 m and has no sight; days 1–7 send nothing; nothing
+has ever breached on any seed; the balance harness measures a 64-tile map sixteen times denser
+than the 256 the player boots). The owner answered twelve questions the same day. Each is a
+decision, not a number; the numbers inside each are first cuts that land with their slice and
+are recorded there.
+
+1. **The target is the ten-day human playtest**, docs/23's exit criterion, not a shorter loop.
+2. **Order: the colony loop first, then the zombies; lethality and presentation last** — the
+   small sim fixes that make the base alive give the zombie slices something to threaten, and
+   the harness moves once per system rather than twice.
+3. **Zombies perceive as docs/14 is written.** Every zombie gets an observer — sight through the
+   existing shadowcast, scaled by light — and the authored `sensory` block weights noise, scent
+   and light per type. Measured against the harness before and after.
+4. **Two grace nights, then the strain table every night.** The `live < 8` trickle gate goes.
+   The variance floor and the siege cap stand. Re-measured.
+5. **Boot population scales with the district**: a density of 20 per 64 tiles of side, so the
+   harness's 64 keeps its 20 and the played 256 boots 80. The linear reading is this plan's call:
+   the owner's two numbers fix it, and a per-area reading (320) would sit ten times over the
+   live cap and refuse every night.
+6. **Guard is a dusk-to-dawn post.** By day a survivor with Guard set works the rest of its row;
+   at dusk it takes the post. Ellis builds and hauls by day and watches by night.
+7. **Body damage slows and staggers**: torso integrity feeds a speed factor and a stagger chance
+   the way legs feed the crawl; the head stays the only kill.
+8. **Boards, barricades and doors break by pressing.** A door tile class that opens, closes and
+   breaks, and zombies press on any barrier on their path with pressure scaling by how many are
+   packed against it (docs/15). Doors as a tile class *plus* an entity component through
+   `sync_map` — the window-board precedent — is this plan's call, because `SOLID` is a const and
+   a door is not.
+9. **Cold, heat and sepsis can all kill**: hypothermia and heatstroke as injuries on the
+   exposure ladder, sepsis lethal untreated on a dusk clock. Each with a measurement. This
+   closes the long-standing sepsis item.
+10. **NPCs scavenge too, near home**: containers the colony has seen, within a radius of the
+    annex; the far district stays the player's run (docs/02).
+11. **Zombies emit to the field**, driven by their `emits` block, and lay residue in every state.
+    The horde entity stays Milestone 3B.
+12. **The screen speaks of the colony**: prose world-lines for death, succession, run-over,
+    arrival and bereavement, and click-to-select on a colonist so the third-person prose that
+    already exists reaches the screen.
+
+One more call the plan takes inside decision 3: `extends` in zombie content is **resolved**, the
+way the frozen oracle resolves it (child wins, objects merge, arrays replace), rather than deleted
+from the schema — deleting it would triplicate every shared block and need a schema edit the
+oracle must also pass. The pieces are docs/23's playable-state group, in landing order; each
+records its own numbers here as a bullet under this entry when it lands.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
