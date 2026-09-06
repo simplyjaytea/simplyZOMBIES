@@ -294,6 +294,9 @@ func diffuse_scent(half_life_mul: float = 1.0) -> void:
 # first cut did exactly that and read as a colony wipe in the harness).
 func decay(half_life_mul: float = 1.0) -> void:
 	var floor_v: float = float(calibration["floor"])
+	# A factor above one would lengthen the half-life; none can arrive (the schema caps
+	# noiseHalfLifeMul at 1 and SimWeather clamps), so that branch is the identity, kept so the
+	# shape matches diffuse_scent's.
 	var d_tick: float = _decay_per_tick if half_life_mul >= 1.0 else pow(_decay_per_tick, 1.0 / maxf(0.01, half_life_mul))
 	for i in noise.size():
 		var v: float = noise[i]

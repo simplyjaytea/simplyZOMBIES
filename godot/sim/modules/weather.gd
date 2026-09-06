@@ -48,7 +48,7 @@ const LIGHTNING_TRIES: int = 16
 const DEFAULTS: Dictionary = {
 	"clear": {"durationTicks": {"min": 144000, "max": 432000}, "weights": {"spring": 3, "summer": 6, "autumn": 4, "winter": 2}},
 	"rain": {"durationTicks": {"min": 24000, "max": 72000}, "weights": {"spring": 5, "summer": 2, "autumn": 3, "winter": 1}, "wets": true, "scentHalfLifeMul": 0.5},
-	"storm": {"durationTicks": {"min": 12000, "max": 36000}, "weights": {"spring": 1, "summer": 2, "autumn": 2, "winter": 0}, "wets": true, "scentHalfLifeMul": 0.35, "noiseHalfLifeMul": 0.4, "outdoorWork": false, "windMul": 2.0, "lightning": {"intervalTicks": {"min": 600, "max": 2400}, "noise": 240}},
+	"storm": {"durationTicks": {"min": 12000, "max": 36000}, "weights": {"spring": 1, "summer": 2, "autumn": 2, "winter": 0}, "wets": true, "scentHalfLifeMul": 0.35, "noiseHalfLifeMul": 0.4, "outdoorWork": false, "lightning": {"intervalTicks": {"min": 600, "max": 2400}, "noise": 60}},
 	"cold_snap": {"durationTicks": {"min": 288000, "max": 864000}, "weights": {"spring": 1, "summer": 0, "autumn": 2, "winter": 5}, "tempShift": -1, "zombieMoveMul": 0.7, "spoilageMul": 0.5, "scentHalfLifeMul": 0.7},
 	"snow": {"durationTicks": {"min": 48000, "max": 120000}, "weights": {"spring": 0, "summer": 0, "autumn": 1, "winter": 4}, "tempShift": -1, "zombieMoveMul": 0.9, "spoilageMul": 0.5, "scentHalfLifeMul": 0.6, "coverPerTick": 0.0000069444},
 	"heat_wave": {"durationTicks": {"min": 288000, "max": 864000}, "weights": {"spring": 0, "summer": 4, "autumn": 1, "winter": 0}, "tempShift": 1, "thirstMul": 1.5, "spoilageMul": 2.0, "corpseScentMul": 2.0},
@@ -62,6 +62,7 @@ const CLIMATE_DEFAULTS: Dictionary = {
 	"dryByFireTicks": 2400,
 	"windDriftDays": 1,
 	"windStrength": 0.6,
+	"windDriftDeg": 45,
 	"meltPerTick": 0.0000011574,
 	"snowCoverMoveMul": 0.8,
 	"snowCoverThreshold": 0.5,
@@ -157,7 +158,7 @@ static func _tick(world: Variant) -> void:
 # plain `noise.emitted` the kernel handler turns into a bloom on the attention field, plus a
 # `weather.lightning` for anything that wants to draw it. No light of its own and no sound --
 # the owner chose noise plus a screen flash (ADR 0016's "considered and not taken"), and there
-# is no thunder sample; 240 is deliberately none of `sfx.gd`'s one-shot magnitudes (180 gun,
+# is no thunder sample; 60 is deliberately none of `sfx.gd`'s one-shot magnitudes (180 gun,
 # 120 shout, 4 bow), so the dispatcher plays nothing for it rather than a gunshot.
 #
 # `nextLightningTick` is 0 whenever the sky is not a storm (`set_kind` resets it), so the first
@@ -252,12 +253,12 @@ static func weight_of(world: Variant, k: String, season: String) -> float:
 	return maxf(0.0, float((ws as Dictionary).get(season, 0.0)))
 
 
-# The one path a span flip and a gate's forcing both take, so the side effects -- the event, the
-# modifier and the wind re-applied on the next `_apply` -- can never be skipped by writing the
-# dictionary directly.
+# The one path a span flip and a gate's forcing both take, so the side effects -- the modifier
+# and the wind re-applied on the next `_apply` -- can never be skipped by writing the dictionary
+# directly. No event: a `weather.changed` was published here and read by nothing (the review
+# sweep's dead-socket rule), so every reader polls `kind` instead, which is one dictionary get.
 static func set_kind(world: Variant, k: String, until_tick: int) -> void:
 	var st: Dictionary = world.weather as Dictionary
-	var was: String = String(st.get("kind", CLEAR))
 	st["kind"] = k
 	st["untilTick"] = until_tick
 	st["spans"] = int(st.get("spans", 0)) + 1
@@ -265,19 +266,34 @@ static func set_kind(world: Variant, k: String, until_tick: int) -> void:
 	# draws its own first interval rather than inheriting a stale one from the last.
 	if not (spec_of(world, k).get("lightning") is Dictionary):
 		st["nextLightningTick"] = 0
-	if "events" in world and world.events != null:
-		world.events.publish({"type": "weather.changed", "kind": k, "previous": was, "raining": raining(world), "untilTick": until_tick})
 	_apply(world, st)
 
 
+# A prevailing wind that wanders, not a coin toss: docs/16's "wind direction shifts over days"
+# against a direction a base can be sited to. The prevailing direction is the attention field's
+# own calibrated lean -- the one every district siting and every balance line before the weather
+# spine was measured under -- and each day's draw is that angle plus a deviation inside
+# `windDriftDeg` either side. The first cut drew any angle at all, and the harness read it as a
+# per-seed coin toss (docs/23's Weather record): the same content wiped a different seed on
+# every re-measurement.
 static func _next_wind(world: Variant, st: Dictionary) -> void:
 	var c: Dictionary = climate(world)
-	var angle: float = float(world.rng.stream(STREAM).call("float_range", 0.0, TAU))
+	var spread: float = deg_to_rad(clampf(float(c.get("windDriftDeg", 180.0)), 0.0, 180.0))
+	var angle: float = prevailing_angle(world) + float(world.rng.stream(STREAM).call("float_range", -spread, spread))
 	var strength: float = clampf(float(c.get("windStrength", 0.0)), 0.0, 1.0)
 	st["windX"] = cos(angle) * strength
 	st["windY"] = sin(angle) * strength
 	var drift: int = int(round(float(c.get("windDriftDays", 1.0)) * float(SimClock.DAY_TICKS)))
 	st["windUntilTick"] = int(world.tick) + maxi(1, drift)
+
+
+# The direction the wind wanders around: the field's calibrated lean, or east when there is no
+# field to ask.
+static func prevailing_angle(world: Variant) -> float:
+	if world == null or not ("field" in world) or world.field == null or not ("calibration" in world.field):
+		return 0.0
+	var cal: Dictionary = world.field.calibration as Dictionary
+	return atan2(float(cal.get("windY", 0.0)), float(cal.get("windX", 1.0)))
 
 
 static func _tick_cover(world: Variant, st: Dictionary) -> void:
@@ -359,14 +375,15 @@ static func zombie_move_mul(world: Variant) -> float:
 	return clampf(_num(world, "zombieMoveMul", 1.0), 0.01, 1.0)
 
 
-# The living slow under a kind's own multiplier and under snow on the ground, whichever is the
-# harder; the cover is read rather than the fall so the snow underfoot outlives the snowfall.
+# The living slow under snow on the ground and under nothing else: the cover is read rather than
+# the fall so the snow underfoot outlives the snowfall. A per-kind `survivorMoveMul` was declared
+# and read by no content, so it went (the review sweep's dead-socket rule); a kind that wants to
+# slow the living gets the key back with a lane that proves it lands.
 static func survivor_move_mul(world: Variant) -> float:
-	var mul: float = clampf(_num(world, "survivorMoveMul", 1.0), 0.01, 1.0)
 	var c: Dictionary = climate(world)
 	if snow_cover(world) >= float(c.get("snowCoverThreshold", 2.0)):
-		mul = minf(mul, clampf(float(c.get("snowCoverMoveMul", 1.0)), 0.01, 1.0))
-	return mul
+		return clampf(float(c.get("snowCoverMoveMul", 1.0)), 0.01, 1.0)
+	return 1.0
 
 
 static func spoilage_mul(world: Variant) -> float:

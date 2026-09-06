@@ -799,6 +799,8 @@ func _draw_district() -> void:
 	var max_y: int = mini(int(world.map_height) - 1, ceili(float(bounds["maxY"])))
 	# Row-major, no sort: flat tiles never overlap. Bodies overlap tiles and each
 	# other; they sort in _draw_entities.
+	# The sim's snow cover, one read a frame rather than one a tile (SimWeather.snow_cover).
+	var snow_cover: float = SimWeather.snow_cover(world)
 	for ty in range(min_y, max_y + 1):
 		for tx in range(min_x, max_x + 1):
 			# Walls block sight: only draw tiles the player has a sightline to (windows stay Clear).
@@ -814,10 +816,10 @@ func _draw_district() -> void:
 			var ground: Color = Appearance.ground_colour(world.tilemap, tx, ty)
 			# Snow lies on open ground (docs/16, the weather-look slice): an indoor tile is
 			# never regraded, and cover 0.0 leaves `ground` untouched (Appearance.ground_with_snow's
-			# lerp at weight 0.0 is exact), so this reaches SimWeather.snow_cover on every tile
-			# without changing anything a clear sky already drew.
+			# lerp at weight 0.0 is exact), so this reaches the sim's cover on every tile without
+			# changing anything a clear sky already drew. `snow_cover` is read once above the loop.
 			if world.tilemap == null or not SimTileMap.is_indoors(world.tilemap, tx, ty):
-				ground = Appearance.ground_with_snow(ground, SimWeather.snow_cover(world))
+				ground = Appearance.ground_with_snow(ground, snow_cover)
 			var col: Color = ground
 			if world.tilemap != null:
 				tile = int(SimTileMap.tile_at(world.tilemap, tx, ty))
@@ -1790,6 +1792,11 @@ func _draw_rain() -> void:
 # its tunable, and to LightLook: a flash is not a light level, it is a moment.
 func _draw_lightning() -> void:
 	if world == null:
+		return
+	# Frozen while paused, like the rain: `world.events.drained` is cleared only by `world.step()`,
+	# and _process stops stepping behind `paused` while _draw keeps running, so a strike drained on
+	# the tick the game paused would otherwise paint the whole district white until it resumed.
+	if paused:
 		return
 	var struck: bool = false
 	for e in world.events.drained:

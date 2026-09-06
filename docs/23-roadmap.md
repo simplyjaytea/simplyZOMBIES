@@ -407,10 +407,11 @@ landed, and what is below is what the arc named and left.
   thing that ships is the only thing nothing measures — which is how a 12.58 ms per-frame
   serialisation lived in `_update_hud` (see the record's **Kernel & review sweep**).
 
-**Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016; the spine (kinds,
-the calendar, the wind, the shift, the slowed living and dead) landed in the record below under
-**Weather**, and each kind's own effects is a piece here with its own gate. Every number is a
-content first cut for the owner.
+**Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016. The spine (kinds,
+the calendar, the wind, the shift, the slowed living and dead), the storm, the cold snap and
+snow, the heat wave and the look all landed the same day — five record bullets below under
+**Weather**, each with its own gate. Every number is a content first cut for the owner. What
+remains is the one bullet here.
 
 - **What the weather left behind.** Fog (sight collapse both ways); the ranged accuracy penalty
   in rain; rain filling water; barricade damage and rot in a storm; firewood consumption and
@@ -3398,7 +3399,8 @@ not a to-do list:
   field still never learns what weather is; `SimWeather._tick_lightning` strikes every
   `intervalTicks` (600..2400, content) on an open outdoor tile picked by rejection (x and y on
   the `weather` stream, sixteen tries then silence — a map walk for an event this rare is not
-  worth 4096 tile reads), publishing a bare `noise.emitted` at **240** for the kernel's own
+  worth 4096 tile reads), publishing a bare `noise.emitted` at **60** (240 as built; re-cut at
+  the integration, the spine record's balance paragraph) for the kernel's own
   handler plus a `weather.lightning {x, y, tick}` for the look slice, and `nextLightningTick` is
   reset to 0 by `set_kind` for any sky that declares no `lightning`, so a storm never inherits
   the last one's clock and never strikes on its own first tick; and `SimJobs._refused_outdoors`
@@ -3427,7 +3429,7 @@ not a to-do list:
   either refusal site names which one; dropping the Guard exemption empties the gate post;
   dropping the `noise.emitted` reads 0.0000 at the strike; deleting the rejection loop lands a
   bolt on a wall at (53, 0). Named rather than built, and still in what's left: barricade
-  damage and rot in a storm, a thunder sample (`sfx.gd` has none, and 240 is chosen so it plays
+  damage and rot in a storm, a thunder sample (`sfx.gd` has none, and 60 is chosen so it plays
   nothing rather than a gunshot), the sim light pulse the owner refused, the screen flash and
   the storm's rain intensity (the look slice), and noise carried downwind. No balance run —
   the integrator's.
@@ -3449,7 +3451,8 @@ not a to-do list:
   diffusion weights from the stored wind × the kind's `windMul`, re-applied by the tick on any
   mismatch (a restore, an `adopt_map`, a gate's `set_kind`); `shambler._speed_of` multiplies by
   `zombieMoveMul`; a **global** `move_speed` modifier under source `weather` carries
-  `survivorMoveMul` and the snow cover's slowing to every body that resolves the stat; and
+  the snow cover's slowing to every body that resolves the stat (a per-kind `survivorMoveMul`
+  shipped with the spine, was read by no content, and was deleted at the review); and
   `SimJobs._walk` resolves `move_speed` **at all** — it never had, so the limp, encumbrance and
   blood loss had slowed the player and never Mara or Ellis (a defect closed on the way, not a
   design; the MOVE lane measures an NPC's velocity). A hot body's temperature seek walks to the
@@ -3472,7 +3475,8 @@ not a to-do list:
   half-life — the "13.03" the rain record quotes predates the half-life fix and this is the
   shipped number; the lane still refuses a wash below half); WIND (an east wind leans scent
   east by 5.35, west by −5.35, still air is still; the tick applies the stored wind and a storm
-  doubles it; a fresh field holds its calibration's lean); MOVE (an NPC walks **1.974** a tick
+  fabricated `windMul` 2.0 doubles it and the shipped storm does not; a fresh field holds its
+  calibration's lean); MOVE (an NPC walks **1.974** a tick
   under clear and **1.579** on settled snow, ×0.80 through the modifier; falling snow on bare
   ground slows nobody; cover lays 0.00139 in 200 ticks and melts; a shambler seeks ×0.70 in a
   cold snap, ×0.90 in snow, ×1 clear); SEEK (a hot NPC is under a roof by tick 381 and never
@@ -3493,6 +3497,29 @@ not a to-do list:
   saved 90210 — which is the same chaotic sensitivity the rain record met and the distribution
   assertion in what's left is the answer to, not a number to move here. The balance lines were
   taken before the hot-seek change, which the fast tier cannot reach.
+  **The integration re-measured all of it, and the wind moved.** With the four slices merged
+  the fast tier went red — 20260805 wiped (0/3, grabs 183) with 404 and 31337 byte-identical
+  to the spine run — and a driver subclassing the harness itself (its own `_compressed_campaign`
+  and mixed arm, deleted after) said the outcome was **chaotic, not a lever**: on 20260805,
+  lightning 240 wiped and 60 wiped and 1 wiped, a storm weighted to zero wiped, no wind
+  multiplier with lightning 240 wiped harder (259 grabs) and with lightning 60 survived (2/3,
+  78); the fix that saved 20260805 then wiped 90210 (0/3); the NPC walk modifier turned off
+  wiped 31337 instead; wind strength 0.3 wiped two seeds and 0.0 wiped 20260805 while saving
+  90210. Every knob moved a different seed the other way. The one structural difference from
+  `main` the field feels is that a freely drawn daily wind no longer holds the calibrated lean
+  every district siting and every balance line before the spine was measured under — and
+  docs/16 says *prevailing* wind that shifts over days, not a coin toss. So the wind now
+  wanders within `windDriftDeg` (45°) of the field's calibrated lean (`prevailing_angle`,
+  climate content; the WIND lane holds forty draws inside the bound, a climate pinned to 0°
+  drawing the lean exactly, and one opened to 180° wandering out), the storm's `windMul` 2.0
+  is gone (the key stays in the schema, exercised on a fabricated entry) and a strike is 60
+  rather than 240 (a bolt must not out-shout a rifle; at 240 one strike reached every shambler
+  on a 64-tile district, which summons rather than masks). **With that, every band holds on
+  the shipped content:** 20260805 grabs **158**, deaths 1, survivors 2/3; 404 grabs **69**,
+  deaths 2, 1/3; 31337 grabs **81**, deaths 2, 2/3; 90210 grabs **121**, deaths 2, 1/3 (against
+  `main`'s 66 / 16 / 87 / 157 and 2/3 / 3/3 / 2/3 / 1/3). Whether the wind should be free —
+  docs/16's "a base that was safe becomes a base that's upwind of the whole district" against a
+  four-seed floor that reads that as a coin toss — is the owner's, in `HANDOFF.md`.
 - **Weather** — ~~a minimal rain state~~ **landed** (`npm run godot:m2:weather`,
   `M2_WEATHER_OK`, eight lanes; `godot:check:weather`'s RAIN WIRED lane now requires the draw to
   ask the sim; `godot:check:hud`'s scanner gained a rain row; `godot:m2:save` and

@@ -2482,12 +2482,19 @@ snow that lies as well as falls — and the spine took these calls:
 - **The calendar is five days a season and the weights are the season's.** A ten-day run sees
   spring's rain and summer's heat; winter's cold snap and snow are in the tree and drawable on a
   longer run or a different `startSeason`. `seasonDays` is the one number, content, the owner's.
-- **Wind is state and the field is told.** Direction re-rolled daily at strength 0.6 (the field's
-  old fixed lean), a storm doubling it, handed to `set_wind` and re-applied by the tick on any
-  mismatch rather than on a restore hook — the field's `restore` copies only its two layers,
-  `adopt_map` builds a fresh field, and world.gd must not learn a module's name. Noise stays
-  undirected: docs/16's "strong wind carries noise further in one direction" is a propagation
-  the field does not have, and the ADR says so instead of pretending.
+- **Wind is state and the field is told, and it prevails.** Direction re-rolled daily at
+  strength 0.6 (the field's old fixed lean), handed to `set_wind` and re-applied by the tick
+  on any mismatch rather than on a restore hook — the field's `restore` copies only its two
+  layers, `adopt_map` builds a fresh field, and world.gd must not learn a module's name. The
+  first cut drew any direction at all and a storm doubled it; the integration measured that as
+  a per-seed coin toss on the harness's survival floor (docs/23's record has the table), and
+  docs/16 says *prevailing* wind that shifts over days. So the day's angle wanders within
+  `windDriftDeg` (45°, climate content; 180° is the free wind back) of the field's calibrated
+  lean — the direction every district siting was measured under — and no shipped kind
+  multiplies it (the `windMul` key stays, gate-exercised). Whether the wind should be free is
+  the owner's (`HANDOFF.md`). Noise stays undirected: docs/16's "strong wind carries noise
+  further in one direction" is a propagation the field does not have, and the ADR says so
+  instead of pretending.
 - **The living slow through the modifier store, globally; the dead through their one accessor.**
   A global-scope `move_speed` under source `weather` reaches every body that resolves the stat —
   the player, raiders, the noise-per-metre scaler, and a recruit who arrives mid-snow — and is
@@ -2530,10 +2537,10 @@ snow that lies as well as falls — and the spine took these calls:
   the shape `diffuse_scent` already had and for the same reason twice over: this decay runs
   every tick rather than every fifth, so a per-step multiplier would compound 1200 times a
   minute and flatten the layer instead of shortening it. The field is told a number and still
-  does not know what weather is. A strike is a plain `noise.emitted` at 240 on a random open
+  does not know what weather is. A strike is a plain `noise.emitted` at 60 on a random open
   outdoor tile plus a `weather.lightning` for the screen, and nothing else — no sim light
   (the ADR's refusal), no sound, because `sfx.gd` dispatches one-shots by exact magnitude and
-  there is no thunder sample; 240 is deliberately none of 180, 120 or 4, so the dispatcher plays
+  there is no thunder sample; 60 is deliberately none of 180, 120 or 4, so the dispatcher plays
   nothing rather than a gunshot. The tile is drawn by rejection, sixteen tries and then silence,
   rather than by walking the map for a strike that happens once every few minutes. And the work
   refusal exempts **Guard**: standing the gate is watch, not work, and a storm is exactly the

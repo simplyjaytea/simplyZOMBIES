@@ -8,9 +8,9 @@ extends SceneTree
 #     field is handed a factor by `SimBoot._decay` and never learns what weather is, exactly as
 #     the scent half-life is handed to `diffuse_scent`.
 #  2. **Lightning, the bad half.** A strike every `intervalTicks` on an open outdoor tile,
-#     published as a bare `noise.emitted` at magnitude 240 -- a district-wide bloom nobody made
+#     published as a bare `noise.emitted` at magnitude 60 -- a district-wide bloom nobody made
 #     and nobody controls -- and a `weather.lightning` for anything that wants to draw it. No
-#     sound and no sim light: the owner chose noise plus a screen flash, and 240 is deliberately
+#     sound and no sim light: the owner chose noise plus a screen flash, and 60 is deliberately
 #     none of `sfx.gd`'s one-shot magnitudes (180 gun, 120 shout, 4 bow).
 #  3. **Outdoor work refused.** `outdoorWork: false` stops `_pick` handing out a job whose tile
 #     is outdoors and drops a running one before `_advance_job`. Guard is exempt -- standing the
