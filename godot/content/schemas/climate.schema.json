@@ -4,7 +4,7 @@
   "title": "Climate",
   "description": "The calendar the weather kinds are drawn against and the globals every kind shares, per docs/adr/0016-weather-kinds-and-seasons.md. One entry ships (climate.temperate) and SimWeather reads it by path (climate/temperate.json). Not a second calibration entry on purpose: the frozen TypeScript oracle validates calibration/ against the attention schema with Ajv and would refuse it, while it does not know this directory and ignores it, exactly as it ignores weather/. NOTE: the content validator is shallow -- check_m2_weather.gd's CONTENT lane holds the inner shape (four seasons in order, the drying timings ordered, the cover threshold inside (0, 1)).",
   "type": "object",
-  "required": ["id", "seasonDays", "seasonOrder", "startSeason", "wetAfterTicks", "dryAfterTicks", "dryByFireTicks", "windDriftDays", "windStrength", "meltPerTick", "snowCoverMoveMul", "snowCoverThreshold"],
+  "required": ["id", "seasonDays", "seasonOrder", "startSeason", "wetAfterTicks", "dryAfterTicks", "dryByFireTicks", "windDriftDays", "windDriftDeg", "windStrength", "meltPerTick", "snowCoverMoveMul", "snowCoverThreshold"],
   "additionalProperties": false,
   "properties": {
     "id": {
@@ -47,6 +47,12 @@
       "type": "number",
       "exclusiveMinimum": 0,
       "description": "How often, in days, the wind re-rolls its direction on the weather stream."
+    },
+    "windDriftDeg": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 180,
+      "description": "How far, in degrees either side, a day's wind may wander from the prevailing direction (the attention field's calibrated lean). 180 is any direction at all -- the first cut, which the harness read as a coin toss per seed; 0 pins the lean."
     },
     "windStrength": {
       "type": "number",

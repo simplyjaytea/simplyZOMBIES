@@ -57,12 +57,6 @@
       "maximum": 2,
       "description": "Bands the temperature ladder shifts under this sky: negative toward cold (applies day and night, indoors too, cancelled by a lit fire), positive toward hot (applies by day, outdoors, cancelled by nothing). needs._tick_temperature reads it after the night/fire/roof base and before wet and the wrap."
     },
-    "survivorMoveMul": {
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "maximum": 1,
-      "description": "A global move_speed multiplier on every living body while this kind runs, applied through the modifier store under source `weather`. Snow does not use it: its slowing comes off the cover (climate.snowCoverMoveMul)."
-    },
     "zombieMoveMul": {
       "type": "number",
       "exclusiveMinimum": 0,
@@ -91,7 +85,7 @@
     "windMul": {
       "type": "number",
       "minimum": 0,
-      "description": "What the climate's wind strength is multiplied by under this kind before it reaches the attention field. Storm doubles it."
+      "description": "What the climate's wind strength is multiplied by under this kind before it reaches the attention field. No shipped kind declares it: the storm's first cut of 2.0 was the difference between a colony and none on one harness seed, so the mechanism is kept, exercised by the spine gate on a fabricated entry, and waits for a kind that earns it."
     },
     "lightning": {
       "type": "object",
@@ -109,7 +103,7 @@
         },
         "noise": { "type": "number", "exclusiveMinimum": 0 }
       },
-      "description": "Storm only: strikes land on an open outdoor tile every intervalTicks (drawn on the weather stream) as a noise.emitted of `noise` and a weather.lightning event. The magnitude must not equal 180, 120 or 4 -- presentation/sfx.gd dispatches one-shots by exact magnitude."
+      "description": "Storm only: strikes land on an open outdoor tile every intervalTicks (drawn on the weather stream) as a noise.emitted of `noise` and a weather.lightning event. The magnitude must not equal 180, 120 or 4 -- presentation/sfx.gd dispatches one-shots by exact magnitude -- and should stay under a gunshot's 180: a strike that out-shouts a rifle reaches every shambler on a 64-tile district, which summons rather than masks (measured on the harness, docs/23's Weather record)."
     },
     "coverPerTick": {
       "type": "number",

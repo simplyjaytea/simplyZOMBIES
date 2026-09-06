@@ -27,10 +27,16 @@ clear span rolls the next kind among the non-clear kinds by the **current season
 on the sim's own `weather` stream, then that kind's duration. The season is
 `seasonOrder[(day − 1) / seasonDays]` from `startSeason` — five days a season, so a ten-day run
 sees spring and summer. `SimWeather.set_kind` is the one path a flip and a gate's forcing both
-take, so the event, the modifier and the wind can never be skipped by writing the dictionary.
+take, so the modifier and the wind can never be skipped by writing the dictionary. Nothing
+subscribes to a kind change; every reader polls `kind`, one dictionary get.
 
 Wind is docs/16's persistent variable, not a kind: a direction re-rolled every `windDriftDays`
-at `windStrength`, times the kind's `windMul` (a storm doubles it), handed to the attention
+at `windStrength`, wandering within `windDriftDeg` (45°) of the field's calibrated lean — the
+*prevailing* wind docs/16 describes, and the direction every district siting was measured
+under; a free daily direction was the first cut and the harness read it as a coin toss per
+seed — times the kind's `windMul` (no shipped kind declares one — the storm's
+first cut of 2.0 was the difference between a colony and none on one harness seed, so the
+mechanism stays, gate-exercised, and waits for a kind that earns it), handed to the attention
 field's four diffusion weights through a new `set_wind`. The field remembers what it was handed
 and the weather tick re-applies on any mismatch, every tick — the field's `restore` copies only
 noise and scent, `adopt_map` builds a fresh field, and `world.restore` must not call a module,
@@ -47,7 +53,7 @@ kind:
 | Kind | Good | Bad |
 |---|---|---|
 | rain | scent half-life ×0.5 | wet, one band colder |
-| storm | scent ×0.35, **noise half-life ×0.4**, wind ×2 | wet and cold; outdoor work refused; lightning as a district-wide noise |
+| storm | scent ×0.35, **noise half-life ×0.4** | wet and cold; outdoor work refused; lightning as a noise nobody made (60, under any gun) |
 | cold_snap | shamblers ×0.7, food keeps ×2, scent ×0.7 | one band colder day and night, indoors too, unless by a lit fire |
 | snow | shamblers ×0.9, food keeps ×2, scent ×0.6 | the cold, and the living ×0.8 once the cover is half laid |
 | heat_wave | — (a longer day is docs/02's, not built) | one band hotter by day outdoors, thirst ×1.5, food spoils ×2, corpse scent ×2 |

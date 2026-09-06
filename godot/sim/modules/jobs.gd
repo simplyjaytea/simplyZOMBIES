@@ -242,7 +242,7 @@ static func _tick_one(world: Variant, ent: int) -> void:
 # an entity, not a tile, and the entity may be stowed in somebody's pack -- the target's own
 # position stands in. No tile at all means nothing to judge, so the job is allowed: refusing on a
 # tile we could not resolve would idle a colony for a reason nothing reports.
-static func _refused_outdoors(world: Variant, ent: int, job: Dictionary) -> bool:
+static func _refused_outdoors(world: Variant, _ent: int, job: Dictionary) -> bool:
 	if SimWeather.outdoor_work_allowed(world):
 		return false
 	if world.tilemap == null:
@@ -1283,22 +1283,26 @@ static func _nearest_roof(world: Variant, x: float, y: float) -> Vector2i:
 	if SimTileMap.is_indoors(map, sx, sy) and not SimTileMap.is_solid(map, sx, sy):
 		return Vector2i(sx, sy)
 	var tried: int = 0
+	# The ring's own perimeter, walked edge by edge: 8r tiles a ring rather than the (2r+1)^2
+	# square it sits in, which is what a "skip unless on the ring" filter cost (~48,000 probes
+	# for a body with no roof in reach, every tick it was hot).
 	for radius in range(1, ROOF_SEARCH + 1):
-		for dy in range(-radius, radius + 1):
-			for dx in range(-radius, radius + 1):
-				if maxi(absi(dx), absi(dy)) != radius:
+		for i in range(-radius, radius + 1):
+			var edge: Array[Vector2i] = [Vector2i(sx + i, sy - radius), Vector2i(sx + i, sy + radius)]
+			if absi(i) < radius:
+				edge.append(Vector2i(sx - radius, sy + i))
+				edge.append(Vector2i(sx + radius, sy + i))
+			for cand in edge:
+				if cand.x <= 0 or cand.y <= 0 or cand.x >= int(map.w) - 1 or cand.y >= int(map.h) - 1:
 					continue
-				var tx: int = sx + dx
-				var ty: int = sy + dy
-				if tx <= 0 or ty <= 0 or tx >= int(map.w) - 1 or ty >= int(map.h) - 1:
+				if not SimTileMap.is_indoors(map, cand.x, cand.y) or SimTileMap.is_solid(map, cand.x, cand.y):
 					continue
-				if not SimTileMap.is_indoors(map, tx, ty) or SimTileMap.is_solid(map, tx, ty):
-					continue
-				if not SimPath.find(world, Vector2i(sx, sy), Vector2i(tx, ty)).is_empty():
-					return Vector2i(tx, ty)
+				if not SimPath.find(world, Vector2i(sx, sy), cand).is_empty():
+					return cand
 				tried += 1
 				if tried >= ROOF_PATH_TRIES:
 					return Vector2i(-1, -1)
+	return Vector2i(-1, -1)
 	return Vector2i(-1, -1)
 
 

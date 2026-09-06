@@ -830,6 +830,20 @@ func _the_snow_lies_on_the_ground() -> bool:
 	if not verdict.is_empty():
 		push_error(verdict)
 		return false
+	# The guard is judged where it stands, not anywhere in the body (the two-match-arms trap):
+	# between the ground read and the regrade there must be an is_indoors test, and a fixture
+	# with the regrade hoisted ahead of the guard is refused by the same slice.
+	var at_ground: int = body.find("Appearance.ground_colour(")
+	var at_snow: int = body.find("Appearance.ground_with_snow(")
+	if at_ground < 0 or at_snow < 0 or at_snow < at_ground or body.substr(at_ground, at_snow - at_ground).find("SimTileMap.is_indoors(") < 0:
+		push_error("_draw_district regrades the ground for snow without an is_indoors test between the ground read and the regrade")
+		return false
+	var hoisted: String = "\tvar g: Color = Appearance.ground_with_snow(Appearance.ground_colour(map, tx, ty), c)\n\tif not SimTileMap.is_indoors(map, tx, ty):\n\t\tpass\n"
+	var h_ground: int = hoisted.find("Appearance.ground_colour(")
+	var h_snow: int = hoisted.find("Appearance.ground_with_snow(")
+	if not (h_ground < 0 or h_snow < 0 or h_snow < h_ground or hoisted.substr(h_ground, maxi(0, h_snow - h_ground)).find("SimTileMap.is_indoors(") < 0):
+		push_error("the guard slice passed a fixture whose regrade sits ahead of its guard")
+		return false
 
 	var ground: Color = Palette.COLOURS["floor"] as Color
 	var clear_col: Color = Appearance.ground_with_snow(ground, 0.0)
@@ -859,7 +873,7 @@ func _the_snow_lies_on_the_ground() -> bool:
 		return false
 
 	print(
-		"COVER OK _draw_district reaches snow_cover behind the same is_indoors guard every other floor branch reads; Appearance.ground_with_snow is byte-identical at cover 0.0 (#%s), differs at 1.0 (#%s) and 0.5 lies strictly between, at SNOW_COVER_MAX %.2f"
+		"COVER OK _draw_district reaches snow_cover with an is_indoors test between the ground read and the regrade (a hoisted fixture refused); Appearance.ground_with_snow is byte-identical at cover 0.0 (#%s), differs at 1.0 (#%s) and 0.5 lies strictly between, at SNOW_COVER_MAX %.2f"
 		% [clear_col.to_html(true), covered_col.to_html(true), Palette.SNOW_COVER_MAX]
 	)
 	return true
@@ -892,9 +906,11 @@ func _the_lightning_is_one_drained_frame() -> bool:
 		return false
 	# The negative: a body carrying the unconditioned draw call, with no guard ahead of it at
 	# all, is refused by the same ordering check.
-	var unguarded: String = "\tdraw_rect(Rect2(Vector2.ZERO, size), flash)\n"
-	if unguarded.find("if not struck") >= 0:
-		push_error("the fixture accidentally carries a guard; the negative has nothing to judge")
+	var unguarded: String = "\tfor e in world.events.drained:\n\t\tif String(e.get(\"type\", \"\")) == \"weather.lightning\":\n\t\t\tstruck = true\n\tdraw_rect(Rect2(Vector2.ZERO, size), flash)\n\tif not struck:\n\t\treturn\n"
+	var u_guard: int = unguarded.find("if not struck")
+	var u_draw: int = unguarded.find("draw_rect(")
+	if not (u_guard < 0 or u_draw < 0 or u_guard > u_draw):
+		push_error("the ordering check passed a body whose guard comes after its draw_rect, so it could not have failed the real one")
 		return false
 
 	print(

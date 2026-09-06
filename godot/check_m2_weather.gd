@@ -158,7 +158,7 @@ func _the_kinds_are_content_and_the_validator_sees_them() -> bool:
 				return false
 			if wt > 0.0 and k != "clear":
 				drawable[season] = true
-		for key in ["scentHalfLifeMul", "noiseHalfLifeMul", "zombieMoveMul", "survivorMoveMul"]:
+		for key in ["scentHalfLifeMul", "noiseHalfLifeMul", "zombieMoveMul"]:
 			if e.has(key) and (float(e[key]) <= 0.0 or float(e[key]) > 1.0):
 				push_error("CONTENT: %s's %s %.3f is outside (0, 1]" % [k, key, float(e[key])])
 				return false
@@ -598,16 +598,58 @@ func _the_wind_leans_the_field() -> bool:
 	if absf(float(a.field.wind_x) - 0.3) > 0.000001 or absf(float(a.field.wind_y) + 0.2) > 0.000001:
 		push_error("WIND: the field reads (%.3f, %.3f) after the tick, the world stores (0.3, -0.2)" % [float(a.field.wind_x), float(a.field.wind_y)])
 		return false
+	# A kind's `windMul` multiplies it -- on a fabricated storm entry, because no shipped kind
+	# declares one (the storm's first cut of 2.0 was the difference between a colony and none on
+	# one harness seed, docs/23's record) and a mechanism nothing exercises is a socket.
+	var gusty: Dictionary = (a.content["weather/storm.json"] as Dictionary).duplicate(true)
+	gusty["windMul"] = 2.0
+	a.content["weather/storm.json"] = gusty
 	_force(a, "storm")
 	a.step()
-	var mul: float = float(SimWeather.spec_of(a, "storm").get("windMul", 1.0))
+	var mul: float = 2.0
 	if absf(float(a.field.wind_x) - 0.3 * mul) > 0.000001 or absf(float(a.field.wind_y) + 0.2 * mul) > 0.000001:
-		push_error("WIND: under a storm the field reads (%.3f, %.3f), wanted x%.1f" % [float(a.field.wind_x), float(a.field.wind_y), mul])
+		push_error("WIND: under a storm with windMul %.1f the field reads (%.3f, %.3f)" % [mul, float(a.field.wind_x), float(a.field.wind_y)])
+		return false
+	# And the shipped storm, which declares none, leaves the wind at the climate's.
+	var shipped: Variant = _world()
+	(shipped.weather as Dictionary)["windX"] = 0.3
+	(shipped.weather as Dictionary)["windY"] = -0.2
+	(shipped.weather as Dictionary)["windUntilTick"] = FAR
+	_force(shipped, "storm")
+	shipped.step()
+	if absf(float(shipped.field.wind_x) - 0.3) > 0.000001:
+		push_error("WIND: the shipped storm multiplies the wind by %.2f, and content declares no windMul" % (float(shipped.field.wind_x) / 0.3))
 		return false
 	_force(a, "clear")
 	a.step()
 	if absf(float(a.field.wind_x) - 0.3) > 0.000001:
 		push_error("WIND: back under clear the field still reads %.3f" % float(a.field.wind_x))
+		return false
+	# The wind wanders inside windDriftDeg of the prevailing lean: forty draws all inside it on
+	# the shipped climate, a climate pinned to 0 draws the lean exactly, and one opened to 180
+	# lands a draw outside 45 degrees -- so the bound is read, not assumed.
+	var outside: Dictionary = {"shipped": 0, "pinned": 0, "free": 0}
+	for label in ["shipped", "pinned", "free"]:
+		var ww: Variant = _world(90210 if label == "free" else SEED)
+		var cl: Dictionary = (ww.content[SimWeather.CLIMATE_PATH] as Dictionary).duplicate(true)
+		if label == "pinned":
+			cl["windDriftDeg"] = 0
+		elif label == "free":
+			cl["windDriftDeg"] = 180
+		ww.content[SimWeather.CLIMATE_PATH] = cl
+		var prevailing: float = SimWeather.prevailing_angle(ww)
+		for _d in 40:
+			ww.tick = int((ww.weather as Dictionary).get("windUntilTick", 0))
+			ww.step()
+			var ang: float = atan2(float(ww.weather["windY"]), float(ww.weather["windX"]))
+			var dev: float = absf(wrapf(ang - prevailing, -PI, PI))
+			if dev > deg_to_rad(45.0) + 0.000001:
+				outside[label] = int(outside[label]) + 1
+			if label == "pinned" and dev > 0.000001:
+				push_error("WIND: a climate pinned to 0 degrees drew %.3f rad off the lean" % dev)
+				return false
+	if int(outside["shipped"]) > 0 or int(outside["free"]) == 0:
+		push_error("WIND: forty shipped draws landed %d outside 45 degrees of the lean; a free climate landed %d outside (wanted some)" % [int(outside["shipped"]), int(outside["free"])])
 		return false
 	# The boot value is the field's own calibration, and a world that never drew a wind holds it.
 	var fresh: Variant = _world()
@@ -615,7 +657,7 @@ func _the_wind_leans_the_field() -> bool:
 	if absf(float(fresh.field.wind_x) - calib_x) > 0.000001:
 		push_error("WIND: a fresh field's wind %.3f is not its calibration's %.3f" % [float(fresh.field.wind_x), calib_x])
 		return false
-	print("WIND OK east wind leans scent east (%.3f), west wind west (%.3f), still is still; the tick applies the stored wind and a storm multiplies it x%.1f" % [float(lean[1.0]), float(lean[-1.0]), mul])
+	print("WIND OK east wind leans scent east (%.3f), west wind west (%.3f), still is still; the tick applies the stored wind, a fabricated windMul %.1f multiplies it and the shipped storm does not; forty daily draws stay inside 45 degrees of the calibrated lean, a pinned climate draws it exactly and a free one wanders out (%d of 40)" % [float(lean[1.0]), float(lean[-1.0]), mul, int(outside["free"])])
 	return true
 
 
@@ -648,8 +690,8 @@ func _the_sky_slows_the_living_and_the_dead() -> bool:
 		SimJobs._walk(w, npc, job, Vector2i(target.x + 20, target.y))
 		var v: Dictionary = w.components.get_component(npc, "velocity") as Dictionary
 		speeds[k] = sqrt(float(v["dx"]) * float(v["dx"]) + float(v["dy"]) * float(v["dy"]))
-	if absf(float(resolved["clear"]) - 1.0) > 0.000001 and float(resolved["clear"]) > float(resolved["snow"]) / cover_mul + 0.000001:
-		push_error("MOVE: move_speed under clear resolves %.3f, snow %.3f" % [float(resolved["clear"]), float(resolved["snow"])])
+	if absf(float(resolved["clear"]) - 1.0) > 0.000001:
+		push_error("MOVE: move_speed under clear resolves %.3f, not 1" % float(resolved["clear"]))
 		return false
 	if absf(float(resolved["snow"]) / float(resolved["clear"]) - cover_mul) > 0.000001:
 		push_error("MOVE: settled snow resolves move_speed x%.3f, wanted x%.2f" % [float(resolved["snow"]) / float(resolved["clear"]), cover_mul])
