@@ -73,5 +73,53 @@
     "massKg": 1.2,
     "equipSlot": "feet",
     "armor": { "foot_left": 0.5, "foot_right": 0.5 }
+  },
+  {
+    "id": "item.jacket.leather",
+    "name": "Leather Jacket",
+    "class": "armor",
+    "size": {"w": 2, "h": 3},
+    "massKg": 1.6,
+    "equipSlot": "torso",
+    "appearance": {"equipSprite": "item_jacket_leather_equip"},
+    "armor": {"torso": 0.5, "arm_left": 0.5, "arm_right": 0.5}
+  },
+  {
+    "id": "item.helmet.bike",
+    "name": "Bike Helmet",
+    "class": "armor",
+    "size": {"w": 2, "h": 2},
+    "massKg": 0.4,
+    "equipSlot": "head",
+    "appearance": {"equipSprite": "item_helmet_bike_equip"},
+    "armor": {"head": 0.45}
+  },
+  {
+    "id": "item.jeans.denim",
+    "name": "Denim Jeans",
+    "class": "armor",
+    "size": {"w": 2, "h": 2},
+    "massKg": 0.7,
+    "equipSlot": "legs",
+    "appearance": {"equipSprite": "item_jeans_denim_equip"},
+    "armor": {"leg_left": 0.35, "leg_right": 0.35}
+  },
+  {
+    "id": "item.gloves.leather",
+    "name": "Leather Gloves",
+    "class": "armor",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.2,
+    "equipSlot": "gloves",
+    "armor": {"hand_left": 0.6, "hand_right": 0.6}
+  },
+  {
+    "id": "item.boots.steel",
+    "name": "Steel-toe Boots",
+    "class": "armor",
+    "size": {"w": 2, "h": 1},
+    "massKg": 1.6,
+    "equipSlot": "feet",
+    "armor": {"foot_left": 0.65, "foot_right": 0.65}
   }
 ]

@@ -2257,6 +2257,67 @@ below was taken as a first cut with no owner to ask, and each is a content edit 
 - **SAVE_VERSION 19.** The weighted class list changed what a seed parks, so a v18 save's cars
   would restore over freshly parked bicycles. Refused, per the standing rule.
 
+## The gear catalogue, 2026-09-06
+
+The owner asked for more gear — weapons, clothing, backpacks, gas cans, tools, food, drinks — and
+decided the shape of the slice in four answers: catalogue **plus** a `drink` block **plus**
+refuelling from a can; a generated overlay for every new base in a drawn slot; a shotgun and a
+hunting rifle; about thirty bases. Thirty-one landed (`godot:m2:gear`'s CATALOGUE lane counts
+them), and four decisions were taken along the way that are worth writing down.
+
+- **A `drink` block mirrors `food`, and is judged whole.** Presence is what makes an item a
+  drink — `SimNeeds.is_drink` asks nothing else, exactly as `is_food` asks only for `food` — so
+  the water bottle's +50, a literal in `SimNeeds.drink` since the needs module landed, is content
+  now. The one rule the reader adds: a block declaring a `rest` lift without both crash keys is
+  not drinkable *at all*. The validator does not recurse, and a stimulant with its crash left off
+  would be a free lift nothing reports; `drive_of` refuses a half block for the same reason.
+- **A stimulant is a loan on the rest pool, not a modifier on a stat.** docs/04: "no
+  caffeine-style hard reset; stimulants exist as rare loot with a real crash afterward". The lift
+  is paid into `rest` now; the crash is a debt (`stimulantCrashRest`) on a clock
+  (`stimulantUntilTick`) debited from the same pool later. Chaining **compounds and defers** —
+  a second can adds its crash to the pending one and pushes the clock out — because a chain
+  that reset the debt would be the hard reset the doc forbids. Every reader of rest (the drain,
+  `work_mul`, the HUD clause, the passed-out crisis) sees the move for free; a stat modifier
+  would have bypassed all of them and needed its own HUD line, work multiplier and collapse.
+  The tell is a word, "wired", ranked below groggy and above shaken. The energy drink's numbers
+  (thirst 15, rest 20, crash 25 three in-game hours on) are first cuts: 20 buys about three and
+  a half waking hours at `drain_rest`, the crash lands when most of it has drained, and repays
+  with interest. NPCs never drink one — the loan is a player's decision.
+- **A can pours whole, and `empties` is one spend path.** A fuel can carries `fuel: {litres}` and
+  pours `min(litres, room)`; the rest is spilt. Not a per-instance litre count: an item instance
+  already carries a condition, a stack and an affix list, and a can that remembered its litres
+  would need a fourth number, a mass that moved with it, a fill word for the can and a HUD clause
+  for the word. What a spent unit leaves behind — the bottle without the water, the can without
+  the fuel — is the top-level `empties`, read in `SimNeeds._consume_item`, the one place a unit
+  is spent, so a drink, a wash, a wound cleaned with the bottle and a poured can all leave the
+  same thing. That closed a socket nobody had named: `SimJobs._water_work` had hunted
+  `item.water.bottle.empty` since the Water job landed and nothing in shipped play had ever
+  produced one. The refuel channel is `SimVehicles`' own (`refuel` on the body, `REFUEL_TICKS`
+  200, interrupted by a stagger, a grab, walking off the nose or the can leaving the pack) rather
+  than fortify's `construct`, because that channel puts `CONSTRUCT_NOISE` on the field every tick
+  and the presentation plays the board one-shot on it, and a pour is quieter than the footsteps
+  the body already makes. On the E ladder the can comes before the look: any refusal — no can, a
+  full tank, a battery, a bicycle, a wreck — falls through to the hood report, whose words say
+  why. The jerry can's shipped 11.5 kg is ten litres at 0.75 kg/L in a four-kilo can; the number
+  was made honest, not moved. A battery refuses a can by name — the charger is docs/23's piece.
+- **The firearms are first cuts inside the shambler's numbers.** A shambler is head 25, torso 60;
+  the pistol does 18 at 180 noise. The pump shotgun does 30 at 15 m and 220 noise (a shout is
+  120, a running engine 24..36), the hunting rifle 34 at 60 m and 200; both jam, both feed off
+  their own round (`item.ammo.12g`, `item.ammo.rifle`), both take the shipped attachments through
+  the slots they declare. Military cache only. The balance harness ran before and after on the
+  same four seeds (the record has both tables) and every band held; the fast tier cannot see a
+  gun fired, so the melee-vs-ranged parity measurement in what's left is where these numbers
+  will actually be judged.
+
+What this slice deliberately did not take, each named in what's left rather than smuggled: the
+industrial loot table (a fifth location means re-tagging buildings in a district profile, which
+moves loot sites and therefore the harness's map — its own measured slice, so the fuel bottle
+sits on a residential garage shelf for now against docs/12's "industrial and vehicle sources
+only"); ground-item sprites; the six undrawn equipment slots (the leather gloves, steel-toes,
+medic pouch and bandolier are equippable and draw nothing, like the seven bases before them); a
+tool class with verbs of its own (every `tool` here is a light or a bench consumable, and the
+CATALOGUE lane refuses one that is neither); the siphon, the repair channel and the charger.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

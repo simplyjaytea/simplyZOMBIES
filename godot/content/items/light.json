@@ -27,5 +27,15 @@
     "size": { "w": 3, "h": 3 },
     "massKg": 8.4,
     "light": { "magnitude": 90 }
+  },
+  {
+    "id": "item.lantern.oil",
+    "name": "Oil Lantern",
+    "class": "tool",
+    "size": {"w": 1, "h": 2},
+    "massKg": 0.8,
+    "equipSlot": "secondary",
+    "appearance": {"equipSprite": "item_lantern_oil_equip"},
+    "light": {"magnitude": 20}
   }
 ]

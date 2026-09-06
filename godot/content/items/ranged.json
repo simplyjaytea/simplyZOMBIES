@@ -52,5 +52,43 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.012,
     "stack": 20
+  },
+  {
+    "id": "item.shotgun.pump",
+    "name": "Pump Shotgun",
+    "class": "weapon.ranged",
+    "size": {"w": 1, "h": 5},
+    "massKg": 3.4,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_shotgun_pump_equip"},
+    "slots": ["barrel", "furniture", "sight"],
+    "ranged": {"damage": 30, "noise": 220, "flash": 90, "ammo": "item.ammo.12g", "magSize": 5, "reloadTicks": 60, "rangeMetres": 15, "jams": true}
+  },
+  {
+    "id": "item.rifle.hunting",
+    "name": "Hunting Rifle",
+    "class": "weapon.ranged",
+    "size": {"w": 1, "h": 6},
+    "massKg": 3.6,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_rifle_hunting_equip"},
+    "slots": ["optic", "barrel", "furniture", "magazine"],
+    "ranged": {"damage": 34, "noise": 200, "flash": 70, "ammo": "item.ammo.rifle", "magSize": 4, "reloadTicks": 70, "rangeMetres": 60, "jams": true}
+  },
+  {
+    "id": "item.ammo.12g",
+    "name": "Shotgun Shell",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.04,
+    "stack": 12
+  },
+  {
+    "id": "item.ammo.rifle",
+    "name": "Rifle Round",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.02,
+    "stack": 20
   }
 ]

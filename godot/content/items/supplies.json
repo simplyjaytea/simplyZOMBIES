@@ -43,7 +43,13 @@
       "h": 1
     },
     "massKg": 0.33,
-    "stack": 2
+    "stack": 2,
+    "drink": {
+      "thirst": 15,
+      "rest": 20,
+      "crashRest": 25,
+      "crashAfterTicks": 36000
+    }
   },
   {
     "id": "item.food.canned",
@@ -119,7 +125,12 @@
     "stack": 3,
     "modification": {
       "operation": "reroll",
-      "appliesTo": ["weapon.melee", "weapon.ranged", "armor", "tool"]
+      "appliesTo": [
+        "weapon.melee",
+        "weapon.ranged",
+        "armor",
+        "tool"
+      ]
     }
   },
   {
@@ -134,7 +145,11 @@
     "stack": 2,
     "modification": {
       "operation": "add",
-      "appliesTo": ["weapon.melee", "weapon.ranged", "armor"]
+      "appliesTo": [
+        "weapon.melee",
+        "weapon.ranged",
+        "armor"
+      ]
     }
   },
   {
@@ -146,7 +161,11 @@
       "h": 2
     },
     "massKg": 1.0,
-    "cleanTier": "water"
+    "cleanTier": "water",
+    "drink": {
+      "thirst": 50
+    },
+    "empties": "item.water.bottle.empty"
   },
   {
     "id": "item.antiseptic.bottle",
@@ -201,7 +220,11 @@
       "w": 2,
       "h": 3
     },
-    "massKg": 11.5
+    "massKg": 11.5,
+    "fuel": {
+      "litres": 10
+    },
+    "empties": "item.jerrycan.empty"
   },
   {
     "id": "item.antibiotics.course",
@@ -226,7 +249,9 @@
     "stack": 3,
     "modification": {
       "operation": "reroll",
-      "appliesTo": ["weapon.melee"]
+      "appliesTo": [
+        "weapon.melee"
+      ]
     }
   },
   {
@@ -241,7 +266,9 @@
     "stack": 3,
     "modification": {
       "operation": "condition_restore",
-      "appliesTo": ["weapon.ranged"]
+      "appliesTo": [
+        "weapon.ranged"
+      ]
     }
   },
   {
@@ -256,7 +283,12 @@
     "stack": 2,
     "modification": {
       "operation": "strip",
-      "appliesTo": ["weapon.melee", "weapon.ranged", "armor", "tool"]
+      "appliesTo": [
+        "weapon.melee",
+        "weapon.ranged",
+        "armor",
+        "tool"
+      ]
     }
   },
   {
@@ -271,7 +303,12 @@
     "stack": 1,
     "modification": {
       "operation": "reroll_chosen",
-      "appliesTo": ["weapon.melee", "weapon.ranged", "armor", "tool"]
+      "appliesTo": [
+        "weapon.melee",
+        "weapon.ranged",
+        "armor",
+        "tool"
+      ]
     }
   },
   {
@@ -286,7 +323,12 @@
     "stack": 1,
     "modification": {
       "operation": "upgrade_tier",
-      "appliesTo": ["weapon.melee", "weapon.ranged", "armor", "tool"]
+      "appliesTo": [
+        "weapon.melee",
+        "weapon.ranged",
+        "armor",
+        "tool"
+      ]
     }
   },
   {
@@ -310,5 +352,189 @@
     },
     "massKg": 0.5,
     "stack": 4
+  },
+  {
+    "id": "item.jerrycan.empty",
+    "name": "Empty Fuel Can",
+    "class": "material",
+    "size": {
+      "w": 2,
+      "h": 3
+    },
+    "massKg": 4.0
+  },
+  {
+    "id": "item.can.fuel",
+    "name": "Fuel Bottle",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 2
+    },
+    "massKg": 1.5,
+    "fuel": {
+      "litres": 2
+    }
+  },
+  {
+    "id": "item.kit.sewing",
+    "name": "Sewing Kit",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.15,
+    "stack": 3,
+    "modification": {
+      "operation": "condition_restore",
+      "appliesTo": [
+        "armor"
+      ]
+    }
+  },
+  {
+    "id": "item.oil.machine",
+    "name": "Machine Oil",
+    "class": "material",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.2,
+    "stack": 3,
+    "modification": {
+      "operation": "condition_restore",
+      "appliesTo": [
+        "weapon.melee",
+        "tool"
+      ]
+    }
+  },
+  {
+    "id": "item.food.jerky",
+    "name": "Beef Jerky",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.1,
+    "stack": 4,
+    "food": {
+      "hunger": 30,
+      "mood": 2,
+      "spoilDays": 14,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.crackers",
+    "name": "Crackers",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.15,
+    "stack": 5,
+    "food": {
+      "hunger": 20,
+      "mood": 0,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.chocolate",
+    "name": "Chocolate Bar",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.1,
+    "stack": 5,
+    "food": {
+      "hunger": 15,
+      "mood": 6,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.ration",
+    "name": "Ration Pack",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 2
+    },
+    "massKg": 0.6,
+    "food": {
+      "hunger": 70,
+      "mood": 2,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.soda.can",
+    "name": "Soda",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.35,
+    "stack": 3,
+    "drink": {
+      "thirst": 30,
+      "mood": 3
+    }
+  },
+  {
+    "id": "item.juice.carton",
+    "name": "Juice Carton",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.5,
+    "drink": {
+      "thirst": 40,
+      "mood": 2
+    }
+  },
+  {
+    "id": "item.drink.sports",
+    "name": "Sports Drink",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.55,
+    "stack": 2,
+    "drink": {
+      "thirst": 45,
+      "mood": 1
+    }
+  },
+  {
+    "id": "item.spirits.bottle",
+    "name": "Bottle of Spirits",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 2
+    },
+    "massKg": 0.9,
+    "cleanTier": "alcohol",
+    "drink": {
+      "thirst": 5,
+      "mood": 8
+    }
   }
 ]

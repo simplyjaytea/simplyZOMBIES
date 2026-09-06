@@ -136,6 +136,7 @@ func _run() -> void:
 	ok = _the_tank_runs_down(stash) and ok
 	ok = _a_crash_costs_condition(stash) and ok
 	ok = _the_hood_speaks_in_words(stash) and ok
+	ok = _a_can_fills_the_tank(stash) and ok
 	ok = _the_dash_shows_the_seat(stash) and ok
 	ok = _a_driver_is_off_the_menu(stash) and ok
 	ok = _the_light_vehicles_ride(stash) and ok
@@ -144,9 +145,10 @@ func _run() -> void:
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 	if ok:
-		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; the tank runs down and a dry one stops the car; a crash costs condition and a wreck will not move; the hood speaks in words; the dash shows gear, speed, fuel and the engine lamp with no digit; a driver is off the shambler's menu and a rider on it; the bicycle rides at %.1f with no tank, the e-bike drops to %.1f flat, a grab and a crash unseat a rider and never a driver, three dash layouts and no digit; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
+		print("M2_VEHICLES_OK %d classes drive; suburb@%d stands %d cars as entities and @64 none; a body gets in, drives to %.1f m/s and no faster, turns, brakes, coasts and gets out; a wall, a car, a heap and a doorway each stop it flush; the field reads %.1f under way, %.1f idling, 0 parked and 0 with the emitter off; E gets in after the loot and out from the wheel; the tank runs down and a dry one stops the car; a crash costs condition and a wreck will not move; the hood speaks in words; a can pours %.0f litres in %d ticks, spills what the tank cannot take, leaves its empty and refuses a bicycle, a battery, a wreck, a full tank and an empty hand; the dash shows gear, speed, fuel and the engine lamp with no digit; a driver is off the shambler's menu and a rider on it; the bicycle rides at %.1f with no tank, the e-bike drops to %.1f flat, a grab and a crash unseat a rider and never a driver, three dash layouts and no digit; a driven car restores where it was driven; sockets wired; %.1f s of a %.0f s budget" % [
 			int(stash.get("classes", 0)), PARK_SIZE, int(stash.get("suburb_cars", 0)),
 			float(stash.get("top_speed", 0.0)), float(stash.get("noise_driving", 0.0)), float(stash.get("noise_idle", 0.0)),
+			float(stash.get("poured", 0.0)), int(stash.get("refuel_steps", 0)),
 			float(stash.get("bicycle_top", 0.0)), float(stash.get("ebike_flat", 0.0)),
 			seconds, BUDGET_SECONDS,
 		])
@@ -1412,6 +1414,332 @@ func _the_hood_speaks_in_words(stash: Dictionary) -> bool:
 	return true
 
 
+# --- 10b. REFUEL -----------------------------------------------------------------------------
+#
+# The jerry-can half of docs/23's "refuelling and repair": a body at the nose carrying an item with
+# a `fuel` block pours it over REFUEL_TICKS, the can goes in whole (what the tank cannot take is
+# spilt), what is left is the can's `empties`, and the hood report afterwards says what the tank
+# reads now. Every refusal falls to the look, and every refusal keeps the can and the litres.
+
+func _refuel_world() -> Variant:
+	var w: Variant = _hand_world()
+	SimHealth.register_module(w)
+	SimInventory.register_module(w)
+	SimItems.register_module(w)
+	SimFortify.register_module(w)
+	SimHealth.make_survivor_body(w, w.player)
+	SimHealth.make_stamina(w, w.player)
+	SimInventory.make_inventory(w, w.player)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	# Pockets are 4x2 and a can is 2x3: the pack is what makes carrying one possible at all.
+	var pack: int = SimItems.spawn_item(w, "item.pack.hiking", {"tier": "scavenged"})
+	if not SimInventory.equip(w, w.player, pack):
+		push_error("REFUEL: could not equip the pack")
+	return w
+
+
+func _give_can(w: Variant, base_id: String = "item.jerrycan.fuel") -> int:
+	var can: int = SimItems.spawn_item(w, base_id, {"tier": "scavenged"})
+	if not SimInventory.stow(w, w.player, can):
+		push_error("REFUEL: could not stow %s" % base_id)
+		return SimVehicles.NO_DRIVER
+	return can
+
+
+func _carried_count(w: Variant, base_id: String) -> int:
+	var n: int = 0
+	for item in SimInventory.carried_items(w, w.player):
+		var b: Variant = w.components.get_component(int(item), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == base_id:
+			n += 1
+	return n
+
+
+func _stand_at_nose(w: Variant, one_wide: bool = false) -> void:
+	var p: Dictionary = _pos(w, w.player)
+	p["x"] = (float(CAR_X) + 0.5) if one_wide else (float(CAR_X) + 1.0)
+	p["y"] = float(CAR_Y) - 0.5
+
+
+# Steps until the pour is over, up to a ceiling; returns the steps taken.
+func _pour_out(w: Variant, ceiling: int) -> int:
+	var steps: int = 0
+	while w.components.has_component(w.player, "refuel") and steps < ceiling:
+		w.step()
+		steps += 1
+	return steps
+
+
+func _a_can_fills_the_tank(stash: Dictionary) -> bool:
+	var w: Variant = _refuel_world()
+	var car: int = _car_of(w)
+	var v: Dictionary = _v(w, car)
+	var tank: float = float(SimVehicles.drive_of(SimVehicles.class_of(w, "vehicle.sedan"))["tank"])
+	# Content: the can's block, judged whole, and what it leaves.
+	var spec: Variant = SimVehicles.fuel_spec(w, "item.jerrycan.fuel")
+	if not (spec is Dictionary) or absf(float((spec as Dictionary).get("litres", 0.0)) - 10.0) > 1e-9:
+		push_error("REFUEL: the jerry can's fuel block reads %s, want ten litres" % str(spec))
+		return false
+	var can_entry: Dictionary = SimItems.content_entry(w, "item", "item.jerrycan.fuel") as Dictionary
+	if SimItems.content_entry(w, "item", String(can_entry.get("empties", ""))) == null:
+		push_error("REFUEL: the jerry can's empties '%s' is not a base" % String(can_entry.get("empties", "")))
+		return false
+	for not_can in ["item.water.bottle", "item.not.a.real.base"]:
+		if SimVehicles.fuel_spec(w, not_can) != null:
+			push_error("REFUEL: %s reads as a fuel can" % not_can)
+			return false
+	(w.content as Dictionary)["items/_vehicles_gate_fixture.json"] = [
+		{"id": "item.gate.drycan", "name": "Dry Can", "class": "material", "size": {"w": 1, "h": 1}, "massKg": 0.1, "fuel": {"litres": 0}},
+		{"id": "item.gate.vaguecan", "name": "Vague Can", "class": "material", "size": {"w": 1, "h": 1}, "massKg": 0.1, "fuel": {"litres": "some"}},
+	]
+	if SimVehicles.fuel_spec(w, "item.gate.drycan") != null or SimVehicles.fuel_spec(w, "item.gate.vaguecan") != null:
+		push_error("REFUEL: a can of zero or of 'some' litres was accepted")
+		return false
+	var schema: String = _code_of("res://content/schemas/item.schema.json")
+	for word in ["\"fuel\"", "\"litres\"", "\"empties\""]:
+		if not schema.contains(word):
+			push_error("REFUEL: item.schema.json does not declare %s" % word)
+			return false
+	var findable: bool = false
+	for file_v in (w.content as Dictionary).values():
+		if file_v is Array:
+			for t_v in file_v as Array:
+				if t_v is Dictionary and String((t_v as Dictionary).get("id", "")).begins_with("loot."):
+					for row_v in (t_v as Dictionary).get("entries", []) as Array:
+						if String((row_v as Dictionary).get("item", "")) == "item.jerrycan.fuel":
+							findable = true
+	if not findable:
+		push_error("REFUEL: the jerry can is in no loot table")
+		return false
+	# The rung: half a tank, a can in the pack, a body at the nose.
+	var started: Array = []
+	var refuelled: Array = []
+	var cancelled: Array = []
+	w.events.subscribe({"id": "gate.refuel.started", "type": "vehicle.refuel.started", "handler": func(e: Dictionary) -> void: started.append(e)})
+	w.events.subscribe({"id": "gate.refuelled", "type": "vehicle.refuelled", "handler": func(e: Dictionary) -> void: refuelled.append(e)})
+	w.events.subscribe({"id": "gate.refuel.cancelled", "type": "vehicle.refuel.cancelled", "handler": func(e: Dictionary) -> void: cancelled.append(e)})
+	var can: int = _give_can(w)
+	if can == SimVehicles.NO_DRIVER:
+		return false
+	v["fuel"] = tank * 0.5
+	_stand_at_nose(w)
+	var problem: String = SimVehicles.refuel_problem(w, w.player, car)
+	if not problem.is_empty():
+		push_error("REFUEL: at the nose with a can and half a tank, the pour is refused: %s" % problem)
+		return false
+	var offer: String = SimVehicles.hud_clause(w, w.player)
+	if not offer.contains("hood") or not offer.contains("can") or _has_digit(offer):
+		push_error("REFUEL: the clause at the nose with a can reads '%s'" % offer)
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if not w.components.has_component(w.player, "refuel") or w.components.has_component(w.player, "hoodReport") or w.components.has_component(w.player, "mounted"):
+		push_error("REFUEL: E at the nose with a can did not start a pour (refuel %s, hoodReport %s, mounted %s)" % [w.components.has_component(w.player, "refuel"), w.components.has_component(w.player, "hoodReport"), w.components.has_component(w.player, "mounted")])
+		return false
+	var pouring: String = SimVehicles.hud_clause(w, w.player)
+	if not pouring.contains("pouring") or _has_digit(pouring):
+		push_error("REFUEL: mid-pour the HUD reads '%s'" % pouring)
+		return false
+	if started.size() != 1:
+		push_error("REFUEL: %d vehicle.refuel.started events for one E" % started.size())
+		return false
+	if not SimVehicles.mount_problem(w, w.player, car).contains("refuel"):
+		push_error("REFUEL: mount_problem does not name the pour as busy hands: '%s'" % SimVehicles.mount_problem(w, w.player, car))
+		return false
+	# E again mid-pour is inert: no look, no door, still pouring.
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if not w.components.has_component(w.player, "refuel") or w.components.has_component(w.player, "hoodReport") or w.components.has_component(w.player, "mounted"):
+		push_error("REFUEL: a second E mid-pour did something")
+		return false
+	var steps: int = 2 + _pour_out(w, SimVehicles.REFUEL_TICKS + 5)
+	if steps < SimVehicles.REFUEL_TICKS - 1 or steps > SimVehicles.REFUEL_TICKS + 2:
+		push_error("REFUEL: the pour took %d steps against REFUEL_TICKS %d" % [steps, SimVehicles.REFUEL_TICKS])
+		return false
+	if absf(float(v["fuel"]) - (tank * 0.5 + 10.0)) > 1e-9:
+		push_error("REFUEL: the tank reads %.4f after a ten-litre can into half of %.0f" % [float(v["fuel"]), tank])
+		return false
+	if SimInventory.owns(w, w.player, can) or w.components.has_component(can, "itemBase"):
+		push_error("REFUEL: the poured can is still in the pack")
+		return false
+	if _carried_count(w, "item.jerrycan.empty") != 1:
+		push_error("REFUEL: the pour left %d empty cans, want one" % _carried_count(w, "item.jerrycan.empty"))
+		return false
+	if refuelled.size() != 1 or absf(float((refuelled[0] as Dictionary).get("litres", 0.0)) - 10.0) > 1e-9 or absf(float((refuelled[0] as Dictionary).get("spilt", 1.0))) > 1e-9:
+		push_error("REFUEL: vehicle.refuelled reads %s" % str(refuelled))
+		return false
+	var report: String = SimVehicles.hud_clause(w, w.player)
+	if not w.components.has_component(w.player, "hoodReport") or report != String(SimVehicles.hood_view(w, car)["prose"]) or not report.contains("most of a tank") or _has_digit(report):
+		push_error("REFUEL: after the pour the HUD reads '%s'" % report)
+		return false
+	for i in SimVehicles.HOOD_REPORT_TICKS + 2:
+		w.step()
+	# The report lapses on the read, the way the HOOD lane finds it: the clause first, then the body.
+	if SimVehicles.hud_clause(w, w.player) == report or w.components.has_component(w.player, "hoodReport"):
+		push_error("REFUEL: the post-pour report never lapsed")
+		return false
+	stash["poured"] = 10.0
+	stash["refuel_steps"] = steps
+	# The spill: a can into a tank four litres short goes in whole, four in and six on the ground.
+	v["fuel"] = tank - 4.0
+	var can2: int = _give_can(w)
+	w.commands.push({"type": "use.context"})
+	w.step()
+	_pour_out(w, SimVehicles.REFUEL_TICKS + 5)
+	if absf(float(v["fuel"]) - tank) > 1e-9 or w.components.has_component(can2, "itemBase") or _carried_count(w, "item.jerrycan.empty") != 2:
+		push_error("REFUEL: the spill left the tank at %.4f (want %.0f), can alive %s, %d empties" % [float(v["fuel"]), tank, w.components.has_component(can2, "itemBase"), _carried_count(w, "item.jerrycan.empty")])
+		return false
+	var last: Dictionary = refuelled[refuelled.size() - 1] as Dictionary
+	if refuelled.size() != 2 or absf(float(last.get("litres", 0.0)) - 4.0) > 1e-9 or absf(float(last.get("spilt", 0.0)) - 6.0) > 1e-9:
+		push_error("REFUEL: the spill's event reads %s" % str(last))
+		return false
+	w.components.remove(w.player, "hoodReport")
+	# Refusals, each keeping the can and the litres. No can: E looks.
+	v["fuel"] = tank * 0.5
+	if SimVehicles.refuel_problem(w, w.player, car) != "no fuel can":
+		push_error("REFUEL: with no can the problem reads '%s'" % SimVehicles.refuel_problem(w, w.player, car))
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(w.player, "refuel") or not w.components.has_component(w.player, "hoodReport") or absf(float(v["fuel"]) - tank * 0.5) > 1e-9:
+		push_error("REFUEL: with no can, E did not simply look")
+		return false
+	w.components.remove(w.player, "hoodReport")
+	# A full tank: E looks, the can stays.
+	var can3: int = _give_can(w)
+	v["fuel"] = tank
+	if SimVehicles.refuel_problem(w, w.player, car) != "the tank is full":
+		push_error("REFUEL: a full tank's problem reads '%s'" % SimVehicles.refuel_problem(w, w.player, car))
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(w.player, "refuel") or not w.components.has_component(w.player, "hoodReport") or not SimInventory.owns(w, w.player, can3) or absf(float(v["fuel"]) - tank) > 1e-9:
+		push_error("REFUEL: a full tank did not refuse the can")
+		return false
+	w.components.remove(w.player, "hoodReport")
+	# At the door with a can: E gets in, and the can is still in the pack.
+	v["fuel"] = tank * 0.5
+	var p: Dictionary = _pos(w, w.player)
+	p["x"] = float(CAR_X - 1) + 0.5
+	p["y"] = float(CAR_Y + 2) + 0.5
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if not w.components.has_component(w.player, "mounted") or w.components.has_component(w.player, "refuel") or not SimInventory.owns(w, w.player, can3):
+		push_error("REFUEL: at the door with a can, E did not get in")
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(w.player, "mounted"):
+		push_error("REFUEL: could not get back out")
+		return false
+	# A wreck: the engine refuses the can before the can is wasted.
+	_stand_at_nose(w)
+	v["integrity"] = 0.0
+	if not SimVehicles.refuel_problem(w, w.player, car).contains("wrecked"):
+		push_error("REFUEL: a wreck's problem reads '%s'" % SimVehicles.refuel_problem(w, w.player, car))
+		return false
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if w.components.has_component(w.player, "refuel") or not SimInventory.owns(w, w.player, can3):
+		push_error("REFUEL: a wreck took the can")
+		return false
+	v["integrity"] = SimVehicles.INTEGRITY_MAX
+	w.components.remove(w.player, "hoodReport")
+	# A bicycle has nothing to fill; a battery wants a charger. Both look, neither pours.
+	var b: Variant = _hand_world(_bicycle_record())
+	SimHealth.register_module(b)
+	SimInventory.register_module(b)
+	SimItems.register_module(b)
+	SimFortify.register_module(b)
+	SimHealth.make_survivor_body(b, b.player)
+	SimHealth.make_stamina(b, b.player)
+	SimInventory.make_inventory(b, b.player)
+	b.components.set_component(b.player, "facing", {"radians": 0.0})
+	SimInventory.equip(b, b.player, SimItems.spawn_item(b, "item.pack.hiking", {"tier": "scavenged"}))
+	var bcan: int = SimItems.spawn_item(b, "item.jerrycan.fuel", {"tier": "scavenged"})
+	SimInventory.stow(b, b.player, bcan)
+	var bike: int = _car_of(b)
+	_stand_at_nose(b, true)
+	if not SimVehicles.at_hood(b, b.player, bike):
+		push_error("REFUEL: not at the bicycle's nose")
+		return false
+	if SimVehicles.refuel_problem(b, b.player, bike) != "nothing to fill":
+		push_error("REFUEL: a bicycle's problem reads '%s'" % SimVehicles.refuel_problem(b, b.player, bike))
+		return false
+	b.commands.push({"type": "use.context"})
+	b.step()
+	if b.components.has_component(b.player, "refuel") or not b.components.has_component(b.player, "hoodReport") or not SimInventory.owns(b, b.player, bcan):
+		push_error("REFUEL: E at a bicycle's nose with a can did not simply look it over")
+		return false
+	var e: Variant = _hand_world(_light_record("ebike", 2))
+	var ebike: int = _car_of(e)
+	SimInventory.register_module(e)
+	SimItems.register_module(e)
+	SimInventory.make_inventory(e, e.player)
+	SimInventory.equip(e, e.player, SimItems.spawn_item(e, "item.pack.hiking", {"tier": "scavenged"}))
+	SimInventory.stow(e, e.player, SimItems.spawn_item(e, "item.jerrycan.fuel", {"tier": "scavenged"}))
+	_stand_at_nose(e, true)
+	_v(e, ebike)["fuel"] = 0.0
+	if not SimVehicles.refuel_problem(e, e.player, ebike).contains("charger"):
+		push_error("REFUEL: a flat e-bike's problem reads '%s'" % SimVehicles.refuel_problem(e, e.player, ebike))
+		return false
+	# Interrupts, each on the fifth tick of a pour: a stagger, a grab, walking off the nose, and
+	# the can leaving the pack. Each cancels, keeps the can where it went, and moves no litres.
+	var whys: Array[String] = []
+	for kind in ["staggered", "grabbed", "walked", "dropped"]:
+		var cw: Variant = _refuel_world()
+		var ccar: int = _car_of(cw)
+		var cv: Dictionary = _v(cw, ccar)
+		var canc: Array = []
+		cw.events.subscribe({"id": "gate.cancel.%s" % kind, "type": "vehicle.refuel.cancelled", "handler": func(ev: Dictionary) -> void: canc.append(ev)})
+		var ccan: int = _give_can(cw)
+		cv["fuel"] = tank * 0.5
+		_stand_at_nose(cw)
+		cw.commands.push({"type": "use.context"})
+		for i in 5:
+			cw.step()
+		if not cw.components.has_component(cw.player, "refuel"):
+			push_error("REFUEL: the %s case never started pouring" % kind)
+			return false
+		match kind:
+			"staggered":
+				cw.events.publish({"type": "entity.staggered", "entity": cw.player})
+			"grabbed":
+				cw.events.publish({"type": "grab.started", "victim": cw.player, "attacker": -1})
+			"walked":
+				_pos(cw, cw.player)["y"] = float(CAR_Y) - 3.5
+			"dropped":
+				SimInventory.drop_at_feet(cw, cw.player, ccan)
+		cw.step()
+		if cw.components.has_component(cw.player, "refuel") or canc.size() != 1:
+			push_error("REFUEL: the %s case did not cancel the pour (%d cancellations)" % [kind, canc.size()])
+			return false
+		whys.append(String((canc[0] as Dictionary).get("why", "")))
+		if absf(float(cv["fuel"]) - tank * 0.5) > 1e-9 or not cw.components.has_component(ccan, "itemBase"):
+			push_error("REFUEL: the %s case moved litres or lost the can" % kind)
+			return false
+	# The command of its own, for gates and replays.
+	var rw: Variant = _refuel_world()
+	_give_can(rw)
+	_v(rw, _car_of(rw))["fuel"] = tank * 0.5
+	_stand_at_nose(rw)
+	rw.commands.push({"type": SimVehicles.REFUEL})
+	rw.step()
+	if not rw.components.has_component(rw.player, "refuel"):
+		push_error("REFUEL: the vehicle.refuel command did not start a pour")
+		return false
+	# And a pour survives a save mid-way, ticks and all.
+	var snap: Dictionary = rw.snapshot()
+	var rb: Variant = _refuel_world()
+	rb.restore(snap)
+	var rstate: Variant = rb.components.get_component(rb.player, "refuel")
+	if not (rstate is Dictionary) or int((rstate as Dictionary).get("ticksLeft", -1)) != int((rw.components.get_component(rw.player, "refuel") as Dictionary).get("ticksLeft", -2)):
+		push_error("REFUEL: a mid-pour save restored %s" % str(rstate))
+		return false
+	print("REFUEL OK a ten-litre can at the nose pours in %d steps into half a %.0f-litre tank, reads 'most of a tank' for %d ticks and leaves an empty can; four litres short takes four and spills six; no can, a full tank, a wreck, a bicycle and a battery each refuse and keep the can; the door still opens with a can in the pack; a stagger, a grab, a walk and a dropped can cancel (%s); the command starts a pour and a save keeps one" % [steps, tank, SimVehicles.HOOD_REPORT_TICKS, str(whys)])
+	return true
+
+
 # --- 11. DASH ------------------------------------------------------------------------------
 
 func _string_literal_digit(code: String) -> String:
@@ -2108,7 +2436,8 @@ func _the_sockets_are_wired() -> bool:
 		[BOOT_GD, "register_playable_modules", ["SimVehicles.register_module(world)"], "the toggle and the drive would run in no world"],
 		[BOOT_GD, "playable", ["SimVehicles.spawn_from_manifest(world, map)"], "no record would ever become an entity"],
 		[SHAMBLER_GD, "_gather_survivors", ["\"mounted\"", "\"cab\""], "a driver would be chased and grabbed through the door, or a rider sheltered by a bicycle"],
-		[FORTIFY_GD, "_use_context", ["SimVehicles.dismount(", "SimVehicles.mount(", "SimVehicles.nearest_in_reach(", "SimVehicles.at_hood(", "SimVehicles.check_hood("], "E would never open a car door or a hood"],
+		[FORTIFY_GD, "_use_context", ["SimVehicles.dismount(", "SimVehicles.mount(", "SimVehicles.nearest_in_reach(", "SimVehicles.at_hood(", "SimVehicles.check_hood(", "SimVehicles.begin_refuel("], "E would never open a car door or a hood, or pour a can"],
+		[FORTIFY_GD, "register_module", ["\"refuel\""], "E would look under the hood mid-pour and fall through the ladder"],
 		[MAIN_GD, "_input", ["\"use.context\""], "no key would push the context command"],
 		[MAIN_GD, "_draw_entities", ["\"mounted\"", "\"cab\"", "SimVehicles.ground_point("], "the driver's pawn would draw on the bonnet, or a rider would vanish off a bicycle"],
 		[WORLDGEN_GD, "_vehicle_tails", ["mini(cw, ch) < 2"], "a car-boot site could stand on a bicycle"],

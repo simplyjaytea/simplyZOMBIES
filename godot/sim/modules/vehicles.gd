@@ -75,6 +75,12 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
+# Neither preloads this file (inventory reaches items and the grid; needs reaches inventory, items,
+# light, attention and health), so there is no cycle. Named with a suffix because both are also
+# global class names.
+const SimInventoryRes = preload("res://sim/modules/inventory.gd")
+const SimItemsRes = preload("res://sim/modules/items.gd")
+const SimNeedsRes = preload("res://sim/modules/needs.gd")
 
 const NO_DRIVER: int = -1
 # How close a body has to be to the footprint's edge to get in. Fortify's REACH, the same arm.
@@ -121,6 +127,22 @@ const HOOD_REPORT_TICKS: int = 200
 # The hood view's keys, every one a word or a boolean. check_vehicles.gd's HOOD lane holds the
 # view to this list the way check_ban_health_bar.gd holds the condition view to PART_KEYS.
 const HOOD_KEYS: Array[String] = ["name", "condition", "fuel", "runs", "prose"]
+# Refuelling from a can (the jerry-can half of docs/23's "refuelling and repair"; the siphon, the
+# repair channel and the charger stay named there). A body at the nose carrying an item with a
+# `fuel` block pours it into an engine's tank over REFUEL_TICKS -- ten seconds, HOOD_REPORT_TICKS'
+# number: a ten-litre can does not tip in the two seconds a board takes to nail, and a channel
+# that cannot be interrupted is a click. The can is poured whole (min(litres, room) goes in, the
+# rest is spilt -- item.schema.json's `fuel` says why there is no per-instance count) and what it
+# leaves is its `empties`, through SimNeeds' one spend path. Owned here rather than by fortify's
+# `construct`: that channel puts CONSTRUCT_NOISE on the field every tick and the presentation plays
+# the board one-shot on it, and a pour is quieter than the footsteps the body already emits. REFUEL
+# is the command, TOGGLE's twin: for gates and replays, pushed by nothing in presentation -- the E
+# ladder reaches begin_refuel directly.
+const REFUEL: String = "vehicle.refuel"
+const REFUEL_TICKS: int = 200
+# What "hands are not free" means, for the door and for the can alike -- one list so the two
+# verbs cannot disagree about busy.
+const BUSY: Array[String] = ["grabbed", "treatment", "treated", "rescue", "corpse", "construct", "refuel"]
 # The dashboard: what the driver sees from the seat, a makeshift instrument cluster (the
 # owner's third goal of 2026-09-05). Words and booleans, plus exactly two needles -- `speedo`
 # and `gauge`, fractions of the class's top and of the tank -- which are the machine's own
@@ -173,6 +195,18 @@ static func register_module(world: Variant) -> void:
 	world.systems.register("vehicle.drive", "movement", 1, func(w: Variant) -> void:
 		_drive(w)
 	)
+	# Structures order 1, one after fortify's channel at 0: the same family (a body's channel
+	# acting on the world), so a pour begun in input takes its first tick in the same step and
+	# completes REFUEL_TICKS + 2 steps after E, the fortify gate's own arithmetic.
+	world.systems.register("vehicle.refuel", "structures", 1, func(w: Variant) -> void:
+		_tick_refuel(w)
+	)
+	world.events.subscribe({"id": "vehicle.stagger-interrupts", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:
+		cancel_refuel(world, int(event.get("entity", -1)), "staggered")
+	})
+	world.events.subscribe({"id": "vehicle.grab-interrupts", "type": "grab.started", "handler": func(event: Dictionary) -> void:
+		cancel_refuel(world, int(event.get("victim", -1)), "grabbed")
+	})
 
 
 # --- content ------------------------------------------------------------------------------------
@@ -652,6 +686,126 @@ static func hood_report(world: Variant, actor: int) -> Dictionary:
 	return hood_view(world, int((report as Dictionary).get("vehicle", NO_DRIVER)))
 
 
+# --- refuelling from a can ----------------------------------------------------------------------
+
+# The `fuel` block of an item base, judged whole, or null: `litres` a number above zero. A block
+# missing it is not a can at all, for the reason drive_of answers {} for a half block.
+static func fuel_spec(world: Variant, base_id: String) -> Variant:
+	var base: Variant = SimItemsRes.content_entry(world, "item", base_id)
+	if not (base is Dictionary):
+		return null
+	var spec: Variant = (base as Dictionary).get("fuel")
+	if not (spec is Dictionary):
+		return null
+	var litres: Variant = (spec as Dictionary).get("litres")
+	if not (litres is float or litres is int) or float(litres) <= 0.0:
+		return null
+	return spec
+
+
+# The first can the body carries, or NO_DRIVER.
+static func carried_fuel_can(world: Variant, actor: int) -> int:
+	for item in SimInventoryRes.carried_items(world, actor):
+		var base: Variant = world.components.get_component(int(item), "itemBase")
+		if base is Dictionary and fuel_spec(world, String((base as Dictionary).get("baseId", ""))) != null:
+			return int(item)
+	return NO_DRIVER
+
+
+# Why this body cannot pour a can into this vehicle right now, or "" when it can. mount_problem's
+# idiom; the order is the order the refusals are worth knowing in.
+static func refuel_problem(world: Variant, actor: int, entity: int) -> String:
+	if world.components.has_component(actor, "refuel"):
+		return "already pouring"
+	if world.components.has_component(actor, "mounted"):
+		return "at a wheel"
+	var v: Variant = world.components.get_component(entity, "vehicle")
+	if not (v is Dictionary):
+		return "not a vehicle"
+	if int((v as Dictionary).get("driver", NO_DRIVER)) != NO_DRIVER:
+		return "somebody is driving it"
+	var drive: Dictionary = drive_of(class_of(world, String((v as Dictionary).get("class", ""))))
+	if drive.is_empty():
+		return "its class declares no drive block"
+	match power_of(drive):
+		POWER_MUSCLE:
+			return "nothing to fill"
+		POWER_BATTERY:
+			return "a battery takes a charger, not a can"
+	if condition_band(float((v as Dictionary).get("integrity", 0.0))) == 0:
+		return "the engine is wrecked"
+	for busy in BUSY:
+		if world.components.has_component(actor, busy):
+			return "hands are not free (%s)" % busy
+	if not at_hood(world, actor, entity):
+		return "not at the hood"
+	if carried_fuel_can(world, actor) == NO_DRIVER:
+		return "no fuel can"
+	if float((v as Dictionary).get("fuel", 0.0)) >= float(drive.get("tank", 0.0)) - EPS:
+		return "the tank is full"
+	return ""
+
+
+static func begin_refuel(world: Variant, actor: int, entity: int) -> bool:
+	if not refuel_problem(world, actor, entity).is_empty():
+		return false
+	var can: int = carried_fuel_can(world, actor)
+	world.components.set_component(actor, "refuel", {"vehicle": entity, "item": can, "ticksLeft": REFUEL_TICKS, "ticks": REFUEL_TICKS})
+	world.events.publish({"type": "vehicle.refuel.started", "entity": entity, "actor": actor, "item": can})
+	return true
+
+
+static func cancel_refuel(world: Variant, actor: int, why: String) -> void:
+	if actor < 0 or not world.components.has_component(actor, "refuel"):
+		return
+	world.components.remove(actor, "refuel")
+	world.events.publish({"type": "vehicle.refuel.cancelled", "actor": actor, "why": why})
+
+
+# The pour's conditions are re-derived every tick, the treatment channel's rule: a body grabbed,
+# walked off the nose, or whose can went somewhere else stops pouring rather than finishing on a
+# stale premise.
+static func _tick_refuel(world: Variant) -> void:
+	for actor in world.components.query(["refuel"]):
+		var state: Variant = world.components.get_component(int(actor), "refuel")
+		if not (state is Dictionary):
+			continue
+		var car: int = int((state as Dictionary).get("vehicle", NO_DRIVER))
+		var can: int = int((state as Dictionary).get("item", NO_DRIVER))
+		var v: Variant = world.components.get_component(car, "vehicle")
+		if world.components.has_component(int(actor), "grabbed") or not (v is Dictionary) \
+				or int((v as Dictionary).get("driver", NO_DRIVER)) != NO_DRIVER \
+				or not at_hood(world, int(actor), car) \
+				or not SimInventoryRes.owns(world, int(actor), can):
+			cancel_refuel(world, int(actor), "interrupted")
+			continue
+		(state as Dictionary)["ticksLeft"] = int((state as Dictionary).get("ticksLeft", 0)) - 1
+		if int((state as Dictionary)["ticksLeft"]) > 0:
+			continue
+		_complete_refuel(world, int(actor), state as Dictionary)
+
+
+static func _complete_refuel(world: Variant, actor: int, state: Dictionary) -> void:
+	var car: int = int(state.get("vehicle", NO_DRIVER))
+	var can: int = int(state.get("item", NO_DRIVER))
+	var base: Variant = world.components.get_component(can, "itemBase")
+	var spec: Variant = fuel_spec(world, String((base as Dictionary).get("baseId", ""))) if base is Dictionary else null
+	var v: Variant = world.components.get_component(car, "vehicle")
+	if spec == null or not (v is Dictionary):
+		cancel_refuel(world, actor, "no fuel can")
+		return
+	var drive: Dictionary = drive_of(class_of(world, String((v as Dictionary).get("class", ""))))
+	var litres: float = float((spec as Dictionary).get("litres", 0.0))
+	var room: float = maxf(0.0, float(drive.get("tank", 0.0)) - float((v as Dictionary).get("fuel", 0.0)))
+	var poured: float = minf(litres, room)
+	(v as Dictionary)["fuel"] = float((v as Dictionary).get("fuel", 0.0)) + poured
+	world.components.remove(actor, "refuel")
+	SimNeedsRes.consume_item(world, actor, can)
+	world.events.publish({"type": "vehicle.refuelled", "entity": car, "actor": actor, "litres": poured, "spilt": litres - poured})
+	# The new fuel word sits on the HUD for HOOD_REPORT_TICKS, exactly as a look would leave it.
+	check_hood(world, actor, car)
+
+
 # Rebuilds the map's shadow of every vehicle entity: the Tile.Low under each footprint and the
 # `map.vehicles` record beside it. Records that name an entity are replaced wholesale; records
 # that name none (a manifest nobody spawned from -- a gate booting `bare`, a fixture) are kept as
@@ -866,7 +1020,7 @@ static func mount_problem(world: Variant, actor: int, entity: int) -> String:
 		return "somebody is driving it"
 	if drive_of(class_of(world, String((v as Dictionary).get("class", "")))).is_empty():
 		return "its class declares no drive block"
-	for busy in ["grabbed", "treatment", "treated", "rescue", "corpse", "construct"]:
+	for busy in BUSY:
 		if world.components.has_component(actor, busy):
 			return "hands are not free (%s)" % busy
 	var pos: Variant = world.components.get_component(actor, "position")
@@ -1015,6 +1169,10 @@ static func _intake(w: Variant) -> void:
 						var near: int = nearest_in_reach(w, int(actor))
 						if near != NO_DRIVER:
 							mount(w, int(actor), near)
+				REFUEL:
+					var near_car: int = nearest_in_reach(w, int(actor))
+					if near_car != NO_DRIVER:
+						begin_refuel(w, int(actor), near_car)
 				"move", "wait":
 					var m: Variant = w.components.get_component(int(actor), "mounted")
 					if not (m is Dictionary):
@@ -1283,6 +1441,13 @@ static func hud_clause(world: Variant, actor: int) -> String:
 					return "%s the %s, battery humming; %s" % [seat, name, out]
 			return "%s the %s; %s" % [seat, name, out]
 		return ""
+	# Mid-pour, the pour is the news.
+	var pouring: Variant = world.components.get_component(actor, "refuel")
+	if pouring is Dictionary:
+		var pv: Variant = world.components.get_component(int((pouring as Dictionary).get("vehicle", NO_DRIVER)), "vehicle")
+		if pv is Dictionary:
+			var pname: String = String(class_of(world, String((pv as Dictionary).get("class", ""))).get("name", "car")).to_lower()
+			return "pouring the can into the %s's tank" % pname
 	# A hood you have just looked under outranks the car beside you for as long as the report
 	# lasts; then the kerb clauses come back.
 	var report: Dictionary = hood_report(world, actor)
@@ -1295,6 +1460,8 @@ static func hud_clause(world: Variant, actor: int) -> String:
 	var near_entry: Dictionary = class_of(world, String(nv.get("class", "")))
 	var near_name: String = String(near_entry.get("name", "car")).to_lower()
 	if at_hood(world, actor, near):
+		if refuel_problem(world, actor, near).is_empty():
+			return "the %s's hood before you; E to fill the tank from your can" % near_name
 		if has_cab(near_entry):
 			return "the %s's hood before you; E to look under it" % near_name
 		return "a %s before you; E to look it over" % near_name

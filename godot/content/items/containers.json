@@ -42,5 +42,43 @@
     "equipSlot": "back",
     "appearance": { "equipSprite": "item_pack_hiking_equip", "equipSpriteFront": "item_pack_hiking_equip_front" },
     "container": { "w": 6, "h": 8 }
+  },
+  {
+    "id": "item.pack.school",
+    "name": "School Bag",
+    "class": "container",
+    "size": {"w": 3, "h": 3},
+    "massKg": 0.5,
+    "equipSlot": "back",
+    "appearance": {"equipSprite": "item_pack_school_equip", "equipSpriteFront": "item_pack_school_equip_front"},
+    "container": {"w": 5, "h": 5}
+  },
+  {
+    "id": "item.pack.frame",
+    "name": "Frame Pack",
+    "class": "container",
+    "size": {"w": 4, "h": 5},
+    "massKg": 1.8,
+    "equipSlot": "back",
+    "appearance": {"equipSprite": "item_pack_frame_equip", "equipSpriteFront": "item_pack_frame_equip_front"},
+    "container": {"w": 7, "h": 9}
+  },
+  {
+    "id": "item.pouch.medic",
+    "name": "Medic Pouch",
+    "class": "container",
+    "size": {"w": 2, "h": 2},
+    "massKg": 0.3,
+    "equipSlot": "belt",
+    "container": {"w": 3, "h": 3}
+  },
+  {
+    "id": "item.bandolier.canvas",
+    "name": "Canvas Bandolier",
+    "class": "container",
+    "size": {"w": 3, "h": 1},
+    "massKg": 0.3,
+    "equipSlot": "vest",
+    "container": {"w": 6, "h": 1}
   }
 ]

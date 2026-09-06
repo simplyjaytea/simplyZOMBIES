@@ -28,7 +28,7 @@ const BURY_TICKS: int = 40
 const REPAIR_TICKS: int = 80
 const REACH: float = 1.5
 const EMPTY_BOTTLE: String = "item.water.bottle.empty"
-const FULL_BOTTLE: String = "item.water.bottle"
+const FULL_BOTTLE: String = SimNeeds.WATER_ID
 const SCRAP_ID: String = "item.scrap.metal"
 
 
@@ -1096,9 +1096,9 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 				if SimInventory.stow(world, ent, food):
 					SimNeeds.eat(world, ent, food)
 		"thirst", "hygiene":
-			var bottle: int = _carry_base(world, ent, "item.water.bottle")
+			var bottle: int = _carry_base(world, ent, SimNeeds.WATER_ID)
 			if bottle < 0:
-				bottle = _stock_base(world, "item.water.bottle")
+				bottle = _stock_base(world, SimNeeds.WATER_ID)
 			if bottle < 0:
 				return
 			if not SimInventory.owns(world, ent, bottle):

@@ -32,6 +32,19 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-06 — the gear catalogue** (`npm run godot:m2:gear`'s CATALOGUE lane, `godot:m2:needs`'s
+DRINK and STIMULANT lanes, `godot:m2:vehicles`' REFUEL lane, `godot:m2:jobs`' WELL lane, and
+`WORN_LOOK_OK` judging fifteen new pictures), at the owner's direction: thirty-one new item
+bases — five melee weapons, a pump shotgun and a hunting rifle with their rounds, five pieces of
+clothing, four packs and pouches, a fuel bottle and an empty can, an oil lantern and two bench
+consumables, four foods and four drinks — every one in a loot table, every drawn-slot base with a
+generated overlay. Three shipped dead sockets went live with it: a `drink` block makes the
+energy drink a stimulant with a real crash (the word is "wired"), a `fuel` block and the E
+ladder let a can at the nose refuel a car, and `empties` makes a drunk bottle leave the empty the
+Water job has hunted since it landed. The jerry can, the crash, the shotgun and the rifle are
+first cuts for the owner (item 0 below). Balance before and after is in docs/23's record; every
+band held.
+
 **2026-09-05 — the light vehicles** (the LIGHT lane of `npm run godot:m2:vehicles`, and
 `WRECKS_OK` judging the new pictures), the owner's fourth goal of the driving session: a
 bicycle, an electric bike, an electric scooter, a kick scooter and a skateboard park in the
@@ -139,7 +152,12 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    parking in the cars' pass on 4-wide spans only, weighted sedan 10 / van 3 / truck 1 /
    bicycle 4 / e-bike 2 / e-scooter 2 / kick scooter 1 / skateboard 1; the car shells as the
    bike paint; and `SAVE_VERSION` 19 — docs/30's "Light vehicles" clause, each a content edit
-   or a line.
+   or a line. **And by the gear catalogue (2026-09-06):** the pump shotgun (30 damage, 15 m, noise
+   220) and the hunting rifle (34, 60 m, 200) against a pistol's 18 / 25 m / 180; the energy
+   drink's loan (thirst 15, rest 20 now, 25 back three in-game hours later, chaining
+   compounding rather than resetting); a jerry can as ten litres poured whole with the rest
+   spilt; and the fuel bottle on a residential shelf until an industrial table exists — docs/30's
+   "The gear catalogue", each a content number.
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement
