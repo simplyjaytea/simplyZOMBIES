@@ -276,12 +276,6 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    several trunks overlap the body at once (`slice9-stand-64.png`). That is the forest's
    character rather than a defect in the fade, but the density is content: the knobs are the
    terrain block's `standsMax`, `treesMax` and `treeSpread`.
-6. **Whether the trap and the bait emitter are still in the slice.** docs/23's Milestone 2 scope
-   table promises "walls, gate, barricades, one trap, and one bait emitter"; the fortify slice
-   shipped the first three (`godot:m2:fortify`) and the trap and the bait have no content, no gate
-   and no entry in what's left, while the Milestone 3A list names "traps, and bait" as its own.
-   Found by the 2026-09-06 roadmap audit: either they are cut from the slice (a line in the scope
-   table and the cut list) or they are two named pieces for what's left. Nothing decides it today.
 
 ## How a session runs
 

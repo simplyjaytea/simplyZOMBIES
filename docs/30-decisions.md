@@ -2578,6 +2578,19 @@ snow that lies as well as falls — and the spine took these calls:
   system), and tracks in snow (no tracker reads a footprint anywhere). Each stays named in what's
   left rather than stubbed.
 
+## The trap and the bait are Milestone 3A, 2026-09-06
+
+The roadmap audit of 2026-09-06 found the Milestone 2 scope table promising "walls, gate,
+barricades, one trap, and one bait emitter" while the tree had walls, the gate and barricades
+(`godot:m2:fortify`) and nothing else: no trap or bait content, no gate, no what's-left entry, and
+the Milestone 3A list already naming "traps, and bait" as its own. The owner's call, made the same
+day: **cut both to Milestone 3A.** The slice's building is the three that shipped. docs/15's traps
+and bait sections are unchanged — they are the spec, and docs/15 was never scoped by milestone.
+What this leaves the slice: sieges are answered by walls, the gate, barricades and bodies, and the
+director's minimum siege cadence (risk 3) is measured against that and nothing more. If the human
+ten-day playtest finds building without a trap has nothing to defend *with*, that is a reason to
+revisit, and it is a playtest finding to bring back here, not a reason to smuggle one in.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
