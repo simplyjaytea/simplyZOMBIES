@@ -1683,6 +1683,9 @@ docs/16's weather is Milestone 3, and when it lands the layer is re-keyed to it 
 competing with it. **Reversed in part 2026-09-06** — the owner opened a minimal rain state
 (docs/adr/0015, "Rain as sim state" below): the sim now decides *whether* it rains and the layer
 is re-keyed to it exactly as this clause promised; what the rain *looks* like stays this layer's.
+**Superseded in full 2026-09-06** — the weather-look slice re-keyed the whole sky, not only rain,
+to `SimWeather.kind` (docs/adr/0016): the sim now decides which of six kinds is on screen and
+this clause's "when it lands" is the slice below.
 
 **Every body is an overhead rig** (added by the characters slice, under four further owner
 directives of 2026-09-01). All character sprites are authored true-overhead like the player's,
@@ -2525,6 +2528,22 @@ snow that lies as well as falls — and the spine took these calls:
 - **What it did not take.** Fog, a ranged penalty, thirst relief, barricade damage, firewood,
   frostbite, tracks, phase lengths by season, survivor forecasts, a sim light pulse per strike
   (the owner chose noise and a screen flash). Each is named in what's left.
+- **The look slice, 2026-09-06.** `rain_look.gd`'s constants became one pure function a kind,
+  `look_of`, returning a `{fall, slant, lenMin, lenSpan, intensityMin, count, colour}` record —
+  rain's own numbers unchanged, a storm the same fall and lean at a higher floor and half again
+  as many streaks, and snow its own shape (slower, more lean, short enough to read as a dot) on
+  its own `snow` palette key rather than rain's. The cover is a lerp at the *one* place the
+  ground colour is already resolved in `_draw_district`, guarded by the same `is_indoors` check
+  every other floor branch there reads, so an indoor tile is never snowed on and cover 0.0 is
+  `Color.lerp` at weight zero — byte-identical to today, which is what keeps `check_topdown.gd`'s
+  GROUND lane pinned. The flash is one `world.events.drained` read for a `weather.lightning`
+  event, drawn as a full-screen wash and forgotten the same frame — no subscription, no state,
+  the `_camera_shake_from_events` precedent for reading the drained record rather than
+  subscribing to the bus. Owner's calls: snow falls *and* lies (a ground regrade, not only a
+  sky layer); lightning stays the screen flash ADR 0016 already chose, never a sim light pulse;
+  the look itself is arbitrated by screenshot, not by property bounds alone. Gate
+  `godot:check:weather`, seven lanes now (ACCENT, DEAD SOCKET, RAIN PURE, RAIN WIRED, ROOF,
+  COVER, FLASH); docs/23's record has the measured numbers.
 
 ---
 

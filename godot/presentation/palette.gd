@@ -106,6 +106,15 @@ const COLOURS: Dictionary = {
 	"facing": Color("#cfccc08c"),
 	"aimCone": Color("#c9c2b04d"),
 	"rain": Color("#c2c9cf21"),
+	# The weather-look slice's two keys (docs/16, docs/30 "The sky has kinds"). `snow` is rain's
+	# cool cast a shade paler and thinner-saturated -- a flake reads as a dot, not a streak, so it
+	# earns less colour to carry -- at rain's own alpha, since both are the sky drawn over the
+	# world rather than a fill of it. `lightning` is the screen flash a strike buys instead of a
+	# sim light pulse (docs/adr/0016, "considered and not taken"): near-white but capped under the
+	# mark band's own value ceiling, so even a flash stays inside the mood rather than blowing out
+	# to the reference's raw white, at a low alpha so it reads as a beat, not a wipe.
+	"snow": Color("#c8cdd621"),
+	"lightning": Color("#d8d8cf59"),
 }
 # (Two deletion batches live in this file's history rather than its text. `COLOUR_HEX`,
 # fourteen string copies of the table above "for serialization, comparison": zero readers ever
@@ -199,6 +208,12 @@ const LIGHT_POOL_FAR_OVERLAY: Color = Color(1.0, 0.80, 0.48, 0.22)
 # source, and never dead. The WALL_FACE_* constants above are the precedent for a look scalar
 # living here.
 const AIM_EDGE_DIM: float = 0.7
+
+# How far a fully covered outdoor tile is pulled towards `snow` (SimWeather.snow_cover is already
+# [0,1], so the ground read multiplies the two): not 1.0, so the surface tint still shows through
+# a drift the way `INDOOR_MIX` leaves the surface showing through a board floor, and not 0.0 --
+# a cover that changes nothing is a dead socket. The owner's call, 2026-09-06.
+const SNOW_COVER_MAX: float = 0.55
 
 # Four tints indexed by PartState (Unhurt 0..Unusable 3), read by the inventory panel and the
 # paperdoll.
