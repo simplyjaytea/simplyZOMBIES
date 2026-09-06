@@ -3254,6 +3254,40 @@ not a to-do list:
   fixed: `_water_work` and `_repair_work` hand out an unclaimed target in the same shape, `Bury`'s
   "no position means I am carrying it" stays in the defect list, and `_do_cook` still despawns the
   whole raw *stack* for one meal — pre-existing, balance-relevant, and its own line.
+- **Needs** — ~~untreated water carries illness~~ **landed** (`godot:m2:needs`, WATER;
+  `godot:m2:jobs`' WELL lane amended; `godot:m2:gear`'s CATALOGUE lane now reads a producer file
+  per produced base), 2026-09-06 — a piece docs/04 specified ("untreated water carries illness")
+  that nothing built, named in what's left and landed in the same commit, the third slice of the
+  owner's survival session. The Water job used to fill an empty bottle with `item.water.bottle`
+  by rename: clean water for the price of a walk. Now the well fills `item.water.bottle.untreated`
+  (`SimNeeds.fill_bottle`, the one producer) — thirst 50, `drink.illnessChance` 0.15, the same
+  `empties` — and `drink_item` rolls `_rolls_ill` before the bottle is spent and `_fall_ill` after
+  it, the `eat` rule, so a bottle of well water is the food-poisoning bout with the same
+  `iron_stomach` immunity; `need.drank` says `ill`. `SimNeeds.boil(world, actor, fire)` turns one
+  carried untreated bottle into a clean one at a **lit** campfire — instant, a rename in the other
+  direction, no despawn, no RNG — and refuses `no-fire`, `unlit`, `no-bottle`. The player reaches
+  it through E: a bottle of well water at a lit fire boils before the fire is touched, and at an
+  unlit one `boil` refuses so E lights it and the next E boils (the ladder, not a key). NPCs: the
+  thirst seek's back half, `_seek_untreated` — nothing clean anywhere, an untreated bottle and a
+  campfire: walk to it, light it if it is out (the Cook job's own call and attention cost), boil,
+  drink clean; no fire at all: drink it untreated only once thirst is below `SOFT`, and wait
+  between `SEEK_START` and `SOFT`. The `drink` schema gained `illnessChance` (0..1) and
+  `drink_spec` refuses a value outside it outright — the nested-key gate the shallow validator
+  cannot be. Measured in the lane: CONTENT (the untreated base declares its chance, bottled water
+  declares none, both leave the same empty, no loot table rolls the untreated one — the well is
+  its only source — and a fabricated chance of 1.5 is refused as not drinkable); RATE (400
+  untreated drinks made the drinker ill **0.140** of the time against the authored 0.15; 400
+  bottled **0**; 400 untreated with an iron stomach **0**); BOIL (a lit fire boils one bottle and
+  stays lit, an unlit one refuses `unlit`, an empty pack refuses `no-bottle`; through
+  `use.context`, a lit fire boils rather than douses and an unlit one lights rather than boils);
+  NPC (Mara at thirst 35 with a bottle, a fire and nothing clean boiled once and drank
+  `item.water.bottle`; with a clean bottle beside it drank at once and boiled nothing; with no
+  fire and thirst 25 drank `item.water.bottle.untreated`; with no fire and thirst 35 drank
+  nothing in 3000 ticks); and the WELL lane now asserts the fill is untreated and *not* clean.
+  **Named rather than fixed:** a `dehydrating` survivor never reaches the untreated rung, because
+  `_tick_one` stops a body in crisis before the seek runs — a pre-existing hole, the crisis path's
+  own defect — and bottled water in loot tables stays clean, so a colony that finds enough of it
+  never boils. The four FAST balance lines before and after are **byte-identical** — survivors, deaths, kills and grabs unchanged on all four seeds — which says the compressed ten-day colony drinks the bottled water its loot rolls and never fills a bottle at the well; the rung is reachable (the WELL and NPC lanes prove it) and not yet priced by the harness, the same shape as the engine noise and the light vehicles at the director in what's left.
 - **Needs** — ~~`spoilage_rate` is a stat nothing resolves~~ **landed** (`godot:m2:needs`,
   PANTRY), 2026-09-06, with the owner's rule: **a perishable ages at the best living colonist's
   rate.** `_tick_spoilage` resolves `spoilage_rate` once a tick as the minimum over every
