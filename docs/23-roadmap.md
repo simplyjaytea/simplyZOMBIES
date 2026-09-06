@@ -158,10 +158,12 @@ the same commit. That is the whole discipline: one list of what remains, one rec
 and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in `HANDOFF.md`** (six items as of 2026-09-06: the
-driving and weather first cuts, the free wind, sepsis, the unseen-wall roof, the one-handed
-silhouettes and the forest density); the one repeated here is the one that blocks a Milestone 2
-balance measurement.
+decided unilaterally. **The full list lives in `HANDOFF.md`** (five items as of 2026-09-06: the
+driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes
+and the forest density). Nothing on it blocks a Milestone 2 measurement any more: the sepsis
+question that used to be repeated here was decided on 2026-09-06 (lethal untreated — the
+playable-state group below, and
+[docs/30](30-decisions.md#the-playable-state-2026-09-06)).
 (The art-style pick came off this list on 2026-09-01 — **style B, the rotating player**, under
 an overcast mood — and was **re-decided by the owner on 2026-09-03 as the Dungeon Settlers
 look**: upright face-on pawns that flip, nobody rotates, a warm dark-fantasy palette, walls
@@ -169,10 +171,60 @@ with thickness, roofs cut out where seen. The record below and
 [docs/30](30-decisions.md#the-dungeon-settlers-look-2026-09-03) carry the decisions; the arc
 they open is the art group below.)
 
-1. **Can sepsis kill?** Today it is debilitating and permanent-until-treated, deliberately not a
-   death path. The `GRABS_ENABLED` flip has landed (the flag record below closes with it), which
-   makes sepsis reachable in ordinary play and makes this decision live rather than hypothetical.
-   Making it lethal is a balance decision that needs a measurement attached.
+**The playable state — the owner's twelve decisions, 2026-09-06.** Three code-grounded
+surveys of what the shipped game does in play (survival and needs, the NPC colonists, the
+zombies and the director) found the two loops the exit criterion needs both open-circuited:
+the boot colony does no work (Ellis's authored row is Guard 1 and the Guard job never
+completes), a shambler acquires a survivor only inside 1.6 m and days 1–7 send nothing, and
+nothing has ever breached on any seed. The owner answered twelve design questions the same
+day — [docs/30's entry](30-decisions.md#the-playable-state-2026-09-06) records them — and
+these are the pieces they open, in the order they land (colony loop, density, zombies,
+breaching, lethality, presentation). Each is one session with its own gate; five of them
+re-baseline the FAST balance record and say so in their record.
+
+- **The day belongs to the row, and Guard is the night post.** Guard is handed out only at
+  dusk and night and completes at dawn (`job.completed`, an Endurance point); by day an NPC
+  with Guard set works the rest of its row. `set_focus` overlays the preset on the authored
+  row instead of destroying it. Ellis's and Mara's rows gain day work. `godot:m2:jobs`.
+- **A starving colonist still eats, and a fire burns down.** `_tick_one`'s crisis early
+  return goes, so hard hunger and thirst reach the seek; a lit campfire carries a burn-down
+  clock and is doused past it unless cooking. `godot:m2:jobs`, `godot:m2:needs`.
+- **Colonists scavenge near home.** Survivors remember the containers they have seen; a
+  `Scavenge` column searches them within a radius of the annex, hauling the yield; the far
+  district stays the player's run. `godot:m2:jobs`, `npc_searches` in the FAST line.
+- **Boot population scales with the district.** `WANDERERS` becomes a density (20 per 64
+  tiles of side, so 80 at 256) and `LIVE_CAP` scales with it; the harness gains a
+  `BALANCE_TILES` env. `godot:m2:district`, `godot:m2:director`; the 256 throughput driver.
+- **Every zombie has eyes, and its senses are content.** Every zombie gets an observer;
+  `sensory`, `spread` and `introducedInWave` are read; `extends` is resolved the way the
+  frozen oracle resolves it; sight is sampled lit-at-the-target so the screamer sees at
+  night. `godot:m2:sight`, `godot:m2:roster`; re-baseline.
+- **Two grace nights, then the table.** From night 3 the director draws from the strain
+  table every night; the `live < 8` trickle goes; the lull's dead opening edge is written.
+  `godot:m2:director`; re-baseline.
+- **The dead write to the field from content.** Every zombie carries an attention emitter
+  built from its `emits` block, residue is laid in every state and `field_memory.gd` retires;
+  bloater contamination rolls once per cloud. `godot:m2:roster`; the migration driver;
+  re-baseline.
+- **Body damage slows and staggers the dead.** Torso state feeds a speed factor and a
+  stagger chance on its own stream; the head stays the only kill. `godot:m2:lethality`;
+  re-baseline.
+- **Doors: a tile class that opens, closes and breaks.** `Tile.Door` as the class, a `door`
+  component as the state through `sync_map`; people open them in a step, they swing shut,
+  E latches; zombies never open. `godot:m2:fortify`.
+- **Pressing: a crowd gets through.** The kernel records which tile stopped a wanted move;
+  fortify counts the bodies pressing on a board, a barricade or a door with a packing bonus
+  and breaches by stages. `godot:m2:fortify`; the breach driver; re-baseline.
+- **A dropped weapon is picked back up, and a band that has lost withdraws.** Worn-out
+  weapons drop at the feet; an unarmed NPC re-arms from pack, ground or stockpile; a raider
+  band leaves after a clock with no enemy in reach or at half strength. `godot:m2:npc`,
+  `godot:m2:raiders`.
+- **Lethality: the cold, the heat, and sepsis can kill.** Frostbite and heatstroke as wounds
+  on the exposure ladder with death a step past each; sepsis kills at the third untreated
+  dusk. `godot:m2:cold`, `godot:m2:heat`, `godot:m2:wounds`; three drivers.
+- **The screen speaks of the colony.** A sim-owned chronicle turns death, succession,
+  run-over, arrival and bereavement into world-lines; a click selects a colonist so the
+  third-person needs and condition prose reach the screen. `godot:check:hud`.
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.

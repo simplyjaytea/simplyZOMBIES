@@ -185,7 +185,10 @@ When you add a mechanism, add the assertion that something reaches it.
 ## What is waiting on the owner, not on code
 
 These are design calls. They have been measured, written up, and deliberately **not** decided.
-(Three long-standing items came off this list on 2026-09-01, decided by the owner: colony shape
+(Sepsis came off this list on 2026-09-06 — **lethal untreated**, one of the owner's twelve
+playable-state decisions in docs/30's "The playable state" entry; it lands as the lethality piece
+in docs/23's playable-state group. Three long-standing items came off on 2026-09-01, decided by
+the owner: colony shape
 — a bigger colony, three at boot — and the `GRABS_ENABLED` flip, both landed together and closed
 in docs/23's flag record; and the top-down art style, picked 2026-09-01 as **B, the rotating
 player** and **superseded 2026-09-03 by the Dungeon Settlers look** — upright face-on pawns
@@ -250,27 +253,19 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    `climate/temperate.json`; 180° is the free wind back. docs/16's "a base that was safe
    becomes a base that's upwind of the whole district" and a per-seed survival floor pull
    against each other, and which gives is a design call, not a number.
-2. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
-   deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
-   this decision live too; making it lethal is a balance decision that needs a measurement
-   attached. The cure is no longer out of reach: the sweep's "`infection.respond` has no
-   producer" is closed for antibiotics — they are a clickable word on the body screen now
-   (`godot:check:respond`) — so the decision is about lethality alone rather than about lethality
-   with no answer available. The other four infection verbs still have no surface, for the
-   reasons docs/23's defect list gives.
-3. **Whether a roof covers a known building's unseen walls too.** The wall-and-roof slice roofs
+2. **Whether a roof covers a known building's unseen walls too.** The wall-and-roof slice roofs
    the unseen *indoor* tiles of a building the survivor can see part of, as approved, so the
    unseen perimeter walls stay black and the roof reads as a mass inside a black ring
    (`slice5-front-64.png` in the plan's shots). Roofing every unseen tile of the footprint is
    one condition in `RoofLook.roof_tiles` and leaks nothing the footprint does not already;
    the look is arbitrated by screenshot, so it is the owner's.
-4. **Whether the one-handed weapons need their own silhouettes at 32 px.** The worn slice found
+3. **Whether the one-handed weapons need their own silhouettes at 32 px.** The worn slice found
    that the bat, machete, pipe and kitchen knife share a fist, an angle and a value range: they
    are distinguishable side by side and would not be at a glance mid-fight. The cheapest fix
    gives each primary weapon its own lean rather than sharing the bat's, which re-authors the
    shipped bat -- so it is recorded rather than taken in passing. The service pistol is the
    weakest single key for the same reason of size.
-5. **Whether a forest stand should ever be as dense as the generator can make it.** In the
+4. **Whether a forest stand should ever be as dense as the generator can make it.** In the
    densest one measured -- 44 Tree tiles in a 9x9 -- the player is very nearly invisible: trees
    are Opaque, so sight collapses to a few tiles, and the fade rule cannot help much because
    several trunks overlap the body at once (`slice9-stand-64.png`). That is the forest's
