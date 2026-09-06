@@ -151,6 +151,19 @@ static func ground_colour(map: Variant, tx: int, ty: int) -> Color:
 	return Palette.SURFACE_TINTS[surface]
 
 
+# Snow lying on the ground: the weather-look slice's regrade, docs/16 and the owner's
+# 2026-09-06 "snow that lies as well as falls". `cover` is `SimWeather.snow_cover`'s own
+# fraction (already clamped [0,1]) times `Palette.SNOW_COVER_MAX`, so the surface tint still
+# shows through a drift. A `Color.lerp` at weight 0.0 returns its receiver unchanged, which is
+# why cover 0.0 is byte-identical to today's ground -- check_topdown.gd's GROUND lane pins that
+# identity and check_weather.gd's COVER lane proves it here, on this pure function, rather than
+# on the caller only a running CanvasItem can exercise. The caller decides indoors -- this
+# function does not read the map at all -- the same split `indoor_floor` below leaves to its own
+# caller.
+static func ground_with_snow(ground: Color, cover: float) -> Color:
+	return ground.lerp(Palette.COLOURS["snow"], clampf(cover, 0.0, 1.0) * Palette.SNOW_COVER_MAX)
+
+
 # What a floor tile looks like once it is known to be inside a building.
 #
 # `indoors` is a third array over the same grid -- docs/24's surface layer is the second -- so an

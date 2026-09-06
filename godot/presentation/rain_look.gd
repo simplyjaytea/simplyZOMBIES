@@ -1,22 +1,27 @@
 extends RefCounted
-# The rain's *look*, resolved at draw time from the tick and nothing else -- one screen-space
-# streak layer. Whether it rains at all is the sim's (SimWeather, docs/adr/0015): main.gd asks
-# `SimWeather.raining` before it asks this file for a sky, so this layer is drawn only while a
-# span of rain is running. Within a span the sky is still a pure function of time and a hash,
-# which is why nothing in here may draw from an RNG stream -- a stream would either sit on the
-# sim registry (a draw the layout has to account for) or reseed per boot (a sky that differs
-# between saves of the same moment). road_paint.gd's ground variation follows the identical
-# rule, with the identical two primes.
+# The sky's *look*, resolved at draw time from the tick, a hash and one content-agnostic record
+# -- one screen-space streak layer, parametrised per weather kind. Whether it falls at all, and
+# which kind, is the sim's (SimWeather, docs/adr/0015 and 0016): main.gd asks `SimWeather.kind`
+# and `SimWeather.raining` before it asks this file for a sky, so this layer is drawn only while
+# a span of rain, storm or snow is running. Within a span the sky is still a pure function of
+# time and a hash, which is why nothing in here may draw from an RNG stream -- a stream would
+# either sit on the sim registry (a draw the layout has to account for) or reseed per boot (a sky
+# that differs between saves of the same moment). road_paint.gd's ground variation follows the
+# identical rule, with the identical two primes.
 #
 # Pure statics only, and deliberately no static state of any kind: state here would be shared
 # between the two worlds a gate boots in one process (the trap CLAUDE.md records for the
 # kernel), and a streak layer has nothing worth remembering anyway -- every frame is derived
-# whole from `t`.
+# whole from `t` and the `look` record `look_of` hands back for the kind on screen.
 #
-# Within a span it never stops. INTENSITY_MIN keeps the swell off zero because the onset and
-# the end of rain are the sim's events, not this layer's; what varies here is how hard it comes
-# down, over a slow swell with a faster flutter inside it.
+# Within a span it never stops. Each kind's own `intensityMin` keeps the swell off zero because
+# the onset and the end of a span are the sim's events, not this layer's; what varies here is how
+# hard it comes down, over a slow swell with a faster flutter inside it.
 
+# `rain`'s own numbers, the ones the sky has always drawn -- kept as named constants (rather than
+# folded straight into LOOKS) because they are still the ones the file's comments and this
+# constant's own callers (LOOKS["rain"] and LOOKS["storm"], which shares all but two of them)
+# read by name.
 const STREAK_COUNT: int = 140 # check_weather.gd bounds this at 256
 const FALL_PX_PER_TICK: float = 9.0
 const SLANT: float = 0.22 # px of x drift per px of fall; the lean that says wind without simulating any
@@ -27,6 +32,49 @@ const STREAK_LEN_SPAN: float = 11.0
 # Sky overscan above and below the viewport, so a streak enters and leaves off-screen instead
 # of popping into existence at the top edge.
 const WRAP_MARGIN: float = 32.0
+
+# One record a kind: how fast it falls, how hard it leans, how long a streak reads, the swell's
+# floor, how many streaks and which Palette key paints them. `storm` is `rain` louder (docs/16:
+# rain's loud sibling) -- the same fall, lean and length, a higher floor so it is never a lull,
+# and half again as many streaks. `snow` is its own shape entirely: falls a third as fast with
+# more lean (a flake drifts further than it falls), and short enough (2-4 px) that a streak reads
+# as a dot rather than a line, on its own cool `snow` key rather than rain's. The owner's calls,
+# 2026-09-06.
+const LOOKS: Dictionary = {
+	"rain": {
+		"fall": FALL_PX_PER_TICK,
+		"slant": SLANT,
+		"lenMin": STREAK_LEN_MIN,
+		"lenSpan": STREAK_LEN_SPAN,
+		"intensityMin": INTENSITY_MIN,
+		"count": STREAK_COUNT,
+		"colour": "rain",
+	},
+	"storm": {
+		"fall": FALL_PX_PER_TICK,
+		"slant": SLANT,
+		"lenMin": STREAK_LEN_MIN,
+		"lenSpan": STREAK_LEN_SPAN,
+		"intensityMin": 0.8,
+		"count": 200,
+		"colour": "rain",
+	},
+	"snow": {
+		"fall": 2.0,
+		"slant": 0.35,
+		"lenMin": 2.0,
+		"lenSpan": 2.0,
+		"intensityMin": 0.5,
+		"count": STREAK_COUNT,
+		"colour": "snow",
+	},
+}
+
+
+# The record for a kind, or `rain`'s when the kind names nothing here -- a graceful default
+# rather than a crash, the same shape `Appearance.ground_colour`'s null-map fallback takes.
+static func look_of(kind: String) -> Dictionary:
+	return LOOKS[kind] if LOOKS.has(kind) else LOOKS["rain"]
 
 # Hash salts, distinct and far apart on purpose: XOR with a constant is a bijection, so three
 # salts a few integers apart would give three visibly correlated streams off one `i * PRIME`.
@@ -61,13 +109,17 @@ static func _octave(t: float, cells: int, salt: int) -> float:
 	return lerpf(_unit(i, salt), _unit(i + 1, salt), s)
 
 
-# How hard it is coming down, in [INTENSITY_MIN, 1]: a slow swell over PERIOD_TICKS and a
-# faster flutter inside it, mixed and lifted off zero.
-static func intensity(t: float) -> float:
+# How hard it is coming down, in [look.intensityMin, 1]: a slow swell over PERIOD_TICKS and a
+# faster flutter inside it, mixed and lifted off the kind's own floor. The swell shape (the two
+# octaves, the salts, the 0.7/0.3 mix) is one function of `t` shared by every kind; only the
+# floor it is lifted off differs, which is why a storm's sky is never a lull and a snowfall never
+# stops either.
+static func intensity(t: float, look: Dictionary) -> float:
+	var floor_v: float = float(look.get("intensityMin", INTENSITY_MIN))
 	var mixed: float = clampf(
 		_octave(t, 1, SWELL_SALT) * 0.7 + _octave(t, FLUTTER_CELLS, FLUTTER_SALT) * 0.3, 0.0, 1.0
 	)
-	return INTENSITY_MIN + (1.0 - INTENSITY_MIN) * mixed
+	return floor_v + (1.0 - floor_v) * mixed
 
 
 # The alpha multiplier the sky is drawn at: never below 0.6 of the rain key's own alpha, so
@@ -84,23 +136,29 @@ static func alpha_scale(i: float) -> float:
 # on x + 0.5 covers exactly one column, crisp. A caller that forgets to snap is a caller no
 # gate can catch. Non-positive dimensions or a non-positive count yield an empty array --
 # graceful absence, road_paint.gd's `mask_for(null)` precedent.
-static func segments(t: float, width: float, height: float, count: int) -> PackedVector2Array:
+static func segments(t: float, width: float, height: float, look: Dictionary) -> PackedVector2Array:
 	var out := PackedVector2Array()
+	var count: int = int(look.get("count", STREAK_COUNT))
 	if width <= 0.0 or height <= 0.0 or count <= 0:
 		return out
+	var fall: float = float(look.get("fall", FALL_PX_PER_TICK))
+	var slant: float = float(look.get("slant", SLANT))
+	var len_min: float = float(look.get("lenMin", STREAK_LEN_MIN))
+	var len_span: float = float(look.get("lenSpan", STREAK_LEN_SPAN))
 	out.resize(count * 2)
 	var span: float = height + WRAP_MARGIN * 2.0
 	for i in count:
 		var col: float = _unit(i, COL_SALT) * width
-		var length: float = STREAK_LEN_MIN + _unit(i, LEN_SALT) * STREAK_LEN_SPAN
+		var length: float = len_min + _unit(i, LEN_SALT) * len_span
 		var phase: float = _unit(i, PHASE_SALT) * span
 		# The column drifts sideways at the slant rate as the streak falls, rather than deriving
 		# x from y: both stay inside their own wrap by construction, and a non-wrapping streak
-		# moves down by exactly FALL_PX_PER_TICK per tick, which is the property the gate pins.
-		var y: float = fposmod(phase + t * FALL_PX_PER_TICK, span) - WRAP_MARGIN
-		var x: float = fposmod(col + t * FALL_PX_PER_TICK * SLANT, width)
+		# moves down by exactly the kind's own `fall` per tick, which is the property the gate
+		# pins, one kind at a time.
+		var y: float = fposmod(phase + t * fall, span) - WRAP_MARGIN
+		var x: float = fposmod(col + t * fall * slant, width)
 		out[i * 2] = Vector2(floorf(x) + 0.5, floorf(y) + 0.5)
-		out[i * 2 + 1] = Vector2(floorf(x + length * SLANT) + 0.5, floorf(y + length) + 0.5)
+		out[i * 2 + 1] = Vector2(floorf(x + length * slant) + 0.5, floorf(y + length) + 0.5)
 	return out
 
 
