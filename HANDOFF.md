@@ -276,6 +276,12 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    several trunks overlap the body at once (`slice9-stand-64.png`). That is the forest's
    character rather than a defect in the fade, but the density is content: the knobs are the
    terrain block's `standsMax`, `treesMax` and `treeSpread`.
+6. **Whether the trap and the bait emitter are still in the slice.** docs/23's Milestone 2 scope
+   table promises "walls, gate, barricades, one trap, and one bait emitter"; the fortify slice
+   shipped the first three (`godot:m2:fortify`) and the trap and the bait have no content, no gate
+   and no entry in what's left, while the Milestone 3A list names "traps, and bait" as its own.
+   Found by the 2026-09-06 roadmap audit: either they are cut from the slice (a line in the scope
+   table and the cut list) or they are two named pieces for what's left. Nothing decides it today.
 
 ## How a session runs
 
@@ -299,7 +305,7 @@ npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
 
 Then read [What's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2) — every
 remaining piece, named so the name alone says what the work is, grouped into: decisions waiting on
-the owner, content-only entries, people, medicine, gear, attention, art, UI, proof, debt, the
-defects the review sweep left open, and what is parked for Milestone 3A. Pick a piece, land it with
-its gate, delete it from that list and write its record into
+the owner, world generation (closed), people, medicine, gear, attention, art, UI, proof, debt,
+weather, the defects the review sweep left open, and what is parked for Milestone 3A. Pick a piece,
+land it with its gate, delete it from that list and write its record into
 [the record, by system](docs/23-roadmap.md#the-record-by-system) in the same commit.
