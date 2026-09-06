@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-05 (the driving slices)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **46 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **47 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,15 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-06 — the splint, and the limp** (`npm run godot:m2:splint`, `M2_SPLINT_OK`, nine
+lanes), the first slice of the owner's survival-systems session. A splint kit on the medical
+table immobilises a fracture through the existing `close` rung — the closer is now the wound
+kind's own (`WOUND_KINDS.closeKind`), matched to the kit exactly, which is also the fix for a
+fracture never having been closable at all — and a leg fracture that knits *without* a splint
+leaves a permanent limp: a `lasting` component, `move_speed ×0.90` a leg, a word on the body
+screen. The owner's rule (unsplinted → limp, deterministic) and number (ten percent) are in
+docs/30's entry; the four FAST balance lines before and after are in docs/23's record.
 
 **2026-09-06 — the gear catalogue** (`npm run godot:m2:gear`'s CATALOGUE lane, `godot:m2:needs`'s
 DRINK and STIMULANT lanes, `godot:m2:vehicles`' REFUEL lane, `godot:m2:jobs`' WELL lane, and

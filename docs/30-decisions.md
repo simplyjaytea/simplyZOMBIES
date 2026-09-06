@@ -2318,6 +2318,53 @@ medic pouch and bandolier are equippable and draw nothing, like the seven bases 
 tool class with verbs of its own (every `tool` here is a light or a bench consumable, and the
 CATALOGUE lane refuses one that is neither); the siphon, the repair channel and the charger.
 
+## The splint, and the limp a bad fracture leaves, 2026-09-06
+
+The owner opened a survival-systems session and picked the splint first, with the rule decided
+up front: **a leg fracture that heals unsplinted leaves a permanent limp; splinted, it mends
+clean.** Deterministic rather than a roll, because a roll is a consequence the player cannot
+learn from — "I let it set on its own" is a lesson, "the dice went against me" is not. Five
+calls were taken while landing it.
+
+- **The closer is a property of the wound kind, not a ranking in treatment.gd.** `close` used to
+  ask `_closable_wounds` "does this kind bleed", which was correct for as long as a suture was
+  the only closer and silently excluded the one injury a splint is for. `WOUND_KINDS` now carries
+  `closeKind` per row and the ladder matches the kit to the wound *exactly*: a suture never
+  splints, a splint never sews, and a leg carrying both a stopped cut and a fracture is closed
+  twice, one kit each, worst wound first. `CLOSE_KINDS` stays as the vocabulary the schema enum
+  mirrors, not a pick order — which is what `_best_closer` used to be written as, "so `splint`
+  is an entry in the array", and that would have handed a fracture a suture.
+- **The limp is a component, not a wound.** A wound heals and leaves the list; the limp is
+  exactly the thing that does not, so a record on `injuries.wounds` would either be a wound the
+  recovery loop keeps trying to close or a special case in every reader of that array. `lasting`
+  is its own component — an Array of `{kind, bodyPart, sinceTick}` records, never a Dictionary
+  keyed by part (the JSON-key trap) — and being a new component it costs no `SAVE_VERSION`:
+  nobody had a limp before, so an old save correctly loads without one.
+- **The modifier is recomputed every tick, not applied once.** `wounds.impair` strips
+  `injury.limp` and re-adds one `move_speed ×0.90` per limping leg from the live component, the
+  same strip-then-add every wound family uses. An apply-once modifier would survive a save
+  through `modifiers.save()` and that is the problem: it would be a second copy of the truth,
+  and the day the component and the modifier disagreed nothing would say so. Recomputing makes
+  the load, the despawn and a future "the limp was treated" all fall out of the structure.
+- **0.90 per leg, compounding, and a limp is cheaper than the fracture was.** A fractured leg
+  walks at 0.88 while it knits (impair floor 2); a limp at 0.90 after; two limps at 0.81. The
+  owner picked ten percent from three offers (five reads as a story with no cost, fifteen reads
+  as worse than the injury). A bicycle's 6.5 still outruns it. The number is content-shaped and
+  sits in one constant.
+- **No HUD line, a word on the body screen.** `lasting` joined the condition view as a word from
+  `LASTING_WORDS` — the field arrived with two values it can take, `bandage`'s lesson — and the
+  body screen prints it as a tag. The HUD stays quiet on purpose: `hud_clause` is ranked
+  prose about what is wrong *now*, and a permanent condition there is a sentence the player
+  reads every minute for the rest of the run. A blind eye and a scar, when they land, are two
+  more words in the same list; a blind eye still has no perception stat to attach to and a scar
+  is a mood-and-social effect, both named in what's left.
+
+What it deliberately did not take: NPC job walking reads `work_mul` rather than `move_speed`, so
+the limp, like the per-part leg impairment before it, slows the controlled body and not an NPC
+on a job (the locomotion debt entry); and the impact-fracture roll gives every fracture Laceration
+severity, so setting a bone needs no Medicine at all — whether it should is the
+diagnosis-with-skill piece's question.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

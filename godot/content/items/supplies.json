@@ -192,6 +192,18 @@
     "closeKind": "suture"
   },
   {
+    "id": "item.splint.kit",
+    "name": "Splint Kit",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 2
+    },
+    "massKg": 0.4,
+    "stack": 2,
+    "closeKind": "splint"
+  },
+  {
     "id": "item.water.bottle.empty",
     "name": "Empty Bottle",
     "class": "material",

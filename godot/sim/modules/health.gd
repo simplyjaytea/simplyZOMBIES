@@ -5,7 +5,6 @@ const SimCombat = preload("res://sim/combat.gd")
 
 const BITE_PRESENTS_AS_SCRATCH_CHANCE: float = 0.3
 
-const CRIPPLED_SOURCE: String = "injury.crippled"
 const HURT_BELOW: float = 1.0
 const BADLY_HURT_BELOW: float = 0.5
 
