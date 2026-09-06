@@ -1680,7 +1680,9 @@ pick does **not** adopt:
 reference's rain is adopted as a presentation layer keyed off the tick, not as a simulation: it
 never starts and never stops, nothing in the sim reads it, and no mechanism depends on it.
 docs/16's weather is Milestone 3, and when it lands the layer is re-keyed to it rather than
-competing with it.
+competing with it. **Reversed in part 2026-09-06** — the owner opened a minimal rain state
+(docs/adr/0015, "Rain as sim state" below): the sim now decides *whether* it rains and the layer
+is re-keyed to it exactly as this clause promised; what the rain *looks* like stays this layer's.
 
 **Every body is an overhead rig** (added by the characters slice, under four further owner
 directives of 2026-09-01). All character sprites are authored true-overhead like the player's,
@@ -1905,7 +1907,7 @@ this stands on. Twelve decisions, recorded once here, each paid for in the slice
 7. Two-wide vehicles — stand; the art convention is amended to one picture per axis.
 8. "Not adopted" — re-affirmed and extended with the name plates.
 9. The overcast mood — superseded by warm dark fantasy, held by per-family properties.
-10. "Rain is ambience" — unchanged.
+10. "Rain is ambience" — unchanged at the time; reversed in part 2026-09-06 (below).
 11. "The ground is a texture whose mean is the palette" — stands, extends to the edge sheet.
 12. docs/00's depth-sort reversal — not reopened; the entity sort was always there.
 
@@ -2317,6 +2319,148 @@ only"); ground-item sprites; the six undrawn equipment slots (the leather gloves
 medic pouch and bandolier are equippable and draw nothing, like the seven bases before them); a
 tool class with verbs of its own (every `tool` here is a light or a bench consumable, and the
 CATALOGUE lane refuses one that is neither); the siphon, the repair channel and the charger.
+
+## The splint, and the limp a bad fracture leaves, 2026-09-06
+
+The owner opened a survival-systems session and picked the splint first, with the rule decided
+up front: **a leg fracture that heals unsplinted leaves a permanent limp; splinted, it mends
+clean.** Deterministic rather than a roll, because a roll is a consequence the player cannot
+learn from — "I let it set on its own" is a lesson, "the dice went against me" is not. Five
+calls were taken while landing it.
+
+- **The closer is a property of the wound kind, not a ranking in treatment.gd.** `close` used to
+  ask `_closable_wounds` "does this kind bleed", which was correct for as long as a suture was
+  the only closer and silently excluded the one injury a splint is for. `WOUND_KINDS` now carries
+  `closeKind` per row and the ladder matches the kit to the wound *exactly*: a suture never
+  splints, a splint never sews, and a leg carrying both a stopped cut and a fracture is closed
+  twice, one kit each, worst wound first. `CLOSE_KINDS` stays as the vocabulary the schema enum
+  mirrors, not a pick order — which is what `_best_closer` used to be written as, "so `splint`
+  is an entry in the array", and that would have handed a fracture a suture.
+- **The limp is a component, not a wound.** A wound heals and leaves the list; the limp is
+  exactly the thing that does not, so a record on `injuries.wounds` would either be a wound the
+  recovery loop keeps trying to close or a special case in every reader of that array. `lasting`
+  is its own component — an Array of `{kind, bodyPart, sinceTick}` records, never a Dictionary
+  keyed by part (the JSON-key trap) — and being a new component it costs no `SAVE_VERSION`:
+  nobody had a limp before, so an old save correctly loads without one.
+- **The modifier is recomputed every tick, not applied once.** `wounds.impair` strips
+  `injury.limp` and re-adds one `move_speed ×0.90` per limping leg from the live component, the
+  same strip-then-add every wound family uses. An apply-once modifier would survive a save
+  through `modifiers.save()` and that is the problem: it would be a second copy of the truth,
+  and the day the component and the modifier disagreed nothing would say so. Recomputing makes
+  the load, the despawn and a future "the limp was treated" all fall out of the structure.
+- **0.90 per leg, compounding, and a limp is cheaper than the fracture was.** A fractured leg
+  walks at 0.88 while it knits (impair floor 2); a limp at 0.90 after; two limps at 0.81. The
+  owner picked ten percent from three offers (five reads as a story with no cost, fifteen reads
+  as worse than the injury). A bicycle's 6.5 still outruns it. The number is content-shaped and
+  sits in one constant.
+- **No HUD line, a word on the body screen.** `lasting` joined the condition view as a word from
+  `LASTING_WORDS` — the field arrived with two values it can take, `bandage`'s lesson — and the
+  body screen prints it as a tag. The HUD stays quiet on purpose: `hud_clause` is ranked
+  prose about what is wrong *now*, and a permanent condition there is a sentence the player
+  reads every minute for the rest of the run. A blind eye and a scar, when they land, are two
+  more words in the same list; a blind eye still has no perception stat to attach to and a scar
+  is a mood-and-social effect, both named in what's left.
+
+What it deliberately did not take: NPC job walking reads `work_mul` rather than `move_speed`, so
+the limp, like the per-part leg impairment before it, slows the controlled body and not an NPC
+on a job (the locomotion debt entry); and the impact-fracture roll gives every fracture Laceration
+severity, so setting a bone needs no Medicine at all — whether it should is the
+diagnosis-with-skill piece's question.
+
+## The pantry reads its keeper, and a cook claims the pot, 2026-09-06
+
+Two named defects from the food side of the survival session, one decision each.
+
+- **Spoilage reads the best living colonist's `spoilage_rate`.** The `surv.cook` node ("a careful
+  pantry", ×0.95) is bought per survivor and the modifier it applies is scoped to that survivor;
+  spoilage sits on the item. Three scopes were offered and the owner picked the first: the
+  pantry is the colony's, so one careful pair of hands keeps all of it — `min` over the living,
+  resolved once a tick, not once per item. "The survivor who stowed it" would have needed a
+  per-item owner and a save-shape change to feel one node; "global only" would have moved how web
+  nodes apply. The clock is a new `aged` field advanced by the rate rather than a rescaled
+  `spoilTicks`, because a rate that changes mid-life (a keeper dies, a node is bought) has to
+  apply from that tick forward and a baked-in deadline cannot. `repair_cost`, the other dead
+  stat in the same entry, stayed dead: repair spends one whole scrap, and ×0.9 of an integer is
+  a design (a debt accumulator, or fractional scrap) rather than a reader.
+- **A cook's claim is a component on the item, live only while the job is.** `reserved: {by,
+  job}` on the raw, checked against the holder's *current* job rather than trusted, so a claim
+  whose holder died or was re-assigned heals the moment anybody looks at the pile instead of
+  blocking it until somebody remembers to clear it. `_do_cook` re-validates at completion the way
+  `treatment._complete` and `fortify._place_scrap` do — a meal is spawned only if the raw is still
+  there and still this cook's — which closes both halves of the defect (two meals from one raw,
+  one meal from nothing) without a second bookkeeping system.
+
+## Well water is untreated, and a fire makes it clean, 2026-09-06
+
+docs/04 has said "untreated water carries illness" since it was written, and the Water job
+filled a bottle with clean water by rename for the whole milestone. The owner picked this as
+the third survival slice; it was named in what's left and landed in the same commit. Four calls.
+
+- **A second bottle base, not a flag on the first.** `item.water.bottle.untreated` is its own
+  base with its own `drink` block, and the well produces it. A `purity` flag on the instance
+  would have needed every reader of "is this water" — the wash, the wound-cleaning tier, the
+  NPC seek, the HUD word — to learn a second question; a base is content, and every one of
+  those readers already asks the base. The illness is the food-poisoning bout, unchanged: one
+  `illnessChance` key on the `drink` block, the same stream, the same `iron_stomach` immunity,
+  the same non-lethal cost. 0.15 a bottle is a first cut for the owner.
+- **Boiling is instant at a lit fire, and it is a rename.** The well's rename in reverse: the
+  bottle keeps its instance, nothing is spawned, nothing is drawn from a stream. A channel with
+  ticks and interrupts was considered and left for the day a measurement asks for it — the cost
+  a boil is meant to carry is the *fire*, which is a light emitter twenty metres wide and the
+  loudest thing a colony owns at night, and that cost is already real.
+- **NPCs light a fire to boil, and drink it raw only at soft.** The seek walks to the nearest
+  campfire and lights it if it is out — the same call the Cook job makes, and the same attention
+  cost, so a colony with no clean water is a colony whose fire is lit more. With no fire at all,
+  a survivor drinks well water untreated only below `SOFT` (thirst under 30): a roll on the
+  illness stream is worth it against the dehydration clock and not before. Between `SEEK_START`
+  and `SOFT` with no fire they wait. The `dehydrating` crisis never reaches this rung because
+  `_tick_one` stops a survivor in crisis before the seek runs; that is a pre-existing hole in
+  the crisis path, named in docs/23 rather than widened here.
+- **E boils before it touches the fire.** One interact key, decided 2026-09-05: at a lit fire
+  with a bottle of well water, E boils; with nothing to boil, E douses as before; at an unlit
+  fire `boil` refuses and E lights it, so the second E boils. The refusal reasons are the
+  ladder's own words (`no-fire`, `unlit`, `no-bottle`) rather than a new vocabulary.
+
+Bottled water from loot tables stays clean — it is bottled — so a colony that finds enough of
+it never boils, and whether the tables should carry less of it is a balance question for the
+harness, not a number to move here.
+
+## Rain as sim state, 2026-09-06
+
+The fourth slice of the survival session, and the one that overrides a written decision: ADR
+0002's "weather-lite rain flag — rejected; weather is a second game". The owner was asked and
+chose to open it, minimally — scent washed and bodies wet, nothing else — with a random schedule.
+The calls:
+
+- **One state, on the world, on its own stream.** `world.weather` is three scalars saved like the
+  director's, and spans are drawn on a `weather` stream from content ranges. Not an entity, not
+  a component: weather is a singleton the oracle already named as one (`src/sim/kernel/world.ts`).
+  The first span is always dry so that no gate world ever meets rain by accident; a save without
+  the key restores dry; `SAVE_VERSION` went to 20 because a v19 save restored into this world would
+  load dry and reseed its schedule — a world that loads and is quietly not the one saved.
+- **Two readers in opposing directions, and a third for the eye.** docs/16's rule. Wetness is one
+  integer on the needs component (`wetUntilTick`): outdoors in the rain for 200 ticks makes you
+  wet, a roof or a clear sky dries you in an hour, a lit fire in twelve minutes, and a wet body
+  reads one temperature band colder *before* the wrap buys one back — so a soaked survivor in a
+  wrap on a mild day is comfortable and a soaked one at night by no fire is freezing at once.
+  The scent half-life is halved while it rains, handed to `diffuse_scent` as a parameter so the
+  field never learns what weather is (it does not know which way the wind blows either). **This
+  was the slice's measured correction:** the first cut was ×0.85 *a step*, and the step runs
+  every five ticks, so it compounded 240 times a minute and flattened the whole field inside a
+  second of rain; the balance harness read that as a colony wipe on seed 90210 and tripled grabs
+  on 20260805, and a variant driver (rain / rain-without-wetness / rain-without-scent) pinned it
+  on the scent, not the wet — the guess had been the other way round. A half-life factor is the
+  shape docs/16 meant by "masks scent heavily", and the gate now refuses a rain that leaves under
+  half the dry scent after a hundred ticks. The
+  streak layer is drawn only while it rains; `rain_look.gd` stays a pure function of the tick and
+  `INTENSITY_MIN` now means "within a span the sky is never empty".
+- **The numbers are first cuts, recorded for the owner.** Dry 12–36 h, wet 2–6 h (a spell every
+  day or two — the owner asked for "random weather" and these are the ranges the draw uses),
+  the scent half-life halved, 200 / 12000 / 2400 ticks to wet, to dry, to dry by a fire. All
+  content, one file.
+- **What it did not take.** Wind (the four calibration weights, still not save state), fog,
+  seasons, a ranged penalty, thirst relief, rain on the noise channel (`noise_propagation` stays
+  unread), a wetness pool with its own HUD row. Each is docs/16's and each is a slice.
 
 ---
 

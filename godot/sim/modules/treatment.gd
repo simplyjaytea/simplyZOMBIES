@@ -172,9 +172,11 @@ const CLOSE_KEY: String = "closeKind"
 # antiseptic before rinsing it with the drinking water. `alcohol` is declared and unauthored --
 # no content entry carries it yet -- and is named as such in docs/23 rather than left to look wired.
 const CLEAN_ORDER: Array[String] = ["antiseptic", "alcohol", "water"]
-# What `close` will accept out of the pack. `splint` is deferred with the fracture immobilisation
-# it belongs to (docs/23); a kit that declares it is refused rather than silently sutured with.
-const CLOSE_KINDS: Array[String] = ["suture"]
+# What `close` will accept out of the pack. Which of them a given wound wants is the wound kind's
+# own `closeKind` (`SimWounds.WOUND_KINDS`): a suture holds skin, a splint holds a bone. The two
+# are matched exactly, never ranked -- a suture kit does not close a fracture and a splint does not
+# close a cut -- so this is the vocabulary rather than a pick order.
+const CLOSE_KINDS: Array[String] = ["suture", "splint"]
 # R8's bank, a key on the wound record rather than a component: it belongs to the injury, outlives
 # every individual press, and is read back by whoever presses next.
 const BANK_KEY: String = "pressedTicks"
@@ -347,10 +349,15 @@ static func _plan(world: Variant, actor: int, patient: int, part: String, verb: 
 			# so the reason the panel shows is the one the survivor can actually act on.
 			if not _open_wounds(world, patient, part).is_empty():
 				return {"ok": false, "reason": "still-bleeding"}
+			# The kit has to match the wound: the worst closable wound *whose closer is in the pack*
+			# is the one this channel is for. A leg carrying a stopped cut and a fracture, treated by
+			# somebody with only a splint, splints the fracture rather than refusing over the cut.
+			var closable: Variant = _worst_target_of_kinds(world, patient, part, _carried_close_kinds(world, actor))
+			if closable == null:
+				return {"ok": false, "reason": "no-kit"}
+			severity = int((closable as Dictionary).get("severity", SimWounds.Severity.Scratch))
 			if severity >= SimWounds.Severity.DeepWound and _medicine_of(world, actor) < SimWounds.CLOSE_MEDICINE_FLOOR:
 				return {"ok": false, "reason": "unskilled"}
-			if String(_best_closer(world, actor).get("kind", "")) == "":
-				return {"ok": false, "reason": "no-kit"}
 			ticks = int(SimWounds.CLOSE_TICKS.get(severity, 0))
 	if ticks <= 0:
 		return {"ok": false, "reason": "nothing-to-do"}
@@ -442,8 +449,9 @@ static func context(world: Variant, actor: int) -> Dictionary:
 		var dirty: String = _worst_part_for(world, target, "clean")
 		if dirty != "":
 			return begin(world, actor, target, dirty, "clean")
-	if String(_best_closer(world, actor).get("kind", "")) != "":
-		var openable: String = _worst_part_for(world, target, "close")
+	var carried_kinds: Array[String] = _carried_close_kinds(world, actor)
+	if not carried_kinds.is_empty():
+		var openable: String = _worst_part_for(world, target, "close", carried_kinds)
 		if openable != "":
 			var res: Dictionary = begin(world, actor, target, openable, "close")
 			# "unskilled" is a refusal the ladder should absorb rather than repeat: a survivor who
@@ -507,11 +515,11 @@ static func _worst_bleeding_part(world: Variant, entity: int) -> String:
 
 # The same pick, for a verb other than the bleeding pair. Same head-down tie-break, so the sim and
 # the condition view still agree about which wound is "the" wound whichever rung is being offered.
-static func _worst_part_for(world: Variant, entity: int, verb: String) -> String:
+static func _worst_part_for(world: Variant, entity: int, verb: String, kinds: Array[String] = []) -> String:
 	var best_part: String = ""
 	var best_sev: int = -1
 	for part in SimCombat.SURVIVOR_BODY_PARTS:
-		for wound in _targets(world, entity, String(part), verb):
+		for wound in _targets(world, entity, String(part), verb, kinds):
 			var sev: int = int((wound as Dictionary).get("severity", 0))
 			if sev > best_sev:
 				best_sev = sev
@@ -632,11 +640,20 @@ static func _complete(world: Variant, actor: int, patient: int, part: String, ve
 				_refuse(world, actor, verb, "no-supply")
 				return
 		"close":
-			var kit: Dictionary = _best_closer(world, actor)
-			tier = String(kit.get("kind", ""))
-			if tier == "" or not SimNeeds.consume_base(world, actor, String(kit.get("baseId", ""))):
+			# The same match `_plan` made: the worst closable wound whose closer is carried names
+			# the kit, and only wounds of that kind on the part are closed by it -- a splint on a
+			# leg does not also sew the cut beside it.
+			var closable: Variant = _worst_target_of_kinds(world, patient, part, _carried_close_kinds(world, actor))
+			if closable == null:
 				_refuse(world, actor, verb, "no-kit")
 				return
+			tier = SimWounds.close_kind_of(closable as Dictionary)
+			var kit: Dictionary = _best_closer(world, actor, tier)
+			if String(kit.get("kind", "")) == "" or not SimNeeds.consume_base(world, actor, String(kit.get("baseId", ""))):
+				_refuse(world, actor, verb, "no-kit")
+				return
+			var only: Array[String] = [tier]
+			targets = _closable_wounds(world, patient, part, only)
 
 	for wound in targets:
 		var wd: Dictionary = wound as Dictionary
@@ -868,12 +885,12 @@ static func _open_wounds(world: Variant, entity: int, part: String) -> Array:
 # it: `_plan` for the channel length, `_complete` for what it writes, `context` for whether the rung
 # is reachable at all. Treating a part is one act of first aid, not one per laceration, so all four
 # answer with every wound the verb applies to.
-static func _targets(world: Variant, entity: int, part: String, verb: String) -> Array:
+static func _targets(world: Variant, entity: int, part: String, verb: String, kinds: Array[String] = []) -> Array:
 	match verb:
 		"clean":
 			return _cleanable_wounds(world, entity, part)
 		"close":
-			return _closable_wounds(world, entity, part)
+			return _closable_wounds(world, entity, part, kinds)
 	return _open_wounds(world, entity, part)
 
 
@@ -909,17 +926,35 @@ static func _cleanable_wounds(world: Variant, entity: int, part: String) -> Arra
 	return out
 
 
-# Stopped, not yet sutured, and the kind of injury a suture applies to.
-static func _closable_wounds(world: Variant, entity: int, part: String) -> Array:
+# Stopped, not yet closed, and of a kind something closes -- a cut wants a suture, a fracture a
+# splint, and a sprain nothing. `kinds`, when given, narrows to the closers named (what the actor
+# is carrying); empty means any closable wound, which is what "does this body need care" asks.
+static func _closable_wounds(world: Variant, entity: int, part: String, kinds: Array[String] = []) -> Array:
 	var out: Array = []
 	for wound in _wounds_on(world, entity, part):
 		var wd: Dictionary = wound as Dictionary
 		if bool(wd.get("bleeding", false)) or bool(wd.get("closed", false)):
 			continue
-		if not bool(SimWounds.kind_spec(String(wd.get("kind", "cut"))).get("bleeds", true)):
+		var closer: String = SimWounds.close_kind_of(wd)
+		if closer == "":
+			continue
+		if not kinds.is_empty() and not kinds.has(closer):
 			continue
 		out.append(wd)
 	return out
+
+
+# The worst closable wound on the part among the closers carried, or null: the one the channel
+# is for, and the one that names the kit `_complete` spends.
+static func _worst_target_of_kinds(world: Variant, patient: int, part: String, kinds: Array[String]) -> Variant:
+	if kinds.is_empty():
+		return null
+	var worst: Variant = null
+	for wound in _closable_wounds(world, patient, part, kinds):
+		var wd: Dictionary = wound as Dictionary
+		if worst == null or int(wd.get("severity", 0)) > int((worst as Dictionary).get("severity", 0)):
+			worst = wd
+	return worst
 
 
 static func _wounds_on(world: Variant, entity: int, part: String) -> Array:
@@ -960,11 +995,23 @@ static func _best_clean(world: Variant, actor: int) -> Dictionary:
 	return _best_by_key(world, actor, CLEAN_KEY, CLEAN_ORDER, "tier")
 
 
-# The best closing kit carried, as {kind, baseId}, or {} if none. CLOSE_KINDS is one entry today,
-# so this is a filter rather than a ranking -- but it is written as the ranking so `splint` landing
-# beside `suture` is a content edit and an entry in the array, not a branch here.
-static func _best_closer(world: Variant, actor: int) -> Dictionary:
-	return _best_by_key(world, actor, CLOSE_KEY, CLOSE_KINDS, "kind")
+# The kit carried for one closer kind, as {kind, baseId}, or {} if none. An exact match on
+# purpose: the closer is chosen by the wound (`SimWounds.close_kind_of`), never ranked across kinds.
+static func _best_closer(world: Variant, actor: int, kind: String) -> Dictionary:
+	if not CLOSE_KINDS.has(kind):
+		return {}
+	var one: Array[String] = [kind]
+	return _best_by_key(world, actor, CLOSE_KEY, one, "kind")
+
+
+# Which of CLOSE_KINDS the actor has a kit for. What `context` and `_plan` narrow the closable
+# wounds by, so a suture-only carrier is never offered a fracture to step onto.
+static func _carried_close_kinds(world: Variant, actor: int) -> Array[String]:
+	var out: Array[String] = []
+	for kind in CLOSE_KINDS:
+		if String(_best_closer(world, actor, String(kind)).get("kind", "")) != "":
+			out.append(String(kind))
+	return out
 
 
 static func _best_by_key(world: Variant, actor: int, key: String, order: Array[String], label: String) -> Dictionary:

@@ -84,12 +84,18 @@ const CLOT_TICKS: Dictionary = {
 #                 small number.
 #   global        A per-entity impairment, for the one injury that is not about a body part:
 #                 a concussion is "reaction and perception loss", which is not a leg or an arm.
+#   closeKind     What the `close` rung of the treatment ladder spends on this kind: a suture
+#                 holds skin shut, a splint holds a bone still, and a sprain or a concussion
+#                 is closed by nothing. The kind owns this rather than treatment.gd asking
+#                 "does it bleed", because that question said a fracture could not be closed
+#                 at all -- which is how the splint sat declared in the schema and reachable
+#                 by nothing (the splint slice, 2026-09-06).
 const WOUND_KINDS: Dictionary = {
-	"cut": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}},
-	"bite": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}},
-	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}},
-	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}},
-	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}},
+	"cut": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
+	"bite": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
+	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
+	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": ""},
+	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
 	# A concussion impairs the person, not the part: docs/05 wants "reaction and perception loss".
 	# swing_speed and ranged_accuracy are the two stats this model already has that mean
 	# "reactions", and they are what it gets. **Perception has no stat to attach to** -- vision is
@@ -100,10 +106,73 @@ const WOUND_KINDS: Dictionary = {
 	# finding elsewhere.
 	"concussion": {
 		"bleeds": false, "recoveryDays": 6, "impairFloor": -1, "septicMul": 0.0,
-		"global": {"swing_speed": 0.85, "ranged_accuracy": 0.75},
+		"global": {"swing_speed": 0.85, "ranged_accuracy": 0.75}, "closeKind": "",
 	},
 }
 const CONCUSSION_SOURCE: String = "wound.concussion"
+
+# --- what a wound leaves behind (docs/05's permanent consequences) ------------------------------
+#
+# A fracture that knits without ever being splinted sets badly, and the leg is never right again:
+# docs/05's "badly-set fracture -> permanent limp". The owner's rule (2026-09-06) is deterministic
+# and readable -- splint it and it mends clean, let it knit on its own and you limp -- rather than
+# a roll, because a roll is a consequence the player cannot learn from. It is the one lasting
+# condition built; a blind eye has no perception stat to attach to (see the concussion row above)
+# and a scar's mood is a separate slice, and both stay named in docs/23 rather than faked here.
+#
+# The record lives on its own `lasting` component, an Array of records rather than a Dictionary
+# keyed by part (the JSON-key trap CLAUDE.md records), and it is *not* a wound: wounds heal and
+# leave the list, and this is exactly the thing that does not. The modifier is recomputed every
+# tick from the component in `wounds.impair` with the same strip-then-add discipline as every
+# other source here, so a save, a load and a despawn all get it right by construction.
+const LASTING_SOURCE: String = "injury.limp"
+const LIMP_MOVE_MUL: float = 0.90
+
+
+# The kind's closer, or "" for an injury nothing closes.
+static func close_kind_of(wound: Dictionary) -> String:
+	return String(kind_spec(String(wound.get("kind", "cut"))).get("closeKind", ""))
+
+
+# Record a lasting condition on a part. Idempotent per (kind, part): a leg limps once, however
+# many times it is broken. Returns true when a record was added.
+static func add_lasting(world: Variant, entity: int, kind: String, part: String) -> bool:
+	var comp: Variant = world.components.get_component(entity, "lasting")
+	if not (comp is Dictionary):
+		comp = {"records": []}
+		world.components.set_component(entity, "lasting", comp)
+	var records: Array = (comp as Dictionary).get("records", []) as Array
+	for r in records:
+		if String((r as Dictionary).get("kind", "")) == kind and String((r as Dictionary).get("bodyPart", "")) == part:
+			return false
+	records.append({"kind": kind, "bodyPart": part, "sinceTick": int(world.tick)})
+	(comp as Dictionary)["records"] = records
+	world.events.publish({"type": "injury.lasting", "entity": entity, "injury": kind, "bodyPart": part})
+	return true
+
+
+# The lasting condition on a part as a word, or "none". The condition view's reader.
+static func lasting_of(world: Variant, entity: int, part: String) -> String:
+	var comp: Variant = world.components.get_component(entity, "lasting")
+	if not (comp is Dictionary):
+		return "none"
+	for r in (comp as Dictionary).get("records", []) as Array:
+		if String((r as Dictionary).get("bodyPart", "")) == part:
+			return String((r as Dictionary).get("kind", "none"))
+	return "none"
+
+
+# Family (d): what a lasting condition costs, recomputed from the component every tick like the
+# three wound families. One `move_speed` multiplier per limping leg, so two bad legs compound.
+static func _apply_lasting(world: Variant, entity: int) -> void:
+	world.modifiers.call("remove_by_source", LASTING_SOURCE, entity)
+	var comp: Variant = world.components.get_component(entity, "lasting")
+	if not (comp is Dictionary):
+		return
+	for r in (comp as Dictionary).get("records", []) as Array:
+		var rd: Dictionary = r as Dictionary
+		if String(rd.get("kind", "")) == "limp" and _is_leg(String(rd.get("bodyPart", ""))):
+			world.modifiers.call("add", {"stat": "move_speed", "op": "mul", "value": LIMP_MOVE_MUL, "source": LASTING_SOURCE}, entity)
 
 
 # A kind's row, or `cut`'s as the fallback -- an unknown kind behaving like an ordinary cut is the
@@ -414,15 +483,11 @@ const LEG_MOVE_PENALTY: Array[float] = [0.04, 0.08, 0.12]
 const ARM_SWING_PENALTY: Array[float] = [0.05, 0.10, 0.15]
 const ARM_RANGED_PENALTY: Array[float] = [0.08, 0.16, 0.24]
 
-# SimHealth.CRIPPLED_SOURCE ("injury.crippled") is declared in health.gd and referenced
-# nowhere -- a socket already cut for a modifier keyed off the "crippled" (both-legs-gone)
-# state. Read it; did not use it here. Family (b) below keys its per-part sources off the
-# wound itself ("wound." + part), which already covers a crippled leg as a maximally severe
-# leg wound, and CRIPPLED_SOURCE's *event* (injury.sustained/crippled) fires once at the
-# moment a survivor starts crawling rather than describing an ongoing wound state, so it is
-# the wrong shape for a per-tick modifier source. Leaving the socket for whoever wires up a
-# crawl-specific modifier distinct from "worst leg wound is a DeepWound".
-const _CRIPPLED_SOURCE_NOTE: bool = true
+# Family (b) keys its per-part sources off the wound itself ("wound." + part); a crippled
+# (both-legs-gone) survivor is covered as two maximally severe leg wounds, and the
+# `injury.sustained/crippled` event health.gd publishes at that moment stays an event. The
+# `SimHealth.CRIPPLED_SOURCE` constant that used to sit beside it was read by nothing for the
+# whole milestone and was deleted with the splint slice; the lasting limp has its own source.
 
 
 # Severity is a fraction of the struck part's *maximum*, never raw damage -- the same trap
@@ -969,6 +1034,12 @@ static func register_module(world: Variant) -> void:
 			_apply_bloodloss_impairment(w, int(entity), float(d.get("bloodLoss", 0.0)))
 			_apply_part_impairment(w, int(entity), d.get("wounds", []) as Array)
 			_apply_pain(w, int(entity))
+		# Family (d), the lasting conditions: a separate query because the record outlives the
+		# wound that made it, and a survivor whose every wound has healed still limps.
+		for entity in w.components.query(["lasting"]):
+			if w.components.has_component(int(entity), "corpse"):
+				continue
+			_apply_lasting(w, int(entity))
 	)
 
 	world.systems.register("wounds.bleed", "health", 1, func(w: Variant) -> void:
@@ -1110,12 +1181,21 @@ static func register_module(world: Variant) -> void:
 				body[String(part)] = minf(float(int(maxv)), current + regen_per_tick(int(maxv), int(worst_by_part[part])) * float(int(gain_by_part.get(String(part), 1))))
 
 			for done in closed:
+				var dd: Dictionary = done as Dictionary
+				var done_part: String = String(dd.get("bodyPart", ""))
+				var was_closed: bool = bool(dd.get("closed", false))
+				# The badly-set fracture: a leg that knitted without a splint holding it still. The
+				# splinted twin mends clean -- that is the whole reason a splint is worth carrying.
+				if String(dd.get("kind", "cut")) == "fracture" and _is_leg(done_part) and not was_closed:
+					add_lasting(w, int(entity), "limp", done_part)
 				wounds.erase(done)
 				w.events.publish({
 					"type": "wound.closed",
 					"entity": int(entity),
-					"bodyPart": String((done as Dictionary).get("bodyPart", "")),
-					"severity": int((done as Dictionary).get("severity", 0)),
+					"bodyPart": done_part,
+					"severity": int(dd.get("severity", 0)),
+					"kind": String(dd.get("kind", "cut")),
+					"closed": was_closed,
 				})
 	)
 

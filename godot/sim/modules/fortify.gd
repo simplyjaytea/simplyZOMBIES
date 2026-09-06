@@ -193,6 +193,10 @@ static func _use_context(world: Variant, actor: int) -> void:
 			Needs.call("start_sleep", world, actor, bed)
 			return
 		if fire >= 0 and _entity_in_reach(world, actor, fire):
+			# A bottle of well water at a lit fire boils before the fire is touched; at an unlit
+			# one `boil` refuses and E lights it, so the next E boils -- the ladder, not a new key.
+			if bool((Needs.call("boil", world, actor, fire) as Dictionary).get("ok", false)):
+				return
 			Needs.call("toggle_fire", world, fire)
 			return
 		# The latrine, before the reach-bed fallback: a bed you are merely near is somewhere to

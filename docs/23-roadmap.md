@@ -106,9 +106,10 @@ population.
 The director is intentionally not the full storyteller system. “Nothing Personal” is an internal
 balance baseline, not a player-facing preset. Full storyteller presets remain Milestone 4.
 
-**Explicitly not in the slice:** survivor attributes, relationships, weather, factions, full world
-decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web, most zombie
-types, vehicles, multiplayer, and the escape endgame. (Vehicles came in anyway, twice, by the
+**Explicitly not in the slice:** survivor attributes, relationships, weather (a minimal rain
+state came in anyway on 2026-09-06 by the owner's decision, ADR 0015 — the record below), factions,
+full world decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web,
+most zombie types, vehicles, multiplayer, and the escape endgame. (Vehicles came in anyway, twice, by the
 owner's direction: parked as layout in the Dungeon Settlers arc, and driven by the player on
 2026-09-05 — the record has both; what driving deliberately left out is in what's left.)
 
@@ -195,14 +196,17 @@ than here.
   view learns to say a wound has been cleaned or sutured: the ladder writes both, and neither is
   in `sim/condition.gd` yet, deliberately — a field with one possible value is a gate that cannot
   fail, which is the lesson the `bandage` field's arrival taught.
-- **The splint, and fracture immobilisation.** `closeKind` declares `splint` and
-  `SimTreatment.CLOSE_KINDS` accepts only `suture`, so a kit declaring one is refused rather than
-  silently sutured with. `cleanTier`'s `alcohol` grade is priced in `SEPSIS_CLEAN_MUL` and, since
-  the gear catalogue (2026-09-06), carried by `item.spirits.bottle` — the content half is closed;
-  what stays open is whether `alcohol` should sit where it does in the pricing, which no
-  measurement has yet asked.
-- **Permanent conditions that keep a survivor in play.** A limp, a blind eye, a scar — loss that
-  does not remove the person, docs/05's permanent-consequences row.
+- **Where `alcohol` sits in the clean pricing.** `cleanTier`'s `alcohol` grade is priced in
+  `SEPSIS_CLEAN_MUL` and, since the gear catalogue (2026-09-06), carried by `item.spirits.bottle`
+  — the content half is closed; what stays open is whether `alcohol` should sit where it does in
+  the pricing, which no measurement has yet asked. (The splint it used to share an entry with
+  landed 2026-09-06 — the record below, `godot:m2:splint`.)
+- **The other permanent conditions: a blind eye, a scar.** The limp landed with the splint
+  (2026-09-06, the record below); these two are what docs/05's permanent-consequences row still
+  names and nothing builds. A blind eye has the wall the concussion row hit — vision is a
+  shadowcast with no perception stat to attach to — and a scar is a mood modifier and a social
+  effect, which is Milestone 3A's relationship work. The `lasting` component and its
+  `LASTING_WORDS` are the seam both would land through.
 
 **Gear — finishing what items started:**
 
@@ -416,10 +420,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   nothing gives the item a home — no `stored`, no `position`, no slot. `item.detach` has the same
   shape: `SimAttachments.detach` deliberately leaves the attachment homeless and the command does
   nothing about it.
-- **Cook has no claim on its ingredient.** Nothing marks the raw item as spoken for and the job
-  does not re-check at completion, so two cooks turn one raw item into two meals — or into one meal
-  out of nothing. `Bury` has the same hole: `_do_bury` reads "the corpse has no position" as "I am
-  carrying it".
+- **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
+  Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
+  record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
+  unclaimed target in the same shape and have not been measured to double up; the `reserved`
+  component the Cook fix added is the seam if either ever does.
 - **A lull's opening edge is dead code.** `_begin_lull` guards its only write to `lullFromTick`
   with `world.tick < lullFromTick`, and the field starts at 0 and is never written, so the
   condition can never be true and the window is effectively `[0, lullUntilTick)`. `world.gd`'s
@@ -503,14 +508,15 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
   way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
   which is now a second hand-listed copy of the director's save shape.
-- **`repair_cost` and `spoilage_rate` are stats nothing resolves.** Both are declared in
-  `sim/modifiers/stats.gd` and both are the target of a shipped web node — `craft.tape`,
-  `craft.scrap`, `surv.cook` — and no code anywhere calls `resolve` on either, so those three
-  nodes are bought, applied, and felt by nobody. Named here because the focus-auto-allocation
-  slice made `craft.scrap` ownable for the first time and it would be dishonest to record that as
-  a node arriving in play: what arrived is a node that can be owned. Repair already spends a
-  fixed scrap cost (`SimJobs.REPAIR_TICKS` and the fortify scrap rules) and cooking already has a
-  spoilage clock, so both have an obvious reader waiting.
+- **`repair_cost` is a stat nothing resolves.** Declared in `sim/modifiers/stats.gd`, the target
+  of two shipped web nodes (`craft.tape`, `craft.scrap`) and of a suffix line, and no code calls
+  `resolve` on it, so those nodes are bought, applied, and felt by nobody. Named here because the
+  focus-auto-allocation slice made `craft.scrap` ownable for the first time and it would be
+  dishonest to record that as a node arriving in play: what arrived is a node that can be owned.
+  Repair spends **one whole scrap** (`_do_repair` through `_consume_owned`), and a ×0.9 on an
+  integer unit has no honest reader without a debt accumulator or a fractional cost — a design,
+  not a line, which is why it stayed when `spoilage_rate` got its reader (2026-09-06, the record's
+  Needs bullet, `godot:m2:needs` PANTRY).
 - **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
   time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
   a no-op for them.
@@ -1649,7 +1655,9 @@ not a to-do list:
   **not** an RNG stream, so the sky is identical on every boot of every seed by construction. It
   **never stops raining** (`INTENSITY_MIN` 0.4): an onset and an end would read as a weather
   *event* and imply a system that does not exist — docs/16's weather sim stays Milestone 3, and
-  re-keying this layer to it then is the named forward edge. What varies is intensity, a slow
+  re-keying this layer to it then is the named forward edge. *(Re-keyed 2026-09-06: the sim
+  now decides whether it rains — the Weather record below, `godot:m2:weather` — and this layer
+  draws only while it does; within a span it still never stops.)* What varies is intensity, a slow
   ~90 s swell with a faster flutter inside it, measured spread [0.40, 0.99] over a day. Drawn
   over the bodies and under the night wash in one `draw_multiline` for the whole sky; frozen
   while paused because `_process` returns before the accumulator moves; 10× under fast-forward,
@@ -3234,6 +3242,95 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Jobs** — ~~Cook has no claim on its ingredient~~ **landed** (`godot:m2:jobs`, COOK CLAIM),
+  2026-09-06. `_cook_work` now writes a `reserved: {by, job}` component onto the raw it hands
+  out; `_stock_base` skips a claim that is *live* — the holder still carries a Cook job targeting
+  that item — and erases a stale one on sight (the holder died, was re-assigned, or finished),
+  `_stop` releases the claim of the job it drops, and `_do_cook` re-validates at completion: a raw
+  that is gone or is somebody else's cooks nothing — no meal, no `job.completed`, no Survival
+  point — and the fire goes back to idle. Measured in the lane: two cooks and one raw — the first
+  claims it, the second's `_cook_work` is `{}`, and a second raw on the pile hands the second cook
+  *that* one; a completion makes exactly one `item.food.cooked`, the raw and its claim gone, one
+  `job.completed`; a raw despawned mid-job cooks **zero** meals and fires zero completions where
+  the intact control cooks one; `_stop` releases; a dead cook's claim heals on sight while a living
+  one holds. `reserved` is transient and a new component, so no save bump. Named rather than
+  fixed: `_water_work` and `_repair_work` hand out an unclaimed target in the same shape, `Bury`'s
+  "no position means I am carrying it" stays in the defect list, and `_do_cook` still despawns the
+  whole raw *stack* for one meal — pre-existing, balance-relevant, and its own line.
+- **Weather** — ~~a minimal rain state~~ **landed** (`npm run godot:m2:weather`,
+  `M2_WEATHER_OK`, eight lanes; `godot:check:weather`'s RAIN WIRED lane now requires the draw to
+  ask the sim; `godot:check:hud`'s scanner gained a rain row; `godot:m2:save` and
+  `godot:m2:fortify` at v20), 2026-09-06 — the fourth slice of the owner's survival session, by
+  the owner's decision against ADR 0002 (ADR 0015 records it; docs/30 "Rain as sim state" the
+  calls), named in what's left and landed in the same commit. `SimWeather` keeps
+  `world.weather = {raining, untilTick, spans}` — saved like the director's scalars,
+  `SAVE_VERSION` 20 — and draws spans on the sim's own `weather` stream from
+  `content/weather/rain.json` (a registered content type with its schema): dry 144000..432000,
+  wet 24000..72000, the first span always dry. Three readers, each gated: a body outdoors in the
+  rain is wet after `wetAfterTicks` (200), stays wet `dryAfterTicks` (12000) once roofed or
+  dry-skied and `dryByFireTicks` (2400) by a lit fire, and a wet body reads **one temperature
+  band colder** before the wrap shift (`needs.gd`, `_colder`); the scent half-life is multiplied
+  by `scentHalfLifeMul` (0.5) while it rains, handed to `diffuse_scent` by `SimBoot._diffuse` as
+  a parameter so the field never learns what weather is; and `main._draw_rain` draws the
+  streak layer only while it rains, `rain_look.gd` staying pure. The HUD's world column says
+  "It's raining." and the self column "You're soaked.", both digit-free. Measured in the gate:
+  CONTENT (loaded, ranges ordered, drying timings 200 < 2400 < 12000, schema registered, a stray
+  key refused, the mirrored defaults equal to content); SCHEDULE (dry at boot and for a thousand
+  ticks, **15 flips over ten days, 8 spells**, every span inside its range on the canonical seed,
+  a kernel-less fixture never rains and grows no state, a forced flag reads true); ROUND-TRIP (the
+  state and the stream survive a save, a snapshot without the key restores dry); DETERMINISM (same
+  seed same schedule, seed 404 differs); WET (wet after 200 ticks in the rain, never under a roof
+  or a clear sky, dries at +12000 in the air and +2400 by a fire); COLD (day wet `a_little_cold`
+  at mood −4 against dry `comfortable` at 0, night wet `extremely_cold` against dry `very_cold`,
+  wet in a wrap `comfortable`, and the word is "soaked"); SCENT (twenty diffusions of rain leave
+  **13.03** where a dry sky leaves **336.24**, and a dry sky equals no weather at all); HUD.
+  Balance, measured before and after on the same four seeds, and **corrected once**: the first cut washed scent at ×0.85 *a step*, and the harness went red — seed 90210 lost its whole colony (survivors 0/3, grabs 127 → 234) and 20260805 tripled its grabs (85 → 226). A throwaway variant driver (rain / rain without wetness / rain without the wash, on the harness's own compressed ten days, deleted after) pinned it: without wetness the grabs stayed at 234 and 231, without the wash they fell back to 157 and 85 — the scent, not the wet, and the opposite of the guess. The step runs every five ticks, so a per-step factor compounded 240 times a minute and flattened the field inside a second of rain; the effect is now a **half-life** factor (`scentHalfLifeMul` 0.5), and the SCENT lane refuses a rain that leaves under half the dry scent after a hundred ticks. With that, every band holds: 20260805 grabs 85 → **66**, kills 4 → 5, survivors 2/3 both times; 404 byte-identical; 31337 grabs 95 → **87**, survivors 2/3; 90210 grabs 127 → **157**, survivors 1/3 both times, deaths unchanged everywhere. The driver's own numbers on the shipped cut: rain fell on 6000 to 8000 of the 20000 dusk-window ticks a seed runs, bodies were wet for 0 to 3602 colonist-ticks of it (31337's colonists never stood in it), and the dusk peak scent under rain sits inside the dry seeds' range. Why fewer grabs on two seeds and more on one is not theorised here; the wash is the only thing the field feels and the fast tier is four seeds, which is the distribution assertion in what's left, not a number to move.
+- **Needs** — ~~untreated water carries illness~~ **landed** (`godot:m2:needs`, WATER;
+  `godot:m2:jobs`' WELL lane amended; `godot:m2:gear`'s CATALOGUE lane now reads a producer file
+  per produced base), 2026-09-06 — a piece docs/04 specified ("untreated water carries illness")
+  that nothing built, named in what's left and landed in the same commit, the third slice of the
+  owner's survival session. The Water job used to fill an empty bottle with `item.water.bottle`
+  by rename: clean water for the price of a walk. Now the well fills `item.water.bottle.untreated`
+  (`SimNeeds.fill_bottle`, the one producer) — thirst 50, `drink.illnessChance` 0.15, the same
+  `empties` — and `drink_item` rolls `_rolls_ill` before the bottle is spent and `_fall_ill` after
+  it, the `eat` rule, so a bottle of well water is the food-poisoning bout with the same
+  `iron_stomach` immunity; `need.drank` says `ill`. `SimNeeds.boil(world, actor, fire)` turns one
+  carried untreated bottle into a clean one at a **lit** campfire — instant, a rename in the other
+  direction, no despawn, no RNG — and refuses `no-fire`, `unlit`, `no-bottle`. The player reaches
+  it through E: a bottle of well water at a lit fire boils before the fire is touched, and at an
+  unlit one `boil` refuses so E lights it and the next E boils (the ladder, not a key). NPCs: the
+  thirst seek's back half, `_seek_untreated` — nothing clean anywhere, an untreated bottle and a
+  campfire: walk to it, light it if it is out (the Cook job's own call and attention cost), boil,
+  drink clean; no fire at all: drink it untreated only once thirst is below `SOFT`, and wait
+  between `SEEK_START` and `SOFT`. The `drink` schema gained `illnessChance` (0..1) and
+  `drink_spec` refuses a value outside it outright — the nested-key gate the shallow validator
+  cannot be. Measured in the lane: CONTENT (the untreated base declares its chance, bottled water
+  declares none, both leave the same empty, no loot table rolls the untreated one — the well is
+  its only source — and a fabricated chance of 1.5 is refused as not drinkable); RATE (400
+  untreated drinks made the drinker ill **0.140** of the time against the authored 0.15; 400
+  bottled **0**; 400 untreated with an iron stomach **0**); BOIL (a lit fire boils one bottle and
+  stays lit, an unlit one refuses `unlit`, an empty pack refuses `no-bottle`; through
+  `use.context`, a lit fire boils rather than douses and an unlit one lights rather than boils);
+  NPC (Mara at thirst 35 with a bottle, a fire and nothing clean boiled once and drank
+  `item.water.bottle`; with a clean bottle beside it drank at once and boiled nothing; with no
+  fire and thirst 25 drank `item.water.bottle.untreated`; with no fire and thirst 35 drank
+  nothing in 3000 ticks); and the WELL lane now asserts the fill is untreated and *not* clean.
+  **Named rather than fixed:** a `dehydrating` survivor never reaches the untreated rung, because
+  `_tick_one` stops a body in crisis before the seek runs — a pre-existing hole, the crisis path's
+  own defect — and bottled water in loot tables stays clean, so a colony that finds enough of it
+  never boils. The four FAST balance lines before and after are **byte-identical** — survivors, deaths, kills and grabs unchanged on all four seeds — which says the compressed ten-day colony drinks the bottled water its loot rolls and never fills a bottle at the well; the rung is reachable (the WELL and NPC lanes prove it) and not yet priced by the harness, the same shape as the engine noise and the light vehicles at the director in what's left.
+- **Needs** — ~~`spoilage_rate` is a stat nothing resolves~~ **landed** (`godot:m2:needs`,
+  PANTRY), 2026-09-06, with the owner's rule: **a perishable ages at the best living colonist's
+  rate.** `_tick_spoilage` resolves `spoilage_rate` once a tick as the minimum over every
+  `needs`-holder that is not a recruit (corpses lose `needs` at `_make_corpse`, so the dead drop
+  out) and advances a new `aged` field on each spoilage record by it; `spoiled` is `aged >=
+  spoilTicks`, so the old `tick - bornTick` comparison is the rate-1.0 case of the new clock and a
+  record written before `aged` existed is defaulted from `bornTick` and keeps its age. Measured
+  on a fixture food with a 576-tick clock: with nobody owning `surv.cook` it spoils on tick 576
+  and not on 575; with Mara having bought the node through the real `web.buy` path (×0.95,
+  `resolve` reads 0.95 and `pantry_rate` reads 0.95) it is unspoiled at 606 and spoiled by 607;
+  with Mara dead, on 576 again. `repair_cost` stays dead, and the debt entry now says why. The
+  four FAST balance lines were run before and after and are byte-identical — the fast tier never saw two cooks contend for one raw, and nobody in it owns `surv.cook`.
 - **Needs** — ~~drinks as content, the stimulant, and what a spent unit leaves behind~~
   **landed** (`godot:m2:needs`, DRINK and STIMULANT; `godot:m2:jobs`, WELL; with the gear
   catalogue, 2026-09-06). A `drink: {thirst, rest?, crashRest?, crashAfterTicks?, mood?}` block
@@ -3603,6 +3700,56 @@ not a to-do list:
   `infection.respond` — plus the verb being one the router answers). NO SUPPLY is the fix's own
   true negative and was **run red before the fix and green after**: with the `pass` restored it
   reports "a symptomatic bite with nothing in the pack was dosed anyway".
+- **Health & injury** — ~~the splint, and fracture immobilisation~~ and ~~the limp, the first
+  permanent condition~~ **landed together** (`npm run godot:m2:splint`, `M2_SPLINT_OK`, nine
+  lanes; `godot:m2:treatment`'s LADDER CONTENT and `godot:ban:healthbar`'s WOUND/INFECTION/ARMOR
+  lanes widened), 2026-09-06, at the owner's direction with the rule decided by the owner: **a leg
+  fracture that heals unsplinted leaves a permanent limp; splinted, it mends clean.** The find that
+  shaped the slice: `_closable_wounds` asked "does this kind bleed", so a fracture — the one injury
+  a splint is for — was the one injury `close` refused to look at, and `closeKind: "splint"` had sat
+  in the schema enum with no item declaring it and `CLOSE_KINDS` accepting `suture` alone. The
+  closer is now a property of the wound kind (`WOUND_KINDS[kind].closeKind`: cut, bite and burn
+  `suture`; fracture `splint`; sprain and concussion nothing) and the ladder matches the kit to the
+  wound exactly rather than ranking kits — `_plan` and `_complete` both pick the worst closable
+  wound *whose closer is in the pack*, and `context` opens the rung only for the kinds carried, so
+  a suture-only survivor with a fracture neither channels nor publishes a refusal every tick.
+  `item.splint.kit` (a 1×2, 0.4 kg consumable, stack 2) is on the `medical` table beside the suture
+  kit. The limp is a `lasting` component — an Array of `{kind, bodyPart, sinceTick}` records, one
+  per (kind, part), written by `wounds.recover`'s closing loop when a fracture on a leg or foot
+  leaves the list without ever having been `closed` — and it is felt through `move_speed ×0.90`
+  per limping leg (`LIMP_MOVE_MUL`, the owner's number), recomputed every tick in `wounds.impair`
+  from the component with the strip-then-add discipline of the three wound families, which is why
+  a save, a load and a despawn all get it right without any of them knowing about it. The
+  condition view gained `lasting`, a word from `LASTING_WORDS` (`"none"`, `"limp"`), and the body
+  screen prints it as a tag ("left leg · limp"); the HUD deliberately got no line, because a
+  permanent condition on the HUD is a sentence the player reads forever. Measured, in the gate:
+  CONTENT (declares `splint`, in a loot table, spawns and resolves; a made-up id is neither; the
+  kind table says fracture→splint, cut→suture, sprain→nothing); SPLINT CLOSES (a leg fracture
+  splinted in 450 ticks for one kit; a suture on a fracture and a splint on a deep cut both
+  `no-kit`, a sprain `nothing-to-do` with both kits carried, a bleeding cut `still-bleeding`);
+  TWO KINDS (a leg carrying a stopped deep cut *and* a fracture, both kits in the pack: the first
+  close sews the cut and leaves the fracture open, the second splints it, one kit each); PACE (a
+  splinted fracture ten earned ticks from its 42-day budget closes in five, the unsplinted twin in
+  ten); LIMP (ground covered over 100 ticks — clean **10.5000**, one limp **9.4500**, two limps
+  **8.5050**, the splinted-and-healed leg **10.5000** to four places; an unsplinted *arm* fracture
+  leaves nothing; `wound.closed` now carries `kind` and `closed`; a second break of the same leg
+  adds no second record); PERSISTENCE (the restored body walks 9.4500 as before the save and the
+  component is there; `modifiers.save()` carries `injury.limp` for a limping body and not after
+  that body is despawned); VIEW (leg_left `"limp"` and unwounded, leg_right `"none"`, every value
+  a `LASTING_WORDS` word; the ban gate's fixture now carries a limp on a wound-free leg and a live
+  wound on a limp-free one, and still finds no integrity, no maximum and no fraction); LADDER (the
+  T key with a splint opens `close` on the fracture; a suture-only NPC with only a fracture runs
+  50 ticks with no channel and zero `treatment.refused`; a splint-carrying NPC sets their own leg
+  unprompted); DETERMINISM. **Named rather than faked:** NPC job walking reads `work_mul`, not
+  `move_speed` (`jobs.gd`'s `_walk`), so the limp — like today's per-part leg impairment — slows
+  the controlled body and not an NPC on a job; widening that is the locomotion debt entry. And the
+  impact-fracture roll gives every fracture Laceration severity, so no fracture meets the deep-wound
+  Medicine floor: anyone can set a bone, and whether a bad set should want a medic is a question for
+  the diagnosis-with-skill piece. `SimHealth.CRIPPLED_SOURCE`, declared and read by nothing since
+  the port, was deleted rather than reused — "crippled" means both legs gone, and a one-leg limp
+  under that name would be a lie. Balance: the four FAST lines were run before and after on the
+  same seeds (one loot entry moves rolls) and are byte-identical — the medical table's new row did
+  not change what any of the four colonies found.
 - **Combat** — ~~firing at a remembered position (and what it costs)~~ **landed**
   (`godot:m2:sight`, SIGHT / NO-EYES / RECALL-FIRE), together with the rule it depends on. docs/09
   says aiming "inherits visibility wholesale" and `_fire_shot` inherited none of it — a shot was a

@@ -592,6 +592,7 @@ func _the_rain_is_wired_and_ordered() -> bool:
 		"_draw_rain",
 		_function_body(MAIN_GD, "_draw_rain"),
 		[
+			"SimWeather.raining(",
 			"RainLook.segments(",
 			"RainLook.falls_at(",
 			"RainLook.intensity(",

@@ -1,0 +1,10 @@
+{
+  "id": "weather.rain",
+  "description": "The one weather state, per docs/adr/0015: it rains or it does not, in spans drawn from these ranges on the sim's own `weather` stream. dryTicks 144000..432000 is twelve to thirty-six in-game hours between spells, wetTicks 24000..72000 is two to six hours of rain -- roughly a spell every day or two, a first cut for the owner. Read by SimWeather only.",
+  "dryTicks": { "min": 144000, "max": 432000 },
+  "wetTicks": { "min": 24000, "max": 72000 },
+  "scentHalfLifeMul": 0.5,
+  "wetAfterTicks": 200,
+  "dryAfterTicks": 12000,
+  "dryByFireTicks": 2400
+}

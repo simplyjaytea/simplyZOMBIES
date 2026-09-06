@@ -37,6 +37,7 @@ const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimRecruits = preload("res://sim/modules/recruits.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimDebugMod = preload("res://sim/modules/debug.gd")
 const SimRaiders = preload("res://sim/modules/raiders.gd")
@@ -92,7 +93,9 @@ static func _decay(w: Variant) -> void:
 
 static func _diffuse(w: Variant) -> void:
 	if int(w.tick) % int(w.field.calibration["scentIntervalTicks"]) == 0:
-		w.field.diffuse_scent()
+		# Rain washes scent: the step's half-life is multiplied by the weather's factor, exactly
+		# 1.0 when dry (docs/adr/0015). The field never learns what weather is.
+		w.field.diffuse_scent(SimWeather.scent_half_life_mul(w))
 
 
 static func _refresh_light(w: Variant) -> void:
@@ -131,6 +134,7 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimLightMod.register_module(world)
 	SimFieldMemory.register_module(world)
 	SimSightings.register_module(world)
+	SimWeather.register_module(world)
 	SimAttachments.register_module(world)
 	SimDebugMod.register_module(world)
 	SimVehicles.register_module(world)
