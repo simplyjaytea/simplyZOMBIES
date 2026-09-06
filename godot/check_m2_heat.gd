@@ -431,7 +431,10 @@ func _heatstroke_drops_the_tool() -> bool:
 			SimNeeds.of(w, npc)["hotSinceTick"] = int(w.tick) - (2 * SimNeeds.EXPOSURE_TICKS + 2)
 		_place(w, npc, out)
 		_pools_full(w, npc)
-		w.components.set_component(npc, "job", {"kind": "Guard", "tx": out.x, "ty": out.y, "ticksLeft": 500, "path": [], "pathGen": -1})
+		# A stand-in job with a channel: Patient's arm does nothing but stand, which is what Guard's
+		# did when this lane was written. Guard is a dusk-to-dawn post since 2026-09-06 and its arm
+		# completes the watch by day, so at noon it could not be the job that "works through" a band.
+		w.components.set_component(npc, "job", {"kind": "Patient", "tx": out.x, "ty": out.y, "ticksLeft": 500, "path": [], "pathGen": -1})
 		# Twice, and the second one is the assertion: `jobs.ai` runs in the `ai` phase and
 		# `need.temperature` in `needs`, so the tick that first writes the deep band is a tick
 		# jobs has already spent reading the band before it. The interrupt lands on the next one.
@@ -448,10 +451,10 @@ func _heatstroke_drops_the_tool() -> bool:
 			return false
 	var deep: Dictionary = results["extremely_hot"] as Dictionary
 	var soft: Dictionary = results["very_hot"] as Dictionary
-	if String(deep["job"]) == "Guard":
+	if String(deep["job"]) == "Patient":
 		push_error("INTERRUPT: heatstroke did not drop the job: %s" % str(deep))
 		return false
-	if String(soft["job"]) != "Guard":
+	if String(soft["job"]) != "Patient":
 		push_error("INTERRUPT: very_hot dropped a job it should have worked through: %s" % str(soft))
 		return false
 	print("INTERRUPT OK a body at extremely_hot drops a job with 500 ticks left (job now '%s'); the same body at very_hot works on" % [String(deep["job"]) if String(deep["job"]) != "" else "none"])
