@@ -545,6 +545,10 @@ func _condition_lines() -> Array:
 		var infected: String = String(d.get("infected", "none"))
 		if infected != "none":
 			tags.append(infected)
+		# What an old injury left behind: "left leg · limp" on a leg that has long since healed.
+		var lasting: String = String(d.get("lasting", "none"))
+		if lasting != "none":
+			tags.append(lasting)
 		if st == 0 and tags.is_empty():
 			continue
 		var word: String = PART_STATE_WORDS[st] if st < PART_STATE_WORDS.size() else ""

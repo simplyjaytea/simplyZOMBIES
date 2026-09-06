@@ -1578,6 +1578,7 @@ func _the_new_supplies_are_findable() -> bool:
 	for row in [
 		{"id": "item.antiseptic.bottle", "key": "cleanTier", "value": "antiseptic"},
 		{"id": "item.suture.kit", "key": "closeKind", "value": "suture"},
+		{"id": "item.splint.kit", "key": "closeKind", "value": "splint"},
 		{"id": "item.water.bottle", "key": "cleanTier", "value": "water"},
 	]:
 		var id: String = String((row as Dictionary)["id"])
@@ -1603,7 +1604,7 @@ func _the_new_supplies_are_findable() -> bool:
 	if droppable.has("item.antiseptic.imaginary") or SimItems.content_entry(w, "item", "item.antiseptic.imaginary") is Dictionary:
 		push_error("a made-up base id was found, so findability is asserting nothing")
 		return false
-	print("LADDER CONTENT OK antiseptic, suture kit and the water bottle's clean tier all findable and resolvable; a made-up id is neither")
+	print("LADDER CONTENT OK antiseptic, suture kit, splint kit and the water bottle's clean tier all findable and resolvable; a made-up id is neither")
 	return true
 
 

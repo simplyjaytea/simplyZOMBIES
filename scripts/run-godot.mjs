@@ -250,6 +250,9 @@ switch (mode) {
       "res://check_m2_recovery.gd",
     ];
     break;
+  case "--m2-splint":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_splint.gd"];
+    break;
   case "--m2-treatment":
     args = [
       "--headless",

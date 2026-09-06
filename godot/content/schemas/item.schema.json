@@ -63,7 +63,7 @@
     },
     "closeKind": {
       "enum": ["suture", "splint"],
-      "description": "How this item closes a wound when it is spent on the `close` verb. Absent means it cannot close one. `suture` is what SimTreatment.CLOSE_KINDS accepts today; `splint` is declared here and deliberately unauthored -- it belongs with fracture immobilisation, which is not built, and a kit declaring it is refused rather than silently sutured with."
+      "description": "How this item closes a wound when it is spent on the `close` verb. Absent means it cannot close one. Which closer a wound wants is the wound kind's own `closeKind` in SimWounds.WOUND_KINDS: a `suture` holds a cut, bite or burn shut and a `splint` holds a fracture still. The two are matched exactly, never ranked -- a suture kit does not close a fracture and a splint does not close a cut."
     },
     "stack": {
       "type": "integer",

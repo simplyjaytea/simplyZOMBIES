@@ -190,6 +190,12 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 		# can see by looking, and nothing about how well it is working.
 		{"kind": "cut", "presentation": "laceration", "bodyPart": "leg_right", "source": -1, "sustainedAtTick": 0, "severity": 1, "bleeding": false, "bandage": "sterile", "clotsAtTick": -1},
 	], "bloodLoss": 0.0})
+	# leg_left also carries a lasting limp -- the true positive for `lasting`, on a leg whose
+	# fracture is long healed (no wound record on it at all), which is what makes it a separate
+	# field from `wounded` rather than one that mirrors it.
+	w.components.set_component(w.player, "lasting", {"records": [
+		{"kind": "limp", "bodyPart": "leg_left", "sinceTick": 0},
+	]})
 	w.components.set_component(w.player, "zombieInfection", {"exposures": [
 		{"source": -1, "bodyPart": "leg_left", "exposedAtTick": 0, "transmitted": true, "stage": SimInfection.Stage.Onset, "stageEnteredAtTick": 0, "cauterized": false, "amputated": false},
 	]})
@@ -222,6 +228,9 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 			return false
 		if not SimCondition.BANDAGE_RANK.has(String(d.get("bandage", ""))):
 			push_error("%s.bandage is not one of the tier words: %s" % [part, d.get("bandage")])
+			return false
+		if not (d.get("lasting") is String) or not SimCondition.LASTING_WORDS.has(String(d.get("lasting", ""))):
+			push_error("%s.lasting is not one of the lasting words: %s" % [part, d.get("lasting")])
 			return false
 
 	# True positives, so this cannot be satisfied by fields that are simply always false.
@@ -256,12 +265,24 @@ func _wound_infection_armor_are_true_words_not_numbers() -> bool:
 	if String(by_part["arm_left"].get("bandage", "x")) != "none":
 		push_error("arm_left is undressed but bandage='%s'" % by_part["arm_left"].get("bandage", ""))
 		return false
+	# The limp is a word on the leg that carries it, and leg_left reads unwounded while it does --
+	# the negative that keeps `lasting` from being `wounded` under another name. leg_right, which
+	# carries a live wound and no lasting record, must read "none".
+	if String(by_part["leg_left"].get("lasting", "none")) != "limp":
+		push_error("leg_left carries a lasting limp but lasting='%s'" % by_part["leg_left"].get("lasting", ""))
+		return false
+	if bool(by_part["leg_left"].get("wounded", true)):
+		push_error("leg_left has no wound record and should read unwounded beside its limp")
+		return false
+	if String(by_part["leg_right"].get("lasting", "x")) != "none":
+		push_error("leg_right is wounded but has no lasting record, yet lasting='%s'" % by_part["leg_right"].get("lasting", ""))
+		return false
 	# And a true negative on a part none of this touched.
 	var clean: Dictionary = by_part["foot_right"] as Dictionary
-	if bool(clean.get("wounded", true)) or String(clean.get("infected", "x")) != "none" or bool(clean.get("armored", true)) or bool(clean.get("bleeding", true)) or String(clean.get("bandage", "x")) != "none":
+	if bool(clean.get("wounded", true)) or String(clean.get("infected", "x")) != "none" or bool(clean.get("armored", true)) or bool(clean.get("bleeding", true)) or String(clean.get("bandage", "x")) != "none" or String(clean.get("lasting", "x")) != "none":
 		push_error("foot_right should be untouched, got %s" % str(clean))
 		return false
-	print("WOUND/INFECTION/ARMOR OK arm_left wounded+bleeding+undressed, leg_left infected, torso armored, hand_right clotted (wounded, not bleeding), leg_right dressed sterile, foot_right clean")
+	print("WOUND/INFECTION/ARMOR OK arm_left wounded+bleeding+undressed, leg_left infected and limping, torso armored, hand_right clotted (wounded, not bleeding), leg_right dressed sterile, foot_right clean")
 	return true
 
 func _a_body_less_entity_has_no_view() -> bool:

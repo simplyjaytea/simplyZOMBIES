@@ -195,14 +195,17 @@ than here.
   view learns to say a wound has been cleaned or sutured: the ladder writes both, and neither is
   in `sim/condition.gd` yet, deliberately — a field with one possible value is a gate that cannot
   fail, which is the lesson the `bandage` field's arrival taught.
-- **The splint, and fracture immobilisation.** `closeKind` declares `splint` and
-  `SimTreatment.CLOSE_KINDS` accepts only `suture`, so a kit declaring one is refused rather than
-  silently sutured with. `cleanTier`'s `alcohol` grade is priced in `SEPSIS_CLEAN_MUL` and, since
-  the gear catalogue (2026-09-06), carried by `item.spirits.bottle` — the content half is closed;
-  what stays open is whether `alcohol` should sit where it does in the pricing, which no
-  measurement has yet asked.
-- **Permanent conditions that keep a survivor in play.** A limp, a blind eye, a scar — loss that
-  does not remove the person, docs/05's permanent-consequences row.
+- **Where `alcohol` sits in the clean pricing.** `cleanTier`'s `alcohol` grade is priced in
+  `SEPSIS_CLEAN_MUL` and, since the gear catalogue (2026-09-06), carried by `item.spirits.bottle`
+  — the content half is closed; what stays open is whether `alcohol` should sit where it does in
+  the pricing, which no measurement has yet asked. (The splint it used to share an entry with
+  landed 2026-09-06 — the record below, `godot:m2:splint`.)
+- **The other permanent conditions: a blind eye, a scar.** The limp landed with the splint
+  (2026-09-06, the record below); these two are what docs/05's permanent-consequences row still
+  names and nothing builds. A blind eye has the wall the concussion row hit — vision is a
+  shadowcast with no perception stat to attach to — and a scar is a mood modifier and a social
+  effect, which is Milestone 3A's relationship work. The `lasting` component and its
+  `LASTING_WORDS` are the seam both would land through.
 
 **Gear — finishing what items started:**
 
@@ -3603,6 +3606,56 @@ not a to-do list:
   `infection.respond` — plus the verb being one the router answers). NO SUPPLY is the fix's own
   true negative and was **run red before the fix and green after**: with the `pass` restored it
   reports "a symptomatic bite with nothing in the pack was dosed anyway".
+- **Health & injury** — ~~the splint, and fracture immobilisation~~ and ~~the limp, the first
+  permanent condition~~ **landed together** (`npm run godot:m2:splint`, `M2_SPLINT_OK`, nine
+  lanes; `godot:m2:treatment`'s LADDER CONTENT and `godot:ban:healthbar`'s WOUND/INFECTION/ARMOR
+  lanes widened), 2026-09-06, at the owner's direction with the rule decided by the owner: **a leg
+  fracture that heals unsplinted leaves a permanent limp; splinted, it mends clean.** The find that
+  shaped the slice: `_closable_wounds` asked "does this kind bleed", so a fracture — the one injury
+  a splint is for — was the one injury `close` refused to look at, and `closeKind: "splint"` had sat
+  in the schema enum with no item declaring it and `CLOSE_KINDS` accepting `suture` alone. The
+  closer is now a property of the wound kind (`WOUND_KINDS[kind].closeKind`: cut, bite and burn
+  `suture`; fracture `splint`; sprain and concussion nothing) and the ladder matches the kit to the
+  wound exactly rather than ranking kits — `_plan` and `_complete` both pick the worst closable
+  wound *whose closer is in the pack*, and `context` opens the rung only for the kinds carried, so
+  a suture-only survivor with a fracture neither channels nor publishes a refusal every tick.
+  `item.splint.kit` (a 1×2, 0.4 kg consumable, stack 2) is on the `medical` table beside the suture
+  kit. The limp is a `lasting` component — an Array of `{kind, bodyPart, sinceTick}` records, one
+  per (kind, part), written by `wounds.recover`'s closing loop when a fracture on a leg or foot
+  leaves the list without ever having been `closed` — and it is felt through `move_speed ×0.90`
+  per limping leg (`LIMP_MOVE_MUL`, the owner's number), recomputed every tick in `wounds.impair`
+  from the component with the strip-then-add discipline of the three wound families, which is why
+  a save, a load and a despawn all get it right without any of them knowing about it. The
+  condition view gained `lasting`, a word from `LASTING_WORDS` (`"none"`, `"limp"`), and the body
+  screen prints it as a tag ("left leg · limp"); the HUD deliberately got no line, because a
+  permanent condition on the HUD is a sentence the player reads forever. Measured, in the gate:
+  CONTENT (declares `splint`, in a loot table, spawns and resolves; a made-up id is neither; the
+  kind table says fracture→splint, cut→suture, sprain→nothing); SPLINT CLOSES (a leg fracture
+  splinted in 450 ticks for one kit; a suture on a fracture and a splint on a deep cut both
+  `no-kit`, a sprain `nothing-to-do` with both kits carried, a bleeding cut `still-bleeding`);
+  TWO KINDS (a leg carrying a stopped deep cut *and* a fracture, both kits in the pack: the first
+  close sews the cut and leaves the fracture open, the second splints it, one kit each); PACE (a
+  splinted fracture ten earned ticks from its 42-day budget closes in five, the unsplinted twin in
+  ten); LIMP (ground covered over 100 ticks — clean **10.5000**, one limp **9.4500**, two limps
+  **8.5050**, the splinted-and-healed leg **10.5000** to four places; an unsplinted *arm* fracture
+  leaves nothing; `wound.closed` now carries `kind` and `closed`; a second break of the same leg
+  adds no second record); PERSISTENCE (the restored body walks 9.4500 as before the save and the
+  component is there; `modifiers.save()` carries `injury.limp` for a limping body and not after
+  that body is despawned); VIEW (leg_left `"limp"` and unwounded, leg_right `"none"`, every value
+  a `LASTING_WORDS` word; the ban gate's fixture now carries a limp on a wound-free leg and a live
+  wound on a limp-free one, and still finds no integrity, no maximum and no fraction); LADDER (the
+  T key with a splint opens `close` on the fracture; a suture-only NPC with only a fracture runs
+  50 ticks with no channel and zero `treatment.refused`; a splint-carrying NPC sets their own leg
+  unprompted); DETERMINISM. **Named rather than faked:** NPC job walking reads `work_mul`, not
+  `move_speed` (`jobs.gd`'s `_walk`), so the limp — like today's per-part leg impairment — slows
+  the controlled body and not an NPC on a job; widening that is the locomotion debt entry. And the
+  impact-fracture roll gives every fracture Laceration severity, so no fracture meets the deep-wound
+  Medicine floor: anyone can set a bone, and whether a bad set should want a medic is a question for
+  the diagnosis-with-skill piece. `SimHealth.CRIPPLED_SOURCE`, declared and read by nothing since
+  the port, was deleted rather than reused — "crippled" means both legs gone, and a one-leg limp
+  under that name would be a lie. Balance: the four FAST lines were run before and after on the
+  same seeds (one loot entry moves rolls) and are byte-identical — the medical table's new row did
+  not change what any of the four colonies found.
 - **Combat** — ~~firing at a remembered position (and what it costs)~~ **landed**
   (`godot:m2:sight`, SIGHT / NO-EYES / RECALL-FIRE), together with the rule it depends on. docs/09
   says aiming "inherits visibility wholesale" and `_fire_shot` inherited none of it — a shot was a

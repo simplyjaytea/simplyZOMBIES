@@ -17,6 +17,7 @@ extends RefCounted
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
 
 # Survivor order, head down, anatomical left before right. docs/05: the view is read as a
 # body, not as a list. Ten parts, not six -- docs/05's permanent consequences describe "a
@@ -43,7 +44,16 @@ const PART_ORDER: Array[String] = SimCombat.SURVIVOR_BODY_PARTS
 # ("none"/"dirty"/"cloth"/"sterile"), which is what a survivor can see by looking, and never
 # how long it has been on or how much good it is doing. It was deliberately held back a
 # slice, because a field with only one possible value is a gate that cannot fail.
-const PART_KEYS: Array[String] = ["part", "state", "prose", "wounded", "infected", "armored", "bleeding", "bandage"]
+#
+# `lasting` joined with the splint slice (2026-09-06): the word for what a healed injury left
+# behind on this part -- "none", or "limp" for a leg whose fracture set without a splint. A word
+# from LASTING_WORDS, never how much slower the leg is; and, like `bandage`, it arrived only once
+# there were two values it could take.
+const PART_KEYS: Array[String] = ["part", "state", "prose", "wounded", "infected", "armored", "bleeding", "bandage", "lasting"]
+
+# Every word `lasting` may carry. The gate asserts membership, so a new lasting condition is an
+# entry here and a reader in SimWounds, never a number.
+const LASTING_WORDS: Array[String] = ["none", "limp"]
 
 # Humanized display for the sided parts. Head and torso need no entry -- the raw key is
 # already the word. Without this, "arm_left" would be the literal text a screen shows,
@@ -70,8 +80,8 @@ static func label_of(part: String) -> String:
 # stopped being true with the recovery slice: `wounds.recover` erases a wound from the array and
 # publishes `wound.closed` the tick it finishes knitting, so a part that has healed reports
 # false again. A survivor who has been patched up and rested reads as unwounded, which is the
-# honest answer -- and it is why this is not a scar record. Permanent consequences (docs/05's
-# limp, blind eye, scar) are a separate open item and will need their own field, not this one.
+# honest answer -- and it is why this is not a scar record. What a healed injury leaves behind
+# is `lasting`, below, its own field over its own component.
 static func _has_wound(world: Variant, actor: int, part: String) -> bool:
 	var inj: Variant = world.components.get_component(actor, "injuries")
 	if not (inj is Dictionary):
@@ -116,7 +126,16 @@ static func _bandage_of(world: Variant, actor: int, part: String) -> String:
 	return "none"
 
 
-# Returns {"parts": [{part, state, prose, wounded, infected, armored, bleeding, bandage}],
+# What a healed injury left on this part, as one of LASTING_WORDS. Read through SimWounds so this
+# file stays a read model: it does not know what a `lasting` record looks like, only the word.
+static func _lasting_of(world: Variant, actor: int, part: String) -> String:
+	var word: String = SimWounds.lasting_of(world, actor, part)
+	if not LASTING_WORDS.has(word):
+		return "none"
+	return word
+
+
+# Returns {"parts": [{part, state, prose, wounded, infected, armored, bleeding, bandage, lasting}],
 # "stance": int, "worst": int}, or {} when the entity has no body -- a zombie has no
 # condition view, same as the oracle's null.
 static func view(world: Variant, actor: int) -> Dictionary:
@@ -151,6 +170,7 @@ static func view(world: Variant, actor: int) -> Dictionary:
 			"armored": SimInfection.armor_coverage_of(world, actor, part) > 0.0,
 			"bleeding": _is_bleeding(world, actor, part),
 			"bandage": _bandage_of(world, actor, part),
+			"lasting": _lasting_of(world, actor, part),
 		})
 
 	var posture: Variant = world.components.get_component(actor, "posture")
