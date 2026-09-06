@@ -361,8 +361,9 @@ func _water_clean_bury() -> bool:
 	w.components.set_component(mara, "job", water)
 	SimJobs._do_water(w, mara, water)
 	var base: Variant = w.components.get_component(bottle, "itemBase")
-	if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != "item.water.bottle":
-		push_error("bottle not filled %s" % str(base))
+	# The well fills untreated water, never clean -- boiling is a separate act (godot:m2:needs, WATER).
+	if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != SimNeeds.UNTREATED_ID:
+		push_error("bottle not filled with untreated water: %s" % str(base))
 		return false
 	# Clean: dirty → wash at source (no bottle consume)
 	SimNeeds.dirt(w, mara, 2)

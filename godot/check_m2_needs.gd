@@ -45,8 +45,9 @@ func _run() -> void:
 	ok = _drink_is_content_and_the_bottle_leaves_an_empty() and ok
 	ok = _a_stimulant_lifts_rest_now_and_crashes_later() and ok
 	ok = _a_careful_pantry_slows_spoilage() and ok
+	ok = _untreated_water_carries_illness_and_a_fire_boils_it() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, drinks are content and leave their empties, a stimulant is a loan, and a careful pantry keeps")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, and the well's water wants a fire")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -2273,4 +2274,230 @@ func _a_careful_pantry_slows_spoilage() -> bool:
 		push_error("PANTRY: not spoiled on its 576th tick after the pantry-keeper died")
 		return false
 	print("PANTRY OK 576 ticks with nobody, %d with Mara's careful pantry (x%.2f), 576 again once she is dead" % [later, mul])
+	return true
+
+
+# Untreated water carries illness (docs/04). The well used to fill a bottle with `item.water.bottle`
+# by rename -- clean water for the price of a walk, and the doc's sentence built by nothing. Now
+# it fills `item.water.bottle.untreated`, which drinks like water and rolls the food-poisoning
+# bout, and a lit campfire boils one clean. Four claims, each with its negative:
+#   CONTENT  the untreated base declares its chance, the bottled one declares none, both leave the
+#            same empty, no loot table rolls the untreated one (the well is its only source), and a
+#            block with a chance outside 0..1 is refused as not drinkable at all
+#   RATE     400 untreated drinks make somebody ill a measured number of times strictly between 0
+#            and 400 and near the authored chance; 400 bottled make exactly 0; iron_stomach makes 0
+#   BOIL     a lit fire boils one bottle and stays lit; an unlit one refuses; an empty pack refuses;
+#            through the E ladder, a lit fire boils rather than douses and an unlit one lights
+#            rather than boils
+#   NPC      thirsty, with an untreated bottle and a fire and nothing clean: boils, then drinks
+#            clean; with a clean bottle beside it: drinks at once and boils nothing; with no fire
+#            and thirst below SOFT: drinks it untreated; with no fire and thirst above SOFT: waits
+func _untreated_water_carries_illness_and_a_fire_boils_it() -> bool:
+	var w: Variant = _world()
+	w.tick = Clock.tick_on_day(1, 0.3)
+	var raw_spec: Variant = SimNeeds.drink_spec(w, SimNeeds.UNTREATED_ID)
+	if not (raw_spec is Dictionary) or float((raw_spec as Dictionary).get("illnessChance", 0.0)) <= 0.0:
+		push_error("WATER: %s declares no illness chance: %s" % [SimNeeds.UNTREATED_ID, str(raw_spec)])
+		return false
+	var chance: float = float((raw_spec as Dictionary).get("illnessChance", 0.0))
+	var clean_spec: Variant = SimNeeds.drink_spec(w, SimNeeds.WATER_ID)
+	if not (clean_spec is Dictionary) or (clean_spec as Dictionary).has("illnessChance"):
+		push_error("WATER: bottled water declares an illness chance: %s" % str(clean_spec))
+		return false
+	var raw_entry: Dictionary = SimItems.content_entry(w, "item", SimNeeds.UNTREATED_ID) as Dictionary
+	var clean_entry: Dictionary = SimItems.content_entry(w, "item", SimNeeds.WATER_ID) as Dictionary
+	if String(raw_entry.get("empties", "")) != String(clean_entry.get("empties", "x")):
+		push_error("WATER: the two bottles leave different empties: %s vs %s" % [raw_entry.get("empties", ""), clean_entry.get("empties", "")])
+		return false
+	for file_v in (w.content as Dictionary).values():
+		if not (file_v is Array):
+			continue
+		for t_v in file_v as Array:
+			if t_v is Dictionary and String((t_v as Dictionary).get("id", "")).begins_with("loot."):
+				for row_v in (t_v as Dictionary).get("entries", []) as Array:
+					if String((row_v as Dictionary).get("item", "")) == SimNeeds.UNTREATED_ID:
+						push_error("WATER: a loot table rolls untreated water, which only the well should make")
+						return false
+	(w.content as Dictionary)["items/_water_gate_fixture.json"] = [
+		{"id": "item.gate.badwater", "name": "Bad Water", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1,
+			"drink": {"thirst": 50, "illnessChance": 1.5}},
+	]
+	if SimNeeds.is_drink(w, "item.gate.badwater"):
+		push_error("WATER: an illness chance of 1.5 was accepted as drinkable")
+		return false
+
+	# RATE. Same shape as the raw-food lane: stow, drink, count the bouts.
+	const MEALS: int = 400
+	var rates: Dictionary = {}
+	for c in [
+		{"key": "raw", "id": SimNeeds.UNTREATED_ID, "iron": false},
+		{"key": "clean", "id": SimNeeds.WATER_ID, "iron": false},
+		{"key": "iron", "id": SimNeeds.UNTREATED_ID, "iron": true},
+	]:
+		var w2: Variant = _world()
+		if bool(c["iron"]):
+			var ident: Variant = w2.components.get_component(w2.player, "identity")
+			var id_d: Dictionary = (ident as Dictionary) if ident is Dictionary else {"id": "survivor.gate", "name": "Gate"}
+			var traits: Array = ((id_d.get("traits", []) as Array).duplicate()) if id_d.get("traits") is Array else []
+			traits.append("iron_stomach")
+			id_d["traits"] = traits
+			w2.components.set_component(w2.player, "identity", id_d)
+			if not SimNeeds.has_trait(w2, w2.player, "iron_stomach"):
+				push_error("WATER: could not give the player an iron stomach")
+				return false
+		var ill: Array = []
+		w2.events.subscribe({"type": "illness.contracted", "id": "gate.water.ill", "handler": func(_e: Dictionary) -> void:
+			ill.append(1)
+		})
+		for _m in MEALS:
+			var bottle: int = SimItems.spawn_item(w2, String(c["id"]), {"tier": "scavenged"})
+			w2.components.set_component(bottle, "stored", {"container": w2.player})
+			SimNeeds.of(w2, w2.player)["thirst"] = 10.0
+			if not SimNeeds.drink_item(w2, w2.player, bottle):
+				push_error("WATER: could not drink %s" % String(c["id"]))
+				return false
+			w2.events.drain()
+		rates[String(c["key"])] = float(ill.size()) / float(MEALS)
+	var raw_rate: float = float(rates["raw"])
+	if float(rates["clean"]) != 0.0:
+		push_error("WATER: bottled water made somebody ill %.3f of the time" % float(rates["clean"]))
+		return false
+	if float(rates["iron"]) != 0.0:
+		push_error("WATER: an iron stomach still fell ill %.3f of the time" % float(rates["iron"]))
+		return false
+	if raw_rate <= 0.0 or raw_rate >= 1.0 or absf(raw_rate - chance) > 0.07:
+		push_error("WATER: untreated water made somebody ill %.3f of the time against an authored %.2f" % [raw_rate, chance])
+		return false
+
+	# BOIL, direct and through the one key.
+	var w3: Variant = _world()
+	w3.tick = Clock.tick_on_day(1, 0.3)
+	var fires: Array[int] = w3.components.query(["campfire"])
+	if fires.is_empty():
+		push_error("WATER: the booted district sited no campfire, so boiling has nothing to judge")
+		return false
+	var fire: int = int(fires[0])
+	if not _give_pack(w3, w3.player):
+		push_error("WATER: could not equip the pack")
+		return false
+	var boiled: Array = []
+	w3.events.subscribe({"type": "need.boiled", "id": "gate.water.boiled", "handler": func(e: Dictionary) -> void:
+		boiled.append(e)
+	})
+	var none: Dictionary = SimNeeds.boil(w3, w3.player, fire)
+	if bool(none.get("ok", false)) or String(none.get("reason", "")) not in ["unlit", "no-bottle"]:
+		push_error("WATER: boiling with nothing to boil returned %s" % str(none))
+		return false
+	var jug: int = SimItems.spawn_item(w3, SimNeeds.UNTREATED_ID, {"tier": "scavenged"})
+	if not SimInventory.stow(w3, w3.player, jug):
+		push_error("WATER: could not stow the untreated bottle")
+		return false
+	SimNeeds.set_lit(w3, fire, false)
+	var cold: Dictionary = SimNeeds.boil(w3, w3.player, fire)
+	if bool(cold.get("ok", false)) or String(cold.get("reason", "")) != "unlit":
+		push_error("WATER: an unlit fire boiled, or refused for the wrong reason: %s" % str(cold))
+		return false
+	SimNeeds.set_lit(w3, fire, true)
+	var hot: Dictionary = SimNeeds.boil(w3, w3.player, fire)
+	w3.events.drain()
+	var jug_base: Dictionary = w3.components.get_component(jug, "itemBase") as Dictionary
+	if not bool(hot.get("ok", false)) or String(jug_base.get("baseId", "")) != SimNeeds.WATER_ID or boiled.size() != 1:
+		push_error("WATER: a lit fire did not boil the bottle clean: %s, base %s, %d events" % [str(hot), jug_base.get("baseId", ""), boiled.size()])
+		return false
+	if not bool((w3.components.get_component(fire, "campfire") as Dictionary).get("lit", false)):
+		push_error("WATER: boiling put the fire out")
+		return false
+	var again: Dictionary = SimNeeds.boil(w3, w3.player, fire)
+	if bool(again.get("ok", false)) or String(again.get("reason", "")) != "no-bottle":
+		push_error("WATER: with the bottle already clean, boil returned %s" % str(again))
+		return false
+	# The E ladder: stand at the lit fire with an untreated bottle -> boil, fire stays lit; at an
+	# unlit fire -> the fire lights and nothing boils.
+	var fp: Dictionary = w3.components.get_component(fire, "position") as Dictionary
+	w3.components.set_component(w3.player, "position", {"x": float(fp["x"]) + 1.0, "y": float(fp["y"])})
+	# The ladder's higher rungs first -- loose loot, then a cupboard -- and the annex has both in
+	# reach of its fire. Clear them so this presses E at the fire and not at the floor; the rung
+	# order itself is `godot:m2:fortify`'s to judge.
+	for loose in SimInventory.ground_items(w3):
+		w3.despawn(int(loose))
+	for box in w3.components.query(["searchable"]):
+		w3.despawn(int(box))
+	var jug2: int = SimItems.spawn_item(w3, SimNeeds.UNTREATED_ID, {"tier": "scavenged"})
+	SimInventory.stow(w3, w3.player, jug2)
+	boiled.clear()
+	w3.commands.push({"type": "use.context"})
+	w3.step()
+	if boiled.size() != 1 or not bool((w3.components.get_component(fire, "campfire") as Dictionary).get("lit", false)):
+		push_error("WATER: E at a lit fire with a bottle of well water boiled %d and left the fire lit=%s" % [boiled.size(), str((w3.components.get_component(fire, "campfire") as Dictionary).get("lit", false))])
+		return false
+	SimNeeds.set_lit(w3, fire, false)
+	var jug3: int = SimItems.spawn_item(w3, SimNeeds.UNTREATED_ID, {"tier": "scavenged"})
+	SimInventory.stow(w3, w3.player, jug3)
+	boiled.clear()
+	w3.commands.push({"type": "use.context"})
+	w3.step()
+	if not boiled.is_empty() or not bool((w3.components.get_component(fire, "campfire") as Dictionary).get("lit", false)):
+		push_error("WATER: E at an unlit fire boiled %d or did not light it" % boiled.size())
+		return false
+
+	# NPC. Four worlds, one rung each.
+	var out: Array[String] = []
+	for c in [
+		{"name": "boils", "fire": true, "clean": false, "thirst": 35.0, "want_boil": 1, "want_drink": SimNeeds.WATER_ID},
+		{"name": "clean-first", "fire": true, "clean": true, "thirst": 35.0, "want_boil": 0, "want_drink": SimNeeds.WATER_ID},
+		{"name": "raw-at-soft", "fire": false, "clean": false, "thirst": 25.0, "want_boil": 0, "want_drink": SimNeeds.UNTREATED_ID},
+		{"name": "waits", "fire": false, "clean": false, "thirst": 35.0, "want_boil": 0, "want_drink": ""},
+	]:
+		var w4: Variant = _world()
+		w4.tick = Clock.tick_on_day(1, 0.3)
+		var mara: int = _mara(w4)
+		if mara < 0:
+			push_error("WATER: no Mara")
+			return false
+		for item in w4.components.query(["itemBase"]):
+			var b: Dictionary = w4.components.get_component(int(item), "itemBase") as Dictionary
+			if String(b.get("baseId", "")) == SimNeeds.WATER_ID:
+				w4.despawn(int(item))
+		if not bool(c["fire"]):
+			for f in w4.components.query(["campfire"]):
+				w4.despawn(int(f))
+		else:
+			for f in w4.components.query(["campfire"]):
+				SimNeeds.set_lit(w4, int(f), true)
+		if not _give_pack(w4, mara):
+			push_error("WATER: could not equip Mara's pack")
+			return false
+		var jug4: int = SimItems.spawn_item(w4, SimNeeds.UNTREATED_ID, {"tier": "scavenged"})
+		if not SimInventory.stow(w4, mara, jug4):
+			push_error("WATER: could not stow Mara's untreated bottle")
+			return false
+		if bool(c["clean"]):
+			var cb: int = SimItems.spawn_item(w4, SimNeeds.WATER_ID, {"tier": "scavenged"})
+			SimInventory.stow(w4, mara, cb)
+		var n: Dictionary = _quiet_pools(w4, mara)
+		n["thirst"] = float(c["thirst"])
+		w4.components.remove(mara, "job")
+		var boils: Array = []
+		var drinks: Array = []
+		w4.events.subscribe({"type": "need.boiled", "id": "gate.npc.boiled", "handler": func(e: Dictionary) -> void:
+			if int(e.get("entity", -1)) == mara:
+				boils.append(e)
+		})
+		w4.events.subscribe({"type": "need.drank", "id": "gate.npc.drank", "handler": func(e: Dictionary) -> void:
+			if int(e.get("entity", -1)) == mara:
+				drinks.append(String(e.get("baseId", "")))
+		})
+		for _i in 3000:
+			w4.step()
+			if not drinks.is_empty():
+				break
+			n = SimNeeds.of(w4, mara)
+			if float(n.get("thirst", 100.0)) > float(c["thirst"]) + 20.0:
+				break
+		var drank: String = drinks[0] if not drinks.is_empty() else ""
+		if boils.size() != int(c["want_boil"]) or drank != String(c["want_drink"]):
+			push_error("WATER: NPC case '%s' boiled %d and drank '%s'; wanted %d and '%s'" % [c["name"], boils.size(), drank, int(c["want_boil"]), c["want_drink"]])
+			return false
+		out.append("%s(boil %d, drank %s)" % [c["name"], boils.size(), drank if drank != "" else "nothing"])
+	print("WATER OK untreated %.3f ill of %d, bottled 0, iron 0; a lit fire boils and an unlit one refuses, E boils before it douses; NPC %s" % [raw_rate, MEALS, ", ".join(out)])
 	return true

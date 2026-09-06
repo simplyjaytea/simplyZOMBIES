@@ -168,6 +168,22 @@
     "empties": "item.water.bottle.empty"
   },
   {
+    "id": "item.water.bottle.untreated",
+    "name": "Bottle of Well Water",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 2
+    },
+    "massKg": 1.0,
+    "cleanTier": "water",
+    "drink": {
+      "thirst": 50,
+      "illnessChance": 0.15
+    },
+    "empties": "item.water.bottle.empty"
+  },
+  {
     "id": "item.antiseptic.bottle",
     "name": "Antiseptic",
     "class": "consumable",

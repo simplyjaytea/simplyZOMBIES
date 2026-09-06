@@ -32,6 +32,14 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-06 — well water is untreated** (`npm run godot:m2:needs` WATER; `godot:m2:jobs` WELL
+amended), the third slice of the survival session and docs/04's oldest unbuilt sentence: the
+well fills `item.water.bottle.untreated`, which drinks like water and rolls the food-poisoning
+bout (0.15 a bottle, a first cut for the owner); a lit campfire boils a bottle clean — E at the
+fire, or an NPC who walks there, lights it and boils before drinking, and drinks it raw only
+below soft thirst with no fire anywhere. docs/30's entry has the four calls; docs/23's record
+has the measured rate and the balance lines.
+
 **2026-09-06 — the pantry and the cook's claim** (`npm run godot:m2:needs` PANTRY, `godot:m2:jobs`
 COOK CLAIM), the second slice of the survival session, two named defects: `spoilage_rate` has a
 reader — every perishable ages at the best living colonist's rate, the owner's call, so the
@@ -173,7 +181,10 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    drink's loan (thirst 15, rest 20 now, 25 back three in-game hours later, chaining
    compounding rather than resetting); a jerry can as ten litres poured whole with the rest
    spilt; and the fuel bottle on a residential shelf until an industrial table exists — docs/30's
-   "The gear catalogue", each a content number.
+   "The gear catalogue", each a content number. **And by the survival session (2026-09-06):**
+   the limp at ten percent a leg (owner-picked from three offers), well water's 0.15 illness
+   chance a bottle and an instant boil at a lit fire, and NPCs drinking it raw only below soft
+   thirst — docs/30's splint and well-water entries.
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement

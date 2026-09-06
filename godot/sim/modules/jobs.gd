@@ -28,7 +28,6 @@ const BURY_TICKS: int = 40
 const REPAIR_TICKS: int = 80
 const REACH: float = 1.5
 const EMPTY_BOTTLE: String = "item.water.bottle.empty"
-const FULL_BOTTLE: String = SimNeeds.WATER_ID
 const SCRAP_ID: String = "item.scrap.metal"
 
 
@@ -803,9 +802,8 @@ static func _do_water(world: Variant, ent: int, job: Dictionary) -> void:
 	var left: int = _progress(world, ent, job)
 	if left > 0:
 		return
-	var base: Variant = world.components.get_component(bottle, "itemBase")
-	if base is Dictionary:
-		(base as Dictionary)["baseId"] = FULL_BOTTLE
+	# The well fills a bottle with untreated water; boiling it is a separate act at a lit fire.
+	SimNeeds.fill_bottle(world, bottle)
 	world.events.publish({"type": "job.water_filled", "entity": ent, "item": bottle})
 	_stop(world, ent, "Water")
 
@@ -1140,6 +1138,10 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 			if bottle < 0:
 				bottle = _stock_base(world, SimNeeds.WATER_ID)
 			if bottle < 0:
+				# Nothing clean anywhere. A wash waits; a drink has two more rungs -- boil what the
+				# well gave, or, thirsty enough, drink it as it comes.
+				if kind == "thirst":
+					_seek_untreated(world, ent, x, y)
 				return
 			if not SimInventory.owns(world, ent, bottle):
 				var bp: Variant = world.components.get_component(bottle, "position")
@@ -1211,6 +1213,54 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 
 
 const CAMPFIRE_STAND: float = 4.0
+
+
+# The back half of the thirst seek, when there is no clean water in the colony. docs/04: "untreated
+# water carries illness" -- so a survivor with an untreated bottle and a campfire walks to the
+# fire, lights it if it is out (the same call the Cook job makes, and the same attention cost),
+# boils the bottle and drinks it clean. With no fire at all, they drink it as it comes -- but only
+# once thirst is below SOFT, because a roll on the illness stream is a price worth paying when the
+# alternative is the dehydration clock, and not before. Between SEEK_START and SOFT with no fire
+# they wait, which is what the pool running down looks like from the outside.
+#
+# The `dehydrating` crisis never reaches here: `_tick_one` stops a survivor in crisis before the
+# seek runs, a pre-existing hole named in docs/23 rather than widened by this rung.
+static func _seek_untreated(world: Variant, ent: int, x: float, y: float) -> void:
+	var raw: int = _carry_base(world, ent, SimNeeds.UNTREATED_ID)
+	if raw < 0:
+		raw = _stock_base(world, SimNeeds.UNTREATED_ID)
+	if raw < 0:
+		return
+	if not SimInventory.owns(world, ent, raw):
+		var rp: Variant = world.components.get_component(raw, "position")
+		if rp is Dictionary:
+			var rt := Vector2i(floori(float((rp as Dictionary)["x"])), floori(float((rp as Dictionary)["y"])))
+			if not _at(world, ent, rt, REACH):
+				var sj: Dictionary = {"kind": "Seek", "target": raw, "path": [], "pathGen": -1}
+				_walk(world, ent, sj, rt)
+				world.components.set_component(ent, "job", sj)
+				return
+			world.components.remove(raw, "position")
+			if not SimInventory.stow(world, ent, raw):
+				return
+	var fire: int = SimNeeds.nearest_campfire(world, x, y, false)
+	if fire >= 0:
+		var fp: Variant = world.components.get_component(fire, "position")
+		if fp is Dictionary:
+			var ft := Vector2i(floori(float((fp as Dictionary)["x"])), floori(float((fp as Dictionary)["y"])))
+			if not _at(world, ent, ft, CAMPFIRE_STAND):
+				var sj2: Dictionary = {"kind": "Seek", "target": fire, "path": [], "pathGen": -1}
+				_walk(world, ent, sj2, ft)
+				world.components.set_component(ent, "job", sj2)
+				return
+		var cf: Variant = world.components.get_component(fire, "campfire")
+		if cf is Dictionary and not bool((cf as Dictionary).get("lit", false)):
+			SimNeeds.set_lit(world, fire, true)
+		if bool(SimNeeds.boil(world, ent, fire).get("ok", false)):
+			SimNeeds.drink(world, ent)
+		return
+	if SimNeeds.pressure(float(SimNeeds.of(world, ent).get("thirst", 100.0))) in ["soft", "hard"]:
+		SimNeeds.drink_untreated(world, ent)
 
 
 static func _food_for(world: Variant, ent: int) -> int:

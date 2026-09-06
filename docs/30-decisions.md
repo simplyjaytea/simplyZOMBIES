@@ -2388,6 +2388,41 @@ Two named defects from the food side of the survival session, one decision each.
   there and still this cook's — which closes both halves of the defect (two meals from one raw,
   one meal from nothing) without a second bookkeeping system.
 
+## Well water is untreated, and a fire makes it clean, 2026-09-06
+
+docs/04 has said "untreated water carries illness" since it was written, and the Water job
+filled a bottle with clean water by rename for the whole milestone. The owner picked this as
+the third survival slice; it was named in what's left and landed in the same commit. Four calls.
+
+- **A second bottle base, not a flag on the first.** `item.water.bottle.untreated` is its own
+  base with its own `drink` block, and the well produces it. A `purity` flag on the instance
+  would have needed every reader of "is this water" — the wash, the wound-cleaning tier, the
+  NPC seek, the HUD word — to learn a second question; a base is content, and every one of
+  those readers already asks the base. The illness is the food-poisoning bout, unchanged: one
+  `illnessChance` key on the `drink` block, the same stream, the same `iron_stomach` immunity,
+  the same non-lethal cost. 0.15 a bottle is a first cut for the owner.
+- **Boiling is instant at a lit fire, and it is a rename.** The well's rename in reverse: the
+  bottle keeps its instance, nothing is spawned, nothing is drawn from a stream. A channel with
+  ticks and interrupts was considered and left for the day a measurement asks for it — the cost
+  a boil is meant to carry is the *fire*, which is a light emitter twenty metres wide and the
+  loudest thing a colony owns at night, and that cost is already real.
+- **NPCs light a fire to boil, and drink it raw only at soft.** The seek walks to the nearest
+  campfire and lights it if it is out — the same call the Cook job makes, and the same attention
+  cost, so a colony with no clean water is a colony whose fire is lit more. With no fire at all,
+  a survivor drinks well water untreated only below `SOFT` (thirst under 30): a roll on the
+  illness stream is worth it against the dehydration clock and not before. Between `SEEK_START`
+  and `SOFT` with no fire they wait. The `dehydrating` crisis never reaches this rung because
+  `_tick_one` stops a survivor in crisis before the seek runs; that is a pre-existing hole in
+  the crisis path, named in docs/23 rather than widened here.
+- **E boils before it touches the fire.** One interact key, decided 2026-09-05: at a lit fire
+  with a bottle of well water, E boils; with nothing to boil, E douses as before; at an unlit
+  fire `boil` refuses and E lights it, so the second E boils. The refusal reasons are the
+  ladder's own words (`no-fire`, `unlit`, `no-bottle`) rather than a new vocabulary.
+
+Bottled water from loot tables stays clean — it is bottled — so a colony that finds enough of
+it never boils, and whether the tables should carry less of it is a balance question for the
+harness, not a number to move here.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

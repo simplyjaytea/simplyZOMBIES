@@ -56,6 +56,9 @@ const RELIEF_PER_DRINK: float = 18.0
 # keyed on this id -- anything with a `drink` block is drinkable (`drink_spec`) -- but the NPC thirst
 # job and the wash verb still reach for water by name, and this is the one copy of the name.
 const WATER_ID: String = "item.water.bottle"
+# What the well fills a bottle with. docs/04: "untreated water carries illness" -- a bottle of it
+# drinks like clean water and rolls the food-poisoning bout; boiling at a lit fire makes it WATER_ID.
+const UNTREATED_ID: String = "item.water.bottle.untreated"
 
 # --- stimulants (docs/04) ----------------------------------------------------------------------
 #
@@ -255,6 +258,12 @@ static func drink_spec(world: Variant, base_id: String) -> Variant:
 		if not (crash is float or crash is int) or float(crash) <= 0.0:
 			return null
 		if not (after is int or after is float) or int(after) <= 0:
+			return null
+	# An illness chance outside the unit interval is a typo the shallow validator cannot see; refuse
+	# the block rather than clamp it, so the wrong number is reported by an undrinkable bottle.
+	if d.has("illnessChance"):
+		var ill: Variant = d.get("illnessChance")
+		if not (ill is float or ill is int) or float(ill) < 0.0 or float(ill) > 1.0:
 			return null
 	return d
 
@@ -1447,6 +1456,10 @@ static func drink_item(world: Variant, entity: int, item: int) -> bool:
 	if spec_v == null:
 		return false
 	var spec: Dictionary = spec_v as Dictionary
+	# docs/04: "untreated water carries illness". Rolled before the bottle is consumed and applied
+	# after, the `eat` rule, so a refused consume cannot leave somebody ill from a drink they did
+	# not have. A clean bottle declares no chance and never rolls.
+	var ill: bool = _rolls_ill(world, entity, spec, false)
 	if not _consume_item(world, entity, item):
 		return false
 	var n: Dictionary = of(world, entity)
@@ -1463,10 +1476,45 @@ static func drink_item(world: Variant, entity: int, item: int) -> bool:
 		n["stimulantUntilTick"] = int(world.tick) + int(spec.get("crashAfterTicks", 0))
 	if spec.has("mood"):
 		_apply_meal_mood(world, entity, float(spec["mood"]))
+	if ill:
+		_fall_ill(world, entity)
 	_apply_muls(world, entity, n)
 	_intake(world, entity, RELIEF_PER_DRINK)
-	world.events.publish({"type": "need.drank", "entity": entity, "item": item, "baseId": bid, "stimulant": lift > 0.0})
+	world.events.publish({"type": "need.drank", "entity": entity, "item": item, "baseId": bid, "stimulant": lift > 0.0, "ill": ill})
 	return true
+
+
+# Untreated water, by name: what a thirsty NPC with no fire and nothing clean drinks, and a verb
+# the player reaches through `item.use` on the bottle itself.
+static func drink_untreated(world: Variant, entity: int) -> bool:
+	var bottle: int = _carried_base(world, entity, UNTREATED_ID)
+	return bottle >= 0 and drink_item(world, entity, bottle)
+
+
+# The well's product. One producer, so `check_m2_gear.gd`'s CATALOGUE lane can read this file for
+# the id: a filled bottle is untreated water, never clean.
+static func fill_bottle(world: Variant, bottle: int) -> void:
+	var base: Variant = world.components.get_component(bottle, "itemBase")
+	if base is Dictionary:
+		(base as Dictionary)["baseId"] = UNTREATED_ID
+
+
+# Boil one carried bottle of untreated water at a lit fire. Instant, and the same rename the well
+# does in reverse -- no despawn, no RNG, the bottle keeps its instance. Refused with a reason the
+# screen can say: no fire in reach, a fire that is not lit, nothing untreated in the pack.
+static func boil(world: Variant, actor: int, fire: int) -> Dictionary:
+	var cf: Variant = world.components.get_component(fire, "campfire")
+	if fire < 0 or not (cf is Dictionary):
+		return {"ok": false, "reason": "no-fire"}
+	if not bool((cf as Dictionary).get("lit", false)):
+		return {"ok": false, "reason": "unlit"}
+	var bottle: int = _carried_base(world, actor, UNTREATED_ID)
+	if bottle < 0:
+		return {"ok": false, "reason": "no-bottle"}
+	var base: Dictionary = world.components.get_component(bottle, "itemBase") as Dictionary
+	base["baseId"] = WATER_ID
+	world.events.publish({"type": "need.boiled", "entity": actor, "item": bottle, "fire": fire})
+	return {"ok": true}
 
 
 static func eat(world: Variant, entity: int, item: int) -> bool:
