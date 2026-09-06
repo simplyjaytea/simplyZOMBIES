@@ -2525,6 +2525,21 @@ snow that lies as well as falls — and the spine took these calls:
   the same line the heat wave's 2.0 does. **No heatstroke injury**: the deep band is a mood, a
   work multiplier, a HUD sentence and a dropped job, and it writes nothing to the body -- an
   injury component would be a health-system decision and it is not this piece's to take.
+- **The storm's noise is a half-life, its lightning is a noise, and Guard works through it.**
+  `noiseHalfLifeMul` 0.4 is handed to `attention.decay()` as a factor on that tick's half-life,
+  the shape `diffuse_scent` already had and for the same reason twice over: this decay runs
+  every tick rather than every fifth, so a per-step multiplier would compound 1200 times a
+  minute and flatten the layer instead of shortening it. The field is told a number and still
+  does not know what weather is. A strike is a plain `noise.emitted` at 240 on a random open
+  outdoor tile plus a `weather.lightning` for the screen, and nothing else — no sim light
+  (the ADR's refusal), no sound, because `sfx.gd` dispatches one-shots by exact magnitude and
+  there is no thunder sample; 240 is deliberately none of 180, 120 or 4, so the dispatcher plays
+  nothing rather than a gunshot. The tile is drawn by rejection, sixteen tries and then silence,
+  rather than by walking the map for a strike that happens once every few minutes. And the work
+  refusal exempts **Guard**: standing the gate is watch, not work, and a storm is exactly the
+  night somebody has to be on it — the same night nobody can hear anything coming. Rest is
+  exempt too, and need-seek returns long before the refusal, so a dehydrating survivor still
+  walks out to the well. `godot:m2:storm` is the gate.
 - **What it did not take.** Fog, a ranged penalty, thirst relief, barricade damage, firewood,
   frostbite, tracks, phase lengths by season, survivor forecasts, a sim light pulse per strike
   (the owner chose noise and a screen flash). Each is named in what's left.

@@ -285,13 +285,21 @@ func diffuse_scent(half_life_mul: float = 1.0) -> void:
 		scent[i] = _scent_next[i]
 
 
-func decay() -> void:
+# `half_life_mul` scales this tick's half-life exactly as `diffuse_scent`'s does: 1.0 is the
+# calibrated tick, and a storm hands in 0.4 (SimBoot._decay), which makes noise fade in
+# four-tenths of the minutes -- docs/16's "extreme noise masking", the good half of a storm.
+# A parameter rather than a field read, so this file stays as ignorant of weather as it is of
+# which way the wind blows; and a half-life factor rather than a per-step one, because this
+# step runs *every* tick and a per-step number compounds 1200 times a minute (the scent's
+# first cut did exactly that and read as a colony wipe in the harness).
+func decay(half_life_mul: float = 1.0) -> void:
 	var floor_v: float = float(calibration["floor"])
+	var d_tick: float = _decay_per_tick if half_life_mul >= 1.0 else pow(_decay_per_tick, 1.0 / maxf(0.01, half_life_mul))
 	for i in noise.size():
 		var v: float = noise[i]
 		if v == 0.0:
 			continue
-		var d: float = v * _decay_per_tick
+		var d: float = v * d_tick
 		noise[i] = 0.0 if d < floor_v else d
 
 
