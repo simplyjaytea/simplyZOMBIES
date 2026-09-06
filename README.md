@@ -184,7 +184,9 @@ status. Milestones close on their exit criterion, never on a feature count.
 **`CLAUDE.md` is the engineer's entry point** — what the project is, the standing bans, how to
 verify a change, and the traps. `HANDOFF.md` is the short version for picking the project up cold:
 where it stands, what landed last, and which open questions are the owner's rather than the code's.
-`AGENTS.md` covers environment setup.
+`AGENTS.md` covers environment setup and carries the
+[routing table](AGENTS.md#routing-table): by kind of work and by system, what to read first, where
+the code lives, and which gate judges it -- checked by `npm run check:routing` so it cannot drift.
 [docs/23-roadmap.md](docs/23-roadmap.md) owns product scope, milestone order, risks, playtest
 questions, and current implementation status; [docs/30-decisions.md](docs/30-decisions.md) records
 what each completed chunk made structural, and [docs/31](docs/31-godot-rebuild-roadmap.md) owns the
