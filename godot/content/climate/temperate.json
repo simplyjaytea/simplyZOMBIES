@@ -1,0 +1,15 @@
+{
+  "id": "climate.temperate",
+  "description": "The one climate, per docs/adr/0016: the calendar the weather kinds are drawn against, the drying timings every wet kind shares, how the wind drifts, and what snow on the ground does. seasonDays 5 means a ten-day run sees two seasons (the owner's call, 2026-09-06). The drying timings moved here from weather.rain: wet after ten seconds in it, dry an hour after it stops, twelve minutes by a lit fire. Wind re-rolls its direction daily at strength 0.6 (the attention field's old fixed lean was 0.6 / -0.2). Read by SimWeather only.",
+  "seasonDays": 5,
+  "seasonOrder": ["spring", "summer", "autumn", "winter"],
+  "startSeason": "spring",
+  "wetAfterTicks": 200,
+  "dryAfterTicks": 12000,
+  "dryByFireTicks": 2400,
+  "windDriftDays": 1,
+  "windStrength": 0.6,
+  "meltPerTick": 0.0000011574,
+  "snowCoverMoveMul": 0.8,
+  "snowCoverThreshold": 0.5
+}

@@ -1233,6 +1233,18 @@ static func _tick_temperature(world: Variant) -> void:
 					band = "extremely_cold"
 			else:
 				band = "a_little_cold"
+		# The sky's own shift (docs/adr/0016), between the base and the wet: a cold snap reads
+		# one band colder day and night, indoors too -- a roof is shelter from the wet, not from
+		# the cold -- and only a lit fire cancels it; a heat wave reads one band hotter by day
+		# outdoors, and nothing cancels it (the night is its own relief). The hot half of the
+		# ladder is reachable through this line and no other.
+		var shift: int = SimWeather.temp_shift(world)
+		if shift < 0 and not fire:
+			for _s in -shift:
+				band = _colder(band)
+		elif shift > 0 and not night and not indoors:
+			for _s in shift:
+				band = _hotter(band)
 		# Wet first, then the wrap: a wet body reads one band colder, and a wrap buys one back,
 		# so a soaked survivor in a wrap on a mild day reads comfortable and a soaked one at
 		# night by no fire is freezing at once.
@@ -1257,6 +1269,15 @@ static func _colder(band: String) -> String:
 		# comfortable, which is the right direction whenever they land.
 		return TEMP_ORDER[i - 1]
 	return TEMP_ORDER[maxi(0, i - 1)]
+
+
+# One band hotter, clamped at the hot end -- `_colder`'s mirror, for the heat wave. A cold body
+# steps toward comfortable, which is the right direction for a cold body in the sun.
+static func _hotter(band: String) -> String:
+	var i: int = TEMP_ORDER.find(band)
+	if i < 0:
+		return "a_little_hot"
+	return TEMP_ORDER[mini(TEMP_ORDER.size() - 1, i + 1)]
 
 
 static func is_wet(world: Variant, entity: int) -> bool:

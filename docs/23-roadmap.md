@@ -407,6 +407,39 @@ landed, and what is below is what the arc named and left.
   thing that ships is the only thing nothing measures — which is how a 12.58 ms per-frame
   serialisation lived in `_update_hud` (see the record's **Kernel & review sweep**).
 
+**Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016; the spine (kinds,
+the calendar, the wind, the shift, the slowed living and dead) landed in the record below under
+**Weather**, and each kind's own effects is a piece here with its own gate. Every number is a
+content first cut for the owner.
+
+- **The storm's noise and lightning.** `noiseHalfLifeMul` read by `attention.decay()` through
+  `SimBoot._decay` the way the scent factor is; lightning every `intervalTicks` on an open
+  outdoor tile as `noise.emitted` (magnitude 240 — never 180, 120 or 4, which `sfx.gd` plays as
+  a gun, a shout and a bow) and a `weather.lightning` event; outdoor work refused at `_pick` and
+  a running outdoor job dropped before `_advance_job` (Guard is watch, not work). Gate
+  `godot:m2:storm`. Barricade damage and a thunder sample are not this piece.
+- **The cold snap's pantry, and the snow's.** `spoilageMul` read by `_tick_spoilage` on the
+  pantry rate; the night-deepening clock measured under a cold snap; the cover that lays and
+  melts drawn on the ground (the look piece). Gate `godot:m2:cold`. Firewood, frostbite, crops
+  and tracks are not this piece.
+- **The heat wave's clock, thirst and rot.** A `hotSinceTick` mirror of the cold clock deepening
+  `a_little_hot` to `very_hot` and, in body armour, `extremely_hot` — heatstroke, docs/16's
+  word, and `jobs.gd`'s hard interrupt beside `extremely_cold`; `thirstMul` on the thirst
+  drain; `spoilageMul` ×2; `corpseScentMul` on the emit loop for bodies with a `corpse`; the
+  three hot HUD sentences, digit-free. Gate `godot:m2:heat`. A heatstroke injury is not this
+  piece.
+- **The weather's look.** `rain_look.gd` parametrised a kind — snow falls slow, short and pale
+  on its own `snow` palette key, a storm at a higher intensity floor; a lightning strike is one
+  full-screen wash frame read off `world.events.drained` (the camera-shake precedent); snow
+  cover lerps every outdoor un-roofed ground fill toward `snow` by `SimWeather.snow_cover`, so
+  cover 0 is byte-identical to today; `check_weather.gd` gains a lane a claim and a screenshot
+  at cover 1.0 for the owner. The owner asked for the ground cover (2026-09-06).
+- **What the weather left behind.** Fog (sight collapse both ways); the ranged accuracy penalty
+  in rain; rain filling water; barricade damage and rot in a storm; firewood consumption and
+  frostbite in a cold snap; tracks in snow; seasons changing the phase lengths (docs/02);
+  survivors reading the sky aloud (docs/16's forecasting); noise carried downwind. Each its own
+  slice; none decided.
+
 **Defects found by the review sweep, still open.** Every one was read in the shipped code and the
 measured ones say what was measured; none is a design question. They are not fixed here because
 each wants its own gate and several want a balance re-measurement, which is a slice apiece rather
@@ -3257,6 +3290,68 @@ not a to-do list:
   fixed: `_water_work` and `_repair_work` hand out an unclaimed target in the same shape, `Bury`'s
   "no position means I am carrying it" stays in the defect list, and `_do_cook` still despawns the
   whole raw *stack* for one meal — pre-existing, balance-relevant, and its own line.
+- **Weather** — ~~the sky has kinds, seasons and a wind~~ **landed** (`npm run godot:m2:weather`
+  rewritten, `M2_WEATHER_OK`, thirteen lanes; `godot:m2:save` and `godot:m2:fortify` at v21),
+  2026-09-06 — the spine of the owner's weather session, opened the same day rain landed
+  (ADR 0016; docs/30 "The sky has kinds" the calls). `world.weather` is `{kind, untilTick,
+  spans, windX, windY, windUntilTick, appliedMoveMul, snowCover, nextLightningTick}`; a kind is
+  one of six content entries under `content/weather/` (`clear`, `rain`, `storm`, `cold_snap`,
+  `snow`, `heat_wave`, each a duration range, four seasonal weights and its modifiers) and the
+  globals are a new `climate` type (`content/climate/temperate.json`: five days a season from
+  spring, the drying timings moved off `rain.json`, the wind's daily drift at strength 0.6, snow
+  cover melting and slowing). The first span is clear, every non-clear span is followed by
+  clear, and a clear span rolls the next kind by the current season's weights on the `weather`
+  stream. Readers wired by the spine, each gated: `needs._tick_temperature` applies the kind's
+  `tempShift` between the night/fire/roof base and the wet (cold indoors too, a lit fire cancels
+  it; hot by day outdoors, nothing cancels it) through a new `_hotter` — the hot half of
+  `TEMP_ORDER` is reachable for the first time; `attention.set_wind` recomputes the field's four
+  diffusion weights from the stored wind × the kind's `windMul`, re-applied by the tick on any
+  mismatch (a restore, an `adopt_map`, a gate's `set_kind`); `shambler._speed_of` multiplies by
+  `zombieMoveMul`; a **global** `move_speed` modifier under source `weather` carries
+  `survivorMoveMul` and the snow cover's slowing to every body that resolves the stat; and
+  `SimJobs._walk` resolves `move_speed` **at all** — it never had, so the limp, encumbrance and
+  blood loss had slowed the player and never Mara or Ellis (a defect closed on the way, not a
+  design; the MOVE lane measures an NPC's velocity). A hot body's temperature seek walks to the
+  nearest reachable roof (`_nearest_roof`, path-checked, because the nearest roofed floor is as
+  often a sealed room's) and never to the fire the cold seek was written for. Measured in the
+  gate: CONTENT (six kinds and the climate loaded, every range ordered, every season drawable,
+  the mirrors equal to content numerically, both schemas registered, a stray key refused in
+  each); SCHEDULE (clear at boot and for a thousand ticks, **78 spans over eighty days on two
+  seeds, 40 spells of all five kinds** across all four seasons, every span inside its range and
+  clear between every two, a bare fixture never leaves clear, every kind forceable); SEASONS
+  (days 1–5 spring, 6 summer, 21 spring again; 60 draws on three seeds none against a zero
+  weight; rain weighted zero never falls where the shipped weights draw it 6 times; a one-day
+  season changes the same seed's sky); ROUND-TRIP (the record survives, the field's wind and
+  the move multiplier are re-applied one tick after a restore, a snapshot without the key
+  restores clear); DETERMINISM (same seed same sky and wind, 404 differs, the wind drifts on
+  schedule); WET and COLD carried over from the rain gate re-keyed on `kind`; SHIFT (clear
+  comfortable; cold snap `a_little_cold` out and in at mood −4 against 0, comfortable by a
+  fire; heat wave `a_little_hot` out at mood −4, comfortable in, a fire no relief); SCENT (rain
+  leaves **336.09** where clear leaves **336.30** after twenty diffusions at a 90-minute
+  half-life — the "13.03" the rain record quotes predates the half-life fix and this is the
+  shipped number; the lane still refuses a wash below half); WIND (an east wind leans scent
+  east by 5.35, west by −5.35, still air is still; the tick applies the stored wind and a storm
+  doubles it; a fresh field holds its calibration's lean); MOVE (an NPC walks **1.974** a tick
+  under clear and **1.579** on settled snow, ×0.80 through the modifier; falling snow on bare
+  ground slows nobody; cover lays 0.00139 in 200 ticks and melts; a shambler seeks ×0.70 in a
+  cold snap, ×0.90 in snow, ×1 clear); SEEK (a hot NPC is under a roof by tick 381 and never
+  nearer a fire than 18 tiles while hot; a cold one walks to the fire's stand distance; a
+  comfortable one stays at work); HUD (one digit-free sentence a kind, nothing under clear).
+  **Balance, the fast tier before and after on the same four seeds, every band holding:**
+  20260805 grabs 66 → **104**, kills 5 → 1, deaths 1 → 2, survivors 2/3 → 1/3; 404 grabs
+  16 → **50**, deaths 0 → 1, survivors 3/3 → 2/3; 31337 grabs 87 → **1**, deaths 2 → 0,
+  survivors 2/3 → 3/3; 90210 grabs 157 → **103**, deaths 2 → 4, survivors 1/3 both times
+  (326 grabs → 258 over the four). A throwaway variant driver on the harness's compressed ten
+  days (spine / every weight zero / wind strength zero / heat weighted zero, deleted after)
+  says two things and refuses a third: **the fast tier cannot see the heat wave** — it samples
+  dusk windows and the hot shift acts by day outdoors, so `hot_ticks` read 0 on every seed
+  under 82–123 samples of heat — which is a limitation of the tier to carry, not a null
+  result; **still air lowers grabs on three seeds of four** against the drifting wind (148 →
+  71, 85 → 75, 0 → 0, 110 → 35), so the wind is the one spine mechanism the field feels; and
+  neither the schedule nor the heat weight moves the seeds one way — clear-only wiped 404 and
+  saved 90210 — which is the same chaotic sensitivity the rain record met and the distribution
+  assertion in what's left is the answer to, not a number to move here. The balance lines were
+  taken before the hot-seek change, which the fast tier cannot reach.
 - **Weather** — ~~a minimal rain state~~ **landed** (`npm run godot:m2:weather`,
   `M2_WEATHER_OK`, eight lanes; `godot:check:weather`'s RAIN WIRED lane now requires the draw to
   ask the sim; `godot:check:hud`'s scanner gained a rain row; `godot:m2:save` and

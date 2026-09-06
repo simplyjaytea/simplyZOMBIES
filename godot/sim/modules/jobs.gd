@@ -1192,6 +1192,18 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 				SimNeeds.start_sleep(world, ent, -1)
 		"temperature":
 			var n: Dictionary = SimNeeds.of(world, ent)
+			# A hot body seeks a roof, never a fire (docs/adr/0016: the heat wave is the first
+			# thing that can set the hot bands, and the fire walk below was written for the
+			# cold). Indoors is the relief needs.gd hands out -- a body under a roof reads
+			# comfortable by day -- so the nearest indoor floor is the target, and a body already
+			# under one stands where it is.
+			if String(n.get("temperature", "")).ends_with("hot"):
+				var roof: Vector2i = _nearest_roof(world, x, y)
+				if roof.x >= 0 and not _at(world, ent, roof, REACH):
+					var sj5: Dictionary = {"kind": "Seek", "target": -1, "path": [], "pathGen": -1}
+					_walk(world, ent, sj5, roof)
+					world.components.set_component(ent, "job", sj5)
+				return
 			var very: bool = String(n.get("temperature", "")) == "very_cold" or String(n.get("temperature", "")) == "extremely_cold"
 			var fire: int = SimNeeds.nearest_campfire(world, x, y, not very)
 			if fire < 0:
@@ -1213,6 +1225,40 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 
 
 const CAMPFIRE_STAND: float = 4.0
+const ROOF_SEARCH: int = 32
+const ROOF_PATH_TRIES: int = 12
+
+
+# The nearest indoor, walkable, *reachable* tile in rings out from (x, y), or (-1, -1) when the
+# map has none within ROOF_SEARCH -- the shape of SimTileMap.find_open_tile with the roof asked
+# of each tile, and a path asked of the first few: the nearest roofed floor is as often as not a
+# sealed room's, and a body that targets it stands outside the wall re-targeting it forever.
+static func _nearest_roof(world: Variant, x: float, y: float) -> Vector2i:
+	var map: Variant = world.tilemap
+	if map == null:
+		return Vector2i(-1, -1)
+	var sx: int = floori(x)
+	var sy: int = floori(y)
+	if SimTileMap.is_indoors(map, sx, sy) and not SimTileMap.is_solid(map, sx, sy):
+		return Vector2i(sx, sy)
+	var tried: int = 0
+	for radius in range(1, ROOF_SEARCH + 1):
+		for dy in range(-radius, radius + 1):
+			for dx in range(-radius, radius + 1):
+				if maxi(absi(dx), absi(dy)) != radius:
+					continue
+				var tx: int = sx + dx
+				var ty: int = sy + dy
+				if tx <= 0 or ty <= 0 or tx >= int(map.w) - 1 or ty >= int(map.h) - 1:
+					continue
+				if not SimTileMap.is_indoors(map, tx, ty) or SimTileMap.is_solid(map, tx, ty):
+					continue
+				if not SimPath.find(world, Vector2i(sx, sy), Vector2i(tx, ty)).is_empty():
+					return Vector2i(tx, ty)
+				tried += 1
+				if tried >= ROOF_PATH_TRIES:
+					return Vector2i(-1, -1)
+	return Vector2i(-1, -1)
 
 
 # The back half of the thirst seek, when there is no clean water in the colony. docs/04: "untreated
@@ -1326,6 +1372,12 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 		return
 	var len: float = sqrt(dx * dx + dy * dy)
 	var speed: float = 2.1 * SimNeeds.work_mul(world, ent)
+	# The modifier store's move_speed, the same read the player's `move` command makes
+	# (world.gd's movement phase). It was never read here: the limp, encumbrance and blood loss
+	# slowed the player and never Mara or Ellis, and a weather that slows the living would have
+	# slowed one body of three (docs/23's defect list, closed by the weather spine).
+	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+		speed *= float(world.modifiers.call("resolve", "move_speed", ent))
 	if speed <= 0.0:
 		speed = 1.0
 	var vel: Variant = world.components.get_component(ent, "velocity")

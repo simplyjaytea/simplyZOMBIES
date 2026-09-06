@@ -1,19 +1,19 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://simplyzombies.dev/schemas/weather.schema.json",
-  "title": "Weather",
-  "description": "The rain state's numbers, per docs/adr/0015-rain-as-sim-state.md and docs/16-weather.md's content shape: a weather state is one JSON entry with its duration ranges and what it moves. One entry ships (weather.rain). NOTE: the content validator is shallow -- it checks these top-level types and rejects unexpected top-level keys, and does not recurse into the two range objects; check_m2_weather.gd's CONTENT lane holds the inner shape (min < max, the three drying timings in order, the scent multiplier inside (0, 1)).",
+  "title": "Weather kind",
+  "description": "One weather kind, per docs/adr/0016-weather-kinds-and-seasons.md and docs/16-weather.md's content shape: a JSON entry declaring its duration range, its seasonal draw weights and what it moves. The kind's name is the file's stem (weather/<kind>.json) and the id is weather.<kind>; SimWeather reads an entry by that path. Every modifier is optional with an identity default, so weather.clear is an entry with a range and weights and nothing else. NOTE: the content validator is shallow -- it checks these top-level types and rejects unexpected top-level keys, and does not recurse into the range, weight and lightning objects; check_m2_weather.gd's CONTENT lane holds the inner shape (min < max, weights non-negative, every season drawable, the multipliers inside their bands).",
   "type": "object",
-  "required": ["id", "dryTicks", "wetTicks", "scentHalfLifeMul", "wetAfterTicks", "dryAfterTicks", "dryByFireTicks"],
+  "required": ["id", "durationTicks", "weights"],
   "additionalProperties": false,
   "properties": {
     "id": {
       "type": "string",
       "pattern": "^weather\\.[a-z0-9_]+$",
-      "description": "Stable namespaced id. Permanent once shipped."
+      "description": "Stable namespaced id, weather.<kind>. Permanent once shipped."
     },
     "description": { "type": "string" },
-    "dryTicks": {
+    "durationTicks": {
       "type": "object",
       "required": ["min", "max"],
       "additionalProperties": false,
@@ -21,38 +21,101 @@
         "min": { "type": "integer", "minimum": 1 },
         "max": { "type": "integer", "minimum": 1 }
       },
-      "description": "Ticks between two spells of rain, drawn uniformly in [min, max] on the `weather` stream. 12000 ticks to the in-game hour."
+      "description": "Ticks one span of this kind lasts, drawn uniformly in [min, max] on the `weather` stream. 12000 ticks to the in-game hour. For weather.clear this is the gap between spells."
     },
-    "wetTicks": {
+    "weights": {
       "type": "object",
-      "required": ["min", "max"],
+      "required": ["spring", "summer", "autumn", "winter"],
       "additionalProperties": false,
       "properties": {
-        "min": { "type": "integer", "minimum": 1 },
-        "max": { "type": "integer", "minimum": 1 }
+        "spring": { "type": "number", "minimum": 0 },
+        "summer": { "type": "number", "minimum": 0 },
+        "autumn": { "type": "number", "minimum": 0 },
+        "winter": { "type": "number", "minimum": 0 }
       },
-      "description": "Ticks one spell of rain lasts, drawn the same way."
+      "description": "Relative draw weight per season (climate.temperate's calendar). Zero means never in that season. Read when a clear span ends: the next kind is rolled among the non-clear kinds by the current season's weights."
+    },
+    "wets": {
+      "type": "boolean",
+      "description": "Whether a body outdoors gets wet under it (docs/adr/0015's wetness, climate.temperate's timings). Rain and storm."
     },
     "scentHalfLifeMul": {
       "type": "number",
       "exclusiveMinimum": 0,
-      "exclusiveMaximum": 1,
-      "description": "What rain multiplies the scent half-life by (calibration.attention's scentHalfLifeMinutes) -- docs/16's 'masks scent heavily', the good half of rain. 0.5 halves it. Expressed as a half-life factor and not a per-step one on purpose: the diffusion step runs every five ticks, so a per-step factor of 0.85 compounded 240 times a minute and flattened the whole field inside a second of rain, which the balance harness read as a colony wipe (docs/23's Weather record). SimAttentionField.diffuse_scent derives the per-step decay from its own constant; SimBoot._diffuse hands this in."
+      "maximum": 1,
+      "description": "What this kind multiplies the scent half-life by (calibration.attention's scentHalfLifeMinutes). Expressed as a half-life factor and not a per-step one on purpose: docs/23's Weather record has the per-step first cut that wiped a colony. 1 (the default) is no change."
     },
-    "wetAfterTicks": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "How long a body stands in the rain before it counts as wet. Ten seconds at 20 Hz for the shipped 200."
+    "noiseHalfLifeMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "What this kind multiplies the noise half-life by (noiseHalfLifeSeconds) -- docs/16's storm masking. Same half-life convention. 1 is no change."
     },
-    "dryAfterTicks": {
+    "tempShift": {
       "type": "integer",
-      "minimum": 1,
-      "description": "How long a wet body stays wet once out of the rain with no fire -- the bad half of rain: a wet survivor reads one temperature band colder for this long. An hour for the shipped 12000."
+      "minimum": -2,
+      "maximum": 2,
+      "description": "Bands the temperature ladder shifts under this sky: negative toward cold (applies day and night, indoors too, cancelled by a lit fire), positive toward hot (applies by day, outdoors, cancelled by nothing). needs._tick_temperature reads it after the night/fire/roof base and before wet and the wrap."
     },
-    "dryByFireTicks": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "How long a wet body takes to dry standing within a lit campfire's heat. Twelve minutes for the shipped 2400; must be below dryAfterTicks or the fire is no help."
+    "survivorMoveMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "A global move_speed multiplier on every living body while this kind runs, applied through the modifier store under source `weather`. Snow does not use it: its slowing comes off the cover (climate.snowCoverMoveMul)."
+    },
+    "zombieMoveMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "What a shambler's speed is multiplied by (SimShambler._speed_of, the one read). docs/16's cold: 'the only state that weakens them directly'."
+    },
+    "spoilageMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "What the pantry's spoilage rate is multiplied by. Above one for heat, below for cold."
+    },
+    "thirstMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "What the thirst drain is multiplied by. Heat."
+    },
+    "corpseScentMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "What a corpse's scent emission is multiplied by. Heat: docs/16's 'corpse rot accelerates'."
+    },
+    "outdoorWork": {
+      "type": "boolean",
+      "description": "Whether a job on an outdoor tile can start or continue. false for storm. Guard is watch, not work, and is exempt."
+    },
+    "windMul": {
+      "type": "number",
+      "minimum": 0,
+      "description": "What the climate's wind strength is multiplied by under this kind before it reaches the attention field. Storm doubles it."
+    },
+    "lightning": {
+      "type": "object",
+      "required": ["intervalTicks", "noise"],
+      "additionalProperties": false,
+      "properties": {
+        "intervalTicks": {
+          "type": "object",
+          "required": ["min", "max"],
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "integer", "minimum": 1 },
+            "max": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "noise": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "description": "Storm only: strikes land on an open outdoor tile every intervalTicks (drawn on the weather stream) as a noise.emitted of `noise` and a weather.lightning event. The magnitude must not equal 180, 120 or 4 -- presentation/sfx.gd dispatches one-shots by exact magnitude."
+    },
+    "coverPerTick": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "Snow only: how much ground cover (0..1) one tick of this kind lays. climate.temperate's meltPerTick takes it away when it is not falling."
     }
   }
 }

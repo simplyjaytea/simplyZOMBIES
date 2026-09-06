@@ -1,0 +1,6 @@
+{
+  "id": "weather.clear",
+  "description": "The baseline sky, per docs/16: nothing masks scent or noise, nothing chills or wets, work goes on. Every world boots under it and every other kind is followed by it, so its duration range is the gap between spells -- twelve to thirty-six in-game hours, the old dryTicks. Its seasonal weights are read only when clear follows clear because nothing else drew (a season where every other weight is zero). Read by SimWeather only.",
+  "durationTicks": { "min": 144000, "max": 432000 },
+  "weights": { "spring": 3, "summer": 6, "autumn": 4, "winter": 2 }
+}

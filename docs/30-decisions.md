@@ -2462,6 +2462,47 @@ The calls:
   seasons, a ranged penalty, thirst relief, rain on the noise channel (`noise_propagation` stays
   unread), a wetness pool with its own HUD row. Each is docs/16's and each is a slice.
 
+## The sky has kinds, 2026-09-06
+
+The weather session, opened by the owner the same day rain landed, against ADR 0015's "each is
+its own slice in Milestone 3" (ADR 0016 records it). Four answers shaped it — storm, cold snap
+with snow, heat wave and a shifting wind, in that order; kinds as content; a simple calendar;
+snow that lies as well as falls — and the spine took these calls:
+
+- **One kind at a time, clear between spells.** `world.weather.kind` is one of six, each a JSON
+  entry declaring its range, its seasonal weights and its modifiers, and `SimWeather` exposes
+  one accessor a modifier, every one an identity under clear. A non-clear span is always
+  followed by clear and the first span is always clear, which keeps every gate world in the
+  chain under the sky it booted under and keeps the schedule readable: a spell, a gap, a spell.
+  Additive flags were considered and refused — three timers that overlap are a state nobody
+  designed.
+- **The calendar is five days a season and the weights are the season's.** A ten-day run sees
+  spring's rain and summer's heat; winter's cold snap and snow are in the tree and drawable on a
+  longer run or a different `startSeason`. `seasonDays` is the one number, content, the owner's.
+- **Wind is state and the field is told.** Direction re-rolled daily at strength 0.6 (the field's
+  old fixed lean), a storm doubling it, handed to `set_wind` and re-applied by the tick on any
+  mismatch rather than on a restore hook — the field's `restore` copies only its two layers,
+  `adopt_map` builds a fresh field, and world.gd must not learn a module's name. Noise stays
+  undirected: docs/16's "strong wind carries noise further in one direction" is a propagation
+  the field does not have, and the ADR says so instead of pretending.
+- **The living slow through the modifier store, globally; the dead through their one accessor.**
+  A global-scope `move_speed` under source `weather` reaches every body that resolves the stat —
+  the player, raiders, the noise-per-metre scaler, and a recruit who arrives mid-snow — and is
+  re-applied idempotently by the tick against `appliedMoveMul`. Snow's slowing keys off the
+  **cover** (half laid) and not the fall, so the snow underfoot outlives the snowfall. And
+  `SimJobs._walk` now resolves `move_speed` at all: it never had, so every movement penalty in
+  the game had reached the player alone. A defect closed on the way and measured, not a design.
+- **The shift sits between the base and the wet.** A cold snap reads one band colder day and
+  night, indoors too — a roof is shelter from the wet, not from the cold — and only a lit fire
+  cancels it; a heat wave reads one band hotter by day outdoors and nothing cancels it, the
+  night being its own relief. `_hotter` is `_colder`'s mirror, and it is the one line through
+  which the hot half of `TEMP_ORDER` — in the enum since ADR 0002, set by nothing — is reached.
+- **The numbers are first cuts, recorded for the owner.** Every range, every weight, every
+  multiplier in the six entries and the climate: docs/23's record and `HANDOFF.md` item 0.
+- **What it did not take.** Fog, a ranged penalty, thirst relief, barricade damage, firewood,
+  frostbite, tracks, phase lengths by season, survivor forecasts, a sim light pulse per strike
+  (the owner chose noise and a screen flash). Each is named in what's left.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
