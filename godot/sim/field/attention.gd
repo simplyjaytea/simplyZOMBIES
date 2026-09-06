@@ -235,7 +235,13 @@ func add_scent(x: float, y: float, magnitude: float) -> void:
 	scent[cell] = ceiling if total > ceiling else total
 
 
-func diffuse_scent() -> void:
+# `half_life_mul` scales this step's half-life: 1.0 is the calibrated step, and rain hands in the
+# weather's factor below one (SimBoot._diffuse), so 0.5 makes scent fade in half the minutes. A
+# parameter rather than a field read, so this file stays ignorant of weather the way it is
+# ignorant of which way the wind blows; a half-life factor rather than a per-step one because the
+# step runs every five ticks and a per-step number compounds 240 times a minute.
+func diffuse_scent(half_life_mul: float = 1.0) -> void:
+	var step_decay: float = _scent_decay_per_step if half_life_mul >= 1.0 else pow(_scent_decay_per_step, 1.0 / maxf(0.01, half_life_mul))
 	var keep: float = 1.0 - float(calibration["scentDiffusionRate"])
 	var rate: float = float(calibration["scentDiffusionRate"])
 	var floor_v: float = float(calibration["scentFloor"])
@@ -255,7 +261,7 @@ func diffuse_scent() -> void:
 				value += scent[here + cols] * rate * w_my
 			if cy - 1 >= 0:
 				value += scent[here - cols] * rate * w_py
-			var decayed: float = value * _scent_decay_per_step
+			var decayed: float = value * step_decay
 			_scent_next[here] = 0.0 if decayed < floor_v else decayed
 	for i in scent.size():
 		scent[i] = _scent_next[i]

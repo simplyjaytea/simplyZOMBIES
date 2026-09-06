@@ -1680,7 +1680,9 @@ pick does **not** adopt:
 reference's rain is adopted as a presentation layer keyed off the tick, not as a simulation: it
 never starts and never stops, nothing in the sim reads it, and no mechanism depends on it.
 docs/16's weather is Milestone 3, and when it lands the layer is re-keyed to it rather than
-competing with it.
+competing with it. **Reversed in part 2026-09-06** — the owner opened a minimal rain state
+(docs/adr/0015, "Rain as sim state" below): the sim now decides *whether* it rains and the layer
+is re-keyed to it exactly as this clause promised; what the rain *looks* like stays this layer's.
 
 **Every body is an overhead rig** (added by the characters slice, under four further owner
 directives of 2026-09-01). All character sprites are authored true-overhead like the player's,
@@ -1905,7 +1907,7 @@ this stands on. Twelve decisions, recorded once here, each paid for in the slice
 7. Two-wide vehicles — stand; the art convention is amended to one picture per axis.
 8. "Not adopted" — re-affirmed and extended with the name plates.
 9. The overcast mood — superseded by warm dark fantasy, held by per-family properties.
-10. "Rain is ambience" — unchanged.
+10. "Rain is ambience" — unchanged at the time; reversed in part 2026-09-06 (below).
 11. "The ground is a texture whose mean is the palette" — stands, extends to the edge sheet.
 12. docs/00's depth-sort reversal — not reopened; the entity sort was always there.
 
@@ -2422,6 +2424,43 @@ the third survival slice; it was named in what's left and landed in the same com
 Bottled water from loot tables stays clean — it is bottled — so a colony that finds enough of
 it never boils, and whether the tables should carry less of it is a balance question for the
 harness, not a number to move here.
+
+## Rain as sim state, 2026-09-06
+
+The fourth slice of the survival session, and the one that overrides a written decision: ADR
+0002's "weather-lite rain flag — rejected; weather is a second game". The owner was asked and
+chose to open it, minimally — scent washed and bodies wet, nothing else — with a random schedule.
+The calls:
+
+- **One state, on the world, on its own stream.** `world.weather` is three scalars saved like the
+  director's, and spans are drawn on a `weather` stream from content ranges. Not an entity, not
+  a component: weather is a singleton the oracle already named as one (`src/sim/kernel/world.ts`).
+  The first span is always dry so that no gate world ever meets rain by accident; a save without
+  the key restores dry; `SAVE_VERSION` went to 20 because a v19 save restored into this world would
+  load dry and reseed its schedule — a world that loads and is quietly not the one saved.
+- **Two readers in opposing directions, and a third for the eye.** docs/16's rule. Wetness is one
+  integer on the needs component (`wetUntilTick`): outdoors in the rain for 200 ticks makes you
+  wet, a roof or a clear sky dries you in an hour, a lit fire in twelve minutes, and a wet body
+  reads one temperature band colder *before* the wrap buys one back — so a soaked survivor in a
+  wrap on a mild day is comfortable and a soaked one at night by no fire is freezing at once.
+  The scent half-life is halved while it rains, handed to `diffuse_scent` as a parameter so the
+  field never learns what weather is (it does not know which way the wind blows either). **This
+  was the slice's measured correction:** the first cut was ×0.85 *a step*, and the step runs
+  every five ticks, so it compounded 240 times a minute and flattened the whole field inside a
+  second of rain; the balance harness read that as a colony wipe on seed 90210 and tripled grabs
+  on 20260805, and a variant driver (rain / rain-without-wetness / rain-without-scent) pinned it
+  on the scent, not the wet — the guess had been the other way round. A half-life factor is the
+  shape docs/16 meant by "masks scent heavily", and the gate now refuses a rain that leaves under
+  half the dry scent after a hundred ticks. The
+  streak layer is drawn only while it rains; `rain_look.gd` stays a pure function of the tick and
+  `INTENSITY_MIN` now means "within a span the sky is never empty".
+- **The numbers are first cuts, recorded for the owner.** Dry 12–36 h, wet 2–6 h (a spell every
+  day or two — the owner asked for "random weather" and these are the ranges the draw uses),
+  the scent half-life halved, 200 / 12000 / 2400 ticks to wet, to dry, to dry by a fire. All
+  content, one file.
+- **What it did not take.** Wind (the four calibration weights, still not save state), fog,
+  seasons, a ranged penalty, thirst relief, rain on the noise channel (`noise_propagation` stays
+  unread), a wetness pool with its own HUD row. Each is docs/16's and each is a slice.
 
 ---
 
