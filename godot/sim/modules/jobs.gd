@@ -14,6 +14,7 @@ const SimInfection = preload("res://sim/modules/infection.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
 
 const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
@@ -214,9 +215,45 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	if _sulking(world, ent):
 		return
 	if job is Dictionary:
+		# A storm sends everybody in: a job already under way outdoors is dropped here rather
+		# than inside _advance_job, so the walk-to-it path and the work at it both stop on the
+		# same tick and the claim is released the way any abandoned job's is.
+		if _refused_outdoors(world, ent, job as Dictionary):
+			_stop(world, ent)
+			return
 		_advance_job(world, ent, job as Dictionary)
 		return
 	_pick(world, ent)
+
+
+# Is this job outdoors under a sky that refuses outdoor work? Storm is the only kind that says
+# `outdoorWork: false` today (docs/adr/0016), and this is the whole of what that means.
+#
+# Guard is exempt on purpose: standing the gate through a storm is watch, not work, and the one
+# thing a colony most needs done on the night it cannot hear anything coming. Rest is exempt for
+# the same reason it is not in the ranked list of things weather can veto -- a bed is indoors and
+# sleeping is not labour. Need-seek never reaches here at all: it returns above, so a survivor
+# still walks out to the well when they are dehydrating. This is a refusal to *work* in the rain,
+# not a refusal to live in it -- the same distinction `_sulking` draws directly above.
+#
+# The tile is `_job_tile`'s, and where that answers (-1, -1) -- Haul, Cook, Doctor and Rest name
+# an entity, not a tile, and the entity may be stowed in somebody's pack -- the target's own
+# position stands in. No tile at all means nothing to judge, so the job is allowed: refusing on a
+# tile we could not resolve would idle a colony for a reason nothing reports.
+static func _refused_outdoors(world: Variant, ent: int, job: Dictionary) -> bool:
+	if SimWeather.outdoor_work_allowed(world):
+		return false
+	if world.tilemap == null:
+		return false
+	var kind: String = String(job.get("kind", ""))
+	if kind == "Guard" or kind == "Rest":
+		return false
+	var tile: Vector2i = _job_tile(world, job)
+	if tile.x < 0 or tile.y < 0:
+		tile = _entity_tile(world, int(job.get("target", -1)))
+	if tile.x < 0 or tile.y < 0:
+		return false
+	return not SimTileMap.is_indoors(world.tilemap, tile.x, tile.y)
 
 
 static func _pick(world: Variant, ent: int) -> void:
@@ -244,6 +281,8 @@ static func _pick(world: Variant, ent: int) -> void:
 			continue
 		var target: Dictionary = _work_for(world, ent, kind)
 		if target.is_empty():
+			continue
+		if _refused_outdoors(world, ent, target):
 			continue
 		world.components.set_component(ent, "job", target)
 		if kind == "Haul" or kind == "Construct":
