@@ -54,6 +54,10 @@ var modifiers: Variant = null
 var field: Variant = null
 var events: Variant = null
 var director: Dictionary = {"lullUntilTick": 0, "lastMigrationTick": 0, "nightsSinceQuiet": 0}
+# The weather singleton (docs/adr/0015): scalars SimWeather owns, saved and restored exactly as the
+# director's are. Empty until SimWeather.register_module fills it, so a fixture that never
+# registers the module reads as dry.
+var weather: Dictionary = {}
 var needsHoldMax: bool = false
 var runOver: bool = false
 var recruits: Dictionary = {"accepted": 0, "spawned": []}
@@ -192,6 +196,7 @@ func snapshot() -> Dictionary:
 		# on a module -- and copies scalars only, so a future key is saved without world.gd
 		# learning what it means.
 		"director": _scalars(director),
+		"weather": _scalars(weather),
 		"recruits": {
 			"accepted": int(recruits.get("accepted", 0)),
 			"spawned": (recruits.get("spawned", []) as Array).duplicate(),
@@ -215,6 +220,9 @@ func restore(snap: Dictionary) -> void:
 		# registration and an older save never heard of keeps its default instead of vanishing.
 		for k in (snap["director"] as Dictionary).keys():
 			director[String(k)] = (snap["director"] as Dictionary)[k]
+	if snap.has("weather") and snap["weather"] is Dictionary:
+		for wk in (snap["weather"] as Dictionary).keys():
+			weather[String(wk)] = (snap["weather"] as Dictionary)[wk]
 	if snap.has("recruits") and snap["recruits"] is Dictionary:
 		var r: Dictionary = snap["recruits"] as Dictionary
 		recruits = {

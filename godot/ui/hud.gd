@@ -26,6 +26,7 @@ extends Control
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimAttentionRead = preload("res://sim/attention_read.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
@@ -133,6 +134,10 @@ func _world_lines(world: Variant, actor: int) -> Array[String]:
 	var lines: Array[String] = []
 	var tod: float = Clock.time_of_day(int(world.tick))
 	lines.append("day %d, %s" % [Clock.day_number(int(world.tick)), Clock.PHASE_NAMES[Clock.phase_at(tod)]])
+	# The sky, in one sentence while it rains and nothing when it does not (docs/adr/0015).
+	var sky: String = SimWeather.hud_clause(world)
+	if not sky.is_empty():
+		lines.append(sky)
 
 	# The spine, in words. docs/03 -- this is the trade the whole game is about, and it was
 	# previously only visible through the developer overlay on O.

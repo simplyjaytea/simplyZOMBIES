@@ -40,7 +40,11 @@ extends RefCounted
 # 19: the light vehicles. The suburb's parking pass weights five more classes, so the manifest a
 # v18 seed regenerates no longer matches the entities a v18 save carries -- a saved sedan would
 # restore over a freshly parked bicycle's picture. Refused, same rule.
-const SAVE_VERSION: int = 19
+# 20: rain became sim state (docs/adr/0015). `world.weather` joined the snapshot and the `weather`
+# RNG stream joined the registry. A v19 save has neither: restored into a v20 world it would load
+# dry and draw a fresh schedule off a reseeded stream -- a world that loads and is quietly not the
+# one that was saved. Refused, same rule.
+const SAVE_VERSION: int = 20
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

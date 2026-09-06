@@ -106,9 +106,10 @@ population.
 The director is intentionally not the full storyteller system. “Nothing Personal” is an internal
 balance baseline, not a player-facing preset. Full storyteller presets remain Milestone 4.
 
-**Explicitly not in the slice:** survivor attributes, relationships, weather, factions, full world
-decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web, most zombie
-types, vehicles, multiplayer, and the escape endgame. (Vehicles came in anyway, twice, by the
+**Explicitly not in the slice:** survivor attributes, relationships, weather (a minimal rain
+state came in anyway on 2026-09-06 by the owner's decision, ADR 0015 — the record below), factions,
+full world decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web,
+most zombie types, vehicles, multiplayer, and the escape endgame. (Vehicles came in anyway, twice, by the
 owner's direction: parked as layout in the Dungeon Settlers arc, and driven by the player on
 2026-09-05 — the record has both; what driving deliberately left out is in what's left.)
 
@@ -1654,7 +1655,9 @@ not a to-do list:
   **not** an RNG stream, so the sky is identical on every boot of every seed by construction. It
   **never stops raining** (`INTENSITY_MIN` 0.4): an onset and an end would read as a weather
   *event* and imply a system that does not exist — docs/16's weather sim stays Milestone 3, and
-  re-keying this layer to it then is the named forward edge. What varies is intensity, a slow
+  re-keying this layer to it then is the named forward edge. *(Re-keyed 2026-09-06: the sim
+  now decides whether it rains — the Weather record below, `godot:m2:weather` — and this layer
+  draws only while it does; within a span it still never stops.)* What varies is intensity, a slow
   ~90 s swell with a faster flutter inside it, measured spread [0.40, 0.99] over a day. Drawn
   over the bodies and under the night wash in one `draw_multiline` for the whole sky; frozen
   while paused because `_process` returns before the accumulator moves; 10× under fast-forward,
@@ -3254,6 +3257,34 @@ not a to-do list:
   fixed: `_water_work` and `_repair_work` hand out an unclaimed target in the same shape, `Bury`'s
   "no position means I am carrying it" stays in the defect list, and `_do_cook` still despawns the
   whole raw *stack* for one meal — pre-existing, balance-relevant, and its own line.
+- **Weather** — ~~a minimal rain state~~ **landed** (`npm run godot:m2:weather`,
+  `M2_WEATHER_OK`, eight lanes; `godot:check:weather`'s RAIN WIRED lane now requires the draw to
+  ask the sim; `godot:check:hud`'s scanner gained a rain row; `godot:m2:save` and
+  `godot:m2:fortify` at v20), 2026-09-06 — the fourth slice of the owner's survival session, by
+  the owner's decision against ADR 0002 (ADR 0015 records it; docs/30 "Rain as sim state" the
+  calls), named in what's left and landed in the same commit. `SimWeather` keeps
+  `world.weather = {raining, untilTick, spans}` — saved like the director's scalars,
+  `SAVE_VERSION` 20 — and draws spans on the sim's own `weather` stream from
+  `content/weather/rain.json` (a registered content type with its schema): dry 144000..432000,
+  wet 24000..72000, the first span always dry. Three readers, each gated: a body outdoors in the
+  rain is wet after `wetAfterTicks` (200), stays wet `dryAfterTicks` (12000) once roofed or
+  dry-skied and `dryByFireTicks` (2400) by a lit fire, and a wet body reads **one temperature
+  band colder** before the wrap shift (`needs.gd`, `_colder`); the scent half-life is multiplied
+  by `scentHalfLifeMul` (0.5) while it rains, handed to `diffuse_scent` by `SimBoot._diffuse` as
+  a parameter so the field never learns what weather is; and `main._draw_rain` draws the
+  streak layer only while it rains, `rain_look.gd` staying pure. The HUD's world column says
+  "It's raining." and the self column "You're soaked.", both digit-free. Measured in the gate:
+  CONTENT (loaded, ranges ordered, drying timings 200 < 2400 < 12000, schema registered, a stray
+  key refused, the mirrored defaults equal to content); SCHEDULE (dry at boot and for a thousand
+  ticks, **15 flips over ten days, 8 spells**, every span inside its range on the canonical seed,
+  a kernel-less fixture never rains and grows no state, a forced flag reads true); ROUND-TRIP (the
+  state and the stream survive a save, a snapshot without the key restores dry); DETERMINISM (same
+  seed same schedule, seed 404 differs); WET (wet after 200 ticks in the rain, never under a roof
+  or a clear sky, dries at +12000 in the air and +2400 by a fire); COLD (day wet `a_little_cold`
+  at mood −4 against dry `comfortable` at 0, night wet `extremely_cold` against dry `very_cold`,
+  wet in a wrap `comfortable`, and the word is "soaked"); SCENT (twenty diffusions of rain leave
+  **13.03** where a dry sky leaves **336.24**, and a dry sky equals no weather at all); HUD.
+  Balance, measured before and after on the same four seeds, and **corrected once**: the first cut washed scent at ×0.85 *a step*, and the harness went red — seed 90210 lost its whole colony (survivors 0/3, grabs 127 → 234) and 20260805 tripled its grabs (85 → 226). A throwaway variant driver (rain / rain without wetness / rain without the wash, on the harness's own compressed ten days, deleted after) pinned it: without wetness the grabs stayed at 234 and 231, without the wash they fell back to 157 and 85 — the scent, not the wet, and the opposite of the guess. The step runs every five ticks, so a per-step factor compounded 240 times a minute and flattened the field inside a second of rain; the effect is now a **half-life** factor (`scentHalfLifeMul` 0.5), and the SCENT lane refuses a rain that leaves under half the dry scent after a hundred ticks. With that, every band holds: 20260805 grabs 85 → **66**, kills 4 → 5, survivors 2/3 both times; 404 byte-identical; 31337 grabs 95 → **87**, survivors 2/3; 90210 grabs 127 → **157**, survivors 1/3 both times, deaths unchanged everywhere. The driver's own numbers on the shipped cut: rain fell on 6000 to 8000 of the 20000 dusk-window ticks a seed runs, bodies were wet for 0 to 3602 colonist-ticks of it (31337's colonists never stood in it), and the dusk peak scent under rain sits inside the dry seeds' range. Why fewer grabs on two seeds and more on one is not theorised here; the wash is the only thing the field feels and the fast tier is four seeds, which is the distribution assertion in what's left, not a number to move.
 - **Needs** — ~~untreated water carries illness~~ **landed** (`godot:m2:needs`, WATER;
   `godot:m2:jobs`' WELL lane amended; `godot:m2:gear`'s CATALOGUE lane now reads a producer file
   per produced base), 2026-09-06 — a piece docs/04 specified ("untreated water carries illness")

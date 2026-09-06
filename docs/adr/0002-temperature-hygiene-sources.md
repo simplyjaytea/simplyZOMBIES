@@ -4,7 +4,8 @@ Milestone 2 pulled temperature and hygiene in without weather. Indoor uses the d
 
 Lock for [What are temperature and hygiene sources and sinks in the slice?](https://github.com/simplyjaytea/simplyZOMBIES/issues/34).
 
-**Status:** accepted
+**Status:** accepted — superseded in part by [0015](0015-rain-as-sim-state.md) (2026-09-06): rain
+is sim state and a wet body reads one band colder. The heat side and hygiene are unchanged.
 
 ## Temperature
 

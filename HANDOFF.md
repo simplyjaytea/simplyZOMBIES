@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-05 (the driving slices)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **47 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **48 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,15 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-06 — rain is sim state** (`npm run godot:m2:weather`, `M2_WEATHER_OK`, eight lanes;
+`SAVE_VERSION` 20), the fourth slice of the survival session and the one the owner opened
+against ADR 0002 (ADR 0015 records the reversal): it rains in spans drawn on the sim's own
+stream — dry twelve to thirty-six hours, wet two to six, first cuts — a body outdoors in it is
+wet and reads one band colder until a roof, an hour, or a fire dries it, scent washes off the
+field while it falls, the streak layer draws only while it rains, and the HUD says so in a
+sentence. Nothing else from docs/16 came with it. docs/30's "Rain as sim state" has the calls;
+docs/23's record the measurements and the balance lines.
 
 **2026-09-06 — well water is untreated** (`npm run godot:m2:needs` WATER; `godot:m2:jobs` WELL
 amended), the third slice of the survival session and docs/04's oldest unbuilt sentence: the
@@ -184,7 +193,9 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    "The gear catalogue", each a content number. **And by the survival session (2026-09-06):**
    the limp at ten percent a leg (owner-picked from three offers), well water's 0.15 illness
    chance a bottle and an instant boil at a lit fire, and NPCs drinking it raw only below soft
-   thirst — docs/30's splint and well-water entries.
+   thirst — docs/30's splint and well-water entries; and the rain's numbers (dry 12–36 h, wet
+   2–6 h, the scent half-life halved, 200 / 12000 / 2400 ticks to wet, to dry, to dry by a fire) —
+   docs/30's "Rain as sim state" and `content/weather/rain.json`, every one a content number.
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement
