@@ -236,8 +236,9 @@ drifted. Three things about the current state matter enough to repeat anyway:
   `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example, and
   `npm run check:routing` applies the same rule to the gates themselves (a check script no npm
   script reaches is red, which retired `check_r6_bench.gd`). The sweep
-  left three more sockets named but unfixed (`sim/spatial/hash.gd` entire, `SimThreat.threat_within`,
-  `SimStances.eye_of`); they are in
+  left four sockets named but unfixed (`sim/spatial/hash.gd` entire, `SimThreat.threat_within`,
+  `SimStances.eye_of`, and `SimDirector.snapshot_of` — found, replaced by `world.gd`, and still
+  defined); they are in
   [docs/23's defect list](docs/23-roadmap.md#whats-left-in-milestone-2).
 
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must

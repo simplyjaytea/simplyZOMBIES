@@ -82,16 +82,16 @@ work to rebuild.
 | **Map** | One hand-authored small district with a defensible building |
 | **Survivors** | Generator with a small name, trait, and backstory pool; about three naturally recruitable survivors |
 | **Work** | Haul, Construct, Cook, and Doctor, with NPC priority selection |
-| **Needs** | Hunger, thirst, rest, and mood. Temperature and hygiene deferred |
+| **Needs** | Hunger, thirst, rest, and mood. Temperature and hygiene were deferred here and came in anyway as bands read off the world (ADR 0002, `godot:m2:needs`; the record's Needs bullets) |
 | **Health** | Complete slice injury loop: located injuries, continuous conditions, treatment, diagnosis, and permanent consequences |
 | **Infection** | Transmission, uncertainty, symptoms, responses, and turning. The Constitution hook uses a neutral baseline until attributes ship |
-| **Zombies** | Shamblers only |
+| **Zombies** | Shamblers only (the screamer and the bloater came in with the roster, `godot:m2:roster`) |
 | **Combat** | Shipped melee plus complete ranged combat, with the [parity contract](09-combat.md) live |
 | **Items** | Keep the shipped item/grid foundation; add ranged bases, armor, attachment behavior, active wear, and repair |
 | **Inventory** | World-container search, colony storage, and loadout automation on the shipped grid |
 | **Crafting** | Duct Tape and Scrap Kit modification consumables |
 | **Web** | A shallow six-region web, about 12–18 nodes, so Fighter, Worker, Medic, and Scout all have valid auto-allocation paths |
-| **Building** | Walls, gate, barricades, one trap, and one bait emitter |
+| **Building** | Walls, gate, barricades, one trap, and one bait emitter (the trap and the bait have no content, no gate and no entry in what's left, and the Milestone 3A list names traps and bait as its own — whether they are still in the slice is an owner call, listed in `HANDOFF.md`) |
 | **Decay** | Food spoilage only |
 | **Director** | Slice director: pressure/strain, grace period, lulls, recruitment and night events, and minimum siege cadence |
 | **Death** | Permadeath, corpses, and [succession](01-hardcore-contract.md#succession-what-happens-when-you-die) |
@@ -109,9 +109,13 @@ balance baseline, not a player-facing preset. Full storyteller presets remain Mi
 **Explicitly not in the slice:** survivor attributes, relationships, weather (a minimal rain
 state came in anyway on 2026-09-06 by the owner's decision, ADR 0015 — the record below), factions,
 full world decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web,
-most zombie types, vehicles, multiplayer, and the escape endgame. (Vehicles came in anyway, twice, by the
-owner's direction: parked as layout in the Dungeon Settlers arc, and driven by the player on
-2026-09-05 — the record has both; what driving deliberately left out is in what's left.)
+most zombie types, vehicles, multiplayer, and the escape endgame. Four more of those came in anyway,
+each by the owner's direction and each with its record below: **temperature and hygiene** as need
+bands (ADR 0002), **unique survivors** as the hand-authored boot colony (Mara, then Ellis by the
+2026-09-01 decision), the **rest of the weather** on 2026-09-06 (ADR 0016 — kinds, seasons, a
+wind, the storm, the cold snap, the heat wave), and **vehicles**, twice: parked as layout in the Dungeon
+Settlers arc, and driven by the player on 2026-09-05; what driving deliberately left out is in
+what's left.
 
 ### Build order
 
@@ -154,7 +158,10 @@ the same commit. That is the whole discipline: one list of what remains, one rec
 and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks the project up.
+decided unilaterally. **The full list lives in `HANDOFF.md`** (seven items as of 2026-09-06: the
+driving and weather first cuts, the free wind, sepsis, the unseen-wall roof, the one-handed
+silhouettes, the forest density, and the trap and bait scope); the one repeated here is the one
+that blocks a Milestone 2 balance measurement.
 (The art-style pick came off this list on 2026-09-01 — **style B, the rotating player**, under
 an overcast mood — and was **re-decided by the owner on 2026-09-03 as the Dungeon Settlers
 look**: upright face-on pawns that flip, nobody rotates, a warm dark-fantasy palette, walls
@@ -185,7 +192,10 @@ than here.
 - **The six-survivor automation checkpoint.** Risk 1's seeded colony, every NPC on Focus
   automation — the micromanagement-cliff measurement. The colony-shape question it was once
   queued behind is decided (the flag record: a bigger colony, three at boot), so what it measures
-  now is the cliff itself.
+  now is the cliff itself. What already exists is a floor, not the measurement:
+  `check_m2_balance.gd`'s `_six_survivors_on_auto` (FULL tier only, so never inside `godot:m2`)
+  generates a colony up to six, sets every row to Auto and asserts each took a job inside one day.
+  Whether six on full auto is *viable* over ten days — the cliff — is unmeasured.
 
 **Medicine — the back half of treatment:**
 
@@ -510,7 +520,7 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
     those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
     says must skip loudly instead.
-- **Three more dead sockets, on top of the nine now listed in CLAUDE.md.** `sim/spatial/hash.gd`
+- **Three more dead sockets, on top of the ten now listed in CLAUDE.md.** `sim/spatial/hash.gd`
   in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
   check scripts, so the headless bench measures a structure the running simulation never touches
   (`melee.gd` says so out loud: "candidates via spatial would be faster but we scan for
@@ -537,7 +547,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 
 **Parked until Milestone 3A — blocked by missing systems, not by choices:**
 
-- **Warmth and hygiene slots** (undershirt, socks, underwear) — wait for temperature and hygiene.
+- **Warmth and hygiene slots** (undershirt, socks, underwear) — the needs they were waiting on
+  exist now (temperature and hygiene bands, ADR 0002); what is still missing is a reader on worn
+  gear — `needs.gd`'s temperature tick reads the sky, the roof and the fire and never the clothes
+  (`wearing_armor` reads torso coverage for the heat wave, which is the nearest thing) — so the
+  blocker is a warmth property on clothing, which docs/04 and docs/10 have not specified.
 - **Trait-weighted modification outcomes** — wait for traits; `SimModification.TRAIT_FAILURE_SHIFT`
   is the named seam.
 
@@ -1372,9 +1386,10 @@ not a to-do list:
   setting `INDOOR_MIX` to 0. Measured cost: the prop pass's queries are **~34 µs a frame** over the
   47 containers of a booted 256 district, and everything else is culled to the viewport. **What did
   not ship, deliberately:** no art — every prop is a content-tinted shape, which is the supported
-  fallback and not a stopgap, and prop art is now its own named piece in
-  [what's left](#whats-left-in-milestone-2); the screamer and bloater sprites are their own piece
-  and were not touched; corpses still draw as people, which is its own entry in the defect list.
+  fallback and not a stopgap (prop art and the screamer and bloater sprites both landed later —
+  `content/props/stations.json` and `content/zombies/*.json` carry `appearance.sprite` now, judged
+  by `godot:check:appearance` and `godot:check:topdown`); corpses still draw as people, which is
+  its own entry in the defect list.
   Same slice, same commit, a gate that could not fail: `check_appearance.gd`'s `_all_blocks` now
   walks **array-topped** content files, which it never did — so every item's appearance block,
   `equipSprite` and all, was invisible to the shape and key assertions that name it. Fixed, and
@@ -3175,8 +3190,9 @@ not a to-do list:
   after which every further point banks as it always did. That "unspent doubles as skill" oddity
   predates this slice and is left alone rather than quietly redefined. And `craft.scrap` is now
   ownable while the stat it moves, `repair_cost`, is resolved by nobody — see the defect list.
-  The other three pieces on this row (fuller generation, trait conflict rules, the six-survivor
-  checkpoint) are still in [what's left](#whats-left-in-milestone-2).
+  Of the other three pieces on this row, fuller generation and the trait conflict rules landed
+  (the landed summary above, `godot:m2:recruits`); the six-survivor checkpoint is still in
+  [what's left](#whats-left-in-milestone-2).
 - **Survivors** — ~~Focus and the Manual learn line, on the work grid~~ **landed**
   (`godot:m2:autonomy`, lanes CYCLE / DRIFT / MANUAL HOLDS / BUY / CONTENT / VIEW / SAVE). The half
   above gave a survivor a focus and let them drift into it; this one gives the *player* the say,
@@ -4387,8 +4403,12 @@ adding more geography:
 2. Relationships and grief
 3. Full skill web
 4. The six survivor attributes below, now that each has a live consumer
-5. Weather, temperature, hygiene, full decay, mutation waves, and remaining zombies
-6. Named items, unique survivors, remaining modification consumables, traps, and bait
+5. Weather, temperature, hygiene, full decay, mutation waves, and remaining zombies (weather's
+   kinds, seasons and wind, and the temperature and hygiene bands, came into Milestone 2 by the
+   owner's direction — ADRs 0002, 0015, 0016; what docs/16 still names is the weather entry in
+   what's left)
+6. Named items, unique survivors, remaining modification consumables, traps, and bait (the boot
+   colony's two uniques shipped in Milestone 2; traps and bait are the scope call in `HANDOFF.md`)
 
 That order is deliberate. WIS lookout needs a lookout job; CHA needs relationships; INT needs the web;
 temperature needs weather. CHA trade and WIS raider warnings activate fully when factions arrive in
@@ -4431,7 +4451,10 @@ This is a separate completion track rather than a requirement bundled into survi
 1. **World scale:** continuous region, district types, road graph, authored-template procedural
    assembly, district-tier simulation, and streaming.
 2. **Drive benchmark:** synthetic streaming-at-speed load before a drivable vehicle exists.
-3. **Vehicles:** bases, slots, affixes, driving, fuel, breakdowns, route trails, and attention output.
+3. **Vehicles:** bases, slots, affixes, driving, fuel, breakdowns, route trails, and attention
+   output (driving, fuel and the engine's attention output landed in Milestone 2 on 2026-09-05 at the
+   owner's direction — `godot:m2:vehicles`; breakdowns, NPC drivers and the rest are "what driving
+   left behind" in what's left).
 4. **Mobile bases:** interior modules, volume budgeting, convoys, relocation, and nomad play.
 5. **Industrial yard district:** silos, radio towers, shipping containers, a brick warehouse
    street with the dashed centre line, the forklift at 2×3 — the reference scenes the 2026-09-02
