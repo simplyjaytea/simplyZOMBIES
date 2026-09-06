@@ -422,12 +422,6 @@ content first cut for the owner.
   pantry rate; the night-deepening clock measured under a cold snap; the cover that lays and
   melts drawn on the ground (the look piece). Gate `godot:m2:cold`. Firewood, frostbite, crops
   and tracks are not this piece.
-- **The heat wave's clock, thirst and rot.** A `hotSinceTick` mirror of the cold clock deepening
-  `a_little_hot` to `very_hot` and, in body armour, `extremely_hot` — heatstroke, docs/16's
-  word, and `jobs.gd`'s hard interrupt beside `extremely_cold`; `thirstMul` on the thirst
-  drain; `spoilageMul` ×2; `corpseScentMul` on the emit loop for bodies with a `corpse`; the
-  three hot HUD sentences, digit-free. Gate `godot:m2:heat`. A heatstroke injury is not this
-  piece.
 - **The weather's look.** `rain_look.gd` parametrised a kind — snow falls slow, short and pale
   on its own `snow` palette key, a storm at a higher intensity floor; a lightning strike is one
   full-screen wash frame read off `world.events.drained` (the camera-shake precedent); snow
@@ -3290,6 +3284,54 @@ not a to-do list:
   fixed: `_water_work` and `_repair_work` hand out an unclaimed target in the same shape, `Bury`'s
   "no position means I am carrying it" stays in the defect list, and `_do_cook` still despawns the
   whole raw *stack* for one meal — pre-existing, balance-relevant, and its own line.
+- **Weather** — ~~the heat wave's clock, thirst and rot~~ **landed** (`npm run godot:m2:heat`,
+  `M2_HEAT_OK`, seven lanes; `godot:check:hud`'s scanner gained the three hot rows), 2026-09-06 —
+  the heat wave's own effects, on the spine below (ADR 0016; docs/30 "The sky has kinds", the
+  "Heat is a dose" bullet, the calls). Heat is a dose: `needs.blank()` gains `hotSinceTick`, set
+  while a body is outdoors under a positive `tempShift` by day and cleared by any roof, the night
+  or the end of the spell — the cold clock's mirror, on the same `EXPOSURE_TICKS` (18,000, an hour
+  and a half). What the dose buys is capped on purpose: the sun alone deepens `a_little_hot` to
+  `very_hot` after one exposure and **never further**; body armour is worth one band the moment
+  it goes on; and `extremely_hot` — heatstroke — is reachable only in armour after **two**
+  exposures (36,000 ticks). Body armour is coverage, not a slot: `SimNeeds.wearing_armor` is
+  anything equipped whose base armours the torso at `ARMOR_TORSO_HEAT` (0.4) or better, which is
+  `item.jacket.leather` (0.5) and `item.vest.scrap` (0.6) and not `item.wrap.cloth` (0.3) — the
+  `vest` slot armours the torso and the `torso` slot holds a garment, so the slot answers wrong
+  twice. The wrap still buys one band back in the sun as at night, so a wrapped body reads
+  comfortable where a bare one reads `a_little_hot`. Three readers wired, each generically: the
+  `need.thirst` lambda multiplies `drain_thirst()` by `SimWeather.thirst_mul(w)` **inside the
+  tick** (a rate frozen at registration would never see a kind flip); `_tick_spoilage` multiplies
+  the pantry rate by `SimWeather.spoilage_mul(world)`, one line that names no kind and carries the
+  cold snap's and the snow's 0.5 as well as the heat wave's 2.0; and `attention.emit-scent`
+  multiplies by `SimWeather.corpse_scent_mul(w)` only for an entity carrying a `corpse`
+  component. `jobs.gd`'s mid-job `hard` gains `extremely_hot` beside `extremely_cold`, and
+  `_hud_band` gains the hot half on the cold half's own ranks — 24 "You're uncomfortable —
+  hot.", 14 "You're overheating.", 4 "Heatstroke — get out of the sun." Measured in the gate:
+  REACHABLE
+  (eleven cases — `a_little_hot` in the sun and `comfortable` under a roof, `very_hot` at
+  18,002 ticks at mood −10 and work 0.85 against `a_little_hot`'s −4 and 1.00, `very_hot` in
+  armour at once, heatstroke at 36,002 at mood −20; and the negatives: a bare body at 36,002 is
+  still only `very_hot`, armour at 18,002 is still only `very_hot`, a roofed body at 36,002 is
+  comfortable, an armoured body under a clear sky is comfortable, and the wrap does not read as
+  armour); ROOF (the clock ran 18,006 ticks, one tick indoors cleared it to −1 and the band to
+  comfortable, it restarted rather than resumed on the way back out, and a wrap reads comfortable
+  where a bare body reads `a_little_hot`); THIRST (600 ticks drain **0.3125** under the heat wave
+  against **0.2083** under clear, ×1.50, and clear equals the bare drain exactly); ROT (1,000
+  ticks age a perishable **2000.0** against **1000.0**, ×2.00, and clear is exactly the pantry
+  rate 1.000); CORPSE (a corpse publishes **64.0** of scent over 61 ticks against **32.0**,
+  ×2.00, while the living body eight tiles away publishes **4.0** under both); INTERRUPT (a body
+  at `extremely_hot` drops a Guard job with 500 ticks left and takes a Seek within a tick; the
+  same body at `very_hot` works on — and the lane steps twice on purpose, because `jobs.ai` runs
+  in the `ai` phase and `need.temperature` in `needs`, so the tick that first writes a band is a
+  tick jobs has already spent reading the band before it); HUD (three sentences, none with a
+  digit, each ranked against hunger's own two — `a_little_hot` loses to peckish, `very_hot` beats
+  peckish and loses to hungry, heatstroke beats both — and the deepest reaches the HUD's self
+  column). No content changed: the numbers are `heat_wave.json`'s shipped first cuts (`tempShift`
+  1, `thirstMul` 1.5, `spoilageMul` 2.0, `corpseScentMul` 2.0), and the two constants chosen here
+  are `ARMOR_TORSO_HEAT` 0.4 and the doubled exposure. Named and not built: a heatstroke injury
+  component (the deep band is a mood, a work multiplier, a sentence and a dropped job, and writes
+  nothing to the body), and no balance run — the fast tier cannot see the heat wave at all, which
+  the spine's record already measures and carries.
 - **Weather** — ~~the sky has kinds, seasons and a wind~~ **landed** (`npm run godot:m2:weather`
   rewritten, `M2_WEATHER_OK`, thirteen lanes; `godot:m2:save` and `godot:m2:fortify` at v21),
   2026-09-06 — the spine of the owner's weather session, opened the same day rain landed

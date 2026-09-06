@@ -3,6 +3,7 @@ extends RefCounted
 
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
 
 const SPRINT_THRESHOLD: float = 4.2
 const SHOUT_MAGNITUDE: float = 120.0
@@ -69,5 +70,11 @@ static func register_module(world: Variant, map: Variant) -> void:
 			var pos: Variant = w.components.get_component(int(entity), "position")
 			if pos == null:
 				continue
-			w.events.publish({"type": "scent.accumulated", "x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"]), "magnitude": float((emitter as Dictionary)["scent"])})
+			# A heat wave doubles what the dead give off and leaves the living alone
+			# (docs/adr/0016): the corpse component is the test, so the multiplier lands on the
+			# thing that rots and not on a survivor who is merely unwashed.
+			var scent: float = float((emitter as Dictionary)["scent"])
+			if w.components.has_component(int(entity), "corpse"):
+				scent *= SimWeather.corpse_scent_mul(w)
+			w.events.publish({"type": "scent.accumulated", "x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"]), "magnitude": scent})
 	)

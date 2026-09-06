@@ -193,7 +193,9 @@ static func _tick_one(world: Variant, ent: int) -> void:
 		if SimNeeds.POOLS.has(seek):
 			hard = float(n.get(seek, 100.0)) <= 0.0
 		elif seek == "temperature":
-			hard = String(n.get("temperature", "")) == "extremely_cold"
+			# Both ends of the ladder now: heatstroke drops the tool the same way freezing does.
+			var t: String = String(n.get("temperature", ""))
+			hard = t == "extremely_cold" or t == "extremely_hot"
 		elif seek == "hygiene":
 			hard = String(n.get("hygiene", "")) == "filthy"
 		# Soft/seek never interrupt mid-action (ticksLeft > 0). Rest has ticksLeft 0.
