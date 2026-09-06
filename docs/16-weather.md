@@ -1,5 +1,10 @@
 # 16 — Weather
 
+> **Status, 2026-09-06:** the first sliver is built — rain as sim state, wetness one band colder,
+> scent washed — under [ADR 0015](adr/0015-rain-as-sim-state.md), gated by `godot:m2:weather`.
+> Everything else on this page (wind, fog, storm, heat, cold snap, snow, seasons, forecasting) is
+> still Milestone 3.
+
 *Why this exists: weather in survival games is usually decoration with a temperature modifier. Here
 it's a modifier on the [attention field](03-attention.md) — which makes it a tactical input the player
 plans around rather than a visual effect.*

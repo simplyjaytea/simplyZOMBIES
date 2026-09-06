@@ -63,7 +63,7 @@
     },
     "closeKind": {
       "enum": ["suture", "splint"],
-      "description": "How this item closes a wound when it is spent on the `close` verb. Absent means it cannot close one. `suture` is what SimTreatment.CLOSE_KINDS accepts today; `splint` is declared here and deliberately unauthored -- it belongs with fracture immobilisation, which is not built, and a kit declaring it is refused rather than silently sutured with."
+      "description": "How this item closes a wound when it is spent on the `close` verb. Absent means it cannot close one. Which closer a wound wants is the wound kind's own `closeKind` in SimWounds.WOUND_KINDS: a `suture` holds a cut, bite or burn shut and a `splint` holds a fracture still. The two are matched exactly, never ranked -- a suture kit does not close a fracture and a splint does not close a cut."
     },
     "stack": {
       "type": "integer",
@@ -193,7 +193,8 @@
         "rest": { "type": "number", "minimum": 0, "description": "Rest restored on drinking -- the lift. Omit for anything that is not a stimulant." },
         "crashRest": { "type": "number", "exclusiveMinimum": 0, "description": "Rest drained when the lift wears off -- the crash. Author it at or above `rest`: a stimulant is a loan, not a gift. A second can inside one lift adds its crash to the pending one and pushes the clock out, so chaining defers the crash and makes it bigger; the pool floors at zero, and an empty pool is the existing passed-out crisis, which is what \"a real crash\" means here." },
         "crashAfterTicks": { "type": "integer", "minimum": 1, "description": "Ticks from drinking to the crash (12000 to the in-game hour)." },
-        "mood": { "type": "number", "description": "Mood applied on drinking, on the meal-mood clock -- SimNeeds.MEAL_MOOD_SOURCE, replaced rather than stacked, wearing off with MEAL_MOOD_TICKS. Absent means the drink says nothing about mood." }
+        "mood": { "type": "number", "description": "Mood applied on drinking, on the meal-mood clock -- SimNeeds.MEAL_MOOD_SOURCE, replaced rather than stacked, wearing off with MEAL_MOOD_TICKS. Absent means the drink says nothing about mood." },
+        "illnessChance": { "type": "number", "minimum": 0, "maximum": 1, "description": "Chance per drink of a bout of illness -- docs/04-survival-needs.md's \"untreated water carries illness\". The same bout `food.illnessChance` rolls, on the same stream, with the same `iron_stomach` immunity. Absent means the drink is clean; the well fills bottles with `item.water.bottle.untreated`, which carries it, and boiling at a lit campfire turns one into `item.water.bottle`, which does not. SimNeeds.drink_spec refuses a value outside 0..1 outright, because the validator does not recurse." }
       }
     },
     "fuel": {

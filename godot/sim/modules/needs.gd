@@ -11,6 +11,7 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
 
 const HUNGER_EMPTY_DAYS: float = 2.0
 const THIRST_EMPTY_DAYS: float = 1.0
@@ -56,6 +57,9 @@ const RELIEF_PER_DRINK: float = 18.0
 # keyed on this id -- anything with a `drink` block is drinkable (`drink_spec`) -- but the NPC thirst
 # job and the wash verb still reach for water by name, and this is the one copy of the name.
 const WATER_ID: String = "item.water.bottle"
+# What the well fills a bottle with. docs/04: "untreated water carries illness" -- a bottle of it
+# drinks like clean water and rolls the food-poisoning bout; boiling at a lit fire makes it WATER_ID.
+const UNTREATED_ID: String = "item.water.bottle.untreated"
 
 # --- stimulants (docs/04) ----------------------------------------------------------------------
 #
@@ -256,6 +260,12 @@ static func drink_spec(world: Variant, base_id: String) -> Variant:
 			return null
 		if not (after is int or after is float) or int(after) <= 0:
 			return null
+	# An illness chance outside the unit interval is a typo the shallow validator cannot see; refuse
+	# the block rather than clamp it, so the wrong number is reported by an undrinkable bottle.
+	if d.has("illnessChance"):
+		var ill: Variant = d.get("illnessChance")
+		if not (ill is float or ill is int) or float(ill) < 0.0 or float(ill) > 1.0:
+			return null
 	return d
 
 
@@ -397,6 +407,8 @@ static func blank() -> Dictionary:
 		"crisis": "none",
 		"starvingSinceTick": -1,
 		"dehydratingSinceTick": -1,
+		# Wet until this tick, or -1: set by rain on an unroofed body, brought forward by a lit fire.
+		"wetUntilTick": -1,
 		"slept": "up",
 		"wakeJob": "",
 		"dirtyWake": false,
@@ -1176,6 +1188,7 @@ static func _tick_temperature(world: Variant) -> void:
 		if hold:
 			n["temperature"] = "comfortable"
 			n["coldSinceTick"] = -1
+			n["wetUntilTick"] = -1
 			continue
 		var pos: Variant = world.components.get_component(ent, "position")
 		if not pos is Dictionary:
@@ -1184,6 +1197,24 @@ static func _tick_temperature(world: Variant) -> void:
 		var ty: int = floori(float((pos as Dictionary)["y"]))
 		var indoors: bool = world.tilemap != null and SimTileMap.is_indoors(world.tilemap, tx, ty)
 		var fire: bool = lit_campfire_near(world, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]), CAMPFIRE_HEAT_M)
+		# Wetness (docs/adr/0015, docs/04 "being wet is a multiplier on cold"): a body out in the
+		# rain is wet `wetAfterTicks` after it started standing there, stays wet `dryAfterTicks`
+		# once the rain stops or a roof is found, and a lit fire brings that forward to
+		# `dryByFireTicks`. One integer on the component; `wet` is derived from it every tick.
+		var wet_until: int = int(n.get("wetUntilTick", -1))
+		if SimWeather.raining(world) and not indoors:
+			var soaking: int = int(n.get("rainSinceTick", -1))
+			if soaking < 0:
+				soaking = int(world.tick)
+			n["rainSinceTick"] = soaking
+			if int(world.tick) - soaking >= SimWeather.wet_after_ticks(world):
+				wet_until = int(world.tick) + SimWeather.dry_after_ticks(world)
+		else:
+			n["rainSinceTick"] = -1
+		if fire and wet_until > int(world.tick) + SimWeather.dry_by_fire_ticks(world):
+			wet_until = int(world.tick) + SimWeather.dry_by_fire_ticks(world)
+		n["wetUntilTick"] = wet_until
+		var wet: bool = int(world.tick) < wet_until
 		var before: String = String(n.get("temperature", "comfortable"))
 		var exposed: bool = night and not fire and not indoors
 		var since: int = int(n.get("coldSinceTick", -1))
@@ -1202,11 +1233,34 @@ static func _tick_temperature(world: Variant) -> void:
 					band = "extremely_cold"
 			else:
 				band = "a_little_cold"
+		# Wet first, then the wrap: a wet body reads one band colder, and a wrap buys one back,
+		# so a soaked survivor in a wrap on a mild day reads comfortable and a soaked one at
+		# night by no fire is freezing at once.
+		if wet:
+			band = _colder(band)
 		if wearing_wrap(world, ent):
 			band = _shift_temp(band, 1)
 		n["temperature"] = band
 		if band != before:
 			_apply_muls(world, ent, n)
+
+
+# One band colder, clamped at the cold end. `_shift_temp` cannot do this: it moves *toward*
+# comfortable and answers "comfortable" for a body already there.
+static func _colder(band: String) -> String:
+	var i: int = TEMP_ORDER.find(band)
+	if i < 0:
+		return "a_little_cold"
+	var c: int = TEMP_ORDER.find("comfortable")
+	if i > c:
+		# The hot bands are unreachable today (docs/adr/0002); a wet hot body would step toward
+		# comfortable, which is the right direction whenever they land.
+		return TEMP_ORDER[i - 1]
+	return TEMP_ORDER[maxi(0, i - 1)]
+
+
+static func is_wet(world: Variant, entity: int) -> bool:
+	return int(world.tick) < int(of(world, entity).get("wetUntilTick", -1))
 
 
 static func _shift_temp(band: String, toward_comfy: int) -> String:
@@ -1261,20 +1315,46 @@ static func treat_sepsis_mul(world: Variant, treater: int) -> float:
 	return sepsis_mul(String(of(world, treater).get("hygiene", "clean")))
 
 
+# Spoilage is a clock the pantry-keeper can slow. `spoilage_rate` was declared in stats.gd, bought
+# through the `surv.cook` web node ("a careful pantry", x0.95) and resolved by nothing -- a node a
+# survivor could own and nobody could feel (docs/23's defect list). The owner's rule (2026-09-06):
+# every perishable ages at the rate of the **best living colonist**, resolved once a tick, because
+# the pantry is the colony's and one careful pair of hands keeps all of it. `aged` is the clock,
+# advanced by the rate each tick, so the old `bornTick` comparison becomes a special case of it
+# at rate 1.0; the field is defaulted from `bornTick` when absent so a spoilage record written
+# before this key existed keeps its age.
 static func _tick_spoilage(world: Variant) -> void:
-	for item in world.components.query(["spoilage"]):
+	var items: Array[int] = world.components.query(["spoilage"])
+	if items.is_empty():
+		return
+	var rate: float = pantry_rate(world)
+	for item in items:
 		var sp: Variant = world.components.get_component(int(item), "spoilage")
 		if not sp is Dictionary:
 			continue
 		var s: Dictionary = sp as Dictionary
 		if bool(s.get("spoiled", false)):
 			continue
-		var born: int = int(s.get("bornTick", 0))
 		var need: int = int(s.get("spoilTicks", 0))
 		if need <= 0:
 			continue
-		if int(world.tick) - born >= need:
+		var aged: float = float(s.get("aged", int(world.tick) - int(s.get("bornTick", 0)))) + rate
+		s["aged"] = aged
+		if aged >= float(need):
 			s["spoiled"] = true
+
+
+# The colony's spoilage rate: the lowest `spoilage_rate` any living colonist resolves to, or 1.0
+# with nobody to keep a pantry. Corpses lose `needs` at `_make_corpse`, so the dead drop out.
+static func pantry_rate(world: Variant) -> float:
+	var best: float = 1.0
+	if world.modifiers == null:
+		return best
+	for ent in _survivors(world):
+		if world.components.has_component(int(ent), "recruit"):
+			continue
+		best = minf(best, float(world.modifiers.call("resolve", "spoilage_rate", int(ent))))
+	return maxf(0.0, best)
 
 
 static func mark_spoilage(world: Variant, item: int, base_id: String) -> void:
@@ -1288,6 +1368,7 @@ static func mark_spoilage(world: Variant, item: int, base_id: String) -> void:
 		"bornTick": int(world.tick),
 		"spoilTicks": int(days * float(Clock.DAY_TICKS)),
 		"spoiled": false,
+		"aged": 0.0,
 	})
 
 
@@ -1301,6 +1382,8 @@ static func _hold_one(world: Variant, ent: int, n: Dictionary) -> void:
 	n["crisis"] = "none"
 	n["starvingSinceTick"] = -1
 	n["dehydratingSinceTick"] = -1
+	n["wetUntilTick"] = -1
+	n["rainSinceTick"] = -1
 	n["soiled"] = 0.0
 	_apply_soiled(world, ent, 0.0)
 	n["sleepQuality"] = 1.0
@@ -1420,6 +1503,10 @@ static func drink_item(world: Variant, entity: int, item: int) -> bool:
 	if spec_v == null:
 		return false
 	var spec: Dictionary = spec_v as Dictionary
+	# docs/04: "untreated water carries illness". Rolled before the bottle is consumed and applied
+	# after, the `eat` rule, so a refused consume cannot leave somebody ill from a drink they did
+	# not have. A clean bottle declares no chance and never rolls.
+	var ill: bool = _rolls_ill(world, entity, spec, false)
 	if not _consume_item(world, entity, item):
 		return false
 	var n: Dictionary = of(world, entity)
@@ -1436,10 +1523,45 @@ static func drink_item(world: Variant, entity: int, item: int) -> bool:
 		n["stimulantUntilTick"] = int(world.tick) + int(spec.get("crashAfterTicks", 0))
 	if spec.has("mood"):
 		_apply_meal_mood(world, entity, float(spec["mood"]))
+	if ill:
+		_fall_ill(world, entity)
 	_apply_muls(world, entity, n)
 	_intake(world, entity, RELIEF_PER_DRINK)
-	world.events.publish({"type": "need.drank", "entity": entity, "item": item, "baseId": bid, "stimulant": lift > 0.0})
+	world.events.publish({"type": "need.drank", "entity": entity, "item": item, "baseId": bid, "stimulant": lift > 0.0, "ill": ill})
 	return true
+
+
+# Untreated water, by name: what a thirsty NPC with no fire and nothing clean drinks, and a verb
+# the player reaches through `item.use` on the bottle itself.
+static func drink_untreated(world: Variant, entity: int) -> bool:
+	var bottle: int = _carried_base(world, entity, UNTREATED_ID)
+	return bottle >= 0 and drink_item(world, entity, bottle)
+
+
+# The well's product. One producer, so `check_m2_gear.gd`'s CATALOGUE lane can read this file for
+# the id: a filled bottle is untreated water, never clean.
+static func fill_bottle(world: Variant, bottle: int) -> void:
+	var base: Variant = world.components.get_component(bottle, "itemBase")
+	if base is Dictionary:
+		(base as Dictionary)["baseId"] = UNTREATED_ID
+
+
+# Boil one carried bottle of untreated water at a lit fire. Instant, and the same rename the well
+# does in reverse -- no despawn, no RNG, the bottle keeps its instance. Refused with a reason the
+# screen can say: no fire in reach, a fire that is not lit, nothing untreated in the pack.
+static func boil(world: Variant, actor: int, fire: int) -> Dictionary:
+	var cf: Variant = world.components.get_component(fire, "campfire")
+	if fire < 0 or not (cf is Dictionary):
+		return {"ok": false, "reason": "no-fire"}
+	if not bool((cf as Dictionary).get("lit", false)):
+		return {"ok": false, "reason": "unlit"}
+	var bottle: int = _carried_base(world, actor, UNTREATED_ID)
+	if bottle < 0:
+		return {"ok": false, "reason": "no-bottle"}
+	var base: Dictionary = world.components.get_component(bottle, "itemBase") as Dictionary
+	base["baseId"] = WATER_ID
+	world.events.publish({"type": "need.boiled", "entity": actor, "item": bottle, "fire": fire})
+	return {"ok": true}
 
 
 static func eat(world: Variant, entity: int, item: int) -> bool:
@@ -1857,6 +1979,9 @@ static func hud_clause(world: Variant, entity: int, panel: bool = false) -> Stri
 	# word says so -- rather than a roll nobody can see.
 	if int(n.get("stimulantUntilTick", -1)) > int(world.tick):
 		picks.append({"rank": 38, "hud": "You're wired.", "panel": "You're wired — it will wear off, and then it will cost you."})
+	# Wet: above the mild need rows (it is why the cold band is what it is) and below "very cold".
+	if int(n.get("wetUntilTick", -1)) > int(world.tick):
+		picks.append({"rank": 20, "hud": "You're soaked.", "panel": "You're soaked — a fire or a roof will dry you."})
 	if world.modifiers != null:
 		var mood: float = float(world.modifiers.call("resolve", "mood", entity))
 		if float(n.get("grief", 0.0)) >= GRIEF_HEARD and mood > -80.0:

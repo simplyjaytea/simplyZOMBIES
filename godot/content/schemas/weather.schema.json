@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/weather.schema.json",
+  "title": "Weather",
+  "description": "The rain state's numbers, per docs/adr/0015-rain-as-sim-state.md and docs/16-weather.md's content shape: a weather state is one JSON entry with its duration ranges and what it moves. One entry ships (weather.rain). NOTE: the content validator is shallow -- it checks these top-level types and rejects unexpected top-level keys, and does not recurse into the two range objects; check_m2_weather.gd's CONTENT lane holds the inner shape (min < max, the three drying timings in order, the scent multiplier inside (0, 1)).",
+  "type": "object",
+  "required": ["id", "dryTicks", "wetTicks", "scentHalfLifeMul", "wetAfterTicks", "dryAfterTicks", "dryByFireTicks"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^weather\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "description": { "type": "string" },
+    "dryTicks": {
+      "type": "object",
+      "required": ["min", "max"],
+      "additionalProperties": false,
+      "properties": {
+        "min": { "type": "integer", "minimum": 1 },
+        "max": { "type": "integer", "minimum": 1 }
+      },
+      "description": "Ticks between two spells of rain, drawn uniformly in [min, max] on the `weather` stream. 12000 ticks to the in-game hour."
+    },
+    "wetTicks": {
+      "type": "object",
+      "required": ["min", "max"],
+      "additionalProperties": false,
+      "properties": {
+        "min": { "type": "integer", "minimum": 1 },
+        "max": { "type": "integer", "minimum": 1 }
+      },
+      "description": "Ticks one spell of rain lasts, drawn the same way."
+    },
+    "scentHalfLifeMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1,
+      "description": "What rain multiplies the scent half-life by (calibration.attention's scentHalfLifeMinutes) -- docs/16's 'masks scent heavily', the good half of rain. 0.5 halves it. Expressed as a half-life factor and not a per-step one on purpose: the diffusion step runs every five ticks, so a per-step factor of 0.85 compounded 240 times a minute and flattened the whole field inside a second of rain, which the balance harness read as a colony wipe (docs/23's Weather record). SimAttentionField.diffuse_scent derives the per-step decay from its own constant; SimBoot._diffuse hands this in."
+    },
+    "wetAfterTicks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How long a body stands in the rain before it counts as wet. Ten seconds at 20 Hz for the shipped 200."
+    },
+    "dryAfterTicks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How long a wet body stays wet once out of the rain with no fire -- the bad half of rain: a wet survivor reads one temperature band colder for this long. An hour for the shipped 12000."
+    },
+    "dryByFireTicks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How long a wet body takes to dry standing within a lit campfire's heat. Twelve minutes for the shipped 2400; must be below dryAfterTicks or the fire is no help."
+    }
+  }
+}

@@ -260,7 +260,13 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # milestone keeps paying for, so the lane refuses it.
 
 const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification"]
-const PRODUCED: Array[String] = ["item.food.cooked"]
+# The bases a *job or verb* produces rather than a table rolls, each with the sim file that names
+# it, so the allowance cannot outlive the code it describes: cooked food out of SimJobs' cook job,
+# and well water out of SimNeeds.fill_bottle.
+const PRODUCED: Array[Dictionary] = [
+	{"id": "item.food.cooked", "in": "res://sim/modules/jobs.gd"},
+	{"id": "item.water.bottle.untreated", "in": "res://sim/modules/needs.gd"},
+]
 
 
 func _kit_ids(w: Variant) -> Dictionary:
@@ -315,11 +321,14 @@ func _the_catalogue_is_findable_and_read() -> bool:
 	# The one base a *job* produces rather than a table rolls: cooked food, out of SimJobs' cook
 	# job. Allowed by name, and the producer's source is read for the id so the allowance cannot
 	# outlive the code it describes.
-	var jobs_code: String = FileAccess.get_file_as_string("res://sim/modules/jobs.gd")
-	for produced in PRODUCED:
-		if not jobs_code.contains("\"%s\"" % produced):
-			push_error("CATALOGUE: %s is allowed as job-produced but sim/modules/jobs.gd never names it" % produced)
+	var produced_ids: Dictionary = {}
+	for row in PRODUCED:
+		var pid: String = String(row["id"])
+		var code: String = FileAccess.get_file_as_string(String(row["in"]))
+		if not code.contains("\"%s\"" % pid):
+			push_error("CATALOGUE: %s is allowed as produced but %s never names it" % [pid, row["in"]])
 			return false
+		produced_ids[pid] = true
 	var judged: int = 0
 	var unreachable: Array[String] = []
 	for id in by_id.keys():
@@ -331,7 +340,7 @@ func _the_catalogue_is_findable_and_read() -> bool:
 		if not read:
 			continue
 		judged += 1
-		if not (findable.has(String(id)) or kits.has(String(id)) or empties.has(String(id)) or PRODUCED.has(String(id))):
+		if not (findable.has(String(id)) or kits.has(String(id)) or empties.has(String(id)) or produced_ids.has(String(id))):
 			unreachable.append(String(id))
 	if not unreachable.is_empty():
 		push_error("CATALOGUE: %s do something and are in no loot table, no kit and nobody's empties -- complete, correct, and unreachable" % str(unreachable))

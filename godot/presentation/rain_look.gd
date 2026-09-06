@@ -1,21 +1,21 @@
 extends RefCounted
-# The rain, resolved at draw time from the tick and nothing else -- one screen-space streak
-# layer, the ambience half of docs/30's overcast mood. The sim has no weather: docs/16's weather
-# system is Milestone 3, and when it lands this layer is re-keyed to it rather than competing
-# with it. Until then the whole sky is a pure function of time and a hash, which is why nothing
-# in here may draw from an RNG stream -- a stream would either sit on the sim registry (a draw
-# the layout has to account for) or reseed per boot (a sky that differs between saves of the
-# same moment). road_paint.gd's ground variation follows the identical rule, with the identical
-# two primes.
+# The rain's *look*, resolved at draw time from the tick and nothing else -- one screen-space
+# streak layer. Whether it rains at all is the sim's (SimWeather, docs/adr/0015): main.gd asks
+# `SimWeather.raining` before it asks this file for a sky, so this layer is drawn only while a
+# span of rain is running. Within a span the sky is still a pure function of time and a hash,
+# which is why nothing in here may draw from an RNG stream -- a stream would either sit on the
+# sim registry (a draw the layout has to account for) or reseed per boot (a sky that differs
+# between saves of the same moment). road_paint.gd's ground variation follows the identical
+# rule, with the identical two primes.
 #
 # Pure statics only, and deliberately no static state of any kind: state here would be shared
 # between the two worlds a gate boots in one process (the trap CLAUDE.md records for the
 # kernel), and a streak layer has nothing worth remembering anyway -- every frame is derived
 # whole from `t`.
 #
-# It never stops raining. INTENSITY_MIN keeps the swell off zero because an onset and an end
-# would read as a weather *event* and imply a system that does not exist; what varies is how
-# hard it comes down, over a slow swell with a faster flutter inside it.
+# Within a span it never stops. INTENSITY_MIN keeps the swell off zero because the onset and
+# the end of rain are the sim's events, not this layer's; what varies here is how hard it comes
+# down, over a slow swell with a faster flutter inside it.
 
 const STREAK_COUNT: int = 140 # check_weather.gd bounds this at 256
 const FALL_PX_PER_TICK: float = 9.0

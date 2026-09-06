@@ -15,6 +15,7 @@ const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
 const Dressing = preload("res://presentation/dressing.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
@@ -1737,6 +1738,9 @@ func _draw_entities() -> void:
 # generator; check_weather.gd scans this body for both.
 func _draw_rain() -> void:
 	if world == null:
+		return
+	# The sim decides whether it rains (docs/adr/0015); this layer only decides how it looks.
+	if not SimWeather.raining(world):
 		return
 	var size: Vector2 = get_viewport_rect().size
 	# The sub-tick fraction, so streaks fall smoothly between the 20 Hz steps instead of

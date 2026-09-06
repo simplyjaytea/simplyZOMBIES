@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-05 (the driving slices)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **46 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **48 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,39 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-06 — rain is sim state** (`npm run godot:m2:weather`, `M2_WEATHER_OK`, eight lanes;
+`SAVE_VERSION` 20), the fourth slice of the survival session and the one the owner opened
+against ADR 0002 (ADR 0015 records the reversal): it rains in spans drawn on the sim's own
+stream — dry twelve to thirty-six hours, wet two to six, first cuts — a body outdoors in it is
+wet and reads one band colder until a roof, an hour, or a fire dries it, scent washes off the
+field while it falls, the streak layer draws only while it rains, and the HUD says so in a
+sentence. Nothing else from docs/16 came with it. docs/30's "Rain as sim state" has the calls;
+docs/23's record the measurements and the balance lines.
+
+**2026-09-06 — well water is untreated** (`npm run godot:m2:needs` WATER; `godot:m2:jobs` WELL
+amended), the third slice of the survival session and docs/04's oldest unbuilt sentence: the
+well fills `item.water.bottle.untreated`, which drinks like water and rolls the food-poisoning
+bout (0.15 a bottle, a first cut for the owner); a lit campfire boils a bottle clean — E at the
+fire, or an NPC who walks there, lights it and boils before drinking, and drinks it raw only
+below soft thirst with no fire anywhere. docs/30's entry has the four calls; docs/23's record
+has the measured rate and the balance lines.
+
+**2026-09-06 — the pantry and the cook's claim** (`npm run godot:m2:needs` PANTRY, `godot:m2:jobs`
+COOK CLAIM), the second slice of the survival session, two named defects: `spoilage_rate` has a
+reader — every perishable ages at the best living colonist's rate, the owner's call, so the
+`surv.cook` web node is finally felt — and Cook claims its raw item and re-checks at completion,
+so two cooks make one meal and a vanished raw makes none. `repair_cost` stays dead and the debt
+entry says why. Balance lines before and after are in docs/23's record.
+
+**2026-09-06 — the splint, and the limp** (`npm run godot:m2:splint`, `M2_SPLINT_OK`, nine
+lanes), the first slice of the owner's survival-systems session. A splint kit on the medical
+table immobilises a fracture through the existing `close` rung — the closer is now the wound
+kind's own (`WOUND_KINDS.closeKind`), matched to the kit exactly, which is also the fix for a
+fracture never having been closable at all — and a leg fracture that knits *without* a splint
+leaves a permanent limp: a `lasting` component, `move_speed ×0.90` a leg, a word on the body
+screen. The owner's rule (unsplinted → limp, deterministic) and number (ten percent) are in
+docs/30's entry; the four FAST balance lines before and after are in docs/23's record.
 
 **2026-09-06 — the gear catalogue** (`npm run godot:m2:gear`'s CATALOGUE lane, `godot:m2:needs`'s
 DRINK and STIMULANT lanes, `godot:m2:vehicles`' REFUEL lane, `godot:m2:jobs`' WELL lane, and
@@ -157,7 +190,12 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    drink's loan (thirst 15, rest 20 now, 25 back three in-game hours later, chaining
    compounding rather than resetting); a jerry can as ten litres poured whole with the rest
    spilt; and the fuel bottle on a residential shelf until an industrial table exists — docs/30's
-   "The gear catalogue", each a content number.
+   "The gear catalogue", each a content number. **And by the survival session (2026-09-06):**
+   the limp at ten percent a leg (owner-picked from three offers), well water's 0.15 illness
+   chance a bottle and an instant boil at a lit fire, and NPCs drinking it raw only below soft
+   thirst — docs/30's splint and well-water entries; and the rain's numbers (dry 12–36 h, wet
+   2–6 h, the scent half-life halved, 200 / 12000 / 2400 ticks to wet, to dry, to dry by a fire) —
+   docs/30's "Rain as sim state" and `content/weather/rain.json`, every one a content number.
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement
