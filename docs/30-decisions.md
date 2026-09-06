@@ -2499,6 +2499,29 @@ snow that lies as well as falls — and the spine took these calls:
   which the hot half of `TEMP_ORDER` — in the enum since ADR 0002, set by nothing — is reached.
 - **The numbers are first cuts, recorded for the owner.** Every range, every weight, every
   multiplier in the six entries and the climate: docs/23's record and `HANDOFF.md` item 0.
+- **Heat is a dose, and heatstroke is what armour costs.** The heat wave's slice mirrors the
+  cold's clock exactly -- `hotSinceTick` beside `coldSinceTick`, the same `EXPOSURE_TICKS`,
+  cleared by any roof, the night or the end of the spell -- because the two ends of the ladder
+  should read the same way to a player and because a second timing constant would be a second
+  thing to tune. What the dose buys is deliberately capped: the sun alone deepens `a_little_hot`
+  to `very_hot` and never further, body armour is worth a band the moment it goes on (docs/16's
+  "armor becomes punishing"), and `extremely_hot` -- heatstroke -- is reachable only in armour
+  after twice the exposure, so the deep band is a choice somebody made rather than weather that
+  happened to them. **Body armour is coverage, not a slot:** anything equipped whose base armours
+  the torso at 0.4 or better, which is the leather jacket and the scrap vest as shipped and not
+  the cloth wrap. The slot would have answered wrong twice -- the vest armours the torso from the
+  `vest` slot, and the wrap sits in the `torso` slot at 0.3, which is a garment. **The wrap stays
+  warm in the sun**: it still buys one band back through `_shift_temp`, so a wrapped body reads
+  comfortable where a bare one reads `a_little_hot`. That is on purpose and it is the same rule
+  it has always been -- a wrap moves you toward comfortable from either end -- rather than a
+  cooling effect anybody designed. **The corpse multiplier is the corpse's**: `corpseScentMul`
+  multiplies the emit loop only for an entity carrying a `corpse` component, so what the heat
+  does is make the dead carry, and a living body's scent under a heat wave is byte-identical to
+  its scent under clear. **The spoilage line is generic**: `_tick_spoilage` multiplies the pantry
+  rate by `SimWeather.spoilage_mul` and names no kind, so the cold snap's and the snow's 0.5 read
+  the same line the heat wave's 2.0 does. **No heatstroke injury**: the deep band is a mood, a
+  work multiplier, a HUD sentence and a dropped job, and it writes nothing to the body -- an
+  injury component would be a health-system decision and it is not this piece's to take.
 - **What it did not take.** Fog, a ranged penalty, thirst relief, barricade damage, firewood,
   frostbite, tracks, phase lengths by season, survivor forecasts, a sim light pulse per strike
   (the owner chose noise and a screen flash). Each is named in what's left.

@@ -23,6 +23,9 @@ const HARD: float = 0.0
 const STARVE_DAYS: float = 1.0
 const DEHYDRATE_DAYS: float = 0.25
 const CAMPFIRE_HEAT_M: float = 4.0
+# What counts as body armour when the sun is out: torso coverage at or above this. See
+# `wearing_armor`.
+const ARMOR_TORSO_HEAT: float = 0.4
 const CAMPFIRE_LIGHT_M: float = 20.0
 const CAMPFIRE_SCENT: float = 5.0
 const CAMPFIRE_COOK_SCENT: float = 15.0
@@ -414,6 +417,7 @@ static func blank() -> Dictionary:
 		"dirtyWake": false,
 		"mealMoodUntilTick": -1,
 		"coldSinceTick": -1,
+		"hotSinceTick": -1,
 		"sleepQuality": 1.0,
 		"sleepQualityTicks": 0,
 		"sleptMood": 0.0,
@@ -555,6 +559,25 @@ static func wearing_wrap(world: Variant, entity: int) -> bool:
 	return false
 
 
+# Body armour, for the heat wave: anything equipped whose base armours the torso at
+# ARMOR_TORSO_HEAT or better. Read off the coverage rather than off the equip slot, because the
+# slot answers the wrong question twice -- `item.vest.scrap` armours the torso 0.6 from the
+# `vest` slot, and `item.wrap.cloth` sits in the `torso` slot armouring it 0.3, which is a
+# garment, not a plate. As shipped this is the leather jacket (0.5) and the scrap vest (0.6);
+# the wrap is out, and stays what it has always been -- a band of warmth, in the sun as at
+# night. Its own accessor rather than SimInfection.armor_coverage_of, which resolves affixes and
+# condition per body part and is a per-tick cost this does not need.
+static func wearing_armor(world: Variant, entity: int) -> bool:
+	for item in SimInventory.equipped_items(world, entity):
+		var base: Variant = SimItems.item_base_of(world, item)
+		if not base is Dictionary:
+			continue
+		var a: Variant = (base as Dictionary).get("armor")
+		if a is Dictionary and float((a as Dictionary).get("torso", 0.0)) >= ARMOR_TORSO_HEAT:
+			return true
+	return false
+
+
 static func register_module(world: Variant) -> void:
 	if not "needsHoldMax" in world:
 		world.needsHoldMax = false
@@ -562,7 +585,9 @@ static func register_module(world: Variant) -> void:
 		_tick_pools(w, "hunger", drain_hunger(), "starving", STARVE_DAYS)
 	)
 	world.systems.register("need.thirst", "needs", 11, func(w: Variant) -> void:
-		_tick_pools(w, "thirst", drain_thirst(), "dehydrating", DEHYDRATE_DAYS)
+		# The sky is read inside the lambda, not at registration: the kind flips mid-run, and a
+		# rate frozen at boot would be a socket nothing ever reaches (docs/adr/0016).
+		_tick_pools(w, "thirst", drain_thirst() * SimWeather.thirst_mul(w), "dehydrating", DEHYDRATE_DAYS)
 	)
 	world.systems.register("need.rest", "needs", 12, func(w: Variant) -> void:
 		_tick_rest(w)
@@ -1188,6 +1213,7 @@ static func _tick_temperature(world: Variant) -> void:
 		if hold:
 			n["temperature"] = "comfortable"
 			n["coldSinceTick"] = -1
+			n["hotSinceTick"] = -1
 			n["wetUntilTick"] = -1
 			continue
 		var pos: Variant = world.components.get_component(ent, "position")
@@ -1223,6 +1249,17 @@ static func _tick_temperature(world: Variant) -> void:
 		elif since < 0:
 			since = int(world.tick)
 		n["coldSinceTick"] = since
+		# Heat is a dose too, and this is the cold clock's mirror: it runs while the sky is hot
+		# and the body is out under it by day, and any roof, the night, or the end of the spell
+		# clears it. Read below the shift block for what the dose buys.
+		var shift: int = SimWeather.temp_shift(world)
+		var baking: bool = shift > 0 and not night and not indoors
+		var hot_since: int = int(n.get("hotSinceTick", -1))
+		if not baking:
+			hot_since = -1
+		elif hot_since < 0:
+			hot_since = int(world.tick)
+		n["hotSinceTick"] = hot_since
 		var band: String = "comfortable"
 		if night:
 			if fire:
@@ -1238,13 +1275,26 @@ static func _tick_temperature(world: Variant) -> void:
 		# the cold -- and only a lit fire cancels it; a heat wave reads one band hotter by day
 		# outdoors, and nothing cancels it (the night is its own relief). The hot half of the
 		# ladder is reachable through this line and no other.
-		var shift: int = SimWeather.temp_shift(world)
 		if shift < 0 and not fire:
 			for _s in -shift:
 				band = _colder(band)
-		elif shift > 0 and not night and not indoors:
-			for _s in shift:
+		elif baking:
+			# The sky's band, one more for body armour at once -- docs/16's "armor becomes
+			# punishing" -- one more once the body has been out in it for EXPOSURE_TICKS, and
+			# the deepest band only for a body that has spent twice that in armour. So the sun
+			# alone can make somebody very hot and nothing else; heatstroke is what armour in a
+			# heat wave costs, which is the choice the kind exists to force.
+			var armored: bool = wearing_armor(world, ent)
+			var steps: int = shift
+			if armored:
+				steps += 1
+			var baked: int = int(world.tick) - hot_since
+			if hot_since >= 0 and baked >= EXPOSURE_TICKS:
+				steps += 1
+			for _s in steps:
 				band = _hotter(band)
+			if not (armored and hot_since >= 0 and baked >= 2 * EXPOSURE_TICKS):
+				band = _no_hotter_than(band, "very_hot")
 		# Wet first, then the wrap: a wet body reads one band colder, and a wrap buys one back,
 		# so a soaked survivor in a wrap on a mild day reads comfortable and a soaked one at
 		# night by no fire is freezing at once.
@@ -1278,6 +1328,17 @@ static func _hotter(band: String) -> String:
 	if i < 0:
 		return "a_little_hot"
 	return TEMP_ORDER[mini(TEMP_ORDER.size() - 1, i + 1)]
+
+
+# A ceiling on the hot half of the ladder. Written as a clamp rather than as one fewer `_hotter`
+# call because the sky's shift is content and could be 2, and because the cap is the rule -- the
+# sun alone never reaches heatstroke -- rather than an arithmetic accident of how many steps ran.
+static func _no_hotter_than(band: String, cap: String) -> String:
+	var i: int = TEMP_ORDER.find(band)
+	var c: int = TEMP_ORDER.find(cap)
+	if i < 0 or c < 0:
+		return band
+	return TEMP_ORDER[mini(i, c)]
 
 
 static func is_wet(world: Variant, entity: int) -> bool:
@@ -1348,7 +1409,9 @@ static func _tick_spoilage(world: Variant) -> void:
 	var items: Array[int] = world.components.query(["spoilage"])
 	if items.is_empty():
 		return
-	var rate: float = pantry_rate(world)
+	# Times the sky's own factor, written once and generically: a heat wave doubles it and a cold
+	# snap halves it, and neither kind is named here -- the number is the kind's content entry.
+	var rate: float = pantry_rate(world) * SimWeather.spoilage_mul(world)
 	for item in items:
 		var sp: Variant = world.components.get_component(int(item), "spoilage")
 		if not sp is Dictionary:
@@ -1403,6 +1466,8 @@ static func _hold_one(world: Variant, ent: int, n: Dictionary) -> void:
 	n["crisis"] = "none"
 	n["starvingSinceTick"] = -1
 	n["dehydratingSinceTick"] = -1
+	n["coldSinceTick"] = -1
+	n["hotSinceTick"] = -1
 	n["wetUntilTick"] = -1
 	n["rainSinceTick"] = -1
 	n["soiled"] = 0.0
@@ -2077,6 +2142,14 @@ static func _hud_band(picks: Array[Dictionary], key: String, band: String, _pane
 				# Its own words now that the band is reachable: it outranks "very cold" and used to
 				# read identically to it, which would have made the deep band invisible in play.
 				picks.append({"rank": 4, "hud": "You're freezing.", "panel": "You're freezing — get to a fire or indoors."})
+			# The hot half, reachable since the sky got kinds (docs/adr/0016), on the cold half's
+			# three ranks exactly, so hot and cold sort against the other needs identically.
+			"a_little_hot":
+				picks.append({"rank": 24, "hud": "You're uncomfortable — hot.", "panel": "You're uncomfortable — hot."})
+			"very_hot":
+				picks.append({"rank": 14, "hud": "You're overheating.", "panel": "You're overheating — find shade."})
+			"extremely_hot":
+				picks.append({"rank": 4, "hud": "Heatstroke — get out of the sun.", "panel": "Heatstroke — get out of the sun, and out of that armour."})
 	elif key == "hygiene":
 		match band:
 			"a_little_dirty":
