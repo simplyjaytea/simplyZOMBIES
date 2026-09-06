@@ -41,8 +41,10 @@ func _run() -> void:
 	ok = _each_sleep_factor_moves_the_quality_alone() and ok
 	ok = _pain_degrades_sleep_and_painkillers_buy_a_night() and ok
 	ok = _a_rough_night_costs_mood_then_stops_costing_it() and ok
+	ok = _drink_is_content_and_the_bottle_leaves_an_empty() and ok
+	ok = _a_stimulant_lifts_rest_now_and_crashes_later() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, and sleep has a quality")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, drinks are content and leave their empties, and a stimulant is a loan")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -527,7 +529,20 @@ func _food_is_content_and_says_the_same_thing_the_table_did() -> bool:
 		push_error("raw food's clock is %d ticks, expected %d from spoilDays 2" % [int((sp as Dictionary).get("spoilTicks", -1)), want_ticks])
 		return false
 
-	print("FOOD CONTENT OK %d foods read from content with the retired table's numbers; canned has no clock, raw has %d ticks; three non-foods and a missing base all refuse" % [
+	# And the clock is read off the block for *any* base, not off a remembered pair of ids:
+	# spawn_item used to name raw and cooked by hand, so a third perishable food spawned with no
+	# clock and never went off. Two fabricated bases prove the reader is generic both ways.
+	_inject_fixture(w)
+	var perishable: int = SimItems.spawn_item(w, "item.gate.perishable", {"tier": "scavenged"})
+	var keeps: int = SimItems.spawn_item(w, "item.gate.keeps", {"tier": "scavenged"})
+	var psp: Variant = w.components.get_component(perishable, "spoilage")
+	if not (psp is Dictionary) or int((psp as Dictionary).get("spoilTicks", -1)) != int(float(Clock.DAY_TICKS)):
+		push_error("a fabricated food with spoilDays 1 outside the old id pair got clock %s" % str(psp))
+		return false
+	if w.components.has_component(keeps, "spoilage"):
+		push_error("a fabricated food with spoilDays 0 was given a spoil clock")
+		return false
+	print("FOOD CONTENT OK %d foods read from content with the retired table's numbers; canned has no clock, raw has %d ticks; three non-foods and a missing base all refuse; a fabricated perishable outside the old id pair gets a clock and a fabricated keeper does not" % [
 		RETIRED_FOOD_TABLE.size(), want_ticks,
 	])
 	return true
@@ -1821,4 +1836,347 @@ func _a_rough_night_costs_mood_then_stops_costing_it() -> bool:
 	print("SLEEP MOOD OK a good night charges nothing, one rough night costs %.2f (named `mood.sleep`), three cap at %.2f in one modifier, and decay clears it back to baseline" % [
 		baseline_mood - after_one, capped,
 	])
+	return true
+
+
+# --- drinks -----------------------------------------------------------------------------------
+#
+# A `drink` block is what makes something drinkable, the way `food` makes it edible; the water
+# bottle's +50 was a literal in SimNeeds.drink and is content now; `empties` names what a spent
+# unit leaves behind, decided in the one spend path. And the energy drink -- in two loot tables
+# since the first cut, read by nothing -- is a stimulant: a lift on the rest pool now and a debt on
+# the same pool later, docs/04's "real crash afterward". Every lane below has a true negative, and
+# the reader is exercised through `item.use`, never by calling the leaf.
+
+# Fabricated bases the lanes lean on, injected under a path of their own so the real tree is not
+# edited: a stimulant on a forty-tick clock (a real one lands three in-game hours out, which is
+# more sim than a gate should spend proving arithmetic), a lift with no crash behind it, a thirst
+# that is not a number, and the two foods FOOD CONTENT spawns.
+func _inject_fixture(w: Variant) -> void:
+	(w.content as Dictionary)["items/_needs_gate_fixture.json"] = [
+		{"id": "item.gate.stim", "name": "Gate Stimulant", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1, "stack": 4,
+			"drink": {"thirst": 5, "rest": 20, "crashRest": 25, "crashAfterTicks": 40}},
+		{"id": "item.gate.freelift", "name": "Free Lift", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1,
+			"drink": {"thirst": 10, "rest": 20}},
+		{"id": "item.gate.badthirst", "name": "Bad Thirst", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1,
+			"drink": {"thirst": "lots"}},
+		{"id": "item.gate.perishable", "name": "Gate Perishable", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1,
+			"food": {"hunger": 10, "spoilDays": 1}},
+		{"id": "item.gate.keeps", "name": "Gate Keeper", "class": "consumable", "size": {"w": 1, "h": 1}, "massKg": 0.1,
+			"food": {"hunger": 10, "spoilDays": 0}},
+	]
+
+
+func _count_carried(w: Variant, actor: int, base_id: String) -> int:
+	var n: int = 0
+	for item in SimInventory.carried_items(w, actor):
+		var b: Variant = w.components.get_component(int(item), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == base_id:
+			n += 1
+	return n
+
+
+func _has_digit(text: String) -> bool:
+	for i in text.length():
+		var c: int = text.unicode_at(i)
+		if c >= 48 and c <= 57:
+			return true
+	return false
+
+
+# Pockets are 4x2; a hiking pack on the back gives the lanes room to stow without the puzzle
+# becoming the subject.
+func _give_pack(w: Variant, actor: int) -> bool:
+	var pack: int = SimItems.spawn_item(w, "item.pack.hiking", {"tier": "scavenged"})
+	return SimInventory.equip(w, actor, pack)
+
+
+func _quiet_pools(w: Variant, actor: int) -> Dictionary:
+	var n: Dictionary = SimNeeds.of(w, actor)
+	for k in SimNeeds.POOLS:
+		n[k] = 100.0
+	n["temperature"] = "comfortable"
+	n["hygiene"] = "clean"
+	n["crisis"] = "none"
+	n["slept"] = "up"
+	return n
+
+
+func _drink_is_content_and_the_bottle_leaves_an_empty() -> bool:
+	var w: Variant = _world()
+	w.tick = Clock.tick_on_day(1, 0.3)
+	var spec_v: Variant = SimNeeds.drink_spec(w, "item.water.bottle")
+	if not (spec_v is Dictionary) or absf(float((spec_v as Dictionary).get("thirst", -1.0)) - 50.0) > 0.001:
+		push_error("DRINK: the water bottle's drink block reads %s; SimNeeds.drink used to carry +50 as a literal" % str(spec_v))
+		return false
+	var water_entry: Variant = SimItems.content_entry(w, "item", "item.water.bottle")
+	if not (water_entry is Dictionary) or String((water_entry as Dictionary).get("empties", "")) != "item.water.bottle.empty":
+		push_error("DRINK: the water bottle does not name item.water.bottle.empty as what it leaves")
+		return false
+	if SimItems.content_entry(w, "item", "item.water.bottle.empty") == null:
+		push_error("DRINK: the empty bottle is not a base")
+		return false
+	for not_drink in ["item.scrap.metal", "item.food.canned", "item.not.a.real.base"]:
+		if SimNeeds.is_drink(w, not_drink):
+			push_error("DRINK: %s reads as a drink" % not_drink)
+			return false
+	_inject_fixture(w)
+	if SimNeeds.is_drink(w, "item.gate.freelift"):
+		push_error("DRINK: a lift with no crash behind it was accepted as drinkable -- a free stimulant")
+		return false
+	if SimNeeds.is_drink(w, "item.gate.badthirst"):
+		push_error("DRINK: a thirst that is not a number was accepted")
+		return false
+	if not SimNeeds.is_drink(w, "item.gate.stim"):
+		push_error("DRINK: a whole stimulant block was refused")
+		return false
+	# Through the command. The empties are counted on the body, before and after.
+	if not _give_pack(w, w.player):
+		push_error("DRINK: could not equip the pack")
+		return false
+	var drank: Array = []
+	w.events.subscribe({"id": "gate.drank", "type": "need.drank", "handler": func(e: Dictionary) -> void: drank.append(e)})
+	var n: Dictionary = _quiet_pools(w, w.player)
+	var empties_before: int = _count_carried(w, w.player, "item.water.bottle.empty")
+	var bottle: int = SimItems.spawn_item(w, "item.water.bottle", {"tier": "scavenged"})
+	if not SimInventory.stow(w, w.player, bottle):
+		push_error("DRINK: could not stow the bottle")
+		return false
+	n["thirst"] = 10.0
+	w.commands.push({"type": "item.use", "item": bottle})
+	w.step()
+	n = SimNeeds.of(w, w.player)
+	if float(n["thirst"]) < 55.0:
+		push_error("DRINK: item.use on a bottle left thirst at %s" % str(n["thirst"]))
+		return false
+	if w.components.has_component(bottle, "itemBase"):
+		push_error("DRINK: the drunk bottle is still an item")
+		return false
+	if _count_carried(w, w.player, "item.water.bottle.empty") != empties_before + 1:
+		push_error("DRINK: drinking left %d empties, want %d" % [_count_carried(w, w.player, "item.water.bottle.empty"), empties_before + 1])
+		return false
+	if drank.size() != 1 or bool((drank[0] as Dictionary).get("stimulant", true)):
+		push_error("DRINK: need.drank fired %d times for one plain drink, or called water a stimulant" % drank.size())
+		return false
+	if int(n.get("stimulantUntilTick", -1)) != -1 or float(n.get("stimulantCrashRest", 0.0)) != 0.0:
+		push_error("DRINK: water booked a stimulant crash")
+		return false
+	# A wash spends a bottle through the same path and leaves the same thing.
+	var bottle2: int = SimItems.spawn_item(w, "item.water.bottle", {"tier": "scavenged"})
+	SimInventory.stow(w, w.player, bottle2)
+	n["hygiene"] = "filthy"
+	w.commands.push({"type": "item.wash", "item": bottle2})
+	w.step()
+	n = SimNeeds.of(w, w.player)
+	if String(n["hygiene"]) != "clean" or _count_carried(w, w.player, "item.water.bottle.empty") != empties_before + 2:
+		push_error("DRINK: a wash read %s and left %d empties" % [str(n["hygiene"]), _count_carried(w, w.player, "item.water.bottle.empty")])
+		return false
+	# The true negative on empties: an energy drink names none, so a can of two becomes a can of
+	# one and nothing else appears.
+	var can: int = SimItems.spawn_item(w, "item.drink.energy", {"tier": "scavenged", "count": 2})
+	SimInventory.stow(w, w.player, can)
+	n["thirst"] = 10.0
+	w.commands.push({"type": "item.use", "item": can})
+	w.step()
+	n = SimNeeds.of(w, w.player)
+	var stack: Variant = w.components.get_component(can, "stack")
+	if not (stack is Dictionary) or int((stack as Dictionary).get("count", 0)) != 1:
+		push_error("DRINK: a can of two read %s after one drink" % str(stack))
+		return false
+	if _count_carried(w, w.player, "item.water.bottle.empty") != empties_before + 2:
+		push_error("DRINK: an energy drink left an empty bottle")
+		return false
+	# Two drinks on the bus, not three: a wash spends a bottle and is not a drink.
+	if float(n["thirst"]) < 24.0 or drank.size() != 2 or not bool((drank[1] as Dictionary).get("stimulant", false)):
+		push_error("DRINK: the energy drink read thirst %s, %d drank events, stimulant flag %s" % [str(n["thirst"]), drank.size(), str((drank[1] as Dictionary).get("stimulant")) if drank.size() > 1 else "-"])
+		return false
+	print("DRINK OK water drinks +50 off its own block and leaves an empty (twice: a drink and a wash, and only the drink is on the bus); a lift with no crash, a non-numeric thirst, scrap, a tin and a missing base all refuse; a can of two energy drinks becomes one and leaves nothing")
+	return true
+
+
+func _a_stimulant_lifts_rest_now_and_crashes_later() -> bool:
+	var w: Variant = _world()
+	w.tick = Clock.tick_on_day(1, 0.3)
+	# The content clause: every stimulant in the tree is a loan, not a gift.
+	var stims: Array[String] = []
+	for entry_v in SimItems.content_entries(w, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		var d: Variant = e.get("drink")
+		if not (d is Dictionary) or float((d as Dictionary).get("rest", 0.0)) <= 0.0:
+			continue
+		var id: String = String(e.get("id", ""))
+		stims.append(id)
+		if float((d as Dictionary).get("crashRest", 0.0)) < float((d as Dictionary)["rest"]) or int((d as Dictionary).get("crashAfterTicks", 0)) <= 0:
+			push_error("STIMULANT: %s lifts %s and crashes %s after %s ticks -- a gift, not a loan" % [id, str((d as Dictionary)["rest"]), str((d as Dictionary).get("crashRest")), str((d as Dictionary).get("crashAfterTicks"))])
+			return false
+	if not stims.has("item.drink.energy"):
+		push_error("STIMULANT: item.drink.energy is not a stimulant; the dead socket is still dead")
+		return false
+	var findable: Dictionary = {}
+	for file_v in (w.content as Dictionary).values():
+		if not (file_v is Array):
+			continue
+		for t_v in file_v as Array:
+			if t_v is Dictionary and String((t_v as Dictionary).get("id", "")).begins_with("loot."):
+				for row_v in (t_v as Dictionary).get("entries", []) as Array:
+					findable[String((row_v as Dictionary).get("item", ""))] = true
+	if not findable.has("item.drink.energy") or findable.has("item.gate.stim"):
+		push_error("STIMULANT: the loot scan cannot see the energy drink, or sees a base that is in no table")
+		return false
+	# The real can: the lift lands now, the clock is the block's, the HUD says so in a word.
+	if not _give_pack(w, w.player):
+		return false
+	var n: Dictionary = _quiet_pools(w, w.player)
+	n["rest"] = 75.0
+	var can: int = SimItems.spawn_item(w, "item.drink.energy", {"tier": "scavenged"})
+	SimInventory.stow(w, w.player, can)
+	var t0: int = int(w.tick)
+	w.commands.push({"type": "item.use", "item": can})
+	w.step()
+	n = SimNeeds.of(w, w.player)
+	var lift: float = float(n["rest"]) - 75.0
+	if lift < 20.0 - SimNeeds.drain_rest() - 0.01 or lift > 20.0 + 0.01:
+		push_error("STIMULANT: the energy drink lifted rest by %.4f, want 20 less at most one drain" % lift)
+		return false
+	var until: int = int(n.get("stimulantUntilTick", -1))
+	if until - t0 < 36000 or until - t0 > 36001:
+		push_error("STIMULANT: the crash clock reads %d ticks out, want the block's 36000" % (until - t0))
+		return false
+	if absf(float(n.get("stimulantCrashRest", 0.0)) - 25.0) > 0.001:
+		push_error("STIMULANT: the debt reads %s, want 25" % str(n.get("stimulantCrashRest")))
+		return false
+	var clause: String = SimNeeds.hud_clause(w, w.player)
+	if not clause.contains("wired") or _has_digit(clause):
+		push_error("STIMULANT: the HUD reads '%s' under a stimulant" % clause)
+		return false
+	var mara: int = _mara(w)
+	if mara >= 0:
+		var mn: Dictionary = _quiet_pools(w, mara)
+		mn["stimulantUntilTick"] = int(w.tick) + 100
+		if not SimNeeds.hud_clause(w, mara).contains("looks wired"):
+			push_error("STIMULANT: a wired colonist reads '%s'" % SimNeeds.hud_clause(w, mara))
+			return false
+	# The crash, on the fixture's forty-tick clock, in a fresh world so the arithmetic is clean.
+	var crashed: Array = []
+	var w2: Variant = _world()
+	w2.tick = Clock.tick_on_day(1, 0.3)
+	_inject_fixture(w2)
+	_give_pack(w2, w2.player)
+	w2.events.subscribe({"id": "gate.crashed", "type": "need.crashed", "handler": func(e: Dictionary) -> void: crashed.append(e)})
+	var n2: Dictionary = _quiet_pools(w2, w2.player)
+	n2["rest"] = 40.0
+	var s1: int = SimItems.spawn_item(w2, "item.gate.stim", {"tier": "scavenged"})
+	SimInventory.stow(w2, w2.player, s1)
+	w2.commands.push({"type": "item.use", "item": s1})
+	w2.step()
+	n2 = SimNeeds.of(w2, w2.player)
+	if absf(float(n2["rest"]) - 60.0) > SimNeeds.drain_rest() + 0.01:
+		push_error("STIMULANT: the fixture lifted 40 to %s" % str(n2["rest"]))
+		return false
+	var steps: int = 0
+	var drop: float = 0.0
+	while int(n2.get("stimulantUntilTick", -1)) >= 0 and steps < 60:
+		var before: float = float(n2["rest"])
+		w2.step()
+		steps += 1
+		n2 = SimNeeds.of(w2, w2.player)
+		drop = before - float(n2["rest"])
+	if steps < 38 or steps > 42:
+		push_error("STIMULANT: the crash landed after %d steps on a forty-tick clock" % steps)
+		return false
+	if drop < 25.0 - 0.001 or drop > 25.0 + SimNeeds.drain_rest() + 0.001:
+		push_error("STIMULANT: the crash dropped rest by %.4f, want 25 plus at most one drain" % drop)
+		return false
+	if crashed.size() != 1 or float(n2.get("stimulantCrashRest", 1.0)) != 0.0:
+		push_error("STIMULANT: %d need.crashed events, debt left %s" % [crashed.size(), str(n2.get("stimulantCrashRest"))])
+		return false
+	if SimNeeds.hud_clause(w2, w2.player).contains("wired"):
+		push_error("STIMULANT: still wired after the crash")
+		return false
+	# The twin that never drank: same seed, same ticks, no crash and no tick moving rest by more
+	# than one drain.
+	var crashed3: Array = []
+	var w3: Variant = _world()
+	w3.tick = Clock.tick_on_day(1, 0.3)
+	w3.events.subscribe({"id": "gate.crashed3", "type": "need.crashed", "handler": func(e: Dictionary) -> void: crashed3.append(e)})
+	var n3: Dictionary = _quiet_pools(w3, w3.player)
+	n3["rest"] = 40.0
+	var worst: float = 0.0
+	for i in 45:
+		var b3: float = float(n3["rest"])
+		w3.step()
+		n3 = SimNeeds.of(w3, w3.player)
+		worst = maxf(worst, absf(b3 - float(n3["rest"])))
+	if not crashed3.is_empty() or worst > SimNeeds.drain_rest() + 0.000001:
+		push_error("STIMULANT: a world that drank nothing crashed %d times or moved rest %.4f in a tick" % [crashed3.size(), worst])
+		return false
+	# Chaining defers and compounds: two cans back to back, one crash of fifty.
+	var crashed4: Array = []
+	var w4: Variant = _world()
+	w4.tick = Clock.tick_on_day(1, 0.3)
+	_inject_fixture(w4)
+	_give_pack(w4, w4.player)
+	w4.events.subscribe({"id": "gate.crashed4", "type": "need.crashed", "handler": func(e: Dictionary) -> void: crashed4.append(e)})
+	var n4: Dictionary = _quiet_pools(w4, w4.player)
+	n4["rest"] = 40.0
+	var pair: int = SimItems.spawn_item(w4, "item.gate.stim", {"tier": "scavenged", "count": 2})
+	SimInventory.stow(w4, w4.player, pair)
+	w4.commands.push({"type": "item.use", "item": pair})
+	w4.step()
+	w4.commands.push({"type": "item.use", "item": pair})
+	w4.step()
+	n4 = SimNeeds.of(w4, w4.player)
+	if absf(float(n4.get("stimulantCrashRest", 0.0)) - 50.0) > 0.001:
+		push_error("STIMULANT: two cans booked a debt of %s, want 50" % str(n4.get("stimulantCrashRest")))
+		return false
+	var steps4: int = 0
+	var drop4: float = 0.0
+	while int(n4.get("stimulantUntilTick", -1)) >= 0 and steps4 < 60:
+		var b4: float = float(n4["rest"])
+		w4.step()
+		steps4 += 1
+		n4 = SimNeeds.of(w4, w4.player)
+		drop4 = b4 - float(n4["rest"])
+	if crashed4.size() != 1 or drop4 < 50.0 - 0.001 or absf(float((crashed4[0] as Dictionary).get("rest", 0.0)) - 50.0) > 0.001:
+		push_error("STIMULANT: chaining landed %d crashes, the last dropping %.4f" % [crashed4.size(), drop4])
+		return false
+	# And the crash is real: three cans on a tired pool land on the floor, and the floor is the
+	# ordinary collapse.
+	var w5: Variant = _world()
+	w5.tick = Clock.tick_on_day(1, 0.3)
+	_inject_fixture(w5)
+	_give_pack(w5, w5.player)
+	var n5: Dictionary = _quiet_pools(w5, w5.player)
+	n5["rest"] = 5.0
+	var trio: int = SimItems.spawn_item(w5, "item.gate.stim", {"tier": "scavenged", "count": 3})
+	SimInventory.stow(w5, w5.player, trio)
+	for i in 3:
+		w5.commands.push({"type": "item.use", "item": trio})
+		w5.step()
+	n5 = SimNeeds.of(w5, w5.player)
+	var steps5: int = 0
+	while int(n5.get("stimulantUntilTick", -1)) >= 0 and steps5 < 60:
+		w5.step()
+		steps5 += 1
+		n5 = SimNeeds.of(w5, w5.player)
+	var sleeping: Variant = w5.components.get_component(w5.player, "sleeping")
+	# Under one rather than exactly zero: the collapse starts the sleep that refills the pool on
+	# the very tick the crash lands (need.rest runs after need.stimulant).
+	if float(n5["rest"]) >= 1.0 or String(n5.get("crisis", "")) != "passed_out" or not (sleeping is Dictionary) or int((sleeping as Dictionary).get("bed", 0)) != -1:
+		push_error("STIMULANT: three cans on a pool of five left rest %s, crisis %s, sleeping %s" % [str(n5["rest"]), str(n5.get("crisis")), str(sleeping)])
+		return false
+	# The hold clears the clock and the debt with everything else.
+	var w6: Variant = _world()
+	_inject_fixture(w6)
+	_give_pack(w6, w6.player)
+	w6.needsHoldMax = true
+	var s6: int = SimItems.spawn_item(w6, "item.gate.stim", {"tier": "scavenged"})
+	SimInventory.stow(w6, w6.player, s6)
+	w6.commands.push({"type": "item.use", "item": s6})
+	w6.step()
+	var n6: Dictionary = SimNeeds.of(w6, w6.player)
+	if int(n6.get("stimulantUntilTick", 0)) != -1 or float(n6.get("stimulantCrashRest", 1.0)) != 0.0:
+		push_error("STIMULANT: the hold left a clock of %s and a debt of %s" % [str(n6.get("stimulantUntilTick")), str(n6.get("stimulantCrashRest"))])
+		return false
+	print("STIMULANT OK %d stimulant(s) in content, each a loan; the energy drink lifts 20 now, books 25 in 36000 ticks and reads 'wired' with no digit; on a forty-tick fixture the crash lands after %d steps for 25, a twin that drank nothing never crashes, two cans land one crash of 50, three on a pool of five collapse, and the hold clears it" % [stims.size(), steps])
 	return true

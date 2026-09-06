@@ -22,9 +22,10 @@ func _run() -> void:
 	ok = _corpse_haul() and ok
 	ok = _seek_wakes_rest() and ok
 	ok = _water_clean_bury() and ok
+	ok = _an_empty_left_by_a_drink_is_what_the_water_job_wants() and ok
 	ok = _succession() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, and the well is reachable from a bottle the sim emptied")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -449,4 +450,46 @@ func _succession() -> bool:
 		push_error("solo death no runOver")
 		return false
 	print("SUCCESSION OK mara handoff snap solo")
+	return true
+
+
+# The dead-socket lane for the well. `_water_work` has always hunted item.water.bottle.empty, and
+# until `empties` landed nothing in shipped play ever produced one -- every empty the Water job was
+# ever tested with was spawned by hand (the lane above). Here Mara drinks a real bottle and the
+# job wants what she is left holding.
+func _an_empty_left_by_a_drink_is_what_the_water_job_wants() -> bool:
+	var w: Variant = _world()
+	var mara: int = _mara(w)
+	if mara < 0:
+		push_error("WELL: no Mara")
+		return false
+	if w.components.query(["water_source"]).is_empty():
+		print("WELL SKIPPED the booted district stands no water_source, so there is nothing to judge")
+		return true
+	var start: Vector2i = _start(w)
+	var before: Dictionary = {}
+	for e in w.components.query(["itemBase"]):
+		var b: Variant = w.components.get_component(int(e), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == "item.water.bottle.empty":
+			before[int(e)] = true
+	var bottle: int = SimItems.spawn_item(w, "item.water.bottle", {"tier": "scavenged"})
+	if not SimInventory.stow(w, mara, bottle):
+		push_error("WELL: could not stow a bottle on Mara")
+		return false
+	if not SimNeeds.drink(w, mara):
+		push_error("WELL: Mara could not drink the bottle")
+		return false
+	var empties: Array[int] = []
+	for e in w.components.query(["itemBase"]):
+		var b: Variant = w.components.get_component(int(e), "itemBase")
+		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == "item.water.bottle.empty" and not before.has(int(e)):
+			empties.append(int(e))
+	if empties.size() != 1 or not SimInventory.owns(w, mara, empties[0]):
+		push_error("WELL: the drink left %d new empties, or Mara does not hold it" % empties.size())
+		return false
+	var water: Dictionary = SimJobs._water_work(w, mara, float(start.x), float(start.y))
+	if water.is_empty() or int(water.get("target", -1)) != empties[0]:
+		push_error("WELL: the water job wants %s, not the bottle Mara just emptied (%d)" % [str(water), empties[0]])
+		return false
+	print("WELL OK a bottle Mara drank became the empty the Water job wants -- the first empty the sim itself has ever produced")
 	return true

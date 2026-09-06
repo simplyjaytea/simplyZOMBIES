@@ -75,5 +75,60 @@
     "appearance": { "equipSprite": "item_sledge_demolition_equip" },
     "slots": ["head", "haft", "wrap"],
     "melee": { "reachMetres": 1.7, "weight": 2.4, "damage": 20, "staggerTicks": 30 }
+  },
+  {
+    "id": "item.crowbar.steel",
+    "name": "Crowbar",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 3},
+    "massKg": 2.3,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_crowbar_steel_equip"},
+    "slots": ["wrap"],
+    "melee": {"reachMetres": 1.1, "weight": 1.1, "damage": 10, "staggerTicks": 12}
+  },
+  {
+    "id": "item.hatchet.camp",
+    "name": "Camp Hatchet",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 2},
+    "massKg": 0.9,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_hatchet_camp_equip"},
+    "slots": ["edge", "haft", "wrap"],
+    "melee": {"reachMetres": 1.0, "weight": 0.8, "damage": 12, "staggerTicks": 6}
+  },
+  {
+    "id": "item.hammer.claw",
+    "name": "Claw Hammer",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 2},
+    "massKg": 0.7,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_hammer_claw_equip"},
+    "slots": ["haft", "wrap"],
+    "melee": {"reachMetres": 0.9, "weight": 0.7, "damage": 8, "staggerTicks": 10}
+  },
+  {
+    "id": "item.wrench.pipe",
+    "name": "Pipe Wrench",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 3},
+    "massKg": 1.8,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_wrench_pipe_equip"},
+    "slots": ["wrap"],
+    "melee": {"reachMetres": 1.1, "weight": 1.2, "damage": 10, "staggerTicks": 13}
+  },
+  {
+    "id": "item.cleaver.butcher",
+    "name": "Butcher's Cleaver",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 2},
+    "massKg": 0.6,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_cleaver_butcher_equip"},
+    "slots": ["edge", "wrap"],
+    "melee": {"reachMetres": 0.9, "weight": 0.7, "damage": 12, "staggerTicks": 3}
   }
 ]

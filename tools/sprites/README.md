@@ -40,7 +40,7 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `palette.py` | ramps, the desaturation/value clamps, the ground-luminance guard |
 | `draw.py` | pixel primitives; `Canvas(w, h, origin)` carries a centre or a feet origin |
 | `parts/characters.py` | the eight rigs, the published skeleton, the `REGISTRY` naming them |
-| `parts/gear.py` | the three equip overlays, generated against the published skeleton |
+| `parts/gear.py` | the thirty-one equip overlays (sixteen from the worn slice, fifteen from the gear catalogue), generated against the published skeleton |
 | `parts/props.py` | the seven district props, each authored to its content entry's footprint |
 | `parts/wrecks.py` | the low heaps a bare Low tile draws, and the debris scatter |
 | `parts/edges.py` | the ground's edge cells, eight fringes a row, pasted into the atlas |

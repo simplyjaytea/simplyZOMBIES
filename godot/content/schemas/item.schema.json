@@ -183,6 +183,33 @@
         "illnessChance": { "type": "number", "minimum": 0, "maximum": 1, "description": "Chance per meal of a bout of food poisoning. Multiplied by SimNeeds.SPOILED_ILLNESS_MUL when the item has actually spoiled, so one authored number moves both cases together. The `iron_stomach` trait is full immunity rather than a reduction." }
       }
     },
+    "drink": {
+      "type": "object",
+      "description": "Present on anything drinkable; presence is what makes an item a drink -- SimNeeds.is_drink asks nothing else, exactly as is_food asks only for `food`. `thirst` is the plain half (a water bottle drinks +50, the number SimNeeds.drink used to carry as a literal). The other three keys are docs/04-survival-needs.md's stimulant clause -- \"no caffeine-style hard reset; stimulants exist as rare loot with a real crash afterward\" -- made content: `rest` is the lift, paid now into the rest pool, and `crashRest` is taken back out of the same pool `crashAfterTicks` later. SimNeeds.drink_spec judges the block whole: a lift declared without both crash keys is refused as not drinkable at all rather than drunk for free, because the validator does not recurse and a free stimulant is exactly the wrong number nothing would report. What is left in the hand afterwards is the top-level `empties`, not a key here, so a fuel can can say the same thing.",
+      "additionalProperties": false,
+      "required": ["thirst"],
+      "properties": {
+        "thirst": { "type": "number", "minimum": 0, "description": "Thirst restored, on the 0..100 need scale." },
+        "rest": { "type": "number", "minimum": 0, "description": "Rest restored on drinking -- the lift. Omit for anything that is not a stimulant." },
+        "crashRest": { "type": "number", "exclusiveMinimum": 0, "description": "Rest drained when the lift wears off -- the crash. Author it at or above `rest`: a stimulant is a loan, not a gift. A second can inside one lift adds its crash to the pending one and pushes the clock out, so chaining defers the crash and makes it bigger; the pool floors at zero, and an empty pool is the existing passed-out crisis, which is what \"a real crash\" means here." },
+        "crashAfterTicks": { "type": "integer", "minimum": 1, "description": "Ticks from drinking to the crash (12000 to the in-game hour)." },
+        "mood": { "type": "number", "description": "Mood applied on drinking, on the meal-mood clock -- SimNeeds.MEAL_MOOD_SOURCE, replaced rather than stacked, wearing off with MEAL_MOOD_TICKS. Absent means the drink says nothing about mood." }
+      }
+    },
+    "fuel": {
+      "type": "object",
+      "description": "Present on a fuel can. `litres` is what the can holds, and a can is poured whole: SimVehicles pours min(litres, room in the tank) and the rest is spilt. Not a running count on the instance -- an item instance carries a condition, a stack count and an affix list, and a can that remembered its litres would need a fourth per-instance number, a mass that moves with it (`massKg` is a constant of one unit), a fill word for the can, and a HUD clause for that word. Whole cans keep all four out. Refused into anything but an engine: a battery wants the charger docs/23 names in what's left, and a bicycle has nothing to fill. What is left afterwards is the top-level `empties`.",
+      "additionalProperties": false,
+      "required": ["litres"],
+      "properties": {
+        "litres": { "type": "number", "exclusiveMinimum": 0, "description": "Litres tipped into a tank when the can is poured. A sedan holds 40, a van 60, a truck 80 (content/vehicles), so a 10 L can is a quarter of a sedan -- a find, not a fill." }
+      }
+    },
+    "empties": {
+      "type": "string",
+      "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "The base left in your hands once one unit of this is spent -- the bottle without the water, the can without the fuel. Read by SimNeeds._consume_item, the one place a unit is spent (a drink, a wash, a wound cleaned with the bottle, a can poured), so every spend leaves the same thing. Stowed where the spent unit was; dropped at the feet when nothing has room. A flat scalar at the top level for the reason bandageTier is one: the content validator is shallow, and a string with a pattern up here is actually enforced. Absent means nothing is left -- a crushed can is not worth carrying."
+    },
     "modification": {
       "type": "object",
       "description": "Present on a modification consumable, per docs/11-crafting.md#content-shape: \"a modification consumable declares which operation it performs and against which item classes\". Adding a consumable is a data edit provided the operation it names already exists; adding an operation is an entry in SimModification.OPERATIONS. That registry is code because an operation is behaviour, and check_mods.gd is what asserts every declared operation is in it -- no schema can.",

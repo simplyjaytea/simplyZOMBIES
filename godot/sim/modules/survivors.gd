@@ -141,9 +141,8 @@ static func spawn_unique(world: Variant, id: String, x: float, y: float) -> int:
 # room, or no pack at all, drops the item at the spawn point rather than losing it.
 static func equip_kit(world: Variant, ent: int, kit: Array, x: float, y: float) -> void:
 	for item_id in kit:
+		# spawn_item marks spoilage off the base's own `food.spoilDays`; nothing to add here.
 		var item: int = SimItemsRes.spawn_item(world, String(item_id), {"tier": "scavenged"})
-		if String(item_id).begins_with("item.food."):
-			SimNeedsRes.mark_spoilage(world, item, String(item_id))
 		if _hold_it(world, ent, item):
 			continue
 		if not SimInventoryRes.stow(world, ent, item):
