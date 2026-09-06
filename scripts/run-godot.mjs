@@ -259,6 +259,9 @@ switch (mode) {
       "res://check_m2_weather.gd",
     ];
     break;
+  case "--m2-storm":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_storm.gd"];
+    break;
   case "--m2-splint":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_splint.gd"];
     break;

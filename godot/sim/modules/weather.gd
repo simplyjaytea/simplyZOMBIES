@@ -30,6 +30,7 @@ extends RefCounted
 # `weather` stream. Every content read is by path off the tree, O(1), so nothing here caches.
 
 const SimClock = preload("res://sim/time/clock.gd")
+const SimTileMap = preload("res://sim/map/tilemap.gd")
 
 const STREAM: String = "weather"
 const CONTENT_DIR: String = "weather/"
@@ -37,6 +38,10 @@ const CLIMATE_PATH: String = "climate/temperate.json"
 const CLEAR: String = "clear"
 const SOURCE: String = "weather"
 const SEASONS: Array[String] = ["spring", "summer", "autumn", "winter"]
+# How many tiles a strike tries before it gives up for this interval. A district is mostly open
+# ground, so sixteen draws miss everything only if the map is nearly all wall or all roof -- in
+# which case there is nothing outdoors to strike and giving up silently is the right answer.
+const LIGHTNING_TRIES: int = 16
 
 # The shipped first cuts, mirrored from content so a fixture world with no content tree still has
 # a schedule to draw and a gate can tell the two apart (the CONTENT lane compares them).
@@ -141,10 +146,67 @@ static func _tick(world: Variant) -> void:
 	var tick: int = int(world.tick)
 	if tick >= int(st.get("untilTick", 0)):
 		_next_span(world, st)
+	_tick_lightning(world, st)
 	if tick >= int(st.get("windUntilTick", 0)):
 		_next_wind(world, st)
 	_tick_cover(world, st)
 	_apply(world, st)
+
+
+# The bad half of a storm: a strike every `intervalTicks` somewhere outdoors, published as a
+# plain `noise.emitted` the kernel handler turns into a bloom on the attention field, plus a
+# `weather.lightning` for anything that wants to draw it. No light of its own and no sound --
+# the owner chose noise plus a screen flash (ADR 0016's "considered and not taken"), and there
+# is no thunder sample; 240 is deliberately none of `sfx.gd`'s one-shot magnitudes (180 gun,
+# 120 shout, 4 bow), so the dispatcher plays nothing for it rather than a gunshot.
+#
+# `nextLightningTick` is 0 whenever the sky is not a storm (`set_kind` resets it), so the first
+# tick of a storm draws an interval rather than striking on the spot: a storm announces itself
+# with the HUD line and the rain, not with a strike on tick one. The draws only ever run under
+# a kind that declares `lightning`, so a clear world's schedule is bit-identical to one drawn
+# before this existed and the spine gate's DETERMINISM lane still walks the same spans.
+static func _tick_lightning(world: Variant, st: Dictionary) -> void:
+	var bolt: Variant = lightning_of(world)
+	if not (bolt is Dictionary):
+		return
+	var next: int = int(st.get("nextLightningTick", 0))
+	if int(world.tick) < next:
+		return
+	if next > 0:
+		_strike(world, float((bolt as Dictionary).get("noise", 0.0)))
+	_draw_interval(world, st, (bolt as Dictionary).get("intervalTicks", {}) as Dictionary)
+
+
+static func _draw_interval(world: Variant, st: Dictionary, r: Dictionary) -> void:
+	var span: int = int(world.rng.stream(STREAM).call("int_range", int(r.get("min", 1)), int(r.get("max", 1))))
+	st["nextLightningTick"] = int(world.tick) + maxi(1, span)
+
+
+# Picks an open outdoor tile by rejection -- x and y each on the weather stream, retried up to
+# LIGHTNING_TRIES times -- rather than by walking the map, which would be thousands of tile
+# reads a strike. A world with no tilemap has nowhere to strike and silently does not.
+static func _strike(world: Variant, magnitude: float) -> void:
+	if world == null or not ("tilemap" in world) or world.tilemap == null:
+		return
+	if not ("events" in world) or world.events == null:
+		return
+	var cols: int = int(world.tilemap.w)
+	var rows: int = int(world.tilemap.h)
+	if cols <= 0 or rows <= 0:
+		return
+	var stream: Variant = world.rng.stream(STREAM)
+	for _try in LIGHTNING_TRIES:
+		var tx: int = int(stream.call("int_range", 0, cols - 1))
+		var ty: int = int(stream.call("int_range", 0, rows - 1))
+		if SimTileMap.is_solid(world.tilemap, tx, ty) or SimTileMap.is_indoors(world.tilemap, tx, ty):
+			continue
+		var x: float = float(tx) + 0.5
+		var y: float = float(ty) + 0.5
+		# No `source`: the kernel's `kernel.attention-noise` handler reads x, y and magnitude
+		# only, and nothing in the game may investigate the sky as though it were a survivor.
+		world.events.publish({"type": "noise.emitted", "x": x, "y": y, "magnitude": magnitude})
+		world.events.publish({"type": "weather.lightning", "x": x, "y": y, "tick": int(world.tick)})
+		return
 
 
 # The first span is clear, drawn on the first tick from the clear range. A non-clear span is
@@ -199,6 +261,10 @@ static func set_kind(world: Variant, k: String, until_tick: int) -> void:
 	st["kind"] = k
 	st["untilTick"] = until_tick
 	st["spans"] = int(st.get("spans", 0)) + 1
+	# A sky that does not strike carries no strike clock, so the first tick of the next storm
+	# draws its own first interval rather than inheriting a stale one from the last.
+	if not (spec_of(world, k).get("lightning") is Dictionary):
+		st["nextLightningTick"] = 0
 	if "events" in world and world.events != null:
 		world.events.publish({"type": "weather.changed", "kind": k, "previous": was, "raining": raining(world), "untilTick": until_tick})
 	_apply(world, st)
