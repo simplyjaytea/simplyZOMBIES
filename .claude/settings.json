@@ -11,5 +11,33 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run godot:*)",
+      "Bash(npm run check:routing)",
+      "Bash(npm run sprites:check)",
+      "Bash(npm test)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm run format:check)",
+      "Bash(npm run bench)",
+      "Bash(node scripts/run-godot.mjs *)",
+      "Bash(node scripts/check-routing.mjs *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(find *)"
+    ],
+    "deny": ["Bash(npm run godot:m2:balance:full)", "Bash(BALANCE_FULL=1 *)"]
   }
 }
