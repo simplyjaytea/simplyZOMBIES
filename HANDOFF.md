@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-05 (the driving slices)
+## State, as of 2026-09-06 (the weather session)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **48 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **51 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -32,8 +32,40 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-06 — the four weather slices on the spine**, built in parallel worktrees and merged the
+same day: **the storm** (`npm run godot:m2:storm`, `M2_STORM_OK`, five lanes — noise masked on
+the field's own decay at a half-life ×0.4, lightning striking an open outdoor tile every ten
+minutes to two hours as a noise of 60 nobody made plus a `weather.lightning` event, outdoor
+work refused at `_pick` and a running outdoor job dropped, Guard exempt); **the cold snap and
+snow** (`godot:m2:cold`, `M2_COLD_OK`, eight lanes — the pantry at half rate, a cold-snap night
+freezing on its first tick, the dead at ×0.7 / ×0.9 measured on the ground they cover, settled
+snow at ×0.8 on the living, cover laying and melting); **the heat wave** (`godot:m2:heat`,
+`M2_HEAT_OK`, seven lanes — a hot clock that deepens `a_little_hot` to `very_hot` and no
+further on its own, heatstroke only in body armour after two exposures, thirst ×1.5, food
+rotting ×2, corpses smelling ×2, the job dropped at the deep band, three digit-free
+sentences); and **the look** (`godot:check:weather` at seven lanes — one pure sky function a
+kind, snow flakes on their own key, a storm at a higher floor, snow cover lerping every outdoor
+ground fill so cover 0 is byte-identical, a lightning strike as one drained-event wash frame;
+two screenshots under `.hermes/plans/2026-09-06_weather-look/` for the owner to judge). The
+`godot:m2` chain is **51 gates** now. docs/30's "The sky has kinds" carries one bullet a slice;
+docs/23's record one bullet a slice with every measured number.
+
+**2026-09-06 — the sky has kinds** (`npm run godot:m2:weather` rewritten, `M2_WEATHER_OK`,
+thirteen lanes; `SAVE_VERSION` 21), the spine of the owner's weather session, opened the same
+day rain landed and decided in four answers — storm, cold snap with snow, heat wave and a
+shifting wind; kinds as content; a five-day-season calendar; snow that lies as well as falls
+(ADR 0016). Six kinds under `content/weather/`, the globals in a new `climate` type, a wind
+that drifts daily and leans the scent field, the temperature shift that makes the hot bands
+reachable, the living slowed through a global modifier and the dead through their one speed
+read, and a hot body that seeks a roof rather than the fire. It also closed a defect: NPC
+survivors never read `move_speed`, so the limp, encumbrance and blood loss had only ever slowed
+the player. docs/30's "The sky has kinds" has the calls; docs/23's record the measurements, the
+balance before and after, and the fast tier's blind spot (it cannot see a heat wave). The
+storm's noise and lightning, the cold snap's pantry, the heat wave's clock and thirst, and the
+look (snow flakes, ground cover, a lightning flash) are the named pieces in what's left.
+
 **2026-09-06 — rain is sim state** (`npm run godot:m2:weather`, `M2_WEATHER_OK`, eight lanes;
-`SAVE_VERSION` 20), the fourth slice of the survival session and the one the owner opened
+`SAVE_VERSION` 20, now 21 under the weather spine), the fourth slice of the survival session and the one the owner opened
 against ADR 0002 (ADR 0015 records the reversal): it rains in spans drawn on the sim's own
 stream — dry twelve to thirty-six hours, wet two to six, first cuts — a body outdoors in it is
 wet and reads one band colder until a roof, an hour, or a fire dries it, scent washes off the
@@ -196,7 +228,29 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    thirst — docs/30's splint and well-water entries; and the rain's numbers (dry 12–36 h, wet
    2–6 h, the scent half-life halved, 200 / 12000 / 2400 ticks to wet, to dry, to dry by a fire) —
    docs/30's "Rain as sim state" and `content/weather/rain.json`, every one a content number.
-1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
+   **And by the weather spine (2026-09-06):** every duration range and seasonal weight in the
+   six kind entries (storm 1–3 h, cold snap and heat wave 1–3 days, snow 4–10 h; rain spring 5
+   / summer 2 / autumn 3 / winter 1, and so on), the multipliers (storm scent ×0.35 and noise
+   ×0.4, cold shamblers ×0.7 and snow ×0.9, settled snow ×0.8 on the living at half cover,
+   heat thirst ×1.5 and spoilage and corpse scent ×2), the wind's daily drift at 0.6 (a
+   storm's ×2 and a 240 lightning were the first cuts, and the integration re-measured both:
+   docs/23's Weather record), five days a season from spring, and the hot seek walking to a
+   roof — docs/30's
+   "The sky has kinds", `content/weather/*.json` and `content/climate/temperate.json`. **And by
+   its four slices:** body armour for the heat as torso coverage ≥ 0.4 (the jacket and the
+   scrap vest, not the wrap) and heatstroke at two exposures in it; snow cover melting under a
+   cold snap too (only `snow.json` lays any); lightning's sixteen tries at an open tile; the
+   look's `SNOW_COVER_MAX` 0.55, the snow and lightning palette keys, and the flake's fall,
+   lean and length — docs/30's per-slice bullets, and two screenshots to judge.
+1. **Whether the wind should be free.** The weather spine's first cut drew each day's wind
+   direction anywhere, and the balance harness's four-seed survival floor read that as a coin
+   toss: every re-measurement wiped a different seed (docs/23's Weather record has the table).
+   Shipped: a prevailing wind — the attention field's calibrated lean, which every district
+   siting was measured under — that wanders within `windDriftDeg` (45°) of it, content in
+   `climate/temperate.json`; 180° is the free wind back. docs/16's "a base that was safe
+   becomes a base that's upwind of the whole district" and a per-seed survival floor pull
+   against each other, and which gives is a design call, not a number.
+2. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement
    attached. The cure is no longer out of reach: the sweep's "`infection.respond` has no
@@ -204,19 +258,19 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    (`godot:check:respond`) — so the decision is about lethality alone rather than about lethality
    with no answer available. The other four infection verbs still have no surface, for the
    reasons docs/23's defect list gives.
-2. **Whether a roof covers a known building's unseen walls too.** The wall-and-roof slice roofs
+3. **Whether a roof covers a known building's unseen walls too.** The wall-and-roof slice roofs
    the unseen *indoor* tiles of a building the survivor can see part of, as approved, so the
    unseen perimeter walls stay black and the roof reads as a mass inside a black ring
    (`slice5-front-64.png` in the plan's shots). Roofing every unseen tile of the footprint is
    one condition in `RoofLook.roof_tiles` and leaks nothing the footprint does not already;
    the look is arbitrated by screenshot, so it is the owner's.
-3. **Whether the one-handed weapons need their own silhouettes at 32 px.** The worn slice found
+4. **Whether the one-handed weapons need their own silhouettes at 32 px.** The worn slice found
    that the bat, machete, pipe and kitchen knife share a fist, an angle and a value range: they
    are distinguishable side by side and would not be at a glance mid-fight. The cheapest fix
    gives each primary weapon its own lean rather than sharing the bat's, which re-authors the
    shipped bat -- so it is recorded rather than taken in passing. The service pistol is the
    weakest single key for the same reason of size.
-4. **Whether a forest stand should ever be as dense as the generator can make it.** In the
+5. **Whether a forest stand should ever be as dense as the generator can make it.** In the
    densest one measured -- 44 Tree tiles in a 9x9 -- the player is very nearly invisible: trees
    are Opaque, so sight collapses to a few tiles, and the fade rule cannot help much because
    several trunks overlap the body at once (`slice9-stand-64.png`). That is the forest's

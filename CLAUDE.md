@@ -81,7 +81,10 @@ npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
 npm run godot:m2:splint    # the splint, and the limp a bad fracture leaves → M2_SPLINT_OK
 npm run godot:m2:raiders   # the band at the gate       → M2_RAIDERS_OK
 npm run godot:m2:vehicles  # the parked cars and bikes, driven → M2_VEHICLES_OK
-npm run godot:m2:weather   # rain as sim state: wet bodies, washed scent → M2_WEATHER_OK
+npm run godot:m2:weather   # the sky has kinds: seasons, wind, the shift → M2_WEATHER_OK
+npm run godot:m2:storm     # noise masked, lightning, outdoor work refused → M2_STORM_OK
+npm run godot:m2:cold      # the cold snap's pantry, the snow's cover     → M2_COLD_OK
+npm run godot:m2:heat      # the hot clock, heatstroke, thirst, rot       → M2_HEAT_OK
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
@@ -90,7 +93,7 @@ npm run godot:check:camera   # smoothed follow, shake → CAMERA_OK
 npm run godot:check:light    # sight-derived wash, lit ∩ seen pools → LIGHT_LOOK_OK
 npm run godot:check:road     # street manifest, paint, palette, rubble → ROAD_LOOK_OK
 npm run godot:check:wrecks   # parked vehicles, heaps, debris art → WRECKS_OK
-npm run godot:check:weather  # rain, accent regrade, dead keys → WEATHER_OK
+npm run godot:check:weather  # the sky per kind, snow cover, the flash → WEATHER_OK
 npm run godot:check:roof     # wall caps and faces, roofs cut out where seen → ROOF_LOOK_OK
 npm run godot:check:trees    # tall trees in the entity sort, the fade → TREES_OK
 npm run godot:check:worn     # gear layers, order and skeleton fit → WORN_LOOK_OK
@@ -99,7 +102,7 @@ npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **48**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **51**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
@@ -209,12 +212,14 @@ drifted. Three things about the current state matter enough to repeat anyway:
   in that same sort; and equipment draws on the pawn, in one order, on one skeleton. Where a piece
   has not landed yet, its code comments say so on purpose. The reference's HUD — portraits, bars,
   numbers, name plates — is explicitly not adopted.
-- **The dead-socket pattern.** This milestone has turned up **nine** pieces of code that were
+- **The dead-socket pattern.** This milestone has turned up **ten** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody
   but the player, rule 4's variance floor behind an `if size == 0` that could never be true,
-  `SimDirector.snapshot_of`, and — found by the review sweep — `SimStances.CAN_AIM`, which had said
-  "a sprint cannot aim" since the ladder landed while `SimRanged` let a sprinting survivor fire.
+  `SimDirector.snapshot_of`, `SimStances.CAN_AIM` (found by the review sweep — it had said "a
+  sprint cannot aim" since the ladder landed while `SimRanged` let a sprinting survivor fire),
+  and — found by the weather spine — the `move_speed` stat itself for every NPC: `SimJobs._walk`
+  never resolved it, so the limp, encumbrance and blood loss had only ever slowed the player.
   **A gate asserting that a helper returns the right number does not assert that anything reads
   it.** When you add a mechanism, add the assertion that something reaches it —
   `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example. The sweep

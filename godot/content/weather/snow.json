@@ -1,0 +1,11 @@
+{
+  "id": "weather.snow",
+  "description": "Snow, per docs/16: stacks on the cold (one band colder, shamblers at nine tenths, food keeping) and lays cover on the ground at coverPerTick while it falls -- full cover in two hours -- which is what slows the living (climate.temperate's snowCoverMoveMul, read off the cover and not the fall, so the snow underfoot outlives the snowfall) and what the ground draws. Winter's other kind. First cuts for the owner. Read by SimWeather only.",
+  "durationTicks": { "min": 48000, "max": 120000 },
+  "weights": { "spring": 0, "summer": 0, "autumn": 1, "winter": 4 },
+  "tempShift": -1,
+  "zombieMoveMul": 0.9,
+  "spoilageMul": 0.5,
+  "scentHalfLifeMul": 0.6,
+  "coverPerTick": 0.0000069444
+}

@@ -779,6 +779,7 @@ func _draw() -> void:
 	_draw_light_pools()
 	_draw_entities()
 	_draw_rain()
+	_draw_lightning()
 	_draw_night_wash()
 	# glimpse drawn by Control; nothing else needed here
 
@@ -798,6 +799,8 @@ func _draw_district() -> void:
 	var max_y: int = mini(int(world.map_height) - 1, ceili(float(bounds["maxY"])))
 	# Row-major, no sort: flat tiles never overlap. Bodies overlap tiles and each
 	# other; they sort in _draw_entities.
+	# The sim's snow cover, one read a frame rather than one a tile (SimWeather.snow_cover).
+	var snow_cover: float = SimWeather.snow_cover(world)
 	for ty in range(min_y, max_y + 1):
 		for tx in range(min_x, max_x + 1):
 			# Walls block sight: only draw tiles the player has a sightline to (windows stay Clear).
@@ -811,6 +814,12 @@ func _draw_district() -> void:
 			# rather than one shared slab colour. Paved resolves to the old floor colour, which
 			# is why a street looks exactly as it did (check_topdown.gd pins that identity).
 			var ground: Color = Appearance.ground_colour(world.tilemap, tx, ty)
+			# Snow lies on open ground (docs/16, the weather-look slice): an indoor tile is
+			# never regraded, and cover 0.0 leaves `ground` untouched (Appearance.ground_with_snow's
+			# lerp at weight 0.0 is exact), so this reaches the sim's cover on every tile without
+			# changing anything a clear sky already drew. `snow_cover` is read once above the loop.
+			if world.tilemap == null or not SimTileMap.is_indoors(world.tilemap, tx, ty):
+				ground = Appearance.ground_with_snow(ground, snow_cover)
 			var col: Color = ground
 			if world.tilemap != null:
 				tile = int(SimTileMap.tile_at(world.tilemap, tx, ty))
@@ -1730,24 +1739,29 @@ func _draw_entities() -> void:
 		draw_circle(Vector2(float(sc["sx"]), float(sc["sy"])), 8.0, Color(mem.r, mem.g, mem.b, a))
 
 
-# The rain, over the bodies and under the night wash: a survivor standing in it is standing in
-# it, and rain the night has already darkened is rain you cannot see. Presentation-only
-# ambience -- the sim has no weather (docs/16's is Milestone 3, and re-keying this layer to it
-# is the named forward edge), so the whole sky is a pure function of the tick and a hash,
-# rain_look.gd's own rule. Nothing here reads the night's tunables and nothing draws from a
-# generator; check_weather.gd scans this body for both.
+# The sky, over the bodies and under the night wash: a survivor standing in it is standing in
+# it, and rain (or snow) the night has already darkened is rain you cannot see. Presentation-only
+# ambience -- the sim decides the kind (docs/adr/0016) and this layer only decides how it looks,
+# a pure function of the tick, a hash and the kind's own `look` record, rain_look.gd's own rule.
+# Nothing here reads the night's tunables and nothing draws from a generator; check_weather.gd
+# scans this body for both.
 func _draw_rain() -> void:
 	if world == null:
 		return
-	# The sim decides whether it rains (docs/adr/0015); this layer only decides how it looks.
-	if not SimWeather.raining(world):
+	# The sim decides whether it rains (docs/adr/0015) and which kind is on screen
+	# (docs/adr/0016); this layer only decides how it looks. Snow draws under its own condition,
+	# beside `raining` rather than folded into it -- `raining` answers "does a body get wet",
+	# which snow does not (docs/16: the cold and the cover, not the wet).
+	var kind: String = SimWeather.kind(world)
+	if not (SimWeather.raining(world) or kind == "snow"):
 		return
+	var look: Dictionary = RainLook.look_of(kind)
 	var size: Vector2 = get_viewport_rect().size
 	# The sub-tick fraction, so streaks fall smoothly between the 20 Hz steps instead of
 	# stepping with them. Frozen while paused -- _process returns before either term moves --
 	# and 10x under fast-forward, which is accepted and recorded: this is ambience, not a clock.
 	var t: float = float(world.tick) + clampf(accumulator / TICK_SECONDS, 0.0, 1.0)
-	var pts: PackedVector2Array = RainLook.segments(t, size.x, size.y, RainLook.STREAK_COUNT)
+	var pts: PackedVector2Array = RainLook.segments(t, size.x, size.y, look)
 	var map: Variant = world.tilemap
 	var open := PackedVector2Array()
 	for i in range(0, pts.size(), 2):
@@ -1763,9 +1777,38 @@ func _draw_rain() -> void:
 		return
 	# One call for the whole sky: 140 draw_line calls would be 140 draw commands where one does,
 	# on a layer rebuilt every frame.
-	var key: Color = Palette.COLOURS["rain"] as Color
-	var a: float = key.a * RainLook.alpha_scale(RainLook.intensity(t))
+	var colour_key: String = String(look.get("colour", "rain"))
+	var key: Color = Palette.COLOURS[colour_key] as Color
+	var a: float = key.a * RainLook.alpha_scale(RainLook.intensity(t, look))
 	draw_multiline(open, Color(key.r, key.g, key.b, a), 1.0)
+
+
+# The lightning flash: one full-screen wash frame, read off the same drained-event record
+# `_camera_shake_from_events` reads above, never a subscription -- the owner's call, a screen
+# flash rather than a sim light pulse (docs/adr/0016, "considered and not taken"). `drain()` only
+# runs at the end of `world.step()` (CLAUDE.md's events trap), so a strike published mid-tick is
+# visible for exactly the frames drawn before the next drain overwrites the record with the next
+# tick's events -- one beat, no state kept here. Deliberately blind to the night's own wash and
+# its tunable, and to LightLook: a flash is not a light level, it is a moment.
+func _draw_lightning() -> void:
+	if world == null:
+		return
+	# Frozen while paused, like the rain: `world.events.drained` is cleared only by `world.step()`,
+	# and _process stops stepping behind `paused` while _draw keeps running, so a strike drained on
+	# the tick the game paused would otherwise paint the whole district white until it resumed.
+	if paused:
+		return
+	var struck: bool = false
+	for e in world.events.drained:
+		if not (e is Dictionary):
+			continue
+		if String((e as Dictionary).get("type", "")) == "weather.lightning":
+			struck = true
+			break
+	if not struck:
+		return
+	var flash: Color = Palette.COLOURS["lightning"] as Color
+	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), flash)
 
 
 # A tree: one tall picture standing on its trunk tile's south-edge centre, hung the way a pawn

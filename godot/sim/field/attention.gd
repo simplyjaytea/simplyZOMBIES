@@ -24,6 +24,11 @@ var _diagonal_cost: float
 var _wall_cost: float
 var _decay_per_tick: float
 var _wind_weights: PackedFloat32Array
+# The wind this field was last handed (set_wind), so the weather tick can see whether its own
+# stored wind has reached the field -- after a restore or an adopt_map it has not. Not weather
+# state: the field still does not know what a season is.
+var wind_x: float = 0.0
+var wind_y: float = 0.0
 var _scent_decay_per_step: float
 
 
@@ -55,17 +60,7 @@ func _init(c: int, r: int, solid: PackedByteArray, calib: Dictionary, tick_hz: f
 	var scent_interval: int = maxi(1, int(round(float(calib["scentIntervalTicks"]))))
 	var steps_per_half: float = (float(calib["scentHalfLifeMinutes"]) * 60.0 * tick_hz) / float(scent_interval)
 	_scent_decay_per_step = pow(0.5, 1.0 / steps_per_half)
-	var raw: Array[float] = [
-		max(0.0, 1.0 + float(calib["windX"])),
-		max(0.0, 1.0 - float(calib["windX"])),
-		max(0.0, 1.0 + float(calib["windY"])),
-		max(0.0, 1.0 - float(calib["windY"])),
-	]
-	var total: float = raw[0] + raw[1] + raw[2] + raw[3]
-	_wind_weights = PackedFloat32Array()
-	_wind_weights.resize(4)
-	for i in 4:
-		_wind_weights[i] = raw[i] / total
+	set_wind(float(calib["windX"]), float(calib["windY"]))
 
 
 static func default_calibration() -> Dictionary:
@@ -235,6 +230,29 @@ func add_scent(x: float, y: float, magnitude: float) -> void:
 	scent[cell] = ceiling if total > ceiling else total
 
 
+# The four neighbour weights scent diffuses through, from a wind vector: 1 +/- x east-west and
+# 1 +/- y north-south, normalised. Positive x pushes scent east (the west neighbour's share into
+# a cell grows), positive y pushes it south. The calibration's windX/windY are the boot value;
+# SimWeather hands in the drifting one and this file stays ignorant of why it changed.
+func set_wind(x: float, y: float) -> void:
+	wind_x = x
+	wind_y = y
+	var raw: Array[float] = [
+		max(0.0, 1.0 + x),
+		max(0.0, 1.0 - x),
+		max(0.0, 1.0 + y),
+		max(0.0, 1.0 - y),
+	]
+	var total: float = raw[0] + raw[1] + raw[2] + raw[3]
+	if total <= 0.0:
+		total = 4.0
+		raw = [1.0, 1.0, 1.0, 1.0]
+	_wind_weights = PackedFloat32Array()
+	_wind_weights.resize(4)
+	for i in 4:
+		_wind_weights[i] = raw[i] / total
+
+
 # `half_life_mul` scales this step's half-life: 1.0 is the calibrated step, and rain hands in the
 # weather's factor below one (SimBoot._diffuse), so 0.5 makes scent fade in half the minutes. A
 # parameter rather than a field read, so this file stays ignorant of weather the way it is
@@ -267,13 +285,24 @@ func diffuse_scent(half_life_mul: float = 1.0) -> void:
 		scent[i] = _scent_next[i]
 
 
-func decay() -> void:
+# `half_life_mul` scales this tick's half-life exactly as `diffuse_scent`'s does: 1.0 is the
+# calibrated tick, and a storm hands in 0.4 (SimBoot._decay), which makes noise fade in
+# four-tenths of the minutes -- docs/16's "extreme noise masking", the good half of a storm.
+# A parameter rather than a field read, so this file stays as ignorant of weather as it is of
+# which way the wind blows; and a half-life factor rather than a per-step one, because this
+# step runs *every* tick and a per-step number compounds 1200 times a minute (the scent's
+# first cut did exactly that and read as a colony wipe in the harness).
+func decay(half_life_mul: float = 1.0) -> void:
 	var floor_v: float = float(calibration["floor"])
+	# A factor above one would lengthen the half-life; none can arrive (the schema caps
+	# noiseHalfLifeMul at 1 and SimWeather clamps), so that branch is the identity, kept so the
+	# shape matches diffuse_scent's.
+	var d_tick: float = _decay_per_tick if half_life_mul >= 1.0 else pow(_decay_per_tick, 1.0 / maxf(0.01, half_life_mul))
 	for i in noise.size():
 		var v: float = noise[i]
 		if v == 0.0:
 			continue
-		var d: float = v * _decay_per_tick
+		var d: float = v * d_tick
 		noise[i] = 0.0 if d < floor_v else d
 
 

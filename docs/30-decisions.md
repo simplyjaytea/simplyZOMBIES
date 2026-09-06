@@ -1683,6 +1683,9 @@ docs/16's weather is Milestone 3, and when it lands the layer is re-keyed to it 
 competing with it. **Reversed in part 2026-09-06** — the owner opened a minimal rain state
 (docs/adr/0015, "Rain as sim state" below): the sim now decides *whether* it rains and the layer
 is re-keyed to it exactly as this clause promised; what the rain *looks* like stays this layer's.
+**Superseded in full 2026-09-06** — the weather-look slice re-keyed the whole sky, not only rain,
+to `SimWeather.kind` (docs/adr/0016): the sim now decides which of six kinds is on screen and
+this clause's "when it lands" is the slice below.
 
 **Every body is an overhead rig** (added by the characters slice, under four further owner
 directives of 2026-09-01). All character sprites are authored true-overhead like the player's,
@@ -2461,6 +2464,119 @@ The calls:
 - **What it did not take.** Wind (the four calibration weights, still not save state), fog,
   seasons, a ranged penalty, thirst relief, rain on the noise channel (`noise_propagation` stays
   unread), a wetness pool with its own HUD row. Each is docs/16's and each is a slice.
+
+## The sky has kinds, 2026-09-06
+
+The weather session, opened by the owner the same day rain landed, against ADR 0015's "each is
+its own slice in Milestone 3" (ADR 0016 records it). Four answers shaped it — storm, cold snap
+with snow, heat wave and a shifting wind, in that order; kinds as content; a simple calendar;
+snow that lies as well as falls — and the spine took these calls:
+
+- **One kind at a time, clear between spells.** `world.weather.kind` is one of six, each a JSON
+  entry declaring its range, its seasonal weights and its modifiers, and `SimWeather` exposes
+  one accessor a modifier, every one an identity under clear. A non-clear span is always
+  followed by clear and the first span is always clear, which keeps every gate world in the
+  chain under the sky it booted under and keeps the schedule readable: a spell, a gap, a spell.
+  Additive flags were considered and refused — three timers that overlap are a state nobody
+  designed.
+- **The calendar is five days a season and the weights are the season's.** A ten-day run sees
+  spring's rain and summer's heat; winter's cold snap and snow are in the tree and drawable on a
+  longer run or a different `startSeason`. `seasonDays` is the one number, content, the owner's.
+- **Wind is state and the field is told, and it prevails.** Direction re-rolled daily at
+  strength 0.6 (the field's old fixed lean), handed to `set_wind` and re-applied by the tick
+  on any mismatch rather than on a restore hook — the field's `restore` copies only its two
+  layers, `adopt_map` builds a fresh field, and world.gd must not learn a module's name. The
+  first cut drew any direction at all and a storm doubled it; the integration measured that as
+  a per-seed coin toss on the harness's survival floor (docs/23's record has the table), and
+  docs/16 says *prevailing* wind that shifts over days. So the day's angle wanders within
+  `windDriftDeg` (45°, climate content; 180° is the free wind back) of the field's calibrated
+  lean — the direction every district siting was measured under — and no shipped kind
+  multiplies it (the `windMul` key stays, gate-exercised). Whether the wind should be free is
+  the owner's (`HANDOFF.md`). Noise stays undirected: docs/16's "strong wind carries noise
+  further in one direction" is a propagation the field does not have, and the ADR says so
+  instead of pretending.
+- **The living slow through the modifier store, globally; the dead through their one accessor.**
+  A global-scope `move_speed` under source `weather` reaches every body that resolves the stat —
+  the player, raiders, the noise-per-metre scaler, and a recruit who arrives mid-snow — and is
+  re-applied idempotently by the tick against `appliedMoveMul`. Snow's slowing keys off the
+  **cover** (half laid) and not the fall, so the snow underfoot outlives the snowfall. And
+  `SimJobs._walk` now resolves `move_speed` at all: it never had, so every movement penalty in
+  the game had reached the player alone. A defect closed on the way and measured, not a design.
+- **The shift sits between the base and the wet.** A cold snap reads one band colder day and
+  night, indoors too — a roof is shelter from the wet, not from the cold — and only a lit fire
+  cancels it; a heat wave reads one band hotter by day outdoors and nothing cancels it, the
+  night being its own relief. `_hotter` is `_colder`'s mirror, and it is the one line through
+  which the hot half of `TEMP_ORDER` — in the enum since ADR 0002, set by nothing — is reached.
+- **The numbers are first cuts, recorded for the owner.** Every range, every weight, every
+  multiplier in the six entries and the climate: docs/23's record and `HANDOFF.md` item 0.
+- **Heat is a dose, and heatstroke is what armour costs.** The heat wave's slice mirrors the
+  cold's clock exactly -- `hotSinceTick` beside `coldSinceTick`, the same `EXPOSURE_TICKS`,
+  cleared by any roof, the night or the end of the spell -- because the two ends of the ladder
+  should read the same way to a player and because a second timing constant would be a second
+  thing to tune. What the dose buys is deliberately capped: the sun alone deepens `a_little_hot`
+  to `very_hot` and never further, body armour is worth a band the moment it goes on (docs/16's
+  "armor becomes punishing"), and `extremely_hot` -- heatstroke -- is reachable only in armour
+  after twice the exposure, so the deep band is a choice somebody made rather than weather that
+  happened to them. **Body armour is coverage, not a slot:** anything equipped whose base armours
+  the torso at 0.4 or better, which is the leather jacket and the scrap vest as shipped and not
+  the cloth wrap. The slot would have answered wrong twice -- the vest armours the torso from the
+  `vest` slot, and the wrap sits in the `torso` slot at 0.3, which is a garment. **The wrap stays
+  warm in the sun**: it still buys one band back through `_shift_temp`, so a wrapped body reads
+  comfortable where a bare one reads `a_little_hot`. That is on purpose and it is the same rule
+  it has always been -- a wrap moves you toward comfortable from either end -- rather than a
+  cooling effect anybody designed. **The corpse multiplier is the corpse's**: `corpseScentMul`
+  multiplies the emit loop only for an entity carrying a `corpse` component, so what the heat
+  does is make the dead carry, and a living body's scent under a heat wave is byte-identical to
+  its scent under clear. **The spoilage line is generic**: `_tick_spoilage` multiplies the pantry
+  rate by `SimWeather.spoilage_mul` and names no kind, so the cold snap's and the snow's 0.5 read
+  the same line the heat wave's 2.0 does. **No heatstroke injury**: the deep band is a mood, a
+  work multiplier, a HUD sentence and a dropped job, and it writes nothing to the body -- an
+  injury component would be a health-system decision and it is not this piece's to take.
+- **The storm's noise is a half-life, its lightning is a noise, and Guard works through it.**
+  `noiseHalfLifeMul` 0.4 is handed to `attention.decay()` as a factor on that tick's half-life,
+  the shape `diffuse_scent` already had and for the same reason twice over: this decay runs
+  every tick rather than every fifth, so a per-step multiplier would compound 1200 times a
+  minute and flatten the layer instead of shortening it. The field is told a number and still
+  does not know what weather is. A strike is a plain `noise.emitted` at 60 on a random open
+  outdoor tile plus a `weather.lightning` for the screen, and nothing else — no sim light
+  (the ADR's refusal), no sound, because `sfx.gd` dispatches one-shots by exact magnitude and
+  there is no thunder sample; 60 is deliberately none of 180, 120 or 4, so the dispatcher plays
+  nothing rather than a gunshot. The tile is drawn by rejection, sixteen tries and then silence,
+  rather than by walking the map for a strike that happens once every few minutes. And the work
+  refusal exempts **Guard**: standing the gate is watch, not work, and a storm is exactly the
+  night somebody has to be on it — the same night nobody can hear anything coming. Rest is
+  exempt too, and need-seek returns long before the refusal, so a dehydrating survivor still
+  walks out to the well. `godot:m2:storm` is the gate.
+- **What it did not take.** Fog, a ranged penalty, thirst relief, barricade damage, firewood,
+  frostbite, tracks, phase lengths by season, survivor forecasts, a sim light pulse per strike
+  (the owner chose noise and a screen flash). Each is named in what's left.
+- **The look slice, 2026-09-06.** `rain_look.gd`'s constants became one pure function a kind,
+  `look_of`, returning a `{fall, slant, lenMin, lenSpan, intensityMin, count, colour}` record —
+  rain's own numbers unchanged, a storm the same fall and lean at a higher floor and half again
+  as many streaks, and snow its own shape (slower, more lean, short enough to read as a dot) on
+  its own `snow` palette key rather than rain's. The cover is a lerp at the *one* place the
+  ground colour is already resolved in `_draw_district`, guarded by the same `is_indoors` check
+  every other floor branch there reads, so an indoor tile is never snowed on and cover 0.0 is
+  `Color.lerp` at weight zero — byte-identical to today, which is what keeps `check_topdown.gd`'s
+  GROUND lane pinned. The flash is one `world.events.drained` read for a `weather.lightning`
+  event, drawn as a full-screen wash and forgotten the same frame — no subscription, no state,
+  the `_camera_shake_from_events` precedent for reading the drained record rather than
+  subscribing to the bus. Owner's calls: snow falls *and* lies (a ground regrade, not only a
+  sky layer); lightning stays the screen flash ADR 0016 already chose, never a sim light pulse;
+  the look itself is arbitrated by screenshot, not by property bounds alone. Gate
+  `godot:check:weather`, seven lanes now (ACCENT, DEAD SOCKET, RAIN PURE, RAIN WIRED, ROOF,
+  COVER, FLASH); docs/23's record has the measured numbers.
+- **The cold snap's pantry, and the snow's, 2026-09-06.** `_tick_spoilage`'s rate is
+  `pantry_rate(world) * SimWeather.spoilage_mul(world)`, one generic read with no per-kind
+  branch — the heat slice writes the identical line in its own worktree, so the two merge without
+  a conflict. Cover melts at the climate's `meltPerTick` under **any** kind without its own
+  `coverPerTick`, cold snap included, because only `snow.json` declares one; that is the shipped
+  first cut, not a deliberate "cold preserves the pack" rule, and it is named here so a future
+  session does not read it as intent. What docs/16 promises for the cold half that stays unbuilt,
+  and why: firewood and its consumption (no fuel model exists to spend), frostbite as a permanent
+  injury (the wounds ladder has no cold-exposure hook to fire it from), crops failing (no crop
+  system), and tracks in snow (no tracker reads a footprint anywhere). Each stays named in what's
+  left rather than stubbed.
 
 ---
 

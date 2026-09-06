@@ -1,0 +1,10 @@
+{
+  "id": "weather.heat_wave",
+  "description": "docs/16's heat wave: one to three days where a body outdoors by day reads one band hotter -- the hot half of the temperature ladder, reachable at last -- thirst drains half again as fast, food spoils at twice the rate and a corpse's scent doubles. Summer's kind. First cuts for the owner. Read by SimWeather only.",
+  "durationTicks": { "min": 288000, "max": 864000 },
+  "weights": { "spring": 0, "summer": 4, "autumn": 1, "winter": 0 },
+  "tempShift": 1,
+  "thirstMul": 1.5,
+  "spoilageMul": 2.0,
+  "corpseScentMul": 2.0
+}
