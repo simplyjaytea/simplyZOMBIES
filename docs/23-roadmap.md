@@ -182,10 +182,6 @@ these are the pieces they open, in the order they land (colony loop, density, zo
 breaching, lethality, presentation). Each is one session with its own gate; five of them
 re-baseline the FAST balance record and say so in their record.
 
-- **The day belongs to the row, and Guard is the night post.** Guard is handed out only at
-  dusk and night and completes at dawn (`job.completed`, an Endurance point); by day an NPC
-  with Guard set works the rest of its row. `set_focus` overlays the preset on the authored
-  row instead of destroying it. Ellis's and Mara's rows gain day work. `godot:m2:jobs`.
 - **A starving colonist still eats, and a fire burns down.** `_tick_one`'s crisis early
   return goes, so hard hunger and thirst reach the seek; a lit campfire carries a burn-down
   clock and is doused past it unless cooking. `godot:m2:jobs`, `godot:m2:needs`.
@@ -3319,6 +3315,41 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Jobs** — ~~the day belongs to the row, and Guard is the night post~~ **landed**
+  (`godot:m2:jobs`, GUARD POST and AUTHORED), 2026-09-06, the first piece of the playable-state
+  group and the owner's decision 6. What was wrong: `_work_for` handed out the Guard post at any
+  hour and the Guard arm of `_advance_job` was a `pass` with `ticksLeft 0`, so it never
+  completed; Ellis's content row (`Guard 1, Firefight 1, Haul 2, Rest 3`) put him on the gate
+  from tick one for the whole run and Mara (`Doctor 1, Guard 2`) stood beside him whenever
+  nobody was hurt — **the boot colony never hauled, cooked, built, cleaned, buried, watered or
+  repaired** unless the player edited the grid. Now `_watch_hours` (Dusk or Night, off
+  `Clock.phase_of`) gates the post in `_work_for`, so by day the row's next column gets the
+  survivor; `_post_calls` in `_tick_one` drops a job that has not begun a channel (`ticksLeft 0`)
+  at dusk when Guard outranks it in the row's own sort order, so Mara finishes doctoring before
+  she stands the gate; the Guard arm completes at dawn through `_stop(world, ent, "Guard")`,
+  which is the first `job.completed{Guard}` there has ever been, and `skills.gd` reads it as an
+  Endurance point beside Rest's. `attach` keeps a content row as `jobPriorities.authored`, and
+  `set_focus` overlays the preset on it (the preset wins where it speaks, the authored row
+  survives where it is silent; Manual is the authored row again) instead of replacing the whole
+  row — one click on Ellis's focus word used to destroy his content. Content: Ellis's row gains
+  `Construct 3, Cook 3, Water 3`, Mara's `Cook 2, Water 3`, first cuts for the owner. `Auto`
+  stays Guard-less on purpose (the FOCUS lane still pins it): an Auto colony would tie-break
+  alphabetically onto Guard every night and never haul after dark. GUARD POST follows one booted
+  Ellis through a day (Guard is not on offer — the true negative asked directly — and he hauls),
+  a dusk (called to the post and walks to the gate), a dawn (`job.completed{Guard}` drained and
+  Endurance 0 → 1, banked under Manual so `end.legs` at cost 1 does not spend it the same
+  tick; then day work again) and a district whose `gate_a` anchor is removed (no post). The lane
+  clears the boot's shamblers first, because on the first run **Ellis was grabbed and killed on
+  the walk**: hauling the nearest loose item anywhere on the map had taken him to the far edge
+  among the wanderers, and the dusk walk back crossed them again (a throwaway driver printed
+  sixteen `grab.started` on him in a day) — the lane judges the router, and the finding is
+  what the scavenge-near-home piece in what's left exists to fix. AUTHORED: Medic on Ellis reads
+  `Doctor 1, Guard 2` from the preset and `Haul 2, Construct 3` from the content, and is not the
+  bare preset (the assertion that the overlay is read); Manual restores every column; a fresh
+  entity with no authored row under Medic is the bare preset, byte for byte. `check_m2_npc_combat`'s
+  POST lane now stands its guard at the first Dusk tick, since the post is not on offer by day.
+  FAST balance lines after, against the record above (a report, not a re-baseline — the slice
+  claims the row works, nothing about outcomes): see the four lines that close this bullet.
 - **Jobs** — ~~Cook has no claim on its ingredient~~ **landed** (`godot:m2:jobs`, COOK CLAIM),
   2026-09-06. `_cook_work` now writes a `reserved: {by, job}` component onto the raw it hands
   out; `_stock_base` skips a claim that is *live* — the holder still carries a Cook job targeting

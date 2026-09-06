@@ -2644,6 +2644,19 @@ from the schema — deleting it would triplicate every shared block and need a s
 oracle must also pass. The pieces are docs/23's playable-state group, in landing order; each
 records its own numbers here as a bullet under this entry when it lands.
 
+- **Guard is the night post, 2026-09-06.** The watch is Dusk and Night by `Clock.phase_of`,
+  nothing finer: a survivor with Guard on their row is called to the post at dusk only off a job
+  that has not begun a channel and only where Guard outranks that job in the row's own sort
+  (priority, then name), so a doctor finishes the dressing before she stands the gate, and the
+  watch completes at dawn — an Endurance point, the same region Rest pays into, because a night
+  stood is docs/08's hard night. The preset-over-authored rule for a focus change: the preset
+  wins every cell it names and the content row keeps every cell it does not, and Manual is the
+  content row again — the alternative, authored-over-preset, would let `Guard 1` outrank a Medic's
+  `Doctor 1` by the name tie-break and put the medic on the gate. `Auto` deliberately stays without
+  Guard: its nine columns at 3 tie-break alphabetically, and Guard would win every dusk for every
+  Auto survivor at once, so nobody would haul after dark. Ellis's and Mara's day columns
+  (`Construct 3, Cook 3, Water 3`; `Cook 2, Water 3`) are first cuts.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

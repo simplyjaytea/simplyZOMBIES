@@ -610,7 +610,15 @@ func _guard_post_lane() -> bool:
 	var post_x: float = float(gate.x) + 0.5
 	var post_y: float = float(gate.y) + 1.5
 	w.components.set_component(guard, "position", {"x": post_x, "y": post_y})
-	w.components.set_component(guard, "job", SimJobs._work_for(w, guard, "Guard"))
+	# Guard is a dusk-to-dawn post since 2026-09-06, so the watch has to be stood at dusk: the
+	# first Dusk tick, where the ambient is still daylight's and the sightline refusal reads as
+	# it did when this lane was written.
+	w.tick = Clock.tick_on_day(1, Clock.DAY_ENDS)
+	var post_job: Dictionary = SimJobs._work_for(w, guard, "Guard")
+	if post_job.is_empty():
+		push_error("no Guard job at dusk")
+		return false
+	w.components.set_component(guard, "job", post_job)
 	_zombie(w, post_x + 0.9, post_y)
 	var connected: int = _swings(w, guard, 600)
 	if connected < 1:

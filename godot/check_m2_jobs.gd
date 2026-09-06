@@ -10,6 +10,7 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const Clock = preload("res://sim/time/clock.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -25,8 +26,10 @@ func _run() -> void:
 	ok = _an_empty_left_by_a_drink_is_what_the_water_job_wants() and ok
 	ok = _succession() and ok
 	ok = _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() and ok
+	ok = _guard_is_the_night_post_and_the_day_belongs_to_the_row() and ok
+	ok = _a_focus_change_keeps_the_authored_row() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, and a cook claims its raw")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, and a focus change keeps the authored row")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -631,3 +634,166 @@ func _stand_at_fire(w: Variant, ent: int) -> void:
 	var fires: Array[int] = w.components.query(["campfire"])
 	var fp: Variant = w.components.get_component(fires[0], "position")
 	w.components.set_component(ent, "position", {"x": float((fp as Dictionary)["x"]), "y": float((fp as Dictionary)["y"])})
+
+
+# --- Guard is the dusk-to-dawn post (the owner's 2026-09-06 call) ---------------------------
+#
+# Before this, `_work_for` handed out the post at any hour and the Guard arm never completed, so
+# Ellis (Guard 1 in his content) stood the gate from tick one for the whole run and the boot
+# colony never hauled, cooked or built. Now: by day the post is not on offer and the row's next
+# column gets him; at dusk the post calls him off a job that has not begun a channel; at dawn
+# the watch completes -- the first `job.completed{Guard}` there has ever been -- and the skill web
+# reads it. The lane follows one booted Ellis through a day, a dusk, a night and a dawn.
+func _guard_is_the_night_post_and_the_day_belongs_to_the_row() -> bool:
+	var w: Variant = _world()
+	var ellis: int = _ellis(w)
+	if ellis < 0:
+		push_error("guard post: no Ellis in the playable boot")
+		return false
+	var post: Vector2i = SimTileMap.gate_a(w.tilemap)
+	if post.x < 0 or post.y < 0:
+		push_error("guard post: the playable boot names no gate, so there is no post to judge")
+		return false
+	if Clock.phase_of(int(w.tick)) != Clock.Phase.Day:
+		push_error("guard post: the boot is not in daylight (phase %d); the day half judges nothing" % Clock.phase_of(int(w.tick)))
+		return false
+	# This lane judges the router, not survival: a booted district scatters twenty shamblers, and
+	# an NPC hauling across it by day and walking to the gate at dusk can be grabbed and killed
+	# on the way (measured: Ellis lost his position at the map's north edge on the first run).
+	# `world.despawn`, not `entities.despawn`, so the components go with the bodies.
+	var cleared: int = 0
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+		cleared += 1
+	if cleared == 0:
+		push_error("guard post: the booted district stood no shamblers, which is not the district this lane was written against")
+		return false
+	# The true negative first, and directly: by day there is no Guard job to hand out.
+	if not SimJobs._work_for(w, ellis, "Guard").is_empty():
+		push_error("guard post: Guard was on offer by day")
+		return false
+	# By day the row works. Ellis's row is Guard 1, Haul 2, Construct 3 ...; Guard refuses, so
+	# Haul (the booted district scatters loot) is what he takes, and never Guard.
+	var day_kinds: Dictionary = {}
+	for _i in 2000:
+		w.step()
+		var job: Variant = w.components.get_component(ellis, "job")
+		if job is Dictionary:
+			day_kinds[String((job as Dictionary).get("kind", ""))] = true
+	if day_kinds.has("Guard"):
+		push_error("guard post: Ellis took Guard by day (%s)" % str(day_kinds.keys()))
+		return false
+	if day_kinds.is_empty():
+		push_error("guard post: Ellis took no work by day; the day half judged nothing")
+		return false
+	# Dusk calls him to the post, and he walks to it.
+	w.tick = Clock.tick_on_day(1, Clock.DAY_ENDS)
+	var called: bool = false
+	for _i in 3000:
+		w.step()
+		var job: Variant = w.components.get_component(ellis, "job")
+		if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Guard":
+			called = true
+			break
+	if not called:
+		push_error("guard post: dusk never called Ellis to the post")
+		return false
+	var at_post: bool = false
+	for _i in 6000:
+		w.step()
+		if SimJobs._at(w, ellis, post, SimJobs.REACH):
+			at_post = true
+			break
+	if not at_post:
+		push_error("guard post: Ellis never reached the gate")
+		return false
+	# Dawn completes the watch, and the skill web reads it: an Endurance point. Manual so the
+	# point banks rather than being spent on `end.legs` (cost 1) the same tick it lands.
+	SimJobs.set_focus(w, ellis, "Manual", "player")
+	var web: Dictionary = w.components.get_component(ellis, "skillWeb") as Dictionary
+	var before: int = int((web.get("points", {}) as Dictionary).get("Endurance", 0))
+	var done: Array = []
+	w.events.subscribe({"id": "check.guard-done", "type": "job.completed", "handler": func(e: Dictionary) -> void:
+		if String(e.get("kind", "")) == "Guard" and int(e.get("entity", -1)) == ellis:
+			done.append(int(e.get("entity", -1)))
+	})
+	w.tick = Clock.tick_on_day(2, Clock.DAY_BEGINS)
+	for _i in 5:
+		w.step()
+	if done.is_empty():
+		push_error("guard post: dawn did not complete the watch")
+		return false
+	web = w.components.get_component(ellis, "skillWeb") as Dictionary
+	var after: int = int((web.get("points", {}) as Dictionary).get("Endurance", 0))
+	if after != before + 1:
+		push_error("guard post: Endurance read %d before the watch and %d after; the completion reached nobody" % [before, after])
+		return false
+	# And the day belongs to the row again.
+	var repicked: bool = false
+	for _i in 2000:
+		w.step()
+		var job: Variant = w.components.get_component(ellis, "job")
+		if job is Dictionary and String((job as Dictionary).get("kind", "")) != "Guard":
+			repicked = true
+			break
+	if not repicked:
+		push_error("guard post: Ellis took no day work after the watch")
+		return false
+	# A district with no gate anchor has no post, dusk or not.
+	w.tick = Clock.tick_on_day(2, Clock.DAY_ENDS)
+	var anchors: Dictionary = w.tilemap.anchors
+	var gate_anchor: Variant = anchors.get("gate_a")
+	anchors.erase("gate_a")
+	var offered: bool = not SimJobs._work_for(w, ellis, "Guard").is_empty()
+	anchors["gate_a"] = gate_anchor
+	if offered:
+		push_error("guard post: a district with no gate handed out a post")
+		return false
+	print("GUARD POST OK by day the row (%s), at dusk the post, at dawn job.completed and Endurance %d -> %d, no gate no post" % [", ".join(PackedStringArray(day_kinds.keys())), before, after])
+	return true
+
+
+# A focus change used to replace the whole row with the preset, so one click on Ellis's focus
+# word destroyed the row his content wrote. Now the preset wins where it speaks and the authored
+# row survives where it is silent; Manual is the authored row again; a generated survivor, who
+# has no authored row, gets exactly the preset -- the true negative that the overlay invents
+# nothing.
+func _a_focus_change_keeps_the_authored_row() -> bool:
+	var w: Variant = _world()
+	var ellis: int = _ellis(w)
+	var jp: Dictionary = w.components.get_component(ellis, "jobPriorities") as Dictionary
+	var authored: Variant = jp.get("authored", null)
+	if not authored is Dictionary or int((authored as Dictionary).get("Guard", 0)) != 1 or int((authored as Dictionary).get("Haul", 0)) != 2:
+		push_error("authored: Ellis's content row was not kept (%s)" % str(authored))
+		return false
+	SimJobs.set_focus(w, ellis, "Medic", "player")
+	var cols: Dictionary = (w.components.get_component(ellis, "jobPriorities") as Dictionary)["cols"] as Dictionary
+	if int(cols.get("Doctor", 0)) != 1 or int(cols.get("Guard", 0)) != 2:
+		push_error("authored: the Medic preset did not win where it speaks (%s)" % str(cols))
+		return false
+	if int(cols.get("Haul", 0)) != 2 or int(cols.get("Construct", 0)) != 3:
+		push_error("authored: the authored row did not survive where the preset is silent (%s)" % str(cols))
+		return false
+	if cols == SimJobs.preset("Medic"):
+		push_error("authored: Ellis under Medic reads as the bare preset; the overlay is not being read")
+		return false
+	SimJobs.set_focus(w, ellis, "Manual", "player")
+	cols = (w.components.get_component(ellis, "jobPriorities") as Dictionary)["cols"] as Dictionary
+	for c in SimJobs.COLUMNS:
+		if int(cols.get(c, 0)) != int((authored as Dictionary).get(c, 0)):
+			push_error("authored: Manual did not restore %s (%d vs %d)" % [c, int(cols.get(c, 0)), int((authored as Dictionary).get(c, 0))])
+			return false
+	# A survivor with no authored row: the preset, exactly.
+	var fresh: int = w.entities.spawn()
+	SimJobs.attach(w, fresh, "Auto")
+	if (w.components.get_component(fresh, "jobPriorities") as Dictionary).has("authored"):
+		push_error("authored: a generated row grew an authored copy")
+		return false
+	SimJobs.set_focus(w, fresh, "Medic", "player")
+	var fresh_cols: Dictionary = (w.components.get_component(fresh, "jobPriorities") as Dictionary)["cols"] as Dictionary
+	if fresh_cols != SimJobs.preset("Medic"):
+		push_error("authored: a generated survivor under Medic is not the bare preset (%s)" % str(fresh_cols))
+		return false
+	print("AUTHORED OK preset over authored, authored fills the gaps, Manual restores, a generated row is the bare preset")
+	return true
+

@@ -94,6 +94,9 @@ static func register_module(world: Variant) -> void:
 			"Rest":
 				# Docs/08: Endurance from hard nights / recovery — Rest is the slice hook.
 				_earn(world, ent, "Endurance", 1)
+			"Guard":
+				# The other hard night: a watch stood dusk to dawn, completed at first light.
+				_earn(world, ent, "Endurance", 1)
 			_:
 				pass
 	})
