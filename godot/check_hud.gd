@@ -174,7 +174,7 @@ func _the_scanner_can_actually_fail() -> bool:
 			push_error("the digit scanner passed a line it exists to catch: '%s'" % line)
 			return false
 	# And the exemption must still exempt: the day counter alone, and nothing else on the line.
-	for clean in ["day 3, Dusk", "day 1, Dawn", "You're bleeding.", "hungry", "It's raining.", "You're soaked.", "You're uncomfortable — hot.", "You're overheating.", "Heatstroke — get out of the sun."]:
+	for clean in ["day 3, Dusk", "day 1, Dawn", "You're bleeding.", "hungry", "It's raining.", "You're soaked.", "A storm is over the district.", "It's bitterly cold.", "It's snowing.", "The heat is brutal.", "You're uncomfortable — hot.", "You're overheating.", "Heatstroke — get out of the sun."]:
 		if not _digits(_without_day_counter(clean)).is_empty():
 			push_error("the digit scanner failed a legal line: '%s'" % clean)
 			return false
