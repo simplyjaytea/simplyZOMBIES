@@ -422,12 +422,6 @@ content first cut for the owner.
   pantry rate; the night-deepening clock measured under a cold snap; the cover that lays and
   melts drawn on the ground (the look piece). Gate `godot:m2:cold`. Firewood, frostbite, crops
   and tracks are not this piece.
-- **The weather's look.** `rain_look.gd` parametrised a kind — snow falls slow, short and pale
-  on its own `snow` palette key, a storm at a higher intensity floor; a lightning strike is one
-  full-screen wash frame read off `world.events.drained` (the camera-shake precedent); snow
-  cover lerps every outdoor un-roofed ground fill toward `snow` by `SimWeather.snow_cover`, so
-  cover 0 is byte-identical to today; `check_weather.gd` gains a lane a claim and a screenshot
-  at cover 1.0 for the owner. The owner asked for the ground cover (2026-09-06).
 - **What the weather left behind.** Fog (sight collapse both ways); the ranged accuracy penalty
   in rain; rain filling water; barricade damage and rot in a storm; firewood consumption and
   frostbite in a cold snap; tracks in snow; seasons changing the phase lengths (docs/02);
@@ -3332,6 +3326,42 @@ not a to-do list:
   component (the deep band is a mood, a work multiplier, a sentence and a dropped job, and writes
   nothing to the body), and no balance run — the fast tier cannot see the heat wave at all, which
   the spine's record already measures and carries.
+- **Weather** — ~~the weather's look~~ **landed** (`npm run godot:check:weather` extended to
+  seven lanes, `WEATHER_OK`, 0.1 s of a 60 s budget), 2026-09-06 — `rain_look.gd`'s constants
+  became one pure function a kind, `look_of("rain"|"storm"|"snow")`, returning a
+  `{fall, slant, lenMin, lenSpan, intensityMin, count, colour}` record: rain unchanged (fall
+  9.0, slant 0.22, streak length 9-20 px, floor 0.4, 140 streaks); storm the same fall and lean
+  at floor 0.8 and 200 streaks (rain's loud sibling, docs/16); snow its own shape (fall 2.0,
+  slant 0.35, length 2-4 px so a flake reads as a dot, floor 0.5) on its own `snow` palette key
+  rather than rain's, measured falling slower than rain in the RAIN PURE lane, re-run per kind
+  (geometry, determinism, the frozen-sky negative, intensity bounds) rather than trusted from
+  rain's own numbers alone. `_draw_rain` now asks `SimWeather.kind` and draws under
+  `SimWeather.raining` **or** kind `snow`, off the kind's own `look_of` record and colour key.
+  Ground: `Appearance.ground_with_snow(ground, cover)` (`ground.lerp(Palette.COLOURS["snow"],
+  cover * Palette.SNOW_COVER_MAX)`, `SNOW_COVER_MAX` 0.55) called once at `_draw_district`'s one
+  ground read, guarded by the same `SimTileMap.is_indoors` check every other floor branch there
+  already reads — an indoor tile never regrades and cover 0.0 is `Color.lerp` at weight zero,
+  which the COVER lane proves byte-identical to today (and `check_topdown.gd`'s GROUND lane,
+  unmodified, confirms the paved pin held). Lightning: `_draw_lightning()`, called from `_draw`
+  right after `_draw_rain()` and before `_draw_night_wash()`, reads `world.events.drained` for a
+  `weather.lightning` event (the `_camera_shake_from_events` precedent — a read, never a
+  subscription) and draws one full-screen wash at the new `lightning` palette key when one is
+  present, nothing when it is not; it reads neither `NIGHT_WASH` nor `LightLook`, so a strike is
+  a beat, not a light level. Two new palette keys, `snow` (`#c8cdd621`, rain's own alpha) and
+  `lightning` (`#d8d8cf59`), both inside the ACCENT lane's muted mark band (S <= 0.20,
+  V in [0.60, 0.88]) with the flash's own wider alpha band [0.25, 0.45] beside rain and snow's
+  [0.05, 0.18]. `check_weather.gd` gained COVER and FLASH (textual reach plus the pure
+  `ground_with_snow` measured at 0.0/0.5/1.0/over/under, and a fabricated drained list with and
+  without a strike — the headless-`_draw` limit `check_light_look.gd`'s DEAD SOCKET comment
+  names, so both lanes read function bodies the way that file's does) and re-ran RAIN PURE/WIRED
+  per kind; every other lane's true-positive numbers are unchanged and every existing lane stayed
+  green. Two screenshots at `.hermes/plans/2026-09-06_weather-look/` (`snow-cover-64.png`, a
+  full snow cover showing the street's paved tint pulled cool while the interior floor beside it
+  stays warm; `storm-lightning-64.png`, a forced strike's white wash over a storm). The owner's
+  calls, 2026-09-06: snow falls *and* lies; lightning stays the screen flash ADR 0016 already
+  chose over a sim light pulse; the look is arbitrated by screenshot. `docs/16`'s ranged penalty,
+  fog, barricade damage, firewood, frostbite, tracks, phase lengths by season and survivor
+  forecasts remain unbuilt, named above under "What the weather left behind".
 - **Weather** — ~~the sky has kinds, seasons and a wind~~ **landed** (`npm run godot:m2:weather`
   rewritten, `M2_WEATHER_OK`, thirteen lanes; `godot:m2:save` and `godot:m2:fortify` at v21),
   2026-09-06 — the spine of the owner's weather session, opened the same day rain landed
