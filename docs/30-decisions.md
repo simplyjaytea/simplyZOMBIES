@@ -2544,6 +2544,17 @@ snow that lies as well as falls — and the spine took these calls:
   the look itself is arbitrated by screenshot, not by property bounds alone. Gate
   `godot:check:weather`, seven lanes now (ACCENT, DEAD SOCKET, RAIN PURE, RAIN WIRED, ROOF,
   COVER, FLASH); docs/23's record has the measured numbers.
+- **The cold snap's pantry, and the snow's, 2026-09-06.** `_tick_spoilage`'s rate is
+  `pantry_rate(world) * SimWeather.spoilage_mul(world)`, one generic read with no per-kind
+  branch — the heat slice writes the identical line in its own worktree, so the two merge without
+  a conflict. Cover melts at the climate's `meltPerTick` under **any** kind without its own
+  `coverPerTick`, cold snap included, because only `snow.json` declares one; that is the shipped
+  first cut, not a deliberate "cold preserves the pack" rule, and it is named here so a future
+  session does not read it as intent. What docs/16 promises for the cold half that stays unbuilt,
+  and why: firewood and its consumption (no fuel model exists to spend), frostbite as a permanent
+  injury (the wounds ladder has no cold-exposure hook to fire it from), crops failing (no crop
+  system), and tracks in snow (no tracker reads a footprint anywhere). Each stays named in what's
+  left rather than stubbed.
 
 ---
 
