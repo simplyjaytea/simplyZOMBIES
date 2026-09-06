@@ -52,6 +52,22 @@ const RELIEF_SLEEP_MUL: float = 0.5
 const RELIEF_PER_MEAL: float = 12.0
 const RELIEF_PER_DRINK: float = 18.0
 
+# The one base the Water job refills and the wound ladder cleans with. Drinking itself is no longer
+# keyed on this id -- anything with a `drink` block is drinkable (`drink_spec`) -- but the NPC thirst
+# job and the wash verb still reach for water by name, and this is the one copy of the name.
+const WATER_ID: String = "item.water.bottle"
+
+# --- stimulants (docs/04) ----------------------------------------------------------------------
+#
+# docs/04: "No caffeine-style hard reset. Stimulants exist as rare loot with a real crash
+# afterward." A stimulant is a drink whose `drink` block carries `rest` (the lift, paid into the
+# rest pool now) and `crashRest` + `crashAfterTicks` (the same pool debited later). It is a move
+# on the pool and not a modifier on a stat, so every reader of rest -- the drain, work_mul, the
+# HUD clause, the passed-out crisis -- sees it without a second code path. The debt sits on the
+# needs component as `stimulantCrashRest` with its clock `stimulantUntilTick`; a second can inside
+# one lift adds to the debt and pushes the clock out, so chaining defers the crash and makes it
+# bigger, and a pool that hits the floor when it lands is the ordinary collapse.
+
 # The latrine. Scent 12 is docs/03's emitter table, unchanged -- a latrine was always going to be
 # an emitter; what is new is that somebody has a reason to walk to it.
 const LATRINE_SCENT: float = 12.0
@@ -215,6 +231,38 @@ static func is_food(world: Variant, base_id: String) -> bool:
 	return food_spec(world, base_id) != null
 
 
+# The `drink` block, judged whole, or null. Presence is what makes an item a drink -- the `food`
+# rule -- but a block with a `rest` lift and no crash behind it is refused outright rather than
+# drunk for free: the content validator does not recurse, and a free stimulant is exactly the
+# wrong number nothing would report. Same reason SimVehicles.drive_of answers {} for a half block.
+static func drink_spec(world: Variant, base_id: String) -> Variant:
+	var base: Variant = SimItems.content_entry(world, "item", base_id)
+	if not (base is Dictionary):
+		return null
+	var spec: Variant = (base as Dictionary).get("drink")
+	if not (spec is Dictionary):
+		return null
+	var d: Dictionary = spec as Dictionary
+	var thirst: Variant = d.get("thirst")
+	if not (thirst is float or thirst is int) or float(thirst) < 0.0:
+		return null
+	var lift: Variant = d.get("rest", 0.0)
+	if not (lift is float or lift is int) or float(lift) < 0.0:
+		return null
+	if float(lift) > 0.0:
+		var crash: Variant = d.get("crashRest")
+		var after: Variant = d.get("crashAfterTicks")
+		if not (crash is float or crash is int) or float(crash) <= 0.0:
+			return null
+		if not (after is int or after is float) or int(after) <= 0:
+			return null
+	return d
+
+
+static func is_drink(world: Variant, base_id: String) -> bool:
+	return drink_spec(world, base_id) != null
+
+
 # --- foodborne illness (docs/04) --------------------------------------------------------------
 #
 # docs/04: "Quality matters, not just quantity: raw and spoiled food fills the bar but damages mood
@@ -357,6 +405,8 @@ static func blank() -> Dictionary:
 		"sleepQuality": 1.0,
 		"sleepQualityTicks": 0,
 		"sleptMood": 0.0,
+		"stimulantUntilTick": -1,
+		"stimulantCrashRest": 0.0,
 	}
 
 
@@ -504,6 +554,9 @@ static func register_module(world: Variant) -> void:
 	)
 	world.systems.register("need.rest", "needs", 12, func(w: Variant) -> void:
 		_tick_rest(w)
+	)
+	world.systems.register("need.stimulant", "needs", 11, func(w: Variant) -> void:
+		_tick_stimulant(w)
 	)
 	world.systems.register("need.relief", "needs", 12, func(w: Variant) -> void:
 		_tick_relief(w)
@@ -739,6 +792,35 @@ static func _tick_rest(world: Variant) -> void:
 		if String(n.get("crisis", "")) == "passed_out" and float(n.get("rest", 0.0)) >= 20.0:
 			n["crisis"] = "none"
 			_wake(world, ent)
+
+
+# The stimulant clock: one comparison per survivor, the illness clock's shape. The crash lands
+# whatever phase it is -- rest does not drain at night, but a debt is not a drain.
+static func _tick_stimulant(world: Variant) -> void:
+	if hold_max(world):
+		return
+	for ent in _survivors(world):
+		var n: Dictionary = of(world, int(ent))
+		var until: int = int(n.get("stimulantUntilTick", -1))
+		if until < 0 or int(world.tick) < until:
+			continue
+		_land_crash(world, int(ent), n)
+
+
+static func _land_crash(world: Variant, ent: int, n: Dictionary) -> void:
+	var debt: float = float(n.get("stimulantCrashRest", 0.0))
+	n["stimulantCrashRest"] = 0.0
+	n["stimulantUntilTick"] = -1
+	var before: float = float(n.get("rest", 100.0))
+	var after: float = maxf(0.0, before - debt)
+	n["rest"] = after
+	_cross(world, ent, n, "rest", before, after)
+	# _tick_rest's own collapse, verbatim, guarded against a body already in a bed: _start_sleep
+	# on a sleeper would overwrite `sleeping.bed` and leave the bed's `occupiedBy` set.
+	if after <= HARD and not world.components.has_component(ent, "sleeping"):
+		n["crisis"] = "passed_out"
+		_start_sleep(world, ent, -1)
+	world.events.publish({"type": "need.crashed", "entity": ent, "rest": debt})
 
 
 static func _refill_sleep(world: Variant, ent: int, n: Dictionary) -> void:
@@ -1224,6 +1306,8 @@ static func _hold_one(world: Variant, ent: int, n: Dictionary) -> void:
 	n["sleepQuality"] = 1.0
 	n["sleepQualityTicks"] = 0
 	n["sleptMood"] = 0.0
+	n["stimulantUntilTick"] = -1
+	n["stimulantCrashRest"] = 0.0
 	_apply_slept(world, ent, 0.0)
 	_strip_need_mood(world, ent)
 
@@ -1305,7 +1389,7 @@ static func _dirt(world: Variant, entity: int, bands: int) -> void:
 
 
 static func wash(world: Variant, entity: int) -> bool:
-	if not _consume_base(world, entity, "item.water.bottle"):
+	if not _consume_base(world, entity, WATER_ID):
 		return false
 	return wash_at_source(world, entity)
 
@@ -1318,16 +1402,43 @@ static func wash_at_source(world: Variant, entity: int) -> bool:
 	return true
 
 
+# Water, by name: what the NPC thirst job reaches for. Same signature it always had; the +50 it
+# used to carry as a literal now comes off the bottle's own `drink` block through drink_item.
 static func drink(world: Variant, entity: int) -> bool:
-	if not _consume_base(world, entity, "item.water.bottle"):
+	var bottle: int = _carried_base(world, entity, WATER_ID)
+	return bottle >= 0 and drink_item(world, entity, bottle)
+
+
+# Any drink, by item. Consumed first, so a refused consume leaves nothing behind (the `eat` rule);
+# then the pool moves, and if the block carries a lift the crash is booked against the same pool.
+static func drink_item(world: Variant, entity: int, item: int) -> bool:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary:
+		return false
+	var bid: String = String((base as Dictionary).get("baseId", ""))
+	var spec_v: Variant = drink_spec(world, bid)
+	if spec_v == null:
+		return false
+	var spec: Dictionary = spec_v as Dictionary
+	if not _consume_item(world, entity, item):
 		return false
 	var n: Dictionary = of(world, entity)
-	n["thirst"] = minf(100.0, float(n.get("thirst", 0.0)) + 50.0)
+	n["thirst"] = minf(100.0, float(n.get("thirst", 0.0)) + float(spec.get("thirst", 0.0)))
 	if String(n.get("crisis", "")) == "dehydrating" and float(n["thirst"]) > 0.0:
 		n["crisis"] = "none"
 		n["dehydratingSinceTick"] = -1
+	var lift: float = float(spec.get("rest", 0.0))
+	if lift > 0.0:
+		n["rest"] = minf(100.0, float(n.get("rest", 0.0)) + lift)
+		# Accumulate the debt and reset the clock: chaining defers the crash and compounds it,
+		# never wipes it.
+		n["stimulantCrashRest"] = float(n.get("stimulantCrashRest", 0.0)) + float(spec.get("crashRest", 0.0))
+		n["stimulantUntilTick"] = int(world.tick) + int(spec.get("crashAfterTicks", 0))
+	if spec.has("mood"):
+		_apply_meal_mood(world, entity, float(spec["mood"]))
 	_apply_muls(world, entity, n)
 	_intake(world, entity, RELIEF_PER_DRINK)
+	world.events.publish({"type": "need.drank", "entity": entity, "item": item, "baseId": bid, "stimulant": lift > 0.0})
 	return true
 
 
@@ -1376,38 +1487,73 @@ static func use_item(world: Variant, entity: int, item: int, as_wash: bool = fal
 	if not base is Dictionary:
 		return false
 	var bid: String = String((base as Dictionary).get("baseId", ""))
-	if bid == "item.water.bottle":
-		if as_wash:
-			return wash(world, entity)
+	if as_wash:
+		return wash(world, entity)
+	if drink_spec(world, bid) != null:
+		# Water on a filthy body is a wash unless you are dying of thirst -- keyed on the base's
+		# cleanTier rather than its id, because "this is water" is content.
+		var entry: Variant = SimItems.content_entry(world, "item", bid)
+		var is_water: bool = entry is Dictionary and String((entry as Dictionary).get("cleanTier", "")) == "water"
 		var n: Dictionary = of(world, entity)
-		if String(n.get("hygiene", "clean")) == "filthy" and String(n.get("crisis", "none")) != "dehydrating":
+		if is_water and String(n.get("hygiene", "clean")) == "filthy" and String(n.get("crisis", "none")) != "dehydrating":
 			return wash(world, entity)
-		return drink(world, entity)
+		return drink_item(world, entity, item)
 	if is_food(world, bid):
 		return eat(world, entity, item)
 	return false
 
 
-static func _consume_base(world: Variant, actor: int, base_id: String) -> bool:
+static func _carried_base(world: Variant, actor: int, base_id: String) -> int:
 	for item in SimInventory.carried_items(world, actor):
 		var base: Variant = world.components.get_component(item, "itemBase")
 		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == base_id:
-			return _consume_item(world, actor, item)
-	return false
+			return int(item)
+	return -1
+
+
+static func _consume_base(world: Variant, actor: int, base_id: String) -> bool:
+	var item: int = _carried_base(world, actor, base_id)
+	return item >= 0 and _consume_item(world, actor, item)
 
 
 static func consume_base(world: Variant, actor: int, base_id: String) -> bool:
 	return _consume_base(world, actor, base_id)
 
 
-static func _consume_item(_world: Variant, _actor: int, item: int) -> bool:
-	var stack: Variant = _world.components.get_component(item, "stack")
+static func consume_item(world: Variant, actor: int, item: int) -> bool:
+	return _consume_item(world, actor, item)
+
+
+# The one place a unit of anything is spent -- a drink, a wash, a wound cleaned with the bottle, a
+# can poured -- so the one place what is left behind (`empties`) is decided.
+static func _consume_item(world: Variant, actor: int, item: int) -> bool:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	var bid: String = String((base as Dictionary).get("baseId", "")) if base is Dictionary else ""
+	var stack: Variant = world.components.get_component(item, "stack")
 	if stack is Dictionary and int((stack as Dictionary).get("count", 1)) > 1:
 		(stack as Dictionary)["count"] = int((stack as Dictionary)["count"]) - 1
-		return true
-	SimInventory.remove_from_container(_world, item)
-	_world.despawn(item)
+	else:
+		SimInventory.remove_from_container(world, item)
+		world.despawn(item)
+	_leave_empty(world, actor, bid)
 	return true
+
+
+# What a spent unit leaves in the hand: the base its `empties` names, stowed where the unit was or
+# dropped at the feet when nothing has room. A scavenged spawn draws no RNG (its tier has no
+# affixes to roll), so this cannot move a seeded run.
+static func _leave_empty(world: Variant, actor: int, base_id: String) -> void:
+	var entry: Variant = SimItems.content_entry(world, "item", base_id)
+	if not (entry is Dictionary):
+		return
+	var empties: String = String((entry as Dictionary).get("empties", ""))
+	if empties.is_empty() or SimItems.content_entry(world, "item", empties) == null:
+		return
+	var left: int = SimItems.spawn_item(world, empties, {"tier": "scavenged"})
+	if SimInventory.stow(world, actor, left):
+		return
+	if not SimInventory.drop_at_feet(world, actor, left):
+		world.despawn(left)
 
 
 static func start_sleep(world: Variant, entity: int, bed: int) -> void:
@@ -1706,6 +1852,11 @@ static func hud_clause(world: Variant, entity: int, panel: bool = false) -> Stri
 			picks.append({"rank": 36, "hud": "You're groggy.", "panel": "You're groggy — last night's sleep was broken."})
 		"barely_slept":
 			picks.append({"rank": 34, "hud": "You're reeling.", "panel": "You're reeling — you barely slept last night."})
+	# The stimulant's tell: below groggy (a bad night already had is worse news than a lift you
+	# chose), above shaken. This is the rule the player can read -- the crash is coming, and the
+	# word says so -- rather than a roll nobody can see.
+	if int(n.get("stimulantUntilTick", -1)) > int(world.tick):
+		picks.append({"rank": 38, "hud": "You're wired.", "panel": "You're wired — it will wear off, and then it will cost you."})
 	if world.modifiers != null:
 		var mood: float = float(world.modifiers.call("resolve", "mood", entity))
 		if float(n.get("grief", 0.0)) >= GRIEF_HEARD and mood > -80.0:

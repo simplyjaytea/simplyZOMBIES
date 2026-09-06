@@ -39,7 +39,8 @@ is approaching.
 - **A face is three pixels.** Two 1 px eyes 3 px apart and one brow pixel above and to the left
   — at 32 px wide there is no room for a mouth, and the placement is the whole of it.
 
-The worn look landed 2026-09-04 — sixteen overlays, one per base declaring a drawn slot, under
+The worn look landed 2026-09-04 — sixteen overlays, one per base declaring a drawn slot, and the
+gear catalogue of 2026-09-06 added fifteen more (thirty-one in all), under
 "Equipped-item overlays" below. Walls and roofs landed the same day as the pawns: `wall_*`,
 `roof_*` and `face_*` are tile art, under "Tile art" below; the trees landed with them, under
 "The tree" below. The vehicles landed after them — one three-quarter picture per class, variant
@@ -192,7 +193,7 @@ rigs, drawn through one `_figure` assembler whose fixed order (shade before outl
 load-bearing, not style — and `npm run sprites:check` fails if a committed PNG and that code
 disagree. `survivor_mara.png` and `zombie_shambler.png` were the last hand-authored bodies;
 the three hand-drawn `item_*_equip*` overlays were the last hand art of any kind, and
-`tools/sprites/parts/gear.py` generates all sixteen of them now. **Nothing in the sprite directory
+`tools/sprites/parts/gear.py` generates all thirty-one of them now. **Nothing in the sprite directory
 is hand-authored any more** — the next hand-polished replacement, whenever it lands, is a deletion
 here rather than an addition (`tools/sprites/README.md`'s standing rule). - **Filename:**
 `<key>.png`, lowercase, `[a-z0-9_.]` only. The filename minus `.png` **is** the registry key.
