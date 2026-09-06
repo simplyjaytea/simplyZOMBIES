@@ -32,8 +32,22 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-06 — the sky has kinds** (`npm run godot:m2:weather` rewritten, `M2_WEATHER_OK`,
+thirteen lanes; `SAVE_VERSION` 21), the spine of the owner's weather session, opened the same
+day rain landed and decided in four answers — storm, cold snap with snow, heat wave and a
+shifting wind; kinds as content; a five-day-season calendar; snow that lies as well as falls
+(ADR 0016). Six kinds under `content/weather/`, the globals in a new `climate` type, a wind
+that drifts daily and leans the scent field, the temperature shift that makes the hot bands
+reachable, the living slowed through a global modifier and the dead through their one speed
+read, and a hot body that seeks a roof rather than the fire. It also closed a defect: NPC
+survivors never read `move_speed`, so the limp, encumbrance and blood loss had only ever slowed
+the player. docs/30's "The sky has kinds" has the calls; docs/23's record the measurements, the
+balance before and after, and the fast tier's blind spot (it cannot see a heat wave). The
+storm's noise and lightning, the cold snap's pantry, the heat wave's clock and thirst, and the
+look (snow flakes, ground cover, a lightning flash) are the named pieces in what's left.
+
 **2026-09-06 — rain is sim state** (`npm run godot:m2:weather`, `M2_WEATHER_OK`, eight lanes;
-`SAVE_VERSION` 20), the fourth slice of the survival session and the one the owner opened
+`SAVE_VERSION` 20, now 21 under the weather spine), the fourth slice of the survival session and the one the owner opened
 against ADR 0002 (ADR 0015 records the reversal): it rains in spans drawn on the sim's own
 stream — dry twelve to thirty-six hours, wet two to six, first cuts — a body outdoors in it is
 wet and reads one band colder until a roof, an hour, or a fire dries it, scent washes off the
@@ -196,6 +210,13 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    thirst — docs/30's splint and well-water entries; and the rain's numbers (dry 12–36 h, wet
    2–6 h, the scent half-life halved, 200 / 12000 / 2400 ticks to wet, to dry, to dry by a fire) —
    docs/30's "Rain as sim state" and `content/weather/rain.json`, every one a content number.
+   **And by the weather spine (2026-09-06):** every duration range and seasonal weight in the
+   six kind entries (storm 1–3 h, cold snap and heat wave 1–3 days, snow 4–10 h; rain spring 5
+   / summer 2 / autumn 3 / winter 1, and so on), the multipliers (storm scent ×0.35 and noise
+   ×0.4, cold shamblers ×0.7 and snow ×0.9, settled snow ×0.8 on the living at half cover,
+   heat thirst ×1.5 and spoilage and corpse scent ×2), the wind's daily drift at 0.6 and a
+   storm's ×2, five days a season from spring, and the hot seek walking to a roof — docs/30's
+   "The sky has kinds", `content/weather/*.json` and `content/climate/temperate.json`.
 1. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
    deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
    this decision live too; making it lethal is a balance decision that needs a measurement

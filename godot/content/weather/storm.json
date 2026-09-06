@@ -1,0 +1,12 @@
+{
+  "id": "weather.storm",
+  "description": "Rain's loud sibling, per docs/16: one to three hours, wets like rain, washes scent harder and the noise field too, refuses outdoor work, doubles the wind, and lightning lands every ten minutes to two hours as a noise the whole district hears (240 -- not 180, 120 or 4, which sfx.gd dispatches one-shots by). First cuts for the owner. Read by SimWeather only.",
+  "durationTicks": { "min": 12000, "max": 36000 },
+  "weights": { "spring": 1, "summer": 2, "autumn": 2, "winter": 0 },
+  "wets": true,
+  "scentHalfLifeMul": 0.35,
+  "noiseHalfLifeMul": 0.4,
+  "outdoorWork": false,
+  "windMul": 2.0,
+  "lightning": { "intervalTicks": { "min": 600, "max": 2400 }, "noise": 240 }
+}

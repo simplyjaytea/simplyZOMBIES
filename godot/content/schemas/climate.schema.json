@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/climate.schema.json",
+  "title": "Climate",
+  "description": "The calendar the weather kinds are drawn against and the globals every kind shares, per docs/adr/0016-weather-kinds-and-seasons.md. One entry ships (climate.temperate) and SimWeather reads it by path (climate/temperate.json). Not a second calibration entry on purpose: the frozen TypeScript oracle validates calibration/ against the attention schema with Ajv and would refuse it, while it does not know this directory and ignores it, exactly as it ignores weather/. NOTE: the content validator is shallow -- check_m2_weather.gd's CONTENT lane holds the inner shape (four seasons in order, the drying timings ordered, the cover threshold inside (0, 1)).",
+  "type": "object",
+  "required": ["id", "seasonDays", "seasonOrder", "startSeason", "wetAfterTicks", "dryAfterTicks", "dryByFireTicks", "windDriftDays", "windStrength", "meltPerTick", "snowCoverMoveMul", "snowCoverThreshold"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^climate\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id. Permanent once shipped."
+    },
+    "description": { "type": "string" },
+    "seasonDays": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "In-game days a season lasts. 5: a ten-day run sees two seasons (the owner's call, 2026-09-06)."
+    },
+    "seasonOrder": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["spring", "summer", "autumn", "winter"] },
+      "description": "The four seasons in the order the calendar cycles through them, starting from startSeason on day 1."
+    },
+    "startSeason": {
+      "type": "string",
+      "enum": ["spring", "summer", "autumn", "winter"],
+      "description": "The season day 1 falls in."
+    },
+    "wetAfterTicks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How long a body stands in a wetting kind before it counts as wet. Ten seconds at 20 Hz for the shipped 200."
+    },
+    "dryAfterTicks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How long a wet body stays wet once out of it with no fire. An hour for the shipped 12000."
+    },
+    "dryByFireTicks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How long a wet body takes to dry within a lit campfire's heat. Twelve minutes for the shipped 2400; must be below dryAfterTicks or the fire is no help."
+    },
+    "windDriftDays": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "How often, in days, the wind re-rolls its direction on the weather stream."
+    },
+    "windStrength": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "How hard the wind leans the scent diffusion, before a kind's windMul: the attention field's four neighbour weights are 1 +/- windX and 1 +/- windY, normalised. 0.6 matches the strength the field used to be fixed at."
+    },
+    "meltPerTick": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "How much snow cover (0..1) melts a tick while no snow falls. Twelve hours from full cover to bare ground for the shipped value."
+    },
+    "snowCoverMoveMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "The global move_speed multiplier on every living body while the cover is at or above snowCoverThreshold."
+    },
+    "snowCoverThreshold": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1,
+      "description": "The cover at which snow underfoot starts to slow the living."
+    }
+  }
+}
