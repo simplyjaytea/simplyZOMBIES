@@ -42,8 +42,9 @@ func _run() -> void:
 	ok = _coverage_composes_by_max_not_sum() and ok
 	ok = _a_slot_refuses_gear_that_does_not_belong_there() and ok
 	ok = _unequipping_one_coat_undresses_one_survivor() and ok
+	ok = _the_catalogue_is_findable_and_read() and ok
 	if ok:
-		print("M2_GEAR_OK slots have items, items are findable, coverage moves and composes by max, and a command undresses one person")
+		print("M2_GEAR_OK slots have items, items are findable, coverage moves and composes by max, a command undresses one person, and every base in the catalogue is reachable and read by something")
 		quit(0)
 	else:
 		push_error("M2_GEAR_FAIL")
@@ -244,3 +245,127 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 	if not (eq is Dictionary):
 		return null
 	return ((eq as Dictionary)["slots"] as Dictionary).get(slot)
+
+
+# --- CATALOGUE --------------------------------------------------------------------------------
+#
+# The dead-socket rule, applied to the whole tree rather than to five named pieces: a base that
+# does something -- a slot, a weapon profile, armour, a grid, food, drink, fuel, light, a bench
+# operation -- and that nothing in the world can hand a survivor is content nobody will ever hold.
+# Reachable means: rolled by a shipped loot table, carried in a shipped kit, left behind by another
+# base's `empties`, or produced by a job (cooked food, the one such base, allowed by name below).
+# The first run of this lane found the demolition sledge in no table at all -- complete, drawn,
+# gated by the worn look, and unreachable since it shipped; it is in the military cache now. Beside it, the class the request called "tools": a `tool` base with no
+# `light` and no `modification` block is a tool nothing reads, which is exactly the socket this
+# milestone keeps paying for, so the lane refuses it.
+
+const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification"]
+const PRODUCED: Array[String] = ["item.food.cooked"]
+
+
+func _kit_ids(w: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	for file_v in (w.content as Dictionary).values():
+		var entries: Array = []
+		if file_v is Array:
+			entries = file_v as Array
+		elif file_v is Dictionary:
+			entries = [file_v]
+		for e_v in entries:
+			if not (e_v is Dictionary):
+				continue
+			var e: Dictionary = e_v as Dictionary
+			var kits: Array = []
+			if e.get("kit") is Array:
+				kits.append(e["kit"])
+			if e.get("archetypes") is Array:
+				for a in e["archetypes"] as Array:
+					if a is Dictionary and (a as Dictionary).get("kit") is Array:
+						kits.append((a as Dictionary)["kit"])
+			for kit_v in kits:
+				for k in kit_v as Array:
+					if k is String:
+						out[String(k)] = true
+					elif k is Dictionary:
+						out[String((k as Dictionary).get("item", ""))] = true
+	return out
+
+
+func _the_catalogue_is_findable_and_read() -> bool:
+	var w: Variant = _world()
+	var findable: Dictionary = {}
+	for file_v in (w.content as Dictionary).values():
+		if not (file_v is Array):
+			continue
+		for t_v in file_v as Array:
+			if t_v is Dictionary and String((t_v as Dictionary).get("id", "")).begins_with("loot."):
+				for row_v in (t_v as Dictionary).get("entries", []) as Array:
+					findable[String((row_v as Dictionary).get("item", ""))] = true
+	var kits: Dictionary = _kit_ids(w)
+	var by_id: Dictionary = {}
+	var empties: Dictionary = {}
+	for entry_v in SimItems.content_entries(w, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		by_id[String(e.get("id", ""))] = e
+		if e.has("empties"):
+			empties[String(e["empties"])] = String(e.get("id", ""))
+	if findable.is_empty() or kits.is_empty():
+		push_error("CATALOGUE: %d findable ids and %d kit ids -- the scans have nothing to judge" % [findable.size(), kits.size()])
+		return false
+	# The one base a *job* produces rather than a table rolls: cooked food, out of SimJobs' cook
+	# job. Allowed by name, and the producer's source is read for the id so the allowance cannot
+	# outlive the code it describes.
+	var jobs_code: String = FileAccess.get_file_as_string("res://sim/modules/jobs.gd")
+	for produced in PRODUCED:
+		if not jobs_code.contains("\"%s\"" % produced):
+			push_error("CATALOGUE: %s is allowed as job-produced but sim/modules/jobs.gd never names it" % produced)
+			return false
+	var judged: int = 0
+	var unreachable: Array[String] = []
+	for id in by_id.keys():
+		var e: Dictionary = by_id[id] as Dictionary
+		var read: bool = false
+		for k in READ_KEYS:
+			if e.has(k):
+				read = true
+		if not read:
+			continue
+		judged += 1
+		if not (findable.has(String(id)) or kits.has(String(id)) or empties.has(String(id)) or PRODUCED.has(String(id))):
+			unreachable.append(String(id))
+	if not unreachable.is_empty():
+		push_error("CATALOGUE: %s do something and are in no loot table, no kit and nobody's empties -- complete, correct, and unreachable" % str(unreachable))
+		return false
+	# Every round names a real, reachable base; every empties resolves; every tool is read.
+	for id in by_id.keys():
+		var e: Dictionary = by_id[id] as Dictionary
+		if e.get("ranged") is Dictionary:
+			var ammo: String = String((e["ranged"] as Dictionary).get("ammo", ""))
+			if not ammo.is_empty() and (not by_id.has(ammo) or not findable.has(ammo)):
+				push_error("CATALOGUE: %s fires %s, which is not a base or is in no table" % [String(id), ammo])
+				return false
+		if e.has("empties") and not by_id.has(String(e["empties"])):
+			push_error("CATALOGUE: %s leaves %s, which is not a base" % [String(id), String(e["empties"])])
+			return false
+		if String(e.get("class", "")) == "tool" and not (e.has("light") or e.has("modification")):
+			push_error("CATALOGUE: %s is a tool with no light and no modification block -- a tool nothing reads" % String(id))
+			return false
+	# The true negatives: the scans do not see ids that are not there, and the two predicates
+	# can say no to a fabricated armoured orphan and a fabricated mute tool.
+	if findable.has("item.gate.orphan") or kits.has("item.gate.orphan") or empties.has("item.gate.orphan"):
+		push_error("CATALOGUE: the scans found an id that does not exist")
+		return false
+	var orphan: Dictionary = {"id": "item.gate.orphan", "class": "armor", "armor": {"head": 0.1}}
+	var orphan_read: bool = false
+	for k in READ_KEYS:
+		if orphan.has(k):
+			orphan_read = true
+	if not orphan_read:
+		push_error("CATALOGUE: a fabricated armoured orphan would not have been judged at all")
+		return false
+	var mute_tool: Dictionary = {"id": "item.gate.mutetool", "class": "tool"}
+	if mute_tool.has("light") or mute_tool.has("modification"):
+		push_error("CATALOGUE: the tool predicate cannot say no")
+		return false
+	print("  CATALOGUE: %d bases that do something are each rolled by a table, carried in a kit or left as somebody's empties (%d table ids, %d kit ids, %d empties); every round is a findable base; every tool is a light or a bench consumable; an orphan and a mute tool are refused" % [judged, findable.size(), kits.size(), empties.size()])
+	return true

@@ -197,8 +197,10 @@ than here.
   fail, which is the lesson the `bandage` field's arrival taught.
 - **The splint, and fracture immobilisation.** `closeKind` declares `splint` and
   `SimTreatment.CLOSE_KINDS` accepts only `suture`, so a kit declaring one is refused rather than
-  silently sutured with. `cleanTier`'s `alcohol` grade is priced in `SEPSIS_CLEAN_MUL` and carried
-  by no content entry — both are named here rather than left to look wired.
+  silently sutured with. `cleanTier`'s `alcohol` grade is priced in `SEPSIS_CLEAN_MUL` and, since
+  the gear catalogue (2026-09-06), carried by `item.spirits.bottle` — the content half is closed;
+  what stays open is whether `alcohol` should sit where it does in the pricing, which no
+  measurement has yet asked.
 - **Permanent conditions that keep a survivor in play.** A limp, a blind eye, a scar — loss that
   does not remove the person, docs/05's permanent-consequences row.
 
@@ -214,6 +216,14 @@ than here.
 - **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
   in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
   bed beats a cot; content would carry the difference once more than one kind of bed exists.
+- **The industrial table.** `industrial` is in every location enum (`loot.schema.json`,
+  `map.schema.json`, `check_loot.gd`'s `LOCATIONS`) and no table carries it — docs/12's "scrap
+  metal, machine parts, fuel, electronics, scrap kits, solvent" location. `check_loot.gd`'s rule 5
+  requires every authored location to be placed by a shipped district, so the table comes with a
+  district profile row and building tags, which moves loot sites and therefore the balance
+  harness's map: a **measured** slice, not a content edit. Until it lands the fuel bottle the gear
+  catalogue added sits on a residential garage shelf, against docs/12's "industrial and vehicle
+  sources only", and the record says so.
 
 **Attention:**
 
@@ -287,10 +297,11 @@ landed, and what is below is what the arc named and left.
   and a bite through a broken window are the pressure a besieged car should feel; **the
   driver's hands** — nothing refuses a swing, a shot, a stance change or a bandage from the
   driver's seat; **NPC drivers** — nobody but the player mounts, and a road-graph pathfinder
-  for a car is a different pathfinder from a body's four-connected A\*; **refuelling and
-  repair** — fuel and condition landed (the record below) but nothing puts litres back in a
-  tank or integrity back in an engine: a jerry can, a siphon between two cars and a repair
-  channel are each a content entry and a verb on the E ladder, and each wants its own gate;
+  for a car is a different pathfinder from a body's four-connected A\*; **siphoning and
+  repair** — fuel and condition landed (the record below) and the jerry can landed with the gear
+  catalogue (`godot:m2:vehicles`, REFUEL), but nothing siphons between two cars and nothing puts
+  integrity back in an engine: a siphon and a repair channel are each a content entry and a verb
+  on the E ladder, and each wants its own gate;
   **breakdowns** — a failing engine is slow, never stalled or refused at random, because a
   random stall is a roll the player cannot read and wants a rule (a threshold, a tell) rather
   than a dice; **the engine at the director** — the engine's noise is a first-cut number
@@ -2705,6 +2716,34 @@ not a to-do list:
   **What it leaves** is in what's left under "What driving left behind": running things over,
   the door under siege, the driver's hands, NPC drivers, fuel and breakdowns, the engine at the
   director, and the nose-south picture.
+- ~~Refuelling from a can~~ **landed** (`godot:m2:vehicles` grows a **REFUEL** lane, seventeen
+  in all; the jerry-can half of "refuelling and repair", taken with the gear catalogue of
+  2026-09-06). **The mechanism:** an item base with a `fuel: {litres}` block is a can;
+  `SimVehicles.refuel_problem` says why a body cannot pour it (already pouring, at a wheel, not a
+  vehicle, somebody driving, no drive block, a muscle class "nothing to fill", a battery "a
+  battery takes a charger, not a can", a wreck, busy hands, off the hood, no can, a full tank) and
+  `begin_refuel` puts a `refuel {vehicle, item, ticksLeft, ticks}` component on the body for
+  `REFUEL_TICKS` 200 — ten seconds, the hood report's number. The channel is the module's own,
+  in the `structures` phase one after fortify's, re-deriving its conditions every tick
+  (treatment's rule) and cancelled by a stagger, a grab, walking off the nose or the can leaving
+  the pack; it is **not** fortify's `construct`, which puts `CONSTRUCT_NOISE` on the field every
+  tick and plays the board one-shot. At completion `min(litres, room)` goes in and the rest is
+  spilt (docs/30 says why a can pours whole), the can is spent through `SimNeeds.consume_item`
+  and leaves its `empties` (`item.jerrycan.empty`), `vehicle.refuelled {litres, spilt}` goes on
+  the bus, and `check_hood` leaves the new fuel word on the HUD for ten seconds. On fortify's E
+  ladder the can comes **before** the look: at the nose, `begin_refuel` and on any refusal
+  `check_hood`, so the words say why; a body mid-pour is inert to E, as one mid-board is. The
+  `vehicle.refuel` command is `TOGGLE`'s twin for gates and replays. **Content:**
+  `item.jerrycan.fuel` gains `fuel {litres 10}` (its shipped 11.5 kg was already ten litres in a
+  four-kilo can) and `empties`; `item.can.fuel` "Fuel Bottle" is two litres, a splash that starts
+  a dry sedan; `item.jerrycan.empty` is what is left. No `SAVE_VERSION` bump: a new component of
+  ints on a body. **The lane**, red both ways: a ten-litre can at the nose pours in 200 steps into
+  half a 40-litre tank, reads "most of a tank" for 200 ticks and leaves one empty; four litres
+  short takes four and spills six; no can, a full tank, a wreck, a bicycle and a battery each
+  refuse and keep the can; the door still opens with a can in the pack; a stagger, a grab, a walk
+  and a dropped can cancel with their reasons; the command starts a pour; a mid-pour save keeps
+  its ticks; SOCKETS reads `begin_refuel(` on the ladder and the `"refuel"` guard in fortify's
+  intake. **What it leaves:** the siphon, the repair channel and the charger, in what's left.
 - ~~Vehicle fuel and condition, read under the hood~~ **landed** (`godot:m2:vehicles` grows
   from eleven lanes to **fourteen** — FUEL, CONDITION, HOOD — so the chain stays 46; directed
   by the owner 2026-09-05 as the second goal of the driving session, with "define the interact
@@ -3195,6 +3234,36 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Needs** — ~~drinks as content, the stimulant, and what a spent unit leaves behind~~
+  **landed** (`godot:m2:needs`, DRINK and STIMULANT; `godot:m2:jobs`, WELL; with the gear
+  catalogue, 2026-09-06). A `drink: {thirst, rest?, crashRest?, crashAfterTicks?, mood?}` block
+  makes an item drinkable the way `food` makes it edible — `SimNeeds.drink_spec`/`is_drink`
+  mirror `food_spec`/`is_food`, and the water bottle's +50, a literal in `SimNeeds.drink` since
+  the module landed, is its own block now. The block is judged whole: a `rest` lift with either
+  crash key missing is not drinkable at all, because the validator does not recurse and a free
+  stimulant is the wrong number nothing reports. `SimNeeds.drink_item` is the reader for any
+  drink; `drink()` keeps its signature as the water-by-name wrapper the NPC thirst job calls.
+  **The stimulant:** `item.drink.energy` — in two loot tables since the first cut, read by nothing
+  — lifts rest 20 now and books a debt of 25 on the same pool 36 000 ticks out
+  (`stimulantCrashRest`, `stimulantUntilTick` on the needs component; the `need.stimulant`
+  system lands it; a second can compounds the debt and pushes the clock, never resets it; a pool
+  on the floor is the ordinary passed-out collapse). The HUD says "wired", ranked below groggy,
+  above shaken. **`empties`**, a flat top-level key, names what a spent unit leaves behind, read
+  in the one spend path (`_consume_item`) so a drink, a wash, a wound cleaned with the bottle and
+  a poured can all leave the same thing. That made a socket nobody had named live:
+  `SimJobs._water_work` had hunted `item.water.bottle.empty` since the Water job landed and no
+  shipped play had ever produced one. **Spoilage is content all the way** too: `spawn_item` used
+  to mark a clock for two literal ids, so a third perishable food would never have gone off; it
+  reads `food.spoilDays` now (FOOD CONTENT gained a fabricated perishable and a fabricated
+  keeper). **Measured:** the energy drink lifts 20 less at most one drain and books 25 at exactly
+  36 000 ticks; on a forty-tick fixture the crash lands after 40 steps for 25 plus at most one
+  drain; two cans land one crash of 50; three on a pool of five collapse the body where it
+  stands; a twin world that drank nothing never moves rest by more than one drain a tick; the
+  hold clears the clock and the debt. Drinking a bottle leaves exactly one empty, a wash leaves
+  another and puts no drink on the bus, a can of two energy drinks becomes one and leaves
+  nothing; a lift with no crash, a non-numeric thirst, scrap, a tin and a missing base all refuse.
+  WELL: Mara drinks a real bottle and `_water_work` wants the empty she is left holding — the
+  first empty the sim itself has ever produced. NPCs never drink a stimulant, deliberately.
 - **Needs** — ~~raw and spoiled food carrying illness risk~~ **landed** (`godot:m2:needs`,
   ILLNESS). docs/04's food clause is "raw and spoiled food fills the bar but damages mood **and
   carries illness risk**"; only the mood half shipped, so raw food was a mood tax and nothing else
@@ -3569,6 +3638,53 @@ not a to-do list:
   `CLEAR_JAM_MULTIPLIER` × the weapon's *own* reload — a multiple rather than a constant, so
   "longer than a reload" stays true if a reload time is ever retuned. Measured 80 ticks against a
   40-tick reload.
+- **Items** — ~~the gear catalogue~~ **landed** (`godot:m2:gear` grows a **CATALOGUE** lane;
+  `godot:check:loot`, `godot:check:mods`, `godot:m2:attach`, `godot:check:worn` and
+  `godot:check:appearance` judge the rest; the owner's direction of 2026-09-05, shaped by four
+  answers — catalogue plus a drink block plus refuelling, overlays for every drawn slot, a shotgun
+  and a rifle, about thirty). **Thirty-one new bases**, every one in a loot table, every drawn-slot
+  base with a generated overlay: five melee weapons (crowbar, camp hatchet, claw hammer, pipe
+  wrench, butcher's cleaver — damage 8..12, inside the knife-to-sledge envelope, each with its own
+  lean and length rather than the bat's; the owner's silhouette question stays the owner's), a
+  pump shotgun (30 damage, 15 m, noise 220, five shells, jams) and a hunting rifle (34, 60 m,
+  200, four rounds, jams) with `item.ammo.12g` and `item.ammo.rifle`, both declaring slots the
+  shipped suppressor, red dot and extended magazine fit; a leather jacket (torso .5), a bike
+  helmet (head .45), denim jeans (legs .35), leather gloves (hands .6) and steel-toes (feet .65);
+  a school bag (5×5), a frame pack (7×9), a medic pouch (belt, 3×3) and a canvas bandolier (vest,
+  6×1); a fuel bottle and an empty can (the vehicles record); an oil lantern (`light.magnitude`
+  20, the campfire's row), a sewing kit (`condition_restore` on armour — nothing restored a coat
+  before) and machine oil (`condition_restore` on melee and tools); jerky (spoils in 14 days),
+  crackers, chocolate, a ration pack; soda, a juice carton, a sports drink and a bottle of
+  spirits (`cleanTier: alcohol` — the grade `CLEAN_ORDER` priced and no entry carried). Placement
+  follows docs/12's yield table, the fuel bottle excepted (a residential shelf until the
+  industrial table exists — what's left). **The lane:** every base that does something (a slot, a
+  weapon profile, armour, a grid, food, drink, fuel, light, a bench operation) is rolled by a
+  shipped table, carried in a shipped kit, left as another base's `empties`, or produced by a job
+  (cooked food, allowed by name, with jobs.gd read for the id so the allowance cannot outlive the
+  producer); every round is a findable base; every `tool` is a light or a bench consumable; a
+  fabricated orphan and a mute tool are refused. Its first run found `item.sledge.demolition` in
+  **no table at all** — complete, drawn, gated by the worn look, unreachable since it shipped —
+  and it is in the military cache now. **Fifteen overlays** in `tools/sprites/parts/gear.py`,
+  thirty-one in all, on the published skeleton; `WORN_LOOK_OK` judges 31 keys at the pawn canvas
+  inside the eight-rig envelope, 28 bases reaching a layer in their own slot. **Balance, before
+  and after** on the same four fast seeds (the harness's `lootTable` stream draws differently
+  once a table grows, so this was measured rather than assumed):
+
+  | seed | before: siege / kills / deaths / survivors | after |
+  |---|---|---|
+  | 20260805 | 2 / 4 / 1 / 2 of 3 | 2 / 4 / 1 / 2 of 3 (identical) |
+  | 404 | 1 / 5 / 0 / 3 of 3 | 1 / 5 / 0 / 3 of 3 (identical) |
+  | 31337 | 3 / 1 / 2 / 2 of 3 | 3 / 1 / 2 / 2 of 3 (identical) |
+  | 90210 | 2 / 5 / 2 / 1 of 3 | 2 / 5 / 2 / 1 of 3 (identical) |
+
+  Every band held on both runs (`M2_BALANCE_OK`), and every line is **identical**, which says
+  something sharper than "held": the fast tier's compressed campaign never has a colonist search
+  a container, so what the tables roll cannot reach anybody and a table can grow without the
+  harness noticing. The fast tier cannot see a gun fired either, so the shotgun and the rifle are
+  judged by the melee-vs-ranged parity measurement and the full tier in what's left, not here. **Deliberately not in this slice**, named in what's left rather than smuggled: the
+  industrial table, ground-item sprites, the six undrawn slots (the gloves, boots, pouch and
+  bandolier draw nothing, like the seven bases before them), a tool class with verbs of its own,
+  the siphon, the repair channel and the charger.
 - **Items** — ~~attachments gaining a reader~~ **landed** (`godot:m2:attach`); the repair economy
   around `SimItems.repair_item` moved to [what's left](#whats-left-in-milestone-2). The previous
   note here was

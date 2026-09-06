@@ -23,7 +23,9 @@ static func register_module(world: Variant) -> void:
 			var c: Dictionary = cmd as Dictionary
 			var kind: String = String(c.get("type", ""))
 			for actor in w.components.query(["controlled", "position"]):
-				if w.components.has_component(int(actor), "construct"):
+				# A body mid-channel is inert to E: mid-board, and mid-pour (SimVehicles' refuel
+				# channel), a refusal is a no-op rather than a fall through to the rungs below.
+				if w.components.has_component(int(actor), "construct") or w.components.has_component(int(actor), "refuel"):
 					continue
 				if kind == "use.context":
 					_use_context(w, int(actor))
@@ -169,9 +171,13 @@ static func _use_context(world: Variant, actor: int) -> void:
 	var car: int = SimVehicles.nearest_in_reach(world, actor)
 	if car != SimVehicles.NO_DRIVER:
 		# The hood before the door: standing at the nose, E looks under it (fuel and condition,
-		# in words -- SimVehicles.hood_view); standing anywhere else along it, E gets in.
+		# in words -- SimVehicles.hood_view); standing anywhere else along it, E gets in. And the
+		# can before the look: a body at the nose carrying fuel, at an engine with room in the
+		# tank, pours (SimVehicles.begin_refuel); any refusal -- no can, full, a battery, a
+		# bicycle, a wreck -- falls to the look, whose words say why.
 		if SimVehicles.at_hood(world, actor, car):
-			SimVehicles.check_hood(world, actor, car)
+			if not SimVehicles.begin_refuel(world, actor, car):
+				SimVehicles.check_hood(world, actor, car)
 		else:
 			SimVehicles.mount(world, actor, car)
 		return

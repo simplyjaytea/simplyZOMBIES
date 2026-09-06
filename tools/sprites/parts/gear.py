@@ -553,6 +553,329 @@ def item_pistol_service_equip():
     return canvas.to_image()
 
 
+# --- the catalogue (2026-09-06): five more in the weapon hand ---------------------------------
+# Each takes a lean and a length of its own where that is free -- the owner's open question about
+# whether the one-handed weapons need their own silhouettes (HANDOFF item 3) is about re-authoring
+# the shipped bat, and nothing here touches it. What separates these five from the seven above is
+# still silhouette first: the crowbar's hook, the hatchet's short haft under a one-sided bit, the
+# hammer's T, the wrench's open jaw, the cleaver's broad square blade.
+
+
+def item_crowbar_steel_equip():
+    """A crowbar: a dark constant-width bar with a hook curling back at the top.
+
+    The hook is the read -- the pipe is the only other constant-width thing in the hand, and a
+    pipe does not bend. Drawn dark (`stone[0]`/`[1]`) because a crowbar is blued steel, under
+    the pipe's galvanised `[2]`, so the two are separated by value as well.
+    """
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, GRIP_BOTTOM_Y), (HAND_X + 2.4, HAND_Y - 9.0), 3.6, steel[1],
+                inside_only=False)
+    # The hook: the bar turns back over itself for two rows, then the forked claw.
+    canvas.band((HAND_X + 2.4, HAND_Y - 9.0), (HAND_X + 0.6, HAND_Y - 10.8), 3.6, steel[1],
+                inside_only=False)
+    canvas.rect(HAND_X - 0.2, HAND_Y - 11.4, 1.2, 0.6, steel[0])  # the claw
+    canvas.band((HAND_X + 0.6, GRIP_BOTTOM_Y - 1.0), (HAND_X + 2.8, HAND_Y - 8.0), 1.0, steel[3],
+                inside_only=True)  # one line of light down the lit side
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_hatchet_camp_equip():
+    """A camp hatchet: the fire axe's one-sided bit on a haft half as long.
+
+    The head sits at the shoulder rather than above it -- `HAND_Y - 6` against the axe's
+    `- 10` -- so the two read as the same tool at two sizes. The haft is plain `wood`, not the
+    axe's painted `wall_brick`: a camping hatchet is bare ash.
+    """
+    haft = RAMPS["wood"]
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, GRIP_BOTTOM_Y), (HAND_X + 1.2, HAND_Y - 5.5), 3.4, haft[2],
+                inside_only=False)
+    canvas.rect(HAND_X + 1.2, HAND_Y - 6.5, 1.6, 1.2, steel[2])  # the eye
+    canvas.rounded_rect(HAND_X + 2.8, HAND_Y - 6.5, 1.4, 2.0, 0.8, steel[3])  # the bit
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_hammer_claw_equip():
+    """A claw hammer: the shortest haft in the hand and a T across the top of it.
+
+    Shorter than the knife -- its head at `HAND_Y - 5`, the knife's tip at `- 9` -- and the T is
+    a shape no blade makes: a bar across the shaft, heavier on the striking side, a stub of claw
+    on the other.
+    """
+    haft = RAMPS["wood"]
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, GRIP_BOTTOM_Y), (HAND_X + 0.8, HAND_Y - 4.5), 3.2, haft[1],
+                inside_only=False)
+    canvas.rect(HAND_X + 1.2, HAND_Y - 5.5, 2.8, 1.0, steel[2])  # the T
+    canvas.rect(HAND_X + 3.4, HAND_Y - 5.5, 0.8, 1.2, steel[3])  # the face, heavier
+    canvas.rect(HAND_X - 1.4, HAND_Y - 6.3, 0.6, 0.8, steel[1])  # the claw, turned down
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_wrench_pipe_equip():
+    """A pipe wrench: a bar to the shoulder and an open jaw at the top.
+
+    The jaw is two blocks with a column of daylight between them, offset to the lit side, which
+    is the one thing that separates it from the pipe and the crowbar in the same fist: a tool
+    with a mouth. Galvanised `stone[2]` like the pipe; the jaw a step darker.
+    """
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, GRIP_BOTTOM_Y), (HAND_X + 1.4, HAND_Y - 8.0), 3.4, steel[2],
+                inside_only=False)
+    canvas.rect(HAND_X + 1.6, HAND_Y - 9.4, 1.6, 0.8, steel[1])  # the fixed jaw
+    canvas.rect(HAND_X + 1.8, HAND_Y - 11.8, 1.4, 0.8, steel[1])  # the moving jaw
+    canvas.rect(HAND_X + 0.4, HAND_Y - 10.6, 0.8, 2.0, steel[1])  # the shank between them
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_cleaver_butcher_equip():
+    """A butcher's cleaver: a broad square blade on a short handle.
+
+    Where the knife is a taper and the machete a belly, the cleaver is a slab -- 5.6 px across
+    for its whole height, square-cornered at the top, the one silhouette in the hand with no
+    point at all. Short like the knife, so the two are told apart by breadth alone.
+    """
+    steel = RAMPS["stone"]
+    haft = RAMPS["wood"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.6, GRIP_BOTTOM_Y), (HAND_X + 0.2, HAND_Y - 1.0), 3.0, haft[0],
+                inside_only=False)
+    canvas.rect(HAND_X + 1.4, HAND_Y - 5.0, 2.8, 3.0, steel[3])  # the slab
+    canvas.rect(HAND_X - 0.6, HAND_Y - 3.0, 0.8, 1.0, steel[3])  # the tang into the handle
+    canvas.band((HAND_X + 3.6, HAND_Y - 2.5), (HAND_X + 3.6, HAND_Y - 7.5), 1.0, steel[4],
+                inside_only=True)  # the edge, on the lit side
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+# --- the catalogue: the two long guns, in the weapon hand -------------------------------------
+# A long gun is held at the wrist and rests its stock below the hand, the barrel climbing past the
+# shoulder: longer than anything but the spear, and the stock under the fist is what neither the
+# spear nor the bow has. The two are told apart by the barrel -- the shotgun's is thick with a
+# wooden forend halfway up, the rifle's is thin and longer with a bolt at the wrist.
+
+
+def item_shotgun_pump_equip():
+    steel = RAMPS["stone"]
+    wood = RAMPS["wood"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 1.2, HAND_Y + 4.5), (HAND_X + 0.4, HAND_Y - 1.0), 3.8, wood[1],
+                inside_only=False)  # the stock, below the fist
+    canvas.band((HAND_X + 0.4, HAND_Y - 1.0), (HAND_X + 2.8, HAND_Y - 13.5), 3.8, steel[1],
+                inside_only=False)  # the barrel and the tube under it, read as one
+    canvas.band((HAND_X + 1.2, HAND_Y - 5.5), (HAND_X + 1.9, HAND_Y - 9.0), 4.6, wood[2],
+                inside_only=False)  # the pump forend
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_rifle_hunting_equip():
+    steel = RAMPS["stone"]
+    wood = RAMPS["wood"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 1.6, HAND_Y + 6.0), (HAND_X + 0.6, HAND_Y - 3.0), 3.8, wood[0],
+                inside_only=False)  # the stock, long and dark
+    canvas.band((HAND_X + 0.6, HAND_Y - 3.0), (HAND_X + 3.4, HAND_Y - 16.5), 3.0, steel[1],
+                inside_only=False)  # the thin barrel, past the crown
+    canvas.rect(HAND_X + 1.8, HAND_Y - 2.0, 0.8, 0.6, steel[3])  # the bolt handle
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+# --- the catalogue: worn ------------------------------------------------------------------------
+
+JACKET_HALF_W = 6.5  # a column wider than the wrap each side: a coat sits over the body, a wrap on it
+
+
+def item_jacket_leather_equip():
+    """A leather jacket: the wrap's rows, a column wider, with a collar and a zip.
+
+    Leather is `strap`, the roster's own webbing ramp -- dark, desaturated, the muted family --
+    so the jacket is the darkest thing on the trunk where the wrap is the palest. The collar is
+    two blocks at the shoulder line and the zip a lit column down the middle; both stay inside
+    the silhouette.
+    """
+    leather = RAMPS["strap"]
+    metal = RAMPS["stone"]
+    canvas = _overlay()
+    mid_y = (WRAP_TOP_Y + WRAP_BOTTOM_Y) / 2.0
+    canvas.rounded_rect(0.0, mid_y, JACKET_HALF_W, (WRAP_BOTTOM_Y - WRAP_TOP_Y) / 2.0, 2.0,
+                        leather[1])
+    for side in (-1.0, 1.0):
+        canvas.rect(side * 3.0, WRAP_TOP_Y + 1.0, 1.8, 1.0, leather[3], inside_only=True)  # collar
+    canvas.rect(0.0, mid_y, 0.5, (WRAP_BOTTOM_Y - WRAP_TOP_Y) / 2.0 - 1.0, metal[2],
+                inside_only=True)  # the zip
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+HELMET_CY = HEAD_CY - 3.0
+HELMET_HALF_W = HEAD_R + 0.8
+
+
+def item_helmet_bike_equip():
+    """A bike helmet: a dome over the top of the skull, a column proud of it each side, vents.
+
+    Bounded by the face exactly as the cap is -- its lowest row is above the brow -- and told
+    apart from the cap by being a dome rather than a crown-and-peak: taller, rounder, and
+    `stone` rather than cloth. Two dark vents are what say "shell" at this size.
+    """
+    shell = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.rounded_rect(0.0, HELMET_CY, HELMET_HALF_W, 2.4, 2.4, shell[3])
+    for side in (-1.0, 1.0):
+        canvas.rect(side * 2.2, HELMET_CY - 0.8, 0.5, 0.9, shell[0], inside_only=True)  # vents
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE, "esw")
+    return canvas.to_image()
+
+
+def item_jeans_denim_equip():
+    """Denim jeans: the trousers' shape in the `glass` ramp, with a seam and no turned cuff.
+
+    `glass` is the muted family's cold blue-grey and the closest thing in the palette to worn
+    denim without a new base; the pants are canvas and warm. No cuff row -- jeans hang -- and a
+    lit seam down the outside of each leg instead, which is the tell.
+    """
+    denim = RAMPS["glass"]
+    strap = RAMPS["strap"]
+    canvas = _overlay()
+    canvas.rounded_rect(0.0, LEG_TOP_Y, PANTS_SEAT_HALF_W, 2.0, 1.5, denim[2])
+    for side in (-1.0, 1.0):
+        canvas.rect(side * LEG_X, (LEG_TOP_Y + 2.0 + PANTS_HEM_Y) / 2.0, LEG_HALF,
+                    (LEG_TOP_Y + 2.0 - PANTS_HEM_Y) / -2.0, denim[2])
+        canvas.band((side * (LEG_X + LEG_HALF - 0.6), LEG_TOP_Y + 2.0),
+                    (side * (LEG_X + LEG_HALF - 0.6), PANTS_HEM_Y), 1.0, denim[3],
+                    inside_only=True)  # the seam
+    canvas.rect(0.0, PANTS_BELT_Y, PANTS_SEAT_HALF_W - 0.5, 0.0, strap[1], inside_only=True)
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+# --- the catalogue: two more packs, behind the body --------------------------------------------
+# Same rule as the hiking pack: a pack is seen by its edges, so each clears the arms by at least a
+# column and shows a hump beside the neck, and the front piece is straps only.
+
+SCHOOL_HALF_W = 10.2
+SCHOOL_TOP_Y = TORSO_TOP_Y + 1.5
+SCHOOL_BOTTOM_Y = LEG_TOP_Y - 4.5
+FRAME_HALF_W = 11.0
+FRAME_TOP_Y = TORSO_TOP_Y - 1.5
+FRAME_BOTTOM_Y = LEG_TOP_Y - 1.5
+FRAME_HUMP_HALF_W = 6.5
+FRAME_HUMP_TOP_Y = TORSO_TOP_Y - 4.0
+
+
+def item_pack_school_equip():
+    """A school bag: smaller and lower than the hiking pack, in the car-green ramp."""
+    bag = RAMPS["car_green"]
+    strap = RAMPS["strap"]
+    canvas = _overlay()
+    mid_y = (SCHOOL_TOP_Y + SCHOOL_BOTTOM_Y) / 2.0
+    canvas.rounded_rect(0.0, mid_y, SCHOOL_HALF_W, (SCHOOL_BOTTOM_Y - SCHOOL_TOP_Y) / 2.0, 3.0,
+                        bag[1])
+    canvas.rounded_rect(0.0, SCHOOL_TOP_Y + 2.0, SCHOOL_HALF_W - 0.6, 2.0, 1.5, bag[2],
+                        inside_only=True)  # the flap
+    canvas.band((-SCHOOL_HALF_W, mid_y + 1.5), (SCHOOL_HALF_W, mid_y + 1.5), 1.6, strap[2])
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_pack_school_equip_front():
+    strap = RAMPS["strap"]
+    canvas = _overlay()
+    for side in (-1.0, 1.0):
+        canvas.band((side * 5.0, SHOULDER_Y + 1.0), (side * 3.4, LEG_TOP_Y - 3.0), 1.8, strap[2],
+                    inside_only=False)
+    canvas.nw_shade(0.12)
+    return canvas.to_image()
+
+
+def item_pack_frame_equip():
+    """A frame pack: taller and wider than the hiking pack, with the frame's two rails showing.
+
+    `fatigue_drab` is the surplus-canvas ramp the raider already wears; the rails are `stone`.
+    Half a column wider than the hiking pack and a row taller at the hump, so the biggest bag in
+    the game reads as the biggest from the front too.
+    """
+    canvas_ramp = RAMPS["fatigue_drab"]
+    rail = RAMPS["stone"]
+    strap = RAMPS["strap"]
+    canvas = _overlay()
+    mid_y = (FRAME_TOP_Y + FRAME_BOTTOM_Y) / 2.0
+    canvas.rounded_rect(0.0, (FRAME_HUMP_TOP_Y + FRAME_TOP_Y) / 2.0, FRAME_HUMP_HALF_W,
+                        (FRAME_TOP_Y - FRAME_HUMP_TOP_Y) / 2.0, 1.5, canvas_ramp[1])
+    canvas.rounded_rect(0.0, mid_y, FRAME_HALF_W, (FRAME_BOTTOM_Y - FRAME_TOP_Y) / 2.0, 3.0,
+                        canvas_ramp[1])
+    for side in (-1.0, 1.0):
+        canvas.band((side * (FRAME_HALF_W - 1.0), FRAME_TOP_Y + 1.0),
+                    (side * (FRAME_HALF_W - 1.0), FRAME_BOTTOM_Y - 1.0), 1.0, rail[3],
+                    inside_only=True)  # the rails
+    canvas.band((-FRAME_HALF_W, mid_y + 3.0), (FRAME_HALF_W, mid_y + 3.0), 1.8, strap[2])
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_pack_frame_equip_front():
+    strap = RAMPS["strap"]
+    canvas = _overlay()
+    for side in (-1.0, 1.0):
+        canvas.band((side * 5.6, SHOULDER_Y + 1.0), (side * 2.4, LEG_TOP_Y - 1.0), 2.4, strap[1],
+                    inside_only=False)
+    canvas.band((-4.0, SHOULDER_Y + 5.0), (4.0, SHOULDER_Y + 5.0), 1.6, strap[2],
+                inside_only=False)  # the sternum strap, which the hiking pack has not
+    canvas.nw_shade(0.12)
+    return canvas.to_image()
+
+
+# --- the catalogue: the off hand ---------------------------------------------------------------
+
+
+def item_lantern_oil_equip():
+    """An oil lantern hung from the fist: a glass chimney with a flame in it, on a tin base.
+
+    Hangs where the electric lamp hangs and is told apart from it by shape -- a tall chimney
+    (`glass`) over a narrow base rather than a rounded housing with a lens -- and by the flame,
+    which is the same `ember` the candle burns and goes on after the passes for the same reason.
+    `light.magnitude 20`, the campfire's row, is the sim agreeing it is a light source.
+    """
+    tin = RAMPS["stone"]
+    glass = RAMPS["glass"]
+    strap = RAMPS["strap"]
+    ember = RAMPS["ember"]
+    canvas = _overlay()
+    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 1.0, 0.8, 1.5, strap[2])  # the bail
+    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 3.0, 2.0, 0.5, tin[2])  # the cap
+    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 6.5, 2.2, 3.0, glass[3])  # the chimney
+    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 10.5, 2.6, 1.0, tin[1])  # the base
+
+    def flame(c):
+        c.ellipse(OFF_HAND_X - 0.4, HAND_Y + 7.0, 0.9, 1.6, ember[3])
+        c.ellipse(OFF_HAND_X - 0.4, HAND_Y + 7.5, 0.5, 0.8, ember[4])
+
+    return _lit(canvas, flame)
+
+
 REGISTRY = {
     "item_pack_hiking_equip": item_pack_hiking_equip,
     "item_pack_hiking_equip_front": item_pack_hiking_equip_front,
@@ -573,4 +896,20 @@ REGISTRY = {
     "item_candle_wax_equip": item_candle_wax_equip,
     "item_lamp_electric_equip": item_lamp_electric_equip,
     "item_pistol_service_equip": item_pistol_service_equip,
+    # the catalogue (2026-09-06)
+    "item_crowbar_steel_equip": item_crowbar_steel_equip,
+    "item_hatchet_camp_equip": item_hatchet_camp_equip,
+    "item_hammer_claw_equip": item_hammer_claw_equip,
+    "item_wrench_pipe_equip": item_wrench_pipe_equip,
+    "item_cleaver_butcher_equip": item_cleaver_butcher_equip,
+    "item_shotgun_pump_equip": item_shotgun_pump_equip,
+    "item_rifle_hunting_equip": item_rifle_hunting_equip,
+    "item_jacket_leather_equip": item_jacket_leather_equip,
+    "item_helmet_bike_equip": item_helmet_bike_equip,
+    "item_jeans_denim_equip": item_jeans_denim_equip,
+    "item_pack_school_equip": item_pack_school_equip,
+    "item_pack_school_equip_front": item_pack_school_equip_front,
+    "item_pack_frame_equip": item_pack_frame_equip,
+    "item_pack_frame_equip_front": item_pack_frame_equip_front,
+    "item_lantern_oil_equip": item_lantern_oil_equip,
 }

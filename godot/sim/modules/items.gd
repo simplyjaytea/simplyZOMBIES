@@ -575,10 +575,12 @@ static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}
 	# were was not stable between runs. The frozen oracle still carries that shape; parity is
 	# unaffected because the parity snapshot carries no event ordering.
 	world.events.deliver({"type": "item.spawned", "item": item, "baseId": base_id})
-	if base_id == "item.food.raw" or base_id == "item.food.cooked":
-		var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
-		if Needs != null and Needs.has_method("mark_spoilage"):
-			Needs.call("mark_spoilage", world, item, base_id)
+	# Spoilage is content: mark_spoilage reads the base's own `food.spoilDays` and does nothing
+	# for a base with none, or with zero. This used to name two ids -- raw and cooked -- so a third
+	# perishable food would have spawned with no clock and never gone off.
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs != null and Needs.has_method("mark_spoilage"):
+		Needs.call("mark_spoilage", world, item, base_id)
 	return item
 
 static func verify_content_references(world: Variant) -> void:

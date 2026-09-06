@@ -52,6 +52,11 @@ const PAWN_KEYS: Array[String] = [
 	"item_spear_improvised_equip", "item_axe_fire_equip", "item_sledge_demolition_equip",
 	"item_bow_hunting_equip", "item_candle_wax_equip", "item_lamp_electric_equip",
 	"item_pistol_service_equip",
+	"item_crowbar_steel_equip", "item_hatchet_camp_equip", "item_hammer_claw_equip",
+	"item_wrench_pipe_equip", "item_cleaver_butcher_equip", "item_shotgun_pump_equip",
+	"item_rifle_hunting_equip", "item_jacket_leather_equip", "item_helmet_bike_equip",
+	"item_jeans_denim_equip", "item_pack_school_equip", "item_pack_school_equip_front",
+	"item_pack_frame_equip", "item_pack_frame_equip_front", "item_lantern_oil_equip",
 ]
 
 # Where a picture hangs on its entity's ground point. A square canvas is a tile-sized thing seen

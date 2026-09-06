@@ -4,8 +4,8 @@
     "name": "Residential",
     "location": "residential",
     "danger": "low",
-    "rolls": { "min": 3, "max": 5 },
-    "tierWeights": { "scavenged": 85, "modified": 15 },
+    "rolls": {"min": 3, "max": 5},
+    "tierWeights": {"scavenged": 85, "modified": 15},
     "entries": [
       { "item": "item.food.canned", "weight": 14, "count": { "min": 1, "max": 3 } },
       { "item": "item.food.raw", "weight": 10, "count": { "min": 1, "max": 2 } },
@@ -35,7 +35,20 @@
       { "item": "item.whetstone", "weight": 5 },
       { "item": "item.oil.gun", "weight": 4 },
       { "item": "item.battery", "weight": 6, "count": { "min": 1, "max": 3 } },
-      { "item": "item.cloth.bolt", "weight": 6, "count": { "min": 1, "max": 2 } }
+      { "item": "item.cloth.bolt", "weight": 6, "count": { "min": 1, "max": 2 } },
+      { "item": "item.hammer.claw", "weight": 5 },
+      { "item": "item.crowbar.steel", "weight": 3 },
+      { "item": "item.cleaver.butcher", "weight": 3 },
+      { "item": "item.jeans.denim", "weight": 5 },
+      { "item": "item.pack.school", "weight": 3 },
+      { "item": "item.soda.can", "weight": 6, "count": { "min": 1, "max": 2 } },
+      { "item": "item.juice.carton", "weight": 4 },
+      { "item": "item.food.crackers", "weight": 6, "count": { "min": 1, "max": 3 } },
+      { "item": "item.food.chocolate", "weight": 4, "count": { "min": 1, "max": 2 } },
+      { "item": "item.food.jerky", "weight": 3, "count": { "min": 1, "max": 2 } },
+      { "item": "item.kit.sewing", "weight": 3 },
+      { "item": "item.oil.machine", "weight": 3 },
+      { "item": "item.can.fuel", "weight": 2 }
     ]
   },
   {
@@ -43,8 +56,8 @@
     "name": "Retail Strip",
     "location": "commercial",
     "danger": "moderate",
-    "rolls": { "min": 4, "max": 7 },
-    "tierWeights": { "scavenged": 78, "modified": 22 },
+    "rolls": {"min": 4, "max": 7},
+    "tierWeights": {"scavenged": 78, "modified": 22},
     "entries": [
       { "item": "item.food.canned", "weight": 18, "count": { "min": 2, "max": 4 } },
       { "item": "item.food.raw", "weight": 12, "count": { "min": 1, "max": 3 } },
@@ -72,7 +85,20 @@
       { "item": "item.scrap.metal", "weight": 5, "count": { "min": 1, "max": 3 } },
       { "item": "item.whetstone", "weight": 5 },
       { "item": "item.battery", "weight": 6, "count": { "min": 1, "max": 3 } },
-      { "item": "item.cloth.bolt", "weight": 6, "count": { "min": 1, "max": 2 } }
+      { "item": "item.cloth.bolt", "weight": 6, "count": { "min": 1, "max": 2 } },
+      { "item": "item.hatchet.camp", "weight": 4 },
+      { "item": "item.wrench.pipe", "weight": 3 },
+      { "item": "item.jacket.leather", "weight": 4 },
+      { "item": "item.helmet.bike", "weight": 4 },
+      { "item": "item.gloves.leather", "weight": 4 },
+      { "item": "item.boots.steel", "weight": 3 },
+      { "item": "item.drink.sports", "weight": 5, "count": { "min": 1, "max": 2 } },
+      { "item": "item.spirits.bottle", "weight": 3 },
+      { "item": "item.lantern.oil", "weight": 3 },
+      { "item": "item.soda.can", "weight": 6, "count": { "min": 1, "max": 3 } },
+      { "item": "item.food.chocolate", "weight": 5, "count": { "min": 1, "max": 3 } },
+      { "item": "item.food.jerky", "weight": 4, "count": { "min": 1, "max": 2 } },
+      { "item": "item.juice.carton", "weight": 4, "count": { "min": 1, "max": 2 } }
     ]
   },
   {
@@ -80,8 +106,8 @@
     "name": "Medical",
     "location": "medical",
     "danger": "very_high",
-    "rolls": { "min": 2, "max": 4 },
-    "tierWeights": { "scavenged": 25, "modified": 45, "field_tested": 30 },
+    "rolls": {"min": 2, "max": 4},
+    "tierWeights": {"scavenged": 25, "modified": 45, "field_tested": 30},
     "entries": [
       { "item": "item.antibiotics.course", "weight": 16, "count": { "min": 1, "max": 2 } },
       { "item": "item.antiseptic.bottle", "weight": 13, "count": { "min": 1, "max": 3 } },
@@ -98,7 +124,9 @@
       { "item": "item.gloves.work", "weight": 4 },
       { "item": "item.scrap.metal", "weight": 4, "count": { "min": 1, "max": 2 } },
       { "item": "item.tape.duct", "weight": 6 },
-      { "item": "item.solvent", "weight": 5 }
+      { "item": "item.solvent", "weight": 5 },
+      { "item": "item.pouch.medic", "weight": 6 },
+      { "item": "item.spirits.bottle", "weight": 3 }
     ]
   },
   {
@@ -106,8 +134,8 @@
     "name": "Military Cache",
     "location": "military_cache",
     "danger": "extreme",
-    "rolls": { "min": 3, "max": 5 },
-    "tierWeights": { "modified": 40, "field_tested": 60 },
+    "rolls": {"min": 3, "max": 5},
+    "tierWeights": {"modified": 40, "field_tested": 60},
     "entries": [
       { "item": "item.pistol.service", "weight": 12 },
       { "item": "item.ammo.9mm", "weight": 20, "count": { "min": 10, "max": 20 } },
@@ -129,7 +157,16 @@
       { "item": "item.attach.magazine.extended", "weight": 6 },
       { "item": "item.oil.gun", "weight": 6 },
       { "item": "item.gauge.machinist", "weight": 2 },
-      { "item": "item.rights.salvage", "weight": 1 }
+      { "item": "item.rights.salvage", "weight": 1 },
+      { "item": "item.sledge.demolition", "weight": 3 },
+      { "item": "item.shotgun.pump", "weight": 6 },
+      { "item": "item.rifle.hunting", "weight": 5 },
+      { "item": "item.ammo.12g", "weight": 10, "count": { "min": 6, "max": 12 } },
+      { "item": "item.ammo.rifle", "weight": 10, "count": { "min": 8, "max": 20 } },
+      { "item": "item.pack.frame", "weight": 3 },
+      { "item": "item.bandolier.canvas", "weight": 5 },
+      { "item": "item.food.ration", "weight": 8, "count": { "min": 1, "max": 3 } },
+      { "item": "item.can.fuel", "weight": 4 }
     ]
   }
 ]
