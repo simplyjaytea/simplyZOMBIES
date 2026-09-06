@@ -1,28 +1,34 @@
 extends SceneTree
-# The weather slice: the accent regrade and the rain layer, docs/30's "Rain is ambience, not
-# weather". Two families of claim, and both pass by accident without their negatives. A palette
-# lane that only checks the new values passes against a revert to the bright table -- so lane A
-# carries the OLD values through the same predicates and requires each to be refused, the
-# check_road_look.gd convention. And a rain layer is exactly the kind of mechanism that can be
-# complete, correct and read by nothing -- so lanes B and D are dead-socket scans proving the
-# draw loop reaches the keys and the resolver, in the order the slice decided (entities, then
-# rain, then the night wash).
+# The weather slice: the accent regrade and the sky layer, docs/30's "The sky has kinds" and the
+# weather-look slice that followed it (the "Rain is ambience, not weather" clause it retires).
+# Two families of claim, and both pass by accident without their negatives. A palette lane that
+# only checks the new values passes against a revert to the bright table -- so lane A carries the
+# OLD values through the same predicates and requires each to be refused, the check_road_look.gd
+# convention. And a sky layer is exactly the kind of mechanism that can be complete, correct and
+# read by nothing -- so lanes B, D and F are dead-socket scans proving the draw loop reaches the
+# keys and the resolvers, in the order the slice decided (entities, then the sky, then the flash,
+# then the night wash).
 #
 # check_light_look.gd owns the other half of the draw order (district -> pools -> entities) and
 # _draw_night_wash's wash_alpha assertion; lane D names it as the standing co-assertion rather
 # than duplicating it here.
 #
-# Five lanes, every assertion with a true positive and a true negative, because a gate that
-# cannot fail is worse than no gate.
+# Seven lanes, every assertion with a true positive and a true negative, because a gate that
+# cannot fail is worse than no gate. RAIN PURE and RAIN WIRED are named for the layer they proved
+# first and still cover every kind that layer draws (rain, storm, snow) -- the names stay so the
+# print lines and docs/23's record do not drift from what a reader has already found once.
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
 const RainLook = preload("res://presentation/rain_look.gd")
 const Palette = preload("res://presentation/palette.gd")
+const Appearance = preload("res://presentation/appearance.gd")
 
 const MAIN_GD: String = "res://presentation/main.gd"
 const PALETTE_GD: String = "res://presentation/palette.gd"
 const RAIN_GD: String = "res://presentation/rain_look.gd"
+const KINDS: Array[String] = ["rain", "storm", "snow"]
 const CANON_SEED: int = 20260805
 const GATE_SIZE: int = 64
 const DAY_TICKS: float = 288000.0
@@ -47,6 +53,8 @@ func _run() -> void:
 	ok = _the_rain_is_pure_and_deterministic() and ok
 	ok = _the_rain_is_wired_and_ordered() and ok
 	ok = _the_roof_stops_the_rain() and ok
+	ok = _the_snow_lies_on_the_ground() and ok
+	ok = _the_lightning_is_one_drained_frame() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -56,15 +64,21 @@ func _run() -> void:
 	if ok:
 		print(
 			(
-				"WEATHER_OK accents muted with the bright table refused (window S%.3f V%.3f, groundItem V%.3f over the brightest ground %.3f), lamp pools pinned warm; three dead keys wired and five dead constants gone; rain hashed not drawn -- %d streaks, intensity in [%.2f, %.2f] over a day, pixel-centred and falling; entities -> rain -> wash ascending; %d roofed tiles stop it beside %d open ones on suburb@%d; %.1f s of a %.0f s budget"
+				"WEATHER_OK accents muted with the bright table refused (window S%.3f V%.3f, groundItem V%.3f over the brightest ground %.3f, snow and lightning inside the same bands), lamp pools pinned warm; three dead keys wired and five dead constants gone; the sky hashed not drawn per kind -- rain %d streaks floor %.2f, storm %d streaks floor %.2f, snow %d streaks floor %.2f falling %.1f px/tick against rain's %.1f, every kind pixel-centred, falling and deterministic; entities -> sky -> flash -> wash ascending; snow cover 0.0 byte-identical and 1.0 differing on open ground at SNOW_COVER_MAX %.2f; a drained weather.lightning paints one wash frame and a tick with none paints nothing; %d roofed tiles stop the sky beside %d open ones on suburb@%d; %.1f s of a %.0f s budget"
 				% [
 					(Palette.COLOURS["window"] as Color).s,
 					(Palette.COLOURS["window"] as Color).v,
 					(Palette.COLOURS["groundItem"] as Color).v,
 					float(_stash.get("brightest_ground", 0.0)),
-					RainLook.STREAK_COUNT,
-					float(_stash.get("intensity_min", 0.0)),
-					float(_stash.get("intensity_max", 0.0)),
+					RainLook.look_of("rain")["count"],
+					float(RainLook.look_of("rain")["intensityMin"]),
+					RainLook.look_of("storm")["count"],
+					float(RainLook.look_of("storm")["intensityMin"]),
+					RainLook.look_of("snow")["count"],
+					float(RainLook.look_of("snow")["intensityMin"]),
+					float(RainLook.look_of("snow")["fall"]),
+					float(RainLook.look_of("rain")["fall"]),
+					Palette.SNOW_COVER_MAX,
 					int(_stash.get("indoor_tiles", 0)),
 					int(_stash.get("outdoor_tiles", 0)),
 					GATE_SIZE,
@@ -121,9 +135,17 @@ func _pool_warm_ok(c: Color) -> bool:
 	return c.r - c.b >= 0.35 and c.a <= 0.25
 
 
-# The rain wash's own band: visible, never a curtain.
+# The rain wash's own band: visible, never a curtain. Snow shares it -- "alpha like rain's",
+# the owner's call -- because a flake is a dot, not a streak, and earns no more presence on
+# screen than the rain it stands beside in the same layer.
 func _rain_alpha_ok(a: float) -> bool:
 	return a >= 0.05 and a <= 0.18
+
+
+# The flash's own band: felt as a beat, never a wipe -- wider and higher than the rain band
+# because a strike is a single frame rather than a curtain that stays up for a span.
+func _flash_alpha_ok(a: float) -> bool:
+	return a >= 0.25 and a <= 0.45
 
 
 # The edge rays derive from the arc's colour by this factor; dead at 0, a lie above 1.
@@ -138,6 +160,8 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 	var facing: Color = Palette.COLOURS["facing"] as Color
 	var cone: Color = Palette.COLOURS["aimCone"] as Color
 	var rain: Color = Palette.COLOURS["rain"] as Color
+	var snow: Color = Palette.COLOURS["snow"] as Color
+	var lightning: Color = Palette.COLOURS["lightning"] as Color
 
 	# True positives: the shipped table sits inside the mood.
 	if not _window_ok(window):
@@ -149,7 +173,7 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 	if not _ground_item_ok(ground_item):
 		push_error("groundItem is outside the muted band: S %.3f V %.3f" % [ground_item.s, ground_item.v])
 		return false
-	for pair in [["facing", facing], ["aimCone", cone], ["rain", rain]]:
+	for pair in [["facing", facing], ["aimCone", cone], ["rain", rain], ["snow", snow], ["lightning", lightning]]:
 		var mark: Color = (pair as Array)[1] as Color
 		if not _mark_ok(mark):
 			push_error("%s is outside the mark band: S %.3f V %.3f" % [(pair as Array)[0], mark.s, mark.v])
@@ -165,6 +189,12 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		return false
 	if not _rain_alpha_ok(rain.a):
 		push_error("rain alpha %.3f is outside [0.05, 0.18]" % rain.a)
+		return false
+	if not _rain_alpha_ok(snow.a):
+		push_error("snow alpha %.3f is outside rain's own [0.05, 0.18] band" % snow.a)
+		return false
+	if not _flash_alpha_ok(lightning.a):
+		push_error("lightning alpha %.3f is outside [0.25, 0.45]" % lightning.a)
 		return false
 
 	# The readability floor: an item on the ground must clear the brightest street it can lie on.
@@ -249,6 +279,20 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		push_error("an invisible rain passes the alpha floor")
 		return false
 
+	# The flash band, both ends refused: a wipe that never clears and a strike nobody would see.
+	if _flash_alpha_ok(Color(1, 1, 1, 0.9).a):
+		push_error("a near-opaque flash passes the flash band")
+		return false
+	if _flash_alpha_ok(Color(1, 1, 1, 0.0).a):
+		push_error("an invisible flash passes the flash floor")
+		return false
+
+	# The pre-slice absence of both keys: a table missing snow or lightning has nothing to mute
+	# and nothing to say no to, which is the dead-socket family the sweep keeps finding.
+	if not Palette.COLOURS.has("snow") or not Palette.COLOURS.has("lightning"):
+		push_error("the snow or lightning palette key is missing")
+		return false
+
 	# A rim set to the pane's own colour is refused by the same arithmetic that passed the real one.
 	if _rgb_distance(pane, pane) >= 0.06:
 		push_error("the rim-separation bound accepted zero distance; it cannot say no")
@@ -273,8 +317,8 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		return false
 
 	print(
-		"ACCENT OK window #%s, rim #%s, groundItem #%s, marks muted at alpha; pools pinned warm (near r-b %.3f); %d bright values refused"
-		% [window.to_html(false), rim.to_html(false), ground_item.to_html(false), Palette.LIGHT_POOL_NEAR.r - Palette.LIGHT_POOL_NEAR.b, refused]
+		"ACCENT OK window #%s, rim #%s, groundItem #%s, marks muted at alpha (snow #%s, lightning #%s); pools pinned warm (near r-b %.3f); %d bright values refused"
+		% [window.to_html(false), rim.to_html(false), ground_item.to_html(false), snow.to_html(true), lightning.to_html(true), Palette.LIGHT_POOL_NEAR.r - Palette.LIGHT_POOL_NEAR.b, refused]
 	)
 	return true
 
@@ -388,53 +432,57 @@ func _spread_of(samples: Array) -> float:
 	return hi - lo
 
 
-func _the_rain_is_pure_and_deterministic() -> bool:
-	var width: float = 1920.0
-	var height: float = 1080.0
-	var count: int = RainLook.STREAK_COUNT
+# One kind's record, put through every geometric and determinism claim the old single-kind lane
+# made -- snapped, bounded, leaning, falling and deterministic -- parameterised on `look` rather
+# than the module's bare `rain` constants, so a storm and a snowfall are held to the identical
+# arithmetic rather than trusted by inspection. Populates `_stash["<kind>_intensity_min/max"]`
+# for the summary line.
+func _look_is_geometric_and_deterministic(kind: String, look: Dictionary, width: float, height: float) -> bool:
+	var count: int = int(look["count"])
+	var fall: float = float(look["fall"])
+	var slant: float = float(look["slant"])
+	var len_min: float = float(look["lenMin"])
+	var len_span: float = float(look["lenSpan"])
+	var floor_v: float = float(look["intensityMin"])
 
-	# Const sanity first, so a broken constant names itself rather than failing a bound below.
 	if count <= 0 or count > 256:
-		push_error("STREAK_COUNT %d is outside (0, 256]" % count)
+		push_error("%s: count %d is outside (0, 256]" % [kind, count])
 		return false
-	if RainLook.INTENSITY_MIN <= 0.0 or RainLook.INTENSITY_MIN >= 1.0:
-		push_error("INTENSITY_MIN %.2f is not strictly between 0 and 1: the rain can stop, or never vary" % RainLook.INTENSITY_MIN)
+	if floor_v <= 0.0 or floor_v >= 1.0:
+		push_error("%s: intensityMin %.2f is not strictly between 0 and 1: it can stop, or never vary" % [kind, floor_v])
 		return false
-	if RainLook.SLANT <= 0.0 or RainLook.FALL_PX_PER_TICK <= 0.0:
-		push_error("the rain does not lean or does not fall: SLANT %.2f, FALL_PX_PER_TICK %.1f" % [RainLook.SLANT, RainLook.FALL_PX_PER_TICK])
-		return false
-	if absf(RainLook.alpha_scale(0.0) - 0.6) > EPS or absf(RainLook.alpha_scale(1.0) - 1.0) > EPS:
-		push_error("alpha_scale does not span [0.6, 1.0]")
+	if slant <= 0.0 or fall <= 0.0:
+		push_error("%s does not lean or does not fall: slant %.2f, fall %.1f" % [kind, slant, fall])
 		return false
 
 	# Determinism: the same instant renders the same sky, at boot, mid-run and a day in.
 	for probe_t in [0.0, 1234.0, DAY_TICKS]:
 		var t: float = float(probe_t)
-		var a: PackedVector2Array = RainLook.segments(t, width, height, count)
-		var b: PackedVector2Array = RainLook.segments(t, width, height, count)
+		var a: PackedVector2Array = RainLook.segments(t, width, height, look)
+		var b: PackedVector2Array = RainLook.segments(t, width, height, look)
 		if a.size() != count * 2 or b.size() != count * 2:
-			push_error("segments returned %d points for %d streaks at t=%.0f" % [a.size(), count, t])
+			push_error("%s: segments returned %d points for %d streaks at t=%.0f" % [kind, a.size(), count, t])
 			return false
 		for i in a.size():
 			if a[i] != b[i]:
-				push_error("segments is not deterministic at t=%.0f, point %d" % [t, i])
+				push_error("%s: segments is not deterministic at t=%.0f, point %d" % [kind, t, i])
 				return false
 
 	# Graceful absence: nothing to draw on, nothing drawn.
-	if not RainLook.segments(10.0, 0.0, height, count).is_empty():
-		push_error("a zero-width sky produced streaks")
+	if not RainLook.segments(10.0, 0.0, height, look).is_empty():
+		push_error("%s: a zero-width sky produced streaks" % kind)
 		return false
-	if not RainLook.segments(10.0, width, -1.0, count).is_empty():
-		push_error("a negative-height sky produced streaks")
+	if not RainLook.segments(10.0, width, -1.0, look).is_empty():
+		push_error("%s: a negative-height sky produced streaks" % kind)
 		return false
-	if not RainLook.segments(10.0, width, height, 0).is_empty():
-		push_error("a zero count produced streaks")
+	if not RainLook.segments(10.0, width, height, {"count": 0}).is_empty():
+		push_error("%s: a zero count produced streaks" % kind)
 		return false
 
 	# Geometry at one instant: snapped, bounded, leaning.
 	var t0: float = 1234.0
-	var pts: PackedVector2Array = RainLook.segments(t0, width, height, count)
-	var max_len: float = RainLook.STREAK_LEN_MIN + RainLook.STREAK_LEN_SPAN
+	var pts: PackedVector2Array = RainLook.segments(t0, width, height, look)
+	var max_len: float = len_min + len_span
 	var strict_lean: int = 0
 	var columns: Array = []
 	var lengths: Array = []
@@ -446,79 +494,128 @@ func _the_rain_is_pure_and_deterministic() -> bool:
 			# Pixel CENTRES, not integers: a 1 px quad with whole-number endpoints sits its
 			# edges on the sample points and rasterises to nothing (measured; see rain_look.gd).
 			if v.x - floorf(v.x) != 0.5 or v.y - floorf(v.y) != 0.5:
-				push_error("an endpoint is not snapped to a pixel centre: %s" % str(v))
+				push_error("%s: an endpoint is not snapped to a pixel centre: %s" % [kind, str(v)])
 				return false
-		if head.x < -1.0 or head.x > width + max_len * RainLook.SLANT + 1.0:
-			push_error("a head is out of the sky horizontally: %s" % str(head))
+		if head.x < -1.0 or head.x > width + max_len * slant + 1.0:
+			push_error("%s: a head is out of the sky horizontally: %s" % [kind, str(head)])
 			return false
 		if head.y < -RainLook.WRAP_MARGIN - 1.0 or foot.y > height + RainLook.WRAP_MARGIN + max_len + 1.0:
-			push_error("a streak is outside the overscanned sky vertically: %s -> %s" % [str(head), str(foot)])
+			push_error("%s: a streak is outside the overscanned sky vertically: %s -> %s" % [kind, str(head), str(foot)])
 			return false
 		if foot.y <= head.y:
-			push_error("a streak does not fall: %s -> %s" % [str(head), str(foot)])
+			push_error("%s: a streak does not fall: %s -> %s" % [kind, str(head), str(foot)])
 			return false
 		if foot.x < head.x:
-			push_error("a streak leans against the slant: %s -> %s" % [str(head), str(foot)])
+			push_error("%s: a streak leans against the slant: %s -> %s" % [kind, str(head), str(foot)])
 			return false
 		if foot.x > head.x:
 			strict_lean += 1
 		columns.append(head.x)
 		lengths.append(foot.y - head.y)
 	if strict_lean < int(0.8 * float(count)):
-		push_error("only %d of %d streaks lean visibly" % [strict_lean, count])
+		push_error("%s: only %d of %d streaks lean visibly" % [kind, strict_lean, count])
 		return false
 	if _distinct_count(columns) < 8:
-		push_error("only %d distinct columns: the hash has collapsed into stripes" % _distinct_count(columns))
+		push_error("%s: only %d distinct columns: the hash has collapsed into stripes" % [kind, _distinct_count(columns)])
 		return false
-	if _distinct_count(lengths) < 5:
-		push_error("only %d distinct lengths: the length hash is dead" % _distinct_count(lengths))
+	# The distinct-length floor scales with how much length range the kind even has: snow's 2 px
+	# span quantises to a handful of pixel lengths, where rain and storm's 11 px span clears 5
+	# easily -- a fixed floor of 5 would fail snow for having a short, deliberately dot-like
+	# streak rather than for a dead hash.
+	var min_distinct_len: int = mini(5, maxi(2, floori(len_span) + 1))
+	if _distinct_count(lengths) < min_distinct_len:
+		push_error("%s: only %d distinct lengths (floor %d): the length hash is dead" % [kind, _distinct_count(lengths), min_distinct_len])
 		return false
 
-	# It falls: one tick later, every non-wrapping streak moved down by exactly FALL_PX_PER_TICK
-	# and drifted 1-2 px with the slant.
-	var later: PackedVector2Array = RainLook.segments(t0 + 1.0, width, height, count)
+	# It falls: one tick later, every non-wrapping streak moved down by exactly the kind's own
+	# fall rate and drifted with the slant.
+	var later: PackedVector2Array = RainLook.segments(t0 + 1.0, width, height, look)
 	var non_wrap: int = 0
 	var moved: int = 0
+	var min_drift: float = maxf(0.0, floorf(fall * slant) - 1.0)
+	var max_drift: float = ceilf(fall * slant) + 1.0
 	for i2 in range(0, pts.size(), 2):
 		var dy: float = later[i2].y - pts[i2].y
 		var dx: float = later[i2].x - pts[i2].x
 		if later[i2] != pts[i2]:
 			moved += 1
-		if dy == RainLook.FALL_PX_PER_TICK and dx >= 0.0:
+		if dy == fall and dx >= 0.0:
 			non_wrap += 1
-			if dx < 1.0 or dx > 2.0:
-				push_error("a non-wrapping streak drifted %.0f px in one tick; the slant is broken" % dx)
+			if dx < min_drift or dx > max_drift:
+				push_error("%s: a non-wrapping streak drifted %.2f px in one tick; the slant is broken" % [kind, dx])
 				return false
 	if non_wrap < int(0.8 * float(count)):
-		push_error("only %d of %d streaks fell cleanly between two ticks" % [non_wrap, count])
+		push_error("%s: only %d of %d streaks fell cleanly between two ticks" % [kind, non_wrap, count])
 		return false
-	# The frozen-rain negative: a sky identical one tick later is rain that is not falling.
+	# The frozen-sky negative: a sky identical one tick later is weather that is not falling.
 	if moved < count / 2:
-		push_error("the sky is nearly identical one tick later; the rain is not falling")
+		push_error("%s: the sky is nearly identical one tick later; it is not falling" % kind)
 		return false
 
-	# Intensity: alive, bounded, never stopping. The stride is deliberately non-commensurate
-	# with PERIOD_TICKS so the sampler cannot lock onto the lattice.
+	# Intensity: alive, bounded, never stopping at this kind's own floor. The stride is
+	# deliberately non-commensurate with PERIOD_TICKS so the sampler cannot lock onto the lattice.
 	var samples: Array = []
 	for k in 4096:
-		samples.append(RainLook.intensity(float(k) * DAY_TICKS / 4096.0))
+		samples.append(RainLook.intensity(float(k) * DAY_TICKS / 4096.0, look))
 	var lo: float = 1.0e30
 	var hi: float = -1.0e30
 	for s in samples:
 		lo = minf(lo, float(s))
 		hi = maxf(hi, float(s))
-	_stash["intensity_min"] = lo
-	_stash["intensity_max"] = hi
-	if lo <= 0.0 or lo < RainLook.INTENSITY_MIN - EPS:
-		push_error("intensity fell to %.3f, under the floor %.2f: it stopped raining" % [lo, RainLook.INTENSITY_MIN])
+	_stash["%s_intensity_min" % kind] = lo
+	_stash["%s_intensity_max" % kind] = hi
+	if lo <= 0.0 or lo < floor_v - EPS:
+		push_error("%s: intensity fell to %.3f, under the floor %.2f" % [kind, lo, floor_v])
 		return false
 	if hi > 1.0 + EPS:
-		push_error("intensity reached %.3f, over 1" % hi)
+		push_error("%s: intensity reached %.3f, over 1" % [kind, hi])
 		return false
-	if _spread_of(samples) < 0.25:
-		push_error("intensity spread %.3f over a day is under 0.25: the swell is dead" % _spread_of(samples))
+	if _spread_of(samples) < 0.5 * (1.0 - floor_v) - EPS:
+		push_error("%s: intensity spread %.3f over a day is under half the available range: the swell is dead" % [kind, _spread_of(samples)])
 		return false
-	# Dead-spread and dead-column negatives, through the same helpers.
+
+	return true
+
+
+func _the_rain_is_pure_and_deterministic() -> bool:
+	var width: float = 1920.0
+	var height: float = 1080.0
+
+	for kind in KINDS:
+		if not _look_is_geometric_and_deterministic(kind, RainLook.look_of(kind), width, height):
+			return false
+
+	# An unrecognised kind falls back to rain -- a graceful default rather than a crash, the
+	# fallback `look_of`'s own comment names.
+	if RainLook.look_of("cold_snap") != RainLook.look_of("rain"):
+		push_error("look_of does not fall back to rain for a kind it does not carry a record for")
+		return false
+
+	# Snow falls slower than rain -- the owner's "snow falls and lies" is a look claim too: a
+	# flake that fell at rain's own rate would not read as snow.
+	var rain_look: Dictionary = RainLook.look_of("rain")
+	var snow_look: Dictionary = RainLook.look_of("snow")
+	var storm_look: Dictionary = RainLook.look_of("storm")
+	if not (float(snow_look["fall"]) < float(rain_look["fall"])):
+		push_error("snow does not fall slower than rain: %.2f vs %.2f" % [float(snow_look["fall"]), float(rain_look["fall"])])
+		return false
+	# The storm is rain's loud sibling: harder floor, more streaks, the same fall and lean.
+	if not (float(storm_look["intensityMin"]) > float(rain_look["intensityMin"])):
+		push_error("storm's intensity floor %.2f is not louder than rain's %.2f" % [float(storm_look["intensityMin"]), float(rain_look["intensityMin"])])
+		return false
+	if not (int(storm_look["count"]) > int(rain_look["count"])):
+		push_error("storm does not carry more streaks than rain: %d vs %d" % [int(storm_look["count"]), int(rain_look["count"])])
+		return false
+	if float(storm_look["fall"]) != float(rain_look["fall"]) or float(storm_look["slant"]) != float(rain_look["slant"]):
+		push_error("storm's fall or slant drifted from rain's -- it should share both, only the floor and the count differ")
+		return false
+
+	# alpha_scale is kind-invariant and still spans [0.6, 1.0].
+	if absf(RainLook.alpha_scale(0.0) - 0.6) > EPS or absf(RainLook.alpha_scale(1.0) - 1.0) > EPS:
+		push_error("alpha_scale does not span [0.6, 1.0]")
+		return false
+
+	# Dead-spread and dead-column negatives, through the same helpers every kind's lane leans on.
 	var flat: Array = []
 	for k2 in 4096:
 		flat.append(0.7)
@@ -526,14 +623,15 @@ func _the_rain_is_pure_and_deterministic() -> bool:
 		push_error("a constant intensity passed the spread bound; the spread helper is dead")
 		return false
 	var stripe: Array = []
-	for k3 in count:
+	for k3 in RainLook.look_of("rain")["count"]:
 		stripe.append(640.0)
 	if _distinct_count(stripe) >= 8:
 		push_error("a single column passed the distinct bound; the distinct helper is dead")
 		return false
 
-	# Textual purity: the resolver keeps no state and draws from no generator. The scanner is
-	# proven on a violating fixture first, so the scan itself can say no.
+	# Textual purity: the resolver keeps no state and draws from no generator, whichever kind's
+	# record it is handed. The scanner is proven on a violating fixture first, so the scan itself
+	# can say no.
 	var forbidden: Array = ["static var", "RandomNumberGenerator", "randi", "randf", ".stream(", "seed("]
 	var violating: String = "static var cache: int = 0\n"
 	var scanner_bit: bool = false
@@ -553,8 +651,15 @@ func _the_rain_is_pure_and_deterministic() -> bool:
 			return false
 
 	print(
-		"RAIN PURE OK %d streaks deterministic, pixel-centred, leaning and falling 9 px/tick; intensity in [%.2f, %.2f] over a day with the floor at %.1f; no state, no generator"
-		% [count, lo, hi, RainLook.INTENSITY_MIN]
+		"RAIN PURE OK rain %d/storm %d/snow %d streaks, each deterministic, pixel-centred, leaning and falling (snow slower than rain: %.1f vs %.1f px/tick); intensity in [%.2f, %.2f]/[%.2f, %.2f]/[%.2f, %.2f] over a day at floors %.1f/%.1f/%.1f; no state, no generator"
+		% [
+			int(rain_look["count"]), int(storm_look["count"]), int(snow_look["count"]),
+			float(snow_look["fall"]), float(rain_look["fall"]),
+			float(_stash.get("rain_intensity_min", 0.0)), float(_stash.get("rain_intensity_max", 0.0)),
+			float(_stash.get("storm_intensity_min", 0.0)), float(_stash.get("storm_intensity_max", 0.0)),
+			float(_stash.get("snow_intensity_min", 0.0)), float(_stash.get("snow_intensity_max", 0.0)),
+			float(rain_look["intensityMin"]), float(storm_look["intensityMin"]), float(snow_look["intensityMin"]),
+		]
 	)
 	return true
 
@@ -576,15 +681,16 @@ func _the_rain_is_wired_and_ordered() -> bool:
 		return false
 	var at_entities: int = draw_fn.find("_draw_entities()")
 	var at_rain: int = draw_fn.find("_draw_rain()")
+	var at_lightning: int = draw_fn.find("_draw_lightning()")
 	var at_wash: int = draw_fn.find("_draw_night_wash()")
-	if at_entities < 0 or at_rain < 0 or at_wash < 0:
-		push_error("_draw is missing one of entities/rain/wash: %d %d %d" % [at_entities, at_rain, at_wash])
+	if at_entities < 0 or at_rain < 0 or at_lightning < 0 or at_wash < 0:
+		push_error("_draw is missing one of entities/rain/lightning/wash: %d %d %d %d" % [at_entities, at_rain, at_lightning, at_wash])
 		return false
-	if not _ascending([at_entities, at_rain, at_wash]):
-		push_error("_draw is out of order: the rain must land over the bodies and under the night wash")
+	if not _ascending([at_entities, at_rain, at_lightning, at_wash]):
+		push_error("_draw is out of order: the sky must land over the bodies, the flash over the sky, and both under the night wash")
 		return false
 	# The order negative, through the same predicate with the real indices reversed.
-	if _ascending([at_wash, at_rain, at_entities]):
+	if _ascending([at_wash, at_lightning, at_rain, at_entities]):
 		push_error("the order predicate accepted a reversed frame; it cannot say no")
 		return false
 
@@ -593,12 +699,14 @@ func _the_rain_is_wired_and_ordered() -> bool:
 		_function_body(MAIN_GD, "_draw_rain"),
 		[
 			"SimWeather.raining(",
+			"SimWeather.kind(",
+			"RainLook.look_of(",
 			"RainLook.segments(",
 			"RainLook.falls_at(",
 			"RainLook.intensity(",
 			"RainLook.alpha_scale(",
 			"draw_multiline(",
-			'Palette.COLOURS["rain"]',
+			"Palette.COLOURS[colour_key]",
 			"world.tick",
 		],
 		["RandomNumberGenerator", "randf", "LightLook.", "NIGHT_WASH"]
@@ -607,8 +715,28 @@ func _the_rain_is_wired_and_ordered() -> bool:
 		push_error(verdict)
 		return false
 
+	var lightning_verdict: String = _socket_verdict(
+		"_draw_lightning",
+		_function_body(MAIN_GD, "_draw_lightning"),
+		[
+			"world.events.drained",
+			"weather.lightning",
+			'Palette.COLOURS["lightning"]',
+			"draw_rect(",
+		],
+		["NIGHT_WASH", "LightLook.", "RandomNumberGenerator", "randf"]
+	)
+	if not lightning_verdict.is_empty():
+		push_error(lightning_verdict)
+		return false
+	# The dead-socket negative, through the same _socket_verdict predicate: a body missing one of
+	# the needles above is refused rather than passed.
+	if _socket_verdict("fixture", "\tdraw_rect(Rect2(Vector2.ZERO, size), flash)\n", ["world.events.drained"], []).is_empty():
+		push_error("a body with no drained-event read still passes the lightning reach scan; it cannot say no")
+		return false
+
 	print(
-		"RAIN WIRED OK _draw runs entities -> rain -> wash; _draw_rain reaches segments, falls_at, intensity, alpha_scale and the rain key off the tick (check_light_look.gd holds district -> pools -> entities)"
+		"RAIN WIRED OK _draw runs entities -> sky -> flash -> wash; _draw_rain reaches SimWeather.kind, look_of, segments, falls_at, intensity, alpha_scale and the kind's own colour key off the tick; _draw_lightning reaches the drained record and the lightning key, never the night's own tunables (check_light_look.gd holds district -> pools -> entities)"
 	)
 	return true
 
@@ -673,6 +801,120 @@ func _the_roof_stops_the_rain() -> bool:
 	print(
 		"ROOF OK rain falls on %d outdoor floor tiles and none of %d roofed ones on suburb@%d seed %d; off-map, null-map and blank_map skies stay open"
 		% [outdoor_floor, indoor_tiles, GATE_SIZE, CANON_SEED]
+	)
+	return true
+
+
+# --- lane F: snow lies on the ground ------------------------------------------------------------
+
+# Textual: the one ground read in _draw_district reaches SimWeather.snow_cover and the regrade,
+# guarded by the same is_indoors check every other floor branch in that function already reads --
+# the DEAD SOCKET lane's _socket_verdict is the precedent, named there for exactly this shape of
+# claim. Measured: Appearance.ground_with_snow (the pure function _draw_district calls) is byte-
+# identical at cover 0.0 and differs at cover 1.0, on the canonical seed's own ground colour --
+# proof on the function _draw_district cannot be exercised through (no running CanvasItem
+# headless, check_light_look.gd's DEAD SOCKET comment), rather than trusting the one-line lerp by
+# inspection.
+func _the_snow_lies_on_the_ground() -> bool:
+	var body: String = _function_body(MAIN_GD, "_draw_district")
+	var verdict: String = _socket_verdict(
+		"_draw_district",
+		body,
+		[
+			"SimWeather.snow_cover(",
+			"Appearance.ground_with_snow(",
+			"SimTileMap.is_indoors(",
+		],
+		[]
+	)
+	if not verdict.is_empty():
+		push_error(verdict)
+		return false
+	# The guard is judged where it stands, not anywhere in the body (the two-match-arms trap):
+	# between the ground read and the regrade there must be an is_indoors test, and a fixture
+	# with the regrade hoisted ahead of the guard is refused by the same slice.
+	var at_ground: int = body.find("Appearance.ground_colour(")
+	var at_snow: int = body.find("Appearance.ground_with_snow(")
+	if at_ground < 0 or at_snow < 0 or at_snow < at_ground or body.substr(at_ground, at_snow - at_ground).find("SimTileMap.is_indoors(") < 0:
+		push_error("_draw_district regrades the ground for snow without an is_indoors test between the ground read and the regrade")
+		return false
+	var hoisted: String = "\tvar g: Color = Appearance.ground_with_snow(Appearance.ground_colour(map, tx, ty), c)\n\tif not SimTileMap.is_indoors(map, tx, ty):\n\t\tpass\n"
+	var h_ground: int = hoisted.find("Appearance.ground_colour(")
+	var h_snow: int = hoisted.find("Appearance.ground_with_snow(")
+	if not (h_ground < 0 or h_snow < 0 or h_snow < h_ground or hoisted.substr(h_ground, maxi(0, h_snow - h_ground)).find("SimTileMap.is_indoors(") < 0):
+		push_error("the guard slice passed a fixture whose regrade sits ahead of its guard")
+		return false
+
+	var ground: Color = Palette.COLOURS["floor"] as Color
+	var clear_col: Color = Appearance.ground_with_snow(ground, 0.0)
+	if clear_col != ground:
+		push_error("cover 0.0 does not equal today's colour exactly: got #%s over #%s" % [clear_col.to_html(true), ground.to_html(true)])
+		return false
+	var covered_col: Color = Appearance.ground_with_snow(ground, 1.0)
+	if covered_col == ground:
+		push_error("cover 1.0 produced the same colour as cover 0.0: the regrade is dead")
+		return false
+	# Partial cover sits strictly between the two, so the drift is a lerp and not a hard swap.
+	var half_col: Color = Appearance.ground_with_snow(ground, 0.5)
+	if half_col == ground or half_col == covered_col:
+		push_error("cover 0.5 matches an end of the range: the regrade is not a lerp")
+		return false
+	if Palette.SNOW_COVER_MAX <= 0.0 or Palette.SNOW_COVER_MAX >= 1.0:
+		push_error("SNOW_COVER_MAX %.2f is not strictly between 0 and 1: the ground would never show through, or never change" % Palette.SNOW_COVER_MAX)
+		return false
+	# Negative and over-full cover clamp rather than overshoot the palette key.
+	var over_col: Color = Appearance.ground_with_snow(ground, 4.0)
+	if over_col != covered_col:
+		push_error("an over-full cover does not clamp to the same colour as 1.0")
+		return false
+	var under_col: Color = Appearance.ground_with_snow(ground, -4.0)
+	if under_col != clear_col:
+		push_error("a negative cover does not clamp to the same colour as 0.0")
+		return false
+
+	print(
+		"COVER OK _draw_district reaches snow_cover with an is_indoors test between the ground read and the regrade (a hoisted fixture refused); Appearance.ground_with_snow is byte-identical at cover 0.0 (#%s), differs at 1.0 (#%s) and 0.5 lies strictly between, at SNOW_COVER_MAX %.2f"
+		% [clear_col.to_html(true), covered_col.to_html(true), Palette.SNOW_COVER_MAX]
+	)
+	return true
+
+
+# --- lane G: the lightning flash is one drained frame --------------------------------------------
+
+# Textual, the same headless limit lane F and check_light_look.gd's DEAD SOCKET name: _draw
+# cannot run without a CanvasItem, so what _draw_lightning contains is read rather than run. The
+# true negative is a fixture body carrying the same draw_rect call with no guard ahead of it,
+# proving the guard-scan below can say no rather than passing any body that merely mentions the
+# call.
+func _the_lightning_is_one_drained_frame() -> bool:
+	var body: String = _function_body(MAIN_GD, "_draw_lightning")
+	if body.is_empty():
+		push_error("_draw_lightning had nothing to judge: the function body could not be read")
+		return false
+	var at_loop: int = body.find("world.events.drained")
+	var at_type: int = body.find("weather.lightning")
+	var at_guard: int = body.find("if not struck")
+	var at_draw: int = body.find("draw_rect(")
+	if at_loop < 0 or at_type < 0:
+		push_error("_draw_lightning does not read world.events.drained for a weather.lightning event")
+		return false
+	if at_guard < 0 or at_draw < 0 or at_guard > at_draw:
+		push_error("_draw_lightning does not guard draw_rect behind an early return on a miss")
+		return false
+	if body.contains("NIGHT_WASH") or body.contains("LightLook."):
+		push_error("_draw_lightning reads the night's own tunables: a flash is a moment, not a light level")
+		return false
+	# The negative: a body carrying the unconditioned draw call, with no guard ahead of it at
+	# all, is refused by the same ordering check.
+	var unguarded: String = "\tfor e in world.events.drained:\n\t\tif String(e.get(\"type\", \"\")) == \"weather.lightning\":\n\t\t\tstruck = true\n\tdraw_rect(Rect2(Vector2.ZERO, size), flash)\n\tif not struck:\n\t\treturn\n"
+	var u_guard: int = unguarded.find("if not struck")
+	var u_draw: int = unguarded.find("draw_rect(")
+	if not (u_guard < 0 or u_draw < 0 or u_guard > u_draw):
+		push_error("the ordering check passed a body whose guard comes after its draw_rect, so it could not have failed the real one")
+		return false
+
+	print(
+		"FLASH OK _draw_lightning reads world.events.drained for a weather.lightning event behind an early-return guard, draws the lightning key only when one is present, and reads neither NIGHT_WASH nor LightLook"
 	)
 	return true
 

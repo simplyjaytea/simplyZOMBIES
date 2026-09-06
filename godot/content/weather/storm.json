@@ -1,0 +1,11 @@
+{
+  "id": "weather.storm",
+  "description": "Rain's loud sibling, per docs/16: one to three hours, wets like rain, washes scent harder and the noise field too, refuses outdoor work, and lightning lands every ten minutes to two hours as a noise nobody made (60: louder than half a shout, quieter than any gun -- a strike that out-shouts a rifle summons the district, which is the opposite of masking; and not 180, 120 or 4, which sfx.gd dispatches one-shots by). No windMul: the first cut doubled the climate's wind and the harness read it as the difference between a colony and none on seed 20260805 (docs/23's record). First cuts for the owner. Read by SimWeather only.",
+  "durationTicks": { "min": 12000, "max": 36000 },
+  "weights": { "spring": 1, "summer": 2, "autumn": 2, "winter": 0 },
+  "wets": true,
+  "scentHalfLifeMul": 0.35,
+  "noiseHalfLifeMul": 0.4,
+  "outdoorWork": false,
+  "lightning": { "intervalTicks": { "min": 600, "max": 2400 }, "noise": 60 }
+}

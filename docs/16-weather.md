@@ -1,9 +1,14 @@
 # 16 — Weather
 
-> **Status, 2026-09-06:** the first sliver is built — rain as sim state, wetness one band colder,
-> scent washed — under [ADR 0015](adr/0015-rain-as-sim-state.md), gated by `godot:m2:weather`.
-> Everything else on this page (wind, fog, storm, heat, cold snap, snow, seasons, forecasting) is
-> still Milestone 3.
+> **Status, 2026-09-06:** the sky has kinds. Rain landed first under
+> [ADR 0015](adr/0015-rain-as-sim-state.md); the owner then opened the rest of this page the same
+> day under [ADR 0016](adr/0016-weather-kinds-and-seasons.md): clear, rain, storm, cold snap,
+> snow and heat wave as content entries drawn against a five-day-season calendar, and a wind
+> that drifts and leans the scent field — the spine gated by `godot:m2:weather`, each kind's
+> effects by `godot:m2:storm`, `godot:m2:cold` and `godot:m2:heat`. Still not built: fog, the
+> ranged accuracy penalty, thirst relief from rain, barricade damage, firewood, frostbite,
+> tracks in snow, seasons changing the phase lengths, forecasting by survivors — each named in
+> docs/23's what's left.
 
 *Why this exists: weather in survival games is usually decoration with a temperature modifier. Here
 it's a modifier on the [attention field](03-attention.md) — which makes it a tactical input the player

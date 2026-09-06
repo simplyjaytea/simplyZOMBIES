@@ -219,6 +219,7 @@ const BREAK_AWAY_PROBE_METRES: float = 1.5
 const BREAK_AWAY_PROBE_STEP: float = 0.25
 
 const SimLocomotionRes = preload("res://sim/locomotion.gd")
+const SimWeatherRes = preload("res://sim/modules/weather.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 # _roll_body_part is reused rather than reimplemented -- CLAUDE.md's shape is "one canonical
 # place", and melee.gd:31 already is it.
@@ -332,7 +333,9 @@ static func _grab_of(world: Variant, type_id: String) -> Dictionary:
 # The one place a shambler's speed is read. Every movement site goes through this so the cripple
 # penalty cannot be applied to three of the four and quietly missed on the fourth.
 static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String) -> float:
-	var base: float = float(shambler_data.get(key, 0.0))
+	# The sky's multiplier first (docs/adr/0016: a cold snap is the one state that weakens the
+	# dead directly), exactly 1.0 under clear, then the cripple.
+	var base: float = float(shambler_data.get(key, 0.0)) * SimWeatherRes.zombie_move_mul(world)
 	if not _is_crawling(world, entity):
 		return base
 	return base * float(shambler_data.get("crawlFactor", DEFAULT_LOCOMOTION["crawl"]))

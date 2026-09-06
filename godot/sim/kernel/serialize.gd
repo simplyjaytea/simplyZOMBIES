@@ -44,7 +44,11 @@ extends RefCounted
 # RNG stream joined the registry. A v19 save has neither: restored into a v20 world it would load
 # dry and draw a fresh schedule off a reseeded stream -- a world that loads and is quietly not the
 # one that was saved. Refused, same rule.
-const SAVE_VERSION: int = 20
+# 21: the sky has kinds (docs/adr/0016). `world.weather` grew `kind`, the wind, the snow cover
+# and the applied move multiplier, and the `weather` stream's draw order changed with the kind
+# roll. A v20 save has `raining` and no kind: restored into a v21 world it would read clear and
+# drift a wind off a stream already spent. Refused, same rule.
+const SAVE_VERSION: int = 21
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
