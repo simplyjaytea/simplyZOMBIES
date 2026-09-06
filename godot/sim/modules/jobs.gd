@@ -15,6 +15,7 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+const Clock = preload("res://sim/time/clock.gd")
 
 const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
@@ -79,7 +80,14 @@ static func attach(world: Variant, entity: int, focus: String = "Auto", row: Dic
 	for c in COLUMNS:
 		if not r.has(c):
 			r[c] = 0
-	world.components.set_component(entity, "jobPriorities", {"focus": focus, "cols": r})
+	var jp: Dictionary = {"focus": focus, "cols": r}
+	# An authored row (a unique's content) is kept beside the live one, because a focus change
+	# used to replace the whole row with a preset and one click on Ellis's focus word destroyed
+	# the `Guard 1` his content wrote. `set_focus` overlays the preset on this and Manual restores
+	# it; a generated survivor has none and gets exactly the preset, as before.
+	if not row.is_empty():
+		jp["authored"] = r.duplicate()
+	world.components.set_component(entity, "jobPriorities", jp)
 
 
 # `by` is provenance, not flavour: "player" when a person chose this focus, "auto" when the sim
@@ -89,13 +97,26 @@ static func attach(world: Variant, entity: int, focus: String = "Auto", row: Dic
 static func set_focus(world: Variant, entity: int, focus: String, by: String = "auto") -> void:
 	var jp: Variant = world.components.get_component(entity, "jobPriorities")
 	var injured: bool = _injured(world, entity)
+	var authored: Dictionary = {}
+	if jp is Dictionary and (jp as Dictionary).get("authored", null) is Dictionary:
+		authored = (jp as Dictionary)["authored"] as Dictionary
 	if focus == "Manual" and jp is Dictionary:
 		(jp as Dictionary)["focus"] = "Manual"
 		(jp as Dictionary)["focusSetBy"] = by
+		# Manual on a survivor whose content wrote a row is that row again, byte for byte.
+		if not authored.is_empty():
+			(jp as Dictionary)["cols"] = authored.duplicate()
 		world.events.publish({"type": "job.focus_changed", "entity": entity, "focus": "Manual"})
 		return
 	var row: Dictionary = preset(focus, injured)
-	world.components.set_component(entity, "jobPriorities", {"focus": focus, "cols": row, "focusSetBy": by})
+	# The preset wins where it speaks; the authored row survives where the preset is silent.
+	for c in COLUMNS:
+		if int(row.get(c, 0)) == 0 and int(authored.get(c, 0)) > 0:
+			row[c] = int(authored[c])
+	var next: Dictionary = {"focus": focus, "cols": row, "focusSetBy": by}
+	if not authored.is_empty():
+		next["authored"] = authored
+	world.components.set_component(entity, "jobPriorities", next)
 	world.events.publish({"type": "job.focus_changed", "entity": entity, "focus": focus})
 
 
@@ -216,6 +237,13 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	# refusal to *work*, not a refusal to live.
 	if _sulking(world, ent):
 		return
+	# Dusk calls a survivor with Guard on their row to the post. Only a job that has not begun
+	# a channel (ticksLeft 0: a walk, a Rest, a Patient) is dropped for it -- the soft-seek rule
+	# above already draws that line -- and only where Guard outranks the job in the row's own
+	# order, so Mara (Doctor 1, Guard 2) finishes doctoring before she stands the gate.
+	if job is Dictionary and _post_calls(world, ent, job as Dictionary):
+		_stop(world, ent)
+		job = null
 	if job is Dictionary:
 		# A storm sends everybody in: a job already under way outdoors is dropped here rather
 		# than inside _advance_job, so the walk-to-it path and the work at it both stop on the
@@ -293,6 +321,36 @@ static func _pick(world: Variant, ent: int) -> void:
 		return
 
 
+# Is it the watch's hour, and does this survivor's row put Guard ahead of the job in hand?
+static func _post_calls(world: Variant, ent: int, job: Dictionary) -> bool:
+	if not _watch_hours(world):
+		return false
+	var kind: String = String(job.get("kind", ""))
+	if kind == "Guard" or int(job.get("ticksLeft", 0)) > 0:
+		return false
+	var jp: Variant = world.components.get_component(ent, "jobPriorities")
+	if not jp is Dictionary:
+		return false
+	var cols: Dictionary = (jp as Dictionary).get("cols", {}) as Dictionary
+	var guard_p: int = int(cols.get("Guard", 0))
+	if guard_p <= 0:
+		return false
+	var kind_p: int = int(cols.get(kind, 0))
+	if kind_p <= 0:
+		return true
+	# The same order `_pick` sorts by: priority, then the name.
+	return guard_p < kind_p or (guard_p == kind_p and "Guard" < kind)
+
+
+# Guard is a dusk-to-dawn post (the owner's 2026-09-06 call): the day belongs to the rest of the
+# row. Before this the post was handed out at any hour and never completed, so Ellis (Guard 1)
+# stood the gate from tick one for the whole run and nothing in the boot colony was ever hauled,
+# cooked or built.
+static func _watch_hours(world: Variant) -> bool:
+	var phase: int = Clock.phase_of(int(world.tick))
+	return phase == Clock.Phase.Dusk or phase == Clock.Phase.Night
+
+
 static func _sole_doctor(world: Variant, ent: int) -> bool:
 	for other in world.components.query(["jobPriorities"]):
 		if int(other) == ent:
@@ -331,7 +389,10 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 			return {"kind": "Patient", "target": ent, "ticksLeft": 0, "path": [], "pathGen": -1}
 		"Guard":
 			# The post is the map's gate, not a constant. A district with no gate anchor has
-			# nothing to stand on, so there is no Guard job to hand out.
+			# nothing to stand on, so there is no Guard job to hand out -- and by day there is
+			# no watch to keep, so the row's next column gets the survivor instead.
+			if not _watch_hours(world):
+				return {}
 			var post: Vector2i = SimTileMap.gate_a(world.tilemap)
 			if post.x < 0 or post.y < 0:
 				return {}
@@ -767,7 +828,10 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 		"Patient":
 			pass
 		"Guard":
-			pass
+			# The watch ends at dawn, and that is the first time Guard has ever completed --
+			# `job.completed` reaches the skill web (an Endurance point, docs/08's hard nights).
+			if not _watch_hours(world):
+				_stop(world, ent, "Guard")
 		"Water":
 			_do_water(world, ent, job)
 		"Clean":

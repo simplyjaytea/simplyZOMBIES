@@ -597,6 +597,14 @@ func _raw_and_spoiled_food_carry_illness_risk() -> bool:
 	# matter -- an illness that never ended would be a death sentence dressed as a debuff.
 	var w2: Variant = _world()
 	var ent: int = int(w2.player)
+	# The bout is measured on a survivor nothing else touches. This half used to ride on the
+	# booted district's twenty shamblers happening not to reach the idle player inside 3,640
+	# ticks; the day the boot colony started working by day (Guard as the night post, 2026-09-06)
+	# the deterministic trajectory changed, a shambler reached the player at tick 39082, the
+	# instinct defence swung, a grab followed, and the pain of the wound read as "work was still
+	# 0.912 after recovery". `world.despawn`, so the components go with the bodies.
+	for z in w2.components.query(["shambler"]):
+		w2.despawn(int(z))
 	var well_work: float = SimNeeds.work_mul(w2, ent)
 	var before_mood: float = float(w2.modifiers.call("resolve", "mood", ent))
 	SimNeeds._fall_ill(w2, ent)
