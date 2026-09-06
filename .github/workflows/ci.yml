@@ -88,6 +88,13 @@ jobs:
       - name: Sprite reproducibility
         run: npm run sprites:check
 
+      # The agent routing table in AGENTS.md is a set of claims -- this path, this script, this
+      # heading -- and every gate under godot/ must be reachable from an npm script. Node only,
+      # a second or so; it runs before any engine gate so a stale route is the first red, not
+      # the last.
+      - name: Routing table and gate reachability
+        run: npm run check:routing
+
       - name: Godot R1 parity
         run: npm run godot:test
 
@@ -112,7 +119,8 @@ jobs:
       - name: R6 soak (memory/save/input/pause/tab)
         run: npm run godot:r6:soak
 
-      # Every Milestone 2 gate, chained by the npm script -- 45 of them, and the same command
+      # Every Milestone 2 gate, chained by the npm script (count them off the script itself:
+      # every number written here has drifted, 42 then 45 then 51), and the same command
       # CLAUDE.md tells a contributor to run before every commit, so CI and the desk agree by
       # construction rather than by two lists being kept in step. It is by far the longest step
       # here -- ~11.8 min measured 2026-09-04, of which five gates are 79%: balance 282 s,
@@ -133,7 +141,7 @@ jobs:
       #   godot:check:hud          the HUD speaks in words. Same reasoning as the health-bar
       #                            ban: a number on screen invites optimising the number. Only
       #                            the day counter is excepted
-      - name: Godot Milestone 2 gates (all 45, standing bans included)
+      - name: Godot Milestone 2 gates (the whole chain, standing bans included)
         run: npm run godot:m2
 
   godot-exports:

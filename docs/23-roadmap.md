@@ -510,9 +510,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
     those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
     says must skip loudly instead.
-  - `check_r6_bench.gd` loads `bench.gd`, prints a "delegating" line and calls `quit(0)` without
-    running a benchmark — and no npm script or `run-godot.mjs` path references the file, so it is a
-    dead gate that would pass unconditionally if anyone wired it up.
 - **Three more dead sockets, on top of the nine now listed in CLAUDE.md.** `sim/spatial/hash.gd`
   in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
   check scripts, so the headless bench measures a structure the running simulation never touches
@@ -4358,6 +4355,25 @@ not a to-do list:
     300. Confirmed to fail against the bug it targets: reverting the `corpse` skip alarms on the
     corpse exactly like the living-survivor lane does.
 
+- **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
+  `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where
+  the code lives, which gate judges it, where the record goes — and a Node gate judges the table
+  the way content is judged, because every prose copy of "where things are" in this repo had
+  drifted (`AGENTS.md` said the chain was 35 gates and seven minutes, the CI comment said 45,
+  `package.json` chained 51). The gate resolves every backticked path, every `npm run` and bare
+  script name, and every markdown link with its heading anchor (GitHub's slug rule, duplicates
+  suffixed); then it asks the dead-socket question of the gates themselves: every
+  `godot/check_*.gd` must be reached by a `scripts/run-godot.mjs` mode, every runner mode by a
+  `package.json` script, and every `godot:m2:*` / `godot:check:*` / `godot:ban:*` script must sit
+  in the `godot:m2` chain or be excused by name (`balance:full`, `harness:full`). Its true
+  negatives are built in: every run also feeds a fabricated broken table and a fabricated gate
+  set through the same functions and demands each of thirteen failures. Landing it found two
+  routes the tree did not have: the `--export-web` runner mode was reached only by a raw call in
+  `pages.yml` (now `npm run godot:export:web`), and `check_r6_bench.gd` was the sweep's named dead
+  gate — deleted, closing that defect; the four R2/R3-era check scripts stay by name with the
+  ledger that cites them. The same commit added the PR template, the steward skill under
+  `.claude/skills/`, and the read-only permission allowlist in `.claude/settings.json`, and
+  re-measured the numbers `AGENTS.md` had wrong.
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.
