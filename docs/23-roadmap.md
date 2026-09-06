@@ -418,10 +418,6 @@ content first cut for the owner.
   a gun, a shout and a bow) and a `weather.lightning` event; outdoor work refused at `_pick` and
   a running outdoor job dropped before `_advance_job` (Guard is watch, not work). Gate
   `godot:m2:storm`. Barricade damage and a thunder sample are not this piece.
-- **The cold snap's pantry, and the snow's.** `spoilageMul` read by `_tick_spoilage` on the
-  pantry rate; the night-deepening clock measured under a cold snap; the cover that lays and
-  melts drawn on the ground (the look piece). Gate `godot:m2:cold`. Firewood, frostbite, crops
-  and tracks are not this piece.
 - **The heat wave's clock, thirst and rot.** A `hotSinceTick` mirror of the cold clock deepening
   `a_little_hot` to `very_hot` and, in body armour, `extremely_hot` — heatstroke, docs/16's
   word, and `jobs.gd`'s hard interrupt beside `extremely_cold`; `thirstMul` on the thirst
@@ -3290,6 +3286,41 @@ not a to-do list:
   fixed: `_water_work` and `_repair_work` hand out an unclaimed target in the same shape, `Bury`'s
   "no position means I am carrying it" stays in the defect list, and `_do_cook` still despawns the
   whole raw *stack* for one meal — pre-existing, balance-relevant, and its own line.
+- **Weather** — ~~the cold snap's pantry, and the snow's~~ **landed** (`npm run godot:m2:cold`,
+  `M2_COLD_OK`, eight lanes), 2026-09-06 — the one reader the spine left open and the
+  measurements docs/16 promises for the cold half of the ladder, on top of the spine's own
+  content, cover ramp and MOVE/SHIFT lanes (`godot:m2:weather`). `_tick_spoilage`'s rate is
+  `pantry_rate(world) * SimWeather.spoilage_mul(world)`, one generic read shared verbatim with
+  the heat slice's identical line, so the two merge without a conflict; measured at 1000.0000
+  aged in 1000 ticks under clear (the pantry rate), exactly half that, 500.0000, under a cold
+  snap and under snow. DAY: a bare body outdoors or indoors reads `a_little_cold` under either
+  kind against clear's `comfortable` (mood −4.0 vs 0.0), and a lit fire cancels both. NIGHT: a
+  cold snap reads `extremely_cold` on the very first tick outdoors at night — the shift landing
+  on `very_cold` — where the same night under clear takes exactly `EXPOSURE_TICKS` (18000);
+  `jobs.gd`'s hard interrupt (`ai` runs before `needs` in the phase order, so the drop lands the
+  tick *after* the band goes hard) drops a running `Patient` job the tick the cold snap reads
+  hard and holds the identical job under clear's still-soft `very_cold`. DEAD: `_speed_of`
+  multiplies seekSpeed ×1 clear / ×0.7 cold / ×0.9 snow, and a shambler handed that resolved
+  speed and carried by the world's own `_integrate_movement` for a hundred ticks on an open
+  stretch covers 8.400 m clear against 5.880 m cold and 7.560 m snow — the exact ratios, not an
+  approximation, because the natural `shambler.think` wander/scent state machine diverges
+  between worlds on this map's non-zero ambient noise and had to be bypassed for the movement
+  measurement (the multiplier lane above still exercises the accessor `SimShambler._speed_of`
+  reads). LIVING: cover at 1.0 resolves `move_speed` ×0.8 for the player and for an NPC's
+  `_walk` velocity alike, cover at 0.49 (one hundredth under the 0.5 threshold) holds nothing,
+  cover at 1.0 under a clear sky (snow that has stopped falling) still slows, and a restore
+  keeps the cover and re-applies the modifier a tick later. COVER: 1000 ticks of snow lay
+  0.00694440 (`coverPerTick` × 1000 exactly), capped at 1.0, and one tick melts 0.00000116
+  (`meltPerTick`) under a clear sky *and* under a cold snap alike — the shipped first cut, not a
+  deliberate "cold preserves the pack" rule: only `snow.json` declares a `coverPerTick`, so any
+  kind without one melts what is already on the ground. SCENT: after twenty diffusions a cold
+  snap leaves 461.2177 where rain leaves 461.1838 and clear 461.2430 — between the two, as
+  `scentHalfLifeMul` 0.7 sits between rain's 0.5 and clear's 1.0 — and a clear sky equals no
+  weather at all. HUD: "It's bitterly cold." under a cold snap and "It's snowing." under snow,
+  neither under clear, no digits (both sentences added to `check_hud.gd`'s clean list alongside
+  the storm and heat lines). Chores done alongside: `--m2-storm` / `--m2-cold` / `--m2-heat` in
+  `scripts/run-godot.mjs` and their three `godot:m2:*` scripts in `package.json`, all three
+  appended to the `godot:m2` chain after `godot:m2:weather`.
 - **Weather** — ~~the sky has kinds, seasons and a wind~~ **landed** (`npm run godot:m2:weather`
   rewritten, `M2_WEATHER_OK`, thirteen lanes; `godot:m2:save` and `godot:m2:fortify` at v21),
   2026-09-06 — the spine of the owner's weather session, opened the same day rain landed

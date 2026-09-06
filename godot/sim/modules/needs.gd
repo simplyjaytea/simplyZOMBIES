@@ -1348,7 +1348,9 @@ static func _tick_spoilage(world: Variant) -> void:
 	var items: Array[int] = world.components.query(["spoilage"])
 	if items.is_empty():
 		return
-	var rate: float = pantry_rate(world)
+	# Shared with the heat slice, which writes the identical line (spoilage doubles under a heat
+	# wave and halves under a cold snap or snow): one generic read, no special case per kind.
+	var rate: float = pantry_rate(world) * SimWeather.spoilage_mul(world)
 	for item in items:
 		var sp: Variant = world.components.get_component(int(item), "spoilage")
 		if not sp is Dictionary:
