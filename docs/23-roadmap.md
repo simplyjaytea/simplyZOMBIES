@@ -91,7 +91,7 @@ work to rebuild.
 | **Inventory** | World-container search, colony storage, and loadout automation on the shipped grid |
 | **Crafting** | Duct Tape and Scrap Kit modification consumables |
 | **Web** | A shallow six-region web, about 12–18 nodes, so Fighter, Worker, Medic, and Scout all have valid auto-allocation paths |
-| **Building** | Walls, gate, barricades, one trap, and one bait emitter (the trap and the bait have no content, no gate and no entry in what's left, and the Milestone 3A list names traps and bait as its own — whether they are still in the slice is an owner call, listed in `HANDOFF.md`) |
+| **Building** | Walls, gate, barricades (`godot:m2:fortify`). The trap and the bait emitter this row used to promise were **cut to Milestone 3A by the owner on 2026-09-06**, found by the roadmap audit with no content, no gate and no what's-left entry — docs/30 |
 | **Decay** | Food spoilage only |
 | **Director** | Slice director: pressure/strain, grace period, lulls, recruitment and night events, and minimum siege cadence |
 | **Death** | Permadeath, corpses, and [succession](01-hardcore-contract.md#succession-what-happens-when-you-die) |
@@ -158,10 +158,10 @@ the same commit. That is the whole discipline: one list of what remains, one rec
 and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in `HANDOFF.md`** (seven items as of 2026-09-06: the
+decided unilaterally. **The full list lives in `HANDOFF.md`** (six items as of 2026-09-06: the
 driving and weather first cuts, the free wind, sepsis, the unseen-wall roof, the one-handed
-silhouettes, the forest density, and the trap and bait scope); the one repeated here is the one
-that blocks a Milestone 2 balance measurement.
+silhouettes and the forest density); the one repeated here is the one that blocks a Milestone 2
+balance measurement.
 (The art-style pick came off this list on 2026-09-01 — **style B, the rotating player**, under
 an overcast mood — and was **re-decided by the owner on 2026-09-03 as the Dungeon Settlers
 look**: upright face-on pawns that flip, nobody rotates, a warm dark-fantasy palette, walls
@@ -4408,7 +4408,8 @@ adding more geography:
    owner's direction — ADRs 0002, 0015, 0016; what docs/16 still names is the weather entry in
    what's left)
 6. Named items, unique survivors, remaining modification consumables, traps, and bait (the boot
-   colony's two uniques shipped in Milestone 2; traps and bait are the scope call in `HANDOFF.md`)
+   colony's two uniques shipped in Milestone 2; the one trap and one bait emitter the slice once
+   promised were cut here by the owner on 2026-09-06 — docs/15 is their spec, unchanged)
 
 That order is deliberate. WIS lookout needs a lookout job; CHA needs relationships; INT needs the web;
 temperature needs weather. CHA trade and WIS raider warnings activate fully when factions arrive in
@@ -4657,6 +4658,9 @@ If you're about to "improve" one, don't:
   condensed state, gates carry the proof, and git history carries the itemised record.
 - **Milestone 3 breadth inside the vertical slice.** The slice proves the thesis before expansion.
 - **Full storyteller presets in Milestone 2.** Only the slice director and an internal neutral baseline.
+- **The trap and the bait emitter in Milestone 2.** Cut to Milestone 3A by the owner on 2026-09-06;
+  the slice's building is walls, gate and barricades. docs/15's traps and bait sections stay as the
+  spec they will be built to.
 - **Z-level implementation before the thesis and streaming budgets are proven.**
 - **A second progression system beside attributes and the skill web.** Attributes are aptitude; the web
   is learned history.
