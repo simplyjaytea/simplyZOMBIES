@@ -409,11 +409,26 @@ static func _grab_of(world: Variant, type_id: String) -> Dictionary:
 # penalty cannot be applied to three of the four and quietly missed on the fourth.
 static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String) -> float:
 	# The sky's multiplier first (docs/adr/0016: a cold snap is the one state that weakens the
-	# dead directly), exactly 1.0 under clear, then the cripple.
-	var base: float = float(shambler_data.get(key, 0.0)) * SimWeatherRes.zombie_move_mul(world)
+	# dead directly), exactly 1.0 under clear, then the torso, then the cripple -- each derived
+	# from the body every tick, never latched.
+	var base: float = float(shambler_data.get(key, 0.0)) * SimWeatherRes.zombie_move_mul(world) * _torso_factor(world, entity)
 	if not _is_crawling(world, entity):
 		return base
 	return base * float(shambler_data.get("crawlFactor", DEFAULT_LOCOMOTION["crawl"]))
+
+
+# Body damage slows the dead (docs/14's damage model; the owner's decision 7): what is left of
+# the torso is a multiplier on every speed, by `part_state_of` -- the type's own maxima, so a
+# screamer's authored 40 is a whole torso and not two thirds of a shambler's. Compounds with
+# the cripple below it, so a shambler with a ruined torso dragging ruined legs is slower than
+# either alone. The head stays the only kill (health.gd). `check_m2_lethality.gd` TORSO-SLOW.
+const TORSO_SPEED: Array[float] = [1.0, 0.85, 0.65, 0.5]
+
+static func _torso_factor(world: Variant, entity: int) -> float:
+	var state: Variant = SimHealthRes.part_state_of(world, entity, "torso")
+	if state == null:
+		return 1.0
+	return float(TORSO_SPEED[int(state)])
 
 
 # Derived, never latched. SimHealth.is_crawling reads the body itself -- "legs" for a zombie,

@@ -119,7 +119,11 @@ static func spawn_zombie(world: Variant, x: float, y: float, type_id: String, rn
 	world.components.set_component(ent, "velocity", {"dx": 0.0, "dy": 0.0})
 	world.components.set_component(ent, "facing", {"radians": 0.0})
 	world.components.set_component(ent, "zombieType", {"id": type_id})
-	world.components.set_component(ent, "body", _body_of(world, type_id))
+	var body: Dictionary = _body_of(world, type_id)
+	world.components.set_component(ent, "body", body)
+	# The type's own maxima, so `part_state_of` judges a screamer's torso against its 40 and
+	# not the shared table's 60 (health.gd).
+	world.components.set_component(ent, "bodyMax", body.duplicate())
 	SimShamblerRes.make_shambler(world, ent, rng, type_id)
 	# Every zombie has eyes (the owner's decision 3, docs/30 "The playable state"): sight is a
 	# stimulus in shambler.think, and it was the screamer's alone until then.

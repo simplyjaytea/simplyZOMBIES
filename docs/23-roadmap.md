@@ -191,9 +191,6 @@ re-baseline the FAST balance record and say so in their record.
   assertion CLAUDE.md refuses to relax. Each flip is one static. The colony's answer is the
   torso slice; the trade between the owner's pacing and the compressed tier's floor is
   HANDOFF's owner item 5. Re-baseline, on the same four seeds, when they flip.
-- **Body damage slows and staggers the dead.** Torso state feeds a speed factor and a
-  stagger chance on its own stream; the head stays the only kill. `godot:m2:lethality`;
-  re-baseline.
 - **Doors: a tile class that opens, closes and breaks.** `Tile.Door` as the class, a `door`
   component as the state through `sync_map`; people open them in a step, they swing shut,
   E latches; zombies never open. `godot:m2:fortify`.
@@ -3304,6 +3301,51 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Lethality** — ~~body damage slows and staggers the dead~~ **landed**
+  (`godot:m2:lethality` TORSO-SLOW, TORSO-STAGGER, HEAD-ONLY), 2026-09-06, the eighth piece of
+  the playable-state group and the owner's decision 7. What was wrong: a zombie died only on
+  `head <= 0`, so with the melee roll landing on the head a fifth of the time, more than half
+  of every colonist's swings took integrity off a torso that changed nothing — a knife could
+  not finish a shambler and could not slow it either, which is the fact under both flips in
+  HANDOFF's item 5. Now what is left of the torso is a multiplier on every speed the dead have
+  (`SimShambler._torso_factor`: Unhurt 1.0, Hurt 0.85, BadlyHurt 0.65, Unusable 0.5, in
+  `_speed_of` beside the sky's multiplier and compounding with the cripple), and a torso hit
+  may put the body down: `health.take-damage` rolls `TORSO_STAGGER_CHANCE` by the *resulting*
+  state (0 / 0.35 / 0.6 / 1.0) on its own `bodyStagger` stream and publishes
+  `entity.staggered` for `TORSO_STAGGER_TICKS` 20, which `shambler.stagger` takes as the max
+  with the weapon's 8. The head stays the only kill. **And the dead are judged by their own
+  maxima:** `SimHealth.max_of` matches a body to one of two shared tables by key set, so every
+  type's torso was read against the shambler's 60 — the screamer's authored 40 read Hurt from
+  the moment it spawned. `spawn_zombie` stores the type's body as `bodyMax` and
+  `SimHealth.part_state_of(world, entity, part)` reads it, falling back to the table for a body
+  without one. TORSO-SLOW: in 200 ticks of seeking a whole shambler covers 15.7 m, a BadlyHurt
+  torso 10.2 (×0.65), an Unusable one 7.8 (×0.50), torso and legs both ruined 1.9 (the
+  factors compound); an untouched screamer's torso is Unhurt by its own maxima where the
+  shared table says Hurt. TORSO-STAGGER: 126 of 200 zero-damage torso hits on a BadlyHurt
+  shambler stagger it for 20 ticks and 0 of 200 on an Unhurt one; fifty head hits leave the
+  `bodyStagger` stream's state untouched and one torso hit draws. HEAD-ONLY: a torso taken to
+  0 leaves the body alive at half speed and publishes no `entity.killed`; the head taken to 0
+  kills. **Re-baseline #4**, the FAST tier at 64: siege
+  2 / 1 / 3 / 2 and packets 2 / 1 / 3 / 2 (the director untouched); max_live 26 / 23 / 31 /
+  28; grabs 0 / 4 / 1 / 31 against the emitters slice's 0 / 64 / 1 / 11, kills 0 / 1 / 1 / 0,
+  **deaths 0 / 0 / 0 / 2 against 0 / 3 / 0 / 2, survivors 3 / 3 / 3 / 3 of 3**. Seed 404 is the
+  one to read: 64 grabs became 4 and three deaths became none, because a colonist's swing at
+  a torso now puts the body down for a second and the hold breaks with it, where before the
+  same swing did nothing. Every band holds; nothing re-pinned. That the compressed tier now
+  reads gentler on three seeds than it did before the eyes slice is the record's honest line
+  under HANDOFF's item 5: the colony can put a shambler down, which is what both flips were
+  waiting for. **Re-measured with both flips on** (a throwaway subclass of the harness setting
+  `SIGHT_ENABLED` true and `GRACE_NIGHTS` 2, deleted): siege 3 / 3 / 4 / 3, packets 3 / 3 / 4 /
+  3, max_live 35 / 34 / 32 / 31, grabs 186 / 15 / 1 / 58, deaths 4 / 2 / 0 / 2, **survivors
+  0 / 3 / 3 / 3 of 3** — three seeds hold at full strength where before the torso slice two
+  wiped, and seed 20260805 still loses everybody (186 grabs; the crowd that saw the annex on
+  night one never left it). The same run tripped the harness's over-cap invariant on two
+  seeds (live 35 and 34 against a cap of 32 for a few hundred ticks), which is a second thing
+  the flip must answer before it ships: with the table open from night 3 something places
+  past the clamp, and the record names it rather than the flip finding it. **Sight alone, the table still at 7:**
+  siege 1 / 1 / 3 / 2, packets 1 / 1 / 3 / 2, grabs 122 / 68 / 1 / 58, deaths 2 / 2 / 0 / 2,
+  survivors 1 / 2 / 3 / 3 of 3, every band green — the floor holds, so sight ships on in the
+  next commit and the table's flip is what remains of HANDOFF's item 5.
 - **Roster & Attention** — ~~the dead write to the field from content~~ **landed**
   (`godot:m2:roster` EMITS, RESIDUE, BLOOM-TWICE), 2026-09-06, the seventh piece of the
   playable-state group and the owner's decision 11. What was wrong: no zombie carried an
