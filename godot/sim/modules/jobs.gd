@@ -254,6 +254,17 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	if job is Dictionary and _post_calls(world, ent, job as Dictionary):
 		_stop(world, ent)
 		job = null
+	# Empty hands come before any work: an unarmed colonist re-arms from their pack at once, or
+	# walks to the nearest working weapon on the ground near home (the stockpile's included --
+	# a stocked item lies on its tile). A channel already begun finishes first; a Rearm walk is
+	# never dropped for another Rearm. Armed never swaps.
+	if _unarmed(world, ent) and (not job is Dictionary or (String((job as Dictionary).get("kind", "")) != "Rearm" and int((job as Dictionary).get("ticksLeft", 0)) == 0)):
+		var rearm: Dictionary = _rearm_job(world, ent)
+		if not rearm.is_empty():
+			if job is Dictionary:
+				_stop(world, ent)
+			world.components.set_component(ent, "job", rearm)
+			job = rearm
 	if job is Dictionary:
 		# A storm sends everybody in: a job already under way outdoors is dropped here rather
 		# than inside _advance_job, so the walk-to-it path and the work at it both stop on the
@@ -891,6 +902,8 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 	match kind:
 		"Haul":
 			_do_haul(world, ent, job)
+		"Rearm":
+			_do_rearm(world, ent, job)
 		"Scavenge":
 			_do_scavenge(world, ent, job)
 		"Construct":
@@ -1094,6 +1107,74 @@ static func _consume_owned(world: Variant, item: int) -> bool:
 	SimInventory.remove_from_container(world, item)
 	world.despawn(item)
 	return true
+
+
+# --- re-arm ----------------------------------------------------------------------------------
+#
+# The playable-state group's eleventh piece. Before this the only `equip` a colonist ever got
+# was their kit at spawn: a weapon that wore out was gone (items.gd) and the body was unarmed
+# for the rest of the run. `check_m2_npc_combat.gd` REARM.
+
+static func _unarmed(world: Variant, ent: int) -> bool:
+	return not world.components.has_component(ent, "meleeWeapon") and not world.components.has_component(ent, "rangedWeapon")
+
+
+# A weapon is anything the hands take (`equipSlot` primary); working means its condition is
+# above zero, or it carries none.
+static func _is_working_weapon(world: Variant, item: int) -> bool:
+	var slot: Variant = SimInventory.equip_slot_for(world, item)
+	if slot == null or String(slot) != "primary":
+		return false
+	var c: Variant = world.components.get_component(item, "condition")
+	if c is Dictionary and float((c as Dictionary).get("current", 1.0)) <= 0.0:
+		return false
+	return true
+
+
+# The pack first (equipped at once, no job); else the nearest working weapon lying near home
+# -- on the ground or on the stockpile's tiles, both of which are items with a position and no
+# container -- as a Rearm walk. Empty when there is nothing to re-arm with.
+static func _rearm_job(world: Variant, ent: int) -> Dictionary:
+	for carried in SimInventory.carried_items(world, ent):
+		if _is_working_weapon(world, int(carried)) and SimInventory.equip(world, ent, int(carried)):
+			return {}
+	var here: Variant = world.components.get_component(ent, "position")
+	if not here is Dictionary:
+		return {}
+	var hx: float = float((here as Dictionary)["x"])
+	var hy: float = float((here as Dictionary)["y"])
+	var best: int = -1
+	var best_d: float = INF
+	for item in SimInventory.ground_items(world):
+		if not _is_working_weapon(world, int(item)):
+			continue
+		if world.components.has_component(int(item), "reserved"):
+			continue
+		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
+		var ix: float = float(p["x"])
+		var iy: float = float(p["y"])
+		if not _near_home(world, ix, iy):
+			continue
+		var d: float = (ix - hx) * (ix - hx) + (iy - hy) * (iy - hy)
+		if d < best_d:
+			best_d = d
+			best = int(item)
+	if best < 0:
+		return {}
+	return {"kind": "Rearm", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+static func _do_rearm(world: Variant, ent: int, job: Dictionary) -> void:
+	var item: int = int(job.get("target", -1))
+	if item < 0 or not world.components.has_component(item, "position") or not _is_working_weapon(world, item):
+		_stop(world, ent)
+		return
+	var tile: Vector2i = _entity_tile(world, item)
+	if not _at(world, ent, tile, REACH):
+		_walk(world, ent, job, tile)
+		return
+	SimInventory.equip(world, ent, item)
+	_stop(world, ent, "Rearm")
 
 
 static func _entity_tile(world: Variant, ent: int) -> Vector2i:

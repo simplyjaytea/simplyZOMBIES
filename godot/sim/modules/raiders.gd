@@ -64,6 +64,12 @@ const DEFAULT_SPEED: float = 1.5
 # halts at a distance its own weapon can work at, and `npc_combat.gd` -- which never sets a
 # velocity, by design -- does the rest.
 const HALT_METRES: float = 2.6
+# A band that has nothing to fight goes home (the playable-state group's eleventh piece): at
+# its objective with no enemy in HALT_METRES for WITHDRAW_AFTER_TICKS it walks back to where it
+# came in and leaves, and a band cut below half the size it arrived at leaves at once. Before
+# this a surviving band stood at the gate for the rest of the run. `raid.withdrew` per body;
+# `check_m2_raiders.gd` WITHDRAW.
+const WITHDRAW_AFTER_TICKS: int = 6000
 
 # What the approach walks at. Read off the map rather than computed: `gate_a` is where a colony
 # is entered from, and the annex centre is the honest fallback for a district nobody stamped.
@@ -156,6 +162,16 @@ static func spawn(world: Variant, x: float, y: float, type_id: String) -> int:
 		"pathGen": -1,
 		"goalX": -1,
 		"goalY": -1,
+		# The band: `raidId` groups the bodies one night sent and `bandSize` is how many, both
+		# stamped by the director's `_emit_band` (0 for a body a fixture spawned alone, which
+		# then never withdraws for strength). Where it came in, when it arrived, and whether
+		# it is on its way out.
+		"raidId": 0,
+		"bandSize": 0,
+		"entryX": floori(x),
+		"entryY": floori(y),
+		"arrivedAtTick": -1,
+		"withdrawing": false,
 	})
 	# The declared allegiance, not a constant: this field is what `SimAllegiance.hostile` reads,
 	# and the gate proves it by flipping it to "colony" and watching the colony stop shooting.
@@ -233,21 +249,74 @@ static func _approach(world: Variant, ent: int) -> void:
 	if not (body is Dictionary) or not SimHealthRes.is_alive(body as Dictionary):
 		_still(vel as Dictionary)
 		return
+	var raider: Variant = world.components.get_component(ent, "raider")
+	if not (raider is Dictionary):
+		return
+	var r: Dictionary = raider as Dictionary
+	# On the way out: back to the tile it came in on, then gone. Nothing stops a withdrawal.
+	if bool(r.get("withdrawing", false)):
+		var entry := Vector2i(int(r.get("entryX", -1)), int(r.get("entryY", -1)))
+		var pos: Variant = world.components.get_component(ent, "position")
+		if entry.x < 0 or not (pos is Dictionary) or _at_tile(pos as Dictionary, entry, 1.5) or (r.get("path", []) as Array).is_empty() and int(r.get("pathGen", -1)) == int(world.mapGeneration):
+			world.events.publish({"type": "raid.withdrew", "entity": ent, "raidId": int(r.get("raidId", 0))})
+			world.despawn(ent)
+			return
+		_walk(world, ent, r, entry)
+		return
+	# Cut below half its number, the band leaves at once.
+	if int(r.get("bandSize", 0)) > 0 and _band_live(world, int(r.get("raidId", 0))) * 2 < int(r.get("bandSize", 0)):
+		_begin_withdrawal(r)
+		_still(vel as Dictionary)
+		return
 	# Stand and fight. `npc_combat.gd` never sets a velocity -- engaging is something you do from
 	# where you are standing -- so the halt has to come from here, and it is the difference
 	# between a band that fights the colony and a band that walks through it.
 	if _enemy_within(world, ent, HALT_METRES):
 		_still(vel as Dictionary)
 		return
-	var raider: Variant = world.components.get_component(ent, "raider")
-	if not (raider is Dictionary):
-		return
-	var r: Dictionary = raider as Dictionary
 	var goal: Vector2i = _objective(world, r)
 	if goal.x < 0 or goal.y < 0:
 		_still(vel as Dictionary)
 		return
 	_walk(world, ent, r, goal)
+	# At the objective with nobody to fight: the clock runs, and when it is out the band goes.
+	if (r.get("path", []) as Array).is_empty():
+		if int(r.get("arrivedAtTick", -1)) < 0:
+			r["arrivedAtTick"] = int(world.tick)
+		elif int(world.tick) - int(r.get("arrivedAtTick", -1)) >= WITHDRAW_AFTER_TICKS:
+			_begin_withdrawal(r)
+	else:
+		r["arrivedAtTick"] = -1
+
+
+static func _begin_withdrawal(r: Dictionary) -> void:
+	r["withdrawing"] = true
+	r["path"] = []
+	r["pathGen"] = -1
+
+
+static func _band_live(world: Variant, raid_id: int) -> int:
+	var n: int = 0
+	for other in world.components.query(["raider"]):
+		var o: Variant = world.components.get_component(int(other), "raider")
+		if o is Dictionary and int((o as Dictionary).get("raidId", 0)) == raid_id:
+			n += 1
+	return n
+
+
+static func _at_tile(pos: Dictionary, tile: Vector2i, reach: float) -> bool:
+	var dx: float = float(tile.x) + 0.5 - float(pos["x"])
+	var dy: float = float(tile.y) + 0.5 - float(pos["y"])
+	return dx * dx + dy * dy <= reach * reach
+
+
+# The director stamps the band on the bodies it placed.
+static func stamp_band(world: Variant, members: Array, raid_id: int) -> void:
+	for ent in members:
+		var r: Variant = world.components.get_component(int(ent), "raider")
+		if r is Dictionary:
+			(r as Dictionary)["raidId"] = raid_id
+			(r as Dictionary)["bandSize"] = members.size()
 
 
 # Where the band is going. The gate, because that is how a colony is entered; the annex centre

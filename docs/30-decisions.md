@@ -2780,6 +2780,16 @@ records its own numbers here as a bullet under this entry when it lands.
   board's old pace exactly and make a door four times a board, because a door is the thing a
   colony shuts and a board the thing it improvises. Only the dead press, because the living
   open doors, and a raider that wanted through would not stand at one.
+- **Re-arm and withdrawal, 2026-09-07.** A colonist re-arms only when unarmed — armed never
+  swaps — because "the better weapon" is a valuation the colony does not make yet and a rule
+  that swapped on a number would have Ellis putting down the pipe for every knife on the
+  floor. Pack first, then the nearest working weapon near home, because the stockpile is where
+  a colony keeps its spares and a body should not cross the district for a bat. A worn-out
+  weapon drops rather than vanishes because a thing the player can repair should be a thing
+  the player can find. A band goes home on a clock (6,000 ticks, five minutes) with nothing to
+  fight, and at once below half strength, because docs/17's raiders are a *pressure*, not a
+  garrison: a band that lost is a band that leaves, and one that found nobody has no reason
+  to stand in the road; the entry tile as the exit because that is the road it knows.
 
 ---
 

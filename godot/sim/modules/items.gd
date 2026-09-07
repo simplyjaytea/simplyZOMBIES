@@ -220,9 +220,22 @@ static func apply_wear(world: Variant, item: int, amount: float = WEAR_PER_HIT) 
 	(c as Dictionary)["current"] = after
 	if after <= 0.0:
 		world.events.publish({"type": "item.broke", "item": item})
+		# Dropped at the holder's feet, not lost: `unequip_item` alone left the item with no
+		# position and no container -- gone from the world with nothing reporting it (docs/23's
+		# "worn out is lost, not dropped"). A broken weapon on the ground is something the
+		# re-arm skips and the player can still pick up and repair.
 		var Inv: GDScript = load("res://sim/modules/inventory.gd") as GDScript
 		if Inv != null:
-			Inv.call("unequip_item", world, item)
+			var holder: int = -1
+			for actor in world.components.query(["equipment"]):
+				var eq: Variant = world.components.get_component(int(actor), "equipment")
+				if eq is Dictionary and ((eq as Dictionary).get("slots", {}) as Dictionary).values().has(item):
+					holder = int(actor)
+					break
+			if holder >= 0 and world.components.has_component(holder, "position"):
+				Inv.call("drop_at_feet", world, holder, item)
+			else:
+				Inv.call("unequip_item", world, item)
 		return
 	refresh_armed(world, item)
 

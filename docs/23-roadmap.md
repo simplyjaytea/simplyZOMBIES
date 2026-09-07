@@ -191,10 +191,6 @@ re-baseline the FAST balance record and say so in their record.
   past the clamp once the table opens early. Find that, re-read seed 20260805 with sight on,
   and flip the one static; the trade with the compressed tier's floor is HANDOFF's item 5.
   (Sight's flip landed with the lethality slice: `SIGHT_ENABLED` ships `true`.) Re-baseline.
-- **A dropped weapon is picked back up, and a band that has lost withdraws.** Worn-out
-  weapons drop at the feet; an unarmed NPC re-arms from pack, ground or stockpile; a raider
-  band leaves after a clock with no enemy in reach or at half strength. `godot:m2:npc`,
-  `godot:m2:raiders`.
 - **Lethality: the cold, the heat, and sepsis can kill.** Frostbite and heatstroke as wounds
   on the exposure ladder with death a step past each; sepsis kills at the third untreated
   dusk. `godot:m2:cold`, `godot:m2:heat`, `godot:m2:wounds`; three drivers.
@@ -466,10 +462,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
   writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
   has this (`stance.eyes`); the port dropped it.
-- **A worn-out weapon is lost, not dropped.** `SimItems.apply_wear` unequips at zero condition and
-  nothing gives the item a home — no `stored`, no `position`, no slot. `item.detach` has the same
-  shape: `SimAttachments.detach` deliberately leaves the attachment homeless and the command does
-  nothing about it.
+- **A detached attachment is lost, not dropped.** `SimAttachments.detach` deliberately leaves
+  the attachment homeless — no `stored`, no `position`, no slot — and the `item.detach` command
+  does nothing about it. (The weapon half of this entry — `apply_wear` unequipping into nowhere
+  at zero condition — closed 2026-09-07 with the re-arm slice: a worn-out weapon drops at the
+  holder's feet.)
 - **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
@@ -3295,6 +3292,34 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Jobs & Raiders** — ~~a dropped weapon is picked back up, and a band that has lost
+  withdraws~~ **landed** (`godot:m2:npc` REARM, `godot:m2:raiders` WITHDRAW), 2026-09-07, the
+  eleventh piece of the playable-state group. What was wrong: the only `equip` a colonist ever
+  got was their kit at spawn, a weapon that wore to nothing was unequipped into nowhere (the
+  "worn out is lost, not dropped" defect), so a colonist whose knife broke was unarmed for the
+  run; and a raider band that survived the night stood at the gate until the campaign ended.
+  Now `SimItems.apply_wear` at zero **drops the weapon at the holder's feet** (a position, on
+  the ground, broken — the player can pick it up and repair it, the re-arm skips it). An
+  unarmed colonist **re-arms**: `_tick_one` asks `_unarmed` (no `meleeWeapon`, no
+  `rangedWeapon`) after the seek and the sulk and before the post and the row, and
+  `_rearm_job` equips a working weapon from the pack at once or walks (`Rearm`, a job kind
+  with its own arm) to the nearest working `equipSlot: primary` item lying near home — the
+  stockpile's included, since a stocked item lies on its tile — broken skipped, reserved
+  skipped, armed never asked. And a **band withdraws**: `spawn` stamps where each raider came
+  in, the director's `_emit_band` stamps the band (`raidId`, `bandSize`, `stamp_band`), and
+  `_approach` runs the clock — at the objective with nothing in `HALT_METRES`,
+  `WITHDRAW_AFTER_TICKS` 6,000 and the band turns for its entry tile and despawns there,
+  `raid.withdrew` a body; cut below half its number it turns at once. The harness reports
+  `left` beside `in` and `down`. REARM: an unarmed colonist has the bat 4.5 m away in hand at
+  tick 30 and swings it; a broken bat is left on the ground through 400 ticks; an armed
+  colonist keeps the knife with a bat beside them; a knife worn to nothing lies at the feet
+  and stays there. WITHDRAW: three raiders alone at a gate arrive, wait the clock out and are
+  gone with three `raid.withdrew`; the same three with a colonist standing in reach stay all
+  of it; the last of four turns within a few hundred ticks of the other three falling.
+  **The FAST tier**, reported: byte-identical to the pressing slice's four lines, with the new
+  `left` column reading 0 / 0 / 0 / 0 beside `in` 0 / 2 / 0 / 2 — the two bands the tier
+  draws stand at a gate the watch is behind, so nothing sits a five-minute clock out inside a
+  100-second window, and nobody re-armed because nobody's weapon wore out. Every band holds.
 - **Fortify & World** — ~~pressing: a crowd gets through~~ **landed** (`godot:m2:fortify`
   PRESS, and BOARD re-fixtured), 2026-09-07, the tenth piece of the playable-state group and
   the second half of the owner's decision 8. What was wrong: the only structure a zombie could
