@@ -3348,8 +3348,30 @@ not a to-do list:
   bare preset (the assertion that the overlay is read); Manual restores every column; a fresh
   entity with no authored row under Medic is the bare preset, byte for byte. `check_m2_npc_combat`'s
   POST lane now stands its guard at the first Dusk tick, since the post is not on offer by day.
-  FAST balance lines after, against the record above (a report, not a re-baseline — the slice
-  claims the row works, nothing about outcomes): see the four lines that close this bullet.
+  FAST balance lines after, against the streetWidth-7 lines above (a report, not a
+  re-baseline — the slice claims the row works, nothing about outcomes):
+  ```
+  FAST seed=20260805 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=0(0in/0down) breaches=0
+      kills=2(m2/r0) deaths=1 turned=0 recruits=1 max_live=26 survivors=2/3 over=false
+      grabs=158 broken={ "rescue": 1, "struggle": 64, "staggered": 1 }
+  FAST seed=404 arm=mixed days=10 siege=1 quiet=9 packets=1 raids=1(2in/0down) breaches=0
+      kills=0(m0/r0) deaths=2 turned=0 recruits=1 max_live=25 survivors=1/3 over=false
+      grabs=69 broken={ "staggered": 2, "struggle": 20, "victim-died": 2 }
+  FAST seed=31337 arm=mixed days=10 siege=3 quiet=7 packets=3 raids=0(0in/0down) breaches=0
+      kills=1(m1/r0) deaths=2 turned=0 recruits=1 max_live=32 survivors=2/3 over=false
+      grabs=81 broken={ "struggle": 54, "staggered": 1, "victim-died": 1 }
+  FAST seed=90210 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=1(2in/1down) breaches=0
+      kills=1(m1/r0) deaths=1 turned=0 recruits=1 max_live=25 survivors=3/3 over=false
+      grabs=30 broken={ "struggle": 19, "staggered": 1, "rescue": 1, "victim-died": 1 }
+  ```
+  The night table is untouched (siege, quiet, packets and raids identical on every seed, as
+  they must be: the director draws its own stream). What moved is where the bodies are: the
+  colonists now cross the district by day, hauling, and the grabs follow them — 85 → 158 and
+  16 → 69 on two seeds, 95 → 81 and 127 → 30 on the other two — while kills fell on every seed
+  (4/5/1/5 → 2/0/1/1), because a survivor standing the gate with a pipe all day met more
+  shamblers than one hauling does, and the day's hauls end in a grab more often than a swing.
+  Survivors end 8 of 12 across the four seeds, as before. Four seeds are a transcript; the
+  scavenge-near-home piece is the one that decides how far a haul walks.
 - **Jobs** — ~~Cook has no claim on its ingredient~~ **landed** (`godot:m2:jobs`, COOK CLAIM),
   2026-09-06. `_cook_work` now writes a `reserved: {by, job}` component onto the raw it hands
   out; `_stock_base` skips a claim that is *live* — the holder still carries a Cook job targeting
