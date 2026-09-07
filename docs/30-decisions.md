@@ -2416,9 +2416,10 @@ the third survival slice; it was named in what's left and landed in the same com
   cost, so a colony with no clean water is a colony whose fire is lit more. With no fire at all,
   a survivor drinks well water untreated only below `SOFT` (thirst under 30): a roll on the
   illness stream is worth it against the dehydration clock and not before. Between `SEEK_START`
-  and `SOFT` with no fire they wait. The `dehydrating` crisis never reaches this rung because
-  `_tick_one` stops a survivor in crisis before the seek runs; that is a pre-existing hole in
-  the crisis path, named in docs/23 rather than widened here.
+  and `SOFT` with no fire they wait. The `dehydrating` crisis did not reach this rung when it
+  landed, because `_tick_one` stopped a survivor in crisis before the seek ran — a pre-existing
+  hole in the crisis path, named in docs/23 rather than widened here, and closed on 2026-09-06 by
+  the playable state's "a starving colonist still eats" piece.
 - **E boils before it touches the fire.** One interact key, decided 2026-09-05: at a lit fire
   with a bottle of well water, E boils; with nothing to boil, E douses as before; at an unlit
   fire `boil` refuses and E lights it, so the second E boils. The refusal reasons are the
@@ -2656,6 +2657,15 @@ records its own numbers here as a bullet under this entry when it lands.
   Guard: its nine columns at 3 tie-break alphabetically, and Guard would win every dusk for every
   Auto survivor at once, so nobody would haul after dark. Ellis's and Mara's day columns
   (`Construct 3, Cook 3, Water 3`; `Cook 2, Water 3`) are first cuts.
+- **A crisis walks, and a fire burns down, 2026-09-06.** A survivor in a hunger or thirst crisis
+  cannot work (`work_mul` stays 0) but walks at half pace (`walk_mul`, `CRISIS_WALK_MUL 0.5`):
+  the alternative — a crisis that stops the body — is the dead end the surveys found, a colonist
+  dying beside a full pantry. Half rather than full because docs/04 puts weakness before
+  collapse, and rather than zero because zero is the defect. A fire's burn-down is a clock from
+  the last lighting (`CAMPFIRE_BURN_TICKS 36000`, half a night) and not a douse at dawn, because
+  a fire lit at midnight to boil a bottle must not go out at six for a reason nobody can read;
+  cooking holds it, since a cook standing at a dead fire would be a lie the screen tells. No fuel
+  is spent: firewood is docs/16's unbuilt cold half and stays named in what's left.
 
 ---
 

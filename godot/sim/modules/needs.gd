@@ -27,6 +27,17 @@ const CAMPFIRE_HEAT_M: float = 4.0
 # `wearing_armor`.
 const ARMOR_TORSO_HEAT: float = 0.4
 const CAMPFIRE_LIGHT_M: float = 20.0
+# A lit fire burns down. Half a night (36,000 ticks) from the last lighting, then it is doused
+# unless somebody is cooking on it; a cook's completion, a warm-seek and the E toggle each
+# light it again and the clock starts over. First cut, 2026-09-06 (the playable state): before
+# this a fire lit by a cook stayed lit for the rest of the run, a permanent 20 m light source
+# at scent 5 that no fuel had paid for.
+const CAMPFIRE_BURN_TICKS: int = 36000
+# A body in a hunger or thirst crisis cannot work (`work_mul` is 0) but can still walk -- to the
+# pantry, to the well -- at half pace. Without this a starving survivor could not reach the food
+# that would save them, which is the dead end the crisis early-return in `SimJobs._tick_one`
+# used to make certain. docs/04's "weakness, then collapse", as a walk.
+const CRISIS_WALK_MUL: float = 0.5
 const CAMPFIRE_SCENT: float = 5.0
 const CAMPFIRE_COOK_SCENT: float = 15.0
 const RAW_SPOIL_DAYS: float = 2.0
@@ -642,6 +653,9 @@ static func register_module(world: Variant) -> void:
 	)
 	world.systems.register("need.spoilage", "needs", 16, func(w: Variant) -> void:
 		_tick_spoilage(w)
+	)
+	world.systems.register("need.fires", "needs", 17, func(w: Variant) -> void:
+		_tick_fires(w)
 	)
 	world.systems.register("need.intake", "input", 12, func(w: Variant) -> void:
 		for cmd in w.commands.current as Array:
@@ -1896,6 +1910,8 @@ static func set_lit(world: Variant, fire: int, lit: bool, cooking: bool = false)
 		return
 	(cf as Dictionary)["lit"] = lit
 	(cf as Dictionary)["cooking"] = cooking
+	if lit:
+		(cf as Dictionary)["litUntilTick"] = int(world.tick) + CAMPFIRE_BURN_TICKS
 	var em: Variant = world.components.get_component(fire, "attention_emitter")
 	if em is Dictionary:
 		(em as Dictionary)["scent"] = (CAMPFIRE_COOK_SCENT if cooking else CAMPFIRE_SCENT) if lit else 0.0
@@ -1905,6 +1921,22 @@ static func set_lit(world: Variant, fire: int, lit: bool, cooking: bool = false)
 	elif world.components.has_component(fire, "light_source"):
 		world.components.remove(fire, "light_source")
 		world.events.publish({"type": "light.changed", "entity": fire, "magnitude": 0.0})
+
+
+# Every lit fire past its clock goes out, unless a cook is at it. A lit fire with no clock (a save
+# from before the clock existed) is stamped now rather than doused at once.
+static func _tick_fires(world: Variant) -> void:
+	for e in world.components.query(["campfire"]):
+		var cf: Variant = world.components.get_component(int(e), "campfire")
+		if not cf is Dictionary or not bool((cf as Dictionary).get("lit", false)):
+			continue
+		if not (cf as Dictionary).has("litUntilTick"):
+			(cf as Dictionary)["litUntilTick"] = int(world.tick) + CAMPFIRE_BURN_TICKS
+			continue
+		if bool((cf as Dictionary).get("cooking", false)):
+			continue
+		if int(world.tick) >= int((cf as Dictionary)["litUntilTick"]):
+			set_lit(world, int(e), false)
 
 
 static func toggle_fire(world: Variant, fire: int) -> void:
@@ -2029,6 +2061,15 @@ static func seek_kind(world: Variant, entity: int) -> String:
 		if float(n.get(best, 0.0)) >= SEEK_STOP and best_rank >= 20:
 			return ""
 	return best
+
+
+# The pace a survivor walks a job or a seek at. Everything `work_mul` reads, except that a
+# crisis is a slow walk rather than no walk at all.
+static func walk_mul(world: Variant, entity: int) -> float:
+	var n: Dictionary = of(world, entity)
+	if String(n.get("crisis", "none")) != "none":
+		return CRISIS_WALK_MUL
+	return work_mul(world, entity)
 
 
 static func hud_clause(world: Variant, entity: int, panel: bool = false) -> String:

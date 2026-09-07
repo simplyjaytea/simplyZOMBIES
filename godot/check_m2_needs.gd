@@ -46,8 +46,9 @@ func _run() -> void:
 	ok = _a_stimulant_lifts_rest_now_and_crashes_later() and ok
 	ok = _a_careful_pantry_slows_spoilage() and ok
 	ok = _untreated_water_carries_illness_and_a_fire_boils_it() and ok
+	ok = _a_lit_fire_burns_down() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, and the well's water wants a fire")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, and a lit fire burns down")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -2509,3 +2510,73 @@ func _untreated_water_carries_illness_and_a_fire_boils_it() -> bool:
 		out.append("%s(boil %d, drank %s)" % [c["name"], boils.size(), drank if drank != "" else "nothing"])
 	print("WATER OK untreated %.3f ill of %d, bottled 0, iron 0; a lit fire boils and an unlit one refuses, E boils before it douses; NPC %s" % [raw_rate, MEALS, ", ".join(out)])
 	return true
+
+
+# --- a lit fire burns down (2026-09-06, the playable state) -----------------------------------
+#
+# A fire lit by a cook, a warm-seek or the E key used to stay lit for the rest of the run. Now
+# `set_lit` stamps `litUntilTick` and `need.fires` douses past it unless a cook is at it. Three
+# readers see the douse (the flag, the light source, `lit_campfire_near`); the clock is read off
+# the constant and then shortened by hand so the mechanism is judged in fifty ticks rather than
+# thirty-six thousand; cooking holds it; a re-light refreshes it; a lit fire with no clock (a save
+# from before the clock) is stamped rather than doused.
+func _a_lit_fire_burns_down() -> bool:
+	var w: Variant = _world()
+	var start: Vector2i = SimTileMap.player_start(w.tilemap)
+	var fx: float = float(start.x) + 2.5
+	var fy: float = float(start.y) + 0.5
+	var fire: int = SimNeeds.make_campfire(w, fx, fy, false)
+	SimNeeds.set_lit(w, fire, true)
+	var cf: Dictionary = w.components.get_component(fire, "campfire") as Dictionary
+	if int(cf.get("litUntilTick", -1)) != int(w.tick) + SimNeeds.CAMPFIRE_BURN_TICKS:
+		push_error("fire: lighting did not stamp the clock (%s)" % str(cf))
+		return false
+	if not w.components.has_component(fire, "light_source") or not SimNeeds.lit_campfire_near(w, fx, fy, 1.0):
+		push_error("fire: lit, but the light source or the heat reader does not see it")
+		return false
+	# Not doused before its time.
+	for _i in 60:
+		w.step()
+	if not bool((w.components.get_component(fire, "campfire") as Dictionary).get("lit", false)):
+		push_error("fire: doused before its clock")
+		return false
+	# The clock, shortened: doused the tick it is reached, and every reader sees it.
+	cf = w.components.get_component(fire, "campfire") as Dictionary
+	cf["litUntilTick"] = int(w.tick) + 50
+	for _i in 51:
+		w.step()
+	cf = w.components.get_component(fire, "campfire") as Dictionary
+	if bool(cf.get("lit", false)) or w.components.has_component(fire, "light_source") or SimNeeds.lit_campfire_near(w, fx, fy, 1.0):
+		push_error("fire: past its clock it is still lit / lighting / warming (%s)" % str(cf))
+		return false
+	# Cooking holds it past the clock.
+	SimNeeds.set_lit(w, fire, true, true)
+	cf = w.components.get_component(fire, "campfire") as Dictionary
+	cf["litUntilTick"] = int(w.tick) + 10
+	for _i in 60:
+		w.step()
+	if not bool((w.components.get_component(fire, "campfire") as Dictionary).get("lit", false)):
+		push_error("fire: a cook's fire was doused under them")
+		return false
+	# A re-light refreshes the clock.
+	SimNeeds.set_lit(w, fire, true, false)
+	cf = w.components.get_component(fire, "campfire") as Dictionary
+	cf["litUntilTick"] = int(w.tick) + 10
+	for _i in 5:
+		w.step()
+	SimNeeds.set_lit(w, fire, true, false)
+	var refreshed: int = int((w.components.get_component(fire, "campfire") as Dictionary).get("litUntilTick", -1))
+	if refreshed != int(w.tick) + SimNeeds.CAMPFIRE_BURN_TICKS:
+		push_error("fire: a re-light did not refresh the clock (%d vs %d)" % [refreshed, int(w.tick) + SimNeeds.CAMPFIRE_BURN_TICKS])
+		return false
+	# No clock at all: stamped, not doused.
+	cf = w.components.get_component(fire, "campfire") as Dictionary
+	cf.erase("litUntilTick")
+	w.step()
+	cf = w.components.get_component(fire, "campfire") as Dictionary
+	if not bool(cf.get("lit", false)) or not cf.has("litUntilTick"):
+		push_error("fire: a lit fire with no clock was doused or left unstamped (%s)" % str(cf))
+		return false
+	print("FIRE OK lit stamps tick+%d, not doused early, doused at the clock and the flag, the light and the heat reader all see it, a cook holds it, a re-light refreshes it, a clockless lit fire is stamped" % SimNeeds.CAMPFIRE_BURN_TICKS)
+	return true
+

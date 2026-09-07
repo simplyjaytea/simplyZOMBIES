@@ -203,9 +203,10 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	if world.components.has_component(ent, "grabbed"):
 		return
 	var n: Dictionary = SimNeeds.of(world, ent)
-	if String(n.get("crisis", "none")) == "starving" or String(n.get("crisis", "none")) == "dehydrating":
-		_stop(world, ent)
-		return
+	# A hunger or thirst crisis is not a stop: the seek below ranks an empty pool first and the
+	# survivor walks (at `SimNeeds.walk_mul`'s half pace) to whatever will end it. This used to
+	# `_stop` and return here, so a colonist at zero hunger died on the starvation clock beside a
+	# full pantry -- the crisis dead-end, closed 2026-09-06 (the playable state).
 	if String(n.get("crisis", "none")) == "passed_out":
 		return
 	var seek: String = SimNeeds.seek_kind(world, ent)
@@ -1378,8 +1379,9 @@ static func _nearest_roof(world: Variant, x: float, y: float) -> Vector2i:
 # alternative is the dehydration clock, and not before. Between SEEK_START and SOFT with no fire
 # they wait, which is what the pool running down looks like from the outside.
 #
-# The `dehydrating` crisis never reaches here: `_tick_one` stops a survivor in crisis before the
-# seek runs, a pre-existing hole named in docs/23 rather than widened by this rung.
+# The `dehydrating` crisis reaches here too, since 2026-09-06: `_tick_one` no longer stops a
+# survivor in crisis before the seek runs, so an empty pool is the hardest pressure and the
+# survivor walks to the untreated bottle, and to the fire, at half pace.
 static func _seek_untreated(world: Variant, ent: int, x: float, y: float) -> void:
 	var raw: int = _carry_base(world, ent, SimNeeds.UNTREATED_ID)
 	if raw < 0:
@@ -1480,7 +1482,7 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 			_still(world, ent)
 		return
 	var len: float = sqrt(dx * dx + dy * dy)
-	var speed: float = 2.1 * SimNeeds.work_mul(world, ent)
+	var speed: float = 2.1 * SimNeeds.walk_mul(world, ent)
 	# The modifier store's move_speed, the same read the player's `move` command makes
 	# (world.gd's movement phase). It was never read here: the limp, encumbrance and blood loss
 	# slowed the player and never Mara or Ellis, and a weather that slows the living would have
