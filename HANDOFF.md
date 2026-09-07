@@ -285,6 +285,16 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    re-measure — the plan's order, and the record's recommendation; (b) let the compressed
    floor be "three seeds of four" and flip now; (c) run the FULL tier at 256 overnight
    (`BALANCE_FULL=1 BALANCE_TILES=256`) before deciding, ~8 hours at the measured rate.
+   **Re-measured after the torso slice landed** (docs/23's Lethality record): with both flips
+   on, three seeds hold at 3 of 3 and seed 20260805 still wipes (186 grabs, the crowd that saw
+   the annex on night one never left), and the harness's over-cap invariant trips on two seeds
+   (live 35 / 34 against a cap of 32 for a few hundred ticks — something places past the
+   clamp once the table opens on night 3, to be found before the flip). **Sight alone,
+   re-measured after the torso slice, holds the floor**: survivors 1 / 2 / 3 / 3 of 3, every
+   band green — so sight ships on (decision 3 executed under the standing assertion, the
+   commit after the torso slice's) and this item is now the table alone: flip `GRACE_NIGHTS`
+   to 2 once the over-cap placement is found and seed 20260805 is re-read with sight already
+   on.
 
 ## How a session runs
 

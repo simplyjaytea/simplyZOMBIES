@@ -2744,6 +2744,17 @@ records its own numbers here as a bullet under this entry when it lands.
   would need the field to know who wrote what, which docs/03 says it never does. One roll a
   cloud rather than one a body: a cloud is a discrete event with a source, and the second
   bloater has to be a second risk or the type stops mattering after its first death.
+- **The torso, 2026-09-06.** Speed factors 1.0 / 0.85 / 0.65 / 0.5 and stagger chances
+  0 / 0.35 / 0.6 / 1.0 by part state, not by raw integrity, because `part_state` is the one
+  place that normalises a body and a zombie type authors its own maxima (CLAUDE.md's
+  "parts do not share a scale"); the maxima are the type's own (`bodyMax`) rather than the
+  shared table's because the table read a screamer's whole torso as two thirds of a
+  shambler's. A stagger of 20 ticks rather than the weapon's 8 because the weapon's is the
+  blow's recoil and this is the body's failure, and the max rather than the sum because a
+  second knock during a stagger extends it, the rule `shambler.stagger` already had. The roll
+  is by the *resulting* state so the hit that takes a torso across a band is the hit that can
+  drop the body, and on its own stream so a torso hit moves no other draw. The head stays the
+  only kill: docs/14's damage model, and the one thing every decision here was made inside.
 
 ---
 
