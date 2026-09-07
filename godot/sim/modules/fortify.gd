@@ -15,6 +15,15 @@ const NOISEMAKER_TICKS: int = 12000
 const CONTACT_PER_STAGE: int = 40
 const SCRAP_ID: String = "item.scrap.metal"
 const WINDOW_PROSE: Array[String] = ["intact", "scratched", "splintering", "gaps, light leaking"]
+# Pressing (the owner's decision 8, second half; docs/15's crowd). A barrier takes pressure from
+# the dead whose wanted move it stopped this tick -- the kernel's `pressX`/`pressY` -- and a
+# crowd presses harder than its number: n bodies press n x (1 + 0.5 x (n - 1)), so one is 1,
+# two 3, three 6, four 10. Each kind has a cost per stage; four stages and it gives: a board or a
+# barricade is gone, a door hangs off its hinges (stage DOOR_BROKEN, a doorway for good).
+# `fortify.breached` says which kind. A body standing beside a barrier with nowhere it wants to
+# go presses nothing -- the old passive adjacency wear is gone with this.
+const STAGE_COST: Dictionary = {"board": 40, "door": 160, "scrap": 90}
+const DOOR_PROSE: Array[String] = ["shut", "rattling", "splintering", "hanging off its hinges"]
 
 
 static func register_module(world: Variant) -> void:
@@ -248,6 +257,12 @@ static func look_at(world: Variant, actor: int) -> Dictionary:
 		if board is Dictionary:
 			var stage: int = clampi(int((board as Dictionary).get("stage", 0)), 0, WINDOW_PROSE.size() - 1)
 			out["window"] = WINDOW_PROSE[stage]
+	# The door in reach, in words: how far the pressing has got.
+	var door_tile: Vector2i = _door_in_reach(world, actor)
+	if door_tile.x >= 0:
+		var d: Variant = door_state(world, door_tile.x, door_tile.y)
+		if d is Dictionary:
+			out["door"] = DOOR_PROSE[clampi(int((d as Dictionary).get("stage", 0)), 0, DOOR_PROSE.size() - 1)]
 	var bait: Variant = _first(world, "noisemaker")
 	if bait != null:
 		var nm: Variant = world.components.get_component(int(bait), "noisemaker")
@@ -567,7 +582,33 @@ static func _tick_noisemaker(world: Variant) -> void:
 			(em as Dictionary)["ambient"] = 0.0
 
 
+static func pressure_of(bodies: int) -> float:
+	if bodies <= 0:
+		return 0.0
+	return float(bodies) * (1.0 + 0.5 * float(bodies - 1))
+
+
+# The dead pressing each tile this tick, keyed "tx,ty" -> count. Only the dead press: a colonist
+# walking into a shut door opens it, and a raider does the same; neither is a crowd at a wall.
+static func _presses(world: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	for zed in world.components.query(["shambler", "velocity"]):
+		var vel: Variant = world.components.get_component(int(zed), "velocity")
+		if not vel is Dictionary:
+			continue
+		var px: int = int((vel as Dictionary).get("pressX", -1))
+		var py: int = int((vel as Dictionary).get("pressY", -1))
+		if px < 0 or py < 0:
+			continue
+		var key: String = "%d,%d" % [px, py]
+		out[key] = int(out.get(key, 0)) + 1
+	return out
+
+
 static func _tick_contact(world: Variant) -> void:
+	var presses: Dictionary = _presses(world)
+	if presses.is_empty():
+		return
 	var dirty: bool = false
 	for entity in world.components.query(["windowBoard"]):
 		var board: Variant = world.components.get_component(int(entity), "windowBoard")
@@ -576,28 +617,56 @@ static func _tick_contact(world: Variant) -> void:
 		var b: Dictionary = board as Dictionary
 		var tx: int = int(b.get("tx", 0))
 		var ty: int = int(b.get("ty", 0))
-		var hits: int = 0
-		for zed in world.components.query(["shambler", "position"]):
-			var pos: Variant = world.components.get_component(int(zed), "position")
-			if not pos is Dictionary:
-				continue
-			var zx: int = floori(float((pos as Dictionary)["x"]))
-			var zy: int = floori(float((pos as Dictionary)["y"]))
-			if absi(zx - tx) + absi(zy - ty) == 1:
-				hits += 1
-		if hits <= 0:
+		if _press(b, presses, tx, ty, "board"):
+			dirty = true
+			if int(b["stage"]) >= 4:
+				world.events.publish({"type": "fortify.breached", "tx": tx, "ty": ty, "kind": "board"})
+				world.despawn(int(entity))
+	for entity2 in world.components.query(["scrapBarricade", "position"]):
+		var scrap: Variant = world.components.get_component(int(entity2), "scrapBarricade")
+		var pos: Variant = world.components.get_component(int(entity2), "position")
+		if not scrap is Dictionary or not pos is Dictionary:
 			continue
-		b["contactTicks"] = int(b.get("contactTicks", 0)) + hits
-		while int(b["contactTicks"]) >= CONTACT_PER_STAGE:
-			b["contactTicks"] = int(b["contactTicks"]) - CONTACT_PER_STAGE
-			b["stage"] = int(b.get("stage", 0)) + 1
+		var sx: int = floori(float((pos as Dictionary)["x"]))
+		var sy: int = floori(float((pos as Dictionary)["y"]))
+		if _press(scrap as Dictionary, presses, sx, sy, "scrap"):
 			dirty = true
-		if int(b["stage"]) >= 4:
-			world.events.publish({"type": "fortify.breached", "tx": tx, "ty": ty})
-			world.despawn(int(entity))
+			if int((scrap as Dictionary)["stage"]) >= 4:
+				world.events.publish({"type": "fortify.breached", "tx": sx, "ty": sy, "kind": "scrap"})
+				world.despawn(int(entity2))
+	for entity3 in world.components.query(["door"]):
+		var door: Variant = world.components.get_component(int(entity3), "door")
+		if not door is Dictionary:
+			continue
+		var dd: Dictionary = door as Dictionary
+		if bool(dd.get("open", false)) or int(dd.get("stage", 0)) >= DOOR_BROKEN:
+			continue
+		var dx: int = int(dd.get("tx", 0))
+		var dy: int = int(dd.get("ty", 0))
+		if _press(dd, presses, dx, dy, "door"):
 			dirty = true
+			if int(dd["stage"]) >= DOOR_BROKEN:
+				dd["open"] = true
+				dd["latched"] = false
+				world.events.publish({"type": "fortify.breached", "tx": dx, "ty": dy, "kind": "door"})
 	if dirty:
 		sync_map(world)
+
+
+# One barrier's tick of pressure: the crowd at its tile, the kind's cost a stage, and however
+# many stages that buys. True when the stage moved.
+static func _press(barrier: Dictionary, presses: Dictionary, tx: int, ty: int, kind: String) -> bool:
+	var n: int = int(presses.get("%d,%d" % [tx, ty], 0))
+	if n <= 0:
+		return false
+	var cost: float = float(STAGE_COST.get(kind, CONTACT_PER_STAGE))
+	barrier["contactTicks"] = float(barrier.get("contactTicks", 0)) + pressure_of(n)
+	var moved: bool = false
+	while float(barrier["contactTicks"]) >= cost and int(barrier.get("stage", 0)) < 4:
+		barrier["contactTicks"] = float(barrier["contactTicks"]) - cost
+		barrier["stage"] = int(barrier.get("stage", 0)) + 1
+		moved = true
+	return moved
 
 
 static func _cancel(world: Variant, entity: int) -> void:

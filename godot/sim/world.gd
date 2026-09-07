@@ -454,18 +454,35 @@ func _integrate_movement(_world: Variant) -> void:
 			var facing: Dictionary = components.get_component(int(entity), "facing") as Dictionary
 			facing["radians"] = atan2(dy, dx)
 
+		# The press: the tile that stopped a wanted move this tick, or -1 when the move was
+		# free. A kernel fact with one reader -- `SimFortify._tick_pressure` counts the dead
+		# whose press tile is a barrier's -- written by key so a renamed key cannot silently
+		# un-press every barrier (the `vel["x"]` family; check_m2_fortify.gd PRESS asserts the
+		# keys). A body with no wanted move presses nothing.
+		velocity["pressX"] = -1
+		velocity["pressY"] = -1
 		var nx: float = float(position["x"]) + dx * TICK_SECONDS
-		if not _blocked_at(nx + _sign(dx) * BODY_RADIUS, float(position["y"]) - BODY_RADIUS) \
-				and not _blocked_at(nx + _sign(dx) * BODY_RADIUS, float(position["y"]) + BODY_RADIUS):
+		var lead_x: float = nx + _sign(dx) * BODY_RADIUS
+		if not _blocked_at(lead_x, float(position["y"]) - BODY_RADIUS) \
+				and not _blocked_at(lead_x, float(position["y"]) + BODY_RADIUS):
 			position["x"] = nx
 		else:
+			if dx != 0.0:
+				var py: float = float(position["y"]) - BODY_RADIUS if _blocked_at(lead_x, float(position["y"]) - BODY_RADIUS) else float(position["y"]) + BODY_RADIUS
+				velocity["pressX"] = floori(lead_x)
+				velocity["pressY"] = floori(py)
 			velocity["dx"] = 0.0
 
 		var ny: float = float(position["y"]) + dy * TICK_SECONDS
-		if not _blocked_at(float(position["x"]) - BODY_RADIUS, ny + _sign(dy) * BODY_RADIUS) \
-				and not _blocked_at(float(position["x"]) + BODY_RADIUS, ny + _sign(dy) * BODY_RADIUS):
+		var lead_y: float = ny + _sign(dy) * BODY_RADIUS
+		if not _blocked_at(float(position["x"]) - BODY_RADIUS, lead_y) \
+				and not _blocked_at(float(position["x"]) + BODY_RADIUS, lead_y):
 			position["y"] = ny
 		else:
+			if dy != 0.0:
+				var px: float = float(position["x"]) - BODY_RADIUS if _blocked_at(float(position["x"]) - BODY_RADIUS, lead_y) else float(position["x"]) + BODY_RADIUS
+				velocity["pressX"] = floori(px)
+				velocity["pressY"] = floori(lead_y)
 			velocity["dy"] = 0.0
 
 

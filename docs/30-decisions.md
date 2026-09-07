@@ -2770,6 +2770,16 @@ records its own numbers here as a bullet under this entry when it lands.
   is the pressing slice's, and a closed door is a wall to them until then, which is the one
   behaviour this slice changes for the district's teeth. The post steps inside the gate so
   the gate can shut behind the watch.
+- **Pressing, 2026-09-07.** The press is a kernel fact — the tile that stopped a wanted move
+  — rather than a fortify-side adjacency test, because "wants to get through" is what a
+  barrier should charge for and adjacency charged for standing still; the old board wore a
+  stage for every shambler idling beside it. Superlinear pressure (`n × (1 + 0.5 × (n − 1))`)
+  is docs/15's crowd as a number: a lone body at a door is a nuisance and four are a breach,
+  and the alternative, linear, makes four bodies exactly four times a nuisance, which is not
+  what a crowd at a door is. Costs a stage of 40 / 160 / 90 (board / door / scrap) keep the
+  board's old pace exactly and make a door four times a board, because a door is the thing a
+  colony shuts and a board the thing it improvises. Only the dead press, because the living
+  open doors, and a raider that wanted through would not stand at one.
 
 ---
 
