@@ -184,13 +184,13 @@ these are the pieces they open, in the order they land (colony loop, density, zo
 breaching, lethality, presentation). Each is one session with its own gate; five of them
 re-baseline the FAST balance record and say so in their record.
 
-- **The two flips: sight, and the table from night 3.** `SimShambler.SIGHT_ENABLED` ships
-  `false` and `SimDirector.GRACE_NIGHTS` ships 7 where the owner decided 2; each is built,
-  gated at both values (EYES, GRACE) and measured — the eyes and director records say what the
-  FAST tier did with them on: a seed or two in four wiped, and `survivors_end >= 1` is the
-  assertion CLAUDE.md refuses to relax. Each flip is one static. The colony's answer is the
-  torso slice; the trade between the owner's pacing and the compressed tier's floor is
-  HANDOFF's owner item 5. Re-baseline, on the same four seeds, when they flip.
+- **The table from night 3: the flip.** `SimDirector.GRACE_NIGHTS` ships 7 where the owner
+  decided 2; it is built, gated at both values (GRACE) and measured — the director and
+  lethality records say what the FAST tier did with it on: one seed in four wiped even after
+  the torso slice, and the harness's over-cap invariant tripped on two, so something places
+  past the clamp once the table opens early. Find that, re-read seed 20260805 with sight on,
+  and flip the one static; the trade with the compressed tier's floor is HANDOFF's item 5.
+  (Sight's flip landed with the lethality slice: `SIGHT_ENABLED` ships `true`.) Re-baseline.
 - **Doors: a tile class that opens, closes and breaks.** `Tile.Door` as the class, a `door`
   component as the state through `sync_map`; people open them in a step, they swing shut,
   E latches; zombies never open. `godot:m2:fortify`.
@@ -3345,7 +3345,9 @@ not a to-do list:
   past the clamp, and the record names it rather than the flip finding it. **Sight alone, the table still at 7:**
   siege 1 / 1 / 3 / 2, packets 1 / 1 / 3 / 2, grabs 122 / 68 / 1 / 58, deaths 2 / 2 / 0 / 2,
   survivors 1 / 2 / 3 / 3 of 3, every band green — the floor holds, so sight ships on in the
-  next commit and the table's flip is what remains of HANDOFF's item 5.
+  next commit and the table's flip is what remains of HANDOFF's item 5. Those four lines are
+  the FAST record from that commit on (re-baseline #4b, the eyes slice's flip), and the chain
+  that landed it printed them byte for byte.
 - **Roster & Attention** — ~~the dead write to the field from content~~ **landed**
   (`godot:m2:roster` EMITS, RESIDUE, BLOOM-TWICE), 2026-09-06, the seventh piece of the
   playable-state group and the owner's decision 11. What was wrong: no zombie carried an
@@ -3458,9 +3460,10 @@ not a to-do list:
   nothing, so every fixture that predates eyes behaves as it did. How far the stimulus reaches
   is the type's `sensory.light` on its eyes (`SimShambler.sight_reach`, `range × sqrt(light)`:
   3.8 m for the shambler and bloater at 0.1, 11.4 m for the screamer at 0.9). **The stimulus
-  ships off — `SimShambler.SIGHT_ENABLED` is `false`, the GRABS_ENABLED precedent — and the
-  half that did not ship is the half the record is about.** Measured, on the FAST tier, with
-  it on: at the eyes' full 12 m seed 404 **wiped on day two**; at 3.8 m seeds 20260805 and
+  shipped off for one slice — `SimShambler.SIGHT_ENABLED`, the GRABS_ENABLED precedent — and
+  ships on since the torso slice landed (the commit after it; the Lethality record has the
+  four lines that let it: survivors 1 / 2 / 3 / 3 with sight alone). What follows is why it
+  waited.** Measured, on the FAST tier, with it on before torsos mattered: at the eyes' full 12 m seed 404 **wiped on day two**; at 3.8 m seeds 20260805 and
   90210 wiped instead (deaths 4 / 4 / 0 / 3). The diagnostic (an `_observe` override on the
   harness printing every grab and death against the day, the window and the nearest lit fire;
   deleted) showed the loop: two boot wanderers re-grab Ellis and Mara forty times in one dusk
@@ -3472,8 +3475,8 @@ not a to-do list:
   bodies that converged between one dusk and the next (day 2's window opens with ten of twenty
   wanderers inside 12 m of a colonist), so it overstates what the shipped district does by
   day; but the loop itself is real, and `survivors_end >= 1` is the standing assertion that
-  the shipped default survives its own contact loop, so the stimulus waits behind the flag
-  until the colony can kill what it sees — "the dead see: the flip", in what's left. **`extends` is resolved**
+  the shipped default survives its own contact loop, so the stimulus waited behind the flag
+  until the colony could put down what it sees — one slice. **`extends` is resolved**
   (`SimShambler.resolved_entry`, `SimRoster.content_entry` is its name) the way the frozen
   oracle resolves it — child wins, objects merge, arrays replace — memoised on
   `world.content_resolved`, never in a static; the earlier "a shambler's body is its own" note
