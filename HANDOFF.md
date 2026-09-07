@@ -271,6 +271,20 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    several trunks overlap the body at once (`slice9-stand-64.png`). That is the forest's
    character rather than a defect in the fade, but the density is content: the knobs are the
    terrain block's `standsMax`, `treesMax` and `treeSpread`.
+5. **The two playable-state flips against the compressed tier's survival floor.** Two of the
+   owner's own 2026-09-06 decisions are built, gated at both values and shipped at the old
+   one: sight as a stimulus (`SimShambler.SIGHT_ENABLED`, decision 3, ships `false`) and the
+   strain table from night 3 (`SimDirector.GRACE_NIGHTS`, decision 4, ships 7 rather than 2).
+   Measured on the FAST tier with each on, a seed or two in four **wiped**, and
+   `survivors_end >= 1` is the assertion CLAUDE.md records as considered and rejected for
+   relaxing. The eyes and director records in docs/23 carry the diagnostics: a shambler that
+   can see re-takes the colonist it just released, and three early packets finish a colony
+   that cannot kill a shambler with a knife. The trade is between the owner's pacing and a
+   floor measured on a 64-tile district sixteen times the shipped density with the player's
+   body unattended. The options, each one line: (a) flip both after the torso slice lands and
+   re-measure — the plan's order, and the record's recommendation; (b) let the compressed
+   floor be "three seeds of four" and flip now; (c) run the FULL tier at 256 overnight
+   (`BALANCE_FULL=1 BALANCE_TILES=256`) before deciding, ~8 hours at the measured rate.
 
 ## How a session runs
 

@@ -2713,6 +2713,23 @@ records its own numbers here as a bullet under this entry when it lands.
   true offset are an approximation a zombie can afford and a person cannot, so a survivor's cast
   still moves with their tile. Measured before choosing — a tick stride did nothing, because
   casts follow tile crossings, not ticks.
+- **Two grace nights, then the table, 2026-09-06.** `GRACE_NIGHTS` 2 is docs/17 rule 2 ("week
+  one is quiet") re-timed for a ten-day playtest: a week of grace in a ten-day run is a run
+  with three nights in it. Two rather than one because the first dusk is spent learning the
+  annex, and rather than three because the trickle it replaces had already been sending a
+  probe on night 3 whenever the district was thin. **It ships 7** — the old pacing, one static
+  from the decided 2 — for the reason sight ships behind its flag: measured at 2 the compressed
+  tier wiped a seed the colony could not have held, and the floor that catches it is the one
+  CLAUDE.md keeps. Two of the owner's decisions now sit at their old values behind gates that
+  prove the new ones, and that is deliberate: the alternative was to decide, alone, that a
+  compressed 64-tile floor may lose a seed, which is the owner's call (HANDOFF item 5). The
+  stream is not touched on a grace night,
+  which is a determinism promise rather than a pacing one: a campaign's night draws must be the
+  same sequence whether or not the grace length changes again. A lull opens at the next dawn,
+  not at the breach, because the night the wall came down is already decided and the quiet
+  docs/17 rule 1 promises is the *following* night's; a second disaster inside a lull extends
+  the close and keeps the edge, because a lull that restarted would read as the game resetting
+  its own clock.
 
 ---
 

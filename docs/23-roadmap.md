@@ -158,12 +158,14 @@ the same commit. That is the whole discipline: one list of what remains, one rec
 and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in `HANDOFF.md`** (five items as of 2026-09-06: the
-driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes
-and the forest density). Nothing on it blocks a Milestone 2 measurement any more: the sepsis
-question that used to be repeated here was decided on 2026-09-06 (lethal untreated — the
-playable-state group below, and
-[docs/30](30-decisions.md#the-playable-state-2026-09-06)).
+decided unilaterally. **The full list lives in `HANDOFF.md`** (six items as of 2026-09-06: the
+driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes,
+the forest density, and the two playable-state flips against the compressed tier's survival
+floor). The sepsis question that used to be repeated here was decided on 2026-09-06 (lethal
+untreated — the playable-state group below, and
+[docs/30](30-decisions.md#the-playable-state-2026-09-06)); the sixth item is the one that now
+holds two of the owner's own decisions at their old values, and it is a trade only the owner
+can make.
 (The art-style pick came off this list on 2026-09-01 — **style B, the rotating player**, under
 an overcast mood — and was **re-decided by the owner on 2026-09-03 as the Dungeon Settlers
 look**: upright face-on pawns that flip, nobody rotates, a warm dark-fantasy palette, walls
@@ -182,14 +184,13 @@ these are the pieces they open, in the order they land (colony loop, density, zo
 breaching, lethality, presentation). Each is one session with its own gate; five of them
 re-baseline the FAST balance record and say so in their record.
 
-- **Two grace nights, then the table.** From night 3 the director draws from the strain
-  table every night; the `live < 8` trickle goes; the lull's dead opening edge is written.
-  `godot:m2:director`; re-baseline.
-- **The dead see: the flip.** `SimShambler.SIGHT_ENABLED` ships `false` (the eyes slice's
-  record says what the FAST tier did with it on: two seeds in four wiped, a released colonist
-  re-taken by the shambler that could still see them). It flips to `true` once the colony can
-  finish a shambler it is fighting — after the torso slice, measured on the same four seeds —
-  and the EYES lane already pins both halves. Re-baseline.
+- **The two flips: sight, and the table from night 3.** `SimShambler.SIGHT_ENABLED` ships
+  `false` and `SimDirector.GRACE_NIGHTS` ships 7 where the owner decided 2; each is built,
+  gated at both values (EYES, GRACE) and measured — the eyes and director records say what the
+  FAST tier did with them on: a seed or two in four wiped, and `survivors_end >= 1` is the
+  assertion CLAUDE.md refuses to relax. Each flip is one static. The colony's answer is the
+  torso slice; the trade between the owner's pacing and the compressed tier's floor is
+  HANDOFF's owner item 5. Re-baseline, on the same four seeds, when they flip.
 - **The dead write to the field from content.** Every zombie carries an attention emitter
   built from its `emits` block, residue is laid in every state and `field_memory.gd` retires;
   bloater contamination rolls once per cloud. `godot:m2:roster`; the migration driver;
@@ -3307,6 +3308,44 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Director** — ~~two grace nights, then the table~~ **landed, at the old number**
+  (`godot:m2:director` GRACE, LULL-EDGE), 2026-09-06, the sixth piece of the playable-state
+  group and the owner's decision 4. What was wrong: `GRACE_PRESSURE_UNTIL_DAY` 8 kept the
+  strain table shut for the first seven nights, and nights 3–7 sent a probe only while
+  `live < TRICKLE_LIVE` (8) against a boot of 20, so a ten-day playtest drew three nights and
+  the FAST tier reported one to three packets a seed, all in the last three. Now one number,
+  `SimDirector.GRACE_NIGHTS`: nights 1..N say `grace` and leave the night stream untouched (its
+  saved state is the proof — a quiet draw would look the same as no draw), and from night N+1
+  the director draws from the strain table every night, with the siege cap, the quiet floor,
+  the live cap and the lull outranking the draw exactly as before. `GRACE_COMPOSITION_UNTIL_DAY`,
+  `TRICKLE_LIVE`, `TRICKLE_SIZE` and the `grace-trickle` reason are gone; the composition is
+  `SimRoster`'s wave rule and was never this constant's. **The number ships 7, not the 2 the
+  owner decided**, and the half that did not ship is the half the record is about: measured at
+  2 on the FAST tier, seed 31337 **wiped** (deaths 3 / 3 / 3 / 2, survivors 2 / 1 / 0 / 2) — the
+  diagnostic (an `_observe` override on the harness printing each night's decision and each
+  death; deleted) showed Ellis dead on night 1 to nothing the director sent, then a probe, a
+  probe and a press on nights 4–6 (the cap of 32 refused nights 7–10) that a colony of two
+  could not kill; every other seed drew 2–3 packets and held at the cap from night 6. That is
+  the pacing the owner asked for meeting the survival floor CLAUDE.md refuses to relax, on a
+  64-tile district sixteen times the shipped density where the player's body is unattended,
+  and which gives is the owner's trade (HANDOFF item 5), not this slice's. `GRACE_NIGHTS` is a
+  gate-drivable static like `GRABS_ENABLED`: the GRACE lane pins 2, proves it, restores 7, and
+  then proves the shipped number is the one read (night 3 grace, night 8 drawn).
+  **The lull's dead opening edge is written:** `_begin_lull` set `lullFromTick` only when
+  `tick < lullFromTick`, which with the field at 0 was never, so every lull ran from tick 0 and
+  the `tick >= lullFromTick` half of `_on_dusk`'s check was dead — the eleventh dead socket of
+  the milestone, found by the survey. Now a lull opens at the next dawn when no lull is
+  running, and a second disaster inside one extends `until` and leaves the edge alone. GRACE:
+  nights 1–2 grace with the stream's state unchanged; night 3 `drawn` after exactly one draw
+  (a fresh stream restored to the pre-night state, drawn once, lands where the night did); a
+  night 3 at the live cap says `cap`. LULL-EDGE: a breach at dusk 8 opens the lull at day 9's
+  dawn and closes it a day later; a second breach on night 9 extends the close to day 11's dawn
+  and keeps the edge; a fresh district carries neither. **Re-baseline #2**, the FAST tier at
+  64, at the shipped 7: **byte-identical** to the eyes slice's four lines (the trickle never
+  fired in this tier — a boot of 20 is never under 8 — and no FAST campaign breaches, so the
+  lull's edge moves nothing here). At 2, for the record: siege 2 / 2 / 3 / 3, packets 2 / 2 /
+  3 / 3, max_live 32 / 32 / 32 / 26 (the cap from night 6 on three seeds), survivors 2 / 1 / 0
+  / 2 — the line the flip re-pins against when it comes.
 - **Roster & Sight** — ~~every zombie has eyes, and its senses are content~~ **landed**
   (`godot:m2:roster` EYES, EXTENDS, SENSES, WAVE, SCREAMER-NIGHT; `godot:m2:sight` NIGHT-LIT),
   2026-09-06, the fifth piece of the playable-state group and the owner's decision 3. What was

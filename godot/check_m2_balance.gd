@@ -555,9 +555,9 @@ func _assert_arms_are_comparable(by_arm: Dictionary) -> bool:
 	var ok: bool = true
 	var melee: Dictionary = by_arm["melee"] as Dictionary
 	var ranged: Dictionary = by_arm["ranged"] as Dictionary
-	# The director spends its first week on grace and trickle -- `GRACE_PRESSURE_UNTIL_DAY` is 8 --
-	# so a shortened grid is a grid nothing attacked, and an arm cannot be judged on a campaign it
-	# was never pressured in. Refuse to assert rather than assert on no data, and say so loudly.
+	# The director's first `GRACE_NIGHTS` nights are grace, so a grid shortened to fewer days is
+	# a grid nothing attacked, and an arm cannot be judged on a campaign it was never pressured
+	# in. Refuse to assert rather than assert on no data, and say so loudly.
 	if int(melee["packets"]) + int(ranged["packets"]) < 1:
 		print("ARMS SKIPPED no packets across the grid at %d days -- risk 6 needs a full %d-day run" % [_days, DAYS])
 		return true
