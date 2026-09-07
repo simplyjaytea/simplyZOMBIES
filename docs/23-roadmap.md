@@ -182,9 +182,6 @@ these are the pieces they open, in the order they land (colony loop, density, zo
 breaching, lethality, presentation). Each is one session with its own gate; five of them
 re-baseline the FAST balance record and say so in their record.
 
-- **A starving colonist still eats, and a fire burns down.** `_tick_one`'s crisis early
-  return goes, so hard hunger and thirst reach the seek; a lit campfire carries a burn-down
-  clock and is doused past it unless cooking. `godot:m2:jobs`, `godot:m2:needs`.
 - **Colonists scavenge near home.** Survivors remember the containers they have seen; a
   `Scavenge` column searches them within a radius of the annex, hauling the yield; the far
   district stays the player's run. `godot:m2:jobs`, `npc_searches` in the FAST line.
@@ -3315,6 +3312,33 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Jobs & Needs** — ~~a starving colonist still eats, and a fire burns down~~ **landed**
+  (`godot:m2:jobs` CRISIS, `godot:m2:needs` FIRE), 2026-09-06, the second piece of the
+  playable-state group: two defects the surveys found, neither a design question. **The crisis
+  dead-end:** `_tick_one` stopped a survivor in a `starving` or `dehydrating` crisis before the
+  need seek ran (`jobs.gd:185-187`, which its own comment called a known hole), and `work_mul` is
+  0 in a crisis so `_walk` could not have moved them anyway — a colonist at zero hunger died on
+  the starvation clock beside a full pantry. Now the early return is gone (only `passed_out`
+  still returns), the seek ranks an empty pool as its hardest pressure, and the walk runs at
+  `SimNeeds.walk_mul` — everything `work_mul` reads, except that a crisis is a half-pace walk
+  (`CRISIS_WALK_MUL 0.5`, a first cut: docs/04's weakness before collapse) rather than no walk.
+  The dehydrating survivor now reaches the untreated rung the well-water slice named as
+  unreachable. **Fires burn down:** a fire lit by a cook, a warm-seek or the E key stayed lit for
+  the rest of the run — a permanent 20 m light source at scent 5 that no fuel had paid for.
+  `set_lit` stamps `litUntilTick = tick + CAMPFIRE_BURN_TICKS` (36,000, half a night, first cut)
+  and a new `need.fires` system (needs phase, order 17) douses a lit fire past its clock unless
+  `cooking` is true; a cook's completion, a warm-seek and the E toggle each re-light and the
+  clock starts over; a lit fire with no clock (a save from before it) is stamped, not doused, so
+  no `SAVE_VERSION` bump. CRISIS: shamblers cleared and Ellis's carried food stripped so the walk
+  is the thing under test; hunger 0 reads `starving`, `walk_mul` 0.5 and `work_mul` 0; he walked
+  to a can on the stockpile and ate at tick 175; with every food despawned and the clock
+  back-dated to its last forty ticks he still starved (`entity.killed{need: hunger}`) — the fix
+  makes no food out of nothing; a dehydrating Ellis with an untreated bottle on the stockpile and
+  every campfire despawned drank it raw at tick 175. FIRE: lighting stamps `tick + 36000`
+  (the constant, read); not doused sixty ticks in; with the clock shortened by hand to fifty
+  ticks it is doused on the tick, and the flag, the `light_source` and `lit_campfire_near` all
+  see it; a cook's fire past its clock stays lit; a re-light refreshes the stamp; a lit fire
+  with the key erased is stamped on the next tick and still lit.
 - **Jobs** — ~~the day belongs to the row, and Guard is the night post~~ **landed**
   (`godot:m2:jobs`, GUARD POST and AUTHORED), 2026-09-06, the first piece of the playable-state
   group and the owner's decision 6. What was wrong: `_work_for` handed out the Guard post at any
@@ -3697,8 +3721,8 @@ not a to-do list:
   fire and thirst 25 drank `item.water.bottle.untreated`; with no fire and thirst 35 drank
   nothing in 3000 ticks); and the WELL lane now asserts the fill is untreated and *not* clean.
   **Named rather than fixed:** a `dehydrating` survivor never reaches the untreated rung, because
-  `_tick_one` stops a body in crisis before the seek runs — a pre-existing hole, the crisis path's
-  own defect — and bottled water in loot tables stays clean, so a colony that finds enough of it
+  `_tick_one` stopped a body in crisis before the seek ran — a pre-existing hole, the crisis path's
+  own defect, closed 2026-09-06 (the Jobs record bullet "a starving colonist still eats") — and bottled water in loot tables stays clean, so a colony that finds enough of it
   never boils. The four FAST balance lines before and after are **byte-identical** — survivors, deaths, kills and grabs unchanged on all four seeds — which says the compressed ten-day colony drinks the bottled water its loot rolls and never fills a bottle at the well; the rung is reachable (the WELL and NPC lanes prove it) and not yet priced by the harness, the same shape as the engine noise and the light vehicles at the director in what's left.
 - **Needs** — ~~`spoilage_rate` is a stat nothing resolves~~ **landed** (`godot:m2:needs`,
   PANTRY), 2026-09-06, with the owner's rule: **a perishable ages at the best living colonist's

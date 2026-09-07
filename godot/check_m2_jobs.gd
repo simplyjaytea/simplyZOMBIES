@@ -28,8 +28,9 @@ func _run() -> void:
 	ok = _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() and ok
 	ok = _guard_is_the_night_post_and_the_day_belongs_to_the_row() and ok
 	ok = _a_focus_change_keeps_the_authored_row() and ok
+	ok = _a_starving_colonist_still_eats() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, and a focus change keeps the authored row")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, and a starving colonist still eats")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -796,4 +797,108 @@ func _a_focus_change_keeps_the_authored_row() -> bool:
 		return false
 	print("AUTHORED OK preset over authored, authored fills the gaps, Manual restores, a generated row is the bare preset")
 	return true
+
+
+# --- a starving colonist still eats (the crisis dead-end, closed 2026-09-06) ------------------
+#
+# `_tick_one` used to `_stop` and return for a `starving` or `dehydrating` survivor before the
+# need seek ran, and `work_mul` is 0 in a crisis so `_walk` could not have moved them anyway: a
+# colonist at zero hunger died on the starvation clock beside a full pantry. Now the seek runs
+# and the walk goes at `walk_mul`'s half pace. Both halves, each with its negative: food on the
+# stockpile is reached and eaten (and nothing carried, so the walk is the thing under test);
+# no food anywhere still ends on the clock -- the fix makes no food out of nothing. The same
+# pair for thirst against an untreated bottle with no fire in the district, which is drunk raw.
+func _a_starving_colonist_still_eats() -> bool:
+	var w: Variant = _world()
+	var ellis: int = _ellis(w)
+	if ellis < 0:
+		push_error("crisis: no Ellis")
+		return false
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	_strip_edibles(w, ellis)
+	var stock: Vector2i = _first_stockpile(w, _start(w), true)
+	var can: int = SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
+	w.components.set_component(can, "position", {"x": float(stock.x) + 0.5, "y": float(stock.y) + 0.5})
+	var killed: Array = []
+	w.events.subscribe({"id": "check.crisis-killed", "type": "entity.killed", "handler": func(e: Dictionary) -> void:
+		if int(e.get("entity", -1)) == ellis:
+			killed.append(String(e.get("need", "")))
+	})
+	var n: Dictionary = SimNeeds.of(w, ellis)
+	n["hunger"] = 0.0
+	w.step()
+	if String(SimNeeds.of(w, ellis).get("crisis", "")) != "starving":
+		push_error("crisis: hunger 0 did not read as starving (%s)" % str(SimNeeds.of(w, ellis).get("crisis", "")))
+		return false
+	if SimNeeds.walk_mul(w, ellis) <= 0.0 or SimNeeds.work_mul(w, ellis) != 0.0:
+		push_error("crisis: walk_mul %.2f / work_mul %.2f -- a crisis should walk and not work" % [SimNeeds.walk_mul(w, ellis), SimNeeds.work_mul(w, ellis)])
+		return false
+	var fed_at: int = -1
+	for i in 6000:
+		w.step()
+		if float(SimNeeds.of(w, ellis).get("hunger", 0.0)) > 0.0:
+			fed_at = i
+			break
+	if fed_at < 0:
+		push_error("crisis: a starving Ellis never reached the can on the stockpile")
+		return false
+	if String(SimNeeds.of(w, ellis).get("crisis", "")) != "none" or not killed.is_empty():
+		push_error("crisis: fed but still %s / killed %s" % [str(SimNeeds.of(w, ellis).get("crisis", "")), str(killed)])
+		return false
+	# The negative: nothing to eat anywhere, and the clock still runs to its end.
+	_strip_edibles(w, ellis)
+	for lying in SimInventory.ground_items(w):
+		var b: Variant = SimItems.item_base_of(w, int(lying))
+		if b is Dictionary and (b as Dictionary).has("food"):
+			w.despawn(int(lying))
+	SimNeeds.of(w, ellis)["hunger"] = 0.0
+	w.step()
+	# The clock, jumped to its last forty ticks rather than stepped through a whole day (the
+	# fire lane's trick, from the other end: a back-dated stamp on day 1 goes negative and the
+	# clock refuses one). What is judged is that the clock still ends, not how long it is.
+	var starve_ticks: int = int(SimNeeds.STARVE_DAYS * float(Clock.DAY_TICKS))
+	w.tick = int(SimNeeds.of(w, ellis).get("starvingSinceTick", 0)) + starve_ticks - 40
+	for _i in 80:
+		w.step()
+		if not killed.is_empty():
+			break
+	if killed.is_empty() or killed[0] != "hunger":
+		push_error("crisis: with no food anywhere Ellis did not starve on the clock (%s)" % str(killed))
+		return false
+	# Thirst, against an untreated bottle and no fire: drunk raw.
+	var w2: Variant = _world()
+	var e2: int = _ellis(w2)
+	for z in w2.components.query(["shambler"]):
+		w2.despawn(int(z))
+	for f in w2.components.query(["campfire"]):
+		w2.despawn(int(f))
+	_strip_edibles(w2, e2)
+	var stock2: Vector2i = _first_stockpile(w2, _start(w2), true)
+	var raw: int = SimItems.spawn_item(w2, SimNeeds.UNTREATED_ID, {"tier": "scavenged"})
+	w2.components.set_component(raw, "position", {"x": float(stock2.x) + 0.5, "y": float(stock2.y) + 0.5})
+	SimNeeds.of(w2, e2)["thirst"] = 0.0
+	w2.step()
+	if String(SimNeeds.of(w2, e2).get("crisis", "")) != "dehydrating":
+		push_error("crisis: thirst 0 did not read as dehydrating")
+		return false
+	var drank_at: int = -1
+	for i in 6000:
+		w2.step()
+		if float(SimNeeds.of(w2, e2).get("thirst", 0.0)) > 0.0:
+			drank_at = i
+			break
+	if drank_at < 0:
+		push_error("crisis: a dehydrating Ellis with only an untreated bottle and no fire never drank")
+		return false
+	print("CRISIS OK a starving Ellis walked to the stockpile and ate at tick %d (walk_mul %.2f, work_mul 0); with no food anywhere he starved on the clock (%s); a dehydrating Ellis drank the untreated bottle raw at tick %d with no fire in the district" % [fed_at, SimNeeds.CRISIS_WALK_MUL, str(killed), drank_at])
+	return true
+
+
+# Nothing edible on the body: every carried food or drink goes, so a seek has to walk.
+func _strip_edibles(w: Variant, ent: int) -> void:
+	for item in SimInventory.carried_items(w, ent):
+		var base: Variant = SimItems.item_base_of(w, int(item))
+		if base is Dictionary and ((base as Dictionary).has("food") or (base as Dictionary).has("drink")):
+			w.despawn(int(item))
 
