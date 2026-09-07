@@ -251,7 +251,12 @@ func _boot_and_judge(seed_value: int, size: int, district_id: String, stash: Dic
 		if tile.x < 1 or tile.y < 1 or tile.x >= size - 1 or tile.y >= size - 1:
 			push_error("%s: anchor %s is at %s, which is off the map or on its wall" % [where, String(key), str(tile)])
 			return {}
-		if SimTileMap.tile_at(map, tile.x, tile.y) != SimTileMap.Tile.Floor or SimTileMap.is_solid(map, tile.x, tile.y):
+		# A gate is a Door tile since the doors slice -- open by class on a map nobody booted,
+		# shut by the door the boot stands on it (this map is a booted world's, so the gate reads
+		# solid here) -- and the other two anchors stay floor.
+		var anchor_tile: int = SimTileMap.tile_at(map, tile.x, tile.y)
+		var gate_door: bool = String(key).begins_with("gate") and anchor_tile == SimTileMap.Tile.Door
+		if (anchor_tile != SimTileMap.Tile.Floor and not gate_door) or (not gate_door and SimTileMap.is_solid(map, tile.x, tile.y)):
 			push_error("%s: anchor %s at %s is tile %d, which is not open floor" % [
 				where, String(key), str(tile), SimTileMap.tile_at(map, tile.x, tile.y),
 			])
@@ -293,8 +298,9 @@ func _boot_and_judge(seed_value: int, size: int, district_id: String, stash: Dic
 
 	# 4. Twenty wanderers, none of them in the colony.
 	var zeds: int = world.components.query(["shambler"]).size()
-	if zeds != SimBoot.WANDERERS:
-		push_error("%s: booted %d shamblers, and SimBoot.WANDERERS is %d" % [where, zeds, SimBoot.WANDERERS])
+	var want: int = SimBoot.wanderers_for(int(map.w))
+	if zeds != want:
+		push_error("%s: booted %d shamblers, and SimBoot.wanderers_for(%d) is %d" % [where, zeds, int(map.w), want])
 		return {}
 	var inside: int = _wanderers_inside(world, annex)
 	if not _exclusion_ok(inside):

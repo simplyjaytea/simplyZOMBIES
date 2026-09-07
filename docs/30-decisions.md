@@ -2416,9 +2416,10 @@ the third survival slice; it was named in what's left and landed in the same com
   cost, so a colony with no clean water is a colony whose fire is lit more. With no fire at all,
   a survivor drinks well water untreated only below `SOFT` (thirst under 30): a roll on the
   illness stream is worth it against the dehydration clock and not before. Between `SEEK_START`
-  and `SOFT` with no fire they wait. The `dehydrating` crisis never reaches this rung because
-  `_tick_one` stops a survivor in crisis before the seek runs; that is a pre-existing hole in
-  the crisis path, named in docs/23 rather than widened here.
+  and `SOFT` with no fire they wait. The `dehydrating` crisis did not reach this rung when it
+  landed, because `_tick_one` stopped a survivor in crisis before the seek ran — a pre-existing
+  hole in the crisis path, named in docs/23 rather than widened here, and closed on 2026-09-06 by
+  the playable state's "a starving colonist still eats" piece.
 - **E boils before it touches the fire.** One interact key, decided 2026-09-05: at a lit fire
   with a bottle of well water, E boils; with nothing to boil, E douses as before; at an unlit
   fire `boil` refuses and E lights it, so the second E boils. The refusal reasons are the
@@ -2577,6 +2578,248 @@ snow that lies as well as falls — and the spine took these calls:
   injury (the wounds ladder has no cold-exposure hook to fire it from), crops failing (no crop
   system), and tracks in snow (no tracker reads a footprint anywhere). Each stays named in what's
   left rather than stubbed.
+
+## The trap and the bait are Milestone 3A, 2026-09-06
+
+The roadmap audit of 2026-09-06 found the Milestone 2 scope table promising "walls, gate,
+barricades, one trap, and one bait emitter" while the tree had walls, the gate and barricades
+(`godot:m2:fortify`) and nothing else: no trap or bait content, no gate, no what's-left entry, and
+the Milestone 3A list already naming "traps, and bait" as its own. The owner's call, made the same
+day: **cut both to Milestone 3A.** The slice's building is the three that shipped. docs/15's traps
+and bait sections are unchanged — they are the spec, and docs/15 was never scoped by milestone.
+What this leaves the slice: sieges are answered by walls, the gate, barricades and bodies, and the
+director's minimum siege cadence (risk 3) is measured against that and nothing more. If the human
+ten-day playtest finds building without a trap has nothing to defend *with*, that is a reason to
+revisit, and it is a playtest finding to bring back here, not a reason to smuggle one in.
+
+## The playable state, 2026-09-06
+
+The owner's session on getting the game to a good playable state. Three code-grounded surveys
+(survival and needs, the NPC colonists, the zombies and the director) were read against docs/02's
+ratchet and docs/04, 07, 14 and 17, and found both loops the exit criterion needs open-circuited:
+the colony loop at the NPC's end (the boot colony does no work, because Ellis's authored row is
+Guard 1 and the Guard job never completes; NPCs never open a container; a colonist at zero hunger
+stops seeking and dies beside a full pantry) and the attention loop at the zombie's end (a
+shambler acquires a survivor only inside 1.6 m and has no sight; days 1–7 send nothing; nothing
+has ever breached on any seed; the balance harness measures a 64-tile map sixteen times denser
+than the 256 the player boots). The owner answered twelve questions the same day. Each is a
+decision, not a number; the numbers inside each are first cuts that land with their slice and
+are recorded there.
+
+1. **The target is the ten-day human playtest**, docs/23's exit criterion, not a shorter loop.
+2. **Order: the colony loop first, then the zombies; lethality and presentation last** — the
+   small sim fixes that make the base alive give the zombie slices something to threaten, and
+   the harness moves once per system rather than twice.
+3. **Zombies perceive as docs/14 is written.** Every zombie gets an observer — sight through the
+   existing shadowcast, scaled by light — and the authored `sensory` block weights noise, scent
+   and light per type. Measured against the harness before and after.
+4. **Two grace nights, then the strain table every night.** The `live < 8` trickle gate goes.
+   The variance floor and the siege cap stand. Re-measured.
+5. **Boot population scales with the district**: a density of 20 per 64 tiles of side, so the
+   harness's 64 keeps its 20 and the played 256 boots 80. The linear reading is this plan's call:
+   the owner's two numbers fix it, and a per-area reading (320) would sit ten times over the
+   live cap and refuse every night.
+6. **Guard is a dusk-to-dawn post.** By day a survivor with Guard set works the rest of its row;
+   at dusk it takes the post. Ellis builds and hauls by day and watches by night.
+7. **Body damage slows and staggers**: torso integrity feeds a speed factor and a stagger chance
+   the way legs feed the crawl; the head stays the only kill.
+8. **Boards, barricades and doors break by pressing.** A door tile class that opens, closes and
+   breaks, and zombies press on any barrier on their path with pressure scaling by how many are
+   packed against it (docs/15). Doors as a tile class *plus* an entity component through
+   `sync_map` — the window-board precedent — is this plan's call, because `SOLID` is a const and
+   a door is not.
+9. **Cold, heat and sepsis can all kill**: hypothermia and heatstroke as injuries on the
+   exposure ladder, sepsis lethal untreated on a dusk clock. Each with a measurement. This
+   closes the long-standing sepsis item.
+10. **NPCs scavenge too, near home**: containers the colony has seen, within a radius of the
+    annex; the far district stays the player's run (docs/02).
+11. **Zombies emit to the field**, driven by their `emits` block, and lay residue in every state.
+    The horde entity stays Milestone 3B.
+12. **The screen speaks of the colony**: prose world-lines for death, succession, run-over,
+    arrival and bereavement, and click-to-select on a colonist so the third-person prose that
+    already exists reaches the screen.
+
+One more call the plan takes inside decision 3: `extends` in zombie content is **resolved**, the
+way the frozen oracle resolves it (child wins, objects merge, arrays replace), rather than deleted
+from the schema — deleting it would triplicate every shared block and need a schema edit the
+oracle must also pass. The pieces are docs/23's playable-state group, in landing order; each
+records its own numbers here as a bullet under this entry when it lands.
+
+- **Guard is the night post, 2026-09-06.** The watch is Dusk and Night by `Clock.phase_of`,
+  nothing finer: a survivor with Guard on their row is called to the post at dusk only off a job
+  that has not begun a channel and only where Guard outranks that job in the row's own sort
+  (priority, then name), so a doctor finishes the dressing before she stands the gate, and the
+  watch completes at dawn — an Endurance point, the same region Rest pays into, because a night
+  stood is docs/08's hard night. The preset-over-authored rule for a focus change: the preset
+  wins every cell it names and the content row keeps every cell it does not, and Manual is the
+  content row again — the alternative, authored-over-preset, would let `Guard 1` outrank a Medic's
+  `Doctor 1` by the name tie-break and put the medic on the gate. `Auto` deliberately stays without
+  Guard: its nine columns at 3 tie-break alphabetically, and Guard would win every dusk for every
+  Auto survivor at once, so nobody would haul after dark. Ellis's and Mara's day columns
+  (`Construct 3, Cook 3, Water 3`; `Cook 2, Water 3`) are first cuts.
+- **A crisis walks, and a fire burns down, 2026-09-06.** A survivor in a hunger or thirst crisis
+  cannot work (`work_mul` stays 0) but walks at half pace (`walk_mul`, `CRISIS_WALK_MUL 0.5`):
+  the alternative — a crisis that stops the body — is the dead end the surveys found, a colonist
+  dying beside a full pantry. Half rather than full because docs/04 puts weakness before
+  collapse, and rather than zero because zero is the defect. A fire's burn-down is a clock from
+  the last lighting (`CAMPFIRE_BURN_TICKS 36000`, half a night) and not a douse at dawn, because
+  a fire lit at midnight to boil a bottle must not go out at six for a reason nobody can read;
+  cooking holds it, since a cook standing at a dead fire would be a lie the screen tells. No fuel
+  is spent: firewood is docs/16's unbuilt cold half and stays named in what's left.
+- **Near home is a radius, and known means seen, 2026-09-06.** A colonist searches a cupboard only
+  if somebody has looked at it — the memory is `sightings`' second array, filled by `detail`, so a
+  survivor does not walk to a box nobody has seen and the information-scarcity contract holds for
+  NPCs as it does for the player — and only within `HOME_RADIUS_TILES` (40) of the annex's centre.
+  A radius rather than "inside the annex" because the annex holds no cupboards, and rather than
+  the whole map because docs/02 makes the far district the player's run and the Guard slice
+  measured what hauling across the whole district costs. Haul is bounded the same way for the
+  same reason. Forty is a first cut: the whole of the 64-tile harness map, so the FAST lines are
+  moved by the search itself and not by the bound.
+- **A density, linear in the side, 2026-09-06.** `wanderers_for(tiles)` is `20 × tiles / 64` and
+  the live cap `32 × tiles / 64`, so 64 boots 20 under a cap of 32 as it always has and 256 boots
+  80 under 128. Linear in the side rather than the area because the owner's decision named the
+  two numbers (20 and ~80) and the per-area reading, 320, would be ten times the old cap; the cap
+  scales with the population because it is a statement about how many bodies a district holds,
+  and a flat 32 at 256 would have refused every night from the first. Measured at 256: ~105
+  ticks a second against ~1,085 at 64, which the record carries as the price every later
+  256-tile measurement pays.
+- **Eyes see what is lit, and only the dead's eyes do, 2026-09-06.** A zombie's sight samples
+  the light at the target (`lit_target` on `shambler_eyes()`), because the oracle's rule —
+  `min(eyes, max(ambient, lit at the observer))` — is a rule about how far *you* can see from
+  where you stand, and applied to the dead it made every zombie blind after dark and blind to a
+  survivor under a floodlight, which is the screamer's purpose inverted. The player's eyes keep
+  the oracle's rule on purpose: `tiles_for(player)` is what cuts roofs out and pools the light
+  wash, and a 48 m shadowcast after dark would open every roof in sight; a survivor seeing a
+  lit window across the dark is a presentation decision for another day, and NIGHT-LIT pins the
+  scoping so it cannot widen unnoticed. Waves: `introducedInWave` n arrives on day
+  `1 + 2n`, so wave 1 is the day-3 mix the old constant opened; the stride is the one number
+  the old rule had, and docs/14's "week 6" schedule is Milestone 3's to re-time. `extends` is
+  resolved per world on `world.content_resolved` rather than in a static because a static memo
+  is shared between the two worlds a gate boots, and the EXTENDS lane boots two with two trees
+  to prove the difference. Screamer and bloater declare `grab` because docs/14 makes the grab
+  every type's primary threat, and `behaviors` replaces rather than merges. The reach of sight
+  as a stimulus is the type's `sensory.light` on its eyes, `range × sqrt(light)` — the weight is
+  docs/14's "poor eyesight" as a number, and the square root because a tenth of 12 m is 1.2 m,
+  inside the 1.6 m contact the slice exists to fix. **And the stimulus shipped off for one
+  slice** (`SimShambler.SIGHT_ENABLED`, the grabs-flag precedent) — not a reversal of decision
+  3 but its sequencing: measured on the FAST tier, sight that closes on a colonist wiped seeds
+  at 12 m and at 3.8 m alike, because a shambler whose hold a struggle broke re-took the
+  colonist it could still see, and until the torso slice a colonist with a knife could not
+  finish it. The torso slice gave the colony that answer and the same four seeds held with
+  sight alone, so it ships on from the commit after that slice; the table's flip waits on its
+  own measurement. And the dead recast
+  their sight only every two tiles (`ZOMBIE_RECAST_TILES`): the shadowcast is the
+  oracle's algorithm ported cell for cell and stays so, a 12-tile cast is ~1.5 ms, and eighty
+  bodies casting on every tile crossing were a third of a 256-tile step; walls a tile off their
+  true offset are an approximation a zombie can afford and a person cannot, so a survivor's cast
+  still moves with their tile. Measured before choosing — a tick stride did nothing, because
+  casts follow tile crossings, not ticks.
+- **Two grace nights, then the table, 2026-09-06.** `GRACE_NIGHTS` 2 is docs/17 rule 2 ("week
+  one is quiet") re-timed for a ten-day playtest: a week of grace in a ten-day run is a run
+  with three nights in it. Two rather than one because the first dusk is spent learning the
+  annex, and rather than three because the trickle it replaces had already been sending a
+  probe on night 3 whenever the district was thin. **It ships 7** — the old pacing, one static
+  from the decided 2 — for the reason sight ships behind its flag: measured at 2 the compressed
+  tier wiped a seed the colony could not have held, and the floor that catches it is the one
+  CLAUDE.md keeps. Two of the owner's decisions now sit at their old values behind gates that
+  prove the new ones, and that is deliberate: the alternative was to decide, alone, that a
+  compressed 64-tile floor may lose a seed, which is the owner's call (HANDOFF item 5). The
+  stream is not touched on a grace night,
+  which is a determinism promise rather than a pacing one: a campaign's night draws must be the
+  same sequence whether or not the grace length changes again. A lull opens at the next dawn,
+  not at the breach, because the night the wall came down is already decided and the quiet
+  docs/17 rule 1 promises is the *following* night's; a second disaster inside a lull extends
+  the close and keeps the edge, because a lull that restarted would read as the game resetting
+  its own clock.
+- **The dead write to the field, 2026-09-06.** The emitter is built from `emits` and nothing
+  else — a type with no block carries zeros — so what a zombie gives off is a content number
+  the way its speed is. Noise goes to `ambient` and `walking` alike because a groan is not a
+  footstep: the noisemaker's shape, and the one the screamer's 4 needs to mean anything while it
+  stands. Scent 1 on the base — a living person's — was measured into place from a first cut of
+  8: the driver's sweep (docs/23's table) found the crowd held together at every magnitude
+  and the magnitude deciding only how far the dead's plume outweighs the living's, twelve times
+  at 8; a crowd of twenty that smells like twenty people keeps the residue's reason and leaves
+  the field about the living. A body's hearing
+  threshold rises by its own noise, because the field is a maximum and a groaning type would
+  otherwise chase itself; the alternative, subtracting a body's contribution from the field,
+  would need the field to know who wrote what, which docs/03 says it never does. One roll a
+  cloud rather than one a body: a cloud is a discrete event with a source, and the second
+  bloater has to be a second risk or the type stops mattering after its first death.
+- **The torso, 2026-09-06.** Speed factors 1.0 / 0.85 / 0.65 / 0.5 and stagger chances
+  0 / 0.35 / 0.6 / 1.0 by part state, not by raw integrity, because `part_state` is the one
+  place that normalises a body and a zombie type authors its own maxima (CLAUDE.md's
+  "parts do not share a scale"); the maxima are the type's own (`bodyMax`) rather than the
+  shared table's because the table read a screamer's whole torso as two thirds of a
+  shambler's. A stagger of 20 ticks rather than the weapon's 8 because the weapon's is the
+  blow's recoil and this is the body's failure, and the max rather than the sum because a
+  second knock during a stagger extends it, the rule `shambler.stagger` already had. The roll
+  is by the *resulting* state so the hit that takes a torso across a band is the hit that can
+  drop the body, and on its own stream so a torso hit moves no other draw. The head stays the
+  only kill: docs/14's damage model, and the one thing every decision here was made inside.
+- **Doors, 2026-09-07.** A tile class and an entity component rather than a tile per state,
+  because `SOLID` and `OPACITY` are consts indexed by tile and a door is not a const: the
+  window board set the pattern (state on an entity, overlaid by `sync_map`) and a door is the
+  same pattern with an `open` bit. Open by class so a map is judged without a world — the
+  survivability walk, the enterability check and the scatter all read a doorway as ground,
+  and the boot is what shuts it. A walker's open is unlatched and the player's is latched
+  because the two mean different things: a colonist walking through wants the door to close
+  behind them and the player pressing E wants the door to stay how they left it. Sixty ticks
+  of swing so a second colonist three seconds behind the first walks through the same open
+  door. NPCs open a latched door too — the latch is "do not swing", not a lock — so the
+  colony can leave a shut annex by day. The dead never open a door; how they get through one
+  is the pressing slice's, and a closed door is a wall to them until then, which is the one
+  behaviour this slice changes for the district's teeth. The post steps inside the gate so
+  the gate can shut behind the watch.
+- **Pressing, 2026-09-07.** The press is a kernel fact — the tile that stopped a wanted move
+  — rather than a fortify-side adjacency test, because "wants to get through" is what a
+  barrier should charge for and adjacency charged for standing still; the old board wore a
+  stage for every shambler idling beside it. Superlinear pressure (`n × (1 + 0.5 × (n − 1))`)
+  is docs/15's crowd as a number: a lone body at a door is a nuisance and four are a breach,
+  and the alternative, linear, makes four bodies exactly four times a nuisance, which is not
+  what a crowd at a door is. Costs a stage of 40 / 160 / 90 (board / door / scrap) keep the
+  board's old pace exactly and make a door four times a board, because a door is the thing a
+  colony shuts and a board the thing it improvises. Only the dead press, because the living
+  open doors, and a raider that wanted through would not stand at one.
+- **Re-arm and withdrawal, 2026-09-07.** A colonist re-arms only when unarmed — armed never
+  swaps — because "the better weapon" is a valuation the colony does not make yet and a rule
+  that swapped on a number would have Ellis putting down the pipe for every knife on the
+  floor. Pack first, then the nearest working weapon near home, because the stockpile is where
+  a colony keeps its spares and a body should not cross the district for a bat. A worn-out
+  weapon drops rather than vanishes because a thing the player can repair should be a thing
+  the player can find. A band goes home on a clock (6,000 ticks, five minutes) with nothing to
+  fight, and at once below half strength, because docs/17's raiders are a *pressure*, not a
+  garrison: a band that lost is a band that leaves, and one that found nobody has no reason
+  to stand in the road; the entry tile as the exit because that is the road it knows.
+- **The cold, the heat and sepsis kill, 2026-09-07.** A dose of exposed ticks rather than
+  the clock's difference, because the compressed tier jumps a day between windows and a
+  clock-keyed death would be a death by artefact; the band still reads the clock, as it did.
+  Two exposures to a wound and three to a death in the cold, three and four in the heat and
+  only in armour, because docs/16 makes armour the thing the heat wave punishes and the sun
+  alone should never kill a body that took its jacket off. Frostbite on an extremity and
+  heatstroke on the torso because that is where each lands on a person; a laceration's
+  severity so each impairs the part without bleeding, and never septic because there is no
+  opening. Three dusks for sepsis because a night is the unit sepsis is already rolled in,
+  three is long enough to find a course and short enough that a fever is a decision, and the
+  second dusk's clause says worse so the decision is prompted before it is too late. A course
+  clears the sepsis at once and the count at the next dusk, because the count is read at
+  dusk and a cure at noon should not need the clock to notice it.
+- **The screen speaks of the colony, 2026-09-07.** The chronicle is sim-owned and saved,
+  not a presentation-side log, because what the colony lost is a fact about the run and not
+  about the screen — a save reloaded next week should still know who died on day two, and the
+  grave or epitaph that reads it later should not need the sim to remember twice. The screen
+  reads only the last two hours and at most three lines, because the world column is a place
+  for news and a death on day two is not news on day four; the record keeps everything. A death
+  is written once per entity and only for a body with an identity, because `entity.killed`
+  fires up to three times for one person and once for every zombie. The lines carry names and
+  nothing numeric — no day, no count — because the chronicle sits on the HUD and clause 4 owns
+  the HUD. A click selects rather than orders, because the owner's decision 12 is about what
+  the screen *says*; orders are the micromanagement cliff (docs/23 risk 1) and stay unbuilt.
+  Only a Focal body is clickable, because what you cannot see you cannot point at, and clicking
+  your own pawn clears the selection because that is the cheapest way back to your own lines.
+  The ring is thin and in the player colour and nothing else about the pawn changes: it marks
+  whose lines you are reading, not whose turn it is. `hud_panel` was deleted rather than wired,
+  because the `panel: true` prose it returned was one sentence longer than the HUD glimpse and
+  said nothing the glimpse did not.
 
 ---
 

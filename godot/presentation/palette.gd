@@ -40,6 +40,10 @@ const COLOURS: Dictionary = {
 	# rather than as an unlit patch of street; check_topdown.gd's wall lane measures the faces
 	# lifted out of this colour against every floor that can touch them.
 	"wall": Color("#6b5a45"),
+	# A shut door: the wall's timber a shade warmer and darker, so a closed doorway reads as
+	# part of the mass with a plank in it rather than as a gap. The open state draws the
+	# threshold boards and the door face the doorway always drew; this is the closed one.
+	"door": Color("#5c4a36"),
 	# Glass reflects a sky, so it is the one cool thing on a warm street — the entry that says
 	# what the mood is by being the exception to it. The rim is the sash around it, darker than
 	# the pane the renderer lightens out of the glass colour, because a rim the pane's own value

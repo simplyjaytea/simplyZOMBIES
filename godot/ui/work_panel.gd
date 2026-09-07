@@ -18,7 +18,9 @@ const Chrome = preload("res://ui/chrome.gd")
 # ROW_H carries three lines now -- the name and focus word, `person_clause`'s dimmer second
 # line, and the learning line beneath that -- and it is the same for every row on purpose: a
 # variable row height would turn the click math from one divide into a running sum.
-const COL_W: float = 72.0
+# 70, not 72: eighteen columns since Scavenge (2026-09-06), and 240 + 18 x 72 overran the
+# panel's 1520 by sixteen pixels -- the last column, Bury, drew off its edge.
+const COL_W: float = 70.0
 const ROW_H: float = 70.0
 const GRID_X: float = 240.0
 const GRID_Y: float = 88.0

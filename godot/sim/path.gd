@@ -12,9 +12,12 @@ const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), 
 static func walkable(world: Variant, tx: int, ty: int) -> bool:
 	if world == null:
 		return false
-	if world.is_blocked_tile(tx, ty):
-		return false
 	var map: Variant = world.tilemap
+	if world.is_blocked_tile(tx, ty):
+		# A closed door blocks the kernel and not a person: they open it as the step through
+		# it (SimJobs._walk, SimRaiders._walk), so the planner routes through it. The dead do
+		# not plan, and a closed door is a wall to them.
+		return map != null and SimTileMap.tile_at(map, tx, ty) == SimTileMap.Tile.Door
 	if map == null:
 		return not world.is_blocked_tile(tx, ty)
 	return _footing(map, tx, ty)
@@ -31,14 +34,17 @@ static func walkable_tile(map: Variant, tx: int, ty: int) -> bool:
 	if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
 		return false
 	if SimTileMap.is_solid(map, tx, ty):
-		return false
+		# The same door rule as `walkable` above: a shut door is a wall to the kernel and a
+		# step to a person, and this judgement is asked of booted maps whose doors are shut.
+		return SimTileMap.tile_at(map, tx, ty) == SimTileMap.Tile.Door
 	return _footing(map, tx, ty)
 
 
 # Open floor, or anything paved: a wreck in the road is cover you walk round the side of, and the
 # pavement under it is still pavement. Undergrowth is not, which is what makes a thicket a barrier.
 static func _footing(map: Variant, tx: int, ty: int) -> bool:
-	if SimTileMap.tile_at(map, tx, ty) == SimTileMap.Tile.Floor:
+	var tile: int = SimTileMap.tile_at(map, tx, ty)
+	if tile == SimTileMap.Tile.Floor or tile == SimTileMap.Tile.Door:
 		return true
 	return int(map.surfaces[ty * int(map.w) + tx]) == SimTileMap.SURFACE_PAVED
 

@@ -4,7 +4,13 @@ extends RefCounted
 const TILE_METRES: int = 1
 const DISTRICT_TILES: int = 256
 
-enum Tile { Floor = 0, Wall = 1, Window = 2, Screen = 3, Low = 4, Tree = 5 }
+# Door is a *class* -- a tile that can be opened, closed and broken -- and the tile says nothing
+# about which it is right now: that is a `door` entity's state, overlaid by SimFortify.sync_map
+# as `{kind: "door", open, stage}` the way a window's board is, so `is_solid`, `opacity_at`, the
+# kernel's `map_cells` and the shadowcast all read one answer. A Door tile with no overlay (a
+# generated map nobody has booted, a fixture) is an open doorway. The playable-state group's
+# ninth piece; `check_m2_fortify.gd` DOOR.
+enum Tile { Floor = 0, Wall = 1, Window = 2, Screen = 3, Low = 4, Tree = 5, Door = 6 }
 enum Opacity { Clear = 0, Opaque = 1, Low = 2 }
 enum Eye { Standing = 0, Crouched = 1 }
 
@@ -15,6 +21,7 @@ const OPACITY: Array[int] = [
 	Opacity.Opaque,
 	Opacity.Low,
 	Opacity.Opaque,
+	Opacity.Clear,
 ]
 const SOLID: Array[bool] = [
 	false,
@@ -23,6 +30,7 @@ const SOLID: Array[bool] = [
 	false,
 	false,
 	true,
+	false,
 ]
 
 const SURFACE_PAVED: int = 0
@@ -131,8 +139,12 @@ static func overlay_at(map: Variant, tx: int, ty: int) -> Variant:
 
 static func is_solid(map: Variant, tx: int, ty: int) -> bool:
 	var ov: Variant = overlay_at(map, tx, ty)
-	if ov is Dictionary and String((ov as Dictionary).get("kind", "")) == "scrap":
-		return true
+	if ov is Dictionary:
+		var kind: String = String((ov as Dictionary).get("kind", ""))
+		if kind == "scrap":
+			return true
+		if kind == "door":
+			return not bool((ov as Dictionary).get("open", false))
 	return SOLID[tile_at(map, tx, ty)]
 
 
@@ -146,6 +158,8 @@ static func opacity_at(map: Variant, tx: int, ty: int) -> int:
 			if int((ov as Dictionary).get("stage", 0)) >= 3:
 				return Opacity.Low
 			return Opacity.Opaque
+		if kind == "door":
+			return Opacity.Clear if bool((ov as Dictionary).get("open", false)) else Opacity.Opaque
 	return OPACITY[tile_at(map, tx, ty)]
 
 

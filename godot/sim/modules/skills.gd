@@ -85,6 +85,8 @@ static func register_module(world: Variant) -> void:
 		match kind:
 			"Haul":
 				_earn(world, ent, "Survival", 1)
+			"Scavenge":
+				_earn(world, ent, "Survival", 1)
 			"Cook":
 				_earn(world, ent, "Survival", 1)
 			"Construct":
@@ -93,6 +95,9 @@ static func register_module(world: Variant) -> void:
 				_earn(world, ent, "Medicine", 1)
 			"Rest":
 				# Docs/08: Endurance from hard nights / recovery — Rest is the slice hook.
+				_earn(world, ent, "Endurance", 1)
+			"Guard":
+				# The other hard night: a watch stood dusk to dawn, completed at first light.
 				_earn(world, ent, "Endurance", 1)
 			_:
 				pass

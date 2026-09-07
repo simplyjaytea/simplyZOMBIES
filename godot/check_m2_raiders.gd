@@ -57,6 +57,7 @@ func _run() -> void:
 	ok = _the_seed_decides_the_band() and ok
 	ok = _a_dead_raider_leaves_the_district_and_its_kit() and ok
 	ok = _a_raider_is_not_on_the_colony_ledger() and ok
+	ok = _a_band_that_has_lost_withdraws() and ok
 	if ok:
 		print("M2_RAIDERS_OK archetypes draw grace approach blood prey seed death ledger")
 		quit(0)
@@ -305,6 +306,14 @@ func _the_band_closes_on_the_colony() -> bool:
 		if annex.size.x <= 0:
 			push_error("seed %d booted a district with no annex to walk at" % int(seed_value))
 			return false
+		# The boot shamblers go before the band walks. This lane judges the *route* -- that the
+		# gate the director picked is reachable from the edge -- and since every zombie has eyes
+		# (the playable-state group's fifth piece) a wanderer sees a band at 12 m and closes on
+		# it, and the band halts to fight at HALT_METRES; on seed 90210 that engagement began
+		# within a few metres of the edge and the band "closed" 2.5 m in 1200 ticks. The fight is
+		# PREY's assertion below, with its own arena. `world.despawn`, not `entities.despawn`.
+		for zed in w.components.query(["shambler"]):
+			w.despawn(int(zed))
 		var band: Array[int] = _place_band(w, 3)
 		if band.is_empty():
 			push_error("seed %d: could not place a band on a district edge" % int(seed_value))
@@ -829,3 +838,86 @@ func _distance(world: Variant, a: int, b: int) -> float:
 	var dx: float = float((pb as Dictionary)["x"]) - float((pa as Dictionary)["x"])
 	var dy: float = float((pb as Dictionary)["y"]) - float((pa as Dictionary)["y"])
 	return sqrt(dx * dx + dy * dy)
+
+
+# --- The playable state, slice 11: withdrawal --------------------------------------------------
+
+# A band at its objective with nobody to fight leaves after WITHDRAW_AFTER_TICKS, walking back
+# to where it came in, and is gone (`raid.withdrew`, one a body); a band with a colonist in
+# reach stays; a band of four with three dead leaves at once.
+func _a_band_that_has_lost_withdraws() -> bool:
+	# An arena with a gate to walk at: the anchors are what `_objective` reads.
+	var results: Dictionary = {}
+	for case in ["alone", "engaged"]:
+		var w: Variant = _arena()
+		SimRaiders.register_module(w)
+		w.tilemap.anchors = {"gate_a": {"x": 16, "y": 20}, "gate_b": {"x": 17, "y": 20}, "annex": {"x": 12, "y": 20, "w": 8, "h": 8}}
+		var band: Array = []
+		for i in 3:
+			band.append(SimRaiders.spawn(w, 14.5 + float(i), 3.5, "raider.scav"))
+		SimRaiders.stamp_band(w, band, 7)
+		if case == "engaged":
+			# A colonist standing at the gate, in reach and alive: something to fight.
+			var colonist: int = int(w.entities.spawn())
+			w.components.set_component(colonist, "position", {"x": 16.5, "y": 21.5})
+			w.components.set_component(colonist, "velocity", {"dx": 0.0, "dy": 0.0})
+			w.components.set_component(colonist, "facing", {"radians": 0.0})
+			w.components.set_component(colonist, "identity", {"id": "survivor.test", "name": "Test", "traits": []})
+			SimAllegiance.attach(w, colonist, SimAllegiance.COLONY)
+			SimHealth.make_survivor_body(w, colonist)
+		var withdrew: Array = []
+		w.events.subscribe({"id": "check.withdrew-" + case, "type": "raid.withdrew", "handler": func(e: Dictionary) -> void:
+			withdrew.append(int(e.get("entity", -1)))
+		})
+		var arrived_at: int = -1
+		var gone_at: int = -1
+		for t in SimRaiders.WITHDRAW_AFTER_TICKS + 2500:
+			w.step()
+			if arrived_at < 0 and int((w.components.get_component(int(band[0]), "raider") as Dictionary).get("arrivedAtTick", -1)) >= 0:
+				arrived_at = t
+			if SimRaiders.live_count(w) == 0:
+				gone_at = t
+				break
+		results[case] = {"arrived": arrived_at, "gone": gone_at, "withdrew": withdrew.size(), "live": SimRaiders.live_count(w)}
+	var alone: Dictionary = results["alone"]
+	var engaged: Dictionary = results["engaged"]
+	if int(alone["arrived"]) < 0:
+		push_error("WITHDRAW: the band never arrived at the gate (%s)" % str(alone))
+		return false
+	if int(alone["gone"]) < 0 or int(alone["withdrew"]) != 3:
+		push_error("WITHDRAW: a band with nobody to fight did not leave (%s)" % str(alone))
+		return false
+	if int(alone["gone"]) < int(alone["arrived"]) + SimRaiders.WITHDRAW_AFTER_TICKS:
+		push_error("WITHDRAW: the band left %d ticks after arriving, before the %d-tick clock" % [int(alone["gone"]) - int(alone["arrived"]), SimRaiders.WITHDRAW_AFTER_TICKS])
+		return false
+	if int(engaged["live"]) != 3 or int(engaged["withdrew"]) != 0:
+		push_error("WITHDRAW: a band with a colonist in reach left (%s)" % str(engaged))
+		return false
+	# Half strength: four, three dead, the last one goes at once.
+	var w2: Variant = _arena()
+	SimRaiders.register_module(w2)
+	w2.tilemap.anchors = {"gate_a": {"x": 16, "y": 20}, "gate_b": {"x": 17, "y": 20}, "annex": {"x": 12, "y": 20, "w": 8, "h": 8}}
+	var four: Array = []
+	for i in 4:
+		four.append(SimRaiders.spawn(w2, 13.5 + float(i), 3.5, "raider.scav"))
+	SimRaiders.stamp_band(w2, four, 9)
+	for _t in 50:
+		w2.step()
+	for i in 3:
+		(w2.components.get_component(int(four[i]), "body") as Dictionary)["head"] = 0.0
+		SimHealth.finish_death(w2, int(four[i]))
+	var left: Array = []
+	w2.events.subscribe({"id": "check.withdrew-half", "type": "raid.withdrew", "handler": func(e: Dictionary) -> void:
+		left.append(int(e.get("entity", -1)))
+	})
+	var gone2: int = -1
+	for t in 600:
+		w2.step()
+		if SimRaiders.live_count(w2) == 0:
+			gone2 = t
+			break
+	if gone2 < 0 or left.size() != 1 or int(left[0]) != int(four[3]):
+		push_error("WITHDRAW: the last of four did not leave at once when three fell (gone=%d left=%s)" % [gone2, str(left)])
+		return false
+	print("WITHDRAW OK a band alone at the gate arrived at tick %d and was gone at %d (3 withdrew); with a colonist in reach it stayed; the last of four left within %d ticks of the other three falling" % [int(alone["arrived"]), int(alone["gone"]), gone2])
+	return true

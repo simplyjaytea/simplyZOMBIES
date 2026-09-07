@@ -37,6 +37,7 @@ func _run() -> void:
 	ok = _a_shambler_with_someone_in_its_hands_is_shot_first() and ok
 	ok = _hands_before_weapons_when_somebody_is_being_held() and ok
 	ok = _an_unattended_survivor_answers_the_claw() and ok
+	ok = _a_dropped_weapon_is_picked_back_up() and ok
 	if ok:
 		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue instinct")
 		quit(0)
@@ -610,7 +611,15 @@ func _guard_post_lane() -> bool:
 	var post_x: float = float(gate.x) + 0.5
 	var post_y: float = float(gate.y) + 1.5
 	w.components.set_component(guard, "position", {"x": post_x, "y": post_y})
-	w.components.set_component(guard, "job", SimJobs._work_for(w, guard, "Guard"))
+	# Guard is a dusk-to-dawn post since 2026-09-06, so the watch has to be stood at dusk: the
+	# first Dusk tick, where the ambient is still daylight's and the sightline refusal reads as
+	# it did when this lane was written.
+	w.tick = Clock.tick_on_day(1, Clock.DAY_ENDS)
+	var post_job: Dictionary = SimJobs._work_for(w, guard, "Guard")
+	if post_job.is_empty():
+		push_error("no Guard job at dusk")
+		return false
+	w.components.set_component(guard, "job", post_job)
 	_zombie(w, post_x + 0.9, post_y)
 	var connected: int = _swings(w, guard, 600)
 	if connected < 1:
@@ -624,4 +633,84 @@ func _guard_post_lane() -> bool:
 		push_error("guard chased %.1f m off its post" % drift)
 		return false
 	print("POST OK connected=%d drift=%.2fm" % [connected, drift])
+	return true
+
+
+# --- The playable state, slice 11: re-arm ------------------------------------------------------
+
+# An unarmed colonist walks to a working weapon on the ground near home and takes it, then
+# fights with it; a broken one (condition 0) is left where it lies; an armed colonist keeps the
+# weapon in hand. And a weapon that wears out is dropped at the feet, not lost.
+func _a_dropped_weapon_is_picked_back_up() -> bool:
+	var w: Variant = _arena()
+	SimJobs.register_module(w)
+	var npc: int = _npc(w, 10.0, 10.0)
+	SimJobs.attach(w, npc, "Manual", SimJobs.empty_row())
+	var bat: int = SimItems.spawn_item(w, "item.bat.aluminium", {"tier": "scavenged"})
+	w.components.set_component(bat, "position", {"x": 14.5, "y": 10.5})
+	var armed_at: int = -1
+	for i in 400:
+		w.step()
+		if w.components.has_component(npc, "meleeWeapon"):
+			armed_at = i
+			break
+	if armed_at < 0:
+		push_error("REARM: an unarmed colonist never picked up the bat 4.5 m away in 400 ticks")
+		return false
+	var slots: Dictionary = (w.components.get_component(npc, "equipment") as Dictionary)["slots"] as Dictionary
+	if int(slots.get("primary", -1)) != bat:
+		push_error("REARM: the colonist is armed but not with the bat (%s)" % str(slots))
+		return false
+	var z: int = _zombie(w, 10.0, 10.0)
+	w.components.set_component(z, "position", (w.components.get_component(npc, "position") as Dictionary).duplicate())
+	if _swings(w, npc, ARENA_TICKS) < 1:
+		push_error("REARM: the re-armed colonist never swung the bat")
+		return false
+	# Broken is left where it lies.
+	var w2: Variant = _arena()
+	SimJobs.register_module(w2)
+	var npc2: int = _npc(w2, 10.0, 10.0)
+	SimJobs.attach(w2, npc2, "Manual", SimJobs.empty_row())
+	var broken: int = SimItems.spawn_item(w2, "item.bat.aluminium", {"tier": "scavenged"})
+	w2.components.set_component(broken, "position", {"x": 14.5, "y": 10.5})
+	(w2.components.get_component(broken, "condition") as Dictionary)["current"] = 0.0
+	for _i in 400:
+		w2.step()
+	if w2.components.has_component(npc2, "meleeWeapon"):
+		push_error("REARM: a colonist picked up a broken bat")
+		return false
+	# Armed keeps its own.
+	var w3: Variant = _arena()
+	SimJobs.register_module(w3)
+	var npc3: int = _npc(w3, 10.0, 10.0)
+	SimJobs.attach(w3, npc3, "Manual", SimJobs.empty_row())
+	var knife: int = SimItems.spawn_item(w3, "item.knife.kitchen", {"tier": "scavenged"})
+	SimInventory.equip(w3, npc3, knife)
+	var spare: int = SimItems.spawn_item(w3, "item.bat.aluminium", {"tier": "scavenged"})
+	w3.components.set_component(spare, "position", {"x": 14.5, "y": 10.5})
+	for _i in 400:
+		w3.step()
+	var slots3: Dictionary = (w3.components.get_component(npc3, "equipment") as Dictionary)["slots"] as Dictionary
+	if int(slots3.get("primary", -1)) != knife or not w3.components.has_component(spare, "position"):
+		push_error("REARM: an armed colonist swapped weapons (%s)" % str(slots3))
+		return false
+	# Worn out is dropped at the feet, not lost -- and, broken, not picked back up.
+	var w4: Variant = _arena()
+	SimJobs.register_module(w4)
+	var npc4: int = _npc(w4, 10.0, 10.0)
+	SimJobs.attach(w4, npc4, "Manual", SimJobs.empty_row())
+	var worn: int = SimItems.spawn_item(w4, "item.knife.kitchen", {"tier": "scavenged"})
+	SimInventory.equip(w4, npc4, worn)
+	(w4.components.get_component(worn, "condition") as Dictionary)["current"] = 0.01
+	SimItems.apply_wear(w4, worn, 0.05)
+	var where: Variant = w4.components.get_component(worn, "position")
+	if not where is Dictionary or absf(float((where as Dictionary)["x"]) - 10.0) > 0.01:
+		push_error("REARM: a worn-out knife was not dropped at the feet (%s)" % str(where))
+		return false
+	for _i in 200:
+		w4.step()
+	if w4.components.has_component(npc4, "meleeWeapon"):
+		push_error("REARM: the colonist picked the broken knife back up")
+		return false
+	print("REARM OK armed with the bat at tick %d and swung it; a broken bat is left; an armed colonist keeps the knife; a worn-out knife drops at the feet and stays there" % armed_at)
 	return true

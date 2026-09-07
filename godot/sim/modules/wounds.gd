@@ -96,6 +96,11 @@ const WOUND_KINDS: Dictionary = {
 	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
 	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": ""},
 	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
+	# The exposure wounds (needs.gd's lethal ladders): no bleed, nothing to close, impairing
+	# the part they sit on; frostbite on an extremity for a fortnight, heatstroke on the torso
+	# for a week. Neither can go septic -- there is no opening.
+	"frostbite": {"bleeds": false, "recoveryDays": 14, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
+	"heatstroke": {"bleeds": false, "recoveryDays": 7, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
 	# A concussion impairs the person, not the part: docs/05 wants "reaction and perception loss".
 	# swing_speed and ranged_accuracy are the two stats this model already has that mean
 	# "reactions", and they are what it gets. **Perception has no stat to attach to** -- vision is
@@ -299,12 +304,30 @@ static func _apply_pain(world: Variant, entity: int) -> void:
 static func pain_clause(world: Variant, entity: int) -> String:
 	var pain: float = pain_of(world, entity)
 	if pain >= 0.75:
-		return "Everything hurts. You can barely think past it."
+		return _spoken_of(world, entity, "Everything hurts. You can barely think past it.", "%s can barely think past the pain.")
 	if pain >= 0.45:
-		return "You're in a lot of pain."
+		return _spoken_of(world, entity, "You're in a lot of pain.", "%s is in a lot of pain.")
 	if pain >= 0.2:
-		return "You ache."
+		return _spoken_of(world, entity, "You ache.", "%s is aching.")
 	return ""
+
+
+# Who a clause is about. The controlled body is "You"; anybody else is named, and a body with no
+# identity is "Someone" -- singular, so every third-person row's verb agrees (the old fallback
+# produced "They looks bleeding."). One helper for the bleed, pain and sepsis clauses, because
+# the click-to-select on a colonist (decision 12 of docs/30's "The playable state") puts all
+# three on the screen about somebody who is not the player, and two of them used to say "You"
+# about her.
+static func _spoken_of(world: Variant, entity: int, first: String, third: String) -> String:
+	if world.components.has_component(entity, "controlled"):
+		return first
+	var name: String = "Someone"
+	var ident: Variant = world.components.get_component(entity, "identity")
+	if ident is Dictionary:
+		name = String((ident as Dictionary).get("name", "Someone"))
+	if name.is_empty():
+		name = "Someone"
+	return third % name
 
 
 # --- bacterial infection (docs/05) --------------------------------------------------------
@@ -793,19 +816,7 @@ static func hud_clause(world: Variant, entity: int) -> String:
 	if row == null:
 		return ""
 
-	if world.components.has_component(entity, "controlled"):
-		return String((row as Dictionary)["first"])
-	# "Someone", not "They": every row's verb agrees with a third-person *singular* subject, and
-	# singular "they" takes plural agreement -- the old fallback produced "They looks bleeding."
-	# whenever a body had no identity to name. One noun that fits every row beats four rows that
-	# have to carry two agreements each.
-	var name: String = "Someone"
-	var ident: Variant = world.components.get_component(entity, "identity")
-	if ident is Dictionary:
-		name = String((ident as Dictionary).get("name", "Someone"))
-	if name.is_empty():
-		name = "Someone"
-	return String((row as Dictionary)["third"]) % name
+	return _spoken_of(world, entity, String((row as Dictionary)["first"]), String((row as Dictionary)["third"]))
 
 
 # --- sepsis: the roll, the effects, and the cure -------------------------------------------
@@ -922,7 +933,12 @@ static func clear_sepsis(world: Variant, entity: int) -> int:
 static func sepsis_clause(world: Variant, entity: int) -> String:
 	if not is_septic(world, entity):
 		return ""
-	return "You're feverish, and it isn't getting better."
+	# The second dusk's tell: sepsis kills on the third (needs.gd SEPSIS_LETHAL_DUSKS), and a
+	# body that has been feverish two nights running says so -- in words, never a count.
+	var n: Variant = world.components.get_component(entity, "needs")
+	if n is Dictionary and int((n as Dictionary).get("septicDusks", 0)) >= 2:
+		return _spoken_of(world, entity, "You're burning up, and it's getting worse.", "%s is burning up, and it's getting worse.")
+	return _spoken_of(world, entity, "You're feverish, and it isn't getting better.", "%s is feverish, and it isn't getting better.")
 
 
 # --- causes ------------------------------------------------------------------------------

@@ -202,7 +202,9 @@ drifted. Three things about the current state matter enough to repeat anyway:
   static: any gate lane that pins it must **restore the previous value**, because one gate
   process shares it across every world it boots. Relaxing `survivors_end >= 1` has been
   considered and rejected — post-flip it is the standing assertion that the shipped default
-  survives its own contact loop. Sepsis lethality remains undecided and the owner's.
+  survives its own contact loop. Sepsis lethality was decided 2026-09-06 (lethal untreated,
+  docs/30's "The playable state") and landed 2026-09-07 with the cold and the heat — three
+  dusks septic and the body dies; docs/23's lethality record in the playable-state group.
 - **The presentation is flat top-down, not isometric** — an independent track that touched nothing
   under `godot/sim/`. `docs/00-vision.md` carries the reversal, docs/30 what it made structural,
   and the art entries in what's left the ordered next steps. The style is **the Dungeon
@@ -236,8 +238,9 @@ drifted. Three things about the current state matter enough to repeat anyway:
   `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example, and
   `npm run check:routing` applies the same rule to the gates themselves (a check script no npm
   script reaches is red, which retired `check_r6_bench.gd`). The sweep
-  left three more sockets named but unfixed (`sim/spatial/hash.gd` entire, `SimThreat.threat_within`,
-  `SimStances.eye_of`); they are in
+  left four sockets named but unfixed (`sim/spatial/hash.gd` entire, `SimThreat.threat_within`,
+  `SimStances.eye_of`, and `SimDirector.snapshot_of` — found, replaced by `world.gd`, and still
+  defined); they are in
   [docs/23's defect list](docs/23-roadmap.md#whats-left-in-milestone-2).
 
 Keep all effects sim-owned and command-driven; player-facing state remains prose/diegetic and must

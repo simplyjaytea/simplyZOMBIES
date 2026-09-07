@@ -82,16 +82,16 @@ work to rebuild.
 | **Map** | One hand-authored small district with a defensible building |
 | **Survivors** | Generator with a small name, trait, and backstory pool; about three naturally recruitable survivors |
 | **Work** | Haul, Construct, Cook, and Doctor, with NPC priority selection |
-| **Needs** | Hunger, thirst, rest, and mood. Temperature and hygiene deferred |
+| **Needs** | Hunger, thirst, rest, and mood. Temperature and hygiene were deferred here and came in anyway as bands read off the world (ADR 0002, `godot:m2:needs`; the record's Needs bullets) |
 | **Health** | Complete slice injury loop: located injuries, continuous conditions, treatment, diagnosis, and permanent consequences |
 | **Infection** | Transmission, uncertainty, symptoms, responses, and turning. The Constitution hook uses a neutral baseline until attributes ship |
-| **Zombies** | Shamblers only |
+| **Zombies** | Shamblers only (the screamer and the bloater came in with the roster, `godot:m2:roster`) |
 | **Combat** | Shipped melee plus complete ranged combat, with the [parity contract](09-combat.md) live |
 | **Items** | Keep the shipped item/grid foundation; add ranged bases, armor, attachment behavior, active wear, and repair |
 | **Inventory** | World-container search, colony storage, and loadout automation on the shipped grid |
 | **Crafting** | Duct Tape and Scrap Kit modification consumables |
 | **Web** | A shallow six-region web, about 12–18 nodes, so Fighter, Worker, Medic, and Scout all have valid auto-allocation paths |
-| **Building** | Walls, gate, barricades, one trap, and one bait emitter |
+| **Building** | Walls, gate, barricades (`godot:m2:fortify`). The trap and the bait emitter this row used to promise were **cut to Milestone 3A by the owner on 2026-09-06**, found by the roadmap audit with no content, no gate and no what's-left entry — docs/30 |
 | **Decay** | Food spoilage only |
 | **Director** | Slice director: pressure/strain, grace period, lulls, recruitment and night events, and minimum siege cadence |
 | **Death** | Permadeath, corpses, and [succession](01-hardcore-contract.md#succession-what-happens-when-you-die) |
@@ -109,9 +109,13 @@ balance baseline, not a player-facing preset. Full storyteller presets remain Mi
 **Explicitly not in the slice:** survivor attributes, relationships, weather (a minimal rain
 state came in anyway on 2026-09-06 by the owner's decision, ADR 0015 — the record below), factions,
 full world decay, mutation waves, temperature, hygiene, unique survivors, named items, the full web,
-most zombie types, vehicles, multiplayer, and the escape endgame. (Vehicles came in anyway, twice, by the
-owner's direction: parked as layout in the Dungeon Settlers arc, and driven by the player on
-2026-09-05 — the record has both; what driving deliberately left out is in what's left.)
+most zombie types, vehicles, multiplayer, and the escape endgame. Four more of those came in anyway,
+each by the owner's direction and each with its record below: **temperature and hygiene** as need
+bands (ADR 0002), **unique survivors** as the hand-authored boot colony (Mara, then Ellis by the
+2026-09-01 decision), the **rest of the weather** on 2026-09-06 (ADR 0016 — kinds, seasons, a
+wind, the storm, the cold snap, the heat wave), and **vehicles**, twice: parked as layout in the Dungeon
+Settlers arc, and driven by the player on 2026-09-05; what driving deliberately left out is in
+what's left.
 
 ### Build order
 
@@ -154,7 +158,14 @@ the same commit. That is the whole discipline: one list of what remains, one rec
 and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. `HANDOFF.md` carries the same short list for whoever picks the project up.
+decided unilaterally. **The full list lives in `HANDOFF.md`** (six items as of 2026-09-06: the
+driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes,
+the forest density, and the two playable-state flips against the compressed tier's survival
+floor). The sepsis question that used to be repeated here was decided on 2026-09-06 (lethal
+untreated — the playable-state group below, and
+[docs/30](30-decisions.md#the-playable-state-2026-09-06)); the sixth item is the one that now
+holds two of the owner's own decisions at their old values, and it is a trade only the owner
+can make.
 (The art-style pick came off this list on 2026-09-01 — **style B, the rotating player**, under
 an overcast mood — and was **re-decided by the owner on 2026-09-03 as the Dungeon Settlers
 look**: upright face-on pawns that flip, nobody rotates, a warm dark-fantasy palette, walls
@@ -162,10 +173,24 @@ with thickness, roofs cut out where seen. The record below and
 [docs/30](30-decisions.md#the-dungeon-settlers-look-2026-09-03) carry the decisions; the arc
 they open is the art group below.)
 
-1. **Can sepsis kill?** Today it is debilitating and permanent-until-treated, deliberately not a
-   death path. The `GRABS_ENABLED` flip has landed (the flag record below closes with it), which
-   makes sepsis reachable in ordinary play and makes this decision live rather than hypothetical.
-   Making it lethal is a balance decision that needs a measurement attached.
+**The playable state — the owner's twelve decisions, 2026-09-06.** Three code-grounded
+surveys of what the shipped game does in play (survival and needs, the NPC colonists, the
+zombies and the director) found the two loops the exit criterion needs both open-circuited:
+the boot colony does no work (Ellis's authored row is Guard 1 and the Guard job never
+completes), a shambler acquires a survivor only inside 1.6 m and days 1–7 send nothing, and
+nothing has ever breached on any seed. The owner answered twelve design questions the same
+day — [docs/30's entry](30-decisions.md#the-playable-state-2026-09-06) records them — and
+these are the pieces they open, in the order they land (colony loop, density, zombies,
+breaching, lethality, presentation). Each is one session with its own gate; five of them
+re-baseline the FAST balance record and say so in their record.
+
+- **The table from night 3: the flip.** `SimDirector.GRACE_NIGHTS` ships 7 where the owner
+  decided 2; it is built, gated at both values (GRACE) and measured — the director and
+  lethality records say what the FAST tier did with it on: one seed in four wiped even after
+  the torso slice, and the harness's over-cap invariant tripped on two, so something places
+  past the clamp once the table opens early. Find that, re-read seed 20260805 with sight on,
+  and flip the one static; the trade with the compressed tier's floor is HANDOFF's item 5.
+  (Sight's flip landed with the lethality slice: `SIGHT_ENABLED` ships `true`.) Re-baseline.
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
@@ -185,7 +210,10 @@ than here.
 - **The six-survivor automation checkpoint.** Risk 1's seeded colony, every NPC on Focus
   automation — the micromanagement-cliff measurement. The colony-shape question it was once
   queued behind is decided (the flag record: a bigger colony, three at boot), so what it measures
-  now is the cliff itself.
+  now is the cliff itself. What already exists is a floor, not the measurement:
+  `check_m2_balance.gd`'s `_six_survivors_on_auto` (FULL tier only, so never inside `godot:m2`)
+  generates a colony up to six, sets every row to Auto and asserts each took a job inside one day.
+  Whether six on full auto is *viable* over ten days — the cliff — is unmeasured.
 
 **Medicine — the back half of treatment:**
 
@@ -428,10 +456,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
   writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
   has this (`stance.eyes`); the port dropped it.
-- **A worn-out weapon is lost, not dropped.** `SimItems.apply_wear` unequips at zero condition and
-  nothing gives the item a home — no `stored`, no `position`, no slot. `item.detach` has the same
-  shape: `SimAttachments.detach` deliberately leaves the attachment homeless and the command does
-  nothing about it.
+- **A detached attachment is lost, not dropped.** `SimAttachments.detach` deliberately leaves
+  the attachment homeless — no `stored`, no `position`, no slot — and the `item.detach` command
+  does nothing about it. (The weapon half of this entry — `apply_wear` unequipping into nowhere
+  at zero condition — closed 2026-09-07 with the re-arm slice: a worn-out weapon drops at the
+  holder's feet.)
 - **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
@@ -510,7 +539,7 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   - `check_hud.gd`'s fixture world lacks the components five of `hud.gd`'s clause builders read, so
     those clauses return `""` and their assertions pass with no data to judge — which CLAUDE.md
     says must skip loudly instead.
-- **Three more dead sockets, on top of the nine now listed in CLAUDE.md.** `sim/spatial/hash.gd`
+- **Three more dead sockets, on top of the ten now listed in CLAUDE.md.** `sim/spatial/hash.gd`
   in its entirety — nothing in `sim/` or `presentation/` calls it, only `bench/bench.gd` and two
   check scripts, so the headless bench measures a structure the running simulation never touches
   (`melee.gd` says so out loud: "candidates via spatial would be faster but we scan for
@@ -537,7 +566,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 
 **Parked until Milestone 3A — blocked by missing systems, not by choices:**
 
-- **Warmth and hygiene slots** (undershirt, socks, underwear) — wait for temperature and hygiene.
+- **Warmth and hygiene slots** (undershirt, socks, underwear) — the needs they were waiting on
+  exist now (temperature and hygiene bands, ADR 0002); what is still missing is a reader on worn
+  gear — `needs.gd`'s temperature tick reads the sky, the roof and the fire and never the clothes
+  (`wearing_armor` reads torso coverage for the heat wave, which is the nearest thing) — so the
+  blocker is a warmth property on clothing, which docs/04 and docs/10 have not specified.
 - **Trait-weighted modification outcomes** — wait for traits; `SimModification.TRAIT_FAILURE_SHIFT`
   is the named seam.
 
@@ -1372,9 +1405,10 @@ not a to-do list:
   setting `INDOOR_MIX` to 0. Measured cost: the prop pass's queries are **~34 µs a frame** over the
   47 containers of a booted 256 district, and everything else is culled to the viewport. **What did
   not ship, deliberately:** no art — every prop is a content-tinted shape, which is the supported
-  fallback and not a stopgap, and prop art is now its own named piece in
-  [what's left](#whats-left-in-milestone-2); the screamer and bloater sprites are their own piece
-  and were not touched; corpses still draw as people, which is its own entry in the defect list.
+  fallback and not a stopgap (prop art and the screamer and bloater sprites both landed later —
+  `content/props/stations.json` and `content/zombies/*.json` carry `appearance.sprite` now, judged
+  by `godot:check:appearance` and `godot:check:topdown`); corpses still draw as people, which is
+  its own entry in the defect list.
   Same slice, same commit, a gate that could not fail: `check_appearance.gd`'s `_all_blocks` now
   walks **array-topped** content files, which it never did — so every item's appearance block,
   `equipSprite` and all, was invisible to the shape and key assertions that name it. Fixed, and
@@ -3175,8 +3209,9 @@ not a to-do list:
   after which every further point banks as it always did. That "unspent doubles as skill" oddity
   predates this slice and is left alone rather than quietly redefined. And `craft.scrap` is now
   ownable while the stat it moves, `repair_cost`, is resolved by nobody — see the defect list.
-  The other three pieces on this row (fuller generation, trait conflict rules, the six-survivor
-  checkpoint) are still in [what's left](#whats-left-in-milestone-2).
+  Of the other three pieces on this row, fuller generation and the trait conflict rules landed
+  (the landed summary above, `godot:m2:recruits`); the six-survivor checkpoint is still in
+  [what's left](#whats-left-in-milestone-2).
 - **Survivors** — ~~Focus and the Manual learn line, on the work grid~~ **landed**
   (`godot:m2:autonomy`, lanes CYCLE / DRIFT / MANUAL HOLDS / BUY / CONTENT / VIEW / SAVE). The half
   above gave a survivor a focus and let them drift into it; this one gives the *player* the say,
@@ -3251,6 +3286,588 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **UI & Death** — ~~the screen speaks of the colony~~ **landed** (`godot:check:hud`
+  CHRONICLE, SELECTED, PICK), 2026-09-07, the thirteenth and last piece of the playable-state
+  group and the owner's decision 12. What was wrong: `entity.killed`, `player.succeeded`,
+  `run.over`, `recruit.arrived`, `colony.bereaved` and `recruit.left` were published, gated,
+  and read by nothing outside a gate — a player whose survivor died found themselves driving
+  somebody else with no sentence to say so, and "RUN OVER" lived on the developer sheet behind
+  M; `_selected` in `main.gd` was declared, reset on reboot and assigned by nothing, so the
+  HUD's third-person branch (`needs.hud_clause`'s rewrite, the bleed clauses' `third` rows)
+  had never once reached the screen, and `SimNeeds.hud_panel` and its `panel: true` prose
+  were a socket nothing read. Now `sim/modules/chronicle.gd` subscribes to the six events
+  (order 900, after every handler that changes the body) and appends `{tick, kind, name, e}`
+  records to `world.chronicle` — an Array of records, never an id-keyed Dictionary, saved and
+  restored with the world (`SAVE_VERSION` 25, both VERSION lanes re-pinned); a death is
+  written once per entity id (the event fires up to three times for one body) and only for a
+  body with an `identity` (a zombie's death is nobody's news); `SimChronicle.lines(world)` is
+  the read model `hud.gd._world_lines` appends — newest first, at most three, nothing older
+  than two game hours, and the boot colony's tick-0 `survivor.joined` pair is kept in the
+  record and not read to the screen. The words: "Ellis Okafor is dead." "You are Mara Sato
+  now." "There is nobody left to be." "Someone is waiting at the gate." "The colony saw Ellis
+  Okafor die." "The stranger at the gate has gone." / "Mara Sato has walked out." — names and
+  nothing numeric, because the chronicle is on the HUD and the HUD allows no digit but the
+  day. **Click-to-select**: `presentation/pick.gd` is a pure hit-test on the pawn's own rect
+  (`Appearance.body_rect` on the 32×48 canvas at the draw pass's scale, the player's own pawn
+  included) over people who are Focal to the player — Unseen and Peripheral bodies are not
+  clickable, the draw loop's own rule — front-most wins; `main.gd`'s left click asks it first
+  and attacks only on −1, a click on your own pawn clears, and the selection drops the moment
+  the colonist is a corpse, despawned, or the body you now drive. The selected colonist
+  stands in a thin ring on the shadow line. The bleed, pain and sepsis clauses share one
+  `_spoken_of(first, third)` helper in `wounds.gd`, so the two that said "You" about Mara now
+  name her; `hud_panel` is deleted — closed by removal, the `COLOUR_HEX` precedent. CHRONICLE:
+  Ellis killed twice plus a zombie is one line, the HUD's world column carries it (the
+  dead-socket half), an arrival is the newest line, the record survives a snapshot/restore,
+  and a line ages off the screen without leaving the record. SELECTED: a refresh for a hurt,
+  septic, starving Mara produces five lines, none saying "You", her name on them; the player's
+  own refresh still says "You". PICK: Mara's pawn hit, three tiles off missed, a zombie and a
+  corpse with identities missed, the player's own pawn answers the player. `ban:healthbar`,
+  `godot:m2:save`, `godot:m2:fortify`, `check:topdown`, `check:respond`, `m2:recruits` green
+  around it; `check:routing` green with the two new files on the screen row. Screenshot for
+  the owner under `.hermes/plans/2026-09-07_colony-speaks/` (Mara selected, Ellis's line in
+  the world column). **The FAST tier** is untouched by construction: the chronicle reads
+  events and writes a record nothing in the sim reads back.
+- **Needs & Wounds** — ~~lethality: the cold, the heat, and sepsis can kill~~ **landed**
+  (`godot:m2:cold` COLD-KILLS, `godot:m2:heat` HEAT-KILLS, `godot:m2:wounds` SEPSIS-LETHAL),
+  2026-09-07, the twelfth piece of the playable-state group and the owner's decision 9 — all
+  three halves in one slice. What was wrong: only starvation and dehydration could kill;
+  temperature and hygiene killed nobody, no hypothermia, frostbite or heatstroke injury
+  existed, and sepsis — reachable in play since the grabs flip — blocked recovery and did
+  nothing else, the long-standing owner item. Now the exposure ladders carry **a dose**, one
+  tick per exposed tick (`coldDoseTicks`, `hotDoseTicks`), never `tick − since` — which the
+  compressed tier's clock jump would inflate into a death a day early — and the dose buys, in
+  order: out at night with no fire and no roof, a `frostbite` wound on a random extremity
+  (`EXPOSURE_STREAM`) at `FROSTBITE_DOSE` (2× the exposure) and death of the cold at
+  `COLD_DEATH_DOSE` (3×); baking in armour under a heat wave, a `heatstroke` wound on the
+  torso at `HEATSTROKE_DOSE` (3×) and death of the heat at `HEAT_DEATH_DOSE` (4×), and a body
+  without armour reaches neither, because the ladder caps the sun alone at very hot. Both
+  deaths are the starvation shape (`entity.killed{need}`, then `finish_death`); both wounds
+  are `WOUND_KINDS` rows (no bleed, nothing to close, impairing the part, a fortnight and a
+  week to recover, never septic) through `append_wound` at a laceration's severity. Any fire,
+  roof, day or end of the spell clears the dose with the clock, and the wound flag with it.
+  **Sepsis kills untreated**: `_daily_sepsis` counts the dusks a body is septic before
+  tonight's roll (`septicDusks`) and the third is its last (`SEPSIS_LETHAL_DUSKS` 3, `need:
+  sepsis`); a course clears the sepsis at once and the count at the next dusk; the clause
+  says "burning up, and it's getting worse" from the second dusk, in words. COLD-KILLS:
+  frostbite on the hand at the dose and not a tick before, once; death at the death dose and
+  not a tick before; a fire lit past the frostbite dose clears the clock, no death and no
+  second wound; a wrap alone does not save past the death dose. HEAT-KILLS: in armour,
+  heatstroke on the torso at the dose and not a tick before, death at the death dose;
+  unarmoured, neither. SEPSIS-LETHAL: untreated dies at dusk 3 of sepsis; a course at dusk 2
+  lives through ten (the deep wound rolled septic *again* on the first run and killed at
+  dusk 7 — the roll's honest business, so the lane downgrades the treated wound to a scratch
+  after the course and judges the count alone); a scratch that never went septic lives
+  through ten. `ban:healthbar` green: the view gained words, no numbers. **Not driven:** the
+  plan's four-seed overnight drivers were not run — the FAST tier cannot see any of this
+  (needs do not drain in compressed ticks, and the doses are exposed ticks), and the FULL tier
+  at 256 is where the distribution is read; the lanes are the measurement this slice carries.
+  **The FAST tier**, reported: byte-identical to the re-arm slice's four lines — which is
+  the dose design doing its work, since the tier's clock jumps would otherwise have read a
+  guard exposed at the end of one window as three exposures deep at the start of the next.
+- **Jobs & Raiders** — ~~a dropped weapon is picked back up, and a band that has lost
+  withdraws~~ **landed** (`godot:m2:npc` REARM, `godot:m2:raiders` WITHDRAW), 2026-09-07, the
+  eleventh piece of the playable-state group. What was wrong: the only `equip` a colonist ever
+  got was their kit at spawn, a weapon that wore to nothing was unequipped into nowhere (the
+  "worn out is lost, not dropped" defect), so a colonist whose knife broke was unarmed for the
+  run; and a raider band that survived the night stood at the gate until the campaign ended.
+  Now `SimItems.apply_wear` at zero **drops the weapon at the holder's feet** (a position, on
+  the ground, broken — the player can pick it up and repair it, the re-arm skips it). An
+  unarmed colonist **re-arms**: `_tick_one` asks `_unarmed` (no `meleeWeapon`, no
+  `rangedWeapon`) after the seek and the sulk and before the post and the row, and
+  `_rearm_job` equips a working weapon from the pack at once or walks (`Rearm`, a job kind
+  with its own arm) to the nearest working `equipSlot: primary` item lying near home — the
+  stockpile's included, since a stocked item lies on its tile — broken skipped, reserved
+  skipped, armed never asked. And a **band withdraws**: `spawn` stamps where each raider came
+  in, the director's `_emit_band` stamps the band (`raidId`, `bandSize`, `stamp_band`), and
+  `_approach` runs the clock — at the objective with nothing in `HALT_METRES`,
+  `WITHDRAW_AFTER_TICKS` 6,000 and the band turns for its entry tile and despawns there,
+  `raid.withdrew` a body; cut below half its number it turns at once. The harness reports
+  `left` beside `in` and `down`. REARM: an unarmed colonist has the bat 4.5 m away in hand at
+  tick 30 and swings it; a broken bat is left on the ground through 400 ticks; an armed
+  colonist keeps the knife with a bat beside them; a knife worn to nothing lies at the feet
+  and stays there. WITHDRAW: three raiders alone at a gate arrive, wait the clock out and are
+  gone with three `raid.withdrew`; the same three with a colonist standing in reach stay all
+  of it; the last of four turns within a few hundred ticks of the other three falling.
+  **The FAST tier**, reported: byte-identical to the pressing slice's four lines, with the new
+  `left` column reading 0 / 0 / 0 / 0 beside `in` 0 / 2 / 0 / 2 — the two bands the tier
+  draws stand at a gate the watch is behind, so nothing sits a five-minute clock out inside a
+  100-second window, and nobody re-armed because nobody's weapon wore out. Every band holds.
+- **Fortify & World** — ~~pressing: a crowd gets through~~ **landed** (`godot:m2:fortify`
+  PRESS, and BOARD re-fixtured), 2026-09-07, the tenth piece of the playable-state group and
+  the second half of the owner's decision 8. What was wrong: the only structure a zombie could
+  damage was a window board, worn passively by any shambler standing on an adjacent tile
+  whether or not it wanted to get in, a barricade and (since the last slice) a door were
+  proof against the whole district, and nothing had ever breached on any seed. Now the kernel
+  records **the press**: `_integrate_movement` writes `velocity.pressX` / `pressY` as the tile
+  that stopped a wanted move this tick, −1 when the move was free — a kernel fact with one
+  reader, written by key so a renamed key cannot silently un-press every barrier (PRESS
+  asserts the keys). `SimFortify._tick_contact` reads it over every barrier — `windowBoard`,
+  `scrapBarricade`, and a shut `door` — counting the dead whose press tile is the barrier's,
+  and a crowd presses harder than its number: `pressure_of(n)` is `n × (1 + 0.5 × (n − 1))`,
+  so one is 1, two 3, three 6, four 10 (docs/15's crowd). Each kind has a cost a stage
+  (`STAGE_COST`: board 40 — the old `CONTACT_PER_STAGE` — door 160, scrap 90), four stages,
+  and the fourth gives: a board or a barricade is gone, a door is broken open for good
+  (stage `DOOR_BROKEN`, unlatched, a doorway), and `fortify.breached` says which `kind`. The
+  door has words for the watch (`DOOR_PROSE`: shut, rattling, splintering, hanging off its
+  hinges, through `look_at`). Only the dead press: a colonist or a raider walking into a shut
+  door opens it. **Passive adjacency wear is gone** — a body standing beside a board with
+  nowhere it wants to go wears nothing, and the BOARD lane's shambler now wants to go west.
+  PRESS: one shambler pushing at a shut door breaks it in 641 ticks (4 × 160, plus the tick it
+  takes to close the gap) and three in 108 — a sixth, pressure 6; the breach says `door`, the
+  door is a doorway the map reads as open, and the director's lull is running; a shambler
+  standing beside the door with no heading and a survivor pushing at it for 300 ticks leave
+  it at stage 0 — and the kernel *did* record the survivor's push, so the negative is the
+  reader's refusal, not a missing write. The per-seed driver the plan named ({1, 2, 4} bodies
+  at the gate) is the PRESS lane's own two numbers; a third is a content number away.
+  **Re-baseline #5**, the FAST tier at 64: siege 2 / 1 / 3 / 2, packets 2 / 1 / 3 / 2,
+  max_live 27 / 23 / 31 / 28, grabs 117 / 7 / 0 / 55 against the doors slice's 110 / 7 / 0 / 55,
+  deaths 1 / 0 / 0 / 2, survivors 3 / 3 / 3 / 3 of 3, and **breaches 0 / 0 / 0 / 0** — so
+  `BREACH_SEEDS_MIN` stays 0, and the reason is now a measured one rather than "nothing can
+  break in": a body presses only where its wanted move goes, the annex's gates are shut behind
+  the watch, and in a 2,000-tick dusk window no crowd stands at a gate for the 641 ticks a lone
+  body needs or the 108 three do. The compressed tier cannot see a breach; the FULL tier at 256,
+  with real nights, is where the first one will be read. Every band holds.
+- **Fortify & District** — ~~doors: a tile class that opens, closes and breaks~~ **landed**
+  (`godot:m2:fortify` DOOR, DOOR-DISTRICT; `godot:check:worldgen` at the gates), 2026-09-07,
+  the ninth piece of the playable-state group and the first half of the owner's decision 8.
+  What was wrong: no door object existed — every doorway and both gates were Floor, so a
+  building was a room the dead walked into, the annex a courtyard with two gaps in it, and
+  the only structure a zombie could damage was a window board. Now `SimTileMap.Tile.Door` is
+  the *class* (Clear and not solid by itself: a map nobody booted has open doorways, and every
+  map-level judgement — worldgen's survivability walk, the district's enterability, the boot's
+  scatter — reads it as ground) and a `door` entity is the *state*
+  (`{tx, ty, open, stage, latched, emptySinceTick}`), overlaid by `SimFortify.sync_map` as
+  `{kind: "door", open, stage}` the way a window's board is, so `is_solid`, `opacity_at`, the
+  kernel's `map_cells`, the shadowcast and the roof cut-out all read one answer: a shut door
+  is solid and opaque, an open or broken one (stage `DOOR_BROKEN` 4, no overlay) a doorway.
+  Worldgen writes Door at every building's doorway and both gate anchors (`_write_doors`) and
+  `SimBoot.playable` stands a closed door on each (`spawn_doors`; `bare` stands none). People
+  route through a closed door — `SimPath.walkable` accepts a Door tile the kernel blocks —
+  and open it as the step (`SimJobs._walk`, `SimRaiders._walk`, unlatched), after which it
+  swings shut `DOOR_SWING_TICKS` 60 after its tile empties; E at a door opens and latches it,
+  or shuts and latches it (`toggle_door`, a rung of the ladder after the loot and before the
+  stranger and the car); a broken door cannot be closed; the dead never open one. The Guard's
+  post is the annex-side neighbour of the gate (`_post_tile`), not the gate, because a body in
+  a doorway is a door that never shuts — and the watch now ends at dawn wherever the guard
+  stands, since `_advance_job` walks a job before its arm runs and a guard called late could
+  be a step short of the post when the sky lightened (the GUARD POST lane found it). The
+  renderer draws a shut door as a plank of the wall's timber (`door` in the palette) in
+  **both** `match tile:` blocks, and an open one as the threshold and door face the doorway
+  always drew. `SAVE_VERSION` 24. DOOR: closed, solid and opaque to map and kernel, and a
+  shambler pushing at it for 1,000 ticks stays north of it (y 11.6) with the door shut; A*
+  routes a person through it, the walk opens it at tick 9 and crosses at 33; it shuts exactly
+  60 ticks after its tile emptied; E latches it open through 300 ticks and shuts it; broken it
+  blocks nothing and cannot be closed. DOOR-DISTRICT: 17 doorways and both gates of the
+  64-tile suburb are Door tiles, open by class; the boot shuts all 19; the post stands inside
+  the annex beside the gate. `check:worldgen` accepts a Door at the two gate anchors and
+  nowhere else. **Measured at 256 (a throwaway, deleted):** a boot stands 87 doors; over
+  10,000 ticks one was opened and the map generation moved twice, so the re-plan the plan
+  worried about is not a cost — but the step runs at **53 ticks a second** against the eyes
+  slice's 84 on the same seed, and a per-system profile (a second throwaway, deleted) puts
+  none of it on the doors: `shambler.think` 26 % and `kernel.visibility` 19 % lead, with the
+  emitters' `attention.emit-movement` at 3 %, so the fall is the emitters slice, the torso
+  slice and sight shipping on, none of which was re-measured at 256 when it landed. Named here
+  rather than hidden; the FULL tier at 256 is where it is priced. **The FAST tier**, reported
+  rather than re-baselined: siege 2 / 1 / 3 / 2, packets 2 / 1 / 3 / 2 (the director untouched),
+  max_live 27 / 23 / 31 / 28, **grabs 110 / 7 / 0 / 55** against the torso slice's 0 / 4 / 1 /
+  31 and the flip's 122 / 68 / 1 / 58, deaths 1 / 0 / 0 / 2, **survivors 3 / 3 / 3 / 3 of 3**.
+  With the gates shut behind the watch, a wanderer that sees the colony stands at a door it
+  cannot open; the contacts that remain are the colony's own walks out. Every band holds.
+- **Lethality** — ~~body damage slows and staggers the dead~~ **landed**
+  (`godot:m2:lethality` TORSO-SLOW, TORSO-STAGGER, HEAD-ONLY), 2026-09-06, the eighth piece of
+  the playable-state group and the owner's decision 7. What was wrong: a zombie died only on
+  `head <= 0`, so with the melee roll landing on the head a fifth of the time, more than half
+  of every colonist's swings took integrity off a torso that changed nothing — a knife could
+  not finish a shambler and could not slow it either, which is the fact under both flips in
+  HANDOFF's item 5. Now what is left of the torso is a multiplier on every speed the dead have
+  (`SimShambler._torso_factor`: Unhurt 1.0, Hurt 0.85, BadlyHurt 0.65, Unusable 0.5, in
+  `_speed_of` beside the sky's multiplier and compounding with the cripple), and a torso hit
+  may put the body down: `health.take-damage` rolls `TORSO_STAGGER_CHANCE` by the *resulting*
+  state (0 / 0.35 / 0.6 / 1.0) on its own `bodyStagger` stream and publishes
+  `entity.staggered` for `TORSO_STAGGER_TICKS` 20, which `shambler.stagger` takes as the max
+  with the weapon's 8. The head stays the only kill. **And the dead are judged by their own
+  maxima:** `SimHealth.max_of` matches a body to one of two shared tables by key set, so every
+  type's torso was read against the shambler's 60 — the screamer's authored 40 read Hurt from
+  the moment it spawned. `spawn_zombie` stores the type's body as `bodyMax` and
+  `SimHealth.part_state_of(world, entity, part)` reads it, falling back to the table for a body
+  without one. TORSO-SLOW: in 200 ticks of seeking a whole shambler covers 15.7 m, a BadlyHurt
+  torso 10.2 (×0.65), an Unusable one 7.8 (×0.50), torso and legs both ruined 1.9 (the
+  factors compound); an untouched screamer's torso is Unhurt by its own maxima where the
+  shared table says Hurt. TORSO-STAGGER: 126 of 200 zero-damage torso hits on a BadlyHurt
+  shambler stagger it for 20 ticks and 0 of 200 on an Unhurt one; fifty head hits leave the
+  `bodyStagger` stream's state untouched and one torso hit draws. HEAD-ONLY: a torso taken to
+  0 leaves the body alive at half speed and publishes no `entity.killed`; the head taken to 0
+  kills. **Re-baseline #4**, the FAST tier at 64: siege
+  2 / 1 / 3 / 2 and packets 2 / 1 / 3 / 2 (the director untouched); max_live 26 / 23 / 31 /
+  28; grabs 0 / 4 / 1 / 31 against the emitters slice's 0 / 64 / 1 / 11, kills 0 / 1 / 1 / 0,
+  **deaths 0 / 0 / 0 / 2 against 0 / 3 / 0 / 2, survivors 3 / 3 / 3 / 3 of 3**. Seed 404 is the
+  one to read: 64 grabs became 4 and three deaths became none, because a colonist's swing at
+  a torso now puts the body down for a second and the hold breaks with it, where before the
+  same swing did nothing. Every band holds; nothing re-pinned. That the compressed tier now
+  reads gentler on three seeds than it did before the eyes slice is the record's honest line
+  under HANDOFF's item 5: the colony can put a shambler down, which is what both flips were
+  waiting for. **Re-measured with both flips on** (a throwaway subclass of the harness setting
+  `SIGHT_ENABLED` true and `GRACE_NIGHTS` 2, deleted): siege 3 / 3 / 4 / 3, packets 3 / 3 / 4 /
+  3, max_live 35 / 34 / 32 / 31, grabs 186 / 15 / 1 / 58, deaths 4 / 2 / 0 / 2, **survivors
+  0 / 3 / 3 / 3 of 3** — three seeds hold at full strength where before the torso slice two
+  wiped, and seed 20260805 still loses everybody (186 grabs; the crowd that saw the annex on
+  night one never left it). The same run tripped the harness's over-cap invariant on two
+  seeds (live 35 and 34 against a cap of 32 for a few hundred ticks), which is a second thing
+  the flip must answer before it ships: with the table open from night 3 something places
+  past the clamp, and the record names it rather than the flip finding it. **Sight alone, the table still at 7:**
+  siege 1 / 1 / 3 / 2, packets 1 / 1 / 3 / 2, grabs 122 / 68 / 1 / 58, deaths 2 / 2 / 0 / 2,
+  survivors 1 / 2 / 3 / 3 of 3, every band green — the floor holds, so sight ships on in the
+  next commit and the table's flip is what remains of HANDOFF's item 5. Those four lines are
+  the FAST record from that commit on (re-baseline #4b, the eyes slice's flip), and the chain
+  that landed it printed them byte for byte.
+- **Roster & Attention** — ~~the dead write to the field from content~~ **landed**
+  (`godot:m2:roster` EMITS, RESIDUE, BLOOM-TWICE), 2026-09-06, the seventh piece of the
+  playable-state group and the owner's decision 11. What was wrong: no zombie carried an
+  `attention_emitter`, so the `emits` block in every zombie JSON was read by nothing, the only
+  field write a zombie made was `field_memory.gd`'s residue of 30 laid while Investigating —
+  a state a body was in for ninety ticks at a time — and docs/14's crowd ("a crowd emits its
+  own noise and scent and becomes self-reinforcing") had no writer. And a survivor's bloater
+  exposure was one flag, `contaminationRolled`, set on the first cloud and never cleared, so
+  every bloater after the first bloomed over a body it could not touch. Now `spawn_zombie`
+  builds the emitter from the resolved `emits` (`SimRoster.emitter_of`: noise is ambient and
+  walking alike — a groan is not a footstep — scent is scent, and light is a `light_source` of
+  that reach, `light_of`); `base.json` gives every type scent 8 and the screamer keeps its noise
+  4 beside it (arrays replace under `extends`, so the screamer names both); residue is laid
+  every `SCENT_EMIT_INTERVAL` in every state by the emitter module that already served the
+  living, and `field_memory.gd` is deleted with its registration and its routing row. **A body
+  cannot hear below its own noise:** the field keeps the loudest value a cell was given, so a
+  groaning screamer reads its own 4 at its feet every tick and, judged against the bare
+  threshold, sought its own sound for ever in the first run of the EMITS lane; its threshold is
+  raised by what it emits, so only something louder than itself is a sound. Contamination is
+  `contaminationRolls: {rolls: [{flag, atTick}]}`, one roll a cloud (an Array of records
+  scanned by index, never an id-keyed Dictionary). `SAVE_VERSION` 23. EMITS: a standing
+  screamer raises the field's noise to 4.00 and is still Wandering after it; a shambler raises
+  0.00; a fabricated light emit of 6 is a 6 m source the index reads beside the body. RESIDUE:
+  a Wandering shambler lays scent (peak 15.4) within 40 ticks; with the base's `emits`
+  emptied, none. BLOOM-TWICE: one cloud is one roll, held over 40 ticks; a second bloater's
+  cloud is a second roll, and two exposures are recorded. **docs/03's migration test, re-run
+  (a throwaway on 64-tile worlds, deleted) and what it said about the number.** Seed 20260805,
+  a shout of 120 at the centre, one hour, the horde's centre of mass before and after, at six
+  values of the base scent:
+
+  | base scent | drift (m) | within 20 m at 20 min | peak scent after an hour |
+  |---|---|---|---|
+  | 0 (residue off) | 19.1 | 20 | 223 |
+  | 1 | 5.7 | 18 | 311 |
+  | 2 | 7.3 | 19 | 658 |
+  | 4 | 7.3 | 19 | 1,317 |
+  | 8 (the first cut) | 7.2 | 19 | 2,621 |
+  | 30 (the retired module's) | 7.4 | 18 | 5,000 (the field's cap) |
+
+  Two things the table says. The acceptance check still passes — residue changes what the horde
+  does — but on a 64-tile map it *holds* the crowd (drift 6–7 m against 19 without) rather than
+  walking it downwind as docs/03 measured at 256, because the edge is 32 m off and the plume
+  has nowhere to blow; the district-scale migration is the FULL tier's to re-measure. And the
+  hold does not depend on the magnitude — 1 holds as well as 30 — while the magnitude decides
+  how loudly the dead drown the living: at 8 the crowd's plume was twelve times the living
+  footprint and a shambler would have smelled only itself. So the base scent ships **1**, a
+  living person's (`PERSON_EMITTER` scent 1.0): a crowd of twenty smells like twenty people,
+  the plume stays the order of the living's (311 against 223), and the residue's own reason —
+  the crowd that follows itself — is intact. **Re-baseline #3**, the FAST tier at 64:
+  siege 2 / 1 / 3 / 2 and packets 2 / 1 / 3 / 2 as before (the director is untouched);
+  max_live 26 / 25 / 31 / 28; **grabs 0 / 64 / 1 / 11 against 158 / 69 / 76 / 50**, kills 0 /
+  1 / 1 / 0, deaths 0 / 3 / 0 / 2, survivors 3 / 2 / 3 / 3 of 3 against 2 / 1 / 2 / 3. The
+  district got *safer* in this tier, and the reason is the table above: the boot wanderers
+  smell one another, drift up their own gradient and crowd together, and a crowd that follows
+  itself is a crowd that is not at the annex — with sight off, a colonist has to walk into
+  1.6 m of it to be touched. Two seeds went a whole compressed campaign without a grab. That
+  is the crowd docs/14 asks for, read at 64 tiles where it forms in minutes; whether it reads
+  as a horde or a huddle at 256 is the FULL tier's question. Every band holds; nothing
+  re-pinned.
+- **Director** — ~~two grace nights, then the table~~ **landed, at the old number**
+  (`godot:m2:director` GRACE, LULL-EDGE), 2026-09-06, the sixth piece of the playable-state
+  group and the owner's decision 4. What was wrong: `GRACE_PRESSURE_UNTIL_DAY` 8 kept the
+  strain table shut for the first seven nights, and nights 3–7 sent a probe only while
+  `live < TRICKLE_LIVE` (8) against a boot of 20, so a ten-day playtest drew three nights and
+  the FAST tier reported one to three packets a seed, all in the last three. Now one number,
+  `SimDirector.GRACE_NIGHTS`: nights 1..N say `grace` and leave the night stream untouched (its
+  saved state is the proof — a quiet draw would look the same as no draw), and from night N+1
+  the director draws from the strain table every night, with the siege cap, the quiet floor,
+  the live cap and the lull outranking the draw exactly as before. `GRACE_COMPOSITION_UNTIL_DAY`,
+  `TRICKLE_LIVE`, `TRICKLE_SIZE` and the `grace-trickle` reason are gone; the composition is
+  `SimRoster`'s wave rule and was never this constant's. **The number ships 7, not the 2 the
+  owner decided**, and the half that did not ship is the half the record is about: measured at
+  2 on the FAST tier, seed 31337 **wiped** (deaths 3 / 3 / 3 / 2, survivors 2 / 1 / 0 / 2) — the
+  diagnostic (an `_observe` override on the harness printing each night's decision and each
+  death; deleted) showed Ellis dead on night 1 to nothing the director sent, then a probe, a
+  probe and a press on nights 4–6 (the cap of 32 refused nights 7–10) that a colony of two
+  could not kill; every other seed drew 2–3 packets and held at the cap from night 6. That is
+  the pacing the owner asked for meeting the survival floor CLAUDE.md refuses to relax, on a
+  64-tile district sixteen times the shipped density where the player's body is unattended,
+  and which gives is the owner's trade (HANDOFF item 5), not this slice's. `GRACE_NIGHTS` is a
+  gate-drivable static like `GRABS_ENABLED`: the GRACE lane pins 2, proves it, restores 7, and
+  then proves the shipped number is the one read (night 3 grace, night 8 drawn).
+  **The lull's dead opening edge is written:** `_begin_lull` set `lullFromTick` only when
+  `tick < lullFromTick`, which with the field at 0 was never, so every lull ran from tick 0 and
+  the `tick >= lullFromTick` half of `_on_dusk`'s check was dead — the eleventh dead socket of
+  the milestone, found by the survey. Now a lull opens at the next dawn when no lull is
+  running, and a second disaster inside one extends `until` and leaves the edge alone. GRACE:
+  nights 1–2 grace with the stream's state unchanged; night 3 `drawn` after exactly one draw
+  (a fresh stream restored to the pre-night state, drawn once, lands where the night did); a
+  night 3 at the live cap says `cap`. LULL-EDGE: a breach at dusk 8 opens the lull at day 9's
+  dawn and closes it a day later; a second breach on night 9 extends the close to day 11's dawn
+  and keeps the edge; a fresh district carries neither. **Re-baseline #2**, the FAST tier at
+  64, at the shipped 7: **byte-identical** to the eyes slice's four lines (the trickle never
+  fired in this tier — a boot of 20 is never under 8 — and no FAST campaign breaches, so the
+  lull's edge moves nothing here). At 2, for the record: siege 2 / 2 / 3 / 3, packets 2 / 2 /
+  3 / 3, max_live 32 / 32 / 32 / 26 (the cap from night 6 on three seeds), survivors 2 / 1 / 0
+  / 2 — the line the flip re-pins against when it comes.
+- **Roster & Sight** — ~~every zombie has eyes, and its senses are content~~ **landed**
+  (`godot:m2:roster` EYES, EXTENDS, SENSES, WAVE, SCREAMER-NIGHT; `godot:m2:sight` NIGHT-LIT),
+  2026-09-06, the fifth piece of the playable-state group and the owner's decision 3. What was
+  wrong: a shambler acquired a survivor only inside `CONTACT_METRES` 1.6, the screamer alone
+  had an observer, and the whole docs/14 sensory table — `sensory`, `spread`,
+  `introducedInWave`, and the `extends` every type declares — was read by nothing, so every
+  zombie heard at 0.2, smelled at 0.9 and leaned to light at 0.1 whatever its JSON said, and
+  the screamer and bloater, declaring `behaviors` without the base's `grab`, could not grab at
+  all. Now: **every zombie spawns with `shambler_eyes()`**, and sight is a stimulus in
+  `shambler.think` — a Wandering or Seeking body that has a survivor at `detail != Unseen`
+  heads for the nearest at seek speed with the noise commit (`COMMIT_TICKS`), and Pursue stays
+  the 1.6 m contact it was, because the grab is a contact; a body with no observer sees
+  nothing, so every fixture that predates eyes behaves as it did. How far the stimulus reaches
+  is the type's `sensory.light` on its eyes (`SimShambler.sight_reach`, `range × sqrt(light)`:
+  3.8 m for the shambler and bloater at 0.1, 11.4 m for the screamer at 0.9). **The stimulus
+  shipped off for one slice — `SimShambler.SIGHT_ENABLED`, the GRABS_ENABLED precedent — and
+  ships on since the torso slice landed (the commit after it; the Lethality record has the
+  four lines that let it: survivors 1 / 2 / 3 / 3 with sight alone). What follows is why it
+  waited.** Measured, on the FAST tier, with it on before torsos mattered: at the eyes' full 12 m seed 404 **wiped on day two**; at 3.8 m seeds 20260805 and
+  90210 wiped instead (deaths 4 / 4 / 0 / 3). The diagnostic (an `_observe` override on the
+  harness printing every grab and death against the day, the window and the nearest lit fire;
+  deleted) showed the loop: two boot wanderers re-grab Ellis and Mara forty times in one dusk
+  window with no kill, because a shambler whose hold a struggle broke can *see* the colonist it
+  just released and takes them again — at any reach above `RELEASE_METRES` 3.2, which is the
+  distance that used to end a pursuit and was the colony's one escape — and a kitchen knife
+  cannot finish a shambler while torso hits are inert (the torso slice's). Not the fire: no
+  grab or death happened within 20 m of a lit campfire. The compressed tier also freezes the
+  bodies that converged between one dusk and the next (day 2's window opens with ten of twenty
+  wanderers inside 12 m of a colonist), so it overstates what the shipped district does by
+  day; but the loop itself is real, and `survivors_end >= 1` is the standing assertion that
+  the shipped default survives its own contact loop, so the stimulus waited behind the flag
+  until the colony could put down what it sees — one slice. **`extends` is resolved**
+  (`SimShambler.resolved_entry`, `SimRoster.content_entry` is its name) the way the frozen
+  oracle resolves it — child wins, objects merge, arrays replace — memoised on
+  `world.content_resolved`, never in a static; the earlier "a shambler's body is its own" note
+  above is now belt and braces rather than the only reason the shambler had a body. The
+  `sensory` block is per body (`noiseSense`, `scentSense`, `lightSense` on the `shambler`
+  component; a sense of 0 hears nothing, docs/14's "no single silence"), `spread.radians` is
+  the bias draw's width, and `introducedInWave` gates the mix: wave 0 from day 1 and each
+  later wave two days on (`WAVE_DAY_STRIDE`, so wave 1 is the old day 3), with no draw made on
+  a day where only the shambler is due, so the placement stream is untouched where it was
+  untouched before. **A zombie's sight is sampled lit-at-the-target**: `shambler_eyes()` carries
+  `lit_target`, the shadowcast is cast at the eyes' full 12 m and `detail` answers seen inside
+  the ambient reach *or* where `light.lit_metres` says the target's own tile is lit — never
+  through a wall — so the screamer, blind at 0.48 m after dark, alarms over a survivor under a
+  floodlight at 8 m and still not over an unlit one. The player's eyes keep the oracle's rule on
+  purpose (docs/30). The screamer and bloater gained `grab` in `behaviors`. `SAVE_VERSION` 22.
+  EYES (the flag pinned on, then restored): a shambler with a survivor 3 m ahead in daylight,
+  nothing to hear or smell, is Seeking on tick 1 and 2.1 m closer at tick 80 (it caught
+  them); the same body with its observer stripped never leaves Wander; the bloater and
+  screamer spawn with eyes and `canGrab`; at 8 m the shambler (reach 3.8) wanders and the
+  screamer (reach 11.4) seeks; and with the flag off, as it ships, the 3 m survivor draws no
+  seek — the flag is read. EXTENDS: two worlds with two
+  trees resolve a child's inherited `spread` to 0.3 and 0.9 apart, objects merge child-wins,
+  arrays replace, the memo hands the same object back, and the shipped three carry `spread`,
+  the base `grab` and only their own tags. SENSES: a noise at seven times the floor sends the
+  shambler (0.2) to Seek and not the bloater (0.1); a lamp 8 m north turns a wandering shambler
+  0.079 rad and a screamer 0.707. WAVE: the shipped screamer arrives on day 3; moved to wave 2
+  in a copied tree it waits for day 5, and 300 day-3 draws on that tree hold no screamer and 28
+  bloaters. SCREAMER-NIGHT and NIGHT-LIT: lit at 8 or 10 m after dark is seen (Focal), unlit is
+  not, lit behind a wall is not, and the player's eyes over a lit zombie 10 m off stay Unseen.
+  **Measured at 256 (the density slice's driver, re-run with eyes, deleted again), and what it
+  cost.** Eighty pairs of eyes took the district from 110 to 68 ticks a second on seed 20260805,
+  and three guesses at why were each wrong before a per-system profile (a throwaway, deleted)
+  said: `kernel.visibility` 32 % of the step, `shambler.think` 20 %, and inside visibility the
+  shadowcast itself — a 12-tile cast is ~1.5 ms of GDScript and eighty bodies crossing tiles
+  cast ~2.6 times a tick. Not the String cache key (ints: 70), not `_seen_target` (disabled:
+  71), not a four-tick refresh stride (68 — casts are driven by tile crossings, not ticks). The
+  fix that answered is `ZOMBIE_RECAST_TILES` 2: a `lit_target` observer keeps its cast until it
+  has walked two tiles from where it cast (a person's cast still moves with their tile), which
+  cut recasts threefold (26,150 → 8,679 over 10,000 ticks) and gave back **83 ticks a second**
+  on that seed. The four seeds on the landed code with the stimulus
+  on, 20,000 ticks each: **84 / 94 / 84 / 95 ticks a second** against the density slice's
+  109 / 99 / 109 / 114 — eyes on eighty bodies cost about a sixth of the step, and at the end
+  of that first hour 22 / 8 / 17 / 21 of them were Seeking or Pursuing somebody, where before
+  eyes the count was whatever had walked into 1.6 m. With the stimulus off, as it ships, the
+  `_seen_target` share of `shambler.think` is not paid; the recast rule and the eyes are. The next cost lines are `shambler.think` (20 % of a step,
+  `_seen_target` asking `detail` for each survivor) and `sightings.observe` (9 %), named here
+  for the emitters slice, which adds eighty more writers to the field.
+  **Two lanes moved and one defect surfaced, and it is worth saying which.** `godot:m2:raiders`
+  APPROACH and `godot:m2:weather` SEEK both boot a 64-tile district and walk a body across it —
+  a band to the annex, a hot colonist to a roof — and with eyes the boot wanderers see that
+  walk at 12 m and end it (seed 90210's band "closed" 2.5 m; the colonist lost its `position`
+  mid-lane). Both lanes now despawn the boot shamblers first, because each judges a route and
+  the fight has its own lane (PREY, and the contact gates). Stripping them exposed a defect
+  the shamblers had hidden: the hot seek's arrival test was `_at(roof, REACH)`, and REACH 1.5
+  reaches a roofed tile from the doorstep outside it, so a body one tile short of the door was
+  handed no job and stood there hot until the sky changed — twenty wanderers had bent every
+  route the lane walked (a body's tile blocks A*) so the walk never ended on a doorstep. The
+  test is now "the body's own tile is the roofed one" (`_nearest_roof` returns that tile once it
+  is); SEEK reaches its roof at tick 356 where it read 381 with the wanderers in the way.
+  **Re-baseline #1**, the FAST tier at 64, with the stimulus off as it ships: siege 2 / 1 / 3 /
+  2 and packets 2 / 1 / 3 / 2 as before (the director is untouched), max_live 26 / 25 / 32 /
+  25 (one fewer on seed 90210), survivors 2 / 1 / 2 / 3 of 3 (unchanged), grabs 158 / 69 / 76 /
+  50 against 158 / 69 / 81 / 35 — what moved is the two later seeds' contact counts, which is
+  the screamer and the bloater now able to grab from day 3 and each type hearing at its own
+  threshold. Every band holds; nothing re-pinned.
+- **District & Director** — ~~the boot population scales with the district~~ **landed**
+  (`godot:m2:district` BOOT DENSITY, `godot:m2:director` CAP, `godot:check:worldgen` at both
+  sizes), 2026-09-06, the fourth piece of the playable-state group and the owner's decision 5.
+  What was wrong: `SimBoot.WANDERERS` was 20, the number that made a **64-tile** map read as
+  not empty, and the shipped game boots 256 — one shambler per 3,300 square metres, with every
+  balance band measured on a district nobody plays. Now `SimBoot.wanderers_for(tiles)` is a
+  density, **linear in the side**: `WANDERERS_PER_64` 20, so 20 at 64 (the harness, unchanged),
+  40 at 128, 80 at 256 (the played district). The owner's two numbers fix the formula; a per-area
+  reading (320) would sit ten times over the live cap and refuse every night. `SimDirector`'s
+  `LIVE_CAP` became `live_cap_for(world)`, `LIVE_CAP_PER_64` 32 scaled the same way (32 at 64,
+  128 at 256; a fixture with no map reads 32), because a flat 32 against 80 booted would read
+  "cap" on night one and every night after — the despawn trap's refusal loop reached at once.
+  `check_m2_balance.gd` reads `BALANCE_TILES` (default 64, the `BALANCE_DISTRICT` precedent) so
+  the FULL tier can run the shipped size by hand: `BALANCE_FULL=1 BALANCE_TILES=256`. The three
+  gates that pinned the constant pin the function at the size they boot. BOOT DENSITY: 20 / 40 /
+  80 from the function, a 256 boot stands exactly 80 and none inside the annex; CAP: 32 at 64,
+  128 at 256, and the 256 world's first dusk with 80 live reads `grace`, not `cap`. **Measured,
+  by a throwaway driver (deleted):** a 256 boot on the four seeds takes ~0.85 s and stands
+  80 / 78 / 79 / 78 (two scatter rolls per seed land on one tile and merge — the count is
+  `query(["shambler"])` after boot), and then runs at **109 / 99 / 109 / 114 ticks a second**
+  over 20,000 ticks — a tenth of the ~1,085 the 64-tile harness runs at. That is the number every
+  later 256 measurement is priced against: a game day is ~48 minutes headless, a ten-day FULL
+  campaign ~8 hours, and real time at 20 Hz is still five times slower than the sim, so the
+  playtest's frame budget is not yet at risk but the eyes and emitters the next slices give
+  eighty bodies are. In the first 20,000 ticks (about an hour after 09:00) seed 90210 lost a
+  colonist to a zombie and the colony killed 3 / 2 / 1 / 3 shamblers on the four seeds — the
+  denser district is felt at once. FAST lines at 64, from the chain's run: **byte-identical**
+  to the scavenge slice's four (siege 2 / 1 / 3 / 2, packets 2 / 1 / 3 / 2, max_live 26 / 25 /
+  32 / 26, survivors 2 / 1 / 2 / 3 of 3), as expected — `wanderers_for(64)` is the old 20 and
+  `live_cap_for` at 64 the old 32, so nothing the harness boots changed.
+- **Jobs** — ~~colonists scavenge near home~~ **landed** (`godot:m2:jobs` SCAVENGE), 2026-09-06,
+  the third piece of the playable-state group and the owner's decision 10. What was wrong: sixty
+  to seventy percent of the district's food sits in containers (`containerShare` 0.7 residential
+  / 0.6 commercial) and the only producer of a search was the player's E key, so an automated
+  colony could reach only the loose share — about five days of food for three — and never opened
+  a cupboard. Now: **a survivor remembers the containers they have seen.** `sightings` gains a
+  second array beside `seen`, `containers`, `{e, x, y}` records (an Array, never an id-keyed
+  dict — the save trap), appended by `_observe_containers` when a `searchable` is
+  `detail != Unseen` (by sight, not `line_of_sight`, so the memory does not inherit the sightings
+  defect docs/23 names) and erased once it is searched. **A `Scavenge` column** (`COLUMNS`,
+  `CONSUMERS`; Auto 3, Worker 2, Ellis 3) walks to the nearest remembered unsearched container
+  **near home** — `HOME_RADIUS_TILES` 40 from the annex's centre (`_home_centre`, the player's
+  start where a map has no annex): the whole of a 64 map, the neighbourhood of a 256 one, and the
+  far district stays the player's run (docs/02) — claiming it through the Cook's `reserved` seam so
+  two scavengers never walk to one cupboard, and opens it at the box through
+  `SimContainers.search` (a module call, the way a job eats through `SimNeeds.eat`: commands are
+  the player's channel). The yield lands beside the box and **Haul** carries it in — and Haul is
+  bounded to the same radius now, which is also the fix for the Guard slice's finding that hauling
+  the nearest loose item *anywhere* walked Ellis to the far edge among the wanderers. `skills.gd`
+  reads Scavenge as a Survival point beside Haul's. The work panel gained its eighteenth column and
+  `COL_W` dropped 72 → 70 so the last one no longer draws off the panel's edge. The FAST line
+  gains `searches=` (container searches by anyone but the player; reported, not banded).
+  SCAVENGE: every boot container marked searched, one box stood four tiles from home and Ellis two
+  tiles from it facing it — remembered after one observe; at `Scavenge 0` `_pick` takes nothing;
+  a box remembered by hand at radius + 5 and a box stood but never seen are never offered; under
+  Mara's claim the near box is refused; with the claim released it is the one offered, Ellis walks
+  to it and `container.searched{actor: ellis}` fires (the unseen box is taken off the map before
+  the walk: stood one tile from the near one, it is *seen* the moment he arrives and then rightly
+  scavenged, which the lane's first run reported as a failure — its negative is the offer, not
+  the day); the far box stays shut for a quarter day; and the yield reaches the stockpile (the
+  dead-socket half — it skips loudly if the table rolls nothing). Measured: the residential table yielded four items and the first of them
+  was on the stockpile inside a quarter day. FAST lines after: **byte-identical** to the crisis
+  slice's on all four seeds, and `searches=0` on every one — which is the compressed tier's
+  blind spot said out loud rather than a null result: it steps only the 2,000 ticks after each
+  dusk, when Guard holds the row, so a *day* job is never run by it. The FULL tier (real ticks)
+  is where `searches=` will move, and the density slice's 256 driver is where the food economy
+  is first measured. A report, not a re-baseline.
+- **Jobs & Needs** — ~~a starving colonist still eats, and a fire burns down~~ **landed**
+  (`godot:m2:jobs` CRISIS, `godot:m2:needs` FIRE), 2026-09-06, the second piece of the
+  playable-state group: two defects the surveys found, neither a design question. **The crisis
+  dead-end:** `_tick_one` stopped a survivor in a `starving` or `dehydrating` crisis before the
+  need seek ran (`jobs.gd:185-187`, which its own comment called a known hole), and `work_mul` is
+  0 in a crisis so `_walk` could not have moved them anyway — a colonist at zero hunger died on
+  the starvation clock beside a full pantry. Now the early return is gone (only `passed_out`
+  still returns), the seek ranks an empty pool as its hardest pressure, and the walk runs at
+  `SimNeeds.walk_mul` — everything `work_mul` reads, except that a crisis is a half-pace walk
+  (`CRISIS_WALK_MUL 0.5`, a first cut: docs/04's weakness before collapse) rather than no walk.
+  The dehydrating survivor now reaches the untreated rung the well-water slice named as
+  unreachable. **Fires burn down:** a fire lit by a cook, a warm-seek or the E key stayed lit for
+  the rest of the run — a permanent 20 m light source at scent 5 that no fuel had paid for.
+  `set_lit` stamps `litUntilTick = tick + CAMPFIRE_BURN_TICKS` (36,000, half a night, first cut)
+  and a new `need.fires` system (needs phase, order 17) douses a lit fire past its clock unless
+  `cooking` is true; a cook's completion, a warm-seek and the E toggle each re-light and the
+  clock starts over; a lit fire with no clock (a save from before it) is stamped, not doused, so
+  no `SAVE_VERSION` bump. CRISIS: shamblers cleared and Ellis's carried food stripped so the walk
+  is the thing under test; hunger 0 reads `starving`, `walk_mul` 0.5 and `work_mul` 0; he walked
+  to a can on the stockpile and ate at tick 175; with every food despawned and the clock
+  back-dated to its last forty ticks he still starved (`entity.killed{need: hunger}`) — the fix
+  makes no food out of nothing; a dehydrating Ellis with an untreated bottle on the stockpile and
+  every campfire despawned drank it raw at tick 175. FIRE: lighting stamps `tick + 36000`
+  (the constant, read); not doused sixty ticks in; with the clock shortened by hand to fifty
+  ticks it is doused on the tick, and the flag, the `light_source` and `lit_campfire_near` all
+  see it; a cook's fire past its clock stays lit; a re-light refreshes the stamp; a lit fire
+  with the key erased is stamped on the next tick and still lit. FAST lines after, against the
+  Guard slice's: three seeds byte-identical, 90210 at `max_live` 26 and `grabs` 35 against 25 and
+  30 — a fire that goes out at night is a fire the wanderers do not lean toward, and nothing else
+  moved; survivors 8 of 12 as before. A report, not a re-baseline.
+- **Jobs** — ~~the day belongs to the row, and Guard is the night post~~ **landed**
+  (`godot:m2:jobs`, GUARD POST and AUTHORED), 2026-09-06, the first piece of the playable-state
+  group and the owner's decision 6. What was wrong: `_work_for` handed out the Guard post at any
+  hour and the Guard arm of `_advance_job` was a `pass` with `ticksLeft 0`, so it never
+  completed; Ellis's content row (`Guard 1, Firefight 1, Haul 2, Rest 3`) put him on the gate
+  from tick one for the whole run and Mara (`Doctor 1, Guard 2`) stood beside him whenever
+  nobody was hurt — **the boot colony never hauled, cooked, built, cleaned, buried, watered or
+  repaired** unless the player edited the grid. Now `_watch_hours` (Dusk or Night, off
+  `Clock.phase_of`) gates the post in `_work_for`, so by day the row's next column gets the
+  survivor; `_post_calls` in `_tick_one` drops a job that has not begun a channel (`ticksLeft 0`)
+  at dusk when Guard outranks it in the row's own sort order, so Mara finishes doctoring before
+  she stands the gate; the Guard arm completes at dawn through `_stop(world, ent, "Guard")`,
+  which is the first `job.completed{Guard}` there has ever been, and `skills.gd` reads it as an
+  Endurance point beside Rest's. `attach` keeps a content row as `jobPriorities.authored`, and
+  `set_focus` overlays the preset on it (the preset wins where it speaks, the authored row
+  survives where it is silent; Manual is the authored row again) instead of replacing the whole
+  row — one click on Ellis's focus word used to destroy his content. Content: Ellis's row gains
+  `Construct 3, Cook 3, Water 3`, Mara's `Cook 2, Water 3`, first cuts for the owner. `Auto`
+  stays Guard-less on purpose (the FOCUS lane still pins it): an Auto colony would tie-break
+  alphabetically onto Guard every night and never haul after dark. GUARD POST follows one booted
+  Ellis through a day (Guard is not on offer — the true negative asked directly — and he hauls),
+  a dusk (called to the post and walks to the gate), a dawn (`job.completed{Guard}` drained and
+  Endurance 0 → 1, banked under Manual so `end.legs` at cost 1 does not spend it the same
+  tick; then day work again) and a district whose `gate_a` anchor is removed (no post). The lane
+  clears the boot's shamblers first, because on the first run **Ellis was grabbed and killed on
+  the walk**: hauling the nearest loose item anywhere on the map had taken him to the far edge
+  among the wanderers, and the dusk walk back crossed them again (a throwaway driver printed
+  sixteen `grab.started` on him in a day) — the lane judges the router, and the finding is
+  what the scavenge-near-home piece in what's left exists to fix. AUTHORED: Medic on Ellis reads
+  `Doctor 1, Guard 2` from the preset and `Haul 2, Construct 3` from the content, and is not the
+  bare preset (the assertion that the overlay is read); Manual restores every column; a fresh
+  entity with no authored row under Medic is the bare preset, byte for byte. `check_m2_npc_combat`'s
+  POST lane now stands its guard at the first Dusk tick, since the post is not on offer by day.
+  FAST balance lines after, against the streetWidth-7 lines above (a report, not a
+  re-baseline — the slice claims the row works, nothing about outcomes):
+  ```
+  FAST seed=20260805 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=0(0in/0down) breaches=0
+      kills=2(m2/r0) deaths=1 turned=0 recruits=1 max_live=26 survivors=2/3 over=false
+      grabs=158 broken={ "rescue": 1, "struggle": 64, "staggered": 1 }
+  FAST seed=404 arm=mixed days=10 siege=1 quiet=9 packets=1 raids=1(2in/0down) breaches=0
+      kills=0(m0/r0) deaths=2 turned=0 recruits=1 max_live=25 survivors=1/3 over=false
+      grabs=69 broken={ "staggered": 2, "struggle": 20, "victim-died": 2 }
+  FAST seed=31337 arm=mixed days=10 siege=3 quiet=7 packets=3 raids=0(0in/0down) breaches=0
+      kills=1(m1/r0) deaths=2 turned=0 recruits=1 max_live=32 survivors=2/3 over=false
+      grabs=81 broken={ "struggle": 54, "staggered": 1, "victim-died": 1 }
+  FAST seed=90210 arm=mixed days=10 siege=2 quiet=8 packets=2 raids=1(2in/1down) breaches=0
+      kills=1(m1/r0) deaths=1 turned=0 recruits=1 max_live=25 survivors=3/3 over=false
+      grabs=30 broken={ "struggle": 19, "staggered": 1, "rescue": 1, "victim-died": 1 }
+  ```
+  The night table is untouched (siege, quiet, packets and raids identical on every seed, as
+  they must be: the director draws its own stream). What moved is where the bodies are: the
+  colonists now cross the district by day, hauling, and the grabs follow them — 85 → 158 and
+  16 → 69 on two seeds, 95 → 81 and 127 → 30 on the other two — while kills fell on every seed
+  (4/5/1/5 → 2/0/1/1), because a survivor standing the gate with a pipe all day met more
+  shamblers than one hauling does, and the day's hauls end in a grab more often than a swing.
+  Survivors end 8 of 12 across the four seeds, as before. Four seeds are a transcript; the
+  scavenge-near-home piece is the one that decides how far a haul walks.
 - **Jobs** — ~~Cook has no claim on its ingredient~~ **landed** (`godot:m2:jobs`, COOK CLAIM),
   2026-09-06. `_cook_work` now writes a `reserved: {by, job}` component onto the raw it hands
   out; `_stock_base` skips a claim that is *live* — the holder still carries a Cook job targeting
@@ -3576,8 +4193,8 @@ not a to-do list:
   fire and thirst 25 drank `item.water.bottle.untreated`; with no fire and thirst 35 drank
   nothing in 3000 ticks); and the WELL lane now asserts the fill is untreated and *not* clean.
   **Named rather than fixed:** a `dehydrating` survivor never reaches the untreated rung, because
-  `_tick_one` stops a body in crisis before the seek runs — a pre-existing hole, the crisis path's
-  own defect — and bottled water in loot tables stays clean, so a colony that finds enough of it
+  `_tick_one` stopped a body in crisis before the seek ran — a pre-existing hole, the crisis path's
+  own defect, closed 2026-09-06 (the Jobs record bullet "a starving colonist still eats") — and bottled water in loot tables stays clean, so a colony that finds enough of it
   never boils. The four FAST balance lines before and after are **byte-identical** — survivors, deaths, kills and grabs unchanged on all four seeds — which says the compressed ten-day colony drinks the bottled water its loot rolls and never fills a bottle at the well; the rung is reachable (the WELL and NPC lanes prove it) and not yet priced by the harness, the same shape as the engine noise and the light vehicles at the director in what's left.
 - **Needs** — ~~`spoilage_rate` is a stat nothing resolves~~ **landed** (`godot:m2:needs`,
   PANTRY), 2026-09-06, with the owner's rule: **a perishable ages at the best living colonist's
@@ -4387,8 +5004,13 @@ adding more geography:
 2. Relationships and grief
 3. Full skill web
 4. The six survivor attributes below, now that each has a live consumer
-5. Weather, temperature, hygiene, full decay, mutation waves, and remaining zombies
-6. Named items, unique survivors, remaining modification consumables, traps, and bait
+5. Weather, temperature, hygiene, full decay, mutation waves, and remaining zombies (weather's
+   kinds, seasons and wind, and the temperature and hygiene bands, came into Milestone 2 by the
+   owner's direction — ADRs 0002, 0015, 0016; what docs/16 still names is the weather entry in
+   what's left)
+6. Named items, unique survivors, remaining modification consumables, traps, and bait (the boot
+   colony's two uniques shipped in Milestone 2; the one trap and one bait emitter the slice once
+   promised were cut here by the owner on 2026-09-06 — docs/15 is their spec, unchanged)
 
 That order is deliberate. WIS lookout needs a lookout job; CHA needs relationships; INT needs the web;
 temperature needs weather. CHA trade and WIS raider warnings activate fully when factions arrive in
@@ -4431,7 +5053,10 @@ This is a separate completion track rather than a requirement bundled into survi
 1. **World scale:** continuous region, district types, road graph, authored-template procedural
    assembly, district-tier simulation, and streaming.
 2. **Drive benchmark:** synthetic streaming-at-speed load before a drivable vehicle exists.
-3. **Vehicles:** bases, slots, affixes, driving, fuel, breakdowns, route trails, and attention output.
+3. **Vehicles:** bases, slots, affixes, driving, fuel, breakdowns, route trails, and attention
+   output (driving, fuel and the engine's attention output landed in Milestone 2 on 2026-09-05 at the
+   owner's direction — `godot:m2:vehicles`; breakdowns, NPC drivers and the rest are "what driving
+   left behind" in what's left).
 4. **Mobile bases:** interior modules, volume budgeting, convoys, relocation, and nomad play.
 5. **Industrial yard district:** silos, radio towers, shipping containers, a brick warehouse
    street with the dashed centre line, the forklift at 2×3 — the reference scenes the 2026-09-02
@@ -4634,6 +5259,9 @@ If you're about to "improve" one, don't:
   condensed state, gates carry the proof, and git history carries the itemised record.
 - **Milestone 3 breadth inside the vertical slice.** The slice proves the thesis before expansion.
 - **Full storyteller presets in Milestone 2.** Only the slice director and an internal neutral baseline.
+- **The trap and the bait emitter in Milestone 2.** Cut to Milestone 3A by the owner on 2026-09-06;
+  the slice's building is walls, gate and barricades. docs/15's traps and bait sections stay as the
+  spec they will be built to.
 - **Z-level implementation before the thesis and streaming budgets are proven.**
 - **A second progression system beside attributes and the skill web.** Attributes are aptitude; the web
   is learned history.

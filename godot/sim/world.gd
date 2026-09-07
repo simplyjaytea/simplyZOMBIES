@@ -44,6 +44,10 @@ var map_generation: int:
 		mapGeneration = v
 
 var content: Variant = null
+# `extends` in zombie content, resolved once per type and kept here rather than in a static:
+# a static memo is shared between the two worlds a gate boots (CLAUDE.md's trap), and two worlds
+# may carry two trees. `SimShambler.resolved_entry` is the one writer.
+var content_resolved: Dictionary = {}
 var entities: Variant = null
 var components: Variant = null
 var commands: Variant = null
@@ -61,6 +65,11 @@ var weather: Dictionary = {}
 var needsHoldMax: bool = false
 var runOver: bool = false
 var recruits: Dictionary = {"accepted": 0, "spawned": []}
+# The chronicle (sim/modules/chronicle.gd): what happened to the colony, as `{tick, kind, name,
+# e}` records -- an Array, never an id-keyed Dictionary, because a save has no integer keys.
+# world.gd carries it the way it carries `recruits`: a shape it saves and restores without
+# knowing what the kinds mean.
+var chronicle: Array = []
 
 
 func _init(fixture: Dictionary) -> void:
@@ -203,6 +212,7 @@ func snapshot() -> Dictionary:
 		},
 		"runOver": runOver,
 		"player": int(player),
+		"chronicle": chronicle.duplicate(true),
 	}
 
 
@@ -230,6 +240,16 @@ func restore(snap: Dictionary) -> void:
 			"spawned": (r.get("spawned", []) as Array).duplicate(),
 		}
 	runOver = bool(snap.get("runOver", false))
+	chronicle = []
+	if snap.has("chronicle") and snap["chronicle"] is Array:
+		for rec in snap["chronicle"] as Array:
+			if rec is Dictionary:
+				chronicle.append({
+					"tick": int((rec as Dictionary).get("tick", 0)),
+					"kind": String((rec as Dictionary).get("kind", "")),
+					"name": String((rec as Dictionary).get("name", "")),
+					"e": int((rec as Dictionary).get("e", -1)),
+				})
 	if snap.has("player"):
 		player = int(snap["player"])
 	elif components != null:
@@ -450,18 +470,35 @@ func _integrate_movement(_world: Variant) -> void:
 			var facing: Dictionary = components.get_component(int(entity), "facing") as Dictionary
 			facing["radians"] = atan2(dy, dx)
 
+		# The press: the tile that stopped a wanted move this tick, or -1 when the move was
+		# free. A kernel fact with one reader -- `SimFortify._tick_pressure` counts the dead
+		# whose press tile is a barrier's -- written by key so a renamed key cannot silently
+		# un-press every barrier (the `vel["x"]` family; check_m2_fortify.gd PRESS asserts the
+		# keys). A body with no wanted move presses nothing.
+		velocity["pressX"] = -1
+		velocity["pressY"] = -1
 		var nx: float = float(position["x"]) + dx * TICK_SECONDS
-		if not _blocked_at(nx + _sign(dx) * BODY_RADIUS, float(position["y"]) - BODY_RADIUS) \
-				and not _blocked_at(nx + _sign(dx) * BODY_RADIUS, float(position["y"]) + BODY_RADIUS):
+		var lead_x: float = nx + _sign(dx) * BODY_RADIUS
+		if not _blocked_at(lead_x, float(position["y"]) - BODY_RADIUS) \
+				and not _blocked_at(lead_x, float(position["y"]) + BODY_RADIUS):
 			position["x"] = nx
 		else:
+			if dx != 0.0:
+				var py: float = float(position["y"]) - BODY_RADIUS if _blocked_at(lead_x, float(position["y"]) - BODY_RADIUS) else float(position["y"]) + BODY_RADIUS
+				velocity["pressX"] = floori(lead_x)
+				velocity["pressY"] = floori(py)
 			velocity["dx"] = 0.0
 
 		var ny: float = float(position["y"]) + dy * TICK_SECONDS
-		if not _blocked_at(float(position["x"]) - BODY_RADIUS, ny + _sign(dy) * BODY_RADIUS) \
-				and not _blocked_at(float(position["x"]) + BODY_RADIUS, ny + _sign(dy) * BODY_RADIUS):
+		var lead_y: float = ny + _sign(dy) * BODY_RADIUS
+		if not _blocked_at(float(position["x"]) - BODY_RADIUS, lead_y) \
+				and not _blocked_at(float(position["x"]) + BODY_RADIUS, lead_y):
 			position["y"] = ny
 		else:
+			if dy != 0.0:
+				var px: float = float(position["x"]) - BODY_RADIUS if _blocked_at(float(position["x"]) - BODY_RADIUS, lead_y) else float(position["x"]) + BODY_RADIUS
+				velocity["pressX"] = floori(px)
+				velocity["pressY"] = floori(lead_y)
 			velocity["dy"] = 0.0
 
 

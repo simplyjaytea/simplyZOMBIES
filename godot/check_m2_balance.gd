@@ -42,7 +42,10 @@ const Clock = preload("res://sim/time/clock.gd")
 const DAYS: int = 10
 const FAST_SEEDS: Array[int] = [20260805, 404, 31337, 90210]
 const FULL_SEEDS: Array[int] = [20260805, 404, 31337, 90210]
-const MAP_TILES: int = 64
+# 64 unless `BALANCE_TILES` names another size (the `BALANCE_DISTRICT` precedent): the chain's
+# FAST tier stays at 64 so its lines stay comparable, and the FULL tier can be run at the shipped
+# 256 by hand -- `BALANCE_FULL=1 BALANCE_TILES=256`.
+var _tiles: int = int(OS.get_environment("BALANCE_TILES")) if OS.get_environment("BALANCE_TILES") != "" else 64
 
 # Long enough for a packet placed on a district edge to close on the annex and be fought, short
 # enough that six seeds stay inside a couple of minutes. 2000 ticks is 100 seconds of sim.
@@ -229,6 +232,7 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		"siege_nights": 0,
 		"quiet_nights": 0,
 		"breaches": 0,
+		"withdrew": 0,
 		# The raid, reported rather than banded. A band is a 20% roll on a post-grace night and a
 		# ten-day campaign has three of those, so a floor here would be a coin toss; what the
 		# harness owes is the number, plus the assertion that already covers it -- a colony wiped
@@ -252,6 +256,9 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		# is the floor, `_the_grab_counters_can_see_a_grab` is the counters' own true negative.
 		"grabs": 0,
 		"broken": {},
+		# Container searches by anybody but the player: the Scavenge job's reach into the district
+		# (2026-09-06, the playable state). Reported, not banded.
+		"npc_searches": 0,
 		"seen_dead": {},
 		"turned": 0,
 		"recruits": 0,
@@ -279,6 +286,9 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 	for e in w.events.drained:
 		var ev: Dictionary = e as Dictionary
 		match String(ev.get("type", "")):
+			"container.searched":
+				if int(ev.get("actor", -1)) != int(w.player):
+					run["npc_searches"] = int(run["npc_searches"]) + 1
 			"director.packet":
 				run["packets"] = int(run["packets"]) + 1
 			"director.raid":
@@ -287,6 +297,8 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 					run["raiders_in"] = int(run["raiders_in"]) + int(ev.get("size", 0))
 			"raider.killed":
 				(run["dead_raiders"] as Dictionary)[int(ev.get("entity", -1))] = true
+			"raid.withdrew":
+				run["withdrew"] = int(run.get("withdrew", 0)) + 1
 			"fortify.breached":
 				run["breaches"] = int(run["breaches"]) + 1
 			"recruit.arrived":
@@ -342,7 +354,7 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 		var live: int = _live(w)
 		if live > int(run["max_live"]):
 			run["max_live"] = live
-		if live > SimDirector.LIVE_CAP:
+		if live > SimDirector.live_cap_for(w):
 			run["over_cap"] = int(run["over_cap"]) + 1
 	if not before is Array:
 		return
@@ -369,14 +381,14 @@ func _close_run(w: Variant, run: Dictionary) -> void:
 
 
 func _print_run(label: String, run: Dictionary) -> void:
-	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d broken=%s" % [
+	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown/%dleft) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d searches=%d broken=%s" % [
 		label, int(run["seed"]), String(run["arm"]), int(run["days"]),
 		int(run["siege_nights"]), int(run["quiet_nights"]), int(run["packets"]),
-		int(run["raids"]), int(run["raiders_in"]), int(run["raiders_killed"]),
+		int(run["raids"]), int(run["raiders_in"]), int(run["raiders_killed"]), int(run.get("withdrew", 0)),
 		int(run["breaches"]), int(run["kills"]), int(run["melee_kills"]), int(run["ranged_kills"]),
 		int(run["deaths"]), int(run["turned"]), int(run["recruits"]), int(run["max_live"]),
 		int(run["survivors_end"]), int(run["survivors_start"]), str(run["run_over"]),
-		int(run["grabs"]), str(run["broken"]),
+		int(run["grabs"]), int(run["npc_searches"]), str(run["broken"]),
 	])
 
 
@@ -391,7 +403,7 @@ func _assert_invariants(runs: Array[Dictionary]) -> bool:
 			push_error("seed %d placed %d packets on a gate, in the annex, or inside GATE_EXCLUSION" % [int(run["seed"]), int(run["illegal_placements"])])
 			ok = false
 		if int(run["over_cap"]) > 0:
-			push_error("seed %d exceeded LIVE_CAP %d on %d ticks (max %d)" % [int(run["seed"]), SimDirector.LIVE_CAP, int(run["over_cap"]), int(run["max_live"])])
+			push_error("seed %d exceeded the live cap on %d ticks (max %d)" % [int(run["seed"]), int(run["over_cap"]), int(run["max_live"])])
 			ok = false
 		if int(run["survivors_start"]) < 1:
 			push_error("seed %d booted with no survivors, so it measures nothing" % int(run["seed"]))
@@ -400,7 +412,7 @@ func _assert_invariants(runs: Array[Dictionary]) -> bool:
 			push_error("seed %d arm %s: %d colonist(s) started the campaign with nothing to fight with" % [int(run["seed"]), String(run["arm"]), int(run["unarmed_at_boot"])])
 			ok = false
 	if ok:
-		print("INVARIANTS OK placement, cap %d, %d runs" % [SimDirector.LIVE_CAP, runs.size()])
+		print("INVARIANTS OK placement, cap %d at %d tiles, %d runs" % [SimDirector.live_cap_for(SimBoot.bare(int(FULL_SEEDS[0]), _tiles)["world"]), _tiles, runs.size()])
 	return ok
 
 
@@ -546,9 +558,9 @@ func _assert_arms_are_comparable(by_arm: Dictionary) -> bool:
 	var ok: bool = true
 	var melee: Dictionary = by_arm["melee"] as Dictionary
 	var ranged: Dictionary = by_arm["ranged"] as Dictionary
-	# The director spends its first week on grace and trickle -- `GRACE_PRESSURE_UNTIL_DAY` is 8 --
-	# so a shortened grid is a grid nothing attacked, and an arm cannot be judged on a campaign it
-	# was never pressured in. Refuse to assert rather than assert on no data, and say so loudly.
+	# The director's first `GRACE_NIGHTS` nights are grace, so a grid shortened to fewer days is
+	# a grid nothing attacked, and an arm cannot be judged on a campaign it was never pressured
+	# in. Refuse to assert rather than assert on no data, and say so loudly.
 	if int(melee["packets"]) + int(ranged["packets"]) < 1:
 		print("ARMS SKIPPED no packets across the grid at %d days -- risk 6 needs a full %d-day run" % [_days, DAYS])
 		return true
@@ -571,7 +583,7 @@ func _assert_arms_are_comparable(by_arm: Dictionary) -> bool:
 # about, because it is what would say the item and web systems need shrinking rather than the UI
 # improving.
 func _six_survivors_on_auto() -> bool:
-	var w: Variant = SimBoot.playable(int(FULL_SEEDS[0]), MAP_TILES)["world"]
+	var w: Variant = SimBoot.playable(int(FULL_SEEDS[0]), _tiles)["world"]
 	var rng: Variant = w.rng.stream("recruit")
 	var pos: Dictionary = w.components.get_component(w.player, "position") as Dictionary
 	var roster: Array[int] = []
@@ -621,7 +633,7 @@ func _district() -> String:
 
 
 func _boot(seed_value: int, arm: String) -> Variant:
-	var w: Variant = SimBoot.playable(seed_value, MAP_TILES, _district())["world"]
+	var w: Variant = SimBoot.playable(seed_value, _tiles, _district())["world"]
 	_configure_arm(w, arm)
 	w.events.drain()
 	return w

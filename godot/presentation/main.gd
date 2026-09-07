@@ -34,6 +34,7 @@ const ContentReload = preload("res://platform/content_reload.gd")
 const ContentValidator = preload("res://platform/content_validator.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
+const Pick = preload("res://presentation/pick.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -525,6 +526,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			world.commands.push({"type": "aim", "radians": _last_aim})
 	if event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		if world != null and not inventory_open:
+			# A click on a colonist selects them -- their needs, pain and condition take the
+			# HUD's left column in the third person until you click yourself or they die. A
+			# click on your own pawn clears it. Anything else is the attack below, exactly as
+			# before: Pick answers -1 for the street, a zombie, a corpse, a body you cannot see.
+			var hit: int = Pick.pick_colonist(world, camera, (event as InputEventMouseButton).position)
+			if hit >= 0:
+				_selected = -1 if hit == int(world.player) else hit
+				_update_hud()
+				queue_redraw()
+				return
 			# Aim at the click first, then attack with whatever is actually in hand: the
 			# trigger if a ranged weapon is equipped (fire converts itself to a reload on an
 			# empty magazine -- ranged.gd owns that), the swing otherwise. G and F remain as
@@ -739,6 +750,11 @@ func _update_hud() -> void:
 			base += "  %s" % String(look["noisemaker"])
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
+	# A selection outlives nothing: a colonist who died, turned, walked out or became the body
+	# you are now driving drops back to your own lines rather than leaving the HUD speaking of
+	# somebody who is not there.
+	if _selected >= 0 and (_selected == int(world.player) or not world.components.has_component(_selected, "identity") or world.components.has_component(_selected, "corpse")):
+		_selected = -1
 	var who: int = _selected if _selected >= 0 else int(world.player)
 	if bool(world.runOver):
 		base += "  RUN OVER"
@@ -834,6 +850,8 @@ func _draw_district() -> void:
 						col = Palette.COLOURS["low"]
 					SimTileMap.Tile.Tree:
 						col = Palette.COLOURS["tree"]
+					SimTileMap.Tile.Door:
+						col = Palette.COLOURS["door"]
 				var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
 				if ov is Dictionary:
 					var kind: String = String((ov as Dictionary).get("kind", ""))
@@ -880,6 +898,20 @@ func _draw_district() -> void:
 							# Inset block with floor showing around it reads as waist-high.
 							var inset: float = zoom * 0.15625
 							draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
+				SimTileMap.Tile.Door:
+					# The door tile draws its state: shut, a plank of the wall's timber filling the
+					# doorway (the class's palette colour, `door`); open or broken, the doorway it
+					# always was -- the threshold boards between the jambs and the face picture.
+					# The state is the overlay `sync_map` wrote off the `door` entity; a Door tile
+					# with no overlay (a map nobody booted) is open.
+					var door_ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+					var shut: bool = door_ov is Dictionary and String((door_ov as Dictionary).get("kind", "")) == "door" and not bool((door_ov as Dictionary).get("open", false))
+					if shut:
+						_draw_solid_tile(rect, Palette.COLOURS["door"], tx, ty)
+					else:
+						var door_floor: Color = Appearance.indoor_floor(world.tilemap, tx, ty, ground)
+						_draw_threshold(rect, door_floor, tx, ty)
+						_draw_door_face(rect, dress, tx, ty)
 				SimTileMap.Tile.Tree:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
 					# A tree with a picture stands in the entity sort (Dressing.tree_tiles feeds
@@ -1667,6 +1699,11 @@ func _draw_entities() -> void:
 		# it is the same number Appearance.body_rect stands a pawn's soles on, so the shadow line
 		# and the sole line cannot drift apart.
 		draw_colored_polygon(_shadow_ellipse(sx, sy + Appearance.FOOT_DROP_PX, r * 0.55, r * 0.22), Color(0, 0, 0, 0.35))
+		# The selected colonist stands in a thin ring on the same shadow line: the one mark that
+		# says whose lines the HUD is speaking, in the player colour because those lines are
+		# yours to read. Nothing else about the pawn changes.
+		if eid == _selected:
+			draw_arc(Vector2(sx, sy + Appearance.FOOT_DROP_PX), r * 0.7, 0.0, TAU, 24, Palette.COLOURS["player"], 1.5)
 		var texture: Texture2D = look["texture"] as Texture2D
 		if texture != null:
 			# Scaled by px_scale so a body covers the same fraction of a tile at every step on

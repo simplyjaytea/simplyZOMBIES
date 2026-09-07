@@ -110,7 +110,7 @@ describe("the shipped content", () => {
   it("ships the alpha roster, kit, and district overlay", () => {
     const registry = loadRealContent();
     const bloater = registry.getOrThrow("zombie", "zombie.bloater");
-    expect(bloater["behaviors"]).toEqual(["shamble", "pursue", "blooms_on_death"]);
+    expect(bloater["behaviors"]).toEqual(["shamble", "pursue", "grab", "blooms_on_death"]);
     expect(bloater["locomotion"]).toMatchObject({ speed: 0.7 });
     const bow = registry.getOrThrow("item", "item.bow.hunting");
     expect(bow["ranged"]).toMatchObject({ noise: 4, ammo: "item.ammo.arrow" });

@@ -8,5 +8,5 @@
   "locomotion": { "speed": 0.7, "wander": 0.3, "mill": 0.25, "crawl": 0.25 },
   "body": { "head": 30, "torso": 50, "legs": 40 },
   "grab": { "strength": 0.3 },
-  "behaviors": ["shamble", "pursue", "blooms_on_death"]
+  "behaviors": ["shamble", "pursue", "grab", "blooms_on_death"]
 }
