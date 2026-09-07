@@ -2700,13 +2700,14 @@ records its own numbers here as a bullet under this entry when it lands.
   every type's primary threat, and `behaviors` replaces rather than merges. The reach of sight
   as a stimulus is the type's `sensory.light` on its eyes, `range × sqrt(light)` — the weight is
   docs/14's "poor eyesight" as a number, and the square root because a tenth of 12 m is 1.2 m,
-  inside the 1.6 m contact the slice exists to fix. **And the stimulus ships off**
-  (`SimShambler.SIGHT_ENABLED`, the grabs-flag precedent) — not a reversal of decision 3 but its
-  sequencing: measured on the FAST tier, sight that closes on a colonist wipes seeds at 12 m
-  and at 3.8 m alike, because a shambler whose hold a struggle broke re-takes the colonist it
-  can still see, and until the torso slice a colonist with a knife cannot finish it. The
-  colony's one escape today is that a shambler loses you past `RELEASE_METRES`; the flip is a
-  named piece and waits for the colony's answer, on the same four seeds. And the dead recast
+  inside the 1.6 m contact the slice exists to fix. **And the stimulus shipped off for one
+  slice** (`SimShambler.SIGHT_ENABLED`, the grabs-flag precedent) — not a reversal of decision
+  3 but its sequencing: measured on the FAST tier, sight that closes on a colonist wiped seeds
+  at 12 m and at 3.8 m alike, because a shambler whose hold a struggle broke re-took the
+  colonist it could still see, and until the torso slice a colonist with a knife could not
+  finish it. The torso slice gave the colony that answer and the same four seeds held with
+  sight alone, so it ships on from the commit after that slice; the table's flip waits on its
+  own measurement. And the dead recast
   their sight only every two tiles (`ZOMBIE_RECAST_TILES`): the shadowcast is the
   oracle's algorithm ported cell for cell and stays so, a 12-tile cast is ~1.5 ms, and eighty
   bodies casting on every tile crossing were a third of a 256-tile step; walls a tile off their

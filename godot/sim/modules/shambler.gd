@@ -556,17 +556,19 @@ static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary) 
 	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0))
 
 
-# Sight as a stimulus ships **off**, the way grabs did (GRABS_ENABLED above: landed, gated,
-# flipped when the colony could answer). Every zombie has eyes either way -- the screamer's
-# alarm, the lit-target rule and the recast rule are on -- but a Wandering or Seeking body does
-# not *close* on what it sees until this is true. Measured, the playable-state group's fifth
-# piece: with it on, the FAST tier wiped two seeds in four -- a shambler whose hold was broken
-# could see the colonist it had just released and took them again, at any reach above
-# RELEASE_METRES, and a kitchen knife cannot finish a shambler while torso hits are inert. The
-# torso slice gives the colony that answer; the flip is a named piece in docs/23's playable-
-# state group and waits on it. A gate-drivable static: `check_m2_roster.gd` EYES pins it true
-# and restores it, one gate process sharing it across every world it boots.
-static var SIGHT_ENABLED: bool = false
+# Sight as a stimulus, the way grabs were landed (GRABS_ENABLED above: built, gated, shipped
+# off, flipped when the colony could answer). Every zombie has eyes either way -- the
+# screamer's alarm, the lit-target rule and the recast rule never waited on this -- but a
+# Wandering or Seeking body *closes* on what it sees only while this is true. It shipped
+# `false` for one slice (the playable-state group's fifth piece): with it on, the FAST tier
+# wiped two seeds in four, because a shambler whose hold a struggle broke could see the
+# colonist it had just released and took them again at any reach above RELEASE_METRES, and a
+# kitchen knife could not finish a shambler while torso hits were inert. The torso slice gave
+# the colony that answer, and re-measured with it the floor holds on all four seeds (docs/23's
+# Lethality record), so it ships `true` -- the owner's decision 3, executed. A gate-drivable
+# static: `check_m2_roster.gd` EYES pins it both ways and restores it, one gate process sharing
+# it across every world it boots.
+static var SIGHT_ENABLED: bool = true
 
 
 static func _seen_target(world: Variant, entity: int, survivors: Array, shambler_data: Dictionary) -> Variant:
