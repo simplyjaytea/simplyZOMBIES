@@ -8,6 +8,6 @@
   "body": { "head": 20, "torso": 40, "legs": 30 },
   "grab": { "strength": 0.3 },
   "emits": [{ "channel": "noise", "magnitude": 4 }],
-  "behaviors": ["shamble", "pursue", "alarm_on_sight"],
+  "behaviors": ["shamble", "pursue", "grab", "alarm_on_sight"],
   "alarm": { "magnitude": 300, "relay": true, "cooldownTicks": 600 }
 }

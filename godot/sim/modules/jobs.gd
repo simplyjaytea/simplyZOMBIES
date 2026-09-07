@@ -1382,7 +1382,14 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 			# under one stands where it is.
 			if String(n.get("temperature", "")).ends_with("hot"):
 				var roof: Vector2i = _nearest_roof(world, x, y)
-				if roof.x >= 0 and not _at(world, ent, roof, REACH):
+				# Walked until the body's *own* tile is the roofed one -- `_nearest_roof` returns
+				# that tile once it is. This used to be `not _at(roof, REACH)`, and REACH 1.5
+				# reaches a tile from the doorstep outside it: a body one tile short of the door
+				# read "arrived", was handed no job, and stood there hot until the sky changed.
+				# The eyes slice found it -- twenty boot shamblers had been bending every route
+				# the weather gate's SEEK lane walked (a body's tile blocks A*), and with them
+				# gone the straight walk ended on the doorstep.
+				if roof.x >= 0 and roof != Vector2i(floori(x), floori(y)):
 					var sj5: Dictionary = {"kind": "Seek", "target": -1, "path": [], "pathGen": -1}
 					_walk(world, ent, sj5, roof)
 					world.components.set_component(ent, "job", sj5)

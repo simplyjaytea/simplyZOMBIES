@@ -2683,6 +2683,36 @@ records its own numbers here as a bullet under this entry when it lands.
   and a flat 32 at 256 would have refused every night from the first. Measured at 256: ~105
   ticks a second against ~1,085 at 64, which the record carries as the price every later
   256-tile measurement pays.
+- **Eyes see what is lit, and only the dead's eyes do, 2026-09-06.** A zombie's sight samples
+  the light at the target (`lit_target` on `shambler_eyes()`), because the oracle's rule —
+  `min(eyes, max(ambient, lit at the observer))` — is a rule about how far *you* can see from
+  where you stand, and applied to the dead it made every zombie blind after dark and blind to a
+  survivor under a floodlight, which is the screamer's purpose inverted. The player's eyes keep
+  the oracle's rule on purpose: `tiles_for(player)` is what cuts roofs out and pools the light
+  wash, and a 48 m shadowcast after dark would open every roof in sight; a survivor seeing a
+  lit window across the dark is a presentation decision for another day, and NIGHT-LIT pins the
+  scoping so it cannot widen unnoticed. Waves: `introducedInWave` n arrives on day
+  `1 + 2n`, so wave 1 is the day-3 mix the old constant opened; the stride is the one number
+  the old rule had, and docs/14's "week 6" schedule is Milestone 3's to re-time. `extends` is
+  resolved per world on `world.content_resolved` rather than in a static because a static memo
+  is shared between the two worlds a gate boots, and the EXTENDS lane boots two with two trees
+  to prove the difference. Screamer and bloater declare `grab` because docs/14 makes the grab
+  every type's primary threat, and `behaviors` replaces rather than merges. The reach of sight
+  as a stimulus is the type's `sensory.light` on its eyes, `range × sqrt(light)` — the weight is
+  docs/14's "poor eyesight" as a number, and the square root because a tenth of 12 m is 1.2 m,
+  inside the 1.6 m contact the slice exists to fix. **And the stimulus ships off**
+  (`SimShambler.SIGHT_ENABLED`, the grabs-flag precedent) — not a reversal of decision 3 but its
+  sequencing: measured on the FAST tier, sight that closes on a colonist wipes seeds at 12 m
+  and at 3.8 m alike, because a shambler whose hold a struggle broke re-takes the colonist it
+  can still see, and until the torso slice a colonist with a knife cannot finish it. The
+  colony's one escape today is that a shambler loses you past `RELEASE_METRES`; the flip is a
+  named piece and waits for the colony's answer, on the same four seeds. And the dead recast
+  their sight only every two tiles (`ZOMBIE_RECAST_TILES`): the shadowcast is the
+  oracle's algorithm ported cell for cell and stays so, a 12-tile cast is ~1.5 ms, and eighty
+  bodies casting on every tile crossing were a third of a 256-tile step; walls a tile off their
+  true offset are an approximation a zombie can afford and a person cannot, so a survivor's cast
+  still moves with their tile. Measured before choosing — a tick stride did nothing, because
+  casts follow tile crossings, not ticks.
 
 ---
 

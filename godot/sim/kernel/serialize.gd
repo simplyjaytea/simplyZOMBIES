@@ -48,7 +48,11 @@ extends RefCounted
 # and the applied move multiplier, and the `weather` stream's draw order changed with the kind
 # roll. A v20 save has `raining` and no kind: restored into a v21 world it would read clear and
 # drift a wind off a stream already spent. Refused, same rule.
-const SAVE_VERSION: int = 21
+# 22: every zombie has eyes and its senses are content. A `shambler` component carries
+# `noiseSense` / `scentSense` / `lightSense` and every zombie an `observer`; a v21 save's
+# zombies have neither, and would load deaf to their own type's thresholds and blind. Refused,
+# same rule.
+const SAVE_VERSION: int = 22
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

@@ -182,13 +182,14 @@ these are the pieces they open, in the order they land (colony loop, density, zo
 breaching, lethality, presentation). Each is one session with its own gate; five of them
 re-baseline the FAST balance record and say so in their record.
 
-- **Every zombie has eyes, and its senses are content.** Every zombie gets an observer;
-  `sensory`, `spread` and `introducedInWave` are read; `extends` is resolved the way the
-  frozen oracle resolves it; sight is sampled lit-at-the-target so the screamer sees at
-  night. `godot:m2:sight`, `godot:m2:roster`; re-baseline.
 - **Two grace nights, then the table.** From night 3 the director draws from the strain
   table every night; the `live < 8` trickle goes; the lull's dead opening edge is written.
   `godot:m2:director`; re-baseline.
+- **The dead see: the flip.** `SimShambler.SIGHT_ENABLED` ships `false` (the eyes slice's
+  record says what the FAST tier did with it on: two seeds in four wiped, a released colonist
+  re-taken by the shambler that could still see them). It flips to `true` once the colony can
+  finish a shambler it is fighting — after the torso slice, measured on the same four seeds —
+  and the EYES lane already pins both halves. Re-baseline.
 - **The dead write to the field from content.** Every zombie carries an attention emitter
   built from its `emits` block, residue is laid in every state and `field_memory.gd` retires;
   bloater contamination rolls once per cloud. `godot:m2:roster`; the migration driver;
@@ -3306,6 +3307,102 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Roster & Sight** — ~~every zombie has eyes, and its senses are content~~ **landed**
+  (`godot:m2:roster` EYES, EXTENDS, SENSES, WAVE, SCREAMER-NIGHT; `godot:m2:sight` NIGHT-LIT),
+  2026-09-06, the fifth piece of the playable-state group and the owner's decision 3. What was
+  wrong: a shambler acquired a survivor only inside `CONTACT_METRES` 1.6, the screamer alone
+  had an observer, and the whole docs/14 sensory table — `sensory`, `spread`,
+  `introducedInWave`, and the `extends` every type declares — was read by nothing, so every
+  zombie heard at 0.2, smelled at 0.9 and leaned to light at 0.1 whatever its JSON said, and
+  the screamer and bloater, declaring `behaviors` without the base's `grab`, could not grab at
+  all. Now: **every zombie spawns with `shambler_eyes()`**, and sight is a stimulus in
+  `shambler.think` — a Wandering or Seeking body that has a survivor at `detail != Unseen`
+  heads for the nearest at seek speed with the noise commit (`COMMIT_TICKS`), and Pursue stays
+  the 1.6 m contact it was, because the grab is a contact; a body with no observer sees
+  nothing, so every fixture that predates eyes behaves as it did. How far the stimulus reaches
+  is the type's `sensory.light` on its eyes (`SimShambler.sight_reach`, `range × sqrt(light)`:
+  3.8 m for the shambler and bloater at 0.1, 11.4 m for the screamer at 0.9). **The stimulus
+  ships off — `SimShambler.SIGHT_ENABLED` is `false`, the GRABS_ENABLED precedent — and the
+  half that did not ship is the half the record is about.** Measured, on the FAST tier, with
+  it on: at the eyes' full 12 m seed 404 **wiped on day two**; at 3.8 m seeds 20260805 and
+  90210 wiped instead (deaths 4 / 4 / 0 / 3). The diagnostic (an `_observe` override on the
+  harness printing every grab and death against the day, the window and the nearest lit fire;
+  deleted) showed the loop: two boot wanderers re-grab Ellis and Mara forty times in one dusk
+  window with no kill, because a shambler whose hold a struggle broke can *see* the colonist it
+  just released and takes them again — at any reach above `RELEASE_METRES` 3.2, which is the
+  distance that used to end a pursuit and was the colony's one escape — and a kitchen knife
+  cannot finish a shambler while torso hits are inert (the torso slice's). Not the fire: no
+  grab or death happened within 20 m of a lit campfire. The compressed tier also freezes the
+  bodies that converged between one dusk and the next (day 2's window opens with ten of twenty
+  wanderers inside 12 m of a colonist), so it overstates what the shipped district does by
+  day; but the loop itself is real, and `survivors_end >= 1` is the standing assertion that
+  the shipped default survives its own contact loop, so the stimulus waits behind the flag
+  until the colony can kill what it sees — "the dead see: the flip", in what's left. **`extends` is resolved**
+  (`SimShambler.resolved_entry`, `SimRoster.content_entry` is its name) the way the frozen
+  oracle resolves it — child wins, objects merge, arrays replace — memoised on
+  `world.content_resolved`, never in a static; the earlier "a shambler's body is its own" note
+  above is now belt and braces rather than the only reason the shambler had a body. The
+  `sensory` block is per body (`noiseSense`, `scentSense`, `lightSense` on the `shambler`
+  component; a sense of 0 hears nothing, docs/14's "no single silence"), `spread.radians` is
+  the bias draw's width, and `introducedInWave` gates the mix: wave 0 from day 1 and each
+  later wave two days on (`WAVE_DAY_STRIDE`, so wave 1 is the old day 3), with no draw made on
+  a day where only the shambler is due, so the placement stream is untouched where it was
+  untouched before. **A zombie's sight is sampled lit-at-the-target**: `shambler_eyes()` carries
+  `lit_target`, the shadowcast is cast at the eyes' full 12 m and `detail` answers seen inside
+  the ambient reach *or* where `light.lit_metres` says the target's own tile is lit — never
+  through a wall — so the screamer, blind at 0.48 m after dark, alarms over a survivor under a
+  floodlight at 8 m and still not over an unlit one. The player's eyes keep the oracle's rule on
+  purpose (docs/30). The screamer and bloater gained `grab` in `behaviors`. `SAVE_VERSION` 22.
+  EYES (the flag pinned on, then restored): a shambler with a survivor 3 m ahead in daylight,
+  nothing to hear or smell, is Seeking on tick 1 and 2.1 m closer at tick 80 (it caught
+  them); the same body with its observer stripped never leaves Wander; the bloater and
+  screamer spawn with eyes and `canGrab`; at 8 m the shambler (reach 3.8) wanders and the
+  screamer (reach 11.4) seeks; and with the flag off, as it ships, the 3 m survivor draws no
+  seek — the flag is read. EXTENDS: two worlds with two
+  trees resolve a child's inherited `spread` to 0.3 and 0.9 apart, objects merge child-wins,
+  arrays replace, the memo hands the same object back, and the shipped three carry `spread`,
+  the base `grab` and only their own tags. SENSES: a noise at seven times the floor sends the
+  shambler (0.2) to Seek and not the bloater (0.1); a lamp 8 m north turns a wandering shambler
+  0.079 rad and a screamer 0.707. WAVE: the shipped screamer arrives on day 3; moved to wave 2
+  in a copied tree it waits for day 5, and 300 day-3 draws on that tree hold no screamer and 28
+  bloaters. SCREAMER-NIGHT and NIGHT-LIT: lit at 8 or 10 m after dark is seen (Focal), unlit is
+  not, lit behind a wall is not, and the player's eyes over a lit zombie 10 m off stay Unseen.
+  **Measured at 256 (the density slice's driver, re-run with eyes, deleted again), and what it
+  cost.** Eighty pairs of eyes took the district from 110 to 68 ticks a second on seed 20260805,
+  and three guesses at why were each wrong before a per-system profile (a throwaway, deleted)
+  said: `kernel.visibility` 32 % of the step, `shambler.think` 20 %, and inside visibility the
+  shadowcast itself — a 12-tile cast is ~1.5 ms of GDScript and eighty bodies crossing tiles
+  cast ~2.6 times a tick. Not the String cache key (ints: 70), not `_seen_target` (disabled:
+  71), not a four-tick refresh stride (68 — casts are driven by tile crossings, not ticks). The
+  fix that answered is `ZOMBIE_RECAST_TILES` 2: a `lit_target` observer keeps its cast until it
+  has walked two tiles from where it cast (a person's cast still moves with their tile), which
+  cut recasts threefold (26,150 → 8,679 over 10,000 ticks) and gave back **83 ticks a second**
+  on that seed. The four seeds on the landed code with the stimulus
+  on, 20,000 ticks each: **84 / 94 / 84 / 95 ticks a second** against the density slice's
+  109 / 99 / 109 / 114 — eyes on eighty bodies cost about a sixth of the step, and at the end
+  of that first hour 22 / 8 / 17 / 21 of them were Seeking or Pursuing somebody, where before
+  eyes the count was whatever had walked into 1.6 m. With the stimulus off, as it ships, the
+  `_seen_target` share of `shambler.think` is not paid; the recast rule and the eyes are. The next cost lines are `shambler.think` (20 % of a step,
+  `_seen_target` asking `detail` for each survivor) and `sightings.observe` (9 %), named here
+  for the emitters slice, which adds eighty more writers to the field.
+  **Two lanes moved and one defect surfaced, and it is worth saying which.** `godot:m2:raiders`
+  APPROACH and `godot:m2:weather` SEEK both boot a 64-tile district and walk a body across it —
+  a band to the annex, a hot colonist to a roof — and with eyes the boot wanderers see that
+  walk at 12 m and end it (seed 90210's band "closed" 2.5 m; the colonist lost its `position`
+  mid-lane). Both lanes now despawn the boot shamblers first, because each judges a route and
+  the fight has its own lane (PREY, and the contact gates). Stripping them exposed a defect
+  the shamblers had hidden: the hot seek's arrival test was `_at(roof, REACH)`, and REACH 1.5
+  reaches a roofed tile from the doorstep outside it, so a body one tile short of the door was
+  handed no job and stood there hot until the sky changed — twenty wanderers had bent every
+  route the lane walked (a body's tile blocks A*) so the walk never ended on a doorstep. The
+  test is now "the body's own tile is the roofed one" (`_nearest_roof` returns that tile once it
+  is); SEEK reaches its roof at tick 356 where it read 381 with the wanderers in the way.
+  **Re-baseline #1**, the FAST tier at 64, with the stimulus off as it ships: siege 2 / 1 / 3 /
+  2 and packets 2 / 1 / 3 / 2 as before (the director is untouched), max_live 26 / 25 / 32 /
+  25 (one fewer on seed 90210), survivors 2 / 1 / 2 / 3 of 3 (unchanged), grabs 158 / 69 / 76 /
+  50 against 158 / 69 / 81 / 35 — what moved is the two later seeds' contact counts, which is
+  the screamer and the bloater now able to grab from day 3 and each type hearing at its own
+  threshold. Every band holds; nothing re-pinned.
 - **District & Director** — ~~the boot population scales with the district~~ **landed**
   (`godot:m2:district` BOOT DENSITY, `godot:m2:director` CAP, `godot:check:worldgen` at both
   sizes), 2026-09-06, the fourth piece of the playable-state group and the owner's decision 5.

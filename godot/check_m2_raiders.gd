@@ -305,6 +305,14 @@ func _the_band_closes_on_the_colony() -> bool:
 		if annex.size.x <= 0:
 			push_error("seed %d booted a district with no annex to walk at" % int(seed_value))
 			return false
+		# The boot shamblers go before the band walks. This lane judges the *route* -- that the
+		# gate the director picked is reachable from the edge -- and since every zombie has eyes
+		# (the playable-state group's fifth piece) a wanderer sees a band at 12 m and closes on
+		# it, and the band halts to fight at HALT_METRES; on seed 90210 that engagement began
+		# within a few metres of the edge and the band "closed" 2.5 m in 1200 ticks. The fight is
+		# PREY's assertion below, with its own arena. `world.despawn`, not `entities.despawn`.
+		for zed in w.components.query(["shambler"]):
+			w.despawn(int(zed))
 		var band: Array[int] = _place_band(w, 3)
 		if band.is_empty():
 			push_error("seed %d: could not place a band on a district edge" % int(seed_value))
