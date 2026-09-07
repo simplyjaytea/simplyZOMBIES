@@ -42,7 +42,10 @@ const Clock = preload("res://sim/time/clock.gd")
 const DAYS: int = 10
 const FAST_SEEDS: Array[int] = [20260805, 404, 31337, 90210]
 const FULL_SEEDS: Array[int] = [20260805, 404, 31337, 90210]
-const MAP_TILES: int = 64
+# 64 unless `BALANCE_TILES` names another size (the `BALANCE_DISTRICT` precedent): the chain's
+# FAST tier stays at 64 so its lines stay comparable, and the FULL tier can be run at the shipped
+# 256 by hand -- `BALANCE_FULL=1 BALANCE_TILES=256`.
+var _tiles: int = int(OS.get_environment("BALANCE_TILES")) if OS.get_environment("BALANCE_TILES") != "" else 64
 
 # Long enough for a packet placed on a district edge to close on the annex and be fought, short
 # enough that six seeds stay inside a couple of minutes. 2000 ticks is 100 seconds of sim.
@@ -348,7 +351,7 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 		var live: int = _live(w)
 		if live > int(run["max_live"]):
 			run["max_live"] = live
-		if live > SimDirector.LIVE_CAP:
+		if live > SimDirector.live_cap_for(w):
 			run["over_cap"] = int(run["over_cap"]) + 1
 	if not before is Array:
 		return
@@ -397,7 +400,7 @@ func _assert_invariants(runs: Array[Dictionary]) -> bool:
 			push_error("seed %d placed %d packets on a gate, in the annex, or inside GATE_EXCLUSION" % [int(run["seed"]), int(run["illegal_placements"])])
 			ok = false
 		if int(run["over_cap"]) > 0:
-			push_error("seed %d exceeded LIVE_CAP %d on %d ticks (max %d)" % [int(run["seed"]), SimDirector.LIVE_CAP, int(run["over_cap"]), int(run["max_live"])])
+			push_error("seed %d exceeded the live cap on %d ticks (max %d)" % [int(run["seed"]), int(run["over_cap"]), int(run["max_live"])])
 			ok = false
 		if int(run["survivors_start"]) < 1:
 			push_error("seed %d booted with no survivors, so it measures nothing" % int(run["seed"]))
@@ -406,7 +409,7 @@ func _assert_invariants(runs: Array[Dictionary]) -> bool:
 			push_error("seed %d arm %s: %d colonist(s) started the campaign with nothing to fight with" % [int(run["seed"]), String(run["arm"]), int(run["unarmed_at_boot"])])
 			ok = false
 	if ok:
-		print("INVARIANTS OK placement, cap %d, %d runs" % [SimDirector.LIVE_CAP, runs.size()])
+		print("INVARIANTS OK placement, cap %d at %d tiles, %d runs" % [SimDirector.live_cap_for(SimBoot.bare(int(FULL_SEEDS[0]), _tiles)["world"]), _tiles, runs.size()])
 	return ok
 
 
@@ -577,7 +580,7 @@ func _assert_arms_are_comparable(by_arm: Dictionary) -> bool:
 # about, because it is what would say the item and web systems need shrinking rather than the UI
 # improving.
 func _six_survivors_on_auto() -> bool:
-	var w: Variant = SimBoot.playable(int(FULL_SEEDS[0]), MAP_TILES)["world"]
+	var w: Variant = SimBoot.playable(int(FULL_SEEDS[0]), _tiles)["world"]
 	var rng: Variant = w.rng.stream("recruit")
 	var pos: Dictionary = w.components.get_component(w.player, "position") as Dictionary
 	var roster: Array[int] = []
@@ -627,7 +630,7 @@ func _district() -> String:
 
 
 func _boot(seed_value: int, arm: String) -> Variant:
-	var w: Variant = SimBoot.playable(seed_value, MAP_TILES, _district())["world"]
+	var w: Variant = SimBoot.playable(seed_value, _tiles, _district())["world"]
 	_configure_arm(w, arm)
 	w.events.drain()
 	return w

@@ -97,8 +97,9 @@ func _run() -> void:
 	ok = _the_colony_is_sited_per_seed_and_survivable() and ok
 	ok = _the_survivability_pass_can_fail() and ok
 	ok = _a_refused_candidate_moves_the_colony_to_the_next_one() and ok
+	ok = _the_boot_population_scales_with_the_district() and ok
 	if ok:
-		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site")
+		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site density")
 		quit(0)
 	else:
 		push_error("M2_DISTRICT_FAIL")
@@ -223,8 +224,8 @@ func _playable_boot() -> bool:
 			screamers += 1
 		elif id == "zombie.bloater":
 			bloaters += 1
-	if zeds != SimBoot.WANDERERS or screamers != 0 or bloaters != 0:
-		push_error("day-1 boot z=%d s=%d b=%d want %d shamblers" % [zeds, screamers, bloaters, SimBoot.WANDERERS])
+	if zeds != SimBoot.wanderers_for(64) or screamers != 0 or bloaters != 0:
+		push_error("day-1 boot z=%d s=%d b=%d want %d shamblers" % [zeds, screamers, bloaters, SimBoot.wanderers_for(64)])
 		return false
 	var ground: int = 0
 	for e2 in world.components.query(["itemBase", "position"]):
@@ -1444,3 +1445,33 @@ func _a_refused_candidate_moves_the_colony_to_the_next_one() -> bool:
 		str(first), str(landed),
 	])
 	return true
+
+
+# --- the boot population scales with the district (the owner's decision 5, 2026-09-06) --------
+#
+# `SimBoot.WANDERERS` was 20, the number that made a 64-tile map read as not empty, and the
+# shipped game boots 256. Now `wanderers_for(tiles)` is a density: 20 at 64 (the harness's map,
+# unchanged -- the true negative), 40 at 128, 80 at 256 (the played district), and the scatter
+# rule still keeps every one of them out of the annex at the shipped size.
+func _the_boot_population_scales_with_the_district() -> bool:
+	if SimBoot.wanderers_for(64) != 20 or SimBoot.wanderers_for(128) != 40 or SimBoot.wanderers_for(256) != 80:
+		push_error("density: wanderers_for reads %d / %d / %d at 64 / 128 / 256, want 20 / 40 / 80" % [SimBoot.wanderers_for(64), SimBoot.wanderers_for(128), SimBoot.wanderers_for(256)])
+		return false
+	var boot: Dictionary = SimBoot.playable(20260805, 256)
+	var w: Variant = boot["world"]
+	var zeds: int = w.components.query(["shambler"]).size()
+	if zeds != 80:
+		push_error("density: a 256 boot stood %d shamblers, want 80" % zeds)
+		return false
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	var inside: int = 0
+	for z in w.components.query(["shambler", "position"]):
+		var p: Dictionary = w.components.get_component(int(z), "position") as Dictionary
+		if annex.has_point(Vector2i(floori(float(p["x"])), floori(float(p["y"])))):
+			inside += 1
+	if inside > 0:
+		push_error("density: %d of the 256 boot's shamblers stood inside the annex" % inside)
+		return false
+	print("BOOT DENSITY OK wanderers_for 20 / 40 / 80 at 64 / 128 / 256; a 256 boot stands 80, none in the annex")
+	return true
+

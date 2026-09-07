@@ -9,11 +9,14 @@ const SimRaiders = preload("res://sim/modules/raiders.gd")
 
 const GRACE_COMPOSITION_UNTIL_DAY: int = 3
 const GRACE_PRESSURE_UNTIL_DAY: int = 8
-# 32, up from 24 alongside the boot-wanderer raise (12 -> 20) and the bigger night packets in the
-# basic-combat slice: at 24 the denser boot population left four slots of headroom for the entire
-# night table, and every night after the first siege would have been refused "cap" -- exactly the
-# refusal loop the despawn trap in CLAUDE.md describes, reached honestly this time.
-const LIVE_CAP: int = 32
+# 32 per 64 tiles of side, up from 24 alongside the boot-wanderer raise (12 -> 20) and the bigger
+# night packets in the basic-combat slice: at 24 the denser boot population left four slots of
+# headroom for the entire night table, and every night after the first siege would have been
+# refused "cap" -- exactly the refusal loop the despawn trap in CLAUDE.md describes, reached
+# honestly this time. A density since the boot population became one (2026-09-06): the cap is a
+# statement about how many bodies a district of that size holds, and at 256 with 80 booted a flat
+# 32 would read "cap" on night one and every night after -- the same loop, reached at once.
+const LIVE_CAP_PER_64: int = 32
 const TRICKLE_LIVE: int = 8
 const TRICKLE_SIZE: int = 2
 const BASE_SIZE: int = 3
@@ -125,6 +128,15 @@ static func default_state() -> Dictionary:
 	return {"lullFromTick": 0, "lullUntilTick": 0, "lastMigrationTick": 0, "nightsSinceQuiet": 0, "consecutiveSiege": 0}
 
 
+# The live cap for this world's district: `LIVE_CAP_PER_64` scaled by the map's side, the way the
+# boot population is. A world with no map is a fixture, and reads the 64-tile number.
+static func live_cap_for(world: Variant) -> int:
+	var side: int = 64
+	if world.tilemap != null and int(world.tilemap.w) > 0:
+		side = int(world.tilemap.w)
+	return roundi(float(LIVE_CAP_PER_64) * float(side) / 64.0)
+
+
 static func snapshot_of(world: Variant) -> Dictionary:
 	var d: Dictionary = world.director if world.director is Dictionary else default_state()
 	return {
@@ -183,7 +195,7 @@ static func _on_dusk(world: Variant) -> void:
 		# docs/17 rule 1. The quiet after a disaster is the rule the whole document is proudest
 		# of, and it outranks the draw rather than weighting it.
 		reason = "lull"
-	elif live >= LIVE_CAP:
+	elif live >= live_cap_for(world):
 		reason = "cap"
 	elif day < GRACE_COMPOSITION_UNTIL_DAY:
 		# docs/17 rule 2: week one is quiet.
@@ -209,8 +221,9 @@ static func _on_dusk(world: Variant) -> void:
 			reason = "quiet-floor"
 
 	var size: int = NIGHT_SIZES[shape]
-	if size > 0 and live + size > LIVE_CAP:
-		size = maxi(0, LIVE_CAP - live)
+	var cap: int = live_cap_for(world)
+	if size > 0 and live + size > cap:
+		size = maxi(0, cap - live)
 	var side: String = ""
 	if size > 0:
 		side = _emit_packet(world, size)

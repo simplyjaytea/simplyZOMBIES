@@ -182,9 +182,6 @@ these are the pieces they open, in the order they land (colony loop, density, zo
 breaching, lethality, presentation). Each is one session with its own gate; five of them
 re-baseline the FAST balance record and say so in their record.
 
-- **Boot population scales with the district.** `WANDERERS` becomes a density (20 per 64
-  tiles of side, so 80 at 256) and `LIVE_CAP` scales with it; the harness gains a
-  `BALANCE_TILES` env. `godot:m2:district`, `godot:m2:director`; the 256 throughput driver.
 - **Every zombie has eyes, and its senses are content.** Every zombie gets an observer;
   `sensory`, `spread` and `introducedInWave` are read; `extends` is resolved the way the
   frozen oracle resolves it; sight is sampled lit-at-the-target so the screamer sees at
@@ -3309,6 +3306,34 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **District & Director** — ~~the boot population scales with the district~~ **landed**
+  (`godot:m2:district` BOOT DENSITY, `godot:m2:director` CAP, `godot:check:worldgen` at both
+  sizes), 2026-09-06, the fourth piece of the playable-state group and the owner's decision 5.
+  What was wrong: `SimBoot.WANDERERS` was 20, the number that made a **64-tile** map read as
+  not empty, and the shipped game boots 256 — one shambler per 3,300 square metres, with every
+  balance band measured on a district nobody plays. Now `SimBoot.wanderers_for(tiles)` is a
+  density, **linear in the side**: `WANDERERS_PER_64` 20, so 20 at 64 (the harness, unchanged),
+  40 at 128, 80 at 256 (the played district). The owner's two numbers fix the formula; a per-area
+  reading (320) would sit ten times over the live cap and refuse every night. `SimDirector`'s
+  `LIVE_CAP` became `live_cap_for(world)`, `LIVE_CAP_PER_64` 32 scaled the same way (32 at 64,
+  128 at 256; a fixture with no map reads 32), because a flat 32 against 80 booted would read
+  "cap" on night one and every night after — the despawn trap's refusal loop reached at once.
+  `check_m2_balance.gd` reads `BALANCE_TILES` (default 64, the `BALANCE_DISTRICT` precedent) so
+  the FULL tier can run the shipped size by hand: `BALANCE_FULL=1 BALANCE_TILES=256`. The three
+  gates that pinned the constant pin the function at the size they boot. BOOT DENSITY: 20 / 40 /
+  80 from the function, a 256 boot stands exactly 80 and none inside the annex; CAP: 32 at 64,
+  128 at 256, and the 256 world's first dusk with 80 live reads `grace`, not `cap`. **Measured,
+  by a throwaway driver (deleted):** a 256 boot on the four seeds takes ~0.85 s and stands
+  80 / 78 / 79 / 78 (two scatter rolls per seed land on one tile and merge — the count is
+  `query(["shambler"])` after boot), and then runs at **109 / 99 / 109 / 114 ticks a second**
+  over 20,000 ticks — a tenth of the ~1,085 the 64-tile harness runs at. That is the number every
+  later 256 measurement is priced against: a game day is ~48 minutes headless, a ten-day FULL
+  campaign ~8 hours, and real time at 20 Hz is still five times slower than the sim, so the
+  playtest's frame budget is not yet at risk but the eyes and emitters the next slices give
+  eighty bodies are. In the first 20,000 ticks (about an hour after 09:00) seed 90210 lost a
+  colonist to a zombie and the colony killed 3 / 2 / 1 / 3 shamblers on the four seeds — the
+  denser district is felt at once. FAST lines at 64: see the chain's run below; expected
+  byte-identical, since nothing at 64 changed.
 - **Jobs** — ~~colonists scavenge near home~~ **landed** (`godot:m2:jobs` SCAVENGE), 2026-09-06,
   the third piece of the playable-state group and the owner's decision 10. What was wrong: sixty
   to seventy percent of the district's food sits in containers (`containerShare` 0.7 residential
