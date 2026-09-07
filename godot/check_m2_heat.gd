@@ -50,6 +50,7 @@ func _run() -> void:
 	ok = _the_dead_smell_twice_as_strong_and_the_living_do_not() and ok
 	ok = _heatstroke_drops_the_tool() and ok
 	ok = _the_hud_says_the_heat_in_words() and ok
+	ok = _the_heat_kills_in_armour() and ok
 	if ok:
 		print("M2_HEAT_OK the heat wave costs: a hot clock that deepens to very hot and no further, heatstroke as the price of armour, thirst x1.5, food rotting x2, the dead smelling x2 and the living unchanged, the tool dropped at the deep band, and three sentences with no digits in them")
 		quit(0)
@@ -521,3 +522,74 @@ func _the_hud_says_the_heat_in_words() -> bool:
 		return false
 	print("HUD OK three sentences (%s), each ranked against hunger's own two, none with a digit, and the deepest reaches the self column" % str(said.values()))
 	return true
+
+
+# --- The playable state, slice 12: the heat kills ---------------------------------------------
+
+# A body in armour baking under a heat wave at noon: at HEATSTROKE_DOSE a heatstroke wound on
+# the torso, at HEAT_DEATH_DOSE death of the heat; the same body without armour at the death
+# dose takes neither, because the sun alone never reaches heatstroke (the ladder's cap).
+func _the_heat_kills_in_armour() -> bool:
+	var results: Dictionary = {}
+	for gear in ["armor", "none"]:
+		var w: Variant = _world()
+		var e: int = int(w.player)
+		_bare_body(w, e)
+		if gear == "armor":
+			var item: int = SimItems.spawn_item(w, ARMOR_ID)
+			if item < 0 or not SimInventory.equip(w, e, item):
+				push_error("HEAT-KILLS: could not put armour on the body")
+				return false
+		w.tick = Clock.tick_on_day(1, NOON)
+		_force(w, "heat_wave")
+		var out: Vector2i = _tile_where(w, false)
+		_place(w, e, out)
+		_pools_full(w, e)
+		w.step()
+		var n: Dictionary = SimNeeds.of(w, e)
+		if int(n.get("hotDoseTicks", 0)) < 1:
+			push_error("HEAT-KILLS: a body out at noon under a heat wave is not on the hot clock")
+			return false
+		var killed: Array = []
+		w.events.subscribe({"id": "check.heat-kills-" + gear, "type": "entity.killed", "handler": func(ev: Dictionary) -> void:
+			if int(ev.get("entity", -1)) == e:
+				killed.append(String(ev.get("need", "")))
+		})
+		# The step counts the tick before it judges: two short, then one short, then the dose.
+		n["hotDoseTicks"] = SimNeeds.HEATSTROKE_DOSE - 2
+		_place(w, e, out)
+		_pools_full(w, e)
+		w.step()
+		var early: bool = _has_kind(w, e, "heatstroke")
+		_place(w, e, out)
+		_pools_full(w, e)
+		w.step()
+		var struck: bool = _has_kind(w, e, "heatstroke")
+		SimNeeds.of(w, e)["hotDoseTicks"] = SimNeeds.HEAT_DEATH_DOSE - 1
+		_place(w, e, out)
+		_pools_full(w, e)
+		w.step()
+		results[gear] = {"early": early, "struck": struck, "killed": killed.duplicate()}
+	var armoured: Dictionary = results["armor"]
+	var bare: Dictionary = results["none"]
+	if bool(armoured["early"]) or not bool(armoured["struck"]):
+		push_error("HEAT-KILLS: heatstroke in armour early=%s at-dose=%s" % [str(armoured["early"]), str(armoured["struck"])])
+		return false
+	if (armoured["killed"] as Array).is_empty() or String((armoured["killed"] as Array)[0]) != "heat":
+		push_error("HEAT-KILLS: an armoured body did not die of the heat at the dose (%s)" % str(armoured["killed"]))
+		return false
+	if bool(bare["struck"]) or not (bare["killed"] as Array).is_empty():
+		push_error("HEAT-KILLS: an unarmoured body reached heatstroke or death (%s)" % str(bare))
+		return false
+	print("HEAT-KILLS OK in armour: heatstroke on the torso at the dose and not a tick before, death of the heat at the death dose; unarmoured: neither")
+	return true
+
+
+func _has_kind(w: Variant, ent: int, kind: String) -> bool:
+	var inj: Variant = w.components.get_component(ent, "injuries")
+	if not inj is Dictionary:
+		return false
+	for wd in (inj as Dictionary).get("wounds", []) as Array:
+		if String((wd as Dictionary).get("kind", "")) == kind:
+			return true
+	return false

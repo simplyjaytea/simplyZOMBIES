@@ -40,6 +40,7 @@ func _run() -> void:
 	ok = _pantry() and ok
 	ok = _scent() and ok
 	ok = _hud() and ok
+	ok = _the_cold_kills() and ok
 	if ok:
 		print("M2_COLD_OK the cold snap's pantry, and the snow's: a bare body reads one band colder under either, indoors too, and a fire cancels it; the deep-night band arrives at once under a cold snap where clear needs the exposure clock, and a running job is dropped when it does; a shambler seeks slower under each and covers less ground for it; settled snow slows the living at its threshold and a restore re-applies it; cover climbs while it snows, caps at one, and melts under clear and under cold alike; the pantry keeps at half the rate; scent sits between rain and clear; and the HUD names both skies")
 		quit(0)
@@ -555,3 +556,136 @@ func _hud() -> bool:
 		return false
 	print("HUD OK 'It's bitterly cold.' under a cold snap, 'It's snowing.' under snow, neither under clear, no digits")
 	return true
+
+
+# --- The playable state, slice 12: the cold kills ---------------------------------------------
+
+# A bare body out at night with no fire and no roof: at FROSTBITE_DOSE a frostbite wound on an
+# extremity (not one tick before); at COLD_DEATH_DOSE it dies of the cold, the starvation
+# shape (`entity.killed{need: cold}`, then `finish_death`); a fire lit beside it a tick past the
+# frostbite dose clears the clock, so neither the death nor a second wound comes; and a wrap
+# alone -- one band warmer, no fire -- does not save it past the death dose. The dose is written
+# back the way the heat gate ages its clock: the field is the mechanism under test.
+func _the_cold_kills() -> bool:
+	var out: Vector2i = _tile_where(_world(), false)
+	if out.x < 0:
+		push_error("COLD-KILLS: no outdoor tile")
+		return false
+	var w: Variant = _world()
+	var e: int = int(w.player)
+	_bare_body(w, e)
+	w.tick = Clock.tick_on_day(2, 0.85)
+	_place(w, e, out)
+	w.step()
+	var n: Dictionary = SimNeeds.of(w, e)
+	if int(n.get("coldDoseTicks", 0)) < 1 or int(n.get("coldSinceTick", -1)) < 0:
+		push_error("COLD-KILLS: a bare body out at night is not on the cold clock (%s)" % str(n.get("coldDoseTicks")))
+		return false
+	var killed: Array = []
+	w.events.subscribe({"id": "check.cold-kills", "type": "entity.killed", "handler": func(ev: Dictionary) -> void:
+		if int(ev.get("entity", -1)) == e:
+			killed.append(String(ev.get("need", "")))
+	})
+	n["coldDoseTicks"] = SimNeeds.FROSTBITE_DOSE - 2
+	_place(w, e, out)
+	w.step()
+	if _has_wound(w, e, "frostbite"):
+		push_error("COLD-KILLS: frostbite arrived a tick early")
+		return false
+	_place(w, e, out)
+	w.step()
+	if not _has_wound(w, e, "frostbite"):
+		push_error("COLD-KILLS: no frostbite at the dose (%d)" % int(SimNeeds.of(w, e).get("coldDoseTicks", 0)))
+		return false
+	var part: String = _wound_part(w, e, "frostbite")
+	if not SimNeeds.EXTREMITIES.has(part):
+		push_error("COLD-KILLS: frostbite landed on %s, not an extremity" % part)
+		return false
+	for _i in 50:
+		_place(w, e, out)
+		w.step()
+	if _count_wounds(w, e, "frostbite") != 1:
+		push_error("COLD-KILLS: frostbite was dealt more than once (%d)" % _count_wounds(w, e, "frostbite"))
+		return false
+	# The step counts the tick before it judges: two short, then one short, then the dose.
+	n["coldDoseTicks"] = SimNeeds.COLD_DEATH_DOSE - 2
+	_place(w, e, out)
+	w.step()
+	if not killed.is_empty():
+		push_error("COLD-KILLS: died a tick early")
+		return false
+	_place(w, e, out)
+	w.step()
+	if killed.is_empty() or killed[0] != "cold":
+		push_error("COLD-KILLS: the body did not die of the cold at the dose (%s)" % str(killed))
+		return false
+	# A fire beside the body a tick past the frostbite dose clears the clock: no death.
+	var w2: Variant = _world()
+	var e2: int = int(w2.player)
+	_bare_body(w2, e2)
+	w2.tick = Clock.tick_on_day(2, 0.85)
+	_place(w2, e2, out)
+	w2.step()
+	SimNeeds.of(w2, e2)["coldDoseTicks"] = SimNeeds.FROSTBITE_DOSE + 1
+	var fire: int = SimNeeds.make_campfire(w2, float(out.x) + 1.5, float(out.y) + 0.5, true)
+	var killed2: Array = []
+	w2.events.subscribe({"id": "check.cold-fire", "type": "entity.killed", "handler": func(ev: Dictionary) -> void:
+		if int(ev.get("entity", -1)) == e2:
+			killed2.append(1)
+	})
+	for _i in 3:
+		_place(w2, e2, out)
+		w2.step()
+	if int(SimNeeds.of(w2, e2).get("coldDoseTicks", 0)) != 0 or not killed2.is_empty() or _has_wound(w2, e2, "frostbite"):
+		push_error("COLD-KILLS: a lit fire beside the body did not clear the cold clock (dose %d, wound %s)" % [int(SimNeeds.of(w2, e2).get("coldDoseTicks", 0)), str(_has_wound(w2, e2, "frostbite"))])
+		return false
+	SimNeeds.set_lit(w2, fire, false)
+	# A wrap alone does not save it past the death dose.
+	var w3: Variant = _world()
+	var e3: int = int(w3.player)
+	_bare_body(w3, e3)
+	SimInventory.equip(w3, e3, SimItems.spawn_item(w3, "item.wrap.cloth"))
+	if not SimNeeds.wearing_wrap(w3, e3):
+		push_error("COLD-KILLS: the wrap did not go on")
+		return false
+	w3.tick = Clock.tick_on_day(2, 0.85)
+	_place(w3, e3, out)
+	w3.step()
+	SimNeeds.of(w3, e3)["coldDoseTicks"] = SimNeeds.COLD_DEATH_DOSE
+	var killed3: Array = []
+	w3.events.subscribe({"id": "check.cold-wrap", "type": "entity.killed", "handler": func(ev: Dictionary) -> void:
+		if int(ev.get("entity", -1)) == e3:
+			killed3.append(String(ev.get("need", "")))
+	})
+	_place(w3, e3, out)
+	w3.step()
+	if killed3.is_empty():
+		push_error("COLD-KILLS: a wrap alone saved a body past the death dose")
+		return false
+	print("COLD-KILLS OK frostbite on the %s at the dose and not a tick before, once; death of the cold at the dose and not a tick before; a fire past the frostbite dose clears the clock; a wrap alone does not save past the death dose" % part)
+	return true
+
+
+func _has_wound(w: Variant, ent: int, kind: String) -> bool:
+	return _count_wounds(w, ent, kind) > 0
+
+
+func _count_wounds(w: Variant, ent: int, kind: String) -> int:
+	var inj: Variant = w.components.get_component(ent, "injuries")
+	if not inj is Dictionary:
+		return 0
+	var n: int = 0
+	for wd in (inj as Dictionary).get("wounds", []) as Array:
+		if String((wd as Dictionary).get("kind", "")) == kind:
+			n += 1
+	return n
+
+
+func _wound_part(w: Variant, ent: int, kind: String) -> String:
+	var inj: Variant = w.components.get_component(ent, "injuries")
+	if not inj is Dictionary:
+		return ""
+	for wd in (inj as Dictionary).get("wounds", []) as Array:
+		if String((wd as Dictionary).get("kind", "")) == kind:
+			return String((wd as Dictionary).get("bodyPart", ""))
+	return ""

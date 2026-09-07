@@ -203,7 +203,8 @@ drifted. Three things about the current state matter enough to repeat anyway:
   process shares it across every world it boots. Relaxing `survivors_end >= 1` has been
   considered and rejected — post-flip it is the standing assertion that the shipped default
   survives its own contact loop. Sepsis lethality was decided 2026-09-06 (lethal untreated,
-  docs/30's "The playable state") and lands as a named piece in docs/23's playable-state group.
+  docs/30's "The playable state") and landed 2026-09-07 with the cold and the heat — three
+  dusks septic and the body dies; docs/23's lethality record in the playable-state group.
 - **The presentation is flat top-down, not isometric** — an independent track that touched nothing
   under `godot/sim/`. `docs/00-vision.md` carries the reversal, docs/30 what it made structural,
   and the art entries in what's left the ordered next steps. The style is **the Dungeon
