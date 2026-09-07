@@ -252,6 +252,9 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		# is the floor, `_the_grab_counters_can_see_a_grab` is the counters' own true negative.
 		"grabs": 0,
 		"broken": {},
+		# Container searches by anybody but the player: the Scavenge job's reach into the district
+		# (2026-09-06, the playable state). Reported, not banded.
+		"npc_searches": 0,
 		"seen_dead": {},
 		"turned": 0,
 		"recruits": 0,
@@ -279,6 +282,9 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 	for e in w.events.drained:
 		var ev: Dictionary = e as Dictionary
 		match String(ev.get("type", "")):
+			"container.searched":
+				if int(ev.get("actor", -1)) != int(w.player):
+					run["npc_searches"] = int(run["npc_searches"]) + 1
 			"director.packet":
 				run["packets"] = int(run["packets"]) + 1
 			"director.raid":
@@ -369,14 +375,14 @@ func _close_run(w: Variant, run: Dictionary) -> void:
 
 
 func _print_run(label: String, run: Dictionary) -> void:
-	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d broken=%s" % [
+	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d searches=%d broken=%s" % [
 		label, int(run["seed"]), String(run["arm"]), int(run["days"]),
 		int(run["siege_nights"]), int(run["quiet_nights"]), int(run["packets"]),
 		int(run["raids"]), int(run["raiders_in"]), int(run["raiders_killed"]),
 		int(run["breaches"]), int(run["kills"]), int(run["melee_kills"]), int(run["ranged_kills"]),
 		int(run["deaths"]), int(run["turned"]), int(run["recruits"]), int(run["max_live"]),
 		int(run["survivors_end"]), int(run["survivors_start"]), str(run["run_over"]),
-		int(run["grabs"]), str(run["broken"]),
+		int(run["grabs"]), int(run["npc_searches"]), str(run["broken"]),
 	])
 
 

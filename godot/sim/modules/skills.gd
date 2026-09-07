@@ -85,6 +85,8 @@ static func register_module(world: Variant) -> void:
 		match kind:
 			"Haul":
 				_earn(world, ent, "Survival", 1)
+			"Scavenge":
+				_earn(world, ent, "Survival", 1)
 			"Cook":
 				_earn(world, ent, "Survival", 1)
 			"Construct":
