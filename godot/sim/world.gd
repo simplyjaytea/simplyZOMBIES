@@ -44,6 +44,10 @@ var map_generation: int:
 		mapGeneration = v
 
 var content: Variant = null
+# `extends` in zombie content, resolved once per type and kept here rather than in a static:
+# a static memo is shared between the two worlds a gate boots (CLAUDE.md's trap), and two worlds
+# may carry two trees. `SimShambler.resolved_entry` is the one writer.
+var content_resolved: Dictionary = {}
 var entities: Variant = null
 var components: Variant = null
 var commands: Variant = null
