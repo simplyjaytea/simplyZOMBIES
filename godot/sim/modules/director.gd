@@ -7,8 +7,18 @@ const SimRoster = preload("res://sim/modules/roster.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimRaiders = preload("res://sim/modules/raiders.gd")
 
-const GRACE_COMPOSITION_UNTIL_DAY: int = 3
-const GRACE_PRESSURE_UNTIL_DAY: int = 8
+# docs/17 rule 2 -- "week one is quiet" -- as the number of nights the strain table stays shut.
+# Nights 1..GRACE_NIGHTS say `grace` and leave the night stream untouched; from the next night
+# the director draws every night. This replaced `GRACE_COMPOSITION_UNTIL_DAY` 3 and
+# `GRACE_PRESSURE_UNTIL_DAY` 8 with its `live < TRICKLE_LIVE` probe (which a boot of 20 never
+# met). The owner's decision 4 (docs/30 "The playable state") is **2**, and it ships **7** --
+# the old pacing to the night -- the way sight ships behind `SimShambler.SIGHT_ENABLED`:
+# measured at 2 on the FAST tier, seed 31337 wiped (a colony of two by night one, then three
+# packets on nights 4-6 it could not kill), and `survivors_end >= 1` is the assertion CLAUDE.md
+# refuses to relax. The flip is one number and an owner item in HANDOFF.md; check_m2_director's
+# GRACE lane pins 2, proves it, and restores this. The composition (which types the mix can
+# hold) is `SimRoster`'s wave rule and was never this constant's.
+static var GRACE_NIGHTS: int = 7
 # 32 per 64 tiles of side, up from 24 alongside the boot-wanderer raise (12 -> 20) and the bigger
 # night packets in the basic-combat slice: at 24 the denser boot population left four slots of
 # headroom for the entire night table, and every night after the first siege would have been
@@ -17,8 +27,6 @@ const GRACE_PRESSURE_UNTIL_DAY: int = 8
 # statement about how many bodies a district of that size holds, and at 256 with 80 booted a flat
 # 32 would read "cap" on night one and every night after -- the same loop, reached at once.
 const LIVE_CAP_PER_64: int = 32
-const TRICKLE_LIVE: int = 8
-const TRICKLE_SIZE: int = 2
 const BASE_SIZE: int = 3
 const FLOOR_SIZE: int = 3
 const FLOOR_QUIET_NIGHTS: int = 3
@@ -197,13 +205,9 @@ static func _on_dusk(world: Variant) -> void:
 		reason = "lull"
 	elif live >= live_cap_for(world):
 		reason = "cap"
-	elif day < GRACE_COMPOSITION_UNTIL_DAY:
-		# docs/17 rule 2: week one is quiet.
+	elif day <= GRACE_NIGHTS:
+		# docs/17 rule 2: the first nights are quiet, and the stream is not touched for them.
 		reason = "grace"
-	elif day < GRACE_PRESSURE_UNTIL_DAY:
-		reason = "grace-trickle"
-		if live < TRICKLE_LIVE:
-			shape = Night.Probe
 	else:
 		drawn = _draw_night(world, _strain_band(world, st))
 		shape = drawn
@@ -561,12 +565,17 @@ static func _has_armor(world: Variant) -> bool:
 	return false
 
 
+# A lull runs from the next dawn for `nights` days. Its opening edge is written only when no
+# lull is running -- a second disaster inside one extends `until` and leaves `from` alone. The
+# edge used to be written only when `tick < lullFromTick`, which with the field at 0 was never,
+# so every lull ran from tick 0 and the `tick >= lullFromTick` half of the check in `_on_dusk`
+# was dead (the playable-state group's sixth piece; LULL-EDGE in check_m2_director.gd).
 static func _begin_lull(world: Variant, nights: int) -> void:
 	var day: int = Clock.day_number(int(world.tick))
 	var start: int = day * Clock.DAY_TICKS + Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
 	var until: int = start + nights * Clock.DAY_TICKS
 	var st: Dictionary = world.director as Dictionary
+	if int(world.tick) >= int(st.get("lullUntilTick", 0)):
+		st["lullFromTick"] = start
 	if until > int(st.get("lullUntilTick", 0)):
-		if int(world.tick) < int(st.get("lullFromTick", 0)):
-			st["lullFromTick"] = start
 		st["lullUntilTick"] = until
