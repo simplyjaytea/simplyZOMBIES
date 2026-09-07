@@ -7,5 +7,6 @@
   "body": { "head": 25, "torso": 60, "legs": 40 },
   "grab": { "strength": 0.5 },
   "spread": { "radians": 0.62 },
+  "emits": [{ "channel": "scent", "magnitude": 1 }],
   "behaviors": ["shamble", "pursue", "grab"]
 }

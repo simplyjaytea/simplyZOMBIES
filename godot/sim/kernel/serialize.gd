@@ -52,7 +52,12 @@ extends RefCounted
 # `noiseSense` / `scentSense` / `lightSense` and every zombie an `observer`; a v21 save's
 # zombies have neither, and would load deaf to their own type's thresholds and blind. Refused,
 # same rule.
-const SAVE_VERSION: int = 22
+# 23: the dead write to the field. Every zombie carries an `attention_emitter` built from its
+# type's `emits` (and a `light_source` where it emits light), and a survivor's bloater exposure
+# is `contaminationRolls` (one roll a cloud) where v22 had a single `contaminationRolled` flag.
+# A v22 save's zombies would load silent and its survivors immune to a second cloud. Refused,
+# same rule.
+const SAVE_VERSION: int = 23
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

@@ -924,7 +924,16 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			# nothing at all, which is docs/14's "no single silence" made literal.
 			var noise_sense: float = float(sd.get("noiseSense", NOISE_SENSITIVITY))
 			var scent_sense: float = float(sd.get("scentSense", SCENT_SENSITIVITY))
-			var heard: bool = noise_sense > 0.0 and field.noise_at(float(pd["x"]), float(pd["y"])) >= noise_floor / noise_sense
+			# A body cannot hear below its own noise. The field keeps the loudest value a cell
+			# was given, so a type that groans (`emits` noise, the screamer's 4) reads its own
+			# groan at its own feet every tick and, judged against the bare threshold, would
+			# seek its own sound for ever. Its threshold is raised by what it gives off: only
+			# something louder than itself is a sound.
+			var own_noise: float = 0.0
+			var em: Variant = w.components.get_component(int(entity), "attention_emitter")
+			if em is Dictionary:
+				own_noise = maxf(float((em as Dictionary).get("ambient", 0.0)), float((em as Dictionary).get("walking", 0.0)))
+			var heard: bool = noise_sense > 0.0 and field.noise_at(float(pd["x"]), float(pd["y"])) >= own_noise + noise_floor / noise_sense
 			var smelled: bool = scent_sense > 0.0 and field.scent_at(float(pd["x"]), float(pd["y"])) >= scent_floor / scent_sense
 			# Resolved once per shambler per tick and handed to every steer below it, rather than
 			# each of them reaching for sd["seekSpeed"] -- which is what let the cripple penalty
