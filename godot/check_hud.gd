@@ -20,6 +20,9 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimAttentionRead = preload("res://sim/attention_read.gd")
 const Hud = preload("res://ui/hud.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
+const SimWounds = preload("res://sim/modules/wounds.gd")
+const Pick = preload("res://presentation/pick.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -31,6 +34,9 @@ func _run() -> void:
 	ok = _a_healthy_survivor_says_little() and ok
 	ok = _the_raw_sheet_stays_behind_m() and ok
 	ok = _the_scanner_can_actually_fail() and ok
+	ok = _the_chronicle_speaks_of_the_colony() and ok
+	ok = _a_selected_colonist_is_spoken_of() and ok
+	ok = _a_click_finds_a_colonist() and ok
 	var sheet_ok: bool = await _the_hidden_sheet_costs_nothing()
 	ok = sheet_ok and ok
 	if ok:
@@ -179,6 +185,175 @@ func _the_scanner_can_actually_fail() -> bool:
 			push_error("the digit scanner failed a legal line: '%s'" % clean)
 			return false
 	print("NEGATIVE OK")
+	return true
+
+
+# A person the lanes below can kill, select and click: an identity, a position, a body.
+func _person(w: Variant, name: String, x: float, y: float) -> int:
+	var e: int = int(w.entities.spawn())
+	w.components.set_component(e, "identity", {"id": "survivor.test." + name.to_lower(), "name": name})
+	w.components.set_component(e, "position", {"x": x, "y": y})
+	SimHealth.make_survivor_body(w, e)
+	return e
+
+
+# Decision 12 of docs/30's "The playable state": a death, a succession, an arrival reach the
+# screen as words. True positive: killing Ellis writes exactly one line, and the HUD's world
+# column carries it (the dead-socket half -- a read model nothing reads is the pattern this
+# milestone paid for ten times). True negatives: `entity.killed` twice for one body is one line,
+# not two; a zombie's death is nobody's news; a line ages out of the screen but not the record;
+# and the record survives a save.
+func _the_chronicle_speaks_of_the_colony() -> bool:
+	var w: Variant = World.new(_fixture())
+	SimChronicle.register_module(w)
+	var ellis: int = _person(w, "Ellis Okafor", 6.0, 6.0)
+	var zed: int = int(w.entities.spawn())
+	w.components.set_component(zed, "shambler", {"state": 0})
+	w.components.set_component(zed, "position", {"x": 4.0, "y": 4.0})
+	w.tick = 1000
+	w.events.publish({"type": "entity.killed", "entity": ellis})
+	w.events.publish({"type": "entity.killed", "entity": ellis})
+	w.events.publish({"type": "entity.killed", "entity": zed})
+	w.step()
+	var lines: Array = SimChronicle.lines(w)
+	if lines.size() != 1 or String(lines[0]) != "Ellis Okafor is dead.":
+		push_error("one death, twice published, plus a zombie's, should be one line: %s" % str(lines))
+		return false
+	for line in lines:
+		if not _digits(String(line)).is_empty():
+			push_error("a chronicle line carries digits: '%s'" % String(line))
+			return false
+	# Something reads it: the HUD's world column.
+	var hud: Control = Hud.new()
+	root.add_child(hud)
+	hud.call("refresh", w, w.player, "")
+	var right: Array = hud.get("_right") as Array
+	hud.queue_free()
+	if not right.has("Ellis Okafor is dead."):
+		push_error("the HUD's world column does not carry the chronicle: %s" % str(right))
+		return false
+	# Arrival says what it is, in words, and newest comes first. A spawn is not a joining
+	# (survivors.gd publishes `survivor.joined` for every body it builds), an acceptance is;
+	# a death nobody saw is not a bereavement, one somebody saw is.
+	w.events.publish({"type": "recruit.arrived", "entity": 99, "day": 3})
+	w.events.publish({"type": "survivor.joined", "entity": ellis, "id": "survivor.unique.ellis"})
+	w.events.publish({"type": "colony.bereaved", "entity": ellis, "witnesses": 0, "putDown": false})
+	w.step()
+	lines = SimChronicle.lines(w)
+	if lines.size() != 2 or String(lines[0]) != "Someone is waiting at the gate.":
+		push_error("an arrival should be the newest line, a spawn and an unseen death no line: %s" % str(lines))
+		return false
+	w.events.publish({"type": "survivor.joined", "entity": ellis, "id": "recruit"})
+	w.events.publish({"type": "colony.bereaved", "entity": ellis, "witnesses": 2, "putDown": false})
+	w.step()
+	lines = SimChronicle.lines(w)
+	if lines.size() != 3 or String(lines[0]) != "The colony saw Ellis Okafor die." or String(lines[1]) != "Ellis Okafor has joined you.":
+		push_error("an acceptance and a witnessed death should each be a line: %s" % str(lines))
+		return false
+	w.step()
+	# A save keeps the record whole.
+	var snap: Dictionary = w.snapshot()
+	var w2: Variant = World.new(_fixture())
+	w2.restore(snap)
+	if (w2.chronicle as Array).size() != (w.chronicle as Array).size() or SimChronicle.lines(w2) != lines:
+		push_error("the chronicle did not survive a save: %s vs %s" % [str(w2.chronicle), str(w.chronicle)])
+		return false
+	# The screen forgets; the record does not.
+	w.tick += SimChronicle.LINE_TICKS + 1
+	if not SimChronicle.lines(w).is_empty():
+		push_error("a line older than LINE_TICKS is still on the screen: %s" % str(SimChronicle.lines(w)))
+		return false
+	if (w.chronicle as Array).size() != 4:
+		push_error("ageing out of the screen dropped the record: %s" % str(w.chronicle))
+		return false
+	print("CHRONICLE OK one line a death, aged out, saved")
+	return true
+
+
+# The other half of decision 12: the HUD refreshed for a colonist speaks of her, never as "You".
+# Mara is hurt on every axis the left column reads -- needs, pain, sepsis, condition -- so every
+# clause that used to say "You" about the player is produced about her. True negative: the
+# player's own refresh still says "You".
+func _a_selected_colonist_is_spoken_of() -> bool:
+	var w: Variant = _suffering_world()
+	var mara: int = _person(w, "Mara Sato", 9.0, 8.0)
+	SimNeeds.attach(w, mara, {"hunger": 9.0, "thirst": 4.0, "rest": 11.0})
+	var wound: Dictionary = SimWounds.append_wound(w, mara, "laceration", "torso", -1, 30.0)
+	wound["septic"] = true
+	SimWounds.append_wound(w, w.player, "laceration", "torso", -1, 30.0)
+	var pain: String = SimWounds.pain_clause(w, mara)
+	var fever: String = SimWounds.sepsis_clause(w, mara)
+	if pain.is_empty() or fever.is_empty():
+		push_error("the fixture gave Mara no pain or no fever: '%s' / '%s'" % [pain, fever])
+		return false
+	if not pain.begins_with("Mara Sato") or not fever.begins_with("Mara Sato"):
+		push_error("a colonist's pain or fever is not spoken of in the third person: '%s' / '%s'" % [pain, fever])
+		return false
+	if not SimWounds.pain_clause(w, w.player).begins_with("You") or not SimWounds.sepsis_clause(w, w.player).is_empty():
+		push_error("the player's own pain lost its 'You', or a clean player read septic")
+		return false
+	var hud: Control = Hud.new()
+	root.add_child(hud)
+	hud.call("refresh", w, mara, "")
+	var left: Array = hud.get("_left") as Array
+	hud.call("refresh", w, w.player, "")
+	var own: Array = hud.get("_left") as Array
+	hud.queue_free()
+	var named: bool = false
+	for line in left:
+		var text: String = String(line)
+		if text.begins_with("You") or text.contains(" you"):
+			push_error("the HUD for a selected colonist says 'You': '%s'" % text)
+			return false
+		if text.contains("Mara Sato"):
+			named = true
+	if not named or left.size() < 3:
+		push_error("the HUD for a selected colonist does not speak of her: %s" % str(left))
+		return false
+	var says_you: bool = false
+	for line in own:
+		if String(line).begins_with("You"):
+			says_you = true
+	if not says_you:
+		push_error("the player's own HUD stopped saying 'You': %s" % str(own))
+		return false
+	print("SELECTED OK %d lines about Mara" % left.size())
+	return true
+
+
+# The click that makes the selection: a pure hit-test on the pawn rect at the draw pass's
+# scale. Mara's pawn hit; three tiles off, the street; a zombie and a corpse never, even with an
+# identity; the player's own pawn answers the player (main.gd reads that as "clear").
+func _a_click_finds_a_colonist() -> bool:
+	var w: Variant = World.new(_fixture())
+	var mara: int = _person(w, "Mara Sato", 8.0, 8.0)
+	var zed: int = _person(w, "A Shambler", 12.0, 8.0)
+	w.components.set_component(zed, "shambler", {"state": 0})
+	var dead: int = _person(w, "Ellis Okafor", 8.0, 12.0)
+	w.components.set_component(dead, "corpse", {"sinceTick": 0})
+	var player_pos: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	player_pos["x"] = 4.0
+	player_pos["y"] = 4.0
+	var camera: Dictionary = {"x": 8.0, "y": 8.0, "width": 800.0, "height": 600.0, "zoom": 64.0}
+	# Mara's ground point is the screen centre; the pawn stands above it, feet on the shadow line.
+	var on_mara: Vector2 = Vector2(400.0, 260.0)
+	if Pick.pick_colonist(w, camera, on_mara) != mara:
+		push_error("a click on Mara's pawn did not select her: %d" % Pick.pick_colonist(w, camera, on_mara))
+		return false
+	if Pick.pick_colonist(w, camera, Vector2(400.0 + 3.0 * 64.0, 260.0)) != -1:
+		push_error("a click three tiles from anybody selected somebody")
+		return false
+	if Pick.pick_colonist(w, camera, Vector2(400.0 + 4.0 * 64.0, 260.0)) != -1:
+		push_error("a click on a zombie selected it")
+		return false
+	if Pick.pick_colonist(w, camera, Vector2(400.0, 300.0 + 4.0 * 64.0 - 40.0)) != -1:
+		push_error("a click on a corpse selected it")
+		return false
+	var on_player: Vector2 = Vector2(400.0 - 4.0 * 64.0, 300.0 - 4.0 * 64.0 - 40.0)
+	if Pick.pick_colonist(w, camera, on_player) != int(w.player):
+		push_error("a click on your own pawn did not answer the player: %d" % Pick.pick_colonist(w, camera, on_player))
+		return false
+	print("PICK OK Mara hit, street and the dead missed, self answers self")
 	return true
 
 

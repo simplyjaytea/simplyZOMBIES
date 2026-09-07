@@ -32,6 +32,18 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-07 — the playable state, thirteen slices in one run** (PR #115, on top of the roadmap
+audit): the owner's twelve decisions of 2026-09-06, each a named piece in docs/23 and each
+landed with its gate — Guard as the night post, the crisis dead-end and fires that burn down,
+colonists scavenging near home, density by district size, eyes and senses as content, two
+grace nights then the table (shipped at seven, item 5 below), the dead writing to the field,
+torso damage that slows and staggers, doors, pressing, re-arm and withdrawal, the cold, the
+heat and sepsis killing, and the screen speaking of the colony with a click that selects. The
+record of each, with what the FAST tier did, is in
+[docs/23's record](docs/23-roadmap.md#the-record-by-system); the first-cut numbers nobody was
+asked about are item 6 below. `SAVE_VERSION` went 21 → 25 across the run; the chain is still
+51 gates.
+
 **2026-09-06 — the four weather slices on the spine**, built in parallel worktrees and merged the
 same day: **the storm** (`npm run godot:m2:storm`, `M2_STORM_OK`, five lanes — noise masked on
 the field's own decay at a half-life ×0.4, lightning striking an open outdoor tile every ten
@@ -273,8 +285,9 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    terrain block's `standsMax`, `treesMax` and `treeSpread`.
 5. **The two playable-state flips against the compressed tier's survival floor.** Two of the
    owner's own 2026-09-06 decisions are built, gated at both values and shipped at the old
-   one: sight as a stimulus (`SimShambler.SIGHT_ENABLED`, decision 3, ships `false`) and the
-   strain table from night 3 (`SimDirector.GRACE_NIGHTS`, decision 4, ships 7 rather than 2).
+   one: sight as a stimulus (`SimShambler.SIGHT_ENABLED`, decision 3 — since flipped, see the
+   end of this item) and the strain table from night 3 (`SimDirector.GRACE_NIGHTS`, decision
+   4, ships 7 rather than 2).
    Measured on the FAST tier with each on, a seed or two in four **wiped**, and
    `survivors_end >= 1` is the assertion CLAUDE.md records as considered and rejected for
    relaxing. The eyes and director records in docs/23 carry the diagnostics: a shambler that
@@ -295,6 +308,23 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    commit after the torso slice's) and this item is now the table alone: flip `GRACE_NIGHTS`
    to 2 once the over-cap placement is found and seed 20260805 is re-read with sight already
    on.
+6. **The playable-state slices' first-cut calls**, 2026-09-07, each inside one of the owner's
+   twelve decisions, each recorded in docs/30's entry for its slice, and each a one-constant
+   change if re-decided. The eyes: a zombie's sight reach is `range × sqrt(lightSense)` scaled
+   by the light *at the target* (a lit survivor is seen from the dark), the shadowcast recast
+   only after two tiles of movement, and a screamer's own groan raises its own noise threshold
+   so it does not chase itself. The field: every zombie's base scent is **1**, chosen off
+   docs/03's migration drift (6–7 m of centre-of-mass drift in an hour against 19 m at the
+   plan's 8, which dominated the field). The doors: a door swings shut sixty ticks after its
+   tile empties, breaks at stage four, and zombies never open one; the press: pressure
+   `n × (1 + 0.5 × (n − 1))` against stage costs of 40 (board), 160 (door) and 90 (scrap).
+   The band: raiders withdraw after 6,000 ticks at the objective with nobody in reach, or at
+   once when below half their size. The lethality doses: frostbite at two exposures and death
+   at three in the cold, heatstroke at three and death at four in the heat and only in armour,
+   sepsis lethal at the third untreated dusk. The screen: a chronicle line stays two game
+   hours, three at most; a click selects and never orders; a thin ring marks the selection.
+   None of these was asked about, because the session was autonomous; each is the kind of
+   number the ten-day playtest is for.
 
 ## How a session runs
 

@@ -65,6 +65,11 @@ var weather: Dictionary = {}
 var needsHoldMax: bool = false
 var runOver: bool = false
 var recruits: Dictionary = {"accepted": 0, "spawned": []}
+# The chronicle (sim/modules/chronicle.gd): what happened to the colony, as `{tick, kind, name,
+# e}` records -- an Array, never an id-keyed Dictionary, because a save has no integer keys.
+# world.gd carries it the way it carries `recruits`: a shape it saves and restores without
+# knowing what the kinds mean.
+var chronicle: Array = []
 
 
 func _init(fixture: Dictionary) -> void:
@@ -207,6 +212,7 @@ func snapshot() -> Dictionary:
 		},
 		"runOver": runOver,
 		"player": int(player),
+		"chronicle": chronicle.duplicate(true),
 	}
 
 
@@ -234,6 +240,16 @@ func restore(snap: Dictionary) -> void:
 			"spawned": (r.get("spawned", []) as Array).duplicate(),
 		}
 	runOver = bool(snap.get("runOver", false))
+	chronicle = []
+	if snap.has("chronicle") and snap["chronicle"] is Array:
+		for rec in snap["chronicle"] as Array:
+			if rec is Dictionary:
+				chronicle.append({
+					"tick": int((rec as Dictionary).get("tick", 0)),
+					"kind": String((rec as Dictionary).get("kind", "")),
+					"name": String((rec as Dictionary).get("name", "")),
+					"e": int((rec as Dictionary).get("e", -1)),
+				})
 	if snap.has("player"):
 		player = int(snap["player"])
 	elif components != null:

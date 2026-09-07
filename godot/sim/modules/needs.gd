@@ -2224,15 +2224,6 @@ static func hud_clause(world: Variant, entity: int, panel: bool = false) -> Stri
 	return name + " — " + line
 
 
-static func hud_panel(world: Variant, entity: int) -> PackedStringArray:
-	# Full panel: every non-fine Need. HUD glimpse is worst only.
-	var out: PackedStringArray = []
-	var clause: String = hud_clause(world, entity, true)
-	if not clause.is_empty():
-		out.append(clause)
-	return out
-
-
 static func _hud_pool(picks: Array[Dictionary], key: String, v: float, crisis: String, _panel: bool) -> void:
 	if key == "hunger":
 		if crisis == "starving" or v <= 0.0:
