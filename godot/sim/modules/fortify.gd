@@ -45,6 +45,9 @@ static func register_module(world: Variant) -> void:
 	world.systems.register("fortify.contact", "structures", 30, func(w: Variant) -> void:
 		_tick_contact(w)
 	)
+	world.systems.register("fortify.doors", "structures", 5, func(w: Variant) -> void:
+		_tick_doors(w)
+	)
 	world.events.subscribe({"id": "fortify.stagger-interrupts", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:
 		_cancel(world, int(event.get("entity", -1)))
 	})
@@ -53,11 +56,152 @@ static func register_module(world: Variant) -> void:
 	})
 
 
+# --- doors ---------------------------------------------------------------------------------
+#
+# A door is a Door tile (SimTileMap.Tile.Door, the class) and a `door` entity on it (the
+# state): {tx, ty, open, stage, latched, emptySinceTick}. Closed it is solid and opaque; open or
+# broken (stage DOOR_BROKEN) it is a doorway. People open a closed one as the step through it
+# (SimJobs._walk, SimRaiders._walk); it swings shut DOOR_SWING_TICKS after the tile empties
+# unless somebody latched it; the player's E toggles and latches. The dead never open a door --
+# the pressing slice is how they get through one. The owner's decision 8, first half.
+const DOOR_SWING_TICKS: int = 60
+const DOOR_BROKEN: int = 4
+
+
+static func spawn_doors(world: Variant, map: Variant) -> int:
+	var made: int = 0
+	for y in int(map.h):
+		for x in int(map.w):
+			if int(map.tiles[y * int(map.w) + x]) != SimTileMap.Tile.Door:
+				continue
+			if door_at(world, x, y) >= 0:
+				continue
+			# No `position`: a door is addressed by its tile (`door_at`), and a positioned entity
+			# is a thing the renderer expects to draw and the look gate expects to resolve.
+			var ent: int = int(world.entities.spawn())
+			world.components.set_component(ent, "door", {"tx": x, "ty": y, "open": false, "stage": 0, "latched": false, "emptySinceTick": int(world.tick)})
+			made += 1
+	if made > 0:
+		sync_map(world)
+	return made
+
+
+static func door_at(world: Variant, tx: int, ty: int) -> int:
+	for entity in world.components.query(["door"]):
+		var d: Variant = world.components.get_component(int(entity), "door")
+		if d is Dictionary and int((d as Dictionary).get("tx", -1)) == tx and int((d as Dictionary).get("ty", -1)) == ty:
+			return int(entity)
+	return -1
+
+
+static func door_state(world: Variant, tx: int, ty: int) -> Variant:
+	var ent: int = door_at(world, tx, ty)
+	if ent < 0:
+		return null
+	return world.components.get_component(ent, "door")
+
+
+# Open a closed door. `latched` is the player's hand (E): a latched-open door never swings shut.
+# A walker's open is unlatched, so the door closes behind them. A broken door is open already.
+static func open_door(world: Variant, tx: int, ty: int, latched: bool = false) -> bool:
+	var d: Variant = door_state(world, tx, ty)
+	if not d is Dictionary:
+		return false
+	var dd: Dictionary = d as Dictionary
+	if bool(dd.get("open", false)):
+		if latched:
+			dd["latched"] = true
+		return false
+	dd["open"] = true
+	dd["latched"] = latched
+	dd["emptySinceTick"] = int(world.tick)
+	sync_map(world)
+	return true
+
+
+# Close an open door. Refused broken (nothing to close) and refused with a body in the doorway
+# (a door does not shut on somebody). `latched` again is the hand.
+static func close_door(world: Variant, tx: int, ty: int, latched: bool = false) -> bool:
+	var d: Variant = door_state(world, tx, ty)
+	if not d is Dictionary:
+		return false
+	var dd: Dictionary = d as Dictionary
+	if not bool(dd.get("open", false)) or int(dd.get("stage", 0)) >= DOOR_BROKEN:
+		return false
+	if _tile_occupied(world, tx, ty):
+		return false
+	dd["open"] = false
+	dd["latched"] = latched
+	sync_map(world)
+	return true
+
+
+# E at a door: open it and latch it, or shut it and latch it. Broken: nothing to do.
+static func toggle_door(world: Variant, tx: int, ty: int) -> bool:
+	var d: Variant = door_state(world, tx, ty)
+	if not d is Dictionary or int((d as Dictionary).get("stage", 0)) >= DOOR_BROKEN:
+		return false
+	if bool((d as Dictionary).get("open", false)):
+		return close_door(world, tx, ty, true)
+	return open_door(world, tx, ty, true)
+
+
+static func _tile_occupied(world: Variant, tx: int, ty: int) -> bool:
+	for entity in world.components.query(["position", "velocity"]):
+		var pos: Variant = world.components.get_component(int(entity), "position")
+		if not pos is Dictionary:
+			continue
+		if floori(float((pos as Dictionary)["x"])) == tx and floori(float((pos as Dictionary)["y"])) == ty:
+			return true
+	return false
+
+
+# The swing: an open, unlatched door shuts DOOR_SWING_TICKS after the last body left its tile.
+static func _tick_doors(world: Variant) -> void:
+	var dirty: bool = false
+	for entity in world.components.query(["door"]):
+		var d: Variant = world.components.get_component(int(entity), "door")
+		if not d is Dictionary:
+			continue
+		var dd: Dictionary = d as Dictionary
+		if not bool(dd.get("open", false)) or bool(dd.get("latched", false)) or int(dd.get("stage", 0)) >= DOOR_BROKEN:
+			continue
+		var tx: int = int(dd.get("tx", 0))
+		var ty: int = int(dd.get("ty", 0))
+		if _tile_occupied(world, tx, ty):
+			dd["emptySinceTick"] = int(world.tick)
+			continue
+		if int(world.tick) - int(dd.get("emptySinceTick", 0)) >= DOOR_SWING_TICKS:
+			dd["open"] = false
+			dirty = true
+	if dirty:
+		sync_map(world)
+
+
+# The door in front of the actor, or the one under them: the tile E acts on.
+static func _door_in_reach(world: Variant, actor: int) -> Vector2i:
+	for tile in [_facing_tile(world, actor), _tile_of(world, actor)]:
+		var t: Vector2i = tile as Vector2i
+		if SimTileMap.tile_at(world.tilemap, t.x, t.y) == SimTileMap.Tile.Door and door_at(world, t.x, t.y) >= 0:
+			return t
+	return Vector2i(-1, -1)
+
+
 static func sync_map(world: Variant) -> void:
 	var map: Variant = world.tilemap
 	if map == null:
 		return
 	var table: Dictionary = {}
+	for entity0 in world.components.query(["door"]):
+		var door: Variant = world.components.get_component(int(entity0), "door")
+		if not door is Dictionary:
+			continue
+		var dd: Dictionary = door as Dictionary
+		var stage: int = int(dd.get("stage", 0))
+		# Broken is a doorway: no overlay, the class's own Clear and not-solid answer.
+		if stage >= DOOR_BROKEN:
+			continue
+		table[int(dd.get("ty", 0)) * int(map.w) + int(dd.get("tx", 0))] = {"kind": "door", "open": bool(dd.get("open", false)), "stage": stage}
 	for entity in world.components.query(["windowBoard"]):
 		var board: Variant = world.components.get_component(int(entity), "windowBoard")
 		if not board is Dictionary:
@@ -157,6 +301,12 @@ static func _use_context(world: Variant, actor: int) -> void:
 		if box >= 0:
 			Containers.call("search", world, actor, box)
 			return
+	# The door before the stranger and the car: standing at one, E opens it and latches it open,
+	# or shuts it and latches it shut -- the one hand on the district's doors that a walker's
+	# swing does not undo. A broken door falls through: there is nothing to do with it.
+	var door_tile: Vector2i = _door_in_reach(world, actor)
+	if door_tile.x >= 0 and toggle_door(world, door_tile.x, door_tile.y):
+		return
 	var Recruits: GDScript = load("res://sim/modules/recruits.gd") as GDScript
 	if Recruits != null and Recruits.has_method("waiting_in_reach"):
 		var waiting: int = int(Recruits.call("waiting_in_reach", world, actor))

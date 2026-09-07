@@ -57,7 +57,11 @@ extends RefCounted
 # is `contaminationRolls` (one roll a cloud) where v22 had a single `contaminationRolled` flag.
 # A v22 save's zombies would load silent and its survivors immune to a second cloud. Refused,
 # same rule.
-const SAVE_VERSION: int = 23
+# 24: doors. The map has a Door tile class and a save carries a `door` component per doorway
+# ({tx, ty, open, stage, latched, emptySinceTick}), overlaid by `sync_map` on restore. A v23
+# save's map would regenerate with Door tiles and no door entities -- every doorway an open hole,
+# every gate a gap. Refused, same rule.
+const SAVE_VERSION: int = 24
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

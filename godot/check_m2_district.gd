@@ -198,8 +198,11 @@ func _annex_shell() -> bool:
 		push_error("the stamped annex named no gate, so this assertion is measuring nothing")
 		return false
 	var gate: int = 0
+	# A gate is a Door tile since the doors slice (open by class, shut by the boot's door);
+	# the tile beside the pair may still be plain floor.
 	for tile in [gate_a, gate_b, gate_b + Vector2i(1, 0)]:
-		if SimTileMap.tile_at(map, (tile as Vector2i).x, (tile as Vector2i).y) == SimTileMap.Tile.Floor:
+		var t: int = SimTileMap.tile_at(map, (tile as Vector2i).x, (tile as Vector2i).y)
+		if t == SimTileMap.Tile.Floor or t == SimTileMap.Tile.Door:
 			gate += 1
 	if gate < 2:
 		push_error("gate missing at %s..%s" % [str(gate_a), str(gate_b + Vector2i(1, 0))])
@@ -323,7 +326,13 @@ func _the_booted_world_carries_its_colony_anchors() -> bool:
 	# that parse and mean nothing.
 	for named in [["gate_a", gate_a], ["gate_b", gate_b], ["player_start", start]]:
 		var tile: Vector2i = (named as Array)[1] as Vector2i
-		if SimTileMap.tile_at(map, tile.x, tile.y) != SimTileMap.Tile.Floor:
+		var anchor_tile: int = SimTileMap.tile_at(map, tile.x, tile.y)
+		# The gates are Door tiles since the doors slice: a way through whether the boot's door
+		# on them stands open or shut, so neither the Floor test nor the solid test applies.
+		var is_gate_door: bool = String((named as Array)[0]).begins_with("gate") and anchor_tile == SimTileMap.Tile.Door
+		if is_gate_door:
+			continue
+		if anchor_tile != SimTileMap.Tile.Floor:
 			push_error("anchor %s at %s is not open floor" % [String((named as Array)[0]), str(tile)])
 			return false
 		if SimTileMap.is_solid(map, tile.x, tile.y):

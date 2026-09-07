@@ -834,6 +834,8 @@ func _draw_district() -> void:
 						col = Palette.COLOURS["low"]
 					SimTileMap.Tile.Tree:
 						col = Palette.COLOURS["tree"]
+					SimTileMap.Tile.Door:
+						col = Palette.COLOURS["door"]
 				var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
 				if ov is Dictionary:
 					var kind: String = String((ov as Dictionary).get("kind", ""))
@@ -880,6 +882,20 @@ func _draw_district() -> void:
 							# Inset block with floor showing around it reads as waist-high.
 							var inset: float = zoom * 0.15625
 							draw_rect(Rect2(rect.position + Vector2(inset, inset), rect.size - Vector2(inset * 2.0, inset * 2.0)), col)
+				SimTileMap.Tile.Door:
+					# The door tile draws its state: shut, a plank of the wall's timber filling the
+					# doorway (the class's palette colour, `door`); open or broken, the doorway it
+					# always was -- the threshold boards between the jambs and the face picture.
+					# The state is the overlay `sync_map` wrote off the `door` entity; a Door tile
+					# with no overlay (a map nobody booted) is open.
+					var door_ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
+					var shut: bool = door_ov is Dictionary and String((door_ov as Dictionary).get("kind", "")) == "door" and not bool((door_ov as Dictionary).get("open", false))
+					if shut:
+						_draw_solid_tile(rect, Palette.COLOURS["door"], tx, ty)
+					else:
+						var door_floor: Color = Appearance.indoor_floor(world.tilemap, tx, ty, ground)
+						_draw_threshold(rect, door_floor, tx, ty)
+						_draw_door_face(rect, dress, tx, ty)
 				SimTileMap.Tile.Tree:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
 					# A tree with a picture stands in the entity sort (Dressing.tree_tiles feeds
