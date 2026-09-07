@@ -16,12 +16,20 @@ const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 
 const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
-	"Haul", "Farm", "Water", "Craft", "Modify", "Butcher", "Clean", "Guard", "Bury",
+	"Haul", "Scavenge", "Farm", "Water", "Craft", "Modify", "Butcher", "Clean", "Guard", "Bury",
 ]
-const CONSUMERS: Array[String] = ["Haul", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean", "Bury", "Repair"]
+const CONSUMERS: Array[String] = ["Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean", "Bury", "Repair"]
+# How far from home a colonist works the ground: Haul and Scavenge reach only this far from the
+# annex's centre, in tiles. The whole of a 64-tile map, the neighbourhood of a 256 one -- the
+# far district stays the player's run (docs/02), and it is also where the boot's wanderers are:
+# the Guard slice measured Ellis grabbed sixteen times in a day hauling the nearest loose item
+# from the far edge. The owner's decision 10, 2026-09-06; the number is a first cut.
+const HOME_RADIUS_TILES: float = 40.0
 const COOK_TICKS: int = 2400
 const INSPECT_TICKS: int = 300
 const WATER_TICKS: int = 40
@@ -49,6 +57,7 @@ static func preset(focus: String, injured: bool = false) -> Dictionary:
 			d["Rest"] = 3
 		"Worker":
 			d["Haul"] = 1
+			d["Scavenge"] = 2
 			d["Construct"] = 2
 			d["Cook"] = 3
 			d["Rest"] = 2
@@ -68,7 +77,7 @@ static func preset(focus: String, injured: bool = false) -> Dictionary:
 			pass
 		_:
 			# Auto
-			for c in ["Haul", "Construct", "Cook", "Doctor", "Rest", "Water", "Clean", "Bury", "Repair"]:
+			for c in ["Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Water", "Clean", "Bury", "Repair"]:
 				d[c] = 3
 			if injured:
 				d["Patient"] = 3
@@ -373,6 +382,8 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 	match kind:
 		"Haul":
 			return _haul_work(world, x, y)
+		"Scavenge":
+			return _scavenge_work(world, ent, x, y)
 		"Construct":
 			return _construct_work(world, x, y)
 		"Cook":
@@ -524,6 +535,68 @@ static func _anyone_buries(world: Variant) -> bool:
 	return false
 
 
+# Where home is: the annex's centre, or the player's start where a map has no annex.
+static func _home_centre(world: Variant) -> Vector2:
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x > 0 and annex.size.y > 0:
+		return Vector2(float(annex.position.x) + float(annex.size.x) * 0.5, float(annex.position.y) + float(annex.size.y) * 0.5)
+	var start: Vector2i = SimTileMap.player_start(world.tilemap)
+	return Vector2(float(start.x) + 0.5, float(start.y) + 0.5)
+
+
+static func _near_home(world: Variant, x: float, y: float) -> bool:
+	var c: Vector2 = _home_centre(world)
+	var dx: float = x - c.x
+	var dy: float = y - c.y
+	return dx * dx + dy * dy <= HOME_RADIUS_TILES * HOME_RADIUS_TILES
+
+
+# The nearest container this survivor remembers seeing, unsearched, near home and not already
+# another colonist's claim. The claim is the Cook's `reserved` seam, so two scavengers never
+# walk to one cupboard. The job carries the box's tile, so `_job_tile` walks to it.
+static func _scavenge_work(world: Variant, ent: int, x: float, y: float) -> Dictionary:
+	var best: int = -1
+	var best_d: float = 1e12
+	var best_at: Vector2i = Vector2i(-1, -1)
+	for row in SimSightings.known_containers(world, ent):
+		var box: int = int((row as Dictionary).get("e", -1))
+		var s: Variant = world.components.get_component(box, "searchable")
+		if not s is Dictionary or bool((s as Dictionary).get("searched", false)):
+			continue
+		var p: Variant = world.components.get_component(box, "position")
+		if not p is Dictionary:
+			continue
+		var bx: float = float((p as Dictionary)["x"])
+		var by: float = float((p as Dictionary)["y"])
+		if not _near_home(world, bx, by):
+			continue
+		if _claim_live(world, box):
+			continue
+		var dx: float = bx - x
+		var dy: float = by - y
+		var d: float = dx * dx + dy * dy
+		if d < best_d:
+			best_d = d
+			best = box
+			best_at = Vector2i(floori(bx), floori(by))
+	if best < 0:
+		return {}
+	world.components.set_component(best, "reserved", {"by": ent, "job": "Scavenge"})
+	return {"kind": "Scavenge", "target": best, "tx": best_at.x, "ty": best_at.y, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+# At the box: open it through the module, the way a job eats through `SimNeeds.eat` -- commands
+# are the player's channel, not the sim's. The yield lands on the ground beside the box and Haul
+# carries it home. A box somebody else emptied on the way completes nothing.
+static func _do_scavenge(world: Variant, ent: int, job: Dictionary) -> void:
+	var box: int = int(job.get("target", -1))
+	var result: Dictionary = SimContainers.search(world, ent, box)
+	if bool(result.get("ok", false)):
+		_stop(world, ent, "Scavenge")
+	else:
+		_stop(world, ent)
+
+
 static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 	var best: int = -1
 	var best_d: float = 1e12
@@ -534,6 +607,8 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 		var tx: int = floori(float((p as Dictionary)["x"]))
 		var ty: int = floori(float((p as Dictionary)["y"]))
 		if SimNeeds.is_stockpile_tile(world, tx, ty):
+			continue
+		if not _near_home(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
 			continue
 		if world.components.has_component(item, "corpse"):
 			continue
@@ -808,6 +883,8 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 	match kind:
 		"Haul":
 			_do_haul(world, ent, job)
+		"Scavenge":
+			_do_scavenge(world, ent, job)
 		"Construct":
 			_do_construct(world, ent, job)
 		"Cook":

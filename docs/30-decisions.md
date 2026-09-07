@@ -2666,6 +2666,15 @@ records its own numbers here as a bullet under this entry when it lands.
   a fire lit at midnight to boil a bottle must not go out at six for a reason nobody can read;
   cooking holds it, since a cook standing at a dead fire would be a lie the screen tells. No fuel
   is spent: firewood is docs/16's unbuilt cold half and stays named in what's left.
+- **Near home is a radius, and known means seen, 2026-09-06.** A colonist searches a cupboard only
+  if somebody has looked at it — the memory is `sightings`' second array, filled by `detail`, so a
+  survivor does not walk to a box nobody has seen and the information-scarcity contract holds for
+  NPCs as it does for the player — and only within `HOME_RADIUS_TILES` (40) of the annex's centre.
+  A radius rather than "inside the annex" because the annex holds no cupboards, and rather than
+  the whole map because docs/02 makes the far district the player's run and the Guard slice
+  measured what hauling across the whole district costs. Haul is bounded the same way for the
+  same reason. Forty is a first cut: the whole of the 64-tile harness map, so the FAST lines are
+  moved by the search itself and not by the bound.
 
 ---
 

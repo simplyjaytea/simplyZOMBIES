@@ -182,9 +182,6 @@ these are the pieces they open, in the order they land (colony loop, density, zo
 breaching, lethality, presentation). Each is one session with its own gate; five of them
 re-baseline the FAST balance record and say so in their record.
 
-- **Colonists scavenge near home.** Survivors remember the containers they have seen; a
-  `Scavenge` column searches them within a radius of the annex, hauling the yield; the far
-  district stays the player's run. `godot:m2:jobs`, `npc_searches` in the FAST line.
 - **Boot population scales with the district.** `WANDERERS` becomes a density (20 per 64
   tiles of side, so 80 at 256) and `LIVE_CAP` scales with it; the harness gains a
   `BALANCE_TILES` env. `godot:m2:district`, `godot:m2:director`; the 256 throughput driver.
@@ -3312,6 +3309,38 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Jobs** — ~~colonists scavenge near home~~ **landed** (`godot:m2:jobs` SCAVENGE), 2026-09-06,
+  the third piece of the playable-state group and the owner's decision 10. What was wrong: sixty
+  to seventy percent of the district's food sits in containers (`containerShare` 0.7 residential
+  / 0.6 commercial) and the only producer of a search was the player's E key, so an automated
+  colony could reach only the loose share — about five days of food for three — and never opened
+  a cupboard. Now: **a survivor remembers the containers they have seen.** `sightings` gains a
+  second array beside `seen`, `containers`, `{e, x, y}` records (an Array, never an id-keyed
+  dict — the save trap), appended by `_observe_containers` when a `searchable` is
+  `detail != Unseen` (by sight, not `line_of_sight`, so the memory does not inherit the sightings
+  defect docs/23 names) and erased once it is searched. **A `Scavenge` column** (`COLUMNS`,
+  `CONSUMERS`; Auto 3, Worker 2, Ellis 3) walks to the nearest remembered unsearched container
+  **near home** — `HOME_RADIUS_TILES` 40 from the annex's centre (`_home_centre`, the player's
+  start where a map has no annex): the whole of a 64 map, the neighbourhood of a 256 one, and the
+  far district stays the player's run (docs/02) — claiming it through the Cook's `reserved` seam so
+  two scavengers never walk to one cupboard, and opens it at the box through
+  `SimContainers.search` (a module call, the way a job eats through `SimNeeds.eat`: commands are
+  the player's channel). The yield lands beside the box and **Haul** carries it in — and Haul is
+  bounded to the same radius now, which is also the fix for the Guard slice's finding that hauling
+  the nearest loose item *anywhere* walked Ellis to the far edge among the wanderers. `skills.gd`
+  reads Scavenge as a Survival point beside Haul's. The work panel gained its eighteenth column and
+  `COL_W` dropped 72 → 70 so the last one no longer draws off the panel's edge. The FAST line
+  gains `searches=` (container searches by anyone but the player; reported, not banded).
+  SCAVENGE: every boot container marked searched, one box stood four tiles from home and Ellis two
+  tiles from it facing it — remembered after one observe; at `Scavenge 0` `_pick` takes nothing;
+  a box remembered by hand at radius + 5 and a box stood but never seen are never offered; under
+  Mara's claim the near box is refused; with the claim released it is the one offered, Ellis walks
+  to it and `container.searched{actor: ellis}` fires (the unseen box is taken off the map before
+  the walk: stood one tile from the near one, it is *seen* the moment he arrives and then rightly
+  scavenged, which the lane's first run reported as a failure — its negative is the offer, not
+  the day); the far box stays shut for a quarter day; and the yield reaches the stockpile (the
+  dead-socket half — it skips loudly if the table rolls nothing). Measured: the residential table yielded four items and the first of them
+  was on the stockpile inside a quarter day.
 - **Jobs & Needs** — ~~a starving colonist still eats, and a fire burns down~~ **landed**
   (`godot:m2:jobs` CRISIS, `godot:m2:needs` FIRE), 2026-09-06, the second piece of the
   playable-state group: two defects the surveys found, neither a design question. **The crisis

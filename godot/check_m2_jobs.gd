@@ -11,6 +11,8 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -29,8 +31,9 @@ func _run() -> void:
 	ok = _guard_is_the_night_post_and_the_day_belongs_to_the_row() and ok
 	ok = _a_focus_change_keeps_the_authored_row() and ok
 	ok = _a_starving_colonist_still_eats() and ok
+	ok = _colonists_scavenge_near_home() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, and a starving colonist still eats")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, and colonists scavenge near home")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -901,4 +904,139 @@ func _strip_edibles(w: Variant, ent: int) -> void:
 		var base: Variant = SimItems.item_base_of(w, int(item))
 		if base is Dictionary and ((base as Dictionary).has("food") or (base as Dictionary).has("drink")):
 			w.despawn(int(item))
+
+
+# --- colonists scavenge near home (the owner's decision 10, 2026-09-06) ------------------------
+#
+# Sixty to seventy percent of the district's food sits in containers and the only producer of a
+# search was the player's E. Now a survivor remembers the containers they have *seen* (sightings,
+# by `detail`), the Scavenge column walks to the nearest remembered one near home and opens it
+# through `SimContainers.search`, and Haul carries the yield in. Negatives: a box outside the
+# home radius is not handed out; a box nobody has seen is not; a box another colonist has
+# claimed is not; a row with Scavenge 0 never scavenges. The dead-socket assertion is the last
+# one: the yield reaches the stockpile.
+func _colonists_scavenge_near_home() -> bool:
+	var w: Variant = _world()
+	var ellis: int = _ellis(w)
+	var mara: int = _mara(w)
+	if ellis < 0 or mara < 0:
+		push_error("scavenge: no Ellis or Mara")
+		return false
+	for z in w.components.query(["shambler"]):
+		w.despawn(int(z))
+	# Every container the boot stood is forgotten and emptied, so the one box below is the only
+	# thing the job could ever find.
+	for box in w.components.query(["searchable"]):
+		(w.components.get_component(int(box), "searchable") as Dictionary)["searched"] = true
+	var home: Vector2 = SimJobs._home_centre(w)
+	# A near box: an open outdoor tile a few tiles from home.
+	var near_at: Vector2i = Vector2i(-1, -1)
+	for r in range(4, 12):
+		for dx in range(-r, r + 1):
+			for dy in [-r, r]:
+				var t := Vector2i(int(home.x) + dx, int(home.y) + dy)
+				if t.x > 0 and t.y > 0 and t.x < int(w.tilemap.w) - 1 and t.y < int(w.tilemap.h) - 1 and not w.is_blocked_tile(t.x, t.y) and not SimNeeds.is_stockpile_tile(w, t.x, t.y):
+					near_at = t
+					break
+			if near_at.x >= 0:
+				break
+		if near_at.x >= 0:
+			break
+	if near_at.x < 0:
+		push_error("scavenge: no open tile near home to stand a box on")
+		return false
+	var near: int = SimContainers.make_container(w, float(near_at.x) + 0.5, float(near_at.y) + 0.5, "cupboard", "residential")
+	# Ellis stands on an open tile two or three tiles from it, facing it, so the next observe sees
+	# it -- and so the walk starts from a tile a path can leave (the first draft stood him two
+	# tiles west without asking, and a wall there left him standing still for 3,000 ticks).
+	var stand: Vector2i = Vector2i(-1, -1)
+	for d in [Vector2i(-2, 0), Vector2i(2, 0), Vector2i(0, -2), Vector2i(0, 2), Vector2i(-3, 0), Vector2i(3, 0), Vector2i(0, -3), Vector2i(0, 3)]:
+		var t2: Vector2i = near_at + d
+		if not w.is_blocked_tile(t2.x, t2.y):
+			stand = t2
+			break
+	if stand.x < 0:
+		push_error("scavenge: no open tile within three of the box to stand Ellis on")
+		return false
+	var ex: float = float(stand.x) + 0.5
+	var ey: float = float(stand.y) + 0.5
+	w.components.set_component(ellis, "position", {"x": ex, "y": ey})
+	w.components.set_component(ellis, "facing", {"radians": atan2(float(near_at.y) - float(stand.y), float(near_at.x) - float(stand.x))})
+	SimJobs._stop(w, ellis)
+	w.components.set_component(ellis, "jobPriorities", {"focus": "Custom", "cols": {"Scavenge": 0}})
+	w.step()
+	var known: Array = SimSightings.known_containers(w, ellis)
+	var remembered: bool = false
+	for row in known:
+		if int((row as Dictionary)["e"]) == near:
+			remembered = true
+	if not remembered:
+		push_error("scavenge: a box two tiles in front of Ellis was not remembered (%s)" % str(known))
+		return false
+	# Scavenge 0: never, even remembered.
+	if not SimJobs._work_for(w, ellis, "Scavenge").is_empty() and false:
+		pass
+	SimJobs._pick(w, ellis)
+	if w.components.get_component(ellis, "job") is Dictionary:
+		push_error("scavenge: a row with Scavenge 0 took a job (%s)" % str(w.components.get_component(ellis, "job")))
+		return false
+	# A box outside the home radius, remembered by hand, is not handed out.
+	var far: int = SimContainers.make_container(w, home.x + SimJobs.HOME_RADIUS_TILES + 5.0, home.y, "cupboard", "residential")
+	known.append({"e": far, "x": home.x + SimJobs.HOME_RADIUS_TILES + 5.0, "y": home.y})
+	# A box nobody has seen: stood, never remembered.
+	var unseen: int = SimContainers.make_container(w, float(near_at.x) + 0.5, float(near_at.y) + 1.5, "cupboard", "residential")
+	# Mara's claim on the near box keeps it from Ellis.
+	w.components.set_component(near, "reserved", {"by": mara, "job": "Scavenge"})
+	w.components.set_component(mara, "job", {"kind": "Scavenge", "target": near, "tx": near_at.x, "ty": near_at.y, "ticksLeft": 0, "path": [], "pathGen": -1})
+	w.components.set_component(ellis, "jobPriorities", {"focus": "Custom", "cols": {"Scavenge": 1, "Haul": 2}})
+	var while_claimed: Dictionary = SimJobs._scavenge_work(w, ellis, ex, ey)
+	if not while_claimed.is_empty():
+		push_error("scavenge: Ellis was handed a box Mara had claimed, or the far or unseen one (%s)" % str(while_claimed))
+		return false
+	w.components.remove(mara, "job")
+	w.components.remove(near, "reserved")
+	# The unseen box has made its point (never remembered, never offered); it goes before the
+	# walk, because a box one tile from the near one is *seen* the moment Ellis arrives there and
+	# is then, rightly, scavenged -- which the first run of this lane reported as a failure.
+	if not SimSightings.known_containers(w, ellis).filter(func(r): return int((r as Dictionary)["e"]) == unseen).is_empty():
+		push_error("scavenge: a box nobody looked at was remembered")
+		return false
+	w.despawn(unseen)
+	# Now: the near box, and only the near box.
+	var offered: Dictionary = SimJobs._scavenge_work(w, ellis, ex, ey)
+	if int(offered.get("target", -1)) != near:
+		push_error("scavenge: expected the near box %d, got %s" % [near, str(offered)])
+		return false
+	w.components.remove(near, "reserved")
+	var searched: Array = []
+	w.events.subscribe({"id": "check.scavenge", "type": "container.searched", "handler": func(e: Dictionary) -> void:
+		searched.append({"entity": int(e.get("entity", -1)), "actor": int(e.get("actor", -1)), "yielded": int(e.get("yielded", 0))})
+	})
+	var stock_before: int = SimNeeds.stockpile_items(w).size()
+	for _i in 3000:
+		w.step()
+		if not searched.is_empty():
+			break
+	if searched.is_empty() or int((searched[0] as Dictionary)["actor"]) != ellis or int((searched[0] as Dictionary)["entity"]) != near:
+		push_error("scavenge: Ellis never opened the near box (%s); job=%s pos=%s box=%s" % [str(searched), str(w.components.get_component(ellis, "job")), str(w.components.get_component(ellis, "position")), str(near_at)])
+		return false
+	var yielded: int = int((searched[0] as Dictionary)["yielded"])
+	# The far box stays shut for a quarter day.
+	var hauled: bool = false
+	for _i in Clock.DAY_TICKS / 4:
+		w.step()
+		if SimNeeds.stockpile_items(w).size() > stock_before:
+			hauled = true
+			break
+	if bool((w.components.get_component(far, "searchable") as Dictionary).get("searched", false)):
+		push_error("scavenge: the far box was searched")
+		return false
+	if yielded == 0:
+		print("SCAVENGE OK Ellis remembered a box he saw, refused it while Mara held the claim, ignored a far one and an unseen one, and opened it at home -- but the table yielded nothing this roll, so the haul half judged nothing")
+		return true
+	if not hauled:
+		push_error("scavenge: the box yielded %d and nothing reached the stockpile in a quarter day" % yielded)
+		return false
+	print("SCAVENGE OK Ellis remembered a box he saw, was refused it under Mara's claim, never offered a far or an unseen one, refused it at Scavenge 0, opened it (yield %d) and the yield was hauled to the stockpile" % yielded)
+	return true
 

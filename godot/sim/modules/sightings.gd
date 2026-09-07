@@ -58,7 +58,10 @@ const VAGUE_MANY: String = "several of them"
 static func attach(world: Variant, entity: int) -> void:
 	if world.components.has_component(entity, "sightings"):
 		return
-	world.components.set_component(entity, "sightings", {"seen": []})
+	# `containers` is the same shape as `seen`: an Array of `{e, x, y}` records, never a dict
+	# keyed by entity id (a save turns those keys into Strings). It is what a survivor remembers
+	# of the cupboards they have looked at, and what the Scavenge job searches from.
+	world.components.set_component(entity, "sightings", {"seen": [], "containers": []})
 
 
 static func register_module(world: Variant) -> void:
@@ -77,8 +80,56 @@ static func observe(world: Variant) -> void:
 	var hostiles: Array = []
 	for other in world.components.query(["shambler", "position"]):
 		hostiles.append(int(other))
+	var boxes: Array = []
+	for box in world.components.query(["searchable", "position"]):
+		boxes.append(int(box))
 	for ent in world.components.query(["sightings", "observer", "position"]):
 		_observe_one(world, int(ent), hostiles)
+		_observe_containers(world, int(ent), boxes)
+
+
+# A container is remembered when it is *seen* -- `detail`, not `line_of_sight`, so the 170-degree
+# arc behind a survivor does not fill their memory the way it (wrongly, docs/23's defect list)
+# fills `seen`. A searched container is forgotten: there is nothing left to go back for.
+static func _observe_containers(world: Variant, observer: int, boxes: Array) -> void:
+	var comp: Variant = world.components.get_component(observer, "sightings")
+	if not comp is Dictionary:
+		return
+	if not (comp as Dictionary).has("containers"):
+		(comp as Dictionary)["containers"] = []
+	var known: Array = (comp as Dictionary)["containers"] as Array
+	for box in boxes:
+		var s: Variant = world.components.get_component(int(box), "searchable")
+		if not s is Dictionary:
+			continue
+		if bool((s as Dictionary).get("searched", false)):
+			_erase(known, int(box))
+			continue
+		var there: Variant = world.components.get_component(int(box), "position")
+		if not there is Dictionary:
+			continue
+		var x: float = float((there as Dictionary)["x"])
+		var y: float = float((there as Dictionary)["y"])
+		# 0 is `SimVisibility.Detail.Unseen`; the literal because this module cannot name that
+		# class at parse time (the shambler reads it the same way, `== 0`).
+		if int(world.vision.call("detail", observer, x, y)) == 0:
+			continue
+		var found: bool = false
+		for row in known:
+			if int((row as Dictionary)["e"]) == int(box):
+				found = true
+				break
+		if not found:
+			known.append({"e": int(box), "x": x, "y": y})
+
+
+## The containers this survivor remembers and has not seen searched, as `{e, x, y}` records.
+static func known_containers(world: Variant, entity: int) -> Array:
+	var comp: Variant = world.components.get_component(entity, "sightings")
+	if not comp is Dictionary:
+		return []
+	var known: Variant = (comp as Dictionary).get("containers", [])
+	return known as Array if known is Array else []
 
 
 static func _observe_one(world: Variant, observer: int, hostiles: Array) -> void:
