@@ -14,6 +14,8 @@ const SimRecruits = preload("res://sim/modules/recruits.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimLight = preload("res://sim/modules/light.gd")
+const SimAttentionEmitter = preload("res://sim/modules/attention_emitter.gd")
+const SimInfection = preload("res://sim/modules/infection.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -30,8 +32,11 @@ func _run() -> void:
 	ok = _senses_are_content() and ok
 	ok = _waves_are_content() and ok
 	ok = _the_screamer_sees_a_lit_survivor_at_night() and ok
+	ok = _the_dead_write_to_the_field_from_content() and ok
+	ok = _residue_is_laid_in_every_state() and ok
+	ok = _a_second_cloud_rolls_again() and ok
 	if ok:
-		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night")
+		print("M2_ROSTER_OK mix alarm bloom exhausted, every zombie has eyes, extends resolved, senses and waves are content, the screamer sees what is lit at night, the dead write to the field from content, residue in every state, one roll a cloud")
 		quit(0)
 	else:
 		push_error("M2_ROSTER_FAIL")
@@ -196,7 +201,7 @@ func _exhausted_degrades() -> bool:
 
 # --- The playable state, slice 5: eyes, senses, extends, waves ------------------------------
 
-func _daylight_world(seed_val: int, tree: Variant = null) -> Variant:
+func _daylight_world(seed_val: int, tree: Variant = null, emitting: bool = false) -> Variant:
 	var f: Dictionary = _fixture(seed_val)
 	if tree is Dictionary:
 		f["content_tree"] = tree
@@ -205,7 +210,24 @@ func _daylight_world(seed_val: int, tree: Variant = null) -> Variant:
 	var map: Variant = SimTileMap.blank_map(24, 24)
 	SimBoot.attach_kernel(world, map)
 	SimShambler.register_module(world, map)
+	if emitting:
+		SimAttentionEmitter.register_module(world, map)
 	return world
+
+
+# The shipped tree with one type's `emits` replaced -- the shape the WAVE lane uses.
+func _tree_with_emits(type_id: String, emits: Array) -> Dictionary:
+	var src: Variant = World.new(_fixture(1))
+	var tree: Dictionary = {}
+	for path in src.content.keys():
+		var entry: Variant = src.content[path]
+		if entry is Dictionary and String((entry as Dictionary).get("id", "")) == type_id:
+			var copy: Dictionary = (entry as Dictionary).duplicate(true)
+			copy["emits"] = emits
+			tree[path] = copy
+		else:
+			tree[path] = entry
+	return tree
 
 
 # Every zombie gets eyes, and what it sees is a stimulus: a shambler with a survivor three
@@ -511,4 +533,118 @@ func _the_screamer_sees_a_lit_survivor_at_night() -> bool:
 		push_error("SCREAMER-NIGHT: an alarm over an unlit survivor 8 m away after dark -- the night is not dark")
 		return false
 	print("SCREAMER-NIGHT OK lit at 8 m alarms, unlit does not")
+	return true
+
+
+# --- The playable state, slice 7: the dead write to the field from content ------------------
+
+# `emits` builds the emitter. The shipped screamer (noise 4) standing still raises the field's
+# noise; the shipped shambler (no noise) raises none -- the negative from the same tree; and a
+# fabricated light emit makes the body a light source the index can see, which is the third
+# channel's dead-socket half. The screamer does not seek its own groan: after the step it is
+# still Wandering, because a body cannot hear below its own noise.
+func _the_dead_write_to_the_field_from_content() -> bool:
+	var peaks: Dictionary = {}
+	var states: Dictionary = {}
+	for type_id in [SimRoster.TYPE_SCREAMER, SimRoster.TYPE_SHAMBLER]:
+		var w: Variant = _daylight_world(59, null, true)
+		w.components.set_component(w.player, "position", {"x": 1.5, "y": 22.5})
+		var z: int = SimRoster.spawn_zombie(w, 12.5, 12.5, type_id, w.rng.stream("shambler"))
+		var em: Variant = w.components.get_component(z, "attention_emitter")
+		if not em is Dictionary:
+			push_error("EMITS: %s spawned without an attention_emitter" % type_id)
+			return false
+		for i in 3:
+			w.step()
+		peaks[type_id] = float(w.field.peak_noise())
+		states[type_id] = int((w.components.get_component(z, "shambler") as Dictionary)["state"])
+	if float(peaks[SimRoster.TYPE_SCREAMER]) < 1.0:
+		push_error("EMITS: a standing screamer (noise 4) raised no noise (peak %.3f)" % float(peaks[SimRoster.TYPE_SCREAMER]))
+		return false
+	if float(peaks[SimRoster.TYPE_SHAMBLER]) > 0.0:
+		push_error("EMITS: a shambler with no noise emit raised %.3f" % float(peaks[SimRoster.TYPE_SHAMBLER]))
+		return false
+	if int(states[SimRoster.TYPE_SCREAMER]) != SimShambler.ShamblerState["Wander"]:
+		push_error("EMITS: the screamer sought its own groan (state %d)" % int(states[SimRoster.TYPE_SCREAMER]))
+		return false
+	var lit: Variant = _daylight_world(61, _tree_with_emits(SimRoster.TYPE_SHAMBLER, [{"channel": "light", "magnitude": 6}]), true)
+	var zl: int = SimRoster.spawn_zombie(lit, 12.5, 12.5, SimRoster.TYPE_SHAMBLER, lit.rng.stream("shambler"))
+	lit.step()
+	var src: Variant = lit.light.source_at(zl)
+	if not src is Dictionary or absf(float((src as Dictionary)["magnitude"]) - 6.0) > 0.001:
+		push_error("EMITS: a light emit of 6 did not make the body a 6 m light source (%s)" % str(src))
+		return false
+	if lit.light.lit_metres(13.5, 12.5) <= 0.0:
+		push_error("EMITS: the glowing body lights nothing beside it")
+		return false
+	print("EMITS OK screamer noise peak %.2f and still Wandering, shambler %.2f, a light emit of 6 is a source the index reads" % [float(peaks[SimRoster.TYPE_SCREAMER]), float(peaks[SimRoster.TYPE_SHAMBLER])])
+	return true
+
+
+# Residue in every state: a Wandering shambler raises the scent field within an emit interval
+# (the base entry's scent 8, inherited); the same type with scent 0 raises nothing. This is what
+# `field_memory.gd` laid only while Investigating, and why it is gone.
+func _residue_is_laid_in_every_state() -> bool:
+	var w: Variant = _daylight_world(67, null, true)
+	w.components.set_component(w.player, "position", {"x": 1.5, "y": 22.5})
+	var z: int = SimRoster.spawn_zombie(w, 12.5, 12.5, SimRoster.TYPE_SHAMBLER, w.rng.stream("shambler"))
+	var sd: Dictionary = w.components.get_component(z, "shambler") as Dictionary
+	for i in 40:
+		w.step()
+	if int(sd["state"]) != SimShambler.ShamblerState["Wander"]:
+		push_error("RESIDUE: the shambler left Wander (%d), so the lane is not judging a wandering body" % int(sd["state"]))
+		return false
+	var laid: float = float(w.field.peak_scent())
+	if laid <= 0.0:
+		push_error("RESIDUE: a wandering shambler laid no scent in 40 ticks")
+		return false
+	var quiet: Variant = _daylight_world(67, _tree_with_emits(SimRoster.TYPE_BASE, []), true)
+	quiet.components.set_component(quiet.player, "position", {"x": 1.5, "y": 22.5})
+	SimRoster.spawn_zombie(quiet, 12.5, 12.5, SimRoster.TYPE_SHAMBLER, quiet.rng.stream("shambler"))
+	for i in 40:
+		quiet.step()
+	if float(quiet.field.peak_scent()) > 0.0:
+		push_error("RESIDUE: with the base emits emptied a shambler still laid %.3f" % float(quiet.field.peak_scent()))
+		return false
+	print("RESIDUE OK a wandering shambler laid scent (peak %.2f) within 40 ticks; with no scent emit, none" % laid)
+	return true
+
+
+# One roll a cloud: a bitten survivor standing in one bloater's cloud rolls once, keeps that one
+# roll however long the cloud lasts, and rolls again when a second bloater blooms over them.
+func _a_second_cloud_rolls_again() -> bool:
+	var world: Variant = World.new(_fixture(71))
+	var map: Variant = SimTileMap.blank_map(24, 24)
+	SimBoot.attach_kernel(world, map)
+	SimHealth.register_module(world)
+	SimBloater.register_module(world)
+	SimHealth.make_survivor_body(world, world.player)
+	world.components.set_component(world.player, "injuries", {"wounds": [{"kind": "bite", "part": "arm_left", "severity": 1}]})
+	var rng: Variant = world.rng.stream("shambler")
+	var first: int = SimRoster.spawn_zombie(world, 12.5, 10.5, SimRoster.TYPE_BLOATER, rng)
+	world.events.publish({"type": "attack.connected", "attacker": world.player, "target": first, "bodyPart": "head", "damage": 200})
+	for i in 3:
+		world.step()
+	var rolls: Variant = world.components.get_component(world.player, "contaminationRolls")
+	if not rolls is Dictionary or ((rolls as Dictionary)["rolls"] as Array).size() != 1:
+		push_error("BLOOM-TWICE: one cloud should be one roll, got %s" % str(rolls))
+		return false
+	for i in 40:
+		world.step()
+	if ((rolls as Dictionary)["rolls"] as Array).size() != 1:
+		push_error("BLOOM-TWICE: the same cloud rolled again over 40 ticks (%s)" % str(rolls))
+		return false
+	var second: int = SimRoster.spawn_zombie(world, 12.5, 14.5, SimRoster.TYPE_BLOATER, rng)
+	world.events.publish({"type": "attack.connected", "attacker": world.player, "target": second, "bodyPart": "head", "damage": 200})
+	for i in 3:
+		world.step()
+	if ((rolls as Dictionary)["rolls"] as Array).size() != 2:
+		push_error("BLOOM-TWICE: a second cloud should be a second roll, got %s" % str(rolls))
+		return false
+	var exposures: Variant = world.components.get_component(world.player, "zombieInfection")
+	var n: int = ((exposures as Dictionary)["exposures"] as Array).size() if exposures is Dictionary else 0
+	if n != 2:
+		push_error("BLOOM-TWICE: two rolls should be two recorded exposures, got %d" % n)
+		return false
+	print("BLOOM-TWICE OK one cloud one roll (held over 40 ticks), a second cloud a second roll, two exposures recorded")
 	return true

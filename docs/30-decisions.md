@@ -2730,6 +2730,20 @@ records its own numbers here as a bullet under this entry when it lands.
   docs/17 rule 1 promises is the *following* night's; a second disaster inside a lull extends
   the close and keeps the edge, because a lull that restarted would read as the game resetting
   its own clock.
+- **The dead write to the field, 2026-09-06.** The emitter is built from `emits` and nothing
+  else — a type with no block carries zeros — so what a zombie gives off is a content number
+  the way its speed is. Noise goes to `ambient` and `walking` alike because a groan is not a
+  footstep: the noisemaker's shape, and the one the screamer's 4 needs to mean anything while it
+  stands. Scent 1 on the base — a living person's — was measured into place from a first cut of
+  8: the driver's sweep (docs/23's table) found the crowd held together at every magnitude
+  and the magnitude deciding only how far the dead's plume outweighs the living's, twelve times
+  at 8; a crowd of twenty that smells like twenty people keeps the residue's reason and leaves
+  the field about the living. A body's hearing
+  threshold rises by its own noise, because the field is a maximum and a groaning type would
+  otherwise chase itself; the alternative, subtracting a body's contribution from the field,
+  would need the field to know who wrote what, which docs/03 says it never does. One roll a
+  cloud rather than one a body: a cloud is a discrete event with a source, and the second
+  bloater has to be a second risk or the type stops mattering after its first death.
 
 ---
 

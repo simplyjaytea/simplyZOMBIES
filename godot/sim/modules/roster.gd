@@ -11,8 +11,11 @@ const SimShamblerRes = preload("res://sim/modules/shambler.gd")
 const SimHealthRes = preload("res://sim/modules/health.gd")
 const SimCombatRes = preload("res://sim/combat.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
+const SimAttentionEmitter = preload("res://sim/modules/attention_emitter.gd")
+const SimLightMod = preload("res://sim/modules/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
+const TYPE_BASE: String = "zombie.base"
 const TYPE_SHAMBLER: String = "zombie.shambler"
 const TYPE_SCREAMER: String = "zombie.screamer"
 const TYPE_BLOATER: String = "zombie.bloater"
@@ -65,6 +68,42 @@ static func pick_type(world: Variant, rng: Variant, at_tick: int = -1) -> String
 	return TYPE_BLOATER if bloater_due else TYPE_SHAMBLER
 
 
+# The `emits` block as an attention emitter: `{channel, magnitude}` records, summed per channel.
+static func emitter_of(world: Variant, type_id: String) -> Dictionary:
+	var out: Dictionary = {"walking": 0.0, "sprinting": 0.0, "ambient": 0.0, "scent": 0.0}
+	for em in _emits_of(world, type_id):
+		var channel: String = String((em as Dictionary).get("channel", ""))
+		var magnitude: float = float((em as Dictionary).get("magnitude", 0.0))
+		if channel == "noise":
+			out["walking"] = float(out["walking"]) + magnitude
+			out["sprinting"] = float(out["sprinting"]) + magnitude
+			out["ambient"] = float(out["ambient"]) + magnitude
+		elif channel == "scent":
+			out["scent"] = float(out["scent"]) + magnitude
+	return out
+
+
+# The `emits` block's light, as metres of reach -- the largest, since the light index takes the
+# max across sources and never the sum.
+static func light_of(world: Variant, type_id: String) -> float:
+	var best: float = 0.0
+	for em in _emits_of(world, type_id):
+		if String((em as Dictionary).get("channel", "")) == "light":
+			best = maxf(best, float((em as Dictionary).get("magnitude", 0.0)))
+	return best
+
+
+static func _emits_of(world: Variant, type_id: String) -> Array:
+	var entry: Variant = content_entry(world, type_id)
+	if entry is Dictionary and (entry as Dictionary).get("emits") is Array:
+		var out: Array = []
+		for em in (entry as Dictionary)["emits"] as Array:
+			if em is Dictionary:
+				out.append(em)
+		return out
+	return []
+
+
 static func _body_of(world: Variant, type_id: String) -> Dictionary:
 	var entry: Variant = content_entry(world, type_id)
 	if entry != null:
@@ -85,6 +124,16 @@ static func spawn_zombie(world: Variant, x: float, y: float, type_id: String, rn
 	# Every zombie has eyes (the owner's decision 3, docs/30 "The playable state"): sight is a
 	# stimulus in shambler.think, and it was the screamer's alone until then.
 	world.components.set_component(ent, "observer", SimVisibility.shambler_eyes())
+	# And every zombie writes to the field from its resolved `emits` block (decision 11): noise
+	# is what the body gives off standing or walking (the noisemaker's shape -- a groan is not
+	# a footstep), scent is laid every SCENT_EMIT_INTERVAL in every state, which is the residue
+	# `field_memory.gd` used to lay only while Investigating, and light makes the body a source.
+	# A type with no `emits` carries an emitter of zeros -- present, so a save round-trips one
+	# shape, and silent. `check_m2_roster.gd` EMITS and RESIDUE.
+	SimAttentionEmitter.make_emitter(world, ent, emitter_of(world, type_id))
+	var glow: float = light_of(world, type_id)
+	if glow > 0.0:
+		SimLightMod.make_light_source(world, ent, glow)
 	if has_behavior(world, type_id, "alarm_on_sight"):
 		var alarm: Dictionary = {}
 		var entry: Variant = content_entry(world, type_id)

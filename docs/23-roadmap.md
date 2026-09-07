@@ -191,10 +191,6 @@ re-baseline the FAST balance record and say so in their record.
   assertion CLAUDE.md refuses to relax. Each flip is one static. The colony's answer is the
   torso slice; the trade between the owner's pacing and the compressed tier's floor is
   HANDOFF's owner item 5. Re-baseline, on the same four seeds, when they flip.
-- **The dead write to the field from content.** Every zombie carries an attention emitter
-  built from its `emits` block, residue is laid in every state and `field_memory.gd` retires;
-  bloater contamination rolls once per cloud. `godot:m2:roster`; the migration driver;
-  re-baseline.
 - **Body damage slows and staggers the dead.** Torso state feeds a speed factor and a
   stagger chance on its own stream; the head stays the only kill. `godot:m2:lethality`;
   re-baseline.
@@ -3308,6 +3304,65 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Roster & Attention** — ~~the dead write to the field from content~~ **landed**
+  (`godot:m2:roster` EMITS, RESIDUE, BLOOM-TWICE), 2026-09-06, the seventh piece of the
+  playable-state group and the owner's decision 11. What was wrong: no zombie carried an
+  `attention_emitter`, so the `emits` block in every zombie JSON was read by nothing, the only
+  field write a zombie made was `field_memory.gd`'s residue of 30 laid while Investigating —
+  a state a body was in for ninety ticks at a time — and docs/14's crowd ("a crowd emits its
+  own noise and scent and becomes self-reinforcing") had no writer. And a survivor's bloater
+  exposure was one flag, `contaminationRolled`, set on the first cloud and never cleared, so
+  every bloater after the first bloomed over a body it could not touch. Now `spawn_zombie`
+  builds the emitter from the resolved `emits` (`SimRoster.emitter_of`: noise is ambient and
+  walking alike — a groan is not a footstep — scent is scent, and light is a `light_source` of
+  that reach, `light_of`); `base.json` gives every type scent 8 and the screamer keeps its noise
+  4 beside it (arrays replace under `extends`, so the screamer names both); residue is laid
+  every `SCENT_EMIT_INTERVAL` in every state by the emitter module that already served the
+  living, and `field_memory.gd` is deleted with its registration and its routing row. **A body
+  cannot hear below its own noise:** the field keeps the loudest value a cell was given, so a
+  groaning screamer reads its own 4 at its feet every tick and, judged against the bare
+  threshold, sought its own sound for ever in the first run of the EMITS lane; its threshold is
+  raised by what it emits, so only something louder than itself is a sound. Contamination is
+  `contaminationRolls: {rolls: [{flag, atTick}]}`, one roll a cloud (an Array of records
+  scanned by index, never an id-keyed Dictionary). `SAVE_VERSION` 23. EMITS: a standing
+  screamer raises the field's noise to 4.00 and is still Wandering after it; a shambler raises
+  0.00; a fabricated light emit of 6 is a 6 m source the index reads beside the body. RESIDUE:
+  a Wandering shambler lays scent (peak 15.4) within 40 ticks; with the base's `emits`
+  emptied, none. BLOOM-TWICE: one cloud is one roll, held over 40 ticks; a second bloater's
+  cloud is a second roll, and two exposures are recorded. **docs/03's migration test, re-run
+  (a throwaway on 64-tile worlds, deleted) and what it said about the number.** Seed 20260805,
+  a shout of 120 at the centre, one hour, the horde's centre of mass before and after, at six
+  values of the base scent:
+
+  | base scent | drift (m) | within 20 m at 20 min | peak scent after an hour |
+  |---|---|---|---|
+  | 0 (residue off) | 19.1 | 20 | 223 |
+  | 1 | 5.7 | 18 | 311 |
+  | 2 | 7.3 | 19 | 658 |
+  | 4 | 7.3 | 19 | 1,317 |
+  | 8 (the first cut) | 7.2 | 19 | 2,621 |
+  | 30 (the retired module's) | 7.4 | 18 | 5,000 (the field's cap) |
+
+  Two things the table says. The acceptance check still passes — residue changes what the horde
+  does — but on a 64-tile map it *holds* the crowd (drift 6–7 m against 19 without) rather than
+  walking it downwind as docs/03 measured at 256, because the edge is 32 m off and the plume
+  has nowhere to blow; the district-scale migration is the FULL tier's to re-measure. And the
+  hold does not depend on the magnitude — 1 holds as well as 30 — while the magnitude decides
+  how loudly the dead drown the living: at 8 the crowd's plume was twelve times the living
+  footprint and a shambler would have smelled only itself. So the base scent ships **1**, a
+  living person's (`PERSON_EMITTER` scent 1.0): a crowd of twenty smells like twenty people,
+  the plume stays the order of the living's (311 against 223), and the residue's own reason —
+  the crowd that follows itself — is intact. **Re-baseline #3**, the FAST tier at 64:
+  siege 2 / 1 / 3 / 2 and packets 2 / 1 / 3 / 2 as before (the director is untouched);
+  max_live 26 / 25 / 31 / 28; **grabs 0 / 64 / 1 / 11 against 158 / 69 / 76 / 50**, kills 0 /
+  1 / 1 / 0, deaths 0 / 3 / 0 / 2, survivors 3 / 2 / 3 / 3 of 3 against 2 / 1 / 2 / 3. The
+  district got *safer* in this tier, and the reason is the table above: the boot wanderers
+  smell one another, drift up their own gradient and crowd together, and a crowd that follows
+  itself is a crowd that is not at the annex — with sight off, a colonist has to walk into
+  1.6 m of it to be touched. Two seeds went a whole compressed campaign without a grab. That
+  is the crowd docs/14 asks for, read at 64 tiles where it forms in minutes; whether it reads
+  as a horde or a huddle at 256 is the FULL tier's question. Every band holds; nothing
+  re-pinned.
 - **Director** — ~~two grace nights, then the table~~ **landed, at the old number**
   (`godot:m2:director` GRACE, LULL-EDGE), 2026-09-06, the sixth piece of the playable-state
   group and the owner's decision 4. What was wrong: `GRACE_PRESSURE_UNTIL_DAY` 8 kept the
