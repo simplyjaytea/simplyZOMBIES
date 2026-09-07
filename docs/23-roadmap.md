@@ -191,9 +191,6 @@ re-baseline the FAST balance record and say so in their record.
   past the clamp once the table opens early. Find that, re-read seed 20260805 with sight on,
   and flip the one static; the trade with the compressed tier's floor is HANDOFF's item 5.
   (Sight's flip landed with the lethality slice: `SIGHT_ENABLED` ships `true`.) Re-baseline.
-- **Pressing: a crowd gets through.** The kernel records which tile stopped a wanted move;
-  fortify counts the bodies pressing on a board, a barricade or a door with a packing bonus
-  and breaches by stages. `godot:m2:fortify`; the breach driver; re-baseline.
 - **A dropped weapon is picked back up, and a band that has lost withdraws.** Worn-out
   weapons drop at the feet; an unarmed NPC re-arms from pack, ground or stockpile; a raider
   band leaves after a clock with no enemy in reach or at half strength. `godot:m2:npc`,
@@ -3298,6 +3295,41 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Fortify & World** — ~~pressing: a crowd gets through~~ **landed** (`godot:m2:fortify`
+  PRESS, and BOARD re-fixtured), 2026-09-07, the tenth piece of the playable-state group and
+  the second half of the owner's decision 8. What was wrong: the only structure a zombie could
+  damage was a window board, worn passively by any shambler standing on an adjacent tile
+  whether or not it wanted to get in, a barricade and (since the last slice) a door were
+  proof against the whole district, and nothing had ever breached on any seed. Now the kernel
+  records **the press**: `_integrate_movement` writes `velocity.pressX` / `pressY` as the tile
+  that stopped a wanted move this tick, −1 when the move was free — a kernel fact with one
+  reader, written by key so a renamed key cannot silently un-press every barrier (PRESS
+  asserts the keys). `SimFortify._tick_contact` reads it over every barrier — `windowBoard`,
+  `scrapBarricade`, and a shut `door` — counting the dead whose press tile is the barrier's,
+  and a crowd presses harder than its number: `pressure_of(n)` is `n × (1 + 0.5 × (n − 1))`,
+  so one is 1, two 3, three 6, four 10 (docs/15's crowd). Each kind has a cost a stage
+  (`STAGE_COST`: board 40 — the old `CONTACT_PER_STAGE` — door 160, scrap 90), four stages,
+  and the fourth gives: a board or a barricade is gone, a door is broken open for good
+  (stage `DOOR_BROKEN`, unlatched, a doorway), and `fortify.breached` says which `kind`. The
+  door has words for the watch (`DOOR_PROSE`: shut, rattling, splintering, hanging off its
+  hinges, through `look_at`). Only the dead press: a colonist or a raider walking into a shut
+  door opens it. **Passive adjacency wear is gone** — a body standing beside a board with
+  nowhere it wants to go wears nothing, and the BOARD lane's shambler now wants to go west.
+  PRESS: one shambler pushing at a shut door breaks it in 641 ticks (4 × 160, plus the tick it
+  takes to close the gap) and three in 108 — a sixth, pressure 6; the breach says `door`, the
+  door is a doorway the map reads as open, and the director's lull is running; a shambler
+  standing beside the door with no heading and a survivor pushing at it for 300 ticks leave
+  it at stage 0 — and the kernel *did* record the survivor's push, so the negative is the
+  reader's refusal, not a missing write. The per-seed driver the plan named ({1, 2, 4} bodies
+  at the gate) is the PRESS lane's own two numbers; a third is a content number away.
+  **Re-baseline #5**, the FAST tier at 64: siege 2 / 1 / 3 / 2, packets 2 / 1 / 3 / 2,
+  max_live 27 / 23 / 31 / 28, grabs 117 / 7 / 0 / 55 against the doors slice's 110 / 7 / 0 / 55,
+  deaths 1 / 0 / 0 / 2, survivors 3 / 3 / 3 / 3 of 3, and **breaches 0 / 0 / 0 / 0** — so
+  `BREACH_SEEDS_MIN` stays 0, and the reason is now a measured one rather than "nothing can
+  break in": a body presses only where its wanted move goes, the annex's gates are shut behind
+  the watch, and in a 2,000-tick dusk window no crowd stands at a gate for the 641 ticks a lone
+  body needs or the 108 three do. The compressed tier cannot see a breach; the FULL tier at 256,
+  with real nights, is where the first one will be read. Every band holds.
 - **Fortify & District** — ~~doors: a tile class that opens, closes and breaks~~ **landed**
   (`godot:m2:fortify` DOOR, DOOR-DISTRICT; `godot:check:worldgen` at the gates), 2026-09-07,
   the ninth piece of the playable-state group and the first half of the owner's decision 8.

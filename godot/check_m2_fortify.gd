@@ -14,6 +14,7 @@ const SimSave = preload("res://sim/save.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimPath = preload("res://sim/path.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
+const SimDirector = preload("res://sim/modules/director.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -28,8 +29,9 @@ func _run() -> void:
 	ok = _e_pickup_first() and ok
 	ok = _a_door_opens_closes_and_breaks() and ok
 	ok = _the_district_has_doors_and_the_boot_shuts_them() and ok
+	ok = _a_crowd_gets_through() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v18, and doors that open, close and break")
+		print("M2_FORTIFY_OK board scrap alarm bait v18, doors that open, close and break, and a crowd that presses through")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -98,10 +100,15 @@ func _board_opacity() -> bool:
 	if String(look.get("window", "")) != "intact":
 		push_error("look-at %s" % str(look))
 		return false
+	# The shambler presses: a wanted move west into the board every tick (the kernel zeroes a
+	# blocked velocity, so it is re-armed each step). Standing beside a board wears nothing
+	# since the pressing slice; PRESS below holds that half.
 	var z: int = int(w.entities.spawn())
 	w.components.set_component(z, "position", {"x": 11.5, "y": 12.5})
+	w.components.set_component(z, "velocity", {"dx": 0.0, "dy": 0.0})
 	w.components.set_component(z, "shambler", {})
 	for _i in SimFortify.CONTACT_PER_STAGE * 4 + 5:
+		(w.components.get_component(z, "velocity") as Dictionary)["dx"] = -2.0
 		w.step()
 	if SimTileMap.overlay_at(w.tilemap, 10, 12) != null:
 		push_error("board did not breach")
@@ -254,12 +261,14 @@ func _a_door_opens_closes_and_breaks() -> bool:
 	if not SimTileMap.is_solid(w.tilemap, 10, 12) or not SimTileMap.blocks_sight(w.tilemap, 10, 12) or not w.is_blocked_tile(10, 12):
 		push_error("DOOR: a closed door is not solid and opaque to the map and the kernel")
 		return false
-	# The dead never open one: pushed at from the north for a thousand ticks.
+	# The dead never *open* one: pushed at from the north for 300 ticks (under the 640 a lone
+	# body needs to break it by pressing -- PRESS holds that half) the door is still shut, the
+	# body still north of it, and the pressing has registered as a stage.
 	var zed: int = int(w.entities.spawn())
 	w.components.set_component(zed, "position", {"x": 10.5, "y": 11.5})
 	w.components.set_component(zed, "velocity", {"dx": 0.0, "dy": 0.0})
 	w.components.set_component(zed, "shambler", {})
-	for _i in 1000:
+	for _i in 300:
 		(w.components.get_component(zed, "velocity") as Dictionary)["dy"] = 2.0
 		w.step()
 	var zpos: Dictionary = w.components.get_component(zed, "position") as Dictionary
@@ -267,6 +276,11 @@ func _a_door_opens_closes_and_breaks() -> bool:
 	if float(zpos["y"]) >= 12.0 or bool(dstate["open"]):
 		push_error("DOOR: a shambler got through a closed door (y=%.2f open=%s)" % [float(zpos["y"]), str(dstate["open"])])
 		return false
+	if int(dstate["stage"]) < 1:
+		push_error("DOOR: 300 ticks of pushing moved the door nothing -- the press is not reaching it")
+		return false
+	dstate["stage"] = 0
+	dstate["contactTicks"] = 0.0
 	w.despawn(zed)
 	# A person's planner routes through it, and the walk opens it as the step.
 	var route: Array[Vector2i] = SimPath.find(w, Vector2i(10, 14), Vector2i(10, 10))
@@ -337,7 +351,7 @@ func _a_door_opens_closes_and_breaks() -> bool:
 	if SimFortify.toggle_door(w, 10, 12) or SimFortify.close_door(w, 10, 12, true):
 		push_error("DOOR: a broken door was closed")
 		return false
-	print("DOOR OK closed: solid, opaque, a shambler pushed 1000 ticks (y=%.2f); A* routes through it, the walk opened it at tick %d and crossed at %d; shut again %d ticks after the tile emptied; E latched it open through 300 ticks and shut it; broken cannot close" % [float(zpos["y"]), opened_at, crossed_at, shut_at])
+	print("DOOR OK closed: solid, opaque, a shambler pushed 300 ticks and stayed north (y=%.2f); A* routes through it, the walk opened it at tick %d and crossed at %d; shut again %d ticks after the tile emptied; E latched it open through 300 ticks and shut it; broken cannot close" % [float(zpos["y"]), opened_at, crossed_at, shut_at])
 	return true
 
 
@@ -384,4 +398,92 @@ func _the_district_has_doors_and_the_boot_shuts_them() -> bool:
 		push_error("DOOR-DISTRICT: the Guard's post %s is not the annex-side neighbour of the gate %s" % [str(post), str(gate_a)])
 		return false
 	print("DOOR-DISTRICT OK %d doorways and both gates are Door tiles, open by class; the boot shuts all %d; the post %s stands inside the annex beside the gate %s" % [doorways, door_tiles, str(post), str(gate_a)])
+	return true
+
+
+# --- The playable state, slice 10: pressing ---------------------------------------------------
+
+# One shambler pushing at a shut door breaks it in four stages at 160 a stage (a push a tick is
+# pressure 1); three pushing at once (pressure 6) in a sixth of that; a body standing beside
+# the door with nowhere it wants to go presses nothing over 300 ticks, and a survivor pushing at
+# it presses nothing either; the kernel's press keys are asserted by name; and the breach says
+# its kind and reaches the director's lull.
+func _a_crowd_gets_through() -> bool:
+	var ticks_for: Dictionary = {}
+	for n in [1, 3]:
+		var w: Variant = _world(10.5, 16.5)
+		for x in range(6, 15):
+			_set_tile(w, x, 12, SimTileMap.Tile.Wall)
+		_set_tile(w, 10, 12, SimTileMap.Tile.Door)
+		SimFortify.spawn_doors(w, w.tilemap)
+		SimDirector.register_module(w)
+		var zeds: Array[int] = []
+		for i in n:
+			var z: int = int(w.entities.spawn())
+			w.components.set_component(z, "position", {"x": 10.5, "y": 11.5})
+			w.components.set_component(z, "velocity", {"dx": 0.0, "dy": 0.0})
+			w.components.set_component(z, "shambler", {})
+			zeds.append(z)
+		var breached: Array = []
+		w.events.subscribe({"id": "check.press-%d" % n, "type": "fortify.breached", "handler": func(e: Dictionary) -> void:
+			breached.append(String(e.get("kind", "")))
+		})
+		var ticks: int = -1
+		for t in 800:
+			for z in zeds:
+				(w.components.get_component(int(z), "velocity") as Dictionary)["dy"] = 2.0
+			w.step()
+			if t == 5:
+				var vel: Dictionary = w.components.get_component(int(zeds[0]), "velocity") as Dictionary
+				if not vel.has("pressX") or not vel.has("pressY") or int(vel["pressX"]) != 10 or int(vel["pressY"]) != 12:
+					push_error("PRESS: the kernel did not write pressX/pressY for a body pushing at the door (%s)" % str(vel))
+					return false
+			if not breached.is_empty():
+				ticks = t + 1
+				break
+		if ticks < 0:
+			push_error("PRESS: %d shambler(s) never broke the door in 800 ticks" % n)
+			return false
+		if breached[0] != "door":
+			push_error("PRESS: the breach said kind '%s'" % breached[0])
+			return false
+		var d: Dictionary = SimFortify.door_state(w, 10, 12) as Dictionary
+		if int(d["stage"]) < SimFortify.DOOR_BROKEN or not bool(d["open"]) or SimTileMap.is_solid(w.tilemap, 10, 12):
+			push_error("PRESS: a broken door is not a doorway (%s)" % str(d))
+			return false
+		if int((w.director as Dictionary).get("lullUntilTick", 0)) <= 0:
+			push_error("PRESS: the door breach did not reach the director's lull")
+			return false
+		ticks_for[n] = ticks
+	var one: int = int(ticks_for[1])
+	var three: int = int(ticks_for[3])
+	if one < 4 * int(SimFortify.STAGE_COST["door"]) or one > 4 * int(SimFortify.STAGE_COST["door"]) + 8:
+		push_error("PRESS: one shambler took %d ticks, wanted ~%d" % [one, 4 * int(SimFortify.STAGE_COST["door"])])
+		return false
+	if three > one / 3:
+		push_error("PRESS: three shamblers took %d ticks against one's %d -- the crowd is not pressing harder than its number" % [three, one])
+		return false
+	# The negatives: no heading, no press; a survivor pushing, no press.
+	var quiet: Variant = _world(10.5, 16.5)
+	for x in range(6, 15):
+		_set_tile(quiet, x, 12, SimTileMap.Tile.Wall)
+	_set_tile(quiet, 10, 12, SimTileMap.Tile.Door)
+	SimFortify.spawn_doors(quiet, quiet.tilemap)
+	var idle: int = int(quiet.entities.spawn())
+	quiet.components.set_component(idle, "position", {"x": 10.5, "y": 11.5})
+	quiet.components.set_component(idle, "velocity", {"dx": 0.0, "dy": 0.0})
+	quiet.components.set_component(idle, "shambler", {})
+	quiet.components.set_component(quiet.player, "position", {"x": 10.5, "y": 13.5})
+	for _t in 300:
+		(quiet.components.get_component(quiet.player, "velocity") as Dictionary)["dy"] = -2.0
+		quiet.step()
+	var qd: Dictionary = SimFortify.door_state(quiet, 10, 12) as Dictionary
+	if int(qd["stage"]) != 0 or float(qd.get("contactTicks", 0)) != 0.0:
+		push_error("PRESS: an idle shambler beside the door, or the survivor pushing at it, pressed (%s)" % str(qd))
+		return false
+	var pv: Dictionary = quiet.components.get_component(quiet.player, "velocity") as Dictionary
+	if int(pv.get("pressX", -1)) != 10:
+		push_error("PRESS: the survivor's push was not recorded by the kernel (%s) -- the negative is not testing the reader" % str(pv))
+		return false
+	print("PRESS OK one shambler broke the door in %d ticks, three in %d; the breach says 'door' and starts a lull; an idle shambler and a pushing survivor press nothing (the kernel recorded the survivor's push, fortify ignored it)" % [one, three])
 	return true
