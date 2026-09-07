@@ -3340,7 +3340,12 @@ not a to-do list:
   scavenged, which the lane's first run reported as a failure — its negative is the offer, not
   the day); the far box stays shut for a quarter day; and the yield reaches the stockpile (the
   dead-socket half — it skips loudly if the table rolls nothing). Measured: the residential table yielded four items and the first of them
-  was on the stockpile inside a quarter day.
+  was on the stockpile inside a quarter day. FAST lines after: **byte-identical** to the crisis
+  slice's on all four seeds, and `searches=0` on every one — which is the compressed tier's
+  blind spot said out loud rather than a null result: it steps only the 2,000 ticks after each
+  dusk, when Guard holds the row, so a *day* job is never run by it. The FULL tier (real ticks)
+  is where `searches=` will move, and the density slice's 256 driver is where the food economy
+  is first measured. A report, not a re-baseline.
 - **Jobs & Needs** — ~~a starving colonist still eats, and a fire burns down~~ **landed**
   (`godot:m2:jobs` CRISIS, `godot:m2:needs` FIRE), 2026-09-06, the second piece of the
   playable-state group: two defects the surveys found, neither a design question. **The crisis
