@@ -232,6 +232,7 @@ func _blank_run(seed_value: int, arm: String, w: Variant) -> Dictionary:
 		"siege_nights": 0,
 		"quiet_nights": 0,
 		"breaches": 0,
+		"withdrew": 0,
 		# The raid, reported rather than banded. A band is a 20% roll on a post-grace night and a
 		# ten-day campaign has three of those, so a floor here would be a coin toss; what the
 		# harness owes is the number, plus the assertion that already covers it -- a colony wiped
@@ -296,6 +297,8 @@ func _observe(w: Variant, run: Dictionary, before: Variant) -> void:
 					run["raiders_in"] = int(run["raiders_in"]) + int(ev.get("size", 0))
 			"raider.killed":
 				(run["dead_raiders"] as Dictionary)[int(ev.get("entity", -1))] = true
+			"raid.withdrew":
+				run["withdrew"] = int(run.get("withdrew", 0)) + 1
 			"fortify.breached":
 				run["breaches"] = int(run["breaches"]) + 1
 			"recruit.arrived":
@@ -378,10 +381,10 @@ func _close_run(w: Variant, run: Dictionary) -> void:
 
 
 func _print_run(label: String, run: Dictionary) -> void:
-	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d searches=%d broken=%s" % [
+	print("%s seed=%d arm=%s days=%d siege=%d quiet=%d packets=%d raids=%d(%din/%ddown/%dleft) breaches=%d kills=%d(m%d/r%d) deaths=%d turned=%d recruits=%d max_live=%d survivors=%d/%d over=%s grabs=%d searches=%d broken=%s" % [
 		label, int(run["seed"]), String(run["arm"]), int(run["days"]),
 		int(run["siege_nights"]), int(run["quiet_nights"]), int(run["packets"]),
-		int(run["raids"]), int(run["raiders_in"]), int(run["raiders_killed"]),
+		int(run["raids"]), int(run["raiders_in"]), int(run["raiders_killed"]), int(run.get("withdrew", 0)),
 		int(run["breaches"]), int(run["kills"]), int(run["melee_kills"]), int(run["ranged_kills"]),
 		int(run["deaths"]), int(run["turned"]), int(run["recruits"]), int(run["max_live"]),
 		int(run["survivors_end"]), int(run["survivors_start"]), str(run["run_over"]),

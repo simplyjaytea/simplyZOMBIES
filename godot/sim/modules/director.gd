@@ -368,13 +368,18 @@ static func _emit_band(world: Variant, size: int, rng: Variant) -> Dictionary:
 	var pool: Array = sides[side] as Array
 	var at: int = int(rng.call("int_range", 0, pool.size() - 1))
 	var placed: int = 0
+	var members: Array = []
 	for i in size:
 		var pick: Vector2i = pool[(at + i) % pool.size()]
 		var type_id: String = SimRaiders.pick_type(world, rng)
-		if SimRaiders.spawn(world, float(pick.x) + 0.5, float(pick.y) + 0.5, type_id) >= 0:
+		var ent: int = SimRaiders.spawn(world, float(pick.x) + 0.5, float(pick.y) + 0.5, type_id)
+		if ent >= 0:
 			placed += 1
+			members.append(ent)
 	if placed <= 0:
 		return none
+	# The band knows itself: the night it came and how many, so it can leave at half strength.
+	SimRaiders.stamp_band(world, members, int(world.tick))
 	return {"side": SIDE_NAMES[side], "placed": placed}
 
 
