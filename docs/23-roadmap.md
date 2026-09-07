@@ -3338,7 +3338,10 @@ not a to-do list:
   (the constant, read); not doused sixty ticks in; with the clock shortened by hand to fifty
   ticks it is doused on the tick, and the flag, the `light_source` and `lit_campfire_near` all
   see it; a cook's fire past its clock stays lit; a re-light refreshes the stamp; a lit fire
-  with the key erased is stamped on the next tick and still lit.
+  with the key erased is stamped on the next tick and still lit. FAST lines after, against the
+  Guard slice's: three seeds byte-identical, 90210 at `max_live` 26 and `grabs` 35 against 25 and
+  30 — a fire that goes out at night is a fire the wanderers do not lean toward, and nothing else
+  moved; survivors 8 of 12 as before. A report, not a re-baseline.
 - **Jobs** — ~~the day belongs to the row, and Guard is the night post~~ **landed**
   (`godot:m2:jobs`, GUARD POST and AUTHORED), 2026-09-06, the first piece of the playable-state
   group and the owner's decision 6. What was wrong: `_work_for` handed out the Guard post at any
