@@ -364,6 +364,10 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	var observer: Dictionary = SimVisibility.daylight_eyes()
 	world.components.set_component(world.player, "observer", observer)
 	place_stations(world, map)
+	# A closed door on every Door tile -- the buildings' doorways and both gates -- before the
+	# colony walks anywhere, so the first route out of the annex is through a door somebody
+	# opens. `bare` spawns none: a bare world is the one every gate builds its own fixture on.
+	SimFortify.spawn_doors(world, map)
 	SimSurvivors.boot_playable(world)
 	# Annex knife is the default find — equip so F works without a scavenger loop.
 	var knife: int = SimItems.spawn_item(world, "item.knife.kitchen", {"tier": "scavenged"})

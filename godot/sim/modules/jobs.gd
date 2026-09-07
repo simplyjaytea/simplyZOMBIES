@@ -261,6 +261,14 @@ static func _tick_one(world: Variant, ent: int) -> void:
 		if _refused_outdoors(world, ent, job as Dictionary):
 			_stop(world, ent)
 			return
+		# The watch ends at dawn wherever the guard stands -- on the post or still walking to
+		# it -- and completes (`job.completed`, the Endurance point). Here rather than in the
+		# Guard arm alone, because `_advance_job` walks a job to its tile before its arm runs,
+		# and since the post moved inside the gate (the doors slice) a guard called late can
+		# still be a step short of it when the sky lightens.
+		if String((job as Dictionary).get("kind", "")) == "Guard" and not _watch_hours(world):
+			_stop(world, ent, "Guard")
+			return
 		_advance_job(world, ent, job as Dictionary)
 		return
 	_pick(world, ent)
@@ -405,7 +413,7 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 			# no watch to keep, so the row's next column gets the survivor instead.
 			if not _watch_hours(world):
 				return {}
-			var post: Vector2i = SimTileMap.gate_a(world.tilemap)
+			var post: Vector2i = _post_tile(world)
 			if post.x < 0 or post.y < 0:
 				return {}
 			return {"kind": "Guard", "tx": post.x, "ty": post.y, "ticksLeft": 0, "path": [], "pathGen": -1}
@@ -1140,6 +1148,26 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 	job["carrying"] = true
 
 
+# The watch stands on the annex side of the gate, not in it: the gate is a door since the doors
+# slice, and a body in the doorway is a door that never shuts. The neighbour of `gate_a` inside
+# the annex rect that is open floor by class; the gate itself where the map has no annex.
+static func _post_tile(world: Variant) -> Vector2i:
+	var gate: Vector2i = SimTileMap.gate_a(world.tilemap)
+	if gate.x < 0 or gate.y < 0:
+		return gate
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x <= 0:
+		return gate
+	for step in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]:
+		var t: Vector2i = gate + (step as Vector2i)
+		if not annex.has_point(t):
+			continue
+		if SimTileMap.SOLID[SimTileMap.tile_at(world.tilemap, t.x, t.y)]:
+			continue
+		return t
+	return gate
+
+
 # Two tiles south of the gate (ADR 0010), measured from where the map says the gate is. Returns
 # the absent sentinel on a district with no gate anchor, and every caller checks it -- there is no
 # outdoor dump when there is no gate to put one south of.
@@ -1565,6 +1593,11 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 		if path.is_empty():
 			_still(world, ent)
 		return
+	# The step through a closed door opens it (unlatched, so it swings shut behind): the
+	# planner routed through it on that promise. The open bumps the map generation, so the
+	# path is re-planned next tick through the doorway it now is.
+	if SimTileMap.tile_at(world.tilemap, nx, ny) == SimTileMap.Tile.Door and world.is_blocked_tile(nx, ny):
+		SimFortify.open_door(world, nx, ny)
 	var len: float = sqrt(dx * dx + dy * dy)
 	var speed: float = 2.1 * SimNeeds.walk_mul(world, ent)
 	# The modifier store's move_speed, the same read the player's `move` command makes

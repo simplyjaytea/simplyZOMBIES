@@ -12,6 +12,8 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
 const SimSave = preload("res://sim/save.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimPath = preload("res://sim/path.gd")
+const SimJobs = preload("res://sim/modules/jobs.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -24,8 +26,10 @@ func _run() -> void:
 	ok = _alarm_no_dps() and ok
 	ok = _noisemaker_field() and ok
 	ok = _e_pickup_first() and ok
+	ok = _a_door_opens_closes_and_breaks() and ok
+	ok = _the_district_has_doors_and_the_boot_shuts_them() and ok
 	if ok:
-		print("M2_FORTIFY_OK board scrap alarm bait v18")
+		print("M2_FORTIFY_OK board scrap alarm bait v18, and doors that open, close and break")
 		quit(0)
 	else:
 		push_error("M2_FORTIFY_FAIL")
@@ -60,8 +64,8 @@ func _version() -> bool:
 	# This duplicates check_m2_save.gd's _version() -- two gates asserting the same fact
 	# independently, which is exactly how one of them got missed on the last version bump.
 	# Left as-is rather than refactored under this fix; see docs/30-decisions.md.
-	if int(SimSerialize.SAVE_VERSION) != 23:
-		push_error("SAVE_VERSION %d want 23" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 24:
+		push_error("SAVE_VERSION %d want 24" % int(SimSerialize.SAVE_VERSION))
 		return false
 	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":13},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":
@@ -229,4 +233,155 @@ func _e_pickup_first() -> bool:
 		push_error("E boarded instead of pickup")
 		return false
 	print("E-CONTEXT OK pickup first")
+	return true
+
+
+# --- The playable state, slice 9: doors ------------------------------------------------------
+
+# A wall across row 12 with a Door tile at (10, 12) between the player (south) and the open
+# north. Closed, the door is solid and opaque; open, neither; a shambler pushing at it for a
+# thousand ticks never opens it; a person's A* routes through it and their walk opens it as the
+# step, after which it swings shut DOOR_SWING_TICKS after the tile empties; E latches it open
+# for good, or shut; a broken one is a doorway nothing can close.
+func _a_door_opens_closes_and_breaks() -> bool:
+	var w: Variant = _world(10.5, 14.5)
+	for x in range(6, 15):
+		_set_tile(w, x, 12, SimTileMap.Tile.Wall)
+	_set_tile(w, 10, 12, SimTileMap.Tile.Door)
+	if SimFortify.spawn_doors(w, w.tilemap) != 1:
+		push_error("DOOR: one Door tile should spawn one door")
+		return false
+	if not SimTileMap.is_solid(w.tilemap, 10, 12) or not SimTileMap.blocks_sight(w.tilemap, 10, 12) or not w.is_blocked_tile(10, 12):
+		push_error("DOOR: a closed door is not solid and opaque to the map and the kernel")
+		return false
+	# The dead never open one: pushed at from the north for a thousand ticks.
+	var zed: int = int(w.entities.spawn())
+	w.components.set_component(zed, "position", {"x": 10.5, "y": 11.5})
+	w.components.set_component(zed, "velocity", {"dx": 0.0, "dy": 0.0})
+	w.components.set_component(zed, "shambler", {})
+	for _i in 1000:
+		(w.components.get_component(zed, "velocity") as Dictionary)["dy"] = 2.0
+		w.step()
+	var zpos: Dictionary = w.components.get_component(zed, "position") as Dictionary
+	var dstate: Dictionary = SimFortify.door_state(w, 10, 12) as Dictionary
+	if float(zpos["y"]) >= 12.0 or bool(dstate["open"]):
+		push_error("DOOR: a shambler got through a closed door (y=%.2f open=%s)" % [float(zpos["y"]), str(dstate["open"])])
+		return false
+	w.despawn(zed)
+	# A person's planner routes through it, and the walk opens it as the step.
+	var route: Array[Vector2i] = SimPath.find(w, Vector2i(10, 14), Vector2i(10, 10))
+	if route.is_empty() or not route.has(Vector2i(10, 12)):
+		push_error("DOOR: A* did not route a person through the closed door (%s)" % str(route))
+		return false
+	var walker: int = int(w.entities.spawn())
+	w.components.set_component(walker, "position", {"x": 10.5, "y": 14.5})
+	w.components.set_component(walker, "velocity", {"dx": 0.0, "dy": 0.0})
+	w.components.set_component(walker, "facing", {"radians": -PI / 2.0})
+	var job: Dictionary = {"kind": "Haul", "target": -1, "ticksLeft": 0, "path": [], "pathGen": -1}
+	var opened_at: int = -1
+	var crossed_at: int = -1
+	for i in 200:
+		SimJobs._walk(w, walker, job, Vector2i(10, 10))
+		w.step()
+		if opened_at < 0 and bool((SimFortify.door_state(w, 10, 12) as Dictionary)["open"]):
+			opened_at = i
+		var wp: Dictionary = w.components.get_component(walker, "position") as Dictionary
+		if crossed_at < 0 and float(wp["y"]) < 11.0:
+			crossed_at = i
+			break
+	if opened_at < 0 or crossed_at < 0:
+		push_error("DOOR: the walker never opened the door (%d) or never crossed it (%d)" % [opened_at, crossed_at])
+		return false
+	if SimTileMap.is_solid(w.tilemap, 10, 12) or SimTileMap.blocks_sight(w.tilemap, 10, 12):
+		push_error("DOOR: an open door still blocks the map")
+		return false
+	# It swings shut DOOR_SWING_TICKS after the tile emptied, and not before.
+	w.components.set_component(walker, "position", {"x": 10.5, "y": 9.5})
+	(w.components.get_component(walker, "velocity") as Dictionary)["dy"] = 0.0
+	# Measured from the door's own stamp of when its tile emptied (the walker left it during
+	# the crossing loop above), not from here: shut on exactly the swing tick, not before.
+	var shut_at: int = -1
+	var emptied: int = int((SimFortify.door_state(w, 10, 12) as Dictionary)["emptySinceTick"])
+	for i in SimFortify.DOOR_SWING_TICKS + 40:
+		w.step()
+		if not bool((SimFortify.door_state(w, 10, 12) as Dictionary)["open"]):
+			shut_at = int(w.tick) - emptied
+			break
+	if shut_at != SimFortify.DOOR_SWING_TICKS:
+		push_error("DOOR: the door swung shut %d ticks after its tile emptied (swing is %d)" % [shut_at, SimFortify.DOOR_SWING_TICKS])
+		return false
+	# E latches it open: no swing for 300 ticks. E again shuts it.
+	w.components.set_component(w.player, "position", {"x": 10.5, "y": 13.5})
+	w.components.set_component(w.player, "facing", {"radians": -PI / 2.0})
+	SimFortify._use_context(w, w.player)
+	var latched: Dictionary = SimFortify.door_state(w, 10, 12) as Dictionary
+	if not bool(latched["open"]) or not bool(latched["latched"]):
+		push_error("DOOR: E did not open and latch the door (%s)" % str(latched))
+		return false
+	for _i in 300:
+		w.step()
+	if not bool((SimFortify.door_state(w, 10, 12) as Dictionary)["open"]):
+		push_error("DOOR: a latched-open door swung shut")
+		return false
+	SimFortify._use_context(w, w.player)
+	if bool((SimFortify.door_state(w, 10, 12) as Dictionary)["open"]) or not w.is_blocked_tile(10, 12):
+		push_error("DOOR: E did not shut the door")
+		return false
+	# Broken is a doorway for good.
+	(SimFortify.door_state(w, 10, 12) as Dictionary)["stage"] = SimFortify.DOOR_BROKEN
+	(SimFortify.door_state(w, 10, 12) as Dictionary)["open"] = true
+	SimFortify.sync_map(w)
+	if SimTileMap.is_solid(w.tilemap, 10, 12) or SimTileMap.blocks_sight(w.tilemap, 10, 12) or w.is_blocked_tile(10, 12):
+		push_error("DOOR: a broken door still blocks")
+		return false
+	if SimFortify.toggle_door(w, 10, 12) or SimFortify.close_door(w, 10, 12, true):
+		push_error("DOOR: a broken door was closed")
+		return false
+	print("DOOR OK closed: solid, opaque, a shambler pushed 1000 ticks (y=%.2f); A* routes through it, the walk opened it at tick %d and crossed at %d; shut again %d ticks after the tile emptied; E latched it open through 300 ticks and shut it; broken cannot close" % [float(zpos["y"]), opened_at, crossed_at, shut_at])
+	return true
+
+
+# The district: every building's doorway and both gates are Door tiles on a generated map (open
+# by class, nothing booted), and a playable boot stands a closed door on each; the Guard's post is
+# the annex-side neighbour of the gate, not the gate.
+func _the_district_has_doors_and_the_boot_shuts_them() -> bool:
+	var map: Variant = SimTileMap.generate_district(20260805, 64)
+	var doorways: int = 0
+	for record in map.buildings as Array:
+		for door in (record as Dictionary).get("doors", []) as Array:
+			var dx: int = int((door as Dictionary).get("x", -1))
+			var dy: int = int((door as Dictionary).get("y", -1))
+			if SimTileMap.tile_at(map, dx, dy) != SimTileMap.Tile.Door:
+				push_error("DOOR-DISTRICT: the doorway at (%d, %d) is tile %d, not Door" % [dx, dy, SimTileMap.tile_at(map, dx, dy)])
+				return false
+			if SimTileMap.is_solid(map, dx, dy):
+				push_error("DOOR-DISTRICT: a doorway on a map nobody booted is solid")
+				return false
+			doorways += 1
+	for gate in [SimTileMap.gate_a(map), SimTileMap.gate_b(map)]:
+		if SimTileMap.tile_at(map, (gate as Vector2i).x, (gate as Vector2i).y) != SimTileMap.Tile.Door:
+			push_error("DOOR-DISTRICT: gate %s is not a Door tile" % str(gate))
+			return false
+	if doorways < 4:
+		push_error("DOOR-DISTRICT: only %d doorways on a 64-tile district -- nothing to judge" % doorways)
+		return false
+	var w: Variant = SimBoot.playable(20260805, 64)["world"]
+	var doors: int = w.components.query(["door"]).size()
+	var door_tiles: int = 0
+	var shut: int = 0
+	for y in 64:
+		for x in 64:
+			if SimTileMap.tile_at(w.tilemap, x, y) == SimTileMap.Tile.Door:
+				door_tiles += 1
+				if SimTileMap.is_solid(w.tilemap, x, y):
+					shut += 1
+	if doors != door_tiles or shut != door_tiles:
+		push_error("DOOR-DISTRICT: %d Door tiles, %d door entities, %d shut at boot" % [door_tiles, doors, shut])
+		return false
+	var gate_a: Vector2i = SimTileMap.gate_a(w.tilemap)
+	var post: Vector2i = SimJobs._post_tile(w)
+	if post == gate_a or not SimTileMap.annex_rect(w.tilemap).has_point(post) or (post - gate_a).length() > 1.01:
+		push_error("DOOR-DISTRICT: the Guard's post %s is not the annex-side neighbour of the gate %s" % [str(post), str(gate_a)])
+		return false
+	print("DOOR-DISTRICT OK %d doorways and both gates are Door tiles, open by class; the boot shuts all %d; the post %s stands inside the annex beside the gate %s" % [doorways, door_tiles, str(post), str(gate_a)])
 	return true

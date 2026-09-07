@@ -328,6 +328,13 @@ static func _walk(world: Variant, ent: int, r: Dictionary, goal: Vector2i) -> vo
 		return
 	var tx: float = float(int((step as Dictionary).get("x", 0))) + 0.5
 	var ty: float = float(int((step as Dictionary).get("y", 0))) + 0.5
+	# A band opens the door it is walking through, the way a colonist does (SimJobs._walk).
+	# `load`, not a preload: fortify.gd is on this file's preload chain through vehicles.
+	var step_tx: int = int((step as Dictionary).get("x", 0))
+	var step_ty: int = int((step as Dictionary).get("y", 0))
+	if world.tilemap != null and SimTileMapRes.tile_at(world.tilemap, step_tx, step_ty) == SimTileMapRes.Tile.Door and world.is_blocked_tile(step_tx, step_ty):
+		var Fortify: GDScript = load("res://sim/modules/fortify.gd") as GDScript
+		Fortify.call("open_door", world, step_tx, step_ty)
 	var dx: float = tx - float(p["x"])
 	var dy: float = ty - float(p["y"])
 	if dx * dx + dy * dy < 0.04:

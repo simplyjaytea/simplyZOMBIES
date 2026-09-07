@@ -191,9 +191,6 @@ re-baseline the FAST balance record and say so in their record.
   past the clamp once the table opens early. Find that, re-read seed 20260805 with sight on,
   and flip the one static; the trade with the compressed tier's floor is HANDOFF's item 5.
   (Sight's flip landed with the lethality slice: `SIGHT_ENABLED` ships `true`.) Re-baseline.
-- **Doors: a tile class that opens, closes and breaks.** `Tile.Door` as the class, a `door`
-  component as the state through `sync_map`; people open them in a step, they swing shut,
-  E latches; zombies never open. `godot:m2:fortify`.
 - **Pressing: a crowd gets through.** The kernel records which tile stopped a wanted move;
   fortify counts the bodies pressing on a board, a barricade or a door with a packing bonus
   and breaches by stages. `godot:m2:fortify`; the breach driver; re-baseline.
@@ -3301,6 +3298,52 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Fortify & District** — ~~doors: a tile class that opens, closes and breaks~~ **landed**
+  (`godot:m2:fortify` DOOR, DOOR-DISTRICT; `godot:check:worldgen` at the gates), 2026-09-07,
+  the ninth piece of the playable-state group and the first half of the owner's decision 8.
+  What was wrong: no door object existed — every doorway and both gates were Floor, so a
+  building was a room the dead walked into, the annex a courtyard with two gaps in it, and
+  the only structure a zombie could damage was a window board. Now `SimTileMap.Tile.Door` is
+  the *class* (Clear and not solid by itself: a map nobody booted has open doorways, and every
+  map-level judgement — worldgen's survivability walk, the district's enterability, the boot's
+  scatter — reads it as ground) and a `door` entity is the *state*
+  (`{tx, ty, open, stage, latched, emptySinceTick}`), overlaid by `SimFortify.sync_map` as
+  `{kind: "door", open, stage}` the way a window's board is, so `is_solid`, `opacity_at`, the
+  kernel's `map_cells`, the shadowcast and the roof cut-out all read one answer: a shut door
+  is solid and opaque, an open or broken one (stage `DOOR_BROKEN` 4, no overlay) a doorway.
+  Worldgen writes Door at every building's doorway and both gate anchors (`_write_doors`) and
+  `SimBoot.playable` stands a closed door on each (`spawn_doors`; `bare` stands none). People
+  route through a closed door — `SimPath.walkable` accepts a Door tile the kernel blocks —
+  and open it as the step (`SimJobs._walk`, `SimRaiders._walk`, unlatched), after which it
+  swings shut `DOOR_SWING_TICKS` 60 after its tile empties; E at a door opens and latches it,
+  or shuts and latches it (`toggle_door`, a rung of the ladder after the loot and before the
+  stranger and the car); a broken door cannot be closed; the dead never open one. The Guard's
+  post is the annex-side neighbour of the gate (`_post_tile`), not the gate, because a body in
+  a doorway is a door that never shuts — and the watch now ends at dawn wherever the guard
+  stands, since `_advance_job` walks a job before its arm runs and a guard called late could
+  be a step short of the post when the sky lightened (the GUARD POST lane found it). The
+  renderer draws a shut door as a plank of the wall's timber (`door` in the palette) in
+  **both** `match tile:` blocks, and an open one as the threshold and door face the doorway
+  always drew. `SAVE_VERSION` 24. DOOR: closed, solid and opaque to map and kernel, and a
+  shambler pushing at it for 1,000 ticks stays north of it (y 11.6) with the door shut; A*
+  routes a person through it, the walk opens it at tick 9 and crosses at 33; it shuts exactly
+  60 ticks after its tile emptied; E latches it open through 300 ticks and shuts it; broken it
+  blocks nothing and cannot be closed. DOOR-DISTRICT: 17 doorways and both gates of the
+  64-tile suburb are Door tiles, open by class; the boot shuts all 19; the post stands inside
+  the annex beside the gate. `check:worldgen` accepts a Door at the two gate anchors and
+  nowhere else. **Measured at 256 (a throwaway, deleted):** a boot stands 87 doors; over
+  10,000 ticks one was opened and the map generation moved twice, so the re-plan the plan
+  worried about is not a cost — but the step runs at **53 ticks a second** against the eyes
+  slice's 84 on the same seed, and a per-system profile (a second throwaway, deleted) puts
+  none of it on the doors: `shambler.think` 26 % and `kernel.visibility` 19 % lead, with the
+  emitters' `attention.emit-movement` at 3 %, so the fall is the emitters slice, the torso
+  slice and sight shipping on, none of which was re-measured at 256 when it landed. Named here
+  rather than hidden; the FULL tier at 256 is where it is priced. **The FAST tier**, reported
+  rather than re-baselined: siege 2 / 1 / 3 / 2, packets 2 / 1 / 3 / 2 (the director untouched),
+  max_live 27 / 23 / 31 / 28, **grabs 110 / 7 / 0 / 55** against the torso slice's 0 / 4 / 1 /
+  31 and the flip's 122 / 68 / 1 / 58, deaths 1 / 0 / 0 / 2, **survivors 3 / 3 / 3 / 3 of 3**.
+  With the gates shut behind the watch, a wanderer that sees the colony stands at a door it
+  cannot open; the contacts that remain are the colony's own walks out. Every band holds.
 - **Lethality** — ~~body damage slows and staggers the dead~~ **landed**
   (`godot:m2:lethality` TORSO-SLOW, TORSO-STAGGER, HEAD-ONLY), 2026-09-06, the eighth piece of
   the playable-state group and the owner's decision 7. What was wrong: a zombie died only on

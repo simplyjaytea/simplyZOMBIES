@@ -2756,6 +2756,20 @@ records its own numbers here as a bullet under this entry when it lands.
   is by the *resulting* state so the hit that takes a torso across a band is the hit that can
   drop the body, and on its own stream so a torso hit moves no other draw. The head stays the
   only kill: docs/14's damage model, and the one thing every decision here was made inside.
+- **Doors, 2026-09-07.** A tile class and an entity component rather than a tile per state,
+  because `SOLID` and `OPACITY` are consts indexed by tile and a door is not a const: the
+  window board set the pattern (state on an entity, overlaid by `sync_map`) and a door is the
+  same pattern with an `open` bit. Open by class so a map is judged without a world — the
+  survivability walk, the enterability check and the scatter all read a doorway as ground,
+  and the boot is what shuts it. A walker's open is unlatched and the player's is latched
+  because the two mean different things: a colonist walking through wants the door to close
+  behind them and the player pressing E wants the door to stay how they left it. Sixty ticks
+  of swing so a second colonist three seconds behind the first walks through the same open
+  door. NPCs open a latched door too — the latch is "do not swing", not a lock — so the
+  colony can leave a shut annex by day. The dead never open a door; how they get through one
+  is the pressing slice's, and a closed door is a wall to them until then, which is the one
+  behaviour this slice changes for the district's teeth. The post steps inside the gate so
+  the gate can shut behind the watch.
 
 ---
 
