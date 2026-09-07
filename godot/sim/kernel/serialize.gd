@@ -48,7 +48,24 @@ extends RefCounted
 # and the applied move multiplier, and the `weather` stream's draw order changed with the kind
 # roll. A v20 save has `raining` and no kind: restored into a v21 world it would read clear and
 # drift a wind off a stream already spent. Refused, same rule.
-const SAVE_VERSION: int = 21
+# 22: every zombie has eyes and its senses are content. A `shambler` component carries
+# `noiseSense` / `scentSense` / `lightSense` and every zombie an `observer`; a v21 save's
+# zombies have neither, and would load deaf to their own type's thresholds and blind. Refused,
+# same rule.
+# 23: the dead write to the field. Every zombie carries an `attention_emitter` built from its
+# type's `emits` (and a `light_source` where it emits light), and a survivor's bloater exposure
+# is `contaminationRolls` (one roll a cloud) where v22 had a single `contaminationRolled` flag.
+# A v22 save's zombies would load silent and its survivors immune to a second cloud. Refused,
+# same rule.
+# 24: doors. The map has a Door tile class and a save carries a `door` component per doorway
+# ({tx, ty, open, stage, latched, emptySinceTick}), overlaid by `sync_map` on restore. A v23
+# save's map would regenerate with Door tiles and no door entities -- every doorway an open hole,
+# every gate a gap. Refused, same rule.
+# 25: the chronicle. `world.chronicle` -- the colony's deaths, successions, arrivals and
+# departures as records the screen reads as prose -- joined the snapshot. A v24 save has none:
+# restored, it would come back with a colony that remembers nothing of who it lost, and every
+# `entity.killed` for an already-dead colonist would be news again. Refused, same rule.
+const SAVE_VERSION: int = 25
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

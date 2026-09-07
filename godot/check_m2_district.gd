@@ -97,8 +97,9 @@ func _run() -> void:
 	ok = _the_colony_is_sited_per_seed_and_survivable() and ok
 	ok = _the_survivability_pass_can_fail() and ok
 	ok = _a_refused_candidate_moves_the_colony_to_the_next_one() and ok
+	ok = _the_boot_population_scales_with_the_district() and ok
 	if ok:
-		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site")
+		print("M2_DISTRICT_OK validate blit annex anchors boot isolation walls generator roads enterable determinism district-data reserve siting survivability re-site density")
 		quit(0)
 	else:
 		push_error("M2_DISTRICT_FAIL")
@@ -197,8 +198,11 @@ func _annex_shell() -> bool:
 		push_error("the stamped annex named no gate, so this assertion is measuring nothing")
 		return false
 	var gate: int = 0
+	# A gate is a Door tile since the doors slice (open by class, shut by the boot's door);
+	# the tile beside the pair may still be plain floor.
 	for tile in [gate_a, gate_b, gate_b + Vector2i(1, 0)]:
-		if SimTileMap.tile_at(map, (tile as Vector2i).x, (tile as Vector2i).y) == SimTileMap.Tile.Floor:
+		var t: int = SimTileMap.tile_at(map, (tile as Vector2i).x, (tile as Vector2i).y)
+		if t == SimTileMap.Tile.Floor or t == SimTileMap.Tile.Door:
 			gate += 1
 	if gate < 2:
 		push_error("gate missing at %s..%s" % [str(gate_a), str(gate_b + Vector2i(1, 0))])
@@ -223,8 +227,8 @@ func _playable_boot() -> bool:
 			screamers += 1
 		elif id == "zombie.bloater":
 			bloaters += 1
-	if zeds != SimBoot.WANDERERS or screamers != 0 or bloaters != 0:
-		push_error("day-1 boot z=%d s=%d b=%d want %d shamblers" % [zeds, screamers, bloaters, SimBoot.WANDERERS])
+	if zeds != SimBoot.wanderers_for(64) or screamers != 0 or bloaters != 0:
+		push_error("day-1 boot z=%d s=%d b=%d want %d shamblers" % [zeds, screamers, bloaters, SimBoot.wanderers_for(64)])
 		return false
 	var ground: int = 0
 	for e2 in world.components.query(["itemBase", "position"]):
@@ -322,7 +326,13 @@ func _the_booted_world_carries_its_colony_anchors() -> bool:
 	# that parse and mean nothing.
 	for named in [["gate_a", gate_a], ["gate_b", gate_b], ["player_start", start]]:
 		var tile: Vector2i = (named as Array)[1] as Vector2i
-		if SimTileMap.tile_at(map, tile.x, tile.y) != SimTileMap.Tile.Floor:
+		var anchor_tile: int = SimTileMap.tile_at(map, tile.x, tile.y)
+		# The gates are Door tiles since the doors slice: a way through whether the boot's door
+		# on them stands open or shut, so neither the Floor test nor the solid test applies.
+		var is_gate_door: bool = String((named as Array)[0]).begins_with("gate") and anchor_tile == SimTileMap.Tile.Door
+		if is_gate_door:
+			continue
+		if anchor_tile != SimTileMap.Tile.Floor:
 			push_error("anchor %s at %s is not open floor" % [String((named as Array)[0]), str(tile)])
 			return false
 		if SimTileMap.is_solid(map, tile.x, tile.y):
@@ -1444,3 +1454,33 @@ func _a_refused_candidate_moves_the_colony_to_the_next_one() -> bool:
 		str(first), str(landed),
 	])
 	return true
+
+
+# --- the boot population scales with the district (the owner's decision 5, 2026-09-06) --------
+#
+# `SimBoot.WANDERERS` was 20, the number that made a 64-tile map read as not empty, and the
+# shipped game boots 256. Now `wanderers_for(tiles)` is a density: 20 at 64 (the harness's map,
+# unchanged -- the true negative), 40 at 128, 80 at 256 (the played district), and the scatter
+# rule still keeps every one of them out of the annex at the shipped size.
+func _the_boot_population_scales_with_the_district() -> bool:
+	if SimBoot.wanderers_for(64) != 20 or SimBoot.wanderers_for(128) != 40 or SimBoot.wanderers_for(256) != 80:
+		push_error("density: wanderers_for reads %d / %d / %d at 64 / 128 / 256, want 20 / 40 / 80" % [SimBoot.wanderers_for(64), SimBoot.wanderers_for(128), SimBoot.wanderers_for(256)])
+		return false
+	var boot: Dictionary = SimBoot.playable(20260805, 256)
+	var w: Variant = boot["world"]
+	var zeds: int = w.components.query(["shambler"]).size()
+	if zeds != 80:
+		push_error("density: a 256 boot stood %d shamblers, want 80" % zeds)
+		return false
+	var annex: Rect2i = SimTileMap.annex_rect(w.tilemap)
+	var inside: int = 0
+	for z in w.components.query(["shambler", "position"]):
+		var p: Dictionary = w.components.get_component(int(z), "position") as Dictionary
+		if annex.has_point(Vector2i(floori(float(p["x"])), floori(float(p["y"])))):
+			inside += 1
+	if inside > 0:
+		push_error("density: %d of the 256 boot's shamblers stood inside the annex" % inside)
+		return false
+	print("BOOT DENSITY OK wanderers_for 20 / 40 / 80 at 64 / 128 / 256; a 256 boot stands 80, none in the annex")
+	return true
+

@@ -377,6 +377,9 @@ func _a_storm_sends_the_outdoor_work_in() -> bool:
 		return false
 	_force(guard_world, "storm")
 	_willing(guard_world, guard, {"Guard": 1})
+	# Guard is a dusk-to-dawn post since 2026-09-06, so the watch is stood at dusk: by day the
+	# post is not on offer at all, storm or no storm, and this would judge the wrong refusal.
+	guard_world.tick = Clock.tick_on_day(1, Clock.DAY_ENDS)
 	SimJobs._tick_one(guard_world, guard)
 	if String(_job_of(guard_world, guard).get("kind", "")) != "Guard":
 		push_error("WORK: a storm sent the guard off the gate: %s" % str(_job_of(guard_world, guard)))

@@ -254,7 +254,7 @@ func _full_ten_day() -> void:
 		var live: int = _live(w)
 		if live > max_live:
 			max_live = live
-		if live >= SimDirector.LIVE_CAP:
+		if live >= SimDirector.live_cap_for(w):
 			cap_hit = true
 		for e in w.events.drained:
 			if String((e as Dictionary).get("type", "")) == "director.packet":

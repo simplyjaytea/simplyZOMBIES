@@ -15,12 +15,21 @@ const SimHealth = preload("res://sim/modules/health.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+const Clock = preload("res://sim/time/clock.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
+const SimSightings = preload("res://sim/modules/sightings.gd")
 
 const COLUMNS: Array[String] = [
 	"Firefight", "Patient", "Doctor", "Rest", "Cook", "Hunt", "Construct", "Repair",
-	"Haul", "Farm", "Water", "Craft", "Modify", "Butcher", "Clean", "Guard", "Bury",
+	"Haul", "Scavenge", "Farm", "Water", "Craft", "Modify", "Butcher", "Clean", "Guard", "Bury",
 ]
-const CONSUMERS: Array[String] = ["Haul", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean", "Bury", "Repair"]
+const CONSUMERS: Array[String] = ["Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Patient", "Guard", "Water", "Clean", "Bury", "Repair"]
+# How far from home a colonist works the ground: Haul and Scavenge reach only this far from the
+# annex's centre, in tiles. The whole of a 64-tile map, the neighbourhood of a 256 one -- the
+# far district stays the player's run (docs/02), and it is also where the boot's wanderers are:
+# the Guard slice measured Ellis grabbed sixteen times in a day hauling the nearest loose item
+# from the far edge. The owner's decision 10, 2026-09-06; the number is a first cut.
+const HOME_RADIUS_TILES: float = 40.0
 const COOK_TICKS: int = 2400
 const INSPECT_TICKS: int = 300
 const WATER_TICKS: int = 40
@@ -48,6 +57,7 @@ static func preset(focus: String, injured: bool = false) -> Dictionary:
 			d["Rest"] = 3
 		"Worker":
 			d["Haul"] = 1
+			d["Scavenge"] = 2
 			d["Construct"] = 2
 			d["Cook"] = 3
 			d["Rest"] = 2
@@ -67,7 +77,7 @@ static func preset(focus: String, injured: bool = false) -> Dictionary:
 			pass
 		_:
 			# Auto
-			for c in ["Haul", "Construct", "Cook", "Doctor", "Rest", "Water", "Clean", "Bury", "Repair"]:
+			for c in ["Haul", "Scavenge", "Construct", "Cook", "Doctor", "Rest", "Water", "Clean", "Bury", "Repair"]:
 				d[c] = 3
 			if injured:
 				d["Patient"] = 3
@@ -79,7 +89,14 @@ static func attach(world: Variant, entity: int, focus: String = "Auto", row: Dic
 	for c in COLUMNS:
 		if not r.has(c):
 			r[c] = 0
-	world.components.set_component(entity, "jobPriorities", {"focus": focus, "cols": r})
+	var jp: Dictionary = {"focus": focus, "cols": r}
+	# An authored row (a unique's content) is kept beside the live one, because a focus change
+	# used to replace the whole row with a preset and one click on Ellis's focus word destroyed
+	# the `Guard 1` his content wrote. `set_focus` overlays the preset on this and Manual restores
+	# it; a generated survivor has none and gets exactly the preset, as before.
+	if not row.is_empty():
+		jp["authored"] = r.duplicate()
+	world.components.set_component(entity, "jobPriorities", jp)
 
 
 # `by` is provenance, not flavour: "player" when a person chose this focus, "auto" when the sim
@@ -89,13 +106,26 @@ static func attach(world: Variant, entity: int, focus: String = "Auto", row: Dic
 static func set_focus(world: Variant, entity: int, focus: String, by: String = "auto") -> void:
 	var jp: Variant = world.components.get_component(entity, "jobPriorities")
 	var injured: bool = _injured(world, entity)
+	var authored: Dictionary = {}
+	if jp is Dictionary and (jp as Dictionary).get("authored", null) is Dictionary:
+		authored = (jp as Dictionary)["authored"] as Dictionary
 	if focus == "Manual" and jp is Dictionary:
 		(jp as Dictionary)["focus"] = "Manual"
 		(jp as Dictionary)["focusSetBy"] = by
+		# Manual on a survivor whose content wrote a row is that row again, byte for byte.
+		if not authored.is_empty():
+			(jp as Dictionary)["cols"] = authored.duplicate()
 		world.events.publish({"type": "job.focus_changed", "entity": entity, "focus": "Manual"})
 		return
 	var row: Dictionary = preset(focus, injured)
-	world.components.set_component(entity, "jobPriorities", {"focus": focus, "cols": row, "focusSetBy": by})
+	# The preset wins where it speaks; the authored row survives where the preset is silent.
+	for c in COLUMNS:
+		if int(row.get(c, 0)) == 0 and int(authored.get(c, 0)) > 0:
+			row[c] = int(authored[c])
+	var next: Dictionary = {"focus": focus, "cols": row, "focusSetBy": by}
+	if not authored.is_empty():
+		next["authored"] = authored
+	world.components.set_component(entity, "jobPriorities", next)
 	world.events.publish({"type": "job.focus_changed", "entity": entity, "focus": focus})
 
 
@@ -182,9 +212,10 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	if world.components.has_component(ent, "grabbed"):
 		return
 	var n: Dictionary = SimNeeds.of(world, ent)
-	if String(n.get("crisis", "none")) == "starving" or String(n.get("crisis", "none")) == "dehydrating":
-		_stop(world, ent)
-		return
+	# A hunger or thirst crisis is not a stop: the seek below ranks an empty pool first and the
+	# survivor walks (at `SimNeeds.walk_mul`'s half pace) to whatever will end it. This used to
+	# `_stop` and return here, so a colonist at zero hunger died on the starvation clock beside a
+	# full pantry -- the crisis dead-end, closed 2026-09-06 (the playable state).
 	if String(n.get("crisis", "none")) == "passed_out":
 		return
 	var seek: String = SimNeeds.seek_kind(world, ent)
@@ -216,12 +247,38 @@ static func _tick_one(world: Variant, ent: int) -> void:
 	# refusal to *work*, not a refusal to live.
 	if _sulking(world, ent):
 		return
+	# Dusk calls a survivor with Guard on their row to the post. Only a job that has not begun
+	# a channel (ticksLeft 0: a walk, a Rest, a Patient) is dropped for it -- the soft-seek rule
+	# above already draws that line -- and only where Guard outranks the job in the row's own
+	# order, so Mara (Doctor 1, Guard 2) finishes doctoring before she stands the gate.
+	if job is Dictionary and _post_calls(world, ent, job as Dictionary):
+		_stop(world, ent)
+		job = null
+	# Empty hands come before any work: an unarmed colonist re-arms from their pack at once, or
+	# walks to the nearest working weapon on the ground near home (the stockpile's included --
+	# a stocked item lies on its tile). A channel already begun finishes first; a Rearm walk is
+	# never dropped for another Rearm. Armed never swaps.
+	if _unarmed(world, ent) and (not job is Dictionary or (String((job as Dictionary).get("kind", "")) != "Rearm" and int((job as Dictionary).get("ticksLeft", 0)) == 0)):
+		var rearm: Dictionary = _rearm_job(world, ent)
+		if not rearm.is_empty():
+			if job is Dictionary:
+				_stop(world, ent)
+			world.components.set_component(ent, "job", rearm)
+			job = rearm
 	if job is Dictionary:
 		# A storm sends everybody in: a job already under way outdoors is dropped here rather
 		# than inside _advance_job, so the walk-to-it path and the work at it both stop on the
 		# same tick and the claim is released the way any abandoned job's is.
 		if _refused_outdoors(world, ent, job as Dictionary):
 			_stop(world, ent)
+			return
+		# The watch ends at dawn wherever the guard stands -- on the post or still walking to
+		# it -- and completes (`job.completed`, the Endurance point). Here rather than in the
+		# Guard arm alone, because `_advance_job` walks a job to its tile before its arm runs,
+		# and since the post moved inside the gate (the doors slice) a guard called late can
+		# still be a step short of it when the sky lightens.
+		if String((job as Dictionary).get("kind", "")) == "Guard" and not _watch_hours(world):
+			_stop(world, ent, "Guard")
 			return
 		_advance_job(world, ent, job as Dictionary)
 		return
@@ -293,6 +350,36 @@ static func _pick(world: Variant, ent: int) -> void:
 		return
 
 
+# Is it the watch's hour, and does this survivor's row put Guard ahead of the job in hand?
+static func _post_calls(world: Variant, ent: int, job: Dictionary) -> bool:
+	if not _watch_hours(world):
+		return false
+	var kind: String = String(job.get("kind", ""))
+	if kind == "Guard" or int(job.get("ticksLeft", 0)) > 0:
+		return false
+	var jp: Variant = world.components.get_component(ent, "jobPriorities")
+	if not jp is Dictionary:
+		return false
+	var cols: Dictionary = (jp as Dictionary).get("cols", {}) as Dictionary
+	var guard_p: int = int(cols.get("Guard", 0))
+	if guard_p <= 0:
+		return false
+	var kind_p: int = int(cols.get(kind, 0))
+	if kind_p <= 0:
+		return true
+	# The same order `_pick` sorts by: priority, then the name.
+	return guard_p < kind_p or (guard_p == kind_p and "Guard" < kind)
+
+
+# Guard is a dusk-to-dawn post (the owner's 2026-09-06 call): the day belongs to the rest of the
+# row. Before this the post was handed out at any hour and never completed, so Ellis (Guard 1)
+# stood the gate from tick one for the whole run and nothing in the boot colony was ever hauled,
+# cooked or built.
+static func _watch_hours(world: Variant) -> bool:
+	var phase: int = Clock.phase_of(int(world.tick))
+	return phase == Clock.Phase.Dusk or phase == Clock.Phase.Night
+
+
 static func _sole_doctor(world: Variant, ent: int) -> bool:
 	for other in world.components.query(["jobPriorities"]):
 		if int(other) == ent:
@@ -314,6 +401,8 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 	match kind:
 		"Haul":
 			return _haul_work(world, x, y)
+		"Scavenge":
+			return _scavenge_work(world, ent, x, y)
 		"Construct":
 			return _construct_work(world, x, y)
 		"Cook":
@@ -331,8 +420,11 @@ static func _work_for(world: Variant, ent: int, kind: String) -> Dictionary:
 			return {"kind": "Patient", "target": ent, "ticksLeft": 0, "path": [], "pathGen": -1}
 		"Guard":
 			# The post is the map's gate, not a constant. A district with no gate anchor has
-			# nothing to stand on, so there is no Guard job to hand out.
-			var post: Vector2i = SimTileMap.gate_a(world.tilemap)
+			# nothing to stand on, so there is no Guard job to hand out -- and by day there is
+			# no watch to keep, so the row's next column gets the survivor instead.
+			if not _watch_hours(world):
+				return {}
+			var post: Vector2i = _post_tile(world)
 			if post.x < 0 or post.y < 0:
 				return {}
 			return {"kind": "Guard", "tx": post.x, "ty": post.y, "ticksLeft": 0, "path": [], "pathGen": -1}
@@ -462,6 +554,68 @@ static func _anyone_buries(world: Variant) -> bool:
 	return false
 
 
+# Where home is: the annex's centre, or the player's start where a map has no annex.
+static func _home_centre(world: Variant) -> Vector2:
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x > 0 and annex.size.y > 0:
+		return Vector2(float(annex.position.x) + float(annex.size.x) * 0.5, float(annex.position.y) + float(annex.size.y) * 0.5)
+	var start: Vector2i = SimTileMap.player_start(world.tilemap)
+	return Vector2(float(start.x) + 0.5, float(start.y) + 0.5)
+
+
+static func _near_home(world: Variant, x: float, y: float) -> bool:
+	var c: Vector2 = _home_centre(world)
+	var dx: float = x - c.x
+	var dy: float = y - c.y
+	return dx * dx + dy * dy <= HOME_RADIUS_TILES * HOME_RADIUS_TILES
+
+
+# The nearest container this survivor remembers seeing, unsearched, near home and not already
+# another colonist's claim. The claim is the Cook's `reserved` seam, so two scavengers never
+# walk to one cupboard. The job carries the box's tile, so `_job_tile` walks to it.
+static func _scavenge_work(world: Variant, ent: int, x: float, y: float) -> Dictionary:
+	var best: int = -1
+	var best_d: float = 1e12
+	var best_at: Vector2i = Vector2i(-1, -1)
+	for row in SimSightings.known_containers(world, ent):
+		var box: int = int((row as Dictionary).get("e", -1))
+		var s: Variant = world.components.get_component(box, "searchable")
+		if not s is Dictionary or bool((s as Dictionary).get("searched", false)):
+			continue
+		var p: Variant = world.components.get_component(box, "position")
+		if not p is Dictionary:
+			continue
+		var bx: float = float((p as Dictionary)["x"])
+		var by: float = float((p as Dictionary)["y"])
+		if not _near_home(world, bx, by):
+			continue
+		if _claim_live(world, box):
+			continue
+		var dx: float = bx - x
+		var dy: float = by - y
+		var d: float = dx * dx + dy * dy
+		if d < best_d:
+			best_d = d
+			best = box
+			best_at = Vector2i(floori(bx), floori(by))
+	if best < 0:
+		return {}
+	world.components.set_component(best, "reserved", {"by": ent, "job": "Scavenge"})
+	return {"kind": "Scavenge", "target": best, "tx": best_at.x, "ty": best_at.y, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+# At the box: open it through the module, the way a job eats through `SimNeeds.eat` -- commands
+# are the player's channel, not the sim's. The yield lands on the ground beside the box and Haul
+# carries it home. A box somebody else emptied on the way completes nothing.
+static func _do_scavenge(world: Variant, ent: int, job: Dictionary) -> void:
+	var box: int = int(job.get("target", -1))
+	var result: Dictionary = SimContainers.search(world, ent, box)
+	if bool(result.get("ok", false)):
+		_stop(world, ent, "Scavenge")
+	else:
+		_stop(world, ent)
+
+
 static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 	var best: int = -1
 	var best_d: float = 1e12
@@ -472,6 +626,8 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 		var tx: int = floori(float((p as Dictionary)["x"]))
 		var ty: int = floori(float((p as Dictionary)["y"]))
 		if SimNeeds.is_stockpile_tile(world, tx, ty):
+			continue
+		if not _near_home(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
 			continue
 		if world.components.has_component(item, "corpse"):
 			continue
@@ -746,6 +902,10 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 	match kind:
 		"Haul":
 			_do_haul(world, ent, job)
+		"Rearm":
+			_do_rearm(world, ent, job)
+		"Scavenge":
+			_do_scavenge(world, ent, job)
 		"Construct":
 			_do_construct(world, ent, job)
 		"Cook":
@@ -767,7 +927,10 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 		"Patient":
 			pass
 		"Guard":
-			pass
+			# The watch ends at dawn, and that is the first time Guard has ever completed --
+			# `job.completed` reaches the skill web (an Endurance point, docs/08's hard nights).
+			if not _watch_hours(world):
+				_stop(world, ent, "Guard")
 		"Water":
 			_do_water(world, ent, job)
 		"Clean":
@@ -946,6 +1109,74 @@ static func _consume_owned(world: Variant, item: int) -> bool:
 	return true
 
 
+# --- re-arm ----------------------------------------------------------------------------------
+#
+# The playable-state group's eleventh piece. Before this the only `equip` a colonist ever got
+# was their kit at spawn: a weapon that wore out was gone (items.gd) and the body was unarmed
+# for the rest of the run. `check_m2_npc_combat.gd` REARM.
+
+static func _unarmed(world: Variant, ent: int) -> bool:
+	return not world.components.has_component(ent, "meleeWeapon") and not world.components.has_component(ent, "rangedWeapon")
+
+
+# A weapon is anything the hands take (`equipSlot` primary); working means its condition is
+# above zero, or it carries none.
+static func _is_working_weapon(world: Variant, item: int) -> bool:
+	var slot: Variant = SimInventory.equip_slot_for(world, item)
+	if slot == null or String(slot) != "primary":
+		return false
+	var c: Variant = world.components.get_component(item, "condition")
+	if c is Dictionary and float((c as Dictionary).get("current", 1.0)) <= 0.0:
+		return false
+	return true
+
+
+# The pack first (equipped at once, no job); else the nearest working weapon lying near home
+# -- on the ground or on the stockpile's tiles, both of which are items with a position and no
+# container -- as a Rearm walk. Empty when there is nothing to re-arm with.
+static func _rearm_job(world: Variant, ent: int) -> Dictionary:
+	for carried in SimInventory.carried_items(world, ent):
+		if _is_working_weapon(world, int(carried)) and SimInventory.equip(world, ent, int(carried)):
+			return {}
+	var here: Variant = world.components.get_component(ent, "position")
+	if not here is Dictionary:
+		return {}
+	var hx: float = float((here as Dictionary)["x"])
+	var hy: float = float((here as Dictionary)["y"])
+	var best: int = -1
+	var best_d: float = INF
+	for item in SimInventory.ground_items(world):
+		if not _is_working_weapon(world, int(item)):
+			continue
+		if world.components.has_component(int(item), "reserved"):
+			continue
+		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
+		var ix: float = float(p["x"])
+		var iy: float = float(p["y"])
+		if not _near_home(world, ix, iy):
+			continue
+		var d: float = (ix - hx) * (ix - hx) + (iy - hy) * (iy - hy)
+		if d < best_d:
+			best_d = d
+			best = int(item)
+	if best < 0:
+		return {}
+	return {"kind": "Rearm", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+static func _do_rearm(world: Variant, ent: int, job: Dictionary) -> void:
+	var item: int = int(job.get("target", -1))
+	if item < 0 or not world.components.has_component(item, "position") or not _is_working_weapon(world, item):
+		_stop(world, ent)
+		return
+	var tile: Vector2i = _entity_tile(world, item)
+	if not _at(world, ent, tile, REACH):
+		_walk(world, ent, job, tile)
+		return
+	SimInventory.equip(world, ent, item)
+	_stop(world, ent, "Rearm")
+
+
 static func _entity_tile(world: Variant, ent: int) -> Vector2i:
 	var p: Variant = world.components.get_component(ent, "position")
 	if not p is Dictionary:
@@ -996,6 +1227,26 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 			return
 	world.components.remove(item, "position")
 	job["carrying"] = true
+
+
+# The watch stands on the annex side of the gate, not in it: the gate is a door since the doors
+# slice, and a body in the doorway is a door that never shuts. The neighbour of `gate_a` inside
+# the annex rect that is open floor by class; the gate itself where the map has no annex.
+static func _post_tile(world: Variant) -> Vector2i:
+	var gate: Vector2i = SimTileMap.gate_a(world.tilemap)
+	if gate.x < 0 or gate.y < 0:
+		return gate
+	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	if annex.size.x <= 0:
+		return gate
+	for step in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]:
+		var t: Vector2i = gate + (step as Vector2i)
+		if not annex.has_point(t):
+			continue
+		if SimTileMap.SOLID[SimTileMap.tile_at(world.tilemap, t.x, t.y)]:
+			continue
+		return t
+	return gate
 
 
 # Two tiles south of the gate (ADR 0010), measured from where the map says the gate is. Returns
@@ -1240,7 +1491,14 @@ static func _do_seek(world: Variant, ent: int, kind: String) -> void:
 			# under one stands where it is.
 			if String(n.get("temperature", "")).ends_with("hot"):
 				var roof: Vector2i = _nearest_roof(world, x, y)
-				if roof.x >= 0 and not _at(world, ent, roof, REACH):
+				# Walked until the body's *own* tile is the roofed one -- `_nearest_roof` returns
+				# that tile once it is. This used to be `not _at(roof, REACH)`, and REACH 1.5
+				# reaches a tile from the doorstep outside it: a body one tile short of the door
+				# read "arrived", was handed no job, and stood there hot until the sky changed.
+				# The eyes slice found it -- twenty boot shamblers had been bending every route
+				# the weather gate's SEEK lane walked (a body's tile blocks A*), and with them
+				# gone the straight walk ended on the doorstep.
+				if roof.x >= 0 and roof != Vector2i(floori(x), floori(y)):
 					var sj5: Dictionary = {"kind": "Seek", "target": -1, "path": [], "pathGen": -1}
 					_walk(world, ent, sj5, roof)
 					world.components.set_component(ent, "job", sj5)
@@ -1314,8 +1572,9 @@ static func _nearest_roof(world: Variant, x: float, y: float) -> Vector2i:
 # alternative is the dehydration clock, and not before. Between SEEK_START and SOFT with no fire
 # they wait, which is what the pool running down looks like from the outside.
 #
-# The `dehydrating` crisis never reaches here: `_tick_one` stops a survivor in crisis before the
-# seek runs, a pre-existing hole named in docs/23 rather than widened by this rung.
+# The `dehydrating` crisis reaches here too, since 2026-09-06: `_tick_one` no longer stops a
+# survivor in crisis before the seek runs, so an empty pool is the hardest pressure and the
+# survivor walks to the untreated bottle, and to the fire, at half pace.
 static func _seek_untreated(world: Variant, ent: int, x: float, y: float) -> void:
 	var raw: int = _carry_base(world, ent, SimNeeds.UNTREATED_ID)
 	if raw < 0:
@@ -1415,8 +1674,13 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 		if path.is_empty():
 			_still(world, ent)
 		return
+	# The step through a closed door opens it (unlatched, so it swings shut behind): the
+	# planner routed through it on that promise. The open bumps the map generation, so the
+	# path is re-planned next tick through the doorway it now is.
+	if SimTileMap.tile_at(world.tilemap, nx, ny) == SimTileMap.Tile.Door and world.is_blocked_tile(nx, ny):
+		SimFortify.open_door(world, nx, ny)
 	var len: float = sqrt(dx * dx + dy * dy)
-	var speed: float = 2.1 * SimNeeds.work_mul(world, ent)
+	var speed: float = 2.1 * SimNeeds.walk_mul(world, ent)
 	# The modifier store's move_speed, the same read the player's `move` command makes
 	# (world.gd's movement phase). It was never read here: the limp, encumbrance and blood loss
 	# slowed the player and never Mara or Ellis, and a weather that slows the living would have

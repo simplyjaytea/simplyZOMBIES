@@ -28,7 +28,6 @@ const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
-const SimFieldMemory = preload("res://sim/modules/field_memory.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
@@ -42,16 +41,25 @@ const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimDebugMod = preload("res://sim/modules/debug.gd")
 const SimRaiders = preload("res://sim/modules/raiders.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
 
 const DISTRICT_SEED: int = 20260805
 const DEFAULT_DISTRICT: String = "district.residential_suburb"
-# 20, up from 12 in the basic-combat slice: with swipes live a wanderer is a threat rather than
-# scenery, and the district read as empty at 12 across a 64-tile map. check_m2_director.gd pins
-# this number exactly -- change both together.
-const WANDERERS: int = 20
+# The boot population is a density, not a count (the owner's decision 5, 2026-09-06). 20 was the
+# number that made a *64-tile* map read as not empty (up from 12 in the basic-combat slice), and
+# the shipped game boots 256 -- one shambler per 3,300 square metres, and every balance band
+# measured on a district nobody plays. `wanderers_for` is linear in the side, not the area: the
+# owner's two numbers (20 at 64, 80 at 256) fix it, and a per-area reading (320) would sit ten
+# times over the live cap and refuse every night. check_m2_district.gd, check_m2_director.gd and
+# check_worldgen.gd pin `wanderers_for` at the size they boot.
+const WANDERERS_PER_64: int = 20
 # How many times a boot wanderer's tile is re-rolled to land outside the colony before it is placed
 # wherever it fell. See the scatter loop in `playable`.
 const SCATTER_TRIES: int = 8
+
+
+static func wanderers_for(tiles: int) -> int:
+	return roundi(float(WANDERERS_PER_64) * float(tiles) / 64.0)
 
 
 static func attach_kernel(world: Variant, map: Variant) -> void:
@@ -135,12 +143,12 @@ static func register_playable_modules(world: Variant, map: Variant) -> void:
 	SimScreamer.register_module(world)
 	SimBloater.register_module(world)
 	SimLightMod.register_module(world)
-	SimFieldMemory.register_module(world)
 	SimSightings.register_module(world)
 	SimWeather.register_module(world)
 	SimAttachments.register_module(world)
 	SimDebugMod.register_module(world)
 	SimVehicles.register_module(world)
+	SimChronicle.register_module(world)
 
 
 # Scatters each of the map's loot sites from the content table its `table` names, per docs/12:
@@ -358,6 +366,10 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	var observer: Dictionary = SimVisibility.daylight_eyes()
 	world.components.set_component(world.player, "observer", observer)
 	place_stations(world, map)
+	# A closed door on every Door tile -- the buildings' doorways and both gates -- before the
+	# colony walks anywhere, so the first route out of the annex is through a door somebody
+	# opens. `bare` spawns none: a bare world is the one every gate builds its own fixture on.
+	SimFortify.spawn_doors(world, map)
 	SimSurvivors.boot_playable(world)
 	# Annex knife is the default find — equip so F works without a scavenger loop.
 	var knife: int = SimItems.spawn_item(world, "item.knife.kitchen", {"tier": "scavenged"})
@@ -385,7 +397,7 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# a roll that never lands outside places anyway rather than looping, which at these odds
 	# (a 26x26 rect inside a 48x48 box, eight times over) is a case nothing has reached.
 	var annex: Rect2i = SimTileMap.annex_rect(map)
-	for i in WANDERERS:
+	for i in wanderers_for(int(map.w)):
 		var type_id: String = SimRoster.pick_type(world, place_rng)
 		var tile: Dictionary = {}
 		for _try in SCATTER_TRIES:

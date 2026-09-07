@@ -8,6 +8,17 @@ const BITE_PRESENTS_AS_SCRATCH_CHANCE: float = 0.3
 const HURT_BELOW: float = 1.0
 const BADLY_HURT_BELOW: float = 0.5
 
+# Body damage slows and staggers the dead (docs/14's damage model; the owner's decision 7).
+# The chance a torso hit on a zombie knocks it down, by the torso's *resulting* state --
+# Unhurt / Hurt / BadlyHurt / Unusable -- rolled on its own stream so the roll moves no other
+# draw, and published as `entity.staggered` for TORSO_STAGGER_TICKS, which `shambler.stagger`
+# takes as the max with the weapon's own. The head stays the only kill. The speed half lives
+# in `SimShambler._speed_of` (`_torso_factor`). `check_m2_lethality.gd` TORSO-STAGGER,
+# TORSO-SLOW, HEAD-ONLY.
+const TORSO_STAGGER_CHANCE: Array[float] = [0.0, 0.35, 0.6, 1.0]
+const TORSO_STAGGER_TICKS: int = 20
+const TORSO_STAGGER_STREAM: String = "bodyStagger"
+
 enum PartState { Unhurt = 0, Hurt = 1, BadlyHurt = 2, Unusable = 3 }
 
 static func max_of(body: Dictionary, part: String) -> Variant:
@@ -23,6 +34,35 @@ static func max_of(body: Dictionary, part: String) -> Variant:
 				return int(t[part])
 			return null
 	return null
+
+# `part_state` against the body's *own* maxima where the entity carries them. `max_of` matches
+# a body to one of two shared tables by key set, so every zombie type's torso was judged
+# against the shambler's 60 -- the screamer's authored 40 read Hurt from the moment it spawned.
+# `SimRoster.spawn_zombie` stores the type's body as `bodyMax`; a body without one (a fixture,
+# a survivor) falls back to the table. The torso slice's reader.
+static func part_state_of(world: Variant, entity: int, part: String) -> Variant:
+	var body: Variant = world.components.get_component(entity, "body")
+	if not body is Dictionary:
+		return null
+	var maxima: Variant = world.components.get_component(entity, "bodyMax")
+	if maxima is Dictionary and (maxima as Dictionary).has(part):
+		var b: Dictionary = body as Dictionary
+		if not b.has(part) or b[part] == null:
+			return null
+		var cur: float = float(b[part])
+		if cur <= 0.0:
+			return PartState.Unusable
+		var maxv: float = float((maxima as Dictionary)[part])
+		if maxv <= 0.0:
+			return null
+		var fraction: float = cur / maxv
+		if fraction < BADLY_HURT_BELOW:
+			return PartState.BadlyHurt
+		if fraction < HURT_BELOW:
+			return PartState.Hurt
+		return PartState.Unhurt
+	return part_state(body as Dictionary, part)
+
 
 static func part_state(body: Dictionary, part: String) -> Variant:
 	if not body.has(part):
@@ -124,6 +164,13 @@ static func register_module(world: Variant) -> void:
 		var hit_part: String = String(r["part"])
 		if (hit_part == "legs" or hit_part.begins_with("leg_")) and is_crawling(r["body"] as Dictionary):
 			world.events.publish({"type": "injury.sustained", "entity": int(event["target"]), "injury": "crippled", "bodyPart": hit_part})
+		# A torso hit on one of the dead may put it down for a moment, by how much torso is left.
+		if hit_part == "torso" and world.components.has_component(int(event["target"]), "shambler"):
+			var state: Variant = part_state_of(world, int(event["target"]), "torso")
+			if state != null:
+				var chance: float = float(TORSO_STAGGER_CHANCE[int(state)])
+				if chance > 0.0 and float(world.rng.stream(TORSO_STAGGER_STREAM).call("next")) < chance:
+					world.events.publish({"type": "entity.staggered", "entity": int(event["target"]), "ticks": TORSO_STAGGER_TICKS})
 		# A hit that removed no integrity records no wound -- a zero-damage (or fully
 		# absorbed) hit still returns a non-null result above, since "before" was positive.
 		if is_survivor_body(r["body"]) and float(r["after"]) != float(r["before"]) and Wounds != null:

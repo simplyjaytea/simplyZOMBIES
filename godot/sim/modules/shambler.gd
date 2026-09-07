@@ -34,6 +34,10 @@ const ShamblerState: Dictionary = {
 const DEFAULT_LOCOMOTION: Dictionary = {"speed": 0.8, "wander": 0.35, "mill": 0.25, "crawl": 0.25}
 const DEFAULT_GRAB_STRENGTH: float = 0.5
 
+# The defaults a type falls back on when its resolved entry has no `spread` or `sensory` block --
+# the numbers every zombie used to share. Since the playable-state slice they are read from
+# content per type (`_sensory_of`, `_spread_of`), and the constants are what a fixture with no
+# content tree gets. docs/14: there is no single silence.
 const SPREAD_RADIANS: float = 0.62
 const NOISE_SENSITIVITY: float = 0.2
 const SCENT_SENSITIVITY: float = 0.9
@@ -257,13 +261,15 @@ static func default_shambler_speeds() -> Dictionary:
 static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: String = "zombie.shambler") -> void:
 	var loco: Dictionary = _locomotion_of(world, type_id)
 	var grab: Dictionary = _grab_of(world, type_id)
+	var senses: Dictionary = _sensory_of(world, type_id)
+	var spread: float = _spread_of(world, type_id)
 	var seek_speed: float = SimLocomotionRes.zombie_speed(float(loco["speed"]))
 	world.components.set_component(entity, "shambler", {
 		"state": ShamblerState["Wander"],
 		"ticksToTurn": int(rng.call("int_range", 20, 120)),
 		"ticksMilling": 0,
 		"ticksCommitted": 0,
-		"bias": rng.call("float_range", -SPREAD_RADIANS, SPREAD_RADIANS),
+		"bias": rng.call("float_range", -spread, spread),
 		"ticksStaggered": 0,
 		"seekSpeed": seek_speed,
 		"wanderSpeed": seek_speed * float(loco["wander"]),
@@ -273,6 +279,11 @@ static func make_shambler(world: Variant, entity: int, rng: Variant, type_id: St
 		"canGrab": bool(grab["enabled"]),
 		"ticksToGrab": 0,
 		"ticksToSwipe": SWIPE_FIRST_TICKS,
+		# The type's `sensory` block, per body: what it can hear and smell (a threshold each), and
+		# how far it leans toward a light it can see. Read every tick by `shambler.think`.
+		"noiseSense": float(senses["noise"]),
+		"scentSense": float(senses["scent"]),
+		"lightSense": float(senses["light"]),
 	})
 
 
@@ -298,8 +309,72 @@ static func _get_content_entry(world: Variant, type_id: String, id: String) -> V
 				return v as Dictionary
 	return null
 
+# `extends`, resolved the way the frozen oracle resolves it (src/sim/content/registry.ts
+# `merge`): child wins, objects merge, arrays replace. Arrays replace rather than concatenate
+# because a child could otherwise never *drop* an inherited behaviour. Memoised on the world
+# (`world.content_resolved`), never in a static, so two worlds with two trees resolve apart;
+# `check_m2_roster.gd` EXTENDS boots two to prove it. This is the one lookup every reader of a
+# zombie's entry goes through -- `SimRoster.content_entry` is a name for it.
+static func resolved_entry(world: Variant, type_id: String) -> Variant:
+	var memo: Variant = null
+	if world != null and not (world is Dictionary) and "content_resolved" in world:
+		memo = world.content_resolved
+	if memo is Dictionary and (memo as Dictionary).has(type_id):
+		return (memo as Dictionary)[type_id]
+	var out: Variant = _resolve_entry(world, type_id, 0)
+	if memo is Dictionary and out != null:
+		(memo as Dictionary)[type_id] = out
+	return out
+
+
+static func _resolve_entry(world: Variant, type_id: String, depth: int) -> Variant:
+	var raw: Variant = _get_content_entry(world, "zombie", type_id)
+	if not raw is Dictionary:
+		return null
+	var parent_id: String = String((raw as Dictionary).get("extends", ""))
+	# Eight deep is a cycle, not a hierarchy; the raw entry is the honest answer for one.
+	if parent_id == "" or parent_id == type_id or depth >= 8:
+		return (raw as Dictionary).duplicate(true)
+	var parent: Variant = _resolve_entry(world, parent_id, depth + 1)
+	if not parent is Dictionary:
+		return (raw as Dictionary).duplicate(true)
+	return _merge_entry(parent as Dictionary, raw as Dictionary)
+
+
+static func _merge_entry(parent: Dictionary, child: Dictionary) -> Dictionary:
+	var out: Dictionary = parent.duplicate(true)
+	for key in child.keys():
+		var value: Variant = child[key]
+		if out.has(key) and out[key] is Dictionary and value is Dictionary:
+			out[key] = _merge_entry(out[key] as Dictionary, value as Dictionary)
+		elif value is Dictionary or value is Array:
+			out[key] = value.duplicate(true)
+		else:
+			out[key] = value
+	return out
+
+
+static func _sensory_of(world: Variant, type_id: String) -> Dictionary:
+	var entry: Variant = resolved_entry(world, type_id)
+	var s: Dictionary = {}
+	if entry is Dictionary and (entry as Dictionary).get("sensory") is Dictionary:
+		s = (entry as Dictionary)["sensory"] as Dictionary
+	return {
+		"noise": float(s.get("noise", NOISE_SENSITIVITY)),
+		"scent": float(s.get("scent", SCENT_SENSITIVITY)),
+		"light": float(s.get("light", LIGHT_SENSITIVITY)),
+	}
+
+
+static func _spread_of(world: Variant, type_id: String) -> float:
+	var entry: Variant = resolved_entry(world, type_id)
+	if entry is Dictionary and (entry as Dictionary).get("spread") is Dictionary:
+		return float(((entry as Dictionary)["spread"] as Dictionary).get("radians", SPREAD_RADIANS))
+	return SPREAD_RADIANS
+
+
 static func _locomotion_of(world: Variant, type_id: String) -> Dictionary:
-	var entry: Variant = _get_content_entry(world, "zombie", type_id)
+	var entry: Variant = resolved_entry(world, type_id)
 	var loco: Dictionary = {}
 	if entry != null:
 		var l: Variant = (entry as Dictionary).get("locomotion")
@@ -314,7 +389,7 @@ static func _locomotion_of(world: Variant, type_id: String) -> Dictionary:
 
 
 static func _grab_of(world: Variant, type_id: String) -> Dictionary:
-	var entry: Variant = _get_content_entry(world, "zombie", type_id)
+	var entry: Variant = resolved_entry(world, type_id)
 	if entry == null:
 		return {"enabled": true, "strength": DEFAULT_GRAB_STRENGTH}
 	var behaviours: Variant = (entry as Dictionary).get("behaviors")
@@ -334,11 +409,26 @@ static func _grab_of(world: Variant, type_id: String) -> Dictionary:
 # penalty cannot be applied to three of the four and quietly missed on the fourth.
 static func _speed_of(world: Variant, entity: int, shambler_data: Dictionary, key: String) -> float:
 	# The sky's multiplier first (docs/adr/0016: a cold snap is the one state that weakens the
-	# dead directly), exactly 1.0 under clear, then the cripple.
-	var base: float = float(shambler_data.get(key, 0.0)) * SimWeatherRes.zombie_move_mul(world)
+	# dead directly), exactly 1.0 under clear, then the torso, then the cripple -- each derived
+	# from the body every tick, never latched.
+	var base: float = float(shambler_data.get(key, 0.0)) * SimWeatherRes.zombie_move_mul(world) * _torso_factor(world, entity)
 	if not _is_crawling(world, entity):
 		return base
 	return base * float(shambler_data.get("crawlFactor", DEFAULT_LOCOMOTION["crawl"]))
+
+
+# Body damage slows the dead (docs/14's damage model; the owner's decision 7): what is left of
+# the torso is a multiplier on every speed, by `part_state_of` -- the type's own maxima, so a
+# screamer's authored 40 is a whole torso and not two thirds of a shambler's. Compounds with
+# the cripple below it, so a shambler with a ruined torso dragging ruined legs is slower than
+# either alone. The head stays the only kill (health.gd). `check_m2_lethality.gd` TORSO-SLOW.
+const TORSO_SPEED: Array[float] = [1.0, 0.85, 0.65, 0.5]
+
+static func _torso_factor(world: Variant, entity: int) -> float:
+	var state: Variant = SimHealthRes.part_state_of(world, entity, "torso")
+	if state == null:
+		return 1.0
+	return float(TORSO_SPEED[int(state)])
 
 
 # Derived, never latched. SimHealth.is_crawling reads the body itself -- "legs" for a zombie,
@@ -441,7 +531,75 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 	vel["dy"] = dy / dist * seek
 
 
-static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Dictionary) -> void:
+# What a body with eyes can see worth chasing: the nearest survivor at `detail != Unseen`. Sight
+# is a stimulus like a noise -- a Wandering or Seeking shambler that sees somebody heads for them
+# at seek speed -- and Pursue stays a distance (CONTACT_METRES), because the grab is a contact.
+# No observer, or no vision on the world, and it sees nothing: the fixtures that predate eyes
+# keep behaving as they did.
+#
+# How far the stimulus reaches is the type's `sensory.light` weight on its eyes: the eyes are
+# the geometry (walls, arcs, the light at the target) and the weight is how good the type is at
+# using them, docs/14's "poor eyesight" made a number. The reach is `range_metres x sqrt(light)`
+# -- 3.8 m for the shambler and bloater (0.1), 11.4 m for the screamer (0.9) -- rather than
+# `range x light`, because a tenth of 12 m is 1.2 m and puts the shambler back inside the 1.6 m
+# contact this slice exists to fix. Measured, not theorised: at the eyes' full 12 m a shambler
+# that lost a grab re-acquired the colonist it had just released for as long as it could see
+# them, and seed 404's compressed campaign wiped the colony on day two (forty grabs in one dusk
+# window, no kill -- a knife cannot yet finish a shambler, that is the torso slice's). At 3.8 m
+# a colonist who walks off still loses it, which was the district's one escape before eyes and
+# has to stay one until the colony can kill what it sees.
+static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary) -> float:
+	var obs: Variant = world.components.get_component(entity, "observer")
+	if not obs is Dictionary:
+		return 0.0
+	var light_sense: float = float(shambler_data.get("lightSense", LIGHT_SENSITIVITY))
+	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0))
+
+
+# Sight as a stimulus, the way grabs were landed (GRABS_ENABLED above: built, gated, shipped
+# off, flipped when the colony could answer). Every zombie has eyes either way -- the
+# screamer's alarm, the lit-target rule and the recast rule never waited on this -- but a
+# Wandering or Seeking body *closes* on what it sees only while this is true. It shipped
+# `false` for one slice (the playable-state group's fifth piece): with it on, the FAST tier
+# wiped two seeds in four, because a shambler whose hold a struggle broke could see the
+# colonist it had just released and took them again at any reach above RELEASE_METRES, and a
+# kitchen knife could not finish a shambler while torso hits were inert. The torso slice gave
+# the colony that answer, and re-measured with it the floor holds on all four seeds (docs/23's
+# Lethality record), so it ships `true` -- the owner's decision 3, executed. A gate-drivable
+# static: `check_m2_roster.gd` EYES pins it both ways and restores it, one gate process sharing
+# it across every world it boots.
+static var SIGHT_ENABLED: bool = true
+
+
+static func _seen_target(world: Variant, entity: int, survivors: Array, shambler_data: Dictionary) -> Variant:
+	if not SIGHT_ENABLED:
+		return null
+	if world.vision == null or not world.components.has_component(entity, "observer"):
+		return null
+	var pos: Variant = world.components.get_component(entity, "position")
+	if pos == null:
+		return null
+	var reach: float = sight_reach(world, entity, shambler_data)
+	if reach <= 0.0:
+		return null
+	var best: Variant = null
+	var best_dist: float = reach * reach
+	for survivor in survivors:
+		var s: Dictionary = survivor as Dictionary
+		var dx: float = float(s["x"]) - float((pos as Dictionary)["x"])
+		var dy: float = float(s["y"]) - float((pos as Dictionary)["y"])
+		var dist: float = dx * dx + dy * dy
+		if dist > best_dist:
+			continue
+		if int(world.vision.call("detail", entity, float(s["x"]), float(s["y"]))) == 0:
+			continue
+		if dist < best_dist:
+			best = s["entity"]
+			best_dist = dist
+	return best
+
+
+static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Dictionary, light_sense: float = LIGHT_SENSITIVITY) -> void:
 	if not world.components.has_component(entity, "observer"):
 		return
 	var speed: float = sqrt(float(vel["dx"]) * float(vel["dx"]) + float(vel["dy"]) * float(vel["dy"]))
@@ -473,7 +631,7 @@ static func _lean_to_light(world: Variant, entity: int, pos: Dictionary, vel: Di
 		delta -= PI * 2.0
 	while delta < -PI:
 		delta += PI * 2.0
-	var angle: float = current + delta * LIGHT_BIAS * LIGHT_SENSITIVITY
+	var angle: float = current + delta * LIGHT_BIAS * light_sense
 	vel["dx"] = cos(angle) * speed
 	vel["dy"] = sin(angle) * speed
 
@@ -768,8 +926,8 @@ static func register_module(world: Variant, _map: Variant) -> void:
 		var rng: Variant = w.rng.stream("shambler")
 		var field: Variant = w.field
 		var survivors: Array = _gather_survivors(w)
-		var audible: float = float(field.calibration["floor"]) / NOISE_SENSITIVITY
-		var detectable: float = float(field.calibration["scentFloor"]) / SCENT_SENSITIVITY
+		var noise_floor: float = float(field.calibration["floor"])
+		var scent_floor: float = float(field.calibration["scentFloor"])
 		for entity in w.components.query(["position", "velocity", "shambler"]):
 			var shambler_comp: Variant = w.components.get_component(int(entity), "shambler")
 			var pos: Variant = w.components.get_component(int(entity), "position")
@@ -779,8 +937,21 @@ static func register_module(world: Variant, _map: Variant) -> void:
 			var sd: Dictionary = shambler_comp as Dictionary
 			var vd: Dictionary = vel as Dictionary
 			var pd: Dictionary = pos as Dictionary
-			var heard: bool = field.noise_at(float(pd["x"]), float(pd["y"])) >= audible
-			var smelled: bool = field.scent_at(float(pd["x"]), float(pd["y"])) >= detectable
+			# Thresholds per body from the type's `sensory` block: a sense of 0 hears or smells
+			# nothing at all, which is docs/14's "no single silence" made literal.
+			var noise_sense: float = float(sd.get("noiseSense", NOISE_SENSITIVITY))
+			var scent_sense: float = float(sd.get("scentSense", SCENT_SENSITIVITY))
+			# A body cannot hear below its own noise. The field keeps the loudest value a cell
+			# was given, so a type that groans (`emits` noise, the screamer's 4) reads its own
+			# groan at its own feet every tick and, judged against the bare threshold, would
+			# seek its own sound for ever. Its threshold is raised by what it gives off: only
+			# something louder than itself is a sound.
+			var own_noise: float = 0.0
+			var em: Variant = w.components.get_component(int(entity), "attention_emitter")
+			if em is Dictionary:
+				own_noise = maxf(float((em as Dictionary).get("ambient", 0.0)), float((em as Dictionary).get("walking", 0.0)))
+			var heard: bool = noise_sense > 0.0 and field.noise_at(float(pd["x"]), float(pd["y"])) >= own_noise + noise_floor / noise_sense
+			var smelled: bool = scent_sense > 0.0 and field.scent_at(float(pd["x"]), float(pd["y"])) >= scent_floor / scent_sense
 			# Resolved once per shambler per tick and handed to every steer below it, rather than
 			# each of them reaching for sd["seekSpeed"] -- which is what let the cripple penalty
 			# sit on the component unread for the whole of Milestone 2.
@@ -812,10 +983,14 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						_chase(w, int(target), pd, vd, sd, seek)
 				ShamblerState["Seek"]:
 					var caught: Variant = _contact_target(survivors, pd, CONTACT_METRES)
+					var seen: Variant = _seen_target(w, int(entity), survivors, sd)
 					if caught != null:
 						sd["state"] = ShamblerState["Pursue"]
 						sd["ticksCommitted"] = 0
 						_chase(w, int(caught), pd, vd, sd, seek)
+					elif seen != null:
+						_chase(w, int(seen), pd, vd, sd, seek)
+						sd["ticksCommitted"] = COMMIT_TICKS
 					elif _steer_uphill(field, pd, vd, sd, seek):
 						sd["ticksCommitted"] = COMMIT_TICKS
 					elif heard:
@@ -843,9 +1018,14 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 				_:
 					var caught2: Variant = _contact_target(survivors, pd, CONTACT_METRES)
+					var seen2: Variant = _seen_target(w, int(entity), survivors, sd)
 					if caught2 != null:
 						sd["state"] = ShamblerState["Pursue"]
 						_chase(w, int(caught2), pd, vd, sd, seek)
+					elif seen2 != null:
+						sd["state"] = ShamblerState["Seek"]
+						sd["ticksCommitted"] = COMMIT_TICKS
+						_chase(w, int(seen2), pd, vd, sd, seek)
 					elif heard:
 						sd["state"] = ShamblerState["Seek"]
 						sd["ticksCommitted"] = COMMIT_TICKS
@@ -859,7 +1039,7 @@ static func register_module(world: Variant, _map: Variant) -> void:
 						sd["ticksToTurn"] = int(sd["ticksToTurn"]) - 1
 					if smelled:
 						_drift_upscent(field, pd, vd, sd, seek)
-					_lean_to_light(w, int(entity), pd, vd)
+					_lean_to_light(w, int(entity), pd, vd, float(sd.get("lightSense", LIGHT_SENSITIVITY)))
 
 		# --- Hold lifecycle, alongside the state machine above rather than in a separate
 		# combat-phase system (plan deviates from the oracle here on purpose). Order is

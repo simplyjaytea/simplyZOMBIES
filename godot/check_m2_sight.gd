@@ -24,6 +24,7 @@ const SimNpcCombat = preload("res://sim/modules/npc_combat.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const SimSurvivors = preload("res://sim/modules/survivors.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
+const SimLight = preload("res://sim/modules/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
 
 const MAP_TILES: int = 24
@@ -43,8 +44,9 @@ func _run() -> void:
 	ok = _memory_expires_and_a_watched_death_erases_it() and ok
 	ok = _the_prose_degrades() and ok
 	ok = _an_npc_fires_at_a_remembered_position() and ok
+	ok = _a_zombie_sees_what_is_lit_at_night() and ok
 	if ok:
-		print("M2_SIGHT_OK sight memory prose recall")
+		print("M2_SIGHT_OK sight memory prose recall, and a zombie sees what is lit at night")
 		quit(0)
 	else:
 		push_error("M2_SIGHT_FAIL")
@@ -371,4 +373,62 @@ func _an_npc_fires_at_a_remembered_position() -> bool:
 		push_error("RECALL-FIRE: a memory the survivor would call 'a while ago' was still worth a round (%s)" % str(too_old))
 		return false
 	print("RECALL-FIRE OK shots=%d hits=%d unseen=%d stale=%d" % [int(shot["noises"]), int(shot["hits"]), int(quiet["noises"]), int(too_old["noises"])])
+	return true
+
+
+# --- NIGHT-LIT -------------------------------------------------------------------------------
+
+# A zombie's eyes sample the light at the *target*, not at their own tile. The oracle's rule --
+# sight is `min(eyes, max(ambient, lit at the observer))` -- made every zombie blind after dark
+# (12 m x 0.04 = 0.48 m) and blind to a survivor standing under a floodlight, which is the
+# screamer's whole purpose inverted. `shambler_eyes()` now carries `lit_target`, and `detail`
+# for such an observer answers seen inside the ambient reach *or* where the light index says
+# the target's tile is lit, out to the eyes' full range and never through a wall.
+#
+# The player's eyes keep the oracle's rule on purpose: `tiles_for(player)` is what cuts roofs
+# out and pools the light wash, and a night-time shadowcast at 48 m would open every roof in
+# sight. The fourth case pins that scoping so a later "fix" cannot widen it unnoticed.
+func _a_zombie_sees_what_is_lit_at_night() -> bool:
+	var night: int = Clock.tick_at_time_of_day(0.95)
+	if Clock.ambient_light_at(night) > 0.1:
+		push_error("NIGHT-LIT: the fixture tick is not dark")
+		return false
+	var results: Dictionary = {}
+	for case in ["lit", "dark", "lit-behind-wall", "player-eyes-lit"]:
+		var walled: bool = case == "lit-behind-wall"
+		var w: Variant = _world(walled)
+		w.tick = night
+		w.components.set_component(w.player, "position", {"x": 18.5, "y": 12.5})
+		w.components.set_component(w.player, "facing", {"radians": PI})
+		if case != "dark":
+			var lamp: int = int(w.entities.spawn())
+			w.components.set_component(lamp, "position", {"x": 18.5, "y": 12.5})
+			SimLight.make_light_source(w, lamp, 6.0)
+		var z: int = _zombie(w, 8.5, 12.5)
+		w.components.set_component(z, "facing", {"radians": 0.0})
+		w.step()
+		if case == "player-eyes-lit":
+			SimSurvivors.give_eyes(w, w.player)
+			# The survivor is lit; the zombie is not. Can the player see the zombie ten metres
+			# off in the dark? The oracle's rule says no, and that rule stands for people.
+			var zl: int = int(w.entities.spawn())
+			w.components.set_component(zl, "position", {"x": 8.5, "y": 12.5})
+			SimLight.make_light_source(w, zl, 6.0)
+			w.step()
+			results[case] = int(w.vision.call("detail", w.player, 8.5, 12.5))
+		else:
+			results[case] = int(w.vision.call("detail", z, 18.5, 12.5))
+	if int(results["lit"]) == SimVisibility.Detail.Unseen:
+		push_error("NIGHT-LIT: a lit survivor 10 m away after dark was unseen")
+		return false
+	if int(results["dark"]) != SimVisibility.Detail.Unseen:
+		push_error("NIGHT-LIT: an unlit survivor 10 m away after dark was seen -- the night is not dark")
+		return false
+	if int(results["lit-behind-wall"]) != SimVisibility.Detail.Unseen:
+		push_error("NIGHT-LIT: a lit survivor behind a wall was seen")
+		return false
+	if int(results["player-eyes-lit"]) != SimVisibility.Detail.Unseen:
+		push_error("NIGHT-LIT: the player's eyes took the lit-target rule -- roofs and the wash key on tiles_for(player), see the comment")
+		return false
+	print("NIGHT-LIT OK lit=%d dark=%d behind_wall=%d player_eyes=%d" % [int(results["lit"]), int(results["dark"]), int(results["lit-behind-wall"]), int(results["player-eyes-lit"])])
 	return true

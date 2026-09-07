@@ -31,6 +31,7 @@ const SimCondition = preload("res://sim/condition.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
 
@@ -151,6 +152,11 @@ func _world_lines(world: Variant, actor: int) -> Array[String]:
 	var seen: String = SimSightings.clause(world, actor)
 	if not seen.is_empty():
 		lines.append(seen)
+	# What happened to the colony: a death, a succession, someone at the gate. The sim's
+	# chronicle keeps the record; this column shows what is recent enough to still be news,
+	# newest first, in words (decision 12 of docs/30's "The playable state").
+	for line in SimChronicle.lines(world):
+		lines.append(line)
 	return lines
 
 

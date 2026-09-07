@@ -752,6 +752,13 @@ func _a_hot_body_seeks_a_roof_and_a_cold_one_a_fire() -> bool:
 	var ends: Dictionary = {}
 	for k in ["clear", "heat_wave", "cold_snap"]:
 		var w: Variant = _world()
+		# The boot shamblers go first: this lane places a colonist alone outdoors, 12 to 20 tiles
+		# from the fire, and walks them for 1,500 ticks, and since every zombie has eyes (the
+		# playable-state group's fifth piece) a wanderer sees that walk at 12 m and ends it --
+		# the body lost its `position` mid-lane on the heat-wave arm. What is judged here is the
+		# seek, not the district's teeth. `world.despawn`, not `entities.despawn`.
+		for zed in w.components.query(["shambler"]):
+			w.despawn(int(zed))
 		var npc: int = -1
 		for ent in w.components.query(["needs", "velocity"]):
 			if int(ent) != int(w.player) and not w.components.has_component(int(ent), "recruit") and not w.components.has_component(int(ent), "corpse"):

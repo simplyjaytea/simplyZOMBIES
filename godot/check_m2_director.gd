@@ -4,6 +4,7 @@ extends SceneTree
 const SimBoot = preload("res://sim/boot.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
 
 func _init() -> void:
@@ -19,8 +20,11 @@ func _run() -> void:
 	ok = _never_gate() and ok
 	ok = _lull_skips() and ok
 	ok = _same_seed() and ok
+	ok = _the_cap_scales_with_the_district() and ok
+	ok = _two_grace_nights_then_the_table() and ok
+	ok = _a_lull_opens_at_the_next_dawn_and_a_second_breach_extends_it() and ok
 	if ok:
-		print("M2_DIRECTOR_OK boot packet gate lull seed, nights vary within docs/17's bounds")
+		print("M2_DIRECTOR_OK boot packet gate lull seed, nights vary within docs/17's bounds, the cap scales with the district, two grace nights then the table, and a lull opens at dawn")
 		quit(0)
 	else:
 		push_error("M2_DIRECTOR_FAIL")
@@ -62,8 +66,8 @@ func _day1_boot() -> bool:
 			s += 1
 		else:
 			other += 1
-	if s != SimBoot.WANDERERS or other != 0:
-		push_error("day1 z shambler=%d (want %d) other=%d" % [s, SimBoot.WANDERERS, other])
+	if s != SimBoot.wanderers_for(64) or other != 0:
+		push_error("day1 z shambler=%d (want %d) other=%d" % [s, SimBoot.wanderers_for(64), other])
 		return false
 	var before: int = _live(w)
 	_jump_dusk(w, 1)
@@ -327,4 +331,151 @@ func _packets_arrive_from_more_than_one_side() -> bool:
 		push_error("every packet in %d nights came from the %s -- the side is not being chosen" % [LONG_NIGHTS, str(sides.keys())])
 		return false
 	print("SIDES OK packets arrived from %d of four sides: %s" % [sides.size(), str(sides)])
+	return true
+
+
+# --- the live cap scales with the district (2026-09-06, with the boot density) ----------------
+#
+# `LIVE_CAP` was a flat 32: with 80 booted at 256 the first dusk would have read "cap" and every
+# dusk after it -- the despawn trap's refusal loop, reached at once. Now `live_cap_for(world)` is
+# 32 per 64 tiles of side: 32 at 64 (unchanged, the true negative), 128 at 256, and a 256 world's
+# first dusk with 80 live is "grace", not "cap". The fixture with no map reads the 64 number.
+func _the_cap_scales_with_the_district() -> bool:
+	var w64: Variant = SimBoot.playable(20260805, 64)["world"]
+	if SimDirector.live_cap_for(w64) != 32:
+		push_error("cap: a 64 world reads %d, want 32" % SimDirector.live_cap_for(w64))
+		return false
+	var w: Variant = SimBoot.playable(20260805, 256)["world"]
+	if SimDirector.live_cap_for(w) != 128:
+		push_error("cap: a 256 world reads %d, want 128" % SimDirector.live_cap_for(w))
+		return false
+	if _live(w) != 80:
+		push_error("cap: the 256 boot stood %d, not 80; the night below judges the wrong district" % _live(w))
+		return false
+	var night: Variant = _run_night(w, 1)
+	if not night is Dictionary:
+		push_error("cap: no director.night on the 256 world's first dusk")
+		return false
+	var reason: String = String((night as Dictionary).get("reason", ""))
+	if reason == "cap":
+		push_error("cap: the 256 world's first dusk was refused for the cap with 80 live")
+		return false
+	print("CAP OK 32 at 64, 128 at 256; the 256 world's first dusk with 80 live reads '%s', not 'cap'" % reason)
+	return true
+
+
+
+# --- The playable state, slice 6: two grace nights, then the table; the lull's edge -------------
+
+# Nights 1 and 2 say "grace" and leave the night stream untouched (its saved state is the
+# proof, not a count of packets -- a quiet draw would look the same); night 3 draws, exactly
+# once, and says so; a night 3 standing at the live cap says "cap" instead, which is the one
+# thing that outranks the table besides a lull. The old rule sent nothing before night 8.
+func _two_grace_nights_then_the_table() -> bool:
+	var was: int = SimDirector.GRACE_NIGHTS
+	SimDirector.GRACE_NIGHTS = 2
+	var ok: bool = _grace_lane()
+	SimDirector.GRACE_NIGHTS = was
+	if not ok:
+		return false
+	# The shipped value is read: at the shipped GRACE_NIGHTS night 3 is still grace, and the
+	# night after the last grace night draws -- the flip is one number, and this is the proof
+	# that the number is the one the shipped default reads.
+	var w: Variant = _boot()["world"]
+	var shipped: Variant = _run_night(w, 3)
+	var expect: String = "grace" if was >= 3 else "drawn"
+	if not shipped is Dictionary or (expect == "grace" and String((shipped as Dictionary)["reason"]) != "grace"):
+		push_error("GRACE: at the shipped GRACE_NIGHTS %d, night 3 should be %s, got %s" % [was, expect, str(shipped)])
+		return false
+	var first_drawn: Variant = _run_night(w, was + 1)
+	if not first_drawn is Dictionary or String((first_drawn as Dictionary)["reason"]) == "grace":
+		push_error("GRACE: at the shipped GRACE_NIGHTS %d, night %d should draw, got %s" % [was, was + 1, str(first_drawn)])
+		return false
+	print("GRACE OK shipped GRACE_NIGHTS=%d: night 3 '%s', night %d '%s'" % [was, String((shipped as Dictionary)["reason"]), was + 1, String((first_drawn as Dictionary)["reason"])])
+	return true
+
+
+func _grace_lane() -> bool:
+	var w: Variant = _boot()["world"]
+	var stream: Variant = w.rng.stream(SimDirector.NIGHT_STREAM)
+	var before: int = int(stream.call("save"))
+	for day in [1, 2]:
+		var night: Variant = _run_night(w, day)
+		if not night is Dictionary or String((night as Dictionary)["reason"]) != "grace" or int((night as Dictionary)["size"]) != 0:
+			push_error("GRACE: night %d should be grace with nobody sent, got %s" % [day, str(night)])
+			return false
+		if int(stream.call("save")) != before:
+			push_error("GRACE: night %d touched the night stream" % day)
+			return false
+	var third: Variant = _run_night(w, 3)
+	if not third is Dictionary:
+		push_error("GRACE: night 3 said nothing")
+		return false
+	var reason: String = String((third as Dictionary)["reason"])
+	if reason == "grace" or reason == "grace-trickle" or reason == "cap" or reason == "lull":
+		push_error("GRACE: night 3 was '%s', not drawn from the table" % reason)
+		return false
+	var after: int = int(stream.call("save"))
+	if after == before:
+		push_error("GRACE: night 3 did not touch the night stream -- nothing was drawn")
+		return false
+	# Exactly one draw: a fresh stream at the same state, drawn once, lands where the night did.
+	var probe: Variant = w.rng.stream(SimDirector.NIGHT_STREAM)
+	probe.call("restore", before)
+	probe.call("int_range", 0, 99)
+	var once: int = int(probe.call("save"))
+	probe.call("restore", after)
+	if once != after:
+		push_error("GRACE: night 3 drew more than once from the night stream")
+		return false
+	# The cap outranks the table on night 3 as on any other.
+	var capped: Variant = _boot()["world"]
+	var rng: Variant = capped.rng.stream("placement")
+	while _live(capped) < SimDirector.live_cap_for(capped):
+		SimRoster.spawn_zombie(capped, 2.5, 2.5, SimRoster.TYPE_SHAMBLER, rng)
+	var cap_night: Variant = _run_night(capped, 3)
+	if not cap_night is Dictionary or String((cap_night as Dictionary)["reason"]) != "cap":
+		push_error("GRACE: a night 3 at the live cap should say 'cap', got %s" % str(cap_night))
+		return false
+	print("GRACE OK nights 1-2 grace with the stream untouched; night 3 '%s' (%s) after exactly one draw; at the cap night 3 says cap" % [reason, String((third as Dictionary)["shape"])])
+	return true
+
+
+# The lull's opening edge. A breach on night 8 writes `lullFromTick` as day 9's dawn -- not 0,
+# which is what every lull used to carry, making the `tick >= lullFromTick` half of the check
+# dead -- and a second breach while that lull runs extends `lullUntilTick` and leaves the edge
+# alone. The negative: before any breach, both fields are 0.
+func _a_lull_opens_at_the_next_dawn_and_a_second_breach_extends_it() -> bool:
+	var w: Variant = _boot()["world"]
+	var st: Dictionary = w.director as Dictionary
+	if int(st.get("lullFromTick", 0)) != 0 or int(st.get("lullUntilTick", 0)) != 0:
+		push_error("LULL-EDGE: a fresh district already carries a lull %s" % str(st))
+		return false
+	_jump_dusk(w, 8)
+	w.events.publish({"type": "fortify.breached", "tx": 46, "ty": 42})
+	w.events.drain()
+	var from_tick: int = int(st.get("lullFromTick", 0))
+	var until_tick: int = int(st.get("lullUntilTick", 0))
+	var dawn9: int = Clock.tick_on_day(9, Clock.DAY_BEGINS)
+	if from_tick != dawn9:
+		push_error("LULL-EDGE: the lull opens at %d, day 9's dawn is %d" % [from_tick, dawn9])
+		return false
+	if until_tick != dawn9 + Clock.DAY_TICKS:
+		push_error("LULL-EDGE: one night's lull should close at %d, got %d" % [dawn9 + Clock.DAY_TICKS, until_tick])
+		return false
+	# Inside the lull, a second breach extends the close and keeps the edge.
+	var night9: Variant = _run_night(w, 9)
+	if not night9 is Dictionary or String((night9 as Dictionary)["reason"]) != "lull":
+		push_error("LULL-EDGE: night 9 inside the lull was %s" % str(night9))
+		return false
+	w.events.publish({"type": "fortify.breached", "tx": 46, "ty": 42})
+	w.events.drain()
+	if int(st.get("lullFromTick", 0)) != dawn9:
+		push_error("LULL-EDGE: a second breach moved the edge to %d" % int(st.get("lullFromTick", 0)))
+		return false
+	var dawn10: int = Clock.tick_on_day(10, Clock.DAY_BEGINS)
+	if int(st.get("lullUntilTick", 0)) != dawn10 + Clock.DAY_TICKS:
+		push_error("LULL-EDGE: a second breach should close the lull at %d, got %d" % [dawn10 + Clock.DAY_TICKS, int(st.get("lullUntilTick", 0))])
+		return false
+	print("LULL-EDGE OK breach at dusk 8 opens the lull at dawn 9 (%d) and closes it a day later; a second breach on night 9 extends the close to %d and keeps the edge" % [dawn9, int(st.get("lullUntilTick", 0))])
 	return true

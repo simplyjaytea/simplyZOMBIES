@@ -1,7 +1,7 @@
 class_name SimBloater
 extends RefCounted
 
-# blooms_on_death: scent 30 at corpse + contamination flag 6 m / 90 s.
+# blooms_on_death: scent 30 at corpse + contamination flag 6 m / 90 s, one roll a cloud a body.
 # ponytail: replace flag with diffusive plume when scent floor/ceiling tuned; upgrade path is scent channel write + timed decay.
 
 const SimRosterRes = preload("res://sim/modules/roster.gd")
@@ -63,9 +63,16 @@ static func register_module(world: Variant) -> void:
 				continue
 			if not _has_open_wound(w, int(survivor)):
 				continue
-			var rolled: Variant = w.components.get_component(int(survivor), "contaminationRolled")
-			if rolled != null:
-				continue
+			# One roll a cloud, not one a survivor for the whole campaign: `contaminationRolled`
+			# was a single flag set on the first cloud and never cleared, so every bloater after
+			# the first bloomed over a body that could not be exposed again. The rolls are an
+			# Array of `{flag, atTick}` records keyed by the cloud's entity (never an id-keyed
+			# Dictionary -- CLAUDE.md's save trap), scanned by index.
+			var rolls_comp: Variant = w.components.get_component(int(survivor), "contaminationRolls")
+			if not rolls_comp is Dictionary:
+				rolls_comp = {"rolls": []}
+				w.components.set_component(int(survivor), "contaminationRolls", rolls_comp)
+			var rolls: Array = (rolls_comp as Dictionary)["rolls"] as Array
 			var pos: Variant = w.components.get_component(int(survivor), "position")
 			if pos == null:
 				continue
@@ -78,10 +85,16 @@ static func register_module(world: Variant) -> void:
 				var r: float = float(fd["radius"])
 				if dx * dx + dy * dy > r * r:
 					continue
-				w.components.set_component(int(survivor), "contaminationRolled", {"atTick": int(w.tick)})
+				var rolled: bool = false
+				for row in rolls:
+					if int((row as Dictionary).get("flag", -1)) == int(fd["entity"]):
+						rolled = true
+						break
+				if rolled:
+					continue
+				rolls.append({"flag": int(fd["entity"]), "atTick": int(w.tick)})
 				# Extra exposure. Do not flip an existing transmitted flag.
 				SimInfectionRes.record_extra_exposure(w, int(survivor), int(fd["source"]), rng, EXTRA_CHANCE)
-				break
 	)
 
 

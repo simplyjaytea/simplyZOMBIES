@@ -29,6 +29,7 @@ extends SceneTree
 # wrong -- not the bands this gate asserts, which are the contract.
 
 const World = preload("res://sim/world.gd")
+const Clock = preload("res://sim/time/clock.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
@@ -58,6 +59,7 @@ func _run() -> void:
 	ok = _pain_sums_across_injuries_and_degrades_everything() and ok
 	ok = _painkillers_suppress_without_healing() and ok
 	ok = _exhaustion_reaches_all_four_things_it_is_supposed_to() and ok
+	ok = _sepsis_kills_untreated() and ok
 	ok = _the_four_remaining_injury_types_differ_from_a_cut() and ok
 	ok = _each_new_injury_type_has_a_cause_that_reaches_it() and ok
 	ok = _a_wound_can_go_septic_on_the_four_factors_that_drive_it() and ok
@@ -1203,3 +1205,87 @@ func _exhaustion_reaches_all_four_things_it_is_supposed_to() -> bool:
 		s_swing, r_swing, s_aim, r_aim, s_mood, r_mood, s_work, r_work,
 	])
 	return true
+
+
+# --- The playable state, slice 12: sepsis kills -----------------------------------------------
+
+# A septic wound left alone kills at the third dusk (`entity.killed{need: sepsis}`), not the
+# second; a course of antibiotics at the second dusk clears it and the count with it, and the
+# body lives through ten; a wound that never went septic lives through ten as well. The clause
+# says "getting worse" from the second dusk and never a number.
+func _sepsis_kills_untreated() -> bool:
+	var outcomes: Dictionary = {}
+	for case in ["untreated", "treated", "clean"]:
+		var w: Variant = _world(9100)
+		SimNeeds.register_module(w)
+		SimNeeds.attach(w, w.player)
+		# A deep wound for the septic cases, a scratch for the clean one: a scratch's sepsis
+		# chance is zero, so "never went septic" is the wound's own fact and not the dice's.
+		_hit(w, "torso", 20.0 if case != "clean" else 1.0)
+		var wd: Dictionary = _wounds_of(w, w.player)[0] as Dictionary
+		wd["bleeding"] = false
+		if case != "clean":
+			wd["septic"] = true
+		SimInventory.make_inventory(w, w.player)
+		var killed: Array = []
+		w.events.subscribe({"id": "check.sepsis-" + case, "type": "entity.killed", "handler": func(ev: Dictionary) -> void:
+			if int(ev.get("entity", -1)) == w.player:
+				killed.append(String(ev.get("need", "")))
+		})
+		var died_at_dusk: int = -1
+		var clause_at_two: String = ""
+		for day in range(1, 11):
+			w.tick = Clock.tick_on_day(day, Clock.DAY_ENDS) - 1
+			for _s in 2:
+				w.step()
+			var n: Dictionary = SimNeeds.of(w, w.player)
+			for k in SimNeeds.POOLS:
+				n[k] = 100.0
+			if case == "treated" and day == 2:
+				var course: int = SimItems.spawn_item(w, "item.antibiotics.course", {"tier": "scavenged", "count": 1})
+				SimInventory.stow(w, w.player, course)
+				SimInfection.use_antibiotics(w, w.player)
+				# The course clears the sepsis at once; the count resets at the next dusk, which
+				# is when it is read (a body cured at dusk two and read at dusk three is clean).
+				if SimWounds.is_septic(w, w.player):
+					push_error("SEPSIS-LETHAL: the course did not clear the sepsis")
+					return false
+				# The wound stays, and a deep wound rolls septic again on later dusks (the first
+				# run of this lane died at dusk seven of a second infection -- the roll's honest
+				# business, not the count's). Downgraded to a scratch so what is judged from here
+				# is the count alone.
+				wd["severity"] = SimWounds.Severity.Scratch
+			if day == 2 and case == "untreated":
+				clause_at_two = SimWounds.sepsis_clause(w, w.player)
+			if case == "treated" and day == 3 and int(SimNeeds.of(w, w.player).get("septicDusks", 0)) != 0:
+				push_error("SEPSIS-LETHAL: the count did not reset at the dusk after the course (%d)" % int(SimNeeds.of(w, w.player).get("septicDusks", 0)))
+				return false
+			if not killed.is_empty():
+				died_at_dusk = day
+				break
+		outcomes[case] = {"died": died_at_dusk, "cause": killed, "clause": clause_at_two}
+	var u: Dictionary = outcomes["untreated"]
+	var t: Dictionary = outcomes["treated"]
+	var c: Dictionary = outcomes["clean"]
+	if int(u["died"]) != SimNeeds.SEPSIS_LETHAL_DUSKS or (u["cause"] as Array).is_empty() or String((u["cause"] as Array)[0]) != "sepsis":
+		push_error("SEPSIS-LETHAL: untreated sepsis died at dusk %d of %s (want %d)" % [int(u["died"]), str(u["cause"]), SimNeeds.SEPSIS_LETHAL_DUSKS])
+		return false
+	if int(t["died"]) >= 0:
+		push_error("SEPSIS-LETHAL: a course at the second dusk did not save the body (died at %d)" % int(t["died"]))
+		return false
+	if int(c["died"]) >= 0:
+		push_error("SEPSIS-LETHAL: a clean wound killed at dusk %d" % int(c["died"]))
+		return false
+	var clause: String = String(u["clause"])
+	if not clause.contains("worse") or clause != clause.strip_edges() or _has_digit(clause):
+		push_error("SEPSIS-LETHAL: the second dusk's clause is '%s'" % clause)
+		return false
+	print("SEPSIS-LETHAL OK untreated dies at dusk %d of sepsis; a course at dusk 2 lives through ten; a clean wound lives through ten; the second dusk says '%s'" % [int(u["died"]), clause])
+	return true
+
+
+func _has_digit(s: String) -> bool:
+	for ch in s:
+		if ch >= "0" and ch <= "9":
+			return true
+	return false

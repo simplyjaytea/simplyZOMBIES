@@ -176,6 +176,10 @@ static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, co
 			SimTemplatesRes.stamp(map, patch as Dictionary, reserve.position.x, reserve.position.y)
 		var placed: Array = _buildings(map, seed_val, district, templates, parcels, reserve)
 		map.buildings = placed
+		# Every building's doorway and both gate anchors are Door tiles: the class the doors
+		# slice gave the map, closed by the door entities `SimBoot.playable` spawns on them, and
+		# an open doorway until then (a generated map judged without a world).
+		_write_doors(map, placed)
 		# Before the loot and after the buildings; `_vehicles` says why both halves matter.
 		_vehicles(map, seed_val, district, vehicles, reserve)
 		_sites(map, seed_val, district, templates, placed, reserve)
@@ -1430,9 +1434,34 @@ static func _skipped(name: String, said: String) -> Dictionary:
 static func _open_floor(map: Variant, tile: Vector2i) -> bool:
 	if tile.x < 0 or tile.y < 0 or tile.x >= int(map.w) or tile.y >= int(map.h):
 		return false
-	if SimTileMapRes.tile_at(map, tile.x, tile.y) != SimTileMapRes.Tile.Floor:
+	var t: int = SimTileMapRes.tile_at(map, tile.x, tile.y)
+	# A gate is a Door tile since the doors slice: a way in whether the door on it stands open
+	# or shut (this verdict is asked of booted worlds too, whose gates the boot has shut).
+	if t == SimTileMapRes.Tile.Door:
+		return true
+	if t != SimTileMapRes.Tile.Floor:
 		return false
 	return not SimTileMapRes.is_solid(map, tile.x, tile.y)
+
+
+static func _write_doors(map: Variant, placed: Array) -> void:
+	for record in placed:
+		if not record is Dictionary:
+			continue
+		for door in (record as Dictionary).get("doors", []) as Array:
+			if not door is Dictionary:
+				continue
+			_set_door(map, int((door as Dictionary).get("x", -1)), int((door as Dictionary).get("y", -1)))
+	for gate in [SimTileMapRes.gate_a(map), SimTileMapRes.gate_b(map)]:
+		_set_door(map, (gate as Vector2i).x, (gate as Vector2i).y)
+
+
+static func _set_door(map: Variant, tx: int, ty: int) -> void:
+	if tx <= 0 or ty <= 0 or tx >= int(map.w) - 1 or ty >= int(map.h) - 1:
+		return
+	var idx: int = ty * int(map.w) + tx
+	if int(map.tiles[idx]) == SimTileMapRes.Tile.Floor:
+		map.tiles[idx] = SimTileMapRes.Tile.Door
 
 
 # The tile inside each opening in the district wall: where a road that leaves arrives back. Read off

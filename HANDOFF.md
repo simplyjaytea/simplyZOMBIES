@@ -32,6 +32,18 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-07 — the playable state, thirteen slices in one run** (PR #115, on top of the roadmap
+audit): the owner's twelve decisions of 2026-09-06, each a named piece in docs/23 and each
+landed with its gate — Guard as the night post, the crisis dead-end and fires that burn down,
+colonists scavenging near home, density by district size, eyes and senses as content, two
+grace nights then the table (shipped at seven, item 5 below), the dead writing to the field,
+torso damage that slows and staggers, doors, pressing, re-arm and withdrawal, the cold, the
+heat and sepsis killing, and the screen speaking of the colony with a click that selects. The
+record of each, with what the FAST tier did, is in
+[docs/23's record](docs/23-roadmap.md#the-record-by-system); the first-cut numbers nobody was
+asked about are item 6 below. `SAVE_VERSION` went 21 → 25 across the run; the chain is still
+51 gates.
+
 **2026-09-06 — the four weather slices on the spine**, built in parallel worktrees and merged the
 same day: **the storm** (`npm run godot:m2:storm`, `M2_STORM_OK`, five lanes — noise masked on
 the field's own decay at a half-life ×0.4, lightning striking an open outdoor tile every ten
@@ -185,7 +197,10 @@ When you add a mechanism, add the assertion that something reaches it.
 ## What is waiting on the owner, not on code
 
 These are design calls. They have been measured, written up, and deliberately **not** decided.
-(Three long-standing items came off this list on 2026-09-01, decided by the owner: colony shape
+(Sepsis came off this list on 2026-09-06 — **lethal untreated**, one of the owner's twelve
+playable-state decisions in docs/30's "The playable state" entry; it lands as the lethality piece
+in docs/23's playable-state group. Three long-standing items came off on 2026-09-01, decided by
+the owner: colony shape
 — a bigger colony, three at boot — and the `GRABS_ENABLED` flip, both landed together and closed
 in docs/23's flag record; and the top-down art style, picked 2026-09-01 as **B, the rotating
 player** and **superseded 2026-09-03 by the Dungeon Settlers look** — upright face-on pawns
@@ -250,32 +265,66 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    `climate/temperate.json`; 180° is the free wind back. docs/16's "a base that was safe
    becomes a base that's upwind of the whole district" and a per-seed survival floor pull
    against each other, and which gives is a design call, not a number.
-2. **Whether sepsis should be lethal.** It is currently debilitating and permanent-until-treated,
-   deliberately not a death path. With grabs live it is reachable in ordinary play, which makes
-   this decision live too; making it lethal is a balance decision that needs a measurement
-   attached. The cure is no longer out of reach: the sweep's "`infection.respond` has no
-   producer" is closed for antibiotics — they are a clickable word on the body screen now
-   (`godot:check:respond`) — so the decision is about lethality alone rather than about lethality
-   with no answer available. The other four infection verbs still have no surface, for the
-   reasons docs/23's defect list gives.
-3. **Whether a roof covers a known building's unseen walls too.** The wall-and-roof slice roofs
+2. **Whether a roof covers a known building's unseen walls too.** The wall-and-roof slice roofs
    the unseen *indoor* tiles of a building the survivor can see part of, as approved, so the
    unseen perimeter walls stay black and the roof reads as a mass inside a black ring
    (`slice5-front-64.png` in the plan's shots). Roofing every unseen tile of the footprint is
    one condition in `RoofLook.roof_tiles` and leaks nothing the footprint does not already;
    the look is arbitrated by screenshot, so it is the owner's.
-4. **Whether the one-handed weapons need their own silhouettes at 32 px.** The worn slice found
+3. **Whether the one-handed weapons need their own silhouettes at 32 px.** The worn slice found
    that the bat, machete, pipe and kitchen knife share a fist, an angle and a value range: they
    are distinguishable side by side and would not be at a glance mid-fight. The cheapest fix
    gives each primary weapon its own lean rather than sharing the bat's, which re-authors the
    shipped bat -- so it is recorded rather than taken in passing. The service pistol is the
    weakest single key for the same reason of size.
-5. **Whether a forest stand should ever be as dense as the generator can make it.** In the
+4. **Whether a forest stand should ever be as dense as the generator can make it.** In the
    densest one measured -- 44 Tree tiles in a 9x9 -- the player is very nearly invisible: trees
    are Opaque, so sight collapses to a few tiles, and the fade rule cannot help much because
    several trunks overlap the body at once (`slice9-stand-64.png`). That is the forest's
    character rather than a defect in the fade, but the density is content: the knobs are the
    terrain block's `standsMax`, `treesMax` and `treeSpread`.
+5. **The two playable-state flips against the compressed tier's survival floor.** Two of the
+   owner's own 2026-09-06 decisions are built, gated at both values and shipped at the old
+   one: sight as a stimulus (`SimShambler.SIGHT_ENABLED`, decision 3 — since flipped, see the
+   end of this item) and the strain table from night 3 (`SimDirector.GRACE_NIGHTS`, decision
+   4, ships 7 rather than 2).
+   Measured on the FAST tier with each on, a seed or two in four **wiped**, and
+   `survivors_end >= 1` is the assertion CLAUDE.md records as considered and rejected for
+   relaxing. The eyes and director records in docs/23 carry the diagnostics: a shambler that
+   can see re-takes the colonist it just released, and three early packets finish a colony
+   that cannot kill a shambler with a knife. The trade is between the owner's pacing and a
+   floor measured on a 64-tile district sixteen times the shipped density with the player's
+   body unattended. The options, each one line: (a) flip both after the torso slice lands and
+   re-measure — the plan's order, and the record's recommendation; (b) let the compressed
+   floor be "three seeds of four" and flip now; (c) run the FULL tier at 256 overnight
+   (`BALANCE_FULL=1 BALANCE_TILES=256`) before deciding, ~8 hours at the measured rate.
+   **Re-measured after the torso slice landed** (docs/23's Lethality record): with both flips
+   on, three seeds hold at 3 of 3 and seed 20260805 still wipes (186 grabs, the crowd that saw
+   the annex on night one never left), and the harness's over-cap invariant trips on two seeds
+   (live 35 / 34 against a cap of 32 for a few hundred ticks — something places past the
+   clamp once the table opens on night 3, to be found before the flip). **Sight alone,
+   re-measured after the torso slice, holds the floor**: survivors 1 / 2 / 3 / 3 of 3, every
+   band green — so sight ships on (decision 3 executed under the standing assertion, the
+   commit after the torso slice's) and this item is now the table alone: flip `GRACE_NIGHTS`
+   to 2 once the over-cap placement is found and seed 20260805 is re-read with sight already
+   on.
+6. **The playable-state slices' first-cut calls**, 2026-09-07, each inside one of the owner's
+   twelve decisions, each recorded in docs/30's entry for its slice, and each a one-constant
+   change if re-decided. The eyes: a zombie's sight reach is `range × sqrt(lightSense)` scaled
+   by the light *at the target* (a lit survivor is seen from the dark), the shadowcast recast
+   only after two tiles of movement, and a screamer's own groan raises its own noise threshold
+   so it does not chase itself. The field: every zombie's base scent is **1**, chosen off
+   docs/03's migration drift (6–7 m of centre-of-mass drift in an hour against 19 m at the
+   plan's 8, which dominated the field). The doors: a door swings shut sixty ticks after its
+   tile empties, breaks at stage four, and zombies never open one; the press: pressure
+   `n × (1 + 0.5 × (n − 1))` against stage costs of 40 (board), 160 (door) and 90 (scrap).
+   The band: raiders withdraw after 6,000 ticks at the objective with nobody in reach, or at
+   once when below half their size. The lethality doses: frostbite at two exposures and death
+   at three in the cold, heatstroke at three and death at four in the heat and only in armour,
+   sepsis lethal at the third untreated dusk. The screen: a chronicle line stays two game
+   hours, three at most; a click selects and never orders; a thin ring marks the selection.
+   None of these was asked about, because the session was autonomous; each is the kind of
+   number the ten-day playtest is for.
 
 ## How a session runs
 
@@ -299,7 +348,7 @@ npm run godot:run                   # play it (DISPLAY=:1 on a headless VM)
 
 Then read [What's left in Milestone 2](docs/23-roadmap.md#whats-left-in-milestone-2) — every
 remaining piece, named so the name alone says what the work is, grouped into: decisions waiting on
-the owner, content-only entries, people, medicine, gear, attention, art, UI, proof, debt, the
-defects the review sweep left open, and what is parked for Milestone 3A. Pick a piece, land it with
-its gate, delete it from that list and write its record into
+the owner, world generation (closed), people, medicine, gear, attention, art, UI, proof, debt,
+weather, the defects the review sweep left open, and what is parked for Milestone 3A. Pick a piece,
+land it with its gate, delete it from that list and write its record into
 [the record, by system](docs/23-roadmap.md#the-record-by-system) in the same commit.
