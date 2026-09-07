@@ -191,9 +191,6 @@ re-baseline the FAST balance record and say so in their record.
   past the clamp once the table opens early. Find that, re-read seed 20260805 with sight on,
   and flip the one static; the trade with the compressed tier's floor is HANDOFF's item 5.
   (Sight's flip landed with the lethality slice: `SIGHT_ENABLED` ships `true`.) Re-baseline.
-- **The screen speaks of the colony.** A sim-owned chronicle turns death, succession,
-  run-over, arrival and bereavement into world-lines; a click selects a colonist so the
-  third-person needs and condition prose reach the screen. `godot:check:hud`.
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
@@ -3289,6 +3286,47 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **UI & Death** — ~~the screen speaks of the colony~~ **landed** (`godot:check:hud`
+  CHRONICLE, SELECTED, PICK), 2026-09-07, the thirteenth and last piece of the playable-state
+  group and the owner's decision 12. What was wrong: `entity.killed`, `player.succeeded`,
+  `run.over`, `recruit.arrived`, `colony.bereaved` and `recruit.left` were published, gated,
+  and read by nothing outside a gate — a player whose survivor died found themselves driving
+  somebody else with no sentence to say so, and "RUN OVER" lived on the developer sheet behind
+  M; `_selected` in `main.gd` was declared, reset on reboot and assigned by nothing, so the
+  HUD's third-person branch (`needs.hud_clause`'s rewrite, the bleed clauses' `third` rows)
+  had never once reached the screen, and `SimNeeds.hud_panel` and its `panel: true` prose
+  were a socket nothing read. Now `sim/modules/chronicle.gd` subscribes to the six events
+  (order 900, after every handler that changes the body) and appends `{tick, kind, name, e}`
+  records to `world.chronicle` — an Array of records, never an id-keyed Dictionary, saved and
+  restored with the world (`SAVE_VERSION` 25, both VERSION lanes re-pinned); a death is
+  written once per entity id (the event fires up to three times for one body) and only for a
+  body with an `identity` (a zombie's death is nobody's news); `SimChronicle.lines(world)` is
+  the read model `hud.gd._world_lines` appends — newest first, at most three, nothing older
+  than two game hours, and the boot colony's tick-0 `survivor.joined` pair is kept in the
+  record and not read to the screen. The words: "Ellis Okafor is dead." "You are Mara Sato
+  now." "There is nobody left to be." "Someone is waiting at the gate." "The colony saw Ellis
+  Okafor die." "The stranger at the gate has gone." / "Mara Sato has walked out." — names and
+  nothing numeric, because the chronicle is on the HUD and the HUD allows no digit but the
+  day. **Click-to-select**: `presentation/pick.gd` is a pure hit-test on the pawn's own rect
+  (`Appearance.body_rect` on the 32×48 canvas at the draw pass's scale, the player's own pawn
+  included) over people who are Focal to the player — Unseen and Peripheral bodies are not
+  clickable, the draw loop's own rule — front-most wins; `main.gd`'s left click asks it first
+  and attacks only on −1, a click on your own pawn clears, and the selection drops the moment
+  the colonist is a corpse, despawned, or the body you now drive. The selected colonist
+  stands in a thin ring on the shadow line. The bleed, pain and sepsis clauses share one
+  `_spoken_of(first, third)` helper in `wounds.gd`, so the two that said "You" about Mara now
+  name her; `hud_panel` is deleted — closed by removal, the `COLOUR_HEX` precedent. CHRONICLE:
+  Ellis killed twice plus a zombie is one line, the HUD's world column carries it (the
+  dead-socket half), an arrival is the newest line, the record survives a snapshot/restore,
+  and a line ages off the screen without leaving the record. SELECTED: a refresh for a hurt,
+  septic, starving Mara produces five lines, none saying "You", her name on them; the player's
+  own refresh still says "You". PICK: Mara's pawn hit, three tiles off missed, a zombie and a
+  corpse with identities missed, the player's own pawn answers the player. `ban:healthbar`,
+  `godot:m2:save`, `godot:m2:fortify`, `check:topdown`, `check:respond`, `m2:recruits` green
+  around it; `check:routing` green with the two new files on the screen row. Screenshot for
+  the owner under `.hermes/plans/2026-09-07_colony-speaks/` (Mara selected, Ellis's line in
+  the world column). **The FAST tier** is untouched by construction: the chronicle reads
+  events and writes a record nothing in the sim reads back.
 - **Needs & Wounds** — ~~lethality: the cold, the heat, and sepsis can kill~~ **landed**
   (`godot:m2:cold` COLD-KILLS, `godot:m2:heat` HEAT-KILLS, `godot:m2:wounds` SEPSIS-LETHAL),
   2026-09-07, the twelfth piece of the playable-state group and the owner's decision 9 — all

@@ -2803,6 +2803,23 @@ records its own numbers here as a bullet under this entry when it lands.
   second dusk's clause says worse so the decision is prompted before it is too late. A course
   clears the sepsis at once and the count at the next dusk, because the count is read at
   dusk and a cure at noon should not need the clock to notice it.
+- **The screen speaks of the colony, 2026-09-07.** The chronicle is sim-owned and saved,
+  not a presentation-side log, because what the colony lost is a fact about the run and not
+  about the screen — a save reloaded next week should still know who died on day two, and the
+  grave or epitaph that reads it later should not need the sim to remember twice. The screen
+  reads only the last two hours and at most three lines, because the world column is a place
+  for news and a death on day two is not news on day four; the record keeps everything. A death
+  is written once per entity and only for a body with an identity, because `entity.killed`
+  fires up to three times for one person and once for every zombie. The lines carry names and
+  nothing numeric — no day, no count — because the chronicle sits on the HUD and clause 4 owns
+  the HUD. A click selects rather than orders, because the owner's decision 12 is about what
+  the screen *says*; orders are the micromanagement cliff (docs/23 risk 1) and stay unbuilt.
+  Only a Focal body is clickable, because what you cannot see you cannot point at, and clicking
+  your own pawn clears the selection because that is the cheapest way back to your own lines.
+  The ring is thin and in the player colour and nothing else about the pawn changes: it marks
+  whose lines you are reading, not whose turn it is. `hud_panel` was deleted rather than wired,
+  because the `panel: true` prose it returned was one sentence longer than the HUD glimpse and
+  said nothing the glimpse did not.
 
 ---
 

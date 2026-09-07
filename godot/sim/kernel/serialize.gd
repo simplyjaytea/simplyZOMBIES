@@ -61,7 +61,11 @@ extends RefCounted
 # ({tx, ty, open, stage, latched, emptySinceTick}), overlaid by `sync_map` on restore. A v23
 # save's map would regenerate with Door tiles and no door entities -- every doorway an open hole,
 # every gate a gap. Refused, same rule.
-const SAVE_VERSION: int = 24
+# 25: the chronicle. `world.chronicle` -- the colony's deaths, successions, arrivals and
+# departures as records the screen reads as prose -- joined the snapshot. A v24 save has none:
+# restored, it would come back with a colony that remembers nothing of who it lost, and every
+# `entity.killed` for an already-dead colonist would be news again. Refused, same rule.
+const SAVE_VERSION: int = 25
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

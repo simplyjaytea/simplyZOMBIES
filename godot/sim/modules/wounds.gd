@@ -304,12 +304,30 @@ static func _apply_pain(world: Variant, entity: int) -> void:
 static func pain_clause(world: Variant, entity: int) -> String:
 	var pain: float = pain_of(world, entity)
 	if pain >= 0.75:
-		return "Everything hurts. You can barely think past it."
+		return _spoken_of(world, entity, "Everything hurts. You can barely think past it.", "%s can barely think past the pain.")
 	if pain >= 0.45:
-		return "You're in a lot of pain."
+		return _spoken_of(world, entity, "You're in a lot of pain.", "%s is in a lot of pain.")
 	if pain >= 0.2:
-		return "You ache."
+		return _spoken_of(world, entity, "You ache.", "%s is aching.")
 	return ""
+
+
+# Who a clause is about. The controlled body is "You"; anybody else is named, and a body with no
+# identity is "Someone" -- singular, so every third-person row's verb agrees (the old fallback
+# produced "They looks bleeding."). One helper for the bleed, pain and sepsis clauses, because
+# the click-to-select on a colonist (decision 12 of docs/30's "The playable state") puts all
+# three on the screen about somebody who is not the player, and two of them used to say "You"
+# about her.
+static func _spoken_of(world: Variant, entity: int, first: String, third: String) -> String:
+	if world.components.has_component(entity, "controlled"):
+		return first
+	var name: String = "Someone"
+	var ident: Variant = world.components.get_component(entity, "identity")
+	if ident is Dictionary:
+		name = String((ident as Dictionary).get("name", "Someone"))
+	if name.is_empty():
+		name = "Someone"
+	return third % name
 
 
 # --- bacterial infection (docs/05) --------------------------------------------------------
@@ -798,19 +816,7 @@ static func hud_clause(world: Variant, entity: int) -> String:
 	if row == null:
 		return ""
 
-	if world.components.has_component(entity, "controlled"):
-		return String((row as Dictionary)["first"])
-	# "Someone", not "They": every row's verb agrees with a third-person *singular* subject, and
-	# singular "they" takes plural agreement -- the old fallback produced "They looks bleeding."
-	# whenever a body had no identity to name. One noun that fits every row beats four rows that
-	# have to carry two agreements each.
-	var name: String = "Someone"
-	var ident: Variant = world.components.get_component(entity, "identity")
-	if ident is Dictionary:
-		name = String((ident as Dictionary).get("name", "Someone"))
-	if name.is_empty():
-		name = "Someone"
-	return String((row as Dictionary)["third"]) % name
+	return _spoken_of(world, entity, String((row as Dictionary)["first"]), String((row as Dictionary)["third"]))
 
 
 # --- sepsis: the roll, the effects, and the cure -------------------------------------------
@@ -931,8 +937,8 @@ static func sepsis_clause(world: Variant, entity: int) -> String:
 	# body that has been feverish two nights running says so -- in words, never a count.
 	var n: Variant = world.components.get_component(entity, "needs")
 	if n is Dictionary and int((n as Dictionary).get("septicDusks", 0)) >= 2:
-		return "You're burning up, and it's getting worse."
-	return "You're feverish, and it isn't getting better."
+		return _spoken_of(world, entity, "You're burning up, and it's getting worse.", "%s is burning up, and it's getting worse.")
+	return _spoken_of(world, entity, "You're feverish, and it isn't getting better.", "%s is feverish, and it isn't getting better.")
 
 
 # --- causes ------------------------------------------------------------------------------
