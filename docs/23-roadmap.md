@@ -3332,8 +3332,10 @@ not a to-do list:
   playtest's frame budget is not yet at risk but the eyes and emitters the next slices give
   eighty bodies are. In the first 20,000 ticks (about an hour after 09:00) seed 90210 lost a
   colonist to a zombie and the colony killed 3 / 2 / 1 / 3 shamblers on the four seeds — the
-  denser district is felt at once. FAST lines at 64: see the chain's run below; expected
-  byte-identical, since nothing at 64 changed.
+  denser district is felt at once. FAST lines at 64, from the chain's run: **byte-identical**
+  to the scavenge slice's four (siege 2 / 1 / 3 / 2, packets 2 / 1 / 3 / 2, max_live 26 / 25 /
+  32 / 26, survivors 2 / 1 / 2 / 3 of 3), as expected — `wanderers_for(64)` is the old 20 and
+  `live_cap_for` at 64 the old 32, so nothing the harness boots changed.
 - **Jobs** — ~~colonists scavenge near home~~ **landed** (`godot:m2:jobs` SCAVENGE), 2026-09-06,
   the third piece of the playable-state group and the owner's decision 10. What was wrong: sixty
   to seventy percent of the district's food sits in containers (`containerShare` 0.7 residential
