@@ -19,8 +19,9 @@ func _run() -> void:
 	ok = _never_gate() and ok
 	ok = _lull_skips() and ok
 	ok = _same_seed() and ok
+	ok = _the_cap_scales_with_the_district() and ok
 	if ok:
-		print("M2_DIRECTOR_OK boot packet gate lull seed, nights vary within docs/17's bounds")
+		print("M2_DIRECTOR_OK boot packet gate lull seed, nights vary within docs/17's bounds, and the cap scales with the district")
 		quit(0)
 	else:
 		push_error("M2_DIRECTOR_FAIL")
@@ -62,8 +63,8 @@ func _day1_boot() -> bool:
 			s += 1
 		else:
 			other += 1
-	if s != SimBoot.WANDERERS or other != 0:
-		push_error("day1 z shambler=%d (want %d) other=%d" % [s, SimBoot.WANDERERS, other])
+	if s != SimBoot.wanderers_for(64) or other != 0:
+		push_error("day1 z shambler=%d (want %d) other=%d" % [s, SimBoot.wanderers_for(64), other])
 		return false
 	var before: int = _live(w)
 	_jump_dusk(w, 1)
@@ -328,3 +329,34 @@ func _packets_arrive_from_more_than_one_side() -> bool:
 		return false
 	print("SIDES OK packets arrived from %d of four sides: %s" % [sides.size(), str(sides)])
 	return true
+
+
+# --- the live cap scales with the district (2026-09-06, with the boot density) ----------------
+#
+# `LIVE_CAP` was a flat 32: with 80 booted at 256 the first dusk would have read "cap" and every
+# dusk after it -- the despawn trap's refusal loop, reached at once. Now `live_cap_for(world)` is
+# 32 per 64 tiles of side: 32 at 64 (unchanged, the true negative), 128 at 256, and a 256 world's
+# first dusk with 80 live is "grace", not "cap". The fixture with no map reads the 64 number.
+func _the_cap_scales_with_the_district() -> bool:
+	var w64: Variant = SimBoot.playable(20260805, 64)["world"]
+	if SimDirector.live_cap_for(w64) != 32:
+		push_error("cap: a 64 world reads %d, want 32" % SimDirector.live_cap_for(w64))
+		return false
+	var w: Variant = SimBoot.playable(20260805, 256)["world"]
+	if SimDirector.live_cap_for(w) != 128:
+		push_error("cap: a 256 world reads %d, want 128" % SimDirector.live_cap_for(w))
+		return false
+	if _live(w) != 80:
+		push_error("cap: the 256 boot stood %d, not 80; the night below judges the wrong district" % _live(w))
+		return false
+	var night: Variant = _run_night(w, 1)
+	if not night is Dictionary:
+		push_error("cap: no director.night on the 256 world's first dusk")
+		return false
+	var reason: String = String((night as Dictionary).get("reason", ""))
+	if reason == "cap":
+		push_error("cap: the 256 world's first dusk was refused for the cap with 80 live")
+		return false
+	print("CAP OK 32 at 64, 128 at 256; the 256 world's first dusk with 80 live reads '%s', not 'cap'" % reason)
+	return true
+

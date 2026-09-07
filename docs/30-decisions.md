@@ -2675,6 +2675,14 @@ records its own numbers here as a bullet under this entry when it lands.
   measured what hauling across the whole district costs. Haul is bounded the same way for the
   same reason. Forty is a first cut: the whole of the 64-tile harness map, so the FAST lines are
   moved by the search itself and not by the bound.
+- **A density, linear in the side, 2026-09-06.** `wanderers_for(tiles)` is `20 × tiles / 64` and
+  the live cap `32 × tiles / 64`, so 64 boots 20 under a cap of 32 as it always has and 256 boots
+  80 under 128. Linear in the side rather than the area because the owner's decision named the
+  two numbers (20 and ~80) and the per-area reading, 320, would be ten times the old cap; the cap
+  scales with the population because it is a statement about how many bodies a district holds,
+  and a flat 32 at 256 would have refused every night from the first. Measured at 256: ~105
+  ticks a second against ~1,085 at 64, which the record carries as the price every later
+  256-tile measurement pays.
 
 ---
 

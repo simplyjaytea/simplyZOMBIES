@@ -293,8 +293,9 @@ func _boot_and_judge(seed_value: int, size: int, district_id: String, stash: Dic
 
 	# 4. Twenty wanderers, none of them in the colony.
 	var zeds: int = world.components.query(["shambler"]).size()
-	if zeds != SimBoot.WANDERERS:
-		push_error("%s: booted %d shamblers, and SimBoot.WANDERERS is %d" % [where, zeds, SimBoot.WANDERERS])
+	var want: int = SimBoot.wanderers_for(int(map.w))
+	if zeds != want:
+		push_error("%s: booted %d shamblers, and SimBoot.wanderers_for(%d) is %d" % [where, zeds, int(map.w), want])
 		return {}
 	var inside: int = _wanderers_inside(world, annex)
 	if not _exclusion_ok(inside):

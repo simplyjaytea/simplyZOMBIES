@@ -45,13 +45,21 @@ const SimVehicles = preload("res://sim/modules/vehicles.gd")
 
 const DISTRICT_SEED: int = 20260805
 const DEFAULT_DISTRICT: String = "district.residential_suburb"
-# 20, up from 12 in the basic-combat slice: with swipes live a wanderer is a threat rather than
-# scenery, and the district read as empty at 12 across a 64-tile map. check_m2_director.gd pins
-# this number exactly -- change both together.
-const WANDERERS: int = 20
+# The boot population is a density, not a count (the owner's decision 5, 2026-09-06). 20 was the
+# number that made a *64-tile* map read as not empty (up from 12 in the basic-combat slice), and
+# the shipped game boots 256 -- one shambler per 3,300 square metres, and every balance band
+# measured on a district nobody plays. `wanderers_for` is linear in the side, not the area: the
+# owner's two numbers (20 at 64, 80 at 256) fix it, and a per-area reading (320) would sit ten
+# times over the live cap and refuse every night. check_m2_district.gd, check_m2_director.gd and
+# check_worldgen.gd pin `wanderers_for` at the size they boot.
+const WANDERERS_PER_64: int = 20
 # How many times a boot wanderer's tile is re-rolled to land outside the colony before it is placed
 # wherever it fell. See the scatter loop in `playable`.
 const SCATTER_TRIES: int = 8
+
+
+static func wanderers_for(tiles: int) -> int:
+	return roundi(float(WANDERERS_PER_64) * float(tiles) / 64.0)
 
 
 static func attach_kernel(world: Variant, map: Variant) -> void:
@@ -385,7 +393,7 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# a roll that never lands outside places anyway rather than looping, which at these odds
 	# (a 26x26 rect inside a 48x48 box, eight times over) is a case nothing has reached.
 	var annex: Rect2i = SimTileMap.annex_rect(map)
-	for i in WANDERERS:
+	for i in wanderers_for(int(map.w)):
 		var type_id: String = SimRoster.pick_type(world, place_rng)
 		var tile: Dictionary = {}
 		for _try in SCATTER_TRIES:
