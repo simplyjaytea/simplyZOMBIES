@@ -2790,6 +2790,19 @@ records its own numbers here as a bullet under this entry when it lands.
   fight, and at once below half strength, because docs/17's raiders are a *pressure*, not a
   garrison: a band that lost is a band that leaves, and one that found nobody has no reason
   to stand in the road; the entry tile as the exit because that is the road it knows.
+- **The cold, the heat and sepsis kill, 2026-09-07.** A dose of exposed ticks rather than
+  the clock's difference, because the compressed tier jumps a day between windows and a
+  clock-keyed death would be a death by artefact; the band still reads the clock, as it did.
+  Two exposures to a wound and three to a death in the cold, three and four in the heat and
+  only in armour, because docs/16 makes armour the thing the heat wave punishes and the sun
+  alone should never kill a body that took its jacket off. Frostbite on an extremity and
+  heatstroke on the torso because that is where each lands on a person; a laceration's
+  severity so each impairs the part without bleeding, and never septic because there is no
+  opening. Three dusks for sepsis because a night is the unit sepsis is already rolled in,
+  three is long enough to find a course and short enough that a fever is a decision, and the
+  second dusk's clause says worse so the decision is prompted before it is too late. A course
+  clears the sepsis at once and the count at the next dusk, because the count is read at
+  dusk and a cure at noon should not need the clock to notice it.
 
 ---
 

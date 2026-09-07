@@ -429,6 +429,14 @@ static func blank() -> Dictionary:
 		"mealMoodUntilTick": -1,
 		"coldSinceTick": -1,
 		"hotSinceTick": -1,
+		# The lethal ladders (the playable-state group's twelfth piece): a dose that grows one
+		# tick per exposed tick -- never `tick - since`, which a jumped clock would inflate --
+		# with a flag per wound it has already dealt, and the dusks a body has been septic.
+		"coldDoseTicks": 0,
+		"frostbitten": false,
+		"hotDoseTicks": 0,
+		"heatstruck": false,
+		"septicDusks": 0,
 		"sleepQuality": 1.0,
 		"sleepQualityTicks": 0,
 		"sleptMood": 0.0,
@@ -1217,6 +1225,23 @@ static func _tick_slept_mood(world: Variant) -> void:
 #
 # 18000 ticks is an hour and a half in game, a quarter of the six-hour night.
 const EXPOSURE_TICKS: int = 18000
+# The cold and the heat can kill (the owner's decision 9). Out in the cold at night with no fire
+# and no roof: at FROSTBITE_DOSE a frostbite wound on a random extremity, at COLD_DEATH_DOSE
+# death (`entity.killed{need: "cold"}`, the starvation shape). Baking in armour under a heat
+# wave: at HEATSTROKE_DOSE a heatstroke wound on the torso, at HEAT_DEATH_DOSE death; a body
+# without armour never reaches either, because armour is what the heat wave punishes (the hot
+# ladder above). Doses in exposed ticks, not clock ticks. `check_m2_cold.gd` COLD-KILLS,
+# `check_m2_heat.gd` HEAT-KILLS.
+const FROSTBITE_DOSE: int = 2 * EXPOSURE_TICKS
+const COLD_DEATH_DOSE: int = 3 * EXPOSURE_TICKS
+const HEATSTROKE_DOSE: int = 3 * EXPOSURE_TICKS
+const HEAT_DEATH_DOSE: int = 4 * EXPOSURE_TICKS
+const EXPOSURE_STREAM: String = "exposure"
+const EXTREMITIES: Array[String] = ["hand_left", "hand_right", "foot_left", "foot_right"]
+# Sepsis kills untreated: the third dusk a body is septic is its last (the owner's decision 9;
+# docs/30's "The playable state"). A course of antibiotics clears the sepsis and the count with
+# it. `check_m2_wounds.gd` SEPSIS-LETHAL.
+const SEPSIS_LETHAL_DUSKS: int = 3
 
 
 static func _tick_temperature(world: Variant) -> void:
@@ -1263,6 +1288,12 @@ static func _tick_temperature(world: Variant) -> void:
 		elif since < 0:
 			since = int(world.tick)
 		n["coldSinceTick"] = since
+		# The dose: one per exposed tick, cleared with the clock.
+		if exposed:
+			n["coldDoseTicks"] = int(n.get("coldDoseTicks", 0)) + 1
+		else:
+			n["coldDoseTicks"] = 0
+			n["frostbitten"] = false
 		# Heat is a dose too, and this is the cold clock's mirror: it runs while the sky is hot
 		# and the body is out under it by day, and any roof, the night, or the end of the spell
 		# clears it. Read below the shift block for what the dose buys.
@@ -1274,6 +1305,11 @@ static func _tick_temperature(world: Variant) -> void:
 		elif hot_since < 0:
 			hot_since = int(world.tick)
 		n["hotSinceTick"] = hot_since
+		if baking:
+			n["hotDoseTicks"] = int(n.get("hotDoseTicks", 0)) + 1
+		else:
+			n["hotDoseTicks"] = 0
+			n["heatstruck"] = false
 		var band: String = "comfortable"
 		if night:
 			if fire:
@@ -1317,6 +1353,9 @@ static func _tick_temperature(world: Variant) -> void:
 		if wearing_wrap(world, ent):
 			band = _shift_temp(band, 1)
 		n["temperature"] = band
+		# What the dose buys, after the band is settled: the wound once, then the death.
+		if _exposure_kills(world, ent, n, exposed, baking):
+			return
 		if band != before:
 			_apply_muls(world, ent, n)
 
@@ -1387,8 +1426,61 @@ static func _tick_hygiene(world: Variant) -> void:
 			_daily_sepsis(world, ent, n)
 
 
+# The cold's and the heat's consequences, from the doses. Returns true when the body died, so
+# the caller stops writing to it. The wound is dealt once a dose (the flag), the death when the
+# dose reaches its figure; an unarmoured body in the heat is capped at very_hot by the ladder
+# above and never reaches heatstroke, which is the design (docs/16: armour is what the heat
+# wave punishes), so its dose buys nothing here either.
+static func _exposure_kills(world: Variant, ent: int, n: Dictionary, exposed: bool, baking: bool) -> bool:
+	if exposed:
+		var dose: int = int(n.get("coldDoseTicks", 0))
+		if dose >= COLD_DEATH_DOSE:
+			_die_of(world, ent, "cold")
+			return true
+		if dose >= FROSTBITE_DOSE and not bool(n.get("frostbitten", false)):
+			n["frostbitten"] = true
+			var rng: Variant = world.rng.stream(EXPOSURE_STREAM)
+			var part: String = String(EXTREMITIES[int(rng.call("int_range", 0, EXTREMITIES.size() - 1))])
+			_exposure_wound(world, ent, "frostbite", part)
+	if baking and wearing_armor(world, ent):
+		var hot: int = int(n.get("hotDoseTicks", 0))
+		if hot >= HEAT_DEATH_DOSE:
+			_die_of(world, ent, "heat")
+			return true
+		if hot >= HEATSTROKE_DOSE and not bool(n.get("heatstruck", false)):
+			n["heatstruck"] = true
+			_exposure_wound(world, ent, "heatstroke", "torso")
+	return false
+
+
+static func _exposure_wound(world: Variant, ent: int, kind: String, part: String) -> void:
+	var Wounds: GDScript = load("res://sim/modules/wounds.gd") as GDScript
+	if Wounds == null:
+		return
+	# A laceration's severity: impairing, never bleeding (the kind says so), a fortnight to
+	# recover for the cold and a week for the heat (WOUND_KINDS).
+	Wounds.call("append_wound", world, ent, kind, part, -1, 0.0, "", 1)
+	world.events.publish({"type": "injury.sustained", "entity": ent, "injury": kind, "bodyPart": part})
+
+
+static func _die_of(world: Variant, ent: int, need: String) -> void:
+	world.events.publish({"type": "entity.killed", "entity": ent, "need": need})
+	var Health: GDScript = load("res://sim/modules/health.gd") as GDScript
+	Health.call("finish_death", world, ent)
+
+
 static func _daily_sepsis(world: Variant, ent: int, n: Dictionary) -> void:
 	var inj: Variant = world.components.get_component(ent, "injuries")
+	# The lethal count first, before tonight's roll: a body septic at dusk has been septic a
+	# day, and the third such dusk is its last. Cleared sepsis (a course) resets the count.
+	var WoundsRes: GDScript = load("res://sim/modules/wounds.gd") as GDScript
+	if WoundsRes != null and bool(WoundsRes.call("is_septic", world, ent)):
+		n["septicDusks"] = int(n.get("septicDusks", 0)) + 1
+		if int(n["septicDusks"]) >= SEPSIS_LETHAL_DUSKS:
+			_die_of(world, ent, "sepsis")
+			return
+	else:
+		n["septicDusks"] = 0
 	if not inj is Dictionary:
 		return
 	var wounds: Array = (inj as Dictionary).get("wounds", []) as Array

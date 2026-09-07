@@ -96,6 +96,11 @@ const WOUND_KINDS: Dictionary = {
 	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
 	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": ""},
 	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
+	# The exposure wounds (needs.gd's lethal ladders): no bleed, nothing to close, impairing
+	# the part they sit on; frostbite on an extremity for a fortnight, heatstroke on the torso
+	# for a week. Neither can go septic -- there is no opening.
+	"frostbite": {"bleeds": false, "recoveryDays": 14, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
+	"heatstroke": {"bleeds": false, "recoveryDays": 7, "impairFloor": 1, "septicMul": 0.0, "global": {}, "closeKind": ""},
 	# A concussion impairs the person, not the part: docs/05 wants "reaction and perception loss".
 	# swing_speed and ranged_accuracy are the two stats this model already has that mean
 	# "reactions", and they are what it gets. **Perception has no stat to attach to** -- vision is
@@ -922,6 +927,11 @@ static func clear_sepsis(world: Variant, entity: int) -> int:
 static func sepsis_clause(world: Variant, entity: int) -> String:
 	if not is_septic(world, entity):
 		return ""
+	# The second dusk's tell: sepsis kills on the third (needs.gd SEPSIS_LETHAL_DUSKS), and a
+	# body that has been feverish two nights running says so -- in words, never a count.
+	var n: Variant = world.components.get_component(entity, "needs")
+	if n is Dictionary and int((n as Dictionary).get("septicDusks", 0)) >= 2:
+		return "You're burning up, and it's getting worse."
 	return "You're feverish, and it isn't getting better."
 
 

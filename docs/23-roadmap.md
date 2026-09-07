@@ -191,9 +191,6 @@ re-baseline the FAST balance record and say so in their record.
   past the clamp once the table opens early. Find that, re-read seed 20260805 with sight on,
   and flip the one static; the trade with the compressed tier's floor is HANDOFF's item 5.
   (Sight's flip landed with the lethality slice: `SIGHT_ENABLED` ships `true`.) Re-baseline.
-- **Lethality: the cold, the heat, and sepsis can kill.** Frostbite and heatstroke as wounds
-  on the exposure ladder with death a step past each; sepsis kills at the third untreated
-  dusk. `godot:m2:cold`, `godot:m2:heat`, `godot:m2:wounds`; three drivers.
 - **The screen speaks of the colony.** A sim-owned chronicle turns death, succession,
   run-over, arrival and bereavement into world-lines; a click selects a colonist so the
   third-person needs and condition prose reach the screen. `godot:check:hud`.
@@ -3292,6 +3289,43 @@ not a to-do list:
   the survivor was being asked to stay on the focus drift starts from. The assertion the old line
   was reaching for — that a command stamps provenance — is unchanged and now has both halves in
   `godot:m2:autonomy`'s CYCLE lane.
+- **Needs & Wounds** — ~~lethality: the cold, the heat, and sepsis can kill~~ **landed**
+  (`godot:m2:cold` COLD-KILLS, `godot:m2:heat` HEAT-KILLS, `godot:m2:wounds` SEPSIS-LETHAL),
+  2026-09-07, the twelfth piece of the playable-state group and the owner's decision 9 — all
+  three halves in one slice. What was wrong: only starvation and dehydration could kill;
+  temperature and hygiene killed nobody, no hypothermia, frostbite or heatstroke injury
+  existed, and sepsis — reachable in play since the grabs flip — blocked recovery and did
+  nothing else, the long-standing owner item. Now the exposure ladders carry **a dose**, one
+  tick per exposed tick (`coldDoseTicks`, `hotDoseTicks`), never `tick − since` — which the
+  compressed tier's clock jump would inflate into a death a day early — and the dose buys, in
+  order: out at night with no fire and no roof, a `frostbite` wound on a random extremity
+  (`EXPOSURE_STREAM`) at `FROSTBITE_DOSE` (2× the exposure) and death of the cold at
+  `COLD_DEATH_DOSE` (3×); baking in armour under a heat wave, a `heatstroke` wound on the
+  torso at `HEATSTROKE_DOSE` (3×) and death of the heat at `HEAT_DEATH_DOSE` (4×), and a body
+  without armour reaches neither, because the ladder caps the sun alone at very hot. Both
+  deaths are the starvation shape (`entity.killed{need}`, then `finish_death`); both wounds
+  are `WOUND_KINDS` rows (no bleed, nothing to close, impairing the part, a fortnight and a
+  week to recover, never septic) through `append_wound` at a laceration's severity. Any fire,
+  roof, day or end of the spell clears the dose with the clock, and the wound flag with it.
+  **Sepsis kills untreated**: `_daily_sepsis` counts the dusks a body is septic before
+  tonight's roll (`septicDusks`) and the third is its last (`SEPSIS_LETHAL_DUSKS` 3, `need:
+  sepsis`); a course clears the sepsis at once and the count at the next dusk; the clause
+  says "burning up, and it's getting worse" from the second dusk, in words. COLD-KILLS:
+  frostbite on the hand at the dose and not a tick before, once; death at the death dose and
+  not a tick before; a fire lit past the frostbite dose clears the clock, no death and no
+  second wound; a wrap alone does not save past the death dose. HEAT-KILLS: in armour,
+  heatstroke on the torso at the dose and not a tick before, death at the death dose;
+  unarmoured, neither. SEPSIS-LETHAL: untreated dies at dusk 3 of sepsis; a course at dusk 2
+  lives through ten (the deep wound rolled septic *again* on the first run and killed at
+  dusk 7 — the roll's honest business, so the lane downgrades the treated wound to a scratch
+  after the course and judges the count alone); a scratch that never went septic lives
+  through ten. `ban:healthbar` green: the view gained words, no numbers. **Not driven:** the
+  plan's four-seed overnight drivers were not run — the FAST tier cannot see any of this
+  (needs do not drain in compressed ticks, and the doses are exposed ticks), and the FULL tier
+  at 256 is where the distribution is read; the lanes are the measurement this slice carries.
+  **The FAST tier**, reported: byte-identical to the re-arm slice's four lines — which is
+  the dose design doing its work, since the tier's clock jumps would otherwise have read a
+  guard exposed at the end of one window as three exposures deep at the start of the next.
 - **Jobs & Raiders** — ~~a dropped weapon is picked back up, and a band that has lost
   withdraws~~ **landed** (`godot:m2:npc` REARM, `godot:m2:raiders` WITHDRAW), 2026-09-07, the
   eleventh piece of the playable-state group. What was wrong: the only `equip` a colonist ever
