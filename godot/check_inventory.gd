@@ -36,6 +36,7 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
@@ -69,8 +70,9 @@ func _run() -> void:
 	ok = _the_strip_spends_what_you_pressed() and ok
 	ok = await _the_column_is_in_a_fixed_order() and ok
 	ok = _the_windows_are_gone_and_the_keys_moved() and ok
+	ok = await _a_cupboard_is_a_column_and_a_window() and ok
 	if ok:
-		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed and the windows are gone")
+		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, and a cupboard is a column and a window")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -808,4 +810,105 @@ func _the_windows_are_gone_and_the_keys_moved() -> bool:
 		push_error("; ".join(faults))
 		return false
 	print("KEYS OK the windows and their prefs are gone, the number row spends the strip, speed is - and =, and the HUD's key line is digit-free")
+	return true
+
+
+# --- LOOT -------------------------------------------------------------------------------
+
+# A container you are standing at reaches the screen twice, and the two must not both be up at
+# once: as the **first column** of the sheet (above what you are carrying -- it is the thing you
+# opened the screen for, and the only column that is not yours), and as a small **transfer
+# window** beside your pockets while the sheet is closed, so a loot stop never leaves the
+# district.
+func _a_cupboard_is_a_column_and_a_window() -> bool:
+	var w: Variant = _world(3108)
+	SimContainers.register_module(w)
+	var actor: int = w.player
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	# A table this bare world can roll. `_world` builds no district, so the loot content is
+	# reached the same way the game reaches it and the box is stood by hand.
+	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	if not bool(SimContainers.open(w, actor, box).get("ok", false)):
+		push_error("the fixture cupboard would not open")
+		return false
+
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	root.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, actor)
+
+	# Closed sheet: the window is up, and it is the only thing stopping the mouse -- a Control
+	# that ate clicks over the whole screen would eat the one that swings your axe.
+	panel.call("set_open", false)
+	panel.call("set_loot", SimContainers.open_view(w, actor))
+	if not bool(panel.call("loot_open")):
+		push_error("standing at an open cupboard with the sheet closed showed no transfer window")
+		return false
+	var layer: Variant = panel.get("_loot_layer")
+	if not (layer is Control):
+		push_error("the transfer window has no control of its own")
+		return false
+	var win: Control = layer as Control
+	if win.mouse_filter != Control.MOUSE_FILTER_STOP:
+		push_error("the transfer window does not stop the mouse, so nothing in it can be clicked")
+		return false
+	if int(panel.get("mouse_filter")) != Control.MOUSE_FILTER_IGNORE:
+		push_error("the closed sheet stops the mouse, so a click anywhere would never reach the world")
+		return false
+	# Small enough to leave the street visible behind it, which is the entire reason it exists
+	# rather than the full sheet. Judged against the size the game runs at (1920x1080) rather than
+	# against `get_viewport_rect()`, because headless the viewport is a fraction of that and the
+	# window would "pass" by being bigger than the screen it is measured against.
+	if win.size.x > 1000.0 or win.size.y > 700.0:
+		push_error("the transfer window is %s; at that size it may as well be the full sheet" % str(win.size))
+		return false
+
+	# Open sheet: the window goes away and the cupboard is the first column instead, because two
+	# pictures of one box on one screen is the confusion the fixed layout exists to end.
+	panel.call("set_open", true)
+	panel.call("set_loot", SimContainers.open_view(w, actor))
+	if bool(panel.call("loot_open")):
+		push_error("the transfer window stayed up under the open sheet")
+		return false
+	var labels: Array = panel.call("column_labels")
+	if labels.is_empty() or String(labels[0]) != "cupboard":
+		push_error("the open cupboard is not the first column: %s" % str(labels))
+		return false
+	if labels.size() < 2 or String(labels[1]) != "pockets":
+		push_error("what you are carrying does not follow what you are standing at: %s" % str(labels))
+		return false
+
+	# Walk away, and both go: `opened_by` closes a box out of reach, so the screen has nothing to
+	# draw without needing to be told.
+	var pos: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	pos["x"] = float(pos["x"]) + 6.0
+	panel.call("set_world", w, actor)
+	panel.call("set_loot", SimContainers.open_view(w, actor))
+	if String((panel.call("column_labels") as Array)[0]) == "cupboard":
+		push_error("walking away from a cupboard left it as a column")
+		panel.queue_free()
+		return false
+	panel.call("set_open", false)
+	panel.call("set_loot", SimContainers.open_view(w, actor))
+	if bool(panel.call("loot_open")):
+		push_error("walking away from a cupboard left the transfer window up")
+		panel.queue_free()
+		return false
+
+	# And the reader half, textually: main.gd feeds the window and Escape closes the box.
+	var main_src: String = FileAccess.get_file_as_string("res://presentation/main.gd")
+	for needed in ["set_loot", "SimContainers.open_view", "container.close", "loot_open"]:
+		if main_src.find(needed) < 0:
+			push_error("main.gd never mentions %s, so the window is drawn by nothing or closed by nothing" % needed)
+			panel.queue_free()
+			return false
+	# The key sheet has to say the verb changed: E opened a container by tipping it onto the floor
+	# before this, and a player told to "search" a cupboard will not know a window is coming.
+	var legend_src: String = FileAccess.get_file_as_string("res://ui/legend.gd")
+	if legend_src.find("open a cupboard") < 0:
+		push_error("the legend's E row does not say E opens a container")
+		panel.queue_free()
+		return false
+	print("LOOT OK a cupboard is the first column with the sheet open and a small window beside the pockets with it closed, only the window stops the mouse, and walking away ends both")
+	panel.queue_free()
 	return true
