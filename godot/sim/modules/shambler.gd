@@ -548,12 +548,20 @@ static func _chase(world: Variant, target: int, pos: Dictionary, vel: Dictionary
 # window, no kill -- a knife cannot yet finish a shambler, that is the torso slice's). At 3.8 m
 # a colonist who walks off still loses it, which was the district's one escape before eyes and
 # has to stay one until the colony can kill what it sees.
+#
+# The sky closes that reach too. Under fog at 0.25 a shambler's 3.8 m falls to 0.95 m -- inside
+# the 1.6 m contact radius, so in a fog the dead have no sight worth the name and find you by
+# nose and ear instead. Both gates on a zombie *seeing* move together and by the same factor:
+# this reach, and the range `detail` judges through SimVisibility.refresh, which SimBoot scales
+# with the same `sight_mul`. Neither is allowed to shrink alone -- docs/16's symmetry is that
+# the fog blinds the living and the dead by the same amount, and a reach that stayed open while
+# the cast closed (or the reverse) would be a fog that quietly favours one side.
 static func sight_reach(world: Variant, entity: int, shambler_data: Dictionary) -> float:
 	var obs: Variant = world.components.get_component(entity, "observer")
 	if not obs is Dictionary:
 		return 0.0
 	var light_sense: float = float(shambler_data.get("lightSense", LIGHT_SENSITIVITY))
-	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0))
+	return float((obs as Dictionary).get("range_metres", 0.0)) * sqrt(maxf(light_sense, 0.0)) * SimWeatherRes.sight_mul(world)
 
 
 # Sight as a stimulus, the way grabs were landed (GRABS_ENABLED above: built, gated, shipped

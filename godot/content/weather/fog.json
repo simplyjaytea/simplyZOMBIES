@@ -1,0 +1,8 @@
+{
+  "id": "weather.fog",
+  "description": "Fog, per docs/16's table: sight collapses both ways -- a zombie's reach and every observer's range alike -- while scent is muffled somewhat and nothing else moves. Autumn's kind, given a spring weight too so a ten-day run can still draw it. First cuts for the owner. Read by SimWeather only.",
+  "durationTicks": { "min": 24000, "max": 96000 },
+  "weights": { "spring": 2, "summer": 1, "autumn": 4, "winter": 1 },
+  "scentHalfLifeMul": 0.8,
+  "sightMul": 0.25
+}

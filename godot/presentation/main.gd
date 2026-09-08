@@ -796,6 +796,7 @@ func _draw() -> void:
 	_draw_entities()
 	_draw_rain()
 	_draw_lightning()
+	_draw_fog()
 	_draw_night_wash()
 	# glimpse drawn by Control; nothing else needed here
 
@@ -1846,6 +1847,26 @@ func _draw_lightning() -> void:
 		return
 	var flash: Color = Palette.COLOURS["lightning"] as Color
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), flash)
+
+
+# The fog's veil: one pale full-screen wash for as long as the sim says the kind is fog, over the
+# flash and under the night. What fog *does* is not drawn here at all -- the kind's `sightMul`
+# shrinks every observer's range, so the district beyond it is simply never drawn and the edge
+# closes in out of the sightlines themselves, never out of a gradient painted over them (docs/28
+# refuses a rendered fog of war). This layer only says what closed it.
+#
+# Deliberately blind to the night's own tunable and to the light-look derivation, for the flash's
+# own reason: a veil is not a light level. The night wash below takes its alpha from the sight the
+# fog has already shortened, so it lands over this one already knowing; folding the veil into that
+# alpha would count the same fog twice. (Both names are spelled around rather than out, because the
+# gate reads a function's text to the next `func` and this comment sits inside what it reads for
+# the flash above -- check_weather.gd's lanes D and G forbid them there.)
+func _draw_fog() -> void:
+	if world == null:
+		return
+	if SimWeather.kind(world) != "fog":
+		return
+	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Palette.COLOURS["fog"] as Color)
 
 
 # A tree: one tall picture standing on its trunk tile's south-edge centre, hung the way a pawn
