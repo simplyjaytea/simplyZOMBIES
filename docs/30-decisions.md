@@ -3011,6 +3011,16 @@ to the next session, and none of them is.
   doll reads `SimCondition.view` and nothing else, which is the whole reason the ban is
   mechanical there rather than here.
 
+**What the chart made structural.** The art the doll draws is a **mask**, not a picture of a
+person in colour: near-white, multiplied by the state tint at draw time. That is what let a
+textured doll keep a ban that was written for a drawn one -- `godot:ban:healthbar` judges
+`SimCondition.view` and has never looked at this file, and the art is handed a *state* and knows
+nothing else, so there is no fraction for it to leak even by accident. It also bought the armour
+indication for free (the same texture, four times, a pixel out, in steel) and cost one new
+palette family, `chart`, which is the only thing in `tools/sprites` allowed outside the value
+bands every world colour is held inside -- named as an exception in `palette.py` because it never
+stands on the ground and the ground-contrast rules have nothing to say about it.
+
 **What this does not change.** The health-bar ban and the digit ban (`godot:ban:healthbar`,
 `godot:check:hud`); the grid as the honest picture of capacity, with weight never printed
 (docs/10); site depletion, which stays "rolled once, `searched` never cleared"; and the sim's

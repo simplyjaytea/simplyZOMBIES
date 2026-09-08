@@ -58,9 +58,13 @@ const SLOT_INSET: float = 16.0
 # The figure sits in the gap the two columns leave, and is sized from it rather than by eye: at
 # 660 wide with 190-wide slots inset 16, that gap is 248 px. A doll wider than the gap draws its
 # own stance word over the belt slot, which is how this number was found.
-const DOLL_W: float = 240.0
-const DOLL_H: float = 400.0
-const DOLL_TOP: float = 62.0
+# The chart is 64 x 160 and drawn at a whole-number scale, so the box is a multiple of it: 3x is
+# 192 x 480, which fits the 248 px gap between the two slot columns with room for the stance word.
+const DOLL_W: float = 192.0
+const DOLL_H: float = 506.0
+# Raised so the chart's own stance word clears the condition prose below it: the figure is 480 px
+# at 3x plus a row for the word, and the prose sits under the last slot row at 566.
+const DOLL_TOP: float = 40.0
 # Twelve slots, six a side, in body order top to bottom: what covers your head down the left,
 # what covers your trunk and legs down the right, weapons at the bottom of each.
 const LEFT_SLOTS: Array[String] = ["head", "eyes", "face", "gloves", "belt", "primary"]

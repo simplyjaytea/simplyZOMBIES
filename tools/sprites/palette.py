@@ -58,6 +58,13 @@ FAMILIES = {
     "muted": Family(0.30, 0.12, 0.72),
     "timber": Family(0.45, 0.15, 0.80),
     "accent": Family(0.85, 0.30, 0.95),
+    # Not a colour anybody sees: `chart` is the family for a **mask**. The inventory sheet's body
+    # chart is drawn near-white and multiplied by the part's own state tint at draw time, so what
+    # the file holds is the *shading*, not the material -- 1.0 comes out as the tint exactly and a
+    # shaded pixel comes out as a darker version of it. That is why it may go where no world
+    # colour may: it never stands on the ground, so the ground-contrast rules below have nothing
+    # to say about it. Achromatic on purpose, because a mask with a hue would tint the tint.
+    "chart": Family(0.06, 0.35, 1.00),
 }
 
 # How far a ramp's mid tone must clear the brightest ground the district can draw, in
@@ -190,6 +197,10 @@ def guard_either_side_of_ground(name, steps):
 
 
 RAMPS = {
+    # The body chart's mask. Near-white with room to shade, in the `chart` family -- see FAMILIES
+    # for why a mask is allowed out of the value bands every world colour is held inside. Not
+    # guarded against the ground below, and it must not be: it is never drawn on one.
+    "chart": ramp("#cfcfcd", steps=5, spread=0.30, family="chart"),
     # Skin as the hand-authored survivor already has it (#c8a888 is survivor_mara.png's own
     # face tone), so a generated body and a hand-painted one are the same person's species.
     # Timber: a face is one of the warm organic things, and the old ceiling was already above
