@@ -32,6 +32,7 @@ func _run() -> void:
 	ok = _attention_speaks_in_words() and ok
 	ok = _hud_lines_carry_no_numbers() and ok
 	ok = _a_healthy_survivor_says_little() and ok
+	ok = _the_body_speaks_for_itself() and ok
 	ok = _the_raw_sheet_stays_behind_m() and ok
 	ok = _the_scanner_can_actually_fail() and ok
 	ok = _the_chronicle_speaks_of_the_colony() and ok
@@ -40,7 +41,7 @@ func _run() -> void:
 	var sheet_ok: bool = await _the_hidden_sheet_costs_nothing()
 	ok = sheet_ok and ok
 	if ok:
-		print("HUD_OK prose only, day counter excepted, raw sheet gated")
+		print("HUD_OK prose only, day counter excepted, raw sheet gated, the body speaks for itself")
 		quit(0)
 	else:
 		push_error("HUD_FAIL")
@@ -400,4 +401,81 @@ func _is_live_hash(fp: String) -> bool:
 		var hex: bool = (c >= "0" and c <= "9") or (c >= "a" and c <= "f")
 		if not hex:
 			return false
+	return true
+
+
+# The tag beside the player's own body: docs/23's "condition and stamina readouts in the world,
+# not a corner", and the boundary that keeps it from becoming a name plate.
+#
+# Three things are being held down. It says something when there is something to say; it says
+# **nothing** when there is not, which is what stops a permanent label appearing over the player;
+# and it never enters `_left`, so the quiet-survivor and selected-colonist lanes above still have
+# the corner column to judge and this cannot quietly empty them.
+func _the_body_speaks_for_itself() -> bool:
+	var hurt: String = Hud.pawn_tag(_suffering_world(), 0)
+	if hurt.is_empty():
+		push_error("a survivor at fifteen percent on every part had nothing written beside them")
+		return false
+	if _digits(hurt) != "":
+		push_error("the pawn tag carries a digit: \"%s\"" % hurt)
+		return false
+	# It names a part, in the words condition.gd humanises them to -- never the sim's own key,
+	# which is the same class of leak as a raw number.
+	if hurt.find("_") >= 0:
+		push_error("the pawn tag shows a raw part key: \"%s\"" % hurt)
+		return false
+	if hurt.find("favouring") < 0:
+		push_error("a badly hurt survivor's tag says nothing about a limb: \"%s\"" % hurt)
+		return false
+
+	# The true negative, and the important half: a healthy body says nothing at all.
+	var well: Variant = World.new(_fixture())
+	SimHealth.make_survivor_body(well, well.player)
+	SimNeeds.attach(well, well.player, {"hunger": 100.0, "thirst": 100.0, "rest": 100.0})
+	var quiet: String = Hud.pawn_tag(well, int(well.player))
+	if not quiet.is_empty():
+		push_error("an unhurt survivor had \"%s\" written beside them" % quiet)
+		return false
+	# And a body with no body at all -- a zombie, a prop, a car -- is not describable.
+	if Hud.pawn_tag(well, 9999) != "":
+		push_error("something with no body got a tag")
+		return false
+
+	# Bleeding reads on the tag even when nothing is badly hurt yet, because blood loss is the one
+	# thing on this screen that kills and a glance at yourself would catch it first.
+	var cut: Variant = World.new(_fixture())
+	SimHealth.make_survivor_body(cut, cut.player)
+	SimNeeds.attach(cut, cut.player, {"hunger": 100.0, "thirst": 100.0, "rest": 100.0})
+	cut.components.set_component(cut.player, "injuries", {"wounds": [{
+		"bodyPart": "arm_left", "kind": "cut", "severity": 1, "bleeding": true, "closed": false,
+	}]})
+	var bleeding: String = Hud.pawn_tag(cut, int(cut.player))
+	if bleeding.find("bleeding") < 0:
+		push_error("a bleeding survivor's tag does not say so: \"%s\"" % bleeding)
+		return false
+
+	# The corner column is untouched by all of this. The tag is drawn beside the body and is not a
+	# HUD line, so `_left` must not have grown one -- otherwise QUIET above would be judging the
+	# tag rather than the column it exists to hold down.
+	var hud: Control = Hud.new()
+	root.add_child(hud)
+	hud.call("refresh", well, int(well.player), "")
+	var left: Array = hud.get("_left") as Array
+	hud.queue_free()
+	for line in left:
+		if String(line).find("favouring") >= 0:
+			push_error("the pawn tag reached the corner column: %s" % str(left))
+			return false
+
+	# And the reader, textually: something has to draw it, and only for the player.
+	var main_src: String = FileAccess.get_file_as_string("res://presentation/main.gd")
+	if main_src.find("pawn_tag") < 0:
+		push_error("nothing draws the pawn tag")
+		return false
+	var arm: int = main_src.find("pawn_tag")
+	var before: String = main_src.substr(maxi(0, arm - 400), 400)
+	if before.find("it[\"player\"]") < 0:
+		push_error("the pawn tag is not drawn inside a player-only branch, so it is a name plate over everybody")
+		return false
+	print("TAG OK a hurt body reads \"%s\", a well one reads nothing, bleeding shows, and the corner column is untouched" % hurt)
 	return true

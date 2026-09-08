@@ -777,7 +777,7 @@ func _draw_body(font: Font, alpha: float) -> void:
 			var name: String = UiText.fit(font, String((it as Dictionary).get("name", "")), 18, SLOT_W - 20.0)
 			draw_string(font, rect.position + Vector2(10.0, 44.0), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT)
 		else:
-			draw_string(font, rect.position + Vector2(10.0, 44.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(Chrome.TEXT_DIM, 0.7))
+			draw_string(font, rect.position + Vector2(10.0, 44.0), "nothing", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT_FAINT)
 	# The condition readout: only the parts with something to say, as prose under the doll. Same
 	# read model as the doll's tints and the HUD -- states and words, never a number (docs/01
 	# clause 4; check_ban_health_bar.gd).

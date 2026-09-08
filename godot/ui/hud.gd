@@ -160,6 +160,56 @@ func _world_lines(world: Variant, actor: int) -> Array[String]:
 	return lines
 
 
+# What is written beside the body itself, rather than in a corner. docs/23 has asked for
+# "condition and stamina readouts in the world, not a corner" since the prose contract landed;
+# this is the half of it that ships.
+#
+# One line, and only over **the player's own body**. A line over every pawn is a name plate, and a
+# name plate is refused three times over in docs/30 -- with the reference HUD on 2026-09-01, with
+# the Dungeon Settlers look on 2026-09-03, and again on 2026-09-08 -- because a floating word over
+# a figure in the street is a certainty about who and what they are that the peripheral-anonymity
+# clause denies. Over your own body it is not a claim about someone else; it is you noticing your
+# own arm.
+#
+# The corner column keeps its lines and this does not replace them: check_hud's quiet-survivor and
+# selected-colonist lanes are what prove the prose contract holds, and a tag that emptied them
+# would leave those lanes with nothing to judge. It says the things a *glance at yourself* would
+# say -- which limb, and whether it is bleeding -- and leaves fever, hunger and the sky to the
+# column, which is what the tag deliberately stays silent about.
+#
+# Digit-free like everything else here, and "" when there is nothing to say, which is the correct
+# amount of tag for a survivor who is fine.
+const TAG_MAX_PARTS: int = 2
+static func pawn_tag(world: Variant, actor: int) -> String:
+	if world == null or actor < 0:
+		return ""
+	var view: Dictionary = SimCondition.view(world, actor)
+	if view.is_empty():
+		return ""
+	var parts: Array[String] = []
+	var bleeding: bool = false
+	var dressed: String = ""
+	for entry in view.get("parts", []) as Array:
+		var d: Dictionary = entry as Dictionary
+		if bool(d.get("bleeding", false)):
+			bleeding = true
+		# The worst couple of parts, in the order condition.gd already ranks them, said the way a
+		# person would: you favour a limb, you do not report its state.
+		if int(d.get("state", 0)) > 0 and parts.size() < TAG_MAX_PARTS:
+			parts.append("favouring the " + SimCondition.label_of(String(d.get("part", ""))))
+		elif String(d.get("lasting", "none")) == "limp" and parts.size() < TAG_MAX_PARTS:
+			parts.append("limping")
+		if dressed.is_empty() and String(d.get("bandage", "none")) != "none":
+			dressed = String(d.get("bandage", "none")) + " dressing"
+	if bleeding:
+		parts.append("bleeding")
+	elif not dressed.is_empty():
+		parts.append(dressed)
+	if parts.is_empty():
+		return ""
+	return " · ".join(parts)
+
+
 func _draw() -> void:
 	var font: Font = ThemeDB.fallback_font
 	var view: Vector2 = get_viewport_rect().size

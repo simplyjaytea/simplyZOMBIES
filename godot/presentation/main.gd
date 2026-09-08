@@ -11,8 +11,12 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const HudRead = preload("res://ui/hud.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
+# The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
+# is not competing with the HUD's own columns.
+const TAG_SIZE: int = 20
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
@@ -1787,6 +1791,21 @@ func _draw_entities() -> void:
 			Palette.COLOURS["facing"],
 			2.4 if bool(it["player"]) else 1.6,
 		)
+		# The tag beside your own body, and nowhere else. docs/23's "condition and stamina readouts
+		# in the world, not a corner", and the reason it is the player's alone: a line over every
+		# pawn is a name plate, refused three times in docs/30 because a floating word over a
+		# figure in the street is a certainty the peripheral-anonymity clause denies. Drawn after
+		# the body and before the aim cone so nothing paints over it, and skipped entirely when
+		# there is nothing to say.
+		if bool(it["player"]):
+			var tag: String = HudRead.pawn_tag(world, eid)
+			if not tag.is_empty():
+				var tag_font: Font = ThemeDB.fallback_font
+				var tag_at := Vector2(sx + r + 10.0, sy - r - 6.0)
+				# A dark backing pass rather than a panel: the tag sits on the street, and a box
+				# round it would read as chrome rather than as something you noticed.
+				draw_string(tag_font, tag_at + Vector2(1.0, 1.0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(0.0, 0.0, 0.0, 0.85))
+				draw_string(tag_font, tag_at, tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Palette.COLOURS["survivor"])
 		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
 			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
 			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
