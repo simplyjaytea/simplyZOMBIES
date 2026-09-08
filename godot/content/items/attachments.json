@@ -2,6 +2,7 @@
   {
     "id": "item.attach.suppressor",
     "name": "Suppressor",
+    "description": "A can for a muzzle. What it takes off the noise it takes off the accuracy too.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.4,
@@ -13,6 +14,7 @@
   {
     "id": "item.attach.optic.red_dot",
     "name": "Red Dot Sight",
+    "description": "A little red dot on glass. The shot goes where you were already looking.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.2,
@@ -24,6 +26,7 @@
   {
     "id": "item.attach.magazine.extended",
     "name": "Extended Magazine",
+    "description": "A longer magazine. More rounds before the pause that gets people killed.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.3,
@@ -35,6 +38,7 @@
   {
     "id": "item.attach.wrap.leather",
     "name": "Leather Haft Wrap",
+    "description": "Leather bound round a haft. The swing lands harder and comes back slower.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.1,
@@ -46,6 +50,7 @@
   {
     "id": "item.attach.head.spiked",
     "name": "Spiked Head",
+    "description": "A spiked head bolted to a shaft. It bites where a blunt end would bounce.",
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.6,

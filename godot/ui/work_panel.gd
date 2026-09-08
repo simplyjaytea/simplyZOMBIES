@@ -128,13 +128,13 @@ func _draw() -> void:
 		# which made Construct and Cook read identically.
 		var name: String = UiText.fit(font, String(SimJobs.COLUMNS[i]), 18, col_w - 6.0)
 		var consumer: bool = SimJobs.CONSUMERS.has(SimJobs.COLUMNS[i])
-		draw_string(font, Vector2(ox + float(i) * col_w, oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#c9c4b8") if consumer else Color("#4e4a45"))
+		draw_string(font, Vector2(ox + float(i) * col_w, oy - 4), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.TEXT if consumer else Chrome.TEXT_FAINT)
 	for r in _rows.size():
 		var row: Dictionary = _rows[r]
 		var ent: int = int(row.get("entity", -1))
 		var row_y: float = oy + 28.0 + float(r) * ROW_H
 		var who: String = UiText.fit(font, String(row.get("name", "?")), 20, ox - 32.0 - FOCUS_W)
-		draw_string(font, Vector2(16, row_y), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color("#c9c4b8"))
+		draw_string(font, Vector2(16, row_y), who, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Chrome.TEXT)
 		# Who manages this survivor, in one lowercase word at the end of their name. `work_view`
 		# has delivered `focus` since the grid was written and nothing had ever drawn it; this is
 		# the field being read at last, and the click target for changing it.
@@ -163,7 +163,7 @@ func _draw() -> void:
 			var v: int = int(cols.get(SimJobs.COLUMNS[i], 0))
 			var label: String = "–" if v <= 0 else str(v)
 			# Urgent work reads brighter, so a row's shape is visible without reading digits.
-			var tint: Color = Color("#4e4a45") if v <= 0 else Color("#c9c4b8").lerp(Color("#7b776e"), float(v - 1) / 3.0)
+			var tint: Color = Chrome.TEXT_FAINT if v <= 0 else Chrome.TEXT.lerp(Chrome.TEXT_DIM, float(v - 1) / 3.0)
 			draw_string(font, Vector2(ox + float(i) * col_w, row_y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, tint)
 
 

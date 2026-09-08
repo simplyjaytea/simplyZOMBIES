@@ -17,6 +17,10 @@ const HEADER: Color = Color("#1d2314")
 const ACCENT: Color = Color("#c99a3f")
 const TEXT: Color = Color("#c8c2a6")
 const TEXT_DIM: Color = Color("#807a63")
+# Dimmer than a label: a column nobody works, a priority set to never, a slot with nothing in it.
+# It exists because three files had grown their own hex literal for the same idea, each a shade
+# off the others -- which is the drift the whole of this file is a cure for.
+const TEXT_FAINT: Color = Color("#4e4a45")
 const DANGER: Color = Color("#b5502f")
 const OK: Color = Color("#8a9a5b")
 const CELL_BG: Color = Color("#181d12")

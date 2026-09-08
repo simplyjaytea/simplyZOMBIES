@@ -106,7 +106,7 @@ npm run sprites:check    # generated art still matches tools/sprites/ → SPRITE
 npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **52**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **53**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
@@ -226,16 +226,24 @@ drifted. Three things about the current state matter enough to repeat anyway:
   in that same sort; and equipment draws on the pawn, in one order, on one skeleton. Where a piece
   has not landed yet, its code comments say so on purpose. The reference's HUD — portraits, bars,
   numbers, name plates — is explicitly not adopted.
-- **The dead-socket pattern.** This milestone has turned up **ten** pieces of code that were
+- **The dead-socket pattern.** This milestone has turned up **eleven** pieces of code that were
   complete, correct, often gated, and read by nothing: `crawlFactor`, the `Staggered` state,
   `sepsis.checked`, `injury.sustained`, `item.painkillers.blister`, `SimVisibility` for everybody
   but the player, rule 4's variance floor behind an `if size == 0` that could never be true,
   `SimDirector.snapshot_of`, `SimStances.CAN_AIM` (found by the review sweep — it had said "a
   sprint cannot aim" since the ladder landed while `SimRanged` let a sprinting survivor fire),
-  and — found by the weather spine — the `move_speed` stat itself for every NPC: `SimJobs._walk`
-  never resolved it, so the limp, encumbrance and blood loss had only ever slowed the player.
+  the `move_speed` stat itself for every NPC (found by the weather spine: `SimJobs._walk` never
+  resolved it, so the limp, encumbrance and blood loss had only ever slowed the player), and
+  `item.appearance.sprite` — in the schema since the appearance pipeline landed, read by nothing,
+  so every dropped item was the same ten-pixel square until the 2026-09-08 glyph slice gave it a
+  reader.
   **A gate asserting that a helper returns the right number does not assert that anything reads
-  it.** When you add a mechanism, add the assertion that something reaches it —
+  it** — and the textual assertion that says something *does* read it has to be able to find the
+  reader after a refactor. The inventory overhaul turned two such gates red without breaking
+  anything: `check_respond` looked for a call in `_draw` that had moved into `_draw_body`, and
+  `check_weather` looked for the ground-item colour in `_draw_entities` after it moved into
+  `Appearance.item_look`. Both were fixed by following the call a link further, never by dropping
+  the needle. When you add a mechanism, add the assertion that something reaches it —
   `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example, and
   `npm run check:routing` applies the same rule to the gates themselves (a check script no npm
   script reaches is red, which retired `check_r6_bench.gd`). The sweep

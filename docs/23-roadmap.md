@@ -415,10 +415,43 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   never an `if id ==` in the draw loop. Wants the nested-shape gate every content block wants,
   because the validator does not recurse.
 
+**The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
+mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
+`item.equip`, `item.unequip` and `item.use`. The owner opened an overhaul from four mockups and
+decided it in six answers, recorded in docs/30's "The inventory sheet": the Tab screen becomes a
+**fixed sheet** in `ui/chrome.gd`'s surplus skin — body and twelve slots left, one column of bag
+grids in a fixed order in the middle, an inspect pane of words right, a quick strip of belt and
+pocket items along the bottom, and a drawn word menu on right-click — the floating, pinnable bag
+windows go; **looting happens in a small in-play window** rather than the whole screen; **the
+condition words move onto the player's own pawn**; **the quick strip takes 1–6** and game speed
+moves to `-` and `=`; **every item base gets a `description` sentence**; **`appearance.sprite`
+gains a reader** with a drawn class glyph until per-base art exists; and **the paperdoll becomes a
+pixel body chart** through `tools/sprites`. The pieces below are in the order they land, each one
+session, each with its gate red both ways and its record.
+
+- **A picture per item base.** The glyph piece gave `appearance.sprite` a reader and every base
+  a shape chosen by its class; what it did not give anybody is a fire axe that looks like a fire
+  axe. One 32 px picture per shipped base, generated in a new `tools/sprites/parts/items.py`
+  against the ground-item canvas, each declared as its base's `sprite` key, judged by
+  `npm run sprites:check` and `check_appearance`'s ITEMS lane (which already refuses a declared
+  key with no file behind it). The classes that matter first are the ones a player sorts a bag
+  by at a glance: weapons, food, dressings, ammunition.
+- **Colonists finish a cupboard the player started.** A box is `searched` from its first open,
+  and `jobs._scavenge_work` filters on exactly that — so a cupboard the player opened, took two
+  things out of and walked away from is invisible to every colonist forever. It was true of the
+  old scatter too (the floor kept the rest, and Haul carried it), and it is newly *visible* now
+  that a half-full box says "there's still something in this cupboard" to the player and nothing
+  at all to anybody else. The fix is a smaller predicate than `searched` — "has contents and is
+  not claimed" — and it moves what colonists scavenge, so it is a **measured** piece rather than
+  a one-line filter change.
+
 **UI:**
 
-- **Condition and stamina readouts in the world, not a corner.** The diegetic half of the prose
-  contract — the words move onto the body and the scene.
+- **Condition and stamina readouts in the world, not a corner** — **half landed** 2026-09-08
+  (the record's "the tag beside the pawn"). The condition half is on the player's own body; what
+  is still in the corner is **stamina**, which has no diegetic form yet and is the harder half,
+  because a body that is out of breath has to *look* it rather than say so. Whatever it becomes,
+  it is not a bar and not a word over anybody else's head.
 - **The skill web screen.** **Presentation only, now.** The mechanism underneath it landed with
   [Focus and the Manual learn line](#the-record-by-system) — the `web.buy` command, the
   `SimSkills.web_view` read model and the choice of who manages a survivor, all gated by
@@ -4910,6 +4943,211 @@ not a to-do list:
   named as the template if it ever needs to be interruptible. A container is drawn now, searched
   or not — the Art track's tile-and-prop piece, recorded there. The one open tail here, carried
   weight loudening footsteps, is in [what's left](#whats-left-in-milestone-2).
+- **Inventory & UI** — ~~the words the sheet reads~~ and ~~the fixed sheet~~ **both landed**
+  2026-09-08 (`npm run godot:check:inventory`, `INVENTORY_OK`, nine lanes; the `godot:m2` chain
+  grew by one), the first two pieces of the owner's overhaul (docs/30's "The inventory sheet").
+  **The read models first**, with the screen built on top of them a commit later, so the sheet
+  computes nothing: `inspect_view` (name, condition word, sentence, slot, what is fitted and what
+  would fit), `verbs_for` (the word menu, in menu order) and `quick_strip_view` (the belt and the
+  pockets, six at most). An optional `description` joined `item.schema.json` and **all 89 shipped
+  bases carry one**, digit-free — DESCRIPTION refuses a number in any of them, and
+  `SimItems.description_of` falls back to a sentence built from the equip slot, else the class,
+  so a base added tomorrow is never blank (FALLBACK proves the slot outranks the class and an
+  authored line outranks both). INSPECT holds the pane's view to a key allowlist and to words,
+  booleans and lists of words — the entity handle is the one number and is named as one — and
+  **proves all three of its scanners red before trusting them**, because a textual assertion needs
+  to be shown it is reading what it thinks it is. Footprint, mass, damage and range are known
+  there and deliberately absent: the grid draws the footprint, and weight stays docs/10's
+  invisible pressure.
+  **A verb is offered iff the sim would take it.** VERBS asserts each of the six where it belongs
+  *and* where it does not (worn and unworn being the same coat twice), and COMMANDS is the
+  dead-socket half — every offered verb pushes its command and the world moves. `use` asks the two
+  modules that own `item.use` rather than guessing: `SimNeeds.can_use` was **extracted out of**
+  `use_item` so there is one predicate rather than two copies of "can you eat this", and
+  `SimTreatment` gained `verb_of_supply` / `supply_plan` / `can_use_supply` / `use_supply`.
+  **A strip key is the T ladder with the rung chosen by what you pressed.** The `treatment`
+  channel now carries the item (`supply`, read with a default, so a save written before it loads
+  unchanged) and `_complete` prefers it over `_best_bandage`; SUPPLY is that in one world — press
+  the dirty rag and the sterile medkit in the same pack survives, and the wound records a *dirty*
+  dressing. It also closes the gap that made the old pinnable pouches necessary.
+  **The sheet itself** is one fixed layout: body and twelve slots left, a column of bag grids in
+  the fixed order pockets → belt → vest → back → any nested bag the player opened, an inspect pane
+  of words right, the quick strip along the bottom, and a drawn word menu on right-click. SHEET
+  asserts that order (it is a decision about what you reach for first, and it is *not*
+  `reachable_containers`' order), that a nested bag joins the column only when opened, and that it
+  leaves when dropped. `ui/container_window.gd` is **deleted** with the drag, the pin, the
+  `windows` table in `ui/prefs.gd` and the pinned-bag opacity slider; KEYS asserts all of that
+  textually, because a deleted file that something preloads is a parse error but a remembered
+  window position is silent. The number row moved to the strip and speed to `-` and `=`; the
+  HUD's key line is scanned with key names stripped, the way `check_hud` strips the day token —
+  and the scanner is shown to still reject the `speed: 1x, 3x, 10x` it replaced.
+  **Five defects the screenshots found**, each fixed rather than noted: the F1 legend and the
+  corner paperdoll were drawn *under* the sheet's dim rather than behind it (a 0.88 wash over a
+  panel still shows the panel), so `main.gd` gained `_set_inventory_open` as the one place four
+  things happen together; the figure was wider than the gap between the slot columns and drew its
+  own stance word across the belt slot; the condition prose, centred on the panel, ran under both
+  columns of boxes and moved below the last slot row; a deep loadout painted over the quick strip
+  and the column is now a clipped child with a "wheel to scroll" note; and a one-cell plate read
+  "Kit…", which looks like a defect and says less than the footprint — a name is drawn only where
+  enough of one fits, and the glyph piece fills that space next.
+  **And one the last screenshot of the run found, which was this slice's own premise broken**: the
+  strip drew only on the open sheet. It is the thing the pinnable pouches were deleted in favour
+  of, and a strip you can only see with the screen open is a pouch you can only reach with the
+  screen open — exactly what the windows were kept for. `_draw` draws it before its closed-sheet
+  return now, the corner chart and the HUD's key line moved above it, and KEYS asserts the
+  ordering. **That assertion had to move as well**: it was first written *after* the check that
+  reads its fault list, so it appended faults nobody looked at and could not fail — and the
+  sabotage meant to prove it red is what showed it. Screenshots for the owner under
+  `.hermes/plans/2026-09-08_inventory-sheet/`.
+- **Items** — ~~item glyphs, and the twelfth dead socket closed~~ **landed** 2026-09-08
+  (`godot:check:appearance`'s new ITEMS lane), the third piece of the inventory overhaul.
+  `item.appearance.sprite` had been in the schema since the appearance pipeline landed and was
+  read by nothing: a dropped fire axe and a dropped bandage were the same fixed ten-pixel square,
+  which is why docs/23 named it the milestone's **twelfth dead socket**. `Appearance.item_look`
+  is the reader, and it answers in three: a declared `sprite` that resolves to a file wins, a
+  declared `tint` colours whatever is drawn, and a base with no art at all draws its **class's**
+  glyph in the ground-item role colour. Keyed by class and never by id — a table of sixty ids in
+  the draw loop is the `if id ==` branch the appearance block exists to have deleted, so
+  `presentation/item_glyph.gd` holds one shape per class from `item.schema.json`'s own enum (a
+  bar, an elbow, a box, a disc, a slab, a shield, a tee, a ring) and an unknown class falls back
+  rather than vanishing. **The ground and the grid call the same function**, so a thing in a bag
+  and the same thing on the floor cannot look like two different objects, and the ground marker
+  is now sized off the tile (about a third of one) rather than fixed at ten pixels, so it holds
+  its proportion across the zoom ladder. The lane asserts declared art *and* the fallback, that
+  eight classes give eight distinct shapes, that an unknown class degrades — and then the
+  dead-socket half textually: `main.gd` calls `item_look`, `bag_grid.gd` calls it, and the fixed
+  square is gone. Because no shipped base declares a key yet, the resolving half is proved
+  against a fabricated entry borrowing a committed prop sprite rather than skipped: a socket
+  judged by nothing until some later slice is how the first one stayed dead. The picture per base
+  is the next piece, in [what's left](#whats-left-in-milestone-2).
+- **Inventory** — ~~the cupboard is a grid~~ **landed** 2026-09-08 (`godot:check:loot`'s
+  CONTAINER lane rewritten and six lanes beside it — TRANSFER, TAKE ALL, NPC, STREAM, PROSE,
+  SIZES — plus `godot:m2:save`'s CONTAINER SAVE; `SAVE_VERSION` 26 → 27), the fourth piece of
+  the inventory overhaul. A world container was a `searchable` and a HUD sentence: E tipped its
+  table onto the floor and you picked the floor up. It is now **the same `container {w, h,
+  items}` component a pack carries**, which is the whole design of the slice — taking something
+  out of a cupboard is an ordinary `item.move`, and footprints, rotation, nesting, stacking and
+  the fit test all work on it for free. A second kind of container would have needed its own fit
+  test, and two fit tests is one of them being wrong.
+  **The table is rolled on the first open and never again**; `searched` is still set once and
+  cleared by nothing, so docs/12's cut of respawn timers is exactly as mechanical as it was.
+  `SimLoot.roll` is `scatter` minus the position writes and `scatter` now calls it, so the draw
+  sequence is unchanged — and STREAM proves it the cheap way rather than the expensive one: two
+  worlds on one seed, one scattering the table at boot and one opening it out of a cupboard, draw
+  the same things in the same order. That is what keeps a balance claim off this slice; the
+  harness would have said the same at 4.5 minutes a run.
+  **The reach guard is what the grid cost.** `item.move` has never known who was moving the item,
+  which was safe while every reachable container was on the actor's own body. `SimInventory`
+  now refuses a move touching a `searchable` unless a controlled actor has that box open and is
+  standing in reach — `opening {container}`, an entity id stored as a *value* so it survives the
+  save (a Dictionary keyed by one does not). TRANSFER asserts the positive and both negatives,
+  including that walking away closes the box, and that a pocket-to-pocket move still takes the
+  fast path.
+  **Three states of prose, not two**: worth going through, still something in it, already been
+  through — a half-full cupboard was a lie the screen had no way to avoid before. **Grid size per
+  kind is content** (`content/containers/`, a new schema, seventeen kinds), matched on the word
+  the district already uses; SIZES asserts every kind a shipped district or template names has a
+  size and that an unsized one still opens at a small default, which is the findability rule
+  `check_m2_gear` applies to items. **NPCs are unchanged in what they do**: `search` opens the box
+  and tips it onto the floor where `jobs._haul_work` has always looked, and `godot:m2:jobs`'
+  SCAVENGE lane passed untouched.
+  **One defect found on the way, and it was older than this slice**: `SimItems.content_entries`
+  duck-typed a flat content tree by a field each entry happens to carry (an affix has a `slot`,
+  an item a `massKg`), so a type with no distinctive field was invisible to it and every cupboard
+  silently opened at the fallback size. It now finds a type by its directory as well, the same
+  path-to-type mapping `content_validator` makes. Three lanes were red on that one cause.
+  The half this deliberately does not fix — a colonist never going back for what the player left
+  in a box — is named in [what's left](#whats-left-in-milestone-2) as its own measured piece.
+- **UI** — ~~the transfer window~~ **landed** 2026-09-08 (`godot:check:inventory`'s LOOT lane),
+  the fifth piece of the inventory overhaul and the surface the grid was built for. A container
+  you are standing at reaches the screen twice and never both at once: as the **first column** of
+  the sheet, above what you are carrying — it is the thing you opened the screen for and the only
+  column that is not yours — and as a small **transfer window** beside your pockets while the
+  sheet is closed, so a loot stop never leaves the district. That is docs/12's trade made
+  literal: the risk in a scavenging run is the walk there and the noise on the way back, and a
+  full-screen modal at every cupboard is a player who has stopped looking at the street.
+  **The window is its own Control, and that is the whole trick.** The sheet ignores the mouse
+  while closed; a Control that stopped it over the whole screen would eat the click that swings
+  your axe. The window stops the mouse over exactly its own rect, so everything outside it still
+  reaches the world — and because both grids live inside that one node, a drag from the cupboard
+  to a pocket begins and ends in the same control and needs no forwarding at all, which is
+  precisely what the pinnable bag windows this overhaul deleted could never manage. One clickable
+  word, "take all that fits", in `work_panel.gd`'s idiom; Esc peels the box before the settings
+  sheet, because closing it is what walking away would have done. The lane asserts both surfaces,
+  that only the window stops the mouse, that it is small enough to leave the street visible
+  (judged against the size the game runs at, not the headless viewport, or it would pass by being
+  bigger than the screen it was measured against), and that walking away ends both — plus the
+  reader half textually, and that the legend's E row says *open* rather than *search*, because a
+  player told to search a cupboard will not know a window is coming.
+- **UI** — ~~the tag beside the pawn~~ **landed** 2026-09-08 (`godot:check:hud`'s TAG lane), the
+  sixth piece of the inventory overhaul and the condition half of docs/23's long-standing
+  "readouts in the world, not a corner". `Hud.pawn_tag` composes one line from the condition view
+  and the wound records — "favouring the left arm · bleeding" — and returns **""** for a body with
+  nothing to say, which is the assertion that matters: a permanent label over the player is the
+  thing this must not become. It is drawn **beside the player's own body and nowhere else**. A
+  line over every pawn is a name plate, refused three times in docs/30 (the reference HUD
+  2026-09-01, the Dungeon Settlers look 2026-09-03, and again 2026-09-08) because a floating word
+  over a figure in the street is a certainty the peripheral-anonymity clause denies; over your own
+  body it is not a claim about somebody else, it is you noticing your own arm. The lane holds the
+  positive, the silence, the digit ban, that it names a humanised part rather than the sim's key,
+  that bleeding shows before anything is badly hurt, that the tag never enters `_left` (so the
+  quiet-survivor and selected-colonist lanes still have the corner column to judge), and — the
+  dead-socket half — that it is drawn inside a player-only branch.
+  **The overlap is deliberate and is worth naming**: with the player selected, the column says
+  "You're bleeding." and the tag says "bleeding". The tag is what a *glance at yourself* catches
+  (which limb, and whether it is running), and the column keeps the things a glance cannot give —
+  fever, hunger, the sky, and the same sentences in the third person for a selected colonist,
+  which is why the clause cannot simply move. Thinning it is one line in `_self_lines` if the
+  owner wants it thinner.
+  **The chrome pass** came with it: `Chrome.TEXT_FAINT` is a fourth grade in the skin, and the
+  work grid's three private hex literals for the same idea — each already a shade off the skin's
+  and off each other — are gone, along with the sheet's one-off alpha for an empty slot.
+  `ui/dashboard.gd` keeps its own palette on purpose: docs/30's "The dashboard" makes it a
+  machine's instrument cluster rather than one of the game's screens.
+  **Three gates went red on the refactors and every one was made stronger rather than looser.**
+  `check_respond`'s DEAD SOCKET lane looked for `_draw_responses(` inside `_draw` and the fixed
+  sheet had moved the body panel's drawing into `_draw_body`; `check_weather`'s socket lane looked
+  for the ground-item colour inside `_draw_entities` after the glyph slice moved it into
+  `Appearance.item_look` (its function reader also learned to read `static func`, which is every
+  function in `presentation/appearance.gd`). Both chains were whole the whole time and both
+  needles now follow the call a link further. The third was not a refactor at all:
+  `check_m2_fortify` pins `SAVE_VERSION` independently of `check_m2_save`, its own comment says
+  that duplication is how a bump got missed once before, and the container slice missed it again.
+  Both messages now name the other pin, so the next bump finds both at the first gate rather than
+  twelve minutes into the chain.
+- **UI** — ~~the pixel body chart~~ **landed** 2026-09-08 (`npm run sprites:check` at 151 keys,
+  `godot:check:appearance`'s new CHART lane), the last piece of the inventory overhaul and the one
+  the owner asked for by name: shown the drawn figure at the size the sheet draws it, the word was
+  **"too alien"**. The shape of a person moved out of `ui/paperdoll.gd` and into
+  `tools/sprites/parts/paperdoll.py` — **ten parts by three poses, thirty pictures**, on their own
+  64 × 160 feet-anchored canvas, drawn at a whole-number scale (3× on the sheet, 2× in the corner
+  glimpse). The screen now decides only where the chart goes and what colour it comes out.
+  **The art is a mask, and that is what keeps the ban mechanical.** Every part is drawn near-white
+  in a new `chart` palette family and *multiplied* by its state tint at draw time, so a white
+  pixel comes out as the tint exactly and a shaded one as a darker version of it: the shading is
+  the file's and the meaning is the sim's. The picture cannot say how much because the only thing
+  it is handed is a state and the art has no idea what one is. `godot:ban:healthbar` still never
+  sees this file — it judges the read model, which is why that ban survived the doll being
+  re-drawn twice now. The `chart` family is the one exception to "in its family, always" and is
+  named as one in `palette.py`: a mask is not a colour anybody sees, and it never stands on the
+  ground, so the ground-contrast rules have nothing to say about it.
+  **Armour costs no art**: the same texture drawn four times a pixel out in each direction, in
+  steel, with the part over it — an outline pass on the part's own alpha, so thirty keys rather
+  than sixty. The wound and infection marks hang on each part's own **used rect**, read off the
+  picture rather than published as a table of anchors, because a table would be a third copy of
+  the skeleton and would drift the first time a limb moved.
+  **Three defects the lane found before a person did**, each fixed rather than tolerated: the
+  torso's band test compared a negative-upward y the way it reads in English and drew an empty
+  trunk; the light pass measures from the middle of the *picture*, so a foot in the corner peaked
+  at 0.65 and a hurt foot would have read as a different shade of amber from a hurt chest (each
+  mask is normalised to its own brightest pixel now); and the pose comparison hashed image bytes
+  through `get_string_from_ascii`, which stops at the first zero — every transparent pixel — so
+  every key digested to the empty string and the assertion fired on nothing. **A gate that cannot
+  pass is as bad as one that cannot fail**, and that one could do neither.
+  The lane also learned what to allow: feet stay planted in a crouch and, from directly above,
+  a crawling trunk is the same shape as a standing one, so pose distinctness is judged per
+  *pose pair* (fewer than half the parts moving is one pose stored twice) rather than per part.
+  Screenshots for the owner under `.hermes/plans/2026-09-08_inventory-sheet/`.
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:

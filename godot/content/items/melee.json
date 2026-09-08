@@ -2,6 +2,7 @@
   {
     "id": "item.knife.kitchen",
     "name": "Kitchen Knife",
+    "description": "A kitchen knife. It goes in easily and it is a terrible thing to fight with.",
     "class": "weapon.melee",
     "size": { "w": 1, "h": 2 },
     "massKg": 0.2,
@@ -13,6 +14,7 @@
   {
     "id": "item.machete.rusted",
     "name": "Rusted Machete",
+    "description": "A machete gone orange along the spine. The edge still parts what it meets.",
     "class": "weapon.melee",
     "size": { "w": 1, "h": 3 },
     "massKg": 0.7,
@@ -24,6 +26,7 @@
   {
     "id": "item.pipe.steel",
     "name": "Steel Pipe",
+    "description": "A length of steel pipe. No edge, no finesse, and it caves things in.",
     "class": "weapon.melee",
     "size": { "w": 1, "h": 3 },
     "massKg": 2.1,
@@ -35,6 +38,7 @@
   {
     "id": "item.bat.aluminium",
     "name": "Aluminium Bat",
+    "description": "An aluminium bat. Light in the hands and loud on contact.",
     "class": "weapon.melee",
     "size": { "w": 1, "h": 4 },
     "massKg": 1.0,
@@ -46,6 +50,7 @@
   {
     "id": "item.spear.improvised",
     "name": "Lashed Spear",
+    "description": "A blade lashed to a pole. It kills at arm's length and a bit further, which is the point.",
     "class": "weapon.melee",
     "size": { "w": 1, "h": 5 },
     "massKg": 1.4,
@@ -57,6 +62,7 @@
   {
     "id": "item.axe.fire",
     "name": "Fire Axe",
+    "description": "A fire axe, wide and long. A landed swing stops a walker where it stands.",
     "class": "weapon.melee",
     "size": { "w": 2, "h": 4 },
     "massKg": 3.2,
@@ -68,6 +74,7 @@
   {
     "id": "item.sledge.demolition",
     "name": "Demolition Sledge",
+    "description": "A demolition sledge. Everything it hits goes down; nothing it misses waits for it.",
     "class": "weapon.melee",
     "size": { "w": 2, "h": 5 },
     "massKg": 6.4,
@@ -79,6 +86,7 @@
   {
     "id": "item.crowbar.steel",
     "name": "Crowbar",
+    "description": "A steel crowbar. It opens doors and it opens heads.",
     "class": "weapon.melee",
     "size": {"w": 1, "h": 3},
     "massKg": 2.3,
@@ -90,6 +98,7 @@
   {
     "id": "item.hatchet.camp",
     "name": "Camp Hatchet",
+    "description": "A camp hatchet. Short, quick, and it bites deeper than its size suggests.",
     "class": "weapon.melee",
     "size": {"w": 1, "h": 2},
     "massKg": 0.9,
@@ -101,6 +110,7 @@
   {
     "id": "item.hammer.claw",
     "name": "Claw Hammer",
+    "description": "A claw hammer. A workman's tool doing something it was never for.",
     "class": "weapon.melee",
     "size": {"w": 1, "h": 2},
     "massKg": 0.7,
@@ -112,6 +122,7 @@
   {
     "id": "item.wrench.pipe",
     "name": "Pipe Wrench",
+    "description": "A heavy pipe wrench. Slow to swing, and the jaw does the damage.",
     "class": "weapon.melee",
     "size": {"w": 1, "h": 3},
     "massKg": 1.8,
@@ -123,6 +134,7 @@
   {
     "id": "item.cleaver.butcher",
     "name": "Butcher's Cleaver",
+    "description": "A butcher's cleaver. Made for taking things apart, and it does not care what.",
     "class": "weapon.melee",
     "size": {"w": 1, "h": 2},
     "massKg": 0.6,
