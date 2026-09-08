@@ -306,15 +306,17 @@ static func _use_context(world: Variant, actor: int) -> void:
 	if SimInventory.nearest_ground_item(world, actor) != null:
 		SimInventory.pick_up_nearest(world, actor)
 		return
-	# Loose items first, then the container that held them: searching a cupboard drops its
-	# contents on the floor, so this ordering means one key empties the cupboard and then picks
-	# the contents up, rather than needing a second verb the player has to know about. A
-	# already-searched container falls through to everything below it and costs nothing.
+	# Loose items first, then the container beside them. E *opens* a container now rather than
+	# tipping it onto the floor: the transfer window draws its grid beside your pockets and you
+	# take what you want, which is the 2026-09-08 overhaul's call (docs/30, "The inventory
+	# sheet"). The rung wants `Openable` and not merely unsearched, so a box you opened and left
+	# half full is still worth the key while an emptied one falls through to the door behind it
+	# and costs nothing.
 	var Containers: GDScript = load("res://sim/modules/containers.gd") as GDScript
-	if Containers != null and Containers.has_method("nearest"):
-		var box: int = int(Containers.call("nearest", world, actor, true))
+	if Containers != null and Containers.has_method("open"):
+		var box: int = int(Containers.call("nearest", world, actor, false, Containers.Want.Openable))
 		if box >= 0:
-			Containers.call("search", world, actor, box)
+			Containers.call("open", world, actor, box)
 			return
 	# The door before the stranger and the car: standing at one, E opens it and latches it open,
 	# or shuts it and latches it shut -- the one hand on the district's doors that a walker's

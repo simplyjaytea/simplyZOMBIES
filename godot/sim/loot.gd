@@ -41,15 +41,19 @@ static func table_for(world: Variant, location: String) -> Variant:
 	return entry if entry is Dictionary else null
 
 
-# Rolls one site and lays what it yields on the ground around (x, y). Returns the item entities
-# created, so a caller that wants to say how much it found does not have to count them again.
-static func scatter(world: Variant, table: Dictionary, rng: Variant, x: float, y: float) -> Array:
+# Rolls one site and returns the item entities, placing none of them. Every draw this makes --
+# how many picks, which entry each time, which tier, how many of it -- is the sequence `scatter`
+# has always made, in the same order, because `scatter` *is* this plus the position writes now.
+# That is what lets a container roll its table on being opened and a scattered site roll the same
+# table at boot without the two drifting apart on a seed: check_loot.gd's CONTAINER lane asserts
+# the two produce the same yield from the same stream, which is the cheap proof that moving the
+# roll from boot-time to open-time moved nothing else.
+static func roll(world: Variant, table: Dictionary, rng: Variant) -> Array:
 	var out: Array = []
 	var entries: Array = table.get("entries", []) as Array
 	if entries.is_empty():
 		return out
 	var picks: int = roll_range(rng, table.get("rolls", {}) as Dictionary, 1)
-	var offset: float = 0.0
 	for _i in picks:
 		var pick: Variant = weighted_pick(rng, entries, "weight")
 		if not (pick is Dictionary):
@@ -60,10 +64,18 @@ static func scatter(world: Variant, table: Dictionary, rng: Variant, x: float, y
 			# spawn_item clamps to the base's own stack limit, so a range wider than the base
 			# allows is a table being generous rather than a bug to guard against here.
 			opts["count"] = roll_range(rng, chosen["count"] as Dictionary, 1)
-		var item: int = SimItems.spawn_item(world, String(chosen.get("item", "")), opts)
-		world.components.set_component(item, "position", {"x": x + offset, "y": y})
+		out.append(SimItems.spawn_item(world, String(chosen.get("item", "")), opts))
+	return out
+
+
+# Rolls one site and lays what it yields on the ground around (x, y). Returns the item entities
+# created, so a caller that wants to say how much it found does not have to count them again.
+static func scatter(world: Variant, table: Dictionary, rng: Variant, x: float, y: float) -> Array:
+	var out: Array = roll(world, table, rng)
+	var offset: float = 0.0
+	for item in out:
+		world.components.set_component(int(item), "position", {"x": x + offset, "y": y})
 		offset += SPREAD_METRES
-		out.append(item)
 	return out
 
 

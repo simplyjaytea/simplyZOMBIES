@@ -409,6 +409,13 @@ static func make_container_from_base(world: Variant, item: int) -> void:
 
 # ---- read model ----
 
+# The public name for `_view_of`. A world container's grid is drawn by the same code the pack's is,
+# so it needs the same per-item view -- and one builder rather than two is what stops a tin in a
+# cupboard from being described differently to the same tin in a pocket.
+static func view_of(world: Variant, item: int, placement: Variant) -> Dictionary:
+	return _view_of(world, item, placement)
+
+
 static func _view_of(world: Variant, item: int, placement: Variant) -> Dictionary:
 	var size: Dictionary = SimItems.size_of_item(world, item)
 	var turned: bool = placement != null and bool((placement as Dictionary).get("rotated", false))
@@ -607,6 +614,40 @@ static func quick_strip_view(world: Variant, actor: int) -> Array:
 static func owns(world: Variant, actor: int, item: int) -> bool:
 	return carried_items(world, actor).has(item)
 
+# Whether a proposed move touches a world container, and if so whether somebody is actually
+# standing at it with it open. A move between two things on your own body is nobody's business but
+# the grid's and takes the fast path unchanged.
+#
+# Refusing publishes nothing: a drag that lands on a cupboard you have walked away from is a
+# mis-drag, and `container.refused` is for a verb somebody asked for out loud.
+static func _move_is_reachable(world: Variant, item: int, container: int) -> bool:
+	var Containers: GDScript = _Containers()
+	var touches: bool = _is_world_container(world, container) or _is_world_container(world, _holder_of(world, item))
+	if not touches:
+		return true
+	for actor in world.components.query(["controlled", "position"]):
+		var open_box: int = int(Containers.call("opened_by", world, int(actor)))
+		if open_box < 0:
+			continue
+		if container == open_box or _holder_of(world, item) == open_box:
+			return true
+	return false
+
+
+static func _is_world_container(world: Variant, entity: int) -> bool:
+	return entity >= 0 and world.components.has_component(entity, "searchable")
+
+
+# Which container an item is sitting in, or -1 for worn, held or lying on the ground.
+static func _holder_of(world: Variant, item: int) -> int:
+	var stored: Variant = world.components.get_component(item, "stored")
+	return int((stored as Dictionary).get("container", -1)) if stored is Dictionary else -1
+
+
+static func _Containers() -> GDScript:
+	return load("res://sim/modules/containers.gd") as GDScript
+
+
 # ---- module registration ----
 
 static func register_module(world: Variant) -> void:
@@ -618,7 +659,13 @@ static func register_module(world: Variant) -> void:
 			var c: Dictionary = cmd as Dictionary
 			match String(c.get("type", "")):
 				"item.move":
-					place_at(w, int(c["item"]), int(c["container"]), int(c["x"]), int(c["y"]), bool(c["rotated"]))
+					# The reach guard, and the only thing a world container needed that a pack did
+					# not. `place_at` has never known who was moving the item, which was safe while
+					# every reachable container was on the actor's own body; a cupboard across the
+					# room is not, and without this a screen could move a thing into or out of one
+					# from anywhere on the map.
+					if _move_is_reachable(w, int(c["item"]), int(c["container"])):
+						place_at(w, int(c["item"]), int(c["container"]), int(c["x"]), int(c["y"]), bool(c["rotated"]))
 				"item.equip":
 					for actor in w.components.query(["equipment"]):
 						if owns(w, int(actor), int(c["item"])):

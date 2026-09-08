@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "container.schema.json",
+  "title": "World container",
+  "description": "How big the grid is inside a thing that stands in the district holding a loot table -- a cupboard, a car boot, a supply locker. The kind is free text everywhere else (a district's `containers` list, a map site's `container` key, SimContainers.hud_clause's prose), so this file is the one place a kind acquires a shape. A kind with no entry here opens at SimContainers.DEFAULT_GRID rather than refusing, which is what keeps a district free to name a new one. Validated by npm run godot:validate only: the frozen TypeScript oracle's CONTENT_TYPES does not list this directory, so its Ajv never sees it and the nested `grid` block is judged by godot:check:loot's CONTAINER lane instead.",
+  "type": "object",
+  "required": ["id", "kind", "grid"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^container\\.[a-z0-9_]+$",
+      "description": "Stable namespaced id, always container.<slug>. Permanent once shipped."
+    },
+    "kind": {
+      "type": "string",
+      "description": "The word a district or a map site uses for this thing, and the word SimContainers.hud_clause puts in the player's sentence. Matched exactly; two entries naming one kind is a content error godot:check:loot refuses."
+    },
+    "grid": {
+      "type": "object",
+      "description": "Cells across and down, on the same scale as a pack's: one cell is about a fist (docs/10). A cupboard holds more than a car boot because a cupboard is bigger, not because it is worth more -- what it *yields* is the loot table's business and nothing here.",
+      "additionalProperties": false,
+      "properties": {
+        "w": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "h": { "type": "integer", "minimum": 1, "maximum": 12 }
+      },
+      "required": ["w", "h"]
+    }
+  }
+}

@@ -12,6 +12,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -23,16 +24,17 @@ func _run() -> void:
 	ok = _needs_era() and ok
 	ok = _streams() and ok
 	ok = _a_despawn_leaves_nothing_behind() and ok
+	ok = _a_cupboard_and_the_hand_on_it_survive() and ok
 	if ok:
-		print("M2_SAVE_OK v21 ticket10 needs-era despawn-clean")
+		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid" % int(SimSerialize.SAVE_VERSION))
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
 		quit(1)
 
 func _version() -> bool:
-	if int(SimSerialize.SAVE_VERSION) != 26:
-		push_error("SAVE_VERSION %d want 26" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 27:
+		push_error("SAVE_VERSION %d want 27" % int(SimSerialize.SAVE_VERSION))
 		return false
 	# 13 is stale -- it predates posture's target/ticks_left and float stamina. 15 is current
 	# (Slice 2 Part A's bloodLoss/wound-severity shape change), so 13 is two versions behind
@@ -286,3 +288,63 @@ func _components_of(w: Variant, entity: int) -> Array[String]:
 			out.append(String(key))
 	out.sort()
 	return out
+
+
+# A world container's grid, and the hand on it, across a save. Two things that could each go
+# quietly wrong: the `container` component on a cupboard is the same shape a pack's is and should
+# round-trip for free, and `opening` holds an entity id -- which survives only because it is a
+# *value* and not a key. A Dictionary keyed by an entity id comes back with String keys and the
+# first lookup after a load misses in silence (CLAUDE.md's traps), so the shape is asserted here
+# rather than trusted.
+func _a_cupboard_and_the_hand_on_it_survive() -> bool:
+	var boot: Dictionary = SimBoot.playable(20260805, 64)
+	var w: Variant = boot["world"]
+	var actor: int = int(w.player)
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	if not bool(SimContainers.open(w, actor, box).get("ok", false)):
+		push_error("the fixture cupboard would not open")
+		return false
+	var before: Dictionary = SimContainers.open_view(w, actor)
+	if before.is_empty() or (before.get("items", []) as Array).is_empty():
+		push_error("the fixture cupboard opened empty")
+		return false
+
+	# `snapshot()` is the save; `serialize()` is the fingerprint of one. Restored into a *bare*
+	# world, the way F9 does it -- a playable boot would stand its own district and its own
+	# cupboards on top of the restore.
+	var snap: Dictionary = w.snapshot()
+	var restored: Variant = _restore_bare(snap, 20260805, 64)
+
+	# The hand first: `opening` names the same box, and `opened_by` still resolves it.
+	if SimContainers.opened_by(restored, actor) != box:
+		push_error("after a load the survivor was no longer holding the cupboard open (got %d, want %d)" % [SimContainers.opened_by(restored, actor), box])
+		return false
+	var after: Dictionary = SimContainers.open_view(restored, actor)
+	if after.is_empty():
+		push_error("after a load the open cupboard had no view")
+		return false
+	if int(after.get("w", -1)) != int(before.get("w", -2)) or int(after.get("h", -1)) != int(before.get("h", -2)):
+		push_error("the cupboard's grid changed size across a save: %dx%d -> %dx%d" % [int(before.get("w", 0)), int(before.get("h", 0)), int(after.get("w", 0)), int(after.get("h", 0))])
+		return false
+	var was: Array = before.get("items", []) as Array
+	var now: Array = after.get("items", []) as Array
+	if was.size() != now.size():
+		push_error("the cupboard held %d before the save and %d after" % [was.size(), now.size()])
+		return false
+	for i in was.size():
+		var a: Dictionary = was[i] as Dictionary
+		var b: Dictionary = now[i] as Dictionary
+		for key in ["item", "baseId", "x", "y", "w", "h", "rotated", "count"]:
+			if str(a.get(key)) != str(b.get(key)):
+				push_error("cell %d's %s changed across the save: %s -> %s" % [i, key, str(a.get(key)), str(b.get(key))])
+				return false
+
+	# And `searched` is still set, so a load cannot refill a cupboard the player emptied -- which
+	# would be a respawn timer with extra steps, and docs/12 cut those.
+	var state: Variant = restored.components.get_component(box, "searchable")
+	if not (state is Dictionary) or not bool((state as Dictionary).get("searched", false)):
+		push_error("after a load the cupboard was unsearched again")
+		return false
+	print("CONTAINER SAVE OK a %dx%d cupboard, its %d cells and the hand holding it open all survive, and it stays searched" % [int(after["w"]), int(after["h"]), now.size()])
+	return true

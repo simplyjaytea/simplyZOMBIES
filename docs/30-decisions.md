@@ -2967,6 +2967,14 @@ to the next session, and none of them is.
   the predicate the menu asks is the *same function* the intake runs — `SimNeeds.can_use` is
   extracted out of `use_item` rather than written twice, because two copies of "can you eat
   this" is the shape every dead socket in this milestone has had.
+- **A container is the same component a pack is.** The obvious build was a second kind of
+  container with its own contents and its own fit test. The pick was to reuse `container {w, h,
+  items}` exactly, so a cupboard is a grid in the sense every other grid in the game is one and
+  `item.move` is how you take from it. Two fit tests is one of them being wrong; what the reuse
+  cost is a **reach guard**, because `item.move` had never known who was moving the item and a
+  cupboard across the room is not a pocket. The `opening {container}` component is what says
+  somebody is standing at it, and it holds the id as a value rather than as a key, because a
+  Dictionary keyed by an entity id does not survive a save (CLAUDE.md's traps).
 - **Looting is a small window, not the whole screen.** A cupboard has been a HUD sentence and an
   instant scatter onto the floor since site depletion landed. It becomes a real container with
   a grid, opened by the same E ladder, drawn beside the pockets **without leaving the
