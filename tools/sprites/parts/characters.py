@@ -1,22 +1,30 @@
-"""Bodies: the roster of pawns, one authoring convention -- upright, face-on, feet-anchored.
+"""Bodies: the roster of pawns, one authoring convention -- upright, face-on, feet-anchored, squat.
 
 Per docs/30's Dungeon Settlers decision every human and zombie on the roster is drawn as one
-family: a standing figure seen face-on, its soles on the bottom row of a 32x48 canvas, mirrored
-by the renderer when the body faces west. **Nobody rotates, the player included**, so the
-radial-shading exception the old overhead rig took is gone with the rig -- every function here
-ends on `nw_shade`, and `Canvas.radial_shade` was deleted rather than left for a caller that no
-longer exists.
+family: a standing figure seen face-on, its soles on the bottom row of a **32x40** canvas,
+mirrored by the renderer when the body faces west. **Nobody rotates, the player included**, so
+the radial-shading exception the old overhead rig took is gone with the rig -- every function
+here ends on `nw_shade`, and `Canvas.radial_shade` was deleted rather than left for a caller
+that no longer exists.
+
+The proportion is the owner's 2026-09-08 call (docs/30, "Overcast or torchlight"): a body about
+**one tile tall**, squashed the way RimWorld's and Zero Sievert's are -- the head keeps its
+10x11 and everything under it shortens, so a figure is a third head, a blocky trunk, and stub
+legs. The 48-tall canvas and its 38-42 px figure are superseded; what survives of that slice is
+everything but the rows: the flip, the feet anchor, the published skeleton, the one assembler,
+the outline-after-shade order. Width did not move at all -- SHOULDER_HALF, HAND_X, the leg and
+foot columns are the 2026-09-03 numbers -- so every horizontal number in `parts/gear.py` still
+lands where it did, and the thirty-one overlays refit by their rows alone.
 
 Because the picture is mirrored rather than turned, an asymmetric tell is not a hazard here the
 way it was overhead: a slung strap or a trailing arm swaps sides with the flip, which is what a
 strap does when a person turns round. Every rig therefore gets exactly one loud tell, and the
 tell is what names it at 32 px.
 
-**The skeleton below is published**, not private. One generated gear overlay (`parts/gear.py`,
-and the worn-look slice's clothing after it) has to fit all eight bodies, and it fits them by
-reading these rows -- not by being redrawn per rig, which is how eight overlays and eight
-chances to disagree get created. The bloater is the one rig that moves the numbers, and its
-docstring says which and why.
+**The skeleton below is published**, not private. One generated gear overlay (`parts/gear.py`)
+has to fit all eight bodies, and it fits them by reading these rows -- not by being redrawn per
+rig, which is how eight overlays and eight chances to disagree get created. The bloater is the
+one rig that moves the numbers, and its docstring says which and why.
 
 The ordering invariant -- legs, feet, torso, arms, hands, the hair behind the crown, the head,
 the hair over it, the face, the tells, shading, and the outline last -- lives in `_figure`
@@ -27,29 +35,39 @@ from draw import SIZE, Canvas
 from palette import OUTLINE, RAMPS
 
 PAWN_W = SIZE
-PAWN_H = SIZE * 3 // 2  # 48: the reference's ~1.3-tile figure, and 1.5 x zoom is an integer
+PAWN_H = SIZE * 5 // 4  # 40: a one-tile figure with ten rows of headroom, and 1.25 x zoom is an integer
 
 # --- the published skeleton -------------------------------------------------------------
 # Every row is in pixels above the soles, which sit on the canvas's bottom row: y counts
-# negative upwards, so FEET_Y = 0 is row 47 and HEAD_CY = -35 is row 12. A rig is authored
+# negative upwards, so FEET_Y = 0 is row 39 and HEAD_CY = -21 is row 18. A rig is authored
 # against these and never against a canvas row, so the day the canvas grows the figure does
 # not have to be re-derived -- only the anchor moves.
+#
+# The squat proportion, in rows: legs 6 (0..-6, the boots two of them), trunk 10 (-6..-16),
+# the head 13 tall centred at -21 with its chin one row *into* the trunk (a squat figure has
+# no neck), crown at -27. A figure is 28 px tall against the 41 it was, and the head is 46% of
+# it where it was 27% -- the owner's second call of 2026-09-08, "shorter legs and a bigger
+# head", on top of the first. Only the rows and the skull moved; the columns (HAND_X,
+# SHOULDER_HALF, LEG_X, FOOT_X) are unchanged.
 FEET_Y = 0
-LEG_TOP_Y = -13
-TORSO_TOP_Y = -30
-SHOULDER_Y = -28
-HAND_Y = -17
+LEG_TOP_Y = -6
+TORSO_TOP_Y = -16
+SHOULDER_Y = -14
+HAND_Y = -8
 HAND_X = 8.4
-HEAD_CY = -35
-HEAD_R = 5.0
+HEAD_CY = -21
+HEAD_R = 6.0
 SHOULDER_HALF = 8.0
 
-# HEAD_R is 5.0 and not the arc plan's 5.5, by measurement rather than by taste. Pixel centres
-# sit at half-integer offsets from a 32-wide canvas's middle (+-0.5, +-1.5 ... +-15.5), so a
-# shape centred on x = 0 is always an *even* number of pixels wide: r 5.5 admits dx = +-5.5 and
-# renders 12 px, one over the README's <= 11 head bound, while every r in [4.5, 5.5) renders 10.
-# 5.0 is that band's middle, and the head is drawn as an ellipse (HEAD_R, HEAD_R + 1.0) -- 10
-# wide by 11 tall, taller than wide, which is what a skull is.
+# HEAD_R is 6.0, up from the 5.0 of the taller rig, by the owner's call and then by
+# measurement. Pixel centres sit at half-integer offsets from a 32-wide canvas's middle (+-0.5,
+# +-1.5 ... +-15.5), so a shape centred on x = 0 is always an *even* number of pixels wide:
+# every r in [5.5, 6.5) renders 12 px, and 6.0 is that band's middle. The head is drawn as an
+# ellipse (HEAD_R, HEAD_R + 1.0) -- 12 wide by 13 tall, taller than wide, which is what a skull
+# is -- against the README's <= 13 x 14 bound. The head *grew* while the body shrank on
+# purpose: at one tile tall it is the head that carries the read, as it does on every RimWorld
+# pawn, and the three-pixel face keeps its placement on the bigger skull with the eyes one
+# column further apart (EYE_SPREAD).
 HEAD_B = HEAD_R + 1.0
 
 # --- private geometry: the default human, which every rig is expressed against -----------
@@ -59,10 +77,19 @@ ARM_HALF = 1.8
 HAND_R = 1.9
 TORSO_RADIUS = 2.5
 
+# The bloater's own three numbers, published beside the family's so `parts/gear.py` and the
+# gates can say where its hand is without reading the rig: the trunk half-width, the arm x, and
+# how far its head sinks. It is the rig at the canvas bound -- 26 px across, exactly 3 px of
+# side clearance -- and nothing else on the roster may come near it.
+BLOATER_HALF = 11.0
+BLOATER_HAND_X = 11.6
+BLOATER_HEAD_SINK = 2.0
+
 # The face, in the three pixels the README allows it: two 1 px eyes EYE_SPREAD apart and one
-# brow pixel above them. EYE_SPREAD is 1.5 because dx takes half-integer values only -- +-1.5
-# is one column each and exactly 3 px apart, which is the number the convention states.
-EYE_SPREAD = 1.5
+# brow pixel above them. EYE_SPREAD is 2.5 because dx takes half-integer values only -- +-2.5
+# is one column each and exactly 5 px apart on the 12-wide skull (3 px, +-1.5, on the old
+# 10-wide one), which is the number the convention states.
+EYE_SPREAD = 2.5
 BROW_DY = -2
 
 
@@ -183,7 +210,7 @@ def _figure(canvas, p):
 
 
 def _pawn():
-    """The one canvas every body on the roster is drawn on: 32x48, anchored on the soles."""
+    """The one canvas every body on the roster is drawn on: 32x40, anchored on the soles."""
     return Canvas(PAWN_W, PAWN_H, origin="feet")
 
 
@@ -202,7 +229,7 @@ def player_body():
 
     def tells(c):
         c.band((-6.4, SHOULDER_Y + 1.0), (5.2, LEG_TOP_Y - 1.0), 2.4, strap[2])
-        c.ellipse(5.4, LEG_TOP_Y - 1.5, 2.0, 2.2, strap[1])
+        c.ellipse(5.4, LEG_TOP_Y - 1.0, 2.0, 1.8, strap[1])
 
     _figure(
         canvas,
@@ -213,7 +240,7 @@ def player_body():
             "arms": (HAND_X, ARM_HALF, SHOULDER_Y, HAND_Y, drab[1]),
             "seam": (SHOULDER_HALF - 1.5, strap[0]),
             "hands": (HAND_X, HAND_Y, HAND_R, skin[2]),
-            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 2.6, 4.2, 2.6, strap[0]),
+            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.2, 5.2, 3.0, strap[0]),
             "head": (HEAD_CY, HEAD_R, HEAD_B, skin[2]),
             "face": _face(OUTLINE),
             "tells": [tells],
@@ -248,7 +275,7 @@ def survivor_mara():
             "hands": (HAND_X, HAND_Y + 1.0, HAND_R + 0.6, skin[2]),
             "hair_back": lambda c: c.ellipse(0.0, HEAD_CY + 0.5, HEAD_R + 0.4, HEAD_B, hair[2]),
             "head": (HEAD_CY, HEAD_R - 0.6, HEAD_B - 0.6, skin[2]),
-            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.0, HEAD_R - 0.6, 2.4, hair[1]),
+            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.6, HEAD_R - 0.6, 2.8, hair[1]),
             "face": _face(OUTLINE),
             "shade": ("nw", 0.12),
         },
@@ -271,9 +298,9 @@ def survivor_ellis():
     canvas = _pawn()
 
     def tells(c):
-        c.ellipse(0.0, HEAD_CY + 2.6, 3.4, 2.2, beard[1])
+        c.ellipse(0.0, HEAD_CY + 3.6, 4.0, 2.4, beard[1])
         c.speckle("survivor_ellis", "grey", beard[3], 0.30,
-                  region=(-4.0, HEAD_CY + 0.5, 4.0, HEAD_CY + 4.5))
+                  region=(-4.5, HEAD_CY + 1.5, 4.5, HEAD_CY + 5.5))
 
     _figure(
         canvas,
@@ -284,7 +311,7 @@ def survivor_ellis():
             "arms": (HAND_X + 1.0, ARM_HALF, SHOULDER_Y, HAND_Y, drab[1]),
             "seam": (SHOULDER_HALF - 0.5, drab[0]),
             "hands": (HAND_X + 1.0, HAND_Y, HAND_R, skin[1]),
-            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 2.8, 4.2, 2.4, hair[1]),
+            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.4, 5.2, 2.8, hair[1]),
             "head": (HEAD_CY, HEAD_R, HEAD_B, skin[1]),
             "face": _face(OUTLINE),
             "tells": [tells],
@@ -387,7 +414,7 @@ def zombie_screamer():
     canvas = _pawn()
 
     def tells(c):
-        c.ellipse(0.0, HEAD_CY + 2.6, 1.6, 2.4, OUTLINE)
+        c.ellipse(0.0, HEAD_CY + 3.0, 2.0, 2.8, OUTLINE)
 
     _figure(
         canvas,
@@ -410,30 +437,31 @@ def zombie_screamer():
 def zombie_bloater():
     """The rig at the canvas bound, and the one rig that moves the published skeleton.
 
-    It moves three numbers and no others: the torso is half_w 11.0 rather than SHOULDER_HALF
-    and starts 2 px above TORSO_TOP_Y (the distension is in the trunk, so the trunk is what
-    grows); the arms sit at 11.6 rather than HAND_X, pushed out by it; and the head is sunk
-    into the shoulders at HEAD_CY + 2. FEET_Y, LEG_TOP_Y and HAND_Y are untouched, which is
-    what keeps the gear overlays fitting this body too. 26 px across is the README's bloater
-    ceiling and exactly 3 px of side clearance, so nothing else on the roster may come near it.
+    It moves three numbers and no others, and publishes them (BLOATER_HALF, BLOATER_HAND_X,
+    BLOATER_HEAD_SINK): the torso is half_w 11.0 rather than SHOULDER_HALF and starts a row
+    above TORSO_TOP_Y (the distension is in the trunk, so the trunk is what grows); the arms sit
+    at 11.6 rather than HAND_X, pushed out by it; and the head is sunk into the shoulders by two
+    rows. FEET_Y, LEG_TOP_Y and HAND_Y are untouched, which is what keeps the gear overlays
+    fitting this body too. 26 px across is the README's bloater ceiling and exactly 3 px of
+    side clearance, so nothing else on the roster may come near it.
     """
     green = RAMPS["bloater_green"]
     canvas = _pawn()
 
     def tells(c):
-        c.band((-8.0, LEG_TOP_Y - 11.0), (8.0, LEG_TOP_Y - 11.0), 2.0, green[3])
-        c.band((-9.0, LEG_TOP_Y - 4.0), (9.0, LEG_TOP_Y - 4.0), 2.0, green[3])
+        c.band((-8.0, LEG_TOP_Y - 7.0), (8.0, LEG_TOP_Y - 7.0), 2.0, green[3])
+        c.band((-9.0, LEG_TOP_Y - 3.0), (9.0, LEG_TOP_Y - 3.0), 2.0, green[3])
 
     _figure(
         canvas,
         {
             "legs": (LEG_X + 0.8, LEG_HALF + 0.6, green[1]),
             "feet": (FOOT_X + 0.8, FOOT_HALF + 0.2, green[0]),
-            "torso": (11.0, TORSO_TOP_Y + 2.0, LEG_TOP_Y, 5.0, green[2]),
-            "arms": (11.6, ARM_HALF - 0.2, SHOULDER_Y + 2.0, HAND_Y, green[1]),
+            "torso": (BLOATER_HALF, TORSO_TOP_Y + 1.0, LEG_TOP_Y, 5.0, green[2]),
+            "arms": (BLOATER_HAND_X, ARM_HALF - 0.2, SHOULDER_Y + 1.0, HAND_Y, green[1]),
             "seam": (9.5, green[0]),
-            "hands": (11.6, HAND_Y, HAND_R, green[1]),
-            "head": (HEAD_CY + 2.0, HEAD_R - 0.8, HEAD_B - 1.2, green[0]),
+            "hands": (BLOATER_HAND_X, HAND_Y, HAND_R, green[1]),
+            "head": (HEAD_CY + BLOATER_HEAD_SINK, HEAD_R - 0.8, HEAD_B - 1.2, green[0]),
             "face": _face(OUTLINE),
             "tells": [tells],
             "shade": ("nw", 0.12),
@@ -470,7 +498,7 @@ def raider_body():
             "hands": (HAND_X, HAND_Y, HAND_R, skin[1]),
             "hair_back": lambda c: c.ellipse(0.0, HEAD_CY + 0.5, HEAD_R + 0.4, HEAD_B, drabber[0]),
             "head": (HEAD_CY + 0.4, HEAD_R - 0.8, HEAD_B - 1.0, skin[1]),
-            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 2.6, HEAD_R - 0.2, 2.8, drabber[0]),
+            "hair": lambda c: c.ellipse(0.0, HEAD_CY - 3.2, HEAD_R - 0.2, 3.2, drabber[0]),
             "face": _face(OUTLINE),
             "tells": [tells],
             "shade": ("nw", 0.12),

@@ -35,14 +35,16 @@ const SPRITE_DIR: String = "res://assets/sprites"
 # entry there would both fail the frozen oracle's Ajv and spawn a phantom colonist.
 const PLAYER_LOOK_ID: String = "player.body"
 
-# The pawn canvas: one ART_NATIVE tile wide and one and a half tall, anchored on the feet
-# (assets/sprites/README.md). The reference's own proportion -- a person about 0.7 of a tile wide
-# and 1.3 tall -- with three or four pixels of side margin so the flip never clips, and eight rows
-# of headroom. Its blit height is 1.5 x zoom, an integer on every rung of the ladder; a 64-tall
-# canvas was refused because it wastes 24 rows and a full-tile overhang north clips against wall
-# rows. Every body and every equip overlay is authored on it (PAWN_KEYS); tools/sprites/build.py
+# The pawn canvas: one ART_NATIVE tile wide and one and a quarter tall, anchored on the feet
+# (assets/sprites/README.md). The squat proportion the owner picked on 2026-09-08 (docs/30,
+# "Overcast or torchlight"): a person about 0.7 of a tile wide and *one tile* tall, the RimWorld
+# and Zero Sievert read, with three or more pixels of side margin so the flip never clips and ten
+# rows of headroom for a helmet or a spear tip. Its blit height is 1.25 x zoom, an integer on
+# every rung of the ladder (20/40/80/160). The 32x48 canvas of 2026-09-03 held a 1.3-tile figure;
+# it was superseded, not resized -- every rig was re-authored on a shorter published skeleton.
+# Every body and every equip overlay is authored on it (PAWN_KEYS); tools/sprites/build.py
 # carries the mirror list, because Python cannot read GDScript.
-const PAWN_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 3 / 2)
+const PAWN_CANVAS: Vector2i = Vector2i(int(CameraUtil.ART_NATIVE), int(CameraUtil.ART_NATIVE) * 5 / 4)
 const PAWN_KEYS: Array[String] = [
 	"player_body", "survivor_mara", "survivor_ellis", "survivor_colonist",
 	"zombie_shambler", "zombie_screamer", "zombie_bloater", "raider_body",

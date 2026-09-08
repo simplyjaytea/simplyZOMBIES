@@ -262,6 +262,50 @@ than here.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
 
+**Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
+Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
+pawn, wall, roof, tree and vehicle spine and takes Zero Sievert's world — the grade, density,
+grain, the torch, a remembered map — with the pawn squashed to one tile and the wall's south
+face hanging a tile into the entity sort. The pawn piece landed the same day (the record below,
+"The squat pawn"); the rest are below in the order they land, each one session, each with its
+gate red both ways and its record. The HUD's bars, icons and name plates stay refused; the
+projection stays flat top-down; 32 px a tile stays.
+
+- **The grade: overcast day, warm night.** The palette table and the generator's three families
+  move to a cool, desaturated day with the pools, the fire and the torch kept as the one
+  saturated thing after dark. `check_road_look.gd`'s PALETTE lane, `check_weather.gd`'s ACCENT
+  lane, `check_topdown.gd`'s WALL lane, `check_appearance.gd`'s GREY lane and the ground atlas's
+  TEXTURE lane are re-pinned to a measured table with two families keyed to the phase — never
+  loosened in passing — and every registry key regenerates under `sprites:check`. The void
+  lifts off blue-black to a dark grey so the district sits in weather rather than in a cave.
+  docs/30's entry gets the clause-by-clause "what the warm grade becomes" the 2026-09-03 entry
+  gave the overcast one.
+- **The remembered map, dimmed.** Tiles the survivor has seen persist desaturated from the
+  sightings and `memory` tint the sim already keeps; bodies are never drawn in them; a tile
+  never seen stays the void. `check_light_look.gd`'s draw ⊆ seen becomes draw ⊆ seen ∪
+  remembered with the true negative that a never-seen tile is refused, and the anonymity
+  clause holds because memory holds no bodies.
+- **The wall face hangs south.** Every wall tile whose south neighbour is open ground draws its
+  cap in its own tile and a one-tile face over the tile to the south, the face a member of the
+  entity y-sort at the wall's ground point so a body on that tile draws over it, the way a body
+  draws over a tree. `ROOF_LOOK_OK` gains the lane — a face drawn *before* a body standing on
+  it is the true negative — and no tile depth sort returns.
+- **Grime and density.** Litter, cracks, weeds and rust on most street tiles under the
+  standing balance-neutral rule for dressing, at the frequency the reference's streets carry;
+  blood on the ground is **not** dressing and is not in this piece — a stain where a body bled
+  is a sim fact about a wound, and lands, if the owner opens it, as a sim slice with a memory
+  record and a reader, beside tracks.
+- **The two-frame walk.** A leg swap keyed to the tick, generated on the published skeleton so
+  the thirty-one overlays follow unchanged, and one frame-select in `_blit_body`; the FLIP
+  lane's zero-transform count stands. Muzzle flash, swings and falls are a sheet per rig and
+  are not in this piece.
+- **The torch** stays where the Dungeon Settlers arc left it, the one sim slice in the group,
+  and lands after the grade so its cone is drawn in the night the grade decides.
+- **The picture on select — waiting on the owner.** *"When selecting the character, sprite art
+  will appear"* names a picture the colony panel does not have; a portrait was refused with
+  the Dungeon Settlers HUD, a larger picture of the selected pawn is not a portrait, and which
+  was meant is the owner's to say before this is pickable.
+
 **Art & renderer — the Dungeon Settlers arc, decided by the owner (2026-09-03), on the floor
 the reference-look arc's first two slices laid (32 px a tile at 2×, the ground atlas).** The
 direction is docs/30's "The Dungeon Settlers look": upright face-on pawns that flip and never
@@ -274,7 +318,8 @@ red both ways and its record. The reference's HUD — portraits, bars, numbers, 
 explicitly **not** part of the pick; the health-bar ban and the prose HUD stand. **Decided lands
 piece by piece**: the palette, pawn, wall and edge pieces landed 2026-09-03, the trees, the worn
 look and the sedan on 2026-09-04, the van and the truck on 2026-09-05; every arc slice has
-landed, and what is below is what the arc named and left.
+landed, and what is below is what the arc named and left. *(The 2026-09-08 decisions in the
+group above amend this arc's mood, wall and pawn clauses; the pieces below stand.)*
 
 - **The walls share one atlas.** Measured in the edges slice: draw calls on the 256 district at
   zoom 16 went 539 → 1,410 between the ground slice and the wall slice, because every wall
@@ -2193,6 +2238,42 @@ not a to-do list:
   `.hermes/plans/2026-09-03_dungeon-settlers-shots/`: `slice4-roster-64.png`,
   `slice4-street-64.png`, `slice4-flip-east-west-64.png`, `slice4-zoom-16.png`,
   `slice4-zoom-128.png`, `slice4-night-64.png`.
+- ~~The squat pawn~~ **landed** (no new gate — `TOPDOWN_OK`'s FLIP lane re-pinned, `WORN_LOOK_OK`'s
+  skeleton copy moved, GREY re-measured; the pawn piece of "Overcast or torchlight", docs/30's
+  2026-09-08 entry). The owner's call, twice in one session: a one-tile figure from a strip of
+  real rigs at five heights, then "shorter legs and a bigger head" on sight of the first cut.
+  **The canvas** is `Appearance.PAWN_CANVAS`, one tile wide by one and a quarter tall (32×40),
+  feet-anchored; blit height 1.25 × zoom, an integer on every rung (20/40/80/160); the 32×48
+  canvas was superseded rather than resized. **The skeleton** moved in its rows only —
+  `FEET_Y 0, LEG_TOP_Y −6, TORSO_TOP_Y −16, SHOULDER_Y −14, HAND_Y −8, HEAD_CY −21, HEAD_R 6.0`,
+  `HAND_X 8.4` and `SHOULDER_HALF 8.0` untouched, `EYE_SPREAD` 1.5 → 2.5 on the 12-wide skull
+  — and the bloater's three own numbers are published (`BLOATER_HALF 11.0`, `BLOATER_HAND_X
+  11.6`, `BLOATER_HEAD_SINK 2.0`) rather than typed into its rig. Measured on the decoded
+  pixels: height 27–29 px on seven rigs and 25 on the bloater (26–30 the bound, its head is
+  sunk), head 12×13 against ≤ 13×14 and 46 % of the figure where it was 27 %, shoulders
+  16–22 human / 26 bloater unchanged, side clearance 3–8 unchanged, soles on row 39.
+  `RIG_LIGHT_RADIUS` 15.0 → **13.0** by the same rule: 2982 opaque pixels, reach −5.5 to +13.5,
+  0.13 % clamped (four pixels) with the whole gain spent; 14.0 clamps nothing and reaches 96 %.
+  **The gear**: all thirty-one overlays refit by re-rendering because every one hangs off the
+  published names; four numbers moved by hand, all of them things that hang *below* the hand —
+  the bow's limbs ±10 → ±7 rows, the electric lamp's housing +11 → +7, the lantern's base
+  +11 → +7, the school bag's bottom `LEG_TOP_Y − 4.5` → `− 2.5` — because under the old hand
+  was empty canvas and under the new one is the legs and then the soles; the wrap's three
+  bindings became two on a six-row trunk. The spear tip sits four rows above `HEAD_CY` and
+  still under the screamer's crown, which is what keeps FITS's envelope holding without a
+  held-slot exception. **The gates**: FLIP pins `PAWN_CANVAS == (n, n × 5⁄4)` and
+  `body_rect(100, 100, (64, 80), +1) == Rect2(68, 23, 64, 80)`; 39 pawn keys resolve at
+  (32, 40); the worn gate's `SKEL_*` copy and its `_row_of` worked example (FEET 0 → row 39,
+  HEAD_CY −21 → row 18) moved with the skeleton; CANVAS, FITS (31 overlays in the 8-rig
+  envelope, the legs/torso/head lines checked on real art), REACHES (28 bases), SHARED and
+  PLAYED all green untouched; GREY re-measured at median 0.7020, worst delta 2, tightest
+  composed margin **+0.018** on `colony.look.05` (was +0.022 — the head is a larger share of
+  the outline now), still the owner's to widen. `sprites:check` counts 121 keys.
+  `item.schema.json` and `player.schema.json` say 32×40 in their descriptions (oracle-visible;
+  `npm test` judged them). Nothing under `godot/sim/` moved; the FAST lines are byte-identical.
+  **The pictures**, under `.hermes/plans/2026-09-08_squat-pawn/`: `boot-64.png`,
+  `zoom-128.png`, `zoom-32.png`, `night-64.png`, and the generator's own contact sheet
+  `sheet-kitted-4x.png`.
 - ~~Walls have thickness, roofs come off~~ **landed** (`godot:check:roof` → `ROOF_LOOK_OK`, the
   chain's 43rd gate; slice 5 of the Dungeon Settlers arc, docs/30 "The Dungeon Settlers look",
   the wall-and-roof clause). **The rules** live in `presentation/roof_look.gd`, pure functions

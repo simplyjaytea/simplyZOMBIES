@@ -76,10 +76,10 @@ const UNDRAWN_SLOTS: Array[String] = ["vest", "belt", "feet", "gloves", "eyes", 
 # are duplicated: GDScript cannot import a Python module, and FITS judges decoded pixels against
 # these very rows. If characters.py's numbers ever move, this and gear.py both need updating.
 const SKEL_FEET_Y: float = 0.0
-const SKEL_LEG_TOP_Y: float = -13.0
-const SKEL_SHOULDER_Y: float = -28.0
-const SKEL_HEAD_CY: float = -35.0
-const SKEL_HEAD_R: float = 5.0
+const SKEL_LEG_TOP_Y: float = -6.0
+const SKEL_SHOULDER_Y: float = -14.0
+const SKEL_HEAD_CY: float = -21.0
+const SKEL_HEAD_R: float = 6.0
 
 # How far off its line a fabricated FITS negative sits, in pixels -- the exact number the task
 # names, so the true negative is provably outside the line rather than merely "somewhere else".
@@ -225,8 +225,9 @@ func _rows_overlap(b: Dictionary, row_min: int, row_max: int) -> bool:
 # A skeleton y (pixels above the soles, negative upward) converted to a canvas row, the way
 # `draw.Canvas` converts it: `offset(x, y) = (x - cx, y - cy)` with `cy = h - 1` on a feet-origin
 # canvas, so a shape authored at skeleton y `oy` lands where `y - cy == oy`, i.e. row = oy + cy.
-# Probed against characters.py's own worked example in its header comment: FEET_Y 0 -> row 47,
-# HEAD_CY -35 -> row 12, both of which this function reproduces.
+# Probed against characters.py's own worked example in its header comment: FEET_Y 0 -> row 39,
+# HEAD_CY -21 -> row 18, both of which this function reproduces (row 47 and row 12 on the
+# 32x48 canvas this was first written for).
 func _row_of(skeleton_y: float) -> int:
 	return int(round(skeleton_y + float(Appearance.PAWN_CANVAS.y - 1)))
 

@@ -39,7 +39,7 @@ SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 # One entry per family module. Nothing in godot/assets/sprites/ is hand-authored any more:
 # `gear` took the last three files (`item_pack_hiking_equip`, its `_front` half and
 # `item_bat_aluminium_equip`) when the pawn slice landed, because a 32x32 overlay composited
-# into a 32x48 rect stretches -- `_blit_body` draws every layer at the identical rect, so an
+# into a taller rect stretches -- `_blit_body` draws every layer at the identical rect, so an
 # overlay has to be authored on the body's own canvas or it does not line up with it. Every
 # key under this map is generated, and `--check` is what keeps every one of them honest.
 MODULES = (characters, gear, props, wrecks, ground, buildings, trees, vehicles)
@@ -66,8 +66,9 @@ PAWN_KEYS = (
 # Every key renders on the SIZE x SIZE canvas except the ones named here. `ground_atlas` is a sheet
 # of cells rather than one silhouette -- `parts/ground.py`'s own module docstring says why it
 # cannot go through `draw.Canvas` at all -- four variant columns and, since the edges slice, the
-# eight edge cells of `parts/edges.py` beside them. The pawn keys are 32x48 and feet-anchored, the
-# shape a standing body needs and the shape the renderer hangs by its bottom row. Kept in build.py
+# eight edge cells of `parts/edges.py` beside them. The pawn keys are 32x40 (32x48 until the
+# squat pawn of 2026-09-08) and feet-anchored, the shape a standing body needs and the shape the
+# renderer hangs by its bottom row. Kept in build.py
 # rather than draw.py: draw.py is the pixel-primitive module every part renders through, and a per-
 # key shape table belongs beside the CLI that enforces it, not inside the primitives every canvas
 # uses unchanged.

@@ -2,15 +2,19 @@
 
 The first three keys here -- the pack, its front half and the bat -- used to be the last
 hand-authored files in godot/assets/sprites/, and they were 32x32 while the body they sit on is
-now 32x48. `main.gd::_blit_body` draws every layer into the **same** rect, so a 32x32 overlay in
-a 32x48 rect is not offset -- it is *stretched*, 1.5x taller than it was drawn, which puts a pack
-strap across a survivor's thighs. So the overlays moved onto the pawn canvas and into this
+taller (32x48 then, 32x40 since the squat pawn of 2026-09-08). `main.gd::_blit_body` draws every
+layer into the **same** rect, so a 32x32 overlay in a taller rect is not offset -- it is
+*stretched*, which puts a pack strap across a survivor's thighs. So the overlays moved onto the pawn canvas and into this
 package, and the keys stayed exactly what they were. Everything added since is authored on that
 canvas from the start: one key per item base whose `equipSlot` is a slot the renderer draws.
 
 Everything here is authored against `characters`' published skeleton -- SHOULDER_Y, LEG_TOP_Y,
 HAND_X, HAND_Y -- and never against a canvas row, which is what makes one overlay fit all
-eight bodies instead of eight overlays fitting one each.
+eight bodies instead of eight overlays fitting one each. It is also what let the squat pawn of
+2026-09-08 land: the rows moved (the hand is eight rows lower, the trunk six rows shorter) and
+the columns did not, so every overlay refit by re-rendering, and the handful of numbers below
+that had to move by hand are the ones that hung *below* the hand -- on the old rig that was
+empty canvas, on the squat one it is the legs and then the soles.
 
 One is drawn *under* the body and the rest *over* it, and that decides whether a shape gets an
 outline. The pack is under the body, so its own silhouette is what meets the street on either
@@ -214,8 +218,8 @@ def item_wrap_cloth_equip():
 
     Twelve px across where the human trunk is sixteen and the bloater's twenty-two, so the
     body's own seam and outline stay readable either side of it on every rig -- the difference
-    between a garment worn on a person and a repainted torso. The bindings are three darker
-    bands drawn `inside_only`, which is what says "wound" rather than "a rectangle of cloth
+    between a garment worn on a person and a repainted torso. The bindings are two darker
+    bands (three, on the taller trunk this was first drawn for) drawn `inside_only`, which is what says "wound" rather than "a rectangle of cloth
     taped to the chest"; they slope, because a wrap that goes round a body cannot be level on
     both sides at once.
 
@@ -229,7 +233,7 @@ def item_wrap_cloth_equip():
     mid_y = (WRAP_TOP_Y + WRAP_BOTTOM_Y) / 2.0
     canvas.rounded_rect(0.0, mid_y, WRAP_HALF_W, (WRAP_BOTTOM_Y - WRAP_TOP_Y) / 2.0, 2.0,
                         cloth[2])
-    for top in (WRAP_TOP_Y + 2.0, WRAP_TOP_Y + 6.0, WRAP_TOP_Y + 10.0):
+    for top in (WRAP_TOP_Y + 1.5, WRAP_TOP_Y + 4.0):
         canvas.band((-WRAP_HALF_W, top), (WRAP_HALF_W, top + 1.5), 1.6, cloth[0],
                     inside_only=True)
     # The knot, off-centre: the one asymmetric tell, safe for the same reason a rig's is --
@@ -283,8 +287,8 @@ BLADE_LEAN = 1.6  # how far out the tip leans per weapon; the bat's own number
 def item_knife_kitchen_equip():
     """The shortest thing on the roster: a wooden handle and a blade that stops at the shoulder.
 
-    Length is the whole read. Its tip sits at `SHOULDER_Y + 1`, five rows below where the bat
-    and the machete finish, so a knife in the hand is legible as "short" against any of them
+    Length is the whole read. Its tip stops three rows below where the bat and the machete
+    finish (at the crown's height on the squat rig, where the machete passes it), so a knife in the hand is legible as "short" against any of them
     without a single pixel of detail the size cannot carry. The blade is 4.0 px before the
     inward outline takes 1 px a side, the width the bat's docstring measured as the floor: at
     3.4 the outline left a 1 px core and the whole thing read as a wire.
@@ -366,8 +370,10 @@ def item_pipe_steel_equip():
 def item_spear_improvised_equip():
     """The tallest thing anyone carries: a shaft past the crown with a bound head on it.
 
-    The tip sits five rows above `HEAD_CY` and still inside the roster's own top row, so the
-    spear is unmistakable at a glance and nothing of it falls outside the box a body occupies.
+    The tip sits four rows above `HEAD_CY` and still under the roster's own top row (the
+    screamer's crown), so the spear is unmistakable at a glance and nothing of it falls
+    outside the box a body occupies -- the FITS lane's envelope, which is why the tip is
+    where it is and not a row higher.
     Improvised is drawn rather than asserted: a sawn shaft (`wood`, the timber family, because
     it is wood), a blade lashed on with two turns of `strap`, and no join that looks machined.
     """
@@ -449,12 +455,14 @@ def item_bow_hunting_equip():
     grip_x = HAND_X - 1.4
     tip_x = HAND_X + 1.1
     string_x = HAND_X + 3.1
+    # +-7 rows about the fist, not the +-10 the taller rig had: the hand sits eight rows above
+    # the soles on the squat pawn, and a lower limb reaching +10 would end below the canvas.
     for end in (-1.0, 1.0):
-        canvas.band((grip_x, HAND_Y), (grip_x + 1.6, HAND_Y + end * 6.0), 3.4, limb[2],
+        canvas.band((grip_x, HAND_Y), (grip_x + 1.6, HAND_Y + end * 4.5), 3.4, limb[2],
                     inside_only=False)
-        canvas.band((grip_x + 1.6, HAND_Y + end * 6.0), (tip_x, HAND_Y + end * 10.0), 3.4,
+        canvas.band((grip_x + 1.6, HAND_Y + end * 4.5), (tip_x, HAND_Y + end * 7.0), 3.4,
                     limb[2], inside_only=False)
-    canvas.band((string_x, HAND_Y - 10.0), (string_x, HAND_Y + 10.0), 1.0, grip[3],
+    canvas.band((string_x, HAND_Y - 7.0), (string_x, HAND_Y + 7.0), 1.0, grip[3],
                 inside_only=False)
     canvas.rect(grip_x, HAND_Y, 1.2, 2.0, grip[1])  # the wrapped grip, in the fist
     canvas.nw_shade(0.12)
@@ -508,9 +516,10 @@ def item_candle_wax_equip():
 def item_lamp_electric_equip():
     """An electric lamp hung from the fist by its bail, its lens the brightest 4x5 on the body.
 
-    Carried below the hand, because that is where a lamp on a bail hangs and because the space
-    under `HAND_Y` is the one part of the canvas no rig and no other overlay uses. The lens is
-    an interior rectangle -- nothing round it is transparent -- so the outline would not have
+    Carried below the hand, because that is where a lamp on a bail hangs; on the squat pawn
+    that is beside the leg rather than in empty canvas, and the housing is drawn shallower
+    than it was (rows +1 to +7 under the fist, where it used to reach +11) so the base stays
+    a row above the soles. The lens is an interior rectangle -- nothing round it is transparent -- so the outline would not have
     touched it anyway; it is painted after the passes for the shade, not the outline, and
     because `light.magnitude 35` makes this the strongest light a survivor can carry and it
     should not be the dimmer of the two.
@@ -519,14 +528,14 @@ def item_lamp_electric_equip():
     strap = RAMPS["strap"]
     ember = RAMPS["ember"]
     canvas = _overlay()
-    canvas.rect(OFF_HAND_X - 0.6, HAND_Y + 1.0, 1.0, 1.5, strap[2])  # the bail, through the fist
-    canvas.rounded_rect(OFF_HAND_X - 0.6, HAND_Y + 6.5, 3.6, 4.5, 1.5, body[1])
-    canvas.rect(OFF_HAND_X - 0.6, HAND_Y + 8.0, 3.0, 0.0, body[3])  # the housing seam
-    canvas.rect(OFF_HAND_X - 0.6, HAND_Y + 10.0, 3.0, 0.5, body[0])  # the base
+    canvas.rect(OFF_HAND_X - 0.6, HAND_Y + 1.0, 1.0, 1.0, strap[2])  # the bail, through the fist
+    canvas.rounded_rect(OFF_HAND_X - 0.6, HAND_Y + 4.5, 3.6, 2.5, 1.5, body[1])
+    canvas.rect(OFF_HAND_X - 0.6, HAND_Y + 5.0, 3.0, 0.0, body[3])  # the housing seam
+    canvas.rect(OFF_HAND_X - 0.6, HAND_Y + 6.5, 3.0, 0.5, body[0])  # the base
 
     def lens(c):
-        c.rect(OFF_HAND_X - 0.6, HAND_Y + 4.5, 2.0, 1.5, ember[1])
-        c.rect(OFF_HAND_X - 0.6, HAND_Y + 4.5, 1.0, 1.0, ember[3])
+        c.rect(OFF_HAND_X - 0.6, HAND_Y + 3.5, 2.0, 1.0, ember[1])
+        c.rect(OFF_HAND_X - 0.6, HAND_Y + 3.5, 1.0, 0.5, ember[3])
 
     return _lit(canvas, lens)
 
@@ -776,7 +785,7 @@ def item_jeans_denim_equip():
 
 SCHOOL_HALF_W = 10.2
 SCHOOL_TOP_Y = TORSO_TOP_Y + 1.5
-SCHOOL_BOTTOM_Y = LEG_TOP_Y - 4.5
+SCHOOL_BOTTOM_Y = LEG_TOP_Y - 2.5  # was -4.5 on the taller trunk; a bag two rows deep is a strap
 FRAME_HALF_W = 11.0
 FRAME_TOP_Y = TORSO_TOP_Y - 1.5
 FRAME_BOTTOM_Y = LEG_TOP_Y - 1.5
@@ -864,14 +873,16 @@ def item_lantern_oil_equip():
     strap = RAMPS["strap"]
     ember = RAMPS["ember"]
     canvas = _overlay()
-    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 1.0, 0.8, 1.5, strap[2])  # the bail
-    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 3.0, 2.0, 0.5, tin[2])  # the cap
-    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 6.5, 2.2, 3.0, glass[3])  # the chimney
-    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 10.5, 2.6, 1.0, tin[1])  # the base
+    # Shallower than the electric lamp's old housing for the same reason it is (its docstring):
+    # the fist is eight rows above the soles, so the base sits at +7 and not +11.
+    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 1.0, 0.8, 1.0, strap[2])  # the bail
+    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 2.5, 2.0, 0.5, tin[2])  # the cap
+    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 4.5, 2.2, 2.0, glass[3])  # the chimney
+    canvas.rect(OFF_HAND_X - 0.4, HAND_Y + 7.0, 2.6, 0.5, tin[1])  # the base
 
     def flame(c):
-        c.ellipse(OFF_HAND_X - 0.4, HAND_Y + 7.0, 0.9, 1.6, ember[3])
-        c.ellipse(OFF_HAND_X - 0.4, HAND_Y + 7.5, 0.5, 0.8, ember[4])
+        c.ellipse(OFF_HAND_X - 0.4, HAND_Y + 4.5, 0.9, 1.3, ember[3])
+        c.ellipse(OFF_HAND_X - 0.4, HAND_Y + 5.0, 0.5, 0.6, ember[4])
 
     return _lit(canvas, flame)
 
