@@ -39,6 +39,11 @@ const MARGIN: float = 24.0
 const LINE: float = 34.0
 const FONT_SIZE: int = 26
 const SMALL_SIZE: int = 22
+# What the quick strip takes off the bottom of the screen. A hard copy of
+# `ui/inventory_panel.gd`'s STRIP_H plus its margin -- the two are the same number in two files
+# because this one must not reach into the sheet to draw a line of text, and `godot:check:hud`'s
+# key-line lane is what would notice if they drifted far enough to overlap.
+const STRIP_CLEARANCE: float = 116.0
 
 # Worst-part states from condition.gd, as a sentence rather than a grade.
 const CONDITION_PROSE: Array[String] = ["", "hurt", "badly hurt", "barely standing"]
@@ -232,8 +237,8 @@ func _draw() -> void:
 	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
 	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc settings · O overlay · M raw"
 	var kw: float = font.get_string_size(keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
-	draw_string(font, Vector2(view.x - MARGIN - kw, view.y - MARGIN), keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Palette.COLOURS["outline"])
+	draw_string(font, Vector2(view.x - MARGIN - kw, view.y - MARGIN - STRIP_CLEARANCE), keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Palette.COLOURS["outline"])
 
 	if show_raw and not _raw.is_empty():
 		# The developer sheet, wrapped so a long line does not run off the district.
-		draw_string(font, Vector2(MARGIN, view.y - MARGIN - LINE * 2.0), _raw, HORIZONTAL_ALIGNMENT_LEFT, view.x - MARGIN * 2.0, SMALL_SIZE, Palette.COLOURS["outline"])
+		draw_string(font, Vector2(MARGIN, view.y - MARGIN - STRIP_CLEARANCE - LINE * 2.0), _raw, HORIZONTAL_ALIGNMENT_LEFT, view.x - MARGIN * 2.0, SMALL_SIZE, Palette.COLOURS["outline"])

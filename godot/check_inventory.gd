@@ -800,6 +800,31 @@ func _the_windows_are_gone_and_the_keys_moved() -> bool:
 		faults.append("ui/hud.gd has no key line")
 	elif _carries_a_digit(_without_key_names(line.substr(line.find("\"") + 1))):
 		faults.append("the HUD's key line carries a digit that is not a key's name: %s" % line.strip_edges())
+	# The strip has to be on screen during play, not only on the open sheet: it is what the
+	# pinnable pouches were deleted in favour of, and a strip you can only see with the screen
+	# open is a pouch you can only reach with the screen open -- the exact thing the windows were
+	# kept for. `_draw` returns early when closed, so the strip has to be drawn *before* it does.
+	var panel_src: String = FileAccess.get_file_as_string(PANEL_GD)
+	var draw_body: String = ""
+	var inside: bool = false
+	for row in panel_src.split("\n"):
+		if String(row).begins_with("func _draw()"):
+			inside = true
+			continue
+		if inside and String(row).begins_with("func "):
+			break
+		if inside:
+			draw_body += String(row) + "\n"
+	if draw_body.is_empty():
+		faults.append("could not read _draw out of the sheet, so the strip assertion has nothing to judge")
+	else:
+		var early: int = draw_body.find("if not _open:")
+		var strip: int = draw_body.find("QuickStrip.draw_strip")
+		if early < 0 or strip < 0:
+			faults.append("_draw has no closed-sheet branch or never draws the strip")
+		elif strip > draw_body.find("return", early) and draw_body.find("QuickStrip.draw_strip", early) > draw_body.find("return", early):
+			faults.append("the strip is drawn only after the closed-sheet return, so it is invisible during play")
+
 	# And the narrowed scanner still catches what it is for. The line this one replaced said
 	# "speed: 1x, 3x, 10x", and an x after a digit is a quantity however it is punctuated.
 	if not _carries_a_digit(_without_key_names("F1 keys - speed: 1x, 3x, 10x")):
@@ -809,7 +834,7 @@ func _the_windows_are_gone_and_the_keys_moved() -> bool:
 	if not faults.is_empty():
 		push_error("; ".join(faults))
 		return false
-	print("KEYS OK the windows and their prefs are gone, the number row spends the strip, speed is - and =, and the HUD's key line is digit-free")
+	print("KEYS OK the windows and their prefs are gone, the strip draws during play, the number row spends it, speed is - and =, and the HUD's key line is digit-free")
 	return true
 
 

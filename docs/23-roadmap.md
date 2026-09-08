@@ -4989,7 +4989,15 @@ not a to-do list:
   columns of boxes and moved below the last slot row; a deep loadout painted over the quick strip
   and the column is now a clipped child with a "wheel to scroll" note; and a one-cell plate read
   "Kit…", which looks like a defect and says less than the footprint — a name is drawn only where
-  enough of one fits, and the glyph piece fills that space next. Screenshot for the owner under
+  enough of one fits, and the glyph piece fills that space next.
+  **And one the last screenshot of the run found, which was this slice's own premise broken**: the
+  strip drew only on the open sheet. It is the thing the pinnable pouches were deleted in favour
+  of, and a strip you can only see with the screen open is a pouch you can only reach with the
+  screen open — exactly what the windows were kept for. `_draw` draws it before its closed-sheet
+  return now, the corner chart and the HUD's key line moved above it, and KEYS asserts the
+  ordering. **That assertion had to move as well**: it was first written *after* the check that
+  reads its fault list, so it appended faults nobody looked at and could not fail — and the
+  sabotage meant to prove it red is what showed it. Screenshots for the owner under
   `.hermes/plans/2026-09-08_inventory-sheet/`.
 - **Items** — ~~item glyphs, and the twelfth dead socket closed~~ **landed** 2026-09-08
   (`godot:check:appearance`'s new ITEMS lane), the third piece of the inventory overhaul.
