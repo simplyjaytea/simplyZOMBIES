@@ -73,10 +73,10 @@ them is what lets `parts/gear.py` fit one generated overlay to all eight bodies 
 authoring eight overlays with eight chances to disagree. The bloater is the one rig that moves
 the numbers, and it moves exactly three: its own torso half-width and top, its own arm x, and
 its own head centre — `FEET_Y`, `LEG_TOP_Y` and `HAND_Y` stay untouched, which is what keeps the
-gear overlays fitting it too. `HEAD_R` is 5.0 and not the arc plan's 5.5 by measurement rather
-than by taste: pixel centres on a 32-wide canvas sit at half-integer offsets from the middle, so
-a shape centred on x = 0 is always an *even* number of pixels wide, and 5.5 renders 12 px, one
-over the head bound, where every radius in [4.5, 5.5) renders 10.
+gear overlays fitting it too. `HEAD_R` is 6.0 since the squat pawn of 2026-09-08 (5.0 before it), and the
+band it sits in is a measurement rather than taste: pixel centres on a 32-wide canvas sit at
+half-integer offsets from the middle, so a shape centred on x = 0 is always an *even* number of
+pixels wide — every radius in [5.5, 6.5) renders 12 px, and 6.0 is the middle of that band.
 
 A face is the three pixels `_face()` draws for every rig: two 1 px eyes `EYE_SPREAD` (1.5, so
 3 px) apart, and one brow pixel above and to the left — dark stays dark after the shade pass on
@@ -91,8 +91,8 @@ exactly what it does on a person who turns round, which was not true when a rig 
   holds — `presentation/camera.gd`'s `ART_NATIVE` is the engine's copy, and the two gates
   cross-check. A tile-sized picture seen from above — a prop, a tile-art key, a heap, a scrap of
   debris — renders on `Canvas(SIZE, SIZE, origin="centre")`; every body and every equip overlay
-  renders on `Canvas(characters.PAWN_W, characters.PAWN_H, origin="feet")` — 32×48, one tile
-  wide and one and a half tall; a tree on `trees.TREE_W/TREE_H` (32×96) and a vehicle on the
+  renders on `Canvas(characters.PAWN_W, characters.PAWN_H, origin="feet")` — 32×40, one tile
+  wide and one and a quarter tall (32×48 until the squat pawn of 2026-09-08); a tree on `trees.TREE_W/TREE_H` (32×96) and a vehicle on the
   canvas `vehicles.canvas_ns()`/`canvas_ew()` derive from its class's footprint (a sedan 64×192
   or 160×96, a van 64×224 or 192×96, a truck 64×256 or 224×96), all feet-anchored the same
   way. `build.py`'s `CANVAS` table, `PAWN_KEYS`, `trees.TREE_KEYS` and `vehicles.CANVASES`
@@ -162,7 +162,7 @@ exactly what it does on a person who turns round, which was not true when a rig 
   a person, and the three equip overlays (`item_pack_hiking_equip`, its `_front` half and
   `item_bat_aluminium_equip`) were the last hand art of any kind; the pawn slice replaced all
   five with generated keys, `gear.py` taking the overlays because a 32×32 overlay composited
-  into the pawn's 32×48 rect stretches rather than sits. The rule stands for whenever hand-polish
+  into the pawn's taller rect stretches rather than sits. The rule stands for whenever hand-polish
   next replaces something here: a hand-authored file has no key in this package, so *adopting*
   one is a deletion, not an addition — delete the generated key in the same commit as the
   authored PNG, or `--check` and the committed file disagree forever.

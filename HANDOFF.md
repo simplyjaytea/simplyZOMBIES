@@ -32,6 +32,21 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-08 — the squat pawn, and the overhaul decided** (no new gate; `TOPDOWN_OK`'s FLIP
+lane re-pinned to a 32×40 canvas, `WORN_LOOK_OK`'s skeleton copy moved, GREY re-measured at
++0.018). The owner opened a graphics overhaul toward Zero Sievert from a design brief and
+decided it in seven answers — docs/30's "Overcast or torchlight": a hybrid on the Dungeon
+Settlers spine, overcast day and warm night, the remembered map dimmed for unseen ground, the
+wall's south face hanging a tile into the entity sort, a squat one-tile pawn with a big head,
+weapons as the read, and Zero Sievert, Dungeon Settlers, Project Zomboid and RimWorld as the
+references. The pawn piece landed the same session: every rig re-authored on a shorter published
+skeleton (rows moved, columns did not), all thirty-one overlays refit by re-rendering, four
+numbers moved by hand for the things that hang below the hand. docs/23's what's left has the
+new group — the grade, the remembered map, the wall face, grime, the two-frame walk — in the
+order they land, and the record has the numbers. **Waiting on the owner:** what "when
+selecting the character, sprite art will appear" means (item 0a below). Screenshots under
+`.hermes/plans/2026-09-08_squat-pawn/`.
+
 **2026-09-08 — fog, the seventh weather kind** (`npm run godot:m2:fog`, `M2_FOG_OK`, eight
 lanes; `godot:check:weather` at eight with the VEIL lane; `SAVE_VERSION` 26), the first piece of
 "what the weather left behind", picked and shaped by the owner in four answers this session:
@@ -225,6 +240,13 @@ decisions and what each earlier clause becomes; the work it forces is docs/23's 
 Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. **Which of its
 slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
+
+0a. **The picture on select** (2026-09-08). The owner's answer on the pawn — *"when selecting
+   the character, sprite art will appear. However, weapons, clothing, gear will be shown"* —
+   names a picture the colony panel does not have. A portrait was refused with the Dungeon
+   Settlers HUD on 2026-09-03; a larger picture of the selected pawn, kitted, in the panel is
+   not a portrait. Which was meant is the call; docs/30's "Overcast or torchlight" and docs/23's
+   what's left name it and do not decide it.
 
 0. **The driving slice's first-cut calls**, each recorded in docs/30's "Driving" entry and each
    a small change if re-decided (the key is decided: the owner chose **E** on 2026-09-05 and it

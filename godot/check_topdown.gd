@@ -456,8 +456,10 @@ func _bodies_face_by_flipping() -> bool:
 	if Appearance.anchor_of(Vector2i(native * 2, native * 2)) != Appearance.Anchor.Centre or Appearance.anchor_of(Vector2i(native, native * 3)) != Appearance.Anchor.Feet:
 		push_error("anchor_of is not derived from the shape: a 2x2-tile square must centre and a 1x3 sheet must stand")
 		return false
-	if Appearance.PAWN_CANVAS != Vector2i(native, native * 3 / 2):
-		push_error("PAWN_CANVAS is %s, not one tile wide by one and a half tall" % str(Appearance.PAWN_CANVAS))
+	# One tile wide by one and a quarter tall since the squat pawn (2026-09-08); the 3/2 canvas
+	# of the Dungeon Settlers pawn slice is the true negative this line refuses.
+	if Appearance.PAWN_CANVAS != Vector2i(native, native * 5 / 4):
+		push_error("PAWN_CANVAS is %s, not one tile wide by one and a quarter tall" % str(Appearance.PAWN_CANVAS))
 		return false
 
 	# The rect, exact at every rung: a pawn's soles on the shadow line, a tile-square picture on
@@ -491,9 +493,9 @@ func _bodies_face_by_flipping() -> bool:
 			push_error("a centred pawn passes the feet-anchor equality at zoom %.0f; the anchor reads nothing" % zoom)
 			return false
 	# The exact numbers at the boot zoom, so a reader can check the arithmetic by hand.
-	var at64: Rect2 = Appearance.body_rect(100.0, 100.0, Vector2(64.0, 96.0), 1.0)
-	if at64 != Rect2(68.0, 7.0, 64.0, 96.0):
-		push_error("body_rect(100, 100, (64, 96), +1) is %s, not Rect2(68, 7, 64, 96)" % str(at64))
+	var at64: Rect2 = Appearance.body_rect(100.0, 100.0, Vector2(64.0, 80.0), 1.0)
+	if at64 != Rect2(68.0, 23.0, 64.0, 80.0):
+		push_error("body_rect(100, 100, (64, 80), +1) is %s, not Rect2(68, 23, 64, 80)" % str(at64))
 		return false
 
 	# Every pawn key resolves a picture on the pawn canvas: a rig left at the old tile size would
@@ -581,7 +583,7 @@ func _bodies_face_by_flipping() -> bool:
 		if resolver.contains(gone):
 			push_error("appearance.gd still carries %s; the rotation retired with the pawn slice" % gone)
 			return false
-	print("FLIP OK east +1, west -1, north and south unflipped; square centres and the pawn stands, soles on +%.0f at all %d rungs, Rect2(68, 7, 64, 96) at 64; %d pawn keys on %s; zero transforms in the loop and zero in all of main.gd (both counters proved), the disc bails before the blit, three helpers gone" % [Appearance.FOOT_DROP_PX, ZOOMS.size(), pawns, str(Appearance.PAWN_CANVAS)])
+	print("FLIP OK east +1, west -1, north and south unflipped; square centres and the pawn stands, soles on +%.0f at all %d rungs, Rect2(68, 23, 64, 80) at 64; %d pawn keys on %s; zero transforms in the loop and zero in all of main.gd (both counters proved), the disc bails before the blit, three helpers gone" % [Appearance.FOOT_DROP_PX, ZOOMS.size(), pawns, str(Appearance.PAWN_CANVAS)])
 	return true
 
 

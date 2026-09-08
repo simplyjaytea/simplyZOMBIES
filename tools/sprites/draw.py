@@ -26,9 +26,9 @@ from palette import to_rgb
 
 SIZE = 32
 
-# The one radius every pawn rig shades at, re-measured for the 32x48 feet-anchored figure --
-# see `nw_shade` below for the measurement and why the old 13.0 no longer suits it.
-RIG_LIGHT_RADIUS = 15.0
+# The one radius every pawn rig shades at, re-measured for the squat 32x40 figure of 2026-09-08
+# -- see `nw_shade` below for the measurement and why the 48-tall rig's 15.0 no longer suits it.
+RIG_LIGHT_RADIUS = 13.0
 
 
 class Canvas:
@@ -200,16 +200,16 @@ class Canvas:
         suit their own footprint, but the pawns are one family drawn at one size, and a per-rig
         radius would make two colonists standing side by side shade differently.
 
-        **Why 15.0 and not the overhead rig's 13.0.** The radius is the reach at which the ramp
-        clamps flat, so it wants to be the reach the figure actually spans and no more.
-        Measured over the union of the eight rigs' 4254 opaque pixels on the 32x48 canvas,
-        `(dx+dy)/2` from the picture middle runs -10.0 to +15.0. At 13.0, 1.74% of the roster
-        sits clamped -- the far crown flat-lit and the near sole flat-dark, where the shading
-        stops describing a form. At 15.0 the clamped share is 0.02% (one pixel) and the ramp
-        still spends its full range on the body. 18.0, the arc plan's estimate, clamps nothing
-        but reaches only 83% of the ramp, which costs contrast a 41 px figure cannot spare. So
-        15.0: the smallest radius that clamps essentially nothing, which is also the largest
-        that still uses all of the gain it is given.
+        **Why 13.0.** The radius is the reach at which the ramp clamps flat, so it wants to be
+        the reach the figure actually spans and no more, and it is re-measured whenever the
+        canvas changes. On the 48-tall rig of 2026-09-03 the answer was 15.0 (reach -10.0 to
+        +15.0 over 4254 opaque pixels; 13.0 clamped 1.74%). On the squat 32x40 rig of
+        2026-09-08 the union of the eight rigs is 2982 opaque pixels and `(dx+dy)/2` from the
+        picture middle runs -5.5 to +13.5: at 12.0 the clamped share is 1.31%, at 13.0 it is
+        0.13% (four pixels) with the whole ramp still spent on the body, and at 14.0 nothing
+        clamps but only 96% of the gain is reached, which costs contrast a 28 px figure cannot
+        spare. So 13.0: the smallest radius that clamps essentially nothing, which is also the
+        largest that still uses all of the gain it is given.
         """
         self.light_top_left(gain, RIG_LIGHT_RADIUS)
 
