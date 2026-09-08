@@ -20,6 +20,10 @@
       "type": "string",
       "description": "Display name, before the tier and affixes decorate it."
     },
+    "description": {
+      "type": "string",
+      "description": "One sentence about what this is, shown on the inventory sheet's inspect pane and nowhere else. Prose, never a number: what a thing does is a sentence and how well it is doing it is a word (docs/01 clause 4), so a description carrying a digit is a content bug the INVENTORY gate refuses. Optional -- SimItems.description_of falls back to a sentence built from the class and the equip slot, so a new base is never blank."
+    },
     "appearance": {
       "type": "object",
       "description": "What this looks like lying on the ground. Omit it and the renderer draws the generic ground-item diamond, which is the normal state until art exists.",

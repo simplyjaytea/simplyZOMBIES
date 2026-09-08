@@ -1794,6 +1794,24 @@ static func eat(world: Variant, entity: int, item: int) -> bool:
 	return true
 
 
+# Whether `use_item` would do anything with this, asked without doing it. The inventory sheet's
+# word menu offers "use" only when this says yes, and it is the same predicate the intake runs a
+# few lines below rather than a second copy of it: two answers to "can you eat this" is the
+# dead-socket shape this milestone has paid for ten times, and the cheap version of the bug is a
+# menu offering a verb the sim silently drops.
+#
+# Washing is deliberately not here. `item.wash` spends no particular item -- `use_item`'s wash arm
+# ignores the base entirely -- so it is not a thing an item in a grid can offer.
+static func can_use(world: Variant, entity: int, item: int) -> bool:
+	if item < 0 or not SimInventory.owns(world, entity, item):
+		return false
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary:
+		return false
+	var bid: String = String((base as Dictionary).get("baseId", ""))
+	return drink_spec(world, bid) != null or is_food(world, bid)
+
+
 static func use_item(world: Variant, entity: int, item: int, as_wash: bool = false) -> bool:
 	if item < 0 or not SimInventory.owns(world, entity, item):
 		return false
@@ -1803,6 +1821,8 @@ static func use_item(world: Variant, entity: int, item: int, as_wash: bool = fal
 	var bid: String = String((base as Dictionary).get("baseId", ""))
 	if as_wash:
 		return wash(world, entity)
+	if not can_use(world, entity, item):
+		return false
 	if drink_spec(world, bid) != null:
 		# Water on a filthy body is a wash unless you are dying of thirst -- keyed on the base's
 		# cleanTier rather than its id, because "this is water" is content.

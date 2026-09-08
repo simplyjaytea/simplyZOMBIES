@@ -307,6 +307,9 @@ switch (mode) {
   case "--hud":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;
+  case "--inventory":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_inventory.gd"];
+    break;
   case "--appearance":
     args = [
       "--headless",
