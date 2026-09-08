@@ -21,6 +21,7 @@ extends Control
 # its release are the same node's business and there is nothing to forward.
 
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimTreatment = preload("res://sim/modules/treatment.gd")
 const UiText = preload("res://ui/text.gd")
@@ -110,6 +111,39 @@ var _ghost: Control = null
 # Input stays with the sheet -- the child ignores the mouse -- so every rect in `_placed` is still
 # in sheet coordinates and the hit test needs no second frame of reference.
 var _column_layer: Control = null
+# The transfer window: the box you are standing at, beside your pockets, drawn while the sheet is
+# *closed* so a loot stop never leaves the district. Its own Control and not part of the sheet,
+# because the sheet ignores the mouse when closed and a Control that stopped the mouse over the
+# whole screen would eat the click that swings your axe. This one is exactly the size of the
+# window, so everything outside it still reaches the world.
+var _loot_layer: Control = null
+var _loot: Dictionary = {}
+# Where the two grids and the word were drawn this frame, in window-local coordinates.
+var _loot_placed: Array[Dictionary] = []
+var _loot_hit: Array[Dictionary] = []
+
+
+class LootWindow:
+	extends Control
+	# Stops the mouse over its own rect and nowhere else, and hands both halves back to the sheet:
+	# the drawing, because that is where the layout lives, and the input, because that is where
+	# the drag state lives. Godot pins mouse focus to whichever control took the press until the
+	# button comes up, and both grids are inside this one control, so a drag from the cupboard to
+	# a pocket begins and ends in the same node and needs no forwarding at all -- which is exactly
+	# what the pinnable bag windows this overhaul deleted could not manage.
+
+	var panel: Control = null
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _draw() -> void:
+		if panel != null:
+			panel.call("_draw_loot_into", self)
+
+	func _gui_input(event: InputEvent) -> void:
+		if panel != null:
+			panel.call("_loot_input", event)
 
 
 class Columns:
@@ -160,6 +194,11 @@ func _ready() -> void:
 	_paperdoll.size = Vector2(DOLL_W, DOLL_H)
 	_paperdoll.visible = false
 	add_child(_paperdoll)
+	var loot := LootWindow.new()
+	loot.panel = self
+	loot.visible = false
+	_loot_layer = loot
+	add_child(_loot_layer)
 	var columns := Columns.new()
 	columns.panel = self
 	_column_layer = columns
@@ -221,6 +260,118 @@ func rotate() -> void:
 		_drag_rotated = not _drag_rotated
 		if _ghost != null:
 			_ghost.queue_redraw()
+
+
+# The container the survivor is standing at, or {} for none. Fed every refresh by main.gd, not
+# only while the sheet is open: the whole point of the window is that it works during play.
+const LOOT_PAD: float = 14.0
+const LOOT_GAP: float = 16.0
+const LOOT_FOOT: float = 34.0
+func set_loot(view: Dictionary) -> void:
+	_loot = view if view is Dictionary else {}
+	if _loot_layer == null:
+		return
+	# Hidden while the sheet is open: the cupboard is a column on the sheet then, and two pictures
+	# of one box on one screen is the confusion the fixed layout exists to end.
+	var show: bool = not _loot.is_empty() and not _open
+	_loot_layer.visible = show
+	if not show:
+		return
+	var box: Vector2 = BagGrid.size_of(int(_loot.get("w", 0)), int(_loot.get("h", 0)))
+	var mine: Dictionary = _pockets()
+	var pockets: Vector2 = BagGrid.size_of(int(mine.get("w", 0)), int(mine.get("h", 0)))
+	var wide: float = LOOT_PAD * 2.0 + box.x + LOOT_GAP + pockets.x
+	var tall: float = LOOT_PAD * 2.0 + maxf(box.y, pockets.y) + LOOT_FOOT
+	var view_size: Vector2 = get_viewport_rect().size
+	_loot_layer.size = Vector2(wide, tall)
+	# Centred horizontally and set low, clear of the HUD's two prose columns at the top.
+	_loot_layer.position = Vector2(roundf((view_size.x - wide) / 2.0), roundf(view_size.y - tall - 150.0))
+	_loot_layer.queue_redraw()
+
+
+func loot_open() -> bool:
+	return _loot_layer != null and _loot_layer.visible
+
+
+func _pockets() -> Dictionary:
+	for entry in _view.get("containers", []) as Array:
+		if int((entry as Dictionary)["container"]) == _actor:
+			return entry as Dictionary
+	return {"container": _actor, "label": "pockets", "w": 0, "h": 0, "items": []}
+
+
+func _draw_loot_into(ci: CanvasItem) -> void:
+	_loot_placed.clear()
+	_loot_hit.clear()
+	if _loot.is_empty():
+		return
+	var alpha: float = UiPrefs.opacity("inventory_opacity")
+	var rect := Rect2(Vector2.ZERO, (_loot_layer as Control).size)
+	Chrome.panel(ci, rect, alpha)
+	var mine: Dictionary = _pockets()
+	var box_at := Vector2(LOOT_PAD, LOOT_PAD)
+	var box_size: Vector2 = BagGrid.size_of(int(_loot.get("w", 0)), int(_loot.get("h", 0)))
+	var pockets_at := Vector2(LOOT_PAD + box_size.x + LOOT_GAP, LOOT_PAD)
+	BagGrid.draw_bag(ci, box_at, _loot, alpha, _drag_item, "here", _world)
+	BagGrid.draw_bag(ci, pockets_at, mine, alpha, _drag_item, "on you", _world)
+	_loot_placed.append({"at": box_at, "column": _loot})
+	_loot_placed.append({"at": pockets_at, "column": mine})
+	# One clickable word, in work_panel.gd's idiom, and the sentence that says what it will and
+	# will not do -- *that fits* is half the verb, because the grid has already told you the axe
+	# will not go in.
+	var font: Font = Chrome.font()
+	var word: String = "take all that fits"
+	var at := Vector2(LOOT_PAD, rect.size.y - 12.0)
+	ci.draw_string(font, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Chrome.ACCENT)
+	_loot_hit.append({"rect": _word_rect(font, at, word, 18), "verb": "takeAll"})
+	var hint: String = "drag between them · Esc closes"
+	var hw: float = font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	ci.draw_string(font, Vector2(rect.size.x - hw - LOOT_PAD, rect.size.y - 12.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Chrome.TEXT_DIM)
+
+
+func _loot_input(event: InputEvent) -> void:
+	if _world == null or _loot.is_empty() or not (event is InputEventMouseButton):
+		return
+	var mb: InputEventMouseButton = event as InputEventMouseButton
+	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+		for h in _loot_hit:
+			if (h["rect"] as Rect2).has_point(mb.position):
+				_world.commands.push({"type": "container.takeAll"})
+				(_loot_layer as Control).accept_event()
+				return
+		var found: Variant = _loot_item_under(mb.position)
+		if found is Dictionary:
+			var d: Dictionary = found as Dictionary
+			var dims := Vector2i(int(d.get("w", 1)), int(d.get("h", 1)))
+			if bool(d.get("rotated", false)):
+				dims = Vector2i(dims.y, dims.x)
+			_begin_drag(int(d.get("item", -1)), bool(d.get("rotated", false)), dims)
+		(_loot_layer as Control).accept_event()
+	elif mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
+		if _drag_item != -1:
+			var item: int = _drag_item
+			var rotated: bool = _drag_rotated
+			_cancel_drag()
+			for placed in _loot_placed:
+				var cell: Variant = BagGrid.cell_at(placed["at"] as Vector2, placed["column"] as Dictionary, mb.position)
+				if cell == null:
+					continue
+				_world.commands.push({"type": "item.move", "item": item, "container": int((placed["column"] as Dictionary).get("container", -1)), "x": (cell as Vector2i).x, "y": (cell as Vector2i).y, "rotated": rotated})
+				break
+		(_loot_layer as Control).accept_event()
+	elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+		if _drag_item != -1:
+			rotate()
+		(_loot_layer as Control).accept_event()
+
+
+func _loot_item_under(p: Vector2) -> Variant:
+	for placed in _loot_placed:
+		var cell: Variant = BagGrid.cell_at(placed["at"] as Vector2, placed["column"] as Dictionary, p)
+		if cell == null:
+			continue
+		return BagGrid.item_at(placed["column"] as Dictionary, cell as Vector2i)
+	return null
 
 
 # A number key on the quick strip. The mapping lives here rather than in main.gd so the row you
@@ -292,6 +443,12 @@ func _columns() -> Array:
 	var by_id: Dictionary = {}
 	for entry in _view.get("containers", []) as Array:
 		by_id[int((entry as Dictionary)["container"])] = entry
+	# What you are standing at goes first, above what you are carrying: it is the thing you opened
+	# the screen for, and it is the only column that is not yours. `inventory_view` never mentions
+	# it -- a cupboard is not a reachable container of the survivor's -- so it comes from the
+	# container module's own view.
+	if _world != null and not _open_here().is_empty():
+		out.append(_open_here())
 	if by_id.has(_actor):
 		out.append(by_id[_actor])
 	var worn: Dictionary = {}
@@ -313,6 +470,14 @@ func _columns() -> Array:
 # A bag that is no longer reachable -- dropped, given away, eaten by a fire -- leaves no column
 # behind. Pruned against the view rather than against an event, because the view is the one
 # statement of what is carried and an event would be a second one to keep in step.
+# The container the survivor is standing at, as a column. Pulled fresh rather than cached, because
+# the whole thing changes every time something moves in or out of it.
+func _open_here() -> Dictionary:
+	if _world == null or _actor < 0:
+		return {}
+	return SimContainers.open_view(_world, _actor)
+
+
 func _prune() -> void:
 	var live: Dictionary = {}
 	for entry in _view.get("containers", []) as Array:

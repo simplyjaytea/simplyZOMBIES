@@ -11,6 +11,7 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
@@ -433,9 +434,13 @@ func _input(event: InputEvent) -> void:
 				# Dismiss-only: Enter closes the legend but never opens anything.
 				if _legend != null and _legend.visible: _legend.visible = false
 			KEY_ESCAPE:
-				# Escape peels layers in order: the legend first, then settings toggles.
+				# Escape peels layers in order: the legend, then an open container, then
+				# settings. The container before settings because it is the thing you most
+				# recently opened, and closing it is what walking away would have done.
 				if _legend != null and _legend.visible:
 					_legend.visible = false
+				elif world != null and _inventory_panel != null and _inventory_panel.has_method("loot_open") and bool(_inventory_panel.call("loot_open")):
+					world.commands.push({"type": "container.close"})
 				elif _settings != null:
 					_settings.visible = not _settings.visible
 			KEY_TAB:
@@ -825,6 +830,11 @@ func _update_hud() -> void:
 		_work_panel.call("set_world", world)
 	# Always refreshed, not only while open: pinned bag windows read the same view during
 	# ordinary play, and a stale pinned bag is a lie about what you are carrying.
+	# The transfer window, fed whether or not the sheet is open: a cupboard you are standing at is
+	# drawn beside your pockets during ordinary play, and the panel hides it while the full sheet
+	# is up (where the same box is a column instead).
+	if _inventory_panel != null and _inventory_panel.has_method("set_loot"):
+		_inventory_panel.call("set_loot", SimContainers.open_view(world, world.player))
 	if _inventory_panel != null and _inventory_panel.has_method("set_world"):
 		_inventory_panel.call("set_world", world, world.player)
 

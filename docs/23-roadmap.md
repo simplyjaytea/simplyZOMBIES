@@ -444,8 +444,6 @@ session, each with its gate red both ways and its record.
   at all to anybody else. The fix is a smaller predicate than `searched` — "has contents and is
   not claimed" — and it moves what colonists scavenge, so it is a **measured** piece rather than
   a one-line filter change.
-- **The transfer window.** The box's grid beside the pockets while you stand at it, with a "take
-  all that fits" word and Esc to close: a loot stop that does not leave the district.
 - **The tag beside the pawn.** One short digit-free line on the player's own body — "favouring
   the left arm · bleeding" — from the condition view and the bleed clause, empty when there is
   nothing to say. The corner column keeps its lines; name plates stay refused.
@@ -5057,6 +5055,27 @@ not a to-do list:
   path-to-type mapping `content_validator` makes. Three lanes were red on that one cause.
   The half this deliberately does not fix — a colonist never going back for what the player left
   in a box — is named in [what's left](#whats-left-in-milestone-2) as its own measured piece.
+- **UI** — ~~the transfer window~~ **landed** 2026-09-08 (`godot:check:inventory`'s LOOT lane),
+  the fifth piece of the inventory overhaul and the surface the grid was built for. A container
+  you are standing at reaches the screen twice and never both at once: as the **first column** of
+  the sheet, above what you are carrying — it is the thing you opened the screen for and the only
+  column that is not yours — and as a small **transfer window** beside your pockets while the
+  sheet is closed, so a loot stop never leaves the district. That is docs/12's trade made
+  literal: the risk in a scavenging run is the walk there and the noise on the way back, and a
+  full-screen modal at every cupboard is a player who has stopped looking at the street.
+  **The window is its own Control, and that is the whole trick.** The sheet ignores the mouse
+  while closed; a Control that stopped it over the whole screen would eat the click that swings
+  your axe. The window stops the mouse over exactly its own rect, so everything outside it still
+  reaches the world — and because both grids live inside that one node, a drag from the cupboard
+  to a pocket begins and ends in the same control and needs no forwarding at all, which is
+  precisely what the pinnable bag windows this overhaul deleted could never manage. One clickable
+  word, "take all that fits", in `work_panel.gd`'s idiom; Esc peels the box before the settings
+  sheet, because closing it is what walking away would have done. The lane asserts both surfaces,
+  that only the window stops the mouse, that it is small enough to leave the street visible
+  (judged against the size the game runs at, not the headless viewport, or it would pass by being
+  bigger than the screen it was measured against), and that walking away ends both — plus the
+  reader half textually, and that the legend's E row says *open* rather than *search*, because a
+  player told to search a cupboard will not know a window is coming.
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:
