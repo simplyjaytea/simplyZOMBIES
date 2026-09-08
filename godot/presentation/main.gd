@@ -11,6 +11,7 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
@@ -1790,7 +1791,10 @@ func _draw_entities() -> void:
 				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, cone, 2.8)
 				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), edge, 2.0)
 				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), edge, 2.0)
-	# ground items as small squares — focal only (searching a room is an action)
+	# Ground items — focal only, because searching a room is an action rather than a glance.
+	# What one looks like is `Appearance.item_look`: its own picture when content declares one, and
+	# its class's glyph when it does not. This used to be one ten-pixel square for everything, so
+	# an axe on the floor and a bandage on the floor were the same mark.
 	for ent in world.components.query(["position", "itemBase"]):
 		if world.components.has_component(int(ent), "stored"): continue
 		var p: Variant = world.components.get_component(int(ent), "position")
@@ -1799,9 +1803,17 @@ func _draw_entities() -> void:
 		if world.vision != null and int(world.vision.detail(int(world.player), ix, iy)) != SimVisibility.Detail.Focal:
 			continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, ix, iy)
-		var item_rect := Rect2(float(sc["sx"]) - 5.0, float(sc["sy"]) - 5.0, 10.0, 10.0)
-		draw_rect(item_rect, Palette.COLOURS["groundItem"])
-		draw_rect(item_rect, Palette.COLOURS["groundItemEdge"], false, 1.5)
+		var base: Variant = world.components.get_component(int(ent), "itemBase")
+		var look: Dictionary = Appearance.item_look(world, String((base as Dictionary).get("baseId", "")) if base is Dictionary else "")
+		# Sized off the tile, not a constant: an item is about a third of a tile at every step of
+		# the zoom ladder, the way a body is a fraction of one.
+		var item_px: float = maxf(10.0, float(camera["zoom"]) * 0.34)
+		var item_rect := Rect2(float(sc["sx"]) - item_px * 0.5, float(sc["sy"]) - item_px * 0.5, item_px, item_px)
+		var art: Texture2D = look["texture"] as Texture2D
+		if art != null:
+			draw_texture_rect(art, item_rect, false, look["tint"] as Color if bool(look["declaredTint"]) else Color.WHITE)
+		else:
+			ItemGlyph.draw_glyph(self, item_rect, int(look["glyph"]), look["tint"] as Color)
 	# last-known marks fading. The positions are the *simulation's* memory, not a second copy
 	# kept by the renderer: a mark on the ground and a colonist's decision to shoot at one have
 	# to be the same recollection, or the mark is telling the player something nobody in the

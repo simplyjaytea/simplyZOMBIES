@@ -429,9 +429,13 @@ gains a reader** with a drawn class glyph until per-base art exists; and **the p
 pixel body chart** through `tools/sprites`. The pieces below are in the order they land, each one
 session, each with its gate red both ways and its record.
 
-- **Item glyphs, and the twelfth dead socket closed.** `Appearance.item_look` resolves
-  `appearance.sprite` when a base declares one and falls back to a drawn shape per item class;
-  the grid and the ground both draw through it, and the ground's fixed ten-pixel square goes.
+- **A picture per item base.** The glyph piece gave `appearance.sprite` a reader and every base
+  a shape chosen by its class; what it did not give anybody is a fire axe that looks like a fire
+  axe. One 32 px picture per shipped base, generated in a new `tools/sprites/parts/items.py`
+  against the ground-item canvas, each declared as its base's `sprite` key, judged by
+  `npm run sprites:check` and `check_appearance`'s ITEMS lane (which already refuses a declared
+  key with no file behind it). The classes that matter first are the ones a player sorts a bag
+  by at a glance: weapons, food, dressings, ammunition.
 - **The cupboard is a grid.** A world container gains the same `container` component a pack has,
   rolled once on first open (`searched` still set and never cleared — depletion is unchanged),
   so taking things out of it is an ordinary `item.move` under a reach guard. Wants
@@ -4991,6 +4995,27 @@ not a to-do list:
   "Kit…", which looks like a defect and says less than the footprint — a name is drawn only where
   enough of one fits, and the glyph piece fills that space next. Screenshot for the owner under
   `.hermes/plans/2026-09-08_inventory-sheet/`.
+- **Items** — ~~item glyphs, and the twelfth dead socket closed~~ **landed** 2026-09-08
+  (`godot:check:appearance`'s new ITEMS lane), the third piece of the inventory overhaul.
+  `item.appearance.sprite` had been in the schema since the appearance pipeline landed and was
+  read by nothing: a dropped fire axe and a dropped bandage were the same fixed ten-pixel square,
+  which is why docs/23 named it the milestone's **twelfth dead socket**. `Appearance.item_look`
+  is the reader, and it answers in three: a declared `sprite` that resolves to a file wins, a
+  declared `tint` colours whatever is drawn, and a base with no art at all draws its **class's**
+  glyph in the ground-item role colour. Keyed by class and never by id — a table of sixty ids in
+  the draw loop is the `if id ==` branch the appearance block exists to have deleted, so
+  `presentation/item_glyph.gd` holds one shape per class from `item.schema.json`'s own enum (a
+  bar, an elbow, a box, a disc, a slab, a shield, a tee, a ring) and an unknown class falls back
+  rather than vanishing. **The ground and the grid call the same function**, so a thing in a bag
+  and the same thing on the floor cannot look like two different objects, and the ground marker
+  is now sized off the tile (about a third of one) rather than fixed at ten pixels, so it holds
+  its proportion across the zoom ladder. The lane asserts declared art *and* the fallback, that
+  eight classes give eight distinct shapes, that an unknown class degrades — and then the
+  dead-socket half textually: `main.gd` calls `item_look`, `bag_grid.gd` calls it, and the fixed
+  square is gone. Because no shipped base declares a key yet, the resolving half is proved
+  against a fabricated entry borrowing a committed prop sprite rather than skipped: a socket
+  judged by nothing until some later slice is how the first one stayed dead. The picture per base
+  is the next piece, in [what's left](#whats-left-in-milestone-2).
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:

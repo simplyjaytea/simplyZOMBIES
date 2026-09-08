@@ -12,6 +12,7 @@ const ContentLoader = preload("res://platform/content_loader.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
+const ItemGlyph = preload("res://presentation/item_glyph.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 const HEX := "^#[0-9a-f]{6}$"
@@ -32,8 +33,9 @@ func _run() -> void:
 	ok = _art_is_not_modulated_by_a_role_colour() and ok
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
+	ok = _items_look_like_something() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists compose grey x tint over the ground")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists compose grey x tint over the ground, items resolve art or a class glyph")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -852,4 +854,103 @@ func _props_look_like_something() -> bool:
 		push_error("an unauthored prop id should still be drawable as the default shape with no texture")
 		return false
 	print("PROPS OK %d ids, %d with art drawn unstained at their declared footprint, distinct looks, both state pairs different pictures, unknown id degrades" % [ids.size(), textured])
+	return true
+
+
+# --- ITEMS --------------------------------------------------------------------------------
+
+# `item.appearance.sprite` was declared in the schema and read by nothing: docs/23 named it the
+# twelfth dead socket of the milestone, and a dropped fire axe drew the same ten-pixel square as a
+# dropped bandage. `Appearance.item_look` is the reader, and this lane holds down what it must do:
+# resolve declared art, fall back to a shape chosen by the item's **class**, and never branch on an
+# id -- which is the rule the whole appearance block exists to enforce.
+func _items_look_like_something() -> bool:
+	var w: Variant = World.new({"seed": 4242, "tick_hz": 20, "map": {"width": 8, "height": 8, "walls": []}, "player": {"id": 0, "x": 1.5, "y": 1.5, "stance": 2}})
+
+	# True positive: a base that declares a key with a file behind it resolves a texture. No
+	# shipped item declares one yet, so the assertion is made against a fabricated entry rather
+	# than skipped -- otherwise the resolving half of this function is judged by nothing until the
+	# art slice lands, which is exactly how a socket stays dead.
+	var borrowed: String = ""
+	for key in ["prop_container", "prop_campfire", "prop_bed"]:
+		if Appearance.resolve(key) != null:
+			borrowed = key
+			break
+	if borrowed.is_empty():
+		push_error("no committed sprite to borrow, so the resolving half of item_look cannot be judged")
+		return false
+	var tree: Dictionary = w.content as Dictionary
+	tree["items/_gate_fixture.json"] = [
+		{"id": "item.gate.painted", "name": "Painted Thing", "class": "tool", "size": {"w": 1, "h": 1}, "massKg": 0.1,
+			"appearance": {"sprite": borrowed, "tint": "#8a9a5b"}},
+		{"id": "item.gate.bare", "name": "Bare Thing", "class": "weapon.melee", "size": {"w": 1, "h": 1}, "massKg": 0.1},
+	]
+	w.content_resolved = {}
+
+	var painted: Dictionary = Appearance.item_look(w, "item.gate.painted")
+	if painted["texture"] == null:
+		push_error("a base declaring sprite \"%s\" resolved no texture; appearance.sprite is still read by nothing" % borrowed)
+		return false
+	if not bool(painted["declaredTint"]) or (painted["tint"] as Color) != Color("#8a9a5b"):
+		push_error("a declared item tint did not reach the look: %s" % str(painted["tint"]))
+		return false
+
+	# True negative: no art, so a glyph and the ground-item role colour. "Role colours are the
+	# floor" is the same rule every other fallback in this file follows.
+	var bare: Dictionary = Appearance.item_look(w, "item.gate.bare")
+	if bare["texture"] != null:
+		push_error("a base declaring no sprite resolved a texture anyway")
+		return false
+	if bool(bare["declaredTint"]) or (bare["tint"] as Color) != Palette.COLOURS["groundItem"]:
+		push_error("a base with no tint should fall back to the ground-item colour, got %s" % str(bare["tint"]))
+		return false
+
+	# The glyph is chosen by class, and different classes are different shapes -- one shape for
+	# everything would satisfy "has a glyph" and tell the player nothing.
+	var seen: Dictionary = {}
+	for pair in [["weapon.melee", "a bat"], ["weapon.ranged", "a pistol"], ["container", "a pack"],
+			["consumable", "a tin"], ["material", "scrap"], ["armor", "a vest"], ["tool", "a lamp"],
+			["attachment", "a scope"]]:
+		var shape: int = ItemGlyph.shape_for(String((pair as Array)[0]))
+		seen[shape] = String((pair as Array)[1])
+	if seen.size() < 6:
+		push_error("eight item classes resolved only %d distinct glyphs" % seen.size())
+		return false
+	if ItemGlyph.shape_for("not_a_class_anybody_wrote") != ItemGlyph.DEFAULT:
+		push_error("an unknown item class did not fall back to the default glyph")
+		return false
+
+	# Every shipped base resolves a look, and every shipped class is one this table knows about.
+	var bases: int = 0
+	var classes: Dictionary = {}
+	for path in (w.content as Dictionary).keys():
+		if not String(path).begins_with("items/") or String(path).find("_gate_fixture") >= 0:
+			continue
+		for entry in (w.content as Dictionary)[path] as Array:
+			var d: Dictionary = entry as Dictionary
+			var look: Dictionary = Appearance.item_look(w, String(d.get("id", "")))
+			if not look.has("glyph"):
+				push_error("%s resolved no look at all" % String(d.get("id", "")))
+				return false
+			classes[String(d.get("class", ""))] = true
+			bases += 1
+	for cls in classes.keys():
+		if not ItemGlyph.BY_CLASS.has(String(cls)):
+			push_error("shipped class \"%s\" has no glyph of its own and draws the default" % String(cls))
+			return false
+
+	# The dead-socket half, and the point of the lane: the two places that draw an item both call
+	# this, and the fixed square the ground loop used is gone. Textual, because "something reads
+	# it" is what a dead socket is about and a resolver nobody calls resolves correctly forever.
+	var main_src: String = FileAccess.get_file_as_string("res://presentation/main.gd")
+	if main_src.find("Appearance.item_look") < 0:
+		push_error("the ground-item loop does not call Appearance.item_look")
+		return false
+	if main_src.find("Rect2(float(sc[\"sx\"]) - 5.0") >= 0:
+		push_error("the ground-item loop still draws the fixed ten-pixel square")
+		return false
+	if FileAccess.get_file_as_string("res://ui/bag_grid.gd").find("Appearance.item_look") < 0:
+		push_error("the inventory grid does not call Appearance.item_look, so a bag and the floor can disagree about a thing")
+		return false
+	print("ITEMS OK %d bases resolve a look, %d classes have %d distinct glyphs, declared art and tint win, and the ground and the grid both read it" % [bases, classes.size(), seen.size()])
 	return true

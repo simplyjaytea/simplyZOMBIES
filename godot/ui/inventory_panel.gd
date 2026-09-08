@@ -657,7 +657,7 @@ func _draw_columns_into(ci: CanvasItem) -> void:
 				note = "on you"
 			elif _opened.has(int(d.get("container", -1))):
 				note = "opened"
-			BagGrid.draw_bag(ci, at - area.position, d, alpha, _drag_item, note)
+			BagGrid.draw_bag(ci, at - area.position, d, alpha, _drag_item, note, _world)
 			var sel: Variant = _selected_in(d)
 			if sel is Dictionary:
 				origin_for_selected = {"origin": BagGrid.origin_of(at - area.position), "item": sel}
@@ -673,7 +673,7 @@ func _draw_columns_into(ci: CanvasItem) -> void:
 	# The selection ring last, so it is never painted over by the next bag's panel.
 	if origin_for_selected is Dictionary:
 		var o: Dictionary = origin_for_selected as Dictionary
-		BagGrid.draw_item(ci, o["origin"] as Vector2, o["item"] as Dictionary, alpha, true)
+		BagGrid.draw_item(ci, o["origin"] as Vector2, o["item"] as Dictionary, alpha, true, _world)
 
 
 func _selected_in(column: Dictionary) -> Variant:

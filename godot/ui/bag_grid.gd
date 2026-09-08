@@ -12,6 +12,8 @@ extends RefCounted
 
 const Chrome = preload("res://ui/chrome.gd")
 const UiText = preload("res://ui/text.gd")
+const Appearance = preload("res://presentation/appearance.gd")
+const ItemGlyph = preload("res://presentation/item_glyph.gd")
 
 const CELL: int = 56
 const PAD: float = 10.0
@@ -31,7 +33,7 @@ static func origin_of(at: Vector2) -> Vector2:
 
 # The whole thing: panel, header, empty cells, then the items. `exclude` is the item being dragged,
 # which is drawn under the cursor instead of in its old home.
-static func draw_bag(ci: CanvasItem, at: Vector2, column: Dictionary, alpha: float, exclude: int, note: String) -> void:
+static func draw_bag(ci: CanvasItem, at: Vector2, column: Dictionary, alpha: float, exclude: int, note: String, world: Variant = null) -> void:
 	var w: int = int(column.get("w", 0))
 	var h: int = int(column.get("h", 0))
 	var rect := Rect2(at, size_of(w, h))
@@ -49,12 +51,12 @@ static func draw_bag(ci: CanvasItem, at: Vector2, column: Dictionary, alpha: flo
 		var d: Dictionary = entry as Dictionary
 		if int(d.get("item", -1)) == exclude:
 			continue
-		draw_item(ci, origin, d, alpha, false)
+		draw_item(ci, origin, d, alpha, false, world)
 
 
 # One item plate. `highlight` is the selection ring the inspect pane's subject wears, so what the
 # pane is talking about and what you clicked cannot look like two different things.
-static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: float, highlight: bool) -> void:
+static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: float, highlight: bool, world: Variant = null) -> void:
 	var iw: int = int(d.get("w", 1))
 	var ih: int = int(d.get("h", 1))
 	var at: Vector2 = origin + Vector2(float(int(d.get("x", 0)) * CELL) + 4.0, float(int(d.get("y", 0)) * CELL) + 4.0)
@@ -64,6 +66,21 @@ static func draw_item(ci: CanvasItem, origin: Vector2, d: Dictionary, alpha: flo
 		var ring: Color = Chrome.ACCENT
 		ring.a = minf(1.0, alpha + 0.1)
 		ci.draw_rect(plate, ring, false, 2.0)
+	# The picture, through the same resolver the floor uses: a thing in a bag and the same thing
+	# dropped on the ground must not be able to look like two different objects.
+	if world != null:
+		var look: Dictionary = Appearance.item_look(world, String(d.get("baseId", "")))
+		var box: float = minf(plate.size.x, plate.size.y) * 0.78
+		var art_rect := Rect2(plate.get_center() - Vector2(box, box) * 0.5, Vector2(box, box))
+		var art: Texture2D = look["texture"] as Texture2D
+		if art != null:
+			var modulate: Color = (look["tint"] as Color) if bool(look["declaredTint"]) else Color.WHITE
+			modulate.a = alpha
+			ci.draw_texture_rect(art, art_rect, false, modulate)
+		else:
+			var tint: Color = look["tint"] as Color
+			tint.a = alpha
+			ItemGlyph.draw_glyph(ci, art_rect, int(look["glyph"]), tint)
 	# A name only where enough of one fits to be read. On a single cell "Kitchen Knife" trims to
 	# "Kit…", which looks like a defect and says less than the footprint already does; the inspect
 	# pane is where the name lives, and the glyph is what a one-cell plate carries.
