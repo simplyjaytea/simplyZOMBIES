@@ -63,6 +63,12 @@
       "maximum": 1,
       "description": "What a shambler's speed is multiplied by (SimShambler._speed_of, the one read). docs/16's cold: 'the only state that weakens them directly'."
     },
+    "sightMul": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "What every observer's sight range and a zombie's sight reach are multiplied by. docs/16's fog: 'sight range collapses both ways'."
+    },
     "spoilageMul": {
       "type": "number",
       "exclusiveMinimum": 0,

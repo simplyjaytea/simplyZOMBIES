@@ -65,7 +65,11 @@ extends RefCounted
 # departures as records the screen reads as prose -- joined the snapshot. A v24 save has none:
 # restored, it would come back with a colony that remembers nothing of who it lost, and every
 # `entity.killed` for an already-dead colonist would be news again. Refused, same rule.
-const SAVE_VERSION: int = 25
+# 26: fog, the seventh weather kind. No new `world.weather` key, but `kinds()` is sorted and
+# `fog` now sits between `cold_snap` and `heat_wave`, so the `weather` stream's kind roll
+# accumulates in a different order: a v25 save restored into a v26 world would draw a different
+# sky off the same spent stream. Refused, same rule.
+const SAVE_VERSION: int = 26
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:
