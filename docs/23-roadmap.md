@@ -415,6 +415,48 @@ group above amend this arc's mood, wall and pawn clauses; the pieces below stand
   never an `if id ==` in the draw loop. Wants the nested-shape gate every content block wants,
   because the validator does not recurse.
 
+**The inventory sheet and the screens — decided by the owner (2026-09-08).** The inventory is
+mechanically complete and gated, and the screen reaches four of its commands: `item.move`,
+`item.equip`, `item.unequip` and `item.use`. The owner opened an overhaul from four mockups and
+decided it in six answers, recorded in docs/30's "The inventory sheet": the Tab screen becomes a
+**fixed sheet** in `ui/chrome.gd`'s surplus skin — body and twelve slots left, one column of bag
+grids in a fixed order in the middle, an inspect pane of words right, a quick strip of belt and
+pocket items along the bottom, and a drawn word menu on right-click — the floating, pinnable bag
+windows go; **looting happens in a small in-play window** rather than the whole screen; **the
+condition words move onto the player's own pawn**; **the quick strip takes 1–6** and game speed
+moves to `-` and `=`; **every item base gets a `description` sentence**; **`appearance.sprite`
+gains a reader** with a drawn class glyph until per-base art exists; and **the paperdoll becomes a
+pixel body chart** through `tools/sprites`. The pieces below are in the order they land, each one
+session, each with its gate red both ways and its record.
+
+- **The words the sheet reads.** `SimInventory.inspect_view`, `verbs_for` and `quick_strip_view`;
+  `SimItems.description_of` over a new optional `description` in `item.schema.json` with a
+  class-and-slot fallback for a base that has none; `SimNeeds.can_use` as the one predicate the
+  menu and the intake share; `SimTreatment.use_supply`, which is the T ladder narrowed to the
+  item you pressed. The gate is new — `npm run godot:check:inventory`, `INVENTORY_OK`.
+- **The fixed sheet.** The layout above, in `ui/inventory_panel.gd` with `ui/bag_grid.gd`,
+  `ui/inspect_pane.gd`, `ui/item_menu.gd` and `ui/quick_strip.gd` beside it;
+  `ui/container_window.gd`, the stored window positions in `ui/prefs.gd` and the pinned-bag
+  opacity slider are deleted with it.
+- **Item glyphs, and the twelfth dead socket closed.** `Appearance.item_look` resolves
+  `appearance.sprite` when a base declares one and falls back to a drawn shape per item class;
+  the grid and the ground both draw through it, and the ground's fixed ten-pixel square goes.
+- **The cupboard is a grid.** A world container gains the same `container` component a pack has,
+  rolled once on first open (`searched` still set and never cleared — depletion is unchanged),
+  so taking things out of it is an ordinary `item.move` under a reach guard. Wants
+  `container.open` / `close` / `takeAll`, `SimContainers.open_view`, a grid size per kind in new
+  content, and a save bump.
+- **The transfer window.** The box's grid beside the pockets while you stand at it, with a "take
+  all that fits" word and Esc to close: a loot stop that does not leave the district.
+- **The tag beside the pawn.** One short digit-free line on the player's own body — "favouring
+  the left arm · bleeding" — from the condition view and the bleed clause, empty when there is
+  nothing to say. The corner column keeps its lines; name plates stay refused.
+- **The pixel body chart.** The procedural figure in `ui/paperdoll.gd` reads as alien at the size
+  the sheet draws it (the owner's call, 2026-09-08). Ten parts by three poses generated in
+  `tools/sprites/parts/paperdoll.py` on their own canvas, each modulated by the part's state
+  tint, the armour stroke and the wound and infection marks kept. Judged by `npm run
+  sprites:check` and a `check_appearance` lane, and arbitrated by a screenshot.
+
 **UI:**
 
 - **Condition and stamina readouts in the world, not a corner.** The diegetic half of the prose

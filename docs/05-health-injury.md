@@ -122,16 +122,14 @@ The condition view is a **paperdoll**: the parts from the table above — head, 
 right of arms, hands, legs, and feet — laid out as a body, with located conditions sitting on the
 part they are on. That is the entire idea.
 
-It shares one compact survivor panel with equipment rather than occupying a second screen. Two tabs
-reuse the exact same body and posture:
+It shares one compact survivor panel with equipment rather than occupying a second screen, and it
+is **one view rather than two tabs** — the owner's call of 2026-08-19, kept by the 2026-09-08
+overhaul. The equipment slots flank the figure as real worn and held drop targets; the same body
+carries the region tints; and the prose for anything wrong with it sits under the figure, with the
+responses the sim offers as clickable words beneath that.
 
-- **Equipment** arranges real worn/held drop targets around the figure.
-- **Injuries** removes those slots, keeps the same region tints, and shows diagnosis prose for the
-  selected body region in a fixed details area.
-
-The selected survivor, posture, and region tints do not change when switching views. The player can
-therefore move directly between *what is wrong?* and *what protects it?* without reconciling two body
-diagrams.
+There is nothing to switch between, which is the point: *what is wrong?* and *what protects it?*
+are answered by one diagram, so there are never two body pictures to reconcile.
 
 The body is an **anonymous outline, drawn flat on**, and its posture is whichever
 [stance](29-movement-and-stances.md) the survivor is on — standing, crouched, or lying down. It is

@@ -2941,6 +2941,74 @@ the eight-rig envelope (the spear tip stops under the screamer's crown on purpos
 composed margin of +0.018 — thinner than the +0.022 of the tall rig, still the owner's to
 widen, and quantised to about a byte as before. Nothing under `godot/sim/` moved.
 
+## The inventory sheet, 2026-09-08
+
+The inventory has been mechanically complete since Milestone 1 — a grid per container, twelve
+equipment slots, nesting to depth three, attachments, modification, eighty-nine bases — and the
+screen has never reached more than four of its commands. The owner opened an overhaul from four
+mockups and decided it in six answers. Each is recorded here because each will look arbitrary
+to the next session, and none of them is.
+
+- **The Tab screen is a fixed sheet, not a desktop.** Every carried container has been its own
+  window since 2026-08-19 — draggable, pinnable, its position remembered per label in
+  `user://ui_prefs.json`. That bought quick pouches usable during play and cost a screen where
+  two bags could stack on each other (they did: the pockets spent a session under a hiking
+  pack, which is why `_alloc_default` exists at all). The pick is one fixed layout: the body
+  and its twelve slots on the left, one **column of bag grids in a fixed order** — pockets,
+  belt, vest, back, then any nested container the player has opened — in the middle, an
+  **inspect pane of words** on the right, and a **quick strip** along the bottom. `prefs.gd`
+  keeps the opacity slider and loses `windows`; `pinned_opacity` goes with the pinning. What
+  the pinning bought is bought instead by the quick strip, which is on screen during play and
+  is the same belt and pockets.
+- **A verb is present or absent, never greyed.** Right-click opens a drawn word menu built from
+  `SimInventory.verbs_for`, which asks the sim whether each command would succeed. This is
+  `work_panel.gd`'s idiom and `SimTreatment.response_view`'s contract: a thing you cannot do is
+  not there, rather than there with a reason beside it. The rule that keeps it honest is that
+  the predicate the menu asks is the *same function* the intake runs — `SimNeeds.can_use` is
+  extracted out of `use_item` rather than written twice, because two copies of "can you eat
+  this" is the shape every dead socket in this milestone has had.
+- **Looting is a small window, not the whole screen.** A cupboard has been a HUD sentence and an
+  instant scatter onto the floor since site depletion landed. It becomes a real container with
+  a grid, opened by the same E ladder, drawn beside the pockets **without leaving the
+  district**. The reason is the trade docs/12 is built on: the risk in a scavenging run is the
+  walk there and the noise on the way back, and a full-screen modal at every cupboard is a
+  player who stops looking at the street. The full sheet still shows it when you open it there.
+- **The condition words move onto the pawn — one body, the player's own.** docs/23 has asked
+  for "condition and stamina readouts in the world, not a corner" since the prose contract
+  landed. What ships is one short digit-free line beside the player's own body and nothing
+  above anybody else's: a line over every pawn is a **name plate**, refused with the Dungeon
+  Settlers HUD on 2026-09-03 and refused again here. The corner column keeps its lines, because
+  `check_hud`'s quiet-survivor and selected-colonist lanes are what prove the prose contract and
+  a tag that replaced them would leave those lanes with nothing to judge.
+- **The quick strip takes 1–6; game speed moves to `-` and `=`.** Numbers on a hotbar are the
+  one place a digit on the screen is not a measurement — it is a key's name — and the strip
+  shows a stack count for the same reason the grid does (docs/10: counting discrete objects is
+  not uncertainty collapsed). Speed had 1/2/3 and moves rather than sharing, because a key that
+  means two things mid-fight is the bug the E ladder was built to avoid. Pressing a strip key
+  on a bandage does not open a menu: it is `treat.context` with the rung chosen by what you
+  pressed, so the T ladder and the strip cannot disagree about what first aid means.
+- **How a thing looks is content, still — and a class glyph is the fallback.**
+  `item.appearance.sprite` has been in the schema since the appearance pipeline landed and read
+  by nothing (the milestone's twelfth dead socket; a dropped item is a fixed ten-pixel square).
+  It gains a reader, `Appearance.item_look`, resolving the declared key when there is art and
+  falling back to **one drawn shape per item class** — never an `if id ==` branch, which is the
+  rule that entry exists to keep. Per-base pictures are their own slice; the socket closes now.
+- **The paperdoll becomes a pixel body chart.** Asked to judge the drawn figure at the size the
+  sheet draws it, the owner's word was "too alien". The procedural body is one file and every
+  proportion in it is a constant, so re-proportioning was the cheap answer and was offered; the
+  owner picked the chart. Ten parts by three poses generated in `tools/sprites`, each part
+  modulated by its state tint — which is a colour on a shape, not a fill on a bar, and so still
+  inside the ban the condition view enforces. The armour stroke, the wound and infection marks
+  and the stance word are unchanged; `godot:ban:healthbar` never sees this file, because the
+  doll reads `SimCondition.view` and nothing else, which is the whole reason the ban is
+  mechanical there rather than here.
+
+**What this does not change.** The health-bar ban and the digit ban (`godot:ban:healthbar`,
+`godot:check:hud`); the grid as the honest picture of capacity, with weight never printed
+(docs/10); site depletion, which stays "rolled once, `searched` never cleared"; and the sim's
+ignorance of presentation — every new read model returns words and shapes, and every player act
+still goes through the command queue.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

@@ -202,11 +202,14 @@ that would collapse this uncertainty into a number", and a capacity bar is exact
 the same information rendered as shape.** You do not read that the pack is 78% full; you see that the
 axe no longer fits.
 
-Inventory and the [condition view](05-health-injury.md#the-condition-view) now share one survivor
-panel with **Equipment / Injuries** tabs. Both satisfy clause 4 by being layouts rather than
-measurements: equipment slots surround the same body whose regions carry injury tint and prose.
-Weight survives as the second, invisible pressure: it is never printed, and you learn you are
-overloaded because you are walking slower.
+Inventory and the [condition view](05-health-injury.md#the-condition-view) share one survivor
+sheet — one view, not two tabs, since the owner's 2026-08-19 call, and a fixed layout since the
+2026-09-08 overhaul (docs/30's "The inventory sheet"): the body and its slots on the left, a
+column of bag grids in the middle, a pane of words about the selected item on the right, and the
+belt and pockets as a quick strip along the bottom. Both halves satisfy clause 4 by being layouts
+rather than measurements: equipment slots flank the same body whose regions carry injury tint and
+prose. Weight survives as the second, invisible pressure: it is never printed, and you learn you
+are overloaded because you are walking slower.
 
 The one number on the screen is a stack count. Knowing you have three bandages is not uncertainty
 being collapsed; it is counting discrete objects.
