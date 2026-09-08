@@ -436,11 +436,14 @@ session, each with its gate red both ways and its record.
   `npm run sprites:check` and `check_appearance`'s ITEMS lane (which already refuses a declared
   key with no file behind it). The classes that matter first are the ones a player sorts a bag
   by at a glance: weapons, food, dressings, ammunition.
-- **The cupboard is a grid.** A world container gains the same `container` component a pack has,
-  rolled once on first open (`searched` still set and never cleared — depletion is unchanged),
-  so taking things out of it is an ordinary `item.move` under a reach guard. Wants
-  `container.open` / `close` / `takeAll`, `SimContainers.open_view`, a grid size per kind in new
-  content, and a save bump.
+- **Colonists finish a cupboard the player started.** A box is `searched` from its first open,
+  and `jobs._scavenge_work` filters on exactly that — so a cupboard the player opened, took two
+  things out of and walked away from is invisible to every colonist forever. It was true of the
+  old scatter too (the floor kept the rest, and Haul carried it), and it is newly *visible* now
+  that a half-full box says "there's still something in this cupboard" to the player and nothing
+  at all to anybody else. The fix is a smaller predicate than `searched` — "has contents and is
+  not claimed" — and it moves what colonists scavenge, so it is a **measured** piece rather than
+  a one-line filter change.
 - **The transfer window.** The box's grid beside the pockets while you stand at it, with a "take
   all that fits" word and Esc to close: a loot stop that does not leave the district.
 - **The tag beside the pawn.** One short digit-free line on the player's own body — "favouring
@@ -5016,6 +5019,44 @@ not a to-do list:
   against a fabricated entry borrowing a committed prop sprite rather than skipped: a socket
   judged by nothing until some later slice is how the first one stayed dead. The picture per base
   is the next piece, in [what's left](#whats-left-in-milestone-2).
+- **Inventory** — ~~the cupboard is a grid~~ **landed** 2026-09-08 (`godot:check:loot`'s
+  CONTAINER lane rewritten and six lanes beside it — TRANSFER, TAKE ALL, NPC, STREAM, PROSE,
+  SIZES — plus `godot:m2:save`'s CONTAINER SAVE; `SAVE_VERSION` 26 → 27), the fourth piece of
+  the inventory overhaul. A world container was a `searchable` and a HUD sentence: E tipped its
+  table onto the floor and you picked the floor up. It is now **the same `container {w, h,
+  items}` component a pack carries**, which is the whole design of the slice — taking something
+  out of a cupboard is an ordinary `item.move`, and footprints, rotation, nesting, stacking and
+  the fit test all work on it for free. A second kind of container would have needed its own fit
+  test, and two fit tests is one of them being wrong.
+  **The table is rolled on the first open and never again**; `searched` is still set once and
+  cleared by nothing, so docs/12's cut of respawn timers is exactly as mechanical as it was.
+  `SimLoot.roll` is `scatter` minus the position writes and `scatter` now calls it, so the draw
+  sequence is unchanged — and STREAM proves it the cheap way rather than the expensive one: two
+  worlds on one seed, one scattering the table at boot and one opening it out of a cupboard, draw
+  the same things in the same order. That is what keeps a balance claim off this slice; the
+  harness would have said the same at 4.5 minutes a run.
+  **The reach guard is what the grid cost.** `item.move` has never known who was moving the item,
+  which was safe while every reachable container was on the actor's own body. `SimInventory`
+  now refuses a move touching a `searchable` unless a controlled actor has that box open and is
+  standing in reach — `opening {container}`, an entity id stored as a *value* so it survives the
+  save (a Dictionary keyed by one does not). TRANSFER asserts the positive and both negatives,
+  including that walking away closes the box, and that a pocket-to-pocket move still takes the
+  fast path.
+  **Three states of prose, not two**: worth going through, still something in it, already been
+  through — a half-full cupboard was a lie the screen had no way to avoid before. **Grid size per
+  kind is content** (`content/containers/`, a new schema, seventeen kinds), matched on the word
+  the district already uses; SIZES asserts every kind a shipped district or template names has a
+  size and that an unsized one still opens at a small default, which is the findability rule
+  `check_m2_gear` applies to items. **NPCs are unchanged in what they do**: `search` opens the box
+  and tips it onto the floor where `jobs._haul_work` has always looked, and `godot:m2:jobs`'
+  SCAVENGE lane passed untouched.
+  **One defect found on the way, and it was older than this slice**: `SimItems.content_entries`
+  duck-typed a flat content tree by a field each entry happens to carry (an affix has a `slot`,
+  an item a `massKg`), so a type with no distinctive field was invisible to it and every cupboard
+  silently opened at the fallback size. It now finds a type by its directory as well, the same
+  path-to-type mapping `content_validator` makes. Three lanes were red on that one cause.
+  The half this deliberately does not fix — a colonist never going back for what the player left
+  in a box — is named in [what's left](#whats-left-in-milestone-2) as its own measured piece.
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:

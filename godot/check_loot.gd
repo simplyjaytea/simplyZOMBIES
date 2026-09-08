@@ -42,6 +42,7 @@ const SimBoot = preload("res://sim/boot.gd")
 const SimLoot = preload("res://sim/loot.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
@@ -82,9 +83,15 @@ func _run() -> void:
 	ok = _quantities_stay_inside_the_range_they_declare() and ok
 	ok = _the_scatter_is_seeded() and ok
 	ok = _a_container_yields_once_and_is_empty_after() and ok
+	ok = _only_somebody_standing_at_it_can_take_from_it() and ok
+	ok = _take_all_takes_what_fits_and_leaves_the_rest() and ok
+	ok = _an_npc_still_empties_it_onto_the_floor() and ok
+	ok = _opening_draws_exactly_what_scattering_drew() and ok
+	ok = _the_prose_has_three_states_and_no_digits() and ok
+	ok = _every_kind_a_district_names_has_a_grid() and ok
 	ok = _every_container_site_stands_in_the_booted_district() and ok
 	if ok:
-		print("LOOT_OK tables and profiles well formed, generated sites resolve and stand open indoors, every location placed, counts inside their bounds, sites seeded and dressing-proof, templates carry their own, tier is a property of the place, a container yields once")
+		print("LOOT_OK tables and profiles well formed, generated sites resolve and stand open indoors, every location placed, counts inside their bounds, sites seeded and dressing-proof, templates carry their own, tier is a property of the place, a container is a grid that yields once, only to somebody standing at it")
 		quit(0)
 	else:
 		push_error("LOOT_FAIL")
@@ -1151,75 +1158,393 @@ func _the_scatter_is_seeded() -> bool:
 # A container is a loot site whose table is rolled when somebody opens it rather than at boot, and
 # **site depletion is that it is rolled once**. docs/12 puts resource respawn timers on the cut
 # list because they "would defuse the expanding-radius pressure, which is load-bearing", so a
-# second search of the same cupboard must yield nothing, forever -- and must say which of the two
-# "nothing"s it is, because "there is nothing here" and "you already emptied this" mean completely
-# different things to somebody deciding whether a building is worth the walk.
+# second open must yield nothing, forever -- and the prose must say which of the three nothings it
+# is, because "there is nothing here", "you emptied this" and "there is still something in it"
+# mean completely different things to somebody deciding whether a building is worth the walk.
+#
+# Since 2026-09-08 a container is also a **grid**: the same `container {w, h, items}` component a
+# pack carries, so taking something out of a cupboard is an ordinary `item.move`. That is what
+# most of this lane is about -- the roll lands in cells rather than on the floor, a move touching
+# it is refused unless somebody is standing at it with it open, and the NPC path still tips
+# everything out where the Haul job looks.
 func _a_container_yields_once_and_is_empty_after() -> bool:
 	var w: Variant = _booted(7788)["world"]
 	var actor: int = int(w.player)
 	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
 
 	# Nothing in reach yet: the refusal must name that, not "already-searched".
-	var empty_handed: Dictionary = SimContainers.search_nearest(w, actor)
+	var empty_handed: Dictionary = SimContainers.open_nearest(w, actor)
 	if bool(empty_handed.get("ok", false)) or String(empty_handed.get("reason", "")) != "nothing-here":
 		push_error("with no container in reach the refusal was %s" % str(empty_handed))
 		return false
 
 	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
-	var before: int = _ground_count(w)
-	var first: Dictionary = SimContainers.search_nearest(w, actor)
+	# The grid comes from content, not from a constant in the module.
+	var grid: Variant = w.components.get_component(box, "container")
+	if not (grid is Dictionary):
+		push_error("a container was stood with no grid in it")
+		return false
+	var want: Dictionary = SimContainers.grid_for_kind(w, "cupboard")
+	if int((grid as Dictionary)["w"]) != int(want["w"]) or int((grid as Dictionary)["h"]) != int(want["h"]):
+		push_error("a cupboard opened at %dx%d rather than the %dx%d its content declares" % [int((grid as Dictionary)["w"]), int((grid as Dictionary)["h"]), int(want["w"]), int(want["h"])])
+		return false
+	if not SimContainers.contents_of(w, box).is_empty():
+		push_error("a container held something before anybody opened it; the roll is supposed to happen on the first open")
+		return false
+
+	var floor_before: int = _ground_count(w)
+	var first: Dictionary = SimContainers.open_nearest(w, actor)
 	if not bool(first.get("ok", false)):
-		push_error("a container in reach refused the first search: %s" % str(first))
+		push_error("a container in reach refused the first open: %s" % str(first))
 		return false
-	var after: int = _ground_count(w)
-	if after <= before:
-		push_error("a searched container yielded nothing: %d items on the ground before and %d after" % [before, after])
+	var held: Array = SimContainers.contents_of(w, box)
+	if held.is_empty():
+		push_error("an opened container yielded nothing into its grid")
 		return false
-	if int(first.get("yielded", 0)) != after - before:
-		push_error("the search reported %d yielded but %d appeared" % [int(first.get("yielded", 0)), after - before])
-		return false
-
-	# Depletion, and the whole point: a second search yields nothing and says why.
-	var second: Dictionary = SimContainers.search_nearest(w, actor)
-	if bool(second.get("ok", false)):
-		push_error("a container was searched twice")
-		return false
-	if String(second.get("reason", "")) != "already-searched":
-		push_error("the second search refused with %s rather than already-searched" % str(second.get("reason", "")))
-		return false
-	if _ground_count(w) != after:
-		push_error("a second search put more on the ground: %d -> %d" % [after, _ground_count(w)])
+	# Into the cells, not onto the floor. A cupboard is six by four, so a residential roll fits.
+	if _ground_count(w) != floor_before:
+		push_error("opening a container put %d items on the floor; they belong in its grid" % [_ground_count(w) - floor_before])
 		return false
 
-	# Reach is real, and it is the true negative for the yield above: the identical container
-	# three metres away refuses, so the first search proves proximity rather than existence.
+	# Depletion, and the whole point: a second open adds nothing and `searched` stays set.
+	var count_before: int = held.size()
+	var second: Dictionary = SimContainers.open(w, actor, box)
+	if not bool(second.get("ok", false)):
+		push_error("a half-full container refused a second open: %s" % str(second))
+		return false
+	if SimContainers.contents_of(w, box).size() != count_before:
+		push_error("a second open rolled the table again: %d -> %d" % [count_before, SimContainers.contents_of(w, box).size()])
+		return false
+
+	# Reach is real, and it is the true negative for the yield above: an identical container three
+	# metres away refuses, so the first open proves proximity rather than existence.
 	var far: int = SimContainers.make_container(w, float(at["x"]) + 3.0, float(at["y"]), "cupboard", "residential")
-	var reached: Dictionary = SimContainers.search(w, actor, far)
+	var reached: Dictionary = SimContainers.open(w, actor, far)
 	if bool(reached.get("ok", false)) or String(reached.get("reason", "")) != "out-of-reach":
-		push_error("a container 3.0 m away was searchable: %s" % str(reached))
+		push_error("a container 3.0 m away was openable: %s" % str(reached))
 		return false
 
-	# And the prose, which is the only thing the player actually gets. No digits: godot:check:hud
-	# allows none on the player HUD but the day counter, and this is a player-facing read model.
-	var said: String = SimContainers.hud_clause(w, actor)
-	if said.find("already been through") < 0:
-		push_error("standing at a searched cupboard, the HUD said \"%s\"" % said)
+	print("CONTAINER OK a cupboard stands at its content grid, rolls %d items into cells on the first open and none onto the floor, adds nothing on the second, and refuses at 3.0 m" % count_before)
+	return true
+
+
+# Moving what is in it, and the guard that had to come with the grid. `item.move` has never known
+# who was moving the item -- safe while every reachable container was on the actor's own body, and
+# a hole the moment one of them is across the room.
+func _only_somebody_standing_at_it_can_take_from_it() -> bool:
+	var w: Variant = _booted(7789)["world"]
+	var actor: int = int(w.player)
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	if not bool(SimContainers.open(w, actor, box).get("ok", false)):
+		push_error("the fixture container would not open")
 		return false
-	for ch in said:
-		if ch >= "0" and ch <= "9":
-			push_error("the container HUD clause carries a digit: \"%s\"" % said)
+	var inside: Array = SimContainers.contents_of(w, box)
+	if inside.is_empty():
+		push_error("the fixture container is empty")
+		return false
+	var item: int = int(inside[0])
+
+	# True positive: the actor standing at it, with it open, may take from it through the ordinary
+	# command the screen pushes.
+	w.commands.push({"type": "item.move", "item": item, "container": actor, "x": 0, "y": 0, "rotated": false})
+	w.step()
+	if not SimInventory.owns(w, actor, item):
+		push_error("somebody standing at an open cupboard could not take something out of it")
+		return false
+
+	# True negative, one: put it back, close the box, and the same command does nothing.
+	w.commands.push({"type": "item.move", "item": item, "container": box, "x": 0, "y": 0, "rotated": false})
+	w.step()
+	SimContainers.close(w, actor)
+	w.commands.push({"type": "item.move", "item": item, "container": actor, "x": 1, "y": 0, "rotated": false})
+	w.step()
+	if SimInventory.owns(w, actor, item):
+		push_error("a cupboard nobody has open handed its contents over anyway")
+		return false
+
+	# True negative, two: open it, then walk away. `opened_by` closes a box that has gone out of
+	# reach, so the move is refused for distance rather than for the flag.
+	if not bool(SimContainers.open(w, actor, box).get("ok", false)):
+		push_error("the container would not re-open")
+		return false
+	var pos: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	pos["x"] = float(pos["x"]) + 6.0
+	w.commands.push({"type": "item.move", "item": item, "container": actor, "x": 1, "y": 0, "rotated": false})
+	w.step()
+	if SimInventory.owns(w, actor, item):
+		push_error("a cupboard six metres away handed its contents over")
+		return false
+	if SimContainers.opened_by(w, actor) >= 0:
+		push_error("walking away from a cupboard left it open")
+		return false
+
+	# And a move between two things on the actor's own body is nobody's business but the grid's --
+	# the guard must not have broken ordinary inventory handling.
+	pos["x"] = float(pos["x"]) - 6.0
+	SimContainers.open(w, actor, box)
+	w.commands.push({"type": "item.move", "item": item, "container": actor, "x": 0, "y": 0, "rotated": false})
+	w.step()
+	var pocket: Variant = w.components.get_component(item, "stored")
+	if not (pocket is Dictionary) or int((pocket as Dictionary)["container"]) != actor:
+		push_error("the item did not come back to the pockets")
+		return false
+	w.commands.push({"type": "item.move", "item": item, "container": actor, "x": 2, "y": 1, "rotated": false})
+	w.step()
+	var moved: Dictionary = w.components.get_component(item, "stored") as Dictionary
+	if int(moved.get("x", -1)) != 2 or int(moved.get("y", -1)) != 1:
+		push_error("a move inside the actor's own pockets was refused by the world-container guard")
+		return false
+
+	print("TRANSFER OK standing at an open cupboard takes from it; closed, six metres away, and a pocket-to-pocket move each behave as they should")
+	return true
+
+
+# "Take all that fits" is the word on the transfer window, and *that fits* is the honest half: the
+# grid already tells you the axe will not go in, so the verb must not quietly leave you carrying
+# it anyway.
+func _take_all_takes_what_fits_and_leaves_the_rest() -> bool:
+	var w: Variant = _booted(7790)["world"]
+	var actor: int = int(w.player)
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	SimContainers.open(w, actor, box)
+	# Empty it first, then fill it with things that cannot stack and cannot both fit: pockets are
+	# four by two, and a fire axe is two by four. Exactly one axe goes in a pair of pockets.
+	#
+	# The obvious fixture -- a pile of tins -- proves nothing, because `stow` merges stacks before
+	# it looks for space and eleven tins collapse into four cells. That version of this lane went
+	# red saying "take all emptied a box of 11 into eight pocket cells", which was the assertion
+	# being wrong rather than the verb.
+	for existing in SimContainers.contents_of(w, box).duplicate():
+		SimInventory.remove_from_container(w, int(existing))
+		w.despawn(int(existing))
+	for _i in range(3):
+		var axe: int = SimItems.spawn_item(w, "item.axe.fire", {"tier": "scavenged"})
+		SimInventory.store_anywhere(w, axe, box)
+	var in_box: int = SimContainers.contents_of(w, box).size()
+	if in_box != 3:
+		push_error("the fixture box holds %d axes rather than three" % in_box)
+		return false
+
+	w.commands.push({"type": "container.takeAll"})
+	w.step()
+	var left: int = SimContainers.contents_of(w, box).size()
+	var carried: int = SimInventory.carried_items(w, actor).size()
+	if carried == 0:
+		push_error("take all took nothing")
+		return false
+	if left == 0:
+		push_error("take all put three fire axes into eight pocket cells; *that fits* is half the verb")
+		return false
+	if left >= in_box:
+		push_error("take all moved nothing out of the box: %d -> %d" % [in_box, left])
+		return false
+	# And the honest half of the honest half: what stayed behind is still there to come back for.
+	for item in SimContainers.contents_of(w, box):
+		if w.components.get_component(int(item), "position") is Dictionary:
+			push_error("something take all left behind ended up on the floor rather than in the box")
 			return false
-	# The silence half, and it needs its own body rather than reusing one of the containers above:
-	# a container stands at its own position, so asking for its clause always finds itself in
-	# reach and would pass no matter what the reach test did.
+	print("TAKE ALL OK %d fire axes in the box became %d carried and %d left in it, none on the floor" % [in_box, carried, left])
+	return true
+
+
+# The NPC path, unchanged in what it does and rebuilt in how it does it: `search` opens the box
+# and tips every cell onto the floor beside it, because that is where `jobs._haul_work` has always
+# looked and a colonist who scavenged into a grid nobody carries home would be a silent regression
+# in the colony's food supply.
+func _an_npc_still_empties_it_onto_the_floor() -> bool:
+	var w: Variant = _booted(7791)["world"]
+	var actor: int = int(w.player)
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	var floor_before: int = _ground_count(w)
+	var searched: Dictionary = SimContainers.search(w, actor, box)
+	if not bool(searched.get("ok", false)):
+		push_error("search refused: %s" % str(searched))
+		return false
+	if not SimContainers.contents_of(w, box).is_empty():
+		push_error("search left %d things in the grid" % SimContainers.contents_of(w, box).size())
+		return false
+	var spilt: int = _ground_count(w) - floor_before
+	if spilt <= 0:
+		push_error("search put nothing on the floor, so Haul has nothing to carry home")
+		return false
+	if int(searched.get("yielded", 0)) != spilt:
+		push_error("search reported %d yielded and %d appeared on the floor" % [int(searched.get("yielded", 0)), spilt])
+		return false
+	if SimContainers.opened_by(w, actor) >= 0:
+		push_error("search left the box open behind the searcher")
+		return false
+	# And a searched, emptied box is off the E ladder rather than swallowing the key.
+	if SimContainers.nearest(w, actor, false, SimContainers.Want.Openable) >= 0:
+		push_error("an emptied container is still offered as openable")
+		return false
+	print("NPC OK search tipped %d onto the floor, left the grid empty and the box closed, and an emptied box leaves the ladder" % spilt)
+	return true
+
+
+# The proof that moving the roll from boot-time to open-time moved nothing else. Two worlds on one
+# seed: in the first the table is scattered the way a plain site is at boot, in the second the same
+# table is opened out of a container. The yield -- base ids and counts, in order -- has to match,
+# because `scatter` is `roll` plus the position writes and nothing more.
+#
+# This is what keeps a balance claim off this slice: if the draw order had moved, four seeds of the
+# harness would say so at 4.5 minutes a run; this says it in a second.
+func _opening_draws_exactly_what_scattering_drew() -> bool:
+	var a: Variant = _booted(4404)["world"]
+	var b: Variant = _booted(4404)["world"]
+	var table: Variant = SimLoot.table_for(a, "residential")
+	if not (table is Dictionary):
+		push_error("no residential table to compare with")
+		return false
+
+	var scattered: Array = SimLoot.scatter(a, table as Dictionary, SimLoot.stream(a), 4.5, 4.5)
+	var actor: int = int(b.player)
+	var at: Dictionary = b.components.get_component(actor, "position") as Dictionary
+	var box: int = SimContainers.make_container(b, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	SimContainers.open(b, actor, box)
+	var opened: Array = SimContainers.contents_of(b, box)
+
+	if scattered.size() != opened.size():
+		push_error("the same seed scattered %d and opened %d" % [scattered.size(), opened.size()])
+		return false
+	if scattered.is_empty():
+		push_error("the comparison drew nothing, so it is judging nothing")
+		return false
+	for i in scattered.size():
+		var left: String = _describe(a, int(scattered[i]))
+		var right: String = _describe(b, int(opened[i]))
+		if left != right:
+			push_error("draw %d: scattering gave %s and opening gave %s" % [i, left, right])
+			return false
+	print("STREAM OK the same seed draws the same %d things whether the table is scattered at boot or opened out of a cupboard" % scattered.size())
+	return true
+
+
+func _describe(w: Variant, item: int) -> String:
+	var base: Variant = w.components.get_component(item, "itemBase")
+	var stack: Variant = w.components.get_component(item, "stack")
+	var tier: Variant = w.components.get_component(item, "itemTier")
+	return "%s x%d (%s)" % [
+		String((base as Dictionary).get("baseId", "?")) if base is Dictionary else "?",
+		int((stack as Dictionary).get("count", 1)) if stack is Dictionary else 1,
+		String((tier as Dictionary).get("id", "?")) if tier is Dictionary else "?",
+	]
+
+
+# The three states, and the reason there are three now. A box you opened and did not empty is not
+# a box you finished, and until it had a grid the screen had no way to say so.
+func _the_prose_has_three_states_and_no_digits() -> bool:
+	var w: Variant = _booted(7792)["world"]
+	var actor: int = int(w.player)
+	var at: Dictionary = w.components.get_component(actor, "position") as Dictionary
+
+	# A body standing near nothing hears nothing. Its own body rather than the container's,
+	# because a container stands at its own position and would always find itself in reach.
 	var bystander: int = int(w.entities.spawn())
 	w.components.set_component(bystander, "position", {"x": 5.5, "y": 5.5})
 	if SimContainers.hud_clause(w, bystander) != "":
 		push_error("the HUD clause spoke to somebody standing near no container at all")
 		return false
 
-	print("CONTAINER OK first search yielded %d, second refused already-searched with nothing added, 3.0 m refused out-of-reach, prose is digit-free: \"%s\"" % [int(first.get("yielded", 0)), said])
+	var box: int = SimContainers.make_container(w, float(at["x"]) + 0.5, float(at["y"]), "cupboard", "residential")
+	var unopened: String = SimContainers.hud_clause(w, actor)
+	SimContainers.open(w, actor, box)
+	var half: String = SimContainers.hud_clause(w, actor)
+	SimContainers.take_all(w, actor)
+	# Anything that would not fit is still in there, so empty it the rest of the way by hand.
+	for item in SimContainers.contents_of(w, box).duplicate():
+		SimInventory.remove_from_container(w, int(item))
+		w.despawn(int(item))
+	var done: String = SimContainers.hud_clause(w, actor)
+
+	if unopened.find("worth going through") < 0:
+		push_error("an unopened cupboard said \"%s\"" % unopened)
+		return false
+	if half.find("still something") < 0:
+		push_error("a half-full cupboard said \"%s\"" % half)
+		return false
+	if done.find("already been through") < 0:
+		push_error("an emptied cupboard said \"%s\"" % done)
+		return false
+	if unopened == half or half == done:
+		push_error("two of the three states read the same")
+		return false
+	for line in [unopened, half, done]:
+		for ch in line:
+			if ch >= "0" and ch <= "9":
+				push_error("a container clause carries a digit: \"%s\"" % line)
+				return false
+	print("PROSE OK three states, each different and digit-free: \"%s\" / \"%s\" / \"%s\"" % [unopened, half, done])
 	return true
+
+
+# Every kind a shipped district or template can name has a size of its own, and a kind nobody has
+# sized still opens. The first half is the findability rule `check_m2_gear` applies to items: a
+# container the generator can stand and nobody has authored is content that plays wrong rather
+# than content that fails loudly.
+func _every_kind_a_district_names_has_a_grid() -> bool:
+	var sized: Dictionary = {}
+	for path in _tree().keys():
+		if not String(path).begins_with("containers/"):
+			continue
+		for entry in _tree()[path] as Array:
+			var d: Dictionary = entry as Dictionary
+			var kind: String = String(d.get("kind", ""))
+			if sized.has(kind):
+				push_error("two container entries both name the kind \"%s\"" % kind)
+				return false
+			sized[kind] = true
+	if sized.is_empty():
+		push_error("no container sizes in content at all")
+		return false
+
+	var named: Dictionary = {}
+	for path in _tree().keys():
+		var value: Variant = _tree()[path]
+		var entries: Array = value as Array if value is Array else [value]
+		for entry in entries:
+			if entry is Dictionary:
+				_collect_container_kinds(entry as Dictionary, named)
+	var missing: Array[String] = []
+	for kind in named.keys():
+		if not sized.has(String(kind)):
+			missing.append(String(kind))
+	if not missing.is_empty():
+		push_error("%d container kinds a district or template names have no size: %s" % [missing.size(), ", ".join(missing)])
+		return false
+
+	# And the fallback, which is what keeps naming a new one cheap.
+	var w: Variant = _booted(7793)["world"]
+	var default_grid: Dictionary = SimContainers.grid_for_kind(w, "a kind nobody has ever written")
+	if int(default_grid["w"]) < 1 or int(default_grid["h"]) < 1:
+		push_error("an unsized kind resolved a grid of %s" % str(default_grid))
+		return false
+	if default_grid == SimContainers.grid_for_kind(w, "cupboard"):
+		push_error("an unsized kind resolved the same grid as a cupboard, so the content is judging nothing")
+		return false
+	print("SIZES OK %d kinds sized in content, all %d a district or template names among them, and an unsized kind opens at %dx%d" % [sized.size(), named.size(), int(default_grid["w"]), int(default_grid["h"])])
+	return true
+
+
+# Container kinds live in two shapes: a district profile's `containers` list and a building
+# template's `container` string. Walked rather than hard-coded so a third shape shows up as a
+# missing size rather than as silence.
+func _collect_container_kinds(entry: Dictionary, out: Dictionary) -> void:
+	for key in entry.keys():
+		var value: Variant = entry[key]
+		if String(key) == "containers" and value is Array:
+			for kind in value as Array:
+				out[String(kind)] = true
+		elif String(key) == "container" and value is String:
+			out[String(value)] = true
+		elif value is Dictionary:
+			_collect_container_kinds(value as Dictionary, out)
+		elif value is Array:
+			for row in value as Array:
+				if row is Dictionary:
+					_collect_container_kinds(row as Dictionary, out)
 
 
 # The census, and the reason it is not the site walk again: a booted district must actually STAND

@@ -105,6 +105,8 @@ static func _content_has(world: Variant, type_id: String, id: String) -> bool:
 static func content_entry(world: Variant, type_id: String, id: String) -> Variant:
 	return _content_get(world, type_id, id)
 
+# Content types found by their directory rather than by a field they carry. See `_all_entries`.
+const TYPE_DIRS: Dictionary = {"container": "containers/"}
 static func _all_entries(world: Variant, type_id: String) -> Array:
 	var out: Array = []
 	if world == null:
@@ -122,14 +124,28 @@ static func _all_entries(world: Variant, type_id: String) -> Array:
 		return (c as Object).call("all", type_id) as Array
 	if c is Dictionary:
 		# flat tree path -> json
-		for v in (c as Dictionary).values():
-			if v is Array:
-				for entry in v as Array:
-					if entry is Dictionary:
-						if type_id == "affix" and (entry as Dictionary).has("slot"):
+		for path in (c as Dictionary).keys():
+			var v: Variant = (c as Dictionary)[path]
+			if not (v is Array):
+				continue
+			# A type this tree can be *asked* for by where it lives. `affix` and `item` are
+			# recognised below by a field they happen to carry, which was fine while they were the
+			# only two anything asked for; an entry of a type with no distinctive field -- a
+			# container's `kind` and `grid`, say -- is invisible to a duck-type and has to be found
+			# by its directory, the same path-to-type mapping content_validator._type_of_path makes.
+			var dir: Variant = TYPE_DIRS.get(type_id)
+			if dir != null:
+				if String(path).begins_with(String(dir)):
+					for entry in v as Array:
+						if entry is Dictionary:
 							out.append(entry)
-						elif type_id == "item" and (entry as Dictionary).has("massKg"):
-							out.append(entry)
+				continue
+			for entry in v as Array:
+				if entry is Dictionary:
+					if type_id == "affix" and (entry as Dictionary).has("slot"):
+						out.append(entry)
+					elif type_id == "item" and (entry as Dictionary).has("massKg"):
+						out.append(entry)
 		if (c as Dictionary).has(type_id):
 			var by_id: Variant = (c as Dictionary)[type_id]
 			if by_id is Dictionary:
