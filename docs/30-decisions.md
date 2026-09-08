@@ -2550,7 +2550,8 @@ snow that lies as well as falls — and the spine took these calls:
   walks out to the well. `godot:m2:storm` is the gate.
 - **What it did not take.** Fog, a ranged penalty, thirst relief, barricade damage, firewood,
   frostbite, tracks, phase lengths by season, survivor forecasts, a sim light pulse per strike
-  (the owner chose noise and a screen flash). Each is named in what's left.
+  (the owner chose noise and a screen flash). Each is named in what's left; fog came off it on
+  2026-09-08 (the bullet at the end of this entry).
 - **The look slice, 2026-09-06.** `rain_look.gd`'s constants became one pure function a kind,
   `look_of`, returning a `{fall, slant, lenMin, lenSpan, intensityMin, count, colour}` record —
   rain's own numbers unchanged, a storm the same fall and lean at a higher floor and half again
@@ -2578,6 +2579,38 @@ snow that lies as well as falls — and the spine took these calls:
   injury (the wounds ladder has no cold-exposure hook to fire it from), crops failing (no crop
   system), and tracks in snow (no tracker reads a footprint anywhere). Each stays named in what's
   left rather than stubbed.
+- **Fog, the seventh kind, 2026-09-08.** The owner's four calls, taken in one session before a
+  line was written: **its season** — autumn-heavy with a spring weight (`spring 2 / summer 1 /
+  autumn 4 / winter 1`), because the calendar starts in spring at five days a season and a
+  ten-day run never reaches docs/16's foggy autumn, so an autumn-only fog would never appear in
+  the milestone's own exit-criterion run; **its look** — the sight collapse the sim already
+  makes visible (an unseen tile is simply not drawn, so the district edge closes in on its own)
+  plus one pale veil on its own `fog` palette key, drawn between the flash and the night wash,
+  never a radial gradient and never the fog-of-war shading docs/28 refuses; **its effects** —
+  sight both ways and scent muffled, and nothing else: no explicit ranged-accuracy modifier and
+  no outdoor-work refusal, because a target beyond a fogged range cannot be shot and a district
+  that stops at twelve metres is hard to navigate without a second mechanism saying so, and
+  docs/16's "two systems in opposing directions" rule argues against a wait-it-out state; **its
+  numbers** — `sightMul` 0.25 and two to eight hours, first cuts. The design calls the slice
+  itself took: **one number, both sides.** `sightMul` reaches every observer through
+  `SimVisibility.refresh(world, map, sight_mul)` as a *parameter* SimBoot resolves and hands
+  down — the module knows walls, arcs and light and never learns what a fog is, the
+  `attention.gd` idiom — scaling `metres` and `cast_metres` together so `range_squared` closes
+  for the living and `full_squared` closes the dead's lit-target escape with it; and
+  `SimShambler.sight_reach` multiplies by the same accessor, so a shambler's 3.8 m falls to
+  0.95 m, inside its own 1.6 m contact radius: in a fog the dead have no sight worth the name and
+  hunt by nose and ear. Neither gate on a zombie seeing may shrink alone. **Not in the sight
+  rule itself.** The multiplier is deliberately kept out of `_sight_metres` and
+  `SimLight.sight_metres`: their ratio against `range_metres` is the night wash's alpha, and a
+  fog folded in there would paint midday in the night's colour. The night stays the night's,
+  the veil is the fog's, and they stack; `godot:m2:fog`'s SOCKET lane holds that line textually.
+  **The save bumps** (v26) though no `world.weather` key changed: `kinds()` is sorted, `fog`
+  sits between `cold_snap` and `heat_wave`, and the `weather` stream's kind roll now accumulates
+  in a different order — the v21 reason, again. **What the FAST balance tier cannot see** is
+  recorded rather than hidden: it steps two thousand ticks after each window and never exhausts
+  the first clear span, so its four seed lines are byte-identical before and after and prove
+  nothing about fog either way (docs/23's record has both). What fog did not take, still in
+  what's left: the ranged penalty in rain, tracks, forecasting, noise downwind — each its own.
 
 ## The trap and the bait are Milestone 3A, 2026-09-06
 

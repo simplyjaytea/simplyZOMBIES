@@ -438,10 +438,10 @@ landed, and what is below is what the arc named and left.
 **Weather — the rest of docs/16, opened by the owner 2026-09-06.** ADR 0016. The spine (kinds,
 the calendar, the wind, the shift, the slowed living and dead), the storm, the cold snap and
 snow, the heat wave and the look all landed the same day — five record bullets below under
-**Weather**, each with its own gate. Every number is a content first cut for the owner. What
-remains is the one bullet here.
+**Weather**, each with its own gate — and fog followed on 2026-09-08 (the sixth). Every number
+is a content first cut for the owner. What remains is the one bullet here.
 
-- **What the weather left behind.** Fog (sight collapse both ways); the ranged accuracy penalty
+- **What the weather left behind.** The ranged accuracy penalty
   in rain; rain filling water; barricade damage and rot in a storm; firewood consumption and
   frostbite in a cold snap; tracks in snow; seasons changing the phase lengths (docs/02);
   survivors reading the sky aloud (docs/16's forecasting); noise carried downwind. Each its own
@@ -3883,6 +3883,72 @@ not a to-do list:
   fixed: `_water_work` and `_repair_work` hand out an unclaimed target in the same shape, `Bury`'s
   "no position means I am carrying it" stays in the defect list, and `_do_cook` still despawns the
   whole raw *stack* for one meal — pre-existing, balance-relevant, and its own line.
+- **Weather** — ~~fog, sight collapsed both ways~~ **landed** (`npm run godot:m2:fog`,
+  `M2_FOG_OK`, eight lanes; `godot:check:weather` at eight with the VEIL lane; `check_hud.gd`'s
+  clean list gained the sentence; `godot:m2:save` and `godot:m2:fortify` at v26), 2026-09-08 —
+  the seventh kind, the first of "what the weather left behind", shaped by the owner in four
+  answers before a line was written (docs/30 "The sky has kinds", the fog bullet: season, look,
+  effects, numbers). `content/weather/fog.json` declares one new key, `sightMul` 0.25 (schema
+  `(0, 1]`), beside `scentHalfLifeMul` 0.8, two to eight hours, weights spring 2 / summer 1 /
+  autumn 4 / winter 1 — autumn is docs/16's foggy season and the spring weight is what lets a
+  ten-day run from spring ever draw it. `SimWeather.sight_mul` is the accessor, identity under
+  clear like every other; it reaches the living through `SimVisibility.refresh(world, map,
+  sight_mul)` as a parameter SimBoot resolves (the module never learns what a fog is), scaling
+  `metres` and `cast_metres` together so `range_squared` closes for everybody and
+  `full_squared` closes the dead's lit-target escape with it; and it reaches the dead through
+  `SimShambler.sight_reach`, the same accessor multiplied in beside `lightSense`. Kept out of
+  `_sight_metres` and `SimLight.sight_metres` on purpose: their ratio is the night wash's alpha.
+  **Measured, in the gate:** a colonist by day sees a body at 20 m under clear (`detail` 2,
+  `line_of_sight` true, 1,075 visible tiles) and not under fog (0, false, 153 tiles) while a body
+  at 8 m is still seen — a range, not a blindfold — and a fabricated fog at ×1.0 keeps all 1,075;
+  a shambler's reach is 3.7947 m clear and 0.9487 m fog (ratio 0.2500, the content number),
+  `_seen_target` returns the survivor at 2.92 m under clear and `null` in fog, and a *lit*
+  survivor 8 m off at night ambient 0.04 reads `detail` 2 clear, 0 unlit, 0 in fog; under clear
+  the 20 m body enters `SimSightings` (one record, "one of them, east, a moment ago") and under
+  fog nothing does and the clause is empty; over the spine's hundred-tick window fog leaves
+  336.2490 of scent where clear leaves 336.3029 and a same-wind twin at ×1.0 leaves 336.3030 —
+  the number is worth 590× what re-rolling the wind is worth (0.00009), which is the assertion,
+  since forcing a kind re-rolls the wind and a bare clear-vs-fog comparison would be measuring
+  the draw (a 2,000-tick window inverted the sign: the district's own emitters swamp it, so the
+  window is pinned at 100 and says why); "Fog has closed in." under fog and nowhere else, no
+  digit; a snapshot under fog restores to ×0.25 / 153 tiles / `detail` 0 on its first step and a
+  clear one to ×1.0 / 1,075 / 2; and the SOCKET lane reads `_refresh_vision`, `sight_reach`,
+  `_sight_metres` and `SimLight.sight_metres` textually — the first two must name `sight_mul`,
+  the last two must not — with the scanner proved on a known body first. Every lane was proved
+  red: reverting `_refresh_vision` to two arguments turns SIGHT, EYES, MEMORY, ROUND-TRIP and
+  SOCKET red; dropping the multiplier from `sight_reach` turns EYES and SOCKET red. **The look:**
+  one `fog` palette key (`#c8cdd64d`, alpha 0.302 — above the rain band's 0.18 ceiling because a
+  veil stands for a span where a streak crosses a frame, under the flash's 0.349) and one
+  kind-guarded `draw_rect` in `_draw_fog` between the flash and the wash, blind to `NIGHT_WASH`
+  and `LightLook`; lane D's order is now entities → rain → lightning → fog → wash, the VEIL lane
+  holds the guard before the draw and `_draw_rain` still refusing the kind (`look_of` falls back
+  to rain, so a fog that reached it would draw rain), and six mutations of the real files were
+  each caught by name. Three screenshots under `.hermes/plans/2026-09-08_fog-look/` for the
+  owner: under fog the far streets and half the room are simply not drawn and the seen area ends
+  on a tile boundary, the veil pales the frame, and at night a small cross of floor remains
+  under both washes — the one thing to look at is that the *unseen* background goes pale grey
+  under a full-screen veil rather than staying dark. **Balance, before and after**
+  (`godot:m2:balance`, FAST, run on `main` in a worktree and on the branch): the four seed lines
+  are **byte-identical** — 20260805 3/3 survivors 117 grabs, 404 3/3 and 7, 31337 3/3 and 0,
+  90210 3/3 and 55 — because the compressed tier steps two thousand ticks after each window and
+  never exhausts the first clear span (twelve to thirty-six hours), so it has never drawn any
+  kind at all and proves nothing about fog either way; the harness's blind spot, said out loud
+  as the heat record said it. **The driver** (a throwaway, deleted): seed 20260805 at 64 tiles,
+  jumped to a dusk and run eight in-game hours under fog and under clear, counting grabs, bites,
+  hits, gunshots and each colonist's remembered bodies every minute — the colonists remembered
+  **2.84** bodies a sample under clear and **0.43** under fog (the memory collapse, 6.6×), and
+  **no contact under either sky**: zero grabs, bites, hits and shots, on day 2 and again on
+  day 4 with `GRACE_NIGHTS` pinned to 2 for the run, because the 64-tile district's resident
+  population sits at the director's cap and the window was too short for anything to walk in.
+  So docs/16's "contact at melee distance with no warning" and "ranged nearly useless" are
+  **not measured by this slice** — they fall out of the mechanism (a body beyond a fogged range
+  cannot be shot, and `line_of_sight` refusing the 20 m shot is in the gate) but their campaign
+  weight is the ten-day playtest's to find. **Cost:** the transition tick recasts every observer
+  (`range_tiles` is in the cache key), once per span edge, which is the eyes slice's 1.5 ms a
+  cast for as many bodies as have eyes; not measured further and not optimised. `SAVE_VERSION`
+  26: no `world.weather` key changed, but the sorted `kinds()` roll order did, the v21 reason
+  again. What fog did not take, still in what's left: the ranged penalty in rain, tracks,
+  forecasting, noise downwind, and a fog that thickens with distance.
 - **Weather** — ~~the heat wave's clock, thirst and rot~~ **landed** (`npm run godot:m2:heat`,
   `M2_HEAT_OK`, seven lanes; `godot:check:hud`'s scanner gained the three hot rows), 2026-09-06 —
   the heat wave's own effects, on the spine below (ADR 0016; docs/30 "The sky has kinds", the

@@ -49,7 +49,18 @@ func _light_index(world: Variant) -> Variant:
 	return null
 
 
-func refresh(world: Variant, map: Variant) -> void:
+## The weather's sight multiplier arrives as a *parameter* rather than being read here: this
+## module knows about walls, arcs and light, and has no business learning what a fog is
+## (`attention.gd`'s idiom -- the field never learns what weather is either; SimBoot resolves
+## `SimWeather.sight_mul` and hands it down). It scales `metres` and `cast_metres` together, so
+## `range_squared` closes in for everybody and `full_squared` closes the lit-target escape with
+## it: in fog the dead cannot see a lit survivor from any further than the fog lets the living
+## see an unlit one, which is the symmetry docs/16 asks for. It is deliberately *not* folded
+## into `_sight_metres` or `SimLight.sight_metres` -- their ratio against `range_metres` is the
+## alpha of the night wash, so a fog hidden in there would paint midday in the night's colour.
+## No extra invalidation is needed on the transition tick: `range_tiles` is part of the cache
+## key, so a changed multiplier makes every observer's view stale and every one of them recasts.
+func refresh(world: Variant, map: Variant, sight_mul: float = 1.0) -> void:
 	var seen: Dictionary = {}
 	var gen := _map_generation(world)
 	for entity in world.components.query(["position", "observer"]):
@@ -69,10 +80,12 @@ func refresh(world: Variant, map: Variant) -> void:
 		# let the dead see further into the dark (the light at the *target* is what `detail`
 		# asks), and `lit_metres` walks every source in the district -- eighty observers asking
 		# it every tick was the cost the eyes slice's driver found.
-		var metres: float = _ambient_metres(world, obs as Dictionary) if lit_target else _sight_metres(world, obs as Dictionary, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))
+		var metres: float = (_ambient_metres(world, obs as Dictionary) if lit_target else _sight_metres(world, obs as Dictionary, float((pos as Dictionary)["x"]), float((pos as Dictionary)["y"]))) * sight_mul
 		# A lit-target observer casts at its eyes' full reach: the geometry is walls, and whether
 		# a tile inside it is *seen* is decided per target in `detail`, by distance or by light.
-		var cast_metres: float = float((obs as Dictionary)["range_metres"]) if lit_target else metres
+		# The sky's multiplier lands on that reach once and once only -- the non-lit arm is
+		# `metres`, which already carries it.
+		var cast_metres: float = float((obs as Dictionary)["range_metres"]) * sight_mul if lit_target else metres
 		var range_tiles: int = SimTileMapRes.tile_range(cast_metres)
 		var eye: int = int((obs as Dictionary)["eye"])
 

@@ -5,18 +5,27 @@ extends SceneTree
 # only checks the new values passes against a revert to the bright table -- so lane A carries the
 # OLD values through the same predicates and requires each to be refused, the check_road_look.gd
 # convention. And a sky layer is exactly the kind of mechanism that can be complete, correct and
-# read by nothing -- so lanes B, D and F are dead-socket scans proving the draw loop reaches the
+# read by nothing -- so lanes B, D, F and H are dead-socket scans proving the draw loop reaches the
 # keys and the resolvers, in the order the slice decided (entities, then the sky, then the flash,
-# then the night wash).
+# then fog's veil, then the night wash).
 #
 # check_light_look.gd owns the other half of the draw order (district -> pools -> entities) and
 # _draw_night_wash's wash_alpha assertion; lane D names it as the standing co-assertion rather
 # than duplicating it here.
 #
-# Seven lanes, every assertion with a true positive and a true negative, because a gate that
+# Eight lanes, every assertion with a true positive and a true negative, because a gate that
 # cannot fail is worse than no gate. RAIN PURE and RAIN WIRED are named for the layer they proved
 # first and still cover every kind that layer draws (rain, storm, snow) -- the names stay so the
 # print lines and docs/23's record do not drift from what a reader has already found once.
+#
+# The lanes, in the order _run calls them: ACCENT (A, the palette bands), DEAD SOCKET (B), RAIN
+# PURE (C), RAIN WIRED (D, the draw order), ROOF (E), COVER (F), FLASH (G) and VEIL (H, fog). H is
+# the seventh kind's whole presentation: fog's own work falls out of the sim (`sightMul` shrinks
+# every observer's range, so unseen tiles are simply not drawn -- docs/28 refuses a rendered fog of
+# war) and the only thing drawn for it is a pale wash between the flash and the night wash. That
+# makes the veil the easiest layer in the file to leave dead, so H reads _draw_fog the way G reads
+# _draw_lightning, and holds _draw_rain to excluding fog besides: fog has no RainLook.LOOKS record
+# on purpose, so `look_of` falls back to rain and a widened rain gate would quietly snow on it.
 
 const SimBoot = preload("res://sim/boot.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -55,6 +64,7 @@ func _run() -> void:
 	ok = _the_roof_stops_the_rain() and ok
 	ok = _the_snow_lies_on_the_ground() and ok
 	ok = _the_lightning_is_one_drained_frame() and ok
+	ok = _the_fog_is_a_veil_not_a_light_level() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -64,7 +74,7 @@ func _run() -> void:
 	if ok:
 		print(
 			(
-				"WEATHER_OK accents muted with the bright table refused (window S%.3f V%.3f, groundItem V%.3f over the brightest ground %.3f, snow and lightning inside the same bands), lamp pools pinned warm; three dead keys wired and five dead constants gone; the sky hashed not drawn per kind -- rain %d streaks floor %.2f, storm %d streaks floor %.2f, snow %d streaks floor %.2f falling %.1f px/tick against rain's %.1f, every kind pixel-centred, falling and deterministic; entities -> sky -> flash -> wash ascending; snow cover 0.0 byte-identical and 1.0 differing on open ground at SNOW_COVER_MAX %.2f; a drained weather.lightning paints one wash frame and a tick with none paints nothing; %d roofed tiles stop the sky beside %d open ones on suburb@%d; %.1f s of a %.0f s budget"
+				"WEATHER_OK accents muted with the bright table refused (window S%.3f V%.3f, groundItem V%.3f over the brightest ground %.3f, snow and lightning inside the same bands), lamp pools pinned warm; three dead keys wired and five dead constants gone; the sky hashed not drawn per kind -- rain %d streaks floor %.2f, storm %d streaks floor %.2f, snow %d streaks floor %.2f falling %.1f px/tick against rain's %.1f, every kind pixel-centred, falling and deterministic; entities -> sky -> flash -> veil -> wash ascending; snow cover 0.0 byte-identical and 1.0 differing on open ground at SNOW_COVER_MAX %.2f; a drained weather.lightning paints one wash frame and a tick with none paints nothing; fog is one kind-guarded veil at alpha %.3f between the flash and the wash, blind to the night's own tunables, with _draw_rain still refusing the kind; %d roofed tiles stop the sky beside %d open ones on suburb@%d; %.1f s of a %.0f s budget"
 				% [
 					(Palette.COLOURS["window"] as Color).s,
 					(Palette.COLOURS["window"] as Color).v,
@@ -79,6 +89,7 @@ func _run() -> void:
 					float(RainLook.look_of("snow")["fall"]),
 					float(RainLook.look_of("rain")["fall"]),
 					Palette.SNOW_COVER_MAX,
+					(Palette.COLOURS["fog"] as Color).a,
 					int(_stash.get("indoor_tiles", 0)),
 					int(_stash.get("outdoor_tiles", 0)),
 					GATE_SIZE,
@@ -148,6 +159,15 @@ func _flash_alpha_ok(a: float) -> bool:
 	return a >= 0.25 and a <= 0.45
 
 
+# The veil's own band, between the two: heavier than the rain, because a fog stands up for a whole
+# span and a streak only crosses the frame, and never heavier than the flash -- the ceiling is the
+# flash's own alpha, so the beat stays the loudest single thing the sky is allowed to do. A veil
+# under the floor is a fog nobody would notice; one over the ceiling is a wall the district is
+# behind, which is the shrunken sight told twice.
+func _fog_alpha_ok(a: float) -> bool:
+	return a >= 0.18 and a <= 0.35
+
+
 # The edge rays derive from the arc's colour by this factor; dead at 0, a lie above 1.
 func _dim_ok(d: float) -> bool:
 	return d > 0.0 and d < 1.0
@@ -162,6 +182,7 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 	var rain: Color = Palette.COLOURS["rain"] as Color
 	var snow: Color = Palette.COLOURS["snow"] as Color
 	var lightning: Color = Palette.COLOURS["lightning"] as Color
+	var fog: Color = Palette.COLOURS["fog"] as Color
 
 	# True positives: the shipped table sits inside the mood.
 	if not _window_ok(window):
@@ -173,7 +194,7 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 	if not _ground_item_ok(ground_item):
 		push_error("groundItem is outside the muted band: S %.3f V %.3f" % [ground_item.s, ground_item.v])
 		return false
-	for pair in [["facing", facing], ["aimCone", cone], ["rain", rain], ["snow", snow], ["lightning", lightning]]:
+	for pair in [["facing", facing], ["aimCone", cone], ["rain", rain], ["snow", snow], ["lightning", lightning], ["fog", fog]]:
 		var mark: Color = (pair as Array)[1] as Color
 		if not _mark_ok(mark):
 			push_error("%s is outside the mark band: S %.3f V %.3f" % [(pair as Array)[0], mark.s, mark.v])
@@ -195,6 +216,15 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		return false
 	if not _flash_alpha_ok(lightning.a):
 		push_error("lightning alpha %.3f is outside [0.25, 0.45]" % lightning.a)
+		return false
+	if not _fog_alpha_ok(fog.a):
+		push_error("fog alpha %.3f is outside [0.18, 0.35]" % fog.a)
+		return false
+	# The one relation between two sky keys, held here rather than inside the predicate so the
+	# band stays a pair of literals like the others: the veil that stays up may not outweigh the
+	# flash that lasts a frame.
+	if fog.a > lightning.a:
+		push_error("the fog veil (alpha %.3f) is heavier than the lightning flash (%.3f): a span outweighs a beat" % [fog.a, lightning.a])
 		return false
 
 	# The readability floor: an item on the ground must clear the brightest street it can lie on.
@@ -287,10 +317,23 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		push_error("an invisible flash passes the flash floor")
 		return false
 
+	# The veil band, both ends refused through the same predicate: a fog the district is behind,
+	# and a fog carrying the rain's own weight, which would say nothing the shrunken sight has not
+	# already said. The mark band refuses a white veil besides, as it does for the flash.
+	if _fog_alpha_ok(Color("#c8cdd6cc").a):
+		push_error("an opaque veil passes the fog band; a wall is not a fog")
+		return false
+	if _fog_alpha_ok(Color("#c8cdd621").a):
+		push_error("a veil at the rain's own alpha passes the fog floor; the veil would not read as one")
+		return false
+	if _mark_ok(Color(1, 1, 1, 0.30)):
+		push_error("a white veil passes the mark band; the fog could go to raw white unnoticed")
+		return false
+
 	# The pre-slice absence of both keys: a table missing snow or lightning has nothing to mute
 	# and nothing to say no to, which is the dead-socket family the sweep keeps finding.
-	if not Palette.COLOURS.has("snow") or not Palette.COLOURS.has("lightning"):
-		push_error("the snow or lightning palette key is missing")
+	if not Palette.COLOURS.has("snow") or not Palette.COLOURS.has("lightning") or not Palette.COLOURS.has("fog"):
+		push_error("the snow, lightning or fog palette key is missing")
 		return false
 
 	# A rim set to the pane's own colour is refused by the same arithmetic that passed the real one.
@@ -317,8 +360,8 @@ func _the_accents_are_muted_and_can_say_no() -> bool:
 		return false
 
 	print(
-		"ACCENT OK window #%s, rim #%s, groundItem #%s, marks muted at alpha (snow #%s, lightning #%s); pools pinned warm (near r-b %.3f); %d bright values refused"
-		% [window.to_html(false), rim.to_html(false), ground_item.to_html(false), snow.to_html(true), lightning.to_html(true), Palette.LIGHT_POOL_NEAR.r - Palette.LIGHT_POOL_NEAR.b, refused]
+		"ACCENT OK window #%s, rim #%s, groundItem #%s, marks muted at alpha (snow #%s, lightning #%s, fog #%s at alpha %.3f under the flash's %.3f); pools pinned warm (near r-b %.3f); %d bright values refused"
+		% [window.to_html(false), rim.to_html(false), ground_item.to_html(false), snow.to_html(true), lightning.to_html(true), fog.to_html(true), fog.a, lightning.a, Palette.LIGHT_POOL_NEAR.r - Palette.LIGHT_POOL_NEAR.b, refused]
 	)
 	return true
 
@@ -682,15 +725,19 @@ func _the_rain_is_wired_and_ordered() -> bool:
 	var at_entities: int = draw_fn.find("_draw_entities()")
 	var at_rain: int = draw_fn.find("_draw_rain()")
 	var at_lightning: int = draw_fn.find("_draw_lightning()")
+	var at_fog: int = draw_fn.find("_draw_fog()")
 	var at_wash: int = draw_fn.find("_draw_night_wash()")
-	if at_entities < 0 or at_rain < 0 or at_lightning < 0 or at_wash < 0:
-		push_error("_draw is missing one of entities/rain/lightning/wash: %d %d %d %d" % [at_entities, at_rain, at_lightning, at_wash])
+	if at_entities < 0 or at_rain < 0 or at_lightning < 0 or at_fog < 0 or at_wash < 0:
+		push_error(
+			"_draw is missing one of entities/rain/lightning/fog/wash: %d %d %d %d %d"
+			% [at_entities, at_rain, at_lightning, at_fog, at_wash]
+		)
 		return false
-	if not _ascending([at_entities, at_rain, at_lightning, at_wash]):
-		push_error("_draw is out of order: the sky must land over the bodies, the flash over the sky, and both under the night wash")
+	if not _ascending([at_entities, at_rain, at_lightning, at_fog, at_wash]):
+		push_error("_draw is out of order: the sky must land over the bodies, the flash over the sky, fog's veil over the flash, and all of them under the night wash")
 		return false
 	# The order negative, through the same predicate with the real indices reversed.
-	if _ascending([at_wash, at_lightning, at_rain, at_entities]):
+	if _ascending([at_wash, at_fog, at_lightning, at_rain, at_entities]):
 		push_error("the order predicate accepted a reversed frame; it cannot say no")
 		return false
 
@@ -736,7 +783,7 @@ func _the_rain_is_wired_and_ordered() -> bool:
 		return false
 
 	print(
-		"RAIN WIRED OK _draw runs entities -> sky -> flash -> wash; _draw_rain reaches SimWeather.kind, look_of, segments, falls_at, intensity, alpha_scale and the kind's own colour key off the tick; _draw_lightning reaches the drained record and the lightning key, never the night's own tunables (check_light_look.gd holds district -> pools -> entities)"
+		"RAIN WIRED OK _draw runs entities -> sky -> flash -> veil -> wash; _draw_rain reaches SimWeather.kind, look_of, segments, falls_at, intensity, alpha_scale and the kind's own colour key off the tick; _draw_lightning reaches the drained record and the lightning key, never the night's own tunables (check_light_look.gd holds district -> pools -> entities)"
 	)
 	return true
 
@@ -917,6 +964,114 @@ func _the_lightning_is_one_drained_frame() -> bool:
 		"FLASH OK _draw_lightning reads world.events.drained for a weather.lightning event behind an early-return guard, draws the lightning key only when one is present, and reads neither NIGHT_WASH nor LightLook"
 	)
 	return true
+
+
+# --- lane H: fog is a veil, not a light level ----------------------------------------------------
+
+# Textual, for lane G's reason: _draw cannot run without a CanvasItem, so what _draw_fog contains
+# is read rather than run. Fog is the one kind whose *look* is almost entirely the sim's -- the
+# shrunken sight means unseen tiles are never drawn and the district edge closes in by itself
+# (docs/28 refuses a rendered fog of war) -- so the only presentation it owns is one pale wash on
+# its own key, and a wash nothing calls or a wash drawn for every kind alike would both look
+# plausible in a screenshot. Two claims, each with its fabricated negative: _draw_fog is guarded by
+# the kind and blind to the night, and _draw_rain still refuses fog.
+#
+# The second one is not decoration. Fog has no RainLook.LOOKS record on purpose, and `look_of`
+# falls back to rain for a kind it does not know, so the day someone widens the rain gate to "any
+# weather kind" the fog starts raining rain-shaped streaks -- with no error anywhere.
+
+
+# The line _draw_rain gates on, found by the call it must make rather than by position, so
+# reformatting the body does not move the assertion onto the wrong line.
+func _rain_gate_line(body: String) -> String:
+	for line in body.split("\n"):
+		if line.contains("SimWeather.raining(") and line.contains("if "):
+			return line
+	return ""
+
+
+# Returns "" when the gate is the shipped one, or the complaint. Snow is named beside `raining`
+# (a flake is not wet); fog must not be named at all, because fog is neither.
+func _rain_gate_verdict(line: String) -> String:
+	if line.is_empty():
+		return "_draw_rain has no gate line calling SimWeather.raining: the exclusion had nothing to judge"
+	if not line.contains('"snow"'):
+		return "_draw_rain's gate no longer names snow beside raining()"
+	if line.contains('"fog"'):
+		return "_draw_rain's gate lets fog through: look_of falls back to rain, so the fog would fall as rain-shaped streaks"
+	return ""
+
+
+func _the_fog_is_a_veil_not_a_light_level() -> bool:
+	var body: String = _function_body(MAIN_GD, "_draw_fog")
+	if body.is_empty():
+		push_error("_draw_fog had nothing to judge: the function body could not be read")
+		return false
+	if not body.contains("SimWeather.kind("):
+		push_error("_draw_fog does not ask the sim which kind is on screen")
+		return false
+	if not body.contains('Palette.COLOURS["fog"]'):
+		push_error("_draw_fog does not draw the fog palette key")
+		return false
+	if body.contains("NIGHT_WASH") or body.contains("LightLook."):
+		push_error("_draw_fog reads the night's own tunables: a veil is not a light level, and the wash already derives from the sight the fog shortened")
+		return false
+	var verdict: String = _guard_precedes_draw(body)
+	if not verdict.is_empty():
+		push_error("_draw_fog %s" % verdict)
+		return false
+	# The negative: the same wash with no kind guard at all -- every kind veiled -- refused by the
+	# same predicate that passed the real body.
+	var unguarded: String = "\tif world == null:\n\t\treturn\n\tdraw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Palette.COLOURS[\"fog\"] as Color)\n"
+	if _guard_precedes_draw(unguarded).is_empty():
+		push_error("the guard scan passed a body that veils every kind; it could not have failed the real one")
+		return false
+	# And the guard written after the draw, which is the ordering half rather than the presence half.
+	var late: String = "\tdraw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Palette.COLOURS[\"fog\"] as Color)\n\tif SimWeather.kind(world) != \"fog\":\n\t\treturn\n"
+	if _guard_precedes_draw(late).is_empty():
+		push_error("the guard scan passed a body whose kind guard comes after its draw_rect; the ordering half is dead")
+		return false
+
+	# The rain layer still refuses the kind.
+	var rain_body: String = _function_body(MAIN_GD, "_draw_rain")
+	if rain_body.is_empty():
+		push_error("_draw_rain had nothing to judge: the function body could not be read")
+		return false
+	var gate: String = _rain_gate_line(rain_body)
+	var rain_verdict: String = _rain_gate_verdict(gate)
+	if not rain_verdict.is_empty():
+		push_error(rain_verdict)
+		return false
+	# Its negatives, through the same predicate: a widened gate, and no gate at all.
+	if _rain_gate_verdict('\tif not (SimWeather.raining(world) or kind == "snow" or kind == "fog"):').is_empty():
+		push_error("the rain gate scan passed a body that lets fog through; it cannot say no")
+		return false
+	if _rain_gate_verdict("").is_empty():
+		push_error("the rain gate scan passed a body with no gate line; 'nothing to judge' is dead")
+		return false
+
+	print(
+		"VEIL OK _draw_fog draws Palette.COLOURS[\"fog\"] behind an early return on SimWeather.kind != fog, reads neither NIGHT_WASH nor LightLook (the shrunken sight is the sim's and the closing edge falls out of it), and _draw_rain still gates on raining() or snow with fog named nowhere in it"
+	)
+	return true
+
+
+# The kind guard, and that it comes before the wash: "" when the body is shaped like the shipped
+# one, the complaint otherwise. Shared by the real body and both fabricated negatives, so the
+# negatives are refused by the same code the real one passes.
+func _guard_precedes_draw(body: String) -> String:
+	var at_guard: int = body.find('!= "fog"')
+	var at_draw: int = body.find("draw_rect(")
+	if at_draw < 0:
+		return "never draws a wash"
+	if at_guard < 0:
+		return "does not test the kind against fog: every kind would be veiled"
+	if at_guard > at_draw:
+		return "draws its wash before testing the kind"
+	var at_return: int = body.find("return", at_guard)
+	if at_return < 0 or at_return > at_draw:
+		return "does not return on a kind that is not fog before drawing"
+	return ""
 
 
 # --- readers -----------------------------------------------------------------------------------
