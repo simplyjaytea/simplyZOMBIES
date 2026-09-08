@@ -52,6 +52,7 @@ const DEFAULTS: Dictionary = {
 	"cold_snap": {"durationTicks": {"min": 288000, "max": 864000}, "weights": {"spring": 1, "summer": 0, "autumn": 2, "winter": 5}, "tempShift": -1, "zombieMoveMul": 0.7, "spoilageMul": 0.5, "scentHalfLifeMul": 0.7},
 	"snow": {"durationTicks": {"min": 48000, "max": 120000}, "weights": {"spring": 0, "summer": 0, "autumn": 1, "winter": 4}, "tempShift": -1, "zombieMoveMul": 0.9, "spoilageMul": 0.5, "scentHalfLifeMul": 0.6, "coverPerTick": 0.0000069444},
 	"heat_wave": {"durationTicks": {"min": 288000, "max": 864000}, "weights": {"spring": 0, "summer": 4, "autumn": 1, "winter": 0}, "tempShift": 1, "thirstMul": 1.5, "spoilageMul": 2.0, "corpseScentMul": 2.0},
+	"fog": {"durationTicks": {"min": 24000, "max": 96000}, "weights": {"spring": 2, "summer": 1, "autumn": 4, "winter": 1}, "scentHalfLifeMul": 0.8, "sightMul": 0.25},
 }
 const CLIMATE_DEFAULTS: Dictionary = {
 	"seasonDays": 5,
@@ -375,6 +376,14 @@ static func zombie_move_mul(world: Variant) -> float:
 	return clampf(_num(world, "zombieMoveMul", 1.0), 0.01, 1.0)
 
 
+# Fog's key: how far anybody sees, the living and the dead alike (docs/16's "symmetric and
+# therefore terrifying"). Read as a parameter by SimVisibility.refresh through SimBoot, and by
+# SimShambler.sight_reach -- never inside _sight_metres or SimLight.sight_metres, whose ratio is
+# the night wash's alpha: a midday fog painted in the night's colour is the trap this avoids.
+static func sight_mul(world: Variant) -> float:
+	return clampf(_num(world, "sightMul", 1.0), 0.01, 1.0)
+
+
 # The living slow under snow on the ground and under nothing else: the cover is read rather than
 # the fall so the snow underfoot outlives the snowfall. A per-kind `survivorMoveMul` was declared
 # and read by no content, so it went (the review sweep's dead-socket rule); a kind that wants to
@@ -449,4 +458,6 @@ static func hud_clause(world: Variant) -> String:
 			return "It's snowing."
 		"heat_wave":
 			return "The heat is brutal."
+		"fog":
+			return "Fog has closed in."
 	return ""

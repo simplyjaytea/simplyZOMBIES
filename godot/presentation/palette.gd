@@ -119,6 +119,14 @@ const COLOURS: Dictionary = {
 	# to the reference's raw white, at a low alpha so it reads as a beat, not a wipe.
 	"snow": Color("#c8cdd621"),
 	"lightning": Color("#d8d8cf59"),
+	# Fog's veil, the seventh kind (docs/16). What fog *does* is the sim's -- `sightMul` shrinks
+	# every observer's range, so the district edge closes in because nothing out there is seen any
+	# more -- and this key is only what that closing looks like: snow's own cool cast at a weight
+	# the streaks never earn, because a veil stands up for a whole span rather than crossing the
+	# frame. Still the sky drawn over the world and not a fill of it, and capped under the flash's
+	# alpha so a beat stays the loudest thing the sky does; the night wash is the night's own and
+	# stacks over this rather than being folded into it.
+	"fog": Color("#c8cdd64d"),
 }
 # (Two deletion batches live in this file's history rather than its text. `COLOUR_HEX`,
 # fourteen string copies of the table above "for serialization, comparison": zero readers ever

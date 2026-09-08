@@ -87,6 +87,7 @@ npm run godot:m2:weather   # the sky has kinds: seasons, wind, the shift → M2_
 npm run godot:m2:storm     # noise masked, lightning, outdoor work refused → M2_STORM_OK
 npm run godot:m2:cold      # the cold snap's pantry, the snow's cover     → M2_COLD_OK
 npm run godot:m2:heat      # the hot clock, heatstroke, thirst, rot       → M2_HEAT_OK
+npm run godot:m2:fog       # sight collapsed both ways, one content number → M2_FOG_OK
 npm run godot:ban:healthbar  # the health-bar ban   → BAN_HEALTH_BAR_OK
 npm run godot:check:appearance # the sprite pipeline → APPEARANCE_OK
 npm run godot:check:hud      # HUD speaks in prose   → HUD_OK
@@ -105,7 +106,7 @@ npm run sprites:check    # generated art still matches tools/sprites/ → SPRITE
 npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **51**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **52**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.

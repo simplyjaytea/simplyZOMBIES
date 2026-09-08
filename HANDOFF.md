@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-06 (the weather session)
+## State, as of 2026-09-08 (the fog session)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **51 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **52 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,21 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-08 — fog, the seventh weather kind** (`npm run godot:m2:fog`, `M2_FOG_OK`, eight
+lanes; `godot:check:weather` at eight with the VEIL lane; `SAVE_VERSION` 26), the first piece of
+"what the weather left behind", picked and shaped by the owner in four answers this session:
+autumn-heavy with a spring weight so a ten-day run can draw it, shrunken sight plus a pale veil,
+sight both ways and scent muffled and nothing else, `sightMul` 0.25 for two to eight hours. One
+content number closes every observer's range and a zombie's sight reach by the same factor
+(3.8 m → 0.95 m, under the contact radius: in a fog the dead hunt by nose and ear), the district
+edge closes in because the sim stops seeing it, and the veil only says what closed it. docs/30's
+"The sky has kinds" has the calls and the one trap the seam is shaped around (the night wash's
+alpha is a sight ratio, so the multiplier lives outside the sight rule); docs/23's record has the
+measurements, the byte-identical FAST balance lines and why they prove nothing about fog. Three
+screenshots under `.hermes/plans/2026-09-08_fog-look/` are for the owner to judge — the one
+thing to look at: under fog the *unseen* background goes pale grey rather than staying dark,
+which is what a full-screen veil does and may not be what was pictured.
 
 **2026-09-07 — the playable state, thirteen slices in one run** (PR #115, on top of the roadmap
 audit): the owner's twelve decisions of 2026-09-06, each a named piece in docs/23 and each
@@ -256,7 +271,11 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    scrap vest, not the wrap) and heatstroke at two exposures in it; snow cover melting under a
    cold snap too (only `snow.json` lays any); lightning's sixteen tries at an open tile; the
    look's `SNOW_COVER_MAX` 0.55, the snow and lightning palette keys, and the flake's fall,
-   lean and length — docs/30's per-slice bullets, and two screenshots to judge.
+   lean and length — docs/30's per-slice bullets, and two screenshots to judge. **And by fog
+   (2026-09-08):** `sightMul` 0.25, two to eight hours, weights spring 2 / summer 1 / autumn 4 /
+   winter 1, scent half-life ×0.8, and the veil's alpha (`#c8cdd64d`) — `content/weather/fog.json`
+   and one palette key, every one a content number; the season and the veil were the owner's
+   calls this session, the numbers were offered and accepted as first cuts.
 1. **Whether the wind should be free.** The weather spine's first cut drew each day's wind
    direction anywhere, and the balance harness's four-seed survival floor read that as a coin
    toss: every re-measurement wiped a different seed (docs/23's Weather record has the table).

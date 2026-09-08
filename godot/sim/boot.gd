@@ -116,7 +116,9 @@ static func _refresh_light(w: Variant) -> void:
 
 static func _refresh_vision(w: Variant) -> void:
 	if w.vision != null and w.tilemap != null:
-		w.vision.refresh(w, w.tilemap)
+		# The sky's sight multiplier is resolved here and handed down: SimVisibility stays
+		# ignorant of weather, the same way the field does in `_decay` and `_diffuse` above.
+		w.vision.refresh(w, w.tilemap, SimWeather.sight_mul(w))
 
 
 static func register_playable_modules(world: Variant, map: Variant) -> void:
