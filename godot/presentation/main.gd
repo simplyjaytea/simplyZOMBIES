@@ -438,15 +438,7 @@ func _input(event: InputEvent) -> void:
 				elif _settings != null:
 					_settings.visible = not _settings.visible
 			KEY_TAB:
-				inventory_open = not inventory_open
-				if _inventory_panel != null and _inventory_panel.has_method("set_open"):
-					_inventory_panel.call("set_open", inventory_open)
-					if inventory_open and _inventory_panel.has_method("set_world"):
-						_inventory_panel.call("set_world", world, world.player)
-				if _hud != null: _hud.visible = not inventory_open
-				# The body panel has its own doll; the corner glimpse duplicating it under
-				# the open screen is noise.
-				if _paperdoll != null: _paperdoll.visible = not inventory_open
+				_set_inventory_open(not inventory_open)
 			KEY_J:
 				work_open = not work_open
 				if _work_panel != null:
@@ -474,9 +466,17 @@ func _input(event: InputEvent) -> void:
 				# wound that matters, or stop the one already in progress. Presentation
 				# picks neither the target nor the verb -- see SimTreatment.context.
 				if world != null: world.commands.push({"type": "treat.context"})
-			KEY_1: speed = 1
-			KEY_2: speed = 3
-			KEY_3: speed = 10
+			# The number row belongs to the quick strip since the 2026-09-08 overhaul, so
+			# speed moved to the two keys beside it. A key that means two things mid-fight
+			# is what the one-interact-key rule exists to avoid; P still pauses.
+			KEY_MINUS, KEY_KP_SUBTRACT: _step_speed(-1)
+			KEY_EQUAL, KEY_KP_ADD: _step_speed(1)
+			KEY_1: _strip_use(0)
+			KEY_2: _strip_use(1)
+			KEY_3: _strip_use(2)
+			KEY_4: _strip_use(3)
+			KEY_5: _strip_use(4)
+			KEY_6: _strip_use(5)
 			KEY_F8:
 				if _debug_panel != null:
 					_debug_panel.visible = not _debug_panel.visible
@@ -587,6 +587,46 @@ func _pump_input() -> void:
 	if dx != _last_dx or dy != _last_dy:
 		world.commands.push({"type": "move", "dx": dx, "dy": dy})
 		_last_dx = dx; _last_dy = dy
+
+# Opening and closing the sheet, in one place rather than inline in the key handler, because it
+# is four things and not one: the flag, the panel, and the two layers that sit *under* the sheet
+# rather than behind it. A 0.88 dim over a panel still shows the panel, so the legend and the
+# corner doll are peeled rather than dimmed -- and a driver or a gate that wants the sheet open
+# gets the same four things a keypress does, which is what stops a screenshot from showing a
+# legend nobody playing would see.
+func _set_inventory_open(open: bool) -> void:
+	inventory_open = open
+	if _inventory_panel != null and _inventory_panel.has_method("set_open"):
+		_inventory_panel.call("set_open", open)
+		if open and _inventory_panel.has_method("set_world") and world != null:
+			_inventory_panel.call("set_world", world, world.player)
+	if _hud != null:
+		_hud.visible = not open
+	if open and _legend != null:
+		_legend.visible = false
+	# The body panel has its own doll; the corner glimpse duplicating it under the open screen is
+	# noise.
+	if _paperdoll != null:
+		_paperdoll.visible = not open
+
+
+# The strip's keys. The panel owns the mapping -- it draws the same six rows it spends -- so this
+# is a hand-off and not a second list. It works with the sheet closed on purpose: the strip is
+# what the pinnable pouches used to be, and a pouch you can only reach with the screen open is
+# not one.
+func _strip_use(index: int) -> void:
+	if _inventory_panel != null and _inventory_panel.has_method("strip_use"):
+		_inventory_panel.call("strip_use", index)
+
+
+# Speed, as a ladder rather than three keys. The same three values the number row used to set.
+const SPEED_LADDER: Array[int] = [1, 3, 10]
+func _step_speed(step: int) -> void:
+	var at: int = SPEED_LADDER.find(speed)
+	if at < 0:
+		at = 0
+	speed = SPEED_LADDER[clampi(at + step, 0, SPEED_LADDER.size() - 1)]
+
 
 func _toggle_legend() -> void:
 	if _legend != null:

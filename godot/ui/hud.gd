@@ -178,7 +178,9 @@ func _draw() -> void:
 		y += LINE
 
 	# Bottom-right: the stance paperdoll owns the bottom-left corner now.
-	var keys: String = "F1 keys · Tab gear · J work · Esc settings · O overlay · M raw"
+	# Digit-free, like every other line on this screen: the strip draws its own key names, and the
+	# speed keys are punctuation now rather than the number row (docs/30, "The inventory sheet").
+	var keys: String = "F1 keys · Tab gear · J work · P pause · - = speed · Esc settings · O overlay · M raw"
 	var kw: float = font.get_string_size(keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE).x
 	draw_string(font, Vector2(view.x - MARGIN - kw, view.y - MARGIN), keys, HORIZONTAL_ALIGNMENT_LEFT, -1, SMALL_SIZE, Palette.COLOURS["outline"])
 

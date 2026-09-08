@@ -49,6 +49,7 @@ const PART: String = "torso"
 const DEEP_DAMAGE: float = 20.0
 
 const INSPECT_PANE_GD: String = "res://ui/inspect_pane.gd"
+const PANEL_GD: String = "res://ui/inventory_panel.gd"
 
 var _tree_cache: Dictionary = {}
 
@@ -66,8 +67,10 @@ func _run() -> void:
 	ok = _every_offered_verb_reaches_a_command() and ok
 	ok = _the_strip_is_the_belt_and_the_pockets() and ok
 	ok = _the_strip_spends_what_you_pressed() and ok
+	ok = await _the_column_is_in_a_fixed_order() and ok
+	ok = _the_windows_are_gone_and_the_keys_moved() and ok
 	if ok:
-		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed")
+		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed and the windows are gone")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -94,6 +97,33 @@ func _bases() -> Dictionary:
 				if entry is Dictionary:
 					out[String((entry as Dictionary).get("id", "?"))] = entry as Dictionary
 	return out
+
+
+# A key's name is not a measurement: "F1" and the strip's "1 . 6" are what you press, and the ban
+# is on a number that stands for a quantity. So the key line is scanned with the key names taken
+# out first -- exactly the way `check_hud` strips the day token before scanning a HUD line rather
+# than widening the scanner to tolerate it. "speed: 1x, 3x, 10x", the line this replaced, still
+# fails: an x after a digit is not a key.
+static func _without_key_names(text: String) -> String:
+	var out: String = text
+	for key in ["F1", "F2", "F5", "F8", "F9"]:
+		out = out.replace(key, "")
+	# A bare digit surrounded by spaces or punctuation is a key; one glued to a letter is not.
+	var stripped: String = ""
+	for i in out.length():
+		var ch: String = out[i]
+		if ch >= "0" and ch <= "9":
+			var before: String = out[i - 1] if i > 0 else " "
+			var after: String = out[i + 1] if i + 1 < out.length() else " "
+			var alone: bool = not _is_letter(before) and not _is_letter(after) and not (after >= "0" and after <= "9")
+			if alone:
+				continue
+		stripped += ch
+	return stripped
+
+
+static func _is_letter(ch: String) -> bool:
+	return (ch >= "a" and ch <= "z") or (ch >= "A" and ch <= "Z")
 
 
 # The one scanner, so DESCRIPTION and INSPECT cannot disagree about what a digit is. Proved able
@@ -666,4 +696,116 @@ func _the_strip_spends_what_you_pressed() -> bool:
 		push_error("the wound records a \"%s\" dressing after a dirty rag was pressed" % tier)
 		return false
 	print("SUPPLY OK the key spent the rag it named, the sterile medkit in the same pack survived, and the wound records a dirty dressing")
+	return true
+
+
+# --- SHEET ------------------------------------------------------------------------------
+
+# The column, in the order the owner picked: pockets first because they are always there, then the
+# belt, the vest and the back, then whatever nested bag the player chose to open. It is asserted
+# rather than assumed because it is a *decision* about what you reach for first, and
+# `reachable_containers` hands them over in its own order (pockets, then everything nested inside
+# them, then what is worn) which is not this one.
+func _the_column_is_in_a_fixed_order() -> bool:
+	var w: Variant = _world(3107)
+	var pouch: int = _wear(w, "item.pouch.medic", "belt")
+	var rig: int = _wear(w, "item.rig.chest", "vest")
+	var pack: int = _wear(w, "item.pack.frame", "back")
+	if pouch < 0 or rig < 0 or pack < 0:
+		push_error("the loadout would not go on")
+		return false
+	# A nested bag, inside the pack: reachable, and deliberately not a column until it is opened.
+	var box: int = SimItems.spawn_item(w, "item.toolbox.steel", {"tier": "scavenged"})
+	if not SimInventory.store_anywhere(w, box, pack):
+		push_error("the toolbox would not go in the pack")
+		return false
+
+	var panel: Control = (load(PANEL_GD) as GDScript).new() as Control
+	root.add_child(panel)
+	await process_frame
+	panel.call("set_world", w, w.player)
+	panel.call("set_open", true)
+
+	var labels: Array = panel.call("column_labels")
+	var want: Array = ["pockets", SimItems.item_name(w, pouch), SimItems.item_name(w, rig), SimItems.item_name(w, pack)]
+	if labels != want:
+		push_error("the column read %s rather than %s" % [str(labels), str(want)])
+		panel.queue_free()
+		return false
+
+	# Opened, and then closed again: the nested bag is a column only while the player has asked
+	# for it, which is what the `open` verb means and the difference between a fixed sheet and a
+	# sheet that grows a grid every time somebody picks up a pouch.
+	panel.call("_act", "open", box)
+	panel.call("set_world", w, w.player)
+	var opened: Array = panel.call("column_labels")
+	if opened.size() != want.size() + 1 or String(opened[opened.size() - 1]) != SimItems.item_name(w, box):
+		push_error("opening the toolbox gave the column %s" % str(opened))
+		panel.queue_free()
+		return false
+	panel.call("_act", "open", box)
+	panel.call("set_world", w, w.player)
+	if panel.call("column_labels") != want:
+		push_error("closing the toolbox left it in the column")
+		panel.queue_free()
+		return false
+
+	# And a bag that is no longer carried leaves no column behind. Dropped through the queue, the
+	# way the screen drops one.
+	panel.call("_act", "open", box)
+	w.commands.push({"type": "item.drop", "item": box})
+	w.step()
+	panel.call("set_world", w, w.player)
+	var after: Array = panel.call("column_labels")
+	if after != want:
+		push_error("dropping the opened toolbox left the column reading %s" % str(after))
+		panel.queue_free()
+		return false
+	print("SHEET OK the column is pockets, belt, vest, back; a nested bag joins it only when opened and leaves when dropped")
+	panel.queue_free()
+	return true
+
+
+# The screen's own text, and the pieces of main.gd that reach it. Textual, because what is being
+# asserted is that the *old* arrangement is gone -- a deleted file that something still preloads
+# is a parse error, but a stale key binding or a remembered window position is silent.
+func _the_windows_are_gone_and_the_keys_moved() -> bool:
+	var faults: Array[String] = []
+	if ResourceLoader.exists("res://ui/container_window.gd"):
+		faults.append("ui/container_window.gd still exists")
+	var prefs: String = FileAccess.get_file_as_string("res://ui/prefs.gd")
+	if prefs.find("\"windows\"") >= 0 or prefs.find("pinned_opacity") >= 0:
+		faults.append("ui/prefs.gd still remembers window positions or the pinned-bag opacity")
+	var main: String = FileAccess.get_file_as_string("res://presentation/main.gd")
+	if main.find("KEY_1: speed") >= 0 or main.find("KEY_2: speed") >= 0:
+		faults.append("main.gd still binds the number row to speed")
+	for needed in ["KEY_MINUS", "KEY_EQUAL", "_strip_use", "strip_use"]:
+		if main.find(needed) < 0:
+			faults.append("main.gd never mentions %s" % needed)
+	var legend: String = FileAccess.get_file_as_string("res://ui/legend.gd")
+	if legend.find("- / =") < 0:
+		faults.append("the legend does not name the speed keys")
+	if legend.find("pin it to keep it on screen") >= 0:
+		faults.append("the legend still tells the player to pin a bag")
+	# The HUD's key line is on the player's HUD, so it is under the digit ban like everything else
+	# there -- and it is the line most likely to grow one back, because it names keys.
+	var hud: String = FileAccess.get_file_as_string("res://ui/hud.gd")
+	var line: String = ""
+	for row in hud.split("\n"):
+		if String(row).find("var keys: String") >= 0:
+			line = String(row)
+	if line.is_empty():
+		faults.append("ui/hud.gd has no key line")
+	elif _carries_a_digit(_without_key_names(line.substr(line.find("\"") + 1))):
+		faults.append("the HUD's key line carries a digit that is not a key's name: %s" % line.strip_edges())
+	# And the narrowed scanner still catches what it is for. The line this one replaced said
+	# "speed: 1x, 3x, 10x", and an x after a digit is a quantity however it is punctuated.
+	if not _carries_a_digit(_without_key_names("F1 keys - speed: 1x, 3x, 10x")):
+		faults.append("the key-line scanner would pass \"speed: 1x, 3x, 10x\", so it is judging nothing")
+	if _carries_a_digit(_without_key_names("F1 keys - 1 . 6 use - Esc settings")):
+		faults.append("the key-line scanner rejects a bare key name, so it would fail any legal line")
+	if not faults.is_empty():
+		push_error("; ".join(faults))
+		return false
+	print("KEYS OK the windows and their prefs are gone, the number row spends the strip, speed is - and =, and the HUD's key line is digit-free")
 	return true

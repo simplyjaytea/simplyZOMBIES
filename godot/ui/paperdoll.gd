@@ -32,7 +32,9 @@ const TALLEST_ABOVE_ANCHOR_FRAC: float = 0.99
 const WIDEST_HALF_FRAC: float = 0.6
 
 const TOP_MARGIN: float = 12.0
-const BOTTOM_MARGIN: float = 20.0
+# Room under the soles for the stance word, which used to be drawn across the shins at every size
+# this doll is used at (280 in the corner, 240 on the sheet).
+const BOTTOM_MARGIN: float = 44.0
 const SIDE_MARGIN: float = 12.0
 const MIN_HEIGHT: float = 40.0
 
@@ -245,7 +247,12 @@ func _draw() -> void:
 	draw_marks.call(head, "head", Vector2(1, 0))
 	# prose below figure -- posture hint only, no numbers cross the boundary (docs/05)
 	if _view.has("parts"):
-		var y: float = size.y - 56.0
+		var y: float = size.y - 14.0
 		var stance: int = int(_view.get("stance", SimStances.Stance.Walk))
 		var label: String = SimStances.name_of(stance) if stance >= 0 and stance < SimStances.NAMES.size() else "walking"
-		draw_string(ThemeDB.fallback_font, Vector2(12, y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Palette.COLOURS["outline"])
+		# Centred under the figure rather than pinned to the left edge: on the inventory sheet the
+		# doll is sized to the gap between the two slot columns, and a word at x = 12 lands on the
+		# belt slot beside it.
+		var font: Font = ThemeDB.fallback_font
+		var lw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
+		draw_string(font, Vector2(size.x / 2.0 - lw / 2.0, y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Palette.COLOURS["outline"])

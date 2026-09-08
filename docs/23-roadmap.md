@@ -429,15 +429,6 @@ gains a reader** with a drawn class glyph until per-base art exists; and **the p
 pixel body chart** through `tools/sprites`. The pieces below are in the order they land, each one
 session, each with its gate red both ways and its record.
 
-- **The words the sheet reads.** `SimInventory.inspect_view`, `verbs_for` and `quick_strip_view`;
-  `SimItems.description_of` over a new optional `description` in `item.schema.json` with a
-  class-and-slot fallback for a base that has none; `SimNeeds.can_use` as the one predicate the
-  menu and the intake share; `SimTreatment.use_supply`, which is the T ladder narrowed to the
-  item you pressed. The gate is new — `npm run godot:check:inventory`, `INVENTORY_OK`.
-- **The fixed sheet.** The layout above, in `ui/inventory_panel.gd` with `ui/bag_grid.gd`,
-  `ui/inspect_pane.gd`, `ui/item_menu.gd` and `ui/quick_strip.gd` beside it;
-  `ui/container_window.gd`, the stored window positions in `ui/prefs.gd` and the pinned-bag
-  opacity slider are deleted with it.
 - **Item glyphs, and the twelfth dead socket closed.** `Appearance.item_look` resolves
   `appearance.sprite` when a base declares one and falls back to a drawn shape per item class;
   the grid and the ground both draw through it, and the ground's fixed ten-pixel square goes.
@@ -4952,6 +4943,54 @@ not a to-do list:
   named as the template if it ever needs to be interruptible. A container is drawn now, searched
   or not — the Art track's tile-and-prop piece, recorded there. The one open tail here, carried
   weight loudening footsteps, is in [what's left](#whats-left-in-milestone-2).
+- **Inventory & UI** — ~~the words the sheet reads~~ and ~~the fixed sheet~~ **both landed**
+  2026-09-08 (`npm run godot:check:inventory`, `INVENTORY_OK`, nine lanes; the `godot:m2` chain
+  grew by one), the first two pieces of the owner's overhaul (docs/30's "The inventory sheet").
+  **The read models first**, with the screen built on top of them a commit later, so the sheet
+  computes nothing: `inspect_view` (name, condition word, sentence, slot, what is fitted and what
+  would fit), `verbs_for` (the word menu, in menu order) and `quick_strip_view` (the belt and the
+  pockets, six at most). An optional `description` joined `item.schema.json` and **all 89 shipped
+  bases carry one**, digit-free — DESCRIPTION refuses a number in any of them, and
+  `SimItems.description_of` falls back to a sentence built from the equip slot, else the class,
+  so a base added tomorrow is never blank (FALLBACK proves the slot outranks the class and an
+  authored line outranks both). INSPECT holds the pane's view to a key allowlist and to words,
+  booleans and lists of words — the entity handle is the one number and is named as one — and
+  **proves all three of its scanners red before trusting them**, because a textual assertion needs
+  to be shown it is reading what it thinks it is. Footprint, mass, damage and range are known
+  there and deliberately absent: the grid draws the footprint, and weight stays docs/10's
+  invisible pressure.
+  **A verb is offered iff the sim would take it.** VERBS asserts each of the six where it belongs
+  *and* where it does not (worn and unworn being the same coat twice), and COMMANDS is the
+  dead-socket half — every offered verb pushes its command and the world moves. `use` asks the two
+  modules that own `item.use` rather than guessing: `SimNeeds.can_use` was **extracted out of**
+  `use_item` so there is one predicate rather than two copies of "can you eat this", and
+  `SimTreatment` gained `verb_of_supply` / `supply_plan` / `can_use_supply` / `use_supply`.
+  **A strip key is the T ladder with the rung chosen by what you pressed.** The `treatment`
+  channel now carries the item (`supply`, read with a default, so a save written before it loads
+  unchanged) and `_complete` prefers it over `_best_bandage`; SUPPLY is that in one world — press
+  the dirty rag and the sterile medkit in the same pack survives, and the wound records a *dirty*
+  dressing. It also closes the gap that made the old pinnable pouches necessary.
+  **The sheet itself** is one fixed layout: body and twelve slots left, a column of bag grids in
+  the fixed order pockets → belt → vest → back → any nested bag the player opened, an inspect pane
+  of words right, the quick strip along the bottom, and a drawn word menu on right-click. SHEET
+  asserts that order (it is a decision about what you reach for first, and it is *not*
+  `reachable_containers`' order), that a nested bag joins the column only when opened, and that it
+  leaves when dropped. `ui/container_window.gd` is **deleted** with the drag, the pin, the
+  `windows` table in `ui/prefs.gd` and the pinned-bag opacity slider; KEYS asserts all of that
+  textually, because a deleted file that something preloads is a parse error but a remembered
+  window position is silent. The number row moved to the strip and speed to `-` and `=`; the
+  HUD's key line is scanned with key names stripped, the way `check_hud` strips the day token —
+  and the scanner is shown to still reject the `speed: 1x, 3x, 10x` it replaced.
+  **Five defects the screenshots found**, each fixed rather than noted: the F1 legend and the
+  corner paperdoll were drawn *under* the sheet's dim rather than behind it (a 0.88 wash over a
+  panel still shows the panel), so `main.gd` gained `_set_inventory_open` as the one place four
+  things happen together; the figure was wider than the gap between the slot columns and drew its
+  own stance word across the belt slot; the condition prose, centred on the panel, ran under both
+  columns of boxes and moved below the last slot row; a deep loadout painted over the quick strip
+  and the column is now a clipped child with a "wheel to scroll" note; and a one-cell plate read
+  "Kit…", which looks like a defect and says less than the footprint — a name is drawn only where
+  enough of one fits, and the glyph piece fills that space next. Screenshot for the owner under
+  `.hermes/plans/2026-09-08_inventory-sheet/`.
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:
