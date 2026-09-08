@@ -1376,7 +1376,8 @@ this section carries what the change turned out to be made of).
   art. The 64×64 centre-anchored canvas that replaces them is its own decision, taken with the
   regenerated sprites in the same commit so the two conventions never coexist. *(Note,
   2026-09-03: the interim convention turned out to be the direction -- "The Dungeon Settlers
-  look" below returns to a feet-anchored upright pawn, on a 32×48 canvas this time.)*
+  look" below returns to a feet-anchored upright pawn, on a 32×48 canvas this time; 32×40 and
+  squat since 2026-09-08.)*
 
 ## What the worldgen arc decided
 
@@ -1832,6 +1833,8 @@ this stands on. Twelve decisions, recorded once here, each paid for in the slice
   its forward constant, its facing-line helper and the one-transform socket retire in the pawn
   slice, and `TOPDOWN_OK`'s rotation lane becomes a flip lane with the same red-both-ways
   discipline: zero transforms in the entity loop, proved on a fabricated body first.
+  *(Amended 2026-09-08: the canvas is 32×40 and the figure is one tile tall with a big head --
+  "Overcast or torchlight" below. The flip, the anchor and the assembler are unchanged.)*
 - **The mood is warm dark fantasy.** A cool near-black dark around a warm-lit district, timber
   browns, saturated fire and lamp light. This reverses "muted, overcast, desaturated urban
   decay". Every band that pinned the overcast mood — the generator's single saturation clamp,
@@ -1846,7 +1849,9 @@ this stands on. Twelve decisions, recorded once here, each paid for in the slice
   every wall tile draws inside its own footprint as thick mass with a lit cap and, where its
   south neighbour is open ground, a south face in the building's `look` material, with that
   tile's window or door drawn in the face. Nothing hangs over a walkable tile and no tile depth
-  sort returns.
+  sort returns. *(Amended 2026-09-08: the south face will hang one tile over walkable ground
+  and join the entity y-sort, so a body on that tile draws over it -- the wall-face piece in
+  docs/23's what's left; no tile sort returns even then.)*
 - **Trees stand up.** A tree is one tall feet-anchored sprite, one tile wide and three high,
   y-sorted with the bodies — not a canopy drawn over them. The frames' own small flat trees were
   offered and declined: the tall conifer extrapolates the style, and it buys the multi-tile
@@ -1892,7 +1897,9 @@ this stands on. Twelve decisions, recorded once here, each paid for in the slice
   derived from a projection argument, and the constraint that drove the churn — free rotation,
   which forced a square, centre-anchored, radially shaded canvas — is gone. Nothing mechanical
   prevents a fifth; all eight rigs are generated, so a re-author is one assembler edit and a
-  rebuild.
+  rebuild. *(The fifth came on 2026-09-08 -- 32×40, squat -- and was exactly that: the rows
+  of one skeleton, one rebuild, and thirty-one overlays that refit by re-rendering. "Overcast
+  or torchlight" below.)*
 
 **What each earlier decision becomes**, in one place:
 
@@ -2853,6 +2860,86 @@ records its own numbers here as a bullet under this entry when it lands.
   whose lines you are reading, not whose turn it is. `hud_panel` was deleted rather than wired,
   because the `panel: true` prose it returned was one sentence longer than the HUD glimpse and
   said nothing the glimpse did not.
+
+
+## Overcast or torchlight, 2026-09-08
+
+Decided by the owner, 2026-09-08, from a design brief built on the shipped renderer's own
+screenshots and sprites, regraded and overlaid to put a picture beside each question (the mock
+images are not committed; the brief described what each showed). The question was how far a
+"graphics overhaul toward Zero Sievert and the other inspired art pieces" should go, given that
+the art had already been to Zero Sievert once (2026-09-01/02) and back (2026-09-03, "The
+Dungeon Settlers look" above). Seven answers, each recorded once here and each paid for in the
+slice that lands it (docs/23, "Art & renderer — overcast or torchlight", in order):
+
+- **A hybrid.** The Dungeon Settlers spine stays — face-on pawns that flip, walls with a lit
+  cap and a south face, roofs cut out where the sim sees, tall sorted trees, three-quarter
+  vehicles on one skeleton with thirty-one overlays — and the *world* takes Zero Sievert's:
+  the grade, density, grain, the torch, a remembered map. Reopening the pawn convention a fifth
+  time was refused for the body's *orientation* (nobody rotates, still) and taken for its
+  *proportion* (below). The projection stays flat top-down: "somewhat isometric" is the
+  three-quarter read inside it — wall faces, three-quarter props, a squat pawn — and a real
+  isometric projection, reversed twice in docs/00, is not what was asked for.
+- **The mood is overcast by day and warm by night.** Cool, desaturated daylight under a grey
+  sky, and the pools, the fire and the torch kept as the one saturated thing after dark —
+  which is what Zero Sievert itself does. This amends "the mood is warm dark fantasy" above
+  for the day and keeps it for the night, and the sentence that made the warm regrade
+  affordable survives verbatim: the mood is enforced by properties, not remembered. The
+  PALETTE lane's one warm family becomes two measured families keyed to the phase, re-pinned
+  in the grade slice and never loosened in passing.
+- **Unseen ground is the remembered map, dimmed.** Tiles the survivor has seen persist,
+  desaturated, and bodies are never drawn in them; a tile never seen stays the void. Zero
+  Sievert's whole-map-darkened read was refused by clause 4 — it shows layout the survivor
+  never saw. Draw ⊆ seen becomes draw ⊆ seen ∪ remembered, over the sightings and memory tint
+  the sim already keeps; the lit-pool discipline is unchanged.
+- **The wall is Dungeon Settlers' construction: a cap and a one-tile face below it.** The face
+  hangs over the tile to the south and **joins the entity y-sort**, so a body standing on that
+  tile draws over it the way a body draws over a tree. This amends the 2026-09-03 wall clause's
+  "nothing hangs over a walkable tile": a face does, as an entity-sort member, and no *tile*
+  depth sort returns even then. The 2026-09-02 roof rule stands untouched.
+- **The pawn is squat: one tile tall, with a big head and short legs.** Picked from a strip of
+  real rigs at five heights, then squashed a second time on sight ("shorter legs and a bigger
+  head"). Paid for below.
+- **Weapons are the read.** What a survivor carries and wears keeps drawing on the pawn, and on
+  the shorter body the held weapons read larger against it — the Zero Sievert emphasis the
+  owner named — without a picture moving: every overlay hangs off the published skeleton.
+- **The references, named.** Zero Sievert, Dungeon Settlers, Project Zomboid and RimWorld;
+  nothing new supplied. Each is third-party and stays uncommitted; what each one bears on is
+  what docs/00's influence table already says, and this entry adds only that RimWorld's pawn
+  proportion is now the pawn's.
+- **Not adopted, re-affirmed a third time.** The bars, the icon row and the name plates; 32 px
+  a tile and the zoom ladder; the flat projection.
+
+**Waiting on the owner, not on code.** One answer — *"when selecting the character, sprite art
+will appear"* — names a picture on select that the tree does not have and this entry does not
+decide: a portrait was refused with the Dungeon Settlers HUD on 2026-09-03, and a larger
+picture of the selected pawn in the colony panel is not a portrait, but which of those was meant
+is the owner's to say. It is named in docs/23's what's left as "the picture on select" and is
+not pickable until then.
+
+**Paid for, the pawn slice (2026-09-08) — a body is a squat, face-on pawn one tile tall, and
+the head carries the read.** The canvas is `Appearance.PAWN_CANVAS`, one tile wide by one and
+a quarter tall (32×40), feet-anchored as before; the 32×48 canvas of 2026-09-03 was superseded
+rather than resized, because a proportion is a re-authoring and not a crop. Only the *rows* of
+the published skeleton moved — `FEET_Y 0, LEG_TOP_Y −6, TORSO_TOP_Y −16, SHOULDER_Y −14,
+HAND_Y −8, HEAD_CY −21, HEAD_R 6.0`, with `HAND_X 8.4` and `SHOULDER_HALF 8.0` untouched — and
+that is what made the slice a session rather than a week: all thirty-one gear overlays are
+authored against those names and refit by re-rendering, and the four numbers moved by hand were
+the ones that hung *below* the hand (the bow's lower limb, the lamp, the lantern, the school
+bag's depth), which on the tall rig was empty canvas and on the squat one is the legs and then
+the soles. The figure is 27–29 px tall (26–30 the bound; the bloater 25 with its head sunk),
+the head 12×13 (≤ 13×14) and 46 % of the figure where it was 27 %, the eyes one column further
+apart, every column bound of the 2026-09-03 slice unchanged (shoulders ≤ 22 human, 26 bloater,
+≥ 3 px side clearance). The bloater's three own numbers are published beside the family's
+(`BLOATER_HALF`, `BLOATER_HAND_X`, `BLOATER_HEAD_SINK`) rather than typed into one rig.
+`RIG_LIGHT_RADIUS` re-measured to 13.0 by the same rule as before (2982 opaque pixels, reach
+−5.5 to +13.5; 0.13 % clamped, the whole gain spent). No new gate: `TOPDOWN_OK`'s FLIP lane
+re-pins the canvas to n × 5⁄4 and the exact rect at the boot zoom to `Rect2(68, 23, 64, 80)`,
+`WORN_LOOK_OK`'s FITS lane carries the new skeleton copy and still holds every overlay inside
+the eight-rig envelope (the spear tip stops under the screamer's crown on purpose), and
+`APPEARANCE_OK`'s GREY lane re-measured the colonist at a median of 0.7020 and a tightest
+composed margin of +0.018 — thinner than the +0.022 of the tall rig, still the owner's to
+widen, and quantised to about a byte as before. Nothing under `godot/sim/` moved.
 
 ---
 

@@ -218,8 +218,8 @@ drifted. Three things about the current state matter enough to repeat anyway:
   record](docs/23-roadmap.md#the-record-by-system) is the one copy of which ones have.** This file
   deliberately does not list them: that list has now drifted three times, each time a slice landed
   without its copy here being updated, which is the same reason the milestone status lives in one
-  place. What the style *is*, either way: the table is warm; every body is a 32×48 face-on pawn
-  that flips through a negative-width rect, and nobody rotates; walls draw their material's cap or
+  place. What the style *is*, either way: the table is warm; every body is a squat 32×40 face-on pawn,
+  one tile tall with a big head, that flips through a negative-width rect, and nobody rotates; walls draw their material's cap or
   south face and roofs cover what the sim cannot see; the darker ground draws a boundary once onto
   the lighter tile; a tree is a 32×96 picture standing in the entity sort; a parked car is a
   manifest record the layout wrote, drawn as one three-quarter picture per class, variant and axis
