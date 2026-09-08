@@ -2,42 +2,51 @@
 
 Drop a PNG here and a content entry can use it. No code change, no editor round-trip.
 
-## The pawn convention, as of 2026-09-03 — read this before the sections below
+## The pawn convention, as of 2026-09-08 — read this before the sections below
 
 The owner moved the art to **the Dungeon Settlers look** on 2026-09-03 (docs/30, "The Dungeon
-Settlers look"; docs/23's "Bodies stand up" is the pawn slice's record). Every body — the
-player, colonists, zombies, raiders — is an upright, **face-on pawn**, feet-anchored on a
-**32×48** canvas, mirrored by a horizontal flip when it faces west. **Nobody rotates, the
-player included.** This is what ships; the sections below are the convention, not a target it
-is approaching.
+Settlers look"; docs/23's "Bodies stand up" is the pawn slice's record) and on 2026-09-08
+squashed the pawn (docs/30, "Overcast or torchlight"; docs/23's "The squat pawn" is that
+slice's record). Every body — the player, colonists, zombies, raiders — is an upright,
+**face-on pawn**, feet-anchored on a **32×40** canvas, about **one tile tall with a big head**,
+mirrored by a horizontal flip when it faces west. **Nobody rotates, the player included.** This
+is what ships; the sections below are the convention, not a target it is approaching.
 
-- **Feet-anchored, 32×48.** `Appearance.PAWN_CANVAS` is one `ART_NATIVE` tile wide and one and
-  a half tall. The soles sit on the canvas's bottom row (row 47); the renderer hangs the
+- **Feet-anchored, 32×40.** `Appearance.PAWN_CANVAS` is one `ART_NATIVE` tile wide and one and
+  a quarter tall. The soles sit on the canvas's bottom row (row 39); the renderer hangs the
   picture above the entity's ground point with the sole line on `Appearance.FOOT_DROP_PX`
   (3.0), the contact shadow's own offset, so the sole line and the shadow line are one number
   and cannot drift apart. `Appearance.anchor_of(size)` derives the anchor from the canvas shape
   — a square canvas centres on its point, anything else stands on it — so the tree and vehicle
   sheets the later slices add are feet-anchored by construction, not by a second list of keys
-  to remember.
+  to remember. The 32×48 canvas of 2026-09-03 was superseded, not resized: every rig was
+  re-authored on a shorter published skeleton, and the ten rows of headroom over a 28 px
+  figure are for a helmet, a hood and the tallest thing anyone carries.
 - **Front view, flipped, never turned.** Heading east, north or south draws the one painted
   picture; west is that same picture handed to the renderer in a negative-width rect, which
   mirrors it in place (probed in Godot 4.7.1: `draw_texture_rect` with a negative width mirrors
   the texture at position .. position + |width|). The indicator line draws for every body, the
   player's included: a flip is a two-state readout of a continuous heading, and the picture can
   never say more than "east or west".
-- **Measured against the reference's proportion.** A person is about 0.7 of a tile wide and 1.3
-  tall: height 38–42 px against a 38–44 bound; shoulders 16–22 px on a human against a ≤ 22
-  bound, and the bloater at 26 sits exactly on its own ≤ 26 bound — the rig at the bound, and
-  the reason nothing else on the roster may come near it; head 10×10 or 10×11 against a
-  ≤ 11×12 bound; side clearance ≥ 3 px on every rig (bloater exactly 3, the rest 5–8), because
-  the flip is a mirror inside the same rect and a rig that touches the edge clips itself the
-  moment it turns around.
-- **One skeleton, published.** `FEET_Y 0, LEG_TOP_Y -13, TORSO_TOP_Y -30, SHOULDER_Y -28,
-  HAND_Y -17, HAND_X 8.4, HEAD_CY -35, HEAD_R 5.0, SHOULDER_HALF 8.0` — pixels above the soles,
+- **Measured against the references' proportion.** A person is about 0.7 of a tile wide and
+  **one tile tall**, the RimWorld and Zero Sievert read: height 27–29 px on the humans and
+  the two lean zombies against a 26–30 bound, the bloater at 25 (its head is sunk); shoulders
+  16–22 px on a human against a ≤ 22 bound, and the bloater at 26 sits exactly on its own ≤ 26
+  bound — the rig at the bound, and the reason nothing else on the roster may come near it;
+  head 12×13 against a ≤ 13×14 bound, and the head is **46 % of the figure** where it was
+  27 % — the owner's "shorter legs and a bigger head"; side clearance ≥ 3 px on every rig
+  (bloater exactly 3, the rest 5–8), because the flip is a mirror inside the same rect and a
+  rig that touches the edge clips itself the moment it turns around.
+- **One skeleton, published.** `FEET_Y 0, LEG_TOP_Y -6, TORSO_TOP_Y -16, SHOULDER_Y -14,
+  HAND_Y -8, HAND_X 8.4, HEAD_CY -21, HEAD_R 6.0, SHOULDER_HALF 8.0` — pixels above the soles,
   negative upward. One generated gear overlay fits all eight bodies by reading these rows
-  instead of being redrawn per rig; the bloater is the one rig that moves them.
-- **A face is three pixels.** Two 1 px eyes 3 px apart and one brow pixel above and to the left
-  — at 32 px wide there is no room for a mouth, and the placement is the whole of it.
+  instead of being redrawn per rig; the bloater is the one rig that moves them, and its three
+  numbers are published beside them (`BLOATER_HALF`, `BLOATER_HAND_X`, `BLOATER_HEAD_SINK`).
+  Only the rows moved on 2026-09-08; every column is the 2026-09-03 number, which is what let
+  the thirty-one overlays refit by re-rendering.
+- **A face is three pixels.** Two 1 px eyes 5 px apart (3 on the old 10-wide skull) and one
+  brow pixel above and to the left — at 32 px wide there is no room for a mouth, and the
+  placement is the whole of it.
 
 The worn look landed 2026-09-04 — sixteen overlays, one per base declaring a drawn slot, and the
 gear catalogue of 2026-09-06 added fifteen more (thirty-one in all), under
@@ -84,16 +93,16 @@ and axis, under "The vehicle" below — and took the nine `wreck_car_*` segment 
   player, NW on everything static — is gone with the rig that needed it: nothing rotates, so
   nothing is shaded any other way. `.hermes/plans/2026-09-03_dungeon-settlers-arc.md` is the
   slice-by-slice plan for the arc this convention belongs to.
-- **Rig guarantees, bound and measured.** Every rig's lowest opaque pixel sits on row 47 — a
-  rig floating above the sole row is a build failure, not a style note. Height runs 38–42 px
-  against a 38–44 bound. Shoulders run 16–22 px on a human against a ≤ 22 bound; the bloater at
-  26 sits exactly on its own ≤ 26 bound, which is why nothing else on the roster may come near
-  it. Head runs 10×10 or 10×11 against a ≤ 11×12 bound — the bloater's, sunk into its
-  shoulders, measures 8×7, well under it. Side clearance holds ≥ 3 px on every rig (the bloater
-  exactly 3, the rest 5–8), because the flip is a mirror inside the same rect. Every rig
-  carries a 1 px `#161614` inward outline and `nw_shade` at `RIG_LIGHT_RADIUS` 15.0 — the
-  smallest radius that clamps almost nothing of the union of the eight rigs' 4254 opaque pixels
-  (0.02%, one pixel) while still spending the whole gain, measured from the picture's *middle*
+- **Rig guarantees, bound and measured.** Every rig's lowest opaque pixel sits on row 39 — a
+  rig floating above the sole row is a build failure, not a style note. Height runs 27–29 px
+  against a 26–30 bound, the bloater at 25 with its head sunk. Shoulders run 16–22 px on a
+  human against a ≤ 22 bound; the bloater at 26 sits exactly on its own ≤ 26 bound, which is
+  why nothing else on the roster may come near it. Head runs 12×13 against a ≤ 13×14 bound —
+  the bloater's, sunk into its shoulders, is smaller. Side clearance holds ≥ 3 px on every rig
+  (the bloater exactly 3, the rest 5–8), because the flip is a mirror inside the same rect.
+  Every rig carries a 1 px `#161614` inward outline and `nw_shade` at `RIG_LIGHT_RADIUS` 13.0
+  — the smallest radius that clamps almost nothing of the union of the eight rigs' 2982 opaque
+  pixels (0.13%, four pixels) while still spending the whole gain, measured from the picture's *middle*
   (`Canvas.middle`) rather than its feet pivot: from the soles every body pixel sits on one
   side of the origin, and the ramp would clamp flat across the whole figure if it measured from
   there. Centre-anchored canvases are unaffected — every prop, wreck and debris key regenerated
@@ -141,10 +150,10 @@ ninth rig reads it rather than reinventing the roster.
 
 Authoring one:
 
-- **Feet on row 47.** The canvas is feet-anchored (`origin="feet"` in `draw.Canvas`): row 47,
-  the bottom of the 32×48 picture, is where the soles sit, and the renderer hangs that row on
+- **Feet on row 39.** The canvas is feet-anchored (`origin="feet"` in `draw.Canvas`): row 39,
+  the bottom of the 32×40 picture, is where the soles sit, and the renderer hangs that row on
   the entity's ground point plus `Appearance.FOOT_DROP_PX`. A rig whose lowest opaque pixel
-  sits above row 47 floats above its own shadow.
+  sits above row 39 floats above its own shadow.
 - **Face-on, not overhead.** The figure is seen from the front — crown, shoulders, forearms —
   the way the reference draws every pawn, not from above. Heading is carried entirely by the
   flip and the indicator line; the picture itself never says more than "I am a body".
@@ -152,13 +161,13 @@ Authoring one:
   in a negative-width rect, which mirrors it in place — so a rig that touches the canvas edge
   clips itself the moment it turns around. The bloater, at exactly 3 px, is the rig that proves
   the bound rather than merely respecting it.
-- **The skeleton is published, not private.** `FEET_Y 0, LEG_TOP_Y -13, TORSO_TOP_Y -30,
-  SHOULDER_Y -28, HAND_Y -17, HAND_X 8.4, HEAD_CY -35, HEAD_R 5.0, SHOULDER_HALF 8.0` — pixels
+- **The skeleton is published, not private.** `FEET_Y 0, LEG_TOP_Y -6, TORSO_TOP_Y -16,
+  SHOULDER_Y -14, HAND_Y -8, HAND_X 8.4, HEAD_CY -21, HEAD_R 6.0, SHOULDER_HALF 8.0` — pixels
   above the soles, negative upward. One generated gear overlay has to fit all eight bodies, and
   it fits them by reading these rows rather than by being redrawn per rig — eight overlays
   redrawn per rig is eight chances to disagree. The bloater is the one rig that moves the
   numbers (below), and every other rig is authored against them unchanged.
-- **A face is three pixels.** Two 1 px eyes 3 px apart and one brow pixel above and slightly
+- **A face is three pixels.** Two 1 px eyes 5 px apart and one brow pixel above and slightly
   left of centre — at 32 px wide there is no room for a mouth, and where the two dots and the
   shadow sit is the whole of the expression.
 - **One loud tell, and only one.** Because the picture is mirrored rather than turned, an
@@ -180,8 +189,8 @@ Authoring one:
 - **Shaded from the picture middle, not the feet.** `nw_shade` measures from `Canvas.middle`
   rather than from the origin: from the soles every body pixel sits on one side of the pivot
   and the ramp would clamp flat across the whole figure if it measured from there.
-  `RIG_LIGHT_RADIUS` is 15.0, the smallest radius that clamps almost nothing of the roster
-  (0.02%, one pixel) while still spending the whole gain.
+  `RIG_LIGHT_RADIUS` is 13.0, the smallest radius that clamps almost nothing of the roster
+  (0.13%, four pixels) while still spending the whole gain.
 - **The bloater is the rig at the bound.** It is the one rig that moves the published skeleton,
   and it moves exactly three numbers: the torso half-width (11.0 instead of `SHOULDER_HALF`,
   starting 2 px above `TORSO_TOP_Y`, because the distension is in the trunk), the arm x (11.6
@@ -324,7 +333,7 @@ record; nothing is hashed at draw time beyond what that record already says.
 An item base can also carry `appearance.equipSprite` (item.schema.json), a **different** picture
 from its ground `sprite` — what it looks like worn or held on a body, not lying on the floor.
 Overlays are generated, not hand-drawn: `tools/sprites/parts/gear.py` authors each one on the
-same feet-anchored 32×48 pawn canvas the bodies stand on, against the published skeleton
+same feet-anchored 32×40 pawn canvas the bodies stand on, against the published skeleton
 (`SHOULDER_Y`, `LEG_TOP_Y`, `HAND_X`, `HAND_Y` from `parts/characters.py`) rather than against a
 canvas row — the same reason the skeleton is published at all: one overlay fits all eight
 bodies instead of eight overlays fitting one each. `main.gd::_blit_body` composites every layer

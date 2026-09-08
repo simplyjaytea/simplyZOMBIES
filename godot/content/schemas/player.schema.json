@@ -25,7 +25,7 @@
         "sprite": {
           "type": "string",
           "pattern": "^[a-z0-9_.]+$",
-          "description": "Registry key for assets/sprites/<key>.png, feet-anchored on the pawn canvas (one ART_NATIVE tile wide by one and a half tall, 32x48; presentation/appearance.gd's PAWN_KEYS, assets/sprites/README.md). Drawn face-on and mirrored when the body faces west; nobody rotates, the player included."
+          "description": "Registry key for assets/sprites/<key>.png, feet-anchored on the pawn canvas (one ART_NATIVE tile wide by one and a quarter tall, 32x40; presentation/appearance.gd's PAWN_KEYS, assets/sprites/README.md). Drawn face-on and mirrored when the body faces west; nobody rotates, the player included."
         },
         "tint": {
           "type": "string",
