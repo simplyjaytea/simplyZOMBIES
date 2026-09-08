@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-08 (the fog session)
+## State, as of 2026-09-08 (the inventory overhaul)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **52 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **53 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,27 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-08 — the inventory and UI overhaul, seven slices in one run** (one new gate,
+`npm run godot:check:inventory` / `INVENTORY_OK`, plus new lanes in `check_hud`,
+`check_appearance`, `check_loot` and `godot:m2:save`; `SAVE_VERSION` 26 → 27). The owner opened
+it from four mockups and decided it in six answers — docs/30's "The inventory sheet". The Tab
+screen is a **fixed sheet** (body and twelve slots left, a column of bag grids in the fixed order
+pockets, belt, vest, back, an inspect pane of words right, the belt and pockets as a quick strip
+along the bottom, a drawn word menu on right-click); `ui/container_window.gd` and the pinnable,
+draggable, position-remembering bag windows are **deleted**, and the strip is what buys back what
+pinning bought. Every one of the 89 item bases gained a `description` sentence. A **world
+container is now a grid** — the same component a pack carries, rolled once on the first open —
+so E opens a cupboard into a **small transfer window** beside your pockets without leaving the
+district. `item.appearance.sprite` gained its first reader (the milestone's twelfth dead socket)
+with a drawn glyph per item class behind it. A short digit-free **tag** reads beside the player's
+own body and nowhere else. And the paperdoll is a **pixel body chart** — thirty generated masks,
+tinted by state — after the owner judged the drawn figure "too alien". Numbers, gates and the
+five screenshot-found defects are in
+[docs/23's record](docs/23-roadmap.md#the-record-by-system); screenshots for the owner are under
+`.hermes/plans/2026-09-08_inventory-sheet/`. **Two existing gates went red on the refactors and
+were made stronger rather than looser**: `check_respond`'s dead-socket needle and
+`check_weather`'s ground-item socket both followed a call one file down.
 
 **2026-09-08 — the squat pawn, and the overhaul decided** (no new gate; `TOPDOWN_OK`'s FLIP
 lane re-pinned to a 32×40 canvas, `WORN_LOOK_OK`'s skeleton copy moved, GREY re-measured at
