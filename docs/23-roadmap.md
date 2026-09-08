@@ -444,9 +444,6 @@ session, each with its gate red both ways and its record.
   at all to anybody else. The fix is a smaller predicate than `searched` — "has contents and is
   not claimed" — and it moves what colonists scavenge, so it is a **measured** piece rather than
   a one-line filter change.
-- **The tag beside the pawn.** One short digit-free line on the player's own body — "favouring
-  the left arm · bleeding" — from the condition view and the bleed clause, empty when there is
-  nothing to say. The corner column keeps its lines; name plates stay refused.
 - **The pixel body chart.** The procedural figure in `ui/paperdoll.gd` reads as alien at the size
   the sheet draws it (the owner's call, 2026-09-08). Ten parts by three poses generated in
   `tools/sprites/parts/paperdoll.py` on their own canvas, each modulated by the part's state
@@ -455,8 +452,11 @@ session, each with its gate red both ways and its record.
 
 **UI:**
 
-- **Condition and stamina readouts in the world, not a corner.** The diegetic half of the prose
-  contract — the words move onto the body and the scene.
+- **Condition and stamina readouts in the world, not a corner** — **half landed** 2026-09-08
+  (the record's "the tag beside the pawn"). The condition half is on the player's own body; what
+  is still in the corner is **stamina**, which has no diegetic form yet and is the harder half,
+  because a body that is out of breath has to *look* it rather than say so. Whatever it becomes,
+  it is not a bar and not a word over anybody else's head.
 - **The skill web screen.** **Presentation only, now.** The mechanism underneath it landed with
   [Focus and the Manual learn line](#the-record-by-system) — the `web.buy` command, the
   `SimSkills.web_view` read model and the choice of who manages a survivor, all gated by
@@ -5076,6 +5076,35 @@ not a to-do list:
   bigger than the screen it was measured against), and that walking away ends both — plus the
   reader half textually, and that the legend's E row says *open* rather than *search*, because a
   player told to search a cupboard will not know a window is coming.
+- **UI** — ~~the tag beside the pawn~~ **landed** 2026-09-08 (`godot:check:hud`'s TAG lane), the
+  sixth piece of the inventory overhaul and the condition half of docs/23's long-standing
+  "readouts in the world, not a corner". `Hud.pawn_tag` composes one line from the condition view
+  and the wound records — "favouring the left arm · bleeding" — and returns **""** for a body with
+  nothing to say, which is the assertion that matters: a permanent label over the player is the
+  thing this must not become. It is drawn **beside the player's own body and nowhere else**. A
+  line over every pawn is a name plate, refused three times in docs/30 (the reference HUD
+  2026-09-01, the Dungeon Settlers look 2026-09-03, and again 2026-09-08) because a floating word
+  over a figure in the street is a certainty the peripheral-anonymity clause denies; over your own
+  body it is not a claim about somebody else, it is you noticing your own arm. The lane holds the
+  positive, the silence, the digit ban, that it names a humanised part rather than the sim's key,
+  that bleeding shows before anything is badly hurt, that the tag never enters `_left` (so the
+  quiet-survivor and selected-colonist lanes still have the corner column to judge), and — the
+  dead-socket half — that it is drawn inside a player-only branch.
+  **The overlap is deliberate and is worth naming**: with the player selected, the column says
+  "You're bleeding." and the tag says "bleeding". The tag is what a *glance at yourself* catches
+  (which limb, and whether it is running), and the column keeps the things a glance cannot give —
+  fever, hunger, the sky, and the same sentences in the third person for a selected colonist,
+  which is why the clause cannot simply move. Thinning it is one line in `_self_lines` if the
+  owner wants it thinner.
+  **The chrome pass** came with it: `Chrome.TEXT_FAINT` is a fourth grade in the skin, and the
+  work grid's three private hex literals for the same idea — each already a shade off the skin's
+  and off each other — are gone, along with the sheet's one-off alpha for an empty slot.
+  `ui/dashboard.gd` keeps its own palette on purpose: docs/30's "The dashboard" makes it a
+  machine's instrument cluster rather than one of the game's screens.
+  **One gate went red on a refactor and was made stronger rather than looser**: `check_respond`'s
+  DEAD SOCKET lane looked for `_draw_responses(` inside `_draw`, and the fixed sheet had moved the
+  body panel's drawing into `_draw_body`. The chain was whole the whole time; the needle now
+  follows it a link at a time.
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:
