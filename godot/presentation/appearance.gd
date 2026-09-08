@@ -16,6 +16,7 @@ extends RefCounted
 # art today, authored on the ART_NATIVE (32 px) centre-anchored canvas camera.gd names.
 
 const Palette = preload("res://presentation/palette.gd")
+const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -473,6 +474,26 @@ static func of_content(world: Variant, kind: String, id: String) -> Dictionary:
 		return {}
 	var block: Variant = (entry as Dictionary).get("appearance")
 	return block as Dictionary if block is Dictionary else {}
+
+
+# What one item base looks like: {texture, tint, glyph}.
+#
+# This is the reader `item.appearance.sprite` never had. The key has been in the schema since the
+# appearance pipeline landed and nothing resolved it, so a dropped fire axe and a dropped bandage
+# were the same ten-pixel square -- docs/23 named it the twelfth dead socket of the milestone.
+#
+# The three answers, in order: a declared `sprite` that resolves to a file wins; a declared `tint`
+# colours whatever is drawn; and with no art at all the item draws its **class's** glyph in the
+# ground-item role colour, which is the same "role colours are the floor" rule every other
+# fallback here follows. Never a branch on an id -- that is what this whole file replaced.
+static func item_look(world: Variant, base_id: String) -> Dictionary:
+	var block: Dictionary = of_content(world, "item", base_id)
+	var texture: Texture2D = resolve(String(block.get("sprite", "")))
+	var declared: bool = block.has("tint")
+	var tint: Color = Color(String(block.get("tint", "#ffffff"))) if declared else Palette.COLOURS["groundItem"]
+	var entry: Dictionary = entry_of(world, "item", base_id)
+	var glyph: int = ItemGlyph.shape_for(String(entry.get("class", "")))
+	return {"texture": texture, "tint": tint, "glyph": glyph, "declaredTint": declared}
 
 
 # The draw instruction for one entity, given the role flags _draw_entities already computed.
