@@ -5096,10 +5096,17 @@ not a to-do list:
   and off each other — are gone, along with the sheet's one-off alpha for an empty slot.
   `ui/dashboard.gd` keeps its own palette on purpose: docs/30's "The dashboard" makes it a
   machine's instrument cluster rather than one of the game's screens.
-  **One gate went red on a refactor and was made stronger rather than looser**: `check_respond`'s
-  DEAD SOCKET lane looked for `_draw_responses(` inside `_draw`, and the fixed sheet had moved the
-  body panel's drawing into `_draw_body`. The chain was whole the whole time; the needle now
-  follows it a link at a time.
+  **Three gates went red on the refactors and every one was made stronger rather than looser.**
+  `check_respond`'s DEAD SOCKET lane looked for `_draw_responses(` inside `_draw` and the fixed
+  sheet had moved the body panel's drawing into `_draw_body`; `check_weather`'s socket lane looked
+  for the ground-item colour inside `_draw_entities` after the glyph slice moved it into
+  `Appearance.item_look` (its function reader also learned to read `static func`, which is every
+  function in `presentation/appearance.gd`). Both chains were whole the whole time and both
+  needles now follow the call a link further. The third was not a refactor at all:
+  `check_m2_fortify` pins `SAVE_VERSION` independently of `check_m2_save`, its own comment says
+  that duplication is how a bump got missed once before, and the container slice missed it again.
+  Both messages now name the other pin, so the next bump finds both at the first gate rather than
+  twelve minutes into the chain.
 - **UI** — ~~the pixel body chart~~ **landed** 2026-09-08 (`npm run sprites:check` at 151 keys,
   `godot:check:appearance`'s new CHART lane), the last piece of the inventory overhaul and the one
   the owner asked for by name: shown the drawn figure at the size the sheet draws it, the word was
