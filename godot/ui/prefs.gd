@@ -1,18 +1,18 @@
 extends RefCounted
 # Presentation preferences, persisted to user://. Sim never reads these -- they are how the
 # screen looks, not what the world is, so they live beside the UI and not in the save file
-# (a save carries the run; how transparent your bags are survives the run's death).
+# (a save carries the run; how transparent your panels are survives the run's death).
 #
-# Window positions and pins are keyed by the container's *label* ("pockets", "Hiking Pack").
-# Two identical bags would share a slot; acceptable until a stable per-item identity exists
-# across saves, and named here so the shortcut is a decision rather than an accident.
+# There used to be a `windows` table here keyed by a container's *label*, remembering where each
+# bag window had been dragged and whether it was pinned. The 2026-09-08 overhaul gave the sheet
+# one fixed layout, so there is no window to place and nothing to remember: the whole table went
+# with the windows, and with it the label-collision shortcut ("two identical bags share a slot")
+# that had been written down here as a known compromise.
 
 const PATH: String = "user://ui_prefs.json"
 
 const DEFAULTS: Dictionary = {
 	"inventory_opacity": 0.95,
-	"pinned_opacity": 0.85,
-	"windows": {}, # label -> {"x": float, "y": float, "pinned": bool}
 }
 
 static var _cache: Dictionary = {}
@@ -49,27 +49,3 @@ static func set_opacity(key: String, value: float) -> void:
 	_cache[key] = clampf(value, 0.15, 1.0)
 	_save()
 
-
-static func _window(label: String) -> Dictionary:
-	_ensure()
-	var wins: Dictionary = _cache.get("windows", {}) as Dictionary
-	return wins.get(label, {}) as Dictionary
-
-
-static func window_pos(label: String) -> Variant:
-	var w: Dictionary = _window(label)
-	if w.has("x") and w.has("y"):
-		return Vector2(float(w["x"]), float(w["y"]))
-	return null
-
-
-static func window_pinned(label: String) -> bool:
-	return bool(_window(label).get("pinned", false))
-
-
-static func set_window(label: String, pos: Vector2, pinned: bool) -> void:
-	_ensure()
-	if not (_cache.get("windows") is Dictionary):
-		_cache["windows"] = {}
-	(_cache["windows"] as Dictionary)[label] = {"x": pos.x, "y": pos.y, "pinned": pinned}
-	_save()
