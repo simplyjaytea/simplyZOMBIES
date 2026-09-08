@@ -389,7 +389,9 @@ func _ensure_ui() -> void:
 		# square.
 		_paperdoll.custom_minimum_size = Vector2(128, 346)
 		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
-		_paperdoll.offset_left = 16; _paperdoll.offset_top = -362; _paperdoll.offset_right = 144; _paperdoll.offset_bottom = -16
+		# Above the quick strip, which owns the bottom of the screen now. The doll is 128 x 346 and
+		# the strip is 92 tall inside a 24 margin, so the glimpse stops at 124 from the bottom.
+		_paperdoll.offset_left = 16; _paperdoll.offset_top = -470; _paperdoll.offset_right = 144; _paperdoll.offset_bottom = -124
 		layer.add_child(_paperdoll)
 	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
 	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the

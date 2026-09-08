@@ -735,9 +735,15 @@ func _draw() -> void:
 	# be hit-testable.
 	_hit.clear()
 	_placed.clear()
-	if not _open:
-		return
 	var view: Vector2 = get_viewport_rect().size
+	# The strip is drawn whether the sheet is open or not, and that is the whole reason the
+	# pinnable pouches could be deleted: what is on your belt and in your pockets is on screen
+	# during play, and a number key spends one. Drawing it from the closed sheet is free -- this
+	# Control ignores the mouse while closed, so nothing here can eat a click meant for the world.
+	if not _open:
+		if _world != null and not _view.is_empty():
+			QuickStrip.draw_strip(self, QuickStrip.rect_for(view, PAD, STRIP_H), SimInventory.quick_strip_view(_world, _actor), UiPrefs.opacity("inventory_opacity"))
+		return
 	var dim: Color = Chrome.FIELD
 	dim.a = 0.88
 	draw_rect(Rect2(Vector2.ZERO, view), dim)
