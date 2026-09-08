@@ -48,6 +48,7 @@ lives in the repo, in the same commit as its first key, and `--check` keeps it h
 | `parts/buildings.py` | wall caps and faces, roof sheets and the door, window and garage overlays |
 | `parts/vehicles.py` | the sedan, the van and the truck, three variants x two axes each; merges the light classes' tables |
 | `parts/light_vehicles.py` | the bicycle, the e-bike, the e-scooter, the kick scooter and the skateboard, under the cars' camera |
+| `parts/paperdoll.py` | the inventory sheet's body chart: ten parts x three poses, drawn as masks |
 | `build.py` | the CLI, the registry merge, `--check`, `CANVAS`/`PAWN_KEYS` (mirrors `canvas_of`) |
 
 ## The rigs, the skeleton, and the draw order
@@ -109,6 +110,12 @@ exactly what it does on a person who turns round, which was not true when a rig 
   pawn is authored in pixels above its own soles (negative y is up) and the renderer hangs its
   bottom row on the ground point plus the contact shadow's own drop (`FOOT_DROP_PX`, 3.0).
   Either way a shape drawn symmetric about the origin lands where the sim says the entity is.
+- **One family is not a colour.** `chart` is the family the body chart's masks are drawn in, and
+  it is the only one allowed above the value bands the rest are held inside. A mask is multiplied
+  by a state tint at draw time rather than looked at, so what the file holds is the *shading*:
+  near-white comes out as the tint exactly. It never stands on the ground, so the ground-contrast
+  rules below have nothing to say about it, and `parts/paperdoll.py` normalises each part to its
+  own brightest pixel so every part reaches its tint at its lightest.
 - **In its family, always.** Every colour goes through `palette.clamp` under a named family —
   `muted` (S ≤ 0.30, V in [0.12, 0.72]: cloth, stone, glass, concrete, litter, the achromatic
   colonist rig — the manufactured and the worn-out), `timber` (S ≤ 0.45, V in [0.15, 0.80]:

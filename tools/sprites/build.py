@@ -31,7 +31,7 @@ from pathlib import Path  # noqa: E402
 from PIL import Image  # noqa: E402
 
 from draw import SIZE  # noqa: E402
-from parts import buildings, characters, gear, ground, props, trees, vehicles, wrecks  # noqa: E402
+from parts import buildings, characters, gear, ground, paperdoll, props, trees, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
@@ -42,7 +42,7 @@ SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 # into a taller rect stretches -- `_blit_body` draws every layer at the identical rect, so an
 # overlay has to be authored on the body's own canvas or it does not line up with it. Every
 # key under this map is generated, and `--check` is what keeps every one of them honest.
-MODULES = (characters, gear, props, wrecks, ground, buildings, trees, vehicles)
+MODULES = (characters, gear, props, wrecks, ground, buildings, trees, vehicles, paperdoll)
 
 # The keys drawn on the pawn canvas: the eight bodies and every equip overlay that composites
 # onto them. Mirrored on the Godot side by `Appearance.canvas_of`'s own PAWN_KEYS -- two copies
@@ -89,6 +89,12 @@ for _key in trees.TREE_KEYS:
 # arrangement, so a fourth class is one entry there and one here rather than two more constants.
 for _key, _shape in vehicles.CANVASES.items():
     CANVAS[_key] = _shape
+# The inventory sheet's body chart: one figure wide and five tiles tall, feet-anchored like a pawn
+# but never drawn in the world -- the sheet blits all ten parts of a pose at one rect. Mirrored on
+# the Godot side by `Appearance.CHART_CANVAS` under the same two-copies arrangement, and
+# `check_appearance.gd` measures every committed PNG against its copy.
+for _key in paperdoll.REGISTRY:
+    CANVAS[_key] = (paperdoll.CHART_W, paperdoll.CHART_H)
 
 
 def canvas_of(key):

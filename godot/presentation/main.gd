@@ -384,9 +384,12 @@ func _ensure_ui() -> void:
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
 	if doll_script != null:
 		_paperdoll = doll_script.new() as Control
-		_paperdoll.custom_minimum_size = Vector2(280, 280)
+		# 2x the chart's 64 x 160, plus the stance word's row: the corner glimpse is the same
+		# picture as the sheet's, drawn smaller, and an integer scale is what keeps its pixels
+		# square.
+		_paperdoll.custom_minimum_size = Vector2(128, 346)
 		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
-		_paperdoll.offset_left = 16; _paperdoll.offset_top = -296; _paperdoll.offset_right = 296; _paperdoll.offset_bottom = -16
+		_paperdoll.offset_left = 16; _paperdoll.offset_top = -362; _paperdoll.offset_right = 144; _paperdoll.offset_bottom = -16
 		layer.add_child(_paperdoll)
 	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
 	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the

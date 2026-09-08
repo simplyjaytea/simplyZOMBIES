@@ -13,6 +13,7 @@ const Appearance = preload("res://presentation/appearance.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const ItemGlyph = preload("res://presentation/item_glyph.gd")
+const SimCondition = preload("res://sim/condition.gd")
 
 const SPRITE_DIR: String = "res://assets/sprites"
 const HEX := "^#[0-9a-f]{6}$"
@@ -34,8 +35,9 @@ func _run() -> void:
 	ok = _equipped_gear_layers_resolve() and ok
 	ok = _props_look_like_something() and ok
 	ok = _items_look_like_something() and ok
+	ok = _the_body_chart_is_ten_parts_in_three_poses() and ok
 	if ok:
-		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists compose grey x tint over the ground, items resolve art or a class glyph")
+		print("APPEARANCE_OK schema keys resolve, fallback intact, the player has a body, the roster resolves shared and distinct rigs, colonists compose grey x tint over the ground, items resolve art or a class glyph, the body chart is ten parts in three poses")
 		quit(0)
 	else:
 		push_error("APPEARANCE_FAIL")
@@ -953,4 +955,144 @@ func _items_look_like_something() -> bool:
 		push_error("the inventory grid does not call Appearance.item_look, so a bag and the floor can disagree about a thing")
 		return false
 	print("ITEMS OK %d bases resolve a look, %d classes have %d distinct glyphs, declared art and tint win, and the ground and the grid both read it" % [bases, classes.size(), seen.size()])
+	return true
+
+
+# --- CHART --------------------------------------------------------------------------------
+
+# The inventory sheet's body chart: ten parts by three poses, each its own picture, stacked at one
+# rect and tinted by the sim's four states. It replaced a figure drawn live out of tapered
+# capsules, which the owner judged "too alien" (docs/30, "The inventory sheet").
+#
+# Four things have to hold, and every one of them is a way the chart could be quietly wrong:
+# every part of every pose has a picture (a missing one is a hole in a body, and nothing else
+# would say so); the pictures are **masks**, near-white, because the tint is a multiply and a
+# dark mask would come out black whatever the state; the poses are actually different pictures
+# rather than one drawn three times; and something draws them.
+const CHART_MASK_FLOOR: float = 0.80
+
+
+func _the_body_chart_is_ten_parts_in_three_poses() -> bool:
+	var missing: Array[String] = []
+	var wrong_size: Array[String] = []
+	var too_dark: Array[String] = []
+	var rects: Dictionary = {}
+	var digests: Dictionary = {}
+	for pose in Appearance.CHART_POSES:
+		for part in SimCondition.PART_ORDER:
+			var key: String = Appearance.chart_key(String(part), String(pose))
+			var texture: Texture2D = Appearance.resolve(key)
+			if texture == null:
+				missing.append(key)
+				continue
+			var image: Image = texture.get_image()
+			if image.get_width() != Appearance.CHART_CANVAS.x or image.get_height() != Appearance.CHART_CANVAS.y:
+				wrong_size.append("%s is %dx%d" % [key, image.get_width(), image.get_height()])
+				continue
+			var used: Rect2i = image.get_used_rect()
+			if used.size.x <= 0 or used.size.y <= 0:
+				missing.append("%s (drawn nothing)" % key)
+				continue
+			rects[key] = used
+			# The mask rule. A part whose brightest pixel is dark cannot be tinted: the draw is a
+			# multiply, so its lightest possible result is already darker than the state colour.
+			var brightest: float = 0.0
+			for y in range(used.position.y, used.position.y + used.size.y):
+				for x in range(used.position.x, used.position.x + used.size.x):
+					var px: Color = image.get_pixel(x, y)
+					if px.a > 0.5:
+						brightest = maxf(brightest, maxf(px.r, maxf(px.g, px.b)))
+			if brightest < CHART_MASK_FLOOR:
+				too_dark.append("%s peaks at %.2f" % [key, brightest])
+			# The raw bytes, compared as bytes. Hashing them through
+			# `get_data().get_string_from_ascii()` -- the obvious spelling -- reads an RGBA buffer
+			# as a C string and stops at the first zero, which every transparent pixel is: every
+			# key digested to the empty string and the comparison below fired on nothing. A gate
+			# that cannot pass is as bad as one that cannot fail.
+			digests[key] = image.get_data()
+	if not missing.is_empty():
+		push_error("%d chart parts have no picture: %s" % [missing.size(), ", ".join(missing)])
+		return false
+	if not wrong_size.is_empty():
+		push_error("chart parts off the %dx%d canvas: %s" % [Appearance.CHART_CANVAS.x, Appearance.CHART_CANVAS.y, ", ".join(wrong_size)])
+		return false
+	if not too_dark.is_empty():
+		push_error("chart parts too dark to tint (a multiply cannot brighten): %s" % ", ".join(too_dark))
+		return false
+
+	# The pose has to be worth having: two poses drawn the same are one pose stored twice. Judged
+	# per *pose pair* rather than per part, because some parts legitimately hold still -- your feet
+	# stay planted when you crouch, and seen from directly above (which is this game's camera) a
+	# crawling trunk is the same shape as a standing one. What is refused is a pose that barely
+	# moves: fewer than half the parts different means the two are the same picture with a detail
+	# changed.
+	var pose_pairs: Array = [["stand", "crouch"], ["stand", "prone"], ["crouch", "prone"]]
+	for pair in pose_pairs:
+		var a: String = String((pair as Array)[0])
+		var b: String = String((pair as Array)[1])
+		var moved: int = 0
+		for part in SimCondition.PART_ORDER:
+			var pa: PackedByteArray = digests.get(Appearance.chart_key(String(part), a), PackedByteArray()) as PackedByteArray
+			var pb: PackedByteArray = digests.get(Appearance.chart_key(String(part), b), PackedByteArray()) as PackedByteArray
+			if pa.is_empty() or pb.is_empty():
+				push_error("%s or %s of %s decoded to no bytes, so this comparison is judging nothing" % [a, b, String(part)])
+				return false
+			if pa != pb:
+				moved += 1
+		if moved * 2 < SimCondition.PART_ORDER.size():
+			push_error("only %d of %d parts differ between %s and %s -- they are one pose stored twice" % [moved, SimCondition.PART_ORDER.size(), a, b])
+			return false
+
+	# And no part may be the same picture in *all three*, which would be a part the pose never
+	# reaches at all -- ten files of it where one would do.
+	var same: Array[String] = []
+	for part in SimCondition.PART_ORDER:
+		var stand: PackedByteArray = digests.get(Appearance.chart_key(String(part), "stand"), PackedByteArray()) as PackedByteArray
+		var crouch: PackedByteArray = digests.get(Appearance.chart_key(String(part), "crouch"), PackedByteArray()) as PackedByteArray
+		var prone: PackedByteArray = digests.get(Appearance.chart_key(String(part), "prone"), PackedByteArray()) as PackedByteArray
+		if stand.is_empty() or crouch.is_empty() or prone.is_empty():
+			push_error("a pose of %s decoded to no bytes, so this comparison is judging nothing" % String(part))
+			return false
+		if stand == crouch and stand == prone:
+			same.append(String(part))
+	if not same.is_empty():
+		push_error("%d parts are one picture in all three poses: %s" % [same.size(), ", ".join(same)])
+		return false
+
+	# And the parts have to be different *parts*: a left arm and a right arm that occupy the same
+	# rect are one picture drawn twice, and a wound mark would land in the wrong place for one of
+	# them for ever.
+	var left: Rect2i = rects[Appearance.chart_key("arm_left", "stand")] as Rect2i
+	var right: Rect2i = rects[Appearance.chart_key("arm_right", "stand")] as Rect2i
+	if left.position.x == right.position.x:
+		push_error("the left and right arms start at the same column, so the chart has no sides")
+		return false
+	var head: Rect2i = rects[Appearance.chart_key("head", "stand")] as Rect2i
+	var foot: Rect2i = rects[Appearance.chart_key("foot_left", "stand")] as Rect2i
+	if head.position.y >= foot.position.y:
+		push_error("the head is not above the feet on the chart canvas")
+		return false
+
+	# `chart_rect` is what the wound marks hang on, and it must agree with the picture rather than
+	# with a table -- the whole reason it is read off the image.
+	var reported: Rect2 = Appearance.chart_rect(Appearance.chart_key("head", "stand"))
+	if not Rect2(head).is_equal_approx(reported):
+		push_error("chart_rect reported %s for the head where the picture uses %s" % [str(reported), str(Rect2(head))])
+		return false
+	if not Appearance.chart_rect("chart_no_such_part_stand").size.is_equal_approx(Vector2(Appearance.CHART_CANVAS)):
+		push_error("chart_rect on an unknown key should fall back to the whole canvas")
+		return false
+
+	# The dead-socket half: something draws them, tints them by state, and the capsule figure this
+	# replaced is gone rather than left beside it.
+	var doll: String = FileAccess.get_file_as_string("res://ui/paperdoll.gd")
+	for needed in ["Appearance.chart_key", "Appearance.resolve", "draw_texture_rect", "CONDITION_TINTS", "chart_rect"]:
+		if doll.find(needed) < 0:
+			push_error("ui/paperdoll.gd never mentions %s, so the chart is drawn by nothing or tinted by nothing" % needed)
+			return false
+	for gone in ["_tapered", "draw_colored_polygon", "const P: Dictionary"]:
+		if doll.find(gone) >= 0:
+			push_error("ui/paperdoll.gd still carries the drawn figure's %s beside the chart" % gone)
+			return false
+	print("CHART OK %d parts x %d poses on the %dx%d canvas, every one a mask above %.2f, no two poses the same picture, sides distinct, and ui/paperdoll.gd draws and tints them" % [SimCondition.PART_ORDER.size(), Appearance.CHART_POSES.size(), Appearance.CHART_CANVAS.x, Appearance.CHART_CANVAS.y, CHART_MASK_FLOOR])
 	return true

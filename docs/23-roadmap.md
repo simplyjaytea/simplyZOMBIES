@@ -444,11 +444,6 @@ session, each with its gate red both ways and its record.
   at all to anybody else. The fix is a smaller predicate than `searched` — "has contents and is
   not claimed" — and it moves what colonists scavenge, so it is a **measured** piece rather than
   a one-line filter change.
-- **The pixel body chart.** The procedural figure in `ui/paperdoll.gd` reads as alien at the size
-  the sheet draws it (the owner's call, 2026-09-08). Ten parts by three poses generated in
-  `tools/sprites/parts/paperdoll.py` on their own canvas, each modulated by the part's state
-  tint, the armour stroke and the wound and infection marks kept. Judged by `npm run
-  sprites:check` and a `check_appearance` lane, and arbitrated by a screenshot.
 
 **UI:**
 
@@ -5105,6 +5100,39 @@ not a to-do list:
   DEAD SOCKET lane looked for `_draw_responses(` inside `_draw`, and the fixed sheet had moved the
   body panel's drawing into `_draw_body`. The chain was whole the whole time; the needle now
   follows it a link at a time.
+- **UI** — ~~the pixel body chart~~ **landed** 2026-09-08 (`npm run sprites:check` at 151 keys,
+  `godot:check:appearance`'s new CHART lane), the last piece of the inventory overhaul and the one
+  the owner asked for by name: shown the drawn figure at the size the sheet draws it, the word was
+  **"too alien"**. The shape of a person moved out of `ui/paperdoll.gd` and into
+  `tools/sprites/parts/paperdoll.py` — **ten parts by three poses, thirty pictures**, on their own
+  64 × 160 feet-anchored canvas, drawn at a whole-number scale (3× on the sheet, 2× in the corner
+  glimpse). The screen now decides only where the chart goes and what colour it comes out.
+  **The art is a mask, and that is what keeps the ban mechanical.** Every part is drawn near-white
+  in a new `chart` palette family and *multiplied* by its state tint at draw time, so a white
+  pixel comes out as the tint exactly and a shaded one as a darker version of it: the shading is
+  the file's and the meaning is the sim's. The picture cannot say how much because the only thing
+  it is handed is a state and the art has no idea what one is. `godot:ban:healthbar` still never
+  sees this file — it judges the read model, which is why that ban survived the doll being
+  re-drawn twice now. The `chart` family is the one exception to "in its family, always" and is
+  named as one in `palette.py`: a mask is not a colour anybody sees, and it never stands on the
+  ground, so the ground-contrast rules have nothing to say about it.
+  **Armour costs no art**: the same texture drawn four times a pixel out in each direction, in
+  steel, with the part over it — an outline pass on the part's own alpha, so thirty keys rather
+  than sixty. The wound and infection marks hang on each part's own **used rect**, read off the
+  picture rather than published as a table of anchors, because a table would be a third copy of
+  the skeleton and would drift the first time a limb moved.
+  **Three defects the lane found before a person did**, each fixed rather than tolerated: the
+  torso's band test compared a negative-upward y the way it reads in English and drew an empty
+  trunk; the light pass measures from the middle of the *picture*, so a foot in the corner peaked
+  at 0.65 and a hurt foot would have read as a different shade of amber from a hurt chest (each
+  mask is normalised to its own brightest pixel now); and the pose comparison hashed image bytes
+  through `get_string_from_ascii`, which stops at the first zero — every transparent pixel — so
+  every key digested to the empty string and the assertion fired on nothing. **A gate that cannot
+  pass is as bad as one that cannot fail**, and that one could do neither.
+  The lane also learned what to allow: feet stay planted in a crouch and, from directly above,
+  a crawling trunk is the same shape as a standing one, so pose distinctness is judged per
+  *pose pair* (fewer than half the parts moving is one pose stored twice) rather than per part.
+  Screenshots for the owner under `.hermes/plans/2026-09-08_inventory-sheet/`.
 - **Modification** — ~~Duct Tape (reroll an affix), Scrap Kit (add an affix), skill-weighted
   outcomes, failure that consumes and damages~~ **landed** (`godot:check:mods`). Which operation a
   consumable performs and against which item classes is **content** — a `modification:
