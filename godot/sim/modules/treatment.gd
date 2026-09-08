@@ -212,6 +212,17 @@ static func register_module(world: Variant) -> void:
 						var res3: Dictionary = context(w, int(actor4))
 						if not bool(res3.get("ok", false)) and String(res3.get("reason", "")) != "cancelled":
 							w.events.publish({"type": "treatment.refused", "entity": int(actor4), "verb": "context", "reason": String(res3.get("reason", "unknown"))})
+				"item.use":
+					# After need.intake (order 12) has had it: a drink or a meal is needs' business
+					# and this arm never sees one, because `verb_of_supply` is "" for anything with
+					# no medical key on its base. A bandage in the quick strip lands here.
+					for actor5 in w.components.query(["controlled", "position"]):
+						var it: int = int(c.get("item", -1))
+						if verb_of_supply(w, it) == "":
+							continue
+						var res4: Dictionary = use_supply(w, int(actor5), it)
+						if not bool(res4.get("ok", false)):
+							w.events.publish({"type": "treatment.refused", "entity": int(actor5), "verb": verb_of_supply(w, it), "reason": String(res4.get("reason", "unknown"))})
 				"treat.cancel":
 					for actor2 in w.components.query(["controlled", "position"]):
 						cancel(w, int(actor2))
@@ -303,7 +314,7 @@ static func register_module(world: Variant) -> void:
 # Returns {ok, reason} rather than a bare bool so the screen can show why a verb is
 # unavailable using the sim's own words -- the same contract SimInfection's five responses
 # already use, so the panel never has to invent a second vocabulary for the same refusal.
-static func begin(world: Variant, actor: int, patient: int, part: String, verb: String) -> Dictionary:
+static func begin(world: Variant, actor: int, patient: int, part: String, verb: String, supply: int = -1) -> Dictionary:
 	if not CHANNEL_VERBS.has(verb):
 		return {"ok": false, "reason": "unknown-verb"}
 	var pre: Dictionary = _can_begin(world, actor, patient, verb)
@@ -314,7 +325,7 @@ static func begin(world: Variant, actor: int, patient: int, part: String, verb: 
 	if not bool(plan.get("ok", false)):
 		return plan
 
-	_engage(world, actor, patient, part, verb, int(plan.get("ticks", 0)))
+	_engage(world, actor, patient, part, verb, int(plan.get("ticks", 0)), supply)
 	return {"ok": true, "ticks": int(plan.get("ticks", 0))}
 
 
@@ -572,10 +583,16 @@ static func _banked(wound: Dictionary) -> int:
 
 # --- channel ------------------------------------------------------------------------
 
-static func _engage(world: Variant, actor: int, patient: int, part: String, verb: String, ticks: int) -> void:
+static func _engage(world: Variant, actor: int, patient: int, part: String, verb: String, ticks: int, supply: int = -1) -> void:
 	# `ticks` is carried alongside `ticksLeft` so R8 can derive what a cancelled channel served
 	# without a second counter to keep in step with the decrement.
-	world.components.set_component(actor, "treatment", {"verb": verb, "patient": patient, "part": part, "ticksLeft": ticks, "ticks": ticks})
+	#
+	# `supply` is which item the actor reached for, and -1 -- the ordinary case, and every case
+	# before the quick strip existed -- means "whatever is best in the pack at completion". It is
+	# an entity id stored as a *value*, not a key, so it survives the save round trip; and it is
+	# read back with a default, so a save written before this key existed loads as -1 and behaves
+	# exactly as it did.
+	world.components.set_component(actor, "treatment", {"verb": verb, "patient": patient, "part": part, "ticksLeft": ticks, "ticks": ticks, "supply": supply})
 	world.components.set_component(patient, "treated", {"treater": actor, "verb": verb, "part": part})
 	world.events.publish({"type": "treatment.begun", "entity": actor, "patient": patient, "bodyPart": part, "verb": verb, "ticks": ticks})
 
@@ -605,11 +622,11 @@ static func _tick_channel(world: Variant, entity: int) -> void:
 	state["ticksLeft"] = int(state.get("ticksLeft", 0)) - 1
 	if int(state["ticksLeft"]) > 0:
 		return
-	_complete(world, entity, patient, String(state.get("part", "")), String(state.get("verb", "")))
+	_complete(world, entity, patient, String(state.get("part", "")), String(state.get("verb", "")), int(state.get("supply", -1)))
 	cancel(world, entity)
 
 
-static func _complete(world: Variant, actor: int, patient: int, part: String, verb: String) -> void:
+static func _complete(world: Variant, actor: int, patient: int, part: String, verb: String, supply: int = -1) -> void:
 	if SURGERY_VERBS.has(verb):
 		_invoke_infection(world, patient, part, verb)
 		return
@@ -628,17 +645,31 @@ static func _complete(world: Variant, actor: int, patient: int, part: String, ve
 	var tier: String = "none"
 	match verb:
 		"bandage":
-			var best: Dictionary = _best_bandage(world, actor)
-			tier = String(best.get("tier", ""))
-			if tier == "" or not SimNeeds.consume_base(world, actor, String(best.get("baseId", ""))):
-				_refuse(world, actor, verb, "no-bandage")
-				return
+			var named: Dictionary = _named_supply(world, actor, supply, TIER_KEY, TIER_ORDER)
+			if not named.is_empty():
+				tier = String(named["tier"])
+				if not SimNeeds.consume_item(world, actor, int(named["item"])):
+					_refuse(world, actor, verb, "no-bandage")
+					return
+			else:
+				var best: Dictionary = _best_bandage(world, actor)
+				tier = String(best.get("tier", ""))
+				if tier == "" or not SimNeeds.consume_base(world, actor, String(best.get("baseId", ""))):
+					_refuse(world, actor, verb, "no-bandage")
+					return
 		"clean":
-			var supply: Dictionary = _best_clean(world, actor)
-			tier = String(supply.get("tier", ""))
-			if tier == "" or not SimNeeds.consume_base(world, actor, String(supply.get("baseId", ""))):
-				_refuse(world, actor, verb, "no-supply")
-				return
+			var named_clean: Dictionary = _named_supply(world, actor, supply, CLEAN_KEY, CLEAN_ORDER)
+			if not named_clean.is_empty():
+				tier = String(named_clean["tier"])
+				if not SimNeeds.consume_item(world, actor, int(named_clean["item"])):
+					_refuse(world, actor, verb, "no-supply")
+					return
+			else:
+				var pick: Dictionary = _best_clean(world, actor)
+				tier = String(pick.get("tier", ""))
+				if tier == "" or not SimNeeds.consume_base(world, actor, String(pick.get("baseId", ""))):
+					_refuse(world, actor, verb, "no-supply")
+					return
 		"close":
 			# The same match `_plan` made: the worst closable wound whose closer is carried names
 			# the kit, and only wounds of that kind on the part are closed by it -- a splint on a
@@ -648,10 +679,18 @@ static func _complete(world: Variant, actor: int, patient: int, part: String, ve
 				_refuse(world, actor, verb, "no-kit")
 				return
 			tier = SimWounds.close_kind_of(closable as Dictionary)
-			var kit: Dictionary = _best_closer(world, actor, tier)
-			if String(kit.get("kind", "")) == "" or not SimNeeds.consume_base(world, actor, String(kit.get("baseId", ""))):
-				_refuse(world, actor, verb, "no-kit")
-				return
+			# The named kit only when it is the kind this wound wants: a splint in the hand does
+			# not sew a cut, and the exact match is the rule `_best_closer` already follows.
+			var named_kit: Dictionary = _named_supply(world, actor, supply, CLOSE_KEY, [tier])
+			if not named_kit.is_empty():
+				if not SimNeeds.consume_item(world, actor, int(named_kit["item"])):
+					_refuse(world, actor, verb, "no-kit")
+					return
+			else:
+				var kit: Dictionary = _best_closer(world, actor, tier)
+				if String(kit.get("kind", "")) == "" or not SimNeeds.consume_base(world, actor, String(kit.get("baseId", ""))):
+					_refuse(world, actor, verb, "no-kit")
+					return
 			var only: Array[String] = [tier]
 			targets = _closable_wounds(world, patient, part, only)
 
@@ -971,6 +1010,90 @@ static func _wounds_on(world: Variant, entity: int, part: String) -> Array:
 # The best dressing this actor is carrying, as {tier, baseId}, or {} if none. Reads the
 # content entry's flat `bandageTier`, so adding a tier is a data edit -- no branch here
 # learns a new item id.
+# The particular item a channel was told to spend, when it is still carried and still answers the
+# verb -- {tier, item} -- or {} to mean "fall back to best-by-tier", which is what every channel
+# did before the quick strip could name one. `allowed` is the tier vocabulary the verb accepts,
+# so a water bottle named for a `close` cannot be spent as a suture kit.
+#
+# Deliberately re-checked at completion rather than trusted from begin-time: the named bandage may
+# have been eaten, dropped, or spent on somebody else during the channel, and the same
+# re-validate-then-consume order the rest of `_complete` follows is what makes an interrupted
+# channel cost nothing.
+static func _named_supply(world: Variant, actor: int, supply: int, key: String, allowed: Array) -> Dictionary:
+	if supply < 0 or not SimInventory.owns(world, actor, supply):
+		return {}
+	var base: Variant = SimItems.item_base_of(world, supply)
+	if not (base is Dictionary):
+		return {}
+	var tier: String = String((base as Dictionary).get(key, ""))
+	if tier == "" or not allowed.has(tier):
+		return {}
+	return {"tier": tier, "item": supply}
+
+
+# Which first-aid verb an item answers, from what its base declares -- "" for anything that is not
+# a medical supply at all. One place, so the word menu, the strip key and the channel cannot
+# disagree about what a splint kit is for.
+static func verb_of_supply(world: Variant, item: int) -> String:
+	var base: Variant = SimItems.item_base_of(world, item)
+	if not (base is Dictionary):
+		return ""
+	var b: Dictionary = base as Dictionary
+	if String(b.get(TIER_KEY, "")) != "":
+		return "bandage"
+	if String(b.get(CLEAN_KEY, "")) != "":
+		return "clean"
+	if CLOSE_KINDS.has(String(b.get(CLOSE_KEY, ""))):
+		return "close"
+	return ""
+
+
+# Where a supply would be used, if it were used now: {ok, verb, patient, part} or {ok: false,
+# reason}. The pick is `context`'s, narrowed to the one verb this item answers -- self first, then
+# the nearest body in reach that wants it, and the worst part that verb can act on.
+static func supply_plan(world: Variant, actor: int, item: int) -> Dictionary:
+	var verb: String = verb_of_supply(world, item)
+	if verb == "":
+		return {"ok": false, "reason": "not-a-supply"}
+	if not SimInventory.owns(world, actor, item):
+		return {"ok": false, "reason": "not-carried"}
+	var patient: int = _nearest_needing_care(world, actor)
+	if patient < 0:
+		return {"ok": false, "reason": "nothing-to-treat"}
+	var part: String = ""
+	if verb == "bandage":
+		part = _worst_bleeding_part(world, patient)
+	elif verb == "close":
+		var kind: String = String((SimItems.item_base_of(world, item) as Dictionary).get(CLOSE_KEY, ""))
+		var kinds: Array[String] = [kind]
+		part = _worst_part_for(world, patient, verb, kinds)
+	else:
+		part = _worst_part_for(world, patient, verb)
+	if part == "":
+		return {"ok": false, "reason": "nothing-to-treat"}
+	var dry: Dictionary = _dry_run(world, actor, patient, part, verb)
+	if not bool(dry.get("ok", false)):
+		return dry
+	return {"ok": true, "verb": verb, "patient": patient, "part": part}
+
+
+# Whether pressing this item's key, or picking "use" on it, would start a channel. The screen's
+# predicate and the intake's are the same call, for `SimNeeds.can_use`'s reason.
+static func can_use_supply(world: Variant, actor: int, item: int) -> bool:
+	return bool(supply_plan(world, actor, item).get("ok", false))
+
+
+# Use one particular supply: the T ladder with the rung chosen by what you reached for, rather
+# than by what is best in the pack. The channel remembers the item, so a strip key on the dirty rag
+# spends the rag even though a sterile dressing is in the same pocket -- which is the whole point
+# of naming one, and is why `_complete` prefers the named supply over `_best_bandage`.
+static func use_supply(world: Variant, actor: int, item: int) -> Dictionary:
+	var plan: Dictionary = supply_plan(world, actor, item)
+	if not bool(plan.get("ok", false)):
+		return plan
+	return begin(world, actor, int(plan["patient"]), String(plan["part"]), String(plan["verb"]), item)
+
+
 static func _best_bandage(world: Variant, actor: int) -> Dictionary:
 	var best_rank: int = TIER_ORDER.size()
 	var out: Dictionary = {}

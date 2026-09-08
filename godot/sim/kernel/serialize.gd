@@ -69,7 +69,13 @@ extends RefCounted
 # `fog` now sits between `cold_snap` and `heat_wave`, so the `weather` stream's kind roll
 # accumulates in a different order: a v25 save restored into a v26 world would draw a different
 # sky off the same spent stream. Refused, same rule.
-const SAVE_VERSION: int = 26
+# 27: a world container is a grid. `make_container` now stands a `container {w, h, items}`
+# component beside `searchable`, the loot table is rolled on the first open rather than at boot,
+# and an actor standing at one carries `opening {container}`. A v26 save has cupboards with no
+# grid and a `lootTable` stream spent at a different moment, so restoring one into a v27 world
+# would give a district of unopenable boxes drawing from a stream that has already moved.
+# Refused, same rule.
+const SAVE_VERSION: int = 27
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

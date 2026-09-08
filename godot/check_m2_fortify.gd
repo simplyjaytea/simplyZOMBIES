@@ -65,9 +65,12 @@ func _set_tile(w: Variant, tx: int, ty: int, tile: int) -> void:
 func _version() -> bool:
 	# This duplicates check_m2_save.gd's _version() -- two gates asserting the same fact
 	# independently, which is exactly how one of them got missed on the last version bump.
-	# Left as-is rather than refactored under this fix; see docs/30-decisions.md.
-	if int(SimSerialize.SAVE_VERSION) != 26:
-		push_error("SAVE_VERSION %d want 26" % int(SimSerialize.SAVE_VERSION))
+	# Left as-is rather than refactored, and it has now caught a bump twice: the container-grid
+	# slice of 2026-09-08 updated check_m2_save.gd and not this one. The duplication is doing its
+	# job; what it was missing is a message that says where its twin lives, so whoever bumps the
+	# constant finds both pins the first time rather than twelve minutes into the chain.
+	if int(SimSerialize.SAVE_VERSION) != 27:
+		push_error("SAVE_VERSION %d want 27 -- bump it here AND in check_m2_save.gd's _version(), which pins the same number" % int(SimSerialize.SAVE_VERSION))
 		return false
 	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":13},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":

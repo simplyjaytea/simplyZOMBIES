@@ -1,0 +1,87 @@
+[
+  {
+    "id": "container.cupboard",
+    "kind": "cupboard",
+    "grid": { "w": 6, "h": 4 }
+  },
+  {
+    "id": "container.chest_of_drawers",
+    "kind": "chest of drawers",
+    "grid": { "w": 5, "h": 4 }
+  },
+  {
+    "id": "container.kitchen_drawer",
+    "kind": "kitchen drawer",
+    "grid": { "w": 5, "h": 2 }
+  },
+  {
+    "id": "container.wardrobe",
+    "kind": "wardrobe",
+    "grid": { "w": 5, "h": 6 }
+  },
+  {
+    "id": "container.tool_chest",
+    "kind": "tool chest",
+    "grid": { "w": 5, "h": 3 }
+  },
+  {
+    "id": "container.stockroom_shelf",
+    "kind": "stockroom shelf",
+    "grid": { "w": 7, "h": 4 }
+  },
+  {
+    "id": "container.checkout_counter",
+    "kind": "checkout counter",
+    "grid": { "w": 4, "h": 3 }
+  },
+  {
+    "id": "container.display_freezer",
+    "kind": "display freezer",
+    "grid": { "w": 6, "h": 3 }
+  },
+  {
+    "id": "container.back_office_cabinet",
+    "kind": "back-office cabinet",
+    "grid": { "w": 4, "h": 4 }
+  },
+  {
+    "id": "container.supply_locker",
+    "kind": "supply locker",
+    "grid": { "w": 5, "h": 5 }
+  },
+  {
+    "id": "container.pharmacy_drawer",
+    "kind": "pharmacy drawer",
+    "grid": { "w": 5, "h": 2 }
+  },
+  {
+    "id": "container.footlocker",
+    "kind": "footlocker",
+    "grid": { "w": 6, "h": 3 }
+  },
+  {
+    "id": "container.bunk_drawer",
+    "kind": "bunk drawer",
+    "grid": { "w": 4, "h": 2 }
+  },
+  {
+    "id": "container.larder_shelf",
+    "kind": "larder shelf",
+    "grid": { "w": 6, "h": 3 }
+  },
+  {
+    "id": "container.ammo_crate",
+    "kind": "ammo crate",
+    "grid": { "w": 4, "h": 3 }
+  },
+  {
+    "id": "container.car_boot",
+    "kind": "car boot",
+    "grid": { "w": 6, "h": 4 }
+  },
+  {
+    "id": "container.delivery_van",
+    "kind": "delivery van",
+    "grid": { "w": 7, "h": 5 }
+  }
+]

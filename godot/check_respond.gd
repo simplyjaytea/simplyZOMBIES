@@ -434,8 +434,14 @@ func _every_offered_row_is_prose() -> bool:
 # the command. None of it can be exercised headless (it is a CanvasItem draw pass and a mouse
 # event), so what the functions contain is read, the way check_topdown.gd reads main.gd.
 func _the_body_screen_is_what_pushes_it() -> bool:
+	# The chain is followed a link at a time rather than assumed to live in one function. The
+	# 2026-09-08 sheet moved the body panel's drawing into `_draw_body`, and a needle that only
+	# ever looked in `_draw` went red on a screen that was drawing the words perfectly well --
+	# which is the right failure for this gate to have, and the right fix is to name the link
+	# rather than to stop looking.
 	var needles: Array[Dictionary] = [
-		{"func": "_draw", "needle": "_draw_responses(", "why": "the body screen never draws the responses"},
+		{"func": "_draw", "needle": "_draw_body(", "why": "the sheet never draws the body panel"},
+		{"func": "_draw_body", "needle": "_draw_responses(", "why": "the body panel never draws the responses"},
 		{"func": "_draw_responses", "needle": "SimTreatment.response_view(", "why": "the rows are not the sim's read model"},
 		{"func": "_draw_responses", "needle": "_hit.append(", "why": "the drawn words become no click target"},
 		{"func": "_press_at", "needle": "_hit", "why": "a press never looks at the words"},

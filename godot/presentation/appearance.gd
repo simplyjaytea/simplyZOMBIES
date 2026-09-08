@@ -16,6 +16,7 @@ extends RefCounted
 # art today, authored on the ART_NATIVE (32 px) centre-anchored canvas camera.gd names.
 
 const Palette = preload("res://presentation/palette.gd")
+const ItemGlyph = preload("res://presentation/item_glyph.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
@@ -283,7 +284,43 @@ static func vehicle_reach_tiles() -> int:
 # which are a table of them -- and this is the one table, read by check_appearance.gd's canvas
 # lanes and mirrored by tools/sprites/build.py's `canvas_of`, so a second shape is a one-line
 # entry here and there rather than a new exception in a gate.
+# The inventory sheet's body chart: one figure wide, five tiles tall, feet-anchored like a pawn
+# and never drawn in the world. A HARD COPY of `tools/sprites/parts/paperdoll.py`'s CHART_W/H,
+# under the two-copies arrangement `SIZE` and the pawn canvas already live under -- Python cannot
+# read GDScript, and `check_appearance.gd` measures every committed PNG against this copy.
+const CHART_CANVAS: Vector2i = Vector2i(64, 160)
+const CHART_POSES: Array[String] = ["stand", "crouch", "prone"]
+
+
+# The registry key one body part wears in one pose. Mirrors `paperdoll.key_for`; the one place
+# either side spells it, so a rename is two edits and a gate rather than thirty.
+static func chart_key(part: String, pose: String) -> String:
+	return "chart_%s_%s" % [part, pose]
+
+
+# Where the opaque pixels of one chart part actually are, as a Rect2 in canvas coordinates -- what
+# the wound and infection marks are hung on. Read off the picture rather than published as a table
+# of anchors: a table would be a third copy of the skeleton and would drift the first time a limb
+# moved. Cached, because it decodes an image.
+static var _chart_rects: Dictionary = {}
+static func chart_rect(key: String) -> Rect2:
+	if _chart_rects.has(key):
+		return _chart_rects[key] as Rect2
+	var out := Rect2(Vector2.ZERO, Vector2(CHART_CANVAS))
+	var texture: Texture2D = resolve(key)
+	if texture != null:
+		var image: Image = texture.get_image()
+		if image != null:
+			var used: Rect2i = image.get_used_rect()
+			if used.size.x > 0 and used.size.y > 0:
+				out = Rect2(used)
+	_chart_rects[key] = out
+	return out
+
+
 static func canvas_of(key: String) -> Vector2i:
+	if key.begins_with("chart_"):
+		return CHART_CANVAS
 	var n: int = int(CameraUtil.ART_NATIVE)
 	if key == GROUND_ATLAS_KEY:
 		return Vector2i((GROUND_VARIANTS + EDGE_SHAPES) * n, GROUND_ROWS * n)
@@ -473,6 +510,26 @@ static func of_content(world: Variant, kind: String, id: String) -> Dictionary:
 		return {}
 	var block: Variant = (entry as Dictionary).get("appearance")
 	return block as Dictionary if block is Dictionary else {}
+
+
+# What one item base looks like: {texture, tint, glyph}.
+#
+# This is the reader `item.appearance.sprite` never had. The key has been in the schema since the
+# appearance pipeline landed and nothing resolved it, so a dropped fire axe and a dropped bandage
+# were the same ten-pixel square -- docs/23 named it the twelfth dead socket of the milestone.
+#
+# The three answers, in order: a declared `sprite` that resolves to a file wins; a declared `tint`
+# colours whatever is drawn; and with no art at all the item draws its **class's** glyph in the
+# ground-item role colour, which is the same "role colours are the floor" rule every other
+# fallback here follows. Never a branch on an id -- that is what this whole file replaced.
+static func item_look(world: Variant, base_id: String) -> Dictionary:
+	var block: Dictionary = of_content(world, "item", base_id)
+	var texture: Texture2D = resolve(String(block.get("sprite", "")))
+	var declared: bool = block.has("tint")
+	var tint: Color = Color(String(block.get("tint", "#ffffff"))) if declared else Palette.COLOURS["groundItem"]
+	var entry: Dictionary = entry_of(world, "item", base_id)
+	var glyph: int = ItemGlyph.shape_for(String(entry.get("class", "")))
+	return {"texture": texture, "tint": tint, "glyph": glyph, "declaredTint": declared}
 
 
 # The draw instruction for one entity, given the role flags _draw_entities already computed.

@@ -105,6 +105,8 @@ static func _content_has(world: Variant, type_id: String, id: String) -> bool:
 static func content_entry(world: Variant, type_id: String, id: String) -> Variant:
 	return _content_get(world, type_id, id)
 
+# Content types found by their directory rather than by a field they carry. See `_all_entries`.
+const TYPE_DIRS: Dictionary = {"container": "containers/"}
 static func _all_entries(world: Variant, type_id: String) -> Array:
 	var out: Array = []
 	if world == null:
@@ -122,14 +124,28 @@ static func _all_entries(world: Variant, type_id: String) -> Array:
 		return (c as Object).call("all", type_id) as Array
 	if c is Dictionary:
 		# flat tree path -> json
-		for v in (c as Dictionary).values():
-			if v is Array:
-				for entry in v as Array:
-					if entry is Dictionary:
-						if type_id == "affix" and (entry as Dictionary).has("slot"):
+		for path in (c as Dictionary).keys():
+			var v: Variant = (c as Dictionary)[path]
+			if not (v is Array):
+				continue
+			# A type this tree can be *asked* for by where it lives. `affix` and `item` are
+			# recognised below by a field they happen to carry, which was fine while they were the
+			# only two anything asked for; an entry of a type with no distinctive field -- a
+			# container's `kind` and `grid`, say -- is invisible to a duck-type and has to be found
+			# by its directory, the same path-to-type mapping content_validator._type_of_path makes.
+			var dir: Variant = TYPE_DIRS.get(type_id)
+			if dir != null:
+				if String(path).begins_with(String(dir)):
+					for entry in v as Array:
+						if entry is Dictionary:
 							out.append(entry)
-						elif type_id == "item" and (entry as Dictionary).has("massKg"):
-							out.append(entry)
+				continue
+			for entry in v as Array:
+				if entry is Dictionary:
+					if type_id == "affix" and (entry as Dictionary).has("slot"):
+						out.append(entry)
+					elif type_id == "item" and (entry as Dictionary).has("massKg"):
+						out.append(entry)
 		if (c as Dictionary).has(type_id):
 			var by_id: Variant = (c as Dictionary)[type_id]
 			if by_id is Dictionary:
@@ -510,6 +526,61 @@ static func reapply_affix_modifiers(world: Variant, item: int) -> void:
 	for mod in affix_modifiers(world, item):
 		world.modifiers.add(mod as Dictionary, item)
 	refresh_armed(world, item)
+
+
+# What a thing is, in one sentence, for the inspect pane on the inventory sheet. Content when the
+# base carries a `description` and a built sentence when it does not, so a base added tomorrow is
+# never blank on the screen -- and so the gate has something to compare an authored line against.
+#
+# Never a number. docs/01 clause 4 bans a UI that collapses uncertainty into one, and a
+# description saying "18 damage" would be exactly that with a full stop after it; the condition
+# *word* beside it in the pane is how well the thing is holding up, and that is the whole readout.
+static func description_of(world: Variant, base_id: String) -> String:
+	var entry: Variant = content_entry(world, "item", base_id)
+	if entry is Dictionary:
+		var authored: String = String((entry as Dictionary).get("description", ""))
+		if not authored.is_empty():
+			return authored
+		return generated_description(entry as Dictionary)
+	return "Something."
+
+
+# The fallback, keyed by what the base says about itself rather than by its id -- a per-id table
+# here would be the `if id ==` branch the appearance pipeline exists to have deleted. The slot is
+# consulted first because "worn on the head" says more than "armour", and the class carries the
+# rest.
+const CLASS_SENTENCES: Dictionary = {
+	"weapon.melee": "Something to swing.",
+	"weapon.ranged": "Something that fires.",
+	"container": "Something to put things in.",
+	"consumable": "Something to use up.",
+	"material": "Raw material.",
+	"armor": "Something to wear.",
+	"tool": "A tool.",
+	"attachment": "Something that fits onto a weapon.",
+}
+const SLOT_SENTENCES: Dictionary = {
+	"head": "Worn on the head.",
+	"eyes": "Worn over the eyes.",
+	"face": "Worn over the face.",
+	"vest": "Worn over the chest.",
+	"torso": "Worn on the body.",
+	"gloves": "Worn on the hands.",
+	"belt": "Worn at the waist.",
+	"legs": "Worn on the legs.",
+	"feet": "Worn on the feet.",
+	"back": "Carried on the back.",
+	"primary": "Carried in the hands.",
+	"secondary": "Carried as a sidearm.",
+}
+static func generated_description(base: Dictionary) -> String:
+	var slot: Variant = base_equip_slot(base)
+	if slot != null and SLOT_SENTENCES.has(String(slot)):
+		return String(SLOT_SENTENCES[String(slot)])
+	var cls: String = base_class(base)
+	if CLASS_SENTENCES.has(cls):
+		return String(CLASS_SENTENCES[cls])
+	return "Something."
 
 
 static func item_name(world: Variant, item: int) -> String:

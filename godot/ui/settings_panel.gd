@@ -8,16 +8,16 @@ extends Control
 const Chrome = preload("res://ui/chrome.gd")
 const UiPrefs = preload("res://ui/prefs.gd")
 
-const PANEL_SIZE: Vector2 = Vector2(640, 330)
+const PANEL_SIZE: Vector2 = Vector2(640, 258)
 const ROW_H: float = 72.0
 const TRACK_W: float = 300.0
 const TRACK_H: float = 6.0
 const HANDLE_R: float = 11.0
 
-# Each row is one preference; min is the floor prefs.gd clamps to anyway.
+# Each row is one preference; min is the floor prefs.gd clamps to anyway. The pinned-bag row
+# went with the pinnable bags in the 2026-09-08 overhaul -- there is nothing left to pin.
 const ROWS: Array[Dictionary] = [
-	{"key": "inventory_opacity", "label": "inventory panels"},
-	{"key": "pinned_opacity", "label": "pinned bags"},
+	{"key": "inventory_opacity", "label": "panel opacity"},
 ]
 
 # Called with no arguments after a value changes, so open screens can re-tint immediately.

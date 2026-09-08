@@ -2,6 +2,7 @@
   {
     "id": "item.pouch.utility",
     "name": "Utility Pouch",
+    "description": "A small pouch of stiff webbing. It goes inside something bigger.",
     "class": "container",
     "size": { "w": 2, "h": 2 },
     "massKg": 0.15,
@@ -10,6 +11,7 @@
   {
     "id": "item.satchel.canvas",
     "name": "Canvas Satchel",
+    "description": "A canvas satchel on a long strap. It rides at the hip and opens one-handed.",
     "class": "container",
     "size": { "w": 3, "h": 2 },
     "massKg": 0.4,
@@ -19,6 +21,7 @@
   {
     "id": "item.toolbox.steel",
     "name": "Steel Toolbox",
+    "description": "A steel toolbox with a folding handle. Awkward to carry and worth it.",
     "class": "container",
     "size": { "w": 3, "h": 2 },
     "massKg": 3.5,
@@ -27,6 +30,7 @@
   {
     "id": "item.rig.chest",
     "name": "Chest Rig",
+    "description": "A chest rig of stitched pouches. Everything in it is a hand's reach away.",
     "class": "container",
     "size": { "w": 3, "h": 3 },
     "massKg": 0.8,
@@ -36,6 +40,7 @@
   {
     "id": "item.pack.hiking",
     "name": "Hiking Pack",
+    "description": "A proper hiking pack. It carries a great deal and it is on your back, not your front.",
     "class": "container",
     "size": { "w": 4, "h": 4 },
     "massKg": 1.1,
@@ -46,6 +51,7 @@
   {
     "id": "item.pack.school",
     "name": "School Bag",
+    "description": "A child's school bag, straps knotted where they broke.",
     "class": "container",
     "size": {"w": 3, "h": 3},
     "massKg": 0.5,
@@ -56,6 +62,7 @@
   {
     "id": "item.pack.frame",
     "name": "Frame Pack",
+    "description": "An external-frame pack. Ugly, rigid, and it takes what nothing else will.",
     "class": "container",
     "size": {"w": 4, "h": 5},
     "massKg": 1.8,
@@ -66,6 +73,7 @@
   {
     "id": "item.pouch.medic",
     "name": "Medic Pouch",
+    "description": "A medic's belt pouch, marked with a faded cross. Dressings, where a hand can find them.",
     "class": "container",
     "size": {"w": 2, "h": 2},
     "massKg": 0.3,
@@ -75,6 +83,7 @@
   {
     "id": "item.bandolier.canvas",
     "name": "Canvas Bandolier",
+    "description": "A canvas bandolier across the chest. Long thin things ride in it.",
     "class": "container",
     "size": {"w": 3, "h": 1},
     "massKg": 0.3,

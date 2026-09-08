@@ -11,6 +11,12 @@ const TopDownProjection = preload("res://presentation/projection.gd")
 const CameraUtil = preload("res://presentation/camera.gd")
 const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
+const HudRead = preload("res://ui/hud.gd")
+const SimContainers = preload("res://sim/modules/containers.gd")
+const ItemGlyph = preload("res://presentation/item_glyph.gd")
+# The tag beside the player's body: big enough to read at a glance mid-fight, small enough that it
+# is not competing with the HUD's own columns.
+const TAG_SIZE: int = 20
 const LightLook = preload("res://presentation/light_look.gd")
 const RoadPaint = preload("res://presentation/road_paint.gd")
 const RoofLook = preload("res://presentation/roof_look.gd")
@@ -378,9 +384,14 @@ func _ensure_ui() -> void:
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
 	if doll_script != null:
 		_paperdoll = doll_script.new() as Control
-		_paperdoll.custom_minimum_size = Vector2(280, 280)
+		# 2x the chart's 64 x 160, plus the stance word's row: the corner glimpse is the same
+		# picture as the sheet's, drawn smaller, and an integer scale is what keeps its pixels
+		# square.
+		_paperdoll.custom_minimum_size = Vector2(128, 346)
 		_paperdoll.anchor_left = 0.0; _paperdoll.anchor_top = 1.0; _paperdoll.anchor_right = 0.0; _paperdoll.anchor_bottom = 1.0
-		_paperdoll.offset_left = 16; _paperdoll.offset_top = -296; _paperdoll.offset_right = 296; _paperdoll.offset_bottom = -16
+		# Above the quick strip, which owns the bottom of the screen now. The doll is 128 x 346 and
+		# the strip is 92 tall inside a 24 margin, so the glimpse stops at 124 from the bottom.
+		_paperdoll.offset_left = 16; _paperdoll.offset_top = -470; _paperdoll.offset_right = 144; _paperdoll.offset_bottom = -124
 		layer.add_child(_paperdoll)
 	# The driver's dashboard, bottom centre: visible only while the player is at a wheel, fed by
 	# SimVehicles.dash_view in _update_hud. The one gauge on screen, and the car's, not the
@@ -432,21 +443,17 @@ func _input(event: InputEvent) -> void:
 				# Dismiss-only: Enter closes the legend but never opens anything.
 				if _legend != null and _legend.visible: _legend.visible = false
 			KEY_ESCAPE:
-				# Escape peels layers in order: the legend first, then settings toggles.
+				# Escape peels layers in order: the legend, then an open container, then
+				# settings. The container before settings because it is the thing you most
+				# recently opened, and closing it is what walking away would have done.
 				if _legend != null and _legend.visible:
 					_legend.visible = false
+				elif world != null and _inventory_panel != null and _inventory_panel.has_method("loot_open") and bool(_inventory_panel.call("loot_open")):
+					world.commands.push({"type": "container.close"})
 				elif _settings != null:
 					_settings.visible = not _settings.visible
 			KEY_TAB:
-				inventory_open = not inventory_open
-				if _inventory_panel != null and _inventory_panel.has_method("set_open"):
-					_inventory_panel.call("set_open", inventory_open)
-					if inventory_open and _inventory_panel.has_method("set_world"):
-						_inventory_panel.call("set_world", world, world.player)
-				if _hud != null: _hud.visible = not inventory_open
-				# The body panel has its own doll; the corner glimpse duplicating it under
-				# the open screen is noise.
-				if _paperdoll != null: _paperdoll.visible = not inventory_open
+				_set_inventory_open(not inventory_open)
 			KEY_J:
 				work_open = not work_open
 				if _work_panel != null:
@@ -474,9 +481,17 @@ func _input(event: InputEvent) -> void:
 				# wound that matters, or stop the one already in progress. Presentation
 				# picks neither the target nor the verb -- see SimTreatment.context.
 				if world != null: world.commands.push({"type": "treat.context"})
-			KEY_1: speed = 1
-			KEY_2: speed = 3
-			KEY_3: speed = 10
+			# The number row belongs to the quick strip since the 2026-09-08 overhaul, so
+			# speed moved to the two keys beside it. A key that means two things mid-fight
+			# is what the one-interact-key rule exists to avoid; P still pauses.
+			KEY_MINUS, KEY_KP_SUBTRACT: _step_speed(-1)
+			KEY_EQUAL, KEY_KP_ADD: _step_speed(1)
+			KEY_1: _strip_use(0)
+			KEY_2: _strip_use(1)
+			KEY_3: _strip_use(2)
+			KEY_4: _strip_use(3)
+			KEY_5: _strip_use(4)
+			KEY_6: _strip_use(5)
 			KEY_F8:
 				if _debug_panel != null:
 					_debug_panel.visible = not _debug_panel.visible
@@ -587,6 +602,46 @@ func _pump_input() -> void:
 	if dx != _last_dx or dy != _last_dy:
 		world.commands.push({"type": "move", "dx": dx, "dy": dy})
 		_last_dx = dx; _last_dy = dy
+
+# Opening and closing the sheet, in one place rather than inline in the key handler, because it
+# is four things and not one: the flag, the panel, and the two layers that sit *under* the sheet
+# rather than behind it. A 0.88 dim over a panel still shows the panel, so the legend and the
+# corner doll are peeled rather than dimmed -- and a driver or a gate that wants the sheet open
+# gets the same four things a keypress does, which is what stops a screenshot from showing a
+# legend nobody playing would see.
+func _set_inventory_open(open: bool) -> void:
+	inventory_open = open
+	if _inventory_panel != null and _inventory_panel.has_method("set_open"):
+		_inventory_panel.call("set_open", open)
+		if open and _inventory_panel.has_method("set_world") and world != null:
+			_inventory_panel.call("set_world", world, world.player)
+	if _hud != null:
+		_hud.visible = not open
+	if open and _legend != null:
+		_legend.visible = false
+	# The body panel has its own doll; the corner glimpse duplicating it under the open screen is
+	# noise.
+	if _paperdoll != null:
+		_paperdoll.visible = not open
+
+
+# The strip's keys. The panel owns the mapping -- it draws the same six rows it spends -- so this
+# is a hand-off and not a second list. It works with the sheet closed on purpose: the strip is
+# what the pinnable pouches used to be, and a pouch you can only reach with the screen open is
+# not one.
+func _strip_use(index: int) -> void:
+	if _inventory_panel != null and _inventory_panel.has_method("strip_use"):
+		_inventory_panel.call("strip_use", index)
+
+
+# Speed, as a ladder rather than three keys. The same three values the number row used to set.
+const SPEED_LADDER: Array[int] = [1, 3, 10]
+func _step_speed(step: int) -> void:
+	var at: int = SPEED_LADDER.find(speed)
+	if at < 0:
+		at = 0
+	speed = SPEED_LADDER[clampi(at + step, 0, SPEED_LADDER.size() - 1)]
+
 
 func _toggle_legend() -> void:
 	if _legend != null:
@@ -784,6 +839,11 @@ func _update_hud() -> void:
 		_work_panel.call("set_world", world)
 	# Always refreshed, not only while open: pinned bag windows read the same view during
 	# ordinary play, and a stale pinned bag is a lie about what you are carrying.
+	# The transfer window, fed whether or not the sheet is open: a cupboard you are standing at is
+	# drawn beside your pockets during ordinary play, and the panel hides it while the full sheet
+	# is up (where the same box is a column instead).
+	if _inventory_panel != null and _inventory_panel.has_method("set_loot"):
+		_inventory_panel.call("set_loot", SimContainers.open_view(world, world.player))
 	if _inventory_panel != null and _inventory_panel.has_method("set_world"):
 		_inventory_panel.call("set_world", world, world.player)
 
@@ -1736,6 +1796,21 @@ func _draw_entities() -> void:
 			Palette.COLOURS["facing"],
 			2.4 if bool(it["player"]) else 1.6,
 		)
+		# The tag beside your own body, and nowhere else. docs/23's "condition and stamina readouts
+		# in the world, not a corner", and the reason it is the player's alone: a line over every
+		# pawn is a name plate, refused three times in docs/30 because a floating word over a
+		# figure in the street is a certainty the peripheral-anonymity clause denies. Drawn after
+		# the body and before the aim cone so nothing paints over it, and skipped entirely when
+		# there is nothing to say.
+		if bool(it["player"]):
+			var tag: String = HudRead.pawn_tag(world, eid)
+			if not tag.is_empty():
+				var tag_font: Font = ThemeDB.fallback_font
+				var tag_at := Vector2(sx + r + 10.0, sy - r - 6.0)
+				# A dark backing pass rather than a panel: the tag sits on the street, and a box
+				# round it would read as chrome rather than as something you noticed.
+				draw_string(tag_font, tag_at + Vector2(1.0, 1.0), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Color(0.0, 0.0, 0.0, 0.85))
+				draw_string(tag_font, tag_at, tag, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_SIZE, Palette.COLOURS["survivor"])
 		if bool(it["player"]) and world.components.has_component(eid, "rangedWeapon"):
 			var rw: Variant = world.components.get_component(eid, "rangedWeapon")
 			if rw is Dictionary and int((rw as Dictionary).get("state", 0)) in [1, 2]:
@@ -1750,7 +1825,10 @@ func _draw_entities() -> void:
 				draw_arc(Vector2(sx, sy), reach_px, a0, a1, 12, cone, 2.8)
 				draw_line(Vector2(sx, sy), Vector2(sx + cos(a0) * reach_px, sy + sin(a0) * reach_px), edge, 2.0)
 				draw_line(Vector2(sx, sy), Vector2(sx + cos(a1) * reach_px, sy + sin(a1) * reach_px), edge, 2.0)
-	# ground items as small squares — focal only (searching a room is an action)
+	# Ground items — focal only, because searching a room is an action rather than a glance.
+	# What one looks like is `Appearance.item_look`: its own picture when content declares one, and
+	# its class's glyph when it does not. This used to be one ten-pixel square for everything, so
+	# an axe on the floor and a bandage on the floor were the same mark.
 	for ent in world.components.query(["position", "itemBase"]):
 		if world.components.has_component(int(ent), "stored"): continue
 		var p: Variant = world.components.get_component(int(ent), "position")
@@ -1759,9 +1837,17 @@ func _draw_entities() -> void:
 		if world.vision != null and int(world.vision.detail(int(world.player), ix, iy)) != SimVisibility.Detail.Focal:
 			continue
 		var sc: Dictionary = TopDownProjection.world_to_screen(camera, ix, iy)
-		var item_rect := Rect2(float(sc["sx"]) - 5.0, float(sc["sy"]) - 5.0, 10.0, 10.0)
-		draw_rect(item_rect, Palette.COLOURS["groundItem"])
-		draw_rect(item_rect, Palette.COLOURS["groundItemEdge"], false, 1.5)
+		var base: Variant = world.components.get_component(int(ent), "itemBase")
+		var look: Dictionary = Appearance.item_look(world, String((base as Dictionary).get("baseId", "")) if base is Dictionary else "")
+		# Sized off the tile, not a constant: an item is about a third of a tile at every step of
+		# the zoom ladder, the way a body is a fraction of one.
+		var item_px: float = maxf(10.0, float(camera["zoom"]) * 0.34)
+		var item_rect := Rect2(float(sc["sx"]) - item_px * 0.5, float(sc["sy"]) - item_px * 0.5, item_px, item_px)
+		var art: Texture2D = look["texture"] as Texture2D
+		if art != null:
+			draw_texture_rect(art, item_rect, false, look["tint"] as Color if bool(look["declaredTint"]) else Color.WHITE)
+		else:
+			ItemGlyph.draw_glyph(self, item_rect, int(look["glyph"]), look["tint"] as Color)
 	# last-known marks fading. The positions are the *simulation's* memory, not a second copy
 	# kept by the renderer: a mark on the ground and a colonist's decision to shoot at one have
 	# to be the same recollection, or the mark is telling the player something nobody in the

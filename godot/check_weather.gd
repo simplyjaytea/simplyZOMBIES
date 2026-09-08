@@ -35,6 +35,7 @@ const Palette = preload("res://presentation/palette.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 
 const MAIN_GD: String = "res://presentation/main.gd"
+const APPEARANCE_GD: String = "res://presentation/appearance.gd"
 const PALETTE_GD: String = "res://presentation/palette.gd"
 const RAIN_GD: String = "res://presentation/rain_look.gd"
 const KINDS: Array[String] = ["rain", "storm", "snow"]
@@ -398,7 +399,6 @@ func _the_dead_keys_are_wired_and_the_dead_constants_are_gone() -> bool:
 				'Palette.COLOURS["memory"]',
 				'Palette.COLOURS["facing"]',
 				'Palette.COLOURS["aimCone"]',
-				'Palette.COLOURS["groundItem"]',
 				"Palette.AIM_EDGE_DIM",
 			],
 			[
@@ -422,6 +422,26 @@ func _the_dead_keys_are_wired_and_the_dead_constants_are_gone() -> bool:
 		if not verdict.is_empty():
 			push_error(verdict)
 			return false
+
+	# `groundItem` used to be read in `_draw_entities` beside the four keys above, as the fill of
+	# the fixed ten-pixel square every dropped item drew as. The 2026-09-08 glyph slice gave
+	# `item.appearance.sprite` its first reader and the colour moved into `Appearance.item_look`,
+	# which is where an item's *look* is decided now -- so the socket is followed to where it went
+	# rather than dropped, and the draw loop is asserted to call the thing that holds it.
+	var look_verdict: String = _socket_verdict(
+		"Appearance.item_look", _function_body(APPEARANCE_GD, "item_look"),
+		['Palette.COLOURS["groundItem"]'], ["Color(0.85, 0.78, 0.55"]
+	)
+	if not look_verdict.is_empty():
+		push_error(look_verdict)
+		return false
+	var loop_verdict: String = _socket_verdict(
+		"_draw_entities", _function_body(MAIN_GD, "_draw_entities"),
+		["Appearance.item_look"], ['Rect2(float(sc["sx"]) - 5.0']
+	)
+	if not loop_verdict.is_empty():
+		push_error(loop_verdict)
+		return false
 
 	# The palette itself: five dead constants deleted, and the LIVE one still present as the
 	# control, so the next dead-socket sweep cannot mistake it for part of the batch.
@@ -1086,11 +1106,15 @@ func _function_body(path: String, name: String) -> String:
 	var lines: PackedStringArray = f.get_as_text().split("\n")
 	var out: String = ""
 	var inside: bool = false
+	# `static func` as well as `func`: presentation/appearance.gd is statics all the way down, and
+	# a reader that only knew one spelling returned "" for every function in it -- which
+	# `_socket_verdict` correctly refuses as "had nothing to judge" rather than passing, but for
+	# the wrong reason.
 	for line in lines:
-		if line.begins_with("func %s(" % name):
+		if line.begins_with("func %s(" % name) or line.begins_with("static func %s(" % name):
 			inside = true
 			continue
-		if inside and line.begins_with("func "):
+		if inside and (line.begins_with("func ") or line.begins_with("static func ")):
 			break
 		if inside:
 			out += line + "\n"
