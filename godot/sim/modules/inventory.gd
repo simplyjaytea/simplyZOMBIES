@@ -460,6 +460,150 @@ static func inventory_view(world: Variant, actor: int) -> Dictionary:
 		overload = float((enc as Dictionary).get("ratio", 0.0))
 	return {"actor": actor, "slots": slots, "containers": containers, "overload": overload}
 
+# Loaded lazily rather than preloaded, for `SimItems._Attachments`'s reason: all three of these
+# preload *this* file, and a preload cycle in GDScript is a parse error rather than something the
+# engine resolves. Named as functions rather than inlined at each call site so a path typo is one
+# place, and so the `has_method` guards below name a function this file can be grepped against.
+static func _Attachments() -> GDScript:
+	return load("res://sim/modules/attachments.gd") as GDScript
+
+
+static func _Needs() -> GDScript:
+	return load("res://sim/modules/needs.gd") as GDScript
+
+
+static func _Treatment() -> GDScript:
+	return load("res://sim/modules/treatment.gd") as GDScript
+
+
+# What the inspect pane on the inventory sheet says about one item: a name, a condition *word*, a
+# sentence, where it is worn, and what is fitted to it. `{}` for anything that is not an item.
+#
+# There is deliberately no number in it and none could be added by accident: the gate serialises
+# this and refuses a digit anywhere in it, the same shape `check_ban_health_bar` uses on the
+# condition view. Footprint, mass, damage and range are all *known* here and all deliberately
+# absent -- the grid already shows the footprint as a shape, weight is the invisible pressure
+# docs/10 keeps unprinted, and what a weapon does is the sentence, not the table.
+static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
+	var base: Variant = SimItems.item_base_of(world, item)
+	if not (base is Dictionary):
+		return {}
+	var base_id: String = ""
+	var b: Variant = world.components.get_component(item, "itemBase")
+	if b is Dictionary:
+		base_id = String((b as Dictionary).get("baseId", ""))
+	var cond: Variant = world.components.get_component(item, "condition")
+	var slot: Variant = SimItems.base_equip_slot(base as Dictionary)
+	var worn: bool = false
+	var eq: Variant = world.components.get_component(actor, "equipment")
+	if eq is Dictionary:
+		for s2 in ((eq as Dictionary).get("slots", {}) as Dictionary).values():
+			if int(s2) == item:
+				worn = true
+	# What is on it, and what would go on it. A host lists its own slots and names what fills
+	# each; an attachment lists the slots it fits instead, because that is the question the pane
+	# is being asked about a scope lying in a bag.
+	var fitted: Array = []
+	var Att: GDScript = _Attachments()
+	var attached: Dictionary = Att.call("attached", world, item)
+	for name in Att.call("slots_of", world, item) as Array:
+		var in_it: Variant = attached.get(String(name))
+		fitted.append({"slot": String(name), "name": "" if in_it == null else SimItems.item_name(world, int(in_it))})
+	var fits: Array = []
+	var spec: Variant = Att.call("spec_of", world, item)
+	if spec is Dictionary:
+		for f in (spec as Dictionary).get("fits", []) as Array:
+			fits.append(String(f))
+	return {
+		"item": item,
+		"name": SimItems.item_name(world, item),
+		"condition": "sound" if cond == null else SimItems.condition_band(cond as Dictionary),
+		"description": SimItems.description_of(world, base_id),
+		"slot": "" if slot == null else String(slot),
+		"worn": worn,
+		"attachments": fitted,
+		"fits": fits,
+	}
+
+
+# Every verb the word menu may draw, in menu order. A verb is in this list only when its command
+# would actually do something, because the screen's rule is that an unavailable verb is *absent*
+# rather than greyed with a reason beside it -- `work_panel.gd`'s idiom, and
+# `SimTreatment.response_view`'s contract.
+#
+# Each entry is the sim's own answer to "would this work", not the screen's guess: `use` asks the
+# two modules that own `item.use` (needs for anything edible, treatment for anything medical) and
+# nothing here re-implements either. That is the dead-socket rule applied to a menu: a verb whose
+# availability is computed in the UI is a verb that will one day be offered for a command the sim
+# drops on the floor.
+const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "open", "inspect", "split", "drop"]
+static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
+	var out: Array[String] = []
+	if item < 0 or not (SimItems.item_base_of(world, item) is Dictionary):
+		return out
+	if not owns(world, actor, item):
+		return out
+	var worn: bool = false
+	var eq: Variant = world.components.get_component(actor, "equipment")
+	if eq is Dictionary:
+		for s3 in ((eq as Dictionary).get("slots", {}) as Dictionary).values():
+			if int(s3) == item:
+				worn = true
+	var offered: Dictionary = {"inspect": true}
+	if worn:
+		offered["unequip"] = true
+	elif equip_slot_for(world, item) != null:
+		offered["equip"] = true
+	if not worn:
+		offered["drop"] = true
+		if world.components.has_component(item, "container"):
+			offered["open"] = true
+		var st: Variant = world.components.get_component(item, "stack")
+		if st is Dictionary and int((st as Dictionary).get("count", 1)) > 1:
+			offered["split"] = true
+		if bool(_Needs().call("can_use", world, actor, item)) or bool(_Treatment().call("can_use_supply", world, actor, item)):
+			offered["use"] = true
+	for verb in MENU_ORDER:
+		if offered.has(verb):
+			out.append(verb)
+	return out
+
+
+# What the quick strip along the bottom of the screen shows, and what the number keys reach: the
+# pockets first, then whatever is worn on the belt, in the order the grids hold them. Six at most,
+# because six is how many keys the strip has.
+#
+# The back is deliberately absent, and it is the same rule the old pinnable windows followed: a
+# pouch on your front is reachable mid-fight and a backpack is not (the owner's call, 2026-08-19).
+# The vest is absent too -- twelve entries would be a strip nobody can read at a glance, and the
+# belt is what the fiction says your hand finds.
+const STRIP_SLOTS: int = 6
+static func quick_strip_view(world: Variant, actor: int) -> Array:
+	var out: Array = []
+	var boxes: Array[int] = []
+	if world.components.has_component(actor, "container"):
+		boxes.append(actor)
+	var eq: Variant = world.components.get_component(actor, "equipment")
+	if eq is Dictionary:
+		var belt: Variant = ((eq as Dictionary).get("slots", {}) as Dictionary).get("belt")
+		if belt != null and world.components.has_component(int(belt), "container"):
+			boxes.append(int(belt))
+	for box in boxes:
+		var c: Variant = world.components.get_component(box, "container")
+		if not (c is Dictionary):
+			continue
+		for placement in (c as Dictionary).get("items", []) as Array:
+			if out.size() >= STRIP_SLOTS:
+				return out
+			var item: int = int((placement as Dictionary)["item"])
+			var count: int = 1
+			var st: Variant = world.components.get_component(item, "stack")
+			if st is Dictionary:
+				count = int((st as Dictionary).get("count", 1))
+			out.append({"item": item, "name": SimItems.item_name(world, item), "count": count})
+	return out
+
+
 static func owns(world: Variant, actor: int, item: int) -> bool:
 	return carried_items(world, actor).has(item)
 

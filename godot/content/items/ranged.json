@@ -2,6 +2,7 @@
   {
     "id": "item.bow.hunting",
     "name": "Hunting Bow",
+    "description": "A hunting bow. Quiet, slow to draw, and the arrows come back to you.",
     "class": "weapon.ranged",
     "size": { "w": 1, "h": 4 },
     "massKg": 1.1,
@@ -20,6 +21,7 @@
   {
     "id": "item.pistol.service",
     "name": "Service Pistol",
+    "description": "A service pistol. Easy to carry, easy to hear, and everything hears it.",
     "class": "weapon.ranged",
     "size": { "w": 1, "h": 2 },
     "massKg": 0.9,
@@ -40,6 +42,7 @@
   {
     "id": "item.ammo.arrow",
     "name": "Arrow",
+    "description": "An arrow, fletched and straight. It can be pulled out and used again.",
     "class": "material",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.03,
@@ -48,6 +51,7 @@
   {
     "id": "item.ammo.9mm",
     "name": "9mm Round",
+    "description": "A pistol round, brass gone dull.",
     "class": "material",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.012,
@@ -56,6 +60,7 @@
   {
     "id": "item.shotgun.pump",
     "name": "Pump Shotgun",
+    "description": "A pump shotgun. Devastating close in, and it announces itself across the district.",
     "class": "weapon.ranged",
     "size": {"w": 1, "h": 5},
     "massKg": 3.4,
@@ -67,6 +72,7 @@
   {
     "id": "item.rifle.hunting",
     "name": "Hunting Rifle",
+    "description": "A bolt-action hunting rifle. It reaches further than anything else here.",
     "class": "weapon.ranged",
     "size": {"w": 1, "h": 6},
     "massKg": 3.6,
@@ -78,6 +84,7 @@
   {
     "id": "item.ammo.12g",
     "name": "Shotgun Shell",
+    "description": "A shotgun shell, plastic hull, brass base.",
     "class": "material",
     "size": {"w": 1, "h": 1},
     "massKg": 0.04,
@@ -86,6 +93,7 @@
   {
     "id": "item.ammo.rifle",
     "name": "Rifle Round",
+    "description": "A rifle cartridge, long and heavy in the hand.",
     "class": "material",
     "size": {"w": 1, "h": 1},
     "massKg": 0.02,

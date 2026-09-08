@@ -2,6 +2,7 @@
   {
     "id": "item.bandage.cloth",
     "name": "Cloth Bandage",
+    "description": "A clean cloth dressing. It holds a wound shut and stays held.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -14,6 +15,7 @@
   {
     "id": "item.rag.dirty",
     "name": "Dirty Rag",
+    "description": "A filthy rag. It will stop a bleed and it will cost you later.",
     "class": "material",
     "size": {
       "w": 1,
@@ -26,6 +28,7 @@
   {
     "id": "item.painkillers.blister",
     "name": "Painkillers",
+    "description": "A blister of painkillers. The hurt goes quiet; the injury does not.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -37,6 +40,7 @@
   {
     "id": "item.drink.energy",
     "name": "Energy Drink",
+    "description": "An energy drink. Wide awake now, and a debt to pay in a few hours.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -54,6 +58,7 @@
   {
     "id": "item.food.canned",
     "name": "Canned Food",
+    "description": "A dented tin. Whatever is in it keeps, and it keeps a long time.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -71,6 +76,7 @@
   {
     "id": "item.food.raw",
     "name": "Raw Food",
+    "description": "Raw food. Edible as it is, and much better cooked.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -88,6 +94,7 @@
   {
     "id": "item.food.cooked",
     "name": "Cooked Food",
+    "description": "A cooked meal, still warm if you are lucky.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -105,6 +112,7 @@
   {
     "id": "item.scrap.metal",
     "name": "Scrap Metal",
+    "description": "A twist of scrap metal. Everything gets built out of this.",
     "class": "material",
     "size": {
       "w": 1,
@@ -116,6 +124,7 @@
   {
     "id": "item.tape.duct",
     "name": "Duct Tape",
+    "description": "A roll of duct tape, half gone. It holds anything together for a while.",
     "class": "material",
     "size": {
       "w": 1,
@@ -136,6 +145,7 @@
   {
     "id": "item.kit.scrap",
     "name": "Scrap Kit",
+    "description": "A pouch of odds and ends for working on gear at a bench.",
     "class": "material",
     "size": {
       "w": 2,
@@ -155,6 +165,7 @@
   {
     "id": "item.water.bottle",
     "name": "Water Bottle",
+    "description": "A bottle of clean water.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -170,6 +181,7 @@
   {
     "id": "item.water.bottle.untreated",
     "name": "Bottle of Well Water",
+    "description": "Water straight from the well. It will do, unless it doesn't.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -186,6 +198,7 @@
   {
     "id": "item.antiseptic.bottle",
     "name": "Antiseptic",
+    "description": "A bottle of antiseptic. It stings, and it is the difference between a wound and a fever.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -198,6 +211,7 @@
   {
     "id": "item.suture.kit",
     "name": "Suture Kit",
+    "description": "Needle and thread in a paper wrap. It closes what has stopped bleeding.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -210,6 +224,7 @@
   {
     "id": "item.splint.kit",
     "name": "Splint Kit",
+    "description": "Padded boards and webbing straps. A broken bone held still is a bone that knits straight.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -222,6 +237,7 @@
   {
     "id": "item.water.bottle.empty",
     "name": "Empty Bottle",
+    "description": "An empty bottle. It wants filling.",
     "class": "material",
     "size": {
       "w": 1,
@@ -232,6 +248,7 @@
   {
     "id": "item.medkit.field",
     "name": "Field Medkit",
+    "description": "A field medkit, zipped and heavy. Everything for a bad day in one bag.",
     "class": "consumable",
     "size": {
       "w": 2,
@@ -243,6 +260,7 @@
   {
     "id": "item.jerrycan.fuel",
     "name": "Fuel Can",
+    "description": "A jerrycan of fuel, sloshing. It pours whole or not at all.",
     "class": "material",
     "size": {
       "w": 2,
@@ -257,6 +275,7 @@
   {
     "id": "item.antibiotics.course",
     "name": "Antibiotics Course",
+    "description": "A course of antibiotics. There is one answer to an infection and this is it.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -268,6 +287,7 @@
   {
     "id": "item.whetstone",
     "name": "Whetstone",
+    "description": "A whetstone, dished from years of use. An edge can be brought back on it.",
     "class": "material",
     "size": {
       "w": 1,
@@ -285,6 +305,7 @@
   {
     "id": "item.oil.gun",
     "name": "Gun Oil",
+    "description": "A tin of gun oil. Metal that is oiled does not seize.",
     "class": "material",
     "size": {
       "w": 1,
@@ -302,6 +323,7 @@
   {
     "id": "item.solvent",
     "name": "Solvent",
+    "description": "A can of solvent. It strips what has been put on.",
     "class": "material",
     "size": {
       "w": 1,
@@ -322,6 +344,7 @@
   {
     "id": "item.gauge.machinist",
     "name": "Machinist's Gauge",
+    "description": "A machinist's gauge. Somebody who knows what they are doing can work to it.",
     "class": "material",
     "size": {
       "w": 1,
@@ -342,6 +365,7 @@
   {
     "id": "item.rights.salvage",
     "name": "Salvage Rights",
+    "description": "A sheaf of salvage paperwork. Worth something to somebody, somewhere.",
     "class": "material",
     "size": {
       "w": 1,
@@ -362,6 +386,7 @@
   {
     "id": "item.battery",
     "name": "Battery",
+    "description": "A battery. Something here needs one.",
     "class": "material",
     "size": {
       "w": 1,
@@ -373,6 +398,7 @@
   {
     "id": "item.cloth.bolt",
     "name": "Bolt of Cloth",
+    "description": "A bolt of heavy cloth. Enough to make or mend a great deal.",
     "class": "material",
     "size": {
       "w": 1,
@@ -384,6 +410,7 @@
   {
     "id": "item.jerrycan.empty",
     "name": "Empty Fuel Can",
+    "description": "An empty jerrycan, smelling of what was in it.",
     "class": "material",
     "size": {
       "w": 2,
@@ -394,6 +421,7 @@
   {
     "id": "item.can.fuel",
     "name": "Fuel Bottle",
+    "description": "A bottle of fuel, capped tight. Enough to matter to an engine.",
     "class": "material",
     "size": {
       "w": 1,
@@ -407,6 +435,7 @@
   {
     "id": "item.kit.sewing",
     "name": "Sewing Kit",
+    "description": "Needles, thread and patches in a tin. Torn gear can be brought back.",
     "class": "material",
     "size": {
       "w": 1,
@@ -424,6 +453,7 @@
   {
     "id": "item.oil.machine",
     "name": "Machine Oil",
+    "description": "A bottle of machine oil, thick and slow.",
     "class": "material",
     "size": {
       "w": 1,
@@ -442,6 +472,7 @@
   {
     "id": "item.food.jerky",
     "name": "Beef Jerky",
+    "description": "Dried meat in a torn wrapper. Salt and chewing, and it keeps forever.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -459,6 +490,7 @@
   {
     "id": "item.food.crackers",
     "name": "Crackers",
+    "description": "A sleeve of crackers, mostly crumbs.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -476,6 +508,7 @@
   {
     "id": "item.food.chocolate",
     "name": "Chocolate Bar",
+    "description": "A chocolate bar, bloomed white with age. Still sweet, still welcome.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -493,6 +526,7 @@
   {
     "id": "item.food.ration",
     "name": "Ration Pack",
+    "description": "A sealed ration pack. Dull, complete, and it will not spoil.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -509,6 +543,7 @@
   {
     "id": "item.soda.can",
     "name": "Soda",
+    "description": "A can of soda, warm and flat. Sugar and water.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -524,6 +559,7 @@
   {
     "id": "item.juice.carton",
     "name": "Juice Carton",
+    "description": "A carton of juice past its date. It still drinks.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -538,6 +574,7 @@
   {
     "id": "item.drink.sports",
     "name": "Sports Drink",
+    "description": "A sports drink. It goes down easily when nothing else will.",
     "class": "consumable",
     "size": {
       "w": 1,
@@ -553,6 +590,7 @@
   {
     "id": "item.spirits.bottle",
     "name": "Bottle of Spirits",
+    "description": "A bottle of spirits. It cleans a wound, and it does other things too.",
     "class": "consumable",
     "size": {
       "w": 1,

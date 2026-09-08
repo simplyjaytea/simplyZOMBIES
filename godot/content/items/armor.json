@@ -2,6 +2,7 @@
   {
     "id": "item.wrap.cloth",
     "name": "Cloth Wrap",
+    "description": "Strips of cloth bound round the body. Barely armour, but it turns a scratch.",
     "class": "armor",
     "size": { "w": 2, "h": 2 },
     "massKg": 0.2,
@@ -12,6 +13,7 @@
   {
     "id": "item.vest.scrap",
     "name": "Scrap Vest",
+    "description": "Plate and padding lashed into a vest. Heavy over the chest and worth every ounce.",
     "class": "armor",
     "size": { "w": 3, "h": 3 },
     "massKg": 2.1,
@@ -21,6 +23,7 @@
   {
     "id": "item.cap.canvas",
     "name": "Canvas Cap",
+    "description": "A soft cap. It keeps the sun off and stops nothing.",
     "class": "armor",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.1,
@@ -31,6 +34,7 @@
   {
     "id": "item.mask.cloth",
     "name": "Cloth Mask",
+    "description": "A cloth mask over the mouth and nose. Filthy work is a little less filthy in it.",
     "class": "armor",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.05,
@@ -40,6 +44,7 @@
   {
     "id": "item.glasses.safety",
     "name": "Safety Glasses",
+    "description": "Scratched safety glasses. Grit and splinters stay out of the eyes.",
     "class": "armor",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.05,
@@ -49,6 +54,7 @@
   {
     "id": "item.gloves.work",
     "name": "Work Gloves",
+    "description": "Stiff canvas gloves. Hands take fewer cuts on rough work.",
     "class": "armor",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.15,
@@ -58,6 +64,7 @@
   {
     "id": "item.pants.canvas",
     "name": "Canvas Work Pants",
+    "description": "Heavy work trousers, reinforced at the knee.",
     "class": "armor",
     "size": { "w": 2, "h": 2 },
     "massKg": 0.6,
@@ -68,6 +75,7 @@
   {
     "id": "item.boots.leather",
     "name": "Leather Boots",
+    "description": "Worn leather boots. Good on broken ground, quiet enough on tile.",
     "class": "armor",
     "size": { "w": 2, "h": 1 },
     "massKg": 1.2,
@@ -77,6 +85,7 @@
   {
     "id": "item.jacket.leather",
     "name": "Leather Jacket",
+    "description": "A thick leather jacket. Teeth have to work through it first.",
     "class": "armor",
     "size": {"w": 2, "h": 3},
     "massKg": 1.6,
@@ -87,6 +96,7 @@
   {
     "id": "item.helmet.bike",
     "name": "Bike Helmet",
+    "description": "A cycling helmet, cracked along one vent. Better than a bare head.",
     "class": "armor",
     "size": {"w": 2, "h": 2},
     "massKg": 0.4,
@@ -97,6 +107,7 @@
   {
     "id": "item.jeans.denim",
     "name": "Denim Jeans",
+    "description": "Ordinary denim. Tougher than it looks, which is not saying much.",
     "class": "armor",
     "size": {"w": 2, "h": 2},
     "massKg": 0.7,
@@ -107,6 +118,7 @@
   {
     "id": "item.gloves.leather",
     "name": "Leather Gloves",
+    "description": "Leather gloves, supple from use. They grip and they hold.",
     "class": "armor",
     "size": {"w": 1, "h": 1},
     "massKg": 0.2,
@@ -116,6 +128,7 @@
   {
     "id": "item.boots.steel",
     "name": "Steel-toe Boots",
+    "description": "Steel-toed work boots. Heavy on the foot and hard on anything under it.",
     "class": "armor",
     "size": {"w": 2, "h": 1},
     "massKg": 1.6,
