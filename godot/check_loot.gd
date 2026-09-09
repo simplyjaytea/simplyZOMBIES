@@ -1277,7 +1277,26 @@ func _only_somebody_standing_at_it_can_take_from_it() -> bool:
 	if inside.is_empty():
 		push_error("the fixture container is empty")
 		return false
-	var item: int = int(inside[0])
+	# The destination cells below are literals, so this fixture needs an item that fits in one.
+	# Which item a cupboard rolls first is a property of the residential table and moves whenever
+	# content does -- it started rolling a 1x3 haft the day weapons came apart into parts -- and
+	# this lane is about who may take from an open box, not about grid geometry.
+	var item: int = -1
+	for candidate in inside:
+		var base: Variant = SimItems.item_base_of(w, int(candidate))
+		if not base is Dictionary:
+			continue
+		var size: Dictionary = SimItems.base_size(base as Dictionary)
+		if int(size.get("w", 1)) == 1 and int(size.get("h", 1)) == 1:
+			item = int(candidate)
+			break
+	if item < 0:
+		push_error("the fixture cupboard rolled nothing that fits a single cell, so this lane cannot run")
+		return false
+
+	# Where it was sitting, so it can be put back exactly there. Its own cell is free by
+	# definition; cell (0, 0) belongs to whatever the table rolled first.
+	var home: Dictionary = (w.components.get_component(item, "stored") as Dictionary).duplicate()
 
 	# True positive: the actor standing at it, with it open, may take from it through the ordinary
 	# command the screen pushes.
@@ -1288,8 +1307,11 @@ func _only_somebody_standing_at_it_can_take_from_it() -> bool:
 		return false
 
 	# True negative, one: put it back, close the box, and the same command does nothing.
-	w.commands.push({"type": "item.move", "item": item, "container": box, "x": 0, "y": 0, "rotated": false})
+	w.commands.push({"type": "item.move", "item": item, "container": box, "x": int(home.get("x", 0)), "y": int(home.get("y", 0)), "rotated": bool(home.get("rotated", false))})
 	w.step()
+	if SimInventory.owns(w, actor, item):
+		push_error("the fixture could not put the item back in the cupboard")
+		return false
 	SimContainers.close(w, actor)
 	w.commands.push({"type": "item.move", "item": item, "container": actor, "x": 1, "y": 0, "rotated": false})
 	w.step()

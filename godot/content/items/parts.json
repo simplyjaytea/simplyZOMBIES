@@ -153,5 +153,69 @@
       "wearsOn": ["shot", "jam"],
       "wearRate": 1.0
     }
+  },
+  {
+    "id": "item.part.barrel.rimfire",
+    "name": "Rimfire Conversion Barrel",
+    "description": "A slim barrel sleeved down to take the small rounds. Quieter, and it does not hit like it used to.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.25,
+    "attachment": {
+      "fits": ["barrel"],
+      "structural": true,
+      "overrides": { "ranged": { "ammo": "item.ammo.22" } },
+      "ranged": { "damage": 0.6, "noise": 0.7 },
+      "wearsOn": ["shot"],
+      "wearRate": 1.1
+    }
+  },
+  {
+    "id": "item.part.magazine.rimfire",
+    "name": "Rimfire Magazine",
+    "description": "The magazine that goes with the small barrel. On its own it feeds a gun that cannot take what it holds.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "attachment": {
+      "fits": ["magazine"],
+      "structural": true,
+      "overrides": { "ranged": { "ammo": "item.ammo.22" } },
+      "ranged": { "magSize": 1.25 },
+      "wearsOn": ["reload", "jam"],
+      "wearRate": 1.4
+    }
+  },
+  {
+    "id": "item.part.internal.magnum",
+    "name": "Magnum Cylinder",
+    "description": "A heavier cylinder bored for the bigger round. It will not sit in anything that disagrees with it.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.3,
+    "attachment": {
+      "fits": ["internal"],
+      "structural": true,
+      "overrides": { "ranged": { "ammo": "item.ammo.38" } },
+      "ranged": { "damage": 1.15, "noise": 1.1 },
+      "wearsOn": ["shot", "jam"],
+      "wearRate": 1.2
+    }
+  },
+  {
+    "id": "item.attach.internal.match",
+    "name": "Match Action",
+    "description": "Hand-fitted, hand-lapped, and it does not stovepipe. Somebody spent a winter on this.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.22,
+    "attachment": {
+      "fits": ["internal"],
+      "structural": true,
+      "overrides": { "ranged": { "jams": false } },
+      "ranged": { "reloadTicks": 0.95 },
+      "wearsOn": ["shot"],
+      "wearRate": 0.9
+    }
   }
 ]
