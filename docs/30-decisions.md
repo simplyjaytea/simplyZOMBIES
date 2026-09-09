@@ -3027,6 +3027,174 @@ stands on the ground and the ground-contrast rules have nothing to say about it.
 ignorance of presentation — every new read model returns words and shapes, and every player act
 still goes through the command queue.
 
+## The character overhaul, 2026-09-09
+
+Decided by the owner, 2026-09-09, from a fixture round rather than from prose: asked how deep
+the animation should go, whether a body is ever seen from behind and whether the rigs are
+re-drawn, the owner's answer was **"show examples of art first then I will decide"**, and the
+round that answers it is `.hermes/plans/2026-09-09_character-fixtures/` — four sets of candidate
+art, every one of them a *transform* of the shipped generator rather than hand art beside it, so
+that what the pictures showed is what a slice would actually be. Its `comparison.md` describes
+each image and recommends none, the arrangement the 2026-09-01 art-style round set.
+
+The round's own load-bearing result, and the reason the animation answers below are affordable:
+all eight rigs rendered at rest through the prototype's pose layer come back **byte for byte
+identical** to the shipped PNGs, with the true negative in the same script (a lifted foot must
+not render identically to rest). So a body standing still draws exactly what it draws today, and
+`sprites:check`, `APPEARANCE_OK`'s size, ROSTER and GREY lanes, `WORN_LOOK_OK`'s FITS envelope
+and `TOPDOWN_OK`'s exact blit rect are untouched by the animation itself.
+
+Four answers, each paid for in the slice that lands it (docs/23, "Art & renderer — the character
+overhaul", in order):
+
+- **The rig keeps its proportion and gains a fist, a tell and a mouth — and banded shading.**
+  The squat one-tile body of 2026-09-08 was re-offered at 32×48 and **kept**, so the head stays
+  46 % of the figure and the "shorter legs and a bigger head" call stands. What changes is the
+  read at that size: the hand becomes a fist one pixel further out with a knuckle line, so a
+  held weapon has something to sit against instead of floating beside the body; each human gains
+  a tell that changes the **silhouette** rather than the paint (the player's turned-up collar,
+  Mara's bob tucked behind one ear — asymmetric, so the flip swaps sides the way a tucked bob
+  does when a person turns round — Ellis's high collar, the colonist's peaked cap); and
+  `nw_shade` is quantised to three steps instead of a continuous ramp. That last is measured
+  rather than asserted: the player rig goes from **67 distinct colours to 15** at the same light
+  direction, which is the "muddy at the boot zoom" complaint answered by throwing away a
+  gradient nobody can see at 32 px.
+- **A face is four pixels.** `assets/sprites/README.md`'s "a face is three pixels" becomes four:
+  two eyes, a brow, and **one** mouth pixel below them. One and not two — a pair reads as a
+  moustache at this size and a three-pixel band as a grimace, and both were drawn before the one
+  was picked. The head is 46 % of the figure, which is the one place a pixel buys the most.
+- **The walk is four frames with the weight shift.** A contact between each pass, the lift **2
+  px**
+  (the legs are six pixels long, so one is a sixth and reads as a rounding error at the boot zoom
+  while three leaves the foot merging into the trunk), and the whole upper body leaning one pixel
+  over the leg carrying it. The two-frame leg swap named since 2026-09-08 was drawn and shown and
+  is **superseded**: at six pixels of leg it is close to invisible at the boot zoom, which is a
+  thing the picture said and the prose could not. The arm swing was offered and **not** taken, so
+  nothing above the hip that a weapon hangs off moves and the thirty-one gear overlays follow the
+  walk for free. An idle breath is a separate call and is not taken here.
+- **A body is drawn from four directions.** The pawn convention is reopened a fifth time and this
+  time it moves: front, side and back are authored, west is the existing negative-width mirror of
+  east, and the sim's `facing` picks between them. This supersedes the "nobody rotates, the player
+  included" clause of 2026-09-03 **as a rule about what a body may show**, and leaves it exactly
+  intact **as a rule about how it is drawn**: a view is a fourth picture, never a transform, so
+  `check_topdown.gd`'s two counters stay at zero and the flat projection is untouched. The cost is
+  stated rather than discovered — every extra view is another picture per rig *and* another
+  picture per overlay, and the side view is the one piece in the set that is a re-authoring rather
+  than a transform, so it is the one that is not a single session.
+- **The condition diagram is the exploded chart.** Ten parts pulled a pixel off their neighbours,
+  each drawn as a plate with its own border, the way an exploded assembly drawing separates
+  components; uniform gaps, so they read as seams rather than as a body coming apart. This is the
+  **third** answer to this screen — the drawn capsule figure was "too alien" on 2026-09-08, the
+  pixel body chart that replaced it was "ugly" on 2026-09-09 — and what the two rejected ones have
+  in common is a mannequin. The chart's anatomy is what went, not its arithmetic: the body it is
+  drawn on is a person, a head about a sixth of the figure and legs a shade under half of it,
+  where the mannequin's head was a quarter of the canvas and its legs began below the middle of
+  it. Separation is what answers "which part" without a label.
+
+**What this makes structural.**
+
+- **A pose is a parameter, not a picture.** `characters._figure` gains per-side legs and feet and
+  a canvas bias that carries the whole upper body — including each rig's own `tells`, `hair` and
+  `face` callables, which is what keeps eight rigs and thirty-one overlays in register for
+  nothing.
+  Frame 0 of every clip is `Pose()` and must stay byte-identical to the shipped key; that equality
+  is the assertion the animation slices are held to, and it is red the moment a pose leaks into
+  it.
+- **The view is an axis of the key, and the frames go in a horizontal strip.** Not a grid, for a
+  measured reason: `check_worn.gd`'s `_row_of` keys off `PAWN_CANVAS.y`, so the legs/torso/head
+  row
+  predicate survives a horizontal widening and a 2D grid would destroy it outright.
+- **`check_worn.gd`'s FITS lane must go per column and per view, or it goes weaker without
+  erroring.** `_bounds_of(image)` iterates the whole image, so on a strip the eight-rig envelope's
+  `max_x` widens from 26 to about 90, every overlay fits trivially, and its corner-pixel true
+  negative still passes. This is the "a gate that cannot fail is worse than no gate" failure with
+  no red line to announce it, and it is named here because the next session will not find it.
+- **One sheet per rig, blitted by region, is now mandatory rather than an optimisation.** Four
+  views times four frames is about 468 pawn textures where 39 ship today, and this repo has
+  already
+  measured draw calls going 539 → 1,410 when wall materials became separate textures, because a
+  texture change between two blits breaks the 2D batch. The atlas lands with the frames.
+- **The face bound moves and the colour bound tightens.** Four face pixels, and a rig carrying
+  fifteen colours rather than sixty-seven; `APPEARANCE_OK`'s GREY lane re-measures per column
+  rather than quoting, because the extra columns are real posed bodies and the composed margin is
+  a byte or two.
+
+**What this does not change.** The flat top-down projection and 32 px a tile at 2× (reaffirmed a
+fourth time); the feet anchor and `FOOT_DROP_PX`, so the sole line and the contact shadow are one
+number in every pose and every view; the health-bar ban and the digit ban, which the new diagram
+is inside by construction — it is handed a *state* and a handful of words, so no part is ever
+partly filled and no fill level is computable; the refusal of bars, icon rows and name plates; and
+the sim's ignorance of presentation. Nothing under `godot/sim/` moves for any of it.
+
+## Art we did not generate, 2026-09-09
+
+Decided by the owner, 2026-09-09, opening with *"we might look into getting proper sprites"*.
+Three answers, and the first one is what makes the other two cheap.
+
+- **Commissioned to this project's spec, not bought as a pack.** An artist comes to the geometry
+  in `assets/sprites/README.md` — 32×40, feet on the bottom row, the published skeleton, the
+  1 px outline — rather than the project adapting to a pack's grid, its proportions and its
+  frame layout. What that buys is that nothing about the renderer has to bend: the canvas table,
+  the anchor rule, the blit rect and the flip all keep meaning what they mean, and the whole of
+  the support work is letting art the generator did not draw *exist* and holding it to the spec
+  it was commissioned against. The bought-pack path was costed and refused: it would have put
+  the published skeleton out of use for those rigs, left `check_worn.gd`'s FITS lane with
+  nothing it could judge them by, and carried a share-alike licence into the asset tree.
+- **Equipment stays drawn on the body, and that is a requirement of any art we take.** "What you
+  wear shows on your body" landed 2026-09-04 and is gated; most character art bundles its
+  clothing into the frame, which would un-ship it. So a body whose jacket cannot be taken off is
+  art this project cannot use, and the brief says so in those words. It is also what keeps the
+  2026-09-08 "weapons are the read" call true: on a one-tile body the held weapon is a large
+  share of the silhouette, and it is an overlay.
+- **The pawn arc pauses; the diagram does not.** R3, W3 and F2 hold until it is known whether
+  commissioned bodies are coming, because bought or drawn bodies would make all three moot. The
+  exploded body chart does not wait: it is UI art on its own canvas, its only lane is
+  `check_appearance.gd`'s CHART, and the animation arc never touches that file's CHART lane.
+
+**What this makes structural.**
+
+- **Two tiers, declared rather than inferred.** Every PNG beside `authored.json` is either
+  *generated* — drawn by `tools/sprites` and re-rendered pixel for pixel by `sprites:check` — or
+  *authored*, and declared. A filename convention was the obvious alternative and was refused:
+  the point of the declaration is that a key nobody declared is a build failure that says which
+  tier it is missing from, where an undeclared PNG used to be a file nobody could account for.
+  `build.py` refuses a key claimed by both tiers, because one says "regenerate me and compare
+  every pixel" and the other says "do not".
+- **`authored.json` is one file with two readers, which is the point.** `tools/sprites/build.py`
+  reads it so `--check` knows not to regenerate; `presentation/appearance.gd`'s `canvas_of`
+  reads it so the renderer knows the shape. Every other shape table in this project is carried
+  twice — `PAWN_KEYS` in Python and in GDScript, `VEHICLE_FOOTPRINTS` in both — because Python
+  cannot read GDScript, and each of those pairs is a thing that can drift. For authored art the
+  file is the shared copy, and a declaration the renderer disagrees with is a MANIFEST failure
+  rather than a picture that stretches.
+- **The spec is held against the art that already meets it.** `godot:check:authored`'s SPEC lane
+  measures the eight *generated* rigs against the same bounds it will measure a commissioned one
+  against — height 25–30, shoulders ≤ 22 (26 for the one broad rig), head ≤ 13, side clearance
+  ≥ 3, soles on the bottom row, every edge pixel `#161614`. A spec measured only against art
+  that does not exist yet is one nobody can be held to; this way a bound going red means the
+  roster and the brief have drifted apart, which is a thing worth being told. Shoulders and head
+  are read at the published skeleton rows rather than off the silhouette, because the widest row
+  of a body is not its shoulders and the widest row above the middle is not its head.
+- **Art nothing reads is refused at the declaration.** A declared key names the content entry
+  that draws it, and the gate checks the entry actually does. That is the dead-socket rule
+  applied before the socket exists, and it is cheaper here than anywhere else it has been paid
+  for: a commissioned PNG sitting in the tree looking finished, drawn by nothing, is exactly the
+  shape twelve of them had.
+
+**Named, not fixed: what the first commissioned body costs.** An authored rig is not in
+`Appearance.PAWN_KEYS`, and that array is what `check_topdown.gd`'s FLIP lane iterates and what
+`check_worn.gd`'s `_rig_keys()` counts — a count that asserts **exactly eight**. It is also the
+source of `check_worn.gd`'s FITS envelope, the union of the eight rigs' opaque boxes that every
+equipment overlay is measured inside. So the slice that lands the first commissioned body widens
+all three deliberately, or the body arrives with its equipment judged against a roster it is not
+in. Naming it here rather than pre-emptively widening them is the same rule as everywhere else:
+a gate loosened for art that does not exist yet is a gate that cannot fail.
+
+**What this does not change.** The generated tier, which is still 151 of the 151 keys and still
+the source of record for every zombie, every tile, every vehicle and the whole of the art's
+reasoning; `sprites:check`'s pixel-exact comparison, which is untouched for those keys; the
+canvas, the anchor and the flip; and the sim's ignorance of all of it.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

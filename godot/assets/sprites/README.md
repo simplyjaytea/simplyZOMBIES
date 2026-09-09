@@ -55,6 +55,89 @@ gear catalogue of 2026-09-06 added fifteen more (thirty-one in all), under
 "The tree" below. The vehicles landed after them — one three-quarter picture per class, variant
 and axis, under "The vehicle" below — and took the nine `wreck_car_*` segment keys with them.
 
+## Commissioned art — the brief, and what the build checks
+
+**Almost everything in this directory is generated.** `tools/sprites` draws it and
+`npm run sprites:check` re-renders every key and compares decoded pixels, so a palette edited
+without regenerating is a red build. Art this project did **not** draw is the second tier, and it
+is declared in `authored.json` beside these PNGs rather than inferred from a filename. The owner's
+call of 2026-09-09 (docs/30, "Art we did not generate") is that sprites are **commissioned to this
+spec** rather than bought as a pack — so an artist comes to the geometry below, and nothing here
+bends to accommodate a pack's grid.
+
+**If you are the artist, this section is the whole brief.** Every number in it is checked by
+`npm run godot:check:authored`, and every number in it is already met by the eight bodies this
+project ships — so it is a spec somebody has hit, not a wish list.
+
+- **Canvas: 32 × 40, transparent background, no padding.** One tile wide, one and a quarter tall.
+- **Feet on the bottom row.** Row 39 must contain opaque pixels. The renderer hangs the picture at
+  the body's ground point plus a fixed drop and puts the contact shadow on the same number, so a
+  body drawn one row short floats, and nothing else in the game will tell you.
+- **Height 25–30 px.** The shipped roster is 25 (the bloater, whose head is deliberately sunk) to
+  29. A figure outside this is a different scale to everybody standing next to it.
+- **At least 3 px of clear canvas on each side.** West is drawn by mirroring the picture inside the
+  same rect, so a body touching the edge clips itself the moment it turns round.
+- **Shoulders ≤ 22 px wide, measured on row 25** (fourteen rows above the soles). One rig is
+  allowed 26 and it is the bloater; nothing else may come near it.
+- **Head ≤ 13 px wide, measured on row 18** (twenty-one rows above the soles). The shipped heads
+  are 12.
+- **A 1 px inward outline in `#161614`, on every edge.** Every opaque pixel that touches
+  transparency or the canvas edge must be exactly that colour. Draw the outline **after** shading,
+  never before: shading multiplies whatever is underneath, and a shaded outline drifts off the
+  value the colonist's achromatic bound is measured against.
+- **Face-on, upright, and never turned.** The renderer mirrors for west and draws the one picture
+  for every other heading. An asymmetric detail is welcome — it swaps sides with the flip, which
+  is what a slung strap does when a person turns round.
+- **Light from the top-left**, like everything else here.
+- **What a survivor wears is drawn on top, not painted in.** Clothing, packs and held weapons are
+  separate 32 × 40 overlays composited onto the body at the identical rect, hung off the published
+  skeleton below. Layering staying a requirement is the owner's call of 2026-09-09, so a body with
+  its jacket baked into the frame cannot be used: the game has to be able to take the jacket off.
+
+The skeleton an overlay is authored against is the one under "The pawn" below — `FEET_Y 0`,
+`LEG_TOP_Y −6`, `TORSO_TOP_Y −16`, `SHOULDER_Y −14`, `HAND_Y −8`, `HAND_X 8.4`, `HEAD_CY −21`,
+`HEAD_R 6.0`, `SHOULDER_HALF 8.0`, in pixels above the soles with negative y upward. One overlay
+has to fit every body, which is why those rows are published rather than private.
+
+**Draw on the guide, not from the paragraph.** `tools/sprites/guides/pawn_guide.png` is the
+32 × 40 canvas at 8×, with every number above drawn on it. It is generated from the same constants
+the game uses and compared by `npm run sprites:check`, so it cannot say one thing while the game
+says another — which prose has already failed to do twice here, once when the tile went 64 → 32 and
+once when the canvas went 32×48 → 32×40. Its colours:
+
+| On the sheet | What it is |
+|---|---|
+| **White row, at the very bottom** | the soles. Art must touch this row. |
+| **Violet band, near the top** | where the crown has to land for the figure to be 25–30 px tall. |
+| **Pink row** | the middle of the head (`HEAD_CY`). |
+| **Green row** | the top of the trunk (`TORSO_TOP_Y`). |
+| **Amber row** | the shoulders (`SHOULDER_Y`) — where a worn piece sits. |
+| **Orange row** | the hands (`HAND_Y`) — where a held weapon hangs. |
+| **Cyan row** | the hip (`LEG_TOP_Y`). |
+| **Blue columns** | the outermost columns the trunk occupies (`SHOULDER_HALF`). |
+| **Teal columns** | where a hand is centred (`HAND_X`). |
+| **Red bands, both edges** | the 3 px clearance. Nothing may be drawn here. |
+| **Checkerboard** | one square per art pixel, so rows and columns can be counted. |
+
+**Declaring a delivered sprite.** Add it to `authored.json`:
+
+```json
+"keys": {
+  "survivor_scav": { "canvas": [32, 40], "kind": "rig", "reads": "survivor.unique.scav" }
+}
+```
+
+`kind` is `rig`, `overlay` or `tile` and decides which bounds apply. `reads` names the content
+entry whose `appearance` block declares the key — the gate refuses a declaration that names
+nothing, because art nothing draws is the dead-socket shape this milestone has paid for twelve
+times. A key may be in one tier only: `build.py` refuses one the registry also generates.
+
+**Known limit, named rather than discovered.** An authored rig is not yet in
+`Appearance.PAWN_KEYS`, which `check_topdown.gd`'s flip lane iterates and `check_worn.gd`'s rig
+scan counts — and that count asserts exactly eight. The slice that lands the first commissioned
+body widens both, and widens `check_worn.gd`'s FITS envelope with them, so that equipment is
+measured against the new body too.
+
 ## The convention
 
 - **Grid:** top-down, **1 tile = 1 metre = `zoom` pixels square**. `presentation/camera.gd`
