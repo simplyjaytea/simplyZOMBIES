@@ -3126,6 +3126,75 @@ is inside by construction — it is handed a *state* and a handful of words, so 
 partly filled and no fill level is computable; the refusal of bars, icon rows and name plates; and
 the sim's ignorance of presentation. Nothing under `godot/sim/` moves for any of it.
 
+## Art we did not generate, 2026-09-09
+
+Decided by the owner, 2026-09-09, opening with *"we might look into getting proper sprites"*.
+Three answers, and the first one is what makes the other two cheap.
+
+- **Commissioned to this project's spec, not bought as a pack.** An artist comes to the geometry
+  in `assets/sprites/README.md` — 32×40, feet on the bottom row, the published skeleton, the
+  1 px outline — rather than the project adapting to a pack's grid, its proportions and its
+  frame layout. What that buys is that nothing about the renderer has to bend: the canvas table,
+  the anchor rule, the blit rect and the flip all keep meaning what they mean, and the whole of
+  the support work is letting art the generator did not draw *exist* and holding it to the spec
+  it was commissioned against. The bought-pack path was costed and refused: it would have put
+  the published skeleton out of use for those rigs, left `check_worn.gd`'s FITS lane with
+  nothing it could judge them by, and carried a share-alike licence into the asset tree.
+- **Equipment stays drawn on the body, and that is a requirement of any art we take.** "What you
+  wear shows on your body" landed 2026-09-04 and is gated; most character art bundles its
+  clothing into the frame, which would un-ship it. So a body whose jacket cannot be taken off is
+  art this project cannot use, and the brief says so in those words. It is also what keeps the
+  2026-09-08 "weapons are the read" call true: on a one-tile body the held weapon is a large
+  share of the silhouette, and it is an overlay.
+- **The pawn arc pauses; the diagram does not.** R3, W3 and F2 hold until it is known whether
+  commissioned bodies are coming, because bought or drawn bodies would make all three moot. The
+  exploded body chart does not wait: it is UI art on its own canvas, its only lane is
+  `check_appearance.gd`'s CHART, and the animation arc never touches that file's CHART lane.
+
+**What this makes structural.**
+
+- **Two tiers, declared rather than inferred.** Every PNG beside `authored.json` is either
+  *generated* — drawn by `tools/sprites` and re-rendered pixel for pixel by `sprites:check` — or
+  *authored*, and declared. A filename convention was the obvious alternative and was refused:
+  the point of the declaration is that a key nobody declared is a build failure that says which
+  tier it is missing from, where an undeclared PNG used to be a file nobody could account for.
+  `build.py` refuses a key claimed by both tiers, because one says "regenerate me and compare
+  every pixel" and the other says "do not".
+- **`authored.json` is one file with two readers, which is the point.** `tools/sprites/build.py`
+  reads it so `--check` knows not to regenerate; `presentation/appearance.gd`'s `canvas_of`
+  reads it so the renderer knows the shape. Every other shape table in this project is carried
+  twice — `PAWN_KEYS` in Python and in GDScript, `VEHICLE_FOOTPRINTS` in both — because Python
+  cannot read GDScript, and each of those pairs is a thing that can drift. For authored art the
+  file is the shared copy, and a declaration the renderer disagrees with is a MANIFEST failure
+  rather than a picture that stretches.
+- **The spec is held against the art that already meets it.** `godot:check:authored`'s SPEC lane
+  measures the eight *generated* rigs against the same bounds it will measure a commissioned one
+  against — height 25–30, shoulders ≤ 22 (26 for the one broad rig), head ≤ 13, side clearance
+  ≥ 3, soles on the bottom row, every edge pixel `#161614`. A spec measured only against art
+  that does not exist yet is one nobody can be held to; this way a bound going red means the
+  roster and the brief have drifted apart, which is a thing worth being told. Shoulders and head
+  are read at the published skeleton rows rather than off the silhouette, because the widest row
+  of a body is not its shoulders and the widest row above the middle is not its head.
+- **Art nothing reads is refused at the declaration.** A declared key names the content entry
+  that draws it, and the gate checks the entry actually does. That is the dead-socket rule
+  applied before the socket exists, and it is cheaper here than anywhere else it has been paid
+  for: a commissioned PNG sitting in the tree looking finished, drawn by nothing, is exactly the
+  shape twelve of them had.
+
+**Named, not fixed: what the first commissioned body costs.** An authored rig is not in
+`Appearance.PAWN_KEYS`, and that array is what `check_topdown.gd`'s FLIP lane iterates and what
+`check_worn.gd`'s `_rig_keys()` counts — a count that asserts **exactly eight**. It is also the
+source of `check_worn.gd`'s FITS envelope, the union of the eight rigs' opaque boxes that every
+equipment overlay is measured inside. So the slice that lands the first commissioned body widens
+all three deliberately, or the body arrives with its equipment judged against a roster it is not
+in. Naming it here rather than pre-emptively widening them is the same rule as everywhere else:
+a gate loosened for art that does not exist yet is a gate that cannot fail.
+
+**What this does not change.** The generated tier, which is still 151 of the 151 keys and still
+the source of record for every zombie, every tile, every vehicle and the whole of the art's
+reasoning; `sprites:check`'s pixel-exact comparison, which is untouched for those keys; the
+canvas, the anchor and the flip; and the sim's ignorance of all of it.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

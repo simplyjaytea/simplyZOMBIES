@@ -1,0 +1,29 @@
+{
+  "note": [
+    "Art this project did not generate. Every other PNG beside this file is rendered by",
+    "tools/sprites and re-rendered pixel for pixel by `npm run sprites:check`; a key declared",
+    "here is the exception, and declaring it is what makes it an exception rather than a file",
+    "nobody noticed. The owner's call of 2026-09-09 (docs/30, 'Art we did not generate') was",
+    "that sprites are commissioned to this project's own spec rather than bought as a pack, so",
+    "an authored key is held to the same canvas, the same anchor and the same published bounds",
+    "as the rig it stands beside -- `npm run godot:check:authored` is where that is mechanical.",
+    "",
+    "Read by two things, which is the whole point of it being a file rather than a list in code:",
+    "tools/sprites/build.py (so --check knows not to try to regenerate it) and",
+    "presentation/appearance.gd's `canvas_of` (so the renderer knows its shape). The two-copies",
+    "arrangement every other shape table in this project carries -- PAWN_KEYS in Python and in",
+    "GDScript, VEHICLE_FOOTPRINTS in both -- is what this replaces for authored art.",
+    "",
+    "`kind` decides which bounds the gate holds a key to:",
+    "  rig      a body. The published bounds in README.md: height, head, shoulders, clearance,",
+    "           soles on the bottom row. The eight generated rigs are held to the same numbers",
+    "           by the same lane, so the spec cannot drift from the art that already meets it.",
+    "  overlay  a piece of equipment composited onto a body. WORN_LOOK_OK owns its fit.",
+    "  tile     a tile-sized picture seen from above, centred on its ground point.",
+    "",
+    "`reads` names what draws it -- a content id whose appearance block declares the key. Art",
+    "nothing reads is the dead-socket shape this project has paid for twelve times, so the gate",
+    "refuses a key that names nothing rather than letting it sit here looking finished."
+  ],
+  "keys": {}
+}

@@ -306,6 +306,26 @@ projection stays flat top-down; 32 px a tile stays.
   the Dungeon Settlers HUD, a larger picture of the selected pawn is not a portrait, and which
   was meant is the owner's to say before this is pickable.
 
+**Art & renderer — commissioned sprites, opened by the owner (2026-09-09).** The tier and its
+gate landed the same day (the record's "art we did not generate"); these are the two pieces it
+named rather than built, and both wait on art actually being commissioned.
+
+- **The sheet an artist draws on.** The brief is prose and the geometry is not: an artist working
+  to `FEET_Y 0, SHOULDER_Y -14, HAND_Y -8, HEAD_CY -21` from a paragraph is an artist guessing.
+  One generated guide per canvas -- the published rows drawn as labelled 1 px lines on the real
+  32x40, at a working zoom -- written by `tools/sprites` so it cannot drift from the constants it
+  draws, and living outside `assets/sprites/` so it is not a key `check_appearance`'s canvas lane
+  has to place. Its own `--check` comparison keeps it honest the way every other generated
+  picture is kept honest.
+- **The first commissioned body, and the three gates it widens.** An authored rig is not in
+  `Appearance.PAWN_KEYS`, which `check_topdown.gd`'s FLIP lane iterates and `check_worn.gd`'s
+  `_rig_keys()` counts -- and that count asserts **exactly eight**. It is also the source of
+  `check_worn.gd`'s FITS envelope, the union of the eight rigs' opaque boxes every equipment
+  overlay is measured inside. So the slice that lands the first commissioned body widens all
+  three deliberately, or the body arrives with its equipment judged against a roster it is not
+  in -- which would quietly undo the owner's "layering stays a requirement". Not pre-emptively
+  widened, because a gate loosened for art that does not exist yet is a gate that cannot fail.
+
 **Art & renderer — the character overhaul, decided by the owner (2026-09-09), from a fixture
 round.** The direction is docs/30's "The character overhaul": the squat proportion kept and read
 harder, a four-frame walk, a body drawn from four directions, and the condition diagram redrawn
@@ -1494,6 +1514,38 @@ not a to-do list:
   seed — a real loss, not a wipe. Honest halves: a band that reaches the gate stands its ground
   — no withdrawal, so survivors accumulate against the cap across a long campaign — and there is
   no looting AI; both named, neither hidden.
+- **The art pipeline** — ~~art we did not generate~~ **landed** 2026-09-09
+  (`npm run godot:check:authored`, `AUTHORED_OK`, four lanes; `sprites:check` unchanged at 151
+  generated keys). The owner opened commissioned sprites and decided the shape of them in three
+  answers (docs/30, "Art we did not generate"): commissioned to this project's spec rather than
+  bought as a pack, equipment layering a requirement of any art we take, and the pawn arc paused
+  while the diagram is not. What landed is the tier that lets art the generator did not draw
+  exist and the gate that holds it to the spec. `godot/assets/sprites/authored.json` declares a
+  key's canvas, kind and reader and is read by **two** things -- `tools/sprites/build.py`, so
+  `--check` knows not to regenerate it, and `presentation/appearance.gd`'s `canvas_of`, so the
+  renderer knows its shape -- which is the first shape table in this project that is one copy
+  rather than two. `build.py` refuses a key claimed by both tiers and reports the counts
+  separately. The gate's lanes: MANIFEST (well-formedness and `canvas_of` agreement; TN four
+  malformed fabrications through the same predicate and a sound one accepted), TIER (no declared
+  key collides with a rule `canvas_of` already places; TN both ways, a generated key seen as
+  rule-placed and an authored one not), SPEC and READS. **SPEC is the one that matters**: it
+  measures the eight *generated* rigs against the same bounds a commissioned one is held to, so
+  the brief is a spec somebody has already hit rather than a wish list, and a bound going red
+  means the roster and the brief have drifted. Measured off the committed PNGs and pinned there:
+  height 25-30 (the bloater 25, its head sunk), shoulders <= 22 with the bloater alone at 26,
+  head <= 13 (the shipped heads are 12), side clearance >= 3, soles on the bottom row, and
+  **every edge pixel exactly `#161614`** on all eight. Shoulders and head are read at the
+  published skeleton rows, not off the silhouette, because the widest row of a body is not its
+  shoulders. TN: six fabrications off the shipped player rig, each breaking exactly one bound and
+  each refused by its own code, plus the unmodified rig asserted clean so the fabrications start
+  from something that passes. READS is the dead-socket lane and **says so and skips** while the
+  tier is empty, which it is until the first sprite is delivered -- it loaded 46 content-declared
+  keys and reported the lane ready. Proved end to end before it was trusted: a declared key with
+  no file, a file at the wrong canvas, a key claimed by both tiers, a non-conforming rig (which
+  named all five bounds it broke), a `reads` naming the wrong id, and a conforming rig with a
+  real reader, which passed at 9 rigs judged. The brief an artist is handed is
+  `assets/sprites/README.md`'s new "Commissioned art" section, and every number in it is a number
+  this gate checks.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
