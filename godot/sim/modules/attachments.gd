@@ -398,8 +398,11 @@ static func fold(world: Variant, host: int, kind: String, profile: Dictionary) -
 	# Replacements last, and only where the parts agree. A field two parts disagree about keeps
 	# the base's own value and blocks the weapon instead -- see blocked_reason -- because guessing
 	# which part wins would be a rule with no way for a player to learn it.
-	for field_v in overrides_for(world, host, kind).keys():
-		var values: Array = overrides_for(world, host, kind)[field_v] as Array
+	# Collected once: `fold` runs on every refresh_armed, which runs on every wear event, and
+	# overrides_for walks every fitted part.
+	var replacements: Dictionary = overrides_for(world, host, kind)
+	for field_v in replacements.keys():
+		var values: Array = replacements[field_v] as Array
 		if values.size() == 1:
 			profile[String(field_v)] = values[0]
 	return profile

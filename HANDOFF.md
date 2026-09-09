@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-09 (the authored-art tier)
+## State, as of 2026-09-09 (the gunsmithing arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **55 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **56 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,26 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-09 — gunsmithing, eight slices.** A weapon is an assembly now. Its base is the receiver
+and `defaultParts` fits real part items into its slots when it spawns, each with its own
+condition; a required slot empty is a gun that will not fire and says so; `structural` parts drag
+the whole assembly's condition down, so a tired action is what jams a pistol and fitting a sound
+one is a repair that costs no ceiling. Parts wear on the channel they are used on (`wearsOn`
+against `WEAR_EVENTS`), a worn part's multipliers walk toward *no effect* rather than toward zero,
+and a part worn through comes off and lands somewhere — which closed the "a detached attachment is
+lost" defect at both ends. `overrides` replaces `ammo` and `jams` outright, resolved by agreement
+rather than by order, so a conversion kit that agrees works and two parts that disagree make a gun
+nobody can load. Firearm slots widened to optic · barrel · muzzle · magazine · furniture ·
+internal (docs/10's table edited), so a can and a longer barrel stop competing. All of it is
+reached at a **gunsmithing bench**, built through the same E-key ladder that boards a window, and
+drawn by `ui/bench_panel.gd` in prose plus ▲▼↔ with no magnitude anywhere in the read model.
+Fitted parts show on the pawn. Gates: new **`godot:m2:bench`** (nine lanes), `godot:m2:attach`
+grew from nine lanes to **twenty**, plus new lanes in `godot:m2:upkeep`, `godot:m2:ranged`,
+`godot:m2:npc`, `godot:check:worn` and `godot:check:inventory`. `SAVE_VERSION` 28 → **29**. Six
+pieces left docs/23's what's-left, including the attachment-fitting screen it had carried since
+attachments landed. Measured with a throwaway driver: a pistol reaches "worn" at ~100 rounds and
+"failing" at ~200, the action first. `godot:bench` unchanged.
 
 **2026-09-09 — wading, and telling the two waters apart** (`godot:check:water` at ten lanes with
 WADE; `SAVE_VERSION` 27 → 28; chain still **55**). The owner's three asks, which are one mechanic
