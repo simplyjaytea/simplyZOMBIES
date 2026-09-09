@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-08 (the inventory overhaul)
+## State, as of 2026-09-09 (the authored-art tier)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **53 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **54 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,26 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-09 — art we did not generate** (one new gate, `npm run godot:check:authored` /
+`AUTHORED_OK`, four lanes; the `godot:m2` chain is **54** now; `sprites:check` unchanged at 151
+generated keys). The owner opened commissioned sprites — *"we might look into getting proper
+sprites"* — and decided the shape of them in three answers (docs/30, "Art we did not generate"):
+**commissioned to this project's spec** rather than bought as a pack, **equipment layering a
+requirement** of any art we take, and the pawn arc paused while the diagram is not. What landed
+is the second tier and the gate that holds it honest. `assets/sprites/authored.json` declares a
+key's canvas, kind and reader, and is read by **two** things — `tools/sprites/build.py` so
+`--check` does not try to regenerate it, and `appearance.gd`'s `canvas_of` so the renderer knows
+its shape — which makes it the first shape table here that is one copy rather than two. The
+gate's SPEC lane is the one that matters: it measures the **eight generated rigs** against the
+same bounds a commissioned one is held to, so the brief in `assets/sprites/README.md` is a spec
+somebody has already hit. READS says so and skips while the tier is empty, which it is until the
+first sprite is delivered. Proved both ways before it was trusted — a declared key with no file,
+a file at the wrong canvas, a key in both tiers, a non-conforming rig, a lying `reads`, and a
+conforming rig with a real reader. What it named rather than built is in docs/23: the guide sheet
+an artist draws on, and the three gates the first commissioned body has to widen
+(`check_topdown`'s FLIP, `check_worn`'s `_rig_keys()` count of exactly eight, and its FITS
+envelope).
 
 **2026-09-09 — the character fixture round, and the four answers it produced** (no gate, no game
 code, no game art: `.hermes/plans/2026-09-09_character-fixtures/` only, and `sprites:check` is

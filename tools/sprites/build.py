@@ -15,9 +15,25 @@ The PNGs are the source of record for the *game* -- appearance.gd resolves files
 package, and check_appearance.gd judges every one of them against the canvas its own
 `canvas_of` declares, every build. This package is the source of record for the *art*: the
 reason a colour is that colour.
+
+## Two tiers: generated, and authored
+
+Everything above is the *generated* tier and it is still almost all of the directory. The
+second tier is art this package did not draw -- commissioned to the project's own spec, the
+owner's call of 2026-09-09 (docs/30, "Art we did not generate") -- and it is declared in
+`godot/assets/sprites/authored.json` rather than inferred from a filename. `--check` holds an
+authored key to the two things it can prove without a generator: the file is there, and it is
+on the canvas it declares. Everything else about it -- the published bounds a body is drawn
+to, and whether anything reads it -- is `npm run godot:check:authored`, because those are
+measurements on decoded pixels against numbers GDScript already carries.
+
+The tier is declared rather than assumed for the same reason the registry is: an undeclared
+PNG in this directory used to be a file nobody could account for, and now it is a build
+failure that says which of the two tiers it is missing from.
 """
 
 import argparse
+import json
 import sys
 
 # Before the first project import. A stale __pycache__ makes this tool render the *previous*
@@ -35,6 +51,11 @@ from parts import buildings, characters, gear, ground, paperdoll, props, trees, 
 
 ROOT = Path(__file__).resolve().parents[2]
 SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
+
+# The authored tier's declaration. One file, two readers -- this package and
+# `presentation/appearance.gd`'s `canvas_of` -- which is what it exists to be instead of the
+# two-copies arrangement every other shape table here carries. Its own `note` says the rest.
+AUTHORED_PATH = SPRITE_DIR / "authored.json"
 
 # One entry per family module. Nothing in godot/assets/sprites/ is hand-authored any more:
 # `gear` took the last three files (`item_pack_hiking_equip`, its `_front` half and
@@ -150,6 +171,37 @@ def check(key, render):
     return True
 
 
+def authored():
+    """The declared authored keys as `{key: (w, h)}`. An absent file is an empty tier, not an
+    error: the declaration is what makes a key authored, and a project with no commissioned art
+    yet has nothing to declare."""
+    if not AUTHORED_PATH.exists():
+        return {}
+    data = json.loads(AUTHORED_PATH.read_text())
+    out = {}
+    for key, entry in sorted(data.get("keys", {}).items()):
+        canvas = entry.get("canvas")
+        if not (isinstance(canvas, list) and len(canvas) == 2 and all(isinstance(v, int) for v in canvas)):
+            raise SystemExit("authored.json: %r declares canvas %r; it is [width, height]" % (key, canvas))
+        out[key] = (canvas[0], canvas[1])
+    return out
+
+
+def check_authored(key, canvas):
+    """An authored key, held to the two things provable without a generator: it is there, and it
+    is the shape it says it is. The published bounds and whether anything reads it are
+    `godot:check:authored`, which measures decoded pixels against numbers GDScript carries."""
+    target = path_for(key)
+    if not target.exists():
+        print("MISSING %s: authored.json declares %r and no file is committed" % (target.relative_to(ROOT), key))
+        return False
+    committed = Image.open(target)
+    if committed.size != canvas:
+        print("SIZE %s: committed %dx%d, authored.json declares %dx%d" % (target.relative_to(ROOT), *committed.size, *canvas))
+        return False
+    return True
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--only", metavar="KEY", help="build or check a single registry key")
@@ -157,7 +209,18 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     keys = registry()
+    hand = authored()
+    both = sorted(set(keys) & set(hand))
+    if both:
+        # A key cannot be in both tiers: one says "regenerate me and compare every pixel" and the
+        # other says "do not". Silently preferring either is how a generator quietly stops being
+        # the source of record for art somebody is still editing by hand.
+        raise SystemExit("%s declared in both tiers: the registry generates it and authored.json "
+                         "claims it is authored" % ", ".join(both))
     if args.only:
+        if args.only in hand:
+            raise SystemExit("%r is authored, not generated: authored.json declares it and this "
+                             "package does not draw it, so there is nothing to build" % args.only)
         if args.only not in keys:
             raise SystemExit("no registry key %r; known keys: %s" % (args.only, ", ".join(sorted(keys))))
         keys = {args.only: keys[args.only]}
@@ -170,10 +233,18 @@ def main(argv=None):
         return 0
 
     bad = [key for key in sorted(keys) if not check(key, keys[key])]
+    # The authored tier is skipped under --only, which names one registry key by definition.
+    if not args.only:
+        bad += [key for key in sorted(hand) if not check_authored(key, hand[key])]
     if bad:
-        print("SPRITES_FAIL %d of %d keys do not match the committed art: %s" % (len(bad), len(keys), ", ".join(bad)))
+        print("SPRITES_FAIL %d of %d keys do not match the committed art: %s"
+              % (len(bad), len(keys) + len(hand), ", ".join(bad)))
         return 1
-    print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel" % len(keys))
+    if hand and not args.only:
+        print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel, and %d "
+              "authored keys are present at the canvas they declare" % (len(keys), len(hand)))
+    else:
+        print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel" % len(keys))
     return 0
 
 

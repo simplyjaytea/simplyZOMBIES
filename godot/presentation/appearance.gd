@@ -132,6 +132,11 @@ static func resolve(key: String) -> Texture2D:
 # Clears the texture cache. For gates that probe resolution with and without files present.
 static func forget() -> void:
 	_cache.clear()
+	# The authored declaration goes with the textures: a gate that swaps the file on disk and
+	# then asks `canvas_of` again would otherwise get the answer from before the swap, which is
+	# the whole failure mode a cache invalidation exists to prevent.
+	_authored.clear()
+	_authored_read = false
 
 
 # What the ground under a tile looks like: docs/24's surface layer, resolved to a flat tint.
@@ -318,7 +323,59 @@ static func chart_rect(key: String) -> Rect2:
 	return out
 
 
+# The authored tier's declaration, read once and kept. `assets/sprites/authored.json` is the one
+# file this and `tools/sprites/build.py` share -- art the generator did not draw, commissioned to
+# this project's own spec (docs/30, "Art we did not generate", 2026-09-09). Declaring a key is
+# what makes it an exception to `sprites:check` rather than a file nobody can account for.
+#
+# The cache is a static and that is safe here for the reason CLAUDE.md's trap is careful about:
+# it holds no per-world state. It is a read-only picture of a file on disk, identical in every
+# world a gate boots, and `forget()` drops it with the texture cache so a gate can reload it.
+const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
+static var _authored: Dictionary = {}
+static var _authored_read: bool = false
+
+
+# `{key: Vector2i}` for every declared authored key. An absent or malformed file is an empty
+# tier, never a crash: a project with no commissioned art yet has nothing to declare, and the
+# gate -- not the renderer -- is where a malformed declaration is supposed to be loud.
+#
+# The canvas is the ONLY field read here, and deliberately: `kind` and `reads` are things the
+# gate judges, not things the renderer draws with, and a helper here returning them would be a
+# function nothing calls. `check_authored.gd` parses the file itself for those, which also means
+# it can assert `canvas_of` agrees with the declaration -- two readers that must produce the same
+# answer is a cross-check, where one reader with an unused accessor is a dead socket.
+static func authored_canvases() -> Dictionary:
+	if _authored_read:
+		return _authored
+	_authored_read = true
+	_authored = {}
+	if not FileAccess.file_exists(AUTHORED_PATH):
+		return _authored
+	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
+	var parsed: Variant = JSON.parse_string(text)
+	if not (parsed is Dictionary):
+		return _authored
+	var keys: Variant = (parsed as Dictionary).get("keys")
+	if not (keys is Dictionary):
+		return _authored
+	for key in (keys as Dictionary).keys():
+		var entry: Variant = (keys as Dictionary)[key]
+		if not (entry is Dictionary):
+			continue
+		var canvas: Variant = (entry as Dictionary).get("canvas")
+		if canvas is Array and (canvas as Array).size() == 2:
+			_authored[String(key)] = Vector2i(int((canvas as Array)[0]), int((canvas as Array)[1]))
+	return _authored
+
+
 static func canvas_of(key: String) -> Vector2i:
+	# The authored tier first, and deliberately: a declaration is an explicit statement about one
+	# key, and the rules below it are inference from a name. An explicit statement wins, which is
+	# also what makes a declared key that collides with a rule a thing the gate can see.
+	var declared: Dictionary = authored_canvases()
+	if declared.has(key):
+		return declared[key] as Vector2i
 	if key.begins_with("chart_"):
 		return CHART_CANVAS
 	var n: int = int(CameraUtil.ART_NATIVE)

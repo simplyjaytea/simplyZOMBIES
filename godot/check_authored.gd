@@ -1,0 +1,435 @@
+extends SceneTree
+# Art this project did not generate, held to the spec it was commissioned against.
+#
+# The owner's call of 2026-09-09 (docs/30, "Art we did not generate") was that proper sprites are
+# **commissioned to this project's own spec** rather than bought as a pack. That answer is what
+# makes this gate small: the artist comes to our geometry, so there is nothing to adapt and only
+# something to check. `godot/assets/sprites/authored.json` declares the tier and
+# `tools/sprites/build.py` proves each declared key is present at the canvas it claims; this gate
+# is the half that needs decoded pixels and the numbers GDScript already carries.
+#
+# **The bounds below are held against the eight generated rigs too, and that is the point.** A
+# spec measured only against art that does not exist yet is a spec nobody can be held to; a spec
+# the shipped roster already satisfies is one an artist can be handed. If a bound here ever goes
+# red on a generated rig, the rig and the spec have drifted apart and one of them is wrong --
+# which is a thing worth being told, and today is exactly how `assets/sprites/README.md`'s prose
+# is kept true.
+#
+# Measured off the committed PNGs on 2026-09-09, which is where every number below comes from:
+#
+#   rig                 shoulders   head   height   clearance   outline
+#   player_body                20     12       28           6   every edge pixel
+#   survivor_mara              20     12       28           5   every edge pixel
+#   survivor_ellis             22     12       28           5   every edge pixel
+#   survivor_colonist          20     12       28           6   every edge pixel
+#   raider_body                20     12       28           6   every edge pixel
+#   zombie_shambler            20     12       27           5   every edge pixel
+#   zombie_screamer            16     12       29           8   every edge pixel
+#   zombie_bloater             26     10       25           3   every edge pixel
+#
+# Shoulders and head are read at the **published skeleton rows** rather than guessed from the
+# silhouette: the widest row of a body is not its shoulders (an outstretched arm is wider) and
+# the widest row above the middle is not its head (it is the shoulders). `SHOULDER_Y` and
+# `HEAD_CY` say where to look, so what is measured is the thing the bound is about.
+#
+# Four lanes, each with a true positive and a true negative, because a gate that cannot fail is
+# worse than no gate:
+#
+#   MANIFEST  authored.json parses and every entry is well formed -- a two-integer canvas, a
+#             known kind, a non-empty `reads`. `Appearance.canvas_of` answers the declared canvas
+#             for a declared key. TN: four fabricated entries, each malformed one way, each
+#             refused by the same predicate the real ones go through.
+#   TIER      no declared key collides with a rule `canvas_of` already places. The other half of
+#             this -- that no declared key is also in the Python registry -- is build.py's, which
+#             is the only side that can see a registry. TN: a fabricated declaration of
+#             `player_body`.
+#   SPEC      the bounds above, on decoded pixels, for every generated rig AND every authored key
+#             of kind `rig`. TN: six fabrications off a real rig, each breaking exactly one bound,
+#             each refused by its own code rather than by "something went wrong".
+#   READS     the dead-socket lane: every authored key is named by some content entry's
+#             appearance block, and `reads` says which. Art nothing draws is the shape this
+#             milestone has paid for twelve times. Says so and SKIPS when the tier is empty,
+#             which it is until the first commissioned sprite lands.
+#
+# What this gate deliberately does NOT do, named so the next session does not think it was
+# missed: it does not put an authored rig into `Appearance.PAWN_KEYS`. That array is what
+# `check_topdown.gd`'s FLIP lane iterates and what `check_worn.gd`'s `_rig_keys()` counts, and
+# that count asserts **exactly eight**. The first authored rig therefore has to widen both
+# deliberately -- and `check_worn.gd`'s FITS envelope, which is the union of the eight rigs'
+# opaque boxes and is what every equipment overlay is measured against. Layering staying a
+# requirement of any art we take is the owner's call of the same day, so that widening is the
+# slice that lands the first rig, not this one.
+
+const Appearance = preload("res://presentation/appearance.gd")
+const ContentLoader = preload("res://platform/content_loader.gd")
+
+const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
+const KINDS: Array[String] = ["rig", "overlay", "tile"]
+
+# The published skeleton rows this gate reads, in pixels above the soles -- a hand-written copy of
+# `tools/sprites/parts/characters.py`'s, for the reason `check_worn.gd` carries its own: GDScript
+# cannot import a Python module, and a measurement against these rows has to name them. If the
+# generator's rows move, this moves with them.
+const SKEL_SHOULDER_Y: int = -14
+const SKEL_HEAD_CY: int = -21
+
+# The bounds, from the table above. `HEIGHT_MIN` is 25 and not 26 because the bloater is 25: its
+# head is sunk two rows on purpose (`BLOATER_HEAD_SINK`), and a bound that excluded the shipped
+# roster would be a bound that had never been run.
+const HEIGHT_MIN: int = 25
+const HEIGHT_MAX: int = 30
+const SHOULDER_MAX: int = 26
+const SHOULDER_MAX_NARROW: int = 22
+const HEAD_MAX: int = 13
+const CLEARANCE_MIN: int = 3
+const OUTLINE: Color = Color("#161614")
+
+# The one rig allowed the family's outer bound, and the reason nothing else may come near it:
+# it sits exactly on 26 with exactly 3 px of clearance, so it is the rig at the wall.
+const BROAD_RIGS: Array[String] = ["zombie_bloater"]
+
+const GENERATED_RIGS: Array[String] = [
+	"player_body", "survivor_mara", "survivor_ellis", "survivor_colonist",
+	"raider_body", "zombie_shambler", "zombie_screamer", "zombie_bloater",
+]
+
+
+func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
+	var ok: bool = true
+	ok = _the_manifest_is_well_formed() and ok
+	ok = _no_key_is_in_both_tiers() and ok
+	ok = _every_rig_meets_the_published_bounds() and ok
+	ok = _authored_art_is_read_by_something() and ok
+	if ok:
+		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every rig meets the published bounds, and authored art is read by something")
+		quit(0)
+	else:
+		push_error("AUTHORED_FAIL")
+		quit(1)
+
+
+# --- the manifest --------------------------------------------------------------------------
+
+func _entries() -> Dictionary:
+	if not FileAccess.file_exists(AUTHORED_PATH):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(AUTHORED_PATH))
+	if not (parsed is Dictionary):
+		return {}
+	var keys: Variant = (parsed as Dictionary).get("keys")
+	return keys as Dictionary if keys is Dictionary else {}
+
+
+# Whether one declaration is well formed, as one predicate so the loop below and the negatives
+# that prove it cannot drift apart. Returns the complaint, or "" when the entry is sound. It does
+# not take the key: the caller names that in its own error, which keeps this a pure judgement on
+# one entry and lets the fabricated negatives be entries rather than entries-plus-a-name.
+func _complaint(entry_v: Variant) -> String:
+	if not (entry_v is Dictionary):
+		return "is not an object"
+	var entry: Dictionary = entry_v as Dictionary
+	var canvas: Variant = entry.get("canvas")
+	if not (canvas is Array and (canvas as Array).size() == 2):
+		return "declares canvas %s; it is [width, height]" % str(canvas)
+	for v in (canvas as Array):
+		if not (v is float or v is int) or int(v) <= 0:
+			return "declares canvas %s; both are positive whole numbers of pixels" % str(canvas)
+	var kind: String = String(entry.get("kind", ""))
+	if not KINDS.has(kind):
+		return "declares kind '%s'; it is one of %s" % [kind, ", ".join(KINDS)]
+	if String(entry.get("reads", "")).strip_edges().is_empty():
+		return "names no `reads`; art nothing draws is a dead socket, so say what draws it"
+	return ""
+
+
+func _the_manifest_is_well_formed() -> bool:
+	if not FileAccess.file_exists(AUTHORED_PATH):
+		push_error("%s is missing; the authored tier is declared there, and an absent file is a tier nothing can be added to" % AUTHORED_PATH)
+		return false
+	if JSON.parse_string(FileAccess.get_file_as_string(AUTHORED_PATH)) == null:
+		push_error("%s does not parse as JSON" % AUTHORED_PATH)
+		return false
+
+	var entries: Dictionary = _entries()
+	for key in entries.keys():
+		var complaint: String = _complaint(entries[key])
+		if not complaint.is_empty():
+			push_error("authored.json: '%s' %s" % [String(key), complaint])
+			return false
+		# The renderer has to agree with the declaration, or the file says one thing and the
+		# blit rect another -- which is a picture that stretches without ever erroring.
+		var declared: Array = (entries[key] as Dictionary)["canvas"] as Array
+		var want: Vector2i = Vector2i(int(declared[0]), int(declared[1]))
+		if Appearance.canvas_of(String(key)) != want:
+			push_error("authored.json: '%s' declares %dx%d and Appearance.canvas_of answers %s" % [String(key), want.x, want.y, str(Appearance.canvas_of(String(key)))])
+			return false
+
+	# TN: four malformed entries, each wrong one way, each refused by the same predicate the real
+	# ones went through. A lane whose negatives are checked by a second copy of the rule proves
+	# the copy, not the rule.
+	var fabricated: Array = [
+		["no_canvas", {"kind": "rig", "reads": "x"}],
+		["short_canvas", {"canvas": [32], "kind": "rig", "reads": "x"}],
+		["bad_kind", {"canvas": [32, 40], "kind": "sprite", "reads": "x"}],
+		["no_reads", {"canvas": [32, 40], "kind": "rig"}],
+	]
+	for pair in fabricated:
+		if _complaint((pair as Array)[1]).is_empty():
+			push_error("the manifest predicate accepted a fabricated entry '%s'; it proves nothing" % str((pair as Array)[0]))
+			return false
+	if not _complaint({"canvas": [32, 40], "kind": "rig", "reads": "survivor.unique.x"}).is_empty():
+		push_error("the manifest predicate refused a sound fabricated entry; it would refuse real art too")
+		return false
+
+	print("MANIFEST OK %d authored keys declared, four malformed fabrications refused and a sound one accepted" % entries.size())
+	return true
+
+
+# --- the tiers -----------------------------------------------------------------------------
+
+# Whether `canvas_of`'s own rules already place a key. This is the GDScript half of "a key is in
+# one tier"; the other half -- that a declared key is not also in the Python registry -- is
+# build.py's, because only that side can see a registry.
+func _rule_places(key: String) -> bool:
+	if key.begins_with("chart_"):
+		return true
+	if key == Appearance.GROUND_ATLAS_KEY:
+		return true
+	if Appearance.PAWN_KEYS.has(key) or Appearance.TREE_KEYS.has(key):
+		return true
+	return Appearance.vehicle_canvas(key) != Vector2i.ZERO
+
+
+func _no_key_is_in_both_tiers() -> bool:
+	for key in _entries().keys():
+		if _rule_places(String(key)):
+			push_error("authored.json declares '%s', which canvas_of already places by rule: one key, one tier" % String(key))
+			return false
+	# TN, both ways: a generated key must be seen as rule-placed, and a plausible authored one
+	# must not -- otherwise the predicate answers the same thing for everything.
+	if not _rule_places("player_body"):
+		push_error("the tier predicate does not see player_body as rule-placed; a zero above would prove nothing")
+		return false
+	if _rule_places("survivor_commissioned"):
+		push_error("the tier predicate sees an undeclared key as rule-placed; it would refuse every authored key")
+		return false
+	print("TIER OK no declared key collides with a rule, and the predicate separates a generated key from an authored one")
+	return true
+
+
+# --- the published bounds ------------------------------------------------------------------
+
+func _row_of(above_soles: int, h: int) -> int:
+	return h - 1 + above_soles
+
+
+# Every bound one rig breaks, as codes, so a negative can name which one it meant. One predicate
+# for the shipped rigs and the commissioned ones both: a spec applied to only one of them is a
+# spec that has not been run.
+func _bounds_broken(image: Image, narrow: bool) -> Array[String]:
+	var out: Array[String] = []
+	var w: int = image.get_width()
+	var h: int = image.get_height()
+
+	var first: int = -1
+	var last: int = -1
+	var left: int = w
+	var right: int = -1
+	for y in range(h):
+		for x in range(w):
+			if image.get_pixel(x, y).a <= 0.0:
+				continue
+			if first < 0:
+				first = y
+			last = y
+			left = mini(left, x)
+			right = maxi(right, x)
+	if first < 0:
+		out.append("empty")
+		return out
+
+	var height: int = last - first + 1
+	if height < HEIGHT_MIN or height > HEIGHT_MAX:
+		out.append("height")
+	if mini(left, w - 1 - right) < CLEARANCE_MIN:
+		out.append("clearance")
+
+	# The soles are the anchor: `Appearance.anchor_of` stands a non-square canvas on its bottom
+	# row and `FOOT_DROP_PX` hangs the contact shadow off the same number, so a body drawn one row
+	# short floats without anything erroring.
+	var soles: bool = false
+	for x in range(w):
+		if image.get_pixel(x, h - 1).a > 0.0:
+			soles = true
+			break
+	if not soles:
+		out.append("soles")
+
+	var shoulder_row: int = _row_of(SKEL_SHOULDER_Y, h)
+	var head_row: int = _row_of(SKEL_HEAD_CY, h)
+	if shoulder_row >= 0 and shoulder_row < h:
+		var run: int = 0
+		for x in range(w):
+			if image.get_pixel(x, shoulder_row).a > 0.0:
+				run += 1
+		if run > (SHOULDER_MAX_NARROW if narrow else SHOULDER_MAX):
+			out.append("shoulders")
+	if head_row >= 0 and head_row < h:
+		var head: int = 0
+		for x in range(w):
+			if image.get_pixel(x, head_row).a > 0.0:
+				head += 1
+		if head > HEAD_MAX:
+			out.append("head")
+
+	# The 1 px inward outline every standing thing takes. Read as: an opaque pixel with a
+	# transparent or off-canvas neighbour is an edge pixel, and every edge pixel is OUTLINE.
+	var offsets: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for y in range(h):
+		for x in range(w):
+			if image.get_pixel(x, y).a <= 0.0:
+				continue
+			var edge: bool = false
+			for o in offsets:
+				var nx: int = x + o.x
+				var ny: int = y + o.y
+				if nx < 0 or ny < 0 or nx >= w or ny >= h or image.get_pixel(nx, ny).a <= 0.0:
+					edge = true
+					break
+			if edge and not image.get_pixel(x, y).is_equal_approx(OUTLINE):
+				out.append("outline")
+				return out
+	return out
+
+
+func _image_of(key: String) -> Image:
+	var texture: Texture2D = Appearance.resolve(key)
+	return null if texture == null else texture.get_image()
+
+
+func _every_rig_meets_the_published_bounds() -> bool:
+	var judged: int = 0
+	for key in GENERATED_RIGS:
+		var image: Image = _image_of(key)
+		if image == null:
+			push_error("%s does not resolve; the bounds had nothing to judge" % key)
+			return false
+		var broken: Array[String] = _bounds_broken(image, not BROAD_RIGS.has(key))
+		if not broken.is_empty():
+			push_error("%s breaks the published bounds: %s (assets/sprites/README.md)" % [key, ", ".join(broken)])
+			return false
+		judged += 1
+
+	var declared: Dictionary = _entries()
+	for key in declared.keys():
+		var entry: Dictionary = declared[key] as Dictionary
+		if String(entry.get("kind", "")) != "rig":
+			continue
+		var art: Image = _image_of(String(key))
+		if art == null:
+			push_error("authored.json declares rig '%s' and no file resolves" % String(key))
+			return false
+		var wrong: Array[String] = _bounds_broken(art, not BROAD_RIGS.has(String(key)))
+		if not wrong.is_empty():
+			push_error("commissioned rig '%s' breaks the published bounds: %s (assets/sprites/README.md)" % [String(key), ", ".join(wrong)])
+			return false
+		judged += 1
+
+	# TN: six fabrications off a real rig, each breaking exactly one bound, each refused by its
+	# own code. Proved on the shipped art rather than on a drawn blank, so the fabrication starts
+	# from something that passes -- a negative built from nothing proves the emptiness, not the
+	# bound.
+	var base: Image = _image_of("player_body")
+	if base == null:
+		push_error("player_body does not resolve; the negatives cannot be fabricated")
+		return false
+	var w: int = base.get_width()
+	var h: int = base.get_height()
+	var cases: Array = [
+		["height", func(im: Image) -> void: im.set_pixel(w / 2, 0, OUTLINE)],
+		["clearance", func(im: Image) -> void: im.set_pixel(0, h / 2, OUTLINE)],
+		["soles", func(im: Image) -> void:
+			for x in range(w):
+				im.set_pixel(x, h - 1, Color(0, 0, 0, 0))],
+		["shoulders", func(im: Image) -> void:
+			for x in range(w):
+				im.set_pixel(x, _row_of(SKEL_SHOULDER_Y, h), OUTLINE)],
+		["head", func(im: Image) -> void:
+			for x in range(w):
+				im.set_pixel(x, _row_of(SKEL_HEAD_CY, h), OUTLINE)],
+		["outline", func(im: Image) -> void:
+			# The sole line is opaque and on the canvas edge, so it is an edge pixel by
+			# construction: recolouring one is the smallest possible outline break.
+			for x in range(w):
+				if im.get_pixel(x, h - 1).a > 0.0:
+					im.set_pixel(x, h - 1, Color(1.0, 0.0, 1.0))
+					return],
+	]
+	for case in cases:
+		var code: String = String((case as Array)[0])
+		var spoil: Callable = (case as Array)[1] as Callable
+		var copy: Image = base.duplicate() as Image
+		spoil.call(copy)
+		if not _bounds_broken(copy, true).has(code):
+			push_error("a rig fabricated to break '%s' passed that bound; the assertion proves nothing" % code)
+			return false
+	if not _bounds_broken(base, true).is_empty():
+		push_error("the unmodified player rig broke a bound; the fabrications above start from something that already fails")
+		return false
+
+	print("SPEC OK %d rigs inside height %d-%d, shoulders <= %d (%d narrow), head <= %d, clearance >= %d, soles on the bottom row, every edge pixel OUTLINE; six fabrications each refused by their own bound" % [judged, HEIGHT_MIN, HEIGHT_MAX, SHOULDER_MAX, SHOULDER_MAX_NARROW, HEAD_MAX, CLEARANCE_MIN])
+	return true
+
+
+# --- the dead-socket lane -------------------------------------------------------------------
+
+func _keys_content_declares() -> Dictionary:
+	var out: Dictionary = {}
+	var tree: Dictionary = ContentLoader.load_tree()
+	for path in tree.keys():
+		if String(path).begins_with("schemas/"):
+			continue
+		var raw: Variant = tree[path]
+		var entries: Array = raw as Array if raw is Array else [raw]
+		for entry_v in entries:
+			if not (entry_v is Dictionary):
+				continue
+			var entry: Dictionary = entry_v as Dictionary
+			var block: Variant = entry.get("appearance")
+			if not (block is Dictionary):
+				continue
+			for prop in ["sprite", "equipSprite", "equipSpriteFront"]:
+				if (block as Dictionary).has(prop):
+					out[String((block as Dictionary)[prop])] = String(entry.get("id", "?"))
+	return out
+
+
+func _authored_art_is_read_by_something() -> bool:
+	var entries: Dictionary = _entries()
+	var declared: Dictionary = _keys_content_declares()
+	if declared.is_empty():
+		push_error("no content entry declares any sprite key; the dead-socket lane had nothing to judge")
+		return false
+
+	if entries.is_empty():
+		# Says so and skips loudly rather than passing quietly on nothing -- the arrangement
+		# `check_worn.gd`'s PLAYED lane sets. The tier is empty until the first commissioned
+		# sprite lands, and a green line here would otherwise read as "checked".
+		print("READS SKIPPED the authored tier is empty, so there is no commissioned art to find a reader for; %d content-declared keys were loaded and the lane is ready for the first one" % declared.size())
+		return true
+
+	for key in entries.keys():
+		var name: String = String(key)
+		if not declared.has(name):
+			push_error("authored.json declares '%s' and no content entry's appearance block names it: art nothing draws" % name)
+			return false
+		var claims: String = String((entries[key] as Dictionary).get("reads", ""))
+		if String(declared[name]) != claims:
+			push_error("authored.json says '%s' is read by '%s'; it is actually declared by '%s'" % [name, claims, String(declared[name])])
+			return false
+	print("READS OK %d authored keys are each named by the content entry they claim" % entries.size())
+	return true
