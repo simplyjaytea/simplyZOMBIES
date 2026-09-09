@@ -32,6 +32,21 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-09 — the character fixture round, and the four answers it produced** (no gate, no game
+code, no game art: `.hermes/plans/2026-09-09_character-fixtures/` only, and `sprites:check` is
+still `SPRITES_OK` at 151 keys). The owner opened a character-model overhaul and a replacement
+for the paperdoll, and answered *"show examples of art first then I will decide"* — so the round
+is four sets of candidate art, every candidate a **transform of the shipped generator** rather
+than hand art beside it, with a `comparison.md` that describes each and recommends none. Its one
+assertion is `verify.py`: all eight rigs at rest come back **byte for byte identical** to the
+shipped PNGs, with the true negative in the same script, which is what makes the animation
+answers affordable. The four answers — the rig read harder with banded shading, a four-frame
+walk with the weight shift, **four directions**, and the exploded body chart — are docs/30's
+"The character overhaul", and the pieces they open are docs/23's "Art & renderer — the character
+overhaul", in the order they land. Two of them supersede named pieces: the two-frame walk (drawn,
+looked at, close to invisible at six pixels of leg) and the pixel body chart that landed the day
+before. Nothing is built yet; the fixture generators are a prototype the first slice promotes.
+
 **2026-09-08 — the inventory and UI overhaul, seven slices in one run** (one new gate,
 `npm run godot:check:inventory` / `INVENTORY_OK`, plus new lanes in `check_hud`,
 `check_appearance`, `check_loot` and `godot:m2:save`; `SAVE_VERSION` 26 → 27). The owner opened
@@ -261,6 +276,11 @@ decisions and what each earlier clause becomes; the work it forces is docs/23's 
 Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. **Which of its
 slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
+
+0b. **The idle breath** (2026-09-09). One pixel of pelvis at a quarter of the walk's rate,
+   drawn in the fixture round and deliberately left out of the four answers the owner gave that
+   day. Small, independent of every other piece, and named in docs/23's character-overhaul group
+   rather than decided there.
 
 0a. **The picture on select** (2026-09-08). The owner's answer on the pawn — *"when selecting
    the character, sprite art will appear. However, weapons, clothing, gear will be shown"* —
