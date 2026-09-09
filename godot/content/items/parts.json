@@ -1,0 +1,157 @@
+[
+  {
+    "id": "item.part.barrel.standard",
+    "name": "Barrel",
+    "description": "A plain barrel, the length the thing was built with. Nothing is wrong with it yet.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.3,
+    "attachment": {
+      "fits": ["barrel"],
+      "structural": true,
+      "wearsOn": ["shot"],
+      "wearRate": 1.0
+    }
+  },
+  {
+    "id": "item.part.action.standard",
+    "name": "Action",
+    "description": "Springs, a firing pin and the bar that carries a round to the chamber. When it goes, the gun stops.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.2,
+    "attachment": {
+      "fits": ["internal"],
+      "structural": true,
+      "wearsOn": ["shot", "jam"],
+      "wearRate": 1.2
+    }
+  },
+  {
+    "id": "item.part.magazine.standard",
+    "name": "Box Magazine",
+    "description": "The magazine it came with. Lips bend, springs tire, and a tired one is where a jam starts.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.12,
+    "attachment": {
+      "fits": ["magazine"],
+      "structural": true,
+      "wearsOn": ["reload", "jam"],
+      "wearRate": 1.4
+    }
+  },
+  {
+    "id": "item.part.stock.standard",
+    "name": "Stock",
+    "description": "Wood or polymer against the shoulder. Holding a rifle without one is holding a pipe.",
+    "class": "attachment",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.5,
+    "attachment": {
+      "fits": ["furniture"],
+      "structural": true,
+      "wearsOn": ["shot"],
+      "wearRate": 0.5
+    }
+  },
+  {
+    "id": "item.part.limb.standard",
+    "name": "Bow Limbs",
+    "description": "The limbs the bow was tillered around. They take the draw and give it back.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.3,
+    "attachment": {
+      "fits": ["limb"],
+      "structural": true,
+      "wearsOn": ["reload"],
+      "wearRate": 0.8
+    }
+  },
+  {
+    "id": "item.part.string.standard",
+    "name": "Bowstring",
+    "description": "Waxed cord, served at the nock. It frays where the fingers go and then it parts.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.03,
+    "attachment": {
+      "fits": ["string"],
+      "structural": true,
+      "wearsOn": ["reload"],
+      "wearRate": 2.0
+    }
+  },
+  {
+    "id": "item.part.head.standard",
+    "name": "Weapon Head",
+    "description": "The working end, forged or ground. Everything behind it is a handle.",
+    "class": "attachment",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.8,
+    "attachment": {
+      "fits": ["head", "edge"],
+      "structural": true,
+      "wearsOn": ["hit"],
+      "wearRate": 1.0
+    }
+  },
+  {
+    "id": "item.part.haft.standard",
+    "name": "Haft",
+    "description": "A shaft cut to length and wedged tight. It splits before the head does.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 0.35,
+    "attachment": {
+      "fits": ["haft"],
+      "structural": true,
+      "wearsOn": ["hit"],
+      "wearRate": 1.3
+    }
+  },
+  {
+    "id": "item.attach.muzzle.compensator",
+    "name": "Compensator",
+    "description": "Ports cut into a block at the muzzle. It holds the barrel down and shouts about it.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.15,
+    "attachment": {
+      "fits": ["muzzle"],
+      "ranged": { "cone": 0.88, "noise": 1.08 },
+      "wearsOn": ["shot"],
+      "wearRate": 0.7
+    }
+  },
+  {
+    "id": "item.attach.muzzle.flash_hider",
+    "name": "Flash Hider",
+    "description": "A pronged cage that hides the flash from you, not from anything watching from the side.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "attachment": {
+      "fits": ["muzzle"],
+      "ranged": { "flash": 0.3 },
+      "wearsOn": ["shot"],
+      "wearRate": 0.5
+    }
+  },
+  {
+    "id": "item.attach.internal.tuned",
+    "name": "Tuned Action",
+    "description": "Somebody who knew what they were doing polished every surface a round touches.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.2,
+    "attachment": {
+      "fits": ["internal"],
+      "structural": true,
+      "ranged": { "reloadTicks": 0.85 },
+      "wearsOn": ["shot", "jam"],
+      "wearRate": 1.0
+    }
+  }
+]

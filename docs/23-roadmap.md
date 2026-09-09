@@ -5824,6 +5824,35 @@ not a to-do list:
   the homeless host that must refuse. Ignoring condition in the fold turns CONDITION red; the old
   homeless `detach` turns BREAKS red.
 
+- **Items** — ~~every gun spawns with its parts already in it~~ **landed** 2026-09-09
+  (`godot:m2:attach` grows **ASSEMBLE**, **QUIET**, **MASS**, **CYCLE** and **REPAIR**; `godot:m2:save`
+  and `godot:m2:fortify` pin v29), the third slice of the gunsmithing arc and the one the owner's
+  2026-09-09 direction turns on. The base template is the receiver: eleven bases declare
+  `defaultParts` and spawn holding **28 real part items** between them, each with its own
+  condition and its own `attachedTo`. Firearm slots widened to **optic · barrel · muzzle ·
+  magazine · furniture · internal** (docs/10's table edited), so a can and a longer barrel stop
+  competing for one slot — which is what the feature was asked for — and the suppressor moved to
+  `muzzle`; every gate lane that fitted one to a `barrel` was re-pointed rather than loosened.
+  **Eleven new bases** in a new `content/items/parts.json`, 114 → **125**, all findable.
+  `structural` is what makes swapping a part a repair: `SimItems.assembly_condition` takes the
+  worst of the host and its structural parts, the profile builders and `jam_chance` both band off
+  that, and fitting a sound barrel restores the weapon **without** the ceiling drop
+  `repair_item` charges, because nothing was mended. An optic is not structural and must not do
+  either — which is REPAIR's true negative. Receiver masses came down by exactly what their parts
+  carry, so an assembled weapon weighs what it was authored at (measured: all eleven within
+  0.005 kg) and a stripped one weighs less; **MASS** pins the pre-assembly figures in the gate
+  file rather than reading them back off the content. **QUIET** is the lane worth keeping: assembly
+  draws no randomness — parts spawn at an explicit tier, skipping `roll_tier` — so a district full
+  of assembled weapons leaves the `loot` stream exactly where a district of bare ones does, which
+  is a worldgen break no gate about attachments would have caught. Its negative is ten spawns that
+  do roll. **ASSEMBLE**'s negative is the `assemble: false` opt-out; **CYCLE** feeds a fabricated
+  cycle through the same detector. Measured with a throwaway driver, 160 rounds through a pistol:
+  the assembly reaches "worn" at ~100 shots and "failing" at ~200, and the **action** gets there
+  first, so a gun that starts jamming is fixed by swapping the action — the loop the slice exists
+  to create. `npm run godot:bench` unchanged and inside every budget. Driver deleted.
+  `SAVE_VERSION` 28 → **29**: a v28 save holds weapons with empty slots and neither reading of one
+  is honest.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.

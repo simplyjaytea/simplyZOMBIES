@@ -309,8 +309,10 @@ func _the_pane_carries_only_words() -> bool:
 	if not SimInventory.equip(w, w.player, coat, "torso"):
 		push_error("the coat would not go on")
 		return false
-	if not SimAttachments.attach(w, pistol, can, "barrel"):
-		push_error("the suppressor would not fit the pistol")
+	# The muzzle, not the barrel: a pistol spawns with a barrel already in it and a can screws onto
+	# the end of one. That is what the `muzzle` slot is for.
+	if not SimAttachments.attach(w, pistol, can, "muzzle"):
+		push_error("the suppressor would not fit the pistol's muzzle")
 		return false
 
 	var checked: int = 0
