@@ -57,6 +57,7 @@
     "equipSlot": "primary",
     "appearance": { "equipSprite": "item_spear_improvised_equip" },
     "slots": ["head", "haft"],
+    "requiredSlots": ["head"],
     "defaultParts": {
       "head": "item.part.head.standard",
       "haft": "item.part.haft.standard"
@@ -73,6 +74,7 @@
     "equipSlot": "primary",
     "appearance": { "equipSprite": "item_axe_fire_equip" },
     "slots": ["head", "haft", "wrap"],
+    "requiredSlots": ["head", "haft"],
     "defaultParts": {
       "head": "item.part.head.standard",
       "haft": "item.part.haft.standard"
@@ -89,6 +91,7 @@
     "equipSlot": "primary",
     "appearance": { "equipSprite": "item_sledge_demolition_equip" },
     "slots": ["head", "haft", "wrap"],
+    "requiredSlots": ["head", "haft"],
     "defaultParts": {
       "head": "item.part.head.standard",
       "haft": "item.part.haft.standard"
@@ -189,6 +192,7 @@
     "equipSlot": "primary",
     "appearance": {"equipSprite": "item_axe_splitting_equip"},
     "slots": ["head", "haft", "wrap"],
+    "requiredSlots": ["head", "haft"],
     "defaultParts": {
       "head": "item.part.head.standard",
       "haft": "item.part.haft.standard"

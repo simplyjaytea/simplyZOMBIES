@@ -14,6 +14,7 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
@@ -38,8 +39,9 @@ func _run() -> void:
 	ok = _hands_before_weapons_when_somebody_is_being_held() and ok
 	ok = _an_unattended_survivor_answers_the_claw() and ok
 	ok = _a_dropped_weapon_is_picked_back_up() and ok
+	ok = _nobody_closes_on_a_gun_that_cannot_fire() and ok
 	if ok:
-		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue instinct")
+		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue instinct blocked")
 		quit(0)
 	else:
 		push_error("M2_NPC_COMBAT_FAIL")
@@ -713,4 +715,75 @@ func _a_dropped_weapon_is_picked_back_up() -> bool:
 		push_error("REARM: the colonist picked the broken knife back up")
 		return false
 	print("REARM OK armed with the bat at tick %d and swung it; a broken bat is left; an armed colonist keeps the knife; a worn-out knife drops at the feet and stays there" % armed_at)
+	return true
+
+
+# --- BLOCKED ----------------------------------------------------------------------------------
+#
+# The reader that is easiest to forget, and the one whose failure is silent. `try_begin_fire`
+# refuses a weapon missing a required part, so an NPC whose rifle has no barrel can never shoot --
+# but `_ranged_range` is what decides how close it walks, and if that still returns the rifle's
+# sixty metres the NPC closes to sixty metres and stands there for the rest of the campaign taking
+# shots that are refused. Nothing crashes and nothing is logged; it is an open circuit of exactly
+# the shape this milestone keeps finding.
+#
+# The true negative is the same NPC with a whole rifle. Without it the lane passes for an NPC that
+# never engages anything at all, which is the easiest way to accidentally write this assertion.
+func _nobody_closes_on_a_gun_that_cannot_fire() -> bool:
+	var lane: String = "BLOCKED"
+
+	# TN first, so "it did not engage" below cannot be the arena's fault.
+	var whole: Variant = _arena()
+	var armed: int = _npc(whole, 10.0, 10.0)
+	SimInventory.equip(whole, armed, SimItems.spawn_item(whole, "item.rifle.hunting", {"tier": "scavenged"}))
+	SimInventory.stow(whole, armed, SimItems.spawn_item(whole, "item.ammo.rifle", {"tier": "scavenged", "count": 20}))
+	_zombie(whole, 18.0, 10.0)
+	var fired: int = 0
+	for _t in ARENA_TICKS:
+		whole.step()
+		for e in whole.events.drained:
+			if String((e as Dictionary).get("type", "")) == "weapon.fired" and int((e as Dictionary).get("entity", -1)) == armed:
+				fired += 1
+	if fired < 1:
+		push_error("%s: an NPC with a whole rifle never fired, so the blocked half proves nothing" % lane)
+		return false
+	if SimNpcCombat._ranged_range(whole, armed) <= 0.0:
+		push_error("%s: a whole rifle reports no engagement range at all" % lane)
+		return false
+
+	var w: Variant = _arena()
+	var broken: int = _npc(w, 10.0, 10.0)
+	var rifle: int = SimItems.spawn_item(w, "item.rifle.hunting", {"tier": "scavenged"})
+	SimInventory.equip(w, broken, rifle)
+	SimInventory.stow(w, broken, SimItems.spawn_item(w, "item.ammo.rifle", {"tier": "scavenged", "count": 20}))
+	# `equip` publishes; `ranged.equip-weapon` runs at drain. Without this the NPC has no
+	# `rangedWeapon` at all yet, `_ranged_range` returns 0 for that reason instead of for the one
+	# under test, and the assertion below is vacuous -- which is exactly what it was until the
+	# true negative caught it.
+	w.events.drain()
+	if not w.components.get_component(broken, "rangedWeapon") is Dictionary:
+		push_error("%s: the NPC is not holding a built weapon, so its range proves nothing" % lane)
+		return false
+	if SimNpcCombat._ranged_range(w, broken) <= 0.0:
+		push_error("%s: a whole rifle in this NPC's hands already reports no range" % lane)
+		return false
+	var barrel: int = SimAttachments.in_slot(w, rifle, "barrel")
+	if barrel < 0 or not SimAttachments.detach(w, barrel):
+		push_error("%s: could not take the rifle's barrel off" % lane)
+		return false
+	if SimNpcCombat._ranged_range(w, broken) > 0.0:
+		push_error("%s: a rifle with no barrel still claims %.1f metres of engagement range" % [lane, SimNpcCombat._ranged_range(w, broken)])
+		return false
+	_zombie(w, 18.0, 10.0)
+	var shots: int = 0
+	for _t in ARENA_TICKS:
+		w.step()
+		for e in w.events.drained:
+			if String((e as Dictionary).get("type", "")) == "weapon.fired" and int((e as Dictionary).get("entity", -1)) == broken:
+				shots += 1
+	if shots != 0:
+		push_error("%s: an NPC holding a barrel-less rifle fired %d times" % [lane, shots])
+		return false
+
+	print("  BLOCKED OK a whole rifle fires %d times and engages; one with no barrel has no range and fires none" % fired)
 	return true

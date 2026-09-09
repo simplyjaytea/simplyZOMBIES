@@ -427,6 +427,72 @@ static func assembly_condition(world: Variant, host: int, own: float) -> float:
 	return worst
 
 
+## The slots this host cannot work without. A subset of `slots`, declared on the base -- a pistol
+## needs a barrel and an action, a spear with no head is a stick.
+static func required_slots_of(world: Variant, host: int) -> Array:
+	var base: Variant = SimItemsRes.item_base_of(world, host)
+	if not base is Dictionary:
+		return []
+	var raw: Variant = (base as Dictionary).get("requiredSlots", [])
+	if not raw is Array:
+		return []
+	var out: Array = []
+	for s in raw as Array:
+		out.append(String(s))
+	return out
+
+
+# What each slot is called when a sentence has to name it. `internal` is a slot name; "action" is
+# what a person would say. Code-owned like WEAR_EVENTS, and asserted total against the slots any
+# shipped base actually requires -- a missing noun would read as "has no ", which is worse than
+# saying nothing.
+const SLOT_NOUN: Dictionary = {
+	"barrel": "barrel", "internal": "action", "magazine": "magazine", "furniture": "stock",
+	"muzzle": "muzzle device", "optic": "sight", "sight": "sight",
+	"limb": "limbs", "string": "string", "head": "head", "edge": "edge", "haft": "haft",
+	"wrap": "grip wrap",
+}
+
+
+## Why this weapon does not work, or `""` when it does. One computation, one field on the profile,
+## read by every path that can start an attack -- see SimRanged.can_fire. A reason id rather than a
+## sentence, because prose about a weapon belongs to the screen and this is sim state.
+static func blocked_reason(world: Variant, host: int) -> String:
+	var fitted: Dictionary = attached(world, host)
+	var missing: Array = []
+	for slot in required_slots_of(world, host):
+		if not fitted.has(String(slot)):
+			missing.append(String(slot))
+	if missing.is_empty():
+		return ""
+	missing.sort()
+	return "missing:%s" % String(missing[0])
+
+
+## One sentence about the weapon in this entity's hands that will not work, or "" when both do.
+## A read model: prose about sim state, built in the sim, no digits, and the screen only prints it.
+## Read straight off the built profile rather than off a refusal event, so it is true whenever the
+## HUD asks rather than only on the tick somebody pulled a trigger.
+static func refusal_clause(world: Variant, entity: int) -> String:
+	for comp in ["rangedWeapon", "meleeWeapon"]:
+		var w: Variant = world.components.get_component(entity, comp)
+		if not w is Dictionary:
+			continue
+		var reason: String = String((w as Dictionary).get("blocked", ""))
+		if reason == "" or not reason.begins_with("missing:"):
+			continue
+		var slot: String = reason.substr("missing:".length())
+		var noun: String = String(SLOT_NOUN.get(slot, ""))
+		if noun == "":
+			continue
+		var name: String = "weapon"
+		var base: Variant = SimItemsRes.item_base_of(world, int((w as Dictionary).get("source", -1)))
+		if base is Dictionary:
+			name = String((base as Dictionary).get("name", "weapon")).to_lower()
+		return "The %s has no %s." % [name, noun]
+	return ""
+
+
 # An attachment changes the weapon, so the weapon a survivor is holding has to be rebuilt. The
 # same call `apply_wear` and `repair_item` make, and for the same reason.
 static func _refresh(world: Variant, host: int) -> void:

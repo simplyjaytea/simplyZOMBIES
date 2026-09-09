@@ -5853,6 +5853,30 @@ not a to-do list:
   `SAVE_VERSION` 28 → **29**: a v28 save holds weapons with empty slots and neither reading of one
   is honest.
 
+- **Items** — ~~a gun with no barrel does not fire~~ **landed** 2026-09-09
+  (`godot:m2:attach` grows **REQUIRED** and **HEADLESS**, `godot:m2:ranged` grows **BLOCKED**,
+  `godot:m2:npc` grows **BLOCKED**), the fourth slice of the gunsmithing arc and the one that
+  makes the third mean something. Eleven bases declare `requiredSlots`; `blocked_reason` computes
+  one field, `profile["blocked"]`, and **three** places read it: `SimRanged._idle_weapon` (already
+  the gate a fire and a reload share, so both inherit it), `SimMelee.try_begin_swing`, and
+  `npc_combat._ranged_range`. The third is the one that matters and the one nothing would have
+  caught: `try_begin_fire` refuses a blocked weapon either way, but `_ranged_range` decides how
+  close an NPC walks, so without it an NPC holding a barrel-less rifle closes to twenty metres and
+  stands there for the rest of the campaign taking shots that are refused — an open circuit with
+  no crash and no log, of exactly the shape this milestone keeps finding. Every refusal is
+  **announced**: `weapon.refused {entity, reason}`, and `SimAttachments.refusal_clause` turns it
+  into the HUD's *"The service pistol has no barrel."* — a sim-owned read model, digit-free, and
+  `REQUIRED` asserts every base that can produce that sentence is named without a digit in it,
+  because `godot:check:hud` allows none. A silently ignored trigger pull is the worst possible way
+  to meet the fact that a weapon is an assembly. **REQUIRED** checks what no schema can: every
+  required slot is one the base declares, is one it *defaults* (or the weapon spawns as a brick),
+  and has a word in `SLOT_NOUN`; and that both halves of the game require something, or the melee
+  reader ships unexercised. Removing each of the three readers turns its own lane red — and the
+  NPC lane **only after a fix**: its first version asked `_ranged_range` before the world had
+  drained the equip event, so the NPC had no `rangedWeapon` at all and the 0.0 it returned was the
+  right answer for the wrong reason. The true negative caught it; the publish-only-queues trap
+  caught the gate rather than the code, which is the way round CLAUDE.md warns is worst.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.

@@ -127,6 +127,11 @@
       },
       "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases."
     },
+    "requiredSlots": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Slots this base cannot work without, a subset of `slots`. An empty one blocks the weapon: SimAttachments.blocked_reason puts a reason on the built profile and SimRanged._idle_weapon, SimMelee.try_begin_swing and npc_combat._ranged_range all read it, so a pistol with no barrel refuses to fire and an NPC holding one does not walk into range of it. The subset claim is a gate lane, not a schema rule -- nothing here can see the sibling key."
+    },
     "defaultParts": {
       "type": "object",
       "additionalProperties": { "type": "string" },
