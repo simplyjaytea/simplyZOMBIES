@@ -5959,6 +5959,35 @@ not a to-do list:
   `item.detach` while calling no profile builder, no fold and no condition factor. It computes
   nothing.
 
+- **Art & renderer** — ~~a fitted part shows on the pawn~~ **landed** 2026-09-09
+  (`godot:check:worn` grows **PARTS**; `sprites:check` judges the pictures), the eighth and last
+  slice of the gunsmithing arc. **It needed a renderer change, and the reason is worth writing
+  down:** every gear overlay in the pipeline shares one anchor — the hand — which is exactly what
+  lets one picture fit all eight rigs, and it is the bet `check_worn`'s SHARED lane exists to
+  protect. A *part* does not hang off the hand. A suppressor hangs off a muzzle, and a pistol's
+  muzzle and a rifle's are rows apart on the 32×40 canvas, so one shared picture cannot be right
+  for both. The fix keeps the bet: the part is still **one picture with no per-rig variant**, and
+  the *host* declares where its slots are — `appearance.partAnchors`, keyed by slot, in canvas
+  pixels — while `_blit_body` grew a per-layer offset that scales with the rect and mirrors with
+  the negative-width flip like everything else. Five firearms are anchored; a host that declares
+  none draws its part at the origin, which is the bow, and which is PARTS' true negative for the
+  anchor. Three pictures, deliberately tiny because a part is a detail on a 7 px object: a can
+  (a barrel that suddenly got fatter — the silhouette is the whole read), a red dot (one warm
+  pixel off the `ember` ramp, the only place in the gear pipeline where a colour says what a
+  thing *is*), and an extended magazine (hanging **down**, the one direction nothing else in the
+  weapon hand uses). 164 generated keys, all matching. **PARTS** is the dead-socket question asked
+  of the family: an `attachmentSprite` nothing draws would be the twelfth dead socket of the
+  milestone, so the lane fits a can and requires the composite to grow by exactly one over-layer
+  carrying a non-zero offset — and its negative is the same pistol with nothing fitted, without
+  which it would pass for an implementation that draws a can on every gun. Removing the parts pass
+  turns it red; reading the anchor and discarding it turns it red differently.
+  `check_worn._rig_keys` had to learn about the new key family: it classified anything without
+  "equip" in its name as a rig body, so three part pictures read as three extra survivors.
+  **Deliberately not in this slice:** the barrel, stock and conversion parts have no picture — a
+  long barrel changes a weapon's *length*, which one offset cannot express, and it wants either a
+  per-host silhouette or a longer weapon sprite. The seam is there and adding a picture is a data
+  edit plus a generator.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.
