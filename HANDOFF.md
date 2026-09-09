@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-09 (the authored-art tier)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **54 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **55 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,31 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-09 — water, and the one cool ground** (one new gate, `npm run godot:check:water` /
+`WATER_OK`, six lanes; the `godot:m2` chain is **55** now; `sprites:check` still 151 keys but
+`ground_atlas.png` regrew a row). The owner opened a default town — city, forest, factory, river and
+lake, with procgen beyond it as the end goal — and most of it turned out to exist already: the city
+and the forest are shipped district types and the generator has rolled districts from a seed since
+the worldgen arc. **Water existed nowhere**, and it is what landed: one tile and one surface, per
+docs/24's two-arrays rule. Deep water is `Tile.Water` carrying exactly `Tile.Window`'s pair (solid,
+transparent — a river stops a body and not a sightline), a ford is an ordinary Floor on the same
+surface, and the ford is the slowest and loudest ground in the game (×0.45, ×1.8). Nothing in the
+pathfinder or the shadowcast changed, and the gate proves that rather than claiming it.
+**Two things were caught by guards rather than by review, and both are worth knowing before you add
+a surface:** `Appearance.ground_row_for` returns a surface int *as* an atlas row and
+`GroundRow.Sidewalk` was already 5, so `Surface.Water = 5` made every river draw as pavement with
+the whole chain green — the paints are 6 and 7 now and `check_water`'s ROWS lane was proved red
+against the old order; and the first water tint was refused at import by
+`tools/sprites/palette.py`'s `guard_against_ground`, because a new ground is bounded from above by
+the darkest pawn ramp (nobody had written that down). The blue is an **amendment to the owner's own
+2026-09-03 Dungeon Settlers decision** and is a named pin rather than a hole: `COOL_SURFACES` judges
+the exempted ground with the cool pin, and the saturation cap is not exempted. Nothing generates
+water yet, so the harness's map is untouched — which is the slice's balance claim and is asserted.
+docs/30's water entry has the calls; docs/23's record the measurements; docs/24 now has a `### Water`
+section and water in its ground table. The pieces it named rather than built — the generated river,
+the river that drinks, the factory, the region assembler and the flip — are docs/23's "the main area"
+group, in the order they land.
 
 **2026-09-09 — art we did not generate** (one new gate, `npm run godot:check:authored` /
 `AUTHORED_OK`, four lanes; the `godot:m2` chain is **54** now; `sprites:check` unchanged at 151
@@ -296,6 +321,36 @@ decisions and what each earlier clause becomes; the work it forces is docs/23's 
 Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. **Which of its
 slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
+
+0d. **The water numbers, and the two the owner has not been asked** (2026-09-09). Every water
+   constant was a first cut taken in an autonomous session, each one line: the ford's ×0.45 speed
+   and ×1.8 noise, the tint `#424f5c` (bounded from above by the pawn-ramp contrast guard, so it
+   cannot simply be brightened), and `WATER_DEEP_SHADE` 0.30. docs/30's water entry records them.
+   **Two are genuine questions rather than numbers.** First, the saturation cap: "genuinely blue"
+   and `_sat_ok`'s 0.30 pull against each other, and only the *warmth* pin was exempted — the
+   shipped tint sits at 0.283, just inside, so a brighter blue needs a second exemption the owner
+   has not made. Second, and larger: **the ground is still a player-only mechanic.** `SimJobs._walk`
+   resolves `move_speed` but NPC and zombie locomotion do not read `SimSurface`, so today a river
+   slows the player and nobody else — half a mechanic in exactly the way noise-only ground was
+   before the worldgen arc. Widening it moves NPC pathing balance and is its own measured slice
+   (it is in the debt list); until then a ford is a decision only the player makes.
+
+0c. **The main area's extent, and where the colony lives** (2026-09-09). Two calls the region
+   assembler cannot be built without, the first of which is now **measured** (docs/23's record has
+   the table): the simulation crosses **below real time between 384 and 512 tiles a side** — at 512
+   it runs at 0.82 of the 20 Hz clock before a frame is drawn. So a resident main area is about
+   **448 tiles** (a 2×2 of ~192-tile districts with short gaps) or **512** (a 2×2 of 256s nearly
+   touching), and docs/24's own geometry — districts not touching, 300–500 m of road between — puts
+   a 2×2 of 256s at **912 tiles**, which measured 0.46× and is out of reach. Caveat, stated because
+   it changes how much room there is: this container measures 55 ticks/s at 256 against the record's
+   ~105, so it is roughly half speed and every figure is a floor; even doubled, 912 reads 0.92× and
+   is still under the clock. **So the gap is the thing that has to give**, and docs/24 argues for it
+   in writing (packed edge-to-edge a 3×3 spans 768 m and the player walks 800 m by week 6), which
+   makes shortening it a decision rather than a tuning — it wants a docs/24 amendment carrying the
+   table as its reason. The second call is untouched: the owner named city, forest and factory, and
+   **none of them is where the survivors live**. The suburb is the natural fourth cell and is what
+   every balance band was measured on, but "the colony lives in the town centre" is a legitimate and
+   different game.
 
 0b. **The idle breath** (2026-09-09). One pixel of pelvis at a quarter of the walk's rate,
    drawn in the fixture round and deliberately left out of the four answers the owner gave that

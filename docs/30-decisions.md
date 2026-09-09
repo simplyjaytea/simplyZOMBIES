@@ -3195,6 +3195,77 @@ the source of record for every zombie, every tile, every vehicle and the whole o
 reasoning; `sprites:check`'s pixel-exact comparison, which is untouched for those keys; the
 canvas, the anchor and the flip; and the sim's ignorance of all of it.
 
+## Water, and the one cool ground, 2026-09-09
+
+The owner asked for a default town — city, forest, factory, river and lake — with procedural
+generation beyond it, and the answer was that most of it already exists: the city and the forest
+are shipped district types, the generator has rolled districts from a seed since the worldgen arc,
+and `docs/24`'s "authored templates, procedurally assembled" is the same split the question
+proposed. **Water was the one piece that existed nowhere** — no tile, no surface, no pass, no
+content key, and no mention in docs/24 either. Four decisions shaped it, and one of them amends an
+earlier decision of the owner's.
+
+- **Water is one tile and one surface, not four kinds of blue.** docs/24's ground rule is two
+  arrays, never one enum, and water is the case that rule was waiting for: deep water is
+  `Tile.Water` standing on `Surface.Water`, and a ford is an ordinary `Tile.Floor` standing on the
+  same surface. Enumerating deep-vs-shallow as tile classes would have been a product of two sets
+  again, which is the mistake the ground layer exists to avoid.
+- **Deep water carries the window's pair: solid, transparent.** It stops a body and not a
+  sightline, so a river is a barrier you can be shot across. This is why nothing in the pathfinder
+  or the shadowcast changed: `SimPath._footing` already accepts `Floor` (so a ford walks) and
+  `walkable_tile` already refuses a solid tile with only a Door exception (so a channel does not),
+  and `blocks_sight` reads the opacity table, which answers Clear. A water-shaped special case in
+  either would have been the wrong answer arrived at twice.
+- **A ford is worse than every other ground on both axes, and that is not a broken rule.** Speed
+  ×0.45 and noise ×1.8 — the slowest and loudest ground in the game. docs/29's "nothing may be
+  strictly better than anything else" forbids a free lunch; a ford is the opposite of one, and it
+  is never weighed against walking on grass. It is weighed against walking all the way round.
+- **Water is genuinely blue, and it is the one ground exempted from the warmth sign.** This
+  **amends [the Dungeon Settlers look](#the-dungeon-settlers-look-2026-09-03)**, whose warm mood is
+  held by a mechanical margin — every district surface, wall, paint, prop and memory tint warmer
+  than it is cool, `r - b >= 0.02`. The owner's call was that water reads as water or it reads as
+  nothing. The exemption is a **named pin, not a hole**: `check_road_look.gd`'s `COOL_SURFACES`
+  judges the exempted ground with the *cool* pin instead of skipping it, so a water tint drifting
+  to neutral grey fails exactly as a warm ground drifting to grey does — and the saturation cap is
+  **not** exempted, which is what keeps "blue" from becoming garish. Water joins `COOL_FAMILY`
+  beside the glass, which is the entry that was already the exception to the mood.
+
+### What it made structural
+
+- **A surface's int is an atlas row, so the painted rows sit after the last surface.**
+  `Appearance.ground_row_for` returns a surface int *as* a `GroundRow`, which is what makes the
+  ground atlas cheap. `GroundRow.Sidewalk` was 5 and `Surface.Water` arrived as 5, so before the
+  re-index **a river drew as pavement** — silently, with `godot:m2` green, because no assertion
+  connected the two enums. Water is row 5 now and the two paints moved to 6 and 7;
+  `check_water.gd`'s ROWS lane asserts the two enums agree and that the paints sit outside the
+  surface range, so a seventh surface cannot repeat it. The atlas PNG grew a row and had to be
+  regenerated, which is what `sprites:check` is for.
+- **Deep water takes none of the floor's furniture.** The channel is one flat fill: no road paint,
+  no ground-atlas cell, no fringe. Each of those passes would otherwise draw a kerb, a dash or a
+  grass edge into the middle of the river, and the fringe one needed `Tile.Water` adding to the
+  ground-rows cache's exclusion list to stop it. The *ford* keeps all of it, because a ford is a
+  floor — and that difference is what makes a crossing visible before you step in.
+- **The deep colour is derived, not authored.** One water tint, darkened by `WATER_DEEP_SHADE`,
+  the way a wall's face is lifted out of its cap: two authored colours would drift apart under a
+  regrade.
+- **A brightness ceiling nobody predicted.** The first water tint (`#55636b`, value 0.42) was
+  refused at import by `tools/sprites/palette.py`'s `guard_against_ground`: it made water the
+  brightest ground in the game, and the `fatigue_drab` pawn ramp then cleared it by 0.067 against
+  a `GROUND_CONTRAST` of 0.10 — a colonist on the bank would have read as a hole in the river. The
+  shipped tint is `#424f5c` at value 0.361. **A new ground is bounded from above by the darkest
+  pawn ramp**, which is a constraint on every future surface and was found by a guard rather than
+  by a screenshot.
+
+**First cuts taken without the owner**, each one constant and each listed in `HANDOFF.md` the way
+the driving and weather numbers are: the ford's ×0.45 speed and ×1.8 noise, the water tint
+`#424f5c`, and `WATER_DEEP_SHADE` 0.30. The ten-day playtest is what they are for.
+
+**What this does not change.** The five existing surfaces and their calibrated numbers; the
+pathfinder and the shadowcast, both untouched; the three shipped district types, which declare no
+water and are byte-identical; and the frozen TypeScript oracle, whose `Tile` stops at `Tree = 5`
+and already lacked `Door = 6` — the oracle is not a party to the tile enum, though it does still
+validate the map schema, whose tile and surface maxima grew.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
