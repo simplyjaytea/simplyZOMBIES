@@ -375,6 +375,14 @@ static func _use_context(world: Variant, actor: int) -> void:
 		if bed >= 0 and _entity_in_reach(world, actor, bed):
 			Needs.call("start_sleep", world, actor, bed)
 			return
+	# The bench, before the window and the traps: standing at one, E puts what is in your hands on
+	# it. It is the surface `item.attach` and `item.detach` have never had, and it goes on the
+	# ladder rather than on a key of its own for the reason the car did (docs/30, "Driving") --
+	# the sim decides what E means where you are standing.
+	var Gunsmith: GDScript = _Gunsmith()
+	if int(Gunsmith.call("bench_in_reach", world, actor)) >= 0 and int(Gunsmith.call("focus_of", world, actor)) < 0:
+		if bool(Gunsmith.call("open_bench", world, actor, int(Gunsmith.call("first_workpiece", world, actor)))):
+			return
 	var face: Vector2i = _facing_tile(world, actor)
 	if SimTileMap.tile_at(world.tilemap, face.x, face.y) == SimTileMap.Tile.Window and _in_reach_tile(world, actor, face.x, face.y):
 		_start(world, actor, "window", face.x, face.y)

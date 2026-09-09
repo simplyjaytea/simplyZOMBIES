@@ -484,6 +484,123 @@ static func required_slots_of(world: Variant, host: int) -> Array:
 	return out
 
 
+# Which way is up, per profile field. +1 means more is better, -1 means less is. It lives here
+# beside SCALABLE because it is a statement about the sim's own profile fields, not about a
+# screen: a panel owning this would be presentation deciding what a number means, which is the one
+# thing `ui/README.md` forbids.
+#
+# It is deliberately *not* read by `fold`. `effect_scale` walks a multiplier toward 1.0 without
+# ever asking whether it was a gain or a cost, and keeping polarity out of that is what makes the
+# decay symmetric.
+const POLARITY: Dictionary = {
+	"melee": {"damage": 1, "reachMetres": 1, "staggerTicks": 1, "speed": 1},
+	"ranged": {"damage": 1, "noise": -1, "flash": -1, "magSize": 1, "reloadTicks": -1, "rangeMetres": 1, "cone": -1},
+}
+
+# What each field is called when a person reads it. The screen prints these; nothing computes with
+# them. `cone` is the felt aim cone, so less of it is a steadier gun -- which is why the word is
+# "steadiness" and the polarity is -1, and why neither is obvious enough to leave unwritten.
+const FIELD_WORD: Dictionary = {
+	"melee": {
+		"damage": "stopping power", "reachMetres": "reach",
+		"staggerTicks": "how hard it rocks them", "speed": "swing speed",
+	},
+	"ranged": {
+		"damage": "stopping power", "noise": "how far it is heard", "flash": "muzzle flash",
+		"magSize": "rounds it holds", "reloadTicks": "reload time", "rangeMetres": "reach",
+		"cone": "steadiness", "ammo": "the round it takes", "jams": "how it feeds",
+	},
+}
+
+
+## Whether moving this field from `before` to `after` is an improvement. A pure predicate over the
+## polarity table, so a gate can ask it about every field in both directions with no fixture at all.
+static func better(kind: String, field: String, before: float, after: float) -> bool:
+	var table: Variant = POLARITY.get(kind)
+	if not table is Dictionary or not (table as Dictionary).has(field):
+		return false
+	return (after - before) * float((table as Dictionary)[field]) > 0.0
+
+
+## The multiplier a part contributes to one field, softened by its condition, or 1.0 if it says
+## nothing about that field. The arithmetic `fold` does, asked about one part.
+static func multiplier_of(world: Variant, part: int, kind: String, field: String) -> float:
+	if part < 0:
+		return 1.0
+	var spec: Variant = spec_of(world, part)
+	if not spec is Dictionary:
+		return 1.0
+	var table: Variant = (spec as Dictionary).get(kind)
+	if not table is Dictionary or not (table as Dictionary).has(field):
+		return 1.0
+	return effect_scale(world, part, float((table as Dictionary)[field]))
+
+
+## What swapping the part in `slot` for `candidate` would change, as words and a direction. Never a
+## magnitude: there is no delta in this view to print, so "no digits" is structural rather than a
+## rule somebody has to remember. `change` is "better", "worse" or "different" -- the third for a
+## replacement like a caliber, where the word improvement does not apply.
+##
+## Computed rather than simulated. Attaching the candidate to see what happens would mutate the
+## world inside a read model; the fold is multiplicative, so the ratio between the two parts' own
+## contributions is the whole answer.
+static func compare_view(world: Variant, host: int, slot: String, candidate: int) -> Array:
+	var out: Array = []
+	var sitting: int = in_slot(world, host, slot)
+	for kind_v in SCALABLE.keys():
+		var kind: String = String(kind_v)
+		if not _host_is(world, host, kind):
+			continue
+		for field_v in SCALABLE[kind] as Array:
+			var field: String = String(field_v)
+			var now: float = multiplier_of(world, sitting, kind, field)
+			var then: float = multiplier_of(world, candidate, kind, field)
+			if is_equal_approx(now, then):
+				continue
+			out.append({
+				"field": field,
+				"word": String((FIELD_WORD[kind] as Dictionary).get(field, field)),
+				"change": "better" if better(kind, field, now, then) else "worse",
+			})
+	# Replacements are a change of kind, not of degree: a different round is neither an upgrade
+	# nor a downgrade, and saying otherwise would be the screen inventing an opinion.
+	for kind_v in OVERRIDABLE.keys():
+		var kind2: String = String(kind_v)
+		if not _host_is(world, host, kind2):
+			continue
+		for field_v in OVERRIDABLE[kind2] as Array:
+			var field2: String = String(field_v)
+			var now2: Variant = _override_of(world, sitting, kind2, field2)
+			var then2: Variant = _override_of(world, candidate, kind2, field2)
+			if str(now2) == str(then2):
+				continue
+			out.append({
+				"field": field2,
+				"word": String((FIELD_WORD[kind2] as Dictionary).get(field2, field2)),
+				"change": "different",
+			})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return String(a["field"]) < String(b["field"]))
+	return out
+
+
+static func _override_of(world: Variant, part: int, kind: String, field: String) -> Variant:
+	if part < 0:
+		return null
+	var spec: Variant = spec_of(world, part)
+	if not spec is Dictionary:
+		return null
+	var block: Variant = (spec as Dictionary).get("overrides")
+	if not block is Dictionary:
+		return null
+	var table: Variant = (block as Dictionary).get(kind)
+	return (table as Dictionary).get(field) if table is Dictionary else null
+
+
+static func _host_is(world: Variant, host: int, kind: String) -> bool:
+	var base: Variant = SimItemsRes.item_base_of(world, host)
+	return base is Dictionary and (base as Dictionary).get(kind) is Dictionary
+
+
 # What each slot is called when a sentence has to name it. `internal` is a slot name; "action" is
 # what a person would say. Code-owned like WEAR_EVENTS, and asserted total against the slots any
 # shipped base actually requires -- a missing noun would read as "has no ", which is worse than
