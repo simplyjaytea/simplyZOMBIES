@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-08 (the inventory overhaul)
+## State, as of 2026-09-09 (the authored-art tier)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **53 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **54 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,41 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-09 — art we did not generate** (one new gate, `npm run godot:check:authored` /
+`AUTHORED_OK`, four lanes; the `godot:m2` chain is **54** now; `sprites:check` unchanged at 151
+generated keys). The owner opened commissioned sprites — *"we might look into getting proper
+sprites"* — and decided the shape of them in three answers (docs/30, "Art we did not generate"):
+**commissioned to this project's spec** rather than bought as a pack, **equipment layering a
+requirement** of any art we take, and the pawn arc paused while the diagram is not. What landed
+is the second tier and the gate that holds it honest. `assets/sprites/authored.json` declares a
+key's canvas, kind and reader, and is read by **two** things — `tools/sprites/build.py` so
+`--check` does not try to regenerate it, and `appearance.gd`'s `canvas_of` so the renderer knows
+its shape — which makes it the first shape table here that is one copy rather than two. The
+gate's SPEC lane is the one that matters: it measures the **eight generated rigs** against the
+same bounds a commissioned one is held to, so the brief in `assets/sprites/README.md` is a spec
+somebody has already hit. READS says so and skips while the tier is empty, which it is until the
+first sprite is delivered. Proved both ways before it was trusted — a declared key with no file,
+a file at the wrong canvas, a key in both tiers, a non-conforming rig, a lying `reads`, and a
+conforming rig with a real reader. What it named rather than built is in docs/23: the guide sheet
+an artist draws on, and the three gates the first commissioned body has to widen
+(`check_topdown`'s FLIP, `check_worn`'s `_rig_keys()` count of exactly eight, and its FITS
+envelope).
+
+**2026-09-09 — the character fixture round, and the four answers it produced** (no gate, no game
+code, no game art: `.hermes/plans/2026-09-09_character-fixtures/` only, and `sprites:check` is
+still `SPRITES_OK` at 151 keys). The owner opened a character-model overhaul and a replacement
+for the paperdoll, and answered *"show examples of art first then I will decide"* — so the round
+is four sets of candidate art, every candidate a **transform of the shipped generator** rather
+than hand art beside it, with a `comparison.md` that describes each and recommends none. Its one
+assertion is `verify.py`: all eight rigs at rest come back **byte for byte identical** to the
+shipped PNGs, with the true negative in the same script, which is what makes the animation
+answers affordable. The four answers — the rig read harder with banded shading, a four-frame
+walk with the weight shift, **four directions**, and the exploded body chart — are docs/30's
+"The character overhaul", and the pieces they open are docs/23's "Art & renderer — the character
+overhaul", in the order they land. Two of them supersede named pieces: the two-frame walk (drawn,
+looked at, close to invisible at six pixels of leg) and the pixel body chart that landed the day
+before. Nothing is built yet; the fixture generators are a prototype the first slice promotes.
 
 **2026-09-08 — the inventory and UI overhaul, seven slices in one run** (one new gate,
 `npm run godot:check:inventory` / `INVENTORY_OK`, plus new lanes in `check_hud`,
@@ -261,6 +296,11 @@ decisions and what each earlier clause becomes; the work it forces is docs/23's 
 Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. **Which of its
 slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
+
+0b. **The idle breath** (2026-09-09). One pixel of pelvis at a quarter of the walk's rate,
+   drawn in the fixture round and deliberately left out of the four answers the owner gave that
+   day. Small, independent of every other piece, and named in docs/23's character-overhaul group
+   rather than decided there.
 
 0a. **The picture on select** (2026-09-08). The owner's answer on the pawn — *"when selecting
    the character, sprite art will appear. However, weapons, clothing, gear will be shown"* —
