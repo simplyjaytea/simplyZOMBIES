@@ -295,16 +295,70 @@ projection stays flat top-down; 32 px a tile stays.
   blood on the ground is **not** dressing and is not in this piece — a stain where a body bled
   is a sim fact about a wound, and lands, if the owner opens it, as a sim slice with a memory
   record and a reader, beside tracks.
-- **The two-frame walk.** A leg swap keyed to the tick, generated on the published skeleton so
-  the thirty-one overlays follow unchanged, and one frame-select in `_blit_body`; the FLIP
-  lane's zero-transform count stands. Muzzle flash, swings and falls are a sheet per rig and
-  are not in this piece.
+- **The two-frame walk — superseded 2026-09-09, see the character overhaul below.** It was
+  built as a fixture and looked at: at six pixels of leg a two-frame swap is close to
+  invisible at the boot zoom. What replaces it is the four-frame walk with the weight shift,
+  in the group below.
 - **The torch** stays where the Dungeon Settlers arc left it, the one sim slice in the group,
   and lands after the grade so its cone is drawn in the night the grade decides.
 - **The picture on select — waiting on the owner.** *"When selecting the character, sprite art
   will appear"* names a picture the colony panel does not have; a portrait was refused with
   the Dungeon Settlers HUD, a larger picture of the selected pawn is not a portrait, and which
   was meant is the owner's to say before this is pickable.
+
+**Art & renderer — the character overhaul, decided by the owner (2026-09-09), from a fixture
+round.** The direction is docs/30's "The character overhaul": the squat proportion kept and read
+harder, a four-frame walk, a body drawn from four directions, and the condition diagram redrawn
+as an exploded chart. It was decided from art rather than from prose — four sets of candidate
+art under `.hermes/plans/2026-09-09_character-fixtures/`, every candidate a transform of the
+shipped generator, with the round's own `comparison.md` describing each and recommending none.
+Its load-bearing result is the one every animation piece below rests on: all eight rigs rendered
+at rest through the pose layer come back **byte for byte identical** to the shipped PNGs, with
+the true negative in the same script, so a body standing still draws exactly what it draws
+today. The pieces are in the order they land, each with its gate red both ways and its record;
+the diagram shares no gate with the rest and may jump the queue. The flat projection, 32 px a
+tile, the feet anchor, the health-bar ban and the prose HUD are all untouched.
+
+- **The rig read harder.** The fist one pixel out with a knuckle line so a held weapon has
+  something to sit against; a silhouette tell per human (the player's collar, Mara's tucked
+  bob, Ellis's high collar, the colonist's cap); the fourth face pixel; and `nw_shade`
+  quantised to three steps — measured at 67 distinct colours down to 15 on the player rig.
+  Eight rigs regenerate, `sprites:check` re-pins them, and `APPEARANCE_OK`'s GREY lane is
+  **re-measured rather than quoted** (the composed margin is +0.018 today and a changed pixel
+  population moves the median a byte). The proportion does not move, so the thirty-one overlays
+  refit unchanged and no canvas lane is touched.
+- **A body seen from behind.** The second authored view: no face, hair over the whole skull,
+  the pack composited over the body rather than under it, and a facing→view selector beside the
+  existing mirror. `TOPDOWN_OK`'s FLIP lane becomes a FACING lane with **both transform counters
+  still asserting zero** — a view is a fourth picture, never a rotation — and the true negative
+  is a heading that resolves the wrong view. Every overlay that draws differently from behind
+  gets its back-authored half here, which is what the piece actually costs.
+- **A body seen from the side.** The one piece in this group that is a **re-authoring rather
+  than a transform**, and the one that is not a single session: a profile is a different
+  silhouette for eight rigs and for every overlay that reads differently side-on. Named
+  separately for exactly that reason rather than smuggled in beside the back view. West stays
+  the negative-width mirror of east, so three views are authored and four are drawn.
+- **The frames, and the atlas that carries them.** The four-frame walk with the weight shift,
+  keyed to `world.tick` with its phase scaled by the stance's pace, one frame-select in
+  `_blit_body`, and the frames laid out in a **horizontal strip** — not a grid, because
+  `check_worn.gd`'s `_row_of` keys off `PAWN_CANVAS.y` and a grid would destroy the row
+  predicate. The atlas is not an optimisation here: four views by four frames is about 468 pawn
+  textures where 39 ship today, and the edges slice measured draw calls going 539 → 1,410 when
+  wall materials became separate textures. **`WORN_LOOK_OK`'s FITS lane must go per column and
+  per view in this piece**: `_bounds_of` iterates the whole image, so on a strip the eight-rig
+  envelope widens from 26 to about 90, every overlay fits trivially and the corner-pixel true
+  negative still passes — a gate going weaker with no red line to announce it.
+- **The exploded body chart.** The condition diagram redrawn: ten parts pulled a pixel off
+  their neighbours, each a plate with its own border and uniform seams, on a body with a head
+  about a sixth of the figure and legs a shade under half of it. `ui/paperdoll.gd` is rewritten
+  and `check_appearance.gd`'s CHART lane with it — **deliberately**, because that lane reads the
+  file as text and requires literal needles (`Appearance.chart_key`, `Appearance.resolve`,
+  `draw_texture_rect`, `CONDITION_TINTS`, `chart_rect`), so the amendment follows the call a
+  link further rather than dropping a needle. `godot:ban:healthbar` is untouched by
+  construction: it judges `SimCondition.view` and has never looked at this file.
+- **The idle breath — not decided.** One pixel of pelvis at a quarter of the walk's rate. It
+  was drawn in the fixture round and deliberately left out of the four answers; it is a small
+  call and it is the owner's.
 
 **Art & renderer — the Dungeon Settlers arc, decided by the owner (2026-09-03), on the floor
 the reference-look arc's first two slices laid (32 px a tile at 2×, the ground atlas).** The
