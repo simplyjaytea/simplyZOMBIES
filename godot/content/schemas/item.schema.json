@@ -159,6 +159,10 @@
           "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
           "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
         },
+        "fieldSwap": {
+          "type": "boolean",
+          "description": "Whether a person can change this part with their hands, away from a gunsmithing bench. A magazine, a sight, a can on a thread: yes. A barrel, an action, an axe head: no. Absent means no, which is the safe default -- a part nobody has thought about is bench-only rather than silently field-swappable. Read by sim/modules/gunsmith.gd on the item.attach / item.detach commands, never inside SimAttachments.attach itself."
+        },
         "overrides": {
           "type": "object",
           "additionalProperties": false,
