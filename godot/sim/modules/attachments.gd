@@ -96,10 +96,14 @@ static func register_module(world: Variant) -> void:
 			var c: Dictionary = cmd as Dictionary
 			var kind: String = String(c.get("type", ""))
 			if kind == "item.attach":
-				if not attach(w, int(c.get("host", -1)), int(c.get("item", -1)), String(c.get("slot", ""))):
+				if not _may(w, int(c.get("item", -1))):
+					w.events.publish({"type": "attachment.refused", "item": int(c.get("item", -1)), "slot": String(c.get("slot", "")), "reason": "no-bench"})
+				elif not attach(w, int(c.get("host", -1)), int(c.get("item", -1)), String(c.get("slot", ""))):
 					w.events.publish({"type": "attachment.refused", "item": int(c.get("item", -1)), "slot": String(c.get("slot", ""))})
 			elif kind == "item.detach":
-				if not detach(w, int(c.get("item", -1))):
+				if not _may(w, int(c.get("item", -1))):
+					w.events.publish({"type": "attachment.refused", "item": int(c.get("item", -1)), "slot": "", "reason": "no-bench"})
+				elif not detach(w, int(c.get("item", -1))):
 					w.events.publish({"type": "attachment.refused", "item": int(c.get("item", -1)), "slot": ""})
 	)
 
@@ -118,6 +122,20 @@ static func register_module(world: Variant) -> void:
 	world.events.subscribe({"id": "attachments.wear-on-jam", "type": "weapon.jammed", "handler": func(event: Dictionary) -> void:
 		wear_parts(world, int(event.get("item", -1)), "jam")
 	})
+
+
+# Whether the player may work on this part where they are standing: at a bench, or with something
+# simple enough to change by hand. The check is on the *command* and not inside `attach` on
+# purpose -- `attach` is what `assemble` calls when a weapon spawns and what a save restores
+# through, and requiring a workbench for those would be absurd. This is the player's way in, which
+# is where the fiction lives: the job is not harder in a field, you just have not got your tools.
+#
+# Loaded lazily, because gunsmith.gd preloads this file and a preload cycle is a parse error.
+static func _may(world: Variant, part: int) -> bool:
+	var Gunsmith: GDScript = load("res://sim/modules/gunsmith.gd") as GDScript
+	if Gunsmith == null:
+		return true
+	return bool(Gunsmith.call("may_work", world, int(Gunsmith.call("acting", world)), part))
 
 
 ## The slot names this host declares, from its base. Empty for anything that takes no attachments.

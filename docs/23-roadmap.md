@@ -5905,6 +5905,30 @@ not a to-do list:
   back at (0, 0), which held only while nothing 1×3 was in the residential table, and it never
   checked that the put-back worked.
 
+- **Items** — ~~the gunsmithing bench is built where the boarding is~~ **landed** 2026-09-09
+  (new gate **`godot:m2:bench`**, six lanes: BUILD, CHANNEL, EXCLUSIVE, REFUSE, MODIFY, SAVE),
+  the sixth slice of the gunsmithing arc and the one that gives the whole thing a place. New
+  `sim/modules/gunsmith.gd`; the bench is a `workbench {kind}` entity built through the **same
+  E-key ladder that boards a window** — SimFortify owns the channel, so it inherits the
+  construction noise, the stagger interrupt and `_can_channel` for nothing, and it is the last
+  rung, below the trap and the bait, where a deliberate press with **3 scrap** and **160 ticks**
+  buys it. `bench.build` is the verb; `_scrap_count` is new beside `_has_scrap`, because a bench
+  costs more than one. **The bench check sits on the command, never inside
+  `SimAttachments.attach`** — `attach` is what `assemble` calls when a weapon spawns and what a
+  save restores through, and requiring a workbench for those would be absurd. It is also where
+  the fiction lives: the job is not harder in a field, you have not got your tools. What is
+  field-swappable is content — `attachment.fieldSwap`, absent meaning **no**, so a part nobody has
+  thought about is bench-only rather than silently swappable in a fight; ten parts carry it (a
+  magazine, a sight, a can on a thread, a haft wrap, a bowstring) and every barrel, action, stock
+  and axe head does not. `SimModification.apply` gains the same precondition in its own
+  `{ok, reason}` shape, which is docs/11 finally being true about the thing it has always called a
+  bench, and it closes `item.modify` on docs/23's "no way in" list alongside `item.attach` and
+  `item.detach`. Every lane carries its negative: one scrap short builds nothing, an
+  uninterrupted channel completes (or the stagger proves nothing), a colony with no bench must not
+  serialise one, and REFUSE asserts **both** halves — a barrel refused in the field *and* the same
+  barrel coming off at a bench, or "refused" would just mean the command never worked.
+  `check_mods.gd`'s fixtures gained a bench, which is a gate edit rather than a redesign.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.

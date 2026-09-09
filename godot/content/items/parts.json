@@ -36,6 +36,7 @@
     "massKg": 0.12,
     "attachment": {
       "fits": ["magazine"],
+      "fieldSwap": true,
       "structural": true,
       "wearsOn": ["reload", "jam"],
       "wearRate": 1.4
@@ -78,6 +79,7 @@
     "massKg": 0.03,
     "attachment": {
       "fits": ["string"],
+      "fieldSwap": true,
       "structural": true,
       "wearsOn": ["reload"],
       "wearRate": 2.0
@@ -120,6 +122,7 @@
     "massKg": 0.15,
     "attachment": {
       "fits": ["muzzle"],
+      "fieldSwap": true,
       "ranged": { "cone": 0.88, "noise": 1.08 },
       "wearsOn": ["shot"],
       "wearRate": 0.7
@@ -134,6 +137,7 @@
     "massKg": 0.1,
     "attachment": {
       "fits": ["muzzle"],
+      "fieldSwap": true,
       "ranged": { "flash": 0.3 },
       "wearsOn": ["shot"],
       "wearRate": 0.5
@@ -179,6 +183,7 @@
     "massKg": 0.1,
     "attachment": {
       "fits": ["magazine"],
+      "fieldSwap": true,
       "structural": true,
       "overrides": { "ranged": { "ammo": "item.ammo.22" } },
       "ranged": { "magSize": 1.25 },
