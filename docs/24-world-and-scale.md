@@ -101,6 +101,7 @@ promised in [Roads](#roads) below before any of it existed:
 | **Grass** | ×0.9 | ×0.6 | Lawns, verges, playing fields |
 | **Undergrowth** | ×0.6 | ×1.3 | Brambles and long grass. Always under [screening](28-visibility-and-sightlines.md#what-blocks-sight) |
 | **Rubble** | ×0.7 | ×1.7 | Spill from a frontage. Always under [low cover](28-visibility-and-sightlines.md#what-blocks-sight) |
+| **Water** | ×0.45 | ×1.8 | A ford, a bank, the shallow edge of a lake. The slowest and loudest ground there is |
 
 **Noise is the half that makes this a mechanic rather than a texture.** Against the
 [emitter table](03-attention.md#noise), the same walk carries 1.4 m on tarmac, 0.9 m on grass and
@@ -121,6 +122,41 @@ Two rules keep it from becoming a free lunch:
 Trees are a solid, opaque tile standing on grass, so a stand of them breaks a sightline down a
 street the way a building does — which is what gives a district somewhere to be that is neither
 indoors nor exposed.
+
+### Water
+
+**Built: the tile and the surface.** A river or a lake is the same two-array story as everything
+else here, and it costs exactly one new tile and one new surface rather than a blue variant of
+each ground:
+
+| | What is *in* the tile | What is *under* it |
+|---|---|---|
+| **Deep water** | `Tile.Water` — solid, transparent | `Surface.Water` |
+| **A ford, a bank** | `Tile.Floor` | `Surface.Water` |
+
+Deep water carries precisely the pair a **window** carries: it stops a body and it does not stop a
+sightline. So a river is a barrier you can be shot across, and a channel between you and a horde
+is safety that does not hide you. That is the interesting version, and it needed no change to the
+pathfinder or the shadowcast to get — both already answer correctly for a solid, clear tile.
+
+A **ford is an ordinary floor** standing on the water surface, which is what makes a crossing
+something you can see before you step into it, and what puts the crossing in the table above
+rather than in a special case. Wading is the slowest movement in the game and splashing is the
+loudest footstep in it: against the [emitter table](03-attention.md#noise) a walk across a ford
+carries 2.5 m where tarmac carries 1.4 m, and a *sprint* across one carries 15.5 m — most of a
+street. Crossing a river is loud, and crossing it in a hurry is very loud.
+
+Water is deliberately worse than every other ground on both axes, which does not break the "nothing
+may be strictly better than anything else" rule above: that rule forbids a free lunch, and a ford
+is the opposite of one. A ford is never weighed against walking on grass. It is weighed against
+walking all the way round, which is the only reason anybody steps in.
+
+**Water is the one ground allowed to be cool.** Every other district surface, wall, paint and prop
+is held warmer than it is cool by a mechanical sign (`r - b >= 0.02`), and water is exempted from
+it by name — the owner's amendment to
+[the Dungeon Settlers look](30-decisions.md#the-dungeon-settlers-look-2026-09-03). The exemption is
+a pin and not a hole: an exempted ground still has to be measurably *cool*, and the saturation cap
+is not exempted at all, so a river may be blue and may not be garish.
 
 ## Roads
 
@@ -232,7 +268,8 @@ footprints, no code.
   performance commitment.
 - **Procedurally generated building interiors.** Authored only — generated interiors read as noise, and
   interiors are where the game happens.
-- **Seasonal or dynamic terrain change** (flooding, collapse). Post-1.0.
+- **Seasonal or dynamic terrain change** (flooding, collapse). Post-1.0. Static water is *not* this
+  and is built — see [the ground](#water); what is cut is water that moves.
 - **Fast travel of any kind.** Contradicts the whole reason for choosing a continuous world.
 - **Underground layers / sewers / metro.** Tempting, doubles the navigation problem, deferred.
 

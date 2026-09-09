@@ -199,8 +199,14 @@ static func indoor_floor(map: Variant, tx: int, ty: int, col: Color) -> Color:
 # file cannot preload dressing.gd, which preloads it.
 const GROUND_ATLAS_KEY: String = "ground_atlas"
 const GROUND_VARIANTS: int = 4
-enum GroundRow { Paved = 0, Dirt = 1, Grass = 2, Undergrowth = 3, Rubble = 4, Sidewalk = 5, Boards = 6 }
-const GROUND_ROWS: int = 7
+# The first six rows are `SimSurface.Surface` verbatim, because `ground_row_for` below returns a
+# surface int *as* a row and that identity is the whole reason this atlas is cheap. So the two
+# painted substitutions have to sit **after** the last surface, and adding a surface moves them:
+# water arriving as Surface 5 pushed Sidewalk to 6 and Boards to 7. Before that move a water tile
+# drew the sidewalk row and `ground_row_tint` handed back the sidewalk paint -- a river paved,
+# silently, with every gate green. If a seventh surface is ever added, these two move again.
+enum GroundRow { Paved = 0, Dirt = 1, Grass = 2, Undergrowth = 3, Rubble = 4, Water = 5, Sidewalk = 6, Boards = 7 }
+const GROUND_ROWS: int = 8
 # The edge cells: eight more columns to the right of the variants, one ragged fringe per side
 # and outer corner of a tile, authored around the same row tint. In the atlas rather than on a
 # sheet of their own because the edge is blitted right after the floor it lies on, and a second

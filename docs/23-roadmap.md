@@ -158,7 +158,8 @@ the same commit. That is the whole discipline: one list of what remains, one rec
 and nothing that has to be ticked.
 
 **Waiting on the owner — decisions, not code.** Each is measured and written up; none may be
-decided unilaterally. **The full list lives in `HANDOFF.md`** (six items as of 2026-09-06: the
+decided unilaterally. **The full list lives in `HANDOFF.md`** (eleven items as of 2026-09-09; the
+newest two are the water numbers and the main area's extent, and the six of 2026-09-06 were the
 driving and weather first cuts, the free wind, the unseen-wall roof, the one-handed silhouettes,
 the forest density, and the two playable-state flips against the compressed tier's survival
 floor). The sepsis question that used to be repeated here was decided on 2026-09-06 (lethal
@@ -191,6 +192,76 @@ re-baseline the FAST balance record and say so in their record.
   past the clamp once the table opens early. Find that, re-read seed 20260805 with sight on,
   and flip the one static; the trade with the compressed tier's floor is HANDOFF's item 5.
   (Sight's flip landed with the lethality slice: `SIGHT_ENABLED` ships `true`.) Re-baseline.
+
+**The main area — the alpha's default town.** Opened by the owner on 2026-09-09: a default town
+holding a city, a forest, a factory, a river and a lake, with **procedural generation beyond it as
+the stated end goal** rather than as this work. The owner's four decisions are in
+[docs/30's water entry](30-decisions.md#water-and-the-one-cool-ground-2026-09-09) and the group's
+own: several typed districts in **one resident map** (no streaming, no district-tier simulation —
+Milestone 3B item 1 stays open and Risk 7 stays untouched), the default town pinned by a **fixed
+starting seed** rather than authored tiles, water as one tile and one surface, a river that drinks,
+and water genuinely blue. **This moves Milestone 3B items 1 and 5 into the alpha**, which is the
+owner's call and is recorded as one. The pieces, in the order they land — the first has landed:
+
+- ~~Water: the tile, the surface, and the one cool ground~~ — **landed**, see the record.
+- **The river and the lake, generated.** A `worldgen.water` layout pass at 3.5 — after `_parcels`
+  (it needs `map.streets` to know where a bridge goes), before `annex`/`_buildings`/`_sites` (or a
+  house gets built in the river) — on its own stream, from an **optional** `water` block in
+  `district.schema.json`. Bridges are *derived* from the street manifest and so cost zero draws;
+  fords cost one draw each. Two things to get right or the slice is silently wrong: `_protected_tiles`
+  must carry every water-surface tile, because `_rubble_tile` and `_wear` repaint a *surface* on a
+  Floor tile and would pave a ford; and `survivability_report` needs a `water-crossable` clause that
+  **skips loudly** on a district declaring no water. Declared only on new districts, so the three
+  shipped ones stay byte-identical — assert that rather than assume it.
+- **The river drinks.** The loop is entity-based, so this is one new placer:
+  `SimNeeds.make_water_source` / `nearest_water_source` already handle N sources by squared
+  distance, and `SimBoot` is their only caller today (guarded on the `well` anchor). Stand a bounded,
+  deterministic, evenly spaced set of sources on the bank tiles and everything downstream is already
+  correct — the Water job fills `item.water.bottle.untreated`, and `_seek_untreated`'s three rungs
+  (boil at a fire → drink dirty → the illness roll) are untouched. Grow `godot:m2:jobs`' WELL lane;
+  `well-open` must keep judging the colony's own well and must not become skippable.
+- **The factory: an industrial district and the table it fills.** `industrial` is the one unauthored
+  slot in the loot-location enum. The existing "industrial table" entry in this list assumed the
+  profile row went on a shipped district; putting it on a **new** `district.industrial_park` instead
+  leaves the suburb at 64 byte-identical, so the FAST lines do not move and there is nothing to
+  re-baseline. No new items are needed — the tree already holds the scrap, the fuel, the solvent and
+  the machine oil docs/12 names. What *does* move the harness is pulling `item.can.fuel` and
+  `item.oil.machine` out of `loot.residential`, and that is its own measured slice, not a rider on
+  this one. Streets must be **4 wide** or a `vehicles` block would be a dead socket
+  (`VEHICLE_MIN_WIDTH`), and at least two templates need an `industrial` tag — no template carries
+  one today.
+- **The region assembler.** `SimRegion.generate` calls `SimWorldgen.generate` **once per district
+  cell** and blits the result: `generate()` assumes a square map whose edge it walls and whose whole
+  area it scans, so making eleven passes rect-relative would be a rewrite that moves every layout.
+  The blit is `SimTemplates.stamp`'s shape one scale up, and it must offset every manifest — note
+  `map.streets`' axis convention, where `axis:"x"` means `at` is a *column*, so getting the offset
+  backwards silently breaks the road paint and the path pass. Per-cell seed via
+  `derive_seed(region_seed, "region.<col>.<row>.<district>")`, so **no worldgen pass changes at all**
+  and swapping one cell's type re-rolls only that cell. `generate()` gains `annex: bool = true`;
+  when false `annex_candidates` already returns `[]` on a zero footprint and `survivability_report`
+  already short-circuits, so passes 4 and 8 cost nothing — but a reserved lot *removes* a density
+  draw, so a district with no colony is not the same district minus the colony, and the identity
+  assertion must pass the same flag. The prize for this seam is the strongest assertion available:
+  **each cell's sub-rect is byte-identical to generating that district alone.**
+- **The flip: the main area is what you boot.** Two silent failures to fix in this piece, both
+  found by reading rather than by running. `SimDirector._edges_by_side` scans the outer three-tile
+  band and its first filter is `tile != Tile.Floor` — on a region map that band is the corner
+  districts' **border wall**, so the pool comes back near-empty, `_emit_packet` places nothing and
+  **every night arrives empty with no error**. Give the map a `spawn_edges` manifest on the
+  `streets`/`vehicles` precedent, written as the annex district's own inner band, with the perimeter
+  scan as the fallback for every existing map. And `wanderers_for` / `live_cap_for` read the map
+  *side*, which a region inflates with countryside — a 576-tile region would boot 180 wanderers
+  against a cap of 288. Both are pinned at 64 and 256 by three gates, so the region readings must be
+  new functions rather than edits. `SAVE_VERSION` bumps: a save carries only the seed, so it must
+  carry the region id too. **This is the piece that moves the harness** — the map, the population,
+  the cap and the director's spawn band all move at once.
+
+**Waiting on the owner in this group** (also in `HANDOFF.md`): the main area's tile extent and the
+gap between districts — docs/24's 300–500 m is a recorded argument, and a 2×2 of 256s at that gap is
+912 tiles a side, ~12.7× one district's attention field, which the measurement says is out of reach;
+**which district holds the colony**, since the owner named city, forest and factory and none of them
+is where the survivors live; and whether corridor mouths join the director's spawn band, which
+changes night pressure and therefore every measured band.
 
 **World generation — the rich district.** The sandbox arc, authorized by the owner (2026-08-25):
 docs/24's "authored templates, procedurally assembled" built for real, still in one district.
@@ -1693,6 +1764,79 @@ not a to-do list:
   documented both coexisting authoring conventions (face-on pawn, rotating rig) and said which
   applies when; the seam was owner-accepted until the roster was re-authored, which the
   2026-09-01 directives then did — one convention, true overhead, in the characters slice.
+  ~~How big the main area can be~~ **measured 2026-09-09** (a throwaway driver, deleted; no gate,
+  because it ships nothing). The one number every later piece of the main area is sized against,
+  measured rather than reasoned about. One `SimBoot.playable` world a size, 400 warm-up ticks
+  discarded and 4,000 timed:
+
+  | side | field cells | boot pop | live cap | generate | ticks/s | ms/tick | × real time | a game day |
+  |---|---|---|---|---|---|---|---|---|
+  | 64 | 256 | 20 | 32 | 0.12 s | 139.1 | 7.19 | 6.95× | 34.5 min |
+  | 128 | 1,024 | 40 | 64 | 0.36 s | 75.1 | 13.31 | 3.76× | 63.9 min |
+  | **256** | 4,096 | 80 | 128 | 1.32 s | **55.1** | 18.15 | 2.76× | 87.1 min |
+  | 384 | 9,216 | 120 | 192 | 2.98 s | 34.8 | 28.69 | 1.74× | 137.7 min |
+  | 512 | 16,384 | 160 | 256 | 5.34 s | 16.5 | 60.64 | **0.82×** | 291.1 min |
+  | 768 | 36,864 | 240 | 384 | 12.67 s | 9.2 | 108.79 | 0.46× | 522.2 min |
+
+  **The finding: `× real time` crosses 1.0 between 384 and 512.** At 512 the simulation runs at
+  0.82 of the 20 Hz clock — it cannot keep up with itself, before a frame is drawn. That is a
+  budget line in docs/00 pillar 6's sense, not a preference, and it is what sizes the main area.
+  Cost grows a little worse than area (256 → 768 is 9× the tiles and 15× the step), which is the
+  attention field: `decay()` walks every cell every tick, so field cost is O(area) and not
+  O(activity).
+
+  **Read this against the record, not instead of it.** docs/23's own 256 figure is 109 / 99 / 109
+  / 114 ticks/s and this container measures **55.1** — about half. The warm-up was added
+  specifically to test whether the gap was methodology (a short window over-weighting the first
+  shadowcast and the colony's first job plans) and it was not: 600 flat ticks gave 49.5 and a
+  warmed 4,000 gives 55.1. So **this container is roughly half the speed of whichever measured the
+  record**, every row above is a floor rather than a verdict, and the ratios between rows are the
+  part to trust. Even doubled, the 768 row reads 0.92× — still under the clock.
+
+  **What that rules out.** docs/24's region geometry — districts not touching, 300–500 m of road
+  between — puts a 2×2 of 256s at ~912 tiles a side, which is the bottom row: out of reach here and
+  marginal at twice the speed. A resident main area is therefore ~448 tiles (a 2×2 of ~192-tile
+  districts with short gaps) or ~512 (a 2×2 of 256s nearly touching), and **the gap docs/24 argues
+  for is the thing that has to give**. That argument is a written one — packed edge-to-edge a 3×3
+  spans 768 m and the player walks 800 m by week 6 — so shortening it is the owner's call and wants
+  a docs/24 amendment carrying this table as the reason. `HANDOFF.md` item 0c.
+
+  ~~Water: the tile, the surface, and the one cool ground~~ **landed 2026-09-09**
+  (`npm run godot:check:water` → `WATER_OK`, six lanes, the chain's **55th** gate; `sprites:check`
+  at 151 keys with a regrown `ground_atlas.png`). The first piece of the owner's default-town
+  session, and the only one of the five areas they named that existed nowhere — no tile, no
+  surface, no pass, no content key, no mention in docs/24. **One tile and one surface**, per
+  docs/24's two-arrays rule: deep water is `Tile.Water` (SOLID, `Opacity.Clear` — precisely the
+  pair `Tile.Window` carries) on `Surface.Water`, and a ford is an ordinary `Tile.Floor` on the
+  same surface. Measured: the ford reads **×0.45 speed and ×1.8 noise** through
+  `world.surface_speed_at` — the slowest and loudest ground in the game, so a walk across one
+  carries 2.5 m against tarmac's 1.4 m and a sprint 15.5 m. **Nothing in the pathfinder or the
+  shadowcast changed**, and the gate is what proves it rather than the claim: `SimPath.walkable`
+  refuses the channel and accepts the ford in a booted world, and a `Shadowcast.shadowcast` from
+  the same origin reaches the tile beyond a channel and not the tile beyond a wall.
+  **The bug this slice's own gate found, before anything shipped:** `Appearance.ground_row_for`
+  returns a surface int *as* an atlas row, and `GroundRow.Sidewalk` was already 5 — so
+  `Surface.Water = 5` made **every river draw as pavement**, silently, with the whole chain green.
+  Water is row 5 now, the two painted rows moved to 6 and 7, `GROUND_ROWS` is 8 and the atlas grew
+  a row (32 cells, regenerated and committed). The ROWS lane asserts the two enums agree and that
+  the paints sit outside the surface range, and it was **proved red** against the colliding order
+  before it was trusted. **The second thing a guard found:** the first water tint (`#55636b`) was
+  refused at import by `tools/sprites/palette.py`'s `guard_against_ground` — it made water the
+  brightest ground and the `fatigue_drab` pawn ramp then cleared it by 0.067 against a
+  `GROUND_CONTRAST` of 0.10. Shipped at `#424f5c`, value 0.361; a new ground is bounded from above
+  by the darkest pawn ramp, which nobody had written down.
+  **The blue is an amendment, not a hole.** `check_road_look.gd` gained `COOL_SURFACES`, which
+  judges the exempted ground with the *cool* pin rather than skipping it, plus two new negatives —
+  a warm silt must fail the cool pin and a saturated blue must fail the saturation cap, which was
+  deliberately not exempted. Water joins `COOL_FAMILY` beside the glass. The owner's call and its
+  five structural consequences are
+  [docs/30's water entry](30-decisions.md#water-and-the-one-cool-ground-2026-09-09); docs/24 now
+  carries water in its ground table and a `### Water` subsection.
+  **Balance: nothing moved, and that is the assertion.** No worldgen pass writes water yet and the
+  three shipped districts declare none, so the harness's map is untouched — `godot:validate`,
+  `npm test` (45 files / 594 tests) and `check:routing` all green, schema tile maxima 5 → 7 and
+  surface maxima 4 → 5 (the tile one was already stale: `Door = 6` shipped without raising it).
+
   ~~Ground & road dressing~~ **landed** (`godot:check:road` → `ROAD_LOOK_OK`, the chain's 40th
   gate) — the second slice of the style-B reference arc: the streets read as streets, and the
   district takes the reference's overcast grade. Four pieces, one gate.
