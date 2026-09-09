@@ -56,8 +56,11 @@ func _run() -> void:
 	ok = _a_sound_part_in_a_tired_gun_is_a_repair() and ok
 	ok = _every_required_slot_is_one_the_base_declares() and ok
 	ok = _a_headless_spear_is_a_stick() and ok
+	ok = _a_conversion_part_changes_what_the_gun_eats() and ok
+	ok = _two_parts_that_disagree_make_a_gun_nobody_can_load() and ok
+	ok = _every_override_names_something_real() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -1209,3 +1212,233 @@ func _a_headless_spear_is_a_stick() -> bool:
 
 	print("  HEADLESS OK a whole spear swings, a headless one refuses as missing:head and says \"%s\"" % said)
 	return true
+
+
+# --- OVERRIDE ---------------------------------------------------------------------------------
+#
+# A caliber is not a multiplier, so `overrides` replaces the field outright. What this lane has to
+# establish is not that the profile *says* a different round -- that is one dictionary assignment
+# -- but that firing actually **spends** that round, because a field nothing reads is the failure
+# this milestone has paid for eleven times.
+func _a_conversion_part_changes_what_the_gun_eats() -> bool:
+	var lane: String = "OVERRIDE"
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	var stock_ammo: String = _profile_ammo(w, pistol)
+	if stock_ammo != "item.ammo.9mm":
+		push_error("%s: a service pistol takes %s, so this lane starts from the wrong place" % [lane, stock_ammo])
+		return false
+	if not _swap(w, pistol, "barrel", _spawn(w, "item.part.barrel.rimfire")):
+		push_error("%s: the conversion barrel would not go on" % lane)
+		return false
+	if _profile_ammo(w, pistol) != "item.ammo.22":
+		push_error("%s: a rimfire barrel left the pistol taking %s" % [lane, _profile_ammo(w, pistol)])
+		return false
+
+	# The reader: give it only the new round and it must fire; that is `_has_ammo` and
+	# `_consume_ammo` both agreeing with the override rather than with the base.
+	var w2: Variant = _world()
+	var p2: int = _spawn(w2, PISTOL)
+	SimInventory.equip(w2, w2.player, p2)
+	if not _swap(w2, p2, "barrel", _spawn(w2, "item.part.barrel.rimfire")):
+		push_error("%s: the conversion barrel would not go on the second pistol" % lane)
+		return false
+	var small: int = SimItems.spawn_item(w2, "item.ammo.22", {"tier": "scavenged", "count": 20})
+	if not SimInventory.stow(w2, w2.player, small):
+		w2.components.set_component(small, "stored", {"container": w2.player})
+	w2.events.drain()
+	if _noise_of(w2, w2.player) <= 0.0:
+		push_error("%s: a converted pistol with the right rounds did not fire" % lane)
+		return false
+
+	# TN: the same pistol with only the round it *used* to take. If it fires on those, nothing is
+	# reading the override and the assertion above is a dictionary comparing itself.
+	var w3: Variant = _world()
+	var p3: int = _spawn(w3, PISTOL)
+	SimInventory.equip(w3, w3.player, p3)
+	if not _swap(w3, p3, "barrel", _spawn(w3, "item.part.barrel.rimfire")):
+		push_error("%s: the conversion barrel would not go on the third pistol" % lane)
+		return false
+	var big: int = SimItems.spawn_item(w3, "item.ammo.9mm", {"tier": "scavenged", "count": 20})
+	if not SimInventory.stow(w3, w3.player, big):
+		w3.components.set_component(big, "stored", {"container": w3.player})
+	w3.events.drain()
+	if _noise_of(w3, w3.player) > 0.0:
+		push_error("%s: a converted pistol fired the round it no longer takes" % lane)
+		return false
+
+	# And a replacement keyed to a field OVERRIDABLE does not name is dropped, exactly as an
+	# unknown multiplier is -- the same whitelist discipline, asked of the other table.
+	if not (SimAttachments.OVERRIDABLE["ranged"] as Array).has("ammo"):
+		push_error("%s: OVERRIDABLE no longer names ammo" % lane)
+		return false
+	if SimAttachments.OVERRIDABLE.has("melee"):
+		push_error("%s: OVERRIDABLE grew a melee table -- if something reads it, this lane needs a case; if not, it is a dead socket" % lane)
+		return false
+
+	print("  OVERRIDE OK 9mm -> .22, fires on the new round and refuses the old one")
+	return true
+
+
+# --- MISMATCH ---------------------------------------------------------------------------------
+#
+# Overrides are resolved by *agreement*, not by order. One distinct value wins however many parts
+# said it; two distinct values are a gun nobody can load, and it says so rather than silently
+# picking the alphabetically-first slot.
+#
+# The half that matters is the negative: two parts declaring the **same** round must not block. A
+# lane that only checked the disagreement would pass for a rule that blocks any two overriding
+# parts at all -- which would make the matched conversion kit, the good case, unbuildable.
+func _two_parts_that_disagree_make_a_gun_nobody_can_load() -> bool:
+	var lane: String = "MISMATCH"
+
+	# The matched set first: a conversion barrel and the magazine that feeds it.
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	if not _swap(w, pistol, "barrel", _spawn(w, "item.part.barrel.rimfire")):
+		push_error("%s: the conversion barrel would not go on" % lane)
+		return false
+	if not _swap(w, pistol, "magazine", _spawn(w, "item.part.magazine.rimfire")):
+		push_error("%s: the matching magazine would not go on" % lane)
+		return false
+	if SimAttachments.blocked_reason(w, pistol) != "":
+		push_error("%s: a barrel and a magazine that agree blocked the pistol as '%s'" % [lane, SimAttachments.blocked_reason(w, pistol)])
+		return false
+	if _profile_ammo(w, pistol) != "item.ammo.22":
+		push_error("%s: two parts agreeing on .22 gave %s" % [lane, _profile_ammo(w, pistol)])
+		return false
+
+	# Now the disagreement: a magnum cylinder in the action of a rimfire-barrelled pistol.
+	var w2: Variant = _world()
+	var p2: int = _armed_pistol(w2)
+	if not _swap(w2, p2, "barrel", _spawn(w2, "item.part.barrel.rimfire")):
+		push_error("%s: the conversion barrel would not go on the second pistol" % lane)
+		return false
+	if not _swap(w2, p2, "internal", _spawn(w2, "item.part.internal.magnum")):
+		push_error("%s: the magnum cylinder would not go in" % lane)
+		return false
+	if SimAttachments.blocked_reason(w2, p2) != "mismatch:ammo":
+		push_error("%s: a .22 barrel and a .38 cylinder blocked as '%s'" % [lane, SimAttachments.blocked_reason(w2, p2)])
+		return false
+	if SimRanged.can_fire(w2, w2.player):
+		push_error("%s: a mismatched pistol reports that it can fire" % lane)
+		return false
+	if _noise_of(w2, w2.player) > 0.0:
+		push_error("%s: a mismatched pistol fired anyway" % lane)
+		return false
+	var said: String = SimAttachments.refusal_clause(w2, w2.player)
+	if said.is_empty():
+		push_error("%s: a mismatched weapon says nothing to the player" % lane)
+		return false
+
+	# Order-independence, stated rather than assumed: fit them the other way round and get the
+	# same answer. This is what "by agreement, not by order" buys and it is one line to check.
+	var w3: Variant = _world()
+	var p3: int = _armed_pistol(w3)
+	if not _swap(w3, p3, "internal", _spawn(w3, "item.part.internal.magnum")):
+		push_error("%s: the magnum cylinder would not go in first" % lane)
+		return false
+	if not _swap(w3, p3, "barrel", _spawn(w3, "item.part.barrel.rimfire")):
+		push_error("%s: the conversion barrel would not go on second" % lane)
+		return false
+	if SimAttachments.blocked_reason(w3, p3) != "mismatch:ammo":
+		push_error("%s: fitting the same two parts in the other order gave '%s'" % [lane, SimAttachments.blocked_reason(w3, p3)])
+		return false
+
+	# The `jams` half of OVERRIDABLE, or it is a whitelist entry nothing exercises.
+	var w4: Variant = _world()
+	var p4: int = _armed_pistol(w4)
+	(w4.components.get_component(p4, "condition") as Dictionary)["current"] = 0.3
+	SimItems.refresh_armed(w4, p4)
+	var jumpy: float = float((SimItems.ranged_profile_of(w4, p4) as Dictionary).get("jamChance", 0.0))
+	if jumpy <= 0.0:
+		push_error("%s: a worn pistol has no jam chance, so the match action proves nothing" % lane)
+		return false
+	if not _swap(w4, p4, "internal", _spawn(w4, "item.attach.internal.match")):
+		push_error("%s: the match action would not go in" % lane)
+		return false
+	var built: Dictionary = SimItems.ranged_profile_of(w4, p4) as Dictionary
+	if bool(built.get("jams", true)):
+		push_error("%s: a match action left the pistol still able to jam" % lane)
+		return false
+	if float(built.get("jamChance", 1.0)) != 0.0:
+		push_error("%s: jams went false and jamChance stayed %.4f -- the re-derivation after the fold is missing" % [lane, float(built.get("jamChance", 1.0))])
+		return false
+
+	print("  MISMATCH OK a matched kit works, .22 against .38 blocks either way round, and a match action zeroes a %.2f jam chance" % jumpy)
+	return true
+
+
+# --- NAMES ------------------------------------------------------------------------------------
+#
+# An override naming a round that does not exist is a weapon that can never be loaded, and the
+# validator cannot see inside `overrides` to say so.
+func _every_override_names_something_real() -> bool:
+	var lane: String = "NAMES"
+	var w: Variant = _world()
+	var bases: Dictionary = {}
+	for entry_v in SimItems.content_entries(w, "item"):
+		bases[String((entry_v as Dictionary).get("id", ""))] = entry_v
+	var droppable: Dictionary = _loot_ids()
+	var declared: int = 0
+	var fields: Dictionary = {}
+	for id_v in bases.keys():
+		var spec: Variant = (bases[id_v] as Dictionary).get("attachment")
+		if not spec is Dictionary:
+			continue
+		var block: Variant = (spec as Dictionary).get("overrides")
+		if not block is Dictionary:
+			continue
+		for kind_v in (block as Dictionary).keys():
+			var kind: String = String(kind_v)
+			if not SimAttachments.OVERRIDABLE.has(kind):
+				push_error("%s: %s overrides a '%s' profile, which OVERRIDABLE does not name" % [lane, String(id_v), kind])
+				return false
+			for field_v in ((block as Dictionary)[kind] as Dictionary).keys():
+				var field: String = String(field_v)
+				if not (SimAttachments.OVERRIDABLE[kind] as Array).has(field):
+					push_error("%s: %s overrides %s.%s, which is not overridable" % [lane, String(id_v), kind, field])
+					return false
+				fields[field] = true
+				declared += 1
+				if field != "ammo":
+					continue
+				var round_id: String = String(((block as Dictionary)[kind] as Dictionary)[field])
+				if not bases.has(round_id):
+					push_error("%s: %s converts to %s, which is not a shipped base" % [lane, String(id_v), round_id])
+					return false
+				if not droppable.has(round_id):
+					push_error("%s: %s converts to %s, which is in no loot table -- a caliber nobody can find" % [lane, String(id_v), round_id])
+					return false
+	if declared == 0:
+		push_error("%s: nothing shipped declares an override, so OVERRIDABLE is read by no content" % lane)
+		return false
+	for field_v in SimAttachments.OVERRIDABLE["ranged"]:
+		if not fields.has(String(field_v)):
+			push_error("%s: OVERRIDABLE names ranged.%s and no shipped part replaces it" % [lane, String(field_v)])
+			return false
+
+	print("  NAMES OK %d overrides across %d fields, every caliber shipped and findable" % [declared, fields.size()])
+	return true
+
+
+func _profile_ammo(w: Variant, weapon: int) -> String:
+	var p: Variant = SimItems.ranged_profile_of(w, weapon)
+	return String((p as Dictionary).get("ammo", "")) if p is Dictionary else ""
+
+
+## Every item id any loot table can yield. The same walk the CONTENT lane does, lifted out so the
+## NAMES lane can ask the findability question about a caliber rather than about a part.
+func _loot_ids() -> Dictionary:
+	var droppable: Dictionary = {}
+	var tree: Dictionary = ContentLoader.load_tree()
+	for path in tree.keys():
+		if not String(path).begins_with("loot/"):
+			continue
+		var value: Variant = tree[path]
+		if not value is Array:
+			continue
+		for table_v in value as Array:
+			for entry_v in (table_v as Dictionary).get("entries", []) as Array:
+				droppable[String((entry_v as Dictionary).get("item", ""))] = true
+	return droppable

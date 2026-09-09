@@ -292,6 +292,10 @@
       {
         "item": "item.part.haft.standard",
         "weight": 5
+      },
+      {
+        "item": "item.part.magazine.rimfire",
+        "weight": 2
       }
     ]
   },
@@ -616,6 +620,14 @@
       {
         "item": "item.attach.muzzle.flash_hider",
         "weight": 2
+      },
+      {
+        "item": "item.part.barrel.rimfire",
+        "weight": 3
+      },
+      {
+        "item": "item.part.magazine.rimfire",
+        "weight": 3
       }
     ]
   },
@@ -985,6 +997,14 @@
       {
         "item": "item.attach.internal.tuned",
         "weight": 2
+      },
+      {
+        "item": "item.part.internal.magnum",
+        "weight": 3
+      },
+      {
+        "item": "item.attach.internal.match",
+        "weight": 1
       }
     ]
   },
@@ -1157,6 +1177,10 @@
       {
         "item": "item.attach.internal.tuned",
         "weight": 1
+      },
+      {
+        "item": "item.part.barrel.rimfire",
+        "weight": 2
       }
     ]
   }

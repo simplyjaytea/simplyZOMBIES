@@ -49,6 +49,23 @@ const SCALABLE: Dictionary = {
 	"ranged": ["damage", "noise", "flash", "magSize", "reloadTicks", "rangeMetres", "cone"],
 }
 
+# Profile fields a part may *replace* rather than scale, per kind. A multiplier cannot express a
+# caliber -- `ammo` is a base id and `jams` is a boolean -- so this is the narrow exception to
+# "multipliers, never adders", with its own whitelist for the same reason SCALABLE has one.
+#
+# There is deliberately no "melee" key: an empty array would be a socket the gate then had to
+# excuse by name. Add one when something melee needs replacing rather than scaling.
+#
+# **Resolved by agreement, not by order.** Every part that names a field is collected; one
+# distinct value wins however many parts said it (a matched set -- a conversion barrel and the
+# magazine that feeds it), and two distinct values are a *mismatch* that blocks the weapon
+# outright. Slot-sorted last-wins was the alternative and it is worse: it makes the answer a
+# function of the alphabet, so `barrel` would silently beat `internal` for a reason no player
+# could ever learn. This rule is order-independent by construction rather than by convention.
+const OVERRIDABLE: Dictionary = {
+	"ranged": ["ammo", "jams"],
+}
+
 # What a part can declare it wears from, as a vocabulary the content picks words out of. The same
 # arrangement as SCALABLE one level out, and for the same reason: a typo in `wearsOn` must not be
 # indistinguishable from a part that never wears. Not a slot-to-event table in code, because the
@@ -360,6 +377,13 @@ static func fold(world: Variant, host: int, kind: String, profile: Dictionary) -
 				profile[field] = maxi(1, int(round(float(current) * factor)))
 			else:
 				profile[field] = float(current) * factor
+	# Replacements last, and only where the parts agree. A field two parts disagree about keeps
+	# the base's own value and blocks the weapon instead -- see blocked_reason -- because guessing
+	# which part wins would be a rule with no way for a player to learn it.
+	for field_v in overrides_for(world, host, kind).keys():
+		var values: Array = overrides_for(world, host, kind)[field_v] as Array
+		if values.size() == 1:
+			profile[String(field_v)] = values[0]
 	return profile
 
 
@@ -454,6 +478,53 @@ const SLOT_NOUN: Dictionary = {
 }
 
 
+## Every override this host's parts declare for one kind, as {field: [distinct values]}. Values are
+## kept in a plain Array and compared by their string form, because a distinct-value set must not
+## depend on the order the parts were read in.
+static func overrides_for(world: Variant, host: int, kind: String) -> Dictionary:
+	var allowed: Array = OVERRIDABLE.get(kind, []) as Array
+	var out: Dictionary = {}
+	if allowed.is_empty():
+		return out
+	for rec in parts_of(world, host):
+		var block: Variant = ((rec as Dictionary)["spec"] as Dictionary).get("overrides")
+		if not block is Dictionary:
+			continue
+		var table: Variant = (block as Dictionary).get(kind)
+		if not table is Dictionary:
+			continue
+		for key in (table as Dictionary).keys():
+			var field: String = String(key)
+			if not allowed.has(field):
+				continue
+			var value: Variant = (table as Dictionary)[field]
+			if not out.has(field):
+				out[field] = []
+			var known: Array = out[field] as Array
+			var seen: bool = false
+			for v in known:
+				if str(v) == str(value):
+					seen = true
+					break
+			if not seen:
+				known.append(value)
+	return out
+
+
+## Fields two fitted parts disagree about, sorted. A conversion barrel that takes one round and a
+## cylinder that takes another is a weapon nobody can load, and saying so is better than picking
+## one and leaving the player to work out why the ammunition vanishes.
+static func override_conflicts(world: Variant, host: int) -> Array[String]:
+	var bad: Array[String] = []
+	for kind in OVERRIDABLE.keys():
+		var table: Dictionary = overrides_for(world, host, String(kind))
+		for field in table.keys():
+			if (table[field] as Array).size() > 1:
+				bad.append(String(field))
+	bad.sort()
+	return bad
+
+
 ## Why this weapon does not work, or `""` when it does. One computation, one field on the profile,
 ## read by every path that can start an attack -- see SimRanged.can_fire. A reason id rather than a
 ## sentence, because prose about a weapon belongs to the screen and this is sim state.
@@ -463,10 +534,13 @@ static func blocked_reason(world: Variant, host: int) -> String:
 	for slot in required_slots_of(world, host):
 		if not fitted.has(String(slot)):
 			missing.append(String(slot))
-	if missing.is_empty():
-		return ""
-	missing.sort()
-	return "missing:%s" % String(missing[0])
+	if not missing.is_empty():
+		missing.sort()
+		return "missing:%s" % String(missing[0])
+	var clash: Array[String] = override_conflicts(world, host)
+	if not clash.is_empty():
+		return "mismatch:%s" % clash[0]
+	return ""
 
 
 ## One sentence about the weapon in this entity's hands that will not work, or "" when both do.
@@ -479,7 +553,11 @@ static func refusal_clause(world: Variant, entity: int) -> String:
 		if not w is Dictionary:
 			continue
 		var reason: String = String((w as Dictionary).get("blocked", ""))
-		if reason == "" or not reason.begins_with("missing:"):
+		if reason == "":
+			continue
+		if reason.begins_with("mismatch:"):
+			return "Nothing in it will chamber the same round."
+		if not reason.begins_with("missing:"):
 			continue
 		var slot: String = reason.substr("missing:".length())
 		var noun: String = String(SLOT_NOUN.get(slot, ""))

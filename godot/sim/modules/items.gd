@@ -448,7 +448,16 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		"source": item,
 		"blocked": String(_Attachments().call("blocked_reason", world, item)),
 	}
-	return _Attachments().call("fold", world, item, "ranged", profile)
+	var built: Dictionary = _Attachments().call("fold", world, item, "ranged", profile) as Dictionary
+	# `jamChance` was derived above, from the base's own `jams`. A part may *replace* `jams` --
+	# a match action that will not stovepipe -- and the fold runs after, so the chance would be
+	# left describing a weapon that no longer exists. Re-derived here rather than inside `fold`,
+	# which has no business knowing that two of these fields are related.
+	if not bool(built.get("jams", false)):
+		built["jamChance"] = 0.0
+	elif float(built.get("jamChance", 0.0)) <= 0.0:
+		built["jamChance"] = jam_chance(world, item)
+	return built
 
 # ---- affixes ----
 

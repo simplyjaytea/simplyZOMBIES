@@ -159,6 +159,18 @@
           "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
           "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
         },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Profile fields this part *replaces* rather than scales, per kind, against sim/modules/attachments.gd's OVERRIDABLE whitelist. A multiplier cannot express a caliber, so `ammo` and `jams` are the narrow exception to \"multipliers, never adders\". Resolved by agreement, not by order: one distinct value wins however many parts declare it, and two distinct values block the weapon outright -- a conversion barrel and a cylinder that take different rounds make a gun nobody can load. Only `ranged` exists; a `melee` key would be a socket nothing reads.",
+          "properties": {
+            "ranged": {
+              "type": "object",
+              "additionalProperties": { "type": ["string", "boolean"] },
+              "description": "Replacement values keyed by profile field: `ammo` (an item base id) and `jams` (a boolean)."
+            }
+          }
+        },
         "structural": {
           "type": "boolean",
           "description": "Whether the host is made of this part rather than merely carrying it. A structural part's own condition drags the whole assembly down -- SimItems.assembly_condition takes the worst of the host and its structural parts -- which is what makes swapping a worn barrel for a good one a repair. An optic or a suppressor is not structural: as it wears it simply does less, per effect_scale. A part may be structural and still declare multipliers; a long barrel is both."

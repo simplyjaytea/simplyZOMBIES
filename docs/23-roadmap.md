@@ -5877,6 +5877,34 @@ not a to-do list:
   right answer for the wrong reason. The true negative caught it; the publish-only-queues trap
   caught the gate rather than the code, which is the way round CLAUDE.md warns is worst.
 
+- **Items** — ~~two parts that disagree about the ammunition make a gun that will not fire~~
+  **landed** 2026-09-09 (`godot:m2:attach` grows **OVERRIDE**, **MISMATCH** and **NAMES**), the
+  fifth slice of the gunsmithing arc: caliber conversion. A multiplier cannot express a caliber, so
+  `attachment.overrides` **replaces** a profile field outright, against an `OVERRIDABLE` whitelist
+  that mirrors `SCALABLE` — `{"ranged": ["ammo", "jams"]}`, with no `melee` key, because an empty
+  array would be a socket the gate then had to excuse by name. **Resolved by agreement, not by
+  order**: one distinct value wins however many parts declare it, and two distinct values *block*
+  the weapon. Slot-sorted last-wins was the alternative and it is worse — it makes the answer a
+  function of the alphabet, so `barrel` would beat `internal` for a reason no player could learn;
+  agreement is order-independent by construction, which MISMATCH asserts by fitting the same two
+  parts both ways round and demanding the same answer. **Four new bases**, 125 → **129**: a rimfire
+  conversion barrel and the magazine that feeds it (a matched kit, the good case), a magnum
+  cylinder (the one that disagrees with it), and a match action that replaces `jams` outright and
+  will not stovepipe. One ordering coupling had to be fixed *outside* `fold`, which has no business
+  knowing two fields are related: `jamChance` is derived before the fold from the base's own
+  `jams`, so a part replacing `jams` left it describing a weapon that no longer exists.
+  **OVERRIDE**'s assertion is not that the profile *says* a different round but that firing
+  **spends** it — a converted pistol fires on .22 and refuses 9mm, which is the dead-socket
+  question asked of the one field that could most easily have been written and never read.
+  **MISMATCH**'s true negative is the half that matters: two parts agreeing must **not** block, or
+  the rule blocks any two overriding parts and the conversion kit is unbuildable. **NAMES** checks
+  what the shallow validator cannot see inside `overrides` — every caliber named is a shipped base
+  and findable in loot, and every field `OVERRIDABLE` names is replaced by something shipped. Both
+  halves turn red under the obvious wrong implementations. `check_loot.gd`'s container lane was
+  made size- and cell-independent in the same commit: it took the cupboard's first item and put it
+  back at (0, 0), which held only while nothing 1×3 was in the residential table, and it never
+  checked that the put-back worked.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.
