@@ -89,5 +89,16 @@
     "massKg": 0.3,
     "equipSlot": "vest",
     "container": {"w": 6, "h": 1}
+  },
+  {
+    "id": "item.duffel.canvas",
+    "name": "Canvas Duffel",
+    "description": "A long canvas duffel with a shoulder strap. It swallows a great deal and hangs badly while it does.",
+    "class": "container",
+    "size": {"w": 4, "h": 3},
+    "massKg": 0.9,
+    "equipSlot": "back",
+    "appearance": {"equipSprite": "item_duffel_canvas_equip", "equipSpriteFront": "item_duffel_canvas_equip_front"},
+    "container": {"w": 6, "h": 6}
   }
 ]

@@ -134,5 +134,47 @@
     "massKg": 1.6,
     "equipSlot": "feet",
     "armor": {"foot_left": 0.65, "foot_right": 0.65}
+  },
+  {
+    "id": "item.apron.welding",
+    "name": "Welding Apron",
+    "description": "A split leather apron off a workshop peg. Heavy, stiff, and it does not care what bites it.",
+    "class": "armor",
+    "size": {"w": 2, "h": 3},
+    "massKg": 2.8,
+    "equipSlot": "torso",
+    "appearance": {"equipSprite": "item_apron_welding_equip"},
+    "armor": {"torso": 0.65, "arm_left": 0.45, "arm_right": 0.45}
+  },
+  {
+    "id": "item.helmet.hardhat",
+    "name": "Hard Hat",
+    "description": "A site hard hat with a cracked brim. It was made for things falling, not for things biting.",
+    "class": "armor",
+    "size": {"w": 2, "h": 2},
+    "massKg": 0.35,
+    "equipSlot": "head",
+    "appearance": {"equipSprite": "item_helmet_hardhat_equip"},
+    "armor": {"head": 0.35}
+  },
+  {
+    "id": "item.vest.riot",
+    "name": "Riot Vest",
+    "description": "A padded riot vest with the plates still in it. Somebody stopped needing it.",
+    "class": "armor",
+    "size": {"w": 3, "h": 3},
+    "massKg": 3.4,
+    "equipSlot": "vest",
+    "armor": {"torso": 0.75, "arm_left": 0.4, "arm_right": 0.4}
+  },
+  {
+    "id": "item.gloves.mesh",
+    "name": "Mesh Gloves",
+    "description": "A butcher's steel mesh gloves. Nothing gets a tooth through the weave.",
+    "class": "armor",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.35,
+    "equipSlot": "gloves",
+    "armor": {"hand_left": 0.8, "hand_right": 0.8}
   }
 ]

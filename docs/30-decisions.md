@@ -3354,6 +3354,52 @@ water and are byte-identical; and the frozen TypeScript oracle, whose `Tile` sto
 and already lacked `Door = 6` — the oracle is not a party to the tile enum, though it does still
 validate the map schema, whose tile and surface maxima grew.
 
+## The second gear catalogue, and the four slots nothing fitted, 2026-09-09
+
+The owner asked for more items — usable, weapons, and the rest — and shaped the slice in two
+answers: **breadth plus the empty attachment slots**, and **a generated overlay for everything
+held**. Twenty-five bases landed. The catalogue half is the 2026-09-06 slice again and needs no
+new reasoning; four calls that are not obvious are written down here.
+
+- **Four attachment slots were declared by shipped weapons and nothing in the world fitted them,
+  and the fix is data, not code.** `haft` was named by six melee bases, `furniture` by three
+  firearms, `limb` and `string` by the bow, and no shipped attachment fitted any of the four —
+  a dead socket of exactly the shape this milestone keeps paying for, sitting open since
+  attachments landed. `SimAttachments.SCALABLE` already permitted every field the five new
+  attachments needed, so nothing in the module changed: the long haft, the recoil pad, the heavy
+  limbs, the fast-flight string and the long barrel are five JSON objects. That is docs/10's
+  "adding a new attachment slot type is a data edit plus a line in the slot-compatibility table"
+  collecting on its promise, in the direction where the table already had the line.
+- **The gate asks both directions now, because it only ever asked one.** `check_m2_attach`'s
+  CONTENT lane has always asserted that every attachment reaches a host — a `fits` naming a slot
+  no base declares is refused. It never asked the reverse, and the reverse is where the four dead
+  sockets lived. **HOSTS** asserts every slot a shipped base declares has something that fits it.
+  **SCALES** asks the same question of the code side: every field in `SimAttachments.SCALABLE`
+  must be scaled by some shipped attachment, which caught `melee.reachMetres` and
+  `ranged.rangeMetres` — both listed since attachments landed, both multiplied by nothing. Each
+  lane was run against the content with one attachment removed and named exactly the socket that
+  reopened, so neither is a gate that cannot fail.
+- **The revolver does not jam, and every other firearm does.** `ranged.jams` is authored per base
+  and the chance is derived from condition, never authored (the 2026-09-06 entry). A snub
+  revolver with `jams: false` is the first firearm to decline it, and it is a real mechanical
+  claim rather than flavour: a revolver has nothing to stovepipe, which is the same reasoning the
+  flag's docstring already gives for the bow. It pays for it in rounds and reload — six, and the
+  slowest of any handgun here — so "the gun that never fails you" is not also the best gun.
+- **Dog food is the first food priced in mood rather than in hunger.** docs/04 says quality
+  matters, not just quantity, and every shipped food has agreed with its own hunger number. A tin
+  that keeps forever, fills a third of the bar and costs twelve mood is the first entry where the
+  right call is sometimes to eat it anyway — which is the decision the mood field exists to
+  create, and it needed no code because `food.mood` has been read since the block landed.
+
+**Deliberately not in this slice**, named rather than left looking finished: attachment condition
+(docs/10's "suppressors wear out fast" is still open, and the five new ones wear no faster than
+the five old); armour attachment slots (docs/10 gives body armour plate/lining/pocket and headgear
+face/light mount, and no armour base declares `slots` at all — `attachment` has no `armor`
+multiplier table, so that one is code); the five ranged **affixes** docs/10 names, which stay
+unauthored because `noise_emission` and `condition_loss` resolve to nothing outside the stat
+registry and authoring them now would ship five dead affixes to fix four dead slots; and named
+items, which need a fifth tier in `SimItems.TIERS` and a fixed-roll path.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

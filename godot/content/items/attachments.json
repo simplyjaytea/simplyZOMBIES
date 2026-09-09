@@ -58,5 +58,65 @@
       "fits": ["head", "edge"],
       "melee": { "damage": 1.25, "speed": 0.85, "staggerTicks": 1.3 }
     }
+  },
+  {
+    "id": "item.attach.haft.long",
+    "name": "Extended Haft",
+    "description": "A longer haft, spliced on and bound tight. The swing reaches further and comes back slower.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.3,
+    "attachment": {
+      "fits": ["haft"],
+      "melee": { "reachMetres": 1.15, "speed": 0.88 }
+    }
+  },
+  {
+    "id": "item.attach.furniture.pad",
+    "name": "Recoil Pad",
+    "description": "A rubber pad shaped to a shoulder. The barrel wanders less and the reload snags on it.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.2,
+    "attachment": {
+      "fits": ["furniture"],
+      "ranged": { "cone": 0.85, "reloadTicks": 1.08 }
+    }
+  },
+  {
+    "id": "item.attach.limb.heavy",
+    "name": "Heavy Limbs",
+    "description": "Stiff limbs off a heavier bow. They put far more behind the shot and they fight the draw.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.5,
+    "attachment": {
+      "fits": ["limb"],
+      "ranged": { "damage": 1.3, "reloadTicks": 1.35 }
+    }
+  },
+  {
+    "id": "item.attach.string.fast",
+    "name": "Fast-Flight String",
+    "description": "A thin waxed string. It sheds the shaft quicker and puts less weight behind it.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.05,
+    "attachment": {
+      "fits": ["string"],
+      "ranged": { "reloadTicks": 0.85, "damage": 0.92 }
+    }
+  },
+  {
+    "id": "item.attach.barrel.long",
+    "name": "Long Barrel",
+    "description": "A longer barrel, threaded on. It carries much further and it is heard doing it.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.6,
+    "attachment": {
+      "fits": ["barrel"],
+      "ranged": { "rangeMetres": 1.3, "noise": 1.12, "cone": 0.9 }
+    }
   }
 ]
