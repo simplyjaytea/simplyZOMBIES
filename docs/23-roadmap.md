@@ -287,7 +287,6 @@ than here.
   ceiling on every repair; what is open is the cost of invoking it.
 - **Attachments meet the attention field.** An optic useless in the dark; a weapon light that is a
   real light source and therefore a real emitter.
-- **An attachment-fitting screen.** `item.attach` / `item.detach` work and have no surface.
 - **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
   in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
   bed beats a cot; content would carry the difference once more than one kind of bed exists.
@@ -5928,6 +5927,37 @@ not a to-do list:
   serialise one, and REFUSE asserts **both** halves — a barrel refused in the field *and* the same
   barrel coming off at a bench, or "refused" would just mean the command never worked.
   `check_mods.gd`'s fixtures gained a bench, which is a gate edit rather than a redesign.
+
+- **Items** — ~~an attachment-fitting screen~~ **landed** 2026-09-09 (`godot:m2:bench` grows
+  **POLARITY**, **VIEW** and **PANEL**; `godot:check:inventory`'s COMMANDS lane grows a `modify`
+  arm), the seventh slice of the gunsmithing arc and the one docs/23 has carried since attachments
+  landed: *"`item.attach` / `item.detach` work and have no surface."* They have one.
+  `ui/bench_panel.gd` is two columns — what is in the weapon, and what in the pack would go in
+  instead — opened by **E at a bench**, on the ladder rather than on a key of its own, for the
+  reason the car was (docs/30, "Driving"): the sim decides what E means where you are standing.
+  The panel is told it is open by `benchFocus` on the survivor, and **walking away closes it**,
+  the rule `SimContainers` already follows for a box. `verbs_for` gains `modify`, offered only for
+  something that comes apart and only at a bench, which is the "absent, never greyed" rule.
+  **The comparison is words and a direction, never a magnitude.** `POLARITY` lives in the sim
+  beside `SCALABLE` — a panel owning it would be presentation deciding what a number means — and
+  `compare_view` returns `{field, word, change}` where change is "better", "worse" or "different";
+  the panel turns that into ▲ ▼ ↔ with the word beside it, in case the chrome font is missing the
+  glyph. There is **no delta in the view to print**, so digit-free is structural rather than a
+  discipline. `compare_view` computes rather than simulates: attaching a candidate to see what
+  happens would mutate the world inside a read model, and the fold is multiplicative, so the ratio
+  between the two parts' own contributions is the whole answer. A caliber is `"different"` —
+  neither an upgrade nor a downgrade, and saying otherwise would be the screen inventing an
+  opinion. **POLARITY** needs no fixture for its core: ask `better` about every field in both
+  directions and require the answers to differ and match the sign — a true positive and a true
+  negative for every field at once, in arithmetic — plus both directions of the whitelist and a
+  fabricated field the predicate must have no opinion about. **VIEW** holds `bench_view` to the
+  condition view's rule in its strictest form: an explicit key allowlist, and integers only under
+  the four named handles the screen hands straight back on a command; its negatives are a
+  fabricated `"worn 40%"` and a fabricated numeric field. **PANEL** is the dead-socket question
+  asked of the surface — E opens it, a strip and a fit each move the world, walking away closes
+  it — plus the textual half that the panel *draws* `bench_view` and pushes `item.attach` /
+  `item.detach` while calling no profile builder, no fold and no condition factor. It computes
+  nothing.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

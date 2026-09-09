@@ -88,6 +88,7 @@ var _paperdoll: Control = null
 var _dashboard: Control = null
 var _settings: Control = null
 var _debug_panel: Control = null
+var _bench_panel: Control = null
 var _selected: int = -1
 
 # paperdoll glimpse state (bottom-right diagram, not world sprite)
@@ -403,6 +404,15 @@ func _ensure_ui() -> void:
 		_dashboard.visible = false
 		layer.add_child(_dashboard)
 	# debug spawn menu (F8) -- dev tooling beside the M raw sheet
+	# The gunsmithing bench. The sim decides when it is open -- `benchFocus` on the survivor, set
+	# by E at a bench -- so this only ever asks the read model whether there is anything to draw.
+	var bench_script: GDScript = load("res://ui/bench_panel.gd") as GDScript
+	if bench_script != null:
+		_bench_panel = bench_script.new() as Control
+		_bench_panel.visible = false
+		_bench_panel.position = Vector2(320, 140)
+		_bench_panel.size = Vector2(960, 620)
+		layer.add_child(_bench_panel)
 	var debug_script: GDScript = load("res://ui/debug_panel.gd") as GDScript
 	if debug_script != null:
 		_debug_panel = debug_script.new() as Control
@@ -448,6 +458,8 @@ func _input(event: InputEvent) -> void:
 				# recently opened, and closing it is what walking away would have done.
 				if _legend != null and _legend.visible:
 					_legend.visible = false
+				elif world != null and _bench_panel != null and _bench_panel.visible:
+					world.commands.push({"type": "bench.close"})
 				elif world != null and _inventory_panel != null and _inventory_panel.has_method("loot_open") and bool(_inventory_panel.call("loot_open")):
 					world.commands.push({"type": "container.close"})
 				elif _settings != null:
@@ -846,6 +858,11 @@ func _update_hud() -> void:
 		_inventory_panel.call("set_loot", SimContainers.open_view(world, world.player))
 	if _inventory_panel != null and _inventory_panel.has_method("set_world"):
 		_inventory_panel.call("set_world", world, world.player)
+	# The bench asks the sim whether it is open, every frame, rather than being told by a key --
+	# `benchFocus` is set by E at a bench and cleared when the survivor walks away, so a screen
+	# about a place you are no longer standing in closes itself.
+	if _bench_panel != null and _bench_panel.has_method("set_world"):
+		_bench_panel.call("set_world", world, world.player)
 
 func _draw() -> void:
 	if world == null: return

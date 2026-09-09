@@ -44,8 +44,11 @@ func _run() -> void:
 	ok = _structural_work_wants_the_bench_and_a_magazine_does_not() and ok
 	ok = _the_affix_bench_is_the_same_bench() and ok
 	ok = _a_bench_survives_a_save() and ok
+	ok = _every_field_has_a_direction_and_the_direction_is_read() and ok
+	ok = _the_screen_is_handed_words_and_handles_and_nothing_else() and ok
+	ok = _the_panel_pushes_what_the_sim_answers() and ok
 	if ok:
-		print("M2_BENCH_OK build channel exclusive refuse modify save")
+		print("M2_BENCH_OK build channel exclusive refuse modify save polarity view panel")
 		quit(0)
 	else:
 		push_error("M2_BENCH_FAIL")
@@ -63,6 +66,7 @@ func _world() -> Variant:
 	SimAttachments.register_module(w)
 	SimFortify.register_module(w)
 	SimModification.register_module(w)
+	SimGunsmith.register_module(w)
 	w.components.set_component(w.player, "facing", {"radians": 0.0})
 	SimHealth.make_survivor_body(w, w.player)
 	SimHealth.make_stamina(w, w.player)
@@ -346,4 +350,229 @@ func _a_bench_survives_a_save() -> bool:
 		return false
 
 	print("  SAVE OK the bench and its kind are in the snapshot; a colony without one is not")
+	return true
+
+
+# --- POLARITY ---------------------------------------------------------------------------------
+#
+# The screen says "better" and "worse", so something has to know which way is up for every field a
+# part can move. Both directions of the whitelist, the SCALES pattern -- a field that can be scaled
+# with no polarity would draw an arrow pointing the wrong way, and a polarity for a field nothing
+# scales is a dead socket in the other direction.
+#
+# The third check needs no fixture at all: ask `better` about every field in both directions and
+# require the two answers to differ and to match the sign. That is a true positive and a true
+# negative for every field at once, in arithmetic.
+func _every_field_has_a_direction_and_the_direction_is_read() -> bool:
+	var lane: String = "POLARITY"
+	for kind_v in SimAttachments.SCALABLE.keys():
+		var kind: String = String(kind_v)
+		var scalable: Array = SimAttachments.SCALABLE[kind] as Array
+		var polarity: Dictionary = SimAttachments.POLARITY.get(kind, {}) as Dictionary
+		var words: Dictionary = SimAttachments.FIELD_WORD.get(kind, {}) as Dictionary
+		for field_v in scalable:
+			var field: String = String(field_v)
+			if not polarity.has(field):
+				push_error("%s: %s.%s can be scaled and has no direction" % [lane, kind, field])
+				return false
+			if not words.has(field):
+				push_error("%s: %s.%s has a direction and no word for the screen" % [lane, kind, field])
+				return false
+			var up: bool = SimAttachments.better(kind, field, 1.0, 2.0)
+			var down: bool = SimAttachments.better(kind, field, 2.0, 1.0)
+			if up == down:
+				push_error("%s: %s.%s answers '%s' in both directions" % [lane, kind, field, str(up)])
+				return false
+			if up != (int(polarity[field]) > 0):
+				push_error("%s: %s.%s says more is %s and its polarity is %d" % [lane, kind, field, "better" if up else "worse", int(polarity[field])])
+				return false
+		for field_v2 in polarity.keys():
+			if not scalable.has(String(field_v2)):
+				push_error("%s: %s.%s has a direction and nothing scales it" % [lane, kind, String(field_v2)])
+				return false
+	# TN: the predicate must say no about a field it has never heard of, or the loop above is
+	# satisfied by a `better` that returns true for everything.
+	if SimAttachments.better("ranged", "gate.nosuchfield", 1.0, 2.0):
+		push_error("%s: better() has an opinion about a field that does not exist" % lane)
+		return false
+	# And the words must reach the screen: a comparison of two real parts has to come back
+	# carrying them, or FIELD_WORD is a table nothing reads.
+	var w: Variant = _world()
+	var pistol: int = SimItems.spawn_item(w, PISTOL, {"tier": "scavenged"})
+	var changes: Array = SimAttachments.compare_view(w, pistol, "barrel", SimItems.spawn_item(w, LONG_BARREL, {"tier": "scavenged"}))
+	if changes.is_empty():
+		push_error("%s: swapping a standard barrel for a long one changes nothing" % lane)
+		return false
+	var seen_better: bool = false
+	var seen_worse: bool = false
+	for c in changes:
+		var row: Dictionary = c as Dictionary
+		if String(row.get("word", "")).is_empty():
+			push_error("%s: a change came back with no word for it" % lane)
+			return false
+		if String(row.get("change", "")) == "better":
+			seen_better = true
+		elif String(row.get("change", "")) == "worse":
+			seen_worse = true
+	# The long barrel reaches further and is heard doing it, so a comparison that is all one way
+	# is a comparison that is not reading the content.
+	if not (seen_better and seen_worse):
+		push_error("%s: a long barrel reads as all-good or all-bad: %s" % [lane, str(changes)])
+		return false
+
+	print("  POLARITY OK every scalable field has a direction and a word, both ways round; a long barrel reads %d changes" % changes.size())
+	return true
+
+
+# --- VIEW -------------------------------------------------------------------------------------
+#
+# The bench screen's read model, held to the condition view's rule in its strictest form: words
+# and booleans, and integers only where they are named handles the screen hands straight back on a
+# command. There is no magnitude in this view at all, which is what makes "no digits on the bench"
+# structural rather than something somebody has to remember.
+const HANDLE_KEYS: Array[String] = ["bench", "host", "part", "item"]
+const VIEW_KEYS: Array[String] = ["bench", "host", "name", "condition", "refusal", "slots", "offers"]
+
+func _the_screen_is_handed_words_and_handles_and_nothing_else() -> bool:
+	var lane: String = "VIEW"
+	var w: Variant = _world()
+	var pistol: int = SimItems.spawn_item(w, PISTOL, {"tier": "scavenged"})
+	SimInventory.equip(w, w.player, pistol)
+	var long: int = SimItems.spawn_item(w, LONG_BARREL, {"tier": "scavenged"})
+	SimInventory.stow(w, w.player, long)
+	w.events.drain()
+	SimGunsmith.make_bench(w, 8.5, 12.5)
+	var view: Dictionary = SimGunsmith.bench_view(w, w.player, pistol)
+	if view.is_empty():
+		push_error("%s: the bench has nothing to say about a pistol" % lane)
+		return false
+	for key in VIEW_KEYS:
+		if not view.has(key):
+			push_error("%s: the view is missing '%s'" % [lane, key])
+			return false
+	for key in view.keys():
+		if not VIEW_KEYS.has(String(key)):
+			push_error("%s: the view grew an unexpected key '%s'" % [lane, String(key)])
+			return false
+	var faults: Array = _view_faults(view, "")
+	if not faults.is_empty():
+		push_error("%s: %s" % [lane, ", ".join(PackedStringArray(faults))])
+		return false
+	if (view["slots"] as Array).is_empty() or (view["offers"] as Array).is_empty():
+		push_error("%s: %d slots and %d offers, so the scan above judged nothing" % [lane, (view["slots"] as Array).size(), (view["offers"] as Array).size()])
+		return false
+
+	# TN: the same scanner over a fabricated view carrying a number where a word belongs. If it
+	# comes back clean, every "no digits" claim above is a scan that cannot fail.
+	var probe: Dictionary = view.duplicate(true)
+	((probe["slots"] as Array)[0] as Dictionary)["condition"] = "worn 40%"
+	if _view_faults(probe, "").is_empty():
+		push_error("%s: the scanner cannot see a digit -- a fabricated 'worn 40%%' passed" % lane)
+		return false
+	var probe2: Dictionary = view.duplicate(true)
+	probe2["damage"] = 18.0
+	if _view_faults(probe2, "").is_empty():
+		push_error("%s: the scanner cannot see a number where a word belongs" % lane)
+		return false
+
+	print("  VIEW OK %d slots and %d offers, all words but the named handles" % [(view["slots"] as Array).size(), (view["offers"] as Array).size()])
+	return true
+
+
+## Every value in the view, recursively: strings carry no digits, numbers appear only under a
+## named handle key, and nothing else is allowed at all.
+func _view_faults(value: Variant, key: String) -> Array:
+	var out: Array = []
+	if value is Dictionary:
+		for k in (value as Dictionary).keys():
+			out.append_array(_view_faults((value as Dictionary)[k], String(k)))
+		return out
+	if value is Array:
+		for row in value as Array:
+			out.append_array(_view_faults(row, key))
+		return out
+	if value is String:
+		for c in String(value):
+			if c >= "0" and c <= "9":
+				out.append("\"%s\" carries a digit: \"%s\"" % [key, String(value)])
+				break
+		return out
+	if value is bool:
+		return out
+	if value is int:
+		if not HANDLE_KEYS.has(key):
+			out.append("\"%s\" is a number, and only a handle may be one" % key)
+		return out
+	out.append("\"%s\" is a %s" % [key, type_string(typeof(value))])
+	return out
+
+
+# --- PANEL ------------------------------------------------------------------------------------
+#
+# The dead-socket question, asked of the surface: the screen exists to reach commands the sim
+# already had and nobody could push. So this drives the two the panel pushes -- a strip and a fit
+# -- through the command queue, at a bench, and requires the world to move.
+#
+# It also asserts, textually, that `ui/bench_panel.gd` is the thing pushing them and that it draws
+# `bench_view` rather than computing anything. A textual needle has to be able to find its reader
+# after a refactor, so it follows the call rather than pinning a line number -- CLAUDE.md's note
+# about `check_respond` and `check_weather` both going red for needles that had merely moved.
+func _the_panel_pushes_what_the_sim_answers() -> bool:
+	var lane: String = "PANEL"
+	var w: Variant = _world()
+	var pistol: int = SimItems.spawn_item(w, PISTOL, {"tier": "scavenged"})
+	SimInventory.equip(w, w.player, pistol)
+	var long: int = SimItems.spawn_item(w, LONG_BARREL, {"tier": "scavenged"})
+	SimInventory.stow(w, w.player, long)
+	w.events.drain()
+	SimGunsmith.make_bench(w, 8.5, 12.5)
+
+	# E opens it, through the ladder rather than through a key of its own.
+	w.commands.push({"type": "use.context"})
+	w.step()
+	if SimGunsmith.focus_of(w, w.player) != pistol:
+		push_error("%s: E at a bench, holding a pistol, opened nothing" % lane)
+		return false
+
+	# The strip the panel pushes for a row on the left.
+	var standard: int = SimAttachments.in_slot(w, pistol, "barrel")
+	w.commands.push({"type": "item.detach", "item": standard})
+	w.step()
+	if SimAttachments.in_slot(w, pistol, "barrel") >= 0:
+		push_error("%s: the strip the panel pushes did nothing" % lane)
+		return false
+	# And the fit it pushes for a row on the right.
+	w.commands.push({"type": "item.attach", "host": pistol, "item": long, "slot": "barrel"})
+	w.step()
+	if SimAttachments.in_slot(w, pistol, "barrel") != long:
+		push_error("%s: the fit the panel pushes did nothing" % lane)
+		return false
+
+	# Walking away closes it. A screen about a place you are no longer standing in is a lie, and
+	# this is the rule SimContainers already follows for an open box.
+	var pos: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	pos["x"] = float(pos["x"]) + 8.0
+	w.step()
+	if SimGunsmith.focus_of(w, w.player) >= 0:
+		push_error("%s: walking away from the bench left it open" % lane)
+		return false
+
+	# The textual half: the panel draws the read model and pushes the commands, and computes
+	# neither. Sliced from the file rather than pinned to a line.
+	var src: String = FileAccess.get_file_as_string("res://ui/bench_panel.gd")
+	if src.is_empty():
+		push_error("%s: ui/bench_panel.gd could not be read" % lane)
+		return false
+	for needle in ["bench_view", "item.detach", "item.attach"]:
+		if not src.contains(needle):
+			push_error("%s: ui/bench_panel.gd never mentions %s" % [lane, needle])
+			return false
+	# It must not reach past the read model into the sim's own arithmetic: no profile builder, no
+	# fold, no condition factor. The panel prints; it does not decide.
+	for banned in ["ranged_profile_of", "melee_profile_of", "condition_factor", "effect_scale"]:
+		if src.contains(banned):
+			push_error("%s: ui/bench_panel.gd calls %s -- the panel is computing, not drawing" % [lane, banned])
+			return false
+
+	print("  PANEL OK E opens it, a strip and a fit both move the world, and walking away closes it")
 	return true
