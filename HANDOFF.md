@@ -32,6 +32,24 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-09 — wading, and telling the two waters apart** (`godot:check:water` at ten lanes with
+WADE; `SAVE_VERSION` 27 → 28; chain still **55**). The owner's three asks, which are one mechanic
+seen from three sides. **Wading already worked** — a ford is an ordinary Floor on the water surface,
+so it has walked at ×0.45 speed and ×1.8 noise since the surface existed, and the lane says so
+rather than claiming credit for it. **It soaks you now, at once**: rain has `wetAfterTicks` to soak
+through and a body in a river does not, and everything after that is the rain slice's own —
+`wetUntilTick`, the same drying clock, the same fire, the same `_colder` step. Measured at
+`a_little_cold` on the ford against `comfortable` on dry ground one tile away, and proved red with
+the soak disabled before it was trusted. **And the two waters read apart**: the channel darkened
+(0.253 → 0.209 against the ford's 0.361) *and* every deep tile draws a lit **shoreline** on each
+side whose neighbour is not also deep — the rim is what does the work, because a value gap alone
+reads as "darker water" while an edge reads as a bank. `shore_zoom.png` under
+`.hermes/plans/2026-09-09_water/` is the 32 px-a-tile view for the owner to judge.
+**Worth knowing:** only the shallow half can wet you, and that is geometry rather than a check —
+deep water is solid, so no body is ever standing on it. And the channel is bounded from *below* as
+well as above: the background is `#15141f` at value 0.122, so a darker channel reads as a hole in
+the map rather than as water.
+
 **2026-09-09 — the river, the lake and the yard** (`godot:check:water` at nine lanes,
 `godot:m2:jobs` grew RIVER, `godot:check:loot` grew a rebuilt negative; chain still **55**). Three
 more pieces of the owner's default town. **The river and the lake are generated**: `worldgen.water`

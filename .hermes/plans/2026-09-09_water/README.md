@@ -37,3 +37,23 @@ and does not.
 **The generated river landed the same day** — `forest_river_256.png` beside this file is
 Blackpine Reach with its river and lake, and `../2026-09-09_yard/` carries the industrial park.
 Read this file for the palette question and that one for the terrain.
+
+## `shore_zoom.png` — the two waters at gameplay zoom
+
+A 26×18 window of the river at 32 px a tile, which is the scale the game actually draws at. Added
+on the owner's call that shallow and deep must be discernible. What to look at:
+
+- **The dark navy is the deep channel**; the pale blue either side is the wadeable bank. The gap is
+  value 0.209 against 0.361 — three times the separation between any two of the five original
+  grounds.
+- **The rim is what actually does the work.** Every deep tile draws a lit shoreline on each side
+  whose neighbour is not also deep. A value gap alone reads as "darker water"; an *edge* reads as a
+  bank, and it is the cue that says where a foot goes. A ford cut through the channel is outlined
+  on both sides, so a crossing is visible before you are standing in it.
+- **The channel is bounded from below.** The background is `#15141f` at value 0.122, so a darker
+  channel would read as a hole in the map rather than as water.
+
+**Wading it soaks you.** A ford is an ordinary floor on the water surface, so it has always walked
+at ×0.45 speed and ×1.8 noise; what is new is that standing in it sets the wet state at once — the
+rain slice's own field, dried by the same clock and the same fire — and a wet body reads one band
+colder. Measured: `a_little_cold` on the ford against `comfortable` on dry ground one tile away.

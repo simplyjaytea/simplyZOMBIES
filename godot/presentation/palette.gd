@@ -182,10 +182,27 @@ const SURFACE_TINTS: Array[Color] = [
 # visible channel and the player cannot see where it is crossable. Derived rather than authored
 # for the reason the wall's face is: one colour to regrade, not two that can drift apart.
 #
-# 0.30 and not more: the ford is already dark (value 0.361, held there by the pawn-ramp contrast
-# guard), so a deep channel at 0.55 would sit at 0.162 -- near the background, and a river that
-# reads as a hole in the map rather than as water. 0.30 puts the channel at 0.253.
-const WATER_DEEP_SHADE: float = 0.30
+# Bounded from both ends, which is why it is a named constant rather than a number in the draw
+# loop. The ford is already dark -- value 0.361, held there by the pawn-ramp contrast guard -- and
+# the background is #15141f at 0.122, so a channel much below 0.19 reads as a hole in the map
+# rather than as water. 0.42 puts it at **0.209** against the ford's 0.361: a gap of 0.152, which
+# is three times the separation between any two of the five original grounds.
+#
+# Raised from 0.30 (channel 0.253) on the owner's call that shallow and deep must be discernible.
+# The value alone is not what does it -- `WATER_SHORE_*` below is -- but the two together are.
+const WATER_DEEP_SHADE: float = 0.42
+
+# The shoreline. A value difference alone reads as "darker water" at a glance; an *edge* reads as
+# a bank, and it is the cue that says which half you can put a foot in. So every deep tile draws a
+# lit rim on each side that is not also deep -- the water's own edge, not the land's, so it is one
+# pass over the channel rather than a second fringe rule over every ground beside it.
+#
+# Lifted out of the ford's colour rather than authored, the way the wall's face is lifted out of
+# its cap: one water colour to regrade, and the shore cannot drift away from the water it edges.
+const WATER_SHORE_LIGHTEN: float = 0.22
+# A fraction of a tile, with a one-pixel floor so it survives a zoomed-out camera -- the same
+# shape `WALL_FACE_SHARE` uses, and for the same reason.
+const WATER_SHORE_SHARE: float = 0.16
 
 # How far an indoor floor is pulled from its own surface towards COLOURS["indoorFloor"]. Not 1.0
 # on purpose: the surface layer still has to show through, so a shop floored on rubble and a house

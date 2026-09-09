@@ -69,8 +69,8 @@ func _version() -> bool:
 	# slice of 2026-09-08 updated check_m2_save.gd and not this one. The duplication is doing its
 	# job; what it was missing is a message that says where its twin lives, so whoever bumps the
 	# constant finds both pins the first time rather than twelve minutes into the chain.
-	if int(SimSerialize.SAVE_VERSION) != 27:
-		push_error("SAVE_VERSION %d want 27 -- bump it here AND in check_m2_save.gd's _version(), which pins the same number" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 28:
+		push_error("SAVE_VERSION %d want 28 -- bump it here AND in check_m2_save.gd's _version(), which pins the same number" % int(SimSerialize.SAVE_VERSION))
 		return false
 	var stale: Dictionary = SimSave.decode_save("{\"snapshot\":{\"version\":13},\"meta\":{}}")
 	if String(stale.get("__error", "")) != "StaleSaveError":

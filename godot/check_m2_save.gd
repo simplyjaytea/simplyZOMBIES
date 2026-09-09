@@ -33,8 +33,8 @@ func _run() -> void:
 		quit(1)
 
 func _version() -> bool:
-	if int(SimSerialize.SAVE_VERSION) != 27:
-		push_error("SAVE_VERSION %d want 27 -- bump it here AND in check_m2_fortify.gd's _version(), which pins the same number" % int(SimSerialize.SAVE_VERSION))
+	if int(SimSerialize.SAVE_VERSION) != 28:
+		push_error("SAVE_VERSION %d want 28 -- bump it here AND in check_m2_fortify.gd's _version(), which pins the same number" % int(SimSerialize.SAVE_VERSION))
 		return false
 	# 13 is stale -- it predates posture's target/ticks_left and float stamina. 15 is current
 	# (Slice 2 Part A's bloodLoss/wound-severity shape change), so 13 is two versions behind
