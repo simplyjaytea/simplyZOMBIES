@@ -34,6 +34,6 @@ The two must read apart at a glance, because that difference is **where the rive
 A ford is an ordinary `Tile.Floor` on the water surface and walks; the deep channel is `Tile.Water`
 and does not.
 
-**Nothing generates water yet** — this slice is the tile, the surface and the palette. The
-generated river and lake are the next piece in docs/23's "the main area" group, and there will be
-an in-game screenshot to judge when there is a river to photograph.
+**The generated river landed the same day** — `forest_river_256.png` beside this file is
+Blackpine Reach with its river and lake, and `../2026-09-09_yard/` carries the industrial park.
+Read this file for the palette question and that one for the terrain.

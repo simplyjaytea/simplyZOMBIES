@@ -3230,6 +3230,63 @@ earlier decision of the owner's.
   **not** exempted, which is what keeps "blue" from becoming garish. Water joins `COOL_FAMILY`
   beside the glass, which is the entry that was already the exception to the mood.
 
+### What the generated water made structural, 2026-09-09
+
+The pass that carves it, and the four things it taught. Each was found by a gate or a guard rather
+than by review, which is why they are here rather than in a comment.
+
+- **Water is layout, at 3.5, and the position is forced from both sides.** After the streets,
+  because a bridge is *derived* from the street manifest and there is nothing to derive one from
+  earlier; before the annex, the buildings and the loot, or the generator sites a colony in the
+  river. It runs inside `layout()` so a re-site attempt re-runs it identically, which is what keeps
+  `generate`'s retry loop a pure function of the seed.
+- **An absent content block must cost no draw, not a discarded one.** `water` is optional and each
+  of `river` and `lake` is independently optional, and a district declaring none creates no stream
+  at all. That is the whole reason this landed without moving a single district authored before it,
+  and it is the same argument `vehicles` and `terrain` already made.
+- **"Is the map in one piece" is the wrong question; "what is the water responsible for" is the
+  right one.** The first `water-crossable` clause asked whether all walkable ground was one
+  connected component and failed a forest whose river was perfectly crossable -- trees enclose
+  pockets constantly. Asked as a **difference** instead: flood once walking and once with the
+  channel passable, and only ground the second reaches and the first does not is the water's fault.
+  A gate that blames the wrong subsystem is worse than no gate.
+- **Repair the terrain, do not retry around it.** One forced midpoint ford left a seed whose lake
+  sat against the river's bend with a severed corner, and the generator then spent all 31 candidate
+  lots re-siting a colony against a fault that had nothing to do with the colony. `_ensure_crossable`
+  casts rays from a stranded tile and paves the shortest, bounded and drawing nothing.
+- **A `protected` tile has to protect the *surface*, not only the tile.** The grass discs were the
+  one dressing writer that never consulted `protected`, and got away with it until water existed:
+  every protected thing until then was protected from having a tile stood on it, and the discs write
+  a surface onto a Floor tile. A ford is a Floor. They turfed 49 of them. And the protection needs a
+  **ring**, which the dressing taught rather than the design -- a ford stayed a ford while a stand of
+  trees grew across the dry ground leading to it, which severs a district exactly as a missing
+  crossing would.
+- **The colony outranks the river.** There is deliberately no water filter in `annex_candidates`:
+  `SimTemplates.stamp` writes the patch's own tiles over the whole footprint, so water under the
+  colony is wiped rather than built around. Filtering was tried and left a 64-tile forest with zero
+  candidates out of sixteen, because the annex is 26x26 and a river crossing a 64-tile map crosses
+  everything.
+
+### What the yard decided
+
+- **A new district type fills the last enum slot, and that disarms two gates.** `industrial` was the
+  one location docs/12 named that nobody had written, and two of `check_loot.gd`'s negatives used it
+  as their example of an unwritten table. Authoring it made both pass vacuously. One now names a
+  table off the enum entirely; the other exposed a genuine gap -- with all five authored, the "has
+  no content entry" branch is unreachable through the enum -- so it is proved against an authored
+  set with one removed, which is what deleting a shipped table while a district still names it would
+  look like. **A negative that leans on a slot being empty stops being a negative the day somebody
+  fills it**, and this milestone will hit that again.
+- **A district type is a data entry, and the fourteenth terrain knob is what made that true here.**
+  The grass discs were hardcoded at half a block, so the first yard read as a suburb with sheds on
+  it. `grassShare` defaults to 0.5 -- the historical value -- and is safe for the same reason the
+  forest slice's thirteen were: it changes an **argument** to a draw and never how many draws
+  happen. Without it, "adding a district type is a data entry" would have been false for any
+  district that is not green.
+- **Streets 4 wide, deliberately.** `VEHICLE_MIN_WIDTH` is 4, so a district declaring a `vehicles`
+  block on 3-wide streets would be a socket nothing reaches -- the town centre and the forest are
+  the measured precedent for leaving the block off entirely.
+
 ### What it made structural
 
 - **A surface's int is an atlas row, so the painted rows sit after the last surface.**

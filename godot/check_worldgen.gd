@@ -22,7 +22,8 @@ extends SceneTree
 #   2. **The colony is placed, with anchors somebody can stand on.** A non-empty annex rect, and
 #      all four anchors in bounds and on open floor.
 #   3. **The start is survivable.** Every clause of `survivability_report` true, and none of them
-#      skipped: a shipped district declares roads and places loot, so a clause with nothing to
+#      skipped (except `water-crossable` on a district carrying no water, which is checked
+#      against the tiles both ways): a shipped district declares roads and places loot, so a clause with nothing to
 #      judge here would be a clause quietly not running on the district the game plays.
 #   4. **Nobody wakes up in the kitchen.** Exactly `SimBoot.WANDERERS` shamblers, and zero of them
 #      inside the annex rect (`SCATTER_TRIES`, made mechanical on twenty-two worlds instead of
@@ -129,7 +130,7 @@ func _run() -> void:
 	ok = _the_gate_stayed_inside_its_own_budget(seconds) and ok
 
 	if ok:
-		print("WORLDGEN_OK %d worlds booted and stepped %d ticks each (%d seeds x 2 districts at %d, %d seeds at %d), every colony sited and survivable, no wanderer indoors, loot resolved; one seed builds one district and two build two; %d solid-cell counts witnessed, the largest %d; four expectations shown to say no; terrain defaults pinned to the historical thirteen, the forest district judged (and denser than the suburb) when it exists or skipped loudly when it does not, paths wear dirt measurably slower and quieter than pavement; %.1f s of a %.0f s budget" % [
+		print("WORLDGEN_OK %d worlds booted and stepped %d ticks each (%d seeds x 2 districts at %d, %d seeds at %d), every colony sited and survivable, no wanderer indoors, loot resolved; one seed builds one district and two build two; %d solid-cell counts witnessed, the largest %d; four expectations shown to say no; terrain defaults pinned to the historical fourteen, the forest district judged (and denser than the suburb) when it exists or skipped loudly when it does not, paths wear dirt measurably slower and quieter than pavement; %.1f s of a %.0f s budget" % [
 			sweep.size(), STEP_TICKS, SWEEP_SEEDS.size(), GATE_SIZE,
 			SHIPPED_SEEDS.size(), SHIPPED_SIZE,
 			int(witnessed[0]) if not witnessed.is_empty() else 0,
@@ -272,17 +273,33 @@ func _boot_and_judge(seed_value: int, size: int, district_id: String, stash: Dic
 	if not bool(report["sited"]):
 		push_error("%s: the survivability pass judged nothing on a district that carries a colony" % where)
 		return {}
-	if (report["clauses"] as Array).size() < 6:
+	if (report["clauses"] as Array).size() < 7:
 		push_error("%s: the report carries %d clauses" % [where, (report["clauses"] as Array).size()])
 		return {}
+	# Whether this district is *entitled* to skip the water clause, read off the map rather than off
+	# the district entry: a district with no water tile has no channel to be uncrossable, and one
+	# with water has no excuse. So the skip is not waved through -- it is required to match the
+	# ground, in both directions, which is a stronger assertion than the blanket "nothing skips"
+	# this replaced and the reason that rule needed a seam rather than an exception.
+	var carries_water: bool = false
+	for i in map.tiles.size():
+		if int(map.tiles[i]) == SimTileMap.Tile.Water:
+			carries_water = true
+			break
 	for clause_value in report["clauses"] as Array:
 		var clause: Dictionary = clause_value as Dictionary
 		if not bool(clause["ok"]):
 			push_error("%s failed %s: %s" % [where, String(clause["name"]), String(clause["said"])])
 			return {}
-		if bool(clause["skipped"]):
-			push_error("%s skipped %s on a shipped district: %s" % [where, String(clause["name"]), String(clause["said"])])
-			return {}
+		if not bool(clause["skipped"]):
+			continue
+		if String(clause["name"]) == "water-crossable" and not carries_water:
+			continue
+		push_error("%s skipped %s on a shipped district: %s" % [where, String(clause["name"]), String(clause["said"])])
+		return {}
+	if carries_water and bool(SimWorldgen.clause_of(report, "water-crossable").get("skipped", true)):
+		push_error("%s carries water and still skipped water-crossable; the clause is not reading the map it is judging" % where)
+		return {}
 
 	# 1, the last of it: every site names a table the loot roller can resolve. `SimBoot.place_loot`
 	# push_errors and skips a site whose table does not exist, which reads downstream as a stingy
@@ -666,17 +683,20 @@ const TERRAIN_DEFAULTS: Dictionary = {
 	"trees_min": 3, "trees_max": 8, "tree_spread": 2,
 	"thickets_min": 1, "thickets_max": 3, "thicket_min": 2, "thicket_max": 4,
 	"worn_odds": 2, "paths": false,
+	# The fourteenth, added with the yard: 0.5 is the radius share every district generated under
+	# before the key existed, which is why adding it moved no district that does not set it.
+	"grass_share": 0.5,
 }
 
 # The content key each default above is read from -- same keys, same order -- so the override
-# half of the lane can build one `terrain` block that sets every one of the thirteen at once.
+# half of the lane can build one `terrain` block that sets every one of the fourteen at once.
 const TERRAIN_CONTENT_KEYS: Dictionary = {
 	"grass_jitter": "grassJitter", "stand_odds": "standOdds",
 	"stands_min": "standsMin", "stands_max": "standsMax",
 	"trees_min": "treesMin", "trees_max": "treesMax", "tree_spread": "treeSpread",
 	"thickets_min": "thicketsMin", "thickets_max": "thicketsMax",
 	"thicket_min": "thicketMin", "thicket_max": "thicketMax",
-	"worn_odds": "wornOdds", "paths": "paths",
+	"worn_odds": "wornOdds", "paths": "paths", "grass_share": "grassShare",
 }
 
 

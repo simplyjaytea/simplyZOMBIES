@@ -204,32 +204,6 @@ and water genuinely blue. **This moves Milestone 3B items 1 and 5 into the alpha
 owner's call and is recorded as one. The pieces, in the order they land — the first has landed:
 
 - ~~Water: the tile, the surface, and the one cool ground~~ — **landed**, see the record.
-- **The river and the lake, generated.** A `worldgen.water` layout pass at 3.5 — after `_parcels`
-  (it needs `map.streets` to know where a bridge goes), before `annex`/`_buildings`/`_sites` (or a
-  house gets built in the river) — on its own stream, from an **optional** `water` block in
-  `district.schema.json`. Bridges are *derived* from the street manifest and so cost zero draws;
-  fords cost one draw each. Two things to get right or the slice is silently wrong: `_protected_tiles`
-  must carry every water-surface tile, because `_rubble_tile` and `_wear` repaint a *surface* on a
-  Floor tile and would pave a ford; and `survivability_report` needs a `water-crossable` clause that
-  **skips loudly** on a district declaring no water. Declared only on new districts, so the three
-  shipped ones stay byte-identical — assert that rather than assume it.
-- **The river drinks.** The loop is entity-based, so this is one new placer:
-  `SimNeeds.make_water_source` / `nearest_water_source` already handle N sources by squared
-  distance, and `SimBoot` is their only caller today (guarded on the `well` anchor). Stand a bounded,
-  deterministic, evenly spaced set of sources on the bank tiles and everything downstream is already
-  correct — the Water job fills `item.water.bottle.untreated`, and `_seek_untreated`'s three rungs
-  (boil at a fire → drink dirty → the illness roll) are untouched. Grow `godot:m2:jobs`' WELL lane;
-  `well-open` must keep judging the colony's own well and must not become skippable.
-- **The factory: an industrial district and the table it fills.** `industrial` is the one unauthored
-  slot in the loot-location enum. The existing "industrial table" entry in this list assumed the
-  profile row went on a shipped district; putting it on a **new** `district.industrial_park` instead
-  leaves the suburb at 64 byte-identical, so the FAST lines do not move and there is nothing to
-  re-baseline. No new items are needed — the tree already holds the scrap, the fuel, the solvent and
-  the machine oil docs/12 names. What *does* move the harness is pulling `item.can.fuel` and
-  `item.oil.machine` out of `loot.residential`, and that is its own measured slice, not a rider on
-  this one. Streets must be **4 wide** or a `vehicles` block would be a dead socket
-  (`VEHICLE_MIN_WIDTH`), and at least two templates need an `industrial` tag — no template carries
-  one today.
 - **The region assembler.** `SimRegion.generate` calls `SimWorldgen.generate` **once per district
   cell** and blits the result: `generate()` assumes a square map whose edge it walls and whose whole
   area it scans, so making eleven passes rect-relative would be a rewrite that moves every layout.
@@ -319,17 +293,6 @@ than here.
 - **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
   in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
   bed beats a cot; content would carry the difference once more than one kind of bed exists.
-- **The industrial table.** `industrial` is in every location enum (`loot.schema.json`,
-  `map.schema.json`, `check_loot.gd`'s `LOCATIONS`) and no table carries it — docs/12's "scrap
-  metal, machine parts, fuel, electronics, scrap kits, solvent" location. `check_loot.gd`'s rule 5
-  requires every authored location to be placed by a shipped district, so the table comes with a
-  district profile row and building tags, which moves loot sites and therefore the balance
-  harness's map: a **measured** slice, not a content edit. Until it lands the fuel bottle the gear
-  catalogue added sits on a residential garage shelf, against docs/12's "industrial and vehicle
-  sources only", and the record says so.
-
-**Attention:**
-
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
 
@@ -1764,6 +1727,84 @@ not a to-do list:
   documented both coexisting authoring conventions (face-on pawn, rotating rig) and said which
   applies when; the seam was owner-accepted until the roster was re-authored, which the
   2026-09-01 directives then did — one convention, true overhead, in the characters slice.
+  ~~The river and the lake, generated~~ **landed 2026-09-09** (`godot:check:water` grew to nine
+  lanes; `godot:check:worldgen` and `godot:m2:district` grew their skip rules). `worldgen.water` is
+  layout pass **3.5** -- after the streets, because a bridge is derived from the street manifest and
+  there is nothing to derive one from before it; before the annex, the buildings and the loot, or
+  the generator sites a colony in the river and stands a cupboard in it. It runs inside `layout()`,
+  so a re-site attempt re-runs it identically. An optional `water` block carries independent `river`
+  and `lake` sub-blocks; **absent means no stream and no draw**, which is what let it land without
+  moving a district authored before it -- the suburb at 64 carries **0** water tiles and is asserted
+  to. `forest_edge` declares both, which gives the mechanism a shipped reader rather than a
+  thirteenth dead socket: at 256 on the canonical seed it carves **1,541 deep and 1,124 bank** tiles
+  and stands 39 cabins around them. Bridges are **derived from `map.streets`** and cost no draw at
+  all; fords cost one each.
+  **Three things it got wrong first, each found by a gate rather than by review.** (1) The first
+  `water-crossable` clause asked whether *all* walkable ground was one component, and a forest
+  encloses pockets with trees constantly -- so it failed a district whose river was perfectly
+  crossable and blamed the water for the woods. `generate`'s own guard said so out loud ("the
+  dressing broke water-crossable on a district that was survivable without it"). It is asked as a
+  **difference** now: flood twice, once walking and once with the channel passable, and only ground
+  the second reaches and the first does not counts. (2) One forced midpoint ford was not enough --
+  seed 4242 at 128 put the lake against the river's bend and cut a corner no single line reached,
+  and the generator then burned all 31 candidate lots re-siting a colony against a fault that had
+  nothing to do with the colony. `_ensure_crossable` repairs the water instead, casting rays from a
+  stranded tile and paving the shortest, bounded at eight rounds and drawing nothing. (3) The grass
+  discs were **the one dressing writer that never consulted `protected`** -- they write a *surface*
+  onto a Floor tile, and every protected thing until now was protected from having a *tile* stood on
+  it, so they turfed 49 fords on the gate's first run. `_protected_tiles` now carries every water
+  tile **and one ring around it**, the second of which the dressing taught rather than the design: a
+  ford stayed a ford and a stand of trees grew across the dry ground leading to it.
+  Also: water scales to the map like the blocks do (a radius-11 lake swallowed an eighth of a
+  64-tile map and left no colony), and there is deliberately **no** water filter in
+  `annex_candidates` -- `SimTemplates.stamp` writes the patch's own tiles over the footprint, so
+  water under the colony is wiped rather than built around, and filtering left a 64-tile forest with
+  zero candidates of sixteen. Measured: 21 of 21 seed-and-size combinations site a colony, survive,
+  and cross; same seed identical, different seed differs, `dress=false` byte-identical.
+  **Balance: unmoved, and asserted** -- no shipped district but the forest carries water, and the
+  harness boots the suburb.
+
+  ~~The river drinks~~ **landed 2026-09-09** (`godot:m2:jobs` grew a RIVER lane). docs/04's thirst
+  loop is entity-based rather than tile-based, which is what made this one function:
+  `SimBoot.place_river_sources` stands `water_source` entities on the banks and everything
+  downstream was already correct -- `SimNeeds.nearest_water_source` has always ranked N sources by
+  squared distance, the Water job has always walked to the nearest, and the bottle it yields is the
+  same `item.water.bottle.untreated` the well yields, with the same three rungs behind it (boil at a
+  lit fire, drink it raw below soft thirst, roll the illness). Deterministic and bounded: a
+  row-major scan, no RNG, one source per `RIVER_SOURCE_SPACING` (16) in each direction, capped at
+  12 -- the spacing is load-bearing because `nearest_water_source` is a linear scan run on the
+  colony's most common errand. Measured: the forest stands **8** sources at 128 (the well plus
+  seven), the suburb still stands **1**. The lane is about *ranking* rather than existence: a body
+  on the bank is routed to the river 1.0 tiles off and a body at the well is still routed to the
+  well, which is the true negative that stops it passing on a colony that had merely lost its well.
+  What it buys is the trip -- the well is inside the wall and the river is not, so filling there
+  means standing outside on the loudest, slowest ground in the game.
+
+  ~~The factory: an industrial district and the table it fills~~ **landed 2026-09-09**
+  (`godot:check:loot`, `godot:check:buildings`, `godot:check:worldgen`). `industrial` was the last
+  unauthored slot in docs/12's five-location enum and it is filled: `loot.industrial` (22 entries,
+  danger high, 3-6 rolls) yields what docs/24 specifies -- scrap, parts, **fuel**, electronics,
+  scrap kits -- and **needed no new items**, because the gear catalogue had already shipped every
+  one of them. `district.industrial_park` ("Ordnance Way") places it: streets **4 wide** so a
+  `vehicles` block is not a dead socket (`VEHICLE_MIN_WIDTH`), density 0.62, three new
+  `industrial`-tagged templates (a 22x14 brick warehouse, a 14x10 unit with a partitioned office, an
+  8x6 gatehouse) where **no template carried the tag at all** before. Nine container kinds gained
+  sizes. Measured at 256 across four seeds: 46-75 buildings, 81-103 vehicles, 118-226 loot sites,
+  survivable on every one.
+  **It reads as a yard because of one new content knob.** The grass discs were hardcoded at half a
+  block, so the first yard looked like a suburb with sheds on it; `grassShare` (default **0.5**, the
+  historical value) is the fourteenth entry in the terrain block and is safe for the same reason the
+  other thirteen are -- it changes an **argument** to a draw, the disc's radius, and never how many
+  draws happen. The yard sets 0.1 and gets hardstanding.
+  **Two of `check_loot.gd`'s own negatives had to be rebuilt, and that is the interesting part.**
+  Both leaned on `industrial` being *the* empty enum slot, so authoring it disarmed them. One now
+  names a table off the enum entirely; the other exposed a real gap -- with all five locations
+  authored, the "table has no content entry" branch became unreachable through the enum, so
+  `_profile_problems` gained an authored-set override and the branch is proved against a set with
+  `industrial` removed, which is exactly what deleting a shipped table while a district still names
+  it would look like. **Balance: the suburb's profile is untouched**, so the FAST tier boots the
+  same district it always did.
+
   ~~How big the main area can be~~ **measured 2026-09-09** (a throwaway driver, deleted; no gate,
   because it ships nothing). The one number every later piece of the main area is sized against,
   measured rather than reasoned about. One `SimBoot.playable` world a size, 400 warm-up ticks

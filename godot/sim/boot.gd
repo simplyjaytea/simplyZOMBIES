@@ -277,6 +277,62 @@ static func place_stations(world: Variant, map: Variant) -> void:
 	var latrine: Vector2i = latrine_tile(map)
 	if latrine.x >= 0:
 		SimNeeds.make_latrine(world, float(latrine.x) + 0.5, float(latrine.y) + 0.5)
+	place_river_sources(world, map)
+
+
+# How far apart the river's own water sources stand, and how many a district may carry. The
+# spacing is the load-bearing one: `SimNeeds.nearest_water_source` is a linear scan over every
+# source, called every time a thirsty body starts a Water job, so a source on each of a thousand
+# bank tiles would put a thousand-entry loop on the colony's most common errand. At 16 tiles apart
+# a 256 m river carries a handful, which is what "the river" means to a survivor anyway -- you
+# walk to the water, not to a numbered tap.
+const RIVER_SOURCE_SPACING: int = 16
+const RIVER_SOURCE_CAP: int = 12
+
+
+# The river as a second place to fill a bottle. docs/04's thirst loop is entity-based rather than
+# tile-based, which is what makes this small: `nearest_water_source` already ranks N sources by
+# squared distance and the Water job already walks to whichever is nearest, so standing sources on
+# the bank is the whole change. Everything downstream is untouched -- the bottle it yields is
+# `item.water.bottle.untreated`, and `_seek_untreated`'s three rungs (boil at a lit fire, drink it
+# raw below soft thirst, roll the illness) are the same three rungs the well has always had.
+#
+# What it buys is the trip. The well is inside the wall; the river is not, so a colonist who fills
+# there is a colonist outside, on the loudest and slowest ground in the game, which is exactly the
+# risk-reward errand docs/02 wants scavenging to be.
+#
+# Deterministic and bounded: a fixed row-major scan, no RNG at all (boot placement is deterministic
+# today and stays so), one source per `RIVER_SOURCE_SPACING` in each direction, capped. Sited on
+# the **bank** and never the channel -- a bank is walkable, a channel is not, and a source nobody
+# can stand next to is a source nobody can use.
+static func place_river_sources(world: Variant, map: Variant) -> int:
+	if map == null:
+		return 0
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var placed: Array = []
+	for ty in h:
+		for tx in w:
+			if placed.size() >= RIVER_SOURCE_CAP:
+				return placed.size()
+			var idx: int = ty * w + tx
+			if int(map.surfaces[idx]) != SimTileMap.SURFACE_WATER:
+				continue
+			if SimTileMap.is_solid(map, tx, ty):
+				continue
+			if SimTileMap.is_indoors(map, tx, ty):
+				continue
+			var clear: bool = true
+			for at in placed:
+				var a: Vector2i = at as Vector2i
+				if absi(a.x - tx) < RIVER_SOURCE_SPACING and absi(a.y - ty) < RIVER_SOURCE_SPACING:
+					clear = false
+					break
+			if not clear:
+				continue
+			SimNeeds.make_water_source(world, float(tx) + 0.5, float(ty) + 0.5)
+			placed.append(Vector2i(tx, ty))
+	return placed.size()
 
 
 # Where the colony's latrine stands. Outdoors, walkable, near enough to reach on a full pool and

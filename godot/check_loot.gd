@@ -307,7 +307,7 @@ func _range_problems(label: String, spec: Variant, floor_value: int) -> Array[St
 # the building tags named must be tags a shipped template actually carries, a container share with
 # no names behind it is a share of nothing, and a container's name reaches the player's HUD -- so a
 # digit in one would walk straight through godot:check:hud's ban, which only reads the screen.
-func _profile_problems(label: String, district: Dictionary) -> Array[String]:
+func _profile_problems(label: String, district: Dictionary, authored_override: Variant = null) -> Array[String]:
 	var out: Array[String] = []
 	var profile: Variant = district.get("lootProfile")
 	if not (profile is Dictionary):
@@ -320,7 +320,12 @@ func _profile_problems(label: String, district: Dictionary) -> Array[String]:
 	if not p.has("perBuilding") and not p.has("perDistrict"):
 		out.append("%s.lootProfile: neither perBuilding nor perDistrict, so it declares nothing" % label)
 
-	var authored: Dictionary = _authored_locations()
+	# Normally the shipped tables. The override exists for one negative below: every one of
+	# docs/12's five locations is authored now that the yard slice filled `industrial`, so the
+	# "no content entry" branch below can no longer be reached through the enum. It guards against
+	# a shipped table being *deleted* while a profile still names it, which is a real thing to
+	# guard, so it is proved against a set with one missing rather than left as code nothing reaches.
+	var authored: Dictionary = (authored_override as Dictionary) if authored_override is Dictionary else _authored_locations()
 	var tags: Dictionary = _shipped_tags()
 	for group in ["perBuilding", "perDistrict"]:
 		var rows: Variant = p.get(String(group))
@@ -414,7 +419,10 @@ func _every_district_profile_is_well_formed_and_reaches_real_things() -> bool:
 	# families are separate rows so one report cannot stand in for another.
 	var broken: Dictionary = {"lootProfile": {
 		"perBuilding": [
-			{"table": "industrial", "tags": ["residential"], "sites": {"min": 1, "max": 2}},
+			# "quarry" is a table nobody wrote, and it has to be a name off the enum entirely now:
+			# `industrial` stood here until the yard slice authored it, and a negative that leans on
+			# a slot being empty stops being a negative the day somebody fills it.
+			{"table": "quarry", "tags": ["residential"], "sites": {"min": 1, "max": 2}},
 			{"table": "residential", "tags": ["marina"], "sites": {"min": 2, "max": 1}},
 			{"table": "commercial", "tags": ["commercial"], "sites": {"min": 1, "max": 1}, "containerShare": 0.5, "containers": []},
 			{"table": "residential", "tags": ["residential"], "sites": {"min": 1, "max": 1}, "host": "vehicle"},
@@ -428,7 +436,7 @@ func _every_district_profile_is_well_formed_and_reaches_real_things() -> bool:
 	}}
 	var said: Array[String] = _profile_problems("probe", broken)
 	var wanted: Array[String] = [
-		"has no content entry",
+		"is not one of docs/12's five",
 		"is on no shipped building template",
 		"max 1 is below min 2",
 		"with no container names behind it",
@@ -448,6 +456,31 @@ func _every_district_profile_is_well_formed_and_reaches_real_things() -> bool:
 			return false
 	if _profile_problems("probe", {}).is_empty():
 		push_error("a district with no lootProfile at all was passed as clean")
+		return false
+
+	# The deleted-table branch, proved on the shipped yard against an authored set with
+	# `industrial` taken out of it -- which is exactly what deleting `loot.industrial` while the
+	# yard still names it would look like. Without this the branch would be code nothing reaches,
+	# which is the shape this milestone has paid for twelve times.
+	var missing: Dictionary = _authored_locations()
+	missing.erase("industrial")
+	# `SimWorldgen.district_of` is the one lookup by id, and using it here rather than a second
+	# copy of the walk is the point: if the yard's entry ever moves, this follows it.
+	var yard: Dictionary = SimWorldgen.district_of(_tree(), "district.industrial_park")
+	if yard.is_empty():
+		push_error("no district.industrial_park to judge, so the deleted-table negative proves nothing")
+		return false
+	var deleted: Array[String] = _profile_problems("yard", yard, missing)
+	var found_deleted: bool = false
+	for d in deleted:
+		if d.find("has no content entry") >= 0:
+			found_deleted = true
+	if not found_deleted:
+		push_error("a profile naming a table whose content entry was deleted was not reported: %s" % str(deleted))
+		return false
+	var clean: Array[String] = _profile_problems("yard", yard)
+	if not clean.is_empty():
+		push_error("the shipped yard profile is not clean against the real tables: %s" % str(clean))
 		return false
 
 	print("PROFILE OK %d district types, %d profile entries, every table authored, every tag on a shipped template, container names digit-free; %d families of breakage each reported" % [
@@ -529,10 +562,11 @@ func _every_generated_site_resolves_and_stands_somewhere_open() -> bool:
 		return false
 
 	# And the same walk over a district whose *profile* names a table nobody wrote: the pass places
-	# the sites the content asked for, and this gate is what refuses them. `industrial` is the enum
-	# slot with no table behind it, which is exactly what `commercial` was until this slice.
+	# the sites the content asked for, and this gate is what refuses them. The name has to be one
+	# off the enum now -- `industrial` was the last empty slot and the yard slice filled it, so all
+	# five locations are authored and none of them can play the unwritten one any more.
 	var fixture: Dictionary = _fixture_district("district.fixture.unwritten", {
-		"perBuilding": [{"table": "industrial", "tags": ["residential", "shed"], "sites": {"min": 1, "max": 1}}],
+		"perBuilding": [{"table": "quarry", "tags": ["residential", "shed"], "sites": {"min": 1, "max": 1}}],
 	})
 	var bad_map: Variant = SimWorldgen.generate(CANON_SEED, GATE_SIZE, _tree_with(fixture), String(fixture["id"]))
 	var bad_sites: Array = _profile_sites(bad_map)

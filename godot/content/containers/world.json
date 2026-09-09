@@ -2,86 +2,209 @@
   {
     "id": "container.cupboard",
     "kind": "cupboard",
-    "grid": { "w": 6, "h": 4 }
+    "grid": {
+      "w": 6,
+      "h": 4
+    }
   },
   {
     "id": "container.chest_of_drawers",
     "kind": "chest of drawers",
-    "grid": { "w": 5, "h": 4 }
+    "grid": {
+      "w": 5,
+      "h": 4
+    }
   },
   {
     "id": "container.kitchen_drawer",
     "kind": "kitchen drawer",
-    "grid": { "w": 5, "h": 2 }
+    "grid": {
+      "w": 5,
+      "h": 2
+    }
   },
   {
     "id": "container.wardrobe",
     "kind": "wardrobe",
-    "grid": { "w": 5, "h": 6 }
+    "grid": {
+      "w": 5,
+      "h": 6
+    }
   },
   {
     "id": "container.tool_chest",
     "kind": "tool chest",
-    "grid": { "w": 5, "h": 3 }
+    "grid": {
+      "w": 5,
+      "h": 3
+    }
   },
   {
     "id": "container.stockroom_shelf",
     "kind": "stockroom shelf",
-    "grid": { "w": 7, "h": 4 }
+    "grid": {
+      "w": 7,
+      "h": 4
+    }
   },
   {
     "id": "container.checkout_counter",
     "kind": "checkout counter",
-    "grid": { "w": 4, "h": 3 }
+    "grid": {
+      "w": 4,
+      "h": 3
+    }
   },
   {
     "id": "container.display_freezer",
     "kind": "display freezer",
-    "grid": { "w": 6, "h": 3 }
+    "grid": {
+      "w": 6,
+      "h": 3
+    }
   },
   {
     "id": "container.back_office_cabinet",
     "kind": "back-office cabinet",
-    "grid": { "w": 4, "h": 4 }
+    "grid": {
+      "w": 4,
+      "h": 4
+    }
   },
   {
     "id": "container.supply_locker",
     "kind": "supply locker",
-    "grid": { "w": 5, "h": 5 }
+    "grid": {
+      "w": 5,
+      "h": 5
+    }
   },
   {
     "id": "container.pharmacy_drawer",
     "kind": "pharmacy drawer",
-    "grid": { "w": 5, "h": 2 }
+    "grid": {
+      "w": 5,
+      "h": 2
+    }
   },
   {
     "id": "container.footlocker",
     "kind": "footlocker",
-    "grid": { "w": 6, "h": 3 }
+    "grid": {
+      "w": 6,
+      "h": 3
+    }
   },
   {
     "id": "container.bunk_drawer",
     "kind": "bunk drawer",
-    "grid": { "w": 4, "h": 2 }
+    "grid": {
+      "w": 4,
+      "h": 2
+    }
   },
   {
     "id": "container.larder_shelf",
     "kind": "larder shelf",
-    "grid": { "w": 6, "h": 3 }
+    "grid": {
+      "w": 6,
+      "h": 3
+    }
   },
   {
     "id": "container.ammo_crate",
     "kind": "ammo crate",
-    "grid": { "w": 4, "h": 3 }
+    "grid": {
+      "w": 4,
+      "h": 3
+    }
   },
   {
     "id": "container.car_boot",
     "kind": "car boot",
-    "grid": { "w": 6, "h": 4 }
+    "grid": {
+      "w": 6,
+      "h": 4
+    }
   },
   {
     "id": "container.delivery_van",
     "kind": "delivery van",
-    "grid": { "w": 7, "h": 5 }
+    "grid": {
+      "w": 7,
+      "h": 5
+    }
+  },
+  {
+    "id": "container.parts_bin",
+    "kind": "parts bin",
+    "grid": {
+      "w": 5,
+      "h": 3
+    }
+  },
+  {
+    "id": "container.steel_locker",
+    "kind": "steel locker",
+    "grid": {
+      "w": 4,
+      "h": 6
+    }
+  },
+  {
+    "id": "container.pallet_crate",
+    "kind": "pallet crate",
+    "grid": {
+      "w": 7,
+      "h": 5
+    }
+  },
+  {
+    "id": "container.oil_drum",
+    "kind": "oil drum",
+    "grid": {
+      "w": 4,
+      "h": 4
+    }
+  },
+  {
+    "id": "container.gang_box",
+    "kind": "gang box",
+    "grid": {
+      "w": 6,
+      "h": 3
+    }
+  },
+  {
+    "id": "container.shelf",
+    "kind": "shelf",
+    "grid": {
+      "w": 7,
+      "h": 3
+    }
+  },
+  {
+    "id": "container.first_aid_station",
+    "kind": "first aid station",
+    "grid": {
+      "w": 4,
+      "h": 3
+    }
+  },
+  {
+    "id": "container.van_load_bed",
+    "kind": "van load bed",
+    "grid": {
+      "w": 8,
+      "h": 5
+    }
+  },
+  {
+    "id": "container.truck_cab",
+    "kind": "truck cab",
+    "grid": {
+      "w": 4,
+      "h": 3
+    }
   }
 ]
