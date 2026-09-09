@@ -262,5 +262,8 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 		damage *= float(world.modifiers.call("resolve", "melee_damage", attacker))
 
 	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": int(SimCombat.MELEE_CONNECT_NOISE), "source": attacker})
-	world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage})
+	# `item` is the weapon that swung, from the profile's own `source`. Without it the wear
+	# handler has to guess which hand acted, and the guess it used to make was wrong -- see
+	# SimItems.register_module. A publisher with no weapon (a zombie's bite) sends -1.
+	world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage, "item": int(weapon.get("source", -1))})
 	world.events.publish({"type": "entity.staggered", "entity": target, "ticks": int(weapon.get("staggerTicks", 8))})
