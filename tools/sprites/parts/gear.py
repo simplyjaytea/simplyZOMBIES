@@ -886,6 +886,242 @@ def item_lantern_oil_equip():
 
     return _lit(canvas, flame)
 
+# --- the second catalogue (2026-09-09): six more in the hands, three more worn -----------------
+# The same separation rule as the batch above -- silhouette first, value second -- applied against
+# a roster that is now twelve deep in the weapon hand. What each of these carries that nothing
+# shipped carries: the baton's side handle at the fist, the shovel's broad flat plate, the
+# splitting axe's symmetric wedge (against the fire axe's one-sided bit), the crossbow's
+# horizontal prod, the revolver's cylinder bulge, and the rimfire's thin barrel over a long
+# stock. Nothing here re-authors a shipped key -- HANDOFF item 3, whether the one-handed weapons
+# need their own silhouettes, is the owner's and is untouched.
+
+
+def item_baton_police_equip():
+    """A side-handled baton: a short dark shaft with a stub out of it at the fist.
+
+    The stub is the whole read, and it is the one thing no other weapon has -- every other haft
+    in the hand is uninterrupted from butt to head. It points *outward*, away from the trunk: the
+    first cut put it on the inboard side where the torso covered all of it, which is a detail
+    drawn and never seen. Low as well as outward, so it does not become the claw hammer's T,
+    which is the same stub at the other end of the shaft. Short overall: the tip stops below the
+    knife's, so "small stick" survives even if the stub is lost in a dark frame. Drawn in
+    `strap`, the darkest ramp on the roster, against the crowbar's `stone`: two dark bars in one
+    fist would otherwise be one bar.
+    """
+    poly = RAMPS["strap"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.4, GRIP_BOTTOM_Y), (HAND_X + 0.6, HAND_Y - 7.0), 3.2, poly[2],
+                inside_only=False)
+    # The side handle: out of the shaft at the fist, across the body, and nothing else does this.
+    canvas.band((HAND_X + 0.4, HAND_Y + 0.5), (HAND_X + 3.8, HAND_Y + 1.0), 2.6, poly[1],
+                inside_only=False)
+    canvas.band((HAND_X + 0.2, HAND_Y - 1.0), (HAND_X + 0.8, HAND_Y - 6.0), 1.0, poly[4],
+                inside_only=True)  # one line of light down the lit side
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_shovel_sharpened_equip():
+    """A sharpened spade: a plain haft under a broad flat plate, square across the top.
+
+    The plate is the read -- it is the *widest* head in the hand at 4.2 half-width against the
+    fire axe's bit at 1.6 and the cleaver's blade at 2.8 -- and it is flat-topped where every
+    axe on the roster carries a rounded bit. It is centred a little inboard of the haft rather
+    than on it, because at 5.0 the plate ran into the last column of the canvas and a head that
+    touches the edge is a head that will clip against a wider rig. Bare `wood` for the haft, not the fire axe's
+    painted `wall_brick`, so the two do not share a colour either.
+    """
+    haft = RAMPS["wood"]
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, GRIP_BOTTOM_Y + 1.0), (HAND_X + 1.0, HAND_Y - 8.0), 3.2, haft[2],
+                inside_only=False)
+    canvas.rect(HAND_X + 0.6, HAND_Y - 10.5, 4.2, 2.4, steel[2])  # the plate
+    canvas.rect(HAND_X + 0.6, HAND_Y - 12.4, 3.6, 0.6, steel[4])  # the ground top edge
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_axe_splitting_equip():
+    """A splitting axe: the fire axe's mass made symmetric, on a longer bare haft.
+
+    The fire axe's docstring says its head is deliberately asymmetric because the sledge is the
+    same mass made symmetric -- this sits between them and has to differ from both. It takes the
+    axe's height and the sledge's symmetry, and separates from the sledge by being a *wedge*
+    (half-height at the eye, full at the edge) where the sledge is a block, and from the fire axe
+    by having no poll stub. The haft is bare `wood` against the fire axe's painted `wall_brick`.
+    """
+    haft = RAMPS["wood"]
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, GRIP_BOTTOM_Y + 1.0), (HAND_X + BLADE_LEAN, HAND_Y - 10.0), 3.6,
+                haft[3], inside_only=False)
+    canvas.rect(HAND_X + 1.4, HAND_Y - 11.0, 1.4, 1.4, steel[1])  # the eye
+    canvas.rounded_rect(HAND_X + 2.8, HAND_Y - 11.0, 1.8, 3.0, 0.8, steel[3])  # the wedge
+    canvas.rect(HAND_X + 4.0, HAND_Y - 11.0, 0.5, 2.4, steel[4])  # the split edge, lit
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_crossbow_hunting_equip():
+    """A crossbow: a short stock with a prod straight across it -- the one horizontal on the roster.
+
+    Every other weapon in this hand is a vertical, and the bow is an open D. A wide horizontal bar
+    at chest height is a silhouette none of them can make, which is the whole separation; the
+    string is a lit row under the prod so the bar does not read as a plank.
+    """
+    stock = RAMPS["wood"]
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, GRIP_BOTTOM_Y), (HAND_X + 0.6, HAND_Y - 9.5), 3.4, stock[2],
+                inside_only=False)
+    # The prod: level, and hung outboard of the fist rather than centred on it. Centred, half of
+    # it sits behind the trunk and the other half runs off the canvas, and what survives reads as
+    # a diagonal smudge rather than as a bow lying on its side. Its outboard end stops at the
+    # eight-rig envelope's own last column, the same one every shipped weapon stops at -- WORN's
+    # FITS lane is what says where that is, and it said so about this key.
+    canvas.band((HAND_X - 3.4, HAND_Y - 8.6), (HAND_X + 4.0, HAND_Y - 8.6), 1.8, steel[2],
+                inside_only=False)
+    canvas.band((HAND_X - 2.8, HAND_Y - 6.4), (HAND_X + 3.4, HAND_Y - 6.4), 0.8, steel[4],
+                inside_only=False)  # the string, drawn back to the catch
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_revolver_snub_equip():
+    """A snub revolver: the pistol's L with a bulge in the corner and a stub where the slide was.
+
+    The service pistol next to it is a flat slide out to the side; this is half that length with
+    a cylinder swelling at the join, which is the only detail a revolver can carry at seven
+    pixels. Grip in `wood` rather than the pistol's `strap`, because at this size a wooden
+    stock is the second-cheapest way to say the two are different guns.
+    """
+    steel = RAMPS["stone"]
+    grip = RAMPS["wood"]
+    canvas = _overlay()
+    canvas.band((OFF_HAND_X - 0.6, HAND_Y - 1.8), (OFF_HAND_X - 1.8, HAND_Y - 2.0), 2.6,
+                steel[2], inside_only=False)  # the short barrel
+    canvas.rect(OFF_HAND_X + 0.2, HAND_Y - 1.4, 1.2, 1.5, steel[1])  # the cylinder
+    canvas.band((OFF_HAND_X - 0.2, HAND_Y + 0.5), (OFF_HAND_X + 1.0, HAND_Y + 3.6), 3.2,
+                grip[1], inside_only=False)
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_rifle_rimfire_equip():
+    """A rimfire rifle: the hunting rifle's length at two thirds its width, and a pale stock.
+
+    The two rifles are the pair most at risk of reading as one thing, so the separation is width
+    and value rather than shape: a 2.2 px barrel against the hunting rifle's heavier one, and a
+    `wood[4]` stock -- the palest board on the roster -- against its dark furniture. A small
+    rifle is a thin rifle, which is the honest read as well as the legible one.
+    """
+    steel = RAMPS["stone"]
+    stock = RAMPS["wood"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.4, GRIP_BOTTOM_Y), (HAND_X + 0.4, HAND_Y - 4.0), 3.0, stock[4],
+                inside_only=False)  # the butt and the wrist
+    canvas.band((HAND_X + 0.4, HAND_Y - 4.0), (HAND_X + 1.6, HAND_Y - 13.0), 2.2, steel[2],
+                inside_only=False)  # the barrel
+    canvas.rect(HAND_X + 0.4, HAND_Y - 4.6, 1.6, 0.8, steel[0])  # the action
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+APRON_TOP_HALF_W = 3.4   # narrow at the chest: a bib, not a coat
+APRON_BOTTOM_HALF_W = 6.2  # and wide at the hip, which is the inverse of the jacket's taper
+
+
+def item_apron_welding_equip():
+    """A welding apron: a dark bib that widens downwards, and a neck strap over it.
+
+    The jacket and the wrap are both straight-sided rectangles on the trunk. This is the one
+    worn thing that *tapers*, and it tapers the way nothing else does -- narrow at the chest,
+    wide at the hip -- so the trunk silhouette says apron before any colour is read. Drawn out
+    of `strap`, one step lighter than the jacket so two dark torsos stay apart.
+    """
+    hide = RAMPS["strap"]
+    canvas = _overlay()
+    # Four stacked rows widening downwards: the taper, built where a rect cannot make one.
+    rows = 5
+    for i in range(rows):
+        t = i / float(rows - 1)
+        half_w = APRON_TOP_HALF_W + (APRON_BOTTOM_HALF_W - APRON_TOP_HALF_W) * t
+        y = WRAP_TOP_Y + 1.0 + (WRAP_BOTTOM_Y - WRAP_TOP_Y - 1.0) * t
+        canvas.rect(0.0, y, half_w, 1.1, hide[3 if i == 0 else 2])
+    for side in (-1.0, 1.0):
+        canvas.band((side * 2.6, WRAP_TOP_Y + 0.5), (side * 1.0, WRAP_TOP_Y - 1.5), 1.2,
+                    hide[4], inside_only=False)  # the neck strap, over the collarbone
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+HARDHAT_CY = HEAD_CY - 3.2
+HARDHAT_BRIM_Y = HEAD_CY - 1.4
+
+
+def item_helmet_hardhat_equip():
+    """A hard hat: a low crown with a flat brim all the way round it.
+
+    Three head items now share one skull, so each has to be a different outline: the cap is a
+    crown with a peak on one side, the bike helmet a bare dome, and this a dome with a brim
+    proud on *both* sides. The brim is the read. `wall_brick`, the timber family's warm ramp --
+    a site hat is the one warm thing on a head, and the accent family is for light sources only.
+    """
+    shell = RAMPS["wall_brick"]
+    canvas = _overlay()
+    canvas.rounded_rect(0.0, HARDHAT_CY, HEAD_R - 0.8, 2.0, 1.8, shell[3])  # the crown
+    canvas.rect(0.0, HARDHAT_BRIM_Y, HEAD_R + 1.6, 0.5, shell[1])  # the brim, proud both sides
+    canvas.rect(0.0, HARDHAT_CY - 1.4, 0.5, 0.9, shell[4], inside_only=True)  # the centre rib
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE, "esw")
+    return canvas.to_image()
+
+
+DUFFEL_HALF_W = 11.0
+DUFFEL_TOP_Y = TORSO_TOP_Y + 2.5   # lower than a pack: a duffel slung on a back sits at the waist
+DUFFEL_BOTTOM_Y = LEG_TOP_Y - 0.5
+
+
+def item_duffel_canvas_equip():
+    """A canvas duffel: a wide, low, round-ended bag, where every pack is a tall square slab.
+
+    Drawn under the body like the packs, so what a player sees is the part that clears the
+    torso either side. The three shipped packs separate from each other by size; this separates
+    from all three by *proportion* -- it is wider than the hiking pack and half its height, and
+    round-ended rather than square -- so the back slot reads as a bag rather than as luggage.
+    """
+    canvasing = RAMPS["fatigue_drab"]
+    canvas = _overlay()
+    mid_y = (DUFFEL_TOP_Y + DUFFEL_BOTTOM_Y) / 2.0
+    canvas.rounded_rect(0.0, mid_y, DUFFEL_HALF_W, (DUFFEL_BOTTOM_Y - DUFFEL_TOP_Y) / 2.0, 3.2,
+                        canvasing[2])
+    canvas.rect(0.0, mid_y - 1.6, DUFFEL_HALF_W - 2.0, 0.5, canvasing[4])  # the zip along the top
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_duffel_canvas_equip_front():
+    """The single strap, and single is the point: every pack in front of it wears two.
+
+    One band from the shoulder across to the opposite hip, inside +-6.5 px of centre so it never
+    touches the torso's own outline at +-7.5 -- the rule the hiking pack's straps set.
+    """
+    strap = RAMPS["strap"]
+    canvas = _overlay()
+    canvas.band((-5.4, SHOULDER_Y + 1.0), (3.4, LEG_TOP_Y - 1.0), 2.4, strap[2],
+                inside_only=False)
+    canvas.nw_shade(0.12)
+    return canvas.to_image()
+
 
 REGISTRY = {
     "item_pack_hiking_equip": item_pack_hiking_equip,
@@ -923,4 +1159,15 @@ REGISTRY = {
     "item_pack_frame_equip": item_pack_frame_equip,
     "item_pack_frame_equip_front": item_pack_frame_equip_front,
     "item_lantern_oil_equip": item_lantern_oil_equip,
+    # the second catalogue (2026-09-09)
+    "item_baton_police_equip": item_baton_police_equip,
+    "item_shovel_sharpened_equip": item_shovel_sharpened_equip,
+    "item_axe_splitting_equip": item_axe_splitting_equip,
+    "item_crossbow_hunting_equip": item_crossbow_hunting_equip,
+    "item_revolver_snub_equip": item_revolver_snub_equip,
+    "item_rifle_rimfire_equip": item_rifle_rimfire_equip,
+    "item_apron_welding_equip": item_apron_welding_equip,
+    "item_helmet_hardhat_equip": item_helmet_hardhat_equip,
+    "item_duffel_canvas_equip": item_duffel_canvas_equip,
+    "item_duffel_canvas_equip_front": item_duffel_canvas_equip_front,
 }

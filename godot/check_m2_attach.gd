@@ -36,6 +36,8 @@ func _init() -> void:
 func _run() -> void:
 	var ok: bool = true
 	ok = _content_is_wired_to_something() and ok
+	ok = _every_declared_slot_has_something_that_fits() and ok
+	ok = _every_scalable_field_is_scaled_by_something() and ok
 	ok = _a_slot_accepts_what_fits_it_and_refuses_what_does_not() and ok
 	ok = _an_attachment_changes_the_weapon() and ok
 	ok = _it_moves_between_compatible_bases() and ok
@@ -43,7 +45,7 @@ func _run() -> void:
 	ok = _the_commands_reach_it_and_refuse_out_loud() and ok
 	ok = _a_fitted_attachment_survives_a_save() and ok
 	if ok:
-		print("M2_ATTACH_OK content fit effect move melee command save")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -144,6 +146,105 @@ func _content_is_wired_to_something() -> bool:
 			return false
 
 	print("CONTENT OK %d attachments, all findable, %d slot names declared by bases" % [attachments.size(), declared.size()])
+	return true
+
+
+# --- HOSTS ------------------------------------------------------------------------------------
+# CONTENT above asks whether every attachment reaches a host. This asks the other direction, which
+# it was missing: whether every host reaches an attachment. Both have to hold, or the socket is
+# dead from one end -- and it was. `haft` was declared by six melee bases, `furniture` by three
+# firearms, `limb` and `string` by the bow, and until the second catalogue there was nothing in the
+# world that fitted any of the four. Complete, correct, gated content that no player could ever
+# fill, which is this milestone's own definition of a dead socket. Same shape as check_m2_gear's
+# "slot with no shipped item that can fill it", one level further in.
+func _every_declared_slot_has_something_that_fits() -> bool:
+	var w: Variant = _world()
+	var declared: Dictionary = {}
+	var fitted: Dictionary = {}
+	for entry_v in SimItems.content_entries(w, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		var id: String = String(e.get("id", "?"))
+		for s in e.get("slots", []) as Array:
+			var hosts: Array = declared.get(String(s), []) as Array
+			hosts.append(id)
+			declared[String(s)] = hosts
+		if e.get("attachment") is Dictionary:
+			for s2 in (e["attachment"] as Dictionary).get("fits", []) as Array:
+				var fitters: Array = fitted.get(String(s2), []) as Array
+				fitters.append(id)
+				fitted[String(s2)] = fitters
+	if declared.is_empty():
+		push_error("HOSTS: no shipped base declares a slot, so this lane is asserting nothing")
+		return false
+	var empty: Array[String] = []
+	for slot in declared.keys():
+		if not fitted.has(String(slot)):
+			empty.append("%s (declared by %d base(s))" % [String(slot), (declared[slot] as Array).size()])
+	if not empty.is_empty():
+		push_error("HOSTS: %s -- a slot on a shipped weapon with nothing in the world that fits it is a dead socket" % str(empty))
+		return false
+	# TN: the predicate has to be able to say no, and no real slot is left for it to say no about --
+	# that is what the lane above just established -- so the negative is a fabricated slot name.
+	if fitted.has("gate.nofitter") or declared.has("gate.nofitter"):
+		push_error("HOSTS: the scans found a slot name that does not exist")
+		return false
+	var probe: Dictionary = declared.duplicate()
+	probe["gate.nofitter"] = ["item.gate.host"]
+	var caught: Array[String] = []
+	for slot2 in probe.keys():
+		if not fitted.has(String(slot2)):
+			caught.append(String(slot2))
+	if caught != ["gate.nofitter"]:
+		push_error("HOSTS: the predicate cannot say no -- a fabricated slot with no fitter produced %s" % str(caught))
+		return false
+	print("  HOSTS OK %d slot names declared by bases, every one with at least one attachment that fits" % declared.size())
+	return true
+
+
+# --- SCALES -----------------------------------------------------------------------------------
+# The same question asked of the code side. `SimAttachments.SCALABLE` is the allow-list `fold`
+# multiplies through, and an entry in it that no shipped attachment ever names is a field the sim
+# stands ready to scale and nothing asks it to -- the dead socket one level further in again, and
+# invisible to CONTENT, which only ever checks the reverse (that a declared multiplier is *in*
+# SCALABLE). It caught `melee.reachMetres` and `ranged.rangeMetres`: both listed since attachments
+# landed, both scaled by nothing at all until the long haft and the long barrel shipped.
+func _every_scalable_field_is_scaled_by_something() -> bool:
+	var w: Variant = _world()
+	var scaled: Dictionary = {}
+	var read: int = 0
+	for entry_v in SimItems.content_entries(w, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		if not (e.get("attachment") is Dictionary):
+			continue
+		read += 1
+		var spec: Dictionary = e["attachment"] as Dictionary
+		for kind in SimAttachments.SCALABLE.keys():
+			var table: Variant = spec.get(String(kind))
+			if not (table is Dictionary):
+				continue
+			for field in (table as Dictionary).keys():
+				scaled["%s.%s" % [String(kind), String(field)]] = true
+	if read == 0:
+		push_error("SCALES: no attachment was read, so this lane is asserting nothing")
+		return false
+	var unscaled: Array[String] = []
+	for kind2 in SimAttachments.SCALABLE.keys():
+		for field2 in SimAttachments.SCALABLE[kind2] as Array:
+			if not scaled.has("%s.%s" % [String(kind2), String(field2)]):
+				unscaled.append("%s.%s" % [String(kind2), String(field2)])
+	if not unscaled.is_empty():
+		push_error("SCALES: %s named in SimAttachments.SCALABLE and scaled by no shipped attachment -- fold is ready to multiply it and nothing ever asks" % str(unscaled))
+		return false
+	# TN: the same predicate over a fabricated field list must find the one nothing scales, and
+	# must not flag the one that is scaled -- otherwise it would pass by always answering empty.
+	var missed: Array[String] = []
+	for probe in ["damage", "gateField"]:
+		if not scaled.has("melee.%s" % probe):
+			missed.append(probe)
+	if not missed.has("gateField") or missed.has("damage"):
+		push_error("SCALES: the predicate cannot say no -- a fabricated unscaled field produced %s" % str(missed))
+		return false
+	print("  SCALES OK all %d fields in SimAttachments.SCALABLE are scaled by shipped content (%d attachments read)" % [scaled.size(), read])
 	return true
 
 

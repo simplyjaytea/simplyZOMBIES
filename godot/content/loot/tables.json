@@ -244,6 +244,46 @@
       {
         "item": "item.can.fuel",
         "weight": 2
+      },
+      {
+        "item": "item.baton.police",
+        "weight": 4
+      },
+      {
+        "item": "item.superglue.tube",
+        "weight": 7,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.dogfood.tin",
+        "weight": 8,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.food.pickles.jar",
+        "weight": 7
+      },
+      {
+        "item": "item.coffee.instant",
+        "weight": 6,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.ammo.38",
+        "weight": 3,
+        "count": {
+          "min": 4,
+          "max": 10
+        }
       }
     ]
   },
@@ -492,6 +532,66 @@
           "min": 1,
           "max": 2
         }
+      },
+      {
+        "item": "item.crossbow.hunting",
+        "weight": 3
+      },
+      {
+        "item": "item.ammo.bolt",
+        "weight": 7,
+        "count": {
+          "min": 3,
+          "max": 8
+        }
+      },
+      {
+        "item": "item.rifle.rimfire",
+        "weight": 3
+      },
+      {
+        "item": "item.ammo.22",
+        "weight": 8,
+        "count": {
+          "min": 5,
+          "max": 15
+        }
+      },
+      {
+        "item": "item.revolver.snub",
+        "weight": 3
+      },
+      {
+        "item": "item.gloves.mesh",
+        "weight": 4
+      },
+      {
+        "item": "item.duffel.canvas",
+        "weight": 5
+      },
+      {
+        "item": "item.attach.limb.heavy",
+        "weight": 2
+      },
+      {
+        "item": "item.attach.string.fast",
+        "weight": 3
+      },
+      {
+        "item": "item.food.pickles.jar",
+        "weight": 6,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.coffee.instant",
+        "weight": 7,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
       }
     ]
   },
@@ -629,6 +729,22 @@
       {
         "item": "item.spirits.bottle",
         "weight": 3
+      },
+      {
+        "item": "item.gauze.sterile",
+        "weight": 10,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.peroxide.bottle",
+        "weight": 8,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
       }
     ]
   },
@@ -789,6 +905,34 @@
       {
         "item": "item.can.fuel",
         "weight": 4
+      },
+      {
+        "item": "item.vest.riot",
+        "weight": 6
+      },
+      {
+        "item": "item.attach.furniture.pad",
+        "weight": 5
+      },
+      {
+        "item": "item.attach.barrel.long",
+        "weight": 4
+      },
+      {
+        "item": "item.ammo.38",
+        "weight": 6,
+        "count": {
+          "min": 6,
+          "max": 12
+        }
+      },
+      {
+        "item": "item.ammo.22",
+        "weight": 7,
+        "count": {
+          "min": 10,
+          "max": 25
+        }
       }
     ]
   },
@@ -925,6 +1069,26 @@
           "min": 1,
           "max": 3
         }
+      },
+      {
+        "item": "item.shovel.sharpened",
+        "weight": 6
+      },
+      {
+        "item": "item.axe.splitting",
+        "weight": 5
+      },
+      {
+        "item": "item.helmet.hardhat",
+        "weight": 7
+      },
+      {
+        "item": "item.apron.welding",
+        "weight": 6
+      },
+      {
+        "item": "item.attach.haft.long",
+        "weight": 4
       }
     ]
   }

@@ -142,5 +142,41 @@
     "appearance": {"equipSprite": "item_cleaver_butcher_equip"},
     "slots": ["edge", "wrap"],
     "melee": {"reachMetres": 0.9, "weight": 0.7, "damage": 12, "staggerTicks": 3}
+  },
+  {
+    "id": "item.baton.police",
+    "name": "Police Baton",
+    "description": "A side-handled baton. It will not open a skull, and what it hits stops coming for a while.",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 2},
+    "massKg": 0.6,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_baton_police_equip"},
+    "slots": ["wrap"],
+    "melee": {"reachMetres": 1.1, "weight": 0.7, "damage": 7, "staggerTicks": 20}
+  },
+  {
+    "id": "item.shovel.sharpened",
+    "name": "Sharpened Shovel",
+    "description": "A spade with an edge ground onto it. Long enough to keep the work at arm's length.",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 4},
+    "massKg": 1.9,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_shovel_sharpened_equip"},
+    "slots": ["edge", "haft", "wrap"],
+    "melee": {"reachMetres": 1.5, "weight": 1.2, "damage": 13, "staggerTicks": 11}
+  },
+  {
+    "id": "item.axe.splitting",
+    "name": "Splitting Axe",
+    "description": "A splitting axe off a woodpile. The head does the work and the arms pay for it.",
+    "class": "weapon.melee",
+    "size": {"w": 2, "h": 4},
+    "massKg": 4.1,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_axe_splitting_equip"},
+    "slots": ["head", "haft", "wrap"],
+    "melee": {"reachMetres": 1.6, "weight": 1.8, "damage": 16, "staggerTicks": 14}
   }
 ]
