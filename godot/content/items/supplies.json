@@ -602,5 +602,64 @@
       "thirst": 5,
       "mood": 8
     }
+  },
+  {
+    "id": "item.gauze.sterile",
+    "name": "Sterile Gauze",
+    "description": "A sealed pad of sterile gauze. Clean enough to put straight onto an open wound.",
+    "class": "consumable",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.04,
+    "stack": 3,
+    "bandageTier": "sterile"
+  },
+  {
+    "id": "item.superglue.tube",
+    "name": "Tube of Superglue",
+    "description": "A tube of superglue. Field medics used it before there were field medics, and it holds.",
+    "class": "consumable",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.03,
+    "stack": 2,
+    "closeKind": "suture"
+  },
+  {
+    "id": "item.peroxide.bottle",
+    "name": "Hydrogen Peroxide",
+    "description": "A brown bottle of peroxide. It foams in the wound and it stings the whole time.",
+    "class": "consumable",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.2,
+    "stack": 2,
+    "cleanTier": "antiseptic"
+  },
+  {
+    "id": "item.food.dogfood.tin",
+    "name": "Tin of Dog Food",
+    "description": "A tin of dog food. It keeps forever, it is food, and eating it in front of the others costs something.",
+    "class": "consumable",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.4,
+    "stack": 3,
+    "food": {"hunger": 30, "mood": -12, "spoilDays": 0, "illnessChance": 0.05}
+  },
+  {
+    "id": "item.food.pickles.jar",
+    "name": "Jar of Pickles",
+    "description": "A jar of pickles in cloudy brine. Sharp, salty, and it has outlived its shop.",
+    "class": "consumable",
+    "size": {"w": 1, "h": 2},
+    "massKg": 0.7,
+    "food": {"hunger": 25, "mood": 4, "spoilDays": 0, "illnessChance": 0}
+  },
+  {
+    "id": "item.coffee.instant",
+    "name": "Instant Coffee",
+    "description": "A jar of instant coffee, taken cold and gritty. It buys an hour and charges for it later.",
+    "class": "consumable",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.2,
+    "stack": 2,
+    "drink": {"thirst": 10, "rest": 14, "crashRest": 18, "crashAfterTicks": 30000, "mood": 4}
   }
 ]
