@@ -62,6 +62,12 @@ const WEAR_EVENTS: Array[String] = ["shot", "reload", "hit", "jam"]
 # rounds where the pistol carrying it takes 333, which is docs/10's "wear out fast" as a number.
 const PART_WEAR_PER_EVENT: float = 0.002
 
+# How deep `assemble` will follow `defaultParts`. Parts declare none, so one level is all any
+# shipped content needs; two is the belt to the CYCLE lane's braces. Passed through `options`
+# rather than held in a static var, because a static is shared between the two worlds a gate
+# boots and docs/30 records that trap twice already.
+const MAX_ASSEMBLE_DEPTH: int = 2
+
 
 # Reachable the way a bench operation is reachable -- `item.modify` is the precedent, and an
 # attachment that could only be fitted by a gate would be the seventh dead socket of the
@@ -355,6 +361,70 @@ static func fold(world: Variant, host: int, kind: String, profile: Dictionary) -
 			else:
 				profile[field] = float(current) * factor
 	return profile
+
+
+## The parts a base comes built with, as {slot: baseId}. Empty for anything that is one object.
+static func default_parts_of(world: Variant, host: int) -> Dictionary:
+	var base: Variant = SimItemsRes.item_base_of(world, host)
+	if not base is Dictionary:
+		return {}
+	var raw: Variant = (base as Dictionary).get("defaultParts", {})
+	return (raw as Dictionary).duplicate() if raw is Dictionary else {}
+
+
+## Fits this host's default parts, spawning each one. Called by `spawn_item` on the way out, so a
+## weapon arrives in the world already an assembly -- the base template is the receiver and the
+## parts are real items with their own condition.
+##
+## Two things about it are load-bearing and neither is obvious:
+##
+## **It is not a subscriber on `item.spawned`.** `spawn_item` publishes and drains, and a handler
+## that spawned entities during delivery would nest `deliver` inside `deliver` -- the determinism
+## bug spawn_item's own comment records having already paid for once.
+##
+## **It draws no randomness.** Each part is spawned with an explicit `"scavenged"` tier, which
+## skips `roll_tier` and returns before `roll_affixes` draws anything, so assembling a weapon
+## cannot shift the `loot` stream for everything spawned after it. That is asserted, not assumed:
+## check_m2_attach.gd's QUIET lane compares the stream position of a world that spawns assembled
+## weapons against one that does not.
+static func assemble(world: Variant, host: int, depth: int = 0) -> int:
+	if depth >= MAX_ASSEMBLE_DEPTH:
+		return 0
+	var defaults: Dictionary = default_parts_of(world, host)
+	if defaults.is_empty():
+		return 0
+	var slots: Array = slots_of(world, host)
+	var names: Array = defaults.keys()
+	names.sort()
+	var fitted: int = 0
+	for slot_v in names:
+		var slot: String = String(slot_v)
+		if not slots.has(slot) or in_slot(world, host, slot) >= 0:
+			continue
+		var part: int = SimItemsRes.spawn_item(world, String(defaults[slot]), {"tier": "scavenged", "assembleDepth": depth + 1})
+		if part < 0:
+			continue
+		if attach(world, host, part, slot):
+			fitted += 1
+	return fitted
+
+
+## The worst condition in this assembly: the host's own, and every *structural* part's. A gun is
+## only as good as the barrel in it, which is what makes fitting a fresh barrel a repair -- and a
+## repair that costs no ceiling, unlike `SimItems.repair_item`, because nothing was mended.
+##
+## Only structural parts count. An optic wearing out does not stop the rifle working; it simply
+## stops helping, which `effect_scale` already says.
+static func assembly_condition(world: Variant, host: int, own: float) -> float:
+	var worst: float = own
+	for rec in parts_of(world, host):
+		var spec: Dictionary = (rec as Dictionary)["spec"] as Dictionary
+		if not bool(spec.get("structural", false)):
+			continue
+		var c: Variant = world.components.get_component(int((rec as Dictionary)["item"]), "condition")
+		if c is Dictionary:
+			worst = minf(worst, float((c as Dictionary).get("current", 1.0)))
+	return worst
 
 
 # An attachment changes the weapon, so the weapon a survivor is holding has to be rebuilt. The

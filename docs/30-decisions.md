@@ -3400,6 +3400,75 @@ unauthored because `noise_emission` and `condition_loss` resolve to nothing outs
 registry and authoring them now would ship five dead affixes to fix four dead slots; and named
 items, which need a fifth tier in `SimItems.TIERS` and a fixed-roll path.
 
+## Gunsmithing: a weapon is an assembly, 2026-09-09
+
+`godot/sim/modules/attachments.gd`, `godot/sim/modules/items.gd`,
+`godot/content/items/parts.json`, gated by `npm run godot:m2:attach` and `npm run godot:m2:upkeep`.
+The owner's direction of 2026-09-09, answering four questions at once: full gunsmithing rather than
+stat-sticks, every weapon assembled from real parts, the firearm slot vocabulary widened, and the
+work done at a bench.
+
+- **The base template is the receiver, and `defaultParts` is what makes that true.** A base names
+  the parts it comes built with, keyed by slot, and `spawn_item` fits them on the way out — so the
+  service pistol in a drawer is holding a barrel, an action and a magazine, each an item with its
+  own condition. This was chosen over rewriting content so that receivers are a separate class of
+  base: it gets the behaviour with a data edit, and every weapon that does *not* come apart simply
+  declares nothing. Melee is authored conservatively on purpose — a fire axe is a head and a haft
+  and always was; a kitchen knife is one object.
+- **`assemble` is called from `spawn_item`, not subscribed to `item.spawned`.** Assembly spawns
+  entities, and a handler doing that during delivery would nest `deliver` inside `deliver` —
+  the determinism bug `spawn_item`'s own comment records having already paid for.
+- **And it draws no randomness, which is asserted rather than assumed.** Each part is spawned at an
+  explicit `"scavenged"` tier, skipping `roll_tier` and returning before `roll_affixes` draws. If
+  it did draw, every weapon placed in a district would shift the `loot` stream for everything
+  placed after it — a worldgen change no gate about attachments would have noticed. The **QUIET**
+  lane compares the stream's own position between a world that spawns ten assembled rifles and one
+  that spawns ten bare ones, and its true negative is ten spawns that *do* roll a tier.
+- **`structural` is the flag that makes swapping a part a repair.** A structural part is one the
+  weapon is made of; `SimItems.assembly_condition` takes the worst of the host's condition and
+  every structural part's, and the profile builders and `jam_chance` both band off that. So a
+  tired action is what stovepipes a gun, and fitting a sound one restores it **without touching
+  the repair ceiling** — `SimItems.repair_item` lowers the ceiling because something was mended,
+  and here nothing was. An optic is not structural: as it wears it simply does less, which
+  `effect_scale` already said. A part can be structural *and* declare multipliers; a long barrel
+  is both.
+- **`muzzle` and `internal` are new, and the suppressor moved.** docs/10 gave firearms
+  optic · barrel · magazine · furniture, which meant a can and a longer barrel competed for one
+  slot — and "a stock, a sight and a longer barrel at once" is exactly what the feature was asked
+  for. The suppressor now fits `muzzle`; `internal` holds the action, where the springs that
+  decide a jam live. Every gate lane that fitted a suppressor to a `barrel` was re-pointed rather
+  than loosened.
+- **Receiver masses came down by what their parts now carry.** `item_mass_kg` counts fitted parts,
+  so without this every weapon in the world would have got heavier the day this landed —
+  encumbrance, movement speed, the whole campaign — for no design reason. An assembled weapon
+  weighs what it was authored at and a stripped one weighs less, which is the right way round. The
+  **MASS** lane pins the pre-assembly figures in the gate file rather than reading them back off
+  the content, on `check_worn.gd`'s `EXPECT_ORDER` precedent.
+- **Wear reaches the part that did the work, and that needed the profile to know its own item.**
+  `_weapon_for_attacker` guessed by walking `["primary","secondary"]`, so a knife took every
+  gunshot's wear and the pistol beside it never degraded at all. Both profiles now carry `source`
+  and four channels name the acting weapon: `weapon.fired`, `weapon.reloaded`, `attack.connected`,
+  `weapon.jammed`. What wears a part is content — `wearsOn` picks words out of `WEAR_EVENTS` —
+  because the `barrel` slot holds parts that do not wear alike.
+- **A worn part does less, never something worse.** `effect_scale` interpolates each declared
+  multiplier toward **1.0** by the part's condition. Symmetric, so a buff and a cost both wash out
+  and nothing in the fold has to know which it was holding; the polarity question belongs to the
+  screen. `pow(declared, k)` composes more prettily and was rejected: one multiply is cheaper, and
+  legible in a gate's error message.
+- **`detach` re-homes or refuses.** It used to leave the part with no `stored`, no `position` and
+  no slot, which is not "the caller decides" but "the part is gone". The ladder is the carrier's
+  pack, the carrier's feet, beside a host on the ground, the container the host sits in — and a
+  refusal when every rung fails, so no path through it loses a part.
+- **v29 refuses a v28 save.** A v28 save holds weapons with empty slots, and neither reading is
+  honest: treating "no `attachments` component" as unblocked makes the required-slot rule
+  unenforceable the moment a barrel breaks off, and assembling on load invents items the save
+  never had.
+- **Measured, not theorised:** a throwaway driver fired a pistol 160 rounds. The assembly reaches
+  "worn" at about 100 shots and "failing" at about 200, and the *action* is what gets there first
+  (rate 1.2, on `shot` and `jam` both) — so a gun that starts jamming is fixed by swapping the
+  action, which is the loop this slice exists to create. `npm run godot:bench` is unchanged and
+  inside every budget with ~28 extra part entities per eleven weapons. Driver deleted.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

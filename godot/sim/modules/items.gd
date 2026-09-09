@@ -196,6 +196,12 @@ static func item_mass_kg(world: Variant, item: int, contents_of: Callable) -> fl
 	var mass: float = base_mass_kg(base as Dictionary) * float(1 if stack == null else int((stack as Dictionary).get("count", 1)))
 	for child in contents_of.call(item) as Array:
 		mass += item_mass_kg(world, int(child), contents_of)
+	# What is bolted to it, too -- docs/10 charges weight for an extended magazine and the mass of
+	# a barrel does not stop being carried because the barrel is in a gun. Each base's own massKg
+	# is the receiver alone, so an assembled weapon comes out at the figure it was authored at;
+	# check_m2_attach.gd's MASS lane holds that against a table of the pre-assembly masses.
+	for rec in _Attachments().call("parts_of", world, item) as Array:
+		mass += item_mass_kg(world, int((rec as Dictionary)["item"]), contents_of)
 	return mass
 
 static func condition_factor(world: Variant, item: int) -> float:
@@ -203,6 +209,24 @@ static func condition_factor(world: Variant, item: int) -> float:
 	if c == null:
 		return 1.0
 	var cur: float = float((c as Dictionary).get("current", 1.0))
+	if cur <= 0.0:
+		return 0.0
+	return CONDITION_FLOOR + (1.0 - CONDITION_FLOOR) * clampf(cur, 0.0, 1.0)
+
+
+## The raw condition of this item *as assembled*: the worst of its own and every structural part's.
+## A weapon is only as good as the barrel in it, which is what makes fitting a sound barrel to a
+## tired gun a repair -- and one that costs no ceiling, because nothing was mended.
+static func assembly_condition(world: Variant, item: int) -> float:
+	var c: Variant = world.components.get_component(item, "condition")
+	var own: float = float((c as Dictionary).get("current", 1.0)) if c is Dictionary else 1.0
+	return float(_Attachments().call("assembly_condition", world, item, own))
+
+
+## `condition_factor` asked of the whole assembly. This is what the weapon profiles scale by, so a
+## worn barrel takes the edge off the gun exactly as a worn gun does.
+static func assembly_condition_factor(world: Variant, item: int) -> float:
+	var cur: float = assembly_condition(world, item)
 	if cur <= 0.0:
 		return 0.0
 	return CONDITION_FLOOR + (1.0 - CONDITION_FLOOR) * clampf(cur, 0.0, 1.0)
@@ -228,7 +252,10 @@ static func jam_chance(world: Variant, item: int) -> float:
 	var c: Variant = world.components.get_component(item, "condition")
 	if not (c is Dictionary):
 		return 0.0
-	return float(JAM_CHANCE_BY_BAND.get(condition_band(c as Dictionary), 0.0))
+	# Banded off the assembly rather than the receiver: what stovepipes a gun is a tired action or
+	# a bent magazine, and both are parts now. A player told the action is "failing" is the one
+	# whose gun jams, which is the same promise JAM_CHANCE_BY_BAND already makes about the weapon.
+	return float(JAM_CHANCE_BY_BAND.get(condition_band({"current": assembly_condition(world, item)}), 0.0))
 
 
 static func apply_wear(world: Variant, item: int, amount: float = WEAR_PER_HIT) -> void:
@@ -358,7 +385,7 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 	var melee: Variant = (base as Dictionary).get("melee")
 	if not melee is Dictionary:
 		return null
-	var wear: float = condition_factor(world, item)
+	var wear: float = assembly_condition_factor(world, item)
 	var resolve := func(stat: String) -> float:
 		if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
 			return float(world.modifiers.call("resolve", stat, item))
@@ -389,7 +416,7 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 	var ranged: Variant = (base as Dictionary).get("ranged")
 	if not ranged is Dictionary:
 		return null
-	var wear: float = condition_factor(world, item)
+	var wear: float = assembly_condition_factor(world, item)
 	var r: Dictionary = ranged as Dictionary
 	var jams: bool = bool(r.get("jams", false))
 	var profile: Dictionary = {
@@ -691,6 +718,13 @@ static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}
 	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
 	if Needs != null and Needs.has_method("mark_spoilage"):
 		Needs.call("mark_spoilage", world, item, base_id)
+	# Last, and deliberately not on the `item.spawned` channel above: assembly spawns entities of
+	# its own, and doing that inside `deliver` would nest a delivery in a delivery. `assemble`
+	# draws no randomness -- every part is spawned at an explicit tier -- so a weapon arriving in
+	# the world with four parts in it leaves the `loot` stream exactly where a bare one would.
+	# Opt out with {"assemble": false} when you want the frame alone.
+	if bool(options.get("assemble", true)):
+		_Attachments().call("assemble", world, item, int(options.get("assembleDepth", 0)))
 	return item
 
 static func verify_content_references(world: Variant) -> void:

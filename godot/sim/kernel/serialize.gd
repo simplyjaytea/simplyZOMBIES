@@ -84,7 +84,14 @@ extends RefCounted
 # declare no water are byte-identical, which is asserted rather than assumed -- but a save carries
 # only the seed, not which district it was rolled on, so the refusal cannot be narrowed to the
 # districts that actually moved.
-const SAVE_VERSION: int = 28
+#
+# v29: weapons spawn assembled. Every firearm, bow and two-piece melee base now arrives holding
+# real part entities in its slots (`defaultParts`), and a required slot decides whether it works
+# at all. A v28 save carries weapons with empty slots, and there is no honest way to read one:
+# treating "no attachments component" as unblocked would make the required-slot rule unenforceable
+# the moment a barrel breaks off, and assembling on load would invent items the save never had.
+# Refused, same rule as v27.
+const SAVE_VERSION: int = 29
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

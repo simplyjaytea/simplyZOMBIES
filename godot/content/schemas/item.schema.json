@@ -127,6 +127,11 @@
       },
       "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases."
     },
+    "defaultParts": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "The parts this base comes assembled with, keyed by slot name and naming an attachment base. SimAttachments.assemble fits them when the item spawns, so the template is the receiver and the weapon in the world is an assembly -- pull the barrel out and what is left is a frame. Every slot named here must be one this base declares in `slots`, every value must be an attachment that fits that slot, and the graph must not cycle; check_m2_attach.gd's ASSEMBLE and CYCLE lanes judge all three, because the validator will not look inside this object. A base's own massKg is the receiver alone: the parts weigh what they weigh and item_mass_kg counts them."
+    },
     "attachment": {
       "type": "object",
       "description": "Present on an attachment base and absent on everything else, per docs/10-items.md#attachment-slots. `fits` is the set of host slot names this will go into -- a list rather than one name, because 'moves freely between compatible bases' is the point of the mechanism. The `melee` and `ranged` tables are multipliers folded over the host weapon's own profile by sim/modules/attachments.gd, keyed by the profile field they scale, so an attachment declares what it multiplies and nothing has to know what an optic is. The content validator is shallow and will not look inside this, which is what godot/check_m2_attach.gd is for.",
@@ -148,6 +153,10 @@
           "type": "object",
           "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
           "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
+        },
+        "structural": {
+          "type": "boolean",
+          "description": "Whether the host is made of this part rather than merely carrying it. A structural part's own condition drags the whole assembly down -- SimItems.assembly_condition takes the worst of the host and its structural parts -- which is what makes swapping a worn barrel for a good one a repair. An optic or a suppressor is not structural: as it wears it simply does less, per effect_scale. A part may be structural and still declare multipliers; a long barrel is both."
         },
         "wearsOn": {
           "type": "array",

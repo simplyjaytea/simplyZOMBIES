@@ -111,7 +111,7 @@ The mechanism that lets a build survive an upgrade — PoE's "your gems come wit
 
 | Base class | Slots |
 |---|---|
-| Firearm | optic · barrel · magazine · furniture |
+| Firearm | optic · barrel · muzzle · magazine · furniture · internal |
 | Bow / crossbow | sight · limb · string |
 | Melee | head/edge · haft · wrap |
 | Body armor | plate · lining · pocket |
@@ -121,6 +121,15 @@ The mechanism that lets a build survive an upgrade — PoE's "your gems come wit
 Attachments are **found, not crafted**, and **move freely between compatible bases**. Finding a better
 rifle upgrades your numbers without discarding the suppressor, optic, and extended magazine you spent
 two months assembling.
+
+**A weapon is an assembly, and its base is the receiver.** A base declares `defaultParts`, and the
+weapon that spawns in the world is holding real part items — a barrel, an action, a magazine, a
+stock — each with its own condition. `muzzle` and `internal` exist so that a can does not have to
+compete with a longer barrel for one slot, and so that the springs and the sear that decide a jam
+have somewhere to live. A part marked **structural** is one the weapon is *made of* rather than one
+it carries: the assembly is only as good as its worst structural part, so a tired action is what
+jams a gun and fitting a sound one is a repair that costs no condition ceiling, because nothing was
+mended. An optic is not structural — as it wears it simply does less.
 
 Attachments have their own costs: suppressors wear out fast and cost accuracy; optics are useless in
 the dark without a light, and a weapon light is an attention emitter aimed at whatever you're looking

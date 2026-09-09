@@ -27,6 +27,8 @@ const WRAP: String = "item.attach.wrap.leather"
 const SPIKES: String = "item.attach.head.spiked"
 const PISTOL: String = "item.pistol.service"
 const AXE: String = "item.axe.fire"
+const RIFLE: String = "item.rifle.hunting"
+const STD_BARREL: String = "item.part.barrel.standard"
 
 
 func _init() -> void:
@@ -47,8 +49,13 @@ func _run() -> void:
 	ok = _a_worn_part_does_less_and_a_dead_one_does_nothing() and ok
 	ok = _every_wear_word_is_known_and_every_known_word_is_used() and ok
 	ok = _a_part_worn_through_comes_off_and_lands_somewhere() and ok
+	ok = _a_weapon_arrives_assembled() and ok
+	ok = _assembling_a_weapon_draws_no_randomness() and ok
+	ok = _an_assembled_weapon_weighs_what_it_always_weighed() and ok
+	ok = _the_default_parts_graph_resolves_and_does_not_cycle() and ok
+	ok = _a_sound_part_in_a_tired_gun_is_a_repair() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -119,8 +126,11 @@ func _content_is_wired_to_something() -> bool:
 				if not (SimAttachments.SCALABLE[kind] as Array).has(String(key)):
 					push_error("CONTENT: %s scales %s.%s, which no profile field is named" % [id, kind, String(key)])
 					return false
-		if spec.get("melee") == null and spec.get("ranged") == null:
-			push_error("CONTENT: %s declares no effect at all" % id)
+		# A part has to do something. Multiplying a profile field is one way; *being* part of the
+		# weapon is the other, and a plain barrel does the second without doing the first -- its
+		# condition is the gun's condition, which is the whole of its effect.
+		if spec.get("melee") == null and spec.get("ranged") == null and not bool(spec.get("structural", false)):
+			push_error("CONTENT: %s declares no effect at all and is not structural" % id)
 			return false
 	# Findable, per docs/10: "attachments are found, not crafted". An attachment in no loot table
 	# is content nobody will ever hold -- the same dead-socket shape this milestone keeps turning
@@ -269,21 +279,21 @@ func _a_slot_accepts_what_fits_it_and_refuses_what_does_not() -> bool:
 	if SimAttachments.attach(w, axe, can, "haft"):
 		push_error("FIT: a suppressor went onto an axe")
 		return false
-	if not SimAttachments.attach(w, pistol, can, "barrel"):
-		push_error("FIT: a suppressor was refused a barrel, so every refusal above proves nothing")
+	if not SimAttachments.attach(w, pistol, can, "muzzle"):
+		push_error("FIT: a suppressor was refused a muzzle, so every refusal above proves nothing")
 		return false
-	if SimAttachments.attach(w, pistol, can2, "barrel"):
-		push_error("FIT: two suppressors share one barrel")
+	if SimAttachments.attach(w, pistol, can2, "muzzle"):
+		push_error("FIT: two suppressors share one muzzle")
 		return false
 	# Already fitted somewhere: the same object cannot be on two weapons.
 	var pistol2: int = _spawn(w, PISTOL)
-	if SimAttachments.attach(w, pistol2, can, "barrel"):
+	if SimAttachments.attach(w, pistol2, can, "muzzle"):
 		push_error("FIT: a fitted suppressor was fitted again to a second pistol")
 		return false
-	if int(SimAttachments.in_slot(w, pistol, "barrel")) != can:
-		push_error("FIT: the barrel is not holding the suppressor after all that")
+	if int(SimAttachments.in_slot(w, pistol, "muzzle")) != can:
+		push_error("FIT: the muzzle is not holding the suppressor after all that")
 		return false
-	print("FIT OK barrel accepts, magazine/furniture/haft refuse, one slot one item, no double-fitting")
+	print("FIT OK muzzle accepts, magazine/string/haft refuse, one slot one item, no double-fitting")
 	return true
 
 
@@ -350,7 +360,7 @@ func _an_attachment_changes_the_weapon() -> bool:
 	var quiet: Variant = _world()
 	var pistol: int = _armed_pistol(quiet)
 	var can: int = _spawn(quiet, SUPPRESSOR)
-	if not SimAttachments.attach(quiet, pistol, can, "barrel"):
+	if not SimAttachments.attach(quiet, pistol, can, "muzzle"):
 		push_error("EFFECT: could not fit the suppressor")
 		return false
 	# Pinned, not assumed. Every number below is the *full* effect of this part, and once a part's
@@ -393,8 +403,8 @@ func _an_attachment_changes_the_weapon() -> bool:
 	var fed: Variant = _world()
 	var p3: int = _armed_pistol(fed)
 	var base_mag: int = int((fed.components.get_component(fed.player, "rangedWeapon") as Dictionary)["magSize"])
-	if not SimAttachments.attach(fed, p3, _spawn(fed, EXT_MAG), "magazine"):
-		push_error("EFFECT: the extended magazine was refused")
+	if not _swap(fed, p3, "magazine", _spawn(fed, EXT_MAG)):
+		push_error("EFFECT: the extended magazine could not replace the standard one")
 		return false
 	var big_mag: int = int((fed.components.get_component(fed.player, "rangedWeapon") as Dictionary)["magSize"])
 	if big_mag <= base_mag:
@@ -410,7 +420,7 @@ func _it_moves_between_compatible_bases() -> bool:
 	var w: Variant = _world()
 	var first: int = _armed_pistol(w)
 	var can: int = _spawn(w, SUPPRESSOR)
-	if not SimAttachments.attach(w, first, can, "barrel"):
+	if not SimAttachments.attach(w, first, can, "muzzle"):
 		push_error("MOVES: could not fit the suppressor to begin with")
 		return false
 	var suppressed: float = _noise_of(w, w.player)
@@ -425,7 +435,7 @@ func _it_moves_between_compatible_bases() -> bool:
 	var second: Variant = _world()
 	var host: int = _armed_pistol(second)
 	var moved: int = _spawn(second, SUPPRESSOR)
-	if not SimAttachments.attach(second, host, moved, "barrel"):
+	if not SimAttachments.attach(second, host, moved, "muzzle"):
 		push_error("MOVES: the second pistol refused it")
 		return false
 	var moved_noise: float = _noise_of(second, second.player)
@@ -450,8 +460,10 @@ func _melee_attachments_do_the_same_thing() -> bool:
 		push_error("MELEE: the axe has no melee profile")
 		return false
 	var spiked: int = _spawn(w, AXE)
-	if not SimAttachments.attach(w, spiked, _spawn(w, SPIKES), "head"):
-		push_error("MELEE: the spiked head was refused the axe's head slot")
+	# The axe comes with a head in it, so this is a swap rather than an addition -- which is what
+	# a spiked head has always been, and what "repair by replacing a part" will be in the bench.
+	if not _swap(w, spiked, "head", _spawn(w, SPIKES)):
+		push_error("MELEE: the spiked head could not replace the axe's standard head")
 		return false
 	if not SimAttachments.attach(w, spiked, _spawn(w, WRAP), "wrap"):
 		push_error("MELEE: the wrap was refused the axe's wrap slot")
@@ -484,14 +496,14 @@ func _the_commands_reach_it_and_refuse_out_loud() -> bool:
 	var w: Variant = _world()
 	var pistol: int = _armed_pistol(w)
 	var can: int = _spawn(w, SUPPRESSOR)
-	w.commands.push({"type": "item.attach", "host": pistol, "item": can, "slot": "barrel"})
+	w.commands.push({"type": "item.attach", "host": pistol, "item": can, "slot": "muzzle"})
 	w.step()
-	if int(SimAttachments.in_slot(w, pistol, "barrel")) != can:
+	if int(SimAttachments.in_slot(w, pistol, "muzzle")) != can:
 		push_error("COMMAND: item.attach did nothing")
 		return false
 
 	var refused: Array = []
-	w.commands.push({"type": "item.attach", "host": pistol, "item": _spawn(w, SUPPRESSOR), "slot": "barrel"})
+	w.commands.push({"type": "item.attach", "host": pistol, "item": _spawn(w, SUPPRESSOR), "slot": "muzzle"})
 	w.step()
 	for e in w.events.drained:
 		if String((e as Dictionary).get("type", "")) == "attachment.refused":
@@ -502,7 +514,7 @@ func _the_commands_reach_it_and_refuse_out_loud() -> bool:
 
 	w.commands.push({"type": "item.detach", "item": can})
 	w.step()
-	if int(SimAttachments.in_slot(w, pistol, "barrel")) >= 0:
+	if int(SimAttachments.in_slot(w, pistol, "muzzle")) >= 0:
 		push_error("COMMAND: item.detach did nothing")
 		return false
 	print("COMMAND OK attach, refusal published, detach")
@@ -516,7 +528,7 @@ func _a_fitted_attachment_survives_a_save() -> bool:
 	# keyed by entity id comes back from JSON with String keys and reads empty. See CLAUDE.md.
 	var w: Variant = _world()
 	var pistol: int = _armed_pistol(w)
-	if not SimAttachments.attach(w, pistol, _spawn(w, SUPPRESSOR), "barrel"):
+	if not SimAttachments.attach(w, pistol, _spawn(w, SUPPRESSOR), "muzzle"):
 		push_error("SAVE: could not fit the suppressor")
 		return false
 	var before: float = float((SimItems.ranged_profile_of(w, pistol) as Dictionary)["noise"])
@@ -550,7 +562,7 @@ func _a_worn_part_does_less_and_a_dead_one_does_nothing() -> bool:
 	var pistol: int = _armed_pistol(w)
 	var bare: float = _folded_noise(w, pistol)
 	var can: int = _spawn(w, SUPPRESSOR)
-	if not SimAttachments.attach(w, pistol, can, "barrel"):
+	if not SimAttachments.attach(w, pistol, can, "muzzle"):
 		push_error("%s: could not fit the suppressor" % lane)
 		return false
 	var sound: float = _folded_noise(w, pistol)
@@ -661,7 +673,7 @@ func _a_part_worn_through_comes_off_and_lands_somewhere() -> bool:
 	var w: Variant = _world()
 	var pistol: int = _armed_pistol(w)
 	var can: int = _spawn(w, SUPPRESSOR)
-	if not SimAttachments.attach(w, pistol, can, "barrel"):
+	if not SimAttachments.attach(w, pistol, can, "muzzle"):
 		push_error("%s: could not fit the suppressor" % lane)
 		return false
 
@@ -670,7 +682,7 @@ func _a_part_worn_through_comes_off_and_lands_somewhere() -> bool:
 	(w.components.get_component(can, "condition") as Dictionary)["current"] = 0.05
 	SimAttachments.wear_parts(w, pistol, "shot")
 	w.events.drain()
-	if SimAttachments.in_slot(w, pistol, "barrel") != can:
+	if SimAttachments.in_slot(w, pistol, "muzzle") != can:
 		push_error("%s: a suppressor with condition left came off after one shot" % lane)
 		return false
 
@@ -681,9 +693,9 @@ func _a_part_worn_through_comes_off_and_lands_somewhere() -> bool:
 		for e in w.events.drained:
 			if String((e as Dictionary).get("type", "")) == "attachment.broke":
 				broke.append(e)
-		if SimAttachments.in_slot(w, pistol, "barrel") < 0:
+		if SimAttachments.in_slot(w, pistol, "muzzle") < 0:
 			break
-	if SimAttachments.in_slot(w, pistol, "barrel") >= 0:
+	if SimAttachments.in_slot(w, pistol, "muzzle") >= 0:
 		push_error("%s: the suppressor never wore through" % lane)
 		return false
 	if broke.size() != 1 or int((broke[0] as Dictionary).get("item", -1)) != can:
@@ -701,7 +713,7 @@ func _a_part_worn_through_comes_off_and_lands_somewhere() -> bool:
 	var w2: Variant = _world()
 	var p2: int = _armed_pistol(w2)
 	var can2: int = _spawn(w2, SUPPRESSOR)
-	if not SimAttachments.attach(w2, p2, can2, "barrel"):
+	if not SimAttachments.attach(w2, p2, can2, "muzzle"):
 		push_error("%s: could not fit the second suppressor" % lane)
 		return false
 	if not SimAttachments.detach(w2, can2):
@@ -717,13 +729,13 @@ func _a_part_worn_through_comes_off_and_lands_somewhere() -> bool:
 	var w3: Variant = _world()
 	var loose: int = _spawn(w3, PISTOL)
 	var can3: int = _spawn(w3, SUPPRESSOR)
-	if not SimAttachments.attach(w3, loose, can3, "barrel"):
+	if not SimAttachments.attach(w3, loose, can3, "muzzle"):
 		push_error("%s: could not fit the third suppressor" % lane)
 		return false
 	if SimAttachments.detach(w3, can3):
 		push_error("%s: a part came off a host that is nowhere, so it went nowhere" % lane)
 		return false
-	if SimAttachments.in_slot(w3, loose, "barrel") != can3:
+	if SimAttachments.in_slot(w3, loose, "muzzle") != can3:
 		push_error("%s: a refused detach changed the host anyway" % lane)
 		return false
 
@@ -773,3 +785,326 @@ func _words_outside(these: Array, those: Array) -> Array[String]:
 			out.append(String(a))
 	out.sort()
 	return out
+
+
+## Takes whatever is in a slot out and puts this in instead. A weapon arrives assembled, so most
+## fitting is a swap; a lane that only ever filled an empty slot would be testing a state the
+## world no longer starts in.
+func _swap(w: Variant, host: int, slot: String, part: int) -> bool:
+	var sitting: int = SimAttachments.in_slot(w, host, slot)
+	if sitting >= 0:
+		# The old part has to land somewhere before the new one goes in, and `detach` refuses when
+		# it cannot -- a loose host in a gate fixture is exactly that case, so give it a place to
+		# be first.
+		if not w.components.has_component(host, "position") and not w.components.has_component(host, "stored"):
+			if SimAttachments.carrier_of(w, host) < 0:
+				w.components.set_component(host, "position", {"x": 8.5, "y": 12.5})
+		if not SimAttachments.detach(w, sitting):
+			return false
+	return SimAttachments.attach(w, host, part, slot)
+
+
+# --- ASSEMBLE ---------------------------------------------------------------------------------
+#
+# The base template is the receiver; the weapon in the world is an assembly. Every firearm, both
+# bows and the four melee bases that are genuinely a head on a shaft declare `defaultParts`, and
+# `spawn_item` fits them on the way out. What this lane has to establish is that the parts are
+# *real items* -- own entity, own condition, own `attachedTo` -- and not a bookkeeping entry,
+# because everything downstream (wear, swapping, the bench) depends on their being items.
+func _a_weapon_arrives_assembled() -> bool:
+	var lane: String = "ASSEMBLE"
+	var w: Variant = _world()
+	var assembled: int = 0
+	var checked: int = 0
+	for entry_v in SimItems.content_entries(w, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		var defaults: Variant = e.get("defaultParts")
+		if not defaults is Dictionary or (defaults as Dictionary).is_empty():
+			continue
+		checked += 1
+		var host: int = _spawn(w, String(e.get("id", "")))
+		var fitted: Dictionary = SimAttachments.attached(w, host)
+		for slot_v in (defaults as Dictionary).keys():
+			var slot: String = String(slot_v)
+			if not fitted.has(slot):
+				push_error("%s: %s declares a default %s and spawned without one" % [lane, String(e.get("id", "?")), slot])
+				return false
+			var part: int = int(fitted[slot])
+			if not w.components.has_component(part, "condition"):
+				push_error("%s: %s's %s is not a real item -- it has no condition" % [lane, String(e.get("id", "?")), slot])
+				return false
+			var link: Variant = w.components.get_component(part, "attachedTo")
+			if not link is Dictionary or int((link as Dictionary)["host"]) != host:
+				push_error("%s: %s's %s does not point back at its host" % [lane, String(e.get("id", "?")), slot])
+				return false
+			var base: Variant = SimItems.item_base_of(w, part)
+			if not base is Dictionary or String((base as Dictionary).get("id", "")) != String((defaults as Dictionary)[slot]):
+				push_error("%s: %s's %s is not the base it declared" % [lane, String(e.get("id", "?")), slot])
+				return false
+			assembled += 1
+	if checked == 0:
+		push_error("%s: no shipped base declares defaultParts, so this lane is asserting nothing" % lane)
+		return false
+
+	# TN: the opt-out. Without it the lane passes for an implementation that fits parts to
+	# everything unconditionally, and there would be no way to spawn a bare receiver at all.
+	var bare: int = SimItems.spawn_item(w, PISTOL, {"tier": "scavenged", "assemble": false})
+	if not SimAttachments.attached(w, bare).is_empty():
+		push_error("%s: a pistol asked to spawn unassembled came back with parts in it" % lane)
+		return false
+
+	print("  ASSEMBLE OK %d bases arrive with %d real parts between them; assemble:false comes back bare" % [checked, assembled])
+	return true
+
+
+# --- QUIET ------------------------------------------------------------------------------------
+#
+# Assembly spawns entities, and spawning an item normally rolls a tier off the `loot` stream. If
+# assembling drew from it, every weapon in the world would shift the stream for everything spawned
+# after it -- a change to district generation that no gate about attachments would ever notice, and
+# the kind of determinism break this codebase has already paid for once. Each part is spawned at an
+# explicit tier, which skips the roll; this asserts it.
+func _assembling_a_weapon_draws_no_randomness() -> bool:
+	var lane: String = "QUIET"
+	var loud: Variant = _world()
+	var quiet: Variant = _world()
+	for i in 10:
+		SimItems.spawn_item(loud, RIFLE, {"tier": "scavenged"})
+		SimItems.spawn_item(quiet, RIFLE, {"tier": "scavenged", "assemble": false})
+	var with_parts: int = _loot_state(loud)
+	var without: int = _loot_state(quiet)
+	if with_parts != without:
+		push_error("%s: ten assembled rifles left the loot stream at %d and ten bare ones at %d" % [lane, with_parts, without])
+		return false
+
+	# TN: the same comparison against a spawn that deliberately *does* roll a tier. If the probe
+	# cannot see the stream move, the equality above proves nothing about assembly.
+	var rolling: Variant = _world()
+	for i in 10:
+		SimItems.spawn_item(rolling, RIFLE, {"assemble": false})
+	if _loot_state(rolling) == without:
+		push_error("%s: the probe cannot see the loot stream move -- ten tier rolls left it where it started" % lane)
+		return false
+
+	print("  QUIET OK ten assembled rifles and ten bare ones both leave the loot stream at %d; ten rolled ones move it" % with_parts)
+	return true
+
+
+# --- MASS -------------------------------------------------------------------------------------
+#
+# Fitted parts weigh what they weigh, which means every weapon in the world would have got heavier
+# the day slice 3 landed -- encumbrance, movement, the whole campaign -- unless each receiver's own
+# massKg came down by what its parts now carry. It did. The expectation is written out here rather
+# than read back off the content, on check_worn.gd's EXPECT_ORDER precedent: a gate that reads the
+# value under test and compares it to itself is a gate that cannot fail.
+const MASS_BEFORE_ASSEMBLY: Dictionary = {
+	"item.bow.hunting": 1.10, "item.pistol.service": 0.90, "item.shotgun.pump": 3.40,
+	"item.rifle.hunting": 3.60, "item.crossbow.hunting": 2.60, "item.revolver.snub": 0.80,
+	"item.rifle.rimfire": 2.40, "item.spear.improvised": 1.40, "item.axe.fire": 3.20,
+	"item.sledge.demolition": 6.40, "item.axe.splitting": 4.10,
+}
+
+func _an_assembled_weapon_weighs_what_it_always_weighed() -> bool:
+	var lane: String = "MASS"
+	var w: Variant = _world()
+	var contents := func(item: int) -> Array: return SimInventory.contents_of(w, item)
+	var checked: int = 0
+	for id_v in MASS_BEFORE_ASSEMBLY.keys():
+		var id: String = String(id_v)
+		var host: int = _spawn(w, id)
+		if SimAttachments.attached(w, host).is_empty():
+			push_error("%s: %s is in the table and spawned with no parts, so its mass is not an assembly's" % [lane, id])
+			return false
+		var now: float = SimItems.item_mass_kg(w, host, contents)
+		var then: float = float(MASS_BEFORE_ASSEMBLY[id])
+		if absf(now - then) > 0.005:
+			push_error("%s: %s assembles to %.3f kg, and weighed %.3f before it came apart" % [lane, id, now, then])
+			return false
+		checked += 1
+	if checked == 0:
+		push_error("%s: nothing was weighed" % lane)
+		return false
+
+	# TN: stripping a part has to actually change the number, or item_mass_kg is not counting
+	# parts at all and every equality above is the receiver's own mass matching itself.
+	var rifle: int = _spawn(w, RIFLE)
+	var full: float = SimItems.item_mass_kg(w, rifle, contents)
+	var barrel: int = SimAttachments.in_slot(w, rifle, "barrel")
+	w.components.set_component(rifle, "position", {"x": 8.5, "y": 12.5})
+	if barrel < 0 or not SimAttachments.detach(w, barrel):
+		push_error("%s: could not take the rifle's barrel off" % lane)
+		return false
+	var stripped: float = SimItems.item_mass_kg(w, rifle, contents)
+	if not (stripped < full):
+		push_error("%s: taking the barrel off changed nothing (%.3f vs %.3f) -- parts are not being weighed" % [lane, stripped, full])
+		return false
+
+	print("  MASS OK %d assembled bases weigh what they were authored at; stripping a barrel drops %.3f kg" % [checked, full - stripped])
+	return true
+
+
+# --- CYCLE ------------------------------------------------------------------------------------
+#
+# `defaultParts` names bases by id, so the content can describe a graph the depth guard would have
+# to catch at runtime. Better to refuse it here: every slot named is one the host declares, every
+# value is an attachment that fits that slot, and nothing reaches itself.
+func _the_default_parts_graph_resolves_and_does_not_cycle() -> bool:
+	var lane: String = "CYCLE"
+	var w: Variant = _world()
+	var graph: Dictionary = {}
+	var entries: Dictionary = {}
+	for entry_v in SimItems.content_entries(w, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		entries[String(e.get("id", ""))] = e
+		var defaults: Variant = e.get("defaultParts")
+		if defaults is Dictionary and not (defaults as Dictionary).is_empty():
+			graph[String(e.get("id", ""))] = defaults
+	if graph.is_empty():
+		push_error("%s: no base declares defaultParts, so this lane is asserting nothing" % lane)
+		return false
+	for id_v in graph.keys():
+		var id: String = String(id_v)
+		var host: Dictionary = entries[id] as Dictionary
+		var slots: Array = host.get("slots", []) as Array
+		for slot_v in (graph[id] as Dictionary).keys():
+			var slot: String = String(slot_v)
+			var part_id: String = String((graph[id] as Dictionary)[slot])
+			if not _has(slots, slot):
+				push_error("%s: %s defaults a %s and does not declare that slot" % [lane, id, slot])
+				return false
+			if not entries.has(part_id):
+				push_error("%s: %s defaults %s, which is not a shipped base" % [lane, id, part_id])
+				return false
+			var spec: Variant = (entries[part_id] as Dictionary).get("attachment")
+			if not spec is Dictionary or not _has((spec as Dictionary).get("fits", []) as Array, slot):
+				push_error("%s: %s defaults %s into %s, and it does not fit there" % [lane, id, part_id, slot])
+				return false
+	var cycles: Array[String] = _cyclic_in(graph)
+	if not cycles.is_empty():
+		push_error("%s: defaultParts cycles through %s" % [lane, str(cycles)])
+		return false
+
+	# TN: a fabricated cycle through the same detector.
+	var probe: Dictionary = graph.duplicate(true)
+	probe["gate.a"] = {"slot": "gate.b"}
+	probe["gate.b"] = {"slot": "gate.a"}
+	var caught: Array[String] = _cyclic_in(probe)
+	if caught.size() != 2:
+		push_error("%s: the detector cannot see a cycle -- a fabricated pair produced %s" % [lane, str(caught)])
+		return false
+
+	print("  CYCLE OK %d bases default %d parts, every slot declared, every part fitting, no cycles" % [graph.size(), _graph_edges(graph)])
+	return true
+
+
+# --- REPAIR -----------------------------------------------------------------------------------
+#
+# What "repair by swapping a part" means mechanically, and the reason `structural` exists. A gun is
+# only as good as the barrel in it: a worn structural part drags the whole assembly's condition
+# down, and fitting a sound one puts it back -- without touching the repair ceiling, because
+# nothing was mended. An optic is not structural and must not do either.
+func _a_sound_part_in_a_tired_gun_is_a_repair() -> bool:
+	var lane: String = "REPAIR"
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	var whole: float = SimItems.assembly_condition(w, pistol)
+	var damage_whole: float = _folded_damage(w, pistol)
+
+	var barrel: int = SimAttachments.in_slot(w, pistol, "barrel")
+	if barrel < 0:
+		push_error("%s: the pistol spawned with no barrel to tire out" % lane)
+		return false
+	(w.components.get_component(barrel, "condition") as Dictionary)["current"] = 0.3
+	SimItems.refresh_armed(w, pistol)
+	var tired: float = SimItems.assembly_condition(w, pistol)
+	var damage_tired: float = _folded_damage(w, pistol)
+	if not (tired < whole):
+		push_error("%s: a barrel at 0.30 left the assembly at %.4f, the same as whole" % [lane, tired])
+		return false
+	if not (damage_tired < damage_whole):
+		push_error("%s: a worn barrel cost the pistol no damage (%.4f vs %.4f)" % [lane, damage_tired, damage_whole])
+		return false
+
+	# The repair: a sound barrel in place of the tired one, and the gun is itself again.
+	if not _swap(w, pistol, "barrel", _spawn(w, STD_BARREL)):
+		push_error("%s: could not fit a fresh barrel" % lane)
+		return false
+	var mended: float = _folded_damage(w, pistol)
+	if absf(mended - damage_whole) > 0.0001:
+		push_error("%s: a fresh barrel did not restore the pistol (%.4f vs %.4f)" % [lane, mended, damage_whole])
+		return false
+	var ceiling: float = float((w.components.get_component(pistol, "condition") as Dictionary).get("ceiling", 1.0))
+	if absf(ceiling - SimItems.FULL_CONDITION) > 0.0001:
+		push_error("%s: swapping a part cost the weapon %.4f of its ceiling, and nothing was mended" % [lane, SimItems.FULL_CONDITION - ceiling])
+		return false
+
+	# TN: the same treatment of a part that is *not* structural must move nothing. Without this
+	# the lane passes for an implementation where every part's condition drags the gun down, and
+	# `structural` would be a flag nothing reads.
+	var w2: Variant = _world()
+	var p2: int = _armed_pistol(w2)
+	var sight: int = _spawn(w2, RED_DOT)
+	if not SimAttachments.attach(w2, p2, sight, "optic"):
+		push_error("%s: the red dot was refused" % lane)
+		return false
+	var before: float = SimItems.assembly_condition(w2, p2)
+	(w2.components.get_component(sight, "condition") as Dictionary)["current"] = 0.05
+	SimItems.refresh_armed(w2, p2)
+	if absf(SimItems.assembly_condition(w2, p2) - before) > 0.0001:
+		push_error("%s: a worn optic dragged the assembly down, and an optic is not structural" % lane)
+		return false
+
+	print("  REPAIR OK a barrel at 0.30 takes the assembly to %.2f and the damage with it; a fresh one restores both, ceiling untouched" % tired)
+	return true
+
+
+# --- helpers for the slice-3 lanes -------------------------------------------------------------
+
+func _folded_damage(w: Variant, weapon: int) -> float:
+	var p: Variant = SimItems.ranged_profile_of(w, weapon)
+	return float((p as Dictionary).get("damage", 0.0)) if p is Dictionary else 0.0
+
+
+## Where the `loot` stream has got to. SimRngStream keeps no draw counter, but `_state` *is* the
+## position -- one `next()` advances it and nothing else does -- so two worlds that drew the same
+## number of times from the same seed hold the same number here.
+func _loot_state(w: Variant) -> int:
+	return int((w.rng.stream("loot") as Object).get("_state"))
+
+
+func _has(list: Array, want: String) -> bool:
+	for x in list:
+		if String(x) == want:
+			return true
+	return false
+
+
+func _graph_edges(graph: Dictionary) -> int:
+	var n: int = 0
+	for k in graph.keys():
+		n += (graph[k] as Dictionary).size()
+	return n
+
+
+## Ids that can reach themselves through defaultParts, sorted. Plain reachability rather than a
+## colouring walk: the graph is a dozen nodes deep at most.
+func _cyclic_in(graph: Dictionary) -> Array[String]:
+	var bad: Array[String] = []
+	for start_v in graph.keys():
+		var start: String = String(start_v)
+		var seen: Dictionary = {}
+		var queue: Array[String] = []
+		for slot in (graph[start] as Dictionary).keys():
+			queue.append(String((graph[start] as Dictionary)[slot]))
+		while not queue.is_empty():
+			var here: String = queue.pop_back()
+			if here == start:
+				bad.append(start)
+				break
+			if seen.has(here) or not graph.has(here):
+				continue
+			seen[here] = true
+			for slot2 in (graph[here] as Dictionary).keys():
+				queue.append(String((graph[here] as Dictionary)[slot2]))
+	bad.sort()
+	return bad
