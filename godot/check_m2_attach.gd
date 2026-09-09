@@ -54,8 +54,10 @@ func _run() -> void:
 	ok = _an_assembled_weapon_weighs_what_it_always_weighed() and ok
 	ok = _the_default_parts_graph_resolves_and_does_not_cycle() and ok
 	ok = _a_sound_part_in_a_tired_gun_is_a_repair() and ok
+	ok = _every_required_slot_is_one_the_base_declares() and ok
+	ok = _a_headless_spear_is_a_stick() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -1108,3 +1110,102 @@ func _cyclic_in(graph: Dictionary) -> Array[String]:
 				queue.append(String((graph[here] as Dictionary)[slot2]))
 	bad.sort()
 	return bad
+
+
+# --- REQUIRED ---------------------------------------------------------------------------------
+#
+# `requiredSlots` is a list of slot names on a base, and nothing in the schema can check it against
+# the sibling `slots` list, or against the nouns the refusal sentence needs. A slot required but
+# never declared would block the weapon forever with no way to unblock it -- the worst possible
+# shape for this feature -- and a required slot with no noun would read as "has no ".
+func _every_required_slot_is_one_the_base_declares() -> bool:
+	var lane: String = "REQUIRED"
+	var w: Variant = _world()
+	var bases: int = 0
+	var required: Dictionary = {}
+	for entry_v in SimItems.content_entries(w, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		var req: Variant = e.get("requiredSlots")
+		if not req is Array or (req as Array).is_empty():
+			continue
+		bases += 1
+		var id: String = String(e.get("id", "?"))
+		var slots: Array = e.get("slots", []) as Array
+		var defaults: Variant = e.get("defaultParts")
+		for slot_v in req as Array:
+			var slot: String = String(slot_v)
+			required[slot] = true
+			if not _has(slots, slot):
+				push_error("%s: %s requires a %s and does not declare that slot -- nothing could ever fill it" % [lane, id, slot])
+				return false
+			# And it has to arrive filled, or every one of these weapons spawns as a brick.
+			if not defaults is Dictionary or not (defaults as Dictionary).has(slot):
+				push_error("%s: %s requires a %s and does not default one, so it spawns unusable" % [lane, id, slot])
+				return false
+			if not SimAttachments.SLOT_NOUN.has(slot):
+				push_error("%s: %s requires a %s and SLOT_NOUN has no word for it" % [lane, id, slot])
+				return false
+		# The sentence goes on the HUD, where check_hud.gd allows no digits at all.
+		var name: String = String(e.get("name", ""))
+		for c in name:
+			if c >= "0" and c <= "9":
+				push_error("%s: %s is named '%s', and its refusal sentence would put a digit on the HUD" % [lane, id, name])
+				return false
+	if bases == 0:
+		push_error("%s: no shipped base requires a slot, so requiredSlots is read by nothing" % lane)
+		return false
+	# Both halves of the game, or the melee reader ships unexercised by content.
+	if not (required.has("barrel") and required.has("head")):
+		push_error("%s: required slots are %s -- one side of the game declares none" % [lane, str(required.keys())])
+		return false
+
+	print("  REQUIRED OK %d bases require %d distinct slots, each declared, each defaulted, each with a word" % [bases, required.size()])
+	return true
+
+
+# --- HEADLESS ---------------------------------------------------------------------------------
+#
+# The melee half of the required-slot rule. `SimMelee.try_begin_swing` is the mirror of
+# `SimRanged._idle_weapon` and needs its own assertion, or `requiredSlots` on the four melee bases
+# that declare it is a content edit nothing reads. A spear with no head is a shaft.
+func _a_headless_spear_is_a_stick() -> bool:
+	var lane: String = "HEADLESS"
+	var w: Variant = _world()
+	var spear: int = _spawn(w, "item.spear.improvised")
+	if not SimInventory.equip(w, w.player, spear, "primary"):
+		push_error("%s: the spear would not go in the hand" % lane)
+		return false
+	w.events.drain()
+
+	# TN first: a whole spear swings, so a refusal below is about the head and not about the arena.
+	if not SimMelee.try_begin_swing(w, w.player):
+		push_error("%s: a whole spear would not swing, so the refusal below proves nothing" % lane)
+		return false
+	var swing: Dictionary = w.components.get_component(w.player, "swing") as Dictionary
+	swing["state"] = SimMelee.SwingState.Idle
+	swing["ticksLeft"] = 0
+
+	var head: int = SimAttachments.in_slot(w, spear, "head")
+	if head < 0 or not SimAttachments.detach(w, head):
+		push_error("%s: could not take the spear's head off" % lane)
+		return false
+	if SimMelee.try_begin_swing(w, w.player):
+		push_error("%s: a shaft with no head swung anyway" % lane)
+		return false
+	w.events.drain()
+	var refused: String = ""
+	for e in w.events.drained:
+		if String((e as Dictionary).get("type", "")) == "weapon.refused" and int((e as Dictionary).get("entity", -1)) == w.player:
+			refused = String((e as Dictionary).get("reason", ""))
+	if refused != "missing:head":
+		push_error("%s: the refusal was '%s', not missing:head" % [lane, refused])
+		return false
+
+	# And the sentence the screen would print, since a reason id is not a thing a player reads.
+	var said: String = SimAttachments.refusal_clause(w, w.player)
+	if said.is_empty() or not said.contains("head"):
+		push_error("%s: the refusal clause reads '%s'" % [lane, said])
+		return false
+
+	print("  HEADLESS OK a whole spear swings, a headless one refuses as missing:head and says \"%s\"" % said)
+	return true

@@ -406,6 +406,9 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 		# entity id as a *value*, never a Dictionary key, so it survives the JSON round trip a
 		# save makes.
 		"source": item,
+		# Why this weapon cannot be used, or "" -- one field, computed once, read by every path
+		# that can start an attack. See SimAttachments.blocked_reason.
+		"blocked": String(_Attachments().call("blocked_reason", world, item)),
 	}
 	return _Attachments().call("fold", world, item, "melee", profile)
 
@@ -443,6 +446,7 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		# See melee_profile_of: the item this profile was built from, so wear can reach the
 		# weapon that actually fired.
 		"source": item,
+		"blocked": String(_Attachments().call("blocked_reason", world, item)),
 	}
 	return _Attachments().call("fold", world, item, "ranged", profile)
 

@@ -247,6 +247,20 @@ static func try_begin_reload(world: Variant, entity: int) -> bool:
 	return _begin_reload(world, entity, rw as Dictionary)
 
 
+## Whether this entity's weapon works at all. False when a required slot is empty -- pull the
+## barrel out of a pistol and there is nothing to fire. Public because npc_combat has to ask
+## before it walks somebody into range of a gun that cannot shoot.
+static func can_fire(world: Variant, entity: int) -> bool:
+	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
+	return rw is Dictionary and String((rw as Dictionary).get("blocked", "")) == ""
+
+
+## Why this entity's weapon does not work, or "". The screen turns it into a sentence.
+static func refusal_of(world: Variant, entity: int) -> String:
+	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
+	return String((rw as Dictionary).get("blocked", "")) if rw is Dictionary else ""
+
+
 # Armed, idle, ungrabbed, untreated and capable — the gate a fire and a reload share.
 static func _idle_weapon(world: Variant, entity: int) -> Variant:
 	if world.components.has_component(entity, "grabbed"):
@@ -257,6 +271,12 @@ static func _idle_weapon(world: Variant, entity: int) -> Variant:
 		return null
 	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
 	if not rw is Dictionary:
+		return null
+	# A weapon missing a part it cannot work without. Announced rather than silently dropped: a
+	# trigger pull that does nothing and says nothing is the worst possible way for a player to
+	# meet this feature, so the refusal is an event the HUD turns into a sentence.
+	if String((rw as Dictionary).get("blocked", "")) != "":
+		world.events.publish({"type": "weapon.refused", "entity": entity, "reason": String((rw as Dictionary)["blocked"])})
 		return null
 	if int((rw as Dictionary)["state"]) != FireState.Idle:
 		return null

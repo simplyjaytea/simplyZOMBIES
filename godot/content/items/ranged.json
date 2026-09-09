@@ -9,6 +9,7 @@
     "equipSlot": "primary",
     "appearance": { "equipSprite": "item_bow_hunting_equip" },
     "slots": ["sight", "limb", "string"],
+    "requiredSlots": ["limb", "string"],
     "defaultParts": {
       "limb": "item.part.limb.standard",
       "string": "item.part.string.standard"
@@ -32,6 +33,7 @@
     "equipSlot": "secondary",
     "appearance": { "equipSprite": "item_pistol_service_equip" },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
       "barrel": "item.part.barrel.standard",
       "magazine": "item.part.magazine.standard",
@@ -76,6 +78,7 @@
     "equipSlot": "primary",
     "appearance": {"equipSprite": "item_shotgun_pump_equip"},
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
       "barrel": "item.part.barrel.standard",
       "internal": "item.part.action.standard",
@@ -93,6 +96,7 @@
     "equipSlot": "primary",
     "appearance": {"equipSprite": "item_rifle_hunting_equip"},
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
       "barrel": "item.part.barrel.standard",
       "magazine": "item.part.magazine.standard",
@@ -129,6 +133,7 @@
     "equipSlot": "primary",
     "appearance": {"equipSprite": "item_crossbow_hunting_equip"},
     "slots": ["sight", "limb", "string"],
+    "requiredSlots": ["limb", "string"],
     "defaultParts": {
       "limb": "item.part.limb.standard",
       "string": "item.part.string.standard"
@@ -145,6 +150,7 @@
     "equipSlot": "secondary",
     "appearance": {"equipSprite": "item_revolver_snub_equip"},
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
       "barrel": "item.part.barrel.standard",
       "internal": "item.part.action.standard"
@@ -161,6 +167,7 @@
     "equipSlot": "primary",
     "appearance": {"equipSprite": "item_rifle_rimfire_equip"},
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
       "barrel": "item.part.barrel.standard",
       "magazine": "item.part.magazine.standard",
