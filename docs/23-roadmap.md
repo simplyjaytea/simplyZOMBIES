@@ -285,8 +285,6 @@ than here.
 
 - **The repair economy: station, materials, Craft.** `SimItems.repair_item` already lowers the
   ceiling on every repair; what is open is the cost of invoking it.
-- **Attachments wear out.** docs/10's "suppressors wear out fast" — attachments have no condition
-  of their own yet.
 - **Attachments meet the attention field.** An optic useless in the dark; a weapon light that is a
   real light source and therefore a real emitter.
 - **An attachment-fitting screen.** `item.attach` / `item.detach` work and have no surface.
@@ -645,11 +643,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
   writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
   has this (`stance.eyes`); the port dropped it.
-- **A detached attachment is lost, not dropped.** `SimAttachments.detach` deliberately leaves
-  the attachment homeless — no `stored`, no `position`, no slot — and the `item.detach` command
-  does nothing about it. (The weapon half of this entry — `apply_wear` unequipping into nowhere
-  at zero condition — closed 2026-09-07 with the re-arm slice: a worn-out weapon drops at the
-  holder's feet.)
 - **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
@@ -5802,6 +5795,34 @@ not a to-do list:
   implementation that wears everything the actor holds. Reinstating the old primary-first guess
   turns it red naming the right number. **FIRED**'s true negative is the one that matters: a
   pistol with no ammunition publishes nothing, or every wear number above it is a lie.
+
+- **Items** — ~~attachments wear out~~ and ~~a detached attachment is lost, not dropped~~
+  **landed** 2026-09-09 (`godot:m2:attach` grows **CONDITION**, **WEARS** and **BREAKS**), the
+  second slice of the gunsmithing arc. A part is an item, so it has a condition, and docs/10's
+  "suppressors wear out fast" is now a number: `effect_scale` walks each declared multiplier back
+  toward **1.0** by the part's own `condition_factor` — `1.0 + (declared - 1.0) * k` — so a
+  failing suppressor buys less of the quiet and a dead one buys none. Toward 1.0 and not toward
+  zero, and symmetric, so an extended magazine decays toward holding a normal magazine rather than
+  toward holding nothing and nothing has to ask whether a multiplier is a gain or a cost; the
+  polarity question belongs to the screen. Measured: a service pistol is 180 bare, **39.6** with a
+  sound can, **96.5** with one at 0.10 condition. `specs_of` became `parts_of`, returning the
+  part's *entity* alongside its spec, because the fold has to ask each part what state it is in
+  and wear has to reach each part individually; it had one caller. Wear rides the four channels
+  slice 1 built — `weapon.fired`, `weapon.reloaded`, `attack.connected`, `weapon.jammed`, each now
+  naming the acting weapon — and what wears a part is content: `wearsOn` picks words out of
+  `WEAR_EVENTS`, `wearRate` multiplies `PART_WEAR_PER_EVENT` (0.002), so the suppressor at 3.0
+  reaches "failing" in ~133 rounds where the pistol carrying it takes ~333. **A part worn through
+  comes off**, and `detach` now re-homes down a ladder — the carrier's pack, the carrier's feet,
+  beside a host on the ground, into the container holding it — and **refuses** rather than
+  unlinking when every rung fails, so there is no path through it that loses a part. That is the
+  defect closed at both ends. **CONDITION** states its true negative as a predicate: a *sound*
+  part must not satisfy "strictly between sound and bare", or the lane passes for an
+  implementation where wear does nothing; it also reads the *live* weapon after wearing, which is
+  what proves the fold re-reads condition instead of caching it at fit time. **WEARS** is the
+  SCALES pattern on the new vocabulary, both directions with a fabricated word each way.
+  **BREAKS** leads with its negative — a part with condition left survives a shot — and ends on
+  the homeless host that must refuse. Ignoring condition in the fold turns CONDITION red; the old
+  homeless `detach` turns BREAKS red.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

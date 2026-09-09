@@ -28,6 +28,14 @@ extends RefCounted
 # String, so it survives the JSON round-trip a save makes; see CLAUDE.md on entity-keyed
 # dictionaries. The attachment carries `attachedTo {host, slot}`, which is what keeps a fitted
 # suppressor from also sitting loose in a pack.
+#
+# **A part is an item, so it has a condition, and a worn part does less rather than something
+# worse.** docs/10: "suppressors wear out fast and cost accuracy". Each declared multiplier is
+# interpolated toward 1.0 by the part's own condition -- see `effect_scale` -- so a failing
+# suppressor buys half the quiet it used to and a dead one buys none. That shape is deliberate and
+# it is symmetric: an extended magazine decays toward holding a normal magazine, not toward
+# holding nothing, and neither case needs anything to know whether a multiplier is a gain or a
+# cost. The polarity question belongs to the screen, not to the fold.
 
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
@@ -40,6 +48,19 @@ const SCALABLE: Dictionary = {
 	"melee": ["damage", "reachMetres", "staggerTicks", "speed"],
 	"ranged": ["damage", "noise", "flash", "magSize", "reloadTicks", "rangeMetres", "cone"],
 }
+
+# What a part can declare it wears from, as a vocabulary the content picks words out of. The same
+# arrangement as SCALABLE one level out, and for the same reason: a typo in `wearsOn` must not be
+# indistinguishable from a part that never wears. Not a slot-to-event table in code, because the
+# `barrel` slot holds both a suppressor and a long barrel and they do not wear alike -- and
+# because "adding a kind of attachment is a data edit" is the rule this module exists to keep.
+const WEAR_EVENTS: Array[String] = ["shot", "reload", "hit", "jam"]
+
+# Wear a part takes from one event it declares, before its own `wearRate` multiplies it. Set
+# against SimItems.WEAR_PER_SHOT (0.0015) so a plain part outlasts the weapon it is bolted to and
+# a part declaring a rate above 1 does not: the suppressor at 3.0 reaches "failing" in about 133
+# rounds where the pistol carrying it takes 333, which is docs/10's "wear out fast" as a number.
+const PART_WEAR_PER_EVENT: float = 0.002
 
 
 # Reachable the way a bench operation is reachable -- `item.modify` is the precedent, and an
@@ -58,6 +79,22 @@ static func register_module(world: Variant) -> void:
 				if not detach(w, int(c.get("item", -1))):
 					w.events.publish({"type": "attachment.refused", "item": int(c.get("item", -1)), "slot": ""})
 	)
+
+	# The same three channels SimItems wears the weapon on, plus the jam -- a stovepipe is hard on
+	# whatever fed it. Each event names the acting weapon in `item`, so a part is only ever worn by
+	# the gun it is actually bolted to.
+	world.events.subscribe({"id": "attachments.wear-on-shot", "type": "weapon.fired", "handler": func(event: Dictionary) -> void:
+		wear_parts(world, int(event.get("item", -1)), "shot")
+	})
+	world.events.subscribe({"id": "attachments.wear-on-reload", "type": "weapon.reloaded", "handler": func(event: Dictionary) -> void:
+		wear_parts(world, int(event.get("item", -1)), "reload")
+	})
+	world.events.subscribe({"id": "attachments.wear-on-hit", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
+		wear_parts(world, int(event.get("item", -1)), "hit")
+	})
+	world.events.subscribe({"id": "attachments.wear-on-jam", "type": "weapon.jammed", "handler": func(event: Dictionary) -> void:
+		wear_parts(world, int(event.get("item", -1)), "jam")
+	})
 
 
 ## The slot names this host declares, from its base. Empty for anything that takes no attachments.
@@ -138,15 +175,20 @@ static func attach(world: Variant, host: int, attachment: int, slot: String) -> 
 	return true
 
 
-## Takes an attachment off. It is left carried by nothing -- the caller stows it or drops it,
-## exactly as `SimInventory.unequip` leaves a weapon -- because this module has no opinion about
-## where a loose object should go.
+## Takes an attachment off and puts it somewhere. It used to leave the part carried by nothing --
+## no `stored`, no `position`, no slot -- which is not "the caller decides" but "the part is gone",
+## with nothing raised and nothing to pick up (docs/23 carried it as a defect). A detach now
+## re-homes the part first and **refuses** if it cannot, so there is no path through this function
+## that loses one.
 static func detach(world: Variant, attachment: int) -> bool:
 	var link: Variant = world.components.get_component(attachment, "attachedTo")
 	if not link is Dictionary:
 		return false
 	var host: int = int((link as Dictionary)["host"])
 	var slot: String = String((link as Dictionary)["slot"])
+	# Before anything is unlinked, because a failed re-home has to change nothing at all.
+	if not _rehome(world, host, attachment):
+		return false
 	var comp: Variant = world.components.get_component(host, "attachments")
 	if comp is Dictionary:
 		var slots: Dictionary = (comp as Dictionary)["slots"] as Dictionary
@@ -158,20 +200,130 @@ static func detach(world: Variant, attachment: int) -> bool:
 	return true
 
 
-## Everything fitted to this host, in slot order, as its `attachment` spec. Sorted so two hosts
-## with the same attachments fold in the same order -- with multipliers that cannot change the
-## result, but float multiplication is not associative and a determinism gate would eventually
-## find that out the expensive way.
-static func specs_of(world: Variant, host: int) -> Array:
+## The actor holding this item in an equipment slot, or -1. `SimInventory._holder_of` answers a
+## different question -- the container an item is *stored* in -- and an equipped weapon is stored
+## in nothing.
+static func carrier_of(world: Variant, item: int) -> int:
+	for actor in world.components.query(["equipment"]):
+		var eq: Variant = world.components.get_component(int(actor), "equipment")
+		if not eq is Dictionary:
+			continue
+		for slot in ((eq as Dictionary).get("slots", {}) as Dictionary).keys():
+			if int(((eq as Dictionary)["slots"] as Dictionary)[slot]) == item:
+				return int(actor)
+	return -1
+
+
+## A detached part goes where its host is, down a ladder that ends in a refusal rather than in the
+## part vanishing: into the carrier's pack, at the carrier's feet, beside a host lying on the
+## ground, or into the container the host is sitting in.
+static func _rehome(world: Variant, host: int, part: int) -> bool:
+	var carrier: int = carrier_of(world, host)
+	if carrier >= 0:
+		if SimInventoryRes.stow(world, carrier, part):
+			return true
+		if world.components.has_component(carrier, "position"):
+			return SimInventoryRes.drop_at_feet(world, carrier, part)
+	var pos: Variant = world.components.get_component(host, "position")
+	if pos is Dictionary:
+		world.components.set_component(part, "position", {
+			"x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"]),
+		})
+		return true
+	var stored: Variant = world.components.get_component(host, "stored")
+	if stored is Dictionary:
+		var box: int = int((stored as Dictionary).get("container", -1))
+		if box >= 0 and SimInventoryRes.store_anywhere(world, part, box):
+			return true
+	return false
+
+
+## Wears every part on this host that declares the event, then rebuilds the host. Called from the
+## three channels SimItems publishes; the host itself is worn there, not here.
+static func wear_parts(world: Variant, host: int, event_word: String) -> void:
+	if host < 0 or not WEAR_EVENTS.has(event_word):
+		return
+	for rec in parts_of(world, host):
+		var spec: Dictionary = (rec as Dictionary)["spec"] as Dictionary
+		var declared: Variant = spec.get("wearsOn", [])
+		if not declared is Array:
+			continue
+		var wears: bool = false
+		for word in declared as Array:
+			if String(word) == event_word:
+				wears = true
+				break
+		if not wears:
+			continue
+		_wear_one(world, host, int((rec as Dictionary)["item"]), PART_WEAR_PER_EVENT * float(spec.get("wearRate", 1.0)))
+
+
+# A part is not equipped, so SimItems.apply_wear cannot help here twice over: its refresh finds no
+# holder for a fitted part, and its break path calls `unequip_item` on something that was never
+# equipped -- which is exactly the way a broken part would go missing. Wear is applied here and the
+# *host* is what gets rebuilt.
+static func _wear_one(world: Variant, host: int, part: int, amount: float) -> void:
+	if part < 0 or amount <= 0.0:
+		return
+	var c: Variant = world.components.get_component(part, "condition")
+	if not c is Dictionary:
+		return
+	var before: float = float((c as Dictionary).get("current", 1.0))
+	if before <= 0.0:
+		return
+	var after: float = maxf(0.0, before - amount)
+	(c as Dictionary)["current"] = after
+	if after > 0.0:
+		_refresh(world, host)
+		return
+	# Worn through: off it comes, and `detach` is what puts it somewhere. Announced on its own
+	# event rather than `item.broke`, because a part falling off a weapon in your hands is a
+	# different thing happening to the player than a weapon breaking.
+	var slot: String = ""
+	var link: Variant = world.components.get_component(part, "attachedTo")
+	if link is Dictionary:
+		slot = String((link as Dictionary).get("slot", ""))
+	if detach(world, part):
+		world.events.publish({"type": "attachment.broke", "host": host, "item": part, "slot": slot})
+
+
+## Everything fitted to this host, in slot order, as {slot, item, spec}. Sorted so two hosts with
+## the same attachments fold in the same order -- with multipliers that cannot change the result,
+## but float multiplication is not associative and a determinism gate would eventually find that
+## out the expensive way.
+##
+## This carries the part's *entity*, not just its spec, because the fold has to ask each part what
+## condition it is in and wear has to reach each part individually. It replaced a `specs_of` that
+## returned bare spec dictionaries and had exactly one caller.
+static func parts_of(world: Variant, host: int) -> Array:
 	var slots: Dictionary = attached(world, host)
 	var names: Array = slots.keys()
 	names.sort()
 	var out: Array = []
 	for name in names:
-		var spec: Variant = spec_of(world, int(slots[name]))
+		var item: int = int(slots[name])
+		var spec: Variant = spec_of(world, item)
 		if spec is Dictionary:
-			out.append(spec as Dictionary)
+			out.append({"slot": String(name), "item": item, "spec": spec as Dictionary})
 	return out
+
+
+## One declared multiplier, softened by the state the part is actually in.
+##
+##     effective = 1.0 + (declared - 1.0) * k,  k = SimItems.condition_factor(part)
+##
+## `condition_factor` is 1.0 at full condition and floors at CONDITION_FLOOR (0.55) for anything
+## still alive, so a fitted part's multiplier travels at most 45% of the way back toward doing
+## nothing before it breaks off entirely -- `_wear_one` detaches at zero, so the 0.0 case
+## `condition_factor` returns for a dead item is not reachable through a fitted part. It is
+## written to be total anyway rather than relying on that ordering.
+##
+## Chosen over `pow(declared, k)`, which trends to 1.0 as well and composes more prettily: this is
+## one multiply, it is legible in a gate's error message, and the asymmetry it costs is invisible
+## at the scale content authors.
+static func effect_scale(world: Variant, part: int, declared: float) -> float:
+	var k: float = SimItemsRes.condition_factor(world, part)
+	return 1.0 + (declared - 1.0) * k
 
 
 ## Folds every fitted attachment's multipliers over a built weapon profile, in place, and returns
@@ -182,8 +334,9 @@ static func specs_of(world: Variant, host: int) -> Array:
 ## "it does nothing" is the hardest bug in this codebase to see.
 static func fold(world: Variant, host: int, kind: String, profile: Dictionary) -> Dictionary:
 	var scalable: Array = SCALABLE.get(kind, []) as Array
-	for spec in specs_of(world, host):
-		var table: Variant = (spec as Dictionary).get(kind)
+	for rec in parts_of(world, host):
+		var part: int = int((rec as Dictionary)["item"])
+		var table: Variant = ((rec as Dictionary)["spec"] as Dictionary).get(kind)
 		if not table is Dictionary:
 			continue
 		for key in (table as Dictionary).keys():
@@ -192,7 +345,10 @@ static func fold(world: Variant, host: int, kind: String, profile: Dictionary) -
 				continue
 			if not profile.has(field):
 				continue
-			var factor: float = float((table as Dictionary)[field])
+			# Read at fold time, never cached on the host: the profile is rebuilt from the base on
+			# every refresh_armed, so a condition remembered here would be a condition from before
+			# the last shot.
+			var factor: float = effect_scale(world, part, float((table as Dictionary)[field]))
 			var current: Variant = profile[field]
 			if current is int:
 				profile[field] = maxi(1, int(round(float(current) * factor)))

@@ -148,6 +148,16 @@
           "type": "object",
           "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
           "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
+        },
+        "wearsOn": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What wears this part, from sim/modules/attachments.gd's WEAR_EVENTS vocabulary: shot, reload, hit, jam. A part declaring none never wears. The words are a code-owned list rather than an enum here because the registry is the authority and check_m2_attach.gd asserts both directions -- every word declared is one the module knows, and every word the module knows is declared by something shipped."
+        },
+        "wearRate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Multiplies SimAttachments.PART_WEAR_PER_EVENT for this part. Above 1 is docs/10's \"suppressors wear out fast\"; below 1 is a part that outlives the weapon."
         }
       }
     },
