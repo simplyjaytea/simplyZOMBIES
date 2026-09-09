@@ -29,6 +29,19 @@
       "description": "What this looks like lying on the ground. Omit it and the renderer draws the generic ground-item diamond, which is the normal state until art exists.",
       "additionalProperties": false,
       "properties": {
+        "attachmentSprite": {
+          "type": "string",
+          "description": "The picture drawn on the pawn when this part is fitted to a held weapon. Unlike every other overlay in the pipeline it does not share the hand anchor -- a suppressor hangs off a muzzle, and a pistol's muzzle and a rifle's are rows apart on the 32x40 canvas -- so it is drawn once and moved to wherever the *host* says that slot is. See `partAnchors` on the weapon."
+        },
+        "partAnchors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+          },
+          "description": "Where this weapon keeps each of its attachment slots, in pawn-canvas pixels off the body rect, keyed by slot name. Read by presentation/appearance.gd when a fitted part declares an `attachmentSprite`; a slot with no anchor draws its part at the body's own origin. Only the held weapon needs these, and only for slots something is drawn for."
+        },
         "sprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "Registry key resolved to assets/sprites/<key>.png by presentation/appearance.gd. A key, not a path, so content stays engine-agnostic." },
         "tint": { "type": "string", "pattern": "^#[0-9a-f]{6}$", "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists." },
         "equipSprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. Authored on the same feet-anchored pawn canvas as the body it will be drawn over (32x40; presentation/appearance.gd's PAWN_KEYS and assets/sprites/README.md), so the renderer composites it at the identical rect with no per-item offset math and mirrors it with the body. Read only when this base occupies an equipment slot presentation.gd renders (currently back, primary, secondary); other slots leave it declared but unused until a body-part anchor exists for them." },

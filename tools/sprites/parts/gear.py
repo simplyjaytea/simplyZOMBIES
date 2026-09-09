@@ -1123,7 +1123,72 @@ def item_duffel_canvas_equip_front():
     return canvas.to_image()
 
 
+# --- fitted parts -----------------------------------------------------------------------------
+# The one family of overlay that does *not* share the hand anchor, and the reason the renderer
+# grew a per-layer offset. Every other gear picture hangs off (HAND_X, HAND_Y), which is what lets
+# one image fit all eight rigs; a suppressor hangs off a *muzzle*, and a pistol's muzzle and a
+# rifle's are five rows apart on this canvas. So each of these is drawn once, at the canvas
+# origin, and the host weapon says in content where its slots are (`appearance.partAnchors`).
+#
+# They are authored small on purpose. A part is a detail on a 7 px object at 32 px; anything more
+# than a two- or three-pixel silhouette change stops reading as "that gun has a can on it" and
+# starts reading as a second weapon.
+
+PART_X = HAND_X  # authored around the hand column, then moved by the host's anchor
+PART_Y = HAND_Y
+
+
+def item_attach_suppressor_part():
+    """A can: a fat stub, one shade darker than a barrel, two rows tall and four across.
+
+    Fat is the whole read. A suppressor at this size cannot be a texture or a taper -- it is a
+    barrel that suddenly got thicker, so the silhouette carries it and the value only has to stay
+    off the steel it sits on. `stone[1]` against the slide's `stone[2]` is that one step.
+    """
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((PART_X - 2.0, PART_Y), (PART_X + 2.0, PART_Y), 3.0, steel[1], inside_only=False)
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_attach_optic_red_dot_part():
+    """A sight: a small block above the receiver with one lit pixel on it.
+
+    The lit pixel is the read, and it is the only place in the gear pipeline where a colour says
+    what a thing *is* rather than what it is made of -- a red dot with no red dot is a bump. It
+    comes off the `ember` ramp, the warmest thing in the palette, because the table is warm and a
+    true red would be the only saturated pixel in the district.
+    """
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.rect(PART_X, PART_Y - 1.4, 1.6, 1.0, steel[1])
+    canvas.rect(PART_X + 0.6, PART_Y - 2.0, 0.5, 0.5, RAMPS["ember"][3])
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE, "esw")
+    return canvas.to_image()
+
+
+def item_attach_magazine_extended_part():
+    """A magazine: a block hanging below the fist, longer than the one that came with it.
+
+    It hangs *down*, which is the only direction nothing else in the weapon hand uses -- every
+    blade and haft on the roster leans up and out -- so length below the grip reads immediately
+    even when the weapon above it is unreadable at this size.
+    """
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.rect(PART_X, PART_Y + 2.2, 1.0, 2.2, steel[1])
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE, "esw")
+    return canvas.to_image()
+
+
 REGISTRY = {
+    "item_attach_suppressor_part": item_attach_suppressor_part,
+    "item_attach_optic_red_dot_part": item_attach_optic_red_dot_part,
+    "item_attach_magazine_extended_part": item_attach_magazine_extended_part,
     "item_pack_hiking_equip": item_pack_hiking_equip,
     "item_pack_hiking_equip_front": item_pack_hiking_equip_front,
     "item_bat_aluminium_equip": item_bat_aluminium_equip,

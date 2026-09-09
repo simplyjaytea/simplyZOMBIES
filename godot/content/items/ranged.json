@@ -31,7 +31,7 @@
     "size": { "w": 1, "h": 2 },
     "massKg": 0.28,
     "equipSlot": "secondary",
-    "appearance": { "equipSprite": "item_pistol_service_equip" },
+    "appearance": { "equipSprite": "item_pistol_service_equip", "partAnchors": { "muzzle": { "x": -3, "y": 0 }, "optic": { "x": 0, "y": -1 }, "magazine": { "x": 0, "y": 1 } } },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -76,7 +76,7 @@
     "size": {"w": 1, "h": 5},
     "massKg": 2.4,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_shotgun_pump_equip"},
+    "appearance": { "equipSprite": "item_shotgun_pump_equip", "partAnchors": { "muzzle": { "x": 2, "y": -7 }, "optic": { "x": 1, "y": -3 } } },
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -94,7 +94,7 @@
     "size": {"w": 1, "h": 6},
     "massKg": 2.48,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_rifle_hunting_equip"},
+    "appearance": { "equipSprite": "item_rifle_hunting_equip", "partAnchors": { "muzzle": { "x": 3, "y": -9 }, "optic": { "x": 1, "y": -3 }, "magazine": { "x": 0, "y": 2 } } },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -148,7 +148,7 @@
     "size": {"w": 1, "h": 2},
     "massKg": 0.3,
     "equipSlot": "secondary",
-    "appearance": {"equipSprite": "item_revolver_snub_equip"},
+    "appearance": { "equipSprite": "item_revolver_snub_equip", "partAnchors": { "muzzle": { "x": -3, "y": 0 }, "optic": { "x": 0, "y": -1 } } },
     "slots": ["optic", "barrel", "muzzle", "furniture", "internal"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {
@@ -165,7 +165,7 @@
     "size": {"w": 1, "h": 4},
     "massKg": 1.28,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_rifle_rimfire_equip"},
+    "appearance": { "equipSprite": "item_rifle_rimfire_equip", "partAnchors": { "muzzle": { "x": 3, "y": -8 }, "optic": { "x": 1, "y": -3 }, "magazine": { "x": 0, "y": 2 } } },
     "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
     "requiredSlots": ["barrel", "internal"],
     "defaultParts": {

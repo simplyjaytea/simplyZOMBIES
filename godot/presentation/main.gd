@@ -2069,11 +2069,28 @@ func _blit_vehicle(it: Dictionary, px_scale: float) -> void:
 func _blit_body(rect: Rect2, texture: Texture2D, col: Color, equip: Array[Dictionary]) -> void:
 	for layer in equip:
 		if not bool(layer["over"]):
-			draw_texture_rect(layer["texture"] as Texture2D, rect, false)
+			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false)
 	draw_texture_rect(texture, rect, false, col)
 	for layer in equip:
 		if bool(layer["over"]):
-			draw_texture_rect(layer["texture"] as Texture2D, rect, false)
+			draw_texture_rect(layer["texture"] as Texture2D, _layer_rect(rect, layer), false)
+
+
+# Where one layer of a composite goes. Every gear overlay shares the body's rect exactly -- that
+# is the bet `check_worn`'s SHARED lane protects, and it is what lets one picture fit eight rigs.
+# A *fitted part* is the one exception and it carries its own offset: a suppressor goes on a
+# muzzle, and a pistol's muzzle and a rifle's are nowhere near each other on the pawn canvas, so
+# the host says where its slots are (`appearance.partAnchors`) and the part is moved there. The
+# offset is in canvas pixels, so it scales with the rect and mirrors with a negative width.
+func _layer_rect(rect: Rect2, layer: Dictionary) -> Rect2:
+	if not layer.has("offset"):
+		return rect
+	var offset: Vector2 = layer["offset"] as Vector2
+	if offset == Vector2.ZERO:
+		return rect
+	var px: float = rect.size.x / float(Appearance.PAWN_CANVAS.x)
+	var py: float = rect.size.y / float(Appearance.PAWN_CANVAS.y)
+	return Rect2(rect.position + Vector2(offset.x * px, offset.y * py), rect.size)
 
 
 
