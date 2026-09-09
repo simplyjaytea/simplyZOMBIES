@@ -310,13 +310,6 @@ projection stays flat top-down; 32 px a tile stays.
 gate landed the same day (the record's "art we did not generate"); these are the two pieces it
 named rather than built, and both wait on art actually being commissioned.
 
-- **The sheet an artist draws on.** The brief is prose and the geometry is not: an artist working
-  to `FEET_Y 0, SHOULDER_Y -14, HAND_Y -8, HEAD_CY -21` from a paragraph is an artist guessing.
-  One generated guide per canvas -- the published rows drawn as labelled 1 px lines on the real
-  32x40, at a working zoom -- written by `tools/sprites` so it cannot drift from the constants it
-  draws, and living outside `assets/sprites/` so it is not a key `check_appearance`'s canvas lane
-  has to place. Its own `--check` comparison keeps it honest the way every other generated
-  picture is kept honest.
 - **The first commissioned body, and the three gates it widens.** An authored rig is not in
   `Appearance.PAWN_KEYS`, which `check_topdown.gd`'s FLIP lane iterates and `check_worn.gd`'s
   `_rig_keys()` counts -- and that count asserts **exactly eight**. It is also the source of
@@ -1546,6 +1539,23 @@ not a to-do list:
   real reader, which passed at 9 rigs judged. The brief an artist is handed is
   `assets/sprites/README.md`'s new "Commissioned art" section, and every number in it is a number
   this gate checks.
+  ~~The sheet an artist draws on~~ **landed** the same day (`sprites:check`, which now reports
+  guides beside generated and authored keys). `tools/sprites/guide.py` draws the 32x40 canvas at
+  8x with every published number on it -- the six skeleton rows each in their own colour, the
+  trunk's outermost columns and the hand's centre columns in two more, the 3 px clearance shaded
+  at both edges, the band the crown must land in to be 25-30 px tall, and a checkerboard of one
+  square per art pixel. It imports those numbers from `parts/characters.py`, so a row that moves
+  without the guide moving is a **red build** rather than a guide that has quietly become a lie
+  -- which is what a hand-drawn one would have become twice already, at the 64 -> 32 tile and the
+  32x48 -> 32x40 canvas. It lives in `tools/sprites/guides/` and not in `assets/sprites/`, because
+  `check_appearance.gd`'s canvas lane holds every PNG in that directory to `canvas_of` and a guide
+  is not game art. Nothing on it is labelled: text needs a font, and PIL's text rendering is not
+  byte-stable across Pillow versions, so `--check` would go red on an upgrade that changed nothing
+  anybody can see. The README carries the legend instead. One bug found by drawing it and looking:
+  `SHOULDER_HALF` and `HAND_X` were converted to columns the same way and landed on the same pair,
+  because a half-width is not a centre -- the trunk's edge is the outermost column still inside
+  the reach, and rounding it like a centre puts it one column outside the trunk. Two functions
+  now, and the shipped player rig lines up on every marking.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
