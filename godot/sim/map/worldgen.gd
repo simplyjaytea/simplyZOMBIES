@@ -233,6 +233,13 @@ static func layout(seed_val: int, size: int, district: Dictionary) -> Dictionary
 	_border(map)
 	var streets: Dictionary = _streets(map, seed_val, district)
 	var parcels: Array = _parcels(seed_val, streets)
+	# Pass 3.5, and it belongs here rather than in the dressing for two reasons that both bite.
+	# It has to be *after* the streets, because a bridge is derived from the street manifest and
+	# there is nothing to derive one from before it; and it has to be *before* the annex, the
+	# buildings and the loot, or the generator would site a colony in the river and stand a
+	# cupboard in it. Being inside `layout` also means a re-site attempt re-runs it identically,
+	# which is what keeps `generate`'s retry loop a pure function of the seed.
+	_water(map, seed_val, _water_of(district))
 	return {"map": map, "streets": streets, "parcels": parcels}
 
 
@@ -662,6 +669,13 @@ static func annex_candidates(seed_val: int, map: Variant, parcels: Array, footpr
 		ordinal += 1
 		if fronting <= 0:
 			continue
+		# There is deliberately **no** water filter here, and it was tried: rejecting a lot the river
+		# crosses left a 64-tile forest with zero candidates out of sixteen and therefore no colony at
+		# all, because the annex is 26x26 and a river crossing a 64-tile map crosses everything. It is
+		# also unnecessary -- `SimTemplates.stamp` writes the patch's own tiles and surfaces over the
+		# whole footprint, so water under the colony is wiped by the stamp rather than built around.
+		# A channel left against the outside of its wall is what `water-crossable`, `gates-reachable`
+		# and the re-site loop are for; that is machinery that already exists and already says why.
 		scored.append({
 			"rect": rect,
 			"fronting": fronting,
@@ -756,6 +770,13 @@ static func _buildings(map: Variant, seed_val: int, district: Dictionary, templa
 	for parcel in parcels:
 		var lot: Rect2i = parcel as Rect2i
 		if _rect_in_reserve(reserve, lot, RESERVE_MARGIN):
+			continue
+		# A lot the water crosses takes no building, and the check sits *here* -- beside the reserve
+		# check and before the density draw -- on purpose: skipping costs the same nothing a reserved
+		# lot costs, so a district that declares no water takes the identical draws it always did.
+		# Only the buildable inner room is asked, not the whole lot, so a river along a lot's edge
+		# still leaves a plot somebody built on.
+		if _rect_has_water(map, Rect2i(lot.position + Vector2i(BUILDING_INSET, BUILDING_INSET), lot.size - Vector2i(2 * BUILDING_INSET, 2 * BUILDING_INSET))):
 			continue
 		if rng.call("next") >= density:
 			continue
@@ -1262,6 +1283,32 @@ static func _buildings_tagged(placed: Array, tags_by_id: Dictionary, wanted: Arr
 # what makes the sites layout rather than dressing.
 static func _protected_tiles(map: Variant, reserve: Rect2i) -> Dictionary:
 	var out: Dictionary = {}
+	# Every water tile, and this one is load-bearing rather than tidy. The deep channel defends
+	# itself -- every dressing writer gates on `tiles[idx] == Tile.Floor` and a `Tile.Water` is not
+	# one -- but a **ford and a bank are ordinary Floor tiles**, and `_rubble_tile` and `_wear`
+	# write a *surface* onto a Floor tile without asking which surface is already there. Without
+	# this loop the rubble pass would gravel a river and the paths pass would wear a dirt track
+	# straight down the middle of one, and nothing would say so.
+	# The ring is protected as well as the water itself, and that second tile is what the dressing
+	# taught rather than what was designed: a ford stayed a ford, and a stand of trees grew across
+	# the dry ground *leading to it*, which severed the district exactly as a missing crossing would
+	# have. Same reasoning as the 3x3 kept around every door -- a way through nobody can reach is
+	# not a way through -- and it has the side effect of keeping a riverbank walkable, which is what
+	# a riverbank should be.
+	var w0: int = int(map.w)
+	var h0: int = int(map.h)
+	for i in map.surfaces.size():
+		if int(map.surfaces[i]) != SimTileMapRes.SURFACE_WATER:
+			continue
+		var wx: int = i % w0
+		var wy: int = i / w0
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var nx: int = wx + dx
+				var ny: int = wy + dy
+				if nx < 0 or ny < 0 or nx >= w0 or ny >= h0:
+					continue
+				out[ny * w0 + nx] = true
 	for site in map.sites as Array:
 		var s: Dictionary = site as Dictionary
 		out[int(s["y"]) * int(map.w) + int(s["x"])] = true
@@ -1284,6 +1331,381 @@ static func _protected_tiles(map: Variant, reserve: Rect2i) -> Dictionary:
 				continue
 			out[ty * int(map.w) + tx] = true
 	return out
+
+
+# --- 3.5. water --------------------------------------------------------------------------------
+
+# A district's optional `water` block, or {} when it declares none. The emptiness is the whole
+# contract: a district with no water block creates **no stream and takes no draw**, so every
+# district authored before water existed generates the identical map it always did. That is the
+# same argument `vehicles` and `terrain` make in the schema, and it is what lets this land without
+# moving the balance harness.
+static func _water_of(district: Dictionary) -> Dictionary:
+	var raw: Variant = district.get("water")
+	return (raw as Dictionary) if raw is Dictionary else {}
+
+
+# How far from the district wall a river's centre may wander, and the smallest map worth cutting a
+# river across. Below the floor the pass declines rather than carving a channel that would leave
+# no room for a colony beside it -- a 16- or 32-tile fixture map is a map to boot a world on, not a
+# district, the same reading `annex_candidates` takes of it.
+const WATER_MARGIN: int = 6
+const WATER_MIN_SIZE: int = 48
+
+
+# Water is authored for a full 256 m district and scaled to the map it lands on, exactly the way
+# the blocks and the annex margin are. Without this a lake authored at radius 11 swallows an
+# eighth of a 64-tile gate map and leaves the generator nowhere to put a colony -- which is not a
+# hypothetical: it is what the first run of this pass did, and `survivability_report` reported it
+# as a district with no annex at all rather than as a lake that was too big.
+static func _water_scaled(value: int, size: int, floor_value: int) -> int:
+	return maxi(floor_value, roundi(float(value) * float(size) / 256.0))
+
+
+# The water pass. Deep channel is `Tile.Water` on `SimSurface.Surface.Water`; a bank or a ford is
+# an ordinary `Tile.Floor` on that same surface, which is what makes it wadeable, slow and loud.
+#
+# The river and the lake are independent sub-blocks and either may be absent. Draw order is river
+# then lake then crossings, fixed, because a stream is a sequence and a block appearing or
+# vanishing must not move what the other one draws -- so each sub-pass draws nothing at all when
+# its block is absent rather than drawing and discarding.
+static func _water(map: Variant, seed_val: int, water: Dictionary) -> void:
+	if water.is_empty():
+		return
+	if mini(int(map.w), int(map.h)) < WATER_MIN_SIZE:
+		return
+	var rng: Variant = _stream(seed_val, "water")
+	var river: Variant = water.get("river")
+	if river is Dictionary:
+		_river(map, rng, river as Dictionary)
+	var lake: Variant = water.get("lake")
+	if lake is Dictionary:
+		_lake(map, rng, lake as Dictionary)
+	_crossings(map, rng, water)
+
+
+# A river, drawn one line at a time across the district: at every step the centre drifts and the
+# width is re-drawn, which is what makes it meander rather than read as a canal. Exactly two draws
+# a step, always, whatever the geometry does -- draw first and branch second, the invariant every
+# pass in this file is built on.
+static func _river(map: Variant, rng: Variant, river: Dictionary) -> void:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var horizontal: bool = String(river.get("axis", "ew")) == "ew"
+	var span: int = w if horizontal else h
+	var across: int = h if horizontal else w
+	var size: int = mini(w, h)
+	var width_min: int = _water_scaled(int(river.get("widthMin", 3)), size, 1)
+	var width_max: int = maxi(width_min, _water_scaled(int(river.get("widthMax", 5)), size, 1))
+	var drift: int = maxi(0, int(river.get("drift", 1)))
+	var bank: int = _water_scaled(int(river.get("bank", 1)), size, 1)
+	var lo: int = WATER_MARGIN + bank
+	var hi: int = across - WATER_MARGIN - bank - 1
+	if hi <= lo:
+		return
+	var centre: int = int(rng.call("int_range", lo, hi + 1))
+	for i in range(1, span - 1):
+		centre = clampi(centre + int(rng.call("int_range", -drift, drift + 1)), lo, hi)
+		var width: int = int(rng.call("int_range", width_min, width_max + 1))
+		var half: int = width / 2
+		for d in range(-half - bank, half + bank + 1):
+			var deep: bool = d >= -half and d <= half
+			if horizontal:
+				_water_tile(map, i, centre + d, deep)
+			else:
+				_water_tile(map, centre + d, i, deep)
+
+
+# A lake: one blob, an ellipse with a per-row jitter so the shore is not a drawn oval. Two draws
+# for the centre and two for the radii, then one a row, in that order and always.
+static func _lake(map: Variant, rng: Variant, lake: Dictionary) -> void:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var size: int = mini(w, h)
+	var r_min: int = _water_scaled(int(lake.get("radiusMin", 5)), size, 2)
+	var r_max: int = maxi(r_min, _water_scaled(int(lake.get("radiusMax", 9)), size, 2))
+	var bank: int = _water_scaled(int(lake.get("bank", 1)), size, 1)
+	var margin: int = WATER_MARGIN + r_max + bank
+	if w - margin <= margin or h - margin <= margin:
+		return
+	var cx: int = int(rng.call("int_range", margin, w - margin))
+	var cy: int = int(rng.call("int_range", margin, h - margin))
+	var rx: int = int(rng.call("int_range", r_min, r_max + 1))
+	var ry: int = int(rng.call("int_range", r_min, r_max + 1))
+	for dy in range(-ry - bank, ry + bank + 1):
+		var jitter: int = int(rng.call("int_range", -1, 2))
+		var t: float = float(dy) / float(maxi(1, ry))
+		if absf(t) > 1.0:
+			# Still one draw taken above, which is the point: the row outside the ellipse costs the
+			# same draw as the row inside it, so the shore's jitter cannot move the lake's centre.
+			continue
+		var half: int = int(round(float(rx) * sqrt(maxf(0.0, 1.0 - t * t)))) + jitter
+		for dx in range(-half - bank, half + bank + 1):
+			var deep: bool = dx >= -half and dx <= half
+			_water_tile(map, cx + dx, cy + dy, deep)
+
+
+# One tile of water. Deep is the channel, shallow is the bank you can wade. Refuses the border wall
+# and anything already built, so the pass can never open a district's own wall or flood an interior
+# -- at 3.5 nothing is built yet, and that is exactly why this is cheap to guarantee here.
+static func _water_tile(map: Variant, tx: int, ty: int, deep: bool) -> void:
+	var w: int = int(map.w)
+	if tx <= 0 or ty <= 0 or tx >= w - 1 or ty >= int(map.h) - 1:
+		return
+	var idx: int = ty * w + tx
+	if int(map.tiles[idx]) != SimTileMapRes.Tile.Floor:
+		return
+	if SimTileMapRes.is_indoors(map, tx, ty):
+		return
+	map.tiles[idx] = SimTileMapRes.Tile.Water if deep else SimTileMapRes.Tile.Floor
+	map.surfaces[idx] = SimTileMapRes.SURFACE_WATER
+
+
+# Crossings, in two kinds and one guarantee.
+#
+# **Bridges are derived, not drawn.** Every street span the water crosses gets a deck, read off
+# `map.streets` -- so a bridge costs no draw at all and is identical on every seed for the same
+# street layout. A road that runs into a river and stops is the one thing a player would read as a
+# bug rather than as terrain.
+#
+# **Fords are drawn**, one draw each, and are the interesting crossing: a run of bank straight
+# across the channel, slow and loud to wade.
+#
+# **And then the guarantee.** If neither produced a crossing the district is in two halves, which
+# `survivability_report` would catch and refuse -- correctly, but a district that fails to generate
+# is worse than one that carries a footbridge. So a last ford is forced at the midpoint, with no
+# draw, and `water-crossable` is what proves the guarantee held rather than trusting this comment.
+static func _crossings(map: Variant, rng: Variant, water: Dictionary) -> void:
+	if not _has_water(map):
+		return
+	for span in map.streets as Array:
+		_deck(map, span as Dictionary)
+	var river: Variant = water.get("river")
+	var fords: int = 0
+	var horizontal: bool = true
+	if river is Dictionary:
+		fords = maxi(0, int((river as Dictionary).get("fords", 0)))
+		horizontal = String((river as Dictionary).get("axis", "ew")) == "ew"
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var span_len: int = w if horizontal else h
+	for _f in fords:
+		var at: int = int(rng.call("int_range", 1, span_len - 1))
+		_ford(map, at, horizontal)
+	_ensure_crossable(map)
+
+
+# A deck across whatever water a street span meets: the span's own surface, laid over the channel
+# for the span's full width. Reads the manifest rather than the tiles, because the manifest is what
+# the road paint and the path pass read, and a bridge nothing else agrees is a road is a bridge
+# that draws unpainted.
+static func _deck(map: Variant, span: Dictionary) -> void:
+	var axis: String = String(span.get("axis", "x"))
+	var at: int = int(span.get("at", -1))
+	var width: int = maxi(1, int(span.get("width", 1)))
+	var from: int = int(span.get("from", 0))
+	var to: int = int(span.get("to", 0))
+	var surface: int = int(span.get("surface", SimTileMapRes.SURFACE_PAVED))
+	for along in range(from, to + 1):
+		for across in range(at, at + width):
+			var tx: int = across if axis == "x" else along
+			var ty: int = along if axis == "x" else across
+			_pave_over_water(map, tx, ty, surface)
+
+
+# One ford: bank straight across the district at `at`, on the axis the river does not run along.
+static func _ford(map: Variant, at: int, horizontal: bool) -> void:
+	var across: int = int(map.h) if horizontal else int(map.w)
+	for i in across:
+		var tx: int = at if horizontal else i
+		var ty: int = i if horizontal else at
+		_pave_over_water(map, tx, ty, SimTileMapRes.SURFACE_WATER)
+
+
+# The guarantee, and it earns its keep: **the water may not leave any ground stranded.**
+#
+# One forced ford at the midpoint was the first version and it was not enough. Seed 4242 at 128
+# put a lake against the river's bend and cut a corner off that no single line across the river
+# reached, and the generator then burned all 31 candidate lots re-siting a colony against a fault
+# that had nothing to do with where the colony was. So this repairs the water instead of retrying
+# around it.
+#
+# Each round finds one stranded tile -- ground a swimmer reaches and a walker does not -- and casts
+# four rays from it, paving the water along the shortest ray that lands back on reachable ground.
+# The paving is bank rather than road, so a repaired crossing is a ford somebody wades and not a
+# bridge that appeared from nowhere. No draws at any point, so a district's water is still a pure
+# function of its seed. Bounded, and if it ever runs out the clause is left to fail honestly rather
+# than the map being quietly shipped severed.
+const CROSSING_REPAIRS: int = 8
+
+static func _ensure_crossable(map: Variant) -> void:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	for _round in CROSSING_REPAIRS:
+		var dry: PackedByteArray = _walk_reach(map)
+		var stranded: Vector2i = _first_stranded(map, dry)
+		if stranded.x < 0:
+			return
+		var best: Array = []
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var ray: Array = _ray_to_reachable(map, stranded, d, dry)
+			if ray.is_empty():
+				continue
+			if best.is_empty() or ray.size() < best.size():
+				best = ray
+		if best.is_empty():
+			return
+		for tile in best:
+			var t: Vector2i = tile as Vector2i
+			_pave_over_water(map, t.x, t.y, SimTileMapRes.SURFACE_WATER)
+
+
+# The walk-flood from the first walkable tile, which is what "the main component" means here.
+static func _walk_reach(map: Variant) -> PackedByteArray:
+	var w: int = int(map.w)
+	for ty in int(map.h):
+		for tx in w:
+			if SimPathRes.walkable_tile(map, tx, ty):
+				return _walk_from(map, [Vector2i(tx, ty)])
+	var empty := PackedByteArray()
+	empty.resize(w * int(map.h))
+	return empty
+
+
+# The first tile a swimmer reaches that a walker does not: ground the water is holding apart.
+static func _first_stranded(map: Variant, dry: PackedByteArray) -> Vector2i:
+	var w: int = int(map.w)
+	var seed_tile := Vector2i(-1, -1)
+	for ty in int(map.h):
+		for tx in w:
+			if SimPathRes.walkable_tile(map, tx, ty):
+				seed_tile = Vector2i(tx, ty)
+				break
+		if seed_tile.x >= 0:
+			break
+	if seed_tile.x < 0:
+		return Vector2i(-1, -1)
+	var wet: PackedByteArray = _swim_from(map, seed_tile)
+	for i in dry.size():
+		if wet[i] == 1 and dry[i] == 0 and int(map.tiles[i]) != SimTileMapRes.Tile.Water:
+			return Vector2i(i % w, i / w)
+	return Vector2i(-1, -1)
+
+
+# Walk from `at` in one direction across water, and answer the water tiles crossed if the far side
+# lands on reachable ground. Empty when the ray runs into the wall, into something solid that is
+# not water, or off the map -- so a ray is only ever a crossing, never a tunnel through a building.
+static func _ray_to_reachable(map: Variant, at: Vector2i, step: Vector2i, dry: PackedByteArray) -> Array:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var crossed: Array = []
+	var cur: Vector2i = at + step
+	while cur.x > 0 and cur.y > 0 and cur.x < w - 1 and cur.y < h - 1:
+		var idx: int = cur.y * w + cur.x
+		if int(map.tiles[idx]) == SimTileMapRes.Tile.Water:
+			crossed.append(cur)
+		elif dry[idx] == 1:
+			return crossed
+		else:
+			return []
+		cur += step
+	return []
+
+
+# Turn a water tile into ground of the given surface, and leave every other tile alone. The tile
+# class is what changes -- `Tile.Water` to `Tile.Floor` -- because that is the difference between
+# a channel and something you can put a foot on.
+static func _pave_over_water(map: Variant, tx: int, ty: int, surface: int) -> void:
+	var w: int = int(map.w)
+	if tx <= 0 or ty <= 0 or tx >= w - 1 or ty >= int(map.h) - 1:
+		return
+	var idx: int = ty * w + tx
+	if int(map.tiles[idx]) != SimTileMapRes.Tile.Water:
+		return
+	map.tiles[idx] = SimTileMapRes.Tile.Floor
+	map.surfaces[idx] = surface
+
+
+static func _has_water(map: Variant) -> bool:
+	for i in map.tiles.size():
+		if int(map.tiles[i]) == SimTileMapRes.Tile.Water:
+			return true
+	return false
+
+
+# Whether the water leaves the district in one piece -- and **only** what the water is responsible
+# for, which is the whole difficulty of this clause.
+#
+# The first version asked whether all walkable ground was one connected component, and it was wrong
+# in a way worth recording: a forest encloses pockets with trees all the time, so the clause failed
+# on a district whose river was perfectly crossable and blamed the water for the woods. The dressing
+# even said so out loud -- "the dressing broke water-crossable on a district that was survivable
+# without it" -- which is `generate`'s own guard catching a bad assertion rather than bad terrain.
+#
+# So it is asked as a difference instead. Flood twice from the same tile: once over ground a body
+# can walk, and once with the deep channel passable as well. Any tile the second flood reaches and
+# the first does not is ground the water severed, and nothing else can produce one -- a pocket ringed
+# by trees is unreachable in both floods and never shows up here.
+static func _crossable(map: Variant) -> bool:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var seed_tile := Vector2i(-1, -1)
+	for ty in h:
+		for tx in w:
+			if SimPathRes.walkable_tile(map, tx, ty):
+				seed_tile = Vector2i(tx, ty)
+				break
+		if seed_tile.x >= 0:
+			break
+	if seed_tile.x < 0:
+		return false
+	var dry: PackedByteArray = _walk_from(map, [seed_tile])
+	var wet: PackedByteArray = _swim_from(map, seed_tile)
+	for i in dry.size():
+		if wet[i] == 1 and dry[i] == 0 and int(map.tiles[i]) != SimTileMapRes.Tile.Water:
+			return false
+	return true
+
+
+# `_walk_from` with the deep channel passable: the same flood a body would make if it could swim.
+# Exists only to be differenced against the real one in `_crossable` above, and deliberately not
+# reachable from anything the simulation runs -- nothing in this game swims.
+static func _swim_from(map: Variant, from: Vector2i) -> PackedByteArray:
+	var w: int = int(map.w)
+	var h: int = int(map.h)
+	var seen := PackedByteArray()
+	seen.resize(w * h)
+	var stack: Array[Vector2i] = [from]
+	seen[from.y * w + from.x] = 1
+	while not stack.is_empty():
+		var at: Vector2i = stack.pop_back()
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nx: int = at.x + d.x
+			var ny: int = at.y + d.y
+			if nx < 0 or ny < 0 or nx >= w or ny >= h:
+				continue
+			var idx: int = ny * w + nx
+			if seen[idx] == 1:
+				continue
+			if int(map.tiles[idx]) != SimTileMapRes.Tile.Water and not SimPathRes.walkable_tile(map, nx, ny):
+				continue
+			seen[idx] = 1
+			stack.push_back(Vector2i(nx, ny))
+	return seen
+
+
+# Whether a rect holds any water at all. Read by `_buildings` and `annex_candidates` to decline a
+# lot the river crosses: a house stamped over a channel would be a building standing in a river,
+# and the colony sited on one would be a start docs/01 says may not exist.
+static func _rect_has_water(map: Variant, rect: Rect2i) -> bool:
+	var w: int = int(map.w)
+	for ty in range(rect.position.y, rect.position.y + rect.size.y):
+		for tx in range(rect.position.x, rect.position.x + rect.size.x):
+			if tx < 0 or ty < 0 or tx >= w or ty >= int(map.h):
+				continue
+			if int(map.surfaces[ty * w + tx]) == SimTileMapRes.SURFACE_WATER:
+				return true
+	return false
 
 
 # --- 8. survivability -------------------------------------------------------------------------
@@ -1403,6 +1825,16 @@ static func survivability_report(map: Variant) -> Dictionary:
 		clauses.append(_clause("loot-reachable", stranded.is_empty(), "%d tables placed, %s out of reach" % [
 			tables.size(), "none" if stranded.is_empty() else str(stranded),
 		]))
+
+	# Water, last, and it names a cause the two reachability clauses above would otherwise only
+	# imply. A river that cuts the district in two shows up as `loot-reachable` failing, which is
+	# true and unhelpful -- it says a cupboard is stranded, not that a channel is why. This says
+	# which. It **skips** on a district that carries no water, because a district entitled to have
+	# none is not the same thing as a district that answered the question.
+	if not _has_water(map):
+		clauses.append(_skipped("water-crossable", "the district carries no water, so there is no channel to be uncrossable"))
+	else:
+		clauses.append(_clause("water-crossable", _crossable(map), "the water leaves the walkable ground in one piece"))
 
 	var failed: Array = []
 	for clause in clauses:
@@ -1597,6 +2029,14 @@ static func _terrain_of(district: Dictionary) -> Dictionary:
 	var t: Dictionary = (raw as Dictionary) if raw is Dictionary else {}
 	return {
 		"grass_jitter": int(t.get("grassJitter", 3)),
+		# How much of a block the green covers, as a share of its short side. 0.5 is the historical
+		# value every district generated under before this key existed, so a district that does not
+		# set it is byte-identical. It is safe to add for the reason the forest slice's thirteen were:
+		# it changes an **argument** to a draw and never how many draws happen -- the jitter is drawn
+		# once per tile of the block's bounding box, and the radius only decides which of those tiles
+		# the draw then turfs. A yard sets it near zero, because hardstanding is what makes a yard
+		# read as a yard rather than as a suburb with sheds on it.
+		"grass_share": float(t.get("grassShare", 0.5)),
 		"stand_odds": int(t.get("standOdds", 1)),
 		"stands_min": int(t.get("standsMin", 1)),
 		"stands_max": int(t.get("standsMax", 3)),
@@ -1623,7 +2063,7 @@ static func _dress_terrain(map: Variant, seed_val: int, streets: Dictionary, pro
 			var bh: int = int((yb as Array)[1])
 			var cx: float = float(bx) + float(bw) / 2.0
 			var cy: float = float(by) + float(bh) / 2.0
-			var radius: float = float(mini(bw, bh)) * 0.5
+			var radius: float = float(mini(bw, bh)) * float(terrain["grass_share"])
 			for ty in range(by - 1, by + bh + 1):
 				for tx in range(bx - 1, bx + bw + 1):
 					if tx <= 0 or ty <= 0 or tx >= w - 1 or ty >= int(map.h) - 1:
@@ -1635,6 +2075,17 @@ static func _dress_terrain(map: Variant, seed_val: int, streets: Dictionary, pro
 						continue
 					var distance: float = sqrt(pow(float(tx) + 0.5 - cx, 2.0) + pow(float(ty) + 0.5 - cy, 2.0))
 					if distance > radius + float(rng.call("int_range", -int(terrain["grass_jitter"]), int(terrain["grass_jitter"]))):
+						continue
+					# Checked *after* the jitter draw above, never before it: the draw happens for
+					# every tile that reached this line, so moving the test earlier would change
+					# how many times this pass draws and shift every tile decided after it.
+					#
+					# This pass is the one dressing writer that did not consult `protected`, and it
+					# got away with it until water existed: it writes a *surface* onto a Floor tile,
+					# and every protected thing until now was protected from having a *tile* stood
+					# on it. A ford is a Floor, so the grass discs turfed 49 of them on the first
+					# run of the water gate -- a river with a lawn down the middle of it.
+					if protected.has(idx):
 						continue
 					map.surfaces[idx] = SimTileMapRes.SURFACE_GRASS
 			if int(rng.call("int_range", 0, int(terrain["stand_odds"]))) != 0:

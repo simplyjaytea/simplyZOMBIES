@@ -26,6 +26,7 @@ func _run() -> void:
 	ok = _seek_wakes_rest() and ok
 	ok = _water_clean_bury() and ok
 	ok = _an_empty_left_by_a_drink_is_what_the_water_job_wants() and ok
+	ok = _a_body_beside_the_river_fills_there_and_not_at_the_well() and ok
 	ok = _succession() and ok
 	ok = _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() and ok
 	ok = _guard_is_the_night_post_and_the_day_belongs_to_the_row() and ok
@@ -1040,3 +1041,85 @@ func _colonists_scavenge_near_home() -> bool:
 	print("SCAVENGE OK Ellis remembered a box he saw, was refused it under Mara's claim, never offered a far or an unseen one, refused it at Scavenge 0, opened it (yield %d) and the yield was hauled to the stockpile" % yielded)
 	return true
 
+
+# RIVER: the dead-socket lane for the river as a second water source.
+#
+# `SimBoot.place_river_sources` stands `water_source` entities on a district's banks, and the claim
+# that matters is not that they exist -- it is that the thirst loop *reaches* them. So this asks
+# `SimNeeds.nearest_water_source`, the one function the Water job routes through, from two places:
+# beside the river it must answer the river, and beside the well it must still answer the well.
+# Without the second half the lane would pass on a colony that had simply lost its well.
+#
+# It also pins the two things that make this a reuse rather than a new mechanic: the river's
+# bottle is `untreated` like the well's, and the boil rung still turns it clean.
+func _a_body_beside_the_river_fills_there_and_not_at_the_well() -> bool:
+	# The forest is the shipped district that declares water; the gate's usual 64-tile suburb has
+	# none, so this lane boots its own world rather than pretending the default one has a river.
+	var w: Variant = SimBoot.playable(20260805, 128, "district.forest_edge")["world"]
+	var map: Variant = w.tilemap
+	var sources: Array = w.components.query(["water_source", "position"])
+	if sources.size() < 2:
+		push_error("RIVER: the forest booted %d water sources; the well plus the river's should be more than one" % sources.size())
+		return false
+
+	var well: Vector2i = SimTileMap.well_tile(map)
+	if well.x < 0:
+		push_error("RIVER: the booted forest has no well anchor, so there is nothing to out-rank")
+		return false
+
+	# A bank tile far from the well: the river is what a body standing here should be sent to.
+	var bank := Vector2i(-1, -1)
+	var mw: int = int(map.w)
+	for ty in int(map.h):
+		for tx in mw:
+			if int(map.surfaces[ty * mw + tx]) != SimTileMap.SURFACE_WATER:
+				continue
+			if SimTileMap.is_solid(map, tx, ty):
+				continue
+			if absi(tx - well.x) + absi(ty - well.y) < 30:
+				continue
+			bank = Vector2i(tx, ty)
+			break
+		if bank.x >= 0:
+			break
+	if bank.x < 0:
+		push_error("RIVER: the forest carries no bank tile 30 away from its well, so this lane judged nothing")
+		return false
+
+	var near_river: int = SimNeeds.nearest_water_source(w, float(bank.x) + 0.5, float(bank.y) + 0.5)
+	var near_well: int = SimNeeds.nearest_water_source(w, float(well.x) + 0.5, float(well.y) + 0.5)
+	if near_river < 0 or near_well < 0:
+		push_error("RIVER: nearest_water_source answered nothing from the bank (%d) or the well (%d)" % [near_river, near_well])
+		return false
+	if near_river == near_well:
+		push_error("RIVER: a body on the bank at %s and one at the well %s are sent to the same source; the river is standing there unread" % [str(bank), str(well)])
+		return false
+	var rp: Dictionary = w.components.get_component(near_river, "position") as Dictionary
+	var river_d: float = absf(float(rp["x"]) - float(bank.x)) + absf(float(rp["y"]) - float(bank.y))
+	if river_d > float(SimBoot.RIVER_SOURCE_SPACING):
+		push_error("RIVER: the source answered from the bank is %.1f tiles away, further than the %d spacing; that is not the river" % [river_d, SimBoot.RIVER_SOURCE_SPACING])
+		return false
+	# The true negative: the well must still win for a body standing at the well. Together with the
+	# line above this is what makes the lane about *ranking* rather than about the river existing.
+	var wp: Dictionary = w.components.get_component(near_well, "position") as Dictionary
+	if absf(float(wp["x"]) - (float(well.x) + 0.5)) > 0.01 or absf(float(wp["y"]) - (float(well.y) + 0.5)) > 0.01:
+		push_error("RIVER: a body at the well is sent to %s instead of the well itself" % str(wp))
+		return false
+
+	# And the reuse: what the river gives is the same untreated bottle the well gives, and the
+	# boil rung still cleans it. A river that handed out clean water would be a new mechanic.
+	var mara: int = _mara(w)
+	if mara < 0:
+		push_error("RIVER: no Mara in the booted forest")
+		return false
+	var filled: int = SimItems.spawn_item(w, "item.water.bottle.untreated", {"tier": "scavenged"})
+	if not SimInventory.stow(w, mara, filled):
+		push_error("RIVER: could not stow the untreated bottle")
+		return false
+	if not SimNeeds.boil(w, mara, filled):
+		push_error("RIVER: the boil rung refused the untreated bottle the river fills")
+		return false
+	print("RIVER OK the forest stands %d water sources; a body on the bank at %s is routed to the river %.1f tiles off and one at the well %s is still routed to the well, and the bottle boils clean" % [
+		sources.size(), str(bank), river_d, str(well),
+	])
+	return true

@@ -32,6 +32,28 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-09 — the river, the lake and the yard** (`godot:check:water` at nine lanes,
+`godot:m2:jobs` grew RIVER, `godot:check:loot` grew a rebuilt negative; chain still **55**). Three
+more pieces of the owner's default town. **The river and the lake are generated**: `worldgen.water`
+is layout pass 3.5, from an optional `water` block, and `forest_edge` declares both — 1,541 deep and
+1,124 bank tiles at 256. Bridges are derived from the street manifest and cost no draw; fords cost
+one each. **The river drinks**: `place_river_sources` stands water sources on the banks and the
+whole shipped thirst loop was already correct, so a body on the bank fills there and one at the well
+still fills at the well (8 sources in the forest, 1 in the suburb). **The factory**: `industrial`
+was the last unauthored slot in docs/12's five-location enum and `district.industrial_park` fills
+it, with three new `industrial`-tagged templates where no template carried the tag at all.
+**What is worth knowing before you touch the generator.** Three bugs were caught by gates and
+guards rather than by review, and each is in docs/30: `water-crossable` first asked whether the
+whole map was one component and blamed the water for the woods (it is asked as a *difference* now);
+one forced midpoint ford was not enough and the generator burned all 31 candidate lots re-siting a
+colony against a fault that was not the colony's; and **the grass discs were the one dressing writer
+that never consulted `protected`** — they write a *surface* onto a Floor tile, and a ford is a
+Floor, so they turfed 49 of them. `_protected_tiles` now carries the water **and one ring around
+it**, the ring because a stand of trees grew across the dry ground leading to a ford. Also:
+authoring `industrial` disarmed two of `check_loot.gd`'s own negatives, which both used it as their
+example of an unwritten table — a negative that leans on a slot being empty stops being one the day
+somebody fills it.
+
 **2026-09-09 — water, and the one cool ground** (one new gate, `npm run godot:check:water` /
 `WATER_OK`, six lanes; the `godot:m2` chain is **55** now; `sprites:check` still 151 keys but
 `ground_atlas.png` regrew a row). The owner opened a default town — city, forest, factory, river and

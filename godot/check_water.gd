@@ -57,12 +57,25 @@ const SimPath = preload("res://sim/path.gd")
 const Shadowcast = preload("res://sim/vision/shadowcast.gd")
 const Appearance = preload("res://presentation/appearance.gd")
 const Palette = preload("res://presentation/palette.gd")
+const SimWorldgen = preload("res://sim/map/worldgen.gd")
+const ContentLoader = preload("res://platform/content_loader.gd")
 
 const MAIN_PATH: String = "res://presentation/main.gd"
 
 # A gate that boots a world has a budget, the way check_worldgen.gd carries one: this one boots
 # two small worlds and reads two files, so it is cheap and must stay cheap.
-const BUDGET_SECONDS: float = 30.0
+const BUDGET_SECONDS: float = 90.0
+
+# The shipped district that declares water, and the two that do not. A river through the woods is
+# where water belongs, and having a real reader is the point: a `water` block nothing shipped
+# declared would be the thirteenth dead socket rather than a mechanism.
+const WET_DISTRICT: String = "district.forest_edge"
+const DRY_DISTRICTS: Array[String] = ["district.residential_suburb", "district.town_center"]
+
+# Seeds and sizes for the generated-water lanes. Below `SimWorldgen.WATER_MIN_SIZE` the pass
+# declines entirely, so every size here is above it on purpose.
+const SEEDS: Array[int] = [20260805, 90210, 1337, 4242]
+const SIZES: Array[int] = [64, 128]
 
 
 func _init() -> void:
@@ -79,6 +92,9 @@ func _run() -> void:
 	ok = _the_ford_is_the_slowest_and_loudest_ground_and_something_reads_it() and ok
 	ok = _the_atlas_row_is_the_surface_and_not_the_sidewalk() and ok
 	ok = _the_draw_path_reaches_water_in_both_of_its_two_matches() and ok
+	ok = _the_generator_carves_water_only_where_content_declares_it() and ok
+	ok = _a_generated_river_never_leaves_ground_stranded() and ok
+	ok = _the_dressing_cannot_gravel_a_ford_or_wear_a_track_down_one() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -86,9 +102,10 @@ func _run() -> void:
 		ok = false
 
 	if ok:
-		print("WATER_OK deep water is solid and clear (the Window pair) and refuses a foot while the ford on the same surface walks; a sightline crosses a channel and not a wall; the ford reads x%.2f speed and x%.2f noise through the world's own path -- the slowest and loudest ground there is; the atlas row is the water row and not the sidewalk's; both of main.gd's tile matches carry a water arm and the fringe pass stays out of the channel; %.1f s of a %.0f s budget" % [
+		print("WATER_OK deep water is solid and clear (the Window pair) and refuses a foot while the ford on the same surface walks; a sightline crosses a channel and not a wall; the ford reads x%.2f speed and x%.2f noise through the world's own path -- the slowest and loudest ground there is; the atlas row is the water row and not the sidewalk's; both of main.gd's tile matches carry a water arm and the fringe pass stays out of the channel; the generator carves water only where content declares it and never leaves ground stranded on %d seeds x %d sizes, and the dressing can neither gravel a ford nor wear a track down one; %.1f s of a %.0f s budget" % [
 			SimSurface.SPEED[SimSurface.Surface.Water],
 			SimSurface.NOISE[SimSurface.Surface.Water],
+			SEEDS.size(), SIZES.size(),
 			seconds, BUDGET_SECONDS,
 		])
 		quit(0)
@@ -352,3 +369,136 @@ func _the_draw_path_reaches_water_in_both_of_its_two_matches() -> bool:
 		push_error("DRAW: the ground-rows cache does not exclude Tile.Water, so _draw_ground_edges will fringe grass into the channel")
 		return false
 	return true
+
+
+# 7. GENERATOR: water lands where content asks for it, and nowhere else.
+#
+# The dry half is the one that matters for everything already shipped: a district with no `water`
+# block must generate the map it always did, because the pass takes **no draw at all** when the
+# block is absent. That is what let this land without moving the balance harness, and it is
+# asserted rather than claimed.
+func _the_generator_carves_water_only_where_content_declares_it() -> bool:
+	var tree: Dictionary = ContentLoader.load_tree()
+	for district in DRY_DISTRICTS:
+		for size in SIZES:
+			var map: Variant = SimWorldgen.generate(20260805, size, tree, district)
+			var wet: int = _water_tiles(map)
+			if wet != 0:
+				push_error("GENERATOR: %s at %d carries %d water tiles and declares no water block" % [district, size, wet])
+				return false
+	# And the true positive: the district that *does* declare it gets both halves, deep and
+	# shallow. Shallow matters on its own -- a river with no bank is a river with no ford.
+	for size2 in SIZES:
+		var wetmap: Variant = SimWorldgen.generate(20260805, size2, tree, WET_DISTRICT)
+		var deep: int = 0
+		var shallow: int = 0
+		for i in wetmap.tiles.size():
+			if int(wetmap.tiles[i]) == SimTileMap.Tile.Water:
+				deep += 1
+			elif int(wetmap.surfaces[i]) == SimTileMap.SURFACE_WATER:
+				shallow += 1
+		if deep < 1 or shallow < 1:
+			push_error("GENERATOR: %s at %d carved %d deep and %d shallow tiles; it declares a river and a lake" % [WET_DISTRICT, size2, deep, shallow])
+			return false
+	# The layout half of the dressing-independence property, for water specifically: the pass is
+	# layout, so switching the dressing off must not change one water tile.
+	var dressed: Variant = SimWorldgen.generate(20260805, 128, tree, WET_DISTRICT, true)
+	var bare: Variant = SimWorldgen.generate(20260805, 128, tree, WET_DISTRICT, false)
+	if _water_mask(dressed) != _water_mask(bare):
+		push_error("GENERATOR: the dressing moved the water; the pass is layout and must be identical with dress=false")
+		return false
+	return true
+
+
+# 8. STRANDED: the guarantee. No seed, at any size, may leave ground the water holds apart.
+#
+# This is the lane the repair loop exists for: one forced ford at the midpoint passed three seeds
+# and failed the fourth, where a lake sat against the river's bend and cut off a corner no single
+# line reached. Four seeds and two sizes, and the clause must be *answered* on every one of them
+# rather than skipped.
+func _a_generated_river_never_leaves_ground_stranded() -> bool:
+	var tree: Dictionary = ContentLoader.load_tree()
+	for seed_val in SEEDS:
+		for size in SIZES:
+			var map: Variant = SimWorldgen.generate(seed_val, size, tree, WET_DISTRICT)
+			var report: Dictionary = SimWorldgen.survivability_report(map)
+			var clause: Dictionary = SimWorldgen.clause_of(report, "water-crossable")
+			if clause.is_empty():
+				push_error("STRANDED: seed %d at %d produced no water-crossable clause" % [seed_val, size])
+				return false
+			if bool(clause.get("skipped", false)):
+				push_error("STRANDED: seed %d at %d skipped water-crossable on a district carrying %d water tiles" % [seed_val, size, _water_tiles(map)])
+				return false
+			if not bool(clause.get("ok", false)):
+				push_error("STRANDED: seed %d at %d left ground stranded: %s" % [seed_val, size, String(clause.get("said", ""))])
+				return false
+			if not bool(report["ok"]):
+				push_error("STRANDED: seed %d at %d is not survivable: %s" % [seed_val, size, str(report["failed"])])
+				return false
+	# The true negative, and the one that makes this lane mean anything: dam every crossing on a
+	# real generated map and the clause must say so. Without it the lane would pass on a clause
+	# that answered true unconditionally.
+	var sabotage: Variant = SimWorldgen.generate(20260805, 128, tree, WET_DISTRICT)
+	if not bool(SimWorldgen.clause_of(SimWorldgen.survivability_report(sabotage), "water-crossable").get("ok", false)):
+		push_error("STRANDED: the map chosen to sabotage was already failing, so the negative proves nothing")
+		return false
+	var w: int = int(sabotage.w)
+	var dammed: int = 0
+	for i in sabotage.tiles.size():
+		# Every ford and bank -- a Floor standing on water -- becomes channel, which seals every
+		# crossing the pass laid without touching anything else on the map.
+		if int(sabotage.tiles[i]) == SimTileMap.Tile.Floor and int(sabotage.surfaces[i]) == SimTileMap.SURFACE_WATER:
+			sabotage.tiles[i] = SimTileMap.Tile.Water
+			dammed += 1
+	if dammed < 1:
+		push_error("STRANDED: the sabotage sealed no crossing, so it changed nothing")
+		return false
+	var after: Dictionary = SimWorldgen.clause_of(SimWorldgen.survivability_report(sabotage), "water-crossable")
+	if bool(after.get("ok", true)) or bool(after.get("skipped", false)):
+		push_error("STRANDED: sealing %d crossing tiles left water-crossable ok=%s skipped=%s; the clause cannot fail" % [dammed, after.get("ok"), after.get("skipped")])
+		return false
+	return true
+
+
+# 9. PROTECTED: the dressing may not repaint a ford.
+#
+# The deep channel defends itself -- every dressing writer gates on `tiles[idx] == Tile.Floor` and a
+# `Tile.Water` is not one. A **ford and a bank are ordinary Floor tiles**, and `_rubble_tile` and
+# `_wear` write a *surface* onto a Floor tile without asking which surface is already there. So
+# without `_protected_tiles` carrying the water the rubble pass would gravel a river and the paths
+# pass would wear a dirt track down the middle of one. Counted before and after the dressing.
+func _the_dressing_cannot_gravel_a_ford_or_wear_a_track_down_one() -> bool:
+	var tree: Dictionary = ContentLoader.load_tree()
+	for size in SIZES:
+		var bare: Variant = SimWorldgen.generate(20260805, size, tree, WET_DISTRICT, false)
+		var dressed: Variant = SimWorldgen.generate(20260805, size, tree, WET_DISTRICT, true)
+		var before: int = _water_tiles(bare)
+		var after: int = _water_tiles(dressed)
+		if before != after:
+			push_error("PROTECTED: %s at %d carries %d water tiles undressed and %d dressed; the dressing repainted %d of them" % [WET_DISTRICT, size, before, after, before - after])
+			return false
+		if before < 1:
+			push_error("PROTECTED: %s at %d carved no water, so this lane judged nothing" % [WET_DISTRICT, size])
+			return false
+	return true
+
+
+# Every tile that is water at all, deep or shallow -- read off the surface, which both halves share.
+func _water_tiles(map: Variant) -> int:
+	var n: int = 0
+	for i in map.surfaces.size():
+		if int(map.surfaces[i]) == SimTileMap.SURFACE_WATER:
+			n += 1
+	return n
+
+
+# The water as a byte per tile, for comparing two generations: 2 deep, 1 shallow, 0 dry.
+func _water_mask(map: Variant) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(map.tiles.size())
+	for i in map.tiles.size():
+		if int(map.tiles[i]) == SimTileMap.Tile.Water:
+			out[i] = 2
+		elif int(map.surfaces[i]) == SimTileMap.SURFACE_WATER:
+			out[i] = 1
+	return out

@@ -1,0 +1,130 @@
+{
+  "id": "district.industrial_park",
+  "name": "Ordnance Way",
+  "type": "industrial_park",
+  "streets": {
+    "blockMin": 16,
+    "blockMax": 28,
+    "streetWidth": 4,
+    "surface": "paved"
+  },
+  "connectionPoints": {
+    "north": 1,
+    "south": 1,
+    "east": 1,
+    "west": 1
+  },
+  "density": 0.62,
+  "pool": [
+    {
+      "tag": "industrial",
+      "weight": 12
+    },
+    {
+      "tag": "shed",
+      "weight": 4
+    },
+    {
+      "tag": "civic",
+      "weight": 1
+    }
+  ],
+  "vehicles": {
+    "density": 0.22,
+    "classes": [
+      {
+        "id": "vehicle.van",
+        "weight": 8
+      },
+      {
+        "id": "vehicle.truck",
+        "weight": 6
+      },
+      {
+        "id": "vehicle.sedan",
+        "weight": 3
+      },
+      {
+        "id": "vehicle.bicycle",
+        "weight": 1
+      }
+    ]
+  },
+  "terrain": {
+    "grassJitter": 1,
+    "standOdds": 6,
+    "standsMin": 1,
+    "standsMax": 2,
+    "treesMin": 1,
+    "treesMax": 3,
+    "treeSpread": 1,
+    "thicketsMin": 1,
+    "thicketsMax": 2,
+    "thicketMin": 2,
+    "thicketMax": 3,
+    "wornOdds": 3,
+    "paths": true,
+    "grassShare": 0.1
+  },
+  "lootProfile": {
+    "perBuilding": [
+      {
+        "table": "industrial",
+        "tags": [
+          "industrial"
+        ],
+        "sites": {
+          "min": 2,
+          "max": 4
+        },
+        "containerShare": 0.7,
+        "containers": [
+          "parts bin",
+          "tool chest",
+          "steel locker",
+          "pallet crate",
+          "oil drum"
+        ]
+      },
+      {
+        "table": "industrial",
+        "tags": [
+          "shed"
+        ],
+        "sites": {
+          "min": 1,
+          "max": 2
+        },
+        "containerShare": 0.5,
+        "containers": [
+          "gang box",
+          "shelf"
+        ]
+      }
+    ],
+    "perDistrict": [
+      {
+        "table": "medical",
+        "count": 1,
+        "tags": [
+          "civic"
+        ],
+        "containerShare": 1,
+        "containers": [
+          "first aid station"
+        ]
+      },
+      {
+        "table": "industrial",
+        "count": 2,
+        "outdoors": true,
+        "host": "vehicle",
+        "containerShare": 1,
+        "containers": [
+          "van load bed",
+          "truck cab"
+        ]
+      }
+    ]
+  }
+}
