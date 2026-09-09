@@ -10,7 +10,18 @@ const DISTRICT_TILES: int = 256
 # kernel's `map_cells` and the shadowcast all read one answer. A Door tile with no overlay (a
 # generated map nobody has booted, a fixture) is an open doorway. The playable-state group's
 # ninth piece; `check_m2_fortify.gd` DOOR.
-enum Tile { Floor = 0, Wall = 1, Window = 2, Screen = 3, Low = 4, Tree = 5, Door = 6 }
+#
+# Water is **deep** water, and it carries exactly the pair `Window` carries: SOLID, Opacity.Clear.
+# A river stops a body and not a sightline, which is what makes it a barrier you can be shot
+# across rather than a wall. Wadeable water is not this tile -- it is an ordinary `Floor` standing
+# on `SimSurface.Surface.Water`, so the ford is slow and loud through the surface table and this
+# enum stays the answer to "what is *in* the tile" alone (docs/24: two arrays, never one enum).
+#
+# Nothing in the pathfinder changed for either half, and that is deliberate rather than lucky:
+# `SimPath._footing` accepts `Floor` (so a ford walks) and `walkable_tile` refuses a solid tile
+# with only a Door exception (so deep water does not), which is the same answer the kernel's
+# `is_blocked_tile` gives. The one thing water must never become is a Door-shaped special case.
+enum Tile { Floor = 0, Wall = 1, Window = 2, Screen = 3, Low = 4, Tree = 5, Door = 6, Water = 7 }
 enum Opacity { Clear = 0, Opaque = 1, Low = 2 }
 enum Eye { Standing = 0, Crouched = 1 }
 
@@ -22,6 +33,7 @@ const OPACITY: Array[int] = [
 	Opacity.Low,
 	Opacity.Opaque,
 	Opacity.Clear,
+	Opacity.Clear,
 ]
 const SOLID: Array[bool] = [
 	false,
@@ -31,6 +43,7 @@ const SOLID: Array[bool] = [
 	false,
 	true,
 	false,
+	true,
 ]
 
 const SURFACE_PAVED: int = 0
@@ -38,6 +51,7 @@ const SURFACE_DIRT: int = 1
 const SURFACE_GRASS: int = 2
 const SURFACE_UNDERGROWTH: int = 3
 const SURFACE_RUBBLE: int = 4
+const SURFACE_WATER: int = 5
 
 var w: int
 var h: int

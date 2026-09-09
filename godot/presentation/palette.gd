@@ -34,6 +34,24 @@ const COLOURS: Dictionary = {
 	"grass": Color("#4f5440"),
 	"undergrowth": Color("#414a37"),
 	"rubble": Color("#4e4a46"),
+	# The sixth ground, and the second cool thing on a warm street after the glass. Water reads as
+	# water or it reads as nothing, so this is a real slate blue rather than a warm silt -- the
+	# owner's call, and the amendment it makes to the Dungeon Settlers warmth sign is recorded in
+	# docs/30. It is held to the same two bounds every other ground is, only from the other side:
+	# `check_road_look.gd`'s COOL_SURFACES judges it with `_cool_ok` (b - r = 0.102) and the
+	# saturation cap still applies (0.283, inside the 0.30 warm-mood cap), so water is allowed to
+	# be cool and is *not* allowed to be garish.
+	#
+	# It is also **dark** for a reason a gate found rather than a preference: a brighter slate
+	# (#55636b, value 0.42) made water the brightest ground in the game, and `palette.py`'s
+	# import-time `guard_against_ground` refused it -- the `fatigue_drab` pawn ramp cleared it by
+	# only 0.067 against a GROUND_CONTRAST of 0.10, so a colonist standing on the bank would have
+	# read as a hole in the river. Value 0.361 keeps every ramp's contrast.
+	#
+	# This is the ford -- the wadeable ground `SimSurface.Surface.Water` names. Deep water is the
+	# `Tile.Water` tile and draws this darkened by `WATER_DEEP_SHADE`, the way a wall draws a face
+	# lifted out of its cap rather than carrying a second authored colour.
+	"water": Color("#424f5c"),
 	"tree": Color("#3f4a33"),
 	# Timber and daub, not the concrete tower block the overcast table painted. Built mass is the
 	# warmest large area in the district, which is what makes a shell read as *somebody's* wall
@@ -147,7 +165,7 @@ const COLOURS: Dictionary = {
 # often (docs/24 puts undergrowth under every screening tile) but they are different layers,
 # and a green a shade denser than grass is what says "this is the slow way" on sight.
 #
-# tools/sprites/palette.py holds a HARD COPY of these five as `SURFACE_TINTS`, because that
+# tools/sprites/palette.py holds a HARD COPY of these six as `SURFACE_TINTS`, because that
 # package cannot read GDScript and its import-time ground guards need the numbers. The copy and
 # this table move in the same commit or the guard lies about a district nobody is drawing.
 const SURFACE_TINTS: Array[Color] = [
@@ -156,7 +174,35 @@ const SURFACE_TINTS: Array[Color] = [
 	COLOURS["grass"],
 	COLOURS["undergrowth"],
 	COLOURS["rubble"],
+	COLOURS["water"],
 ]
+
+# How much darker deep water is than the ford beside it. Deep water is `Tile.Water`; the ford is
+# an ordinary Floor on the same surface, so the two must read apart at a glance or a river has no
+# visible channel and the player cannot see where it is crossable. Derived rather than authored
+# for the reason the wall's face is: one colour to regrade, not two that can drift apart.
+#
+# Bounded from both ends, which is why it is a named constant rather than a number in the draw
+# loop. The ford is already dark -- value 0.361, held there by the pawn-ramp contrast guard -- and
+# the background is #15141f at 0.122, so a channel much below 0.19 reads as a hole in the map
+# rather than as water. 0.42 puts it at **0.209** against the ford's 0.361: a gap of 0.152, which
+# is three times the separation between any two of the five original grounds.
+#
+# Raised from 0.30 (channel 0.253) on the owner's call that shallow and deep must be discernible.
+# The value alone is not what does it -- `WATER_SHORE_*` below is -- but the two together are.
+const WATER_DEEP_SHADE: float = 0.42
+
+# The shoreline. A value difference alone reads as "darker water" at a glance; an *edge* reads as
+# a bank, and it is the cue that says which half you can put a foot in. So every deep tile draws a
+# lit rim on each side that is not also deep -- the water's own edge, not the land's, so it is one
+# pass over the channel rather than a second fringe rule over every ground beside it.
+#
+# Lifted out of the ford's colour rather than authored, the way the wall's face is lifted out of
+# its cap: one water colour to regrade, and the shore cannot drift away from the water it edges.
+const WATER_SHORE_LIGHTEN: float = 0.22
+# A fraction of a tile, with a one-pixel floor so it survives a zoomed-out camera -- the same
+# shape `WALL_FACE_SHARE` uses, and for the same reason.
+const WATER_SHORE_SHARE: float = 0.16
 
 # How far an indoor floor is pulled from its own surface towards COLOURS["indoorFloor"]. Not 1.0
 # on purpose: the surface layer still has to show through, so a shop floored on rubble and a house

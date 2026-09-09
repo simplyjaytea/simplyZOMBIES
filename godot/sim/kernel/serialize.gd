@@ -75,7 +75,16 @@ extends RefCounted
 # grid and a `lootTable` stream spent at a different moment, so restoring one into a v27 world
 # would give a district of unopenable boxes drawing from a stream that has already moved.
 # Refused, same rule.
-const SAVE_VERSION: int = 27
+# 28: water. `worldgen.water` is a new layout pass, so a district that declares a `water` block
+# generates a different map under the same seed -- `forest_edge` now carries a river and a lake,
+# and the channel moves which lots take a building, which moves the doors the buildings carry.
+# The map is regenerated from the seed rather than serialised (docs/30, the worldgen arc), so a
+# v27 save restored into a v28 world would put its door and container entities on ground that has
+# moved under them, and its survivors in a river. Refused, same rule. The two districts that
+# declare no water are byte-identical, which is asserted rather than assumed -- but a save carries
+# only the seed, not which district it was rolled on, so the refusal cannot be narrowed to the
+# districts that actually moved.
+const SAVE_VERSION: int = 28
 
 
 static func canonicalize(value: Variant, path: String = "$") -> String:

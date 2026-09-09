@@ -45,7 +45,11 @@ from palette import PAINT_TINTS, SURFACE_TINTS, to_rgb
 from parts import edges
 
 VARIANTS = "abcd"
-ROWS = ["paved", "dirt", "grass", "undergrowth", "rubble", "sidewalk", "boards"]
+# Mirrors `Appearance.GroundRow` exactly, and the order is load-bearing: the first six are the
+# `SimSurface.Surface` values in their own order, because `ground_row_for` returns a surface int
+# as a row. So "water" sits at 5 and the two paint substitutions follow it -- a water row appended
+# after "boards" would draw the river as pavement.
+ROWS = ["paved", "dirt", "grass", "undergrowth", "rubble", "water", "sidewalk", "boards"]
 
 # Four variant columns, then the eight edge cells of `parts/edges.py` -- one texture, so an
 # edge blit batches with the floor blit it follows (the module docstring there has the
@@ -53,8 +57,8 @@ ROWS = ["paved", "dirt", "grass", "undergrowth", "rubble", "sidewalk", "boards"]
 SHEET_W = (len(VARIANTS) + len(edges.SHAPES)) * SIZE
 SHEET_H = len(ROWS) * SIZE
 
-# Row tint, one lookup that covers both source tables -- rows 0-4 are the ground surfaces
-# (`SURFACE_TINTS`), rows 5-6 the paint layer's slab and board floor (`PAINT_TINTS`).
+# Row tint, one lookup that covers both source tables -- rows 0-5 are the ground surfaces
+# (`SURFACE_TINTS`), rows 6-7 the paint layer's slab and board floor (`PAINT_TINTS`).
 _TINT_HEX = {**SURFACE_TINTS, **PAINT_TINTS}
 
 # The value-delta a mark may push a pixel by, converted from the brief's luma bounds
@@ -279,12 +283,36 @@ def _boards(row):
                 (row.dark_at if dv < 0 else row.light_at)(x0 + i, y, dv)
 
 
+def _water(row):
+    rng = row.rng
+    # Ripples read horizontal, which is what separates water from every other row here: the five
+    # grounds are speckle and blocks, so a directional mark is the cue that this surface moves.
+    # Two or three short crests, each a light line with a dark trough directly under it -- the
+    # same light-over-dark pairing `_rubble` uses for a block edge, laid flat instead of boxed.
+    for _ in range(rng.randint(2, 3)):
+        w = rng.randint(4, SIZE - 6)
+        x = rng.randint(0, SIZE - w - 1)
+        y = rng.randint(1, SIZE - 3)
+        for ox in range(w):
+            row.light_at(x + ox, y, 0.040)
+        # The trough is shorter than its crest and inset, so a ripple tapers rather than reading
+        # as a two-pixel bar.
+        for ox in range(1, w - 1):
+            row.dark_at(x + ox, y + 1, -0.055)
+    # Glints: a few single light pixels, sparser than the grounds' grit, so still water still has
+    # something on it at 32 px without turning into noise.
+    for _ in range(rng.randint(3, 5)):
+        x, y = rng.randint(0, SIZE - 1), rng.randint(0, SIZE - 1)
+        row.light_at(x, y, 0.030)
+
+
 _TEXTURES = {
     "paved": _paved,
     "dirt": _dirt,
     "grass": _grass,
     "undergrowth": _undergrowth,
     "rubble": _rubble,
+    "water": _water,
     "sidewalk": _sidewalk,
     "boards": _boards,
 }
