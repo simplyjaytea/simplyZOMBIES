@@ -6,6 +6,7 @@ extends RefCounted
 
 const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimSurface = preload("res://sim/map/surface.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimLightMod = preload("res://sim/modules/light.gd")
@@ -1267,6 +1268,21 @@ static func _tick_temperature(world: Variant) -> void:
 		# once the rain stops or a roof is found, and a lit fire brings that forward to
 		# `dryByFireTicks`. One integer on the component; `wet` is derived from it every tick.
 		var wet_until: int = int(n.get("wetUntilTick", -1))
+		# Standing in water wets you, and it wets you **at once** -- rain has to soak through
+		# `wetAfterTicks` first, and a body up to its shins in a river does not. This is the whole
+		# of the owner's "wading gets clothing wet plus lowers temp": the wet state the rain slice
+		# built already reads one band colder, dries on the same clock, and is brought forward by
+		# the same fire, so a ford costs exactly what a downpour costs and nothing new was added
+		# to the ladder to make it.
+		#
+		# Only the **shallow** half can do this, and that falls out of the geometry rather than
+		# being checked for: deep water is solid, so no body is ever standing on it. The tile a
+		# body can stand on and still be in water is the bank or the ford, which is the surface
+		# read below. Indoors is not asked, because a river does not run through a house -- and if
+		# an authored interior ever puts water in one, standing in it should still soak you.
+		var wading: bool = world.tilemap != null and int(SimSurface.surface_at(world.tilemap, tx, ty)) == SimTileMap.SURFACE_WATER
+		if wading:
+			wet_until = maxi(wet_until, int(world.tick) + SimWeather.dry_after_ticks(world))
 		if SimWeather.raining(world) and not indoors:
 			var soaking: int = int(n.get("rainSinceTick", -1))
 			if soaking < 0:

@@ -39,12 +39,12 @@
     },
     "tiles": {
       "type": "array",
-      "items": { "type": "integer", "minimum": 0, "maximum": 5 },
+      "items": { "type": "integer", "minimum": 0, "maximum": 7 },
       "description": "Row-major tile enums matching SimTileMap.Tile, length w*h."
     },
     "surfaces": {
       "type": "array",
-      "items": { "type": "integer", "minimum": 0, "maximum": 4 },
+      "items": { "type": "integer", "minimum": 0, "maximum": 5 },
       "description": "Row-major surface enums, length w*h."
     },
     "indoors": {

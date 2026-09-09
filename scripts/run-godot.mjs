@@ -304,6 +304,9 @@ switch (mode) {
   case "--worldgen":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_worldgen.gd"];
     break;
+  case "--water":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_water.gd"];
+    break;
   case "--hud":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;

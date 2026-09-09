@@ -913,6 +913,12 @@ func _draw_district() -> void:
 						col = Palette.COLOURS["tree"]
 					SimTileMap.Tile.Door:
 						col = Palette.COLOURS["door"]
+					SimTileMap.Tile.Water:
+						# The deep channel, darkened out of the one authored water colour the
+						# ford beside it draws -- the wall's cap-and-face relationship, one
+						# layer down. This is the *colour* match; the draw match below is what
+						# keeps the channel free of the floor's paint and fringes.
+						col = Palette.COLOURS["water"].darkened(Palette.WATER_DEEP_SHADE)
 				var ov: Variant = SimTileMap.overlay_at(world.tilemap, tx, ty)
 				if ov is Dictionary:
 					var kind: String = String((ov as Dictionary).get("kind", ""))
@@ -973,6 +979,17 @@ func _draw_district() -> void:
 						var door_floor: Color = Appearance.indoor_floor(world.tilemap, tx, ty, ground)
 						_draw_threshold(rect, door_floor, tx, ty)
 						_draw_door_face(rect, dress, tx, ty)
+				SimTileMap.Tile.Water:
+					# Deep water is one flat fill of the channel colour and deliberately none of
+					# the floor's furniture: no road paint, no ground-atlas cell, no fringe. A
+					# river is not a floor with a blue tint on it, and each of those passes would
+					# otherwise draw a kerb, a dash or a grass edge into the middle of the
+					# channel. The *ford* is not this tile -- it is an ordinary Floor standing on
+					# the water surface, so it falls through to the default arm below and draws
+					# the atlas's water row like any other ground. That difference is what makes
+					# a crossing something the player can see before stepping in.
+					draw_rect(rect, col)
+					_draw_water_shore(rect, tx, ty, col)
 				SimTileMap.Tile.Tree:
 					_draw_floor_tile(rect, Appearance.indoor_floor(world.tilemap, tx, ty, ground), tx, ty, Appearance.ground_row_for(world.tilemap, tx, ty, false))
 					# A tree with a picture stands in the entity sort (Dressing.tree_tiles feeds
@@ -1050,7 +1067,7 @@ func _draw_floor_tile(rect: Rect2, col: Color, tx: int, ty: int, row: int) -> vo
 		draw_rect(rect, col)
 
 # The ground row of every tile, one byte each, cached against the map object like the road mask
-# it is built from: a wall, a window, a screen or a tree is ROW_NONE, everything else is what
+# it is built from: a wall, a window, a screen, a tree or deep water is ROW_NONE, everything else is what
 # ground_row_for answers for it, the sidewalk paint included. Nine lookups here per drawn floor
 # is the whole cost of the edge rule.
 func _ground_rows() -> PackedByteArray:
@@ -1069,7 +1086,7 @@ func _ground_rows() -> PackedByteArray:
 		for tx in w:
 			var i: int = ty * w + tx
 			var tile: int = int(SimTileMap.tile_at(map, tx, ty))
-			if tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Window or tile == SimTileMap.Tile.Screen or tile == SimTileMap.Tile.Tree:
+			if tile == SimTileMap.Tile.Wall or tile == SimTileMap.Tile.Window or tile == SimTileMap.Tile.Screen or tile == SimTileMap.Tile.Tree or tile == SimTileMap.Tile.Water:
 				_ground_rows_cache[i] = Appearance.ROW_NONE
 			else:
 				_ground_rows_cache[i] = Appearance.ground_row_for(map, tx, ty, _mask_at(mask, tx, ty) == RoadPaint.MASK_SIDEWALK)
@@ -1092,6 +1109,43 @@ func _row_at(rows: PackedByteArray, tx: int, ty: int) -> int:
 # the floor came from, modulated white because the cell's own mean is the row tint (the ground
 # slice's rule, re-applied). Only at the zoom the texture itself draws at: below it the floor
 # is a flat fill and a fringe on a flat fill is a smudge.
+# The shoreline: a lit rim on each side of a deep tile whose neighbour is not also deep.
+#
+# The owner's call was that shallow and deep must be discernible, and a value difference alone does
+# not do it -- two dark blues at a glance are one dark blue. An *edge* does: it says where the
+# channel stops, which is the same thing as saying where you can put a foot. Drawn off the water's
+# own tile rather than as a fringe rule over every ground beside it, so it is one pass over the
+# channel and the land's own edge pass (`_draw_ground_edges`) is untouched.
+#
+# The neighbour test is deliberately "is not deep water" rather than "is land": a ford cut through
+# the channel gets a rim on both of its sides, which is exactly the read wanted -- the crossing is
+# outlined, so it is visible before you are standing in it.
+func _draw_water_shore(rect: Rect2, tx: int, ty: int, col: Color) -> void:
+	if world.tilemap == null:
+		return
+	var shore: Color = col.lightened(Palette.WATER_SHORE_LIGHTEN)
+	var band: float = maxf(1.0, rect.size.x * Palette.WATER_SHORE_SHARE)
+	# N, S, W, E -- each drawn only where the neighbour is something other than more channel.
+	if not _is_deep_water(tx, ty - 1):
+		draw_rect(Rect2(rect.position, Vector2(rect.size.x, band)), shore)
+	if not _is_deep_water(tx, ty + 1):
+		draw_rect(Rect2(rect.position + Vector2(0.0, rect.size.y - band), Vector2(rect.size.x, band)), shore)
+	if not _is_deep_water(tx - 1, ty):
+		draw_rect(Rect2(rect.position, Vector2(band, rect.size.y)), shore)
+	if not _is_deep_water(tx + 1, ty):
+		draw_rect(Rect2(rect.position + Vector2(rect.size.x - band, 0.0), Vector2(band, rect.size.y)), shore)
+
+
+# Off the map is *not* deep water, so a channel running into the district wall still draws its own
+# edge rather than bleeding into the border.
+func _is_deep_water(tx: int, ty: int) -> bool:
+	if world.tilemap == null:
+		return false
+	if tx < 0 or ty < 0 or tx >= int(world.tilemap.w) or ty >= int(world.tilemap.h):
+		return false
+	return int(SimTileMap.tile_at(world.tilemap, tx, ty)) == SimTileMap.Tile.Water
+
+
 func _draw_ground_edges(rect: Rect2, rows: PackedByteArray, tx: int, ty: int) -> void:
 	var atlas: Texture2D = Appearance.ground_atlas()
 	if atlas == null or float(camera["zoom"]) < Palette.GROUND_TEXTURE_MIN_ZOOM:

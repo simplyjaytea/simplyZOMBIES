@@ -1170,9 +1170,17 @@ func _the_colony_is_sited_per_seed_and_survivable() -> bool:
 			if not bool(report["sited"]):
 				push_error("seed %d at %d: the survivability pass judged nothing" % [int(seed_value), size])
 				return false
-			if (report["clauses"] as Array).size() < 6:
+			if (report["clauses"] as Array).size() < 7:
 				push_error("seed %d at %d: the report carries %d clauses" % [int(seed_value), size, (report["clauses"] as Array).size()])
 				return false
+			# Whether this map is entitled to skip the water clause, read off its own tiles. The
+			# suburb this lane boots declares no water, so it is; a district that carries a channel
+			# is not, and is checked for that below rather than being let through.
+			var carries_water: bool = false
+			for wi in map.tiles.size():
+				if int(map.tiles[wi]) == SimTileMap.Tile.Water:
+					carries_water = true
+					break
 			for clause in report["clauses"] as Array:
 				if not bool((clause as Dictionary)["ok"]):
 					push_error("seed %d at %d failed %s: %s" % [
@@ -1181,12 +1189,21 @@ func _the_colony_is_sited_per_seed_and_survivable() -> bool:
 					return false
 				# A clause is allowed to skip when it has nothing to judge, and a shipped district
 				# is never that: it declares roads and it places loot. A skip here would be a clause
-				# quietly not running on the district the game actually plays.
-				if bool((clause as Dictionary)["skipped"]):
-					push_error("seed %d at %d skipped %s on a shipped district: %s" % [
-						int(seed_value), size, String((clause as Dictionary)["name"]), String((clause as Dictionary)["said"]),
-					])
-					return false
+				# quietly not running on the district the game actually plays. `water-crossable` is
+				# the one clause whose "nothing to judge" is legitimate -- a district without a
+				# river has no channel to be uncrossable -- so it is matched against the ground
+				# instead of waved through, in both directions.
+				if not bool((clause as Dictionary)["skipped"]):
+					continue
+				if String((clause as Dictionary)["name"]) == "water-crossable" and not carries_water:
+					continue
+				push_error("seed %d at %d skipped %s on a shipped district: %s" % [
+					int(seed_value), size, String((clause as Dictionary)["name"]), String((clause as Dictionary)["said"]),
+				])
+				return false
+			if carries_water and bool(SimWorldgen.clause_of(report, "water-crossable").get("skipped", true)):
+				push_error("seed %d at %d carries water and still skipped water-crossable" % [int(seed_value), size])
+				return false
 
 			# The same seed sites the same colony. Generation is what a save regenerates from
 			# (`check_m2_save.gd` restores into a fresh `SimBoot.bare`), so a colony that moved

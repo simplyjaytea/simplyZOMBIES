@@ -87,6 +87,12 @@ SURFACE_TINTS = {
     "grass": "#4f5440",
     "undergrowth": "#414a37",
     "rubble": "#4e4a46",
+    # The sixth ground, and the one entry here that is deliberately cool: water reads as water.
+    # `check_road_look.gd`'s COOL_SURFACES judges it with the cool pin instead of the warm one,
+    # and the saturation cap still applies (0.283, inside 0.30). docs/30 carries the amendment.
+    # Dark on purpose: `guard_against_ground` below refuses a water bright enough to be the
+    # brightest ground, because the drab pawn ramps stop clearing it by GROUND_CONTRAST.
+    "water": "#424f5c",
 }
 
 # A HARD COPY of two entries from `COLOURS` in godot/presentation/palette.gd -- the paint layer's

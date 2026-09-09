@@ -691,11 +691,20 @@ const WARM_FAMILY: Array[String] = [
 # The dark the district sits inside: the night, the background behind it, and the one district
 # surface meant to read as glass rather than as ground. Judged with _cool_ok (b - r >=
 # WARM_MARGIN).
-const COOL_FAMILY: Array[String] = ["background", "night", "window", "windowRim"]
+const COOL_FAMILY: Array[String] = ["background", "night", "window", "windowRim", "water"]
 
-# The five ground tints, named to match Palette.SURFACE_TINTS' order, for the warm-family print
+# The one *ground* allowed to be cool, by the owner's amendment to the 2026-09-03 Dungeon
+# Settlers look (docs/30): water reads as water or it reads as nothing. This is a named pin and
+# not a hole -- an exempted surface is still judged, only from the other side: it must be
+# measurably cool (`_cool_ok`, b - r >= WARM_MARGIN), so a water tint drifting to neutral grey
+# fails this lane exactly as a warm ground drifting to grey fails the warm one. The saturation
+# cap is *not* exempted and still applies to every surface including this one, which is what
+# keeps "genuinely blue" from becoming garish.
+const COOL_SURFACES: Array[int] = [SimSurface.Surface.Water]
+
+# The six ground tints, named to match Palette.SURFACE_TINTS' order, for the warm-family print
 # below -- SURFACE_TINTS itself carries no names, only an index.
-const SURFACE_NAMES: Array[String] = ["floor", "dirt", "grass", "undergrowth", "rubble"]
+const SURFACE_NAMES: Array[String] = ["floor", "dirt", "grass", "undergrowth", "rubble", "water"]
 
 func _sat_ok(c: Color) -> bool:
 	return c.s <= 0.30
@@ -756,7 +765,11 @@ func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 		if smargin < warm_min:
 			warm_min = smargin
 			warm_min_key = SURFACE_NAMES[si]
-		if not _warm_ok(sc):
+		if COOL_SURFACES.has(si):
+			if not _cool_ok(sc):
+				push_error("ground %s is a COOL_SURFACES entry with b - r = %.4f, under WARM_MARGIN %.2f; an exempted ground still has to be cool, not merely un-warm" % [SURFACE_NAMES[si], sc.b - sc.r, WARM_MARGIN])
+				return false
+		elif not _warm_ok(sc):
 			push_error("ground %s has r - b = %.4f, under WARM_MARGIN %.2f; it has cooled out of the district" % [SURFACE_NAMES[si], smargin, WARM_MARGIN])
 			return false
 	for key in WARM_FAMILY:
@@ -796,6 +809,16 @@ func _the_palette_holds_the_mood_and_can_say_no() -> bool:
 		return false
 	if _cool_ok(Color("#2a1f18")):
 		push_error("a warm background #2a1f18 passes the cool pin; the dark would stop reading as dark")
+		return false
+	# The water exemption's own negatives, so the amended pin can say no in both directions. A
+	# murky warm river is the shape the exemption was chosen *against* (docs/30), and it must fail
+	# the cool pin rather than sliding through the ground loop the exemption skips; a garish blue
+	# must still fail the saturation cap, because that half was deliberately not exempted.
+	if _cool_ok(Color("#5c4f42")):
+		push_error("a warm silt #5c4f42 passes the cool pin; a murky river would satisfy the water exemption and the amendment would mean nothing")
+		return false
+	if _sat_ok(Color("#2f6ea8")):
+		push_error("a saturated blue #2f6ea8 passes the saturation cap; the water exemption covers warmth only and a garish river would slip in on it")
 		return false
 	var neutral := Color("#4a4a4a")
 	if _warm_ok(neutral) or _cool_ok(neutral):
@@ -990,7 +1013,7 @@ const EDGE_COVERAGE_MAX: float = 0.60
 
 # GroundRow's names, for the MASK lane's luma-order print -- GroundRow itself carries no names.
 const ROW_NAMES: Array[String] = [
-	"paved", "dirt", "grass", "undergrowth", "rubble", "sidewalk", "boards",
+	"paved", "dirt", "grass", "undergrowth", "rubble", "water", "sidewalk", "boards",
 ]
 
 # The eight neighbour offsets in EdgeShape's own order, N first -- what a (row, shape) answer

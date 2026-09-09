@@ -3195,6 +3195,165 @@ the source of record for every zombie, every tile, every vehicle and the whole o
 reasoning; `sprites:check`'s pixel-exact comparison, which is untouched for those keys; the
 canvas, the anchor and the flip; and the sim's ignorance of all of it.
 
+## Water, and the one cool ground, 2026-09-09
+
+The owner asked for a default town — city, forest, factory, river and lake — with procedural
+generation beyond it, and the answer was that most of it already exists: the city and the forest
+are shipped district types, the generator has rolled districts from a seed since the worldgen arc,
+and `docs/24`'s "authored templates, procedurally assembled" is the same split the question
+proposed. **Water was the one piece that existed nowhere** — no tile, no surface, no pass, no
+content key, and no mention in docs/24 either. Four decisions shaped it, and one of them amends an
+earlier decision of the owner's.
+
+- **Water is one tile and one surface, not four kinds of blue.** docs/24's ground rule is two
+  arrays, never one enum, and water is the case that rule was waiting for: deep water is
+  `Tile.Water` standing on `Surface.Water`, and a ford is an ordinary `Tile.Floor` standing on the
+  same surface. Enumerating deep-vs-shallow as tile classes would have been a product of two sets
+  again, which is the mistake the ground layer exists to avoid.
+- **Deep water carries the window's pair: solid, transparent.** It stops a body and not a
+  sightline, so a river is a barrier you can be shot across. This is why nothing in the pathfinder
+  or the shadowcast changed: `SimPath._footing` already accepts `Floor` (so a ford walks) and
+  `walkable_tile` already refuses a solid tile with only a Door exception (so a channel does not),
+  and `blocks_sight` reads the opacity table, which answers Clear. A water-shaped special case in
+  either would have been the wrong answer arrived at twice.
+- **A ford is worse than every other ground on both axes, and that is not a broken rule.** Speed
+  ×0.45 and noise ×1.8 — the slowest and loudest ground in the game. docs/29's "nothing may be
+  strictly better than anything else" forbids a free lunch; a ford is the opposite of one, and it
+  is never weighed against walking on grass. It is weighed against walking all the way round.
+- **Water is genuinely blue, and it is the one ground exempted from the warmth sign.** This
+  **amends [the Dungeon Settlers look](#the-dungeon-settlers-look-2026-09-03)**, whose warm mood is
+  held by a mechanical margin — every district surface, wall, paint, prop and memory tint warmer
+  than it is cool, `r - b >= 0.02`. The owner's call was that water reads as water or it reads as
+  nothing. The exemption is a **named pin, not a hole**: `check_road_look.gd`'s `COOL_SURFACES`
+  judges the exempted ground with the *cool* pin instead of skipping it, so a water tint drifting
+  to neutral grey fails exactly as a warm ground drifting to grey does — and the saturation cap is
+  **not** exempted, which is what keeps "blue" from becoming garish. Water joins `COOL_FAMILY`
+  beside the glass, which is the entry that was already the exception to the mood.
+
+### What the generated water made structural, 2026-09-09
+
+The pass that carves it, and the four things it taught. Each was found by a gate or a guard rather
+than by review, which is why they are here rather than in a comment.
+
+- **Water is layout, at 3.5, and the position is forced from both sides.** After the streets,
+  because a bridge is *derived* from the street manifest and there is nothing to derive one from
+  earlier; before the annex, the buildings and the loot, or the generator sites a colony in the
+  river. It runs inside `layout()` so a re-site attempt re-runs it identically, which is what keeps
+  `generate`'s retry loop a pure function of the seed.
+- **An absent content block must cost no draw, not a discarded one.** `water` is optional and each
+  of `river` and `lake` is independently optional, and a district declaring none creates no stream
+  at all. That is the whole reason this landed without moving a single district authored before it,
+  and it is the same argument `vehicles` and `terrain` already made.
+- **"Is the map in one piece" is the wrong question; "what is the water responsible for" is the
+  right one.** The first `water-crossable` clause asked whether all walkable ground was one
+  connected component and failed a forest whose river was perfectly crossable -- trees enclose
+  pockets constantly. Asked as a **difference** instead: flood once walking and once with the
+  channel passable, and only ground the second reaches and the first does not is the water's fault.
+  A gate that blames the wrong subsystem is worse than no gate.
+- **Repair the terrain, do not retry around it.** One forced midpoint ford left a seed whose lake
+  sat against the river's bend with a severed corner, and the generator then spent all 31 candidate
+  lots re-siting a colony against a fault that had nothing to do with the colony. `_ensure_crossable`
+  casts rays from a stranded tile and paves the shortest, bounded and drawing nothing.
+- **A `protected` tile has to protect the *surface*, not only the tile.** The grass discs were the
+  one dressing writer that never consulted `protected`, and got away with it until water existed:
+  every protected thing until then was protected from having a tile stood on it, and the discs write
+  a surface onto a Floor tile. A ford is a Floor. They turfed 49 of them. And the protection needs a
+  **ring**, which the dressing taught rather than the design -- a ford stayed a ford while a stand of
+  trees grew across the dry ground leading to it, which severs a district exactly as a missing
+  crossing would.
+- **The colony outranks the river.** There is deliberately no water filter in `annex_candidates`:
+  `SimTemplates.stamp` writes the patch's own tiles over the whole footprint, so water under the
+  colony is wiped rather than built around. Filtering was tried and left a 64-tile forest with zero
+  candidates out of sixteen, because the annex is 26x26 and a river crossing a 64-tile map crosses
+  everything.
+
+### What wading decided, 2026-09-09
+
+The owner's call that shallow and deep must be discernible, that you must be able to wade, and that
+wading should wet you and lower your temperature. Three asks, one mechanic.
+
+- **Wading needed no mechanic, only an assertion.** A ford is an ordinary `Tile.Floor` on the water
+  surface, so it has walked since the surface existed, at the slowest and loudest numbers in the
+  game. The honest thing was to gate what was already true rather than build it again -- and to say
+  in the record that it was already true.
+- **A ford soaks you at once; rain does not.** Rain has `wetAfterTicks` to soak through and a body
+  standing in a river has nothing to soak through, so the wet state is set on the tick the body
+  arrives. Everything else is the rain slice's: `wetUntilTick`, the same drying clock, the same
+  fire bringing it forward, and the same `_colder` step that was already reading it. **A new
+  mechanic here would have been the wrong answer to the same question docs/04 had already
+  answered.**
+- **Only the shallow half can wet you, and that is geometry rather than a check.** Deep water is
+  solid, so no body is ever standing on it; the tile a body can stand on and still be in water is
+  the bank or the ford. Nothing in the code asks "is this shallow" -- it asks what surface the body
+  is on, and the answer falls out.
+- **A value gap does not make two dark blues discernible; an edge does.** The channel darkening
+  (`WATER_DEEP_SHADE` 0.30 → 0.42) was not enough on its own. What reads is the **shoreline**: every
+  deep tile draws a lit rim on each side whose neighbour is not also deep. An edge says where the
+  channel stops, which is the same thing as saying where a foot goes -- and a ford cut through the
+  channel is outlined on both sides, so a crossing is visible before you are standing in it. Drawn
+  off the water's own tile rather than as a fringe rule over every ground beside it, so the land's
+  edge pass is untouched.
+- **The channel is bounded from below as well as above.** The ford is held under value 0.3866 by
+  the pawn-ramp contrast guard and the background is `#15141f` at 0.122, so the channel lives in a
+  corridor: dark enough to read as depth, light enough not to read as a hole in the map. Both ends
+  are named constants for that reason.
+
+### What the yard decided
+
+- **A new district type fills the last enum slot, and that disarms two gates.** `industrial` was the
+  one location docs/12 named that nobody had written, and two of `check_loot.gd`'s negatives used it
+  as their example of an unwritten table. Authoring it made both pass vacuously. One now names a
+  table off the enum entirely; the other exposed a genuine gap -- with all five authored, the "has
+  no content entry" branch is unreachable through the enum -- so it is proved against an authored
+  set with one removed, which is what deleting a shipped table while a district still names it would
+  look like. **A negative that leans on a slot being empty stops being a negative the day somebody
+  fills it**, and this milestone will hit that again.
+- **A district type is a data entry, and the fourteenth terrain knob is what made that true here.**
+  The grass discs were hardcoded at half a block, so the first yard read as a suburb with sheds on
+  it. `grassShare` defaults to 0.5 -- the historical value -- and is safe for the same reason the
+  forest slice's thirteen were: it changes an **argument** to a draw and never how many draws
+  happen. Without it, "adding a district type is a data entry" would have been false for any
+  district that is not green.
+- **Streets 4 wide, deliberately.** `VEHICLE_MIN_WIDTH` is 4, so a district declaring a `vehicles`
+  block on 3-wide streets would be a socket nothing reaches -- the town centre and the forest are
+  the measured precedent for leaving the block off entirely.
+
+### What it made structural
+
+- **A surface's int is an atlas row, so the painted rows sit after the last surface.**
+  `Appearance.ground_row_for` returns a surface int *as* a `GroundRow`, which is what makes the
+  ground atlas cheap. `GroundRow.Sidewalk` was 5 and `Surface.Water` arrived as 5, so before the
+  re-index **a river drew as pavement** — silently, with `godot:m2` green, because no assertion
+  connected the two enums. Water is row 5 now and the two paints moved to 6 and 7;
+  `check_water.gd`'s ROWS lane asserts the two enums agree and that the paints sit outside the
+  surface range, so a seventh surface cannot repeat it. The atlas PNG grew a row and had to be
+  regenerated, which is what `sprites:check` is for.
+- **Deep water takes none of the floor's furniture.** The channel is one flat fill: no road paint,
+  no ground-atlas cell, no fringe. Each of those passes would otherwise draw a kerb, a dash or a
+  grass edge into the middle of the river, and the fringe one needed `Tile.Water` adding to the
+  ground-rows cache's exclusion list to stop it. The *ford* keeps all of it, because a ford is a
+  floor — and that difference is what makes a crossing visible before you step in.
+- **The deep colour is derived, not authored.** One water tint, darkened by `WATER_DEEP_SHADE`,
+  the way a wall's face is lifted out of its cap: two authored colours would drift apart under a
+  regrade.
+- **A brightness ceiling nobody predicted.** The first water tint (`#55636b`, value 0.42) was
+  refused at import by `tools/sprites/palette.py`'s `guard_against_ground`: it made water the
+  brightest ground in the game, and the `fatigue_drab` pawn ramp then cleared it by 0.067 against
+  a `GROUND_CONTRAST` of 0.10 — a colonist on the bank would have read as a hole in the river. The
+  shipped tint is `#424f5c` at value 0.361. **A new ground is bounded from above by the darkest
+  pawn ramp**, which is a constraint on every future surface and was found by a guard rather than
+  by a screenshot.
+
+**First cuts taken without the owner**, each one constant and each listed in `HANDOFF.md` the way
+the driving and weather numbers are: the ford's ×0.45 speed and ×1.8 noise, the water tint
+`#424f5c`, and `WATER_DEEP_SHADE` 0.30. The ten-day playtest is what they are for.
+
+**What this does not change.** The five existing surfaces and their calibrated numbers; the
+pathfinder and the shadowcast, both untouched; the three shipped district types, which declare no
+water and are byte-identical; and the frozen TypeScript oracle, whose `Tile` stops at `Tree = 5`
+and already lacked `Door = 6` — the oracle is not a party to the tile enum, though it does still
+validate the map schema, whose tile and surface maxima grew.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
