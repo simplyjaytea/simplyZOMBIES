@@ -5,6 +5,14 @@ const FULL_CONDITION: float = 1.0
 const CONDITION_FLOOR: float = 0.55
 # ponytail: flat wear per hit; jam/miss wear later.
 const WEAR_PER_HIT: float = 0.005
+# A firearm wears from being fired, not from connecting: the barrel does not know whether the
+# round found anything. Sized so a weapon reaches "worn" (0.8) after ~133 rounds and "failing"
+# (0.5) after ~333 -- tens of rounds is a firefight, so a gun goes noticeably off after about ten
+# of them, which is the pressure docs/09's jam clause wants and the reason WEAR_PER_HIT's comment
+# said "jam/miss wear later".
+const WEAR_PER_SHOT: float = 0.0015
+# A reload is gentler than a shot and mostly costs the magazine, which slice 2 charges separately.
+const WEAR_PER_RELOAD: float = 0.0005
 const REPAIR_GAIN: float = 0.25
 const REPAIR_CEILING_DROP: float = 0.05
 const REPAIR_CEILING_FLOOR: float = 0.2
@@ -306,27 +314,35 @@ static func refresh_armed(world: Variant, item: int) -> void:
 					(live as Dictionary)[key] = (ranged as Dictionary)[key]
 
 
-static func _weapon_for_attacker(world: Variant, attacker: int) -> int:
-	var eq: Variant = world.components.get_component(attacker, "equipment")
-	if not eq is Dictionary:
-		return -1
-	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
-	for slot in ["primary", "secondary"]:
-		if slots.has(slot):
-			var item: int = int(slots[slot])
-			if melee_profile_of(world, item) != null or ranged_profile_of(world, item) != null:
-				return item
-	return -1
+## Whether this item is a melee weapon, asked of its base rather than by building a profile.
+## The wear-on-hit subscription needs the answer for every landed blow, including a zombie's.
+static func is_melee_item(world: Variant, item: int) -> bool:
+	if item < 0:
+		return false
+	var base: Variant = item_base_of(world, item)
+	return base is Dictionary and (base as Dictionary).get("melee") is Dictionary
 
 
+# Three channels, not one, because three different things wear a weapon and they do not wear it
+# equally. Each carries the acting item on the event itself -- `source`, stamped by the profile
+# builders -- so none of them has to guess which hand acted. That guess was `_weapon_for_attacker`,
+# and it was wrong in a way nothing reported: it walked ["primary","secondary"] and took the first
+# with a profile, so a survivor carrying a knife and a pistol wore the knife on every gunshot and
+# the pistol never degraded at all, which meant its jam chance never rose off zero.
 static func register_module(world: Variant) -> void:
 	world.events.subscribe({"id": "items.wear-on-hit", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
-		var attacker: int = int(event.get("attacker", -1))
-		if attacker < 0:
-			return
-		var weapon: int = _weapon_for_attacker(world, attacker)
-		if weapon >= 0:
-			apply_wear(world, weapon)
+		# A melee weapon wears where it lands. A firearm does not wear here -- it wore when it
+		# fired, on the channel below -- and a zombie's bite publishes this event carrying no item
+		# at all, which is the -1 both cases fall through on.
+		var weapon: int = int(event.get("item", -1))
+		if is_melee_item(world, weapon):
+			apply_wear(world, weapon, WEAR_PER_HIT)
+	})
+	world.events.subscribe({"id": "items.wear-on-shot", "type": "weapon.fired", "handler": func(event: Dictionary) -> void:
+		apply_wear(world, int(event.get("item", -1)), WEAR_PER_SHOT)
+	})
+	world.events.subscribe({"id": "items.wear-on-reload", "type": "weapon.reloaded", "handler": func(event: Dictionary) -> void:
+		apply_wear(world, int(event.get("item", -1)), WEAR_PER_RELOAD)
 	})
 
 # Loaded lazily rather than preloaded: attachments.gd preloads *this* file, and a preload cycle
@@ -356,6 +372,13 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 		"speed": resolve.call("swing_speed") * wear,
 		"recovery": resolve.call("swing_recovery"),
 		"stamina": resolve.call("swing_stamina"),
+		# Which item this profile was built from. The live `meleeWeapon`/`rangedWeapon` components
+		# sit on the *actor*, so before this key existed nothing could say which of the two hands
+		# had acted -- `_weapon_for_attacker` guessed by walking ["primary","secondary"] and
+		# returning the first with a profile, which wore a knife every time a pistol fired. An
+		# entity id as a *value*, never a Dictionary key, so it survives the JSON round trip a
+		# save makes.
+		"source": item,
 	}
 	return _Attachments().call("fold", world, item, "melee", profile)
 
@@ -390,6 +413,9 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		# resolves on the *entity*, so a scope with nothing in it was the wrong place to put one.
 		# `ranged.gd:_refresh_cone` folds this in with everything else that decides sway.
 		"cone": 1.0,
+		# See melee_profile_of: the item this profile was built from, so wear can reach the
+		# weapon that actually fired.
+		"source": item,
 	}
 	return _Attachments().call("fold", world, item, "ranged", profile)
 

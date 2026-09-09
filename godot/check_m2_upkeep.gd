@@ -7,14 +7,27 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const World = preload("res://sim/world.gd")
+const SimHealth = preload("res://sim/modules/health.gd")
+const SimMelee = preload("res://sim/modules/melee.gd")
+const SimRanged = preload("res://sim/modules/ranged.gd")
+const SimRoster = preload("res://sim/modules/roster.gd")
+const Clock = preload("res://sim/time/clock.gd")
 
 func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	var ok: bool = _wear() and _repair() and _focus() and _spawn_delivery()
+	# `... and ok` rather than `ok and ...`, so one red lane does not hide the four behind it.
+	var ok: bool = true
+	ok = _wear() and ok
+	ok = _repair() and ok
+	ok = _focus() and ok
+	ok = _spawn_delivery() and ok
+	ok = _the_weapon_that_acted_is_the_weapon_that_wears() and ok
+	ok = _a_shot_announces_itself_and_a_dry_hand_does_not() and ok
 	if ok:
-		print("M2_UPKEEP_OK wear broke repair spawn-deliver")
+		print("M2_UPKEEP_OK wear broke repair spawn-deliver source fired")
 		quit(0)
 	else:
 		push_error("M2_UPKEEP_FAIL")
@@ -35,7 +48,9 @@ func _wear() -> bool:
 			return false
 	var cond: Dictionary = w.components.get_component(knife, "condition") as Dictionary
 	var before: float = float(cond.get("current", 1.0))
-	w.events.publish({"type": "attack.connected", "attacker": player, "target": 0, "bodyPart": "torso", "damage": 1})
+	# `item` is part of the event contract now -- the wear handler reads it rather than guessing
+	# which hand acted. A publish without it wears nothing, which is the -1 a zombie's bite sends.
+	w.events.publish({"type": "attack.connected", "attacker": player, "target": 0, "bodyPart": "torso", "damage": 1, "item": knife})
 	w.events.drain()
 	var after: float = float((w.components.get_component(knife, "condition") as Dictionary).get("current", 1.0))
 	if after >= before:
@@ -43,7 +58,7 @@ func _wear() -> bool:
 		return false
 	# Break
 	cond["current"] = SimItems.WEAR_PER_HIT
-	w.events.publish({"type": "attack.connected", "attacker": player, "target": 0, "bodyPart": "torso", "damage": 1})
+	w.events.publish({"type": "attack.connected", "attacker": player, "target": 0, "bodyPart": "torso", "damage": 1, "item": knife})
 	w.events.drain()
 	var broken: float = float((w.components.get_component(knife, "condition") as Dictionary).get("current", -1.0))
 	if broken > 0.0:
@@ -156,3 +171,187 @@ func _focus() -> bool:
 		return false
 	print("FOCUS OK repair columns")
 	return true
+
+
+# --- SOURCE ---
+#
+# The defect this lane exists for, in one sentence: `_weapon_for_attacker` walked
+# ["primary", "secondary"] and returned the first item with a profile, so a survivor carrying a
+# knife in one hand and a pistol in the other wore *the knife* every time the pistol fired -- and
+# the pistol, never wearing, kept a jam chance of zero for the whole campaign.
+#
+# So the assertion is a pair, and neither half is worth anything alone. Fire: the pistol wears and
+# the knife does not. Swing: the knife wears and the pistol does not. A lane that only checked the
+# first would pass for an implementation that wears everything the actor is holding.
+func _the_weapon_that_acted_is_the_weapon_that_wears() -> bool:
+	var lane: String = "SOURCE"
+
+	# The shot half.
+	var w: Variant = _bare_world()
+	var armed: Dictionary = _arm_both_hands(w)
+	if armed.is_empty():
+		push_error("%s: could not arm a knife and a pistol, so this lane is asserting nothing" % lane)
+		return false
+	var knife: int = int(armed["knife"])
+	var pistol: int = int(armed["pistol"])
+	var knife_before: float = _condition(w, knife)
+	var pistol_before: float = _condition(w, pistol)
+	if not _fire_once(w):
+		push_error("%s: the pistol never fired, so the shot half is asserting nothing" % lane)
+		return false
+	var knife_after: float = _condition(w, knife)
+	var pistol_after: float = _condition(w, pistol)
+	if pistol_after >= pistol_before:
+		push_error("%s: the pistol fired and did not wear (%.5f vs %.5f)" % [lane, pistol_before, pistol_after])
+		return false
+	if not is_equal_approx(knife_after, knife_before):
+		push_error("%s: the pistol fired and the knife wore (%.5f vs %.5f) -- this is the bug" % [lane, knife_before, knife_after])
+		return false
+
+	# The swing half, on a fresh world so the numbers above cannot carry.
+	var w2: Variant = _bare_world()
+	var armed2: Dictionary = _arm_both_hands(w2)
+	if armed2.is_empty():
+		push_error("%s: could not arm the swing half" % lane)
+		return false
+	var knife2: int = int(armed2["knife"])
+	var pistol2: int = int(armed2["pistol"])
+	var rng: Variant = w2.rng.stream("shambler")
+	SimRoster.spawn_zombie(w2, 9.0, 12.0, SimRoster.TYPE_SHAMBLER, rng)
+	w2.events.drain()
+	var knife2_before: float = _condition(w2, knife2)
+	var pistol2_before: float = _condition(w2, pistol2)
+	if not _swing_once(w2):
+		push_error("%s: the swing never connected, so the swing half is asserting nothing" % lane)
+		return false
+	var knife2_after: float = _condition(w2, knife2)
+	var pistol2_after: float = _condition(w2, pistol2)
+	if knife2_after >= knife2_before:
+		push_error("%s: the knife connected and did not wear (%.5f vs %.5f)" % [lane, knife2_before, knife2_after])
+		return false
+	if not is_equal_approx(pistol2_after, pistol2_before):
+		push_error("%s: the knife swung and the pistol wore (%.5f vs %.5f)" % [lane, pistol2_before, pistol2_after])
+		return false
+
+	print("  SOURCE OK shot wore the pistol by %.5f, swing wore the knife by %.5f, neither touched the other" % [pistol_before - pistol_after, knife2_before - knife2_after])
+	return true
+
+
+# --- FIRED ---
+#
+# The dead-socket half: `weapon.fired` is the channel wear rides, so something has to assert it is
+# published, that it names the weapon rather than the shooter's other hand, and that it is not
+# published when no shot happened. The last of those is the true negative and it is the one that
+# matters -- an implementation that published on every trigger pull would wear a weapon with no
+# ammunition in it.
+func _a_shot_announces_itself_and_a_dry_hand_does_not() -> bool:
+	var lane: String = "FIRED"
+	var w: Variant = _bare_world()
+	var armed: Dictionary = _arm_both_hands(w)
+	if armed.is_empty():
+		push_error("%s: could not arm the shooter" % lane)
+		return false
+	var pistol: int = int(armed["pistol"])
+	var fired: Array = _fire_and_collect(w, 3)
+	if fired.size() < 1:
+		push_error("%s: three trigger pulls produced no weapon.fired at all" % lane)
+		return false
+	for e in fired:
+		if int((e as Dictionary).get("item", -1)) != pistol:
+			push_error("%s: weapon.fired named %d, not the pistol %d" % [lane, int((e as Dictionary).get("item", -1)), pistol])
+			return false
+
+	# TN: the same actor, the same commands, no ammunition. `_fire_shot` refuses before the round
+	# leaves, so the event must not appear -- and if it does, every wear number above is a lie.
+	var w2: Variant = _bare_world()
+	var armed2: Dictionary = _arm_both_hands(w2, false)
+	if armed2.is_empty():
+		push_error("%s: could not arm the dry shooter" % lane)
+		return false
+	var dry: Array = _fire_and_collect(w2, 3)
+	if not dry.is_empty():
+		push_error("%s: a pistol with no ammunition published %d weapon.fired" % [lane, dry.size()])
+		return false
+
+	print("  FIRED OK %d shots announced the pistol, an empty one announced nothing" % fired.size())
+	return true
+
+
+# --- helpers for the two lanes above ---
+
+# A bare world with only the modules these lanes exercise, rather than SimBoot.playable: the boot
+# colony arrives already holding things, and a lane about which of two hands wore needs to know
+# exactly what is in both of them.
+func _bare_world() -> Variant:
+	var f: Dictionary = {"seed": 41, "tick_hz": 20, "map": {"width": 24, "height": 24, "walls": []}, "player": {"id": 0, "x": 8.0, "y": 12.0, "stance": 2}, "rng_probe": {"stream": "test", "samples": 0}}
+	var w: Variant = World.new(f)
+	w.tick = Clock.tick_at_time_of_day(Clock.DAY_BEGINS)
+	SimBoot.attach_kernel(w, SimTileMap.blank_map(24, 24))
+	SimHealth.register_module(w)
+	SimMelee.register_module(w)
+	SimRanged.register_module(w)
+	SimInventory.register_module(w)
+	SimItems.register_module(w)
+	w.components.set_component(w.player, "facing", {"radians": 0.0})
+	SimHealth.make_survivor_body(w, w.player)
+	SimHealth.make_stamina(w, w.player)
+	SimInventory.make_inventory(w, w.player)
+	return w
+
+
+## A knife in `primary` and a pistol in `secondary` -- the exact arrangement the old guess got
+## wrong. Returns {} rather than half a hand if either equip refuses.
+func _arm_both_hands(w: Variant, with_ammo: bool = true) -> Dictionary:
+	var knife: int = SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"})
+	if not SimInventory.equip(w, w.player, knife, "primary"):
+		return {}
+	var pistol: int = SimItems.spawn_item(w, "item.pistol.service", {"tier": "scavenged"})
+	if not SimInventory.equip(w, w.player, pistol, "secondary"):
+		return {}
+	if with_ammo:
+		var rounds: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 12})
+		if not SimInventory.stow(w, w.player, rounds):
+			w.components.set_component(rounds, "stored", {"container": w.player})
+	w.events.drain()
+	return {"knife": knife, "pistol": pistol}
+
+
+func _condition(w: Variant, item: int) -> float:
+	var c: Variant = w.components.get_component(item, "condition")
+	return float((c as Dictionary).get("current", 1.0)) if c is Dictionary else 1.0
+
+
+## Drives one shot to completion. Steps rather than publishing by hand, because `events.publish`
+## only queues until `drain()` at the end of `world.step()` -- a lane that published `fire` and
+## read a condition back on the same line would see nothing and blame correct code.
+func _fire_once(w: Variant) -> bool:
+	return _fire_and_collect(w, 1).size() > 0
+
+
+func _fire_and_collect(w: Variant, shots: int) -> Array:
+	var seen: Array = []
+	for s in shots:
+		w.commands.push({"type": "fire"})
+		for i in 60:
+			w.step()
+			for e in w.events.drained:
+				if String((e as Dictionary).get("type", "")) == "weapon.fired":
+					seen.append(e)
+			var rw: Variant = w.components.get_component(w.player, "rangedWeapon")
+			if rw is Dictionary and int((rw as Dictionary)["state"]) == SimRanged.FireState.Idle:
+				break
+	return seen
+
+
+func _swing_once(w: Variant) -> bool:
+	if not SimMelee.try_begin_swing(w, w.player):
+		return false
+	var landed: bool = false
+	for i in 60:
+		w.step()
+		for e in w.events.drained:
+			if String((e as Dictionary).get("type", "")) == "attack.connected" and int((e as Dictionary).get("attacker", -1)) == w.player:
+				landed = true
+		if landed:
+			break
+	return landed

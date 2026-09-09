@@ -680,9 +680,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **`deep_pockets` is computed in the wrong scope.** The suffix adds `carry_capacity` scoped to the
   *item*; encumbrance resolves `carry_capacity` scoped to the *actor*. Rolled, named, saved, read
   by nothing.
-- **`_weapon_for_attacker` wears the wrong weapon.** It returns the first of `primary`/`secondary`
-  carrying any weapon profile, so a survivor with a knife in `primary` and a pistol in `secondary`
-  wears the knife on every gunshot and the pistol never wears at all.
 - **`merge_into_stack` reads a failure as a success.** `merge_stacks` returns 0 both for "fully
   merged" and for all five of its give-up paths, so `stow` can report an item stored that it did
   not store.
@@ -5786,6 +5783,26 @@ not a to-do list:
   ledger that cites them. The same commit added the PR template, the steward skill under
   `.claude/skills/`, and the read-only permission allowlist in `.claude/settings.json`, and
   re-measured the numbers `AGENTS.md` had wrong.
+- **Items** — ~~`_weapon_for_attacker` wears the wrong weapon~~ **landed** 2026-09-09
+  (`godot:m2:upkeep` grows **SOURCE** and **FIRED**), as the first slice of the gunsmithing arc
+  rather than as a defect fixed in passing: per-part wear cannot be routed until the sim can say
+  which weapon acted. Both weapon profiles now carry `source`, the item they were built from — an
+  entity id as a *value*, so it survives the JSON round trip — and it rides `make_ranged_armed`
+  and `refresh_armed`'s merge without either changing signature. `attack.connected` carries
+  `item`; `_fire_shot` publishes **`weapon.fired`** beside the noise it makes (after every
+  refusal above it, so a shot that did not happen wears nothing) and the reload arm publishes
+  **`weapon.reloaded`**. The guess is deleted: three subscriptions replace it, and a firearm now
+  wears from *firing* rather than from connecting, which is what `WEAR_PER_HIT`'s own comment
+  meant by "jam/miss wear later". `WEAR_PER_SHOT` 0.0015 puts a firearm at "worn" after ~133
+  rounds and "failing" after ~333 — about ten firefights to notice, which is the first time a
+  pistol's `JAM_CHANCE_BY_BAND` entry has been reachable at all, because a pistol in `secondary`
+  had never worn by a single point. `WEAR_PER_RELOAD` 0.0005. **SOURCE** is a pair and neither
+  half is worth anything alone: fire, and the pistol wears while the knife does not; swing, and
+  the knife wears while the pistol does not — a lane checking only the first would pass for an
+  implementation that wears everything the actor holds. Reinstating the old primary-first guess
+  turns it red naming the right number. **FIRED**'s true negative is the one that matters: a
+  pistol with no ammunition publishes nothing, or every wear number above it is a lie.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.
