@@ -3267,6 +3267,37 @@ than by review, which is why they are here rather than in a comment.
   candidates out of sixteen, because the annex is 26x26 and a river crossing a 64-tile map crosses
   everything.
 
+### What wading decided, 2026-09-09
+
+The owner's call that shallow and deep must be discernible, that you must be able to wade, and that
+wading should wet you and lower your temperature. Three asks, one mechanic.
+
+- **Wading needed no mechanic, only an assertion.** A ford is an ordinary `Tile.Floor` on the water
+  surface, so it has walked since the surface existed, at the slowest and loudest numbers in the
+  game. The honest thing was to gate what was already true rather than build it again -- and to say
+  in the record that it was already true.
+- **A ford soaks you at once; rain does not.** Rain has `wetAfterTicks` to soak through and a body
+  standing in a river has nothing to soak through, so the wet state is set on the tick the body
+  arrives. Everything else is the rain slice's: `wetUntilTick`, the same drying clock, the same
+  fire bringing it forward, and the same `_colder` step that was already reading it. **A new
+  mechanic here would have been the wrong answer to the same question docs/04 had already
+  answered.**
+- **Only the shallow half can wet you, and that is geometry rather than a check.** Deep water is
+  solid, so no body is ever standing on it; the tile a body can stand on and still be in water is
+  the bank or the ford. Nothing in the code asks "is this shallow" -- it asks what surface the body
+  is on, and the answer falls out.
+- **A value gap does not make two dark blues discernible; an edge does.** The channel darkening
+  (`WATER_DEEP_SHADE` 0.30 → 0.42) was not enough on its own. What reads is the **shoreline**: every
+  deep tile draws a lit rim on each side whose neighbour is not also deep. An edge says where the
+  channel stops, which is the same thing as saying where a foot goes -- and a ford cut through the
+  channel is outlined on both sides, so a crossing is visible before you are standing in it. Drawn
+  off the water's own tile rather than as a fringe rule over every ground beside it, so the land's
+  edge pass is untouched.
+- **The channel is bounded from below as well as above.** The ford is held under value 0.3866 by
+  the pawn-ramp contrast guard and the background is `#15141f` at 0.122, so the channel lives in a
+  corridor: dark enough to read as depth, light enough not to read as a hole in the map. Both ends
+  are named constants for that reason.
+
 ### What the yard decided
 
 - **A new district type fills the last enum slot, and that disarms two gates.** `industrial` was the

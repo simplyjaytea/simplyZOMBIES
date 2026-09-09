@@ -59,6 +59,8 @@ const Appearance = preload("res://presentation/appearance.gd")
 const Palette = preload("res://presentation/palette.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
+const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimWeather = preload("res://sim/modules/weather.gd")
 
 const MAIN_PATH: String = "res://presentation/main.gd"
 
@@ -95,6 +97,7 @@ func _run() -> void:
 	ok = _the_generator_carves_water_only_where_content_declares_it() and ok
 	ok = _a_generated_river_never_leaves_ground_stranded() and ok
 	ok = _the_dressing_cannot_gravel_a_ford_or_wear_a_track_down_one() and ok
+	ok = _wading_is_walkable_and_it_soaks_you_and_the_cold_reads_it() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -102,7 +105,7 @@ func _run() -> void:
 		ok = false
 
 	if ok:
-		print("WATER_OK deep water is solid and clear (the Window pair) and refuses a foot while the ford on the same surface walks; a sightline crosses a channel and not a wall; the ford reads x%.2f speed and x%.2f noise through the world's own path -- the slowest and loudest ground there is; the atlas row is the water row and not the sidewalk's; both of main.gd's tile matches carry a water arm and the fringe pass stays out of the channel; the generator carves water only where content declares it and never leaves ground stranded on %d seeds x %d sizes, and the dressing can neither gravel a ford nor wear a track down one; %.1f s of a %.0f s budget" % [
+		print("WATER_OK deep water is solid and clear (the Window pair) and refuses a foot while the ford on the same surface walks; a sightline crosses a channel and not a wall; the ford reads x%.2f speed and x%.2f noise through the world's own path -- the slowest and loudest ground there is; the atlas row is the water row and not the sidewalk's; both of main.gd's tile matches carry a water arm and the fringe pass stays out of the channel; the generator carves water only where content declares it and never leaves ground stranded on %d seeds x %d sizes, and the dressing can neither gravel a ford nor wear a track down one; a ford walks, soaks the body standing in it and reads one band colder for it; %.1f s of a %.0f s budget" % [
 			SimSurface.SPEED[SimSurface.Surface.Water],
 			SimSurface.NOISE[SimSurface.Surface.Water],
 			SEEDS.size(), SIZES.size(),
@@ -502,3 +505,109 @@ func _water_mask(map: Variant) -> PackedByteArray:
 		elif int(map.surfaces[i]) == SimTileMap.SURFACE_WATER:
 			out[i] = 1
 	return out
+
+
+# 10. WADE: the ford is crossable, it soaks you, and the cold reads the soaking.
+#
+# The owner's three asks in one lane, because they are one mechanic seen from three sides.
+#
+# **It walks** -- already true before this lane existed, and the lane says so rather than pretending
+# otherwise: a ford is an ordinary `Tile.Floor` on the water surface, so `SimPath` accepts it and
+# `SimSurface` prices it at the slowest, loudest numbers in the game. FOOT and GROUND above already
+# hold those; what is asserted here is that the two meet on a *generated* tile rather than a fixture.
+#
+# **It soaks you, at once.** Rain has to soak through `wetAfterTicks` first; standing in a river
+# does not, so wading sets the wet state on the tick the body arrives. Nothing new was added to the
+# ladder for it -- `wetUntilTick` is the rain slice's own field, dried by the same clock and brought
+# forward by the same fire.
+#
+# **And the cold reads it**, which is the dead-socket half: a wet body reads one band colder
+# (`_colder`), and this measures the band rather than the flag, because a flag nothing consults
+# would be the fourteenth socket. The true negative is the same body on dry ground one tile away.
+func _wading_is_walkable_and_it_soaks_you_and_the_cold_reads_it() -> bool:
+	var w: Variant = SimBoot.playable(20260805, 128, WET_DISTRICT)["world"]
+	var map: Variant = w.tilemap
+	var ent: int = int(w.player)
+	var mw: int = int(map.w)
+
+	# A ford or bank tile, and a dry tile beside it, both outdoors.
+	var wet_tile := Vector2i(-1, -1)
+	var dry_tile := Vector2i(-1, -1)
+	for ty in int(map.h):
+		for tx in mw:
+			var idx: int = ty * mw + tx
+			if int(map.surfaces[idx]) != SimTileMap.SURFACE_WATER:
+				continue
+			if int(map.tiles[idx]) != SimTileMap.Tile.Floor or SimTileMap.is_indoors(map, tx, ty):
+				continue
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var nx: int = tx + d.x
+				var ny: int = ty + d.y
+				if nx < 1 or ny < 1 or nx >= mw - 1 or ny >= int(map.h) - 1:
+					continue
+				var nidx: int = ny * mw + nx
+				if int(map.surfaces[nidx]) == SimTileMap.SURFACE_WATER:
+					continue
+				if int(map.tiles[nidx]) != SimTileMap.Tile.Floor or SimTileMap.is_indoors(map, nx, ny):
+					continue
+				wet_tile = Vector2i(tx, ty)
+				dry_tile = Vector2i(nx, ny)
+				break
+			if wet_tile.x >= 0:
+				break
+		if wet_tile.x >= 0:
+			break
+	if wet_tile.x < 0:
+		push_error("WADE: the booted forest carries no ford beside dry ground, so this lane judged nothing")
+		return false
+
+	# It walks, on the generated tile rather than on a fixture.
+	if not SimPath.walkable(w, wet_tile.x, wet_tile.y):
+		push_error("WADE: the ford at %s is not walkable in a booted world" % str(wet_tile))
+		return false
+	var speed: float = w.surface_speed_at(float(wet_tile.x) + 0.5, float(wet_tile.y) + 0.5)
+	if absf(speed - SimSurface.SPEED[SimSurface.Surface.Water]) > 0.000001:
+		push_error("WADE: the ford reads x%.3f speed, not the water table's x%.2f" % [speed, SimSurface.SPEED[SimSurface.Surface.Water]])
+		return false
+
+	# Dry ground first, so the negative is measured before the positive can contaminate it: a body
+	# that was already wet would make the soak below prove nothing.
+	_stand(w, ent, dry_tile)
+	w.step()
+	if SimNeeds.is_wet(w, ent):
+		push_error("WADE: a body on dry ground at %s came up wet; the lane cannot tell water from land" % str(dry_tile))
+		return false
+	var dry_band: String = String(SimNeeds.of(w, ent).get("temperature", ""))
+
+	# Then the ford, one tick, no soak time.
+	_stand(w, ent, wet_tile)
+	w.step()
+	if not SimNeeds.is_wet(w, ent):
+		push_error("WADE: a body standing in the ford at %s is still dry after a tick" % str(wet_tile))
+		return false
+	var until: int = int(SimNeeds.of(w, ent).get("wetUntilTick", -1))
+	var want: int = int(w.tick) + SimWeather.dry_after_ticks(w)
+	if absi(until - want) > 2:
+		push_error("WADE: wetUntilTick is %d, not about tick %d + dryAfterTicks %d" % [until, int(w.tick), SimWeather.dry_after_ticks(w)])
+		return false
+	var wet_band: String = String(SimNeeds.of(w, ent).get("temperature", ""))
+	# The read: one band colder. Measured against the same body's own dry band a tick earlier, so
+	# it cannot pass on a colony that was cold for some other reason.
+	var order: Array = SimNeeds.TEMP_ORDER
+	var di: int = order.find(dry_band)
+	var wi: int = order.find(wet_band)
+	if di < 0 or wi < 0:
+		push_error("WADE: temperature bands %s / %s are not on the ladder" % [dry_band, wet_band])
+		return false
+	if wi >= di:
+		push_error("WADE: dry read %s and wading read %s; wading has to read colder, and nothing consults the wet flag if it does not" % [dry_band, wet_band])
+		return false
+	print("WADE OK the ford at %s walks at x%.2f, soaks on the tick, and reads %s against the same body's %s on dry ground one tile away" % [
+		str(wet_tile), speed, wet_band, dry_band,
+	])
+	return true
+
+
+# Put a body on a tile, position and all, the way the weather gate's `_place` does.
+func _stand(w: Variant, ent: int, at: Vector2i) -> void:
+	w.components.set_component(ent, "position", {"x": float(at.x) + 0.5, "y": float(at.y) + 0.5})

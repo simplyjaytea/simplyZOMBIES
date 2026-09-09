@@ -141,7 +141,9 @@ pathfinder or the shadowcast to get — both already answer correctly for a soli
 
 A **ford is an ordinary floor** standing on the water surface, which is what makes a crossing
 something you can see before you step into it, and what puts the crossing in the table above
-rather than in a special case. Wading is the slowest movement in the game and splashing is the
+rather than in a special case. **Wading it soaks you** — at once, where rain has to soak through
+first — and a wet body reads one band colder until a roof, an hour, or a fire dries it. So the ford
+costs three things at once: time, noise, and warmth you may not get back before dark. Wading is the slowest movement in the game and splashing is the
 loudest footstep in it: against the [emitter table](03-attention.md#noise) a walk across a ford
 carries 2.5 m where tarmac carries 1.4 m, and a *sprint* across one carries 15.5 m — most of a
 street. Crossing a river is loud, and crossing it in a hurry is very loud.

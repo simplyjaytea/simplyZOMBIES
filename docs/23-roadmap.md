@@ -1727,6 +1727,34 @@ not a to-do list:
   documented both coexisting authoring conventions (face-on pawn, rotating rig) and said which
   applies when; the seam was owner-accepted until the roster was re-authored, which the
   2026-09-01 directives then did — one convention, true overhead, in the characters slice.
+  ~~Wading, and telling the two waters apart~~ **landed 2026-09-09** (`godot:check:water` at ten
+  lanes with WADE; `SAVE_VERSION` 27 → 28). The owner's three asks, which turned out to be one
+  mechanic seen from three sides.
+  **Wading already worked and the record says so rather than claiming credit**: a ford is an
+  ordinary `Tile.Floor` on the water surface, so `SimPath` has always accepted it and `SimSurface`
+  has always priced it at ×0.45 speed and ×1.8 noise. What the lane adds is the assertion that the
+  two meet on a *generated* tile rather than a fixture.
+  **Wading now soaks you, and at once** -- rain has to soak through `wetAfterTicks` first and a body
+  in a river does not. Nothing was added to the ladder for it: `wetUntilTick` is the rain slice's
+  own field, dried on the same clock and brought forward by the same fire, and a wet body already
+  read one band colder through `_colder`. Only the shallow half can do it and that falls out of the
+  geometry rather than a check -- deep water is solid, so no body is ever standing on it. Measured:
+  a body on the ford reads **`a_little_cold`** against the same body's **`comfortable`** on dry
+  ground one tile away, and the lane was proved red with the soak disabled before it was trusted.
+  **Deep and shallow now read apart at a glance.** A value gap alone did not do it -- two dark blues
+  at a glance are one dark blue -- so the channel darkened (`WATER_DEEP_SHADE` 0.30 → 0.42, value
+  0.253 → **0.209** against the ford's 0.361, three times the separation between any two of the five
+  original grounds) *and* every deep tile now draws a lit **shoreline** on each side whose neighbour
+  is not also deep. The rim is what does the work: an edge says where the channel stops, which is
+  the same thing as saying where you can put a foot, and a ford cut through the channel is outlined
+  on both sides so a crossing is visible before you are standing in it. Bounded from below as well
+  as above -- the background is `#15141f` at value 0.122, so a channel much darker reads as a hole
+  in the map. The forest's banks widened 2 → 3 tiles to match.
+  `SAVE_VERSION` bumped because the forest's map moved: the channel changes which lots take a
+  building, which changes the doors they carry, and a v27 save would put its door and container
+  entities on ground that has shifted under them.
+  **Balance: unmoved** -- the suburb the harness boots declares no water, so no body in it can wade.
+
   ~~The river and the lake, generated~~ **landed 2026-09-09** (`godot:check:water` grew to nine
   lanes; `godot:check:worldgen` and `godot:m2:district` grew their skip rules). `worldgen.water` is
   layout pass **3.5** -- after the streets, because a bridge is derived from the street manifest and
