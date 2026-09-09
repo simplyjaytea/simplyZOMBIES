@@ -473,7 +473,10 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    are distinguishable side by side and would not be at a glance mid-fight. The cheapest fix
    gives each primary weapon its own lean rather than sharing the bat's, which re-authors the
    shipped bat -- so it is recorded rather than taken in passing. The service pistol is the
-   weakest single key for the same reason of size.
+   weakest single key for the same reason of size. Sharper since the second gear catalogue
+   (2026-09-09): the weapon hand now holds fifteen melee bases and seven ranged, each new one
+   given its own lean and length so none of them added to the pile, but the shipped four are
+   still the shipped four and the two rifles are now a pair as well.
 4. **Whether a forest stand should ever be as dense as the generator can make it.** In the
    densest one measured -- 44 Tree tiles in a 9x9 -- the player is very nearly invisible: trees
    are Opaque, so sight collapses to a few tiles, and the fade rule cannot help much because

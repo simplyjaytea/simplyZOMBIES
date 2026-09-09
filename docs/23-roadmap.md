@@ -295,6 +295,16 @@ than here.
   bed beats a cot; content would carry the difference once more than one kind of bed exists.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
+- **The five ranged affixes docs/10 names.** Trued, Ported, Chambered, Blued and Heavy-barrelled.
+  Six melee prefixes ship and no ranged prefix does, against docs/10 rule 4's "melee and ranged
+  get equal item depth" — but this is not the data edit it looks like: of the stats they would
+  want, `noise_emission`, `condition_loss` and `repair_cost` are declared in
+  `sim/modifiers/stats.gd` and resolved by nothing anywhere, so authoring the affixes first would
+  ship five dead sockets. The readers come first, then the content.
+- **Armour attachment slots.** docs/10 gives body armour plate · lining · pocket and headgear
+  face · light mount. No armour base declares `slots` at all, and `attachment` has only `melee`
+  and `ranged` multiplier tables, so unlike the four weapon slots the second gear catalogue
+  closed this one is code — a third table and a reader — before it is content.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -5349,6 +5359,77 @@ not a to-do list:
   against a fabricated entry borrowing a committed prop sprite rather than skipped: a socket
   judged by nothing until some later slice is how the first one stayed dead. The picture per base
   is the next piece, in [what's left](#whats-left-in-milestone-2).
+- **Items** — ~~the second gear catalogue, and the four attachment slots nothing fitted~~
+  **landed** 2026-09-09 (`godot:m2:attach` grows **HOSTS** and **SCALES**; `godot:m2:gear`'s
+  CATALOGUE lane, `godot:check:loot`, `godot:check:inventory`, `godot:check:appearance`,
+  `godot:check:worn` and `sprites:check` judge the rest; the owner's direction of 2026-09-09,
+  shaped by two answers — breadth **plus** the empty attachment slots, and a generated overlay for
+  everything held). **Twenty-five new bases**, 89 → **114**, every one reachable and every
+  drawn-slot base with an overlay: three melee (a police baton at damage 7 and stagger 20 — the
+  first weapon on the roster whose stagger is not paid for in damage — a sharpened shovel at reach
+  1.5, and a splitting axe at 16, filling the empty gap between the fire axe's 14 and the sledge's
+  20); three ranged with their rounds (a hunting crossbow, quiet and hard at a ninety-tick reload;
+  a snub revolver, the first firearm to declare `jams: false`; a rimfire rifle at noise 120 and
+  damage 10, a new point on a curve whose quietest gun was 180) with `item.ammo.bolt`,
+  `item.ammo.38` and `item.ammo.22`; sterile gauze (the only sterile dressing that was not the
+  2×2 medkit), superglue as a scavenged suture and peroxide as a second antiseptic; a tin of dog
+  food (hunger 30, **mood −12** — the first food priced in mood rather than in hunger), a jar of
+  pickles, and instant coffee as a second, weaker stimulant beside the energy drink's loan; a
+  welding apron, a hard hat, a riot vest and mesh gloves; and a canvas duffel. Placement follows
+  docs/12's yield table — **29 loot entries**, 153 → 182 across the five tables, with no
+  `tierWeights` touched.
+
+  **The four dead sockets are the point of the slice.** `haft` was declared by six shipped melee
+  bases, `furniture` by three firearms, `limb` and `string` by the bow, and **nothing in the world
+  fitted any of them** — open since attachments landed. Five attachments close all four (a long
+  haft, a recoil pad, heavy limbs, a fast-flight string and a long barrel), and because
+  `SimAttachments.SCALABLE` already permitted every field they needed, **not one line of sim code
+  changed**. The same five close the two `SCALABLE` entries nothing had ever scaled —
+  `melee.reachMetres` and `ranged.rangeMetres` — so all eleven scalable fields are now exercised
+  by shipped content. Host counts after: `haft` 6 → 8, `furniture` 3 → 5, `limb` and `string`
+  1 → 2 each (the crossbow is the bow's first company in those two).
+
+  **The two lanes**, both the mirror of an assertion that already existed. CONTENT has always
+  asked whether every attachment reaches a host; **HOSTS** asks whether every host reaches an
+  attachment, which is the direction the four sockets lived in, and **SCALES** asks it of the code
+  side — every field in `SimAttachments.SCALABLE` must be scaled by something shipped. Each was
+  run with `item.attach.haft.long` deleted and named exactly the socket that reopened (`haft`
+  declared by 8 bases; `melee.reachMetres` scaled by nothing), so neither is a gate that cannot
+  fail; both also carry a fabricated negative. **Ten overlays** in `tools/sprites/parts/gear.py`,
+  31 → **41**, `WORN_LOOK_OK` judging all 41 at the pawn canvas with **37** bases reaching a layer
+  in their own slot (was 28). Two of the ten were authored outside the eight-rig envelope and
+  `WORN_LOOK`'s FITS lane said so by name; both were pulled in to x=28, the column every shipped
+  weapon already stops at.
+
+  **Balance, before and after** on the same four fast seeds:
+
+  | seed | before: siege / kills / deaths / survivors / grabs | after |
+  |---|---|---|
+  | 20260805 | 2 / 0 / 1 / 3 of 3 / 117 | identical |
+  | 404 | 1 / 0 / 0 / 3 of 3 / 7 | identical |
+  | 31337 | 3 / 1 / 0 / 3 of 3 / 0 | identical |
+  | 90210 | 2 / 0 / 2 / 3 of 3 / 51 | 2 / 0 / 2 / 3 of 3 / **111**, and one raider down |
+
+  Every band held (`M2_BALANCE_OK`, 235 grabs across four seeds against 175). Three seeds are
+  byte-identical and the fourth is not, which the gear catalogue's own prediction — the fast tier
+  never searches a container, so a table can grow without the harness noticing — does **not**
+  cover, so it was diagnosed rather than argued: the harness was re-run with all twenty-five bases
+  present and `loot/tables.json` alone reverted, and **90210 came back byte-identical to the
+  baseline**. The cause is entirely the `lootTable` stream drawing a different sequence once a
+  table grows, not any property of a new item; the campaign is a re-roll of the same distribution,
+  which is why every outcome number on that seed — siege, kills, deaths, survivors, breaches,
+  `max_live` — is unmoved while the contact count is not. `searches=0` on all four seeds both
+  times, so nothing rolled ever reached a colonist's hands in either run: the shotgun, the rifle
+  and now the crossbow, the revolver and the rimfire are still judged by the melee-vs-ranged
+  parity measurement and the full tier in [what's left](#whats-left-in-milestone-2), not here.
+
+  **Deliberately not in this slice**, named rather than left looking finished: attachment
+  condition; armour attachment slots (docs/10 gives body armour plate/lining/pocket and no armour
+  base declares `slots` at all, and `attachment` has no `armor` multiplier table — that one is
+  code); the five ranged **affixes** docs/10 names, held back because `noise_emission` and
+  `condition_loss` resolve to nothing outside `sim/modifiers/stats.gd` and authoring them now
+  would ship five dead affixes to fix four dead slots; and named items, which want a fifth tier in
+  `SimItems.TIERS`. docs/30's "The second gear catalogue" carries the four calls taken.
 - **Inventory** — ~~the cupboard is a grid~~ **landed** 2026-09-08 (`godot:check:loot`'s
   CONTAINER lane rewritten and six lanes beside it — TRANSFER, TAKE ALL, NPC, STREAM, PROSE,
   SIZES — plus `godot:m2:save`'s CONTAINER SAVE; `SAVE_VERSION` 26 → 27), the fourth piece of

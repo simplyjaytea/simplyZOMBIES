@@ -98,5 +98,68 @@
     "size": {"w": 1, "h": 1},
     "massKg": 0.02,
     "stack": 20
+  },
+  {
+    "id": "item.crossbow.hunting",
+    "name": "Hunting Crossbow",
+    "description": "A crossbow with a steel prod. It hits like a gun and takes an age to crank back.",
+    "class": "weapon.ranged",
+    "size": {"w": 2, "h": 4},
+    "massKg": 2.6,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_crossbow_hunting_equip"},
+    "slots": ["sight", "limb", "string"],
+    "ranged": {"damage": 20, "noise": 6, "ammo": "item.ammo.bolt", "recoverable": 0.6, "reloadTicks": 90, "rangeMetres": 35}
+  },
+  {
+    "id": "item.revolver.snub",
+    "name": "Snub Revolver",
+    "description": "A short revolver with a cylinder that turns whatever its condition. It hits hard, close, and rarely.",
+    "class": "weapon.ranged",
+    "size": {"w": 1, "h": 2},
+    "massKg": 0.8,
+    "equipSlot": "secondary",
+    "appearance": {"equipSprite": "item_revolver_snub_equip"},
+    "slots": ["optic", "barrel", "furniture"],
+    "ranged": {"damage": 22, "noise": 190, "flash": 55, "ammo": "item.ammo.38", "magSize": 6, "reloadTicks": 75, "rangeMetres": 18, "jams": false}
+  },
+  {
+    "id": "item.rifle.rimfire",
+    "name": "Rimfire Rifle",
+    "description": "A small-bore rifle for vermin. It cracks rather than booms, and it kills slowly.",
+    "class": "weapon.ranged",
+    "size": {"w": 1, "h": 4},
+    "massKg": 2.4,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_rifle_rimfire_equip"},
+    "slots": ["optic", "barrel", "furniture", "magazine"],
+    "ranged": {"damage": 10, "noise": 120, "flash": 35, "ammo": "item.ammo.22", "magSize": 10, "reloadTicks": 45, "rangeMetres": 50, "jams": true}
+  },
+  {
+    "id": "item.ammo.bolt",
+    "name": "Crossbow Bolt",
+    "description": "A short bolt, blunt-fletched. It can be pulled out and used again.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.05,
+    "stack": 16
+  },
+  {
+    "id": "item.ammo.38",
+    "name": "Revolver Round",
+    "description": "A stubby revolver cartridge with a lead nose.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.015,
+    "stack": 20
+  },
+  {
+    "id": "item.ammo.22",
+    "name": "Rimfire Round",
+    "description": "A tiny rimfire cartridge. There are always more of these than of anything else.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.004,
+    "stack": 40
   }
 ]
