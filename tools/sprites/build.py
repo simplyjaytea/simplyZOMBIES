@@ -47,6 +47,7 @@ from pathlib import Path  # noqa: E402
 from PIL import Image  # noqa: E402
 
 from draw import SIZE  # noqa: E402
+import guide  # noqa: E402
 from parts import buildings, characters, gear, ground, paperdoll, props, trees, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,6 +57,12 @@ SPRITE_DIR = ROOT / "godot" / "assets" / "sprites"
 # `presentation/appearance.gd`'s `canvas_of` -- which is what it exists to be instead of the
 # two-copies arrangement every other shape table here carries. Its own `note` says the rest.
 AUTHORED_PATH = SPRITE_DIR / "authored.json"
+
+# The guide sheets an artist draws a body on. They are generated like everything else and checked
+# like everything else, and they live OUTSIDE godot/assets/sprites/ on purpose: they are not game
+# art, have no content entry, are drawn at a working zoom rather than the art's native size, and
+# would need a canvas rule invented for them in `check_appearance.gd`'s canvas lane. See guide.py.
+GUIDE_DIR = ROOT / "tools" / "sprites" / "guides"
 
 # One entry per family module. Nothing in godot/assets/sprites/ is hand-authored any more:
 # `gear` took the last three files (`item_pack_hiking_equip`, its `_front` half and
@@ -140,6 +147,40 @@ def pixels(image):
 
 def path_for(key):
     return SPRITE_DIR / ("%s.png" % key)
+
+
+def guide_path_for(key):
+    return GUIDE_DIR / ("%s.png" % key)
+
+
+def write_guide(key, render):
+    image = render()
+    want = guide.CANVAS[key]
+    if image.size != want:
+        raise SystemExit("%s rendered %dx%d; the guide canvas is %dx%d" % (key, *image.size, *want))
+    GUIDE_DIR.mkdir(parents=True, exist_ok=True)
+    target = guide_path_for(key)
+    image.save(target)
+    print("wrote %s" % target.relative_to(ROOT))
+
+
+def check_guide(key, render):
+    """The same comparison every generated key gets. A guide that says one thing while
+    `parts/characters.py` says another is worse than no guide: it is a spec an artist was
+    handed and then held to something else."""
+    target = guide_path_for(key)
+    if not target.exists():
+        print("MISSING %s: guide.py declares %r and no file is committed" % (target.relative_to(ROOT), key))
+        return False
+    fresh = render()
+    committed = Image.open(target)
+    if committed.size != fresh.size:
+        print("SIZE %s: committed %dx%d, generated %dx%d" % (target.relative_to(ROOT), *committed.size, *fresh.size))
+        return False
+    if pixels(committed) != pixels(fresh):
+        print("DIFFERS %s: the guide and the published skeleton disagree -- regenerate it" % target.relative_to(ROOT))
+        return False
+    return True
 
 
 def write(key, render):
@@ -230,21 +271,31 @@ def main(argv=None):
     if not args.check:
         for key in sorted(keys):
             write(key, keys[key])
+        if not args.only:
+            for key in sorted(guide.REGISTRY):
+                write_guide(key, guide.REGISTRY[key])
         return 0
 
     bad = [key for key in sorted(keys) if not check(key, keys[key])]
-    # The authored tier is skipped under --only, which names one registry key by definition.
+    # The authored tier and the guides are skipped under --only, which names one registry key by
+    # definition.
     if not args.only:
         bad += [key for key in sorted(hand) if not check_authored(key, hand[key])]
+        bad += [key for key in sorted(guide.REGISTRY) if not check_guide(key, guide.REGISTRY[key])]
     if bad:
+        # The denominator is everything that was actually looked at, which under --only is one
+        # registry key and otherwise is all three sets. A count that named a subset would make a
+        # single failure read as a smaller share of the art than it is.
+        total = len(keys) if args.only else len(keys) + len(hand) + len(guide.REGISTRY)
         print("SPRITES_FAIL %d of %d keys do not match the committed art: %s"
-              % (len(bad), len(keys) + len(hand), ", ".join(bad)))
+              % (len(bad), total, ", ".join(bad)))
         return 1
-    if hand and not args.only:
-        print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel, and %d "
-              "authored keys are present at the canvas they declare" % (len(keys), len(hand)))
-    else:
+    if args.only:
         print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel" % len(keys))
+    else:
+        print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel, %d guide "
+              "sheet(s) match the published skeleton, and %d authored keys are present at the "
+              "canvas they declare" % (len(keys), len(guide.REGISTRY), len(hand)))
     return 0
 
 

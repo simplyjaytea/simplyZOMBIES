@@ -99,6 +99,26 @@ The skeleton an overlay is authored against is the one under "The pawn" below �
 `HEAD_R 6.0`, `SHOULDER_HALF 8.0`, in pixels above the soles with negative y upward. One overlay
 has to fit every body, which is why those rows are published rather than private.
 
+**Draw on the guide, not from the paragraph.** `tools/sprites/guides/pawn_guide.png` is the
+32 × 40 canvas at 8×, with every number above drawn on it. It is generated from the same constants
+the game uses and compared by `npm run sprites:check`, so it cannot say one thing while the game
+says another — which prose has already failed to do twice here, once when the tile went 64 → 32 and
+once when the canvas went 32×48 → 32×40. Its colours:
+
+| On the sheet | What it is |
+|---|---|
+| **White row, at the very bottom** | the soles. Art must touch this row. |
+| **Violet band, near the top** | where the crown has to land for the figure to be 25–30 px tall. |
+| **Pink row** | the middle of the head (`HEAD_CY`). |
+| **Green row** | the top of the trunk (`TORSO_TOP_Y`). |
+| **Amber row** | the shoulders (`SHOULDER_Y`) — where a worn piece sits. |
+| **Orange row** | the hands (`HAND_Y`) — where a held weapon hangs. |
+| **Cyan row** | the hip (`LEG_TOP_Y`). |
+| **Blue columns** | the outermost columns the trunk occupies (`SHOULDER_HALF`). |
+| **Teal columns** | where a hand is centred (`HAND_X`). |
+| **Red bands, both edges** | the 3 px clearance. Nothing may be drawn here. |
+| **Checkerboard** | one square per art pixel, so rows and columns can be counted. |
+
 **Declaring a delivered sprite.** Add it to `authored.json`:
 
 ```json
