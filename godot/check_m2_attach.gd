@@ -44,8 +44,11 @@ func _run() -> void:
 	ok = _melee_attachments_do_the_same_thing() and ok
 	ok = _the_commands_reach_it_and_refuse_out_loud() and ok
 	ok = _a_fitted_attachment_survives_a_save() and ok
+	ok = _a_worn_part_does_less_and_a_dead_one_does_nothing() and ok
+	ok = _every_wear_word_is_known_and_every_known_word_is_used() and ok
+	ok = _a_part_worn_through_comes_off_and_lands_somewhere() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -346,8 +349,15 @@ func _an_attachment_changes_the_weapon() -> bool:
 
 	var quiet: Variant = _world()
 	var pistol: int = _armed_pistol(quiet)
-	if not SimAttachments.attach(quiet, pistol, _spawn(quiet, SUPPRESSOR), "barrel"):
+	var can: int = _spawn(quiet, SUPPRESSOR)
+	if not SimAttachments.attach(quiet, pistol, can, "barrel"):
 		push_error("EFFECT: could not fit the suppressor")
+		return false
+	# Pinned, not assumed. Every number below is the *full* effect of this part, and once a part's
+	# condition softens its multipliers (see CONDITION) a lane that did not say so would quietly
+	# become a measurement of how worn a freshly spawned suppressor happens to be.
+	if not is_equal_approx(_condition_of(quiet, can), SimItems.FULL_CONDITION):
+		push_error("EFFECT: the suppressor is not at full condition (%.4f), so the numbers below are not its full effect" % _condition_of(quiet, can))
 		return false
 	var quiet_cone: float = _cone_while_aiming(quiet)
 	var hushed: float = _noise_of(quiet, quiet.player)
@@ -522,3 +532,244 @@ func _a_fitted_attachment_survives_a_save() -> bool:
 		return false
 	print("SAVE OK noise %.1f survives the round trip" % after)
 	return true
+
+
+# --- CONDITION --------------------------------------------------------------------------------
+#
+# docs/10: "suppressors wear out fast and cost accuracy". A part is an item, so it has a condition,
+# and the question this lane settles is what a worn one does. The answer is *less*, not something
+# worse: `effect_scale` walks each declared multiplier back toward 1.0, so a failing suppressor
+# quiets less than a sound one and more than no suppressor at all.
+#
+# Strictly between is the whole assertion, and it needs its true negative stated as a predicate
+# rather than as a second number: a *sound* part must not satisfy "strictly between sound and
+# bare", or the lane would pass for an implementation where wear did nothing.
+func _a_worn_part_does_less_and_a_dead_one_does_nothing() -> bool:
+	var lane: String = "CONDITION"
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	var bare: float = _folded_noise(w, pistol)
+	var can: int = _spawn(w, SUPPRESSOR)
+	if not SimAttachments.attach(w, pistol, can, "barrel"):
+		push_error("%s: could not fit the suppressor" % lane)
+		return false
+	var sound: float = _folded_noise(w, pistol)
+	if not (sound < bare):
+		push_error("%s: a sound suppressor did not quieten the pistol (%.2f vs %.2f)" % [lane, sound, bare])
+		return false
+
+	# Worn down the way the game wears it -- through the same channel a shot uses -- rather than by
+	# writing a condition in and hoping the fold notices. Reading the *live* weapon afterwards is
+	# what proves the fold re-reads condition on every rebuild instead of caching it at fit time.
+	for i in 150:
+		SimAttachments.wear_parts(w, pistol, "shot")
+	var left: float = _condition_of(w, can)
+	if left <= 0.0 or left >= SimItems.FULL_CONDITION:
+		push_error("%s: 150 shots left the suppressor at %.4f, so this lane is asserting nothing" % [lane, left])
+		return false
+	var live: Variant = w.components.get_component(w.player, "rangedWeapon")
+	if not live is Dictionary:
+		push_error("%s: the player is not holding a built weapon" % lane)
+		return false
+	var worn: float = float((live as Dictionary).get("noise", 0.0))
+	if not _strictly_between(worn, sound, bare):
+		push_error("%s: a suppressor at %.4f condition gives %.2f, not between %.2f and %.2f" % [lane, left, worn, sound, bare])
+		return false
+
+	# TN: the same predicate, asked about a part that is not worn at all. If this says yes, the
+	# assertion above is satisfied by any number lower than bare and proves nothing about wear.
+	if _strictly_between(sound, sound, bare):
+		push_error("%s: the predicate cannot say no -- a sound suppressor reads as a worn one" % lane)
+		return false
+
+	# And the far end: a multiplier at zero condition is exactly 1.0, no effect rather than a
+	# reversed one. Asked of the helper directly, because a fitted part never reaches zero -- it
+	# comes off first, which is the BREAKS lane below.
+	var dead: float = SimAttachments.effect_scale(w, _dead_item(w), 0.22)
+	if not is_equal_approx(dead, 1.0):
+		push_error("%s: a dead part scales 0.22 to %.4f rather than to 1.0" % [lane, dead])
+		return false
+
+	print("  CONDITION OK noise %.1f bare, %.1f sound, %.1f at %.2f condition; a dead part scales to 1.0" % [bare, sound, worn, left])
+	return true
+
+
+# --- WEARS ------------------------------------------------------------------------------------
+#
+# The SCALES pattern applied to the wear vocabulary, both directions. A word in content that the
+# module does not know is a part that silently never wears; a word the module knows that no content
+# declares is a dead socket in the code. Neither is visible without asking.
+func _every_wear_word_is_known_and_every_known_word_is_used() -> bool:
+	var lane: String = "WEARS"
+	var w: Variant = _world()
+	var declared: Dictionary = {}
+	var parts: int = 0
+	for entry_v in SimItems.content_entries(w, "item"):
+		var spec: Variant = (entry_v as Dictionary).get("attachment")
+		if not spec is Dictionary:
+			continue
+		parts += 1
+		var words: Variant = (spec as Dictionary).get("wearsOn", [])
+		if not words is Array:
+			continue
+		for word in words as Array:
+			declared[String(word)] = String((entry_v as Dictionary).get("id", "?"))
+	if parts == 0 or declared.is_empty():
+		push_error("%s: %d attachments and no wearsOn between them, so this lane is asserting nothing" % [lane, parts])
+		return false
+
+	# Every declared word is one the module knows.
+	var unknown: Array[String] = _words_outside(declared.keys(), SimAttachments.WEAR_EVENTS)
+	if not unknown.is_empty():
+		push_error("%s: content declares %s, which SimAttachments.WEAR_EVENTS does not name" % [lane, str(unknown)])
+		return false
+	# TN: the same predicate over a fabricated word. If it comes back empty the check above is a
+	# no-op and a typo in `wearsOn` is indistinguishable from a part that never wears.
+	var probe: Array = declared.keys().duplicate()
+	probe.append("gate.nosuchevent")
+	var caught: Array[String] = _words_outside(probe, SimAttachments.WEAR_EVENTS)
+	if caught.size() != 1 or caught[0] != "gate.nosuchevent":
+		push_error("%s: the predicate cannot say no about an unknown word" % lane)
+		return false
+
+	# And the other direction: every word the module knows is declared by something shipped.
+	var unused: Array[String] = _words_outside(SimAttachments.WEAR_EVENTS, declared.keys())
+	if not unused.is_empty():
+		push_error("%s: SimAttachments.WEAR_EVENTS names %s, and no shipped part wears from it" % [lane, str(unused)])
+		return false
+	# TN for that direction too.
+	var probe2: Array = SimAttachments.WEAR_EVENTS.duplicate()
+	probe2.append("gate.unusedevent")
+	var caught2: Array[String] = _words_outside(probe2, declared.keys())
+	if caught2.size() != 1 or caught2[0] != "gate.unusedevent":
+		push_error("%s: the predicate cannot say no about an unused word" % lane)
+		return false
+
+	print("  WEARS OK %d parts declare %d of %d wear events, each known and each used" % [parts, declared.size(), SimAttachments.WEAR_EVENTS.size()])
+	return true
+
+
+# --- BREAKS -----------------------------------------------------------------------------------
+#
+# Two things at once, because they are the same defect from opposite ends. A part worn through has
+# to come off -- otherwise a dead suppressor sits in the barrel forever doing nothing. And a part
+# that comes off has to land somewhere: `detach` used to leave it with no `stored`, no `position`
+# and no slot, which is not "the caller decides where it goes" but "it is gone", with nothing
+# raised and nothing to pick up. docs/23 carried that as a defect and this lane closes it.
+func _a_part_worn_through_comes_off_and_lands_somewhere() -> bool:
+	var lane: String = "BREAKS"
+	var w: Variant = _world()
+	var pistol: int = _armed_pistol(w)
+	var can: int = _spawn(w, SUPPRESSOR)
+	if not SimAttachments.attach(w, pistol, can, "barrel"):
+		push_error("%s: could not fit the suppressor" % lane)
+		return false
+
+	# TN first: a part with condition left is still fitted after a wear tick. Without this the
+	# lane below passes for an implementation that detaches on every shot.
+	(w.components.get_component(can, "condition") as Dictionary)["current"] = 0.05
+	SimAttachments.wear_parts(w, pistol, "shot")
+	w.events.drain()
+	if SimAttachments.in_slot(w, pistol, "barrel") != can:
+		push_error("%s: a suppressor with condition left came off after one shot" % lane)
+		return false
+
+	var broke: Array = []
+	for i in 40:
+		SimAttachments.wear_parts(w, pistol, "shot")
+		w.events.drain()
+		for e in w.events.drained:
+			if String((e as Dictionary).get("type", "")) == "attachment.broke":
+				broke.append(e)
+		if SimAttachments.in_slot(w, pistol, "barrel") < 0:
+			break
+	if SimAttachments.in_slot(w, pistol, "barrel") >= 0:
+		push_error("%s: the suppressor never wore through" % lane)
+		return false
+	if broke.size() != 1 or int((broke[0] as Dictionary).get("item", -1)) != can:
+		push_error("%s: %d attachment.broke events, expected exactly one naming the suppressor" % [lane, broke.size()])
+		return false
+	if w.components.has_component(can, "attachedTo"):
+		push_error("%s: a broken part still claims to be attached" % lane)
+		return false
+	if not _is_somewhere(w, can):
+		push_error("%s: the broken suppressor is nowhere -- no stored, no position. This is the defect." % lane)
+		return false
+
+	# The same question of a deliberate detach rather than a break, since that is the path the
+	# bench will use.
+	var w2: Variant = _world()
+	var p2: int = _armed_pistol(w2)
+	var can2: int = _spawn(w2, SUPPRESSOR)
+	if not SimAttachments.attach(w2, p2, can2, "barrel"):
+		push_error("%s: could not fit the second suppressor" % lane)
+		return false
+	if not SimAttachments.detach(w2, can2):
+		push_error("%s: detaching from a carried weapon was refused" % lane)
+		return false
+	if not _is_somewhere(w2, can2):
+		push_error("%s: a detached suppressor is nowhere" % lane)
+		return false
+
+	# TN for the re-homing ladder: a host that is itself nowhere -- not carried, not on the
+	# ground, not in a container -- has nowhere to put the part, and the detach must refuse and
+	# change nothing rather than drop the part out of the world.
+	var w3: Variant = _world()
+	var loose: int = _spawn(w3, PISTOL)
+	var can3: int = _spawn(w3, SUPPRESSOR)
+	if not SimAttachments.attach(w3, loose, can3, "barrel"):
+		push_error("%s: could not fit the third suppressor" % lane)
+		return false
+	if SimAttachments.detach(w3, can3):
+		push_error("%s: a part came off a host that is nowhere, so it went nowhere" % lane)
+		return false
+	if SimAttachments.in_slot(w3, loose, "barrel") != can3:
+		push_error("%s: a refused detach changed the host anyway" % lane)
+		return false
+
+	print("  BREAKS OK worn through after %d more shots, announced once, and landed somewhere; a homeless host refuses" % broke.size())
+	return true
+
+
+# --- helpers for the three lanes above ---------------------------------------------------------
+
+func _folded_noise(w: Variant, weapon: int) -> float:
+	var p: Variant = SimItems.ranged_profile_of(w, weapon)
+	return float((p as Dictionary).get("noise", 0.0)) if p is Dictionary else 0.0
+
+
+func _condition_of(w: Variant, item: int) -> float:
+	var c: Variant = w.components.get_component(item, "condition")
+	return float((c as Dictionary).get("current", 1.0)) if c is Dictionary else 1.0
+
+
+func _strictly_between(x: float, low: float, high: float) -> bool:
+	return x > low and x < high
+
+
+## An item with no condition left, for asking `effect_scale` about the far end of its own range.
+func _dead_item(w: Variant) -> int:
+	var item: int = _spawn(w, SUPPRESSOR)
+	w.components.set_component(item, "condition", {"current": 0.0, "ceiling": 1.0})
+	return item
+
+
+## Whether this item is anywhere at all: on the ground, or inside something.
+func _is_somewhere(w: Variant, item: int) -> bool:
+	return w.components.has_component(item, "position") or w.components.has_component(item, "stored")
+
+
+## Words in `these` that are not in `those`, sorted. One predicate, used for both directions of
+## the WEARS whitelist and for both of its true negatives.
+func _words_outside(these: Array, those: Array) -> Array[String]:
+	var out: Array[String] = []
+	for a in these:
+		var found: bool = false
+		for b in those:
+			if String(a) == String(b):
+				found = true
+				break
+		if not found:
+			out.append(String(a))
+	out.sort()
+	return out

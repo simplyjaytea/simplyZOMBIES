@@ -163,7 +163,7 @@ static func register_module(world: Variant) -> void:
 					# not ask for, on top of an interruption that already costs more than a
 					# reload.
 					if _jammed(w, r, rng):
-						w.events.publish({"type": "weapon.jammed", "entity": int(entity), "ticks": _clear_ticks(r)})
+						w.events.publish({"type": "weapon.jammed", "entity": int(entity), "ticks": _clear_ticks(r), "item": int(r.get("source", -1))})
 						r["state"] = FireState.Clearing
 						r["ticksLeft"] = _clear_ticks(r)
 					else:
