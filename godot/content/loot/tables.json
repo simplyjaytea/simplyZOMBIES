@@ -296,6 +296,14 @@
       {
         "item": "item.part.magazine.rimfire",
         "weight": 2
+      },
+      {
+        "item": "item.ammo.45",
+        "weight": 2,
+        "count": {
+          "min": 3,
+          "max": 8
+        }
       }
     ]
   },
@@ -615,6 +623,10 @@
       },
       {
         "item": "item.part.magazine.standard",
+        "weight": 3
+      },
+      {
+        "item": "item.attach.underbarrel.grip",
         "weight": 3
       },
       {
@@ -947,8 +959,40 @@
         "weight": 6
       },
       {
+        "item": "item.smg.compact",
+        "weight": 2
+      },
+      {
+        "item": "item.ammo.45",
+        "weight": 3,
+        "count": {
+          "min": 4,
+          "max": 10
+        }
+      },
+      {
+        "item": "item.part.barrel.45",
+        "weight": 2
+      },
+      {
+        "item": "item.part.magazine.45",
+        "weight": 2
+      },
+      {
         "item": "item.attach.furniture.pad",
         "weight": 5
+      },
+      {
+        "item": "item.attach.furniture.folding",
+        "weight": 4
+      },
+      {
+        "item": "item.attach.underbarrel.grip",
+        "weight": 5
+      },
+      {
+        "item": "item.attach.underbarrel.bipod",
+        "weight": 3
       },
       {
         "item": "item.attach.barrel.long",
@@ -1169,6 +1213,10 @@
       {
         "item": "item.part.head.standard",
         "weight": 6
+      },
+      {
+        "item": "item.attach.underbarrel.light",
+        "weight": 5
       },
       {
         "item": "item.part.barrel.standard",
