@@ -6031,6 +6031,37 @@ not a to-do list:
   negative is a pistol and a revolver, both declaring 1.0, which have to agree, or the lane would
   pass for anything that merely returns different numbers for different objects.
 
+- **Items** — ~~a submachine gun, and a second matched conversion~~ **landed** 2026-09-10
+  (`godot:m2:attach`'s MASS lane grows a coverage assertion, `godot:m2:director` grows **AMMO**),
+  the second slice of the weapons catalogue arc. `item.smg.compact` is the first weapon authored
+  after the heft field existed and the first whose identity *is* its handling: thirty rounds, a
+  short reach, the lowest `weight` of any firearm, and the Service Pistol's own 9mm — so the two
+  guns a colony is most likely to be carrying now draw on one pool, and a found box of pistol
+  rounds is a decision rather than a formality. Its picture is a Sten's: thirteen rows against the
+  hunting rifle's twenty-five, with the magazine out of the *side*, because at 7 px a short
+  diagonal is just a rifle drawn small and the sideways box is the only thing that reads.
+  **The .45 kit is the rimfire kit's shape a second time** — a barrel and a magazine that agree
+  with each other and with nothing else — and the mechanism was already proven, so it adds a
+  second instance rather than a second set of lanes. It fits the pistol too, which is emergent
+  rather than special-cased.
+  **Two gate holes closed on the way, both of the same kind.** `MASS_BEFORE_ASSEMBLY` covered all
+  eleven assembled bases by accident rather than by rule — nothing asserted the table was total,
+  so a twelfth could have been added weighing anything at all; it is total now, and bases that
+  never existed unassembled carry their intended mass instead, which is the same question asked
+  of a different baseline. And `SimDirector.AMMO_IDS` was a literal naming 9mm and arrows, so five
+  shipped calibers had been invisible to the colony-preparedness score since the day they landed
+  and a colonist with forty rifle rounds read as unarmed. It is derived from content now.
+  **The first version of that derivation was wrong in exactly the way it was fixing**, and the
+  lane caught it: reading only `ranged.ammo` counts six of seven calibers and misses the heavy
+  round, because a conversion names its caliber in `attachment.overrides.ranged.ammo` and no base
+  declares it. **AMMO** therefore collects the override-only calibers separately, refuses to run
+  if there are none to judge, and its reader half puts twelve rifle rounds in a pack and requires
+  the score to change — an assertion about `_ammo_ids` alone would have been an assertion about a
+  helper nobody calls. Reverting either half turns it red naming the caliber that went missing.
+  **Deliberately not in this slice:** no raider carries the SMG. `check_m2_raiders` would want
+  eight rounds in the kit and the archetype would change what a raid is worth surviving, which is
+  a balance question rather than a content one.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.

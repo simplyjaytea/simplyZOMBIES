@@ -296,6 +296,14 @@
       {
         "item": "item.part.magazine.rimfire",
         "weight": 2
+      },
+      {
+        "item": "item.ammo.45",
+        "weight": 2,
+        "count": {
+          "min": 3,
+          "max": 8
+        }
       }
     ]
   },
@@ -945,6 +953,26 @@
       {
         "item": "item.vest.riot",
         "weight": 6
+      },
+      {
+        "item": "item.smg.compact",
+        "weight": 2
+      },
+      {
+        "item": "item.ammo.45",
+        "weight": 3,
+        "count": {
+          "min": 4,
+          "max": 10
+        }
+      },
+      {
+        "item": "item.part.barrel.45",
+        "weight": 2
+      },
+      {
+        "item": "item.part.magazine.45",
+        "weight": 2
       },
       {
         "item": "item.attach.furniture.pad",

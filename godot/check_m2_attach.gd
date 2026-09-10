@@ -907,6 +907,10 @@ const MASS_BEFORE_ASSEMBLY: Dictionary = {
 	"item.rifle.hunting": 3.60, "item.crossbow.hunting": 2.60, "item.revolver.snub": 0.80,
 	"item.rifle.rimfire": 2.40, "item.spear.improvised": 1.40, "item.axe.fire": 3.20,
 	"item.sledge.demolition": 6.40, "item.axe.splitting": 4.10,
+	# Bases that never existed unassembled carry their *intended* assembled mass instead. The
+	# lane's job is the same either way -- catching a receiver or a part whose weight drifted --
+	# and the alternative is a table that silently stops covering everything it should.
+	"item.smg.compact": 2.55,
 }
 
 func _an_assembled_weapon_weighs_what_it_always_weighed() -> bool:
@@ -929,6 +933,19 @@ func _an_assembled_weapon_weighs_what_it_always_weighed() -> bool:
 	if checked == 0:
 		push_error("%s: nothing was weighed" % lane)
 		return false
+
+	# The table has to stay total, or it stops being a gate and becomes a list of the weapons
+	# somebody remembered. Until 2026-09-10 it covered all eleven assembled bases by accident
+	# rather than by rule, and a twelfth could have been added weighing anything at all.
+	for entry_v in SimItems.content_entries(w, "item"):
+		var entry: Dictionary = entry_v as Dictionary
+		if not (entry.get("defaultParts") is Dictionary):
+			continue
+		if (entry["defaultParts"] as Dictionary).is_empty():
+			continue
+		if not MASS_BEFORE_ASSEMBLY.has(String(entry.get("id", ""))):
+			push_error("%s: %s spawns with parts and is in no mass table, so nothing checks what it weighs" % [lane, String(entry.get("id", ""))])
+			return false
 
 	# TN: stripping a part has to actually change the number, or item_mass_kg is not counting
 	# parts at all and every equality above is the receiver's own mass matching itself.

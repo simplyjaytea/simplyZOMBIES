@@ -64,6 +64,8 @@ const PAWN_KEYS: Array[String] = [
 	"item_crossbow_hunting_equip", "item_revolver_snub_equip", "item_rifle_rimfire_equip",
 	"item_apron_welding_equip", "item_helmet_hardhat_equip",
 	"item_duffel_canvas_equip", "item_duffel_canvas_equip_front",
+	# The weapons catalogue (2026-09-10).
+	"item_smg_compact_equip",
 	# Fitted parts. Authored at the canvas origin and moved to the host's own `partAnchors`,
 	# which is why they are the one overlay family that does not share the hand.
 	"item_attach_suppressor_part", "item_attach_optic_red_dot_part",

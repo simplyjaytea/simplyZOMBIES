@@ -5,6 +5,7 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimItems = preload("res://sim/modules/items.gd")
 const SimRaiders = preload("res://sim/modules/raiders.gd")
 
 # docs/17 rule 2 -- "week one is quiet" -- as the number of nights the strain table stays shut.
@@ -129,7 +130,45 @@ const SIDE_NAMES: Array[String] = ["north", "east", "south", "west"]
 # a diffusion, not a texture: neighbouring tiles differ by very little, and sampling all of them
 # costs four times as much to move the answer by nothing.
 const SIDE_SAMPLE_STRIDE: int = 4
-const AMMO_IDS: Array[String] = ["item.ammo.9mm", "item.ammo.arrow"]
+# What counts as ammunition is not a list here, and used to be. `AMMO_IDS` named 9mm and arrows
+# and nothing else, so a survivor carrying forty rifle rounds read as unarmed to the preparedness
+# score -- five shipped calibers (12g, rifle, .38, .22, bolts) were invisible to it from the day
+# they landed, and every caliber added afterwards would have been too. A literal that has to be
+# extended by hand every time content grows is a dead socket waiting for a sixth entry.
+#
+# Derived instead: a base is ammunition if anything shipped can be made to fire it. That is two
+# questions rather than one, and the second is easy to forget -- a caliber conversion names its
+# round in `attachment.overrides.ranged.ammo` and *no* base declares it as `ranged.ammo`, so a
+# derivation that read only the weapons would count six of the seven shipped calibers and miss the
+# heavy round entirely. That is the same defect one level down, which is why the lane in
+# check_m2_director asks for the override case by name. Walked per call rather than cached -- the
+# score is computed once a night against ~90 bases, and a static cache is the two-worlds trap this
+# milestone has already paid for twice.
+static func _ammo_ids(world: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	for entry_v in SimItems.content_entries(world, "item"):
+		var entry: Dictionary = entry_v as Dictionary
+		var ranged: Variant = entry.get("ranged")
+		if not ranged is Dictionary:
+			continue
+		var ammo: String = String((ranged as Dictionary).get("ammo", ""))
+		if ammo != "":
+			out[ammo] = true
+	for entry_v in SimItems.content_entries(world, "item"):
+		var entry2: Dictionary = entry_v as Dictionary
+		var spec: Variant = entry2.get("attachment")
+		if not spec is Dictionary:
+			continue
+		var overrides: Variant = (spec as Dictionary).get("overrides")
+		if not overrides is Dictionary:
+			continue
+		var ranged2: Variant = (overrides as Dictionary).get("ranged")
+		if not ranged2 is Dictionary:
+			continue
+		var converted: String = String((ranged2 as Dictionary).get("ammo", ""))
+		if converted != "":
+			out[converted] = true
+	return out
 
 
 static func default_state() -> Dictionary:
@@ -545,11 +584,12 @@ static func _power(world: Variant) -> int:
 
 
 static func _has_ammo(world: Variant) -> bool:
+	var ammo_ids: Dictionary = _ammo_ids(world)
 	for item in SimInventory.carried_items(world, world.player):
 		var base: Variant = world.components.get_component(item, "itemBase")
 		if not base is Dictionary:
 			continue
-		if not AMMO_IDS.has(String((base as Dictionary).get("baseId", ""))):
+		if not ammo_ids.has(String((base as Dictionary).get("baseId", ""))):
 			continue
 		var stack: Variant = world.components.get_component(item, "stack")
 		var count: int = int((stack as Dictionary).get("count", 1)) if stack is Dictionary else 1
