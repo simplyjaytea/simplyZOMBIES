@@ -25,5 +25,22 @@
     "nothing reads is the dead-socket shape this project has paid for twelve times, so the gate",
     "refuses a key that names nothing rather than letting it sit here looking finished."
   ],
-  "keys": {}
+  "keys": {
+    "prop_container": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.container"
+    },
+    "prop_container_searched": {
+      "canvas": [
+        32,
+        32
+      ],
+      "kind": "tile",
+      "reads": "prop.container.searched"
+    }
+  }
 }

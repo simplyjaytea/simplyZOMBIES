@@ -28,50 +28,11 @@ from palette import OUTLINE, RAMPS
 # declares so the two can be read together. 32 px is one tile.
 #   container 0.62 -> 19.8 px      bed      0.82 -> 26.2 px    campfire 0.50 -> 16.0 px
 #   campfire.lit 0.56 -> 18.0 px   well     0.86 -> 27.5 px    latrine  0.55 -> 17.6 px
-CRATE_HALF = 9.9
 BED_HALF_W, BED_HALF_H = 7.8, 13.1
 FIRE_R = 8.0
 FIRE_LIT_R = 9.0
 WELL_R = 13.75
 LATRINE_HALF = 8.8
-
-
-def _crate(searched):
-    """A wooden crate from directly above: boards, two battens, and a lid that is on or off."""
-    wood = RAMPS["wood"]
-    canvas = Canvas()
-    canvas.rounded_rect(0.0, 0.0, CRATE_HALF, CRATE_HALF * 0.92, 1.5, wood[2])
-
-    if searched:
-        # Lid off and the box empty: the mouth is the loud tell, a dark hole where the boards
-        # were. The lid itself lies across the north-west corner, half off the crate, which is
-        # the shape that says "somebody has been here" from a tile away.
-        canvas.rounded_rect(0.25, 0.6, CRATE_HALF - 2.1, CRATE_HALF * 0.92 - 2.1, 1.0, wood[0])
-        canvas.rounded_rect(0.8, 1.2, CRATE_HALF - 3.2, CRATE_HALF * 0.92 - 3.2, 1.0, RAMPS["ash"][0])
-        canvas.rounded_rect(-5.5, -6.0, 5.5, 3.0, 1.0, wood[3])
-        canvas.rect(-5.5, -7.3, 5.5, 0.25, wood[1])
-        canvas.rect(-5.5, -4.7, 5.5, 0.25, wood[1])
-        canvas.speckle("prop_container_searched", "grain", wood[1], 0.05)
-    else:
-        # Closed: four boards with the seams drawn dark, two battens across them lighter. A
-        # shut crate is the thing you have not searched yet, so it is the brighter picture.
-        for offset in (-6.5, -2.2, 2.2, 6.5):
-            canvas.rect(offset, 0.0, 0.25, CRATE_HALF * 0.92, wood[1], inside_only=True)
-        canvas.rect(0.0, -5.5, CRATE_HALF, 1.0, wood[3], inside_only=True)
-        canvas.rect(0.0, 5.5, CRATE_HALF, 1.0, wood[3], inside_only=True)
-        canvas.speckle("prop_container", "grain", wood[1], 0.05)
-
-    canvas.light_top_left(0.16, 10.0)
-    canvas.outline(OUTLINE)
-    return canvas.to_image()
-
-
-def prop_container():
-    return _crate(False)
-
-
-def prop_container_searched():
-    return _crate(True)
 
 
 def prop_bed():
@@ -191,8 +152,6 @@ def prop_latrine():
 
 
 REGISTRY = {
-    "prop_container": prop_container,
-    "prop_container_searched": prop_container_searched,
     "prop_bed": prop_bed,
     "prop_campfire": prop_campfire,
     "prop_campfire_lit": prop_campfire_lit,
