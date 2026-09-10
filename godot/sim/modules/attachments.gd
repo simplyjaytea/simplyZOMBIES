@@ -616,7 +616,7 @@ const SLOT_NOUN: Dictionary = {
 	"barrel": "barrel", "internal": "action", "magazine": "magazine", "furniture": "stock",
 	"muzzle": "muzzle device", "optic": "sight", "sight": "sight",
 	"limb": "limbs", "string": "string", "head": "head", "edge": "edge", "haft": "haft",
-	"wrap": "grip wrap",
+	"wrap": "grip wrap", "underbarrel": "underbarrel",
 }
 
 

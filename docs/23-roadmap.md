@@ -285,8 +285,13 @@ than here.
 
 - **The repair economy: station, materials, Craft.** `SimItems.repair_item` already lowers the
   ceiling on every repair; what is open is the cost of invoking it.
-- **Attachments meet the attention field.** An optic useless in the dark; a weapon light that is a
-  real light source and therefore a real emitter.
+- **An optic that cares whether there is light, and a light that is aimed.** The light-source half
+  landed 2026-09-10 (`godot:m2:attach` LIGHT): a weapon light is a real `light` block on an
+  underbarrel part, read by the same resolver a lamp uses, so it lights its holder and makes them
+  visible. Two halves remain, and neither is a data edit. The light is a **radius** around whoever
+  carries it rather than a beam pointed where they are looking, so docs/10's "aimed at whatever
+  you're looking at" is still a promise; and an optic tightens the cone identically at noon and at
+  midnight, because `_refresh_cone` cannot see the light field at all.
 - **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
   in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
   bed beats a cot; content would carry the difference once more than one kind of bed exists.
@@ -6061,6 +6066,41 @@ not a to-do list:
   **Deliberately not in this slice:** no raider carries the SMG. `check_m2_raiders` would want
   eight rounds in the kit and the archetype would change what a raid is worth surviving, which is
   a balance question rather than a content one.
+
+- **Items** — ~~firearms have nowhere to hang a hand~~ and ~~a carried light lights nobody~~
+  **landed** 2026-09-10 (`godot:m2:attach` grows **LIGHT**), the third slice of the weapons
+  catalogue arc. Firearms gain a seventh slot, `underbarrel`, and three things to put in it: a
+  **foregrip** (quicker up, steadier), a **folding bipod** (far steadier, slow up, heavy) and a
+  **weapon light**. The slot and its occupants had to land in one commit — `check_m2_attach`'s
+  HOSTS lane refuses a declared slot nothing fits, which is the rule that closed four dead sockets
+  in the second gear catalogue and is doing the same job here in advance.
+  **The weapon light is the first attachment that is not a multiplier and is not structural.** It
+  declares the same top-level `light` block a lamp does, so the CONTENT lane's "a part has to do
+  something" predicate grew a third way of doing something; its own negative is unchanged, and a
+  part with none of the three is still refused.
+  **Two defects, both in the path and both fixed here rather than named.** The first: `light.gd`
+  carried a private copy of the content accessor whose fallback scan sat *inside* a
+  `has(type_id)` guard, and `ContentLoader.load_tree` keys its tree by path, never by type — so
+  `has("item")` was false, the scan never ran, and `light_reach_of` returned null **for every item
+  in the game**. The candle, the electric lamp and the oil lantern have each declared a `light`
+  block since the light module landed and no carried one has ever lit anybody: the thirteenth dead
+  socket of the milestone, and found only because the weapon light needed the same resolver.
+  `items.gd`'s `content_entry` already says in its own comment that other modules "should not each
+  grow their own copy of it"; the copy is deleted and this module borrows the canonical one. **Note
+  this changes night play**: carrying a lamp now costs visibility as well as a hand, which is what
+  it was always meant to cost.
+  The second: `light_source` has two writers on a survivor — what they carry and the muzzle flash —
+  and the flash overwrote the component and then *deleted* it on expiry, guarded on the magnitude
+  still equalling the flash, which the overwrite had just guaranteed. A mounted light went out
+  permanently on the first shot, silently, and the guard read as though it were being careful.
+  There is one writer for carried light now (`refresh_carried`), the flash takes the brighter of
+  itself and what is carried, and expiry falls back rather than removes. **This is why the lane
+  fires the gun**: every other assertion about the light passes with that bug in place, and
+  restoring it turns LIGHT red naming exactly it. The lane's other negatives are a foregrip, which
+  must *not* light the room, and a bare rifle.
+  **Deliberately not in this slice:** the underbarrel parts have no picture. The record's own note
+  on barrels and stocks applies unchanged — and a light in particular wants to look lit, which is a
+  question about the light field's own drawing rather than about one 3 px overlay.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

@@ -16,6 +16,7 @@ const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimLightModule = preload("res://sim/modules/light.gd")
 const SimSave = preload("res://sim/save.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -29,6 +30,8 @@ const PISTOL: String = "item.pistol.service"
 const AXE: String = "item.axe.fire"
 const RIFLE: String = "item.rifle.hunting"
 const STD_BARREL: String = "item.part.barrel.standard"
+const WEAPON_LIGHT: String = "item.attach.underbarrel.light"
+const FOREGRIP: String = "item.attach.underbarrel.grip"
 
 
 func _init() -> void:
@@ -59,8 +62,9 @@ func _run() -> void:
 	ok = _a_conversion_part_changes_what_the_gun_eats() and ok
 	ok = _two_parts_that_disagree_make_a_gun_nobody_can_load() and ok
 	ok = _every_override_names_something_real() and ok
+	ok = _a_fitted_light_lights_whoever_is_holding_it() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -78,6 +82,7 @@ func _world() -> Variant:
 	SimInventory.register_module(w)
 	SimItems.register_module(w)
 	SimAttachments.register_module(w)
+	SimLightModule.register_module(w)
 	w.components.set_component(w.player, "facing", {"radians": 0.0})
 	SimHealth.make_survivor_body(w, w.player)
 	SimHealth.make_stamina(w, w.player)
@@ -133,9 +138,14 @@ func _content_is_wired_to_something() -> bool:
 					return false
 		# A part has to do something. Multiplying a profile field is one way; *being* part of the
 		# weapon is the other, and a plain barrel does the second without doing the first -- its
-		# condition is the gun's condition, which is the whole of its effect.
-		if spec.get("melee") == null and spec.get("ranged") == null and not bool(spec.get("structural", false)):
-			push_error("CONTENT: %s declares no effect at all and is not structural" % id)
+		# condition is the gun's condition, which is the whole of its effect. Throwing light is
+		# the third, added 2026-09-10 with the weapon light: it multiplies nothing and the weapon
+		# is not made of it, and it is the most visible thing any attachment does. The block is
+		# top-level rather than under `attachment` because it is the same `light` a lamp declares,
+		# read by the same `SimLightModule.light_reach_of`.
+		var lights: bool = (e as Dictionary).get("light") is Dictionary
+		if spec.get("melee") == null and spec.get("ranged") == null and not bool(spec.get("structural", false)) and not lights:
+			push_error("CONTENT: %s declares no effect at all, is not structural and throws no light" % id)
 			return false
 	# Findable, per docs/10: "attachments are found, not crafted". An attachment in no loot table
 	# is content nobody will ever hold -- the same dead-socket shape this milestone keeps turning
@@ -1459,3 +1469,110 @@ func _loot_ids() -> Dictionary:
 			for entry_v in (table_v as Dictionary).get("entries", []) as Array:
 				droppable[String((entry_v as Dictionary).get("item", ""))] = true
 	return droppable
+
+
+# --- LIGHT --------------------------------------------------------------------------------------
+#
+# docs/10 has promised since attachments landed that "a weapon light is an attention emitter aimed
+# at whatever you're looking at", and docs/23 has carried the open half of it ever since. This is
+# the light-source half: a torch under a barrel lights the person holding the barrel.
+#
+# The lane exists as much for the *collision* as for the feature. `light_source` has two writers on
+# a survivor -- what they carry, and the muzzle flash -- and the flash used to overwrite the
+# component and then delete it when it expired, guarded on the magnitude still equalling the flash,
+# which the overwrite had just guaranteed. A mounted light therefore went out permanently on the
+# first shot, silently. Nothing would have caught that except an assertion that fires the gun.
+
+func _a_fitted_light_lights_whoever_is_holding_it() -> bool:
+	var w: Variant = _world()
+	var rifle: int = _spawn(w, RIFLE)
+	if not SimInventory.equip(w, w.player, rifle):
+		push_error("LIGHT: the rifle would not equip")
+		return false
+	w.events.drain()
+	if w.components.has_component(w.player, "light_source"):
+		push_error("LIGHT: a bare rifle lights the room")
+		return false
+
+	# The first negative: a part that is not a light must not become one just by being fitted.
+	var grip: int = _spawn(w, FOREGRIP)
+	if not SimAttachments.attach(w, rifle, grip, "underbarrel"):
+		push_error("LIGHT: the foregrip would not fit the underbarrel")
+		return false
+	w.events.drain()
+	if w.components.has_component(w.player, "light_source"):
+		push_error("LIGHT: a foregrip lit the room, so this lane is measuring the fitting and not the light")
+		return false
+	SimAttachments.detach(w, grip)
+	w.events.drain()
+
+	var lamp: int = _spawn(w, WEAPON_LIGHT)
+	var want: Variant = SimLightModule.light_reach_of(w, lamp)
+	if want == null or float(want) <= 0.0:
+		push_error("LIGHT: the weapon light declares no light, so there is nothing to judge")
+		return false
+	if not SimAttachments.attach(w, rifle, lamp, "underbarrel"):
+		push_error("LIGHT: the weapon light would not fit the underbarrel")
+		return false
+	w.events.drain()
+	var src: Variant = w.components.get_component(w.player, "light_source")
+	if not src is Dictionary or absf(float((src as Dictionary)["magnitude"]) - float(want)) > 0.001:
+		push_error("LIGHT: a fitted light left the holder at %s, want %s -- the part is a dead socket" % [str(src), str(want)])
+		return false
+
+	# The collision. Fire, let the flash burn out, and the mounted light must still be there.
+	var ammo: int = SimItems.spawn_item(w, "item.ammo.rifle", {"tier": "scavenged", "count": 20})
+	if not SimInventory.stow(w, w.player, ammo):
+		w.components.set_component(ammo, "stored", {"container": w.player})
+	w.events.drain()
+	if not SimRanged.try_begin_fire(w, w.player):
+		push_error("LIGHT: the rifle refused to fire, so the flash is never reached")
+		return false
+	var flashed: bool = false
+	for _i in range(240):
+		w.step()
+		var rw: Variant = w.components.get_component(w.player, "rangedWeapon")
+		if rw is Dictionary and int((rw as Dictionary).get("flashTicks", 0)) > 0:
+			flashed = true
+		if flashed and rw is Dictionary and int((rw as Dictionary).get("flashTicks", 0)) <= 0:
+			break
+	if not flashed:
+		print("LIGHT SKIP the rifle never flashed, so the collision has nothing to judge")
+	else:
+		src = w.components.get_component(w.player, "light_source")
+		if not src is Dictionary:
+			push_error("LIGHT: firing put the weapon light out -- the flash deleted the component instead of falling back to it")
+			return false
+		if absf(float((src as Dictionary)["magnitude"]) - float(want)) > 0.001:
+			push_error("LIGHT: after the flash the holder is lit at %s, want the light's own %s" % [float((src as Dictionary)["magnitude"]), float(want)])
+			return false
+
+	# And taking it off puts it out, or the component is simply never cleaned up.
+	SimAttachments.detach(w, lamp)
+	w.events.drain()
+	if w.components.has_component(w.player, "light_source"):
+		push_error("LIGHT: the light came off and the holder is still lit")
+		return false
+
+	# And the plain case the fitted one is built on: a lamp in a hand lights the hand that holds
+	# it. Asserted here rather than assumed, because until 2026-09-10 it did not -- this module's
+	# private content accessor could not resolve an item at all, so the candle, the lamp and the
+	# oil lantern each declared a `light` block that nothing carried had ever read. A lane that
+	# only checked the fitted part would have passed over the same broken resolver.
+	var w2: Variant = _world()
+	var lamp2: int = _spawn(w2, "item.lamp.electric")
+	var lamp_mag: Variant = SimLightModule.light_reach_of(w2, lamp2)
+	if lamp_mag == null or float(lamp_mag) <= 0.0:
+		push_error("LIGHT: the electric lamp resolves no light at all -- the content accessor is broken again")
+		return false
+	if not SimInventory.equip(w2, w2.player, lamp2):
+		push_error("LIGHT: the lamp would not equip")
+		return false
+	w2.events.drain()
+	var lit: Variant = w2.components.get_component(w2.player, "light_source")
+	if not lit is Dictionary or absf(float((lit as Dictionary)["magnitude"]) - float(lamp_mag)) > 0.001:
+		push_error("LIGHT: a carried lamp left its holder at %s, want %s" % [str(lit), str(lamp_mag)])
+		return false
+
+	print("LIGHT OK a fitted light lights its holder at %.1f, survives its own muzzle flash, and goes out when removed; a carried lamp lights at %.1f" % [float(want), float(lamp_mag)])
+	return true

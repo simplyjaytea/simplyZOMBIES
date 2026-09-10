@@ -155,9 +155,12 @@ static func register_module(world: Variant) -> void:
 			if int(r.get("flashTicks", 0)) > 0:
 				r["flashTicks"] = int(r["flashTicks"]) - 1
 				if int(r["flashTicks"]) <= 0 and float(r.get("flash", 0)) > 0.0:
-					var src: Variant = w.components.get_component(int(entity), "light_source")
-					if src is Dictionary and is_equal_approx(float((src as Dictionary).get("magnitude", 0)), float(r["flash"])):
-						w.components.remove(int(entity), "light_source")
+					# The flash falls back to whatever the firer is *carrying*, rather than being
+					# deleted. It used to remove the component outright, guarded on the magnitude
+					# still equalling the flash -- which the overwrite below had just guaranteed --
+					# so a weapon light went out permanently on the first shot and the guard read
+					# as though it were being careful. One writer owns carried light now.
+					SimLightMod.refresh_carried(w, int(entity))
 			if int(r["state"]) == FireState.Idle:
 				_refresh_cone(w, int(entity), r)
 				continue
@@ -450,7 +453,10 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	world.events.publish({"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1))})
 	if float(weapon.get("flash", 0)) > 0.0:
 		weapon["flashTicks"] = FLASH_TICKS
-		SimLightMod.make_light_source(world, attacker, float(weapon["flash"]))
+		# The brighter of the two, so a muzzle flash never *dims* a survivor who is holding a
+		# lamp, and a lamp never swallows the flash of a rifle.
+		var lit: float = maxf(float(weapon["flash"]), SimLightMod.carried_magnitude(world, attacker))
+		SimLightMod.make_light_source(world, attacker, lit)
 	if best != null:
 		var target: int = int(best)
 		var body_part: String = "torso"

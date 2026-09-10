@@ -109,6 +109,48 @@
     }
   },
   {
+    "id": "item.attach.underbarrel.grip",
+    "name": "Vertical Foregrip",
+    "description": "A stubby grip clamped under the barrel. Something to pull back against, so the weapon comes up quicker and sits steadier.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.15,
+    "attachment": {
+      "fits": ["underbarrel"],
+      "fieldSwap": true,
+      "ranged": { "handling": 1.15, "cone": 0.92 },
+      "wearsOn": ["shot"],
+      "wearRate": 0.5
+    }
+  },
+  {
+    "id": "item.attach.underbarrel.bipod",
+    "name": "Folding Bipod",
+    "description": "Two sprung legs folded under the barrel. Set down, almost nothing wanders; carried, it is weight on the wrong end.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.4,
+    "attachment": {
+      "fits": ["underbarrel"],
+      "ranged": { "cone": 0.7, "handling": 0.75 },
+      "wearsOn": ["shot"],
+      "wearRate": 0.6
+    }
+  },
+  {
+    "id": "item.attach.underbarrel.light",
+    "name": "Weapon Light",
+    "description": "A torch strapped under the barrel. It shows you the room, and it shows the room exactly where you are standing.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.2,
+    "light": { "magnitude": 16 },
+    "attachment": {
+      "fits": ["underbarrel"],
+      "fieldSwap": true
+    }
+  },
+  {
     "id": "item.attach.furniture.folding",
     "name": "Folding Stock",
     "description": "A stock on a hinge, folded in against the receiver. It comes up fast and it wanders while it does.",
