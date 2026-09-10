@@ -6,6 +6,19 @@ const SWING_HALF_ANGLE: float = 0.6
 const COS_SWING_HALF_ANGLE: float = 0.8253356149096783
 const WINDUP_TICKS: int = 6
 const RECOVER_TICKS: int = 8
+
+# The ranged equivalents, and they live here for the same reason the melee pair does: the clocks a
+# weapon runs on are combat's arithmetic, not one module's private calibration. docs/09-combat.md's
+# ladder is "raise -> steady -> fire -> recover -> (reload)", and until 2026-09-10 all three of
+# these were constants in sim/modules/ranged.gd that every firearm shared -- so docs/09's own "rate
+# of fire: much slower" for a crossbow was true of the reload and of nothing else. A submachine gun
+# has no way to differ from a bolt rifle in the axis that defines it.
+#
+# Named apart from the melee pair rather than shared with it: a swing and a sight picture are not
+# the same motion and there is no reason their baselines should move together.
+const AIM_RAISE_TICKS: int = 8
+const AIM_STEADY_TICKS: int = 4
+const SHOT_RECOVER_TICKS: int = 8
 const STAMINA_MAX: int = 100
 const SWING_STAMINA: int = 6
 const STAMINA_RECOVERY_DELAY_TICKS: int = 20
@@ -82,3 +95,23 @@ static func recover_ticks(weight: float, recovery: float = 1.0) -> int:
 
 static func swing_stamina(weight: float, stamina: float = 1.0) -> int:
     return int(float(SWING_STAMINA) * weight * stamina)
+
+
+# How long a weapon takes to come up, to settle, and to come back down after a shot -- the three
+# rungs of docs/09's ladder, each derived from the weapon's own heft the way a swing's windup is.
+#
+# The shape is `windup_ticks`'s exactly, and deliberately: `weight` is content-declared and
+# lengthens the clock, `handling` is a multiplier attachments fold in and shortens it. A folding
+# stock raises `handling`; a bipod lowers it. One multiplier covers all three rungs rather than
+# three separate scalable fields, because the bench prints one prose row per changed field and
+# "comes up / settles / recovers" is three rows a reader cannot tell apart without the digits the
+# HUD ban forbids -- and a part that should steady without hastening scales `cone` instead, which
+# is what the padded stock already does.
+static func raise_ticks(weight: float, handling: float = 1.0) -> int:
+    return maxi(1, int(round(float(AIM_RAISE_TICKS) * weight / maxf(0.01, handling))))
+
+static func steady_ticks(weight: float, handling: float = 1.0) -> int:
+    return maxi(1, int(round(float(AIM_STEADY_TICKS) * weight / maxf(0.01, handling))))
+
+static func shot_recover_ticks(weight: float, handling: float = 1.0) -> int:
+    return maxi(1, int(round(float(SHOT_RECOVER_TICKS) * weight / maxf(0.01, handling))))

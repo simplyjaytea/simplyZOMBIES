@@ -46,7 +46,7 @@ const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 # scalable. check_m2_attach.gd asserts every declared key is in here.
 const SCALABLE: Dictionary = {
 	"melee": ["damage", "reachMetres", "staggerTicks", "speed"],
-	"ranged": ["damage", "noise", "flash", "magSize", "reloadTicks", "rangeMetres", "cone"],
+	"ranged": ["damage", "noise", "flash", "magSize", "reloadTicks", "rangeMetres", "cone", "handling"],
 }
 
 # Profile fields a part may *replace* rather than scale, per kind. A multiplier cannot express a
@@ -497,7 +497,10 @@ static func required_slots_of(world: Variant, host: int) -> Array:
 # decay symmetric.
 const POLARITY: Dictionary = {
 	"melee": {"damage": 1, "reachMetres": 1, "staggerTicks": 1, "speed": 1},
-	"ranged": {"damage": 1, "noise": -1, "flash": -1, "magSize": 1, "reloadTicks": -1, "rangeMetres": 1, "cone": -1},
+	"ranged": {
+		"damage": 1, "noise": -1, "flash": -1, "magSize": 1, "reloadTicks": -1, "rangeMetres": 1,
+		"cone": -1, "handling": 1,
+	},
 }
 
 # What each field is called when a person reads it. The screen prints these; nothing computes with
@@ -511,7 +514,8 @@ const FIELD_WORD: Dictionary = {
 	"ranged": {
 		"damage": "stopping power", "noise": "how far it is heard", "flash": "muzzle flash",
 		"magSize": "rounds it holds", "reloadTicks": "reload time", "rangeMetres": "reach",
-		"cone": "steadiness", "ammo": "the round it takes", "jams": "how it feeds",
+		"cone": "steadiness", "handling": "how fast it comes up",
+		"ammo": "the round it takes", "jams": "how it feeds",
 	},
 }
 

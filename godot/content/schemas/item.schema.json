@@ -170,7 +170,7 @@
         "ranged": {
           "type": "object",
           "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
-          "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
+          "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone, handling. `handling` scales how fast the weapon comes up and settles, against its content-declared `weight`. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
         },
         "fieldSwap": {
           "type": "boolean",
@@ -211,7 +211,8 @@
     },
     "ranged": {
       "type": "object",
-      "description": "Optional ranged block. Bow/pistol alpha kit; all fields optional for backward compatibility.",
+      "description": "Optional ranged block. Every field is optional except `weight` -- see its own description.",
+      "required": ["weight"],
       "additionalProperties": false,
       "properties": {
         "damage": { "type": "number", "exclusiveMinimum": 0 },
@@ -222,6 +223,11 @@
         "magSize": { "type": "integer", "minimum": 1 },
         "reloadTicks": { "type": "integer", "minimum": 1 },
         "rangeMetres": { "type": "number", "exclusiveMinimum": 0 },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "How much weapon there is to bring up, mirroring melee.weight. Multiplies every rung of docs/09-combat.md's raise -> steady -> fire -> recover ladder through sim/combat.gd's raise_ticks / steady_ticks / shot_recover_ticks, so a submachine gun is quick to the shoulder and a crossbow is not. Required for the same reason it is required on melee: a weapon with no declared heft would silently borrow 1.0 and handle like a service pistol."
+        },
         "jams": {
           "type": "boolean",
           "description": "Whether this weapon can jam as it degrades, per docs/09-combat.md: \"degraded firearms jam, and clearing a jam takes longer than a reload\". Firearms only -- a bow has nothing to stovepipe -- which is why it is declared here rather than inferred from having a magazine. The chance itself is not authored: SimItems.JAM_CHANCE_BY_BAND derives it from condition, so it cannot drift from the band the inventory screen shows for the same weapon."

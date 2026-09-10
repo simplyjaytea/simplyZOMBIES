@@ -639,6 +639,17 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
+- **Every survivor shoots as though one arm were ruined.** `ranged.gd`'s `_refresh_cone` widens
+  the aim cone by 0.15 when the worse arm is under 25, and `SimCombat.SURVIVOR_BODY` gives a
+  *healthy* arm 20 — so the penalty is on for everybody, permanently, and a genuinely ruined arm
+  costs nothing more than an intact one. The threshold was written against the pre-split single
+  `arms` value, which was 40, and was not revisited when limbs were sided; it is CLAUDE.md's "a
+  survivor's body parts do not share a scale" trap in the aim path, and `SimHealth.part_state` is
+  the one normaliser it should be asking. Found 2026-09-10 while the aim ladder was being made
+  per-weapon, and deliberately not fixed there: correcting it tightens every survivor's cone in
+  every firefight, which is a balance change wanting its own slice and its own measurement rather
+  than a quiet ride beside a change about rate of fire. `check_m2_aim`'s CONE lane neutralises it
+  by hand and says why, and caught it by refusing to compare two saturated values.
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
   writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
   has this (`stance.eyes`); the port dropped it.
@@ -5987,6 +5998,38 @@ not a to-do list:
   long barrel changes a weapon's *length*, which one offset cannot express, and it wants either a
   per-host silhouette or a longer weapon sprite. The seam is there and adding a picture is a data
   edit plus a generator.
+
+- **Combat** — ~~a weapon's rate of fire is its own~~ **landed** 2026-09-10
+  (`godot:m2:aim` grows **HEFT**, **CONE** and **RECOVER**), the first slice of the weapons
+  catalogue arc. docs/09 states the ladder as "raise -> steady -> fire -> recover -> (reload)"
+  and its ranged-versus-melee table says a crossbow's rate of fire is "much slower" — which was
+  true of the reload and of nothing else, because `RAISE_TICKS` / `STEADY_TICKS` /
+  `RECOVER_TICKS` were three constants in `sim/modules/ranged.gd` that every firearm shared. A
+  submachine gun had no way to differ from a bolt rifle in the axis that defines it. **The fix is
+  melee's own shape, not a new one:** `ranged.weight` is content-declared and required exactly as
+  `melee.weight` is, `handling` is the multiplier attachments fold in against it, and
+  `SimCombat.raise_ticks` / `steady_ticks` / `shot_recover_ticks` sit beside `windup_ticks` and
+  `recover_ticks` because a weapon's clocks are combat's arithmetic rather than one module's
+  private calibration. Authored heft, and the ticks it buys: pistol and revolver 1.0 (8/4/8,
+  unchanged), rimfire rifle 1.1 (9/4/9), hunting bow 1.2 (10/5/10), pump shotgun 1.4 (11/6/11),
+  hunting rifle 1.5 (12/6/12), hunting crossbow 1.6 (13/6/13). **One multiplier over all three
+  rungs rather than three scalable fields**, because the bench prints one prose row per changed
+  field and "comes up / settles / recovers" is three rows a reader cannot tell apart without the
+  digits the HUD ban forbids; a part that should steady without hastening scales `cone`, which is
+  what the padded stock already does. The **folding stock** ships in the same commit and not by
+  choice — `check_m2_attach`'s SCALES lane refuses a `SCALABLE` field no shipped part scales, so
+  `handling` arrives with something that moves it or not at all. NPCs get it for nothing:
+  `npc_combat` goes through `SimRanged.try_begin_fire` like everyone else. No `SAVE_VERSION`
+  bump — components round-trip wholesale and the two defaults reproduce the old numbers exactly,
+  so bumping would refuse every existing save to change nothing. **CONE is the lane worth
+  keeping:** `_refresh_cone` used the shared constants as its lerp *denominators*, and `lerpf`
+  does not clamp, so against a per-weapon rung a heavy weapon extrapolated past `WIDE_HALF` and
+  was saved only by the `clampf` at the bottom while a light one started already half-tightened —
+  bounded, silent, wrong, and invisible to any assertion that only counts ticks. It asserts
+  instead that halfway up reads the same cone whatever the weapon weighs. All three lanes were
+  run against a reverted `_raise_of` and `_recover_of` and each named the right cause; HEFT's own
+  negative is a pistol and a revolver, both declaring 1.0, which have to agree, or the lane would
+  pass for anything that merely returns different numbers for different objects.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
