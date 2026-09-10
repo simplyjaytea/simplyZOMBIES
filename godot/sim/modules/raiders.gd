@@ -33,6 +33,7 @@ const SimAllegianceRes = preload("res://sim/modules/allegiance.gd")
 const SimAptitudesRes = preload("res://sim/modules/aptitudes.gd")
 const SimAttentionRes = preload("res://sim/modules/attention_emitter.gd")
 const SimHealthRes = preload("res://sim/modules/health.gd")
+const SimHomeRes = preload("res://sim/home.gd")
 const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 const SimItemsRes = preload("res://sim/modules/items.gd")
 const SimPathRes = preload("res://sim/path.gd")
@@ -319,23 +320,25 @@ static func stamp_band(world: Variant, members: Array, raid_id: int) -> void:
 			(r as Dictionary)["bandSize"] = members.size()
 
 
-# Where the band is going. The gate, because that is how a colony is entered; the annex centre
-# when a district carries no gate anchor; nothing at all when it carries no annex either, which
-# is what an unstamped fixture map honestly is. Cached on the component so the anchors are read
-# once per raider rather than once per tick.
+# Where the band is going. The gate, because that is how a colony is entered; the centre when a
+# district carries no gate anchor; nothing at all when it carries no colony either, which is what an
+# unstamped fixture map honestly is. That ladder now lives in `SimHome.approach` -- this was the one
+# place in the whole sim that targeted home *explicitly* (the director never does: it places at the
+# map edge and lets the field pull), so it is the one place a camp has to be understood.
+#
+# Still cached on the component, so home is read once per raider rather than once per tick. The
+# cache is also what makes a camp established mid-raid not teleport a band that is already walking:
+# the raiders who set out for the annex finish walking to the annex, which is the honest behaviour
+# for people who cannot see that you have moved.
 static func _objective(world: Variant, r: Dictionary) -> Vector2i:
 	var cached := Vector2i(int(r.get("goalX", -1)), int(r.get("goalY", -1)))
 	if cached.x >= 0 and cached.y >= 0:
 		return cached
-	var map: Variant = world.tilemap
-	if map == null:
+	if world.tilemap == null:
 		return Vector2i(-1, -1)
-	var goal: Vector2i = SimTileMapRes.gate_a(map)
+	var goal: Vector2i = SimHomeRes.approach(world)
 	if goal.x < 0 or goal.y < 0:
-		var annex: Rect2i = SimTileMapRes.annex_rect(map)
-		if annex.size.x <= 0 or annex.size.y <= 0:
-			return Vector2i(-1, -1)
-		goal = annex.position + annex.size / 2
+		return Vector2i(-1, -1)
 	r["goalX"] = goal.x
 	r["goalY"] = goal.y
 	return goal

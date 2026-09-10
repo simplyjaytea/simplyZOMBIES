@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-09 (the gunsmithing arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **57 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **58 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -51,6 +51,49 @@ grew from nine lanes to **twenty**, plus new lanes in `godot:m2:upkeep`, `godot:
 pieces left docs/23's what's-left, including the attachment-fitting screen it had carried since
 attachments landed. Measured with a throwaway driver: a pistol reaches "worn" at ~100 rounds and
 "failing" at ~200, the action first. `godot:bench` unchanged.
+
+**2026-09-10 — the outpost earns its keep, and a budget breach it found.** A camp that is not home
+is an outpost, and an outpost extends where colonists will work (`godot:m2:camp` at eleven lanes).
+Measured: 0 of 14 far items in range without one, 14 of 14 with, and `_haul_work` offers nothing at
+all in the first case.
+**Read this before trusting the camp slice's record.** That slice claimed `jobs._home_centre` carried
+`_post_tile`, `_corpse_dump` and `_stock_drop` with it. **It did not** — all three read
+`SimTileMap` directly — so it moved the Haul/Scavenge/Rearm radius and nothing else, and the night
+watch posted at an annex nobody lived in. The post and the dump follow home now; the stockpile
+deliberately does not, because a camp has no roof to be indoors under. The `ANCHORS` lane is what
+the corrected sentence stands on.
+**A gate that could not fail, found by proving the negative.** The first `REACH` lane established a
+camp far away and called it an outpost — but `SimCamp.create` makes the new camp *home*, so it was
+re-testing the previous slice. It stayed green with outpost reach removed entirely. Two camps plus
+an explicit "home is not the far one" assertion is the fix. Worth remembering as a shape: a fixture
+that accidentally satisfies the previous mechanism tests nothing new.
+**And the reason the reach nearly did not ship.** It measured **9.8 ticks/s against 62.8** — under
+the 20 Hz clock — caused by **one enclosed item**, not by distance. docs/23's defect list had carried
+"an unreachable destination costs a full A* every tick" since the review sweep; `_walk` re-planned
+whenever its cached path was empty, and empty is what `SimPath.find` returns for no route. A failing
+path costs **132 ms** against 5–11 ms for a reachable one. The owner's call was to fix that first
+rather than cap the reach; after the fix the same fixture runs at **78.4**. `godot:m2:jobs` gained a
+PATHING lane, proved red against the shipped condition.
+
+**2026-09-10 — the camp the player establishes: the seam** (`npm run godot:m2:camp` /
+`M2_CAMP_OK`, nine lanes; the chain is **58** now). Home is relocatable. **C** makes camp where you
+stand — a fortify channel, so it is interruptible and emits construction noise all the while —
+shift+C strikes it, and the HUD says where camp is in words.
+**The finding worth carrying forward:** the hard part was never the camp. "Home" had **seven
+independent answers** — `annex_rect`, `gate_a`, `gate_b`, `player_start` read separately by
+`director`, `raiders`, `jobs`, `needs`, `recruits`, `fortify` and `boot` across 24 call sites — and
+`map.anchors` is never serialised, so a runtime-written anchor would have vanished on load in
+silence. `sim/home.gd` is the one answer now, and every resolver's last rung is what its caller did
+before, so a world with no camp is byte-identical (the HOME lane).
+**Two things that needed no work at all, and the reasons are load-bearing:** the director never
+targeted the colony (it places at the map edge and the field pulls), so "hordes come to a camp that
+is used" was already true; and a camp needs **no emitter of its own**, because what emits at a camp
+is the fire, the light and the people. An all-zero emitter would have been a twelfth dead socket.
+**No `SAVE_VERSION` bump** — still 29 — because a new component round-trips through the generic
+`component_store.save()`. The night band follows home into its cell on a region, and is a no-op on a
+district. Task 8's other halves (labour cost, camp-local pressure inputs, evolving a camp, assigning
+survivors to one) are still in docs/23's what's left; the four numbers this slice picked are item
+`0f` below and the outpost question is `0e`.
 
 **2026-09-10 — the flip, and a prediction that was wrong** (`godot:m2:region` at ten lanes; the
 chain is still **57**). The main area is reachable: `--region=region.main_area` boots Ashgrove,
@@ -418,6 +461,26 @@ decisions and what each earlier clause becomes; the work it forces is docs/23's 
 Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. **Which of its
 slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
+
+0f. **The camp's four first cuts** (2026-09-10). The seam slice landed home as relocatable
+   (`godot:m2:camp`, nine lanes) and took four calls without asking, each one line if re-decided.
+   **The key**: camp is **C**, shift+C to strike, rather than a rung on E's context ladder — the
+   argument is that moving home by accident is worse than one more key, but E-with-a-confirm is a
+   real alternative. **The clock**: establishing costs fortify's ordinary 40-tick channel, because
+   the labour cost is the deferred slice; it is currently cheaper than boarding a window and louder
+   than one, which is half of the commitment Task 8 asks for. **The footprint**: a camp's rect is
+   radius 1 — the tile and everything touching it — which is what the director's quiet floor reads
+   as "how loud is it at home"; the 32 m keep-off is `GATE_EXCLUSION`'s and is unchanged.
+   **Abandonment reverts home to the annex** rather than to the previous camp, which is the simplest
+   reading of "camps are temporary" and not the only one.
+
+0e. **Whether a camp should be assignable, and whether an outpost should draw raiders**
+   (2026-09-10). Two questions the seam slice deliberately did not answer. A camp is home or it is
+   an outpost, and an outpost currently does nothing at all: nothing is assigned to it, and
+   `raiders._objective` walks to *home*, so a colony with three outposts is raided exactly like a
+   colony with none. Both are design calls, both are named in docs/23's what's left, and neither is
+   a defect — but an outpost that does nothing is the shape of a dead socket, so it should not sit
+   unanswered for long.
 
 0b. **Whether a region becomes the default boot** (2026-09-10). Everything is built and gated;
    `--region=region.main_area` reaches it and the default is still a single district. The reason it

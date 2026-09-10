@@ -3255,6 +3255,88 @@ The owner's two decisions about the region, and the four things building it made
   covers a **runtime** half this arc did not build. The generation-time half landed; Task 8 is named
   in docs/23's what's left rather than smuggled in beside it.
 
+### The outpost, and the path it exposed, 2026-09-10
+
+- **An outpost is reach, not danger** -- the owner's call, taken after being shown that "outpost" had
+  no prior design authority: the word existed only in the camp slice's own record. It extends where
+  colonists will work, which is the answer to docs/12's expanding radius, the difficulty curve the
+  world generates on its own. The alternatives (a stash, a raider target, all three at once) are
+  named in what's left; useful before dangerous was the explicit ordering.
+- **`_near_home` draws a circle per place the colony lives, not one around home.** The constant did
+  not change; how many circles it draws did. An abandoned camp draws none -- it is a known empty
+  site, not somewhere anyone works.
+- **The stockpile is the one home reader that does not follow a camp, and now says so where it is
+  read.** `is_stockpile_tile` means "indoors, floor, inside the annex"; a camp has no roof, so a
+  camp-relative drop point would be a stockpile the rain falls into. The consequence is a real trade
+  and it is recorded rather than hidden: an outpost extends what colonists collect and not where
+  they put it, so a far outpost still costs the walk home.
+- **A gate can pass because it re-tests the previous slice.** The first `REACH` lane established a
+  camp far away and called it an outpost -- but `SimCamp.create` makes the new camp *home*, so the
+  lane was proving that home's radius moves with home, which the camp slice had already proved. It
+  stayed green with outpost reach removed entirely. The fix is two camps plus an explicit assertion
+  that `home_of` is not the far one. **Proving the negative is the only thing that found it**, and
+  the shape is worth naming: a lane whose fixture accidentally satisfies the *previous* mechanism
+  tests nothing new.
+- **The dead-socket rule has a second level.** `check_m2_camp`'s READS lane asserted that
+  `jobs._home_centre` moved, and the record beside it claimed three further functions moved with it.
+  They did not, and the lane could not have noticed: it asserted the reader, never the readers of
+  that reader. Asserting that a mechanism has a reader is not the same as asserting that the things
+  said to hang off that reader do.
+- **Pillar 6 decided the order.** Reach measured **9.8 ticks/s against 62.8** -- under the 20 Hz
+  clock -- because of one enclosed item, not because of distance. The owner chose to fix the
+  underlying pathing defect first rather than cap the reach or accept the cost. After the fix,
+  **78.4**. A feature that breaks budget does not ship until it is fixed, and "the defect is
+  pre-existing and already listed" is not an exemption when the feature is what makes it reachable.
+- **A failed plan is a result, and gets remembered like one.** `_walk` plans once per map
+  generation now: `pathFailGen` separates "no route" from "path consumed", and an `unreachable`
+  component on the target -- shaped like `reserved`, keyed by `mapGeneration` so a door opening
+  clears it -- stops the work-finders re-offering it. `SimPath.find` is untouched and still cannot
+  tell "guard exhausted" from "no path"; the fix is that nothing asks it twice.
+
+### The camp, and where home is, 2026-09-10
+
+- **The owner's shape for a camp: temporary, evolvable later, usable as an outpost.** Asked whether
+  the generated annex and a player camp were one concept or two, the answer was neither of the two
+  offered — a camp is a *lighter* thing than the annex, there may be more than one, and turning one
+  into something permanent is later work. So `SimCamp` allows many camps with exactly one flagged
+  `home`, and deliberately gives a camp no indoor floor, no stockpile and no walls.
+- **Home is a read model with the map anchors as its floor.** `annex`, `gate_a`, `gate_b` and
+  `player_start` were generation-time entries in `map.anchors`, read independently by seven modules
+  across 24 call sites, and `map.anchors` is never serialised — so an anchor written at runtime would
+  vanish on the next load silently. `sim/home.gd` is one ladder whose last rung is what each caller
+  did before, which is what lets a world with no camp answer byte-identically. **Four readers were
+  left on the anchors on purpose** and each says why in the code: the stockpile (a camp has no indoor
+  floor), recruits (strangers at an outpost is a design question), boot (generation-time), and
+  `can_scrap` (about the authored gate).
+- **A camp is a prop entity, because there is no place-emitter.** The only recurring emission in the
+  sim comes from the two per-entity systems in `attention_emitter.gd`; a place emits by having
+  something stand on it, which is what the campfire, the latrine and the noisemaker already do. That
+  also means **no `SAVE_VERSION` bump** (it stays 29): `component_store.save()` is generic and a new
+  component is the case `serialize.gd`'s ledger already records for treatment.
+- **It carries no emitter of its own, and the plan for the slice was wrong about that.** An emitter
+  with every channel zero is a dead socket of the shape CLAUDE.md lists eleven of. What emits at a
+  camp is the fire, the light and the people, all of which emit already — which is the same reason
+  the director needed no change: `_emit_packet` never targeted the colony, and the pull is the field.
+- **Establishing is a channel and its own key.** Task 8 asks for "a deliberate, interruptible
+  commitment — not a menu click", so it reuses fortify's channel whole and inherits the stagger and
+  grab interrupts and `CONSTRUCT_NOISE` — docs/03's 30, "a beacon all day" — rather than inventing a
+  number. **C**, not a rung on E's ladder: moving home by accident is worse than one more key, and E
+  stays "act on what is in front of you". The 40-tick clock is fortify's ordinary one; a camp's real
+  labour cost is the deferred slice, and until then establishing is cheap in time and loud in noise.
+- **The night band follows home, on a region only.** The owner's answer. `SimCamp.sync_map` sits
+  beside the fortify and vehicle syncs in `world.restore` because `spawn_edges` is derived rather
+  than serialised. On a district it is a no-op and the perimeter scan runs unchanged, which is what
+  keeps every measured band valid; on a region it moves the band to the camp's cell so a camp two
+  districts away does not leave pressure arriving where the player no longer is.
+  `SimTileMap.region_cell_stride` exists for it — the other two region fields say what a region is
+  made of, this one says where the joins are, which is what a runtime reader needs when the region
+  content is out of scope.
+- **`GATE_EXCLUSION` is 32 m, and on a 64-tile gate world that is half the map.** A probe asking "is
+  this tile legal now that home moved" answers false there for the exclusion disc rather than for the
+  rect, which produced one wrong reading while `check_m2_camp` was being written. The `READS` lane
+  runs at the shipped 256 for that reason. Same family as the annex-corner probe that reads as wall:
+  a measurement needs to be shown it is measuring what it thinks it is.
+
 ### What the flip made structural, 2026-09-10
 
 - **A prediction written as fact cost more than the bug would have.** "Every night arrives empty

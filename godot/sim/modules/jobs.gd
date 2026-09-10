@@ -12,6 +12,7 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimHomeRes = preload("res://sim/home.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
@@ -29,6 +30,11 @@ const CONSUMERS: Array[String] = ["Haul", "Scavenge", "Construct", "Cook", "Doct
 # far district stays the player's run (docs/02), and it is also where the boot's wanderers are:
 # the Guard slice measured Ellis grabbed sixteen times in a day hauling the nearest loose item
 # from the far edge. The owner's decision 10, 2026-09-06; the number is a first cut.
+#
+# Since the outpost slice it is a radius around **each place the colony lives**, not one disc around
+# home: `_near_home` asks `SimHome.near_any`. That is what makes an outpost worth building --
+# docs/12's expanding radius says the good ground moves away from you over a run, and this constant
+# is where that bites. The number did not change; what changed is how many circles it draws.
 const HOME_RADIUS_TILES: float = 40.0
 const COOK_TICKS: int = 2400
 const INSPECT_TICKS: int = 300
@@ -554,20 +560,24 @@ static func _anyone_buries(world: Variant) -> bool:
 	return false
 
 
-# Where home is: the annex's centre, or the player's start where a map has no annex.
+# Where home is. The ladder -- camp, then the annex's centre, then the player's start where a map
+# has no annex -- moved wholesale into `SimHome.centre` when the camp slice made home relocatable.
+#
+# **Its one caller is `_near_home`**, and the comment that used to stand here said otherwise: it
+# claimed `_post_tile`, `_corpse_dump` and `_stock_drop` hung off this too, "all for one edit". They
+# did not -- all three read `SimTileMap` directly -- so the camp slice moved the Haul/Scavenge/Rearm
+# radius and nothing else, while three sentences in the record said it had moved four things. The
+# post and the dump follow home now (see `_post_tile` and `_corpse_dump`); `_stock_drop` still does
+# not, on purpose, because the stockpile is the annex's *indoor floor* and a camp has no roof.
 static func _home_centre(world: Variant) -> Vector2:
-	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
-	if annex.size.x > 0 and annex.size.y > 0:
-		return Vector2(float(annex.position.x) + float(annex.size.x) * 0.5, float(annex.position.y) + float(annex.size.y) * 0.5)
-	var start: Vector2i = SimTileMap.player_start(world.tilemap)
-	return Vector2(float(start.x) + 0.5, float(start.y) + 0.5)
+	return SimHomeRes.centre(world)
 
 
+# Home's radius, **or any standing camp's**. The name is still `_near_home` because that is what its
+# three callers are asking -- "will a colonist work this ground" -- and the answer became "yes, if it
+# is near anywhere we live" when outposts started to mean something. `SimHome.near_any` owns the rule.
 static func _near_home(world: Variant, x: float, y: float) -> bool:
-	var c: Vector2 = _home_centre(world)
-	var dx: float = x - c.x
-	var dy: float = y - c.y
-	return dx * dx + dy * dy <= HOME_RADIUS_TILES * HOME_RADIUS_TILES
+	return SimHomeRes.near_any(world, x, y, HOME_RADIUS_TILES)
 
 
 # The nearest container this survivor remembers seeing, unsearched, near home and not already
@@ -588,6 +598,8 @@ static func _scavenge_work(world: Variant, ent: int, x: float, y: float) -> Dict
 		var bx: float = float((p as Dictionary)["x"])
 		var by: float = float((p as Dictionary)["y"])
 		if not _near_home(world, bx, by):
+			continue
+		if _is_unreachable(world, int(box)):
 			continue
 		if _claim_live(world, box):
 			continue
@@ -628,6 +640,8 @@ static func _haul_work(world: Variant, x: float, y: float) -> Dictionary:
 		if SimNeeds.is_stockpile_tile(world, tx, ty):
 			continue
 		if not _near_home(world, float((p as Dictionary)["x"]), float((p as Dictionary)["y"])):
+			continue
+		if _is_unreachable(world, int(item)):
 			continue
 		if world.components.has_component(item, "corpse"):
 			continue
@@ -1155,6 +1169,8 @@ static func _rearm_job(world: Variant, ent: int) -> Dictionary:
 		var iy: float = float(p["y"])
 		if not _near_home(world, ix, iy):
 			continue
+		if _is_unreachable(world, int(item)):
+			continue
 		var d: float = (ix - hx) * (ix - hx) + (iy - hy) * (iy - hy)
 		if d < best_d:
 			best_d = d
@@ -1233,10 +1249,13 @@ static func _do_haul(world: Variant, ent: int, job: Dictionary) -> void:
 # slice, and a body in the doorway is a door that never shuts. The neighbour of `gate_a` inside
 # the annex rect that is open floor by class; the gate itself where the map has no annex.
 static func _post_tile(world: Variant) -> Vector2i:
-	var gate: Vector2i = SimTileMap.gate_a(world.tilemap)
+	# Home's gate, not the map's: a colony that has moved to a camp posts its night watch at the
+	# camp. This read was missed by the camp slice while its record claimed it had been made -- the
+	# watch stood at an annex nobody lived in any more.
+	var gate: Vector2i = SimHomeRes.gate_a(world)
 	if gate.x < 0 or gate.y < 0:
 		return gate
-	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	var annex: Rect2i = SimHomeRes.rect(world)
 	if annex.size.x <= 0:
 		return gate
 	for step in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]:
@@ -1253,12 +1272,20 @@ static func _post_tile(world: Variant) -> Vector2i:
 # the absent sentinel on a district with no gate anchor, and every caller checks it -- there is no
 # outdoor dump when there is no gate to put one south of.
 static func _corpse_dump(world: Variant) -> Vector2i:
-	var gate: Vector2i = SimTileMap.gate_a(world.tilemap)
+	# Home's gate, for the same reason as the watch one function up: a colony living at a camp does
+	# not carry its dead back to the annex it left.
+	var gate: Vector2i = SimHomeRes.gate_a(world)
 	if gate.x < 0 or gate.y < 0:
 		return Vector2i(-1, -1)
 	return Vector2i(gate.x, gate.y + 2)
 
 
+# The stamped annex, and **deliberately not `SimHome.rect`** -- the one home reader that does not
+# follow a camp. `SimNeeds.is_stockpile_tile` is "indoors, floor, inside the annex", and a camp has
+# no roof to be indoors under, so a camp-relative drop point would be a stockpile the weather rains
+# into. Giving a camp a real one is the "evolve a camp" work in docs/23's what's left. Until then a
+# far outpost extends what colonists *collect* and not where they *put it*, which is the trade the
+# reach slice measured rather than hid.
 static func _stock_drop(world: Variant) -> Vector2i:
 	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
 	if annex.size.x <= 0 or annex.size.y <= 0:
@@ -1633,6 +1660,30 @@ static func _carry_base(world: Variant, ent: int, base_id: String) -> int:
 	return -1
 
 
+# "Nobody could route to this, as of this map generation."
+#
+# Shaped like `reserved` -- a component on the target, read by the work-finders -- rather than a
+# blocklist on the world, so it round-trips through a save for free and disappears with the entity.
+# It is keyed by `mapGeneration` rather than by tick because that is the thing that can make a route
+# appear: a door opened, a barricade broken, a car moved. A stale mark simply stops applying.
+static func _mark_unreachable(world: Variant, job: Dictionary, gen: int) -> void:
+	var target: int = int(job.get("target", -1))
+	if target < 0 or not world.entities.is_alive(target):
+		return
+	world.components.set_component(target, "unreachable", {"gen": gen})
+
+
+static func _is_unreachable(world: Variant, target: int) -> bool:
+	var mark: Variant = world.components.get_component(target, "unreachable")
+	if not (mark is Dictionary):
+		return false
+	if int((mark as Dictionary).get("gen", -1)) != int(world.mapGeneration):
+		# The map moved, so the mark is out of date: clear it and let somebody try again.
+		world.components.remove(target, "unreachable")
+		return false
+	return true
+
+
 static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> void:
 	var pos: Variant = world.components.get_component(ent, "position")
 	if not pos is Dictionary:
@@ -1640,7 +1691,22 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 	var here := Vector2i(floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
 	var gen: int = int(world.mapGeneration)
 	var path: Array = job.get("path", []) as Array
-	if int(job.get("pathGen", -1)) != gen or path.is_empty():
+	# **Plan once per map generation, even when the plan fails.**
+	#
+	# This condition used to read `pathGen != gen or path.is_empty()`, and an empty path is exactly
+	# what `SimPath.find` returns when there is no route -- so an unreachable destination re-ran the
+	# whole A* on the next tick, and every tick after, forever. docs/23's defect list has carried
+	# that as "an unreachable destination costs a full A* every tick" since the review sweep; this is
+	# the line it was talking about. Measured on this container: a reachable 100-tile path costs
+	# 5-11 ms and a failing one **132 ms**, so a single colonist standing next to one enclosed item
+	# took a booted district from 62.8 ticks/s to 9.8 -- under its own 20 Hz clock.
+	#
+	# `pathFailGen` is what separates "empty because there is no route" from "empty because the last
+	# step was just consumed"; without it, refusing to re-plan on an empty path would strand a body
+	# knocked off its route. Both clear when the map generation moves, which is what a door opening
+	# or a barricade falling already bumps.
+	var failed_gen: int = int(job.get("pathFailGen", -1))
+	if int(job.get("pathGen", -1)) != gen or (path.is_empty() and failed_gen != gen):
 		var found: Array[Vector2i] = SimPath.find(world, here, dest)
 		path.clear()
 		# Dict steps so snapshot/fingerprint never sees Vector2i (export smoke).
@@ -1648,6 +1714,14 @@ static func _walk(world: Variant, ent: int, job: Dictionary, dest: Vector2i) -> 
 			path.append({"x": s.x, "y": s.y})
 		job["path"] = path
 		job["pathGen"] = gen
+		if found.is_empty():
+			job["pathFailGen"] = gen
+			# And the target is not somewhere anyone can get to right now, so stop offering it.
+			# Without this the body drops the job, `_pick` hands back the same nearest candidate on
+			# the next tick, and the thrash is the same burn one indirection further out.
+			_mark_unreachable(world, job, gen)
+			_stop(world, ent)
+			return
 	if path.is_empty():
 		_still(world, ent)
 		return

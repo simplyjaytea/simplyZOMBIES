@@ -31,6 +31,7 @@ const SimCondition = preload("res://sim/condition.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
+const SimCamp = preload("res://sim/modules/camp.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -157,6 +158,12 @@ func _world_lines(world: Variant, actor: int) -> Array[String]:
 	var att: Dictionary = SimAttentionRead.clause(world, actor)
 	lines.append(String(att["light"]))
 	lines.append(String(att["worst"]))
+
+	# Where home is, once it is somewhere you chose. Nothing at all until a camp exists, because
+	# until then home is the annex the generator sited and the player has never had to find it.
+	var camp: String = SimCamp.hud_clause(world, actor)
+	if not camp.is_empty():
+		lines.append(camp)
 
 	# What you remember seeing, which is the other half of what the marks on the ground say.
 	# docs/28: the prose "degrades -- a moment ago, then a while ago, then nothing" -- and the
