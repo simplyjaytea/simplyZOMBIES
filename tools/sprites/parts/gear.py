@@ -1208,6 +1208,206 @@ def item_attach_magazine_extended_part():
     return canvas.to_image()
 
 
+# --- the weapons catalogue (2026-09-10) --------------------------------------------------------
+#
+# Nine keys, and the constraint on every one is the one that has held since the first catalogue:
+# at seven pixels the *silhouette* is the whole read, so each has to differ in outline from
+# everything already in its hand rather than in detail. Where a weapon is simply a shorter version
+# of one that already ships, shortness is not enough on its own and something else carries it.
+
+
+def item_carbine_lever_equip():
+    """A lever carbine: the hunting rifle cut down, with the loop that names it hung under.
+
+    Short alone would read as the rifle drawn small, so the lever is the separation -- an open
+    loop below the receiver, the only enclosed hole anything in this hand draws.
+    """
+    steel = RAMPS["stone"]
+    wood = RAMPS["wood"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 1.4, HAND_Y + 5.0), (HAND_X + 0.6, HAND_Y - 2.5), 3.8, wood[0],
+                inside_only=False)
+    canvas.band((HAND_X + 0.6, HAND_Y - 2.5), (HAND_X + 2.6, HAND_Y - 12.0), 2.8, steel[1],
+                inside_only=False)
+    canvas.band((HAND_X - 1.0, HAND_Y + 2.2), (HAND_X - 2.6, HAND_Y + 3.6), 1.2, steel[3],
+                inside_only=False)  # the lever, swung down and open
+    canvas.band((HAND_X - 2.6, HAND_Y + 3.6), (HAND_X - 0.6, HAND_Y + 4.6), 1.2, steel[3],
+                inside_only=False)
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_pistol_target_equip():
+    """A target pistol: the service pistol's L with the barrel run out long and thin.
+
+    The service pistol's slide is a stub; this is a needle. The same corner, twice the reach and
+    half the thickness, which is the only thing that separates two handguns in one small hand.
+    """
+    steel = RAMPS["stone"]
+    grip = RAMPS["strap"]
+    canvas = _overlay()
+    # Seated inboard rather than reaching further out: the eight-rig envelope's own last column
+    # is where every off-hand weapon has to stop (check_worn's FITS lane says so), so length is
+    # bought by starting the barrel behind the fist, not by running it off the body.
+    canvas.band((OFF_HAND_X + 1.2, HAND_Y - 1.4), (OFF_HAND_X - 3.4, HAND_Y - 1.8), 2.0,
+                steel[2], inside_only=False)  # the long thin barrel
+    canvas.rect(OFF_HAND_X - 0.6, HAND_Y - 3.0, 1.6, 0.8, steel[4])  # the raised rear sight
+    canvas.band((OFF_HAND_X - 0.2, HAND_Y + 0.5), (OFF_HAND_X + 0.8, HAND_Y + 4.0), 3.2,
+                grip[2], inside_only=False)
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_shotgun_sawnoff_equip():
+    """A sawn-off: two fat stubby tubes and almost no gun behind them.
+
+    The other guns in this hand are thin. This is their length and three times their width, drawn
+    as a pair with a lit seam between so it reads as two barrels rather than one slab.
+    """
+    steel = RAMPS["stone"]
+    wood = RAMPS["wood"]
+    canvas = _overlay()
+    canvas.band((OFF_HAND_X + 0.8, HAND_Y - 2.6), (OFF_HAND_X - 3.4, HAND_Y - 2.6), 2.4,
+                steel[2], inside_only=False)
+    canvas.band((OFF_HAND_X + 0.8, HAND_Y - 0.4), (OFF_HAND_X - 3.4, HAND_Y - 0.4), 2.4,
+                steel[1], inside_only=False)
+    canvas.band((OFF_HAND_X + 0.6, HAND_Y - 1.5), (OFF_HAND_X - 3.2, HAND_Y - 1.5), 0.6,
+                steel[4], inside_only=False)  # the seam, lit, so the pair reads as a pair
+    canvas.band((OFF_HAND_X + 1.4, HAND_Y + 0.2), (OFF_HAND_X + 2.2, HAND_Y + 2.8), 3.0,
+                wood[1], inside_only=False)  # what is left of the stock
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_bow_recurve_equip():
+    """A recurve: the hunting bow's open D, smaller, with the tips turned back out.
+
+    The hunting bow's limbs bow *in* to the nocks. These reverse at the ends, so the outline
+    carries two shallow S-curves where the other has two arcs, and the whole thing is shorter --
+    which the eye reads as lighter.
+    """
+    limb = RAMPS["wood"]
+    grip = RAMPS["strap"]
+    canvas = _overlay()
+    grip_x = HAND_X - 1.2
+    string_x = HAND_X + 2.8
+    for end in (-1.0, 1.0):
+        canvas.band((grip_x, HAND_Y), (grip_x + 1.8, HAND_Y + end * 3.4), 3.0, limb[2],
+                    inside_only=False)
+        canvas.band((grip_x + 1.8, HAND_Y + end * 3.4), (grip_x + 0.6, HAND_Y + end * 5.6), 3.0,
+                    limb[2], inside_only=False)  # the recurve, turning back
+    canvas.band((string_x, HAND_Y - 5.6), (string_x, HAND_Y + 5.6), 1.0, grip[3],
+                inside_only=False)
+    canvas.rect(grip_x, HAND_Y, 1.2, 1.8, grip[1])
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_crossbow_repeating_equip():
+    """A repeater: the crossbow's horizontal bar with a box standing on top of it.
+
+    The hunting crossbow owns the horizontal on this roster, so this cannot separate by being one
+    too. The magazine box is the separation, and it sits *above* the prod line, where nothing else
+    on the weapon roster puts mass.
+    """
+    stock = RAMPS["wood"]
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, GRIP_BOTTOM_Y), (HAND_X + 0.6, HAND_Y - 9.5), 3.4, stock[2],
+                inside_only=False)
+    canvas.band((HAND_X - 3.2, HAND_Y - 8.6), (HAND_X + 3.8, HAND_Y - 8.6), 1.8, steel[2],
+                inside_only=False)
+    canvas.rounded_rect(HAND_X - 0.4, HAND_Y - 11.4, 2.6, 1.8, 0.6, stock[0])  # the bolt box
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_pick_ice_equip():
+    """An ice pick: the smallest thing on the roster, and that is the read.
+
+    A needle and a knuckle of handle. Nothing else in the primary hand is under four rows, so the
+    separation is simply that there is almost nothing there.
+    """
+    steel = RAMPS["stone"]
+    wood = RAMPS["wood"]
+    canvas = _overlay()
+    canvas.rect(HAND_X - 0.4, HAND_Y + 0.6, 1.8, 2.0, wood[1])
+    canvas.band((HAND_X + 0.2, HAND_Y - 0.4), (HAND_X + 0.8, HAND_Y - 4.4), 1.0, steel[3],
+                inside_only=False)
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE, "esw")
+    return canvas.to_image()
+
+
+def item_sabre_cavalry_equip():
+    """A sabre: the only curve in the hand.
+
+    Every other blade here is straight -- the machete leans, the cleaver is a slab, the axes are
+    wedges on shafts. A blade that bends away and back is a shape none of them can make, so the
+    curve is drawn in three segments rather than as one lean, and the guard closes the read at
+    the fist.
+    """
+    steel = RAMPS["stone"]
+    guard = RAMPS["strap"]
+    canvas = _overlay()
+    canvas.band((HAND_X + 0.2, HAND_Y - 1.0), (HAND_X + 1.8, HAND_Y - 5.0), 2.4, steel[2],
+                inside_only=False)
+    canvas.band((HAND_X + 1.8, HAND_Y - 5.0), (HAND_X + 2.6, HAND_Y - 9.4), 2.2, steel[2],
+                inside_only=False)
+    canvas.band((HAND_X + 2.6, HAND_Y - 9.4), (HAND_X + 2.0, HAND_Y - 13.0), 1.8, steel[3],
+                inside_only=False)  # the tip, turning back
+    canvas.rect(HAND_X - 0.8, HAND_Y - 0.6, 3.0, 0.8, guard[3])  # the knuckle guard
+    canvas.rect(HAND_X - 0.2, HAND_Y + 0.6, 1.4, 2.2, guard[1])
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_pitchfork_barn_equip():
+    """A pitchfork: the only forked tip anybody carries.
+
+    Its shaft is the spear's, near enough, and a shaft alone would read as the spear. The three
+    tines are the whole separation, and they are drawn with clear gaps between them, which makes
+    each one pixel wide and therefore entirely its own outline -- the bowstring's arrangement,
+    and correct here for the same reason.
+    """
+    haft = RAMPS["wood"]
+    steel = RAMPS["stone"]
+    canvas = _overlay()
+    canvas.band((HAND_X + 0.2, HAND_Y + 5.6), (HAND_X + BLADE_LEAN, HAND_Y - 11.0), 3.4,
+                haft[2], inside_only=False)
+    for tine in (-2.0, 0.0, 2.0):
+        canvas.band((HAND_X + BLADE_LEAN + tine * 0.5, HAND_Y - 11.0),
+                    (HAND_X + BLADE_LEAN + tine, HAND_Y - 15.0), 1.0, steel[3],
+                    inside_only=False)
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
+def item_club_golf_equip():
+    """A golf club: a hairline shaft with a wedge on the end of it.
+
+    The bat is a taper and the pipe is a tube; both are thick the whole way. This is the opposite
+    -- almost nothing for its whole length, then a head. The shaft is deliberately under two
+    pixels so the head reads as the only mass in the picture.
+    """
+    shaft = RAMPS["stone"]
+    head = RAMPS["strap"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.2, HAND_Y + 3.6), (HAND_X + BLADE_LEAN, HAND_Y - 9.0), 1.6,
+                shaft[2], inside_only=False)
+    canvas.rounded_rect(HAND_X + BLADE_LEAN + 0.4, HAND_Y - 10.0, 1.8, 1.6, 0.6, head[3])
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE, "esw")
+    return canvas.to_image()
+
+
 REGISTRY = {
     "item_attach_suppressor_part": item_attach_suppressor_part,
     "item_attach_optic_red_dot_part": item_attach_optic_red_dot_part,
@@ -1260,4 +1460,13 @@ REGISTRY = {
     "item_duffel_canvas_equip_front": item_duffel_canvas_equip_front,
     # the weapons catalogue (2026-09-10)
     "item_smg_compact_equip": item_smg_compact_equip,
+    "item_carbine_lever_equip": item_carbine_lever_equip,
+    "item_pistol_target_equip": item_pistol_target_equip,
+    "item_shotgun_sawnoff_equip": item_shotgun_sawnoff_equip,
+    "item_bow_recurve_equip": item_bow_recurve_equip,
+    "item_crossbow_repeating_equip": item_crossbow_repeating_equip,
+    "item_pick_ice_equip": item_pick_ice_equip,
+    "item_sabre_cavalry_equip": item_sabre_cavalry_equip,
+    "item_pitchfork_barn_equip": item_pitchfork_barn_equip,
+    "item_club_golf_equip": item_club_golf_equip,
 }

@@ -920,7 +920,9 @@ const MASS_BEFORE_ASSEMBLY: Dictionary = {
 	# Bases that never existed unassembled carry their *intended* assembled mass instead. The
 	# lane's job is the same either way -- catching a receiver or a part whose weight drifted --
 	# and the alternative is a table that silently stops covering everything it should.
-	"item.smg.compact": 2.55,
+	"item.smg.compact": 2.55, "item.carbine.lever": 3.20, "item.pistol.target": 1.10,
+	"item.shotgun.sawnoff": 2.20, "item.bow.recurve": 0.78, "item.crossbow.repeating": 2.68,
+	"item.pitchfork.barn": 2.70,
 }
 
 func _an_assembled_weapon_weighs_what_it_always_weighed() -> bool:

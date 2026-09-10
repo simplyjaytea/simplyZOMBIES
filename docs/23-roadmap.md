@@ -6189,6 +6189,63 @@ not a to-do list:
   on barrels and stocks applies unchanged — and a light in particular wants to look lit, which is a
   question about the light field's own drawing rather than about one 3 px overlay.
 
+- **Items** — ~~the slots that exist hold one thing each~~ **landed** 2026-09-10
+  (`godot:m2:attach`, no new lane), the fourth slice of the weapons catalogue arc and a pure
+  content one: the 2026-09-06 and 2026-09-09 gear catalogues again, needing no new reasoning.
+  Six parts, each giving a slot a second answer rather than a strictly better one — a **magnified
+  scope** (far steadier, slow to the shoulder, and it fits `sight` too so a bow can take it), a
+  **drum magazine**, a **heavy match barrel**, a **cut-down barrel** (the match barrel read
+  backwards: quick and loud and short), an **oil-filter can** (most of a suppressor's quiet at
+  roughly twice its wear — a garage answer to a military problem) and a **heavy bowstring**, the
+  mirror of the fast-flight string that has shipped since the second catalogue.
+  Judged entirely by lanes that already existed, which is the point of them: CONTENT refuses a
+  multiplier key `SCALABLE` does not name and a part in no loot table, HOSTS and SCALES ask the
+  two dead-socket questions in both directions, WEARS checks the vocabulary both ways.
+  **One design note worth keeping.** The plan had a *crossbow crank* in the `string` slot, and it
+  cannot go there: `string` is a **required** slot with a structural default on both the bow and
+  the crossbow, so a crank occupying it would leave the weapon with no string and
+  `blocked_reason` would refuse to fire it. A slot that a required part lives in is not a slot
+  accessories can share, which is a constraint the required-slot work of the gunsmithing arc
+  created and nothing had run into yet. The heavy bowstring is what went in instead.
+
+- **Items & art** — ~~nine weapons the catalogue had no answer for~~ **landed** 2026-09-10
+  (`godot:m2:attach` MASS/ASSEMBLE/CYCLE/REQUIRED, `godot:check:worn`, `npm run sprites:check`),
+  the fifth slice of the weapons catalogue arc and the third gear catalogue. Three firearms — a
+  **lever carbine** (rifle ammunition without the rifle's bulk), a **target pistol** (the quiet
+  sidearm, and rimfire is the round the world has most of) and a **sawn-off** (two shells, then a
+  very long moment); two quiet-lane rungs — a **recurve bow** and a **repeating crossbow**, which
+  doubles a branch that was two items and carries the whole no-attention side of docs/09; and four
+  melee, each authored against a gap in the shipped table rather than for flavour, because melee
+  was already fifteen bases deep and close to saturated: an **ice pick** (nothing sat below the
+  kitchen knife's weight), a **cavalry sabre** (nothing paired damage at or above fourteen with
+  stagger at or below five), a **pitchfork** (the only reach-two weapon besides the improvised
+  spear, and a head-plus-haft assembly so it earns its place in the gunsmithing system too) and a
+  **golf club** (reach and stagger with almost no damage, which the baton did only at close range).
+  Eighteen bases now arrive assembled, and `MASS_BEFORE_ASSEMBLY` covers every one of them.
+  **Nine overlays, and the constraint on each was the one that has held since the first
+  catalogue**: at seven pixels the silhouette is the whole read, so a weapon that is merely a
+  shorter version of one already in its hand does not separate. The carbine gets the lever loop
+  (the only enclosed hole in the hand), the repeater a box *above* the prod line where nothing
+  else puts mass, the sabre the only curve, the pitchfork the only forked tip, the golf club a
+  hairline shaft so its head is the only mass in the picture, and the ice pick simply the fact
+  that there is almost nothing there. **Two of the three off-hand guns were authored reaching past
+  the eight-rig envelope and were re-seated inboard rather than shortened**: FITS is what says
+  where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
+  running it off the body. 174 generated keys, all matching.
+
+- **Balance** — the weapons catalogue arc's **reserved re-baseline, run** 2026-09-10
+  (`godot:m2:balance`, fast tier) → `M2_BALANCE_OK fast 4 seeds, 10 days, bands invariants
+  placement`. The arc added nineteen loot-table rows, nine weapons and sixteen parts, which moves
+  the `lootTable` stream and therefore every campaign after the first roll, so one re-baseline was
+  reserved for the end of the arc rather than one per slice — at ~1,085 ticks/s a ten-day campaign
+  is ~45 minutes and four seeds before-and-after per slice would have been an overnight job each
+  time. Measured, all four seeds: `20260805` two sieges, one death, 3/3 alive; `404` one siege, one
+  raid turned away, 3/3; `31337` three sieges, 3/3; `90210` two sieges, one breach, two deaths,
+  3/3. Every band held and no invariant moved. Read plainly: the district is not meaningfully more
+  survivable for the new guns, which is the result the loot weights were chosen for — the SMG and
+  the carbine sit at weight three in a military cache a colony reaches rarely, and the melee four
+  are commons that replace a knife rather than beat one.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.
