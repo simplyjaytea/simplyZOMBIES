@@ -15,6 +15,7 @@ const AttentionFieldRes = preload("res://sim/field/attention.gd")
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimSurfaceRes = preload("res://sim/map/surface.gd")
 const SimSerialize = preload("res://sim/kernel/serialize.gd")
+const SimCampRes = preload("res://sim/modules/camp.gd")
 const SimFortifyRes = preload("res://sim/modules/fortify.gd")
 const SimVehiclesRes = preload("res://sim/modules/vehicles.gd")
 const SimStancesRes = preload("res://sim/stances.gd")
@@ -264,6 +265,11 @@ func restore(snap: Dictionary) -> void:
 		# the boards-on-windows precedent one line up. A car driven across town and saved comes
 		# back where it was driven to, not where the layout parked it.
 		SimVehiclesRes.sync_map(self)
+		# And the night band, for the same reason one line up: `spawn_edges` is derived, never
+		# serialised, and a restored camp may be in a different cell from the one the generator
+		# wrote the band for. With no camp this rewrites the band to the annex's own cell, which is
+		# the band it already had -- so a save from before camps existed restores unchanged.
+		SimCampRes.sync_map(self)
 
 
 func serialize() -> String:

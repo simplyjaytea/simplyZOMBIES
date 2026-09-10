@@ -204,15 +204,31 @@ and water genuinely blue. **This moves Milestone 3B items 1 and 5 into the alpha
 owner's call and is recorded as one. The pieces, in the order they land — the first has landed:
 
 - ~~Water: the tile, the surface, and the one cool ground~~ — **landed**, see the record.
-- **The camp the player establishes.** Opened by the owner's 2026-09-09 answer that *the colony can
-  be established anywhere*, and specified already: the vertical-slice design record's **Task 8**
-  (`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`) — a deterministic `camp.create`, no
-  hard suitability restrictions ("danger, exposure, and time-to-establish are the cost"), camp-local
-  light/noise/scent/occupancy as the director's readable pressure inputs, free abandonment leaving a
-  known empty site, and a run that stays viable with no camp at all. The **generation-time** half of
-  "anywhere" landed with the region assembler — the annex is ranked across every cell rather than
-  assigned to a district — and this is the runtime half. It is named here rather than smuggled in
-  beside the assembler because it is its own arc, and because CLAUDE.md's step 2 says so.
+- ~~The camp the player establishes: home becomes relocatable~~ — **the seam landed**, see the
+  record. ~~The outpost earns its keep~~ — **landed**, same place: an outpost extends where
+  colonists will work, which is the answer to
+  [docs/12's expanding radius](12-resources.md#depletion-and-the-expanding-radius).
+  Task 8's remaining halves stay open and are named here because each is now a
+  pickable piece rather than a paragraph in a record:
+  - **The camp's labour cost.** Materials, a real clock, survivors helping. Establishing costs
+    fortify's ordinary 40-tick channel today, which is cheaper than boarding a window — half of the
+    "deliberate commitment" Task 8 asks for, and the loud half is the half that shipped.
+  - **A stash at the camp.** `_stock_drop` is one tile in the annex, so an outpost extends what
+    colonists *collect* and not where they *put it* — the far round trip is the trade the reach
+    slice measured rather than hid. Needs `SimNeeds.is_stockpile_tile` to mean something without a
+    roof, which is the piece below.
+  - **Evolving a camp** into something with an indoor floor, a stockpile and walls. The owner's
+    "camps are temporary, the player can evolve them later".
+  - **Camp-local occupancy and defenses** as the director's pressure inputs. Occupancy does not
+    exist anywhere in the sim; building it would give `SimSpatialHash.query_radius` — one of the
+    four dead sockets in the defect list — its first production reader.
+  - **An outpost that draws raiders.** `raiders._objective` walks to home only and
+    `director._draw_raid` reads day, lull and live count with no value input, so a colony with three
+    outposts is raided exactly like one with none. The owner chose reach before danger, deliberately;
+    this is the other half of that trade.
+  - **Assigning a survivor to a camp.** Needs an assignment record the sim does not have — a
+    destination is recomputed from a `job` dict every tick, and `reserved` pins an entity to an
+    entity, never to a place.
 - ~~The flip: the main area is what you boot~~ — **landed**, see the record.
 
 **Waiting on the owner in this group** (also in `HANDOFF.md`): the main area's tile extent and the
@@ -652,9 +668,20 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   with `world.tick < lullFromTick`, and the field starts at 0 and is never written, so the
   condition can never be true and the window is effectively `[0, lullUntilTick)`. `world.gd`'s
   save comment already treats this field as load-bearing.
-- **An unreachable destination costs a full A\* every tick, forever.** `SimPath.find` scans the
-  open set linearly with a 4096-pop guard and the caller cannot tell "guard exhausted" from "no
-  path", so it re-runs the worst case on the next tick and every tick after.
+- ~~**An unreachable destination costs a full A\* every tick, forever.**~~ **Fixed 2026-09-10**
+  (`godot:m2:jobs`, the PATHING lane), and it was worse than this entry said. `SimJobs._walk`'s
+  re-plan condition read `pathGen != gen **or path.is_empty()**`, and empty is exactly what
+  `SimPath.find` returns when there is no route -- so the search re-ran every tick for as long as
+  the body held the job. **Measured**: a reachable 100-tile path costs 5-11 ms and a failing one
+  **132 ms**, and a single enclosed item took a booted 256 district from **64.4 ticks/s to 9.8** --
+  under its own 20 Hz clock, which docs/00 pillar 6 says does not ship. With the fix the same
+  fixture runs at **78.4**. Two halves: `pathFailGen` separates "empty because there is no route"
+  from "empty because the last step was consumed", so a plan happens once per map generation; and
+  an `unreachable` component on the *target* -- shaped like `reserved`, keyed by `mapGeneration` so
+  a door opening clears it -- stops the three work-finders re-offering it, because otherwise the
+  body drops the job and `_pick` hands back the same candidate on the next tick. `SimPath.find`
+  itself is untouched: the caller still cannot tell "guard exhausted" from "no path", and it no
+  longer needs to. The lane was proved red against the shipped condition.
 - **The content tree is re-parsed six times a second while you play.**
   `main.gd::_poll_content_reload` runs every 0.5 s in a debug build and calls
   `ContentValidator.validate_tree` and then `ContentReload.try_reload_world`, which validates again
@@ -1727,6 +1754,160 @@ not a to-do list:
   documented both coexisting authoring conventions (face-on pawn, rotating rig) and said which
   applies when; the seam was owner-accepted until the roster was re-authored, which the
   2026-09-01 directives then did — one convention, true overhead, in the characters slice.
+
+  ~~The outpost earns its keep~~ **landed 2026-09-10** (`godot:m2:camp` at **eleven** lanes,
+  `godot:m2:jobs` grew a PATHING lane). A camp that is not home is an **outpost**, and an outpost
+  extends where colonists will work. The owner picked reach over danger deliberately, and picked it
+  after being shown that "outpost" had no prior design authority at all -- the word appeared only in
+  the camp slice's own record.
+  **Why reach, in the game's own words.** [docs/12's expanding radius](12-resources.md#depletion-and-the-expanding-radius)
+  is the difficulty curve the world generates on its own -- "week 1: everything within 200 m; week
+  10: you are making overnight trips" -- and docs/13 schedules "local sites exhausted" at day 12+.
+  `SimJobs.HOME_RADIUS_TILES` is where that bites, and beyond it loot was not deferred but **never
+  collected**: `_scavenge_work` and `_haul_work` return `{}`, the column reports no work, and the
+  thing lies there for the rest of the run unless the player fetches it personally. `SimHome.near_any`
+  is the whole change -- home's radius *or any standing camp's* -- and `_near_home`, its one reader,
+  delegates. Measured: **0 of 14 far items in range without an outpost, 14 of 14 with**, and
+  `_haul_work` offers **nothing** (-1) in the first case and a far item a colonist then takes in the
+  second. An abandoned camp does not count; it is a known empty site, not somewhere anyone works.
+
+  **The correction this slice owed, and it is the second of its kind this arc.** The camp slice's
+  record said `jobs._home_centre` carried `_post_tile`, `_corpse_dump` and `_stock_drop` with it
+  "all for one edit". It did not -- all three read `SimTileMap` directly -- so that slice moved the
+  Haul/Scavenge/Rearm radius and nothing else while three places said four things had moved, and the
+  night watch posted at an annex nobody lived in. **`check_m2_camp`'s READS lane did not catch it
+  because it asserted the reader moved and never the readers of that reader** -- the dead-socket rule
+  one level up, and worth remembering as its own shape. The post and the dump follow home now; the
+  stockpile deliberately does not, because `is_stockpile_tile` means "indoors, floor, inside the
+  annex" and a camp has no roof -- a camp-relative drop point would be a stockpile the rain falls
+  into. The `ANCHORS` lane is what the corrected sentence stands on, and it was proved red against
+  the code as the camp slice shipped it.
+
+  **The gate defect this slice found in itself, which is the one worth reading.** The first `REACH`
+  lane **could not fail**: `SimCamp.create` makes the new camp *home*, so establishing one far away
+  and calling it an outpost only re-tested what the camp slice had already proved -- that home's own
+  radius moves with home. Crippling `near_any` to home-only left the lane green. The fix is a pair:
+  the far camp first, then a second at the annex to take `home` off it, plus an explicit assertion
+  that `home_of` is **not** the far camp, so the lane cannot quietly regress into re-testing the
+  previous slice. Proving the negative is what found it, and nothing else would have.
+
+  **And the budget breach it found in the shipped game.** Reach put colonists on ground they could
+  not always route to, and the fixture ran at **9.8 ticks/s against 62.8** -- *under* the 20 Hz
+  clock, which docs/00 pillar 6 says does not ship. The cause was not distance: it was **one
+  enclosed item**, and docs/23's defect list had carried it since the review sweep as "an
+  unreachable destination costs a full A* every tick, forever". The owner's call was to fix that
+  first rather than cap the reach or ship the cost, and the defect entry above carries the fix and
+  its numbers. After it: **78.4 ticks/s**, faster than the same fixture with no outpost at all.
+  **The honest limit of that claim**: no tile within 40 tiles of home was unroutable on the fixture
+  seed, so this record does not say the shipped game hits the defect today -- only that reach makes
+  it easy to hit, and that a wider radius is what includes enclosed ground.
+
+  **What an outpost still does not do**, each now a pickable piece in what's left rather than a
+  paragraph here: it holds nothing (`_stock_drop` is one tile in the annex, so an outpost extends
+  what colonists *collect* and not where they *put it*), it draws no raiders, and nobody can be
+  posted to one.
+
+  ~~The camp the player establishes: home becomes relocatable~~ **the seam landed 2026-09-10**
+  (`npm run godot:m2:camp` → `M2_CAMP_OK`, nine lanes, the chain's **58th** gate). The runtime half of
+  the owner's *"the colony can be established anywhere"*, whose generation-time half landed with the
+  region assembler. **This is the seam and says so**: the owner picked it over the commitment and the
+  pressure inputs, and Task 8's other halves are still in what's left.
+
+  **The finding that reframed the slice, and it is the reason this is not a bigger diff.** Reading
+  before building turned up three things. First, *the hard part was never the camp* — "home" had
+  **seven independent answers**: `annex_rect`, `gate_a`, `gate_b` and `player_start` are
+  generation-time entries in `map.anchors`, read separately by `director`, `raiders`, `jobs`,
+  `needs`, `recruits`, `fortify` and `boot` across **24 call sites**, with no shared accessor. And
+  `map.anchors` is **never serialised** — the map is regenerated from the seed — so an anchor written
+  at runtime would have vanished on the next load with no error and no wrong number. Second,
+  **"hordes target the camp according to its signals" already worked and needed no director change**:
+  `_emit_packet` places at the map edge and names no destination, and the pull is entirely the
+  noise/scent/light gradients in `shambler.gd`. A camp that is used gets visited because that is how
+  the dead already work. Third, **`raiders._objective` was the only code in the whole sim that
+  targets home explicitly** — hard-bound to `gate_a`. So the deliverable was a read model and one
+  small module, not a subsystem.
+
+  **`sim/home.gd` is that read model** — `rect`, `centre`, `gate_a`, `gate_b`, `approach` — each a
+  ladder whose last rung is exactly what the calling code did before. Static, no state, on
+  `attention_read.gd`'s shape, because two worlds share one process on every gate that boots more
+  than one. Four readers consult it: `raiders._objective` (which handed its own ladder over to
+  `SimHome.approach` rather than growing a third copy), `jobs._home_centre`, and the director's
+  `_annex_peak` and `_legal_tile`.
+  **A sentence that stood here was wrong and the outpost slice corrected it**, which is the second
+  time this arc a claim reasoned from a call graph turned out not to match the code. It said
+  `jobs._home_centre` carried `_post_tile`, `_corpse_dump` and `_stock_drop` with it, "all for one
+  edit". It did not: all three read `SimTileMap` directly and only `_near_home` went through
+  `_home_centre`, so this slice moved the Haul/Scavenge/Rearm radius and **nothing else** while the
+  record claimed four things had moved. The night watch posted at an annex nobody lived in.
+  `check_m2_camp`'s READS lane did not catch it because it asserted the *reader* moved and never the
+  readers of that reader -- the dead-socket rule one level up. The post and the dump follow home as
+  of the outpost slice below, `_stock_drop` deliberately still does not, and the `ANCHORS` lane is
+  what the corrected sentence now stands on. **Four readers were deliberately left on the
+  anchors and the reasons are in the code**: `needs.is_stockpile_tile` (a temporary camp has no indoor
+  floor), `recruits` (strangers arriving at an outpost is a design question), `boot` (generation-time
+  placement, correctly anchored) and `fortify.can_scrap` (about the authored gate, not about home).
+
+  **A camp is a prop entity, on the campfire/latrine/noisemaker precedent**, because there is no
+  place-emitter in this sim: the only recurring emission comes from the two per-entity systems in
+  `attention_emitter.gd`. That buys the save for free — `component_store.save()` is generic, so a new
+  component needs **no `SAVE_VERSION` bump** (it stays 29), which is the rule `serialize.gd`'s ledger
+  already records for treatment — and it buys more than one camp, which is the owner's *"camps can be
+  used as outposts too"*. Exactly one is `home`; the rest are outposts. **It carries no emitter of its
+  own, against the plan, and that is a correction rather than an omission**: an emitter whose every
+  channel is zero is a dead socket of exactly the shape CLAUDE.md lists eleven of, and what emits at a
+  camp is the fire, the light and the people, all of which already emit.
+
+  **Establishing is a channel, not a menu click** — Task 8's *"deliberate, interruptible
+  commitment"* — reusing fortify's `_start` / `_tick_channel` / `_complete` whole, so `_can_channel`
+  refuses it while grabbed or sprinting, `entity.staggered` and `grab.started` already cancel it, and
+  `CONSTRUCT_NOISE` emits every tick, which is docs/03's *"hammering / construction, 30, sustained — a
+  build project is a beacon all day"*. **Making camp is loud by reuse rather than by a new number.**
+  It is its own key (**C**, shift+C to strike) rather than a rung on E's ladder, deliberately: moving
+  home by accident on empty ground with a trap and a bait already down is worse than one more key,
+  and E stays "act on what is in front of you". Abandoning is free and leaves the record behind with
+  a tick on it rather than despawning, which is Task 8's *known empty site*.
+
+  **The night band follows home**, by the owner's 2026-09-10 answer. `SimCamp.sync_map` is called
+  from `world.restore` beside `SimFortify.sync_map` and `SimVehicles.sync_map` — `spawn_edges` is
+  derived and never serialised, so it is rebuilt rather than saved, and the same call runs after each
+  of the two writes. On a **district** it is a no-op: the band stays empty and the perimeter scan runs
+  exactly as it always has, which is what keeps every measured band valid. On a **region** it moves
+  the band to the camp's own cell, so a camp two districts away does not leave night pressure
+  arriving at the cell the player has left — the flip slice's 215–432 m dilution, in a new place.
+  `SimTileMap.region_cell_stride` was added for it: `region_cells` and `region_cell_tiles` say what a
+  region is made of, and this says where the joins are, which is the only thing a runtime reader
+  needs to find its cell without the region content in hand. `SimRegion.write_band` went public in the
+  same edit so the bucketing rule has one copy rather than two.
+
+  **The gate, and the two lanes proved red on purpose.** `READS` is the dead-socket lane — it asserts
+  the three *callers* move, not that the read model returns the right number — and reverting
+  `jobs._home_centre` to the annex made it fail naming the reader that stopped reading. `BAND`'s true
+  negative is a camp in the **annex's own cell**, which must leave the band exactly where it was;
+  without it the lane would pass on a `sync_map` that moved the band whenever any camp existed, and
+  breaking `sync_map` to ignore the camp proved it red. `HOME` is the lane that says the shipped game
+  did not move: with no camp every resolver equals the map anchor it replaced. `OPTIONAL` is Task 8's
+  *"a run stays viable with no camp at all"* — a no-camp run keeps its survivors and fingerprints
+  identically twice, a camped run keeps its survivors too, and the two fingerprints must differ or the
+  comparison is vacuous. 27.2 s of a 120 s budget.
+
+  **A wrong reading this gate cost once, worth repeating**: `GATE_EXCLUSION` is 32 m, which on the
+  64-tile gate world is half the map, so a "this tile is legal now that home moved" probe there
+  answers false for the exclusion disc rather than for the rect. The `READS` lane runs at the shipped
+  256 for that reason, and takes its probe from the first *plain floor* tile inside the annex rather
+  than from its corner, which is wall.
+
+  **Throughput: measured, because one of these edits is on a hot path.** `SimJobs._near_home` calls
+  `SimHome.centre` for every Haul and Scavenge candidate, so routing it through a component query
+  where a `map.anchors` dictionary lookup used to be is a real risk rather than a theoretical one.
+  `SimCamp.home_of` opens with `components.count("camp") == 0`, one dictionary lookup and a size,
+  which is the shipped case. Measured on the same throwaway driver before and after, 400 warm-up and
+  4,000 timed ticks on a 256-tile district: **76.7 ticks/s with `SimHome`, 76.2 without** — inside
+  run-to-run noise, and the routed build was the faster of the two. Driver deleted.
+
+  **Balance: unmoved, and `OPTIONAL` is what says so** rather than a claim. A camp is a thing the
+  player must go and do; a world where nobody does it is the shipped world, and the district path is
+  untouched — `godot:m2:director`, `godot:m2:district` and the balance tier are green unchanged. No
+  re-baseline.
 
   ~~The flip: the main area is what you boot~~ **landed 2026-09-10**, and it landed with **one of
   its two predicted failures corrected rather than confirmed** (`godot:m2:region` at ten lanes).
