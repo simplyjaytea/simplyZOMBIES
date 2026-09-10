@@ -3230,6 +3230,56 @@ earlier decision of the owner's.
   **not** exempted, which is what keeps "blue" from becoming garish. Water joins `COOL_FAMILY`
   beside the glass, which is the entry that was already the exception to the mood.
 
+## The main area, 2026-09-09 / 2026-09-10
+
+The owner's two decisions about the region, and the four things building it made structural.
+
+- **The extent: a 2×2 of full 256 m districts, nearly touching.** Chosen over a roomier grid of
+  smaller ones, explicitly accepting that it sits on the measured line, because **a district staying
+  exactly 256** is what keeps every balance band, the survivability validator and the harness
+  measuring the thing they were calibrated on. The shipped number is **528 = 2 × 256 + a 16-tile
+  seam**: 512 exactly would leave literally no room between the districts, and shrinking them to 248
+  to hit it would give up the one property that made the choice.
+- **This amends docs/24's district spacing, and the amendment is the point rather than a detail.**
+  That document argues *in writing* for 300–500 m between districts, with a reason — packed
+  edge-to-edge a 3×3 spans 768 m and the player walks 800 m by week 6, so they would cover the
+  region on foot before ever needing a vehicle. A 16-tile seam is far under that and leaves roadside
+  wrecks and road blockages nowhere to live. It is shipped anyway because the measurement (docs/23's
+  record) says a 912-tile region runs at 0.46× real time and cannot be resident. **The extent is
+  content, not a constant**, precisely because there is no headroom: `cellTiles` is the dial to turn
+  when a real run says so, and turning it needs no code change.
+- **The colony can be established anywhere.** So the annex is not assigned to a district: every cell
+  generates colonyless and candidates are ranked across all four. That answer matches the
+  vertical-slice design record word for word — Task 8's *"Any location can host a camp. There are no
+  hard suitability restrictions; danger, exposure, and time-to-establish are the cost."* — which
+  covers a **runtime** half this arc did not build. The generation-time half landed; Task 8 is named
+  in docs/23's what's left rather than smuggled in beside it.
+
+### What the assembler made structural
+
+- **Call the district generator; do not fork it.** `SimWorldgen.generate` assumes a square map whose
+  edge it walls and whose whole area every pass scans. Rect-relative passes would have been a
+  rewrite that moved every layout and invalidated every measured band. Generating each cell as its
+  own district and blitting it in buys the strongest assertion available instead: **a cell's
+  sub-rect is byte-identical to that district generated alone**, which proves the assembler moved
+  *nothing* rather than proving it moved the right things.
+- **Per-cell seeds keep every worldgen pass untouched.** A cell's seed is
+  `derive_seed(region_seed, "region.<x>.<y>.<district>")` and *that* is what the existing
+  `_stream(seed, "worldgen.<pass>")` chain derives from — so no pass changed, and swapping one
+  cell's district re-rolls only that cell, which is what the procedural-expansion end goal will want.
+- **Site the colony on the layout, never on the finished map.** The first assembler ranked candidate
+  lots by street frontage read off the assembled region, and switching the dressing off moved the
+  colony 45 tiles: `_rubble` heaves patches up through a street and `_street_frontage` counts paved
+  neighbours. docs/30 already recorded this rule for a district — *"a colony sited off the trees
+  would move when the trees were switched off"* — and it was broken at region scale by re-deriving
+  the ranking one layer too late. **The rule generalises: anything that decides where something is
+  built reads the layout, and only the layout.**
+- **A manifest offset has a direction, and getting it wrong is silent.** `axis "x"` is a *vertical*
+  street at column `at`; `axis "y"` a horizontal one at row `at`. A span offset with x and y swapped
+  still lands on the map and still looks like a street manifest, and only the road paint and the
+  path pass quietly go down the wrong lines. `check_m2_region.gd`'s MANIFEST lane walks every span
+  to its own midpoint and refuses one that reads solid.
+
 ### What the generated water made structural, 2026-09-09
 
 The pass that carves it, and the four things it taught. Each was found by a gate or a guard rather

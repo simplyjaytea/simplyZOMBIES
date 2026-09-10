@@ -204,19 +204,16 @@ and water genuinely blue. **This moves Milestone 3B items 1 and 5 into the alpha
 owner's call and is recorded as one. The pieces, in the order they land — the first has landed:
 
 - ~~Water: the tile, the surface, and the one cool ground~~ — **landed**, see the record.
-- **The region assembler.** `SimRegion.generate` calls `SimWorldgen.generate` **once per district
-  cell** and blits the result: `generate()` assumes a square map whose edge it walls and whose whole
-  area it scans, so making eleven passes rect-relative would be a rewrite that moves every layout.
-  The blit is `SimTemplates.stamp`'s shape one scale up, and it must offset every manifest — note
-  `map.streets`' axis convention, where `axis:"x"` means `at` is a *column*, so getting the offset
-  backwards silently breaks the road paint and the path pass. Per-cell seed via
-  `derive_seed(region_seed, "region.<col>.<row>.<district>")`, so **no worldgen pass changes at all**
-  and swapping one cell's type re-rolls only that cell. `generate()` gains `annex: bool = true`;
-  when false `annex_candidates` already returns `[]` on a zero footprint and `survivability_report`
-  already short-circuits, so passes 4 and 8 cost nothing — but a reserved lot *removes* a density
-  draw, so a district with no colony is not the same district minus the colony, and the identity
-  assertion must pass the same flag. The prize for this seam is the strongest assertion available:
-  **each cell's sub-rect is byte-identical to generating that district alone.**
+- **The camp the player establishes.** Opened by the owner's 2026-09-09 answer that *the colony can
+  be established anywhere*, and specified already: the vertical-slice design record's **Task 8**
+  (`.hermes/plans/2026-08-17_065300-vertical-slice-design.md`) — a deterministic `camp.create`, no
+  hard suitability restrictions ("danger, exposure, and time-to-establish are the cost"), camp-local
+  light/noise/scent/occupancy as the director's readable pressure inputs, free abandonment leaving a
+  known empty site, and a run that stays viable with no camp at all. The **generation-time** half of
+  "anywhere" landed with the region assembler — the annex is ranked across every cell rather than
+  assigned to a district — and this is the runtime half. It is named here rather than smuggled in
+  beside the assembler because it is its own arc, and because CLAUDE.md's step 2 says so.
+
 - **The flip: the main area is what you boot.** Two silent failures to fix in this piece, both
   found by reading rather than by running. `SimDirector._edges_by_side` scans the outer three-tile
   band and its first filter is `tile != Tile.Floor` — on a region map that band is the corner
@@ -1726,6 +1723,55 @@ not a to-do list:
   documented both coexisting authoring conventions (face-on pawn, rotating rig) and said which
   applies when; the seam was owner-accepted until the roster was re-authored, which the
   2026-09-01 directives then did — one convention, true overhead, in the characters slice.
+  ~~The region assembler~~ **landed 2026-09-10** (`npm run godot:m2:region` → `M2_REGION_OK`, eight
+  lanes, the chain's **57th** gate). docs/24's region, at the size the measurement allows rather than
+  the size that document asks for — the owner's two decisions of 2026-09-09, both recorded in
+  docs/30. **Ashgrove is 528 × 528**: a 2×2 of full 256 m districts (town centre, forest edge,
+  industrial park, residential suburb) with a 16-tile seam, generated in **3.9 s**, carrying **307
+  buildings, 189 vehicles, 521 loot sites and all five loot tables in one map**.
+
+  **It calls the district generator rather than forking it, and that is the whole design.**
+  `SimWorldgen.generate` assumes a square map whose edge it walls and whose whole area every pass
+  scans, so making eleven passes rect-relative would have been a rewrite that moved every layout and
+  invalidated every measured band. Each cell is generated as its own district at its own full size
+  and blitted in by `SimRegion._paste`, which offsets all four manifests. **The property that buys is
+  measured, not asserted by comment: every cell's sub-rect is byte-identical to generating that
+  district alone — diff 0 on all four.** `generate()` gained `annex: bool = true`; when false,
+  `annex_candidates` already returned `[]` on a zero footprint before creating its stream and
+  `survivability_report` already short-circuited, so passes 4 and 8 cost nothing and every existing
+  caller is untouched (the default is byte-identical, asserted).
+
+  **The colony is sited across the whole region, which is the owner's "established anywhere" made
+  mechanical at generation time.** Every cell generates colonyless; candidates are gathered from all
+  four and ranked by the same frontage → centrality → ordinal order `annex_candidates` uses within
+  one district. On the canonical seed it picks the town centre, unprompted. The `reject` hook —
+  until now reachable only from `check_m2_district`'s re-site lane and documented there as a test
+  hook — gets its **first production reader** in the re-site loop, which closes a socket rather than
+  opening one. The *runtime* half of "anywhere" (Task 8, the player-established camp) is named in
+  what's left rather than built here.
+
+  **The bug the gate caught, and it is the one worth reading.** The first assembler ranked candidate
+  lots by street frontage read off the **assembled** map — and `_rubble` heaves patches up through a
+  street while `_street_frontage` counts paved neighbours, so **switching the dressing off moved the
+  colony 45 tiles** (156,302 → 201,205). That is exactly the rule docs/30 already records for a
+  district — *"a colony sited off the trees would move when the trees were switched off"* — broken
+  at region scale by re-deriving the ranking one layer too late. Ranking now happens against a
+  layout-only scratch region (`_layout_region`: passes 1–3.5 plus the seams, nothing a dressing pass
+  may touch). The DETERMINE lane asserts the **annex rect** is identical dressed and undressed, and
+  was proved red against the old ranking before it was trusted. A second gate-own arithmetic error
+  was found the same way: the annex brings its own two loot rows, so the region carries its cells'
+  sites *plus* those.
+
+  Seams are **derived, not drawn** — read off the openings the districts already carved in their own
+  walls, so they cost no draw and are identical on every seed for a given pair. Determinism holds
+  three ways (same seed identical, different seed differs, `dress=false` repeatable), all seven
+  survivability clauses answer with **none skipped**, and the flood from the colony gates reaches
+  every cell. 50.7 s of a 180 s budget.
+
+  **Balance: unmoved, and that is the point of the split.** The game still boots a single district;
+  only the gate boots a region. Flipping the boot is the next piece, and it is the one that moves
+  the harness.
+
   ~~Wading, and telling the two waters apart~~ **landed 2026-09-09** (`godot:check:water` at ten
   lanes with WADE; `SAVE_VERSION` 27 → 28). The owner's three asks, which turned out to be one
   mechanic seen from three sides.

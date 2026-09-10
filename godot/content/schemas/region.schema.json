@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://simplyzombies.dev/schemas/region.schema.json",
+  "title": "Region",
+  "description": "Several districts in one continuous coordinate space, assembled by SimRegion.generate. docs/24's region, built at the size the measurement in docs/23's record allows rather than at the size docs/24 asks for -- the owner's 2026-09-09 call, and the docs/24 amendment that goes with it explains why the gap between districts is a seam rather than the 300-500 m that document argues for.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "cellTiles",
+    "cells"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^region\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "Stable namespaced id. Permanent once shipped; SimRegion.generate selects on it."
+    },
+    "name": {
+      "type": "string",
+      "description": "What the place is called out loud. Prose, not an enum."
+    },
+    "cellTiles": {
+      "type": "integer",
+      "minimum": 32,
+      "description": "The side of one district in tiles. 256 is docs/24's district and the size every balance band, the survivability validator and the harness were measured against, which is why the owner's extent decision kept it. **This is the dial to turn if the region is over budget** -- the measurement in docs/23's record has no headroom at 2x256, so lowering this is expected to be the first response to a real run being slow, and it needs no code change."
+    },
+    "seamTiles": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Tiles of road between adjacent districts. docs/24 argues for 300-500 m and this ships far under it -- see the amendment there. 0 is legal and means the districts' walls touch, with their connection-point openings meeting directly; the assembler carves no seam at all in that case and the region gate's flood lane is what proves the cells still join."
+    },
+    "cells": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Which district sits where, on a grid of cell coordinates. Order in this array does not matter -- SimRegion.cells_of sorts by (y, x), for the reason templates_of sorts by id: nothing the assembler does may depend on the order content happened to be written in.",
+      "items": {
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "district"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cell column, 0-based."
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cell row, 0-based."
+          },
+          "district": {
+            "type": "string",
+            "pattern": "^district\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+            "description": "The district type generated into this cell. Named in the cell's own seed derivation, so changing it re-rolls this cell and leaves its neighbours untouched."
+          }
+        }
+      }
+    }
+  }
+}

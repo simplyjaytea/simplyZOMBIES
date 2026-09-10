@@ -43,6 +43,15 @@ generator's 64 m is then a quarter-radius beacon, and an
 [engine's](25-vehicles.md) 171–314 m covers most of a district continuously — which is exactly the
 claim that vehicles are the loudest thing you own.
 
+**Amended 2026-09-10, and the amendment is measured rather than preferred.** The alpha's main area
+ships four districts at **528 tiles a side with a 16-tile seam** between them, far under the
+300–500 m this section argues for. The reason is docs/23's sizing record: the simulation falls below
+real time between 384 and 512 tiles, and a 2×2 at this section's spacing would be ~912 tiles, which
+measured **0.46× real time** — it cannot be resident. What the short seam costs is exactly what the
+paragraph below says it costs: the progression argument weakens, and roadside wrecks and road
+blockages have nowhere to live. Both are accepted for the alpha. The extent is a content number
+(`cellTiles` in `content/regions/`), so restoring the gap is a data change once streaming exists.
+
 **Districts do not touch.** That matters more than it looks. Packed edge-to-edge, a 3×3 region would
 span 768 m — and the radius diagram below has the player walking 800 m by week 6, so they would have
 covered the entire region on foot before ever needing a vehicle. Connecting road stretches of
