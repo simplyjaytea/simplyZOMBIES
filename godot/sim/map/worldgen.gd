@@ -145,12 +145,29 @@ const VEHICLE_SLOT: int = 8
 # without a way to refuse one from outside, the loop would be code nothing has ever run.
 # check_m2_district.gd's re-site lane hands it a predicate that refuses the top candidate and
 # asserts the second is taken; the game passes nothing and gets the empty Callable.
-static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, content: Variant = null, district_id: String = DEFAULT_DISTRICT, dress: bool = true, reject: Callable = Callable()) -> Variant:
+# `annex` false generates a district **nobody lives in**: no colony stamped, no anchors written, and
+# the survivability pass judging nothing. It exists for the region assembler, which sites one colony
+# across the whole region rather than one per district (the owner's call: the colony can be
+# established anywhere), so three of a four-cell region are generated this way.
+#
+# Nothing below needed a second code path for it. A zero footprint already makes `annex_candidates`
+# return `[]` **before** it creates its stream, so pass 4 costs no draw; `reserve` stays empty, the
+# stamp never runs, and `survivability_report` already short-circuits on an empty annex rect and
+# reports `sited: false`. The `while` loop then breaks on its first attempt.
+#
+# One consequence to know rather than discover: `_buildings` skips its density draw for a reserved
+# lot (`_rect_in_reserve` continues *before* `rng.call("next")`), so a district generated with
+# `annex = false` is **not** the same district with the colony deleted -- every building after the
+# lot the colony would have taken re-rolls. That is correct and intended, and it means any assertion
+# comparing two generations has to pass the same flag to both.
+static func generate(seed_val: int, size: int = SimTileMapRes.DISTRICT_TILES, content: Variant = null, district_id: String = DEFAULT_DISTRICT, dress: bool = true, reject: Callable = Callable(), annex: bool = true) -> Variant:
 	var tree: Dictionary = content as Dictionary if content is Dictionary else ContentLoaderRes.load_tree()
 	var district: Dictionary = district_of(tree, district_id)
 	var templates: Array = templates_of(tree)
 	var vehicles: Array = vehicles_of(tree)
-	var patch: Variant = annex_template_of(tree)
+	# Asked for only when a colony is wanted, so a region's three colonyless cells do not each raise
+	# the "no annex in content" error that exists to catch a genuine content bug.
+	var patch: Variant = annex_template_of(tree) if annex else null
 	var footprint: Vector2i = SimTemplatesRes.footprint(patch as Dictionary) if patch is Dictionary else Vector2i.ZERO
 
 	# One attempt is the whole district downstream of the layout: the colony stamped on one lot, the
