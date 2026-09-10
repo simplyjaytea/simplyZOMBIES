@@ -3255,6 +3255,35 @@ The owner's two decisions about the region, and the four things building it made
   covers a **runtime** half this arc did not build. The generation-time half landed; Task 8 is named
   in docs/23's what's left rather than smuggled in beside it.
 
+### What the flip made structural, 2026-09-10
+
+- **A prediction written as fact cost more than the bug would have.** "Every night arrives empty
+  with no error" was reasoned from `_edges_by_side`'s first filter and written into docs/23, two PR
+  bodies and `HANDOFF.md` before anything measured it. It was wrong: `_border` walls one tile and
+  the band is three, so the pool is *larger* on a region than on a district. The real fault was the
+  **distance** — 215–432 m from the gate against 122–182 — which is a dilution rather than an
+  absence and would have been much harder to notice in play. The fix was worth building either way;
+  the lesson is that a failure reasoned from a code path is a hypothesis until a driver has run.
+  **The gate measures the distance, not the count**, because the count was never the problem.
+- **A map may name its own spawn band.** `SimTileMap.spawn_edges`, on the `streets`/`vehicles`
+  precedent: a plain Array, never serialised, empty on every district, consulted by the director
+  only when non-empty. A region writes the annex cell's own inner band, so night pressure keeps the
+  distance every measured band was calibrated at. The other three districts deliberately do **not**
+  contribute: pressure arriving from across the region is a design and balance question, not an
+  oversight, and it wants the owner and a measurement rather than a default.
+- **Population is the sum of a map's cells, never a function of its extent.** A region's seams are
+  road and countryside and hold nobody, so a side reading counts ground with nowhere to live on it.
+  The per-side functions stay pinned and untouched; the region reading is its own function.
+- **The budget chose the district size, and the cost is named.** At `cellTiles` 256 the region
+  measured **0.94× real time** — under its own clock — so by docs/00 pillar 6 it did not ship. The
+  owner shrank the cells to 192: 400 tiles, **1.48×** against a district's 4.15×. What that gives up
+  is stated rather than glossed: **a region's districts are no longer the 256 m the balance bands
+  were measured on.**
+- **The region is opt-in.** `--region=<id>` boots it; the default is still one district. 1.48× is
+  above the clock with much less room than 4.15×, and the same container has measured the same
+  district at 55 and 83 ticks/s on different days — so the margin is real but not comfortable, and
+  making a region the default is a decision to take after playing rather than from a table.
+
 ### What the assembler made structural
 
 - **Call the district generator; do not fork it.** `SimWorldgen.generate` assumes a square map whose
