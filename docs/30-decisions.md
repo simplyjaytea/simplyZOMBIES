@@ -3255,6 +3255,50 @@ The owner's two decisions about the region, and the four things building it made
   covers a **runtime** half this arc did not build. The generation-time half landed; Task 8 is named
   in docs/23's what's left rather than smuggled in beside it.
 
+### The camp, and where home is, 2026-09-10
+
+- **The owner's shape for a camp: temporary, evolvable later, usable as an outpost.** Asked whether
+  the generated annex and a player camp were one concept or two, the answer was neither of the two
+  offered — a camp is a *lighter* thing than the annex, there may be more than one, and turning one
+  into something permanent is later work. So `SimCamp` allows many camps with exactly one flagged
+  `home`, and deliberately gives a camp no indoor floor, no stockpile and no walls.
+- **Home is a read model with the map anchors as its floor.** `annex`, `gate_a`, `gate_b` and
+  `player_start` were generation-time entries in `map.anchors`, read independently by seven modules
+  across 24 call sites, and `map.anchors` is never serialised — so an anchor written at runtime would
+  vanish on the next load silently. `sim/home.gd` is one ladder whose last rung is what each caller
+  did before, which is what lets a world with no camp answer byte-identically. **Four readers were
+  left on the anchors on purpose** and each says why in the code: the stockpile (a camp has no indoor
+  floor), recruits (strangers at an outpost is a design question), boot (generation-time), and
+  `can_scrap` (about the authored gate).
+- **A camp is a prop entity, because there is no place-emitter.** The only recurring emission in the
+  sim comes from the two per-entity systems in `attention_emitter.gd`; a place emits by having
+  something stand on it, which is what the campfire, the latrine and the noisemaker already do. That
+  also means **no `SAVE_VERSION` bump** (it stays 29): `component_store.save()` is generic and a new
+  component is the case `serialize.gd`'s ledger already records for treatment.
+- **It carries no emitter of its own, and the plan for the slice was wrong about that.** An emitter
+  with every channel zero is a dead socket of the shape CLAUDE.md lists eleven of. What emits at a
+  camp is the fire, the light and the people, all of which emit already — which is the same reason
+  the director needed no change: `_emit_packet` never targeted the colony, and the pull is the field.
+- **Establishing is a channel and its own key.** Task 8 asks for "a deliberate, interruptible
+  commitment — not a menu click", so it reuses fortify's channel whole and inherits the stagger and
+  grab interrupts and `CONSTRUCT_NOISE` — docs/03's 30, "a beacon all day" — rather than inventing a
+  number. **C**, not a rung on E's ladder: moving home by accident is worse than one more key, and E
+  stays "act on what is in front of you". The 40-tick clock is fortify's ordinary one; a camp's real
+  labour cost is the deferred slice, and until then establishing is cheap in time and loud in noise.
+- **The night band follows home, on a region only.** The owner's answer. `SimCamp.sync_map` sits
+  beside the fortify and vehicle syncs in `world.restore` because `spawn_edges` is derived rather
+  than serialised. On a district it is a no-op and the perimeter scan runs unchanged, which is what
+  keeps every measured band valid; on a region it moves the band to the camp's cell so a camp two
+  districts away does not leave pressure arriving where the player no longer is.
+  `SimTileMap.region_cell_stride` exists for it — the other two region fields say what a region is
+  made of, this one says where the joins are, which is what a runtime reader needs when the region
+  content is out of scope.
+- **`GATE_EXCLUSION` is 32 m, and on a 64-tile gate world that is half the map.** A probe asking "is
+  this tile legal now that home moved" answers false there for the exclusion disc rather than for the
+  rect, which produced one wrong reading while `check_m2_camp` was being written. The `READS` lane
+  runs at the shipped 256 for that reason. Same family as the annex-corner probe that reads as wall:
+  a measurement needs to be shown it is measuring what it thinks it is.
+
 ### What the flip made structural, 2026-09-10
 
 - **A prediction written as fact cost more than the bug would have.** "Every night arrives empty

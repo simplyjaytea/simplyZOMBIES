@@ -96,6 +96,12 @@ var spawn_edges: Array = []
 # manifests around them.
 var region_cells: int = 0
 var region_cell_tiles: int = 0
+# How far apart two adjacent cells start: `cellTiles + seamTiles`. The other two say what a region
+# is made of; this one says where the joins are, which is the only thing a *runtime* reader needs to
+# answer "which cell is this tile in" without the region content in hand. `SimCamp.sync_map` is that
+# reader: when home moves to another cell the night band has to move with it, and at that point the
+# region dictionary is long out of scope. 0 on a district, like the two above.
+var region_cell_stride: int = 0
 # The streets the generator carved, in carve order: {axis, at, width, from, to} per span, in
 # absolute tiles -- axis "x" is a vertical street standing at column `at`, axis "y" a horizontal
 # one at row `at`, each `width` tiles wide running `from`..`to` inclusive along its length. Layout

@@ -170,6 +170,7 @@ static func generate(seed_val: int, region_id: String = DEFAULT_REGION, content:
 	# What the map is made of, so the population readings can ask cells rather than extent.
 	map.region_cells = cells.size()
 	map.region_cell_tiles = cell_tiles
+	map.region_cell_stride = cell_tiles + maxi(0, int(region.get("seamTiles", 0)))
 	return map
 
 
@@ -543,6 +544,19 @@ static func _write_spawn_edges(map: Variant, region: Dictionary, cells: Array, c
 		if bounds.encloses(annex):
 			host = bounds
 	if host.size.x <= 0:
+		return
+	write_band(map, host)
+
+
+# One cell's outer band, written into `map.spawn_edges`.
+#
+# Public, and separated from the caller above, because the band has a **second** writer now: when
+# the player establishes a camp in another cell, `SimCamp.sync_map` moves the band to that cell for
+# exactly the reason this one exists. Two copies of the bucketing below is precisely the drift the
+# comment above warns about, so there is one.
+static func write_band(map: Variant, host: Rect2i) -> void:
+	(map.spawn_edges as Array).clear()
+	if host.size.x <= 0 or host.size.y <= 0:
 		return
 	# Row-major over the cell, keeping only its outer band, bucketed by side in
 	# `SimDirector.SIDE_NAMES` order. Legality is left to the director: it already asks

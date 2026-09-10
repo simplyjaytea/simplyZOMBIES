@@ -2,6 +2,7 @@ class_name SimFortify
 extends RefCounted
 
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimCampRes = preload("res://sim/modules/camp.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
@@ -449,6 +450,23 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 				var pos: Variant = world.components.get_component(int(bait), "position")
 				if pos is Dictionary:
 					_start(world, actor, "wind", floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+		# Establishing a camp is a channel and not a rung on the E ladder, deliberately. Task 8 asks
+		# for "a deliberate, interruptible commitment -- not a menu click", and a rung would make it
+		# the thing that happens when you press E on empty ground with a trap and a bait already
+		# down. Moving home by accident is worse than one more key. It channels on the tile the actor
+		# is standing on rather than the one they face: you camp where you are.
+		"camp.establish":
+			var here: Vector2i = _tile_of(world, actor)
+			var cx: int = int(c.get("tx", here.x))
+			var cy: int = int(c.get("ty", here.y))
+			if SimCampRes.can_establish(world, cx, cy):
+				_start(world, actor, "camp", cx, cy)
+		# Abandoning is free and immediate -- Task 8 again, and the cost of moving is paid
+		# establishing the next one. No channel, because there is nothing to build.
+		"camp.abandon":
+			var home: int = SimCampRes.home_of(world)
+			if home >= 0:
+				SimCampRes.abandon(world, home)
 
 
 static func _start(world: Variant, actor: int, verb: String, tx: int, ty: int) -> void:
@@ -500,6 +518,12 @@ static func _complete(world: Variant, _actor: int, verb: String, tx: int, ty: in
 			_wind_noisemaker(world)
 		"bench":
 			_place_bench(world, _actor, tx, ty)
+		# Re-validated on completion rather than trusted from the start, the way `_place_scrap` and
+		# `_place_bench` are: a channel that began on open ground and finished on a tile somebody
+		# else camped on must leave nothing behind. `create` answers -1 there and the channel is
+		# simply spent, which is the same shape as arriving at a window somebody already boarded.
+		"camp":
+			SimCampRes.create(world, tx, ty)
 
 
 static func _board_window(world: Variant, tx: int, ty: int) -> void:

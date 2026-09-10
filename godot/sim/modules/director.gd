@@ -3,6 +3,7 @@ extends RefCounted
 
 const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
+const SimHomeRes = preload("res://sim/home.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
@@ -459,9 +460,13 @@ static func _edges_by_side(world: Variant) -> Array:
 	# Hoisted, once per call, because the annex and the gates are map state now rather than
 	# constants and this loop asks about every edge tile in the district. Reading them per tile
 	# would put a dictionary lookup where a compile-time constant used to be.
-	var annex: Rect2i = SimTileMap.annex_rect(map)
-	var gate_a: Vector2i = SimTileMap.gate_a(map)
-	var gate_b: Vector2i = SimTileMap.gate_b(map)
+	# Asked of `SimHome` rather than the map since the camp slice: home is relocatable now, and the
+	# keep-off it buys has to travel with it or a camp would have the dead spawning on its fire.
+	# With no camp every one of these is the map anchor it always was, which is what
+	# `check_m2_director.gd`'s byte-identical assertion holds.
+	var annex: Rect2i = SimHomeRes.rect(world)
+	var gate_a: Vector2i = SimHomeRes.gate_a(world)
+	var gate_b: Vector2i = SimHomeRes.gate_b(world)
 	var w: int = int(map.w)
 	var h: int = int(map.h)
 
@@ -565,7 +570,9 @@ static func _legal_tile(map: Variant, tx: int, ty: int, annex: Rect2i, gate_a: V
 static func _annex_peak(world: Variant) -> float:
 	if world.field == null:
 		return 0.0
-	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
+	# Home's rect, not the map's annex: the quiet floor asks "how loud is it where these people
+	# live", and since the camp slice that can be somewhere the generator never chose.
+	var annex: Rect2i = SimHomeRes.rect(world)
 	if annex.size.x <= 0 or annex.size.y <= 0:
 		return 0.0
 	var peak: float = 0.0
