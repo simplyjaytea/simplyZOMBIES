@@ -17,6 +17,12 @@ Two targets were tested: a shadow of the `survivor_colonist` pawn rig, and a thr
 **Not for pawn rigs, and not fixably. Yes for props, after a mechanical post-process** — the
 three-quarter crate it produced is arguably better than the flat top-down one that ships today.
 
+Six target families were tested in the end (bodies, props, ground, trees, walls, an interior
+floor). The single most important finding is not about any of them: **`authored.json` refuses
+`ground_atlas`, every `PAWN_KEYS` entry, every `TREE_KEYS` entry and every vehicle**, so most of
+this project's art cannot be shipped as a delivered file at all, however good it is. See "What can
+actually ship" below, which was written after the rest of this document and corrects it.
+
 ## What SpriteCook is
 
 Remote HTTP MCP at `https://mcp.spritecook.ai/mcp/claude`; OAuth 2.1 + Dynamic Client Registration
@@ -112,8 +118,21 @@ any; a three-quarter box has shadowed faces with nowhere to map, and the result 
 
 ## Cost
 
-Two generations, 10 credits of 40 (30 remaining). Both at `gpt-image-2.5-sunburst`, `quality: low`,
-`pixel: true`, `bg_mode: 'transparent'`, `smart_crop: false`.
+Six generations, 25 credits of 40 (15 remaining), all `gpt-image-2.5-sunburst` at `quality: low`
+with `smart_crop: false`:
+
+| # | Target | Asked | Returned | Credits |
+|---|---|---|---|---|
+| 1 | pawn rig | 32×40 | 82×73 (landscape) | 5 |
+| 2 | three-quarter crate | 32×32 | 260×259 | 5 |
+| 3 | rubble ground (`mode: texture`) | 32×32 | 128×128 | 5 |
+| 4 | dead tree | 32×96 | 168×160 | 5 |
+| 5 | conifer | 32×96 | 85×92 | 5 |
+| 6 | board floor (`mode: texture`) | 32×32 | 255×258 | 5 |
+
+Not one returned the requested size. `aspect_ratio` is honoured where it is one of the three
+supported values, which is why shot 1 (an unsupported 4:5) came back landscape and the square
+requests came back square. `mode: "texture"` gave the two best sizings.
 
 ## Not tested
 
@@ -158,3 +177,112 @@ Two exceptions are published in the file rather than inferred, because the first
 neither and reported FAIL on seven correct sprites: only `survivor_colonist` is achromatic, and
 only `zombie_bloater` may reach 26 px at the shoulder. The achromatic lane **skips and says so** on
 a key that is not runtime-tinted rather than passing quietly.
+
+## The other four targets
+
+Tested after props, in this order. Credits and measurements are in "Cost" below.
+
+**Ground (a rubble cell) — the best measured result, and one that cannot ship.** `ground.py`'s
+colour rule is a mathematical identity rather than a style: marks are value-only, so hue and
+saturation stay exactly at the row tint's, and `_finish_cell` adds one uniform correction so the
+cell's mean lands on the tint. Measured on the shipped atlas, every variant of a surface has the
+same mean to 0.1 — r0c0 and r0c1 both `(71.0, 66.0, 64.0)` — with hue spread 0.010–0.039, sat
+spread 0.018–0.029 and 31–49 colours a cell.
+
+That whole transformation is closed-form, so it applies to a generated texture as post-processing.
+Re-graded to `rubble` (`#4e4a46`), SpriteCook's output measured: 32 colours, hue spread 0.0238, sat
+spread 0.0188, value stdev 0.0136 against the shipped 0.0135, **mean exactly `(78.0, 74.0, 70.0)`**,
+and a wrap seam 1.01× the mean interior step — i.e. indistinguishable from any interior column, so
+it tiles. `mode: "texture"` also returned 128×128, a clean 4:1 to 32×32 and the best sizing of any
+shot.
+
+Two things worth keeping from it. First, the **first** re-grade was 4.6× over budget: value spread
+0.110 against the shipped 0.024, where `GROUND_CONTRAST` is 0.10 — the tile's own internal contrast
+would have eaten the entire separation that keeps a drab pawn legible on it. That was an error in
+the re-grade, not in the generation: the value range had been taken from the spread *across* the
+six surfaces rather than *within* a cell. Second, at the corrected contrast the generated grain is
+**organic where the procedural marks lattice** — the shipped cell's speckles land on a visible grid
+that reads as a repeat across a floor, and the generated one has no such structure.
+
+**An interior board floor — usable, second best.** Re-graded to `boards` (`#6a5540`): 24 colours,
+hue spread 0.0048 against the shipped 0.0049, value stdev 0.0243 against 0.0242, mean exactly
+`(106.0, 85.0, 64.0)`. But **matching amplitude is not matching texture**: adjacent-pixel step came
+out 5.87 against the shipped 2.09, the same variation packed at much higher spatial frequency.
+Autocorrelation says why — the shipped floor locks onto period 8 (r=+0.64), `buildings.py`'s
+"courses of eight" made measurable, while the generated one locks onto 16 (r=+0.81, which divides
+32 and is fine) plus a period-3 grain that does not divide 32 and so breaks rhythm at every tile
+boundary. Low enough amplitude that the direct seam test still passed at 0.68×, so it is a soft
+defect, not a visible seam. Any future check on texture wants **both** metrics: stdev for
+amplitude, adjacent-pixel step for frequency.
+
+**Trees — good trees, wrong style.** Two shots, a dead tree and a conifer, both pinned to the
+shipped palettes. The numeric bounds are reachable: fitted to 32×96, feet-anchored, re-outlined
+(229 and 219 edge pixels, against `tree_pine_a`'s own 216). The gap is not numeric. The shipped
+trees are chunky and abstract — 127–133 colours in flat bands — and both generated ones are
+naturalistic, at 304 and 490 colours. In one scene they read as two different games, and unlike an
+outline or a palette **nothing post-processes "naturalistic" into "chunky"**. Two defects on top:
+the conifer's bottom row is 1 px against the shipped 6 px trunk, and it is feet-anchored on that
+row; and the dead tree came out 8 px short because its natural aspect (0.312) is wider than the
+tile allows (0.286), so `trees.py`'s one-tile-wide rule binds on width and forces the height down.
+
+**Walls — do not.** Not attempted, and the measurement is why. `wall_block_cap` and
+`wall_render_cap` are **2 colours**; `wall_brick_cap` and `wall_timber_cap` are **3**;
+`roof_tar_flat` 3, `roof_shingle_s` and `roof_tin_s` 4; `face_window` 5. `wall_brick_cap` in full
+is `#9a6a58` (638 px), `#b47c67` (357 px), `#66463a` (29 px) — every bit of its read is the
+*arrangement* of three flat tones into courses on a period that divides 32. SpriteCook emits
+1200–3000 smoothly-rendered colours; quantising that to three gives noise where the spec needs
+courses. This is the one target where the generator's core output is structurally wrong and no
+post-process closes it.
+
+## The spectrum, which is the actual conclusion
+
+| Target | Colours per 32×32 | Outcome |
+|---|---|---|
+| walls, roofs | **2–4** | worst fit; flat marks on exact periods |
+| ground, sidewalk, boards | 31–52 | best fit; noise the re-grade preserves |
+| props | 79–127 | good |
+| trees | 127–133 | numerics reachable, style gap not |
+| bodies | structural, not chromatic | unusable |
+
+**SpriteCook succeeds in inverse proportion to how structural the spec is.** Where "correct" is a
+number a transformation can move toward — a mean, a stdev, a footprint, an outline colour — the
+post-process closes it. Where "correct" is a mark that must be *at* one place — a hand on column
+7.6, an eye on one pixel, a brick course on period 8 — it cannot, and prompting does not help.
+
+## What can actually ship
+
+This was checked last and it corrects the enthusiasm above. `godot/check_authored.gd`'s
+`_rule_places` refuses an `authored.json` key that a rule already places:
+
+```gdscript
+if key.begins_with("chart_"): return true
+if key == Appearance.GROUND_ATLAS_KEY: return true
+if Appearance.PAWN_KEYS.has(key) or Appearance.TREE_KEYS.has(key): return true
+return Appearance.vehicle_canvas(key) != Vector2i.ZERO
+```
+
+`_no_key_is_in_both_tiers` then refuses the declaration outright — "one key, one tier". So
+**`ground_atlas`, every pawn, every tree and every vehicle are barred from the authored tier by
+design.** The rubble cell that matched the tint exactly and tiled at 1.01× cannot be delivered as a
+file at any quality. Its only route into the game is porting the grain into `ground.py` as
+procedural marks, which is writing code with a generated image as a reference — not shipping an
+asset. The same holds for the board floor (ground atlas row 7) and for both trees.
+
+Props are not on that list, so the crate is the one candidate. Rebuilt with an endpoint-preserving
+resample (`round(yy*(bh-1)/(sh-1))`, so the extreme source rows survive and the measured bbox lands
+where it was placed), it measures: bbox 17×20, larger dimension **20** against
+`round(0.62 * 32) = 20`, zero stray edge pixels, transparent, on canvas. `check_appearance.gd`'s
+footprint lane is `maxi(w, h)` against `round(size * ART_NATIVE)` with `FOOTPRINT_SLACK_PX = 4`, so
+it passes with room. Four things still stand between it and the game:
+
+1. **It needs a `.searched` sibling.** The prop lane compares `prop.container` against
+   `prop.container.searched` as pixel data and refuses identical pictures.
+2. **`props.py:194` already registers `prop_container`.** `build.py` refuses a key in both tiers, so
+   authoring it means deleting working procedural art — a trade, not an addition.
+3. It would be **the only three-quarter prop** among four flat top-down ones until that migration
+   lands.
+4. It needs its `authored.json` entry:
+   `{"canvas": [32, 32], "kind": "tile", "reads": "prop.container"}`.
+
+**Nothing generated in this session is drop-in shippable.** The crate is the only one that could be,
+and only at the cost of retiring the procedural art it replaces.
