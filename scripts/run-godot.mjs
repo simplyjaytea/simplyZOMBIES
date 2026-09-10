@@ -310,6 +310,9 @@ switch (mode) {
   case "--water":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_water.gd"];
     break;
+  case "--m2-region":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_region.gd"];
+    break;
   case "--hud":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_hud.gd"];
     break;
