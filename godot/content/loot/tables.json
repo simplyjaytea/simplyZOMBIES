@@ -626,6 +626,10 @@
         "weight": 3
       },
       {
+        "item": "item.attach.underbarrel.grip",
+        "weight": 3
+      },
+      {
         "item": "item.attach.muzzle.flash_hider",
         "weight": 2
       },
@@ -983,6 +987,14 @@
         "weight": 4
       },
       {
+        "item": "item.attach.underbarrel.grip",
+        "weight": 5
+      },
+      {
+        "item": "item.attach.underbarrel.bipod",
+        "weight": 3
+      },
+      {
         "item": "item.attach.barrel.long",
         "weight": 4
       },
@@ -1201,6 +1213,10 @@
       {
         "item": "item.part.head.standard",
         "weight": 6
+      },
+      {
+        "item": "item.attach.underbarrel.light",
+        "weight": 5
       },
       {
         "item": "item.part.barrel.standard",

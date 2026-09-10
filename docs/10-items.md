@@ -111,7 +111,7 @@ The mechanism that lets a build survive an upgrade — PoE's "your gems come wit
 
 | Base class | Slots |
 |---|---|
-| Firearm | optic · barrel · muzzle · magazine · furniture · internal |
+| Firearm | optic · barrel · muzzle · magazine · furniture · internal · underbarrel |
 | Bow / crossbow | sight · limb · string |
 | Melee | head/edge · haft · wrap |
 | Body armor | plate · lining · pocket |
@@ -134,6 +134,14 @@ mended. An optic is not structural — as it wears it simply does less.
 Attachments have their own costs: suppressors wear out fast and cost accuracy; optics are useless in
 the dark without a light, and a weapon light is an attention emitter aimed at whatever you're looking
 at; extended magazines add weight and steady time; armor plates add heat and stamina drain.
+
+`underbarrel` is where a hand goes when it is not on the trigger, and it is the one slot whose
+occupants are not all multipliers: a foregrip steadies, a bipod steadies far more and costs the
+draw, and **a weapon light is a light** — the same `light` block a lamp declares, read by the same
+resolver, so it lights the person carrying the weapon and makes them visible in the doing. What is
+still open is the half of the sentence above that says *aimed*: the light is a radius around the
+holder rather than a beam, and an optic does not yet care whether there is any light to look
+through.
 
 ## Armor and coverage
 
