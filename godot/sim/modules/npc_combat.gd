@@ -231,6 +231,13 @@ static func _ranged_range(world: Variant, ent: int) -> float:
 	var weapon: Variant = world.components.get_component(ent, "rangedWeapon")
 	if not weapon is Dictionary:
 		return 0.0
+	# A weapon missing a part it cannot work without has no envelope at all. Without this an NPC
+	# holding a barrel-less rifle would walk to sixty metres and stand there for the rest of the
+	# campaign taking shots that `try_begin_fire` refuses -- an open circuit of exactly the shape
+	# this milestone keeps finding, and the reader that is easiest to forget because nothing
+	# crashes.
+	if not SimRanged.can_fire(world, ent):
+		return 0.0
 	return minf(float((weapon as Dictionary).get("rangeMetres", 0.0)), ENGAGE_METRES)
 
 

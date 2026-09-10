@@ -157,6 +157,13 @@ static func apply(world: Variant, actor: int, item: int, consumable: int, target
 	if applies is Array and not (applies as Array).is_empty() and not (applies as Array).has(item_class):
 		return {"ok": false, "reason": "wrong-item-class"}
 
+	# docs/11 has always called this a bench, and the owner's 2026-09-09 decision made it one:
+	# a Scrap Kit is a vice, a file and a light, not something you use crouched behind a car.
+	# Checked before the consumable is spent, like every other refusal here.
+	var Gunsmith: GDScript = load("res://sim/modules/gunsmith.gd") as GDScript
+	if Gunsmith != null and int(Gunsmith.call("bench_in_reach", world, actor)) < 0:
+		return {"ok": false, "reason": "no-bench"}
+
 	var hands: int = _hand_state(world, actor)
 	if hands == SimHealth.PartState.Unusable:
 		# docs/11: "a wounded crafter should not be at the bench". Two ruined hands is not a

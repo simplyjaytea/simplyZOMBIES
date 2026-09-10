@@ -9,6 +9,7 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
@@ -23,8 +24,9 @@ func _run() -> void:
 	ok = _a_degraded_firearm_jams_and_a_bow_never_does() and ok
 	ok = _clearing_a_jam_takes_longer_than_a_reload() and ok
 	ok = _a_sprint_cannot_aim_and_every_other_rung_can() and ok
+	ok = _a_gun_with_no_barrel_does_not_fire_and_says_so() and ok
 	if ok:
-		print("M2_RANGED_OK bow pistol jam sprint")
+		print("M2_RANGED_OK bow pistol jam sprint blocked")
 		quit(0)
 	else:
 		push_error("M2_RANGED_FAIL")
@@ -337,4 +339,76 @@ func _a_sprint_cannot_aim_and_every_other_rung_can() -> bool:
 			push_error("%s did not fire, so the two refusals above prove nothing" % SimStances.NAMES[rung])
 			return false
 	print("SPRINT OK fired from %d rungs, refused from crawling and sprinting" % fired.size())
+	return true
+
+
+# --- BLOCKED ----------------------------------------------------------------------------------
+#
+# A weapon is an assembly, so a weapon can be incomplete. Pull the barrel out of a pistol and the
+# trigger has to do nothing -- and say why, because a trigger pull that is silently ignored is the
+# worst possible way for a player to meet this. The true negative is the same pistol with the
+# barrel back in: without it the lane passes for a pistol that never fires at all.
+func _a_gun_with_no_barrel_does_not_fire_and_says_so() -> bool:
+	var lane: String = "BLOCKED"
+	var w: Variant = _world()
+	var pistol: int = SimItems.spawn_item(w, "item.pistol.service", {"tier": "scavenged"})
+	SimInventory.equip(w, w.player, pistol)
+	var ammo: int = SimItems.spawn_item(w, "item.ammo.9mm", {"tier": "scavenged", "count": 40})
+	if not SimInventory.stow(w, w.player, ammo):
+		w.components.set_component(ammo, "stored", {"container": w.player})
+	w.events.drain()
+
+	# It fires to begin with, or nothing below means anything.
+	if _fire_through(w, 1).is_empty():
+		push_error("%s: an assembled pistol did not fire, so this lane is asserting nothing" % lane)
+		return false
+
+	var barrel: int = SimAttachments.in_slot(w, pistol, "barrel")
+	if barrel < 0:
+		push_error("%s: the pistol spawned with no barrel to take out" % lane)
+		return false
+	if not SimAttachments.detach(w, barrel):
+		push_error("%s: could not take the barrel off" % lane)
+		return false
+	if SimRanged.can_fire(w, w.player):
+		push_error("%s: a pistol with no barrel still reports that it can fire" % lane)
+		return false
+
+	var refusals: Array = []
+	var noises: Array = []
+	w.commands.push({"type": "fire"})
+	for i in 60:
+		w.step()
+		for e in w.events.drained:
+			var t: String = String((e as Dictionary).get("type", ""))
+			if t == "weapon.refused" and int((e as Dictionary).get("entity", -1)) == w.player:
+				refusals.append(String((e as Dictionary).get("reason", "")))
+			elif t == "noise.emitted" and int((e as Dictionary).get("source", -1)) == w.player:
+				noises.append(e)
+	if not noises.is_empty():
+		push_error("%s: a pistol with no barrel fired %d times" % [lane, noises.size()])
+		return false
+	if refusals.is_empty() or String(refusals[0]) != "missing:barrel":
+		push_error("%s: the refusal was %s, not missing:barrel" % [lane, str(refusals)])
+		return false
+	# And a reload is refused on the same gate, since both pass through _idle_weapon.
+	w.commands.push({"type": "reload"})
+	w.step()
+	var rw: Variant = w.components.get_component(w.player, "rangedWeapon")
+	if int((rw as Dictionary)["state"]) != SimRanged.FireState.Idle:
+		push_error("%s: a pistol with no barrel began a reload" % lane)
+		return false
+
+	# TN: put the barrel back and the same sequence fires.
+	if not SimAttachments.attach(w, pistol, barrel, "barrel"):
+		push_error("%s: the barrel would not go back on" % lane)
+		return false
+	if not SimRanged.can_fire(w, w.player):
+		push_error("%s: a repaired pistol still reports that it cannot fire" % lane)
+		return false
+	if _fire_through(w, 1).is_empty():
+		push_error("%s: the pistol did not fire with its barrel back in" % lane)
+		return false
+
+	print("  BLOCKED OK no barrel, no shot and no reload, refused as %s; the barrel back in and it fires again" % String(refusals[0]))
 	return true

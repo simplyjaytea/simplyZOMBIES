@@ -285,11 +285,8 @@ than here.
 
 - **The repair economy: station, materials, Craft.** `SimItems.repair_item` already lowers the
   ceiling on every repair; what is open is the cost of invoking it.
-- **Attachments wear out.** docs/10's "suppressors wear out fast" — attachments have no condition
-  of their own yet.
 - **Attachments meet the attention field.** An optic useless in the dark; a weapon light that is a
   real light source and therefore a real emitter.
-- **An attachment-fitting screen.** `item.attach` / `item.detach` work and have no surface.
 - **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
   in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
   bed beats a cot; content would carry the difference once more than one kind of bed exists.
@@ -645,11 +642,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
   writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
   has this (`stance.eyes`); the port dropped it.
-- **A detached attachment is lost, not dropped.** `SimAttachments.detach` deliberately leaves
-  the attachment homeless — no `stored`, no `position`, no slot — and the `item.detach` command
-  does nothing about it. (The weapon half of this entry — `apply_wear` unequipping into nowhere
-  at zero condition — closed 2026-09-07 with the re-arm slice: a worn-out weapon drops at the
-  holder's feet.)
 - **`Bury` reads "the corpse has no position" as "I am carrying it".** `_do_bury`'s hole; the
   Cook half of this entry (no claim on the raw, a meal out of nothing) landed 2026-09-06 — the
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
@@ -680,9 +672,6 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
 - **`deep_pockets` is computed in the wrong scope.** The suffix adds `carry_capacity` scoped to the
   *item*; encumbrance resolves `carry_capacity` scoped to the *actor*. Rolled, named, saved, read
   by nothing.
-- **`_weapon_for_attacker` wears the wrong weapon.** It returns the first of `primary`/`secondary`
-  carrying any weapon profile, so a survivor with a knife in `primary` and a pistol in `secondary`
-  wears the knife on every gunshot and the pistol never wears at all.
 - **`merge_into_stack` reads a failure as a success.** `merge_stacks` returns 0 both for "fully
   merged" and for all five of its give-up paths, so `stow` can report an item stored that it did
   not store.
@@ -5786,6 +5775,219 @@ not a to-do list:
   ledger that cites them. The same commit added the PR template, the steward skill under
   `.claude/skills/`, and the read-only permission allowlist in `.claude/settings.json`, and
   re-measured the numbers `AGENTS.md` had wrong.
+- **Items** — ~~`_weapon_for_attacker` wears the wrong weapon~~ **landed** 2026-09-09
+  (`godot:m2:upkeep` grows **SOURCE** and **FIRED**), as the first slice of the gunsmithing arc
+  rather than as a defect fixed in passing: per-part wear cannot be routed until the sim can say
+  which weapon acted. Both weapon profiles now carry `source`, the item they were built from — an
+  entity id as a *value*, so it survives the JSON round trip — and it rides `make_ranged_armed`
+  and `refresh_armed`'s merge without either changing signature. `attack.connected` carries
+  `item`; `_fire_shot` publishes **`weapon.fired`** beside the noise it makes (after every
+  refusal above it, so a shot that did not happen wears nothing) and the reload arm publishes
+  **`weapon.reloaded`**. The guess is deleted: three subscriptions replace it, and a firearm now
+  wears from *firing* rather than from connecting, which is what `WEAR_PER_HIT`'s own comment
+  meant by "jam/miss wear later". `WEAR_PER_SHOT` 0.0015 puts a firearm at "worn" after ~133
+  rounds and "failing" after ~333 — about ten firefights to notice, which is the first time a
+  pistol's `JAM_CHANCE_BY_BAND` entry has been reachable at all, because a pistol in `secondary`
+  had never worn by a single point. `WEAR_PER_RELOAD` 0.0005. **SOURCE** is a pair and neither
+  half is worth anything alone: fire, and the pistol wears while the knife does not; swing, and
+  the knife wears while the pistol does not — a lane checking only the first would pass for an
+  implementation that wears everything the actor holds. Reinstating the old primary-first guess
+  turns it red naming the right number. **FIRED**'s true negative is the one that matters: a
+  pistol with no ammunition publishes nothing, or every wear number above it is a lie.
+
+- **Items** — ~~attachments wear out~~ and ~~a detached attachment is lost, not dropped~~
+  **landed** 2026-09-09 (`godot:m2:attach` grows **CONDITION**, **WEARS** and **BREAKS**), the
+  second slice of the gunsmithing arc. A part is an item, so it has a condition, and docs/10's
+  "suppressors wear out fast" is now a number: `effect_scale` walks each declared multiplier back
+  toward **1.0** by the part's own `condition_factor` — `1.0 + (declared - 1.0) * k` — so a
+  failing suppressor buys less of the quiet and a dead one buys none. Toward 1.0 and not toward
+  zero, and symmetric, so an extended magazine decays toward holding a normal magazine rather than
+  toward holding nothing and nothing has to ask whether a multiplier is a gain or a cost; the
+  polarity question belongs to the screen. Measured: a service pistol is 180 bare, **39.6** with a
+  sound can, **96.5** with one at 0.10 condition. `specs_of` became `parts_of`, returning the
+  part's *entity* alongside its spec, because the fold has to ask each part what state it is in
+  and wear has to reach each part individually; it had one caller. Wear rides the four channels
+  slice 1 built — `weapon.fired`, `weapon.reloaded`, `attack.connected`, `weapon.jammed`, each now
+  naming the acting weapon — and what wears a part is content: `wearsOn` picks words out of
+  `WEAR_EVENTS`, `wearRate` multiplies `PART_WEAR_PER_EVENT` (0.002), so the suppressor at 3.0
+  reaches "failing" in ~133 rounds where the pistol carrying it takes ~333. **A part worn through
+  comes off**, and `detach` now re-homes down a ladder — the carrier's pack, the carrier's feet,
+  beside a host on the ground, into the container holding it — and **refuses** rather than
+  unlinking when every rung fails, so there is no path through it that loses a part. That is the
+  defect closed at both ends. **CONDITION** states its true negative as a predicate: a *sound*
+  part must not satisfy "strictly between sound and bare", or the lane passes for an
+  implementation where wear does nothing; it also reads the *live* weapon after wearing, which is
+  what proves the fold re-reads condition instead of caching it at fit time. **WEARS** is the
+  SCALES pattern on the new vocabulary, both directions with a fabricated word each way.
+  **BREAKS** leads with its negative — a part with condition left survives a shot — and ends on
+  the homeless host that must refuse. Ignoring condition in the fold turns CONDITION red; the old
+  homeless `detach` turns BREAKS red.
+
+- **Items** — ~~every gun spawns with its parts already in it~~ **landed** 2026-09-09
+  (`godot:m2:attach` grows **ASSEMBLE**, **QUIET**, **MASS**, **CYCLE** and **REPAIR**; `godot:m2:save`
+  and `godot:m2:fortify` pin v29), the third slice of the gunsmithing arc and the one the owner's
+  2026-09-09 direction turns on. The base template is the receiver: eleven bases declare
+  `defaultParts` and spawn holding **28 real part items** between them, each with its own
+  condition and its own `attachedTo`. Firearm slots widened to **optic · barrel · muzzle ·
+  magazine · furniture · internal** (docs/10's table edited), so a can and a longer barrel stop
+  competing for one slot — which is what the feature was asked for — and the suppressor moved to
+  `muzzle`; every gate lane that fitted one to a `barrel` was re-pointed rather than loosened.
+  **Eleven new bases** in a new `content/items/parts.json`, 114 → **125**, all findable.
+  `structural` is what makes swapping a part a repair: `SimItems.assembly_condition` takes the
+  worst of the host and its structural parts, the profile builders and `jam_chance` both band off
+  that, and fitting a sound barrel restores the weapon **without** the ceiling drop
+  `repair_item` charges, because nothing was mended. An optic is not structural and must not do
+  either — which is REPAIR's true negative. Receiver masses came down by exactly what their parts
+  carry, so an assembled weapon weighs what it was authored at (measured: all eleven within
+  0.005 kg) and a stripped one weighs less; **MASS** pins the pre-assembly figures in the gate
+  file rather than reading them back off the content. **QUIET** is the lane worth keeping: assembly
+  draws no randomness — parts spawn at an explicit tier, skipping `roll_tier` — so a district full
+  of assembled weapons leaves the `loot` stream exactly where a district of bare ones does, which
+  is a worldgen break no gate about attachments would have caught. Its negative is ten spawns that
+  do roll. **ASSEMBLE**'s negative is the `assemble: false` opt-out; **CYCLE** feeds a fabricated
+  cycle through the same detector. Measured with a throwaway driver, 160 rounds through a pistol:
+  the assembly reaches "worn" at ~100 shots and "failing" at ~200, and the **action** gets there
+  first, so a gun that starts jamming is fixed by swapping the action — the loop the slice exists
+  to create. `npm run godot:bench` unchanged and inside every budget. Driver deleted.
+  `SAVE_VERSION` 28 → **29**: a v28 save holds weapons with empty slots and neither reading of one
+  is honest.
+
+- **Items** — ~~a gun with no barrel does not fire~~ **landed** 2026-09-09
+  (`godot:m2:attach` grows **REQUIRED** and **HEADLESS**, `godot:m2:ranged` grows **BLOCKED**,
+  `godot:m2:npc` grows **BLOCKED**), the fourth slice of the gunsmithing arc and the one that
+  makes the third mean something. Eleven bases declare `requiredSlots`; `blocked_reason` computes
+  one field, `profile["blocked"]`, and **three** places read it: `SimRanged._idle_weapon` (already
+  the gate a fire and a reload share, so both inherit it), `SimMelee.try_begin_swing`, and
+  `npc_combat._ranged_range`. The third is the one that matters and the one nothing would have
+  caught: `try_begin_fire` refuses a blocked weapon either way, but `_ranged_range` decides how
+  close an NPC walks, so without it an NPC holding a barrel-less rifle closes to twenty metres and
+  stands there for the rest of the campaign taking shots that are refused — an open circuit with
+  no crash and no log, of exactly the shape this milestone keeps finding. Every refusal is
+  **announced**: `weapon.refused {entity, reason}`, and `SimAttachments.refusal_clause` turns it
+  into the HUD's *"The service pistol has no barrel."* — a sim-owned read model, digit-free, and
+  `REQUIRED` asserts every base that can produce that sentence is named without a digit in it,
+  because `godot:check:hud` allows none. A silently ignored trigger pull is the worst possible way
+  to meet the fact that a weapon is an assembly. **REQUIRED** checks what no schema can: every
+  required slot is one the base declares, is one it *defaults* (or the weapon spawns as a brick),
+  and has a word in `SLOT_NOUN`; and that both halves of the game require something, or the melee
+  reader ships unexercised. Removing each of the three readers turns its own lane red — and the
+  NPC lane **only after a fix**: its first version asked `_ranged_range` before the world had
+  drained the equip event, so the NPC had no `rangedWeapon` at all and the 0.0 it returned was the
+  right answer for the wrong reason. The true negative caught it; the publish-only-queues trap
+  caught the gate rather than the code, which is the way round CLAUDE.md warns is worst.
+
+- **Items** — ~~two parts that disagree about the ammunition make a gun that will not fire~~
+  **landed** 2026-09-09 (`godot:m2:attach` grows **OVERRIDE**, **MISMATCH** and **NAMES**), the
+  fifth slice of the gunsmithing arc: caliber conversion. A multiplier cannot express a caliber, so
+  `attachment.overrides` **replaces** a profile field outright, against an `OVERRIDABLE` whitelist
+  that mirrors `SCALABLE` — `{"ranged": ["ammo", "jams"]}`, with no `melee` key, because an empty
+  array would be a socket the gate then had to excuse by name. **Resolved by agreement, not by
+  order**: one distinct value wins however many parts declare it, and two distinct values *block*
+  the weapon. Slot-sorted last-wins was the alternative and it is worse — it makes the answer a
+  function of the alphabet, so `barrel` would beat `internal` for a reason no player could learn;
+  agreement is order-independent by construction, which MISMATCH asserts by fitting the same two
+  parts both ways round and demanding the same answer. **Four new bases**, 125 → **129**: a rimfire
+  conversion barrel and the magazine that feeds it (a matched kit, the good case), a magnum
+  cylinder (the one that disagrees with it), and a match action that replaces `jams` outright and
+  will not stovepipe. One ordering coupling had to be fixed *outside* `fold`, which has no business
+  knowing two fields are related: `jamChance` is derived before the fold from the base's own
+  `jams`, so a part replacing `jams` left it describing a weapon that no longer exists.
+  **OVERRIDE**'s assertion is not that the profile *says* a different round but that firing
+  **spends** it — a converted pistol fires on .22 and refuses 9mm, which is the dead-socket
+  question asked of the one field that could most easily have been written and never read.
+  **MISMATCH**'s true negative is the half that matters: two parts agreeing must **not** block, or
+  the rule blocks any two overriding parts and the conversion kit is unbuildable. **NAMES** checks
+  what the shallow validator cannot see inside `overrides` — every caliber named is a shipped base
+  and findable in loot, and every field `OVERRIDABLE` names is replaced by something shipped. Both
+  halves turn red under the obvious wrong implementations. `check_loot.gd`'s container lane was
+  made size- and cell-independent in the same commit: it took the cupboard's first item and put it
+  back at (0, 0), which held only while nothing 1×3 was in the residential table, and it never
+  checked that the put-back worked.
+
+- **Items** — ~~the gunsmithing bench is built where the boarding is~~ **landed** 2026-09-09
+  (new gate **`godot:m2:bench`**, six lanes: BUILD, CHANNEL, EXCLUSIVE, REFUSE, MODIFY, SAVE),
+  the sixth slice of the gunsmithing arc and the one that gives the whole thing a place. New
+  `sim/modules/gunsmith.gd`; the bench is a `workbench {kind}` entity built through the **same
+  E-key ladder that boards a window** — SimFortify owns the channel, so it inherits the
+  construction noise, the stagger interrupt and `_can_channel` for nothing, and it is the last
+  rung, below the trap and the bait, where a deliberate press with **3 scrap** and **160 ticks**
+  buys it. `bench.build` is the verb; `_scrap_count` is new beside `_has_scrap`, because a bench
+  costs more than one. **The bench check sits on the command, never inside
+  `SimAttachments.attach`** — `attach` is what `assemble` calls when a weapon spawns and what a
+  save restores through, and requiring a workbench for those would be absurd. It is also where
+  the fiction lives: the job is not harder in a field, you have not got your tools. What is
+  field-swappable is content — `attachment.fieldSwap`, absent meaning **no**, so a part nobody has
+  thought about is bench-only rather than silently swappable in a fight; ten parts carry it (a
+  magazine, a sight, a can on a thread, a haft wrap, a bowstring) and every barrel, action, stock
+  and axe head does not. `SimModification.apply` gains the same precondition in its own
+  `{ok, reason}` shape, which is docs/11 finally being true about the thing it has always called a
+  bench, and it closes `item.modify` on docs/23's "no way in" list alongside `item.attach` and
+  `item.detach`. Every lane carries its negative: one scrap short builds nothing, an
+  uninterrupted channel completes (or the stagger proves nothing), a colony with no bench must not
+  serialise one, and REFUSE asserts **both** halves — a barrel refused in the field *and* the same
+  barrel coming off at a bench, or "refused" would just mean the command never worked.
+  `check_mods.gd`'s fixtures gained a bench, which is a gate edit rather than a redesign.
+
+- **Items** — ~~an attachment-fitting screen~~ **landed** 2026-09-09 (`godot:m2:bench` grows
+  **POLARITY**, **VIEW** and **PANEL**; `godot:check:inventory`'s COMMANDS lane grows a `modify`
+  arm), the seventh slice of the gunsmithing arc and the one docs/23 has carried since attachments
+  landed: *"`item.attach` / `item.detach` work and have no surface."* They have one.
+  `ui/bench_panel.gd` is two columns — what is in the weapon, and what in the pack would go in
+  instead — opened by **E at a bench**, on the ladder rather than on a key of its own, for the
+  reason the car was (docs/30, "Driving"): the sim decides what E means where you are standing.
+  The panel is told it is open by `benchFocus` on the survivor, and **walking away closes it**,
+  the rule `SimContainers` already follows for a box. `verbs_for` gains `modify`, offered only for
+  something that comes apart and only at a bench, which is the "absent, never greyed" rule.
+  **The comparison is words and a direction, never a magnitude.** `POLARITY` lives in the sim
+  beside `SCALABLE` — a panel owning it would be presentation deciding what a number means — and
+  `compare_view` returns `{field, word, change}` where change is "better", "worse" or "different";
+  the panel turns that into ▲ ▼ ↔ with the word beside it, in case the chrome font is missing the
+  glyph. There is **no delta in the view to print**, so digit-free is structural rather than a
+  discipline. `compare_view` computes rather than simulates: attaching a candidate to see what
+  happens would mutate the world inside a read model, and the fold is multiplicative, so the ratio
+  between the two parts' own contributions is the whole answer. A caliber is `"different"` —
+  neither an upgrade nor a downgrade, and saying otherwise would be the screen inventing an
+  opinion. **POLARITY** needs no fixture for its core: ask `better` about every field in both
+  directions and require the answers to differ and match the sign — a true positive and a true
+  negative for every field at once, in arithmetic — plus both directions of the whitelist and a
+  fabricated field the predicate must have no opinion about. **VIEW** holds `bench_view` to the
+  condition view's rule in its strictest form: an explicit key allowlist, and integers only under
+  the four named handles the screen hands straight back on a command; its negatives are a
+  fabricated `"worn 40%"` and a fabricated numeric field. **PANEL** is the dead-socket question
+  asked of the surface — E opens it, a strip and a fit each move the world, walking away closes
+  it — plus the textual half that the panel *draws* `bench_view` and pushes `item.attach` /
+  `item.detach` while calling no profile builder, no fold and no condition factor. It computes
+  nothing.
+
+- **Art & renderer** — ~~a fitted part shows on the pawn~~ **landed** 2026-09-09
+  (`godot:check:worn` grows **PARTS**; `sprites:check` judges the pictures), the eighth and last
+  slice of the gunsmithing arc. **It needed a renderer change, and the reason is worth writing
+  down:** every gear overlay in the pipeline shares one anchor — the hand — which is exactly what
+  lets one picture fit all eight rigs, and it is the bet `check_worn`'s SHARED lane exists to
+  protect. A *part* does not hang off the hand. A suppressor hangs off a muzzle, and a pistol's
+  muzzle and a rifle's are rows apart on the 32×40 canvas, so one shared picture cannot be right
+  for both. The fix keeps the bet: the part is still **one picture with no per-rig variant**, and
+  the *host* declares where its slots are — `appearance.partAnchors`, keyed by slot, in canvas
+  pixels — while `_blit_body` grew a per-layer offset that scales with the rect and mirrors with
+  the negative-width flip like everything else. Five firearms are anchored; a host that declares
+  none draws its part at the origin, which is the bow, and which is PARTS' true negative for the
+  anchor. Three pictures, deliberately tiny because a part is a detail on a 7 px object: a can
+  (a barrel that suddenly got fatter — the silhouette is the whole read), a red dot (one warm
+  pixel off the `ember` ramp, the only place in the gear pipeline where a colour says what a
+  thing *is*), and an extended magazine (hanging **down**, the one direction nothing else in the
+  weapon hand uses). 164 generated keys, all matching. **PARTS** is the dead-socket question asked
+  of the family: an `attachmentSprite` nothing draws would be the twelfth dead socket of the
+  milestone, so the lane fits a can and requires the composite to grow by exactly one over-layer
+  carrying a non-zero offset — and its negative is the same pistol with nothing fitted, without
+  which it would pass for an implementation that draws a can on every gun. Removing the parts pass
+  turns it red; reading the anchor and discarding it turns it red differently.
+  `check_worn._rig_keys` had to learn about the new key family: it classified anything without
+  "equip" in its name as a rig body, so three part pictures read as three extra survivors.
+  **Deliberately not in this slice:** the barrel, stock and conversion parts have no picture — a
+  long barrel changes a weapon's *length*, which one offset cannot express, and it wants either a
+  per-host silhouette or a longer weapon sprite. The seam is there and adding a picture is a data
+  edit plus a generator.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.

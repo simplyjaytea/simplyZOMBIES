@@ -163,7 +163,7 @@ static func register_module(world: Variant) -> void:
 					# not ask for, on top of an interruption that already costs more than a
 					# reload.
 					if _jammed(w, r, rng):
-						w.events.publish({"type": "weapon.jammed", "entity": int(entity), "ticks": _clear_ticks(r)})
+						w.events.publish({"type": "weapon.jammed", "entity": int(entity), "ticks": _clear_ticks(r), "item": int(r.get("source", -1))})
 						r["state"] = FireState.Clearing
 						r["ticksLeft"] = _clear_ticks(r)
 					else:
@@ -192,6 +192,7 @@ static func register_module(world: Variant) -> void:
 						r["mag"] = int(r["magSize"])
 					r["state"] = FireState.Idle
 					r["ticksLeft"] = 0
+					w.events.publish({"type": "weapon.reloaded", "entity": int(entity), "item": int(r.get("source", -1))})
 				FireState.Clearing:
 					# Cleared, and nothing else changed: the magazine is what it was, because the
 					# stuck round was never spent. Back to Idle rather than straight to Raise, so
@@ -246,6 +247,20 @@ static func try_begin_reload(world: Variant, entity: int) -> bool:
 	return _begin_reload(world, entity, rw as Dictionary)
 
 
+## Whether this entity's weapon works at all. False when a required slot is empty -- pull the
+## barrel out of a pistol and there is nothing to fire. Public because npc_combat has to ask
+## before it walks somebody into range of a gun that cannot shoot.
+static func can_fire(world: Variant, entity: int) -> bool:
+	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
+	return rw is Dictionary and String((rw as Dictionary).get("blocked", "")) == ""
+
+
+## Why this entity's weapon does not work, or "". The screen turns it into a sentence.
+static func refusal_of(world: Variant, entity: int) -> String:
+	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
+	return String((rw as Dictionary).get("blocked", "")) if rw is Dictionary else ""
+
+
 # Armed, idle, ungrabbed, untreated and capable — the gate a fire and a reload share.
 static func _idle_weapon(world: Variant, entity: int) -> Variant:
 	if world.components.has_component(entity, "grabbed"):
@@ -256,6 +271,12 @@ static func _idle_weapon(world: Variant, entity: int) -> Variant:
 		return null
 	var rw: Variant = world.components.get_component(entity, "rangedWeapon")
 	if not rw is Dictionary:
+		return null
+	# A weapon missing a part it cannot work without. Announced rather than silently dropped: a
+	# trigger pull that does nothing and says nothing is the worst possible way for a player to
+	# meet this feature, so the refusal is an event the HUD turns into a sentence.
+	if String((rw as Dictionary).get("blocked", "")) != "":
+		world.events.publish({"type": "weapon.refused", "entity": entity, "reason": String((rw as Dictionary)["blocked"])})
 		return null
 	if int((rw as Dictionary)["state"]) != FireState.Idle:
 		return null
@@ -402,6 +423,11 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 			impact_y = float((there as Dictionary)["y"])
 	var mag: float = float(weapon.get("noise", 4))
 	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": mag, "source": attacker})
+	# A round left the weapon. Published here rather than at the trigger because everything above
+	# this line can still refuse -- no ammo, no position, no facing -- and a shot that did not
+	# happen must not wear anything. This is the channel a firearm degrades on: it wears from
+	# firing, whether or not the round found a body.
+	world.events.publish({"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1))})
 	if float(weapon.get("flash", 0)) > 0.0:
 		weapon["flashTicks"] = FLASH_TICKS
 		SimLightMod.make_light_source(world, attacker, float(weapon["flash"]))
@@ -412,7 +438,7 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 		if roll < 0.2:
 			body_part = "head"
 		var damage: float = float(weapon.get("damage", 12)) * (3.0 if body_part == "head" else 1.0)
-		world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage})
+		world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage, "item": int(weapon.get("source", -1))})
 		world.events.publish({"type": "entity.staggered", "entity": target, "ticks": 8})
 	if float(weapon.get("recoverable", 0.0)) > 0.0 and float(rng.call("next")) < float(weapon["recoverable"]):
 		var arrow: int = SimItemsRes.spawn_item(world, String(weapon.get("ammo", "item.ammo.arrow")), {"tier": "scavenged", "count": 1})

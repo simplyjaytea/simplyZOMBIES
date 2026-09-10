@@ -29,6 +29,19 @@
       "description": "What this looks like lying on the ground. Omit it and the renderer draws the generic ground-item diamond, which is the normal state until art exists.",
       "additionalProperties": false,
       "properties": {
+        "attachmentSprite": {
+          "type": "string",
+          "description": "The picture drawn on the pawn when this part is fitted to a held weapon. Unlike every other overlay in the pipeline it does not share the hand anchor -- a suppressor hangs off a muzzle, and a pistol's muzzle and a rifle's are rows apart on the 32x40 canvas -- so it is drawn once and moved to wherever the *host* says that slot is. See `partAnchors` on the weapon."
+        },
+        "partAnchors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+          },
+          "description": "Where this weapon keeps each of its attachment slots, in pawn-canvas pixels off the body rect, keyed by slot name. Read by presentation/appearance.gd when a fitted part declares an `attachmentSprite`; a slot with no anchor draws its part at the body's own origin. Only the held weapon needs these, and only for slots something is drawn for."
+        },
         "sprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "Registry key resolved to assets/sprites/<key>.png by presentation/appearance.gd. A key, not a path, so content stays engine-agnostic." },
         "tint": { "type": "string", "pattern": "^#[0-9a-f]{6}$", "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists." },
         "equipSprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. Authored on the same feet-anchored pawn canvas as the body it will be drawn over (32x40; presentation/appearance.gd's PAWN_KEYS and assets/sprites/README.md), so the renderer composites it at the identical rect with no per-item offset math and mirrors it with the body. Read only when this base occupies an equipment slot presentation.gd renders (currently back, primary, secondary); other slots leave it declared but unused until a body-part anchor exists for them." },
@@ -127,6 +140,16 @@
       },
       "description": "Attachment slot names, per docs/10-items.md#attachment-slots. Attachments move freely between compatible bases."
     },
+    "requiredSlots": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Slots this base cannot work without, a subset of `slots`. An empty one blocks the weapon: SimAttachments.blocked_reason puts a reason on the built profile and SimRanged._idle_weapon, SimMelee.try_begin_swing and npc_combat._ranged_range all read it, so a pistol with no barrel refuses to fire and an NPC holding one does not walk into range of it. The subset claim is a gate lane, not a schema rule -- nothing here can see the sibling key."
+    },
+    "defaultParts": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "The parts this base comes assembled with, keyed by slot name and naming an attachment base. SimAttachments.assemble fits them when the item spawns, so the template is the receiver and the weapon in the world is an assembly -- pull the barrel out and what is left is a frame. Every slot named here must be one this base declares in `slots`, every value must be an attachment that fits that slot, and the graph must not cycle; check_m2_attach.gd's ASSEMBLE and CYCLE lanes judge all three, because the validator will not look inside this object. A base's own massKg is the receiver alone: the parts weigh what they weigh and item_mass_kg counts them."
+    },
     "attachment": {
       "type": "object",
       "description": "Present on an attachment base and absent on everything else, per docs/10-items.md#attachment-slots. `fits` is the set of host slot names this will go into -- a list rather than one name, because 'moves freely between compatible bases' is the point of the mechanism. The `melee` and `ranged` tables are multipliers folded over the host weapon's own profile by sim/modules/attachments.gd, keyed by the profile field they scale, so an attachment declares what it multiplies and nothing has to know what an optic is. The content validator is shallow and will not look inside this, which is what godot/check_m2_attach.gd is for.",
@@ -148,6 +171,36 @@
           "type": "object",
           "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
           "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
+        },
+        "fieldSwap": {
+          "type": "boolean",
+          "description": "Whether a person can change this part with their hands, away from a gunsmithing bench. A magazine, a sight, a can on a thread: yes. A barrel, an action, an axe head: no. Absent means no, which is the safe default -- a part nobody has thought about is bench-only rather than silently field-swappable. Read by sim/modules/gunsmith.gd on the item.attach / item.detach commands, never inside SimAttachments.attach itself."
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Profile fields this part *replaces* rather than scales, per kind, against sim/modules/attachments.gd's OVERRIDABLE whitelist. A multiplier cannot express a caliber, so `ammo` and `jams` are the narrow exception to \"multipliers, never adders\". Resolved by agreement, not by order: one distinct value wins however many parts declare it, and two distinct values block the weapon outright -- a conversion barrel and a cylinder that take different rounds make a gun nobody can load. Only `ranged` exists; a `melee` key would be a socket nothing reads.",
+          "properties": {
+            "ranged": {
+              "type": "object",
+              "additionalProperties": { "type": ["string", "boolean"] },
+              "description": "Replacement values keyed by profile field: `ammo` (an item base id) and `jams` (a boolean)."
+            }
+          }
+        },
+        "structural": {
+          "type": "boolean",
+          "description": "Whether the host is made of this part rather than merely carrying it. A structural part's own condition drags the whole assembly down -- SimItems.assembly_condition takes the worst of the host and its structural parts -- which is what makes swapping a worn barrel for a good one a repair. An optic or a suppressor is not structural: as it wears it simply does less, per effect_scale. A part may be structural and still declare multipliers; a long barrel is both."
+        },
+        "wearsOn": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What wears this part, from sim/modules/attachments.gd's WEAR_EVENTS vocabulary: shot, reload, hit, jam. A part declaring none never wears. The words are a code-owned list rather than an enum here because the registry is the authority and check_m2_attach.gd asserts both directions -- every word declared is one the module knows, and every word the module knows is declared by something shipped."
+        },
+        "wearRate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Multiplies SimAttachments.PART_WEAR_PER_EVENT for this part. Above 1 is docs/10's \"suppressors wear out fast\"; below 1 is a part that outlives the weapon."
         }
       }
     },

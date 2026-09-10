@@ -162,6 +162,11 @@ static func try_begin_swing(world: Variant, entity: int) -> bool:
 	if not weapon is Dictionary:
 		return false
 	var we: Dictionary = weapon as Dictionary
+	# The mirror of SimRanged's: a spear with no head is a shaft. Announced on the same channel,
+	# because the player needs to be told why the swing did not happen.
+	if String(we.get("blocked", "")) != "":
+		world.events.publish({"type": "weapon.refused", "entity": entity, "reason": String(we["blocked"])})
+		return false
 	var cost: int = SimCombat.swing_stamina(float(we.get("weight", 1.0)), float(we.get("stamina", 1.0)))
 	var stamina: Variant = world.components.get_component(entity, "stamina")
 	if stamina != null and float((stamina as Dictionary)["current"]) < float(cost):
@@ -262,5 +267,8 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 		damage *= float(world.modifiers.call("resolve", "melee_damage", attacker))
 
 	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": int(SimCombat.MELEE_CONNECT_NOISE), "source": attacker})
-	world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage})
+	# `item` is the weapon that swung, from the profile's own `source`. Without it the wear
+	# handler has to guess which hand acted, and the guess it used to make was wrong -- see
+	# SimItems.register_module. A publisher with no weapon (a zombie's bite) sends -1.
+	world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage, "item": int(weapon.get("source", -1))})
 	world.events.publish({"type": "entity.staggered", "entity": target, "ticks": int(weapon.get("staggerTicks", 8))})

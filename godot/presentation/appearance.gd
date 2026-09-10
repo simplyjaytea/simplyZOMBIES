@@ -64,6 +64,10 @@ const PAWN_KEYS: Array[String] = [
 	"item_crossbow_hunting_equip", "item_revolver_snub_equip", "item_rifle_rimfire_equip",
 	"item_apron_welding_equip", "item_helmet_hardhat_equip",
 	"item_duffel_canvas_equip", "item_duffel_canvas_equip_front",
+	# Fitted parts. Authored at the canvas origin and moved to the host's own `partAnchors`,
+	# which is why they are the one overlay family that does not share the hand.
+	"item_attach_suppressor_part", "item_attach_optic_red_dot_part",
+	"item_attach_magazine_extended_part",
 ]
 
 # Where a picture hangs on its entity's ground point. A square canvas is a tile-sized thing seen
@@ -813,6 +817,44 @@ static func equipment_layers_for(world: Variant, actor: int) -> Array[Dictionary
 		var front: Texture2D = _resolve_equip_key(block as Dictionary, "equipSpriteFront")
 		if front != null:
 			out.append({"texture": front, "over": true})
+		# What is bolted to it, after the weapon itself and always over: a can screws onto the end
+		# of a barrel that is already drawn. Slot-sorted, the same determinism rule the fold uses.
+		out.append_array(_part_layers_for(world, slots.get(String(entry["slot"])), block as Dictionary))
+	return out
+
+
+# Overlays for the parts fitted to a held weapon, offset to where that weapon actually keeps them.
+#
+# The offset is the whole reason this is not just another `equipSprite`. Every gear overlay in the
+# pipeline shares one anchor -- the hand -- which is what lets one picture fit all eight rigs. A
+# *part* does not hang off the hand: a suppressor goes on a muzzle, and the muzzle of a pistol and
+# the muzzle of a rifle are nowhere near each other on a 32x40 canvas. So the host declares where
+# each of its slots sits (`appearance.partAnchors`) and the part is drawn once and moved there.
+# One picture per part, still no per-rig variants, and adding a part is still a data edit.
+static func _part_layers_for(world: Variant, item: Variant, host_block: Dictionary) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if item == null:
+		return out
+	var fitted: Variant = world.components.get_component(int(item), "attachments")
+	if not (fitted is Dictionary):
+		return out
+	var slots: Dictionary = (fitted as Dictionary).get("slots", {}) as Dictionary
+	var names: Array = slots.keys()
+	names.sort()
+	var anchors: Variant = host_block.get("partAnchors")
+	for name in names:
+		var block: Variant = _equip_block_for(world, slots[name])
+		if not (block is Dictionary):
+			continue
+		var texture: Texture2D = _resolve_equip_key(block as Dictionary, "attachmentSprite")
+		if texture == null:
+			continue
+		var offset: Vector2 = Vector2.ZERO
+		if anchors is Dictionary:
+			var at: Variant = (anchors as Dictionary).get(String(name))
+			if at is Dictionary:
+				offset = Vector2(float((at as Dictionary).get("x", 0.0)), float((at as Dictionary).get("y", 0.0)))
+		out.append({"texture": texture, "over": true, "offset": offset})
 	return out
 
 

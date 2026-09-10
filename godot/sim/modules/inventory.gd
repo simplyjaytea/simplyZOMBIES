@@ -543,7 +543,7 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 # nothing here re-implements either. That is the dead-socket rule applied to a menu: a verb whose
 # availability is computed in the UI is a verb that will one day be offered for a command the sim
 # drops on the floor.
-const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "open", "inspect", "split", "drop"]
+const MENU_ORDER: Array[String] = ["equip", "unequip", "use", "modify", "open", "inspect", "split", "drop"]
 static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 	var out: Array[String] = []
 	if item < 0 or not (SimItems.item_base_of(world, item) is Dictionary):
@@ -557,6 +557,14 @@ static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 			if int(s3) == item:
 				worn = true
 	var offered: Dictionary = {"inspect": true}
+	# On the bench: offered only for something that comes apart, and only where the survivor could
+	# actually work on it. The same rule every verb here follows -- a thing you cannot do is
+	# absent, never greyed -- so this appears when you are standing at a bench holding a rifle and
+	# at no other time.
+	if not _Attachments().call("slots_of", world, item).is_empty():
+		var Gunsmith: GDScript = load("res://sim/modules/gunsmith.gd") as GDScript
+		if Gunsmith != null and int(Gunsmith.call("bench_in_reach", world, actor)) >= 0:
+			offered["modify"] = true
 	if worn:
 		offered["unequip"] = true
 	elif equip_slot_for(world, item) != null:
