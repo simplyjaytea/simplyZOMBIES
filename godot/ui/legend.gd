@@ -33,6 +33,7 @@ const GROUPS: Array = [
 		["R", "reload"],
 		["E", "interact — pick up, open a cupboard or a car boot, a car door or a bike from the side, its hood from the nose, fill its tank from a can you carry, or put what you are holding on a gunsmithing bench"],
 		["T", "first aid — bandage if you have one, bare hands if not; again to stop"],
+		["C", "make camp where you stand — home moves here, and it takes a while and makes noise; shift+C to strike it"],
 		["1 … 6", "use what is on your belt and in your pockets"],
 		["Space", "shout — heard across the district"],
 	]],

@@ -12,6 +12,7 @@ const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
+const SimHomeRes = preload("res://sim/home.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
@@ -554,13 +555,13 @@ static func _anyone_buries(world: Variant) -> bool:
 	return false
 
 
-# Where home is: the annex's centre, or the player's start where a map has no annex.
+# Where home is. The ladder -- camp, then the annex's centre, then the player's start where a map
+# has no annex -- moved wholesale into `SimHome.centre` when the camp slice made home relocatable.
+# This stays as the name the rest of this file calls, because `_post_tile`, `_corpse_dump`,
+# `_stock_drop` and the `HOME_RADIUS_TILES` Haul/Scavenge radius all hang off it and reading
+# "home centre" at each of those is clearer than reading the module that owns the concept.
 static func _home_centre(world: Variant) -> Vector2:
-	var annex: Rect2i = SimTileMap.annex_rect(world.tilemap)
-	if annex.size.x > 0 and annex.size.y > 0:
-		return Vector2(float(annex.position.x) + float(annex.size.x) * 0.5, float(annex.position.y) + float(annex.size.y) * 0.5)
-	var start: Vector2i = SimTileMap.player_start(world.tilemap)
-	return Vector2(float(start.x) + 0.5, float(start.y) + 0.5)
+	return SimHomeRes.centre(world)
 
 
 static func _near_home(world: Variant, x: float, y: float) -> bool:

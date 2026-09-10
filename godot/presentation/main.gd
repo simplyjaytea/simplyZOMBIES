@@ -508,6 +508,17 @@ func _input(event: InputEvent) -> void:
 				# wound that matters, or stop the one already in progress. Presentation
 				# picks neither the target nor the verb -- see SimTreatment.context.
 				if world != null: world.commands.push({"type": "treat.context"})
+			KEY_C:
+				# Camp: its own key rather than a rung on E's ladder, because establishing one
+				# moves where home is and doing that by accident -- pressing E on empty ground
+				# with a trap and a bait already down -- is worse than one more key. E stays
+				# "act on what is in front of you"; C is a deliberate commitment, which is what
+				# Task 8 asks a camp to be. Shift+C strikes it; the sim decides which camp.
+				if world != null:
+					if Input.is_key_pressed(KEY_SHIFT):
+						world.commands.push({"type": "camp.abandon"})
+					else:
+						world.commands.push({"type": "camp.establish"})
 			# The number row belongs to the quick strip since the 2026-09-08 overhaul, so
 			# speed moved to the two keys beside it. A key that means two things mid-fight
 			# is what the one-interact-key rule exists to avoid; P still pauses.
