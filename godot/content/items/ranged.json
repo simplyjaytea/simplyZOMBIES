@@ -179,6 +179,34 @@
     "ranged": {"damage": 10, "noise": 120, "flash": 35, "ammo": "item.ammo.22", "magSize": 10, "reloadTicks": 45, "rangeMetres": 50, "weight": 1.1, "jams": true}
   },
   {
+    "id": "item.smg.compact",
+    "name": "Compact Submachine Gun",
+    "description": "A stubby submachine gun with a magazine out of the side. It comes up in a blink, empties itself nearly as fast, and eats the same round as a service pistol.",
+    "class": "weapon.ranged",
+    "size": {"w": 1, "h": 3},
+    "massKg": 1.43,
+    "equipSlot": "primary",
+    "appearance": { "equipSprite": "item_smg_compact_equip", "partAnchors": { "muzzle": { "x": 2, "y": -6 }, "optic": { "x": 1, "y": -3 }, "magazine": { "x": -3, "y": 1 } } },
+    "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
+    "defaultParts": {
+      "barrel": "item.part.barrel.standard",
+      "magazine": "item.part.magazine.standard",
+      "internal": "item.part.action.standard",
+      "furniture": "item.part.stock.standard"
+    },
+    "ranged": {"damage": 14, "noise": 150, "flash": 45, "ammo": "item.ammo.9mm", "magSize": 30, "reloadTicks": 38, "rangeMetres": 22, "weight": 0.85, "jams": true}
+  },
+  {
+    "id": "item.ammo.45",
+    "name": "Heavy Pistol Round",
+    "description": "A fat, slow, blunt-nosed cartridge. Fewer fit anywhere, and each one lands like a thrown brick.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.021,
+    "stack": 16
+  },
+  {
     "id": "item.ammo.bolt",
     "name": "Crossbow Bolt",
     "description": "A short bolt, blunt-fletched. It can be pulled out and used again.",

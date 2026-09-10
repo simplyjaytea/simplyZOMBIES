@@ -6,6 +6,8 @@ const Clock = preload("res://sim/time/clock.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const SimDirector = preload("res://sim/modules/director.gd")
+const SimItems = preload("res://sim/modules/items.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -23,8 +25,9 @@ func _run() -> void:
 	ok = _the_cap_scales_with_the_district() and ok
 	ok = _two_grace_nights_then_the_table() and ok
 	ok = _a_lull_opens_at_the_next_dawn_and_a_second_breach_extends_it() and ok
+	ok = _every_shipped_caliber_counts_as_ammunition() and ok
 	if ok:
-		print("M2_DIRECTOR_OK boot packet gate lull seed, nights vary within docs/17's bounds, the cap scales with the district, two grace nights then the table, and a lull opens at dawn")
+		print("M2_DIRECTOR_OK boot packet gate lull seed, nights vary within docs/17's bounds, the cap scales with the district, two grace nights then the table, a lull opens at dawn, and every shipped caliber counts")
 		quit(0)
 	else:
 		push_error("M2_DIRECTOR_FAIL")
@@ -478,4 +481,80 @@ func _a_lull_opens_at_the_next_dawn_and_a_second_breach_extends_it() -> bool:
 		push_error("LULL-EDGE: a second breach should close the lull at %d, got %d" % [dawn10 + Clock.DAY_TICKS, int(st.get("lullUntilTick", 0))])
 		return false
 	print("LULL-EDGE OK breach at dusk 8 opens the lull at dawn 9 (%d) and closes it a day later; a second breach on night 9 extends the close to %d and keeps the edge" % [dawn9, int(st.get("lullUntilTick", 0))])
+	return true
+
+
+# --- AMMO ---------------------------------------------------------------------------------------
+#
+# What the preparedness score calls ammunition was a literal naming 9mm and arrows, so five shipped
+# calibers were invisible to it and a colonist with forty rifle rounds read as unarmed. It is
+# derived from content now -- a base is ammunition if some weapon names it as `ranged.ammo` -- and
+# this lane is the reader assertion for that: the question is not whether `_ammo_ids` returns a
+# nice set, it is whether the score actually changes when the player is carrying rounds it did not
+# used to know about.
+
+func _every_shipped_caliber_counts_as_ammunition() -> bool:
+	var lane: String = "AMMO"
+	var boot: Dictionary = _boot()
+	var w: Variant = boot["world"]
+
+	# Every caliber any shipped weapon fires, off the content rather than off a list here -- a
+	# list would be the same mistake one level up.
+	var wanted: Dictionary = {}
+	for entry_v in SimItems.content_entries(w, "item"):
+		var entry: Dictionary = entry_v as Dictionary
+		var ranged: Variant = entry.get("ranged")
+		if ranged is Dictionary and String((ranged as Dictionary).get("ammo", "")) != "":
+			wanted[String((ranged as Dictionary)["ammo"])] = true
+	# A caliber conversion names a round no base declares. Collected separately and asserted
+	# separately below, because reading only the weapons is exactly the shape of the defect this
+	# lane exists to stop -- and the first version of the fix had it.
+	var converted_only: Dictionary = {}
+	for entry_v in SimItems.content_entries(w, "item"):
+		var part: Dictionary = entry_v as Dictionary
+		var spec: Variant = part.get("attachment")
+		if not spec is Dictionary:
+			continue
+		var ov: Variant = (spec as Dictionary).get("overrides")
+		if not ov is Dictionary:
+			continue
+		var ovr: Variant = (ov as Dictionary).get("ranged")
+		if ovr is Dictionary and String((ovr as Dictionary).get("ammo", "")) != "":
+			var c: String = String((ovr as Dictionary)["ammo"])
+			if not wanted.has(c):
+				converted_only[c] = true
+			wanted[c] = true
+	if converted_only.is_empty():
+		push_error("%s: no shipped part converts to a caliber no weapon declares, so the half of this lane that matters has nothing to judge" % lane)
+		return false
+	if wanted.size() < 5:
+		push_error("%s: only %d calibers are shipped, too few for this lane to be judging anything" % [lane, wanted.size()])
+		return false
+
+	var derived: Dictionary = SimDirector._ammo_ids(w)
+	for id_v in wanted.keys():
+		if not derived.has(String(id_v)):
+			push_error("%s: %s is fired by a shipped weapon and is not ammunition to the director" % [lane, String(id_v)])
+			return false
+
+	# TN, and the half that matters: something that is *not* ammunition must not become it, or the
+	# lane would pass for a derivation that simply says yes.
+	if derived.has("item.scrap.metal") or derived.has("item.food.canned"):
+		push_error("%s: the derivation counts scrap or food as ammunition" % lane)
+		return false
+
+	# The reader. A player carrying a caliber the old literal never named has to read as armed --
+	# without this the whole lane is an assertion about a helper nobody calls.
+	if SimDirector._has_ammo(w):
+		push_error("%s: the player is armed before being given anything" % lane)
+		return false
+	var rounds: int = SimItems.spawn_item(w, "item.ammo.rifle", {"tier": "scavenged", "count": 12})
+	if not SimInventory.stow(w, w.player, rounds):
+		w.components.set_component(rounds, "stored", {"container": w.player})
+	w.events.drain()
+	if not SimDirector._has_ammo(w):
+		push_error("%s: twelve rifle rounds in the pack and the director still reads the colony as having none" % lane)
+		return false
+
+	print("AMMO OK %d shipped calibers counted, %d of them reachable only through a conversion, and rifle rounds read as ammunition" % [derived.size(), converted_only.size()])
 	return true
