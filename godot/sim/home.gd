@@ -86,6 +86,41 @@ static func gate_b(world: Variant) -> Vector2i:
 	return SimTileMap.gate_b(_map(world))
 
 
+## Is (x, y) within `radius` tiles of home **or of any camp still standing**?
+##
+## This is what an outpost is for. docs/12's *depletion and the expanding radius* is the difficulty
+## curve the world generates on its own -- "week 1: everything within 200 m; week 10: you are making
+## overnight trips" -- and docs/13 schedules "local sites exhausted" at day 12+. `SimJobs._near_home`
+## is where that curve bites: a remembered cupboard beyond the radius is never a Scavenge candidate,
+## a dropped item beyond it is never hauled, and a working weapon beyond it is never picked up. Not
+## deferred -- *never*, because the column simply reports no work and the ground keeps the thing
+## forever unless the player fetches it in person. An outpost is the answer to that curve.
+##
+## An **abandoned** camp does not count. Its site persists as a known empty place (Task 8), which is
+## a memory rather than somewhere anyone works.
+##
+## The `count` fast path is the same one `SimCamp.home_of` opens with and for the same reason: this
+## is called for every Haul and Scavenge candidate, and on the shipped game there are no camps at
+## all, so it must cost about what the single dictionary lookup it replaced cost.
+static func near_any(world: Variant, x: float, y: float, radius: float) -> bool:
+	var c: Vector2 = centre(world)
+	if (x - c.x) * (x - c.x) + (y - c.y) * (y - c.y) <= radius * radius:
+		return true
+	if world == null or world.components.count("camp") == 0:
+		return false
+	for e in SimCampRes.camps(world):
+		if SimCampRes.is_abandoned(world, int(e)):
+			continue
+		var t: Vector2i = SimCampRes.tile_of(world, int(e))
+		if t.x < 0 or t.y < 0:
+			continue
+		var dx: float = x - (float(t.x) + 0.5)
+		var dy: float = y - (float(t.y) + 0.5)
+		if dx * dx + dy * dy <= radius * radius:
+			return true
+	return false
+
+
 ## Where somebody who means to reach the colony walks to. The gate, because that is how a colony is
 ## entered; the centre when the map carries no gate anchor; nothing at all when it carries no colony
 ## either, which is what an unstamped fixture map honestly is. This is `SimRaiders._objective`'s own

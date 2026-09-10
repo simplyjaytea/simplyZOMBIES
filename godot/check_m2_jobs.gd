@@ -33,8 +33,9 @@ func _run() -> void:
 	ok = _a_focus_change_keeps_the_authored_row() and ok
 	ok = _a_starving_colonist_still_eats() and ok
 	ok = _colonists_scavenge_near_home() and ok
+	ok = _an_unreachable_target_is_planned_for_once_and_then_dropped() and ok
 	if ok:
-		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, and colonists scavenge near home")
+		print("M2_JOBS_OK astar focus cook haul construct doctor rest corpse seek water clean bury succession, the well is reachable from a bottle the sim emptied, a cook claims its raw, Guard is the night post, a focus change keeps the authored row, a starving colonist still eats, colonists scavenge near home, and a target nobody can route to is planned for once and then left alone")
 		quit(0)
 	else:
 		push_error("M2_JOBS_FAIL")
@@ -1122,4 +1123,64 @@ func _a_body_beside_the_river_fills_there_and_not_at_the_well() -> bool:
 	print("RIVER OK the forest stands %d water sources; a body on the bank at %s is routed to the river %.1f tiles off and one at the well %s is still routed to the well, and the bottle boils clean" % [
 		sources.size(), str(bank), river_d, str(well),
 	])
+	return true
+
+
+# PATHING: an unreachable target costs one A*, not one per tick forever.
+#
+# `_walk` re-planned whenever its cached path was empty -- and empty is exactly what `SimPath.find`
+# returns when there is no route, so a body standing beside a sealed room re-ran the whole search
+# every tick. docs/23's defect list has carried this since the review sweep. Measured while the
+# outpost slice was being built: a reachable 100-tile path costs 5-11 ms and a failing one **132
+# ms**, and one enclosed item took a booted 256 district from 64.4 ticks/s to **9.8** -- under its
+# own 20 Hz clock. With the fix the same fixture runs at 78.4.
+func _an_unreachable_target_is_planned_for_once_and_then_dropped() -> bool:
+	var w: Variant = _world()
+	for it in SimInventory.ground_items(w):
+		w.despawn(int(it))
+	# Somewhere no route reaches: walled in on every side, so `SimPath.find` answers empty for a
+	# reason that is about the map rather than about the distance.
+	var start: Vector2i = SimTileMap.player_start(w.tilemap)
+	var sealed := Vector2i(-1, -1)
+	for y in range(2, int(w.tilemap.h) - 2):
+		for x in range(2, int(w.tilemap.w) - 2):
+			if SimTileMap.tile_at(w.tilemap, x, y) != SimTileMap.Tile.Floor:
+				continue
+			if SimTileMap.is_solid(w.tilemap, x, y):
+				continue
+			if SimPath.find(w, start, Vector2i(x, y)).is_empty():
+				sealed = Vector2i(x, y)
+				break
+		if sealed.x >= 0:
+			break
+	if sealed.x < 0:
+		# No sealed ground on this seed: say so and skip rather than pass quietly.
+		print("PATHING SKIP no unroutable floor on seed 20260805 at 64 tiles")
+		return true
+
+	var item: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
+	w.components.set_component(item, "position", {"x": float(sealed.x) + 0.5, "y": float(sealed.y) + 0.5})
+	if SimJobs._is_unreachable(w, item):
+		push_error("PATHING: the item was marked before anybody tried to walk to it")
+		return false
+	# Somebody takes it, fails to route, and the target is marked rather than re-offered.
+	for _i in 200:
+		w.step()
+	if not SimJobs._is_unreachable(w, item):
+		push_error("PATHING: nobody marked the sealed item at %s unreachable, so the search re-runs every tick" % str(sealed))
+		return false
+	var offered: Dictionary = SimJobs._haul_work(w, float(sealed.x) + 0.5, float(sealed.y) + 0.5)
+	if int(offered.get("target", -1)) == item:
+		push_error("PATHING: the sealed item is still being offered as Haul work after it was marked")
+		return false
+
+	# The true negative: a reachable item in the same world must NOT be marked, and must still be
+	# offered -- otherwise the lane passes on a marker that fires for everything.
+	var near: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged"})
+	w.components.set_component(near, "position", {"x": float(start.x) + 1.5, "y": float(start.y) + 0.5})
+	for _i in 60:
+		w.step()
+	if SimJobs._is_unreachable(w, near):
+		push_error("PATHING: a reachable item beside the player was marked unreachable, so this lane cannot fail")
+		return false
 	return true
