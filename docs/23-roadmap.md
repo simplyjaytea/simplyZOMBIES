@@ -282,8 +282,13 @@ than here.
 
 - **The repair economy: station, materials, Craft.** `SimItems.repair_item` already lowers the
   ceiling on every repair; what is open is the cost of invoking it.
-- **Attachments meet the attention field.** An optic useless in the dark; a weapon light that is a
-  real light source and therefore a real emitter.
+- **An optic that cares whether there is light, and a light that is aimed.** The light-source half
+  landed 2026-09-10 (`godot:m2:attach` LIGHT): a weapon light is a real `light` block on an
+  underbarrel part, read by the same resolver a lamp uses, so it lights its holder and makes them
+  visible. Two halves remain, and neither is a data edit. The light is a **radius** around whoever
+  carries it rather than a beam pointed where they are looking, so docs/10's "aimed at whatever
+  you're looking at" is still a promise; and an optic tightens the cone identically at noon and at
+  midnight, because `_refresh_cone` cannot see the light field at all.
 - **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
   in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
   bed beats a cot; content would carry the difference once more than one kind of bed exists.
@@ -636,6 +641,17 @@ each wants its own gate and several want a balance re-measurement, which is a sl
 than a line apiece. Worst first. What the same sweep *did* fix is in
 [the record](#the-record-by-system) under **Kernel & review sweep**.
 
+- **Every survivor shoots as though one arm were ruined.** `ranged.gd`'s `_refresh_cone` widens
+  the aim cone by 0.15 when the worse arm is under 25, and `SimCombat.SURVIVOR_BODY` gives a
+  *healthy* arm 20 — so the penalty is on for everybody, permanently, and a genuinely ruined arm
+  costs nothing more than an intact one. The threshold was written against the pre-split single
+  `arms` value, which was 40, and was not revisited when limbs were sided; it is CLAUDE.md's "a
+  survivor's body parts do not share a scale" trap in the aim path, and `SimHealth.part_state` is
+  the one normaliser it should be asking. Found 2026-09-10 while the aim ladder was being made
+  per-weapon, and deliberately not fixed there: correcting it tightens every survivor's cone in
+  every firefight, which is a balance change wanting its own slice and its own measurement rather
+  than a quiet ride beside a change about rate of fire. `check_m2_aim`'s CONE lane neutralises it
+  by hand and says why, and caught it by refusing to compare two saturated values.
 - **Crouching never lowers your eye.** `SimStances.eye_of` is called by nothing and no code ever
   writes `observer["eye"]`, so `Opacity.Low` / `Tile.Low` cover blocks nobody. The frozen oracle
   has this (`stance.eyes`); the port dropped it.
@@ -6033,6 +6049,104 @@ not a to-do list:
   long barrel changes a weapon's *length*, which one offset cannot express, and it wants either a
   per-host silhouette or a longer weapon sprite. The seam is there and adding a picture is a data
   edit plus a generator.
+
+- **Combat** — ~~a weapon's rate of fire is its own~~ **landed** 2026-09-10
+  (`godot:m2:aim` grows **HEFT**, **CONE** and **RECOVER**), the first slice of the weapons
+  catalogue arc. docs/09 states the ladder as "raise -> steady -> fire -> recover -> (reload)"
+  and its ranged-versus-melee table says a crossbow's rate of fire is "much slower" — which was
+  true of the reload and of nothing else, because `RAISE_TICKS` / `STEADY_TICKS` /
+  `RECOVER_TICKS` were three constants in `sim/modules/ranged.gd` that every firearm shared. A
+  submachine gun had no way to differ from a bolt rifle in the axis that defines it. **The fix is
+  melee's own shape, not a new one:** `ranged.weight` is content-declared and required exactly as
+  `melee.weight` is, `handling` is the multiplier attachments fold in against it, and
+  `SimCombat.raise_ticks` / `steady_ticks` / `shot_recover_ticks` sit beside `windup_ticks` and
+  `recover_ticks` because a weapon's clocks are combat's arithmetic rather than one module's
+  private calibration. Authored heft, and the ticks it buys: pistol and revolver 1.0 (8/4/8,
+  unchanged), rimfire rifle 1.1 (9/4/9), hunting bow 1.2 (10/5/10), pump shotgun 1.4 (11/6/11),
+  hunting rifle 1.5 (12/6/12), hunting crossbow 1.6 (13/6/13). **One multiplier over all three
+  rungs rather than three scalable fields**, because the bench prints one prose row per changed
+  field and "comes up / settles / recovers" is three rows a reader cannot tell apart without the
+  digits the HUD ban forbids; a part that should steady without hastening scales `cone`, which is
+  what the padded stock already does. The **folding stock** ships in the same commit and not by
+  choice — `check_m2_attach`'s SCALES lane refuses a `SCALABLE` field no shipped part scales, so
+  `handling` arrives with something that moves it or not at all. NPCs get it for nothing:
+  `npc_combat` goes through `SimRanged.try_begin_fire` like everyone else. No `SAVE_VERSION`
+  bump — components round-trip wholesale and the two defaults reproduce the old numbers exactly,
+  so bumping would refuse every existing save to change nothing. **CONE is the lane worth
+  keeping:** `_refresh_cone` used the shared constants as its lerp *denominators*, and `lerpf`
+  does not clamp, so against a per-weapon rung a heavy weapon extrapolated past `WIDE_HALF` and
+  was saved only by the `clampf` at the bottom while a light one started already half-tightened —
+  bounded, silent, wrong, and invisible to any assertion that only counts ticks. It asserts
+  instead that halfway up reads the same cone whatever the weapon weighs. All three lanes were
+  run against a reverted `_raise_of` and `_recover_of` and each named the right cause; HEFT's own
+  negative is a pistol and a revolver, both declaring 1.0, which have to agree, or the lane would
+  pass for anything that merely returns different numbers for different objects.
+
+- **Items** — ~~a submachine gun, and a second matched conversion~~ **landed** 2026-09-10
+  (`godot:m2:attach`'s MASS lane grows a coverage assertion, `godot:m2:director` grows **AMMO**),
+  the second slice of the weapons catalogue arc. `item.smg.compact` is the first weapon authored
+  after the heft field existed and the first whose identity *is* its handling: thirty rounds, a
+  short reach, the lowest `weight` of any firearm, and the Service Pistol's own 9mm — so the two
+  guns a colony is most likely to be carrying now draw on one pool, and a found box of pistol
+  rounds is a decision rather than a formality. Its picture is a Sten's: thirteen rows against the
+  hunting rifle's twenty-five, with the magazine out of the *side*, because at 7 px a short
+  diagonal is just a rifle drawn small and the sideways box is the only thing that reads.
+  **The .45 kit is the rimfire kit's shape a second time** — a barrel and a magazine that agree
+  with each other and with nothing else — and the mechanism was already proven, so it adds a
+  second instance rather than a second set of lanes. It fits the pistol too, which is emergent
+  rather than special-cased.
+  **Two gate holes closed on the way, both of the same kind.** `MASS_BEFORE_ASSEMBLY` covered all
+  eleven assembled bases by accident rather than by rule — nothing asserted the table was total,
+  so a twelfth could have been added weighing anything at all; it is total now, and bases that
+  never existed unassembled carry their intended mass instead, which is the same question asked
+  of a different baseline. And `SimDirector.AMMO_IDS` was a literal naming 9mm and arrows, so five
+  shipped calibers had been invisible to the colony-preparedness score since the day they landed
+  and a colonist with forty rifle rounds read as unarmed. It is derived from content now.
+  **The first version of that derivation was wrong in exactly the way it was fixing**, and the
+  lane caught it: reading only `ranged.ammo` counts six of seven calibers and misses the heavy
+  round, because a conversion names its caliber in `attachment.overrides.ranged.ammo` and no base
+  declares it. **AMMO** therefore collects the override-only calibers separately, refuses to run
+  if there are none to judge, and its reader half puts twelve rifle rounds in a pack and requires
+  the score to change — an assertion about `_ammo_ids` alone would have been an assertion about a
+  helper nobody calls. Reverting either half turns it red naming the caliber that went missing.
+  **Deliberately not in this slice:** no raider carries the SMG. `check_m2_raiders` would want
+  eight rounds in the kit and the archetype would change what a raid is worth surviving, which is
+  a balance question rather than a content one.
+
+- **Items** — ~~firearms have nowhere to hang a hand~~ and ~~a carried light lights nobody~~
+  **landed** 2026-09-10 (`godot:m2:attach` grows **LIGHT**), the third slice of the weapons
+  catalogue arc. Firearms gain a seventh slot, `underbarrel`, and three things to put in it: a
+  **foregrip** (quicker up, steadier), a **folding bipod** (far steadier, slow up, heavy) and a
+  **weapon light**. The slot and its occupants had to land in one commit — `check_m2_attach`'s
+  HOSTS lane refuses a declared slot nothing fits, which is the rule that closed four dead sockets
+  in the second gear catalogue and is doing the same job here in advance.
+  **The weapon light is the first attachment that is not a multiplier and is not structural.** It
+  declares the same top-level `light` block a lamp does, so the CONTENT lane's "a part has to do
+  something" predicate grew a third way of doing something; its own negative is unchanged, and a
+  part with none of the three is still refused.
+  **Two defects, both in the path and both fixed here rather than named.** The first: `light.gd`
+  carried a private copy of the content accessor whose fallback scan sat *inside* a
+  `has(type_id)` guard, and `ContentLoader.load_tree` keys its tree by path, never by type — so
+  `has("item")` was false, the scan never ran, and `light_reach_of` returned null **for every item
+  in the game**. The candle, the electric lamp and the oil lantern have each declared a `light`
+  block since the light module landed and no carried one has ever lit anybody: the thirteenth dead
+  socket of the milestone, and found only because the weapon light needed the same resolver.
+  `items.gd`'s `content_entry` already says in its own comment that other modules "should not each
+  grow their own copy of it"; the copy is deleted and this module borrows the canonical one. **Note
+  this changes night play**: carrying a lamp now costs visibility as well as a hand, which is what
+  it was always meant to cost.
+  The second: `light_source` has two writers on a survivor — what they carry and the muzzle flash —
+  and the flash overwrote the component and then *deleted* it on expiry, guarded on the magnitude
+  still equalling the flash, which the overwrite had just guaranteed. A mounted light went out
+  permanently on the first shot, silently, and the guard read as though it were being careful.
+  There is one writer for carried light now (`refresh_carried`), the flash takes the brighter of
+  itself and what is carried, and expiry falls back rather than removes. **This is why the lane
+  fires the gun**: every other assertion about the light passes with that bug in place, and
+  restoring it turns LIGHT red naming exactly it. The lane's other negatives are a foregrip, which
+  must *not* light the room, and a bare rifle.
+  **Deliberately not in this slice:** the underbarrel parts have no picture. The record's own note
+  on barrels and stocks applies unchanged — and a light in particular wants to look lit, which is a
+  question about the light field's own drawing rather than about one 3 px overlay.
 
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not

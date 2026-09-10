@@ -707,6 +707,29 @@ def item_rifle_hunting_equip():
     return canvas.to_image()
 
 
+def item_smg_compact_equip():
+    """A compact submachine gun: a short boxy receiver with a magazine hanging out of it.
+
+    The magazine is the whole read, and it is the only reason this is not just a short rifle at
+    7 px. Every other long gun in the hand runs butt-low to muzzle-high and draws nothing below
+    the fist but stock; this one puts a hard vertical box *under* the receiver and stops its
+    barrel less than half way to where the rifle's ends. Short, and hung with something -- which
+    is what a submachine gun looks like from across a street.
+    """
+    steel = RAMPS["stone"]
+    grip = RAMPS["strap"]
+    canvas = _overlay()
+    canvas.band((HAND_X - 0.6, HAND_Y + 2.6), (HAND_X + 1.2, HAND_Y - 4.0), 4.0, steel[2],
+                inside_only=False)  # the receiver, boxy and short
+    canvas.band((HAND_X + 1.2, HAND_Y - 4.0), (HAND_X + 2.0, HAND_Y - 7.5), 2.4, steel[1],
+                inside_only=False)  # the barrel, stopping less than half way to the rifle's
+    canvas.band((HAND_X - 1.8, HAND_Y + 0.2), (HAND_X - 4.6, HAND_Y + 1.4), 2.6, grip[2],
+                inside_only=False)  # the magazine, out of the *side* -- the whole read
+    canvas.nw_shade(0.12)
+    canvas.outline(OUTLINE)
+    return canvas.to_image()
+
+
 # --- the catalogue: worn ------------------------------------------------------------------------
 
 JACKET_HALF_W = 6.5  # a column wider than the wrap each side: a coat sits over the body, a wrap on it
@@ -1235,4 +1258,6 @@ REGISTRY = {
     "item_helmet_hardhat_equip": item_helmet_hardhat_equip,
     "item_duffel_canvas_equip": item_duffel_canvas_equip,
     "item_duffel_canvas_equip_front": item_duffel_canvas_equip_front,
+    # the weapons catalogue (2026-09-10)
+    "item_smg_compact_equip": item_smg_compact_equip,
 }
