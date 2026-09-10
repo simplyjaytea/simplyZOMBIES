@@ -32,6 +32,7 @@ const SimWounds = preload("res://sim/modules/wounds.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimChronicle = preload("res://sim/modules/chronicle.gd")
+const SimAttachments = preload("res://sim/modules/attachments.gd")
 const Clock = preload("res://sim/time/clock.gd")
 const Palette = preload("res://presentation/palette.gd")
 
@@ -121,6 +122,12 @@ func _self_lines(world: Variant, actor: int) -> Array[String]:
 	var here: String = SimContainers.hud_clause(world, actor)
 	if not here.is_empty():
 		lines.append(here)
+
+	# A weapon that will not work, and why. Placed high on purpose -- a trigger pull that does
+	# nothing and says nothing is the worst way to meet the fact that a gun is an assembly.
+	var jammed_up: String = SimAttachments.refusal_clause(world, actor)
+	if not jammed_up.is_empty():
+		lines.append(jammed_up)
 
 	# Infection reads as a symptom, never as a diagnosis the player has not earned.
 	var diag: Variant = SimInfection.diagnosis_of(world, actor, 0)

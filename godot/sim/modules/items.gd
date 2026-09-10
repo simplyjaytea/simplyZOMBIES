@@ -5,6 +5,14 @@ const FULL_CONDITION: float = 1.0
 const CONDITION_FLOOR: float = 0.55
 # ponytail: flat wear per hit; jam/miss wear later.
 const WEAR_PER_HIT: float = 0.005
+# A firearm wears from being fired, not from connecting: the barrel does not know whether the
+# round found anything. Sized so a weapon reaches "worn" (0.8) after ~133 rounds and "failing"
+# (0.5) after ~333 -- tens of rounds is a firefight, so a gun goes noticeably off after about ten
+# of them, which is the pressure docs/09's jam clause wants and the reason WEAR_PER_HIT's comment
+# said "jam/miss wear later".
+const WEAR_PER_SHOT: float = 0.0015
+# A reload is gentler than a shot and mostly costs the magazine, which slice 2 charges separately.
+const WEAR_PER_RELOAD: float = 0.0005
 const REPAIR_GAIN: float = 0.25
 const REPAIR_CEILING_DROP: float = 0.05
 const REPAIR_CEILING_FLOOR: float = 0.2
@@ -188,6 +196,12 @@ static func item_mass_kg(world: Variant, item: int, contents_of: Callable) -> fl
 	var mass: float = base_mass_kg(base as Dictionary) * float(1 if stack == null else int((stack as Dictionary).get("count", 1)))
 	for child in contents_of.call(item) as Array:
 		mass += item_mass_kg(world, int(child), contents_of)
+	# What is bolted to it, too -- docs/10 charges weight for an extended magazine and the mass of
+	# a barrel does not stop being carried because the barrel is in a gun. Each base's own massKg
+	# is the receiver alone, so an assembled weapon comes out at the figure it was authored at;
+	# check_m2_attach.gd's MASS lane holds that against a table of the pre-assembly masses.
+	for rec in _Attachments().call("parts_of", world, item) as Array:
+		mass += item_mass_kg(world, int((rec as Dictionary)["item"]), contents_of)
 	return mass
 
 static func condition_factor(world: Variant, item: int) -> float:
@@ -195,6 +209,24 @@ static func condition_factor(world: Variant, item: int) -> float:
 	if c == null:
 		return 1.0
 	var cur: float = float((c as Dictionary).get("current", 1.0))
+	if cur <= 0.0:
+		return 0.0
+	return CONDITION_FLOOR + (1.0 - CONDITION_FLOOR) * clampf(cur, 0.0, 1.0)
+
+
+## The raw condition of this item *as assembled*: the worst of its own and every structural part's.
+## A weapon is only as good as the barrel in it, which is what makes fitting a sound barrel to a
+## tired gun a repair -- and one that costs no ceiling, because nothing was mended.
+static func assembly_condition(world: Variant, item: int) -> float:
+	var c: Variant = world.components.get_component(item, "condition")
+	var own: float = float((c as Dictionary).get("current", 1.0)) if c is Dictionary else 1.0
+	return float(_Attachments().call("assembly_condition", world, item, own))
+
+
+## `condition_factor` asked of the whole assembly. This is what the weapon profiles scale by, so a
+## worn barrel takes the edge off the gun exactly as a worn gun does.
+static func assembly_condition_factor(world: Variant, item: int) -> float:
+	var cur: float = assembly_condition(world, item)
 	if cur <= 0.0:
 		return 0.0
 	return CONDITION_FLOOR + (1.0 - CONDITION_FLOOR) * clampf(cur, 0.0, 1.0)
@@ -220,7 +252,10 @@ static func jam_chance(world: Variant, item: int) -> float:
 	var c: Variant = world.components.get_component(item, "condition")
 	if not (c is Dictionary):
 		return 0.0
-	return float(JAM_CHANCE_BY_BAND.get(condition_band(c as Dictionary), 0.0))
+	# Banded off the assembly rather than the receiver: what stovepipes a gun is a tired action or
+	# a bent magazine, and both are parts now. A player told the action is "failing" is the one
+	# whose gun jams, which is the same promise JAM_CHANCE_BY_BAND already makes about the weapon.
+	return float(JAM_CHANCE_BY_BAND.get(condition_band({"current": assembly_condition(world, item)}), 0.0))
 
 
 static func apply_wear(world: Variant, item: int, amount: float = WEAR_PER_HIT) -> void:
@@ -306,27 +341,35 @@ static func refresh_armed(world: Variant, item: int) -> void:
 					(live as Dictionary)[key] = (ranged as Dictionary)[key]
 
 
-static func _weapon_for_attacker(world: Variant, attacker: int) -> int:
-	var eq: Variant = world.components.get_component(attacker, "equipment")
-	if not eq is Dictionary:
-		return -1
-	var slots: Dictionary = (eq as Dictionary).get("slots", {}) as Dictionary
-	for slot in ["primary", "secondary"]:
-		if slots.has(slot):
-			var item: int = int(slots[slot])
-			if melee_profile_of(world, item) != null or ranged_profile_of(world, item) != null:
-				return item
-	return -1
+## Whether this item is a melee weapon, asked of its base rather than by building a profile.
+## The wear-on-hit subscription needs the answer for every landed blow, including a zombie's.
+static func is_melee_item(world: Variant, item: int) -> bool:
+	if item < 0:
+		return false
+	var base: Variant = item_base_of(world, item)
+	return base is Dictionary and (base as Dictionary).get("melee") is Dictionary
 
 
+# Three channels, not one, because three different things wear a weapon and they do not wear it
+# equally. Each carries the acting item on the event itself -- `source`, stamped by the profile
+# builders -- so none of them has to guess which hand acted. That guess was `_weapon_for_attacker`,
+# and it was wrong in a way nothing reported: it walked ["primary","secondary"] and took the first
+# with a profile, so a survivor carrying a knife and a pistol wore the knife on every gunshot and
+# the pistol never degraded at all, which meant its jam chance never rose off zero.
 static func register_module(world: Variant) -> void:
 	world.events.subscribe({"id": "items.wear-on-hit", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
-		var attacker: int = int(event.get("attacker", -1))
-		if attacker < 0:
-			return
-		var weapon: int = _weapon_for_attacker(world, attacker)
-		if weapon >= 0:
-			apply_wear(world, weapon)
+		# A melee weapon wears where it lands. A firearm does not wear here -- it wore when it
+		# fired, on the channel below -- and a zombie's bite publishes this event carrying no item
+		# at all, which is the -1 both cases fall through on.
+		var weapon: int = int(event.get("item", -1))
+		if is_melee_item(world, weapon):
+			apply_wear(world, weapon, WEAR_PER_HIT)
+	})
+	world.events.subscribe({"id": "items.wear-on-shot", "type": "weapon.fired", "handler": func(event: Dictionary) -> void:
+		apply_wear(world, int(event.get("item", -1)), WEAR_PER_SHOT)
+	})
+	world.events.subscribe({"id": "items.wear-on-reload", "type": "weapon.reloaded", "handler": func(event: Dictionary) -> void:
+		apply_wear(world, int(event.get("item", -1)), WEAR_PER_RELOAD)
 	})
 
 # Loaded lazily rather than preloaded: attachments.gd preloads *this* file, and a preload cycle
@@ -342,7 +385,7 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 	var melee: Variant = (base as Dictionary).get("melee")
 	if not melee is Dictionary:
 		return null
-	var wear: float = condition_factor(world, item)
+	var wear: float = assembly_condition_factor(world, item)
 	var resolve := func(stat: String) -> float:
 		if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
 			return float(world.modifiers.call("resolve", stat, item))
@@ -356,6 +399,16 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 		"speed": resolve.call("swing_speed") * wear,
 		"recovery": resolve.call("swing_recovery"),
 		"stamina": resolve.call("swing_stamina"),
+		# Which item this profile was built from. The live `meleeWeapon`/`rangedWeapon` components
+		# sit on the *actor*, so before this key existed nothing could say which of the two hands
+		# had acted -- `_weapon_for_attacker` guessed by walking ["primary","secondary"] and
+		# returning the first with a profile, which wore a knife every time a pistol fired. An
+		# entity id as a *value*, never a Dictionary key, so it survives the JSON round trip a
+		# save makes.
+		"source": item,
+		# Why this weapon cannot be used, or "" -- one field, computed once, read by every path
+		# that can start an attack. See SimAttachments.blocked_reason.
+		"blocked": String(_Attachments().call("blocked_reason", world, item)),
 	}
 	return _Attachments().call("fold", world, item, "melee", profile)
 
@@ -366,7 +419,7 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 	var ranged: Variant = (base as Dictionary).get("ranged")
 	if not ranged is Dictionary:
 		return null
-	var wear: float = condition_factor(world, item)
+	var wear: float = assembly_condition_factor(world, item)
 	var r: Dictionary = ranged as Dictionary
 	var jams: bool = bool(r.get("jams", false))
 	var profile: Dictionary = {
@@ -390,8 +443,21 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		# resolves on the *entity*, so a scope with nothing in it was the wrong place to put one.
 		# `ranged.gd:_refresh_cone` folds this in with everything else that decides sway.
 		"cone": 1.0,
+		# See melee_profile_of: the item this profile was built from, so wear can reach the
+		# weapon that actually fired.
+		"source": item,
+		"blocked": String(_Attachments().call("blocked_reason", world, item)),
 	}
-	return _Attachments().call("fold", world, item, "ranged", profile)
+	var built: Dictionary = _Attachments().call("fold", world, item, "ranged", profile) as Dictionary
+	# `jamChance` was derived above, from the base's own `jams`. A part may *replace* `jams` --
+	# a match action that will not stovepipe -- and the fold runs after, so the chance would be
+	# left describing a weapon that no longer exists. Re-derived here rather than inside `fold`,
+	# which has no business knowing that two of these fields are related.
+	if not bool(built.get("jams", false)):
+		built["jamChance"] = 0.0
+	elif float(built.get("jamChance", 0.0)) <= 0.0:
+		built["jamChance"] = jam_chance(world, item)
+	return built
 
 # ---- affixes ----
 
@@ -665,6 +731,13 @@ static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}
 	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
 	if Needs != null and Needs.has_method("mark_spoilage"):
 		Needs.call("mark_spoilage", world, item, base_id)
+	# Last, and deliberately not on the `item.spawned` channel above: assembly spawns entities of
+	# its own, and doing that inside `deliver` would nest a delivery in a delivery. `assemble`
+	# draws no randomness -- every part is spawned at an explicit tier -- so a weapon arriving in
+	# the world with four parts in it leaves the `loot` stream exactly where a bare one would.
+	# Opt out with {"assemble": false} when you want the frame alone.
+	if bool(options.get("assemble", true)):
+		_Attachments().call("assemble", world, item, int(options.get("assembleDepth", 0)))
 	return item
 
 static func verify_content_references(world: Variant) -> void:

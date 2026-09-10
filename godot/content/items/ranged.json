@@ -5,10 +5,15 @@
     "description": "A hunting bow. Quiet, slow to draw, and the arrows come back to you.",
     "class": "weapon.ranged",
     "size": { "w": 1, "h": 4 },
-    "massKg": 1.1,
+    "massKg": 0.77,
     "equipSlot": "primary",
     "appearance": { "equipSprite": "item_bow_hunting_equip" },
     "slots": ["sight", "limb", "string"],
+    "requiredSlots": ["limb", "string"],
+    "defaultParts": {
+      "limb": "item.part.limb.standard",
+      "string": "item.part.string.standard"
+    },
     "ranged": {
       "damage": 12,
       "noise": 4,
@@ -24,10 +29,16 @@
     "description": "A service pistol. Easy to carry, easy to hear, and everything hears it.",
     "class": "weapon.ranged",
     "size": { "w": 1, "h": 2 },
-    "massKg": 0.9,
+    "massKg": 0.28,
     "equipSlot": "secondary",
-    "appearance": { "equipSprite": "item_pistol_service_equip" },
-    "slots": ["optic", "barrel", "magazine", "furniture"],
+    "appearance": { "equipSprite": "item_pistol_service_equip", "partAnchors": { "muzzle": { "x": -3, "y": 0 }, "optic": { "x": 0, "y": -1 }, "magazine": { "x": 0, "y": 1 } } },
+    "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
+    "defaultParts": {
+      "barrel": "item.part.barrel.standard",
+      "magazine": "item.part.magazine.standard",
+      "internal": "item.part.action.standard"
+    },
     "ranged": {
       "damage": 18,
       "noise": 180,
@@ -63,10 +74,16 @@
     "description": "A pump shotgun. Devastating close in, and it announces itself across the district.",
     "class": "weapon.ranged",
     "size": {"w": 1, "h": 5},
-    "massKg": 3.4,
+    "massKg": 2.4,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_shotgun_pump_equip"},
-    "slots": ["barrel", "furniture", "sight"],
+    "appearance": { "equipSprite": "item_shotgun_pump_equip", "partAnchors": { "muzzle": { "x": 2, "y": -7 }, "optic": { "x": 1, "y": -3 } } },
+    "slots": ["optic", "barrel", "muzzle", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
+    "defaultParts": {
+      "barrel": "item.part.barrel.standard",
+      "internal": "item.part.action.standard",
+      "furniture": "item.part.stock.standard"
+    },
     "ranged": {"damage": 30, "noise": 220, "flash": 90, "ammo": "item.ammo.12g", "magSize": 5, "reloadTicks": 60, "rangeMetres": 15, "jams": true}
   },
   {
@@ -75,10 +92,17 @@
     "description": "A bolt-action hunting rifle. It reaches further than anything else here.",
     "class": "weapon.ranged",
     "size": {"w": 1, "h": 6},
-    "massKg": 3.6,
+    "massKg": 2.48,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_rifle_hunting_equip"},
-    "slots": ["optic", "barrel", "furniture", "magazine"],
+    "appearance": { "equipSprite": "item_rifle_hunting_equip", "partAnchors": { "muzzle": { "x": 3, "y": -9 }, "optic": { "x": 1, "y": -3 }, "magazine": { "x": 0, "y": 2 } } },
+    "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
+    "defaultParts": {
+      "barrel": "item.part.barrel.standard",
+      "magazine": "item.part.magazine.standard",
+      "internal": "item.part.action.standard",
+      "furniture": "item.part.stock.standard"
+    },
     "ranged": {"damage": 34, "noise": 200, "flash": 70, "ammo": "item.ammo.rifle", "magSize": 4, "reloadTicks": 70, "rangeMetres": 60, "jams": true}
   },
   {
@@ -105,10 +129,15 @@
     "description": "A crossbow with a steel prod. It hits like a gun and takes an age to crank back.",
     "class": "weapon.ranged",
     "size": {"w": 2, "h": 4},
-    "massKg": 2.6,
+    "massKg": 2.27,
     "equipSlot": "primary",
     "appearance": {"equipSprite": "item_crossbow_hunting_equip"},
     "slots": ["sight", "limb", "string"],
+    "requiredSlots": ["limb", "string"],
+    "defaultParts": {
+      "limb": "item.part.limb.standard",
+      "string": "item.part.string.standard"
+    },
     "ranged": {"damage": 20, "noise": 6, "ammo": "item.ammo.bolt", "recoverable": 0.6, "reloadTicks": 90, "rangeMetres": 35}
   },
   {
@@ -117,10 +146,15 @@
     "description": "A short revolver with a cylinder that turns whatever its condition. It hits hard, close, and rarely.",
     "class": "weapon.ranged",
     "size": {"w": 1, "h": 2},
-    "massKg": 0.8,
+    "massKg": 0.3,
     "equipSlot": "secondary",
-    "appearance": {"equipSprite": "item_revolver_snub_equip"},
-    "slots": ["optic", "barrel", "furniture"],
+    "appearance": { "equipSprite": "item_revolver_snub_equip", "partAnchors": { "muzzle": { "x": -3, "y": 0 }, "optic": { "x": 0, "y": -1 } } },
+    "slots": ["optic", "barrel", "muzzle", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
+    "defaultParts": {
+      "barrel": "item.part.barrel.standard",
+      "internal": "item.part.action.standard"
+    },
     "ranged": {"damage": 22, "noise": 190, "flash": 55, "ammo": "item.ammo.38", "magSize": 6, "reloadTicks": 75, "rangeMetres": 18, "jams": false}
   },
   {
@@ -129,10 +163,17 @@
     "description": "A small-bore rifle for vermin. It cracks rather than booms, and it kills slowly.",
     "class": "weapon.ranged",
     "size": {"w": 1, "h": 4},
-    "massKg": 2.4,
+    "massKg": 1.28,
     "equipSlot": "primary",
-    "appearance": {"equipSprite": "item_rifle_rimfire_equip"},
-    "slots": ["optic", "barrel", "furniture", "magazine"],
+    "appearance": { "equipSprite": "item_rifle_rimfire_equip", "partAnchors": { "muzzle": { "x": 3, "y": -8 }, "optic": { "x": 1, "y": -3 }, "magazine": { "x": 0, "y": 2 } } },
+    "slots": ["optic", "barrel", "muzzle", "magazine", "furniture", "internal"],
+    "requiredSlots": ["barrel", "internal"],
+    "defaultParts": {
+      "barrel": "item.part.barrel.standard",
+      "magazine": "item.part.magazine.standard",
+      "internal": "item.part.action.standard",
+      "furniture": "item.part.stock.standard"
+    },
     "ranged": {"damage": 10, "noise": 120, "flash": 35, "ammo": "item.ammo.22", "magSize": 10, "reloadTicks": 45, "rangeMetres": 50, "jams": true}
   },
   {

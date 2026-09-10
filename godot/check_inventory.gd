@@ -36,6 +36,7 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
 
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
@@ -153,6 +154,7 @@ func _world(seed_val: int) -> Variant:
 	SimItems.register_module(w)
 	SimInventory.register_module(w)
 	SimAttachments.register_module(w)
+	SimGunsmith.register_module(w)
 	SimHealth.make_survivor_body(w, w.player)
 	SimHealth.make_stamina(w, w.player, 100)
 	SimNeeds.attach(w, w.player)
@@ -309,8 +311,10 @@ func _the_pane_carries_only_words() -> bool:
 	if not SimInventory.equip(w, w.player, coat, "torso"):
 		push_error("the coat would not go on")
 		return false
-	if not SimAttachments.attach(w, pistol, can, "barrel"):
-		push_error("the suppressor would not fit the pistol")
+	# The muzzle, not the barrel: a pistol spawns with a barrel already in it and a can screws onto
+	# the end of one. That is what the `muzzle` slot is for.
+	if not SimAttachments.attach(w, pistol, can, "muzzle"):
+		push_error("the suppressor would not fit the pistol's muzzle")
 		return false
 
 	var checked: int = 0
@@ -502,6 +506,32 @@ func _every_offered_verb_reaches_a_command() -> bool:
 	if coat < 0 or tins < 0 or limit < 3:
 		push_error("the fixture could not be carried (stack limit %d)" % limit)
 		return false
+
+	# modify -- absent away from a bench, present at one, and the command it pushes opens the
+	# weapon on it. The absence is the half that matters: a verb offered everywhere is a menu
+	# entry the sim silently drops when the player picks it.
+	var rifle: int = _give(w, "item.rifle.hunting")
+	if rifle < 0:
+		push_error("the fixture rifle could not be carried")
+		return false
+	if SimInventory.verbs_for(w, w.player, rifle).has("modify"):
+		push_error("\"modify\" was on offer with no bench anywhere")
+		return false
+	var here: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	SimGunsmith.make_bench(w, float(here["x"]), float(here["y"]))
+	if not SimInventory.verbs_for(w, w.player, rifle).has("modify"):
+		push_error("\"modify\" was not on offer for a rifle at a bench")
+		return false
+	if SimInventory.verbs_for(w, w.player, coat).has("modify"):
+		push_error("\"modify\" was on offer for a coat, which comes apart into nothing")
+		return false
+	w.commands.push({"type": "bench.open", "item": rifle})
+	w.step()
+	if SimGunsmith.focus_of(w, w.player) != rifle:
+		push_error("the offered \"modify\" pushed a command that did nothing")
+		return false
+	w.commands.push({"type": "bench.close"})
+	w.step()
 
 	# equip
 	if not SimInventory.verbs_for(w, w.player, coat).has("equip"):

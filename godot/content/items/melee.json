@@ -53,10 +53,15 @@
     "description": "A blade lashed to a pole. It kills at arm's length and a bit further, which is the point.",
     "class": "weapon.melee",
     "size": { "w": 1, "h": 5 },
-    "massKg": 1.4,
+    "massKg": 0.25,
     "equipSlot": "primary",
     "appearance": { "equipSprite": "item_spear_improvised_equip" },
     "slots": ["head", "haft"],
+    "requiredSlots": ["head"],
+    "defaultParts": {
+      "head": "item.part.head.standard",
+      "haft": "item.part.haft.standard"
+    },
     "melee": { "reachMetres": 2.4, "weight": 1.0, "damage": 10, "staggerTicks": 8 }
   },
   {
@@ -65,10 +70,15 @@
     "description": "A fire axe, wide and long. A landed swing stops a walker where it stands.",
     "class": "weapon.melee",
     "size": { "w": 2, "h": 4 },
-    "massKg": 3.2,
+    "massKg": 2.05,
     "equipSlot": "primary",
     "appearance": { "equipSprite": "item_axe_fire_equip" },
     "slots": ["head", "haft", "wrap"],
+    "requiredSlots": ["head", "haft"],
+    "defaultParts": {
+      "head": "item.part.head.standard",
+      "haft": "item.part.haft.standard"
+    },
     "melee": { "reachMetres": 1.6, "weight": 1.5, "damage": 14, "staggerTicks": 10 }
   },
   {
@@ -77,10 +87,15 @@
     "description": "A demolition sledge. Everything it hits goes down; nothing it misses waits for it.",
     "class": "weapon.melee",
     "size": { "w": 2, "h": 5 },
-    "massKg": 6.4,
+    "massKg": 5.25,
     "equipSlot": "primary",
     "appearance": { "equipSprite": "item_sledge_demolition_equip" },
     "slots": ["head", "haft", "wrap"],
+    "requiredSlots": ["head", "haft"],
+    "defaultParts": {
+      "head": "item.part.head.standard",
+      "haft": "item.part.haft.standard"
+    },
     "melee": { "reachMetres": 1.7, "weight": 2.4, "damage": 20, "staggerTicks": 30 }
   },
   {
@@ -173,10 +188,15 @@
     "description": "A splitting axe off a woodpile. The head does the work and the arms pay for it.",
     "class": "weapon.melee",
     "size": {"w": 2, "h": 4},
-    "massKg": 4.1,
+    "massKg": 2.95,
     "equipSlot": "primary",
     "appearance": {"equipSprite": "item_axe_splitting_equip"},
     "slots": ["head", "haft", "wrap"],
+    "requiredSlots": ["head", "haft"],
+    "defaultParts": {
+      "head": "item.part.head.standard",
+      "haft": "item.part.haft.standard"
+    },
     "melee": {"reachMetres": 1.6, "weight": 1.8, "damage": 16, "staggerTicks": 14}
   }
 ]

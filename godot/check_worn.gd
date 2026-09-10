@@ -99,6 +99,7 @@ func _run() -> void:
 	ok = _the_reaches_never_die_silently() and ok
 	ok = _the_shared_bet_holds() and ok
 	ok = _the_shipped_colony_reaches_it() and ok
+	ok = _a_fitted_part_reaches_the_composite() and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -108,7 +109,7 @@ func _run() -> void:
 	if ok:
 		print(
 			(
-				"WORN_LOOK_OK EQUIP_DRAW_ORDER holds 6 slots in order (only back under) and a fully-kitted actor composes them in that order, %d layers, a back-slot front piece over anyway; %d content/items/ equip keys resolve at PAWN_CANVAS %s; %d overlays sit inside the %d-rig envelope (%s); %d equippable base(s) reach a layer worn in their own slot (%s), refused for no-equipment/no-art/an-undrawn-slot/an-empty-slot; all %d rigs share PAWN_CANVAS with no per-rig overlay key; %s; %.1f s of a %.0f s budget"
+				"WORN_LOOK_OK EQUIP_DRAW_ORDER holds 6 slots in order (only back under) and a fully-kitted actor composes them in that order, %d layers, a back-slot front piece over anyway; %d content/items/ equip keys resolve at PAWN_CANVAS %s; %d overlays sit inside the %d-rig envelope (%s); %d equippable base(s) reach a layer worn in their own slot (%s), refused for no-equipment/no-art/an-undrawn-slot/an-empty-slot; all %d rigs share PAWN_CANVAS with no per-rig overlay key; %s; a fitted part composes over its host and moves to the host's own anchor; %.1f s of a %.0f s budget"
 				% [
 					int(_stash.get("order_layers", 0)),
 					int(_stash.get("canvas_judged", 0)),
@@ -147,11 +148,17 @@ func _fixture() -> Dictionary:
 # The eight rig-body keys out of Appearance.PAWN_KEYS -- everything on that list that is not one
 # of the three shipped equip overlays. Derived from the real table rather than a second hardcoded
 # list, so this cannot silently drift from what PAWN_KEYS actually names.
+# The eight bodies. Everything else on the pawn canvas is something drawn *on* a body -- an
+# `equip` overlay, or a `_part` fitted to a held weapon -- so the classifier names both rather
+# than assuming "not equip" means "a rig". A key family added without a case here would be
+# counted as a ninth survivor, which is how this lane first went red.
 func _rig_keys() -> Array[String]:
 	var out: Array[String] = []
 	for k in Appearance.PAWN_KEYS:
-		if not String(k).contains("equip"):
-			out.append(String(k))
+		var key: String = String(k)
+		if key.contains("equip") or key.ends_with("_part"):
+			continue
+		out.append(key)
 	return out
 
 
@@ -733,4 +740,100 @@ func _the_shipped_colony_reaches_it() -> bool:
 	var note2: String = "%d of %d equipped entities wear something drawn, %d layer(s) all at PAWN_CANVAS" % [wearers_with_drawable_slot, wearers.size(), drawable_layers]
 	_stash["played_note"] = note2
 	print("PLAYED OK suburb@%d seed %d: %s" % [GATE_SIZE, CANON_SEED, note2])
+	return true
+
+
+# --- PARTS ------------------------------------------------------------------------------------
+#
+# The dead-socket question, asked of the one overlay family that does not share the hand anchor.
+# A part fitted to a held weapon has to reach the composite -- an `attachmentSprite` in content
+# that nothing draws is the twelfth dead socket of the milestone -- and it has to arrive carrying
+# the host's own offset, because a suppressor drawn at the body's origin is a can floating in a
+# survivor's stomach.
+#
+# The negative is the same weapon with nothing fitted. Without it the lane passes for an
+# implementation that draws a part on every weapon whether one is fitted or not.
+func _a_fitted_part_reaches_the_composite() -> bool:
+	var lane: String = "PARTS"
+	Appearance.forget()
+	var fixture: Dictionary = _fixture()
+	fixture["content_tree"] = ContentLoader.load_tree()
+	var w: Variant = World.new(fixture)
+
+	var bare: int = int(w.entities.spawn())
+	var gun: int = int(w.entities.spawn())
+	w.components.set_component(gun, "itemBase", {"baseId": "item.pistol.service"})
+	w.components.set_component(bare, "equipment", {"slots": {"secondary": gun}})
+	var without: Array[Dictionary] = Appearance.equipment_layers_for(w, bare)
+	if without.is_empty():
+		push_error("%s: a held pistol draws nothing at all, so this lane is asserting nothing" % lane)
+		return false
+
+	# The same pistol, with a can on the muzzle.
+	var can: int = int(w.entities.spawn())
+	w.components.set_component(can, "itemBase", {"baseId": "item.attach.suppressor"})
+	w.components.set_component(gun, "attachments", {"slots": {"muzzle": can}})
+	var with: Array[Dictionary] = Appearance.equipment_layers_for(w, bare)
+	if with.size() != without.size() + 1:
+		push_error("%s: fitting a suppressor took the composite from %d layers to %d" % [lane, without.size(), with.size()])
+		return false
+
+	# It is the last layer and it is over: a can screws onto a barrel that is already drawn.
+	var top: Dictionary = with[with.size() - 1]
+	if not bool(top.get("over", false)):
+		push_error("%s: the part layer is under the body" % lane)
+		return false
+	if not top.has("offset"):
+		push_error("%s: the part layer carries no offset, so it draws at the body's origin" % lane)
+		return false
+	var offset: Vector2 = top["offset"] as Vector2
+	if offset == Vector2.ZERO:
+		push_error("%s: the pistol declares a muzzle anchor and the layer arrived at (0, 0)" % lane)
+		return false
+
+	# TN for the anchor: a host that declares none puts its part at the origin rather than at
+	# somebody else's muzzle. The bow declares no partAnchors, which is exactly that case.
+	var w2: Variant = World.new(fixture)
+	var holder: int = int(w2.entities.spawn())
+	var bow: int = int(w2.entities.spawn())
+	w2.components.set_component(bow, "itemBase", {"baseId": "item.bow.hunting"})
+	var sight: int = int(w2.entities.spawn())
+	w2.components.set_component(sight, "itemBase", {"baseId": "item.attach.optic.red_dot"})
+	w2.components.set_component(bow, "attachments", {"slots": {"sight": sight}})
+	w2.components.set_component(holder, "equipment", {"slots": {"primary": bow}})
+	var bow_layers: Array[Dictionary] = Appearance.equipment_layers_for(w2, holder)
+	var anchored: bool = false
+	for layer in bow_layers:
+		if layer.has("offset") and (layer["offset"] as Vector2) != Vector2.ZERO:
+			anchored = true
+	if anchored:
+		push_error("%s: a bow declares no partAnchors and its sight arrived offset anyway" % lane)
+		return false
+
+	# And every declared attachmentSprite resolves, at the pawn canvas, like every other overlay.
+	var judged: int = 0
+	for path in (fixture["content_tree"] as Dictionary).keys():
+		if not String(path).begins_with("items/"):
+			continue
+		var value: Variant = (fixture["content_tree"] as Dictionary)[path]
+		if not value is Array:
+			continue
+		for entry_v in value as Array:
+			var block: Variant = (entry_v as Dictionary).get("appearance")
+			if not block is Dictionary or not (block as Dictionary).has("attachmentSprite"):
+				continue
+			var key: String = String((block as Dictionary)["attachmentSprite"])
+			var tex: Texture2D = Appearance.resolve(key)
+			if tex == null:
+				push_error("%s: %s declares attachmentSprite %s and nothing resolves" % [lane, String((entry_v as Dictionary).get("id", "?")), key])
+				return false
+			if tex.get_size() != Vector2(Appearance.PAWN_CANVAS):
+				push_error("%s: %s is %s, not the pawn canvas %s" % [lane, key, str(tex.get_size()), str(Appearance.PAWN_CANVAS)])
+				return false
+			judged += 1
+	if judged == 0:
+		push_error("%s: no shipped part declares a picture, so this lane judged nothing" % lane)
+		return false
+
+	print("  PARTS OK %d part pictures at the pawn canvas; a fitted can adds one over-layer at its host's anchor, an unanchored host adds one at the origin" % judged)
 	return true

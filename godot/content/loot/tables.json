@@ -284,6 +284,18 @@
           "min": 4,
           "max": 10
         }
+      },
+      {
+        "item": "item.part.string.standard",
+        "weight": 4
+      },
+      {
+        "item": "item.part.haft.standard",
+        "weight": 5
+      },
+      {
+        "item": "item.part.magazine.rimfire",
+        "weight": 2
       }
     ]
   },
@@ -592,6 +604,30 @@
           "min": 1,
           "max": 3
         }
+      },
+      {
+        "item": "item.part.limb.standard",
+        "weight": 3
+      },
+      {
+        "item": "item.part.string.standard",
+        "weight": 4
+      },
+      {
+        "item": "item.part.magazine.standard",
+        "weight": 3
+      },
+      {
+        "item": "item.attach.muzzle.flash_hider",
+        "weight": 2
+      },
+      {
+        "item": "item.part.barrel.rimfire",
+        "weight": 3
+      },
+      {
+        "item": "item.part.magazine.rimfire",
+        "weight": 3
       }
     ]
   },
@@ -933,6 +969,42 @@
           "min": 10,
           "max": 25
         }
+      },
+      {
+        "item": "item.part.barrel.standard",
+        "weight": 6
+      },
+      {
+        "item": "item.part.action.standard",
+        "weight": 6
+      },
+      {
+        "item": "item.part.magazine.standard",
+        "weight": 8
+      },
+      {
+        "item": "item.part.stock.standard",
+        "weight": 5
+      },
+      {
+        "item": "item.attach.muzzle.compensator",
+        "weight": 4
+      },
+      {
+        "item": "item.attach.muzzle.flash_hider",
+        "weight": 5
+      },
+      {
+        "item": "item.attach.internal.tuned",
+        "weight": 2
+      },
+      {
+        "item": "item.part.internal.magnum",
+        "weight": 3
+      },
+      {
+        "item": "item.attach.internal.match",
+        "weight": 1
       }
     ]
   },
@@ -1089,6 +1161,26 @@
       {
         "item": "item.attach.haft.long",
         "weight": 4
+      },
+      {
+        "item": "item.part.haft.standard",
+        "weight": 8
+      },
+      {
+        "item": "item.part.head.standard",
+        "weight": 6
+      },
+      {
+        "item": "item.part.barrel.standard",
+        "weight": 3
+      },
+      {
+        "item": "item.attach.internal.tuned",
+        "weight": 1
+      },
+      {
+        "item": "item.part.barrel.rimfire",
+        "weight": 2
       }
     ]
   }

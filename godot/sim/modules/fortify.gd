@@ -375,6 +375,14 @@ static func _use_context(world: Variant, actor: int) -> void:
 		if bed >= 0 and _entity_in_reach(world, actor, bed):
 			Needs.call("start_sleep", world, actor, bed)
 			return
+	# The bench, before the window and the traps: standing at one, E puts what is in your hands on
+	# it. It is the surface `item.attach` and `item.detach` have never had, and it goes on the
+	# ladder rather than on a key of its own for the reason the car did (docs/30, "Driving") --
+	# the sim decides what E means where you are standing.
+	var Gunsmith: GDScript = _Gunsmith()
+	if int(Gunsmith.call("bench_in_reach", world, actor)) >= 0 and int(Gunsmith.call("focus_of", world, actor)) < 0:
+		if bool(Gunsmith.call("open_bench", world, actor, int(Gunsmith.call("first_workpiece", world, actor)))):
+			return
 	var face: Vector2i = _facing_tile(world, actor)
 	if SimTileMap.tile_at(world.tilemap, face.x, face.y) == SimTileMap.Tile.Window and _in_reach_tile(world, actor, face.x, face.y):
 		_start(world, actor, "window", face.x, face.y)
@@ -401,6 +409,11 @@ static func _use_context(world: Variant, actor: int) -> void:
 			_start(world, actor, "alarm", face.x, face.y)
 		elif bait == null:
 			_start(world, actor, "noisemaker", face.x, face.y)
+		elif _Gunsmith().call("bench_in_reach", world, actor) < 0 and _scrap_count(world, actor) >= int(_Gunsmith().get("BENCH_SCRAP")):
+			# Last on the ladder and the only rung that is furniture: a gunsmithing bench, once
+			# the trap and the bait are down and there is scrap to spare. Standing at one already
+			# falls through, so E at a bench is never spent building a second.
+			_start(world, actor, "bench", face.x, face.y)
 
 
 static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
@@ -427,6 +440,9 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 		"bait.noisemaker.place":
 			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty):
 				_start(world, actor, "noisemaker", tx, ty)
+		"bench.build":
+			if _empty_floor(world, tx, ty) and _scrap_count(world, actor) >= int(_Gunsmith().get("BENCH_SCRAP")):
+				_start(world, actor, "bench", tx, ty)
 		"bait.noisemaker.wind":
 			var bait: Variant = _first(world, "noisemaker")
 			if bait != null:
@@ -440,7 +456,10 @@ static func _start(world: Variant, actor: int, verb: String, tx: int, ty: int) -
 		return
 	if not _in_reach_tile(world, actor, tx, ty) and verb != "wind":
 		return
-	world.components.set_component(actor, "construct", {"verb": verb, "ticksLeft": CHANNEL_TICKS, "tx": tx, "ty": ty})
+	var ticks: int = CHANNEL_TICKS
+	if verb == "bench":
+		ticks = int(_Gunsmith().get("BENCH_TICKS"))
+	world.components.set_component(actor, "construct", {"verb": verb, "ticksLeft": ticks, "tx": tx, "ty": ty})
 
 
 static func _tick_channel(world: Variant, entity: int) -> void:
@@ -479,6 +498,8 @@ static func _complete(world: Variant, _actor: int, verb: String, tx: int, ty: in
 			_place_noisemaker(world, tx, ty)
 		"wind":
 			_wind_noisemaker(world)
+		"bench":
+			_place_bench(world, _actor, tx, ty)
 
 
 static func _board_window(world: Variant, tx: int, ty: int) -> void:
@@ -509,6 +530,41 @@ static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
 	world.components.set_component(ent, "scrapBarricade", {})
 	sync_map(world)
+
+
+# Furniture, not a barricade: it blocks nothing and the map never hears about it. The scrap goes
+# first, so a channel that finished with the material already spent leaves no bench and no hole in
+# the pack -- the same order `_place_scrap` uses.
+static func _place_bench(world: Variant, actor: int, tx: int, ty: int) -> void:
+	var Gunsmith: GDScript = _Gunsmith()
+	if int(Gunsmith.call("bench_in_reach", world, actor)) >= 0:
+		return
+	var cost: int = int(Gunsmith.get("BENCH_SCRAP"))
+	if _scrap_count(world, actor) < cost:
+		return
+	for i in cost:
+		if not _consume_scrap(world, actor):
+			return
+	Gunsmith.call("make_bench", world, float(tx) + 0.5, float(ty) + 0.5)
+
+
+## How much scrap this actor is carrying, counting stacks. `_has_scrap` answers "any", and a bench
+## costs more than one.
+static func _scrap_count(world: Variant, actor: int) -> int:
+	var n: int = 0
+	for item in SimInventory.carried_items(world, actor):
+		var base: Variant = world.components.get_component(item, "itemBase")
+		if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != SCRAP_ID:
+			continue
+		var stack: Variant = world.components.get_component(item, "stack")
+		n += int((stack as Dictionary).get("count", 1)) if stack is Dictionary else 1
+	return n
+
+
+# Loaded lazily: gunsmith.gd preloads inventory and items, and a preload cycle through this file
+# would be a parse error rather than something the engine resolves.
+static func _Gunsmith() -> GDScript:
+	return load("res://sim/modules/gunsmith.gd") as GDScript
 
 
 static func _place_alarm(world: Variant, tx: int, ty: int) -> void:

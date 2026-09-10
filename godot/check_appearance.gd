@@ -82,6 +82,12 @@ func _all_blocks() -> Dictionary:
 func _appearance_key_ok(k: String, path: String) -> bool:
 	if ["sprite", "tint", "features", "portrait", "equipSprite", "equipSpriteFront", "shape", "size"].has(k):
 		return true
+	# The gunsmithing pair, and the only overlay family that does not share the hand anchor: a
+	# part declares the picture drawn when it is fitted, and its *host* declares where each of its
+	# slots sits so one picture can serve a pistol and a rifle. Items only -- an anchor on a
+	# zombie would be a key nothing reads.
+	if ["attachmentSprite", "partAnchors"].has(k):
+		return path.begins_with("items/")
 	return k == "variants" and path.begins_with("vehicles/")
 
 
@@ -101,6 +107,17 @@ func _declared_appearances_are_well_formed() -> bool:
 		return false
 	if _appearance_key_ok("sprrite", "vehicles/sedan.json#vehicle.sedan"):
 		push_error("the appearance allowlist accepts a misspelled key on a vehicle; the exception widened the whole list")
+		return false
+	# The gunsmithing keys are items-only for the same reason `variants` is vehicles-only: an
+	# exception that widened the whole list would let a misspelling through everywhere.
+	if _appearance_key_ok("attachmentSprite", "zombies/walker.json#zombie.walker"):
+		push_error("the appearance allowlist accepts 'attachmentSprite' outside content/items/; the exception is a hole")
+		return false
+	if not _appearance_key_ok("partAnchors", "items/ranged.json#item.pistol.service"):
+		push_error("the appearance allowlist refuses 'partAnchors' on an item, which is where a weapon says where its slots are")
+		return false
+	if _appearance_key_ok("attachmentSprrite", "items/attachments.json#item.attach.suppressor"):
+		push_error("the appearance allowlist accepts a misspelled key on an item; the exception widened the whole list")
 		return false
 	var blocks: Dictionary = _all_blocks()
 	for path in blocks.keys():

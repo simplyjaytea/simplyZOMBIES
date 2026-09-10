@@ -26,6 +26,7 @@ const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
+const SimGunsmith = preload("res://sim/modules/gunsmith.gd")
 const SimSkills = preload("res://sim/modules/skills.gd")
 const SimMods = preload("res://sim/modules/modification.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
@@ -77,6 +78,10 @@ func _world(seed_val: int = 5150) -> Variant:
 	SimHealth.make_survivor_body(w, w.player)
 	SimInventory.make_inventory(w, w.player)
 	SimSkills.attach(w, w.player)
+	# docs/11 has always called this a bench and the owner's 2026-09-09 decision made it one, so
+	# every lane below works at one. The refusal when there is no bench is its own lane, in
+	# check_m2_bench.gd, where it belongs.
+	SimGunsmith.make_bench(w, 12.5, 12.5)
 	return w
 
 
