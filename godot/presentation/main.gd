@@ -56,6 +56,8 @@ var fixture: Dictionary = {}
 # The district id the session started with, so F2 ("leave for another city") rerolls the seed
 # but keeps the same district rather than silently switching one out from under the player.
 var _district_id: String = SimBoot.DEFAULT_DISTRICT
+# Empty unless the session booted a region; F2 then rerolls a region rather than a district.
+var _region_id: String = ""
 var camera: Dictionary = CameraUtil.create_camera()
 # The true, unshaken follow centre -- what follow_smoothed advances every frame. `camera`
 # itself is the *displayed* camera (centre + shake, combined in _update_camera, the one
@@ -173,6 +175,7 @@ func _ready() -> void:
 	var parity: bool = false
 	var seed_arg: int = SimBoot.DISTRICT_SEED
 	var district_arg: String = SimBoot.DEFAULT_DISTRICT
+	var region_arg: String = ""
 	# `--seed=N` / `--district=<id>` follow the `--parity` precedent (args after `--`, no
 	# separate lookup table) but carry their value inline rather than as a following token,
 	# since there is exactly one of each and never a bare flag needing a next-arg peek.
@@ -192,6 +195,17 @@ func _ready() -> void:
 				push_warning("main: malformed --district=, using default %s" % district_arg)
 			else:
 				district_arg = raw_district
+		elif a.begins_with("--region="):
+			# `--region=<id>` boots the whole main area instead of one district. Opt-in rather
+			# than the default: the region runs at 1.48x real time against a district's 4.15x
+			# (measured, docs/23's record), which is above the clock but with far less room, and
+			# docs/00 pillar 6 says a budget is correctness. The flip to a region by default is
+			# its own decision once it has been played.
+			var raw_region: String = a.trim_prefix("--region=")
+			if raw_region.is_empty():
+				push_warning("main: malformed --region=, booting a district")
+			else:
+				region_arg = raw_region
 	if parity:
 		_visibility = SimVisibility.new()
 		_light = SimLight.new()
@@ -211,7 +225,7 @@ func _ready() -> void:
 		if world != null:
 			SimSurvivors.boot_playable(world)
 	else:
-		_boot_world(seed_arg, district_arg)
+		_boot_world(seed_arg, district_arg, region_arg)
 	_shake_rng.randomize()
 	_resize_camera()
 	_snap_camera()
@@ -227,8 +241,9 @@ func _ready() -> void:
 # startup and F2 ("leave for another city") calls it again on a fresh random seed, so the two
 # share exactly one boot path -- nothing about standing up a world may live only in _ready.
 # Does not touch _ensure_ui() or _sfx: those are scene children created once, not per-run state.
-func _boot_world(seed_val: int, district_id: String) -> void:
-	var boot: Dictionary = SimBoot.playable(seed_val, SimTileMap.DISTRICT_TILES, district_id)
+func _boot_world(seed_val: int, district_id: String, region_id: String = "") -> void:
+	_region_id = region_id
+	var boot: Dictionary = SimBoot.playable_region(seed_val, region_id) if not region_id.is_empty() else SimBoot.playable(seed_val, SimTileMap.DISTRICT_TILES, district_id)
 	world = boot["world"]
 	_map = boot["map"]
 	_visibility = world.vision
@@ -258,7 +273,7 @@ func _leave_for_another_city() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var new_seed: int = rng.randi_range(1, 0x7fffffff) # positive 32-bit: SimBoot.playable's seed
-	_boot_world(new_seed, _district_id)
+	_boot_world(new_seed, _district_id, _region_id)
 	queue_redraw()
 
 func _notification(what: int) -> void:
