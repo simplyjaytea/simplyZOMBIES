@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-09 (the gunsmithing arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **56 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **57 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -51,6 +51,25 @@ grew from nine lanes to **twenty**, plus new lanes in `godot:m2:upkeep`, `godot:
 pieces left docs/23's what's-left, including the attachment-fitting screen it had carried since
 attachments landed. Measured with a throwaway driver: a pistol reaches "worn" at ~100 rounds and
 "failing" at ~200, the action first. `godot:bench` unchanged.
+
+**2026-09-10 — the region assembler** (`npm run godot:m2:region` / `M2_REGION_OK`, eight lanes; the
+`godot:m2` chain is **57** now). The owner answered both of item `0c`'s questions — a 2×2 of full
+256 m districts nearly touching, and the colony established anywhere — so that item is off this
+list and the region is built. **Ashgrove is 528 × 528**: town centre, forest edge, industrial park
+and residential suburb, generated in 3.9 s, carrying 307 buildings, 521 loot sites and all five loot
+tables in one map. The colony is ranked across every cell rather than assigned to a district, and on
+the canonical seed it picks the town centre unprompted.
+**The one thing to read before touching the assembler:** it ranks candidate lots against a
+**layout-only** scratch region, not the finished one. The first version ranked on the assembled map
+and switching the dressing off moved the colony 45 tiles — `_rubble` heaves patches up through a
+street and `_street_frontage` counts paved neighbours. That is docs/30's existing district rule ("a
+colony sited off the trees would move when the trees were switched off") broken at region scale, and
+the DETERMINE lane was proved red against the old ranking before it was trusted. **The rule
+generalises: anything deciding where something is built reads the layout, and only the layout.**
+docs/24's district spacing is amended there, carrying the measurement as its reason.
+**The game still boots a single district** — only the gate boots a region. The flip is the next
+piece, and it is the one that moves the harness; the two silent failures waiting in it (the
+director's spawn band, and population scaling off the map side) are in docs/23's what's left.
 
 **2026-09-09 — wading, and telling the two waters apart** (`godot:check:water` at ten lanes with
 WADE; `SAVE_VERSION` 27 → 28; chain still **55**). The owner's three asks, which are one mechanic
@@ -382,7 +401,7 @@ Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. 
 slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
 
-0d. **The water numbers, and the two the owner has not been asked** (2026-09-09). Every water
+0c. **The water numbers, and the two the owner has not been asked** (2026-09-09). Every water
    constant was a first cut taken in an autonomous session, each one line: the ford's ×0.45 speed
    and ×1.8 noise, the tint `#424f5c` (bounded from above by the pawn-ramp contrast guard, so it
    cannot simply be brightened), and `WATER_DEEP_SHADE` 0.30. docs/30's water entry records them.
@@ -394,23 +413,6 @@ days, which is the same drift that took the equivalent list out of `CLAUDE.md` i
    slows the player and nobody else — half a mechanic in exactly the way noise-only ground was
    before the worldgen arc. Widening it moves NPC pathing balance and is its own measured slice
    (it is in the debt list); until then a ford is a decision only the player makes.
-
-0c. **The main area's extent, and where the colony lives** (2026-09-09). Two calls the region
-   assembler cannot be built without, the first of which is now **measured** (docs/23's record has
-   the table): the simulation crosses **below real time between 384 and 512 tiles a side** — at 512
-   it runs at 0.82 of the 20 Hz clock before a frame is drawn. So a resident main area is about
-   **448 tiles** (a 2×2 of ~192-tile districts with short gaps) or **512** (a 2×2 of 256s nearly
-   touching), and docs/24's own geometry — districts not touching, 300–500 m of road between — puts
-   a 2×2 of 256s at **912 tiles**, which measured 0.46× and is out of reach. Caveat, stated because
-   it changes how much room there is: this container measures 55 ticks/s at 256 against the record's
-   ~105, so it is roughly half speed and every figure is a floor; even doubled, 912 reads 0.92× and
-   is still under the clock. **So the gap is the thing that has to give**, and docs/24 argues for it
-   in writing (packed edge-to-edge a 3×3 spans 768 m and the player walks 800 m by week 6), which
-   makes shortening it a decision rather than a tuning — it wants a docs/24 amendment carrying the
-   table as its reason. The second call is untouched: the owner named city, forest and factory, and
-   **none of them is where the survivors live**. The suburb is the natural fourth cell and is what
-   every balance band was measured on, but "the colony lives in the town centre" is a legitimate and
-   different game.
 
 0b. **The idle breath** (2026-09-09). One pixel of pelvis at a quarter of the walk's rate,
    drawn in the fixture round and deliberately left out of the four answers the owner gave that
