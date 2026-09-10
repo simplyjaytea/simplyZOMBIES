@@ -3255,6 +3255,44 @@ The owner's two decisions about the region, and the four things building it made
   covers a **runtime** half this arc did not build. The generation-time half landed; Task 8 is named
   in docs/23's what's left rather than smuggled in beside it.
 
+### The outpost, and the path it exposed, 2026-09-10
+
+- **An outpost is reach, not danger** -- the owner's call, taken after being shown that "outpost" had
+  no prior design authority: the word existed only in the camp slice's own record. It extends where
+  colonists will work, which is the answer to docs/12's expanding radius, the difficulty curve the
+  world generates on its own. The alternatives (a stash, a raider target, all three at once) are
+  named in what's left; useful before dangerous was the explicit ordering.
+- **`_near_home` draws a circle per place the colony lives, not one around home.** The constant did
+  not change; how many circles it draws did. An abandoned camp draws none -- it is a known empty
+  site, not somewhere anyone works.
+- **The stockpile is the one home reader that does not follow a camp, and now says so where it is
+  read.** `is_stockpile_tile` means "indoors, floor, inside the annex"; a camp has no roof, so a
+  camp-relative drop point would be a stockpile the rain falls into. The consequence is a real trade
+  and it is recorded rather than hidden: an outpost extends what colonists collect and not where
+  they put it, so a far outpost still costs the walk home.
+- **A gate can pass because it re-tests the previous slice.** The first `REACH` lane established a
+  camp far away and called it an outpost -- but `SimCamp.create` makes the new camp *home*, so the
+  lane was proving that home's radius moves with home, which the camp slice had already proved. It
+  stayed green with outpost reach removed entirely. The fix is two camps plus an explicit assertion
+  that `home_of` is not the far one. **Proving the negative is the only thing that found it**, and
+  the shape is worth naming: a lane whose fixture accidentally satisfies the *previous* mechanism
+  tests nothing new.
+- **The dead-socket rule has a second level.** `check_m2_camp`'s READS lane asserted that
+  `jobs._home_centre` moved, and the record beside it claimed three further functions moved with it.
+  They did not, and the lane could not have noticed: it asserted the reader, never the readers of
+  that reader. Asserting that a mechanism has a reader is not the same as asserting that the things
+  said to hang off that reader do.
+- **Pillar 6 decided the order.** Reach measured **9.8 ticks/s against 62.8** -- under the 20 Hz
+  clock -- because of one enclosed item, not because of distance. The owner chose to fix the
+  underlying pathing defect first rather than cap the reach or accept the cost. After the fix,
+  **78.4**. A feature that breaks budget does not ship until it is fixed, and "the defect is
+  pre-existing and already listed" is not an exemption when the feature is what makes it reachable.
+- **A failed plan is a result, and gets remembered like one.** `_walk` plans once per map
+  generation now: `pathFailGen` separates "no route" from "path consumed", and an `unreachable`
+  component on the target -- shaped like `reserved`, keyed by `mapGeneration` so a door opening
+  clears it -- stops the work-finders re-offering it. `SimPath.find` is untouched and still cannot
+  tell "guard exhausted" from "no path"; the fix is that nothing asks it twice.
+
 ### The camp, and where home is, 2026-09-10
 
 - **The owner's shape for a camp: temporary, evolvable later, usable as an outpost.** Asked whether
