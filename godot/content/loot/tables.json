@@ -114,6 +114,22 @@
         "weight": 2
       },
       {
+        "item": "item.shotgun.sawnoff",
+        "weight": 2
+      },
+      {
+        "item": "item.club.golf",
+        "weight": 5
+      },
+      {
+        "item": "item.pick.ice",
+        "weight": 6
+      },
+      {
+        "item": "item.sabre.cavalry",
+        "weight": 2
+      },
+      {
         "item": "item.ammo.arrow",
         "weight": 3,
         "count": {
@@ -570,6 +586,18 @@
         "weight": 3
       },
       {
+        "item": "item.pistol.target",
+        "weight": 4
+      },
+      {
+        "item": "item.bow.recurve",
+        "weight": 3
+      },
+      {
+        "item": "item.crossbow.repeating",
+        "weight": 2
+      },
+      {
         "item": "item.ammo.22",
         "weight": 8,
         "count": {
@@ -596,6 +624,14 @@
       {
         "item": "item.attach.string.fast",
         "weight": 3
+      },
+      {
+        "item": "item.attach.string.heavy",
+        "weight": 4
+      },
+      {
+        "item": "item.attach.optic.scope",
+        "weight": 2
       },
       {
         "item": "item.food.pickles.jar",
@@ -891,6 +927,18 @@
         "weight": 5
       },
       {
+        "item": "item.attach.optic.scope",
+        "weight": 4
+      },
+      {
+        "item": "item.attach.magazine.drum",
+        "weight": 3
+      },
+      {
+        "item": "item.attach.barrel.match",
+        "weight": 3
+      },
+      {
         "item": "item.attach.magazine.extended",
         "weight": 6
       },
@@ -917,6 +965,10 @@
       {
         "item": "item.rifle.hunting",
         "weight": 5
+      },
+      {
+        "item": "item.carbine.lever",
+        "weight": 3
       },
       {
         "item": "item.ammo.12g",
@@ -1211,12 +1263,24 @@
         "weight": 8
       },
       {
+        "item": "item.pitchfork.barn",
+        "weight": 4
+      },
+      {
         "item": "item.part.head.standard",
         "weight": 6
       },
       {
         "item": "item.attach.underbarrel.light",
         "weight": 5
+      },
+      {
+        "item": "item.attach.muzzle.filter",
+        "weight": 6
+      },
+      {
+        "item": "item.attach.barrel.short",
+        "weight": 4
       },
       {
         "item": "item.part.barrel.standard",

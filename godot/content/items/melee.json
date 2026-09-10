@@ -198,5 +198,58 @@
       "haft": "item.part.haft.standard"
     },
     "melee": {"reachMetres": 1.6, "weight": 1.8, "damage": 16, "staggerTicks": 14}
+  },
+  {
+    "id": "item.pick.ice",
+    "name": "Ice Pick",
+    "description": "A needle of steel in a wooden handle. It goes in and out faster than anything else here and it barely moves what it hits.",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.15,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_pick_ice_equip"},
+    "slots": ["edge", "wrap"],
+    "melee": {"reachMetres": 0.8, "weight": 0.5, "damage": 7, "staggerTicks": 2}
+  },
+  {
+    "id": "item.sabre.cavalry",
+    "name": "Cavalry Sabre",
+    "description": "A curved cavalry sword off a wall mount. It opens things at arm's length and it does not knock them down.",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 4},
+    "massKg": 1.1,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_sabre_cavalry_equip"},
+    "slots": ["edge", "wrap"],
+    "melee": {"reachMetres": 1.5, "weight": 1.0, "damage": 15, "staggerTicks": 4}
+  },
+  {
+    "id": "item.pitchfork.barn",
+    "name": "Pitchfork",
+    "description": "Four long tines on an ash shaft. It keeps things at a distance, which is most of what anyone wants.",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 5},
+    "massKg": 1.55,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_pitchfork_barn_equip"},
+    "slots": ["head", "haft", "wrap"],
+    "requiredSlots": ["head", "haft"],
+    "defaultParts": {
+      "head": "item.part.head.standard",
+      "haft": "item.part.haft.standard"
+    },
+    "melee": {"reachMetres": 2.0, "weight": 1.1, "damage": 9, "staggerTicks": 6}
+  },
+  {
+    "id": "item.club.golf",
+    "name": "Golf Club",
+    "description": "A driver with a scuffed head. Long, fast, and it rings off a skull without doing much to it.",
+    "class": "weapon.melee",
+    "size": {"w": 1, "h": 4},
+    "massKg": 0.35,
+    "equipSlot": "primary",
+    "appearance": {"equipSprite": "item_club_golf_equip"},
+    "slots": ["haft", "wrap"],
+    "melee": {"reachMetres": 1.5, "weight": 0.8, "damage": 7, "staggerTicks": 14}
   }
 ]

@@ -109,6 +109,98 @@
     }
   },
   {
+    "id": "item.attach.optic.scope",
+    "name": "Magnified Scope",
+    "description": "A long glass with a cross etched in it. Everything far away comes close, and everything close stops existing.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.45,
+    "attachment": {
+      "fits": ["optic", "sight"],
+      "fieldSwap": true,
+      "ranged": { "cone": 0.55, "handling": 0.8 },
+      "wearsOn": ["shot"],
+      "wearRate": 0.4
+    }
+  },
+  {
+    "id": "item.attach.magazine.drum",
+    "name": "Drum Magazine",
+    "description": "A fat spiral drum that holds an absurd amount and fights you every time it goes on.",
+    "class": "attachment",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.55,
+    "attachment": {
+      "fits": ["magazine"],
+      "fieldSwap": true,
+      "structural": true,
+      "ranged": { "magSize": 2.2, "reloadTicks": 1.6 },
+      "wearsOn": ["reload", "jam"],
+      "wearRate": 2.2
+    }
+  },
+  {
+    "id": "item.attach.barrel.match",
+    "name": "Heavy Match Barrel",
+    "description": "A thick target barrel, machined true. It puts them where you asked and it hangs off the front like a crowbar.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 0.62,
+    "attachment": {
+      "fits": ["barrel"],
+      "structural": true,
+      "ranged": { "cone": 0.82, "rangeMetres": 1.18, "damage": 1.06, "handling": 0.85 },
+      "wearsOn": ["shot"],
+      "wearRate": 1.4
+    }
+  },
+  {
+    "id": "item.attach.barrel.short",
+    "name": "Cut-Down Barrel",
+    "description": "A barrel somebody took a hacksaw to. It swings like nothing at all and it is heard in the next street.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.18,
+    "attachment": {
+      "fits": ["barrel"],
+      "structural": true,
+      "ranged": { "rangeMetres": 0.72, "noise": 1.22, "handling": 1.25, "cone": 1.1 },
+      "wearsOn": ["shot"],
+      "wearRate": 1.0
+    }
+  },
+  {
+    "id": "item.attach.muzzle.filter",
+    "name": "Oil-Filter Can",
+    "description": "A car oil filter threaded onto a muzzle. It takes most of the noise away for a little while, and then it is scrap.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.5,
+    "attachment": {
+      "fits": ["muzzle"],
+      "fieldSwap": true,
+      "ranged": { "noise": 0.34, "flash": 0.45, "cone": 1.28, "damage": 0.92 },
+      "wearsOn": ["shot"],
+      "wearRate": 6.0
+    }
+  },
+  {
+    "id": "item.attach.string.heavy",
+    "name": "Heavy Bowstring",
+    "description": "A thick waxed string with more twist in it. It throws the shaft harder and it is slower every single time.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.08,
+    "attachment": {
+      "fits": ["string"],
+      "fieldSwap": true,
+      "structural": true,
+      "ranged": { "damage": 1.15, "reloadTicks": 1.25 },
+      "wearsOn": ["reload"],
+      "wearRate": 2.0
+    }
+  },
+  {
     "id": "item.attach.underbarrel.grip",
     "name": "Vertical Foregrip",
     "description": "A stubby grip clamped under the barrel. Something to pull back against, so the weapon comes up quicker and sits steadier.",
