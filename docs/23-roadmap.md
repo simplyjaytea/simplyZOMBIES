@@ -6192,6 +6192,19 @@ not a to-do list:
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
 
+- **Balance** — the weapons catalogue arc's **reserved re-baseline, run** 2026-09-10
+  (`godot:m2:balance`, fast tier) → `M2_BALANCE_OK fast 4 seeds, 10 days, bands invariants
+  placement`. The arc added nineteen loot-table rows, nine weapons and sixteen parts, which moves
+  the `lootTable` stream and therefore every campaign after the first roll, so one re-baseline was
+  reserved for the end of the arc rather than one per slice — at ~1,085 ticks/s a ten-day campaign
+  is ~45 minutes and four seeds before-and-after per slice would have been an overnight job each
+  time. Measured, all four seeds: `20260805` two sieges, one death, 3/3 alive; `404` one siege, one
+  raid turned away, 3/3; `31337` three sieges, 3/3; `90210` two sieges, one breach, two deaths,
+  3/3. Every band held and no invariant moved. Read plainly: the district is not meaningfully more
+  survivable for the new guns, which is the result the loot weights were chosen for — the SMG and
+  the carbine sit at weight three in a military cache a colony reaches rarely, and the melee four
+  are commons that replace a knife rather than beat one.
+
 - **Proof** — nothing here has run yet; the four proof steps live in
   [what's left](#whats-left-in-milestone-2), in the order they close the milestone. Deferred, not
   cancelled.
