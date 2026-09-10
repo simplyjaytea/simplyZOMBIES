@@ -20,7 +20,8 @@
       "ammo": "item.ammo.arrow",
       "recoverable": 0.7,
       "reloadTicks": 24,
-      "rangeMetres": 40
+      "rangeMetres": 40,
+      "weight": 1.2
     }
   },
   {
@@ -47,6 +48,7 @@
       "magSize": 8,
       "reloadTicks": 40,
       "rangeMetres": 25,
+      "weight": 1.0,
       "jams": true
     }
   },
@@ -84,7 +86,7 @@
       "internal": "item.part.action.standard",
       "furniture": "item.part.stock.standard"
     },
-    "ranged": {"damage": 30, "noise": 220, "flash": 90, "ammo": "item.ammo.12g", "magSize": 5, "reloadTicks": 60, "rangeMetres": 15, "jams": true}
+    "ranged": {"damage": 30, "noise": 220, "flash": 90, "ammo": "item.ammo.12g", "magSize": 5, "reloadTicks": 60, "rangeMetres": 15, "weight": 1.4, "jams": true}
   },
   {
     "id": "item.rifle.hunting",
@@ -103,7 +105,7 @@
       "internal": "item.part.action.standard",
       "furniture": "item.part.stock.standard"
     },
-    "ranged": {"damage": 34, "noise": 200, "flash": 70, "ammo": "item.ammo.rifle", "magSize": 4, "reloadTicks": 70, "rangeMetres": 60, "jams": true}
+    "ranged": {"damage": 34, "noise": 200, "flash": 70, "ammo": "item.ammo.rifle", "magSize": 4, "reloadTicks": 70, "rangeMetres": 60, "weight": 1.5, "jams": true}
   },
   {
     "id": "item.ammo.12g",
@@ -138,7 +140,7 @@
       "limb": "item.part.limb.standard",
       "string": "item.part.string.standard"
     },
-    "ranged": {"damage": 20, "noise": 6, "ammo": "item.ammo.bolt", "recoverable": 0.6, "reloadTicks": 90, "rangeMetres": 35}
+    "ranged": {"damage": 20, "noise": 6, "ammo": "item.ammo.bolt", "recoverable": 0.6, "reloadTicks": 90, "rangeMetres": 35, "weight": 1.6}
   },
   {
     "id": "item.revolver.snub",
@@ -155,7 +157,7 @@
       "barrel": "item.part.barrel.standard",
       "internal": "item.part.action.standard"
     },
-    "ranged": {"damage": 22, "noise": 190, "flash": 55, "ammo": "item.ammo.38", "magSize": 6, "reloadTicks": 75, "rangeMetres": 18, "jams": false}
+    "ranged": {"damage": 22, "noise": 190, "flash": 55, "ammo": "item.ammo.38", "magSize": 6, "reloadTicks": 75, "rangeMetres": 18, "weight": 1.0, "jams": false}
   },
   {
     "id": "item.rifle.rimfire",
@@ -174,7 +176,7 @@
       "internal": "item.part.action.standard",
       "furniture": "item.part.stock.standard"
     },
-    "ranged": {"damage": 10, "noise": 120, "flash": 35, "ammo": "item.ammo.22", "magSize": 10, "reloadTicks": 45, "rangeMetres": 50, "jams": true}
+    "ranged": {"damage": 10, "noise": 120, "flash": 35, "ammo": "item.ammo.22", "magSize": 10, "reloadTicks": 45, "rangeMetres": 50, "weight": 1.1, "jams": true}
   },
   {
     "id": "item.ammo.bolt",

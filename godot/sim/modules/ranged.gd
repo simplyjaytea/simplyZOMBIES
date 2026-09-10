@@ -20,13 +20,28 @@ enum FireState { Idle = 0, Raise = 1, Steady = 2, Recover = 3, Reload = 4, Clear
 const CLEAR_JAM_MULTIPLIER: float = 2.0
 const MIN_CLEAR_TICKS: int = 30
 
-const RAISE_TICKS: int = 8
-const STEADY_TICKS: int = 4
-const RECOVER_TICKS: int = 8
 const FLASH_TICKS: int = 4
 const WIDE_HALF: float = 0.55
 const TIGHT_HALF: float = 0.18
 const STREAM: String = "ranged"
+
+
+# The three rungs of docs/09's ladder come from the weapon rather than from three constants here,
+# which is what they were until 2026-09-10. The baselines they scale live beside the melee pair in
+# sim/combat.gd, because a weapon's clocks are combat's arithmetic rather than this module's
+# private calibration.
+#
+# How many ticks this weapon takes on each rung. `weight` is content-declared heft and `handling`
+# is the multiplier attachments fold in; both ride the profile, so every caller that has the
+# `rangedWeapon` dictionary already has them and nothing has to reach back to the item.
+static func _raise_of(r: Dictionary) -> int:
+	return SimCombat.raise_ticks(float(r.get("weight", 1.0)), float(r.get("handling", 1.0)))
+
+static func _steady_of(r: Dictionary) -> int:
+	return SimCombat.steady_ticks(float(r.get("weight", 1.0)), float(r.get("handling", 1.0)))
+
+static func _recover_of(r: Dictionary) -> int:
+	return SimCombat.shot_recover_ticks(float(r.get("weight", 1.0)), float(r.get("handling", 1.0)))
 
 
 static func make_ranged_armed(world: Variant, entity: int, profile: Dictionary) -> void:
@@ -52,9 +67,14 @@ static func _refresh_cone(world: Variant, entity: int, r: Dictionary) -> void:
 	var half: float = WIDE_HALF
 	var st: int = int(r.get("state", FireState.Idle))
 	if st == FireState.Raise:
-		half = lerpf(WIDE_HALF, (WIDE_HALF + TIGHT_HALF) * 0.5, 1.0 - float(r.get("ticksLeft", 0)) / float(RAISE_TICKS))
+		# The denominator is *this weapon's* raise, not a shared constant. `lerpf` does not clamp,
+		# so a heavy weapon against the old constant extrapolated past WIDE_HALF and was saved
+		# only by the clampf at the bottom -- it sat pinned wide for its first ticks -- while a
+		# light one started already half-tightened. Bounded, silent and wrong: the needle for
+		# "the ladder is per-weapon" has to be followed one link further, into here.
+		half = lerpf(WIDE_HALF, (WIDE_HALF + TIGHT_HALF) * 0.5, 1.0 - float(r.get("ticksLeft", 0)) / float(_raise_of(r)))
 	elif st == FireState.Steady:
-		half = lerpf((WIDE_HALF + TIGHT_HALF) * 0.5, TIGHT_HALF, 1.0 - float(r.get("ticksLeft", 0)) / float(STEADY_TICKS))
+		half = lerpf((WIDE_HALF + TIGHT_HALF) * 0.5, TIGHT_HALF, 1.0 - float(r.get("ticksLeft", 0)) / float(_steady_of(r)))
 	elif st == FireState.Idle:
 		half = WIDE_HALF
 	var vel: Variant = world.components.get_component(entity, "velocity")
@@ -153,7 +173,7 @@ static func register_module(world: Variant) -> void:
 			match int(r["state"]):
 				FireState.Raise:
 					r["state"] = FireState.Steady
-					r["ticksLeft"] = STEADY_TICKS
+					r["ticksLeft"] = _steady_of(r)
 					_refresh_cone(w, int(entity), r)
 				FireState.Steady:
 					# A jam is decided at the trigger, before the round is spent: the cost of a
@@ -169,7 +189,7 @@ static func register_module(world: Variant) -> void:
 					else:
 						_fire_shot(w, int(entity), r, rng)
 						r["state"] = FireState.Recover
-						r["ticksLeft"] = RECOVER_TICKS
+						r["ticksLeft"] = _recover_of(r)
 				FireState.Recover:
 					if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
 						if _begin_reload(w, int(entity), r):
@@ -236,7 +256,7 @@ static func try_begin_fire(world: Variant, entity: int) -> bool:
 	if String(r.get("ammo", "")) != "" and not _has_ammo(world, entity, String(r["ammo"])):
 		return false
 	r["state"] = FireState.Raise
-	r["ticksLeft"] = RAISE_TICKS
+	r["ticksLeft"] = _raise_of(r)
 	return true
 
 

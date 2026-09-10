@@ -438,6 +438,15 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		"magSize": int(r.get("magSize", 0)),
 		"reloadTicks": int(r.get("reloadTicks", 24)),
 		"rangeMetres": float(r.get("rangeMetres", 30)),
+		# Heft, and the multiplier that fights it. `weight` is content-declared and mirrors
+		# melee's -- a weapon's clocks come from what it is, and docs/10 rule 4 wants melee and
+		# ranged to have the same item depth. It rides the profile rather than being read off the
+		# item at each rung, so `_refresh_cone` and the ladder both have it in hand. Not scaled by
+		# condition: a worn rifle is not a lighter rifle.
+		"weight": float(r.get("weight", 1.0)),
+		# The scalable half, folded below like every other multiplier. Above 1 is quicker to the
+		# shoulder; see SimCombat.raise_ticks for why one field covers all three rungs.
+		"handling": 1.0,
 		# An accuracy multiplier carried by the weapon rather than by the person. An optic is a
 		# property of the gun, and `ranged_accuracy` -- the stat an affix or a trait moves --
 		# resolves on the *entity*, so a scope with nothing in it was the wrong place to put one.

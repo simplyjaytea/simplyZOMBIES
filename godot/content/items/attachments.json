@@ -109,6 +109,21 @@
     }
   },
   {
+    "id": "item.attach.furniture.folding",
+    "name": "Folding Stock",
+    "description": "A stock on a hinge, folded in against the receiver. It comes up fast and it wanders while it does.",
+    "class": "attachment",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.15,
+    "attachment": {
+      "fits": ["furniture"],
+      "structural": true,
+      "ranged": { "handling": 1.35, "cone": 1.12 },
+      "wearsOn": ["shot"],
+      "wearRate": 0.8
+    }
+  },
+  {
     "id": "item.attach.limb.heavy",
     "name": "Heavy Limbs",
     "description": "Stiff limbs off a heavier bow. They put far more behind the shot and they fight the draw.",

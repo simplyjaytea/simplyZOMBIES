@@ -951,6 +951,10 @@
         "weight": 5
       },
       {
+        "item": "item.attach.furniture.folding",
+        "weight": 4
+      },
+      {
         "item": "item.attach.barrel.long",
         "weight": 4
       },
