@@ -134,7 +134,25 @@ and runs anywhere the repo does.
 
 It is a **driver, not a gate**: it lives in `.scratch/` and nothing in `godot:m2` or `sprites:check`
 calls it. Proven both ways before being trusted, per the convention — all eight shipped rigs pass
-with zero failures, and the generated sprite fails three lanes (head width, outline, spread).
+with zero failures, and the generated sprite fails three lanes (head count, outline, spread).
+
+**Its semantics are `check_authored.gd`'s, not a paraphrase of the README**, because the first
+version paraphrased and got three things wrong that only matter on generated art:
+
+- **Opaque is `alpha > 0`, not `alpha >= 128`** (`check_authored.gd:244`). The shipped rigs carry
+  zero partial-alpha pixels so the threshold never mattered on them, but anti-aliased art has a
+  fringe of them — a 128 threshold silently discards it and reports better clearance and row counts
+  than the gate will score.
+- **The row bounds COUNT opaque pixels, they do not span them** (`check_authored.gd:272`). An arm
+  separated from the torso by a transparent column contributes its pixels but not the gap. A span
+  reads high wherever a silhouette has a hole.
+- **The outline compares RGBA, not RGB** (`is_equal_approx` on `Color`), so a semi-transparent edge
+  pixel fails even when its RGB is right.
+
+Cross-checked against the real thing: `npm run godot:check:authored` reports `SPEC OK 8 rigs` /
+`AUTHORED_OK`, and the harness independently agrees on all eight. Note the gate does **not** check
+the file's size against the declared canvas — that is `build.py` under `npm run sprites:check` — so
+the canvas lane is labelled to keep the two from being confused.
 
 Two exceptions are published in the file rather than inferred, because the first version had
 neither and reported FAIL on seven correct sprites: only `survivor_colonist` is achromatic, and

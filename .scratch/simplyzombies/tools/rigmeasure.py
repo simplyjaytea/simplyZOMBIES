@@ -8,8 +8,14 @@ godot/check_authored.gd enforces.
 import sys, os, zlib, struct
 from collections import Counter
 
-OUTLINE = (0x16, 0x16, 0x14)
-ALPHA_OPAQUE = 128           # what counts as an opaque pixel
+OUTLINE = (0x16, 0x16, 0x14, 255)
+
+# Opaque means alpha STRICTLY GREATER THAN ZERO, matching check_authored.gd:244
+# (`if image.get_pixel(x, y).a <= 0.0: continue`). A pixel at alpha 1/255 counts.
+# This is not a detail: generated art is anti-aliased, so it carries a fringe of
+# partial-alpha pixels that a >=128 threshold silently discards -- which would make
+# clearance and the row counts read better than the gate will score them.
+ALPHA_OPAQUE = 1
 
 # Per-key exceptions, published rather than inferred, because a lane that judges every rig by the
 # colonist's numbers reports FAIL on seven correct sprites -- the failure mode CLAUDE.md calls the
@@ -85,8 +91,15 @@ def opaque_cols(px, y, w):
 
 
 def span(px, y, w):
+    """Return (count, first, last) for a row.
+
+    `count` is what check_authored.gd:272 measures -- it increments once per opaque
+    pixel across the row and never bridges a gap, so an arm separated from the torso
+    by a transparent column contributes its pixels but not the space between. The
+    span is reported alongside only because it is useful to a human reading output.
+    """
     c = opaque_cols(px, y, w)
-    return (0, None, None) if not c else (max(c) - min(c) + 1, min(c), max(c))
+    return (0, None, None) if not c else (len(c), min(c), max(c))
 
 
 def measure(path, key=None, achromatic=False):
@@ -95,7 +108,10 @@ def measure(path, key=None, achromatic=False):
     R = []
     ok = lambda c: 'PASS' if c else 'FAIL'
 
-    R.append(('canvas', f'{w}x{h}', ok(w == 32 and h == 40), 'must be 32x40'))
+    # check_authored.gd never checks the file's size against the declared canvas -- that is
+    # build.py's job under `npm run sprites:check`. Kept here because it is what a candidate
+    # sprite gets wrong first, but flagged so the two are not confused.
+    R.append(('canvas (build.py, not the gate)', f'{w}x{h}', ok(w == 32 and h == 40), 'pawn canvas is 32x40'))
 
     rows = [y for y in range(h) if opaque_cols(px, y, w)]
     if not rows:
@@ -107,11 +123,12 @@ def measure(path, key=None, achromatic=False):
     R.append(('soles on row 39', f'row {bot} is lowest opaque', ok(bot == h-1), 'art must touch the bottom row'))
     R.append(('height', f'{height}px (rows {top}..{bot})', ok(25 <= height <= 30), 'must be 25-30'))
 
-    hd, hl, hr = span(px, 18, w)
-    R.append(('head width @row18', f'{hd}px (cols {hl}..{hr})', ok(0 < hd <= 13), 'must be <=13'))
-    sh, sl, sr = span(px, 25, w)
+    hd, hl, hr = span(px, h - 22, w)
+    R.append((f'head count @row{h-22}', f'{hd}px (cols {hl}..{hr})', ok(0 < hd <= 13),
+              'must be <=13 -- no bloater exception, 13 applies to every rig'))
+    sh, sl, sr = span(px, h - 15, w)
     smax = SHOULDER_MAX.get(key, 22)
-    R.append(('shoulders @row25', f'{sh}px (cols {sl}..{sr})', ok(0 < sh <= smax),
+    R.append((f'shoulder count @row{h-15}', f'{sh}px (cols {sl}..{sr})', ok(0 < sh <= smax),
               f'must be <={smax}' + (' (bloater exception)' if key in SHOULDER_MAX else '')))
 
     cols = [x for x in range(w) if any(px[y][x][3] >= ALPHA_OPAQUE for y in range(h))]
@@ -129,11 +146,11 @@ def measure(path, key=None, achromatic=False):
                 for dx, dy in ((1,0),(-1,0),(0,1),(0,-1)):
                     if px[y+dy][x+dx][3] < ALPHA_OPAQUE:
                         edge = True; break
-            if edge and px[y][x][:3] != OUTLINE:
-                bad.append((x, y, px[y][x][:3]))
-    sample = ', '.join(f'({x},{y})=#{r:02x}{g:02x}{b:02x}' for x, y, (r, g, b) in bad[:4])
-    R.append(('outline #161614', f'{len(bad)} stray edge px' + (f' [{sample}]' if bad else ''),
-              ok(not bad), 'every edge pixel exactly #161614, drawn AFTER shading'))
+            if edge and tuple(px[y][x]) != OUTLINE:
+                bad.append((x, y, tuple(px[y][x])))
+    sample = ', '.join(f'({x},{y})=#{r:02x}{g:02x}{b:02x}a{a}' for x, y, (r, g, b, a) in bad[:3])
+    R.append(('outline #161614ff', f'{len(bad)} stray edge px' + (f' [{sample}]' if bad else ''),
+              ok(not bad), 'every edge pixel exactly RGBA(22,22,20,255) -- alpha included'))
 
     # achromaticity -- the colonist lane: max channel spread <= 2
     worst, wpx = 0, None
@@ -161,7 +178,7 @@ def art(px, w, h):
         for x in range(w):
             r, g, b, a = px[y][x]
             if a < ALPHA_OPAQUE: line += ' '
-            elif (r, g, b) == OUTLINE: line += '@'
+            elif (r, g, b, a) == OUTLINE: line += '@'
             else: line += ramp[min(9, max(1, int((r+g+b)/3/28)))]
             line += ''
         out.append(f'{y:2d}|{line}|')
