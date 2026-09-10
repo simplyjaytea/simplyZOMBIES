@@ -6272,6 +6272,22 @@ not a to-do list:
   per-host silhouette or a longer weapon sprite. The seam is there and adding a picture is a data
   edit plus a generator.
 
+- **Art & renderer** — ~~the first authored art, and the tier proved by use~~ **landed**
+  2026-09-10
+  (`godot:check:authored` **READS** goes from SKIPPED to `2 authored keys are each named by the
+  content entry they claim`; `sprites:check` reports `172 generated keys ... and 2 authored keys
+  are present at the canvas they declare`; `check_appearance`'s **PROPS** lane passes them at
+  their declared footprint with both state pairs different pictures). `prop_container` and
+  `prop_container_searched` are the first two keys in the authored tier, and they came from an
+  external generator post-processed to the spec rather than from an artist — docs/30's "the crate
+  we did not draw" carries the call and its cost. **The tier's READS lane had never run**: it
+  said so and skipped while the tier was empty, exactly as it was written to, and this is the
+  first commit where it judges anything. Measured: bbox 17x20 and 16x19 against a footprint of
+  `round(0.62 * 32) = 20` (`FOOTPRINT_SLACK_PX` is 4), zero stray edge pixels on either, and 248
+  of 1024 pixels differing between the two states, which is what the prop lane's "a searched
+  cupboard that looks unsearched" assertion refuses. **The cost is in the diff:** `props.py`'s
+  `_crate` and both its entry points are deleted, because `build.py` refuses a key claimed by two
+  tiers — the generated tier shrank for the first time, from every tile to all but two.
 - **Combat** — ~~a weapon's rate of fire is its own~~ **landed** 2026-09-10
   (`godot:m2:aim` grows **HEFT**, **CONE** and **RECOVER**), the first slice of the weapons
   catalogue arc. docs/09 states the ladder as "raise -> steady -> fire -> recover -> (reload)"

@@ -3708,6 +3708,50 @@ quiet ride beside a change about rate of fire.
 
 ---
 
+## The crate we did not draw, 2026-09-10
+
+Decided by the owner, 2026-09-10, at the end of a session that measured an external art generator
+(the SpriteCook MCP) against this project's own specs across six target families. The evaluation is
+`.scratch/simplyzombies/issues/15-spritecook-evaluation.md`; this entry is the call taken at the end
+of it, and it amends "Art we did not generate" above rather than restating it.
+
+- **The authored tier now holds machine-generated art, not only commissioned art.** That entry
+  opened the tier for an artist working to the brief in `assets/sprites/README.md`. Its first two
+  occupants are instead produced by a model and post-processed into the spec — cropped, scaled so
+  the larger bounding-box dimension lands on `appearance.size * 32`, centred, and re-outlined to
+  `#161614`. Nothing about the tier had to change to accept them, which is the point: the tier was
+  specified by what art must *measure*, not by who drew it, so a machine that hits the numbers is
+  admitted on the same terms as a person who does. What the brief buys is unchanged, and so is the
+  refusal of a bought pack.
+- **Procedural art was retired to make room, and that is the real cost.** `build.py` refuses a key
+  claimed by both tiers, so authoring `prop_container` and `prop_container_searched` meant deleting
+  `props.py`'s `_crate` and both its entry points. This is the first time the generated tier has
+  *shrunk*: "Art we did not generate" closed by saying the generated tier was still 151 of the 151
+  keys and the source of record for every tile. It is now 172 of 174, and two tiles are not in it.
+  The deleted generator is in git history and the crate it drew is in this document's own record;
+  what is gone is the ability to re-render those two keys from code.
+- **One three-quarter prop among four flat ones, accepted knowingly.** The other props are the
+  older flat top-down art; docs/23 is right that only the renderer half of the props slice landed.
+  So the district now has one prop drawn to the *decided* style and four drawn to the superseded
+  one. That is a visible inconsistency and it was taken deliberately rather than discovered: the
+  alternative was holding the art until the whole prop family migrates to feet-anchored
+  three-quarter, and the owner chose to land the one.
+- **What the measurement actually supports, stated narrowly.** The generator's output was
+  shippable *here* and nowhere else tested. `check_authored.gd`'s `_rule_places` bars
+  `ground_atlas`,
+  every `PAWN_KEYS` entry, every `TREE_KEYS` entry and every vehicle from the authored tier, so
+  props were the only family this could have applied to at all — the rubble ground cell that
+  matched its row tint exactly and tiled at 1.01x the interior step cannot be delivered as a file
+  at any quality. The general finding is that the generator succeeds in inverse proportion to how
+  structural the spec is: a mean, a stdev, a footprint and an outline colour are all things a
+  transform can move toward, and a hand on column 7.6 or a brick course on period 8 are not.
+
+**What this does not change.** The published skeleton, the canvas table, the anchor rule and the
+flip; `sprites:check`'s pixel-exact comparison for the 172 keys still generated; the standing bans;
+and the open piece "the first commissioned body, and the three gates it widens", which is about a
+`rig` and is untouched by two keys of kind `tile`.
+
+
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
 **Next:** [31 — Godot Rebuild Roadmap](31-godot-rebuild-roadmap.md) ·
 [Doc index](../README.md#documentation)

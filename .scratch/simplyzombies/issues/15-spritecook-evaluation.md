@@ -118,8 +118,8 @@ any; a three-quarter box has shadowed faces with nowhere to map, and the result 
 
 ## Cost
 
-Six generations, 25 credits of 40 (15 remaining), all `gpt-image-2.5-sunburst` at `quality: low`
-with `smart_crop: false`:
+Seven generations, 30 credits of 40 (10 remaining), all `gpt-image-2.5-sunburst` at
+`quality: low` with `smart_crop: false`:
 
 | # | Target | Asked | Returned | Credits |
 |---|---|---|---|---|
@@ -129,10 +129,13 @@ with `smart_crop: false`:
 | 4 | dead tree | 32×96 | 168×160 | 5 |
 | 5 | conifer | 32×96 | 85×92 | 5 |
 | 6 | board floor (`mode: texture`) | 32×32 | 255×258 | 5 |
+| 7 | crate, searched state | 32×32 | **32×32** | 5 |
 
-Not one returned the requested size. `aspect_ratio` is honoured where it is one of the three
-supported values, which is why shot 1 (an unsupported 4:5) came back landscape and the square
-requests came back square. `mode: "texture"` gave the two best sizings.
+**Six of seven ignored the requested size**, and the seventh hit it exactly — so
+`size_behavior: "hint"` means *hint*, not *always wrong*, and a shot cannot be planned around
+either outcome. `aspect_ratio` is honoured where it is one of the three supported values, which
+is why shot 1 (an unsupported 4:5) came back landscape and every square request came back square.
+`mode: "texture"` gave the two best sizings of the five that missed.
 
 ## Not tested
 
@@ -284,5 +287,9 @@ it passes with room. Four things still stand between it and the game:
 4. It needs its `authored.json` entry:
    `{"canvas": [32, 32], "kind": "tile", "reads": "prop.container"}`.
 
-**Nothing generated in this session is drop-in shippable.** The crate is the only one that could be,
-and only at the cost of retiring the procedural art it replaces.
+**Nothing generated in this session was drop-in shippable.** The crate was the only one that could
+be, and only at the cost of retiring the procedural art it replaced — which the owner chose to pay
+on 2026-09-10. The pair shipped: `prop_container` and `prop_container_searched` are now the
+authored tier's first two keys, `props.py`'s `_crate` is deleted, and docs/30's "the crate we did
+not draw" carries the call. The `.searched` sibling is generation 7 above. Everything else in this
+document stands as a measurement of what was *not* taken.
