@@ -181,6 +181,13 @@ static func live_cap_for(world: Variant) -> int:
 	var side: int = 64
 	if world.tilemap != null and int(world.tilemap.w) > 0:
 		side = int(world.tilemap.w)
+	# A region is the sum of its cells rather than a function of its extent, for the reason
+	# `SimBoot.wanderers_for_map` gives: the seams between districts are road and countryside and
+	# hold nobody, so a side reading counts ground that has nowhere to live on it. Ashgrove reads
+	# 512 here against the side reading's 264. Zero on every district, so the line below is what
+	# every existing map still takes.
+	if world.tilemap != null and int(world.tilemap.region_cells) > 0:
+		return int(world.tilemap.region_cells) * roundi(float(LIVE_CAP_PER_64) * float(world.tilemap.region_cell_tiles) / 64.0)
 	return roundi(float(LIVE_CAP_PER_64) * float(side) / 64.0)
 
 
@@ -457,6 +464,29 @@ static func _edges_by_side(world: Variant) -> Array:
 	var gate_b: Vector2i = SimTileMap.gate_b(map)
 	var w: int = int(map.w)
 	var h: int = int(map.h)
+
+	# A map may name its own band, and a region does. The scan below asks "the outer three tiles of
+	# the map", which is the right question for a district and the wrong one for a region: measured
+	# on Ashgrove at 528 it still finds 4,157 legal tiles, so nothing looks broken, but they sit
+	# **215 to 432 m** from the colony gate where a district's sit at 122 to 182. docs/24 prices one
+	# gunshot at 257 m *because* that is one district; a packet starting past that has two districts
+	# to cross before it is pressure at all. So a region hands over its annex cell's own inner band
+	# and night pressure keeps the distance every measured band was calibrated against.
+	#
+	# Empty on every district ever generated, which is what makes this safe to add: the fallback is
+	# the identical scan, and `check_m2_director.gd` asserts a district's answer is byte-identical.
+	var named: Array = map.spawn_edges as Array
+	if not named.is_empty():
+		for record in named:
+			var r: Dictionary = record as Dictionary
+			var rx: int = int(r.get("x", -1))
+			var ry: int = int(r.get("y", -1))
+			var side: int = clampi(int(r.get("side", 0)), 0, 3)
+			if not _legal_tile(map, rx, ry, annex, gate_a, gate_b):
+				continue
+			(sides[side] as Array).append(Vector2i(rx, ry))
+		return sides
+
 	for y in h:
 		for x in w:
 			if x > 2 and x < w - 3 and y > 2 and y < h - 3:

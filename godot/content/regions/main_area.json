@@ -1,7 +1,7 @@
 {
   "id": "region.main_area",
   "name": "Ashgrove",
-  "cellTiles": 256,
+  "cellTiles": 192,
   "seamTiles": 16,
   "cells": [
     {

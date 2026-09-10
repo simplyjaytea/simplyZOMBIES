@@ -213,19 +213,7 @@ owner's call and is recorded as one. The pieces, in the order they land — the 
   "anywhere" landed with the region assembler — the annex is ranked across every cell rather than
   assigned to a district — and this is the runtime half. It is named here rather than smuggled in
   beside the assembler because it is its own arc, and because CLAUDE.md's step 2 says so.
-
-- **The flip: the main area is what you boot.** Two silent failures to fix in this piece, both
-  found by reading rather than by running. `SimDirector._edges_by_side` scans the outer three-tile
-  band and its first filter is `tile != Tile.Floor` — on a region map that band is the corner
-  districts' **border wall**, so the pool comes back near-empty, `_emit_packet` places nothing and
-  **every night arrives empty with no error**. Give the map a `spawn_edges` manifest on the
-  `streets`/`vehicles` precedent, written as the annex district's own inner band, with the perimeter
-  scan as the fallback for every existing map. And `wanderers_for` / `live_cap_for` read the map
-  *side*, which a region inflates with countryside — a 576-tile region would boot 180 wanderers
-  against a cap of 288. Both are pinned at 64 and 256 by three gates, so the region readings must be
-  new functions rather than edits. `SAVE_VERSION` bumps: a save carries only the seed, so it must
-  carry the region id too. **This is the piece that moves the harness** — the map, the population,
-  the cap and the director's spawn band all move at once.
+- ~~The flip: the main area is what you boot~~ — **landed**, see the record.
 
 **Waiting on the owner in this group** (also in `HANDOFF.md`): the main area's tile extent and the
 gap between districts — docs/24's 300–500 m is a recorded argument, and a 2×2 of 256s at that gap is
@@ -1739,12 +1727,64 @@ not a to-do list:
   documented both coexisting authoring conventions (face-on pawn, rotating rig) and said which
   applies when; the seam was owner-accepted until the roster was re-authored, which the
   2026-09-01 directives then did — one convention, true overhead, in the characters slice.
+
+  ~~The flip: the main area is what you boot~~ **landed 2026-09-10**, and it landed with **one of
+  its two predicted failures corrected rather than confirmed** (`godot:m2:region` at ten lanes).
+
+  **The correction first, because it was written into this document as fact.** The claim was that
+  `SimDirector._edges_by_side` returns a near-empty pool on a region map — its first filter is
+  `tile != Tile.Floor` and a region's outer three-tile band is the corner districts' border wall —
+  and that "every night arrives empty with no error". **That is wrong.** `_border` walls *one* tile,
+  the band is three, so two of its three rows are ordinary district interior: measured on Ashgrove
+  the region yields **4,157 legal tiles against a district's 1,984**. Nothing was empty.
+  What *is* wrong is where they are. Those tiles sit **215 to 432 m** from the colony gate against a
+  district's **122 to 182**. docs/24 prices a gunshot at 257 m *because* that is one district, so a
+  packet placed on the region's outer rim starts beyond that whole relationship with two districts
+  to cross before it is pressure. Night pressure would have arrived **diluted, not absent** — the
+  harder kind of wrong to notice, and the reason the fix was still worth building.
+  `SimTileMap.spawn_edges` is that fix, on the `streets`/`vehicles` precedent: a plain Array, never
+  serialised, **empty on every district**, which the director consults only when non-empty and
+  otherwise falls back to the identical scan. A region writes the **annex cell's own inner band**.
+  Measured after: 120–185 m from the gate against the district's 122–182, and the BAND lane
+  compares the two live rather than quoting these numbers.
+  **A second correction the same lane forced:** ranking annex candidates on *region* centrality put
+  the colony at the meeting point of the four cells — hard against its own cell's edges, with the
+  night band starting **32 m** from the gate, which is `GATE_EXCLUSION` itself. Centrality is
+  measured within the cell now, so the colony sits centrally in whichever district wins on frontage.
+
+  **The second failure was real.** `wanderers_for` is `20 × tiles / 64` and `live_cap_for` reads the
+  map's side, so a region counts its seams — road and countryside, holding nobody — as if people
+  lived on them. `SimBoot.wanderers_for_map` and `live_cap_for` read `region_cells` instead: the sum
+  of the cells, because that is what a region is. The pinned per-side functions are untouched and
+  the POPULATION lane asserts a district still reads its side.
+
+  **The budget decided the size, and it is the honest reason the districts are not 256.** At
+  `cellTiles` 256 the region was 528 tiles with 320 wanderers and a cap of 512, and measured
+  **0.94× real time** — below its own 20 Hz clock before a frame is drawn, which docs/00 pillar 6
+  says does not ship. The owner's call was to shrink the districts. At **192** the region is 400
+  tiles, 240 wanderers, cap 384, and measures **1.48×** against the shipped district's **4.15×**
+  (29.6 against 83.0 ticks/s; a game day 162 min against 58). The cost is named rather than hidden:
+  **a region's districts are no longer the 256 m every balance band was measured on**, so those
+  bands describe the single-district game and not the region.
+
+  **The region is opt-in, not the default.** `--region=<id>` boots it and F2 rerolls it; the game
+  still boots a single district. 1.48× is above the clock but with far less room than a district's
+  4.15×, and this container has measured the same district at 55 and 83 ticks/s on different days —
+  so the margin is real but container-dependent, and flipping the default is a decision to make
+  after playing it rather than one to take from a table. **No `SAVE_VERSION` bump**: a save carries
+  the seed and the *session* carries which world to rebuild, exactly as `--district=` has always
+  worked, so a region is consistent with what shipped rather than a new hole.
+
   ~~The region assembler~~ **landed 2026-09-10** (`npm run godot:m2:region` → `M2_REGION_OK`, eight
-  lanes, the chain's **57th** gate). docs/24's region, at the size the measurement allows rather than
+  lanes at the time, ten after the flip; the chain's **57th** gate). docs/24's region, at the size
+  the measurement allows rather than
   the size that document asks for — the owner's two decisions of 2026-09-09, both recorded in
-  docs/30. **Ashgrove is 528 × 528**: a 2×2 of full 256 m districts (town centre, forest edge,
-  industrial park, residential suburb) with a 16-tile seam, generated in **3.9 s**, carrying **307
-  buildings, 189 vehicles, 521 loot sites and all five loot tables in one map**.
+  docs/30. **Ashgrove was 528 × 528 when it landed**: a 2×2 of full 256 m districts (town centre,
+  forest edge, industrial park, residential suburb) with a 16-tile seam, generated in **3.9 s**,
+  carrying **307 buildings, 189 vehicles, 521 loot sites and all five loot tables in one map**.
+  Those figures are that size's, and the flip above shrank the cells to 192 for the tick budget —
+  **Ashgrove ships at 400 × 400**, so read the counts here as the assembler's proof rather than as
+  the current map's inventory.
 
   **It calls the district generator rather than forking it, and that is the whole design.**
   `SimWorldgen.generate` assumes a square map whose edge it walls and whose whole area every pass
@@ -1785,8 +1825,9 @@ not a to-do list:
   every cell. 50.7 s of a 180 s budget.
 
   **Balance: unmoved, and that is the point of the split.** The game still boots a single district;
-  only the gate boots a region. Flipping the boot is the next piece, and it is the one that moves
-  the harness.
+  only the gate boots a region. Flipping the boot was the next piece — it landed the same day, it
+  is recorded above, and it left the default boot a single district for the budget reason named
+  there.
 
   ~~Wading, and telling the two waters apart~~ **landed 2026-09-09** (`godot:check:water` at ten
   lanes with WADE; `SAVE_VERSION` 27 → 28). The owner's three asks, which turned out to be one
