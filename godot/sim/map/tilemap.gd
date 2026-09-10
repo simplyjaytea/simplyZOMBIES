@@ -69,6 +69,33 @@ var anchors: Dictionary = {}
 # and it never round-trips through a save, because the map is regenerated from the seed rather
 # than serialised. Empty on a blank map and on any district nobody generated.
 var buildings: Array = []
+# Where the director may place a night packet, when the map wants a say in it. `[{side, x, y}, ...]`
+# in absolute tiles, `side` matching `SimDirector.SIDE_NAMES` (0 north, 1 east, 2 south, 3 west).
+#
+# **Empty on every district**, and that is the normal case: `SimDirector._edges_by_side` scans the
+# map's own outer three-tile band and only consults this when it is non-empty. A region fills it,
+# because on a region that scan answers the wrong question -- not an empty one. Measured on Ashgrove
+# at 528: the band yields 4,157 legal tiles (plenty), but they sit **215 to 432 m** from the colony
+# gate against a district's 122 to 182. docs/24 builds the whole attention design on one gunshot
+# carrying 257 m -- one district -- so a packet placed on the region's outer rim starts beyond that
+# entire relationship and has two districts to cross before it is pressure. A region writes the
+# **annex cell's own inner band** here instead, which keeps night pressure at the distance every
+# measured director band was calibrated against.
+#
+# Never serialised, like the four manifests below it: the map is regenerated from the seed.
+var spawn_edges: Array = []
+# What the map is made of, when it is a region. `region_cells` is how many districts it holds and
+# `region_cell_tiles` how big each is; both stay 0 on an ordinary district, which is what every
+# reader checks.
+#
+# They exist because **population scales off the map side**, and countryside inflates a side without
+# adding anywhere to live: `SimBoot.wanderers_for` is `20 x tiles / 64` and `SimDirector.live_cap_for`
+# reads `tilemap.w`, so a 528-tile region would boot 165 wanderers against a cap of 264 -- numbers
+# nothing measured and that describe a shape the map does not have. A region reads its **cells**
+# instead: four districts' worth, because that is what a region is. Never serialised, like the
+# manifests around them.
+var region_cells: int = 0
+var region_cell_tiles: int = 0
 # The streets the generator carved, in carve order: {axis, at, width, from, to} per span, in
 # absolute tiles -- axis "x" is a vertical street standing at column `at`, axis "y" a horizontal
 # one at row `at`, each `width` tiles wide running `from`..`to` inclusive along its length. Layout

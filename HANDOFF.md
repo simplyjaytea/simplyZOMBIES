@@ -52,6 +52,24 @@ pieces left docs/23's what's-left, including the attachment-fitting screen it ha
 attachments landed. Measured with a throwaway driver: a pistol reaches "worn" at ~100 rounds and
 "failing" at ~200, the action first. `godot:bench` unchanged.
 
+**2026-09-10 — the flip, and a prediction that was wrong** (`godot:m2:region` at ten lanes; the
+chain is still **57**). The main area is reachable: `--region=region.main_area` boots Ashgrove,
+**400 × 400**, four districts, 240 wanderers, three colonists.
+**Read this before trusting anything else written about the director on a region.** This file and
+docs/23 both claimed `_edges_by_side` returns a near-empty pool on a region and that "every night
+arrives empty with no error". **That was wrong** — `_border` walls one tile and the band is three,
+so a region yields 4,157 legal tiles against a district's 1,984. The real fault was the *distance*:
+215–432 m from the colony gate against a district's 122–182, which is diluted pressure rather than
+none. `SimTileMap.spawn_edges` fixes it (the annex cell's own band; 120–185 m after), and the gate
+measures distance rather than count because the count was never the problem.
+**The budget picked the district size.** At `cellTiles` 256 the region ran at **0.94× real time** —
+under its own 20 Hz clock — so pillar 6 refused it. The owner shrank the cells to 192: **1.48×**
+against a shipped district's 4.15×. The cost is real and named: **a region's districts are no longer
+the 256 m the balance bands were measured on.**
+**The region is opt-in and the default is still one district.** 1.48× is above the clock with much
+less room than a district, and this container has measured the same district at 55 and 83 ticks/s on
+different days. Making a region the default is item `0b` below.
+
 **2026-09-10 — the region assembler** (`npm run godot:m2:region` / `M2_REGION_OK`, eight lanes; the
 `godot:m2` chain is **57** now). The owner answered both of item `0c`'s questions — a 2×2 of full
 256 m districts nearly touching, and the colony established anywhere — so that item is off this
@@ -400,6 +418,16 @@ decisions and what each earlier clause becomes; the work it forces is docs/23's 
 Settlers arc, whose plan is `.hermes/plans/2026-09-03_dungeon-settlers-arc.md`. **Which of its
 slices have landed is docs/23's record, not this file** -- a list here went stale twice in two
 days, which is the same drift that took the equivalent list out of `CLAUDE.md` in `e2b94e7`.)
+
+0b. **Whether a region becomes the default boot** (2026-09-10). Everything is built and gated;
+   `--region=region.main_area` reaches it and the default is still a single district. The reason it
+   is not flipped is measured: the region runs at **1.48× real time** against a district's **4.15×**,
+   which is above the 20 Hz clock but with far less room, and this container has measured the same
+   district at 55 and 83 ticks/s on different days — so the margin is real and not comfortable, and
+   rendering sits on top of it. Two dials if it needs one: `cellTiles` in
+   `content/regions/main_area.json` (already 256 → 192 once, for exactly this reason), and how much
+   of a region's population a region boots. **Worth playing before deciding**, which is the one
+   thing a table cannot answer.
 
 0c. **The water numbers, and the two the owner has not been asked** (2026-09-09). Every water
    constant was a first cut taken in an autonomous session, each one line: the ford's ×0.45 speed

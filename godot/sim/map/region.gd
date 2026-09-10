@@ -165,6 +165,11 @@ static func generate(seed_val: int, region_id: String = DEFAULT_REGION, content:
 	#    survivable, which is where `SimWorldgen.generate`'s `reject` hook finally has a production
 	#    reader rather than only a gate one.
 	_site_colony(seed_val, map, tree, region, cells, cell_tiles, reject)
+	# Last, because it needs to know which cell the colony landed in.
+	_write_spawn_edges(map, region, cells, cell_tiles)
+	# What the map is made of, so the population readings can ask cells rather than extent.
+	map.region_cells = cells.size()
+	map.region_cell_tiles = cell_tiles
 	return map
 
 
@@ -419,10 +424,19 @@ static func _region_candidates(seed_val: int, map: Variant, tree: Dictionary, re
 			ordinal += 1
 			if fronting <= 0:
 				continue
+			# Centrality is measured **within the cell**, not within the region, and that took a
+			# measurement to get right. Ranking on region centrality put the colony at the meeting
+			# point of the four districts -- which sounds appealing and is not: it lands hard
+			# against its own cell's edges, and the night band then starts **32 m** from the gate
+			# against a district's 122. `GATE_EXCLUSION` is 32, so packets would arrive at the
+			# exclusion radius itself. Per-cell centrality is what `annex_candidates` computes
+			# internally and what every measured director band was calibrated under, so the colony
+			# sits centrally in whichever district wins on frontage and the distances hold.
+			var centre_local := Vector2i(lot.position.x + lot.size.x / 2, lot.position.y + lot.size.y / 2)
 			scored.append({
 				"rect": rect,
 				"fronting": fronting,
-				"centre": absi(2 * (rect.position.x + rect.size.x / 2) - int(map.w)) + absi(2 * (rect.position.y + rect.size.y / 2) - int(map.h)),
+				"centre": absi(2 * centre_local.x - cell_tiles) + absi(2 * centre_local.y - cell_tiles),
 				"at": ordinal,
 			})
 	scored.sort_custom(func(a, b) -> bool:
@@ -497,3 +511,59 @@ static func _layout_region(seed_val: int, tree: Dictionary, region: Dictionary, 
 		_paste_tiles_only(out, ground["map"], origin_of(region, cell))
 	_seams(out, region, cells)
 	return out
+
+
+# How deep the spawn band runs inside the annex cell's wall, matching the three tiles
+# `SimDirector._edges_by_side` scans on a district so the two answers are the same shape.
+const SPAWN_BAND: int = 3
+
+
+# The band the director may place night packets on, written as the **annex cell's own inner band**.
+#
+# The scan this replaces is not broken on a region -- it finds 4,157 legal tiles on Ashgrove, more
+# than a district's 1,984 -- it is answering the wrong question. Those tiles sit 215 to 432 m from
+# the colony gate where a district's sit at 122 to 182, and docs/24 prices a gunshot at 257 m
+# *because* that is one district. A packet starting past that has two districts to cross before it
+# is pressure at all, so night after night would arrive diluted rather than absent, which is the
+# harder kind of wrong to notice.
+#
+# Writing the annex cell's band keeps every measured director band at the distance it was
+# calibrated against. What it deliberately does **not** do, named so the next session does not think
+# it was missed: it does not let the other three districts contribute. Pressure arriving from across
+# the region is a design question (and a balance one), not an oversight -- it wants the owner and a
+# measurement, not a default.
+static func _write_spawn_edges(map: Variant, region: Dictionary, cells: Array, cell_tiles: int) -> void:
+	(map.spawn_edges as Array).clear()
+	var annex: Rect2i = SimTileMapRes.annex_rect(map)
+	if annex.size.x <= 0 or annex.size.y <= 0:
+		return
+	var host := Rect2i(0, 0, 0, 0)
+	for cell_value in cells:
+		var bounds := Rect2i(origin_of(region, cell_value as Dictionary), Vector2i(cell_tiles, cell_tiles))
+		if bounds.encloses(annex):
+			host = bounds
+	if host.size.x <= 0:
+		return
+	# Row-major over the cell, keeping only its outer band, bucketed by side in
+	# `SimDirector.SIDE_NAMES` order. Legality is left to the director: it already asks
+	# `_legal_tile`, and asking here as well would be two copies of a rule that can drift.
+	var lo: Vector2i = host.position
+	var hi: Vector2i = host.position + host.size - Vector2i.ONE
+	for y in range(lo.y, hi.y + 1):
+		for x in range(lo.x, hi.x + 1):
+			var north: bool = y - lo.y < SPAWN_BAND
+			var south: bool = hi.y - y < SPAWN_BAND
+			var west: bool = x - lo.x < SPAWN_BAND
+			var east: bool = hi.x - x < SPAWN_BAND
+			if not (north or south or east or west):
+				continue
+			var side: int = 0
+			if north:
+				side = 0
+			elif south:
+				side = 2
+			elif east:
+				side = 1
+			else:
+				side = 3
+			(map.spawn_edges as Array).append({"side": side, "x": x, "y": y})

@@ -6,6 +6,7 @@ extends RefCounted
 const WorldRes = preload("res://sim/world.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimWorldgen = preload("res://sim/map/worldgen.gd")
+const SimRegion = preload("res://sim/map/region.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimLight = preload("res://sim/vision/light.gd")
 const Clock = preload("res://sim/time/clock.gd")
@@ -61,6 +62,25 @@ const SCATTER_TRIES: int = 8
 
 static func wanderers_for(tiles: int) -> int:
 	return roundi(float(WANDERERS_PER_64) * float(tiles) / 64.0)
+
+
+# The same reading for a map that is several districts. Kept as its own function rather than folded
+# into `wanderers_for` because that one is pinned at 64 and 256 by three gates, and a region is a
+# different question rather than a bigger answer to the same one: a region's side includes the seams
+# between its districts, which are road and countryside and hold nobody. So the population is the
+# **sum of its cells**, not a function of its extent -- four districts' worth, because that is what a
+# region is.
+#
+# Ashgrove reads **320** here against the side reading's 165. That is four times what any measured
+# band has seen and the sizing measurement had no headroom, so it is a balance number as much as an
+# arithmetic one; it is listed for the owner in HANDOFF.md rather than assumed correct.
+static func wanderers_for_map(map: Variant) -> int:
+	if map == null:
+		return wanderers_for(64)
+	var cells: int = int(map.region_cells)
+	if cells > 0:
+		return cells * wanderers_for(int(map.region_cell_tiles))
+	return wanderers_for(int(map.w))
 
 
 static func attach_kernel(world: Variant, map: Variant) -> void:
@@ -201,7 +221,10 @@ static func place_loot(world: Variant, map: Variant) -> void:
 		SimLoot.scatter(world, table as Dictionary, rng, x, y)
 
 
-static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES, district_id: String = DEFAULT_DISTRICT) -> Dictionary:
+# `built_map` lets a caller hand in a map it generated itself, which is how a region boots: the
+# region assembler is not a district generator and cannot be reached through `district_id`. Null --
+# every existing caller -- generates a district exactly as before.
+static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES, district_id: String = DEFAULT_DISTRICT, built_map: Variant = null) -> Dictionary:
 	# Same seed + content + modules. No placement, loot, or spawn_unique — F9 restore target.
 	var content: Dictionary = ContentLoader.load_tree()
 	# The content tree is handed to the generator rather than letting it walk the directory again:
@@ -214,7 +237,7 @@ static func bare(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTR
 	# a property of the seed like everything else about the district, and everything downstream --
 	# the director's exclusions, the jobs router, the stockpile, the recruit beat, the well -- reads
 	# the anchors the stamp wrote, exactly as it did before.
-	var map: Variant = SimWorldgen.generate(seed_val, map_size, content, district_id)
+	var map: Variant = built_map if built_map != null else SimWorldgen.generate(seed_val, map_size, content, district_id)
 	var start: Vector2i = colony_start(map)
 	var exam: Dictionary = SimTileMap.find_open_tile(map, start.x, start.y)
 	var fixture: Dictionary = {
@@ -419,8 +442,8 @@ static func _indoor_floors(map: Variant, near_x: int, near_y: int, n: int) -> Ar
 	return found
 
 
-static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES, district_id: String = DEFAULT_DISTRICT) -> Dictionary:
-	var boot: Dictionary = bare(seed_val, map_size, district_id)
+static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.DISTRICT_TILES, district_id: String = DEFAULT_DISTRICT, built_map: Variant = null) -> Dictionary:
+	var boot: Dictionary = bare(seed_val, map_size, district_id, built_map)
 	var world: Variant = boot["world"]
 	var map: Variant = boot["map"]
 	var observer: Dictionary = SimVisibility.daylight_eyes()
@@ -457,7 +480,10 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 	# a roll that never lands outside places anyway rather than looping, which at these odds
 	# (a 26x26 rect inside a 48x48 box, eight times over) is a case nothing has reached.
 	var annex: Rect2i = SimTileMap.annex_rect(map)
-	for i in wanderers_for(int(map.w)):
+	# `wanderers_for_map` rather than `wanderers_for(map.w)`: identical on every district (it falls
+	# through to the side reading) and the sum of the cells on a region, where a side would count
+	# the seams between districts as if people lived on them.
+	for i in wanderers_for_map(map):
 		var type_id: String = SimRoster.pick_type(world, place_rng)
 		var tile: Dictionary = {}
 		for _try in SCATTER_TRIES:
@@ -469,3 +495,20 @@ static func playable(seed_val: int = DISTRICT_SEED, map_size: int = SimTileMap.D
 		SimRoster.spawn_zombie(world, float(tile["x"]) + 0.5, float(tile["y"]) + 0.5, type_id, place_rng)
 	world.events.drain()
 	return {"world": world, "map": map}
+
+
+# A world on a region rather than a district. Everything after the map is identical -- the same
+# kernel, the same stations, the same colony, the same scatter -- because a region *is* a map, and
+# every downstream reader was already asking the map rather than a district id. What differs is only
+# what the map says about itself: `region_cells` makes the population readings ask cells rather than
+# extent, and `spawn_edges` keeps the director's night band at the annex district's own wall.
+static func bare_region(seed_val: int = DISTRICT_SEED, region_id: String = SimRegion.DEFAULT_REGION) -> Dictionary:
+	var content: Dictionary = ContentLoader.load_tree()
+	var map: Variant = SimRegion.generate(seed_val, region_id, content, true)
+	return bare(seed_val, int(map.w), DEFAULT_DISTRICT, map)
+
+
+static func playable_region(seed_val: int = DISTRICT_SEED, region_id: String = SimRegion.DEFAULT_REGION) -> Dictionary:
+	var content: Dictionary = ContentLoader.load_tree()
+	var map: Variant = SimRegion.generate(seed_val, region_id, content, true)
+	return playable(seed_val, int(map.w), DEFAULT_DISTRICT, map)

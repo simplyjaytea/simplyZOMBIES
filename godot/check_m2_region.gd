@@ -42,6 +42,8 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimTemplates = preload("res://sim/map/templates.gd")
 const SimPath = preload("res://sim/path.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
+const SimDirector = preload("res://sim/modules/director.gd")
+const SimBoot = preload("res://sim/boot.gd")
 
 const REGION_ID: String = "region.main_area"
 const CANON_SEED: int = 20260805
@@ -77,6 +79,8 @@ func _run() -> void:
 	ok = _the_flood_from_the_gates_reaches_every_cell(map, region) and ok
 	ok = _the_region_is_survivable_and_no_clause_skipped(map) and ok
 	ok = _a_refused_lot_moves_the_colony_to_the_next_one(region) and ok
+	ok = _the_night_band_stays_at_the_colonys_own_wall(map, region) and ok
+	ok = _the_population_counts_cells_and_not_countryside(map) and ok
 
 	var seconds: float = float(Time.get_ticks_msec() - started) / 1000.0
 	if seconds > BUDGET_SECONDS:
@@ -84,7 +88,7 @@ func _run() -> void:
 		ok = false
 
 	if ok:
-		print("M2_REGION_OK %d cells at %d tiles in a %dx%d region: every cell byte-identical to its district generated alone, every record inside its own cell, one colony sited region-wide at %s, deterministic and dressing-independent, the flood reaches all %d cells, all %d clauses answered with none skipped, a refused lot re-sites; %.1f s of a %.0f s budget" % [
+		print("M2_REGION_OK %d cells at %d tiles in a %dx%d region: every cell byte-identical to its district generated alone, every record inside its own cell, one colony sited region-wide at %s, deterministic and dressing-independent, the flood reaches all %d cells, all %d clauses answered with none skipped, a refused lot re-sites, the night band stays at the colony's own wall and the population counts cells; %.1f s of a %.0f s budget" % [
 			SimRegion.cells_of(region).size(), int(region.get("cellTiles", 0)),
 			int(map.w), int(map.h), str(SimTileMap.annex_rect(map).position),
 			SimRegion.cells_of(region).size(),
@@ -252,6 +256,14 @@ func _every_record_landed_in_its_own_cell(map: Variant, region: Dictionary) -> b
 		if tx < 0 or ty < 0 or tx >= int(map.w) or ty >= int(map.h):
 			push_error("MANIFEST: span %s runs off the region" % str(span))
 			return false
+		# The colony is the one thing allowed to sit on a street. `annex_candidates` clamps a lot's
+		# origin into the map's margins rather than into the lot, so on a district whose parcels are
+		# smaller than the 26x26 annex the stamp legitimately crosses a span -- pre-existing
+		# `SimWorldgen` behaviour, visible here only because a region's cells are smaller than 256.
+		# Skipping the span rather than the assertion: the axis question is still asked of every
+		# other one, and a span buried entirely under the colony has no midpoint worth reading.
+		if SimTileMap.annex_rect(map).has_point(Vector2i(tx, ty)):
+			continue
 		if SimTileMap.is_solid(map, tx, ty):
 			push_error("MANIFEST: span %s reads solid at its own midpoint (%d,%d); an offset went onto the wrong axis" % [str(span), tx, ty])
 			return false
@@ -471,5 +483,113 @@ func _a_refused_lot_moves_the_colony_to_the_next_one(region: Dictionary) -> bool
 	var report: Dictionary = SimWorldgen.survivability_report(second)
 	if not bool(report["ok"]):
 		push_error("RESITE: the re-sited region is not survivable: %s" % str(report["failed"]))
+		return false
+	return true
+
+
+# 9. BAND: night pressure arrives where it was calibrated to.
+#
+# **The failure this guards against is not an empty pool, and getting that wrong cost a diagnosis.**
+# `SimDirector._edges_by_side` scans the map's outer three-tile band; on a region that band is the
+# corner districts' border wall -- but the wall is *one* tile thick and the band is three, so the
+# scan still finds plenty: 4,157 legal tiles on Ashgrove against a district's 1,984. Nothing looks
+# broken. What is wrong is **where** they are: 215 to 432 m from the colony gate, against a
+# district's 122 to 182. docs/24 prices a gunshot at 257 m *because* that is one district, so a
+# packet starting past that has two districts to cross before it is pressure at all -- diluted
+# rather than absent, which is the harder kind of wrong to see.
+#
+# So this lane measures the distance, not the count.
+func _the_night_band_stays_at_the_colonys_own_wall(map: Variant, region: Dictionary) -> bool:
+	if (map.spawn_edges as Array).is_empty():
+		push_error("BAND: the region declared no spawn band, so the director falls back to scanning the region's own rim")
+		return false
+	var world: Variant = SimBoot.bare(CANON_SEED, 64)["world"]
+	world.adopt_map(map)
+	var sides: Array = SimDirector._edges_by_side(world)
+	var gate: Vector2i = SimTileMap.gate_a(map)
+	var pool: int = 0
+	var near: float = 1e12
+	var far: float = 0.0
+	for side in sides:
+		if (side as Array).is_empty():
+			push_error("BAND: one side of the region's band is empty; the director refuses a side with no tiles")
+			return false
+		for at in side as Array:
+			var v: Vector2i = at as Vector2i
+			var d: float = sqrt(pow(float(v.x - gate.x), 2.0) + pow(float(v.y - gate.y), 2.0))
+			near = minf(near, d)
+			far = maxf(far, d)
+			pool += 1
+
+	# Against the district the bands were measured on, booted here rather than quoted.
+	var district: Variant = SimWorldgen.generate(CANON_SEED, int(region.get("cellTiles", 256)), _tree(), "district.residential_suburb")
+	var dworld: Variant = SimBoot.bare(CANON_SEED, 64)["world"]
+	dworld.adopt_map(district)
+	var dgate: Vector2i = SimTileMap.gate_a(district)
+	var dnear: float = 1e12
+	var dfar: float = 0.0
+	for dside in SimDirector._edges_by_side(dworld):
+		for dat in dside as Array:
+			var dv: Vector2i = dat as Vector2i
+			var dd: float = sqrt(pow(float(dv.x - dgate.x), 2.0) + pow(float(dv.y - dgate.y), 2.0))
+			dnear = minf(dnear, dd)
+			dfar = maxf(dfar, dd)
+	# A quarter's slack either way: the colony does not land on the same lot in both, so the numbers
+	# are close rather than equal, and pinning them exactly would be pinning the seed.
+	if near < dnear * 0.75 or far > dfar * 1.25:
+		push_error("BAND: the region's night band runs %.0f..%.0f m from the gate against the district's %.0f..%.0f; it is not the colony's own wall" % [near, far, dnear, dfar])
+		return false
+
+	# The true negative, and the one that makes this lane mean anything: with the declared band
+	# taken away, the director falls back to scanning the region's rim and the distance must blow
+	# out. Without it the lane would pass on a fallback that happened to be fine.
+	var bare_map: Variant = SimRegion.generate(CANON_SEED, REGION_ID, _tree(), true)
+	(bare_map.spawn_edges as Array).clear()
+	var bworld: Variant = SimBoot.bare(CANON_SEED, 64)["world"]
+	bworld.adopt_map(bare_map)
+	var bgate: Vector2i = SimTileMap.gate_a(bare_map)
+	var bfar: float = 0.0
+	for bside in SimDirector._edges_by_side(bworld):
+		for bat in bside as Array:
+			var bv: Vector2i = bat as Vector2i
+			bfar = maxf(bfar, sqrt(pow(float(bv.x - bgate.x), 2.0) + pow(float(bv.y - bgate.y), 2.0)))
+	if bfar <= dfar * 1.25:
+		push_error("BAND: without a declared band the rim scan still reached only %.0f m, so this lane cannot fail" % bfar)
+		return false
+	return true
+
+
+# 10. POPULATION: cells, not extent.
+#
+# `wanderers_for` is `20 x tiles / 64` and `live_cap_for` reads the map's side, so a region's seams
+# -- road and countryside, holding nobody -- would be counted as if people lived on them. A region
+# reads its cells instead. Both halves asserted, because the district reading is pinned at 64 and
+# 256 by three other gates and must not have moved.
+func _the_population_counts_cells_and_not_countryside(map: Variant) -> bool:
+	var cells: int = int(map.region_cells)
+	var cell_tiles: int = int(map.region_cell_tiles)
+	if cells < 2 or cell_tiles < 1:
+		push_error("POPULATION: the region records %d cells of %d tiles; it cannot answer for its own shape" % [cells, cell_tiles])
+		return false
+	var want: int = cells * SimBoot.wanderers_for(cell_tiles)
+	var got: int = SimBoot.wanderers_for_map(map)
+	if got != want:
+		push_error("POPULATION: the region boots %d wanderers, not its %d cells' %d" % [got, cells, want])
+		return false
+	# And it must differ from the side reading, or the fix reaches nothing.
+	if got == SimBoot.wanderers_for(int(map.w)):
+		push_error("POPULATION: the cell reading equals the side reading (%d), so nothing distinguishes a region from a big district" % got)
+		return false
+	var world: Variant = SimBoot.bare(CANON_SEED, 64)["world"]
+	world.adopt_map(map)
+	var cap: int = SimDirector.live_cap_for(world)
+	var want_cap: int = cells * roundi(float(SimDirector.LIVE_CAP_PER_64) * float(cell_tiles) / 64.0)
+	if cap != want_cap:
+		push_error("POPULATION: the region's live cap is %d, not its %d cells' %d" % [cap, cells, want_cap])
+		return false
+	# The true negative: an ordinary district must still read its side, untouched.
+	var district: Variant = SimWorldgen.generate(CANON_SEED, 256, _tree(), "district.residential_suburb")
+	if SimBoot.wanderers_for_map(district) != SimBoot.wanderers_for(256):
+		push_error("POPULATION: a district no longer reads its side; the region reading leaked into the pinned one")
 		return false
 	return true
