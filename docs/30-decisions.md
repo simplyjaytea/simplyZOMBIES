@@ -3548,6 +3548,82 @@ work done at a bench.
   action, which is the loop this slice exists to create. `npm run godot:bench` is unchanged and
   inside every budget with ~28 extra part entities per eleven weapons. Driver deleted.
 
+## The weapons catalogue: a weapon has heft, and a light is a light, 2026-09-10
+
+The owner asked for a suppressor-capable submachine gun, more attachments, and more weapons, and
+shaped it in four answers: the SMG chambers 9mm with a .45 conversion kit; per-weapon handling
+speed gets built; more firearms, melee and bow/crossbow variants but **not** throwables; and
+firearms gain an `underbarrel` slot carrying the weapon light docs/10 has promised since
+attachments landed. Most of what followed is the gear catalogue for a third time and needs no
+reasoning written down. Six calls do.
+
+- **Rate of fire is a weapon's, and it is melee's shape rather than a new one.** docs/09 states the
+  ladder as "raise → steady → fire → recover → (reload)" and its own table says a crossbow's rate of
+  fire is "much slower" — which was true of the reload and of nothing else, because the three rungs
+  were constants in `ranged.gd` that every firearm shared. `ranged.weight` is content-declared and
+  **required**, exactly as `melee.weight` is, and `SimCombat.raise_ticks` / `steady_ticks` /
+  `shot_recover_ticks` sit beside `windup_ticks` and `recover_ticks` because a weapon's clocks are
+  combat's arithmetic and not one module's private calibration. docs/10 rule 4 wants melee and
+  ranged to have equal item depth; this is the axis where they did not.
+- **One `handling` multiplier over all three rungs, not three scalable fields.** Three would each
+  need a polarity sign, a word, and — the SCALES lane being what it is — its own shipped part in
+  the same commit. More decisively, the bench prints one prose row per changed field and "comes
+  up / settles / recovers" is three rows a reader cannot tell apart without the digits the HUD ban
+  forbids. A part that should steady *without* hastening scales `cone`, which is what the padded
+  stock already did.
+- **The calibration is behaviour-preserving where it can be.** The pistol and the revolver stay at
+  1.0 and their eight/four/eight is unchanged, so every gate fixture and every pinned number that
+  used a pistol still measures what it measured. Everything else spreads outward from there, and
+  the SMG at 0.85 is the first weapon whose identity *is* its handling.
+- **A second matched conversion set, on purpose.** The .45 kit is the rimfire kit's shape again — a
+  barrel and a magazine that agree with each other and with nothing else — rather than a second
+  mechanism. Once "resolved by agreement, not by order" exists, a second instance is content, and
+  content is where the depth should come from. It fits the Service Pistol as well as the SMG, which
+  is emergent and was not designed for.
+- **One writer owns carried light, and the flash is a guest.** `light_source` had two writers on a
+  survivor and no rule between them: the muzzle flash overwrote the component and then deleted it
+  when it expired, guarded on the magnitude still equalling the flash — which the overwrite had
+  just guaranteed. A mounted light would have gone out permanently on the first shot, behind a
+  guard that reads as careful. `refresh_carried` is now the only thing that sets or clears carried
+  light; the flash takes the brighter of itself and what is carried, and expiry *falls back* rather
+  than removes. **Two writers to one component is the shape to distrust**, and it is the same
+  family as docs/30's `static var` entries: a value quietly not what you stored.
+  Finding it cost nothing and would have cost a session later, because the gate that catches it has
+  to fire the gun — every cheaper assertion about the light passes with the bug in place.
+- **The light module was carrying a broken copy of a solved problem.** Its private content accessor
+  put the fallback scan *inside* a `has(type_id)` guard, and `ContentLoader.load_tree` keys its
+  tree by path and never by type, so `light_reach_of` returned null for every item in the game: the
+  candle, the electric lamp and the oil lantern had each declared a `light` block since the module
+  landed and **no carried light had ever lit anybody**. `items.gd`'s `content_entry` says in its own
+  comment that other modules "should not each grow their own copy of it", and this was the bill for
+  ignoring that. It is the thirteenth dead socket of the milestone and it was found only because
+  the weapon light needed the same resolver. **Carrying a lamp now costs visibility**, which is what
+  it was always supposed to cost, and that is a real change to night play rather than a repair.
+- **A slot a required part lives in is not one accessories can share.** The plan had a crossbow
+  crank in the `string` slot; `string` is a *required* slot with a structural default on both the
+  bow and the crossbow, so a crank occupying it would leave the weapon with no string and
+  `blocked_reason` would refuse to fire it. The required-slot rule created this constraint when it
+  landed and nothing had run into it until now. It is worth stating rather than rediscovering:
+  `barrel`, `internal`, `limb`, `string`, `head` and `haft` are structural addresses, and an
+  accessory wanting a home needs a slot of its own — which is what `underbarrel` is.
+- **Four melee, not ten, and each against a measured gap.** Melee shipped fifteen bases and the
+  temptation with a "more weapons" brief is breadth. The shipped table was read first: nothing sat
+  below the kitchen knife's weight, nothing paired damage at or above fourteen with stagger at or
+  below five, only the improvised spear reached two metres, and nothing did reach-without-damage
+  past the baton's range. Four gaps, four weapons. A fifth would have been flavour, and docs/10's
+  "items are found, not chosen" is worth less the more of them there are.
+
+**Deliberately not in this arc**, named rather than left looking finished: throwables, which are a
+new weapon class with a thrown arc and an area effect; the *aimed* half of the weapon light, which
+is a radius around its holder and not a beam, and the optic-in-the-dark half, which needs the cone
+to read the light field; the five ranged affixes, still blocked on stats that resolve to nothing;
+armour attachment slots, still code before content; and **the aim-cone arm penalty** — `ranged.gd`
+widens the cone when the worse arm is under 25 and a healthy sided arm is 20, so every survivor has
+been shooting with the one-ruined-arm penalty applied permanently since limbs were sided. That one
+is in docs/23's defect list rather than fixed here: correcting it tightens every survivor's cone in
+every firefight, which is a balance change wanting its own slice and its own measurement, not a
+quiet ride beside a change about rate of fire.
+
 ---
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
