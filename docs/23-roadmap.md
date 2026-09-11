@@ -354,17 +354,25 @@ projection stays flat top-down; 32 px a tile stays.
   was meant is the owner's to say before this is pickable.
 
 **Art & renderer — commissioned sprites, opened by the owner (2026-09-09).** The tier and its
-gate landed the same day (the record's "art we did not generate"); these are the two pieces it
-named rather than built, and both wait on art actually being commissioned.
+gate landed the same day (the record's "art we did not generate"). The piece that group named
+rather than built — the first commissioned body and the three gates it widens — **landed
+2026-09-11**; see the record. The slice left one decision and one piece behind. The decision, the
+owner's and not pending: the Dungeon Settlers style spec was adopted as **treatment only**, so the
+`#161614` outline and the `muted` saturation ceiling both stand — it is recorded in
+[docs/30](30-decisions.md#the-reference-treatment-2026-09-11) rather than here. The piece:
 
-- **The first commissioned body, and the three gates it widens.** An authored rig is not in
-  `Appearance.PAWN_KEYS`, which `check_topdown.gd`'s FLIP lane iterates and `check_worn.gd`'s
-  `_rig_keys()` counts -- and that count asserts **exactly eight**. It is also the source of
-  `check_worn.gd`'s FITS envelope, the union of the eight rigs' opaque boxes every equipment
-  overlay is measured inside. So the slice that lands the first commissioned body widens all
-  three deliberately, or the body arrives with its equipment judged against a roster it is not
-  in -- which would quietly undo the owner's "layering stays a requirement". Not pre-emptively
-  widened, because a gate loosened for art that does not exist yet is a gate that cannot fail.
+- **The ramp, applied to the whole roster.** The player is now a **6**-colour ramped rig
+  standing beside rigs of 27 to 88 colours (measured across all nine), so the roster is unevenly
+  treated — the cost the treatment slice took knowingly rather than discovered. At the boot zoom
+  the difference is hard to see; at 6x the player reads flatter and slightly darker. This piece puts the same three
+  passes (despeckle, three-tone-per-family ramp, family clamp) into `tools/sprites` so the eight
+  generated rigs come out of the generator already ramped, rather than post-processing eight PNGs
+  a gate would then refuse to regenerate. It is not a data edit: every registry key re-renders
+  under `sprites:check`, and `APPEARANCE_OK`'s **GREY lane must be re-measured rather than
+  quoted** — its composed margin is +0.018 today and a changed pixel population moves the median a
+  byte. It overlaps "the rig read harder" in the character-overhaul group, which already asks for
+  `nw_shade` quantised to three steps and names the same 67-to-15 measurement; whichever lands
+  first should absorb the other rather than both moving the same colours twice.
 
 **Art & renderer — the character overhaul, decided by the owner (2026-09-09), from a fixture
 round.** The direction is docs/30's "The character overhaul": the squat proportion kept and read
@@ -1617,6 +1625,67 @@ not a to-do list:
   because a half-width is not a centre -- the trunk's edge is the outermost column still inside
   the reach, and rounding it like a centre puts it one column outside the trunk. Two functions
   now, and the shipped player rig lines up on every marking.
+  ~~The first commissioned body, and the three gates it widens~~ **landed** 2026-09-11
+  (`godot:check:authored` at `SPEC OK 9 rigs`, `godot:check:worn` at a 9-rig envelope,
+  `godot:check:topdown` at 63 pawn keys, `sprites:check` at 3 authored keys). The player's body
+  is the first art in this project the generator did not draw: `player_body_authored` is a 32x40
+  pawn made with PixelLab, generated **img2img over the shipped `player_body`** at
+  `init_image_strength` 300 with the human roster's own colours forced as the palette. Measured
+  rather than hoped: it came back **inside every published bound on the first generation** —
+  height 28, side clearance 6 and 6, soles on row 39, shoulders 20 of a cap of 22, head 12 of a
+  cap of 13 — which is the result worth keeping from the experiment, because it says the img2img
+  route inherits the geometry instead of fighting it. A from-scratch generation at the same
+  canvas did not: height 38, no soles on the bottom row, a head of 20, and a realistic
+  proportion that is a different art language. **Start from a picture that already meets the
+  geometry**; a prompt describing the geometry does not produce it.
+  **The treatment, in three deterministic passes.** The owner supplied a written Dungeon
+  Settlers style spec mid-session and asked for it "applied, keeping our current theme"
+  (docs/30, "The reference treatment"). Two of its clauses turned out to be already met rather
+  than pending — it asks for an outline in "dark brown, navy or deep charcoal **rather than pure
+  black**", and `#161614` is (22, 22, 20); and it asks for chibi proportions of 2 to 2.5 heads,
+  where the published skeleton's 28 px figure with a 12 px head is 2.3. What was left to apply
+  is the shading clause, and it is applied by code rather than by prompt: **despeckle** (an
+  opaque pixel whose four neighbours all disagree with it is noise, not shading — 25 px on the
+  delivered rig), **ramp** (every interior colour assigned a family by hue, each family
+  quantised to three steps of value, each step set to the *mean of the pixels that fell in it*
+  so the tones are the art's own colours and not invented ones), then **clamp** to `palette.py`'s
+  families — `timber` S <= 0.45 for skin, `muted` S <= 0.30 for cloth — which is what makes
+  "keep our theme" mechanical. The outline is excluded from all three and re-forced last,
+  because it is a constant and quantising it would drift it off the bound. Result: **67 colours
+  on the generated rig, 17 as generated, 6 after the treatment** — two families at three tones
+  plus the outline is seven, so six is on the spec rather than under it. The passes are
+  **described here and not committed**: a script no npm script reaches is what `check:routing`
+  calls red, and for authored art the PNG is the source of record.
+  **The three widenings, and the one that could have gone weaker silently.** An authored rig is
+  deliberately not in `Appearance.PAWN_KEYS` — the TIER lane refuses a key in two tiers — so the
+  roster the other gates judge is now the **union** of that array and the manifest's `rig` keys.
+  `Appearance.authored_rig_keys()` is the single reader that answers it, which is why `kind`
+  stopped being a field only the gate reads; `check_authored.gd`'s MANIFEST lane cross-checks
+  that reader against its own parse, so `kind` is now held by two readers exactly as the canvas
+  already was. `check_topdown.gd`'s FLIP lane iterates the union. `check_worn.gd` split its count
+  into a **pinned eight generated plus one per declared rig**, so PAWN_KEYS growing a key family
+  the classifier has no case for is still caught rather than absorbed into a bigger total. The
+  third is the one that mattered: **FITS's envelope is a union, and every body added to a union
+  only makes "is this overlay inside it" easier to answer yes** — a gate going weaker with no red
+  line to announce it, which is the failure docs/23 named when it opened this piece. So the lane
+  now asserts the commissioned rigs do **not** widen the envelope at all, with a true negative (a
+  box 1 px wider on each side must compare unequal, and an empty envelope is refused) so the
+  comparison cannot pass vacuously. It holds today because the new rig's opaque box (x 6..25,
+  y 12..39) sits strictly inside the generated eight's union (x 3..28, y 11..39) — checked before
+  the art was committed, not after. All 51 equipment overlays refit unchanged.
+  **Honest halves.** The gain is not visible in ordinary play: at the boot zoom of 2x the new rig
+  and the generated one are near-indistinguishable, and the treatment only reads at 3x and above,
+  which is where the character-overhaul pieces will read it. The shipped rig's diagonal strap was
+  **lost**; the delivered rig's open-jacket dark centre panel is a silhouette tell in its place,
+  but it is a different one, so "the rig read harder" inherits a changed starting point rather
+  than the collar-on-the-old-strap it was written against. And the roster is now **unevenly
+  treated**: the player carries **6** colours where its neighbours carry 27 to 88 (measured, all
+  nine). Stated at the strength the evidence supports rather than higher — side by side at 6x the
+  player reads flatter and a shade darker in the torso, which is visible but not jarring, and at
+  the boot zoom it is hard to see at all. It is still a difference in treatment, not in taste. Applying the treatment to all nine is a real slice — it regenerates through
+  `tools/sprites`, re-pins `sprites:check` and re-measures `APPEARANCE_OK`'s GREY lane, whose
+  composed margin is +0.018 — and it is deliberately not smuggled in beside this one. All three
+  were put to the owner before the commit and accepted.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

@@ -502,8 +502,17 @@ func _bodies_face_by_flipping() -> bool:
 	# stand on the shadow line half a tile short and check_appearance's canvas lanes would say
 	# so, but this is the assertion that the roster is pawns, not merely that files are sized.
 	Appearance.forget()
-	var pawns: int = 0
+	# PAWN_KEYS plus every commissioned body. An authored rig is deliberately NOT in PAWN_KEYS --
+	# `check_authored.gd`'s TIER lane refuses a key that is in two tiers -- so iterating the array
+	# alone would leave the one body a player actually looks at unjudged by the lane that says a
+	# body stands on the pawn canvas. The union is the roster; the array is one tier of it.
+	var pawn_keys: Array[String] = []
 	for key in Appearance.PAWN_KEYS:
+		pawn_keys.append(String(key))
+	for key in Appearance.authored_rig_keys():
+		pawn_keys.append(String(key))
+	var pawns: int = 0
+	for key in pawn_keys:
 		var tex: Variant = Appearance.resolve(String(key))
 		if tex == null:
 			push_error("pawn key %s resolves no picture" % key)

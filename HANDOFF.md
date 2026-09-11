@@ -32,6 +32,28 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-11 — the first commissioned body.** The player's rig is the first art here the generator
+did not draw: `player_body_authored`, a 32×40 pawn made with PixelLab img2img over the shipped
+`player_body`, conformed to the published bounds and declared in `authored.json`. It closed the
+last open piece in docs/23's commissioned-sprites group and widened the three gates that group
+named — the FLIP lane and `check_worn.gd` now judge the **union** of `PAWN_KEYS` and the
+manifest's `rig` keys, via the new `Appearance.authored_rig_keys()`. The one that could have gone
+weaker silently was FITS: its envelope is a union, so every body added to it makes "is this
+overlay inside" easier to answer yes, and it now asserts the commissioned rigs do not widen it,
+with a true negative. Gates: `AUTHORED_OK` at 9 rigs, `WORN_LOOK_OK` at a 9-rig envelope,
+`TOPDOWN_OK` at 63 pawn keys, `SPRITES_OK` at 3 authored keys. The owner also supplied a written
+Dungeon Settlers style spec and asked for it applied while keeping our theme — docs/30's "The
+reference treatment". Two of its clauses were **already met** (it asks for an outline that is not
+pure black, and `#161614` is deep charcoal; it asks for 2–2.5 heads, and the skeleton is 2.3), so
+no gate was amended; the shading clause was applied by code as despeckle → three-tone-per-family
+ramp → family clamp, taking the rig from 17 colours to 6. Three honest halves, all accepted by the
+owner before the commit: the gain is invisible at the 2× boot zoom, the shipped rig's diagonal
+strap was lost (the open-jacket panel is a different tell in its place), and **the roster is
+unevenly treated** — a 6-colour player beside rigs of 27 to 88 colours, which is visible at 6× and
+subtle in play. That last one is a named piece in docs/23's what's-left, "the ramp, applied to the
+whole roster", and it overlaps "the rig read harder"; whichever lands first should absorb the
+other.
+
 **2026-09-09 — gunsmithing, eight slices.** A weapon is an assembly now. Its base is the receiver
 and `defaultParts` fits real part items into its slots when it spawns, each with its own
 condition; a required slot empty is a gun that will not fire and says so; `structural` parts drag
