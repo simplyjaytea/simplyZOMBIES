@@ -3749,7 +3749,61 @@ of it, and it amends "Art we did not generate" above rather than restating it.
 **What this does not change.** The published skeleton, the canvas table, the anchor rule and the
 flip; `sprites:check`'s pixel-exact comparison for the 172 keys still generated; the standing bans;
 and the open piece "the first commissioned body, and the three gates it widens", which is about a
-`rig` and is untouched by two keys of kind `tile`.
+`rig` and is untouched by two keys of kind `tile`. *(That piece landed 2026-09-11 — the entry
+below, and docs/23's record.)*
+
+## The reference treatment, 2026-09-11
+
+Decided by the owner, 2026-09-11, in the session that landed the first commissioned body. The
+owner supplied first a screenshot of a colony sim and then a written Dungeon Settlers style spec,
+with the instruction "apply it but keep our current theme" — which raised a question the art could
+not answer for itself: how much of a reference style a project adopts when some of its clauses
+collide with gates that are already settled.
+
+- **Two clauses were already met, which is worth recording because it nearly became an
+  amendment.** The spec asks for "defined, dark selective outlines (dark brown, navy, or deep
+  charcoal **rather than pure black** `#000000`)". `#161614` is (22, 22, 20) — deep charcoal, not
+  pure black — so the OUTLINE bound satisfies that clause as written and did **not** need moving.
+  The spec asks for chibi proportions of 2 to 2.5 heads; the published skeleton's 28 px figure
+  with a 12 px head at `HEAD_CY` is 2.3. An earlier reading of the same reference from a
+  screenshot alone had judged the outline a *collision*; reading the written spec corrected that.
+  The lesson is the ordinary one: a style read off a picture at sprite scale is a guess, and the
+  guess here would have amended a bound that did not need it.
+- **The rest is taken as treatment, not as palette or outline.** What is adopted is the shading
+  clause — "clean 2-to-3-tone shading ramps per colour family with minimal dithering" and "soft
+  interior clustering to prevent visual noise" — plus the readable silhouette and the earthy
+  family, which `palette.py`'s warm families already are. What is **not** adopted: the
+  *selective* half of the outline clause (partial outlining, where our gate wants a full one),
+  the "high-saturation accent colours for uniforms, tools and status badges", and the 3/4
+  perspective, since bodies here are face-on and flip. `palette.py`'s `muted` family caps
+  saturation at 0.30 against the ground's own ceiling, with `check_road_look.gd`'s palette lane
+  holding the other half. **No gate was amended**, which is the decision.
+- **The treatment is applied by code, not by prompt.** Three passes on the delivered PNG —
+  despeckle, a three-tone-per-family ramp whose steps are the mean of their own members, and a
+  clamp to the palette families — described in docs/23's record. A prompt asking for clean ramps
+  produced a sprite with seventeen colours; the passes produced six. Saying it in the prompt is
+  not the same as doing it, and the deterministic half is the half that can be re-run.
+- **Why not the fuller adoption, stated as a cost rather than a preference.** Taking the
+  *selective* outline or the accent saturation means moving a bound for one new sprite while the
+  eight rigs that already meet it stay as they are — a roster reading as two styles until every
+  one is re-authored, which is not one session's work. Note the treatment alone already left the
+  roster in a milder version of exactly that state, which is why "the ramp, applied to the whole
+  roster" is now a named piece in docs/23 rather than a line in a record. A gate loosened to admit art is the shape this project has refused
+  before. The owner may still take it; the point of recording it here is that it would be a
+  deliberate multi-session arc with a re-measured palette table, not a clause inside a sprite
+  commit.
+- **What we take from a reference is the treatment, never the sprites.** Consistent with "Art we
+  did not generate": the art is made to this project's own spec. The reference informs how a
+  garment is shaded and how a head reads; no pixels come from it.
+- **The reference's HUD stays refused.** It draws a name plate and a health bar over every pawn.
+  The health-bar ban and the prose HUD are untouched, and this entry is not an opening to
+  revisit them.
+
+**What this does not change.** The published skeleton, the canvas table, the anchor rule, the
+flip, the `#161614` outline, the palette families, `sprites:check`, and the standing bans. The
+one structural change the slice did make is in the tier, not the style: `kind` is now read by the
+renderer-side `Appearance.authored_rig_keys()` as well as by the gate, because three gates need
+"which authored keys are bodies" and one parse with three readers beats three parses.
 
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·

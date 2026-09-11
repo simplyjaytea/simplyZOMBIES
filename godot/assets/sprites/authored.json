@@ -26,6 +26,14 @@
     "refuses a key that names nothing rather than letting it sit here looking finished."
   ],
   "keys": {
+    "player_body_authored": {
+      "canvas": [
+        32,
+        40
+      ],
+      "kind": "rig",
+      "reads": "player.body"
+    },
     "prop_container": {
       "canvas": [
         32,

@@ -52,13 +52,17 @@ extends SceneTree
 #             which it is until the first commissioned sprite lands.
 #
 # What this gate deliberately does NOT do, named so the next session does not think it was
-# missed: it does not put an authored rig into `Appearance.PAWN_KEYS`. That array is what
-# `check_topdown.gd`'s FLIP lane iterates and what `check_worn.gd`'s `_rig_keys()` counts, and
-# that count asserts **exactly eight**. The first authored rig therefore has to widen both
-# deliberately -- and `check_worn.gd`'s FITS envelope, which is the union of the eight rigs'
-# opaque boxes and is what every equipment overlay is measured against. Layering staying a
-# requirement of any art we take is the owner's call of the same day, so that widening is the
-# slice that lands the first rig, not this one.
+# missed: it does not put an authored rig into `Appearance.PAWN_KEYS`. One key belongs to one
+# tier -- the TIER lane below is what refuses a key that is in both -- so the roster the other
+# gates judge is the UNION of that array and the manifest's `rig` keys, never the array alone.
+# That widening landed with the first commissioned body on 2026-09-11:
+# `Appearance.authored_rig_keys()` is the one reader, `check_topdown.gd`'s FLIP lane iterates the
+# union, and `check_worn.gd` splits its count into a pinned eight generated plus one per declared
+# rig. Its FITS envelope -- the union of the rigs' opaque boxes, which every equipment overlay is
+# measured inside -- was the one that could have gone weaker silently, since every body added to
+# a union only makes "is this overlay inside it" easier to answer yes; it now asserts that the
+# commissioned rigs do not widen it at all, so layering staying a requirement of any art we take
+# (the owner's call of 2026-09-09) is mechanical rather than remembered.
 
 const Appearance = preload("res://presentation/appearance.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
@@ -185,7 +189,20 @@ func _the_manifest_is_well_formed() -> bool:
 		push_error("the manifest predicate refused a sound fabricated entry; it would refuse real art too")
 		return false
 
-	print("MANIFEST OK %d authored keys declared, four malformed fabrications refused and a sound one accepted" % entries.size())
+	# `Appearance.authored_rig_keys()` is the renderer-side reader three gates share, and it reads
+	# `kind` out of this same file. Two readers that must produce the same answer is the
+	# cross-check this lane already runs on the canvas; since 2026-09-11 `kind` is read on both
+	# sides too, so it gets the same treatment rather than being trusted because it is nearby.
+	var rigs_here: Array[String] = []
+	for key in entries.keys():
+		if String((entries[key] as Dictionary).get("kind", "")) == "rig":
+			rigs_here.append(String(key))
+	rigs_here.sort()
+	if Appearance.authored_rig_keys() != rigs_here:
+		push_error("authored.json declares rigs %s and Appearance.authored_rig_keys() answers %s" % [str(rigs_here), str(Appearance.authored_rig_keys())])
+		return false
+
+	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), four malformed fabrications refused and a sound one accepted" % [entries.size(), rigs_here.size()])
 	return true
 
 
