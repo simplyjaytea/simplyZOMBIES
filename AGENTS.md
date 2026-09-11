@@ -122,6 +122,24 @@ build whose `--version` does not start with `4.7.1`. Keep that pin exact — the
 SHA-512 appear in `.github/workflows/ci.yml`, `pages.yml`, and `scripts/setup-web-session.sh`, so
 changing one means changing all of them.
 
+## MCP servers
+
+`.mcp.json` declares the project-scoped MCP servers. Today that is **pixellab**
+(`https://api.pixellab.ai/mcp`, reached through `npx mcp-remote@latest`), the pixel-art generation
+service — a companion to `tools/sprites/`, not a replacement for it: generated art still has to be
+committed and still has to pass `npm run sprites:check`.
+
+Its token is **not** in the repo. The config interpolates `${PIXELLAB_API_KEY}`, so export it
+before starting a session:
+
+```bash
+export PIXELLAB_API_KEY=<your-pixellab-token>
+```
+
+On Claude Code on the web, set it as an environment variable on the environment instead. If it is
+unset the server fails to start and every other gate is unaffected — nothing in `npm run godot:m2`
+or CI touches it. Never paste the literal token into `.mcp.json`; a committed key is a leaked key.
+
 ## Headless verification (no display needed)
 
 Every correctness and performance gate runs headless through `scripts/run-godot.mjs`. The one to
