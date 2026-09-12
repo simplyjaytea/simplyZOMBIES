@@ -67,7 +67,12 @@ section came from.
 ## Verifying a change
 
 Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — it chains all of them and takes about twelve minutes (measured 2026-09-04):
+every commit — it chains all of them and takes **about twenty-seven minutes** (26m45s, 69 gates
+green, measured 2026-09-12 on a project container). It said twelve here for eight days, measured
+2026-09-04 when the chain was 51 gates; the alpha-roster arc added four gates and took the roster
+from 152 bases to 362, and a catalogue gate's cost scales with the roster. Budget for the real
+number — an instruction to run a twelve-minute command that actually takes twenty-seven is how a
+pre-commit check quietly stops being run:
 
 ```bash
 npm run godot:smoke      # project boots            → GODOT_PROJECT_SMOKE_OK
