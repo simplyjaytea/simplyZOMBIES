@@ -125,10 +125,16 @@ jobs:
 
   godot-m2:
     runs-on: ubuntu-latest
-    # 45, and measured rather than guessed -- see the comment on the step below. ~11.8 min was
-    # the 2026-09-04 figure at 51 gates; the arc since then adds four gates and 210 bases, and
-    # slice 15 roughly doubles the balance tier. Re-measure when the chain grows; do not simply
-    # raise this, which is the instalment the split exists to stop paying.
+    # 45, and measured rather than guessed: the whole chain is **26m45s** wall clock, 69 gates
+    # green, measured 2026-09-12 on a project container at 362 bases. The ~11.8 min this file
+    # used to quote was 2026-09-04 at 51 gates, so the chain has grown 2.3x while that number
+    # sat here looking authoritative -- which is most of why `check` kept dying.
+    #
+    # CI is roughly comparable to that container: the run that was cancelled reached gate 67 of
+    # 69 in about 28 minutes of chain time. So 45 leaves around 60% headroom, and slice 15's
+    # dressed arm (which roughly doubles the balance tier) fits inside it. Re-measure when the
+    # chain grows; do not simply raise this, which is the instalment the split exists to stop
+    # paying.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -170,9 +176,13 @@ jobs:
       # every number written here has drifted, 42 then 45 then 51), and the same command
       # CLAUDE.md tells a contributor to run before every commit, so CI and the desk agree by
       # construction rather than by two lists being kept in step. It is by far the longest step
-      # here -- ~11.8 min measured 2026-09-04, of which five gates are 79%: balance 282 s,
-      # lethality 139 s, needs 70 s, raiders 36 s, worldgen 28 s -- which is what the job timeout
-      # above is sized for. Re-measure it when the chain grows rather than raising the timeout
+      # here -- **26m45s measured 2026-09-12**, 69 gates green, at 362 bases. The previous
+      # figure was ~11.8 min on 2026-09-04 at 51 gates, of which five gates were 79%: balance
+      # 282 s, lethality 139 s, needs 70 s, raiders 36 s, worldgen 28 s. That per-gate split has
+      # NOT been re-measured and is left here as the last known breakdown rather than restated
+      # as current -- what is current is the total. A catalogue gate's cost scales with the
+      # roster, and the roster went from 152 bases to 362 in one arc, so the growth is not only
+      # the four added gates. Re-measure when the chain grows rather than raising the timeout
       # again; the number belongs beside the thing it describes.
       #
       # The chain already ends with the three standing-ban gates, which used to be listed again
