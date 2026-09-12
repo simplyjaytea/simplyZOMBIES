@@ -1,0 +1,302 @@
+[
+  {
+    "id": "item.wood.branch",
+    "name": "Branch",
+    "description": "A branch dragged in from the treeline, still green at the cut.",
+    "class": "material",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 1.2,
+    "buildMaterial": "wood",
+    "stack": 4
+  },
+  {
+    "id": "item.wood.log",
+    "name": "Log",
+    "description": "A short length of trunk. Two people and a bad afternoon.",
+    "class": "material",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 8.0,
+    "buildMaterial": "wood",
+    "stack": 2
+  },
+  {
+    "id": "item.wood.salvaged",
+    "name": "Salvaged Timber",
+    "description": "Furniture that lost an argument with a crowbar. Still has the varnish on it.",
+    "class": "material",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 2.0,
+    "buildMaterial": "wood",
+    "stack": 4
+  },
+  {
+    "id": "item.plank.sawn",
+    "name": "Sawn Plank",
+    "description": "A plank cut square and stacked dry, from back when somebody was paid to do that.",
+    "class": "material",
+    "size": { "w": 1, "h": 4 },
+    "massKg": 2.5,
+    "buildMaterial": "plank",
+    "stack": 5
+  },
+  {
+    "id": "item.plank.pallet",
+    "name": "Pallet Board",
+    "description": "A board prised off a pallet, nail holes and all.",
+    "class": "material",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 1.4,
+    "buildMaterial": "plank",
+    "stack": 6
+  },
+  {
+    "id": "item.stone.rubble",
+    "name": "Rubble",
+    "description": "Broken masonry off a collapsed wall. Heavy, awkward, and there is always more.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 2.0,
+    "buildMaterial": "stone",
+    "stack": 8
+  },
+  {
+    "id": "item.stone.block",
+    "name": "Cut Stone",
+    "description": "A dressed block off a garden wall. Nothing gets through a course of these.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 12.0,
+    "buildMaterial": "stone",
+    "stack": 2
+  },
+  {
+    "id": "item.fiber.plant",
+    "name": "Plant Fibre",
+    "description": "A handful of stripped stalk, retted and combed out. It wants twisting into something.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "buildMaterial": "fiber",
+    "stack": 12
+  },
+  {
+    "id": "item.fiber.burlap",
+    "name": "Burlap Sacking",
+    "description": "Coarse sacking, stiff with old grain dust.",
+    "class": "material",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.3,
+    "buildMaterial": "fiber",
+    "stack": 4
+  },
+  {
+    "id": "item.cordage.twine",
+    "name": "Twine",
+    "description": "A ball of garden twine. It ties what it is asked to tie and no more.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.2,
+    "buildMaterial": "cordage",
+    "stack": 6
+  },
+  {
+    "id": "item.cordage.rope",
+    "name": "Rope",
+    "description": "A coil of rope, stiff from the weather and sound in the middle.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.6,
+    "buildMaterial": "cordage",
+    "stack": 2
+  },
+  {
+    "id": "item.fixings.nails",
+    "name": "Nails",
+    "description": "A jar of nails, most of them straight.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.4,
+    "buildMaterial": "fixings",
+    "stack": 10
+  },
+  {
+    "id": "item.fixings.screws",
+    "name": "Screws",
+    "description": "A drawer's worth of screws, sorted by somebody who had the time.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.35,
+    "buildMaterial": "fixings",
+    "stack": 10
+  },
+  {
+    "id": "item.fixings.bolts",
+    "name": "Bolts and Washers",
+    "description": "Coach bolts with the washers still threaded on. Whatever they held is gone.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.6,
+    "buildMaterial": "fixings",
+    "stack": 8
+  },
+  {
+    "id": "item.ingot.steel",
+    "name": "Steel Ingot",
+    "description": "A cast bar of steel, grey and dense, with the mould seam still on it.",
+    "class": "material",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 4.0,
+    "buildMaterial": "ingot",
+    "stack": 3
+  },
+  {
+    "id": "item.ingot.aluminium",
+    "name": "Aluminium Ingot",
+    "description": "An ingot light enough to be suspicious about, poured from melted cans.",
+    "class": "material",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 1.4,
+    "buildMaterial": "ingot",
+    "stack": 4
+  },
+  {
+    "id": "item.ingot.lead",
+    "name": "Lead Ingot",
+    "description": "Soft, dull, and heavier than it has any business being.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 5.0,
+    "buildMaterial": "ingot",
+    "stack": 3
+  },
+  {
+    "id": "item.charcoal.sack",
+    "name": "Sack of Charcoal",
+    "description": "A paper sack of barbecue charcoal, gone soft at the corners.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 5.0,
+    "buildMaterial": "charcoal",
+    "stack": 2
+  },
+  {
+    "id": "item.charcoal.lump",
+    "name": "Lump Charcoal",
+    "description": "Charcoal burned down in somebody's kiln. It marks everything it touches.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.25,
+    "buildMaterial": "charcoal",
+    "stack": 12
+  },
+  {
+    "id": "item.clay.lump",
+    "name": "Raw Clay",
+    "description": "Wet clay off the riverbank, wrapped in plastic so it keeps.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 1.5,
+    "buildMaterial": "clay",
+    "stack": 6
+  },
+  {
+    "id": "item.clay.brick",
+    "name": "Fired Brick",
+    "description": "A common brick, frost-chipped along one edge.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 2.2,
+    "buildMaterial": "clay",
+    "stack": 8
+  },
+  {
+    "id": "item.wire.copper",
+    "name": "Copper Wire",
+    "description": "Cable stripped back to the bright metal. Somebody went through a wall for this.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.5,
+    "buildMaterial": "wire",
+    "stack": 6
+  },
+  {
+    "id": "item.wire.steel",
+    "name": "Steel Wire",
+    "description": "A roll of fencing wire, springy and hard on the hands.",
+    "class": "material",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 1.1,
+    "buildMaterial": "wire",
+    "stack": 4
+  },
+  {
+    "id": "item.wire.barbed",
+    "name": "Barbed Wire",
+    "description": "A coil of barbed wire off a field boundary. It fights the person carrying it.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 3.0,
+    "buildMaterial": "wire",
+    "stack": 2
+  },
+  {
+    "id": "item.circuit.board",
+    "name": "Circuit Board",
+    "description": "A board pulled out of something that used to work, traces intact.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.15,
+    "buildMaterial": "circuit",
+    "stack": 6
+  },
+  {
+    "id": "item.circuit.components",
+    "name": "Salvaged Components",
+    "description": "A tin of capacitors and resistors, desoldered by somebody patient.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "buildMaterial": "circuit",
+    "stack": 8
+  },
+  {
+    "id": "item.circuit.relay",
+    "name": "Relay",
+    "description": "A sealed relay off a control panel. It still clicks when you shake it.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.3,
+    "buildMaterial": "circuit",
+    "stack": 5
+  },
+  {
+    "id": "item.metal.sheet",
+    "name": "Sheet Metal",
+    "description": "A panel cut off something larger, edges sharp where the shears went through.",
+    "class": "material",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 3.5,
+    "buildMaterial": "metal",
+    "stack": 4
+  },
+  {
+    "id": "item.metal.pipe",
+    "name": "Steel Pipe",
+    "description": "A length of pipe with the threads still clean at one end.",
+    "class": "material",
+    "size": { "w": 1, "h": 4 },
+    "massKg": 2.4,
+    "buildMaterial": "metal",
+    "stack": 5
+  },
+  {
+    "id": "item.metal.rebar",
+    "name": "Rebar",
+    "description": "Reinforcing bar cut out of a slab, ribbed and rust-orange.",
+    "class": "material",
+    "size": { "w": 1, "h": 4 },
+    "massKg": 3.2,
+    "buildMaterial": "metal",
+    "stack": 5
+  }
+]

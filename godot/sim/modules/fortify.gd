@@ -4,6 +4,7 @@ extends RefCounted
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimCampRes = preload("res://sim/modules/camp.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimItems = preload("res://sim/modules/items.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
 
@@ -14,8 +15,99 @@ const ALARM_NOISE: float = 8.0
 const NOISEMAKER_MAG: float = 45.0
 const NOISEMAKER_TICKS: int = 12000
 const CONTACT_PER_STAGE: int = 40
-const SCRAP_ID: String = "item.scrap.metal"
 const WINDOW_PROSE: Array[String] = ["intact", "scratched", "splintering", "gaps, light leaking"]
+
+# --- build materials -----------------------------------------------------------------------
+#
+# docs/12-resources.md's gathered and refined tiers, and the owner's decision of 2026-09-12:
+# **typed materials, uniform cost**. Until this slice one id -- `item.scrap.metal` -- was welded
+# into a `SCRAP_ID` constant here and into a second copy of the same constant in jobs.gd, and it
+# was the only substance in the game that could raise anything. Eleven `material`-class bases sat
+# beside it in the roster able to build nothing at all. A recipe now names a *kind* and content
+# declares which kind a thing is (`buildMaterial`, item.schema.json), so a timber wall can want
+# wood and a scrap barricade metal without either of them being a code change.
+#
+# MATERIAL_KINDS is the vocabulary. It is code rather than content for the reason
+# SimModification.OPERATIONS is: the registry is the authority and a duplicated list would drift
+# from it. Neither this array nor the schema's enum can see the other, so
+# check_m2_materials.gd's KINDS lane asserts both directions -- every kind here is declared by
+# some shipped base, and every kind some shipped base declares is one of these. A kind that is
+# not in this list is not a build material as far as `material_of` is concerned, which is what
+# keeps a typo in content from quietly becoming a thirteenth substance.
+const MATERIAL_KINDS: Array[String] = [
+	"metal", "wood", "plank", "stone", "fiber", "cordage",
+	"fixings", "ingot", "charcoal", "clay", "wire", "circuit",
+]
+
+# What each recipe is made of, keyed by the verb `_complete` dispatches on -- plus `repair`,
+# which is SimJobs' Repair job rather than a channel here, and which was the second home of the
+# deleted weld. One table, so a recipe's substance is written down once.
+#
+# A verb absent from this table is free and stays free: boarding a window, laying an alarm line,
+# setting a noisemaker, winding it and establishing a camp all cost nothing today, and this slice
+# is additive, so they cost nothing after it. How *much* a recipe costs is not here either -- one
+# unit a stage, and the owner kept per-recipe quantity closed; the bench's standing three is
+# still SimGunsmith.BENCH_SCRAP, exactly where it already was.
+const RECIPES: Dictionary = {"scrap": "metal", "bench": "metal", "repair": "metal"}
+
+
+## What a recipe is built out of. An unknown verb answers "" -- and "" is not a kind, so
+## `carried_material` finds nothing for it and a verb nobody wrote a recipe for cannot be built
+## by accident rather than being built out of the first thing in the pack.
+static func recipe_kind(verb: String) -> String:
+	return String(RECIPES.get(verb, ""))
+
+
+## The build material this item is made of, or "" when it is not one. The single reader of the
+## `buildMaterial` content key: a whetstone is a `material` by class and is not a build material,
+## and a base declaring a kind MATERIAL_KINDS has never heard of is not one either.
+static func material_of(world: Variant, item: int) -> String:
+	var base: Variant = SimItems.item_base_of(world, item)
+	if not base is Dictionary:
+		return ""
+	var kind: String = String((base as Dictionary).get("buildMaterial", ""))
+	return kind if MATERIAL_KINDS.has(kind) else ""
+
+
+## The first unit of `kind` this actor is carrying, or -1. `SimInventory.best_by_content_key` is
+## the shared flat-content-key scan the medical grades landed; a kind is matched exactly rather
+## than ranked, so the order handed to it is the one kind asked for and nothing else qualifies.
+static func carried_material(world: Variant, actor: int, kind: String) -> int:
+	if not MATERIAL_KINDS.has(kind):
+		return -1
+	var order: Array[String] = [kind]
+	var found: Dictionary = SimInventory.best_by_content_key(world, actor, "buildMaterial", order, "material")
+	return int(found.get("item", -1))
+
+
+## How many units of `kind` this actor is carrying, counting stacks. `carried_material` answers
+## "any"; a bench costs more than one.
+static func material_count(world: Variant, actor: int, kind: String) -> int:
+	if not MATERIAL_KINDS.has(kind):
+		return 0
+	var n: int = 0
+	for item in SimInventory.carried_items(world, actor):
+		if material_of(world, int(item)) != kind:
+			continue
+		var stack: Variant = world.components.get_component(int(item), "stack")
+		n += int((stack as Dictionary).get("count", 1)) if stack is Dictionary else 1
+	return n
+
+
+## Spend one unit of `kind`. A stack loses a count; a single is removed from wherever it was
+## stowed and despawned.
+static func consume_material(world: Variant, actor: int, kind: String) -> bool:
+	var item: int = carried_material(world, actor, kind)
+	if item < 0:
+		return false
+	var stack: Variant = world.components.get_component(item, "stack")
+	if stack is Dictionary and int((stack as Dictionary).get("count", 1)) > 1:
+		(stack as Dictionary)["count"] = int((stack as Dictionary)["count"]) - 1
+		return true
+	SimInventory.remove_from_container(world, item)
+	world.despawn(item)
+	return true
+
 # Pressing (the owner's decision 8, second half; docs/15's crowd). A barrier takes pressure from
 # the dead whose wanted move it stopped this tick -- the kernel's `pressX`/`pressY` -- and a
 # crowd presses harder than its number: n bodies press n x (1 + 0.5 x (n - 1)), so one is 1,
@@ -402,7 +494,7 @@ static func _use_context(world: Variant, actor: int) -> void:
 		if pos is Dictionary:
 			_start(world, actor, "wind", floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
 		return
-	if can_scrap(world.tilemap, face.x, face.y) and _has_scrap(world, actor) and world.components.query(["scrapBarricade"]).is_empty():
+	if can_scrap(world.tilemap, face.x, face.y) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
 		_start(world, actor, "scrap", face.x, face.y)
 		return
 	if _empty_floor(world, face.x, face.y):
@@ -410,7 +502,7 @@ static func _use_context(world: Variant, actor: int) -> void:
 			_start(world, actor, "alarm", face.x, face.y)
 		elif bait == null:
 			_start(world, actor, "noisemaker", face.x, face.y)
-		elif _Gunsmith().call("bench_in_reach", world, actor) < 0 and _scrap_count(world, actor) >= int(_Gunsmith().get("BENCH_SCRAP")):
+		elif _Gunsmith().call("bench_in_reach", world, actor) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(_Gunsmith().get("BENCH_SCRAP")):
 			# Last on the ladder and the only rung that is furniture: a gunsmithing bench, once
 			# the trap and the bait are down and there is scrap to spare. Standing at one already
 			# falls through, so E at a bench is never spent building a second.
@@ -427,7 +519,7 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 			if SimTileMap.tile_at(world.tilemap, tx, ty) == SimTileMap.Tile.Window:
 				_start(world, actor, "window", tx, ty)
 		"barricade.scrap":
-			if can_scrap(world.tilemap, tx, ty) and _has_scrap(world, actor) and world.components.query(["scrapBarricade"]).is_empty():
+			if can_scrap(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
 				_start(world, actor, "scrap", tx, ty)
 		"trap.alarm.place":
 			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty):
@@ -442,7 +534,7 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty):
 				_start(world, actor, "noisemaker", tx, ty)
 		"bench.build":
-			if _empty_floor(world, tx, ty) and _scrap_count(world, actor) >= int(_Gunsmith().get("BENCH_SCRAP")):
+			if _empty_floor(world, tx, ty) and material_count(world, actor, recipe_kind("bench")) >= int(_Gunsmith().get("BENCH_SCRAP")):
 				_start(world, actor, "bench", tx, ty)
 		"bait.noisemaker.wind":
 			var bait: Variant = _first(world, "noisemaker")
@@ -548,7 +640,7 @@ static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
 		return
 	if not world.components.query(["scrapBarricade"]).is_empty():
 		return
-	if not _consume_scrap(world, actor):
+	if not consume_material(world, actor, recipe_kind("scrap")):
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
@@ -564,25 +656,13 @@ static func _place_bench(world: Variant, actor: int, tx: int, ty: int) -> void:
 	if int(Gunsmith.call("bench_in_reach", world, actor)) >= 0:
 		return
 	var cost: int = int(Gunsmith.get("BENCH_SCRAP"))
-	if _scrap_count(world, actor) < cost:
+	var kind: String = recipe_kind("bench")
+	if material_count(world, actor, kind) < cost:
 		return
 	for i in cost:
-		if not _consume_scrap(world, actor):
+		if not consume_material(world, actor, kind):
 			return
 	Gunsmith.call("make_bench", world, float(tx) + 0.5, float(ty) + 0.5)
-
-
-## How much scrap this actor is carrying, counting stacks. `_has_scrap` answers "any", and a bench
-## costs more than one.
-static func _scrap_count(world: Variant, actor: int) -> int:
-	var n: int = 0
-	for item in SimInventory.carried_items(world, actor):
-		var base: Variant = world.components.get_component(item, "itemBase")
-		if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != SCRAP_ID:
-			continue
-		var stack: Variant = world.components.get_component(item, "stack")
-		n += int((stack as Dictionary).get("count", 1)) if stack is Dictionary else 1
-	return n
 
 
 # Loaded lazily: gunsmith.gd preloads inventory and items, and a preload cycle through this file
@@ -870,25 +950,3 @@ static func _cell_in(cells: Variant, tile: Vector2i) -> bool:
 			return true
 	return false
 
-
-static func _has_scrap(world: Variant, actor: int) -> bool:
-	for item in SimInventory.carried_items(world, actor):
-		var base: Variant = world.components.get_component(item, "itemBase")
-		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == SCRAP_ID:
-			return true
-	return false
-
-
-static func _consume_scrap(world: Variant, actor: int) -> bool:
-	for item in SimInventory.carried_items(world, actor):
-		var base: Variant = world.components.get_component(item, "itemBase")
-		if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != SCRAP_ID:
-			continue
-		var stack: Variant = world.components.get_component(item, "stack")
-		if stack is Dictionary and int((stack as Dictionary).get("count", 1)) > 1:
-			(stack as Dictionary)["count"] = int((stack as Dictionary)["count"]) - 1
-			return true
-		SimInventory.remove_from_container(world, item)
-		world.despawn(item)
-		return true
-	return false
