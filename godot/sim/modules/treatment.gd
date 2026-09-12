@@ -176,7 +176,7 @@ const CLEAN_ORDER: Array[String] = ["antiseptic", "alcohol", "water"]
 # own `closeKind` (`SimWounds.WOUND_KINDS`): a suture holds skin, a splint holds a bone. The two
 # are matched exactly, never ranked -- a suture kit does not close a fracture and a splint does not
 # close a cut -- so this is the vocabulary rather than a pick order.
-const CLOSE_KINDS: Array[String] = ["suture", "splint"]
+const CLOSE_KINDS: Array[String] = ["suture", "splint", "wrap"]
 # R8's bank, a key on the wound record rather than a component: it belongs to the injury, outlives
 # every individual press, and is read back by whoever presses next.
 const BANK_KEY: String = "pressedTicks"
@@ -1115,7 +1115,7 @@ static func _best_bandage(world: Variant, actor: int) -> Dictionary:
 # The best cleaning supply carried, as {tier, baseId}, or {} if none. Same shape and same rule as
 # _best_bandage: the rank in CLEAN_ORDER is the pick order, and adding a grade is a data edit.
 static func _best_clean(world: Variant, actor: int) -> Dictionary:
-	return _best_by_key(world, actor, CLEAN_KEY, CLEAN_ORDER, "tier")
+	return SimInventory.best_by_content_key(world, actor, CLEAN_KEY, CLEAN_ORDER, "tier")
 
 
 # The kit carried for one closer kind, as {kind, baseId}, or {} if none. An exact match on
@@ -1124,7 +1124,7 @@ static func _best_closer(world: Variant, actor: int, kind: String) -> Dictionary
 	if not CLOSE_KINDS.has(kind):
 		return {}
 	var one: Array[String] = [kind]
-	return _best_by_key(world, actor, CLOSE_KEY, one, "kind")
+	return SimInventory.best_by_content_key(world, actor, CLOSE_KEY, one, "kind")
 
 
 # Which of CLOSE_KINDS the actor has a kit for. What `context` and `_plan` narrow the closable
@@ -1137,22 +1137,11 @@ static func _carried_close_kinds(world: Variant, actor: int) -> Array[String]:
 	return out
 
 
-static func _best_by_key(world: Variant, actor: int, key: String, order: Array[String], label: String) -> Dictionary:
-	var best_rank: int = order.size()
-	var out: Dictionary = {}
-	for item in SimInventory.carried_items(world, actor):
-		var base: Variant = SimItems.item_base_of(world, int(item))
-		if not (base is Dictionary):
-			continue
-		var value: String = String((base as Dictionary).get(key, ""))
-		if value == "":
-			continue
-		var rank: int = order.find(value)
-		if rank < 0 or rank >= best_rank:
-			continue
-		best_rank = rank
-		out = {label: value, "baseId": String((base as Dictionary).get("id", ""))}
-	return out
+# `_best_by_key` used to live here, private, ranking bandages and sutures for this file alone. It
+# is now `SimInventory.best_by_content_key`, because three more supplies wanted the identical pick
+# and this file cannot be the home of something infection, wounds and needs all have to call --
+# treatment preloads all three, so none of them can preload treatment back. The ranking *vocabulary*
+# stays here (TIER_ORDER, CLEAN_ORDER, CLOSE_KINDS); only the scan moved.
 
 
 # The treater's Medicine, read from the one place that owns it. The actor's, not the patient's:

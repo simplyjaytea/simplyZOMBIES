@@ -302,6 +302,19 @@ const ILLNESS_TICKS: int = 3600
 const ILLNESS_MOOD: float = -14.0
 const ILLNESS_WORK_MUL: float = 0.6
 const ILLNESS_SOURCE: String = "need.illness"
+
+# Illness had no treatment at all: `illnessChance` on ten food and drink entries could give a
+# survivor a bout and nothing in the game could shorten one. These are the reader. Ranked
+# best-first like every other supply grade, so the index doubles as the pick order.
+const ILLNESS_KEY: String = "illnessTier"
+const ILLNESS_ORDER: Array[String] = ["remedy", "fluids"]
+# What is left of the bout after a dose, as a fraction of what was left before it. `remedy` ends
+# it outright; `fluids` halves the remainder, which is deliberately the duller and commoner of the
+# two -- docs/04 has rehydration as the thing that actually helps, and it helps by degrees.
+const ILLNESS_REMAINING: Dictionary = {
+	"remedy": 0.0,
+	"fluids": 0.5,
+}
 const ILLNESS_STREAM: String = "illness"
 
 # What a completely empty stamina pool costs work speed. docs/04 lists work speed among the four
@@ -1818,6 +1831,17 @@ static func eat(world: Variant, entity: int, item: int) -> bool:
 #
 # Washing is deliberately not here. `item.wash` spends no particular item -- `use_item`'s wash arm
 # ignores the base entirely -- so it is not a thing an item in a grid can offer.
+# What grade of illness treatment a base carries, or "" for none. A value the order does not name
+# reads as "" rather than as the worst grade: an unknown grade is content that has outrun its
+# reader, and ranking it last would hide exactly that.
+static func illness_grade(world: Variant, base_id: String) -> String:
+	var entry: Variant = SimItems.content_entry(world, "item", base_id)
+	if not entry is Dictionary:
+		return ""
+	var grade: String = String((entry as Dictionary).get(ILLNESS_KEY, ""))
+	return grade if ILLNESS_ORDER.has(grade) else ""
+
+
 static func can_use(world: Variant, entity: int, item: int) -> bool:
 	if item < 0 or not SimInventory.owns(world, entity, item):
 		return false
@@ -1825,7 +1849,12 @@ static func can_use(world: Variant, entity: int, item: int) -> bool:
 	if not base is Dictionary:
 		return false
 	var bid: String = String((base as Dictionary).get("baseId", ""))
-	return drink_spec(world, bid) != null or is_food(world, bid)
+	if drink_spec(world, bid) != null or is_food(world, bid):
+		return true
+	# A remedy is offered only to somebody who is actually ill. The predicate the menu asks and the
+	# intake below are the same function on purpose: a screen that decides availability its own way
+	# is a screen that can offer a use the sim then refuses.
+	return illness_grade(world, bid) != "" and is_ill(world, entity)
 
 
 static func use_item(world: Variant, entity: int, item: int, as_wash: bool = false) -> bool:
@@ -1850,7 +1879,41 @@ static func use_item(world: Variant, entity: int, item: int, as_wash: bool = fal
 		return drink_item(world, entity, item)
 	if is_food(world, bid):
 		return eat(world, entity, item)
+	if illness_grade(world, bid) != "":
+		return take_remedy(world, entity, item)
 	return false
+
+
+# One dose against a bout already running. It shortens or ends the illness and touches nothing
+# else: no need pool moves, no wound is treated, and a survivor who was not ill cannot take one --
+# `can_use` refuses first, and this refuses again rather than trusting it.
+static func take_remedy(world: Variant, entity: int, item: int) -> bool:
+	var n: Dictionary = of(world, entity)
+	var until: int = int(n.get("illUntilTick", -1))
+	if until < 0 or int(world.tick) >= until:
+		return false
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary:
+		return false
+	var grade: String = illness_grade(world, String((base as Dictionary).get("baseId", "")))
+	if grade == "":
+		return false
+	if not _consume_item(world, entity, item):
+		return false
+	var left: int = until - int(world.tick)
+	var remaining: int = int(floor(float(left) * float(ILLNESS_REMAINING.get(grade, 1.0))))
+	if remaining <= 0:
+		# Ended early, and it ends the same way `_tick_illness` ends one: the mood modifier comes
+		# off by source and `illness.passed` fires once. Setting the clock to -1 is what stops the
+		# tick publishing a second `illness.passed` on the bout this just closed.
+		n["illUntilTick"] = -1
+		if world.modifiers != null:
+			world.modifiers.call("remove_by_source", ILLNESS_SOURCE, entity)
+		world.events.publish({"type": "illness.passed", "entity": entity})
+	else:
+		n["illUntilTick"] = int(world.tick) + remaining
+	world.events.publish({"type": "remedy.taken", "entity": entity, "grade": grade, "ticksLeft": maxi(remaining, 0)})
+	return true
 
 
 static func _carried_base(world: Variant, actor: int, base_id: String) -> int:

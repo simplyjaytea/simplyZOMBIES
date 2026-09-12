@@ -295,9 +295,9 @@ than here.
   carries it rather than a beam pointed where they are looking, so docs/10's "aimed at whatever
   you're looking at" is still a promise; and an optic tightens the cone identically at noon and at
   midnight, because `_refresh_cone` cannot see the light field at all.
-- **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
-  in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
-  bed beats a cot; content would carry the difference once more than one kind of bed exists.
+- **Bed quality as an authored property** — **moved into the alpha-roster group below**
+  (2026-09-12), where it is half of the camping and utility piece. Named here only so the
+  cross-reference resolves.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
 - **The five ranged affixes docs/10 names.** Trued, Ported, Chambered, Blued and Heavy-barrelled.
@@ -307,12 +307,12 @@ than here.
   `sim/modifiers/stats.gd` and resolved by nothing anywhere, so authoring the affixes first would
   ship five dead sockets. The readers come first, then the content.
 - **Armour attachment slots** — **moved into the alpha-roster group below** (2026-09-12), where
-  it is slice 4. Named here only so the cross-reference resolves.
+  it is slice 12. Named here only so the cross-reference resolves.
 
 **Items — the alpha roster, opened by the owner (2026-09-12).** The direction is docs/30's "The
 round in the chamber" and "The cartridge on the label": *"food, medicine, ammo, ammo types
 (configure for guns too), attachments, bags — a good roster of items for an alpha."* The roster is
-not starting from nothing — three gear catalogues have landed and 152 bases shipped — so the arc is
+not starting from nothing — three gear catalogues have landed and 164 bases shipped — so the arc is
 **breadth where the readers exist, and readers first where they do not**, which is what makes it
 slices rather than one dump of JSON. The owner's four answers are in docs/30: multipliers over a
 caliber rather than ballistics on the round; all four groups in scope; land as many slices as fit;
@@ -323,18 +323,26 @@ reserved for the end of the arc** rather than one per slice, per the weapons cat
 every slice moves the `lootTable` stream and four seeds before-and-after each time would be an
 overnight job apiece.
 
+**Widened by the owner on 2026-09-12, after the first slice landed** — docs/30's "The readers ran
+out before the content did". A census of the whole roster against the sim that reads it found the
+arc's real shape, and it was not the one the arc was opened with: the roster's problem is not that
+it is small, it is that it is **unread**. Nineteen item ids are hardcoded in `godot/sim/`, each one
+a category that cannot grow without a code change; and four items ship today, sit in loot tables,
+and can be found by a player who then cannot use them for anything. So the owner took **eight
+readers rather than four**, chose to **adopt those four orphans rather than delete them** — each is
+made live by the slice whose reader it belongs to — and set the roster's target at roughly 350
+bases. The pieces below are the result, ordered so that stopping after any one of them leaves the
+tree honest: every reader lands before the content that needs it, and no piece half-builds a
+system.
+
 - ~~**Ammo types: the caliber and the round**~~ — **landed** 2026-09-12, see the record.
-- **Food, drink, and the medical quality tiers.** Ten foods and eight drinks for a ten-day
-  campaign is thin, and the `food`/`drink` blocks already have readers, so that half is content:
-  breadth spread across `spoilDays`, `mood` and `illnessChance` rather than stacked on `hunger`.
-  The medicine half is **not** a data edit and the arc found why: `item.antibiotics.course`
-  (`infection.gd`) and `item.painkillers.blister` (`wounds.gd`) are **hardcoded base ids**, so a
-  second antibiotic or a stronger painkiller is code today — unlike `bandageTier`, `cleanTier` and
-  `closeKind`, which are the shape to copy (a flat scalar with an enum, ranked best-first by a
-  code-owned order array). In the same family and in the same slice: `jobs.gd`'s NPC doctor
-  fetches `item.bandage.cloth` **by id**, so the player's path is tier-driven and the colonist's
-  is not. And the illness `needs.gd` already gives you has **no treatment at all** — a rehydration
-  or anti-nausea item needs a reader before its content would be honest.
+- ~~**Food, drink, and the medical quality tiers**~~ — **landed** 2026-09-12, see the record.
+- **The tourniquet, and pressure as a supply.** docs/05's first step is *"pressure, tourniquet,
+  bandage"* and only two of the three exist. A tourniquet is not a dressing grade — it is a fourth
+  thing the `pressure` channel could spend — so it was deliberately **not** authored beside the
+  medical grades: an item with no reader is the dead socket this whole arc exists to stop, and
+  shipping one inside the slice that removed three welds would have been the joke writing itself.
+  Wants a reader on the pressure channel and its own lane.
 - **Clothing, weather gear and bags.** The cold snap, the heat wave, the storm and the fog all
   ship gated and **nothing in the roster insulates, sheds rain or cools**. The reader that exists
   is hardcoded the same way medicine is: `needs.gd`'s `wearing_armor` feeds the heat clock and its
@@ -342,11 +350,60 @@ overnight job apiece.
   hardcoded reads and gives the weather something to price. Note this group deliberately specifies
   **only** the minimum warmth property the heat and cold clocks read; the undershirt/socks warmth
   and hygiene *slots* stay parked until Milestone 3A where they are.
+- **Cooking and water: the transform keys.** Every raw food in the game cooks into the same meal,
+  because the cook step spawns one hardcoded id, and boiling is a `baseId` rename from one literal
+  to another. Two content keys — a cooks-into and a boils-into — fix both, and they are the exact
+  grammar of `empties`, which already ships and is already read, so this is the cheapest reader in
+  the arc. With them ingredients become distinct meals, and a filter or a tablet can purify without
+  a campfire, which is what docs/04's "filters or chemicals" has meant all along.
+- **Build materials: the substance that is not scrap.** `item.scrap.metal` is hardcoded in two
+  separate files and is the only substance in the game that can build anything — eleven bases carry
+  `class: "material"` and not one of them can raise a barricade. A material key with a per-recipe
+  cost replaces both literals and lets docs/12's gathered and refined tier exist at all: wood,
+  planks, stone, plant fibre, cordage, nails, ingots, charcoal, clay, wire. That whole class of the
+  resources doc is promised today and backed by nothing.
+- **Light that burns down, and what feeds it.** Lights burn for ever, which is why `item.battery`
+  is an inert material and why the electric lamp is strictly better than a candle at every moment
+  of the game. A burn clock and a feeding path fix that, and the same piece adopts three items that
+  ship today and cannot be used: the rigged floodlight has no placement verb, the empty jerrycan
+  has nothing that fills it, and the battery feeds nothing. Note a headlamp stays impossible until
+  `light.gd`'s hand-slot list widens, and that no attachment declares a light although the wiring
+  for a weapon-mounted one is already there and waiting.
+- **Noise that is an item.** The attention field is finished, and the only thing in the game that
+  spends an item to make noise is firing a gun; the alarm and the noisemaker are world singletons
+  that cost nothing to place. A noise block and a place-and-trigger verb make a firecracker, an air
+  horn or a radio left playing into real decisions, and turn those two singletons into things you
+  had to have carried there first.
+- **Comfort that is not food.** Mood is a real stat with seven sources, and an item can feed it
+  only by being edible or drinkable — `needs.gd` refuses everything else by construction. A comfort
+  key and a use verb open the obvious things a person keeps for morale: cigarettes, cards, a
+  photograph, a paperback. It has to respect the rule that mood sources deliberately do not stack
+  without bound, rather than route around it.
+- **The mask that filters.** A bloater's cloud rolls every survivor on flat proximity and never
+  looks at what they are wearing, so `item.mask.cloth` is mechanically identical to a bike helmet
+  against a gas cloud, and so are the three glove bases. A filter scalar that the contamination
+  roll consults makes four shipped items mean something; it is the smallest piece in the arc and
+  the one with the best ratio of reader to payoff.
+- **Books that teach.** The skill web is a complete, content-driven system with no item content at
+  all, and skills die with the person who learned them. A teaches key, consumed on reading, is the
+  one thing that changes that. The lane that matters is not that a book grants points — it is that
+  reading the same book twice does not pay twice, and that a book never beats doing the work.
+- **Camping and utility gear.** docs/10 uses "a sleeping bag and a scalpel" as its own worked
+  example of the footprint puzzle and neither exists; a bed is a bare entity with no quality on it,
+  which is the bed-quality piece moved here from the gear group. With that property this covers the
+  camping and utility half of docs/12's commercial yield, promised and backed by nothing: bedroll,
+  tent, tarp, rope, bolt cutters, binoculars, a surgical kit, and the soap docs/04 names for
+  washing — which needs a hygiene scalar, because nothing in the roster has one.
 - **Armour attachment slots.** docs/10 gives body armour plate · lining · pocket and headgear
   face · light mount. No armour base declares `slots` at all, and `attachment` has only `melee`
   and `ranged` multiplier tables, so unlike the four weapon slots the second gear catalogue closed
   this one is code — a third table and a reader — before it is content. A `pocket` that grants a
-  small `container` grid is the one that pays for itself immediately.
+  small `container` grid is the one that pays for itself immediately. Two things this piece must
+  not discover halfway through: `armor` coverage reduces no combat damage anywhere in the sim — it
+  gates bite transmission and a heat penalty and nothing else — so plates that *protect* are
+  another reader rather than content, and the record says which half shipped. And docs/09's own cut
+  list still asserts explosives "exist as rare loot" while zero explosive items exist; that line
+  gets content here or it gets corrected here, but it does not stay as it is.
 - **Named items, the fourth tier.** `SimItems.TIERS` ships three — scavenged, modified,
   field_tested — where docs/10 names four, and its six hand-authored named items (Siren's Bell,
   The Long Argument, Grandfather's Deer Rifle, The Tetanus Special, Quietkeeper, Butcher's Apron)
@@ -6697,6 +6754,68 @@ not a to-do list:
   the eight-rig envelope and were re-seated inboard rather than shortened**: FITS is what says
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
+
+- **Items** — ~~food, drink, and the medical quality tiers~~ **landed** 2026-09-12
+  (`npm run godot:m2:medicine` → **`M2_MEDICINE_OK`**, a new gate whose eight lanes were each run
+  red *and* green before they were trusted; `godot:m2:treatment`, `godot:m2:wounds`,
+  `godot:m2:gear`, `godot:m2:needs`, `godot:m2:jobs`, `godot:check:respond` and `godot:check:loot`
+  all held), the **second slice of the alpha-roster arc** and the first of the eight readers the
+  owner took on 2026-09-12 — docs/30's "The readers ran out before the content did".
+
+  **Three supplies were welded to one base id each.** `ANTIBIOTICS_ID` in `infection.gd`,
+  `PAINKILLERS_ID` in `wounds.gd`, and `item.bandage.cloth` written **three times** inside
+  `jobs.gd`'s colonist doctor. A second antibiotic was a code change; a doctor holding a sterile
+  dressing and no cloth one reported carrying no bandage at all. All three are gone, replaced by
+  the shape `bandageTier`, `cleanTier` and `closeKind` had already proved three times over: a flat
+  scalar under an enum, ranked best-first by a code-owned order. **`antibioticTier`**
+  (improvised · veterinary · clinical) scales the bite roll, **`painTier`** (mild · strong ·
+  opioid) sets how deep and how long, **`illnessTier`** (fluids · remedy) is new behaviour rather
+  than a replacement — see below.
+
+  **One scan, not four.** `SimTreatment._best_by_key` was private and served bandages and sutures.
+  Four supplies wanted the identical ranked pick, so it is now
+  `SimInventory.best_by_content_key` — in `inventory.gd` rather than `treatment.gd` because
+  treatment preloads wounds, infection **and** needs, so none of those three can preload it back.
+  It also returns the item entity now, so a caller that has to spend the thing does not go looking
+  for it a second time by base id and find a different copy.
+
+  **Additive, and pinned as such.** `item.antibiotics.course` was retrofitted to `clinical` and
+  `item.painkillers.blister` to `mild`, and those two rungs reproduce the old numbers **exactly** —
+  clinical multiplies the clear chance by 1.0, mild is 0.7 suppression for 7200 ticks. The PINNED
+  lane holds all three and the shipped bases that carry them; slice 1's DEFAULT lane pinning a
+  pistol at noise 180 and damage 18 is the precedent, and the reason is the same: without it this
+  is not a new mechanism, it is a silent rebalance of every treatment in the game wearing one.
+
+  **The grade had to reach the roll, not the table.** CLEAR runs twenty **paired seeds** — the same
+  seed hands both grades the same draw from the same named stream — and asserts both that a weak
+  course never clears where a clinical one fails and that there is at least one seed where the two
+  disagree. Without that second half a multiplier of 1.0 everywhere would have passed. It runs
+  clinical 11, improvised 4, with 7 seeds turning on the grade alone.
+
+  **The illness that could not be treated.** `food.illnessChance` and `drink.illnessChance` have
+  been handing out bouts since food shipped and **nothing in the game could do anything about one**.
+  `illnessTier` is the reader: `fluids` halves what is left of the bout, `remedy` ends it. It is
+  routed through `can_use`, so the menu predicate and the intake are one function and cannot
+  disagree about whether a well survivor may take it — and the lane proves the cure announces
+  `illness.passed` **exactly once**, since `_tick_illness` must not say it again for a bout already
+  closed out from under it.
+
+  **A sprain could not be treated either, and that was one word.** `WOUND_KINDS["sprain"]` carried
+  `closeKind: ""` against docs/05's *"Rest, wrap"*, so the only treatment a sprain had was time.
+  `wrap` is the third closer, matched exactly like the other two — the WRAP lane's negative is a
+  suture kit failing to close one.
+
+  **Thirty-two new bases, 164 → 196**, and the loot share was **divided, never added to**, exactly
+  as slice 1 did for ammunition: every table's food, drink and medical weight is byte-identical
+  before and after (residential 52/28/38, commercial 45/48/17, medical 0/15/116, military 8/0/6,
+  industrial 4/4/6), and the placement script refuses to write unless it is. Twenty new foods that
+  *added* share would have made hunger a solved problem — the one content mistake here no gate
+  could see.
+
+  **What did not ship, and why it is named rather than smuggled.** docs/05's first step is
+  "pressure, tourniquet, bandage"; a tourniquet is not a dressing grade but a fourth thing the
+  `pressure` channel could spend, so authoring one here would have shipped an item with no reader
+  inside the slice that removed three welds. It is in what's-left with its reader named.
 
 - **Items** — ~~ammo types: the caliber and the round~~ **landed** 2026-09-12
   (`npm run godot:m2:ammo` → **`M2_AMMO_OK`**, a new gate with eleven lanes; `godot:m2:attach`'s

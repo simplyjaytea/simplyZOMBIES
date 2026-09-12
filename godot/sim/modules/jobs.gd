@@ -8,6 +8,7 @@ const SimPath = preload("res://sim/path.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimTreatment = preload("res://sim/modules/treatment.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
@@ -1402,21 +1403,41 @@ static func _treat(world: Variant, ent: int, target: int) -> void:
 # The old version despawned the item when `stow` failed and then healed anyway -- a bandage
 # destroyed, never consumed, and the treatment free. Now the item goes back where it came from
 # if it cannot be carried, and the caller finds out nothing was fetched.
+# The colonist's dressing, ranked by `bandageTier` exactly as the player's is. This named
+# `item.bandage.cloth` in three places, which meant a doctor holding a sterile dressing would walk
+# to the stockpile to fetch a rag, and a doctor holding only sterile dressings would report having
+# no bandage at all. The player's path has ranked by tier since treatment landed; this was the one
+# reader that never caught up, and the two paths disagreeing about what counts as a bandage is the
+# same defect as the two validators disagreeing about what counts as content.
 static func _fetch_bandage(world: Variant, ent: int) -> bool:
-	if SimNeeds.consume_base(world, ent, "item.bandage.cloth"):
+	var carried: Dictionary = SimInventory.best_by_content_key(
+		world, ent, SimTreatment.TIER_KEY, SimTreatment.TIER_ORDER, "tier")
+	if not carried.is_empty() and SimNeeds.consume_base(world, ent, String(carried.get("baseId", ""))):
 		return true
+	# Nothing in the pack: take the best dressing off the stockpile floor, by the same ranking
+	# rather than by the first one the scan happens to reach.
+	var best_rank: int = SimTreatment.TIER_ORDER.size()
+	var chosen: int = -1
+	var chosen_id: String = ""
 	for item in SimNeeds.stockpile_items(world):
-		var b: Variant = world.components.get_component(item, "itemBase")
-		if not (b is Dictionary) or String((b as Dictionary).get("baseId", "")) != "item.bandage.cloth":
+		var base: Variant = SimItems.item_base_of(world, int(item))
+		if not (base is Dictionary):
 			continue
-		var pos: Variant = world.components.get_component(item, "position")
-		world.components.remove(item, "position")
-		if SimInventory.stow(world, ent, item):
-			return SimNeeds.consume_base(world, ent, "item.bandage.cloth")
-		# Could not be carried: put it back on the floor rather than destroying it.
-		if pos is Dictionary:
-			world.components.set_component(item, "position", pos)
+		var rank: int = SimTreatment.TIER_ORDER.find(String((base as Dictionary).get(SimTreatment.TIER_KEY, "")))
+		if rank < 0 or rank >= best_rank:
+			continue
+		best_rank = rank
+		chosen = int(item)
+		chosen_id = String((base as Dictionary).get("id", ""))
+	if chosen < 0 or chosen_id == "":
 		return false
+	var pos: Variant = world.components.get_component(chosen, "position")
+	world.components.remove(chosen, "position")
+	if SimInventory.stow(world, ent, chosen):
+		return SimNeeds.consume_base(world, ent, chosen_id)
+	# Could not be carried: put it back on the floor rather than destroying it.
+	if pos is Dictionary:
+		world.components.set_component(chosen, "position", pos)
 	return false
 
 

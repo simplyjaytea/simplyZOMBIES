@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **59 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **60 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,28 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — the medical quality tiers, and the roster the arc was widened for.** The second slice
+of the alpha-roster arc, and the first of eight readers the owner took after a census found the
+roster's real problem: it is not small, it is **unread** (docs/30, "The readers ran out before the
+content did"). Three supplies were welded to one base id each — `ANTIBIOTICS_ID`, `PAINKILLERS_ID`,
+and `item.bandage.cloth` written three times inside the colonist doctor — so a second antibiotic was
+a code change and a doctor holding a sterile dressing reported carrying no bandage at all. All three
+are now content grades on the `bandageTier` model: `antibioticTier`, `painTier`, `illnessTier`,
+ranked best-first by one shared scan (`SimInventory.best_by_content_key`, lifted out of
+`treatment.gd` because three modules that treatment preloads all needed it). **Thirty-two new bases,
+164 → 196**, loot share divided rather than added to so every table's food, drink and medical weight
+is byte-identical. New gate `npm run godot:m2:medicine` → `M2_MEDICINE_OK`, eight lanes, each run
+red and green before it was trusted.
+
+Two things in it are worth knowing about on their own. The illness `illnessChance` has been handing
+out since food shipped **had no treatment at all** — `illnessTier` is that reader, routed through
+`can_use` so the menu and the intake cannot disagree. And `WOUND_KINDS["sprain"]` carried
+`closeKind: ""` against docs/05's *"Rest, wrap"*, so the one injury the docs treat with a bandage was
+the one injury nothing could treat; `wrap` is now the third closer. What deliberately did **not**
+ship is the tourniquet: it is not a dressing grade but a fourth thing the `pressure` channel could
+spend, and shipping an item with no reader inside the slice that removed three welds would have been
+the joke writing itself. It is named in what's-left with its reader.
 
 **2026-09-12 — ammo types, and the first slice of the alpha roster.** The owner opened an item-roster
 arc (docs/30's "The round in the chamber" and "The cartridge on the label"; the pieces are named in

@@ -79,8 +79,21 @@
       "description": "What grade of clean this item buys when it is spent on the `clean` verb, per docs/05-health-injury.md's \"whether it was cleaned\" sepsis factor. Absent means the item cannot clean a wound at all. Ranked worst-first here and best-first in SimTreatment.CLEAN_ORDER, which is the pick order when an actor carries more than one. A flat scalar for the same reason bandageTier is one: the content validator is shallow, so an enum on a top-level key is actually enforced."
     },
     "closeKind": {
-      "enum": ["suture", "splint"],
-      "description": "How this item closes a wound when it is spent on the `close` verb. Absent means it cannot close one. Which closer a wound wants is the wound kind's own `closeKind` in SimWounds.WOUND_KINDS: a `suture` holds a cut, bite or burn shut and a `splint` holds a fracture still. The two are matched exactly, never ranked -- a suture kit does not close a fracture and a splint does not close a cut."
+      "enum": ["suture", "splint", "wrap"],
+      "description": "How this item closes a wound when it is spent on the `close` verb. Absent means it cannot close one. Which closer a wound wants is the wound kind's own `closeKind` in SimWounds.WOUND_KINDS: a `suture` holds a cut, bite or burn shut, a `splint` holds a fracture still, and a `wrap` compresses a sprain. The two are matched exactly, never ranked -- a suture kit does not close a fracture and a splint does not close a cut."
+    },
+    "antibioticTier": {
+      "enum": ["improvised", "veterinary", "clinical"],
+      "description": "How good this course of antibiotics is, best last in the enum and ranked best-first by SimInfection.ANTIBIOTIC_ORDER. Absent means the item is not antibiotics. The grade scales the zombie-infection clear chance through SimInfection.ANTIBIOTIC_CLEAR_MUL and nothing else -- against sepsis every grade clears, because docs/05 makes bacterial infection the treatable one and zombie infection the gamble, and putting a roll on the treatable one would erase that asymmetry. `clinical` is the 1.0 rung: it reproduces exactly what the single hardcoded course did before grades existed.",
+      "$comment": "Flat scalar under an enum rather than a nested block, for the reason bandageTier is one: the Godot validator is shallow and only actually checks this shape."
+    },
+    "painTier": {
+      "enum": ["mild", "strong", "opioid"],
+      "description": "How hard this painkiller hits, best last in the enum and ranked best-first by SimWounds.PAIN_ORDER. Absent means the item suppresses no pain. The grade sets both how much pain is masked and for how long, through SimWounds.PAIN_BY_TIER. `mild` is the rung that reproduces the single hardcoded blister exactly. Nothing here heals: a wound under the strongest grade in the game is the wound it was when the dose wears off."
+    },
+    "illnessTier": {
+      "enum": ["fluids", "remedy"],
+      "description": "What this item does to a bout of illness already in progress, best last in the enum and ranked best-first by SimNeeds.ILLNESS_ORDER. Absent means it treats no illness. `fluids` cuts what is left of the bout; `remedy` ends it. It does nothing to a survivor who is not ill, and SimNeeds.can_use is where that is decided, so the menu cannot offer a use the sim then refuses."
     },
     "stack": {
       "type": "integer",

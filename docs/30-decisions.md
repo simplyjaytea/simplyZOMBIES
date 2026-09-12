@@ -4027,3 +4027,50 @@ rotted silently if it were only written in a comment.
 **It also fixed something.** `item.ammo.9mm` shipped as "9mm Round" and would have failed the STRIP
 lane the first time a pistol round reached that lane's fixture — a latent red that had simply never
 been run. The eight shipped rounds were renamed in the same commit.
+
+## The readers ran out before the content did, 2026-09-12
+
+The owner asked for more items, and the census that went looking for where to put them came back
+with the reason there was nowhere obvious. This entry records that finding and the four answers
+taken on it, because the answers set the arc's size and three of them are not reversible cheaply.
+
+**The finding.** The roster's problem is not that it is small. It is that it is **unread**.
+Nineteen item ids are hardcoded inside `godot/sim/` — `ANTIBIOTICS_ID`, `PAINKILLERS_ID`, the
+literal `"item.wrap.cloth"` that is the entire clothing-warmth system, `item.scrap.metal` in two
+separate files as the only substance that can build anything, one hardcoded spawn that makes every
+raw food in the game cook into the same meal — and each of them is a category that cannot grow by
+one item without a code change. Underneath that sit **four items that already ship, already sit in
+loot tables, and cannot be used for anything**: the rigged floodlight has no placement verb, the
+empty jerrycan has nothing that fills it, the battery feeds nothing because lights never burn down,
+and the cloth mask is mechanically identical to a bike helmet against a bloater's cloud because the
+contamination roll never looks at what anyone is wearing. Adding content without readers would have
+grown that pile rather than the game.
+
+**Eight readers, not four.** The four survival readers — warmth, the cooking and boiling
+transforms, light burn-down, and a build material that is not scrap — plus four that add something
+an item can *do* that nothing does today: deliberate noise, teaching, comfort that is not food, and
+a filter the contamination roll consults. The case for the second four is that each sits on a
+system that is already finished and already gated and has simply never been given an item: the
+attention field's only item-priced emitter is firing a gun, and the skill web is a complete
+content-driven XP system with zero item content in a game where skills die with the person.
+
+**The orphans are adopted, not deleted.** Deleting the four unusable items was offered and refused.
+Each is instead made live by the slice that owns its reader — the battery by light burn-down, the
+jerrycan by a siphon verb, the floodlight by a placement verb, the mask by the filter scalar. The
+reasoning: unreachable content is a bug in the reader, and deleting the content hides the bug
+rather than fixing it. This is the same call docs/23's defect list makes about the four dead
+sockets the review sweep found and did not remove.
+
+**Roughly 350 bases.** From 164. The owner chose the largest of three offered targets knowing it is
+about twelve sessions rather than one, and the arc is ordered so that **stopping after any slice
+leaves the tree honest** — every reader lands before the content that needs it, no slice
+half-builds a system, and a stop halfway is six recorded landings rather than six loose ends.
+
+**What this does not change.** The standing bans, all of them, including the item-name digit clause
+amended earlier the same day, which is not widened again by anything here. One balance re-baseline
+still closes the arc rather than one per slice. Every new key still lands with the assertion that
+something reads it and the reverse assertion that everything readable is reached — with eight new
+keys coming, `check_m2_gear.gd`'s `READ_KEYS` list is what makes that automatic, and a key that
+does not join it is a dead socket by construction. And the arc adds **no new `class` value**: every
+new category fits `tool`, `material` or `consumable`, specifically so the three-place enum sync
+between the schema, `item_glyph.gd` and `items.gd` never has to happen.
