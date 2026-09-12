@@ -348,6 +348,131 @@ const SPOILED_ILLNESS_MUL: float = 2.5
 const MEAL_MOOD_SOURCE: String = "need.food"
 const MEAL_MOOD_TICKS: int = 36000
 
+# --- comfort that is not food (docs/04) --------------------------------------------------------
+#
+# Mood grew seven sources over this milestone -- shame, an argument, grief, a bad night, a bout of
+# illness, a filthy body, an empty pool -- and every one of them is something that happens *to* a
+# survivor. The only thing a player could ever do back was cook, because `use_item` refused any
+# item that was neither edible nor drinkable, so a colony's entire morale policy was the menu.
+#
+# `comfort` is the other half: a smoke, a hand of cards, a photograph, a tune. It is deliberately
+# shaped like the bounded sources rather than like a meal, and the shape is the whole design:
+#
+#   * **One modifier from one source, replaced rather than stacked.** `_apply_comfort` is
+#     `_apply_grief` and `_apply_argument` line for line. A second `add` per item would accumulate
+#     without bound behind the cap this module thinks it is enforcing -- which is exactly the bug
+#     `_apply_meal_mood` was written to fix, where thirty meals were thirty live entries.
+#   * **Accumulating to a cap, so two comforts are not the sum of two comforts.** A pack full of
+#     keepsakes is worth the best night the cap allows and no more. This is the non-stacking rule
+#     the file already keeps rather than a route around it: SOIL_CAP, ARGUMENT_CAP, GRIEF_CAP and
+#     SLEEP_MOOD_CAP all bound their own source the same way, and the number below sits under
+#     every one of them because a good mood should be harder to hold than a bad one is to shake.
+#   * **On a clock rather than a decay.** Grief drains by degrees because a weight lifts by
+#     degrees; a cigarette ends. `comfortUntilTick` is `mealMoodUntilTick`'s twin -- a plain int on
+#     the needs component, which is what survives a save -- and a second item pushes it out to
+#     whichever end is later rather than cutting a longer comfort short.
+#
+# The cap is what makes a *kept* item honest. A harmonica is not spent (the noise device's
+# decision, not the floodlight's), so it can be played again the moment the clock runs out; what it
+# cannot do is stack with the deck of cards in the same pocket, and it costs a verb and a clock
+# every time. Deliberately **not** in NEED_SOURCES, for SLEEP_SOURCE's and SOIL_SOURCE's reason:
+# `_apply_muls` strips every NEED_SOURCES entry on every pool crossing, and a comfort taken at
+# dusk must outlive the meal eaten after it.
+const COMFORT_CAP: float = 15.0
+const COMFORT_SOURCE: String = "mood.comfort"
+
+
+# What an item is worth to somebody's morale, or null for anything that is not a comfort at all.
+# Presence of the block is what makes an item comforting -- `is_food`'s rule exactly -- and the
+# block is judged whole here for `drink_spec`'s reason: the content validator does not recurse, so
+# a lift with no clock behind it would be a permanent free mood that nothing would ever report.
+# Refused outright rather than clamped, so the wrong number is reported by an item that does
+# nothing rather than by a colony that is inexplicably cheerful.
+static func comfort_spec(world: Variant, base_id: String) -> Variant:
+	var base: Variant = SimItems.content_entry(world, "item", base_id)
+	if not (base is Dictionary):
+		return null
+	var spec: Variant = (base as Dictionary).get("comfort")
+	if not (spec is Dictionary):
+		return null
+	var c: Dictionary = spec as Dictionary
+	var mood: Variant = c.get("mood")
+	if not (mood is float or mood is int) or float(mood) <= 0.0:
+		return null
+	var ticks: Variant = c.get("ticks")
+	if not (ticks is int or ticks is float) or int(ticks) <= 0:
+		return null
+	return c
+
+
+static func is_comfort(world: Variant, base_id: String) -> bool:
+	return comfort_spec(world, base_id) != null
+
+
+# How much comfort is standing right now. Read off the needs component rather than off the
+# modifier, so the number a save round-trips and the number a gate asserts are one number.
+static func comfort_of(world: Variant, entity: int) -> float:
+	return float(of(world, entity).get("comfort", 0.0))
+
+
+# One modifier from one source, replaced rather than stacked -- `_apply_grief`'s shape, and for
+# `_apply_argument`'s stated reason. Nothing here clamps: the clamp belongs to `take_comfort`,
+# which is the one place the stored comfort moves, so there is one place the cap is enforced.
+static func _apply_comfort(world: Variant, ent: int, amount: float) -> void:
+	if world.modifiers == null:
+		return
+	world.modifiers.call("remove_by_source", COMFORT_SOURCE, ent)
+	if amount <= 0.0:
+		return
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": amount, "source": COMFORT_SOURCE}, ent)
+
+
+# Taking a moment for yourself. The item is spent only if its block says so, the comfort
+# accumulates toward COMFORT_CAP rather than on top of what is standing, and the clock runs to
+# whichever end is later. Refuses on its own account rather than trusting `can_use` to have
+# refused first -- `take_remedy`'s discipline, and the reason both are safe to call directly.
+static func take_comfort(world: Variant, entity: int, item: int) -> bool:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary:
+		return false
+	var spec: Variant = comfort_spec(world, String((base as Dictionary).get("baseId", "")))
+	if spec == null:
+		return false
+	var c: Dictionary = spec as Dictionary
+	if bool(c.get("spends", false)) and not _consume_item(world, entity, item):
+		return false
+	var n: Dictionary = of(world, entity)
+	var had: float = float(n.get("comfort", 0.0))
+	var raw: float = had + float(c["mood"])
+	var got: float = minf(COMFORT_CAP, raw)
+	n["comfort"] = got
+	n["comfortUntilTick"] = maxi(int(n.get("comfortUntilTick", -1)), int(world.tick) + int(c["ticks"]))
+	_apply_comfort(world, entity, got)
+	world.events.publish({
+		"type": "mood.comforted",
+		"entity": entity,
+		"mood": got,
+		"capped": raw > COMFORT_CAP,
+	})
+	return true
+
+
+# And it lifts. `_tick_meal_mood`'s shape exactly, on the same cadence -- every tick, not the mood
+# tick's every twentieth, so the moment a comfort ends is the tick its clock named and not the next
+# multiple of twenty after it.
+static func _tick_comfort(world: Variant) -> void:
+	if world.modifiers == null:
+		return
+	for ent in _survivors(world):
+		var n: Dictionary = of(world, int(ent))
+		var until: int = int(n.get("comfortUntilTick", -1))
+		if until < 0 or int(world.tick) < until:
+			continue
+		n["comfortUntilTick"] = -1
+		n["comfort"] = 0.0
+		_apply_comfort(world, int(ent), 0.0)
+		world.events.publish({"type": "mood.comfortFaded", "entity": int(ent)})
+
 
 # Whether this meal makes them ill. `iron_stomach` is immunity here rather than a reduction: the
 # trait already zeroes the mood penalty, and a trait that half-protects from two things is harder
@@ -442,6 +567,11 @@ static func blank() -> Dictionary:
 		"wakeJob": "",
 		"dirtyWake": false,
 		"mealMoodUntilTick": -1,
+		# What is standing of the comfort sources, and the tick the whole of it lifts on. A float
+		# and an int, not a list of what was used: the cap is on the total, so the total is what
+		# the component keeps and a save round-trips.
+		"comfort": 0.0,
+		"comfortUntilTick": -1,
 		"coldSinceTick": -1,
 		"hotSinceTick": -1,
 		# The lethal ladders (the playable-state group's twelfth piece): a dose that grows one
@@ -757,6 +887,9 @@ static func register_module(world: Variant) -> void:
 	)
 	world.systems.register("need.mealMood", "needs", 11, func(w: Variant) -> void:
 		_tick_meal_mood(w)
+	)
+	world.systems.register("need.comfort", "needs", 11, func(w: Variant) -> void:
+		_tick_comfort(w)
 	)
 	world.systems.register("need.arguments", "needs", 12, func(w: Variant) -> void:
 		_tick_arguments(w)
@@ -2090,6 +2223,11 @@ static func can_use(world: Variant, entity: int, item: int) -> bool:
 	var bid: String = String((base as Dictionary).get("baseId", ""))
 	if drink_spec(world, bid) != null or is_food(world, bid):
 		return true
+	# A comfort is offered to anybody, always: there is no "already comfortable" band to refuse on,
+	# and a survivor at the cap who plays the harmonica anyway has spent a verb and pushed the clock
+	# out, which is a real thing to have done. One function, asked by the menu and by the intake.
+	if comfort_spec(world, bid) != null:
+		return true
 	# A remedy is offered only to somebody who is actually ill. The predicate the menu asks and the
 	# intake below are the same function on purpose: a screen that decides availability its own way
 	# is a screen that can offer a use the sim then refuses.
@@ -2118,6 +2256,10 @@ static func use_item(world: Variant, entity: int, item: int, as_wash: bool = fal
 		return drink_item(world, entity, item)
 	if is_food(world, bid):
 		return eat(world, entity, item)
+	# After the two intakes and before the remedy: a thing that is both drinkable and comforting is
+	# a drink, because the pool it fills is the one that can kill you.
+	if comfort_spec(world, bid) != null:
+		return take_comfort(world, entity, item)
 	if illness_grade(world, bid) != "":
 		return take_remedy(world, entity, item)
 	return false

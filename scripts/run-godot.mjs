@@ -184,6 +184,15 @@ switch (mode) {
       "res://check_m2_materials.gd",
     ];
     break;
+  case "--m2-comfort":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_comfort.gd",
+    ];
+    break;
   case "--m2-transform":
     args = [
       "--headless",

@@ -700,6 +700,78 @@
       {
         "item": "item.caralarm.salvaged",
         "weight": 2
+      },
+      {
+        "item": "item.cigarettes.pack",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.cards.deck",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.photograph.creased",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.paperback.dogeared",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.letter.unsent",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.musicbox.windup",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.rosary.wooden",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.harmonica.brass",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.chess.travel",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
       }
     ]
   },
@@ -1436,6 +1508,62 @@
       {
         "item": "item.bell.wind",
         "weight": 3
+      },
+      {
+        "item": "item.cigarettes.pack",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.cigar.keepsake",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.flask.hip",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.cards.deck",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.dice.cup",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.paperback.dogeared",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.musicbox.windup",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
       }
     ]
   },
@@ -1688,6 +1816,46 @@
         "count": {
           "min": 2,
           "max": 8
+        }
+      },
+      {
+        "item": "item.cigarettes.pack",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.paperback.dogeared",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.rosary.wooden",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.chess.travel",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.cigar.keepsake",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
         }
       }
     ]
@@ -2233,6 +2401,54 @@
       {
         "item": "item.firecracker.string",
         "weight": 2
+      },
+      {
+        "item": "item.cigarettes.pack",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.flask.hip",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.cards.deck",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.dice.cup",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.photograph.creased",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.letter.unsent",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
       }
     ]
   },
@@ -2653,6 +2869,38 @@
       {
         "item": "item.blastcap.quarry",
         "weight": 2
+      },
+      {
+        "item": "item.cigarettes.pack",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.flask.hip",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.dice.cup",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.harmonica.brass",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
       }
     ]
   }
