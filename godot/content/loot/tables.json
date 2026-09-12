@@ -15,7 +15,7 @@
     "entries": [
       {
         "item": "item.food.canned",
-        "weight": 14,
+        "weight": 6,
         "count": {
           "min": 1,
           "max": 3
@@ -23,7 +23,7 @@
       },
       {
         "item": "item.food.raw",
-        "weight": 10,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 2
@@ -31,7 +31,7 @@
       },
       {
         "item": "item.water.bottle",
-        "weight": 12,
+        "weight": 9,
         "count": {
           "min": 1,
           "max": 2
@@ -39,7 +39,7 @@
       },
       {
         "item": "item.bandage.cloth",
-        "weight": 11,
+        "weight": 9,
         "count": {
           "min": 1,
           "max": 3
@@ -47,7 +47,7 @@
       },
       {
         "item": "item.rag.dirty",
-        "weight": 9,
+        "weight": 8,
         "count": {
           "min": 1,
           "max": 4
@@ -55,7 +55,7 @@
       },
       {
         "item": "item.painkillers.blister",
-        "weight": 7,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 2
@@ -63,7 +63,7 @@
       },
       {
         "item": "item.antiseptic.bottle",
-        "weight": 4
+        "weight": 3
       },
       {
         "item": "item.tape.duct",
@@ -223,26 +223,6 @@
       },
       {
         "item": "item.soda.can",
-        "weight": 6,
-        "count": {
-          "min": 1,
-          "max": 2
-        }
-      },
-      {
-        "item": "item.juice.carton",
-        "weight": 4
-      },
-      {
-        "item": "item.food.crackers",
-        "weight": 6,
-        "count": {
-          "min": 1,
-          "max": 3
-        }
-      },
-      {
-        "item": "item.food.chocolate",
         "weight": 4,
         "count": {
           "min": 1,
@@ -250,8 +230,28 @@
         }
       },
       {
-        "item": "item.food.jerky",
+        "item": "item.juice.carton",
+        "weight": 3
+      },
+      {
+        "item": "item.food.crackers",
         "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.food.chocolate",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.jerky",
+        "weight": 2,
         "count": {
           "min": 1,
           "max": 2
@@ -275,7 +275,7 @@
       },
       {
         "item": "item.superglue.tube",
-        "weight": 7,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 2
@@ -283,7 +283,7 @@
       },
       {
         "item": "item.food.dogfood.tin",
-        "weight": 8,
+        "weight": 3,
         "count": {
           "min": 1,
           "max": 3
@@ -291,11 +291,11 @@
       },
       {
         "item": "item.food.pickles.jar",
-        "weight": 7
+        "weight": 3
       },
       {
         "item": "item.coffee.instant",
-        "weight": 6,
+        "weight": 4,
         "count": {
           "min": 1,
           "max": 2
@@ -344,6 +344,142 @@
           "min": 3,
           "max": 8
         }
+      },
+      {
+        "item": "item.food.beans.tin",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.food.soup.tin",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.fish.tin",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.fruit.tin",
+        "weight": 2
+      },
+      {
+        "item": "item.food.babyfood.jar",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.honey.jar",
+        "weight": 2
+      },
+      {
+        "item": "item.food.oats",
+        "weight": 2
+      },
+      {
+        "item": "item.food.noodles.instant",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.food.sweets",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.bread.stale",
+        "weight": 2
+      },
+      {
+        "item": "item.food.cheese.block",
+        "weight": 2
+      },
+      {
+        "item": "item.food.eggs.box",
+        "weight": 2
+      },
+      {
+        "item": "item.food.potatoes",
+        "weight": 2
+      },
+      {
+        "item": "item.food.apples",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.mushrooms.foraged",
+        "weight": 1
+      },
+      {
+        "item": "item.food.stew.hot",
+        "weight": 1
+      },
+      {
+        "item": "item.drink.tea",
+        "weight": 3
+      },
+      {
+        "item": "item.drink.milk.powdered",
+        "weight": 2
+      },
+      {
+        "item": "item.drink.beer.can",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.drink.cordial",
+        "weight": 1
+      },
+      {
+        "item": "item.antibiotics.expired",
+        "weight": 2
+      },
+      {
+        "item": "item.painkillers.strong",
+        "weight": 1
+      },
+      {
+        "item": "item.salts.rehydration",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.tablets.antinausea",
+        "weight": 1
+      },
+      {
+        "item": "item.wrap.elastic",
+        "weight": 2
       }
     ]
   },
@@ -363,7 +499,7 @@
     "entries": [
       {
         "item": "item.food.canned",
-        "weight": 18,
+        "weight": 8,
         "count": {
           "min": 2,
           "max": 4
@@ -371,7 +507,7 @@
       },
       {
         "item": "item.food.raw",
-        "weight": 12,
+        "weight": 6,
         "count": {
           "min": 1,
           "max": 3
@@ -379,7 +515,7 @@
       },
       {
         "item": "item.water.bottle",
-        "weight": 15,
+        "weight": 12,
         "count": {
           "min": 1,
           "max": 3
@@ -387,7 +523,7 @@
       },
       {
         "item": "item.drink.energy",
-        "weight": 8,
+        "weight": 6,
         "count": {
           "min": 1,
           "max": 2
@@ -491,7 +627,7 @@
       },
       {
         "item": "item.rag.dirty",
-        "weight": 6,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 3
@@ -499,7 +635,7 @@
       },
       {
         "item": "item.bandage.cloth",
-        "weight": 6,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 2
@@ -507,7 +643,7 @@
       },
       {
         "item": "item.painkillers.blister",
-        "weight": 5
+        "weight": 4
       },
       {
         "item": "item.scrap.metal",
@@ -563,7 +699,7 @@
       },
       {
         "item": "item.drink.sports",
-        "weight": 5,
+        "weight": 4,
         "count": {
           "min": 1,
           "max": 2
@@ -579,14 +715,6 @@
       },
       {
         "item": "item.soda.can",
-        "weight": 6,
-        "count": {
-          "min": 1,
-          "max": 3
-        }
-      },
-      {
-        "item": "item.food.chocolate",
         "weight": 5,
         "count": {
           "min": 1,
@@ -594,8 +722,16 @@
         }
       },
       {
+        "item": "item.food.chocolate",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
         "item": "item.food.jerky",
-        "weight": 4,
+        "weight": 2,
         "count": {
           "min": 1,
           "max": 2
@@ -603,7 +739,7 @@
       },
       {
         "item": "item.juice.carton",
-        "weight": 4,
+        "weight": 3,
         "count": {
           "min": 1,
           "max": 2
@@ -691,7 +827,7 @@
       },
       {
         "item": "item.food.pickles.jar",
-        "weight": 6,
+        "weight": 3,
         "count": {
           "min": 1,
           "max": 2
@@ -699,7 +835,7 @@
       },
       {
         "item": "item.coffee.instant",
-        "weight": 7,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 3
@@ -732,6 +868,106 @@
       {
         "item": "item.part.magazine.rimfire",
         "weight": 3
+      },
+      {
+        "item": "item.food.rice.dry",
+        "weight": 3
+      },
+      {
+        "item": "item.food.pasta.dry",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.flour.sack",
+        "weight": 2
+      },
+      {
+        "item": "item.food.oats",
+        "weight": 2
+      },
+      {
+        "item": "item.food.noodles.instant",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.food.sweets",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.beans.tin",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.food.soup.tin",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.fruit.tin",
+        "weight": 1
+      },
+      {
+        "item": "item.food.cheese.block",
+        "weight": 2
+      },
+      {
+        "item": "item.food.apples",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.fish.smoked",
+        "weight": 1
+      },
+      {
+        "item": "item.drink.tea",
+        "weight": 3
+      },
+      {
+        "item": "item.drink.milk.powdered",
+        "weight": 2
+      },
+      {
+        "item": "item.drink.beer.can",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.drink.cordial",
+        "weight": 2
+      },
+      {
+        "item": "item.salts.rehydration",
+        "weight": 2
+      },
+      {
+        "item": "item.wrap.elastic",
+        "weight": 1
       }
     ]
   },
@@ -752,22 +988,6 @@
     "entries": [
       {
         "item": "item.antibiotics.course",
-        "weight": 16,
-        "count": {
-          "min": 1,
-          "max": 2
-        }
-      },
-      {
-        "item": "item.antiseptic.bottle",
-        "weight": 13,
-        "count": {
-          "min": 1,
-          "max": 3
-        }
-      },
-      {
-        "item": "item.suture.kit",
         "weight": 10,
         "count": {
           "min": 1,
@@ -775,7 +995,15 @@
         }
       },
       {
-        "item": "item.splint.kit",
+        "item": "item.antiseptic.bottle",
+        "weight": 11,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.suture.kit",
         "weight": 8,
         "count": {
           "min": 1,
@@ -783,12 +1011,20 @@
         }
       },
       {
+        "item": "item.splint.kit",
+        "weight": 6,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
         "item": "item.medkit.field",
-        "weight": 12
+        "weight": 9
       },
       {
         "item": "item.bandage.cloth",
-        "weight": 18,
+        "weight": 13,
         "count": {
           "min": 2,
           "max": 5
@@ -796,7 +1032,7 @@
       },
       {
         "item": "item.painkillers.blister",
-        "weight": 15,
+        "weight": 9,
         "count": {
           "min": 1,
           "max": 4
@@ -808,7 +1044,7 @@
       },
       {
         "item": "item.rag.dirty",
-        "weight": 6,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 3
@@ -872,7 +1108,7 @@
       },
       {
         "item": "item.gauze.sterile",
-        "weight": 10,
+        "weight": 8,
         "count": {
           "min": 1,
           "max": 3
@@ -880,11 +1116,47 @@
       },
       {
         "item": "item.peroxide.bottle",
-        "weight": 8,
+        "weight": 6,
         "count": {
           "min": 1,
           "max": 2
         }
+      },
+      {
+        "item": "item.antibiotics.veterinary",
+        "weight": 5
+      },
+      {
+        "item": "item.antibiotics.expired",
+        "weight": 4
+      },
+      {
+        "item": "item.painkillers.strong",
+        "weight": 5
+      },
+      {
+        "item": "item.painkillers.opioid",
+        "weight": 3
+      },
+      {
+        "item": "item.salts.rehydration",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.tablets.antinausea",
+        "weight": 3
+      },
+      {
+        "item": "item.dressing.burn",
+        "weight": 4
+      },
+      {
+        "item": "item.wrap.elastic",
+        "weight": 3
       }
     ]
   },
@@ -948,7 +1220,7 @@
       },
       {
         "item": "item.medkit.field",
-        "weight": 6
+        "weight": 4
       },
       {
         "item": "item.floodlight.rigged",
@@ -1221,6 +1493,10 @@
       {
         "item": "item.attach.internal.match",
         "weight": 1
+      },
+      {
+        "item": "item.painkillers.opioid",
+        "weight": 2
       }
     ]
   },
@@ -1340,7 +1616,7 @@
       },
       {
         "item": "item.food.canned",
-        "weight": 4,
+        "weight": 2,
         "count": {
           "min": 1,
           "max": 2
@@ -1413,6 +1689,14 @@
       {
         "item": "item.part.barrel.rimfire",
         "weight": 2
+      },
+      {
+        "item": "item.food.noodles.instant",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
       }
     ]
   }

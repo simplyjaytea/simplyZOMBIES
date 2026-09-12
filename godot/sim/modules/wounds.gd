@@ -16,6 +16,7 @@ const SimInfection = preload("res://sim/modules/infection.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimClock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
 
 # "Bite" is a *kind* (docs/05: "as laceration, plus infection"), not a severity. Keeping it
 # out of this enum is deliberate -- a bite's severity is computed by severity_for exactly
@@ -94,7 +95,11 @@ const WOUND_KINDS: Dictionary = {
 	"cut": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
 	"bite": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
 	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
-	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": ""},
+		# docs/05 treats a sprain with "Rest, wrap", and this row said `""` -- nothing in the game
+	# could close one, so the only treatment a sprain had was time. `wrap` is the third closer, and
+	# it is matched exactly like the other two: a suture does not compress a sprain and a wrap does
+	# not hold a cut shut.
+	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": "wrap"},
 	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
 	# The exposure wounds (needs.gd's lethal ladders): no bleed, nothing to close, impairing
 	# the part they sit on; frostbite on an extremity for a fortnight, heatstroke on the torso
@@ -228,9 +233,28 @@ const PAIN_SOURCE: String = "wound.pain"
 # the wounds are untouched, the recovery clock is untouched, and when it wears off the pain is
 # exactly what it was. docs/05 calls that "a way to get someone killed because they didn't notice
 # how hurt they were", so the suppression is deliberately strong enough to be worth taking.
+# The mild rung's numbers, kept as named constants because they are what every painkiller in the
+# game did before grades existed and because `check_m2_wounds` runs a dose out by PAINKILLER_TICKS.
+# PAIN_BY_TIER["mild"] must equal them exactly -- the TIERS lane pins both, so they cannot drift.
 const PAINKILLER_TICKS: int = 7200
 const PAINKILLER_SUPPRESSION: float = 0.7
-const PAINKILLERS_ID: String = "item.painkillers.blister"
+
+# What makes an item a painkiller is a content key, not its id. `PAINKILLERS_ID` was one hardcoded
+# base -- and it is worth remembering that `item.painkillers.blister` is on this milestone's list of
+# eleven dead sockets: it shipped, it was in loot, and for a while nothing read it at all. Ranked
+# best-first, so the index doubles as the pick order out of the pack.
+const PAIN_KEY: String = "painTier"
+const PAIN_ORDER: Array[String] = ["opioid", "strong", "mild"]
+# A grade sets how much pain is masked and for how long. Neither number heals anything: docs/05 has
+# pain as a thing you suppress, and a wound under the strongest grade in the game is exactly the
+# wound it was when the dose wears off. `opioid` stops at 0.95 rather than 1.0 deliberately -- a
+# survivor who can feel nothing at all could work a ruined leg to pieces without one signal that
+# anything is wrong, and the condition view has no number to warn them with.
+const PAIN_BY_TIER: Dictionary = {
+	"mild": {"suppression": 0.7, "ticks": 7200},
+	"strong": {"suppression": 0.85, "ticks": 10800},
+	"opioid": {"suppression": 0.95, "ticks": 14400},
+}
 
 
 # The sum across all injuries, 0..1, after any suppression. Derived every time rather than stored:
@@ -261,7 +285,14 @@ static func suppression_of(world: Variant, entity: int) -> float:
 	var inj: Variant = world.components.get_component(entity, "injuries")
 	if not (inj is Dictionary):
 		return 0.0
-	return PAINKILLER_SUPPRESSION if int(world.tick) < int((inj as Dictionary).get("painkillersUntilTick", -1)) else 0.0
+	var rec: Dictionary = inj as Dictionary
+	if int(world.tick) >= int(rec.get("painkillersUntilTick", -1)):
+		return 0.0
+	# How much is masked rides on the injury record rather than being re-derived, because the dose
+	# that is wearing off now is the one that was taken then -- swapping a blister for an ampoule
+	# mid-dose must not retroactively deepen the one already running. A save written before grades
+	# existed has no such key, and falls back to the mild rung, which is what it was taking.
+	return float(rec.get("painkillersSuppression", PAINKILLER_SUPPRESSION))
 
 
 # One blister. Suppresses without healing: no wound is touched, no recovery clock moves, and when
@@ -269,14 +300,21 @@ static func suppression_of(world: Variant, entity: int) -> float:
 static func take_painkillers(world: Variant, entity: int) -> Dictionary:
 	if not _has_injuries(world, entity):
 		return {"ok": false, "reason": "nothing-to-treat"}
-	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
-	if Needs == null or not bool(Needs.call("consume_base", world, entity, PAINKILLERS_ID)):
+	var best: Dictionary = SimInventory.best_by_content_key(world, entity, PAIN_KEY, PAIN_ORDER, "tier")
+	if best.is_empty():
 		return {"ok": false, "reason": "no-painkillers"}
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs == null or not bool(Needs.call("consume_base", world, entity, String(best.get("baseId", "")))):
+		return {"ok": false, "reason": "no-painkillers"}
+	var tier: String = String(best.get("tier", "mild"))
+	var spec: Dictionary = PAIN_BY_TIER.get(tier, PAIN_BY_TIER["mild"]) as Dictionary
+	var ticks: int = int(spec.get("ticks", PAINKILLER_TICKS))
 	var inj: Dictionary = world.components.get_component(entity, "injuries") as Dictionary
-	inj["painkillersUntilTick"] = int(world.tick) + PAINKILLER_TICKS
+	inj["painkillersUntilTick"] = int(world.tick) + ticks
+	inj["painkillersSuppression"] = float(spec.get("suppression", PAINKILLER_SUPPRESSION))
 	_apply_pain(world, entity)
-	world.events.publish({"type": "painkillers.taken", "entity": entity, "ticks": PAINKILLER_TICKS})
-	return {"ok": true, "reason": "", "ticks": PAINKILLER_TICKS}
+	world.events.publish({"type": "painkillers.taken", "entity": entity, "ticks": ticks, "tier": tier})
+	return {"ok": true, "reason": "", "ticks": ticks}
 
 
 static func _has_injuries(world: Variant, entity: int) -> bool:

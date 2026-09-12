@@ -35,7 +35,8 @@
       "h": 1
     },
     "massKg": 0.03,
-    "stack": 4
+    "stack": 4,
+    "painTier": "mild"
   },
   {
     "id": "item.drink.energy",
@@ -282,7 +283,8 @@
       "h": 2
     },
     "massKg": 0.08,
-    "stack": 2
+    "stack": 2,
+    "antibioticTier": "clinical"
   },
   {
     "id": "item.whetstone",
@@ -608,7 +610,10 @@
     "name": "Sterile Gauze",
     "description": "A sealed pad of sterile gauze. Clean enough to put straight onto an open wound.",
     "class": "consumable",
-    "size": {"w": 1, "h": 1},
+    "size": {
+      "w": 1,
+      "h": 1
+    },
     "massKg": 0.04,
     "stack": 3,
     "bandageTier": "sterile"
@@ -618,7 +623,10 @@
     "name": "Tube of Superglue",
     "description": "A tube of superglue. Field medics used it before there were field medics, and it holds.",
     "class": "consumable",
-    "size": {"w": 1, "h": 1},
+    "size": {
+      "w": 1,
+      "h": 1
+    },
     "massKg": 0.03,
     "stack": 2,
     "closeKind": "suture"
@@ -628,7 +636,10 @@
     "name": "Hydrogen Peroxide",
     "description": "A brown bottle of peroxide. It foams in the wound and it stings the whole time.",
     "class": "consumable",
-    "size": {"w": 1, "h": 1},
+    "size": {
+      "w": 1,
+      "h": 1
+    },
     "massKg": 0.2,
     "stack": 2,
     "cleanTier": "antiseptic"
@@ -638,28 +649,580 @@
     "name": "Tin of Dog Food",
     "description": "A tin of dog food. It keeps forever, it is food, and eating it in front of the others costs something.",
     "class": "consumable",
-    "size": {"w": 1, "h": 1},
+    "size": {
+      "w": 1,
+      "h": 1
+    },
     "massKg": 0.4,
     "stack": 3,
-    "food": {"hunger": 30, "mood": -12, "spoilDays": 0, "illnessChance": 0.05}
+    "food": {
+      "hunger": 30,
+      "mood": -12,
+      "spoilDays": 0,
+      "illnessChance": 0.05
+    }
   },
   {
     "id": "item.food.pickles.jar",
     "name": "Jar of Pickles",
     "description": "A jar of pickles in cloudy brine. Sharp, salty, and it has outlived its shop.",
     "class": "consumable",
-    "size": {"w": 1, "h": 2},
+    "size": {
+      "w": 1,
+      "h": 2
+    },
     "massKg": 0.7,
-    "food": {"hunger": 25, "mood": 4, "spoilDays": 0, "illnessChance": 0}
+    "food": {
+      "hunger": 25,
+      "mood": 4,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
   },
   {
     "id": "item.coffee.instant",
     "name": "Instant Coffee",
     "description": "A jar of instant coffee, taken cold and gritty. It buys an hour and charges for it later.",
     "class": "consumable",
-    "size": {"w": 1, "h": 1},
+    "size": {
+      "w": 1,
+      "h": 1
+    },
     "massKg": 0.2,
     "stack": 2,
-    "drink": {"thirst": 10, "rest": 14, "crashRest": 18, "crashAfterTicks": 30000, "mood": 4}
+    "drink": {
+      "thirst": 10,
+      "rest": 14,
+      "crashRest": 18,
+      "crashAfterTicks": 30000,
+      "mood": 4
+    }
+  },
+  {
+    "id": "item.food.beans.tin",
+    "name": "Tin of Beans",
+    "description": "A tin of beans in sauce. Filling, dull, and it will outlast everyone who argues about it.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.36,
+    "stack": 3,
+    "food": {
+      "hunger": 35,
+      "mood": 0,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.soup.tin",
+    "name": "Tin of Soup",
+    "description": "Condensed soup. Warmed through it is almost a meal, and cold it is still something.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.4,
+    "stack": 3,
+    "food": {
+      "hunger": 30,
+      "mood": 2,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.fish.tin",
+    "name": "Tin of Fish",
+    "description": "Oily fish packed flat. It smells for a long time afterwards and nobody minds much.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.12,
+    "stack": 4,
+    "food": {
+      "hunger": 32,
+      "mood": 1,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.fruit.tin",
+    "name": "Tin of Peaches",
+    "description": "Halved peaches in syrup. Someone always goes quiet after the first mouthful.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.41,
+    "stack": 3,
+    "food": {
+      "hunger": 22,
+      "mood": 7,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.babyfood.jar",
+    "name": "Jar of Baby Food",
+    "description": "Pureed something, in a jar with a cartoon on it. It keeps, and nobody says anything.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.2,
+    "stack": 4,
+    "food": {
+      "hunger": 18,
+      "mood": -4,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.honey.jar",
+    "name": "Jar of Honey",
+    "description": "Set honey, crystallised round the rim. It does not go off, ever.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.45,
+    "stack": 2,
+    "food": {
+      "hunger": 20,
+      "mood": 6,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.rice.dry",
+    "name": "Bag of Rice",
+    "description": "A heavy bag of long grain. Dry it is nothing; boiled it feeds a table.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 1.0,
+    "stack": 2,
+    "food": {
+      "hunger": 45,
+      "mood": -5,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.pasta.dry",
+    "name": "Dried Pasta",
+    "description": "A box of dried pasta, mostly intact. It rattles when you carry it.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.5,
+    "stack": 3,
+    "food": {
+      "hunger": 42,
+      "mood": -4,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.oats",
+    "name": "Porridge Oats",
+    "description": "A drum of rolled oats. Grey, warm, and it does keep you going until noon.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.75,
+    "stack": 2,
+    "food": {
+      "hunger": 38,
+      "mood": -2,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.flour.sack",
+    "name": "Sack of Flour",
+    "description": "Plain flour, heavy and awkward. Eaten as it is, it is barely food at all.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 1.5,
+    "food": {
+      "hunger": 50,
+      "mood": -9,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.noodles.instant",
+    "name": "Instant Noodles",
+    "description": "A brick of noodles and a sachet of dust. Everybody pretends not to want them.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.09,
+    "stack": 6,
+    "food": {
+      "hunger": 28,
+      "mood": 1,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.sweets",
+    "name": "Handful of Sweets",
+    "description": "Boiled sweets gone tacky in the wrapper. They are not food and they help anyway.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.08,
+    "stack": 8,
+    "food": {
+      "hunger": 8,
+      "mood": 9,
+      "spoilDays": 0,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.bread.stale",
+    "name": "Stale Loaf",
+    "description": "A loaf going hard at the crust. Another day or two and it is a brick.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.4,
+    "stack": 2,
+    "food": {
+      "hunger": 25,
+      "mood": -3,
+      "spoilDays": 3,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.cheese.block",
+    "name": "Block of Cheese",
+    "description": "A waxed block, sweating slightly. It gets sharper and then it gets worse.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.5,
+    "stack": 2,
+    "food": {
+      "hunger": 30,
+      "mood": 5,
+      "spoilDays": 10,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.apples",
+    "name": "Apples",
+    "description": "Windfalls with bruises on one side. They keep better than anything else off a tree.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.6,
+    "stack": 4,
+    "food": {
+      "hunger": 15,
+      "mood": 4,
+      "spoilDays": 8,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.potatoes",
+    "name": "Sack of Potatoes",
+    "description": "Earthy, sprouting a little at one end. They will sit in a cool corner for a month.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 2.0,
+    "food": {
+      "hunger": 30,
+      "mood": -2,
+      "spoilDays": 25,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.eggs.box",
+    "name": "Box of Eggs",
+    "description": "Half a dozen, two of them cracked. Raw they are a gamble and cooked they are breakfast.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.36,
+    "stack": 2,
+    "food": {
+      "hunger": 22,
+      "mood": 3,
+      "spoilDays": 12,
+      "illnessChance": 0.1
+    }
+  },
+  {
+    "id": "item.food.fish.smoked",
+    "name": "Smoked Fish",
+    "description": "Split, salted and hung over a fire by somebody who knew how. It travels.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.3,
+    "stack": 4,
+    "food": {
+      "hunger": 34,
+      "mood": 3,
+      "spoilDays": 20,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.food.mushrooms.foraged",
+    "name": "Foraged Mushrooms",
+    "description": "A bag of caps off the forest floor. Most of them are the ones you wanted.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.2,
+    "stack": 4,
+    "food": {
+      "hunger": 18,
+      "mood": 0,
+      "spoilDays": 4,
+      "illnessChance": 0.3
+    }
+  },
+  {
+    "id": "item.food.stew.hot",
+    "name": "Pot of Stew",
+    "description": "A real meal, cooked slowly, in a pot that is still warm. It will not wait.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 1.2,
+    "food": {
+      "hunger": 65,
+      "mood": 14,
+      "spoilDays": 1,
+      "illnessChance": 0
+    }
+  },
+  {
+    "id": "item.drink.tea",
+    "name": "Box of Tea",
+    "description": "A box of bags gone slightly papery. It is hot and it is a ritual, which is most of it.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.15,
+    "stack": 6,
+    "drink": {
+      "thirst": 20,
+      "rest": 9,
+      "crashRest": 9,
+      "crashAfterTicks": 24000,
+      "mood": 5
+    }
+  },
+  {
+    "id": "item.drink.milk.powdered",
+    "name": "Powdered Milk",
+    "description": "A tin of dried milk. Mixed thin it is almost milk and it lasts for years.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.5,
+    "stack": 2,
+    "drink": {
+      "thirst": 15,
+      "mood": 2
+    }
+  },
+  {
+    "id": "item.drink.beer.can",
+    "name": "Can of Beer",
+    "description": "Warm, flat and enormously welcome. The second one is a decision.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.44,
+    "stack": 4,
+    "drink": {
+      "thirst": 25,
+      "mood": 9
+    }
+  },
+  {
+    "id": "item.drink.cordial",
+    "name": "Bottle of Cordial",
+    "description": "Sticky concentrate, cut with water. It makes untreated water taste like a choice.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.9,
+    "drink": {
+      "thirst": 30,
+      "mood": 5
+    }
+  },
+  {
+    "id": "item.antibiotics.veterinary",
+    "name": "Veterinary Antibiotics",
+    "description": "A bottle meant for livestock. The label is about cattle and the chemistry does not care much.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.1,
+    "stack": 2,
+    "antibioticTier": "veterinary"
+  },
+  {
+    "id": "item.antibiotics.expired",
+    "name": "Expired Antibiotics",
+    "description": "A strip well past its date, found at the back of a drawer. Something of it is still in there.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.05,
+    "stack": 3,
+    "antibioticTier": "improvised"
+  },
+  {
+    "id": "item.painkillers.strong",
+    "name": "Prescription Painkillers",
+    "description": "A brown bottle with somebody's name on it. Stronger than anything off a shelf.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.06,
+    "stack": 3,
+    "painTier": "strong"
+  },
+  {
+    "id": "item.painkillers.opioid",
+    "name": "Ampoule of Morphine",
+    "description": "A glass ampoule and a needle, out of a sealed kit. It takes the pain away entirely.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.04,
+    "stack": 4,
+    "painTier": "opioid"
+  },
+  {
+    "id": "item.salts.rehydration",
+    "name": "Rehydration Salts",
+    "description": "Sachets of salt and sugar to stir into water. Dull, cheap, and it is what actually helps.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.03,
+    "stack": 8,
+    "illnessTier": "fluids"
+  },
+  {
+    "id": "item.tablets.antinausea",
+    "name": "Anti-Nausea Tablets",
+    "description": "A blister of small white tablets. They settle a stomach that has decided otherwise.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.03,
+    "stack": 6,
+    "illnessTier": "remedy"
+  },
+  {
+    "id": "item.dressing.burn",
+    "name": "Burn Dressing",
+    "description": "A sealed gel pad in foil. Cool, sterile, and meant for skin that has come away.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.06,
+    "stack": 3,
+    "bandageTier": "sterile"
+  },
+  {
+    "id": "item.wrap.elastic",
+    "name": "Elastic Bandage",
+    "description": "A roll of stretch bandage with a clip. It holds a joint still enough to be walked on.",
+    "class": "consumable",
+    "size": {
+      "w": 1,
+      "h": 1
+    },
+    "massKg": 0.08,
+    "stack": 3,
+    "closeKind": "wrap"
   }
 ]
