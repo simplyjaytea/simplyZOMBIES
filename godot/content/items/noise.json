@@ -1,0 +1,74 @@
+[
+  {
+    "id": "item.firecracker.string",
+    "name": "String of Firecrackers",
+    "description": "A braid of red paper crackers on a long fuse. Light it, walk away, and for a few seconds somewhere else sounds exactly like a gunfight.",
+    "class": "tool",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.2,
+    "noise": { "magnitude": 180, "durationTicks": 200, "delayTicks": 600 }
+  },
+  {
+    "id": "item.airhorn.canister",
+    "name": "Air Horn",
+    "description": "A canister with a plastic trumpet screwed to the top. There is no fuse and no cleverness: it starts the moment you set it down, and it is as loud as a man screaming.",
+    "class": "tool",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.4,
+    "noise": { "magnitude": 120, "durationTicks": 120 }
+  },
+  {
+    "id": "item.alarmclock.windup",
+    "name": "Wind-Up Alarm Clock",
+    "description": "A brass twin-bell clock off somebody's bedside table. Wind it, set it, leave it in a house on the other side of the district and be somewhere else when it decides to go off.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.3,
+    "noise": { "magnitude": 45, "durationTicks": 12000, "delayTicks": 36000 }
+  },
+  {
+    "id": "item.radio.transistor",
+    "name": "Transistor Radio",
+    "description": "A pocket radio tuned to a station that stopped broadcasting. It hisses cheerfully to nobody for an hour at a time, which is longer than most plans need.",
+    "class": "tool",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.35,
+    "noise": { "magnitude": 30, "durationTicks": 72000, "delayTicks": 200 }
+  },
+  {
+    "id": "item.caralarm.salvaged",
+    "name": "Salvaged Car Alarm",
+    "description": "A siren box cut out of a hatchback with its wiring loom still attached, taped to a motorcycle battery. It wails like the car it came out of.",
+    "class": "tool",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 2.4,
+    "noise": { "magnitude": 350, "durationTicks": 6000, "delayTicks": 1200 }
+  },
+  {
+    "id": "item.siren.handcrank",
+    "name": "Hand-Crank Siren",
+    "description": "A civil defence siren on a tripod, wound up by hand until the rotor is screaming and then let go. It carries further than anything else you can pick up.",
+    "class": "tool",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 8.0,
+    "noise": { "magnitude": 300, "durationTicks": 3600, "delayTicks": 400 }
+  },
+  {
+    "id": "item.bell.wind",
+    "name": "Wind Bell",
+    "description": "A heavy iron bell on a bracket, hung so the weather rings it. Quiet as these things go, and it keeps at it for most of an afternoon.",
+    "class": "tool",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 1.6,
+    "noise": { "magnitude": 25, "durationTicks": 24000 }
+  },
+  {
+    "id": "item.blastcap.quarry",
+    "name": "Quarry Blasting Cap",
+    "description": "A detonator and a stick of quarry charge on a mechanical timer, lifted from a site store. It is the loudest thing anybody will ever hear you do, and it is over before you can regret it.",
+    "class": "tool",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.8,
+    "noise": { "magnitude": 400, "durationTicks": 40, "delayTicks": 2400 }
+  }
+]

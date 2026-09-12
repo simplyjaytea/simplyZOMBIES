@@ -172,6 +172,9 @@ switch (mode) {
       "res://check_m2_fortify.gd",
     ];
     break;
+  case "--m2-noise":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_noise.gd"];
+    break;
   case "--m2-materials":
     args = [
       "--headless",

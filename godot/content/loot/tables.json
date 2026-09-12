@@ -628,6 +628,26 @@
       {
         "item": "item.oil.lamp",
         "weight": 3
+      },
+      {
+        "item": "item.alarmclock.windup",
+        "weight": 5
+      },
+      {
+        "item": "item.radio.transistor",
+        "weight": 4
+      },
+      {
+        "item": "item.bell.wind",
+        "weight": 4
+      },
+      {
+        "item": "item.firecracker.string",
+        "weight": 3
+      },
+      {
+        "item": "item.caralarm.salvaged",
+        "weight": 2
       }
     ]
   },
@@ -1292,6 +1312,26 @@
       {
         "item": "item.armorpart.pocket.pouch",
         "weight": 5
+      },
+      {
+        "item": "item.airhorn.canister",
+        "weight": 5
+      },
+      {
+        "item": "item.firecracker.string",
+        "weight": 4
+      },
+      {
+        "item": "item.alarmclock.windup",
+        "weight": 3
+      },
+      {
+        "item": "item.radio.transistor",
+        "weight": 3
+      },
+      {
+        "item": "item.bell.wind",
+        "weight": 3
       }
     ]
   },
@@ -2041,6 +2081,26 @@
       {
         "item": "item.armorpart.pocket.pouch",
         "weight": 8
+      },
+      {
+        "item": "item.siren.handcrank",
+        "weight": 4
+      },
+      {
+        "item": "item.blastcap.quarry",
+        "weight": 3
+      },
+      {
+        "item": "item.radio.transistor",
+        "weight": 3
+      },
+      {
+        "item": "item.airhorn.canister",
+        "weight": 2
+      },
+      {
+        "item": "item.firecracker.string",
+        "weight": 2
       }
     ]
   },
@@ -2429,6 +2489,26 @@
       {
         "item": "item.armorpart.plate.steel",
         "weight": 3
+      },
+      {
+        "item": "item.caralarm.salvaged",
+        "weight": 4
+      },
+      {
+        "item": "item.airhorn.canister",
+        "weight": 3
+      },
+      {
+        "item": "item.siren.handcrank",
+        "weight": 3
+      },
+      {
+        "item": "item.radio.transistor",
+        "weight": 2
+      },
+      {
+        "item": "item.blastcap.quarry",
+        "weight": 2
       }
     ]
   }
