@@ -24,9 +24,10 @@ const HARD: float = 0.0
 const STARVE_DAYS: float = 1.0
 const DEHYDRATE_DAYS: float = 0.25
 const CAMPFIRE_HEAT_M: float = 4.0
-# What counts as body armour when the sun is out: torso coverage at or above this. See
-# `wearing_armor`.
-const ARMOR_TORSO_HEAT: float = 0.4
+# What counts as body armour when the sun is out: armour points at or above this, on the same
+# hundred-point body `WARMTH_WEIGHTS` divides. See `wearing_armor`, which used to ask the torso
+# key alone and so could not tell a full suit from a chest plate.
+const ARMOR_POINTS_HEAT: int = 25
 const CAMPFIRE_LIGHT_M: float = 20.0
 # A lit fire burns down. Half a night (36,000 ticks) from the last lighting, then it is doused
 # unless somebody is cooking on it; a cook's completion, a warm-seek and the E toggle each
@@ -584,29 +585,149 @@ static func has_trait(world: Variant, entity: int, trait_id: String) -> bool:
 	return traits is Array and (traits as Array).has(trait_id)
 
 
-static func wearing_wrap(world: Variant, entity: int) -> bool:
+# --- warmth: what a garment is worth, per part ------------------------------------------------
+#
+# This replaces `wearing_wrap`, which matched the literal string "item.wrap.cloth" and was the
+# entire clothing-warmth system in the game: four weather kinds shipped gated and nothing in the
+# roster insulated, shed rain or cooled. Warmth is per-part, like `armor` (the owner's decision of
+# 2026-09-12), so a coat warms the torso and the arms while a hat warms a head, and adding a
+# garment is a data edit.
+#
+# How much of a body each part is, in whole points out of a hundred. Not the body's own integrity
+# numbers -- a hand is 10 and a torso 40 there, and a hand is not a quarter of a torso's worth of
+# skin. Whole integers on purpose: the band arithmetic below is integer division, so no boundary
+# is ever decided by a float that two machines round differently.
+const WARMTH_WEIGHTS: Dictionary = {
+	"torso": 40, "head": 14,
+	"arm_left": 8, "arm_right": 8,
+	"leg_left": 9, "leg_right": 9,
+	"hand_left": 3, "hand_right": 3,
+	"foot_left": 3, "foot_right": 3,
+}
+# Points to one band on the temperature ladder. The shipped cloth wrap reads 36 (torso 0.7, each
+# arm 0.5), so it is worth exactly the one band it was worth when it was a hardcoded string, and
+# is a long way from the second -- which is the whole retrofit.
+const WARMTH_PER_BAND: int = 30
+# docs/04: "being wet is a multiplier on cold". This is that multiplier, and it is on the
+# insulation rather than on the sky, because wet clothing is what stops working -- a soaked coat
+# is half a coat.
+#
+# It is applied to the *bands* and rounded up, not to the points and rounded down, and that is
+# the whole of how this slice stays additive. The cloth wrap was worth one band wet or dry for as
+# long as it has existed -- `check_m2_weather`'s COLD lane pins "wet and wrapped on a mild day is
+# comfortable" -- and on the points it would have gone to zero, which is not a retrofit, it is a
+# rebalance wearing one. Rounded up, the wrap is untouched and what the rain costs is everything
+# *above* the first band, which is where a real winter kit lives: a coat and a wool hat read two
+# bands dry and one soaked.
+#
+# Cooling is never multiplied. A wet linen shirt in a heat wave is not less cool for being wet,
+# it is more; halving it would be the wrong sign as well as the wrong size. The flat band the
+# rain already cost (`_colder`, below) predates this and is untouched by it.
+const WET_WARMTH_MUL: float = 0.5
+
+
+# The per-part composition, `SimInfection.armor_coverage_of`'s shape on a signed key. "Max" on an
+# axis that runs both ways is the layer *furthest from zero* -- the emphatic layer is the one you
+# are actually wearing, so a bandana under a sun hat does not warm your head back up -- and where
+# every declared value is positive this is `maxf` and is armour coverage letter for letter. A tie
+# in magnitude goes to warmth, so the rule is total and does not depend on equip order.
+static func warmth_of(world: Variant, entity: int, body_part: String) -> float:
+	var best: float = 0.0
 	for item in SimInventory.equipped_items(world, entity):
-		var base: Variant = world.components.get_component(item, "itemBase")
-		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == "item.wrap.cloth":
+		var base: Variant = SimItems.item_base_of(world, item)
+		if not base is Dictionary:
+			continue
+		var m: Variant = (base as Dictionary).get("warmth")
+		if not m is Dictionary or not (m as Dictionary).has(body_part):
+			continue
+		var v: float = clampf(float((m as Dictionary)[body_part]), -1.0, 1.0)
+		if absf(v) > absf(best) or (absf(v) == absf(best) and v > best):
+			best = v
+	return best
+
+
+# The whole body, in points: each part's composed warmth weighted by how much of a body it is.
+# One pass over the equipped items rather than ten calls to `warmth_of`, because this runs on
+# every survivor on every tick.
+static func warmth_points(world: Variant, entity: int) -> int:
+	var best: Dictionary = {}
+	for item in SimInventory.equipped_items(world, entity):
+		var base: Variant = SimItems.item_base_of(world, item)
+		if not base is Dictionary:
+			continue
+		var m: Variant = (base as Dictionary).get("warmth")
+		if not m is Dictionary:
+			continue
+		for key in (m as Dictionary).keys():
+			var part: String = String(key)
+			if not WARMTH_WEIGHTS.has(part):
+				continue
+			var v: float = clampf(float((m as Dictionary)[key]), -1.0, 1.0)
+			var cur: float = float(best.get(part, 0.0))
+			if absf(v) > absf(cur) or (absf(v) == absf(cur) and v > cur):
+				best[part] = v
+	var total: float = 0.0
+	for part in best.keys():
+		total += float(int(WARMTH_WEIGHTS[part])) * float(best[part])
+	return roundi(total)
+
+
+# Points to bands. Positive is toward comfortable and negative is strictly colder -- see the
+# comment where this is applied in `_tick_temperature`, which is where that asymmetry is the
+# shipped rule rather than an oversight. Integer division truncates toward zero, so nothing short
+# of a full band counts in either direction, and the wet multiplier lands on the bands rounded up
+# for the reason WET_WARMTH_MUL is written out at length above.
+static func warmth_bands(world: Variant, entity: int, wet: bool) -> int:
+	@warning_ignore("integer_division")
+	var bands: int = warmth_points(world, entity) / WARMTH_PER_BAND
+	if wet and bands > 0:
+		bands = ceili(float(bands) * WET_WARMTH_MUL)
+	return bands
+
+
+# Whether the rain gets through. One flat boolean on the base, read in `_tick_temperature` and
+# nowhere else -- a poncho, a raincoat, a sheet of tarp with a hole cut in it.
+static func sheds_rain(world: Variant, entity: int) -> bool:
+	for item in SimInventory.equipped_items(world, entity):
+		var base: Variant = SimItems.item_base_of(world, item)
+		if base is Dictionary and bool((base as Dictionary).get("shedsRain", false)):
 			return true
 	return false
 
 
-# Body armour, for the heat wave: anything equipped whose base armours the torso at
-# ARMOR_TORSO_HEAT or better. Read off the coverage rather than off the equip slot, because the
-# slot answers the wrong question twice -- `item.vest.scrap` armours the torso 0.6 from the
-# `vest` slot, and `item.wrap.cloth` sits in the `torso` slot armouring it 0.3, which is a
-# garment, not a plate. As shipped this is the leather jacket (0.5) and the scrap vest (0.6);
-# the wrap is out, and stays what it has always been -- a band of warmth, in the sun as at
-# night. Its own accessor rather than SimInfection.armor_coverage_of, which resolves affixes and
-# condition per body part and is a per-tick cost this does not need.
+# Body armour, for the heat wave: anything equipped whose armour, weighed over the whole body,
+# comes to ARMOR_POINTS_HEAT or more. Read off the coverage rather than off the equip slot,
+# because the slot answers the wrong question twice -- `item.vest.scrap` armours the torso 0.6
+# from the `vest` slot, and `item.wrap.cloth` sits in the `torso` slot armouring it 0.3, which is
+# a garment, not a plate. It used to read the `torso` key alone, which is why a suit of plate on
+# every limb but the chest would have read as no armour at all; the weights are `WARMTH_WEIGHTS`,
+# so "how much of a body is covered" is answered once in this file and not twice.
+#
+# Judged per item, not composed across them: the question is "is this person wearing armour",
+# not "is this person dressed", and a survivor in a cap, gloves, jeans and boots is dressed.
+# As shipped the yes list is the leather jacket (28), the scrap vest (29), the welding apron (33)
+# and the riot vest (36); the cloth wrap is 15 and stays what it has always been -- a band of
+# warmth, in the sun as at night. Its own accessor rather than SimInfection.armor_coverage_of,
+# which resolves affixes and condition per body part and is a per-tick cost this does not need.
+static func armor_points_of_base(base: Dictionary) -> int:
+	var a: Variant = base.get("armor")
+	if not a is Dictionary:
+		return 0
+	var total: float = 0.0
+	for key in (a as Dictionary).keys():
+		var part: String = String(key)
+		if not WARMTH_WEIGHTS.has(part):
+			continue
+		total += float(int(WARMTH_WEIGHTS[part])) * clampf(float((a as Dictionary)[key]), 0.0, 1.0)
+	return roundi(total)
+
+
 static func wearing_armor(world: Variant, entity: int) -> bool:
 	for item in SimInventory.equipped_items(world, entity):
 		var base: Variant = SimItems.item_base_of(world, item)
 		if not base is Dictionary:
 			continue
-		var a: Variant = (base as Dictionary).get("armor")
-		if a is Dictionary and float((a as Dictionary).get("torso", 0.0)) >= ARMOR_TORSO_HEAT:
+		if armor_points_of_base(base as Dictionary) >= ARMOR_POINTS_HEAT:
 			return true
 	return false
 
@@ -1296,7 +1417,10 @@ static func _tick_temperature(world: Variant) -> void:
 		var wading: bool = world.tilemap != null and int(SimSurface.surface_at(world.tilemap, tx, ty)) == SimTileMap.SURFACE_WATER
 		if wading:
 			wet_until = maxi(wet_until, int(world.tick) + SimWeather.dry_after_ticks(world))
-		if SimWeather.raining(world) and not indoors:
+		# A roof, or something waterproof on your back. `sheds_rain` is asked here and nowhere
+		# else: it is the sky it turns away, not the ford above -- a poncho is not waders, and a
+		# body that wades is soaked on the tick it steps in whatever it is wearing.
+		if SimWeather.raining(world) and not indoors and not sheds_rain(world, ent):
 			var soaking: int = int(n.get("rainSinceTick", -1))
 			if soaking < 0:
 				soaking = int(world.tick)
@@ -1374,13 +1498,27 @@ static func _tick_temperature(world: Variant) -> void:
 				band = _hotter(band)
 			if not (armored and hot_since >= 0 and baked >= 2 * EXPOSURE_TICKS):
 				band = _no_hotter_than(band, "very_hot")
-		# Wet first, then the wrap: a wet body reads one band colder, and a wrap buys one back,
-		# so a soaked survivor in a wrap on a mild day reads comfortable and a soaked one at
-		# night by no fire is freezing at once.
+		# Wet first, then what is being worn: a wet body reads one band colder, and clothing buys
+		# it back, so a soaked survivor in a wrap on a mild day reads comfortable and a soaked one
+		# at night by no fire is freezing at once. That flat band is the rain slice's and is not
+		# the multiplier docs/04 asks for; the multiplier is inside `warmth_bands`, which halves
+		# whatever insulation a soaked garment has left. So a dry wrap is still worth its band and
+		# a wet one is worth nothing, which is the same garment telling you to get under a roof.
 		if wet:
 			band = _colder(band)
-		if wearing_wrap(world, ent):
-			band = _shift_temp(band, 1)
+		# The two halves of the axis are not mirror images, and that is deliberate. Insulation
+		# shifts you *toward comfortable* whichever side you are on -- which is the rule the cloth
+		# wrap has had since it shipped, pinned by `check_m2_heat`'s ROOF lane ("a wrap reads
+		# comfortable where a bare body reads a_little_hot"), and this slice keeps it rather than
+		# quietly rebalancing every garment in the game while adding one. Cooling is strictly
+		# colder: it is relief in a heat wave and it is a cost on a cold night, which is what
+		# linen is.
+		var bands: int = warmth_bands(world, ent, wet)
+		if bands > 0:
+			band = _shift_temp(band, bands)
+		elif bands < 0:
+			for _b in -bands:
+				band = _colder(band)
 		n["temperature"] = band
 		# What the dose buys, after the band is settled: the wound once, then the death.
 		if _exposure_kills(world, ent, n, exposed, baking):

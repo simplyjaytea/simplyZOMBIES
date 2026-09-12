@@ -73,14 +73,17 @@ func _place(w: Variant, ent: int, tile: Vector2i) -> void:
 	w.components.set_component(ent, "position", {"x": float(tile.x) + 0.5, "y": float(tile.y) + 0.5})
 
 
+# Every fire out and every garment off. It used to name `item.wrap.cloth`, which was the whole of
+# clothing warmth; now anything declaring a `warmth` block shifts the band, so the strip is by the
+# block and the assertion is that the body scores nothing rather than that one id is absent.
 func _bare_body(w: Variant, ent: int) -> bool:
 	for fire in w.components.query(["campfire"]):
 		SimNeeds.set_lit(w, int(fire), false)
 	for item in SimInventory.equipped_items(w, ent):
-		var base: Variant = w.components.get_component(item, "itemBase")
-		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == "item.wrap.cloth":
+		var base: Variant = SimItems.item_base_of(w, item)
+		if base is Dictionary and (base as Dictionary).get("warmth") is Dictionary:
 			SimInventory.unequip_item(w, item)
-	return not SimNeeds.wearing_wrap(w, ent)
+	return SimNeeds.warmth_points(w, ent) == 0
 
 
 func _band(w: Variant, ent: int) -> String:
@@ -645,8 +648,8 @@ func _the_cold_kills() -> bool:
 	var e3: int = int(w3.player)
 	_bare_body(w3, e3)
 	SimInventory.equip(w3, e3, SimItems.spawn_item(w3, "item.wrap.cloth"))
-	if not SimNeeds.wearing_wrap(w3, e3):
-		push_error("COLD-KILLS: the wrap did not go on")
+	if SimNeeds.warmth_bands(w3, e3, false) != 1:
+		push_error("COLD-KILLS: the wrap did not go on, or is no longer worth its one band (%d)" % SimNeeds.warmth_bands(w3, e3, false))
 		return false
 	w3.tick = Clock.tick_on_day(2, 0.85)
 	_place(w3, e3, out)
