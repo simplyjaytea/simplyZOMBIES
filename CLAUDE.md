@@ -83,6 +83,7 @@ npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
 npm run godot:m2:medicine  # supply grades: antibiotics, painkillers, a cure for illness → M2_MEDICINE_OK
 npm run godot:m2:filter    # what a mask keeps out of a bloater's cloud → M2_FILTER_OK
 npm run godot:m2:materials # what a recipe is made of, by kind → M2_MATERIALS_OK
+npm run godot:m2:warmth    # insulation per part, wet, cooling, and what sheds rain → M2_WARMTH_OK
 npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
 npm run godot:m2:splint    # the splint, and the limp a bad fracture leaves → M2_SPLINT_OK
 npm run godot:m2:raiders   # the band at the gate       → M2_RAIDERS_OK
@@ -112,7 +113,7 @@ npm run sprites:check    # generated art still matches tools/sprites/ → SPRITE
 npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **62**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **63**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
@@ -320,7 +321,11 @@ Each of these was found the expensive way. They are not style opinions.
   times. De-duplicate by entity id.
 - **The content validator will not catch a nested key.** It checks top-level types only. A wrong
   key inside an `armor` block sat in `item.wrap.cloth` for weeks giving zero arm protection, and
-  only a purpose-built gate found it.
+  only a purpose-built gate found it. **Reproduced deliberately on 2026-09-12** by the warmth
+  slice's sabotage pass, in a brand-new block: a `warmth` map naming a body part that does not exist
+  passed `npm run godot:validate` with `GODOT_CONTENT_OK`, and only `check_m2_warmth.gd` refused it.
+  That is the whole argument for a purpose-built gate per nested shape, demonstrated rather than
+  asserted.
 - **But the frozen TypeScript oracle validates the same content with Ajv, and Ajv *does* recurse.**
   The two validators read one shared tree under `godot/content/`, and they disagree about depth:
   `npm run godot:validate` passes a nested violation that `npm test` rejects with a hard
