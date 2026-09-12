@@ -113,13 +113,14 @@
   {
     "id": "item.scrap.metal",
     "name": "Scrap Metal",
-    "description": "A twist of scrap metal. Everything gets built out of this.",
+    "description": "A twist of scrap metal. Barricades, benches and field repairs all come out of this.",
     "class": "material",
     "size": {
       "w": 1,
       "h": 1
     },
     "massKg": 0.3,
+    "buildMaterial": "metal",
     "stack": 10
   },
   {

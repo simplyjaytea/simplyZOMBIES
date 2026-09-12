@@ -95,6 +95,11 @@
       "enum": ["fluids", "remedy"],
       "description": "What this item does to a bout of illness already in progress, best last in the enum and ranked best-first by SimNeeds.ILLNESS_ORDER. Absent means it treats no illness. `fluids` cuts what is left of the bout; `remedy` ends it. It does nothing to a survivor who is not ill, and SimNeeds.can_use is where that is decided, so the menu cannot offer a use the sim then refuses."
     },
+    "buildMaterial": {
+      "enum": ["metal", "wood", "plank", "stone", "fiber", "cordage", "fixings", "ingot", "charcoal", "clay", "wire", "circuit"],
+      "description": "What substance this is, when it is something you can build out of -- docs/12-resources.md's gathered and refined tiers. Absent means the item builds nothing, which is the normal state: a whetstone is a `material` by class and is not a build material. A recipe names one kind and spends one unit of it (SimFortify.RECIPES, and the owner's decision of 2026-09-12: typed materials, uniform cost), so the kind is what decides whether the thing in your pack is the thing the barricade wants. The enum is the vocabulary SimFortify.MATERIAL_KINDS ranks; check_m2_materials.gd's KINDS lane asserts both directions, because neither this list nor that one can see the other.",
+      "$comment": "A flat scalar under an enum rather than a nested `material: {kind}` block, for the reason bandageTier, cleanTier and antibioticTier are flat: the Godot content validator is shallow, so an enum on a top-level key is the only shape it actually enforces."
+    },
     "stack": {
       "type": "integer",
       "minimum": 1,
