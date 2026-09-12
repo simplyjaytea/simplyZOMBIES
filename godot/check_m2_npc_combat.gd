@@ -42,8 +42,9 @@ func _run() -> void:
 	ok = _nobody_closes_on_a_gun_that_cannot_fire() and ok
 	ok = _armour_that_is_found_gets_worn() and ok
 	ok = _nobody_swaps_down_to_worse_armour() and ok
+	ok = _two_colonists_do_not_walk_to_one_vest() and ok
 	if ok:
-		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue instinct blocked dress selective")
+		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue instinct blocked dress selective claim")
 		quit(0)
 	else:
 		push_error("M2_NPC_COMBAT_FAIL")
@@ -966,3 +967,69 @@ func _worn_count(w: Variant, ent: int) -> int:
 		if base is Dictionary and (base as Dictionary).has("armor"):
 			n += 1
 	return n
+
+# --- CLAIM ------------------------------------------------------------------------------------
+#
+# The owner's call of 2026-09-12, made on the balance harness's own evidence: the shipped rule
+# sent seed 404 from three survivors to two, because colonists leave the compound to fetch gear
+# and `HOME_RADIUS_TILES` is forty. A claim was the chosen lever -- the Cook's `reserved` seam,
+# so two colonists never cross the district for the same vest.
+#
+# This is the one place the Dress job deliberately departs from `_rearm_job`, which it otherwise
+# copies letter for letter. Re-arm fires only for somebody with empty hands and is therefore rare;
+# a better garment is lying around constantly, so the collision is the common case rather than the
+# edge one.
+#
+# The lane's true positive is load-bearing and easy to omit: "at most one claimant" passes
+# trivially in an arena where the rule never runs at all, so somebody has to actually end up
+# wearing the thing.
+func _two_colonists_do_not_walk_to_one_vest() -> bool:
+	var lane: String = "CLAIM"
+	var was: bool = SimJobs.WEAR_FOUND_ARMOR
+	SimJobs.WEAR_FOUND_ARMOR = true
+
+	var w: Variant = _arena()
+	SimJobs.register_module(w)
+	# Two colonists, equidistant from one vest, so neither is the obvious taker.
+	# Far enough that the walk takes real ticks. Proved necessary by sabotage: with the vest a
+	# stride away the first colonist reached it before the second ever picked a job, so a scan
+	# that ignored claims entirely still passed. The collision has to have time to happen.
+	var a: int = _npc(w, 8.0, 8.0)
+	var b: int = _npc(w, 8.0, 16.0)
+	SimJobs.attach(w, a, "Manual", SimJobs.empty_row())
+	SimJobs.attach(w, b, "Manual", SimJobs.empty_row())
+	var vest: int = SimItems.spawn_item(w, "item.vest.riot", {"tier": "scavenged"})
+	w.components.set_component(vest, "position", {"x": 20.5, "y": 12.5})
+
+	var most_claimants: int = 0
+	var worn_by: int = -1
+	for _i in 400:
+		w.step()
+		var claiming: int = 0
+		for ent in [a, b]:
+			var job: Variant = w.components.get_component(int(ent), "job")
+			if job is Dictionary and String((job as Dictionary).get("kind", "")) == "Dress" and int((job as Dictionary).get("target", -1)) == vest:
+				claiming += 1
+		most_claimants = maxi(most_claimants, claiming)
+		if _worn_in(w, a, "vest") == vest:
+			worn_by = a
+			break
+		if _worn_in(w, b, "vest") == vest:
+			worn_by = b
+			break
+	SimJobs.WEAR_FOUND_ARMOR = was
+
+	# True positive first: without it, "nobody walked twice" is what an inert arena also says.
+	if worn_by < 0:
+		push_error("%s: neither colonist ever put the vest on, so the claim assertion has nothing to judge" % lane)
+		return false
+	if most_claimants > 1:
+		push_error("%s: %d colonists held a Dress job on the same vest at once -- the claim is not being taken, and both crossed the district for one garment" % [lane, most_claimants])
+		return false
+	var other: int = b if worn_by == a else a
+	if _worn_in(w, other, "vest") == vest:
+		push_error("%s: both colonists are wearing the same vest" % lane)
+		return false
+
+	print("  CLAIM OK one vest, two colonists, never more than %d claim on it at once; %s wore it" % [most_claimants, "the first" if worn_by == a else "the second"])
+	return true
