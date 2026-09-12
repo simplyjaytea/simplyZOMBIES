@@ -100,6 +100,10 @@ const FOOT_DROP_PX: float = 3.0
 # and a held weapon is in front of the hand holding it, so everything else is over. `vest`,
 # `belt`, `feet`, `gloves`, `eyes` and `face` are equippable in content and deliberately not
 # here -- they are named on docs/23's what's-left as their own piece rather than smuggled in.
+# Until they are, an `appearance.equipSprite` on one of those six slots is a socket nothing
+# reads, which is why content/items/clothing.json declares none: the warmth slice authored a
+# scarf, a bandana, gloves, sandals and two vests and gave not one of them a sprite key, rather
+# than shipping art that never draws.
 const EQUIP_DRAW_ORDER: Array[Dictionary] = [
 	{"slot": "back", "over": false},
 	{"slot": "legs", "over": true},

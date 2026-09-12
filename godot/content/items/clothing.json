@@ -1,0 +1,260 @@
+[
+  {
+    "id": "item.coat.winter",
+    "name": "Winter Coat",
+    "description": "A padded winter coat, seams split at one shoulder. It is a warm room you can walk around in.",
+    "class": "armor",
+    "size": { "w": 3, "h": 3 },
+    "massKg": 1.4,
+    "equipSlot": "torso",
+    "armor": { "torso": 0.25, "arm_left": 0.2, "arm_right": 0.2 },
+    "warmth": { "torso": 1.0, "arm_left": 0.9, "arm_right": 0.9 }
+  },
+  {
+    "id": "item.coat.parka",
+    "name": "Snow Parka",
+    "description": "A hooded parka with a fur-trimmed hood. Made for a mountain and wasted on a street.",
+    "class": "armor",
+    "size": { "w": 3, "h": 4 },
+    "massKg": 1.9,
+    "equipSlot": "torso",
+    "armor": { "torso": 0.3, "arm_left": 0.25, "arm_right": 0.25 },
+    "warmth": { "torso": 1.0, "arm_left": 0.95, "arm_right": 0.95, "head": 0.5 }
+  },
+  {
+    "id": "item.thermals.top",
+    "name": "Thermal Undershirt",
+    "description": "A thin thermal top that does more than it looks like it should.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.3,
+    "equipSlot": "torso",
+    "warmth": { "torso": 0.7, "arm_left": 0.6, "arm_right": 0.6 }
+  },
+  {
+    "id": "item.thermals.leggings",
+    "name": "Thermal Leggings",
+    "description": "Thermal leggings, worn under whatever else there is.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.25,
+    "equipSlot": "legs",
+    "warmth": { "leg_left": 0.85, "leg_right": 0.85 }
+  },
+  {
+    "id": "item.trousers.insulated",
+    "name": "Insulated Trousers",
+    "description": "Quilted work trousers off a cold-store peg. Stiff, heavy, and warm to the knee.",
+    "class": "armor",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 0.9,
+    "equipSlot": "legs",
+    "armor": { "leg_left": 0.2, "leg_right": 0.2 },
+    "warmth": { "leg_left": 0.95, "leg_right": 0.95 }
+  },
+  {
+    "id": "item.hat.wool",
+    "name": "Wool Hat",
+    "description": "A knitted wool hat, pulled out of shape. Most of the heat leaves through a bare head.",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.08,
+    "equipSlot": "head",
+    "warmth": { "head": 0.9 }
+  },
+  {
+    "id": "item.scarf.wool",
+    "name": "Wool Scarf",
+    "description": "A long wool scarf. Round the face it keeps the wind out of your collar.",
+    "class": "armor",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.12,
+    "equipSlot": "face",
+    "warmth": { "head": 0.5, "torso": 0.25 }
+  },
+  {
+    "id": "item.gloves.wool",
+    "name": "Wool Gloves",
+    "description": "Thick wool gloves. Warm hands, clumsy fingers.",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "equipSlot": "gloves",
+    "warmth": { "hand_left": 0.9, "hand_right": 0.9 }
+  },
+  {
+    "id": "item.boots.insulated",
+    "name": "Insulated Boots",
+    "description": "Felt-lined boots with a heavy sole. Cold ground stays where it is.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.5,
+    "equipSlot": "feet",
+    "armor": { "foot_left": 0.5, "foot_right": 0.5 },
+    "warmth": { "foot_left": 0.85, "foot_right": 0.85 }
+  },
+  {
+    "id": "item.blanket.wool",
+    "name": "Wool Blanket",
+    "description": "A grey wool blanket, worn thin in the middle. Round the shoulders it is a coat.",
+    "class": "armor",
+    "size": { "w": 3, "h": 3 },
+    "massKg": 1.1,
+    "equipSlot": "torso",
+    "warmth": { "torso": 0.9, "arm_left": 0.7, "arm_right": 0.7 }
+  },
+  {
+    "id": "item.vest.down",
+    "name": "Down Vest",
+    "description": "A puffy down vest, taped where it split. Warm over the chest and nowhere else.",
+    "class": "armor",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 0.5,
+    "equipSlot": "vest",
+    "warmth": { "torso": 0.8 }
+  },
+  {
+    "id": "item.poncho.rain",
+    "name": "Rain Poncho",
+    "description": "A folded plastic poncho from a gift-shop rack. It flaps, it rustles, and it keeps the rain off.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.3,
+    "equipSlot": "torso",
+    "shedsRain": true,
+    "warmth": { "torso": 0.2, "arm_left": 0.2, "arm_right": 0.2 }
+  },
+  {
+    "id": "item.raincoat.hooded",
+    "name": "Hooded Raincoat",
+    "description": "A proper waxed raincoat with a deep hood. Dry, and warm enough to argue about.",
+    "class": "armor",
+    "size": { "w": 3, "h": 3 },
+    "massKg": 1.0,
+    "equipSlot": "torso",
+    "shedsRain": true,
+    "armor": { "torso": 0.2, "arm_left": 0.15, "arm_right": 0.15 },
+    "warmth": { "torso": 0.6, "arm_left": 0.5, "arm_right": 0.5, "head": 0.4 }
+  },
+  {
+    "id": "item.poncho.tarp",
+    "name": "Tarp Poncho",
+    "description": "A builder's tarp with a slit cut for a head. Ugly, loud, and the water runs off it.",
+    "class": "armor",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 0.7,
+    "equipSlot": "torso",
+    "shedsRain": true,
+    "warmth": { "torso": 0.1 }
+  },
+  {
+    "id": "item.hat.sun",
+    "name": "Sun Hat",
+    "description": "A wide straw hat. It throws a little shade of its own.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.08,
+    "equipSlot": "head",
+    "warmth": { "head": -1.0 }
+  },
+  {
+    "id": "item.bandana.cotton",
+    "name": "Cotton Bandana",
+    "description": "A faded cotton bandana. Wet, tied at the neck, it is worth more than it looks.",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.03,
+    "equipSlot": "face",
+    "warmth": { "head": -0.4 }
+  },
+  {
+    "id": "item.shirt.linen",
+    "name": "Linen Shirt",
+    "description": "A loose linen shirt gone soft with washing. It breathes and it stops nothing.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.25,
+    "equipSlot": "torso",
+    "warmth": { "torso": -0.5, "arm_left": -0.45, "arm_right": -0.45 }
+  },
+  {
+    "id": "item.shorts.cotton",
+    "name": "Cotton Shorts",
+    "description": "Cut-off shorts, frayed at the hem. Cool, and no protection at all.",
+    "class": "armor",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.2,
+    "equipSlot": "legs",
+    "warmth": { "leg_left": -0.85, "leg_right": -0.85 }
+  },
+  {
+    "id": "item.sandals.canvas",
+    "name": "Canvas Sandals",
+    "description": "Canvas sandals with a rope sole. Quiet, cool, and one nail away from useless.",
+    "class": "armor",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.3,
+    "equipSlot": "feet",
+    "warmth": { "foot_left": -0.7, "foot_right": -0.7 }
+  },
+  {
+    "id": "item.vest.mesh",
+    "name": "Mesh Vest",
+    "description": "A high-visibility mesh vest off a road crew. It is holes held together by tape.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.1,
+    "equipSlot": "vest",
+    "warmth": { "torso": -0.45 }
+  },
+  {
+    "id": "item.drybag.roll",
+    "name": "Roll-Top Dry Bag",
+    "description": "A rubberised bag that rolls shut at the top. Whatever goes in stays dry.",
+    "class": "container",
+    "size": { "w": 3, "h": 4 },
+    "massKg": 0.6,
+    "equipSlot": "back",
+    "container": { "w": 5, "h": 6 }
+  },
+  {
+    "id": "item.case.gun",
+    "name": "Gun Case",
+    "description": "A padded hard case with a broken latch. Long things ride in it and nothing rattles.",
+    "class": "container",
+    "size": { "w": 4, "h": 2 },
+    "massKg": 2.0,
+    "equipSlot": "back",
+    "container": { "w": 7, "h": 3 }
+  },
+  {
+    "id": "item.pouch.dropleg",
+    "name": "Drop-Leg Pouch",
+    "description": "A pouch strapped down the thigh. It swings when you run and it is always where your hand is.",
+    "class": "container",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.35,
+    "equipSlot": "belt",
+    "container": { "w": 3, "h": 3 }
+  },
+  {
+    "id": "item.pouch.dump",
+    "name": "Dump Pouch",
+    "description": "A collapsing canvas bag on a belt clip. Things go in fast and sort themselves out later.",
+    "class": "container",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.2,
+    "equipSlot": "belt",
+    "container": { "w": 4, "h": 2 }
+  },
+  {
+    "id": "item.sling.bag",
+    "name": "Sling Bag",
+    "description": "A single-strap bag that swings round to the front. Small, quick, and not enough.",
+    "class": "container",
+    "size": { "w": 3, "h": 3 },
+    "massKg": 0.45,
+    "equipSlot": "back",
+    "container": { "w": 4, "h": 4 }
+  }
+]

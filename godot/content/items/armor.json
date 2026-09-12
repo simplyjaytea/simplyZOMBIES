@@ -8,7 +8,8 @@
     "massKg": 0.2,
     "equipSlot": "torso",
     "appearance": { "equipSprite": "item_wrap_cloth_equip" },
-    "armor": { "torso": 0.3, "arm_left": 0.2, "arm_right": 0.2 }
+    "armor": { "torso": 0.3, "arm_left": 0.2, "arm_right": 0.2 },
+    "warmth": { "torso": 0.7, "arm_left": 0.5, "arm_right": 0.5 }
   },
   {
     "id": "item.vest.scrap",

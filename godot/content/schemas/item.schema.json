@@ -4,7 +4,13 @@
   "title": "Item base",
   "description": "An item base, per docs/10-items.md. The base determines class, footprint, mass, attachment slots and the class-specific numbers; affixes, condition and attachments are rolled or accumulated on top of it at generation. Adding a weapon is a data edit.",
   "type": "object",
-  "required": ["id", "name", "class", "size", "massKg"],
+  "required": [
+    "id",
+    "name",
+    "class",
+    "size",
+    "massKg"
+  ],
   "additionalProperties": false,
   "properties": {
     "id": {
@@ -38,14 +44,37 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            }
           },
           "description": "Where this weapon keeps each of its attachment slots, in pawn-canvas pixels off the body rect, keyed by slot name. Read by presentation/appearance.gd when a fitted part declares an `attachmentSprite`; a slot with no anchor draws its part at the body's own origin. Only the held weapon needs these, and only for slots something is drawn for."
         },
-        "sprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "Registry key resolved to assets/sprites/<key>.png by presentation/appearance.gd. A key, not a path, so content stays engine-agnostic." },
-        "tint": { "type": "string", "pattern": "^#[0-9a-f]{6}$", "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists." },
-        "equipSprite": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. Authored on the same feet-anchored pawn canvas as the body it will be drawn over (32x40; presentation/appearance.gd's PAWN_KEYS and assets/sprites/README.md), so the renderer composites it at the identical rect with no per-item offset math and mirrors it with the body. Read only when this base occupies an equipment slot presentation.gd renders (currently back, primary, secondary); other slots leave it declared but unused until a body-part anchor exists for them." },
-        "equipSpriteFront": { "type": "string", "pattern": "^[a-z0-9_.]+$", "description": "An optional second picture, always drawn over the body regardless of which slot `equipSprite` itself draws under. For a worn item whose straps cross in front of the torso -- a backpack, a chest rig -- `equipSprite` is the bulk of the item behind the body and this is just the strap/buckle piece in front of it. Same canvas convention as `equipSprite`. Omit it for anything that doesn't need a front piece; most equipment won't." }
+        "sprite": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$",
+          "description": "Registry key resolved to assets/sprites/<key>.png by presentation/appearance.gd. A key, not a path, so content stays engine-agnostic."
+        },
+        "tint": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$",
+          "description": "Colour for the procedural fallback, and a modulate over the sprite when one exists."
+        },
+        "equipSprite": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$",
+          "description": "A different picture from `sprite`: what this looks like worn or held on a body, not lying on the ground. Authored on the same feet-anchored pawn canvas as the body it will be drawn over (32x40; presentation/appearance.gd's PAWN_KEYS and assets/sprites/README.md), so the renderer composites it at the identical rect with no per-item offset math and mirrors it with the body. Read only when this base occupies an equipment slot presentation.gd renders (currently back, primary, secondary); other slots leave it declared but unused until a body-part anchor exists for them."
+        },
+        "equipSpriteFront": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.]+$",
+          "description": "An optional second picture, always drawn over the body regardless of which slot `equipSprite` itself draws under. For a worn item whose straps cross in front of the torso -- a backpack, a chest rig -- `equipSprite` is the bulk of the item behind the body and this is just the strap/buckle piece in front of it. Same canvas convention as `equipSprite`. Omit it for anything that doesn't need a front piece; most equipment won't."
+        }
       }
     },
     "class": {
@@ -71,32 +100,68 @@
       "description": "Mass of one unit, empty. A container's contents are counted on top of this, recursively. Never shown to the player as a number."
     },
     "bandageTier": {
-      "enum": ["dirty", "cloth", "sterile"],
+      "enum": [
+        "dirty",
+        "cloth",
+        "sterile"
+      ],
       "description": "What grade of dressing this item makes when it is used to bandage a wound, per docs/05-health-injury.md. Absent means the item cannot dress a wound at all. A flat scalar, not a nested block: the content validator is shallow, so a nested object would get an is-it-an-object check and nothing more -- this way the enum is actually enforced."
     },
     "cleanTier": {
-      "enum": ["water", "alcohol", "antiseptic"],
+      "enum": [
+        "water",
+        "alcohol",
+        "antiseptic"
+      ],
       "description": "What grade of clean this item buys when it is spent on the `clean` verb, per docs/05-health-injury.md's \"whether it was cleaned\" sepsis factor. Absent means the item cannot clean a wound at all. Ranked worst-first here and best-first in SimTreatment.CLEAN_ORDER, which is the pick order when an actor carries more than one. A flat scalar for the same reason bandageTier is one: the content validator is shallow, so an enum on a top-level key is actually enforced."
     },
     "closeKind": {
-      "enum": ["suture", "splint", "wrap"],
+      "enum": [
+        "suture",
+        "splint",
+        "wrap"
+      ],
       "description": "How this item closes a wound when it is spent on the `close` verb. Absent means it cannot close one. Which closer a wound wants is the wound kind's own `closeKind` in SimWounds.WOUND_KINDS: a `suture` holds a cut, bite or burn shut, a `splint` holds a fracture still, and a `wrap` compresses a sprain. The two are matched exactly, never ranked -- a suture kit does not close a fracture and a splint does not close a cut."
     },
     "antibioticTier": {
-      "enum": ["improvised", "veterinary", "clinical"],
+      "enum": [
+        "improvised",
+        "veterinary",
+        "clinical"
+      ],
       "description": "How good this course of antibiotics is, best last in the enum and ranked best-first by SimInfection.ANTIBIOTIC_ORDER. Absent means the item is not antibiotics. The grade scales the zombie-infection clear chance through SimInfection.ANTIBIOTIC_CLEAR_MUL and nothing else -- against sepsis every grade clears, because docs/05 makes bacterial infection the treatable one and zombie infection the gamble, and putting a roll on the treatable one would erase that asymmetry. `clinical` is the 1.0 rung: it reproduces exactly what the single hardcoded course did before grades existed.",
       "$comment": "Flat scalar under an enum rather than a nested block, for the reason bandageTier is one: the Godot validator is shallow and only actually checks this shape."
     },
     "painTier": {
-      "enum": ["mild", "strong", "opioid"],
+      "enum": [
+        "mild",
+        "strong",
+        "opioid"
+      ],
       "description": "How hard this painkiller hits, best last in the enum and ranked best-first by SimWounds.PAIN_ORDER. Absent means the item suppresses no pain. The grade sets both how much pain is masked and for how long, through SimWounds.PAIN_BY_TIER. `mild` is the rung that reproduces the single hardcoded blister exactly. Nothing here heals: a wound under the strongest grade in the game is the wound it was when the dose wears off."
     },
     "illnessTier": {
-      "enum": ["fluids", "remedy"],
+      "enum": [
+        "fluids",
+        "remedy"
+      ],
       "description": "What this item does to a bout of illness already in progress, best last in the enum and ranked best-first by SimNeeds.ILLNESS_ORDER. Absent means it treats no illness. `fluids` cuts what is left of the bout; `remedy` ends it. It does nothing to a survivor who is not ill, and SimNeeds.can_use is where that is decided, so the menu cannot offer a use the sim then refuses."
     },
     "buildMaterial": {
-      "enum": ["metal", "wood", "plank", "stone", "fiber", "cordage", "fixings", "ingot", "charcoal", "clay", "wire", "circuit"],
+      "enum": [
+        "metal",
+        "wood",
+        "plank",
+        "stone",
+        "fiber",
+        "cordage",
+        "fixings",
+        "ingot",
+        "charcoal",
+        "clay",
+        "wire",
+        "circuit"
+      ],
       "description": "What substance this is, when it is something you can build out of -- docs/12-resources.md's gathered and refined tiers. Absent means the item builds nothing, which is the normal state: a whetstone is a `material` by class and is not a build material. A recipe names one kind and spends one unit of it (SimFortify.RECIPES, and the owner's decision of 2026-09-12: typed materials, uniform cost), so the kind is what decides whether the thing in your pack is the thing the barricade wants. The enum is the vocabulary SimFortify.MATERIAL_KINDS ranks; check_m2_materials.gd's KINDS lane asserts both directions, because neither this list nor that one can see the other.",
       "$comment": "A flat scalar under an enum rather than a nested `material: {kind}` block, for the reason bandageTier, cleanTier and antibioticTier are flat: the Godot content validator is shallow, so an enum on a top-level key is the only shape it actually enforces."
     },
@@ -107,7 +172,20 @@
       "description": "How many units share one footprint. 1 means the item does not stack."
     },
     "equipSlot": {
-      "enum": ["back", "vest", "belt", "primary", "secondary", "head", "face", "eyes", "torso", "gloves", "legs", "feet"],
+      "enum": [
+        "back",
+        "vest",
+        "belt",
+        "primary",
+        "secondary",
+        "head",
+        "face",
+        "eyes",
+        "torso",
+        "gloves",
+        "legs",
+        "feet"
+      ],
       "description": "Which equipment slot this base can occupy, if any. Wearing a container is what grants its grid (docs/10-items.md#what-you-can-carry-is-what-you-chose-to-wear)."
     },
     "container": {
@@ -117,7 +195,12 @@
     "melee": {
       "type": "object",
       "description": "The four properties docs/09-combat.md says a melee weapon has. Read by the melee module when this base is equipped to the primary slot.",
-      "required": ["reachMetres", "weight", "damage", "staggerTicks"],
+      "required": [
+        "reachMetres",
+        "weight",
+        "damage",
+        "staggerTicks"
+      ],
       "additionalProperties": false,
       "properties": {
         "reachMetres": {
@@ -146,7 +229,9 @@
     "light": {
       "type": "object",
       "description": "What this base lights, per docs/03-attention.md#light. Read by the light module when the base is equipped to a hand slot. Magnitude is reach in metres, in the same metres as every other channel -- there is no brightness unit.",
-      "required": ["magnitude"],
+      "required": [
+        "magnitude"
+      ],
       "additionalProperties": false,
       "properties": {
         "magnitude": {
@@ -165,34 +250,48 @@
     },
     "requiredSlots": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Slots this base cannot work without, a subset of `slots`. An empty one blocks the weapon: SimAttachments.blocked_reason puts a reason on the built profile and SimRanged._idle_weapon, SimMelee.try_begin_swing and npc_combat._ranged_range all read it, so a pistol with no barrel refuses to fire and an NPC holding one does not walk into range of it. The subset claim is a gate lane, not a schema rule -- nothing here can see the sibling key."
     },
     "defaultParts": {
       "type": "object",
-      "additionalProperties": { "type": "string" },
+      "additionalProperties": {
+        "type": "string"
+      },
       "description": "The parts this base comes assembled with, keyed by slot name and naming an attachment base. SimAttachments.assemble fits them when the item spawns, so the template is the receiver and the weapon in the world is an assembly -- pull the barrel out and what is left is a frame. Every slot named here must be one this base declares in `slots`, every value must be an attachment that fits that slot, and the graph must not cycle; check_m2_attach.gd's ASSEMBLE and CYCLE lanes judge all three, because the validator will not look inside this object. A base's own massKg is the receiver alone: the parts weigh what they weigh and item_mass_kg counts them."
     },
     "attachment": {
       "type": "object",
       "description": "Present on an attachment base and absent on everything else, per docs/10-items.md#attachment-slots. `fits` is the set of host slot names this will go into -- a list rather than one name, because 'moves freely between compatible bases' is the point of the mechanism. The `melee` and `ranged` tables are multipliers folded over the host weapon's own profile by sim/modules/attachments.gd, keyed by the profile field they scale, so an attachment declares what it multiplies and nothing has to know what an optic is. The content validator is shallow and will not look inside this, which is what godot/check_m2_attach.gd is for.",
-      "required": ["fits"],
+      "required": [
+        "fits"
+      ],
       "additionalProperties": false,
       "properties": {
         "fits": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Host slot names this attachment is compatible with."
         },
         "melee": {
           "type": "object",
-          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
+          "additionalProperties": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
           "description": "Multipliers over the melee profile, keyed by field: damage, reachMetres, staggerTicks, speed."
         },
         "ranged": {
           "type": "object",
-          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
+          "additionalProperties": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
           "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone, handling. `handling` scales how fast the weapon comes up and settles, against its content-declared `weight`. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
         },
         "fieldSwap": {
@@ -206,7 +305,12 @@
           "properties": {
             "ranged": {
               "type": "object",
-              "additionalProperties": { "type": ["string", "boolean"] },
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "boolean"
+                ]
+              },
               "description": "Replacement values keyed by profile field: `ammo` (an item base id), `caliber` (a family name) and `jams` (a boolean). A conversion part declares `ammo` and `caliber` together -- one without the other builds a weapon that prefers a round it cannot chamber, and check_m2_ammo.gd's CONVERT lane refuses it."
             }
           }
@@ -217,7 +321,9 @@
         },
         "wearsOn": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "What wears this part, from sim/modules/attachments.gd's WEAR_EVENTS vocabulary: shot, reload, hit, jam. A part declaring none never wears. The words are a code-owned list rather than an enum here because the registry is the authority and check_m2_attach.gd asserts both directions -- every word declared is one the module knows, and every word the module knows is declared by something shipped."
         },
         "wearRate": {
@@ -230,7 +336,11 @@
     "armor": {
       "type": "object",
       "description": "Coverage per body part 0..1. Read by infection transmission (docs/10-items.md#129) — max coverage applies, absent is 0.",
-      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
     },
     "filter": {
       "type": "number",
@@ -242,12 +352,24 @@
     "ranged": {
       "type": "object",
       "description": "Optional ranged block. Every field is optional except `weight` and `caliber` -- see their own descriptions.",
-      "required": ["weight", "caliber"],
+      "required": [
+        "weight",
+        "caliber"
+      ],
       "additionalProperties": false,
       "properties": {
-        "damage": { "type": "number", "exclusiveMinimum": 0 },
-        "noise": { "type": "number", "minimum": 0 },
-        "flash": { "type": "number", "minimum": 0 },
+        "damage": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "noise": {
+          "type": "number",
+          "minimum": 0
+        },
+        "flash": {
+          "type": "number",
+          "minimum": 0
+        },
         "ammo": {
           "type": "string",
           "description": "The round this weapon prefers -- the one it is loaded with when its owner is carrying it. Not the only round it will take: `caliber` is the compatibility set, and a weapon with no round of its preferred base but a same-caliber one in a pocket loads that instead. Kept as an item base id rather than folded into `caliber` because a conversion part overrides exactly this field (SimAttachments.OVERRIDABLE) and because every shipped weapon's numbers were authored against one named round."
@@ -256,7 +378,11 @@
           "type": "string",
           "description": "What else will chamber. A free string rather than an enum for the reason `slots` is one -- the registry is the shipped content and check_m2_ammo.gd asserts both directions, so a caliber no round declares and a round no weapon chambers are each a named dead socket rather than a schema error nobody reads. Absent means the weapon takes only its declared `ammo`, which is what a bow does."
         },
-        "recoverable": { "type": "number", "minimum": 0, "maximum": 1 },
+        "recoverable": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
         "cone": {
           "type": "number",
           "exclusiveMinimum": 0,
@@ -267,9 +393,18 @@
           "exclusiveMinimum": 0,
           "description": "A multiplier on how fast the weapon comes up and settles, against its own `weight`, through sim/combat.gd's raise -> steady -> recover rungs. Mirrors `attachment.ranged.handling`. Absent means 1.0, the value the profile was hardcoded to. Below 1 is a weapon that is simply slow in the hands whatever is bolted to it -- docs/10's Quietkeeper, which buys silence with time."
         },
-        "magSize": { "type": "integer", "minimum": 1 },
-        "reloadTicks": { "type": "integer", "minimum": 1 },
-        "rangeMetres": { "type": "number", "exclusiveMinimum": 0 },
+        "magSize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reloadTicks": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rangeMetres": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "weight": {
           "type": "number",
           "exclusiveMinimum": 0,
@@ -285,7 +420,9 @@
       "type": "object",
       "description": "Present on a round and absent on everything else, the way `food` is what makes an item edible. `caliber` is the only required key: a round that names a caliber and scales nothing is the plain load for that weapon, which is what every round shipped before this block existed effectively was. The `ranged` table is multipliers folded over the *host weapon's* profile for the one shot that spends this round -- the same grammar `attachment.ranged` uses and for the same reason, so a slug is one set of numbers whatever gun it goes into and nothing in the sim has to know what a slug is. Multipliers, never adders. The content validator is shallow and will not look inside this, which is what godot/check_m2_ammo.gd is for.",
       "additionalProperties": false,
-      "required": ["caliber"],
+      "required": [
+        "caliber"
+      ],
       "properties": {
         "caliber": {
           "type": "string",
@@ -293,7 +430,10 @@
         },
         "ranged": {
           "type": "object",
-          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
+          "additionalProperties": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
           "description": "Multipliers over the host weapon's ranged profile for this shot only, keyed by the field they scale, against sim/modules/ranged.gd's AMMO_SCALABLE whitelist: damage, noise, flash, rangeMetres, cone, recoverable. A whitelist rather than \"whatever key matches\" for the reason SimAttachments.SCALABLE is one -- a typo would behave exactly like a round that does nothing, which is the hardest bug in this codebase to see. `cone` above 1 is an accuracy cost, so birdshot charges one; `recoverable` only does anything on a weapon that already declares it, which is how a target arrow is worth more than a broadhead to somebody who has to walk out and pick it up."
         }
       }
@@ -302,35 +442,85 @@
       "type": "object",
       "description": "Present on anything edible. docs/12-resources.md#content-shape puts spoilage rules in JSON alongside loot tables, and docs/04-survival-needs.md is where the numbers come from: \"quality matters, not just quantity: raw and spoiled food fills the bar but damages mood and carries illness risk; cooked meals restore more and give a mood bonus\". Presence of this block is what makes an item food -- SimNeeds.is_food asks nothing else.",
       "additionalProperties": false,
-      "required": ["hunger"],
+      "required": [
+        "hunger"
+      ],
       "properties": {
-        "hunger": { "type": "number", "minimum": 0, "description": "Hunger restored, on the 0..100 need scale." },
-        "mood": { "type": "number", "description": "Mood applied on eating. Negative for raw, positive for cooked; a spoiled item overrides it with SimNeeds.SPOILED_MOOD regardless of what is declared here." },
-        "spoilDays": { "type": "number", "minimum": 0, "description": "In-game days before it goes off. 0 means it keeps indefinitely, which is what canned means." },
-        "illnessChance": { "type": "number", "minimum": 0, "maximum": 1, "description": "Chance per meal of a bout of food poisoning. Multiplied by SimNeeds.SPOILED_ILLNESS_MUL when the item has actually spoiled, so one authored number moves both cases together. The `iron_stomach` trait is full immunity rather than a reduction." }
+        "hunger": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Hunger restored, on the 0..100 need scale."
+        },
+        "mood": {
+          "type": "number",
+          "description": "Mood applied on eating. Negative for raw, positive for cooked; a spoiled item overrides it with SimNeeds.SPOILED_MOOD regardless of what is declared here."
+        },
+        "spoilDays": {
+          "type": "number",
+          "minimum": 0,
+          "description": "In-game days before it goes off. 0 means it keeps indefinitely, which is what canned means."
+        },
+        "illnessChance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Chance per meal of a bout of food poisoning. Multiplied by SimNeeds.SPOILED_ILLNESS_MUL when the item has actually spoiled, so one authored number moves both cases together. The `iron_stomach` trait is full immunity rather than a reduction."
+        }
       }
     },
     "drink": {
       "type": "object",
       "description": "Present on anything drinkable; presence is what makes an item a drink -- SimNeeds.is_drink asks nothing else, exactly as is_food asks only for `food`. `thirst` is the plain half (a water bottle drinks +50, the number SimNeeds.drink used to carry as a literal). The other three keys are docs/04-survival-needs.md's stimulant clause -- \"no caffeine-style hard reset; stimulants exist as rare loot with a real crash afterward\" -- made content: `rest` is the lift, paid now into the rest pool, and `crashRest` is taken back out of the same pool `crashAfterTicks` later. SimNeeds.drink_spec judges the block whole: a lift declared without both crash keys is refused as not drinkable at all rather than drunk for free, because the validator does not recurse and a free stimulant is exactly the wrong number nothing would report. What is left in the hand afterwards is the top-level `empties`, not a key here, so a fuel can can say the same thing.",
       "additionalProperties": false,
-      "required": ["thirst"],
+      "required": [
+        "thirst"
+      ],
       "properties": {
-        "thirst": { "type": "number", "minimum": 0, "description": "Thirst restored, on the 0..100 need scale." },
-        "rest": { "type": "number", "minimum": 0, "description": "Rest restored on drinking -- the lift. Omit for anything that is not a stimulant." },
-        "crashRest": { "type": "number", "exclusiveMinimum": 0, "description": "Rest drained when the lift wears off -- the crash. Author it at or above `rest`: a stimulant is a loan, not a gift. A second can inside one lift adds its crash to the pending one and pushes the clock out, so chaining defers the crash and makes it bigger; the pool floors at zero, and an empty pool is the existing passed-out crisis, which is what \"a real crash\" means here." },
-        "crashAfterTicks": { "type": "integer", "minimum": 1, "description": "Ticks from drinking to the crash (12000 to the in-game hour)." },
-        "mood": { "type": "number", "description": "Mood applied on drinking, on the meal-mood clock -- SimNeeds.MEAL_MOOD_SOURCE, replaced rather than stacked, wearing off with MEAL_MOOD_TICKS. Absent means the drink says nothing about mood." },
-        "illnessChance": { "type": "number", "minimum": 0, "maximum": 1, "description": "Chance per drink of a bout of illness -- docs/04-survival-needs.md's \"untreated water carries illness\". The same bout `food.illnessChance` rolls, on the same stream, with the same `iron_stomach` immunity. Absent means the drink is clean; the well fills bottles with `item.water.bottle.untreated`, which carries it, and boiling at a lit campfire turns one into `item.water.bottle`, which does not. SimNeeds.drink_spec refuses a value outside 0..1 outright, because the validator does not recurse." }
+        "thirst": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Thirst restored, on the 0..100 need scale."
+        },
+        "rest": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Rest restored on drinking -- the lift. Omit for anything that is not a stimulant."
+        },
+        "crashRest": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Rest drained when the lift wears off -- the crash. Author it at or above `rest`: a stimulant is a loan, not a gift. A second can inside one lift adds its crash to the pending one and pushes the clock out, so chaining defers the crash and makes it bigger; the pool floors at zero, and an empty pool is the existing passed-out crisis, which is what \"a real crash\" means here."
+        },
+        "crashAfterTicks": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Ticks from drinking to the crash (12000 to the in-game hour)."
+        },
+        "mood": {
+          "type": "number",
+          "description": "Mood applied on drinking, on the meal-mood clock -- SimNeeds.MEAL_MOOD_SOURCE, replaced rather than stacked, wearing off with MEAL_MOOD_TICKS. Absent means the drink says nothing about mood."
+        },
+        "illnessChance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Chance per drink of a bout of illness -- docs/04-survival-needs.md's \"untreated water carries illness\". The same bout `food.illnessChance` rolls, on the same stream, with the same `iron_stomach` immunity. Absent means the drink is clean; the well fills bottles with `item.water.bottle.untreated`, which carries it, and boiling at a lit campfire turns one into `item.water.bottle`, which does not. SimNeeds.drink_spec refuses a value outside 0..1 outright, because the validator does not recurse."
+        }
       }
     },
     "fuel": {
       "type": "object",
       "description": "Present on a fuel can. `litres` is what the can holds, and a can is poured whole: SimVehicles pours min(litres, room in the tank) and the rest is spilt. Not a running count on the instance -- an item instance carries a condition, a stack count and an affix list, and a can that remembered its litres would need a fourth per-instance number, a mass that moves with it (`massKg` is a constant of one unit), a fill word for the can, and a HUD clause for that word. Whole cans keep all four out. Refused into anything but an engine: a battery wants the charger docs/23 names in what's left, and a bicycle has nothing to fill. What is left afterwards is the top-level `empties`.",
       "additionalProperties": false,
-      "required": ["litres"],
+      "required": [
+        "litres"
+      ],
       "properties": {
-        "litres": { "type": "number", "exclusiveMinimum": 0, "description": "Litres tipped into a tank when the can is poured. A sedan holds 40, a van 60, a truck 80 (content/vehicles), so a 10 L can is a quarter of a sedan -- a find, not a fill." }
+        "litres": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Litres tipped into a tank when the can is poured. A sedan holds 40, a van 60, a truck 80 (content/vehicles), so a 10 L can is a quarter of a sedan -- a find, not a fill."
+        }
       }
     },
     "empties": {
@@ -353,15 +543,22 @@
       "description": "Present on one of docs/10's named items and absent on everything else. Its presence is what makes the item named -- SimItems.named_block asks nothing else -- and it forces the item's tier to `named` at spawn whatever the caller or the loot table asked for, so a table rolling \"scavenged\" and then picking the Siren's Bell cannot produce a scavenged Siren's Bell. The contents are the item's **fixed, hand-authored** affix roll in exactly the shape SimItems.roll_affixes produces, copied verbatim and drawing no RNG at all, so the same named item comes out of every seed. Being the same shape is the point: the existing reader, SimItems.affix_modifiers, resolves these into scoped modifiers with no second code path, and a named item's `affixes: 0` tier means the bench can never add to them. docs/10: \"a capability nobody else gets, and a cost you have to build around\" -- the drawback is not expressed here but in the base's own numbers and flags, because a drawback that lived only in an affix could be stripped off at a bench.",
       "additionalProperties": false,
       "properties": {
-        "prefixes": { "$ref": "#/$defs/authoredAffixes" },
-        "suffixes": { "$ref": "#/$defs/authoredAffixes" }
+        "prefixes": {
+          "$ref": "#/$defs/authoredAffixes"
+        },
+        "suffixes": {
+          "$ref": "#/$defs/authoredAffixes"
+        }
       }
     },
     "modification": {
       "type": "object",
       "description": "Present on a modification consumable, per docs/11-crafting.md#content-shape: \"a modification consumable declares which operation it performs and against which item classes\". Adding a consumable is a data edit provided the operation it names already exists; adding an operation is an entry in SimModification.OPERATIONS. That registry is code because an operation is behaviour, and check_mods.gd is what asserts every declared operation is in it -- no schema can.",
       "additionalProperties": false,
-      "required": ["operation", "appliesTo"],
+      "required": [
+        "operation",
+        "appliesTo"
+      ],
       "properties": {
         "operation": {
           "type": "string",
@@ -372,10 +569,31 @@
           "minItems": 1,
           "description": "Item classes this consumable may be used on. An empty list is not allowed -- a consumable that applies to nothing is a content mistake, not a universal one.",
           "items": {
-            "enum": ["weapon.melee", "weapon.ranged", "armor", "tool", "container", "consumable", "material"]
+            "enum": [
+              "weapon.melee",
+              "weapon.ranged",
+              "armor",
+              "tool",
+              "container",
+              "consumable",
+              "material"
+            ]
           }
         }
       }
+    },
+    "warmth": {
+      "type": "object",
+      "description": "Insulation per body part, -1..1, declared exactly the way `armor` declares coverage: an open map keyed by the parts in sim/combat.gd's SURVIVOR_BODY, composed across worn items by max, absent is 0. Positive insulates and negative cools, because a sun hat and a wool hat are the same axis read in opposite directions (docs/04-survival-needs.md's temperature clause: \"ambient weather, clothing insulation, wetness, shelter, and heat sources\"). SimNeeds.warmth_points weighs each part by how much of the body it is and returns whole points; WARMTH_PER_BAND of them is one band on the temperature ladder. \"Max\" on a signed axis is the layer furthest from zero -- the emphatic layer is the one you are wearing -- which is `armor`'s rule letter for letter wherever every value is positive. Being wet halves whatever insulation is left (docs/04: \"being wet is a multiplier on cold\"), so a soaked coat is half a coat. The content validator is shallow and will only check that this is an object; godot/check_m2_warmth.gd is what judges the parts and the bounds.",
+      "additionalProperties": {
+        "type": "number",
+        "minimum": -1,
+        "maximum": 1
+      }
+    },
+    "shedsRain": {
+      "type": "boolean",
+      "description": "Whether wearing this keeps the rain off. Read by SimNeeds._tick_temperature, which is the one place a body is soaked by the sky: a survivor equipping anything that declares this never starts the `wetAfterTicks` soak, so a poncho is worth a downpour rather than a sentence about one. Wading is deliberately not covered -- a poncho is not waders, and standing in a ford still soaks you on the tick you arrive. A flat top-level boolean for the reason `bandageTier` is a flat scalar: the Godot validator does not recurse, so a type declared up here is actually enforced. Absent means no, which is what every garment that is not waterproof says."
     }
   },
   "$defs": {
@@ -384,17 +602,29 @@
       "description": "Fixed affix rolls, each naming a shipped affix id and which of that affix's own `tiers` it is locked to. Nothing here is rolled. The ids and indices are cross-checked by godot/check_m2_gear.gd's NAMED lane and by SimItems.verify_content_references, not by this schema -- neither can see the affix registry.",
       "items": {
         "type": "object",
-        "required": ["id", "tier"],
+        "required": [
+          "id",
+          "tier"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^affix\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$" },
-          "tier": { "type": "integer", "minimum": 0 }
+          "id": {
+            "type": "string",
+            "pattern": "^affix\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$"
+          },
+          "tier": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       }
     },
     "rect": {
       "type": "object",
-      "required": ["w", "h"],
+      "required": [
+        "w",
+        "h"
+      ],
       "additionalProperties": false,
       "properties": {
         "w": {
