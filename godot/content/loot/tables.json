@@ -700,6 +700,142 @@
       {
         "item": "item.caralarm.salvaged",
         "weight": 2
+      },
+      {
+        "item": "item.bedroll.foam",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.bedroll.straw",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.sleepingbag.synthetic",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.sleepingbag.down",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.tent.dome",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.hammock.nylon",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.tarp.canvas",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.soap.bar",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.soap.flakes",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.sanitiser.gel",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.scalpel.steel",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.binoculars.field",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.fishing.rod",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.fishing.line",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.cordage.paracord",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.canvas.sheet",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.lockpick.set",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
       }
     ]
   },
@@ -1436,6 +1572,150 @@
       {
         "item": "item.bell.wind",
         "weight": 3
+      },
+      {
+        "item": "item.bedroll.foam",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.sleepingbag.synthetic",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.sleepingbag.down",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.mattress.camp",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.tent.dome",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.hammock.nylon",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.tarp.canvas",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.stakes.tent",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.pole.aluminium",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.cordage.paracord",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.soap.bar",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 4
+        }
+      },
+      {
+        "item": "item.soap.flakes",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.sanitiser.gel",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.binoculars.field",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.fishing.rod",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.fishing.line",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.canvas.sheet",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.boltcutters.long",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
       }
     ]
   },
@@ -1688,6 +1968,54 @@
         "count": {
           "min": 2,
           "max": 8
+        }
+      },
+      {
+        "item": "item.surgical.kit",
+        "weight": 6,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.scalpel.steel",
+        "weight": 6,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.sanitiser.gel",
+        "weight": 7,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.soap.bar",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.soap.flakes",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.bedroll.foam",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
         }
       }
     ]
@@ -2233,6 +2561,110 @@
       {
         "item": "item.firecracker.string",
         "weight": 2
+      },
+      {
+        "item": "item.sleepingbag.down",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.bedroll.foam",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.mattress.camp",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.tent.dome",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.cordage.paracord",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 4
+        }
+      },
+      {
+        "item": "item.stakes.tent",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.pole.aluminium",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.binoculars.field",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.boltcutters.long",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.surgical.kit",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.scalpel.steel",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.sanitiser.gel",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.soap.bar",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
       }
     ]
   },
@@ -2653,6 +3085,94 @@
       {
         "item": "item.blastcap.quarry",
         "weight": 2
+      },
+      {
+        "item": "item.boltcutters.long",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.lockpick.set",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.tarp.canvas",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.canvas.sheet",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.stakes.tent",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.pole.aluminium",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.cordage.paracord",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.bedroll.straw",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
+      },
+      {
+        "item": "item.fishing.line",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.soap.flakes",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.binoculars.field",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 1
+        }
       }
     ]
   }
