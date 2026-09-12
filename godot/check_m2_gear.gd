@@ -264,6 +264,15 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # reachable -- the CATALOGUE lane below reached the eight shipped rounds only through the
 # weapons that name them in `ranged.ammo`. A *variant* round is named by no weapon, so without
 # this key a slug in no loot table would have been complete, correct and unfindable.
+#
+# `attachment` is deliberately **not** on this list, and the armour-slot slice is when that became
+# worth writing down. Every base carrying one is already required to be in a loot table by
+# check_m2_attach.gd's CONTENT lane -- by a *stricter* rule than this one, which also accepts a
+# kit, somebody's empties or a job. Adding the key here would make two gates assert the same fact
+# through two different predicates, which is the shape infection.gd's `_diagnosis_for_stage`
+# comment names: two things that say the same thing independently drift the moment only one is
+# updated. The armour parts this slice shipped -- plates, a lining, a visor -- are covered there.
+# A pouch is covered *here*, because it declares a `container` and that is a different claim.
 const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial"]
 # The bases a *job or verb* produces rather than a table rolls, each with the sim file that names
 # it, so the allowance cannot outlive the code it describes: cooked food out of SimJobs' cook job,

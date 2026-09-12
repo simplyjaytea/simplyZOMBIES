@@ -12,7 +12,9 @@ extends RefCounted
 # armor do, so it does not belong under godot/content/.
 
 const SimHealth = preload("res://sim/modules/health.gd")
-const SimInfection = preload("res://sim/modules/infection.gd")
+# The infection preload went with `severity_for`'s armour term on 2026-09-12 -- it was this
+# file's only use of it, and a preload nothing reads is the same dead socket as a field nothing
+# reads, one level out. Coverage is asked about in exactly one place now (SimHealth.damage_part).
 const SimCombat = preload("res://sim/combat.gd")
 const SimClock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
@@ -553,8 +555,16 @@ const ARM_RANGED_PENALTY: Array[float] = [0.08, 0.16, 0.24]
 
 # Severity is a fraction of the struck part's *maximum*, never raw damage -- the same trap
 # CLAUDE.md records for part_state: 10 damage is a scratch on a 40-torso and destroys a
-# 10-hand. Armor reduces how far a hit escalates rather than blocking damage outright here
-# (damage_taken already happened in health.gd's damage_part before this runs).
+# 10-hand.
+#
+# **`damage` is what reached the body, and this function no longer asks about armour.** It used
+# to: it softened the fraction by `1 - 0.5 * coverage` on its own, because coverage stopped
+# nothing upstream and escalation was the only thing armour could be made to touch. Since the
+# owner's decision of 2026-09-12 the same curve lives in `SimHealth.armor_damage_factor`, applied
+# to the integrity in `damage_part`, and both wound paths hand this the mitigated figure -- so the
+# bands a covered part lands in are exactly the bands it landed in before, arrived at once instead
+# of twice. Keeping the old term here alongside the new one would have squared it, and a vest
+# would have quietly become twice the vest the content says it is.
 static func severity_for(world: Variant, target: int, part: String, damage: float) -> int:
 	var body: Variant = world.components.get_component(target, "body")
 	if not (body is Dictionary):
@@ -563,8 +573,6 @@ static func severity_for(world: Variant, target: int, part: String, damage: floa
 	if maxv == null or int(maxv) <= 0:
 		return Severity.Scratch
 	var fraction: float = float(damage) / float(int(maxv))
-	var armor: float = clampf(SimInfection.armor_coverage_of(world, target, part), 0.0, 1.0)
-	fraction *= 1.0 - 0.5 * armor
 	if fraction < 0.15:
 		return Severity.Scratch
 	if fraction < 0.40:

@@ -229,6 +229,19 @@ static func reachable_containers(world: Variant, actor: int) -> Array[int]:
 		if world.components.has_component(eq, "container"):
 			out.append(eq)
 			walk.call(eq, 2, out, walk)
+		# docs/10's `pocket` slot: a pouch fitted to a rig is carried by the rig, so a vest with
+		# one on it genuinely holds more. A fitted part is **not** in its host's grid -- `attach`
+		# takes it out of whatever container it was in, which is what stops one object occupying
+		# two places -- so the walk above cannot reach it and this is the reader that can.
+		# Without it the `container` block on an armour part would be the milestone's twelfth
+		# dead socket: content, a grid, and nothing that could ever put a tin in it.
+		#
+		# Loaded on demand, not preloaded: attachments.gd preloads this file, and a preload the
+		# other way is a cycle and a parse error. `attachments.gd`'s own `_may` does the same.
+		for fitted in (_Attachments().call("attached", world, eq) as Dictionary).values():
+			if world.components.has_component(int(fitted), "container"):
+				out.append(int(fitted))
+				walk.call(int(fitted), 2, out, walk)
 	return out
 
 static func stow(world: Variant, actor: int, item: int) -> bool:

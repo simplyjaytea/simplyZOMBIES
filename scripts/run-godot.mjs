@@ -142,6 +142,9 @@ switch (mode) {
   case "--m2-attach":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_attach.gd"];
     break;
+  case "--m2-armor":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_armor.gd"];
+    break;
   case "--m2-ammo":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_ammo.gd"];
     break;
