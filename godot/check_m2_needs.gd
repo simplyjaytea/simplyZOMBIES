@@ -47,8 +47,10 @@ func _run() -> void:
 	ok = _a_careful_pantry_slows_spoilage() and ok
 	ok = _untreated_water_carries_illness_and_a_fire_boils_it() and ok
 	ok = _a_lit_fire_burns_down() and ok
+	ok = _bedding_moves_the_night_and_bare_boards_move_nothing() and ok
+	ok = _soap_buys_a_wash_that_lasts() and ok
 	if ok:
-		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, and a lit fire burns down")
+		print("M2_NEEDS_OK drain bands verbs hud hold, low mood has consequences, food is content and can make you ill, a death costs the living, everybody has to go, a meal's mood wears off, the dead give back the bed, the deep cold is reachable, sleep has a quality, what you sleep on moves it and bare boards do not, soap buys a wash that lasts, drinks are content and leave their empties, a stimulant is a loan, a careful pantry keeps, the well's water wants a fire, and a lit fire burns down")
 		quit(0)
 	else:
 		push_error("M2_NEEDS_FAIL")
@@ -2592,5 +2594,268 @@ func _a_lit_fire_burns_down() -> bool:
 		push_error("fire: a lit fire with no clock was doused or left unstamped (%s)" % str(cf))
 		return false
 	print("FIRE OK lit stamps tick+%d, not doused early, doused at the clock and the flag, the light and the heat reader all see it, a cook holds it, a re-light refreshes it, a clockless lit fire is stamped" % SimNeeds.CAMPFIRE_BURN_TICKS)
+	return true
+
+
+# --- BED ----------------------------------------------------------------------------------------
+#
+# What you sleep *on*. docs/04's Rest clause names bed quality first of the five things recovery
+# depends on, and `sleep_quality` shipped without it because there was nothing to read: `make_bed`
+# made a bare marker and every bed in the district was the identical nothing. This lane judges the
+# key that fixed that, in three parts, because each of the three is a different way it could be
+# wrong.
+#
+# PINNED is the one that matters most. A bed with no bedding must be arithmetically the bed that
+# shipped before this existed -- this is an addition to the roster, not a quiet rebalance of
+# everybody's nights -- so the three scenarios whose figures were already pinned elsewhere in this
+# file are re-derived here from the constants alone and must land on them exactly.
+#
+# PAIRED is the dead-socket half: two identically seeded districts, one sleeper on a bedroll and
+# one on the bare boards, and the rest they actually wake with has to differ in the right
+# direction. It follows check_m2_medicine.gd's CLEAR lane in shape, including its second claim --
+# it is not enough for the figures to be ordered, some seed has to actually turn on the bedding,
+# and neither figure may be zero or the pair proves nothing.
+#
+# SOAP is the other key this slice authored. A wash already reaches `clean` on water alone, so what
+# soap buys is a wash that lasts: charges banked at the well and spent one per dirtying, which is
+# the only door hygiene walks back down.
+const BED_SEEDS: Array[int] = [20260805, 20260806, 20260807, 20260808, 20260809, 20260810]
+const BEDDING_GOOD: String = "item.sleepingbag.down"
+const BEDDING_POOR: String = "item.bedroll.foam"
+const SOAP_ID: String = "item.soap.bar"
+
+
+func _world_seeded(seed_val: int) -> Variant:
+	return SimBoot.playable(seed_val, 64)["world"]
+
+
+# docs/10's footprint puzzle, live and in the way: a sleeping bag is two squares by three, and a
+# booted colonist's belt pouch is not three squares tall and already has the district's starting kit
+# in it. So the fixture puts everything loose on the floor -- dropped rather than despawned, because
+# despawning somebody's gear out from under the inventory is a different bug to go looking for --
+# keeps what they are wearing, and gives them a hiking pack to put a bedroll in. Without this the
+# lane would fail on the grid rather than on the thing under test.
+func _empty_pack(w: Variant, ent: int) -> void:
+	var worn: Dictionary = {}
+	for eq in SimInventory.equipped_items(w, ent):
+		worn[int(eq)] = true
+	for item in SimInventory.carried_items(w, ent):
+		if worn.has(int(item)):
+			continue
+		SimInventory.drop_at_feet(w, ent, int(item))
+	for eq in SimInventory.equipped_items(w, ent):
+		if w.components.has_component(int(eq), "container"):
+			SimInventory.unequip_item(w, int(eq))
+			SimInventory.drop_at_feet(w, ent, int(eq))
+	var pack: int = SimItems.spawn_item(w, "item.pack.hiking", {"tier": "scavenged"})
+	if not SimInventory.equip(w, ent, pack, "back"):
+		push_error("BED: the fixture could not put a hiking pack on a survivor's back")
+
+
+func _give(w: Variant, ent: int, id: String) -> int:
+	var item: int = SimItems.spawn_item(w, id, {"tier": "scavenged"})
+	if not SimInventory.stow(w, ent, item):
+		push_error("BED: the fixture '%s' would not go in a pocket" % id)
+		return -1
+	return item
+
+
+# A sleeper put to bed on `bed`, in the named temperature band, with every other pool full so the
+# only thing moving is the night. Returns the rest they wake with.
+func _rest_after_a_night(w: Variant, ent: int, bed: int, band: String) -> float:
+	SimNeeds.start_sleep(w, ent, bed)
+	var n: Dictionary = SimNeeds.of(w, ent)
+	n["rest"] = 0.0
+	n["hunger"] = 100.0
+	n["thirst"] = 100.0
+	n["relief"] = 100.0
+	n["temperature"] = band
+	n["hygiene"] = "clean"
+	_sleep_a_night(w, ent, n)
+	return float(n["rest"])
+
+
+func _bedding_moves_the_night_and_bare_boards_move_nothing() -> bool:
+	# --- PINNED ---------------------------------------------------------------------------------
+	# The three figures that were already true, re-derived from the constants and asserted against a
+	# bed the district itself sited. If any of these moves, this slice rebalanced sleep instead of
+	# adding to it.
+	var wp: Variant = _world_seeded(BED_SEEDS[0])
+	var ep: int = int(wp.player)
+	var plain: int = _first_bed(wp)
+	if plain < 0:
+		push_error("BED: the booted district sited no bed, so this lane has nothing to judge")
+		return false
+	if absf(SimNeeds.bed_comfort(wp, plain) - 0.0) > 0.0001:
+		push_error("BED: a bed the district built came with comfort %.4f rather than bare boards" % SimNeeds.bed_comfort(wp, plain))
+		return false
+	if SimNeeds.band_pressure("temperature", "very_cold") != "soft":
+		push_error("BED: `very_cold` no longer reads as the soft band, so the pinned arithmetic below is not the arithmetic being tested")
+		return false
+	var pins: Array[Dictionary] = [
+		{"bed": plain, "band": "comfortable", "want": 1.0},
+		{"bed": plain, "band": "very_cold", "want": 1.0 - SimNeeds.SLEEP_PENALTY_TEMP_SOFT},
+		{"bed": -1, "band": "comfortable", "want": 1.0 - SimNeeds.SLEEP_PENALTY_ROUGH},
+	]
+	for pin in pins:
+		SimNeeds.start_sleep(wp, ep, int(pin["bed"]))
+		var np: Dictionary = SimNeeds.of(wp, ep)
+		np["temperature"] = String(pin["band"])
+		var got: float = SimNeeds.sleep_quality(wp, ep)
+		if absf(got - float(pin["want"])) > 0.0001:
+			push_error("BED PINNED: on bed %d in `%s` the quality is %.4f and the constants say %.4f -- bedding changed a night nobody put bedding on" % [int(pin["bed"]), String(pin["band"]), got, float(pin["want"])])
+			return false
+		SimNeeds.wake(wp, ep)
+
+	# --- FURNISH --------------------------------------------------------------------------------
+	# The builder's half: an empty pack changes nothing, the best of two grades is the one that goes
+	# in, it comes out of the pack rather than being copied out of it, and what lands on the bed is
+	# a plain float that a save can carry.
+	var wf: Variant = _world_seeded(BED_SEEDS[0])
+	var ef: int = int(wf.player)
+	var bare: int = SimNeeds.make_bed(wf, 8.5, 8.5)
+	if SimNeeds.furnish_bed(wf, ef, bare) != "":
+		push_error("BED FURNISH: an empty pack furnished a bed")
+		return false
+	if SimNeeds.bed_comfort(wf, bare) > 0.0:
+		push_error("BED FURNISH: a bed nobody furnished is not bare boards")
+		return false
+	_empty_pack(wf, ef)
+	if _give(wf, ef, BEDDING_POOR) < 0 or _give(wf, ef, BEDDING_GOOD) < 0:
+		return false
+	var carried_before: int = SimInventory.carried_items(wf, ef).size()
+	var grade: String = SimNeeds.furnish_bed(wf, ef, bare)
+	if grade != "proper":
+		push_error("BED FURNISH: carrying a down bag and a foam roll, the bed took '%s' rather than the better of the two" % grade)
+		return false
+	if absf(SimNeeds.bed_comfort(wf, bare) - SimNeeds.bedding_comfort("proper")) > 0.0001:
+		push_error("BED FURNISH: the bed carries %.4f and the grade is priced at %.4f" % [SimNeeds.bed_comfort(wf, bare), SimNeeds.bedding_comfort("proper")])
+		return false
+	if SimInventory.carried_items(wf, ef).size() != carried_before - 1:
+		push_error("BED FURNISH: the bedding went into the bed and stayed in the pack")
+		return false
+	var comp: Variant = wf.components.get_component(bare, "bed")
+	if not (comp is Dictionary) or not ((comp as Dictionary)["comfort"] is float):
+		push_error("BED FURNISH: `comfort` is not a plain float on the bed component, so it will not survive a save")
+		return false
+
+	# --- PAIRED ---------------------------------------------------------------------------------
+	# Two identically seeded districts per seed. One sleeper is handed a bedroll and builds it into
+	# the bed the district sited; the other sleeps on the same bed untouched. Both nights are the
+	# cold band, because comfort is spent against a penalty and a night with no penalty has nothing
+	# for it to buy -- which is the pin above, seen from the other side.
+	var better: int = 0
+	var judged: int = 0
+	var sample_bare: float = 0.0
+	var sample_soft: float = 0.0
+	for seed_val in BED_SEEDS:
+		var wa: Variant = _world_seeded(int(seed_val))
+		var ba: int = _first_bed(wa)
+		var wb: Variant = _world_seeded(int(seed_val))
+		var bb: int = _first_bed(wb)
+		if ba < 0 or bb < 0:
+			continue
+		# Both packs are emptied, not just the one that gets the bedroll, so the only difference
+		# between the two districts is the bedding itself.
+		_empty_pack(wa, int(wa.player))
+		_empty_pack(wb, int(wb.player))
+		# The foam roll rather than the down bag on purpose: `proper` comfort would cancel the cold
+		# band outright and land the bedded night on the full-night cap, and a figure sitting on a
+		# clamp is a figure that would still sit there if the arithmetic underneath it were wrong.
+		# The middling grade leaves both nights strictly between the floor and the cap.
+		if _give(wb, int(wb.player), BEDDING_POOR) < 0:
+			return false
+		if SimNeeds.furnish_bed(wb, int(wb.player), bb) == "":
+			push_error("BED PAIRED: on seed %d the bedding would not go into the bed" % int(seed_val))
+			return false
+		var rest_bare: float = _rest_after_a_night(wa, int(wa.player), ba, "very_cold")
+		var rest_soft: float = _rest_after_a_night(wb, int(wb.player), bb, "very_cold")
+		if rest_bare <= 0.0 or rest_soft <= 0.0:
+			push_error("BED PAIRED: on seed %d a night restored nothing (bare %.3f, bedded %.3f) -- neither figure is decided" % [int(seed_val), rest_bare, rest_soft])
+			return false
+		if rest_bare >= SimNeeds.SLEEP_FULL_NIGHT - 0.001:
+			push_error("BED PAIRED: on seed %d the bare night was already a perfect one (%.3f), so there was no room for bedding to matter and the pair proves nothing" % [int(seed_val), rest_bare])
+			return false
+		if rest_soft < rest_bare:
+			push_error("BED PAIRED: on seed %d the bedroll slept worse than the boards (%.3f against %.3f)" % [int(seed_val), rest_soft, rest_bare])
+			return false
+		if rest_soft >= SimNeeds.SLEEP_FULL_NIGHT - 0.001:
+			push_error("BED PAIRED: on seed %d the bedded night landed on the full-night cap (%.3f), so the figure is a clamp rather than a measurement" % [int(seed_val), rest_soft])
+			return false
+		judged += 1
+		if rest_soft > rest_bare + 0.001:
+			better += 1
+			sample_bare = rest_bare
+			sample_soft = rest_soft
+	if judged == 0:
+		push_error("BED PAIRED: no seed sited a bed, so the pair has nothing to judge")
+		return false
+	if better != judged:
+		push_error("BED PAIRED: over %d seeds the bedding changed the night on only %d of them -- the comfort reaches the component and not the quality" % [judged, better])
+		return false
+
+	print("BEDDING OK bare boards restore exactly what they always did (%.4f, %.4f and %.4f on the three pinned scenarios); a builder spends the better of two bedrolls and the bed keeps a plain float; over %d paired districts a cold night on a foam bedroll restored %.2f against the boards' %.2f" % [
+		1.0, 1.0 - SimNeeds.SLEEP_PENALTY_TEMP_SOFT, 1.0 - SimNeeds.SLEEP_PENALTY_ROUGH, judged, sample_soft, sample_bare,
+	])
+	return true
+
+
+# Soap: the second key, and the only headroom hygiene had. A wash reaches `clean` on water alone, so
+# what a bar of soap buys is the dirtying afterwards that does not land. True positive, true
+# negative, and an exhaustion case -- a bar is a day or two of grave-digging, never an exemption.
+func _soap_buys_a_wash_that_lasts() -> bool:
+	var w: Variant = _world_seeded(BED_SEEDS[0])
+	var ent: int = int(w.player)
+
+	# Without soap: a wash cleans, and the next dirtying lands immediately.
+	var n: Dictionary = SimNeeds.of(w, ent)
+	SimNeeds.dirt(w, ent, 2)
+	if String(n.get("hygiene", "")) == "clean":
+		push_error("SOAP: two bands of dirt left the body clean, so this lane has nothing to judge")
+		return false
+	if not SimNeeds.wash_at_source(w, ent):
+		push_error("SOAP: a wash at the source was refused")
+		return false
+	if String(n.get("hygiene", "")) != "clean":
+		push_error("SOAP: a wash did not reach `clean` (%s)" % String(n.get("hygiene", "")))
+		return false
+	if int(n.get("scrubbed", 0)) != 0:
+		push_error("SOAP: a wash with no soap banked %d charges" % int(n.get("scrubbed", 0)))
+		return false
+	SimNeeds.dirt(w, ent, 1)
+	if String(n.get("hygiene", "")) == "clean":
+		push_error("SOAP: with nothing banked, a dirtying left the body clean anyway")
+		return false
+
+	# With soap: the same wash banks the grade's charges, and that many dirtyings leave the band
+	# where it is. The charges then run out -- the negative that stops this being an exemption.
+	var bar: int = _give(w, ent, SOAP_ID)
+	if bar < 0:
+		return false
+	var charges: int = int(SimNeeds.HYGIENE_SCRUBS.get("scrub", 0))
+	if charges <= 0:
+		push_error("SOAP: the shipped bar is worth no charges, so there is nothing to spend")
+		return false
+	var pocket_before: int = SimInventory.carried_items(w, ent).size()
+	if not SimNeeds.wash_at_source(w, ent):
+		push_error("SOAP: a wash with soap in the pack was refused")
+		return false
+	if int(n.get("scrubbed", 0)) != charges:
+		push_error("SOAP: a bar worth %d charges banked %d" % [charges, int(n.get("scrubbed", 0))])
+		return false
+	if SimInventory.carried_items(w, ent).size() != pocket_before - 1:
+		push_error("SOAP: the bar was spent and is still in the pack")
+		return false
+	for i in charges:
+		SimNeeds.dirt(w, ent, 1)
+		if String(n.get("hygiene", "")) != "clean":
+			push_error("SOAP: dirtying number %d got through %d banked charges" % [i + 1, charges])
+			return false
+	SimNeeds.dirt(w, ent, 1)
+	if String(n.get("hygiene", "")) == "clean":
+		push_error("SOAP: the charges never ran out -- a bar of soap is an exemption rather than a day")
+		return false
+
+	print("SOAP OK a wash with nothing banked is dirty again on the next job; a bar banks %d charges, is spent out of the pack, holds `clean` through %d dirtyings and is dirty on the one after" % [charges, charges])
 	return true
 

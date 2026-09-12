@@ -212,6 +212,43 @@ const SLEEP_DECAY: float = 0.05
 # reason SOIL_SOURCE sits outside that list (see the comment at `_apply_soiled`).
 const SLEEP_SOURCE: String = "mood.sleep"
 
+# --- what you sleep on, and what you wash with (docs/04) ----------------------------------------
+#
+# docs/04's Rest clause names bed quality *first* among the five things recovery depends on, and
+# `sleep_quality` above shipped without it for the reason its own docstring gives: there was no
+# state to read. `make_bed` spawned a bare marker carrying a position and an `occupiedBy` and
+# nothing else, so every bed in the district was the identical nothing and the factor had no data
+# to judge. This is that data -- an item base declares a `bedQuality` grade, the builder spends one
+# on the bed it is putting down, and the bed carries the comfort that grade is worth.
+#
+# Comfort is spent **against the penalties the night already has** rather than added to the total,
+# and that is the pin rather than a softening: a bed with no bedding is comfort 0.0 and moves
+# nothing, and a perfect night is still exactly SLEEP_FULL_NIGHT because quality was already 1.0
+# and there is nothing above it to lift it to. What a bedroll buys is a bad night that is less bad,
+# which is the only place there was room to put it.
+const BED_KEY: String = "bedQuality"
+# Best first -- the order `SimInventory.best_by_content_key` ranks by, the same shape SimFortify
+# hands it for `buildMaterial`.
+const BED_QUALITY_ORDER: Array[String] = ["proper", "insulated", "padded"]
+const BED_COMFORT: Dictionary = {"padded": 0.3, "insulated": 0.6, "proper": 1.0}
+# How much of a night's penalty a perfect bed can carry. Deliberately smaller than the deep cold
+# alone (SLEEP_PENALTY_TEMP_HARD): the best bedroll in the world does not make a freezing night a
+# good one, it makes it survivable.
+const SLEEP_BED_RELIEF: float = 0.3
+
+# Soap. A wash already reaches `clean` on water alone, so there is no headroom in *how* clean a
+# wash gets -- the headroom is in how long it lasts. A grade banks that many dirtying events the
+# body shrugs off, spent one at a time in `_dirt`, which is the one door hygiene walks back down.
+#
+# docs/04 says "washing needs water -- competing directly with drinking -- and soap", and only the
+# first half of that is enforced: a wash with no soap still works. Making soap *required* is a
+# rebalance of a need every colonist already has rather than an addition to it -- a district that
+# rolls no soap would have no way back from `filthy`, and `sepsis_mul` reads that band -- so it is
+# a balance call with a measurement attached and it is not taken here.
+const HYGIENE_KEY: String = "hygiene"
+const HYGIENE_ORDER: Array[String] = ["sterile", "scrub", "rinse"]
+const HYGIENE_SCRUBS: Dictionary = {"rinse": 1, "scrub": 2, "sterile": 3}
+
 # The needs that are pools rather than bands. One list, because "below SOFT costs work and mood"
 # was written out twice as a literal array and a fourth pool would have joined one of them and
 # quietly missed the other -- the same shape as the seven copies of the job countdown.
@@ -603,6 +640,8 @@ static func blank() -> Dictionary:
 		"sleepQuality": 1.0,
 		"sleepQualityTicks": 0,
 		"sleptMood": 0.0,
+		# Dirtying events a soaped wash still has left to shrug off -- a plain int, spent in `_dirt`.
+		"scrubbed": 0,
 		"stimulantUntilTick": -1,
 		"stimulantCrashRest": 0.0,
 	}
@@ -1438,9 +1477,34 @@ static func sleep_quality(world: Variant, entity: int) -> float:
 			var floor_v: float = float((world.field.calibration as Dictionary).get("floor", 0.05))
 			if noise_v > floor_v:
 				penalty += SLEEP_PENALTY_NOISE
+	# What you are lying on, spent against what the night has already charged. Before the light
+	# sleeper's multiplier on purpose: good bedding damps the disturbance itself, and what is left
+	# of it is what the trait then amplifies. A bed with no bedding is comfort 0.0 and subtracts
+	# nothing, which is the whole of the pin -- every figure this function returned before
+	# `bedQuality` existed, it still returns.
+	if on_bed:
+		penalty = maxf(0.0, penalty - SLEEP_BED_RELIEF * bed_comfort(world, int((sl as Dictionary).get("bed", -1))))
 	if has_trait(world, entity, "light_sleeper"):
 		penalty *= SLEEP_LIGHT_SLEEPER_MUL
 	return clampf(1.0 - penalty, SLEEP_QUALITY_FLOOR, 1.0)
+
+
+# What a bed is worth to lie on, 0..1. Read off the bed entity rather than re-derived from whatever
+# built it, so a saved game's bed keeps the bedding somebody spent on it: the comfort is a float on
+# a component and floats round-trip through JSON, where a reference to the item would not.
+static func bed_comfort(world: Variant, bed: int) -> float:
+	if bed < 0:
+		return 0.0
+	var b: Variant = world.components.get_component(bed, "bed")
+	if not (b is Dictionary):
+		return 0.0
+	return clampf(float((b as Dictionary).get("comfort", 0.0)), 0.0, 1.0)
+
+
+# The content read: what one authored grade is worth. An unknown or absent grade is 0.0 -- bare
+# boards -- rather than an error, because the absent case is the normal one.
+static func bedding_comfort(grade: String) -> float:
+	return clampf(float(BED_COMFORT.get(grade, 0.0)), 0.0, 1.0)
 
 
 # The quality word `slept` carries onto the HUD -- grown from a plain "bed"/"rough" into a word
@@ -1973,6 +2037,14 @@ static func dirt(world: Variant, entity: int, bands: int = 1) -> void:
 
 static func _dirt(world: Variant, entity: int, bands: int) -> void:
 	var n: Dictionary = of(world, entity)
+	# Soap, spent. A scrubbed body shrugs the dirtying off and keeps its band rather than washing
+	# to a *cleaner* band it could not reach anyway -- `wash_at_source` already lands on `clean`,
+	# so the only headroom soap ever had was in how long that lasts. One charge per event, so a bar
+	# of soap is a day or two of grave-digging and not a permanent exemption.
+	var scrubbed: int = int(n.get("scrubbed", 0))
+	if bands > 0 and scrubbed > 0:
+		n["scrubbed"] = scrubbed - 1
+		return
 	var i: int = HYG_ORDER.find(String(n.get("hygiene", "clean")))
 	if i < 0:
 		i = 0
@@ -1990,9 +2062,27 @@ static func wash(world: Variant, entity: int) -> bool:
 static func wash_at_source(world: Variant, entity: int) -> bool:
 	var n: Dictionary = of(world, entity)
 	n["hygiene"] = "clean"
+	# Soap is spent here rather than in `wash` so the colonist's Clean job at the well gets the same
+	# benefit the player's own wash does -- both doors arrive here. `maxi` rather than a sum: a
+	# second bar on top of a first tops the count up, it does not stack two bars into a week.
+	n["scrubbed"] = maxi(int(n.get("scrubbed", 0)), _spend_soap(world, entity))
 	_apply_muls(world, entity, n)
 	_scent_mul(world, entity, "clean")
 	return true
+
+
+# The best soap the washer is carrying, spent, in charges. Nothing carried is 0 and not a refusal:
+# a wash with no soap is still a wash, it just does not last.
+static func _spend_soap(world: Variant, entity: int) -> int:
+	var found: Dictionary = SimInventory.best_by_content_key(world, entity, HYGIENE_KEY, HYGIENE_ORDER, HYGIENE_KEY)
+	if found.is_empty():
+		return 0
+	var charges: int = int(HYGIENE_SCRUBS.get(String(found.get(HYGIENE_KEY, "")), 0))
+	if charges <= 0:
+		return 0
+	if not _consume_item(world, entity, int(found.get("item", -1))):
+		return 0
+	return charges
 
 
 # Water, by name: what the NPC thirst job reaches for. Same signature it always had; the +50 it
@@ -2527,11 +2617,34 @@ static func make_campfire(world: Variant, x: float, y: float, lit: bool = false)
 	return ent
 
 
-static func make_bed(world: Variant, x: float, y: float) -> int:
+static func make_bed(world: Variant, x: float, y: float, comfort: float = 0.0) -> int:
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": x, "y": y})
-	world.components.set_component(ent, "bed", {"occupiedBy": -1})
+	# `comfort` defaults to the bare boards every bed in the district was before `bedQuality`
+	# existed, so every existing caller keeps the bed it was making.
+	world.components.set_component(ent, "bed", {"occupiedBy": -1, "comfort": clampf(comfort, 0.0, 1.0)})
 	return ent
+
+
+# The builder's half: the best bedding the person putting the bed down is carrying goes into it and
+# is spent. Returns the grade that went in, or "" when they had none -- which is the ordinary case
+# and not a failure, it is what a bed of bare boards is. Called by SimJobs' Construct `bed` job, so
+# the grade reaches a bed the colony actually built rather than only one a gate hand-made.
+static func furnish_bed(world: Variant, builder: int, bed: int) -> String:
+	if builder < 0 or bed < 0:
+		return ""
+	var found: Dictionary = SimInventory.best_by_content_key(world, builder, BED_KEY, BED_QUALITY_ORDER, BED_KEY)
+	if found.is_empty():
+		return ""
+	var grade: String = String(found.get(BED_KEY, ""))
+	if bedding_comfort(grade) <= 0.0:
+		return ""
+	if not _consume_item(world, builder, int(found.get("item", -1))):
+		return ""
+	var b: Variant = world.components.get_component(bed, "bed")
+	if b is Dictionary:
+		(b as Dictionary)["comfort"] = bedding_comfort(grade)
+	return grade
 
 
 static func make_water_source(world: Variant, x: float, y: float) -> int:
