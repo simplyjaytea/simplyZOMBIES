@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **62 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **63 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,24 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — clothing: warmth, wet and cooling.** The arc's sixth slice and the fourth of the
+eight readers. `needs.gd`'s `wearing_wrap` matched the literal `"item.wrap.cloth"`, and that was the
+entire clothing-warmth system — four weather kinds shipped gated with nothing in the roster to price
+them. Warmth is per-part now, like `armor`: an open map composed by **max**, with cooling as the
+same axis negative so a sun hat and a wool hat are one mechanism. `wearing_armor`'s torso-only key
+is generalised to the whole weighed body. Twenty-five new bases, none declaring an `equipSprite`
+because `EQUIP_DRAW_ORDER` reaches only six slots and most of them sit outside it. New gate
+`npm run godot:m2:warmth` → `M2_WARMTH_OK`, nine lanes.
+
+Two things worth knowing. Its sabotage pass **reproduced the shallow-validator trap live**: a
+`warmth` block naming a body part that does not exist passed `godot:validate` clean, and only the
+new gate caught it — CLAUDE.md's trap entry now cites it. And one assertion needed **three**
+sabotages before it was ever seen to fire, because the first two tripped different assertions than
+the one written for it. An open question is named in what's-left: positive warmth moves a body
+toward comfortable on *both* sides of the ladder, so a winter coat cools you in a heat wave. That is
+the shipped cloth-wrap rule, pinned by `check_m2_heat`'s ROOF lane, not something this slice
+introduced — but changing it is the owner's call.
 
 **2026-09-12 — named items, the fourth tier.** The arc's fifth slice. `SimItems.TIERS` shipped three
 of docs/10's four; the fourth is Named — hand-authored, fixed rolls, always with a drawback — and

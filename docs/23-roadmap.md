@@ -350,13 +350,14 @@ system.
   medical grades: an item with no reader is the dead socket this whole arc exists to stop, and
   shipping one inside the slice that removed three welds would have been the joke writing itself.
   Wants a reader on the pressure channel and its own lane.
-- **Clothing, weather gear and bags.** The cold snap, the heat wave, the storm and the fog all
-  ship gated and **nothing in the roster insulates, sheds rain or cools**. The reader that exists
-  is hardcoded the same way medicine is: `needs.gd`'s `wearing_armor` feeds the heat clock and its
-  `wearing_wrap` names `item.wrap.cloth` by id. Making insulation an authored property closes both
-  hardcoded reads and gives the weather something to price. Note this group deliberately specifies
-  **only** the minimum warmth property the heat and cold clocks read; the undershirt/socks warmth
-  and hygiene *slots* stay parked until Milestone 3A where they are.
+- ~~**Clothing, weather gear and bags**~~ — **landed** 2026-09-12, see the record.
+- **Does a coat make you hotter?** Found by the warmth slice and left exactly as it was, because
+  changing it is a rule change rather than a bug fix. Positive warmth goes through `_shift_temp`,
+  which moves a body **toward comfortable on both sides of the ladder** — so a winter coat cools you
+  in a heat wave. That is the shipped cloth-wrap rule, not something the slice introduced, and
+  `check_m2_heat`'s ROOF lane pins it. Cooling, being new, is strictly colder in both weathers, so
+  the two halves of the axis are deliberately asymmetric today. Making insulation *cost* you in the
+  heat is the owner's call and it breaks that pin.
 - **Cooking and water: the transform keys.** Every raw food in the game cooks into the same meal,
   because the cook step spawns one hardcoded id, and boiling is a `baseId` rename from one literal
   to another. Two content keys — a cooks-into and a boils-into — fix both, and they are the exact
@@ -6772,6 +6773,62 @@ not a to-do list:
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
 
+- **Items** — ~~clothing: warmth, wet and cooling~~ **landed** 2026-09-12
+  (`npm run godot:m2:warmth` → **`M2_WARMTH_OK pinned content compose bands cool wet rain armour
+  art`**, a new gate with nine lanes, every one run red; `godot:m2:cold`, `godot:m2:heat`,
+  `godot:m2:storm`, `godot:m2:weather`, `godot:m2:needs`, `godot:check:water` and
+  `godot:check:worn` all held), the **sixth slice of the alpha-roster arc** and the fourth of the
+  owner's eight readers.
+
+  **One literal string was the entire clothing-warmth system.** `needs.gd`'s `wearing_wrap` matched
+  `"item.wrap.cloth"` by id, so there was exactly one garment in the game that did anything about
+  temperature and it was named in code. Four weather kinds had shipped gated — cold snap, heat wave,
+  storm, fog — with **nothing in the roster to price them**. Beside it `wearing_armor` asked the
+  `torso` key and no other, so a suit of plate on every limb but the chest read as no armour at all
+  when the sun came out. Both are gone.
+
+  **Warmth is per-part, like `armor`** (the owner's decision of 2026-09-12): an open map keyed by
+  the parts in `SURVIVOR_BODY`, composed across worn items by **max**, mirroring
+  `SimInfection.armor_coverage_of` rather than inventing a second shape. `WARMTH_WEIGHTS` weighs
+  each part by how much of a body it is — whole integers summing to a hundred, so no boundary is
+  ever decided by a float, which is the lesson the `sprites:check` float-summation bug taught this
+  repo — and `WARMTH_PER_BAND` of those points is one rung on the temperature ladder. Cooling is the
+  same axis negative, which makes a sun hat and a wool hat one mechanism instead of two; "max" on a
+  signed axis is the layer furthest from zero, which is `maxf` letter for letter wherever every
+  value is positive.
+
+  **The retrofit is exact, and holding it exact cost a design decision.** `item.wrap.cloth` gained a
+  `warmth` block and is still worth one band toward comfortable, wet or dry, in the sun as at night
+  — the two claims `check_m2_heat`'s ROOF lane and `check_m2_weather`'s COLD lane have always pinned.
+  That is *why* docs/04's wet multiplier lands on the **bands, rounded up**, rather than on the
+  points rounded down: on the points a one-band garment goes to zero and "wet and wrapped on a mild
+  day is comfortable" goes red — which is not a retrofit, it is a rebalance wearing one. What rain
+  costs is everything above the first band, so a coat and a wool hat read two bands dry and one
+  soaked. Cooling is never multiplied: a damp linen shirt is not less cool for being damp.
+
+  **A live demonstration of the shallow-validator trap, produced by the gate's own sabotage pass.**
+  A `warmth` block naming a body part that does not exist passed `npm run godot:validate` with
+  `GODOT_CONTENT_OK`. Only the new gate refused it. CLAUDE.md has carried that trap since a wrong key
+  inside an `armor` block sat for weeks giving zero arm protection; this is the same failure
+  reproduced deliberately, in a fresh block, and caught — which is the whole argument for a
+  purpose-built gate per nested shape.
+
+  **One assertion took three sabotages before it was seen to fire.** The signed-max rule has three
+  halves — the cooling half must stay negative, the warmer layer must win, and a *second cool thing
+  must not make you warmer* — and the first two sabotages each tripped a different assertion than
+  the one written for the third. A third sabotage was built specifically to prove the bandana
+  assertion could fail. It could. Without that pass the slice would have shipped an assertion nobody
+  had ever watched go red, which is the exact thing the rule exists to prevent.
+
+  **Twenty-five new bases** in `content/items/clothing.json`, across all five tables per docs/12.
+  **Not one declares an `equipSprite`**: `EQUIP_DRAW_ORDER` covers six slots and the scarf, bandana,
+  wool gloves, sandals and both vests sit outside them, so art there would never draw — and the ART
+  lane reads that table off the renderer rather than copying it, refusing any base that declares art
+  in an undrawn slot. A second key, `shedsRain`, landed beside `warmth` and is **beyond the scope
+  as written**: the defect said nothing in the roster insulates, *sheds rain* or cools, and a rain
+  poncho with only a warmth number would have been decoration. It is deliberately narrow — a poncho
+  turns the sky away and is no help in a ford, which the RAIN lane proves on `check_water`'s own
+  forest-edge fixture rather than skipping when the default district carries no water.
 - **Items** — ~~named items, the fourth tier~~ **landed** 2026-09-12
   (`npm run godot:m2:gear` → **`M2_GEAR_OK … and the six named items are hand-authored, off both
   ladders, and each one charged for what it gives`**, a new NAMED lane with four sub-lanes;
