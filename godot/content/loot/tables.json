@@ -15,7 +15,7 @@
     "entries": [
       {
         "item": "item.food.canned",
-        "weight": 6,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 3
@@ -23,7 +23,7 @@
       },
       {
         "item": "item.food.raw",
-        "weight": 5,
+        "weight": 4,
         "count": {
           "min": 1,
           "max": 2
@@ -223,7 +223,7 @@
       },
       {
         "item": "item.soda.can",
-        "weight": 4,
+        "weight": 3,
         "count": {
           "min": 1,
           "max": 2
@@ -231,11 +231,11 @@
       },
       {
         "item": "item.juice.carton",
-        "weight": 3
+        "weight": 2
       },
       {
         "item": "item.food.crackers",
-        "weight": 3,
+        "weight": 2,
         "count": {
           "min": 1,
           "max": 3
@@ -243,7 +243,7 @@
       },
       {
         "item": "item.food.chocolate",
-        "weight": 2,
+        "weight": 1,
         "count": {
           "min": 1,
           "max": 2
@@ -251,7 +251,7 @@
       },
       {
         "item": "item.food.jerky",
-        "weight": 2,
+        "weight": 1,
         "count": {
           "min": 1,
           "max": 2
@@ -283,7 +283,7 @@
       },
       {
         "item": "item.food.dogfood.tin",
-        "weight": 3,
+        "weight": 2,
         "count": {
           "min": 1,
           "max": 3
@@ -291,7 +291,7 @@
       },
       {
         "item": "item.food.pickles.jar",
-        "weight": 3
+        "weight": 2
       },
       {
         "item": "item.coffee.instant",
@@ -628,6 +628,58 @@
       {
         "item": "item.oil.lamp",
         "weight": 3
+      },
+      {
+        "item": "item.food.roots.foraged",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.food.grubs.foraged",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.dough.raw",
+        "weight": 1
+      },
+      {
+        "item": "item.food.beans.dry",
+        "weight": 1
+      },
+      {
+        "item": "item.food.offal",
+        "weight": 1
+      },
+      {
+        "item": "item.food.fruit.windfall",
+        "weight": 1,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.canteen.untreated",
+        "weight": 2
+      },
+      {
+        "item": "item.pot.camp",
+        "weight": 3
+      },
+      {
+        "item": "item.tablets.purification",
+        "weight": 2,
+        "count": {
+          "min": 2,
+          "max": 8
+        }
       }
     ]
   },
@@ -647,7 +699,7 @@
     "entries": [
       {
         "item": "item.food.canned",
-        "weight": 8,
+        "weight": 6,
         "count": {
           "min": 2,
           "max": 4
@@ -655,7 +707,7 @@
       },
       {
         "item": "item.food.raw",
-        "weight": 6,
+        "weight": 5,
         "count": {
           "min": 1,
           "max": 3
@@ -663,7 +715,7 @@
       },
       {
         "item": "item.water.bottle",
-        "weight": 12,
+        "weight": 11,
         "count": {
           "min": 1,
           "max": 3
@@ -863,7 +915,7 @@
       },
       {
         "item": "item.soda.can",
-        "weight": 5,
+        "weight": 4,
         "count": {
           "min": 1,
           "max": 3
@@ -871,7 +923,7 @@
       },
       {
         "item": "item.food.chocolate",
-        "weight": 3,
+        "weight": 2,
         "count": {
           "min": 1,
           "max": 3
@@ -975,7 +1027,7 @@
       },
       {
         "item": "item.food.pickles.jar",
-        "weight": 3,
+        "weight": 2,
         "count": {
           "min": 1,
           "max": 2
@@ -983,7 +1035,7 @@
       },
       {
         "item": "item.coffee.instant",
-        "weight": 5,
+        "weight": 4,
         "count": {
           "min": 1,
           "max": 3
@@ -1019,11 +1071,11 @@
       },
       {
         "item": "item.food.rice.dry",
-        "weight": 3
+        "weight": 2
       },
       {
         "item": "item.food.pasta.dry",
-        "weight": 3,
+        "weight": 2,
         "count": {
           "min": 1,
           "max": 2
@@ -1031,11 +1083,11 @@
       },
       {
         "item": "item.food.flour.sack",
-        "weight": 2
+        "weight": 1
       },
       {
         "item": "item.food.oats",
-        "weight": 2
+        "weight": 1
       },
       {
         "item": "item.food.noodles.instant",
@@ -1047,7 +1099,7 @@
       },
       {
         "item": "item.food.sweets",
-        "weight": 2,
+        "weight": 1,
         "count": {
           "min": 1,
           "max": 2
@@ -1292,6 +1344,58 @@
       {
         "item": "item.armorpart.pocket.pouch",
         "weight": 5
+      },
+      {
+        "item": "item.food.fish.fresh",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.meat.game",
+        "weight": 2
+      },
+      {
+        "item": "item.food.beans.dry",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.food.dough.raw",
+        "weight": 1
+      },
+      {
+        "item": "item.food.meat.strips",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.canteen.untreated",
+        "weight": 3
+      },
+      {
+        "item": "item.stove.camp",
+        "weight": 3
+      },
+      {
+        "item": "item.pot.camp",
+        "weight": 4
+      },
+      {
+        "item": "item.tablets.purification",
+        "weight": 3,
+        "count": {
+          "min": 2,
+          "max": 10
+        }
       }
     ]
   },
@@ -1536,6 +1640,14 @@
         "count": {
           "min": 1,
           "max": 2
+        }
+      },
+      {
+        "item": "item.tablets.purification",
+        "weight": 6,
+        "count": {
+          "min": 2,
+          "max": 8
         }
       }
     ]
@@ -2041,6 +2153,26 @@
       {
         "item": "item.armorpart.pocket.pouch",
         "weight": 8
+      },
+      {
+        "item": "item.tablets.purification",
+        "weight": 5,
+        "count": {
+          "min": 4,
+          "max": 12
+        }
+      },
+      {
+        "item": "item.stove.camp",
+        "weight": 3
+      },
+      {
+        "item": "item.pot.camp",
+        "weight": 4
+      },
+      {
+        "item": "item.filter.pump",
+        "weight": 2
       }
     ]
   },
@@ -2429,6 +2561,18 @@
       {
         "item": "item.armorpart.plate.steel",
         "weight": 3
+      },
+      {
+        "item": "item.stove.camp",
+        "weight": 4
+      },
+      {
+        "item": "item.pot.camp",
+        "weight": 3
+      },
+      {
+        "item": "item.filter.pump",
+        "weight": 2
       }
     ]
   }

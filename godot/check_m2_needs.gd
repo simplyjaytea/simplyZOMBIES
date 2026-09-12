@@ -105,6 +105,18 @@ func _bands() -> bool:
 
 func _verbs() -> bool:
 	var w: Variant = _world()
+	# Nothing cookable on the pile before the first step. This lane is about what E does, and one
+	# of its claims is that a second E douses the fire the first one lit -- but a colonist cooking
+	# is `SimJobs._do_cook` calling `set_lit(fire, true, true)` every tick it works, so a cook
+	# assigned anywhere in the district holds that fire open and the douse silently loses. Since
+	# the transform slice it is *content* that decides what can be cooked, so which loot the
+	# district rolls onto its stockpile decides whether this lane has a second actor in it. It is
+	# cleared rather than relied on: a lane that passes because the seed happened to roll a mask
+	# instead of a sack of potatoes is a lane one loot edit away from red, and the cook keeping its
+	# own fire lit is correct behaviour that belongs to check_m2_jobs.
+	for item in SimNeeds.stockpile_items(w):
+		if not SimJobs.cooks_into(w, int(item)).is_empty():
+			w.components.remove(int(item), "position")
 	var food: int = SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
 	if not SimInventory.stow(w, w.player, food):
 		push_error("stow food")

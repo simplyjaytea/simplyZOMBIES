@@ -469,6 +469,14 @@ static func _use_context(world: Variant, actor: int) -> void:
 				return
 			Needs.call("toggle_fire", world, fire)
 			return
+		# No fire in reach, and that is the whole point of this rung: docs/04's other two routes to
+		# safe water -- filters and chemicals -- are the ones you can use standing in a stranger's
+		# kitchen. It sits *below* the fire because a fire costs nothing and a filter has a finite
+		# number of litres in it, and it is guarded by both halves (something untreated in the pack
+		# and something that treats it), so on a body carrying neither the ladder falls through to
+		# the latrine exactly as it always did.
+		if bool((Needs.call("purify", world, actor) as Dictionary).get("ok", false)):
+			return
 		# The latrine, before the reach-bed fallback: a bed you are merely near is somewhere to
 		# sleep later, and this is not something anybody is standing next to by accident.
 		var latrine: int = int(Needs.call("nearest_latrine", world, hx, hy))
