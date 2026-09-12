@@ -32,6 +32,26 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-12 — named items, the fourth tier.** The arc's fifth slice. `SimItems.TIERS` shipped three
+of docs/10's four; the fourth is Named — hand-authored, fixed rolls, always with a drawback — and
+the six items docs/10 specifies are content now. The tier row carries `authored: true` (off the
+upgrade ladder) and `weight: 0` (out of the global roll), both routed through a new
+`rollable_tiers()`, which is the one place a *climb* and a *lookup* are told apart.
+
+**Three of the six drawbacks needed a reader that did not exist**, and this is the part worth
+knowing. `melee.gd` published its connect noise as a **literal**, so no weapon in the game could be
+heard further than any other; `connectNoise` is content now, defaulted to that same constant so
+nothing shipped moved. `attention_emitter.gd` adds worn scent to what a body gives off — summed
+rather than maxed, deliberately unlike `armor_coverage_of`, because two helmets do not armour a head
+twice but two filthy things do smell worse. And a wound taken while holding something `filthy` is
+flagged and priced as a sixth term in the sepsis product. Three drawbacks could **not** be expressed
+and were not faked: there is no bite-risk stat, **no zombie declares armour of any kind**, and
+`repair_cost` still resolves against nothing.
+
+Two of its lanes could not fail and the slice caught both itself — one was measuring heft and
+reporting handling. And `check_loot.gd`'s `TIER_IDS` was a stale hardcoded copy that refused the new
+tier correctly while its message said something untrue; it derives from `rollable_tiers()` now.
+
 **2026-09-12 — build materials, the substance that is not scrap.** The arc's fourth slice. One item
 id, `item.scrap.metal`, was welded into a `SCRAP_ID` constant in `fortify.gd` and into a second
 identical copy in `jobs.gd`, and between them those two lines made it the only substance in the game
