@@ -415,7 +415,11 @@ system.
   37% reduction**, on the one seed where contact stayed identical between runs. So the mechanic is
   real, gated and measured, and **the shipped colony still fights in shirtsleeves**. Closing that is
   acquisition — a starting kit, or colonists who choose to wear what they find — and it is larger
-  than the slice that revealed it.
+  than the slice that revealed it. **Scheduled by the owner on 2026-09-12: its own slice, after the
+  arc's remaining content pieces.** It has a second half worth as much as the first: **a harness
+  tier that dresses people.** Every future combat slice has the identical blind spot, and without it
+  the arc's own reserved re-baseline will measure a colony wearing none of the content the arc
+  added.
 - **A plate that degrades as it stops blows.** Armour parts declare no `wearsOn`, and deliberately:
   `WEAR_EVENTS`' `"hit"` means *the weapon you swung connected* and fires on the attacker's item,
   not the target's garment, so declaring it would have been a dead socket. Wants a new wear word
