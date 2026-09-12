@@ -17,6 +17,9 @@ const SimCombat = preload("res://sim/combat.gd")
 const SimClock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+# For the base behind an equipped item, when a wound asks what the body was holding when it got it.
+# Safe to preload: items.gd preloads nothing, so it cannot be the far end of a cycle.
+const SimItemsRes = preload("res://sim/modules/items.gd")
 
 # "Bite" is a *kind* (docs/05: "as laceration, plus infection"), not a severity. Keeping it
 # out of this enum is deliberate -- a bite's severity is computed by severity_for exactly
@@ -428,6 +431,17 @@ const SEPSIS_CLEAN_MUL: Dictionary = {
 # future tier could zero the risk, and "cleaned it properly, so it cannot go septic" is certainty
 # the player is not supposed to have.
 const SEPSIS_CLEAN_MIN_MUL: float = 0.40
+# docs/10's Tetanus Special: "any damage you take while holding it risks a serious infection". A
+# wound got while the body was holding something filthy is a dirtier wound, and this is what says
+# so. Code owns the number and content owns the fact -- a base declares the flat top-level
+# `filthy` and nothing else, exactly as `bandageTier` names a grade and SEPSIS_BANDAGE_MUL prices
+# it, so the calibration sits beside the four multipliers it has to stay in proportion with.
+#
+# It is a multiplier in the same product rather than a floor or an override, which means a clean
+# and a sterile dressing discount it like everything else: carrying the pipe is a standing cost you
+# can work against, not a sentence. At 3.0 against SEPSIS_BASE_BY_SEVERITY a laceration taken over
+# it runs about 18% a night before any care and about 3% after a good clean and a sterile dressing.
+const SEPSIS_FILTHY_MUL: float = 3.0
 # "...and treatment skill." Each Medicine point buys this much off the chance, floored so a good
 # medic never makes a dirty wound safe.
 const SEPSIS_SKILL_RELIEF: float = 0.08
@@ -617,8 +631,27 @@ static func append_wound(world: Variant, entity: int, kind: String, part: String
 		# ever advances on a tick the survivor was fed and idle.
 		"healedTicks": 0,
 	}
+	# Filthy in the hand, filthy in the wound -- docs/10's Tetanus Special. Asked once, here, when
+	# the wound is made, and written onto the wound rather than re-derived at dusk from whatever the
+	# survivor happens to be holding then: a wound is dirty because of how it was got, and dropping
+	# the pipe afterwards does not make a cut that was opened over it clean. A plain bool, and only
+	# written when it is true, so every wound this codebase has ever made is byte-identical and the
+	# key round-trips a save intact.
+	if _holding_something_filthy(world, entity):
+		wound["filthy"] = true
 	wounds.append(wound)
 	return wound
+
+
+# Whether anything this body has equipped declares itself filthy. The flat top-level `filthy` on an
+# item base is the whole vocabulary -- one boolean, so the shallow content validator actually
+# enforces it, which is the same reason `bandageTier` and `empties` are flat scalars.
+static func _holding_something_filthy(world: Variant, entity: int) -> bool:
+	for item in SimInventory.equipped_items(world, entity):
+		var base: Variant = SimItemsRes.item_base_of(world, int(item))
+		if base is Dictionary and bool((base as Dictionary).get("filthy", false)):
+			return true
+	return false
 
 
 # Family (a): blood loss impairs everything, entity-scoped, one band's worth (not
@@ -894,7 +927,11 @@ static func roll_sepsis(world: Variant, entity: int, hygiene_mul: float, medicin
 	return caught
 
 
-# The **five** factors docs/05 names, in one expression so no caller can apply four of them.
+# The **five** factors docs/05 names plus docs/10's one, in one expression so no caller can apply
+# some of them. The sixth -- `filthy` -- is the odd one out and deliberately joins the product
+# rather than sitting outside it: it comes from the weapon the victim was holding, not from how the
+# wound was cared for, but pricing it anywhere else would have made it the one risk a good medic
+# cannot work against.
 # Severity is the base; hygiene, whether it was cleaned, bandage cleanliness and treatment skill are
 # multipliers on it.
 #
@@ -919,7 +956,11 @@ static func sepsis_chance(wound: Dictionary, hygiene_mul: float, medicine_skill:
 	if bool(wound.get("cleaned", false)):
 		var grade: String = String(wound.get("cleanTier", "none"))
 		clean_mul = maxf(SEPSIS_CLEAN_MIN_MUL, float(SEPSIS_CLEAN_MUL.get(grade, float(SEPSIS_CLEAN_MUL["none"]))))
-	return clampf(base * maxf(0.0, hygiene_mul) * bandage_mul * skill_mul * clean_mul, 0.0, 1.0)
+	# The sixth term, and the only one that is a property of the *weapon in the victim's hands*
+	# rather than of the wound's care: append_wound flagged this when the wound was made. It goes
+	# through the same product as the rest so a clean and a good dressing still discount it.
+	var filth_mul: float = SEPSIS_FILTHY_MUL if bool(wound.get("filthy", false)) else 1.0
+	return clampf(base * maxf(0.0, hygiene_mul) * bandage_mul * skill_mul * clean_mul * filth_mul, 0.0, 1.0)
 
 
 static func is_septic(world: Variant, entity: int) -> bool:

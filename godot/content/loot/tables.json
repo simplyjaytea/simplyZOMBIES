@@ -1677,6 +1677,30 @@
       {
         "item": "item.wire.barbed",
         "weight": 3
+      },
+      {
+        "item": "item.named.sirens_bell",
+        "weight": 1
+      },
+      {
+        "item": "item.named.long_argument",
+        "weight": 1
+      },
+      {
+        "item": "item.named.deer_rifle",
+        "weight": 1
+      },
+      {
+        "item": "item.named.tetanus_special",
+        "weight": 1
+      },
+      {
+        "item": "item.named.quietkeeper",
+        "weight": 1
+      },
+      {
+        "item": "item.named.butchers_apron",
+        "weight": 1
       }
     ]
   },
