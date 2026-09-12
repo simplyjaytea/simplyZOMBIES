@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **61 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **62 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,23 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — build materials, the substance that is not scrap.** The arc's fourth slice. One item
+id, `item.scrap.metal`, was welded into a `SCRAP_ID` constant in `fortify.gd` and into a second
+identical copy in `jobs.gd`, and between them those two lines made it the only substance in the game
+that could build anything. A recipe now names a **kind** and an item declares one in `buildMaterial`
+(a flat scalar under a twelve-value enum); the owner's call was typed kinds at **uniform cost**, so
+per-recipe quantity stays closed — it is entangled with `repair_cost`, a stat nothing resolves.
+Thirty new bases across docs/12's gathered and refined tier. New gate `npm run godot:m2:materials`
+→ `M2_MATERIALS_OK`, six lanes, eleven sabotages.
+
+Two things to know. **The loot placement is additive, unlike the two slices before it** — materials
+are a new category so there was nothing to split, and every prior category keeps its weight while
+losing share (industrial dilutes **+21.3%**, the rest under 8%). That is the one number here worth a
+second opinion and the reserved re-baseline is what answers it. And **eleven of the twelve kinds are
+unspent**: three recipes exist and all three want metal, so the slice landed a vocabulary rather
+than an economy. `check_m2_materials.gd`'s RECIPES lane prints that count on every run rather than
+letting it go quiet, and the remainder is its own piece in what's-left.
 
 **2026-09-12 — the mask that filters.** The arc's third slice and the second of the eight readers.
 A bloater's contamination cloud rolled every survivor on flat proximity and never looked at what

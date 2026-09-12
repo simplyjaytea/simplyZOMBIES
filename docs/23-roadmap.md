@@ -356,12 +356,13 @@ system.
   grammar of `empties`, which already ships and is already read, so this is the cheapest reader in
   the arc. With them ingredients become distinct meals, and a filter or a tablet can purify without
   a campfire, which is what docs/04's "filters or chemicals" has meant all along.
-- **Build materials: the substance that is not scrap.** `item.scrap.metal` is hardcoded in two
-  separate files and is the only substance in the game that can build anything — eleven bases carry
-  `class: "material"` and not one of them can raise a barricade. A material key with a per-recipe
-  cost replaces both literals and lets docs/12's gathered and refined tier exist at all: wood,
-  planks, stone, plant fibre, cordage, nails, ingots, charcoal, clay, wire. That whole class of the
-  resources doc is promised today and backed by nothing.
+- ~~**Build materials: the substance that is not scrap**~~ — **landed** 2026-09-12, see the record.
+- **Buildables for the other eleven kinds.** The materials slice landed the vocabulary, the content
+  and the loot; what it could not land is an economy. Three recipes exist and **all three want
+  metal**, so wood, planks, stone, fibre, cordage, fixings, ingots, charcoal, clay, wire and
+  circuits are declared, findable, read end to end — and unspent. `check_m2_materials.gd`'s RECIPES
+  lane prints the count and the names on every run rather than letting it go quiet. What closes it
+  is docs/12's own list: a timber wall, a stone course, a wire fence.
 - **Light that burns down, and what feeds it.** Lights burn for ever, which is why `item.battery`
   is an inert material and why the electric lamp is strictly better than a candle at every moment
   of the game. A burn clock and a feeding path fix that, and the same piece adopts three items that
@@ -6762,6 +6763,56 @@ not a to-do list:
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
 
+- **Items** — ~~build materials: the substance that is not scrap~~ **landed** 2026-09-12
+  (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes`**, a
+  new gate whose six lanes were each broken and watched go red; `godot:m2:fortify`, `godot:m2:jobs`,
+  `godot:m2:bench`, `godot:m2:gear` and `godot:check:loot` all held), the **fourth slice of the
+  alpha-roster arc** and the third of the owner's eight readers.
+
+  **One item id was the only substance in the game that could build anything**, and it was welded
+  twice: `SCRAP_ID` in `fortify.gd` and a second, identical copy of the same constant in `jobs.gd`.
+  Eleven `material`-class bases shipped beside it — a bolt of cloth, a battery, duct tape, rags, a
+  whetstone — and not one could put a plank across a doorway, while docs/12 promised a gathered and
+  refined tier on top of that which did not exist at all. Both welds are gone. A recipe names a
+  **kind**; an item declares which kind it is in `buildMaterial`, a flat scalar under a twelve-value
+  enum — the shape `bandageTier` and `antibioticTier` set, because the Godot validator is shallow
+  and a top-level enum is the only shape it actually enforces. The owner's decision of 2026-09-12,
+  **typed materials, uniform cost**: one unit a stage, per-recipe quantity deliberately left closed
+  because `repair_cost` (a stat nothing resolves, on the defect list) is entangled with it.
+
+  **Thirty new bases, twelve kinds**, in `godot/content/items/materials.json`, placed on docs/12's
+  yield profile: salvaged timber and nails in the houses, rope and charcoal and clay in the shops,
+  sheet metal, rebar, ingots, screws and circuit boards in the industrial park, lead and barbed wire
+  and relays in the military cache.
+
+  **The loot placement is additive, and that is a departure from the two slices before it.** Ammo
+  and food both held their category totals byte-identical by splitting existing rows; build
+  materials are a **new** category, so there was nothing to divide from and nothing existing was
+  trimmed. Every prior category therefore keeps its absolute weight and loses share: residential
+  +7.7%, commercial +6.0%, medical +2.2%, military +4.4%, **industrial +21.3%**. Industrial is the
+  materials location by docs/12 and had the fewest rows of any table, so it carries the biggest
+  haul by design — but it is the one number in this slice worth a second opinion, and the reserved
+  re-baseline is what will answer it. Written down rather than left for someone to discover in a
+  seed that moved.
+
+  **PINNED has a half that is easy to break by accident**, and it is the reason this retrofit is
+  auditable: as well as holding one barricade to one unit, one bench to `BENCH_SCRAP` and the Repair
+  job to metal, it asserts **by name** that the five verbs which cost nothing before this slice —
+  window, alarm, noisemaker, wind, camp — still cost nothing after it. Charging for a window board
+  would make the cheapest fortification conditional on loot, which is a balance decision and the
+  owner's to take; now anyone who adds one gets a red build and has to mean it.
+
+  **A gate that blamed the code under test, caught and fixed during the sabotage pass.** KIND's
+  original "the refused branch was not spent" assertion read a derived count, and under one sabotage
+  it went red saying *the refused channel spent the branch anyway* — a true failure with the wrong
+  story, which CLAUDE.md calls the worst thing a gate can do. It now asks the inventory whether the
+  item is still there rather than asking a count, and carries an explicit precondition that the
+  branch really is wood, so the lane names the real defect.
+
+  **What shipped is half of it, and the build log says so on every run.** Twelve kinds are declared,
+  findable and wired end to end; **three recipes exist and all three want metal**, so eleven kinds
+  have nothing to spend them on yet. The RECIPES lane prints that count and those names every time
+  rather than letting it go quiet, and the remainder is named as its own piece in what's-left.
 - **Items** — ~~the mask that filters~~ **landed** 2026-09-12
   (`npm run godot:m2:filter` → **`M2_FILTER_OK content worn max bloom cloud notsafe pinned`**, a new
   gate whose seven lanes were each broken and watched go red before they were trusted;
