@@ -20,6 +20,21 @@ enum FireState { Idle = 0, Raise = 1, Steady = 2, Recover = 3, Reload = 4, Clear
 const CLEAR_JAM_MULTIPLIER: float = 2.0
 const MIN_CLEAR_TICKS: int = 30
 
+# Profile fields a *round* is allowed to scale, for the one shot that spends it. The same
+# arrangement as SimAttachments.SCALABLE and for the same reason: folding "whatever key matches"
+# would let a typo -- `range`, `dammage` -- behave exactly like a plain round, which is the
+# hardest bug in this codebase to see. check_m2_ammo.gd's SCALES lane asserts both directions,
+# so a field in here that no shipped round scales is as red as a round scaling a field not in it.
+#
+# Deliberately smaller than SCALABLE: `magSize`, `reloadTicks` and `handling` are properties of
+# the weapon and the magazine, not of the round in it, and a round that changed them would be an
+# attachment wearing the wrong hat. `jamChance` is absent for a different reason -- it is derived
+# from the condition band rather than authored (SimItems.JAM_CHANCE_BY_BAND), so a round that
+# multiplied it would break the coupling docs/30 keeps between the word the screen shows for a
+# weapon and how that weapon actually feeds. docs/09's hand-loaded round wants exactly that and
+# is named in docs/23's what's-left rather than faked here.
+const AMMO_SCALABLE: Array[String] = ["damage", "noise", "flash", "rangeMetres", "cone", "recoverable"]
+
 const FLASH_TICKS: int = 4
 const WIDE_HALF: float = 0.55
 const TIGHT_HALF: float = 0.18
@@ -256,7 +271,7 @@ static func try_begin_fire(world: Variant, entity: int) -> bool:
 	var r: Dictionary = rw as Dictionary
 	if int(r.get("magSize", 0)) > 0 and int(r.get("mag", 0)) <= 0:
 		return _begin_reload(world, entity, r)
-	if String(r.get("ammo", "")) != "" and not _has_ammo(world, entity, String(r["ammo"])):
+	if _wants_ammo(r) and _pick_round(world, entity, r) == "":
 		return false
 	r["state"] = FireState.Raise
 	r["ticksLeft"] = _raise_of(r)
@@ -309,8 +324,8 @@ static func _idle_weapon(world: Variant, entity: int) -> Variant:
 
 
 static func _begin_reload(world: Variant, entity: int, r: Dictionary) -> bool:
-	if String(r.get("ammo", "")) != "" and int(r.get("magSize", 0)) > 0:
-		if not _has_ammo(world, entity, String(r["ammo"])):
+	if _wants_ammo(r) and int(r.get("magSize", 0)) > 0:
+		if _pick_round(world, entity, r) == "":
 			return false
 	r["state"] = FireState.Reload
 	r["ticksLeft"] = maxi(1, int(r.get("reloadTicks", 24)))
@@ -343,12 +358,121 @@ static func _abandon_aim(world: Variant, entity: int) -> void:
 		(rw as Dictionary)["ticksLeft"] = 0
 
 
-static func _has_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
+# Whether this weapon needs a round at all. A bow declares one, a thrown rock would not, and the
+# question is asked in three places -- the trigger, the reload and the shot -- so it is written
+# once rather than three times as `String(r.get("ammo", "")) != ""`.
+static func _wants_ammo(weapon: Dictionary) -> bool:
+	return String(weapon.get("ammo", "")) != ""
+
+
+## Which round this actor will actually put in this weapon, or "" when they are carrying none it
+## takes. The preferred round first -- `ranged.ammo`, the base every shipped weapon's numbers were
+## authored against -- then any carried round whose `ammo.caliber` matches the weapon's
+## `ranged.caliber`.
+##
+## Preference first is what makes this slice additive: a survivor carrying only the default round
+## picks it on the first pass, so every existing fixture, parity run and balance seed sees exactly
+## the sequence it saw before. The fallback only fires when the preferred round has run out, which
+## is a case that previously read as "no ammunition" while there were rounds in the pocket.
+##
+## The fallback picks the first compatible round **by base id**, which is arbitrary on purpose and
+## stable on purpose. Arbitrary, because which round is "best" depends on what you are shooting at
+## -- a slug is worse than buckshot against a crowd -- so ranking them in code would be the sim
+## making a tactical choice on the player's behalf. Stable, because the alternative is carry order,
+## and that would make *which round you fire* a function of where in the pack you dropped it: the
+## same answer moving because a bag was tidied, with nothing to tell the player why.
+##
+## Choosing deliberately is a verb on the inventory sheet and is named in docs/23's what's-left.
+## Until it exists, a weapon fires its preferred round and then whatever else fits, in a fixed
+## order -- and the record says that is the half that shipped.
+static func _pick_round(world: Variant, actor: int, weapon: Dictionary) -> String:
+	var preferred: String = String(weapon.get("ammo", ""))
+	if preferred == "":
+		return ""
+	if _carries_base(world, actor, preferred):
+		return preferred
+	var caliber: String = String(weapon.get("caliber", ""))
+	if caliber == "":
+		return ""
+	# Sorted by base id, not taken in carry order. `carried_items` walks the grid, so an unsorted
+	# pick would make *which round you fire* a function of where in the pack you happened to drop
+	# it -- the same answer moving because a bag was tidied, with nothing to tell the player why.
+	# A plain Array because it is appended to through a local: a PackedStringArray reached through
+	# a Dictionary is the value-copy trap, and this is the shape that keeps it impossible.
+	var candidates: Array = []
 	for item in SimInventoryRes.carried_items(world, actor) as Array:
 		var base: Variant = SimItemsRes.item_base_of(world, int(item))
-		if base is Dictionary and String((base as Dictionary).get("id", "")) == ammo_id:
+		if not base is Dictionary:
+			continue
+		var spec: Variant = (base as Dictionary).get("ammo")
+		if not spec is Dictionary:
+			continue
+		if String((spec as Dictionary).get("caliber", "")) != caliber:
+			continue
+		var cid: String = String((base as Dictionary).get("id", ""))
+		if not candidates.has(cid):
+			candidates.append(cid)
+	if candidates.is_empty():
+		return ""
+	candidates.sort()
+	return String(candidates[0])
+
+
+static func _carries_base(world: Variant, actor: int, base_id: String) -> bool:
+	for item in SimInventoryRes.carried_items(world, actor) as Array:
+		var base: Variant = SimItemsRes.item_base_of(world, int(item))
+		if base is Dictionary and String((base as Dictionary).get("id", "")) == base_id:
 			return true
 	return false
+
+
+## The multipliers one round folds over the weapon for the shot that spends it, whitelisted
+## against AMMO_SCALABLE. Unknown keys are dropped rather than applied -- see the constant.
+##
+## Returns a plain Dictionary of field -> multiplier, never the weapon: `_fire_shot`'s `weapon`
+## argument is the live `rangedWeapon` component, and multiplying its fields in place would scale
+## the gun permanently, compounding once per shot. The round's effect is the shot's, not the
+## weapon's.
+static func ammo_scale(world: Variant, ammo_id: String) -> Dictionary:
+	var out: Dictionary = {}
+	if ammo_id == "":
+		return out
+	var base: Variant = SimItemsRes.content_entry(world, "item", ammo_id)
+	if not base is Dictionary:
+		return out
+	var spec: Variant = (base as Dictionary).get("ammo")
+	if not spec is Dictionary:
+		return out
+	var table: Variant = (spec as Dictionary).get("ranged")
+	if not table is Dictionary:
+		return out
+	for field_v in (table as Dictionary).keys():
+		var field: String = String(field_v)
+		if not AMMO_SCALABLE.has(field):
+			continue
+		out[field] = float((table as Dictionary)[field_v])
+	return out
+
+
+# One field of the profile with the round's multiplier already on it. Absent from the table means
+# the round says nothing about this field, which is 1.0 -- never 0.0, which is what a bare
+# `scale.get(field, 0.0)` would have made of every field a plain round leaves alone.
+static func _with_ammo(scale: Dictionary, field: String, value: float) -> float:
+	return value * float(scale.get(field, 1.0))
+
+
+# The cone is the one folded field that is re-clamped rather than merely multiplied, and it is
+# clamped to the bounds `_refresh_cone` uses rather than to bounds of its own. `WIDE_HALF` is what
+# the cone means at its widest -- a sprint, a ruined arm, a body out of breath all stop there -- so
+# a round allowed past it would be saying the shot is less aimed than any human condition can make
+# it, which is a statement about the sim's own ceiling and not about ammunition. Birdshot at 1.7
+# therefore reaches the cap and stops, which is the honest answer: it is as wide as wide gets.
+#
+# Widening past `WIDE_HALF` is reserved for the aim slice in docs/23's what's-left, which needs it
+# for a different reason and says so; a round quietly getting there first would take that lane's
+# true positive away before it was written.
+static func _cone_with_ammo(scale: Dictionary, half: float) -> float:
+	return clampf(half * float(scale.get("cone", 1.0)), TIGHT_HALF * 0.75, WIDE_HALF)
 
 
 static func _consume_ammo(world: Variant, actor: int, ammo_id: String) -> bool:
@@ -397,9 +521,21 @@ static func can_target(world: Variant, shooter: int, x: float, y: float) -> bool
 
 
 static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: Variant) -> void:
-	if String(weapon.get("ammo", "")) != "":
-		if not _consume_ammo(world, attacker, String(weapon["ammo"])):
+	# The round is picked and spent before anything else can refuse, and the shot is scaled by the
+	# one that was actually spent -- not by the one the weapon prefers. A survivor down to their
+	# last slugs fires a slug, and `scale` is what says so for the rest of this function.
+	#
+	# `scale` is a local. Every read below multiplies through `_with_ammo` rather than writing the
+	# product back into `weapon`, because `weapon` is the live `rangedWeapon` component (it is
+	# mutated two lines down) and a product written there would scale the gun itself, compounding
+	# once per shot until a shotgun did a thousand damage. A round's effect belongs to the shot.
+	var scale: Dictionary = {}
+	var round_id: String = ""
+	if _wants_ammo(weapon):
+		round_id = _pick_round(world, attacker, weapon)
+		if round_id == "" or not _consume_ammo(world, attacker, round_id):
 			return
+		scale = ammo_scale(world, round_id)
 	if int(weapon.get("magSize", 0)) > 0:
 		weapon["mag"] = maxi(0, int(weapon.get("mag", 0)) - 1)
 	var from: Variant = world.components.get_component(attacker, "position")
@@ -412,9 +548,11 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 	var facing_x: float = cos(facing)
 	var facing_y: float = sin(facing)
 	_refresh_cone(world, attacker, weapon)
-	var half: float = float(weapon.get("coneHalf", TIGHT_HALF))
+	# After `_refresh_cone`, which recomputes `coneHalf` on the weapon -- fold here or the round
+	# scales a number that is about to be overwritten. Birdshot opens the cone; a slug tightens it.
+	var half: float = _cone_with_ammo(scale, float(weapon.get("coneHalf", TIGHT_HALF)))
 	var cos_half: float = cos(half)
-	var reach: float = float(weapon.get("rangeMetres", 30))
+	var reach: float = _with_ammo(scale, "rangeMetres", float(weapon.get("rangeMetres", 30)))
 	var limit_sq: float = reach * reach
 	var best: Variant = null
 	var best_dist: float = 1e9
@@ -444,18 +582,19 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 			best = int(entity)
 			impact_x = float((there as Dictionary)["x"])
 			impact_y = float((there as Dictionary)["y"])
-	var mag: float = float(weapon.get("noise", 4))
+	var mag: float = _with_ammo(scale, "noise", float(weapon.get("noise", 4)))
 	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": mag, "source": attacker})
 	# A round left the weapon. Published here rather than at the trigger because everything above
 	# this line can still refuse -- no ammo, no position, no facing -- and a shot that did not
 	# happen must not wear anything. This is the channel a firearm degrades on: it wears from
 	# firing, whether or not the round found a body.
 	world.events.publish({"type": "weapon.fired", "entity": attacker, "item": int(weapon.get("source", -1))})
-	if float(weapon.get("flash", 0)) > 0.0:
+	var flash: float = _with_ammo(scale, "flash", float(weapon.get("flash", 0)))
+	if flash > 0.0:
 		weapon["flashTicks"] = FLASH_TICKS
 		# The brighter of the two, so a muzzle flash never *dims* a survivor who is holding a
 		# lamp, and a lamp never swallows the flash of a rifle.
-		var lit: float = maxf(float(weapon["flash"]), SimLightMod.carried_magnitude(world, attacker))
+		var lit: float = maxf(flash, SimLightMod.carried_magnitude(world, attacker))
 		SimLightMod.make_light_source(world, attacker, lit)
 	if best != null:
 		var target: int = int(best)
@@ -463,9 +602,16 @@ static func _fire_shot(world: Variant, attacker: int, weapon: Dictionary, rng: V
 		var roll: float = float(rng.call("next"))
 		if roll < 0.2:
 			body_part = "head"
-		var damage: float = float(weapon.get("damage", 12)) * (3.0 if body_part == "head" else 1.0)
+		var damage: float = _with_ammo(scale, "damage", float(weapon.get("damage", 12))) * (3.0 if body_part == "head" else 1.0)
 		world.events.publish({"type": "attack.connected", "attacker": attacker, "target": target, "bodyPart": body_part, "damage": damage, "item": int(weapon.get("source", -1))})
 		world.events.publish({"type": "entity.staggered", "entity": target, "ticks": 8})
-	if float(weapon.get("recoverable", 0.0)) > 0.0 and float(rng.call("next")) < float(weapon["recoverable"]):
-		var arrow: int = SimItemsRes.spawn_item(world, String(weapon.get("ammo", "item.ammo.arrow")), {"tier": "scavenged", "count": 1})
+	# A round the weapon never declares recoverable stays unrecoverable however the round scales
+	# it: the multiplier is over the weapon's own chance, so 1.5 x 0.0 is still nothing to pick up.
+	var recoverable: float = _with_ammo(scale, "recoverable", float(weapon.get("recoverable", 0.0)))
+	if recoverable > 0.0 and float(rng.call("next")) < recoverable:
+		# What lands in the grass is the round that was fired, not the round the bow prefers.
+		# This read `weapon["ammo"]` until the caliber landed, which was the same answer while a
+		# weapon had exactly one round and is the wrong one the moment a target arrow and a
+		# broadhead share a bow: shooting your last broadhead would have grown a target arrow.
+		var arrow: int = SimItemsRes.spawn_item(world, round_id if round_id != "" else "item.ammo.arrow", {"tier": "scavenged", "count": 1})
 		world.components.set_component(arrow, "position", {"x": impact_x, "y": impact_y})

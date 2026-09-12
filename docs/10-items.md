@@ -143,6 +143,42 @@ still open is the half of the sentence above that says *aimed*: the light is a r
 holder rather than a beam, and an optic does not yet care whether there is any light to look
 through.
 
+## Ammunition: a caliber, and what the round changes
+
+A weapon says two things about what it eats. `ammo` is the round it **prefers** — the one its
+authored numbers were written against, and the one it reaches for first. `caliber` is the set it
+will **take at all**. Carrying only its preferred round, a weapon behaves exactly as it always did;
+out of those and holding something else of the same caliber, it fires that instead rather than
+standing there loaded and useless.
+
+A round declares its caliber and, optionally, **multipliers over the host weapon's profile for the
+one shot that spends it** — the same grammar an [attachment](#attachment-slots) uses, so a slug is
+one set of numbers whatever gun it goes into and nothing in the simulation has to know what a slug
+is. A round that names only a caliber is the plain load, and its fold is the identity.
+
+| | What it buys | What it costs |
+|---|---|---|
+| **Slug** (shotgun) | Damage, reach, a tight pattern | One target, and nothing for a crowd |
+| **Birdshot** | A wide pattern, and it is common | Barely hurts anything |
+| **Hollow point** | Damage | Reach |
+| **Subsonic** | Noise, and muzzle flash | Damage |
+| **Match** | A tight cone | Rare |
+| **Surplus** | There is a lot of it | Damage, and it is loud |
+| **Broadhead** (arrow, bolt) | Damage | Rarely survives the shot |
+| **Target** (arrow) | You will find it again | Damage |
+
+The multipliers are deliberately narrower than an attachment's: a round may change damage, noise,
+flash, reach, the aim cone and how often it can be picked up again, and nothing else. Magazine
+size, reload time and how fast the weapon comes up are properties of the weapon and the magazine,
+decided before a round is ever chosen — a round that claimed one would be a number nothing could
+read. Jamming is the same kind of exclusion for a different reason: the chance is derived from the
+weapon's condition band rather than authored, so that a weapon the screen calls "failing" cannot be
+one that never jams, and docs/09's hand-loaded round wants its own mechanism rather than a
+multiplier that breaks that coupling.
+
+A **conversion part** moves both fields together — the round the weapon prefers and the set it
+takes. One without the other is a gun that prefers something it cannot chamber.
+
 ## Armor and coverage
 
 Armor is modeled as **coverage per body part**, not as a damage number.

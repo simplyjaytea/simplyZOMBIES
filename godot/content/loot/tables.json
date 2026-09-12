@@ -131,10 +131,18 @@
       },
       {
         "item": "item.ammo.arrow",
-        "weight": 3,
+        "weight": 2,
         "count": {
           "min": 4,
           "max": 12
+        }
+      },
+      {
+        "item": "item.ammo.arrow.target",
+        "weight": 1,
+        "count": {
+          "min": 4,
+          "max": 10
         }
       },
       {
@@ -295,10 +303,18 @@
       },
       {
         "item": "item.ammo.38",
-        "weight": 3,
+        "weight": 2,
         "count": {
           "min": 4,
           "max": 10
+        }
+      },
+      {
+        "item": "item.ammo.38.plusp",
+        "weight": 1,
+        "count": {
+          "min": 2,
+          "max": 6
         }
       },
       {
@@ -315,7 +331,15 @@
       },
       {
         "item": "item.ammo.45",
-        "weight": 2,
+        "weight": 1,
+        "count": {
+          "min": 3,
+          "max": 8
+        }
+      },
+      {
+        "item": "item.ammo.12g.bird",
+        "weight": 1,
         "count": {
           "min": 3,
           "max": 8
@@ -419,10 +443,26 @@
       },
       {
         "item": "item.ammo.arrow",
-        "weight": 7,
+        "weight": 4,
         "count": {
           "min": 6,
           "max": 16
+        }
+      },
+      {
+        "item": "item.ammo.arrow.target",
+        "weight": 2,
+        "count": {
+          "min": 6,
+          "max": 14
+        }
+      },
+      {
+        "item": "item.ammo.arrow.broadhead",
+        "weight": 1,
+        "count": {
+          "min": 3,
+          "max": 8
         }
       },
       {
@@ -575,10 +615,18 @@
       },
       {
         "item": "item.ammo.bolt",
-        "weight": 7,
+        "weight": 5,
         "count": {
           "min": 3,
           "max": 8
+        }
+      },
+      {
+        "item": "item.ammo.bolt.broadhead",
+        "weight": 2,
+        "count": {
+          "min": 2,
+          "max": 6
         }
       },
       {
@@ -599,10 +647,18 @@
       },
       {
         "item": "item.ammo.22",
-        "weight": 8,
+        "weight": 6,
         "count": {
           "min": 5,
           "max": 15
+        }
+      },
+      {
+        "item": "item.ammo.22.sub",
+        "weight": 2,
+        "count": {
+          "min": 5,
+          "max": 12
         }
       },
       {
@@ -852,10 +908,26 @@
       },
       {
         "item": "item.ammo.9mm",
-        "weight": 20,
+        "weight": 12,
         "count": {
           "min": 10,
           "max": 20
+        }
+      },
+      {
+        "item": "item.ammo.9mm.hollow",
+        "weight": 5,
+        "count": {
+          "min": 5,
+          "max": 12
+        }
+      },
+      {
+        "item": "item.ammo.9mm.sub",
+        "weight": 3,
+        "count": {
+          "min": 4,
+          "max": 10
         }
       },
       {
@@ -972,18 +1044,42 @@
       },
       {
         "item": "item.ammo.12g",
-        "weight": 10,
+        "weight": 7,
         "count": {
           "min": 6,
           "max": 12
         }
       },
       {
+        "item": "item.ammo.12g.slug",
+        "weight": 3,
+        "count": {
+          "min": 4,
+          "max": 8
+        }
+      },
+      {
         "item": "item.ammo.rifle",
-        "weight": 10,
+        "weight": 5,
         "count": {
           "min": 8,
           "max": 20
+        }
+      },
+      {
+        "item": "item.ammo.rifle.match",
+        "weight": 2,
+        "count": {
+          "min": 4,
+          "max": 8
+        }
+      },
+      {
+        "item": "item.ammo.rifle.surplus",
+        "weight": 3,
+        "count": {
+          "min": 10,
+          "max": 25
         }
       },
       {
@@ -1016,10 +1112,18 @@
       },
       {
         "item": "item.ammo.45",
-        "weight": 3,
+        "weight": 2,
         "count": {
           "min": 4,
           "max": 10
+        }
+      },
+      {
+        "item": "item.ammo.45.hollow",
+        "weight": 1,
+        "count": {
+          "min": 3,
+          "max": 8
         }
       },
       {
@@ -1052,18 +1156,34 @@
       },
       {
         "item": "item.ammo.38",
-        "weight": 6,
+        "weight": 5,
         "count": {
           "min": 6,
           "max": 12
         }
       },
       {
+        "item": "item.ammo.38.plusp",
+        "weight": 1,
+        "count": {
+          "min": 3,
+          "max": 8
+        }
+      },
+      {
         "item": "item.ammo.22",
-        "weight": 7,
+        "weight": 6,
         "count": {
           "min": 10,
           "max": 25
+        }
+      },
+      {
+        "item": "item.ammo.22.sub",
+        "weight": 1,
+        "count": {
+          "min": 6,
+          "max": 15
         }
       },
       {

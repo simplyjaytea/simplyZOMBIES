@@ -263,8 +263,10 @@ than here.
 
 **Medicine — the back half of treatment:**
 
-- **Supply quality tiers.** The sepsis roll already prices sterile < cloth < dirty dressings; what
-  is open is quality as an authored property of medical supplies generally.
+- **Supply quality tiers** — **moved into the alpha-roster group below** (2026-09-12), where it is
+  half of slice 2. The sepsis roll already prices sterile < cloth < dirty dressings; what is open
+  is quality as an authored property of medical supplies generally, and the arc found the reason
+  it is not a data edit: antibiotics and painkillers are hardcoded base ids, not content keys.
 - **Diagnosis text that scales with Medicine skill.** A good medic reads a wound better; a novice
   reads it vaguely. Prose only — no numbers arrive with skill. This is also where the condition
   view learns to say a wound has been cleaned or sutured: the ladder writes both, and neither is
@@ -304,10 +306,71 @@ than here.
   want, `noise_emission`, `condition_loss` and `repair_cost` are declared in
   `sim/modifiers/stats.gd` and resolved by nothing anywhere, so authoring the affixes first would
   ship five dead sockets. The readers come first, then the content.
+- **Armour attachment slots** — **moved into the alpha-roster group below** (2026-09-12), where
+  it is slice 4. Named here only so the cross-reference resolves.
+
+**Items — the alpha roster, opened by the owner (2026-09-12).** The direction is docs/30's "The
+round in the chamber" and "The cartridge on the label": *"food, medicine, ammo, ammo types
+(configure for guns too), attachments, bags — a good roster of items for an alpha."* The roster is
+not starting from nothing — three gear catalogues have landed and 152 bases shipped — so the arc is
+**breadth where the readers exist, and readers first where they do not**, which is what makes it
+slices rather than one dump of JSON. The owner's four answers are in docs/30: multipliers over a
+caliber rather than ballistics on the round; all four groups in scope; land as many slices as fit;
+and real cartridge names, with the digit ban's item-name clause as the accepted cost. Each piece is
+one session with its gate red both ways and its record; the health-bar ban, the grid-as-capacity
+rule and the sim's ignorance of presentation are untouched throughout. **One re-baseline is
+reserved for the end of the arc** rather than one per slice, per the weapons catalogue's precedent —
+every slice moves the `lootTable` stream and four seeds before-and-after each time would be an
+overnight job apiece.
+
+- ~~**Ammo types: the caliber and the round**~~ — **landed** 2026-09-12, see the record.
+- **Food, drink, and the medical quality tiers.** Ten foods and eight drinks for a ten-day
+  campaign is thin, and the `food`/`drink` blocks already have readers, so that half is content:
+  breadth spread across `spoilDays`, `mood` and `illnessChance` rather than stacked on `hunger`.
+  The medicine half is **not** a data edit and the arc found why: `item.antibiotics.course`
+  (`infection.gd`) and `item.painkillers.blister` (`wounds.gd`) are **hardcoded base ids**, so a
+  second antibiotic or a stronger painkiller is code today — unlike `bandageTier`, `cleanTier` and
+  `closeKind`, which are the shape to copy (a flat scalar with an enum, ranked best-first by a
+  code-owned order array). In the same family and in the same slice: `jobs.gd`'s NPC doctor
+  fetches `item.bandage.cloth` **by id**, so the player's path is tier-driven and the colonist's
+  is not. And the illness `needs.gd` already gives you has **no treatment at all** — a rehydration
+  or anti-nausea item needs a reader before its content would be honest.
+- **Clothing, weather gear and bags.** The cold snap, the heat wave, the storm and the fog all
+  ship gated and **nothing in the roster insulates, sheds rain or cools**. The reader that exists
+  is hardcoded the same way medicine is: `needs.gd`'s `wearing_armor` feeds the heat clock and its
+  `wearing_wrap` names `item.wrap.cloth` by id. Making insulation an authored property closes both
+  hardcoded reads and gives the weather something to price. Note this group deliberately specifies
+  **only** the minimum warmth property the heat and cold clocks read; the undershirt/socks warmth
+  and hygiene *slots* stay parked until Milestone 3A where they are.
 - **Armour attachment slots.** docs/10 gives body armour plate · lining · pocket and headgear
   face · light mount. No armour base declares `slots` at all, and `attachment` has only `melee`
-  and `ranged` multiplier tables, so unlike the four weapon slots the second gear catalogue
-  closed this one is code — a third table and a reader — before it is content.
+  and `ranged` multiplier tables, so unlike the four weapon slots the second gear catalogue closed
+  this one is code — a third table and a reader — before it is content. A `pocket` that grants a
+  small `container` grid is the one that pays for itself immediately.
+- **Named items, the fourth tier.** `SimItems.TIERS` ships three — scavenged, modified,
+  field_tested — where docs/10 names four, and its six hand-authored named items (Siren's Bell,
+  The Long Argument, Grandfather's Deer Rifle, The Tetanus Special, Quietkeeper, Butcher's Apron)
+  each pair a capability with a drawback, and most of those drawbacks are *attention* costs. The
+  lane should assert the drawback exists, not merely that the item spawns. docs/12's yield table
+  already reserves the tier a home: military, Field-Tested and Named.
+- **Choosing which round to fire.** The ammo slice shipped the mechanism and not the choice: with
+  buckshot and slugs both in the pack the pick order decides, and the only way to fire the slug is
+  to carry nothing else. A verb on the inventory sheet, and the `rangedWeapon` component is where
+  the chosen round would live — as a String, never as a `{weapon: round}` side table, which does
+  not survive a save.
+- **The magazine remembers what you loaded.** `FireState.Reload` refills `mag` from `magSize` and
+  consumes nothing while rounds leave the pack one per shot, so a magazine holds mixed rounds and
+  switching loads is instant. The cheapest consistent story, and named rather than left looking
+  finished. Wants a per-magazine record on the component, which is why it is not a rider.
+- **The hand-loaded round.** docs/09 specifies it — *"late-game hand-loading is possible and
+  produces worse ammunition — reduced power, higher jam chance"* — and the ammo slice can express
+  only the first half. `jamChance` is *derived* from the condition band rather than authored, so
+  that a weapon the screen calls "failing" cannot be one that never jams; a round that raised it
+  needs its own reader and its own lane rather than a multiplier that breaks that coupling.
+- **The balance re-baseline the arc reserves.** `godot:m2:balance` fast tier, four seeds, before
+  and after on the same driver, once the arc's content edits are done. Expect the contact counts
+  to move while outcomes hold, and diagnose a moved seed the way the second catalogue did — re-run
+  with the new bases present and `loot/tables.json` alone reverted — rather than arguing about it.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -6634,6 +6697,101 @@ not a to-do list:
   the eight-rig envelope and were re-seated inboard rather than shortened**: FITS is what says
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
+
+- **Items** — ~~ammo types: the caliber and the round~~ **landed** 2026-09-12
+  (`npm run godot:m2:ammo` → **`M2_AMMO_OK`**, a new gate with eleven lanes; `godot:m2:attach`'s
+  NAMES and `godot:m2:gear`'s CATALOGUE extended; `godot:check:inventory`'s STRIP and INSPECT
+  amended; `godot:m2:director`'s AMMO lane held), the **first slice of the alpha-roster arc** and
+  the owner's direction of 2026-09-12, shaped by four answers — multipliers over a caliber, all
+  four groups in scope, as many slices as fit, and real cartridge names. docs/30's "The round in
+  the chamber" and "The cartridge on the label" carry the calls taken.
+
+  **A weapon could only ever fire one round.** `SimRanged._has_ammo` matched carried items against
+  `ranged.ammo` by exact base id, so buckshot-versus-slug was not a balance question, it was
+  unrepresentable. A weapon now declares `ranged.caliber` beside `ranged.ammo` — the set it will
+  take beside the round it prefers — and a round declares a top-level `ammo: {caliber, ranged}`
+  block whose table is multipliers folded over the host weapon's profile for the one shot that
+  spends it. **Twelve new rounds**, 152 → **164 bases**: a slug and birdshot for the gauge, hollow
+  point and subsonic for the nine, match and surplus for the rifle, a subsonic rimfire, a `+P`
+  revolver load, a hollow-point `.45`, and broadhead and target arrows with a broadhead bolt.
+
+  **Additive by construction, and pinned as such.** Preference goes first, so a survivor carrying
+  only the round their weapon names picks it on the first pass; the DEFAULT lane holds a service
+  pistol at **noise 180.0 and damage 18.0**, the numbers it has always made, with the negative that
+  a subsonic round on the same fixture comes back **81.0**. No `SAVE_VERSION` bump — the
+  empty-caliber path is exact-id matching, which is what a v29 weapon did when it was saved, and
+  the **LEGACY** lane erases the caliber off a live weapon and proves it.
+
+  **Loot share was divided, never added to.** docs/12 makes ammunition scarcity load-bearing
+  — *"what keeps guns as an emergency tool rather than a default"* — so each existing ammunition
+  row was **split** and the per-table ammunition weight held **exactly flat**: residential 8,
+  commercial 22, military cache 56, before and after. The one content mistake in this slice the
+  gates could not have caught, named so the next catalogue does the same.
+
+  **Three defects fixed on the way, each found by reading rather than by a red gate.** Arrow
+  recovery spawned `weapon["ammo"]` — the round the bow *prefers* — so the first day a broadhead
+  and a target arrow shared a bow, firing your last broadhead would have grown a plain one, with
+  no error and no wrong number; RECOVER is the lane, and its wrong-arrow check is deliberately
+  asked **before** its nothing-recovered check, because under the defect nothing is recovered and
+  a broadhead-first lane blames the fixture for a bug in the code. `SimDirector._ammo_ids` — whose
+  own comment records being got wrong twice — would have been wrong a third time, since a variant
+  round is named by no weapon and no conversion, so a survivor carrying nothing but slugs read as
+  unarmed to the preparedness score. And `item.part.internal.magnum` promised "a bigger round" while
+  converting a snub revolver to its own default; it now names the `+P` load, so the part is honest
+  and its MISMATCH fixture is unmoved.
+
+  **`caliber` joined `OVERRIDABLE` and all five conversion parts declare the pair.** A part moving
+  only the round would build a pistol that prefers something it cannot chamber — the pick would
+  fall through to the old caliber, so the conversion would *appear* to work and quietly fire the
+  wrong ammunition. `attachments.gd` cannot see the sibling key, so **CONVERT** is the lane, proved
+  by deleting one half. `blocked_reason` still returns `mismatch:ammo` unchanged: both fields now
+  clash on a mismatched kit and `ammo` sorts before `caliber`, which is luck and is pinned
+  deliberately rather than left to be discovered.
+
+  **`SimRanged.AMMO_SCALABLE` is its own whitelist and smaller than the attachment one** —
+  `damage · noise · flash · rangeMetres · cone · recoverable`, every field `_fire_shot` reads
+  *after* the round is spent. `magSize`, `reloadTicks` and `handling` are read before a round is
+  chosen, so a round scaling one would be a multiplier authored in content that nothing could read;
+  **DROPS** asserts both halves of that by name. Reusing `SCALABLE["ranged"]` would also have run
+  rounds through `effect_scale` and softened a slug because the box of shells was scuffed.
+
+  **The fold never touches the live weapon.** `_fire_shot`'s `weapon` is the `rangedWeapon`
+  component; multipliers resolve into a local and apply at each read site, or they would scale the
+  gun permanently and compound once per shot. The cone is the one field **re-clamped** rather than
+  merely multiplied, to `_refresh_cone`'s own bounds: birdshot at 1.7 reaches `WIDE_HALF` and
+  stops, because widening past it is the aim slice's true positive and a round quietly getting
+  there first would take it away.
+
+  **Eleven lanes, every one run red both ways before it was trusted.** Reverting the caliber
+  fallback turned PICK, REFUSE and FOLD red and each named its own socket; blanking the fold turned
+  DEFAULT and FOLD red; restoring the old recovery line turned RECOVER red; a round retagged to a
+  gauge nothing chambers turned REACH red; a round pulled from every table turned CONTENT red; and
+  a conversion part stripped of its caliber turned CONVERT red. **REACH is the lane with the trap
+  in it**: `45` is declared by **no weapon at all** — it exists only as the target of the two `.45`
+  conversion parts — so its gun side is the union of `ranged.caliber` and
+  `overrides.ranged.caliber`, and it refuses to run if that conversion-only set is ever empty.
+
+  **What shipped is the mechanism and not the choice**, and the record says which half. With both
+  rounds in the pack the pick order decides and the only way to fire the slug is to carry nothing
+  else; the fallback is sorted by base id rather than taken in carry order, so at least the answer
+  does not move when a bag is tidied. Choosing, the mixed magazine, and docs/09's hand-loaded round
+  (whose "higher jam chance" the multiplier table deliberately cannot express, because `jamChance`
+  is derived from the condition band) are three named pieces in
+  [what's left](#whats-left-in-milestone-2), not three things half-built here.
+
+- **Items & UI** — ~~the digit ban gains an item-name clause~~ **landed** 2026-09-12
+  (`godot:check:inventory`'s STRIP and INSPECT lanes), with the ammo slice and by the owner's
+  decision — docs/30's "The cartridge on the label". An item's `name` was scanned in two places and
+  refused any digit, which a roster of real cartridge designations cannot survive. **The amendment
+  is one predicate**, `_name_is_allowed`, called by both lanes for the same reason the file already
+  keeps one `_carries_a_digit`: two copies of an exemption is the dead-socket mistake with its
+  answer inverted. It refuses a name that is *nothing but* a quantity, and the lane proves all
+  three directions on fabricated views — a cartridge name passes, `"12"` is refused, and **the
+  identical string is refused the moment it is a `description` instead**, which is what "scoped to
+  one field" means and is the half that would otherwise have rotted in a comment. `description`,
+  every other inspect value, and `check_hud.gd` are untouched. It also closed a latent red:
+  `item.ammo.9mm` shipped as "9mm Round" and would have failed STRIP the first time a pistol round
+  reached that lane's fixture.
 
 - **Balance** — the weapons catalogue arc's **reserved re-baseline, run** 2026-09-10
   (`godot:m2:balance`, fast tier) → `M2_BALANCE_OK fast 4 seeds, 10 days, bands invariants

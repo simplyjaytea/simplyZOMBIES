@@ -434,6 +434,13 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		"noise": float(r.get("noise", 4)),
 		"flash": float(r.get("flash", 0)),
 		"ammo": String(r.get("ammo", "")),
+		# What else will chamber. `ammo` is the round the weapon prefers and this is the set it
+		# belongs to, so a survivor out of soft points fires the match rounds in the same pocket
+		# rather than standing there holding a loaded rifle. Rides the profile beside `ammo`
+		# because both are overridable by a conversion part and the fold has to see them
+		# together -- a barrel that changes the round without changing the caliber would build a
+		# weapon that prefers a round it cannot take.
+		"caliber": String(r.get("caliber", "")),
 		"recoverable": float(r.get("recoverable", 0.0)),
 		"magSize": int(r.get("magSize", 0)),
 		"reloadTicks": int(r.get("reloadTicks", 24)),
