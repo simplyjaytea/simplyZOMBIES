@@ -123,7 +123,6 @@ jobs:
       - name: R6 soak (memory/save/input/pause/tab)
         run: npm run godot:r6:soak
 
-
   godot-m2:
     runs-on: ubuntu-latest
     # 45, and measured rather than guessed -- see the comment on the step below. ~11.8 min was
