@@ -157,7 +157,7 @@ func _scrap_choke() -> bool:
 	if w.components.query(["scrapBarricade"]).size() != 1:
 		push_error("scrap count %d" % w.components.query(["scrapBarricade"]).size())
 		return false
-	if SimFortify._has_scrap(w, w.player):
+	if SimFortify.carried_material(w, w.player, SimFortify.recipe_kind("scrap")) >= 0:
 		push_error("scrap not consumed")
 		return false
 	print("SCRAP OK solid opaque consumed")

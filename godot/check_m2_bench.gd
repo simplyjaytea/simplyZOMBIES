@@ -121,8 +121,8 @@ func _a_bench_is_built_from_scrap_and_time() -> bool:
 	if SimGunsmith.bench_in_reach(w, w.player) < 0:
 		push_error("%s: the bench was built out of reach of the person who built it" % lane)
 		return false
-	if SimFortify._scrap_count(w, w.player) != 0:
-		push_error("%s: the bench cost %d scrap, not %d" % [lane, SimGunsmith.BENCH_SCRAP - SimFortify._scrap_count(w, w.player), SimGunsmith.BENCH_SCRAP])
+	if SimFortify.material_count(w, w.player, SimFortify.recipe_kind("bench")) != 0:
+		push_error("%s: the bench cost %d scrap, not %d" % [lane, SimGunsmith.BENCH_SCRAP - SimFortify.material_count(w, w.player, SimFortify.recipe_kind("bench")), SimGunsmith.BENCH_SCRAP])
 		return false
 
 	# TN: one scrap short is no channel and no bench.
@@ -166,7 +166,7 @@ func _a_channel_that_is_interrupted_builds_nothing() -> bool:
 		push_error("%s: an interrupted channel built a bench anyway" % lane)
 		return false
 	# The scrap is still in the pack: a cancelled job costs nothing but the time already spent.
-	if SimFortify._scrap_count(w, w.player) != SimGunsmith.BENCH_SCRAP:
+	if SimFortify.material_count(w, w.player, SimFortify.recipe_kind("bench")) != SimGunsmith.BENCH_SCRAP:
 		push_error("%s: an interrupted channel spent the scrap" % lane)
 		return false
 

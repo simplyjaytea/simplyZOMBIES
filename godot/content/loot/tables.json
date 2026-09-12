@@ -480,6 +480,62 @@
       {
         "item": "item.wrap.elastic",
         "weight": 2
+      },
+      {
+        "item": "item.wood.salvaged",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.plank.pallet",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.fiber.plant",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.cordage.twine",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.fixings.nails",
+        "weight": 4,
+        "count": {
+          "min": 2,
+          "max": 6
+        }
+      },
+      {
+        "item": "item.wire.copper",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.clay.brick",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
       }
     ]
   },
@@ -968,6 +1024,50 @@
       {
         "item": "item.wrap.elastic",
         "weight": 1
+      },
+      {
+        "item": "item.wood.branch",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.plank.sawn",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.cordage.rope",
+        "weight": 3
+      },
+      {
+        "item": "item.fiber.burlap",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.charcoal.sack",
+        "weight": 3
+      },
+      {
+        "item": "item.clay.lump",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.stone.block",
+        "weight": 2
       }
     ]
   },
@@ -1157,6 +1257,14 @@
       {
         "item": "item.wrap.elastic",
         "weight": 3
+      },
+      {
+        "item": "item.wire.copper",
+        "weight": 2
+      },
+      {
+        "item": "item.circuit.board",
+        "weight": 2
       }
     ]
   },
@@ -1497,6 +1605,34 @@
       {
         "item": "item.painkillers.opioid",
         "weight": 2
+      },
+      {
+        "item": "item.circuit.relay",
+        "weight": 2
+      },
+      {
+        "item": "item.wire.steel",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.fixings.bolts",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.ingot.lead",
+        "weight": 2
+      },
+      {
+        "item": "item.wire.barbed",
+        "weight": 3
       }
     ]
   },
@@ -1696,6 +1832,106 @@
         "count": {
           "min": 1,
           "max": 2
+        }
+      },
+      {
+        "item": "item.metal.sheet",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.metal.pipe",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.metal.rebar",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.ingot.steel",
+        "weight": 4
+      },
+      {
+        "item": "item.ingot.aluminium",
+        "weight": 3
+      },
+      {
+        "item": "item.fixings.screws",
+        "weight": 3,
+        "count": {
+          "min": 2,
+          "max": 8
+        }
+      },
+      {
+        "item": "item.fixings.bolts",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 4
+        }
+      },
+      {
+        "item": "item.wire.steel",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.wire.barbed",
+        "weight": 2
+      },
+      {
+        "item": "item.circuit.board",
+        "weight": 3
+      },
+      {
+        "item": "item.circuit.components",
+        "weight": 2
+      },
+      {
+        "item": "item.plank.sawn",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.stone.rubble",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 4
+        }
+      },
+      {
+        "item": "item.wood.log",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.charcoal.lump",
+        "weight": 2,
+        "count": {
+          "min": 1,
+          "max": 3
         }
       }
     ]

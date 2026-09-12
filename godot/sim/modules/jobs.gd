@@ -45,7 +45,6 @@ const BURY_TICKS: int = 40
 const REPAIR_TICKS: int = 80
 const REACH: float = 1.5
 const EMPTY_BOTTLE: String = "item.water.bottle.empty"
-const SCRAP_ID: String = "item.scrap.metal"
 
 
 static func empty_row() -> Dictionary:
@@ -496,7 +495,7 @@ static func _repair_work(world: Variant, ent: int, x: float, y: float) -> Dictio
 	var item: int = _worn_item_for(world, ent)
 	if item < 0:
 		return {}
-	if _scrap_for(world, ent) < 0:
+	if _material_for(world, ent, SimFortify.recipe_kind("repair")) < 0:
 		return {}
 	var fires: Array[int] = world.components.query(["campfire"])
 	if fires.is_empty():
@@ -523,15 +522,21 @@ static func _needs_repair(world: Variant, item: int) -> bool:
 	return cur < ceil
 
 
-static func _scrap_for(world: Variant, ent: int) -> int:
+## The nearest unit of a build material this body can reach -- their own pockets first, then the
+## stockpile. Repair is the one recipe that is not a SimFortify channel, and it used to carry its
+## own copy of the `item.scrap.metal` weld; its substance now comes out of SimFortify.RECIPES like
+## every other recipe's, so there is one place a recipe's material is written down. An empty or
+## unknown kind matches nothing rather than matching everything, because `material_of` answers ""
+## for an ordinary item and "" == "" would otherwise repair a gun with a tin of beans.
+static func _material_for(world: Variant, ent: int, kind: String) -> int:
+	if not SimFortify.MATERIAL_KINDS.has(kind):
+		return -1
 	for item in SimInventory.carried_items(world, ent):
-		var b: Variant = world.components.get_component(item, "itemBase")
-		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == SCRAP_ID:
-			return item
+		if SimFortify.material_of(world, int(item)) == kind:
+			return int(item)
 	for item2 in SimNeeds.stockpile_items(world):
-		var b2: Variant = world.components.get_component(item2, "itemBase")
-		if b2 is Dictionary and String((b2 as Dictionary).get("baseId", "")) == SCRAP_ID:
-			return item2
+		if SimFortify.material_of(world, int(item2)) == kind:
+			return int(item2)
 	return -1
 
 
@@ -1087,7 +1092,7 @@ static func _do_repair(world: Variant, ent: int, job: Dictionary) -> void:
 			_stop(world, ent)
 			return
 		return
-	var scrap: int = _scrap_for(world, ent)
+	var scrap: int = _material_for(world, ent, SimFortify.recipe_kind("repair"))
 	if scrap < 0:
 		_stop(world, ent)
 		return
