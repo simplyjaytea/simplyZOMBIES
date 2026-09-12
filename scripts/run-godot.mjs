@@ -293,13 +293,7 @@ switch (mode) {
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_heat.gd"];
     break;
   case "--m2-warmth":
-    args = [
-      "--headless",
-      "--path",
-      resolve(root, "godot"),
-      "--script",
-      "res://check_m2_warmth.gd",
-    ];
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_warmth.gd"];
     break;
   case "--m2-fog":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_fog.gd"];
