@@ -68,13 +68,72 @@ HIGHLIGHT_HEADROOM = 1.17
 # they sit and cuts the ranked list here, so these are exact areas and not thresholds that
 # happen to land somewhere.
 #
-# The highlight's 0.10 is the spec's own "<= 10% area" and is the number
+# The highlight's 10 is the spec's own "<= 10% area" and is the number
 # `check_authored.gd`'s HIGHLIGHT lane measures. The other three are the shape of a lit figure
 # rather than a measured constant: base is the material as it reads in open light and takes the
 # largest share; core is the turn away from the light; deep is the ground-facing underside and
 # the internal edges, and it is smallest because a silhouette that is a seventh deep tone has no
 # shadow left to give the outline contrast against.
-TONE_SHARES = (0.10, 0.45, 0.30, 0.15)
+TONE_SHARES = (10, 45, 30, 15)
+
+
+def tone_ceiling(tone_ix, count):
+    """How many of a material's `count` pixels the tones up to `tone_ix` may take, together.
+
+    Whole percent, integer arithmetic, halves rounded up -- and every word of that is load
+    bearing rather than tidiness. This used to be `int(round(sum(TONE_SHARES[:ix + 1]) *
+    count))` over float shares, and it rendered `raider_body` differently on two interpreters:
+    CPython 3.12 gave `sum((0.10, 0.45, 0.30))` as exactly `0.85` where 3.11 gave
+    `0.8500000000000001`, so the product with 90 strap pixels was exactly `76.5` on one and
+    `76.50000000000001` on the other -- and `round` breaks a true half *to even*, downwards.
+    One pixel of the raider's boot came out core on 3.11 and deep on 3.12, and `sprites:check`
+    is a byte comparison, so CI went red against art that was correct on the machine that drew
+    it. Integers have no such tie to break: a cut is `(cum * count + 50) // 100` and means the
+    same thing everywhere.
+    """
+    cum = sum(TONE_SHARES[: tone_ix + 1])
+    return (cum * count + 50) // 100
+
+
+def guard_shares_are_exact(shares):
+    """Refuse a share table that cannot be cut without floating point. See `tone_ceiling`."""
+    if any(not isinstance(s, int) or isinstance(s, bool) for s in shares):
+        raise ValueError(
+            "tone shares must be whole percents, not floats: %r -- a float share puts the cut "
+            "back on interpreter-dependent rounding, which is what cost a red CI" % (shares,)
+        )
+    if sum(shares) != 100:
+        raise ValueError("tone shares must sum to 100 percent, not %d" % sum(shares))
+
+
+guard_shares_are_exact(TONE_SHARES)
+
+
+def guard_halves_round_up():
+    """The half that diverged, pinned: 90 strap pixels, the first three tones, 85% of 90 = 76.5.
+
+    The float path gave 77 on CPython 3.11 and 76 on 3.12. This rounds up, everywhere, always,
+    and a whole number is still itself. A `raise` rather than an `assert` on purpose -- `-O`
+    strips asserts, and a pin that a flag can remove is not a pin.
+    """
+    for tone_ix, count, want in ((2, 90, 77), (0, 90, 9), (1, 90, 50), (0, 45, 5)):
+        got = tone_ceiling(tone_ix, count)
+        if got != want:
+            raise ValueError(
+                "tone_ceiling(%d, %d) is %d, not the pinned %d" % (tone_ix, count, got, want)
+            )
+
+
+guard_halves_round_up()
+
+# True negative for the guard: the float table this replaced is refused by the guard that is
+# supposed to refuse it. A guard nothing can fail is worse than no guard.
+try:
+    guard_shares_are_exact((0.10, 0.45, 0.30, 0.15))
+except ValueError:
+    pass
+else:
+    raise AssertionError("guard_shares_are_exact accepted the float shares it replaced")
 
 _TONE_MAP = None
 
