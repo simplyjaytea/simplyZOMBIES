@@ -1028,6 +1028,12 @@ func _colonists_scavenge_near_home() -> bool:
 	# Scavenge 0: never, even remembered.
 	if not SimJobs._work_for(w, ellis, "Scavenge").is_empty() and false:
 		pass
+	# Cleared first, because the assertion below is about what `_pick` hands out and the step
+	# above runs the whole jobs tick: since colonists wear what they find, that step can leave a
+	# Dress walk on Ellis, which is not a work column at all and which `_pick` never assigned.
+	# Reading a job `_pick` did not set would blame the wrong function -- the same class of
+	# mistake as a textual gate reading the wrong `match` arm.
+	SimJobs._stop(w, ellis)
 	SimJobs._pick(w, ellis)
 	if w.components.get_component(ellis, "job") is Dictionary:
 		push_error("scavenge: a row with Scavenge 0 took a job (%s)" % str(w.components.get_component(ellis, "job")))
