@@ -1481,13 +1481,49 @@ func _opening_draws_exactly_what_scattering_drew() -> bool:
 	if scattered.is_empty():
 		push_error("the comparison drew nothing, so it is judging nothing")
 		return false
+
+	# Compared as a multiset rather than index by index, and that is a correction rather than a
+	# weakening. `contents_of` hands back **grid-placement order**, which is not draw order: a
+	# cupboard packs a 1x5 spear after the 1x1s it can slot anywhere, so the moment a draw contains
+	# something awkward the two lists hold the same things in a different order. This lane compared
+	# by index and passed for as long as it did only because no seed it ran had drawn such an item;
+	# the alpha-roster arc moved the `lootTable` stream and seed 4404 started drawing an improvised
+	# spear, at which point the lane went red against a draw that was provably identical. What it is
+	# actually entitled to claim is that the *yield* matches -- base ids and counts -- because
+	# `scatter` is `roll` plus the position writes and nothing more. Packing is the cupboard's
+	# business.
+	var left_bag: Array[String] = []
+	var right_bag: Array[String] = []
+	for e in scattered:
+		left_bag.append(_describe(a, int(e)))
+	for e in opened:
+		right_bag.append(_describe(b, int(e)))
+	left_bag.sort()
+	right_bag.sort()
+	if left_bag != right_bag:
+		push_error("the same seed scattered [%s] and opened [%s]" % [", ".join(left_bag), ", ".join(right_bag)])
+		return false
+
+	# The ordering claim the multiset gives up is kept here, against `roll` rather than against a
+	# second `scatter`. That distinction is the whole value of this half: comparing two scatters on
+	# one seed only catches *non-determinism*, so a systematic reorder -- `out.reverse()` inside
+	# scatter -- passes it, because both runs reorder identically. It was written that way first and
+	# the sabotage pass caught it. Compared against `roll`, the lane asserts the thing this file
+	# actually claims a line above: that `scatter` is `roll` plus the position writes and **nothing
+	# more**, which a reorder breaks by construction.
+	var c: Variant = _booted(4404)["world"]
+	var rolled: Array = SimLoot.roll(c, SimLoot.table_for(c, "residential") as Dictionary, SimLoot.stream(c))
+	if rolled.size() != scattered.size():
+		push_error("one seed rolled %d and scattered %d" % [rolled.size(), scattered.size()])
+		return false
 	for i in scattered.size():
-		var left: String = _describe(a, int(scattered[i]))
-		var right: String = _describe(b, int(opened[i]))
-		if left != right:
-			push_error("draw %d: scattering gave %s and opening gave %s" % [i, left, right])
+		var first: String = _describe(a, int(scattered[i]))
+		var second: String = _describe(c, int(rolled[i]))
+		if first != second:
+			push_error("draw %d: scattering gave %s where rolling the same seed gave %s -- scatter is reordering the draw, not just placing it" % [i, first, second])
 			return false
-	print("STREAM OK the same seed draws the same %d things whether the table is scattered at boot or opened out of a cupboard" % scattered.size())
+
+	print("STREAM OK the same seed yields the same %d things whether scattered at boot or opened out of a cupboard, and scatters them in the same order twice" % scattered.size())
 	return true
 
 
