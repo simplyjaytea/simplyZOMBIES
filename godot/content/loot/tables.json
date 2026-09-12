@@ -700,6 +700,26 @@
       {
         "item": "item.caralarm.salvaged",
         "weight": 2
+      },
+      {
+        "item": "item.book.firstaid",
+        "weight": 3
+      },
+      {
+        "item": "item.book.bushcraft",
+        "weight": 3
+      },
+      {
+        "item": "item.book.repairs",
+        "weight": 3
+      },
+      {
+        "item": "item.book.conditioning",
+        "weight": 2
+      },
+      {
+        "item": "item.book.longwalk",
+        "weight": 1
       }
     ]
   },
@@ -1436,6 +1456,26 @@
       {
         "item": "item.bell.wind",
         "weight": 3
+      },
+      {
+        "item": "item.book.firstaid",
+        "weight": 3
+      },
+      {
+        "item": "item.book.bushcraft",
+        "weight": 3
+      },
+      {
+        "item": "item.book.conditioning",
+        "weight": 3
+      },
+      {
+        "item": "item.book.marksmanship",
+        "weight": 2
+      },
+      {
+        "item": "item.book.closequarters",
+        "weight": 2
       }
     ]
   },
@@ -1689,6 +1729,14 @@
           "min": 2,
           "max": 8
         }
+      },
+      {
+        "item": "item.book.firstaid",
+        "weight": 4
+      },
+      {
+        "item": "item.book.surgery",
+        "weight": 1
       }
     ]
   },
@@ -2233,6 +2281,26 @@
       {
         "item": "item.firecracker.string",
         "weight": 2
+      },
+      {
+        "item": "item.book.marksmanship",
+        "weight": 3
+      },
+      {
+        "item": "item.book.closequarters",
+        "weight": 3
+      },
+      {
+        "item": "item.book.ballistics",
+        "weight": 1
+      },
+      {
+        "item": "item.book.surgery",
+        "weight": 1
+      },
+      {
+        "item": "item.book.gunsmithing",
+        "weight": 1
       }
     ]
   },
@@ -2653,6 +2721,14 @@
       {
         "item": "item.blastcap.quarry",
         "weight": 2
+      },
+      {
+        "item": "item.book.repairs",
+        "weight": 4
+      },
+      {
+        "item": "item.book.gunsmithing",
+        "weight": 1
       }
     ]
   }
