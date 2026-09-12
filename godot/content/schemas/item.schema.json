@@ -668,6 +668,31 @@
           "description": "How long after it is placed before it starts, in ticks. A wind-up clock's entire point is that you are somewhere else when it goes off, so the delay is the item's tactical content rather than a decoration on it: the firecracker's fuse is half a minute, the alarm clock's is half an in-game hour, and the air horn's is nothing at all because you blow it where you stand. Absent means zero, which is the honest default for anything without a clock in it."
         }
       }
+    },
+    "comfort": {
+      "type": "object",
+      "description": "Present on anything you can do for your own morale that is not a meal, and absent on everything else -- presence is what makes an item comforting, exactly as presence is what makes one a drink. docs/04-survival-needs.md lists mood sources that are not food and the sim grew seven of them, every one of them a thing done *to* a survivor: shame, an argument, grief, a bad night, a bout of illness, a filthy body, an empty pool. Until this key the only thing a player could do about any of it was cook. Read by SimNeeds.comfort_spec, routed through SimNeeds.can_use so the word menu's predicate and the intake are one function. The block is judged whole -- a lift with no clock behind it is refused outright rather than taken for free -- because the content validator does not recurse and a permanent free mood is exactly the wrong number nothing would report.",
+      "required": [
+        "mood",
+        "ticks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "mood": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "What this is worth, added toward SimNeeds.COMFORT_CAP rather than on top of whatever is already there. Positive only: a thing that makes you feel worse is a spoiled meal or a wound, and both of those already have a key. The cap is the design and not a safety rail -- comfort accumulates to it and stops, so a pack filled with keepsakes is worth the same as the best one in it, which is the non-stacking rule every other bounded mood source in needs.gd keeps."
+        },
+        "ticks": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "How long the whole comfort lasts before it lifts, in ticks (SimClock.DAY_TICKS is 288000, so one in-game hour is 12000). Deliberately a clock rather than a decay: grief drains away because a weight lifts by degrees, and a cigarette ends. A second item pushes the clock out to whichever end is later and never shortens one already running."
+        },
+        "spends": {
+          "type": "boolean",
+          "description": "Whether taking the comfort uses the item up. True for a smoke or a mouthful out of a flask, absent (false) for a harmonica, a deck of cards or a photograph -- those are the noise device's decision rather than the floodlight's, and for the same reason: a thing you keep is a thing you can carry somewhere it matters. It costs a verb and a clock either way, and the cap is what stops a kept item being a permanent free mood."
+        }
+      }
     }
   },
   "$defs": {
