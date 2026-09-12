@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **64 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **65 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,30 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — armour, both halves: slots to fit it into, and damage it actually stops.** The arc's
+eighth slice and the only one that changes every fight. Coverage stopped nothing anywhere — twelve
+garments each carried a number that never met a blow. `SimHealth.armor_damage_factor` is the reader,
+applied inside `damage_part`, the one closure in the sim that writes `b[named_part]`. The curve is
+**not** a new number: `severity_for` had softened escalation by `1 - 0.5 * coverage` since wounds
+landed, and that curve moved one step upstream onto the integrity while `severity_for` dropped its
+copy, so no shipped severity band moved. Keeping both would have squared it. `SCALABLE` gains a
+third table whose profile is a coverage map; a plate carrier is webbing until there is a plate in
+it; a fitted pouch grants a real `container` grid with its mass recursing.
+
+**Read the measurement, because it is a negative result and it matters.** `godot:m2:balance` came
+back byte-identical on all four seeds — not the mechanic failing but **the harness dressing
+nobody**: no starting kit has armour, the fast tier arms hands only, `searches=0`. A throwaway
+driver with everyone dressed measured integrity lost falling **14.35 → 8.97 (37%)** on the one seed
+where contact stayed identical, and its bare arm was byte-identical, which is the perfect control.
+So the mechanic is real and gated, and **the shipped colony still fights in shirtsleeves**. Armour
+acquisition is named as its own piece in what's-left and is bigger than the slice that revealed it.
+
+The health-bar ban is untouched (`godot:ban:healthbar` green): the factor is computed inside
+`damage_part` and discarded, never stored or published, and `condition.gd` still says only
+`armored: true`. Two more assertions were found unable to fail and rewritten — the fifth and sixth
+in this arc. One unasked-for behaviour change is flagged rather than buried: `damage_taken` and wound
+severity used to disagree and now do not, so high-CON survivors take slightly milder wounds.
 
 **2026-09-12 — light that burns down, and what feeds it.** The arc's seventh slice and the fifth of
 the eight readers. Light was the only resource in a resource game that could not run out: no
