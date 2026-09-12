@@ -40,8 +40,10 @@ func _run() -> void:
 	ok = _an_unattended_survivor_answers_the_claw() and ok
 	ok = _a_dropped_weapon_is_picked_back_up() and ok
 	ok = _nobody_closes_on_a_gun_that_cannot_fire() and ok
+	ok = _armour_that_is_found_gets_worn() and ok
+	ok = _nobody_swaps_down_to_worse_armour() and ok
 	if ok:
-		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue instinct blocked")
+		print("M2_NPC_COMBAT_OK melee ranged breakoff quiet post holder rescue instinct blocked dress selective")
 		quit(0)
 	else:
 		push_error("M2_NPC_COMBAT_FAIL")
@@ -787,3 +789,180 @@ func _nobody_closes_on_a_gun_that_cannot_fire() -> bool:
 
 	print("  BLOCKED OK a whole rifle fires %d times and engages; one with no barrel has no range and fires none" % fired)
 	return true
+
+
+# --- DRESS ------------------------------------------------------------------------------------
+#
+# "Colonists wear what they find" -- the acquisition half of armour, and the half without which
+# `SimHealth.armor_damage_factor` is a reader nothing ever gives anything to read. No kit in the
+# game carries armour, so before this rule every armour slot on every colonist was empty at boot
+# and empty ten days later, and the balance harness measured the mechanic as exactly zero.
+#
+# Both branches of `_dress_job`, because they fire in different halves of ordinary play: a search
+# empties a cupboard into the searcher's own pack (`SimContainers.search`), and Haul then carries
+# everything it finds back to the stockpile, where it lies on the ground. A rule that only had the
+# pack branch would miss every piece the colony ever tidied away.
+#
+# The true negative is the same two arenas with `WEAR_FOUND_ARMOR` pinned off. Without it "the
+# colonist is wearing a vest" is worth exactly as much as the arena's ability to leave one off --
+# and the flag is a **static**, shared by every world this one process boots, so the previous
+# value goes back before the lane returns whatever happens. CLAUDE.md names that trap; docs/30
+# records it twice.
+func _armour_that_is_found_gets_worn() -> bool:
+	var lane: String = "DRESS"
+	var was: bool = SimJobs.WEAR_FOUND_ARMOR
+
+	# 1. Out of the pack, at once, with no job at all.
+	SimJobs.WEAR_FOUND_ARMOR = true
+	var w: Variant = _arena()
+	SimJobs.register_module(w)
+	var npc: int = _npc(w, 10.0, 10.0)
+	SimJobs.attach(w, npc, "Manual", SimJobs.empty_row())
+	# A helmet rather than the vest below, for a dull reason worth writing down: pockets are
+	# `POCKET_GRID`, four by two, and a 3x3 vest has never fitted in one. A rule that could only
+	# be proved with something nobody can carry would not be a rule about found gear.
+	var packed: int = SimItems.spawn_item(w, "item.helmet.bike", {"tier": "scavenged"})
+	if not SimInventory.stow(w, npc, packed):
+		SimJobs.WEAR_FOUND_ARMOR = was
+		push_error("%s: the helmet would not go in the pack, so the pack branch has nothing to find" % lane)
+		return false
+	var packed_at: int = -1
+	for i in 400:
+		w.step()
+		if _worn_in(w, npc, "head") == packed:
+			packed_at = i
+			break
+	if packed_at < 0:
+		SimJobs.WEAR_FOUND_ARMOR = was
+		push_error("%s: a colonist carrying a bike helmet in the pack never put it on in 400 ticks" % lane)
+		return false
+
+	# 2. Off the ground, as a walk, four and a half metres away.
+	var w2: Variant = _arena()
+	SimJobs.register_module(w2)
+	var npc2: int = _npc(w2, 10.0, 10.0)
+	SimJobs.attach(w2, npc2, "Manual", SimJobs.empty_row())
+	var loose: int = SimItems.spawn_item(w2, "item.vest.scrap", {"tier": "scavenged"})
+	w2.components.set_component(loose, "position", {"x": 14.5, "y": 10.5})
+	var ground_at: int = -1
+	for i in 400:
+		w2.step()
+		if _worn_in(w2, npc2, "vest") == loose:
+			ground_at = i
+			break
+	if ground_at < 0:
+		SimJobs.WEAR_FOUND_ARMOR = was
+		push_error("%s: a colonist never walked the 4.5 m to a scrap vest on the ground in 400 ticks" % lane)
+		return false
+	if w2.components.has_component(loose, "position"):
+		SimJobs.WEAR_FOUND_ARMOR = was
+		push_error("%s: the vest is worn and still lying on the ground" % lane)
+		return false
+
+	# 3. The true negative: the flag off, and neither branch fires.
+	SimJobs.WEAR_FOUND_ARMOR = false
+	var w3: Variant = _arena()
+	SimJobs.register_module(w3)
+	var npc3: int = _npc(w3, 10.0, 10.0)
+	SimJobs.attach(w3, npc3, "Manual", SimJobs.empty_row())
+	var packed3: int = SimItems.spawn_item(w3, "item.helmet.bike", {"tier": "scavenged"})
+	var stowed3: bool = SimInventory.stow(w3, npc3, packed3)
+	var loose3: int = SimItems.spawn_item(w3, "item.vest.scrap", {"tier": "scavenged"})
+	w3.components.set_component(loose3, "position", {"x": 14.5, "y": 10.5})
+	for _i in 400:
+		w3.step()
+	var dressed_anyway: int = _worn_count(w3, npc3)
+	SimJobs.WEAR_FOUND_ARMOR = was
+	if not stowed3:
+		push_error("%s: the helmet would not go in the third arena's pack, so the true negative proves nothing" % lane)
+		return false
+	if dressed_anyway != 0:
+		push_error("%s: WEAR_FOUND_ARMOR is off and the colonist put on %d piece(s) anyway" % [lane, dressed_anyway])
+		return false
+	if SimJobs.WEAR_FOUND_ARMOR != was:
+		push_error("%s: the lane did not put WEAR_FOUND_ARMOR back" % lane)
+		return false
+
+	print("  DRESS OK the pack helmet goes on at tick %d, the vest 4.5 m away at tick %d and leaves the ground; with the rule off neither does" % [packed_at, ground_at])
+	return true
+
+
+# --- SELECTIVE --------------------------------------------------------------------------------
+#
+# "Beats what they are wearing" is the whole of the rule, and the cheapest way to get it wrong is
+# to write a rule that swaps on anything -- a colonist who trades a riot vest for a scrap one every
+# time they walk past it is worse off than one who never dresses at all, and no lane that only
+# watches somebody get dressed would ever see it.
+#
+# So: the same arena twice, differing only in which vest is on the body and which is on the floor.
+# Up the colonist takes; down they refuse. The upward half is this lane's true positive and it is
+# load-bearing -- without it "did not swap" passes for a colonist who cannot reach the vest, cannot
+# see it, or is standing in an arena where the rule never runs.
+func _nobody_swaps_down_to_worse_armour() -> bool:
+	var lane: String = "SELECTIVE"
+	var was: bool = SimJobs.WEAR_FOUND_ARMOR
+	SimJobs.WEAR_FOUND_ARMOR = true
+
+	# Up: wearing the scrap vest, the riot vest at their feet.
+	var up: Variant = _arena()
+	SimJobs.register_module(up)
+	var a: int = _npc(up, 10.0, 10.0)
+	SimJobs.attach(up, a, "Manual", SimJobs.empty_row())
+	var scrap: int = SimItems.spawn_item(up, "item.vest.scrap", {"tier": "scavenged"})
+	SimInventory.equip(up, a, scrap)
+	var riot: int = SimItems.spawn_item(up, "item.vest.riot", {"tier": "scavenged"})
+	up.components.set_component(riot, "position", {"x": 11.5, "y": 10.5})
+	var swapped: bool = false
+	for _i in 400:
+		up.step()
+		if _worn_in(up, a, "vest") == riot:
+			swapped = true
+			break
+	if not swapped:
+		SimJobs.WEAR_FOUND_ARMOR = was
+		push_error("%s: a colonist in a scrap vest never traded up to the riot vest at their feet -- the refusal below would prove nothing" % lane)
+		return false
+
+	# Down: the same arena with the two vests exchanged, and nothing happens.
+	var down: Variant = _arena()
+	SimJobs.register_module(down)
+	var b: int = _npc(down, 10.0, 10.0)
+	SimJobs.attach(down, b, "Manual", SimJobs.empty_row())
+	var better: int = SimItems.spawn_item(down, "item.vest.riot", {"tier": "scavenged"})
+	SimInventory.equip(down, b, better)
+	var worse: int = SimItems.spawn_item(down, "item.vest.scrap", {"tier": "scavenged"})
+	down.components.set_component(worse, "position", {"x": 11.5, "y": 10.5})
+	for _i in 400:
+		down.step()
+	var still: int = _worn_in(down, b, "vest")
+	SimJobs.WEAR_FOUND_ARMOR = was
+	if still != better:
+		push_error("%s: a colonist in a riot vest swapped down (slot holds %d, the riot vest is %d)" % [lane, still, better])
+		return false
+	if not down.components.has_component(worse, "position"):
+		push_error("%s: the scrap vest was picked up off the floor by somebody already better dressed" % lane)
+		return false
+
+	print("  SELECTIVE OK scrap -> riot is taken; riot -> scrap is refused and the worse vest stays on the floor")
+	return true
+
+
+# What is in one equipment slot, or -1. A helper rather than three copies of the same cast, and
+# `equipment` is genuinely absent until somebody equips their first thing.
+func _worn_in(w: Variant, ent: int, slot: String) -> int:
+	var eq: Variant = w.components.get_component(ent, "equipment")
+	if not eq is Dictionary:
+		return -1
+	var slots: Dictionary = ((eq as Dictionary).get("slots", {})) as Dictionary
+	return int(slots.get(slot, -1))
+
+
+# How many garments carrying any armour at all are on this body. Weapons are in `primary` and
+# carry no `armor` block, so they never count here.
+func _worn_count(w: Variant, ent: int) -> int:
+	var n: int = 0
+	for item in SimInventory.equipped_items(w, ent):
+		var base: Variant = SimItems.item_base_of(w, int(item))
+		if base is Dictionary and (base as Dictionary).has("armor"):
+			n += 1
+	return n
