@@ -130,11 +130,13 @@ jobs:
     # used to quote was 2026-09-04 at 51 gates, so the chain has grown 2.3x while that number
     # sat here looking authoritative -- which is most of why `check` kept dying.
     #
-    # CI is roughly comparable to that container: the run that was cancelled reached gate 67 of
-    # 69 in about 28 minutes of chain time. So 45 leaves around 60% headroom, and slice 15's
-    # dressed arm (which roughly doubles the balance tier) fits inside it. Re-measure when the
-    # chain grows; do not simply raise this, which is the instalment the split exists to stop
-    # paying.
+    # Measured on CI too, once this job existed: **19m32s** for all 69 gates on 975efb5, which
+    # is FASTER than the container above rather than comparable, and faster than the cancelled
+    # run's ~28 minutes to reach gate 67 -- so that run was having a bad day on a shared runner
+    # as well as being out of budget. 45 therefore leaves well over twice the headroom actually
+    # needed, and slice 15's dressed arm (which roughly doubles the balance tier) fits easily.
+    # Re-measure when the chain grows; do not simply raise this, which is the instalment the
+    # split exists to stop paying.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
