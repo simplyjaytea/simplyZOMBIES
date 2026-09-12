@@ -169,6 +169,15 @@ switch (mode) {
       "res://check_m2_fortify.gd",
     ];
     break;
+  case "--m2-materials":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_materials.gd",
+    ];
+    break;
   case "--m2-director":
     args = [
       "--headless",
