@@ -822,6 +822,12 @@ func _a_starving_colonist_still_eats() -> bool:
 	for z in w.components.query(["shambler"]):
 		w.despawn(int(z))
 	_strip_edibles(w, ellis)
+	# The tin below has to be the only edible thing in the district, or the survivor eats whatever
+	# the tables happened to scatter nearer and never reads as starving at all.
+	var cleared: int = _strip_every_edible_in_the_world(w)
+	if cleared <= 0:
+		push_error("crisis: the district held no edibles to clear, so the planted tin proves nothing")
+		return false
 	var stock: Vector2i = _first_stockpile(w, _start(w), true)
 	var can: int = SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
 	w.components.set_component(can, "position", {"x": float(stock.x) + 0.5, "y": float(stock.y) + 0.5})
@@ -906,6 +912,33 @@ func _strip_edibles(w: Variant, ent: int) -> void:
 		var base: Variant = SimItems.item_base_of(w, int(item))
 		if base is Dictionary and ((base as Dictionary).has("food") or (base as Dictionary).has("drink")):
 			w.despawn(int(item))
+
+
+# Every edible in the district, not just the ones in one pack. The crisis lane plants a single tin
+# at the stockpile and then asserts a survivor reads as `starving` before walking to it -- which is
+# only true if that tin is the *only* thing they could eat. It was, for as long as the district
+# happened to scatter no food within a tick's reach of the colony; the alpha-roster arc added twenty
+# foods to the tables and the very first step fed Ellis a drum of porridge oats instead, so his
+# hunger came back 38.000 and the crisis never latched. The lane's subject is the crisis and the
+# walk, not the district's pantry, so the fixture now says what it always meant.
+#
+# `world.despawn` leaves components in place (CLAUDE.md's trap: despawn does not remove components,
+# and `query` does not check alive), and every reader that finds food -- the eat verb, the Haul and
+# Scavenge columns -- finds it by `itemBase` or by `position`. So both come off, or the thing is
+# still on the menu after it is gone.
+func _strip_every_edible_in_the_world(w: Variant) -> int:
+	var gone: int = 0
+	for e in w.components.query(["itemBase"]):
+		var base: Variant = SimItems.item_base_of(w, int(e))
+		if not (base is Dictionary):
+			continue
+		if not ((base as Dictionary).has("food") or (base as Dictionary).has("drink")):
+			continue
+		w.components.remove(int(e), "position")
+		w.components.remove(int(e), "itemBase")
+		w.despawn(int(e))
+		gone += 1
+	return gone
 
 
 # --- colonists scavenge near home (the owner's decision 10, 2026-09-06) ------------------------
