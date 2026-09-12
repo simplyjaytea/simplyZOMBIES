@@ -404,16 +404,31 @@ system.
   camping and utility half of docs/12's commercial yield, promised and backed by nothing: bedroll,
   tent, tarp, rope, bolt cutters, binoculars, a surgical kit, and the soap docs/04 names for
   washing — which needs a hygiene scalar, because nothing in the roster has one.
-- **Armour attachment slots.** docs/10 gives body armour plate · lining · pocket and headgear
-  face · light mount. No armour base declares `slots` at all, and `attachment` has only `melee`
-  and `ranged` multiplier tables, so unlike the four weapon slots the second gear catalogue closed
-  this one is code — a third table and a reader — before it is content. A `pocket` that grants a
-  small `container` grid is the one that pays for itself immediately. Two things this piece must
-  not discover halfway through: `armor` coverage reduces no combat damage anywhere in the sim — it
-  gates bite transmission and a heat penalty and nothing else — so plates that *protect* are
-  another reader rather than content, and the record says which half shipped. And docs/09's own cut
-  list still asserts explosives "exist as rare loot" while zero explosive items exist; that line
-  gets content here or it gets corrected here, but it does not stay as it is.
+- ~~**Armour attachment slots, and armour that stops damage**~~ — **landed** 2026-09-12, see the
+  record.
+- **Armour that reaches a campaign.** The armour slice's own measurement is the reason this piece
+  exists, and it is the most useful thing that slice produced. Coverage stops damage now, and
+  `godot:m2:balance` came back **byte-identical on all four seeds** — not because the mechanic
+  fails but because **the harness dresses nobody**: no starting kit contains armour, the fast tier
+  arms hands only, `searches=0`, and NPCs equip found gear solely as a fallback when the pack is
+  full. A throwaway driver that dressed everyone measured integrity lost falling **14.35 → 8.97, a
+  37% reduction**, on the one seed where contact stayed identical between runs. So the mechanic is
+  real, gated and measured, and **the shipped colony still fights in shirtsleeves**. Closing that is
+  acquisition — a starting kit, or colonists who choose to wear what they find — and it is larger
+  than the slice that revealed it.
+- **A plate that degrades as it stops blows.** Armour parts declare no `wearsOn`, and deliberately:
+  `WEAR_EVENTS`' `"hit"` means *the weapon you swung connected* and fires on the attacker's item,
+  not the target's garment, so declaring it would have been a dead socket. Wants a new wear word
+  (`struck`) and a subscriber on the target's side. Their *condition* is already read — a scavenged
+  plate does less than a pristine one, through `effect_scale`.
+- **The headgear light mount docs/10 names.** Not built, and for a reason worth keeping: a helmet
+  lamp needs the light scan to walk worn gear, and after the burn slice it walks `LIGHT_SLOTS`,
+  which covers the head — so this is now much closer than it was, and wants a `mount` slot plus
+  content rather than a reader.
+- **Armour on anything that is not a survivor.** `armor_coverage_of` reads `equipped_items`, and
+  zombies have no `equipment` component at all, so an armoured zombie kind — which docs/10's
+  Quietkeeper drawback ("useless against armored types") assumes exists — remains unimplemented.
+  Raiders do benefit correctly, if an archetype kit ever carries armour; none does.
 - ~~**Named items, the fourth tier**~~ — **landed** 2026-09-12, see the record.
 - **Choosing which round to fire.** The ammo slice shipped the mechanism and not the choice: with
   buckshot and slugs both in the pack the pick order decides, and the only way to fire the slug is
@@ -6771,6 +6786,72 @@ not a to-do list:
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
 
+- **Items** — ~~armour attachment slots, and armour that stops damage~~ **landed** 2026-09-12
+  (`npm run godot:m2:armor` → **`M2_ARMOR_OK factor stops paths plate bands ban`**, plus an ARMOR
+  lane in `godot:m2:attach`; `godot:ban:healthbar`, `godot:m2:lethality`, `godot:m2:contact`,
+  `godot:m2:swipe`, `godot:m2:wounds` and `godot:m2:npc` all held), the **eighth slice of the
+  alpha-roster arc**, the sixth reader, and the only slice in the arc that changes every fight.
+
+  **Coverage stopped nothing, anywhere.** Twelve garments each carried a coverage number and that
+  number never met a blow: it was read for bite and scratch transmission and for a heat penalty,
+  and for nothing else. On the owner's decision of 2026-09-12, `SimHealth.armor_damage_factor` is
+  the reader, applied inside `damage_part` — **the one closure in the sim that writes
+  `b[named_part]`**, and the funnel both `attack.connected` and `bite.landed` arrive at. Applying
+  it at each publisher would be the same rule written four times and forgotten in the fifth; the
+  gate asserts the single writer textually.
+
+  **The curve is not a new number, and that is the subtle half.** `SimWounds.severity_for` had
+  softened escalation by exactly `1 - 0.5 * coverage` since wounds landed. That same curve moved one
+  step **upstream** onto the integrity, and `severity_for` dropped its copy — so no shipped severity
+  band moved, and `check_m2_wounds.gd`'s ARMOR lane still prints the identical `bare=2 armored=1` it
+  printed before. Keeping both copies would have squared it and quietly made every vest twice the
+  vest its content says it is; that is sabotage #4's exact error text.
+
+  **Slots, and the pocket that pays for itself.** `SCALABLE` gains a third entry whose profile is a
+  coverage *map* keyed by body part rather than a field list — `fold` needed no new code, because it
+  never cared what a key meant. `armor_coverage` returns zero flat when `blocked_reason` says a
+  required slot is empty, which is what makes `item.vest.carrier` webbing until there is a plate in
+  it: the first garment in the game that cannot work without what goes in it. The utility pouch
+  grants a `container` grid and `reachable_containers` now walks the slots of worn gear, so a vest
+  with a pouch fitted genuinely carries more — with the mass recursing through `parts_of`, so it is
+  not free carry.
+
+  **The measurement is the most valuable thing this slice produced, and it is a negative result.**
+  `godot:m2:balance` fast tier came back **byte-identical on all four seeds**, before and after.
+  That is not the mechanic failing — it is the harness unable to see it, because **the fast tier
+  dresses nobody**: it arms hands only, `searches=0`, and no starting kit contains armour. The
+  identity is still worth having, since it proves the change introduced no RNG-stream or ordering
+  divergence anywhere else, including from eight new loot rows. A throwaway driver mirroring the
+  fast tier with everyone dressed is what could see it: its **bare arm is byte-identical** on all
+  four seeds — mitigation is exactly inert without coverage, the perfect control — and on the one
+  seed where contact stayed identical between runs (7 grabs, 57 bites, the same two wounds),
+  **integrity lost fell 14.35 → 8.97, a 37% reduction**. On another, a death went away. The
+  remaining two diverged, as a combat change must, and are **not claimed**.
+
+  **So the shipped colony still fights in shirtsleeves**, and that is named as its own piece in
+  what's-left rather than left implicit. Armour acquisition — a starting kit, or colonists who wear
+  what they find — is bigger than this slice.
+
+  **The health-bar ban is untouched.** Mitigation adds no field: the factor is computed inside
+  `damage_part` and discarded, never stored, never published, never in a read model. `condition.gd`
+  still says only `armored: true`, a boolean, and the ARMOR gate's own BAN lane asserts that as well
+  as the standing gate. The one new player-facing string is prose with no digit — *"The plate
+  carrier has no plate."* — and the lane scans it character by character so `check:hud` never has to.
+
+  **Two more assertions could not fail, and both were rewritten.** One checked that a blocked
+  garment covers nothing, but an empty `attachments` component short-circuits before
+  `blocked_reason` is ever consulted, so with the plate simply pulled the check was unreachable —
+  it fits a pouch to a *non-required* slot now, the only state where that predicate decides. The
+  other, "a multiplier cannot conjure coverage", turned out to be guaranteed by arithmetic rather
+  than by any guard, so no single edit could break it; it was replaced by exact per-key values and
+  a "a part fitted to one garment must not move another" pair. **That is the fifth and sixth such
+  find in this arc**, and a code comment crediting the wrong mechanism was corrected with them.
+
+  **One behaviour change that was not asked for, flagged rather than buried.** `damage_part` now
+  returns what was actually taken and both wound paths band off that, so the CON-derived
+  `damage_taken` modifier and wound severity no longer disagree — before, the modifier reduced
+  integrity while the wound was banded off the raw event damage. Slightly milder wounds for
+  high-CON survivors, small and in the right direction, and a side effect rather than an intent.
 - **Items** — ~~light that burns down, and what feeds it~~ **landed** 2026-09-12
   (`npm run godot:m2:light_burn` → **`M2_LIGHT_BURN_OK pinned content slots burn headlamp feed plant
   siphon night`**, a new gate with nine lanes, every one watched go red; `godot:check:light`,
