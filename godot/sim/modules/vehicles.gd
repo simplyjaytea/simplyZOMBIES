@@ -142,7 +142,18 @@ const REFUEL: String = "vehicle.refuel"
 const REFUEL_TICKS: int = 200
 # What "hands are not free" means, for the door and for the can alike -- one list so the two
 # verbs cannot disagree about busy.
-const BUSY: Array[String] = ["grabbed", "treatment", "treated", "rescue", "corpse", "construct", "refuel"]
+const BUSY: Array[String] = ["grabbed", "treatment", "treated", "rescue", "corpse", "construct", "refuel", "siphon"]
+# The other direction, and docs/23's "the siphon" closed. `item.jerrycan.empty` shipped with the
+# jerrycan: it is what a poured can `empties` into, it sits in the industrial table in its own
+# right, and **nothing in the game could ever fill one** -- so the one thing a tank full of petrol
+# in a dead suburb was good for was driving the car it was already in. A body at the nose of a
+# parked engine with an empty can and a channel's patience now takes ten litres out of it.
+#
+# Whole can or nothing, which is the refuel rule read backwards and for the identical reason:
+# item.schema.json's `fuel` block refuses a per-instance litre count, so a half-filled can is not
+# a thing this game can represent. A tank with less than a canful in it is simply not worth
+# siphoning, and `siphon_problem` says so in those words.
+const SIPHON_TICKS: int = REFUEL_TICKS
 # The dashboard: what the driver sees from the seat, a makeshift instrument cluster (the
 # owner's third goal of 2026-09-05). Words and booleans, plus exactly two needles -- `speedo`
 # and `gauge`, fractions of the class's top and of the tank -- which are the machine's own
@@ -201,11 +212,19 @@ static func register_module(world: Variant) -> void:
 	world.systems.register("vehicle.refuel", "structures", 1, func(w: Variant) -> void:
 		_tick_refuel(w)
 	)
+	# The pour's twin, one order behind it so the two can never both spend the same tick on the
+	# same body -- `BUSY` and the two "already" refusals make that impossible anyway, and this is
+	# the belt beside the braces.
+	world.systems.register("vehicle.siphon", "structures", 2, func(w: Variant) -> void:
+		_tick_siphon(w)
+	)
 	world.events.subscribe({"id": "vehicle.stagger-interrupts", "type": "entity.staggered", "handler": func(event: Dictionary) -> void:
 		cancel_refuel(world, int(event.get("entity", -1)), "staggered")
+		cancel_siphon(world, int(event.get("entity", -1)), "staggered")
 	})
 	world.events.subscribe({"id": "vehicle.grab-interrupts", "type": "grab.started", "handler": func(event: Dictionary) -> void:
 		cancel_refuel(world, int(event.get("victim", -1)), "grabbed")
+		cancel_siphon(world, int(event.get("victim", -1)), "grabbed")
 	})
 
 
@@ -803,6 +822,150 @@ static func _complete_refuel(world: Variant, actor: int, state: Dictionary) -> v
 	SimNeedsRes.consume_item(world, actor, can)
 	world.events.publish({"type": "vehicle.refuelled", "entity": car, "actor": actor, "litres": poured, "spilt": litres - poured})
 	# The new fuel word sits on the HUD for HOOD_REPORT_TICKS, exactly as a look would leave it.
+	check_hood(world, actor, car)
+
+
+# --- siphoning into a can ----------------------------------------------------------------------
+
+## The full can an empty one becomes, or "". Found by reverse lookup rather than by a new content
+## key: the full base already names its `empties`, so the pair is written down once and a second
+## key pointing back would be a second thing to keep in step. Narrowed to bases that actually
+## declare a `fuel` block, because `item.water.bottle.empty` is the `empties` of two different
+## bottles and neither of them is petrol. Ambiguity is refused rather than resolved -- two fuel
+## cans emptying into one shell is a content bug and the gate says so.
+static func siphon_fill_of(world: Variant, empty_base_id: String) -> String:
+	if empty_base_id.is_empty():
+		return ""
+	var found: String = ""
+	for entry_v in SimItemsRes.content_entries(world, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		if String(e.get("empties", "")) != empty_base_id:
+			continue
+		if fuel_spec(world, String(e.get("id", ""))) == null:
+			continue
+		if not found.is_empty():
+			return ""
+		found = String(e.get("id", ""))
+	return found
+
+
+## The first empty can the body carries -- an item whose base fills back into something with a
+## `fuel` block -- or NO_DRIVER. `carried_fuel_can`'s mirror.
+static func carried_empty_can(world: Variant, actor: int) -> int:
+	for item in SimInventoryRes.carried_items(world, actor):
+		var base: Variant = world.components.get_component(int(item), "itemBase")
+		if not (base is Dictionary):
+			continue
+		if fuel_spec(world, String((base as Dictionary).get("baseId", ""))) != null:
+			continue
+		if not siphon_fill_of(world, String((base as Dictionary).get("baseId", ""))).is_empty():
+			return int(item)
+	return NO_DRIVER
+
+
+## Why this body cannot draw fuel out of this vehicle right now, or "" when it can.
+## `refuel_problem`'s mirror, in the same order and with the same words where the refusal is the
+## same one.
+static func siphon_problem(world: Variant, actor: int, entity: int) -> String:
+	if world.components.has_component(actor, "siphon"):
+		return "already siphoning"
+	if world.components.has_component(actor, "refuel"):
+		return "already pouring"
+	if world.components.has_component(actor, "mounted"):
+		return "at a wheel"
+	var v: Variant = world.components.get_component(entity, "vehicle")
+	if not (v is Dictionary):
+		return "not a vehicle"
+	if int((v as Dictionary).get("driver", NO_DRIVER)) != NO_DRIVER:
+		return "somebody is driving it"
+	var drive: Dictionary = drive_of(class_of(world, String((v as Dictionary).get("class", ""))))
+	if drive.is_empty():
+		return "its class declares no drive block"
+	match power_of(drive):
+		POWER_MUSCLE:
+			return "nothing to draw"
+		POWER_BATTERY:
+			return "a battery holds charge, not fuel"
+	for busy in BUSY:
+		if world.components.has_component(actor, busy):
+			return "hands are not free (%s)" % busy
+	if not at_hood(world, actor, entity):
+		return "not at the hood"
+	var can: int = carried_empty_can(world, actor)
+	if can == NO_DRIVER:
+		return "no empty can"
+	var base: Variant = world.components.get_component(can, "itemBase")
+	var fill: String = siphon_fill_of(world, String((base as Dictionary).get("baseId", ""))) if base is Dictionary else ""
+	if fill.is_empty():
+		return "nothing that can would hold"
+	var spec: Variant = fuel_spec(world, fill)
+	if spec == null:
+		return "nothing that can would hold"
+	if float((v as Dictionary).get("fuel", 0.0)) < float((spec as Dictionary).get("litres", 0.0)) - EPS:
+		return "not enough in the tank to fill it"
+	return ""
+
+
+static func begin_siphon(world: Variant, actor: int, entity: int) -> bool:
+	if not siphon_problem(world, actor, entity).is_empty():
+		return false
+	var can: int = carried_empty_can(world, actor)
+	world.components.set_component(actor, "siphon", {"vehicle": entity, "item": can, "ticksLeft": SIPHON_TICKS, "ticks": SIPHON_TICKS})
+	world.events.publish({"type": "vehicle.siphon.started", "entity": entity, "actor": actor, "item": can})
+	return true
+
+
+static func cancel_siphon(world: Variant, actor: int, why: String) -> void:
+	if actor < 0 or not world.components.has_component(actor, "siphon"):
+		return
+	world.components.remove(actor, "siphon")
+	world.events.publish({"type": "vehicle.siphon.cancelled", "actor": actor, "why": why})
+
+
+# The draw's conditions are re-derived every tick, `_tick_refuel`'s rule and for the same reasons.
+static func _tick_siphon(world: Variant) -> void:
+	for actor in world.components.query(["siphon"]):
+		var state: Variant = world.components.get_component(int(actor), "siphon")
+		if not (state is Dictionary):
+			continue
+		var car: int = int((state as Dictionary).get("vehicle", NO_DRIVER))
+		var can: int = int((state as Dictionary).get("item", NO_DRIVER))
+		var v: Variant = world.components.get_component(car, "vehicle")
+		if world.components.has_component(int(actor), "grabbed") or not (v is Dictionary) \
+				or int((v as Dictionary).get("driver", NO_DRIVER)) != NO_DRIVER \
+				or not at_hood(world, int(actor), car) \
+				or not SimInventoryRes.owns(world, int(actor), can):
+			cancel_siphon(world, int(actor), "interrupted")
+			continue
+		(state as Dictionary)["ticksLeft"] = int((state as Dictionary).get("ticksLeft", 0)) - 1
+		if int((state as Dictionary)["ticksLeft"]) > 0:
+			continue
+		_complete_siphon(world, int(actor), state as Dictionary)
+
+
+static func _complete_siphon(world: Variant, actor: int, state: Dictionary) -> void:
+	var car: int = int(state.get("vehicle", NO_DRIVER))
+	var can: int = int(state.get("item", NO_DRIVER))
+	var base: Variant = world.components.get_component(can, "itemBase")
+	var fill: String = siphon_fill_of(world, String((base as Dictionary).get("baseId", ""))) if base is Dictionary else ""
+	var v: Variant = world.components.get_component(car, "vehicle")
+	var spec: Variant = fuel_spec(world, fill) if not fill.is_empty() else null
+	if spec == null or not (v is Dictionary):
+		cancel_siphon(world, actor, "no empty can")
+		return
+	var litres: float = float((spec as Dictionary).get("litres", 0.0))
+	if float((v as Dictionary).get("fuel", 0.0)) < litres - EPS:
+		cancel_siphon(world, actor, "not enough in the tank to fill it")
+		return
+	(v as Dictionary)["fuel"] = maxf(0.0, float((v as Dictionary).get("fuel", 0.0)) - litres)
+	world.components.remove(actor, "siphon")
+	# The empty is spent and the full can takes its place, which is `_leave_empty` run backwards
+	# through the same one spend path -- so a stack of empties loses one rather than all of it.
+	SimNeedsRes.consume_item(world, actor, can)
+	var filled: int = SimItemsRes.spawn_item(world, fill, {"tier": "scavenged"})
+	if not SimInventoryRes.stow(world, actor, filled):
+		SimInventoryRes.drop_at_feet(world, actor, filled)
+	world.events.publish({"type": "vehicle.siphoned", "entity": car, "actor": actor, "litres": litres, "item": filled})
 	check_hood(world, actor, car)
 
 

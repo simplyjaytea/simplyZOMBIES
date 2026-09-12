@@ -95,6 +95,11 @@
       "enum": ["fluids", "remedy"],
       "description": "What this item does to a bout of illness already in progress, best last in the enum and ranked best-first by SimNeeds.ILLNESS_ORDER. Absent means it treats no illness. `fluids` cuts what is left of the bout; `remedy` ends it. It does nothing to a survivor who is not ill, and SimNeeds.can_use is where that is decided, so the menu cannot offer a use the sim then refuses."
     },
+    "lightFuel": {
+      "enum": ["cell", "oil", "gas"],
+      "description": "What this item feeds a lamp, when it is fuel -- the owner's decision of 2026-09-12. Absent means it feeds nothing, which is the normal state. Matched exactly against a lamp's `light.feed`, and one unit is one full fill whatever it goes into, for the reason `fuel.litres` pours a can whole: a lamp that remembered a part-charge would need a per-instance number on the can as well as on the lamp, and two of them is one more than the mechanism is worth. Spent by SimLightModule.feed, which is also the predicate the word menu asks before it offers `use`. A flat scalar at the top level rather than a nested block for the reason buildMaterial and filter are flat: the Godot content validator is shallow, so an enum up here is the only shape it actually enforces.",
+      "$comment": "The kinds are deliberately few and physical -- a cell, a fill of oil, a bottle of gas -- so what is in your pack answers the question without a table."
+    },
     "buildMaterial": {
       "enum": ["metal", "wood", "plank", "stone", "fiber", "cordage", "fixings", "ingot", "charcoal", "clay", "wire", "circuit"],
       "description": "What substance this is, when it is something you can build out of -- docs/12-resources.md's gathered and refined tiers. Absent means the item builds nothing, which is the normal state: a whetstone is a `material` by class and is not a build material. A recipe names one kind and spends one unit of it (SimFortify.RECIPES, and the owner's decision of 2026-09-12: typed materials, uniform cost), so the kind is what decides whether the thing in your pack is the thing the barricade wants. The enum is the vocabulary SimFortify.MATERIAL_KINDS ranks; check_m2_materials.gd's KINDS lane asserts both directions, because neither this list nor that one can see the other.",
@@ -140,7 +145,7 @@
     },
     "light": {
       "type": "object",
-      "description": "What this base lights, per docs/03-attention.md#light. Read by the light module when the base is equipped to a hand slot. Magnitude is reach in metres, in the same metres as every other channel -- there is no brightness unit.",
+      "description": "What this base lights, per docs/03-attention.md#light. Read by the light module when the base is equipped to a slot SimLightModule.LIGHT_SLOTS walks -- the two hands, the head and the eyes -- or when the base is planted as furniture. Magnitude is reach in metres, in the same metres as every other channel -- there is no brightness unit. The content validator is shallow and will not look inside this, which is what godot/check_m2_light_burn.gd is for.",
       "required": ["magnitude"],
       "additionalProperties": false,
       "properties": {
@@ -148,6 +153,15 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Reach in metres. The values are docs/03's table -- candle 3, campfire 20, lamp 35, floodlight 90 -- and a test pins them against LIGHT_TABLE so the two cannot drift."
+        },
+        "burnTicks": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "How long a full charge, wick or fill lasts, in ticks, per the owner's decision of 2026-09-12. A lamp with no burnTicks burns for ever, which is what every light in the game did before this key existed -- so the key is what makes a light a resource rather than a permanent upgrade. Spent one tick per tick by SimLightModule's burn clock, and only while the light is actually the thing lighting somebody: max-not-sum means the dimmer lamp in your other hand is not lit and does not burn. At zero the light goes dark and the next-brightest thing you carry takes over. SimClock.DAY_TICKS is 288000, so one in-game hour is 12000; check_m2_light_burn.gd measures the fully dark stretch off the clock rather than quoting it here, and that measurement (72000 ticks, six in-game hours) is what every shipped burn time is judged against."
+        },
+        "feed": {
+          "enum": ["cell", "oil", "gas"],
+          "description": "What refills it, when anything does. Matched exactly against the top-level `lightFuel` of the thing in your pack -- a kind is not ranked and not converted, the way a caliber is not, so a battery either goes in or it does not. Absent means single-use: a candle burns down and is a stub, and that is the trade it makes against a lamp that is brighter and hungrier. The vocabulary is SimLightModule.FUEL_KINDS and check_m2_light_burn.gd's CONTENT lane asserts both directions, because neither this list nor that one can see the other."
         }
       }
     },
