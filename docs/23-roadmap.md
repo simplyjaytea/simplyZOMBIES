@@ -358,12 +358,7 @@ system.
   `check_m2_heat`'s ROOF lane pins it. Cooling, being new, is strictly colder in both weathers, so
   the two halves of the axis are deliberately asymmetric today. Making insulation *cost* you in the
   heat is the owner's call and it breaks that pin.
-- **Cooking and water: the transform keys.** Every raw food in the game cooks into the same meal,
-  because the cook step spawns one hardcoded id, and boiling is a `baseId` rename from one literal
-  to another. Two content keys — a cooks-into and a boils-into — fix both, and they are the exact
-  grammar of `empties`, which already ships and is already read, so this is the cheapest reader in
-  the arc. With them ingredients become distinct meals, and a filter or a tablet can purify without
-  a campfire, which is what docs/04's "filters or chemicals" has meant all along.
+- ~~**Cooking and water: the transform keys**~~ — **landed** 2026-09-12, see the record.
 - ~~**Build materials: the substance that is not scrap**~~ — **landed** 2026-09-12, see the record.
 - **Buildables for the other eleven kinds.** The materials slice landed the vocabulary, the content
   and the loot; what it could not land is an economy. Three recipes exist and **all three want
@@ -376,11 +371,20 @@ system.
   deliberately matching `_place_bench`, and there is no verb to take it down again. That is a real
   restriction on a thing that came out of the player's own pack, and not obviously what anyone would
   expect; named rather than left to be discovered.
-- **Noise that is an item.** The attention field is finished, and the only thing in the game that
-  spends an item to make noise is firing a gun; the alarm and the noisemaker are world singletons
-  that cost nothing to place. A noise block and a place-and-trigger verb make a firecracker, an air
-  horn or a radio left playing into real decisions, and turn those two singletons into things you
-  had to have carried there first.
+- ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
+  devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
+  owner's decision of 2026-09-12. Repricing them is below.
+- **The alarm and the noisemaker still cost nothing to place.** They are `fortify.gd` world
+  singletons that consume no item, and the noise slice deliberately left them that way: the owner
+  chose new items only, and `check_m2_materials.gd`'s PINNED lane asserts both by name, so
+  repricing them is a rebalance that would turn a shipped gate red rather than a content addition.
+  What closes it is giving each an item to spend and moving that PINNED assertion with it, in one
+  commit, with the before-and-after run that a rebalance owes.
+- **A purifier is spent but never refilled.** The transform slice gives the pump filter forty uses
+  and the billy can six, and when a purifier runs out it is simply a thing with nothing left in it.
+  There is no cartridge to replace and no way to boil the filter clean, so the best purifier in the
+  game is strictly a countdown. A refill recipe is the obvious close, and it wants the buildables
+  economy above rather than a key of its own.
 - **Comfort that is not food.** Mood is a real stat with seven sources, and an item can feed it
   only by being edible or drinkable — `needs.gd` refuses everything else by construction. A comfort
   key and a use verb open the obvious things a person keeps for morale: cigarettes, cards, a
@@ -7025,6 +7029,68 @@ not a to-do list:
   the Tetanus Special's "free to repair from scrap" wants `repair_cost`, which resolves against
   nothing, so it simply is not shipped; its "heavy bleed" rides the live chain instead — higher
   damage, worse severity, faster bleed — plus a fixed `barbed` prefix.
+- **Items** — ~~cooking and water: the transform keys~~ **landed** 2026-09-12
+  (`npm run godot:m2:transform` → **`M2_TRANSFORM_OK pinned content cook order boil purify rank
+  reach`**, a new gate of eight lanes; `godot:m2:jobs`, `godot:m2:needs`, `godot:m2:gear`,
+  `godot:m2:fortify`, `godot:m2:materials` and `godot:check:loot` all held), the **ninth slice of
+  the alpha-roster arc**.
+
+  **Ten ingredients shared one meal between them.** The cook step in `jobs.gd` spawned a single
+  hardcoded id, so game meat, dried beans and salted strips came off the same fire as the same
+  thing; boiling was worse, a `baseId` rename from one literal to another written over the item in
+  place. Three keys replace both. `cooksInto` and `boilsInto` are the exact grammar of `empties` —
+  a flat top-level string naming another base id — which is why this was the cheapest reader in the
+  arc: the shape was already shipping and already read, and the gear gate's reachability half
+  understood it for free. `purifies` is the third and is a count rather than a name: a tablet is
+  spent once, a pump filter has forty, a billy can has six and is then a billy can with nothing
+  left in it. No fire is required, which is what docs/04's "filters or chemicals" has meant all
+  along.
+
+  **Twenty-four new bases in `godot/content/items/kitchen.json`** — ten cookables making ten
+  distinct meals, two boilable vessels, four purifiers, a camp stove, a pot, and the ingredients
+  and curing supplies docs/12 asks for. Loot is additive, as it was for materials: cooking gear is
+  a new category, so nothing existing was trimmed and no pre-existing weight or `tierWeights`
+  moved.
+
+  **The REACH lane earned the slice on its first run.** `item.filter.pump` was complete, correct,
+  read end to end, and in no loot table — the exact shape `item.floodlight.rigged` had before the
+  light slice reached it. The gate refused it by name rather than passing quietly, which is the
+  whole argument for the dead-socket rule stated as a reproduction rather than a principle. The
+  fix was two loot rows; the point is that nothing else in the chain noticed.
+
+  **What did not land:** a spent purifier cannot be refilled or boiled clean, so the best purifier
+  in the game is a countdown. Named in what's left rather than left to be discovered.
+- **Items** — ~~noise that is an item~~ **landed** 2026-09-12
+  (`npm run godot:m2:noise` → **`M2_NOISE_OK pinned content table place clock horde lift hud`**, a
+  new gate of eight lanes; `godot:m2:gear`, `godot:m2:fortify`, `godot:m2:materials`,
+  `godot:m2:save`, `godot:check:hud` and `godot:check:inventory` all held), the **tenth slice of
+  the alpha-roster arc**.
+
+  **The attention field has been finished for a while and the only thing in the game that spent an
+  item to make a noise was firing a gun.** A `noise` block gives a magnitude, a run length and a
+  fuse; eight devices carry it, six that wind up and two that go off where you stand. Every
+  magnitude is a rung of docs/03's published table rather than a number invented for the item, and
+  the TABLE lane asserts exactly that, so a device cannot quietly become louder than the ladder
+  allows.
+
+  **The devices are multi-use, and that is a deliberate contrast.** E takes a placed device back
+  into the pack, the tile is left with nothing on it, and the same entity goes down again on a
+  fresh fuse; a lift with nowhere to put it refuses rather than losing the thing. The light slice's
+  floodlight is a one-way trip and is recorded as such — two placeable items, two opposite answers,
+  both by the owner's decision of 2026-09-12 rather than by whichever was written first.
+
+  **Half of it did not ship, on purpose.** The what's-left entry wanted the alarm and the noisemaker
+  turned into things you had to have carried there first. They are still free world singletons,
+  because `check_m2_materials.gd`'s PINNED lane asserts both of them by name and by cost — so
+  repricing them is a rebalance that turns a shipped gate red, not a content addition riding along
+  beside one. The owner chose new items only. The repricing is named in what's left with the
+  before-and-after run it owes.
+
+  **HORDE is the lane worth naming**, because it measures the thing the slice is for rather than
+  the field it writes into: twelve bodies at a mean 18.0 m held 18.6 m through a 400-tick fuse and
+  then closed to 3.0 m over 3600 ticks of siren, while an identical siren that never went off left
+  its ring at 20.9 m. The control is what makes it an assertion — the crowd came for the sound, and
+  a crowd that did not hear one stayed where it was.
 - **Items** — ~~build materials: the substance that is not scrap~~ **landed** 2026-09-12
   (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes`**, a
   new gate whose six lanes were each broken and watched go red; `godot:m2:fortify`, `godot:m2:jobs`,

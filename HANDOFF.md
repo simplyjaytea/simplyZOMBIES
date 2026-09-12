@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **65 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **67 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,29 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — cooking, water, and noise you can carry.** The arc's ninth and tenth slices,
+both built in isolated worktrees and integrated here. Cooking: ten ingredients had shared one meal
+between them, because the cook step spawned a single hardcoded id and boiling was a `baseId` rename
+written over the item in place. `cooksInto` and `boilsInto` are the exact grammar of `empties` — the
+cheapest reader in the arc, because the shape was already shipping and already read — and
+`purifies` is a use count that needs no fire, so a tablet is spent once and a pump filter has forty.
+Twenty-four bases in `kitchen.json`, gate `godot:m2:transform`, eight lanes.
+
+**The REACH lane caught a dead socket on its first run**, which is the honest reason to trust it:
+`item.filter.pump` was complete, correct, read end to end, and in no loot table — the same shape
+`item.floodlight.rigged` had before the light slice reached it. Two loot rows fixed it; nothing else
+in the sixty-seven-gate chain noticed.
+
+Noise: a `noise` block with a magnitude, a run length and a fuse, on eight new devices, every
+magnitude a rung of docs/03's published table. They are **multi-use** — E picks a placed device back
+up and it goes down again on a fresh fuse — deliberately opposite to the light slice's one-way
+floodlight, both by owner decision rather than by whichever was written first. Gate
+`godot:m2:noise`, eight lanes, of which HORDE is the one worth reading: twelve bodies closed from
+18.6 m to 3.0 m over 3600 ticks of siren while an identical siren that never went off left its ring
+at 20.9 m. **Half of it did not ship on purpose**: the alarm and the noisemaker are still free world
+singletons, because `check_m2_materials.gd`'s PINNED lane asserts both by name and repricing them is
+a rebalance, not a content addition. It is named in what's left with the run it owes.
 
 **2026-09-12 — armour, both halves: slots to fit it into, and damage it actually stops.** The arc's
 eighth slice and the only one that changes every fight. Coverage stopped nothing anywhere — twelve
