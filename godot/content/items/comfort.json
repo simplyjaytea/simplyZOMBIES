@@ -1,0 +1,111 @@
+[
+  {
+    "id": "item.cigarettes.pack",
+    "name": "Pack of Cigarettes",
+    "description": "A soft pack, crushed flat on one corner, with most of a row still in it. Nobody is quitting this year.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.02,
+    "stack": 5,
+    "comfort": { "mood": 6, "ticks": 12000, "spends": true }
+  },
+  {
+    "id": "item.cigar.keepsake",
+    "name": "Somebody's Good Cigar",
+    "description": "Kept in a metal tube for an occasion that never arrived. It gets smoked by whoever decides tonight counts.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.03,
+    "comfort": { "mood": 9, "ticks": 18000, "spends": true }
+  },
+  {
+    "id": "item.flask.hip",
+    "name": "Hip Flask",
+    "description": "Dented steel, warm from a pocket, with a mouthful of something harsh left in the bottom of it.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.2,
+    "comfort": { "mood": 7, "ticks": 18000, "spends": true }
+  },
+  {
+    "id": "item.cards.deck",
+    "name": "Deck of Playing Cards",
+    "description": "Worn soft at the corners and short of a card or two, which everybody agrees to pretend they have not noticed.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "comfort": { "mood": 9, "ticks": 36000 }
+  },
+  {
+    "id": "item.dice.cup",
+    "name": "Dice and Leather Cup",
+    "description": "A cracked cup and a handful of bone dice that rattle like something small running across a floor.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.15,
+    "comfort": { "mood": 5, "ticks": 24000 }
+  },
+  {
+    "id": "item.photograph.creased",
+    "name": "Creased Photograph",
+    "description": "A picture of people on a beach, folded and unfolded so often the faces have started to go soft along the crease.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.01,
+    "comfort": { "mood": 4, "ticks": 36000 }
+  },
+  {
+    "id": "item.letter.unsent",
+    "name": "Unsent Letter",
+    "description": "Written in a steady hand, addressed, and never posted. Reading it is either a comfort or a mistake, depending on the night.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.01,
+    "comfort": { "mood": 4, "ticks": 36000 }
+  },
+  {
+    "id": "item.harmonica.brass",
+    "name": "Brass Harmonica",
+    "description": "Tarnished, missing its case, and still perfectly in tune. Whoever plays it is not as good as they think they are.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "comfort": { "mood": 8, "ticks": 24000 }
+  },
+  {
+    "id": "item.musicbox.windup",
+    "name": "Wind-Up Music Box",
+    "description": "A lacquered box with a crank on the side. It plays something slow and a little flat, and then it runs down.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.3,
+    "comfort": { "mood": 6, "ticks": 24000 }
+  },
+  {
+    "id": "item.paperback.dogeared",
+    "name": "Dog-Eared Paperback",
+    "description": "Swollen with damp and read to pieces. The ending is missing, which nobody minds as much as they expected to.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.25,
+    "comfort": { "mood": 10, "ticks": 48000 }
+  },
+  {
+    "id": "item.chess.travel",
+    "name": "Travelling Chess Set",
+    "description": "A folding board with pegged pieces, so a game can sit half finished on a crate for days without anybody knocking it over.",
+    "class": "tool",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.4,
+    "comfort": { "mood": 11, "ticks": 48000 }
+  },
+  {
+    "id": "item.rosary.wooden",
+    "name": "Wooden Rosary",
+    "description": "Beads rubbed pale where a thumb has gone over them, on a cord that has been knotted back together more than once.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.03,
+    "comfort": { "mood": 7, "ticks": 36000 }
+  }
+]
