@@ -284,7 +284,11 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # comment names: two things that say the same thing independently drift the moment only one is
 # updated. The armour parts this slice shipped -- plates, a lining, a visor -- are covered there.
 # A pouch is covered *here*, because it declares a `container` and that is a different claim.
-const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel"]
+# `noise` joined this list with the noise-device slice. A placeable noise device declares no
+# equipSlot, no melee and no ranged block -- it is a `tool` you stand on a tile -- so without this
+# key a firecracker in no loot table would have been exactly the shape `item.floodlight.rigged` was
+# before the light slice reached it: shipped, correct, and unreachable.
+const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel", "noise"]
 # The bases a *job or verb* produces rather than a table rolls, each with the sim file that names
 # it, so the allowance cannot outlive the code it describes: cooked food out of SimJobs' cook job,
 # and well water out of SimNeeds.fill_bottle.
@@ -381,8 +385,8 @@ func _the_catalogue_is_findable_and_read() -> bool:
 		if e.has("empties") and not by_id.has(String(e["empties"])):
 			push_error("CATALOGUE: %s leaves %s, which is not a base" % [String(id), String(e["empties"])])
 			return false
-		if String(e.get("class", "")) == "tool" and not (e.has("light") or e.has("modification")):
-			push_error("CATALOGUE: %s is a tool with no light and no modification block -- a tool nothing reads" % String(id))
+		if String(e.get("class", "")) == "tool" and not (e.has("light") or e.has("modification") or e.has("noise")):
+			push_error("CATALOGUE: %s is a tool with no light, no modification and no noise block -- a tool nothing reads" % String(id))
 			return false
 	# The true negatives: the scans do not see ids that are not there, and the two predicates
 	# can say no to a fabricated armoured orphan and a fabricated mute tool.
@@ -398,10 +402,10 @@ func _the_catalogue_is_findable_and_read() -> bool:
 		push_error("CATALOGUE: a fabricated armoured orphan would not have been judged at all")
 		return false
 	var mute_tool: Dictionary = {"id": "item.gate.mutetool", "class": "tool"}
-	if mute_tool.has("light") or mute_tool.has("modification"):
+	if mute_tool.has("light") or mute_tool.has("modification") or mute_tool.has("noise"):
 		push_error("CATALOGUE: the tool predicate cannot say no")
 		return false
-	print("  CATALOGUE: %d bases that do something are each rolled by a table, carried in a kit or left as somebody's empties (%d table ids, %d kit ids, %d empties); every round is a findable base; every tool is a light or a bench consumable; an orphan and a mute tool are refused" % [judged, findable.size(), kits.size(), empties.size()])
+	print("  CATALOGUE: %d bases that do something are each rolled by a table, carried in a kit or left as somebody's empties (%d table ids, %d kit ids, %d empties); every round is a findable base; every tool is a light, a bench consumable or a noise device; an orphan and a mute tool are refused" % [judged, findable.size(), kits.size(), empties.size()])
 	return true
 
 

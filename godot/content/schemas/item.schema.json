@@ -624,6 +624,32 @@
       ],
       "description": "What this item feeds a lamp, when it is fuel -- the owner's decision of 2026-09-12. Absent means it feeds nothing, which is the normal state. Matched exactly against a lamp's `light.feed`, and one unit is one full fill whatever it goes into, for the reason `fuel.litres` pours a can whole: a lamp that remembered a part-charge would need a per-instance number on the can as well as on the lamp, and two of them is one more than the mechanism is worth. Spent by SimLightModule.feed, which is also the predicate the word menu asks before it offers `use`. A flat scalar at the top level rather than a nested block for the reason buildMaterial and filter are flat: the Godot content validator is shallow, so an enum up here is the only shape it actually enforces.",
       "$comment": "The kinds are deliberately few and physical -- a cell, a fill of oil, a bottle of gas -- so what is in your pack answers the question without a table."
+    },
+    "noise": {
+      "type": "object",
+      "description": "Present on a placeable noise device and absent on everything else, the way `light` is present on a lamp. docs/03-attention.md#playing-the-field promised bait -- \"a wind-up noisemaker, a lit lamp on a timer, a hung carcass\" -- since the field was specified, and until this slice the only thing in the game that spent an item to make a noise was firing a gun. Read by SimNoiseDevice: a base declaring this and no `equipSlot` is something you stand on a tile rather than something you hold. The device is **not** consumed -- the owner's decision of 2026-09-12 made these multi-use, so the same air horn comes back up and goes down again somewhere better.",
+      "required": [
+        "magnitude",
+        "durationTicks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "magnitude": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Reach in metres on the noise channel, in the same metres as every other emitter -- docs/03's table, where a melee connect is 8, a generator 45, a shout 120, an unsuppressed firearm 180, a screamer 300 and an explosion 400. Written into the device's `attention_emitter.ambient` while it is sounding, which is the one path the field already reads, so a number here is a radius the horde climbs and not a second mechanism written beside the first. check_m2_noise.gd's TABLE lane pins every shipped magnitude to a rung of docs/03's table."
+        },
+        "durationTicks": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "How long it sounds once it starts, in ticks. This is what separates a spike from a beacon and it is the whole reason the block is not a single number: a string of firecrackers is a gunfight that is over in ten seconds, and a radio left playing is a quarter-magnitude siren that runs for an in-game hour. SimClock.DAY_TICKS is 288000, so one in-game hour is 12000. At the end the device falls silent where it stands and can be taken back up and re-armed."
+        },
+        "delayTicks": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How long after it is placed before it starts, in ticks. A wind-up clock's entire point is that you are somewhere else when it goes off, so the delay is the item's tactical content rather than a decoration on it: the firecracker's fuse is half a minute, the alarm clock's is half an in-game hour, and the air horn's is nothing at all because you blow it where you stand. Absent means zero, which is the honest default for anything without a clock in it."
+        }
+      }
     }
   },
   "$defs": {
