@@ -17,13 +17,17 @@ jobs:
   # the export templates this job never has.
   check:
     runs-on: ubuntu-latest
-    # 30, not 15. Measured 2026-09-04 rather than guessed: `npm run godot:m2` alone is ~11.8 min
-    # on a comparable container, and this job also runs npm ci, the engine install, the whole
-    # TypeScript side, sprites:check and the four R6 gates. The 15 it had was sized when the
-    # chain was 42 gates and genuinely ~7 min; it stopped being true somewhere around the 45th,
-    # and two runs died at exactly 15m13s and 15m23s with every gate green and the balance
-    # harness still going. A timeout that kills a passing build teaches people to ignore red.
-    timeout-minutes: 30
+    # This job no longer runs `npm run godot:m2` -- the chain moved to `godot-m2` below on
+    # 2026-09-12, after this job was cancelled at 30m15s on the second-to-last gate of 69. What
+    # is left is npm ci, the engine install, the whole TypeScript side, sprites:check and the
+    # four R6 gates.
+    #
+    # The history is worth keeping, because it is the argument for the split rather than for a
+    # third number here: 15 was sized when the chain was 42 gates and genuinely ~7 min, it
+    # stopped being true somewhere around the 45th, and two runs died at exactly 15m13s and
+    # 15m23s with every gate green and the balance harness still going. 30 bought about
+    # twenty-four gates. A timeout that kills a passing build teaches people to ignore red.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -119,6 +123,50 @@ jobs:
       - name: R6 soak (memory/save/input/pause/tab)
         run: npm run godot:r6:soak
 
+
+  godot-m2:
+    runs-on: ubuntu-latest
+    # 45, and measured rather than guessed -- see the comment on the step below. ~11.8 min was
+    # the 2026-09-04 figure at 51 gates; the arc since then adds four gates and 210 bases, and
+    # slice 15 roughly doubles the balance tier. Re-measure when the chain grows; do not simply
+    # raise this, which is the instalment the split exists to stop paying.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: .ci-tools/godot
+          key: godot-4.7.1-${{ runner.os }}-standard
+
+      # Pin the exact engine used by the rebuild. Download from Godot's official release and
+      # verify the release checksum before any project script executes it.
+      - name: Install Godot 4.7.1
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p .ci-tools/godot
+          cd .ci-tools/godot
+          curl --fail --location --http1.1 --retry 5 --retry-all-errors --retry-delay 2 --output godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
+          echo "4ccdab7a48eeccbe8819a2fc1f6262f8d72065d98601bcb3743fcbd7ebd39f373758a788ee3293a05ec5b2c48538266c437404312e372225cd2df273945a2de9  godot.zip" | sha512sum --check
+          unzip -q godot.zip
+          rm godot.zip
+          chmod +x Godot_v4.7.1-stable_linux.x86_64
+
+      - name: Configure Godot
+        shell: bash
+        run: echo "GODOT_BIN=$PWD/.ci-tools/godot/Godot_v4.7.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+
       # Every Milestone 2 gate, chained by the npm script (count them off the script itself:
       # every number written here has drifted, 42 then 45 then 51), and the same command
       # CLAUDE.md tells a contributor to run before every commit, so CI and the desk agree by
@@ -145,7 +193,7 @@ jobs:
         run: npm run godot:m2
 
   godot-exports:
-    needs: check
+    needs: [check, godot-m2]
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
