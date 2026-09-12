@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **63 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **64 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,28 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — light that burns down, and what feeds it.** The arc's seventh slice and the fifth of
+the eight readers. Light was the only resource in a resource game that could not run out: no
+`burnTicks`, no fuel key, so the electric lamp was strictly and permanently better than a candle,
+`item.battery` sat inert in three loot tables saying "Something here needs one" while nothing did,
+and the oil lantern had nothing that could refill it. The burn clock runs at movement order 70, five
+ahead of the kernel's own light at 75, so a dead wick is dark in the *same* tick's shadowcast; and
+it spends only the lamp actually lighting somebody, so max-not-sum now has a consequence.
+
+Both dead sockets in the reader were reached: `HAND_SLOTS` widened so a headlamp works (the lane
+measures the lit radius off the real shadowcast, with a fabricated torso lamp as the control that
+must light nothing), and the weapon light got a burn and a feed. **Three orphans adopted** — the
+rigged floodlight stands up as furniture through fortify's construct channel, the empty jerrycan is
+filled by reading the refuel path backwards, and the battery is what the lamp eats. Burn times are
+judged against a **measured** yardstick: the gate computes the fully dark stretch from `SimClock` at
+run time (72,020 ticks) rather than quoting it. New gate `npm run godot:m2:light_burn` →
+`M2_LIGHT_BURN_OK`, nine lanes.
+
+Two notes. A planted floodlight **cannot be picked back up** — deliberate, matching `_place_bench`,
+but a real restriction on a thing from the player's own pack, and named in what's-left. And the
+slice corrected a claim in its own brief: `item.attach.underbarrel.light` already declared a `light`
+block, so "no attachment declares light" was stale.
 
 **2026-09-12 — clothing: warmth, wet and cooling.** The arc's sixth slice and the fourth of the
 eight readers. `needs.gd`'s `wearing_wrap` matched the literal `"item.wrap.cloth"`, and that was the
