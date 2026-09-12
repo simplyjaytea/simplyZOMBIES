@@ -305,7 +305,14 @@ than here.
   get equal item depth" — but this is not the data edit it looks like: of the stats they would
   want, `noise_emission`, `condition_loss` and `repair_cost` are declared in
   `sim/modifiers/stats.gd` and resolved by nothing anywhere, so authoring the affixes first would
-  ship five dead sockets. The readers come first, then the content.
+  ship five dead sockets. The readers come first, then the content. **Measured by the named-items
+  slice, 2026-09-12, and it is worse than this entry said:** affix modifiers are scoped to the
+  *item*, but `noise_emission`, `condition_loss` and `repair_cost` resolve against nothing at all
+  while `ranged_accuracy` resolves on the *entity* — so of the four suffixes whose `appliesTo`
+  already includes `weapon.ranged` (`quiet_hand`, `long_nights`, `salvage`, `ruin`), **not one moves
+  a stat that is read for a ranged weapon.** The pool is not merely thin, it is inert. That is why
+  the two named ranged items ship with empty fixed rolls and their character entirely in their base
+  numbers, which is honest and is also the measure of how much reader work this piece needs.
 - **Armour attachment slots** — **moved into the alpha-roster group below** (2026-09-12), where
   it is slice 12. Named here only so the cross-reference resolves.
 
@@ -408,12 +415,7 @@ system.
   another reader rather than content, and the record says which half shipped. And docs/09's own cut
   list still asserts explosives "exist as rare loot" while zero explosive items exist; that line
   gets content here or it gets corrected here, but it does not stay as it is.
-- **Named items, the fourth tier.** `SimItems.TIERS` ships three — scavenged, modified,
-  field_tested — where docs/10 names four, and its six hand-authored named items (Siren's Bell,
-  The Long Argument, Grandfather's Deer Rifle, The Tetanus Special, Quietkeeper, Butcher's Apron)
-  each pair a capability with a drawback, and most of those drawbacks are *attention* costs. The
-  lane should assert the drawback exists, not merely that the item spawns. docs/12's yield table
-  already reserves the tier a home: military, Field-Tested and Named.
+- ~~**Named items, the fourth tier**~~ — **landed** 2026-09-12, see the record.
 - **Choosing which round to fire.** The ammo slice shipped the mechanism and not the choice: with
   buckshot and slugs both in the pack the pick order decides, and the only way to fire the slug is
   to carry nothing else. A verb on the inventory sheet, and the `rangedWeapon` component is where
@@ -6770,6 +6772,62 @@ not a to-do list:
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
 
+- **Items** — ~~named items, the fourth tier~~ **landed** 2026-09-12
+  (`npm run godot:m2:gear` → **`M2_GEAR_OK … and the six named items are hand-authored, off both
+  ladders, and each one charged for what it gives`**, a new NAMED lane with four sub-lanes;
+  `godot:check:mods`, `godot:check:loot`, `godot:m2:wounds`, `godot:m2:swipe` and `godot:m2:contact`
+  all held), the **fifth slice of the alpha-roster arc**.
+
+  **`SimItems.TIERS` shipped three of docs/10's four.** The fourth — Named, hand-authored, fixed
+  rolls, *"always with a drawback"* — is in code, and the six items docs/10 names are content. The
+  tier row carries two fields the others do not and they do different jobs: `authored: true` keeps
+  it off the **upgrade ladder** and `weight: 0` keeps it out of `roll_tier`'s global distribution.
+  Both come through a new `rollable_tiers()`, which is the one place a *climb* and a *lookup* are
+  told apart — a modification measures against the rollable tiers, while "how many affixes does this
+  id permit" still reads `TIERS`, because a named item has to be able to find its own row. The
+  `authored` flag is gated twice: removing it turns NAMED red **and** turns `check_mods` red on
+  *salvage rights on a field-tested axe returned success, expected already-max-tier* — without it a
+  Scrap Kit manufactures a named item with no author, no fixed roll and no drawback.
+
+  **Three of the six drawbacks needed a reader that did not exist**, and each landed on a channel
+  already live rather than on a stat that is not. `melee.gd` published `MELEE_CONNECT_NOISE` as a
+  **literal**, so no weapon could be heard further than any other; the melee profile carries
+  `connectNoise` now, defaulted to that same constant so every shipped weapon is unchanged, and the
+  Siren's Bell connects at 90 against an ordinary sledge's 8. `attention_emitter.gd` adds what a body
+  is *wearing* to what it gives off — **summed rather than maxed**, deliberately the opposite of how
+  `armor_coverage_of` composes the same walk, because two helmets do not armour a head twice but two
+  filthy things do smell worse — and read at emission rather than cached, so an apron taken off stops
+  smelling on the next emit. And `append_wound` flags a wound taken while holding something `filthy`,
+  priced by `sepsis_chance` as a sixth term in the same product as docs/05's five, so cleaning and a
+  sterile dressing still discount it: 0.324 a night against an ordinary pipe's 0.108, down to 0.022
+  once treated.
+
+  **Two lanes could not fail, and the slice caught both itself.** The Quietkeeper's "its handling
+  reaches nothing" compared its raise time against the hunting bow's and stayed green with `handling`
+  hardcoded to 1.0 — because the Quietkeeper is simply the heavier bow, so the lane was measuring
+  heft and reporting handling. It now compares the same weapon at its own weight with declared
+  versus neutral handling. And the tier's `weight: 0` could not be seen through `rollable_tiers()` at
+  all, since `authored` already excluded the row, so the 4000-roll test could only fail with both
+  locks off; the weight is asserted directly now and the roll test is documented as the backstop it
+  is rather than claimed as the proof. Sixteen sabotages, fourteen red on the first try — and the two
+  that were not are the *"a gate that cannot fail is worse than no gate"* rule collecting twice in
+  one slice.
+
+  **A gate whose message had gone false.** `check_loot.gd`'s `TIER_IDS` was a hardcoded copy of
+  `SimItems.TIERS` that still said three tiers. It refused `named` correctly while reporting *"is
+  not a `SimItems.TIERS` id"*, which by then was untrue. Derived from `rollable_tiers()` now: same
+  refusal, honest message, and it cannot drift on the next tier. **No table's `tierWeights` names the
+  new tier**, and that is a decision rather than an omission — a `tierWeights` entry means "roll an
+  *ordinary* base at this tier", and at a tier permitting no affixes that is a strictly worse
+  scavenged, a Named Steel Pipe with nothing on it.
+
+  **Three drawbacks could not be expressed and were not faked.** The Long Argument's "near-zero bite
+  risk" has no bite-risk stat — it is emergent from reach, so the lane measures reach and says
+  explicitly that the bite half is unasserted. Quietkeeper's "useless against armoured types" has
+  nothing to be useless against: **no zombie in `content/zombies/` declares armour of any kind.** And
+  the Tetanus Special's "free to repair from scrap" wants `repair_cost`, which resolves against
+  nothing, so it simply is not shipped; its "heavy bleed" rides the live chain instead — higher
+  damage, worse severity, faster bleed — plus a fixed `barbed` prefix.
 - **Items** — ~~build materials: the substance that is not scrap~~ **landed** 2026-09-12
   (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes`**, a
   new gate whose six lanes were each broken and watched go red; `godot:m2:fortify`, `godot:m2:jobs`,
