@@ -33,6 +33,16 @@ The mechanic this creates: **commitment**. You don't die because you made a bad 
 because you made a reasonable decision and the situation changed 1.5 seconds into a 3-second action.
 Every action's duration is tuned as a risk window, not as a pacing knob.
 
+**Looking is committed too, and the commitment scales with pace.** You may walk one way and look
+another — backing away from a thing while keeping it covered is the whole texture of a fighting
+retreat — and the shot pays for it: the further your aim is from your heading, the wider the cone,
+past the ceiling a moving shooter is otherwise held to. At a jog or a sprint you do not get the
+choice at all; you look where you are going. This replaces the earlier, blunter rule that a moving
+body could not aim at all — [docs/30, the decoupled
+paperdoll](30-decisions.md#the-decoupled-paperdoll-2026-09-11). The old rule refused the fantasy,
+this one prices it, and a price you can read in the wobble is worth more than a refusal you can
+only discover.
+
 ### 3. Mistakes compound
 
 Injuries are not a health bar that regenerates. A [fractured leg](05-health-injury.md) means you can't

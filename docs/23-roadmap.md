@@ -361,18 +361,93 @@ owner's and not pending: the Dungeon Settlers style spec was adopted as **treatm
 `#161614` outline and the `muted` saturation ceiling both stand — it is recorded in
 [docs/30](30-decisions.md#the-reference-treatment-2026-09-11) rather than here. The piece:
 
-- **The ramp, applied to the whole roster.** The player is now a **6**-colour ramped rig
-  standing beside rigs of 27 to 88 colours (measured across all nine), so the roster is unevenly
-  treated — the cost the treatment slice took knowingly rather than discovered. At the boot zoom
-  the difference is hard to see; at 6x the player reads flatter and slightly darker. This piece puts the same three
-  passes (despeckle, three-tone-per-family ramp, family clamp) into `tools/sprites` so the eight
-  generated rigs come out of the generator already ramped, rather than post-processing eight PNGs
-  a gate would then refuse to regenerate. It is not a data edit: every registry key re-renders
-  under `sprites:check`, and `APPEARANCE_OK`'s **GREY lane must be re-measured rather than
-  quoted** — its composed margin is +0.018 today and a changed pixel population moves the median a
-  byte. It overlaps "the rig read harder" in the character-overhaul group, which already asks for
-  `nw_shade` quantised to three steps and names the same 67-to-15 measurement; whichever lands
-  first should absorb the other rather than both moving the same colours twice.
+Its one open piece — "the ramp, applied to the whole roster" — moved into the
+decoupled-paperdoll group below on 2026-09-11, as the four-tone version. Nothing in this group
+remains open here.
+
+**Art & renderer — the decoupled paperdoll, decided by the owner (2026-09-11).** The direction is
+[docs/30's entry](30-decisions.md#the-decoupled-paperdoll-2026-09-11): legs that animate on the
+movement vector, a torso and head that rotate 360° to the aim, per-slot canvases with normalized
+pivots, a four-tone palette with no dark lines inside the silhouette, and per-weapon sockets the
+sim reads. It reverses "nobody rotates" (2026-09-03, re-affirmed twice), the 32×40 squash
+(2026-09-08), the face-on head, and the sim's single heading. **It absorbs four pieces from the
+groups below** — "the rig read harder", "a body seen from behind", "a body seen from the side"
+(a rotating torso is every view) and the atlas half of "the frames, and the atlas that carries
+them" — and the slot map gives all twelve equipment slots a place, which is most of "the other six
+equipment slots draw". Each piece below is one session with its gate red both ways and its record;
+the flat projection, 32 px a tile, the feet anchor, the health-bar ban and the prose HUD are
+untouched, and the peripheral-anonymity clause is proved *more* strongly than before.
+
+- **The ramp, applied to the whole roster.** The four-tone model, built as a generator pass
+  rather than a post-process: despeckle, a per-family value ramp quantised to four tones
+  (deep, core, base, highlight), and the family clamp, run between the shade and the outline in
+  the one assembler, so all eight rigs come out ramped and no PNG is post-processed into a state
+  `sprites:check` would refuse to regenerate. Two obstacles are known and named rather than
+  discovered: `palette.ramp`'s top steps are **clipped by the family value ceiling** (skin[3] ≈
+  skin[4] ≈ skin[2]; `colonist_grey[2] == [3] == [4]`), so a real highlight needs headroom, which
+  is given to the highlight tone alone on the ground that a tone capped at 10% of the area cannot
+  be the loud thing on screen; and the **seam** — the 1 px dark column inside every torso edge —
+  is the internal dark line the spec forbids, and it becomes a tone step, which is the honest way
+  to drop it because the tone step does the job the seam's own docstring claims. The screamer's
+  19 interior `#161614` pixels move to its deep tone. `check_authored.gd` gains **INTERIOR** (no
+  `#161614` inside a silhouette), **TONES** (a measured cap on distinct colours) and
+  **HIGHLIGHT** (the highlight is present and ≤ 10% of opaque), each red both ways.
+  `APPEARANCE_OK`'s GREY lane is **re-measured, never quoted**. This slice also retires
+  `player_body_authored` per decision 9 — the tier and every lane stay, judging zero authored
+  rigs until the player is re-commissioned.
+- **Aim is a second heading, priced at a walk.** The sim carries `aim` beside `facing`; an absent
+  `aim` reads as `facing`, which is what keeps every existing fixture true. Accepted while moving
+  only at Walk or slower; `_integrate_movement` snaps it at Jog and Sprint, and a zombie never
+  grows one. The shot, the swing and the shadowcast read the aim; motion keeps the heading. **The
+  price must widen the cone past `WIDE_HALF`**, because a moving shooter is already pinned there
+  and a term under that clamp would be a dead socket — that is the lane's true positive. Owes a
+  `SAVE_VERSION` bump in **two** gates that each name the other, a measured driver on what
+  aim-while-walking does to sightings before the balance run, and a FAST re-baseline if a seed
+  line moves. Sim-only: it can run in parallel with the art slices.
+- **The canvas learns a pivot.** `Canvas` accepts a normalized pivot (0..1, y-up) with `centre`
+  and `feet` as exact presets, and gains a `paste` that refuses a non-integral pixel delta; the
+  assembler splits into legs/torso/head layers and a compose. **Additive by construction**: the
+  composed output is byte-identical, so `sprites:check` passing unchanged *is* the gate, with the
+  true negative inside `--check`. Nothing new is written to disk — a slot PNG nothing reads is
+  the dead-socket shape. The fixture round's poser proved this shape already.
+- **The paperdoll on 32×48 — the bodies.** The root canvas and the published skeleton are
+  re-authored; the head becomes a from-above crown with no face; torso and head take a
+  pivot-relative radial tone source, because a rotating slot cannot keep a screen-fixed light,
+  and legs keep the top-left one. The bridge that keeps this one session: the generator authors
+  per slot but writes only the composed still under today's key, so content and the renderer are
+  untouched until the torso turns. Every hand-copied number moves in one commit and the record
+  lists them: `PAWN_CANVAS`, the FLIP lane's shape and its exact rect, `check_worn`'s and
+  `check_authored`'s `SKEL_*`, the published bounds, the guide's copies, the README.
+- **The paperdoll on 32×48 — the gear, per slot.** Every overlay becomes a slot piece on its
+  slot's canvas; weapons move to the spec's weapon canvases and the generator **measures** their
+  grip, foregrip and muzzle rather than having them hand-guessed off the drawn sprite, which is
+  how the nine existing `partAnchors` were arrived at. The measurements are asserted stable in
+  `--check` and are not written to disk until the slice that reads them.
+- **The torso turns.** The renderer slice: one transform group per body inside the existing
+  y-sorted draw, in the **matrix form only** through one push helper and one reset helper —
+  chosen because the existing zero-transform counters key on `draw_set_transform(` and the matrix
+  form does not match that needle, so those counters keep meaning what they mean, and the new
+  lane pins the matrix form explicitly rather than inheriting a green by accident. The order
+  table becomes a function of the aim sector (north, south, lateral); the Y-inversion is on the
+  torso group, never the root. Sheets replace the per-key stills, described by a generated
+  manifest that **retires `PAWN_KEYS`' two hand-maintained copies** into one file with two
+  readers. Sockets land as their own top-level content block the sim may read, with a gate
+  holding the hand-declared content equal to the generator's measurements. `WORN_LOOK_OK`'s FITS
+  goes **per cell**, or it goes weaker with no red line. Perf is measured before and after with
+  the ground slice's own driver; a budget breach fails the slice.
+- **The frames.** The four-frame walk on the legs strip, eight directions, keyed to `world.tick`
+  with its phase scaled by the stance's pace, reversed for a backpedal when the aim opposes the
+  movement. All eight directions are emitted rather than mirrored, so the per-column fit check
+  never has to reason about a negative rect.
+- **The sim reads the muzzle.** One helper converts a socket in canvas pixels to a world offset
+  under the aim, and **the renderer calls the same helper**, so the drawn muzzle and the fired
+  muzzle cannot disagree. The shot ray, the noise position and the flash all move there; a muzzle
+  inside a solid tile falls back to the body centre (docs/30 decision 10). `ejection_port` and
+  the recoil numbers are **not** added until something reads them.
+- **The commissioned player, as slot layers.** The re-commission decision 9 defers: the player
+  drawn as legs strip, torso, from-above head and arm on the spec canvases, through the same tone
+  pass and outline, declared in the authored manifest. The union roster and the envelope clause
+  go live on an authored rig again.
 
 **Art & renderer — the character overhaul, decided by the owner (2026-09-09), from a fixture
 round.** The direction is docs/30's "The character overhaul": the squat proportion kept and read
@@ -383,39 +458,23 @@ shipped generator, with the round's own `comparison.md` describing each and reco
 Its load-bearing result is the one every animation piece below rests on: all eight rigs rendered
 at rest through the pose layer come back **byte for byte identical** to the shipped PNGs, with
 the true negative in the same script, so a body standing still draws exactly what it draws
-today. The pieces are in the order they land, each with its gate red both ways and its record;
-the diagram shares no gate with the rest and may jump the queue. The flat projection, 32 px a
-tile, the feet anchor, the health-bar ban and the prose HUD are all untouched.
+today — and it is **still** load-bearing, because the paperdoll arc's own additive step rests on
+the same equality. The flat projection, 32 px a tile, the health-bar ban and the prose HUD are
+untouched by this group. **Most of it was absorbed on 2026-09-11** (below); what remains here is
+the diagram, which shares no gate with the rest, and the owner's undecided breath.
 
-- **The rig read harder.** The fist one pixel out with a knuckle line so a held weapon has
-  something to sit against; a silhouette tell per human (the player's collar, Mara's tucked
-  bob, Ellis's high collar, the colonist's cap); the fourth face pixel; and `nw_shade`
-  quantised to three steps — measured at 67 distinct colours down to 15 on the player rig.
-  Eight rigs regenerate, `sprites:check` re-pins them, and `APPEARANCE_OK`'s GREY lane is
-  **re-measured rather than quoted** (the composed margin is +0.018 today and a changed pixel
-  population moves the median a byte). The proportion does not move, so the thirty-one overlays
-  refit unchanged and no canvas lane is touched.
-- **A body seen from behind.** The second authored view: no face, hair over the whole skull,
-  the pack composited over the body rather than under it, and a facing→view selector beside the
-  existing mirror. `TOPDOWN_OK`'s FLIP lane becomes a FACING lane with **both transform counters
-  still asserting zero** — a view is a fourth picture, never a rotation — and the true negative
-  is a heading that resolves the wrong view. Every overlay that draws differently from behind
-  gets its back-authored half here, which is what the piece actually costs.
-- **A body seen from the side.** The one piece in this group that is a **re-authoring rather
-  than a transform**, and the one that is not a single session: a profile is a different
-  silhouette for eight rigs and for every overlay that reads differently side-on. Named
-  separately for exactly that reason rather than smuggled in beside the back view. West stays
-  the negative-width mirror of east, so three views are authored and four are drawn.
-- **The frames, and the atlas that carries them.** The four-frame walk with the weight shift,
-  keyed to `world.tick` with its phase scaled by the stance's pace, one frame-select in
-  `_blit_body`, and the frames laid out in a **horizontal strip** — not a grid, because
-  `check_worn.gd`'s `_row_of` keys off `PAWN_CANVAS.y` and a grid would destroy the row
-  predicate. The atlas is not an optimisation here: four views by four frames is about 468 pawn
-  textures where 39 ship today, and the edges slice measured draw calls going 539 → 1,410 when
-  wall materials became separate textures. **`WORN_LOOK_OK`'s FITS lane must go per column and
-  per view in this piece**: `_bounds_of` iterates the whole image, so on a strip the eight-rig
-  envelope widens from 26 to about 90, every overlay fits trivially and the corner-pixel true
-  negative still passes — a gate going weaker with no red line to announce it.
+**Four of this group's pieces were absorbed on 2026-09-11** by the decoupled-paperdoll group
+above, and are not restated here: "the rig read harder" (its quantise clause is the four-tone
+ramp; its knuckle line and silhouette tells are re-authored on the slot canvases), "a body seen
+from behind" and "a body seen from the side" (a rotating torso is every view, so neither is a
+picture to author), and the atlas half of "the frames, and the atlas that carries them" (the
+sheet lands with the torso slice; the frames keep the name below). What the absorbed pieces
+measured is not lost — the 67-to-15 colour count, the horizontal-strip reason (`_row_of` keys off
+the canvas height, so a grid would destroy the row predicate) and the FITS-goes-weaker warning
+are all carried into the pieces that replace them.
+
+- **The frames.** Moved into the decoupled-paperdoll group above, where the legs strip it needs
+  exists. Named here only so the cross-reference resolves.
 - **The exploded body chart.** The condition diagram redrawn: ten parts pulled a pixel off
   their neighbours, each a plate with its own border and uniform seams, on a body with a head
   about a sixth of the figure and legs a shade under half of it. `ui/paperdoll.gd` is rewritten
