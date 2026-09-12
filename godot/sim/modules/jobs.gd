@@ -1372,7 +1372,10 @@ static func _do_construct(world: Variant, ent: int, job: Dictionary) -> void:
 	if String(job.get("verb", "")) == "window":
 		SimFortify._board_window(world, int(job.get("tx", 0)), int(job.get("ty", 0)))
 	elif String(job.get("verb", "")) == "bed":
-		SimNeeds.make_bed(world, float(int(job.get("tx", 0))) + 0.5, float(int(job.get("ty", 0))) + 0.5)
+		# The builder's own pack furnishes it: the best bedding they are carrying goes into the bed
+		# and is spent, and carrying none makes the bare-boards bed this job has always made.
+		var bed: int = SimNeeds.make_bed(world, float(int(job.get("tx", 0))) + 0.5, float(int(job.get("ty", 0))) + 0.5)
+		SimNeeds.furnish_bed(world, ent, bed)
 	_stop(world, ent, "Construct")
 
 
