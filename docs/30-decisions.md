@@ -4074,3 +4074,25 @@ keys coming, `check_m2_gear.gd`'s `READ_KEYS` list is what makes that automatic,
 does not join it is a dead socket by construction. And the arc adds **no new `class` value**: every
 new category fits `tool`, `material` or `consumable`, specifically so the three-place enum sync
 between the schema, `item_glyph.gd` and `items.gd` never has to happen.
+
+## Two placeable items, two opposite answers (2026-09-12)
+
+The light slice stands a floodlight up as furniture and gives no verb to take it down again. The
+noise slice, four slices later, makes every one of its eight devices pick back up: E lifts a placed
+firecracker or siren into the pack and it goes down again on a fresh fuse. Both were put to the
+owner and both answers are deliberate, so the inconsistency is a decision rather than a drift.
+
+The reasoning the owner gave for the split is what each thing *is*. A floodlight is a rigged
+installation — the content calls it rigged — and the cost of standing one up is that you have
+committed the thing to that street. A noisemaker is the opposite: its entire use is that you place
+it somewhere you are not, and an air horn you can only ever spend once is a consumable with extra
+steps. The asymmetry is the point, and `check_m2_noise.gd`'s LIFT lane asserts the multi-use half
+while docs/23 names the floodlight's one-way trip as a restriction somebody will be surprised by.
+
+**The alarm and the noisemaker stay free.** The what's-left entry wanted `fortify.gd`'s two world
+singletons turned into things you had to have carried there first, and the owner chose new items
+only. The mechanical reason is worth recording because it will come up again:
+`check_m2_materials.gd`'s PINNED lane asserts both singletons **by name and by cost**, so giving
+them an item to spend turns a shipped gate red. That makes it a rebalance — and a rebalance owes a
+before-and-after run on the same driver, which a content slice riding beside it does not pay for.
+Repricing them is named in what's left with that run attached, rather than smuggled in here.
