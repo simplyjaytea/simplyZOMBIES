@@ -371,13 +371,11 @@ system.
   circuits are declared, findable, read end to end — and unspent. `check_m2_materials.gd`'s RECIPES
   lane prints the count and the names on every run rather than letting it go quiet. What closes it
   is docs/12's own list: a timber wall, a stone course, a wire fence.
-- **Light that burns down, and what feeds it.** Lights burn for ever, which is why `item.battery`
-  is an inert material and why the electric lamp is strictly better than a candle at every moment
-  of the game. A burn clock and a feeding path fix that, and the same piece adopts three items that
-  ship today and cannot be used: the rigged floodlight has no placement verb, the empty jerrycan
-  has nothing that fills it, and the battery feeds nothing. Note a headlamp stays impossible until
-  `light.gd`'s hand-slot list widens, and that no attachment declares a light although the wiring
-  for a weapon-mounted one is already there and waiting.
+- ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
+- **A planted floodlight cannot be picked back up.** The light slice stands one up as furniture,
+  deliberately matching `_place_bench`, and there is no verb to take it down again. That is a real
+  restriction on a thing that came out of the player's own pack, and not obviously what anyone would
+  expect; named rather than left to be discovered.
 - **Noise that is an item.** The attention field is finished, and the only thing in the game that
   spends an item to make noise is firing a gun; the alarm and the noisemaker are world singletons
   that cost nothing to place. A noise block and a place-and-trigger verb make a firecracker, an air
@@ -6773,6 +6771,63 @@ not a to-do list:
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
 
+- **Items** — ~~light that burns down, and what feeds it~~ **landed** 2026-09-12
+  (`npm run godot:m2:light_burn` → **`M2_LIGHT_BURN_OK pinned content slots burn headlamp feed plant
+  siphon night`**, a new gate with nine lanes, every one watched go red; `godot:check:light`,
+  `godot:m2:vehicles`, `godot:m2:fortify`, `godot:m2:sight` and `godot:m2:gear` all held), the
+  **seventh slice of the alpha-roster arc** and the fifth of the owner's eight readers.
+
+  **Light was the only resource in a resource game that could not run out.** There was no
+  `burnTicks` and no fuel key of any kind, so `item.lamp.electric` at magnitude 35 was strictly and
+  permanently better than `item.candle.wax` at 3 from the moment you found one; `item.battery` sat
+  inert in three loot tables with a description reading *"Something here needs one"* and nothing
+  did; and `item.lantern.oil` had nothing in the world that could refill it.
+
+  **The clock runs at movement order 70, five ahead of the kernel's own `kernel.light` at 75**, so a
+  wick that runs out is dark in the same tick's shadowcast rather than throwing one last free step
+  of light at a district about to be redrawn. It spends only the lamp that is *actually lighting
+  somebody*: max-not-sum is intact and now has a consequence, because the candle in your off hand is
+  not lit and so does not burn down while the lamp in your right hand does. The fuel record is built
+  lazily from content the first time a lamp is asked to burn, so every lamp in a running world **and
+  in an older save** starts full rather than starting dark.
+
+  **Both dead sockets in the reader were reached**, on the owner's decision. `HAND_SLOTS` was
+  `["primary","secondary"]` and was the only list the scan walked, so `head` and `eyes` — legal
+  equip slots since inventory shipped — were invisible to light: a headlamp would validate, equip,
+  draw on the pawn and light nothing. HEADLAMP is the lane, and it measures the **lit radius off the
+  real shadowcast** rather than a helper's return value: at midnight a bare survivor lights nothing
+  and a headlamp lights 17.0 m, with an identical fabricated lamp on a *torso* as the control that
+  must light nothing — without which a scan widened to all twelve slots would pass.
+
+  **A claim in this arc's own brief was stale, and the slice said so.** The brief asserted that no
+  attachment declares `light`; `item.attach.underbarrel.light` already declared `magnitude: 16` and
+  `check_m2_attach.gd`'s LIGHT lane already asserted it. What was genuinely missing was a burn and a
+  feed, which it now has. Worth recording because the instruction was mine and the correction came
+  back up rather than being quietly worked around.
+
+  **Three orphans adopted rather than deleted.** `item.floodlight.rigged` — 90 m, 3×3, no equip
+  slot, in the military cache's table with **no placement verb anywhere in the game** — is stood up
+  through fortify's `construct` channel and becomes furniture, as the *item entity itself*, so a
+  floodlight half burnt in the pack is the same object half burnt in the yard. It is a command
+  rather than a rung on the E ladder for the reason `camp.establish` is: a beacon whose own
+  description says it tells everyone where the yard is should not go down by accident.
+  `item.jerrycan.empty` is filled by reading the refuel path backwards — whole can or nothing, the
+  pour's own rule — with the full/empty pairing found through the existing `empties` key by reverse
+  lookup rather than a second content key that could drift. And `item.battery` is what the electric
+  lamp eats.
+
+  **The balance claim is measured, not authored.** NIGHT computes the fully dark stretch off
+  `SimClock` at run time — **72,020 ticks, six in-game hours** — rather than quoting a remembered
+  number, and judges every shipped burn against it: the electric lamp is 1.5 nights on one cell, the
+  oil lantern 2.0 nights at two thirds the reach (the trade that makes lamp oil worth finding), the
+  candle half a night and single-use. The lantern being both dimmer *and* longer-lasting than the
+  lamp is asserted rather than hoped for. Ceilings both ways: nothing may burn longer than four
+  nights and something must burn shorter than one, which keeps "for ever with a number on it" and
+  "no short lights at all" from creeping back.
+
+  **The screen's half is one word.** `fuel_clause` gives the inspect pane "burning steadily",
+  "burning low", "guttering" or "dark" and nothing at all for something that is not a lamp — never a
+  fraction, never a count — and `check_inventory.gd`'s digit ban judges it with the rest of the pane.
 - **Items** — ~~clothing: warmth, wet and cooling~~ **landed** 2026-09-12
   (`npm run godot:m2:warmth` → **`M2_WARMTH_OK pinned content compose bands cool wet rain armour
   art`**, a new gate with nine lanes, every one run red; `godot:m2:cold`, `godot:m2:heat`,
