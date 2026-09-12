@@ -266,7 +266,12 @@ static func _resolve_strike(world: Variant, attacker: int, weapon: Dictionary, r
 	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
 		damage *= float(world.modifiers.call("resolve", "melee_damage", attacker))
 
-	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": int(SimCombat.MELEE_CONNECT_NOISE), "source": attacker})
+	# How loud the connect is comes off the weapon, not out of this line. SimCombat.MELEE_CONNECT_NOISE
+	# is still the number every ordinary weapon publishes -- SimItems.melee_profile_of defaults
+	# `connectNoise` to it -- but docs/10's Siren's Bell pays for its damage by being heard across
+	# the map, and a literal here made that undeclarable. The fallback covers the profiles that do
+	# not come from a base at all: a zombie's body, and make_melee_armed's bare default.
+	world.events.publish({"type": "noise.emitted", "x": fx, "y": fy, "magnitude": float(weapon.get("connectNoise", float(SimCombat.MELEE_CONNECT_NOISE))), "source": attacker})
 	# `item` is the weapon that swung, from the profile's own `source`. Without it the wear
 	# handler has to guess which hand acted, and the guess it used to make was wrong -- see
 	# SimItems.register_module. A publisher with no weapon (a zombie's bite) sends -1.

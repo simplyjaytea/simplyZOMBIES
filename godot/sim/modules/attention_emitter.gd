@@ -4,6 +4,9 @@ extends RefCounted
 const SimTileMapRes = preload("res://sim/map/tilemap.gd")
 const SimSurface = preload("res://sim/map/surface.gd")
 const SimWeather = preload("res://sim/modules/weather.gd")
+# Preloaded rather than lazily loaded because items.gd preloads nothing at all, so it cannot be
+# the far end of a cycle. Read by the scent system below, for what a body's gear smells of.
+const SimItemsRes = preload("res://sim/modules/items.gd")
 
 const SPRINT_THRESHOLD: float = 4.2
 const SHOUT_MAGNITUDE: float = 120.0
@@ -65,7 +68,7 @@ static func register_module(world: Variant, map: Variant) -> void:
 			return
 		for entity in w.components.query(["position", "attention_emitter"]):
 			var emitter: Variant = w.components.get_component(int(entity), "attention_emitter")
-			if emitter == null or float((emitter as Dictionary)["scent"]) <= 0.0:
+			if emitter == null:
 				continue
 			var pos: Variant = w.components.get_component(int(entity), "position")
 			if pos == null:
@@ -76,5 +79,19 @@ static func register_module(world: Variant, map: Variant) -> void:
 			var scent: float = float((emitter as Dictionary)["scent"])
 			if w.components.has_component(int(entity), "corpse"):
 				scent *= SimWeather.corpse_scent_mul(w)
+			# What a body is *wearing* smells too. Added rather than multiplied, and added after
+			# the corpse multiplier rather than before it: an apron is as rank on a live survivor
+			# as on a dead one, where the heat-wave clause is about meat going off. This is
+			# docs/10's Butcher's Apron -- "permanent, powerful scent emission" -- and the whole
+			# point of it as a drawback is that it arrives on the channel the dead already follow
+			# rather than on a second one written for it. Zero for everybody wearing nothing that
+			# declares a `scent`, which today is everybody but the apron's wearer.
+			scent += SimItemsRes.worn_scent_of(w, int(entity))
+			# The "does this smell at all" test was the emitter's own scent and is now the total,
+			# which is the difference between the two: gear can make something smell that does not
+			# smell on its own, and testing the body alone would have skipped the wearer before
+			# the apron was ever asked about.
+			if scent <= 0.0:
+				continue
 			w.events.publish({"type": "scent.accumulated", "x": float((pos as Dictionary)["x"]), "y": float((pos as Dictionary)["y"]), "magnitude": scent})
 	)
