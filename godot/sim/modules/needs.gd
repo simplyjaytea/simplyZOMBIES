@@ -1905,8 +1905,43 @@ static func fill_bottle(world: Variant, bottle: int) -> void:
 		(base as Dictionary)["baseId"] = UNTREATED_ID
 
 
-# Boil one carried bottle of untreated water at a lit fire. Instant, and the same rename the well
-# does in reverse -- no despawn, no RNG, the bottle keeps its instance. Refused with a reason the
+# --- making water safe (docs/04, docs/12) ------------------------------------------------------
+#
+# docs/04: "Untreated water carries illness. Purification needs fuel (boiling -> heat, light,
+# smoke) **or filters or chemicals**." docs/12 lists the same three under Purified water. Only the
+# first of the three existed: `boil` wanted a lit campfire in reach and renamed one hardcoded id to
+# one other hardcoded id, so a second untreated vessel was a code change and a filter had nowhere
+# to plug in at all.
+#
+# Two content keys now carry it. What a vessel becomes when it is made safe is the vessel's own
+# `boilsInto` -- the flat grammar of `empties`, read in exactly one place, `_carried_treatable`
+# below -- and what can make it safe **without a fire** is the tool's own `purifies`, a count of
+# units. The two verbs differ in their price and in nothing else: `boil` asks the world for a lit
+# fire and spends none of your gear, `purify` asks your pack for a purifier and spends a use of it.
+# Both keep the instance rather than despawning and respawning, so a bottle does not change
+# identity by being cleaned, and both publish so anything watching sees one event per unit treated.
+
+
+# The first carried thing that declares what it becomes when it is made safe, with the id it
+# becomes. `{"item": -1}` when there is nothing. The target is resolved against the catalogue
+# rather than trusted, the refusal `_leave_empty` gives an `empties` that names nothing.
+static func _carried_treatable(world: Variant, actor: int) -> Dictionary:
+	for item in SimInventory.carried_items(world, actor):
+		var base: Variant = world.components.get_component(item, "itemBase")
+		if not (base is Dictionary):
+			continue
+		var entry: Variant = SimItems.content_entry(world, "item", String((base as Dictionary).get("baseId", "")))
+		if not (entry is Dictionary):
+			continue
+		var into: String = String((entry as Dictionary).get("boilsInto", ""))
+		if into.is_empty() or SimItems.content_entry(world, "item", into) == null:
+			continue
+		return {"item": int(item), "into": into, "base": base as Dictionary}
+	return {"item": -1}
+
+
+# Boil one carried vessel of untreated water at a lit fire. Instant, and the same rename the well
+# does in reverse -- no despawn, no RNG, the vessel keeps its instance. Refused with a reason the
 # screen can say: no fire in reach, a fire that is not lit, nothing untreated in the pack.
 static func boil(world: Variant, actor: int, fire: int) -> Dictionary:
 	var cf: Variant = world.components.get_component(fire, "campfire")
@@ -1914,13 +1949,79 @@ static func boil(world: Variant, actor: int, fire: int) -> Dictionary:
 		return {"ok": false, "reason": "no-fire"}
 	if not bool((cf as Dictionary).get("lit", false)):
 		return {"ok": false, "reason": "unlit"}
-	var bottle: int = _carried_base(world, actor, UNTREATED_ID)
+	var found: Dictionary = _carried_treatable(world, actor)
+	var bottle: int = int(found.get("item", -1))
 	if bottle < 0:
 		return {"ok": false, "reason": "no-bottle"}
-	var base: Dictionary = world.components.get_component(bottle, "itemBase") as Dictionary
-	base["baseId"] = WATER_ID
+	var base: Dictionary = found["base"] as Dictionary
+	base["baseId"] = String(found["into"])
 	world.events.publish({"type": "need.boiled", "entity": actor, "item": bottle, "fire": fire})
-	return {"ok": true}
+	return {"ok": true, "item": bottle, "into": String(found["into"])}
+
+
+# How many units this purifier has left: the running count on the instance if it has been opened,
+# and content's `purifies` if it has not. A component rather than a field on `itemBase` so a
+# part-used filter is part-used when it is dropped and picked up again, and an int rather than a
+# float because JSON has no integer keys but it does have integers and this must survive a save.
+static func purifier_uses(world: Variant, item: int) -> int:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not (base is Dictionary):
+		return 0
+	var entry: Variant = SimItems.content_entry(world, "item", String((base as Dictionary).get("baseId", "")))
+	if not (entry is Dictionary) or int((entry as Dictionary).get("purifies", 0)) <= 0:
+		return 0
+	var run: Variant = world.components.get_component(item, "purifier")
+	if run is Dictionary:
+		return maxi(0, int((run as Dictionary).get("usesLeft", 0)))
+	return int((entry as Dictionary).get("purifies", 0))
+
+
+# Which purifier a survivor reaches for: the one with the fewest uses left. Finish the strip of
+# tablets before you crack the pump filter -- the opposite ordering to SimInfection's "spend the
+# best course", and deliberately so, because a dose of antibiotics is graded and a treated bottle
+# is not. One litre is one litre however it was made safe, so the only thing left to be careful
+# with is the capacity, and the careful thing is to spend the smallest remainder first.
+static func _carried_purifier(world: Variant, actor: int) -> int:
+	var best: int = -1
+	var best_left: int = 0
+	for item in SimInventory.carried_items(world, actor):
+		var left: int = purifier_uses(world, int(item))
+		if left <= 0:
+			continue
+		if best < 0 or left < best_left:
+			best = int(item)
+			best_left = left
+	return best
+
+
+# Make one carried vessel safe with a filter or a chemical, and no fire anywhere. Refused with a
+# reason the screen can say: nothing untreated in the pack, nothing in the pack that treats it.
+# The use comes off the purifier whether or not it is the last one; when it is, the unit is spent
+# through `_consume_item`, the one place `empties` is decided, so a purifier leaves behind whatever
+# its base says it leaves and a strip of tablets loses one tablet rather than the strip.
+static func purify(world: Variant, actor: int) -> Dictionary:
+	var found: Dictionary = _carried_treatable(world, actor)
+	var bottle: int = int(found.get("item", -1))
+	if bottle < 0:
+		return {"ok": false, "reason": "no-bottle"}
+	var tool: int = _carried_purifier(world, actor)
+	if tool < 0:
+		return {"ok": false, "reason": "no-purifier"}
+	var tool_base: Variant = world.components.get_component(tool, "itemBase")
+	var with_id: String = String((tool_base as Dictionary).get("baseId", "")) if tool_base is Dictionary else ""
+	var left: int = purifier_uses(world, tool) - 1
+	var base: Dictionary = found["base"] as Dictionary
+	base["baseId"] = String(found["into"])
+	if left > 0:
+		world.components.set_component(tool, "purifier", {"usesLeft": left})
+	else:
+		# Removed before the spend, not after: a stack that survives the spend must start its next
+		# unit on a full count, and a component left behind saying zero would make the rest of the
+		# strip inert -- the same quietly-empty failure the sightings component was reshaped over.
+		world.components.remove(tool, "purifier")
+		_consume_item(world, actor, tool)
+	world.events.publish({"type": "need.purified", "entity": actor, "item": bottle, "with": with_id, "usesLeft": maxi(0, left)})
+	return {"ok": true, "item": bottle, "with": with_id, "usesLeft": maxi(0, left)}
 
 
 static func eat(world: Variant, entity: int, item: int) -> bool:

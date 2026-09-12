@@ -1,0 +1,246 @@
+[
+  {
+    "id": "item.food.meat.game",
+    "name": "Game Meat",
+    "description": "Something shot in the treeline and carried home wrapped in a coat. It will not keep.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.6,
+    "stack": 2,
+    "cooksInto": "item.meal.roast.game",
+    "food": { "hunger": 28, "mood": -12, "spoilDays": 2, "illnessChance": 0.3 }
+  },
+  {
+    "id": "item.meal.roast.game",
+    "name": "Roast Game",
+    "description": "Turned over the coals until the outside went dark. The best thing anyone has eaten in weeks.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.3,
+    "food": { "hunger": 65, "mood": 12, "spoilDays": 1, "illnessChance": 0 }
+  },
+  {
+    "id": "item.food.fish.fresh",
+    "name": "Fresh Fish",
+    "description": "Pulled out of the river an hour ago and already going soft at the gills.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 0.9,
+    "stack": 3,
+    "cooksInto": "item.meal.fish.grilled",
+    "food": { "hunger": 24, "mood": -10, "spoilDays": 1, "illnessChance": 0.25 }
+  },
+  {
+    "id": "item.meal.fish.grilled",
+    "name": "Grilled Fish",
+    "description": "Split, salted with whatever was to hand, laid straight on the grate.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 0.7,
+    "food": { "hunger": 55, "mood": 10, "spoilDays": 1, "illnessChance": 0 }
+  },
+  {
+    "id": "item.food.roots.foraged",
+    "name": "Foraged Roots",
+    "description": "Dug out of a verge and knocked clean against a boot. Bitter, and a great deal better hot.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.8,
+    "stack": 4,
+    "cooksInto": "item.meal.roots.roasted",
+    "food": { "hunger": 16, "mood": -7, "spoilDays": 6, "illnessChance": 0.15 }
+  },
+  {
+    "id": "item.meal.roots.roasted",
+    "name": "Roasted Roots",
+    "description": "Buried in the ash and forgotten about for the right length of time.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.7,
+    "food": { "hunger": 45, "mood": 4, "spoilDays": 2, "illnessChance": 0 }
+  },
+  {
+    "id": "item.food.beans.dry",
+    "name": "Dried Beans",
+    "description": "A sack of them, hard as gravel. Nobody is eating these until somebody boils them.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.5,
+    "stack": 3,
+    "cooksInto": "item.meal.beans.stewed",
+    "food": { "hunger": 12, "mood": -14, "spoilDays": 0, "illnessChance": 0 }
+  },
+  {
+    "id": "item.meal.beans.stewed",
+    "name": "Stewed Beans",
+    "description": "Soaked all afternoon and simmered until they gave up. Dull, hot and filling.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.4,
+    "food": { "hunger": 58, "mood": 6, "spoilDays": 1, "illnessChance": 0 }
+  },
+  {
+    "id": "item.food.dough.raw",
+    "name": "Raw Dough",
+    "description": "Flour, water and a long argument with a table. Sticky and inedible as it stands.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.9,
+    "stack": 2,
+    "cooksInto": "item.meal.flatbread",
+    "food": { "hunger": 14, "mood": -11, "spoilDays": 1, "illnessChance": 0.1 }
+  },
+  {
+    "id": "item.meal.flatbread",
+    "name": "Flatbread",
+    "description": "Slapped onto a hot stone and turned once. Blistered, smoky, and gone in a minute.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.6,
+    "stack": 2,
+    "food": { "hunger": 40, "mood": 7, "spoilDays": 3, "illnessChance": 0 }
+  },
+  {
+    "id": "item.food.offal",
+    "name": "Offal",
+    "description": "The parts nobody used to take home. Everybody takes them home now.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.8,
+    "stack": 3,
+    "cooksInto": "item.meal.offal.fried",
+    "food": { "hunger": 18, "mood": -16, "spoilDays": 1, "illnessChance": 0.35 }
+  },
+  {
+    "id": "item.meal.offal.fried",
+    "name": "Fried Offal",
+    "description": "Cooked hard in its own fat, which is the only way it is going to be eaten.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.6,
+    "food": { "hunger": 38, "mood": -2, "spoilDays": 1, "illnessChance": 0 }
+  },
+  {
+    "id": "item.food.grubs.foraged",
+    "name": "Foraged Grubs",
+    "description": "Turned up under a rotten log. Protein is protein, and nobody has to watch.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.3,
+    "stack": 4,
+    "cooksInto": "item.meal.grubs.roasted",
+    "food": { "hunger": 9, "mood": -18, "spoilDays": 3, "illnessChance": 0.2 }
+  },
+  {
+    "id": "item.meal.grubs.roasted",
+    "name": "Roasted Grubs",
+    "description": "Dry-roasted on a tin lid until they stopped looking like themselves.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.2,
+    "stack": 3,
+    "food": { "hunger": 20, "mood": -4, "spoilDays": 2, "illnessChance": 0 }
+  },
+  {
+    "id": "item.food.meat.strips",
+    "name": "Salted Strips",
+    "description": "Meat cut thin and rubbed with road salt, waiting on somebody to keep a low fire going all night.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.8,
+    "stack": 3,
+    "cooksInto": "item.food.meat.cured",
+    "food": { "hunger": 15, "mood": -13, "spoilDays": 2, "illnessChance": 0.2 }
+  },
+  {
+    "id": "item.food.meat.cured",
+    "name": "Cured Meat",
+    "description": "Packed in salt and hung by the flue for as long as anybody could stand to wait. It keeps.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.7,
+    "stack": 3,
+    "food": { "hunger": 40, "mood": 3, "spoilDays": 45, "illnessChance": 0 }
+  },
+  {
+    "id": "item.food.fruit.windfall",
+    "name": "Windfall Fruit",
+    "description": "Bruised fruit off the grass under somebody's tree, jarred up with sugar or thrown out within the week.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 1.0,
+    "stack": 3,
+    "cooksInto": "item.food.preserves.jar",
+    "food": { "hunger": 13, "mood": 1, "spoilDays": 4, "illnessChance": 0.1 }
+  },
+  {
+    "id": "item.food.preserves.jar",
+    "name": "Jar of Preserves",
+    "description": "Boiled down, sealed hot, and set on the shelf against a month nobody wants to think about.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.9,
+    "stack": 2,
+    "food": { "hunger": 35, "mood": 6, "spoilDays": 60, "illnessChance": 0 }
+  },
+  {
+    "id": "item.stove.camp",
+    "name": "Camp Stove",
+    "description": "A folding burner with a part-full cylinder screwed to it. It boils a pan without lighting up the street.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.8,
+    "purifies": 25
+  },
+  {
+    "id": "item.pot.camp",
+    "name": "Billy Can",
+    "description": "A dented steel pot with a wire handle. Set it over any flame and what comes out is safe to drink.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.7,
+    "purifies": 6
+  },
+  {
+    "id": "item.filter.pump",
+    "name": "Pump Filter",
+    "description": "A hiker's hand pump with a ceramic cartridge. It strains a bottle clean and asks for no fire at all.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.5,
+    "purifies": 40
+  },
+  {
+    "id": "item.tablets.purification",
+    "name": "Purification Tablets",
+    "description": "A foil strip of chlorine tablets. Drop one in, wait, and put up with the taste.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.05,
+    "stack": 20,
+    "purifies": 1
+  },
+  {
+    "id": "item.canteen.untreated",
+    "name": "Canteen of Standing Water",
+    "description": "A steel canteen somebody filled and then had a worse day. It will do, unless it doesn't.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 1.1,
+    "cleanTier": "water",
+    "boilsInto": "item.canteen.clean",
+    "empties": "item.water.bottle.empty",
+    "drink": { "thirst": 45, "illnessChance": 0.15 }
+  },
+  {
+    "id": "item.canteen.clean",
+    "name": "Canteen of Clean Water",
+    "description": "A steel canteen of water somebody made safe, and nobody is going to waste.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 1.1,
+    "cleanTier": "water",
+    "empties": "item.water.bottle.empty",
+    "drink": { "thirst": 45 }
+  }
+]

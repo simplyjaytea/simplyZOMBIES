@@ -753,7 +753,7 @@ static func _campfire_at(world: Variant, tx: int, ty: int) -> int:
 # holds this very job; `_stock_base` skips a live claim and erases a stale one, `_stop` releases it,
 # and `_do_cook` cooks nothing when the raw is gone or is somebody else's.
 static func _cook_work(world: Variant, ent: int) -> Dictionary:
-	var raw: int = _stock_base(world, "item.food.raw")
+	var raw: int = _stock_cookable(world)
 	if raw < 0:
 		return {}
 	var fires: Array[int] = world.components.query(["campfire"])
@@ -761,6 +761,59 @@ static func _cook_work(world: Variant, ent: int) -> Dictionary:
 		return {}
 	world.components.set_component(raw, "reserved", {"by": ent, "job": "Cook"})
 	return {"kind": "Cook", "target": raw, "fire": fires[0], "ticksLeft": COOK_TICKS, "path": [], "pathGen": -1, "stage": "goto"}
+
+
+# What one unit of this turns into at a fire, or "" when it turns into nothing. Content's
+# `cooksInto` (item.schema.json, docs/12-resources.md) and the one place this file asks. Before it
+# there were two literals in this file -- `item.food.raw` on the way in, `item.food.cooked` on the
+# way out -- so a tin, a fish and a sack of potatoes all became the identical dish and the forty
+# other foods in the roster could not be cooked at all.
+#
+# The target is resolved against the catalogue rather than trusted, which is the refusal
+# `SimNeeds._leave_empty` gives an `empties` naming a base that is not there: a `cooksInto` pointing
+# at nothing makes the ingredient uncookable rather than making a meal out of nothing.
+static func cooks_into(world: Variant, item: int) -> String:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not (base is Dictionary):
+		return ""
+	return cooks_into_base(world, String((base as Dictionary).get("baseId", "")))
+
+
+static func cooks_into_base(world: Variant, base_id: String) -> String:
+	var entry: Variant = SimItems.content_entry(world, "item", base_id)
+	if not (entry is Dictionary):
+		return ""
+	var into: String = String((entry as Dictionary).get("cooksInto", ""))
+	if into.is_empty() or SimItems.content_entry(world, "item", into) == null:
+		return ""
+	return into
+
+
+# The unclaimed thing on the pile a cook takes next. The same scan and the same claim rule
+# `_stock_base` has always used -- a live claim is skipped, a stale one erased by `_claim_live` --
+# with the hardcoded base id swapped for the question content can answer.
+#
+# Two passes, and the order is a decision rather than an accident. **Dinner before the pantry**: a
+# bag of salt cooks into cured meat and a jar cooks into preserves, which is docs/12's preservation
+# trading labour for shelf life, but a colony with a fire, a cook and something edible on the pile
+# feeds itself tonight and cures tomorrow. Without the split, whichever the loot happened to drop
+# first won -- and it did: the shipped suburb's stockpile holds a canning jar, so the first cook of
+# the run spent 2400 ticks on preserves while the raw food beside it went off.
+static func _stock_cookable(world: Variant) -> int:
+	var fallback: int = -1
+	for item in SimNeeds.stockpile_items(world):
+		var base: Variant = world.components.get_component(int(item), "itemBase")
+		if not (base is Dictionary):
+			continue
+		if cooks_into(world, int(item)).is_empty():
+			continue
+		if _claim_live(world, int(item)):
+			continue
+		if SimNeeds.is_food(world, String((base as Dictionary).get("baseId", ""))):
+			return int(item)
+		if fallback < 0:
+			fallback = int(item)
+	return fallback
 
 
 # Is this item's claim still held? Live means the holder is alive to the job system and carries a
@@ -1339,10 +1392,19 @@ static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
 		SimNeeds.set_lit(world, fire, true, false)
 		_stop(world, ent)
 		return
+	# What it becomes is read off the ingredient before it is despawned. A raw whose `cooksInto`
+	# stopped resolving between assignment and completion cooks nothing -- the same no-meal,
+	# no-`job.completed`, fire-back-to-idle refusal a vanished or stolen raw gets above, rather
+	# than a meal out of nothing, which is exactly the defect the claim was added to close.
+	var into: String = cooks_into(world, raw)
+	if into.is_empty():
+		SimNeeds.set_lit(world, fire, true, false)
+		_stop(world, ent)
+		return
 	world.components.remove(raw, "position")
 	world.despawn(raw)
-	var cooked: int = SimItems.spawn_item(world, "item.food.cooked", {"tier": "scavenged"})
-	SimNeeds.mark_spoilage(world, cooked, "item.food.cooked")
+	var cooked: int = SimItems.spawn_item(world, into, {"tier": "scavenged"})
+	SimNeeds.mark_spoilage(world, cooked, into)
 	var drop: Vector2i = _stock_drop(world)
 	if drop.x >= 0:
 		world.components.set_component(cooked, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
@@ -1646,6 +1708,18 @@ static func _seek_untreated(world: Variant, ent: int, x: float, y: float) -> voi
 			world.components.remove(raw, "position")
 			if not SimInventory.stow(world, ent, raw):
 				return
+	# A filter or a strip of tablets in the pack answers this where you stand, so a survivor who is
+	# carrying one never makes the walk to the fire at all -- docs/04's filters-or-chemicals route,
+	# read by the same autonomy that has always read the fire. Tried first because it is free of
+	# the walk; it refuses at once on a pack carrying no purifier, which is every colonist who has
+	# not found one, so the fire below stays the ordinary answer.
+	var treated: Dictionary = SimNeeds.purify(world, ent)
+	if bool(treated.get("ok", false)):
+		# The vessel that was just made safe, by item rather than by name: `drink` reaches for
+		# WATER_ID and a canteen is not one, so a survivor who purified a canteen and then went
+		# looking for a bottle would stand there thirsty holding the answer.
+		SimNeeds.drink_item(world, ent, int(treated.get("item", -1)))
+		return
 	var fire: int = SimNeeds.nearest_campfire(world, x, y, false)
 	if fire >= 0:
 		var fp: Variant = world.components.get_component(fire, "position")
