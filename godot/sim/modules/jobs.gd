@@ -1376,7 +1376,13 @@ static func _dress_job(world: Variant, ent: int) -> Dictionary:
 	for item in SimInventory.ground_items(world):
 		if not _is_better_armor(world, ent, int(item)):
 			continue
-		if world.components.has_component(int(item), "reserved"):
+		# `_claim_live` rather than a bare `has_component`, and this is the one place the Dress
+		# job deliberately does NOT copy re-arm letter for letter. Re-arm only fires for somebody
+		# with empty hands, which is rare; a better garment is lying around constantly, so two
+		# colonists crossing the district for the same vest is the common case rather than the
+		# edge one. It also erases a claim whose holder died or was re-assigned, which a bare
+		# `has_component` would leave blocking that garment forever.
+		if _claim_live(world, int(item)):
 			continue
 		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
 		var ix: float = float(p["x"])
@@ -1391,6 +1397,10 @@ static func _dress_job(world: Variant, ent: int) -> Dictionary:
 			best = int(item)
 	if best < 0:
 		return {}
+	# The Cook's `reserved` seam, the same one a scavenger claims a cupboard with. `_stop`
+	# releases it through `_release_claim` on every path out of the job -- finished, abandoned,
+	# or the holder dying -- so nothing here has to remember to.
+	world.components.set_component(best, "reserved", {"by": ent, "job": "Dress"})
 	return {"kind": "Dress", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
 
 
