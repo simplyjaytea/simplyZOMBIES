@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **67 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **69 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,34 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — comfort, and books that teach.** The arc's eleventh and twelfth slices. Mood had
+seven sources and every one was something done *to* a survivor; a `comfort` block is the first thing
+a person can do for their own morale that is not a meal, and it respects the module's existing
+non-stacking rule rather than routing around it — one modifier from one source, accumulating toward
+a cap, on an int clock. `skills.gd` had been a finished six-region XP ladder with zero item content
+since Milestone 1; ten books now pay into the same `_earn`, consumed on reading, with a per-reader
+ledger so a second copy of a title already read teaches nothing and is not spent, and a ceiling of
+`PRACTICE_POINTS` so a book never out-teaches doing the work.
+
+**Three findings worth more than the content.** The comfort gate's CLOCK lane **could not fail when
+written** — the shipped harmonica's clock landed on tick 60000 and the mood cadence divides it, so a
+sabotage gating the whole tick left it green; it now deliberately lands off the cadence and asserts
+that it does. The books slice measured the entity-keyed-Dictionary trap rather than trusting it and
+found it is **worse than CLAUDE.md documents**: `canonicalize` throws and the save is written with
+the component present and its contents gone. And the shallow-validator trap reproduced a second time
+in a second brand-new block — a `teaches` naming a region `skills.gd` does not have passed
+`godot:validate` with `GODOT_CONTENT_OK`.
+
+**One needle broke on merge and the repair is in Traps.** `check_m2_comfort.gd` asserted its key was
+in the gear gate's `READ_KEYS` by matching the tail of that list — chosen deliberately, because the
+bare word appears in that file's prose too. An hour later the books slice appended `"teaches"` and
+the lane went red against a gear gate that was correct. It now isolates the `READ_KEYS` line and
+asks for membership inside it, and was re-broken afterwards to prove the repair did not weaken it.
+
+**What neither slice shipped:** no autonomy job. Nobody seeks comfort when their mood drops and
+nobody ever picks up a manual unaided, so both categories help a colony exactly as much as the
+player remembers to spend them. Named in what's left, once, for both.
 
 **2026-09-12 — cooking, water, and noise you can carry.** The arc's ninth and tenth slices,
 both built in isolated worktrees and integrated here. Cooking: ten ingredients had shared one meal

@@ -85,6 +85,8 @@ npm run godot:m2:filter    # what a mask keeps out of a bloater's cloud → M2_F
 npm run godot:m2:materials # what a recipe is made of, by kind → M2_MATERIALS_OK
 npm run godot:m2:transform # what a thing cooks, boils or purifies into → M2_TRANSFORM_OK
 npm run godot:m2:noise     # a device you wind up, put down and pick back up → M2_NOISE_OK
+npm run godot:m2:comfort   # something for your own morale that is not a meal → M2_COMFORT_OK
+npm run godot:m2:teach     # a book, read once, bounded by what practice pays → M2_TEACH_OK
 npm run godot:m2:warmth    # insulation per part, wet, cooling, and what sheds rain → M2_WARMTH_OK
 npm run godot:m2:light_burn # a lamp runs out, a headlamp lights, a floodlight stands → M2_LIGHT_BURN_OK
 npm run godot:m2:armor     # armour slots, and coverage that stops a blow → M2_ARMOR_OK
@@ -117,7 +119,7 @@ npm run sprites:check    # generated art still matches tools/sprites/ → SPRITE
 npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **67**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **69**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
@@ -270,7 +272,14 @@ drifted. Three things about the current state matter enough to repeat anyway:
   anything: `check_respond` looked for a call in `_draw` that had moved into `_draw_body`, and
   `check_weather` looked for the ground-item colour in `_draw_entities` after it moved into
   `Appearance.item_look`. Both were fixed by following the call a link further, never by dropping
-  the needle. When you add a mechanism, add the assertion that something reaches it —
+  the needle. **A third instance, 2026-09-12, a different shape:** `check_m2_comfort.gd` asserted
+  its key was in `check_m2_gear.gd`'s `READ_KEYS` by searching for the *tail* of that list,
+  `"noise", "comfort"]` — deliberately, because the bare word appears in that file's prose too and a
+  needle a comment can satisfy cannot fail. The reasoning was right and the needle was still wrong:
+  the books slice appended `"teaches"` an hour later and the lane went red against a gear gate that
+  was correct. Isolate the line first (`begins_with("const READ_KEYS")`) and ask for membership
+  inside it — no comment can satisfy that and no later key can displace it; `check_m2_teach.gd` is
+  the precedent. When you add a mechanism, add the assertion that something reaches it —
   `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example, and
   `npm run check:routing` applies the same rule to the gates themselves (a check script no npm
   script reaches is red, which retired `check_r6_bench.gd`). The sweep
