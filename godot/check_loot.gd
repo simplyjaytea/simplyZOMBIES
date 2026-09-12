@@ -53,7 +53,20 @@ const DANGERS: Array[String] = ["low", "moderate", "high", "very_high", "extreme
 # What an outdoor perDistrict site may declare it stands on, kept in step with district.schema.json
 # by hand the way LOCATIONS is. One value today: a car out of `map.vehicles`.
 const HOSTS: Array[String] = ["vehicle"]
-const TIER_IDS: Array[String] = ["scavenged", "modified", "field_tested"]
+# The tier ids a table's `tierWeights` may name. This was a literal copy of SimItems.TIERS, and it
+# went stale the moment docs/10's fourth tier landed: it still refused `named` -- correctly, as it
+# happens -- while its own message called it "not a SimItems.TIERS id", which by then was false.
+#
+# Derived now, and derived from the *rollable* tiers rather than from all of them, because those are
+# two different questions. A tierWeights entry means "roll an ordinary base at this tier", and the
+# named tier is hand-authored: naming it in a table would produce a Named Steel Pipe, an item at a
+# tier that permits no affixes and carries no authored ones -- a strictly worse scavenged. The six
+# named items reach the world as `entries` in loot.military_cache instead.
+static func _tier_ids() -> Array[String]:
+	var out: Array[String] = []
+	for t in SimItems.rollable_tiers():
+		out.append(String((t as Dictionary)["id"]))
+	return out
 # Enough samples that a tier distribution is a distribution rather than a coin toss.
 const TIER_SAMPLES: int = 2000
 
@@ -235,8 +248,8 @@ func _every_table_is_well_formed_all_the_way_down() -> bool:
 		else:
 			var weight_total: int = 0
 			for tier in (weights as Dictionary).keys():
-				if not TIER_IDS.has(String(tier)):
-					problems.append("%s.tierWeights: %s is not a SimItems.TIERS id" % [key, String(tier)])
+				if not _tier_ids().has(String(tier)):
+					problems.append("%s.tierWeights: %s is not a tier a table may roll (%s)" % [key, String(tier), str(_tier_ids())])
 				weight_total += int((weights as Dictionary)[tier])
 			if weight_total <= 0:
 				problems.append("%s.tierWeights: total weight is %d" % [key, weight_total])

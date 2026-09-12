@@ -231,8 +231,13 @@ static func _can_perform(world: Variant, item: int, operation: String, target: V
 			return {"ok": false, "reason": "already-at-ceiling"}
 		return {"ok": true, "reason": ""}
 	if operation == "upgrade_tier":
+		# The ladder, not the whole table. SimItems.TIERS gained docs/10's hand-authored `named`
+		# tier, and `rollable_tiers()` is what a *climb* is measured against: the top of the ladder
+		# is still field_tested, so a Scrap Kit cannot manufacture a named item -- an item with a
+		# tier nobody wrote, no fixed rolls and no drawback, which is the tier's own point
+		# inverted. A named item itself is not on the ladder at all and falls out at idx < 0.
 		var idx: int = _tier_index(SimItems.tier_of(world, item))
-		if idx < 0 or idx >= SimItems.TIERS.size() - 1:
+		if idx < 0 or idx >= SimItems.rollable_tiers().size() - 1:
 			return {"ok": false, "reason": "already-max-tier"}
 		return {"ok": true, "reason": ""}
 
@@ -364,7 +369,7 @@ static func _restore_condition(world: Variant, item: int) -> Dictionary:
 # already proven the item is not already at the top tier.
 static func _upgrade_tier(world: Variant, item: int, item_class: String, rng: Variant) -> Dictionary:
 	var idx: int = _tier_index(SimItems.tier_of(world, item))
-	var next_tier: String = String((SimItems.TIERS[idx + 1] as Dictionary)["id"])
+	var next_tier: String = String((SimItems.rollable_tiers()[idx + 1] as Dictionary)["id"])
 	world.components.set_component(item, "itemTier", {"id": next_tier})
 	var fresh: Dictionary = SimItems.roll_affixes(world, item_class, next_tier, rng)
 	var aff: Dictionary = world.components.get_component(item, "affixes") as Dictionary
@@ -376,8 +381,9 @@ static func _upgrade_tier(world: Variant, item: int, item_class: String, rng: Va
 # Index of a tier id in SimItems.TIERS, or -1 if the item predates tiers being recorded at all
 # (tier_of already floors that case to "scavenged", index 0, so -1 is unreachable in practice).
 static func _tier_index(id: String) -> int:
-	for i in SimItems.TIERS.size():
-		if String((SimItems.TIERS[i] as Dictionary)["id"]) == id:
+	var ladder: Array[Dictionary] = SimItems.rollable_tiers()
+	for i in ladder.size():
+		if String((ladder[i] as Dictionary)["id"]) == id:
 			return i
 	return -1
 

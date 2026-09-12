@@ -135,6 +135,11 @@
         "staggerTicks": {
           "type": "integer",
           "minimum": 0
+        },
+        "connectNoise": {
+          "type": "number",
+          "minimum": 0,
+          "description": "How loud a landed swing is, in the attention spine's own magnitudes (docs/03-attention.md). Absent means SimCombat.MELEE_CONNECT_NOISE, which is the number sim/modules/melee.gd published as a literal for every weapon before this key existed, so every base that says nothing is unchanged. Present and large is docs/10's Siren's Bell paying for its damage: the drawback of a named item is a real cost only if the weapon owns the number."
         }
       }
     },
@@ -252,6 +257,16 @@
           "description": "What else will chamber. A free string rather than an enum for the reason `slots` is one -- the registry is the shipped content and check_m2_ammo.gd asserts both directions, so a caliber no round declares and a round no weapon chambers are each a named dead socket rather than a schema error nobody reads. Absent means the weapon takes only its declared `ammo`, which is what a bow does."
         },
         "recoverable": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cone": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "A multiplier on the felt aim cone, mirroring `attachment.ranged.cone` and `ammo.ranged.cone` -- below 1 is a weapon that shoots tighter than its class does, above 1 one that sprays. Absent means 1.0, which is what sim/modules/items.gd hardcoded onto every profile before this key existed, so no shipped weapon moves. Present and low is docs/10's Grandfather's Deer Rifle, whose accuracy is the capability it charges a single-shot magazine for."
+        },
+        "handling": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "A multiplier on how fast the weapon comes up and settles, against its own `weight`, through sim/combat.gd's raise -> steady -> recover rungs. Mirrors `attachment.ranged.handling`. Absent means 1.0, the value the profile was hardcoded to. Below 1 is a weapon that is simply slow in the hands whatever is bolted to it -- docs/10's Quietkeeper, which buys silence with time."
+        },
         "magSize": { "type": "integer", "minimum": 1 },
         "reloadTicks": { "type": "integer", "minimum": 1 },
         "rangeMetres": { "type": "number", "exclusiveMinimum": 0 },
@@ -323,6 +338,25 @@
       "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
       "description": "The base left in your hands once one unit of this is spent -- the bottle without the water, the can without the fuel. Read by SimNeeds._consume_item, the one place a unit is spent (a drink, a wash, a wound cleaned with the bottle, a can poured), so every spend leaves the same thing. Stowed where the spent unit was; dropped at the feet when nothing has room. A flat scalar at the top level for the reason bandageTier is one: the content validator is shallow, and a string with a pattern up here is actually enforced. Absent means nothing is left -- a crushed can is not worth carrying."
     },
+    "scent": {
+      "type": "number",
+      "minimum": 0,
+      "description": "What this smells of while it is worn, in the same scent magnitudes a body emits (docs/03-attention.md). Read by sim/modules/attention_emitter.gd's emit-scent system through SimItems.worn_scent_of, which sums it over everything equipped and adds it to the wearer's own -- summed rather than maxed, because two filthy things do smell worse than one where two helmets do not armour a head twice. Absent means the item has no smell, which is every base but one. This is docs/10's Butcher's Apron: the coverage is the capability and the smell is the cost, and it is a cost because it rides the channel the dead already follow. A flat top-level scalar for the reason bandageTier is one -- the Godot validator is shallow, so a number up here is actually enforced, where a key inside the `armor` block would have been read as a body part.",
+      "$comment": "Top-level and not inside `armor` on purpose: armor's additionalProperties are coverage-per-body-part, so a `scent` in there would validate and then be counted as a part called \"scent\"."
+    },
+    "filthy": {
+      "type": "boolean",
+      "description": "Whether a wound taken while this is equipped is a dirty wound. Read by sim/modules/wounds.gd's append_wound, which flags the wound once when it is made, and priced by SEPSIS_FILTHY_MUL in the same product as docs/05's other sepsis factors -- so a clean and a sterile dressing still discount it. Absent means no, which is every base but one. This is docs/10's Tetanus Special: \"any damage you take while holding it risks a serious infection\". Content declares the fact and code owns the number, exactly as `bandageTier` names a grade and SEPSIS_BANDAGE_MUL prices it."
+    },
+    "named": {
+      "type": "object",
+      "description": "Present on one of docs/10's named items and absent on everything else. Its presence is what makes the item named -- SimItems.named_block asks nothing else -- and it forces the item's tier to `named` at spawn whatever the caller or the loot table asked for, so a table rolling \"scavenged\" and then picking the Siren's Bell cannot produce a scavenged Siren's Bell. The contents are the item's **fixed, hand-authored** affix roll in exactly the shape SimItems.roll_affixes produces, copied verbatim and drawing no RNG at all, so the same named item comes out of every seed. Being the same shape is the point: the existing reader, SimItems.affix_modifiers, resolves these into scoped modifiers with no second code path, and a named item's `affixes: 0` tier means the bench can never add to them. docs/10: \"a capability nobody else gets, and a cost you have to build around\" -- the drawback is not expressed here but in the base's own numbers and flags, because a drawback that lived only in an affix could be stripped off at a bench.",
+      "additionalProperties": false,
+      "properties": {
+        "prefixes": { "$ref": "#/$defs/authoredAffixes" },
+        "suffixes": { "$ref": "#/$defs/authoredAffixes" }
+      }
+    },
     "modification": {
       "type": "object",
       "description": "Present on a modification consumable, per docs/11-crafting.md#content-shape: \"a modification consumable declares which operation it performs and against which item classes\". Adding a consumable is a data edit provided the operation it names already exists; adding an operation is an entry in SimModification.OPERATIONS. That registry is code because an operation is behaviour, and check_mods.gd is what asserts every declared operation is in it -- no schema can.",
@@ -345,6 +379,19 @@
     }
   },
   "$defs": {
+    "authoredAffixes": {
+      "type": "array",
+      "description": "Fixed affix rolls, each naming a shipped affix id and which of that affix's own `tiers` it is locked to. Nothing here is rolled. The ids and indices are cross-checked by godot/check_m2_gear.gd's NAMED lane and by SimItems.verify_content_references, not by this schema -- neither can see the affix registry.",
+      "items": {
+        "type": "object",
+        "required": ["id", "tier"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^affix\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$" },
+          "tier": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
     "rect": {
       "type": "object",
       "required": ["w", "h"],

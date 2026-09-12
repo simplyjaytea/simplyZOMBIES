@@ -1,0 +1,105 @@
+[
+  {
+    "id": "item.named.sirens_bell",
+    "name": "Siren's Bell",
+    "description": "A demolition sledge with a length of scaffold pole welded through the head. What it hits stops being a shape, and the whole street hears it happen.",
+    "class": "weapon.melee",
+    "size": { "w": 2, "h": 5 },
+    "massKg": 6.4,
+    "equipSlot": "primary",
+    "slots": ["haft", "wrap"],
+    "melee": { "reachMetres": 1.7, "weight": 2.6, "damage": 26, "staggerTicks": 44, "connectNoise": 90 },
+    "named": {
+      "prefixes": [{ "id": "affix.prefix.weighted", "tier": 2 }],
+      "suffixes": []
+    }
+  },
+  {
+    "id": "item.named.long_argument",
+    "name": "The Long Argument",
+    "description": "Four metres of scaffold tube with a filed leaf of steel on the end. Nothing it touches ever reaches the hands holding it, and nothing it touches dies quickly either.",
+    "class": "weapon.melee",
+    "size": { "w": 1, "h": 6 },
+    "massKg": 1.9,
+    "equipSlot": "primary",
+    "slots": ["head", "haft"],
+    "melee": { "reachMetres": 3.4, "weight": 1.0, "damage": 4, "staggerTicks": 6 },
+    "named": {
+      "prefixes": [{ "id": "affix.prefix.lengthened", "tier": 1 }],
+      "suffixes": []
+    }
+  },
+  {
+    "id": "item.named.deer_rifle",
+    "name": "Grandfather's Deer Rifle",
+    "description": "A single-shot break-action with a worn walnut stock and somebody's initials cut into the cheekpiece. It puts one round exactly where it is pointed and then asks for a long moment of your attention.",
+    "class": "weapon.ranged",
+    "size": { "w": 1, "h": 6 },
+    "massKg": 3.1,
+    "equipSlot": "primary",
+    "slots": ["optic", "barrel", "furniture", "internal", "underbarrel"],
+    "ranged": {
+      "damage": 46,
+      "noise": 210,
+      "flash": 70,
+      "ammo": "item.ammo.rifle",
+      "caliber": "rifle",
+      "cone": 0.45,
+      "magSize": 1,
+      "reloadTicks": 260,
+      "rangeMetres": 85,
+      "weight": 1.7
+    },
+    "named": { "prefixes": [], "suffixes": [] }
+  },
+  {
+    "id": "item.named.tetanus_special",
+    "name": "The Tetanus Special",
+    "description": "A pipe wrapped in barbed wire that was rusting before the outbreak and has not stopped since. It opens things wide, and it is the last thing on earth anyone should be bleeding next to.",
+    "class": "weapon.melee",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 2.4,
+    "equipSlot": "primary",
+    "slots": ["wrap"],
+    "filthy": true,
+    "melee": { "reachMetres": 1.3, "weight": 1.3, "damage": 13, "staggerTicks": 16 },
+    "named": {
+      "prefixes": [{ "id": "affix.prefix.barbed", "tier": 1 }],
+      "suffixes": []
+    }
+  },
+  {
+    "id": "item.named.quietkeeper",
+    "name": "Quietkeeper",
+    "description": "A heavy laminated bow with a draw somebody built for patience rather than for speed. It makes no sound worth the name, and the arrows come back out whole every time.",
+    "class": "weapon.ranged",
+    "size": { "w": 1, "h": 5 },
+    "massKg": 1.35,
+    "equipSlot": "primary",
+    "slots": ["sight", "limb", "string"],
+    "ranged": {
+      "damage": 11,
+      "noise": 0,
+      "ammo": "item.ammo.arrow",
+      "caliber": "arrow",
+      "recoverable": 1.0,
+      "handling": 0.5,
+      "reloadTicks": 150,
+      "rangeMetres": 38,
+      "weight": 1.6
+    },
+    "named": { "prefixes": [], "suffixes": [] }
+  },
+  {
+    "id": "item.named.butchers_apron",
+    "name": "Butcher's Apron",
+    "description": "A slaughterhouse apron of hide and rubber, thick enough to turn a blade and soaked past any washing. Everything that hunts by smell knows exactly where it is.",
+    "class": "armor",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 2.8,
+    "equipSlot": "torso",
+    "scent": 6.0,
+    "armor": { "torso": 0.75 },
+    "named": { "prefixes": [], "suffixes": [] }
+  }
+]
