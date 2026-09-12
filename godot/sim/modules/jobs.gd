@@ -288,6 +288,19 @@ static func _tick_one(world: Variant, ent: int) -> void:
 			return
 		_advance_job(world, ent, job as Dictionary)
 		return
+	# Between jobs, and only between jobs: put on better armour before choosing the next task.
+	# The re-arm rule above interrupts work because empty hands are an emergency; a vest found
+	# while hauling is not, and it can wait for the end of the haul. Placed here rather than
+	# beside re-arm for a second, duller reason -- `_dress_job`'s ground branch walks every loose
+	# item in the district, and `_pick` is the one moment a colonist is already paying for a scan
+	# of exactly that shape (`_haul_work`), so this adds a cost of the order that is already here
+	# instead of a new per-tick one.
+	if WEAR_FOUND_ARMOR:
+		var dress: Dictionary = _dress_job(world, ent)
+		if not dress.is_empty():
+			world.components.set_component(ent, "job", dress)
+			_advance_job(world, ent, dress)
+			return
 	_pick(world, ent)
 
 
@@ -977,6 +990,8 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 			_do_haul(world, ent, job)
 		"Rearm":
 			_do_rearm(world, ent, job)
+		"Dress":
+			_do_dress(world, ent, job)
 		"Scavenge":
 			_do_scavenge(world, ent, job)
 		"Construct":
@@ -1250,6 +1265,146 @@ static func _do_rearm(world: Variant, ent: int, job: Dictionary) -> void:
 		return
 	SimInventory.equip(world, ent, item)
 	_stop(world, ent, "Rearm")
+
+
+# --- dress -----------------------------------------------------------------------------------
+#
+# "Colonists wear what they find" -- the owner's decision of 2026-09-12, and the acquisition half
+# of the armour slice. Coverage has stopped blows since that slice landed, and the balance harness
+# came back byte-identical on all four seeds for one reason: **nothing in the game ever put a vest
+# on anybody.** No kit carries armour (`equip_kit` spawns what a survivor's content lists, and the
+# two uniques list a weapon, a bandage and a tin between them), so every armour slot on every
+# colonist is empty at boot and stays empty for the whole run. The mechanic was real and
+# unreachable.
+#
+# There is no starting kit here either, and that is the decision rather than an omission: a colony
+# that finds nothing stays bare, and stays bare on purpose. What a colonist gains is the rule
+# below -- the same two-branch shape as re-arm above, deliberately, because it is the same act.
+# The pack first, because `SimContainers.search` empties a cupboard into the searcher's own pack
+# and that is where found gear actually is; then the nearest candidate lying near home, which is
+# where Haul puts everything it brings back.
+#
+# **What "beats what they are wearing" means, once.** `SimNeeds.armor_points_of_base` -- the whole
+# body weighed by `WARMTH_WEIGHTS`, the scalar the heat wave already asks this exact question with.
+# Reusing it rather than minting a second notion of how good a piece of armour is, because two
+# notions of "better" that disagree is how most of this milestone's defects were born. It is read
+# off the base, so it is a property of the garment and not of the wearer, which is what makes the
+# comparison below symmetric.
+#
+# **Warmth is deliberately not weighed, and that is the honest limit of this rule.** A colonist who
+# has found both a parka and a leather jacket will wear the jacket, because the jacket covers more
+# body. Nothing boots wearing anything, so the overwhelmingly common case is an empty slot and the
+# question never arises; where it does, the rule is stated here rather than hidden behind a second
+# scalar invented to make one test pass.
+
+## The rule, ON as shipped. A static so a gate can boot one world that dresses and one that does
+## not and compare them -- `check_m2_balance.gd`'s two armour arms are exactly that pair, and are
+## the only reason the harness can see this slice at all. One gate process shares a static across
+## every world it boots (CLAUDE.md, and docs/30 records it twice), so **any lane that pins this
+## must put back the value it found**; `check_m2_balance.gd`'s FLAG lane is what says so when one
+## does not.
+static var WEAR_FOUND_ARMOR: bool = true
+
+# The hands are the re-arm rule's business and nothing here may reach into them: a machete has no
+# `armor` block, so this would never fire on one anyway, and saying it out loud is cheaper than
+# finding out that a content edit made a gauntlet a primary.
+const DRESS_SKIP_SLOTS: Array[String] = ["primary", "secondary"]
+
+
+# How much of a body this garment covers, as one whole number. Zero for anything with no `armor`
+# block at all, which is most of the item tree.
+static func _armor_points(world: Variant, item: int) -> int:
+	var base: Variant = SimItems.item_base_of(world, item)
+	if not base is Dictionary:
+		return 0
+	return SimNeeds.armor_points_of_base(base as Dictionary)
+
+
+# The slot a garment is worn in, or "" for anything this rule will not touch.
+static func _dress_slot(world: Variant, item: int) -> String:
+	var slot: Variant = SimInventory.equip_slot_for(world, item)
+	if slot == null:
+		return ""
+	var s: String = String(slot)
+	if DRESS_SKIP_SLOTS.has(s):
+		return ""
+	return s
+
+
+# Is this worth putting on? Armour, in a slot this rule dresses, still whole, and strictly better
+# than whatever is already in that slot -- strictly, so a colonist standing on a pile of identical
+# vests does not swap one for another for the rest of the campaign. A garment whose condition has
+# run out is refused for `_is_working_weapon`'s reason and with its arithmetic: a destroyed plate
+# stops nothing, and walking across the district for one is worse than staying where you are.
+static func _is_better_armor(world: Variant, ent: int, item: int) -> bool:
+	var slot: String = _dress_slot(world, item)
+	if slot == "":
+		return false
+	var points: int = _armor_points(world, item)
+	if points <= 0:
+		return false
+	var c: Variant = world.components.get_component(item, "condition")
+	if c is Dictionary and float((c as Dictionary).get("current", 1.0)) <= 0.0:
+		return false
+	var eq: Variant = world.components.get_component(ent, "equipment")
+	if not eq is Dictionary:
+		return true
+	var slots: Dictionary = ((eq as Dictionary).get("slots", {})) as Dictionary
+	if not slots.has(slot):
+		return true
+	var worn: int = int(slots[slot])
+	if worn == item:
+		return false
+	return points > _armor_points(world, worn)
+
+
+# The pack first (put on at once, no job); else the nearest better garment lying near home -- on
+# the ground or on the stockpile's tiles -- as a Dress walk. `_rearm_job`'s shape letter for
+# letter, including the reserved and unreachable refusals, because two nearly-identical scans that
+# drift apart is the defect this is copied to avoid. Empty when there is nothing worth wearing.
+static func _dress_job(world: Variant, ent: int) -> Dictionary:
+	for carried in SimInventory.carried_items(world, ent):
+		if _is_better_armor(world, ent, int(carried)) and SimInventory.equip(world, ent, int(carried)):
+			return {}
+	var here: Variant = world.components.get_component(ent, "position")
+	if not here is Dictionary:
+		return {}
+	var hx: float = float((here as Dictionary)["x"])
+	var hy: float = float((here as Dictionary)["y"])
+	var best: int = -1
+	var best_d: float = INF
+	for item in SimInventory.ground_items(world):
+		if not _is_better_armor(world, ent, int(item)):
+			continue
+		if world.components.has_component(int(item), "reserved"):
+			continue
+		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
+		var ix: float = float(p["x"])
+		var iy: float = float(p["y"])
+		if not _near_home(world, ix, iy):
+			continue
+		if _is_unreachable(world, int(item)):
+			continue
+		var d: float = (ix - hx) * (ix - hx) + (iy - hy) * (iy - hy)
+		if d < best_d:
+			best_d = d
+			best = int(item)
+	if best < 0:
+		return {}
+	return {"kind": "Dress", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+static func _do_dress(world: Variant, ent: int, job: Dictionary) -> void:
+	var item: int = int(job.get("target", -1))
+	if item < 0 or not world.components.has_component(item, "position") or not _is_better_armor(world, ent, item):
+		_stop(world, ent)
+		return
+	var tile: Vector2i = _entity_tile(world, item)
+	if not _at(world, ent, tile, REACH):
+		_walk(world, ent, job, tile)
+		return
+	SimInventory.equip(world, ent, item)
+	_stop(world, ent, "Dress")
 
 
 static func _entity_tile(world: Variant, ent: int) -> Vector2i:
