@@ -200,10 +200,14 @@ func _the_splint_is_content_and_findable() -> bool:
 		push_error("%s did not resolve through SimItems after spawning" % SPLINT)
 		return false
 	# The kind table names its closer, and a fracture's is the splint -- the read the ladder
-	# actually makes. A sprain's is nothing, which is what keeps "closable" from meaning "any
-	# closed injury".
-	if SimWounds.close_kind_of({"kind": "fracture"}) != "splint" or SimWounds.close_kind_of({"kind": "cut"}) != "suture" or SimWounds.close_kind_of({"kind": "sprain"}) != "":
-		push_error("WOUND_KINDS closers are not fracture=splint, cut=suture, sprain=none")
+	# actually makes. A sprain's was nothing until 2026-09-12, when `wrap` landed as the third
+	# closer against docs/05's "Rest, wrap"; the clause that used to keep "closable" from meaning
+	# "any closed injury" now rides on a concussion, which closes with nothing and always did.
+	if SimWounds.close_kind_of({"kind": "fracture"}) != "splint" or SimWounds.close_kind_of({"kind": "cut"}) != "suture" or SimWounds.close_kind_of({"kind": "sprain"}) != "wrap":
+		push_error("WOUND_KINDS closers are not fracture=splint, cut=suture, sprain=wrap")
+		return false
+	if SimWounds.close_kind_of({"kind": "concussion"}) != "":
+		push_error("a concussion has grown a closer, so 'closable' now means every closed injury")
 		return false
 	if droppable.has("item.splint.imaginary") or SimItems.content_entry(w, "item", "item.splint.imaginary") is Dictionary:
 		push_error("a made-up base id was found, so findability is asserting nothing")
@@ -250,13 +254,25 @@ func _a_splint_closes_a_fracture_and_nothing_else() -> bool:
 		push_error("a splint was accepted for a deep cut: %s" % str(r2))
 		return false
 
+	# A sprain wants a wrap. A splint and a suture are both the wrong kit for it, which is `no-kit`
+	# -- it used to be `nothing-to-do`, because before the wrap landed a sprain wanted nothing.
 	var sprained: Variant = _world()
 	_sprain(sprained, sprained.player, "leg_left")
 	_give(sprained, sprained.player, SPLINT, 2)
 	_give(sprained, sprained.player, SUTURE, 2)
 	var r3: Dictionary = SimTreatment.begin(sprained, sprained.player, sprained.player, "leg_left", "close")
-	if bool(r3.get("ok", false)) or String(r3.get("reason", "")) != "nothing-to-do":
-		push_error("a sprain was offered a closer: %s" % str(r3))
+	if bool(r3.get("ok", false)) or String(r3.get("reason", "")) != "no-kit":
+		push_error("a splint or a suture was accepted for a sprain: %s" % str(r3))
+		return false
+
+	# And the injury that really is beyond closing, so `nothing-to-do` stays covered by something.
+	var concussed: Variant = _world()
+	SimWounds.append_wound(concussed, concussed.player, "concussion", "head", -1, 0.0, "concussion", SimWounds.Severity.Laceration)
+	_give(concussed, concussed.player, SPLINT, 2)
+	_give(concussed, concussed.player, SUTURE, 2)
+	var r5: Dictionary = SimTreatment.begin(concussed, concussed.player, concussed.player, "head", "close")
+	if bool(r5.get("ok", false)) or String(r5.get("reason", "")) != "nothing-to-do":
+		push_error("a concussion was offered a closer: %s" % str(r5))
 		return false
 
 	var bleeding: Variant = _world()
@@ -268,7 +284,7 @@ func _a_splint_closes_a_fracture_and_nothing_else() -> bool:
 	if bool(r4.get("ok", false)) or String(r4.get("reason", "")) != "still-bleeding":
 		push_error("a bleeding cut was closed rather than refused: %s" % str(r4))
 		return false
-	print("SPLINT CLOSES OK fracture splinted in %d ticks for one kit; suture-on-fracture '%s', splint-on-cut '%s', sprain '%s', bleeding '%s'" % [want, r1.get("reason", ""), r2.get("reason", ""), r3.get("reason", ""), r4.get("reason", "")])
+	print("SPLINT CLOSES OK fracture splinted in %d ticks for one kit; suture-on-fracture '%s', splint-on-cut '%s', sprain '%s', concussion '%s', bleeding '%s'" % [want, r1.get("reason", ""), r2.get("reason", ""), r3.get("reason", ""), r5.get("reason", ""), r4.get("reason", "")])
 	return true
 
 
