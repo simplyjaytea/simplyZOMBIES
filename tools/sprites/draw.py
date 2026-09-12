@@ -22,13 +22,38 @@ import random
 
 from PIL import Image
 
-from palette import to_rgb
+from palette import TONE_SHARES, to_hex, to_rgb
 
 SIZE = 32
 
-# The one radius every pawn rig shades at, re-measured for the squat 32x40 figure of 2026-09-08
-# -- see `nw_shade` below for the measurement and why the 48-tall rig's 15.0 no longer suits it.
+# The one radius every pawn rig is toned at, re-measured for the squat 32x40 figure of
+# 2026-09-08. It is the reach at which the ramp clamps flat, so it wants to be the reach the
+# figure actually spans and no more. On the 48-tall rig of 2026-09-03 the answer was 15.0
+# (reach -10.0 to +15.0 over 4254 opaque pixels; 13.0 clamped 1.74%). On the squat rig the
+# union of the eight is 2982 opaque pixels and `(dx+dy)/2` from the picture middle runs -5.5
+# to +13.5: at 12.0 the clamped share is 1.31%, at 13.0 it is 0.13% (four pixels) with the
+# whole ramp still spent on the body, and at 14.0 nothing clamps but only 96% of the gain is
+# reached. So 13.0: the smallest radius that clamps essentially nothing, which is also the
+# largest that still uses all of the reach it is given. `tone_pass` ranks by this same reach,
+# so the number now decides where the tone *cuts* fall rather than how far a gradient runs --
+# and it is re-measured whenever the canvas changes, which the split slice will do.
 RIG_LIGHT_RADIUS = 13.0
+
+# How much of a pixel's tone comes from its distance inside the silhouette rather than from the
+# light's direction, and how deep that term saturates. `tone_pass` ranks by
+# `lit - FORM_WEIGHT * min(depth, FORM_DEPTH_CAP)/FORM_DEPTH_CAP`, so the interior of a shape is
+# lit and its rim falls away, with the direction deciding *which* rim falls furthest.
+#
+# **Measured, not chosen.** A pure direction term (weight 0) quantised to four tones puts a
+# straight anti-diagonal across a flat torso, which reads as a crease in the cloth rather than as
+# light -- the rounded trunk is one fill, so nothing in the picture explains where the line came
+# from. Weights 0, 0.4, 0.8 and 1.2 were rendered side by side on the player, Mara and the
+# bloater: 0.4 is where the crease becomes shading, the slung strap keeps its read, and a cheek
+# appears on the face; by 0.8 the rim is heavy enough to read as a vignette and by 1.2 the body
+# is a bright core in a dark ring. The cap of 3 is the deepest a 12 px trunk can be and still
+# have an interior left over.
+FORM_WEIGHT = 0.4
+FORM_DEPTH_CAP = 3
 
 
 class Canvas:
@@ -192,26 +217,135 @@ class Canvas:
                     255,
                 )
 
-    def nw_shade(self, gain):
-        """Directional shading at the one radius every pawn rig is drawn at.
+    def _inward_depth(self):
+        """How many pixels each opaque pixel sits inside the silhouette. Edge pixels are 0.
 
-        `factor = 1 - gain*clamp((dx+dy)/32, -1, 1)` -- exactly `light_top_left` at
-        RIG_LIGHT_RADIUS, named here so nobody has to re-derive it. Props each pick a radius to
-        suit their own footprint, but the pawns are one family drawn at one size, and a per-rig
-        radius would make two colonists standing side by side shade differently.
-
-        **Why 13.0.** The radius is the reach at which the ramp clamps flat, so it wants to be
-        the reach the figure actually spans and no more, and it is re-measured whenever the
-        canvas changes. On the 48-tall rig of 2026-09-03 the answer was 15.0 (reach -10.0 to
-        +15.0 over 4254 opaque pixels; 13.0 clamped 1.74%). On the squat 32x40 rig of
-        2026-09-08 the union of the eight rigs is 2982 opaque pixels and `(dx+dy)/2` from the
-        picture middle runs -5.5 to +13.5: at 12.0 the clamped share is 1.31%, at 13.0 it is
-        0.13% (four pixels) with the whole ramp still spent on the body, and at 14.0 nothing
-        clamps but only 96% of the gain is reached, which costs contrast a 28 px figure cannot
-        spare. So 13.0: the smallest radius that clamps essentially nothing, which is also the
-        largest that still uses all of the gain it is given.
+        A breadth-first fill from the silhouette's edge, four-connected. `tone_pass` mixes it
+        into the light direction so a shape is shaded by its own form and not only by where it
+        sits on the canvas; on a transparent canvas every entry is `INF` and nothing reads it.
         """
-        self.light_top_left(gain, RIG_LIGHT_RADIUS)
+        far = self.w + self.h
+        depth = [[far] * self.w for _ in range(self.h)]
+        frontier = []
+        for y in range(self.h):
+            for x in range(self.w):
+                if not self.opaque(x, y):
+                    continue
+                if any(not self.opaque(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    depth[y][x] = 0
+                    frontier.append((x, y))
+        while frontier:
+            nxt = []
+            for x, y in frontier:
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < self.w and 0 <= ny < self.h and self.opaque(nx, ny) \
+                            and depth[ny][nx] > depth[y][x] + 1:
+                        depth[ny][nx] = depth[y][x] + 1
+                        nxt.append((nx, ny))
+            frontier = nxt
+        return depth
+
+    def tone_pass(self, tones, radius=RIG_LIGHT_RADIUS, axis="diagonal"):
+        """Quantise every material on the canvas to its four tones: deep, core, base, highlight.
+
+        What replaced `nw_shade` for the pawn family (docs/30, "The decoupled paperdoll"). The
+        old pass multiplied each pixel by a continuous factor, which is why a rig came out with
+        67 to 88 distinct colours: a gradient, not a palette. This assigns each pixel one of
+        four named tones instead, and the difference is not only tidiness -- a body whose torso
+        rotates cannot carry a screen-fixed gradient baked into it, and a four-tone body is the
+        shape that survives being turned.
+
+        **Assigned by share, not by threshold, and per material.** Each opaque pixel is looked up
+        in `tones` to find which material it belongs to; within each material its pixels are
+        ranked by reach and the ranked list is cut by `TONE_SHARES`. Two consequences worth
+        stating because both were the point:
+
+        * The highlight is held to a **ceiling**. The spec asks for a highlight over at most a
+          tenth of the area, and a threshold on the gradient would give whatever share the
+          geometry happened to produce -- the share is what the gate measures, so it has to be
+          the thing that is controlled. Measured across the eight rigs: 7.9% to 9.6%.
+        * Ranking **per material** is what stops a dark material eating the shadow tones. Rank
+          globally and the strap -- darker than skin at every step -- takes every deep slot on
+          the body while the face takes every highlight, which is a picture of the palette
+          rather than of the light.
+
+        The cut is a ceiling rather than an exact count because it lands on *reach boundaries*
+        and never inside one; the comment on the loop below has the measurement that forced
+        that. Reach is a float, so equal reaches compare equal and a band is a whole
+        anti-diagonal of one material: the grouping is exact, not an epsilon, and
+        `sprites:check` stays a byte comparison on any machine.
+
+        A colour this canvas carries that no ramp claims raises, rather than being passed
+        through or guessed at. Everything a generator paints with comes from `palette.RAMPS`,
+        so an unclaimed colour is a rig painting off-palette -- and the one family that used to
+        do it deliberately, an `OUTLINE` eye or seam drawn inside the silhouette, is exactly
+        what the spec's "no dark lines inside the silhouette" rule removes. Details that must
+        stay dark are painted *after* this pass in a named tone; see `_figure`'s ordering.
+        """
+        depth = self._inward_depth()
+        groups = {}
+        for y in range(self.h):
+            for x in range(self.w):
+                r, g, b, a = self.get(x, y)
+                if a == 0:
+                    continue
+                here = to_hex((r, g, b))
+                quad = tones.get(here)
+                if quad is None:
+                    raise ValueError(
+                        "tone_pass found %s at (%d, %d) and no ramp claims it: every colour a "
+                        "generator paints with is a step of a palette ramp, so this is either an "
+                        "off-palette fill or a detail that should be painted after the pass"
+                        % (here, x, y)
+                    )
+                dx, dy = self.middle(x, y)
+                reach = dx if axis == "x" else (dx + dy) / 2.0
+                lit = max(-1.0, min(1.0, reach / float(radius)))
+                # Form, mixed into the direction. See FORM_WEIGHT.
+                inward = min(depth[y][x], FORM_DEPTH_CAP) / float(FORM_DEPTH_CAP)
+                groups.setdefault(quad, []).append((lit - FORM_WEIGHT * inward, y, x))
+
+        for quad, pixels in groups.items():
+            pixels.sort()  # (t, y, x) ascending -- most lit first
+            count = len(pixels)
+
+            # Cut on *reach*, not on rank position. Every pixel on the same anti-diagonal has
+            # an identical `t`, so a cut that lands inside one of those ties splits it by the
+            # y/x tie-break and the tone boundary comes out ragged -- measured on the player's
+            # torso as `330222222222222011`, stray deep pixels sitting mid-row in the lit half.
+            # That reads as noise, not as light. So the ranked list is walked one *reach group*
+            # at a time and a tone closes before the group that would overrun its share.
+            #
+            # The shares therefore become ceilings rather than exact counts, which is what the
+            # spec asks for anyway ("highlight <= 10% area") and what the gate measures. A
+            # material too small to fill a band simply does not get one: four hand pixels are
+            # four pixels of one tone, which is correct -- a four-pixel hand has no room for a
+            # gradient and inventing one would be four tones of dither.
+            bands = []
+            for t, y, x in pixels:
+                if bands and bands[-1][0] == t:
+                    bands[-1][1].append((y, x))
+                else:
+                    bands.append((t, [(y, x)]))
+
+            order = (quad[3], quad[2], quad[1], quad[0])
+            taken = 0
+            band_at = 0
+            for tone_ix, colour in enumerate(order):
+                ceiling = count if tone_ix == len(order) - 1 else int(round(
+                    sum(TONE_SHARES[: tone_ix + 1]) * count))
+                while band_at < len(bands):
+                    size = len(bands[band_at][1])
+                    # The last tone takes whatever is left; the others stop before overrunning,
+                    # but a tone that has taken nothing at all always takes one band, so a
+                    # boundary can never be crossed without a single tone being drawn.
+                    if tone_ix < len(order) - 1 and taken + size > ceiling and taken > 0:
+                        break
+                    for y, x in bands[band_at][1]:
+                        self.put(x, y, colour)
+                    taken += size
+                    band_at += 1
 
     def outline(self, colour, sides="nesw"):
         """1 px outline, drawn *inwards*.

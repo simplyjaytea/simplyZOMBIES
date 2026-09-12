@@ -48,6 +48,7 @@ from PIL import Image  # noqa: E402
 
 from draw import SIZE  # noqa: E402
 import guide  # noqa: E402
+import palette  # noqa: E402
 from parts import buildings, characters, gear, ground, paperdoll, props, trees, vehicles, wrecks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -193,6 +194,38 @@ def write(key, render):
     print("wrote %s" % target.relative_to(ROOT))
 
 
+# The tone manifest: which four colours each material is drawn in. Written beside the PNGs
+# because `check_authored.gd`'s HIGHLIGHT lane has to know which of a rig's colours *is* the
+# highlight before it can measure how much of the body wears it, and a gate cannot import a
+# Python module. The first JSON this package emits; `sockets.json` will follow the same path.
+TONES_PATH = SPRITE_DIR / "tones.json"
+
+
+def tones_document():
+    """`{material: [deep, core, base, highlight]}` over every ramp, as the file holds it."""
+    return {name: list(palette.tones_of(material)) for name, material in sorted(palette.RAMPS.items())}
+
+
+def write_tones():
+    TONES_PATH.write_text(json.dumps(tones_document(), indent=2) + "\n")
+    print("wrote %s" % TONES_PATH.relative_to(ROOT))
+
+
+def check_tones():
+    """True when the committed tone manifest is what the palette would write today."""
+    if not TONES_PATH.exists():
+        print("MISSING %s: the tone manifest is generated beside the art" % TONES_PATH.relative_to(ROOT))
+        return False
+    committed = json.loads(TONES_PATH.read_text())
+    fresh = tones_document()
+    if committed != fresh:
+        moved = sorted(k for k in set(committed) | set(fresh) if committed.get(k) != fresh.get(k))
+        print("DIFFERS %s: %s -- regenerate and commit it with the palette change that moved it"
+              % (TONES_PATH.relative_to(ROOT), ", ".join(moved)))
+        return False
+    return True
+
+
 def check(key, render):
     """Regenerate one key and compare it with what is committed. True when they agree."""
     target = path_for(key)
@@ -274,6 +307,7 @@ def main(argv=None):
         if not args.only:
             for key in sorted(guide.REGISTRY):
                 write_guide(key, guide.REGISTRY[key])
+            write_tones()
         return 0
 
     bad = [key for key in sorted(keys) if not check(key, keys[key])]
@@ -282,6 +316,8 @@ def main(argv=None):
     if not args.only:
         bad += [key for key in sorted(hand) if not check_authored(key, hand[key])]
         bad += [key for key in sorted(guide.REGISTRY) if not check_guide(key, guide.REGISTRY[key])]
+        if not check_tones():
+            bad.append("tones.json")
     if bad:
         # The denominator is everything that was actually looked at, which under --only is one
         # registry key and otherwise is all three sets. A count that named a subset would make a
@@ -294,8 +330,9 @@ def main(argv=None):
         print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel" % len(keys))
     else:
         print("SPRITES_OK %d generated keys match the committed PNGs pixel for pixel, %d guide "
-              "sheet(s) match the published skeleton, and %d authored keys are present at the "
-              "canvas they declare" % (len(keys), len(guide.REGISTRY), len(hand)))
+              "sheet(s) match the published skeleton, %d authored keys are present at the "
+              "canvas they declare, and the tone manifest holds %d materials"
+              % (len(keys), len(guide.REGISTRY), len(hand), len(tones_document())))
     return 0
 
 
