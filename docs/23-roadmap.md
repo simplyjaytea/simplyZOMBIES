@@ -378,23 +378,6 @@ equipment slots draw". Each piece below is one session with its gate red both wa
 the flat projection, 32 px a tile, the feet anchor, the health-bar ban and the prose HUD are
 untouched, and the peripheral-anonymity clause is proved *more* strongly than before.
 
-- **The ramp, applied to the whole roster.** The four-tone model, built as a generator pass
-  rather than a post-process: despeckle, a per-family value ramp quantised to four tones
-  (deep, core, base, highlight), and the family clamp, run between the shade and the outline in
-  the one assembler, so all eight rigs come out ramped and no PNG is post-processed into a state
-  `sprites:check` would refuse to regenerate. Two obstacles are known and named rather than
-  discovered: `palette.ramp`'s top steps are **clipped by the family value ceiling** (skin[3] ≈
-  skin[4] ≈ skin[2]; `colonist_grey[2] == [3] == [4]`), so a real highlight needs headroom, which
-  is given to the highlight tone alone on the ground that a tone capped at 10% of the area cannot
-  be the loud thing on screen; and the **seam** — the 1 px dark column inside every torso edge —
-  is the internal dark line the spec forbids, and it becomes a tone step, which is the honest way
-  to drop it because the tone step does the job the seam's own docstring claims. The screamer's
-  19 interior `#161614` pixels move to its deep tone. `check_authored.gd` gains **INTERIOR** (no
-  `#161614` inside a silhouette), **TONES** (a measured cap on distinct colours) and
-  **HIGHLIGHT** (the highlight is present and ≤ 10% of opaque), each red both ways.
-  `APPEARANCE_OK`'s GREY lane is **re-measured, never quoted**. This slice also retires
-  `player_body_authored` per decision 9 — the tier and every lane stay, judging zero authored
-  rigs until the player is re-commissioned.
 - **Aim is a second heading, priced at a walk.** The sim carries `aim` beside `facing`; an absent
   `aim` reads as `facing`, which is what keeps every existing fixture true. Accepted while moving
   only at Walk or slower; `_integrate_movement` snaps it at Jog and Sprint, and a zombie never
@@ -1759,6 +1742,68 @@ not a to-do list:
   from-scratch generation does not, and a prompt asking for clean tonal ramps gives 17 colours
   where the deterministic passes give 6. Both are why the next slice builds the ramp in the
   generator rather than asking a model for it.
+  ~~The ramp, applied to the whole roster~~ **landed** 2026-09-12 as the four-tone model
+  (`godot:check:authored` at three new lanes, `APPEARANCE_OK` GREY re-measured, `sprites:check`
+  at 172 keys and a tone manifest). The pawn family is quantised now: **67–88 distinct colours a
+  rig became 5–20** — player 67→13, Mara 70→16, Ellis 82→20, colonist 27→5, raider 85→13,
+  shambler 62→5, screamer 52→9, bloater 88→5. 61 PNGs moved (eight rigs and fifty-three
+  overlays); props, trees, wrecks and vehicles did not, because they shade through
+  `light_top_left` at their own radii and only the pawn family shared `nw_shade`, which is now
+  deleted rather than left for a caller.
+  **Three things were measured rather than chosen.** *Ties, not ranks*: the first cut assigned
+  tones by rank position, which sliced through ties — every pixel on an anti-diagonal has
+  identical reach — and produced a ragged boundary with stray deep pixels in the lit half
+  (`330222222222221011` across the player's torso). Cutting on reach *groups* fixed it and made
+  the highlight a ceiling rather than an exact count, which is what the spec asks for anyway.
+  *Form 0.4*: a pure direction term put a straight diagonal across the flat torso that read as a
+  crease in the cloth, because nothing in the picture explains where the line came from; weights
+  0, 0.4, 0.8 and 1.2 were rendered side by side and 0.4 is where the crease becomes shading and
+  the slung strap keeps its read. *The colonist's base*, below.
+  **The seam is what made "no dark lines inside the silhouette" affordable.** It used to be a
+  different material's dark step drawn against the torso — a line. It is the torso's own **deep
+  tone** now, so the arm is separated from the trunk by value the way the rest of the body is,
+  and the thing the line did survives losing the line. Six rigs also painted an `OUTLINE` eye
+  inside the silhouette, and the screamer an `OUTLINE` seam and mouth besides — nineteen pixels
+  of ink. All of it is a material's deep tone now. The INTERIOR lane's rule is narrow on purpose:
+  it bans the *outline colour* inside a body, not dark pixels — an eye is dark and must be. Eyes
+  moved onto a dark material's deep tone, measured at a 0.499–0.568 luma gap against the skin
+  they sit on where skin's own deep tone gave 0.230 and the banned outline gave 0.591.
+  **The ordering is the mechanism**: materials → tells → the pass → seam → face → outline. What
+  is above the pass is lit; what is below it is *placed at a named tone*. A detail that went
+  through the pass would be re-ranked by where it sits and lose the darkness it was drawn for —
+  an eye on the lit side of a face would come back as a highlight.
+  **The colonist, and why the fix was a colour.** GREY went red at 0.3720 against 0.3796. The
+  obvious reading was wrong: the rig did not get darker on average. **A quarter of a 32×40 rig's
+  opaque pixels are its outline** (92 of 372, at byte 22), and they sit at the bottom of the
+  ordered list, so the median lands in whichever tone spans the 50th percentile — four tones put
+  that at the *core* step where a gradient had put it near the base. So the core tone is what the
+  base was set by: `colonist_grey` re-based #c2c2c2 → #d6d6d6, median byte 178, composing to
+  0.3951 against the tightest colony tint (#b58a63, luma 0.5660) for **+0.015** of margin where
+  the old rig had +0.018. Five candidate bases were measured. **Fixed as a colour, never by
+  widening `GROUND_CONTRAST`.** Moving the rig to the `chart` family was tried and refused: it
+  gives perfect 33-byte gaps and is wrong, because `chart` is exempt from the ground rules
+  precisely because a mask is never drawn on the ground, and a colonist is.
+  **The gates**, three lanes, each red both ways. **INTERIOR**: no `OUTLINE` strictly inside any
+  silhouette; TN a real rig with one interior pixel forced to `OUTLINE`, and the scanner proved
+  on the fabrication *before* the zero is trusted. **TONES**: at most 20 distinct colours a rig —
+  Ellis's own count, the rig at the wall, the same arrangement the shoulder bound takes with the
+  bloater; TN a rig fabricated one colour over. **HIGHLIGHT**: every rig wears a highlight over
+  0% and at most 10% of its body (measured 7.9% to 9.6%); TN **both** bounds — a rig repainted
+  entirely in a highlight, and one with every highlight pixel overpainted. The floor matters
+  most: `palette.ramp`'s own notes record top steps clamping together at a family ceiling, and a
+  highlight equal to its base is invisible rather than absent. Its reader is
+  `assets/sprites/tones.json`, the first JSON this package emits, generated beside the art and
+  compared by `sprites:check` — a gate cannot import a Python module, so the tone table is one
+  file with two readers rather than a second copy.
+  **Honest losses, both accepted by the owner before the commit.** Speckle is gone: the
+  shambler's rot mottling and Ellis's grey flecks were scattered single pixels in ramp colours,
+  and the pass quantises them into their neighbours. The spec's own "minimal dithering" and "soft
+  interior clustering" clauses are what removed them, so this is the rule working rather than a
+  defect — but a designed tell went with it, and the shambler now carries its silhouette,
+  trailing arm and palette alone. And the colonist reads closer to **three tones than four**: at
+  its new base the muted ceiling clamps base and highlight flat while core lands six bytes under
+  base. A lower base separates them by ten and leaves half the margin; that trade is written into
+  `palette.py` beside the ramp so the next session does not re-derive it.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

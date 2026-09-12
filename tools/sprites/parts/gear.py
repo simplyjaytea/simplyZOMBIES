@@ -40,7 +40,7 @@ skipped here on purpose -- a picture for a slot nothing composites is gear as a 
 """
 
 from draw import Canvas
-from palette import OUTLINE, RAMPS
+from palette import OUTLINE, RAMPS, tone_map
 from parts.characters import (
     BROW_DY,
     FOOT_TOP_Y,
@@ -98,7 +98,7 @@ def item_pack_hiking_equip():
     canvas.rounded_rect(0.0, PACK_TOP_Y + 2.5, PACK_HALF_W - 0.6, 2.6, 2.0, cloth[1],
                         inside_only=True)
     canvas.band((-PACK_HALF_W, mid_y + 2.0), (PACK_HALF_W, mid_y + 2.0), 2.0, strap[2])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -120,7 +120,7 @@ def item_pack_hiking_equip_front():
             strap[1],
             inside_only=False,
         )
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     return canvas.to_image()
 
 
@@ -143,7 +143,7 @@ def item_bat_aluminium_equip():
     canvas.band((9.2, HAND_Y - 5.0), (10.4, HAND_Y - 10.5), 1.6, metal[4], inside_only=False)
     canvas.band((HAND_X - 1.0, HAND_Y + 3.5), (9.0, HAND_Y - 2.5), 2.8, strap[1], inside_only=False)
     canvas.disc(HAND_X - 1.2, HAND_Y + 3.8, 1.6, strap[0])  # the knob, so the grip end reads
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -208,7 +208,7 @@ def item_pants_canvas_equip():
     # the legs do -- a horizontal line across the hip is a thing no rig on the roster draws.
     canvas.rect(0.0, PANTS_BELT_Y, PANTS_SEAT_HALF_W - 0.5, 0.0, strap[2], inside_only=True)
     canvas.rect(0.0, PANTS_BELT_Y, 1.0, 0.0, metal[3], inside_only=True)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -239,7 +239,7 @@ def item_wrap_cloth_equip():
     # The knot, off-centre: the one asymmetric tell, safe for the same reason a rig's is --
     # the roster mirrors rather than rotates, so it swaps sides with its wearer.
     canvas.rounded_rect(2.5, mid_y - 1.5, 2.0, 1.6, 1.0, cloth[3], inside_only=True)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -262,7 +262,7 @@ def item_cap_canvas_equip():
     canvas = _overlay()
     canvas.rounded_rect(0.0, CAP_CROWN_Y, CAP_CROWN_HALF_W, 1.5, 1.2, cloth[2])
     canvas.rect(0.0, CAP_BRIM_Y, CAP_BRIM_HALF_W, 0.5, cloth[1])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
 
@@ -303,7 +303,7 @@ def item_knife_kitchen_equip():
                 steel[3], inside_only=False)
     canvas.band((HAND_X + 1.4, HAND_Y - 4.0), (HAND_X + BLADE_LEAN + 0.6, HAND_Y - 8.0), 1.4,
                 steel[4], inside_only=False)  # the ground edge, on the lit side
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -337,7 +337,7 @@ def item_machete_rusted_equip():
                 inside_only=True)  # the ground edge, on the lit side
     canvas.speckle("item_machete_rusted_equip", "rust", rust[4], 0.13,
                    region=(HAND_X - 2.0, HAND_Y - 15.0, HAND_X + 5.0, HAND_Y - 2.0))
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -362,7 +362,7 @@ def item_pipe_steel_equip():
                 inside_only=False)  # the coupling
     canvas.speckle("item_pipe_steel_equip", "rust", rust[4], 0.07,
                    region=(HAND_X - 2.0, HAND_Y - 6.0, HAND_X + 4.0, HAND_Y + 4.0))
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -388,7 +388,7 @@ def item_spear_improvised_equip():
     for row in (HAND_Y - 12.5, HAND_Y - 14.5):
         canvas.band((HAND_X + BLADE_LEAN - 2.2, row), (HAND_X + BLADE_LEAN + 2.2, row), 1.2,
                     lash[1], inside_only=True)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -412,7 +412,7 @@ def item_axe_fire_equip():
     canvas.rect(HAND_X + 1.2, HAND_Y - 10.0, 2.0, 1.6, steel[2])  # the eye
     canvas.rect(HAND_X - 0.8, HAND_Y - 10.0, 1.2, 1.2, steel[1])  # the poll
     canvas.rounded_rect(HAND_X + 3.0, HAND_Y - 10.0, 1.6, 2.6, 1.0, steel[3])  # the bit
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -432,7 +432,7 @@ def item_sledge_demolition_equip():
                 haft[0], inside_only=False)
     canvas.rounded_rect(HAND_X + 0.6, HAND_Y - 11.0, 4.0, 2.0, 1.0, steel[2])
     canvas.rect(HAND_X + 3.4, HAND_Y - 11.0, 0.6, 1.0, steel[4], inside_only=True)  # the face
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -465,7 +465,7 @@ def item_bow_hunting_equip():
     canvas.band((string_x, HAND_Y - 7.0), (string_x, HAND_Y + 7.0), 1.0, grip[3],
                 inside_only=False)
     canvas.rect(grip_x, HAND_Y, 1.2, 2.0, grip[1])  # the wrapped grip, in the fist
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -479,14 +479,16 @@ OFF_HAND_X = -HAND_X
 def _lit(canvas, paint):
     """Shade, outline, and *then* paint the flame: the one thing a light source may not take.
 
-    Every other key here ends `nw_shade` then `outline`, and both are wrong for fire. The shade
-    pass multiplies a colour down by up to 12% on the south-east side, which dims the one thing
-    on screen that is supposed to be the brightest; the outline rings it in `#161614`, which is
-    a candle with the flame drawn as a hole. So the accent-family pixels go on last, after both
-    passes, and what they land on is the already-outlined dark top row of the wax or the lamp
-    body -- which reads as the wick, for free.
+    Every other key here ends `tone_pass` then `outline`, and both are wrong for fire. The tone
+    pass would quantise the flame to four steps of the ember ramp and rank them by where they
+    sit, so the brightest pixel on the sprite would be wherever the top-left light happened to
+    fall rather than the wick; the outline rings it in `#161614`, which is a candle with the
+    flame drawn as a hole. So the accent-family pixels go on last, after both passes, and what
+    they land on is the already-outlined dark top row of the wax or the lamp body -- which
+    reads as the wick, for free. (Under `nw_shade` the objection was that the pass multiplied
+    the flame *down* by up to 12%; the pass changed, the exception did not.)
     """
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     paint(canvas)
     return canvas.to_image()
@@ -557,7 +559,7 @@ def item_pistol_service_equip():
                 steel[4], inside_only=False)  # the top of the slide, catching the light
     canvas.band((OFF_HAND_X - 0.2, HAND_Y + 0.5), (OFF_HAND_X + 0.8, HAND_Y + 4.0), 3.4,
                 grip[2], inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -587,7 +589,7 @@ def item_crowbar_steel_equip():
     canvas.rect(HAND_X - 0.2, HAND_Y - 11.4, 1.2, 0.6, steel[0])  # the claw
     canvas.band((HAND_X + 0.6, GRIP_BOTTOM_Y - 1.0), (HAND_X + 2.8, HAND_Y - 8.0), 1.0, steel[3],
                 inside_only=True)  # one line of light down the lit side
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -606,7 +608,7 @@ def item_hatchet_camp_equip():
                 inside_only=False)
     canvas.rect(HAND_X + 1.2, HAND_Y - 6.5, 1.6, 1.2, steel[2])  # the eye
     canvas.rounded_rect(HAND_X + 2.8, HAND_Y - 6.5, 1.4, 2.0, 0.8, steel[3])  # the bit
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -626,7 +628,7 @@ def item_hammer_claw_equip():
     canvas.rect(HAND_X + 1.2, HAND_Y - 5.5, 2.8, 1.0, steel[2])  # the T
     canvas.rect(HAND_X + 3.4, HAND_Y - 5.5, 0.8, 1.2, steel[3])  # the face, heavier
     canvas.rect(HAND_X - 1.4, HAND_Y - 6.3, 0.6, 0.8, steel[1])  # the claw, turned down
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -645,7 +647,7 @@ def item_wrench_pipe_equip():
     canvas.rect(HAND_X + 1.6, HAND_Y - 9.4, 1.6, 0.8, steel[1])  # the fixed jaw
     canvas.rect(HAND_X + 1.8, HAND_Y - 11.8, 1.4, 0.8, steel[1])  # the moving jaw
     canvas.rect(HAND_X + 0.4, HAND_Y - 10.6, 0.8, 2.0, steel[1])  # the shank between them
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -666,7 +668,7 @@ def item_cleaver_butcher_equip():
     canvas.rect(HAND_X - 0.6, HAND_Y - 3.0, 0.8, 1.0, steel[3])  # the tang into the handle
     canvas.band((HAND_X + 3.6, HAND_Y - 2.5), (HAND_X + 3.6, HAND_Y - 7.5), 1.0, steel[4],
                 inside_only=True)  # the edge, on the lit side
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -688,7 +690,7 @@ def item_shotgun_pump_equip():
                 inside_only=False)  # the barrel and the tube under it, read as one
     canvas.band((HAND_X + 1.2, HAND_Y - 5.5), (HAND_X + 1.9, HAND_Y - 9.0), 4.6, wood[2],
                 inside_only=False)  # the pump forend
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -702,7 +704,7 @@ def item_rifle_hunting_equip():
     canvas.band((HAND_X + 0.6, HAND_Y - 3.0), (HAND_X + 3.4, HAND_Y - 16.5), 3.0, steel[1],
                 inside_only=False)  # the thin barrel, past the crown
     canvas.rect(HAND_X + 1.8, HAND_Y - 2.0, 0.8, 0.6, steel[3])  # the bolt handle
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -725,7 +727,7 @@ def item_smg_compact_equip():
                 inside_only=False)  # the barrel, stopping less than half way to the rifle's
     canvas.band((HAND_X - 1.8, HAND_Y + 0.2), (HAND_X - 4.6, HAND_Y + 1.4), 2.6, grip[2],
                 inside_only=False)  # the magazine, out of the *side* -- the whole read
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -753,7 +755,7 @@ def item_jacket_leather_equip():
         canvas.rect(side * 3.0, WRAP_TOP_Y + 1.0, 1.8, 1.0, leather[3], inside_only=True)  # collar
     canvas.rect(0.0, mid_y, 0.5, (WRAP_BOTTOM_Y - WRAP_TOP_Y) / 2.0 - 1.0, metal[2],
                 inside_only=True)  # the zip
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -774,7 +776,7 @@ def item_helmet_bike_equip():
     canvas.rounded_rect(0.0, HELMET_CY, HELMET_HALF_W, 2.4, 2.4, shell[3])
     for side in (-1.0, 1.0):
         canvas.rect(side * 2.2, HELMET_CY - 0.8, 0.5, 0.9, shell[0], inside_only=True)  # vents
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
 
@@ -797,7 +799,7 @@ def item_jeans_denim_equip():
                     (side * (LEG_X + LEG_HALF - 0.6), PANTS_HEM_Y), 1.0, denim[3],
                     inside_only=True)  # the seam
     canvas.rect(0.0, PANTS_BELT_Y, PANTS_SEAT_HALF_W - 0.5, 0.0, strap[1], inside_only=True)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -827,7 +829,7 @@ def item_pack_school_equip():
     canvas.rounded_rect(0.0, SCHOOL_TOP_Y + 2.0, SCHOOL_HALF_W - 0.6, 2.0, 1.5, bag[2],
                         inside_only=True)  # the flap
     canvas.band((-SCHOOL_HALF_W, mid_y + 1.5), (SCHOOL_HALF_W, mid_y + 1.5), 1.6, strap[2])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -838,7 +840,7 @@ def item_pack_school_equip_front():
     for side in (-1.0, 1.0):
         canvas.band((side * 5.0, SHOULDER_Y + 1.0), (side * 3.4, LEG_TOP_Y - 3.0), 1.8, strap[2],
                     inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     return canvas.to_image()
 
 
@@ -863,7 +865,7 @@ def item_pack_frame_equip():
                     (side * (FRAME_HALF_W - 1.0), FRAME_BOTTOM_Y - 1.0), 1.0, rail[3],
                     inside_only=True)  # the rails
     canvas.band((-FRAME_HALF_W, mid_y + 3.0), (FRAME_HALF_W, mid_y + 3.0), 1.8, strap[2])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -876,7 +878,7 @@ def item_pack_frame_equip_front():
                     inside_only=False)
     canvas.band((-4.0, SHOULDER_Y + 5.0), (4.0, SHOULDER_Y + 5.0), 1.6, strap[2],
                 inside_only=False)  # the sternum strap, which the hiking pack has not
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     return canvas.to_image()
 
 
@@ -940,7 +942,7 @@ def item_baton_police_equip():
                 inside_only=False)
     canvas.band((HAND_X + 0.2, HAND_Y - 1.0), (HAND_X + 0.8, HAND_Y - 6.0), 1.0, poly[4],
                 inside_only=True)  # one line of light down the lit side
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -962,7 +964,7 @@ def item_shovel_sharpened_equip():
                 inside_only=False)
     canvas.rect(HAND_X + 0.6, HAND_Y - 10.5, 4.2, 2.4, steel[2])  # the plate
     canvas.rect(HAND_X + 0.6, HAND_Y - 12.4, 3.6, 0.6, steel[4])  # the ground top edge
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -984,7 +986,7 @@ def item_axe_splitting_equip():
     canvas.rect(HAND_X + 1.4, HAND_Y - 11.0, 1.4, 1.4, steel[1])  # the eye
     canvas.rounded_rect(HAND_X + 2.8, HAND_Y - 11.0, 1.8, 3.0, 0.8, steel[3])  # the wedge
     canvas.rect(HAND_X + 4.0, HAND_Y - 11.0, 0.5, 2.4, steel[4])  # the split edge, lit
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1010,7 +1012,7 @@ def item_crossbow_hunting_equip():
                 inside_only=False)
     canvas.band((HAND_X - 2.8, HAND_Y - 6.4), (HAND_X + 3.4, HAND_Y - 6.4), 0.8, steel[4],
                 inside_only=False)  # the string, drawn back to the catch
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1031,7 +1033,7 @@ def item_revolver_snub_equip():
     canvas.rect(OFF_HAND_X + 0.2, HAND_Y - 1.4, 1.2, 1.5, steel[1])  # the cylinder
     canvas.band((OFF_HAND_X - 0.2, HAND_Y + 0.5), (OFF_HAND_X + 1.0, HAND_Y + 3.6), 3.2,
                 grip[1], inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1052,7 +1054,7 @@ def item_rifle_rimfire_equip():
     canvas.band((HAND_X + 0.4, HAND_Y - 4.0), (HAND_X + 1.6, HAND_Y - 13.0), 2.2, steel[2],
                 inside_only=False)  # the barrel
     canvas.rect(HAND_X + 0.4, HAND_Y - 4.6, 1.6, 0.8, steel[0])  # the action
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1081,7 +1083,7 @@ def item_apron_welding_equip():
     for side in (-1.0, 1.0):
         canvas.band((side * 2.6, WRAP_TOP_Y + 0.5), (side * 1.0, WRAP_TOP_Y - 1.5), 1.2,
                     hide[4], inside_only=False)  # the neck strap, over the collarbone
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1103,7 +1105,7 @@ def item_helmet_hardhat_equip():
     canvas.rounded_rect(0.0, HARDHAT_CY, HEAD_R - 0.8, 2.0, 1.8, shell[3])  # the crown
     canvas.rect(0.0, HARDHAT_BRIM_Y, HEAD_R + 1.6, 0.5, shell[1])  # the brim, proud both sides
     canvas.rect(0.0, HARDHAT_CY - 1.4, 0.5, 0.9, shell[4], inside_only=True)  # the centre rib
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
 
@@ -1127,7 +1129,7 @@ def item_duffel_canvas_equip():
     canvas.rounded_rect(0.0, mid_y, DUFFEL_HALF_W, (DUFFEL_BOTTOM_Y - DUFFEL_TOP_Y) / 2.0, 3.2,
                         canvasing[2])
     canvas.rect(0.0, mid_y - 1.6, DUFFEL_HALF_W - 2.0, 0.5, canvasing[4])  # the zip along the top
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1142,7 +1144,7 @@ def item_duffel_canvas_equip_front():
     canvas = _overlay()
     canvas.band((-5.4, SHOULDER_Y + 1.0), (3.4, LEG_TOP_Y - 1.0), 2.4, strap[2],
                 inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     return canvas.to_image()
 
 
@@ -1171,7 +1173,7 @@ def item_attach_suppressor_part():
     steel = RAMPS["stone"]
     canvas = _overlay()
     canvas.band((PART_X - 2.0, PART_Y), (PART_X + 2.0, PART_Y), 3.0, steel[1], inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1188,7 +1190,7 @@ def item_attach_optic_red_dot_part():
     canvas = _overlay()
     canvas.rect(PART_X, PART_Y - 1.4, 1.6, 1.0, steel[1])
     canvas.rect(PART_X + 0.6, PART_Y - 2.0, 0.5, 0.5, RAMPS["ember"][3])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
 
@@ -1203,7 +1205,7 @@ def item_attach_magazine_extended_part():
     steel = RAMPS["stone"]
     canvas = _overlay()
     canvas.rect(PART_X, PART_Y + 2.2, 1.0, 2.2, steel[1])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
 
@@ -1233,7 +1235,7 @@ def item_carbine_lever_equip():
                 inside_only=False)  # the lever, swung down and open
     canvas.band((HAND_X - 2.6, HAND_Y + 3.6), (HAND_X - 0.6, HAND_Y + 4.6), 1.2, steel[3],
                 inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1255,7 +1257,7 @@ def item_pistol_target_equip():
     canvas.rect(OFF_HAND_X - 0.6, HAND_Y - 3.0, 1.6, 0.8, steel[4])  # the raised rear sight
     canvas.band((OFF_HAND_X - 0.2, HAND_Y + 0.5), (OFF_HAND_X + 0.8, HAND_Y + 4.0), 3.2,
                 grip[2], inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1277,7 +1279,7 @@ def item_shotgun_sawnoff_equip():
                 steel[4], inside_only=False)  # the seam, lit, so the pair reads as a pair
     canvas.band((OFF_HAND_X + 1.4, HAND_Y + 0.2), (OFF_HAND_X + 2.2, HAND_Y + 2.8), 3.0,
                 wood[1], inside_only=False)  # what is left of the stock
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1302,7 +1304,7 @@ def item_bow_recurve_equip():
     canvas.band((string_x, HAND_Y - 5.6), (string_x, HAND_Y + 5.6), 1.0, grip[3],
                 inside_only=False)
     canvas.rect(grip_x, HAND_Y, 1.2, 1.8, grip[1])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1322,7 +1324,7 @@ def item_crossbow_repeating_equip():
     canvas.band((HAND_X - 3.2, HAND_Y - 8.6), (HAND_X + 3.8, HAND_Y - 8.6), 1.8, steel[2],
                 inside_only=False)
     canvas.rounded_rect(HAND_X - 0.4, HAND_Y - 11.4, 2.6, 1.8, 0.6, stock[0])  # the bolt box
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1339,7 +1341,7 @@ def item_pick_ice_equip():
     canvas.rect(HAND_X - 0.4, HAND_Y + 0.6, 1.8, 2.0, wood[1])
     canvas.band((HAND_X + 0.2, HAND_Y - 0.4), (HAND_X + 0.8, HAND_Y - 4.4), 1.0, steel[3],
                 inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
 
@@ -1363,7 +1365,7 @@ def item_sabre_cavalry_equip():
                 inside_only=False)  # the tip, turning back
     canvas.rect(HAND_X - 0.8, HAND_Y - 0.6, 3.0, 0.8, guard[3])  # the knuckle guard
     canvas.rect(HAND_X - 0.2, HAND_Y + 0.6, 1.4, 2.2, guard[1])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1385,7 +1387,7 @@ def item_pitchfork_barn_equip():
         canvas.band((HAND_X + BLADE_LEAN + tine * 0.5, HAND_Y - 11.0),
                     (HAND_X + BLADE_LEAN + tine, HAND_Y - 15.0), 1.0, steel[3],
                     inside_only=False)
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE)
     return canvas.to_image()
 
@@ -1403,7 +1405,7 @@ def item_club_golf_equip():
     canvas.band((HAND_X - 0.2, HAND_Y + 3.6), (HAND_X + BLADE_LEAN, HAND_Y - 9.0), 1.6,
                 shaft[2], inside_only=False)
     canvas.rounded_rect(HAND_X + BLADE_LEAN + 0.4, HAND_Y - 10.0, 1.8, 1.6, 0.6, head[3])
-    canvas.nw_shade(0.12)
+    canvas.tone_pass(tone_map())
     canvas.outline(OUTLINE, "esw")
     return canvas.to_image()
 
