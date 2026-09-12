@@ -841,6 +841,8 @@ func _update_hud() -> void:
 			base += "  %s" % String(look["window"])
 		if not String(look.get("noisemaker", "")).is_empty():
 			base += "  %s" % String(look["noisemaker"])
+		if not String(look.get("device", "")).is_empty():
+			base += "  %s" % String(look["device"])
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
 	# A selection outlives nothing: a colonist who died, turned, walked out or became the body
@@ -858,7 +860,7 @@ func _update_hud() -> void:
 	if _hud != null:
 		# Fortify look-at is contextual and belongs on the player's line, not the dev sheet.
 		var context: String = ""
-		for k in ["window", "noisemaker"]:
+		for k in ["window", "noisemaker", "device"]:
 			if not String(look.get(k, "")).is_empty():
 				context = String(look[k])
 				break

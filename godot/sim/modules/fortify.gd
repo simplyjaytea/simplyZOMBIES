@@ -341,7 +341,7 @@ static func speed_after_events(speed: int, events: Array) -> int:
 
 
 static func look_at(world: Variant, actor: int) -> Dictionary:
-	var out: Dictionary = {"window": "", "noisemaker": ""}
+	var out: Dictionary = {"window": "", "noisemaker": "", "device": ""}
 	if world.tilemap == null:
 		return out
 	var win: Variant = _window_in_reach(world, actor)
@@ -361,6 +361,10 @@ static func look_at(world: Variant, actor: int) -> Dictionary:
 		var nm: Variant = world.components.get_component(int(bait), "noisemaker")
 		var ticking: bool = nm is Dictionary and int(world.tick) < int((nm as Dictionary).get("expiresAtTick", 0))
 		out["noisemaker"] = "ticking, south avenue" if ticking else "silent"
+	# The placed noise device you are standing at, in one word: wound tight, sounding, or gone
+	# quiet. `SimNoiseDevice.state_of` has exactly one reader and this is it, which is the whole
+	# reason the word exists rather than a number the screen would have to describe for itself.
+	out["device"] = String(_Noise().call("hud_clause", world, actor))
 	return out
 
 
@@ -512,6 +516,12 @@ static func _use_context(world: Variant, actor: int) -> void:
 		if pos is Dictionary:
 			_start(world, actor, "wind", floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
 		return
+	# The noise device you put down, after the free bait and before anything that builds: a thing
+	# you stood on a tile on purpose is a thing E takes back up. This is the half of the owner's
+	# 2026-09-12 decision that the floodlight deliberately does not have -- there is no verb that
+	# takes a planted floodlight down, and there is one here.
+	if lift_noise(world, actor):
+		return
 	if can_scrap(world.tilemap, face.x, face.y) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
 		_start(world, actor, "scrap", face.x, face.y)
 		return
@@ -633,6 +643,14 @@ static func _complete(world: Variant, _actor: int, verb: String, tx: int, ty: in
 		# left the pack mid-channel simply spends the channel and stands nothing up.
 		"floodlight":
 			_Light().call("plant", world, _actor, tx, ty)
+		# The same rule again, and it has to be: `plant` looks the device up in the pack a second
+		# time, so a firecracker that left the pack mid-channel spends the channel and stands
+		# nothing up. `noiselift` re-derives the device in reach rather than remembering one,
+		# because a device somebody else took up mid-channel is a device that is not there.
+		"noisedevice":
+			_Noise().call("plant", world, _actor, tx, ty)
+		"noiselift":
+			_Noise().call("take_up", world, _actor)
 		# Re-validated on completion rather than trusted from the start, the way `_place_scrap` and
 		# `_place_bench` are: a channel that began on open ground and finished on a tile somebody
 		# else camped on must leave nothing behind. `create` answers -1 there and the channel is
@@ -699,6 +717,65 @@ static func _Gunsmith() -> GDScript:
 # cycle at parse time.
 static func _Light() -> GDScript:
 	return load("res://sim/modules/light.gd") as GDScript
+
+
+# Loaded rather than preloaded, in both directions, for the reason light.gd is: noise_device.gd
+# loads this file to start its two channels and this file loads it to finish them.
+static func _Noise() -> GDScript:
+	return load("res://sim/modules/noise_device.gd") as GDScript
+
+
+## Whether this body could stand a noise device on the tile in front of it right now. The predicate
+## half, asked by the word menu through `SimNoiseDevice.can_use` so the menu and the intake cannot
+## disagree -- the rule `can_place_light` set and every other verb in this file follows.
+static func can_place_noise(world: Variant, actor: int) -> bool:
+	if world.components.has_component(actor, "construct"):
+		return false
+	if not _can_channel(world, actor):
+		return false
+	var face: Vector2i = _facing_tile(world, actor)
+	if not _empty_floor(world, face.x, face.y):
+		return false
+	if not _in_reach_tile(world, actor, face.x, face.y):
+		return false
+	return int(_Noise().call("carried_placeable", world, actor)) >= 0
+
+
+## Begin the placing channel. Reached through `use` on the device itself rather than through a rung
+## on the E ladder, exactly as the floodlight is, and for the same reason: a device that sounds like
+## a gunfight is not a thing to put down because you pressed E on empty ground with a trap and a
+## bait already down. The tile is the one you face and there is no parameter for choosing another,
+## because a parameter nothing passes is a parameter nothing tests.
+static func place_noise(world: Variant, actor: int) -> bool:
+	if not can_place_noise(world, actor):
+		return false
+	var face: Vector2i = _facing_tile(world, actor)
+	_start(world, actor, "noisedevice", face.x, face.y)
+	return world.components.has_component(actor, "construct")
+
+
+## Whether there is a placed noise device this body could pick back up. The owner's decision of
+## 2026-09-12 made these multi-use, so unlike the floodlight there is a way back.
+static func can_lift_noise(world: Variant, actor: int) -> bool:
+	if world.components.has_component(actor, "construct"):
+		return false
+	if not _can_channel(world, actor):
+		return false
+	return int(_Noise().call("placed_in_reach", world, actor)) >= 0
+
+
+## Begin the lifting channel. This one *is* a rung on the E ladder (`_use_context` below), because
+## taking a thing back off the ground is what E means everywhere else in this game and there is
+## nothing to do by accident: the rung only fires when you are standing at a device you put there.
+static func lift_noise(world: Variant, actor: int) -> bool:
+	if not can_lift_noise(world, actor):
+		return false
+	var device: int = int(_Noise().call("placed_in_reach", world, actor))
+	var pos: Variant = world.components.get_component(device, "position")
+	if not pos is Dictionary:
+		return false
+	_start(world, actor, "noiselift", floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+	return world.components.has_component(actor, "construct")
 
 
 ## Whether this body could stand a light up on the tile in front of it right now.

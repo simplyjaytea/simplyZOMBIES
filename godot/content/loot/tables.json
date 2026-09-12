@@ -680,6 +680,26 @@
           "min": 2,
           "max": 8
         }
+      },
+      {
+        "item": "item.alarmclock.windup",
+        "weight": 5
+      },
+      {
+        "item": "item.radio.transistor",
+        "weight": 4
+      },
+      {
+        "item": "item.bell.wind",
+        "weight": 4
+      },
+      {
+        "item": "item.firecracker.string",
+        "weight": 3
+      },
+      {
+        "item": "item.caralarm.salvaged",
+        "weight": 2
       }
     ]
   },
@@ -1396,6 +1416,26 @@
           "min": 2,
           "max": 10
         }
+      },
+      {
+        "item": "item.airhorn.canister",
+        "weight": 5
+      },
+      {
+        "item": "item.firecracker.string",
+        "weight": 4
+      },
+      {
+        "item": "item.alarmclock.windup",
+        "weight": 3
+      },
+      {
+        "item": "item.radio.transistor",
+        "weight": 3
+      },
+      {
+        "item": "item.bell.wind",
+        "weight": 3
       }
     ]
   },
@@ -2173,6 +2213,26 @@
       {
         "item": "item.filter.pump",
         "weight": 2
+      },
+      {
+        "item": "item.siren.handcrank",
+        "weight": 4
+      },
+      {
+        "item": "item.blastcap.quarry",
+        "weight": 3
+      },
+      {
+        "item": "item.radio.transistor",
+        "weight": 3
+      },
+      {
+        "item": "item.airhorn.canister",
+        "weight": 2
+      },
+      {
+        "item": "item.firecracker.string",
+        "weight": 2
       }
     ]
   },
@@ -2572,6 +2632,26 @@
       },
       {
         "item": "item.filter.pump",
+        "weight": 2
+      },
+      {
+        "item": "item.caralarm.salvaged",
+        "weight": 4
+      },
+      {
+        "item": "item.airhorn.canister",
+        "weight": 3
+      },
+      {
+        "item": "item.siren.handcrank",
+        "weight": 3
+      },
+      {
+        "item": "item.radio.transistor",
+        "weight": 2
+      },
+      {
+        "item": "item.blastcap.quarry",
         "weight": 2
       }
     ]
