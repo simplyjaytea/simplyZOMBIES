@@ -49,6 +49,94 @@ from collections import namedtuple
 # art any more, and the constant stays because every rig, prop and wreck now closes on it.
 OUTLINE = "#161614"
 
+# The four-tone model the pawn family is drawn in (docs/30, "The decoupled paperdoll", decision
+# 5). Deep, core, base, highlight -- the same +-34% value spread `ramp` uses, sampled at four
+# points. A body is quantised to these by `Canvas.tone_pass` between the shade and the outline,
+# which is what lets the spec's "no dark lines inside the silhouette" hold: an internal edge is
+# a tone step now, not a drawn line.
+TONE_FACTORS = (0.66, 0.83, 1.00, 1.17)
+
+# How far past its family's value ceiling the *highlight* tone alone may reach. 1.17 is not a
+# new number: it is `TONE_FACTORS[-1]`, so the rule is "the top tone may be a full step above
+# the base even when the base is already at the ceiling" rather than a second spread invented
+# for the purpose. See `clamp` for why the ceiling may move for this one tone and the
+# saturation cap may not.
+HIGHLIGHT_HEADROOM = 1.17
+
+# How a material's pixels are divided between its four tones, brightest first: highlight, base,
+# core, deep. `Canvas.tone_pass` ranks a material's pixels by how far towards the top-left light
+# they sit and cuts the ranked list here, so these are exact areas and not thresholds that
+# happen to land somewhere.
+#
+# The highlight's 10 is the spec's own "<= 10% area" and is the number
+# `check_authored.gd`'s HIGHLIGHT lane measures. The other three are the shape of a lit figure
+# rather than a measured constant: base is the material as it reads in open light and takes the
+# largest share; core is the turn away from the light; deep is the ground-facing underside and
+# the internal edges, and it is smallest because a silhouette that is a seventh deep tone has no
+# shadow left to give the outline contrast against.
+TONE_SHARES = (10, 45, 30, 15)
+
+
+def tone_ceiling(tone_ix, count):
+    """How many of a material's `count` pixels the tones up to `tone_ix` may take, together.
+
+    Whole percent, integer arithmetic, halves rounded up -- and every word of that is load
+    bearing rather than tidiness. This used to be `int(round(sum(TONE_SHARES[:ix + 1]) *
+    count))` over float shares, and it rendered `raider_body` differently on two interpreters:
+    CPython 3.12 gave `sum((0.10, 0.45, 0.30))` as exactly `0.85` where 3.11 gave
+    `0.8500000000000001`, so the product with 90 strap pixels was exactly `76.5` on one and
+    `76.50000000000001` on the other -- and `round` breaks a true half *to even*, downwards.
+    One pixel of the raider's boot came out core on 3.11 and deep on 3.12, and `sprites:check`
+    is a byte comparison, so CI went red against art that was correct on the machine that drew
+    it. Integers have no such tie to break: a cut is `(cum * count + 50) // 100` and means the
+    same thing everywhere.
+    """
+    cum = sum(TONE_SHARES[: tone_ix + 1])
+    return (cum * count + 50) // 100
+
+
+def guard_shares_are_exact(shares):
+    """Refuse a share table that cannot be cut without floating point. See `tone_ceiling`."""
+    if any(not isinstance(s, int) or isinstance(s, bool) for s in shares):
+        raise ValueError(
+            "tone shares must be whole percents, not floats: %r -- a float share puts the cut "
+            "back on interpreter-dependent rounding, which is what cost a red CI" % (shares,)
+        )
+    if sum(shares) != 100:
+        raise ValueError("tone shares must sum to 100 percent, not %d" % sum(shares))
+
+
+guard_shares_are_exact(TONE_SHARES)
+
+
+def guard_halves_round_up():
+    """The half that diverged, pinned: 90 strap pixels, the first three tones, 85% of 90 = 76.5.
+
+    The float path gave 77 on CPython 3.11 and 76 on 3.12. This rounds up, everywhere, always,
+    and a whole number is still itself. A `raise` rather than an `assert` on purpose -- `-O`
+    strips asserts, and a pin that a flag can remove is not a pin.
+    """
+    for tone_ix, count, want in ((2, 90, 77), (0, 90, 9), (1, 90, 50), (0, 45, 5)):
+        got = tone_ceiling(tone_ix, count)
+        if got != want:
+            raise ValueError(
+                "tone_ceiling(%d, %d) is %d, not the pinned %d" % (tone_ix, count, got, want)
+            )
+
+
+guard_halves_round_up()
+
+# True negative for the guard: the float table this replaced is refused by the guard that is
+# supposed to refuse it. A guard nothing can fail is worse than no guard.
+try:
+    guard_shares_are_exact((0.10, 0.45, 0.30, 0.15))
+except ValueError:
+    pass
+else:
+    raise AssertionError("guard_shares_are_exact accepted the float shares it replaced")
+
+_TONE_MAP = None
+
 # One family: the saturation ceiling and the value band a colour of that kind may occupy. A
 # namedtuple rather than three parallel dicts, so a family is one thing to read and one thing to
 # add to, and a member cannot be edited without its siblings in view.
@@ -118,17 +206,28 @@ def to_hex(rgb):
     return "#%02x%02x%02x" % tuple(max(0, min(255, int(round(c)))) for c in rgb)
 
 
-def clamp(value, family="muted"):
+def clamp(value, family="muted", highlight=False):
     """The mood, applied to one colour: inside its family's saturation cap and value band.
 
     The default is `muted`, the tightest family, so a call written before the families existed
     -- or one that simply forgot -- gets the strictest clamp rather than the most permissive.
+
+    `highlight=True` lifts the value ceiling alone by `HIGHLIGHT_HEADROOM`, and only the top
+    tone of a four-tone set is allowed to ask for it. The saturation cap does **not** move, so
+    a highlight is a lighter version of its material and never a more colourful one. The warm
+    grade's ceiling exists so that "the loud thing on screen is the fire, not a bedsheet"
+    (FAMILIES above); a tone that `tone_pass` holds to a tenth of a silhouette cannot be the
+    loud thing on screen, which is the reading recorded in docs/30's decoupled-paperdoll entry.
+    Without it the top of a ramp is not a highlight at all: at the muted ceiling of 0.72 the
+    colonist's top three steps clamp to one flat byte, which is what `ramp`'s own car_pale note
+    describes and what the four-tone model has to stop doing.
     """
     bounds = FAMILIES[family]
     r, g, b = (c / 255.0 for c in to_rgb(value))
     h, s, v = colorsys.rgb_to_hsv(r, g, b)
     s = min(s, bounds.sat_max)
-    v = max(bounds.value_min, min(bounds.value_max, v))
+    ceiling = min(1.0, bounds.value_max * HIGHLIGHT_HEADROOM) if highlight else bounds.value_max
+    v = max(bounds.value_min, min(ceiling, v))
     return to_hex(tuple(c * 255.0 for c in colorsys.hsv_to_rgb(h, s, v)))
 
 
@@ -140,6 +239,23 @@ def luma(value):
 
 def brightest_ground():
     return max(luma(hex_value) for hex_value in SURFACE_TINTS.values())
+
+
+class Ramp(list):
+    """A ramp's steps, carrying the base and family they were built from.
+
+    A plain `list` everywhere it is indexed -- `RAMPS["skin"][2]` is unchanged and sixty-odd
+    call sites across `characters.py` and `gear.py` never learn this type exists. What it adds
+    is the two facts `tones_of` needs and the flat list cannot answer: a step is a colour, and
+    from a colour alone you cannot tell which material it belongs to or what ceiling it was
+    held under. The alternative was a second `{name: family}` table beside `RAMPS`, which is
+    the two-copies shape this project has paid for repeatedly.
+    """
+
+    def __init__(self, steps, base, family):
+        super().__init__(steps)
+        self.base = base
+        self.family = family
 
 
 def ramp(base, steps=5, spread=0.34, family="muted"):
@@ -160,7 +276,52 @@ def ramp(base, steps=5, spread=0.34, family="muted"):
         stepped = v * (1.0 + spread * 2.0 * t)
         rgb = colorsys.hsv_to_rgb(h, s, stepped)
         out.append(clamp(to_hex(tuple(c * 255.0 for c in rgb)), family))
-    return out
+    return Ramp(out, base, family)
+
+
+def tones_of(material):
+    """The four tones a material is drawn in: deep, core, base, highlight -- darkest first.
+
+    The same value spread `ramp` uses (+-34% about the base) sampled at four points instead of
+    five, so a tone set is the ramp a reader already knows rather than a second scale beside
+    it. Only the top tone is clamped with headroom; see `clamp`.
+
+    Four rather than five because the fifth step is not a tone, it is the clamp: `ramp`'s own
+    notes record `colonist_grey[2] == [3] == [4]` and skin's top two steps landing within a
+    byte of the base. A scale whose top third is one repeated colour cannot express a highlight,
+    which is the whole of what the four-tone model is for.
+    """
+    r, g, b = (c / 255.0 for c in to_rgb(material.base))
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    out = []
+    for i, factor in enumerate(TONE_FACTORS):
+        rgb = colorsys.hsv_to_rgb(h, s, v * factor)
+        out.append(clamp(to_hex(tuple(c * 255.0 for c in rgb)), material.family,
+                         highlight=(i == len(TONE_FACTORS) - 1)))
+    return tuple(out)
+
+
+def tone_map():
+    """`{step_colour: (deep, core, base, highlight)}` over every ramp, built once.
+
+    The reverse index `Canvas.tone_pass` needs: it is handed a canvas of flat fills and has to
+    answer "which material is this pixel" before it can answer "which tone should it be". Every
+    colour a generator paints with comes from a ramp, so a colour this map does not know is a
+    rig painting off-palette -- `tone_pass` raises on one rather than guessing, which is how an
+    off-ramp fill becomes a red build instead of a pixel nobody can account for.
+
+    A colour shared by two ramps maps to whichever registered it first; that is deliberate and
+    harmless, because two ramps that agree on a step agree on a material at that value, and the
+    guard below refuses the case where it would matter.
+    """
+    global _TONE_MAP
+    if _TONE_MAP is None:
+        _TONE_MAP = {}
+        for material in RAMPS.values():
+            tones = tones_of(material)
+            for step in material:
+                _TONE_MAP.setdefault(step, tones)
+    return _TONE_MAP
 
 
 def mid(name):
@@ -272,11 +433,33 @@ RAMPS = {
     # Ellis's grey-flecked beard.
     "beard_grey": ramp("#8d8579"),
     # The achromatic colonist rig -- S=0 by construction; the tint in looks.json supplies all
-    # colour via modulate. The muted ceiling clamps the top three steps together at V 0.72
-    # (#b8b8b8), so the rig's internal shading now comes from `_figure`'s shade pass rather than
-    # from the ramp; check_appearance.gd's GREY lane is what says whether that is still bright
-    # enough to carry a colony tint over the brightest ground, and it is measured there, here.
-    "colonist_grey": ramp("#c2c2c2"),
+    # colour via modulate. The muted ceiling clamps its base and highlight tones flat at V 0.72
+    # and 0.8424, so raising the base moves only the *deep* and *core* tones, which is exactly
+    # what this base is set by. check_appearance.gd's GREY lane composes the rig's median grey
+    # with the tightest colony tint and requires the result to clear the brightest ground.
+    #
+    # Re-based #c2c2c2 -> #d6d6d6 when the four-tone pass landed (2026-09-12), and the arithmetic
+    # is worth keeping because the obvious reading of the failure is wrong. Under the old
+    # continuous shade the median byte was 181; under four tones it fell to 161 and the lane went
+    # red at 0.3720 against a 0.3796 threshold. The cause is not that the rig got darker on
+    # average -- it is that **a quarter of a 32x40 rig's opaque pixels are its outline** (92 of
+    # 372 at byte 22), so the ordered list they sit at the bottom of pushes the median up into
+    # whichever tone spans the 50th percentile. Four tones put that at the *core* step where a
+    # gradient had put it near the base. So the median is the core tone and the core tone is what
+    # the base is set by: 0.8392 x 0.83 = 0.6965 (byte 178), composing to 0.3951 against the
+    # tightest colony tint (#b58a63, luma 0.5660) with +0.0155 of margin, where the old rig had
+    # +0.018. Measured across five candidate bases, not chosen -- and fixed as a colour rather
+    # than by widening GROUND_CONTRAST, which is the rule this file opens with.
+    #
+    # The cost, stated: at this base the muted ceiling clamps base and highlight to #b8b8b8 and
+    # #d7d7d7 while core lands at #b2b2b2, so the colonist's core and base sit **6 bytes apart**
+    # and it reads closer to three tones than four. Two alternatives were measured and refused. A
+    # lower base (#d2d2d2) separates them by 10 but leaves only +0.0066 of margin, less than half
+    # the old rig's. Moving it to the `chart` family removes the ceiling and gives perfectly even
+    # 33-byte gaps -- and is wrong, because `chart` is exempt from the ground rules precisely
+    # because a mask is never drawn on the ground, and this rig is. It is the one rig where the
+    # tint and the ceiling pull against each other, and the GREY lane is where that is measured.
+    "colonist_grey": ramp("#d6d6d6"),
     # The shambler's dead flesh. Timber: rot is organic, and the family lets it keep the green
     # cast the muted cap was already leaving alone at S 0.133.
     "gore_rot": ramp("#8a8f7c", family="timber"),
@@ -396,8 +579,52 @@ def guard_either_side_of_floors(name, steps):
         )
 
 
+def guard_tones_are_distinct(name, material):
+    """Fail the import if a material's four tones are not four colours.
+
+    The failure this exists for is silent and specific: a base already at its family's value
+    ceiling clamps its top tones together, and a "four-tone" material whose top two bytes are
+    equal renders as three tones with a highlight nobody can see. `RAMPS` already carries two
+    notes about exactly this happening to five-step ramps (`colonist_grey[2] == [3] == [4]`,
+    and car_pale's "a base above V 0.604 collapses its own top two steps"), so it is a measured
+    hazard rather than a hypothetical one. The fix when this fires is to lower the ramp's base
+    so the spread fits, never to widen a family -- a failing colour is fixed as a colour.
+    """
+    tones = tones_of(material)
+    if len(set(tones)) != len(tones):
+        raise ValueError(
+            "ramp '%s' has tones %s: two of them are the same colour, so its highlight or its "
+            "core is invisible. Lower the base until the spread fits inside family '%s'."
+            % (name, list(tones), material.family)
+        )
+
+
 for _name in GROUND_READING:
     guard_either_side_of_ground(_name, RAMPS[_name])
 
 for _name in BUILT_READING:
     guard_either_side_of_floors(_name, RAMPS[_name])
+
+for _name, _material in RAMPS.items():
+    guard_tones_are_distinct(_name, _material)
+
+# The true negative for the guard above, run at import beside the guard itself, because a guard
+# that has never refused anything is a guard nobody has shown to work. Built here rather than in
+# a test file because this package has no test runner: `build.py` is the only thing that imports
+# it, so a guard proved anywhere else would not be proved on the path that matters.
+#
+# The fabrication is a ramp based well above its family's ceiling. At V 0.902 in `muted`, core
+# wants 0.749 and base wants 0.902 and the 0.72 ceiling clamps both to the same byte -- which is
+# the real collapse this guard exists for, and the one `RAMPS`'s own notes record happening to
+# `colonist_grey` and `car_pale` on the five-step ramp.
+_collapsed = Ramp([], "#e6e6e6", "muted")
+try:
+    guard_tones_are_distinct("_fabricated_collapse", _collapsed)
+except ValueError:
+    pass
+else:
+    raise AssertionError(
+        "a ramp based at V 0.902 in the muted family produced four distinct tones, so "
+        "guard_tones_are_distinct has never been shown to refuse the collapse it is for"
+    )
+del _collapsed

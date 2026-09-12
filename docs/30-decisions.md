@@ -3749,7 +3749,176 @@ of it, and it amends "Art we did not generate" above rather than restating it.
 **What this does not change.** The published skeleton, the canvas table, the anchor rule and the
 flip; `sprites:check`'s pixel-exact comparison for the 172 keys still generated; the standing bans;
 and the open piece "the first commissioned body, and the three gates it widens", which is about a
-`rig` and is untouched by two keys of kind `tile`.
+`rig` and is untouched by two keys of kind `tile`. *(That piece landed 2026-09-11 — the entry
+below, and docs/23's record.)*
+
+## The reference treatment, 2026-09-11
+
+Decided by the owner, 2026-09-11, in the session that landed the first commissioned body. The
+owner supplied first a screenshot of a colony sim and then a written Dungeon Settlers style spec,
+with the instruction "apply it but keep our current theme" — which raised a question the art could
+not answer for itself: how much of a reference style a project adopts when some of its clauses
+collide with gates that are already settled.
+
+- **Two clauses were already met, which is worth recording because it nearly became an
+  amendment.** The spec asks for "defined, dark selective outlines (dark brown, navy, or deep
+  charcoal **rather than pure black** `#000000`)". `#161614` is (22, 22, 20) — deep charcoal, not
+  pure black — so the OUTLINE bound satisfies that clause as written and did **not** need moving.
+  The spec asks for chibi proportions of 2 to 2.5 heads; the published skeleton's 28 px figure
+  with a 12 px head at `HEAD_CY` is 2.3. An earlier reading of the same reference from a
+  screenshot alone had judged the outline a *collision*; reading the written spec corrected that.
+  The lesson is the ordinary one: a style read off a picture at sprite scale is a guess, and the
+  guess here would have amended a bound that did not need it.
+- **The rest is taken as treatment, not as palette or outline.** What is adopted is the shading
+  clause — "clean 2-to-3-tone shading ramps per colour family with minimal dithering" and "soft
+  interior clustering to prevent visual noise" — plus the readable silhouette and the earthy
+  family, which `palette.py`'s warm families already are. What is **not** adopted: the
+  *selective* half of the outline clause (partial outlining, where our gate wants a full one),
+  the "high-saturation accent colours for uniforms, tools and status badges", and the 3/4
+  perspective, since bodies here are face-on and flip. `palette.py`'s `muted` family caps
+  saturation at 0.30 against the ground's own ceiling, with `check_road_look.gd`'s palette lane
+  holding the other half. **No gate was amended**, which is the decision.
+- **The treatment is applied by code, not by prompt.** Three passes on the delivered PNG —
+  despeckle, a three-tone-per-family ramp whose steps are the mean of their own members, and a
+  clamp to the palette families — described in docs/23's record. A prompt asking for clean ramps
+  produced a sprite with seventeen colours; the passes produced six. Saying it in the prompt is
+  not the same as doing it, and the deterministic half is the half that can be re-run.
+- **Why not the fuller adoption, stated as a cost rather than a preference.** Taking the
+  *selective* outline or the accent saturation means moving a bound for one new sprite while the
+  eight rigs that already meet it stay as they are — a roster reading as two styles until every
+  one is re-authored, which is not one session's work. Note the treatment alone already left the
+  roster in a milder version of exactly that state, which is why "the ramp, applied to the whole
+  roster" is now a named piece in docs/23 rather than a line in a record. A gate loosened to admit art is the shape this project has refused
+  before. The owner may still take it; the point of recording it here is that it would be a
+  deliberate multi-session arc with a re-measured palette table, not a clause inside a sprite
+  commit.
+- **What we take from a reference is the treatment, never the sprites.** Consistent with "Art we
+  did not generate": the art is made to this project's own spec. The reference informs how a
+  garment is shaded and how a head reads; no pixels come from it.
+- **The reference's HUD stays refused.** It draws a name plate and a health bar over every pawn.
+  The health-bar ban and the prose HUD are untouched, and this entry is not an opening to
+  revisit them.
+
+**What this does not change.** The published skeleton, the canvas table, the anchor rule, the
+flip, the `#161614` outline, the palette families, `sprites:check`, and the standing bans. The
+one structural change the slice did make is in the tier, not the style: `kind` is now read by the
+renderer-side `Appearance.authored_rig_keys()` as well as by the gate, because three gates need
+"which authored keys are bodies" and one parse with three readers beats three parses.
+
+
+## The decoupled paperdoll, 2026-09-11
+
+Decided by the owner, 2026-09-11, from a supplied "Visual Architecture & 2D Sprite Engine
+Specification" — a ZERO Sievert-style decoupled paperdoll — read against what this project
+actually ships. It is the largest reversal in the art record so far and it reverses decisions
+this document took three times, so what each one becomes is written out rather than implied.
+
+**What the spec asks for.** Legs animate cyclically on the movement vector (eight directions,
+four frames: contact, down, passing, high; backpedal is reverse playback when
+`dot(move, aim) < -0.2`). Torso, head and weapon rotate 0–360° to the aim, with a Y-flip when
+aiming west so the weapon is never upside down — flipping the whole root is forbidden, because
+it would flip the legs. Layers re-sort by aim sector. Every slot sits on a fixed canvas with a
+normalized pivot. A four-tone palette, a single dark outline that is not pure black, and **no
+dark lines inside the silhouette**. Per-weapon socket metadata: grip, foregrip, muzzle.
+
+### The ten decisions
+
+1. **Full 360° continuous torso rotation.** This reverses "Bodies stand up" (the Dungeon
+   Settlers look, 2026-09-03) — *"nobody rotates, the player included"* — which had itself
+   reversed "Only the player rotates" (2026-09-01). It also reverses the character overhaul's
+   narrower clause (2026-09-09) that a view is *"a fourth picture, never a transform"*. The
+   flip is not retired: it becomes the Y-inversion the spec asks for, on the torso group alone.
+   `check_topdown.gd`'s FLIP lane becomes a ROTATE lane — **amended, never deleted**, and it
+   pins the new arrangement exactly the way the old one pinned zero transforms.
+2. **Everyone rotates, not just the player.** All eight generated rigs and whatever is
+   commissioned later. The player's torso follows the aim; a survivor or raider follows its
+   target or the threat it is reacting to, else its heading; a zombie follows its heading,
+   because a zombie has nothing to aim. This is the half of 2026-09-01's "only the player
+   rotates" that was costed and refused then — the cost was *"rotation support and equip
+   overlays re-authored on the rotated rig"*, and the slot split is what pays it.
+3. **The head is seen from above and rotates with the torso.** Crown, hair and a brow; no eyes.
+   Identity comes from hair colour, headgear and silhouette. This abandons the face-on big-head
+   read of "Overcast or torchlight" (2026-09-08) and supersedes the overhaul's "a face is four
+   pixels" before it shipped. It is the clause that costs the most character per body and it
+   was taken deliberately: a face drawn from above is a lie at any angle but one.
+4. **The canvas goes back to 32×48, and every slot gets its own.** This reverses the 2026-09-08
+   squash, which said in this document that the 32×48 canvas *"was superseded rather than
+   resized, because a proportion is a re-authoring and not a crop"* — the same sentence applies
+   in reverse and the re-authoring is the work, not a regret. Slots: legs 32×24 pivot
+   (0.50, 0.35); torso 32×32 (0.50, 0.55), the chest and the rotation pivot; head 24×24
+   (0.50, 0.70) at the neck base; one-handed weapon 24×16 grip (0.20, 0.50); two-handed 40×16
+   (0.25, 0.45). **This is the fifth canvas convention in five weeks and the churn clause of
+   2026-09-03 named the reason there had been four: "free rotation, which forced a square,
+   centre-anchored, radially shaded canvas".** Per-slot pivots are the answer to exactly that —
+   the pivot is a property of the slot now, so rotation no longer forces one square canvas on
+   everything, and the radial shade comes back *per slot*, which is what that clause objected
+   to only when it was per canvas.
+5. **The generator learns the rules first, then splits.** The four-tone model, the
+   no-internal-dark-lines rule and the socket measurements land in the existing one-canvas
+   assembler and every rig regenerates; the split into per-slot canvases follows. Stated cost,
+   because it is real: the 172 generated keys regenerate **three** times across the arc and
+   `APPEARANCE_OK`'s GREY lane is re-measured three times. The alternative — fold the tone
+   rules into the split — saves one regeneration and shows nothing on screen for four
+   sessions. The owner chose the visible improvement first.
+6. **The outline stays `#161614`.** "The reference treatment" (2026-09-11, above) measured the
+   supplied spec's own outline clause — *"dark brown, navy, or deep charcoal rather than pure
+   black"* — against ours and found it already satisfied. The new spec repeats the clause and
+   the finding stands. No gate is amended for it.
+7. **Aim is decoupled in the sim, and priced hardcore.** A second heading, `aim`, carried
+   beside `facing`: the feet go where you walk, the torso and head go where you look. The sim
+   accepts an aim that differs from the heading **only at Walk pace or slower**; at Jog and
+   Sprint the aim snaps to the heading. This reverses the rule recorded in `world.gd`'s own
+   comment — *"you do not track a target over your shoulder at a jog. That is the hardcore
+   rule, not a compromise"* — and amends docs/28's "facing is the same heading aiming reads,
+   which is why it is specified here rather than in two places", which becomes two headings
+   specified in one place. **The price is a real one and it had to be built rather than
+   assumed**: `_refresh_cone` already pins a moving shooter's cone to `WIDE_HALF`, and the
+   clamp cannot exceed it, so a twist term added under that clamp would have been a dead
+   socket — the twist widens the cone *past* `WIDE_HALF` through a second cap, which is the
+   only shape in which the price exists at all. Vision follows the head. Saves are **refused,
+   not migrated**, per the standing pre-1.0 rule; `SAVE_VERSION` bumps and an absent `aim`
+   reads as `facing`, which is what keeps every existing fixture describing a body whose aim
+   is its heading.
+8. **The sim reads the muzzle.** The shot ray, the noise position and the muzzle-flash light
+   originate at the weapon's rotated muzzle socket rather than at the body's centre. Content is
+   data the sim may read, so this is not a boundary breach — but the sockets do **not** live
+   under `appearance`, which is presentation's block; they are their own top-level content, and
+   the renderer and the sim read the same numbers through one helper so the drawn muzzle and
+   the fired muzzle cannot disagree.
+9. **The commissioned rig is retired now and re-commissioned after the split.**
+   `player_body_authored` (2026-09-11, PR #130) is one face-on 32×40 picture. Decision 3 takes
+   its face, decision 4 takes its canvas, and decision 1 takes the arrangement it was drawn
+   for, so almost nothing of what it carried survives. It is deleted and `player.body` points
+   back at the generated rig; the player is re-commissioned as slot layers once the slot
+   canvases exist and their gates are mechanical. **The tier and its gate are not retired**:
+   the authored manifest, the union roster, the envelope-unchanged clause and the new interior
+   and tone lanes all stay, judging zero authored rigs correctly until the new one lands.
+10. **A muzzle inside a solid tile falls back to the body centre.** A body flush against a wall
+    aiming into it has its muzzle inside the wall; the shot originates from the body instead —
+    today's origin, so that case is balance-neutral by construction. The hardcore alternative,
+    *refusing the shot* ("the barrel is against the wall") is one line to flip and is recorded
+    here as not taken: it would change NPC engagement at doorways, which the sight gate already
+    fixtures, and move the balance tier with it. It can be reopened as its own measured slice.
+
+### What this does not change
+
+The flat top-down projection and 32 px a tile at 2× (reaffirmed a fifth time). The feet anchor
+and `FOOT_DROP_PX` — the root pivot is still the ground contact and the contact shadow still
+hangs off the same number. **The peripheral-anonymity clause**: a glimpsed body is still an
+anonymous disc that bails before any heading is read, and the ROTATE lane proves that the aim
+is read *after* the bail, which is a stronger statement than the old lane made. The health-bar
+ban, the digit ban and the prose HUD; the refusal of bars, icon rows and name plates — the
+supplied spec's status badges are refused on the same grounds as every previous reference's.
+Drawn enemy vision cones stay on docs/28's cut list: the aim cone remains the player's alone.
+The condition chart keeps its own body model and its own canvas. "The torch" stays a separate
+sim slice and gains the aim pivot as the origin its cone was always going to need.
+
+### What it supersedes that was still open
+
+"Art we did not generate" (2026-09-09) held three fixture-round candidates — the harder rig,
+the weight-shifted walk and the four views — *"until it is known whether commissioned bodies
+are coming"*. One came, and these decisions answer the question that hold was waiting on, so
+the hold lifts. The four-views piece is absorbed outright: a rotating torso is every view.
 
 
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
