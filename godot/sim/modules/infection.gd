@@ -51,8 +51,23 @@ static func stage_duration_ticks(s: int, _world: Variant = null, entity: Variant
 	return maxi(1, int(ceil(float(base) / factor)))
 
 
+static func _Attachments() -> GDScript:
+	return load("res://sim/modules/attachments.gd") as GDScript
+
+
+# The one number that says how protected a body part is, composed by **max across worn items,
+# never sum** -- two coats are one coat, and a sum would turn a pile of gear into an immunity.
+#
+# Since the armour-slot slice each garment's own contribution is `SimAttachments.armor_coverage`
+# rather than the raw content number: a plate fitted to a carrier multiplies the coverage the
+# carrier declares, and a carrier with nothing in its required slot contributes nothing at all.
+# The composition is unchanged -- the fold happens per garment, *then* the max, which is what
+# keeps a plated vest from stacking with the jacket under it.
+#
+# Three readers, and they are why this function is worth its cost: bite and scratch transmission
+# (below), wound severity by way of the damage that reaches the body, and -- since the owner's
+# decision of 2026-09-12 -- the damage itself, in SimHealth.armor_damage_factor.
 static func armor_coverage_of(world: Variant, actor: int, bodyPart: String) -> float:
-	# Reads equipped items — max coverage per part, not sum.
 	var max_cov: float = 0.0
 	var equipped: Array = SimInventoryRes.equipped_items(world, actor) as Array
 	for item in equipped:
@@ -60,7 +75,13 @@ static func armor_coverage_of(world: Variant, actor: int, bodyPart: String) -> f
 		if base is Dictionary and (base as Dictionary).has("armor"):
 			var m: Variant = (base as Dictionary)["armor"]
 			if m is Dictionary and (m as Dictionary).has(bodyPart):
-				max_cov = maxf(max_cov, clampf(float((m as Dictionary)[bodyPart]), 0.0, 1.0))
+				var declared: float = clampf(float((m as Dictionary)[bodyPart]), 0.0, 1.0)
+				# Loaded on demand, not preloaded: this file already pulls in shambler.gd and
+				# inventory.gd, attachments.gd pulls in inventory.gd and items.gd, and the graph
+				# is a knot nobody should have to hold in their head. `light.gd`'s
+				# `_Attachments()` is the precedent and this is the same helper.
+				var fitted: float = float(_Attachments().call("armor_coverage", world, int(item), bodyPart, declared))
+				max_cov = maxf(max_cov, clampf(fitted, 0.0, 1.0))
 	return clampf(max_cov, 0.0, MAX_COVERAGE)
 
 

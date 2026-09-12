@@ -576,8 +576,23 @@ func _every_offered_verb_reaches_a_command() -> bool:
 	if not SimInventory.verbs_for(w, w.player, rifle).has("modify"):
 		push_error("\"modify\" was not on offer for a rifle at a bench")
 		return false
-	if SimInventory.verbs_for(w, w.player, coat).has("modify"):
-		push_error("\"modify\" was on offer for a coat, which comes apart into nothing")
+	# The negative used to be the coat, and the armour-slot slice of 2026-09-12 made the coat the
+	# wrong subject rather than making the assertion wrong: a leather jacket declares `lining` and
+	# `pocket` now, so it does come apart, and `modify` is correctly on offer for it. The claim
+	# this lane makes is unchanged -- a garment with no slots at all must not be offered a bench
+	# verb -- so it moved to a garment that still has none. A cloth wrap is strips of cloth.
+	var wrap: int = _give(w, "item.wrap.cloth")
+	if wrap < 0:
+		push_error("the fixture wrap could not be carried")
+		return false
+	if not SimAttachments.slots_of(w, wrap).is_empty():
+		push_error("the cloth wrap declares slots now, so it is no longer the thing that comes apart into nothing")
+		return false
+	if SimInventory.verbs_for(w, w.player, wrap).has("modify"):
+		push_error("\"modify\" was on offer for a cloth wrap, which comes apart into nothing")
+		return false
+	if not SimInventory.verbs_for(w, w.player, coat).has("modify"):
+		push_error("\"modify\" was not on offer for a leather jacket at a bench, and a jacket has a lining slot")
 		return false
 	w.commands.push({"type": "bench.open", "item": rifle})
 	w.step()

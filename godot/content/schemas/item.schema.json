@@ -190,6 +190,11 @@
           "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
           "description": "Multipliers over the ranged profile, keyed by field: damage, noise, flash, magSize, reloadTicks, rangeMetres, cone, handling. `handling` scales how fast the weapon comes up and settles, against its content-declared `weight`. `cone` scales the felt aim cone, so a number above 1 is an accuracy cost -- docs/09 charges one for a suppressor."
         },
+        "armor": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
+          "description": "Multipliers over the host garment's own `armor` coverage map, keyed by body part -- head, torso, arm_left, arm_right, against sim/modules/attachments.gd's SCALABLE.armor whitelist. docs/10-items.md#attachment-slots gives body armour plate/lining/pocket and headgear a face; this is what those slots are for. Multipliers, never adders, with a consequence worth stating: a part scales coverage the base already declares and cannot conjure coverage it does not, so a lining adds nothing to the arms of an apron that protects no arms. Folded per worn garment by SimAttachments.armor_coverage and then composed across worn items by max in SimInfection.armor_coverage_of. check_m2_armor.gd is what judges the inside of this object, because the content validator is shallow and will not."
+        },
         "fieldSwap": {
           "type": "boolean",
           "description": "Whether a person can change this part with their hands, away from a gunsmithing bench. A magazine, a sight, a can on a thread: yes. A barrel, an action, an axe head: no. Absent means no, which is the safe default -- a part nobody has thought about is bench-only rather than silently field-swappable. Read by sim/modules/gunsmith.gd on the item.attach / item.detach commands, never inside SimAttachments.attach itself."
@@ -224,7 +229,7 @@
     },
     "armor": {
       "type": "object",
-      "description": "Coverage per body part 0..1. Read by infection transmission (docs/10-items.md#129) — max coverage applies, absent is 0.",
+      "description": "Coverage per body part 0..1, composed across worn items by max and never by sum in SimInfection.armor_coverage_of -- two coats are one coat. Absent is 0. Three readers: bite and scratch transmission (sim/modules/infection.gd), the heat a body holds in (sim/modules/needs.gd), and, since the owner's decision of 2026-09-12, the damage a blow actually removes, through SimHealth.armor_damage_factor in `damage_part` -- the one function in the sim that moves integrity. A garment's own number here is what its fitted parts multiply; see `attachment.armor`.",
       "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
     },
     "filter": {

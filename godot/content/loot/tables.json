@@ -1084,7 +1084,8 @@
       {
         "item": "item.stone.block",
         "weight": 2
-      }
+      },
+      { "item": "item.armorpart.pocket.pouch", "weight": 5 }
     ]
   },
   {
@@ -1677,7 +1678,13 @@
       {
         "item": "item.wire.barbed",
         "weight": 3
-      }
+      },
+      { "item": "item.vest.carrier", "weight": 7 },
+      { "item": "item.armorpart.plate.steel", "weight": 6 },
+      { "item": "item.armorpart.plate.ceramic", "weight": 3 },
+      { "item": "item.armorpart.lining.aramid", "weight": 5 },
+      { "item": "item.armorpart.face.visor", "weight": 4 },
+      { "item": "item.armorpart.pocket.pouch", "weight": 8 }
     ]
   },
   {
@@ -1997,7 +2004,8 @@
           "min": 1,
           "max": 3
         }
-      }
+      },
+      { "item": "item.armorpart.plate.steel", "weight": 3 }
     ]
   }
 ]

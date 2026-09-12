@@ -18,7 +18,8 @@
     "size": { "w": 3, "h": 3 },
     "massKg": 2.1,
     "equipSlot": "vest",
-    "armor": { "torso": 0.6, "arm_left": 0.3, "arm_right": 0.3 }
+    "armor": { "torso": 0.6, "arm_left": 0.3, "arm_right": 0.3 },
+    "slots": ["plate", "lining", "pocket"]
   },
   {
     "id": "item.cap.canvas",
@@ -94,7 +95,8 @@
     "massKg": 1.6,
     "equipSlot": "torso",
     "appearance": {"equipSprite": "item_jacket_leather_equip"},
-    "armor": {"torso": 0.5, "arm_left": 0.5, "arm_right": 0.5}
+    "armor": {"torso": 0.5, "arm_left": 0.5, "arm_right": 0.5},
+    "slots": ["lining", "pocket"]
   },
   {
     "id": "item.helmet.bike",
@@ -105,7 +107,8 @@
     "massKg": 0.4,
     "equipSlot": "head",
     "appearance": {"equipSprite": "item_helmet_bike_equip"},
-    "armor": {"head": 0.45}
+    "armor": {"head": 0.45},
+    "slots": ["face"]
   },
   {
     "id": "item.jeans.denim",
@@ -148,7 +151,8 @@
     "massKg": 2.8,
     "equipSlot": "torso",
     "appearance": {"equipSprite": "item_apron_welding_equip"},
-    "armor": {"torso": 0.65, "arm_left": 0.45, "arm_right": 0.45}
+    "armor": {"torso": 0.65, "arm_left": 0.45, "arm_right": 0.45},
+    "slots": ["pocket"]
   },
   {
     "id": "item.helmet.hardhat",
@@ -159,7 +163,8 @@
     "massKg": 0.35,
     "equipSlot": "head",
     "appearance": {"equipSprite": "item_helmet_hardhat_equip"},
-    "armor": {"head": 0.35}
+    "armor": {"head": 0.35},
+    "slots": ["face"]
   },
   {
     "id": "item.vest.riot",
@@ -169,7 +174,8 @@
     "size": {"w": 3, "h": 3},
     "massKg": 3.4,
     "equipSlot": "vest",
-    "armor": {"torso": 0.75, "arm_left": 0.4, "arm_right": 0.4}
+    "armor": {"torso": 0.75, "arm_left": 0.4, "arm_right": 0.4},
+    "slots": ["plate", "lining", "pocket"]
   },
   {
     "id": "item.gloves.mesh",
@@ -181,5 +187,18 @@
     "equipSlot": "gloves",
     "armor": {"hand_left": 0.8, "hand_right": 0.8},
     "filter": 0.05
+  },
+  {
+    "id": "item.vest.carrier",
+    "name": "Plate Carrier",
+    "description": "A bare carrier rig. Webbing and nylon until there is something in the front pouch.",
+    "class": "armor",
+    "size": {"w": 3, "h": 3},
+    "massKg": 1.4,
+    "equipSlot": "vest",
+    "armor": {"torso": 0.7, "arm_left": 0.15, "arm_right": 0.15},
+    "slots": ["plate", "lining", "pocket"],
+    "requiredSlots": ["plate"],
+    "defaultParts": {"plate": "item.armorpart.plate.ceramic"}
   }
 ]
