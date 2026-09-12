@@ -379,11 +379,7 @@ system.
   key and a use verb open the obvious things a person keeps for morale: cigarettes, cards, a
   photograph, a paperback. It has to respect the rule that mood sources deliberately do not stack
   without bound, rather than route around it.
-- **The mask that filters.** A bloater's cloud rolls every survivor on flat proximity and never
-  looks at what they are wearing, so `item.mask.cloth` is mechanically identical to a bike helmet
-  against a gas cloud, and so are the three glove bases. A filter scalar that the contamination
-  roll consults makes four shipped items mean something; it is the smallest piece in the arc and
-  the one with the best ratio of reader to payoff.
+- ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
 - **Books that teach.** The skill web is a complete, content-driven system with no item content at
   all, and skills die with the person who learned them. A teaches key, consumed on reading, is the
   one thing that changes that. The lane that matters is not that a book grants points — it is that
@@ -931,9 +927,20 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   integer unit has no honest reader without a debt accumulator or a fractional cost — a design,
   not a line, which is why it stayed when `spoilage_rate` got its reader (2026-09-06, the record's
   Needs bullet, `godot:m2:needs` PANTRY).
-- **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
-  time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
-  a no-op for them.
+- ~~**`bloater` contamination fires once per survivor, ever.**~~ **Already fixed, and this entry was
+  stale.** The `contaminationRolled` boolean it describes no longer exists: `bloater.gd` keeps a
+  `contaminationRolls` component whose rolls are an Array of `{flag, atTick}` records scanned by
+  index — written that way deliberately against the save trap, since a Dictionary keyed by entity id
+  does not survive a round-trip through JSON — and a survivor is skipped only for a cloud they have
+  already been rolled against. Confirmed by reading and then measured with a throwaway driver during
+  the filter slice (2026-09-12): one cloud books one exposure, and a second cloud over the same
+  survivor books a second. Struck rather than deleted because a defect list that quietly loses
+  entries is a defect list nobody trusts.
+- **A plume only reaches a bite.** `SimBloater._has_open_wound` matches `kind == "bite"` alone, so a
+  survivor carrying a deep laceration or a burn walks through a contamination cloud untouched while
+  one with a scratch from a shambler does not. A cut is an open wound too. Found by the filter slice
+  (2026-09-12) and deliberately not fixed there: widening it is a balance change and would have
+  ridden along inside a slice that was adding a reader, which is how scope gets smuggled.
 - **A corpse looks exactly like a person at Focal.** Presentation has no notion of one: same
   sprite, same tint, same facing pointer. The glimpse half is fixed — `Appearance.moving` reads a
   missing `velocity` as motionless and `check_topdown.gd`'s GLIMPSE lane holds it, so the dead are
@@ -6755,6 +6762,62 @@ not a to-do list:
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
 
+- **Items** — ~~the mask that filters~~ **landed** 2026-09-12
+  (`npm run godot:m2:filter` → **`M2_FILTER_OK content worn max bloom cloud notsafe pinned`**, a new
+  gate whose seven lanes were each broken and watched go red before they were trusted;
+  `godot:m2:gear`, `godot:m2:lethality` and `godot:check:loot` all held), the **third slice of the
+  alpha-roster arc** and the second of the owner's eight readers.
+
+  **A gas mask was a bike helmet.** `bloater.gd` rolled every survivor in a contamination cloud on
+  flat proximity and never once looked at what they had on, so `item.mask.cloth` and the three glove
+  bases were worth exactly nothing against a plume. Their `armor` block had a reader — bite and
+  scratch transmission, through `SimInfection.armor_coverage_of` — and the face of the thing had
+  none. The owner's call is a `filter` scalar, 0..1, **best worn wins**, so `SimInfection.filter_of`
+  is deliberately `armor_coverage_of`'s twin: the same scan of the same equipped items, composed by
+  **max, never sum**, because two masks are one mask and a sum would turn a wardrobe into immunity.
+  It is body-wide rather than per part, which is the one shape difference between them — a cloud is
+  not aimed, so there is no body part to ask about.
+
+  **Five shipped bases adopted rather than left inert**, which is the arc's standing rule for an
+  orphan: the cloth mask at 0.20, safety glasses 0.10, leather gloves 0.15, work and mesh gloves
+  0.05 apiece — the mesh being honest about steel rings stopping teeth and nothing else. Eight new
+  bases ship in `godot/content/items/masks.json`, placed per docs/12's yield table, with the gas
+  mask and the hazmat suit **only** in the military cache, which is part of the point of walking
+  into one.
+
+  **CLOUD is the load-bearing lane, and it is a coin flip asserted deterministically.** Paired
+  worlds on one seed, the technique `check_m2_medicine.gd`'s CLEAR lane established a slice earlier:
+  both derive the same `contamination` stream from the same master seed and the roll spends exactly
+  one number from it whatever the chance is — the filter never short-circuits the draw — so the
+  masked survivor and the bare one are handed the identical uniform and the only difference is the
+  multiplier. That buys two assertions independent samples could not: **monotonicity**, a masked
+  survivor is never contaminated where a bare one walks away, and **decidedness**, at least one seed
+  where the mask alone is the difference. Without the second, a filter of 0.0 on everything would
+  pass green. Over 40 paired seeds a bare head took 16, a gas mask 0, and all 16 turned on the mask.
+
+  **NOTSAFE holds the half a ladder of numbers usually gets wrong.** The cheap mask has to be
+  genuinely better than nothing and genuinely not safe: over 120 paired seeds a bare head took 46
+  and a rag over the mouth 36, deciding 10 — and the lane **refuses a cloth mask that ever halves a
+  plume**, because that is a respirator's job and there would be no reason left to look for one.
+  CONTENT refuses any shipped filter at 1.0 for the family of reasons `SEPSIS_MIN_MUL` exists: a
+  cloud a survivor is immune to is not a cloud.
+
+  **Both directions of the dead-socket rule are gated.** CLOUD says something reads the scalar; WORN
+  says the reader reaches every declaration, putting all thirteen shipped bases on a bare survivor
+  one at a time and demanding `filter_of` hand back exactly what content authored — which is what
+  catches a filter parked in a slot `equipped_items` does not walk, the failure that made
+  `move_speed` a no-op for every NPC in the game. A mask in the pack reads zero and a bike helmet
+  reads zero, so worn and carried stay separated and armour does not leak into the filter.
+
+  **What it refused to ship, and why.** Spare filter cartridges were asked for and declined: there
+  is no consumption path for a worn item's charge, so a cartridge base would have no reader, no verb
+  and nothing to spend it — a material sitting in a loot table being complete, correct and read by
+  nothing, which is the pattern this milestone has paid for eleven times. It wants a durability or
+  charge property on worn gear plus a swap verb, which is the same shape as the armour-slots piece
+  already in what's-left. Two findings went to the defect list instead of into the slice: the
+  once-per-survivor contamination bug **was already fixed and its entry was stale**, and
+  `_has_open_wound` matches `kind == "bite"` alone, so a deep laceration or a burn is no way in for
+  a plume.
 - **Items** — ~~food, drink, and the medical quality tiers~~ **landed** 2026-09-12
   (`npm run godot:m2:medicine` → **`M2_MEDICINE_OK`**, a new gate whose eight lanes were each run
   red *and* green before they were trusted; `godot:m2:treatment`, `godot:m2:wounds`,

@@ -16,7 +16,7 @@ container running** lives in `AGENTS.md`.
 
 ## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **60 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **61 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,18 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — the mask that filters.** The arc's third slice and the second of the eight readers.
+A bloater's contamination cloud rolled every survivor on flat proximity and never looked at what
+they were wearing, so a cloth mask was worth exactly a bike helmet against a plume. A `filter`
+scalar (0..1, best worn wins) is the reader, and `SimInfection.filter_of` is deliberately
+`armor_coverage_of`'s twin — same scan, composed by **max, never sum**, because two masks are one
+mask. Five shipped-but-inert bases were adopted rather than deleted and eight new ones ship. New
+gate `npm run godot:m2:filter` → `M2_FILTER_OK`, seven lanes, each proven red. Its CLOUD lane
+reuses the paired-seed technique the medicine slice established, so a coin flip is asserted
+deterministically. Two findings went to docs/23's defect list rather than into the slice: the
+once-per-survivor contamination bug **was already fixed and the entry describing it was stale**,
+and `_has_open_wound` matches `kind == "bite"` alone, so a deep laceration is no way in for a plume.
 
 **2026-09-12 — the medical quality tiers, and the roster the arc was widened for.** The second slice
 of the alpha-roster arc, and the first of eight readers the owner took after a census found the
