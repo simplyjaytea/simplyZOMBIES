@@ -222,6 +222,15 @@
       "description": "Coverage per body part 0..1. Read by infection transmission (docs/10-items.md#129) — max coverage applies, absent is 0.",
       "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
     },
+    "warmth": {
+      "type": "object",
+      "description": "Insulation per body part, -1..1, declared exactly the way `armor` declares coverage: an open map keyed by the parts in sim/combat.gd's SURVIVOR_BODY, composed across worn items by max, absent is 0. Positive insulates and negative cools, because a sun hat and a wool hat are the same axis read in opposite directions (docs/04-survival-needs.md's temperature clause: \"ambient weather, clothing insulation, wetness, shelter, and heat sources\"). SimNeeds.warmth_points weighs each part by how much of the body it is and returns whole points; WARMTH_PER_BAND of them is one band on the temperature ladder. \"Max\" on a signed axis is the layer furthest from zero -- the emphatic layer is the one you are wearing -- which is `armor`'s rule letter for letter wherever every value is positive. Being wet halves whatever insulation is left (docs/04: \"being wet is a multiplier on cold\"), so a soaked coat is half a coat. The content validator is shallow and will only check that this is an object; godot/check_m2_warmth.gd is what judges the parts and the bounds.",
+      "additionalProperties": { "type": "number", "minimum": -1, "maximum": 1 }
+    },
+    "shedsRain": {
+      "type": "boolean",
+      "description": "Whether wearing this keeps the rain off. Read by SimNeeds._tick_temperature, which is the one place a body is soaked by the sky: a survivor equipping anything that declares this never starts the `wetAfterTicks` soak, so a poncho is worth a downpour rather than a sentence about one. Wading is deliberately not covered -- a poncho is not waders, and standing in a ford still soaks you on the tick you arrive. A flat top-level boolean for the reason `bandageTier` is a flat scalar: the Godot validator does not recurse, so a type declared up here is actually enforced. Absent means no, which is what every garment that is not waterproof says."
+    },
     "ranged": {
       "type": "object",
       "description": "Optional ranged block. Every field is optional except `weight` and `caliber` -- see their own descriptions.",
