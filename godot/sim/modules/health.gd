@@ -19,7 +19,41 @@ const TORSO_STAGGER_CHANCE: Array[float] = [0.0, 0.35, 0.6, 1.0]
 const TORSO_STAGGER_TICKS: int = 20
 const TORSO_STAGGER_STREAM: String = "bodyStagger"
 
+# Armour stops blows -- the owner's decision of 2026-09-12. Until it, an `armor` block reduced
+# bite *transmission* (infection.gd) and how far a wound escalated (wounds.gd) and took nothing
+# whatever off the hit itself: a riot vest made you less likely to be **infected** and did nothing
+# about being **hit**.
+#
+# **The curve is not a new number.** `SimWounds.severity_for` has softened escalation by exactly
+# `1 - 0.5 * coverage` since wounds landed. This promotes that same curve one step upstream, onto
+# the integrity, and `severity_for` drops its own copy -- so the damage that reaches the body and
+# the wound it opens are now one piece of arithmetic applied once instead of two applied to
+# different numbers, and no shipped severity band moves. Full coverage stops half a blow; nothing
+# shipped declares full coverage, so a plate is a reason to live rather than a reason to stop
+# being afraid, which is docs/01 clause 4 spent as balance rather than as a rule.
+#
+# Nothing about this is visible as a figure. The player learns it the way they learn everything
+# else in this game -- by being hit and still standing -- and `sim/condition.gd` says only
+# `armored: true`, which is a boolean and stays one.
+const ARMOR_STOPS_AT_FULL_COVERAGE: float = 0.5
+
 enum PartState { Unhurt = 0, Hurt = 1, BadlyHurt = 2, Unusable = 3 }
+
+
+# Loaded on demand rather than preloaded: infection.gd preloads shambler.gd, which reaches back
+# here, and a preload cycle is a parse error. The same workaround `register_module` already uses
+# for wounds.gd, and `light.gd`'s `_Attachments()` for this file's opposite number.
+static func _Infection() -> GDScript:
+	return load("res://sim/modules/infection.gd") as GDScript
+
+
+## What fraction of a blow to this part gets through what the target is wearing: 1.0 for a bare
+## part, 0.5 for a fully covered one. Read in exactly one place -- `damage_part` below, which is
+## the one function that moves integrity -- and asserted as a pure predicate by
+## check_m2_armor.gd's FACTOR lane.
+static func armor_damage_factor(world: Variant, target: int, part: String) -> float:
+	var cov: float = clampf(float(_Infection().call("armor_coverage_of", world, target, part)), 0.0, 1.0)
+	return 1.0 - ARMOR_STOPS_AT_FULL_COVERAGE * cov
 
 static func max_of(body: Dictionary, part: String) -> Variant:
 	for table in [SimCombat.SURVIVOR_BODY, SimCombat.ZOMBIE_BODY]:
@@ -136,6 +170,13 @@ static func register_module(world: Variant) -> void:
 		var taken: float = amount
 		if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
 			taken *= float(world.modifiers.call("resolve", "damage_taken", target))
+		# **The one place armour stops damage.** Every path that hurts a body -- a survivor's
+		# swing (melee.gd), a shot (ranged.gd), a shambler's swipe and its bite (shambler.gd) --
+		# arrives at this closure through `attack.connected` or `bite.landed`, so mitigation
+		# applied at each publisher would be the same rule written four times and forgotten in
+		# the fifth. It sits beside the `damage_taken` modifier because they answer the same
+		# question about the same number, and multiplication does not care which goes first.
+		taken *= armor_damage_factor(world, target, named_part)
 		b[named_part] = maxf(0.0, before - taken)
 		if named_part == "head" and int(b["head"]) <= 0:
 			killed.append(target)
@@ -149,7 +190,10 @@ static func register_module(world: Variant) -> void:
 				"y": float((pos as Dictionary)["y"]) if pos is Dictionary else 0.0,
 				"zombieType": String((zt as Dictionary).get("id", "")) if zt is Dictionary else "",
 			})
-		return {"body": b, "part": named_part, "before": before, "after": float(b[named_part])}
+		# `taken` rather than `before - after`, which is the same number until the part runs out
+		# and then silently is not: a blow that destroys a hand is a deep wound whatever was left
+		# of the hand to remove. Both wound paths band off this.
+		return {"body": b, "part": named_part, "before": before, "after": float(b[named_part]), "taken": taken}
 
 	world.events.subscribe({"id": "health.take-damage", "type": "attack.connected", "handler": func(event: Dictionary) -> void:
 		var result: Variant = damage_part.call(int(event["target"]), int(event["attacker"]), String(event["bodyPart"]), float(event["damage"]))
@@ -173,8 +217,13 @@ static func register_module(world: Variant) -> void:
 					world.events.publish({"type": "entity.staggered", "entity": int(event["target"]), "ticks": TORSO_STAGGER_TICKS})
 		# A hit that removed no integrity records no wound -- a zero-damage (or fully
 		# absorbed) hit still returns a non-null result above, since "before" was positive.
+		#
+		# `r["taken"]`, not the event's own damage: what opens a wound is what got through the
+		# vest, not what was swung. Before mitigation those were the same number and
+		# `severity_for` carried its own armour term to make up the difference; it does not any
+		# more, so passing the raw figure here would quietly un-armour every wound in the game.
 		if is_survivor_body(r["body"]) and float(r["after"]) != float(r["before"]) and Wounds != null:
-			var cut: Variant = Wounds.call("append_wound", world, int(event["target"]), "cut", hit_part, int(event["attacker"]), float(event["damage"]))
+			var cut: Variant = Wounds.call("append_wound", world, int(event["target"]), "cut", hit_part, int(event["attacker"]), float(r["taken"]))
 			# docs/05's "heavy hits" and "head impact": a hit hard enough to be a deep wound may
 			# also break the bone under it or rattle the skull. The severity band is the gate, so
 			# an ordinary scratch never rolls for either.
@@ -192,7 +241,9 @@ static func register_module(world: Variant) -> void:
 		if float(r["after"]) == float(r["before"]) or Wounds == null:
 			return
 		var presentation: String = "bite" if float(injury_rng.call("next")) >= BITE_PRESENTS_AS_SCRATCH_CHANCE else "scratch"
-		Wounds.call("append_wound", world, int(event["victim"]), "bite", String(r["part"]), int(event["source"]), float(event["damage"]), presentation)
+		# The same `r["taken"]` as the cut path, for the same reason: a bite that had to get
+		# through a leather jacket first opens the wound the jacket left it room to open.
+		Wounds.call("append_wound", world, int(event["victim"]), "bite", String(r["part"]), int(event["source"]), float(r["taken"]), presentation)
 		world.events.publish({"type": "injury.sustained", "entity": int(event["victim"]), "injury": "bite", "bodyPart": String(r["part"])})
 	})
 

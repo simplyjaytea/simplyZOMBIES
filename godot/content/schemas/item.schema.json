@@ -343,12 +343,20 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Multiplies SimAttachments.PART_WEAR_PER_EVENT for this part. Above 1 is docs/10's \"suppressors wear out fast\"; below 1 is a part that outlives the weapon."
+        },
+        "armor": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "description": "Multipliers over the host garment's own `armor` coverage map, keyed by body part -- head, torso, arm_left, arm_right, against sim/modules/attachments.gd's SCALABLE.armor whitelist. docs/10-items.md#attachment-slots gives body armour plate/lining/pocket and headgear a face; this is what those slots are for. Multipliers, never adders, with a consequence worth stating: a part scales coverage the base already declares and cannot conjure coverage it does not, so a lining adds nothing to the arms of an apron that protects no arms. Folded per worn garment by SimAttachments.armor_coverage and then composed across worn items by max in SimInfection.armor_coverage_of. check_m2_armor.gd is what judges the inside of this object, because the content validator is shallow and will not."
         }
       }
     },
     "armor": {
       "type": "object",
-      "description": "Coverage per body part 0..1. Read by infection transmission (docs/10-items.md#129) — max coverage applies, absent is 0.",
+      "description": "Coverage per body part 0..1, composed across worn items by max and never by sum in SimInfection.armor_coverage_of -- two coats are one coat. Absent is 0. Three readers: bite and scratch transmission (sim/modules/infection.gd), the heat a body holds in (sim/modules/needs.gd), and, since the owner's decision of 2026-09-12, the damage a blow actually removes, through SimHealth.armor_damage_factor in `damage_part` -- the one function in the sim that moves integrity. A garment's own number here is what its fitted parts multiply; see `attachment.armor`.",
       "additionalProperties": {
         "type": "number",
         "minimum": 0,
