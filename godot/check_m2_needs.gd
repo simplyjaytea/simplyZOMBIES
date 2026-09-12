@@ -1338,16 +1338,18 @@ func _the_deep_cold_is_reachable_and_interrupts_work() -> bool:
 	if out.x < 0 or inside.x < 0:
 		push_error("COLD: the booted district has no outdoor tile or no indoor one, so this lane has nothing to judge")
 		return false
-	# Every fire out, so the only warmth in question is the roof. A wrap would shift the band one
-	# step toward comfortable, which is the wrap working -- but it is not what is under test here.
+	# Every fire out, so the only warmth in question is the roof. Any garment would shift the band
+	# toward comfortable -- that is clothing working, and `godot:m2:warmth` owns it -- but it is
+	# not what is under test here, so the body is stripped of anything declaring a `warmth` block
+	# and the assertion is that it scores nothing rather than that one base id is absent.
 	for fire in w.components.query(["campfire"]):
 		SimNeeds.set_lit(w, int(fire), false)
 	for item in SimInventory.equipped_items(w, ent):
-		var base: Variant = w.components.get_component(item, "itemBase")
-		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == "item.wrap.cloth":
+		var base: Variant = SimItems.item_base_of(w, item)
+		if base is Dictionary and (base as Dictionary).get("warmth") is Dictionary:
 			SimInventory.unequip_item(w, item)
-	if SimNeeds.wearing_wrap(w, ent):
-		push_error("COLD: the survivor is still wearing a wrap, so the band under test is shifted")
+	if SimNeeds.warmth_points(w, ent) != 0:
+		push_error("COLD: the survivor is still dressed for the weather (%d points), so the band under test is shifted" % SimNeeds.warmth_points(w, ent))
 		return false
 
 	# Deep night, outdoors, no fire.
@@ -1421,8 +1423,8 @@ func _the_deep_cold_is_reachable_and_interrupts_work() -> bool:
 	var thawed: Variant = _world()
 	var ent3: int = int(thawed.player)
 	for item3 in SimInventory.equipped_items(thawed, ent3):
-		var base3: Variant = thawed.components.get_component(item3, "itemBase")
-		if base3 is Dictionary and String((base3 as Dictionary).get("baseId", "")) == "item.wrap.cloth":
+		var base3: Variant = SimItems.item_base_of(thawed, item3)
+		if base3 is Dictionary and (base3 as Dictionary).get("warmth") is Dictionary:
 			SimInventory.unequip_item(thawed, item3)
 	thawed.tick = Clock.tick_on_day(2, 0.8)
 	thawed.components.set_component(ent3, "position", {"x": float(out.x) + 0.5, "y": float(out.y) + 0.5})

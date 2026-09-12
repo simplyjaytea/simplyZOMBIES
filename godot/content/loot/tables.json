@@ -480,6 +480,62 @@
       {
         "item": "item.wrap.elastic",
         "weight": 2
+      },
+      {
+        "item": "item.coat.winter",
+        "weight": 5
+      },
+      {
+        "item": "item.thermals.top",
+        "weight": 6
+      },
+      {
+        "item": "item.thermals.leggings",
+        "weight": 6
+      },
+      {
+        "item": "item.hat.wool",
+        "weight": 7
+      },
+      {
+        "item": "item.scarf.wool",
+        "weight": 6
+      },
+      {
+        "item": "item.gloves.wool",
+        "weight": 6
+      },
+      {
+        "item": "item.blanket.wool",
+        "weight": 7
+      },
+      {
+        "item": "item.poncho.rain",
+        "weight": 5
+      },
+      {
+        "item": "item.hat.sun",
+        "weight": 5
+      },
+      {
+        "item": "item.bandana.cotton",
+        "weight": 7
+      },
+      {
+        "item": "item.shirt.linen",
+        "weight": 6
+      },
+      {
+        "item": "item.shorts.cotton",
+        "weight": 6
+      },
+      {
+        "item": "item.sandals.canvas",
+        "weight": 5
+      },
+      {
+        "item": "item.sling.bag",
+        "weight": 4
       }
     ]
   },
@@ -968,6 +1024,86 @@
       {
         "item": "item.wrap.elastic",
         "weight": 1
+      },
+      {
+        "item": "item.coat.winter",
+        "weight": 7
+      },
+      {
+        "item": "item.coat.parka",
+        "weight": 4
+      },
+      {
+        "item": "item.thermals.top",
+        "weight": 7
+      },
+      {
+        "item": "item.thermals.leggings",
+        "weight": 7
+      },
+      {
+        "item": "item.hat.wool",
+        "weight": 8
+      },
+      {
+        "item": "item.scarf.wool",
+        "weight": 6
+      },
+      {
+        "item": "item.gloves.wool",
+        "weight": 7
+      },
+      {
+        "item": "item.boots.insulated",
+        "weight": 5
+      },
+      {
+        "item": "item.blanket.wool",
+        "weight": 5
+      },
+      {
+        "item": "item.vest.down",
+        "weight": 5
+      },
+      {
+        "item": "item.poncho.rain",
+        "weight": 7
+      },
+      {
+        "item": "item.raincoat.hooded",
+        "weight": 4
+      },
+      {
+        "item": "item.hat.sun",
+        "weight": 7
+      },
+      {
+        "item": "item.bandana.cotton",
+        "weight": 8
+      },
+      {
+        "item": "item.shirt.linen",
+        "weight": 7
+      },
+      {
+        "item": "item.shorts.cotton",
+        "weight": 7
+      },
+      {
+        "item": "item.sandals.canvas",
+        "weight": 6
+      },
+      {
+        "item": "item.drybag.roll",
+        "weight": 4
+      },
+      {
+        "item": "item.sling.bag",
+        "weight": 5
+      },
+      {
+        "item": "item.case.gun",
+        "weight": 3
       }
     ]
   },
@@ -1156,6 +1292,18 @@
       },
       {
         "item": "item.wrap.elastic",
+        "weight": 3
+      },
+      {
+        "item": "item.blanket.wool",
+        "weight": 6
+      },
+      {
+        "item": "item.bandana.cotton",
+        "weight": 4
+      },
+      {
+        "item": "item.sandals.canvas",
         "weight": 3
       }
     ]
@@ -1497,6 +1645,58 @@
       {
         "item": "item.painkillers.opioid",
         "weight": 2
+      },
+      {
+        "item": "item.coat.parka",
+        "weight": 5
+      },
+      {
+        "item": "item.trousers.insulated",
+        "weight": 5
+      },
+      {
+        "item": "item.boots.insulated",
+        "weight": 5
+      },
+      {
+        "item": "item.hat.wool",
+        "weight": 4
+      },
+      {
+        "item": "item.gloves.wool",
+        "weight": 4
+      },
+      {
+        "item": "item.vest.down",
+        "weight": 3
+      },
+      {
+        "item": "item.poncho.tarp",
+        "weight": 5
+      },
+      {
+        "item": "item.raincoat.hooded",
+        "weight": 3
+      },
+      {
+        "item": "item.blanket.wool",
+        "weight": 4
+      },
+      {
+        "item": "item.case.gun",
+        "weight": 5
+      },
+      {
+        "item": "item.pouch.dropleg",
+        "weight": 6
+      },
+      {
+        "item": "item.pouch.dump",
+        "weight": 5
+      },
+      {
+        "item": "item.drybag.roll",
+        "weight": 4
       }
     ]
   },
@@ -1697,6 +1897,38 @@
           "min": 1,
           "max": 2
         }
+      },
+      {
+        "item": "item.trousers.insulated",
+        "weight": 6
+      },
+      {
+        "item": "item.boots.insulated",
+        "weight": 5
+      },
+      {
+        "item": "item.gloves.wool",
+        "weight": 4
+      },
+      {
+        "item": "item.poncho.tarp",
+        "weight": 7
+      },
+      {
+        "item": "item.vest.mesh",
+        "weight": 8
+      },
+      {
+        "item": "item.bandana.cotton",
+        "weight": 5
+      },
+      {
+        "item": "item.drybag.roll",
+        "weight": 4
+      },
+      {
+        "item": "item.pouch.dump",
+        "weight": 4
       }
     ]
   }
