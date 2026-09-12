@@ -1804,6 +1804,24 @@ not a to-do list:
   its new base the muted ceiling clamps base and highlight flat while core lands six bytes under
   base. A lower base separates them by ten and leaves half the margin; that trade is written into
   `palette.py` beside the ramp so the next session does not re-derive it.
+  **The cut was interpreter-dependent, and CI found it.** `sprites:check` went red on one pixel
+  of `raider_body` -- core on the machine that drew it, deep on CI -- and the cause was not the
+  pass's geometry but its arithmetic: `int(round(sum(TONE_SHARES[:ix + 1]) * count))`. CPython
+  3.12's `sum()` uses compensated summation where 3.11's does not, so `0.10 + 0.45 + 0.30` is
+  exactly `0.85` on 3.12 and `0.8500000000000001` on 3.11; against the raider's 90 strap pixels
+  that is exactly `76.5` versus `76.50000000000001`, and `round` breaks a true half *to even*,
+  downwards. Two hypotheses were eliminated by measurement before the cause was found -- reach
+  near-ties (smallest gap 0.00256, far above float noise) and hash-order dependence
+  (`PYTHONHASHSEED` 0/1/2/3/12345, all one sha1) -- and the third was found by rendering under
+  both interpreters side by side and bisecting the pass, which is the same "diagnose, do not
+  theorise" that the balance harness taught. The shares are **whole percents** now and the cut
+  is `(cum * count + 50) // 100` in `palette.tone_ceiling`: integers have no tie to break.
+  `guard_shares_are_exact` refuses a float table at import, with the retired float shares
+  themselves as its true negative, and `guard_halves_round_up` pins four cuts including the
+  76.5 that diverged -- both `raise` rather than `assert`, because `-O` strips asserts and a pin
+  a flag can remove is not a pin.
+  Eight more keys moved where the old float path had rounded a half to even downwards -- six
+  overlays, Mara and Ellis -- and both interpreters now render all 175 keys to one hash.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is

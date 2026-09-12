@@ -376,6 +376,21 @@ Each of these was found the expensive way. They are not style opinions.
   Enumerate every arm and pick the one calling the draw helper; `check_wrecks.gd`'s `_low_arms` is
   the precedent. Same family as proving a scanner on a fabricated body before trusting it: a
   textual assertion needs to be shown it is reading what it thinks it is.
+- **`sum()` of floats is not the same number on every CPython.** 3.12 sums floats with
+  compensated (Neumaier) summation and 3.11 does not, so `sum((0.10, 0.45, 0.30))` is exactly
+  `0.85` on one and `0.8500000000000001` on the other. Multiply either by an integer count and a
+  result that lands on a **half** goes opposite ways, because `round()` breaks a true half *to
+  even* and only one of the two inputs is a true half. This turned `sprites:check` — a byte
+  comparison — red on CI over one pixel of a raider's boot, against art that was correct on the
+  machine that drew it, and it cost two wrong hypotheses (reach near-ties; hash-order
+  dependence, `PYTHONHASHSEED` swept) before the third was found by rendering under both
+  interpreters side by side. Anything whose output is compared byte for byte must not decide a
+  boundary with float arithmetic: use whole percents and integer division, as
+  `palette.tone_ceiling` now does. These containers ship Python 3.11 and CI takes whatever the
+  runner image has (3.12 when this was found) — the engine is pinned exactly and Pillow is
+  pinned to 12.3.0, but the interpreter is not, so this class of divergence is invisible locally
+  until CI says so. Pinning Python was considered and not taken: a generator that renders the
+  same bytes on any interpreter is worth more than one that is only ever run on one.
 - **Throughput, measured:** ~1,085 ticks/second headless on this container, so a game day (288,000
   ticks) is about three minutes and a ten-day campaign about forty-five. Anything phrased as "run
   a few campaigns" is an overnight job — check the arithmetic before promising a grid.

@@ -22,7 +22,7 @@ import random
 
 from PIL import Image
 
-from palette import TONE_SHARES, to_hex, to_rgb
+from palette import to_hex, to_rgb, tone_ceiling
 
 SIZE = 32
 
@@ -273,8 +273,14 @@ class Canvas:
         The cut is a ceiling rather than an exact count because it lands on *reach boundaries*
         and never inside one; the comment on the loop below has the measurement that forced
         that. Reach is a float, so equal reaches compare equal and a band is a whole
-        anti-diagonal of one material: the grouping is exact, not an epsilon, and
-        `sprites:check` stays a byte comparison on any machine.
+        anti-diagonal of one material: the grouping is exact, not an epsilon.
+
+        That grouping was never the fragile half. **Where the cut lands is**, and this
+        paragraph used to claim `sprites:check` was a byte comparison "on any machine" on the
+        strength of the grouping alone -- which CI disproved one pixel of a raider's boot at a
+        time. The share arithmetic was the interpreter-dependent part and is now whole-percent
+        integers; `palette.tone_ceiling` carries the account of what broke and why halves round
+        up.
 
         A colour this canvas carries that no ramp claims raises, rather than being passed
         through or guessed at. Everything a generator paints with comes from `palette.RAMPS`,
@@ -333,8 +339,7 @@ class Canvas:
             taken = 0
             band_at = 0
             for tone_ix, colour in enumerate(order):
-                ceiling = count if tone_ix == len(order) - 1 else int(round(
-                    sum(TONE_SHARES[: tone_ix + 1]) * count))
+                ceiling = count if tone_ix == len(order) - 1 else tone_ceiling(tone_ix, count)
                 while band_at < len(bands):
                     size = len(bands[band_at][1])
                     # The last tone takes whatever is left; the others stop before overrunning,
