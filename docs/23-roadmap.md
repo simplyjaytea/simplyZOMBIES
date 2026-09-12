@@ -295,7 +295,8 @@ than here.
   carries it rather than a beam pointed where they are looking, so docs/10's "aimed at whatever
   you're looking at" is still a promise; and an optic tightens the cone identically at noon and at
   midnight, because `_refresh_cone` cannot see the light field at all.
-- **Bed quality as an authored property** — **moved into the alpha-roster group below**
+- ~~**Bed quality as an authored property**~~ — moved into the alpha-roster group and **landed**
+  2026-09-12 with the camping slice, see the record.
   (2026-09-12), where it is half of the camping and utility piece. Named here only so the
   cross-reference resolves.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
@@ -400,12 +401,13 @@ system.
   everything in it, which the damage model has no notion of, plus the 400-noise attention spike that
   is the whole reason the doc calls it self-limiting.
 - ~~**Books that teach**~~ — **landed** 2026-09-12, see the record.
-- **Camping and utility gear.** docs/10 uses "a sleeping bag and a scalpel" as its own worked
-  example of the footprint puzzle and neither exists; a bed is a bare entity with no quality on it,
-  which is the bed-quality piece moved here from the gear group. With that property this covers the
-  camping and utility half of docs/12's commercial yield, promised and backed by nothing: bedroll,
-  tent, tarp, rope, bolt cutters, binoculars, a surgical kit, and the soap docs/04 names for
-  washing — which needs a hygiene scalar, because nothing in the roster has one.
+- ~~**Camping and utility gear**~~ — **landed** 2026-09-12, see the record. It absorbed
+  ~~**bed quality as an authored property**~~ as planned.
+- **A wash still works with no soap.** docs/04 says washing needs water *and* soap; only the water
+  half is enforced. The camping slice shipped `hygiene` as banked charges that a dirtying spends,
+  and deliberately did not make soap required: that is a rebalance of a need every colonist has
+  rather than an addition, and a district that rolled no soap would have no way back from `filthy`,
+  which `sepsis_mul` reads. Closing it means deciding what a soapless colony is supposed to do.
 - ~~**Armour attachment slots, and armour that stops damage**~~ — **landed** 2026-09-12, see the
   record.
 - **Armour that reaches a campaign.** The armour slice's own measurement is the reason this piece
@@ -7027,6 +7029,54 @@ not a to-do list:
   the Tetanus Special's "free to repair from scrap" wants `repair_cost`, which resolves against
   nothing, so it simply is not shipped; its "heavy bleed" rides the live chain instead — higher
   damage, worse severity, faster bleed — plus a fixed `barbed` prefix.
+- **Items** — ~~camping and utility gear~~, absorbing ~~bed quality as an authored property~~
+  **landed** 2026-09-12 (`npm run godot:m2:gear` → **`M2_GEAR_OK`** with a new CAMP lane, and
+  `npm run godot:m2:needs` → **`M2_NEEDS_OK`** with new BEDDING and SOAP lanes, nine sabotages run
+  and each confirmed red; `godot:m2:jobs`, `godot:m2:save`, `godot:check:loot`,
+  `godot:check:worn`, `godot:check:inventory` and `godot:check:hud` all held), the **thirteenth
+  slice of the alpha-roster arc**.
+
+  **docs/10 used "a sleeping bag and a scalpel" as its own worked example of the footprint puzzle
+  and neither item existed**, while `make_bed` spawned a bare entity with no quality on it — so
+  what you slept on could not vary the night. `bedQuality` and `hygiene` are both flat scalars
+  under an enum, the `buildMaterial` shape, because the Godot validator is shallow and an enum on a
+  top-level key is the only depth it enforces unaided. `SimNeeds.furnish_bed` spends the best
+  bedding out of the builder's own pack when the Construct `bed` job completes, and the bed keeps a
+  float a save can carry.
+
+  **It is additive by arithmetic rather than by assertion.** `sleep_quality` spends comfort against
+  the penalties the night already has, floored at zero — so a bed with no bedding is comfort 0.0
+  and is exactly the bed that shipped before, and a perfect night is still exactly
+  `SLEEP_FULL_NIGHT`. BEDDING pins all three shipped figures (1.0000 / 0.7500 / 0.5000) and then
+  measures the difference over six identically seeded districts: **a cold night on a foam bedroll
+  restored 84.00 of rest against the bare boards' 75.00**, with either figure refused if it lands
+  on the quality floor or the full-night cap.
+
+  **Twenty-two bases**, so docs/10's own example now exists. Five of them — bolt cutters, picks,
+  binoculars, scalpel, rod — are `material` with no block at all: the whetstone case the schema
+  already names, footprint and mass and nothing else, rather than a socket invented so a gate would
+  count them. `bedQuality` **joined** the gear gate's "a tool nothing reads" refusal rather than
+  that refusal being relaxed to let a bedroll through, and the mute-tool true negative moved with
+  it.
+
+  **Half of docs/04's soap clause shipped, and the slice said so rather than taking the call.** A
+  bar banks charges and a dirtying spends one; a wash with nothing banked is dirty again on the
+  next job. But a wash still works with **no** soap at all. Making it required is a rebalance of a
+  need every colonist has, and a district that rolled none would have no way back from `filthy`,
+  which `sepsis_mul` reads. Named in what's left.
+
+  **This slice's merge is also why `check_loot.gd`'s container lane changed**, and the change is
+  worth reading: that lane asserted a flat zero items on the floor after an open, on the strength
+  of a comment reading *"a cupboard is six by four, so a residential roll fits."* That was an
+  observation about the table of the day, not a promise `SimContainers` ever made — it has always
+  spilled deliberately, and says so at the line that does it. Sixty-five new rows made residential
+  generous enough to overflow, and the lane went red against code that was correct. It now asserts
+  the guarantee the module actually offers: every spilled item is re-offered to the box and the box
+  must refuse it, so a spill can never be a packing failure the grid could have absorbed. **The
+  sabotage pass then proved that was still not enough** — making the module destroy what it cannot
+  fit left the lane green, because on that seed nothing overflows and the assertion had no data to
+  judge — so there is now a fixture that stuffs a cupboard by hand until it will take nothing more
+  and makes the accounting balance.
 - **Items** — ~~comfort that is not food~~ **landed** 2026-09-12
   (`npm run godot:m2:comfort` → **`M2_COMFORT_OK pinned cap clock reach menu block`**, a new gate of
   six lanes; `godot:m2:needs`, `godot:m2:gear`, `godot:m2:jobs`, `godot:m2:save`, `godot:check:hud`

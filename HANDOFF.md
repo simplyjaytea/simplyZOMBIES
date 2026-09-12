@@ -32,6 +32,33 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-12 — camping gear, and what a bed is made of.** The arc's thirteenth slice, absorbing
+the older "bed quality as an authored property" piece. docs/10 had been using "a sleeping bag and a
+scalpel" as its own worked example of the footprint puzzle while neither item existed, and
+`make_bed` spawned a bare entity with no quality on it. `bedQuality` and `hygiene` are both flat
+scalars under an enum — the `buildMaterial` shape, because that is the only depth the shallow Godot
+validator enforces unaided — and `furnish_bed` spends the best bedding out of the builder's own pack
+when the Construct bed job completes. It is additive by arithmetic rather than by assertion: comfort
+is spent against the penalties the night already has, so a bed with no bedding is the bed that
+shipped before. Measured over six identically seeded districts, **a cold night on a foam bedroll
+restored 84.00 of rest against bare boards' 75.00**.
+
+**Half of docs/04's soap clause shipped and the slice said which half.** A bar banks charges and a
+dirtying spends one, but a wash still works with no soap at all — making it required is a rebalance
+of a need every colonist has, and a district that rolled none would have no way back from `filthy`,
+which `sepsis_mul` reads. Left to the owner rather than taken.
+
+**The loot gate's container lane was rewritten during this merge, and the reason generalises.** It
+asserted a flat zero items on the floor after an open, on the strength of a comment reading "a
+cupboard is six by four, so a residential roll fits" — an observation about the table of the day
+rather than a promise `SimContainers` ever made, since it has always spilled deliberately and says
+so at the line that does it. The arc's new rows made residential generous enough to overflow and the
+lane went red against correct code. It now asserts the real guarantee: a spilled item re-offered to
+the box must be refused, so a spill is never a packing failure. **Sabotage then showed that was
+still not enough** — making the module destroy what it cannot fit left it green, because nothing
+overflowed on that seed and the assertion had no data — so a fixture now stuffs a cupboard by hand
+and makes the accounting balance.
+
 **2026-09-12 — comfort, and books that teach.** The arc's eleventh and twelfth slices. Mood had
 seven sources and every one was something done *to* a survivor; a `comfort` block is the first thing
 a person can do for their own morale that is not a meal, and it respects the module's existing
