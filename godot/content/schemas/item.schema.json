@@ -238,6 +238,19 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Reach in metres. The values are docs/03's table -- candle 3, campfire 20, lamp 35, floodlight 90 -- and a test pins them against LIGHT_TABLE so the two cannot drift."
+        },
+        "burnTicks": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "How long a full charge, wick or fill lasts, in ticks, per the owner's decision of 2026-09-12. A lamp with no burnTicks burns for ever, which is what every light in the game did before this key existed -- so the key is what makes a light a resource rather than a permanent upgrade. Spent one tick per tick by SimLightModule's burn clock, and only while the light is actually the thing lighting somebody: max-not-sum means the dimmer lamp in your other hand is not lit and does not burn. At zero the light goes dark and the next-brightest thing you carry takes over. SimClock.DAY_TICKS is 288000, so one in-game hour is 12000; check_m2_light_burn.gd measures the fully dark stretch off the clock rather than quoting it here, and that measurement (72000 ticks, six in-game hours) is what every shipped burn time is judged against."
+        },
+        "feed": {
+          "enum": [
+            "cell",
+            "oil",
+            "gas"
+          ],
+          "description": "What refills it, when anything does. Matched exactly against the top-level `lightFuel` of the thing in your pack -- a kind is not ranked and not converted, the way a caliber is not, so a battery either goes in or it does not. Absent means single-use: a candle burns down and is a stub, and that is the trade it makes against a lamp that is brighter and hungrier. The vocabulary is SimLightModule.FUEL_KINDS and check_m2_light_burn.gd's CONTENT lane asserts both directions, because neither this list nor that one can see the other."
         }
       }
     },
@@ -594,6 +607,15 @@
     "shedsRain": {
       "type": "boolean",
       "description": "Whether wearing this keeps the rain off. Read by SimNeeds._tick_temperature, which is the one place a body is soaked by the sky: a survivor equipping anything that declares this never starts the `wetAfterTicks` soak, so a poncho is worth a downpour rather than a sentence about one. Wading is deliberately not covered -- a poncho is not waders, and standing in a ford still soaks you on the tick you arrive. A flat top-level boolean for the reason `bandageTier` is a flat scalar: the Godot validator does not recurse, so a type declared up here is actually enforced. Absent means no, which is what every garment that is not waterproof says."
+    },
+    "lightFuel": {
+      "enum": [
+        "cell",
+        "oil",
+        "gas"
+      ],
+      "description": "What this item feeds a lamp, when it is fuel -- the owner's decision of 2026-09-12. Absent means it feeds nothing, which is the normal state. Matched exactly against a lamp's `light.feed`, and one unit is one full fill whatever it goes into, for the reason `fuel.litres` pours a can whole: a lamp that remembered a part-charge would need a per-instance number on the can as well as on the lamp, and two of them is one more than the mechanism is worth. Spent by SimLightModule.feed, which is also the predicate the word menu asks before it offers `use`. A flat scalar at the top level rather than a nested block for the reason buildMaterial and filter are flat: the Godot content validator is shallow, so an enum up here is the only shape it actually enforces.",
+      "$comment": "The kinds are deliberately few and physical -- a cell, a fill of oil, a bottle of gas -- so what is in your pack answers the question without a table."
     }
   },
   "$defs": {

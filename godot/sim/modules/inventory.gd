@@ -520,6 +520,10 @@ static func _Treatment() -> GDScript:
 	return load("res://sim/modules/treatment.gd") as GDScript
 
 
+static func _Light() -> GDScript:
+	return load("res://sim/modules/light.gd") as GDScript
+
+
 # What the inspect pane on the inventory sheet says about one item: a name, a condition *word*, a
 # sentence, where it is worn, and what is fitted to it. `{}` for anything that is not an item.
 #
@@ -567,6 +571,13 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 		"worn": worn,
 		"attachments": fitted,
 		"fits": fits,
+		# How much is left in a lamp, as a **word**: "burning steadily", "burning low",
+		# "guttering", "dark", and "" for the overwhelming majority of items, which are not lamps.
+		# Never a fraction and never a count, for the reason `condition` is a band rather than an
+		# integrity: docs/01 clause 4, and the gate above serialises this whole view and refuses a
+		# digit anywhere in it. It is also the one reader `SimLightModule.fuel_clause` has, which
+		# is the difference between a read model and a dead socket.
+		"fuel": _Light().call("fuel_clause", world, item),
 	}
 
 
@@ -613,7 +624,12 @@ static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 		var st: Variant = world.components.get_component(item, "stack")
 		if st is Dictionary and int((st as Dictionary).get("count", 1)) > 1:
 			offered["split"] = true
-		if bool(_Needs().call("can_use", world, actor, item)) or bool(_Treatment().call("can_use_supply", world, actor, item)):
+		# Three modules own `item.use` and the menu asks all three, never its own guess: needs for
+		# anything edible, treatment for anything medical, and light for a cell that has a lamp to
+		# go in and a floodlight that has ground to stand on.
+		if bool(_Needs().call("can_use", world, actor, item)) \
+				or bool(_Treatment().call("can_use_supply", world, actor, item)) \
+				or bool(_Light().call("can_use", world, actor, item)):
 			offered["use"] = true
 	for verb in MENU_ORDER:
 		if offered.has(verb):

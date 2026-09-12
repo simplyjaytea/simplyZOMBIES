@@ -274,7 +274,7 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # reachable -- the CATALOGUE lane below reached the eight shipped rounds only through the
 # weapons that name them in `ranged.ammo`. A *variant* round is named by no weapon, so without
 # this key a slug in no loot table would have been complete, correct and unfindable.
-const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain"]
+const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel"]
 # The bases a *job or verb* produces rather than a table rolls, each with the sim file that names
 # it, so the allowance cannot outlive the code it describes: cooked food out of SimJobs' cook job,
 # and well water out of SimNeeds.fill_bottle.

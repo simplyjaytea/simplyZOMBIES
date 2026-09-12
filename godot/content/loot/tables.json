@@ -596,6 +596,38 @@
       {
         "item": "item.sling.bag",
         "weight": 4
+      },
+      {
+        "item": "item.candle.tallow",
+        "weight": 6,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.lighter.disposable",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.torch.handheld",
+        "weight": 4
+      },
+      {
+        "item": "item.glowstick",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.oil.lamp",
+        "weight": 3
       }
     ]
   },
@@ -1220,6 +1252,42 @@
       {
         "item": "item.case.gun",
         "weight": 3
+      },
+      {
+        "item": "item.torch.handheld",
+        "weight": 5
+      },
+      {
+        "item": "item.headlamp.band",
+        "weight": 4
+      },
+      {
+        "item": "item.lantern.camping",
+        "weight": 3
+      },
+      {
+        "item": "item.propane.cylinder",
+        "weight": 4
+      },
+      {
+        "item": "item.glowstick",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 4
+        }
+      },
+      {
+        "item": "item.cliplight.glasses",
+        "weight": 3
+      },
+      {
+        "item": "item.candle.tallow",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
       }
     ]
   },
@@ -1449,6 +1517,22 @@
       {
         "item": "item.sandals.canvas",
         "weight": 3
+      },
+      {
+        "item": "item.torch.penlight",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
+      },
+      {
+        "item": "item.glowstick",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
       }
     ]
   },
@@ -1901,6 +1985,34 @@
       {
         "item": "item.drybag.roll",
         "weight": 4
+      },
+      {
+        "item": "item.flare.road",
+        "weight": 5,
+        "count": {
+          "min": 1,
+          "max": 3
+        }
+      },
+      {
+        "item": "item.headlamp.band",
+        "weight": 4
+      },
+      {
+        "item": "item.torch.steel",
+        "weight": 4
+      },
+      {
+        "item": "item.glowstick",
+        "weight": 4,
+        "count": {
+          "min": 1,
+          "max": 4
+        }
+      },
+      {
+        "item": "item.worklight.rigged",
+        "weight": 2
       }
     ]
   },
@@ -2253,6 +2365,38 @@
       {
         "item": "item.pouch.dump",
         "weight": 4
+      },
+      {
+        "item": "item.torch.steel",
+        "weight": 4
+      },
+      {
+        "item": "item.headlamp.miners",
+        "weight": 4
+      },
+      {
+        "item": "item.worklight.rigged",
+        "weight": 2
+      },
+      {
+        "item": "item.propane.cylinder",
+        "weight": 5
+      },
+      {
+        "item": "item.oil.lamp",
+        "weight": 4
+      },
+      {
+        "item": "item.lantern.storm",
+        "weight": 3
+      },
+      {
+        "item": "item.flare.road",
+        "weight": 3,
+        "count": {
+          "min": 1,
+          "max": 2
+        }
       }
     ]
   }
