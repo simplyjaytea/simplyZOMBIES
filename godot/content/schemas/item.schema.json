@@ -643,6 +643,24 @@
       "description": "What this item feeds a lamp, when it is fuel -- the owner's decision of 2026-09-12. Absent means it feeds nothing, which is the normal state. Matched exactly against a lamp's `light.feed`, and one unit is one full fill whatever it goes into, for the reason `fuel.litres` pours a can whole: a lamp that remembered a part-charge would need a per-instance number on the can as well as on the lamp, and two of them is one more than the mechanism is worth. Spent by SimLightModule.feed, which is also the predicate the word menu asks before it offers `use`. A flat scalar at the top level rather than a nested block for the reason buildMaterial and filter are flat: the Godot content validator is shallow, so an enum up here is the only shape it actually enforces.",
       "$comment": "The kinds are deliberately few and physical -- a cell, a fill of oil, a bottle of gas -- so what is in your pack answers the question without a table."
     },
+    "bedQuality": {
+      "enum": [
+        "padded",
+        "insulated",
+        "proper"
+      ],
+      "description": "What this is worth to sleep on, when it is bedding. Absent means it is not bedding, which is the normal state. docs/04-survival-needs.md's Rest clause names bed quality first among the five things recovery depends on, and until this key there was no way for one bed to differ from another: SimNeeds.make_bed spawned a bare marker and every survivor in the district slept on the identical nothing. A bed carries a `comfort` from the grade of the bedding the builder spent on it (SimNeeds.furnish_bed, called by SimJobs' Construct bed job), and SimNeeds.sleep_quality spends that comfort against the penalties the night already has -- the cold, the noise, the pain -- rather than lifting a good night above what a good night already restores. So a bed with no bedding is arithmetically the bed that shipped before this key existed, which is what godot/check_m2_needs.gd's BEDDING lane pins before it measures the difference a bedroll makes.",
+      "$comment": "A flat scalar under an enum rather than a nested `bedding: {comfort}` block, for the reason bandageTier, cleanTier, antibioticTier and buildMaterial are flat: the Godot content validator is shallow, so an enum on a top-level key is the only shape it actually enforces. The grade-to-comfort table is SimNeeds.BED_COMFORT and check_m2_gear.gd's CAMP lane asserts the two vocabularies cover each other."
+    },
+    "hygiene": {
+      "enum": [
+        "rinse",
+        "scrub",
+        "sterile"
+      ],
+      "description": "What this is worth to wash with. Absent means it is not soap, which is the normal state. docs/04-survival-needs.md wants soap and nothing in the game had one. A wash already reaches `clean` on water alone, so what soap buys is not a cleaner body but a body that stays clean: SimNeeds.wash_at_source spends the best grade the washer carries and banks its charges, and SimNeeds._dirt spends one charge instead of dropping a band the next few times the work would have dirtied them. The grade-to-charges table is SimNeeds.HYGIENE_SCRUBS and check_m2_needs.gd's SOAP lane proves the charges both hold and run out. Only half of docs/04's clause is enforced: it says a wash needs water **and** soap, and a wash here still works without any -- making soap mandatory is a rebalance of a need every colonist has rather than an addition to it, and a district that rolled none would have no way back from `filthy`.",
+      "$comment": "Flat under an enum for the same reason bedQuality is, and named for the need it moves rather than for the bar of soap, because the same key is what a bottle of alcohol gel and a box of flakes declare."
+    },
     "noise": {
       "type": "object",
       "description": "Present on a placeable noise device and absent on everything else, the way `light` is present on a lamp. docs/03-attention.md#playing-the-field promised bait -- \"a wind-up noisemaker, a lit lamp on a timer, a hung carcass\" -- since the field was specified, and until this slice the only thing in the game that spent an item to make a noise was firing a gun. Read by SimNoiseDevice: a base declaring this and no `equipSlot` is something you stand on a tile rather than something you hold. The device is **not** consumed -- the owner's decision of 2026-09-12 made these multi-use, so the same air horn comes back up and goes down again somewhere better.",

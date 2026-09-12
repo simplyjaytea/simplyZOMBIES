@@ -18,6 +18,10 @@ const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimCondition = preload("res://sim/condition.gd")
+# The CAMP lane's reach: the two vocabularies `bedQuality` and `hygiene` are checked against are
+# SimNeeds' own price tables, read from the sim rather than restated here, so neither list can drift
+# away from the other without this gate noticing.
+const SimNeeds = preload("res://sim/modules/needs.gd")
 const Clock = preload("res://sim/time/clock.gd")
 # The NAMED lane's reach. Each of these is a system that *charges* one of the six drawbacks, and
 # the lane measures the cost through it rather than reading the number back off the content that
@@ -53,8 +57,9 @@ func _run() -> void:
 	ok = _unequipping_one_coat_undresses_one_survivor() and ok
 	ok = _the_catalogue_is_findable_and_read() and ok
 	ok = _the_named_tier_is_authored_and_every_name_costs_something() and ok
+	ok = _the_camping_roster_is_reachable_authored_and_read() and ok
 	if ok:
-		print("M2_GEAR_OK slots have items, items are findable, coverage moves and composes by max, a command undresses one person, every base in the catalogue is reachable and read by something, and the six named items are hand-authored, off both ladders, and each one charged for what it gives")
+		print("M2_GEAR_OK slots have items, items are findable, coverage moves and composes by max, a command undresses one person, every base in the catalogue is reachable and read by something, the six named items are hand-authored, off both ladders, and each one charged for what it gives, and the camping roster is rolled by tables with both its grades priced and read")
 		quit(0)
 	else:
 		push_error("M2_GEAR_FAIL")
@@ -308,7 +313,13 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # The bases a *job or verb* produces rather than a table rolls, each with the sim file that names
 # it, so the allowance cannot outlive the code it describes: cooked food out of SimJobs' cook job,
 # and well water out of SimNeeds.fill_bottle.
-const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel", "cooksInto", "boilsInto", "purifies", "noise", "comfort", "teaches"]
+# `bedQuality` and `hygiene` joined with the camping slice, and both are flat scalars rather than
+# blocks for the reason `buildMaterial` is: the content validator is shallow, so an enum on a
+# top-level key is the only shape it enforces on its own. `bedQuality` is read by
+# SimNeeds.furnish_bed, which the Construct bed job spends it through, and `hygiene` by
+# SimNeeds._spend_soap, which every wash goes through -- the CAMP lane below names both readers by
+# file and function so the claim cannot outlive the code.
+const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel", "cooksInto", "boilsInto", "purifies", "noise", "comfort", "teaches", "bedQuality", "hygiene"]
 # The keys whose value is another base id this one turns into, and therefore a way of reaching that
 # other base without a loot table. One list, walked twice below: once to collect what is reachable,
 # and once to refuse a target that is not a base at all.
@@ -411,8 +422,12 @@ func _the_catalogue_is_findable_and_read() -> bool:
 			if e.has(tk) and not by_id.has(String(e[tk])):
 				push_error("CATALOGUE: %s's %s names %s, which is not a base" % [String(id), tk, String(e[tk])])
 				return false
-		if String(e.get("class", "")) == "tool" and not (e.has("light") or e.has("modification") or e.has("noise") or e.has("comfort")):
-			push_error("CATALOGUE: %s is a tool with no light, no modification, no noise and no comfort block -- a tool nothing reads" % String(id))
+		# `bedQuality` joined this list with the camping slice rather than the list being relaxed to
+		# let a bedroll through: a bedroll is a tool you put down and it is read by
+		# SimNeeds.furnish_bed the same way a lamp is read by SimLight. The predicate still names
+		# every key one at a time, and the mute tool below still fails it.
+		if String(e.get("class", "")) == "tool" and not (e.has("light") or e.has("modification") or e.has("noise") or e.has("comfort") or e.has("bedQuality")):
+			push_error("CATALOGUE: %s is a tool with no light, no modification, no noise, no comfort and no bedQuality block -- a tool nothing reads" % String(id))
 			return false
 	# The true negatives: the scans do not see ids that are not there, and the two predicates
 	# can say no to a fabricated armoured orphan and a fabricated mute tool.
@@ -428,7 +443,7 @@ func _the_catalogue_is_findable_and_read() -> bool:
 		push_error("CATALOGUE: a fabricated armoured orphan would not have been judged at all")
 		return false
 	var mute_tool: Dictionary = {"id": "item.gate.mutetool", "class": "tool"}
-	if mute_tool.has("light") or mute_tool.has("modification") or mute_tool.has("noise") or mute_tool.has("comfort"):
+	if mute_tool.has("light") or mute_tool.has("modification") or mute_tool.has("noise") or mute_tool.has("comfort") or mute_tool.has("bedQuality"):
 		push_error("CATALOGUE: the tool predicate cannot say no")
 		return false
 	print("  CATALOGUE: %d bases that do something are each rolled by a table, carried in a kit or left as somebody's empties (%d table ids, %d kit ids, %d empties); every round is a findable base; every tool is a light, a bench consumable, a noise device or a comfort; an orphan and a mute tool are refused" % [judged, findable.size(), kits.size(), empties.size()])
@@ -929,3 +944,169 @@ func _base(w: Variant, id: String) -> Dictionary:
 		if String((entry_v as Dictionary).get("id", "")) == id:
 			return entry_v as Dictionary
 	return {}
+
+
+# --- CAMP ---------------------------------------------------------------------------------------
+#
+# The camping and utility roster, and the two keys it introduced. docs/10-items.md uses "a
+# sleeping bag and a scalpel" as its own worked example of the footprint puzzle and neither item
+# existed, so the file is first of all that example made real. The two keys are the part that needs
+# a gate: `bedQuality` and `hygiene` are flat scalars under an enum, which is the one shape the
+# shallow content validator does enforce -- but an enum the validator accepts is still only a
+# *vocabulary*. It cannot tell whether the sim knows that word, whether any base uses a word the sim
+# knows, or whether anything at all reads either. Those three are what this lane is.
+#
+# The mechanical half -- comfort actually moving a night's rest, soap actually resisting a dirtying
+# -- is check_m2_needs.gd's BED lane, on a booted district where sleeping is real. What is here is
+# the content half plus the one link a behavioural lane in that gate would not cross: the Construct
+# `bed` job reaching `furnish_bed`, without which the key would be complete, correct, and reachable
+# only from a fixture.
+const CAMP_FILE: String = "res://content/items/camping.json"
+# reader file -> the needle in it that must be found, so a rename moves the needle with the code
+# instead of leaving it pointing at a line that no longer exists.
+const CAMP_READERS: Array[Dictionary] = [
+	{"key": "bedQuality", "file": "res://sim/modules/needs.gd", "needle": "func furnish_bed("},
+	{"key": "bedQuality", "file": "res://sim/modules/needs.gd", "needle": "BED_KEY"},
+	{"key": "bedQuality", "file": "res://sim/modules/jobs.gd", "needle": "SimNeeds.furnish_bed("},
+	{"key": "hygiene", "file": "res://sim/modules/needs.gd", "needle": "func _spend_soap("},
+	{"key": "hygiene", "file": "res://sim/modules/needs.gd", "needle": "HYGIENE_KEY"},
+]
+
+
+func _camp_entries() -> Array:
+	var raw: String = FileAccess.get_file_as_string(CAMP_FILE)
+	if raw.is_empty():
+		return []
+	var parsed: Variant = JSON.parse_string(raw)
+	return (parsed as Array) if parsed is Array else []
+
+
+# The standing ban, applied to the roster this slice wrote: no digit anywhere in a camping base's
+# name or description. The 2026-09-12 amendment lets an item *name* carry a digit so a cartridge can
+# be called after its calibre; nothing in this file is a cartridge, so nothing in this file spends
+# it, and the lane holds the stricter line deliberately.
+func _camp_prose_is_clean(text: String) -> bool:
+	var digit := RegEx.new()
+	digit.compile("[0-9]")
+	return digit.search(text) == null
+
+
+func _the_camping_roster_is_reachable_authored_and_read() -> bool:
+	var entries: Array = _camp_entries()
+	if entries.size() < 12:
+		push_error("CAMP: %s parsed to %d bases -- the roster this lane judges is not there" % [CAMP_FILE, entries.size()])
+		return false
+	var w: Variant = _world()
+
+	# Every base in the file is rolled by a shipped table. The stricter half of the CATALOGUE rule
+	# on purpose -- a kit or somebody's empties does not count here, because a camping base nothing
+	# scavenges is a base no run will ever see.
+	var findable: Dictionary = {}
+	for file_v in (w.content as Dictionary).values():
+		if not (file_v is Array):
+			continue
+		for t_v in file_v as Array:
+			if t_v is Dictionary and String((t_v as Dictionary).get("id", "")).begins_with("loot."):
+				for row_v in (t_v as Dictionary).get("entries", []) as Array:
+					findable[String((row_v as Dictionary).get("item", ""))] = true
+	if findable.is_empty():
+		push_error("CAMP: the loot scan found no rows at all, so reach has nothing to judge")
+		return false
+	var unreachable: Array[String] = []
+	for e_v in entries:
+		var e: Dictionary = e_v as Dictionary
+		if not findable.has(String(e.get("id", ""))):
+			unreachable.append(String(e.get("id", "")))
+	if not unreachable.is_empty():
+		push_error("CAMP: %s are authored and no table rolls them" % str(unreachable))
+		return false
+	if findable.has("item.camp.gateorphan"):
+		push_error("CAMP: the loot scan found an id that does not exist")
+		return false
+
+	# The prose ban, and a fabricated line that breaks it.
+	for e_v in entries:
+		var e: Dictionary = e_v as Dictionary
+		for field in ["name", "description"]:
+			if not _camp_prose_is_clean(String(e.get(field, ""))):
+				push_error("CAMP: %s's %s carries a digit -- '%s'" % [String(e.get("id", "")), field, String(e.get(field, ""))])
+				return false
+	if _camp_prose_is_clean("A hank of paracord, about 30 metres of it."):
+		push_error("CAMP: the prose predicate cannot say no to a digit")
+		return false
+
+	# The two vocabularies, both directions. Every grade a base declares is one the sim prices, and
+	# every grade the sim prices is declared by at least one shipped base -- neither list can see the
+	# other, and a word in only one of them is a dead half either way.
+	var bed_seen: Dictionary = {}
+	var hyg_seen: Dictionary = {}
+	for entry_v in SimItems.content_entries(w, "item"):
+		var e: Dictionary = entry_v as Dictionary
+		if e.has("bedQuality"):
+			var grade: String = String(e["bedQuality"])
+			if SimNeeds.bedding_comfort(grade) <= 0.0:
+				push_error("CAMP: %s declares bedQuality '%s', which SimNeeds.BED_COMFORT prices at nothing" % [String(e.get("id", "")), grade])
+				return false
+			if not SimNeeds.BED_QUALITY_ORDER.has(grade):
+				push_error("CAMP: bedQuality '%s' is priced but absent from BED_QUALITY_ORDER, so best_by_content_key can never pick it" % grade)
+				return false
+			bed_seen[grade] = true
+		if e.has("hygiene"):
+			var soap: String = String(e["hygiene"])
+			if int(SimNeeds.HYGIENE_SCRUBS.get(soap, 0)) <= 0:
+				push_error("CAMP: %s declares hygiene '%s', which SimNeeds.HYGIENE_SCRUBS is worth nothing" % [String(e.get("id", "")), soap])
+				return false
+			if not SimNeeds.HYGIENE_ORDER.has(soap):
+				push_error("CAMP: hygiene '%s' is worth charges but is absent from HYGIENE_ORDER, so best_by_content_key can never pick it" % soap)
+				return false
+			hyg_seen[soap] = true
+	for grade in SimNeeds.BED_COMFORT.keys():
+		if not bed_seen.has(String(grade)):
+			push_error("CAMP: SimNeeds prices bedQuality '%s' and no shipped base declares it -- a grade nothing can be" % String(grade))
+			return false
+	for soap in SimNeeds.HYGIENE_SCRUBS.keys():
+		if not hyg_seen.has(String(soap)):
+			push_error("CAMP: SimNeeds prices hygiene '%s' and no shipped base declares it -- a grade nothing can be" % String(soap))
+			return false
+	# The true negative for both predicates: a fabricated grade is in neither table.
+	if SimNeeds.bedding_comfort("luxurious") > 0.0 or int(SimNeeds.HYGIENE_SCRUBS.get("boiled", 0)) > 0:
+		push_error("CAMP: a fabricated grade was priced, so the vocabulary predicates cannot say no")
+		return false
+
+	# Comfort is bounded, and the ladder is a ladder: each rung is worth strictly more than the one
+	# below it, so `best_by_content_key`'s order and the price table agree about which is better.
+	var previous: float = 2.0
+	for grade in SimNeeds.BED_QUALITY_ORDER:
+		var worth: float = SimNeeds.bedding_comfort(String(grade))
+		if worth <= 0.0 or worth > 1.0:
+			push_error("CAMP: bedQuality '%s' is worth %.3f, outside nothing-to-everything" % [String(grade), worth])
+			return false
+		if worth >= previous:
+			push_error("CAMP: bedQuality '%s' (%.3f) is not worth less than the rung above it (%.3f) -- the order and the prices disagree" % [String(grade), worth, previous])
+			return false
+		previous = worth
+	var prev_charges: int = 99
+	for soap in SimNeeds.HYGIENE_ORDER:
+		var charges: int = int(SimNeeds.HYGIENE_SCRUBS.get(String(soap), 0))
+		if charges <= 0 or charges >= prev_charges:
+			push_error("CAMP: hygiene '%s' is worth %d charges against %d for the rung above it -- the order and the prices disagree" % [String(soap), charges, prev_charges])
+			return false
+		prev_charges = charges
+
+	# The readers, by file and by needle. Textual, so the scan is proved on a fabricated needle that
+	# must not be found -- the trap `check_respond` and `check_weather` were both caught by is a
+	# needle that has quietly stopped matching anything.
+	for row in CAMP_READERS:
+		var code: String = FileAccess.get_file_as_string(String(row["file"]))
+		if code.is_empty():
+			push_error("CAMP: %s would not open, so its reader claim cannot be judged" % String(row["file"]))
+			return false
+		if not code.contains(String(row["needle"])):
+			push_error("CAMP: %s is claimed to read '%s' and does not contain %s" % [String(row["file"]), String(row["key"]), String(row["needle"])])
+			return false
+		if code.contains("func furnish_bedding_that_was_never_written("):
+			push_error("CAMP: the source scan found a function that does not exist")
+			return false
+
+	print("  CAMP: %d camping and utility bases, every one rolled by a table; bedQuality and hygiene are each an enum the sim prices and a price every enum reaches, both ladders strictly ordered; furnish_bed is reached from the Construct bed job and _spend_soap from the wash; a fabricated grade, a fabricated id and a digit in the prose are each refused" % entries.size())
+	return true

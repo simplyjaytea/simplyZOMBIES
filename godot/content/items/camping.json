@@ -1,0 +1,204 @@
+[
+  {
+    "id": "item.bedroll.foam",
+    "name": "Foam Bedroll",
+    "description": "A closed-cell mat rolled around its own straps. It is not soft. It is between you and the floor, which is the part that matters.",
+    "class": "tool",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.6,
+    "bedQuality": "padded"
+  },
+  {
+    "id": "item.bedroll.straw",
+    "name": "Straw Pallet",
+    "description": "Loose straw stitched into a ticking cover. It smells of a barn and it prickles through the seams, and nobody who has slept on boards complains.",
+    "class": "tool",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 3.4,
+    "bedQuality": "padded"
+  },
+  {
+    "id": "item.tarp.canvas",
+    "name": "Canvas Tarp",
+    "description": "Heavy proofed canvas with brass eyelets worn oval. Folded double it is a mattress; strung up it is a roof.",
+    "class": "tool",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 2.8,
+    "bedQuality": "padded"
+  },
+  {
+    "id": "item.hammock.nylon",
+    "name": "Nylon Hammock",
+    "description": "A packet of ripstop with the whole hammock crammed into it. Slung right, it keeps a sleeper off wet ground entirely.",
+    "class": "tool",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.5,
+    "bedQuality": "insulated"
+  },
+  {
+    "id": "item.sleepingbag.synthetic",
+    "name": "Synthetic Sleeping Bag",
+    "description": "A hollowfibre bag with a broken zip pull, knotted through with wire. It keeps its loft even damp, which down does not.",
+    "class": "tool",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 1.6,
+    "bedQuality": "insulated"
+  },
+  {
+    "id": "item.tent.dome",
+    "name": "Dome Tent",
+    "description": "A two-person dome in a stuff sack, poles lashed alongside. Pitched indoors it is a small warm room inside a cold one.",
+    "class": "tool",
+    "size": { "w": 2, "h": 4 },
+    "massKg": 3.2,
+    "bedQuality": "insulated"
+  },
+  {
+    "id": "item.sleepingbag.down",
+    "name": "Down Sleeping Bag",
+    "description": "An expedition bag, baffled and absurdly light for its bulk. Somebody was going somewhere serious and did not get to go.",
+    "class": "tool",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 1.3,
+    "bedQuality": "proper"
+  },
+  {
+    "id": "item.mattress.camp",
+    "name": "Self-Inflating Mattress",
+    "description": "A valve, a foam core and a skin that drinks air on its own if you leave it long enough. The best night anybody here is getting.",
+    "class": "tool",
+    "size": { "w": 2, "h": 4 },
+    "massKg": 2.1,
+    "bedQuality": "proper"
+  },
+  {
+    "id": "item.soap.flakes",
+    "name": "Box of Soap Flakes",
+    "description": "Laundry flakes gone half to powder in a split carton. They lather badly and they still count.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.3,
+    "stack": 3,
+    "hygiene": "rinse"
+  },
+  {
+    "id": "item.soap.bar",
+    "name": "Bar of Soap",
+    "description": "A shrink-wrapped hotel bar, cracked across the middle. Cleanliness that outlasts the wash it was used in.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "stack": 4,
+    "hygiene": "scrub"
+  },
+  {
+    "id": "item.sanitiser.gel",
+    "name": "Bottle of Hand Gel",
+    "description": "Alcohol gel with a pump that sticks. It strips a pair of hands back to nothing living, and it stings the cracks.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.25,
+    "stack": 2,
+    "hygiene": "sterile"
+  },
+  {
+    "id": "item.surgical.kit",
+    "name": "Field Surgical Kit",
+    "description": "A roll of instruments in sterile foil, needle drivers and curved needles laid in order. It closes what a bandage only covers.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.35,
+    "stack": 2,
+    "closeKind": "suture"
+  },
+  {
+    "id": "item.cordage.paracord",
+    "name": "Hank of Paracord",
+    "description": "Sheathed nylon line wound into a hank. Gutted for the inner strands it is sewing thread, whole it holds a ridgeline.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.35,
+    "buildMaterial": "cordage",
+    "stack": 4
+  },
+  {
+    "id": "item.fishing.line",
+    "name": "Spool of Fishing Line",
+    "description": "Monofilament on a plastic spool, stiff with age. Invisible at knee height, which has uses beyond the water.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.15,
+    "buildMaterial": "cordage",
+    "stack": 4
+  },
+  {
+    "id": "item.canvas.sheet",
+    "name": "Sheet of Canvas",
+    "description": "Duck canvas cut off a bolt, the selvedge still raw. Sacking, patching, a door where a door is missing.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.1,
+    "buildMaterial": "fiber",
+    "stack": 3
+  },
+  {
+    "id": "item.stakes.tent",
+    "name": "Bundle of Tent Stakes",
+    "description": "Steel pegs bent at the head, bundled with a perished rubber band. They hold a guy line or a tarpaulin or a snare.",
+    "class": "material",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.4,
+    "buildMaterial": "fixings",
+    "stack": 4
+  },
+  {
+    "id": "item.pole.aluminium",
+    "name": "Aluminium Pole Section",
+    "description": "A shock-corded tent pole missing its partner. Light, straight, and stronger than it has any right to be.",
+    "class": "material",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 0.3,
+    "buildMaterial": "metal",
+    "stack": 3
+  },
+  {
+    "id": "item.scalpel.steel",
+    "name": "Scalpel",
+    "description": "A steel handle with a fresh blade clipped on, in a paper sleeve. It takes up almost no room at all, which is the whole argument for carrying one.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.04
+  },
+  {
+    "id": "item.boltcutters.long",
+    "name": "Long-Handled Bolt Cutters",
+    "description": "Compound handles longer than an arm, jaws chipped at the tip. Whatever they are opening, they are not going in a pocket.",
+    "class": "material",
+    "size": { "w": 2, "h": 4 },
+    "massKg": 4.5
+  },
+  {
+    "id": "item.lockpick.set",
+    "name": "Set of Picks",
+    "description": "Rakes and a tension wrench in a leather fold. Patience in a wallet, for somebody who already has the patience.",
+    "class": "material",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.08
+  },
+  {
+    "id": "item.binoculars.field",
+    "name": "Field Binoculars",
+    "description": "Rubber-armoured and fogged in one barrel. The good barrel still brings a far street close enough to argue about.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.8
+  },
+  {
+    "id": "item.fishing.rod",
+    "name": "Telescopic Rod",
+    "description": "A travel rod collapsed into its own butt section, reel seat empty. The river is still there and the river does not know.",
+    "class": "material",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 0.45
+  }
+]
