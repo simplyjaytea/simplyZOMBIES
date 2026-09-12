@@ -85,6 +85,7 @@
     },
     "massKg": 0.35,
     "stack": 3,
+    "cooksInto": "item.food.cooked",
     "food": {
       "hunger": 25,
       "mood": -8,
@@ -191,6 +192,7 @@
     },
     "massKg": 1.0,
     "cleanTier": "water",
+    "boilsInto": "item.water.bottle",
     "drink": {
       "thirst": 50,
       "illnessChance": 0.15
