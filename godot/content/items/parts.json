@@ -168,7 +168,7 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
-      "overrides": { "ranged": { "ammo": "item.ammo.22" } },
+      "overrides": { "ranged": { "ammo": "item.ammo.22", "caliber": "22" } },
       "ranged": { "damage": 0.6, "noise": 0.7 },
       "wearsOn": ["shot"],
       "wearRate": 1.1
@@ -185,7 +185,7 @@
       "fits": ["magazine"],
       "fieldSwap": true,
       "structural": true,
-      "overrides": { "ranged": { "ammo": "item.ammo.22" } },
+      "overrides": { "ranged": { "ammo": "item.ammo.22", "caliber": "22" } },
       "ranged": { "magSize": 1.25 },
       "wearsOn": ["reload", "jam"],
       "wearRate": 1.4
@@ -201,7 +201,7 @@
     "attachment": {
       "fits": ["barrel"],
       "structural": true,
-      "overrides": { "ranged": { "ammo": "item.ammo.45" } },
+      "overrides": { "ranged": { "ammo": "item.ammo.45", "caliber": "45" } },
       "ranged": { "damage": 1.2, "rangeMetres": 0.85, "noise": 1.05 },
       "wearsOn": ["shot"],
       "wearRate": 1.0
@@ -217,7 +217,7 @@
     "attachment": {
       "fits": ["magazine"],
       "structural": true,
-      "overrides": { "ranged": { "ammo": "item.ammo.45" } },
+      "overrides": { "ranged": { "ammo": "item.ammo.45", "caliber": "45" } },
       "ranged": { "magSize": 0.7 },
       "wearsOn": ["reload", "jam"],
       "wearRate": 1.2
@@ -233,7 +233,7 @@
     "attachment": {
       "fits": ["internal"],
       "structural": true,
-      "overrides": { "ranged": { "ammo": "item.ammo.38" } },
+      "overrides": { "ranged": { "ammo": "item.ammo.38.plusp", "caliber": "38" } },
       "ranged": { "damage": 1.15, "noise": 1.1 },
       "wearsOn": ["shot", "jam"],
       "wearRate": 1.2

@@ -138,6 +138,33 @@ static func _carries_a_digit(text: String) -> bool:
 	return false
 
 
+# An item's **name** is the one string on these screens allowed to carry a digit, by the owner's
+# decision of 2026-09-12 (docs/30, "The cartridge on the label"). A cartridge is called what it is
+# called -- `.308 Winchester`, `12 Gauge Buckshot`, `9x19mm Parabellum` -- and a roster of twenty
+# rounds named around the ban would have been twenty rounds a player cannot tell apart, which is a
+# worse failure of clause 4 than the digit was.
+#
+# **One predicate, two lanes.** STRIP and INSPECT both scan a name, and the file already keeps one
+# `_carries_a_digit` so DESCRIPTION and INSPECT cannot disagree about what a digit is; two copies
+# of this exemption written separately is the same mistake with the answer inverted, and is the
+# shape of every dead socket in this milestone.
+#
+# **What is still refused, and this is the whole of the clause.** A name that is *nothing but* a
+# quantity -- "12", "3 " -- is a count with no noun, which no cartridge designation is and no item
+# on the roster is. That is the true negative `_a_bare_quantity_is_still_refused` fabricates. And
+# the exemption is scoped to this one field: `description`, `condition`, every other value in the
+# inspect pane, and every line `check_hud.gd` scans are all untouched, which the lanes below prove
+# by refusing the identical string in those positions.
+static func _name_is_allowed(text: String) -> bool:
+	var trimmed: String = text.strip_edges()
+	if trimmed.is_empty():
+		return false
+	for ch in trimmed:
+		if not (ch >= "0" and ch <= "9"):
+			return true
+	return false
+
+
 func _world(seed_val: int) -> Variant:
 	var fixture: Dictionary = {
 		"seed": seed_val,
@@ -294,6 +321,28 @@ func _the_pane_carries_only_words() -> bool:
 		push_error("the key allowlist passed a view with no condition word")
 		return false
 
+	# The name exemption, both ways round, because an exemption with only a positive is a hole.
+	# A cartridge is allowed to be called what it is called; a name that is *nothing but* a
+	# quantity is still a count with no noun and is still refused. And the exemption reaches
+	# exactly one field: the identical string is refused the moment it is a description instead,
+	# which is what "narrow" means here and is the half that would rot silently if unasserted.
+	var cartridge: Dictionary = sabotage.duplicate()
+	cartridge["description"] = "A service pistol."
+	cartridge["name"] = ".308 Winchester Match"
+	if not _inspect_faults(cartridge).is_empty():
+		push_error("the pane refused a cartridge name: %s" % ", ".join(PackedStringArray(_inspect_faults(cartridge))))
+		return false
+	var counted: Dictionary = cartridge.duplicate()
+	counted["name"] = "12"
+	if _inspect_faults(counted).is_empty():
+		push_error("the pane passed a name that is nothing but a quantity: \"12\"")
+		return false
+	var leaked: Dictionary = cartridge.duplicate()
+	leaked["description"] = ".308 Winchester Match"
+	if _inspect_faults(leaked).is_empty():
+		push_error("the name exemption leaked into `description` -- it is scoped to one field")
+		return false
+
 	# Now the real thing, on a loadout that fills every branch: a worn coat, a held weapon with an
 	# attachment fitted and an empty slot beside it, a loose attachment, and a plain stack.
 	var w: Variant = _world(3102)
@@ -391,7 +440,12 @@ func _inspect_faults(view: Dictionary) -> Array:
 			continue
 		var value: Variant = view[key]
 		if value is String:
-			if _carries_a_digit(value as String):
+			# The one exempted field, and only in this one position. `description` and every other
+			# string below stay under the full ban -- see `_name_is_allowed`.
+			if name == "name":
+				if not _name_is_allowed(value as String):
+					out.append("\"%s\" is a bare quantity: \"%s\"" % [name, String(value)])
+			elif _carries_a_digit(value as String):
 				out.append("\"%s\" carries a digit: \"%s\"" % [name, String(value)])
 		elif value is bool:
 			pass
@@ -651,8 +705,8 @@ func _the_strip_is_the_belt_and_the_pockets() -> bool:
 		if String(d.get("name", "")).is_empty():
 			push_error("a strip entry has no name")
 			return false
-		if _carries_a_digit(String(d.get("name", ""))):
-			push_error("a strip entry's name carries a digit: \"%s\"" % String(d.get("name", "")))
+		if not _name_is_allowed(String(d.get("name", ""))):
+			push_error("a strip entry's name is a bare quantity: \"%s\"" % String(d.get("name", "")))
 			return false
 	print("STRIP OK the pocket and the belt are on it, the pack is not, and %d entries fill %d keys" % [full.size(), SimInventory.STRIP_SLOTS])
 	return true

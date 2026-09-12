@@ -259,7 +259,12 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # `light` and no `modification` block is a tool nothing reads, which is exactly the socket this
 # milestone keeps paying for, so the lane refuses it.
 
-const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification"]
+# `ammo` joined this list with the caliber slice. A round was `class: material` with a `stack`
+# and nothing else, so it declared none of these keys and this lane never asked whether it was
+# reachable -- the CATALOGUE lane below reached the eight shipped rounds only through the
+# weapons that name them in `ranged.ammo`. A *variant* round is named by no weapon, so without
+# this key a slug in no loot table would have been complete, correct and unfindable.
+const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo"]
 # The bases a *job or verb* produces rather than a table rolls, each with the sim file that names
 # it, so the allowance cannot outlive the code it describes: cooked food out of SimJobs' cook job,
 # and well water out of SimNeeds.fill_bottle.

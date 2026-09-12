@@ -18,6 +18,7 @@
       "damage": 12,
       "noise": 4,
       "ammo": "item.ammo.arrow",
+      "caliber": "arrow",
       "recoverable": 0.7,
       "reloadTicks": 24,
       "rangeMetres": 40,
@@ -45,6 +46,7 @@
       "noise": 180,
       "flash": 60,
       "ammo": "item.ammo.9mm",
+      "caliber": "9mm",
       "magSize": 8,
       "reloadTicks": 40,
       "rangeMetres": 25,
@@ -59,16 +61,18 @@
     "class": "material",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.03,
-    "stack": 20
+    "stack": 20,
+    "ammo": { "caliber": "arrow" }
   },
   {
     "id": "item.ammo.9mm",
-    "name": "9mm Round",
+    "name": "9x19mm Parabellum",
     "description": "A pistol round, brass gone dull.",
     "class": "material",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.012,
-    "stack": 20
+    "stack": 20,
+    "ammo": { "caliber": "9mm" }
   },
   {
     "id": "item.shotgun.pump",
@@ -86,7 +90,7 @@
       "internal": "item.part.action.standard",
       "furniture": "item.part.stock.standard"
     },
-    "ranged": {"damage": 30, "noise": 220, "flash": 90, "ammo": "item.ammo.12g", "magSize": 5, "reloadTicks": 60, "rangeMetres": 15, "weight": 1.4, "jams": true}
+    "ranged": {"damage": 30, "noise": 220, "flash": 90, "ammo": "item.ammo.12g", "caliber": "12g", "magSize": 5, "reloadTicks": 60, "rangeMetres": 15, "weight": 1.4, "jams": true}
   },
   {
     "id": "item.rifle.hunting",
@@ -105,25 +109,27 @@
       "internal": "item.part.action.standard",
       "furniture": "item.part.stock.standard"
     },
-    "ranged": {"damage": 34, "noise": 200, "flash": 70, "ammo": "item.ammo.rifle", "magSize": 4, "reloadTicks": 70, "rangeMetres": 60, "weight": 1.5, "jams": true}
+    "ranged": {"damage": 34, "noise": 200, "flash": 70, "ammo": "item.ammo.rifle", "caliber": "rifle", "magSize": 4, "reloadTicks": 70, "rangeMetres": 60, "weight": 1.5, "jams": true}
   },
   {
     "id": "item.ammo.12g",
-    "name": "Shotgun Shell",
+    "name": "12 Gauge Buckshot",
     "description": "A shotgun shell, plastic hull, brass base.",
     "class": "material",
     "size": {"w": 1, "h": 1},
     "massKg": 0.04,
-    "stack": 12
+    "stack": 12,
+    "ammo": { "caliber": "12g" }
   },
   {
     "id": "item.ammo.rifle",
-    "name": "Rifle Round",
+    "name": ".308 Winchester",
     "description": "A rifle cartridge, long and heavy in the hand.",
     "class": "material",
     "size": {"w": 1, "h": 1},
     "massKg": 0.02,
-    "stack": 20
+    "stack": 20,
+    "ammo": { "caliber": "rifle" }
   },
   {
     "id": "item.crossbow.hunting",
@@ -140,7 +146,7 @@
       "limb": "item.part.limb.standard",
       "string": "item.part.string.standard"
     },
-    "ranged": {"damage": 20, "noise": 6, "ammo": "item.ammo.bolt", "recoverable": 0.6, "reloadTicks": 90, "rangeMetres": 35, "weight": 1.6}
+    "ranged": {"damage": 20, "noise": 6, "ammo": "item.ammo.bolt", "caliber": "bolt", "recoverable": 0.6, "reloadTicks": 90, "rangeMetres": 35, "weight": 1.6}
   },
   {
     "id": "item.revolver.snub",
@@ -157,7 +163,7 @@
       "barrel": "item.part.barrel.standard",
       "internal": "item.part.action.standard"
     },
-    "ranged": {"damage": 22, "noise": 190, "flash": 55, "ammo": "item.ammo.38", "magSize": 6, "reloadTicks": 75, "rangeMetres": 18, "weight": 1.0, "jams": false}
+    "ranged": {"damage": 22, "noise": 190, "flash": 55, "ammo": "item.ammo.38", "caliber": "38", "magSize": 6, "reloadTicks": 75, "rangeMetres": 18, "weight": 1.0, "jams": false}
   },
   {
     "id": "item.rifle.rimfire",
@@ -176,7 +182,7 @@
       "internal": "item.part.action.standard",
       "furniture": "item.part.stock.standard"
     },
-    "ranged": {"damage": 10, "noise": 120, "flash": 35, "ammo": "item.ammo.22", "magSize": 10, "reloadTicks": 45, "rangeMetres": 50, "weight": 1.1, "jams": true}
+    "ranged": {"damage": 10, "noise": 120, "flash": 35, "ammo": "item.ammo.22", "caliber": "22", "magSize": 10, "reloadTicks": 45, "rangeMetres": 50, "weight": 1.1, "jams": true}
   },
   {
     "id": "item.smg.compact",
@@ -195,16 +201,17 @@
       "internal": "item.part.action.standard",
       "furniture": "item.part.stock.standard"
     },
-    "ranged": {"damage": 14, "noise": 150, "flash": 45, "ammo": "item.ammo.9mm", "magSize": 30, "reloadTicks": 38, "rangeMetres": 22, "weight": 0.85, "jams": true}
+    "ranged": {"damage": 14, "noise": 150, "flash": 45, "ammo": "item.ammo.9mm", "caliber": "9mm", "magSize": 30, "reloadTicks": 38, "rangeMetres": 22, "weight": 0.85, "jams": true}
   },
   {
     "id": "item.ammo.45",
-    "name": "Heavy Pistol Round",
+    "name": ".45 ACP",
     "description": "A fat, slow, blunt-nosed cartridge. Fewer fit anywhere, and each one lands like a thrown brick.",
     "class": "material",
     "size": {"w": 1, "h": 1},
     "massKg": 0.021,
-    "stack": 16
+    "stack": 16,
+    "ammo": { "caliber": "45" }
   },
   {
     "id": "item.carbine.lever",
@@ -222,7 +229,7 @@
       "internal": "item.part.action.standard",
       "furniture": "item.part.stock.standard"
     },
-    "ranged": {"damage": 26, "noise": 190, "flash": 60, "ammo": "item.ammo.rifle", "magSize": 6, "reloadTicks": 60, "rangeMetres": 45, "weight": 1.15, "jams": true}
+    "ranged": {"damage": 26, "noise": 190, "flash": 60, "ammo": "item.ammo.rifle", "caliber": "rifle", "magSize": 6, "reloadTicks": 60, "rangeMetres": 45, "weight": 1.15, "jams": true}
   },
   {
     "id": "item.pistol.target",
@@ -240,7 +247,7 @@
       "magazine": "item.part.magazine.standard",
       "internal": "item.part.action.standard"
     },
-    "ranged": {"damage": 8, "noise": 110, "flash": 25, "ammo": "item.ammo.22", "magSize": 10, "reloadTicks": 40, "rangeMetres": 20, "weight": 0.9, "jams": true}
+    "ranged": {"damage": 8, "noise": 110, "flash": 25, "ammo": "item.ammo.22", "caliber": "22", "magSize": 10, "reloadTicks": 40, "rangeMetres": 20, "weight": 0.9, "jams": true}
   },
   {
     "id": "item.shotgun.sawnoff",
@@ -257,7 +264,7 @@
       "barrel": "item.part.barrel.standard",
       "internal": "item.part.action.standard"
     },
-    "ranged": {"damage": 34, "noise": 230, "flash": 100, "ammo": "item.ammo.12g", "magSize": 2, "reloadTicks": 55, "rangeMetres": 8, "weight": 0.95, "jams": true}
+    "ranged": {"damage": 34, "noise": 230, "flash": 100, "ammo": "item.ammo.12g", "caliber": "12g", "magSize": 2, "reloadTicks": 55, "rangeMetres": 8, "weight": 0.95, "jams": true}
   },
   {
     "id": "item.bow.recurve",
@@ -274,7 +281,7 @@
       "limb": "item.part.limb.standard",
       "string": "item.part.string.standard"
     },
-    "ranged": {"damage": 9, "noise": 3, "ammo": "item.ammo.arrow", "recoverable": 0.75, "reloadTicks": 16, "rangeMetres": 32, "weight": 0.9}
+    "ranged": {"damage": 9, "noise": 3, "ammo": "item.ammo.arrow", "caliber": "arrow", "recoverable": 0.75, "reloadTicks": 16, "rangeMetres": 32, "weight": 0.9}
   },
   {
     "id": "item.crossbow.repeating",
@@ -291,7 +298,7 @@
       "limb": "item.part.limb.standard",
       "string": "item.part.string.standard"
     },
-    "ranged": {"damage": 16, "noise": 7, "ammo": "item.ammo.bolt", "recoverable": 0.5, "magSize": 5, "reloadTicks": 120, "rangeMetres": 28, "weight": 1.45}
+    "ranged": {"damage": 16, "noise": 7, "ammo": "item.ammo.bolt", "caliber": "bolt", "recoverable": 0.5, "magSize": 5, "reloadTicks": 120, "rangeMetres": 28, "weight": 1.45}
   },
   {
     "id": "item.ammo.bolt",
@@ -300,24 +307,147 @@
     "class": "material",
     "size": {"w": 1, "h": 1},
     "massKg": 0.05,
-    "stack": 16
+    "stack": 16,
+    "ammo": { "caliber": "bolt" }
   },
   {
     "id": "item.ammo.38",
-    "name": "Revolver Round",
+    "name": ".38 Special",
     "description": "A stubby revolver cartridge with a lead nose.",
     "class": "material",
     "size": {"w": 1, "h": 1},
     "massKg": 0.015,
-    "stack": 20
+    "stack": 20,
+    "ammo": { "caliber": "38" }
   },
   {
     "id": "item.ammo.22",
-    "name": "Rimfire Round",
+    "name": ".22 Long Rifle",
     "description": "A tiny rimfire cartridge. There are always more of these than of anything else.",
     "class": "material",
     "size": {"w": 1, "h": 1},
     "massKg": 0.004,
-    "stack": 40
+    "stack": 40,
+    "ammo": { "caliber": "22" }
+  },
+  {
+    "id": "item.ammo.12g.slug",
+    "name": "12 Gauge Rifled Slug",
+    "description": "One lead ball where a shell usually holds a handful. It goes where the barrel points and it does not spread.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.045,
+    "stack": 10,
+    "ammo": { "caliber": "12g", "ranged": { "damage": 1.5, "rangeMetres": 1.8, "cone": 0.55 } }
+  },
+  {
+    "id": "item.ammo.12g.bird",
+    "name": "12 Gauge Birdshot",
+    "description": "A shell loaded for pigeons. It is a great deal of noise and a wide cloud of very little.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.038,
+    "stack": 16,
+    "ammo": { "caliber": "12g", "ranged": { "damage": 0.45, "cone": 1.7, "noise": 0.92 } }
+  },
+  {
+    "id": "item.ammo.9mm.hollow",
+    "name": "9x19mm Hollow Point",
+    "description": "A pistol round with a dimple in the nose. It opens up in whatever it hits and does not carry as far.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.012,
+    "stack": 16,
+    "ammo": { "caliber": "9mm", "ranged": { "damage": 1.35, "rangeMetres": 0.85 } }
+  },
+  {
+    "id": "item.ammo.9mm.sub",
+    "name": "9x19mm Subsonic",
+    "description": "A heavy bullet loaded slow enough to stay under the crack. Less powder, less flash, and less of everything else.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.014,
+    "stack": 16,
+    "ammo": { "caliber": "9mm", "ranged": { "noise": 0.45, "flash": 0.5, "damage": 0.8 } }
+  },
+  {
+    "id": "item.ammo.rifle.match",
+    "name": ".308 Winchester Match",
+    "description": "Cartridges somebody loaded one at a time, weighed and trimmed. They all go to the same place.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.021,
+    "stack": 10,
+    "ammo": { "caliber": "rifle", "ranged": { "cone": 0.6, "damage": 1.1 } }
+  },
+  {
+    "id": "item.ammo.rifle.surplus",
+    "name": ".308 Winchester Surplus",
+    "description": "Steel-cased army stock out of a crate older than the outbreak. It is loud, it is filthy, and there is a lot of it.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.019,
+    "stack": 30,
+    "ammo": { "caliber": "rifle", "ranged": { "damage": 0.85, "noise": 1.15 } }
+  },
+  {
+    "id": "item.ammo.22.sub",
+    "name": ".22 Long Rifle Subsonic",
+    "description": "A rimfire round loaded quiet. Out of a long barrel it is not much more than a cough.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.004,
+    "stack": 40,
+    "ammo": { "caliber": "22", "ranged": { "noise": 0.35, "flash": 0.4, "damage": 0.85 } }
+  },
+  {
+    "id": "item.ammo.38.plusp",
+    "name": ".38 Special +P",
+    "description": "The same case loaded hot. It kicks, it barks, and it puts something down that the ordinary round would not have.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.016,
+    "stack": 16,
+    "ammo": { "caliber": "38", "ranged": { "damage": 1.25, "noise": 1.12, "cone": 1.1 } }
+  },
+  {
+    "id": "item.ammo.45.hollow",
+    "name": ".45 ACP Hollow Point",
+    "description": "A fat slow bullet with a hole in the front of it. It was never going far anyway.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.021,
+    "stack": 12,
+    "ammo": { "caliber": "45", "ranged": { "damage": 1.3, "rangeMetres": 0.85 } }
+  },
+  {
+    "id": "item.ammo.arrow.broadhead",
+    "name": "Broadhead Arrow",
+    "description": "A hunting head, ground to three edges. It cuts a wound that does not close, and it rarely comes out whole.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.035,
+    "stack": 12,
+    "ammo": { "caliber": "arrow", "ranged": { "damage": 1.6, "recoverable": 0.5 } }
+  },
+  {
+    "id": "item.ammo.arrow.target",
+    "name": "Target Arrow",
+    "description": "A field point off a club range. It punches a neat hole, and you will nearly always find it again.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.028,
+    "stack": 24,
+    "ammo": { "caliber": "arrow", "ranged": { "damage": 0.7, "recoverable": 1.25 } }
+  },
+  {
+    "id": "item.ammo.bolt.broadhead",
+    "name": "Broadhead Bolt",
+    "description": "A short heavy shaft with a hunting head on it. What it hits, it goes through.",
+    "class": "material",
+    "size": {"w": 1, "h": 1},
+    "massKg": 0.045,
+    "stack": 10,
+    "ammo": { "caliber": "bolt", "ranged": { "damage": 1.5, "recoverable": 0.6 } }
   }
 ]

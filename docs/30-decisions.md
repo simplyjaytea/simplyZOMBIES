@@ -3924,3 +3924,106 @@ the hold lifts. The four-views piece is absorbed outright: a rotating torso is e
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
 **Next:** [31 — Godot Rebuild Roadmap](31-godot-rebuild-roadmap.md) ·
 [Doc index](../README.md#documentation)
+
+---
+
+## The round in the chamber, 2026-09-12
+
+The owner opened the alpha item roster — *"food, medicine, ammo, ammo types (configure for guns
+too), attachments, bags"* — and the one piece of it that was not a data edit was ammunition types.
+Four answers, and this entry is the first two.
+
+**A round is multipliers over a caliber, not ballistics of its own.** The alternative on the table
+was the faithful one: the round carries damage and noise outright and the weapon contributes only
+range, handling, magazine and reload. It was refused because it re-authors all thirteen shipped
+firearms and re-opens the entire ranged balance table to ship a feature about *choice*, and because
+the multiplier form already exists here and is already understood — `attachment.ranged` is the same
+grammar, `SimAttachments.SCALABLE` is the same whitelist, and docs/30's own note on it ("an
+attachment declares what it multiplies, and the module names none of them") transfers word for
+word. Nothing in `ranged.gd` knows what a slug is.
+
+**`ranged.ammo` keeps its meaning and `ranged.caliber` is added beside it.** The round a weapon
+*prefers* and the set it will *take* are two facts, not one, and splitting them is what makes the
+slice additive: a survivor carrying only the round their weapon names picks it on the first pass, so
+every shipped weapon's authored numbers, every parity fixture and all four balance seeds see exactly
+the sequence they saw before. `M2_AMMO_OK`'s DEFAULT lane pins that as numbers — a service pistol
+still makes 180 and still does 18 — rather than as "nothing crashed". Folding the two into one list
+was considered and refused: it would have made "which round a shotgun reaches for" a function of a
+sort order in code rather than of content, and it would have made the five conversion parts'
+existing `overrides.ranged.ammo` dead.
+
+**A conversion part moves both, and the gate is what says so.** `caliber` joins `OVERRIDABLE`
+beside `ammo`, and all five conversion parts declare the pair. A part that moved only the round
+would build a pistol that prefers something it cannot chamber — the pick would fall through to the
+old caliber every time, so the conversion would *appear* to work and quietly fire the wrong
+ammunition, with no error and no wrong number. Nothing in `attachments.gd` can see the sibling key,
+which is why the claim lives in `check_m2_ammo.gd`'s CONVERT lane and is proved by deleting one.
+
+**The whitelist is its own, and smaller than the attachment one.** `SimRanged.AMMO_SCALABLE` is
+`damage · noise · flash · rangeMetres · cone · recoverable` — every field `_fire_shot` reads *after*
+the round is spent, and no others. `magSize`, `reloadTicks` and `handling` are read before a round
+is ever chosen, so a round scaling one would be a multiplier authored in content that nothing could
+read: the dead-socket shape, in its most invisible form. Reusing `SCALABLE["ranged"]` would also
+have routed rounds through `effect_scale`, which walks a multiplier toward 1.0 by the *part's*
+condition — a slug is spent, not worn, and softening it because the box of shells was scuffed is
+not a rule anyone would have chosen.
+
+**The round's effect belongs to the shot, not to the gun.** `_fire_shot`'s `weapon` argument is the
+live `rangedWeapon` component. The multipliers are resolved into a local and applied at each read
+site; written back into that dictionary they would scale the weapon permanently, compounding once
+per shot. The one field re-clamped rather than merely multiplied is the cone, to the bounds
+`_refresh_cone` itself uses: `WIDE_HALF` is what the cone means at its widest — a sprint, a ruined
+arm, a body out of breath all stop there — so birdshot reaches the cap and stops. Widening past it
+is reserved for the aim slice, which needs it for a different reason and says so.
+
+**No `SAVE_VERSION` bump.** `rangedWeapon` is an ordinary component saved wholesale and never
+rebuilt on load, so a save written before this slice restores a weapon with no `caliber`, and the
+empty-caliber path is exact-id matching — which is what that weapon did when it was saved. The
+precedent is the same component's own: `weight` and `handling` were added to it without a bump for
+the same reason. What makes it honest rather than hopeful is that the fallback is *gated*:
+`M2_AMMO_OK`'s LEGACY lane erases the caliber off a live weapon and asserts it still fires the round
+it names and still refuses a same-caliber one. A branch nothing asserts is a dead socket with a
+better story.
+
+**What shipped is the mechanism, not the choice.** With buckshot and slugs both in the pack the
+pick order decides, and the player's only way to fire the slug is to carry nothing else. The
+fallback is sorted by base id rather than taken in carry order, so at least the answer does not
+move when a bag is tidied — but *choosing* is a verb on the inventory sheet and is named in
+docs/23's what's-left rather than half-built here. So is the magazine: `FireState.Reload` refills
+`mag` from `magSize` and consumes nothing, so a magazine can hold mixed rounds and switching loads
+is instant. That is the cheapest consistent story and it is written down rather than discovered.
+
+## The cartridge on the label, 2026-09-12
+
+The owner's third and fourth answers, and the second is an amendment to a standing ban, which
+CLAUDE.md says must not happen quietly.
+
+**Rounds are called what they are called.** `.308 Winchester Match`, `12 Gauge Buckshot`,
+`9x19mm Parabellum`. The alternative was the plain-language naming the rest of the roster uses —
+"Rifle Round (Soft Point)" — and the owner took the real designations knowing the cost.
+
+**The cost: the digit ban gains an item-name clause.** `check_inventory.gd` scanned an item's `name`
+in two places — the quick strip, which is on the player HUD, and the inspect pane — and refused any
+digit in either. This was raised before the decision rather than discovered after it, and the owner
+decided to amend rather than to name around it. The reasoning that decided it: a roster of twenty
+rounds named around the ban would be twenty rounds a player cannot tell apart, which is a worse
+failure of [clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) than the digit
+is. Clause 4 prohibits collapsing *uncertainty* into a number. A cartridge designation is a proper
+noun; it says what the thing is, not how much of it there is or how good it is.
+
+**The clause is narrow and it is one predicate.** `_name_is_allowed` refuses a name that is nothing
+but a quantity — "12" is a count with no noun, which no cartridge designation is — and both lanes
+call it rather than each growing their own copy, for the same reason the file already keeps one
+`_carries_a_digit` so DESCRIPTION and INSPECT cannot disagree about what a digit is. Two copies of
+an exemption is that mistake with the answer inverted.
+
+**What is still banned, and is asserted to still be banned.** `description` (the DESCRIPTION lane
+walks all 164 shipped bases), every other value in the inspect pane, `condition`, and every line
+`check_hud.gd` reads. The lane proves all three directions on fabricated views: a cartridge name
+passes, a bare quantity is refused, and *the identical string is refused the moment it is a
+description instead* — which is what "scoped to one field" means and is the half that would have
+rotted silently if it were only written in a comment.
+
+**It also fixed something.** `item.ammo.9mm` shipped as "9mm Round" and would have failed the STRIP
+lane the first time a pistol round reached that lane's fixture — a latent red that had simply never
+been run. The eight shipped rounds were renamed in the same commit.

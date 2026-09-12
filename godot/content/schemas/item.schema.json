@@ -184,7 +184,7 @@
             "ranged": {
               "type": "object",
               "additionalProperties": { "type": ["string", "boolean"] },
-              "description": "Replacement values keyed by profile field: `ammo` (an item base id) and `jams` (a boolean)."
+              "description": "Replacement values keyed by profile field: `ammo` (an item base id), `caliber` (a family name) and `jams` (a boolean). A conversion part declares `ammo` and `caliber` together -- one without the other builds a weapon that prefers a round it cannot chamber, and check_m2_ammo.gd's CONVERT lane refuses it."
             }
           }
         },
@@ -211,14 +211,21 @@
     },
     "ranged": {
       "type": "object",
-      "description": "Optional ranged block. Every field is optional except `weight` -- see its own description.",
-      "required": ["weight"],
+      "description": "Optional ranged block. Every field is optional except `weight` and `caliber` -- see their own descriptions.",
+      "required": ["weight", "caliber"],
       "additionalProperties": false,
       "properties": {
         "damage": { "type": "number", "exclusiveMinimum": 0 },
         "noise": { "type": "number", "minimum": 0 },
         "flash": { "type": "number", "minimum": 0 },
-        "ammo": { "type": "string" },
+        "ammo": {
+          "type": "string",
+          "description": "The round this weapon prefers -- the one it is loaded with when its owner is carrying it. Not the only round it will take: `caliber` is the compatibility set, and a weapon with no round of its preferred base but a same-caliber one in a pocket loads that instead. Kept as an item base id rather than folded into `caliber` because a conversion part overrides exactly this field (SimAttachments.OVERRIDABLE) and because every shipped weapon's numbers were authored against one named round."
+        },
+        "caliber": {
+          "type": "string",
+          "description": "What else will chamber. A free string rather than an enum for the reason `slots` is one -- the registry is the shipped content and check_m2_ammo.gd asserts both directions, so a caliber no round declares and a round no weapon chambers are each a named dead socket rather than a schema error nobody reads. Absent means the weapon takes only its declared `ammo`, which is what a bow does."
+        },
         "recoverable": { "type": "number", "minimum": 0, "maximum": 1 },
         "magSize": { "type": "integer", "minimum": 1 },
         "reloadTicks": { "type": "integer", "minimum": 1 },
@@ -231,6 +238,23 @@
         "jams": {
           "type": "boolean",
           "description": "Whether this weapon can jam as it degrades, per docs/09-combat.md: \"degraded firearms jam, and clearing a jam takes longer than a reload\". Firearms only -- a bow has nothing to stovepipe -- which is why it is declared here rather than inferred from having a magazine. The chance itself is not authored: SimItems.JAM_CHANCE_BY_BAND derives it from condition, so it cannot drift from the band the inventory screen shows for the same weapon."
+        }
+      }
+    },
+    "ammo": {
+      "type": "object",
+      "description": "Present on a round and absent on everything else, the way `food` is what makes an item edible. `caliber` is the only required key: a round that names a caliber and scales nothing is the plain load for that weapon, which is what every round shipped before this block existed effectively was. The `ranged` table is multipliers folded over the *host weapon's* profile for the one shot that spends this round -- the same grammar `attachment.ranged` uses and for the same reason, so a slug is one set of numbers whatever gun it goes into and nothing in the sim has to know what a slug is. Multipliers, never adders. The content validator is shallow and will not look inside this, which is what godot/check_m2_ammo.gd is for.",
+      "additionalProperties": false,
+      "required": ["caliber"],
+      "properties": {
+        "caliber": {
+          "type": "string",
+          "description": "The caliber this round is. Matched against a weapon's `ranged.caliber`, exactly -- a caliber is not ranked and not converted, so a round either chambers or it does not."
+        },
+        "ranged": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 },
+          "description": "Multipliers over the host weapon's ranged profile for this shot only, keyed by the field they scale, against sim/modules/ranged.gd's AMMO_SCALABLE whitelist: damage, noise, flash, rangeMetres, cone, recoverable. A whitelist rather than \"whatever key matches\" for the reason SimAttachments.SCALABLE is one -- a typo would behave exactly like a round that does nothing, which is the hardest bug in this codebase to see. `cone` above 1 is an accuracy cost, so birdshot charges one; `recoverable` only does anything on a weapon that already declares it, which is how a target arrow is worth more than a broadhead to somebody who has to walk out and pick it up."
         }
       }
     },

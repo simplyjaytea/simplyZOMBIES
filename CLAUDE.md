@@ -77,6 +77,7 @@ npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
 npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~4.5 min, in godot:m2)
 npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
 npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
+npm run godot:m2:ammo    # calibers, and what a round changes → M2_AMMO_OK
 npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
 npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
 npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
@@ -108,7 +109,7 @@ npm run sprites:check    # generated art still matches tools/sprites/ → SPRITE
 npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **57**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **59**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
@@ -167,6 +168,16 @@ except the day counter**. Needs, condition, and attention all arrive as prose fr
 models (`needs.hud_clause`, `sim/condition.gd`, `sim/attention_read.gd`). The numeric
 developer sheet still exists and is still useful — it lives behind the `M` toggle, where the
 gate ignores it.
+
+**The one amendment, and it is narrow.** Since the owner's decision of 2026-09-12
+([docs/30](docs/30-decisions.md), "The cartridge on the label") an **item's `name`** may carry a
+digit, so a round can be called `.308 Winchester Match` rather than named around the ban. One
+predicate, `check_inventory.gd`'s `_name_is_allowed`, is called by both lanes that scan a name
+(STRIP and INSPECT) and still refuses a name that is *nothing but* a quantity. **Nothing else
+moved**: `description`, every other value in the inspect pane, and every line `check_hud.gd` reads
+are under the full ban, and the lane proves it by refusing the identical string the moment it is a
+description instead. Do not widen this to a second field without the owner — the whole reason it
+is written down here is that a ban amended once is a ban that gets amended again.
 
 **Budgets are correctness.** [docs/00 pillar 6](docs/00-vision.md): a feature that breaks budget
 does not ship until it is fixed. Exceeding a budget fails the build at the same severity as a

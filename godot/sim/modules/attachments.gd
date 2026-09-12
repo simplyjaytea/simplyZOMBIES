@@ -50,8 +50,16 @@ const SCALABLE: Dictionary = {
 }
 
 # Profile fields a part may *replace* rather than scale, per kind. A multiplier cannot express a
-# caliber -- `ammo` is a base id and `jams` is a boolean -- so this is the narrow exception to
-# "multipliers, never adders", with its own whitelist for the same reason SCALABLE has one.
+# caliber -- `ammo` is a base id, `caliber` is a family name and `jams` is a boolean -- so this is
+# the narrow exception to "multipliers, never adders", with its own whitelist for the same reason
+# SCALABLE has one.
+#
+# `ammo` and `caliber` are two fields rather than one on purpose, and a conversion part declares
+# **both**. `ammo` is the round the weapon reaches for first; `caliber` is the set it will take at
+# all. A part that moved only the first would build a pistol that prefers a round it cannot
+# chamber -- `_pick_round` would fall through to the old caliber's rounds every time, so the
+# conversion would appear to work and quietly fire the wrong ammunition. check_m2_ammo.gd's
+# CONVERT lane is what refuses that, because nothing here can see the sibling key.
 #
 # There is deliberately no "melee" key: an empty array would be a socket the gate then had to
 # excuse by name. Add one when something melee needs replacing rather than scaling.
@@ -63,7 +71,7 @@ const SCALABLE: Dictionary = {
 # function of the alphabet, so `barrel` would silently beat `internal` for a reason no player
 # could ever learn. This rule is order-independent by construction rather than by convention.
 const OVERRIDABLE: Dictionary = {
-	"ranged": ["ammo", "jams"],
+	"ranged": ["ammo", "caliber", "jams"],
 }
 
 # What a part can declare it wears from, as a vocabulary the content picks words out of. The same
@@ -515,7 +523,7 @@ const FIELD_WORD: Dictionary = {
 		"damage": "stopping power", "noise": "how far it is heard", "flash": "muzzle flash",
 		"magSize": "rounds it holds", "reloadTicks": "reload time", "rangeMetres": "reach",
 		"cone": "steadiness", "handling": "how fast it comes up",
-		"ammo": "the round it takes", "jams": "how it feeds",
+		"ammo": "the round it prefers", "caliber": "what it chambers", "jams": "how it feeds",
 	},
 }
 

@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-09 (the gunsmithing arc)
+## State, as of 2026-09-12 (the alpha-roster arc)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **58 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **59 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,24 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-12 — ammo types, and the first slice of the alpha roster.** The owner opened an item-roster
+arc (docs/30's "The round in the chamber" and "The cartridge on the label"; the pieces are named in
+[docs/23's what's-left](docs/23-roadmap.md#whats-left-in-milestone-2) under *Items — the alpha
+roster*). A weapon could only ever fire one round, matched by exact base id; it now declares
+`ranged.caliber` beside `ranged.ammo` — the set it will take beside the round it prefers — and a
+round carries an `ammo` block of multipliers folded over the weapon for the shot that spends it.
+**Twelve new rounds, 152 → 164 bases**, and a new gate, `npm run godot:m2:ammo` → `M2_AMMO_OK`,
+eleven lanes, every one run red both ways. Preference-first keeps every shipped weapon
+byte-identical, which the DEFAULT lane pins as numbers rather than as "it still works", and the loot
+share was **divided rather than added to** so per-table ammunition weight is flat. It also fixed
+three defects found by reading: arrow recovery named the round the bow *prefers*, the director's
+preparedness scan would have gone blind to variant rounds (the third time that function has been
+wrong the same way), and the magnum cylinder converted a revolver to its own default round.
+
+The digit ban gained a **narrow item-name clause** in the same commit, by the owner's decision and
+recorded as one — a cartridge is called what it is called. One predicate, both lanes, and the true
+negative is that the identical string is still refused as a `description`.
 
 **2026-09-11 — the first commissioned body.** The player's rig is the first art here the generator
 did not draw: `player_body_authored`, a 32×40 pawn made with PixelLab img2img over the shipped
