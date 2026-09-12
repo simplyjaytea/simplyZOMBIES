@@ -693,6 +693,33 @@
           "description": "Whether taking the comfort uses the item up. True for a smoke or a mouthful out of a flask, absent (false) for a harmonica, a deck of cards or a photograph -- those are the noise device's decision rather than the floodlight's, and for the same reason: a thing you keep is a thing you can carry somewhere it matters. It costs a verb and a clock either way, and the cap is what stops a kept item being a permanent free mood."
         }
       }
+    },
+    "teaches": {
+      "type": "object",
+      "description": "Present on a book and absent on everything else. What reading this once is worth to the reader's skill web, paid through SimSkills.teach into the same _earn every kill and every finished job already goes through, so a book is a shortcut into the existing ladder and never a second one beside it. Read by SimNeeds: the menu predicate (can_use) and the intake (read_book) are one function, the way the illness remedy and the drinks are. The book is CONSUMED on reading and the reader remembers the title, so a second copy of something you have already read teaches nothing and is not spent -- check_m2_teach.gd's TWICE lane is what proves it. Skills die with the person (skills.gd), and so does the memory of what they read.",
+      "required": [
+        "region",
+        "points"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "region": {
+          "enum": [
+            "Melee",
+            "Ranged",
+            "Medicine",
+            "Craft",
+            "Survival",
+            "Endurance"
+          ],
+          "description": "Which of the six regions of the web the points land in, and the list is SimSkills.REGIONS exactly. A region that is not one of these is a book nobody can learn from, which is the dead-socket shape this milestone keeps paying for, so the enum is here and check_m2_teach.gd's CONTENT lane asks the code rather than this file."
+        },
+        "points": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "What one reading earns, in the same points a kill or a completed job earns. Deliberately NOT capped here: the ceiling is SimSkills.PRACTICE_POINTS -- what actually doing the work is worth once -- and check_m2_teach.gd's BOUND lane is where a book that out-teaches practice is refused. A cap written into this schema would be a second copy of that number, and the number that matters is the one the sim pays out."
+        }
+      }
     }
   },
   "$defs": {

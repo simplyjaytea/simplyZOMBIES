@@ -81,9 +81,6 @@ const READERS: Array[Dictionary] = [
 	{"what": "the block is parsed", "file": "res://sim/modules/needs.gd", "needle": "get(\"comfort\")"},
 	{"what": "the intake spends it", "file": "res://sim/modules/needs.gd", "needle": "take_comfort(world, entity, item)"},
 	{"what": "the word menu asks the same predicate", "file": "res://sim/modules/inventory.gd", "needle": "_Needs().call(\"can_use\""},
-	# The needle is the tail of READ_KEYS itself rather than the bare word, which appears in that
-	# file's prose as well: a needle a comment can satisfy is a needle that cannot fail.
-	{"what": "the gear gate judges reachability", "file": "res://check_m2_gear.gd", "needle": "\"noise\", \"comfort\"]"},
 ]
 
 
@@ -483,6 +480,29 @@ func _every_comfort_is_findable_and_the_key_is_read() -> bool:
 		if code.contains("get(\"comfortableness\")"):
 			push_error("REACH: the reader scan matched a needle that is not in %s" % path)
 			return false
+
+	# The gear gate's catalogue has to know the key exists, and that is a *membership* question
+	# rather than a substring one. The needle used to be the tail of the list, `"noise", "comfort"]`,
+	# because the bare word appears in that file's prose too and a needle a comment can satisfy
+	# cannot fail. That reasoning was right and the needle was still wrong: the books slice appended
+	# `"teaches"` after `"comfort"` and the lane went red against a gear gate that was correct --
+	# CLAUDE.md's own "follow the call a link further, never drop the needle". So the line is
+	# isolated first and the key looked for inside it, which no comment can satisfy and no later
+	# key can displace. check_m2_teach.gd does the same thing and is the precedent.
+	var gear: String = FileAccess.get_file_as_string("res://check_m2_gear.gd")
+	var read_keys: String = ""
+	for line in gear.split("\n"):
+		if String(line).begins_with("const READ_KEYS"):
+			read_keys = String(line)
+	if read_keys.is_empty():
+		push_error("REACH: check_m2_gear.gd has no READ_KEYS line, so this assertion is reading the wrong file")
+		return false
+	if read_keys.contains("\"notakey\""):
+		push_error("REACH: the READ_KEYS scan matched a key that is not in the list")
+		return false
+	if not read_keys.contains("\"comfort\""):
+		push_error("REACH: check_m2_gear.gd's READ_KEYS does not list 'comfort', so its catalogue cannot see a comforting item at all")
+		return false
 
 	# And the live half, which is the only one that proves a *survivor* can reach it: a shipped
 	# comfort actually moves the stat, through the router the word menu calls.
