@@ -94,19 +94,24 @@ project ships — so it is a spec somebody has hit, not a wish list.
   skeleton below. Layering staying a requirement is the owner's call of 2026-09-09, so a body with
   its jacket baked into the frame cannot be used: the game has to be able to take the jacket off.
 
-**What has been delivered against this brief.** `player_body_authored` — the player, and the first
-body here the generator did not draw (2026-09-11; docs/23's record). It was made with PixelLab
-**img2img over the shipped `player_body`** rather than from scratch, and that choice is the useful
-part of the record: at `init_image_strength` 300 the output came back inside *every* bound above on
-the first generation — height 28, clearance 6 and 6, soles on row 39, shoulders 20, head 12 — while
-a from-scratch generation on the same canvas came back 38 px tall, floating off the sole row, with
-a 20 px head. Starting from a picture that already meets the geometry is what makes a generator
-hit it; a prompt describing the geometry is not. It was then put through the **Dungeon Settlers
-treatment** (docs/30, "The reference treatment"): despeckle, a three-tone-per-family value ramp,
-and a clamp to `palette.py`'s `timber` and `muted` families, with the outline excluded throughout
-and re-forced to `#161614` last. That took it from 17 colours to **6**, which is two families at
-three tones plus the outline. Asking a prompt for clean ramps did not produce them; the passes
-did. If you deliver a rig, note also that it must not widen the union of the existing
+**What has been delivered against this brief, and what happened to it.** One body:
+`player_body_authored`, the player, the first art here the generator did not draw (2026-09-11).
+It was **retired two days later** by the decoupled-paperdoll decisions
+([docs/30](../../../docs/30-decisions.md#the-decoupled-paperdoll-2026-09-11), decision 9), which
+take its face away (the head is drawn from above now), its canvas (32×48 with per-slot canvases)
+and the face-on arrangement it was drawn for — so almost nothing it carried survives, and the
+player is re-commissioned as slot layers once those canvases exist. The tier, this brief and
+every lane that judges it stayed; only the picture went.
+
+**Two things it measured are worth keeping, because they are what to do next time.** It was made
+with PixelLab **img2img over the shipped `player_body`** rather than from scratch, and at
+`init_image_strength` 300 the output came back inside *every* bound above on the first generation
+— height 28, clearance 6 and 6, soles on row 39, shoulders 20, head 12 — while a from-scratch
+generation on the same canvas came back 38 px tall, floating off the sole row, with a 20 px head.
+**Start from a picture that already meets the geometry**; a prompt describing the geometry does
+not produce it. And the tone treatment had to be code: asking the prompt for clean ramps gave 17
+colours, and the passes that followed gave 6. Both findings carry straight into the
+re-commission. If you deliver a rig, note also that it must not widen the union of the existing
 rigs' opaque boxes — `check_worn.gd` measures every equipment overlay inside that union and now
 refuses a commissioned body that grows it, because a bigger union silently weakens the fit check
 for all 51 overlays.

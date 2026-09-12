@@ -1745,6 +1745,20 @@ not a to-do list:
   `tools/sprites`, re-pins `sprites:check` and re-measures `APPEARANCE_OK`'s GREY lane, whose
   composed margin is +0.018 — and it is deliberately not smuggled in beside this one. All three
   were put to the owner before the commit and accepted.
+  **Retired 2026-09-12, two days later, and the whole of it is above.** The decoupled-paperdoll
+  decisions took the face (the head is drawn from above now), the canvas (32×48, per-slot) and
+  the face-on arrangement the picture was drawn for, so `player_body_authored` was deleted and
+  `player.body` points at the generated rig again; the player is re-commissioned as slot layers
+  once those canvases exist (docs/30 decision 9, and the last piece of the paperdoll group).
+  **What stayed is the part that was worth building**: the authored tier, the manifest, the
+  `AUTHORED_OK` lanes, the union roster, `_the_roster_is_whole` and the envelope-unchanged clause
+  with its true negative — all of it judging zero authored rigs correctly, which is the state it
+  was written to handle and now the state it is actually in. `SPEC OK` reads 8 rigs again.
+  What the sprite itself measured is not lost either and is kept in the artist brief: img2img
+  over a picture that already meets the geometry lands inside every bound first try where a
+  from-scratch generation does not, and a prompt asking for clean tonal ramps gives 17 colours
+  where the deterministic passes give 6. Both are why the next slice builds the ramp in the
+  generator rather than asking a model for it.
 - **Art** — the presentation is now **flat top-down** (docs/00 carries the reversal of the
   isometric reversal; docs/30 what it deleted): identity projection at zoom 64 (1 tile = 1 m =
   64×64 px), depth is `y`, walls are flat fills with a bevel rather than extruded, WASD is
