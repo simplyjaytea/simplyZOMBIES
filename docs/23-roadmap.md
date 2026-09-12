@@ -385,11 +385,12 @@ system.
   There is no cartridge to replace and no way to boil the filter clean, so the best purifier in the
   game is strictly a countdown. A refill recipe is the obvious close, and it wants the buildables
   economy above rather than a key of its own.
-- **Comfort that is not food.** Mood is a real stat with seven sources, and an item can feed it
-  only by being edible or drinkable — `needs.gd` refuses everything else by construction. A comfort
-  key and a use verb open the obvious things a person keeps for morale: cigarettes, cards, a
-  photograph, a paperback. It has to respect the rule that mood sources deliberately do not stack
-  without bound, rather than route around it.
+- ~~**Comfort that is not food**~~ — **landed** 2026-09-12, see the record.
+- **Nobody seeks comfort, or reads, on their own.** Both the comfort slice and the books slice ship
+  a player verb on the inventory sheet and no autonomy job behind it. A colonist whose mood band has
+  dropped will not go and find the cigarettes, and nobody ever picks up a field manual unaided, so
+  both categories help a colony exactly as much as the player remembers to spend them. The re-arm
+  path in `jobs.gd` is the shape either would copy.
 - ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
 - **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
   loot"* and docs/12's military yield lists them, and **no explosive item has ever existed** — zero
@@ -398,10 +399,7 @@ system.
   it true again. It is a reader before it is content: a thrown charge is a blast radius applied to
   everything in it, which the damage model has no notion of, plus the 400-noise attention spike that
   is the whole reason the doc calls it self-limiting.
-- **Books that teach.** The skill web is a complete, content-driven system with no item content at
-  all, and skills die with the person who learned them. A teaches key, consumed on reading, is the
-  one thing that changes that. The lane that matters is not that a book grants points — it is that
-  reading the same book twice does not pay twice, and that a book never beats doing the work.
+- ~~**Books that teach**~~ — **landed** 2026-09-12, see the record.
 - **Camping and utility gear.** docs/10 uses "a sleeping bag and a scalpel" as its own worked
   example of the footprint puzzle and neither exists; a bed is a bare entity with no quality on it,
   which is the bed-quality piece moved here from the gear group. With that property this covers the
@@ -7029,6 +7027,67 @@ not a to-do list:
   the Tetanus Special's "free to repair from scrap" wants `repair_cost`, which resolves against
   nothing, so it simply is not shipped; its "heavy bleed" rides the live chain instead — higher
   damage, worse severity, faster bleed — plus a fixed `barbed` prefix.
+- **Items** — ~~comfort that is not food~~ **landed** 2026-09-12
+  (`npm run godot:m2:comfort` → **`M2_COMFORT_OK pinned cap clock reach menu block`**, a new gate of
+  six lanes; `godot:m2:needs`, `godot:m2:gear`, `godot:m2:jobs`, `godot:m2:save`, `godot:check:hud`
+  and `godot:check:inventory` all held), the **eleventh slice of the alpha-roster arc**.
+
+  **Mood had seven sources and every one of them was something done *to* a survivor.** The item-use
+  router refused anything neither edible nor drinkable, so cooking was the only morale lever anybody
+  had. A `comfort` block — `{mood, ticks, spends}` — is the other half, read by `SimNeeds.comfort_spec`
+  and routed through `can_use` so the word menu's predicate and the intake are one function rather
+  than two that can disagree.
+
+  **It respects the non-stacking rule rather than routing around it**, which was the whole risk in
+  the piece. `needs.gd` already says in its own comments that a second modifier per source would
+  accumulate without bound behind a cap the module believes it is enforcing; so comfort is one
+  modifier from one source, replaced rather than stacked in `_apply_grief`'s exact shape,
+  accumulating toward `COMFORT_CAP = 15.0` and expiring on an int clock beside `mealMoodUntilTick`.
+  Twelve bases in `godot/content/items/comfort.json`, thirty-one loot rows appended, with the 495
+  pre-existing rows verified byte-identical and no `tierWeights` touched.
+
+  **The CLOCK lane could not fail when it was first written, and that is the useful part of this
+  record.** The shipped harmonica's clock happened to land on tick 60000, and the mood cadence runs
+  every twenty ticks, which divides it — so a sabotage that gated the whole comfort tick on `% 20`
+  left the lane green. It now offsets the world tick so the clock lands off the cadence and asserts
+  `until % 20 != 0`, so the offset cannot silently stop working. Found by sabotage, not by review.
+
+  **Shipped whole, with one limitation recorded rather than hidden:** comfort is a player and NPC
+  *verb*, and no autonomy job makes a colonist seek it out when their mood drops. Named in what's
+  left, shared with the books slice.
+- **Items** — ~~books that teach~~ **landed** 2026-09-12
+  (`npm run godot:m2:teach` → **`M2_TEACH_OK pinned content reach twice bound save`**, a new gate of
+  six lanes, all six broken and watched go red; `godot:m2:web`, `godot:m2:gear`, `godot:m2:needs`,
+  `godot:m2:save`, `godot:check:hud` and `godot:check:inventory` all held), the **twelfth slice of
+  the alpha-roster arc**.
+
+  **`skills.gd` had been a finished six-region XP ladder with zero item content since Milestone 1**:
+  every point any survivor had ever earned came from a kill or a completed job, in a game where
+  skills die with the person. A `teaches: {region, points}` block pays into the same `_earn` through
+  a new `SimSkills.teach` — a shortcut into the existing ladder, never a second one beside it.
+
+  **Two rules carry the slice, and both are gated.** A book is consumed on reading, *and* the reader
+  keeps a `booksRead` ledger, so a second copy of a title already read teaches nothing and is not
+  spent — TWICE asserts the exact earned total across all six regions is identical after the second
+  reading and after the first. And what a book may teach is capped at `SimSkills.PRACTICE_POINTS`,
+  which is what doing the work once actually pays: BOUND measures a completed Doctor job through the
+  real handler and holds every shipped book against that measurement rather than against the
+  constant. A book that out-teaches practice makes practice pointless.
+
+  **The ledger is an Array of base ids, and the slice measured why rather than trusting the trap.**
+  CLAUDE.md warns that a Dictionary keyed by an entity id does not survive a save. It is worse than
+  documented: keying it that way makes `SimSerialize.canonicalize` throw on `String(k)` and the save
+  is written with the component **present and its contents gone**. The SAVE lane therefore asserts
+  against the save *text* before it asserts against a restore, because two worlds sharing one gate
+  process cannot tell a component from a `static var`.
+
+  **The shallow-validator trap reproduced a second time**, in a second brand-new block: a `teaches`
+  naming the region `"Shooting"`, which `skills.gd` does not have, passed `npm run godot:validate`
+  with `GODOT_CONTENT_OK`. Only `check_m2_teach.gd` refused it. Ten books in
+  `godot/content/items/books.json`, nineteen loot rows, additive and verified.
+
+  **Shipped whole**, with the same limitation as comfort: reading is a player verb and no NPC ever
+  chooses to read.
 - **Items** — ~~cooking and water: the transform keys~~ **landed** 2026-09-12
   (`npm run godot:m2:transform` → **`M2_TRANSFORM_OK pinned content cook order boil purify rank
   reach`**, a new gate of eight lanes; `godot:m2:jobs`, `godot:m2:needs`, `godot:m2:gear`,
