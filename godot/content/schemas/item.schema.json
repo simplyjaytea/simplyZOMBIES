@@ -549,6 +549,24 @@
       "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
       "description": "The base left in your hands once one unit of this is spent -- the bottle without the water, the can without the fuel. Read by SimNeeds._consume_item, the one place a unit is spent (a drink, a wash, a wound cleaned with the bottle, a can poured), so every spend leaves the same thing. Stowed where the spent unit was; dropped at the feet when nothing has room. A flat scalar at the top level for the reason bandageTier is one: the content validator is shallow, and a string with a pattern up here is actually enforced. Absent means nothing is left -- a crushed can is not worth carrying."
     },
+    "cooksInto": {
+      "type": "string",
+      "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "What one unit of this becomes when a cook works it at a fire -- the exact grammar of `empties`, a flat top-level string naming another base id, for the exact reason `empties` is one: the content validator is shallow, and a string with a pattern up here is actually enforced where a key inside a `cooking` block would not be. Presence of this key is what makes a base cookable at all: SimJobs._cook_work scans the stockpile for one, and SimJobs._do_cook spawns what *this* base names rather than the single id it used to spawn unconditionally. Before this key there was one hardcoded pair -- `item.food.raw` in and `item.food.cooked` out -- so a tin, a fish and a sack of potatoes all became the identical dish and nothing else in the roster could be cooked at all. Absent means the base is not cookable, which is almost everything. The target need not be better food than the source in every axis: salted strips worked over a low fire for COOK_TICKS come off it worth less on the night and keeping for a month, which is docs/12-resources.md's preservation trading labour for shelf life.",
+      "$comment": "One in, one out, exactly as the shipped cook job has always been. A recipe with two ingredients wants a station and a recipe table and is a separate slice; this key does not pretend to be one."
+    },
+    "boilsInto": {
+      "type": "string",
+      "pattern": "^item\\.[a-z0-9_]+(\\.[a-z0-9_]+)*$",
+      "description": "What one unit of this becomes once it has been made safe -- the same flat grammar as `cooksInto` and `empties`, and the same reason for being flat. Read by SimNeeds.boil (a lit campfire in reach, docs/04-survival-needs.md's fuel route) and by SimNeeds.purify (a filter or a chemical in the pack, the other two routes), which are the only two places the rename happens; both keep the instance rather than despawning and respawning, so a bottle does not change identity by being cleaned. Before this key, boiling was two literals in needs.gd -- UNTREATED_ID in, WATER_ID out -- and a second untreated vessel was a code change. Absent means the base is already safe, or is not water at all.",
+      "$comment": "Named for the verb rather than the state so the pair reads the same way `cooksInto` does; `purifies` is on the tool and this is on what the tool works, so the two never have to agree about a third thing."
+    },
+    "purifies": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How many units of untreated water this makes safe before it is spent, and the whole of docs/04-survival-needs.md's \"purification needs fuel (boiling -> heat, light, smoke) or filters or chemicals\" that boiling did not already cover. What the key asserts is exactly one thing: **no campfire is required**. SimNeeds.boil wants a lit fire in reach and SimNeeds.purify wants only this in the pack, so the three routes docs/12-resources.md lists under Purified water -- fuel, filters, tablets -- are three content numbers through one verb rather than three code paths. Uses are counted on the instance as a `purifier` component and default to this number, so a part-used filter is part-used when it is picked up again; when the last use goes the unit is spent through SimNeeds._consume_item, which is the one place `empties` is decided, so a purifier leaves whatever its base says it leaves. A flat top-level integer for the reason `filter` is a flat top-level number: the validator is shallow, and a bounded integer up here is actually enforced. Absent means this treats no water, which is everything but five bases.",
+      "$comment": "Deliberately not a key inside `filter`: `filter` is a 0..1 fraction of a contamination cloud kept out of a wearer's lungs and is composed by max over worn gear, and a count of bottles has nothing to do with it. Two uncorrelated numbers, two keys, as the caliber and armour slices both settled."
+    },
     "scent": {
       "type": "number",
       "minimum": 0,

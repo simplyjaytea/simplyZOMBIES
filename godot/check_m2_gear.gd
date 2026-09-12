@@ -284,12 +284,24 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # comment names: two things that say the same thing independently drift the moment only one is
 # updated. The armour parts this slice shipped -- plates, a lining, a visor -- are covered there.
 # A pouch is covered *here*, because it declares a `container` and that is a different claim.
-const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel"]
-# The bases a *job or verb* produces rather than a table rolls, each with the sim file that names
-# it, so the allowance cannot outlive the code it describes: cooked food out of SimJobs' cook job,
-# and well water out of SimNeeds.fill_bottle.
+#
+# `cooksInto`, `boilsInto` and `purifies` joined with the transform slice, and the first two
+# widened the *reachability* half as well as the read half. They are the grammar of `empties` --
+# a flat top-level string naming another base id -- so a meal named by an ingredient's `cooksInto`
+# is reachable exactly the way an empty bottle named by a drink's `empties` is, and `TRANSFORMS`
+# below is the one list of keys that count. That is also what let `item.food.cooked` come off
+# PRODUCED: it is no longer a literal in jobs.gd to be found by name, it is what the shipped raw
+# says it becomes, and `check_m2_transform.gd` is the gate that judges the pair.
+const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel", "cooksInto", "boilsInto", "purifies"]
+# The keys whose value is another base id this one turns into, and therefore a way of reaching that
+# other base without a loot table. One list, walked twice below: once to collect what is reachable,
+# and once to refuse a target that is not a base at all.
+const TRANSFORMS: Array[String] = ["empties", "cooksInto", "boilsInto"]
+# The bases a *job or verb* produces rather than a table rolls or another base turns into, each with
+# the sim file that names it, so the allowance cannot outlive the code it describes: well water out
+# of SimNeeds.fill_bottle, which is still a literal there because the well fills a bottle with a
+# named thing rather than transforming one base into another.
 const PRODUCED: Array[Dictionary] = [
-	{"id": "item.food.cooked", "in": "res://sim/modules/jobs.gd"},
 	{"id": "item.water.bottle.untreated", "in": "res://sim/modules/needs.gd"},
 ]
 
@@ -338,8 +350,9 @@ func _the_catalogue_is_findable_and_read() -> bool:
 	for entry_v in SimItems.content_entries(w, "item"):
 		var e: Dictionary = entry_v as Dictionary
 		by_id[String(e.get("id", ""))] = e
-		if e.has("empties"):
-			empties[String(e["empties"])] = String(e.get("id", ""))
+		for tk in TRANSFORMS:
+			if e.has(tk):
+				empties[String(e[tk])] = String(e.get("id", ""))
 	if findable.is_empty() or kits.is_empty():
 		push_error("CATALOGUE: %d findable ids and %d kit ids -- the scans have nothing to judge" % [findable.size(), kits.size()])
 		return false
@@ -378,9 +391,10 @@ func _the_catalogue_is_findable_and_read() -> bool:
 			if not ammo.is_empty() and (not by_id.has(ammo) or not findable.has(ammo)):
 				push_error("CATALOGUE: %s fires %s, which is not a base or is in no table" % [String(id), ammo])
 				return false
-		if e.has("empties") and not by_id.has(String(e["empties"])):
-			push_error("CATALOGUE: %s leaves %s, which is not a base" % [String(id), String(e["empties"])])
-			return false
+		for tk in TRANSFORMS:
+			if e.has(tk) and not by_id.has(String(e[tk])):
+				push_error("CATALOGUE: %s's %s names %s, which is not a base" % [String(id), tk, String(e[tk])])
+				return false
 		if String(e.get("class", "")) == "tool" and not (e.has("light") or e.has("modification")):
 			push_error("CATALOGUE: %s is a tool with no light and no modification block -- a tool nothing reads" % String(id))
 			return false

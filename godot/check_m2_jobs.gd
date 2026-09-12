@@ -525,6 +525,12 @@ func _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() -> bool:
 	if w.components.query(["campfire"]).is_empty():
 		push_error("COOK CLAIM: no campfire, so Cook has no work to claim")
 		return false
+	# The booted pile is not empty, and since the transform slice it is *content* that decides what
+	# can be cooked rather than one hardcoded id -- so the pile can hold a cookable that is not this
+	# lane's fixture, and does: the shipped suburb's stockpile rolls a canning jar. Cleared first,
+	# so "Ellis was handed nothing" stays a claim about Mara's claim rather than a claim about what
+	# the loot roll happened to drop.
+	_clear_cookables(w)
 	var raw: int = _drop_raw(w)
 	var job_m: Dictionary = SimJobs._cook_work(w, mara)
 	if job_m.is_empty() or int(job_m.get("target", -1)) != raw:
@@ -587,6 +593,7 @@ func _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() -> bool:
 	var w2: Variant = _world()
 	var m2: int = _mara(w2)
 	var e2: int = _ellis(w2)
+	_clear_cookables(w2)
 	var raw3: int = _drop_raw(w2)
 	var jm: Dictionary = SimJobs._cook_work(w2, m2)
 	w2.components.set_component(m2, "job", jm)
@@ -618,6 +625,16 @@ func _ellis(w: Variant) -> int:
 		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.ellis":
 			return int(e)
 	return -1
+
+
+# Take everything cookable off the pile, by removing the position that puts it there. Nothing is
+# despawned: `_count_base` walks every itemBase in the world, so a despawn would leave the count
+# untouched anyway (components outlive a despawn) and a moved item is the honest way to say "not on
+# the pile".
+func _clear_cookables(w: Variant) -> void:
+	for item in SimNeeds.stockpile_items(w):
+		if not SimJobs.cooks_into(w, int(item)).is_empty():
+			w.components.remove(int(item), "position")
 
 
 func _drop_raw(w: Variant) -> int:
