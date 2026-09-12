@@ -381,6 +381,13 @@ system.
   photograph, a paperback. It has to respect the rule that mood sources deliberately do not stack
   without bound, rather than route around it.
 - ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
+- **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
+  loot"* and docs/12's military yield lists them, and **no explosive item has ever existed** — zero
+  bases, no blast reader, nothing in any table. The docs/09 line was corrected in place on
+  2026-09-12 rather than left asserting content that is not there; this is the piece that would make
+  it true again. It is a reader before it is content: a thrown charge is a blast radius applied to
+  everything in it, which the damage model has no notion of, plus the 400-noise attention spike that
+  is the whole reason the doc calls it self-limiting.
 - **Books that teach.** The skill web is a complete, content-driven system with no item content at
   all, and skills die with the person who learned them. A teaches key, consumed on reading, is the
   one thing that changes that. The lane that matters is not that a book grants points — it is that
