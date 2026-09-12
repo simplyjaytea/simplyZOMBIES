@@ -297,6 +297,10 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # light, no bench modification and no noise block, so the predicate that refuses "a tool nothing
 # reads" had to learn the fourth thing a tool can be for -- otherwise the choice was a red gate or
 # a harmonica filed as a building material.
+# `teaches` joined with the books slice, and it is the key that makes the dead-socket rule
+# automatic for a whole new category: a book is a `consumable` with no food, no drink and no
+# medical grade, so without this key a field manual in no loot table would have been complete,
+# gated, and unfindable -- the exact shape the demolition sledge was in when this lane first ran.
 # `noise` joined this list with the noise-device slice. A placeable noise device declares no
 # equipSlot, no melee and no ranged block -- it is a `tool` you stand on a tile -- so without this
 # key a firecracker in no loot table would have been exactly the shape `item.floodlight.rigged` was
@@ -304,7 +308,7 @@ func _worn(w: Variant, actor: int, slot: String) -> Variant:
 # The bases a *job or verb* produces rather than a table rolls, each with the sim file that names
 # it, so the allowance cannot outlive the code it describes: cooked food out of SimJobs' cook job,
 # and well water out of SimNeeds.fill_bottle.
-const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel", "cooksInto", "boilsInto", "purifies", "noise", "comfort"]
+const READ_KEYS: Array[String] = ["equipSlot", "melee", "ranged", "armor", "container", "food", "drink", "fuel", "light", "modification", "ammo", "filter", "buildMaterial", "warmth", "shedsRain", "lightFuel", "cooksInto", "boilsInto", "purifies", "noise", "comfort", "teaches"]
 # The keys whose value is another base id this one turns into, and therefore a way of reaching that
 # other base without a loot table. One list, walked twice below: once to collect what is reachable,
 # and once to refuse a target that is not a base at all.

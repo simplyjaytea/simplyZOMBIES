@@ -241,6 +241,9 @@ switch (mode) {
   case "--m2-aim":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_aim.gd"];
     break;
+  case "--m2-teach":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_teach.gd"];
+    break;
   case "--m2-web":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_web.gd"];
     break;

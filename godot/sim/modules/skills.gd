@@ -10,6 +10,21 @@ const SOURCE_PREFIX: String = "web."
 
 const REGIONS: Array[String] = ["Melee", "Ranged", "Medicine", "Craft", "Survival", "Endurance"]
 
+# --- what one piece of work is worth -------------------------------------------------------
+#
+# Every earning path in this file pays this and nothing else: a zombie put down, a load hauled, a
+# meal cooked, a wall built, a wound doctored, a night slept, a watch stood. It was eight separate
+# literal `1`s until books arrived and something outside this file needed to know what practice is
+# worth, and eight copies of a number is eight places for it to drift.
+#
+# It is also the **ceiling on what a book may teach**. Reading is a shortcut into the ladder, never
+# a replacement for climbing it: a volume that paid more than doing the thing once would make doing
+# the thing pointless, which is the opposite of what docs/08's web is for. `check_m2_teach.gd`'s
+# BOUND lane is where that is enforced, against the shipped content, and its PINNED lane measures
+# what a real kill and a real completed job actually pay so this constant cannot be quietly raised
+# to launder a book past the bound.
+const PRACTICE_POINTS: int = 1
+
 # --- Focus drift ---------------------------------------------------------------------------
 # docs/07's anti-micromanagement rule says an NPC on a Focus auto-allocates "along a sensible path
 # for that focus" and never touches what you locked. Choosing the focus was the missing half: every
@@ -75,7 +90,7 @@ static func register_module(world: Variant) -> void:
 				region = "Melee"
 			else:
 				region = "Ranged"
-		_earn(world, killer, region, 1)
+		_earn(world, killer, region, PRACTICE_POINTS)
 	})
 	world.events.subscribe({"id": "skills.job-points", "type": "job.completed", "handler": func(e: Dictionary) -> void:
 		var ent: int = int(e.get("entity", -1))
@@ -84,21 +99,21 @@ static func register_module(world: Variant) -> void:
 		var kind: String = String(e.get("kind", ""))
 		match kind:
 			"Haul":
-				_earn(world, ent, "Survival", 1)
+				_earn(world, ent, "Survival", PRACTICE_POINTS)
 			"Scavenge":
-				_earn(world, ent, "Survival", 1)
+				_earn(world, ent, "Survival", PRACTICE_POINTS)
 			"Cook":
-				_earn(world, ent, "Survival", 1)
+				_earn(world, ent, "Survival", PRACTICE_POINTS)
 			"Construct":
-				_earn(world, ent, "Craft", 1)
+				_earn(world, ent, "Craft", PRACTICE_POINTS)
 			"Doctor":
-				_earn(world, ent, "Medicine", 1)
+				_earn(world, ent, "Medicine", PRACTICE_POINTS)
 			"Rest":
 				# Docs/08: Endurance from hard nights / recovery — Rest is the slice hook.
-				_earn(world, ent, "Endurance", 1)
+				_earn(world, ent, "Endurance", PRACTICE_POINTS)
 			"Guard":
 				# The other hard night: a watch stood dusk to dawn, completed at first light.
-				_earn(world, ent, "Endurance", 1)
+				_earn(world, ent, "Endurance", PRACTICE_POINTS)
 			_:
 				pass
 	})
@@ -204,6 +219,23 @@ static func _buy(world: Variant, entity: int, node_id: String) -> bool:
 	w["nodes"] = owned
 	world.components.set_component(entity, "skillWeb", w)
 	_apply_mods(world, entity, owned, nodes_by_id)
+	return true
+
+
+# The one way into `_earn` from outside this file, and deliberately the only one: a book, read by
+# SimNeeds.read_book, pays into the same purse a kill and a finished job pay into, so points from
+# a page and points from an afternoon are indistinguishable once they land and `_autospend` gets
+# its look at them on the way through. Nothing here is a second ladder beside the web.
+#
+# It refuses what the handlers above can never hand it -- an unnamed region, nothing or less, a
+# body with no web at all -- and says so with a bool rather than quietly doing nothing, because the
+# caller spends an item on the strength of this answer.
+static func teach(world: Variant, entity: int, region: String, amount: int) -> bool:
+	if amount <= 0 or not REGIONS.has(region):
+		return false
+	if not world.components.has_component(entity, "skillWeb"):
+		return false
+	_earn(world, entity, region, amount)
 	return true
 
 
