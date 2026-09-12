@@ -436,8 +436,18 @@ static func _use_context(world: Variant, actor: int) -> void:
 		# tank, pours (SimVehicles.begin_refuel); any refusal -- no can, full, a battery, a
 		# bicycle, a wreck -- falls to the look, whose words say why.
 		if SimVehicles.at_hood(world, actor, car):
+			# The full can before the empty one before the look. A body carrying fuel pours it; a
+			# body carrying nothing but an empty can draws ten litres out instead
+			# (SimVehicles.begin_siphon); anything either of them refuses -- no can at all, a tank
+			# too shallow to fill one, a battery, a bicycle, a wreck -- falls to the look, whose
+			# words say why. The `carried_fuel_can` guard is the ladder's decision and not the
+			# siphon's own business: somebody standing at the nose holding a full can came to fill
+			# the car, so "the tank is full" must stay a look rather than quietly becoming the
+			# opposite verb. `begin_siphon` itself refuses nothing on that account, which is what
+			# lets a gate ask for the draw directly.
 			if not SimVehicles.begin_refuel(world, actor, car):
-				SimVehicles.check_hood(world, actor, car)
+				if SimVehicles.carried_fuel_can(world, actor) != SimVehicles.NO_DRIVER or not SimVehicles.begin_siphon(world, actor, car):
+					SimVehicles.check_hood(world, actor, car)
 		else:
 			SimVehicles.mount(world, actor, car)
 		return
@@ -610,6 +620,11 @@ static func _complete(world: Variant, _actor: int, verb: String, tx: int, ty: in
 			_wind_noisemaker(world)
 		"bench":
 			_place_bench(world, _actor, tx, ty)
+		# Re-derived on completion the same way, and by the same rule: `SimLightModule.plant` looks
+		# the floodlight up again rather than trusting one the channel remembered, so a can that
+		# left the pack mid-channel simply spends the channel and stands nothing up.
+		"floodlight":
+			_Light().call("plant", world, _actor, tx, ty)
 		# Re-validated on completion rather than trusted from the start, the way `_place_scrap` and
 		# `_place_bench` are: a channel that began on open ground and finished on a tile somebody
 		# else camped on must leave nothing behind. `create` answers -1 there and the channel is
@@ -669,6 +684,47 @@ static func _place_bench(world: Variant, actor: int, tx: int, ty: int) -> void:
 # would be a parse error rather than something the engine resolves.
 static func _Gunsmith() -> GDScript:
 	return load("res://sim/modules/gunsmith.gd") as GDScript
+
+
+# Loaded rather than preloaded, and deliberately in both directions: light.gd loads this file to
+# start the channel and this file loads light.gd to finish it. A preload either way would be a
+# cycle at parse time.
+static func _Light() -> GDScript:
+	return load("res://sim/modules/light.gd") as GDScript
+
+
+## Whether this body could stand a light up on the tile in front of it right now.
+## `item.floodlight.rigged` has sat in the military cache's loot table since lights shipped with
+## **no equipSlot and no placement verb**: a player could find one, carry it, and do absolutely
+## nothing with it. This is the predicate half, asked by the word menu through
+## `SimLightModule.can_use` so the menu and the intake cannot disagree -- the rule every other verb
+## in this file follows.
+static func can_place_light(world: Variant, actor: int) -> bool:
+	if world.components.has_component(actor, "construct"):
+		return false
+	if not _can_channel(world, actor):
+		return false
+	var face: Vector2i = _facing_tile(world, actor)
+	if not _empty_floor(world, face.x, face.y):
+		return false
+	if not _in_reach_tile(world, actor, face.x, face.y):
+		return false
+	return int(_Light().call("carried_plantable", world, actor)) >= 0
+
+
+## Begin the channel. Reached through `use` on the floodlight itself and **not through a rung on
+## the E ladder**, deliberately, and for exactly the reason `camp.establish` is not one: a
+## 90-metre beacon whose own description says it "tells everyone where the yard is" is not a thing
+## to put down by accident because you pressed E on empty ground with a trap and a bait already
+## down. The tile is the one you are facing and there is no parameter for choosing another,
+## because a parameter nothing passes is a parameter nothing tests. The channel itself is the same
+## `construct` every other placement here uses, so a stagger, a grab or a walk cancels it.
+static func place_light(world: Variant, actor: int) -> bool:
+	if not can_place_light(world, actor):
+		return false
+	var face: Vector2i = _facing_tile(world, actor)
+	_start(world, actor, "floodlight", face.x, face.y)
+	return world.components.has_component(actor, "construct")
 
 
 static func _place_alarm(world: Variant, tx: int, ty: int) -> void:

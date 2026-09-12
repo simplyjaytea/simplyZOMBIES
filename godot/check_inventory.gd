@@ -42,7 +42,7 @@ const SimContainers = preload("res://sim/modules/containers.gd")
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
 # and the reason a numeric field cannot be added to either by accident.
-const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits"]
+const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel"]
 # `item` is an entity handle the screen routes a click with, never drawn. Every other value is a
 # word, a boolean, or a list of words.
 const INSPECT_HANDLE: String = "item"
@@ -303,7 +303,7 @@ func _the_pane_carries_only_words() -> bool:
 	var sabotage: Dictionary = {
 		"item": 7, "name": "Service Pistol", "condition": "worn",
 		"description": "A service pistol. 18 damage at 25 metres.", "slot": "secondary",
-		"worn": true, "attachments": [], "fits": [],
+		"worn": true, "attachments": [], "fits": [], "fuel": "",
 	}
 	if _inspect_faults(sabotage).is_empty():
 		push_error("the pane scanner passed a description reading \"%s\"" % String(sabotage["description"]))

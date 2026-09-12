@@ -1,0 +1,156 @@
+[
+  {
+    "id": "item.torch.handheld",
+    "name": "Hand Torch",
+    "description": "A plastic torch with a rubber grip. It throws a hard white circle and eats cells doing it.",
+    "class": "tool",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.35,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 25, "burnTicks": 60000, "feed": "cell" }
+  },
+  {
+    "id": "item.torch.penlight",
+    "name": "Penlight",
+    "description": "A pen-sized torch off a nurse's lanyard. Barely a light, and it goes on for days.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.08,
+    "stack": 2,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 8, "burnTicks": 120000, "feed": "cell" }
+  },
+  {
+    "id": "item.torch.steel",
+    "name": "Steel Torch",
+    "description": "A long steel-bodied torch, heavy enough to be a decision. Bright, and it lasts a night.",
+    "class": "tool",
+    "size": { "w": 1, "h": 3 },
+    "massKg": 0.9,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 32, "burnTicks": 108000, "feed": "cell" }
+  },
+  {
+    "id": "item.headlamp.band",
+    "name": "Headlamp",
+    "description": "An elastic band with a lamp on the front. It is not the brightest thing you can carry, and it is the only one that leaves both hands free.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.15,
+    "equipSlot": "head",
+    "light": { "magnitude": 18, "burnTicks": 96000, "feed": "cell" }
+  },
+  {
+    "id": "item.headlamp.miners",
+    "name": "Miner's Lamp",
+    "description": "A helmet lamp off an industrial rack, wired to a belt cell. It looks wherever you look.",
+    "class": "tool",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.5,
+    "equipSlot": "head",
+    "light": { "magnitude": 28, "burnTicks": 72000, "feed": "cell" }
+  },
+  {
+    "id": "item.cliplight.glasses",
+    "name": "Clip Light",
+    "description": "A hobbyist's lamp that clips to a pair of glasses. A reading light, and it will read a lock for you.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.05,
+    "equipSlot": "eyes",
+    "light": { "magnitude": 7, "burnTicks": 144000, "feed": "cell" }
+  },
+  {
+    "id": "item.glowstick",
+    "name": "Glowstick",
+    "description": "A plastic tube of cold green light. Snap it and there is no taking it back.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.04,
+    "stack": 6,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 6, "burnTicks": 96000 }
+  },
+  {
+    "id": "item.flare.road",
+    "name": "Road Flare",
+    "description": "A highway flare, red and furious. It lights the whole street for a little while and tells the whole street about it.",
+    "class": "tool",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.2,
+    "stack": 3,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 30, "burnTicks": 6000 }
+  },
+  {
+    "id": "item.lantern.camping",
+    "name": "Camping Lantern",
+    "description": "A gas lantern with a fragile mantle. It hisses, it is bright, and it wants a bottle.",
+    "class": "tool",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.4,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 30, "burnTicks": 144000, "feed": "gas" }
+  },
+  {
+    "id": "item.lantern.storm",
+    "name": "Storm Lantern",
+    "description": "A squat oil lantern built to stay lit in weather. Dim, patient, and thirsty for very little.",
+    "class": "tool",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.7,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 16, "burnTicks": 192000, "feed": "oil" }
+  },
+  {
+    "id": "item.candle.tallow",
+    "name": "Tallow Candle",
+    "description": "A fat household candle that smells faintly of the kitchen. It burns a long while and it burns away.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.12,
+    "stack": 6,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 4, "burnTicks": 72000 }
+  },
+  {
+    "id": "item.lighter.disposable",
+    "name": "Lighter",
+    "description": "A disposable lighter, half full. The worst light in the world and better than none.",
+    "class": "tool",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.02,
+    "stack": 3,
+    "equipSlot": "secondary",
+    "light": { "magnitude": 2, "burnTicks": 24000 }
+  },
+  {
+    "id": "item.worklight.rigged",
+    "name": "Work Light",
+    "description": "A site lamp on a folding frame, plumbed to a gas bottle. Nobody carries this lit; you stand it somewhere and it owns the yard.",
+    "class": "tool",
+    "size": { "w": 3, "h": 2 },
+    "massKg": 5.5,
+    "light": { "magnitude": 60, "burnTicks": 120000, "feed": "gas" }
+  },
+  {
+    "id": "item.oil.lamp",
+    "name": "Lamp Oil",
+    "description": "A flask of clear lamp oil. It fills a lantern and it is the reason the lantern was worth carrying.",
+    "class": "material",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.9,
+    "stack": 3,
+    "lightFuel": "oil"
+  },
+  {
+    "id": "item.propane.cylinder",
+    "name": "Propane Cylinder",
+    "description": "A blue camping bottle, still heavy. Gas for a lantern, or for the thing lighting the yard.",
+    "class": "material",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 4.2,
+    "stack": 2,
+    "lightFuel": "gas"
+  }
+]
