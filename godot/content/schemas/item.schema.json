@@ -222,6 +222,13 @@
       "description": "Coverage per body part 0..1. Read by infection transmission (docs/10-items.md#129) — max coverage applies, absent is 0.",
       "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
     },
+    "filter": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "How much of a contamination cloud this piece of gear keeps out of the person wearing it, 0..1, per the owner's decision of 2026-09-12. Absent means 0, which is what a bike helmet is worth against a bloater's plume. Read by SimInfection.filter_of, which composes what a survivor is wearing by **max** exactly as `armor` coverage composes -- best worn wins, and a second mask over the first adds nothing -- and spent by sim/modules/bloater.gd, which multiplies the contamination roll by (1 - filter). A separate number from `armor` rather than a key inside it because the two are genuinely uncorrelated: a riot vest turns teeth and breathes, and a paper coverall is the other way round. A flat scalar at the top level for the reason bandageTier is one: the content validator is shallow, so a bounded number up here is actually enforced, where one nested in `armor` would get an is-it-a-number check and nothing more.",
+      "$comment": "Nothing shipped declares 1.0 and check_m2_filter.gd's CONTENT lane refuses one: a cloud a survivor is immune to is not a cloud, which is the same rule SEPSIS_MIN_MUL states for a good medic."
+    },
     "ranged": {
       "type": "object",
       "description": "Optional ranged block. Every field is optional except `weight` and `caliber` -- see their own descriptions.",

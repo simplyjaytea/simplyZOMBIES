@@ -39,7 +39,8 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.05,
     "equipSlot": "face",
-    "armor": { "head": 0.2 }
+    "armor": { "head": 0.2 },
+    "filter": 0.2
   },
   {
     "id": "item.glasses.safety",
@@ -49,7 +50,8 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.05,
     "equipSlot": "eyes",
-    "armor": { "head": 0.1 }
+    "armor": { "head": 0.1 },
+    "filter": 0.1
   },
   {
     "id": "item.gloves.work",
@@ -59,7 +61,8 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.15,
     "equipSlot": "gloves",
-    "armor": { "hand_left": 0.4, "hand_right": 0.4 }
+    "armor": { "hand_left": 0.4, "hand_right": 0.4 },
+    "filter": 0.05
   },
   {
     "id": "item.pants.canvas",
@@ -123,7 +126,8 @@
     "size": {"w": 1, "h": 1},
     "massKg": 0.2,
     "equipSlot": "gloves",
-    "armor": {"hand_left": 0.6, "hand_right": 0.6}
+    "armor": {"hand_left": 0.6, "hand_right": 0.6},
+    "filter": 0.15
   },
   {
     "id": "item.boots.steel",
@@ -175,6 +179,7 @@
     "size": {"w": 1, "h": 1},
     "massKg": 0.35,
     "equipSlot": "gloves",
-    "armor": {"hand_left": 0.8, "hand_right": 0.8}
+    "armor": {"hand_left": 0.8, "hand_right": 0.8},
+    "filter": 0.05
   }
 ]

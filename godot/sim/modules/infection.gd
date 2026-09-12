@@ -23,6 +23,9 @@ const TREATMENT_STREAM: String = "treatment"
 
 # ponytail: linear 1-coverage until material curve lands; ceiling is per-part max coverage
 const MAX_COVERAGE: float = 1.0
+# The same ceiling for what a survivor is wearing against a cloud. Its own constant rather than a
+# second use of MAX_COVERAGE because the two answer different questions and will not move together.
+const MAX_FILTER: float = 1.0
 
 static func stage_duration_ticks(s: int, _world: Variant = null, entity: Variant = null) -> int:
 	var base: int = 0
@@ -59,6 +62,26 @@ static func armor_coverage_of(world: Variant, actor: int, bodyPart: String) -> f
 			if m is Dictionary and (m as Dictionary).has(bodyPart):
 				max_cov = maxf(max_cov, clampf(float((m as Dictionary)[bodyPart]), 0.0, 1.0))
 	return clampf(max_cov, 0.0, MAX_COVERAGE)
+
+
+# The mask that filters -- the owner's call of 2026-09-12, and deliberately armor_coverage_of's
+# twin: what a survivor is wearing against a bloater's plume rather than against its teeth. Same
+# scan of the same equipped items, composed the same way -- **max, never sum** -- because two masks
+# are one mask and a sum would turn a pile of gear into an immunity. Body-wide rather than per
+# part: a cloud is not aimed, so there is no `bodyPart` to ask about, which is the one shape
+# difference between the two.
+#
+# Read by sim/modules/bloater.gd at the contamination roll, and by nothing else. If that reader
+# ever goes away this function is a dead socket and check_m2_filter.gd's CLOUD lane is what says so
+# -- it measures how often a filtered survivor is actually contaminated, not what this returns.
+static func filter_of(world: Variant, actor: int) -> float:
+	var best: float = 0.0
+	var equipped: Array = SimInventoryRes.equipped_items(world, actor) as Array
+	for item in equipped:
+		var base: Variant = SimItemsRes.item_base_of(world, int(item))
+		if base is Dictionary and (base as Dictionary).has("filter"):
+			best = maxf(best, clampf(float((base as Dictionary)["filter"]), 0.0, 1.0))
+	return clampf(best, 0.0, MAX_FILTER)
 
 
 # The one place a stage becomes a sentence. diagnosis_of and diagnosis_of_part both call
