@@ -85,6 +85,11 @@ const SKEL_HEAD_R: float = 6.0
 # names, so the true negative is provably outside the line rather than merely "somewhere else".
 const LINE_OFFSET_PX: int = 6
 
+# How many rigs `tools/sprites/` generates. Pinned rather than measured so PAWN_KEYS growing a key
+# family the classifier has no case for is still caught -- the commissioned bodies are counted
+# from their own declaration and added to this, never folded into it.
+const GENERATED_RIGS: int = 8
+
 
 func _init() -> void:
 	call_deferred("_run")
@@ -152,7 +157,7 @@ func _fixture() -> Dictionary:
 # `equip` overlay, or a `_part` fitted to a held weapon -- so the classifier names both rather
 # than assuming "not equip" means "a rig". A key family added without a case here would be
 # counted as a ninth survivor, which is how this lane first went red.
-func _rig_keys() -> Array[String]:
+func _generated_rig_keys() -> Array[String]:
 	var out: Array[String] = []
 	for k in Appearance.PAWN_KEYS:
 		var key: String = String(k)
@@ -160,6 +165,35 @@ func _rig_keys() -> Array[String]:
 			continue
 		out.append(key)
 	return out
+
+
+# The generated eight plus every commissioned body. An authored rig is NOT in `PAWN_KEYS` -- one
+# key belongs to one tier, and `check_authored.gd`'s TIER lane is what refuses a key that is in
+# both -- so the roster this file judges is the union, not the array. The count above stays pinned
+# at eight so `PAWN_KEYS` growing a key family without a case in the classifier is still caught;
+# what the union adds is judged by its own declaration instead.
+func _rig_keys() -> Array[String]:
+	var out: Array[String] = _generated_rig_keys()
+	for key in Appearance.authored_rig_keys():
+		out.append(String(key))
+	return out
+
+
+# The roster is whole: the generated eight, still exactly eight, plus one entry per commissioned
+# body the manifest declares. Two numbers rather than one, because they fail for different
+# reasons and a single total would let one cover for the other -- a key family added to PAWN_KEYS
+# without a case in the classifier is how this lane first went red, and an authored rig whose
+# declaration went missing is how it would go red next.
+func _the_roster_is_whole(rig_keys: Array[String]) -> bool:
+	var generated: int = _generated_rig_keys().size()
+	if generated != GENERATED_RIGS:
+		push_error("_generated_rig_keys found %d rig body keys out of PAWN_KEYS, want %d" % [generated, GENERATED_RIGS])
+		return false
+	var authored: int = Appearance.authored_rig_keys().size()
+	if rig_keys.size() != generated + authored:
+		push_error("the rig roster is %d keys; %d generated plus %d commissioned is %d" % [rig_keys.size(), generated, authored, generated + authored])
+		return false
+	return true
 
 
 # Every (base id, equipSlot, prop, key) row any item under content/items/ declares for wearing or
@@ -424,6 +458,30 @@ func _the_canvas_is_pawn_sized() -> bool:
 # --- lane 3: FITS ----------------------------------------------------------------------------
 
 
+# The union of `keys`' opaque boxes, or {} having said why. One helper because FITS now asks it
+# twice -- once of the whole roster, once of the generated eight -- and two copies of a union
+# would be two things to keep in step.
+func _envelope_of(keys: Array[String]) -> Dictionary:
+	var box: Dictionary = {}
+	for rk in keys:
+		var rtex: Variant = Appearance.resolve(rk)
+		if rtex == null:
+			push_error("rig '%s' resolves no texture; FITS has no silhouette to bound overlays against" % rk)
+			return {}
+		var rb: Dictionary = _bounds_of((rtex as Texture2D).get_image())
+		if rb.is_empty():
+			push_error("rig '%s' is entirely transparent" % rk)
+			return {}
+		if box.is_empty():
+			box = rb.duplicate()
+		else:
+			box["min_x"] = mini(int(box["min_x"]), int(rb["min_x"]))
+			box["min_y"] = mini(int(box["min_y"]), int(rb["min_y"]))
+			box["max_x"] = maxi(int(box["max_x"]), int(rb["max_x"]))
+			box["max_y"] = maxi(int(box["max_y"]), int(rb["max_y"]))
+	return box
+
+
 func _the_fits_lie_on_their_lines() -> bool:
 	Appearance.forget()
 	var tree: Dictionary = ContentLoader.load_tree()
@@ -432,28 +490,40 @@ func _the_fits_lie_on_their_lines() -> bool:
 		push_error("no equip declarations under content/items/ -- FITS has nothing to judge")
 		return false
 
-	# The rig envelope: the union of the eight bodies' own opaque boxes, on decoded pixels.
+	# The rig envelope: the union of every body's own opaque box, on decoded pixels.
 	var rig_keys: Array[String] = _rig_keys()
-	if rig_keys.size() != 8:
-		push_error("_rig_keys found %d rig body keys out of PAWN_KEYS, want 8" % rig_keys.size())
+	if not _the_roster_is_whole(rig_keys):
 		return false
-	var box: Dictionary = {}
-	for rk in rig_keys:
-		var rtex: Variant = Appearance.resolve(rk)
-		if rtex == null:
-			push_error("rig '%s' resolves no texture; FITS has no silhouette to bound overlays against" % rk)
-			return false
-		var rb: Dictionary = _bounds_of((rtex as Texture2D).get_image())
-		if rb.is_empty():
-			push_error("rig '%s' is entirely transparent" % rk)
-			return false
-		if box.is_empty():
-			box = rb.duplicate()
-		else:
-			box["min_x"] = mini(int(box["min_x"]), int(rb["min_x"]))
-			box["min_y"] = mini(int(box["min_y"]), int(rb["min_y"]))
-			box["max_x"] = maxi(int(box["max_x"]), int(rb["max_x"]))
-			box["max_y"] = maxi(int(box["max_y"]), int(rb["max_y"]))
+	var box: Dictionary = _envelope_of(rig_keys)
+	if box.is_empty():
+		return false
+
+	# A commissioned body must not WIDEN that envelope, and this is the assertion that says so.
+	# `_bbox_inside` below asks whether an overlay lies inside the union, so every key added to
+	# the union makes that question easier to answer yes -- which is a gate going weaker with no
+	# red line to announce it, the exact shape docs/23 named when it said the first commissioned
+	# body widens three gates. Landing one is therefore allowed to add a body to the roster and
+	# not allowed to add a pixel to the bound the overlays are held to. When this goes red the
+	# answer is to re-author the rig inside the envelope or to move the envelope deliberately,
+	# in a slice that re-measures every overlay against it -- never to delete this check.
+	var generated_box: Dictionary = _envelope_of(_generated_rig_keys())
+	if generated_box.is_empty():
+		return false
+	if box != generated_box:
+		push_error("the commissioned rigs widen the overlay envelope from %s to %s; every equip overlay would be judged against a looser bound than the one it was authored to" % [str(generated_box), str(box)])
+		return false
+	# TN: a box one pixel wider on each side must compare unequal. Without this the equality above
+	# would still be green if both sides were empty, or if a refactor handed it the same
+	# dictionary twice -- a comparison that cannot see a difference is not a comparison.
+	var widened: Dictionary = generated_box.duplicate()
+	widened["min_x"] = int(widened["min_x"]) - 1
+	widened["max_x"] = int(widened["max_x"]) + 1
+	if widened == generated_box:
+		push_error("a fabricated envelope 1 px wider on each side compared equal to the real one; the widening check cannot say no")
+		return false
+	if generated_box.is_empty():
+		push_error("the generated envelope is empty; the equality above would pass on nothing")
+		return false
 
 	var judged: int = 0
 	var missing: Array[String] = []
@@ -660,8 +730,7 @@ func _find_per_rig_overlay(keys: Array[String], rig_keys: Array[String]) -> Stri
 func _the_shared_bet_holds() -> bool:
 	Appearance.forget()
 	var rig_keys: Array[String] = _rig_keys()
-	if rig_keys.size() != 8:
-		push_error("_rig_keys found %d rig body keys out of PAWN_KEYS, want 8" % rig_keys.size())
+	if not _the_roster_is_whole(rig_keys):
 		return false
 	for rk in rig_keys:
 		var tex: Variant = Appearance.resolve(rk)

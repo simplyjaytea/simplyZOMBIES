@@ -149,6 +149,7 @@ static func forget() -> void:
 	# then asks `canvas_of` again would otherwise get the answer from before the swap, which is
 	# the whole failure mode a cache invalidation exists to prevent.
 	_authored.clear()
+	_authored_rigs.clear()
 	_authored_read = false
 
 
@@ -352,6 +353,7 @@ static func chart_rect(key: String) -> Rect2:
 # world a gate boots, and `forget()` drops it with the texture cache so a gate can reload it.
 const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 static var _authored: Dictionary = {}
+static var _authored_rigs: Array[String] = []
 static var _authored_read: bool = false
 
 
@@ -359,25 +361,30 @@ static var _authored_read: bool = false
 # tier, never a crash: a project with no commissioned art yet has nothing to declare, and the
 # gate -- not the renderer -- is where a malformed declaration is supposed to be loud.
 #
-# The canvas is the ONLY field read here, and deliberately: `kind` and `reads` are things the
-# gate judges, not things the renderer draws with, and a helper here returning them would be a
-# function nothing calls. `check_authored.gd` parses the file itself for those, which also means
-# it can assert `canvas_of` agrees with the declaration -- two readers that must produce the same
-# answer is a cross-check, where one reader with an unused accessor is a dead socket.
-static func authored_canvases() -> Dictionary:
+# The canvas is the only field the RENDERER reads, and deliberately: `reads` is a thing the gate
+# judges, not a thing the renderer draws with, and a helper here returning it would be a function
+# nothing calls. `kind` used to be in that sentence too, and stopped being on 2026-09-11, when the
+# first commissioned body landed: three gates need "which authored keys are bodies" -- the FLIP
+# lane iterates them, `_rig_keys()` counts them, and the FITS envelope is their union -- and one
+# parse with three readers beats the same parse copied into three gates. `authored_rig_keys()`
+# below is that reader, and `check_authored.gd` still parses the file itself for both fields, so
+# the cross-check this comment was written for holds on `kind` exactly as it does on the canvas:
+# two readers that must produce the same answer, rather than one reader with an unused accessor.
+static func _read_authored() -> void:
 	if _authored_read:
-		return _authored
+		return
 	_authored_read = true
 	_authored = {}
+	_authored_rigs = []
 	if not FileAccess.file_exists(AUTHORED_PATH):
-		return _authored
+		return
 	var text: String = FileAccess.get_file_as_string(AUTHORED_PATH)
 	var parsed: Variant = JSON.parse_string(text)
 	if not (parsed is Dictionary):
-		return _authored
+		return
 	var keys: Variant = (parsed as Dictionary).get("keys")
 	if not (keys is Dictionary):
-		return _authored
+		return
 	for key in (keys as Dictionary).keys():
 		var entry: Variant = (keys as Dictionary)[key]
 		if not (entry is Dictionary):
@@ -385,7 +392,24 @@ static func authored_canvases() -> Dictionary:
 		var canvas: Variant = (entry as Dictionary).get("canvas")
 		if canvas is Array and (canvas as Array).size() == 2:
 			_authored[String(key)] = Vector2i(int((canvas as Array)[0]), int((canvas as Array)[1]))
+		if String((entry as Dictionary).get("kind", "")) == "rig":
+			_authored_rigs.append(String(key))
+	_authored_rigs.sort()
+
+
+static func authored_canvases() -> Dictionary:
+	_read_authored()
 	return _authored
+
+
+# Every declared authored key of kind `rig` -- a commissioned body, on the pawn skeleton, that
+# `PAWN_KEYS` deliberately does not name because one key belongs to one tier. Sorted, so a caller
+# iterating it gets the same order every run and a gate's message does not depend on dictionary
+# order. Empty until the first commissioned body, which is what makes the three gates that read it
+# say so and skip rather than pass quietly on nothing.
+static func authored_rig_keys() -> Array[String]:
+	_read_authored()
+	return _authored_rigs.duplicate()
 
 
 static func canvas_of(key: String) -> Vector2i:

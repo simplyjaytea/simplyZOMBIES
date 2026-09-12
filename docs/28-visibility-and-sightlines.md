@@ -79,9 +79,19 @@ with the host's filter somewhere, and the place they disagree is the exploit.
 
 An observer is any entity that can see: survivors, NPCs, and — with a much worse profile — zombies.
 
-- **Position and facing.** Facing is a heading, stored on the entity and part of save state. It is
-  the same heading [aiming](09-combat.md) reads, which is why it is specified here rather than in
-  two places.
+- **Position and two headings.** `facing` is where the feet go — the heading, derived from
+  velocity whenever the body is moving. `aim` is where the head and torso are turned, and **it is
+  the one an observer sees along**: you see what you are looking at, not what you are walking
+  towards. Both are
+  stored on the entity and part of save state. They are the same two headings
+  [aiming](09-combat.md) reads, which is why they are specified here rather than in two places —
+  that clause survives the split, because the split happened in one place.
+  A body that is standing still has one heading: turning to look turns the whole body, so `aim` and
+  `facing` agree and nothing below changes. They diverge only while walking, and only at Walk pace
+  or slower; at a jog or a sprint the aim snaps back to the heading. The cost of the divergence is
+  charged to the shot rather than to the eyes — see
+  [docs/30](30-decisions.md#the-decoupled-paperdoll-2026-09-11) for why that split, and
+  [docs/01 clause 2](01-hardcore-contract.md) for the rule it replaced.
 - **A focal arc** — a narrow cone ahead where the survivor is actually looking. Detail here is
   reliable.
 - **A peripheral arc** — wider, out to roughly the sides. Movement is noticed; identity is not. This

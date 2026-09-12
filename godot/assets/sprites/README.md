@@ -89,10 +89,54 @@ project ships — so it is a spec somebody has hit, not a wish list.
   for every other heading. An asymmetric detail is welcome — it swaps sides with the flip, which
   is what a slung strap does when a person turns round.
 - **Light from the top-left**, like everything else here.
+- **Four tones a material, and no more than twenty colours on the body.** Every material is drawn
+  in exactly four steps — deep, core, base, highlight — and nothing between them. The generated
+  roster was 27 to 88 distinct colours a rig before this landed and is 5 to 20 after; the cap is
+  Ellis's own count, so it is a bound the shipped art already sits on. `TONES` in
+  `npm run godot:check:authored` measures it.
+- **The highlight covers at most a tenth of the body, and at least one pixel of it.** Both bounds
+  are checked. The ceiling is the obvious one; the floor exists because a ramp whose base already
+  sits at its family's value ceiling clamps its top steps together, and a highlight equal to its
+  base is invisible rather than absent — which is a picture somebody eventually notices instead
+  of a build that fails. Measured across the eight: 7.9% to 9.6%.
+- **No `#161614` anywhere inside the silhouette.** The outline colour is the one colour that says
+  "the shape ends here", so using it inside a body draws an edge that is not an edge. This is
+  narrower than "no dark pixels": an eye is dark and must be. Draw an internal edge — a seam
+  between an arm and the trunk, a fold — as the material's own **deep tone**, and draw a feature
+  like an eye in a dark *material's* deep tone. For scale: on skin, skin's deep tone reads at a
+  0.230 luma gap and is too weak for an eye, a dark material's deep tone reads at 0.50 to 0.57,
+  and the banned outline reads at 0.591. `INTERIOR` is the lane that refuses the ink.
+- **Shade by form, not only by direction.** The generator ranks a material's pixels by a mix of
+  the top-left light and how far inside the silhouette they sit, so a limb is lit along its body
+  and falls away at its rim. A purely directional four-tone ramp puts a straight diagonal across
+  a flat torso, which reads as a crease in the cloth rather than as light — it was rendered at
+  four weights and looked at before the mix was settled.
 - **What a survivor wears is drawn on top, not painted in.** Clothing, packs and held weapons are
   separate 32 × 40 overlays composited onto the body at the identical rect, hung off the published
   skeleton below. Layering staying a requirement is the owner's call of 2026-09-09, so a body with
   its jacket baked into the frame cannot be used: the game has to be able to take the jacket off.
+
+**What has been delivered against this brief, and what happened to it.** One body:
+`player_body_authored`, the player, the first art here the generator did not draw (2026-09-11).
+It was **retired two days later** by the decoupled-paperdoll decisions
+([docs/30](../../../docs/30-decisions.md#the-decoupled-paperdoll-2026-09-11), decision 9), which
+take its face away (the head is drawn from above now), its canvas (32×48 with per-slot canvases)
+and the face-on arrangement it was drawn for — so almost nothing it carried survives, and the
+player is re-commissioned as slot layers once those canvases exist. The tier, this brief and
+every lane that judges it stayed; only the picture went.
+
+**Two things it measured are worth keeping, because they are what to do next time.** It was made
+with PixelLab **img2img over the shipped `player_body`** rather than from scratch, and at
+`init_image_strength` 300 the output came back inside *every* bound above on the first generation
+— height 28, clearance 6 and 6, soles on row 39, shoulders 20, head 12 — while a from-scratch
+generation on the same canvas came back 38 px tall, floating off the sole row, with a 20 px head.
+**Start from a picture that already meets the geometry**; a prompt describing the geometry does
+not produce it. And the tone treatment had to be code: asking the prompt for clean ramps gave 17
+colours, and the passes that followed gave 6. Both findings carry straight into the
+re-commission. If you deliver a rig, note also that it must not widen the union of the existing
+rigs' opaque boxes — `check_worn.gd` measures every equipment overlay inside that union and now
+refuses a commissioned body that grows it, because a bigger union silently weakens the fit check
+for all 51 overlays.
 
 The skeleton an overlay is authored against is the one under "The pawn" below — `FEET_Y 0`,
 `LEG_TOP_Y −6`, `TORSO_TOP_Y −16`, `SHOULDER_Y −14`, `HAND_Y −8`, `HAND_X 8.4`, `HEAD_CY −21`,

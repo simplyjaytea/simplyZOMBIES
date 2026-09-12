@@ -52,19 +52,40 @@ extends SceneTree
 #             which it is until the first commissioned sprite lands.
 #
 # What this gate deliberately does NOT do, named so the next session does not think it was
-# missed: it does not put an authored rig into `Appearance.PAWN_KEYS`. That array is what
-# `check_topdown.gd`'s FLIP lane iterates and what `check_worn.gd`'s `_rig_keys()` counts, and
-# that count asserts **exactly eight**. The first authored rig therefore has to widen both
-# deliberately -- and `check_worn.gd`'s FITS envelope, which is the union of the eight rigs'
-# opaque boxes and is what every equipment overlay is measured against. Layering staying a
-# requirement of any art we take is the owner's call of the same day, so that widening is the
-# slice that lands the first rig, not this one.
+# missed: it does not put an authored rig into `Appearance.PAWN_KEYS`. One key belongs to one
+# tier -- the TIER lane below is what refuses a key that is in both -- so the roster the other
+# gates judge is the UNION of that array and the manifest's `rig` keys, never the array alone.
+# That widening landed with the first commissioned body on 2026-09-11:
+# `Appearance.authored_rig_keys()` is the one reader, `check_topdown.gd`'s FLIP lane iterates the
+# union, and `check_worn.gd` splits its count into a pinned eight generated plus one per declared
+# rig. Its FITS envelope -- the union of the rigs' opaque boxes, which every equipment overlay is
+# measured inside -- was the one that could have gone weaker silently, since every body added to
+# a union only makes "is this overlay inside it" easier to answer yes; it now asserts that the
+# commissioned rigs do not widen it at all, so layering staying a requirement of any art we take
+# (the owner's call of 2026-09-09) is mechanical rather than remembered.
 
 const Appearance = preload("res://presentation/appearance.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
 
 const AUTHORED_PATH: String = "res://assets/sprites/authored.json"
 const KINDS: Array[String] = ["rig", "overlay", "tile"]
+
+# The four-tone model (docs/30, "The decoupled paperdoll", decision 5). `tools/sprites` writes
+# the manifest beside the art; this gate is the half that judges the pixels against it.
+const TONES_PATH: String = "res://assets/sprites/tones.json"
+
+# The most distinct colours a rig may carry. Measured off the committed PNGs on 2026-09-12,
+# after the four-tone pass landed: 13 (player), 16 (mara), 20 (ellis), 5 (colonist), 13
+# (raider), 5 (shambler), 9 (screamer), 5 (bloater). Ellis is the rig at the wall -- four
+# materials plus a beard -- and the cap is his count exactly, the same arrangement the shoulder
+# bound takes with the bloater: a bound the shipped roster already sits on, so it cannot have
+# been set by guessing. Before the pass the same eight carried 27 to 88.
+const TONE_CAP: int = 20
+
+# The share of a body the highlight tone may cover, from the supplied spec's "<= 10% area".
+# `Canvas.tone_pass` spends it as a ceiling rather than an exact count, so the measured shares
+# land just under: 7.9% to 9.6% across the eight.
+const HIGHLIGHT_MAX: float = 0.10
 
 # The published skeleton rows this gate reads, in pixels above the soles -- a hand-written copy of
 # `tools/sprites/parts/characters.py`'s, for the reason `check_worn.gd` carries its own: GDScript
@@ -103,9 +124,12 @@ func _run() -> void:
 	ok = _the_manifest_is_well_formed() and ok
 	ok = _no_key_is_in_both_tiers() and ok
 	ok = _every_rig_meets_the_published_bounds() and ok
+	ok = _no_rig_draws_ink_inside_its_silhouette() and ok
+	ok = _every_rig_is_four_tones_a_material() and ok
+	ok = _no_highlight_covers_more_than_its_share() and ok
 	ok = _authored_art_is_read_by_something() and ok
 	if ok:
-		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every rig meets the published bounds, and authored art is read by something")
+		print("AUTHORED_OK the manifest is well formed, no key is in two tiers, every rig meets the published bounds, no rig draws ink inside its silhouette, every rig is four tones a material, no highlight covers more than its share, and authored art is read by something")
 		quit(0)
 	else:
 		push_error("AUTHORED_FAIL")
@@ -185,7 +209,20 @@ func _the_manifest_is_well_formed() -> bool:
 		push_error("the manifest predicate refused a sound fabricated entry; it would refuse real art too")
 		return false
 
-	print("MANIFEST OK %d authored keys declared, four malformed fabrications refused and a sound one accepted" % entries.size())
+	# `Appearance.authored_rig_keys()` is the renderer-side reader three gates share, and it reads
+	# `kind` out of this same file. Two readers that must produce the same answer is the
+	# cross-check this lane already runs on the canvas; since 2026-09-11 `kind` is read on both
+	# sides too, so it gets the same treatment rather than being trusted because it is nearby.
+	var rigs_here: Array[String] = []
+	for key in entries.keys():
+		if String((entries[key] as Dictionary).get("kind", "")) == "rig":
+			rigs_here.append(String(key))
+	rigs_here.sort()
+	if Appearance.authored_rig_keys() != rigs_here:
+		push_error("authored.json declares rigs %s and Appearance.authored_rig_keys() answers %s" % [str(rigs_here), str(Appearance.authored_rig_keys())])
+		return false
+
+	print("MANIFEST OK %d authored keys declared (%d of kind rig, agreed by both readers), four malformed fabrications refused and a sound one accepted" % [entries.size(), rigs_here.size()])
 	return true
 
 
@@ -382,6 +419,240 @@ func _every_rig_meets_the_published_bounds() -> bool:
 		return false
 
 	print("SPEC OK %d rigs inside height %d-%d, shoulders <= %d (%d narrow), head <= %d, clearance >= %d, soles on the bottom row, every edge pixel OUTLINE; six fabrications each refused by their own bound" % [judged, HEIGHT_MIN, HEIGHT_MAX, SHOULDER_MAX, SHOULDER_MAX_NARROW, HEAD_MAX, CLEARANCE_MIN])
+	return true
+
+
+# --- the four-tone lanes ---------------------------------------------------------------------
+
+# Every rig this gate judges: the generated eight plus every commissioned body. One helper so the
+# three lanes below cannot drift from each other about what the roster is.
+func _rigs_to_judge() -> Array[String]:
+	var out: Array[String] = GENERATED_RIGS.duplicate()
+	var declared: Dictionary = _entries()
+	for key in declared.keys():
+		if String((declared[key] as Dictionary).get("kind", "")) == "rig":
+			out.append(String(key))
+	return out
+
+
+# Whether an opaque pixel has four opaque neighbours -- i.e. is strictly inside the silhouette
+# rather than on its edge. The inverse of the predicate the SPEC lane's outline rule uses, and
+# deliberately written as its own function so the two cannot disagree about what "inside" means.
+func _is_interior(image: Image, x: int, y: int) -> bool:
+	if image.get_pixel(x, y).a <= 0.0:
+		return false
+	for o in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nx: int = x + o.x
+		var ny: int = y + o.y
+		if nx < 0 or ny < 0 or nx >= image.get_width() or ny >= image.get_height():
+			return false
+		if image.get_pixel(nx, ny).a <= 0.0:
+			return false
+	return true
+
+
+func _interior_ink(image: Image) -> int:
+	var count: int = 0
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			if _is_interior(image, x, y) and image.get_pixel(x, y).is_equal_approx(OUTLINE):
+				count += 1
+	return count
+
+
+# INTERIOR: the spec's "no dark lines inside the silhouette", made mechanical.
+#
+# The rule it enforces is narrow and worth stating exactly, because the wide reading would be
+# wrong: it does not ban dark pixels inside a body -- an eye is dark and must be. It bans
+# `OUTLINE` inside a body. The outline colour is the one colour that says "this is where the
+# shape ends", and using it anywhere else is drawing an edge that is not an edge. Six rigs used
+# to: an OUTLINE eye on five of them, and on the screamer an OUTLINE seam and mouth as well,
+# nineteen pixels of it. They are all a material's deep tone now.
+func _no_rig_draws_ink_inside_its_silhouette() -> bool:
+	var judged: int = 0
+	for key in _rigs_to_judge():
+		var image: Image = _image_of(key)
+		if image == null:
+			push_error("%s does not resolve; the interior rule had nothing to judge" % key)
+			return false
+		var ink: int = _interior_ink(image)
+		if ink > 0:
+			push_error("%s draws %d OUTLINE pixel(s) strictly inside its silhouette: the outline colour says where a shape ends, so inside a body it is a line that is not an edge. Paint the detail in the material's deep tone (assets/sprites/README.md)" % [key, ink])
+			return false
+		judged += 1
+
+	# TN: the same scanner, on a real rig with one interior pixel forced to OUTLINE, must find
+	# it. Proved on shipped art rather than on a drawn blank, so the fabrication starts from
+	# something that passes -- and proved *before* the zero above is trusted.
+	var base: Image = _image_of("player_body")
+	if base == null:
+		push_error("player_body does not resolve; the interior negative cannot be fabricated")
+		return false
+	var spoiled: Image = base.duplicate() as Image
+	var placed: bool = false
+	for y in range(spoiled.get_height()):
+		for x in range(spoiled.get_width()):
+			if not placed and _is_interior(spoiled, x, y):
+				spoiled.set_pixel(x, y, OUTLINE)
+				placed = true
+	if not placed:
+		push_error("no interior pixel exists on player_body to fabricate with; the lane proves nothing")
+		return false
+	if _interior_ink(spoiled) == 0:
+		push_error("a fabricated interior OUTLINE pixel was not found; the interior scanner cannot say no")
+		return false
+
+	print("INTERIOR OK %d rigs draw no OUTLINE strictly inside their silhouette; a fabricated interior pixel is refused" % judged)
+	return true
+
+
+func _tones_declared() -> Dictionary:
+	if not FileAccess.file_exists(TONES_PATH):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(TONES_PATH))
+	return parsed as Dictionary if parsed is Dictionary else {}
+
+
+func _distinct_opaque(image: Image) -> Dictionary:
+	var seen: Dictionary = {}
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			var col: Color = image.get_pixel(x, y)
+			if col.a > 0.0:
+				seen[col.to_html(false)] = true
+	return seen
+
+
+# TONES: a body is a handful of materials at four steps each, not a gradient.
+#
+# The number this replaces is the one worth remembering: the same eight rigs carried 27 to 88
+# distinct colours when each was shaded by a continuous multiply. A cap is the cheapest possible
+# assertion that the tone pass is still running at all -- delete it from the assembler and this
+# lane goes red on every rig at once, which is what makes it a gate rather than a comment.
+func _every_rig_is_four_tones_a_material() -> bool:
+	var judged: int = 0
+	var worst: int = 0
+	var worst_key: String = ""
+	for key in _rigs_to_judge():
+		var image: Image = _image_of(key)
+		if image == null:
+			push_error("%s does not resolve; the tone cap had nothing to judge" % key)
+			return false
+		var count: int = _distinct_opaque(image).size()
+		if count > TONE_CAP:
+			push_error("%s carries %d distinct colours against a cap of %d: a rig is a few materials at four tones each, so this is a gradient rather than a palette (docs/30, the decoupled paperdoll)" % [key, count, TONE_CAP])
+			return false
+		if count > worst:
+			worst = count
+			worst_key = key
+		judged += 1
+
+	# TN: one more colour than the cap must be refused. Fabricated by recolouring interior pixels
+	# of a real rig to values nothing else uses, so the negative is a rig that is otherwise sound.
+	var base: Image = _image_of("player_body")
+	if base == null:
+		push_error("player_body does not resolve; the tone negative cannot be fabricated")
+		return false
+	var over: Image = base.duplicate() as Image
+	var added: int = 0
+	var want: int = TONE_CAP + 1 - _distinct_opaque(over).size()
+	for y in range(over.get_height()):
+		for x in range(over.get_width()):
+			if added >= want:
+				break
+			if _is_interior(over, x, y):
+				over.set_pixel(x, y, Color(0.01 * float(added + 1), 0.99, 0.5))
+				added += 1
+	if added < want:
+		push_error("could not fabricate a rig over the tone cap; the lane proves nothing")
+		return false
+	if _distinct_opaque(over).size() <= TONE_CAP:
+		push_error("a rig fabricated over the tone cap counted %d, at or under %d; the counter cannot say no" % [_distinct_opaque(over).size(), TONE_CAP])
+		return false
+
+	print("TONES OK %d rigs at or under %d distinct colours (worst %s at %d, was 27-88 before the pass); a rig one colour over is refused" % [judged, TONE_CAP, worst_key, worst])
+	return true
+
+
+# The share of a body wearing any material's highlight tone.
+func _highlight_share(image: Image, highlights: Dictionary) -> float:
+	var opaque: int = 0
+	var lit: int = 0
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			var col: Color = image.get_pixel(x, y)
+			if col.a <= 0.0:
+				continue
+			opaque += 1
+			if highlights.has(col.to_html(false)):
+				lit += 1
+	return 0.0 if opaque == 0 else float(lit) / float(opaque)
+
+
+# HIGHLIGHT: the spec's "highlight over at most 10% of the area", both ways.
+#
+# Both ways matters. A highlight over half a body is the failure the spec names, and the ceiling
+# catches it. A highlight over *none* of it is the quieter failure and the one this project has
+# seen before: `palette.ramp`'s own notes record top steps clamping together at a family's value
+# ceiling, and a material whose highlight equals its base has a highlight nobody can see. The
+# floor is what turns that from a picture somebody eventually notices into a red build.
+func _no_highlight_covers_more_than_its_share() -> bool:
+	var declared: Dictionary = _tones_declared()
+	if declared.is_empty():
+		push_error("%s is missing or does not parse; it is generated beside the art by tools/sprites and this lane cannot know which colour is a highlight without it" % TONES_PATH)
+		return false
+	var highlights: Dictionary = {}
+	for name in declared.keys():
+		var steps: Variant = declared[name]
+		if not (steps is Array) or (steps as Array).size() != 4:
+			push_error("tones.json: '%s' is %s; a material is four tones, darkest first" % [String(name), str(steps)])
+			return false
+		highlights[String((steps as Array)[3]).lstrip("#")] = true
+
+	var judged: int = 0
+	var worst: float = 0.0
+	var worst_key: String = ""
+	for key in _rigs_to_judge():
+		var image: Image = _image_of(key)
+		if image == null:
+			push_error("%s does not resolve; the highlight share had nothing to judge" % key)
+			return false
+		var share: float = _highlight_share(image, highlights)
+		if share > HIGHLIGHT_MAX:
+			push_error("%s wears a highlight over %.1f%% of its body, past the %.0f%% the spec allows: a highlight that covers a body is the base tone with extra steps" % [key, share * 100.0, HIGHLIGHT_MAX * 100.0])
+			return false
+		if share <= 0.0:
+			push_error("%s wears no highlight at all: either its ramp collapsed at the family ceiling or the tone pass did not run on it, and both are invisible without this line" % key)
+			return false
+		if share > worst:
+			worst = share
+			worst_key = key
+		judged += 1
+
+	# TN, both bounds, on real art: a rig repainted entirely in one material's highlight must be
+	# refused by the ceiling, and the same rig with no highlight at all by the floor.
+	var base: Image = _image_of("player_body")
+	if base == null:
+		push_error("player_body does not resolve; the highlight negatives cannot be fabricated")
+		return false
+	var lit_key: String = String(highlights.keys()[0])
+	var flooded: Image = base.duplicate() as Image
+	var blanked: Image = base.duplicate() as Image
+	for y in range(base.get_height()):
+		for x in range(base.get_width()):
+			if base.get_pixel(x, y).a <= 0.0:
+				continue
+			flooded.set_pixel(x, y, Color(lit_key))
+			if highlights.has(base.get_pixel(x, y).to_html(false)):
+				blanked.set_pixel(x, y, OUTLINE)
+	if _highlight_share(flooded, highlights) <= HIGHLIGHT_MAX:
+		push_error("a rig repainted entirely in a highlight measured at or under the ceiling; the share cannot say no")
+		return false
+	if _highlight_share(blanked, highlights) > 0.0:
+		push_error("a rig with every highlight pixel overpainted still measures a highlight; the floor cannot say no")
+		return false
+
+	print("HIGHLIGHT OK %d rigs wear a highlight over 0%% and at most %.0f%% of the body (worst %s at %.1f%%); a flooded rig and a highlight-free one are both refused" % [judged, HIGHLIGHT_MAX * 100.0, worst_key, worst * 100.0])
 	return true
 
 
