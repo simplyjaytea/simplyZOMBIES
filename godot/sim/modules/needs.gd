@@ -318,6 +318,24 @@ const ILLNESS_REMAINING: Dictionary = {
 }
 const ILLNESS_STREAM: String = "illness"
 
+# --- books (docs/08) ---------------------------------------------------------------------------
+#
+# `sim/modules/skills.gd` has been a complete, content-driven XP ladder since Milestone 1 and **no
+# item in the game taught anything**: every point a survivor has ever earned came from a kill or a
+# finished job. These two keys are the reader. The block is `teaches: {region, points}` on an item
+# base; the region is one of SimSkills.REGIONS and nothing else, and the points are bounded by
+# SimSkills.PRACTICE_POINTS -- what actually doing the work is worth once -- so a book is a
+# shortcut into the ladder and never a way around it.
+#
+# `READ_COMPONENT` is what stops a library being an infinite purse: the reader remembers the
+# titles they have read, and a book is worth nothing to somebody who has already read it. It is an
+# **Array of base ids** under one key, not a Dictionary keyed by anything, for CLAUDE.md's reason
+# -- components round-trip through JSON, and a save is where a cleverer shape would quietly come
+# back empty. Skills die with the person (skills.gd's own first line) and so does this: it hangs
+# off the reader, not off the colony.
+const TEACH_KEY: String = "teaches"
+const READ_COMPONENT: String = "booksRead"
+
 # What a completely empty stamina pool costs work speed. docs/04 lists work speed among the four
 # things exhaustion degrades; melee.gd's _apply_exhaustion owns the other three, which are
 # modifiers. This one is not, so it lives with work_mul.
@@ -2090,6 +2108,10 @@ static func can_use(world: Variant, entity: int, item: int) -> bool:
 	var bid: String = String((base as Dictionary).get("baseId", ""))
 	if drink_spec(world, bid) != null or is_food(world, bid):
 		return true
+	# A book is offered only to somebody who can still learn from it -- see `can_learn_from`, which
+	# is the same function `read_book` runs below rather than a second copy of the question.
+	if teaches_spec(world, bid) != null:
+		return can_learn_from(world, entity, bid)
 	# A remedy is offered only to somebody who is actually ill. The predicate the menu asks and the
 	# intake below are the same function on purpose: a screen that decides availability its own way
 	# is a screen that can offer a use the sim then refuses.
@@ -2118,6 +2140,8 @@ static func use_item(world: Variant, entity: int, item: int, as_wash: bool = fal
 		return drink_item(world, entity, item)
 	if is_food(world, bid):
 		return eat(world, entity, item)
+	if teaches_spec(world, bid) != null:
+		return read_book(world, entity, item)
 	if illness_grade(world, bid) != "":
 		return take_remedy(world, entity, item)
 	return false
@@ -2152,6 +2176,97 @@ static func take_remedy(world: Variant, entity: int, item: int) -> bool:
 	else:
 		n["illUntilTick"] = int(world.tick) + remaining
 	world.events.publish({"type": "remedy.taken", "entity": entity, "grade": grade, "ticksLeft": maxi(remaining, 0)})
+	return true
+
+
+# --- what a book teaches -----------------------------------------------------------------------
+
+# What this base teaches, or null for the overwhelming majority of items, which teach nothing. The
+# region is checked against SimSkills.REGIONS here rather than trusted from content, because the
+# content validator is shallow and a `teaches` block naming "Medicine " or "Shooting" would pass it
+# untouched -- the warmth slice reproduced exactly that with a body part that does not exist. A
+# region the code does not have reads as "this base teaches nothing", which makes the book
+# unusable and visibly so, rather than silently paying into a region nobody can spend.
+static func teaches_spec(world: Variant, base_id: String) -> Variant:
+	var entry: Variant = SimItems.content_entry(world, "item", base_id)
+	if not entry is Dictionary:
+		return null
+	var block: Variant = (entry as Dictionary).get(TEACH_KEY)
+	if not block is Dictionary:
+		return null
+	var region: String = String((block as Dictionary).get("region", ""))
+	var points: int = int((block as Dictionary).get("points", 0))
+	if points <= 0:
+		return null
+	var SkillsRes: GDScript = load("res://sim/modules/skills.gd") as GDScript
+	if SkillsRes == null or not (SkillsRes.REGIONS as Array).has(region):
+		return null
+	return {"region": region, "points": points}
+
+
+# The titles this survivor has read, ever. An Array of base ids, always -- a component minted
+# before this key existed, or by a fixture that never read anything, has to mean "none" rather
+# than crash.
+static func titles_read(world: Variant, entity: int) -> Array:
+	var rec: Variant = world.components.get_component(entity, READ_COMPONENT)
+	if not rec is Dictionary:
+		return []
+	var titles: Variant = (rec as Dictionary).get("titles", [])
+	return (titles as Array) if titles is Array else []
+
+
+static func has_read(world: Variant, entity: int, base_id: String) -> bool:
+	return titles_read(world, entity).has(base_id)
+
+
+# Whether reading this would teach this body anything: it has to be a book, they have to have a web
+# for the points to land in, and they have to not have read it already. The menu predicate and the
+# intake are this one function, which is the rule every verb in the inventory follows -- a screen
+# that decides availability its own way offers uses the sim then drops on the floor.
+#
+# The second copy is the whole point of the ledger. A colony that finds two field manuals of the
+# same title has found one lesson and a spare, and without this the spare would be a second full
+# payment for reading the same pages again.
+static func can_learn_from(world: Variant, entity: int, base_id: String) -> bool:
+	if teaches_spec(world, base_id) == null:
+		return false
+	if not world.components.has_component(entity, "skillWeb"):
+		return false
+	return not has_read(world, entity, base_id)
+
+
+# One reading. The book is **consumed** -- one copy, one lesson, and the pages are gone with it --
+# and the title is written into the reader's ledger so a second copy of it teaches nobody twice.
+# The points go through `SimSkills.teach` into the same `_earn` a kill and a finished job go
+# through, so a book cannot pay into a ladder of its own.
+static func read_book(world: Variant, entity: int, item: int) -> bool:
+	if item < 0 or not SimInventory.owns(world, entity, item):
+		return false
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary:
+		return false
+	var bid: String = String((base as Dictionary).get("baseId", ""))
+	if not can_learn_from(world, entity, bid):
+		return false
+	var spec: Dictionary = teaches_spec(world, bid) as Dictionary
+	var SkillsRes: GDScript = load("res://sim/modules/skills.gd") as GDScript
+	if SkillsRes == null:
+		return false
+	# Spent before it is credited, and the ledger written before the points land: `_autospend`
+	# runs inside `teach` and can buy a node on the way through, so anything this function still
+	# needs to be true afterwards has to be true before the call.
+	if not _consume_item(world, entity, item):
+		return false
+	var titles: Array = titles_read(world, entity).duplicate()
+	titles.append(bid)
+	world.components.set_component(entity, READ_COMPONENT, {"titles": titles})
+	if not bool(SkillsRes.call("teach", world, entity, String(spec["region"]), int(spec["points"]))):
+		# Unreachable: `can_learn_from` has already asked every question `teach` asks. It says so
+		# rather than returning quietly, because a book spent for nothing is the worst outcome and
+		# the silent version of it is what this milestone keeps paying for.
+		push_error("read_book: %s was spent and taught nothing" % bid)
+		return false
+	world.events.publish({"type": "book.read", "entity": entity, "base": bid, "region": String(spec["region"])})
 	return true
 
 
