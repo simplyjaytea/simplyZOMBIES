@@ -286,6 +286,9 @@ switch (mode) {
   case "--m2-fog":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_fog.gd"];
     break;
+  case "--m2-filter":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_filter.gd"];
+    break;
   case "--m2-splint":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_splint.gd"];
     break;

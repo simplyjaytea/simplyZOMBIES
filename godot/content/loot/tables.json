@@ -480,6 +480,10 @@
       {
         "item": "item.wrap.elastic",
         "weight": 2
+      },
+      {
+        "item": "item.mask.dust",
+        "weight": 4
       }
     ]
   },
@@ -968,6 +972,18 @@
       {
         "item": "item.wrap.elastic",
         "weight": 1
+      },
+      {
+        "item": "item.mask.dust",
+        "weight": 5
+      },
+      {
+        "item": "item.goggles.sealed",
+        "weight": 4
+      },
+      {
+        "item": "item.gloves.chemical",
+        "weight": 3
       }
     ]
   },
@@ -1157,6 +1173,26 @@
       {
         "item": "item.wrap.elastic",
         "weight": 3
+      },
+      {
+        "item": "item.mask.surgical",
+        "weight": 8
+      },
+      {
+        "item": "item.gloves.chemical",
+        "weight": 6
+      },
+      {
+        "item": "item.goggles.sealed",
+        "weight": 4
+      },
+      {
+        "item": "item.coverall.paper",
+        "weight": 4
+      },
+      {
+        "item": "item.suit.hazmat",
+        "weight": 2
       }
     ]
   },
@@ -1497,6 +1533,14 @@
       {
         "item": "item.painkillers.opioid",
         "weight": 2
+      },
+      {
+        "item": "item.mask.gas",
+        "weight": 5
+      },
+      {
+        "item": "item.suit.hazmat",
+        "weight": 3
       }
     ]
   },
@@ -1697,6 +1741,26 @@
           "min": 1,
           "max": 2
         }
+      },
+      {
+        "item": "item.mask.dust",
+        "weight": 6
+      },
+      {
+        "item": "item.goggles.sealed",
+        "weight": 6
+      },
+      {
+        "item": "item.respirator.halfmask",
+        "weight": 5
+      },
+      {
+        "item": "item.gloves.chemical",
+        "weight": 5
+      },
+      {
+        "item": "item.coverall.paper",
+        "weight": 4
       }
     ]
   }

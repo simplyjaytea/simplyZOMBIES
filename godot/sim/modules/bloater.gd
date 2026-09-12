@@ -93,8 +93,20 @@ static func register_module(world: Variant) -> void:
 				if rolled:
 					continue
 				rolls.append({"flag": int(fd["entity"]), "atTick": int(w.tick)})
+				# The mask that filters, the owner's call of 2026-09-12. What the survivor has on
+				# is read here, at the roll, and folded into the chance the plume gets in: best
+				# worn wins, composed by max, the same way `armor_coverage_of` composes what turns
+				# a tooth. Before this the roll was flat proximity and a cloth mask was worth
+				# exactly a bike helmet against a cloud.
+				#
+				# The draw is spent either way. `record_extra_exposure` takes exactly one number
+				# off the `contamination` stream whatever the chance is, so a filtered survivor and
+				# a bare one stay in step on the same seed -- which is what lets check_m2_filter's
+				# CLOUD lane compare them roll for roll instead of sampling twice and hoping.
+				#
 				# Extra exposure. Do not flip an existing transmitted flag.
-				SimInfectionRes.record_extra_exposure(w, int(survivor), int(fd["source"]), rng, EXTRA_CHANCE)
+				var got_through: float = EXTRA_CHANCE * (1.0 - SimInfectionRes.filter_of(w, int(survivor)))
+				SimInfectionRes.record_extra_exposure(w, int(survivor), int(fd["source"]), rng, got_through)
 	)
 
 

@@ -1,0 +1,90 @@
+[
+  {
+    "id": "item.mask.dust",
+    "name": "Dust Mask",
+    "description": "A moulded paper shell with a wire nose clip. It was sold for sanding floors and it is not proud of where it ended up.",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.03,
+    "equipSlot": "face",
+    "armor": { "head": 0.15 },
+    "filter": 0.35
+  },
+  {
+    "id": "item.mask.surgical",
+    "name": "Surgical Mask",
+    "description": "A pleated theatre mask with ear loops. Made to keep a surgeon out of a patient, not a patient out of a surgeon.",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.02,
+    "equipSlot": "face",
+    "armor": { "head": 0.1 },
+    "filter": 0.25
+  },
+  {
+    "id": "item.goggles.sealed",
+    "name": "Sealed Goggles",
+    "description": "Splash goggles with a foam gasket all the way round. They fog in a minute and you leave them on anyway.",
+    "class": "armor",
+    "size": { "w": 1, "h": 1 },
+    "massKg": 0.1,
+    "equipSlot": "eyes",
+    "armor": { "head": 0.15 },
+    "filter": 0.3
+  },
+  {
+    "id": "item.gloves.chemical",
+    "name": "Chemical Gloves",
+    "description": "Long nitrile gauntlets off a laboratory bench. Nothing soaks through them and anything sharp goes through like paper.",
+    "class": "armor",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.2,
+    "equipSlot": "gloves",
+    "armor": { "hand_left": 0.2, "hand_right": 0.2 },
+    "filter": 0.4
+  },
+  {
+    "id": "item.coverall.paper",
+    "name": "Paper Coverall",
+    "description": "A disposable white coverall with a taped seam. One snag and it is a bin liner with sleeves.",
+    "class": "armor",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 0.3,
+    "equipSlot": "torso",
+    "armor": { "torso": 0.1, "arm_left": 0.1, "arm_right": 0.1 },
+    "filter": 0.5
+  },
+  {
+    "id": "item.respirator.halfmask",
+    "name": "Half-Mask Respirator",
+    "description": "A rubber half mask with a cartridge on each cheek. It seals on the chin and you can hear yourself breathing in it.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.4,
+    "equipSlot": "face",
+    "armor": { "head": 0.2 },
+    "filter": 0.75
+  },
+  {
+    "id": "item.suit.hazmat",
+    "name": "Hazmat Suit",
+    "description": "A hooded suit in faded orange, taped at the wrists. Sealed, stifling, and it makes a person look like nothing anyone wants to meet.",
+    "class": "armor",
+    "size": { "w": 3, "h": 3 },
+    "massKg": 3.2,
+    "equipSlot": "torso",
+    "armor": { "torso": 0.25, "arm_left": 0.25, "arm_right": 0.25 },
+    "filter": 0.85
+  },
+  {
+    "id": "item.mask.gas",
+    "name": "Gas Mask",
+    "description": "A full-face mask with a filter screwed into the cheek, surplus and older than it looks. The lenses are scratched to fog and it seals like the day it was issued.",
+    "class": "armor",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.9,
+    "equipSlot": "face",
+    "armor": { "head": 0.3 },
+    "filter": 0.9
+  }
+]
