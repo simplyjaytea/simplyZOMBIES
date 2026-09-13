@@ -749,12 +749,7 @@ session, each with its gate red both ways and its record.
   is still in the corner is **stamina**, which has no diegetic form yet and is the harder half,
   because a body that is out of breath has to *look* it rather than say so. Whatever it becomes,
   it is not a bar and not a word over anybody else's head.
-- **The skill web screen.** **Presentation only, now.** The mechanism underneath it landed with
-  [Focus and the Manual learn line](#the-record-by-system) — the `web.buy` command, the
-  `SimSkills.web_view` read model and the choice of who manages a survivor, all gated by
-  `godot:m2:autonomy`. What remains is a *screen*: the web drawn as a web, with regions and
-  adjacency and the shape of a survivor's history visible in it, rather than the one prose line
-  the work grid can fit. Nothing in the sim is waiting on it.
+- ~~**The skill web screen**~~ — **landed** 2026-09-13, see the record (`godot:check:web_look`).
 - **Prose that names its modifier sources.** "Slow because the leg is splinted", generated from
   the modifier pipeline rather than hand-authored per case.
 
@@ -854,10 +849,14 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
   unclaimed target in the same shape and have not been measured to double up; the `reserved`
   component the Cook fix added is the seam if either ever does.
-- **A lull's opening edge is dead code.** `_begin_lull` guards its only write to `lullFromTick`
-  with `world.tick < lullFromTick`, and the field starts at 0 and is never written, so the
-  condition can never be true and the window is effectively `[0, lullUntilTick)`. `world.gd`'s
-  save comment already treats this field as load-bearing.
+- ~~**A lull's opening edge is dead code.**~~ **Already fixed, and this entry was stale.** The
+  guard it describes (`world.tick < lullFromTick`) is gone: `_begin_lull` writes the opening edge
+  whenever no lull is running (`tick >= lullUntilTick`), from the next dawn, and a second disaster
+  inside a lull extends `until` and leaves `from` alone — landed with the two-grace-nights slice
+  (`4b4bbfe`), `godot:m2:director`'s LULL-EDGE lane, which asserts `from_tick != 0` so the old
+  guard reds it. Found by reading on 2026-09-13; the one drift left beside it was `world.gd`'s
+  default director literal omitting `lullFromTick` (backfilled by `register_module`, so harmless),
+  which now carries it. Struck rather than deleted, as the bloater entry below.
 - ~~**An unreachable destination costs a full A\* every tick, forever.**~~ **Fixed 2026-09-10**
   (`godot:m2:jobs`, the PATHING lane), and it was worse than this entry said. `SimJobs._walk`'s
   re-plan condition read `pathGen != gen **or path.is_empty()**`, and empty is exactly what
@@ -872,27 +871,20 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   body drops the job and `_pick` hands back the same candidate on the next tick. `SimPath.find`
   itself is untouched: the caller still cannot tell "guard exhausted" from "no path", and it no
   longer needs to. The lane was proved red against the shipped condition.
-- **The content tree is re-parsed six times a second while you play.**
-  `main.gd::_poll_content_reload` runs every 0.5 s in a debug build and calls
-  `ContentValidator.validate_tree` and then `ContentReload.try_reload_world`, which validates again
-  and loads again — three full walks of all 27 JSON files, twice a second, with no change
-  detection. `ContentReload.poll_content_dir`, written to be that change detection, returns
-  `not paths.is_empty()` (always true) and is called by nothing.
-- **`write_file_atomic` is not atomic.** `platform/storage.gd` deletes the existing save before
-  renaming the temp file over it, which is the window the name, the comment and the module header
-  all promise there isn't.
-- **A missing schema silently disables validation for a whole content type.**
-  `content_validator.gd` treats it as a `push_warning` and a `continue`, and
-  `npm run godot:validate` still reports success.
+- ~~**The content tree is re-parsed six times a second while you play.**~~ **Fixed 2026-09-13**
+  (`godot:check:hud`, RELOAD-COST; the record's Kernel & review sweep bullet). It was 83 files, not
+  27, parsed three times per poll.
+- ~~**`write_file_atomic` is not atomic.**~~ **Fixed 2026-09-13** (`godot:m2:save`, ATOMIC; the
+  record's Kernel & review sweep bullet, which says what is still not closable on Windows).
+- ~~**A missing schema silently disables validation for a whole content type.**~~ **Fixed
+  2026-09-13** (`godot:validate`, SCHEMA-COVERAGE; the record's Kernel & review sweep bullet).
 - **`recorded` grows without bound.** `SimCommandQueue.recorded` deep-copies every command ever
   pushed and is read only by `parity_snapshot`. In a played session that is every movement command
   of every tick, kept for the life of the run.
-- **`deep_pockets` is computed in the wrong scope.** The suffix adds `carry_capacity` scoped to the
-  *item*; encumbrance resolves `carry_capacity` scoped to the *actor*. Rolled, named, saved, read
-  by nothing.
-- **`merge_into_stack` reads a failure as a success.** `merge_stacks` returns 0 both for "fully
-  merged" and for all five of its give-up paths, so `stow` can report an item stored that it did
-  not store.
+- ~~**`deep_pockets` is computed in the wrong scope.**~~ **Fixed 2026-09-13** (`godot:m2:gear`,
+  POCKETS, and `godot:m2:stats`, GEAR; the record's Kernel & review sweep bullet).
+- ~~**`merge_into_stack` reads a failure as a success.**~~ **Fixed 2026-09-13**
+  (`godot:check:inventory`, STACK; the record's Kernel & review sweep bullet).
 - **Sightings are recorded on geometry, not on sight.** `sightings.gd::_observe_one` uses
   `line_of_sight` rather than `detail`, so a survivor remembers — and the HUD reports — bodies
   standing in the 170-degree arc behind them. The information-stays-scarce ban is the reason to
@@ -4353,13 +4345,84 @@ not a to-do list:
   **The honest half.** This is the *mechanism* of "the skill web screen", not the screen. What
   ships is one prose line per row — "knows a surer grip · long legs — could learn: tape and
   patience, plain grit" — with the learnable names clickable. The web drawn *as a web*, with regions
-  and adjacency, is still in [what's left](#whats-left-in-milestone-2), annotated presentation-only.
+  and adjacency, landed on 2026-09-13 as the next entry.
   Nothing was measured about balance because nothing in the campaign path changed: the refactor into
   `_buy` is behaviour-identical (same order, same affordability, same modifier set), and the new
   intake consumes a command no headless driver pushes. Confirmed rather than assumed —
   `godot:m2:balance` prints the same four rows as the slice above (404 = 7 kills m7 / 0 deaths,
   20260805 = 5 kills / 1 death) and `godot:m2:harness` the same six lines (knife 24/3, bow 14/3,
   pistol 20/4).
+- **Survivors / UI** — ~~the skill web screen~~ **landed** 2026-09-13
+  (`npm run godot:check:web_look` → `WEB_LOOK_OK`, lanes PLACED / WOVEN / MAP / SCREEN / WIRED; the
+  chain's **70th** gate). **K** opens the web for the colonist selected on the street, or for you,
+  and Esc closes it; screenshots for the owner in `.hermes/plans/2026-09-13_web-screen/`
+  (`web-manual.png`, `web-auto.png`). Presentation only: `godot/sim/` gained a read model and nothing
+  on the campaign path.
+  **Where a node sits is content.** docs/08's content shape had named `position` beside `cost` since
+  the web was specified and no node carried one; every node in `skill_web.json` does now, on the unit
+  square with the hub at the centre, six sectors laid as docs/08's diagram (Endurance up, Survival
+  down, Ranged and Melee to the right, Medicine and Craft to the left), cost-one nodes on an inner
+  ring and cost-two on an outer. `ui/web_layout.gd` is pure rules over that content — positions,
+  lines, where a region's word goes, and `problems()`, the one predicate that says whether a web is
+  well laid (every node placed and on the square, no two on top of each other, cheap nearer the hub
+  than dear within a region, each region one contiguous sector, every path naming real nodes, every
+  node on some line). Neither validator sees `content/colony/` — `godot:validate` is shallow and the
+  frozen oracle never reads the file — so PLACED runs the shipped web through that predicate and
+  then five deliberately broken copies, each of which must be refused for its own fault.
+  **The lines are the focus paths, by the owner's decision, and nothing else.** The shallow web has
+  no prerequisite links (ADR 0012), and a drawn line that meant nothing to the sim would read as a
+  rule that does not exist. So a line joins two nodes exactly where some `focusPaths` entry buys one
+  after the other — the arrays `_autospend` walks — a spoke runs from the hub to each path's first
+  node, and a node on **no** path is joined to the hub by a dotted line: `ranged.calm` and
+  `craft.scrap`, the two the surplus pass alone reaches, found by `drift_only()` rather than named,
+  so the day a path reaches one the dots become a line with nobody editing a list. WOVEN computes
+  the pair set a second way from the paths (16 lines, 3 spokes, 2 dotted on the shipped web), proves
+  the dotted rule and the missing-node refusal on a fixture, and asserts textually that
+  `_autospend` and `WebLayout.edges` read the same `focusPaths` key.
+  **A second read model, because the first is pinned.** `godot:m2:autonomy`'s VIEW lane holds
+  `web_view` to exactly `{known, learnable}` with a digit scan, and rightly, so the screen reads
+  `SimSkills.web_map` instead: `{who, manual, regions:[{region, lived}], nodes:[{node, name, region,
+  state}]}` with `state` one of three words. No cost, no point total, no count and no position
+  crosses — MAP pins the allowlist at all three levels, scans the JSON for a digit, and proves the
+  predicate refuses a `cost`, a fourth state word and a digit in a name. The two models share one
+  private `_node_state`, so the grid's prose line and the screen cannot disagree about what is
+  clickable, and MAP asserts they agree anyway. `lived` reads `earned` — banked plus what the owned
+  nodes cost — and the assertion that it does is on an **Auto twin** who spent every point: `lived`
+  from the banked points passes on the Manual survivor (three in hand) and fails only there.
+  **The screen.** Six fans round a hub, warm olive where the survivor has lived and a hairline where
+  they have not; the lines bright where both ends are known; discs bright for known, amber for
+  learnable, an outline for the rest, each with its prose name beside it in the same colour, to the
+  right on the web's right half and ending to the left on its left. Amber keeps its one meaning —
+  what a Manual survivor could learn now — and the footer says so in words; an Auto survivor's
+  footer says they are on their own path and how to change that. `layout_hits()` and `words()` are
+  pure over the map and the layout, so SCREEN judges the panel with no draw pass having run: its
+  click targets are exactly the learnable nodes, inside the panel and not overlapping; every word is
+  prose (no digit, no `a.b` id, no `a_b` key, the scanner proved against all three); a click pushes
+  `web.buy` through the queue and the sim learns the node, after which it is no longer a target;
+  the Auto twin has no targets and a refusal with reason `auto`. WIRED reads main.gd: the panel
+  loaded after the work grid (sibling order is z-order), K bound, Esc peeling the web before the
+  bench (the order predicate proved on the reversed arm), the per-frame re-pull with the selected
+  colonist, the six methods main.gd names present by those exact names (the `has_method` trap), and
+  the legend's K row in digit-free prose inside the `GROUPS` block.
+  **What follows the selection for free.** `_who()` — the HUD's own rule, factored out of
+  `_update_hud` unchanged — is what the web is pulled for every frame, so clicking another
+  colonist on the street re-points the screen and a selection that dies drops it back to you.
+  **Fifteen sabotages, each run red before the gate was trusted**, one per assertion the plan named:
+  a node with no position, a dear node inside the cheap ring, two regions interleaved, the last pair
+  dropped from every path, `drift_only` returning nothing, `lived` reading banked points, a `cost` on
+  a node entry, a fourth state word, the screen writing ids instead of names, a digit in the footer,
+  `_act` pushing the wrong command, no K arm, Esc peeling the bench first, `layout_hits` renamed,
+  the legend row deleted. One of them was itself wrong the first time: "move `craft.scrap` inward"
+  moved it to a spot still further from the hub than its region's cheap node, and the gate was right
+  to stay green — the second attempt, genuinely inside the ring, went red on the ring rule.
+  **Honest halves.** Fifteen hand-laid positions on two rings; there are no keystones, notables or
+  cross-links to lay because the shallow web has none. Region words sit at two radii (one above and
+  below, a wider one to the sides) because the header and footer cap the square vertically and the
+  panel has room beside it; a mis-laid node would drag its region's word, and PLACED's sector rule is
+  what stops that. The screen draws over the work grid rather than replacing its prose line, which
+  stays. No `SAVE_VERSION` move — the panel stores nothing per survivor and nothing new is saved.
+  Nothing was measured about balance because nothing on the campaign path changed; confirmed by the
+  balance rows of the `godot:m2` run rather than assumed.
   **One existing lane had to move, and it is worth saying which.** `check_m2_web.gd`'s DRIFT lane
   locked its survivor by pushing `job.focus` with focus `Auto` and asserting `focusSetBy == player` —
   an assertion of exactly the behaviour the handback rule reverses, and it went red here. The lane
@@ -6395,6 +6458,63 @@ not a to-do list:
     600-tick cooldown, while the sibling lane with a living survivor still alarms at magnitude
     300. Confirmed to fail against the bug it targets: reverting the `corpse` skip alarms on the
     corpse exactly like the living-survivor lane does.
+  - **Five more worked off the defect list on 2026-09-13**, the mechanical ones that needed no
+    rebalance, each its own commit with a lane run red before it was trusted; the sweep's own
+    count still stays thirteen. A sixth entry, the lull's opening edge, turned out to be already
+    fixed and was struck as stale rather than re-fixed.
+    - ~~`write_file_atomic` is not atomic~~ **fixed** (`godot:m2:save`, ATOMIC). The delete before
+      the rename is gone; POSIX rename replaces atomically on one filesystem, and a leftover temp
+      file from a crashed write is swept before writing instead. The lane writes twice under a
+      gate-only key and asserts the target present throughout and no temp file left, then reads
+      the body textually for a `da.remove(` naming the target, the scanner proved on a fabricated
+      body. Reinstating the delete reds it. **Two halves stay open by the engine's hand**: on
+      Windows `DirAccessWindows::rename` removes-then-renames internally, so the window shrinks to
+      the engine's and cannot be closed from GDScript; and Godot 4 exposes no fsync, so the
+      oracle's `fsyncSync` has no twin — `flush` empties Godot's buffer, not the page cache. Both
+      are written on the function rather than implied.
+    - ~~A missing schema silently disables validation~~ **fixed** (`godot:validate`,
+      SCHEMA-COVERAGE). `validate_tree` reports every walked type with no schema as an issue,
+      through a pure `missing_schemas` a gate can hand a fabricated pair. `content/colony/` is the
+      one named exemption, cited to docs/30's "Who manages a survivor's skill web": its three files
+      are gated by the lanes that read them. `check_content.gd`, which had no lanes, gains two: the
+      walk, and a lane that proves the detector refuses a ghost type, pins the exemption list to
+      exactly `colony`, and checks every schema file on disk is registered. Unregistering `region`
+      reds the run. Corrected in passing: the tree is 83 content files plus 18 schemas, not 27.
+    - ~~`merge_into_stack` reads a failure as a success~~ **fixed** (`godot:check:inventory`,
+      STACK). `merge_stacks` answers −1 refused, 0 consumed, N left; every refusal used to answer
+      0, the same word as "merged entirely", so `stow` reported an item put away that had gone
+      nowhere — alive, no `stored`, no `position`. `merge_into_stack` also skips a candidate with
+      no `stack` component before asking. The lane: a refused stack is not stored and comes back
+      to the ground through `pick_up_nearest`; four and three make seven with the source gone;
+      three over a full ten stay three and find a cell. Reverting one refusal to 0, or making a
+      full target refuse, each reds it. Nine `stow` sites in `jobs.gd` and the pick-up, unequip
+      and take-all paths change behaviour only where `stow` used to lie; the balance rows of the
+      `godot:m2` run are the check that nothing on the campaign path moved.
+    - ~~`deep_pockets` is computed in the wrong scope~~ **fixed** (`godot:m2:gear`, POCKETS;
+      `godot:m2:stats`, GEAR). The owner's call was the `worn_scent_of` shape: encumbrance reads
+      `SimInventory.capacity_of`, the actor's own number plus each *worn* item's scoped
+      contribution over the unscoped one, at use time, cached nowhere — so nothing is pushed onto
+      a wearer and nothing has to be taken off them when a pack is dropped, given away or stolen,
+      which is the leak a re-scoping fix would have had to close on eight item-moving paths. Worn
+      only, deliberately: the suffix applies to containers and armour, and a pack inside a pack
+      does not compound. POCKETS: a plain pack adds nothing, the deep pack on the ground adds
+      nothing, worn it adds the content's tier value (read from the tree) and the encumbrance ratio
+      follows, and the bonus leaves with the pack; GEAR: STR 8 and the top tier compose to 44.
+      Deleting the gear walk reds both. Named, not fixed: `split_stack` deep-copies `affixes`, so a
+      split deep-pockets *stack* would double the bonus — inert today because containers do not
+      stack, but the shape is there.
+    - ~~The content tree is re-parsed six times a second~~ **fixed** (`godot:check:hud`,
+      RELOAD-COST). The poll fingerprints the tree — paths, modified times, lengths, a directory
+      walk and no parse — and reloads only when the fingerprint moves; `poll_content_dir`, which
+      answered "changed" for any non-empty tree and was called by nothing, is retired, and the
+      separate `validate_tree` call in `main.gd` went with it, since `try_reload_world` validates
+      first anyway. The fold is on its own so the lane proves it on a fabricated list; the lane
+      then plants a marker in the live tree, forces a poll, and asserts the marker survived, and
+      calls the reload directly to prove it still replaces the tree. Making the compare always
+      miss reds it. **One contradiction found and not decided**: docs/30's "What hot reload made
+      structural" says reload must re-run the seed and never swap content under a live world, and
+      `try_reload_world` does exactly that swap, as it has since R5. The owner chose to keep the
+      swap and add the detection for now; the call itself is in `HANDOFF.md`'s waiting list.
 
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where

@@ -37,7 +37,6 @@ const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const SimSave = preload("res://sim/save.gd")
 const PlatformStorage = preload("res://platform/storage.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
-const ContentValidator = preload("res://platform/content_validator.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const Pick = preload("res://presentation/pick.gd")
@@ -78,6 +77,8 @@ var speed: int = 1
 var attention_channel: String = "off" # off/noise/scent/sight/light
 var inventory_open: bool = false
 var work_open: bool = false
+# The skill web screen (K), for the colonist selected on the street or for you.
+var web_open: bool = false
 var show_sheets: bool = false
 var tick_count: int = 0
 
@@ -86,6 +87,7 @@ var _hud: Control = null
 var _legend: Control = null
 var _inventory_panel: Control = null
 var _work_panel: Control = null
+var _web_panel: Control = null
 var _paperdoll: Control = null
 var _dashboard: Control = null
 var _settings: Control = null
@@ -138,6 +140,8 @@ var _vehicle_index_gen: int = -1
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
 var _content_poll_at: float = -1e9
+# The content tree as last seen by the reload poll; a reload happens only when this moves.
+var _content_fingerprint: int = 0
 var _sfx: Node = null
 
 # movement input held
@@ -395,6 +399,17 @@ func _ensure_ui() -> void:
 		# them -- the same six rows now need more height to stay on screen at once.
 		_work_panel.size = Vector2(1520, 540)
 		layer.add_child(_work_panel)
+	# The skill web drawn as a web (K), over the work grid because it is the grid's own prose
+	# line opened out, and under everything that follows in this list -- sibling order is
+	# z-order here. web_panel.gd's header says what it draws and what it refuses to compute.
+	var web_script: GDScript = load("res://ui/web_panel.gd") as GDScript
+	if web_script != null:
+		_web_panel = web_script.new() as Control
+		_web_panel.name = "WebPanel"
+		_web_panel.visible = false
+		_web_panel.position = Vector2(300, 120)
+		_web_panel.size = Vector2(1040, 760)
+		layer.add_child(_web_panel)
 	# paperdoll glimpse bottom-left (always visible, cheap); the HUD keys hint moved to the
 	# bottom-right corner to make this one free.
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
@@ -473,6 +488,10 @@ func _input(event: InputEvent) -> void:
 				# recently opened, and closing it is what walking away would have done.
 				if _legend != null and _legend.visible:
 					_legend.visible = false
+				elif _web_panel != null and _web_panel.visible:
+					# The web before the bench: it is the thing most recently opened by a key,
+					# and closing it is what looking back at the street would have done.
+					_set_web_open(false)
 				elif world != null and _bench_panel != null and _bench_panel.visible:
 					world.commands.push({"type": "bench.close"})
 				elif world != null and _inventory_panel != null and _inventory_panel.has_method("loot_open") and bool(_inventory_panel.call("loot_open")):
@@ -487,6 +506,10 @@ func _input(event: InputEvent) -> void:
 					_work_panel.visible = work_open
 					if work_open and _work_panel.has_method("set_world"):
 						_work_panel.call("set_world", world)
+			KEY_K:
+				# Tab owns the screen while the sheet is up, the same rule the R arm keeps.
+				if not inventory_open:
+					_set_web_open(not web_open)
 			KEY_SPACE:
 				if world != null: world.commands.push({"type": "shout"})
 			KEY_F:
@@ -647,6 +670,29 @@ func _pump_input() -> void:
 # corner doll are peeled rather than dimmed -- and a driver or a gate that wants the sheet open
 # gets the same four things a keypress does, which is what stops a screenshot from showing a
 # legend nobody playing would see.
+# Whose lines the HUD speaks and whose web the K screen shows: the colonist selected on the
+# street, or you. A selection outlives nothing: a colonist who died, turned, walked out or
+# became the body you are now driving drops back to your own lines rather than leaving the HUD
+# speaking of somebody who is not there.
+func _who() -> int:
+	if world == null:
+		return -1
+	if _selected >= 0 and (_selected == int(world.player) or not world.components.has_component(_selected, "identity") or world.components.has_component(_selected, "corpse")):
+		_selected = -1
+	return _selected if _selected >= 0 else int(world.player)
+
+
+func _set_web_open(open: bool) -> void:
+	web_open = open
+	if _web_panel == null:
+		return
+	_web_panel.visible = open
+	if open and _web_panel.has_method("set_world") and world != null:
+		_web_panel.call("set_world", world, _who())
+	if open and _legend != null:
+		_legend.visible = false
+
+
 func _set_inventory_open(open: bool) -> void:
 	inventory_open = open
 	if _inventory_panel != null and _inventory_panel.has_method("set_open"):
@@ -721,18 +767,23 @@ func _poll_content_reload() -> void:
 	if now - _content_poll_at < 0.5:
 		return
 	_content_poll_at = now
-	# lightweight mtime check via ContentValidator: validate_tree is cheap on small tree
-	var issues: Array = ContentValidator.validate_tree("res://content") as Array
-	if issues.is_empty():
-		if not _content_error.is_empty():
-			_content_error = ""
-		# reload tree onto world (Dictionary only, no Resources in sim)
-		var res: Dictionary = ContentReload.try_reload_world(world)
-		if not bool(res.get("ok", true)):
-			_content_error = "; ".join(res.get("issues", []) as Array)
+	# A directory walk, not a parse: the tree is validated and reloaded only when a file's time
+	# or length has moved since the last look. This used to validate the whole tree, then
+	# validate it again and load it again inside try_reload_world, twice a second, on every
+	# debug frame -- three full parses of every content file for a tree nobody had touched.
+	var fingerprint: int = ContentReload.content_fingerprint("res://content")
+	if fingerprint == _content_fingerprint:
+		return
+	_content_fingerprint = fingerprint
+	# try_reload_world validates first and reloads only on a clean tree (Dictionary only, no
+	# Resources in sim); an invalid edit does not reload -- the run keeps going and the HUD shows
+	# the file, entry and field.
+	var res: Dictionary = ContentReload.try_reload_world(world)
+	if bool(res.get("ok", true)):
+		_content_error = ""
 	else:
+		var issues: Array = res.get("issues", []) as Array
 		_content_error = String(issues[0]) if not issues.is_empty() else "content error"
-		# invalid edit does not reload — run keeps going, HUD shows file/entry/field
 
 func _process(delta: float) -> void:
 	if world == null: return
@@ -845,12 +896,8 @@ func _update_hud() -> void:
 			base += "  %s" % String(look["device"])
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
-	# A selection outlives nothing: a colonist who died, turned, walked out or became the body
-	# you are now driving drops back to your own lines rather than leaving the HUD speaking of
-	# somebody who is not there.
-	if _selected >= 0 and (_selected == int(world.player) or not world.components.has_component(_selected, "identity") or world.components.has_component(_selected, "corpse")):
-		_selected = -1
-	var who: int = _selected if _selected >= 0 else int(world.player)
+	# Whose lines: the selected colonist or you, with a dead selection dropped (`_who`).
+	var who: int = _who()
 	if bool(world.runOver):
 		base += "  RUN OVER"
 	# `base` is the developer sheet: ticks, raw positions, aptitude integers, the
@@ -877,6 +924,11 @@ func _update_hud() -> void:
 		_dashboard.call("set_view", SimVehicles.dash_view(world, world.player))
 	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
 		_work_panel.call("set_world", world)
+	# The web follows the selection every frame: click another colonist on the street and the
+	# screen is theirs, and a selection that dies drops the screen back to you, with no code of
+	# its own for either.
+	if _web_panel != null and _web_panel.visible and _web_panel.has_method("set_world"):
+		_web_panel.call("set_world", world, who)
 	# Always refreshed, not only while open: pinned bag windows read the same view during
 	# ordinary play, and a stale pinned bag is a lie about what you are carrying.
 	# The transfer window, fed whether or not the sheet is open: a cupboard you are standing at is

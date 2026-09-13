@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-12 (the alpha-roster arc)
+## State, as of 2026-09-13 (the skill web screen)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **69 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **70 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,37 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-13 — five defects worked off the sweep's list, and one found already fixed.** The
+mechanical ones that needed no rebalance, each its own commit with a lane run red first: the save
+is never absent from disk (`godot:m2:save` ATOMIC), a missing schema is a validation failure with
+`colony` the one named exemption (`godot:validate` SCHEMA-COVERAGE), a stack that cannot merge is
+not reported as stored (`godot:check:inventory` STACK), a pack of deep pockets is felt by whoever
+wears it (`godot:m2:gear` POCKETS, `godot:m2:stats` GEAR), and the content tree is read once and
+only when it changed (`godot:check:hud` RELOAD-COST). The lull's opening edge was already fixed
+by the two-grace-nights slice and its entry was struck as stale. Two things worth knowing: the
+atomic write is atomic on Unix only, because the engine's own Windows rename removes-then-renames
+and Godot 4 has no fsync, both now written on the function; and the reload work turned up a
+docs/30 decision the code has contradicted since R5, which is on the owner's list below. The CI
+prose in `.claude/skills/steward/SKILL.md` and `CLAUDE.md` was also corrected to the four-job
+layout of 2026-09-12.
+
+**2026-09-13 — the skill web screen, and the first slice of a skills turn.** The owner opened the
+skill system after the roster arc and picked the screen first: **K** draws the web as a web for the
+colonist selected on the street (or for you), Esc closes it, and `godot:check:web_look` is the
+chain's **70th** gate. Where a node sits is content now — docs/08 had named `position` beside
+`cost` since the web was specified and no node carried one — and the lines are the **focus paths**,
+by the owner's decision: a drawn line joins two nodes exactly where `_autospend` buys one after the
+other, and a node no path reaches (`ranged.calm`, `craft.scrap`) hangs off the hub by a dotted line
+the layout finds rather than names. Nothing mechanical moved; `sim/` gained a second read model,
+`SimSkills.web_map`, because the autonomy gate pins `web_view` to two keys and rightly so. It is
+words and booleans only, and its `lived` reads *earned* rather than banked — asserted on an Auto
+twin who spent every point, the only survivor it can fail on. Fifteen sabotages went red before the
+gate was trusted; one of them was itself wrong the first time and the record says which. Screenshots
+in `.hermes/plans/2026-09-13_web-screen/`. The record in docs/23 is the one copy of the detail.
+
+**What is next in the skills turn**, named in what's left already: diagnosis prose that scales with
+Medicine, and nobody reading a book or seeking comfort unaided. Neither was touched here.
 
 **2026-09-12 — the alpha-roster arc is closed: fifteen slices, and a re-baseline that vindicates
 the content and indicts one rule.** The roster went **152 → 362 bases** and the chain **57 → 69
@@ -731,6 +762,14 @@ same dead-socket pattern CLAUDE.md has been recording all milestone; the list is
 When you add a mechanism, add the assertion that something reaches it.
 
 ## What is waiting on the owner, not on code
+
+**Does hot reload swap content under a live world, or re-run the seed?** docs/30's "What hot reload
+made structural" decides the second — four things capture content at spawn, equip and boot, so a
+live swap leaves a world disagreeing with its own content — and `ContentReload.try_reload_world`
+has done the first since R5. The 2026-09-13 reload fix kept the swap and added change detection,
+by your call for that session; whether the swap stays, or the poll becomes validate-and-report
+with a fresh boot to take an edit, is the decision. Nothing measured: it is a question of what
+"reload" means, not of a number.
 
 **Should a wash require soap?** docs/04 says washing needs water *and* soap; only the water half is
 enforced. The camping slice shipped `hygiene` as banked charges a dirtying spends, and deliberately

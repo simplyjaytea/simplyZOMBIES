@@ -13,6 +13,11 @@ const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimContainers = preload("res://sim/modules/containers.gd")
+const PlatformStorage = preload("res://platform/storage.gd")
+
+const STORAGE_GD: String = "res://platform/storage.gd"
+# A key of this gate's own, so the lane never touches a real save slot.
+const ATOMIC_KEY: String = "m2_save_gate.atomic"
 
 func _init() -> void:
 	call_deferred("_run")
@@ -25,8 +30,9 @@ func _run() -> void:
 	ok = _streams() and ok
 	ok = _a_despawn_leaves_nothing_behind() and ok
 	ok = _a_cupboard_and_the_hand_on_it_survive() and ok
+	ok = _the_save_is_never_absent_from_disk() and ok
 	if ok:
-		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid" % int(SimSerialize.SAVE_VERSION))
+		print("M2_SAVE_OK v%d ticket10 needs-era despawn-clean container-grid atomic" % int(SimSerialize.SAVE_VERSION))
 		quit(0)
 	else:
 		push_error("M2_SAVE_FAIL")
@@ -348,3 +354,79 @@ func _a_cupboard_and_the_hand_on_it_survive() -> bool:
 		return false
 	print("CONTAINER SAVE OK a %dx%d cupboard, its %d cells and the hand holding it open all survive, and it stays searched" % [int(after["w"]), int(after["h"]), now.size()])
 	return true
+
+
+# --- ATOMIC ------------------------------------------------------------------------------------
+#
+# docs/22: "Writes are atomic -- write to a temp file, then rename -- so a crash mid-write can't
+# corrupt a fifty-hour run." The shipped `write_file_atomic` deleted the existing save before the
+# rename, which is exactly the window that sentence promises away. A single-threaded gate cannot
+# observe the window itself, so the lane has two halves: the behaviour (a second write lands, the
+# target exists throughout, the temp file is gone) and the text (the body renames and never
+# removes the target), with the needle scanner proved on a fabricated body before it is trusted.
+func _the_save_is_never_absent_from_disk() -> bool:
+	var target: String = "user://%s.json" % ATOMIC_KEY
+	var tmp: String = target + ".tmp"
+	PlatformStorage.write_file_atomic(ATOMIC_KEY, "first")
+	if not FileAccess.file_exists(target):
+		push_error("ATOMIC: the first write left no file at %s" % target)
+		return false
+	PlatformStorage.write_file_atomic(ATOMIC_KEY, "second")
+	var read: String = PlatformStorage.read_file(ATOMIC_KEY)
+	var tmp_left: bool = FileAccess.file_exists(tmp)
+	var target_left: bool = FileAccess.file_exists(target)
+	PlatformStorage.remove_file(ATOMIC_KEY)
+	if read != "second":
+		push_error("ATOMIC: the second write read back \"%s\"" % read)
+		return false
+	if tmp_left:
+		push_error("ATOMIC: the temp file %s was left behind the rename" % tmp)
+		return false
+	if not target_left:
+		push_error("ATOMIC: the target was gone after the second write")
+		return false
+	# The text: the body of write_file_atomic renames and never removes the target. Proved able
+	# to say no on a fabricated body first.
+	var proof: String = "\tif da.file_exists(target.get_file()):\n\t\tda.remove(target.get_file())\n\tvar err := da.rename(a, b)\n"
+	if not _removes_the_target(proof):
+		push_error("ATOMIC: the scanner passed a body that deletes the target, so its verdict means nothing")
+		return false
+	var body: String = _function_body(STORAGE_GD, "write_file_atomic")
+	if body.is_empty():
+		push_error("ATOMIC: could not read write_file_atomic out of %s" % STORAGE_GD)
+		return false
+	if not body.contains("da.rename("):
+		push_error("ATOMIC: write_file_atomic no longer renames, so nothing here is atomic")
+		return false
+	if _removes_the_target(body):
+		push_error("ATOMIC: write_file_atomic removes the target before the rename -- the save is absent from disk for the width of that window")
+		return false
+	print("ATOMIC OK a second write lands over the first with the target present throughout and no temp file left; the body renames and never removes the target")
+	return true
+
+
+# A `da.remove(` whose argument names the target, not the temp file: the temp file may be swept
+# before the write, the target must never be.
+func _removes_the_target(body: String) -> bool:
+	for line in body.split("\n"):
+		if line.contains("da.remove(") and line.contains("target"):
+			return true
+	return false
+
+
+func _function_body(path: String, name: String) -> String:
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var lines: PackedStringArray = f.get_as_text().split("\n")
+	var out: String = ""
+	var inside: bool = false
+	for line in lines:
+		if line.begins_with("func %s(" % name) or line.begins_with("static func %s(" % name):
+			inside = true
+			continue
+		if inside and (line.begins_with("func ") or line.begins_with("static func ")):
+			break
+		if inside:
+			out += line + "\n"
+	return out

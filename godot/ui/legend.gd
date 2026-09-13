@@ -40,6 +40,7 @@ const GROUPS: Array = [
 	["Look", [
 		["Tab", "gear and injuries — drag between bags, right-click a thing for what you can do"],
 		["J", "work priorities"],
+		["K", "the skill web — what they know, what they could learn, and the shape of it, for whoever you have selected"],
 		["O", "attention overlay: noise, scent, sight, light"],
 		["M", "raw developer sheets"],
 		["Wheel", "zoom"],

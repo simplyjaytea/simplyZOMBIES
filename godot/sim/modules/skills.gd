@@ -375,8 +375,6 @@ static func web_view(world: Variant, entity: int) -> Dictionary:
 	if def.is_empty() or not web is Dictionary:
 		return out
 	var manual: bool = _focus_of(world, entity) == "Manual"
-	var pts: Dictionary = (web as Dictionary).get("points", {}) as Dictionary
-	var owned: Array = (web as Dictionary).get("nodes", []) as Array
 	var known: Array = []
 	var learnable: Array = []
 	for n in def.get("nodes", []) as Array:
@@ -385,17 +383,73 @@ static func web_view(world: Variant, entity: int) -> Dictionary:
 		var nd: Dictionary = n as Dictionary
 		var nid: String = String(nd.get("id", ""))
 		var prose: String = String(nd.get("name", ""))
-		if owned.has(nid):
-			known.append(prose)
-			continue
-		if not manual:
-			continue
-		if int(pts.get(String(nd.get("region", "")), 0)) < int(nd.get("cost", 1)):
-			continue
-		learnable.append({"node": nid, "name": prose})
+		match _node_state(web as Dictionary, nd, manual):
+			"known":
+				known.append(prose)
+			"learnable":
+				learnable.append({"node": nid, "name": prose})
 	out["known"] = known
 	out["learnable"] = learnable
 	return out
+
+
+# One node's standing with one survivor, as a word: "known" (owned), "learnable" (the learning is
+# in the player's hands and the region's banked points cover the cost), or "unknown". The one
+# place the affordability test is written, shared by the work grid's prose line (`web_view`) and
+# the web screen (`web_map`) so the two surfaces cannot disagree about what is clickable.
+static func _node_state(web: Dictionary, node: Dictionary, manual: bool) -> String:
+	var nid: String = String(node.get("id", ""))
+	if (web.get("nodes", []) as Array).has(nid):
+		return "known"
+	if not manual:
+		return "unknown"
+	var pts: Dictionary = web.get("points", {}) as Dictionary
+	if int(pts.get(String(node.get("region", "")), 0)) < int(node.get("cost", 1)):
+		return "unknown"
+	return "learnable"
+
+
+# The content, for the screen that draws the web as a web: `position` on a node is how it looks,
+# not what a survivor has, so the screen reads layout here and a survivor's standing from
+# `web_map`. One loader and one cache, rather than a second parse of the same file in the UI.
+static func definition() -> Dictionary:
+	return _web()
+
+
+# The web screen's read model: every node's standing with this survivor, every region's part in
+# their history, and nothing a number could be rebuilt from. `{}` for a body with no web.
+#
+#   {who: String, manual: bool,
+#    regions: [{region: String, lived: bool}],
+#    nodes:   [{node: String, name: String, region: String, state: "known"|"learnable"|"unknown"}]}
+#
+# `lived` reads `earned` -- banked points plus what the owned nodes cost -- so a survivor who
+# spent everything they earned in a region still reads as having lived there. No cost, no point
+# total, no count and no position crosses here; `web_view`'s argument (docs/30, "Who manages a
+# survivor's skill web") applies unchanged, and check_web_look.gd's MAP lane holds the shape.
+static func web_map(world: Variant, entity: int) -> Dictionary:
+	var def: Dictionary = _web()
+	var web: Variant = world.components.get_component(entity, "skillWeb")
+	if def.is_empty() or not web is Dictionary:
+		return {}
+	var manual: bool = _focus_of(world, entity) == "Manual"
+	var ident: Variant = world.components.get_component(entity, "identity")
+	var who: String = String((ident as Dictionary).get("name", "")) if ident is Dictionary else ""
+	var regions: Array = []
+	for r in def.get("regions", []) as Array:
+		regions.append({"region": String(r), "lived": earned(world, entity, String(r)) > 0})
+	var nodes: Array = []
+	for n in def.get("nodes", []) as Array:
+		if not n is Dictionary:
+			continue
+		var nd: Dictionary = n as Dictionary
+		nodes.append({
+			"node": String(nd.get("id", "")),
+			"name": String(nd.get("name", "")),
+			"region": String(nd.get("region", "")),
+			"state": _node_state(web as Dictionary, nd, manual),
+		})
+	return {"who": who, "manual": manual, "regions": regions, "nodes": nodes}
 
 
 static func _nodes_by_id(def: Dictionary) -> Dictionary:

@@ -72,8 +72,9 @@ func _run() -> void:
 	ok = await _the_column_is_in_a_fixed_order() and ok
 	ok = _the_windows_are_gone_and_the_keys_moved() and ok
 	ok = await _a_cupboard_is_a_column_and_a_window() and ok
+	ok = _a_stack_that_cannot_merge_is_not_reported_as_stored() and ok
 	if ok:
-		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, and a cupboard is a column and a window")
+		print("INVENTORY_OK descriptions are prose, the pane carries only words, a verb is offered iff it works and reaches its command, the strip is belt and pockets and spends what you pressed, the column is fixed, the windows are gone, a cupboard is a column and a window, and a stack that cannot merge is not reported as stored")
 		quit(0)
 	else:
 		push_error("INVENTORY_FAIL")
@@ -1035,4 +1036,84 @@ func _a_cupboard_is_a_column_and_a_window() -> bool:
 		return false
 	print("LOOT OK a cupboard is the first column with the sheet open and a small window beside the pockets with it closed, only the window stops the mouse, and walking away ends both")
 	panel.queue_free()
+	return true
+
+
+# --- STACK -------------------------------------------------------------------------------------
+#
+# `merge_stacks` used to answer 0 both for "merged entirely" and for every one of its refusals, so
+# `merge_into_stack` read a same-base item that could not take the stack as having taken it, and
+# `stow` reported an item put away that had gone nowhere -- no `stored`, no `position`, alive and
+# unreachable. Three outcomes, each judged: a refusal is not stored (and the item comes back to the
+# ground through `pick_up_nearest`); a merge that fits is stored and the source is gone; a merge
+# that does not fit leaves the remainder and `stow` finds it a cell.
+func _a_stack_that_cannot_merge_is_not_reported_as_stored() -> bool:
+	var w: Variant = _world(3107)
+	var limit: int = _stack_limit(w, "item.scrap.metal")
+	if limit < 4:
+		push_error("STACK: scrap stacks to %d, so no partial merge could be judged" % limit)
+		return false
+	# Pockets full of same-base items that carry no `stack` component -- the shape `merge_stacks`
+	# refuses -- so a loose stack of three has nothing to pour into and nowhere else to go.
+	var cells: int = int(SimInventory.POCKET_GRID["w"]) * int(SimInventory.POCKET_GRID["h"])
+	for i in cells:
+		var bare: int = w.entities.spawn()
+		w.components.set_component(bare, "itemBase", {"baseId": "item.scrap.metal"})
+		var placed: Dictionary = SimInventory.place_at(w, bare, w.player, i % int(SimInventory.POCKET_GRID["w"]), i / int(SimInventory.POCKET_GRID["w"]), false)
+		if not bool(placed.get("ok", false)):
+			push_error("STACK: could not fill pocket cell %d: %s" % [i, str(placed)])
+			return false
+	var loose: int = SimItems.spawn_item(w, "item.scrap.metal", {"tier": "scavenged", "count": 3})
+	w.components.remove(loose, "position")
+	if SimInventory.stow(w, w.player, loose):
+		push_error("STACK: stow reported three scrap stored into pockets that could not take them")
+		return false
+	var stack: Variant = w.components.get_component(loose, "stack")
+	if not w.entities.is_alive(loose) or not stack is Dictionary or int((stack as Dictionary).get("count", 0)) != 3:
+		push_error("STACK: the refused stack was consumed anyway")
+		return false
+	if w.components.get_component(loose, "stored") != null:
+		push_error("STACK: the refused stack reads as stored")
+		return false
+	# Through the real pick-up path: a refusal puts the item back at your feet, not out of the world.
+	var here: Dictionary = w.components.get_component(w.player, "position") as Dictionary
+	w.components.set_component(loose, "position", {"x": float(here["x"]), "y": float(here["y"])})
+	if SimInventory.pick_up_nearest(w, w.player):
+		push_error("STACK: pick_up_nearest reported a pick-up that went nowhere")
+		return false
+	if w.components.get_component(loose, "position") == null:
+		push_error("STACK: the scrap that could not be picked up is no longer on the ground")
+		return false
+	# The control: a proper stack with room takes it, and the source is gone.
+	var w2: Variant = _world(3108)
+	var held: int = _give(w2, "item.scrap.metal", 4)
+	if held < 0:
+		push_error("STACK: could not seed the pockets with a stack of four")
+		return false
+	var three: int = SimItems.spawn_item(w2, "item.scrap.metal", {"tier": "scavenged", "count": 3})
+	w2.components.remove(three, "position")
+	if not SimInventory.stow(w2, w2.player, three):
+		push_error("STACK: a stack of three was refused by a stack of four with room for six")
+		return false
+	var held_stack: Dictionary = w2.components.get_component(held, "stack") as Dictionary
+	if int(held_stack.get("count", 0)) != 7 or w2.entities.is_alive(three):
+		push_error("STACK: four and three made %d, and the source %s" % [int(held_stack.get("count", 0)), "survived" if w2.entities.is_alive(three) else "was consumed"])
+		return false
+	# And a stack with no room leaves the remainder, which stow then finds a cell for.
+	var w3: Variant = _world(3109)
+	var full: int = _give(w3, "item.scrap.metal", limit)
+	var extra: int = SimItems.spawn_item(w3, "item.scrap.metal", {"tier": "scavenged", "count": 3})
+	w3.components.remove(extra, "position")
+	var remainder: int = SimInventory.merge_stacks(w3, extra, full)
+	if remainder != 3:
+		push_error("STACK: pouring three into a full stack of %d answered %d, not the three left" % [limit, remainder])
+		return false
+	if not SimInventory.stow(w3, w3.player, extra):
+		push_error("STACK: the three left over found no pocket")
+		return false
+	var extra_stack: Dictionary = w3.components.get_component(extra, "stack") as Dictionary
+	if int(extra_stack.get("count", 0)) != 3 or w3.components.get_component(extra, "stored") == null:
+		push_error("STACK: the remainder was stored as %d or not stored at all" % int(extra_stack.get("count", 0)))
+		return false
+	print("STACK OK a refused stack is not stored and comes back to the ground; four and three make seven and the source is gone; three over a full %d stay three and find a cell" % limit)
 	return true
