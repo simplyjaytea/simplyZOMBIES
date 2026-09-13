@@ -32,6 +32,15 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-13 — repair cost is read: the second piece of the wider web, and the Craft region back.**
+`SimItems.repair_item` takes the repairer and scales the ceiling drop by `repair_cost`, the
+repairer's own times the item's own, so `craft.tape`, `craft.scrap` and the affix "of Salvage"
+do something for the first time; two Craft minors landed beside them (nineteen nodes). Measured on
+a throwaway driver: five repairs end at 0.75 under plain hands and 0.815 with every Craft node.
+Lane REPAIR-COST in `godot:m2:upkeep`, three sabotages red. The scrap a repair spends is still one
+whole unit, as docs/30's 2026-09-06 reasoning said it must be. The next piece is treatment speed,
+which introduces the first keystone and the node shape that carries a drawback.
+
 **2026-09-13 — healing rate is read: the first piece of the wider web, and a dead region back.**
 The recovery clock reads `healing_rate` on the patient's own scope, so `med.hands` and
 `med.triage` do something for the first time, and two Medicine minors landed beside them (the web

@@ -13,6 +13,7 @@ const SimMelee = preload("res://sim/modules/melee.gd")
 const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimRoster = preload("res://sim/modules/roster.gd")
 const Clock = preload("res://sim/time/clock.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
 
 func _init() -> void:
 	call_deferred("_run")
@@ -26,8 +27,9 @@ func _run() -> void:
 	ok = _spawn_delivery() and ok
 	ok = _the_weapon_that_acted_is_the_weapon_that_wears() and ok
 	ok = _a_shot_announces_itself_and_a_dry_hand_does_not() and ok
+	ok = _the_repair_cost_is_read() and ok
 	if ok:
-		print("M2_UPKEEP_OK wear broke repair spawn-deliver source fired")
+		print("M2_UPKEEP_OK wear broke repair spawn-deliver source fired repair-cost")
 		quit(0)
 	else:
 		push_error("M2_UPKEEP_FAIL")
@@ -355,3 +357,90 @@ func _swing_once(w: Variant) -> bool:
 		if landed:
 			break
 	return landed
+
+
+# --- REPAIR-COST ---------------------------------------------------------------------------
+#
+# `repair_cost` had been written by the two Craft nodes and the affix "of Salvage" since they
+# landed, and resolved by nothing -- the Craft region was a dead socket (docs/30, "Readers first
+# for the web"). `repair_item` scales the ceiling drop by it now: the repairer's own times the
+# item's own. Every number here is exact, because a lane that only said "the ceiling moved" is
+# the lane this gate already had. Positives: practised hands halve the drop; a salvageable item
+# takes four fifths of it; both compose. Negatives: a modifier on a stranger moves nothing; a
+# global modifier is counted once, not twice and not never; no repairer named is plain hands;
+# the floor still holds. Then the content: one Craft point on a Worker buys craft.tape and the
+# survivor's resolved cost reads what the content says.
+func _the_repair_cost_is_read() -> bool:
+	var w: Variant = SimBoot.playable(20260805, 64)["world"]
+	var drop: float = SimItems.REPAIR_CEILING_DROP
+	var plain: int = int(w.entities.spawn())
+	var deft: int = int(w.entities.spawn())
+	var stranger: int = int(w.entities.spawn())
+	w.modifiers.call("add", {"stat": "repair_cost", "op": "mul", "value": 0.5, "source": "web.probe"}, deft)
+	w.modifiers.call("add", {"stat": "repair_cost", "op": "mul", "value": 0.5, "source": "web.probe"}, stranger)
+	var cases: Array = [
+		["plain hands", plain, false, 1.0 - drop],
+		["practised hands", deft, false, 1.0 - drop * 0.5],
+		["a salvage knife, plain hands", plain, true, 1.0 - drop * 0.8],
+		["a salvage knife, practised hands", deft, true, 1.0 - drop * 0.5 * 0.8],
+		["no repairer named", -1, false, 1.0 - drop],
+	]
+	for cs in cases:
+		var got: float = _ceiling_after(w, int(cs[1]), bool(cs[2]))
+		if absf(got - float(cs[3])) > 0.0005:
+			push_error("REPAIR-COST: %s left the ceiling at %.4f, expected %.4f" % [String(cs[0]), got, float(cs[3])])
+			return false
+	# The floor holds under any hands: a ceiling one notch above it cannot be pushed through.
+	var low: int = SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"})
+	w.components.set_component(low, "condition", {"current": 0.1, "ceiling": SimItems.REPAIR_CEILING_FLOOR + 0.01})
+	var heavy: int = int(w.entities.spawn())
+	w.modifiers.call("add", {"stat": "repair_cost", "op": "mul", "value": 2.0, "source": "web.probe"}, heavy)
+	SimItems.repair_item(w, low, heavy)
+	if absf(float((w.components.get_component(low, "condition") as Dictionary).get("ceiling", 0.0)) - SimItems.REPAIR_CEILING_FLOOR) > 0.0005:
+		push_error("REPAIR-COST: heavy hands pushed the ceiling through the floor")
+		return false
+	# A global modifier sits inside both scoped resolves: counted once (0.5 * 0.8 * drop), not
+	# twice (0.5 * 0.5 * 0.8) and not never (0.8).
+	w.modifiers.call("add", {"stat": "repair_cost", "op": "mul", "value": 0.5, "source": "gate.global"}, null)
+	var once: float = _ceiling_after(w, plain, true)
+	w.modifiers.call("remove_by_source", "gate.global", null)
+	if absf(once - (1.0 - drop * 0.5 * 0.8)) > 0.0005:
+		push_error("REPAIR-COST: with a global x0.5 a salvage knife under plain hands left %.4f, expected %.4f (once), not %.4f (twice) or %.4f (never)" % [once, 1.0 - drop * 0.4, 1.0 - drop * 0.2, 1.0 - drop * 0.8])
+		return false
+	# The content: a Worker's first Craft point buys craft.tape, and the hands read it.
+	var worker: int = int(w.entities.spawn())
+	w.components.set_component(worker, "identity", {"id": "survivor.probe", "name": "Probe", "unique": false, "backstory": ""})
+	SimJobs.attach(w, worker, "Worker")
+	SimSkills.attach(w, worker)
+	SimSkills._earn(w, worker, "Craft", 1)
+	var tape: Variant = null
+	for n in SimSkills.definition().get("nodes", []) as Array:
+		if String((n as Dictionary).get("id", "")) == "craft.tape":
+			tape = n
+	if not tape is Dictionary or not SimSkills.has_node(w, worker, "craft.tape"):
+		push_error("REPAIR-COST: one Craft point did not buy craft.tape on the Worker path, so the content half judged nothing")
+		return false
+	var want: float = float((tape as Dictionary).get("value", 0.0))
+	var read: float = float(w.modifiers.call("resolve", "repair_cost", worker))
+	if absf(read - want) > 0.001:
+		push_error("REPAIR-COST: craft.tape owned and repair_cost reads %.3f; the content says %.3f" % [read, want])
+		return false
+	var by_tape: float = _ceiling_after(w, worker, false)
+	if absf(by_tape - (1.0 - drop * want)) > 0.0005:
+		push_error("REPAIR-COST: craft.tape's hands left the ceiling at %.4f, expected %.4f" % [by_tape, 1.0 - drop * want])
+		return false
+	print("REPAIR-COST OK plain %.4f, practised %.4f, salvage %.4f, both %.4f; a stranger's and a global modifier each counted right; the floor holds; craft.tape reads %.2f" % [1.0 - drop, 1.0 - drop * 0.5, 1.0 - drop * 0.8, 1.0 - drop * 0.4, want])
+	return true
+
+
+# One fresh knife at a full ceiling, half worn, repaired once by these hands; the ceiling after.
+# `salvage` hand-rolls the affix's first tier rather than drawing it, so no RNG is in the way.
+func _ceiling_after(w: Variant, repairer: int, salvage: bool) -> float:
+	var knife: int = SimItems.spawn_item(w, "item.knife.kitchen", {"tier": "scavenged"})
+	if salvage:
+		w.components.set_component(knife, "affixes", {"prefixes": [], "suffixes": [{"id": "affix.suffix.salvage", "tier": 0}]})
+		SimItems.reapply_affix_modifiers(w, knife)
+	w.components.set_component(knife, "condition", {"current": 0.4, "ceiling": 1.0})
+	if not SimItems.repair_item(w, knife, repairer):
+		return -1.0
+	return float((w.components.get_component(knife, "condition") as Dictionary).get("ceiling", -1.0))

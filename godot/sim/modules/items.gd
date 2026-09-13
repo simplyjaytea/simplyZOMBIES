@@ -19,6 +19,10 @@ const WEAR_PER_HIT: float = 0.005
 const WEAR_PER_SHOT: float = 0.0015
 # A reload is gentler than a shot and mostly costs the magazine, which slice 2 charges separately.
 const WEAR_PER_RELOAD: float = 0.0005
+# What one repair gives back, and what it costs. docs/10 and docs/11: repair never restores the
+# full ceiling -- each one lowers the most a thing can ever be again, so a weapon is repaired
+# many times and is then scrap forever. The gain is clamped to the lowered ceiling. The drop is
+# what `repair_cost` scales (see `repair_item`); the gain and the floor are not read by any stat.
 const REPAIR_GAIN: float = 0.25
 const REPAIR_CEILING_DROP: float = 0.05
 const REPAIR_CEILING_FLOOR: float = 0.2
@@ -117,6 +121,23 @@ static func worn_scent_of(world: Variant, entity: int) -> float:
 		if base is Dictionary:
 			total += maxf(0.0, float((base as Dictionary).get("scent", 0.0)))
 	return total
+
+# How much of the ceiling a repair costs, as a multiple of `REPAIR_CEILING_DROP`: the repairer's
+# `repair_cost` times the item's own. An item's own is its scoped value over the unscoped one --
+# a division, because the stat multiplies -- so a global modifier, which sits inside both scoped
+# resolves, is counted once and not twice (the `capacity_of` argument in inventory.gd, for a
+# stat that adds). No repairer, or no modifier table, reads as plain hands.
+static func repair_cost_factor(world: Variant, item: int, repairer: int = -1) -> float:
+	if world.modifiers == null or not (world.modifiers as Object).has_method("resolve"):
+		return 1.0
+	var factor: float = 1.0
+	if repairer >= 0:
+		factor *= float(world.modifiers.call("resolve", "repair_cost", repairer))
+	var unscoped: float = float(world.modifiers.call("resolve", "repair_cost"))
+	if unscoped > 0.0:
+		factor *= float(world.modifiers.call("resolve", "repair_cost", item)) / unscoped
+	return maxf(0.0, factor)
+
 
 # ---- content helpers (supports both registry object and flat Dict from ContentLoader) ----
 
@@ -344,7 +365,16 @@ static func apply_wear(world: Variant, item: int, amount: float = WEAR_PER_HIT) 
 	refresh_armed(world, item)
 
 
-static func repair_item(world: Variant, item: int) -> bool:
+# Mend a thing, at a cost to its ceiling. The cost is `REPAIR_CEILING_DROP` scaled by
+# `repair_cost` -- the repairer's own (the Craft nodes, entity-scoped: practised hands take less
+# off a thing) times the item's own (the "of Salvage" affix, item-scoped: some things are made
+# to be mended). Both had been written since the web and the affix roster landed and read by
+# nobody; docs/30's 2026-09-06 entry left the stat dead on purpose because the scrap a repair
+# spends is one whole unit and 0.9 of an integer is a design, not a reader. The ceiling is a
+# float, so it is the honest reader, and the scrap stays whole (the wider-web arc, 2026-09-13).
+# The repair span is the build-speed piece's, not this stat's. With no repairer named (an
+# older caller, a fixture) the hands are plain and only the item's own factor applies.
+static func repair_item(world: Variant, item: int, repairer: int = -1) -> bool:
 	var c: Variant = world.components.get_component(item, "condition")
 	if not c is Dictionary:
 		return false
@@ -352,7 +382,7 @@ static func repair_item(world: Variant, item: int) -> bool:
 	var ceil: float = float((c as Dictionary).get("ceiling", FULL_CONDITION))
 	if cur >= ceil:
 		return false
-	ceil = maxf(REPAIR_CEILING_FLOOR, ceil - REPAIR_CEILING_DROP)
+	ceil = maxf(REPAIR_CEILING_FLOOR, ceil - REPAIR_CEILING_DROP * repair_cost_factor(world, item, repairer))
 	(c as Dictionary)["ceiling"] = ceil
 	(c as Dictionary)["current"] = minf(ceil, cur + REPAIR_GAIN)
 	refresh_armed(world, item)

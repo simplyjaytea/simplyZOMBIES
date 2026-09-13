@@ -507,9 +507,8 @@ back alive first, weapons and crafting follow, colony reach comes last because i
 before it.
 
 - ~~**Healing rate is read**~~ — **landed** 2026-09-13, see the record (`godot:m2:recovery`, RATE).
-- **Repair cost is read.** `repair_cost` on the repairer, times the repaired item's own, moves how
-  much ceiling a repair costs in `SimItems.repair_item`, which revives `craft.tape`, `craft.scrap`
-  and the affix "of Salvage". Lane REPAIR in the upkeep gate.
+- ~~**Repair cost is read**~~ — **landed** 2026-09-13, see the record (`godot:m2:upkeep`,
+  REPAIR-COST).
 - **Treatment speed is read, and the first keystone.** A new `treatment_speed` divides the
   bandage, clean and close channels (never pressure — R8's banking compares served ticks against
   the raw span) and the NPC Doctor's span; a quick needle as a minor and **the field surgeon** as
@@ -993,15 +992,11 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   correctness"); `SimThreat.threat_within`, so fast-forward is never interrupted by a zombie the
   way the oracle's is; and `SimDirector.snapshot_of`, which `world.gd` deliberately replaced and
   which is now a second hand-listed copy of the director's save shape.
-- **`repair_cost` is a stat nothing resolves.** Declared in `sim/modifiers/stats.gd`, the target
-  of two shipped web nodes (`craft.tape`, `craft.scrap`) and of a suffix line, and no code calls
-  `resolve` on it, so those nodes are bought, applied, and felt by nobody. Named here because the
-  focus-auto-allocation slice made `craft.scrap` ownable for the first time and it would be
-  dishonest to record that as a node arriving in play: what arrived is a node that can be owned.
-  Repair spends **one whole scrap** (`_do_repair` through `_consume_owned`), and a ×0.9 on an
-  integer unit has no honest reader without a debt accumulator or a fractional cost — a design,
-  not a line, which is why it stayed when `spoilage_rate` got its reader (2026-09-06, the record's
-  Needs bullet, `godot:m2:needs` PANTRY).
+- ~~**`repair_cost` is a stat nothing resolves.**~~ **Fixed 2026-09-13** (`godot:m2:upkeep`,
+  REPAIR-COST; the record's "repair cost is read" entry under Survivors). The honest reader was
+  never the scrap — repair still spends one whole unit, as the 2026-09-06 reasoning said it must —
+  it is the ceiling, which is a float: `repair_cost` on the repairer times the item's own scales
+  how much ceiling a repair costs.
 - ~~**`bloater` contamination fires once per survivor, ever.**~~ **Already fixed, and this entry was
   stale.** The `contaminationRolled` boolean it describes no longer exists: `bloater.gd` keeps a
   `contaminationRolls` component whose rolls are an Array of `{flag, atTick}` records scanned by
@@ -4513,6 +4508,39 @@ not a to-do list:
   is now granted the whole Medicine region off the content rather than a literal three, and the
   new node's first position put its name row over its neighbour's disc, which SCREEN's
   no-overlap assertion caught before anybody saw it.
+- **Survivors** — ~~repair cost is read~~ **landed** 2026-09-13 (`godot:m2:upkeep`, lane
+  REPAIR-COST), the wider-web arc's second piece and the one that brings the Craft region back.
+  `repair_cost` had been written by `craft.tape`, `craft.scrap` and the affix "of Salvage" since
+  each landed, and resolved by nothing. `SimItems.repair_item` takes the repairer now and scales
+  the ceiling drop by `repair_cost_factor`: the repairer's own (the nodes, entity-scoped —
+  practised hands take less off a thing) **times** the item's own (the affix, item-scoped — some
+  things are made to be mended), where the item's own is its scoped resolve over the unscoped one,
+  a division because the stat multiplies, so a global modifier inside both scoped resolves is
+  counted once. Two Craft minors landed beside the two revived: *a patient hand with the file*
+  (cost one, on the Worker path) and *nothing wasted* (cost two, surplus-only, the web's fourth
+  dotted line); nineteen nodes now. The 2026-09-06 reasoning that left the stat dead — repair
+  spends one whole scrap and a tenth of an integer is a design — still holds for the scrap, which
+  is untouched; the ceiling was the float reader all along.
+  **Measured**, on a throwaway driver since deleted: one knife repaired five times from a full
+  ceiling ends at **0.7500** under plain hands, **0.7930** with the two original Craft nodes
+  (0.828), **0.8151** with all four (0.7394), and **0.8875** for a tier-two "of Salvage" knife
+  under plain hands — each within a ten-thousandth of the arithmetic. No campaign claim; the arc's
+  re-baseline is reserved for its close.
+  **The lane.** REPAIR-COST asks for exact numbers where the gate's old REPAIR lane asked only
+  "did it move": plain hands 0.9500, a ×0.5 repairer 0.9750, a salvage knife 0.9600, both 0.9800,
+  no repairer named 0.9500; a ×0.5 modifier on a stranger moves nothing; a global ×0.5 with the
+  salvage knife lands at 0.9800 — counted once, not twice (0.9900) and not never (0.9600); heavy
+  hands cannot push a ceiling through the floor; and one Craft point on a Worker buys `craft.tape`
+  and the hands read 0.92. Three sabotages went red: the factor dropped, the repairer read off the
+  item's scope, and the division dropped (the global counted twice, `0.9900`). READERS' awaiting
+  list is down to one, `noise_emission`.
+  **Honest halves.** The repair span is untouched — "of Salvage" promises *cheaper and faster* and
+  only the cheaper half ships here, because the span belongs to the build-speed piece and its own
+  stat. `REPAIR_GAIN` is untouched too, though a smaller drop lets one repair reach a hair higher
+  through the existing clamp — a side effect, named, not a second reader. The Tetanus Special's
+  "free to repair from scrap" is expressible now and still not shipped. And the Craft region's
+  word follows its nodes' centroid and now sits a pixel from a name; the screen's lanes judge node
+  against node, so that is a look call rather than a fault.
   **One existing lane had to move, and it is worth saying which.** `check_m2_web.gd`'s DRIFT lane
   locked its survivor by pushing `job.focus` with focus `Auto` and asserting `focusSetBy == player` —
   an assertion of exactly the behaviour the handback rule reverses, and it went red here. The lane
