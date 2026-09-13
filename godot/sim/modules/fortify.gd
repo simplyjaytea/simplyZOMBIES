@@ -4,6 +4,7 @@ extends RefCounted
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimCampRes = preload("res://sim/modules/camp.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
+const SimItems = preload("res://sim/modules/items.gd")
 const SimAttention = preload("res://sim/modules/attention_emitter.gd")
 const SimVehicles = preload("res://sim/modules/vehicles.gd")
 
@@ -14,8 +15,99 @@ const ALARM_NOISE: float = 8.0
 const NOISEMAKER_MAG: float = 45.0
 const NOISEMAKER_TICKS: int = 12000
 const CONTACT_PER_STAGE: int = 40
-const SCRAP_ID: String = "item.scrap.metal"
 const WINDOW_PROSE: Array[String] = ["intact", "scratched", "splintering", "gaps, light leaking"]
+
+# --- build materials -----------------------------------------------------------------------
+#
+# docs/12-resources.md's gathered and refined tiers, and the owner's decision of 2026-09-12:
+# **typed materials, uniform cost**. Until this slice one id -- `item.scrap.metal` -- was welded
+# into a `SCRAP_ID` constant here and into a second copy of the same constant in jobs.gd, and it
+# was the only substance in the game that could raise anything. Eleven `material`-class bases sat
+# beside it in the roster able to build nothing at all. A recipe now names a *kind* and content
+# declares which kind a thing is (`buildMaterial`, item.schema.json), so a timber wall can want
+# wood and a scrap barricade metal without either of them being a code change.
+#
+# MATERIAL_KINDS is the vocabulary. It is code rather than content for the reason
+# SimModification.OPERATIONS is: the registry is the authority and a duplicated list would drift
+# from it. Neither this array nor the schema's enum can see the other, so
+# check_m2_materials.gd's KINDS lane asserts both directions -- every kind here is declared by
+# some shipped base, and every kind some shipped base declares is one of these. A kind that is
+# not in this list is not a build material as far as `material_of` is concerned, which is what
+# keeps a typo in content from quietly becoming a thirteenth substance.
+const MATERIAL_KINDS: Array[String] = [
+	"metal", "wood", "plank", "stone", "fiber", "cordage",
+	"fixings", "ingot", "charcoal", "clay", "wire", "circuit",
+]
+
+# What each recipe is made of, keyed by the verb `_complete` dispatches on -- plus `repair`,
+# which is SimJobs' Repair job rather than a channel here, and which was the second home of the
+# deleted weld. One table, so a recipe's substance is written down once.
+#
+# A verb absent from this table is free and stays free: boarding a window, laying an alarm line,
+# setting a noisemaker, winding it and establishing a camp all cost nothing today, and this slice
+# is additive, so they cost nothing after it. How *much* a recipe costs is not here either -- one
+# unit a stage, and the owner kept per-recipe quantity closed; the bench's standing three is
+# still SimGunsmith.BENCH_SCRAP, exactly where it already was.
+const RECIPES: Dictionary = {"scrap": "metal", "bench": "metal", "repair": "metal"}
+
+
+## What a recipe is built out of. An unknown verb answers "" -- and "" is not a kind, so
+## `carried_material` finds nothing for it and a verb nobody wrote a recipe for cannot be built
+## by accident rather than being built out of the first thing in the pack.
+static func recipe_kind(verb: String) -> String:
+	return String(RECIPES.get(verb, ""))
+
+
+## The build material this item is made of, or "" when it is not one. The single reader of the
+## `buildMaterial` content key: a whetstone is a `material` by class and is not a build material,
+## and a base declaring a kind MATERIAL_KINDS has never heard of is not one either.
+static func material_of(world: Variant, item: int) -> String:
+	var base: Variant = SimItems.item_base_of(world, item)
+	if not base is Dictionary:
+		return ""
+	var kind: String = String((base as Dictionary).get("buildMaterial", ""))
+	return kind if MATERIAL_KINDS.has(kind) else ""
+
+
+## The first unit of `kind` this actor is carrying, or -1. `SimInventory.best_by_content_key` is
+## the shared flat-content-key scan the medical grades landed; a kind is matched exactly rather
+## than ranked, so the order handed to it is the one kind asked for and nothing else qualifies.
+static func carried_material(world: Variant, actor: int, kind: String) -> int:
+	if not MATERIAL_KINDS.has(kind):
+		return -1
+	var order: Array[String] = [kind]
+	var found: Dictionary = SimInventory.best_by_content_key(world, actor, "buildMaterial", order, "material")
+	return int(found.get("item", -1))
+
+
+## How many units of `kind` this actor is carrying, counting stacks. `carried_material` answers
+## "any"; a bench costs more than one.
+static func material_count(world: Variant, actor: int, kind: String) -> int:
+	if not MATERIAL_KINDS.has(kind):
+		return 0
+	var n: int = 0
+	for item in SimInventory.carried_items(world, actor):
+		if material_of(world, int(item)) != kind:
+			continue
+		var stack: Variant = world.components.get_component(int(item), "stack")
+		n += int((stack as Dictionary).get("count", 1)) if stack is Dictionary else 1
+	return n
+
+
+## Spend one unit of `kind`. A stack loses a count; a single is removed from wherever it was
+## stowed and despawned.
+static func consume_material(world: Variant, actor: int, kind: String) -> bool:
+	var item: int = carried_material(world, actor, kind)
+	if item < 0:
+		return false
+	var stack: Variant = world.components.get_component(item, "stack")
+	if stack is Dictionary and int((stack as Dictionary).get("count", 1)) > 1:
+		(stack as Dictionary)["count"] = int((stack as Dictionary)["count"]) - 1
+		return true
+	SimInventory.remove_from_container(world, item)
+	world.despawn(item)
+	return true
+
 # Pressing (the owner's decision 8, second half; docs/15's crowd). A barrier takes pressure from
 # the dead whose wanted move it stopped this tick -- the kernel's `pressX`/`pressY` -- and a
 # crowd presses harder than its number: n bodies press n x (1 + 0.5 x (n - 1)), so one is 1,
@@ -249,7 +341,7 @@ static func speed_after_events(speed: int, events: Array) -> int:
 
 
 static func look_at(world: Variant, actor: int) -> Dictionary:
-	var out: Dictionary = {"window": "", "noisemaker": ""}
+	var out: Dictionary = {"window": "", "noisemaker": "", "device": ""}
 	if world.tilemap == null:
 		return out
 	var win: Variant = _window_in_reach(world, actor)
@@ -269,6 +361,10 @@ static func look_at(world: Variant, actor: int) -> Dictionary:
 		var nm: Variant = world.components.get_component(int(bait), "noisemaker")
 		var ticking: bool = nm is Dictionary and int(world.tick) < int((nm as Dictionary).get("expiresAtTick", 0))
 		out["noisemaker"] = "ticking, south avenue" if ticking else "silent"
+	# The placed noise device you are standing at, in one word: wound tight, sounding, or gone
+	# quiet. `SimNoiseDevice.state_of` has exactly one reader and this is it, which is the whole
+	# reason the word exists rather than a number the screen would have to describe for itself.
+	out["device"] = String(_Noise().call("hud_clause", world, actor))
 	return out
 
 
@@ -344,8 +440,18 @@ static func _use_context(world: Variant, actor: int) -> void:
 		# tank, pours (SimVehicles.begin_refuel); any refusal -- no can, full, a battery, a
 		# bicycle, a wreck -- falls to the look, whose words say why.
 		if SimVehicles.at_hood(world, actor, car):
+			# The full can before the empty one before the look. A body carrying fuel pours it; a
+			# body carrying nothing but an empty can draws ten litres out instead
+			# (SimVehicles.begin_siphon); anything either of them refuses -- no can at all, a tank
+			# too shallow to fill one, a battery, a bicycle, a wreck -- falls to the look, whose
+			# words say why. The `carried_fuel_can` guard is the ladder's decision and not the
+			# siphon's own business: somebody standing at the nose holding a full can came to fill
+			# the car, so "the tank is full" must stay a look rather than quietly becoming the
+			# opposite verb. `begin_siphon` itself refuses nothing on that account, which is what
+			# lets a gate ask for the draw directly.
 			if not SimVehicles.begin_refuel(world, actor, car):
-				SimVehicles.check_hood(world, actor, car)
+				if SimVehicles.carried_fuel_can(world, actor) != SimVehicles.NO_DRIVER or not SimVehicles.begin_siphon(world, actor, car):
+					SimVehicles.check_hood(world, actor, car)
 		else:
 			SimVehicles.mount(world, actor, car)
 		return
@@ -366,6 +472,14 @@ static func _use_context(world: Variant, actor: int) -> void:
 			if bool((Needs.call("boil", world, actor, fire) as Dictionary).get("ok", false)):
 				return
 			Needs.call("toggle_fire", world, fire)
+			return
+		# No fire in reach, and that is the whole point of this rung: docs/04's other two routes to
+		# safe water -- filters and chemicals -- are the ones you can use standing in a stranger's
+		# kitchen. It sits *below* the fire because a fire costs nothing and a filter has a finite
+		# number of litres in it, and it is guarded by both halves (something untreated in the pack
+		# and something that treats it), so on a body carrying neither the ladder falls through to
+		# the latrine exactly as it always did.
+		if bool((Needs.call("purify", world, actor) as Dictionary).get("ok", false)):
 			return
 		# The latrine, before the reach-bed fallback: a bed you are merely near is somewhere to
 		# sleep later, and this is not something anybody is standing next to by accident.
@@ -402,7 +516,13 @@ static func _use_context(world: Variant, actor: int) -> void:
 		if pos is Dictionary:
 			_start(world, actor, "wind", floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
 		return
-	if can_scrap(world.tilemap, face.x, face.y) and _has_scrap(world, actor) and world.components.query(["scrapBarricade"]).is_empty():
+	# The noise device you put down, after the free bait and before anything that builds: a thing
+	# you stood on a tile on purpose is a thing E takes back up. This is the half of the owner's
+	# 2026-09-12 decision that the floodlight deliberately does not have -- there is no verb that
+	# takes a planted floodlight down, and there is one here.
+	if lift_noise(world, actor):
+		return
+	if can_scrap(world.tilemap, face.x, face.y) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
 		_start(world, actor, "scrap", face.x, face.y)
 		return
 	if _empty_floor(world, face.x, face.y):
@@ -410,7 +530,7 @@ static func _use_context(world: Variant, actor: int) -> void:
 			_start(world, actor, "alarm", face.x, face.y)
 		elif bait == null:
 			_start(world, actor, "noisemaker", face.x, face.y)
-		elif _Gunsmith().call("bench_in_reach", world, actor) < 0 and _scrap_count(world, actor) >= int(_Gunsmith().get("BENCH_SCRAP")):
+		elif _Gunsmith().call("bench_in_reach", world, actor) < 0 and material_count(world, actor, recipe_kind("bench")) >= int(_Gunsmith().get("BENCH_SCRAP")):
 			# Last on the ladder and the only rung that is furniture: a gunsmithing bench, once
 			# the trap and the bait are down and there is scrap to spare. Standing at one already
 			# falls through, so E at a bench is never spent building a second.
@@ -427,7 +547,7 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 			if SimTileMap.tile_at(world.tilemap, tx, ty) == SimTileMap.Tile.Window:
 				_start(world, actor, "window", tx, ty)
 		"barricade.scrap":
-			if can_scrap(world.tilemap, tx, ty) and _has_scrap(world, actor) and world.components.query(["scrapBarricade"]).is_empty():
+			if can_scrap(world.tilemap, tx, ty) and carried_material(world, actor, recipe_kind("scrap")) >= 0 and world.components.query(["scrapBarricade"]).is_empty():
 				_start(world, actor, "scrap", tx, ty)
 		"trap.alarm.place":
 			if _first(world, "alarmLine") == null and _empty_floor(world, tx, ty):
@@ -442,7 +562,7 @@ static func _intake_verb(world: Variant, actor: int, c: Dictionary) -> void:
 			if _first(world, "noisemaker") == null and _empty_floor(world, tx, ty):
 				_start(world, actor, "noisemaker", tx, ty)
 		"bench.build":
-			if _empty_floor(world, tx, ty) and _scrap_count(world, actor) >= int(_Gunsmith().get("BENCH_SCRAP")):
+			if _empty_floor(world, tx, ty) and material_count(world, actor, recipe_kind("bench")) >= int(_Gunsmith().get("BENCH_SCRAP")):
 				_start(world, actor, "bench", tx, ty)
 		"bait.noisemaker.wind":
 			var bait: Variant = _first(world, "noisemaker")
@@ -518,6 +638,19 @@ static func _complete(world: Variant, _actor: int, verb: String, tx: int, ty: in
 			_wind_noisemaker(world)
 		"bench":
 			_place_bench(world, _actor, tx, ty)
+		# Re-derived on completion the same way, and by the same rule: `SimLightModule.plant` looks
+		# the floodlight up again rather than trusting one the channel remembered, so a can that
+		# left the pack mid-channel simply spends the channel and stands nothing up.
+		"floodlight":
+			_Light().call("plant", world, _actor, tx, ty)
+		# The same rule again, and it has to be: `plant` looks the device up in the pack a second
+		# time, so a firecracker that left the pack mid-channel spends the channel and stands
+		# nothing up. `noiselift` re-derives the device in reach rather than remembering one,
+		# because a device somebody else took up mid-channel is a device that is not there.
+		"noisedevice":
+			_Noise().call("plant", world, _actor, tx, ty)
+		"noiselift":
+			_Noise().call("take_up", world, _actor)
 		# Re-validated on completion rather than trusted from the start, the way `_place_scrap` and
 		# `_place_bench` are: a channel that began on open ground and finished on a tile somebody
 		# else camped on must leave nothing behind. `create` answers -1 there and the channel is
@@ -548,7 +681,7 @@ static func _place_scrap(world: Variant, actor: int, tx: int, ty: int) -> void:
 		return
 	if not world.components.query(["scrapBarricade"]).is_empty():
 		return
-	if not _consume_scrap(world, actor):
+	if not consume_material(world, actor, recipe_kind("scrap")):
 		return
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": float(tx) + 0.5, "y": float(ty) + 0.5})
@@ -564,31 +697,119 @@ static func _place_bench(world: Variant, actor: int, tx: int, ty: int) -> void:
 	if int(Gunsmith.call("bench_in_reach", world, actor)) >= 0:
 		return
 	var cost: int = int(Gunsmith.get("BENCH_SCRAP"))
-	if _scrap_count(world, actor) < cost:
+	var kind: String = recipe_kind("bench")
+	if material_count(world, actor, kind) < cost:
 		return
 	for i in cost:
-		if not _consume_scrap(world, actor):
+		if not consume_material(world, actor, kind):
 			return
 	Gunsmith.call("make_bench", world, float(tx) + 0.5, float(ty) + 0.5)
-
-
-## How much scrap this actor is carrying, counting stacks. `_has_scrap` answers "any", and a bench
-## costs more than one.
-static func _scrap_count(world: Variant, actor: int) -> int:
-	var n: int = 0
-	for item in SimInventory.carried_items(world, actor):
-		var base: Variant = world.components.get_component(item, "itemBase")
-		if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != SCRAP_ID:
-			continue
-		var stack: Variant = world.components.get_component(item, "stack")
-		n += int((stack as Dictionary).get("count", 1)) if stack is Dictionary else 1
-	return n
 
 
 # Loaded lazily: gunsmith.gd preloads inventory and items, and a preload cycle through this file
 # would be a parse error rather than something the engine resolves.
 static func _Gunsmith() -> GDScript:
 	return load("res://sim/modules/gunsmith.gd") as GDScript
+
+
+# Loaded rather than preloaded, and deliberately in both directions: light.gd loads this file to
+# start the channel and this file loads light.gd to finish it. A preload either way would be a
+# cycle at parse time.
+static func _Light() -> GDScript:
+	return load("res://sim/modules/light.gd") as GDScript
+
+
+# Loaded rather than preloaded, in both directions, for the reason light.gd is: noise_device.gd
+# loads this file to start its two channels and this file loads it to finish them.
+static func _Noise() -> GDScript:
+	return load("res://sim/modules/noise_device.gd") as GDScript
+
+
+## Whether this body could stand a noise device on the tile in front of it right now. The predicate
+## half, asked by the word menu through `SimNoiseDevice.can_use` so the menu and the intake cannot
+## disagree -- the rule `can_place_light` set and every other verb in this file follows.
+static func can_place_noise(world: Variant, actor: int) -> bool:
+	if world.components.has_component(actor, "construct"):
+		return false
+	if not _can_channel(world, actor):
+		return false
+	var face: Vector2i = _facing_tile(world, actor)
+	if not _empty_floor(world, face.x, face.y):
+		return false
+	if not _in_reach_tile(world, actor, face.x, face.y):
+		return false
+	return int(_Noise().call("carried_placeable", world, actor)) >= 0
+
+
+## Begin the placing channel. Reached through `use` on the device itself rather than through a rung
+## on the E ladder, exactly as the floodlight is, and for the same reason: a device that sounds like
+## a gunfight is not a thing to put down because you pressed E on empty ground with a trap and a
+## bait already down. The tile is the one you face and there is no parameter for choosing another,
+## because a parameter nothing passes is a parameter nothing tests.
+static func place_noise(world: Variant, actor: int) -> bool:
+	if not can_place_noise(world, actor):
+		return false
+	var face: Vector2i = _facing_tile(world, actor)
+	_start(world, actor, "noisedevice", face.x, face.y)
+	return world.components.has_component(actor, "construct")
+
+
+## Whether there is a placed noise device this body could pick back up. The owner's decision of
+## 2026-09-12 made these multi-use, so unlike the floodlight there is a way back.
+static func can_lift_noise(world: Variant, actor: int) -> bool:
+	if world.components.has_component(actor, "construct"):
+		return false
+	if not _can_channel(world, actor):
+		return false
+	return int(_Noise().call("placed_in_reach", world, actor)) >= 0
+
+
+## Begin the lifting channel. This one *is* a rung on the E ladder (`_use_context` below), because
+## taking a thing back off the ground is what E means everywhere else in this game and there is
+## nothing to do by accident: the rung only fires when you are standing at a device you put there.
+static func lift_noise(world: Variant, actor: int) -> bool:
+	if not can_lift_noise(world, actor):
+		return false
+	var device: int = int(_Noise().call("placed_in_reach", world, actor))
+	var pos: Variant = world.components.get_component(device, "position")
+	if not pos is Dictionary:
+		return false
+	_start(world, actor, "noiselift", floori(float((pos as Dictionary)["x"])), floori(float((pos as Dictionary)["y"])))
+	return world.components.has_component(actor, "construct")
+
+
+## Whether this body could stand a light up on the tile in front of it right now.
+## `item.floodlight.rigged` has sat in the military cache's loot table since lights shipped with
+## **no equipSlot and no placement verb**: a player could find one, carry it, and do absolutely
+## nothing with it. This is the predicate half, asked by the word menu through
+## `SimLightModule.can_use` so the menu and the intake cannot disagree -- the rule every other verb
+## in this file follows.
+static func can_place_light(world: Variant, actor: int) -> bool:
+	if world.components.has_component(actor, "construct"):
+		return false
+	if not _can_channel(world, actor):
+		return false
+	var face: Vector2i = _facing_tile(world, actor)
+	if not _empty_floor(world, face.x, face.y):
+		return false
+	if not _in_reach_tile(world, actor, face.x, face.y):
+		return false
+	return int(_Light().call("carried_plantable", world, actor)) >= 0
+
+
+## Begin the channel. Reached through `use` on the floodlight itself and **not through a rung on
+## the E ladder**, deliberately, and for exactly the reason `camp.establish` is not one: a
+## 90-metre beacon whose own description says it "tells everyone where the yard is" is not a thing
+## to put down by accident because you pressed E on empty ground with a trap and a bait already
+## down. The tile is the one you are facing and there is no parameter for choosing another,
+## because a parameter nothing passes is a parameter nothing tests. The channel itself is the same
+## `construct` every other placement here uses, so a stagger, a grab or a walk cancels it.
+static func place_light(world: Variant, actor: int) -> bool:
+	if not can_place_light(world, actor):
+		return false
+	var face: Vector2i = _facing_tile(world, actor)
+	_start(world, actor, "floodlight", face.x, face.y)
+	return world.components.has_component(actor, "construct")
 
 
 static func _place_alarm(world: Variant, tx: int, ty: int) -> void:
@@ -870,25 +1091,3 @@ static func _cell_in(cells: Variant, tile: Vector2i) -> bool:
 			return true
 	return false
 
-
-static func _has_scrap(world: Variant, actor: int) -> bool:
-	for item in SimInventory.carried_items(world, actor):
-		var base: Variant = world.components.get_component(item, "itemBase")
-		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == SCRAP_ID:
-			return true
-	return false
-
-
-static func _consume_scrap(world: Variant, actor: int) -> bool:
-	for item in SimInventory.carried_items(world, actor):
-		var base: Variant = world.components.get_component(item, "itemBase")
-		if not base is Dictionary or String((base as Dictionary).get("baseId", "")) != SCRAP_ID:
-			continue
-		var stack: Variant = world.components.get_component(item, "stack")
-		if stack is Dictionary and int((stack as Dictionary).get("count", 1)) > 1:
-			(stack as Dictionary)["count"] = int((stack as Dictionary)["count"]) - 1
-			return true
-		SimInventory.remove_from_container(world, item)
-		world.despawn(item)
-		return true
-	return false

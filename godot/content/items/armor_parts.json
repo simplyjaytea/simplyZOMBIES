@@ -1,0 +1,65 @@
+[
+  {
+    "id": "item.armorpart.plate.steel",
+    "name": "Steel Trauma Plate",
+    "description": "A curved steel plate cut for a carrier pouch. Heavy, cold, and the reason the rig exists.",
+    "class": "attachment",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 3.2,
+    "attachment": {
+      "fits": ["plate"],
+      "armor": { "torso": 1.25 }
+    }
+  },
+  {
+    "id": "item.armorpart.plate.ceramic",
+    "name": "Ceramic Plate",
+    "description": "A rifle plate, chipped at one corner. Lighter than steel and it does not forgive a second hit in the same place.",
+    "class": "attachment",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 1.8,
+    "attachment": {
+      "fits": ["plate"],
+      "armor": { "torso": 1.2 }
+    }
+  },
+  {
+    "id": "item.armorpart.lining.aramid",
+    "name": "Aramid Lining",
+    "description": "A soft woven liner that laces into a vest. It does nothing for a chest a plate already covers and a great deal for the arms.",
+    "class": "attachment",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.6,
+    "attachment": {
+      "fits": ["lining"],
+      "fieldSwap": true,
+      "armor": { "arm_left": 1.35, "arm_right": 1.35, "torso": 1.05 }
+    }
+  },
+  {
+    "id": "item.armorpart.pocket.pouch",
+    "name": "Utility Pouch",
+    "description": "A nylon pouch that clips to webbing. Small, and exactly where a hand goes without thinking.",
+    "class": "attachment",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.25,
+    "container": { "w": 2, "h": 2 },
+    "attachment": {
+      "fits": ["pocket"],
+      "fieldSwap": true
+    }
+  },
+  {
+    "id": "item.armorpart.face.visor",
+    "name": "Riot Visor",
+    "description": "A scratched polycarbonate face shield on a helmet bracket. It fogs, and you keep your face.",
+    "class": "attachment",
+    "size": { "w": 2, "h": 1 },
+    "massKg": 0.3,
+    "attachment": {
+      "fits": ["face"],
+      "fieldSwap": true,
+      "armor": { "head": 1.3 }
+    }
+  }
+]

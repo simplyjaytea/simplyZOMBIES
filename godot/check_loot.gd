@@ -53,7 +53,20 @@ const DANGERS: Array[String] = ["low", "moderate", "high", "very_high", "extreme
 # What an outdoor perDistrict site may declare it stands on, kept in step with district.schema.json
 # by hand the way LOCATIONS is. One value today: a car out of `map.vehicles`.
 const HOSTS: Array[String] = ["vehicle"]
-const TIER_IDS: Array[String] = ["scavenged", "modified", "field_tested"]
+# The tier ids a table's `tierWeights` may name. This was a literal copy of SimItems.TIERS, and it
+# went stale the moment docs/10's fourth tier landed: it still refused `named` -- correctly, as it
+# happens -- while its own message called it "not a SimItems.TIERS id", which by then was false.
+#
+# Derived now, and derived from the *rollable* tiers rather than from all of them, because those are
+# two different questions. A tierWeights entry means "roll an ordinary base at this tier", and the
+# named tier is hand-authored: naming it in a table would produce a Named Steel Pipe, an item at a
+# tier that permits no affixes and carries no authored ones -- a strictly worse scavenged. The six
+# named items reach the world as `entries` in loot.military_cache instead.
+static func _tier_ids() -> Array[String]:
+	var out: Array[String] = []
+	for t in SimItems.rollable_tiers():
+		out.append(String((t as Dictionary)["id"]))
+	return out
 # Enough samples that a tier distribution is a distribution rather than a coin toss.
 const TIER_SAMPLES: int = 2000
 
@@ -235,8 +248,8 @@ func _every_table_is_well_formed_all_the_way_down() -> bool:
 		else:
 			var weight_total: int = 0
 			for tier in (weights as Dictionary).keys():
-				if not TIER_IDS.has(String(tier)):
-					problems.append("%s.tierWeights: %s is not a SimItems.TIERS id" % [key, String(tier)])
+				if not _tier_ids().has(String(tier)):
+					problems.append("%s.tierWeights: %s is not a tier a table may roll (%s)" % [key, String(tier), str(_tier_ids())])
 				weight_total += int((weights as Dictionary)[tier])
 			if weight_total <= 0:
 				problems.append("%s.tierWeights: total weight is %d" % [key, weight_total])
@@ -1227,6 +1240,9 @@ func _a_container_yields_once_and_is_empty_after() -> bool:
 		return false
 
 	var floor_before: int = _ground_count(w)
+	var ground_before_ids: Dictionary = {}
+	for item in w.components.query(["itemBase", "position"]):
+		ground_before_ids[int(item)] = true
 	var first: Dictionary = SimContainers.open_nearest(w, actor)
 	if not bool(first.get("ok", false)):
 		push_error("a container in reach refused the first open: %s" % str(first))
@@ -1235,9 +1251,84 @@ func _a_container_yields_once_and_is_empty_after() -> bool:
 	if held.is_empty():
 		push_error("an opened container yielded nothing into its grid")
 		return false
-	# Into the cells, not onto the floor. A cupboard is six by four, so a residential roll fits.
-	if _ground_count(w) != floor_before:
-		push_error("opening a container put %d items on the floor; they belong in its grid" % [_ground_count(w) - floor_before])
+	# Into the cells, and onto the floor beside the box only when the cells genuinely cannot take
+	# it. This used to assert a flat zero on the floor, with the comment "a cupboard is six by
+	# four, so a residential roll fits" -- which was an observation about the table of the day and
+	# not a promise the sim ever made. `SimContainers` has always spilled deliberately, and says so
+	# where it does it: "a table generous enough to overflow a kitchen drawer must not silently
+	# lose what it rolled." The alpha-roster arc made residential generous enough -- a bedroll, a
+	# tarp and a winter coat are each nine or six cells -- and the assumption stopped holding on
+	# this seed while the code stayed correct.
+	#
+	# So the lane asserts what the module actually guarantees, which is strictly more than the
+	# flat zero was: nothing is lost, and a spill is never a packing failure the grid could have
+	# absorbed. The second half is the one with teeth -- it re-offers each spilled item to the box
+	# and requires the box to refuse it.
+	var after_ids: Dictionary = {}
+	for item in w.components.query(["itemBase", "position"]):
+		after_ids[int(item)] = true
+	var spilled_ids: Array[int] = []
+	for id_v in after_ids:
+		if not ground_before_ids.has(int(id_v)):
+			spilled_ids.append(int(id_v))
+	if after_ids.size() < ground_before_ids.size():
+		push_error("opening a container removed %d items from the world" % [ground_before_ids.size() - after_ids.size()])
+		return false
+	if held.size() + spilled_ids.size() <= 0:
+		push_error("a container yielded nothing into its grid and nothing onto the floor")
+		return false
+	# The half with teeth: each thing that spilled is re-offered to the box it came out of, and the
+	# box has to refuse it. Only the items this open put on the floor -- the district is full of
+	# scattered loot the cupboard would happily take, and offering it that would fail every time.
+	for item in spilled_ids:
+		if SimInventory.store_anywhere(w, int(item), box):
+			push_error("a %s was tipped onto the floor and the grid took it on the second ask -- the spill was a packing failure, not a full box" % SimItems.item_name(w, int(item)))
+			return false
+
+	# The spill path itself, on a fixture built to force it, because the assertion above has no
+	# data to judge on a seed where everything happens to fit -- and an assertion with nothing to
+	# judge must say so rather than pass. Proved necessary by sabotage: making the module DESTROY
+	# what it cannot fit, instead of tipping it out, left this lane green until the fixture below
+	# existed. A cupboard is stuffed by hand until it will take nothing more, and then opened.
+	var stuffed: int = SimContainers.make_container(w, float(at["x"]) + 1.5, float(at["y"]), "cupboard", "commercial")
+	var packed: int = 0
+	while packed < 64:
+		var filler: int = SimItems.spawn_item(w, "item.blanket.wool", {"tier": "scavenged"})
+		if not SimInventory.store_anywhere(w, filler, stuffed):
+			w.components.remove(filler, "position")
+			w.despawn(filler)
+			break
+		packed += 1
+	if packed <= 0:
+		push_error("the overflow fixture could not put anything into a cupboard, so it is not testing a full box")
+		return false
+	# Everything that carries an itemBase, in a grid or on the floor -- despawn leaves components
+	# behind (CLAUDE.md), so a thing the module destroyed is still countable here and the
+	# accounting below is what notices it went missing from both places it could legitimately be.
+	var bases_before: int = w.components.query(["itemBase"]).size()
+	var floor_ids: Dictionary = {}
+	for item in w.components.query(["itemBase", "position"]):
+		floor_ids[int(item)] = true
+	var grid_before: int = SimContainers.contents_of(w, stuffed).size()
+
+	var forced: Dictionary = SimContainers.open(w, actor, stuffed)
+	if not bool(forced.get("ok", false)):
+		push_error("the stuffed cupboard refused to open: %s" % str(forced))
+		return false
+	var rolled: int = w.components.query(["itemBase"]).size() - bases_before
+	if rolled <= 0:
+		push_error("the stuffed cupboard rolled nothing, so the overflow assertion has nothing to judge")
+		return false
+	var new_on_floor: int = 0
+	for item in w.components.query(["itemBase", "position"]):
+		if not floor_ids.has(int(item)):
+			new_on_floor += 1
+	var into_grid: int = SimContainers.contents_of(w, stuffed).size() - grid_before
+	if new_on_floor <= 0:
+		push_error("a cupboard packed to %d items rolled %d more and spilled none of them -- this fixture is meant to overflow" % [packed, rolled])
+		return false
+	if into_grid + new_on_floor != rolled:
+		push_error("a stuffed cupboard rolled %d, put %d in the grid and %d on the floor -- %d went nowhere, and a table generous enough to overflow a drawer must not silently lose what it rolled" % [rolled, into_grid, new_on_floor, rolled - into_grid - new_on_floor])
 		return false
 
 	# Depletion, and the whole point: a second open adds nothing and `searched` stays set.
@@ -1468,13 +1559,49 @@ func _opening_draws_exactly_what_scattering_drew() -> bool:
 	if scattered.is_empty():
 		push_error("the comparison drew nothing, so it is judging nothing")
 		return false
+
+	# Compared as a multiset rather than index by index, and that is a correction rather than a
+	# weakening. `contents_of` hands back **grid-placement order**, which is not draw order: a
+	# cupboard packs a 1x5 spear after the 1x1s it can slot anywhere, so the moment a draw contains
+	# something awkward the two lists hold the same things in a different order. This lane compared
+	# by index and passed for as long as it did only because no seed it ran had drawn such an item;
+	# the alpha-roster arc moved the `lootTable` stream and seed 4404 started drawing an improvised
+	# spear, at which point the lane went red against a draw that was provably identical. What it is
+	# actually entitled to claim is that the *yield* matches -- base ids and counts -- because
+	# `scatter` is `roll` plus the position writes and nothing more. Packing is the cupboard's
+	# business.
+	var left_bag: Array[String] = []
+	var right_bag: Array[String] = []
+	for e in scattered:
+		left_bag.append(_describe(a, int(e)))
+	for e in opened:
+		right_bag.append(_describe(b, int(e)))
+	left_bag.sort()
+	right_bag.sort()
+	if left_bag != right_bag:
+		push_error("the same seed scattered [%s] and opened [%s]" % [", ".join(left_bag), ", ".join(right_bag)])
+		return false
+
+	# The ordering claim the multiset gives up is kept here, against `roll` rather than against a
+	# second `scatter`. That distinction is the whole value of this half: comparing two scatters on
+	# one seed only catches *non-determinism*, so a systematic reorder -- `out.reverse()` inside
+	# scatter -- passes it, because both runs reorder identically. It was written that way first and
+	# the sabotage pass caught it. Compared against `roll`, the lane asserts the thing this file
+	# actually claims a line above: that `scatter` is `roll` plus the position writes and **nothing
+	# more**, which a reorder breaks by construction.
+	var c: Variant = _booted(4404)["world"]
+	var rolled: Array = SimLoot.roll(c, SimLoot.table_for(c, "residential") as Dictionary, SimLoot.stream(c))
+	if rolled.size() != scattered.size():
+		push_error("one seed rolled %d and scattered %d" % [rolled.size(), scattered.size()])
+		return false
 	for i in scattered.size():
-		var left: String = _describe(a, int(scattered[i]))
-		var right: String = _describe(b, int(opened[i]))
-		if left != right:
-			push_error("draw %d: scattering gave %s and opening gave %s" % [i, left, right])
+		var first: String = _describe(a, int(scattered[i]))
+		var second: String = _describe(c, int(rolled[i]))
+		if first != second:
+			push_error("draw %d: scattering gave %s where rolling the same seed gave %s -- scatter is reordering the draw, not just placing it" % [i, first, second])
 			return false
-	print("STREAM OK the same seed draws the same %d things whether the table is scattered at boot or opened out of a cupboard" % scattered.size())
+
+	print("STREAM OK the same seed yields the same %d things whether scattered at boot or opened out of a cupboard, and scatters them in the same order twice" % scattered.size())
 	return true
 
 

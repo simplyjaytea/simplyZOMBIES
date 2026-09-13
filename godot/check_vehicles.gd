@@ -1595,6 +1595,17 @@ func _a_can_fills_the_tank(stash: Dictionary) -> bool:
 		return false
 	w.components.remove(w.player, "hoodReport")
 	# Refusals, each keeping the can and the litres. No can: E looks.
+	#
+	# The two empties the spill left have to go first. Since the siphon landed (2026-09-12) the E
+	# ladder can tell an empty can from no can at all -- at a hood with an empty one and ten litres
+	# in the tank it draws them out rather than looking -- so a refusal that is about carrying
+	# *nothing* needs a pack with nothing in it. That the empty can now means something is
+	# check_m2_light_burn.gd's SIPHON lane, not this one's.
+	for held in SimInventory.carried_items(w, w.player):
+		var hb: Variant = w.components.get_component(int(held), "itemBase")
+		if hb is Dictionary and String((hb as Dictionary).get("baseId", "")) == "item.jerrycan.empty":
+			SimInventory.remove_from_container(w, int(held))
+			w.despawn(int(held))
 	v["fuel"] = tank * 0.5
 	if SimVehicles.refuel_problem(w, w.player, car) != "no fuel can":
 		push_error("REFUEL: with no can the problem reads '%s'" % SimVehicles.refuel_problem(w, w.player, car))

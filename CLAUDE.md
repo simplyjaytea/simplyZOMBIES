@@ -67,7 +67,12 @@ section came from.
 ## Verifying a change
 
 Correctness for a Godot change is the Godot gates. `npm run godot:m2` is the one to run before
-every commit — it chains all of them and takes about twelve minutes (measured 2026-09-04):
+every commit — it chains all of them and takes **about twenty-seven minutes** (26m45s, 69 gates
+green, measured 2026-09-12 on a project container). It said twelve here for eight days, measured
+2026-09-04 when the chain was 51 gates; the alpha-roster arc added four gates and took the roster
+from 152 bases to 362, and a catalogue gate's cost scales with the roster. Budget for the real
+number — an instruction to run a twelve-minute command that actually takes twenty-seven is how a
+pre-commit check quietly stops being run:
 
 ```bash
 npm run godot:smoke      # project boots            → GODOT_PROJECT_SMOKE_OK
@@ -77,8 +82,19 @@ npm run godot:m2         # all Milestone 2 gates    → M2_LETHALITY_OK et al
 npm run godot:m2:balance # the balance harness, fast tier → M2_BALANCE_OK (~4.5 min, in godot:m2)
 npm run godot:m2:sight   # sightlines and memory     → M2_SIGHT_OK
 npm run godot:m2:attach  # attachment slots          → M2_ATTACH_OK
+npm run godot:m2:ammo    # calibers, and what a round changes → M2_AMMO_OK
 npm run godot:m2:wounds  # severity, the bleed clock  → M2_WOUNDS_OK
 npm run godot:m2:treatment # pressure and bandaging   → M2_TREATMENT_OK
+npm run godot:m2:medicine  # supply grades: antibiotics, painkillers, a cure for illness → M2_MEDICINE_OK
+npm run godot:m2:filter    # what a mask keeps out of a bloater's cloud → M2_FILTER_OK
+npm run godot:m2:materials # what a recipe is made of, by kind → M2_MATERIALS_OK
+npm run godot:m2:transform # what a thing cooks, boils or purifies into → M2_TRANSFORM_OK
+npm run godot:m2:noise     # a device you wind up, put down and pick back up → M2_NOISE_OK
+npm run godot:m2:comfort   # something for your own morale that is not a meal → M2_COMFORT_OK
+npm run godot:m2:teach     # a book, read once, bounded by what practice pays → M2_TEACH_OK
+npm run godot:m2:warmth    # insulation per part, wet, cooling, and what sheds rain → M2_WARMTH_OK
+npm run godot:m2:light_burn # a lamp runs out, a headlamp lights, a floodlight stands → M2_LIGHT_BURN_OK
+npm run godot:m2:armor     # armour slots, and coverage that stops a blow → M2_ARMOR_OK
 npm run godot:m2:recovery  # healing, and what is permanent → M2_RECOVERY_OK
 npm run godot:m2:splint    # the splint, and the limp a bad fracture leaves → M2_SPLINT_OK
 npm run godot:m2:raiders   # the band at the gate       → M2_RAIDERS_OK
@@ -108,7 +124,7 @@ npm run sprites:check    # generated art still matches tools/sprites/ → SPRITE
 npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **57**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **69**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
@@ -167,6 +183,16 @@ except the day counter**. Needs, condition, and attention all arrive as prose fr
 models (`needs.hud_clause`, `sim/condition.gd`, `sim/attention_read.gd`). The numeric
 developer sheet still exists and is still useful — it lives behind the `M` toggle, where the
 gate ignores it.
+
+**The one amendment, and it is narrow.** Since the owner's decision of 2026-09-12
+([docs/30](docs/30-decisions.md), "The cartridge on the label") an **item's `name`** may carry a
+digit, so a round can be called `.308 Winchester Match` rather than named around the ban. One
+predicate, `check_inventory.gd`'s `_name_is_allowed`, is called by both lanes that scan a name
+(STRIP and INSPECT) and still refuses a name that is *nothing but* a quantity. **Nothing else
+moved**: `description`, every other value in the inspect pane, and every line `check_hud.gd` reads
+are under the full ban, and the lane proves it by refusing the identical string the moment it is a
+description instead. Do not widen this to a second field without the owner — the whole reason it
+is written down here is that a ban amended once is a ban that gets amended again.
 
 **Budgets are correctness.** [docs/00 pillar 6](docs/00-vision.md): a feature that breaks budget
 does not ship until it is fixed. Exceeding a budget fails the build at the same severity as a
@@ -251,7 +277,14 @@ drifted. Three things about the current state matter enough to repeat anyway:
   anything: `check_respond` looked for a call in `_draw` that had moved into `_draw_body`, and
   `check_weather` looked for the ground-item colour in `_draw_entities` after it moved into
   `Appearance.item_look`. Both were fixed by following the call a link further, never by dropping
-  the needle. When you add a mechanism, add the assertion that something reaches it —
+  the needle. **A third instance, 2026-09-12, a different shape:** `check_m2_comfort.gd` asserted
+  its key was in `check_m2_gear.gd`'s `READ_KEYS` by searching for the *tail* of that list,
+  `"noise", "comfort"]` — deliberately, because the bare word appears in that file's prose too and a
+  needle a comment can satisfy cannot fail. The reasoning was right and the needle was still wrong:
+  the books slice appended `"teaches"` an hour later and the lane went red against a gear gate that
+  was correct. Isolate the line first (`begins_with("const READ_KEYS")`) and ask for membership
+  inside it — no comment can satisfy that and no later key can displace it; `check_m2_teach.gd` is
+  the precedent. When you add a mechanism, add the assertion that something reaches it —
   `check_m2_attach.gd`'s "is this findable in any loot table" is the cheapest example, and
   `npm run check:routing` applies the same rule to the gates themselves (a check script no npm
   script reaches is red, which retired `check_r6_bench.gd`). The sweep
@@ -306,7 +339,11 @@ Each of these was found the expensive way. They are not style opinions.
   times. De-duplicate by entity id.
 - **The content validator will not catch a nested key.** It checks top-level types only. A wrong
   key inside an `armor` block sat in `item.wrap.cloth` for weeks giving zero arm protection, and
-  only a purpose-built gate found it.
+  only a purpose-built gate found it. **Reproduced deliberately on 2026-09-12** by the warmth
+  slice's sabotage pass, in a brand-new block: a `warmth` map naming a body part that does not exist
+  passed `npm run godot:validate` with `GODOT_CONTENT_OK`, and only `check_m2_warmth.gd` refused it.
+  That is the whole argument for a purpose-built gate per nested shape, demonstrated rather than
+  asserted.
 - **But the frozen TypeScript oracle validates the same content with Ajv, and Ajv *does* recurse.**
   The two validators read one shared tree under `godot/content/`, and they disagree about depth:
   `npm run godot:validate` passes a nested violation that `npm test` rejects with a hard

@@ -143,6 +143,79 @@ still open is the half of the sentence above that says *aimed*: the light is a r
 holder rather than a beam, and an optic does not yet care whether there is any light to look
 through.
 
+## Ammunition: a caliber, and what the round changes
+
+A weapon says two things about what it eats. `ammo` is the round it **prefers** — the one its
+authored numbers were written against, and the one it reaches for first. `caliber` is the set it
+will **take at all**. Carrying only its preferred round, a weapon behaves exactly as it always did;
+out of those and holding something else of the same caliber, it fires that instead rather than
+standing there loaded and useless.
+
+A round declares its caliber and, optionally, **multipliers over the host weapon's profile for the
+one shot that spends it** — the same grammar an [attachment](#attachment-slots) uses, so a slug is
+one set of numbers whatever gun it goes into and nothing in the simulation has to know what a slug
+is. A round that names only a caliber is the plain load, and its fold is the identity.
+
+| | What it buys | What it costs |
+|---|---|---|
+| **Slug** (shotgun) | Damage, reach, a tight pattern | One target, and nothing for a crowd |
+| **Birdshot** | A wide pattern, and it is common | Barely hurts anything |
+| **Hollow point** | Damage | Reach |
+| **Subsonic** | Noise, and muzzle flash | Damage |
+| **Match** | A tight cone | Rare |
+| **Surplus** | There is a lot of it | Damage, and it is loud |
+| **Broadhead** (arrow, bolt) | Damage | Rarely survives the shot |
+| **Target** (arrow) | You will find it again | Damage |
+
+The multipliers are deliberately narrower than an attachment's: a round may change damage, noise,
+flash, reach, the aim cone and how often it can be picked up again, and nothing else. Magazine
+size, reload time and how fast the weapon comes up are properties of the weapon and the magazine,
+decided before a round is ever chosen — a round that claimed one would be a number nothing could
+read. Jamming is the same kind of exclusion for a different reason: the chance is derived from the
+weapon's condition band rather than authored, so that a weapon the screen calls "failing" cannot be
+one that never jams, and docs/09's hand-loaded round wants its own mechanism rather than a
+multiplier that breaks that coupling.
+
+A **conversion part** moves both fields together — the round the weapon prefers and the set it
+takes. One without the other is a gun that prefers something it cannot chamber.
+
+## Medical supplies: the grade, and what it changes
+
+A medical item says what grade it is with one flat scalar under an enum, and the code ranks the
+grades best-first. There is no nested block and no per-item numbers: an item declares *which rung*
+it is, and the module that spends it owns what the rung is worth. That split is deliberate — the
+ranking is shared vocabulary, the pricing belongs to the system that feels it.
+
+| key | grades, worst to best | what the grade changes | read by |
+|---|---|---|---|
+| `bandageTier` | `dirty` · `cloth` · `sterile` | the sepsis term when the wound is dressed | `treatment.gd`, `jobs.gd` |
+| `cleanTier` | `water` · `alcohol` · `antiseptic` | the sepsis term when the wound is cleaned | `treatment.gd` |
+| `closeKind` | `suture` · `splint` · `wrap` | **matched exactly, never ranked** — which wound it can close | `treatment.gd` |
+| `antibioticTier` | `improvised` · `veterinary` · `clinical` | the chance a course clears a bite | `infection.gd` |
+| `painTier` | `mild` · `strong` · `opioid` | how much pain is masked, and for how long | `wounds.gd` |
+| `illnessTier` | `fluids` · `remedy` | how much of a bout of illness is left after a dose | `needs.gd` |
+
+Four things about this table are load-bearing:
+
+**`closeKind` is matched, not ranked.** A suture kit does not close a fracture and a splint does not
+compress a sprain. The other five are ordered, so "which is better" is always answerable and the
+pick order out of a pack falls straight out of the rank — reach for the sterile dressing before the
+dirty rag, the clinical course before whatever somebody brewed in a shed.
+
+**One scan serves all six.** `SimInventory.best_by_content_key` walks the pack once against a key
+and an order and returns the best match with its entity. It is in `inventory.gd` rather than beside
+the treatment vocabulary because `treatment.gd` preloads wounds, infection and needs, so none of
+those three could preload it back.
+
+**A grade the order does not name is ignored, never ranked last.** An unknown grade is content that
+has outrun its reader, and quietly treating it as the worst option would hide exactly that. The
+`godot:m2:medicine` CONTENT lane fails on it in both directions: a grade no item declares is a dead
+branch, and a value no order ranks is dead content.
+
+**Antibiotic grade scales the bite roll and not sepsis.** docs/05 makes bacterial infection the
+treatable one and zombie infection the gamble, and that asymmetry is most of why the two are worth
+keeping apart. Every grade clears sepsis; a weak course is worse only where the gamble already is.
+
 ## Armor and coverage
 
 Armor is modeled as **coverage per body part**, not as a damage number.

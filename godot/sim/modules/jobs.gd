@@ -8,6 +8,7 @@ const SimPath = preload("res://sim/path.gd")
 const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
+const SimTreatment = preload("res://sim/modules/treatment.gd")
 const SimFortify = preload("res://sim/modules/fortify.gd")
 const SimTileMap = preload("res://sim/map/tilemap.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
@@ -44,7 +45,6 @@ const BURY_TICKS: int = 40
 const REPAIR_TICKS: int = 80
 const REACH: float = 1.5
 const EMPTY_BOTTLE: String = "item.water.bottle.empty"
-const SCRAP_ID: String = "item.scrap.metal"
 
 
 static func empty_row() -> Dictionary:
@@ -288,6 +288,19 @@ static func _tick_one(world: Variant, ent: int) -> void:
 			return
 		_advance_job(world, ent, job as Dictionary)
 		return
+	# Between jobs, and only between jobs: put on better armour before choosing the next task.
+	# The re-arm rule above interrupts work because empty hands are an emergency; a vest found
+	# while hauling is not, and it can wait for the end of the haul. Placed here rather than
+	# beside re-arm for a second, duller reason -- `_dress_job`'s ground branch walks every loose
+	# item in the district, and `_pick` is the one moment a colonist is already paying for a scan
+	# of exactly that shape (`_haul_work`), so this adds a cost of the order that is already here
+	# instead of a new per-tick one.
+	if WEAR_FOUND_ARMOR:
+		var dress: Dictionary = _dress_job(world, ent)
+		if not dress.is_empty():
+			world.components.set_component(ent, "job", dress)
+			_advance_job(world, ent, dress)
+			return
 	_pick(world, ent)
 
 
@@ -495,7 +508,7 @@ static func _repair_work(world: Variant, ent: int, x: float, y: float) -> Dictio
 	var item: int = _worn_item_for(world, ent)
 	if item < 0:
 		return {}
-	if _scrap_for(world, ent) < 0:
+	if _material_for(world, ent, SimFortify.recipe_kind("repair")) < 0:
 		return {}
 	var fires: Array[int] = world.components.query(["campfire"])
 	if fires.is_empty():
@@ -522,15 +535,21 @@ static func _needs_repair(world: Variant, item: int) -> bool:
 	return cur < ceil
 
 
-static func _scrap_for(world: Variant, ent: int) -> int:
+## The nearest unit of a build material this body can reach -- their own pockets first, then the
+## stockpile. Repair is the one recipe that is not a SimFortify channel, and it used to carry its
+## own copy of the `item.scrap.metal` weld; its substance now comes out of SimFortify.RECIPES like
+## every other recipe's, so there is one place a recipe's material is written down. An empty or
+## unknown kind matches nothing rather than matching everything, because `material_of` answers ""
+## for an ordinary item and "" == "" would otherwise repair a gun with a tin of beans.
+static func _material_for(world: Variant, ent: int, kind: String) -> int:
+	if not SimFortify.MATERIAL_KINDS.has(kind):
+		return -1
 	for item in SimInventory.carried_items(world, ent):
-		var b: Variant = world.components.get_component(item, "itemBase")
-		if b is Dictionary and String((b as Dictionary).get("baseId", "")) == SCRAP_ID:
-			return item
+		if SimFortify.material_of(world, int(item)) == kind:
+			return int(item)
 	for item2 in SimNeeds.stockpile_items(world):
-		var b2: Variant = world.components.get_component(item2, "itemBase")
-		if b2 is Dictionary and String((b2 as Dictionary).get("baseId", "")) == SCRAP_ID:
-			return item2
+		if SimFortify.material_of(world, int(item2)) == kind:
+			return int(item2)
 	return -1
 
 
@@ -747,7 +766,7 @@ static func _campfire_at(world: Variant, tx: int, ty: int) -> int:
 # holds this very job; `_stock_base` skips a live claim and erases a stale one, `_stop` releases it,
 # and `_do_cook` cooks nothing when the raw is gone or is somebody else's.
 static func _cook_work(world: Variant, ent: int) -> Dictionary:
-	var raw: int = _stock_base(world, "item.food.raw")
+	var raw: int = _stock_cookable(world)
 	if raw < 0:
 		return {}
 	var fires: Array[int] = world.components.query(["campfire"])
@@ -755,6 +774,59 @@ static func _cook_work(world: Variant, ent: int) -> Dictionary:
 		return {}
 	world.components.set_component(raw, "reserved", {"by": ent, "job": "Cook"})
 	return {"kind": "Cook", "target": raw, "fire": fires[0], "ticksLeft": COOK_TICKS, "path": [], "pathGen": -1, "stage": "goto"}
+
+
+# What one unit of this turns into at a fire, or "" when it turns into nothing. Content's
+# `cooksInto` (item.schema.json, docs/12-resources.md) and the one place this file asks. Before it
+# there were two literals in this file -- `item.food.raw` on the way in, `item.food.cooked` on the
+# way out -- so a tin, a fish and a sack of potatoes all became the identical dish and the forty
+# other foods in the roster could not be cooked at all.
+#
+# The target is resolved against the catalogue rather than trusted, which is the refusal
+# `SimNeeds._leave_empty` gives an `empties` naming a base that is not there: a `cooksInto` pointing
+# at nothing makes the ingredient uncookable rather than making a meal out of nothing.
+static func cooks_into(world: Variant, item: int) -> String:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not (base is Dictionary):
+		return ""
+	return cooks_into_base(world, String((base as Dictionary).get("baseId", "")))
+
+
+static func cooks_into_base(world: Variant, base_id: String) -> String:
+	var entry: Variant = SimItems.content_entry(world, "item", base_id)
+	if not (entry is Dictionary):
+		return ""
+	var into: String = String((entry as Dictionary).get("cooksInto", ""))
+	if into.is_empty() or SimItems.content_entry(world, "item", into) == null:
+		return ""
+	return into
+
+
+# The unclaimed thing on the pile a cook takes next. The same scan and the same claim rule
+# `_stock_base` has always used -- a live claim is skipped, a stale one erased by `_claim_live` --
+# with the hardcoded base id swapped for the question content can answer.
+#
+# Two passes, and the order is a decision rather than an accident. **Dinner before the pantry**: a
+# bag of salt cooks into cured meat and a jar cooks into preserves, which is docs/12's preservation
+# trading labour for shelf life, but a colony with a fire, a cook and something edible on the pile
+# feeds itself tonight and cures tomorrow. Without the split, whichever the loot happened to drop
+# first won -- and it did: the shipped suburb's stockpile holds a canning jar, so the first cook of
+# the run spent 2400 ticks on preserves while the raw food beside it went off.
+static func _stock_cookable(world: Variant) -> int:
+	var fallback: int = -1
+	for item in SimNeeds.stockpile_items(world):
+		var base: Variant = world.components.get_component(int(item), "itemBase")
+		if not (base is Dictionary):
+			continue
+		if cooks_into(world, int(item)).is_empty():
+			continue
+		if _claim_live(world, int(item)):
+			continue
+		if SimNeeds.is_food(world, String((base as Dictionary).get("baseId", ""))):
+			return int(item)
+		if fallback < 0:
+			fallback = int(item)
+	return fallback
 
 
 # Is this item's claim still held? Live means the holder is alive to the job system and carries a
@@ -918,6 +990,8 @@ static func _advance_job(world: Variant, ent: int, job: Dictionary) -> void:
 			_do_haul(world, ent, job)
 		"Rearm":
 			_do_rearm(world, ent, job)
+		"Dress":
+			_do_dress(world, ent, job)
 		"Scavenge":
 			_do_scavenge(world, ent, job)
 		"Construct":
@@ -1086,7 +1160,7 @@ static func _do_repair(world: Variant, ent: int, job: Dictionary) -> void:
 			_stop(world, ent)
 			return
 		return
-	var scrap: int = _scrap_for(world, ent)
+	var scrap: int = _material_for(world, ent, SimFortify.recipe_kind("repair"))
 	if scrap < 0:
 		_stop(world, ent)
 		return
@@ -1191,6 +1265,156 @@ static func _do_rearm(world: Variant, ent: int, job: Dictionary) -> void:
 		return
 	SimInventory.equip(world, ent, item)
 	_stop(world, ent, "Rearm")
+
+
+# --- dress -----------------------------------------------------------------------------------
+#
+# "Colonists wear what they find" -- the owner's decision of 2026-09-12, and the acquisition half
+# of the armour slice. Coverage has stopped blows since that slice landed, and the balance harness
+# came back byte-identical on all four seeds for one reason: **nothing in the game ever put a vest
+# on anybody.** No kit carries armour (`equip_kit` spawns what a survivor's content lists, and the
+# two uniques list a weapon, a bandage and a tin between them), so every armour slot on every
+# colonist is empty at boot and stays empty for the whole run. The mechanic was real and
+# unreachable.
+#
+# There is no starting kit here either, and that is the decision rather than an omission: a colony
+# that finds nothing stays bare, and stays bare on purpose. What a colonist gains is the rule
+# below -- the same two-branch shape as re-arm above, deliberately, because it is the same act.
+# The pack first, because `SimContainers.search` empties a cupboard into the searcher's own pack
+# and that is where found gear actually is; then the nearest candidate lying near home, which is
+# where Haul puts everything it brings back.
+#
+# **What "beats what they are wearing" means, once.** `SimNeeds.armor_points_of_base` -- the whole
+# body weighed by `WARMTH_WEIGHTS`, the scalar the heat wave already asks this exact question with.
+# Reusing it rather than minting a second notion of how good a piece of armour is, because two
+# notions of "better" that disagree is how most of this milestone's defects were born. It is read
+# off the base, so it is a property of the garment and not of the wearer, which is what makes the
+# comparison below symmetric.
+#
+# **Warmth is deliberately not weighed, and that is the honest limit of this rule.** A colonist who
+# has found both a parka and a leather jacket will wear the jacket, because the jacket covers more
+# body. Nothing boots wearing anything, so the overwhelmingly common case is an empty slot and the
+# question never arises; where it does, the rule is stated here rather than hidden behind a second
+# scalar invented to make one test pass.
+
+## The rule, ON as shipped. A static so a gate can boot one world that dresses and one that does
+## not and compare them -- `check_m2_balance.gd`'s two armour arms are exactly that pair, and are
+## the only reason the harness can see this slice at all. One gate process shares a static across
+## every world it boots (CLAUDE.md, and docs/30 records it twice), so **any lane that pins this
+## must put back the value it found**; `check_m2_balance.gd`'s FLAG lane is what says so when one
+## does not.
+static var WEAR_FOUND_ARMOR: bool = true
+
+# The hands are the re-arm rule's business and nothing here may reach into them: a machete has no
+# `armor` block, so this would never fire on one anyway, and saying it out loud is cheaper than
+# finding out that a content edit made a gauntlet a primary.
+const DRESS_SKIP_SLOTS: Array[String] = ["primary", "secondary"]
+
+
+# How much of a body this garment covers, as one whole number. Zero for anything with no `armor`
+# block at all, which is most of the item tree.
+static func _armor_points(world: Variant, item: int) -> int:
+	var base: Variant = SimItems.item_base_of(world, item)
+	if not base is Dictionary:
+		return 0
+	return SimNeeds.armor_points_of_base(base as Dictionary)
+
+
+# The slot a garment is worn in, or "" for anything this rule will not touch.
+static func _dress_slot(world: Variant, item: int) -> String:
+	var slot: Variant = SimInventory.equip_slot_for(world, item)
+	if slot == null:
+		return ""
+	var s: String = String(slot)
+	if DRESS_SKIP_SLOTS.has(s):
+		return ""
+	return s
+
+
+# Is this worth putting on? Armour, in a slot this rule dresses, still whole, and strictly better
+# than whatever is already in that slot -- strictly, so a colonist standing on a pile of identical
+# vests does not swap one for another for the rest of the campaign. A garment whose condition has
+# run out is refused for `_is_working_weapon`'s reason and with its arithmetic: a destroyed plate
+# stops nothing, and walking across the district for one is worse than staying where you are.
+static func _is_better_armor(world: Variant, ent: int, item: int) -> bool:
+	var slot: String = _dress_slot(world, item)
+	if slot == "":
+		return false
+	var points: int = _armor_points(world, item)
+	if points <= 0:
+		return false
+	var c: Variant = world.components.get_component(item, "condition")
+	if c is Dictionary and float((c as Dictionary).get("current", 1.0)) <= 0.0:
+		return false
+	var eq: Variant = world.components.get_component(ent, "equipment")
+	if not eq is Dictionary:
+		return true
+	var slots: Dictionary = ((eq as Dictionary).get("slots", {})) as Dictionary
+	if not slots.has(slot):
+		return true
+	var worn: int = int(slots[slot])
+	if worn == item:
+		return false
+	return points > _armor_points(world, worn)
+
+
+# The pack first (put on at once, no job); else the nearest better garment lying near home -- on
+# the ground or on the stockpile's tiles -- as a Dress walk. `_rearm_job`'s shape letter for
+# letter, including the reserved and unreachable refusals, because two nearly-identical scans that
+# drift apart is the defect this is copied to avoid. Empty when there is nothing worth wearing.
+static func _dress_job(world: Variant, ent: int) -> Dictionary:
+	for carried in SimInventory.carried_items(world, ent):
+		if _is_better_armor(world, ent, int(carried)) and SimInventory.equip(world, ent, int(carried)):
+			return {}
+	var here: Variant = world.components.get_component(ent, "position")
+	if not here is Dictionary:
+		return {}
+	var hx: float = float((here as Dictionary)["x"])
+	var hy: float = float((here as Dictionary)["y"])
+	var best: int = -1
+	var best_d: float = INF
+	for item in SimInventory.ground_items(world):
+		if not _is_better_armor(world, ent, int(item)):
+			continue
+		# `_claim_live` rather than a bare `has_component`, and this is the one place the Dress
+		# job deliberately does NOT copy re-arm letter for letter. Re-arm only fires for somebody
+		# with empty hands, which is rare; a better garment is lying around constantly, so two
+		# colonists crossing the district for the same vest is the common case rather than the
+		# edge one. It also erases a claim whose holder died or was re-assigned, which a bare
+		# `has_component` would leave blocking that garment forever.
+		if _claim_live(world, int(item)):
+			continue
+		var p: Dictionary = world.components.get_component(int(item), "position") as Dictionary
+		var ix: float = float(p["x"])
+		var iy: float = float(p["y"])
+		if not _near_home(world, ix, iy):
+			continue
+		if _is_unreachable(world, int(item)):
+			continue
+		var d: float = (ix - hx) * (ix - hx) + (iy - hy) * (iy - hy)
+		if d < best_d:
+			best_d = d
+			best = int(item)
+	if best < 0:
+		return {}
+	# The Cook's `reserved` seam, the same one a scavenger claims a cupboard with. `_stop`
+	# releases it through `_release_claim` on every path out of the job -- finished, abandoned,
+	# or the holder dying -- so nothing here has to remember to.
+	world.components.set_component(best, "reserved", {"by": ent, "job": "Dress"})
+	return {"kind": "Dress", "target": best, "ticksLeft": 0, "path": [], "pathGen": -1}
+
+
+static func _do_dress(world: Variant, ent: int, job: Dictionary) -> void:
+	var item: int = int(job.get("target", -1))
+	if item < 0 or not world.components.has_component(item, "position") or not _is_better_armor(world, ent, item):
+		_stop(world, ent)
+		return
+	var tile: Vector2i = _entity_tile(world, item)
+	if not _at(world, ent, tile, REACH):
+		_walk(world, ent, job, tile)
+		return
+	SimInventory.equip(world, ent, item)
+	_stop(world, ent, "Dress")
 
 
 static func _entity_tile(world: Variant, ent: int) -> Vector2i:
@@ -1313,7 +1537,10 @@ static func _do_construct(world: Variant, ent: int, job: Dictionary) -> void:
 	if String(job.get("verb", "")) == "window":
 		SimFortify._board_window(world, int(job.get("tx", 0)), int(job.get("ty", 0)))
 	elif String(job.get("verb", "")) == "bed":
-		SimNeeds.make_bed(world, float(int(job.get("tx", 0))) + 0.5, float(int(job.get("ty", 0))) + 0.5)
+		# The builder's own pack furnishes it: the best bedding they are carrying goes into the bed
+		# and is spent, and carrying none makes the bare-boards bed this job has always made.
+		var bed: int = SimNeeds.make_bed(world, float(int(job.get("tx", 0))) + 0.5, float(int(job.get("ty", 0))) + 0.5)
+		SimNeeds.furnish_bed(world, ent, bed)
 	_stop(world, ent, "Construct")
 
 
@@ -1333,10 +1560,19 @@ static func _do_cook(world: Variant, ent: int, job: Dictionary) -> void:
 		SimNeeds.set_lit(world, fire, true, false)
 		_stop(world, ent)
 		return
+	# What it becomes is read off the ingredient before it is despawned. A raw whose `cooksInto`
+	# stopped resolving between assignment and completion cooks nothing -- the same no-meal,
+	# no-`job.completed`, fire-back-to-idle refusal a vanished or stolen raw gets above, rather
+	# than a meal out of nothing, which is exactly the defect the claim was added to close.
+	var into: String = cooks_into(world, raw)
+	if into.is_empty():
+		SimNeeds.set_lit(world, fire, true, false)
+		_stop(world, ent)
+		return
 	world.components.remove(raw, "position")
 	world.despawn(raw)
-	var cooked: int = SimItems.spawn_item(world, "item.food.cooked", {"tier": "scavenged"})
-	SimNeeds.mark_spoilage(world, cooked, "item.food.cooked")
+	var cooked: int = SimItems.spawn_item(world, into, {"tier": "scavenged"})
+	SimNeeds.mark_spoilage(world, cooked, into)
 	var drop: Vector2i = _stock_drop(world)
 	if drop.x >= 0:
 		world.components.set_component(cooked, "position", {"x": float(drop.x) + 0.5, "y": float(drop.y) + 0.5})
@@ -1402,21 +1638,41 @@ static func _treat(world: Variant, ent: int, target: int) -> void:
 # The old version despawned the item when `stow` failed and then healed anyway -- a bandage
 # destroyed, never consumed, and the treatment free. Now the item goes back where it came from
 # if it cannot be carried, and the caller finds out nothing was fetched.
+# The colonist's dressing, ranked by `bandageTier` exactly as the player's is. This named
+# `item.bandage.cloth` in three places, which meant a doctor holding a sterile dressing would walk
+# to the stockpile to fetch a rag, and a doctor holding only sterile dressings would report having
+# no bandage at all. The player's path has ranked by tier since treatment landed; this was the one
+# reader that never caught up, and the two paths disagreeing about what counts as a bandage is the
+# same defect as the two validators disagreeing about what counts as content.
 static func _fetch_bandage(world: Variant, ent: int) -> bool:
-	if SimNeeds.consume_base(world, ent, "item.bandage.cloth"):
+	var carried: Dictionary = SimInventory.best_by_content_key(
+		world, ent, SimTreatment.TIER_KEY, SimTreatment.TIER_ORDER, "tier")
+	if not carried.is_empty() and SimNeeds.consume_base(world, ent, String(carried.get("baseId", ""))):
 		return true
+	# Nothing in the pack: take the best dressing off the stockpile floor, by the same ranking
+	# rather than by the first one the scan happens to reach.
+	var best_rank: int = SimTreatment.TIER_ORDER.size()
+	var chosen: int = -1
+	var chosen_id: String = ""
 	for item in SimNeeds.stockpile_items(world):
-		var b: Variant = world.components.get_component(item, "itemBase")
-		if not (b is Dictionary) or String((b as Dictionary).get("baseId", "")) != "item.bandage.cloth":
+		var base: Variant = SimItems.item_base_of(world, int(item))
+		if not (base is Dictionary):
 			continue
-		var pos: Variant = world.components.get_component(item, "position")
-		world.components.remove(item, "position")
-		if SimInventory.stow(world, ent, item):
-			return SimNeeds.consume_base(world, ent, "item.bandage.cloth")
-		# Could not be carried: put it back on the floor rather than destroying it.
-		if pos is Dictionary:
-			world.components.set_component(item, "position", pos)
+		var rank: int = SimTreatment.TIER_ORDER.find(String((base as Dictionary).get(SimTreatment.TIER_KEY, "")))
+		if rank < 0 or rank >= best_rank:
+			continue
+		best_rank = rank
+		chosen = int(item)
+		chosen_id = String((base as Dictionary).get("id", ""))
+	if chosen < 0 or chosen_id == "":
 		return false
+	var pos: Variant = world.components.get_component(chosen, "position")
+	world.components.remove(chosen, "position")
+	if SimInventory.stow(world, ent, chosen):
+		return SimNeeds.consume_base(world, ent, chosen_id)
+	# Could not be carried: put it back on the floor rather than destroying it.
+	if pos is Dictionary:
+		world.components.set_component(chosen, "position", pos)
 	return false
 
 
@@ -1620,6 +1876,18 @@ static func _seek_untreated(world: Variant, ent: int, x: float, y: float) -> voi
 			world.components.remove(raw, "position")
 			if not SimInventory.stow(world, ent, raw):
 				return
+	# A filter or a strip of tablets in the pack answers this where you stand, so a survivor who is
+	# carrying one never makes the walk to the fire at all -- docs/04's filters-or-chemicals route,
+	# read by the same autonomy that has always read the fire. Tried first because it is free of
+	# the walk; it refuses at once on a pack carrying no purifier, which is every colonist who has
+	# not found one, so the fire below stays the ordinary answer.
+	var treated: Dictionary = SimNeeds.purify(world, ent)
+	if bool(treated.get("ok", false)):
+		# The vessel that was just made safe, by item rather than by name: `drink` reaches for
+		# WATER_ID and a canteen is not one, so a survivor who purified a canteen and then went
+		# looking for a bottle would stand there thirsty holding the answer.
+		SimNeeds.drink_item(world, ent, int(treated.get("item", -1)))
+		return
 	var fire: int = SimNeeds.nearest_campfire(world, x, y, false)
 	if fire >= 0:
 		var fp: Variant = world.components.get_component(fire, "position")

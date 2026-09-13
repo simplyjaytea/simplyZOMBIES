@@ -16,6 +16,7 @@ const SimRanged = preload("res://sim/modules/ranged.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimAttachments = preload("res://sim/modules/attachments.gd")
+const SimInfection = preload("res://sim/modules/infection.gd")
 const SimLightModule = preload("res://sim/modules/light.gd")
 const SimSave = preload("res://sim/save.gd")
 const ContentLoader = preload("res://platform/content_loader.gd")
@@ -63,8 +64,9 @@ func _run() -> void:
 	ok = _two_parts_that_disagree_make_a_gun_nobody_can_load() and ok
 	ok = _every_override_names_something_real() and ok
 	ok = _a_fitted_light_lights_whoever_is_holding_it() and ok
+	ok = _armour_slots_carry_armour() and ok
 	if ok:
-		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light")
+		print("M2_ATTACH_OK content hosts scales fit effect move melee command save condition wears breaks assemble quiet mass cycle repair required headless override mismatch names light armor")
 		quit(0)
 	else:
 		push_error("M2_ATTACH_FAIL")
@@ -128,7 +130,12 @@ func _content_is_wired_to_something() -> bool:
 		if not reachable:
 			push_error("CONTENT: %s fits %s, and no shipped base declares any of those slots" % [id, str(fits)])
 			return false
-		for kind in ["melee", "ranged"]:
+		# Every kind SCALABLE knows, read off SCALABLE itself rather than off a list here: the
+		# `armor` table joined it with the armour-slot slice, and a hand-written pair of kinds
+		# would have let an armour part scale `foot_left` -- a part which no body armour declares
+		# and `fold` would silently drop -- with nothing to say so.
+		for kind_v in SimAttachments.SCALABLE.keys():
+			var kind: String = String(kind_v)
 			var table: Variant = spec.get(kind)
 			if not table is Dictionary:
 				continue
@@ -143,9 +150,18 @@ func _content_is_wired_to_something() -> bool:
 		# is not made of it, and it is the most visible thing any attachment does. The block is
 		# top-level rather than under `attachment` because it is the same `light` a lamp declares,
 		# read by the same `SimLightModule.light_reach_of`.
+		# The fourth and fifth ways, both added with the armour slots: a plate, a lining or a visor
+		# multiplies its host's coverage, and a pouch holds things. Like `light`, `container` is a
+		# top-level block rather than one under `attachment`, because it is the same `container` a
+		# pack declares, read by the same SimInventory.reachable_containers.
 		var lights: bool = (e as Dictionary).get("light") is Dictionary
-		if spec.get("melee") == null and spec.get("ranged") == null and not bool(spec.get("structural", false)) and not lights:
-			push_error("CONTENT: %s declares no effect at all, is not structural and throws no light" % id)
+		var holds: bool = (e as Dictionary).get("container") is Dictionary
+		var scales: bool = false
+		for kind2 in SimAttachments.SCALABLE.keys():
+			if spec.get(String(kind2)) is Dictionary:
+				scales = true
+		if not scales and not bool(spec.get("structural", false)) and not lights and not holds:
+			push_error("CONTENT: %s declares no effect at all, is not structural, throws no light and holds nothing" % id)
 			return false
 	# Findable, per docs/10: "attachments are found, not crafted". An attachment in no loot table
 	# is content nobody will ever hold -- the same dead-socket shape this milestone keeps turning
@@ -923,6 +939,11 @@ const MASS_BEFORE_ASSEMBLY: Dictionary = {
 	"item.smg.compact": 2.55, "item.carbine.lever": 3.20, "item.pistol.target": 1.10,
 	"item.shotgun.sawnoff": 2.20, "item.bow.recurve": 0.78, "item.crossbow.repeating": 2.68,
 	"item.pitchfork.barn": 2.70,
+	# The first entry here that is not a weapon. A plate carrier is an assembly on the same terms
+	# a rifle is -- 1.40 of webbing plus the 1.80 plate in the front pouch -- and that is the
+	# whole reason it is worth weighing: the plate is most of what the wearer is carrying, so a
+	# carrier that stopped counting its plate would be the mass bug this lane exists to catch.
+	"item.vest.carrier": 3.20,
 }
 
 func _an_assembled_weapon_weighs_what_it_always_weighed() -> bool:
@@ -1577,4 +1598,230 @@ func _a_fitted_light_lights_whoever_is_holding_it() -> bool:
 		return false
 
 	print("LIGHT OK a fitted light lights its holder at %.1f, survives its own muzzle flash, and goes out when removed; a carried lamp lights at %.1f" % [float(want), float(lamp_mag)])
+	return true
+
+
+# --- ARMOR ------------------------------------------------------------------------------------
+# docs/10's body-armour slots -- plate, lining, pocket -- and headgear's face. `SimAttachments`
+# gained a third SCALABLE table with this slice, and it is the odd one out: its "profile" is a
+# coverage map keyed by body part, not a list of field names, so `fold` folds it without knowing
+# that is what it is doing.
+#
+# Four claims, each with the negative that can refuse it:
+#
+#   1. A plate raises the coverage its host is worth -- measured through `armor_coverage_of`,
+#      which is what the rest of the sim actually asks, never through the multiplier the content
+#      declares. A dictionary that says a plate is good is a dictionary comparing itself.
+#   2. "Multipliers, never adders" has teeth: a part scales coverage the base already declares and
+#      **cannot conjure coverage it does not**. A visor on a helmet lifts the head; the same visor
+#      cannot give a welding apron a head to protect.
+#   3. A garment blocked for want of a required part covers **nothing at all** -- the plate
+#      carrier is a nylon bib until something is in the pouch -- and says so in prose, with no
+#      digit in the sentence.
+#   4. A pouch fitted to a rig is somewhere a survivor can really put a tin. A fitted part is not
+#      in its host's grid, so without `reachable_containers` reading the slots it would be a grid
+#      nothing could ever reach.
+func _armour_slots_carry_armour() -> bool:
+	var lane: String = "ARMOR"
+	var w: Variant = _world()
+
+	# 1. The plate. The carrier spawns assembled (its `defaultParts`), so the comparison is the
+	# same garment with and without the part that came in it -- one variable, not two garments.
+	var carrier: int = _spawn(w, "item.vest.carrier")
+	var plate: int = SimAttachments.in_slot(w, carrier, "plate")
+	if plate < 0:
+		push_error("%s: the plate carrier spawned with nothing in its plate slot, so this lane has no part to judge" % lane)
+		return false
+	if not SimInventory.equip(w, w.player, carrier, "vest"):
+		push_error("%s: the plate carrier would not go on" % lane)
+		return false
+	var plated: float = SimInfection.armor_coverage_of(w, w.player, "torso")
+	var declared: float = float((SimItems.item_base_of(w, carrier) as Dictionary)["armor"]["torso"])
+	if plated <= declared + 0.0001:
+		push_error("%s: a plated carrier covers the torso %.4f and the bare base declares %.4f -- the fold is reaching nothing" % [lane, plated, declared])
+		return false
+
+	# TN for 1: take the plate out and the number has to move back. It moves further than back --
+	# the carrier requires a plate and is worth nothing without one -- which is claim 3, asserted
+	# here because this is the moment the part comes off.
+	if not SimAttachments.detach(w, plate):
+		push_error("%s: the plate would not come out" % lane)
+		return false
+	var stripped: float = SimInfection.armor_coverage_of(w, w.player, "torso")
+	if stripped != 0.0:
+		push_error("%s: a carrier with no plate covered the torso %.4f, and a carrier with no plate is webbing" % [lane, stripped])
+		return false
+	# 3b. And it says so, in words. The sentence goes on the HUD, where check_hud.gd allows no
+	# digits at all, so this lane refuses one here rather than letting that gate find it later.
+	var said: String = SimAttachments.refusal_clause(w, w.player)
+	if said.is_empty():
+		push_error("%s: an empty plate carrier is worth nothing and the HUD says nothing about it" % lane)
+		return false
+	for i in said.length():
+		if said[i].is_valid_int():
+			push_error("%s: the refusal sentence carries a digit: %s" % [lane, said])
+			return false
+	# 3c, and the sabotage pass is what found it was missing. `armor_coverage` answers zero by two
+	# different routes -- an empty `attachments` component short-circuits before `blocked_reason`
+	# is ever asked -- and with only the test above, deleting the `blocked_reason` check entirely
+	# left this gate **green**. A branch a gate cannot fail is a branch that is not gated.
+	#
+	# So: put something in a slot that is *not* the required one. The carrier now has a part
+	# fitted and still has no plate, which is the only state in which `blocked_reason` is the
+	# thing deciding the answer.
+	var spare_pouch: int = _spawn(w, "item.armorpart.pocket.pouch")
+	if not SimAttachments.attach(w, carrier, spare_pouch, "pocket"):
+		push_error("%s: the pouch would not fit the carrier's pocket slot" % lane)
+		return false
+	if SimInfection.armor_coverage_of(w, w.player, "torso") != 0.0:
+		push_error("%s: a carrier with a pouch on it and no plate in it covered the torso -- a garment blocked for want of a required part is worth nothing, whatever else is bolted to it" % lane)
+		return false
+	if not SimAttachments.detach(w, spare_pouch):
+		push_error("%s: the spare pouch would not come off" % lane)
+		return false
+
+	# Put the plate back, and the coverage has to come back with it -- a detach that quietly
+	# destroyed the part would leave `stripped` looking exactly the same as a working refusal.
+	if not SimAttachments.attach(w, carrier, plate, "plate"):
+		push_error("%s: the plate would not go back in" % lane)
+		return false
+	if absf(SimInfection.armor_coverage_of(w, w.player, "torso") - plated) > 0.0001:
+		push_error("%s: refitting the plate did not restore the coverage it took away" % lane)
+		return false
+
+	# 2. Each declared multiplier lands on the part it names, and on that part only.
+	#
+	# This claim started life as "a lining cannot conjure coverage an apron does not have", and
+	# the sabotage pass threw that version away: it could not fail. A multiplier applied to
+	# coverage that is not there is a multiplier applied to zero, so "multipliers, never adders"
+	# makes the conjuring case arithmetically impossible rather than merely forbidden. Removing
+	# `fold`'s profile guard *and* changing `armor_coverage` to fold the whole map at once left
+	# the old lane green, because the coverage was still zero either way. An assertion no edit
+	# can break is what this repo means by a gate that cannot fail.
+	#
+	# What *can* break is the fold landing a multiplier on the wrong key, or landing one
+	# multiplier on every key. So the claim is now stated as exact arithmetic across two keys the
+	# same part scales by two different amounts: the aramid lining is 1.35 on an arm and 1.05 on a
+	# torso, and both have to come out exactly, against `multiplier_of` rather than against a
+	# number written here -- the content owns the figure, the gate owns the relationship.
+	var w4: Variant = _world()
+	var jacket: int = _spawn(w4, "item.jacket.leather")
+	if not SimInventory.equip(w4, w4.player, jacket, "torso"):
+		push_error("%s: the jacket would not go on" % lane)
+		return false
+	# A helmet as well, so the second half of the claim has a second garment to be about.
+	var helmet: int = _spawn(w4, "item.helmet.bike")
+	if not SimInventory.equip(w4, w4.player, helmet, "head"):
+		push_error("%s: the helmet would not go on" % lane)
+		return false
+	var arm_before: float = SimInfection.armor_coverage_of(w4, w4.player, "arm_left")
+	var torso_before: float = SimInfection.armor_coverage_of(w4, w4.player, "torso")
+	var head_before: float = SimInfection.armor_coverage_of(w4, w4.player, "head")
+	var lining: int = _spawn(w4, "item.armorpart.lining.aramid")
+	if not SimAttachments.attach(w4, jacket, lining, "lining"):
+		push_error("%s: the lining would not fit the jacket" % lane)
+		return false
+	var arm_mul: float = SimAttachments.multiplier_of(w4, lining, "armor", "arm_left")
+	var torso_mul: float = SimAttachments.multiplier_of(w4, lining, "armor", "torso")
+	if is_equal_approx(arm_mul, torso_mul):
+		push_error("%s: the lining scales an arm and a torso by the same %.4f, so this lane cannot tell the two keys apart" % [lane, arm_mul])
+		return false
+	var arm_after: float = SimInfection.armor_coverage_of(w4, w4.player, "arm_left")
+	var torso_after: float = SimInfection.armor_coverage_of(w4, w4.player, "torso")
+	if not is_equal_approx(arm_after, arm_before * arm_mul):
+		push_error("%s: a lining took the arm %.4f -> %.4f, and %.4f x %.4f is %.4f" % [lane, arm_before, arm_after, arm_before, arm_mul, arm_before * arm_mul])
+		return false
+	if not is_equal_approx(torso_after, torso_before * torso_mul):
+		push_error("%s: a lining took the torso %.4f -> %.4f, and %.4f x %.4f is %.4f" % [lane, torso_before, torso_after, torso_before, torso_mul, torso_before * torso_mul])
+		return false
+
+	# And the other garment is untouched. `armor_coverage` is asked about one *item* at a time and
+	# the max is taken afterwards, which is easy to write the other way round -- fold everything
+	# the actor is wearing together -- and that mistake would put a jacket's lining on a helmet.
+	if not is_equal_approx(SimInfection.armor_coverage_of(w4, w4.player, "head"), head_before):
+		push_error("%s: a lining laced into a jacket moved the head from %.4f to %.4f, and the lining is not in the helmet" % [lane, head_before, SimInfection.armor_coverage_of(w4, w4.player, "head")])
+		return false
+	# The visor is the same statement from the other end: fitted to the helmet, it moves the head
+	# and leaves the jacket's torso where it was.
+	var visor: int = _spawn(w4, "item.armorpart.face.visor")
+	if not SimAttachments.attach(w4, helmet, visor, "face"):
+		push_error("%s: the visor would not fit a helmet's face slot" % lane)
+		return false
+	var head_after: float = SimInfection.armor_coverage_of(w4, w4.player, "head")
+	if not is_equal_approx(head_after, head_before * SimAttachments.multiplier_of(w4, visor, "armor", "head")):
+		push_error("%s: a visor took the head %.4f -> %.4f, which is not the multiplier it declares" % [lane, head_before, head_after])
+		return false
+	if not is_equal_approx(SimInfection.armor_coverage_of(w4, w4.player, "torso"), torso_after):
+		push_error("%s: a visor bracketed to a helmet moved the torso, and a visor is not a chest piece" % lane)
+		return false
+	# TN for the slot rule itself, which the fold never sees: the apron declares a `pocket` and no
+	# `lining`, and a lining must not go into a slot that does not exist.
+	var w3: Variant = _world()
+	var apron: int = _spawn(w3, "item.apron.welding")
+	if not SimInventory.equip(w3, w3.player, apron, "torso"):
+		push_error("%s: the apron would not go on" % lane)
+		return false
+	if SimAttachments.attach(w3, apron, _spawn(w3, "item.armorpart.lining.aramid"), "lining"):
+		push_error("%s: the apron declares no lining slot and took a lining anyway" % lane)
+		return false
+
+	# 4. The pouch. A pouch fitted to a worn rig is a place a survivor can put something, and the
+	# only reader that can say so is `reachable_containers` -- `attach` takes the part out of every
+	# grid on the way in, so nothing that walks contents can ever find it.
+	var w5: Variant = _world()
+	var vest: int = _spawn(w5, "item.vest.riot")
+	if not SimInventory.equip(w5, w5.player, vest, "vest"):
+		push_error("%s: the riot vest would not go on" % lane)
+		return false
+	var pouch2: int = _spawn(w5, "item.armorpart.pocket.pouch")
+	var reach_before: int = SimInventory.reachable_containers(w5, w5.player).size()
+	if not SimAttachments.attach(w5, vest, pouch2, "pocket"):
+		push_error("%s: the pouch would not fit the riot vest" % lane)
+		return false
+	var reach_after: Array[int] = SimInventory.reachable_containers(w5, w5.player)
+	if not reach_after.has(pouch2):
+		push_error("%s: a pouch fitted to a worn vest is in no container a survivor can reach -- %d before, %d after" % [lane, reach_before, reach_after.size()])
+		return false
+	# And it holds a real thing, not just a slot in a list.
+	var mass_before: float = SimInventory.carried_mass_kg(w5, w5.player)
+	var tin: int = _spawn(w5, "item.food.canned")
+	if not SimInventory.store_anywhere(w5, tin, pouch2):
+		push_error("%s: the pouch would not take a tin" % lane)
+		return false
+	if not SimInventory.contents_of(w5, pouch2).has(tin):
+		push_error("%s: the tin went into the pouch and the pouch does not have it" % lane)
+		return false
+	# And it weighs something. A pocket reachable for storing but invisible to `carried_mass_kg`
+	# would be free carry -- the grid without the cost -- and the recursion that prevents it goes
+	# equipment -> `item_mass_kg` -> `parts_of` -> the pouch -> its contents, which is three hops
+	# and no single place that obviously owns the answer.
+	if SimInventory.carried_mass_kg(w5, w5.player) <= mass_before:
+		push_error("%s: a tin stowed in a fitted pouch added no weight (%.3f kg before, %.3f after) -- a pocket you can fill for free" % [lane, mass_before, SimInventory.carried_mass_kg(w5, w5.player)])
+		return false
+	# TN for 4, and it took two goes to write. The obvious negative -- detach the pouch and assert
+	# it is gone -- is not a negative at all: `detach` re-homes the part into the wearer's own
+	# pack, where the ordinary contents walk finds it and *should*. It is reachable because it is
+	# in a pocket now, which is correct and proves nothing about the new branch.
+	#
+	# So the negative isolates the branch instead: the same pouch on the same vest, with the vest
+	# **not being worn**. `reachable_containers` loops over `equipped_items`, so an unworn rig's
+	# slots must be out of reach -- and then putting the rig on has to bring them back, on one
+	# variable, in one world.
+	var w6: Variant = _world()
+	var loose: int = _spawn(w6, "item.vest.riot")
+	var pouch3: int = _spawn(w6, "item.armorpart.pocket.pouch")
+	if not SimAttachments.attach(w6, loose, pouch3, "pocket"):
+		push_error("%s: the pouch would not fit the loose vest" % lane)
+		return false
+	if SimInventory.reachable_containers(w6, w6.player).has(pouch3):
+		push_error("%s: a pouch on a vest nobody is wearing is reachable, so the reader is not reading equipped slots" % lane)
+		return false
+	if not SimInventory.equip(w6, w6.player, loose, "vest"):
+		push_error("%s: the loose vest would not go on" % lane)
+		return false
+	if not SimInventory.reachable_containers(w6, w6.player).has(pouch3):
+		push_error("%s: putting the vest on did not bring its pouch into reach" % lane)
+		return false
+
+	print("  ARMOR OK a plate takes a carrier's torso %.2f -> %.2f and an empty one to zero (\"%s\"); a lining lifts an arm %.2f -> %.2f by exactly what it declares and leaves the helmet alone; a pouch on a worn vest holds a tin and is out of reach on a vest nobody is wearing" % [declared, plated, said, arm_before, arm_after])
 	return true

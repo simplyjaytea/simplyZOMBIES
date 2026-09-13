@@ -92,14 +92,17 @@ func _place(w: Variant, ent: int, tile: Vector2i) -> void:
 
 
 # Every fire out and no wrap, so the only thing moving the band is the sky.
+# Every fire out and every garment off. It used to name `item.wrap.cloth`, which was the whole of
+# clothing warmth before `godot:m2:warmth`; anything with a `warmth` block shifts the band now, so
+# the strip is by the block and the assertion is that the body scores nothing.
 func _bare_body(w: Variant, ent: int) -> bool:
 	for fire in w.components.query(["campfire"]):
 		SimNeeds.set_lit(w, int(fire), false)
 	for item in SimInventory.equipped_items(w, ent):
-		var base: Variant = w.components.get_component(item, "itemBase")
-		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == "item.wrap.cloth":
+		var base: Variant = SimItems.item_base_of(w, item)
+		if base is Dictionary and (base as Dictionary).get("warmth") is Dictionary:
 			SimInventory.unequip_item(w, item)
-	return not SimNeeds.wearing_wrap(w, ent)
+	return SimNeeds.warmth_points(w, ent) == 0
 
 
 func _band(w: Variant, ent: int) -> String:
@@ -1035,9 +1038,12 @@ func _a_wet_body_reads_one_band_colder() -> bool:
 	var ww: int = int(wrapped.player)
 	for fire in wrapped.components.query(["campfire"]):
 		SimNeeds.set_lit(wrapped, int(fire), false)
-	if not SimNeeds.wearing_wrap(wrapped, ww):
+	# Asked as "is this body still worth a band once it is soaked", which is the question the
+	# assertion below actually rests on -- a wrap that the wet multiplier had zeroed would leave
+	# this lane proving nothing while still reading as a wrap.
+	if SimNeeds.warmth_bands(wrapped, ww, true) < 1:
 		var wrap: int = SimItems.spawn_item(wrapped, "item.wrap.cloth", {"tier": "scavenged"})
-		if not SimInventory.equip(wrapped, ww, wrap) or not SimNeeds.wearing_wrap(wrapped, ww):
+		if not SimInventory.equip(wrapped, ww, wrap) or SimNeeds.warmth_bands(wrapped, ww, true) < 1:
 			push_error("COLD: could not put a wrap on the player, so the wrap negative has nothing to judge")
 			return false
 	wrapped.tick = Clock.tick_on_day(1, 0.3)

@@ -12,10 +12,16 @@ extends RefCounted
 # armor do, so it does not belong under godot/content/.
 
 const SimHealth = preload("res://sim/modules/health.gd")
-const SimInfection = preload("res://sim/modules/infection.gd")
+# The infection preload went with `severity_for`'s armour term on 2026-09-12 -- it was this
+# file's only use of it, and a preload nothing reads is the same dead socket as a field nothing
+# reads, one level out. Coverage is asked about in exactly one place now (SimHealth.damage_part).
 const SimCombat = preload("res://sim/combat.gd")
 const SimClock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimInventory = preload("res://sim/modules/inventory.gd")
+# For the base behind an equipped item, when a wound asks what the body was holding when it got it.
+# Safe to preload: items.gd preloads nothing, so it cannot be the far end of a cycle.
+const SimItemsRes = preload("res://sim/modules/items.gd")
 
 # "Bite" is a *kind* (docs/05: "as laceration, plus infection"), not a severity. Keeping it
 # out of this enum is deliberate -- a bite's severity is computed by severity_for exactly
@@ -94,7 +100,11 @@ const WOUND_KINDS: Dictionary = {
 	"cut": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
 	"bite": {"bleeds": true, "recoveryDays": -1, "impairFloor": -1, "septicMul": 1.0, "global": {}, "closeKind": "suture"},
 	"fracture": {"bleeds": false, "recoveryDays": 42, "impairFloor": 2, "septicMul": 0.0, "global": {}, "closeKind": "splint"},
-	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": ""},
+		# docs/05 treats a sprain with "Rest, wrap", and this row said `""` -- nothing in the game
+	# could close one, so the only treatment a sprain had was time. `wrap` is the third closer, and
+	# it is matched exactly like the other two: a suture does not compress a sprain and a wrap does
+	# not hold a cut shut.
+	"sprain": {"bleeds": false, "recoveryDays": 5, "impairFloor": 0, "septicMul": 0.0, "global": {}, "closeKind": "wrap"},
 	"burn": {"bleeds": true, "recoveryDays": 14, "impairFloor": 1, "septicMul": 2.0, "global": {}, "closeKind": "suture"},
 	# The exposure wounds (needs.gd's lethal ladders): no bleed, nothing to close, impairing
 	# the part they sit on; frostbite on an extremity for a fortnight, heatstroke on the torso
@@ -228,9 +238,28 @@ const PAIN_SOURCE: String = "wound.pain"
 # the wounds are untouched, the recovery clock is untouched, and when it wears off the pain is
 # exactly what it was. docs/05 calls that "a way to get someone killed because they didn't notice
 # how hurt they were", so the suppression is deliberately strong enough to be worth taking.
+# The mild rung's numbers, kept as named constants because they are what every painkiller in the
+# game did before grades existed and because `check_m2_wounds` runs a dose out by PAINKILLER_TICKS.
+# PAIN_BY_TIER["mild"] must equal them exactly -- the TIERS lane pins both, so they cannot drift.
 const PAINKILLER_TICKS: int = 7200
 const PAINKILLER_SUPPRESSION: float = 0.7
-const PAINKILLERS_ID: String = "item.painkillers.blister"
+
+# What makes an item a painkiller is a content key, not its id. `PAINKILLERS_ID` was one hardcoded
+# base -- and it is worth remembering that `item.painkillers.blister` is on this milestone's list of
+# eleven dead sockets: it shipped, it was in loot, and for a while nothing read it at all. Ranked
+# best-first, so the index doubles as the pick order out of the pack.
+const PAIN_KEY: String = "painTier"
+const PAIN_ORDER: Array[String] = ["opioid", "strong", "mild"]
+# A grade sets how much pain is masked and for how long. Neither number heals anything: docs/05 has
+# pain as a thing you suppress, and a wound under the strongest grade in the game is exactly the
+# wound it was when the dose wears off. `opioid` stops at 0.95 rather than 1.0 deliberately -- a
+# survivor who can feel nothing at all could work a ruined leg to pieces without one signal that
+# anything is wrong, and the condition view has no number to warn them with.
+const PAIN_BY_TIER: Dictionary = {
+	"mild": {"suppression": 0.7, "ticks": 7200},
+	"strong": {"suppression": 0.85, "ticks": 10800},
+	"opioid": {"suppression": 0.95, "ticks": 14400},
+}
 
 
 # The sum across all injuries, 0..1, after any suppression. Derived every time rather than stored:
@@ -261,7 +290,14 @@ static func suppression_of(world: Variant, entity: int) -> float:
 	var inj: Variant = world.components.get_component(entity, "injuries")
 	if not (inj is Dictionary):
 		return 0.0
-	return PAINKILLER_SUPPRESSION if int(world.tick) < int((inj as Dictionary).get("painkillersUntilTick", -1)) else 0.0
+	var rec: Dictionary = inj as Dictionary
+	if int(world.tick) >= int(rec.get("painkillersUntilTick", -1)):
+		return 0.0
+	# How much is masked rides on the injury record rather than being re-derived, because the dose
+	# that is wearing off now is the one that was taken then -- swapping a blister for an ampoule
+	# mid-dose must not retroactively deepen the one already running. A save written before grades
+	# existed has no such key, and falls back to the mild rung, which is what it was taking.
+	return float(rec.get("painkillersSuppression", PAINKILLER_SUPPRESSION))
 
 
 # One blister. Suppresses without healing: no wound is touched, no recovery clock moves, and when
@@ -269,14 +305,21 @@ static func suppression_of(world: Variant, entity: int) -> float:
 static func take_painkillers(world: Variant, entity: int) -> Dictionary:
 	if not _has_injuries(world, entity):
 		return {"ok": false, "reason": "nothing-to-treat"}
-	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
-	if Needs == null or not bool(Needs.call("consume_base", world, entity, PAINKILLERS_ID)):
+	var best: Dictionary = SimInventory.best_by_content_key(world, entity, PAIN_KEY, PAIN_ORDER, "tier")
+	if best.is_empty():
 		return {"ok": false, "reason": "no-painkillers"}
+	var Needs: GDScript = load("res://sim/modules/needs.gd") as GDScript
+	if Needs == null or not bool(Needs.call("consume_base", world, entity, String(best.get("baseId", "")))):
+		return {"ok": false, "reason": "no-painkillers"}
+	var tier: String = String(best.get("tier", "mild"))
+	var spec: Dictionary = PAIN_BY_TIER.get(tier, PAIN_BY_TIER["mild"]) as Dictionary
+	var ticks: int = int(spec.get("ticks", PAINKILLER_TICKS))
 	var inj: Dictionary = world.components.get_component(entity, "injuries") as Dictionary
-	inj["painkillersUntilTick"] = int(world.tick) + PAINKILLER_TICKS
+	inj["painkillersUntilTick"] = int(world.tick) + ticks
+	inj["painkillersSuppression"] = float(spec.get("suppression", PAINKILLER_SUPPRESSION))
 	_apply_pain(world, entity)
-	world.events.publish({"type": "painkillers.taken", "entity": entity, "ticks": PAINKILLER_TICKS})
-	return {"ok": true, "reason": "", "ticks": PAINKILLER_TICKS}
+	world.events.publish({"type": "painkillers.taken", "entity": entity, "ticks": ticks, "tier": tier})
+	return {"ok": true, "reason": "", "ticks": ticks}
 
 
 static func _has_injuries(world: Variant, entity: int) -> bool:
@@ -390,6 +433,17 @@ const SEPSIS_CLEAN_MUL: Dictionary = {
 # future tier could zero the risk, and "cleaned it properly, so it cannot go septic" is certainty
 # the player is not supposed to have.
 const SEPSIS_CLEAN_MIN_MUL: float = 0.40
+# docs/10's Tetanus Special: "any damage you take while holding it risks a serious infection". A
+# wound got while the body was holding something filthy is a dirtier wound, and this is what says
+# so. Code owns the number and content owns the fact -- a base declares the flat top-level
+# `filthy` and nothing else, exactly as `bandageTier` names a grade and SEPSIS_BANDAGE_MUL prices
+# it, so the calibration sits beside the four multipliers it has to stay in proportion with.
+#
+# It is a multiplier in the same product rather than a floor or an override, which means a clean
+# and a sterile dressing discount it like everything else: carrying the pipe is a standing cost you
+# can work against, not a sentence. At 3.0 against SEPSIS_BASE_BY_SEVERITY a laceration taken over
+# it runs about 18% a night before any care and about 3% after a good clean and a sterile dressing.
+const SEPSIS_FILTHY_MUL: float = 3.0
 # "...and treatment skill." Each Medicine point buys this much off the chance, floored so a good
 # medic never makes a dirty wound safe.
 const SEPSIS_SKILL_RELIEF: float = 0.08
@@ -515,8 +569,16 @@ const ARM_RANGED_PENALTY: Array[float] = [0.08, 0.16, 0.24]
 
 # Severity is a fraction of the struck part's *maximum*, never raw damage -- the same trap
 # CLAUDE.md records for part_state: 10 damage is a scratch on a 40-torso and destroys a
-# 10-hand. Armor reduces how far a hit escalates rather than blocking damage outright here
-# (damage_taken already happened in health.gd's damage_part before this runs).
+# 10-hand.
+#
+# **`damage` is what reached the body, and this function no longer asks about armour.** It used
+# to: it softened the fraction by `1 - 0.5 * coverage` on its own, because coverage stopped
+# nothing upstream and escalation was the only thing armour could be made to touch. Since the
+# owner's decision of 2026-09-12 the same curve lives in `SimHealth.armor_damage_factor`, applied
+# to the integrity in `damage_part`, and both wound paths hand this the mitigated figure -- so the
+# bands a covered part lands in are exactly the bands it landed in before, arrived at once instead
+# of twice. Keeping the old term here alongside the new one would have squared it, and a vest
+# would have quietly become twice the vest the content says it is.
 static func severity_for(world: Variant, target: int, part: String, damage: float) -> int:
 	var body: Variant = world.components.get_component(target, "body")
 	if not (body is Dictionary):
@@ -525,8 +587,6 @@ static func severity_for(world: Variant, target: int, part: String, damage: floa
 	if maxv == null or int(maxv) <= 0:
 		return Severity.Scratch
 	var fraction: float = float(damage) / float(int(maxv))
-	var armor: float = clampf(SimInfection.armor_coverage_of(world, target, part), 0.0, 1.0)
-	fraction *= 1.0 - 0.5 * armor
 	if fraction < 0.15:
 		return Severity.Scratch
 	if fraction < 0.40:
@@ -579,8 +639,27 @@ static func append_wound(world: Variant, entity: int, kind: String, part: String
 		# ever advances on a tick the survivor was fed and idle.
 		"healedTicks": 0,
 	}
+	# Filthy in the hand, filthy in the wound -- docs/10's Tetanus Special. Asked once, here, when
+	# the wound is made, and written onto the wound rather than re-derived at dusk from whatever the
+	# survivor happens to be holding then: a wound is dirty because of how it was got, and dropping
+	# the pipe afterwards does not make a cut that was opened over it clean. A plain bool, and only
+	# written when it is true, so every wound this codebase has ever made is byte-identical and the
+	# key round-trips a save intact.
+	if _holding_something_filthy(world, entity):
+		wound["filthy"] = true
 	wounds.append(wound)
 	return wound
+
+
+# Whether anything this body has equipped declares itself filthy. The flat top-level `filthy` on an
+# item base is the whole vocabulary -- one boolean, so the shallow content validator actually
+# enforces it, which is the same reason `bandageTier` and `empties` are flat scalars.
+static func _holding_something_filthy(world: Variant, entity: int) -> bool:
+	for item in SimInventory.equipped_items(world, entity):
+		var base: Variant = SimItemsRes.item_base_of(world, int(item))
+		if base is Dictionary and bool((base as Dictionary).get("filthy", false)):
+			return true
+	return false
 
 
 # Family (a): blood loss impairs everything, entity-scoped, one band's worth (not
@@ -856,7 +935,11 @@ static func roll_sepsis(world: Variant, entity: int, hygiene_mul: float, medicin
 	return caught
 
 
-# The **five** factors docs/05 names, in one expression so no caller can apply four of them.
+# The **five** factors docs/05 names plus docs/10's one, in one expression so no caller can apply
+# some of them. The sixth -- `filthy` -- is the odd one out and deliberately joins the product
+# rather than sitting outside it: it comes from the weapon the victim was holding, not from how the
+# wound was cared for, but pricing it anywhere else would have made it the one risk a good medic
+# cannot work against.
 # Severity is the base; hygiene, whether it was cleaned, bandage cleanliness and treatment skill are
 # multipliers on it.
 #
@@ -881,7 +964,11 @@ static func sepsis_chance(wound: Dictionary, hygiene_mul: float, medicine_skill:
 	if bool(wound.get("cleaned", false)):
 		var grade: String = String(wound.get("cleanTier", "none"))
 		clean_mul = maxf(SEPSIS_CLEAN_MIN_MUL, float(SEPSIS_CLEAN_MUL.get(grade, float(SEPSIS_CLEAN_MUL["none"]))))
-	return clampf(base * maxf(0.0, hygiene_mul) * bandage_mul * skill_mul * clean_mul, 0.0, 1.0)
+	# The sixth term, and the only one that is a property of the *weapon in the victim's hands*
+	# rather than of the wound's care: append_wound flagged this when the wound was made. It goes
+	# through the same product as the rest so a clean and a good dressing still discount it.
+	var filth_mul: float = SEPSIS_FILTHY_MUL if bool(wound.get("filthy", false)) else 1.0
+	return clampf(base * maxf(0.0, hygiene_mul) * bandage_mul * skill_mul * clean_mul * filth_mul, 0.0, 1.0)
 
 
 static func is_septic(world: Variant, entity: int) -> bool:

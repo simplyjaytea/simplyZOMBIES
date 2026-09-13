@@ -142,6 +142,21 @@ switch (mode) {
   case "--m2-attach":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_attach.gd"];
     break;
+  case "--m2-armor":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_armor.gd"];
+    break;
+  case "--m2-ammo":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_ammo.gd"];
+    break;
+  case "--m2-medicine":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_medicine.gd",
+    ];
+    break;
   case "--m2-sight":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_sight.gd"];
     break;
@@ -155,6 +170,36 @@ switch (mode) {
       resolve(root, "godot"),
       "--script",
       "res://check_m2_fortify.gd",
+    ];
+    break;
+  case "--m2-noise":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_noise.gd"];
+    break;
+  case "--m2-materials":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_materials.gd",
+    ];
+    break;
+  case "--m2-comfort":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_comfort.gd",
+    ];
+    break;
+  case "--m2-transform":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_transform.gd",
     ];
     break;
   case "--m2-director":
@@ -195,6 +240,9 @@ switch (mode) {
     break;
   case "--m2-aim":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_aim.gd"];
+    break;
+  case "--m2-teach":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_teach.gd"];
     break;
   case "--m2-web":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_web.gd"];
@@ -271,8 +319,23 @@ switch (mode) {
   case "--m2-heat":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_heat.gd"];
     break;
+  case "--m2-warmth":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_warmth.gd"];
+    break;
   case "--m2-fog":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_fog.gd"];
+    break;
+  case "--m2-filter":
+    args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_filter.gd"];
+    break;
+  case "--m2-light-burn":
+    args = [
+      "--headless",
+      "--path",
+      resolve(root, "godot"),
+      "--script",
+      "res://check_m2_light_burn.gd",
+    ];
     break;
   case "--m2-splint":
     args = ["--headless", "--path", resolve(root, "godot"), "--script", "res://check_m2_splint.gd"];

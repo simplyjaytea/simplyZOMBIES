@@ -33,6 +33,11 @@ const SimInfection = preload("res://sim/modules/infection.gd")
 const SimItems = preload("res://sim/modules/items.gd")
 const SimInventory = preload("res://sim/modules/inventory.gd")
 
+# The fixture this gate spawns. It was `SimInfection.ANTIBIOTICS_ID` until antibiotics became a
+# content grade rather than one hardcoded base; a gate still needs a concrete thing to put in a
+# pack, so the id lives here, where it is a fixture, instead of in the sim, where it was a weld.
+const COURSE_ID: String = "item.antibiotics.course"
+
 const PANEL_GD: String = "res://ui/inventory_panel.gd"
 const PART: String = "torso"
 # Torso max is 40, so 20 is half of it -- a deep wound, the same figure check_m2_treatment.gd uses
@@ -121,7 +126,7 @@ func _expose(w: Variant, stage: int, transmitted: bool) -> void:
 
 
 func _give_course(w: Variant, count: int) -> int:
-	var item: int = SimItems.spawn_item(w, SimInfection.ANTIBIOTICS_ID, {"tier": "scavenged", "count": count})
+	var item: int = SimItems.spawn_item(w, COURSE_ID, {"tier": "scavenged", "count": count})
 	if not SimInventory.stow(w, w.player, item):
 		return -1
 	return item
@@ -170,8 +175,8 @@ func _the_course_is_a_real_item() -> bool:
 		push_error("could not stow a course in the player's own pack; every lane below has nothing to judge")
 		return false
 	var base: Variant = SimItems.item_base_of(w, item)
-	if not (base is Dictionary) or String((base as Dictionary).get("id", "")) != SimInfection.ANTIBIOTICS_ID:
-		push_error("'%s' resolves no content entry; the supply half of the presence rule cannot be exercised" % SimInfection.ANTIBIOTICS_ID)
+	if not (base is Dictionary) or String((base as Dictionary).get("id", "")) != COURSE_ID:
+		push_error("'%s' resolves no content entry; the supply half of the presence rule cannot be exercised" % COURSE_ID)
 		return false
 	if _stack_count(w, item) != COURSE_COUNT:
 		push_error("a course spawned with a stack of %d, not %d -- a spend would not be visible as a decrement" % [_stack_count(w, item), COURSE_COUNT])
@@ -179,7 +184,7 @@ func _the_course_is_a_real_item() -> bool:
 	if not SimInfection.carries_course(w, w.player):
 		push_error("a course is in the pack and carries_course says otherwise")
 		return false
-	print("SUPPLY OK '%s' resolves, stacks to %d, and reads as carried" % [SimInfection.ANTIBIOTICS_ID, COURSE_COUNT])
+	print("SUPPLY OK '%s' resolves, stacks to %d, and reads as carried" % [COURSE_ID, COURSE_COUNT])
 	return true
 
 

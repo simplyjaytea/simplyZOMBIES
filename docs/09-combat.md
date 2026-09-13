@@ -208,8 +208,14 @@ Details in [zombies](14-zombies.md); the combat-relevant parts:
   [PVP](27-multiplayer.md#what-pvp-is-and-is-not) needs it and factions still do not ship — and it
   needs nothing new, since a player survivor is hit, injured, and killed by the model this document
   already describes. It is gated on the melee loop existing at all, not on factions.
-- **Explosives as a mainline option.** They exist as rare loot; 400 noise makes them self-limiting,
-  which is the joke.
+- **Explosives as a mainline option.** The intent stands and the shape is decided — 400 noise makes
+  them self-limiting, which is the joke. **The tense was wrong, and this line is corrected as of
+  2026-09-12:** it said they *exist* as rare loot, and **no explosive item has ever existed**. Zero
+  bases, no blast reader, nothing in a loot table. docs/12's military yield names them too and is
+  unbacked for the same reason. Found by the alpha-roster arc's census, which read every item id in
+  `godot/sim/` against the content tree; it is named in
+  [docs/23's what's left](23-roadmap.md#whats-left-in-milestone-2) as a piece with a reader in front
+  of it, because a thrown charge is a blast radius the damage model does not have.
 
 ---
 

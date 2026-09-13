@@ -3924,3 +3924,205 @@ the hold lifts. The four-views piece is absorbed outright: a rotating torso is e
 **Previous:** [23 — Roadmap](23-roadmap.md) ·
 **Next:** [31 — Godot Rebuild Roadmap](31-godot-rebuild-roadmap.md) ·
 [Doc index](../README.md#documentation)
+
+---
+
+## The round in the chamber, 2026-09-12
+
+The owner opened the alpha item roster — *"food, medicine, ammo, ammo types (configure for guns
+too), attachments, bags"* — and the one piece of it that was not a data edit was ammunition types.
+Four answers, and this entry is the first two.
+
+**A round is multipliers over a caliber, not ballistics of its own.** The alternative on the table
+was the faithful one: the round carries damage and noise outright and the weapon contributes only
+range, handling, magazine and reload. It was refused because it re-authors all thirteen shipped
+firearms and re-opens the entire ranged balance table to ship a feature about *choice*, and because
+the multiplier form already exists here and is already understood — `attachment.ranged` is the same
+grammar, `SimAttachments.SCALABLE` is the same whitelist, and docs/30's own note on it ("an
+attachment declares what it multiplies, and the module names none of them") transfers word for
+word. Nothing in `ranged.gd` knows what a slug is.
+
+**`ranged.ammo` keeps its meaning and `ranged.caliber` is added beside it.** The round a weapon
+*prefers* and the set it will *take* are two facts, not one, and splitting them is what makes the
+slice additive: a survivor carrying only the round their weapon names picks it on the first pass, so
+every shipped weapon's authored numbers, every parity fixture and all four balance seeds see exactly
+the sequence they saw before. `M2_AMMO_OK`'s DEFAULT lane pins that as numbers — a service pistol
+still makes 180 and still does 18 — rather than as "nothing crashed". Folding the two into one list
+was considered and refused: it would have made "which round a shotgun reaches for" a function of a
+sort order in code rather than of content, and it would have made the five conversion parts'
+existing `overrides.ranged.ammo` dead.
+
+**A conversion part moves both, and the gate is what says so.** `caliber` joins `OVERRIDABLE`
+beside `ammo`, and all five conversion parts declare the pair. A part that moved only the round
+would build a pistol that prefers something it cannot chamber — the pick would fall through to the
+old caliber every time, so the conversion would *appear* to work and quietly fire the wrong
+ammunition, with no error and no wrong number. Nothing in `attachments.gd` can see the sibling key,
+which is why the claim lives in `check_m2_ammo.gd`'s CONVERT lane and is proved by deleting one.
+
+**The whitelist is its own, and smaller than the attachment one.** `SimRanged.AMMO_SCALABLE` is
+`damage · noise · flash · rangeMetres · cone · recoverable` — every field `_fire_shot` reads *after*
+the round is spent, and no others. `magSize`, `reloadTicks` and `handling` are read before a round
+is ever chosen, so a round scaling one would be a multiplier authored in content that nothing could
+read: the dead-socket shape, in its most invisible form. Reusing `SCALABLE["ranged"]` would also
+have routed rounds through `effect_scale`, which walks a multiplier toward 1.0 by the *part's*
+condition — a slug is spent, not worn, and softening it because the box of shells was scuffed is
+not a rule anyone would have chosen.
+
+**The round's effect belongs to the shot, not to the gun.** `_fire_shot`'s `weapon` argument is the
+live `rangedWeapon` component. The multipliers are resolved into a local and applied at each read
+site; written back into that dictionary they would scale the weapon permanently, compounding once
+per shot. The one field re-clamped rather than merely multiplied is the cone, to the bounds
+`_refresh_cone` itself uses: `WIDE_HALF` is what the cone means at its widest — a sprint, a ruined
+arm, a body out of breath all stop there — so birdshot reaches the cap and stops. Widening past it
+is reserved for the aim slice, which needs it for a different reason and says so.
+
+**No `SAVE_VERSION` bump.** `rangedWeapon` is an ordinary component saved wholesale and never
+rebuilt on load, so a save written before this slice restores a weapon with no `caliber`, and the
+empty-caliber path is exact-id matching — which is what that weapon did when it was saved. The
+precedent is the same component's own: `weight` and `handling` were added to it without a bump for
+the same reason. What makes it honest rather than hopeful is that the fallback is *gated*:
+`M2_AMMO_OK`'s LEGACY lane erases the caliber off a live weapon and asserts it still fires the round
+it names and still refuses a same-caliber one. A branch nothing asserts is a dead socket with a
+better story.
+
+**What shipped is the mechanism, not the choice.** With buckshot and slugs both in the pack the
+pick order decides, and the player's only way to fire the slug is to carry nothing else. The
+fallback is sorted by base id rather than taken in carry order, so at least the answer does not
+move when a bag is tidied — but *choosing* is a verb on the inventory sheet and is named in
+docs/23's what's-left rather than half-built here. So is the magazine: `FireState.Reload` refills
+`mag` from `magSize` and consumes nothing, so a magazine can hold mixed rounds and switching loads
+is instant. That is the cheapest consistent story and it is written down rather than discovered.
+
+## The cartridge on the label, 2026-09-12
+
+The owner's third and fourth answers, and the second is an amendment to a standing ban, which
+CLAUDE.md says must not happen quietly.
+
+**Rounds are called what they are called.** `.308 Winchester Match`, `12 Gauge Buckshot`,
+`9x19mm Parabellum`. The alternative was the plain-language naming the rest of the roster uses —
+"Rifle Round (Soft Point)" — and the owner took the real designations knowing the cost.
+
+**The cost: the digit ban gains an item-name clause.** `check_inventory.gd` scanned an item's `name`
+in two places — the quick strip, which is on the player HUD, and the inspect pane — and refused any
+digit in either. This was raised before the decision rather than discovered after it, and the owner
+decided to amend rather than to name around it. The reasoning that decided it: a roster of twenty
+rounds named around the ban would be twenty rounds a player cannot tell apart, which is a worse
+failure of [clause 4](01-hardcore-contract.md#4-information-is-scarce-and-unreliable) than the digit
+is. Clause 4 prohibits collapsing *uncertainty* into a number. A cartridge designation is a proper
+noun; it says what the thing is, not how much of it there is or how good it is.
+
+**The clause is narrow and it is one predicate.** `_name_is_allowed` refuses a name that is nothing
+but a quantity — "12" is a count with no noun, which no cartridge designation is — and both lanes
+call it rather than each growing their own copy, for the same reason the file already keeps one
+`_carries_a_digit` so DESCRIPTION and INSPECT cannot disagree about what a digit is. Two copies of
+an exemption is that mistake with the answer inverted.
+
+**What is still banned, and is asserted to still be banned.** `description` (the DESCRIPTION lane
+walks all 164 shipped bases), every other value in the inspect pane, `condition`, and every line
+`check_hud.gd` reads. The lane proves all three directions on fabricated views: a cartridge name
+passes, a bare quantity is refused, and *the identical string is refused the moment it is a
+description instead* — which is what "scoped to one field" means and is the half that would have
+rotted silently if it were only written in a comment.
+
+**It also fixed something.** `item.ammo.9mm` shipped as "9mm Round" and would have failed the STRIP
+lane the first time a pistol round reached that lane's fixture — a latent red that had simply never
+been run. The eight shipped rounds were renamed in the same commit.
+
+## The readers ran out before the content did, 2026-09-12
+
+The owner asked for more items, and the census that went looking for where to put them came back
+with the reason there was nowhere obvious. This entry records that finding and the four answers
+taken on it, because the answers set the arc's size and three of them are not reversible cheaply.
+
+**The finding.** The roster's problem is not that it is small. It is that it is **unread**.
+Nineteen item ids are hardcoded inside `godot/sim/` — `ANTIBIOTICS_ID`, `PAINKILLERS_ID`, the
+literal `"item.wrap.cloth"` that is the entire clothing-warmth system, `item.scrap.metal` in two
+separate files as the only substance that can build anything, one hardcoded spawn that makes every
+raw food in the game cook into the same meal — and each of them is a category that cannot grow by
+one item without a code change. Underneath that sit **four items that already ship, already sit in
+loot tables, and cannot be used for anything**: the rigged floodlight has no placement verb, the
+empty jerrycan has nothing that fills it, the battery feeds nothing because lights never burn down,
+and the cloth mask is mechanically identical to a bike helmet against a bloater's cloud because the
+contamination roll never looks at what anyone is wearing. Adding content without readers would have
+grown that pile rather than the game.
+
+**Eight readers, not four.** The four survival readers — warmth, the cooking and boiling
+transforms, light burn-down, and a build material that is not scrap — plus four that add something
+an item can *do* that nothing does today: deliberate noise, teaching, comfort that is not food, and
+a filter the contamination roll consults. The case for the second four is that each sits on a
+system that is already finished and already gated and has simply never been given an item: the
+attention field's only item-priced emitter is firing a gun, and the skill web is a complete
+content-driven XP system with zero item content in a game where skills die with the person.
+
+**The orphans are adopted, not deleted.** Deleting the four unusable items was offered and refused.
+Each is instead made live by the slice that owns its reader — the battery by light burn-down, the
+jerrycan by a siphon verb, the floodlight by a placement verb, the mask by the filter scalar. The
+reasoning: unreachable content is a bug in the reader, and deleting the content hides the bug
+rather than fixing it. This is the same call docs/23's defect list makes about the four dead
+sockets the review sweep found and did not remove.
+
+**Roughly 350 bases.** From 164. The owner chose the largest of three offered targets knowing it is
+about twelve sessions rather than one, and the arc is ordered so that **stopping after any slice
+leaves the tree honest** — every reader lands before the content that needs it, no slice
+half-builds a system, and a stop halfway is six recorded landings rather than six loose ends.
+
+**What this does not change.** The standing bans, all of them, including the item-name digit clause
+amended earlier the same day, which is not widened again by anything here. One balance re-baseline
+still closes the arc rather than one per slice. Every new key still lands with the assertion that
+something reads it and the reverse assertion that everything readable is reached — with eight new
+keys coming, `check_m2_gear.gd`'s `READ_KEYS` list is what makes that automatic, and a key that
+does not join it is a dead socket by construction. And the arc adds **no new `class` value**: every
+new category fits `tool`, `material` or `consumable`, specifically so the three-place enum sync
+between the schema, `item_glyph.gd` and `items.gd` never has to happen.
+
+## Two placeable items, two opposite answers (2026-09-12)
+
+The light slice stands a floodlight up as furniture and gives no verb to take it down again. The
+noise slice, four slices later, makes every one of its eight devices pick back up: E lifts a placed
+firecracker or siren into the pack and it goes down again on a fresh fuse. Both were put to the
+owner and both answers are deliberate, so the inconsistency is a decision rather than a drift.
+
+The reasoning the owner gave for the split is what each thing *is*. A floodlight is a rigged
+installation — the content calls it rigged — and the cost of standing one up is that you have
+committed the thing to that street. A noisemaker is the opposite: its entire use is that you place
+it somewhere you are not, and an air horn you can only ever spend once is a consumable with extra
+steps. The asymmetry is the point, and `check_m2_noise.gd`'s LIFT lane asserts the multi-use half
+while docs/23 names the floodlight's one-way trip as a restriction somebody will be surprised by.
+
+**The alarm and the noisemaker stay free.** The what's-left entry wanted `fortify.gd`'s two world
+singletons turned into things you had to have carried there first, and the owner chose new items
+only. The mechanical reason is worth recording because it will come up again:
+`check_m2_materials.gd`'s PINNED lane asserts both singletons **by name and by cost**, so giving
+them an item to spend turns a shipped gate red. That makes it a rebalance — and a rebalance owes a
+before-and-after run on the same driver, which a content slice riding beside it does not pay for.
+Repricing them is named in what's left with that run attached, rather than smuggled in here.
+
+## Armour reaches people by being found, not by being issued (2026-09-12)
+
+Coverage had stopped blows since the armour slice, and nothing in the game had ever put a vest on
+anybody: no starting kit carried armour, and NPCs equipped found gear only as a fallback when the
+pack was full. Offered a starting kit, a wear-what-you-find rule, or both, the owner took **the
+rule alone, with no starting kit**. A colony that finds nothing stays bare, and that is the
+intended outcome rather than a gap to patch later — the same reasoning as every other scarcity in
+the hardcore contract.
+
+**The claim on the Dress job is load-bearing, and it is not tuning.** Colonists walk as far as
+`HOME_RADIUS_TILES` — forty tiles — for a garment, which is the same distance Haul already walks
+for a tin, so the rule arrived with a cost in colonists. Measured on one tree with nothing
+differing but the claim: without it seed 90210 wipes entirely and `survivors_end >= 1` turns the
+balance gate red; with it that colony survives and seed 404 pays instead. Anyone removing the claim
+to make `_dress_job` match `_rearm_job` again will turn the chain red, and the two rules differ on
+purpose: **re-arm fires only for somebody with empty hands and is rare, while a better garment is
+lying around constantly**, so two colonists crossing the district for one vest is the common case
+rather than the edge one. `_rearm_job` not taking a claim is a latent version of the same bug; it
+is simply rare enough not to have been paid for yet.
+
+**The harness has two arms because the shipped rule made the old one impossible.** Once colonists
+wear what they find, "the fast tier as it stands" is not a bare colony any more, so the control had
+to be *made* rather than assumed: both arms boot the same seed with the same armour at the
+colonists' feet and differ only in whether `SimJobs.WEAR_FOUND_ARMOR` may run, and the harness
+equips nobody. The owner paid roughly doubled fast-tier runtime for that control (4m30s → ~11 min)
+rather than dressing the existing arm, because a comparison with no control is what let armour
+mitigation ship inert and unnoticed in the first place. Two armour seeds, not four: the four-seed
+figure was taken by hand and agreed within 0.1%, and the direction is structural rather than
+statistical.

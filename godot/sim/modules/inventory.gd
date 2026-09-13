@@ -56,6 +56,43 @@ static func _collect_carried(world: Variant, container: int, out: Array[int]) ->
 		out.append(item)
 		_collect_carried(world, item, out)
 
+
+# The best thing in a pack, ranked by one flat content key. One scan, one rank, one home.
+#
+# This started life as `SimTreatment._best_by_key`, private and serving bandages and sutures. Three
+# more supplies wanted the identical pick -- antibiotics, painkillers, and whatever settles a
+# stomach -- and the alternative to lifting it here was four copies of the same twelve lines, which
+# is how most of this milestone's dead sockets were born: the same idea written twice, and only one
+# copy kept current. It sits in `inventory.gd` rather than in `treatment.gd` because treatment
+# preloads wounds, infection *and* needs, so those three cannot preload it back; this file depends
+# on nothing but items, the grid and the serializer, so everybody can reach it.
+#
+# `order` is best-first and the index doubles as the rank: reach for the sterile dressing before the
+# dirty rag, the clinical course before whatever somebody brewed in a shed. A value the order does
+# not name is ignored rather than ranked last -- an unknown grade is content that has outrun its
+# reader, and quietly treating it as the worst option would hide exactly that.
+#
+# `label` names the value in the returned record because callers speak different words for one
+# shape: a bandage has a tier, a suture has a kind. The `item` entity rides along so a caller that
+# has to *spend* the thing does not go looking for it a second time by base id and find a different
+# copy of it. Returns {} when nothing in the pack declares the key at all.
+static func best_by_content_key(world: Variant, actor: int, key: String, order: Array[String], label: String) -> Dictionary:
+	var best_rank: int = order.size()
+	var out: Dictionary = {}
+	for item in carried_items(world, actor):
+		var base: Variant = SimItems.item_base_of(world, int(item))
+		if not (base is Dictionary):
+			continue
+		var value: String = String((base as Dictionary).get(key, ""))
+		if value == "":
+			continue
+		var rank: int = order.find(value)
+		if rank < 0 or rank >= best_rank:
+			continue
+		best_rank = rank
+		out = {label: value, "baseId": String((base as Dictionary).get("id", "")), "item": int(item)}
+	return out
+
 static func carried_mass_kg(world: Variant, actor: int) -> float:
 	var fn: Callable = func(container: int) -> Array[int]: return contents_of(world, container)
 	var mass: float = 0.0
@@ -192,6 +229,19 @@ static func reachable_containers(world: Variant, actor: int) -> Array[int]:
 		if world.components.has_component(eq, "container"):
 			out.append(eq)
 			walk.call(eq, 2, out, walk)
+		# docs/10's `pocket` slot: a pouch fitted to a rig is carried by the rig, so a vest with
+		# one on it genuinely holds more. A fitted part is **not** in its host's grid -- `attach`
+		# takes it out of whatever container it was in, which is what stops one object occupying
+		# two places -- so the walk above cannot reach it and this is the reader that can.
+		# Without it the `container` block on an armour part would be the milestone's twelfth
+		# dead socket: content, a grid, and nothing that could ever put a tin in it.
+		#
+		# Loaded on demand, not preloaded: attachments.gd preloads this file, and a preload the
+		# other way is a cycle and a parse error. `attachments.gd`'s own `_may` does the same.
+		for fitted in (_Attachments().call("attached", world, eq) as Dictionary).values():
+			if world.components.has_component(int(fitted), "container"):
+				out.append(int(fitted))
+				walk.call(int(fitted), 2, out, walk)
 	return out
 
 static func stow(world: Variant, actor: int, item: int) -> bool:
@@ -483,6 +533,14 @@ static func _Treatment() -> GDScript:
 	return load("res://sim/modules/treatment.gd") as GDScript
 
 
+static func _Light() -> GDScript:
+	return load("res://sim/modules/light.gd") as GDScript
+
+
+static func _Noise() -> GDScript:
+	return load("res://sim/modules/noise_device.gd") as GDScript
+
+
 # What the inspect pane on the inventory sheet says about one item: a name, a condition *word*, a
 # sentence, where it is worn, and what is fitted to it. `{}` for anything that is not an item.
 #
@@ -530,6 +588,13 @@ static func inspect_view(world: Variant, actor: int, item: int) -> Dictionary:
 		"worn": worn,
 		"attachments": fitted,
 		"fits": fits,
+		# How much is left in a lamp, as a **word**: "burning steadily", "burning low",
+		# "guttering", "dark", and "" for the overwhelming majority of items, which are not lamps.
+		# Never a fraction and never a count, for the reason `condition` is a band rather than an
+		# integrity: docs/01 clause 4, and the gate above serialises this whole view and refuses a
+		# digit anywhere in it. It is also the one reader `SimLightModule.fuel_clause` has, which
+		# is the difference between a read model and a dead socket.
+		"fuel": _Light().call("fuel_clause", world, item),
 	}
 
 
@@ -576,7 +641,14 @@ static func verbs_for(world: Variant, actor: int, item: int) -> Array[String]:
 		var st: Variant = world.components.get_component(item, "stack")
 		if st is Dictionary and int((st as Dictionary).get("count", 1)) > 1:
 			offered["split"] = true
-		if bool(_Needs().call("can_use", world, actor, item)) or bool(_Treatment().call("can_use_supply", world, actor, item)):
+		# Four modules own `item.use` and the menu asks all four, never its own guess: needs for
+		# anything edible, treatment for anything medical, light for a cell that has a lamp to go
+		# in and a floodlight that has ground to stand on, and noise for a bait device with a patch
+		# of ground in front of you to stand it on.
+		if bool(_Needs().call("can_use", world, actor, item)) \
+				or bool(_Treatment().call("can_use_supply", world, actor, item)) \
+				or bool(_Light().call("can_use", world, actor, item)) \
+				or bool(_Noise().call("can_use", world, actor, item)):
 			offered["use"] = true
 	for verb in MENU_ORDER:
 		if offered.has(verb):

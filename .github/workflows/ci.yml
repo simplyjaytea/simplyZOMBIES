@@ -17,13 +17,17 @@ jobs:
   # the export templates this job never has.
   check:
     runs-on: ubuntu-latest
-    # 30, not 15. Measured 2026-09-04 rather than guessed: `npm run godot:m2` alone is ~11.8 min
-    # on a comparable container, and this job also runs npm ci, the engine install, the whole
-    # TypeScript side, sprites:check and the four R6 gates. The 15 it had was sized when the
-    # chain was 42 gates and genuinely ~7 min; it stopped being true somewhere around the 45th,
-    # and two runs died at exactly 15m13s and 15m23s with every gate green and the balance
-    # harness still going. A timeout that kills a passing build teaches people to ignore red.
-    timeout-minutes: 30
+    # This job no longer runs `npm run godot:m2` -- the chain moved to `godot-m2` below on
+    # 2026-09-12, after this job was cancelled at 30m15s on the second-to-last gate of 69. What
+    # is left is npm ci, the engine install, the whole TypeScript side, sprites:check and the
+    # four R6 gates.
+    #
+    # The history is worth keeping, because it is the argument for the split rather than for a
+    # third number here: 15 was sized when the chain was 42 gates and genuinely ~7 min, it
+    # stopped being true somewhere around the 45th, and two runs died at exactly 15m13s and
+    # 15m23s with every gate green and the balance harness still going. 30 bought about
+    # twenty-four gates. A timeout that kills a passing build teaches people to ignore red.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -119,13 +123,68 @@ jobs:
       - name: R6 soak (memory/save/input/pause/tab)
         run: npm run godot:r6:soak
 
+  godot-m2:
+    runs-on: ubuntu-latest
+    # 45, and measured rather than guessed: the whole chain is **26m45s** wall clock, 69 gates
+    # green, measured 2026-09-12 on a project container at 362 bases. The ~11.8 min this file
+    # used to quote was 2026-09-04 at 51 gates, so the chain has grown 2.3x while that number
+    # sat here looking authoritative -- which is most of why `check` kept dying.
+    #
+    # Measured on CI too, once this job existed: **19m32s** for all 69 gates on 975efb5, which
+    # is FASTER than the container above rather than comparable, and faster than the cancelled
+    # run's ~28 minutes to reach gate 67 -- so that run was having a bad day on a shared runner
+    # as well as being out of budget. 45 therefore leaves well over twice the headroom actually
+    # needed, and slice 15's dressed arm (which roughly doubles the balance tier) fits easily.
+    # Re-measure when the chain grows; do not simply raise this, which is the instalment the
+    # split exists to stop paying.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: .ci-tools/godot
+          key: godot-4.7.1-${{ runner.os }}-standard
+
+      # Pin the exact engine used by the rebuild. Download from Godot's official release and
+      # verify the release checksum before any project script executes it.
+      - name: Install Godot 4.7.1
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p .ci-tools/godot
+          cd .ci-tools/godot
+          curl --fail --location --http1.1 --retry 5 --retry-all-errors --retry-delay 2 --output godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
+          echo "4ccdab7a48eeccbe8819a2fc1f6262f8d72065d98601bcb3743fcbd7ebd39f373758a788ee3293a05ec5b2c48538266c437404312e372225cd2df273945a2de9  godot.zip" | sha512sum --check
+          unzip -q godot.zip
+          rm godot.zip
+          chmod +x Godot_v4.7.1-stable_linux.x86_64
+
+      - name: Configure Godot
+        shell: bash
+        run: echo "GODOT_BIN=$PWD/.ci-tools/godot/Godot_v4.7.1-stable_linux.x86_64" >> "$GITHUB_ENV"
+
       # Every Milestone 2 gate, chained by the npm script (count them off the script itself:
       # every number written here has drifted, 42 then 45 then 51), and the same command
       # CLAUDE.md tells a contributor to run before every commit, so CI and the desk agree by
       # construction rather than by two lists being kept in step. It is by far the longest step
-      # here -- ~11.8 min measured 2026-09-04, of which five gates are 79%: balance 282 s,
-      # lethality 139 s, needs 70 s, raiders 36 s, worldgen 28 s -- which is what the job timeout
-      # above is sized for. Re-measure it when the chain grows rather than raising the timeout
+      # here -- **26m45s measured 2026-09-12**, 69 gates green, at 362 bases. The previous
+      # figure was ~11.8 min on 2026-09-04 at 51 gates, of which five gates were 79%: balance
+      # 282 s, lethality 139 s, needs 70 s, raiders 36 s, worldgen 28 s. That per-gate split has
+      # NOT been re-measured and is left here as the last known breakdown rather than restated
+      # as current -- what is current is the total. A catalogue gate's cost scales with the
+      # roster, and the roster went from 152 bases to 362 in one arc, so the growth is not only
+      # the four added gates. Re-measure when the chain grows rather than raising the timeout
       # again; the number belongs beside the thing it describes.
       #
       # The chain already ends with the three standing-ban gates, which used to be listed again
@@ -145,7 +204,7 @@ jobs:
         run: npm run godot:m2
 
   godot-exports:
-    needs: check
+    needs: [check, godot-m2]
     runs-on: windows-latest
     timeout-minutes: 45
     steps:

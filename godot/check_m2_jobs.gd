@@ -525,6 +525,12 @@ func _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() -> bool:
 	if w.components.query(["campfire"]).is_empty():
 		push_error("COOK CLAIM: no campfire, so Cook has no work to claim")
 		return false
+	# The booted pile is not empty, and since the transform slice it is *content* that decides what
+	# can be cooked rather than one hardcoded id -- so the pile can hold a cookable that is not this
+	# lane's fixture, and does: the shipped suburb's stockpile rolls a canning jar. Cleared first,
+	# so "Ellis was handed nothing" stays a claim about Mara's claim rather than a claim about what
+	# the loot roll happened to drop.
+	_clear_cookables(w)
 	var raw: int = _drop_raw(w)
 	var job_m: Dictionary = SimJobs._cook_work(w, mara)
 	if job_m.is_empty() or int(job_m.get("target", -1)) != raw:
@@ -587,6 +593,7 @@ func _the_cook_claims_its_raw_and_a_vanished_raw_cooks_nothing() -> bool:
 	var w2: Variant = _world()
 	var m2: int = _mara(w2)
 	var e2: int = _ellis(w2)
+	_clear_cookables(w2)
 	var raw3: int = _drop_raw(w2)
 	var jm: Dictionary = SimJobs._cook_work(w2, m2)
 	w2.components.set_component(m2, "job", jm)
@@ -618,6 +625,16 @@ func _ellis(w: Variant) -> int:
 		if ident is Dictionary and String((ident as Dictionary).get("id", "")) == "survivor.unique.ellis":
 			return int(e)
 	return -1
+
+
+# Take everything cookable off the pile, by removing the position that puts it there. Nothing is
+# despawned: `_count_base` walks every itemBase in the world, so a despawn would leave the count
+# untouched anyway (components outlive a despawn) and a moved item is the honest way to say "not on
+# the pile".
+func _clear_cookables(w: Variant) -> void:
+	for item in SimNeeds.stockpile_items(w):
+		if not SimJobs.cooks_into(w, int(item)).is_empty():
+			w.components.remove(int(item), "position")
 
 
 func _drop_raw(w: Variant) -> int:
@@ -822,6 +839,12 @@ func _a_starving_colonist_still_eats() -> bool:
 	for z in w.components.query(["shambler"]):
 		w.despawn(int(z))
 	_strip_edibles(w, ellis)
+	# The tin below has to be the only edible thing in the district, or the survivor eats whatever
+	# the tables happened to scatter nearer and never reads as starving at all.
+	var cleared: int = _strip_every_edible_in_the_world(w)
+	if cleared <= 0:
+		push_error("crisis: the district held no edibles to clear, so the planted tin proves nothing")
+		return false
 	var stock: Vector2i = _first_stockpile(w, _start(w), true)
 	var can: int = SimItems.spawn_item(w, "item.food.canned", {"tier": "scavenged"})
 	w.components.set_component(can, "position", {"x": float(stock.x) + 0.5, "y": float(stock.y) + 0.5})
@@ -908,6 +931,33 @@ func _strip_edibles(w: Variant, ent: int) -> void:
 			w.despawn(int(item))
 
 
+# Every edible in the district, not just the ones in one pack. The crisis lane plants a single tin
+# at the stockpile and then asserts a survivor reads as `starving` before walking to it -- which is
+# only true if that tin is the *only* thing they could eat. It was, for as long as the district
+# happened to scatter no food within a tick's reach of the colony; the alpha-roster arc added twenty
+# foods to the tables and the very first step fed Ellis a drum of porridge oats instead, so his
+# hunger came back 38.000 and the crisis never latched. The lane's subject is the crisis and the
+# walk, not the district's pantry, so the fixture now says what it always meant.
+#
+# `world.despawn` leaves components in place (CLAUDE.md's trap: despawn does not remove components,
+# and `query` does not check alive), and every reader that finds food -- the eat verb, the Haul and
+# Scavenge columns -- finds it by `itemBase` or by `position`. So both come off, or the thing is
+# still on the menu after it is gone.
+func _strip_every_edible_in_the_world(w: Variant) -> int:
+	var gone: int = 0
+	for e in w.components.query(["itemBase"]):
+		var base: Variant = SimItems.item_base_of(w, int(e))
+		if not (base is Dictionary):
+			continue
+		if not ((base as Dictionary).has("food") or (base as Dictionary).has("drink")):
+			continue
+		w.components.remove(int(e), "position")
+		w.components.remove(int(e), "itemBase")
+		w.despawn(int(e))
+		gone += 1
+	return gone
+
+
 # --- colonists scavenge near home (the owner's decision 10, 2026-09-06) ------------------------
 #
 # Sixty to seventy percent of the district's food sits in containers and the only producer of a
@@ -978,6 +1028,12 @@ func _colonists_scavenge_near_home() -> bool:
 	# Scavenge 0: never, even remembered.
 	if not SimJobs._work_for(w, ellis, "Scavenge").is_empty() and false:
 		pass
+	# Cleared first, because the assertion below is about what `_pick` hands out and the step
+	# above runs the whole jobs tick: since colonists wear what they find, that step can leave a
+	# Dress walk on Ellis, which is not a work column at all and which `_pick` never assigned.
+	# Reading a job `_pick` did not set would blame the wrong function -- the same class of
+	# mistake as a textual gate reading the wrong `match` arm.
+	SimJobs._stop(w, ellis)
 	SimJobs._pick(w, ellis)
 	if w.components.get_component(ellis, "job") is Dictionary:
 		push_error("scavenge: a row with Scavenge 0 took a job (%s)" % str(w.components.get_component(ellis, "job")))

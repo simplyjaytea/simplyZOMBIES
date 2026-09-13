@@ -1,6 +1,12 @@
 class_name SimItems
 extends RefCounted
 
+# The only preload in this file, and it is a leaf: combat.gd preloads nothing, so it cannot be the
+# far end of a cycle. Everything else this file reaches -- inventory, attachments, needs -- is
+# lazily `load()`ed precisely because those *do* preload this one. Wanted for
+# MELEE_CONNECT_NOISE, the default a melee base's `connectNoise` falls back to.
+const SimCombatRes = preload("res://sim/combat.gd")
+
 const FULL_CONDITION: float = 1.0
 const CONDITION_FLOOR: float = 0.55
 # ponytail: flat wear per hit; jam/miss wear later.
@@ -23,11 +29,33 @@ const CONDITION_BANDS: Array[Dictionary] = [
 	{"atLeast": 0.01, "name": "barely holding"},
 	{"atLeast": 0.0, "name": "broken"},
 ]
+# docs/10's four tiers. The first three are rolled; the fourth is written.
+#
+# `named` carries two fields the others do not need, and they are not the same statement.
+# `weight: 0` keeps it out of roll_tier's global distribution -- the world at large does not hand
+# these out, a place that stocks them does, which is why the six named bases sit in
+# `loot.military_cache`'s `entries` and in no table's `tierWeights`. Naming it in a tierWeights
+# instead would have meant "roll an *ordinary* base at named tier", and since `affixes: 0` that is
+# a strictly worse scavenged: a Named Steel Pipe with nothing on it.
+#
+# `authored: true` keeps it off the *upgrade ladder*. SimModification's Salvage Rights walks TIERS
+# by index and steps up one; without this flag a Scrap Kit would step a field-tested axe into
+# "named" and manufacture a named item with no name, no author and no drawback -- the tier's whole
+# point inverted by a consumable. `rollable_tiers()` is the one place that distinction is made, and
+# both readers come through it.
+#
+# `affixes: 0` is the "fixed, hand-authored" half: a named item draws no random affixes at all. Its
+# prefixes and suffixes are written into the base's own `named` block and `spawn_item` copies them
+# verbatim, so the same Siren's Bell comes out of every seed.
 const TIERS: Array[Dictionary] = [
 	{"id": "scavenged", "affixes": 0, "weight": 100},
 	{"id": "modified", "affixes": 2, "weight": 35},
 	{"id": "field_tested", "affixes": 4, "weight": 6},
+	{"id": "named", "affixes": 0, "weight": 0, "authored": true},
 ]
+# The tier id a base's own `named` block puts on it. Named here rather than spelled as a literal at
+# each place that tests for it, because a tier id is content's vocabulary as much as code's.
+const NAMED_TIER: String = "named"
 
 static func condition_band(cond: Dictionary) -> String:
 	for band in CONDITION_BANDS:
@@ -64,6 +92,31 @@ static func base_container_grid(base: Dictionary) -> Variant:
 static func base_equip_slot(base: Dictionary) -> Variant:
 	var s: Variant = base.get("equipSlot")
 	return String(s) if s is String else null
+
+
+# What the gear on this body smells of, in the same scent magnitudes docs/03's spine already
+# carries -- `attention_emitter.gd`'s emit-scent system adds this to the body's own before it
+# publishes `scent.accumulated`, so a smell a survivor is wearing reaches the dead by the one
+# channel every other smell reaches them by.
+#
+# **Summed, not maxed**, which is the opposite of how `armor_coverage_of` composes the same walk
+# over the same equipped items, and the difference is not an oversight: two helmets do not armour
+# one head twice, and two filthy things do smell worse than one.
+#
+# Read at emission time rather than cached onto the `attention_emitter` component. A cache would be
+# a fifth thing equip and unequip had to remember to refresh, and the failure mode of forgetting is
+# a survivor who goes on smelling of an apron they took off two days ago -- silent, and exactly the
+# class of bug this milestone keeps paying for. The walk is over one person's equipment slots.
+static func worn_scent_of(world: Variant, entity: int) -> float:
+	var Inv: GDScript = load("res://sim/modules/inventory.gd") as GDScript
+	if Inv == null:
+		return 0.0
+	var total: float = 0.0
+	for item in Inv.call("equipped_items", world, entity) as Array:
+		var base: Variant = item_base_of(world, int(item))
+		if base is Dictionary:
+			total += maxf(0.0, float((base as Dictionary).get("scent", 0.0)))
+	return total
 
 # ---- content helpers (supports both registry object and flat Dict from ContentLoader) ----
 
@@ -399,6 +452,13 @@ static func melee_profile_of(world: Variant, item: int) -> Variant:
 		"speed": resolve.call("swing_speed") * wear,
 		"recovery": resolve.call("swing_recovery"),
 		"stamina": resolve.call("swing_stamina"),
+		# How loud a landed swing is, in the attention spine's own magnitudes. melee.gd published
+		# SimCombat.MELEE_CONNECT_NOISE as a literal until this existed, so a weapon had no way to
+		# be louder than any other weapon; the default here *is* that literal, which leaves every
+		# shipped melee base byte-identical and lets a weapon that wants to be heard say so.
+		# docs/10's Siren's Bell is the reason: "enormous noise on every connect" is a drawback
+		# only if the weapon owns the number.
+		"connectNoise": float(m.get("connectNoise", float(SimCombatRes.MELEE_CONNECT_NOISE))),
 		# Which item this profile was built from. The live `meleeWeapon`/`rangedWeapon` components
 		# sit on the *actor*, so before this key existed nothing could say which of the two hands
 		# had acted -- `_weapon_for_attacker` guessed by walking ["primary","secondary"] and
@@ -434,6 +494,13 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		"noise": float(r.get("noise", 4)),
 		"flash": float(r.get("flash", 0)),
 		"ammo": String(r.get("ammo", "")),
+		# What else will chamber. `ammo` is the round the weapon prefers and this is the set it
+		# belongs to, so a survivor out of soft points fires the match rounds in the same pocket
+		# rather than standing there holding a loaded rifle. Rides the profile beside `ammo`
+		# because both are overridable by a conversion part and the fold has to see them
+		# together -- a barrel that changes the round without changing the caliber would build a
+		# weapon that prefers a round it cannot take.
+		"caliber": String(r.get("caliber", "")),
 		"recoverable": float(r.get("recoverable", 0.0)),
 		"magSize": int(r.get("magSize", 0)),
 		"reloadTicks": int(r.get("reloadTicks", 24)),
@@ -445,13 +512,19 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 		# condition: a worn rifle is not a lighter rifle.
 		"weight": float(r.get("weight", 1.0)),
 		# The scalable half, folded below like every other multiplier. Above 1 is quicker to the
-		# shoulder; see SimCombat.raise_ticks for why one field covers all three rungs.
-		"handling": 1.0,
+		# shoulder; see SimCombat.raise_ticks for why one field covers all three rungs. Seeded from
+		# the base rather than hardcoded to 1.0 since the named tier: a weapon whose whole
+		# character is that it is slow to bring up -- docs/10's Quietkeeper -- has to be able to
+		# say so itself, and every base that declares nothing still starts at exactly 1.0.
+		"handling": float(r.get("handling", 1.0)),
 		# An accuracy multiplier carried by the weapon rather than by the person. An optic is a
 		# property of the gun, and `ranged_accuracy` -- the stat an affix or a trait moves --
 		# resolves on the *entity*, so a scope with nothing in it was the wrong place to put one.
-		# `ranged.gd:_refresh_cone` folds this in with everything else that decides sway.
-		"cone": 1.0,
+		# `ranged.gd:_refresh_cone` folds this in with everything else that decides sway. Seeded
+		# from the base for the same reason `handling` is: below 1 is a weapon that shoots tighter
+		# than its class does, which is docs/10's Grandfather's Deer Rifle, and a base that
+		# declares nothing is still exactly 1.0.
+		"cone": float(r.get("cone", 1.0)),
 		# See melee_profile_of: the item this profile was built from, so wear can reach the
 		# weapon that actually fired.
 		"source": item,
@@ -470,16 +543,64 @@ static func ranged_profile_of(world: Variant, item: int) -> Variant:
 
 # ---- affixes ----
 
-static func roll_tier(rng: Variant) -> String:
-	var total: int = 0
+# The tiers a roll or an upgrade may produce: TIERS minus the hand-authored ones. Every caller that
+# treats TIERS as a *ladder* -- roll_tier here, SimModification's Salvage Rights -- comes through
+# this; every caller that treats it as a *lookup* ("how many affixes does this id allow") reads
+# TIERS directly, because a named item still has to be able to find its own row.
+static func rollable_tiers() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	for t in TIERS:
+		if not bool((t as Dictionary).get("authored", false)):
+			out.append(t as Dictionary)
+	return out
+
+
+static func roll_tier(rng: Variant) -> String:
+	var pool: Array[Dictionary] = rollable_tiers()
+	var total: int = 0
+	for t in pool:
 		total += int(t["weight"])
 	var roll: float = float(rng.call("float_range", 0.0, float(total)))
-	for t in TIERS:
+	for t in pool:
 		roll -= float(t["weight"])
 		if roll < 0.0:
 			return String(t["id"])
 	return "scavenged"
+
+
+# The hand-authored affix roll on a base, or null when the base is an ordinary one. Shaped exactly
+# like the `affixes` component `roll_affixes` produces -- {prefixes, suffixes} of {id, tier} -- so
+# `affix_modifiers`, the reader that already turns a rolled affix into a scoped modifier, resolves a
+# named item's fixed rolls with no second code path. "Fixed rolls rather than random affixes" is a
+# statement about where the rolls come from, not about what they are, and a parallel modifier system
+# would have been the wrong shape for it.
+static func named_block(base: Variant) -> Variant:
+	if not base is Dictionary:
+		return null
+	var n: Variant = (base as Dictionary).get("named")
+	return n if n is Dictionary else null
+
+
+# Whether this item is one of docs/10's named items. Asks the base, not the `itemTier` component:
+# the tier is a *consequence* of the base being named, so a hand-built fixture that never set a
+# tier is still holding a Siren's Bell.
+static func is_named(world: Variant, item: int) -> bool:
+	return named_block(item_base_of(world, item)) != null
+
+
+# A deep copy of an authored roll, in the affixes component's shape. A copy, built out of fresh
+# plain Arrays and Dictionaries, because the component is mutable -- the bench edits prefixes in
+# place -- and handing every Siren's Bell the registry's own arrays would let one item's
+# modification rewrite the content tree for every one spawned after it.
+static func _named_affixes(block: Dictionary) -> Dictionary:
+	var out: Dictionary = {"prefixes": [], "suffixes": []}
+	for slot in ["prefixes", "suffixes"]:
+		for rolled_v in block.get(slot, []) as Array:
+			if not (rolled_v is Dictionary):
+				continue
+			var r: Dictionary = rolled_v as Dictionary
+			(out[slot] as Array).append({"id": String(r.get("id", "")), "tier": int(r.get("tier", 0))})
+	return out
 
 static func affix_pool(world: Variant, item_class: String, slot: String) -> Array:
 	var pool: Array = []
@@ -701,8 +822,17 @@ static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}
 	var rng: Variant = null
 	if "rng" in world and world.rng != null and world.rng.has_method("stream"):
 		rng = world.rng.call("stream", "loot")
+	var base: Variant = _content_get(world, "item", base_id)
+	# A named base is its own tier, whatever the caller asked for. docs/10's fourth tier is
+	# hand-authored, so the tier is a property of *which base this is* rather than of the roll that
+	# found it: a table rolling "scavenged" and then picking the Siren's Bell must not produce a
+	# scavenged Siren's Bell, and neither must a kit, a debug spawn or a fixture passing a tier by
+	# hand. Fetched before the tier is decided for exactly that reason -- it used to be read after.
+	var named: Variant = named_block(base)
 	var tier: String = String(options.get("tier", "")) if options.has("tier") else ""
-	if tier == "" and rng != null:
+	if named != null:
+		tier = NAMED_TIER
+	elif tier == "" and rng != null:
 		tier = roll_tier(rng)
 	elif tier == "":
 		tier = "scavenged"
@@ -711,10 +841,14 @@ static func spawn_item(world: Variant, base_id: String, options: Dictionary = {}
 	# afterwards ask how many affix slots an item has, which is exactly what a Scrap Kit needs to
 	# know. Stored as its own component so it serialises with everything else.
 	world.components.set_component(item, "itemTier", {"id": tier})
-	var base: Variant = _content_get(world, "item", base_id)
 	var cls: String = base_class(base as Dictionary) if base is Dictionary else "material"
 	var aff: Dictionary = {"prefixes": [], "suffixes": []}
-	if rng != null and base != null:
+	if named != null:
+		# Fixed rolls: copied, never drawn. Deliberately touches no RNG at all -- that is what
+		# makes one named item the same object on every seed, and it is the difference between
+		# "hand-authored" and "rolled at a tier that happens to be rare".
+		aff = _named_affixes(named as Dictionary)
+	elif rng != null and base != null:
 		aff = roll_affixes(world, cls, tier, rng)
 	world.components.set_component(item, "affixes", aff)
 	world.components.set_component(item, "condition", {"current": FULL_CONDITION, "ceiling": FULL_CONDITION})
