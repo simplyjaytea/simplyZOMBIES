@@ -21,19 +21,31 @@ static func read_file(key: String) -> String:
 		return ""
 	return f.get_as_text()
 
+# Write to a temp file beside the target, then rename it over the target. The rename is the
+# whole guarantee (docs/22 "Save performance", docs/19's save model): at no instant is there no
+# save on disk. This used to delete the existing save *before* the rename, "so the rename would
+# not fail" -- and that delete was the window the name promised there was not (docs/23's defect
+# list, fixed 2026-09-13; check_m2_save.gd's ATOMIC lane reads this body for the delete).
+#
+# What the engine gives us, honestly: on Unix `DirAccess.rename` is POSIX rename(2), which
+# replaces an existing target atomically on one filesystem, and user:// is one filesystem. On
+# Windows the engine's own DirAccessWindows::rename removes and then renames internally, so the
+# window shrinks to the engine's and cannot be closed from GDScript. Godot 4 exposes no fsync, so
+# the oracle's `fsyncSync` (src/platform/storage.ts) has no twin here: `flush` empties Godot's
+# buffer, not the OS page cache.
 static func write_file_atomic(key: String, value: String) -> void:
 	var target: String = _file_for(key)
 	var tmp: String = target + ".tmp"
+	var da := DirAccess.open("user://")
+	assert(da != null)
+	# A crashed earlier write may have left its temp file behind; it is never read, only replaced.
+	if da.file_exists(tmp.get_file()):
+		da.remove(tmp.get_file())
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	assert(f != null, "storage: cannot open %s for write" % tmp)
 	f.store_string(value)
 	f.flush()
 	f = null
-	var da := DirAccess.open("user://")
-	assert(da != null)
-	# DirAccess.rename is atomic on one filesystem; user:// is one FS.
-	if da.file_exists(target.get_file()):
-		da.remove(target.get_file())
 	var err := da.rename(tmp.get_file(), target.get_file())
 	assert(err == OK, "storage: atomic rename failed %s -> %s (%d)" % [tmp, target, err])
 
