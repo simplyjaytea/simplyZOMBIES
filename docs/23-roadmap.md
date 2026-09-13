@@ -749,12 +749,7 @@ session, each with its gate red both ways and its record.
   is still in the corner is **stamina**, which has no diegetic form yet and is the harder half,
   because a body that is out of breath has to *look* it rather than say so. Whatever it becomes,
   it is not a bar and not a word over anybody else's head.
-- **The skill web screen.** **Presentation only, now.** The mechanism underneath it landed with
-  [Focus and the Manual learn line](#the-record-by-system) — the `web.buy` command, the
-  `SimSkills.web_view` read model and the choice of who manages a survivor, all gated by
-  `godot:m2:autonomy`. What remains is a *screen*: the web drawn as a web, with regions and
-  adjacency and the shape of a survivor's history visible in it, rather than the one prose line
-  the work grid can fit. Nothing in the sim is waiting on it.
+- ~~**The skill web screen**~~ — **landed** 2026-09-13, see the record (`godot:check:web_look`).
 - **Prose that names its modifier sources.** "Slow because the leg is splinted", generated from
   the modifier pipeline rather than hand-authored per case.
 
@@ -4353,13 +4348,84 @@ not a to-do list:
   **The honest half.** This is the *mechanism* of "the skill web screen", not the screen. What
   ships is one prose line per row — "knows a surer grip · long legs — could learn: tape and
   patience, plain grit" — with the learnable names clickable. The web drawn *as a web*, with regions
-  and adjacency, is still in [what's left](#whats-left-in-milestone-2), annotated presentation-only.
+  and adjacency, landed on 2026-09-13 as the next entry.
   Nothing was measured about balance because nothing in the campaign path changed: the refactor into
   `_buy` is behaviour-identical (same order, same affordability, same modifier set), and the new
   intake consumes a command no headless driver pushes. Confirmed rather than assumed —
   `godot:m2:balance` prints the same four rows as the slice above (404 = 7 kills m7 / 0 deaths,
   20260805 = 5 kills / 1 death) and `godot:m2:harness` the same six lines (knife 24/3, bow 14/3,
   pistol 20/4).
+- **Survivors / UI** — ~~the skill web screen~~ **landed** 2026-09-13
+  (`npm run godot:check:web_look` → `WEB_LOOK_OK`, lanes PLACED / WOVEN / MAP / SCREEN / WIRED; the
+  chain's **70th** gate). **K** opens the web for the colonist selected on the street, or for you,
+  and Esc closes it; screenshots for the owner in `.hermes/plans/2026-09-13_web-screen/`
+  (`web-manual.png`, `web-auto.png`). Presentation only: `godot/sim/` gained a read model and nothing
+  on the campaign path.
+  **Where a node sits is content.** docs/08's content shape had named `position` beside `cost` since
+  the web was specified and no node carried one; every node in `skill_web.json` does now, on the unit
+  square with the hub at the centre, six sectors laid as docs/08's diagram (Endurance up, Survival
+  down, Ranged and Melee to the right, Medicine and Craft to the left), cost-one nodes on an inner
+  ring and cost-two on an outer. `ui/web_layout.gd` is pure rules over that content — positions,
+  lines, where a region's word goes, and `problems()`, the one predicate that says whether a web is
+  well laid (every node placed and on the square, no two on top of each other, cheap nearer the hub
+  than dear within a region, each region one contiguous sector, every path naming real nodes, every
+  node on some line). Neither validator sees `content/colony/` — `godot:validate` is shallow and the
+  frozen oracle never reads the file — so PLACED runs the shipped web through that predicate and
+  then five deliberately broken copies, each of which must be refused for its own fault.
+  **The lines are the focus paths, by the owner's decision, and nothing else.** The shallow web has
+  no prerequisite links (ADR 0012), and a drawn line that meant nothing to the sim would read as a
+  rule that does not exist. So a line joins two nodes exactly where some `focusPaths` entry buys one
+  after the other — the arrays `_autospend` walks — a spoke runs from the hub to each path's first
+  node, and a node on **no** path is joined to the hub by a dotted line: `ranged.calm` and
+  `craft.scrap`, the two the surplus pass alone reaches, found by `drift_only()` rather than named,
+  so the day a path reaches one the dots become a line with nobody editing a list. WOVEN computes
+  the pair set a second way from the paths (16 lines, 3 spokes, 2 dotted on the shipped web), proves
+  the dotted rule and the missing-node refusal on a fixture, and asserts textually that
+  `_autospend` and `WebLayout.edges` read the same `focusPaths` key.
+  **A second read model, because the first is pinned.** `godot:m2:autonomy`'s VIEW lane holds
+  `web_view` to exactly `{known, learnable}` with a digit scan, and rightly, so the screen reads
+  `SimSkills.web_map` instead: `{who, manual, regions:[{region, lived}], nodes:[{node, name, region,
+  state}]}` with `state` one of three words. No cost, no point total, no count and no position
+  crosses — MAP pins the allowlist at all three levels, scans the JSON for a digit, and proves the
+  predicate refuses a `cost`, a fourth state word and a digit in a name. The two models share one
+  private `_node_state`, so the grid's prose line and the screen cannot disagree about what is
+  clickable, and MAP asserts they agree anyway. `lived` reads `earned` — banked plus what the owned
+  nodes cost — and the assertion that it does is on an **Auto twin** who spent every point: `lived`
+  from the banked points passes on the Manual survivor (three in hand) and fails only there.
+  **The screen.** Six fans round a hub, warm olive where the survivor has lived and a hairline where
+  they have not; the lines bright where both ends are known; discs bright for known, amber for
+  learnable, an outline for the rest, each with its prose name beside it in the same colour, to the
+  right on the web's right half and ending to the left on its left. Amber keeps its one meaning —
+  what a Manual survivor could learn now — and the footer says so in words; an Auto survivor's
+  footer says they are on their own path and how to change that. `layout_hits()` and `words()` are
+  pure over the map and the layout, so SCREEN judges the panel with no draw pass having run: its
+  click targets are exactly the learnable nodes, inside the panel and not overlapping; every word is
+  prose (no digit, no `a.b` id, no `a_b` key, the scanner proved against all three); a click pushes
+  `web.buy` through the queue and the sim learns the node, after which it is no longer a target;
+  the Auto twin has no targets and a refusal with reason `auto`. WIRED reads main.gd: the panel
+  loaded after the work grid (sibling order is z-order), K bound, Esc peeling the web before the
+  bench (the order predicate proved on the reversed arm), the per-frame re-pull with the selected
+  colonist, the six methods main.gd names present by those exact names (the `has_method` trap), and
+  the legend's K row in digit-free prose inside the `GROUPS` block.
+  **What follows the selection for free.** `_who()` — the HUD's own rule, factored out of
+  `_update_hud` unchanged — is what the web is pulled for every frame, so clicking another
+  colonist on the street re-points the screen and a selection that dies drops it back to you.
+  **Fifteen sabotages, each run red before the gate was trusted**, one per assertion the plan named:
+  a node with no position, a dear node inside the cheap ring, two regions interleaved, the last pair
+  dropped from every path, `drift_only` returning nothing, `lived` reading banked points, a `cost` on
+  a node entry, a fourth state word, the screen writing ids instead of names, a digit in the footer,
+  `_act` pushing the wrong command, no K arm, Esc peeling the bench first, `layout_hits` renamed,
+  the legend row deleted. One of them was itself wrong the first time: "move `craft.scrap` inward"
+  moved it to a spot still further from the hub than its region's cheap node, and the gate was right
+  to stay green — the second attempt, genuinely inside the ring, went red on the ring rule.
+  **Honest halves.** Fifteen hand-laid positions on two rings; there are no keystones, notables or
+  cross-links to lay because the shallow web has none. Region words sit at two radii (one above and
+  below, a wider one to the sides) because the header and footer cap the square vertically and the
+  panel has room beside it; a mis-laid node would drag its region's word, and PLACED's sector rule is
+  what stops that. The screen draws over the work grid rather than replacing its prose line, which
+  stays. No `SAVE_VERSION` move — the panel stores nothing per survivor and nothing new is saved.
+  Nothing was measured about balance because nothing on the campaign path changed; confirmed by the
+  balance rows of the `godot:m2` run rather than assumed.
   **One existing lane had to move, and it is worth saying which.** `check_m2_web.gd`'s DRIFT lane
   locked its survivor by pushing `job.focus` with focus `Auto` and asserting `focusSetBy == player` —
   an assertion of exactly the behaviour the handback rule reverses, and it went red here. The lane

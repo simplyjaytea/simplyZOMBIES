@@ -14,9 +14,9 @@ container running** lives in `AGENTS.md`.
 
 ---
 
-## State, as of 2026-09-12 (the alpha-roster arc)
+## State, as of 2026-09-13 (the skill web screen)
 
-Green, and verified this session rather than quoted: `npm run godot:m2` chains **69 gates**
+Green, and verified this session rather than quoted: `npm run godot:m2` chains **70 gates**
 (counted off the script in `package.json`, which is the authoritative list — the number here keeps
 drifting, so count it there rather than trusting this line) and exits 0, `npm test` is **45 files /
 594 tests** passing, and `godot:validate`, `godot:test` and `godot:smoke` are clean. CI's `check`
@@ -31,6 +31,23 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 [docs/23's flag record](docs/23-roadmap.md#where-milestone-2-stands), which now ends with the flip.
 
 ## What landed recently
+
+**2026-09-13 — the skill web screen, and the first slice of a skills turn.** The owner opened the
+skill system after the roster arc and picked the screen first: **K** draws the web as a web for the
+colonist selected on the street (or for you), Esc closes it, and `godot:check:web_look` is the
+chain's **70th** gate. Where a node sits is content now — docs/08 had named `position` beside
+`cost` since the web was specified and no node carried one — and the lines are the **focus paths**,
+by the owner's decision: a drawn line joins two nodes exactly where `_autospend` buys one after the
+other, and a node no path reaches (`ranged.calm`, `craft.scrap`) hangs off the hub by a dotted line
+the layout finds rather than names. Nothing mechanical moved; `sim/` gained a second read model,
+`SimSkills.web_map`, because the autonomy gate pins `web_view` to two keys and rightly so. It is
+words and booleans only, and its `lived` reads *earned* rather than banked — asserted on an Auto
+twin who spent every point, the only survivor it can fail on. Fifteen sabotages went red before the
+gate was trusted; one of them was itself wrong the first time and the record says which. Screenshots
+in `.hermes/plans/2026-09-13_web-screen/`. The record in docs/23 is the one copy of the detail.
+
+**What is next in the skills turn**, named in what's left already: diagnosis prose that scales with
+Medicine, and nobody reading a book or seeking comfort unaided. Neither was touched here.
 
 **2026-09-12 — the alpha-roster arc is closed: fifteen slices, and a re-baseline that vindicates
 the content and indicts one rule.** The roster went **152 → 362 bases** and the chain **57 → 69

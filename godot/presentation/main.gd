@@ -78,6 +78,8 @@ var speed: int = 1
 var attention_channel: String = "off" # off/noise/scent/sight/light
 var inventory_open: bool = false
 var work_open: bool = false
+# The skill web screen (K), for the colonist selected on the street or for you.
+var web_open: bool = false
 var show_sheets: bool = false
 var tick_count: int = 0
 
@@ -86,6 +88,7 @@ var _hud: Control = null
 var _legend: Control = null
 var _inventory_panel: Control = null
 var _work_panel: Control = null
+var _web_panel: Control = null
 var _paperdoll: Control = null
 var _dashboard: Control = null
 var _settings: Control = null
@@ -395,6 +398,17 @@ func _ensure_ui() -> void:
 		# them -- the same six rows now need more height to stay on screen at once.
 		_work_panel.size = Vector2(1520, 540)
 		layer.add_child(_work_panel)
+	# The skill web drawn as a web (K), over the work grid because it is the grid's own prose
+	# line opened out, and under everything that follows in this list -- sibling order is
+	# z-order here. web_panel.gd's header says what it draws and what it refuses to compute.
+	var web_script: GDScript = load("res://ui/web_panel.gd") as GDScript
+	if web_script != null:
+		_web_panel = web_script.new() as Control
+		_web_panel.name = "WebPanel"
+		_web_panel.visible = false
+		_web_panel.position = Vector2(300, 120)
+		_web_panel.size = Vector2(1040, 760)
+		layer.add_child(_web_panel)
 	# paperdoll glimpse bottom-left (always visible, cheap); the HUD keys hint moved to the
 	# bottom-right corner to make this one free.
 	var doll_script: GDScript = load("res://ui/paperdoll.gd") as GDScript
@@ -473,6 +487,10 @@ func _input(event: InputEvent) -> void:
 				# recently opened, and closing it is what walking away would have done.
 				if _legend != null and _legend.visible:
 					_legend.visible = false
+				elif _web_panel != null and _web_panel.visible:
+					# The web before the bench: it is the thing most recently opened by a key,
+					# and closing it is what looking back at the street would have done.
+					_set_web_open(false)
 				elif world != null and _bench_panel != null and _bench_panel.visible:
 					world.commands.push({"type": "bench.close"})
 				elif world != null and _inventory_panel != null and _inventory_panel.has_method("loot_open") and bool(_inventory_panel.call("loot_open")):
@@ -487,6 +505,10 @@ func _input(event: InputEvent) -> void:
 					_work_panel.visible = work_open
 					if work_open and _work_panel.has_method("set_world"):
 						_work_panel.call("set_world", world)
+			KEY_K:
+				# Tab owns the screen while the sheet is up, the same rule the R arm keeps.
+				if not inventory_open:
+					_set_web_open(not web_open)
 			KEY_SPACE:
 				if world != null: world.commands.push({"type": "shout"})
 			KEY_F:
@@ -647,6 +669,29 @@ func _pump_input() -> void:
 # corner doll are peeled rather than dimmed -- and a driver or a gate that wants the sheet open
 # gets the same four things a keypress does, which is what stops a screenshot from showing a
 # legend nobody playing would see.
+# Whose lines the HUD speaks and whose web the K screen shows: the colonist selected on the
+# street, or you. A selection outlives nothing: a colonist who died, turned, walked out or
+# became the body you are now driving drops back to your own lines rather than leaving the HUD
+# speaking of somebody who is not there.
+func _who() -> int:
+	if world == null:
+		return -1
+	if _selected >= 0 and (_selected == int(world.player) or not world.components.has_component(_selected, "identity") or world.components.has_component(_selected, "corpse")):
+		_selected = -1
+	return _selected if _selected >= 0 else int(world.player)
+
+
+func _set_web_open(open: bool) -> void:
+	web_open = open
+	if _web_panel == null:
+		return
+	_web_panel.visible = open
+	if open and _web_panel.has_method("set_world") and world != null:
+		_web_panel.call("set_world", world, _who())
+	if open and _legend != null:
+		_legend.visible = false
+
+
 func _set_inventory_open(open: bool) -> void:
 	inventory_open = open
 	if _inventory_panel != null and _inventory_panel.has_method("set_open"):
@@ -845,12 +890,8 @@ func _update_hud() -> void:
 			base += "  %s" % String(look["device"])
 	if not _content_error.is_empty():
 		base += "  content: %s" % _content_error
-	# A selection outlives nothing: a colonist who died, turned, walked out or became the body
-	# you are now driving drops back to your own lines rather than leaving the HUD speaking of
-	# somebody who is not there.
-	if _selected >= 0 and (_selected == int(world.player) or not world.components.has_component(_selected, "identity") or world.components.has_component(_selected, "corpse")):
-		_selected = -1
-	var who: int = _selected if _selected >= 0 else int(world.player)
+	# Whose lines: the selected colonist or you, with a dead selection dropped (`_who`).
+	var who: int = _who()
 	if bool(world.runOver):
 		base += "  RUN OVER"
 	# `base` is the developer sheet: ticks, raw positions, aptitude integers, the
@@ -877,6 +918,11 @@ func _update_hud() -> void:
 		_dashboard.call("set_view", SimVehicles.dash_view(world, world.player))
 	if _work_panel != null and _work_panel.visible and _work_panel.has_method("set_world"):
 		_work_panel.call("set_world", world)
+	# The web follows the selection every frame: click another colonist on the street and the
+	# screen is theirs, and a selection that dies drops the screen back to you, with no code of
+	# its own for either.
+	if _web_panel != null and _web_panel.visible and _web_panel.has_method("set_world"):
+		_web_panel.call("set_world", world, who)
 	# Always refreshed, not only while open: pinned bag windows read the same view during
 	# ordinary play, and a stale pinned bag is a lie about what you are carrying.
 	# The transfer window, fed whether or not the sheet is open: a cupboard you are standing at is
