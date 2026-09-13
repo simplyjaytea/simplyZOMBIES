@@ -1180,7 +1180,7 @@ static func _do_repair(world: Variant, ent: int, job: Dictionary) -> void:
 	if not _consume_owned(world, scrap):
 		_stop(world, ent)
 		return
-	if not SimItems.repair_item(world, item):
+	if not SimItems.repair_item(world, item, ent):
 		_stop(world, ent)
 		return
 	world.events.publish({"type": "job.repaired", "entity": ent, "item": item})
