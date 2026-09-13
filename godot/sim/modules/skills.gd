@@ -269,7 +269,13 @@ static func _autospend(world: Variant, entity: int) -> void:
 		return
 	var paths: Dictionary = def.get("focusPaths", {}) as Dictionary
 	var path: Array = paths.get(focus, paths.get("Auto", [])) as Array
+	var by_id: Dictionary = _nodes_by_id(def)
 	for nid_v in path:
+		# A keystone on a path is content's mistake (the KEYSTONE lane refuses one); it is
+		# still never bought here.
+		var pn: Variant = by_id.get(String(nid_v))
+		if pn is Dictionary and is_keystone(pn as Dictionary):
+			continue
 		_buy(world, entity, String(nid_v))
 	# Second pass: what the focus path cannot take. Points are region-tagged (docs/08) and a
 	# path names five nodes at most, so everything earned off the path used to sit in the
@@ -295,7 +301,7 @@ static func _autospend(world: Variant, entity: int) -> void:
 				continue
 			var nd: Dictionary = n as Dictionary
 			var cid: String = String(nd.get("id", ""))
-			if owned.has(cid):
+			if owned.has(cid) or is_keystone(nd):
 				continue
 			var creg: String = String(nd.get("region", ""))
 			var ccost: int = int(nd.get("cost", 1))
@@ -308,6 +314,23 @@ static func _autospend(world: Variant, entity: int) -> void:
 			break
 		if not _buy(world, entity, best_id):
 			break
+
+
+# A keystone: a rim node that costs more and costs something -- its `modifiers` carry the gift
+# and the drawback together, under the one source, so owning it and losing it are one act each.
+# docs/08 says a keystone is chosen, so neither auto-spend pass ever buys one; only a Manual
+# survivor's `web.buy` reaches `_buy` for it (docs/30, "Readers first for the web").
+static func is_keystone(node: Dictionary) -> bool:
+	return bool(node.get("keystone", false))
+
+
+# What a node does: a minor is one stat, op and value on the node itself; a keystone carries a
+# `modifiers` array. One shape for the reader, so `_apply_mods` cannot forget a drawback.
+static func node_modifiers(node: Dictionary) -> Array:
+	var mods: Variant = node.get("modifiers")
+	if mods is Array:
+		return mods as Array
+	return [{"stat": node.get("stat", "move_speed"), "op": node.get("op", "mul"), "value": node.get("value", 1.0)}]
 
 
 static func _apply_mods(world: Variant, entity: int, owned: Array, nodes_by_id: Dictionary) -> void:
@@ -323,12 +346,14 @@ static func _apply_mods(world: Variant, entity: int, owned: Array, nodes_by_id: 
 		if not node is Dictionary:
 			continue
 		var nd: Dictionary = node as Dictionary
-		world.modifiers.call("add", {
-			"stat": String(nd.get("stat", "move_speed")),
-			"op": String(nd.get("op", "mul")),
-			"value": float(nd.get("value", 1.0)),
-			"source": SOURCE_PREFIX + String(nd.get("id", "")),
-		}, entity)
+		for m in node_modifiers(nd):
+			var md: Dictionary = m as Dictionary
+			world.modifiers.call("add", {
+				"stat": String(md.get("stat", "move_speed")),
+				"op": String(md.get("op", "mul")),
+				"value": float(md.get("value", 1.0)),
+				"source": SOURCE_PREFIX + String(nd.get("id", "")),
+			}, entity)
 
 
 static func node_count(world: Variant, entity: int) -> int:
@@ -421,7 +446,11 @@ static func definition() -> Dictionary:
 #
 #   {who: String, manual: bool,
 #    regions: [{region: String, lived: bool}],
-#    nodes:   [{node: String, name: String, region: String, state: "known"|"learnable"|"unknown"}]}
+#    nodes:   [{node: String, name: String, region: String, state: "known"|"learnable"|"unknown",
+#               keystone: bool, price: String}]}
+#
+# `keystone` is the ring the screen draws and `price` the prose under a keystone's name -- what
+# it costs, in words; "" on a minor.
 #
 # `lived` reads `earned` -- banked points plus what the owned nodes cost -- so a survivor who
 # spent everything they earned in a region still reads as having lived there. No cost, no point
@@ -448,6 +477,8 @@ static func web_map(world: Variant, entity: int) -> Dictionary:
 			"name": String(nd.get("name", "")),
 			"region": String(nd.get("region", "")),
 			"state": _node_state(web as Dictionary, nd, manual),
+			"keystone": is_keystone(nd),
+			"price": String(nd.get("price", "")),
 		})
 	return {"who": who, "manual": manual, "regions": regions, "nodes": nodes}
 

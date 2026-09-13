@@ -26,6 +26,11 @@ const WEB_X: float = 220.0
 const WEB_Y: float = 64.0
 const WEB_SIDE: float = 600.0
 const NODE_R: float = 9.0
+# A keystone's disc, and the ring outside it: the one thing on the web that costs something.
+const KEY_R: float = 12.5
+const RING_GAP: float = 3.0
+const PRICE_SIZE: int = 13
+const PRICE_DY: float = 17.0
 const NAME_GAP: float = 14.0
 const NAME_SIZE: int = 16
 const REGION_SIZE: int = 16
@@ -76,7 +81,7 @@ func footer() -> String:
 	if _map.is_empty():
 		return "nothing to show — esc to close"
 	if bool(_map.get("manual", false)):
-		return "amber is what they could learn now — click it · a bright line is a path they have walked · a dotted line leads where no focus does · esc to close"
+		return "amber: could learn now, click it · a bright line: a path they have walked · dotted: no focus leads there · ringed: a keystone, it costs something · esc closes"
 	var who: String = String(_map.get("who", ""))
 	if _world != null and _who == int(_world.player):
 		who = "you"
@@ -93,6 +98,9 @@ func words() -> Array[String]:
 		out.append(String((r as Dictionary).get("region", "")).to_lower())
 	for n in _map.get("nodes", []) as Array:
 		out.append(String((n as Dictionary).get("name", "")))
+		var price: String = String((n as Dictionary).get("price", ""))
+		if not price.is_empty():
+			out.append(price)
 	out.append(footer())
 	return out
 
@@ -111,9 +119,15 @@ func layout_hits() -> Array[Dictionary]:
 		if not pos.has(nid):
 			continue
 		var at: Vector2 = _at(pos[nid] as Vector2)
-		var disc := Rect2(at - Vector2(NODE_R, NODE_R), Vector2(NODE_R * 2.0, NODE_R * 2.0))
-		var placed: Dictionary = _name_placement(font, pos[nid] as Vector2, String(nd.get("name", "")))
-		out.append({"rect": disc.merge(placed["rect"] as Rect2), "node": nid})
+		var key: bool = bool(nd.get("keystone", false))
+		var r: float = KEY_R + RING_GAP if key else NODE_R
+		var disc := Rect2(at - Vector2(r, r), Vector2(r * 2.0, r * 2.0))
+		var placed: Dictionary = _name_placement(font, pos[nid] as Vector2, String(nd.get("name", "")), r)
+		var rect: Rect2 = disc.merge(placed["rect"] as Rect2)
+		if key and not String(nd.get("price", "")).is_empty():
+			var priced: Dictionary = _price_placement(font, pos[nid] as Vector2, String(nd.get("price", "")), r)
+			rect = rect.merge(priced["rect"] as Rect2)
+		out.append({"rect": rect, "node": nid})
 	return out
 
 
@@ -159,19 +173,28 @@ func _word_rect(font: Font, at: Vector2, word: String, font_size: int) -> Rect2:
 
 # Where a node's name goes: to the right of the disc on the web's right half, ending to the left
 # of it on the left half, fitted to whatever room the panel has on that side.
-func _name_placement(font: Font, unit: Vector2, name: String) -> Dictionary:
+func _name_placement(font: Font, unit: Vector2, name: String, radius: float = NODE_R) -> Dictionary:
+	return _beside(font, unit, name, radius, NAME_SIZE, 0.0)
+
+
+# A keystone's price, in words, on the row under its name and on the same side.
+func _price_placement(font: Font, unit: Vector2, price: String, radius: float) -> Dictionary:
+	return _beside(font, unit, price, radius, PRICE_SIZE, PRICE_DY)
+
+
+func _beside(font: Font, unit: Vector2, text: String, radius: float, font_size: int, dy: float) -> Dictionary:
 	var at: Vector2 = _at(unit)
-	var baseline: float = at.y + float(NAME_SIZE) * 0.35
+	var baseline: float = at.y + float(NAME_SIZE) * 0.35 + dy
 	if unit.x >= WebLayout.HUB.x:
-		var room: float = size.x - 16.0 - (at.x + NODE_R + NAME_GAP)
-		var text: String = UiText.fit(font, name, NAME_SIZE, room)
-		var origin := Vector2(at.x + NODE_R + NAME_GAP, baseline)
-		return {"text": text, "at": origin, "rect": _word_rect(font, origin, text, NAME_SIZE)}
-	var room_l: float = (at.x - NODE_R - NAME_GAP) - 16.0
-	var text_l: String = UiText.fit(font, name, NAME_SIZE, room_l)
-	var w: float = font.get_string_size(text_l, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
-	var origin_l := Vector2(at.x - NODE_R - NAME_GAP - w, baseline)
-	return {"text": text_l, "at": origin_l, "rect": _word_rect(font, origin_l, text_l, NAME_SIZE)}
+		var room: float = size.x - 16.0 - (at.x + radius + NAME_GAP)
+		var fitted: String = UiText.fit(font, text, font_size, room)
+		var origin := Vector2(at.x + radius + NAME_GAP, baseline)
+		return {"text": fitted, "at": origin, "rect": _word_rect(font, origin, fitted, font_size)}
+	var room_l: float = (at.x - radius - NAME_GAP) - 16.0
+	var fitted_l: String = UiText.fit(font, text, font_size, room_l)
+	var w: float = font.get_string_size(fitted_l, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	var origin_l := Vector2(at.x - radius - NAME_GAP - w, baseline)
+	return {"text": fitted_l, "at": origin_l, "rect": _word_rect(font, origin_l, fitted_l, font_size)}
 
 
 # --- draw --------------------------------------------------------------------------------------
@@ -189,10 +212,14 @@ func _draw() -> void:
 	var pos: Dictionary = WebLayout.positions(_def)
 	var state: Dictionary = {}
 	var names: Dictionary = {}
+	var keystones: Dictionary = {}
+	var prices: Dictionary = {}
 	for n in _map.get("nodes", []) as Array:
 		var nd: Dictionary = n as Dictionary
 		state[String(nd.get("node", ""))] = String(nd.get("state", "unknown"))
 		names[String(nd.get("node", ""))] = String(nd.get("name", ""))
+		keystones[String(nd.get("node", ""))] = bool(nd.get("keystone", false))
+		prices[String(nd.get("node", ""))] = String(nd.get("price", ""))
 	var hub: Vector2 = _at(WebLayout.HUB)
 	# The regions: a fan each, warm where the survivor has lived and faint where they have not,
 	# with the region's word out past its nodes.
@@ -247,19 +274,31 @@ func _draw() -> void:
 	draw_string(font, hub + Vector2(-start_w * 0.5, NODE_R + float(FOOTER_SIZE)), "start", HORIZONTAL_ALIGNMENT_LEFT, -1, FOOTER_SIZE, Chrome.TEXT_FAINT)
 	# The nodes: known bright, learnable amber, the rest an outline -- and the name beside each
 	# in the same colour, so the disc and the word agree.
+	# A keystone is a bigger disc with a ring round it in the same colour, and its price in
+	# words on the row beneath its name: the one thing on the web that costs something.
 	for nid in pos.keys():
 		var st: String = String(state.get(nid, "unknown"))
 		var at: Vector2 = _at(pos[nid] as Vector2)
+		var key: bool = bool(keystones.get(nid, false))
+		var r: float = KEY_R if key else NODE_R
 		var col: Color = Chrome.TEXT_FAINT
 		match st:
 			"known":
 				col = Chrome.TEXT
-				draw_circle(at, NODE_R, col)
+				draw_circle(at, r, col)
 			"learnable":
 				col = Chrome.ACCENT
-				draw_circle(at, NODE_R, col)
+				draw_circle(at, r, col)
 			_:
-				draw_circle(at, NODE_R, Chrome.PANEL)
-				draw_circle(at, NODE_R, col, false, 1.5)
-		var placed: Dictionary = _name_placement(font, pos[nid] as Vector2, String(names.get(nid, "")))
+				draw_circle(at, r, Chrome.PANEL)
+				draw_circle(at, r, col, false, 1.5)
+		var reach: float = r
+		if key:
+			reach = KEY_R + RING_GAP
+			draw_circle(at, reach, col, false, 1.5)
+		var placed: Dictionary = _name_placement(font, pos[nid] as Vector2, String(names.get(nid, "")), reach)
 		draw_string(font, placed["at"] as Vector2, String(placed["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE, col)
+		var price: String = String(prices.get(nid, ""))
+		if key and not price.is_empty():
+			var priced: Dictionary = _price_placement(font, pos[nid] as Vector2, price, reach)
+			draw_string(font, priced["at"] as Vector2, String(priced["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, PRICE_SIZE, Chrome.TEXT_FAINT)

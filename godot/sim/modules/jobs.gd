@@ -855,7 +855,17 @@ static func _release_claim(world: Variant, ent: int, job: Dictionary) -> void:
 		world.components.remove(target, "reserved")
 
 
-static func _doctor_work(world: Variant, _ent: int) -> Dictionary:
+# The span an NPC doctor's treatment takes: the fortify channel's constant at the doctor's own
+# `treatment_speed`. The player's channels are planned in treatment.gd and read the same stat;
+# this is the one span the Doctor job owns itself (inspection is not treatment and is not scaled).
+static func treat_span(world: Variant, ent: int) -> int:
+	var speed: float = 1.0
+	if world.modifiers != null and (world.modifiers as Object).has_method("resolve"):
+		speed = float(world.modifiers.call("resolve", "treatment_speed", ent))
+	return maxi(1, int(round(float(SimFortify.CHANNEL_TICKS) / maxf(0.1, speed))))
+
+
+static func _doctor_work(world: Variant, ent: int) -> Dictionary:
 	for other in world.components.query(["needs", "injuries"]):
 		if world.components.has_component(int(other), "controlled") and not _injured(world, int(other)):
 			continue
@@ -869,7 +879,7 @@ static func _doctor_work(world: Variant, _ent: int) -> Dictionary:
 		return {
 			"kind": "Doctor",
 			"target": int(other),
-			"ticksLeft": INSPECT_TICKS if inspect else SimFortify.CHANNEL_TICKS,
+			"ticksLeft": INSPECT_TICKS if inspect else treat_span(world, ent),
 			"inspect": inspect,
 			"path": [],
 			"pathGen": -1,
