@@ -506,11 +506,7 @@ pieces are ordered so that stopping after any one leaves the tree honest: the tw
 back alive first, weapons and crafting follow, colony reach comes last because it needs the readers
 before it.
 
-- **Healing rate is read.** `healing_rate` multiplies the recovery clock in `wounds.recover` on
-  the patient's own scope, which revives `med.hands` and `med.triage` and lets two more Medicine
-  minors land beside them (bed rest insisted on; a dressing changed often). Lane RATE in
-  `godot:m2:recovery`. A Medicine minor on your own web is "you tend your own wounds"; the
-  medic-for-others read is the ward piece below.
+- ~~**Healing rate is read**~~ — **landed** 2026-09-13, see the record (`godot:m2:recovery`, RATE).
 - **Repair cost is read.** `repair_cost` on the repairer, times the repaired item's own, moves how
   much ceiling a repair costs in `SimItems.repair_item`, which revives `craft.tape`, `craft.scrap`
   and the affix "of Salvage". Lane REPAIR in the upkeep gate.
@@ -4486,6 +4482,37 @@ not a to-do list:
   stays. No `SAVE_VERSION` move — the panel stores nothing per survivor and nothing new is saved.
   Nothing was measured about balance because nothing on the campaign path changed; confirmed by the
   balance rows of the `godot:m2` run rather than assumed.
+- **Survivors** — ~~healing rate is read~~ **landed** 2026-09-13 (`godot:m2:recovery`, lane RATE),
+  the first piece of the wider-web arc (docs/30, "Readers first for the web") and the one that
+  brings a dead region back. `healing_rate` had been in the registry since the web landed and was
+  resolved by nothing, so `med.hands` and `med.triage` were bought, lit on the screen and felt by
+  nobody. The recovery clock in `wounds.recover` reads it now, once per body per tick on the
+  **patient's own scope**, and both the wound's clock and the part's climb take the same multiple,
+  so a limb keeps pace with its wound. Two Medicine minors landed beside the two revived: *bed rest,
+  insisted on* (cost one, on the Medic path) and *a dressing changed often* (cost two, reached by
+  the surplus pass alone — the web's third dotted line). The region's two rings hold: both new
+  positions sit between Endurance's axis and the old Medicine pair, cheaper nearer the hub.
+  **Measured**, on a throwaway driver since deleted: one dressed laceration on a fed, idle body
+  closes in **6.00 days** unrated and in **4.75 days** with all four Medicine nodes owned (rate
+  1.2621) — a survivor deep in Medicine closes a laceration a day and a quarter sooner. No
+  campaign claim; the arc's re-baseline is reserved for its close.
+  **The lane.** RATE: a ×1.5 modifier on one body mends its wound and its part 1.5× as far as an
+  identical body in the same window (15000 against 10000 clock ticks; +0.3472 against +0.2315 of
+  torso); the same modifier on a stranger's scope moves the patient by nothing; the unrated clock
+  reads exactly one tick a tick, which is what PACE has always measured; and one Medicine point on
+  an Auto survivor buys `med.hands` and the resolved rate reads what the content says. Two
+  sabotages went red: dropping the multiply (`10000.0 against 10000.0, not 1.5x`) and reading the
+  rate off the wrong scope (`1.000x as far`). `godot:m2:web`'s READERS list of stats awaiting the
+  arc shrank by one in the same commit.
+  **Honest halves.** `healedTicks` is a float on the component now (it accumulated whole ticks
+  before): JSON already returned it as a float and every reader cast, so no save shape moved and
+  `SAVE_VERSION` stays 29; the constant's docstring that argued for the integer was rewritten
+  rather than left lying. The scope is the patient's own — a Medicine minor is "you tend your own
+  wounds well" — and the medic's reach over other people's wounds is the ward piece of the same
+  arc. Two of the web screen's own lanes needed widening for a region that grew: MAP's Auto twin
+  is now granted the whole Medicine region off the content rather than a literal three, and the
+  new node's first position put its name row over its neighbour's disc, which SCREEN's
+  no-overlap assertion caught before anybody saw it.
   **One existing lane had to move, and it is worth saying which.** `check_m2_web.gd`'s DRIFT lane
   locked its survivor by pushing `job.focus` with focus `Auto` and asserting `focusSetBy == player` —
   an assertion of exactly the behaviour the handback rule reverses, and it went red here. The lane

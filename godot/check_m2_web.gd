@@ -248,7 +248,7 @@ func _surplus_lane(w: Variant) -> bool:
 # still written by shipped affixes, and striking them is its own decision. Adding a name to
 # either list is a decision, which is why they are here and not in the registry.
 const SIM_DIR: String = "res://sim"
-const AWAITING_READER: Array[String] = ["healing_rate", "repair_cost", "noise_emission"]
+const AWAITING_READER: Array[String] = ["repair_cost", "noise_emission"]
 const EXCUSED_DEAD: Array[String] = ["noise_propagation", "structure_decay", "temperature", "condition_loss", "bleed_on_hit"]
 
 
