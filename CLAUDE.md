@@ -118,13 +118,14 @@ npm run godot:check:weather  # the sky per kind, snow cover, the flash → WEATH
 npm run godot:check:roof     # wall caps and faces, roofs cut out where seen → ROOF_LOOK_OK
 npm run godot:check:trees    # tall trees in the entity sort, the fade → TREES_OK
 npm run godot:check:worn     # gear layers, order and skeleton fit → WORN_LOOK_OK
+npm run godot:check:web_look # the skill web drawn as a web, words only → WEB_LOOK_OK
 npm run godot:r6         # parity, coverage, mutation, soak, bench, validate
 npm run godot:run        # play it (DISPLAY=:1 on a headless VM)
 npm run sprites:check    # generated art still matches tools/sprites/ → SPRITES_OK
 npm run check:routing    # AGENTS.md's routing table resolves; every check_*.gd is reachable → ROUTING_OK
 ```
 
-Those are the ones worth naming, not all of them: `godot:m2` chains **69**, and the authoritative
+Those are the ones worth naming, not all of them: `godot:m2` chains **70**, and the authoritative
 list is the `godot:m2` script in `package.json` — read it there rather than trusting a copy here,
 because a copy here is one more thing that drifts. Run an individual gate with the
 `godot:m2:<name>` script beside it when you are iterating; run the chain before you commit.
