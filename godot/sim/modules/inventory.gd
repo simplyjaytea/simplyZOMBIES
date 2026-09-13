@@ -254,26 +254,35 @@ static func stow(world: Variant, actor: int, item: int) -> bool:
 
 # ---- stacking ----
 
+# Pour `from` into `into`. Three answers, and the caller must tell them apart:
+#   -1  refused -- nothing moved, `from` is exactly as it was;
+#    0  merged entirely -- `from` is consumed and despawned;
+#    N  N left in `from`, which still exists and still needs a home.
+# Every refusal used to return 0, the same word as "merged entirely", so `merge_into_stack`
+# read a same-base item with no stack, or a base with no limit, as stored -- and `stow` reported
+# an item put away that had gone nowhere (docs/23's defect list, fixed 2026-09-13;
+# check_inventory.gd's STACK lane).
 static func merge_stacks(world: Variant, from: int, into: int) -> int:
 	var base: Variant = SimItems.item_base_of(world, into)
 	if base == null:
-		return 0
+		return -1
 	var limit: int = SimItems.base_stack_limit(base as Dictionary)
 	if limit <= 1:
-		return 0
+		return -1
 	var from_base: Variant = world.components.get_component(from, "itemBase")
 	var into_base: Variant = world.components.get_component(into, "itemBase")
 	if from_base == null or into_base == null:
-		return 0
+		return -1
 	if String((from_base as Dictionary).get("baseId", "")) != String((into_base as Dictionary).get("baseId", "")):
-		return 0
+		return -1
 	var source: Variant = world.components.get_component(from, "stack")
 	var target: Variant = world.components.get_component(into, "stack")
 	if source == null or target == null:
-		return 0
+		return -1
 	var room: int = limit - int((target as Dictionary).get("count", 0))
 	if room <= 0:
-		return int((source as Dictionary).get("count", 0))
+		var left: int = int((source as Dictionary).get("count", 0))
+		return left if left > 0 else -1
 	var moved: int = mini(room, int((source as Dictionary).get("count", 0)))
 	(target as Dictionary)["count"] = int((target as Dictionary).get("count", 0)) + moved
 	(source as Dictionary)["count"] = int((source as Dictionary).get("count", 0)) - moved
@@ -297,6 +306,10 @@ static func merge_into_stack(world: Variant, actor: int, item: int) -> bool:
 		var cb: Variant = world.components.get_component(candidate, "itemBase")
 		if cb == null or String((cb as Dictionary).get("baseId", "")) != bid:
 			continue
+		if world.components.get_component(candidate, "stack") == null:
+			continue
+		# 0 alone is "stored": a refusal (-1) or a remainder moves on to the next stack, and
+		# whatever is left after the last one is the caller's to put somewhere.
 		if merge_stacks(world, item, candidate) == 0:
 			return true
 	return false
