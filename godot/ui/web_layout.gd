@@ -111,7 +111,11 @@ static func region_anchor(def: Dictionary, region: String) -> Vector2:
 	if dir.length() < 0.0001:
 		return HUB
 	var n: Vector2 = dir.normalized()
-	var radius: float = LABEL_RADIUS_UP if absf(n.y) > absf(n.x) else LABEL_RADIUS_SIDE
+	# "Above or below" means within about twenty-five degrees of the vertical -- the two axis
+	# regions, Endurance and Survival -- and not "more vertical than horizontal": the four
+	# diagonal regions sit near the forty-five degree line, and a rim node added to one of them
+	# once tipped a word from one radius to the other and onto a disc.
+	var radius: float = LABEL_RADIUS_UP if absf(n.y) > 0.9 else LABEL_RADIUS_SIDE
 	return HUB + n * radius
 
 
@@ -158,6 +162,20 @@ static func problems(def: Dictionary) -> Array[String]:
 				continue
 			if int(od.get("cost", 1)) > int(nd.get("cost", 1)) and (pos[other] as Vector2).distance_to(HUB) <= (pos[nid] as Vector2).distance_to(HUB):
 				out.append("%s costs more than %s but sits no further from the hub" % [other, nid])
+	# A keystone is the rim: further from the hub than every minor of its region, whatever the
+	# costs say, so the screen's ring is always the outermost thing in its sector.
+	for nid in ids:
+		if not pos.has(nid) or not bool((by_id[nid] as Dictionary).get("keystone", false)):
+			continue
+		var kd: Dictionary = by_id[nid]
+		for other in ids:
+			if other == nid or not pos.has(other):
+				continue
+			var md: Dictionary = by_id[other]
+			if String(md.get("region", "")) != String(kd.get("region", "")) or bool(md.get("keystone", false)):
+				continue
+			if (pos[nid] as Vector2).distance_to(HUB) <= (pos[other] as Vector2).distance_to(HUB):
+				out.append("%s is a keystone and sits no further from the hub than %s" % [nid, other])
 	# Each region is one contiguous run round the hub: walking the placed nodes by angle, a
 	# region that appears, gives way to another, and appears again is two sectors, and its word
 	# would sit between them over somebody else's nodes.

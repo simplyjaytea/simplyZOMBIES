@@ -32,6 +32,14 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-13 — treatment speed is read, and the web has its first keystone.** The third piece of
+the wider web and its first new stat: `treatment_speed` divides the bandage, clean and close spans
+on the treater and the NPC doctor's own span, never pressure (R8 banks raw ticks). The field
+surgeon is the first keystone — cost three, treatment ×1.35, and a price of six of mood in words on
+the screen — bought only by a Manual survivor's hand, never by either auto-spend pass, which the
+web gate's new KEYSTONE lane and REACH's keystone half hold. Measured: a deep wound bandages in 539
+ticks against 800 with a needle and a surgeon. Twenty-one nodes. The next piece is build speed.
+
 **2026-09-13 — repair cost is read: the second piece of the wider web, and the Craft region back.**
 `SimItems.repair_item` takes the repairer and scales the ceiling drop by `repair_cost`, the
 repairer's own times the item's own, so `craft.tape`, `craft.scrap` and the affix "of Salvage"

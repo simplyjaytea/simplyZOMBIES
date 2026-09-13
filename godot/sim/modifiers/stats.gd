@@ -41,6 +41,7 @@ static func define_core_stats(reg: SimStats) -> void:
 		{"id": "melee_stagger", "base": 1.0, "min": 0.0},
 		{"id": "swing_speed", "base": 1.0, "min": 0.1},
 		{"id": "swing_recovery", "base": 1.0, "min": 0.1},
+		{"id": "treatment_speed", "base": 1.0, "min": 0.1},
 		{"id": "swing_stamina", "base": 1.0, "min": 0.0},
 		{"id": "condition_loss", "base": 1.0, "min": 0.0},
 		{"id": "repair_cost", "base": 1.0, "min": 0.0},

@@ -509,13 +509,8 @@ before it.
 - ~~**Healing rate is read**~~ — **landed** 2026-09-13, see the record (`godot:m2:recovery`, RATE).
 - ~~**Repair cost is read**~~ — **landed** 2026-09-13, see the record (`godot:m2:upkeep`,
   REPAIR-COST).
-- **Treatment speed is read, and the first keystone.** A new `treatment_speed` divides the
-  bandage, clean and close channels (never pressure — R8's banking compares served ticks against
-  the raw span) and the NPC Doctor's span; a quick needle as a minor and **the field surgeon** as
-  the first keystone, faster hands paid for with a permanent mood cost. This is the piece that
-  introduces the keystone shape (`keystone`, `modifiers[]`, `drawback`), teaches `_apply_mods`
-  and both auto-spend passes about it, adds the KEYSTONE lane and the PLACED rule that a keystone
-  sits outside every minor of its region, and gives the layout its third ring.
+- ~~**Treatment speed is read, and the first keystone**~~ — **landed** 2026-09-13, see the
+  record (`godot:m2:treatment` SPEED, `godot:m2:web` KEYSTONE).
 - **Build speed is read.** A new `build_speed` on the Construct and Repair spans and the player's
   fortify channel, through one helper both call; two Craft minors and **the fixer** keystone
   (faster building and cheaper repairs, slower on foot for the toolbag).
@@ -4406,6 +4401,14 @@ not a to-do list:
   `godot:m2:balance` prints the same four rows as the slice above (404 = 7 kills m7 / 0 deaths,
   20260805 = 5 kills / 1 death) and `godot:m2:harness` the same six lines (knife 24/3, bow 14/3,
   pistol 20/4).
+  **One existing lane had to move, and it is worth saying which.** `check_m2_web.gd`'s DRIFT lane
+  locked its survivor by pushing `job.focus` with focus `Auto` and asserting `focusSetBy == player` —
+  an assertion of exactly the behaviour the handback rule reverses, and it went red here. The lane
+  now locks with `Fighter`, which serves it better anyway: the five Doctor jobs it then runs argue
+  *against* Fighter, so "did not move" is a refusal rather than a coincidence, where under `Auto`
+  the survivor was being asked to stay on the focus drift starts from. The assertion the old line
+  was reaching for — that a command stamps provenance — is unchanged and now has both halves in
+  `godot:m2:autonomy`'s CYCLE lane.
 - **Survivors / UI** — ~~the skill web screen~~ **landed** 2026-09-13
   (`npm run godot:check:web_look` → `WEB_LOOK_OK`, lanes PLACED / WOVEN / MAP / SCREEN / WIRED; the
   chain's **70th** gate). **K** opens the web for the colonist selected on the street, or for you,
@@ -4541,14 +4544,55 @@ not a to-do list:
   "free to repair from scrap" is expressible now and still not shipped. And the Craft region's
   word follows its nodes' centroid and now sits a pixel from a name; the screen's lanes judge node
   against node, so that is a look call rather than a fault.
-  **One existing lane had to move, and it is worth saying which.** `check_m2_web.gd`'s DRIFT lane
-  locked its survivor by pushing `job.focus` with focus `Auto` and asserting `focusSetBy == player` —
-  an assertion of exactly the behaviour the handback rule reverses, and it went red here. The lane
-  now locks with `Fighter`, which serves it better anyway: the five Doctor jobs it then runs argue
-  *against* Fighter, so "did not move" is a refusal rather than a coincidence, where under `Auto`
-  the survivor was being asked to stay on the focus drift starts from. The assertion the old line
-  was reaching for — that a command stamps provenance — is unchanged and now has both halves in
-  `godot:m2:autonomy`'s CYCLE lane.
+- **Survivors** — ~~treatment speed is read, and the first keystone~~ **landed** 2026-09-13
+  (`godot:m2:treatment`, lane SPEED; `godot:m2:web`, lane KEYSTONE and REACH's keystone half;
+  `godot:check:web_look`'s PLACED, MAP and SCREEN widened), the wider-web arc's third piece, its
+  first *new* stat, and the piece that gives the web its first keystone and the shape a keystone
+  needs. `treatment_speed` (base 1.0, floor 0.1) divides the bandage, clean and close spans in
+  `SimTreatment._plan`, read once on the **treater**, and the NPC Doctor's own span through
+  `SimJobs.treat_span`. **Pressure is deliberately not scaled** and the lane holds it there:
+  `_bank_pressure` banks served ticks against the raw `PRESSURE_TICKS`, one currency, and a scaled
+  press would be credited twice, once in its shorter span and once in the bank. A zero in a span
+  table stays zero, so "nothing-to-do" still means that.
+  **The keystone shape.** A keystone is `keystone: true` with a `modifiers` array (the gift and
+  the drawback together, applied under the one `web.<id>` source so owning it and losing it are
+  one act each), a `drawback` naming the stat that is the price, and a `price` in words.
+  `_apply_mods` reads one shape for both kinds through `node_modifiers`; both auto-spend passes
+  skip a keystone, so only a Manual survivor's `web.buy` ever reaches `_buy` for one — docs/08's
+  "a keystone is chosen", made mechanical. `web_map` carries `keystone` (a boolean) and `price`
+  (a word) and nothing numeric; the screen draws a keystone as a larger ringed disc with its price
+  beneath its name, and its footer says what a ring means. Two Medicine nodes landed: *a quick
+  needle* (cost one, surplus-reached) and **the field surgeon** (cost three; treatment ×1.35; the
+  price is six of mood, "they have seen too much of it"; Manual-only). Twenty-one nodes, six on
+  dotted lines.
+  **Measured**, on a throwaway driver since deleted: a deep wound bandages in **539** ticks
+  against 800 and closes in **606** against 900 for a survivor owning the needle and the surgeon
+  (×1.485); the surgeon's mood reads −6 and the band on a fed body stays *content* — the price is
+  a shift, not a band, and the HUD's "Mood is turning" arrives six points sooner for them. No
+  campaign claim; the arc's re-baseline is reserved for its close.
+  **The lanes.** SPEED: ×2 hands ask half the table for all three verbs on one patient and the
+  full four hundred for a press; the same modifier on the patient moves nothing; plain hands ask
+  the table; the doctor's span reads twenty at ×2 and `_doctor_work` is read for `treat_span(`
+  with the scanner proved first; a Manual survivor with three Medicine buys the surgeon and reads
+  1.35 and −6 on one scope; an Auto survivor granted twelve never owns it. Three sabotages went
+  red: the divide dropped, pressure scaled too (`200 ticks of pressure`), the speed read off the
+  patient. KEYSTONE, on a pure predicate: cost three or more, a gift and a drawback in one node,
+  the drawback the wrong way by a direction table over actor-scoped stats, a digit-free price, on
+  no path, and a minor carrying none of it — five broken copies of the shipped web each refused.
+  REACH's keystone half: the Auto probe with the whole region banked never owns one, the Manual
+  probe owns it the moment it asks. PLACED gained "a keystone sits outside every minor of its
+  region" and a sixth broken copy.
+  **Honest halves.** Surgery's own `SURGERY_TICKS` is untouched — it is planned in `respond`,
+  not `_plan`, and is the infection verbs' business. The Medicine sector was re-laid three times
+  to fit a ringed disc and a price row, and the third time exposed a real fragility: the region
+  word's radius was chosen by "more vertical than horizontal", which for a diagonal sector is a
+  coin flip that a rim node can tip, and the word landed on the keystone's disc; it is "within
+  about twenty-five degrees of vertical" now, which separates the two axis regions from the four
+  diagonal ones with room to spare. The web screen's MAP lane grants the Medicine *minors* to its
+  Auto twin, since a keystone is never auto-bought. Screenshot for the owner:
+  `.hermes/plans/2026-09-13_web-screen/web-keystone.png`. And a structural slip in this record
+  file, found while writing this entry: the three entries before it had been inserted inside the
+  Focus-and-Manual entry, ahead of its closing paragraph; that paragraph is back where it belongs.
 - **UI & Death** — ~~the screen speaks of the colony~~ **landed** (`godot:check:hud`
   CHRONICLE, SELECTED, PICK), 2026-09-07, the thirteenth and last piece of the playable-state
   group and the owner's decision 12. What was wrong: `entity.killed`, `player.succeeded`,

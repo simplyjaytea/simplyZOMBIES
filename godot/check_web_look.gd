@@ -49,7 +49,9 @@ const BUDGET_SECONDS: float = 60.0
 
 const MAP_KEYS: Array[String] = ["who", "manual", "regions", "nodes"]
 const REGION_KEYS: Array[String] = ["region", "lived"]
-const NODE_KEYS: Array[String] = ["node", "name", "region", "state"]
+# `keystone` is the one boolean on a node entry -- the ring the screen draws -- and `price` the
+# prose beneath a keystone's name; every other value is a word.
+const NODE_KEYS: Array[String] = ["node", "name", "region", "state", "keystone", "price"]
 const STATES: Array[String] = ["known", "learnable", "unknown"]
 
 var _stash: Dictionary = {}
@@ -187,6 +189,7 @@ func _placed_lane() -> bool:
 			var pa: Variant = a["position"]
 			a["position"] = b["position"]
 			b["position"] = pa, "split into"],
+		["a keystone inside its region's minors", func(d: Dictionary) -> void: (_node_of(d, "med.surgeon"))["position"] = {"x": 0.25, "y": 0.30}, "is a keystone and sits no further"],
 	]
 	for br in breaks:
 		var broken: Dictionary = def.duplicate(true)
@@ -200,7 +203,7 @@ func _placed_lane() -> bool:
 			push_error("PLACED: %s was not refused for it (got %s)" % [String(br[0]), str(found)])
 			return false
 	_stash["placed"] = pos.size()
-	print("PLACED OK %d nodes on the square, cheap inside dear, one sector a region; 5 broken copies each refused for their fault" % pos.size())
+	print("PLACED OK %d nodes on the square, cheap inside dear, a keystone outside its minors, one sector a region; %d broken copies each refused for their fault" % [pos.size(), breaks.size()])
 	return true
 
 
@@ -351,8 +354,13 @@ func _map_shape_faults(map: Dictionary) -> Array[String]:
 			faults.append("a node entry carries %s -- one added numeric field and a cost is back on screen" % str(nd.keys()))
 			continue
 		for k in NODE_KEYS:
-			if not nd.has(k) or not (nd[k] is String):
-				faults.append("node.%s is missing or not a word" % k)
+			if not nd.has(k):
+				faults.append("node.%s is missing" % k)
+			elif k == "keystone":
+				if not (nd[k] is bool):
+					faults.append("node.keystone is not a boolean")
+			elif not (nd[k] is String):
+				faults.append("node.%s is not a word" % k)
 		if not STATES.has(String(nd.get("state", ""))):
 			faults.append("a node is in state %s, which the screen has no colour for" % String(nd.get("state", "")))
 	var digits: RegEx = _digit_scanner()
@@ -376,7 +384,7 @@ func _map_lane(w: Variant) -> bool:
 	# gets three, enough to make some nodes learnable and not others.
 	var medicine_total: int = 0
 	for n in _shipped().get("nodes", []) as Array:
-		if String((n as Dictionary).get("region", "")) == "Medicine":
+		if String((n as Dictionary).get("region", "")) == "Medicine" and not bool((n as Dictionary).get("keystone", false)):
 			medicine_total += int((n as Dictionary).get("cost", 1))
 	SimSkills._earn(w, manual, "Medicine", 3)
 	SimSkills._earn(w, auto, "Medicine", medicine_total)
