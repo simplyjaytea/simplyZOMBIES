@@ -410,20 +410,7 @@ system.
   which `sepsis_mul` reads. Closing it means deciding what a soapless colony is supposed to do.
 - ~~**Armour attachment slots, and armour that stops damage**~~ — **landed** 2026-09-12, see the
   record.
-- **Armour that reaches a campaign.** The armour slice's own measurement is the reason this piece
-  exists, and it is the most useful thing that slice produced. Coverage stops damage now, and
-  `godot:m2:balance` came back **byte-identical on all four seeds** — not because the mechanic
-  fails but because **the harness dresses nobody**: no starting kit contains armour, the fast tier
-  arms hands only, `searches=0`, and NPCs equip found gear solely as a fallback when the pack is
-  full. A throwaway driver that dressed everyone measured integrity lost falling **14.35 → 8.97, a
-  37% reduction**, on the one seed where contact stayed identical between runs. So the mechanic is
-  real, gated and measured, and **the shipped colony still fights in shirtsleeves**. Closing that is
-  acquisition — a starting kit, or colonists who choose to wear what they find — and it is larger
-  than the slice that revealed it. **Scheduled by the owner on 2026-09-12: its own slice, after the
-  arc's remaining content pieces.** It has a second half worth as much as the first: **a harness
-  tier that dresses people.** Every future combat slice has the identical blind spot, and without it
-  the arc's own reserved re-baseline will measure a colony wearing none of the content the arc
-  added.
+- ~~**Armour that reaches a campaign**~~ — **landed** 2026-09-12, see the record. Both halves.
 - **A plate that degrades as it stops blows.** Armour parts declare no `wearsOn`, and deliberately:
   `WEAR_EVENTS`' `"hit"` means *the weapon you swung connected* and fires on the attacker's item,
   not the target's garment, so declaring it would have been a dead socket. Wants a new wear word
@@ -7029,6 +7016,77 @@ not a to-do list:
   the Tetanus Special's "free to repair from scrap" wants `repair_cost`, which resolves against
   nothing, so it simply is not shipped; its "heavy bleed" rides the live chain instead — higher
   damage, worse severity, faster bleed — plus a fixed `barbed` prefix.
+- **Items** — ~~armour that reaches a campaign~~ **landed** 2026-09-12, **both halves**
+  (`npm run godot:m2:npc` → **`M2_NPC_COMBAT_OK … dress selective claim`**, three new lanes, and
+  `npm run godot:m2:balance` → **`M2_BALANCE_OK … armour bare vs dressed on 2 seeds, flag`**, two
+  new lanes; eight sabotages by the slice and three more by the integration, each confirmed red),
+  the **fourteenth and last built slice of the alpha-roster arc**. It closes the piece the armour
+  slice named on the day it shipped.
+
+  **Coverage had stopped blows since that slice and nothing had ever put a vest on anybody.** On
+  the owner's decision there is **no starting kit**: colonists gain a rule that equips armour they
+  have found when it beats what they are wearing, and a colony that finds nothing stays bare on
+  purpose. `SimJobs._dress_job` is `_rearm_job`'s shape — the pack first with no job, then the
+  nearest better garment near home as a `Dress` walk, the same `reserved` and unreachable refusals
+  — because it is the same act. "Better" is `SimNeeds.armor_points_of_base`, the scalar the heat
+  wave already asks this question with, rather than a second notion of good armour. **Warmth is
+  deliberately not weighed** and the code says so: a colonist holding a parka and a leather jacket
+  wears the jacket.
+
+  **It fires between jobs, not during one**, and the distinction is the design: re-arm interrupts
+  work because empty hands are an emergency, while a vest found while hauling can wait for the end
+  of the haul. That placement is also the cheap one — `_pick` is already paying for a scan of
+  exactly the shape the ground branch needs.
+
+  **The harness half, and the tension it had to resolve.** Once colonists wear what they find, the
+  bare arm cannot be the tier as it stands. So `SimJobs.WEAR_FOUND_ARMOR` is a gate-drivable static
+  like `SimShambler.GRABS_ENABLED`: both arms boot the same seed with the same armour laid at the
+  colonists' feet and differ **only** in whether the rule may run, and the harness equips nobody —
+  so if the rule breaks, the dressed arm goes bare and the lane says so. Three measurements shaped
+  it, each killing a simpler design: the colony **never opens a container** (`searches=0` on every
+  seed, and still zero over a whole uncompressed day of 180,000 ticks), so the dressed arm lays gear
+  where the ground branch reaches; the **dusk window never touches the colony** (117 grabs, none on
+  a colonist) and widening it to 12,000 ticks wipes the colony, so the arms compress to the working
+  day; and **raw integrity lost is one death plus noise**, moving 1.4% between arms.
+
+  **A lane was written, measured, and thrown away, and that is the result worth keeping.** Integrity
+  lost per point of damage *offered* read **0.497 bare against 0.330 dressed** — and **stayed green
+  with `armor_damage_factor` deleted from `damage_part`**. It was measuring saturation: the closure
+  clamps at zero, so the arm with more contact wastes more of it on parts already spent, and
+  dressing means walking. The figure that survives its own sabotage is taken over **unhurt
+  colonists only**, dropped from both accumulators the moment any part reaches zero, so nothing left
+  can be clamped. Bare reads **1.0000, exactly and by construction**; dressed **0.7212, a 27.9%
+  cut**, reproduced independently at integration. That is the **fifth** assertion this arc found
+  unable to fail, and the subtlest.
+
+  **The claim, and why it is not tuning.** The shipped rule sends colonists as far as
+  `HOME_RADIUS_TILES` — forty tiles, the same forty Haul already walks for a tin — so the slice
+  arrived with a cost. Measured on one tree, differing by nothing but the claim: without it seed
+  90210 **wipes entirely, 0/3, and `survivors_end >= 1` turns the balance gate red**; with it that
+  colony ends 2/3 and seed 404 pays instead, 3/3 → 1/3. Two seeds are byte-identical across both,
+  which is what makes the other two real rather than noise. So the owner's chosen lever is
+  **load-bearing for a green chain**, not a preference: the Dress job takes the Cook's `reserved`
+  seam and the scan asks `_claim_live` rather than `has_component`, which also erases a claim whose
+  holder died. This is the one place `_dress_job` stops copying `_rearm_job`, and the reason is in
+  the code — re-arm fires only for empty hands and is rare, a better garment is lying around
+  constantly, so the collision is the common case.
+
+  **One trap recurred within a day of being written down.** The first before-and-after compared the
+  building agent's worktree (branched before the comfort, books and camping merges, ~115 fewer loot
+  rows) against the merged tree, and appeared to show the claim making outcomes *worse*. It is
+  exactly the failure this list already records from the second catalogue — a seed moves and the
+  code you just touched takes the blame while `loot/tables.json` is the cause. The conclusion was
+  withdrawn before it was acted on and re-measured on one tree.
+
+  **The CLAIM lane needed two attempts**, and the first could not fail: with the vest a stride away
+  the first colonist reached it before the second ever picked a job, so a scan ignoring claims
+  entirely still passed. The arena's walk is long enough now that the collision has time to happen,
+  and the lane's comment says so, so nobody shortens the distance to make it quicker.
+
+  **Cost, stated:** the fast tier goes **4m30s → ~11 min** on two armour seeds. Four seeds measure
+  15m05s and are not carried; the four-seed figure was taken by hand and agreed to within 0.1%
+  (27.8% against 27.9%), which is what makes two enough — the direction is structural, not
+  statistical. The chain added **no new gate file**, so it stays at 69.
 - **Items** — ~~camping and utility gear~~, absorbing ~~bed quality as an authored property~~
   **landed** 2026-09-12 (`npm run godot:m2:gear` → **`M2_GEAR_OK`** with a new CAMP lane, and
   `npm run godot:m2:needs` → **`M2_NEEDS_OK`** with new BEDDING and SOAP lanes, nine sabotages run

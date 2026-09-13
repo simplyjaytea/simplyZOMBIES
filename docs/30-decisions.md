@@ -4096,3 +4096,33 @@ only. The mechanical reason is worth recording because it will come up again:
 them an item to spend turns a shipped gate red. That makes it a rebalance — and a rebalance owes a
 before-and-after run on the same driver, which a content slice riding beside it does not pay for.
 Repricing them is named in what's left with that run attached, rather than smuggled in here.
+
+## Armour reaches people by being found, not by being issued (2026-09-12)
+
+Coverage had stopped blows since the armour slice, and nothing in the game had ever put a vest on
+anybody: no starting kit carried armour, and NPCs equipped found gear only as a fallback when the
+pack was full. Offered a starting kit, a wear-what-you-find rule, or both, the owner took **the
+rule alone, with no starting kit**. A colony that finds nothing stays bare, and that is the
+intended outcome rather than a gap to patch later — the same reasoning as every other scarcity in
+the hardcore contract.
+
+**The claim on the Dress job is load-bearing, and it is not tuning.** Colonists walk as far as
+`HOME_RADIUS_TILES` — forty tiles — for a garment, which is the same distance Haul already walks
+for a tin, so the rule arrived with a cost in colonists. Measured on one tree with nothing
+differing but the claim: without it seed 90210 wipes entirely and `survivors_end >= 1` turns the
+balance gate red; with it that colony survives and seed 404 pays instead. Anyone removing the claim
+to make `_dress_job` match `_rearm_job` again will turn the chain red, and the two rules differ on
+purpose: **re-arm fires only for somebody with empty hands and is rare, while a better garment is
+lying around constantly**, so two colonists crossing the district for one vest is the common case
+rather than the edge one. `_rearm_job` not taking a claim is a latent version of the same bug; it
+is simply rare enough not to have been paid for yet.
+
+**The harness has two arms because the shipped rule made the old one impossible.** Once colonists
+wear what they find, "the fast tier as it stands" is not a bare colony any more, so the control had
+to be *made* rather than assumed: both arms boot the same seed with the same armour at the
+colonists' feet and differ only in whether `SimJobs.WEAR_FOUND_ARMOR` may run, and the harness
+equips nobody. The owner paid roughly doubled fast-tier runtime for that control (4m30s → ~11 min)
+rather than dressing the existing arm, because a comparison with no control is what let armour
+mitigation ship inert and unnoticed in the first place. Two armour seeds, not four: the four-seed
+figure was taken by hand and agreed within 0.1%, and the direction is structural rather than
+statistical.
