@@ -32,6 +32,20 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-13 — five defects worked off the sweep's list, and one found already fixed.** The
+mechanical ones that needed no rebalance, each its own commit with a lane run red first: the save
+is never absent from disk (`godot:m2:save` ATOMIC), a missing schema is a validation failure with
+`colony` the one named exemption (`godot:validate` SCHEMA-COVERAGE), a stack that cannot merge is
+not reported as stored (`godot:check:inventory` STACK), a pack of deep pockets is felt by whoever
+wears it (`godot:m2:gear` POCKETS, `godot:m2:stats` GEAR), and the content tree is read once and
+only when it changed (`godot:check:hud` RELOAD-COST). The lull's opening edge was already fixed
+by the two-grace-nights slice and its entry was struck as stale. Two things worth knowing: the
+atomic write is atomic on Unix only, because the engine's own Windows rename removes-then-renames
+and Godot 4 has no fsync, both now written on the function; and the reload work turned up a
+docs/30 decision the code has contradicted since R5, which is on the owner's list below. The CI
+prose in `.claude/skills/steward/SKILL.md` and `CLAUDE.md` was also corrected to the four-job
+layout of 2026-09-12.
+
 **2026-09-13 — the skill web screen, and the first slice of a skills turn.** The owner opened the
 skill system after the roster arc and picked the screen first: **K** draws the web as a web for the
 colonist selected on the street (or for you), Esc closes it, and `godot:check:web_look` is the
@@ -748,6 +762,14 @@ same dead-socket pattern CLAUDE.md has been recording all milestone; the list is
 When you add a mechanism, add the assertion that something reaches it.
 
 ## What is waiting on the owner, not on code
+
+**Does hot reload swap content under a live world, or re-run the seed?** docs/30's "What hot reload
+made structural" decides the second — four things capture content at spawn, equip and boot, so a
+live swap leaves a world disagreeing with its own content — and `ContentReload.try_reload_world`
+has done the first since R5. The 2026-09-13 reload fix kept the swap and added change detection,
+by your call for that session; whether the swap stays, or the poll becomes validate-and-report
+with a fresh boot to take an edit, is the decision. Nothing measured: it is a question of what
+"reload" means, not of a number.
 
 **Should a wash require soap?** docs/04 says washing needs water *and* soap; only the water half is
 enforced. The camping slice shipped `hygiene` as banked charges a dirtying spends, and deliberately
