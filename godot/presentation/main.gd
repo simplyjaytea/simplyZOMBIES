@@ -37,7 +37,6 @@ const SimAptitudes = preload("res://sim/modules/aptitudes.gd")
 const SimSave = preload("res://sim/save.gd")
 const PlatformStorage = preload("res://platform/storage.gd")
 const ContentReload = preload("res://platform/content_reload.gd")
-const ContentValidator = preload("res://platform/content_validator.gd")
 const SimVisibility = preload("res://sim/vision/visibility.gd")
 const SimSightings = preload("res://sim/modules/sightings.gd")
 const Pick = preload("res://presentation/pick.gd")
@@ -141,6 +140,8 @@ var _vehicle_index_gen: int = -1
 var _dressing_cache: Dictionary = {}
 var _dressing_from: Variant = null
 var _content_poll_at: float = -1e9
+# The content tree as last seen by the reload poll; a reload happens only when this moves.
+var _content_fingerprint: int = 0
 var _sfx: Node = null
 
 # movement input held
@@ -766,18 +767,23 @@ func _poll_content_reload() -> void:
 	if now - _content_poll_at < 0.5:
 		return
 	_content_poll_at = now
-	# lightweight mtime check via ContentValidator: validate_tree is cheap on small tree
-	var issues: Array = ContentValidator.validate_tree("res://content") as Array
-	if issues.is_empty():
-		if not _content_error.is_empty():
-			_content_error = ""
-		# reload tree onto world (Dictionary only, no Resources in sim)
-		var res: Dictionary = ContentReload.try_reload_world(world)
-		if not bool(res.get("ok", true)):
-			_content_error = "; ".join(res.get("issues", []) as Array)
+	# A directory walk, not a parse: the tree is validated and reloaded only when a file's time
+	# or length has moved since the last look. This used to validate the whole tree, then
+	# validate it again and load it again inside try_reload_world, twice a second, on every
+	# debug frame -- three full parses of every content file for a tree nobody had touched.
+	var fingerprint: int = ContentReload.content_fingerprint("res://content")
+	if fingerprint == _content_fingerprint:
+		return
+	_content_fingerprint = fingerprint
+	# try_reload_world validates first and reloads only on a clean tree (Dictionary only, no
+	# Resources in sim); an invalid edit does not reload -- the run keeps going and the HUD shows
+	# the file, entry and field.
+	var res: Dictionary = ContentReload.try_reload_world(world)
+	if bool(res.get("ok", true)):
+		_content_error = ""
 	else:
+		var issues: Array = res.get("issues", []) as Array
 		_content_error = String(issues[0]) if not issues.is_empty() else "content error"
-		# invalid edit does not reload — run keeps going, HUD shows file/entry/field
 
 func _process(delta: float) -> void:
 	if world == null: return
