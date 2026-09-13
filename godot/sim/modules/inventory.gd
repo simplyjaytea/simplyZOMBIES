@@ -102,6 +102,27 @@ static func carried_mass_kg(world: Variant, actor: int) -> float:
 		mass += SimItems.item_mass_kg(world, eq, fn)
 	return mass
 
+# What this body can carry: its own `carry_capacity` (STR, the web) plus what the gear on it
+# adds. An affix on an item is scoped to the item -- `items.gd` adds it under the item's own id,
+# where `resolve(stat, actor)` never looks -- so a pack "of Deep Pockets" was rolled, named,
+# saved and felt by nobody (docs/23's defect list, fixed 2026-09-13). Read here at use time from
+# what is worn, the `worn_scent_of` pattern: nothing is pushed onto the wearer, so nothing has
+# to be taken off them when the pack is dropped, given away or stolen. Worn only, deliberately --
+# the suffix applies to containers and armour, and a pack inside a pack does not compound.
+# An item's own contribution is its scoped value less the unscoped one, so the stat's base is
+# counted once and a global modifier is not counted per item.
+static func capacity_of(world: Variant, actor: int) -> float:
+	if not ("modifiers" in world and world.modifiers != null and world.modifiers.has_method("resolve")):
+		return 0.0
+	var capacity: float = float(world.modifiers.call("resolve", "carry_capacity", actor))
+	var unscoped: float = float(world.modifiers.call("resolve", "carry_capacity"))
+	for item in equipped_items(world, actor):
+		var own: float = float(world.modifiers.call("resolve", "carry_capacity", int(item))) - unscoped
+		if own > 0.0:
+			capacity += own
+	return capacity
+
+
 static func container_depth(world: Variant, container: int) -> Variant:
 	var depth: int = 0
 	var current: int = container
@@ -808,9 +829,7 @@ static func register_module(world: Variant) -> void:
 			var kg: float = carried_mass_kg(w, int(actor))
 			if is_equal_approx(float((state as Dictionary)["kg"]), kg):
 				continue
-			var capacity: float = 0.0
-			if "modifiers" in w and w.modifiers != null and w.modifiers.has_method("resolve"):
-				capacity = float(w.modifiers.call("resolve", "carry_capacity", int(actor)))
+			var capacity: float = capacity_of(w, int(actor))
 			var ratio: float = 0.0 if capacity <= 0.0 else kg / capacity
 			(state as Dictionary)["kg"] = kg
 			(state as Dictionary)["ratio"] = ratio
