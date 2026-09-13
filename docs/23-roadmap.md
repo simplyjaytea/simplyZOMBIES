@@ -439,10 +439,8 @@ system.
   only the first half. `jamChance` is *derived* from the condition band rather than authored, so
   that a weapon the screen calls "failing" cannot be one that never jams; a round that raised it
   needs its own reader and its own lane rather than a multiplier that breaks that coupling.
-- **The balance re-baseline the arc reserves.** `godot:m2:balance` fast tier, four seeds, before
-  and after on the same driver, once the arc's content edits are done. Expect the contact counts
-  to move while outcomes hold, and diagnose a moved seed the way the second catalogue did — re-run
-  with the new bases present and `loot/tables.json` alone reverted — rather than arguing about it.
+- ~~**The balance re-baseline the arc reserves**~~ — **run** 2026-09-12, see the record. It
+  closes the arc.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -768,7 +766,14 @@ session, each with its gate red both ways and its record.
   colony outcome distributions, before human tuning argues from anecdotes.
 - **The full balance grid.** `BALANCE_FULL=1`, ~9 h — an overnight job at measured throughput, not
   a "quick run".
-- **The human ten-day playtest.** The exit criterion itself, run by a person.
+- **The human ten-day playtest.** The exit criterion itself, run by a person. It now carries one
+  specific question the automated harness raised and cannot answer: **the alpha-roster arc made the
+  campaign harder**, and the re-baseline shows exactly where. Two of four seeds lose colonists that
+  none did before, entirely because colonists leave the compound to fetch armour they have found.
+  The content is not the cause — with the full 362-base roster and the rule off, every seed still
+  ends 3/3. So the playtest is judging one rule, not a roster, and if it reads as too punishing the
+  lever is a single static (`SimJobs.WEAR_FOUND_ARMOR`) or a minimum distance worth walking for —
+  the second lever the armour slice named and did not take.
 
 **Debt — not features, named so it stops being folklore:**
 
@@ -7016,6 +7021,40 @@ not a to-do list:
   the Tetanus Special's "free to repair from scrap" wants `repair_cost`, which resolves against
   nothing, so it simply is not shipped; its "heavy bleed" rides the live chain instead — higher
   damage, worse severity, faster bleed — plus a fixed `barbed` prefix.
+- **Items** — ~~the balance re-baseline the arc reserves~~ **run** 2026-09-12, and it **closes the
+  alpha-roster arc** (`npm run godot:m2:balance`, fast tier, four seeds, ten days, three
+  configurations on the same driver). The prediction this entry was written with — *"expect the
+  contact counts to move while outcomes hold"* — is **exactly what happened for the content, and
+  exactly what did not happen for the one behaviour change.**
+
+  | configuration | 20260805 | 404 | 31337 | 90210 |
+  |---|---|---|---|---|
+  | pre-arc, 152 bases | 3/3 · 1 dead · 117 grabs | 3/3 · 0 · 7 | 3/3 · 0 · 0 | 3/3 · 2 · **51** |
+  | all arc content, 362 bases, no acquisition | 3/3 · 1 · 117 | 3/3 · 0 · 7 | 3/3 · 0 · 0 | 3/3 · 2 · **111** |
+  | shipped: content + acquisition + claim | 3/3 · 1 · 117 | **1/3** · 2 · 124 | 3/3 · 0 · 0 | **2/3** · 4 · 153 |
+
+  **The 210 new bases moved contact on one seed and outcomes on none.** Three of the four seeds are
+  **byte-identical** between the pre-arc tree and the full roster — same deaths, same grabs, same
+  survivors — and 90210's grabs merely doubled, 51 to 111, with the colony still ending 3/3. So the
+  arc's loot-stream growth is vindicated: 186 new rows across five tables, every category's weight
+  either held byte-identical by splitting rows (ammo, food) or added as a genuinely new category
+  (materials, lights, masks, kitchen, noise, comfort, books, camping), and **not one seed's outcome
+  moved because of it**. The `loot/tables.json`-alone revert this entry prescribed as the diagnosis
+  step was never needed — the middle row already isolates content from behaviour.
+
+  **What did move outcomes was the acquisition rule, on two seeds.** Seed 404 goes from a very
+  quiet campaign (7 grabs, nobody hurt) to 124 grabs and one survivor; 90210 goes from 2 deaths to
+  4 and from three survivors to two. The mechanism is not mysterious and is recorded with the slice
+  above: colonists now leave the compound to fetch armour, as far as `HOME_RADIUS_TILES`, and
+  contact is what happens outside the walls. The claim already pulls this back from worse — without
+  it 90210 wipes entirely and the gate goes red.
+
+  **So the arc made the campaign harder, and the record says so rather than rounding it off.** Two
+  of four seeds now lose colonists where none did before. Whether that is the difficulty the game
+  wants is **not a question this measurement can answer** — it is what the ten-day human playtest
+  in the exit criteria is for, and it is named in what's left rather than settled here. What the
+  measurement does establish is *which half to argue about*: the content is not the problem, the
+  rule is, and the rule is one static flag away from being switched off if the playtest says so.
 - **Items** — ~~armour that reaches a campaign~~ **landed** 2026-09-12, **both halves**
   (`npm run godot:m2:npc` → **`M2_NPC_COMBAT_OK … dress selective claim`**, three new lanes, and
   `npm run godot:m2:balance` → **`M2_BALANCE_OK … armour bare vs dressed on 2 seeds, flag`**, two
