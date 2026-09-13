@@ -10,6 +10,8 @@
     {"id": "ranged.calm", "name": "calm behind the sights", "region": "Ranged", "cost": 2, "stat": "ranged_accuracy", "op": "mul", "value": 1.05, "position": {"x": 0.85, "y": 0.30}},
     {"id": "med.hands", "name": "a healer's hands", "region": "Medicine", "cost": 1, "stat": "healing_rate", "op": "mul", "value": 1.08, "position": {"x": 0.31, "y": 0.39}},
     {"id": "med.triage", "name": "an eye for triage", "region": "Medicine", "cost": 2, "stat": "healing_rate", "op": "mul", "value": 1.06, "position": {"x": 0.15, "y": 0.30}},
+    {"id": "med.rest", "name": "bed rest, insisted on", "region": "Medicine", "cost": 1, "stat": "healing_rate", "op": "mul", "value": 1.05, "position": {"x": 0.40, "y": 0.25}},
+    {"id": "med.dressing", "name": "a dressing changed often", "region": "Medicine", "cost": 2, "stat": "healing_rate", "op": "mul", "value": 1.05, "position": {"x": 0.22, "y": 0.20}},
     {"id": "craft.tape", "name": "tape and patience", "region": "Craft", "cost": 1, "stat": "repair_cost", "op": "mul", "value": 0.92, "position": {"x": 0.31, "y": 0.61}},
     {"id": "craft.scrap", "name": "a scrapper's eye", "region": "Craft", "cost": 2, "stat": "repair_cost", "op": "mul", "value": 0.9, "position": {"x": 0.15, "y": 0.70}},
     {"id": "surv.haul", "name": "a strong back", "region": "Survival", "cost": 1, "stat": "carry_capacity", "op": "add", "value": 2.0, "position": {"x": 0.55, "y": 0.71}},
@@ -21,7 +23,7 @@
   "focusPaths": {
     "Fighter": ["melee.grip", "melee.tempo", "ranged.breath", "end.legs", "melee.reach"],
     "Worker": ["surv.haul", "surv.cook", "craft.tape", "end.legs", "surv.water"],
-    "Medic": ["med.hands", "med.triage", "end.grit", "surv.haul"],
+    "Medic": ["med.hands", "med.triage", "med.rest", "end.grit", "surv.haul"],
     "Scout": ["surv.haul", "ranged.breath", "end.legs", "ranged.follow"],
     "Auto": ["surv.haul", "melee.grip", "med.hands", "ranged.breath", "end.legs"]
   },

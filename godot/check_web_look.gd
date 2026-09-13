@@ -371,8 +371,15 @@ func _map_lane(w: Variant) -> bool:
 		return false
 	w.commands.push({"type": "job.focus", "entity": manual, "focus": "Manual"})
 	w.step()
+	# The Auto twin is granted the whole Medicine region, read off the content, so the surplus
+	# pass spends it to nothing however many Medicine minors the web grows; the Manual survivor
+	# gets three, enough to make some nodes learnable and not others.
+	var medicine_total: int = 0
+	for n in _shipped().get("nodes", []) as Array:
+		if String((n as Dictionary).get("region", "")) == "Medicine":
+			medicine_total += int((n as Dictionary).get("cost", 1))
 	SimSkills._earn(w, manual, "Medicine", 3)
-	SimSkills._earn(w, auto, "Medicine", 3)
+	SimSkills._earn(w, auto, "Medicine", medicine_total)
 	var map: Dictionary = SimSkills.web_map(w, manual)
 	var faults: Array[String] = _map_shape_faults(map)
 	if not faults.is_empty():

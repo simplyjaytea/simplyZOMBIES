@@ -34,6 +34,7 @@ const SimJobs = preload("res://sim/modules/jobs.gd")
 const SimCombat = preload("res://sim/combat.gd")
 const SimClock = preload("res://sim/time/clock.gd")
 const SimStances = preload("res://sim/stances.gd")
+const SimSkills = preload("res://sim/modules/skills.gd")
 
 # Long enough that the slowest band moves a measurable amount, short enough that a gate with
 # a dozen worlds in it still finishes: a torso deep wound regains 40/(16*288000) per tick, so
@@ -65,8 +66,9 @@ func _run() -> void:
 	ok = _one_effect_leaf_serves_both_intakes() and ok
 	ok = _the_doctor_threshold_reads_states_not_numbers() and ok
 	ok = _deterministic_replay() and ok
+	ok = _the_healing_rate_is_read() and ok
 	if ok:
-		print("M2_RECOVERY_OK healing is earned, zero is permanent, a fresh deep wound tears open")
+		print("M2_RECOVERY_OK healing is earned, zero is permanent, a fresh deep wound tears open, the healing rate is read")
 		quit(0)
 	else:
 		push_error("M2_RECOVERY_FAIL")
@@ -480,4 +482,64 @@ func _deterministic_replay() -> bool:
 		push_error("moving the sprint 13 ticks changed nothing, so the comparison proves nothing")
 		return false
 	print("DETERMINISM OK identical runs match, a 13-tick shift does not")
+	return true
+
+
+# --- RATE ----------------------------------------------------------------------------------
+#
+# `healing_rate` had been in the registry since the web landed and was resolved by nothing, so
+# the two Medicine nodes that target it were bought, lit on the screen and felt by nobody -- the
+# web's first dead sockets (docs/30, "Readers first for the web"). The recovery clock reads it
+# now, on the patient's own scope. True positive: a x1.5 modifier on one body mends its wound and
+# its part 1.5x as far as an identical body in the same window. True negatives: the same
+# modifier on the *other* body's scope moves this one by nothing, and a rate of 1.0 leaves the
+# clock exactly where PACE has always measured it. Then the content half: one Medicine point on
+# an Auto survivor buys `med.hands` and the survivor's resolved rate reads what the content says.
+func _the_healing_rate_is_read() -> bool:
+	var quick: Variant = _world()
+	var plain: Variant = _world()
+	var q_wound: Dictionary = _hurt(quick, PART, LACERATION_DAMAGE)
+	var p_wound: Dictionary = _hurt(plain, PART, LACERATION_DAMAGE)
+	quick.modifiers.call("add", {"stat": "healing_rate", "op": "mul", "value": 1.5, "source": "web.probe"}, quick.player)
+	# The wrong scope: a modifier on some other body must not reach this patient's clock.
+	var stranger: int = int(plain.entities.spawn())
+	plain.modifiers.call("add", {"stat": "healing_rate", "op": "mul", "value": 1.5, "source": "web.probe"}, stranger)
+	var q_gain: float = _gained(quick, PART, WINDOW)
+	var p_gain: float = _gained(plain, PART, WINDOW)
+	if p_gain <= 0.0 or q_gain <= 0.0:
+		push_error("RATE: a band did not move at all: rated %.6f, plain %.6f" % [q_gain, p_gain])
+		return false
+	var ratio: float = q_gain / p_gain
+	if absf(ratio - 1.5) > 0.01:
+		push_error("RATE: the rated body mended %.3fx as far as the plain one, expected 1.5x" % ratio)
+		return false
+	var q_ticks: float = float(q_wound.get("healedTicks", 0))
+	var p_ticks: float = float(p_wound.get("healedTicks", 0))
+	if p_ticks <= 0.0 or absf(q_ticks / p_ticks - 1.5) > 0.01:
+		push_error("RATE: the wound's own clock read %.1f against %.1f, not 1.5x" % [q_ticks, p_ticks])
+		return false
+	# The plain body's clock is the unrated clock: one whole tick per tick, as PACE has always
+	# measured it, so a rate of 1.0 changed nothing.
+	if absf(p_ticks - float(WINDOW)) > 0.5:
+		push_error("RATE: an unrated wound's clock read %.1f after %d resting ticks" % [p_ticks, WINDOW])
+		return false
+	# The content: a Medicine point buys med.hands on the Auto path, and the rate follows.
+	var learner: Variant = _world()
+	SimJobs.attach(learner, learner.player, "Auto")
+	SimSkills.attach(learner, learner.player)
+	var before: float = float(learner.modifiers.call("resolve", "healing_rate", learner.player))
+	SimSkills._earn(learner, learner.player, "Medicine", 1)
+	var after: float = float(learner.modifiers.call("resolve", "healing_rate", learner.player))
+	var node: Variant = null
+	for n in SimSkills.definition().get("nodes", []) as Array:
+		if String((n as Dictionary).get("id", "")) == "med.hands":
+			node = n
+	if not node is Dictionary or not SimSkills.has_node(learner, learner.player, "med.hands"):
+		push_error("RATE: one Medicine point did not buy med.hands, so the content half judged nothing")
+		return false
+	var want: float = float((node as Dictionary).get("value", 0.0))
+	if absf(before - 1.0) > 0.001 or absf(after - want) > 0.001:
+		push_error("RATE: healing_rate read %.3f before and %.3f after med.hands; the content says %.3f" % [before, after, want])
+		return false
+	print("RATE OK a x1.5 rate mends 1.5x as far (wound %.0f vs %.0f ticks, part +%.4f vs +%.4f); the wrong scope moves nothing; med.hands reads %.2f" % [q_ticks, p_ticks, q_gain, p_gain, after])
 	return true

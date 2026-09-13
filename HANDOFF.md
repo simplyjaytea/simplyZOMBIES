@@ -32,6 +32,14 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-13 — healing rate is read: the first piece of the wider web, and a dead region back.**
+The recovery clock reads `healing_rate` on the patient's own scope, so `med.hands` and
+`med.triage` do something for the first time, and two Medicine minors landed beside them (the web
+is seventeen nodes now). Measured on a throwaway driver: a dressed laceration closes in 6.00 days
+unrated and 4.75 with every Medicine node owned. Lane RATE in `godot:m2:recovery`, both sabotages
+red. `healedTicks` is a float now, with no save shape moved. The next piece is repair cost, which
+brings the Craft region back the same way.
+
 **2026-09-13 — the skills turn opens an arc: readers first for the web.** The owner asked for
 more skills — weapons, crafting, and some for the NPC followers at camp — and the census came back
 with the roster's finding a day later: the web's problem is that most of what it could point at is
