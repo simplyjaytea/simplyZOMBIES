@@ -849,10 +849,14 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   record's Jobs bullet, `godot:m2:jobs` COOK CLAIM. `_water_work` and `_repair_work` hand out an
   unclaimed target in the same shape and have not been measured to double up; the `reserved`
   component the Cook fix added is the seam if either ever does.
-- **A lull's opening edge is dead code.** `_begin_lull` guards its only write to `lullFromTick`
-  with `world.tick < lullFromTick`, and the field starts at 0 and is never written, so the
-  condition can never be true and the window is effectively `[0, lullUntilTick)`. `world.gd`'s
-  save comment already treats this field as load-bearing.
+- ~~**A lull's opening edge is dead code.**~~ **Already fixed, and this entry was stale.** The
+  guard it describes (`world.tick < lullFromTick`) is gone: `_begin_lull` writes the opening edge
+  whenever no lull is running (`tick >= lullUntilTick`), from the next dawn, and a second disaster
+  inside a lull extends `until` and leaves `from` alone — landed with the two-grace-nights slice
+  (`4b4bbfe`), `godot:m2:director`'s LULL-EDGE lane, which asserts `from_tick != 0` so the old
+  guard reds it. Found by reading on 2026-09-13; the one drift left beside it was `world.gd`'s
+  default director literal omitting `lullFromTick` (backfilled by `register_module`, so harmless),
+  which now carries it. Struck rather than deleted, as the bloater entry below.
 - ~~**An unreachable destination costs a full A\* every tick, forever.**~~ **Fixed 2026-09-10**
   (`godot:m2:jobs`, the PATHING lane), and it was worse than this entry said. `SimJobs._walk`'s
   re-plan condition read `pathGen != gen **or path.is_empty()**`, and empty is exactly what
@@ -867,27 +871,20 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   body drops the job and `_pick` hands back the same candidate on the next tick. `SimPath.find`
   itself is untouched: the caller still cannot tell "guard exhausted" from "no path", and it no
   longer needs to. The lane was proved red against the shipped condition.
-- **The content tree is re-parsed six times a second while you play.**
-  `main.gd::_poll_content_reload` runs every 0.5 s in a debug build and calls
-  `ContentValidator.validate_tree` and then `ContentReload.try_reload_world`, which validates again
-  and loads again — three full walks of all 27 JSON files, twice a second, with no change
-  detection. `ContentReload.poll_content_dir`, written to be that change detection, returns
-  `not paths.is_empty()` (always true) and is called by nothing.
-- **`write_file_atomic` is not atomic.** `platform/storage.gd` deletes the existing save before
-  renaming the temp file over it, which is the window the name, the comment and the module header
-  all promise there isn't.
-- **A missing schema silently disables validation for a whole content type.**
-  `content_validator.gd` treats it as a `push_warning` and a `continue`, and
-  `npm run godot:validate` still reports success.
+- ~~**The content tree is re-parsed six times a second while you play.**~~ **Fixed 2026-09-13**
+  (`godot:check:hud`, RELOAD-COST; the record's Kernel & review sweep bullet). It was 83 files, not
+  27, parsed three times per poll.
+- ~~**`write_file_atomic` is not atomic.**~~ **Fixed 2026-09-13** (`godot:m2:save`, ATOMIC; the
+  record's Kernel & review sweep bullet, which says what is still not closable on Windows).
+- ~~**A missing schema silently disables validation for a whole content type.**~~ **Fixed
+  2026-09-13** (`godot:validate`, SCHEMA-COVERAGE; the record's Kernel & review sweep bullet).
 - **`recorded` grows without bound.** `SimCommandQueue.recorded` deep-copies every command ever
   pushed and is read only by `parity_snapshot`. In a played session that is every movement command
   of every tick, kept for the life of the run.
-- **`deep_pockets` is computed in the wrong scope.** The suffix adds `carry_capacity` scoped to the
-  *item*; encumbrance resolves `carry_capacity` scoped to the *actor*. Rolled, named, saved, read
-  by nothing.
-- **`merge_into_stack` reads a failure as a success.** `merge_stacks` returns 0 both for "fully
-  merged" and for all five of its give-up paths, so `stow` can report an item stored that it did
-  not store.
+- ~~**`deep_pockets` is computed in the wrong scope.**~~ **Fixed 2026-09-13** (`godot:m2:gear`,
+  POCKETS, and `godot:m2:stats`, GEAR; the record's Kernel & review sweep bullet).
+- ~~**`merge_into_stack` reads a failure as a success.**~~ **Fixed 2026-09-13**
+  (`godot:check:inventory`, STACK; the record's Kernel & review sweep bullet).
 - **Sightings are recorded on geometry, not on sight.** `sightings.gd::_observe_one` uses
   `line_of_sight` rather than `detail`, so a survivor remembers — and the HUD reports — bodies
   standing in the 170-degree arc behind them. The information-stays-scarce ban is the reason to
@@ -6461,6 +6458,63 @@ not a to-do list:
     600-tick cooldown, while the sibling lane with a living survivor still alarms at magnitude
     300. Confirmed to fail against the bug it targets: reverting the `corpse` skip alarms on the
     corpse exactly like the living-survivor lane does.
+  - **Five more worked off the defect list on 2026-09-13**, the mechanical ones that needed no
+    rebalance, each its own commit with a lane run red before it was trusted; the sweep's own
+    count still stays thirteen. A sixth entry, the lull's opening edge, turned out to be already
+    fixed and was struck as stale rather than re-fixed.
+    - ~~`write_file_atomic` is not atomic~~ **fixed** (`godot:m2:save`, ATOMIC). The delete before
+      the rename is gone; POSIX rename replaces atomically on one filesystem, and a leftover temp
+      file from a crashed write is swept before writing instead. The lane writes twice under a
+      gate-only key and asserts the target present throughout and no temp file left, then reads
+      the body textually for a `da.remove(` naming the target, the scanner proved on a fabricated
+      body. Reinstating the delete reds it. **Two halves stay open by the engine's hand**: on
+      Windows `DirAccessWindows::rename` removes-then-renames internally, so the window shrinks to
+      the engine's and cannot be closed from GDScript; and Godot 4 exposes no fsync, so the
+      oracle's `fsyncSync` has no twin — `flush` empties Godot's buffer, not the page cache. Both
+      are written on the function rather than implied.
+    - ~~A missing schema silently disables validation~~ **fixed** (`godot:validate`,
+      SCHEMA-COVERAGE). `validate_tree` reports every walked type with no schema as an issue,
+      through a pure `missing_schemas` a gate can hand a fabricated pair. `content/colony/` is the
+      one named exemption, cited to docs/30's "Who manages a survivor's skill web": its three files
+      are gated by the lanes that read them. `check_content.gd`, which had no lanes, gains two: the
+      walk, and a lane that proves the detector refuses a ghost type, pins the exemption list to
+      exactly `colony`, and checks every schema file on disk is registered. Unregistering `region`
+      reds the run. Corrected in passing: the tree is 83 content files plus 18 schemas, not 27.
+    - ~~`merge_into_stack` reads a failure as a success~~ **fixed** (`godot:check:inventory`,
+      STACK). `merge_stacks` answers −1 refused, 0 consumed, N left; every refusal used to answer
+      0, the same word as "merged entirely", so `stow` reported an item put away that had gone
+      nowhere — alive, no `stored`, no `position`. `merge_into_stack` also skips a candidate with
+      no `stack` component before asking. The lane: a refused stack is not stored and comes back
+      to the ground through `pick_up_nearest`; four and three make seven with the source gone;
+      three over a full ten stay three and find a cell. Reverting one refusal to 0, or making a
+      full target refuse, each reds it. Nine `stow` sites in `jobs.gd` and the pick-up, unequip
+      and take-all paths change behaviour only where `stow` used to lie; the balance rows of the
+      `godot:m2` run are the check that nothing on the campaign path moved.
+    - ~~`deep_pockets` is computed in the wrong scope~~ **fixed** (`godot:m2:gear`, POCKETS;
+      `godot:m2:stats`, GEAR). The owner's call was the `worn_scent_of` shape: encumbrance reads
+      `SimInventory.capacity_of`, the actor's own number plus each *worn* item's scoped
+      contribution over the unscoped one, at use time, cached nowhere — so nothing is pushed onto
+      a wearer and nothing has to be taken off them when a pack is dropped, given away or stolen,
+      which is the leak a re-scoping fix would have had to close on eight item-moving paths. Worn
+      only, deliberately: the suffix applies to containers and armour, and a pack inside a pack
+      does not compound. POCKETS: a plain pack adds nothing, the deep pack on the ground adds
+      nothing, worn it adds the content's tier value (read from the tree) and the encumbrance ratio
+      follows, and the bonus leaves with the pack; GEAR: STR 8 and the top tier compose to 44.
+      Deleting the gear walk reds both. Named, not fixed: `split_stack` deep-copies `affixes`, so a
+      split deep-pockets *stack* would double the bonus — inert today because containers do not
+      stack, but the shape is there.
+    - ~~The content tree is re-parsed six times a second~~ **fixed** (`godot:check:hud`,
+      RELOAD-COST). The poll fingerprints the tree — paths, modified times, lengths, a directory
+      walk and no parse — and reloads only when the fingerprint moves; `poll_content_dir`, which
+      answered "changed" for any non-empty tree and was called by nothing, is retired, and the
+      separate `validate_tree` call in `main.gd` went with it, since `try_reload_world` validates
+      first anyway. The fold is on its own so the lane proves it on a fabricated list; the lane
+      then plants a marker in the live tree, forces a poll, and asserts the marker survived, and
+      calls the reload directly to prove it still replaces the tree. Making the compare always
+      miss reds it. **One contradiction found and not decided**: docs/30's "What hot reload made
+      structural" says reload must re-run the seed and never swap content under a live world, and
+      `try_reload_world` does exactly that swap, as it has since R5. The owner chose to keep the
+      swap and add the detection for now; the call itself is in `HANDOFF.md`'s waiting list.
 
 - **Kernel & tooling: the routing table** (`npm run check:routing`, `ROUTING_OK`, 2026-09-06).
   `AGENTS.md` carries a routing table — by kind of work and by system: what to read first, where
