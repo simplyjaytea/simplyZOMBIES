@@ -486,6 +486,69 @@ projection stays flat top-down; 32 px a tile stays.
   the Dungeon Settlers HUD, a larger picture of the selected pawn is not a portrait, and which
   was meant is the owner's to say before this is pickable.
 
+**Skills — the wider web, opened by the owner (2026-09-13).** The direction is *"add more skills,
+include weapons, crafting, etc., and some for the eventual NPC followers at camp"*. The census that
+went looking for where to put them found the constraint that shapes the arc: a node does something
+only through a stat the sim resolves, and today seven actor-scoped stats do. Eight registry stats
+are read by nothing, and four of the fifteen shipped nodes point at two of them — the whole Medicine
+and Craft regions are dead sockets. So the web widens the way the roster did, **readers first**:
+each piece wires one stat (or one small family) into the sim with its own lane, then ships the
+nodes that reach it; no node may target a stat nothing resolves, and `godot:m2:web`'s READERS lane
+holds every registered stat to that. The owner's calls are in docs/30's "Readers first for the
+web": all four groups in scope (weapons, crafting, medicine, survival and endurance depth); NPC
+reach at camp is **colony-reach nodes in existing regions** on the pantry's best-living-colonist
+pattern, no new region and no new attribute; **minors and keystones** only, a keystone a rim node of
+cost three or more with a real drawback as a second modifier in the same node, never auto-bought,
+and no notables (nothing in the sim asks `has_node`); the five dead stats no piece reaches stay in
+the registry excused by name; and the two reads that treated *unspent* points as skill now read
+*earned*. One re-baseline is reserved for the close of the arc, per the roster's precedent. The
+pieces are ordered so that stopping after any one leaves the tree honest: the two dead regions come
+back alive first, weapons and crafting follow, colony reach comes last because it needs the readers
+before it.
+
+- **Healing rate is read.** `healing_rate` multiplies the recovery clock in `wounds.recover` on
+  the patient's own scope, which revives `med.hands` and `med.triage` and lets two more Medicine
+  minors land beside them (bed rest insisted on; a dressing changed often). Lane RATE in
+  `godot:m2:recovery`. A Medicine minor on your own web is "you tend your own wounds"; the
+  medic-for-others read is the ward piece below.
+- **Repair cost is read.** `repair_cost` on the repairer, times the repaired item's own, moves how
+  much ceiling a repair costs in `SimItems.repair_item`, which revives `craft.tape`, `craft.scrap`
+  and the affix "of Salvage". Lane REPAIR in the upkeep gate.
+- **Treatment speed is read, and the first keystone.** A new `treatment_speed` divides the
+  bandage, clean and close channels (never pressure — R8's banking compares served ticks against
+  the raw span) and the NPC Doctor's span; a quick needle as a minor and **the field surgeon** as
+  the first keystone, faster hands paid for with a permanent mood cost. This is the piece that
+  introduces the keystone shape (`keystone`, `modifiers[]`, `drawback`), teaches `_apply_mods`
+  and both auto-spend passes about it, adds the KEYSTONE lane and the PLACED rule that a keystone
+  sits outside every minor of its region, and gives the layout its third ring.
+- **Build speed is read.** A new `build_speed` on the Construct and Repair spans and the player's
+  fortify channel, through one helper both call; two Craft minors and **the fixer** keystone
+  (faster building and cheaper repairs, slower on foot for the toolbag).
+- **Reload, and the shot's recoil.** New `reload_speed` on both reload spans and `shot_recovery`
+  on the existing recover rung — recoil is not a new mechanism, it is the rung that already
+  exists; two Ranged minors and **the cold shot** keystone (a much tighter cone, a much longer
+  recovery).
+- **Noise emission is read.** `noise_emission` on the shooter, the swinger and the walker, times
+  the item's own, through one helper the shot, the connect and the footstep all call; revives the
+  affix "of the Quiet Hand"; soft feet as a Survival minor and **the quiet ones** keystone (half
+  the noise, a duller aim — docs/08's firearm ban recast as a stat cost).
+- **Mood resilience is read.** A new `mood_resilience` divides what an argument and a bad night
+  take; two Endurance minors and **the long haul** keystone.
+- **Cook quality is read.** A new `cook_quality` on the cook multiplies a meal's spoil days at the
+  fire; a stew that keeps, and **keeper of the larder** as the keystone, whose spoilage half
+  already reaches the whole colony through the pantry.
+- **The ward, and someone to lean on.** The colony-reach pieces: `SimNeeds.colony_best` beside
+  `pantry_rate`; a `ward_rate` read colony-wide on the recovery clock when patient and holder are
+  both home, and a `steadying` read from the nearest survivor when an argument lands. Each carries
+  the dead-socket assertion that the holder out of range moves nothing.
+- **The re-baseline the arc reserves.** `godot:m2:balance`'s fast tier, before and after on one
+  driver, once, at the close.
+
+Named and dropped rather than smuggled: scavenge yield (the loot stream is pinned seed for seed and
+a yield stat is a rebalance of it), the stamina pool (`stamina.max` is an integer written once at
+spawn and wants a re-derive hook of its own), and modification outcomes (they read Craft directly
+and stay as they are).
+
 **Art & renderer — commissioned sprites, opened by the owner (2026-09-09).** The tier and its
 gate landed the same day (the record's "art we did not generate"). The piece that group named
 rather than built — the first commissioned body and the three gates it widens — **landed

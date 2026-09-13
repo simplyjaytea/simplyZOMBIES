@@ -1145,9 +1145,12 @@ static func _carried_close_kinds(world: Variant, actor: int) -> Array[String]:
 
 
 # The treater's Medicine, read from the one place that owns it. The actor's, not the patient's:
-# it is the hands doing the suturing that need to know what they are doing.
+# it is the hands doing the suturing that need to know what they are doing. *Earned*, not
+# unspent: `points` is what is still banked, and reading that as skill meant every node bought
+# made a medic read as less of one (docs/23's "honest halves" under the focus slice, closed
+# 2026-09-13 when the web began to widen -- docs/30, "Readers first for the web").
 static func _medicine_of(world: Variant, actor: int) -> int:
-	return int(SimSkills.points(world, actor, "Medicine"))
+	return int(SimSkills.earned(world, actor, "Medicine"))
 
 
 # The read model the panel uses to decide which verbs to offer. Same {ok, reason} the sim

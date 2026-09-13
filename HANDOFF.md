@@ -32,6 +32,20 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-13 — the skills turn opens an arc: readers first for the web.** The owner asked for
+more skills — weapons, crafting, and some for the NPC followers at camp — and the census came back
+with the roster's finding a day later: the web's problem is that most of what it could point at is
+**unread**. Four of the fifteen shipped nodes target stats nothing resolves, so the Medicine and
+Craft regions are dead sockets today, and "followers at camp" has no stat, no attribute and no
+relationship to reach. The arc is nine pieces in docs/23's what's-left, each one reader plus the
+nodes that reach it, with the calls in docs/30's "Readers first for the web": colony-reach nodes in
+existing regions rather than a seventh region, minors and keystones and no notables, the five dead
+stats kept and excused by name, and the three reads of *unspent* points as skill moved to *earned*
+in the opening commit (an Auto survivor reaches the suture floor three points earlier — a real,
+recorded shift). `godot:m2:web` gained READERS, which holds every registered stat to a reader or a
+named excuse, and its SURPLUS lane now reads the Craft region off the content instead of naming
+two nodes. One re-baseline is reserved for the close of the arc.
+
 **2026-09-13 — five defects worked off the sweep's list, and one found already fixed.** The
 mechanical ones that needed no rebalance, each its own commit with a lane run red first: the save
 is never absent from disk (`godot:m2:save` ATOMIC), a missing schema is a validation failure with
