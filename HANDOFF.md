@@ -32,6 +32,38 @@ live in ordinary play. The decision, the measurement and the gate promotions are
 
 ## What landed recently
 
+**2026-09-12 — the alpha-roster arc is closed: fifteen slices, and a re-baseline that vindicates
+the content and indicts one rule.** The roster went **152 → 362 bases** and the chain **57 → 69
+gates**. The last slice, *armour that reaches a campaign*, gave colonists a rule that equips armour
+they find — no starting kit, by the owner's decision — and gave the balance harness a dressed arm
+beside a bare control, since once colonists dress themselves the old tier is not a bare colony any
+more.
+
+**The re-baseline is the number to know**, measured on one driver in three configurations. Against
+the pre-arc tree, **three of four seeds are byte-identical with the full 362-base roster** and the
+fourth only doubled its grabs while still ending 3/3 — so 186 new loot rows moved contact and moved
+no outcome, which is exactly what the reserved re-baseline predicted. **The acquisition rule is
+what moved outcomes**, on two seeds: 404 from a quiet 7-grab campaign to 124 grabs and one
+survivor, 90210 from two deaths to four. Colonists leave the compound to fetch gear, and contact is
+what happens outside the walls.
+
+**So the arc made the campaign harder and the record says so.** That is now a named question for
+the human ten-day playtest rather than something settled by a harness, and the lever is one static
+(`SimJobs.WEAR_FOUND_ARMOR`) if the answer is "too punishing".
+
+**Two findings worth carrying forward.** A lane was written, measured and thrown away because it
+stayed green with `armor_damage_factor` deleted — it was measuring the damage closure's clamp, not
+armour; the replacement samples unhurt colonists only and reads 1.0000 bare against 0.7212 dressed.
+That is the fifth unfailable assertion this arc. And the worktree/loot-stream confound recurred
+within a day of being written down: a before-and-after across two trees with ~115 loot rows between
+them appeared to show a tuning lever backfiring. Compare on one tree or do not compare.
+
+**CI was restructured mid-arc, owner-approved.** `npm run godot:m2` now runs in its own job
+(`godot-m2`, 45 min) parallel to `check` (25 min), with `godot-exports` waiting on both, because
+`check` was being cancelled at 30m15s on the second-to-last gate of 69 — the second time a timeout
+had come due. The chain is **26m45s locally / 19–23 min on CI**, measured; both places that quoted
+"~11.8 min" from eight days earlier were corrected.
+
 **2026-09-12 — camping gear, and what a bed is made of.** The arc's thirteenth slice, absorbing
 the older "bed quality as an authored property" piece. docs/10 had been using "a sleeping bag and a
 scalpel" as its own worked example of the footprint puzzle while neither item existed, and
@@ -699,6 +731,16 @@ same dead-socket pattern CLAUDE.md has been recording all milestone; the list is
 When you add a mechanism, add the assertion that something reaches it.
 
 ## What is waiting on the owner, not on code
+
+**Should a wash require soap?** docs/04 says washing needs water *and* soap; only the water half is
+enforced. The camping slice shipped `hygiene` as banked charges a dirtying spends, and deliberately
+did not make soap mandatory: that is a rebalance of a need every colonist has rather than an
+addition, and a district that rolled no soap would have no way back from `filthy`, which
+`sepsis_mul` reads. Deciding it means deciding what a soapless colony is supposed to do.
+
+**Is the arc's difficulty increase the difficulty you want?** The re-baseline measured it precisely
+(see docs/23): the content is innocent, the armour-acquisition rule costs two of four seeds their
+colonists. The ten-day playtest is the right judge, and the lever is one static.
 
 These are design calls. They have been measured, written up, and deliberately **not** decided.
 (Sepsis came off this list on 2026-09-06 — **lethal untreated**, one of the owner's twelve
