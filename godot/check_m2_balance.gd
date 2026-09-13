@@ -64,6 +64,73 @@ const ARMS: Array[String] = ["mixed", "melee", "ranged"]
 # fire the ARMED assertion has already failed and said so.
 const MIXED_FALLBACK_WEAPON: String = "item.knife.kitchen"
 
+# --- the armour arms -----------------------------------------------------------------------
+# The second half of "armour that reaches a campaign", and the reason the first half is worth
+# anything. Coverage has stopped blows since the armour slice, and this harness measured it as
+# **byte-identical on all four seeds** -- not because the mechanic failed but because nothing ever
+# put a vest on anybody, so every seed ran a colony in shirtsleeves twice.
+#
+# Three things had to be measured before this could be written, and each of them killed a simpler
+# design:
+#
+#   1. **The colony never opens a container.** `searches=0` on every seed of the FAST tier, and a
+#      throwaway driver that ran a *whole real day* -- 180,000 uncompressed ticks, no jumps --
+#      recorded `searches=0` and `worn=0` as well. So an arm that waits for colonists to find
+#      armour waits forever, and "colonists wear what they find" is measurable here only if
+#      something is lying where the rule's ground branch reaches. That is what `_lay_out_armour`
+#      does: a set per colonist, at their feet, exactly as a Haul leaves a load.
+#   2. **The dusk window never touches the colony.** Compressed to dusk, seed 20260805 records 117
+#      grabs and *not one of them on a colonist*: zero hits, zero bites, zero integrity lost on
+#      both arms. Two zeroes are equal, and a gate that reports "dressed is no worse than bare"
+#      about two campaigns in which nobody was touched has measured nothing. So the armour arms
+#      compress to the **working day** instead, where Haul and Scavenge put people out among the
+#      district's own wanderers -- the contact the Guard slice measured when it found Ellis
+#      grabbed sixteen times in a day. Widening the dusk window does not fix it, it overshoots:
+#      at 12,000 ticks the same seed loses the entire colony.
+#   3. **Neither raw integrity lost nor a naive ratio is a statistic here, and the sabotage pass is
+#      what proved it.** Every campaign measured loses exactly one colonist on every seed and both
+#      arms, and a body that dies contributes its whole 185 points whatever route it took, so the
+#      raw figure is one death plus noise: it moves 1.4% between arms across four seeds. The
+#      obvious repair -- integrity lost per point of damage *offered* -- was written, measured at
+#      0.497 bare against 0.330 dressed, and then **stayed green with `armor_damage_factor` deleted
+#      from `damage_part`**, which is the whole of why a lane is not believed until somebody has
+#      broken the thing it guards. It was measuring saturation, not armour: `damage_part` clamps at
+#      zero, so an arm that takes more contact wastes more of it on parts that have already run out,
+#      and the dressed arm takes more contact because dressing means walking.
+#
+#      So the ratio is taken over **unhurt colonists only**. A colonist is dropped from both
+#      accumulators, permanently, the moment any part of them reaches zero, and a tick on which
+#      that happens is dropped whole. Nothing left in the sample can be clamped, so what remains is
+#      the fraction of each blow that got past what the target was wearing -- which is exactly what
+#      armour governs and nothing else. Bare reads essentially 1.0 by construction; with the
+#      mitigation deleted the dressed arm reads 1.0 too and the lane goes red, which is the
+#      sabotage that the first version survived.
+
+# Two, and the arithmetic is the reason rather than the evidence. The owner priced this pair at
+# roughly a doubled fast tier -- 4.5 minutes to 9 -- and an armour campaign costs what a FAST one
+# costs, so four seeds measured **15m05s** against the tier's 4m30s and two land a little over
+# nine. The four-seed run is the number of record and it is in docs/23; these two are the ones the
+# chain carries, and each is in the right direction on its own rather than only in the total. What
+# makes that safe is that the statistic below is **structural, not statistical**: with no coverage
+# anywhere every point swung at an unhurt colonist lands, so the bare arm reads 1.0000 by
+# construction and a third seed reads 1.0000 as well.
+const ARMOR_SEEDS: Array[int] = [20260805, 404]
+# Mid-afternoon. Any fraction below `Clock.DAY_ENDS` behaves identically -- what this picks is the
+# phase, not the hour -- and dawn and 0.35 measured byte-identical, which is how that was checked.
+const ARMOR_WINDOW_AT: float = 0.35
+# Half the FAST tier's window. Chosen because contact, not because of the clock: at the tier's own
+# 2,000 the colony is swarmed hard enough that the sample below empties -- everybody is hurt within
+# a day or two and there is nothing left that a blow can land on cleanly -- and at 300 two seeds in
+# four record no contact at all. A thousand is where every seed is fought and somebody is still
+# whole to measure it on.
+const ARMOR_WINDOW_TICKS: int = 1000
+# What the dressed arm has to find. Whole-body armour so the difference is not one sleeve: a vest,
+# a helmet, gloves, jeans and boots, in the tiers a district actually drops.
+const ARMOR_KIT: Array[String] = [
+	"item.vest.riot", "item.helmet.bike", "item.gloves.leather",
+	"item.jeans.denim", "item.boots.steel",
+]
+
 # The live count is sampled rather than read every tick: `query` sorts, and a per-tick call to it
 # is the difference between a full campaign taking half an hour and taking an hour. LIVE_CAP is
 # enforced at spawn time and a breach of it would persist for thousands of ticks, so a one-second
@@ -100,7 +167,7 @@ func _run() -> void:
 		ok = _full_tier() and ok
 	if ok:
 		if _fast:
-			print("M2_BALANCE_OK fast %d seeds, %d days, bands invariants placement" % [FAST_SEEDS.size(), _days])
+			print("M2_BALANCE_OK fast %d seeds, %d days, bands invariants placement, armour bare vs dressed on %d seeds, flag" % [FAST_SEEDS.size(), _days, ARMOR_SEEDS.size()])
 		else:
 			print("M2_BALANCE_OK full %d seeds x %d arms, %d days, invariants runover arms auto" % [_full_seeds().size(), ARMS.size(), _days])
 		quit(0)
@@ -116,6 +183,10 @@ func _full_seeds() -> Array[int]:
 # --- the two tiers -----------------------------------------------------------------------
 
 func _fast_tier() -> bool:
+	# Read before anything pins it, checked after everything has put it back. A static is shared by
+	# every world this one process boots, so a lane that pins it and forgets is not a lane that
+	# fails -- it is a lane that quietly changes every campaign after it.
+	var flag_at_entry: bool = SimJobs.WEAR_FOUND_ARMOR
 	var runs: Array[Dictionary] = []
 	for seed_value in FAST_SEEDS:
 		var run: Dictionary = _compressed_campaign(int(seed_value), "mixed")
@@ -127,6 +198,8 @@ func _fast_tier() -> bool:
 	ok = _the_armed_count_can_see_an_empty_hand() and ok
 	ok = _assert_grabs_reach_the_campaign(runs) and ok
 	ok = _the_grab_counters_can_see_a_grab() and ok
+	ok = _assert_armour_reaches_a_campaign() and ok
+	ok = _the_dress_flag_went_back(flag_at_entry) and ok
 	return ok
 
 
@@ -486,6 +559,263 @@ func _the_grab_counters_can_see_a_grab() -> bool:
 		return false
 	print("GRAB-COUNTERS OK a fabricated started/broken pair moves each counter by exactly one")
 	return true
+
+
+# --- armour, the two arms ------------------------------------------------------------------
+
+# One seed, two campaigns, one difference. Both arms boot the same world and both have the same
+# armour laid at the colonists' feet; **BARE pins `SimJobs.WEAR_FOUND_ARMOR` off and DRESSED leaves
+# it at the shipped default**, so the only thing that separates them is whether the acquisition
+# rule is allowed to run. Nothing here equips anybody -- if the rule stops working the dressed arm
+# goes bare and the first assertion below says so, which is the whole point of dressing the colony
+# through the game's own rule instead of through the harness.
+#
+# Since colonists wear what they find, "the bare arm" can no longer mean "the tier as it is": the
+# shipped rule dresses the colony, so the control has to be a colony that genuinely ends up wearing
+# nothing, and pinning the flag is what makes it one.
+func _assert_armour_reaches_a_campaign() -> bool:
+	var was: bool = SimJobs.WEAR_FOUND_ARMOR
+	var arms: Dictionary = {}
+	for arm in ["bare", "dressed"]:
+		var total: Dictionary = {"lost": 0.0, "offered": 0.0, "clean_lost": 0.0, "clean_offered": 0.0, "worn": 0, "dressed_by": 0, "bites": 0, "grabs": 0, "deaths": 0}
+		for seed_value in ARMOR_SEEDS:
+			var run: Dictionary = _armour_campaign(int(seed_value), String(arm))
+			print("ARMOUR %-7s seed=%d dressed_by_day_one=%d worn_at_end=%d grabs=%d bites=%d offered=%.2f lost=%.2f unhurt=%.2f/%.2f through=%.4f deaths=%d survivors=%d" % [
+				String(arm), int(run["seed"]), int(run["dressed_by"]), int(run["worn"]),
+				int(run["grabs"]), int(run["bites"]), float(run["offered"]), float(run["lost"]),
+				float(run["clean_lost"]), float(run["clean_offered"]),
+				(float(run["clean_lost"]) / float(run["clean_offered"])) if float(run["clean_offered"]) > 0.0 else 0.0,
+				int(run["deaths"]), int(run["alive"]),
+			])
+			for key in total.keys():
+				if total[key] is float:
+					total[key] = float(total[key]) + float(run[key])
+				else:
+					total[key] = int(total[key]) + int(run[key])
+		arms[arm] = total
+	# Put back before the assertions rather than after them: an early return below would otherwise
+	# leave every campaign in the rest of this process running a rule the gate turned off.
+	SimJobs.WEAR_FOUND_ARMOR = was
+	var bare: Dictionary = arms["bare"] as Dictionary
+	var dressed: Dictionary = arms["dressed"] as Dictionary
+	# 1. The control is a control. If the bare arm ends up wearing anything the two arms are not
+	#    the comparison this prints.
+	if int(bare["dressed_by"]) != 0 or int(bare["worn"]) != 0:
+		push_error("ARMOUR: the bare arm wore %d points of armour by the end of day one and %d at the end -- with WEAR_FOUND_ARMOR pinned off nobody may dress, so the control is not one" % [int(bare["dressed_by"]), int(bare["worn"])])
+		return false
+	# 2. And the treatment is a treatment. Zero here is the dead socket this slice exists to end:
+	#    armour lying at somebody's feet for ten days that nobody ever picks up. Asked of the end of
+	#    **day one**, not of the end of the campaign, and measured rather than assumed: on seed
+	#    31337 the dressed colony wears 56 points through the run and finishes on zero, because the
+	#    two who were wearing them died and a body that turns takes its equipment with it. The end
+	#    of the campaign answers "who is still standing"; the question here is whether the rule
+	#    fired at all.
+	if int(dressed["dressed_by"]) <= 0:
+		push_error("ARMOUR: the dressed arm had put on nothing by the end of day one, so both arms ran the same campaign and the acquisition rule reaches no colony")
+		return false
+	# 3. Both arms are decided. This is the assertion the dusk window fails -- it is not enough for
+	#    the dressed arm to be no worse, the colony has to have been fought.
+	if float(bare["offered"]) <= 0.0 or float(dressed["offered"]) <= 0.0:
+		push_error("ARMOUR: no colonist was attacked in the %s arm (bare %.2f, dressed %.2f damage offered) -- this window measures no contact, so it decides nothing" % [
+			("bare" if float(bare["offered"]) <= 0.0 else "dressed"), float(bare["offered"]), float(dressed["offered"]),
+		])
+		return false
+	if float(bare["lost"]) <= 0.0 or float(dressed["lost"]) <= 0.0:
+		push_error("ARMOUR: no integrity moved in the %s arm (bare %.2f, dressed %.2f) -- a campaign nobody was hurt in compares nothing" % [
+			("bare" if float(bare["lost"]) <= 0.0 else "dressed"), float(bare["lost"]), float(dressed["lost"]),
+		])
+		return false
+	# 4. And the direction, over unhurt colonists only, for the reason written out at ARMOR_SEEDS:
+	#    anything clamped is saturation rather than armour, and a lane that cannot tell the two
+	#    apart passes with the mitigation deleted. Measured on these two seeds at **1.0000 bare
+	#    against 0.7213 dressed**, a 27.9% cut, and across all four of FAST_SEEDS by hand at 0.9802
+	#    against 0.7076, a 27.8% cut -- the same answer, which is what a structural figure should do
+	#    when seeds are added to it. There is nothing approximate about the bare number: with no
+	#    coverage anywhere, every point swung at an unhurt colonist lands, exactly.
+	if float(bare["clean_offered"]) <= 0.0 or float(dressed["clean_offered"]) <= 0.0:
+		push_error("ARMOUR: no blow landed on an unhurt colonist in the %s arm -- the sample the direction is taken over is empty, so it decides nothing" % [
+			"bare" if float(bare["clean_offered"]) <= 0.0 else "dressed",
+		])
+		return false
+	var bare_through: float = float(bare["clean_lost"]) / float(bare["clean_offered"])
+	var dressed_through: float = float(dressed["clean_lost"]) / float(dressed["clean_offered"])
+	if dressed_through >= bare_through:
+		push_error("ARMOUR: %.4f of the damage swung at an unhurt dressed colonist got through, against %.4f at a bare one (%.2f of %.2f, against %.2f of %.2f) -- armour is not reaching the campaign" % [
+			dressed_through, bare_through, float(dressed["clean_lost"]), float(dressed["clean_offered"]),
+			float(bare["clean_lost"]), float(bare["clean_offered"]),
+		])
+		return false
+	print("ARMOUR OK %d seeds: bare wears 0 and takes %.4f of every blow it is unhurt for (%.2f of %.2f); dressed wears %d by day one and takes %.4f (%.2f of %.2f), a %.1f%% cut. Raw integrity lost over the whole colony, deaths and all, %.2f against %.2f" % [
+		ARMOR_SEEDS.size(), bare_through, float(bare["clean_lost"]), float(bare["clean_offered"]),
+		int(dressed["dressed_by"]), dressed_through, float(dressed["clean_lost"]), float(dressed["clean_offered"]),
+		100.0 * (1.0 - dressed_through / bare_through), float(bare["lost"]), float(dressed["lost"]),
+	])
+	return true
+
+
+# The lane that catches the static being left where a campaign put it. Not the same claim as "the
+# rule works": this one is about the harness, and it is what would say so if the arm above pinned
+# the flag off and returned early on a failed assertion -- every campaign after it would then have
+# run a colony that cannot dress, and nothing else here would say a word.
+func _the_dress_flag_went_back(at_entry: bool) -> bool:
+	if not at_entry:
+		push_error("FLAG: SimJobs.WEAR_FOUND_ARMOR was already off when this gate started -- the shipped default is on, so every run above measured a game nobody plays")
+		return false
+	if SimJobs.WEAR_FOUND_ARMOR != at_entry:
+		push_error("FLAG: SimJobs.WEAR_FOUND_ARMOR entered as %s and left as %s -- a lane pinned the static and did not put it back" % [str(at_entry), str(SimJobs.WEAR_FOUND_ARMOR)])
+		return false
+	print("FLAG OK WEAR_FOUND_ARMOR shipped on, pinned off by the bare arm, and back on at the end")
+	return true
+
+
+# The campaign the two arms share: the FAST tier's compression technique with the jump moved into
+# the working day, for the reason written out at ARMOR_WINDOW_AT. Everything counted is read off
+# the world or off the bus, so this adds no simulation state and cannot change what it measures.
+#
+# **Integrity lost is sampled, because nothing publishes it.** The one closure that moves a body
+# (`SimHealth.damage_part`) computes what it took and keeps it, so the roster is fixed at boot and
+# every colonist's body totalled each tick, with only *drops* added: healing between two samples
+# resets the baseline instead of subtracting, so this counts damage done rather than net condition.
+# A colonist whose `body` component is gone stops contributing from that moment -- without that,
+# a death books the whole 185 points of a body as damage and one death then swamps every blow in
+# the campaign. The roster is fixed at boot on purpose too: a recruit who walks in on day six joins
+# one arm's campaign and not necessarily the other's.
+#
+# **Damage offered is the same events' own `damage` field**, read before `damage_part` touches it.
+#
+# The `clean_` pair is the one the direction is decided on, and it is the whole of what the sabotage
+# pass forced: a colonist counts only while **every part of them is still above zero**, and a tick
+# on which one of them stops being is thrown away whole rather than half-counted. `damage_part`
+# clamps at zero, so a blow at a part that has already run out is recorded as offered and lands as
+# less than it offered -- through no armour at all. Filtering that out is what leaves a figure that
+# only coverage can move: every point swung at an unhurt bare colonist lands, exactly, and the bare
+# arm reading anything but 1.0000 would itself be news.
+func _armour_campaign(seed_value: int, arm: String) -> Dictionary:
+	SimJobs.WEAR_FOUND_ARMOR = arm != "bare"
+	var w: Variant = SimBoot.playable(seed_value, _tiles, _district())["world"]
+	var roster: Array[int] = _colonists(w)
+	_lay_out_armour(w, roster)
+	w.events.drain()
+	var last: Dictionary = {}
+	var unhurt: Dictionary = {}
+	for ent in roster:
+		var read: Array = _body_read(w, int(ent))
+		last[int(ent)] = float(read[0]) if not read.is_empty() else null
+		unhurt[int(ent)] = (not read.is_empty()) and bool(read[1])
+	var run: Dictionary = {
+		"seed": seed_value, "arm": arm, "lost": 0.0, "offered": 0.0,
+		"clean_lost": 0.0, "clean_offered": 0.0,
+		"bites": 0, "grabs": 0, "deaths": 0, "worn": 0, "dressed_by": 0, "alive": 0,
+	}
+	var dead: Dictionary = {}
+	# Reused rather than rebuilt each tick: a Dictionary is a reference type, and one allocation per
+	# tick across eight campaigns is not free.
+	var swung: Dictionary = {}
+	for day in range(1, _days + 1):
+		w.tick = Clock.tick_on_day(day, ARMOR_WINDOW_AT) - 1
+		for _t in ARMOR_WINDOW_TICKS + 1:
+			swung.clear()
+			w.step()
+			for e in w.events.drained:
+				var ev: Dictionary = e as Dictionary
+				match String(ev.get("type", "")):
+					"bite.landed":
+						var bitten: int = int(ev.get("victim", -1))
+						if roster.has(bitten):
+							run["bites"] = int(run["bites"]) + 1
+							run["offered"] = float(run["offered"]) + float(ev.get("damage", 0.0))
+							swung[bitten] = float(swung.get(bitten, 0.0)) + float(ev.get("damage", 0.0))
+					"attack.connected":
+						var hit: int = int(ev.get("target", -1))
+						if roster.has(hit):
+							run["offered"] = float(run["offered"]) + float(ev.get("damage", 0.0))
+							swung[hit] = float(swung.get(hit, 0.0)) + float(ev.get("damage", 0.0))
+					"grab.started":
+						if roster.has(int(ev.get("victim", -1))):
+							run["grabs"] = int(run["grabs"]) + 1
+					"entity.killed":
+						# De-duplicated by id: one individual is announced up to three times.
+						if roster.has(int(ev.get("entity", -1))):
+							dead[int(ev.get("entity", -1))] = true
+			for ent in roster:
+				var before: Variant = last[int(ent)]
+				if before == null:
+					continue
+				# One walk of the body, not two: this runs on every colonist on every tick of eight
+				# campaigns, and asking the same dictionary the same question twice cost minutes.
+				var read: Array = _body_read(w, int(ent))
+				if read.is_empty():
+					last[int(ent)] = null
+					unhurt[int(ent)] = false
+					continue
+				var now: float = float(read[0])
+				var still: bool = bool(read[1])
+				var drop: float = float(before) - now
+				if drop > 0.0:
+					run["lost"] = float(run["lost"]) + drop
+				# Whole and whole again: only then is `drop` the blow and nothing else.
+				if bool(unhurt[int(ent)]) and still:
+					run["clean_lost"] = float(run["clean_lost"]) + maxf(0.0, drop)
+					run["clean_offered"] = float(run["clean_offered"]) + float(swung.get(int(ent), 0.0))
+				unhurt[int(ent)] = still
+				last[int(ent)] = now
+		if day == 1:
+			run["dressed_by"] = _armour_points_worn(w, roster)
+	run["deaths"] = dead.size()
+	run["alive"] = _survivors_alive(w)
+	run["worn"] = _armour_points_worn(w, roster)
+	return run
+
+
+# Parts do not share a scale (a head is 15, a torso 40) and the total below deliberately does not
+# care: it is the same sum on both arms of the same seed, and what is compared is two campaigns
+# rather than any one body's condition. Nothing here is published, stored or shown -- the
+# health-bar ban is about what the *screen* can compute, and this is a harness reading the sim from
+# outside it.
+#
+# One pass over a body answering both questions the sampler asks of it: `[total, every part above
+# zero]`, or an empty array when there is no body left. Intactness is asked of the *parts* rather
+# than of the total, because a total says nothing about whether the next blow to a hand will be
+# clamped, and clamping is the one thing the clean sample must not contain.
+func _body_read(w: Variant, ent: int) -> Array:
+	var body: Variant = w.components.get_component(ent, "body")
+	if not body is Dictionary:
+		return []
+	var total: float = 0.0
+	var whole: bool = true
+	for part in (body as Dictionary).keys():
+		var v: float = float((body as Dictionary)[part])
+		total += v
+		if v <= 0.0:
+			whole = false
+	return [total, whole]
+
+
+# A set of armour per colonist, on the tile they are standing on. Not a kit and not an equip: it is
+# a pile on the floor, which is the one state the acquisition rule can reach in a harness whose
+# colony never opens a cupboard, and the state a Haul leaves every load in. The bare arm gets the
+# identical pile and walks past it for ten days.
+func _lay_out_armour(w: Variant, roster: Array[int]) -> void:
+	for ent in roster:
+		var at: Variant = w.components.get_component(int(ent), "position")
+		if not at is Dictionary:
+			continue
+		for id in ARMOR_KIT:
+			var item: int = SimItems.spawn_item(w, String(id), {"tier": "scavenged"})
+			w.components.set_component(item, "position", (at as Dictionary).duplicate())
+
+
+# How much armour the colony finished wearing, in `armor_points_of_base`'s whole-body points -- the
+# same scalar the dress rule itself decides with, so "the bare arm wears nothing" is asked in the
+# units the rule under test answers in.
+func _armour_points_worn(w: Variant, roster: Array[int]) -> int:
+	var total: int = 0
+	for ent in roster:
+		for item in SimInventory.equipped_items(w, int(ent)):
+			var base: Variant = SimItems.item_base_of(w, int(item))
+			if base is Dictionary:
+				total += SimNeeds.armor_points_of_base(base as Dictionary)
+	return total
 
 
 func _assert_bands(runs: Array[Dictionary]) -> bool:

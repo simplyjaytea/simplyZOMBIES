@@ -42,7 +42,7 @@ const SimContainers = preload("res://sim/modules/containers.gd")
 # The pane's whole vocabulary. Adding a key here is a decision about what the player is told, so
 # it is made in this file as well as in the read model -- the `check_ban_health_bar` arrangement,
 # and the reason a numeric field cannot be added to either by accident.
-const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits"]
+const INSPECT_KEYS: Array[String] = ["item", "name", "condition", "description", "slot", "worn", "attachments", "fits", "fuel"]
 # `item` is an entity handle the screen routes a click with, never drawn. Every other value is a
 # word, a boolean, or a list of words.
 const INSPECT_HANDLE: String = "item"
@@ -134,6 +134,33 @@ static func _is_letter(ch: String) -> bool:
 static func _carries_a_digit(text: String) -> bool:
 	for ch in text:
 		if ch >= "0" and ch <= "9":
+			return true
+	return false
+
+
+# An item's **name** is the one string on these screens allowed to carry a digit, by the owner's
+# decision of 2026-09-12 (docs/30, "The cartridge on the label"). A cartridge is called what it is
+# called -- `.308 Winchester`, `12 Gauge Buckshot`, `9x19mm Parabellum` -- and a roster of twenty
+# rounds named around the ban would have been twenty rounds a player cannot tell apart, which is a
+# worse failure of clause 4 than the digit was.
+#
+# **One predicate, two lanes.** STRIP and INSPECT both scan a name, and the file already keeps one
+# `_carries_a_digit` so DESCRIPTION and INSPECT cannot disagree about what a digit is; two copies
+# of this exemption written separately is the same mistake with the answer inverted, and is the
+# shape of every dead socket in this milestone.
+#
+# **What is still refused, and this is the whole of the clause.** A name that is *nothing but* a
+# quantity -- "12", "3 " -- is a count with no noun, which no cartridge designation is and no item
+# on the roster is. That is the true negative `_a_bare_quantity_is_still_refused` fabricates. And
+# the exemption is scoped to this one field: `description`, `condition`, every other value in the
+# inspect pane, and every line `check_hud.gd` scans are all untouched, which the lanes below prove
+# by refusing the identical string in those positions.
+static func _name_is_allowed(text: String) -> bool:
+	var trimmed: String = text.strip_edges()
+	if trimmed.is_empty():
+		return false
+	for ch in trimmed:
+		if not (ch >= "0" and ch <= "9"):
 			return true
 	return false
 
@@ -276,7 +303,7 @@ func _the_pane_carries_only_words() -> bool:
 	var sabotage: Dictionary = {
 		"item": 7, "name": "Service Pistol", "condition": "worn",
 		"description": "A service pistol. 18 damage at 25 metres.", "slot": "secondary",
-		"worn": true, "attachments": [], "fits": [],
+		"worn": true, "attachments": [], "fits": [], "fuel": "",
 	}
 	if _inspect_faults(sabotage).is_empty():
 		push_error("the pane scanner passed a description reading \"%s\"" % String(sabotage["description"]))
@@ -292,6 +319,28 @@ func _the_pane_carries_only_words() -> bool:
 	missing.erase("condition")
 	if _inspect_faults(missing).is_empty():
 		push_error("the key allowlist passed a view with no condition word")
+		return false
+
+	# The name exemption, both ways round, because an exemption with only a positive is a hole.
+	# A cartridge is allowed to be called what it is called; a name that is *nothing but* a
+	# quantity is still a count with no noun and is still refused. And the exemption reaches
+	# exactly one field: the identical string is refused the moment it is a description instead,
+	# which is what "narrow" means here and is the half that would rot silently if unasserted.
+	var cartridge: Dictionary = sabotage.duplicate()
+	cartridge["description"] = "A service pistol."
+	cartridge["name"] = ".308 Winchester Match"
+	if not _inspect_faults(cartridge).is_empty():
+		push_error("the pane refused a cartridge name: %s" % ", ".join(PackedStringArray(_inspect_faults(cartridge))))
+		return false
+	var counted: Dictionary = cartridge.duplicate()
+	counted["name"] = "12"
+	if _inspect_faults(counted).is_empty():
+		push_error("the pane passed a name that is nothing but a quantity: \"12\"")
+		return false
+	var leaked: Dictionary = cartridge.duplicate()
+	leaked["description"] = ".308 Winchester Match"
+	if _inspect_faults(leaked).is_empty():
+		push_error("the name exemption leaked into `description` -- it is scoped to one field")
 		return false
 
 	# Now the real thing, on a loadout that fills every branch: a worn coat, a held weapon with an
@@ -391,7 +440,12 @@ func _inspect_faults(view: Dictionary) -> Array:
 			continue
 		var value: Variant = view[key]
 		if value is String:
-			if _carries_a_digit(value as String):
+			# The one exempted field, and only in this one position. `description` and every other
+			# string below stay under the full ban -- see `_name_is_allowed`.
+			if name == "name":
+				if not _name_is_allowed(value as String):
+					out.append("\"%s\" is a bare quantity: \"%s\"" % [name, String(value)])
+			elif _carries_a_digit(value as String):
 				out.append("\"%s\" carries a digit: \"%s\"" % [name, String(value)])
 		elif value is bool:
 			pass
@@ -522,8 +576,23 @@ func _every_offered_verb_reaches_a_command() -> bool:
 	if not SimInventory.verbs_for(w, w.player, rifle).has("modify"):
 		push_error("\"modify\" was not on offer for a rifle at a bench")
 		return false
-	if SimInventory.verbs_for(w, w.player, coat).has("modify"):
-		push_error("\"modify\" was on offer for a coat, which comes apart into nothing")
+	# The negative used to be the coat, and the armour-slot slice of 2026-09-12 made the coat the
+	# wrong subject rather than making the assertion wrong: a leather jacket declares `lining` and
+	# `pocket` now, so it does come apart, and `modify` is correctly on offer for it. The claim
+	# this lane makes is unchanged -- a garment with no slots at all must not be offered a bench
+	# verb -- so it moved to a garment that still has none. A cloth wrap is strips of cloth.
+	var wrap: int = _give(w, "item.wrap.cloth")
+	if wrap < 0:
+		push_error("the fixture wrap could not be carried")
+		return false
+	if not SimAttachments.slots_of(w, wrap).is_empty():
+		push_error("the cloth wrap declares slots now, so it is no longer the thing that comes apart into nothing")
+		return false
+	if SimInventory.verbs_for(w, w.player, wrap).has("modify"):
+		push_error("\"modify\" was on offer for a cloth wrap, which comes apart into nothing")
+		return false
+	if not SimInventory.verbs_for(w, w.player, coat).has("modify"):
+		push_error("\"modify\" was not on offer for a leather jacket at a bench, and a jacket has a lining slot")
 		return false
 	w.commands.push({"type": "bench.open", "item": rifle})
 	w.step()
@@ -651,8 +720,8 @@ func _the_strip_is_the_belt_and_the_pockets() -> bool:
 		if String(d.get("name", "")).is_empty():
 			push_error("a strip entry has no name")
 			return false
-		if _carries_a_digit(String(d.get("name", ""))):
-			push_error("a strip entry's name carries a digit: \"%s\"" % String(d.get("name", "")))
+		if not _name_is_allowed(String(d.get("name", ""))):
+			push_error("a strip entry's name is a bare quantity: \"%s\"" % String(d.get("name", "")))
 			return false
 	print("STRIP OK the pocket and the belt are on it, the pack is not, and %d entries fill %d keys" % [full.size(), SimInventory.STRIP_SLOTS])
 	return true

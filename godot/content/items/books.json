@@ -1,0 +1,92 @@
+[
+  {
+    "id": "item.book.closequarters",
+    "name": "Close-Quarters Fighting Manual",
+    "description": "A services manual on fighting at arm's length, all stick figures and short imperative sentences. It is dry, it is repetitive, and every page of it assumes you would rather be somewhere else.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.4,
+    "teaches": { "region": "Melee", "points": 1 }
+  },
+  {
+    "id": "item.book.marksmanship",
+    "name": "Marksmanship Primer",
+    "description": "A club primer on breath, trigger and the moment between heartbeats, written by somebody who thought shooting was a hobby. The diagrams still hold.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.35,
+    "teaches": { "region": "Ranged", "points": 1 }
+  },
+  {
+    "id": "item.book.firstaid",
+    "name": "Field First Aid Manual",
+    "description": "A waterproofed first aid manual with a cracked spine, the pages on bleeding thumbed soft and the rest barely opened. Somebody has underlined the part about pressure.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.3,
+    "teaches": { "region": "Medicine", "points": 1 }
+  },
+  {
+    "id": "item.book.repairs",
+    "name": "Home Repairs Handbook",
+    "description": "A fat hardware-shop handbook about joints, fixings and making a bad thing hold anyway. Half of what it assumes you can buy no longer exists, and the other half is why it is worth carrying.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 0.9,
+    "teaches": { "region": "Craft", "points": 1 }
+  },
+  {
+    "id": "item.book.bushcraft",
+    "name": "Bushcraft Handbook",
+    "description": "A scout handbook on water, shelter and fire, with a rain-warped cover and a boot print across the contents page. It was written for a weekend and reads differently now.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.35,
+    "teaches": { "region": "Survival", "points": 1 }
+  },
+  {
+    "id": "item.book.conditioning",
+    "name": "Conditioning Handbook",
+    "description": "A training handbook full of photographs of people suffering cheerfully in matching shorts. Underneath the optimism is a straightforward argument about carrying weight for longer than you want to.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.4,
+    "teaches": { "region": "Endurance", "points": 1 }
+  },
+  {
+    "id": "item.book.surgery",
+    "name": "Notes on Battlefield Surgery",
+    "description": "A surgeon's own notes, typed and bound by hand, on what can be done for a body when there is no theatre and no time. It is not a book anybody printed for sale.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 0.7,
+    "teaches": { "region": "Medicine", "points": 1 }
+  },
+  {
+    "id": "item.book.ballistics",
+    "name": "A Treatise on Ballistics",
+    "description": "A cloth-bound treatise on what a bullet does after it stops being your problem, full of tables and dead men's names. Nobody reads it for pleasure and everybody who reads it shoots better.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 3 },
+    "massKg": 0.8,
+    "teaches": { "region": "Ranged", "points": 1 }
+  },
+  {
+    "id": "item.book.gunsmithing",
+    "name": "Gunsmith's Bench Notes",
+    "description": "A ledger of bench notes in a cramped hand, oil-blotted at the corners, about springs and tolerances and what wears out first. It was never meant to leave the shop.",
+    "class": "consumable",
+    "size": { "w": 2, "h": 2 },
+    "massKg": 0.5,
+    "teaches": { "region": "Craft", "points": 1 }
+  },
+  {
+    "id": "item.book.longwalk",
+    "name": "The Long Walk",
+    "description": "A paperback memoir about walking out of a place nobody walks out of. It teaches nothing you could put on a diagram and rather a lot about the difference between tired and finished.",
+    "class": "consumable",
+    "size": { "w": 1, "h": 2 },
+    "massKg": 0.2,
+    "teaches": { "region": "Endurance", "points": 1 }
+  }
+]

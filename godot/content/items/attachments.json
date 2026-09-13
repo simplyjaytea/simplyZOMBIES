@@ -236,7 +236,7 @@
     "class": "attachment",
     "size": { "w": 1, "h": 1 },
     "massKg": 0.2,
-    "light": { "magnitude": 16 },
+    "light": { "magnitude": 16, "burnTicks": 36000, "feed": "cell" },
     "attachment": {
       "fits": ["underbarrel"],
       "fieldSwap": true

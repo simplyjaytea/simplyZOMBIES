@@ -263,8 +263,10 @@ than here.
 
 **Medicine — the back half of treatment:**
 
-- **Supply quality tiers.** The sepsis roll already prices sterile < cloth < dirty dressings; what
-  is open is quality as an authored property of medical supplies generally.
+- **Supply quality tiers** — **moved into the alpha-roster group below** (2026-09-12), where it is
+  half of slice 2. The sepsis roll already prices sterile < cloth < dirty dressings; what is open
+  is quality as an authored property of medical supplies generally, and the arc found the reason
+  it is not a data edit: antibiotics and painkillers are hardcoded base ids, not content keys.
 - **Diagnosis text that scales with Medicine skill.** A good medic reads a wound better; a novice
   reads it vaguely. Prose only — no numbers arrive with skill. This is also where the condition
   view learns to say a wound has been cleaned or sutured: the ladder writes both, and neither is
@@ -293,9 +295,10 @@ than here.
   carries it rather than a beam pointed where they are looking, so docs/10's "aimed at whatever
   you're looking at" is still a promise; and an optic tightens the cone identically at noon and at
   midnight, because `_refresh_cone` cannot see the light field at all.
-- **Bed quality as an authored property.** `SimNeeds.sleep_quality` reads a bed today as binary —
-  in one or not — where docs/04's own list implies a cot beats the ground by less than a proper
-  bed beats a cot; content would carry the difference once more than one kind of bed exists.
+- ~~**Bed quality as an authored property**~~ — moved into the alpha-roster group and **landed**
+  2026-09-12 with the camping slice, see the record.
+  (2026-09-12), where it is half of the camping and utility piece. Named here only so the
+  cross-reference resolves.
 - **Carried weight loudens footsteps.** Weight stays simulated and never printed; footstep noise
   is how it is supposed to read.
 - **The five ranged affixes docs/10 names.** Trued, Ported, Chambered, Blued and Heavy-barrelled.
@@ -303,11 +306,141 @@ than here.
   get equal item depth" — but this is not the data edit it looks like: of the stats they would
   want, `noise_emission`, `condition_loss` and `repair_cost` are declared in
   `sim/modifiers/stats.gd` and resolved by nothing anywhere, so authoring the affixes first would
-  ship five dead sockets. The readers come first, then the content.
-- **Armour attachment slots.** docs/10 gives body armour plate · lining · pocket and headgear
-  face · light mount. No armour base declares `slots` at all, and `attachment` has only `melee`
-  and `ranged` multiplier tables, so unlike the four weapon slots the second gear catalogue
-  closed this one is code — a third table and a reader — before it is content.
+  ship five dead sockets. The readers come first, then the content. **Measured by the named-items
+  slice, 2026-09-12, and it is worse than this entry said:** affix modifiers are scoped to the
+  *item*, but `noise_emission`, `condition_loss` and `repair_cost` resolve against nothing at all
+  while `ranged_accuracy` resolves on the *entity* — so of the four suffixes whose `appliesTo`
+  already includes `weapon.ranged` (`quiet_hand`, `long_nights`, `salvage`, `ruin`), **not one moves
+  a stat that is read for a ranged weapon.** The pool is not merely thin, it is inert. That is why
+  the two named ranged items ship with empty fixed rolls and their character entirely in their base
+  numbers, which is honest and is also the measure of how much reader work this piece needs.
+- **Armour attachment slots** — **moved into the alpha-roster group below** (2026-09-12), where
+  it is slice 12. Named here only so the cross-reference resolves.
+
+**Items — the alpha roster, opened by the owner (2026-09-12).** The direction is docs/30's "The
+round in the chamber" and "The cartridge on the label": *"food, medicine, ammo, ammo types
+(configure for guns too), attachments, bags — a good roster of items for an alpha."* The roster is
+not starting from nothing — three gear catalogues have landed and 164 bases shipped — so the arc is
+**breadth where the readers exist, and readers first where they do not**, which is what makes it
+slices rather than one dump of JSON. The owner's four answers are in docs/30: multipliers over a
+caliber rather than ballistics on the round; all four groups in scope; land as many slices as fit;
+and real cartridge names, with the digit ban's item-name clause as the accepted cost. Each piece is
+one session with its gate red both ways and its record; the health-bar ban, the grid-as-capacity
+rule and the sim's ignorance of presentation are untouched throughout. **One re-baseline is
+reserved for the end of the arc** rather than one per slice, per the weapons catalogue's precedent —
+every slice moves the `lootTable` stream and four seeds before-and-after each time would be an
+overnight job apiece.
+
+**Widened by the owner on 2026-09-12, after the first slice landed** — docs/30's "The readers ran
+out before the content did". A census of the whole roster against the sim that reads it found the
+arc's real shape, and it was not the one the arc was opened with: the roster's problem is not that
+it is small, it is that it is **unread**. Nineteen item ids are hardcoded in `godot/sim/`, each one
+a category that cannot grow without a code change; and four items ship today, sit in loot tables,
+and can be found by a player who then cannot use them for anything. So the owner took **eight
+readers rather than four**, chose to **adopt those four orphans rather than delete them** — each is
+made live by the slice whose reader it belongs to — and set the roster's target at roughly 350
+bases. The pieces below are the result, ordered so that stopping after any one of them leaves the
+tree honest: every reader lands before the content that needs it, and no piece half-builds a
+system.
+
+- ~~**Ammo types: the caliber and the round**~~ — **landed** 2026-09-12, see the record.
+- ~~**Food, drink, and the medical quality tiers**~~ — **landed** 2026-09-12, see the record.
+- **The tourniquet, and pressure as a supply.** docs/05's first step is *"pressure, tourniquet,
+  bandage"* and only two of the three exist. A tourniquet is not a dressing grade — it is a fourth
+  thing the `pressure` channel could spend — so it was deliberately **not** authored beside the
+  medical grades: an item with no reader is the dead socket this whole arc exists to stop, and
+  shipping one inside the slice that removed three welds would have been the joke writing itself.
+  Wants a reader on the pressure channel and its own lane.
+- ~~**Clothing, weather gear and bags**~~ — **landed** 2026-09-12, see the record.
+- **Does a coat make you hotter?** Found by the warmth slice and left exactly as it was, because
+  changing it is a rule change rather than a bug fix. Positive warmth goes through `_shift_temp`,
+  which moves a body **toward comfortable on both sides of the ladder** — so a winter coat cools you
+  in a heat wave. That is the shipped cloth-wrap rule, not something the slice introduced, and
+  `check_m2_heat`'s ROOF lane pins it. Cooling, being new, is strictly colder in both weathers, so
+  the two halves of the axis are deliberately asymmetric today. Making insulation *cost* you in the
+  heat is the owner's call and it breaks that pin.
+- ~~**Cooking and water: the transform keys**~~ — **landed** 2026-09-12, see the record.
+- ~~**Build materials: the substance that is not scrap**~~ — **landed** 2026-09-12, see the record.
+- **Buildables for the other eleven kinds.** The materials slice landed the vocabulary, the content
+  and the loot; what it could not land is an economy. Three recipes exist and **all three want
+  metal**, so wood, planks, stone, fibre, cordage, fixings, ingots, charcoal, clay, wire and
+  circuits are declared, findable, read end to end — and unspent. `check_m2_materials.gd`'s RECIPES
+  lane prints the count and the names on every run rather than letting it go quiet. What closes it
+  is docs/12's own list: a timber wall, a stone course, a wire fence.
+- ~~**Light that burns down, and what feeds it**~~ — **landed** 2026-09-12, see the record.
+- **A planted floodlight cannot be picked back up.** The light slice stands one up as furniture,
+  deliberately matching `_place_bench`, and there is no verb to take it down again. That is a real
+  restriction on a thing that came out of the player's own pack, and not obviously what anyone would
+  expect; named rather than left to be discovered.
+- ~~**Noise that is an item**~~ — **landed** 2026-09-12, see the record. Half of it: the eight new
+  devices are real, and the alarm and the noisemaker are **still free world singletons**, by the
+  owner's decision of 2026-09-12. Repricing them is below.
+- **The alarm and the noisemaker still cost nothing to place.** They are `fortify.gd` world
+  singletons that consume no item, and the noise slice deliberately left them that way: the owner
+  chose new items only, and `check_m2_materials.gd`'s PINNED lane asserts both by name, so
+  repricing them is a rebalance that would turn a shipped gate red rather than a content addition.
+  What closes it is giving each an item to spend and moving that PINNED assertion with it, in one
+  commit, with the before-and-after run that a rebalance owes.
+- **A purifier is spent but never refilled.** The transform slice gives the pump filter forty uses
+  and the billy can six, and when a purifier runs out it is simply a thing with nothing left in it.
+  There is no cartridge to replace and no way to boil the filter clean, so the best purifier in the
+  game is strictly a countdown. A refill recipe is the obvious close, and it wants the buildables
+  economy above rather than a key of its own.
+- ~~**Comfort that is not food**~~ — **landed** 2026-09-12, see the record.
+- **Nobody seeks comfort, or reads, on their own.** Both the comfort slice and the books slice ship
+  a player verb on the inventory sheet and no autonomy job behind it. A colonist whose mood band has
+  dropped will not go and find the cigarettes, and nobody ever picks up a field manual unaided, so
+  both categories help a colony exactly as much as the player remembers to spend them. The re-arm
+  path in `jobs.gd` is the shape either would copy.
+- ~~**The mask that filters**~~ — **landed** 2026-09-12, see the record.
+- **The explosives docs/09 says already exist.** docs/09's cut list asserted *"they exist as rare
+  loot"* and docs/12's military yield lists them, and **no explosive item has ever existed** — zero
+  bases, no blast reader, nothing in any table. The docs/09 line was corrected in place on
+  2026-09-12 rather than left asserting content that is not there; this is the piece that would make
+  it true again. It is a reader before it is content: a thrown charge is a blast radius applied to
+  everything in it, which the damage model has no notion of, plus the 400-noise attention spike that
+  is the whole reason the doc calls it self-limiting.
+- ~~**Books that teach**~~ — **landed** 2026-09-12, see the record.
+- ~~**Camping and utility gear**~~ — **landed** 2026-09-12, see the record. It absorbed
+  ~~**bed quality as an authored property**~~ as planned.
+- **A wash still works with no soap.** docs/04 says washing needs water *and* soap; only the water
+  half is enforced. The camping slice shipped `hygiene` as banked charges that a dirtying spends,
+  and deliberately did not make soap required: that is a rebalance of a need every colonist has
+  rather than an addition, and a district that rolled no soap would have no way back from `filthy`,
+  which `sepsis_mul` reads. Closing it means deciding what a soapless colony is supposed to do.
+- ~~**Armour attachment slots, and armour that stops damage**~~ — **landed** 2026-09-12, see the
+  record.
+- ~~**Armour that reaches a campaign**~~ — **landed** 2026-09-12, see the record. Both halves.
+- **A plate that degrades as it stops blows.** Armour parts declare no `wearsOn`, and deliberately:
+  `WEAR_EVENTS`' `"hit"` means *the weapon you swung connected* and fires on the attacker's item,
+  not the target's garment, so declaring it would have been a dead socket. Wants a new wear word
+  (`struck`) and a subscriber on the target's side. Their *condition* is already read — a scavenged
+  plate does less than a pristine one, through `effect_scale`.
+- **The headgear light mount docs/10 names.** Not built, and for a reason worth keeping: a helmet
+  lamp needs the light scan to walk worn gear, and after the burn slice it walks `LIGHT_SLOTS`,
+  which covers the head — so this is now much closer than it was, and wants a `mount` slot plus
+  content rather than a reader.
+- **Armour on anything that is not a survivor.** `armor_coverage_of` reads `equipped_items`, and
+  zombies have no `equipment` component at all, so an armoured zombie kind — which docs/10's
+  Quietkeeper drawback ("useless against armored types") assumes exists — remains unimplemented.
+  Raiders do benefit correctly, if an archetype kit ever carries armour; none does.
+- ~~**Named items, the fourth tier**~~ — **landed** 2026-09-12, see the record.
+- **Choosing which round to fire.** The ammo slice shipped the mechanism and not the choice: with
+  buckshot and slugs both in the pack the pick order decides, and the only way to fire the slug is
+  to carry nothing else. A verb on the inventory sheet, and the `rangedWeapon` component is where
+  the chosen round would live — as a String, never as a `{weapon: round}` side table, which does
+  not survive a save.
+- **The magazine remembers what you loaded.** `FireState.Reload` refills `mag` from `magSize` and
+  consumes nothing while rounds leave the pack one per shot, so a magazine holds mixed rounds and
+  switching loads is instant. The cheapest consistent story, and named rather than left looking
+  finished. Wants a per-magazine record on the component, which is why it is not a rider.
+- **The hand-loaded round.** docs/09 specifies it — *"late-game hand-loading is possible and
+  produces worse ammunition — reduced power, higher jam chance"* — and the ammo slice can express
+  only the first half. `jamChance` is *derived* from the condition band rather than authored, so
+  that a weapon the screen calls "failing" cannot be one that never jams; a round that raised it
+  needs its own reader and its own lane rather than a multiplier that breaks that coupling.
+- ~~**The balance re-baseline the arc reserves**~~ — **run** 2026-09-12, see the record. It
+  closes the arc.
 
 **Art & renderer — overcast or torchlight, decided by the owner (2026-09-08), on the Dungeon
 Settlers spine.** The direction is docs/30's "Overcast or torchlight": a hybrid that keeps the
@@ -633,7 +766,14 @@ session, each with its gate red both ways and its record.
   colony outcome distributions, before human tuning argues from anecdotes.
 - **The full balance grid.** `BALANCE_FULL=1`, ~9 h — an overnight job at measured throughput, not
   a "quick run".
-- **The human ten-day playtest.** The exit criterion itself, run by a person.
+- **The human ten-day playtest.** The exit criterion itself, run by a person. It now carries one
+  specific question the automated harness raised and cannot answer: **the alpha-roster arc made the
+  campaign harder**, and the re-baseline shows exactly where. Two of four seeds lose colonists that
+  none did before, entirely because colonists leave the compound to fetch armour they have found.
+  The content is not the cause — with the full 362-base roster and the rule off, every seed still
+  ends 3/3. So the playtest is judging one rule, not a roster, and if it reads as too punishing the
+  lever is a single static (`SimJobs.WEAR_FOUND_ARMOR`) or a minimum distance worth walking for —
+  the second lever the armour slice named and did not take.
 
 **Debt — not features, named so it stops being folklore:**
 
@@ -811,9 +951,20 @@ than a line apiece. Worst first. What the same sweep *did* fix is in
   integer unit has no honest reader without a debt accumulator or a fractional cost — a design,
   not a line, which is why it stayed when `spoilage_rate` got its reader (2026-09-06, the record's
   Needs bullet, `godot:m2:needs` PANTRY).
-- **`bloater` contamination fires once per survivor, ever.** `contaminationRolled` is set the first
-  time a survivor stands in any cloud and is never removed, so every later cloud in the campaign is
-  a no-op for them.
+- ~~**`bloater` contamination fires once per survivor, ever.**~~ **Already fixed, and this entry was
+  stale.** The `contaminationRolled` boolean it describes no longer exists: `bloater.gd` keeps a
+  `contaminationRolls` component whose rolls are an Array of `{flag, atTick}` records scanned by
+  index — written that way deliberately against the save trap, since a Dictionary keyed by entity id
+  does not survive a round-trip through JSON — and a survivor is skipped only for a cloud they have
+  already been rolled against. Confirmed by reading and then measured with a throwaway driver during
+  the filter slice (2026-09-12): one cloud books one exposure, and a second cloud over the same
+  survivor books a second. Struck rather than deleted because a defect list that quietly loses
+  entries is a defect list nobody trusts.
+- **A plume only reaches a bite.** `SimBloater._has_open_wound` matches `kind == "bite"` alone, so a
+  survivor carrying a deep laceration or a burn walks through a contamination cloud untouched while
+  one with a scratch from a shambler does not. A cut is an open wound too. Found by the filter slice
+  (2026-09-12) and deliberately not fixed there: widening it is a balance change and would have
+  ridden along inside a slice that was adding a reader, which is how scope gets smuggled.
 - **A corpse looks exactly like a person at Focal.** Presentation has no notion of one: same
   sprite, same tint, same facing pointer. The glimpse half is fixed — `Appearance.moving` reads a
   missing `velocity` as motionless and `check_topdown.gd`'s GLIMPSE lane holds it, so the dead are
@@ -6634,6 +6785,780 @@ not a to-do list:
   the eight-rig envelope and were re-seated inboard rather than shortened**: FITS is what says
   where an overlay may stop, and length is bought by starting the barrel behind the fist, not by
   running it off the body. 174 generated keys, all matching.
+
+- **Items** — ~~armour attachment slots, and armour that stops damage~~ **landed** 2026-09-12
+  (`npm run godot:m2:armor` → **`M2_ARMOR_OK factor stops paths plate bands ban`**, plus an ARMOR
+  lane in `godot:m2:attach`; `godot:ban:healthbar`, `godot:m2:lethality`, `godot:m2:contact`,
+  `godot:m2:swipe`, `godot:m2:wounds` and `godot:m2:npc` all held), the **eighth slice of the
+  alpha-roster arc**, the sixth reader, and the only slice in the arc that changes every fight.
+
+  **Coverage stopped nothing, anywhere.** Twelve garments each carried a coverage number and that
+  number never met a blow: it was read for bite and scratch transmission and for a heat penalty,
+  and for nothing else. On the owner's decision of 2026-09-12, `SimHealth.armor_damage_factor` is
+  the reader, applied inside `damage_part` — **the one closure in the sim that writes
+  `b[named_part]`**, and the funnel both `attack.connected` and `bite.landed` arrive at. Applying
+  it at each publisher would be the same rule written four times and forgotten in the fifth; the
+  gate asserts the single writer textually.
+
+  **The curve is not a new number, and that is the subtle half.** `SimWounds.severity_for` had
+  softened escalation by exactly `1 - 0.5 * coverage` since wounds landed. That same curve moved one
+  step **upstream** onto the integrity, and `severity_for` dropped its copy — so no shipped severity
+  band moved, and `check_m2_wounds.gd`'s ARMOR lane still prints the identical `bare=2 armored=1` it
+  printed before. Keeping both copies would have squared it and quietly made every vest twice the
+  vest its content says it is; that is sabotage #4's exact error text.
+
+  **Slots, and the pocket that pays for itself.** `SCALABLE` gains a third entry whose profile is a
+  coverage *map* keyed by body part rather than a field list — `fold` needed no new code, because it
+  never cared what a key meant. `armor_coverage` returns zero flat when `blocked_reason` says a
+  required slot is empty, which is what makes `item.vest.carrier` webbing until there is a plate in
+  it: the first garment in the game that cannot work without what goes in it. The utility pouch
+  grants a `container` grid and `reachable_containers` now walks the slots of worn gear, so a vest
+  with a pouch fitted genuinely carries more — with the mass recursing through `parts_of`, so it is
+  not free carry.
+
+  **The measurement is the most valuable thing this slice produced, and it is a negative result.**
+  `godot:m2:balance` fast tier came back **byte-identical on all four seeds**, before and after.
+  That is not the mechanic failing — it is the harness unable to see it, because **the fast tier
+  dresses nobody**: it arms hands only, `searches=0`, and no starting kit contains armour. The
+  identity is still worth having, since it proves the change introduced no RNG-stream or ordering
+  divergence anywhere else, including from eight new loot rows. A throwaway driver mirroring the
+  fast tier with everyone dressed is what could see it: its **bare arm is byte-identical** on all
+  four seeds — mitigation is exactly inert without coverage, the perfect control — and on the one
+  seed where contact stayed identical between runs (7 grabs, 57 bites, the same two wounds),
+  **integrity lost fell 14.35 → 8.97, a 37% reduction**. On another, a death went away. The
+  remaining two diverged, as a combat change must, and are **not claimed**.
+
+  **So the shipped colony still fights in shirtsleeves**, and that is named as its own piece in
+  what's-left rather than left implicit. Armour acquisition — a starting kit, or colonists who wear
+  what they find — is bigger than this slice.
+
+  **The health-bar ban is untouched.** Mitigation adds no field: the factor is computed inside
+  `damage_part` and discarded, never stored, never published, never in a read model. `condition.gd`
+  still says only `armored: true`, a boolean, and the ARMOR gate's own BAN lane asserts that as well
+  as the standing gate. The one new player-facing string is prose with no digit — *"The plate
+  carrier has no plate."* — and the lane scans it character by character so `check:hud` never has to.
+
+  **Two more assertions could not fail, and both were rewritten.** One checked that a blocked
+  garment covers nothing, but an empty `attachments` component short-circuits before
+  `blocked_reason` is ever consulted, so with the plate simply pulled the check was unreachable —
+  it fits a pouch to a *non-required* slot now, the only state where that predicate decides. The
+  other, "a multiplier cannot conjure coverage", turned out to be guaranteed by arithmetic rather
+  than by any guard, so no single edit could break it; it was replaced by exact per-key values and
+  a "a part fitted to one garment must not move another" pair. **That is the fifth and sixth such
+  find in this arc**, and a code comment crediting the wrong mechanism was corrected with them.
+
+  **One behaviour change that was not asked for, flagged rather than buried.** `damage_part` now
+  returns what was actually taken and both wound paths band off that, so the CON-derived
+  `damage_taken` modifier and wound severity no longer disagree — before, the modifier reduced
+  integrity while the wound was banded off the raw event damage. Slightly milder wounds for
+  high-CON survivors, small and in the right direction, and a side effect rather than an intent.
+- **Items** — ~~light that burns down, and what feeds it~~ **landed** 2026-09-12
+  (`npm run godot:m2:light_burn` → **`M2_LIGHT_BURN_OK pinned content slots burn headlamp feed plant
+  siphon night`**, a new gate with nine lanes, every one watched go red; `godot:check:light`,
+  `godot:m2:vehicles`, `godot:m2:fortify`, `godot:m2:sight` and `godot:m2:gear` all held), the
+  **seventh slice of the alpha-roster arc** and the fifth of the owner's eight readers.
+
+  **Light was the only resource in a resource game that could not run out.** There was no
+  `burnTicks` and no fuel key of any kind, so `item.lamp.electric` at magnitude 35 was strictly and
+  permanently better than `item.candle.wax` at 3 from the moment you found one; `item.battery` sat
+  inert in three loot tables with a description reading *"Something here needs one"* and nothing
+  did; and `item.lantern.oil` had nothing in the world that could refill it.
+
+  **The clock runs at movement order 70, five ahead of the kernel's own `kernel.light` at 75**, so a
+  wick that runs out is dark in the same tick's shadowcast rather than throwing one last free step
+  of light at a district about to be redrawn. It spends only the lamp that is *actually lighting
+  somebody*: max-not-sum is intact and now has a consequence, because the candle in your off hand is
+  not lit and so does not burn down while the lamp in your right hand does. The fuel record is built
+  lazily from content the first time a lamp is asked to burn, so every lamp in a running world **and
+  in an older save** starts full rather than starting dark.
+
+  **Both dead sockets in the reader were reached**, on the owner's decision. `HAND_SLOTS` was
+  `["primary","secondary"]` and was the only list the scan walked, so `head` and `eyes` — legal
+  equip slots since inventory shipped — were invisible to light: a headlamp would validate, equip,
+  draw on the pawn and light nothing. HEADLAMP is the lane, and it measures the **lit radius off the
+  real shadowcast** rather than a helper's return value: at midnight a bare survivor lights nothing
+  and a headlamp lights 17.0 m, with an identical fabricated lamp on a *torso* as the control that
+  must light nothing — without which a scan widened to all twelve slots would pass.
+
+  **A claim in this arc's own brief was stale, and the slice said so.** The brief asserted that no
+  attachment declares `light`; `item.attach.underbarrel.light` already declared `magnitude: 16` and
+  `check_m2_attach.gd`'s LIGHT lane already asserted it. What was genuinely missing was a burn and a
+  feed, which it now has. Worth recording because the instruction was mine and the correction came
+  back up rather than being quietly worked around.
+
+  **Three orphans adopted rather than deleted.** `item.floodlight.rigged` — 90 m, 3×3, no equip
+  slot, in the military cache's table with **no placement verb anywhere in the game** — is stood up
+  through fortify's `construct` channel and becomes furniture, as the *item entity itself*, so a
+  floodlight half burnt in the pack is the same object half burnt in the yard. It is a command
+  rather than a rung on the E ladder for the reason `camp.establish` is: a beacon whose own
+  description says it tells everyone where the yard is should not go down by accident.
+  `item.jerrycan.empty` is filled by reading the refuel path backwards — whole can or nothing, the
+  pour's own rule — with the full/empty pairing found through the existing `empties` key by reverse
+  lookup rather than a second content key that could drift. And `item.battery` is what the electric
+  lamp eats.
+
+  **The balance claim is measured, not authored.** NIGHT computes the fully dark stretch off
+  `SimClock` at run time — **72,020 ticks, six in-game hours** — rather than quoting a remembered
+  number, and judges every shipped burn against it: the electric lamp is 1.5 nights on one cell, the
+  oil lantern 2.0 nights at two thirds the reach (the trade that makes lamp oil worth finding), the
+  candle half a night and single-use. The lantern being both dimmer *and* longer-lasting than the
+  lamp is asserted rather than hoped for. Ceilings both ways: nothing may burn longer than four
+  nights and something must burn shorter than one, which keeps "for ever with a number on it" and
+  "no short lights at all" from creeping back.
+
+  **The screen's half is one word.** `fuel_clause` gives the inspect pane "burning steadily",
+  "burning low", "guttering" or "dark" and nothing at all for something that is not a lamp — never a
+  fraction, never a count — and `check_inventory.gd`'s digit ban judges it with the rest of the pane.
+- **Items** — ~~clothing: warmth, wet and cooling~~ **landed** 2026-09-12
+  (`npm run godot:m2:warmth` → **`M2_WARMTH_OK pinned content compose bands cool wet rain armour
+  art`**, a new gate with nine lanes, every one run red; `godot:m2:cold`, `godot:m2:heat`,
+  `godot:m2:storm`, `godot:m2:weather`, `godot:m2:needs`, `godot:check:water` and
+  `godot:check:worn` all held), the **sixth slice of the alpha-roster arc** and the fourth of the
+  owner's eight readers.
+
+  **One literal string was the entire clothing-warmth system.** `needs.gd`'s `wearing_wrap` matched
+  `"item.wrap.cloth"` by id, so there was exactly one garment in the game that did anything about
+  temperature and it was named in code. Four weather kinds had shipped gated — cold snap, heat wave,
+  storm, fog — with **nothing in the roster to price them**. Beside it `wearing_armor` asked the
+  `torso` key and no other, so a suit of plate on every limb but the chest read as no armour at all
+  when the sun came out. Both are gone.
+
+  **Warmth is per-part, like `armor`** (the owner's decision of 2026-09-12): an open map keyed by
+  the parts in `SURVIVOR_BODY`, composed across worn items by **max**, mirroring
+  `SimInfection.armor_coverage_of` rather than inventing a second shape. `WARMTH_WEIGHTS` weighs
+  each part by how much of a body it is — whole integers summing to a hundred, so no boundary is
+  ever decided by a float, which is the lesson the `sprites:check` float-summation bug taught this
+  repo — and `WARMTH_PER_BAND` of those points is one rung on the temperature ladder. Cooling is the
+  same axis negative, which makes a sun hat and a wool hat one mechanism instead of two; "max" on a
+  signed axis is the layer furthest from zero, which is `maxf` letter for letter wherever every
+  value is positive.
+
+  **The retrofit is exact, and holding it exact cost a design decision.** `item.wrap.cloth` gained a
+  `warmth` block and is still worth one band toward comfortable, wet or dry, in the sun as at night
+  — the two claims `check_m2_heat`'s ROOF lane and `check_m2_weather`'s COLD lane have always pinned.
+  That is *why* docs/04's wet multiplier lands on the **bands, rounded up**, rather than on the
+  points rounded down: on the points a one-band garment goes to zero and "wet and wrapped on a mild
+  day is comfortable" goes red — which is not a retrofit, it is a rebalance wearing one. What rain
+  costs is everything above the first band, so a coat and a wool hat read two bands dry and one
+  soaked. Cooling is never multiplied: a damp linen shirt is not less cool for being damp.
+
+  **A live demonstration of the shallow-validator trap, produced by the gate's own sabotage pass.**
+  A `warmth` block naming a body part that does not exist passed `npm run godot:validate` with
+  `GODOT_CONTENT_OK`. Only the new gate refused it. CLAUDE.md has carried that trap since a wrong key
+  inside an `armor` block sat for weeks giving zero arm protection; this is the same failure
+  reproduced deliberately, in a fresh block, and caught — which is the whole argument for a
+  purpose-built gate per nested shape.
+
+  **One assertion took three sabotages before it was seen to fire.** The signed-max rule has three
+  halves — the cooling half must stay negative, the warmer layer must win, and a *second cool thing
+  must not make you warmer* — and the first two sabotages each tripped a different assertion than
+  the one written for the third. A third sabotage was built specifically to prove the bandana
+  assertion could fail. It could. Without that pass the slice would have shipped an assertion nobody
+  had ever watched go red, which is the exact thing the rule exists to prevent.
+
+  **Twenty-five new bases** in `content/items/clothing.json`, across all five tables per docs/12.
+  **Not one declares an `equipSprite`**: `EQUIP_DRAW_ORDER` covers six slots and the scarf, bandana,
+  wool gloves, sandals and both vests sit outside them, so art there would never draw — and the ART
+  lane reads that table off the renderer rather than copying it, refusing any base that declares art
+  in an undrawn slot. A second key, `shedsRain`, landed beside `warmth` and is **beyond the scope
+  as written**: the defect said nothing in the roster insulates, *sheds rain* or cools, and a rain
+  poncho with only a warmth number would have been decoration. It is deliberately narrow — a poncho
+  turns the sky away and is no help in a ford, which the RAIN lane proves on `check_water`'s own
+  forest-edge fixture rather than skipping when the default district carries no water.
+- **Items** — ~~named items, the fourth tier~~ **landed** 2026-09-12
+  (`npm run godot:m2:gear` → **`M2_GEAR_OK … and the six named items are hand-authored, off both
+  ladders, and each one charged for what it gives`**, a new NAMED lane with four sub-lanes;
+  `godot:check:mods`, `godot:check:loot`, `godot:m2:wounds`, `godot:m2:swipe` and `godot:m2:contact`
+  all held), the **fifth slice of the alpha-roster arc**.
+
+  **`SimItems.TIERS` shipped three of docs/10's four.** The fourth — Named, hand-authored, fixed
+  rolls, *"always with a drawback"* — is in code, and the six items docs/10 names are content. The
+  tier row carries two fields the others do not and they do different jobs: `authored: true` keeps
+  it off the **upgrade ladder** and `weight: 0` keeps it out of `roll_tier`'s global distribution.
+  Both come through a new `rollable_tiers()`, which is the one place a *climb* and a *lookup* are
+  told apart — a modification measures against the rollable tiers, while "how many affixes does this
+  id permit" still reads `TIERS`, because a named item has to be able to find its own row. The
+  `authored` flag is gated twice: removing it turns NAMED red **and** turns `check_mods` red on
+  *salvage rights on a field-tested axe returned success, expected already-max-tier* — without it a
+  Scrap Kit manufactures a named item with no author, no fixed roll and no drawback.
+
+  **Three of the six drawbacks needed a reader that did not exist**, and each landed on a channel
+  already live rather than on a stat that is not. `melee.gd` published `MELEE_CONNECT_NOISE` as a
+  **literal**, so no weapon could be heard further than any other; the melee profile carries
+  `connectNoise` now, defaulted to that same constant so every shipped weapon is unchanged, and the
+  Siren's Bell connects at 90 against an ordinary sledge's 8. `attention_emitter.gd` adds what a body
+  is *wearing* to what it gives off — **summed rather than maxed**, deliberately the opposite of how
+  `armor_coverage_of` composes the same walk, because two helmets do not armour a head twice but two
+  filthy things do smell worse — and read at emission rather than cached, so an apron taken off stops
+  smelling on the next emit. And `append_wound` flags a wound taken while holding something `filthy`,
+  priced by `sepsis_chance` as a sixth term in the same product as docs/05's five, so cleaning and a
+  sterile dressing still discount it: 0.324 a night against an ordinary pipe's 0.108, down to 0.022
+  once treated.
+
+  **Two lanes could not fail, and the slice caught both itself.** The Quietkeeper's "its handling
+  reaches nothing" compared its raise time against the hunting bow's and stayed green with `handling`
+  hardcoded to 1.0 — because the Quietkeeper is simply the heavier bow, so the lane was measuring
+  heft and reporting handling. It now compares the same weapon at its own weight with declared
+  versus neutral handling. And the tier's `weight: 0` could not be seen through `rollable_tiers()` at
+  all, since `authored` already excluded the row, so the 4000-roll test could only fail with both
+  locks off; the weight is asserted directly now and the roll test is documented as the backstop it
+  is rather than claimed as the proof. Sixteen sabotages, fourteen red on the first try — and the two
+  that were not are the *"a gate that cannot fail is worse than no gate"* rule collecting twice in
+  one slice.
+
+  **A gate whose message had gone false.** `check_loot.gd`'s `TIER_IDS` was a hardcoded copy of
+  `SimItems.TIERS` that still said three tiers. It refused `named` correctly while reporting *"is
+  not a `SimItems.TIERS` id"*, which by then was untrue. Derived from `rollable_tiers()` now: same
+  refusal, honest message, and it cannot drift on the next tier. **No table's `tierWeights` names the
+  new tier**, and that is a decision rather than an omission — a `tierWeights` entry means "roll an
+  *ordinary* base at this tier", and at a tier permitting no affixes that is a strictly worse
+  scavenged, a Named Steel Pipe with nothing on it.
+
+  **Three drawbacks could not be expressed and were not faked.** The Long Argument's "near-zero bite
+  risk" has no bite-risk stat — it is emergent from reach, so the lane measures reach and says
+  explicitly that the bite half is unasserted. Quietkeeper's "useless against armoured types" has
+  nothing to be useless against: **no zombie in `content/zombies/` declares armour of any kind.** And
+  the Tetanus Special's "free to repair from scrap" wants `repair_cost`, which resolves against
+  nothing, so it simply is not shipped; its "heavy bleed" rides the live chain instead — higher
+  damage, worse severity, faster bleed — plus a fixed `barbed` prefix.
+- **Items** — ~~the balance re-baseline the arc reserves~~ **run** 2026-09-12, and it **closes the
+  alpha-roster arc** (`npm run godot:m2:balance`, fast tier, four seeds, ten days, three
+  configurations on the same driver). The prediction this entry was written with — *"expect the
+  contact counts to move while outcomes hold"* — is **exactly what happened for the content, and
+  exactly what did not happen for the one behaviour change.**
+
+  | configuration | 20260805 | 404 | 31337 | 90210 |
+  |---|---|---|---|---|
+  | pre-arc, 152 bases | 3/3 · 1 dead · 117 grabs | 3/3 · 0 · 7 | 3/3 · 0 · 0 | 3/3 · 2 · **51** |
+  | all arc content, 362 bases, no acquisition | 3/3 · 1 · 117 | 3/3 · 0 · 7 | 3/3 · 0 · 0 | 3/3 · 2 · **111** |
+  | shipped: content + acquisition + claim | 3/3 · 1 · 117 | **1/3** · 2 · 124 | 3/3 · 0 · 0 | **2/3** · 4 · 153 |
+
+  **The 210 new bases moved contact on one seed and outcomes on none.** Three of the four seeds are
+  **byte-identical** between the pre-arc tree and the full roster — same deaths, same grabs, same
+  survivors — and 90210's grabs merely doubled, 51 to 111, with the colony still ending 3/3. So the
+  arc's loot-stream growth is vindicated: 186 new rows across five tables, every category's weight
+  either held byte-identical by splitting rows (ammo, food) or added as a genuinely new category
+  (materials, lights, masks, kitchen, noise, comfort, books, camping), and **not one seed's outcome
+  moved because of it**. The `loot/tables.json`-alone revert this entry prescribed as the diagnosis
+  step was never needed — the middle row already isolates content from behaviour.
+
+  **What did move outcomes was the acquisition rule, on two seeds.** Seed 404 goes from a very
+  quiet campaign (7 grabs, nobody hurt) to 124 grabs and one survivor; 90210 goes from 2 deaths to
+  4 and from three survivors to two. The mechanism is not mysterious and is recorded with the slice
+  above: colonists now leave the compound to fetch armour, as far as `HOME_RADIUS_TILES`, and
+  contact is what happens outside the walls. The claim already pulls this back from worse — without
+  it 90210 wipes entirely and the gate goes red.
+
+  **So the arc made the campaign harder, and the record says so rather than rounding it off.** Two
+  of four seeds now lose colonists where none did before. Whether that is the difficulty the game
+  wants is **not a question this measurement can answer** — it is what the ten-day human playtest
+  in the exit criteria is for, and it is named in what's left rather than settled here. What the
+  measurement does establish is *which half to argue about*: the content is not the problem, the
+  rule is, and the rule is one static flag away from being switched off if the playtest says so.
+- **Items** — ~~armour that reaches a campaign~~ **landed** 2026-09-12, **both halves**
+  (`npm run godot:m2:npc` → **`M2_NPC_COMBAT_OK … dress selective claim`**, three new lanes, and
+  `npm run godot:m2:balance` → **`M2_BALANCE_OK … armour bare vs dressed on 2 seeds, flag`**, two
+  new lanes; eight sabotages by the slice and three more by the integration, each confirmed red),
+  the **fourteenth and last built slice of the alpha-roster arc**. It closes the piece the armour
+  slice named on the day it shipped.
+
+  **Coverage had stopped blows since that slice and nothing had ever put a vest on anybody.** On
+  the owner's decision there is **no starting kit**: colonists gain a rule that equips armour they
+  have found when it beats what they are wearing, and a colony that finds nothing stays bare on
+  purpose. `SimJobs._dress_job` is `_rearm_job`'s shape — the pack first with no job, then the
+  nearest better garment near home as a `Dress` walk, the same `reserved` and unreachable refusals
+  — because it is the same act. "Better" is `SimNeeds.armor_points_of_base`, the scalar the heat
+  wave already asks this question with, rather than a second notion of good armour. **Warmth is
+  deliberately not weighed** and the code says so: a colonist holding a parka and a leather jacket
+  wears the jacket.
+
+  **It fires between jobs, not during one**, and the distinction is the design: re-arm interrupts
+  work because empty hands are an emergency, while a vest found while hauling can wait for the end
+  of the haul. That placement is also the cheap one — `_pick` is already paying for a scan of
+  exactly the shape the ground branch needs.
+
+  **The harness half, and the tension it had to resolve.** Once colonists wear what they find, the
+  bare arm cannot be the tier as it stands. So `SimJobs.WEAR_FOUND_ARMOR` is a gate-drivable static
+  like `SimShambler.GRABS_ENABLED`: both arms boot the same seed with the same armour laid at the
+  colonists' feet and differ **only** in whether the rule may run, and the harness equips nobody —
+  so if the rule breaks, the dressed arm goes bare and the lane says so. Three measurements shaped
+  it, each killing a simpler design: the colony **never opens a container** (`searches=0` on every
+  seed, and still zero over a whole uncompressed day of 180,000 ticks), so the dressed arm lays gear
+  where the ground branch reaches; the **dusk window never touches the colony** (117 grabs, none on
+  a colonist) and widening it to 12,000 ticks wipes the colony, so the arms compress to the working
+  day; and **raw integrity lost is one death plus noise**, moving 1.4% between arms.
+
+  **A lane was written, measured, and thrown away, and that is the result worth keeping.** Integrity
+  lost per point of damage *offered* read **0.497 bare against 0.330 dressed** — and **stayed green
+  with `armor_damage_factor` deleted from `damage_part`**. It was measuring saturation: the closure
+  clamps at zero, so the arm with more contact wastes more of it on parts already spent, and
+  dressing means walking. The figure that survives its own sabotage is taken over **unhurt
+  colonists only**, dropped from both accumulators the moment any part reaches zero, so nothing left
+  can be clamped. Bare reads **1.0000, exactly and by construction**; dressed **0.7212, a 27.9%
+  cut**, reproduced independently at integration. That is the **fifth** assertion this arc found
+  unable to fail, and the subtlest.
+
+  **The claim, and why it is not tuning.** The shipped rule sends colonists as far as
+  `HOME_RADIUS_TILES` — forty tiles, the same forty Haul already walks for a tin — so the slice
+  arrived with a cost. Measured on one tree, differing by nothing but the claim: without it seed
+  90210 **wipes entirely, 0/3, and `survivors_end >= 1` turns the balance gate red**; with it that
+  colony ends 2/3 and seed 404 pays instead, 3/3 → 1/3. Two seeds are byte-identical across both,
+  which is what makes the other two real rather than noise. So the owner's chosen lever is
+  **load-bearing for a green chain**, not a preference: the Dress job takes the Cook's `reserved`
+  seam and the scan asks `_claim_live` rather than `has_component`, which also erases a claim whose
+  holder died. This is the one place `_dress_job` stops copying `_rearm_job`, and the reason is in
+  the code — re-arm fires only for empty hands and is rare, a better garment is lying around
+  constantly, so the collision is the common case.
+
+  **One trap recurred within a day of being written down.** The first before-and-after compared the
+  building agent's worktree (branched before the comfort, books and camping merges, ~115 fewer loot
+  rows) against the merged tree, and appeared to show the claim making outcomes *worse*. It is
+  exactly the failure this list already records from the second catalogue — a seed moves and the
+  code you just touched takes the blame while `loot/tables.json` is the cause. The conclusion was
+  withdrawn before it was acted on and re-measured on one tree.
+
+  **The CLAIM lane needed two attempts**, and the first could not fail: with the vest a stride away
+  the first colonist reached it before the second ever picked a job, so a scan ignoring claims
+  entirely still passed. The arena's walk is long enough now that the collision has time to happen,
+  and the lane's comment says so, so nobody shortens the distance to make it quicker.
+
+  **Cost, stated:** the fast tier goes **4m30s → ~11 min** on two armour seeds. Four seeds measure
+  15m05s and are not carried; the four-seed figure was taken by hand and agreed to within 0.1%
+  (27.8% against 27.9%), which is what makes two enough — the direction is structural, not
+  statistical. The chain added **no new gate file**, so it stays at 69.
+- **Items** — ~~camping and utility gear~~, absorbing ~~bed quality as an authored property~~
+  **landed** 2026-09-12 (`npm run godot:m2:gear` → **`M2_GEAR_OK`** with a new CAMP lane, and
+  `npm run godot:m2:needs` → **`M2_NEEDS_OK`** with new BEDDING and SOAP lanes, nine sabotages run
+  and each confirmed red; `godot:m2:jobs`, `godot:m2:save`, `godot:check:loot`,
+  `godot:check:worn`, `godot:check:inventory` and `godot:check:hud` all held), the **thirteenth
+  slice of the alpha-roster arc**.
+
+  **docs/10 used "a sleeping bag and a scalpel" as its own worked example of the footprint puzzle
+  and neither item existed**, while `make_bed` spawned a bare entity with no quality on it — so
+  what you slept on could not vary the night. `bedQuality` and `hygiene` are both flat scalars
+  under an enum, the `buildMaterial` shape, because the Godot validator is shallow and an enum on a
+  top-level key is the only depth it enforces unaided. `SimNeeds.furnish_bed` spends the best
+  bedding out of the builder's own pack when the Construct `bed` job completes, and the bed keeps a
+  float a save can carry.
+
+  **It is additive by arithmetic rather than by assertion.** `sleep_quality` spends comfort against
+  the penalties the night already has, floored at zero — so a bed with no bedding is comfort 0.0
+  and is exactly the bed that shipped before, and a perfect night is still exactly
+  `SLEEP_FULL_NIGHT`. BEDDING pins all three shipped figures (1.0000 / 0.7500 / 0.5000) and then
+  measures the difference over six identically seeded districts: **a cold night on a foam bedroll
+  restored 84.00 of rest against the bare boards' 75.00**, with either figure refused if it lands
+  on the quality floor or the full-night cap.
+
+  **Twenty-two bases**, so docs/10's own example now exists. Five of them — bolt cutters, picks,
+  binoculars, scalpel, rod — are `material` with no block at all: the whetstone case the schema
+  already names, footprint and mass and nothing else, rather than a socket invented so a gate would
+  count them. `bedQuality` **joined** the gear gate's "a tool nothing reads" refusal rather than
+  that refusal being relaxed to let a bedroll through, and the mute-tool true negative moved with
+  it.
+
+  **Half of docs/04's soap clause shipped, and the slice said so rather than taking the call.** A
+  bar banks charges and a dirtying spends one; a wash with nothing banked is dirty again on the
+  next job. But a wash still works with **no** soap at all. Making it required is a rebalance of a
+  need every colonist has, and a district that rolled none would have no way back from `filthy`,
+  which `sepsis_mul` reads. Named in what's left.
+
+  **This slice's merge is also why `check_loot.gd`'s container lane changed**, and the change is
+  worth reading: that lane asserted a flat zero items on the floor after an open, on the strength
+  of a comment reading *"a cupboard is six by four, so a residential roll fits."* That was an
+  observation about the table of the day, not a promise `SimContainers` ever made — it has always
+  spilled deliberately, and says so at the line that does it. Sixty-five new rows made residential
+  generous enough to overflow, and the lane went red against code that was correct. It now asserts
+  the guarantee the module actually offers: every spilled item is re-offered to the box and the box
+  must refuse it, so a spill can never be a packing failure the grid could have absorbed. **The
+  sabotage pass then proved that was still not enough** — making the module destroy what it cannot
+  fit left the lane green, because on that seed nothing overflows and the assertion had no data to
+  judge — so there is now a fixture that stuffs a cupboard by hand until it will take nothing more
+  and makes the accounting balance.
+- **Items** — ~~comfort that is not food~~ **landed** 2026-09-12
+  (`npm run godot:m2:comfort` → **`M2_COMFORT_OK pinned cap clock reach menu block`**, a new gate of
+  six lanes; `godot:m2:needs`, `godot:m2:gear`, `godot:m2:jobs`, `godot:m2:save`, `godot:check:hud`
+  and `godot:check:inventory` all held), the **eleventh slice of the alpha-roster arc**.
+
+  **Mood had seven sources and every one of them was something done *to* a survivor.** The item-use
+  router refused anything neither edible nor drinkable, so cooking was the only morale lever anybody
+  had. A `comfort` block — `{mood, ticks, spends}` — is the other half, read by `SimNeeds.comfort_spec`
+  and routed through `can_use` so the word menu's predicate and the intake are one function rather
+  than two that can disagree.
+
+  **It respects the non-stacking rule rather than routing around it**, which was the whole risk in
+  the piece. `needs.gd` already says in its own comments that a second modifier per source would
+  accumulate without bound behind a cap the module believes it is enforcing; so comfort is one
+  modifier from one source, replaced rather than stacked in `_apply_grief`'s exact shape,
+  accumulating toward `COMFORT_CAP = 15.0` and expiring on an int clock beside `mealMoodUntilTick`.
+  Twelve bases in `godot/content/items/comfort.json`, thirty-one loot rows appended, with the 495
+  pre-existing rows verified byte-identical and no `tierWeights` touched.
+
+  **The CLOCK lane could not fail when it was first written, and that is the useful part of this
+  record.** The shipped harmonica's clock happened to land on tick 60000, and the mood cadence runs
+  every twenty ticks, which divides it — so a sabotage that gated the whole comfort tick on `% 20`
+  left the lane green. It now offsets the world tick so the clock lands off the cadence and asserts
+  `until % 20 != 0`, so the offset cannot silently stop working. Found by sabotage, not by review.
+
+  **Shipped whole, with one limitation recorded rather than hidden:** comfort is a player and NPC
+  *verb*, and no autonomy job makes a colonist seek it out when their mood drops. Named in what's
+  left, shared with the books slice.
+- **Items** — ~~books that teach~~ **landed** 2026-09-12
+  (`npm run godot:m2:teach` → **`M2_TEACH_OK pinned content reach twice bound save`**, a new gate of
+  six lanes, all six broken and watched go red; `godot:m2:web`, `godot:m2:gear`, `godot:m2:needs`,
+  `godot:m2:save`, `godot:check:hud` and `godot:check:inventory` all held), the **twelfth slice of
+  the alpha-roster arc**.
+
+  **`skills.gd` had been a finished six-region XP ladder with zero item content since Milestone 1**:
+  every point any survivor had ever earned came from a kill or a completed job, in a game where
+  skills die with the person. A `teaches: {region, points}` block pays into the same `_earn` through
+  a new `SimSkills.teach` — a shortcut into the existing ladder, never a second one beside it.
+
+  **Two rules carry the slice, and both are gated.** A book is consumed on reading, *and* the reader
+  keeps a `booksRead` ledger, so a second copy of a title already read teaches nothing and is not
+  spent — TWICE asserts the exact earned total across all six regions is identical after the second
+  reading and after the first. And what a book may teach is capped at `SimSkills.PRACTICE_POINTS`,
+  which is what doing the work once actually pays: BOUND measures a completed Doctor job through the
+  real handler and holds every shipped book against that measurement rather than against the
+  constant. A book that out-teaches practice makes practice pointless.
+
+  **The ledger is an Array of base ids, and the slice measured why rather than trusting the trap.**
+  CLAUDE.md warns that a Dictionary keyed by an entity id does not survive a save. It is worse than
+  documented: keying it that way makes `SimSerialize.canonicalize` throw on `String(k)` and the save
+  is written with the component **present and its contents gone**. The SAVE lane therefore asserts
+  against the save *text* before it asserts against a restore, because two worlds sharing one gate
+  process cannot tell a component from a `static var`.
+
+  **The shallow-validator trap reproduced a second time**, in a second brand-new block: a `teaches`
+  naming the region `"Shooting"`, which `skills.gd` does not have, passed `npm run godot:validate`
+  with `GODOT_CONTENT_OK`. Only `check_m2_teach.gd` refused it. Ten books in
+  `godot/content/items/books.json`, nineteen loot rows, additive and verified.
+
+  **Shipped whole**, with the same limitation as comfort: reading is a player verb and no NPC ever
+  chooses to read.
+- **Items** — ~~cooking and water: the transform keys~~ **landed** 2026-09-12
+  (`npm run godot:m2:transform` → **`M2_TRANSFORM_OK pinned content cook order boil purify rank
+  reach`**, a new gate of eight lanes; `godot:m2:jobs`, `godot:m2:needs`, `godot:m2:gear`,
+  `godot:m2:fortify`, `godot:m2:materials` and `godot:check:loot` all held), the **ninth slice of
+  the alpha-roster arc**.
+
+  **Ten ingredients shared one meal between them.** The cook step in `jobs.gd` spawned a single
+  hardcoded id, so game meat, dried beans and salted strips came off the same fire as the same
+  thing; boiling was worse, a `baseId` rename from one literal to another written over the item in
+  place. Three keys replace both. `cooksInto` and `boilsInto` are the exact grammar of `empties` —
+  a flat top-level string naming another base id — which is why this was the cheapest reader in the
+  arc: the shape was already shipping and already read, and the gear gate's reachability half
+  understood it for free. `purifies` is the third and is a count rather than a name: a tablet is
+  spent once, a pump filter has forty, a billy can has six and is then a billy can with nothing
+  left in it. No fire is required, which is what docs/04's "filters or chemicals" has meant all
+  along.
+
+  **Twenty-four new bases in `godot/content/items/kitchen.json`** — ten cookables making ten
+  distinct meals, two boilable vessels, four purifiers, a camp stove, a pot, and the ingredients
+  and curing supplies docs/12 asks for. Loot is additive, as it was for materials: cooking gear is
+  a new category, so nothing existing was trimmed and no pre-existing weight or `tierWeights`
+  moved.
+
+  **The REACH lane earned the slice on its first run.** `item.filter.pump` was complete, correct,
+  read end to end, and in no loot table — the exact shape `item.floodlight.rigged` had before the
+  light slice reached it. The gate refused it by name rather than passing quietly, which is the
+  whole argument for the dead-socket rule stated as a reproduction rather than a principle. The
+  fix was two loot rows; the point is that nothing else in the chain noticed.
+
+  **What did not land:** a spent purifier cannot be refilled or boiled clean, so the best purifier
+  in the game is a countdown. Named in what's left rather than left to be discovered.
+- **Items** — ~~noise that is an item~~ **landed** 2026-09-12
+  (`npm run godot:m2:noise` → **`M2_NOISE_OK pinned content table place clock horde lift hud`**, a
+  new gate of eight lanes; `godot:m2:gear`, `godot:m2:fortify`, `godot:m2:materials`,
+  `godot:m2:save`, `godot:check:hud` and `godot:check:inventory` all held), the **tenth slice of
+  the alpha-roster arc**.
+
+  **The attention field has been finished for a while and the only thing in the game that spent an
+  item to make a noise was firing a gun.** A `noise` block gives a magnitude, a run length and a
+  fuse; eight devices carry it, six that wind up and two that go off where you stand. Every
+  magnitude is a rung of docs/03's published table rather than a number invented for the item, and
+  the TABLE lane asserts exactly that, so a device cannot quietly become louder than the ladder
+  allows.
+
+  **The devices are multi-use, and that is a deliberate contrast.** E takes a placed device back
+  into the pack, the tile is left with nothing on it, and the same entity goes down again on a
+  fresh fuse; a lift with nowhere to put it refuses rather than losing the thing. The light slice's
+  floodlight is a one-way trip and is recorded as such — two placeable items, two opposite answers,
+  both by the owner's decision of 2026-09-12 rather than by whichever was written first.
+
+  **Half of it did not ship, on purpose.** The what's-left entry wanted the alarm and the noisemaker
+  turned into things you had to have carried there first. They are still free world singletons,
+  because `check_m2_materials.gd`'s PINNED lane asserts both of them by name and by cost — so
+  repricing them is a rebalance that turns a shipped gate red, not a content addition riding along
+  beside one. The owner chose new items only. The repricing is named in what's left with the
+  before-and-after run it owes.
+
+  **HORDE is the lane worth naming**, because it measures the thing the slice is for rather than
+  the field it writes into: twelve bodies at a mean 18.0 m held 18.6 m through a 400-tick fuse and
+  then closed to 3.0 m over 3600 ticks of siren, while an identical siren that never went off left
+  its ring at 20.9 m. The control is what makes it an assertion — the crowd came for the sound, and
+  a crowd that did not hear one stayed where it was.
+- **Items** — ~~build materials: the substance that is not scrap~~ **landed** 2026-09-12
+  (`npm run godot:m2:materials` → **`M2_MATERIALS_OK pinned kind kinds findable reach recipes`**, a
+  new gate whose six lanes were each broken and watched go red; `godot:m2:fortify`, `godot:m2:jobs`,
+  `godot:m2:bench`, `godot:m2:gear` and `godot:check:loot` all held), the **fourth slice of the
+  alpha-roster arc** and the third of the owner's eight readers.
+
+  **One item id was the only substance in the game that could build anything**, and it was welded
+  twice: `SCRAP_ID` in `fortify.gd` and a second, identical copy of the same constant in `jobs.gd`.
+  Eleven `material`-class bases shipped beside it — a bolt of cloth, a battery, duct tape, rags, a
+  whetstone — and not one could put a plank across a doorway, while docs/12 promised a gathered and
+  refined tier on top of that which did not exist at all. Both welds are gone. A recipe names a
+  **kind**; an item declares which kind it is in `buildMaterial`, a flat scalar under a twelve-value
+  enum — the shape `bandageTier` and `antibioticTier` set, because the Godot validator is shallow
+  and a top-level enum is the only shape it actually enforces. The owner's decision of 2026-09-12,
+  **typed materials, uniform cost**: one unit a stage, per-recipe quantity deliberately left closed
+  because `repair_cost` (a stat nothing resolves, on the defect list) is entangled with it.
+
+  **Thirty new bases, twelve kinds**, in `godot/content/items/materials.json`, placed on docs/12's
+  yield profile: salvaged timber and nails in the houses, rope and charcoal and clay in the shops,
+  sheet metal, rebar, ingots, screws and circuit boards in the industrial park, lead and barbed wire
+  and relays in the military cache.
+
+  **The loot placement is additive, and that is a departure from the two slices before it.** Ammo
+  and food both held their category totals byte-identical by splitting existing rows; build
+  materials are a **new** category, so there was nothing to divide from and nothing existing was
+  trimmed. Every prior category therefore keeps its absolute weight and loses share: residential
+  +7.7%, commercial +6.0%, medical +2.2%, military +4.4%, **industrial +21.3%**. Industrial is the
+  materials location by docs/12 and had the fewest rows of any table, so it carries the biggest
+  haul by design — but it is the one number in this slice worth a second opinion, and the reserved
+  re-baseline is what will answer it. Written down rather than left for someone to discover in a
+  seed that moved.
+
+  **PINNED has a half that is easy to break by accident**, and it is the reason this retrofit is
+  auditable: as well as holding one barricade to one unit, one bench to `BENCH_SCRAP` and the Repair
+  job to metal, it asserts **by name** that the five verbs which cost nothing before this slice —
+  window, alarm, noisemaker, wind, camp — still cost nothing after it. Charging for a window board
+  would make the cheapest fortification conditional on loot, which is a balance decision and the
+  owner's to take; now anyone who adds one gets a red build and has to mean it.
+
+  **A gate that blamed the code under test, caught and fixed during the sabotage pass.** KIND's
+  original "the refused branch was not spent" assertion read a derived count, and under one sabotage
+  it went red saying *the refused channel spent the branch anyway* — a true failure with the wrong
+  story, which CLAUDE.md calls the worst thing a gate can do. It now asks the inventory whether the
+  item is still there rather than asking a count, and carries an explicit precondition that the
+  branch really is wood, so the lane names the real defect.
+
+  **What shipped is half of it, and the build log says so on every run.** Twelve kinds are declared,
+  findable and wired end to end; **three recipes exist and all three want metal**, so eleven kinds
+  have nothing to spend them on yet. The RECIPES lane prints that count and those names every time
+  rather than letting it go quiet, and the remainder is named as its own piece in what's-left.
+- **Items** — ~~the mask that filters~~ **landed** 2026-09-12
+  (`npm run godot:m2:filter` → **`M2_FILTER_OK content worn max bloom cloud notsafe pinned`**, a new
+  gate whose seven lanes were each broken and watched go red before they were trusted;
+  `godot:m2:gear`, `godot:m2:lethality` and `godot:check:loot` all held), the **third slice of the
+  alpha-roster arc** and the second of the owner's eight readers.
+
+  **A gas mask was a bike helmet.** `bloater.gd` rolled every survivor in a contamination cloud on
+  flat proximity and never once looked at what they had on, so `item.mask.cloth` and the three glove
+  bases were worth exactly nothing against a plume. Their `armor` block had a reader — bite and
+  scratch transmission, through `SimInfection.armor_coverage_of` — and the face of the thing had
+  none. The owner's call is a `filter` scalar, 0..1, **best worn wins**, so `SimInfection.filter_of`
+  is deliberately `armor_coverage_of`'s twin: the same scan of the same equipped items, composed by
+  **max, never sum**, because two masks are one mask and a sum would turn a wardrobe into immunity.
+  It is body-wide rather than per part, which is the one shape difference between them — a cloud is
+  not aimed, so there is no body part to ask about.
+
+  **Five shipped bases adopted rather than left inert**, which is the arc's standing rule for an
+  orphan: the cloth mask at 0.20, safety glasses 0.10, leather gloves 0.15, work and mesh gloves
+  0.05 apiece — the mesh being honest about steel rings stopping teeth and nothing else. Eight new
+  bases ship in `godot/content/items/masks.json`, placed per docs/12's yield table, with the gas
+  mask and the hazmat suit **only** in the military cache, which is part of the point of walking
+  into one.
+
+  **CLOUD is the load-bearing lane, and it is a coin flip asserted deterministically.** Paired
+  worlds on one seed, the technique `check_m2_medicine.gd`'s CLEAR lane established a slice earlier:
+  both derive the same `contamination` stream from the same master seed and the roll spends exactly
+  one number from it whatever the chance is — the filter never short-circuits the draw — so the
+  masked survivor and the bare one are handed the identical uniform and the only difference is the
+  multiplier. That buys two assertions independent samples could not: **monotonicity**, a masked
+  survivor is never contaminated where a bare one walks away, and **decidedness**, at least one seed
+  where the mask alone is the difference. Without the second, a filter of 0.0 on everything would
+  pass green. Over 40 paired seeds a bare head took 16, a gas mask 0, and all 16 turned on the mask.
+
+  **NOTSAFE holds the half a ladder of numbers usually gets wrong.** The cheap mask has to be
+  genuinely better than nothing and genuinely not safe: over 120 paired seeds a bare head took 46
+  and a rag over the mouth 36, deciding 10 — and the lane **refuses a cloth mask that ever halves a
+  plume**, because that is a respirator's job and there would be no reason left to look for one.
+  CONTENT refuses any shipped filter at 1.0 for the family of reasons `SEPSIS_MIN_MUL` exists: a
+  cloud a survivor is immune to is not a cloud.
+
+  **Both directions of the dead-socket rule are gated.** CLOUD says something reads the scalar; WORN
+  says the reader reaches every declaration, putting all thirteen shipped bases on a bare survivor
+  one at a time and demanding `filter_of` hand back exactly what content authored — which is what
+  catches a filter parked in a slot `equipped_items` does not walk, the failure that made
+  `move_speed` a no-op for every NPC in the game. A mask in the pack reads zero and a bike helmet
+  reads zero, so worn and carried stay separated and armour does not leak into the filter.
+
+  **What it refused to ship, and why.** Spare filter cartridges were asked for and declined: there
+  is no consumption path for a worn item's charge, so a cartridge base would have no reader, no verb
+  and nothing to spend it — a material sitting in a loot table being complete, correct and read by
+  nothing, which is the pattern this milestone has paid for eleven times. It wants a durability or
+  charge property on worn gear plus a swap verb, which is the same shape as the armour-slots piece
+  already in what's-left. Two findings went to the defect list instead of into the slice: the
+  once-per-survivor contamination bug **was already fixed and its entry was stale**, and
+  `_has_open_wound` matches `kind == "bite"` alone, so a deep laceration or a burn is no way in for
+  a plume.
+- **Items** — ~~food, drink, and the medical quality tiers~~ **landed** 2026-09-12
+  (`npm run godot:m2:medicine` → **`M2_MEDICINE_OK`**, a new gate whose eight lanes were each run
+  red *and* green before they were trusted; `godot:m2:treatment`, `godot:m2:wounds`,
+  `godot:m2:gear`, `godot:m2:needs`, `godot:m2:jobs`, `godot:check:respond` and `godot:check:loot`
+  all held), the **second slice of the alpha-roster arc** and the first of the eight readers the
+  owner took on 2026-09-12 — docs/30's "The readers ran out before the content did".
+
+  **Three supplies were welded to one base id each.** `ANTIBIOTICS_ID` in `infection.gd`,
+  `PAINKILLERS_ID` in `wounds.gd`, and `item.bandage.cloth` written **three times** inside
+  `jobs.gd`'s colonist doctor. A second antibiotic was a code change; a doctor holding a sterile
+  dressing and no cloth one reported carrying no bandage at all. All three are gone, replaced by
+  the shape `bandageTier`, `cleanTier` and `closeKind` had already proved three times over: a flat
+  scalar under an enum, ranked best-first by a code-owned order. **`antibioticTier`**
+  (improvised · veterinary · clinical) scales the bite roll, **`painTier`** (mild · strong ·
+  opioid) sets how deep and how long, **`illnessTier`** (fluids · remedy) is new behaviour rather
+  than a replacement — see below.
+
+  **One scan, not four.** `SimTreatment._best_by_key` was private and served bandages and sutures.
+  Four supplies wanted the identical ranked pick, so it is now
+  `SimInventory.best_by_content_key` — in `inventory.gd` rather than `treatment.gd` because
+  treatment preloads wounds, infection **and** needs, so none of those three can preload it back.
+  It also returns the item entity now, so a caller that has to spend the thing does not go looking
+  for it a second time by base id and find a different copy.
+
+  **Additive, and pinned as such.** `item.antibiotics.course` was retrofitted to `clinical` and
+  `item.painkillers.blister` to `mild`, and those two rungs reproduce the old numbers **exactly** —
+  clinical multiplies the clear chance by 1.0, mild is 0.7 suppression for 7200 ticks. The PINNED
+  lane holds all three and the shipped bases that carry them; slice 1's DEFAULT lane pinning a
+  pistol at noise 180 and damage 18 is the precedent, and the reason is the same: without it this
+  is not a new mechanism, it is a silent rebalance of every treatment in the game wearing one.
+
+  **The grade had to reach the roll, not the table.** CLEAR runs twenty **paired seeds** — the same
+  seed hands both grades the same draw from the same named stream — and asserts both that a weak
+  course never clears where a clinical one fails and that there is at least one seed where the two
+  disagree. Without that second half a multiplier of 1.0 everywhere would have passed. It runs
+  clinical 11, improvised 4, with 7 seeds turning on the grade alone.
+
+  **The illness that could not be treated.** `food.illnessChance` and `drink.illnessChance` have
+  been handing out bouts since food shipped and **nothing in the game could do anything about one**.
+  `illnessTier` is the reader: `fluids` halves what is left of the bout, `remedy` ends it. It is
+  routed through `can_use`, so the menu predicate and the intake are one function and cannot
+  disagree about whether a well survivor may take it — and the lane proves the cure announces
+  `illness.passed` **exactly once**, since `_tick_illness` must not say it again for a bout already
+  closed out from under it.
+
+  **A sprain could not be treated either, and that was one word.** `WOUND_KINDS["sprain"]` carried
+  `closeKind: ""` against docs/05's *"Rest, wrap"*, so the only treatment a sprain had was time.
+  `wrap` is the third closer, matched exactly like the other two — the WRAP lane's negative is a
+  suture kit failing to close one.
+
+  **Thirty-two new bases, 164 → 196**, and the loot share was **divided, never added to**, exactly
+  as slice 1 did for ammunition: every table's food, drink and medical weight is byte-identical
+  before and after (residential 52/28/38, commercial 45/48/17, medical 0/15/116, military 8/0/6,
+  industrial 4/4/6), and the placement script refuses to write unless it is. Twenty new foods that
+  *added* share would have made hunger a solved problem — the one content mistake here no gate
+  could see.
+
+  **What did not ship, and why it is named rather than smuggled.** docs/05's first step is
+  "pressure, tourniquet, bandage"; a tourniquet is not a dressing grade but a fourth thing the
+  `pressure` channel could spend, so authoring one here would have shipped an item with no reader
+  inside the slice that removed three welds. It is in what's-left with its reader named.
+
+- **Items** — ~~ammo types: the caliber and the round~~ **landed** 2026-09-12
+  (`npm run godot:m2:ammo` → **`M2_AMMO_OK`**, a new gate with eleven lanes; `godot:m2:attach`'s
+  NAMES and `godot:m2:gear`'s CATALOGUE extended; `godot:check:inventory`'s STRIP and INSPECT
+  amended; `godot:m2:director`'s AMMO lane held), the **first slice of the alpha-roster arc** and
+  the owner's direction of 2026-09-12, shaped by four answers — multipliers over a caliber, all
+  four groups in scope, as many slices as fit, and real cartridge names. docs/30's "The round in
+  the chamber" and "The cartridge on the label" carry the calls taken.
+
+  **A weapon could only ever fire one round.** `SimRanged._has_ammo` matched carried items against
+  `ranged.ammo` by exact base id, so buckshot-versus-slug was not a balance question, it was
+  unrepresentable. A weapon now declares `ranged.caliber` beside `ranged.ammo` — the set it will
+  take beside the round it prefers — and a round declares a top-level `ammo: {caliber, ranged}`
+  block whose table is multipliers folded over the host weapon's profile for the one shot that
+  spends it. **Twelve new rounds**, 152 → **164 bases**: a slug and birdshot for the gauge, hollow
+  point and subsonic for the nine, match and surplus for the rifle, a subsonic rimfire, a `+P`
+  revolver load, a hollow-point `.45`, and broadhead and target arrows with a broadhead bolt.
+
+  **Additive by construction, and pinned as such.** Preference goes first, so a survivor carrying
+  only the round their weapon names picks it on the first pass; the DEFAULT lane holds a service
+  pistol at **noise 180.0 and damage 18.0**, the numbers it has always made, with the negative that
+  a subsonic round on the same fixture comes back **81.0**. No `SAVE_VERSION` bump — the
+  empty-caliber path is exact-id matching, which is what a v29 weapon did when it was saved, and
+  the **LEGACY** lane erases the caliber off a live weapon and proves it.
+
+  **Loot share was divided, never added to.** docs/12 makes ammunition scarcity load-bearing
+  — *"what keeps guns as an emergency tool rather than a default"* — so each existing ammunition
+  row was **split** and the per-table ammunition weight held **exactly flat**: residential 8,
+  commercial 22, military cache 56, before and after. The one content mistake in this slice the
+  gates could not have caught, named so the next catalogue does the same.
+
+  **Three defects fixed on the way, each found by reading rather than by a red gate.** Arrow
+  recovery spawned `weapon["ammo"]` — the round the bow *prefers* — so the first day a broadhead
+  and a target arrow shared a bow, firing your last broadhead would have grown a plain one, with
+  no error and no wrong number; RECOVER is the lane, and its wrong-arrow check is deliberately
+  asked **before** its nothing-recovered check, because under the defect nothing is recovered and
+  a broadhead-first lane blames the fixture for a bug in the code. `SimDirector._ammo_ids` — whose
+  own comment records being got wrong twice — would have been wrong a third time, since a variant
+  round is named by no weapon and no conversion, so a survivor carrying nothing but slugs read as
+  unarmed to the preparedness score. And `item.part.internal.magnum` promised "a bigger round" while
+  converting a snub revolver to its own default; it now names the `+P` load, so the part is honest
+  and its MISMATCH fixture is unmoved.
+
+  **`caliber` joined `OVERRIDABLE` and all five conversion parts declare the pair.** A part moving
+  only the round would build a pistol that prefers something it cannot chamber — the pick would
+  fall through to the old caliber, so the conversion would *appear* to work and quietly fire the
+  wrong ammunition. `attachments.gd` cannot see the sibling key, so **CONVERT** is the lane, proved
+  by deleting one half. `blocked_reason` still returns `mismatch:ammo` unchanged: both fields now
+  clash on a mismatched kit and `ammo` sorts before `caliber`, which is luck and is pinned
+  deliberately rather than left to be discovered.
+
+  **`SimRanged.AMMO_SCALABLE` is its own whitelist and smaller than the attachment one** —
+  `damage · noise · flash · rangeMetres · cone · recoverable`, every field `_fire_shot` reads
+  *after* the round is spent. `magSize`, `reloadTicks` and `handling` are read before a round is
+  chosen, so a round scaling one would be a multiplier authored in content that nothing could read;
+  **DROPS** asserts both halves of that by name. Reusing `SCALABLE["ranged"]` would also have run
+  rounds through `effect_scale` and softened a slug because the box of shells was scuffed.
+
+  **The fold never touches the live weapon.** `_fire_shot`'s `weapon` is the `rangedWeapon`
+  component; multipliers resolve into a local and apply at each read site, or they would scale the
+  gun permanently and compound once per shot. The cone is the one field **re-clamped** rather than
+  merely multiplied, to `_refresh_cone`'s own bounds: birdshot at 1.7 reaches `WIDE_HALF` and
+  stops, because widening past it is the aim slice's true positive and a round quietly getting
+  there first would take it away.
+
+  **Eleven lanes, every one run red both ways before it was trusted.** Reverting the caliber
+  fallback turned PICK, REFUSE and FOLD red and each named its own socket; blanking the fold turned
+  DEFAULT and FOLD red; restoring the old recovery line turned RECOVER red; a round retagged to a
+  gauge nothing chambers turned REACH red; a round pulled from every table turned CONTENT red; and
+  a conversion part stripped of its caliber turned CONVERT red. **REACH is the lane with the trap
+  in it**: `45` is declared by **no weapon at all** — it exists only as the target of the two `.45`
+  conversion parts — so its gun side is the union of `ranged.caliber` and
+  `overrides.ranged.caliber`, and it refuses to run if that conversion-only set is ever empty.
+
+  **What shipped is the mechanism and not the choice**, and the record says which half. With both
+  rounds in the pack the pick order decides and the only way to fire the slug is to carry nothing
+  else; the fallback is sorted by base id rather than taken in carry order, so at least the answer
+  does not move when a bag is tidied. Choosing, the mixed magazine, and docs/09's hand-loaded round
+  (whose "higher jam chance" the multiplier table deliberately cannot express, because `jamChance`
+  is derived from the condition band) are three named pieces in
+  [what's left](#whats-left-in-milestone-2), not three things half-built here.
+
+- **Items & UI** — ~~the digit ban gains an item-name clause~~ **landed** 2026-09-12
+  (`godot:check:inventory`'s STRIP and INSPECT lanes), with the ammo slice and by the owner's
+  decision — docs/30's "The cartridge on the label". An item's `name` was scanned in two places and
+  refused any digit, which a roster of real cartridge designations cannot survive. **The amendment
+  is one predicate**, `_name_is_allowed`, called by both lanes for the same reason the file already
+  keeps one `_carries_a_digit`: two copies of an exemption is the dead-socket mistake with its
+  answer inverted. It refuses a name that is *nothing but* a quantity, and the lane proves all
+  three directions on fabricated views — a cartridge name passes, `"12"` is refused, and **the
+  identical string is refused the moment it is a `description` instead**, which is what "scoped to
+  one field" means and is the half that would otherwise have rotted in a comment. `description`,
+  every other inspect value, and `check_hud.gd` are untouched. It also closed a latent red:
+  `item.ammo.9mm` shipped as "9mm Round" and would have failed STRIP the first time a pistol round
+  reached that lane's fixture.
 
 - **Balance** — the weapons catalogue arc's **reserved re-baseline, run** 2026-09-10
   (`godot:m2:balance`, fast tier) → `M2_BALANCE_OK fast 4 seeds, 10 days, bands invariants

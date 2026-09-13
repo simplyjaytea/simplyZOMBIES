@@ -44,14 +44,43 @@ const SimInventoryRes = preload("res://sim/modules/inventory.gd")
 # anything present in both dictionaries", because that would let a typo -- `magsize`, `range` --
 # be silently ignored *and* let a content edit reach a field the profile builder does not treat as
 # scalable. check_m2_attach.gd asserts every declared key is in here.
+#
+# **`armor` is the third table and the odd one out: its "profile" is a coverage map, keyed by
+# body part rather than by a field name.** docs/10 gives body armour `plate · lining · pocket` and
+# headgear a `face`, and this is what makes those slots mean something -- a plate multiplies the
+# torso coverage the vest already declares, a lining multiplies the arms. The mechanism needs no
+# new code in `fold`, which never cared what a key *meant*, only that the host's profile has one
+# by that name and this table allows it.
+#
+# **A multiplier scales coverage that exists and cannot conjure coverage that does not** -- a
+# lining cannot bolt arm protection onto an apron that has none. Worth being precise about where
+# that guarantee actually lives, because the obvious answer is wrong: it is not `fold`'s
+# profile-has-the-field guard, and it is not `armor_coverage` handing `fold` a one-key dictionary.
+# Remove both and the answer does not change. It is the arithmetic itself -- coverage that is not
+# declared is zero, and a multiplier applied to zero is zero. "Multipliers, never adders" is the
+# same rule stated two paragraphs up, and this is the case where it pays for itself structurally
+# rather than by anybody remembering it.
+#
+# The list is short on purpose -- four parts, not the ten a survivor has. Every entry here has to
+# be scaled by something shipped or check_m2_attach.gd's SCALES lane calls it a dead socket, and a
+# foot plate is not a thing anybody asked for.
 const SCALABLE: Dictionary = {
 	"melee": ["damage", "reachMetres", "staggerTicks", "speed"],
 	"ranged": ["damage", "noise", "flash", "magSize", "reloadTicks", "rangeMetres", "cone", "handling"],
+	"armor": ["head", "torso", "arm_left", "arm_right"],
 }
 
 # Profile fields a part may *replace* rather than scale, per kind. A multiplier cannot express a
-# caliber -- `ammo` is a base id and `jams` is a boolean -- so this is the narrow exception to
-# "multipliers, never adders", with its own whitelist for the same reason SCALABLE has one.
+# caliber -- `ammo` is a base id, `caliber` is a family name and `jams` is a boolean -- so this is
+# the narrow exception to "multipliers, never adders", with its own whitelist for the same reason
+# SCALABLE has one.
+#
+# `ammo` and `caliber` are two fields rather than one on purpose, and a conversion part declares
+# **both**. `ammo` is the round the weapon reaches for first; `caliber` is the set it will take at
+# all. A part that moved only the first would build a pistol that prefers a round it cannot
+# chamber -- `_pick_round` would fall through to the old caliber's rounds every time, so the
+# conversion would appear to work and quietly fire the wrong ammunition. check_m2_ammo.gd's
+# CONVERT lane is what refuses that, because nothing here can see the sibling key.
 #
 # There is deliberately no "melee" key: an empty array would be a socket the gate then had to
 # excuse by name. Add one when something melee needs replacing rather than scaling.
@@ -63,7 +92,7 @@ const SCALABLE: Dictionary = {
 # function of the alphabet, so `barrel` would silently beat `internal` for a reason no player
 # could ever learn. This rule is order-independent by construction rather than by convention.
 const OVERRIDABLE: Dictionary = {
-	"ranged": ["ammo", "jams"],
+	"ranged": ["ammo", "caliber", "jams"],
 }
 
 # What a part can declare it wears from, as a vocabulary the content picks words out of. The same
@@ -501,6 +530,11 @@ const POLARITY: Dictionary = {
 		"damage": 1, "noise": -1, "flash": -1, "magSize": 1, "reloadTicks": -1, "rangeMetres": 1,
 		"cone": -1, "handling": 1,
 	},
+	# Coverage is the one table where every field points the same way, and that is a statement
+	# about coverage rather than an omission: there is no part of a body you would rather have
+	# less of covered. The entry exists anyway because `better` returns false for a kind it does
+	# not know, so leaving armour out would make every plate read "worse" on the bench.
+	"armor": {"head": 1, "torso": 1, "arm_left": 1, "arm_right": 1},
 }
 
 # What each field is called when a person reads it. The screen prints these; nothing computes with
@@ -515,7 +549,13 @@ const FIELD_WORD: Dictionary = {
 		"damage": "stopping power", "noise": "how far it is heard", "flash": "muzzle flash",
 		"magSize": "rounds it holds", "reloadTicks": "reload time", "rangeMetres": "reach",
 		"cone": "steadiness", "handling": "how fast it comes up",
-		"ammo": "the round it takes", "jams": "how it feeds",
+		"ammo": "the round it prefers", "caliber": "what it chambers", "jams": "how it feeds",
+	},
+	# Coverage named the way a person wearing it would name it. Not "torso coverage", which is the
+	# sim's word for it and a number's word: the bench says what a plate is *for*.
+	"armor": {
+		"head": "what it keeps off your head", "torso": "what it keeps off your chest",
+		"arm_left": "what it keeps off your left arm", "arm_right": "what it keeps off your right arm",
 	},
 }
 
@@ -617,6 +657,7 @@ const SLOT_NOUN: Dictionary = {
 	"muzzle": "muzzle device", "optic": "sight", "sight": "sight",
 	"limb": "limbs", "string": "string", "head": "head", "edge": "edge", "haft": "haft",
 	"wrap": "grip wrap", "underbarrel": "underbarrel",
+	"plate": "plate", "lining": "lining", "pocket": "pouch", "face": "visor",
 }
 
 
@@ -710,7 +751,49 @@ static func refusal_clause(world: Variant, entity: int) -> String:
 		if base is Dictionary:
 			name = String((base as Dictionary).get("name", "weapon")).to_lower()
 		return "The %s has no %s." % [name, noun]
+	# The same sentence for the thing you are *wearing*, and the only way a player learns that an
+	# empty carrier is a nylon bib. A weapon caches its reason on the built profile, because
+	# `refresh_armed` rebuilds one on every wear event; a vest has no profile to cache on, so this
+	# asks where it stands. Second, not first: a gun that will not fire is the more urgent sentence.
+	for worn in SimInventoryRes.equipped_items(world, entity) as Array:
+		var wbase: Variant = SimItemsRes.item_base_of(world, int(worn))
+		if not (wbase is Dictionary):
+			continue
+		if not ((wbase as Dictionary).get("armor") is Dictionary):
+			continue
+		var why: String = blocked_reason(world, int(worn))
+		if not why.begins_with("missing:"):
+			continue
+		var empty: String = why.substr("missing:".length())
+		var word: String = String(SLOT_NOUN.get(empty, ""))
+		if word == "":
+			continue
+		return "The %s has no %s." % [String((wbase as Dictionary).get("name", "vest")).to_lower(), word]
 	return ""
+
+
+## What one piece of *worn* armour is worth on one body part, counting everything fitted to it.
+## `declared` is the base's own coverage for that part; the answer is that number after the fitted
+## parts have had their say -- or 0.0 flat when the piece is blocked, because a plate carrier with
+## no plate is a nylon bib and `blocked_reason` is already the sentinel that says so for a spear
+## with no head.
+##
+## The one reader of SCALABLE's `armor` table. SimInfection.armor_coverage_of calls it per worn
+## item and composes the results by max, exactly as it always has; nothing else in the sim asks a
+## single garment what it is worth.
+##
+## The common case -- a garment with nothing fitted and nothing required -- costs one component
+## lookup, because `sim/condition.gd` asks this ten parts deep every time the screen draws.
+static func armor_coverage(world: Variant, host: int, part: String, declared: float) -> float:
+	if attached(world, host).is_empty():
+		# Nothing fitted, so the only thing that can still change the answer is a slot the base
+		# cannot work without -- and an empty one of those is the whole garment.
+		return 0.0 if not required_slots_of(world, host).is_empty() else declared
+	if blocked_reason(world, host) != "":
+		return 0.0
+	# A fresh dictionary per call: `fold` writes in place, and handing it the content's own
+	# `armor` block would make a read model quietly edit the catalogue it read from.
+	return float(fold(world, host, "armor", {part: declared}).get(part, declared))
 
 
 # An attachment changes the weapon, so the weapon a survivor is holding has to be rebuilt. The

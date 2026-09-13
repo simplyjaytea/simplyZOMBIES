@@ -8,7 +8,8 @@
     "massKg": 0.2,
     "equipSlot": "torso",
     "appearance": { "equipSprite": "item_wrap_cloth_equip" },
-    "armor": { "torso": 0.3, "arm_left": 0.2, "arm_right": 0.2 }
+    "armor": { "torso": 0.3, "arm_left": 0.2, "arm_right": 0.2 },
+    "warmth": { "torso": 0.7, "arm_left": 0.5, "arm_right": 0.5 }
   },
   {
     "id": "item.vest.scrap",
@@ -18,7 +19,8 @@
     "size": { "w": 3, "h": 3 },
     "massKg": 2.1,
     "equipSlot": "vest",
-    "armor": { "torso": 0.6, "arm_left": 0.3, "arm_right": 0.3 }
+    "armor": { "torso": 0.6, "arm_left": 0.3, "arm_right": 0.3 },
+    "slots": ["plate", "lining", "pocket"]
   },
   {
     "id": "item.cap.canvas",
@@ -39,7 +41,8 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.05,
     "equipSlot": "face",
-    "armor": { "head": 0.2 }
+    "armor": { "head": 0.2 },
+    "filter": 0.2
   },
   {
     "id": "item.glasses.safety",
@@ -49,7 +52,8 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.05,
     "equipSlot": "eyes",
-    "armor": { "head": 0.1 }
+    "armor": { "head": 0.1 },
+    "filter": 0.1
   },
   {
     "id": "item.gloves.work",
@@ -59,7 +63,8 @@
     "size": { "w": 1, "h": 1 },
     "massKg": 0.15,
     "equipSlot": "gloves",
-    "armor": { "hand_left": 0.4, "hand_right": 0.4 }
+    "armor": { "hand_left": 0.4, "hand_right": 0.4 },
+    "filter": 0.05
   },
   {
     "id": "item.pants.canvas",
@@ -91,7 +96,8 @@
     "massKg": 1.6,
     "equipSlot": "torso",
     "appearance": {"equipSprite": "item_jacket_leather_equip"},
-    "armor": {"torso": 0.5, "arm_left": 0.5, "arm_right": 0.5}
+    "armor": {"torso": 0.5, "arm_left": 0.5, "arm_right": 0.5},
+    "slots": ["lining", "pocket"]
   },
   {
     "id": "item.helmet.bike",
@@ -102,7 +108,8 @@
     "massKg": 0.4,
     "equipSlot": "head",
     "appearance": {"equipSprite": "item_helmet_bike_equip"},
-    "armor": {"head": 0.45}
+    "armor": {"head": 0.45},
+    "slots": ["face"]
   },
   {
     "id": "item.jeans.denim",
@@ -123,7 +130,8 @@
     "size": {"w": 1, "h": 1},
     "massKg": 0.2,
     "equipSlot": "gloves",
-    "armor": {"hand_left": 0.6, "hand_right": 0.6}
+    "armor": {"hand_left": 0.6, "hand_right": 0.6},
+    "filter": 0.15
   },
   {
     "id": "item.boots.steel",
@@ -144,7 +152,8 @@
     "massKg": 2.8,
     "equipSlot": "torso",
     "appearance": {"equipSprite": "item_apron_welding_equip"},
-    "armor": {"torso": 0.65, "arm_left": 0.45, "arm_right": 0.45}
+    "armor": {"torso": 0.65, "arm_left": 0.45, "arm_right": 0.45},
+    "slots": ["pocket"]
   },
   {
     "id": "item.helmet.hardhat",
@@ -155,7 +164,8 @@
     "massKg": 0.35,
     "equipSlot": "head",
     "appearance": {"equipSprite": "item_helmet_hardhat_equip"},
-    "armor": {"head": 0.35}
+    "armor": {"head": 0.35},
+    "slots": ["face"]
   },
   {
     "id": "item.vest.riot",
@@ -165,7 +175,8 @@
     "size": {"w": 3, "h": 3},
     "massKg": 3.4,
     "equipSlot": "vest",
-    "armor": {"torso": 0.75, "arm_left": 0.4, "arm_right": 0.4}
+    "armor": {"torso": 0.75, "arm_left": 0.4, "arm_right": 0.4},
+    "slots": ["plate", "lining", "pocket"]
   },
   {
     "id": "item.gloves.mesh",
@@ -175,6 +186,20 @@
     "size": {"w": 1, "h": 1},
     "massKg": 0.35,
     "equipSlot": "gloves",
-    "armor": {"hand_left": 0.8, "hand_right": 0.8}
+    "armor": {"hand_left": 0.8, "hand_right": 0.8},
+    "filter": 0.05
+  },
+  {
+    "id": "item.vest.carrier",
+    "name": "Plate Carrier",
+    "description": "A bare carrier rig. Webbing and nylon until there is something in the front pouch.",
+    "class": "armor",
+    "size": {"w": 3, "h": 3},
+    "massKg": 1.4,
+    "equipSlot": "vest",
+    "armor": {"torso": 0.7, "arm_left": 0.15, "arm_right": 0.15},
+    "slots": ["plate", "lining", "pocket"],
+    "requiredSlots": ["plate"],
+    "defaultParts": {"plate": "item.armorpart.plate.ceramic"}
   }
 ]

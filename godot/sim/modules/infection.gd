@@ -23,6 +23,9 @@ const TREATMENT_STREAM: String = "treatment"
 
 # ponytail: linear 1-coverage until material curve lands; ceiling is per-part max coverage
 const MAX_COVERAGE: float = 1.0
+# The same ceiling for what a survivor is wearing against a cloud. Its own constant rather than a
+# second use of MAX_COVERAGE because the two answer different questions and will not move together.
+const MAX_FILTER: float = 1.0
 
 static func stage_duration_ticks(s: int, _world: Variant = null, entity: Variant = null) -> int:
 	var base: int = 0
@@ -48,8 +51,23 @@ static func stage_duration_ticks(s: int, _world: Variant = null, entity: Variant
 	return maxi(1, int(ceil(float(base) / factor)))
 
 
+static func _Attachments() -> GDScript:
+	return load("res://sim/modules/attachments.gd") as GDScript
+
+
+# The one number that says how protected a body part is, composed by **max across worn items,
+# never sum** -- two coats are one coat, and a sum would turn a pile of gear into an immunity.
+#
+# Since the armour-slot slice each garment's own contribution is `SimAttachments.armor_coverage`
+# rather than the raw content number: a plate fitted to a carrier multiplies the coverage the
+# carrier declares, and a carrier with nothing in its required slot contributes nothing at all.
+# The composition is unchanged -- the fold happens per garment, *then* the max, which is what
+# keeps a plated vest from stacking with the jacket under it.
+#
+# Three readers, and they are why this function is worth its cost: bite and scratch transmission
+# (below), wound severity by way of the damage that reaches the body, and -- since the owner's
+# decision of 2026-09-12 -- the damage itself, in SimHealth.armor_damage_factor.
 static func armor_coverage_of(world: Variant, actor: int, bodyPart: String) -> float:
-	# Reads equipped items — max coverage per part, not sum.
 	var max_cov: float = 0.0
 	var equipped: Array = SimInventoryRes.equipped_items(world, actor) as Array
 	for item in equipped:
@@ -57,8 +75,34 @@ static func armor_coverage_of(world: Variant, actor: int, bodyPart: String) -> f
 		if base is Dictionary and (base as Dictionary).has("armor"):
 			var m: Variant = (base as Dictionary)["armor"]
 			if m is Dictionary and (m as Dictionary).has(bodyPart):
-				max_cov = maxf(max_cov, clampf(float((m as Dictionary)[bodyPart]), 0.0, 1.0))
+				var declared: float = clampf(float((m as Dictionary)[bodyPart]), 0.0, 1.0)
+				# Loaded on demand, not preloaded: this file already pulls in shambler.gd and
+				# inventory.gd, attachments.gd pulls in inventory.gd and items.gd, and the graph
+				# is a knot nobody should have to hold in their head. `light.gd`'s
+				# `_Attachments()` is the precedent and this is the same helper.
+				var fitted: float = float(_Attachments().call("armor_coverage", world, int(item), bodyPart, declared))
+				max_cov = maxf(max_cov, clampf(fitted, 0.0, 1.0))
 	return clampf(max_cov, 0.0, MAX_COVERAGE)
+
+
+# The mask that filters -- the owner's call of 2026-09-12, and deliberately armor_coverage_of's
+# twin: what a survivor is wearing against a bloater's plume rather than against its teeth. Same
+# scan of the same equipped items, composed the same way -- **max, never sum** -- because two masks
+# are one mask and a sum would turn a pile of gear into an immunity. Body-wide rather than per
+# part: a cloud is not aimed, so there is no `bodyPart` to ask about, which is the one shape
+# difference between the two.
+#
+# Read by sim/modules/bloater.gd at the contamination roll, and by nothing else. If that reader
+# ever goes away this function is a dead socket and check_m2_filter.gd's CLOUD lane is what says so
+# -- it measures how often a filtered survivor is actually contaminated, not what this returns.
+static func filter_of(world: Variant, actor: int) -> float:
+	var best: float = 0.0
+	var equipped: Array = SimInventoryRes.equipped_items(world, actor) as Array
+	for item in equipped:
+		var base: Variant = SimItemsRes.item_base_of(world, int(item))
+		if base is Dictionary and (base as Dictionary).has("filter"):
+			best = maxf(best, clampf(float((base as Dictionary)["filter"]), 0.0, 1.0))
+	return clampf(best, 0.0, MAX_FILTER)
 
 
 # The one place a stage becomes a sentence. diagnosis_of and diagnosis_of_part both call
@@ -177,7 +221,21 @@ static func amputate(world: Variant, entity: int, bodyPart: String) -> Dictionar
 
 # --- antibiotics / quarantine / put-down (M2 remaining responses) ---
 
-const ANTIBIOTICS_ID: String = "item.antibiotics.course"
+# What makes an item antibiotics is a content key, not its id. It was `ANTIBIOTICS_ID`, one
+# hardcoded base, which meant a second antibiotic was a code change -- the same shape `bandageTier`,
+# `cleanTier` and `closeKind` had already solved three times over in `treatment.gd`. Ranked
+# best-first, so the index doubles as the pick order out of the pack.
+const ANTIBIOTIC_KEY: String = "antibioticTier"
+const ANTIBIOTIC_ORDER: Array[String] = ["clinical", "veterinary", "improvised"]
+# What each grade is worth against a *bite*. `clinical` is 1.0 on purpose: multiplied through the
+# expression below it reproduces the exact number the one hardcoded course produced before grades
+# existed, which is what makes this slice additive rather than a quiet rebalance of every treatment
+# in the game. The TIERS lane pins it.
+const ANTIBIOTIC_CLEAR_MUL: Dictionary = {
+	"clinical": 1.0,
+	"veterinary": 0.75,
+	"improvised": 0.5,
+}
 const ANTIBIOTICS_DOSES_PER_COURSE: int = 6
 const ANTIBIOTIC_BASE_CLEAR: float = 0.6
 
@@ -212,7 +270,8 @@ static func use_antibiotics(world: Variant, entity: int) -> Dictionary:
 	# Refused in the word `_antibiotics_for_sepsis` already uses, and spent through the one
 	# `_spend_one_course`: a refusal that differed by cause, like a spend that differed by cause,
 	# would tell the player which of the two they have.
-	if not _spend_one_course(world, entity):
+	var tier: String = _spend_one_course(world, entity)
+	if tier == "":
 		return {"ok": false, "reason": "no-antibiotics"}
 	var state: Dictionary = st as Dictionary
 	if not state.has("antibioticsCourses"):
@@ -225,23 +284,30 @@ static func use_antibiotics(world: Variant, entity: int) -> Dictionary:
 		if bool(ed.get("transmitted", false)):
 			worst = maxi(worst, int(ed.get("stage", Stage.Latent)))
 	# Efficacy 0.6 at latent tapering 0.15 per stage
-	var p: float = ANTIBIOTIC_BASE_CLEAR * (1.0 - 0.15 * float(worst))
+	# The grade scales the roll and the stage tapers it. `clinical` multiplies by 1.0, so a
+	# clinical course at Latent is 0.6 exactly -- what this line computed before grades existed.
+	var p: float = ANTIBIOTIC_BASE_CLEAR * (1.0 - 0.15 * float(worst)) * float(ANTIBIOTIC_CLEAR_MUL.get(tier, 1.0))
 	p = clampf(p, 0.05, 0.9)
 	var clears: bool = float(rng.call("next")) < p
-	(state["antibioticsCourses"] as Array).append({"atTick": int(world.tick), "stage": worst, "clears": clears, "doseCount": ANTIBIOTICS_DOSES_PER_COURSE})
+	(state["antibioticsCourses"] as Array).append({"atTick": int(world.tick), "stage": worst, "clears": clears, "doseCount": ANTIBIOTICS_DOSES_PER_COURSE, "tier": tier})
 	if clears:
 		for e in state.get("exposures", []) as Array:
 			var ed: Dictionary = e as Dictionary
 			if bool(ed.get("transmitted", false)):
 				ed["transmitted"] = false
-	world.events.publish({"type": "antibiotics.used", "entity": entity, "clears": clears, "stage": worst})
+	world.events.publish({"type": "antibiotics.used", "entity": entity, "clears": clears, "stage": worst, "tier": tier})
 	return {"ok": true, "clears": clears, "stage": worst}
 
 # A course spent on sepsis and nothing else. Deterministic, unlike the zombie-infection roll:
 # docs/05 has bacterial infection as the treatable one and zombie infection as the gamble, and
 # that asymmetry is most of why the two are worth keeping apart.
 static func _antibiotics_for_sepsis(world: Variant, entity: int, Wounds: GDScript) -> Dictionary:
-	if not _spend_one_course(world, entity):
+	# Every grade clears sepsis, and that is deliberate rather than an oversight the grades forgot
+	# to price. docs/05 makes bacterial infection the treatable one and zombie infection the
+	# gamble, and the whole asymmetry is why the two are worth keeping apart; putting the grade's
+	# roll on the treatable one would collapse it. A weaker course is worse against a bite, which
+	# is where the gamble already lives.
+	if _spend_one_course(world, entity) == "":
 		return {"ok": false, "reason": "no-antibiotics"}
 	var cleared: int = int(Wounds.call("clear_sepsis", world, entity))
 	world.events.publish({"type": "antibiotics.used", "entity": entity, "clears": cleared > 0, "stage": -1, "sepsis": cleared})
@@ -251,17 +317,23 @@ static func _antibiotics_for_sepsis(world: Variant, entity: int, Wounds: GDScrip
 # One course out of the pack. Lifted out of use_antibiotics' body so the sepsis path spends from
 # exactly the same stock by exactly the same rule -- two copies of "take one off the stack" is how
 # the finite supply stops being one supply.
-static func _spend_one_course(world: Variant, entity: int) -> bool:
-	var item: int = _find_course(world, entity)
+# Returns the grade it spent, or "" when the pack held none. It reports the grade rather than a
+# bool because the efficacy above needs to know which course actually came out -- and asking the
+# pack a second time after spending would be asking about a pack that has already changed.
+static func _spend_one_course(world: Variant, entity: int) -> String:
+	var best: Dictionary = _best_course(world, entity)
+	if best.is_empty():
+		return ""
+	var item: int = int(best.get("item", -1))
 	if item < 0:
-		return false
+		return ""
 	var stk: Variant = world.components.get_component(item, "stack")
 	if stk is Dictionary and int((stk as Dictionary).get("count", 1)) > 1:
 		(stk as Dictionary)["count"] = int((stk as Dictionary)["count"]) - 1
 	else:
 		SimInventoryRes.remove_from_container(world, item)
 		world.despawn(item)
-	return true
+	return String(best.get("tier", ""))
 
 
 # Is there a course in this pack, without taking it? The offer's half of the spend above, and it
@@ -269,15 +341,13 @@ static func _spend_one_course(world: Variant, entity: int) -> bool:
 # place: a screen that asks "have I got one" its own way is a screen that can show a word the sim
 # then refuses.
 static func carries_course(world: Variant, entity: int) -> bool:
-	return _find_course(world, entity) >= 0
+	return not _best_course(world, entity).is_empty()
 
 
-static func _find_course(world: Variant, entity: int) -> int:
-	for item in SimInventoryRes.carried_items(world, entity) as Array:
-		var base: Variant = SimItemsRes.item_base_of(world, int(item))
-		if base is Dictionary and String((base as Dictionary).get("id", "")) == ANTIBIOTICS_ID:
-			return int(item)
-	return -1
+# The best course in the pack, by grade. One scan shared with bandages, sutures, painkillers and
+# remedies -- see `SimInventory.best_by_content_key` for why it lives there and not in treatment.
+static func _best_course(world: Variant, entity: int) -> Dictionary:
+	return SimInventoryRes.best_by_content_key(world, entity, ANTIBIOTIC_KEY, ANTIBIOTIC_ORDER, "tier")
 
 
 # Is this body showing anything a course of antibiotics might answer -- and deliberately without

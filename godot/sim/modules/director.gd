@@ -169,6 +169,33 @@ static func _ammo_ids(world: Variant) -> Dictionary:
 		var converted: String = String((ranged2 as Dictionary).get("ammo", ""))
 		if converted != "":
 			out[converted] = true
+	# The third question, and the one the caliber slice added: a *variant* round names no weapon
+	# and no conversion -- a slug is chambered by whatever already takes 12 gauge -- so the two
+	# passes above see only the round each weapon prefers. Without this, a survivor carrying
+	# nothing but slugs would read as unarmed to exactly the score this function was rewritten to
+	# stop getting wrong, which is the same defect a third time in the same place.
+	var calibers: Dictionary = {}
+	for entry_v in SimItems.content_entries(world, "item"):
+		var weapon: Dictionary = entry_v as Dictionary
+		var rblock: Variant = weapon.get("ranged")
+		if rblock is Dictionary and String((rblock as Dictionary).get("caliber", "")) != "":
+			calibers[String((rblock as Dictionary)["caliber"])] = true
+		var aspec: Variant = weapon.get("attachment")
+		if not aspec is Dictionary:
+			continue
+		var aover: Variant = (aspec as Dictionary).get("overrides")
+		if not aover is Dictionary:
+			continue
+		var aranged: Variant = (aover as Dictionary).get("ranged")
+		if aranged is Dictionary and String((aranged as Dictionary).get("caliber", "")) != "":
+			calibers[String((aranged as Dictionary)["caliber"])] = true
+	for entry_v in SimItems.content_entries(world, "item"):
+		var round_entry: Dictionary = entry_v as Dictionary
+		var ammo_block: Variant = round_entry.get("ammo")
+		if not ammo_block is Dictionary:
+			continue
+		if calibers.has(String((ammo_block as Dictionary).get("caliber", ""))):
+			out[String(round_entry.get("id", ""))] = true
 	return out
 
 

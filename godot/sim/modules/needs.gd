@@ -24,9 +24,10 @@ const HARD: float = 0.0
 const STARVE_DAYS: float = 1.0
 const DEHYDRATE_DAYS: float = 0.25
 const CAMPFIRE_HEAT_M: float = 4.0
-# What counts as body armour when the sun is out: torso coverage at or above this. See
-# `wearing_armor`.
-const ARMOR_TORSO_HEAT: float = 0.4
+# What counts as body armour when the sun is out: armour points at or above this, on the same
+# hundred-point body `WARMTH_WEIGHTS` divides. See `wearing_armor`, which used to ask the torso
+# key alone and so could not tell a full suit from a chest plate.
+const ARMOR_POINTS_HEAT: int = 25
 const CAMPFIRE_LIGHT_M: float = 20.0
 # A lit fire burns down. Half a night (36,000 ticks) from the last lighting, then it is doused
 # unless somebody is cooking on it; a cook's completion, a warm-seek and the E toggle each
@@ -211,6 +212,43 @@ const SLEEP_DECAY: float = 0.05
 # reason SOIL_SOURCE sits outside that list (see the comment at `_apply_soiled`).
 const SLEEP_SOURCE: String = "mood.sleep"
 
+# --- what you sleep on, and what you wash with (docs/04) ----------------------------------------
+#
+# docs/04's Rest clause names bed quality *first* among the five things recovery depends on, and
+# `sleep_quality` above shipped without it for the reason its own docstring gives: there was no
+# state to read. `make_bed` spawned a bare marker carrying a position and an `occupiedBy` and
+# nothing else, so every bed in the district was the identical nothing and the factor had no data
+# to judge. This is that data -- an item base declares a `bedQuality` grade, the builder spends one
+# on the bed it is putting down, and the bed carries the comfort that grade is worth.
+#
+# Comfort is spent **against the penalties the night already has** rather than added to the total,
+# and that is the pin rather than a softening: a bed with no bedding is comfort 0.0 and moves
+# nothing, and a perfect night is still exactly SLEEP_FULL_NIGHT because quality was already 1.0
+# and there is nothing above it to lift it to. What a bedroll buys is a bad night that is less bad,
+# which is the only place there was room to put it.
+const BED_KEY: String = "bedQuality"
+# Best first -- the order `SimInventory.best_by_content_key` ranks by, the same shape SimFortify
+# hands it for `buildMaterial`.
+const BED_QUALITY_ORDER: Array[String] = ["proper", "insulated", "padded"]
+const BED_COMFORT: Dictionary = {"padded": 0.3, "insulated": 0.6, "proper": 1.0}
+# How much of a night's penalty a perfect bed can carry. Deliberately smaller than the deep cold
+# alone (SLEEP_PENALTY_TEMP_HARD): the best bedroll in the world does not make a freezing night a
+# good one, it makes it survivable.
+const SLEEP_BED_RELIEF: float = 0.3
+
+# Soap. A wash already reaches `clean` on water alone, so there is no headroom in *how* clean a
+# wash gets -- the headroom is in how long it lasts. A grade banks that many dirtying events the
+# body shrugs off, spent one at a time in `_dirt`, which is the one door hygiene walks back down.
+#
+# docs/04 says "washing needs water -- competing directly with drinking -- and soap", and only the
+# first half of that is enforced: a wash with no soap still works. Making soap *required* is a
+# rebalance of a need every colonist already has rather than an addition to it -- a district that
+# rolls no soap would have no way back from `filthy`, and `sepsis_mul` reads that band -- so it is
+# a balance call with a measurement attached and it is not taken here.
+const HYGIENE_KEY: String = "hygiene"
+const HYGIENE_ORDER: Array[String] = ["sterile", "scrub", "rinse"]
+const HYGIENE_SCRUBS: Dictionary = {"rinse": 1, "scrub": 2, "sterile": 3}
+
 # The needs that are pools rather than bands. One list, because "below SOFT costs work and mood"
 # was written out twice as a literal array and a fourth pool would have joined one of them and
 # quietly missed the other -- the same shape as the seven copies of the job countdown.
@@ -302,7 +340,38 @@ const ILLNESS_TICKS: int = 3600
 const ILLNESS_MOOD: float = -14.0
 const ILLNESS_WORK_MUL: float = 0.6
 const ILLNESS_SOURCE: String = "need.illness"
+
+# Illness had no treatment at all: `illnessChance` on ten food and drink entries could give a
+# survivor a bout and nothing in the game could shorten one. These are the reader. Ranked
+# best-first like every other supply grade, so the index doubles as the pick order.
+const ILLNESS_KEY: String = "illnessTier"
+const ILLNESS_ORDER: Array[String] = ["remedy", "fluids"]
+# What is left of the bout after a dose, as a fraction of what was left before it. `remedy` ends
+# it outright; `fluids` halves the remainder, which is deliberately the duller and commoner of the
+# two -- docs/04 has rehydration as the thing that actually helps, and it helps by degrees.
+const ILLNESS_REMAINING: Dictionary = {
+	"remedy": 0.0,
+	"fluids": 0.5,
+}
 const ILLNESS_STREAM: String = "illness"
+
+# --- books (docs/08) ---------------------------------------------------------------------------
+#
+# `sim/modules/skills.gd` has been a complete, content-driven XP ladder since Milestone 1 and **no
+# item in the game taught anything**: every point a survivor has ever earned came from a kill or a
+# finished job. These two keys are the reader. The block is `teaches: {region, points}` on an item
+# base; the region is one of SimSkills.REGIONS and nothing else, and the points are bounded by
+# SimSkills.PRACTICE_POINTS -- what actually doing the work is worth once -- so a book is a
+# shortcut into the ladder and never a way around it.
+#
+# `READ_COMPONENT` is what stops a library being an infinite purse: the reader remembers the
+# titles they have read, and a book is worth nothing to somebody who has already read it. It is an
+# **Array of base ids** under one key, not a Dictionary keyed by anything, for CLAUDE.md's reason
+# -- components round-trip through JSON, and a save is where a cleverer shape would quietly come
+# back empty. Skills die with the person (skills.gd's own first line) and so does this: it hangs
+# off the reader, not off the colony.
+const TEACH_KEY: String = "teaches"
+const READ_COMPONENT: String = "booksRead"
 
 # What a completely empty stamina pool costs work speed. docs/04 lists work speed among the four
 # things exhaustion degrades; melee.gd's _apply_exhaustion owns the other three, which are
@@ -333,6 +402,131 @@ const SPOILED_ILLNESS_MUL: float = 2.5
 # once even before the replacement above rules it out.
 const MEAL_MOOD_SOURCE: String = "need.food"
 const MEAL_MOOD_TICKS: int = 36000
+
+# --- comfort that is not food (docs/04) --------------------------------------------------------
+#
+# Mood grew seven sources over this milestone -- shame, an argument, grief, a bad night, a bout of
+# illness, a filthy body, an empty pool -- and every one of them is something that happens *to* a
+# survivor. The only thing a player could ever do back was cook, because `use_item` refused any
+# item that was neither edible nor drinkable, so a colony's entire morale policy was the menu.
+#
+# `comfort` is the other half: a smoke, a hand of cards, a photograph, a tune. It is deliberately
+# shaped like the bounded sources rather than like a meal, and the shape is the whole design:
+#
+#   * **One modifier from one source, replaced rather than stacked.** `_apply_comfort` is
+#     `_apply_grief` and `_apply_argument` line for line. A second `add` per item would accumulate
+#     without bound behind the cap this module thinks it is enforcing -- which is exactly the bug
+#     `_apply_meal_mood` was written to fix, where thirty meals were thirty live entries.
+#   * **Accumulating to a cap, so two comforts are not the sum of two comforts.** A pack full of
+#     keepsakes is worth the best night the cap allows and no more. This is the non-stacking rule
+#     the file already keeps rather than a route around it: SOIL_CAP, ARGUMENT_CAP, GRIEF_CAP and
+#     SLEEP_MOOD_CAP all bound their own source the same way, and the number below sits under
+#     every one of them because a good mood should be harder to hold than a bad one is to shake.
+#   * **On a clock rather than a decay.** Grief drains by degrees because a weight lifts by
+#     degrees; a cigarette ends. `comfortUntilTick` is `mealMoodUntilTick`'s twin -- a plain int on
+#     the needs component, which is what survives a save -- and a second item pushes it out to
+#     whichever end is later rather than cutting a longer comfort short.
+#
+# The cap is what makes a *kept* item honest. A harmonica is not spent (the noise device's
+# decision, not the floodlight's), so it can be played again the moment the clock runs out; what it
+# cannot do is stack with the deck of cards in the same pocket, and it costs a verb and a clock
+# every time. Deliberately **not** in NEED_SOURCES, for SLEEP_SOURCE's and SOIL_SOURCE's reason:
+# `_apply_muls` strips every NEED_SOURCES entry on every pool crossing, and a comfort taken at
+# dusk must outlive the meal eaten after it.
+const COMFORT_CAP: float = 15.0
+const COMFORT_SOURCE: String = "mood.comfort"
+
+
+# What an item is worth to somebody's morale, or null for anything that is not a comfort at all.
+# Presence of the block is what makes an item comforting -- `is_food`'s rule exactly -- and the
+# block is judged whole here for `drink_spec`'s reason: the content validator does not recurse, so
+# a lift with no clock behind it would be a permanent free mood that nothing would ever report.
+# Refused outright rather than clamped, so the wrong number is reported by an item that does
+# nothing rather than by a colony that is inexplicably cheerful.
+static func comfort_spec(world: Variant, base_id: String) -> Variant:
+	var base: Variant = SimItems.content_entry(world, "item", base_id)
+	if not (base is Dictionary):
+		return null
+	var spec: Variant = (base as Dictionary).get("comfort")
+	if not (spec is Dictionary):
+		return null
+	var c: Dictionary = spec as Dictionary
+	var mood: Variant = c.get("mood")
+	if not (mood is float or mood is int) or float(mood) <= 0.0:
+		return null
+	var ticks: Variant = c.get("ticks")
+	if not (ticks is int or ticks is float) or int(ticks) <= 0:
+		return null
+	return c
+
+
+static func is_comfort(world: Variant, base_id: String) -> bool:
+	return comfort_spec(world, base_id) != null
+
+
+# How much comfort is standing right now. Read off the needs component rather than off the
+# modifier, so the number a save round-trips and the number a gate asserts are one number.
+static func comfort_of(world: Variant, entity: int) -> float:
+	return float(of(world, entity).get("comfort", 0.0))
+
+
+# One modifier from one source, replaced rather than stacked -- `_apply_grief`'s shape, and for
+# `_apply_argument`'s stated reason. Nothing here clamps: the clamp belongs to `take_comfort`,
+# which is the one place the stored comfort moves, so there is one place the cap is enforced.
+static func _apply_comfort(world: Variant, ent: int, amount: float) -> void:
+	if world.modifiers == null:
+		return
+	world.modifiers.call("remove_by_source", COMFORT_SOURCE, ent)
+	if amount <= 0.0:
+		return
+	world.modifiers.call("add", {"stat": "mood", "op": "add", "value": amount, "source": COMFORT_SOURCE}, ent)
+
+
+# Taking a moment for yourself. The item is spent only if its block says so, the comfort
+# accumulates toward COMFORT_CAP rather than on top of what is standing, and the clock runs to
+# whichever end is later. Refuses on its own account rather than trusting `can_use` to have
+# refused first -- `take_remedy`'s discipline, and the reason both are safe to call directly.
+static func take_comfort(world: Variant, entity: int, item: int) -> bool:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary:
+		return false
+	var spec: Variant = comfort_spec(world, String((base as Dictionary).get("baseId", "")))
+	if spec == null:
+		return false
+	var c: Dictionary = spec as Dictionary
+	if bool(c.get("spends", false)) and not _consume_item(world, entity, item):
+		return false
+	var n: Dictionary = of(world, entity)
+	var had: float = float(n.get("comfort", 0.0))
+	var raw: float = had + float(c["mood"])
+	var got: float = minf(COMFORT_CAP, raw)
+	n["comfort"] = got
+	n["comfortUntilTick"] = maxi(int(n.get("comfortUntilTick", -1)), int(world.tick) + int(c["ticks"]))
+	_apply_comfort(world, entity, got)
+	world.events.publish({
+		"type": "mood.comforted",
+		"entity": entity,
+		"mood": got,
+		"capped": raw > COMFORT_CAP,
+	})
+	return true
+
+
+# And it lifts. `_tick_meal_mood`'s shape exactly, on the same cadence -- every tick, not the mood
+# tick's every twentieth, so the moment a comfort ends is the tick its clock named and not the next
+# multiple of twenty after it.
+static func _tick_comfort(world: Variant) -> void:
+	if world.modifiers == null:
+		return
+	for ent in _survivors(world):
+		var n: Dictionary = of(world, int(ent))
+		var until: int = int(n.get("comfortUntilTick", -1))
+		if until < 0 or int(world.tick) < until:
+			continue
+		n["comfortUntilTick"] = -1
+		n["comfort"] = 0.0
+		_apply_comfort(world, int(ent), 0.0)
+		world.events.publish({"type": "mood.comfortFaded", "entity": int(ent)})
 
 
 # Whether this meal makes them ill. `iron_stomach` is immunity here rather than a reduction: the
@@ -428,6 +622,11 @@ static func blank() -> Dictionary:
 		"wakeJob": "",
 		"dirtyWake": false,
 		"mealMoodUntilTick": -1,
+		# What is standing of the comfort sources, and the tick the whole of it lifts on. A float
+		# and an int, not a list of what was used: the cap is on the total, so the total is what
+		# the component keeps and a save round-trips.
+		"comfort": 0.0,
+		"comfortUntilTick": -1,
 		"coldSinceTick": -1,
 		"hotSinceTick": -1,
 		# The lethal ladders (the playable-state group's twelfth piece): a dose that grows one
@@ -441,6 +640,8 @@ static func blank() -> Dictionary:
 		"sleepQuality": 1.0,
 		"sleepQualityTicks": 0,
 		"sleptMood": 0.0,
+		# Dirtying events a soaped wash still has left to shrug off -- a plain int, spent in `_dirt`.
+		"scrubbed": 0,
 		"stimulantUntilTick": -1,
 		"stimulantCrashRest": 0.0,
 	}
@@ -571,29 +772,149 @@ static func has_trait(world: Variant, entity: int, trait_id: String) -> bool:
 	return traits is Array and (traits as Array).has(trait_id)
 
 
-static func wearing_wrap(world: Variant, entity: int) -> bool:
+# --- warmth: what a garment is worth, per part ------------------------------------------------
+#
+# This replaces `wearing_wrap`, which matched the literal string "item.wrap.cloth" and was the
+# entire clothing-warmth system in the game: four weather kinds shipped gated and nothing in the
+# roster insulated, shed rain or cooled. Warmth is per-part, like `armor` (the owner's decision of
+# 2026-09-12), so a coat warms the torso and the arms while a hat warms a head, and adding a
+# garment is a data edit.
+#
+# How much of a body each part is, in whole points out of a hundred. Not the body's own integrity
+# numbers -- a hand is 10 and a torso 40 there, and a hand is not a quarter of a torso's worth of
+# skin. Whole integers on purpose: the band arithmetic below is integer division, so no boundary
+# is ever decided by a float that two machines round differently.
+const WARMTH_WEIGHTS: Dictionary = {
+	"torso": 40, "head": 14,
+	"arm_left": 8, "arm_right": 8,
+	"leg_left": 9, "leg_right": 9,
+	"hand_left": 3, "hand_right": 3,
+	"foot_left": 3, "foot_right": 3,
+}
+# Points to one band on the temperature ladder. The shipped cloth wrap reads 36 (torso 0.7, each
+# arm 0.5), so it is worth exactly the one band it was worth when it was a hardcoded string, and
+# is a long way from the second -- which is the whole retrofit.
+const WARMTH_PER_BAND: int = 30
+# docs/04: "being wet is a multiplier on cold". This is that multiplier, and it is on the
+# insulation rather than on the sky, because wet clothing is what stops working -- a soaked coat
+# is half a coat.
+#
+# It is applied to the *bands* and rounded up, not to the points and rounded down, and that is
+# the whole of how this slice stays additive. The cloth wrap was worth one band wet or dry for as
+# long as it has existed -- `check_m2_weather`'s COLD lane pins "wet and wrapped on a mild day is
+# comfortable" -- and on the points it would have gone to zero, which is not a retrofit, it is a
+# rebalance wearing one. Rounded up, the wrap is untouched and what the rain costs is everything
+# *above* the first band, which is where a real winter kit lives: a coat and a wool hat read two
+# bands dry and one soaked.
+#
+# Cooling is never multiplied. A wet linen shirt in a heat wave is not less cool for being wet,
+# it is more; halving it would be the wrong sign as well as the wrong size. The flat band the
+# rain already cost (`_colder`, below) predates this and is untouched by it.
+const WET_WARMTH_MUL: float = 0.5
+
+
+# The per-part composition, `SimInfection.armor_coverage_of`'s shape on a signed key. "Max" on an
+# axis that runs both ways is the layer *furthest from zero* -- the emphatic layer is the one you
+# are actually wearing, so a bandana under a sun hat does not warm your head back up -- and where
+# every declared value is positive this is `maxf` and is armour coverage letter for letter. A tie
+# in magnitude goes to warmth, so the rule is total and does not depend on equip order.
+static func warmth_of(world: Variant, entity: int, body_part: String) -> float:
+	var best: float = 0.0
 	for item in SimInventory.equipped_items(world, entity):
-		var base: Variant = world.components.get_component(item, "itemBase")
-		if base is Dictionary and String((base as Dictionary).get("baseId", "")) == "item.wrap.cloth":
+		var base: Variant = SimItems.item_base_of(world, item)
+		if not base is Dictionary:
+			continue
+		var m: Variant = (base as Dictionary).get("warmth")
+		if not m is Dictionary or not (m as Dictionary).has(body_part):
+			continue
+		var v: float = clampf(float((m as Dictionary)[body_part]), -1.0, 1.0)
+		if absf(v) > absf(best) or (absf(v) == absf(best) and v > best):
+			best = v
+	return best
+
+
+# The whole body, in points: each part's composed warmth weighted by how much of a body it is.
+# One pass over the equipped items rather than ten calls to `warmth_of`, because this runs on
+# every survivor on every tick.
+static func warmth_points(world: Variant, entity: int) -> int:
+	var best: Dictionary = {}
+	for item in SimInventory.equipped_items(world, entity):
+		var base: Variant = SimItems.item_base_of(world, item)
+		if not base is Dictionary:
+			continue
+		var m: Variant = (base as Dictionary).get("warmth")
+		if not m is Dictionary:
+			continue
+		for key in (m as Dictionary).keys():
+			var part: String = String(key)
+			if not WARMTH_WEIGHTS.has(part):
+				continue
+			var v: float = clampf(float((m as Dictionary)[key]), -1.0, 1.0)
+			var cur: float = float(best.get(part, 0.0))
+			if absf(v) > absf(cur) or (absf(v) == absf(cur) and v > cur):
+				best[part] = v
+	var total: float = 0.0
+	for part in best.keys():
+		total += float(int(WARMTH_WEIGHTS[part])) * float(best[part])
+	return roundi(total)
+
+
+# Points to bands. Positive is toward comfortable and negative is strictly colder -- see the
+# comment where this is applied in `_tick_temperature`, which is where that asymmetry is the
+# shipped rule rather than an oversight. Integer division truncates toward zero, so nothing short
+# of a full band counts in either direction, and the wet multiplier lands on the bands rounded up
+# for the reason WET_WARMTH_MUL is written out at length above.
+static func warmth_bands(world: Variant, entity: int, wet: bool) -> int:
+	@warning_ignore("integer_division")
+	var bands: int = warmth_points(world, entity) / WARMTH_PER_BAND
+	if wet and bands > 0:
+		bands = ceili(float(bands) * WET_WARMTH_MUL)
+	return bands
+
+
+# Whether the rain gets through. One flat boolean on the base, read in `_tick_temperature` and
+# nowhere else -- a poncho, a raincoat, a sheet of tarp with a hole cut in it.
+static func sheds_rain(world: Variant, entity: int) -> bool:
+	for item in SimInventory.equipped_items(world, entity):
+		var base: Variant = SimItems.item_base_of(world, item)
+		if base is Dictionary and bool((base as Dictionary).get("shedsRain", false)):
 			return true
 	return false
 
 
-# Body armour, for the heat wave: anything equipped whose base armours the torso at
-# ARMOR_TORSO_HEAT or better. Read off the coverage rather than off the equip slot, because the
-# slot answers the wrong question twice -- `item.vest.scrap` armours the torso 0.6 from the
-# `vest` slot, and `item.wrap.cloth` sits in the `torso` slot armouring it 0.3, which is a
-# garment, not a plate. As shipped this is the leather jacket (0.5) and the scrap vest (0.6);
-# the wrap is out, and stays what it has always been -- a band of warmth, in the sun as at
-# night. Its own accessor rather than SimInfection.armor_coverage_of, which resolves affixes and
-# condition per body part and is a per-tick cost this does not need.
+# Body armour, for the heat wave: anything equipped whose armour, weighed over the whole body,
+# comes to ARMOR_POINTS_HEAT or more. Read off the coverage rather than off the equip slot,
+# because the slot answers the wrong question twice -- `item.vest.scrap` armours the torso 0.6
+# from the `vest` slot, and `item.wrap.cloth` sits in the `torso` slot armouring it 0.3, which is
+# a garment, not a plate. It used to read the `torso` key alone, which is why a suit of plate on
+# every limb but the chest would have read as no armour at all; the weights are `WARMTH_WEIGHTS`,
+# so "how much of a body is covered" is answered once in this file and not twice.
+#
+# Judged per item, not composed across them: the question is "is this person wearing armour",
+# not "is this person dressed", and a survivor in a cap, gloves, jeans and boots is dressed.
+# As shipped the yes list is the leather jacket (28), the scrap vest (29), the welding apron (33)
+# and the riot vest (36); the cloth wrap is 15 and stays what it has always been -- a band of
+# warmth, in the sun as at night. Its own accessor rather than SimInfection.armor_coverage_of,
+# which resolves affixes and condition per body part and is a per-tick cost this does not need.
+static func armor_points_of_base(base: Dictionary) -> int:
+	var a: Variant = base.get("armor")
+	if not a is Dictionary:
+		return 0
+	var total: float = 0.0
+	for key in (a as Dictionary).keys():
+		var part: String = String(key)
+		if not WARMTH_WEIGHTS.has(part):
+			continue
+		total += float(int(WARMTH_WEIGHTS[part])) * clampf(float((a as Dictionary)[key]), 0.0, 1.0)
+	return roundi(total)
+
+
 static func wearing_armor(world: Variant, entity: int) -> bool:
 	for item in SimInventory.equipped_items(world, entity):
 		var base: Variant = SimItems.item_base_of(world, item)
 		if not base is Dictionary:
 			continue
-		var a: Variant = (base as Dictionary).get("armor")
-		if a is Dictionary and float((a as Dictionary).get("torso", 0.0)) >= ARMOR_TORSO_HEAT:
+		if armor_points_of_base(base as Dictionary) >= ARMOR_POINTS_HEAT:
 			return true
 	return false
 
@@ -623,6 +944,9 @@ static func register_module(world: Variant) -> void:
 	)
 	world.systems.register("need.mealMood", "needs", 11, func(w: Variant) -> void:
 		_tick_meal_mood(w)
+	)
+	world.systems.register("need.comfort", "needs", 11, func(w: Variant) -> void:
+		_tick_comfort(w)
 	)
 	world.systems.register("need.arguments", "needs", 12, func(w: Variant) -> void:
 		_tick_arguments(w)
@@ -1153,9 +1477,34 @@ static func sleep_quality(world: Variant, entity: int) -> float:
 			var floor_v: float = float((world.field.calibration as Dictionary).get("floor", 0.05))
 			if noise_v > floor_v:
 				penalty += SLEEP_PENALTY_NOISE
+	# What you are lying on, spent against what the night has already charged. Before the light
+	# sleeper's multiplier on purpose: good bedding damps the disturbance itself, and what is left
+	# of it is what the trait then amplifies. A bed with no bedding is comfort 0.0 and subtracts
+	# nothing, which is the whole of the pin -- every figure this function returned before
+	# `bedQuality` existed, it still returns.
+	if on_bed:
+		penalty = maxf(0.0, penalty - SLEEP_BED_RELIEF * bed_comfort(world, int((sl as Dictionary).get("bed", -1))))
 	if has_trait(world, entity, "light_sleeper"):
 		penalty *= SLEEP_LIGHT_SLEEPER_MUL
 	return clampf(1.0 - penalty, SLEEP_QUALITY_FLOOR, 1.0)
+
+
+# What a bed is worth to lie on, 0..1. Read off the bed entity rather than re-derived from whatever
+# built it, so a saved game's bed keeps the bedding somebody spent on it: the comfort is a float on
+# a component and floats round-trip through JSON, where a reference to the item would not.
+static func bed_comfort(world: Variant, bed: int) -> float:
+	if bed < 0:
+		return 0.0
+	var b: Variant = world.components.get_component(bed, "bed")
+	if not (b is Dictionary):
+		return 0.0
+	return clampf(float((b as Dictionary).get("comfort", 0.0)), 0.0, 1.0)
+
+
+# The content read: what one authored grade is worth. An unknown or absent grade is 0.0 -- bare
+# boards -- rather than an error, because the absent case is the normal one.
+static func bedding_comfort(grade: String) -> float:
+	return clampf(float(BED_COMFORT.get(grade, 0.0)), 0.0, 1.0)
 
 
 # The quality word `slept` carries onto the HUD -- grown from a plain "bed"/"rough" into a word
@@ -1283,7 +1632,10 @@ static func _tick_temperature(world: Variant) -> void:
 		var wading: bool = world.tilemap != null and int(SimSurface.surface_at(world.tilemap, tx, ty)) == SimTileMap.SURFACE_WATER
 		if wading:
 			wet_until = maxi(wet_until, int(world.tick) + SimWeather.dry_after_ticks(world))
-		if SimWeather.raining(world) and not indoors:
+		# A roof, or something waterproof on your back. `sheds_rain` is asked here and nowhere
+		# else: it is the sky it turns away, not the ford above -- a poncho is not waders, and a
+		# body that wades is soaked on the tick it steps in whatever it is wearing.
+		if SimWeather.raining(world) and not indoors and not sheds_rain(world, ent):
 			var soaking: int = int(n.get("rainSinceTick", -1))
 			if soaking < 0:
 				soaking = int(world.tick)
@@ -1361,13 +1713,27 @@ static func _tick_temperature(world: Variant) -> void:
 				band = _hotter(band)
 			if not (armored and hot_since >= 0 and baked >= 2 * EXPOSURE_TICKS):
 				band = _no_hotter_than(band, "very_hot")
-		# Wet first, then the wrap: a wet body reads one band colder, and a wrap buys one back,
-		# so a soaked survivor in a wrap on a mild day reads comfortable and a soaked one at
-		# night by no fire is freezing at once.
+		# Wet first, then what is being worn: a wet body reads one band colder, and clothing buys
+		# it back, so a soaked survivor in a wrap on a mild day reads comfortable and a soaked one
+		# at night by no fire is freezing at once. That flat band is the rain slice's and is not
+		# the multiplier docs/04 asks for; the multiplier is inside `warmth_bands`, which halves
+		# whatever insulation a soaked garment has left. So a dry wrap is still worth its band and
+		# a wet one is worth nothing, which is the same garment telling you to get under a roof.
 		if wet:
 			band = _colder(band)
-		if wearing_wrap(world, ent):
-			band = _shift_temp(band, 1)
+		# The two halves of the axis are not mirror images, and that is deliberate. Insulation
+		# shifts you *toward comfortable* whichever side you are on -- which is the rule the cloth
+		# wrap has had since it shipped, pinned by `check_m2_heat`'s ROOF lane ("a wrap reads
+		# comfortable where a bare body reads a_little_hot"), and this slice keeps it rather than
+		# quietly rebalancing every garment in the game while adding one. Cooling is strictly
+		# colder: it is relief in a heat wave and it is a cost on a cold night, which is what
+		# linen is.
+		var bands: int = warmth_bands(world, ent, wet)
+		if bands > 0:
+			band = _shift_temp(band, bands)
+		elif bands < 0:
+			for _b in -bands:
+				band = _colder(band)
 		n["temperature"] = band
 		# What the dose buys, after the band is settled: the wound once, then the death.
 		if _exposure_kills(world, ent, n, exposed, baking):
@@ -1671,6 +2037,14 @@ static func dirt(world: Variant, entity: int, bands: int = 1) -> void:
 
 static func _dirt(world: Variant, entity: int, bands: int) -> void:
 	var n: Dictionary = of(world, entity)
+	# Soap, spent. A scrubbed body shrugs the dirtying off and keeps its band rather than washing
+	# to a *cleaner* band it could not reach anyway -- `wash_at_source` already lands on `clean`,
+	# so the only headroom soap ever had was in how long that lasts. One charge per event, so a bar
+	# of soap is a day or two of grave-digging and not a permanent exemption.
+	var scrubbed: int = int(n.get("scrubbed", 0))
+	if bands > 0 and scrubbed > 0:
+		n["scrubbed"] = scrubbed - 1
+		return
 	var i: int = HYG_ORDER.find(String(n.get("hygiene", "clean")))
 	if i < 0:
 		i = 0
@@ -1688,9 +2062,27 @@ static func wash(world: Variant, entity: int) -> bool:
 static func wash_at_source(world: Variant, entity: int) -> bool:
 	var n: Dictionary = of(world, entity)
 	n["hygiene"] = "clean"
+	# Soap is spent here rather than in `wash` so the colonist's Clean job at the well gets the same
+	# benefit the player's own wash does -- both doors arrive here. `maxi` rather than a sum: a
+	# second bar on top of a first tops the count up, it does not stack two bars into a week.
+	n["scrubbed"] = maxi(int(n.get("scrubbed", 0)), _spend_soap(world, entity))
 	_apply_muls(world, entity, n)
 	_scent_mul(world, entity, "clean")
 	return true
+
+
+# The best soap the washer is carrying, spent, in charges. Nothing carried is 0 and not a refusal:
+# a wash with no soap is still a wash, it just does not last.
+static func _spend_soap(world: Variant, entity: int) -> int:
+	var found: Dictionary = SimInventory.best_by_content_key(world, entity, HYGIENE_KEY, HYGIENE_ORDER, HYGIENE_KEY)
+	if found.is_empty():
+		return 0
+	var charges: int = int(HYGIENE_SCRUBS.get(String(found.get(HYGIENE_KEY, "")), 0))
+	if charges <= 0:
+		return 0
+	if not _consume_item(world, entity, int(found.get("item", -1))):
+		return 0
+	return charges
 
 
 # Water, by name: what the NPC thirst job reaches for. Same signature it always had; the +50 it
@@ -1754,8 +2146,43 @@ static func fill_bottle(world: Variant, bottle: int) -> void:
 		(base as Dictionary)["baseId"] = UNTREATED_ID
 
 
-# Boil one carried bottle of untreated water at a lit fire. Instant, and the same rename the well
-# does in reverse -- no despawn, no RNG, the bottle keeps its instance. Refused with a reason the
+# --- making water safe (docs/04, docs/12) ------------------------------------------------------
+#
+# docs/04: "Untreated water carries illness. Purification needs fuel (boiling -> heat, light,
+# smoke) **or filters or chemicals**." docs/12 lists the same three under Purified water. Only the
+# first of the three existed: `boil` wanted a lit campfire in reach and renamed one hardcoded id to
+# one other hardcoded id, so a second untreated vessel was a code change and a filter had nowhere
+# to plug in at all.
+#
+# Two content keys now carry it. What a vessel becomes when it is made safe is the vessel's own
+# `boilsInto` -- the flat grammar of `empties`, read in exactly one place, `_carried_treatable`
+# below -- and what can make it safe **without a fire** is the tool's own `purifies`, a count of
+# units. The two verbs differ in their price and in nothing else: `boil` asks the world for a lit
+# fire and spends none of your gear, `purify` asks your pack for a purifier and spends a use of it.
+# Both keep the instance rather than despawning and respawning, so a bottle does not change
+# identity by being cleaned, and both publish so anything watching sees one event per unit treated.
+
+
+# The first carried thing that declares what it becomes when it is made safe, with the id it
+# becomes. `{"item": -1}` when there is nothing. The target is resolved against the catalogue
+# rather than trusted, the refusal `_leave_empty` gives an `empties` that names nothing.
+static func _carried_treatable(world: Variant, actor: int) -> Dictionary:
+	for item in SimInventory.carried_items(world, actor):
+		var base: Variant = world.components.get_component(item, "itemBase")
+		if not (base is Dictionary):
+			continue
+		var entry: Variant = SimItems.content_entry(world, "item", String((base as Dictionary).get("baseId", "")))
+		if not (entry is Dictionary):
+			continue
+		var into: String = String((entry as Dictionary).get("boilsInto", ""))
+		if into.is_empty() or SimItems.content_entry(world, "item", into) == null:
+			continue
+		return {"item": int(item), "into": into, "base": base as Dictionary}
+	return {"item": -1}
+
+
+# Boil one carried vessel of untreated water at a lit fire. Instant, and the same rename the well
+# does in reverse -- no despawn, no RNG, the vessel keeps its instance. Refused with a reason the
 # screen can say: no fire in reach, a fire that is not lit, nothing untreated in the pack.
 static func boil(world: Variant, actor: int, fire: int) -> Dictionary:
 	var cf: Variant = world.components.get_component(fire, "campfire")
@@ -1763,13 +2190,79 @@ static func boil(world: Variant, actor: int, fire: int) -> Dictionary:
 		return {"ok": false, "reason": "no-fire"}
 	if not bool((cf as Dictionary).get("lit", false)):
 		return {"ok": false, "reason": "unlit"}
-	var bottle: int = _carried_base(world, actor, UNTREATED_ID)
+	var found: Dictionary = _carried_treatable(world, actor)
+	var bottle: int = int(found.get("item", -1))
 	if bottle < 0:
 		return {"ok": false, "reason": "no-bottle"}
-	var base: Dictionary = world.components.get_component(bottle, "itemBase") as Dictionary
-	base["baseId"] = WATER_ID
+	var base: Dictionary = found["base"] as Dictionary
+	base["baseId"] = String(found["into"])
 	world.events.publish({"type": "need.boiled", "entity": actor, "item": bottle, "fire": fire})
-	return {"ok": true}
+	return {"ok": true, "item": bottle, "into": String(found["into"])}
+
+
+# How many units this purifier has left: the running count on the instance if it has been opened,
+# and content's `purifies` if it has not. A component rather than a field on `itemBase` so a
+# part-used filter is part-used when it is dropped and picked up again, and an int rather than a
+# float because JSON has no integer keys but it does have integers and this must survive a save.
+static func purifier_uses(world: Variant, item: int) -> int:
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not (base is Dictionary):
+		return 0
+	var entry: Variant = SimItems.content_entry(world, "item", String((base as Dictionary).get("baseId", "")))
+	if not (entry is Dictionary) or int((entry as Dictionary).get("purifies", 0)) <= 0:
+		return 0
+	var run: Variant = world.components.get_component(item, "purifier")
+	if run is Dictionary:
+		return maxi(0, int((run as Dictionary).get("usesLeft", 0)))
+	return int((entry as Dictionary).get("purifies", 0))
+
+
+# Which purifier a survivor reaches for: the one with the fewest uses left. Finish the strip of
+# tablets before you crack the pump filter -- the opposite ordering to SimInfection's "spend the
+# best course", and deliberately so, because a dose of antibiotics is graded and a treated bottle
+# is not. One litre is one litre however it was made safe, so the only thing left to be careful
+# with is the capacity, and the careful thing is to spend the smallest remainder first.
+static func _carried_purifier(world: Variant, actor: int) -> int:
+	var best: int = -1
+	var best_left: int = 0
+	for item in SimInventory.carried_items(world, actor):
+		var left: int = purifier_uses(world, int(item))
+		if left <= 0:
+			continue
+		if best < 0 or left < best_left:
+			best = int(item)
+			best_left = left
+	return best
+
+
+# Make one carried vessel safe with a filter or a chemical, and no fire anywhere. Refused with a
+# reason the screen can say: nothing untreated in the pack, nothing in the pack that treats it.
+# The use comes off the purifier whether or not it is the last one; when it is, the unit is spent
+# through `_consume_item`, the one place `empties` is decided, so a purifier leaves behind whatever
+# its base says it leaves and a strip of tablets loses one tablet rather than the strip.
+static func purify(world: Variant, actor: int) -> Dictionary:
+	var found: Dictionary = _carried_treatable(world, actor)
+	var bottle: int = int(found.get("item", -1))
+	if bottle < 0:
+		return {"ok": false, "reason": "no-bottle"}
+	var tool: int = _carried_purifier(world, actor)
+	if tool < 0:
+		return {"ok": false, "reason": "no-purifier"}
+	var tool_base: Variant = world.components.get_component(tool, "itemBase")
+	var with_id: String = String((tool_base as Dictionary).get("baseId", "")) if tool_base is Dictionary else ""
+	var left: int = purifier_uses(world, tool) - 1
+	var base: Dictionary = found["base"] as Dictionary
+	base["baseId"] = String(found["into"])
+	if left > 0:
+		world.components.set_component(tool, "purifier", {"usesLeft": left})
+	else:
+		# Removed before the spend, not after: a stack that survives the spend must start its next
+		# unit on a full count, and a component left behind saying zero would make the rest of the
+		# strip inert -- the same quietly-empty failure the sightings component was reshaped over.
+		world.components.remove(tool, "purifier")
+		_consume_item(world, actor, tool)
+	world.events.publish({"type": "need.purified", "entity": actor, "item": bottle, "with": with_id, "usesLeft": maxi(0, left)})
+	return {"ok": true, "item": bottle, "with": with_id, "usesLeft": maxi(0, left)}
 
 
 static func eat(world: Variant, entity: int, item: int) -> bool:
@@ -1818,6 +2311,17 @@ static func eat(world: Variant, entity: int, item: int) -> bool:
 #
 # Washing is deliberately not here. `item.wash` spends no particular item -- `use_item`'s wash arm
 # ignores the base entirely -- so it is not a thing an item in a grid can offer.
+# What grade of illness treatment a base carries, or "" for none. A value the order does not name
+# reads as "" rather than as the worst grade: an unknown grade is content that has outrun its
+# reader, and ranking it last would hide exactly that.
+static func illness_grade(world: Variant, base_id: String) -> String:
+	var entry: Variant = SimItems.content_entry(world, "item", base_id)
+	if not entry is Dictionary:
+		return ""
+	var grade: String = String((entry as Dictionary).get(ILLNESS_KEY, ""))
+	return grade if ILLNESS_ORDER.has(grade) else ""
+
+
 static func can_use(world: Variant, entity: int, item: int) -> bool:
 	if item < 0 or not SimInventory.owns(world, entity, item):
 		return false
@@ -1825,7 +2329,21 @@ static func can_use(world: Variant, entity: int, item: int) -> bool:
 	if not base is Dictionary:
 		return false
 	var bid: String = String((base as Dictionary).get("baseId", ""))
-	return drink_spec(world, bid) != null or is_food(world, bid)
+	if drink_spec(world, bid) != null or is_food(world, bid):
+		return true
+	# A comfort is offered to anybody, always: there is no "already comfortable" band to refuse on,
+	# and a survivor at the cap who plays the harmonica anyway has spent a verb and pushed the clock
+	# out, which is a real thing to have done. One function, asked by the menu and by the intake.
+	if comfort_spec(world, bid) != null:
+		return true
+	# A book is offered only to somebody who can still learn from it -- see `can_learn_from`, which
+	# is the same function `read_book` runs below rather than a second copy of the question.
+	if teaches_spec(world, bid) != null:
+		return can_learn_from(world, entity, bid)
+	# A remedy is offered only to somebody who is actually ill. The predicate the menu asks and the
+	# intake below are the same function on purpose: a screen that decides availability its own way
+	# is a screen that can offer a use the sim then refuses.
+	return illness_grade(world, bid) != "" and is_ill(world, entity)
 
 
 static func use_item(world: Variant, entity: int, item: int, as_wash: bool = false) -> bool:
@@ -1850,7 +2368,138 @@ static func use_item(world: Variant, entity: int, item: int, as_wash: bool = fal
 		return drink_item(world, entity, item)
 	if is_food(world, bid):
 		return eat(world, entity, item)
+	# After the two intakes and before the remedy: a thing that is both drinkable and comforting is
+	# a drink, because the pool it fills is the one that can kill you.
+	if comfort_spec(world, bid) != null:
+		return take_comfort(world, entity, item)
+	if teaches_spec(world, bid) != null:
+		return read_book(world, entity, item)
+	if illness_grade(world, bid) != "":
+		return take_remedy(world, entity, item)
 	return false
+
+
+# One dose against a bout already running. It shortens or ends the illness and touches nothing
+# else: no need pool moves, no wound is treated, and a survivor who was not ill cannot take one --
+# `can_use` refuses first, and this refuses again rather than trusting it.
+static func take_remedy(world: Variant, entity: int, item: int) -> bool:
+	var n: Dictionary = of(world, entity)
+	var until: int = int(n.get("illUntilTick", -1))
+	if until < 0 or int(world.tick) >= until:
+		return false
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary:
+		return false
+	var grade: String = illness_grade(world, String((base as Dictionary).get("baseId", "")))
+	if grade == "":
+		return false
+	if not _consume_item(world, entity, item):
+		return false
+	var left: int = until - int(world.tick)
+	var remaining: int = int(floor(float(left) * float(ILLNESS_REMAINING.get(grade, 1.0))))
+	if remaining <= 0:
+		# Ended early, and it ends the same way `_tick_illness` ends one: the mood modifier comes
+		# off by source and `illness.passed` fires once. Setting the clock to -1 is what stops the
+		# tick publishing a second `illness.passed` on the bout this just closed.
+		n["illUntilTick"] = -1
+		if world.modifiers != null:
+			world.modifiers.call("remove_by_source", ILLNESS_SOURCE, entity)
+		world.events.publish({"type": "illness.passed", "entity": entity})
+	else:
+		n["illUntilTick"] = int(world.tick) + remaining
+	world.events.publish({"type": "remedy.taken", "entity": entity, "grade": grade, "ticksLeft": maxi(remaining, 0)})
+	return true
+
+
+# --- what a book teaches -----------------------------------------------------------------------
+
+# What this base teaches, or null for the overwhelming majority of items, which teach nothing. The
+# region is checked against SimSkills.REGIONS here rather than trusted from content, because the
+# content validator is shallow and a `teaches` block naming "Medicine " or "Shooting" would pass it
+# untouched -- the warmth slice reproduced exactly that with a body part that does not exist. A
+# region the code does not have reads as "this base teaches nothing", which makes the book
+# unusable and visibly so, rather than silently paying into a region nobody can spend.
+static func teaches_spec(world: Variant, base_id: String) -> Variant:
+	var entry: Variant = SimItems.content_entry(world, "item", base_id)
+	if not entry is Dictionary:
+		return null
+	var block: Variant = (entry as Dictionary).get(TEACH_KEY)
+	if not block is Dictionary:
+		return null
+	var region: String = String((block as Dictionary).get("region", ""))
+	var points: int = int((block as Dictionary).get("points", 0))
+	if points <= 0:
+		return null
+	var SkillsRes: GDScript = load("res://sim/modules/skills.gd") as GDScript
+	if SkillsRes == null or not (SkillsRes.REGIONS as Array).has(region):
+		return null
+	return {"region": region, "points": points}
+
+
+# The titles this survivor has read, ever. An Array of base ids, always -- a component minted
+# before this key existed, or by a fixture that never read anything, has to mean "none" rather
+# than crash.
+static func titles_read(world: Variant, entity: int) -> Array:
+	var rec: Variant = world.components.get_component(entity, READ_COMPONENT)
+	if not rec is Dictionary:
+		return []
+	var titles: Variant = (rec as Dictionary).get("titles", [])
+	return (titles as Array) if titles is Array else []
+
+
+static func has_read(world: Variant, entity: int, base_id: String) -> bool:
+	return titles_read(world, entity).has(base_id)
+
+
+# Whether reading this would teach this body anything: it has to be a book, they have to have a web
+# for the points to land in, and they have to not have read it already. The menu predicate and the
+# intake are this one function, which is the rule every verb in the inventory follows -- a screen
+# that decides availability its own way offers uses the sim then drops on the floor.
+#
+# The second copy is the whole point of the ledger. A colony that finds two field manuals of the
+# same title has found one lesson and a spare, and without this the spare would be a second full
+# payment for reading the same pages again.
+static func can_learn_from(world: Variant, entity: int, base_id: String) -> bool:
+	if teaches_spec(world, base_id) == null:
+		return false
+	if not world.components.has_component(entity, "skillWeb"):
+		return false
+	return not has_read(world, entity, base_id)
+
+
+# One reading. The book is **consumed** -- one copy, one lesson, and the pages are gone with it --
+# and the title is written into the reader's ledger so a second copy of it teaches nobody twice.
+# The points go through `SimSkills.teach` into the same `_earn` a kill and a finished job go
+# through, so a book cannot pay into a ladder of its own.
+static func read_book(world: Variant, entity: int, item: int) -> bool:
+	if item < 0 or not SimInventory.owns(world, entity, item):
+		return false
+	var base: Variant = world.components.get_component(item, "itemBase")
+	if not base is Dictionary:
+		return false
+	var bid: String = String((base as Dictionary).get("baseId", ""))
+	if not can_learn_from(world, entity, bid):
+		return false
+	var spec: Dictionary = teaches_spec(world, bid) as Dictionary
+	var SkillsRes: GDScript = load("res://sim/modules/skills.gd") as GDScript
+	if SkillsRes == null:
+		return false
+	# Spent before it is credited, and the ledger written before the points land: `_autospend`
+	# runs inside `teach` and can buy a node on the way through, so anything this function still
+	# needs to be true afterwards has to be true before the call.
+	if not _consume_item(world, entity, item):
+		return false
+	var titles: Array = titles_read(world, entity).duplicate()
+	titles.append(bid)
+	world.components.set_component(entity, READ_COMPONENT, {"titles": titles})
+	if not bool(SkillsRes.call("teach", world, entity, String(spec["region"]), int(spec["points"]))):
+		# Unreachable: `can_learn_from` has already asked every question `teach` asks. It says so
+		# rather than returning quietly, because a book spent for nothing is the worst outcome and
+		# the silent version of it is what this milestone keeps paying for.
+		push_error("read_book: %s was spent and taught nothing" % bid)
+		return false
+	world.events.publish({"type": "book.read", "entity": entity, "base": bid, "region": String(spec["region"])})
+	return true
 
 
 static func _carried_base(world: Variant, actor: int, base_id: String) -> int:
@@ -1968,11 +2617,34 @@ static func make_campfire(world: Variant, x: float, y: float, lit: bool = false)
 	return ent
 
 
-static func make_bed(world: Variant, x: float, y: float) -> int:
+static func make_bed(world: Variant, x: float, y: float, comfort: float = 0.0) -> int:
 	var ent: int = int(world.entities.spawn())
 	world.components.set_component(ent, "position", {"x": x, "y": y})
-	world.components.set_component(ent, "bed", {"occupiedBy": -1})
+	# `comfort` defaults to the bare boards every bed in the district was before `bedQuality`
+	# existed, so every existing caller keeps the bed it was making.
+	world.components.set_component(ent, "bed", {"occupiedBy": -1, "comfort": clampf(comfort, 0.0, 1.0)})
 	return ent
+
+
+# The builder's half: the best bedding the person putting the bed down is carrying goes into it and
+# is spent. Returns the grade that went in, or "" when they had none -- which is the ordinary case
+# and not a failure, it is what a bed of bare boards is. Called by SimJobs' Construct `bed` job, so
+# the grade reaches a bed the colony actually built rather than only one a gate hand-made.
+static func furnish_bed(world: Variant, builder: int, bed: int) -> String:
+	if builder < 0 or bed < 0:
+		return ""
+	var found: Dictionary = SimInventory.best_by_content_key(world, builder, BED_KEY, BED_QUALITY_ORDER, BED_KEY)
+	if found.is_empty():
+		return ""
+	var grade: String = String(found.get(BED_KEY, ""))
+	if bedding_comfort(grade) <= 0.0:
+		return ""
+	if not _consume_item(world, builder, int(found.get("item", -1))):
+		return ""
+	var b: Variant = world.components.get_component(bed, "bed")
+	if b is Dictionary:
+		(b as Dictionary)["comfort"] = bedding_comfort(grade)
+	return grade
 
 
 static func make_water_source(world: Variant, x: float, y: float) -> int:

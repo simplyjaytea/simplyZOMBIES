@@ -35,6 +35,11 @@ const SimNeeds = preload("res://sim/modules/needs.gd")
 const SimInfection = preload("res://sim/modules/infection.gd")
 const SimHealth = preload("res://sim/modules/health.gd")
 const SimMelee = preload("res://sim/modules/melee.gd")
+
+# The fixture this gate spawns, formerly `SimWounds.PAINKILLERS_ID`. Painkillers are a content
+# grade now, so the sim no longer names a base; a gate still has to put something concrete in a
+# pack, and `item.painkillers.blister` is the shipped `mild` rung this file's numbers assume.
+const BLISTER_ID: String = "item.painkillers.blister"
 const SimCombat = preload("res://sim/combat.gd")
 const SimCondition = preload("res://sim/condition.gd")
 const SimItems = preload("res://sim/modules/items.gd")
@@ -1109,7 +1114,7 @@ func _painkillers_suppress_without_healing() -> bool:
 		push_error("a survivor with no blister was dosed anyway: %s" % str(empty))
 		return false
 
-	var blister: int = SimItems.spawn_item(w, SimWounds.PAINKILLERS_ID, {"tier": "scavenged", "count": 2})
+	var blister: int = SimItems.spawn_item(w, BLISTER_ID, {"tier": "scavenged", "count": 2})
 	SimInventory.stow(w, w.player, blister)
 	# Read the recovery clock immediately before the dose and immediately after, with no step in
 	# between: an ordinary recovery tick advances it by one, and comparing across a step would
@@ -1148,7 +1153,7 @@ func _painkillers_suppress_without_healing() -> bool:
 
 	# The negative: a survivor with no injuries at all cannot spend a blister on nothing.
 	var well: Variant = _pain_world(9221)
-	SimInventory.stow(well, well.player, SimItems.spawn_item(well, SimWounds.PAINKILLERS_ID, {"tier": "scavenged", "count": 2}))
+	SimInventory.stow(well, well.player, SimItems.spawn_item(well, BLISTER_ID, {"tier": "scavenged", "count": 2}))
 	var pointless: Dictionary = SimWounds.take_painkillers(well, well.player)
 	if bool(pointless.get("ok", false)) or String(pointless.get("reason", "")) != "nothing-to-treat":
 		push_error("an unwounded survivor spent a blister: %s" % str(pointless))
