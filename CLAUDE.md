@@ -147,8 +147,10 @@ about a second.
 `godot:m2` prints `ObjectDB ... leaked at exit` and `resources still in use` *after* it reports
 success. That is engine shutdown noise, not a failure — check the `_OK` line and the exit code.
 
-CI's `check` job runs `godot:m2` **and** the TypeScript side (`npm test`, `typecheck`, `lint`,
-`format:check`), and its `performance` job runs `npm run bench` and `npm run bench:frame`.
+CI runs `godot:m2` in its own `godot-m2` job (45 min) since 2026-09-12; the `check` job (25 min)
+runs the TypeScript side (`npm test`, `typecheck`, `lint`, `format:check`), `sprites:check`,
+`check:routing`, the smoke, the validator and the R6 gates, and the `performance` job runs
+`npm run bench` and `npm run bench:frame`.
 Touching a `.ts` file or any prettier-covered path means running those too. Note
 `npm run godot:bench` prints `BENCH_OVER_BUDGET` on these containers and still exits 0 — those
 budgets are calibrated against compiled TypeScript and headless GDScript is an interpreter; see
