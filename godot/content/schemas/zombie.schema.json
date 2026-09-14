@@ -23,6 +23,11 @@
       "minimum": 0,
       "description": "Mutation wave that introduces this type. 0 is present from the start."
     },
+    "weight": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Relative share of the mix, drawn by SimRoster.pick_type against the summed weights of the types whose wave has arrived. Omitted counts as 1, the same rule a raider archetype follows. Shipped at 80 / 12 / 8, which is the mix that used to be three constants in roster.gd. The minimum is 1 because a shipped type that can never appear is a dead entry, not a balance knob; pick_type still skips a 0 so a gate fixture can take a kind off the table."
+    },
     "sensory": {
       "type": "object",
       "description": "Channel weights. docs/14-zombies.md#sensory-profiles: there is no single silence.",
