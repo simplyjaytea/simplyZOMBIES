@@ -43,9 +43,10 @@ exactly the failure the project keeps re-learning. The pointers:
 - The active design record is `.hermes/plans/2026-08-17_065300-vertical-slice-design.md`; it is
   **not** implementation evidence. `CONTEXT.md` holds the slice vocabulary — what to call needs,
   jobs, stances, and their states — so prose and code stay in one language.
-- New NPCs and adjacent feature scope stay paused. The boot colony is **three** by the owner's
-  2026-09-01 decision — the player, Mara, and Ellis (`survivor.unique.ellis`); further roster
-  growth stays paused.
+- The boot colony is **three** by the owner's 2026-09-01 decision — the player, Mara, and Ellis
+  (`survivor.unique.ellis`). The pause that decision put on new NPCs and roster growth was
+  lifted on 2026-09-14 (docs/30, "The pause lifted"); the procedural-population arc in docs/23's
+  what's left is where the roster grows, one gated slice at a time.
 
 ## Routing table
 

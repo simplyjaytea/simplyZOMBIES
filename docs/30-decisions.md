@@ -4189,3 +4189,79 @@ points earlier than before. A fixture that hand-writes points and owns nothing i
 **One re-baseline, at the close.** As the roster arc did: every piece moves a number a campaign
 can feel, and four seeds before and after each of nine pieces is an overnight job apiece.
 
+
+## The pause lifted: procedural people, raiders and zombies, 2026-09-14
+
+On 2026-09-01 the owner grew the boot colony to three and paused new NPCs and roster growth so
+the survival loop could be flipped on and measured with the colony held still. Thirteen days
+later the owner opened a plan to "procedurally generate new NPCs, raiders, and of course zombies
+on the map" and answered the questions the plan turned on. This entry records those answers,
+because between them they lift a standing pause and widen the milestone in one direction docs/18
+had put in Milestone 3. The plan itself is
+`.hermes/plans/2026-09-14_procedural-population-arc.md`; the pieces are docs/23's group of the
+same name.
+
+**The pause is lifted.** The sentence in `CLAUDE.md` and `AGENTS.md` that said "new NPCs and
+adjacent feature scope stay paused" is amended in this commit rather than deleted, because the
+half of it that was a decision — three at boot — still stands. What changes is that the roster
+may grow again, and how it grows is content and a generator rather than a fourth JSON under
+`survivors/uniques/`.
+
+**"Procedural" means three things at once, and the census says which the tree already has.**
+The owner chose all three readings: *individuals vary* (each raider and zombie a distinct body —
+kit, aptitudes, look, features, condition), *bodies appear by new paths* (strangers met on runs,
+roaming bands, zombies inside buildings, not only the gate and the district edge), and *more kinds
+as content* (docs/14's stalker, runner, armoured and heavy; docs/18's raider roles). Survivors
+already have the first — `SimRecruits.roll` has drawn a name, traits, a backstory, an age and a
+look since the pipeline landed — and only ever arrive by the gate on three fixed days. Raiders
+have none of the three: two archetypes, every body identical, one entry path. Zombies have the
+second at the edge and in the boot scatter, and the mix is three ids and three constants in
+`SimRoster.pick_type` rather than content. So the arc is mostly readers and paths, not pools.
+
+**Survivors: strangers in the district, and a settler group with its own camp.** Offered the
+gate beats made richer, strangers hidden in buildings, or both plus another group, the owner took
+the widest. docs/18's factions stay Milestone 3 *as a system*: what this adds is one more string
+in `SimAllegiance`, a camp sited off the layout, and bodies that hold it — no standing, no
+reputation, no trade. The seam docs/30's raiders entry said factions would widen is the one they
+widen.
+
+**Zombies: each body differs, docs/14's kinds, and dormant bodies inside buildings.** All three,
+by the owner. Variance is content (`variance: {tints, body, crawlers}` on the type) and the
+picked values are stored on the body so the draw loop grows a pass-through and not an id branch.
+New kinds ship tinted on the shambler's rig until art exists — a silhouette is `sprites:check`
+work and its own piece. Armour on the dead closes docs/23's open "Armour on anything that is not
+a survivor", because `armor_coverage_of` already reads the target's equipment with no faction
+filter and a zombie that wears a vest resists with no new arithmetic.
+
+**Three structural calls, offered with a recommendation and taken as recommended.**
+
+- **A raider carries a `raider.person` record, never `identity`.** `identity` is read by five
+  things — the draw path's "is this a survivor", `_succession_pick`, the job scheduler,
+  `is_person`, and the director's unique-death lull — and a raider with one becomes a possible
+  heir. A person record beside the `raider` component gives them a name, an age, features and
+  a look that reach the chronicle after a death and nothing else, which is also what the
+  hardcore contract's information clause wants: a tint varies who a raider is, not what they
+  carry.
+- **Dormant zombies are a manifest written at world generation and spawned at boot**, the
+  `map.vehicles` precedent, not a lazy spawn on approach. A lazy spawn would make the population
+  a function of where the player walks, which is docs/17's "the director is not a spawner"
+  reversed at the level of a building, and the balance harness could not count it. The manifest
+  costs one indoor scan per building and the density gate can pin it.
+- **Zombies first, then raiders, then people.** The zombie slices are the cheapest, they
+  re-baseline the harness in three known steps, and the dormant slice builds the
+  indoor-placement helper that strangers and the settler camp both reuse. Raiders come before
+  settlers because the third side is a seam the individual-raider slice first touches, and a
+  seam is gated before anything stands on it.
+
+**What this does not change.** Three at boot. `GRACE_NIGHTS` stays at 7 and its flip stays
+the owner's, blocked on the over-cap placement in HANDOFF's item 5. "An outpost that draws
+raiders" stays the owner's and is not folded into the roaming-band slice. The horde entity stays
+Milestone 3B. Every ban stands: a generated raider's name is never on the HUD, a stranger's bite
+is as hidden as a gate recruit's, and the condition view gains no field. `survivors_end >= 1`
+is not relaxed for any slice; where a seed wipes, the levers are content numbers.
+
+**The first cuts each slice will take** — dormant density, body variance, crawler share, the
+new kinds' weights and waves, stranger beats, raider jitter, a looter's haul, the roaming
+chance, the settler count and distance — are named in the plan beside their slice. Each lands
+in this file with the slice that takes it, in the dated form the playable-state entries set,
+so the owner reads one entry per number rather than a list here that would drift.
